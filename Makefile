@@ -61,9 +61,6 @@ debs:
 fmt:
 	gofmt -l -s .
 
-.PHONY: ngrok
-ngrok:
-
 .PHONY: install
 install:
 	./scripts/stop_bot.sh

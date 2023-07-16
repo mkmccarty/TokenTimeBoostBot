@@ -11,6 +11,7 @@ import (
 
 	"github.com/akyoto/cache"
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 )
 
 type EggFarmer struct {
@@ -35,7 +36,7 @@ type Contract struct {
 	order     [100]Booster // Booster
 }
 
-// Bot parameters
+// Bot parameters to override .config.json parameters
 var (
 	GuildID  = flag.String("guild", "", "Test guild ID")
 	BotToken = flag.String("token", "", "Bot access token")
@@ -56,10 +57,40 @@ var s *discordgo.Session
 
 var pingOff = "Pings OFF"
 
-func init() { flag.Parse() }
-
+// main init to call other init functions in sequence
 func init() {
+	initLaunchParameters()
+	initDiscordBot()
+}
+
+func initLaunchParameters() {
+	// Read application parameters
+	flag.Parse()
+
+	// Read values from .env file
+	err := config.ReadConfig()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	if *BotToken == "" {
+		BotToken = &config.DiscordToken
+	}
+
+	if *AppID == "" {
+		AppID = &config.DiscordAppID
+	}
+
+	if *GuildID == "" {
+		GuildID = &config.DiscordGuildID
+	}
+}
+
+func initDiscordBot() {
 	var err error
+
 	s, err = discordgo.New("Bot " + *BotToken)
 	if err != nil {
 		log.Fatalf("Invalid bot parameters: %v", err)
