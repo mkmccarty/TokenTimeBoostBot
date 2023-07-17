@@ -202,8 +202,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	}
 
 	outputStr = "# Boost List #\n"
-	outputStr += fmt.Sprintf("## %s ##\n", contract.contractHash)
-	outputStr += fmt.Sprintf("### Contract Size: %d ###\n", contract.coopSize)
+	outputStr += fmt.Sprintf("### ID %s  Size %d ###\n", contract.contractHash, contract.coopSize)
 	var i = 1
 	for _, element := range contract.order {
 		//for i := 1; i <= len(contract.Boosters); i++ {

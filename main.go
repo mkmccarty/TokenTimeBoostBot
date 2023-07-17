@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"time"
 
@@ -216,9 +217,11 @@ var (
 			}
 			if opt, ok := optionMap["contract-id"]; ok {
 				contractID = opt.StringValue()
+				contractID = strings.Replace(contractID, " ", "", -1)
 			}
 			if opt, ok := optionMap["coop-id"]; ok {
 				coopID = opt.StringValue()
+				coopID = strings.Replace(coopID, " ", "", -1)
 			} else {
 				var c, err = s.Channel(i.ChannelID)
 				if err != nil {
