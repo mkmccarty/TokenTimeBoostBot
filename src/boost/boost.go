@@ -136,6 +136,13 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 	if err != nil {
 		return
 	}
+
+	// Remove extra added emoji
+	if r.Emoji.Name != "🚀" && r.Emoji.Name != "🔔" {
+		s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
+		return
+	}
+
 	contractHash := r.GuildID + "_" + r.ChannelID
 	var contract = Contracts[contractHash]
 	if contract == nil {
