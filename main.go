@@ -11,30 +11,9 @@ import (
 
 	"github.com/akyoto/cache"
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 )
-
-type EggFarmer struct {
-	userId   string    // Discord User ID
-	ping     bool      // True/False
-	register time.Time // Time Farmer registered to boost
-	start    time.Time // Time Farmer started boost turn
-	end      time.Time // Time Farmer ended boost turn
-}
-
-type Booster struct {
-	userId  string // Egg Farmer
-	mention string // String which mentions user
-}
-
-type Contract struct {
-	ID        string       // Contract Discord Channel
-	Name      string       // Farmer Name
-	position  int          // Starting Slot
-	completed bool         // Boost Completed
-	messageID string       // Message ID for the Last Boost Order message
-	order     [100]Booster // Booster
-}
 
 // Bot parameters to override .config.json parameters
 var (
@@ -45,13 +24,10 @@ var (
 
 // Mutex
 var mutex sync.Mutex
-var usermutex sync.Mutex
 
 // Storage
 
 var contractcache = cache.New(24 * time.Hour * 7)
-
-var usermap map[string]*EggFarmer = make(map[string]*EggFarmer)
 
 var s *discordgo.Session
 
@@ -119,20 +95,22 @@ var (
 			mutex.Lock()
 			//boolString := [...]string{"On", "Off"}
 			//contract, cfound := contractcache.Get(i.ChannelID)
-			user := usermap[i.Member.User.ID]
-			if user != nil {
-				user.ping = !user.ping
-			}
-			pingStr := fmt.Sprintf("Persoanl Ping: %t", user.ping)
-			mutex.Unlock()
-
-			if user.ping {
-				u, _ := s.UserChannelCreate(i.Member.User.ID)
-				_, err := s.ChannelMessageSend(u.ID, "Boost messages will be sent.")
-				if err != nil {
-					panic(err)
+			/*
+				user := usermap[i.Member.User.ID]
+				if user != nil {
+					user.ping = !user.ping
 				}
-			}
+				pingStr := fmt.Sprintf("Persoanl Ping: %t", user.ping)
+				mutex.Unlock()
+
+				if user.ping {
+					u, _ := s.UserChannelCreate(i.Member.User.ID)
+					_, err := s.ChannelMessageSend(u.ID, "Boost messages will be sent.")
+					if err != nil {
+						panic(err)
+					}
+				}
+			*/
 
 			m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 
@@ -141,7 +119,7 @@ var (
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
-					Content:    pingStr,
+					Content:    "XXX",
 					Flags:      discordgo.MessageFlagsEphemeral,
 					Components: []discordgo.MessageComponent{}},
 			})
@@ -230,30 +208,45 @@ var (
 	}
 	commandsHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		"boost": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			var contractID = i.GuildID
+			var coopID = i.GuildID // Default to the Guild ID
+			var boostOrder = 1
+			var coopSize = 2
+
 			// User interacting with bot, is this first time ?
+			options := i.ApplicationCommandData().Options
 
+			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+			for _, opt := range options {
+				optionMap[opt.Name] = opt
+			}
+
+			if opt, ok := optionMap["coop-size"]; ok {
+				coopSize = int(opt.IntValue())
+			}
+			if opt, ok := optionMap["contract-id"]; ok {
+				contractID = opt.StringValue()
+			}
+			if opt, ok := optionMap["coop-id"]; ok {
+				coopID = opt.StringValue()
+			} else {
+				var c, err = s.Channel(i.ChannelID)
+				if err != nil {
+					coopID = c.Name
+				}
+			}
+			if opt, ok := optionMap["boost-order"]; ok {
+				boostOrder = int(opt.IntValue())
+			}
 			mutex.Lock()
-			//contract, cfound := contractcache.Get(i.ChannelID)
-			user := usermap[i.Member.User.ID]
-			if user == nil {
-				user = new(EggFarmer)
 
-				user.register = time.Now()
-				user.ping = false
-				user.userId = i.Member.User.ID
-				// Cache doesn't exist, create one
-				usermap[i.Member.User.ID] = user
-				// New Channel, set some defaults
+			contract, err := boost.StartContract(contractID, coopID, coopSize, boostOrder, i.GuildID, i.ChannelID, i.Member.User.ID)
+			if err != nil {
+				fmt.Print("Error Calling StartContract()")
 			}
 			mutex.Unlock()
 
-			var pingStr = "🔕"
-			if user.ping {
-				pingStr = "🔔"
-			}
-			fmt.Print(pingStr)
-
-			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content: "Boost Order Management",
@@ -292,7 +285,7 @@ var (
 									CustomID: "fd_last",
 								},
 								discordgo.Button{
-									Label:    pingStr,
+									Label:    "deprecatedr",
 									Style:    discordgo.SecondaryButton,
 									Disabled: false,
 									CustomID: "fd_ping",
@@ -318,11 +311,23 @@ var (
 			if err != nil {
 				panic(err)
 			}
-			msg, err := s.ChannelMessageSend(i.ChannelID, "BoostList")
+
+			msg, err := s.ChannelMessageSend(i.ChannelID, boost.DrawBoostList(contract))
 			if err != nil {
 				panic(err)
 			}
-			s.ChannelMessageDelete(i.ChannelID, msg.ID)
+			boost.SetMessageID(contract, msg.ID)
+
+			msg, err = s.ChannelMessageSend(i.ChannelID, "`React with 🚀 or 🔔 to boost. 🔔 will DM Updates`")
+			if err != nil {
+				panic(err)
+			}
+			boost.SetReactionID(contract, msg.ID)
+			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🚀") // Booster
+			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🔔") // Ping
+			//s.ChannelMessagePin(msg.ChannelID, msg.ID)
+
+			//s.ChannelMessageDelete(i.ChannelID, msg.ID)
 
 		},
 	}
@@ -347,9 +352,60 @@ func main() {
 			}
 		}
 	})
+	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
+		if m.MessageReaction.UserID != s.State.User.ID {
+			boost.ReactionAdd(s, m.MessageReaction)
+		}
+	})
+	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageReactionRemove) {
+		if m.MessageReaction.UserID != s.State.User.ID {
+			boost.ReactionRemove(s, m.MessageReaction)
+		}
+	})
+
 	_, err := s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
 		Name:        "boost",
 		Description: "Contract Boosting Elections",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "coop-size",
+				Description: "Co-op Size",
+				Required:    true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "boost-order",
+				Description: "Boost Ordering",
+				Choices: []*discordgo.ApplicationCommandOptionChoice{
+					{
+						Name:  "Join Order",
+						Value: 0,
+					},
+					{
+						Name:  "Random Order",
+						Value: 1,
+					},
+					{
+						Name:  "Fair",
+						Value: 2,
+					},
+				},
+				Required: false,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "contract-id",
+				Description: "Contract ID",
+				Required:    false,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "coop-id",
+				Description: "Coop ID",
+				Required:    false,
+			},
+		},
 	})
 
 	if err != nil {
