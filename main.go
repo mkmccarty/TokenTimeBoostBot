@@ -31,8 +31,6 @@ var contractcache = cache.New(24 * time.Hour * 7)
 
 var s *discordgo.Session
 
-var pingOff = "Pings OFF"
-
 // main init to call other init functions in sequence
 func init() {
 	initLaunchParameters()
@@ -87,30 +85,22 @@ var (
 		"fd_next": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 		},
-		"fd_last": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		"fd_delete": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			// Delete coop
+			var str = fmt.Sprintf("Coop %s Deleted", boost.DeleteContract(s, i.GuildID, i.ChannelID))
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseUpdateMessage,
+				Data: &discordgo.InteractionResponseData{
+					Content:    str,
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
 
 		},
 		"fd_ping": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 			mutex.Lock()
-			//boolString := [...]string{"On", "Off"}
-			//contract, cfound := contractcache.Get(i.ChannelID)
-			/*
-				user := usermap[i.Member.User.ID]
-				if user != nil {
-					user.ping = !user.ping
-				}
-				pingStr := fmt.Sprintf("Persoanl Ping: %t", user.ping)
-				mutex.Unlock()
-
-				if user.ping {
-					u, _ := s.UserChannelCreate(i.Member.User.ID)
-					_, err := s.ChannelMessageSend(u.ID, "Boost messages will be sent.")
-					if err != nil {
-						panic(err)
-					}
-				}
-			*/
 
 			m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 
@@ -242,7 +232,7 @@ var (
 
 			contract, err := boost.StartContract(contractID, coopID, coopSize, boostOrder, i.GuildID, i.ChannelID, i.Member.User.ID)
 			if err != nil {
-				fmt.Print("Error Calling StartContract()")
+				fmt.Print("Contract already exists")
 			}
 			mutex.Unlock()
 
@@ -273,22 +263,10 @@ var (
 									CustomID: "fd_boost",
 								},
 								discordgo.Button{
-									Label:    "▶️",
+									Label:    "Delete Contract",
 									Style:    discordgo.DangerButton,
 									Disabled: false,
-									CustomID: "fd_next",
-								},
-								discordgo.Button{
-									Label:    "⏭️",
-									Style:    discordgo.DangerButton,
-									Disabled: false,
-									CustomID: "fd_last",
-								},
-								discordgo.Button{
-									Label:    "deprecatedr",
-									Style:    discordgo.SecondaryButton,
-									Disabled: false,
-									CustomID: "fd_ping",
+									CustomID: "fd_delete",
 								},
 							},
 						},
@@ -316,13 +294,13 @@ var (
 			if err != nil {
 				panic(err)
 			}
-			boost.SetMessageID(contract, msg.ID)
+			boost.SetMessageID(contract, i.ChannelID, msg.ID)
 
 			msg, err = s.ChannelMessageSend(i.ChannelID, "`React with 🚀 or 🔔 to boost. 🔔 will DM Updates`")
 			if err != nil {
 				panic(err)
 			}
-			boost.SetReactionID(contract, msg.ID)
+			boost.SetReactionID(contract, i.ChannelID, msg.ID)
 			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🚀") // Booster
 			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🔔") // Ping
 			//s.ChannelMessagePin(msg.ChannelID, msg.ID)
@@ -368,6 +346,18 @@ func main() {
 		Description: "Contract Boosting Elections",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "contract-id",
+				Description: "Contract ID",
+				Required:    true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "coop-id",
+				Description: "Coop ID",
+				Required:    true,
+			},
+			{
 				Type:        discordgo.ApplicationCommandOptionInteger,
 				Name:        "coop-size",
 				Description: "Co-op Size",
@@ -392,18 +382,6 @@ func main() {
 					},
 				},
 				Required: false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "contract-id",
-				Description: "Contract ID",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "coop-id",
-				Description: "Coop ID",
-				Required:    false,
 			},
 		},
 	})

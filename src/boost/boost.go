@@ -28,26 +28,36 @@ type Booster struct {
 	mention  string // String which mentions user
 }
 
+type LocationData struct {
+	guildID    string
+	channelID  string // Contract Discord Channel
+	messageID  string // Message ID for the Last Boost Order message
+	reactionID string // Message ID for the reaction Order String
+}
 type Contract struct {
-	guildID       string
-	channelID     string // Contract Discord Channel
-	userID        string // Farmer Name of Creator
-	contractID    string // Contract ID
-	coopID        string // CoopID
-	coopSize      int
-	boostOrder    int
-	position      int    // Starting Slot
-	completed     bool   // Boost Completed
-	messageID     string // Message ID for the Last Boost Order message
-	reactionID    string // Message ID for the reaction Order String
+	contractHash string // ContractID-CoopID
+	location     []*LocationData
+	guildID      string
+	channelID    string // Contract Discord Channel
+	userID       string // Farmer Name of Creator
+	contractID   string // Contract ID
+	coopID       string // CoopID
+	coopSize     int
+	boostOrder   int
+	position     int  // Starting Slot
+	completed    bool // Boost Completed
+	//messageID     string // Message ID for the Last Boost Order message
+	//reactionID    string // Message ID for the reaction Order String
 	EggFarmers    map[string]*EggFarmer
 	registeredNum int
 	Boosters      map[string]*Booster // Boosters Registered
+	order         []string
 }
 
 var (
 	// DiscordToken holds the API Token for discord.
 	Contracts map[string]*Contract
+	//GlobalContracts map[string][]*LocationData // Holds channel id's for various contracts
 )
 
 type configStruct struct {
@@ -58,15 +68,50 @@ type configStruct struct {
 
 func init() {
 	Contracts = make(map[string]*Contract)
+	//GlobalContracts = make(map[string][]*LocationData)
+}
+func RemoveLocIndex(s []*LocationData, index int) []*LocationData {
+	return append(s[:index], s[index+1:]...)
+}
+
+func DeleteContract(s *discordgo.Session, guildID string, channelID string) string {
+	var coop = ""
+	for key, element := range Contracts {
+		for i, el := range element.location {
+			if el.guildID == guildID && el.channelID == channelID {
+				s.ChannelMessageDelete(el.channelID, el.messageID)
+				s.ChannelMessageDelete(el.channelID, el.reactionID)
+				element.location = RemoveLocIndex(element.location, i)
+				coop = element.contractHash
+			}
+		}
+		if len(element.location) == 0 {
+			delete(Contracts, key)
+			return coop
+		}
+	}
+	return coop
 }
 
 // interface
 func StartContract(contractID string, coopID string, coopSize int, boostOrder int, guildID string, channelID string, userID string) (*Contract, error) {
+	var new_contract = false
+	var contractHash = fmt.Sprintf("%s-%s", contractID, coopID)
 
-	contractHash := guildID + "_" + channelID
 	contract := Contracts[contractHash]
+
 	if contract == nil {
+		// We don't have this contract on this channel, it could exist in another channel
 		contract = new(Contract)
+		loc := new(LocationData)
+		loc.guildID = guildID
+		loc.channelID = channelID
+		loc.messageID = ""
+		loc.reactionID = ""
+		contract.location = append(contract.location, loc)
+		contract.contractHash = contractHash
+
+		//GlobalContracts[contractHash] = append(GlobalContracts[contractHash], loc)
 		contract.EggFarmers = make(map[string]*EggFarmer)
 		contract.Boosters = make(map[string]*Booster)
 		contract.contractID = contractID
@@ -78,27 +123,73 @@ func StartContract(contractID string, coopID string, coopSize int, boostOrder in
 		contract.registeredNum = 0
 		contract.coopSize = coopSize
 		Contracts[contractHash] = contract
+		new_contract = true
+
+	} else {
+		// Existing contract, make sure we know what server we're on
+		loc := new(LocationData)
+		loc.guildID = guildID
+		loc.channelID = channelID
+		loc.messageID = ""
+		loc.reactionID = ""
+		contract.location = append(contract.location, loc)
+		//GlobalContracts[contractHash] = append(GlobalContracts[contractHash], loc)
 	}
 
-	farmer := contract.EggFarmers[userID]
-	if farmer == nil {
-		farmer = new(EggFarmer)
-		farmer.register = time.Now()
-		farmer.ping = false
-		farmer.reactions = 0
-		farmer.userID = userID
-		farmer.guildID = guildID
-		contract.EggFarmers[userID] = farmer
+	/*
+		farmer := contract.EggFarmers[userID]
+		if farmer == nil {
+			farmer = new(EggFarmer)
+			farmer.register = time.Now()
+			farmer.ping = false
+			farmer.reactions = 0
+			farmer.userID = userID
+			farmer.guildID = guildID
+			contract.EggFarmers[userID] = farmer
+		}
+	*/
+	if new_contract {
+
+		// Create a bunch of test data
+		for i := contract.registeredNum + 1; i < contract.coopSize; i++ {
+			var fake_user = fmt.Sprintf("Test-%02d", i)
+			var farmer = new(EggFarmer)
+			farmer.register = time.Now()
+			farmer.ping = false
+			farmer.reactions = 0
+			farmer.userID = fake_user
+			farmer.guildID = guildID
+			contract.EggFarmers[farmer.userID] = farmer
+
+			var b = new(Booster)
+			b.userID = fake_user
+			b.name = fake_user
+			b.boosting = false
+			b.mention = fake_user
+
+			contract.Boosters[farmer.userID] = b
+			contract.order = append(contract.order, fake_user)
+			contract.registeredNum += 1
+		}
 	}
+
 	return contract, nil
 }
 
-func SetMessageID(contract *Contract, messageID string) {
-	contract.messageID = messageID
+func SetMessageID(contract *Contract, channelID string, messageID string) {
+	for _, element := range contract.location {
+		if element.channelID == channelID {
+			element.messageID = messageID
+		}
+	}
 }
 
-func SetReactionID(contract *Contract, messageID string) {
-	contract.reactionID = messageID
+func SetReactionID(contract *Contract, channelID string, messageID string) {
+	for _, element := range contract.location {
+		if element.channelID == channelID {
+			element.reactionID = messageID
+		}
+	}
 }
 
 func DrawBoostList(s *discordgo.Session, contract *Contract) string {
@@ -111,12 +202,14 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	}
 
 	outputStr = "# Boost List #\n"
+	outputStr += fmt.Sprintf("## %s ##\n", contract.contractHash)
 	outputStr += fmt.Sprintf("### Contract Size: %d ###\n", contract.coopSize)
 	var i = 1
-	for _, element := range contract.Boosters {
+	for _, element := range contract.order {
 		//for i := 1; i <= len(contract.Boosters); i++ {
-		outputStr += fmt.Sprintf("%2d -  %s", i, element.name)
-		if element.boosting {
+		var b = contract.Boosters[element]
+		outputStr += fmt.Sprintf("%2d -  %s", i, b.name)
+		if b.boosting {
 			outputStr += fmt.Sprintf(" %s\n", tokenStr)
 		} else {
 			outputStr += "\n"
@@ -128,6 +221,30 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	}
 	outputStr += "\n"
 	return outputStr
+}
+
+func FindContractByMessageID(channelID string, messageID string) (*Contract, int) {
+	// Given a
+	for _, c := range Contracts {
+		for i := range c.location {
+			if c.location[i].channelID == channelID && c.location[i].messageID == messageID {
+				return c, i
+			}
+		}
+	}
+	return nil, 0
+}
+
+func FindContractByReactionID(channelID string, reactionID string) (*Contract, int) {
+	// Given a
+	for _, c := range Contracts {
+		for i := range c.location {
+			if c.location[i].channelID == channelID && c.location[i].reactionID == reactionID {
+				return c, i
+			}
+		}
+	}
+	return nil, 0
 }
 
 func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
@@ -143,11 +260,11 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		return
 	}
 
-	contractHash := r.GuildID + "_" + r.ChannelID
-	var contract = Contracts[contractHash]
+	var contract, _ = FindContractByReactionID(r.ChannelID, r.MessageID)
 	if contract == nil {
 		return
 	}
+
 	var farmer = contract.EggFarmers[r.UserID]
 	if farmer == nil {
 		// New Farmer
@@ -167,19 +284,23 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		var user, err = s.User(r.UserID)
 		if err == nil {
 			b.name = user.Username
-			b.boosting = true
+			b.boosting = false
 			b.mention = user.Mention()
 		}
 		contract.Boosters[farmer.userID] = b
+		contract.order = append(contract.order, farmer.userID)
 		contract.registeredNum += 1
 
 		// Remove the Boost List and then redisplay it
 		//s.ChannelMessageDelete(r.ChannelID, contract.messageID)
-		msg, err := s.ChannelMessageEdit(r.ChannelID, contract.messageID, DrawBoostList(s, contract))
-		if err != nil {
-			panic(err)
+		for i := range contract.location {
+
+			msg, err := s.ChannelMessageEdit(contract.location[i].channelID, contract.location[i].messageID, DrawBoostList(s, contract))
+			if err != nil {
+				panic(err)
+			}
+			contract.location[i].messageID = msg.ID
 		}
-		contract.messageID = msg.ID
 
 	}
 
@@ -203,13 +324,16 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 
 }
 
+func RemoveIndex(s []string, index int) []string {
+	return append(s[:index], s[index+1:]...)
+}
+
 func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 	var msg, err = s.ChannelMessage(r.ChannelID, r.MessageID)
 	if err != nil {
 		return
 	}
-	contractHash := r.GuildID + "_" + r.ChannelID
-	var contract = Contracts[contractHash]
+	var contract, loc = FindContractByReactionID(r.ChannelID, r.MessageID)
 	if contract == nil {
 		return
 	}
@@ -229,15 +353,23 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 
 	if farmer.reactions == 0 {
 		// Remove farmer from boost list
+		for i := range contract.order {
+			if contract.order[i] == r.UserID {
+				contract.order = RemoveIndex(contract.order, i)
+				break
+			}
+		}
+
 		delete(contract.Boosters, r.UserID)
+
 		contract.registeredNum -= 1
 		// Remove the Boost List and then redisplay it
 		//s.ChannelMessageDelete(r.ChannelID, contract.messageID)
-		msg, err := s.ChannelMessageEdit(r.ChannelID, contract.messageID, DrawBoostList(s, contract))
+		msg, err := s.ChannelMessageEdit(r.ChannelID, contract.location[loc].messageID, DrawBoostList(s, contract))
 		if err != nil {
 			panic(err)
 		}
-		contract.messageID = msg.ID
+		contract.location[loc].messageID = msg.ID
 
 	}
 }
