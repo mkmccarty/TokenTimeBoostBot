@@ -168,6 +168,15 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 
 	if r.Emoji.Name == "🔔" {
 		farmer.ping = true
+
+		var ch, _ = s.Channel(contract.channelID)
+		u, _ := s.UserChannelCreate(farmer.userID)
+		var str = fmt.Sprintf("Boost notifications will be sent for %s.", ch.Name)
+		_, err := s.ChannelMessageSend(u.ID, str)
+		if err != nil {
+			panic(err)
+		}
+
 	}
 
 	// Verify that if the user reacted once or twice
