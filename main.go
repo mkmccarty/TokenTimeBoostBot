@@ -312,7 +312,7 @@ var (
 				panic(err)
 			}
 
-			msg, err := s.ChannelMessageSend(i.ChannelID, boost.DrawBoostList(contract))
+			msg, err := s.ChannelMessageSend(i.ChannelID, boost.DrawBoostList(s, contract))
 			if err != nil {
 				panic(err)
 			}

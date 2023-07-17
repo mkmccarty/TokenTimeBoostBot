@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	emutil "github.com/post04/discordgo-emoji-util"
 )
 
 //var usermutex sync.Mutex
@@ -20,26 +21,26 @@ type EggFarmer struct {
 }
 
 type Booster struct {
-	userID  string // Egg Farmer
-	name    string
-	order   int    // Position in Boost Order
-	mention string // String which mentions user
+	userID   string // Egg Farmer
+	name     string
+	order    int    // Position in Boost Order
+	boosting bool   // Indicates if current booster
+	mention  string // String which mentions user
 }
 
 type Contract struct {
-	guildID    string
-	channelID  string // Contract Discord Channel
-	userID     string // Farmer Name of Creator
-	contractID string // Contract ID
-	coopID     string // CoopID
-	coopSize   int
-	boostOrder int
-	position   int    // Starting Slot
-	completed  bool   // Boost Completed
-	messageID  string // Message ID for the Last Boost Order message
-	reactionID string // Message ID for the reaction Order String
-	EggFarmers map[string]*EggFarmer
-
+	guildID       string
+	channelID     string // Contract Discord Channel
+	userID        string // Farmer Name of Creator
+	contractID    string // Contract ID
+	coopID        string // CoopID
+	coopSize      int
+	boostOrder    int
+	position      int    // Starting Slot
+	completed     bool   // Boost Completed
+	messageID     string // Message ID for the Last Boost Order message
+	reactionID    string // Message ID for the reaction Order String
+	EggFarmers    map[string]*EggFarmer
 	registeredNum int
 	Boosters      map[string]*Booster // Boosters Registered
 }
@@ -100,15 +101,26 @@ func SetReactionID(contract *Contract, messageID string) {
 	contract.reactionID = messageID
 }
 
-func DrawBoostList(contract *Contract) string {
+func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	var outputStr string
-	//var tokenStr = "<:token:778019329693450270>"
+	var tokenStr = "<:token:778019329693450270>"
+	g, _ := s.State.Guild(contract.guildID) // RAIYC Playground
+	var e = emutil.FindEmoji(g.Emojis, "token", false)
+	if e != nil {
+		tokenStr = e.MessageFormat()
+	}
+
 	outputStr = "# Boost List #\n"
 	outputStr += fmt.Sprintf("### Contract Size: %d ###\n", contract.coopSize)
 	var i = 1
 	for _, element := range contract.Boosters {
 		//for i := 1; i <= len(contract.Boosters); i++ {
-		outputStr += fmt.Sprintf("%2d -  %s\n", i, element.name)
+		outputStr += fmt.Sprintf("%2d -  %s", i, element.name)
+		if element.boosting {
+			outputStr += fmt.Sprintf(" %s\n", tokenStr)
+		} else {
+			outputStr += "\n"
+		}
 		i += 1
 	}
 	for ; i <= contract.coopSize; i++ {
@@ -148,6 +160,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		var user, err = s.User(r.UserID)
 		if err == nil {
 			b.name = user.Username
+			b.boosting = true
 			b.mention = user.Mention()
 		}
 		contract.Boosters[farmer.userID] = b
@@ -155,7 +168,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 
 		// Remove the Boost List and then redisplay it
 		//s.ChannelMessageDelete(r.ChannelID, contract.messageID)
-		msg, err := s.ChannelMessageEdit(r.ChannelID, contract.messageID, DrawBoostList(contract))
+		msg, err := s.ChannelMessageEdit(r.ChannelID, contract.messageID, DrawBoostList(s, contract))
 		if err != nil {
 			panic(err)
 		}
@@ -213,7 +226,7 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 		contract.registeredNum -= 1
 		// Remove the Boost List and then redisplay it
 		//s.ChannelMessageDelete(r.ChannelID, contract.messageID)
-		msg, err := s.ChannelMessageEdit(r.ChannelID, contract.messageID, DrawBoostList(contract))
+		msg, err := s.ChannelMessageEdit(r.ChannelID, contract.messageID, DrawBoostList(s, contract))
 		if err != nil {
 			panic(err)
 		}
