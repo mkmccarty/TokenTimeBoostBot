@@ -334,6 +334,48 @@ func RemoveIndex(s []string, index int) []string {
 	return append(s[:index], s[index+1:]...)
 }
 
+func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, offset int) bool {
+	if offset > len(contract.Boosters) {
+		return false
+	}
+	var index = offset - 1 // Index is 0 based
+
+	var activeBooster = contract.Boosters[contract.order[index]].boostState
+	delete(contract.Boosters, contract.order[index])
+	contract.order = RemoveIndex(contract.order, index)
+
+	// Active Booster is leaving contract.
+	if (activeBooster == 1) && len(contract.order) > index {
+		contract.Boosters[contract.order[index]].boostState = 2
+		contract.Boosters[contract.order[index]].startTime = time.Now()
+
+	}
+	return true
+}
+
+func RemoveContractBooster(s *discordgo.Session, guildID string, channelID string, index int) error {
+	var contract = FindContract(guildID, channelID)
+
+	if contract == nil {
+		return errors.New("unable to locate a contract")
+	}
+
+	if len(contract.order) == 0 {
+		return errors.New("nobody signed up to boost")
+	}
+	if removeContractBoosterByContract(s, contract, index) {
+		contract.registeredNum -= 1
+	}
+
+	// Remove the Boost List and then redisplay it
+	msg, err := s.ChannelMessageEdit(contract.location[0].channelID, contract.location[0].messageID, DrawBoostList(s, contract))
+	if err != nil {
+		return err
+	}
+	contract.location[0].messageID = msg.ID
+	return nil
+}
+
 func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 	var _, err = s.ChannelMessage(r.ChannelID, r.MessageID)
 	if err != nil {
@@ -363,23 +405,12 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 		// Remove farmer from boost list
 		for i := range contract.order {
 			if contract.order[i] == r.UserID {
-				var activeBooster = contract.Boosters[contract.order[i]].boostState
-				contract.order = RemoveIndex(contract.order, i)
-
-				// Active Booster is leaving contract.
-				if (activeBooster == 1) && len(contract.order) > i {
-					contract.Boosters[contract.order[i]].boostState = 2
-					contract.Boosters[contract.order[i]].startTime = time.Now()
-				}
+				removeContractBoosterByContract(s, contract, i)
 				break
 			}
 		}
-
-		delete(contract.Boosters, r.UserID)
-
 		contract.registeredNum -= 1
 		// Remove the Boost List and then redisplay it
-		//s.ChannelMessageDelete(r.ChannelID, contract.messageID)
 		msg, err := s.ChannelMessageEdit(r.ChannelID, contract.location[loc].messageID, DrawBoostList(s, contract))
 		if err != nil {
 			panic(err)
