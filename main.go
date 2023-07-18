@@ -352,6 +352,33 @@ var (
 					Components: []discordgo.MessageComponent{}},
 			})
 		},
+		"prune": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			var str = "Prune Booster"
+			var boosterIndex = 0
+
+			options := i.ApplicationCommandData().Options
+			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+			for _, opt := range options {
+				optionMap[opt.Name] = opt
+			}
+
+			if opt, ok := optionMap["boost-index"]; ok {
+				boosterIndex = int(opt.IntValue())
+			}
+
+			var err = boost.RemoveContractBooster(s, i.GuildID, i.ChannelID, boosterIndex)
+			if err != nil {
+				str = err.Error()
+			}
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content:    str,
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
+		},
 	}
 )
 
@@ -426,7 +453,6 @@ func main() {
 		Description: "Move to next Booster",
 		Options:     []*discordgo.ApplicationCommandOption{},
 	})
-
 	if err != nil {
 		log.Fatalf("Cannot create slash command: %v", err)
 	}
@@ -436,7 +462,22 @@ func main() {
 		Description: "Move to next Booster",
 		Options:     []*discordgo.ApplicationCommandOption{},
 	})
+	if err != nil {
+		log.Fatalf("Cannot create slash command: %v", err)
+	}
 
+	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
+		Name:        "prune",
+		Description: "Prune Booster",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "boost-index",
+				Description: "Booster Number",
+				Required:    true,
+			},
+		},
+	})
 	if err != nil {
 		log.Fatalf("Cannot create slash command: %v", err)
 	}
