@@ -367,7 +367,7 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 				contract.order = RemoveIndex(contract.order, i)
 
 				// Active Booster is leaving contract.
-				if (activeBooster == 1) && len(contract.Boosters) > i {
+				if (activeBooster == 1) && len(contract.order) > i {
 					contract.Boosters[contract.order[i]].boostState = 2
 					contract.Boosters[contract.order[i]].startTime = time.Now()
 				}
