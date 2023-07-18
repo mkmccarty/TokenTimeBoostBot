@@ -251,14 +251,15 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 	if err != nil {
 		return
 	}
-	// Remove extra added emoji
-	if r.Emoji.Name != "🚀" && r.Emoji.Name != "🔔" && r.Emoji.Name != "🎲" {
-		s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
-		return
-	}
 
 	var contract, _ = FindContractByReactionID(r.ChannelID, r.MessageID)
 	if contract == nil {
+		return
+	}
+
+	// Remove extra added emoji
+	if r.Emoji.Name != "🚀" && r.Emoji.Name != "🔔" && r.Emoji.Name != "🎲" {
+		s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
 		return
 	}
 
@@ -286,11 +287,16 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		// New Farmer - add them to boost list
 		var b = new(Booster)
 		b.userID = farmer.userID
-		var user, err = s.User(r.UserID)
+		var user, _ = s.User(r.UserID)
 		if err == nil {
 			b.name = user.Username
 			b.boostState = 0
 			b.mention = user.Mention()
+		}
+		var member, err = s.GuildMember(r.GuildID, r.UserID)
+		if err == nil && member.Nick != "" {
+			b.name = member.Nick
+			b.mention = member.Mention()
 		}
 		contract.Boosters[farmer.userID] = b
 		contract.order = append(contract.order, farmer.userID)
@@ -416,14 +422,20 @@ func StartBoosting(s *discordgo.Session, guildID string, channelID string) error
 func sendNextNotification(s *discordgo.Session, contract *Contract) {
 	// Start boosting contract
 	for i := range contract.location {
+		var msg *discordgo.Message
+		var err error
 
-		s.ChannelMessageUnpin(contract.location[i].channelID, contract.location[i].messageID)
-		//s.ChannelMessageDelete(contract.location[i].channelID, contract.location[i].messageID)
-		msg, err := s.ChannelMessageSend(contract.location[i].channelID, DrawBoostList(s, contract))
-		if err != nil {
-			panic(err)
+		if contract.coopSize != len(contract.Boosters) {
+			msg, err = s.ChannelMessageEdit(contract.location[i].channelID, contract.location[i].messageID, DrawBoostList(s, contract))
+
+		} else {
+			s.ChannelMessageUnpin(contract.location[i].channelID, contract.location[i].reactionID)
+			s.ChannelMessageDelete(contract.location[i].channelID, contract.location[i].messageID)
+			msg, err = s.ChannelMessageSend(contract.location[i].channelID, DrawBoostList(s, contract))
 		}
-
+		if err == nil {
+			fmt.Println("Unable to resend message.")
+		}
 		var str string = ""
 
 		if contract.boostState != 2 {
