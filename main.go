@@ -197,7 +197,7 @@ var (
 		"contract": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var contractID = i.GuildID
 			var coopID = i.GuildID // Default to the Guild ID
-			var boostOrder = 1
+			var boostOrder = 0
 			var coopSize = 2
 
 			// User interacting with bot, is this first time ?
@@ -223,9 +223,6 @@ var (
 					coopID = c.Name
 				}
 			}
-			if opt, ok := optionMap["boost-order"]; ok {
-				boostOrder = int(opt.IntValue())
-			}
 			mutex.Lock()
 
 			contract, err := boost.StartContract(contractID, coopID, coopSize, boostOrder, i.GuildID, i.ChannelID, i.Member.User.ID)
@@ -244,22 +241,24 @@ var (
 						// ActionRow is a container of all buttons within the same row.
 						discordgo.ActionsRow{
 							Components: []discordgo.MessageComponent{
-								discordgo.Button{
-									// Label is what the user will see on the button.
-									Label: "Boosted",
-									// Style provides coloring of the button. There are not so many styles tho.
-									Style: discordgo.PrimaryButton,
-									// Disabled allows bot to disable some buttons for users.
-									Disabled: false,
-									// CustomID is a thing telling Discord which data to send when this button will be pressed.
-									CustomID: "fd_init",
-								},
-								discordgo.Button{
-									Label:    "🚀",
-									Style:    discordgo.SuccessButton,
-									Disabled: false,
-									CustomID: "fd_boost",
-								},
+								/*
+									discordgo.Button{
+										// Label is what the user will see on the button.
+										Label: "Boosted",
+										// Style provides coloring of the button. There are not so many styles tho.
+										Style: discordgo.PrimaryButton,
+										// Disabled allows bot to disable some buttons for users.
+										Disabled: false,
+										// CustomID is a thing telling Discord which data to send when this button will be pressed.
+										CustomID: "fd_init",
+									},
+									discordgo.Button{
+										Label:    "Add Users",
+										Style:    discordgo.SuccessButton,
+										Disabled: false,
+										CustomID: "fd_boost",
+									},
+								*/
 								discordgo.Button{
 									Label:    "Delete Contract",
 									Style:    discordgo.DangerButton,
@@ -294,13 +293,14 @@ var (
 			}
 			boost.SetMessageID(contract, i.ChannelID, msg.ID)
 
-			reactionMsg, err := s.ChannelMessageSend(i.ChannelID, "`React with 🚀 or 🔔 to boost. 🔔 will DM Updates`")
+			reactionMsg, err := s.ChannelMessageSend(i.ChannelID, "`React with 🚀 or 🔔 to boost. 🔔 will DM Updates, 🎲 is vote for random boost order.`")
 			if err != nil {
 				panic(err)
 			}
 			boost.SetReactionID(contract, i.ChannelID, msg.ID)
 			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🚀") // Booster
 			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🔔") // Ping
+			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🎲") // Boost Order
 
 			s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
 
@@ -406,26 +406,6 @@ func main() {
 				Name:        "coop-size",
 				Description: "Co-op Size",
 				Required:    true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "boost-order",
-				Description: "Boost Ordering",
-				Choices: []*discordgo.ApplicationCommandOptionChoice{
-					{
-						Name:  "Join Order",
-						Value: 0,
-					},
-					{
-						Name:  "Random Order",
-						Value: 1,
-					},
-					{
-						Name:  "Fair",
-						Value: 2,
-					},
-				},
-				Required: false,
 			},
 		},
 	})
