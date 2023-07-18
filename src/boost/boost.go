@@ -405,7 +405,7 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 		// Remove farmer from boost list
 		for i := range contract.order {
 			if contract.order[i] == r.UserID {
-				removeContractBoosterByContract(s, contract, i)
+				removeContractBoosterByContract(s, contract, i+1)
 				break
 			}
 		}
