@@ -198,7 +198,7 @@ var (
 		},
 	}
 	commandsHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"boost": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		"contract": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var contractID = i.GuildID
 			var coopID = i.GuildID // Default to the Guild ID
 			var boostOrder = 1
@@ -298,6 +298,7 @@ var (
 				panic(err)
 			}
 			boost.SetMessageID(contract, i.ChannelID, msg.ID)
+			s.ChannelMessagePin(msg.ChannelID, msg.ID)
 
 			msg, err = s.ChannelMessageSend(i.ChannelID, "`React with 🚀 or 🔔 to boost. 🔔 will DM Updates`")
 			if err != nil {
@@ -306,10 +307,41 @@ var (
 			boost.SetReactionID(contract, i.ChannelID, msg.ID)
 			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🚀") // Booster
 			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🔔") // Ping
-			//s.ChannelMessagePin(msg.ChannelID, msg.ID)
 
-			//s.ChannelMessageDelete(i.ChannelID, msg.ID)
+		},
+		"start": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			var str = "Sorted, Starting boosting!"
+			var err = boost.StartBoosting(s, i.GuildID, i.ChannelID)
+			if err != nil {
+				str = err.Error()
+			}
 
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content:    str,
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
+
+		},
+		"next": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			var str = "Next Booster Up"
+			var err = boost.NextBooster(s, i.GuildID, i.ChannelID)
+			if err != nil {
+				str = err.Error()
+			}
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content:    str,
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
+
+		},
+		"skip": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	}
 )
@@ -345,7 +377,7 @@ func main() {
 	})
 
 	_, err := s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
-		Name:        "boost",
+		Name:        "contract",
 		Description: "Contract Boosting Elections",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
@@ -387,6 +419,21 @@ func main() {
 				Required: false,
 			},
 		},
+	})
+	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
+		Name:        "start",
+		Description: "Start Contract Boost",
+		Options:     []*discordgo.ApplicationCommandOption{},
+	})
+	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
+		Name:        "next",
+		Description: "Move to next Booster",
+		Options:     []*discordgo.ApplicationCommandOption{},
+	})
+	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
+		Name:        "skip",
+		Description: "Skip Current Booster",
+		Options:     []*discordgo.ApplicationCommandOption{},
 	})
 
 	if err != nil {

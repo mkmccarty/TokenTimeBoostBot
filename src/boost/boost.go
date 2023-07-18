@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -11,21 +12,21 @@ import (
 //var usermutex sync.Mutex
 
 type EggFarmer struct {
-	userID    string    // Discord User ID
-	guildID   string    // Discord Guild where this User is From
-	reactions int       // Number of times farmer reacted
-	ping      bool      // True/False
-	register  time.Time // Time Farmer registered to boost
-	start     time.Time // Time Farmer started boost turn
-	end       time.Time // Time Farmer ended boost turn
+	userID      string // Discord User ID
+	channelName string
+	guildID     string    // Discord Guild where this User is From
+	reactions   int       // Number of times farmer reacted
+	ping        bool      // True/False
+	register    time.Time // Time Farmer registered to boost
 }
 
 type Booster struct {
-	userID   string // Egg Farmer
-	name     string
-	order    int    // Position in Boost Order
-	boosting bool   // Indicates if current booster
-	mention  string // String which mentions user
+	userID     string // Egg Farmer
+	name       string
+	boostState int       // Indicates if current booster
+	mention    string    // String which mentions user
+	startTime  time.Time // Time Farmer started boost turn
+	endTime    time.Time // Time Farmer ended boost turn
 }
 
 type LocationData struct {
@@ -37,15 +38,15 @@ type LocationData struct {
 type Contract struct {
 	contractHash string // ContractID-CoopID
 	location     []*LocationData
-	guildID      string
-	channelID    string // Contract Discord Channel
-	userID       string // Farmer Name of Creator
-	contractID   string // Contract ID
-	coopID       string // CoopID
-	coopSize     int
-	boostOrder   int
-	position     int  // Starting Slot
-	completed    bool // Boost Completed
+	//guildID      string
+	channelID     string // Contract Discord Channel
+	userID        string // Farmer Name of Creator
+	contractID    string // Contract ID
+	coopID        string // CoopID
+	coopSize      int
+	boostOrder    int
+	boostPosition int // Starting Slot
+	boostState    int // Boost Completed
 	//messageID     string // Message ID for the Last Boost Order message
 	//reactionID    string // Message ID for the reaction Order String
 	EggFarmers    map[string]*EggFarmer
@@ -117,9 +118,8 @@ func StartContract(contractID string, coopID string, coopSize int, boostOrder in
 		contract.contractID = contractID
 		contract.coopID = coopID
 		contract.boostOrder = boostOrder
-		contract.guildID = guildID // starting guild
-		contract.userID = userID   // starting userid
-		contract.channelID = channelID
+		contract.boostState = 0
+		contract.userID = userID // starting userid
 		contract.registeredNum = 0
 		contract.coopSize = coopSize
 		Contracts[contractHash] = contract
@@ -136,20 +136,7 @@ func StartContract(contractID string, coopID string, coopSize int, boostOrder in
 		//GlobalContracts[contractHash] = append(GlobalContracts[contractHash], loc)
 	}
 
-	/*
-		farmer := contract.EggFarmers[userID]
-		if farmer == nil {
-			farmer = new(EggFarmer)
-			farmer.register = time.Now()
-			farmer.ping = false
-			farmer.reactions = 0
-			farmer.userID = userID
-			farmer.guildID = guildID
-			contract.EggFarmers[userID] = farmer
-		}
-	*/
 	if new_contract {
-
 		// Create a bunch of test data
 		for i := contract.registeredNum + 1; i < contract.coopSize; i++ {
 			var fake_user = fmt.Sprintf("Test-%02d", i)
@@ -164,7 +151,8 @@ func StartContract(contractID string, coopID string, coopSize int, boostOrder in
 			var b = new(Booster)
 			b.userID = fake_user
 			b.name = fake_user
-			b.boosting = false
+			b.boostState = 0
+			b.startTime = time.Now()
 			b.mention = fake_user
 
 			contract.Boosters[farmer.userID] = b
@@ -195,7 +183,7 @@ func SetReactionID(contract *Contract, channelID string, messageID string) {
 func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	var outputStr string
 	var tokenStr = "<:token:778019329693450270>"
-	g, _ := s.State.Guild(contract.guildID) // RAIYC Playground
+	g, _ := s.State.Guild(contract.location[0].guildID) // RAIYC Playground
 	var e = emutil.FindEmoji(g.Emojis, "token", false)
 	if e != nil {
 		tokenStr = e.MessageFormat()
@@ -207,11 +195,16 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	for _, element := range contract.order {
 		//for i := 1; i <= len(contract.Boosters); i++ {
 		var b = contract.Boosters[element]
-		outputStr += fmt.Sprintf("%2d -  %s", i, b.name)
-		if b.boosting {
-			outputStr += fmt.Sprintf(" %s\n", tokenStr)
-		} else {
-			outputStr += "\n"
+		switch b.boostState {
+		case 0:
+			outputStr += fmt.Sprintf("%2d -  %s\n", i, b.name)
+			break
+		case 1:
+			outputStr += fmt.Sprintf("%2d -  %s %s\n", i, b.name, tokenStr)
+			break
+		case 2:
+			outputStr += fmt.Sprintf("%2d -  ~~%s~~\n", i, b.name)
+			break
 		}
 		i += 1
 	}
@@ -273,6 +266,9 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		farmer.reactions = 0
 		farmer.userID = r.UserID
 		farmer.guildID = r.GuildID
+		var ch, _ = s.Channel(r.ChannelID)
+		farmer.channelName = ch.Name
+
 		contract.EggFarmers[r.UserID] = farmer
 	}
 	farmer.reactions += 1
@@ -283,7 +279,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		var user, err = s.User(r.UserID)
 		if err == nil {
 			b.name = user.Username
-			b.boosting = false
+			b.boostState = 0
 			b.mention = user.Mention()
 		}
 		contract.Boosters[farmer.userID] = b
@@ -308,10 +304,8 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 
 	if r.Emoji.Name == "🔔" {
 		farmer.ping = true
-
-		var ch, _ = s.Channel(contract.channelID)
 		u, _ := s.UserChannelCreate(farmer.userID)
-		var str = fmt.Sprintf("Boost notifications will be sent for %s.", ch.Name)
+		var str = fmt.Sprintf("Boost notifications will be sent for %s.", farmer.channelName)
 		_, err := s.ChannelMessageSend(u.ID, str)
 		if err != nil {
 			panic(err)
@@ -371,4 +365,100 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 		contract.location[loc].messageID = msg.ID
 
 	}
+}
+
+func FindContract(guildID string, channelID string) *Contract {
+	// Look for the contract
+	for key, element := range Contracts {
+		for _, el := range element.location {
+			if el.guildID == guildID && el.channelID == channelID {
+				return Contracts[key]
+			}
+		}
+	}
+	return nil
+}
+
+func StartBoosting(s *discordgo.Session, guildID string, channelID string) error {
+	var contract = FindContract(guildID, channelID)
+	if contract == nil {
+		return errors.New("Unable to locate a contract.")
+	}
+
+	if len(contract.Boosters) == 0 {
+		return errors.New("Nobody signed up to boost!")
+	}
+
+	// Order Boosters
+	if contract.boostOrder != 0 {
+		fmt.Println("Boost Ordering ")
+	}
+	contract.boostPosition = 0
+	contract.boostState = 1
+	contract.Boosters[contract.order[contract.boostPosition]].boostState = 1
+
+	// Start boosting contract
+	for i := range contract.location {
+
+		s.ChannelMessageUnpin(contract.location[i].channelID, contract.location[i].messageID)
+		s.ChannelMessageDelete(contract.location[i].channelID, contract.location[i].messageID)
+		msg, err := s.ChannelMessageSend(contract.location[i].channelID, DrawBoostList(s, contract))
+		if err != nil {
+			panic(err)
+		}
+		contract.location[i].messageID = msg.ID
+		str := fmt.Sprintf("Send Tokens to %s", contract.Boosters[contract.order[contract.boostPosition]].mention)
+		s.ChannelMessageSend(contract.location[i].channelID, str)
+	}
+	NotifyBoosters(s, contract)
+
+	return nil
+}
+
+func NextBooster(s *discordgo.Session, guildID string, channelID string) error {
+	var contract = FindContract(guildID, channelID)
+	if contract == nil {
+		return errors.New("Unable to locate a contract.")
+	}
+
+	if contract.boostState == 0 {
+		return errors.New("Contract Not Started")
+	}
+	contract.Boosters[contract.order[contract.boostPosition]].boostState = 2
+	contract.boostPosition += 1
+	contract.Boosters[contract.order[contract.boostPosition]].boostState = 1
+
+	// Start boosting contract
+	for i := range contract.location {
+
+		s.ChannelMessageUnpin(contract.location[i].channelID, contract.location[i].messageID)
+		s.ChannelMessageDelete(contract.location[i].channelID, contract.location[i].messageID)
+		msg, err := s.ChannelMessageSend(contract.location[i].channelID, DrawBoostList(s, contract))
+		if err != nil {
+			panic(err)
+		}
+		contract.location[i].messageID = msg.ID
+
+		str := fmt.Sprintf("Send Tokens to %s", contract.Boosters[contract.order[contract.boostPosition]].mention)
+		s.ChannelMessageSend(contract.location[i].channelID, str)
+	}
+
+	NotifyBoosters(s, contract)
+
+	return nil
+}
+
+func NotifyBoosters(s *discordgo.Session, contract *Contract) {
+	for i := range contract.Boosters {
+		var farmer = contract.EggFarmers[contract.Boosters[i].userID]
+		if farmer.ping {
+			u, _ := s.UserChannelCreate(farmer.userID)
+			var str = fmt.Sprintf("%s: Send Boost Tokens to %s", farmer.channelName, contract.Boosters[contract.order[contract.boostPosition]].name)
+			_, err := s.ChannelMessageSend(u.ID, str)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+
 }
