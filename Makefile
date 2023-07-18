@@ -64,9 +64,7 @@ fmt:
 .PHONY: install
 install:
 	./scripts/stop_bot.sh
-	cp $(PI) ~pi/bots/GlowBot
-	cp eggs.json ~pi/bots/
-	cp eggscontracts.json ~pi/bots/
+	cp $(PI) ~pi/bots/TokenTimeBoostBot
 	./scripts/start_bot.sh
 
 .PHONY: clean
