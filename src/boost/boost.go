@@ -39,7 +39,7 @@ type Contract struct {
 	contractHash string // ContractID-CoopID
 	location     []*LocationData
 	//guildID      string
-	channelID     string // Contract Discord Channel
+	//channelID     string // Contract Discord Channel
 	userID        string // Farmer Name of Creator
 	contractID    string // Contract ID
 	coopID        string // CoopID
@@ -60,12 +60,6 @@ var (
 	Contracts map[string]*Contract
 	//GlobalContracts map[string][]*LocationData // Holds channel id's for various contracts
 )
-
-type configStruct struct {
-	DiscordToken   string `json:"DiscordToken"`
-	DiscordAppID   string `json:"DiscordAppID"`
-	DiscordGuildID string `json:"DiscordGuildID"`
-}
 
 func init() {
 	Contracts = make(map[string]*Contract)
@@ -124,17 +118,25 @@ func StartContract(contractID string, coopID string, coopSize int, boostOrder in
 		contract.coopSize = coopSize
 		Contracts[contractHash] = contract
 		new_contract = true
-
 	} else {
+		// TODO Multi server isn't working because the Session Object is
+		// specific to one Server/Guild
+		//
+		if contract.location[0].guildID != guildID {
+			return nil, errors.New("contracts across servers not currently supported")
+		}
 		// Existing contract, make sure we know what server we're on
-		loc := new(LocationData)
-		loc.guildID = guildID
-		loc.channelID = channelID
-		loc.messageID = ""
-		loc.reactionID = ""
-		contract.location = append(contract.location, loc)
+		/*
+			loc := new(LocationData)
+			loc.guildID = guildID
+			loc.channelID = channelID
+			loc.messageID = ""
+			loc.reactionID = ""
+			contract.location = append(contract.location, loc)
+		*/
 		//GlobalContracts[contractHash] = append(GlobalContracts[contractHash], loc)
 	}
+	//new_contract = false
 
 	if new_contract {
 		// Create a bunch of test data
@@ -198,13 +200,10 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		switch b.boostState {
 		case 0:
 			outputStr += fmt.Sprintf("%2d -  %s\n", i, b.name)
-			break
 		case 1:
 			outputStr += fmt.Sprintf("%2d -  %s %s\n", i, b.name, tokenStr)
-			break
 		case 2:
 			outputStr += fmt.Sprintf("%2d -  ~~%s~~\n", i, b.name)
-			break
 		}
 		i += 1
 	}
@@ -241,7 +240,7 @@ func FindContractByReactionID(channelID string, reactionID string) (*Contract, i
 
 func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 	// Find the message
-	var msg, err = s.ChannelMessage(r.ChannelID, r.MessageID)
+	var _, err = s.ChannelMessage(r.ChannelID, r.MessageID)
 	if err != nil {
 		return
 	}
@@ -299,9 +298,6 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 
 	}
 
-	//var mr = msg.Reactions
-	fmt.Print(msg)
-
 	if r.Emoji.Name == "🔔" {
 		farmer.ping = true
 		u, _ := s.UserChannelCreate(farmer.userID)
@@ -310,11 +306,11 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		if err != nil {
 			panic(err)
 		}
-
 	}
 
-	// Verify that if the user reacted once or twice
-
+	if contract.registeredNum == contract.coopSize {
+		StartBoosting(s, contract.location[0].guildID, contract.location[0].channelID)
+	}
 }
 
 func RemoveIndex(s []string, index int) []string {
@@ -322,7 +318,7 @@ func RemoveIndex(s []string, index int) []string {
 }
 
 func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
-	var msg, err = s.ChannelMessage(r.ChannelID, r.MessageID)
+	var _, err = s.ChannelMessage(r.ChannelID, r.MessageID)
 	if err != nil {
 		return
 	}
@@ -336,9 +332,6 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 	}
 
 	farmer.reactions -= 1
-
-	//var mr = msg.Reactions
-	fmt.Print(msg)
 
 	if r.Emoji.Name == "🔔" {
 		farmer.ping = false
@@ -382,11 +375,11 @@ func FindContract(guildID string, channelID string) *Contract {
 func StartBoosting(s *discordgo.Session, guildID string, channelID string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
-		return errors.New("Unable to locate a contract.")
+		return errors.New("unable to locate a contract")
 	}
 
 	if len(contract.Boosters) == 0 {
-		return errors.New("Nobody signed up to boost!")
+		return errors.New("nobody signed up to boost")
 	}
 
 	// Order Boosters
@@ -401,7 +394,7 @@ func StartBoosting(s *discordgo.Session, guildID string, channelID string) error
 	for i := range contract.location {
 
 		s.ChannelMessageUnpin(contract.location[i].channelID, contract.location[i].messageID)
-		s.ChannelMessageDelete(contract.location[i].channelID, contract.location[i].messageID)
+		//s.ChannelMessageDelete(contract.location[i].channelID, contract.location[i].messageID)
 		msg, err := s.ChannelMessageSend(contract.location[i].channelID, DrawBoostList(s, contract))
 		if err != nil {
 			panic(err)
@@ -418,15 +411,70 @@ func StartBoosting(s *discordgo.Session, guildID string, channelID string) error
 func NextBooster(s *discordgo.Session, guildID string, channelID string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
-		return errors.New("Unable to locate a contract.")
+		return errors.New("unable to locate a contract")
 	}
 
 	if contract.boostState == 0 {
-		return errors.New("Contract Not Started")
+		return errors.New("contract not started")
 	}
 	contract.Boosters[contract.order[contract.boostPosition]].boostState = 2
+	contract.Boosters[contract.order[contract.boostPosition]].endTime = time.Now()
 	contract.boostPosition += 1
-	contract.Boosters[contract.order[contract.boostPosition]].boostState = 1
+	if contract.boostPosition == contract.coopSize || contract.boostPosition == len(contract.Boosters) {
+		contract.boostState = 2 // Finished
+		//return FinishContract(s, contract)
+	} else {
+		contract.Boosters[contract.order[contract.boostPosition]].boostState = 1
+	}
+
+	// Start boosting contract
+	for i := range contract.location {
+
+		s.ChannelMessageUnpin(contract.location[i].channelID, contract.location[i].messageID)
+		s.ChannelMessageDelete(contract.location[i].channelID, contract.location[i].messageID)
+		msg, err := s.ChannelMessageSend(contract.location[i].channelID, DrawBoostList(s, contract))
+		if err != nil {
+			panic(err)
+		}
+		contract.location[i].messageID = msg.ID
+
+		str := fmt.Sprintf("Contract Boosting Complete!")
+
+		if contract.boostState != 2 {
+			str = fmt.Sprintf("Send Tokens to %s", contract.Boosters[contract.order[contract.boostPosition]].mention)
+		}
+		s.ChannelMessageSend(contract.location[i].channelID, str)
+	}
+
+	if contract.boostState == 2 {
+		return FinishContract(s, contract)
+	}
+
+	NotifyBoosters(s, contract)
+
+	return nil
+}
+
+func SkipBooster(s *discordgo.Session, guildID string, channelID string) error {
+	var contract = FindContract(guildID, channelID)
+	if contract == nil {
+		return errors.New("unable to locate a contract")
+	}
+
+	if contract.boostState == 0 {
+		return errors.New("contract not started")
+	}
+
+	contract.Boosters[contract.order[contract.boostPosition]].boostState = 0
+	var skipped = contract.order[contract.boostPosition]
+	contract.order = RemoveIndex(contract.order, contract.boostPosition)
+	contract.order = append(contract.order, skipped)
+
+	if contract.boostPosition == contract.coopSize || contract.boostPosition == len(contract.Boosters) {
+		contract.boostState = 2 // Finished
+	} else {
+		contract.Boosters[contract.order[contract.boostPosition]].boostState = 1
+	}
 
 	// Start boosting contract
 	for i := range contract.location {
@@ -441,6 +489,10 @@ func NextBooster(s *discordgo.Session, guildID string, channelID string) error {
 
 		str := fmt.Sprintf("Send Tokens to %s", contract.Boosters[contract.order[contract.boostPosition]].mention)
 		s.ChannelMessageSend(contract.location[i].channelID, str)
+	}
+
+	if contract.boostState == 2 {
+		return FinishContract(s, contract)
 	}
 
 	NotifyBoosters(s, contract)
@@ -461,4 +513,11 @@ func NotifyBoosters(s *discordgo.Session, contract *Contract) {
 		}
 	}
 
+}
+
+func FinishContract(s *discordgo.Session, contract *Contract) error {
+	// Don't delete the final boost message
+	contract.location[0].messageID = ""
+	DeleteContract(s, contract.location[0].guildID, contract.location[0].channelID)
+	return nil
 }

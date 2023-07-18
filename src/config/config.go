@@ -42,7 +42,7 @@ func ReadConfig() error {
 
 	DiscordToken = config.DiscordToken
 	DiscordAppID = config.DiscordAppID
-	DiscordGuildID = config.DiscordGuildID
+	DiscordGuildID = "" //config.DiscordGuildID
 
 	return nil
 }

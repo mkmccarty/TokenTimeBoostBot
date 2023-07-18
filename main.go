@@ -8,9 +8,7 @@ import (
 	"os/signal"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/akyoto/cache"
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
@@ -28,7 +26,7 @@ var mutex sync.Mutex
 
 // Storage
 
-var contractcache = cache.New(24 * time.Hour * 7)
+//var contractcache = cache.New(24 * time.Hour * 7)
 
 var s *discordgo.Session
 
@@ -103,9 +101,7 @@ var (
 
 			mutex.Lock()
 
-			m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
-
-			fmt.Print(m)
+			discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -206,7 +202,6 @@ var (
 
 			// User interacting with bot, is this first time ?
 			options := i.ApplicationCommandData().Options
-
 			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 			for _, opt := range options {
 				optionMap[opt.Name] = opt
@@ -298,15 +293,16 @@ var (
 				panic(err)
 			}
 			boost.SetMessageID(contract, i.ChannelID, msg.ID)
-			s.ChannelMessagePin(msg.ChannelID, msg.ID)
 
-			msg, err = s.ChannelMessageSend(i.ChannelID, "`React with 🚀 or 🔔 to boost. 🔔 will DM Updates`")
+			reactionMsg, err := s.ChannelMessageSend(i.ChannelID, "`React with 🚀 or 🔔 to boost. 🔔 will DM Updates`")
 			if err != nil {
 				panic(err)
 			}
 			boost.SetReactionID(contract, i.ChannelID, msg.ID)
 			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🚀") // Booster
 			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🔔") // Ping
+
+			s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
 
 		},
 		"start": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -342,6 +338,19 @@ var (
 
 		},
 		"skip": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			var str = "Skip to Next Booster"
+			var err = boost.SkipBooster(s, i.GuildID, i.ChannelID)
+			if err != nil {
+				str = err.Error()
+			}
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content:    str,
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
 		},
 	}
 )
@@ -420,19 +429,31 @@ func main() {
 			},
 		},
 	})
+	if err != nil {
+		fmt.Println(err)
+	}
 	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
 		Name:        "start",
 		Description: "Start Contract Boost",
 		Options:     []*discordgo.ApplicationCommandOption{},
 	})
+	if err != nil {
+		fmt.Println(err)
+	}
+
 	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
 		Name:        "next",
 		Description: "Move to next Booster",
 		Options:     []*discordgo.ApplicationCommandOption{},
 	})
+
+	if err != nil {
+		log.Fatalf("Cannot create slash command: %v", err)
+	}
+
 	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
 		Name:        "skip",
-		Description: "Skip Current Booster",
+		Description: "Move to next Booster",
 		Options:     []*discordgo.ApplicationCommandOption{},
 	})
 
