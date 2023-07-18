@@ -363,7 +363,14 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 		// Remove farmer from boost list
 		for i := range contract.order {
 			if contract.order[i] == r.UserID {
+				var activeBooster = contract.Boosters[contract.order[i]].boostState
 				contract.order = RemoveIndex(contract.order, i)
+
+				// Active Booster is leaving contract.
+				if (activeBooster == 1) && len(contract.Boosters) > i {
+					contract.Boosters[contract.order[i]].boostState = 2
+					contract.Boosters[contract.order[i]].startTime = time.Now()
+				}
 				break
 			}
 		}
