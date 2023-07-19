@@ -137,7 +137,7 @@ func CreateContract(contractID string, coopID string, coopSize int, boostOrder i
 		*/
 		//GlobalContracts[contractHash] = append(GlobalContracts[contractHash], loc)
 	}
-	//new_contract = false
+	new_contract = false
 
 	if new_contract {
 		// Create a bunch of test data
