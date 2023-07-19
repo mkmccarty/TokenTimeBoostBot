@@ -129,7 +129,7 @@ var (
 			}
 			mutex.Lock()
 
-			contract, err := boost.StartContract(contractID, coopID, coopSize, boostOrder, i.GuildID, i.ChannelID, i.Member.User.ID)
+			contract, err := boost.CreateContract(contractID, coopID, coopSize, boostOrder, i.GuildID, i.ChannelID, i.Member.User.ID)
 			if err != nil {
 				fmt.Print("Contract already exists")
 			}
@@ -180,7 +180,7 @@ var (
 		},
 		slashStart: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var str = "Sorted, Starting boosting!"
-			var err = boost.StartBoosting(s, i.GuildID, i.ChannelID)
+			var err = boost.StartContractBoosting(s, i.GuildID, i.ChannelID)
 			if err != nil {
 				str = err.Error()
 			}
@@ -195,14 +195,24 @@ var (
 
 		},
 		slashBoost: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+
 			var str = "Boosting!!"
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content:    str,
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
+
 			var err = boost.NextBooster(s, i.GuildID, i.ChannelID)
 			if err != nil {
 				str = err.Error()
 			}
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Type: discordgo.InteractionResponseUpdateMessage,
 				Data: &discordgo.InteractionResponseData{
 					Content:    str,
 					Flags:      discordgo.MessageFlagsEphemeral,
