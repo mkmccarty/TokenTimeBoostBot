@@ -170,10 +170,10 @@ var (
 			if err != nil {
 				panic(err)
 			}
-			boost.SetReactionID(contract, i.ChannelID, msg.ID)
-			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🚀") // Booster
-			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🔔") // Ping
-			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🎲") // Boost Order
+			boost.SetReactionID(contract, i.ChannelID, reactionMsg.ID)
+			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🚀") // Booster
+			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🔔") // Ping
+			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🎲") // Boost Order
 
 			s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
 
