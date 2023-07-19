@@ -37,10 +37,8 @@ type LocationData struct {
 	reactionID string // Message ID for the reaction Order String
 }
 type Contract struct {
-	contractHash string // ContractID-CoopID
-	location     []*LocationData
-	//guildID      string
-	//channelID     string // Contract Discord Channel
+	contractHash  string // ContractID-CoopID
+	location      []*LocationData
 	userID        string // Farmer Name of Creator
 	contractID    string // Contract ID
 	coopID        string // CoopID
@@ -49,8 +47,6 @@ type Contract struct {
 	boostVoting   int
 	boostPosition int // Starting Slot
 	boostState    int // Boost Completed
-	//messageID     string // Message ID for the Last Boost Order message
-	//reactionID    string // Message ID for the reaction Order String
 	EggFarmers    map[string]*EggFarmer
 	registeredNum int
 	Boosters      map[string]*Booster // Boosters Registered
