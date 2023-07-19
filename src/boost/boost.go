@@ -442,6 +442,10 @@ func StartBoosting(s *discordgo.Session, guildID string, channelID string) error
 		return errors.New("nobody signed up to boost")
 	}
 
+	if contract.boostState == 0 {
+		return errors.New("Contract already started")
+	}
+
 	// Check Voting for Randomized order
 	if (contract.boostVoting * 2) > len(contract.Boosters) {
 		contract.boostOrder = 2
