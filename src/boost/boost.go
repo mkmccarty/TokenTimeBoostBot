@@ -139,7 +139,7 @@ func StartContract(contractID string, coopID string, coopSize int, boostOrder in
 		*/
 		//GlobalContracts[contractHash] = append(GlobalContracts[contractHash], loc)
 	}
-	//new_contract = false
+	new_contract = false
 
 	if new_contract {
 		// Create a bunch of test data
@@ -531,7 +531,7 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 
 	var selectedUser = contract.boostPosition
 
-	if userID == "" {
+	if userID != "" {
 		for i := range contract.order {
 			if contract.order[i] == userID {
 				selectedUser = i

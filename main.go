@@ -227,7 +227,7 @@ var (
 		},
 		slashLast: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var str = "Move yourself to end of boost list."
-			var err = boost.SkipBooster(s, i.GuildID, i.ChannelID, i.User.ID)
+			var err = boost.SkipBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID)
 			if err != nil {
 				str = err.Error()
 			}
