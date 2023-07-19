@@ -14,6 +14,14 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 )
 
+// Slash Command Constants
+const slashContract string = "contract"
+const slashSkip string = "skip"
+const slashBoost string = "boost"
+const slashStart string = "start"
+const slashLast string = "last"
+const slashPrune string = "prune"
+
 // Bot parameters to override .config.json parameters
 var (
 	GuildID  = flag.String("guild", "", "Test guild ID")
@@ -75,15 +83,6 @@ func initDiscordBot() {
 
 var (
 	componentsHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"fd_init": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-
-		},
-		"fd_boost": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-
-		},
-		"fd_next": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-
-		},
 		"fd_delete": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Delete coop
 			var str = fmt.Sprintf("Coop %s Deleted", boost.DeleteContract(s, i.GuildID, i.ChannelID))
@@ -97,104 +96,9 @@ var (
 			})
 
 		},
-		"fd_ping": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-
-			mutex.Lock()
-
-			discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
-
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content:    "XXX",
-					Flags:      discordgo.MessageFlagsEphemeral,
-					Components: []discordgo.MessageComponent{}},
-			})
-
-		},
-		"fd_list": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-
-		},
-		"fd_spare": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "Huh. I see, maybe some of these resources might help you?",
-					Flags:   discordgo.MessageFlagsEphemeral,
-					Components: []discordgo.MessageComponent{
-						discordgo.ActionsRow{
-							Components: []discordgo.MessageComponent{
-								discordgo.Button{
-									Emoji: discordgo.ComponentEmoji{
-										Name: "📜",
-									},
-									Label: "Documentation",
-									Style: discordgo.LinkButton,
-									URL:   "https://discord.com/developers/docs/interactions/message-components#buttons",
-								},
-								discordgo.Button{
-									Emoji: discordgo.ComponentEmoji{
-										Name: "🔧",
-									},
-									Label: "Discord developers",
-									Style: discordgo.LinkButton,
-									URL:   "https://discord.gg/discord-developers",
-								},
-								discordgo.Button{
-									Emoji: discordgo.ComponentEmoji{
-										Name: "🦫",
-									},
-									Label: "Discord Gophers",
-									Style: discordgo.LinkButton,
-									URL:   "https://discord.gg/7RuRrVHyXF",
-								},
-							},
-						},
-					},
-				},
-			})
-			if err != nil {
-				panic(err)
-			}
-		},
-		"fd_yes": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "Great! If you wanna know more or just have questions, feel free to visit Discord Devs and Discord Gophers server. " +
-						"But now, when you know how buttons work, let's move onto select menus (execute `/selects single`)",
-					Flags: discordgo.MessageFlagsEphemeral,
-					Components: []discordgo.MessageComponent{
-						discordgo.ActionsRow{
-							Components: []discordgo.MessageComponent{
-								discordgo.Button{
-									Emoji: discordgo.ComponentEmoji{
-										Name: "🔧",
-									},
-									Label: "Discord developers",
-									Style: discordgo.LinkButton,
-									URL:   "https://discord.gg/discord-developers",
-								},
-								discordgo.Button{
-									Emoji: discordgo.ComponentEmoji{
-										Name: "🦫",
-									},
-									Label: "Discord Gophers",
-									Style: discordgo.LinkButton,
-									URL:   "https://discord.gg/7RuRrVHyXF",
-								},
-							},
-						},
-					},
-				},
-			})
-			if err != nil {
-				panic(err)
-			}
-		},
 	}
 	commandsHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"contract": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var contractID = i.GuildID
 			var coopID = i.GuildID // Default to the Guild ID
 			var boostOrder = 0
@@ -241,24 +145,6 @@ var (
 						// ActionRow is a container of all buttons within the same row.
 						discordgo.ActionsRow{
 							Components: []discordgo.MessageComponent{
-								/*
-									discordgo.Button{
-										// Label is what the user will see on the button.
-										Label: "Boosted",
-										// Style provides coloring of the button. There are not so many styles tho.
-										Style: discordgo.PrimaryButton,
-										// Disabled allows bot to disable some buttons for users.
-										Disabled: false,
-										// CustomID is a thing telling Discord which data to send when this button will be pressed.
-										CustomID: "fd_init",
-									},
-									discordgo.Button{
-										Label:    "Add Users",
-										Style:    discordgo.SuccessButton,
-										Disabled: false,
-										CustomID: "fd_boost",
-									},
-								*/
 								discordgo.Button{
 									Label:    "Delete Contract",
 									Style:    discordgo.DangerButton,
@@ -267,19 +153,6 @@ var (
 								},
 							},
 						},
-						// The message may have multiple actions rows.
-						/*
-							discordgo.ActionsRow{
-								Components: []discordgo.MessageComponent{
-									discordgo.Button{
-										Label:    "Discord Developers server",
-										Style:    discordgo.LinkButton,
-										Disabled: false,
-										URL:      "https://discord.gg/discord-developers",
-									},
-								},
-							},
-						*/
 					},
 				},
 			})
@@ -305,7 +178,7 @@ var (
 			s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
 
 		},
-		"start": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		slashStart: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var str = "Sorted, Starting boosting!"
 			var err = boost.StartBoosting(s, i.GuildID, i.ChannelID)
 			if err != nil {
@@ -321,8 +194,8 @@ var (
 			})
 
 		},
-		"next": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			var str = "Next Booster Up"
+		slashBoost: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			var str = "Boosting!!"
 			var err = boost.NextBooster(s, i.GuildID, i.ChannelID)
 			if err != nil {
 				str = err.Error()
@@ -337,9 +210,9 @@ var (
 			})
 
 		},
-		"skip": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		slashSkip: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var str = "Skip to Next Booster"
-			var err = boost.SkipBooster(s, i.GuildID, i.ChannelID)
+			var err = boost.SkipBooster(s, i.GuildID, i.ChannelID, "")
 			if err != nil {
 				str = err.Error()
 			}
@@ -352,7 +225,23 @@ var (
 					Components: []discordgo.MessageComponent{}},
 			})
 		},
-		"prune": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		slashLast: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			var str = "Move yourself to end of boost list."
+			var err = boost.SkipBooster(s, i.GuildID, i.ChannelID, i.User.ID)
+			if err != nil {
+				str = err.Error()
+			}
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content:    str,
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
+		},
+
+		slashPrune: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var str = "Prune Booster"
 			var boosterIndex = 0
 
@@ -413,7 +302,7 @@ func main() {
 	})
 
 	_, err := s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
-		Name:        "contract",
+		Name:        slashContract,
 		Description: "Contract Boosting Elections",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
@@ -440,7 +329,7 @@ func main() {
 		fmt.Println(err)
 	}
 	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
-		Name:        "start",
+		Name:        slashStart,
 		Description: "Start Contract Boost",
 		Options:     []*discordgo.ApplicationCommandOption{},
 	})
@@ -449,8 +338,8 @@ func main() {
 	}
 
 	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
-		Name:        "next",
-		Description: "Move to next Booster",
+		Name:        slashBoost,
+		Description: "Spending tokens to boost!",
 		Options:     []*discordgo.ApplicationCommandOption{},
 	})
 	if err != nil {
@@ -458,8 +347,8 @@ func main() {
 	}
 
 	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
-		Name:        "skip",
-		Description: "Move to next Booster",
+		Name:        slashSkip,
+		Description: "Move current booster to last in boost order.",
 		Options:     []*discordgo.ApplicationCommandOption{},
 	})
 	if err != nil {
@@ -467,7 +356,16 @@ func main() {
 	}
 
 	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
-		Name:        "prune",
+		Name:        slashLast,
+		Description: "Move yourself to last in boost order.",
+		Options:     []*discordgo.ApplicationCommandOption{},
+	})
+	if err != nil {
+		log.Fatalf("Cannot create slash command: %v", err)
+	}
+
+	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
+		Name:        slashPrune,
 		Description: "Prune Booster",
 		Options: []*discordgo.ApplicationCommandOption{
 			{

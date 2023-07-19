@@ -139,7 +139,7 @@ func StartContract(contractID string, coopID string, coopSize int, boostOrder in
 		*/
 		//GlobalContracts[contractHash] = append(GlobalContracts[contractHash], loc)
 	}
-	new_contract = false
+	//new_contract = false
 
 	if new_contract {
 		// Create a bunch of test data
@@ -519,7 +519,7 @@ func NextBooster(s *discordgo.Session, guildID string, channelID string) error {
 	return nil
 }
 
-func SkipBooster(s *discordgo.Session, guildID string, channelID string) error {
+func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
 		return errors.New("unable to locate a contract")
@@ -529,16 +529,36 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string) error {
 		return errors.New("contract not started")
 	}
 
-	contract.Boosters[contract.order[contract.boostPosition]].boostState = 0
-	var skipped = contract.order[contract.boostPosition]
-	contract.order = RemoveIndex(contract.order, contract.boostPosition)
-	contract.order = append(contract.order, skipped)
+	var selectedUser = contract.boostPosition
 
-	if contract.boostPosition == contract.coopSize || contract.boostPosition == len(contract.Boosters) {
-		contract.boostState = 2 // Finished
+	if userID == "" {
+		for i := range contract.order {
+			if contract.order[i] == userID {
+				selectedUser = i
+				if contract.Boosters[contract.order[i]].boostState == 2 {
+					return nil
+				}
+				break
+			}
+		}
+	}
+
+	if selectedUser == contract.boostPosition {
+		contract.Boosters[contract.order[contract.boostPosition]].boostState = 0
+		var skipped = contract.order[contract.boostPosition]
+		contract.order = RemoveIndex(contract.order, contract.boostPosition)
+		contract.order = append(contract.order, skipped)
+
+		if contract.boostPosition == contract.coopSize || contract.boostPosition == len(contract.Boosters) {
+			contract.boostState = 2 // Finished
+		} else {
+			contract.Boosters[contract.order[contract.boostPosition]].boostState = 1
+			contract.Boosters[contract.order[contract.boostPosition]].startTime = time.Now()
+		}
 	} else {
-		contract.Boosters[contract.order[contract.boostPosition]].boostState = 1
-		contract.Boosters[contract.order[contract.boostPosition]].startTime = time.Now()
+		var skipped = contract.order[selectedUser]
+		contract.order = RemoveIndex(contract.order, selectedUser)
+		contract.order = append(contract.order, skipped)
 	}
 
 	// Start boosting contract
