@@ -94,6 +94,7 @@ var (
 					Flags:      discordgo.MessageFlagsEphemeral,
 					Components: []discordgo.MessageComponent{}},
 			})
+			s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
 
 		},
 	}
@@ -184,11 +185,13 @@ var (
 			if err != nil {
 				str = err.Error()
 			}
+			fmt.Print(str)
+
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content:    str,
-					Flags:      discordgo.MessageFlagsSuppressEmbeds,
+					Flags:      discordgo.MessageFlagsEphemeral,
 					Components: []discordgo.MessageComponent{}},
 			})
 
@@ -198,7 +201,7 @@ var (
 			var str = "Boosting!!"
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content:    str,
 					Flags:      discordgo.MessageFlagsSuppressEmbeds,
@@ -211,7 +214,7 @@ var (
 			}
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseUpdateMessage,
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content:    str,
 					Flags:      discordgo.MessageFlagsEphemeral,
@@ -233,6 +236,7 @@ var (
 					Flags:      discordgo.MessageFlagsEphemeral,
 					Components: []discordgo.MessageComponent{}},
 			})
+
 		},
 		slashLast: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var str = "Move yourself to end of boost list."
@@ -248,6 +252,7 @@ var (
 					Flags:      discordgo.MessageFlagsEphemeral,
 					Components: []discordgo.MessageComponent{}},
 			})
+
 		},
 
 		slashPrune: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -276,6 +281,7 @@ var (
 					Flags:      discordgo.MessageFlagsEphemeral,
 					Components: []discordgo.MessageComponent{}},
 			})
+
 		},
 	}
 )
