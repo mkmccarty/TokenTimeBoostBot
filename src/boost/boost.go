@@ -476,7 +476,8 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	}
 
 	// Check Voting for Randomized order
-	if (contract.boostVoting * 2) > len(contract.Boosters) {
+	// Supermajority 2/3
+	if contract.boostVoting > ((len(contract.Boosters) * 2) / 3) {
 		contract.boostOrder = 2
 	}
 	reorderBoosters(contract)
