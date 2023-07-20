@@ -33,7 +33,7 @@ type Booster struct {
 type LocationData struct {
 	guildID    string
 	channelID  string // Contract Discord Channel
-	messageID  string // Message ID for the Last Boost Order message
+	listMsgID  string // Message ID for the Last Boost Order message
 	reactionID string // Message ID for the reaction Order String
 }
 type Contract struct {
@@ -74,7 +74,7 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) stri
 	for key, element := range Contracts {
 		for i, el := range element.location {
 			if el.guildID == guildID && el.channelID == channelID {
-				s.ChannelMessageDelete(el.channelID, el.messageID)
+				s.ChannelMessageDelete(el.channelID, el.listMsgID)
 				s.ChannelMessageDelete(el.channelID, el.reactionID)
 				element.location = RemoveLocIndex(element.location, i)
 				coop = element.contractHash
@@ -101,7 +101,7 @@ func CreateContract(contractID string, coopID string, coopSize int, boostOrder i
 		loc := new(LocationData)
 		loc.guildID = guildID
 		loc.channelID = channelID
-		loc.messageID = ""
+		loc.listMsgID = ""
 		loc.reactionID = ""
 		contract.location = append(contract.location, loc)
 		contract.contractHash = contractHash
@@ -170,7 +170,7 @@ func CreateContract(contractID string, coopID string, coopSize int, boostOrder i
 func SetMessageID(contract *Contract, channelID string, messageID string) {
 	for _, element := range contract.location {
 		if element.channelID == channelID {
-			element.messageID = messageID
+			element.listMsgID = messageID
 		}
 	}
 }
@@ -236,7 +236,7 @@ func FindContractByMessageID(channelID string, messageID string) (*Contract, int
 	// Given a
 	for _, c := range Contracts {
 		for i := range c.location {
-			if c.location[i].channelID == channelID && c.location[i].messageID == messageID {
+			if c.location[i].channelID == channelID && c.location[i].listMsgID == messageID {
 				return c, i
 			}
 		}
@@ -331,11 +331,11 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		//s.ChannelMessageDelete(r.ChannelID, contract.messageID)
 		for i := range contract.location {
 
-			msg, err := s.ChannelMessageEdit(contract.location[i].channelID, contract.location[i].messageID, DrawBoostList(s, contract))
+			msg, err := s.ChannelMessageEdit(contract.location[i].channelID, contract.location[i].listMsgID, DrawBoostList(s, contract))
 			if err != nil {
 				panic(err)
 			}
-			contract.location[i].messageID = msg.ID
+			contract.location[i].listMsgID = msg.ID
 		}
 
 	}
@@ -393,12 +393,12 @@ func RemoveContractBooster(s *discordgo.Session, guildID string, channelID strin
 	}
 
 	// Remove the Boost List and then redisplay it
-	msg, err := s.ChannelMessageEdit(contract.location[0].channelID, contract.location[0].messageID, DrawBoostList(s, contract))
+	msg, err := s.ChannelMessageEdit(contract.location[0].channelID, contract.location[0].listMsgID, DrawBoostList(s, contract))
 	if err != nil {
 		return err
 	}
 
-	contract.location[0].messageID = msg.ID
+	contract.location[0].listMsgID = msg.ID
 	return nil
 }
 
@@ -440,11 +440,11 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 		}
 		contract.registeredNum -= 1
 		// Remove the Boost List and then redisplay it
-		msg, err := s.ChannelMessageEdit(r.ChannelID, contract.location[loc].messageID, DrawBoostList(s, contract))
+		msg, err := s.ChannelMessageEdit(r.ChannelID, contract.location[loc].listMsgID, DrawBoostList(s, contract))
 		if err != nil {
 			panic(err)
 		}
-		contract.location[loc].messageID = msg.ID
+		contract.location[loc].listMsgID = msg.ID
 
 	}
 }
@@ -498,7 +498,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract) {
 		var err error
 
 		if contract.boostState == 0 {
-			msg, err = s.ChannelMessageEdit(contract.location[i].channelID, contract.location[i].messageID, DrawBoostList(s, contract))
+			msg, err = s.ChannelMessageEdit(contract.location[i].channelID, contract.location[i].listMsgID, DrawBoostList(s, contract))
 			if err != nil {
 				fmt.Println("Unable to send this message")
 			}
@@ -506,9 +506,9 @@ func sendNextNotification(s *discordgo.Session, contract *Contract) {
 			if contract.coopSize == len(contract.Boosters) {
 				s.ChannelMessageUnpin(contract.location[i].channelID, contract.location[i].reactionID)
 			}
-			s.ChannelMessageDelete(contract.location[i].channelID, contract.location[i].messageID)
+			s.ChannelMessageDelete(contract.location[i].channelID, contract.location[i].listMsgID)
 			msg, err = s.ChannelMessageSend(contract.location[i].channelID, DrawBoostList(s, contract))
-			contract.location[i].messageID = msg.ID
+			contract.location[i].listMsgID = msg.ID
 			//s.ChannelMessagePin(contract.location[i].channelID, contract.location[i].messageID)
 		}
 		s.MessageReactionAdd(contract.location[i].channelID, msg.ID, "🚀") // Booster
@@ -525,7 +525,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract) {
 			duration := t1.Sub(t2)
 			str = fmt.Sprintf("Contract Boosting Complete in %s ", duration.Round(time.Second))
 		}
-		contract.location[i].messageID = msg.ID
+		contract.location[i].listMsgID = msg.ID
 		s.ChannelMessageSend(contract.location[i].channelID, str)
 	}
 	if contract.boostState == 2 {
@@ -651,7 +651,7 @@ func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
 
 func FinishContract(s *discordgo.Session, contract *Contract) error {
 	// Don't delete the final boost message
-	contract.location[0].messageID = ""
+	contract.location[0].listMsgID = ""
 	DeleteContract(s, contract.location[0].guildID, contract.location[0].channelID)
 	return nil
 }
