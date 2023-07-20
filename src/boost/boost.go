@@ -607,7 +607,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	contract.Boosters[contract.order[contract.boostPosition]].boostState = 1
 	contract.Boosters[contract.order[contract.boostPosition]].startTime = time.Now()
 
-	go sendNextNotification(s, contract, true)
+	sendNextNotification(s, contract, true)
 	return nil
 }
 
@@ -685,7 +685,7 @@ func BoostCommand(s *discordgo.Session, guildID string, channelID string, userID
 				contract.Boosters[contract.order[i]].boostState = 2
 				contract.Boosters[contract.order[i]].startTime = contract.Boosters[contract.order[contract.boostPosition]].startTime
 				contract.Boosters[contract.order[i]].endTime = time.Now()
-				go sendNextNotification(s, contract, false)
+				sendNextNotification(s, contract, false)
 				return nil
 			}
 		}
@@ -772,7 +772,7 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 		contract.order = append(contract.order, skipped)
 	}
 
-	go sendNextNotification(s, contract, true)
+	sendNextNotification(s, contract, true)
 
 	return nil
 }
