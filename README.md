@@ -62,19 +62,13 @@ the contract within the game.
 
 /join farmer-mention
 
-Add a farmer to the contract
+Add a farmer to the contract within that channel. The players are added
+as Farmers without 🔔 DM notifications.
 
 ### Swap Current and Next Token Player ###
 
 /swap 
 command to swap yourself when currently boosting to next
-
-### Sweep Farmers to Contract ###
-
-/sweep command to pull in uses in channel into contract
-Best when used in a dedicated contract thread.
-Add all Users in that thread to a contract. The players are added
-as Farmers without the 🔔 DM notifications.
 
 ### Priority Request ###
 
