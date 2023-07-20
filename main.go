@@ -242,6 +242,7 @@ var (
 			})
 
 		},
+
 		slashSkip: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var str = "Skip to Next Booster"
 			var err = boost.SkipBooster(s, i.GuildID, i.ChannelID, "")

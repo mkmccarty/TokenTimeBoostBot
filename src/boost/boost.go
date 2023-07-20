@@ -241,7 +241,12 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		}
 	}
 	if contract.boostState == 1 {
-		outputStr += "```React with 🚀 when you spend tokens to boost. Multiple 🚀 votes by others in the contract will also indicate a boost. ```"
+		outputStr += "```"
+		outputStr += "React with 🚀 when you spend tokens to boost. Multiple 🚀 votes by others in the contract will also indicate a boost.\n"
+		if (contract.boostPosition + 1) < len(contract.order) {
+			outputStr += "React with 🔃 to exchange position with the next booster.\nReact with ⤵️ to move to last."
+		}
+		outputStr += "```"
 	}
 	return outputStr
 }
@@ -379,18 +384,34 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		}
 	}
 
-	// If Rocket reaction on Boost List, only that boosting user can apply a reaction
-	if r.Emoji.Name == "🚀" && contract.boostState == 1 || r.Emoji.Name == "🪨" && r.UserID == contract.userID {
-		var votingElection = (msg.Reactions[0].Count - 1) >= 2
-		if r.Emoji.Name == "🪨" && r.UserID == contract.userID {
-			votingElection = true
-		}
-		//msg.Reactions[0],count
+	if contract.boostState != 0 && contract.boostPosition < len(contract.order) {
 
-		if r.UserID == contract.order[contract.boostPosition] || votingElection {
-			Boosting(s, r.GuildID, r.ChannelID)
+		// If Rocket reaction on Boost List, only that boosting user can apply a reaction
+		if r.Emoji.Name == "🚀" && contract.boostState == 1 || r.Emoji.Name == "🪨" && r.UserID == contract.userID {
+			var votingElection = (msg.Reactions[0].Count - 1) >= 2
+			if r.Emoji.Name == "🪨" && r.UserID == contract.userID {
+				votingElection = true
+			}
+			//msg.Reactions[0],count
+
+			if r.UserID == contract.order[contract.boostPosition] || votingElection {
+				Boosting(s, r.GuildID, r.ChannelID)
+			}
+			return
 		}
-		return
+
+		// Reaction to change places
+		if (contract.boostPosition + 1) < len(contract.order) {
+			if r.Emoji.Name == "🔃" && r.UserID == contract.order[contract.boostPosition] {
+				SkipBooster(s, r.GuildID, r.ChannelID, "")
+				return
+			}
+			// Reaction to jump to end
+			if r.Emoji.Name == "⤵️" && r.UserID == contract.order[contract.boostPosition] {
+				SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
+				return
+			}
+		}
 	}
 
 	// Remove extra added emoji
@@ -631,13 +652,18 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			contract.location[i].listMsgID = msg.ID
 			//s.ChannelMessagePin(contract.location[i].channelID, contract.location[i].messageID)
 		}
-		s.MessageReactionAdd(contract.location[i].channelID, msg.ID, "🚀") // Booster
 		if err == nil {
 			fmt.Println("Unable to resend message.")
 		}
 		var str string = ""
 
 		if contract.boostState != 2 {
+			s.MessageReactionAdd(contract.location[i].channelID, msg.ID, "🚀") // Booster
+			if (contract.boostPosition + 1) < len(contract.order) {
+				s.MessageReactionAdd(contract.location[i].channelID, msg.ID, "🔃")  // Swap
+				s.MessageReactionAdd(contract.location[i].channelID, msg.ID, "⤵️") // Last
+			}
+
 			if pingUsers {
 				str = fmt.Sprintf("Send Tokens to %s", contract.Boosters[contract.order[contract.boostPosition]].mention)
 			}
@@ -730,6 +756,7 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 }
 
 func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID string) error {
+	var boosterSwap = false
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
 		return errors.New("unable to locate a contract")
@@ -751,13 +778,22 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 				break
 			}
 		}
+	} else {
+		boosterSwap = true
 	}
 
 	if selectedUser == contract.boostPosition {
 		contract.Boosters[contract.order[contract.boostPosition]].boostState = 0
 		var skipped = contract.order[contract.boostPosition]
-		contract.order = RemoveIndex(contract.order, contract.boostPosition)
-		contract.order = append(contract.order, skipped)
+
+		if boosterSwap {
+			contract.order[contract.boostPosition] = contract.order[contract.boostPosition+1]
+			contract.order[contract.boostPosition+1] = skipped
+
+		} else {
+			contract.order = RemoveIndex(contract.order, contract.boostPosition)
+			contract.order = append(contract.order, skipped)
+		}
 
 		if contract.boostPosition == contract.coopSize || contract.boostPosition == len(contract.Boosters) {
 			contract.boostState = 2 // Finished
