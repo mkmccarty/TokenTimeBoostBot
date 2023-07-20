@@ -382,6 +382,9 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 	// If Rocket reaction on Boost List, only that boosting user can apply a reaction
 	if r.Emoji.Name == "🚀" && contract.boostState == 1 || r.Emoji.Name == "🪨" && r.UserID == contract.userID {
 		var votingElection = (msg.Reactions[0].Count - 1) >= 2
+		if r.Emoji.Name == "🪨" && r.UserID == contract.userID {
+			votingElection = 1
+		}
 		//msg.Reactions[0],count
 
 		if r.UserID == contract.order[contract.boostPosition] || votingElection {
