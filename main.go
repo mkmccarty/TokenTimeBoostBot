@@ -183,14 +183,12 @@ var (
 			var err = boost.StartContractBoosting(s, i.GuildID, i.ChannelID)
 			if err != nil {
 				str = err.Error()
-			} else {
-				s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🚀") // Indicate Boosted
 			}
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.MessageFlagsSuppressEmbeds,
+				Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content:    str,
-					Flags:      discordgo.MessageFlagsEphemeral,
+					Flags:      discordgo.MessageFlagsSuppressEmbeds,
 					Components: []discordgo.MessageComponent{}},
 			})
 
@@ -210,8 +208,6 @@ var (
 			var err = boost.NextBooster(s, i.GuildID, i.ChannelID)
 			if err != nil {
 				str = err.Error()
-			} else {
-				s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🚀") // Indicate Boosted
 			}
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
