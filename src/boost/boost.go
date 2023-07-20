@@ -488,11 +488,11 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	contract.Boosters[contract.order[contract.boostPosition]].boostState = 1
 	contract.Boosters[contract.order[contract.boostPosition]].startTime = time.Now()
 
-	sendNextNotification(s, contract)
+	go sendNextNotification(s, contract, true)
 	return nil
 }
 
-func sendNextNotification(s *discordgo.Session, contract *Contract) {
+func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bool) {
 	// Start boosting contract
 	for i := range contract.location {
 		var msg *discordgo.Message
@@ -519,7 +519,9 @@ func sendNextNotification(s *discordgo.Session, contract *Contract) {
 		var str string = ""
 
 		if contract.boostState != 2 {
-			str = fmt.Sprintf("Send Tokens to %s", contract.Boosters[contract.order[contract.boostPosition]].mention)
+			if pingUsers {
+				str = fmt.Sprintf("Send Tokens to %s", contract.Boosters[contract.order[contract.boostPosition]].mention)
+			}
 		} else {
 			t1 := contract.endTime
 			t2 := contract.startTime
@@ -532,7 +534,9 @@ func sendNextNotification(s *discordgo.Session, contract *Contract) {
 	if contract.boostState == 2 {
 		FinishContract(s, contract)
 	} else {
-		notifyBellBoosters(s, contract)
+		if pingUsers {
+			notifyBellBoosters(s, contract)
+		}
 	}
 }
 
@@ -549,17 +553,30 @@ func BoostCommand(s *discordgo.Session, guildID string, channelID string, userID
 	}
 
 	if userID == contract.order[contract.boostPosition] {
+		// User is using /boost command instead of reaction
 		NextBooster(s, guildID, channelID)
 	} else {
-		// User should be marked as boosted
-		// Rewrite current boost message showing them as boosted
-		fmt.Print("TODO")
-
+		for i := range contract.order {
+			if contract.order[i] == userID {
+				if contract.Boosters[contract.order[i]].boostState == 2 {
+					return errors.New("you have already boosted")
+				}
+				// Mark user as complete
+				// Taking start time from current booster start time
+				contract.Boosters[contract.order[i]].boostState = 2
+				contract.Boosters[contract.order[i]].startTime = contract.Boosters[contract.order[contract.boostPosition]].startTime
+				contract.Boosters[contract.order[i]].endTime = time.Now()
+				go sendNextNotification(s, contract, false)
+				return nil
+			}
+		}
+		return nil
 	}
 
 	return nil
 }
 
+// Player has boosted
 func NextBooster(s *discordgo.Session, guildID string, channelID string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
@@ -572,7 +589,10 @@ func NextBooster(s *discordgo.Session, guildID string, channelID string) error {
 	contract.Boosters[contract.order[contract.boostPosition]].boostState = 2
 	contract.Boosters[contract.order[contract.boostPosition]].endTime = time.Now()
 
-	contract.boostPosition += 1
+	// Advance past any that have already boosted
+	for contract.Boosters[contract.order[contract.boostPosition]].boostState == 2 {
+		contract.boostPosition += 1
+	}
 
 	if contract.boostPosition == contract.coopSize || contract.boostPosition == len(contract.Boosters) {
 		contract.boostState = 2 // Finished
@@ -582,7 +602,7 @@ func NextBooster(s *discordgo.Session, guildID string, channelID string) error {
 		contract.Boosters[contract.order[contract.boostPosition]].startTime = time.Now()
 	}
 
-	sendNextNotification(s, contract)
+	go sendNextNotification(s, contract, true)
 
 	return nil
 }
@@ -630,7 +650,7 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 		contract.order = append(contract.order, skipped)
 	}
 
-	sendNextNotification(s, contract)
+	go sendNextNotification(s, contract, true)
 
 	return nil
 }

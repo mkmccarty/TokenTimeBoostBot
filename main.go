@@ -199,20 +199,10 @@ var (
 		slashBoost: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 			var str = "Boosting!!"
-
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content:    str,
-					Flags:      discordgo.MessageFlagsSuppressEmbeds,
-					Components: []discordgo.MessageComponent{}},
-			})
-
 			var err = boost.BoostCommand(s, i.GuildID, i.ChannelID, i.Member.User.ID)
 			if err != nil {
 				str = err.Error()
 			}
-
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
