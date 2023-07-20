@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"regexp"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -269,6 +270,100 @@ func FindContractByReactionID(channelID string, reactionID string) (*Contract, i
 	return nil, 0
 }
 
+func AddContractMember(s *discordgo.Session, guildID string, channelID string, mention string) error {
+	var contract = FindContract(guildID, channelID)
+	if contract == nil {
+		return errors.New("unable to locate a contract")
+	}
+
+	if contract.coopSize == len(contract.order) {
+		return errors.New("contract is full")
+	}
+
+	re := regexp.MustCompile(`[\\<>@#&!]`)
+	var userID = re.ReplaceAllString(mention, "")
+
+	for i := range contract.order {
+		if userID == contract.order[i] {
+			return errors.New("user alread in contract")
+		}
+	}
+
+	var u, err = s.User(userID)
+	if err != nil {
+		return errors.New("user not found")
+	}
+	if u.Bot {
+		return errors.New("cannot add a bot")
+	}
+
+	var farmer, fe = AddFarmerToContract(s, contract, guildID, channelID, u.ID)
+	if fe == nil {
+		// Need to rest the farmer reaction count when added this way
+		farmer.reactions = 0
+	}
+
+	return nil
+}
+
+func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string) (*EggFarmer, error) {
+	var err error
+	var farmer = contract.EggFarmers[userID]
+	if farmer == nil {
+		// New Farmer
+		farmer = new(EggFarmer)
+		farmer.register = time.Now()
+		farmer.ping = false
+		farmer.reactions = 0
+		farmer.userID = userID
+		farmer.guildID = guildID
+		var ch, _ = s.Channel(channelID)
+		farmer.channelName = ch.Name
+
+		contract.EggFarmers[userID] = farmer
+	}
+	farmer.reactions += 1
+	var b = contract.Boosters[userID]
+	if b == nil {
+		// New Farmer - add them to boost list
+		var b = new(Booster)
+		b.userID = farmer.userID
+		b.priority = false
+		b.later = false
+		var user, _ = s.User(userID)
+		if err == nil {
+			b.name = user.Username
+			b.boostState = 0
+			b.mention = user.Mention()
+		}
+		var member, err = s.GuildMember(guildID, userID)
+		if err == nil && member.Nick != "" {
+			b.name = member.Nick
+			b.mention = member.Mention()
+		}
+		contract.Boosters[farmer.userID] = b
+		contract.order = append(contract.order, farmer.userID)
+		contract.registeredNum += 1
+
+		// Remove the Boost List and then redisplay it
+		//s.ChannelMessageDelete(r.ChannelID, contract.messageID)
+		for i := range contract.location {
+
+			msg, err := s.ChannelMessageEdit(contract.location[i].channelID, contract.location[i].listMsgID, DrawBoostList(s, contract))
+			if err != nil {
+				panic(err)
+			}
+			contract.location[i].listMsgID = msg.ID
+		}
+
+	}
+	if contract.registeredNum == contract.coopSize {
+		StartContractBoosting(s, contract.location[0].guildID, contract.location[0].channelID)
+	}
+
+	return farmer, nil
+}
+
 func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 	// Find the message
 	var msg, err = s.ChannelMessage(r.ChannelID, r.MessageID)
@@ -306,68 +401,73 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		return
 	}
 
-	var farmer = contract.EggFarmers[r.UserID]
-	if farmer == nil {
-		// New Farmer
-		farmer = new(EggFarmer)
-		farmer.register = time.Now()
-		farmer.ping = false
-		farmer.reactions = 0
-		farmer.userID = r.UserID
-		farmer.guildID = r.GuildID
-		var ch, _ = s.Channel(r.ChannelID)
-		farmer.channelName = ch.Name
-
-		contract.EggFarmers[r.UserID] = farmer
-	}
-	farmer.reactions += 1
-	if farmer.reactions == 1 {
-		// New Farmer - add them to boost list
-		var b = new(Booster)
-		b.userID = farmer.userID
-		b.priority = false
-		b.later = false
-		var user, _ = s.User(r.UserID)
-		if err == nil {
-			b.name = user.Username
-			b.boostState = 0
-			b.mention = user.Mention()
-		}
-		var member, err = s.GuildMember(r.GuildID, r.UserID)
-		if err == nil && member.Nick != "" {
-			b.name = member.Nick
-			b.mention = member.Mention()
-		}
-		contract.Boosters[farmer.userID] = b
-		contract.order = append(contract.order, farmer.userID)
-		contract.registeredNum += 1
-
-		// Remove the Boost List and then redisplay it
-		//s.ChannelMessageDelete(r.ChannelID, contract.messageID)
-		for i := range contract.location {
-
-			msg, err := s.ChannelMessageEdit(contract.location[i].channelID, contract.location[i].listMsgID, DrawBoostList(s, contract))
+	var farmer, e = AddFarmerToContract(s, contract, r.GuildID, r.ChannelID, r.UserID)
+	if e == nil {
+		if r.Emoji.Name == "🔔" {
+			farmer.ping = true
+			u, _ := s.UserChannelCreate(farmer.userID)
+			var str = fmt.Sprintf("Boost notifications will be sent for %s.", contract.contractHash)
+			_, err := s.ChannelMessageSend(u.ID, str)
 			if err != nil {
 				panic(err)
 			}
-			contract.location[i].listMsgID = msg.ID
-		}
-
-	}
-
-	if r.Emoji.Name == "🔔" {
-		farmer.ping = true
-		u, _ := s.UserChannelCreate(farmer.userID)
-		var str = fmt.Sprintf("Boost notifications will be sent for %s.", contract.contractHash)
-		_, err := s.ChannelMessageSend(u.ID, str)
-		if err != nil {
-			panic(err)
 		}
 	}
+	/*
+		var farmer = contract.EggFarmers[r.UserID]
+		if farmer == nil {
+			// New Farmer
+			farmer = new(EggFarmer)
+			farmer.register = time.Now()
+			farmer.ping = false
+			farmer.reactions = 0
+			farmer.userID = r.UserID
+			farmer.guildID = r.GuildID
+			var ch, _ = s.Channel(r.ChannelID)
+			farmer.channelName = ch.Name
 
-	if contract.registeredNum == contract.coopSize {
-		StartContractBoosting(s, contract.location[0].guildID, contract.location[0].channelID)
-	}
+			contract.EggFarmers[r.UserID] = farmer
+		}
+		farmer.reactions += 1
+		if farmer.reactions == 1 {
+			// New Farmer - add them to boost list
+			var b = new(Booster)
+			b.userID = farmer.userID
+			b.priority = false
+			b.later = false
+			var user, _ = s.User(r.UserID)
+			if err == nil {
+				b.name = user.Username
+				b.boostState = 0
+				b.mention = user.Mention()
+			}
+			var member, err = s.GuildMember(r.GuildID, r.UserID)
+			if err == nil && member.Nick != "" {
+				b.name = member.Nick
+				b.mention = member.Mention()
+			}
+			contract.Boosters[farmer.userID] = b
+			contract.order = append(contract.order, farmer.userID)
+			contract.registeredNum += 1
+
+			// Remove the Boost List and then redisplay it
+			//s.ChannelMessageDelete(r.ChannelID, contract.messageID)
+			for i := range contract.location {
+
+				msg, err := s.ChannelMessageEdit(contract.location[i].channelID, contract.location[i].listMsgID, DrawBoostList(s, contract))
+				if err != nil {
+					panic(err)
+				}
+				contract.location[i].listMsgID = msg.ID
+			}
+
+		}
+	*/
+	/*
+		if contract.registeredNum == contract.coopSize {
+			StartContractBoosting(s, contract.location[0].guildID, contract.location[0].channelID)
+		}
+	*/
 }
 
 func RemoveIndex(s []string, index int) []string {
@@ -439,6 +539,7 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 	if r.Emoji.Name != "🧑‍🌾" && r.Emoji.Name != "🔔" && r.Emoji.Name != "🎲" {
 		return
 	}
+
 	farmer.reactions -= 1
 
 	if r.Emoji.Name == "🔔" {

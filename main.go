@@ -21,6 +21,7 @@ const slashBoost string = "boost"
 const slashStart string = "start"
 const slashLast string = "last"
 const slashPrune string = "prune"
+const slashJoin string = "join"
 
 // Bot parameters to override .config.json parameters
 var (
@@ -98,7 +99,36 @@ var (
 
 		},
 	}
+
 	commandsHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+		slashJoin: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			var farmerName = ""
+			var str = "Joining Member"
+
+			// User interacting with bot, is this first time ?
+			options := i.ApplicationCommandData().Options
+			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+			for _, opt := range options {
+				optionMap[opt.Name] = opt
+			}
+
+			if opt, ok := optionMap["farmer"]; ok {
+				farmerName = opt.StringValue()
+			}
+
+			var err = boost.AddContractMember(s, i.GuildID, i.ChannelID, farmerName)
+			if err != nil {
+				str = err.Error()
+			}
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content:    str,
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
+
+		},
 		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var contractID = i.GuildID
 			var coopID = i.GuildID // Default to the Guild ID
@@ -305,7 +335,6 @@ func main() {
 			boost.ReactionRemove(s, m.MessageReaction)
 		}
 	})
-
 	_, err := s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
 		Name:        slashContract,
 		Description: "Contract Boosting Elections",
@@ -333,6 +362,22 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
+	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
+		Name:        slashJoin,
+		Description: "Contract Boosting Elections",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "farmer",
+				Description: "User Mention to add to existing contract",
+				Required:    true,
+			},
+		},
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+
 	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
 		Name:        slashStart,
 		Description: "Start Contract Boost",
