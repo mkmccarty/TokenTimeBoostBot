@@ -484,17 +484,19 @@ func sendNextNotification(s *discordgo.Session, contract *Contract) {
 		var msg *discordgo.Message
 		var err error
 
-		if contract.coopSize != len(contract.Boosters) {
+		if contract.boostState == 0 {
 			msg, err = s.ChannelMessageEdit(contract.location[i].channelID, contract.location[i].messageID, DrawBoostList(s, contract))
 			if err != nil {
 				fmt.Println("Unable to send this message")
 			}
 		} else {
-			s.ChannelMessageUnpin(contract.location[i].channelID, contract.location[i].reactionID)
+			if contract.coopSize == len(contract.Boosters) {
+				s.ChannelMessageUnpin(contract.location[i].channelID, contract.location[i].reactionID)
+			}
 			s.ChannelMessageDelete(contract.location[i].channelID, contract.location[i].messageID)
 			msg, err = s.ChannelMessageSend(contract.location[i].channelID, DrawBoostList(s, contract))
 			contract.location[i].messageID = msg.ID
-			s.ChannelMessagePin(contract.location[i].channelID, contract.location[i].messageID)
+			//s.ChannelMessagePin(contract.location[i].channelID, contract.location[i].messageID)
 		}
 		s.MessageReactionAdd(contract.location[i].channelID, msg.ID, "🚀") // Booster
 		if err == nil {
