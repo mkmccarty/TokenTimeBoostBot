@@ -130,7 +130,7 @@ var (
 			}
 			mutex.Lock()
 
-			contract, err := boost.CreateContract(contractID, coopID, coopSize, boostOrder, i.GuildID, i.ChannelID, i.Member.User.ID)
+			contract, err := boost.CreateContract(s, contractID, coopID, coopSize, boostOrder, i.GuildID, i.ChannelID, i.Member.User.ID)
 			if err != nil {
 				fmt.Print("Contract already exists")
 			}

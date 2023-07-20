@@ -26,15 +26,19 @@ type Booster struct {
 	name       string
 	boostState int       // Indicates if current booster
 	mention    string    // String which mentions user
+	priority   bool      // Requested Early Boost
+	later      bool      // Requested to Boost Later
 	startTime  time.Time // Time Farmer started boost turn
 	endTime    time.Time // Time Farmer ended boost turn
 }
 
 type LocationData struct {
-	guildID    string
-	channelID  string // Contract Discord Channel
-	listMsgID  string // Message ID for the Last Boost Order message
-	reactionID string // Message ID for the reaction Order String
+	guildID     string
+	guildName   string
+	channelID   string // Contract Discord Channel
+	channelName string
+	listMsgID   string // Message ID for the Last Boost Order message
+	reactionID  string // Message ID for the reaction Order String
 }
 type Contract struct {
 	contractHash  string // ContractID-CoopID
@@ -89,7 +93,7 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) stri
 }
 
 // interface
-func CreateContract(contractID string, coopID string, coopSize int, boostOrder int, guildID string, channelID string, userID string) (*Contract, error) {
+func CreateContract(s *discordgo.Session, contractID string, coopID string, coopSize int, boostOrder int, guildID string, channelID string, userID string) (*Contract, error) {
 	var new_contract = false
 	var contractHash = fmt.Sprintf("%s/%s", contractID, coopID)
 
@@ -101,6 +105,15 @@ func CreateContract(contractID string, coopID string, coopSize int, boostOrder i
 		loc := new(LocationData)
 		loc.guildID = guildID
 		loc.channelID = channelID
+		var g, gerr = s.Guild(guildID)
+		if gerr == nil {
+			loc.guildName = g.Name
+
+		}
+		var c, cerr = s.Channel(channelID)
+		if cerr == nil {
+			loc.channelName = c.Name
+		}
 		loc.listMsgID = ""
 		loc.reactionID = ""
 		contract.location = append(contract.location, loc)
@@ -272,12 +285,12 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 	}
 
 	// If Rocket reaction on Boost List, only that boosting user can apply a reaction
-	if r.Emoji.Name == "🚀" && contract.boostState == 1 {
+	if r.Emoji.Name == "🚀" && contract.boostState == 1 || r.Emoji.Name == "🪨" && r.UserID == contract.userID {
 		var votingElection = (msg.Reactions[0].Count - 1) >= 2
 		//msg.Reactions[0],count
 
 		if r.UserID == contract.order[contract.boostPosition] || votingElection {
-			NextBooster(s, r.GuildID, r.ChannelID)
+			Boosting(s, r.GuildID, r.ChannelID)
 		}
 		return
 	}
@@ -312,6 +325,8 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		// New Farmer - add them to boost list
 		var b = new(Booster)
 		b.userID = farmer.userID
+		b.priority = false
+		b.later = false
 		var user, _ = s.User(r.UserID)
 		if err == nil {
 			b.name = user.Username
@@ -554,7 +569,7 @@ func BoostCommand(s *discordgo.Session, guildID string, channelID string, userID
 
 	if userID == contract.order[contract.boostPosition] {
 		// User is using /boost command instead of reaction
-		NextBooster(s, guildID, channelID)
+		Boosting(s, guildID, channelID)
 	} else {
 		for i := range contract.order {
 			if contract.order[i] == userID {
@@ -577,7 +592,7 @@ func BoostCommand(s *discordgo.Session, guildID string, channelID string, userID
 }
 
 // Player has boosted
-func NextBooster(s *discordgo.Session, guildID string, channelID string) error {
+func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
 		return errors.New("unable to locate a contract")
@@ -592,6 +607,9 @@ func NextBooster(s *discordgo.Session, guildID string, channelID string) error {
 	// Advance past any that have already boosted
 	for contract.Boosters[contract.order[contract.boostPosition]].boostState == 2 {
 		contract.boostPosition += 1
+		if contract.boostPosition == len(contract.order) {
+			break
+		}
 	}
 
 	if contract.boostPosition == contract.coopSize || contract.boostPosition == len(contract.Boosters) {
