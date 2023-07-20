@@ -383,7 +383,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 	if r.Emoji.Name == "🚀" && contract.boostState == 1 || r.Emoji.Name == "🪨" && r.UserID == contract.userID {
 		var votingElection = (msg.Reactions[0].Count - 1) >= 2
 		if r.Emoji.Name == "🪨" && r.UserID == contract.userID {
-			votingElection = 1
+			votingElection = true
 		}
 		//msg.Reactions[0],count
 
@@ -724,7 +724,7 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 		contract.Boosters[contract.order[contract.boostPosition]].startTime = time.Now()
 	}
 
-	go sendNextNotification(s, contract, true)
+	sendNextNotification(s, contract, true)
 
 	return nil
 }
