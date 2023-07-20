@@ -38,7 +38,7 @@ are boosting.
 /skip
 Move current booster to last in the Boost List
 
-## Move Farmer to Last ###
+### Move Farmer to Last ###
 
 /last
 Move yourself to last in the Boost List
