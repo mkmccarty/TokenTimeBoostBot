@@ -219,10 +219,16 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		}
 		i += 1
 	}
-	for ; i <= contract.coopSize; i++ {
-		outputStr += fmt.Sprintf("%s  open position\n", prefix)
+
+	// Only draw empty slots when contract is active
+	if contract.boostState != 2 {
+		for ; i <= contract.coopSize; i++ {
+			outputStr += fmt.Sprintf("%s  open position\n", prefix)
+		}
 	}
-	outputStr += "\n"
+	if contract.boostState == 1 {
+		outputStr += "```React with 🚀 when you spend tokens to boost. Multiple 🚀 votes by others in the contract will also indicate a boost. ```"
+	}
 	return outputStr
 }
 
@@ -252,7 +258,7 @@ func FindContractByReactionID(channelID string, reactionID string) (*Contract, i
 
 func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 	// Find the message
-	var _, err = s.ChannelMessage(r.ChannelID, r.MessageID)
+	var msg, err = s.ChannelMessage(r.ChannelID, r.MessageID)
 	if err != nil {
 		return
 	}
@@ -267,9 +273,13 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 
 	// If Rocket reaction on Boost List, only that boosting user can apply a reaction
 	if r.Emoji.Name == "🚀" && contract.boostState == 1 {
-		if r.UserID == contract.order[contract.boostPosition] {
+		var votingElection = (msg.Reactions[0].Count - 1) >= 2
+		//msg.Reactions[0],count
+
+		if r.UserID == contract.order[contract.boostPosition] || votingElection {
 			NextBooster(s, r.GuildID, r.ChannelID)
 		}
+		return
 	}
 
 	// Remove extra added emoji
@@ -411,6 +421,9 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 		return
 	}
 
+	if r.Emoji.Name != "🧑‍🌾" && r.Emoji.Name != "🔔" && r.Emoji.Name != "🎲" {
+		return
+	}
 	farmer.reactions -= 1
 
 	if r.Emoji.Name == "🔔" {
