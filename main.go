@@ -166,14 +166,14 @@ var (
 			}
 			boost.SetMessageID(contract, i.ChannelID, msg.ID)
 
-			reactionMsg, err := s.ChannelMessageSend(i.ChannelID, "`React with 🚀 or 🔔 to boost. 🔔 will DM Updates, 🎲 is vote for random boost order.`")
+			reactionMsg, err := s.ChannelMessageSend(i.ChannelID, "`React with 🧑‍🌾 or 🔔 to signup. 🔔 will DM Updates, 🎲 is vote for random boost order, requires 2/3 supermajoriy to pass.`")
 			if err != nil {
 				panic(err)
 			}
 			boost.SetReactionID(contract, i.ChannelID, reactionMsg.ID)
-			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🚀") // Booster
-			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🔔") // Ping
-			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🎲") // Boost Order
+			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🧑‍🌾") // Booster
+			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🔔")   // Ping
+			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🎲")   // Boost Order
 
 			s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
 
@@ -183,10 +183,11 @@ var (
 			var err = boost.StartContractBoosting(s, i.GuildID, i.ChannelID)
 			if err != nil {
 				str = err.Error()
+			} else {
+				s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🚀") // Indicate Boosted
 			}
-
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Type: discordgo.MessageFlagsSuppressEmbeds,
 				Data: &discordgo.InteractionResponseData{
 					Content:    str,
 					Flags:      discordgo.MessageFlagsEphemeral,
@@ -202,13 +203,15 @@ var (
 				Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content:    str,
-					Flags:      discordgo.MessageFlagsEphemeral,
+					Flags:      discordgo.MessageFlagsSuppressEmbeds,
 					Components: []discordgo.MessageComponent{}},
 			})
 
 			var err = boost.NextBooster(s, i.GuildID, i.ChannelID)
 			if err != nil {
 				str = err.Error()
+			} else {
+				s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🚀") // Indicate Boosted
 			}
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

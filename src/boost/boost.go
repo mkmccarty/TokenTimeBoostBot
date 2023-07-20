@@ -263,7 +263,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 	}
 
 	// Remove extra added emoji
-	if r.Emoji.Name != "🚀" && r.Emoji.Name != "🔔" && r.Emoji.Name != "🎲" {
+	if r.Emoji.Name != "🧑‍🌾" && r.Emoji.Name != "🔔" && r.Emoji.Name != "🎲" {
 		s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
 		return
 	}
