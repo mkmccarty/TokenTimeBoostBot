@@ -6,7 +6,8 @@ Boost Order Discord Bot
 
 ### Create Contract Coop ###
 
-Command: /contract contract-id coop-id coop-size
+/contract contract-id coop-id coop-size
+
 This will display a Sign-up List and a message with reactions for
 players to sign up.
 When the Sign-up List reaches the coop-size it will automatically
@@ -19,7 +20,8 @@ The vote needs a 2/3 super-majority before electing the random order.
 
 ### Start Contract ###
 
-Command:/start
+/start
+
 This will change the Sign-up List to the Boost List. If there is a
 order preference it will apply before the Boost List is displayed.
 The first farmer on the list is presented with a boost token indicating
@@ -30,33 +32,42 @@ Farmers that reacted with a 🔔 will receive a DM about this.
 ### Boost ###
 
 /boost
+
 The Farmer who's turn it is to receive tokens uses this to indicate that they
 are boosting.  
+Contract Farmers may vote to indicate an AFK player has enough tokens to boost by
+selecting the 🚀 icon.  Two votes will elect a successful boost.
 
 ### Skip Current Booster ###
 
 /skip
+
 Move current booster to last in the Boost List
 
 ### Move Farmer to Last ###
 
 /last
+
 Move yourself to last in the Boost List
 
 ### Prune Farmer ###
 
-Command: /prune
+/prune
+
 Remove a Farmer from the Sign-up or Boost List.
 This is useful if a Farmer reacted to the Sign-up message and didn't join
 the contract within the game.
 
 ### Join Farmer to Contract ###
 
-/join
+/join farmer-mention
+
+Add a farmer to the contract
 
 ### Swap Current and Next Token Player ###
 
-/swap command to swap yourself when currently boosting to next
+/swap 
+command to swap yourself when currently boosting to next
 
 ### Sweep Farmers to Contract ###
 
