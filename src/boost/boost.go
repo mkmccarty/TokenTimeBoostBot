@@ -259,7 +259,17 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 
 	var contract, _ = FindContractByReactionID(r.ChannelID, r.MessageID)
 	if contract == nil {
-		return
+		contract, _ = FindContractByMessageID(r.ChannelID, r.MessageID)
+		if contract == nil {
+			return
+		}
+	}
+
+	// If Rocket reaction on Boost List, only that boosting user can apply a reaction
+	if r.Emoji.Name == "🚀" && contract.boostState == 1 {
+		if r.UserID == contract.order[contract.boostPosition] {
+			NextBooster(s, r.GuildID, r.ChannelID)
+		}
 	}
 
 	// Remove extra added emoji
@@ -377,6 +387,7 @@ func RemoveContractBooster(s *discordgo.Session, guildID string, channelID strin
 	if err != nil {
 		return err
 	}
+
 	contract.location[0].messageID = msg.ID
 	return nil
 }
@@ -475,12 +486,17 @@ func sendNextNotification(s *discordgo.Session, contract *Contract) {
 
 		if contract.coopSize != len(contract.Boosters) {
 			msg, err = s.ChannelMessageEdit(contract.location[i].channelID, contract.location[i].messageID, DrawBoostList(s, contract))
-
+			if err != nil {
+				fmt.Println("Unable to send this message")
+			}
 		} else {
 			s.ChannelMessageUnpin(contract.location[i].channelID, contract.location[i].reactionID)
 			s.ChannelMessageDelete(contract.location[i].channelID, contract.location[i].messageID)
 			msg, err = s.ChannelMessageSend(contract.location[i].channelID, DrawBoostList(s, contract))
+			contract.location[i].messageID = msg.ID
+			s.ChannelMessagePin(contract.location[i].channelID, contract.location[i].messageID)
 		}
+		s.MessageReactionAdd(contract.location[i].channelID, msg.ID, "🚀") // Booster
 		if err == nil {
 			fmt.Println("Unable to resend message.")
 		}
@@ -504,6 +520,30 @@ func sendNextNotification(s *discordgo.Session, contract *Contract) {
 	}
 }
 
+// If
+func BoostCommand(s *discordgo.Session, guildID string, channelID string, userID string) error {
+	var contract = FindContract(guildID, channelID)
+
+	if contract == nil {
+		return errors.New("unable to locate a contract")
+	}
+
+	if contract.boostState == 0 {
+		return errors.New("contract not started")
+	}
+
+	if userID == contract.order[contract.boostPosition] {
+		NextBooster(s, guildID, channelID)
+	} else {
+		// User should be marked as boosted
+		// Rewrite current boost message showing them as boosted
+		fmt.Print("TODO")
+
+	}
+
+	return nil
+}
+
 func NextBooster(s *discordgo.Session, guildID string, channelID string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
@@ -515,7 +555,9 @@ func NextBooster(s *discordgo.Session, guildID string, channelID string) error {
 	}
 	contract.Boosters[contract.order[contract.boostPosition]].boostState = 2
 	contract.Boosters[contract.order[contract.boostPosition]].endTime = time.Now()
+
 	contract.boostPosition += 1
+
 	if contract.boostPosition == contract.coopSize || contract.boostPosition == len(contract.Boosters) {
 		contract.boostState = 2 // Finished
 		contract.endTime = time.Now()
@@ -525,7 +567,6 @@ func NextBooster(s *discordgo.Session, guildID string, channelID string) error {
 	}
 
 	sendNextNotification(s, contract)
-	// Start boosting contract
 
 	return nil
 }
@@ -573,7 +614,6 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 		contract.order = append(contract.order, skipped)
 	}
 
-	// Start boosting contract
 	sendNextNotification(s, contract)
 
 	return nil

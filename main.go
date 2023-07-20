@@ -205,7 +205,7 @@ var (
 					Components: []discordgo.MessageComponent{}},
 			})
 
-			var err = boost.NextBooster(s, i.GuildID, i.ChannelID)
+			var err = boost.BoostCommand(s, i.GuildID, i.ChannelID, i.Member.User.ID)
 			if err != nil {
 				str = err.Error()
 			}
