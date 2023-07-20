@@ -91,7 +91,7 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) stri
 // interface
 func CreateContract(contractID string, coopID string, coopSize int, boostOrder int, guildID string, channelID string, userID string) (*Contract, error) {
 	var new_contract = false
-	var contractHash = fmt.Sprintf("%s-%s", contractID, coopID)
+	var contractHash = fmt.Sprintf("%s/%s", contractID, coopID)
 
 	contract := Contracts[contractHash]
 
@@ -333,7 +333,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 	if r.Emoji.Name == "🔔" {
 		farmer.ping = true
 		u, _ := s.UserChannelCreate(farmer.userID)
-		var str = fmt.Sprintf("Boost notifications will be sent for %s.", farmer.channelName)
+		var str = fmt.Sprintf("Boost notifications will be sent for %s.", contract.contractHash)
 		_, err := s.ChannelMessageSend(u.ID, str)
 		if err != nil {
 			panic(err)
