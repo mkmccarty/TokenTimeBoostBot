@@ -313,7 +313,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 		farmer.reactions = 0
 	}
 
-	var str = fmt.Sprintf("%s, was added the %s contract in %s by %s", u.Mention(), contract.contractHash, contract.location[0].channelMention, operator)
+	var str = fmt.Sprintf("%s, was added to the %s contract in %s by %s", u.Mention(), contract.contractHash, contract.location[0].channelMention, operator)
 	s.ChannelMessageSend(contract.location[0].channelID, str)
 
 	return nil
