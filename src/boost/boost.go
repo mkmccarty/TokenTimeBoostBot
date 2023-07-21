@@ -153,7 +153,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		*/
 		//GlobalContracts[contractHash] = append(GlobalContracts[contractHash], loc)
 	}
-	//new_contract = false
+	new_contract = false
 
 	if new_contract {
 		// Create a bunch of test data
