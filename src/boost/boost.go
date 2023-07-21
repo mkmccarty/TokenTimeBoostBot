@@ -78,7 +78,7 @@ func init() {
 
 	// DataStore to initialize a new diskv store, rooted at "my-data-dir", with a 1MB cache.
 	DataStore = diskv.New(diskv.Options{
-		BasePath:          "my-data-dir",
+		BasePath:          "ttbb-data",
 		AdvancedTransform: AdvancedTransform,
 		InverseTransform:  InverseTransform,
 		CacheSizeMax:      1024 * 1024,
