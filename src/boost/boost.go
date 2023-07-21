@@ -151,7 +151,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		*/
 		//GlobalContracts[contractHash] = append(GlobalContracts[contractHash], loc)
 	}
-	new_contract = false
+	//new_contract = false
 
 	if new_contract {
 		// Create a bunch of test data
@@ -236,6 +236,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 
 	// Only draw empty slots when contract is active
 	if contract.boostState != 2 {
+		if contract.boostState == 1 {
+			prefix = fmt.Sprintf("%2d - ", i)
+		}
 		for ; i <= contract.coopSize; i++ {
 			outputStr += fmt.Sprintf("%s  open position\n", prefix)
 		}
@@ -437,61 +440,6 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 			}
 		}
 	}
-	/*
-		var farmer = contract.EggFarmers[r.UserID]
-		if farmer == nil {
-			// New Farmer
-			farmer = new(EggFarmer)
-			farmer.register = time.Now()
-			farmer.ping = false
-			farmer.reactions = 0
-			farmer.userID = r.UserID
-			farmer.guildID = r.GuildID
-			var ch, _ = s.Channel(r.ChannelID)
-			farmer.channelName = ch.Name
-
-			contract.EggFarmers[r.UserID] = farmer
-		}
-		farmer.reactions += 1
-		if farmer.reactions == 1 {
-			// New Farmer - add them to boost list
-			var b = new(Booster)
-			b.userID = farmer.userID
-			b.priority = false
-			b.later = false
-			var user, _ = s.User(r.UserID)
-			if err == nil {
-				b.name = user.Username
-				b.boostState = 0
-				b.mention = user.Mention()
-			}
-			var member, err = s.GuildMember(r.GuildID, r.UserID)
-			if err == nil && member.Nick != "" {
-				b.name = member.Nick
-				b.mention = member.Mention()
-			}
-			contract.Boosters[farmer.userID] = b
-			contract.order = append(contract.order, farmer.userID)
-			contract.registeredNum += 1
-
-			// Remove the Boost List and then redisplay it
-			//s.ChannelMessageDelete(r.ChannelID, contract.messageID)
-			for i := range contract.location {
-
-				msg, err := s.ChannelMessageEdit(contract.location[i].channelID, contract.location[i].listMsgID, DrawBoostList(s, contract))
-				if err != nil {
-					panic(err)
-				}
-				contract.location[i].listMsgID = msg.ID
-			}
-
-		}
-	*/
-	/*
-		if contract.registeredNum == contract.coopSize {
-			StartContractBoosting(s, contract.location[0].guildID, contract.location[0].channelID)
-		}
-	*/
 }
 
 func RemoveIndex(s []string, index int) []string {
@@ -505,8 +453,9 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 	var index = offset - 1 // Index is 0 based
 
 	var activeBooster = contract.Boosters[contract.order[index]].boostState
-	delete(contract.Boosters, contract.order[index])
+	var userID = contract.order[index]
 	contract.order = RemoveIndex(contract.order, index)
+	delete(contract.Boosters, userID)
 
 	// Active Booster is leaving contract.
 	if (activeBooster == 1) && len(contract.order) > index {
@@ -515,6 +464,52 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 
 	}
 	return true
+}
+
+func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channelID string, operator string, mention string) error {
+	var contract = FindContract(guildID, channelID)
+	if contract == nil {
+		return errors.New("unable to locate a contract")
+	}
+
+	if contract.coopSize == 0 {
+		return errors.New("contract is empty")
+	}
+
+	re := regexp.MustCompile(`[\\<>@#&!]`)
+	var userID = re.ReplaceAllString(mention, "")
+
+	var u, err = s.User(userID)
+	if err != nil {
+		return errors.New("user not found")
+	}
+	if u.Bot {
+		return errors.New("cannot add a bot")
+	}
+
+	var found = false
+	for i := range contract.order {
+		if contract.order[i] == userID {
+			found = true
+			if removeContractBoosterByContract(s, contract, i+1) {
+				contract.registeredNum -= 1
+			}
+			break
+		}
+	}
+	if !found {
+		return errors.New("user not in contract")
+	}
+
+	// Remove the Boost List and then redisplay it
+	msg, err := s.ChannelMessageEdit(contract.location[0].channelID, contract.location[0].listMsgID, DrawBoostList(s, contract))
+	if err != nil {
+		return err
+	}
+
+	contract.location[0].listMsgID = msg.ID
+
+	return nil
 }
 
 func RemoveContractBooster(s *discordgo.Session, guildID string, channelID string, index int) error {

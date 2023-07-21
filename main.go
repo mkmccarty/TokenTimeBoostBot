@@ -278,7 +278,7 @@ var (
 
 		slashPrune: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var str = "Prune Booster"
-			var boosterIndex = 0
+			var farmer = ""
 
 			options := i.ApplicationCommandData().Options
 			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -286,11 +286,11 @@ var (
 				optionMap[opt.Name] = opt
 			}
 
-			if opt, ok := optionMap["boost-index"]; ok {
-				boosterIndex = int(opt.IntValue())
+			if opt, ok := optionMap["farmer"]; ok {
+				farmer = opt.StringValue()
 			}
 
-			var err = boost.RemoveContractBooster(s, i.GuildID, i.ChannelID, boosterIndex)
+			var err = boost.RemoveContractBoosterByMention(s, i.GuildID, i.ChannelID, i.Member.Mention(), farmer)
 			if err != nil {
 				str = err.Error()
 			}
@@ -420,9 +420,9 @@ func main() {
 		Description: "Prune Booster",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "boost-index",
-				Description: "Booster Number",
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "farmer",
+				Description: "User Mention",
 				Required:    true,
 			},
 		},
