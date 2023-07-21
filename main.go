@@ -116,7 +116,7 @@ var (
 				farmerName = opt.StringValue()
 			}
 
-			var err = boost.AddContractMember(s, i.GuildID, i.ChannelID, farmerName)
+			var err = boost.AddContractMember(s, i.GuildID, i.ChannelID, i.Member.Mention(), farmerName)
 			if err != nil {
 				str = err.Error()
 			}

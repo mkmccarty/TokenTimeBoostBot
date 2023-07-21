@@ -34,12 +34,13 @@ type Booster struct {
 }
 
 type LocationData struct {
-	guildID     string
-	guildName   string
-	channelID   string // Contract Discord Channel
-	channelName string
-	listMsgID   string // Message ID for the Last Boost Order message
-	reactionID  string // Message ID for the reaction Order String
+	guildID        string
+	guildName      string
+	channelID      string // Contract Discord Channel
+	channelName    string
+	channelMention string
+	listMsgID      string // Message ID for the Last Boost Order message
+	reactionID     string // Message ID for the reaction Order String
 }
 type Contract struct {
 	contractHash  string // ContractID-CoopID
@@ -114,6 +115,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		var c, cerr = s.Channel(channelID)
 		if cerr == nil {
 			loc.channelName = c.Name
+			loc.channelMention = c.Mention()
 		}
 		loc.listMsgID = ""
 		loc.reactionID = ""
@@ -278,7 +280,7 @@ func FindContractByReactionID(channelID string, reactionID string) (*Contract, i
 	return nil, 0
 }
 
-func AddContractMember(s *discordgo.Session, guildID string, channelID string, mention string) error {
+func AddContractMember(s *discordgo.Session, guildID string, channelID string, operator string, mention string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
 		return errors.New("unable to locate a contract")
@@ -310,6 +312,9 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, m
 		// Need to rest the farmer reaction count when added this way
 		farmer.reactions = 0
 	}
+
+	var str = fmt.Sprintf("%s, was added the %s contract in %s by %s", u.Mention(), contract.contractHash, contract.location[0].channelMention, operator)
+	s.ChannelMessageSend(contract.location[0].channelID, str)
 
 	return nil
 }
