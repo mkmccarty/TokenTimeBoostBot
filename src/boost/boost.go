@@ -898,22 +898,22 @@ func InverseTransform(pathKey *diskv.PathKey) (key string) {
 }
 
 func saveData(c map[string]*Contract) error {
-	diskmutex.Lock()
+	//diskmutex.Lock()
 	b, _ := json.Marshal(c)
 	DataStore.Write("EggsBackup", b)
-	diskmutex.Unlock()
+	//diskmutex.Unlock()
 	return nil
 }
 
 func loadData() (map[string]*Contract, error) {
-	diskmutex.Lock()
+	//diskmutex.Lock()
 	var c map[string]*Contract
 	b, err := DataStore.Read("EggsBackup")
 	if err != nil {
 		return c, err
 	}
 	json.Unmarshal(b, &c)
-	diskmutex.Unlock()
+	//diskmutex.Unlock()
 
 	return c, nil
 }
