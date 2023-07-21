@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -14,7 +15,8 @@ import (
 	emutil "github.com/post04/discordgo-emoji-util"
 )
 
-//var usermutex sync.Mutex
+var usermutex sync.Mutex
+var diskmutex sync.Mutex
 
 var DataStore *diskv.Diskv
 
@@ -855,6 +857,7 @@ func FinishContract(s *discordgo.Session, contract *Contract) error {
 	// Don't delete the final boost message
 	contract.Location[0].ListMsgID = ""
 	DeleteContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID)
+	saveData(Contracts)
 	return nil
 }
 
@@ -895,18 +898,22 @@ func InverseTransform(pathKey *diskv.PathKey) (key string) {
 }
 
 func saveData(c map[string]*Contract) error {
+	diskmutex.Lock()
 	b, _ := json.Marshal(c)
 	DataStore.Write("EggsBackup", b)
+	diskmutex.Unlock()
 	return nil
 }
 
 func loadData() (map[string]*Contract, error) {
+	diskmutex.Lock()
 	var c map[string]*Contract
 	b, err := DataStore.Read("EggsBackup")
 	if err != nil {
 		return c, err
 	}
 	json.Unmarshal(b, &c)
+	diskmutex.Unlock()
 
 	return c, nil
 }
