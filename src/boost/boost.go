@@ -107,7 +107,9 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) stri
 			}
 		}
 		if len(element.Location) == 0 {
+			saveEndData(contract) // Save for historical purposes
 			delete(Contracts, key)
+			saveData(Contracts)
 			return coop
 		}
 	}
@@ -864,9 +866,7 @@ func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
 func FinishContract(s *discordgo.Session, contract *Contract) error {
 	// Don't delete the final boost message
 	contract.Location[0].ListMsgID = ""
-	saveEndData(contract) // Save for historical purposes
 	DeleteContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID)
-	saveData(Contracts)
 	return nil
 }
 
