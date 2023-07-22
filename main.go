@@ -87,7 +87,7 @@ var (
 	componentsHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		"fd_delete": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Delete coop
-			var str = fmt.Sprintf("Coop %s Deleted", boost.DeleteContract(s, i.GuildID, i.ChannelID))
+			var str = fmt.Sprintf("Coop %s Deleted", boost.DeleteContract(s, i.GuildID, i.ChannelID, true))
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseUpdateMessage,

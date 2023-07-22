@@ -24,7 +24,8 @@ var TokenStr = "" //"<:token:778019329693450270>"
 type EggFarmer struct {
 	UserID      string // Discord User ID
 	ChannelName string
-	GuildID     string    // Discord Guild where this User is From
+	GuildID     string // Discord Guild where this User is From
+	GuildName   string
 	Reactions   int       // Number of times farmer reacted
 	Ping        bool      // True/False
 	Register    time.Time // Time Farmer registered to boost
@@ -96,18 +97,18 @@ func RemoveLocIndex(s []*LocationData, index int) []*LocationData {
 	return append(s[:index], s[index+1:]...)
 }
 
-func DeleteContract(s *discordgo.Session, guildID string, channelID string) string {
+func DeleteContract(s *discordgo.Session, guildID string, channelID string, force bool) string {
 	var coop = ""
 	for key, element := range Contracts {
-		for i, el := range element.Location {
-			if el.GuildID == guildID && el.ChannelID == channelID {
+		for _, el := range element.Location {
+			if el.GuildID == guildID && el.ChannelID == channelID || force {
 				s.ChannelMessageDelete(el.ChannelID, el.ListMsgID)
 				s.ChannelMessageDelete(el.ChannelID, el.ReactionID)
-				element.Location = RemoveLocIndex(element.Location, i)
+				//element.Location = RemoveLocIndex(element.Location, i)
 				coop = element.ContractHash
 			}
 		}
-		if len(element.Location) == 0 {
+		if len(element.Location) == 0 || force {
 			saveEndData(Contracts[key]) // Save for historical purposes
 			delete(Contracts, key)
 			saveData(Contracts)
@@ -217,16 +218,22 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		}
 		//for i := 1; i <= len(contract.Boosters); i++ {
 		var b = contract.Boosters[element]
+		var name = b.Name
+		var server = ""
+		if len(contract.Location) > 1 {
+			server = fmt.Sprintf(" (%s) ", contract.EggFarmers[element].GuildName)
+		}
+
 		switch b.BoostState {
 		case 0:
-			outputStr += fmt.Sprintf("%s %s\n", prefix, b.Name)
+			outputStr += fmt.Sprintf("%s %s %s\n", prefix, name, server)
 		case 1:
-			outputStr += fmt.Sprintf("%s %s %s\n", prefix, b.Name, TokenStr)
+			outputStr += fmt.Sprintf("%s %s %s %s\n", prefix, name, TokenStr, server)
 		case 2:
 			t1 := contract.Boosters[element].EndTime
 			t2 := contract.Boosters[element].StartTime
 			duration := t1.Sub(t2)
-			outputStr += fmt.Sprintf("%s ~~%s~~  %s\n", prefix, b.Name, duration.Round(time.Second))
+			outputStr += fmt.Sprintf("%s ~~%s~~  %s %s\n", prefix, name, duration.Round(time.Second), server)
 		}
 		i += 1
 	}
@@ -329,6 +336,8 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		farmer.GuildID = guildID
 		var ch, _ = s.Channel(channelID)
 		farmer.ChannelName = ch.Name
+		var g, _ = s.Guild(guildID)
+		farmer.GuildName = g.Name
 
 		contract.EggFarmers[userID] = farmer
 	}
@@ -854,7 +863,7 @@ func FinishContract(s *discordgo.Session, contract *Contract) error {
 	for _, loc := range contract.Location {
 		loc.ListMsgID = ""
 	}
-	DeleteContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID)
+	DeleteContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID, true)
 	return nil
 }
 
