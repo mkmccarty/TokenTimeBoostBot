@@ -107,7 +107,7 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) stri
 			}
 		}
 		if len(element.Location) == 0 {
-			saveEndData(contract) // Save for historical purposes
+			saveEndData(Contracts[key]) // Save for historical purposes
 			delete(Contracts, key)
 			saveData(Contracts)
 			return coop
