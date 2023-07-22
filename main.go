@@ -210,23 +210,25 @@ var (
 			s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
 
 		},
-		slashStart: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			var str = "Sorted, Starting boosting!"
-			var err = boost.StartContractBoosting(s, i.GuildID, i.ChannelID)
-			if err != nil {
-				str = err.Error()
-			}
-			fmt.Print(str)
+		/*
+			slashStart: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+				var str = "Sorted, Starting boosting!"
+				var err = boost.StartContractBoosting(s, i.GuildID, i.ChannelID)
+				if err != nil {
+					str = err.Error()
+				}
+				fmt.Print(str)
 
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content:    str,
-					Flags:      discordgo.MessageFlagsEphemeral,
-					Components: []discordgo.MessageComponent{}},
-			})
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content:    str,
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{}},
+				})
 
-		},
+			},
+		*/
 		slashBoost: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 			var str = "Boosting!!"
@@ -380,14 +382,16 @@ func main() {
 		fmt.Println(err)
 	}
 
-	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
-		Name:        slashStart,
-		Description: "Start Contract Boost",
-		Options:     []*discordgo.ApplicationCommandOption{},
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
+	/*
+		_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
+			Name:        slashStart,
+			Description: "Start Contract Boost",
+			Options:     []*discordgo.ApplicationCommandOption{},
+		})
+		if err != nil {
+			fmt.Println(err)
+		}
+	*/
 
 	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
 		Name:        slashBoost,
