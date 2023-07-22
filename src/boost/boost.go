@@ -21,6 +21,18 @@ var DataStore *diskv.Diskv
 
 var TokenStr = "" //"<:token:778019329693450270>"
 
+const errorNoContract string = "contract doesn't exist"
+const errorNotStarted string = "contract not started"
+const errorContractFull string = "contract is full"
+const errorNoFarmer string = "farmer doesn't exist"
+const errorUserInContract string = "farmer already in contract"
+const errorUserNotInContract string = "farmer not in contract"
+const errorBot string = "cannot be a bot"
+const errorContractEmpty = "contract doesn't have farmers"
+const errorContractNotStarted = "contract hasn't started"
+const errorContractAlreadyStarted = "contract already started"
+const errorAlreadyBoosted = "farmer boosted already"
+
 type EggFarmer struct {
 	UserID      string // Discord User ID
 	ChannelName string
@@ -28,7 +40,8 @@ type EggFarmer struct {
 	GuildName   string
 	Reactions   int       // Number of times farmer reacted
 	Ping        bool      // True/False
-	Register    time.Time // Time Farmer registered to boost
+	Register    time.Time //o Time Farmer registered to boost
+	//Cluck       []string  // Keep track of messages from each user
 }
 
 type Booster struct {
@@ -97,25 +110,22 @@ func RemoveLocIndex(s []*LocationData, index int) []*LocationData {
 	return append(s[:index], s[index+1:]...)
 }
 
-func DeleteContract(s *discordgo.Session, guildID string, channelID string, force bool) string {
-	var coop = ""
-	for key, element := range Contracts {
-		for _, el := range element.Location {
-			if el.GuildID == guildID && el.ChannelID == channelID || force {
-				s.ChannelMessageDelete(el.ChannelID, el.ListMsgID)
-				s.ChannelMessageDelete(el.ChannelID, el.ReactionID)
-				//element.Location = RemoveLocIndex(element.Location, i)
-				coop = element.ContractHash
-			}
+func DeleteContract(s *discordgo.Session, guildID string, channelID string) string {
+	var contract = FindContract(guildID, channelID)
+
+	if contract != nil {
+		var coop = contract.ContractHash
+		saveEndData(contract) // Save for historical purposes
+
+		for _, el := range contract.Location {
+			s.ChannelMessageDelete(el.ChannelID, el.ListMsgID)
+			s.ChannelMessageDelete(el.ChannelID, el.ReactionID)
 		}
-		if len(element.Location) == 0 || force {
-			saveEndData(Contracts[key]) // Save for historical purposes
-			delete(Contracts, key)
-			saveData(Contracts)
-			return coop
-		}
+		delete(Contracts, coop)
+		saveData(Contracts)
+		return coop
 	}
-	return coop
+	return ""
 }
 
 // interface
@@ -285,11 +295,11 @@ func FindContractByReactionID(channelID string, ReactionID string) (*Contract, i
 func AddContractMember(s *discordgo.Session, guildID string, channelID string, operator string, mention string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
-		return errors.New("unable to locate a contract")
+		return errors.New(errorNoContract)
 	}
 
 	if contract.CoopSize == len(contract.Order) {
-		return errors.New("contract is full")
+		return errors.New(errorContractFull)
 	}
 
 	re := regexp.MustCompile(`[\\<>@#&!]`)
@@ -297,16 +307,16 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 
 	for i := range contract.Order {
 		if userID == contract.Order[i] {
-			return errors.New("user alread in contract")
+			return errors.New(errorUserInContract)
 		}
 	}
 
 	var u, err = s.User(userID)
 	if err != nil {
-		return errors.New("user not found")
+		return errors.New(errorNoFarmer)
 	}
 	if u.Bot {
-		return errors.New("cannot add a bot")
+		return errors.New(errorBot)
 	}
 
 	var farmer, fe = AddFarmerToContract(s, contract, guildID, channelID, u.ID)
@@ -495,11 +505,11 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channelID string, operator string, mention string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
-		return errors.New("unable to locate a contract")
+		return errors.New(errorNoContract)
 	}
 
 	if contract.CoopSize == 0 {
-		return errors.New("contract is empty")
+		return errors.New(errorContractEmpty)
 	}
 
 	re := regexp.MustCompile(`[\\<>@#&!]`)
@@ -507,10 +517,10 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 
 	var u, err = s.User(userID)
 	if err != nil {
-		return errors.New("user not found")
+		return errors.New(errorNoFarmer)
 	}
 	if u.Bot {
-		return errors.New("cannot add a bot")
+		return errors.New(errorBot)
 	}
 
 	var found = false
@@ -524,7 +534,7 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 		}
 	}
 	if !found {
-		return errors.New("user not in contract")
+		return errors.New(errorUserNotInContract)
 	}
 
 	// Edit the boost List in place
@@ -542,11 +552,11 @@ func RemoveContractBooster(s *discordgo.Session, guildID string, channelID strin
 	var contract = FindContract(guildID, channelID)
 
 	if contract == nil {
-		return errors.New("unable to locate a contract")
+		return errors.New(errorNoContract)
 	}
 
 	if len(contract.Order) == 0 {
-		return errors.New("nobody signed up to boost")
+		return errors.New(errorContractEmpty)
 	}
 	if removeContractBoosterByContract(s, contract, index) {
 		contract.RegisteredNum -= 1
@@ -630,15 +640,15 @@ func FindContract(guildID string, channelID string) *Contract {
 func StartContractBoosting(s *discordgo.Session, guildID string, channelID string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
-		return errors.New("unable to locate a contract")
+		return errors.New(errorNoContract)
 	}
 
 	if len(contract.Boosters) == 0 {
-		return errors.New("nobody signed up to boost")
+		return errors.New(errorContractEmpty)
 	}
 
 	if contract.BoostState != 0 {
-		return errors.New("Contract already started")
+		return errors.New(errorContractAlreadyStarted)
 	}
 
 	// Check Voting for Randomized Order
@@ -716,11 +726,11 @@ func BoostCommand(s *discordgo.Session, guildID string, channelID string, userID
 	var contract = FindContract(guildID, channelID)
 
 	if contract == nil {
-		return errors.New("unable to locate a contract")
+		return errors.New(errorNoContract)
 	}
 
 	if contract.BoostState == 0 {
-		return errors.New("contract not started")
+		return errors.New(errorContractEmpty)
 	}
 
 	if userID == contract.Order[contract.BoostPosition] {
@@ -730,7 +740,7 @@ func BoostCommand(s *discordgo.Session, guildID string, channelID string, userID
 		for i := range contract.Order {
 			if contract.Order[i] == userID {
 				if contract.Boosters[contract.Order[i]].BoostState == 2 {
-					return errors.New("you have already boosted")
+					return errors.New(errorAlreadyBoosted)
 				}
 				// Mark user as complete
 				// Taking start time from current booster start time
@@ -754,11 +764,11 @@ func BoostCommand(s *discordgo.Session, guildID string, channelID string, userID
 func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
-		return errors.New("unable to locate a contract")
+		return errors.New(errorNoContract)
 	}
 
 	if contract.BoostState == 0 {
-		return errors.New("contract not started")
+		return errors.New(errorContractNotStarted)
 	}
 	contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = 2
 	contract.Boosters[contract.Order[contract.BoostPosition]].EndTime = time.Now()
@@ -788,11 +798,11 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 	var boosterSwap = false
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
-		return errors.New("unable to locate a contract")
+		return errors.New(errorNoContract)
 	}
 
 	if contract.BoostState == 0 {
-		return errors.New("contract not started")
+		return errors.New(errorNotStarted)
 	}
 
 	var selectedUser = contract.BoostPosition
@@ -857,13 +867,13 @@ func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
 
 }
 
+// Called only when the contract is complete
 func FinishContract(s *discordgo.Session, contract *Contract) error {
 	// Don't delete the final boost message
-	// Location doesn't matter for this transaction
 	for _, loc := range contract.Location {
 		loc.ListMsgID = ""
 	}
-	DeleteContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID, true)
+	DeleteContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID)
 	return nil
 }
 
@@ -931,3 +941,31 @@ func loadData() (map[string]*Contract, error) {
 
 	return c, nil
 }
+
+/*
+func Cluck(s *discordgo.Session, guildID string, channelID string, userID string, msg string) error {
+	var contract = FindContract(guildID, channelID)
+	if contract == nil {
+		return errors.New(errorNoContract)
+	}
+	var booster = contract.Boosters[userID]
+	if booster == nil {
+		return errors.New(errorNoFarmer)
+	}
+	var farmer = contract.EggFarmers[userID]
+	if farmer == nil {
+		return errors.New(errorNoFarmer)
+	}
+
+	// Save every cross channel message
+	append(farmer.Cluck, msg)
+
+	for _, el := range contract.Location {
+
+		s.ChannelMessageSend(el.ChannelID, fmt.Sprintf("%s clucks: %s", booster.Name, msg))
+		s.ChannelMessageDelete(el.ChannelID, el.ListMsgID)
+		s.ChannelMessageDelete(el.ChannelID, el.ReactionID)
+	}
+	return nil
+}
+*/

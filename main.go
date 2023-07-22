@@ -19,7 +19,7 @@ const slashContract string = "contract"
 const slashSkip string = "skip"
 const slashBoost string = "boost"
 
-// const slashStart string = "start"
+const slashmsg string = "cluck"
 const slashLast string = "last"
 const slashPrune string = "prune"
 const slashJoin string = "join"
@@ -87,7 +87,11 @@ var (
 	componentsHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		"fd_delete": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Delete coop
-			var str = fmt.Sprintf("Coop %s Deleted", boost.DeleteContract(s, i.GuildID, i.ChannelID, true))
+			var str = "Contract not found."
+			var coopName = boost.DeleteContract(s, i.GuildID, i.ChannelID)
+			if coopName != "" {
+				str = fmt.Sprintf("Contract %s Deleted", coopName)
+			}
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseUpdateMessage,
@@ -97,7 +101,6 @@ var (
 					Components: []discordgo.MessageComponent{}},
 			})
 			s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
-
 		},
 	}
 
