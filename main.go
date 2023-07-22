@@ -18,7 +18,8 @@ import (
 const slashContract string = "contract"
 const slashSkip string = "skip"
 const slashBoost string = "boost"
-const slashStart string = "start"
+
+// const slashStart string = "start"
 const slashLast string = "last"
 const slashPrune string = "prune"
 const slashJoin string = "join"
