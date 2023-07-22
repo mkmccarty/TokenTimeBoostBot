@@ -197,7 +197,7 @@ var (
 			}
 			boost.SetMessageID(contract, i.ChannelID, msg.ID)
 
-			reactionMsg, err := s.ChannelMessageSend(i.ChannelID, "`React with 🧑‍🌾 or 🔔 to signup. 🔔 will DM Updates, 🎲 is vote for random boost order, requires 2/3 supermajoriy to pass.`")
+			reactionMsg, err := s.ChannelMessageSend(i.ChannelID, "`React with 🧑‍🌾 or 🔔 to signup. 🔔 will DM Updates, 🎲 is vote for random boost order, requires 2/3 supermajoriy to pass. Contract Creator can start the contract with ⏱️.`")
 			if err != nil {
 				panic(err)
 			}
@@ -205,6 +205,7 @@ var (
 			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🧑‍🌾") // Booster
 			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🔔")   // Ping
 			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🎲")   // Boost Order
+			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "⏱️")  // Creator Start Contract
 
 			s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
 

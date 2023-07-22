@@ -393,9 +393,9 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		}
 
 	}
-	if contract.RegisteredNum == contract.CoopSize {
-		StartContractBoosting(s, contract.Location[0].GuildID, contract.Location[0].ChannelID)
-	}
+	//if contract.RegisteredNum == contract.CoopSize {
+	//	StartContractBoosting(s, contract.Location[0].GuildID, contract.Location[0].ChannelID)
+	//}
 
 	return farmer, nil
 }
@@ -413,6 +413,12 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		if contract == nil {
 			return
 		}
+	}
+
+	// If we get a stopwatch reaction from the contract creator, start the contract
+	if r.Emoji.Name == "⏱️" && contract.BoostState == 0 && r.UserID == contract.UserID {
+		StartContractBoosting(s, r.GuildID, r.ChannelID)
+		return
 	}
 
 	if contract.BoostState != 0 && contract.BoostPosition < len(contract.Order) {
