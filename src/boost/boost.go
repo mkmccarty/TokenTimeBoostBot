@@ -424,28 +424,27 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		if contract.BoostState != 0 && contract.BoostPosition < len(contract.Order) {
 
 			// If Rocket reaction on Boost List, only that boosting user can apply a reaction
-			if r.Emoji.Name == "🚀" && contract.BoostState == 1 || r.Emoji.Name == "🪨" && r.UserID == contract.UserID {
+			if r.Emoji.Name == "🚀" && contract.BoostState == 1 {
 				var votingElection = (msg.Reactions[0].Count - 1) >= 2
-				if r.Emoji.Name == "🪨" && r.UserID == contract.UserID {
-					votingElection = true
-				}
 
-				if r.UserID == contract.Order[contract.BoostPosition] || votingElection {
+				if r.UserID == contract.Order[contract.BoostPosition] || votingElection || r.UserID == contract.UserID {
 					Boosting(s, r.GuildID, r.ChannelID)
 				}
 				return
 			}
 
 			// Reaction to change places
-			if (contract.BoostPosition + 1) < len(contract.Order) {
-				if r.Emoji.Name == "🔃" && r.UserID == contract.Order[contract.BoostPosition] {
-					SkipBooster(s, r.GuildID, r.ChannelID, "")
-					return
-				}
-				// Reaction to jump to end
-				if r.Emoji.Name == "⤵️" && r.UserID == contract.Order[contract.BoostPosition] {
-					SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
-					return
+			if r.UserID == contract.Order[contract.BoostPosition] || r.UserID == contract.UserID {
+				if (contract.BoostPosition + 1) < len(contract.Order) {
+					if r.Emoji.Name == "🔃" {
+						SkipBooster(s, r.GuildID, r.ChannelID, "")
+						return
+					}
+					// Reaction to jump to end
+					if r.Emoji.Name == "⤵️" {
+						SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
+						return
+					}
 				}
 			}
 		}
