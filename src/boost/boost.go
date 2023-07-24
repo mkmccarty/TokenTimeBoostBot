@@ -442,7 +442,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 					}
 					// Reaction to jump to end
 					if r.Emoji.Name == "⤵️" {
-						SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
+						SkipBooster(s, r.GuildID, r.ChannelID, contract.Order[contract.BoostPosition])
 						return
 					}
 				}
