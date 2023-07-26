@@ -35,6 +35,9 @@ const errorAlreadyBoosted = "farmer boosted already"
 
 type EggFarmer struct {
 	UserID      string // Discord User ID
+	Username    string
+	Unique      string
+	Nick        string
 	ChannelName string
 	GuildID     string // Discord Guild where this User is From
 	GuildName   string
@@ -169,15 +172,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.CoopSize = coopSize
 		Contracts[ContractHash] = contract
 	} else {
-		// TODO Multi server isn't working because the Session Object is
-		// specific to one Server/Guild
-		//
-		//if contract.Location[0].GuildID != guildID {
-		//return nil, errors.New("contracts across servers not currently supported")
-		//}
-		// Existing contract, make sure we know what server we're on
 		contract.Location = append(contract.Location, loc)
-
 	}
 
 	// Find our Token emoji
@@ -348,6 +343,10 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		farmer.ChannelName = ch.Name
 		var g, _ = s.Guild(guildID)
 		farmer.GuildName = g.Name
+		var gm, _ = s.GuildMember(guildID, userID)
+		farmer.Username = gm.User.Username
+		farmer.Nick = gm.Nick
+		farmer.Unique = gm.User.String()
 
 		contract.EggFarmers[userID] = farmer
 	}

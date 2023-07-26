@@ -19,7 +19,7 @@ const slashContract string = "contract"
 const slashSkip string = "skip"
 const slashBoost string = "boost"
 
-const slashmsg string = "cluck"
+// const slashmsg string = "cluck"
 const slashLast string = "last"
 const slashPrune string = "prune"
 const slashJoin string = "join"
