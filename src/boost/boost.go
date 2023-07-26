@@ -211,7 +211,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	outputStr = fmt.Sprintf("### %s  %d/%d ###\n", contract.ContractHash, len(contract.Boosters), contract.CoopSize)
 
 	if contract.BoostState == 0 {
-		outputStr += "## Signup List ###\n"
+		outputStr += "## Sign-up List ###\n"
 	} else {
 		outputStr += "## Boost List ###\n"
 	}
@@ -318,7 +318,11 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 	}
 
 	for _, loc := range contract.Location {
-		var str = fmt.Sprintf("%s, was added to the %s contract in %s by %s", u.Mention(), contract.ContractHash, loc.ChannelMention, operator)
+		var listStr = "Boost"
+		if contract.BoostState == 0 {
+			listStr = "Sign-up"
+		}
+		var str = fmt.Sprintf("%s, was added to the %s List by %s", u.Mention(), listStr, operator)
 		s.ChannelMessageSend(loc.ChannelID, str)
 	}
 
