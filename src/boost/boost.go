@@ -244,14 +244,11 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	}
 
 	// Only draw empty slots when contract is active
-	if contract.BoostState != 2 {
-		if contract.BoostState == 1 {
-			prefix = fmt.Sprintf("%2d - ", i)
-		}
-		for ; i <= contract.CoopSize; i++ {
-			outputStr += fmt.Sprintf("%s  open position\n", prefix)
-		}
-	}
+	//if contract.BoostState != 2 {
+	//	for ; i <= contract.CoopSize; i++ {
+	//		outputStr += fmt.Sprintf("%2d -   open position\n", i)
+	//	}
+	//}
 	if contract.BoostState == 1 {
 		outputStr += "```"
 		outputStr += "React with 🚀 when you spend tokens to boost. Multiple 🚀 votes by others in the contract will also indicate a boost.\n"
