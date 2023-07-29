@@ -12,6 +12,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
 )
 
 // Slash Command Constants
@@ -381,6 +382,12 @@ func main() {
 				Required:    true,
 			},
 		},
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
+		notok.Notok(s, m)
 	})
 	if err != nil {
 		fmt.Println(err)
