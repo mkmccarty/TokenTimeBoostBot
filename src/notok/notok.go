@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"math/rand"
+	"regexp"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -71,8 +72,9 @@ func wish(mention string) string {
 		strmap := strings.Split(resp.Choices[0].Message.Content, "\n")
 		for _, el := range strmap {
 			if el != "" {
+				m1 := regexp.MustCompile(`^.*Farmer`)
 
-				wishes = append(wishes, el)
+				wishes = append(wishes, m1.ReplaceAllString(el, "Farmer"))
 			}
 		}
 		saveData(wishes)
