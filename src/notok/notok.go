@@ -14,12 +14,21 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
+type WishStruct struct {
+	Wishes []string
+	Used   []string
+}
+
 var (
-	wishes []string
+	wishes *WishStruct
 )
 
 func init() {
-	wishes, _ = loadData()
+	var err error
+	wishes, err = loadData()
+	if err != nil {
+		wishes = new(WishStruct)
+	}
 }
 
 func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
@@ -41,59 +50,79 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 	}
 }
 
+func remove(s []string, i int) []string {
+	s[i] = s[len(s)-1]
+	return s[:len(s)-1]
+}
+
+func getWish(w []string) (string, []string) {
+	index := rand.Intn(len(w))
+	str := w[index]
+	w = remove(w, index)
+	return str, w
+}
+
 func wish(mention string) string {
-	var client = openai.NewClient(config.OpenAIKey)
+	var str string = ""
 
-	var tokenPrompt = "A chicken egg farmer needs a an item of currency, called a token," +
-		"to grow his farm. Compose a wish  " +
-		"which will bring me a token.  The wish should be funny and draw " +
-		"from current news events. Start the response of each wish with " +
-		"\"Farmer wishes \".  The word \"token\" must be used in the response. " +
-		"Use gender neural pronouns. Don't number responses."
+	if len(wishes.Wishes) > 0 {
+		str, wishes.Wishes = getWish(wishes.Wishes)
+	} else {
+		var client = openai.NewClient(config.OpenAIKey)
 
-	//var tokenPrompt = "A chicken farmer needs tokens to be successful on his farm. He finds a bottle with a genie who will grant him wishes. Tell me 3 wishes to ask for. Start the response of each wish with \"Farmer wishes \". Respond in a JSON format."
-	var resp, err = client.CreateChatCompletion(
-		context.Background(),
-		openai.ChatCompletionRequest{
-			Model: openai.GPT3Dot5Turbo0301,
-			Messages: []openai.ChatCompletionMessage{
-				{
-					Role:    openai.ChatMessageRoleUser,
-					Content: tokenPrompt,
+		var tokenPrompt = "A chicken egg farmer needs a an item of currency, called a token," +
+			"to grow his farm. Compose a wish  " +
+			"which will bring me a token.  The wish should be funny and draw " +
+			"from current news events. Start the response of each wish with " +
+			"\"Farmer wishes \".  The word \"token\" must be used in the response. " +
+			"Use gender neural pronouns. Don't number responses."
+
+		//var tokenPrompt = "A chicken farmer needs tokens to be successful on his farm. He finds a bottle with a genie who will grant him wishes. Tell me 3 wishes to ask for. Start the response of each wish with \"Farmer wishes \". Respond in a JSON format."
+		var resp, err = client.CreateChatCompletion(
+			context.Background(),
+			openai.ChatCompletionRequest{
+				Model: openai.GPT3Dot5Turbo0301,
+				Messages: []openai.ChatCompletionMessage{
+					{
+						Role:    openai.ChatMessageRoleUser,
+						Content: tokenPrompt,
+					},
 				},
 			},
-		},
-	)
+		)
 
-	var str string = ""
-	if err != nil {
-		// Probably problem with permissions
-		str = wishes[rand.Intn(len(wishes))]
-	} else {
-		strmap := strings.Split(resp.Choices[0].Message.Content, "\n")
-		for _, el := range strmap {
-			if el != "" {
-				m1 := regexp.MustCompile(`^.*Farmer`)
+		if err == nil {
+			strmap := strings.Split(resp.Choices[0].Message.Content, "\n")
+			for _, el := range strmap {
+				if el != "" {
+					m1 := regexp.MustCompile(`^.*Farmer`)
 
-				wishes = append(wishes, m1.ReplaceAllString(el, "Farmer"))
+					wishes.Wishes = append(wishes.Wishes, m1.ReplaceAllString(el, "Farmer"))
+				}
 			}
+			str, wishes.Wishes = getWish(wishes.Wishes)
+		} else {
+			//fmt.Println(err.Error()) // Log this
+			str, wishes.Used = getWish(wishes.Used)
 		}
-		saveData(wishes)
-		name := fmt.Sprintf("**%s**", mention)
-		str = strings.Replace(wishes[len(wishes)-1], "Farmer", name, 1)
 	}
+
+	wishes.Used = append(wishes.Used, str)
+	saveData(wishes)
+	name := fmt.Sprintf("**%s**", mention)
+	str = strings.Replace(str, "Farmer", name, 1)
 
 	return str
 }
 
-func saveData(c []string) {
+func saveData(c *WishStruct) {
 	b, _ := json.Marshal(c)
 	boost.DataStore.Write("Wishes", b)
 }
 
-func loadData() ([]string, error) {
+func loadData() (*WishStruct, error) {
 	//diskmutex.Lock()
-	var c []string
+	var c *WishStruct
 	b, err := boost.DataStore.Read("Wishes")
 	if err != nil {
 		return c, err
