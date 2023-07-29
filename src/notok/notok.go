@@ -79,7 +79,7 @@ func wish(mention string) string {
 			}
 		}
 		saveData(wishes)
-		name += fmt.Sprintf("**%s**", mention)
+		name := fmt.Sprintf("**%s**", mention)
 		str = strings.Replace(wishes[len(wishes)-1], "Farmer", name, 1)
 	}
 
