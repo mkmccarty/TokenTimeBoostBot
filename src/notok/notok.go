@@ -3,6 +3,7 @@ package notok
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"regexp"
 	"strings"
@@ -78,7 +79,8 @@ func wish(mention string) string {
 			}
 		}
 		saveData(wishes)
-		str = strings.Replace(wishes[len(wishes)-1], "Farmer", "**"+mention+"**", 1)
+		name += fmt.Sprintf("**%s**", mention)
+		str = strings.Replace(wishes[len(wishes)-1], "Farmer", name, 1)
 	}
 
 	return str
