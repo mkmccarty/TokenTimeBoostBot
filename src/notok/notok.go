@@ -76,7 +76,7 @@ func wish(mention string) string {
 			}
 		}
 		saveData(wishes)
-		str = strings.Replace(wishes[len(wishes)-1], "Farmer", mention, 1)
+		str = strings.Replace(wishes[len(wishes)-1], "Farmer", "**"+mention+"**", 1)
 	}
 
 	return str
