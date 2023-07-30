@@ -72,10 +72,10 @@ func wish(mention string) string {
 
 		var tokenPrompt = "A chicken egg farmer needs a an item of currency, called a token," +
 			"to grow his farm. Compose a wish  " +
-			"which will bring me a token.  The wish should be funny and draw " +
+			"which will bring me a token. The wish should be funny and draw " +
 			"from current news events. Start the response of each wish with " +
-			"\"Farmer wishes \".  The word \"token\" must be used in the response. " +
-			"Use gender neural pronouns. Don't number responses."
+			"\"Farmer wishes \". The word \"token\" must be used in the response. " +
+			"Use gender neutral pronouns. Don't number responses."
 
 		//var tokenPrompt = "A chicken farmer needs tokens to be successful on his farm. He finds a bottle with a genie who will grant him wishes. Tell me 3 wishes to ask for. Start the response of each wish with \"Farmer wishes \". Respond in a JSON format."
 		var resp, err = client.CreateChatCompletion(
