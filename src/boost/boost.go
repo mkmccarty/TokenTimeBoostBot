@@ -225,15 +225,16 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		var b = contract.Boosters[element]
 		var name = b.Name
 		var server = ""
+		var currentStartTime = fmt.Sprint(" <t:%d:R> ", b.StartTime.Unix())
 		if len(contract.Location) > 1 {
 			server = fmt.Sprintf(" (%s) ", contract.EggFarmers[element].GuildName)
 		}
 
 		switch b.BoostState {
 		case 0:
-			outputStr += fmt.Sprintf("%s %s %s\n", prefix, name, server)
+			outputStr += fmt.Sprintf("%s %s%s\n", prefix, name, server)
 		case 1:
-			outputStr += fmt.Sprintf("%s %s %s %s\n", prefix, name, TokenStr, server)
+			outputStr += fmt.Sprintf("%s %s %s%s%s\n", prefix, name, TokenStr, currentStartTime, server)
 		case 2:
 			t1 := contract.Boosters[element].EndTime
 			t2 := contract.Boosters[element].StartTime
