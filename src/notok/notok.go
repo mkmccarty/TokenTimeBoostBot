@@ -45,6 +45,10 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 
 	// Respond to messages
 	switch {
+	case strings.HasPrefix(message.Content, "!notoki"):
+		str := wish(name)
+		discord.ChannelMessageSend(message.ChannelID, wishImage(str))
+		discord.ChannelMessageSend(message.ChannelID, str)
 	case strings.HasPrefix(message.Content, "!notok"):
 		discord.ChannelMessageSend(message.ChannelID, wish(name))
 	}
@@ -65,7 +69,7 @@ func getWish(w []string) (string, []string) {
 func wish(mention string) string {
 	var str string = ""
 
-	if len(wishes.Wishes) > 0 {
+	if len(wishes.Wishes) > 0 || config.OpenAIKey == "" {
 		str, wishes.Wishes = getWish(wishes.Wishes)
 	} else {
 		var client = openai.NewClient(config.OpenAIKey)
@@ -73,9 +77,9 @@ func wish(mention string) string {
 		var tokenPrompt = "A chicken egg farmer needs a an item of currency, called a token," +
 			"to grow his farm. Compose a wish  " +
 			"which will bring me a token. The wish should be funny and draw " +
-			"from current news events. Start the response of each wish with " +
+			"from current news events, excluding crypto currency items. Don't use names of real people. Start the response of each wish with " +
 			"\"Farmer wishes \". The word \"token\" must be used in the response. " +
-			"Use gender neutral pronouns. Don't number responses."
+			"Use gender neutral pronouns. Don't number responses.."
 
 		//var tokenPrompt = "A chicken farmer needs tokens to be successful on his farm. He finds a bottle with a genie who will grant him wishes. Tell me 3 wishes to ask for. Start the response of each wish with \"Farmer wishes \". Respond in a JSON format."
 		var resp, err = client.CreateChatCompletion(
@@ -129,4 +133,24 @@ func loadData() (*WishStruct, error) {
 	}
 	json.Unmarshal(b, &c)
 	return c, nil
+}
+
+func wishImage(prompt string) string {
+	var client = openai.NewClient(config.OpenAIKey)
+
+	respURL, err := client.CreateImage(
+		context.Background(),
+		openai.ImageRequest{
+			Prompt:         fmt.Sprintf("%s Represent this using creepy cryptid chickens in the style of famous painters.", prompt),
+			Size:           openai.CreateImageSize256x256,
+			ResponseFormat: openai.CreateImageResponseFormatURL,
+			N:              1,
+		},
+	)
+	if err != nil {
+		fmt.Printf("Image creation error: %v\n", err)
+		return ""
+	}
+	fmt.Println(respURL.Data[0].URL)
+	return respURL.Data[0].URL
 }
