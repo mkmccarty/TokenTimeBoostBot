@@ -1,9 +1,5 @@
 APP=TokenTimeBoostBot
 EXECUTABLE=TokenTimeBoostBot
-
-GOOS=$(shell go env GOOS)
-GOARCH=$(shell go env GOARCH)
-
 WINDOWS=$(EXECUTABLE)_windows_amd64.exe
 LINUX=$(EXECUTABLE)_linux_amd64
 DARWIN=$(EXECUTABLE)_darwin_amd64
@@ -23,11 +19,33 @@ run: darwin
 doc:
 	godoc -http=:6060 -index
 
-host:
-	go build -v -o $(EXECUTABLE)_$(GOOS)_$(GOARCH) -ldflags="-s -w -X main.Version=$(VERSION)"  
+windows: $(WINDOWS) ## Build for Windows
+
+linux: $(LINUX) ## Build for Linux
+
+darwin: $(DARWIN)  ## Build for Darwin
+
+pi: $(PI) ## Build for Raspberry Pi 4
+
+pi64: $(PI64) ## Build for 64-bit Raspberry Pi
+
+$(WINDOWS):
+	env GOOS=windows GOARCH=amd64 go build -v -o $(WINDOWS) -ldflags="-s -w -X main.Version=$(VERSION)"
+
+$(LINUX):
+	env GOOS=linux GOARCH=amd64 go build -v -o $(LINUX) -ldflags="-s -w -X main.Version=$(VERSION)" 
+
+$(DARWIN):
+	env GOOS=darwin GOARCH=amd64 go build -v -o $(DARWIN) -ldflags="-s -w -X main.Version=$(VERSION)" 
+
+$(PI):
+	env GOOS=linux GOARCH=arm GOARM=6  go build -v -o $(PI) -ldflags="-s -w -X main.Version=$(VERSION)"  
+
+$(PI64):
+	env GOOS=linux GOARCH=arm64  go build -v -o $(PI) -ldflags="-s -w -X main.Version=$(VERSION)"  
 
 .PHONY: build
-build: host
+build: windows linux darwin pi pi64 ## Build binaries
 	@echo version: $(VERSION)
 
 
