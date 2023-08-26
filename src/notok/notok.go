@@ -4,13 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
+	"net/http"
+	"os"
 	"regexp"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/rs/xid"
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -141,7 +145,7 @@ func wishImage(prompt string) string {
 	respURL, err := client.CreateImage(
 		context.Background(),
 		openai.ImageRequest{
-			Prompt:         fmt.Sprintf("%s Represent this using creepy cryptid chickens in the style of famous painters.", prompt),
+			Prompt:         fmt.Sprintf("%s Represent this using creepy cryptid chickens in the style studio photographic portrait.", prompt),
 			Size:           openai.CreateImageSize256x256,
 			ResponseFormat: openai.CreateImageResponseFormatURL,
 			N:              1,
@@ -151,6 +155,38 @@ func wishImage(prompt string) string {
 		fmt.Printf("Image creation error: %v\n", err)
 		return ""
 	}
-	fmt.Println(respURL.Data[0].URL)
+	downloadFile("./ttbb-data/images", respURL.Data[0].URL, prompt)
+	//fmt.Println(respURL.Data[0].URL)
 	return respURL.Data[0].URL
+}
+
+func downloadFile(filepath string, url string, prompt string) error {
+
+	// Get the data
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	err = os.MkdirAll(filepath, os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	id := xid.New()
+	newfile := fmt.Sprintf("%s/%s.png", filepath, id.String())
+	newfile_prompt := fmt.Sprintf("%s/%s.txt", filepath, id.String())
+	os.WriteFile(newfile_prompt, []byte(prompt), 0664)
+
+	// Create the file
+	out, err := os.Create(newfile)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	// Write the body to file
+	_, err = io.Copy(out, resp.Body)
+	return err
 }
