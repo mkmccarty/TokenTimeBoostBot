@@ -655,11 +655,11 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	// Supermajority 2/3
 	if contract.BoostVoting > 1 {
 		var votingStr = "Random boost order supermajority vote "
-		if contract.BoostVoting >= ((len(contract.Boosters) * 2) / 3) {
+		if contract.BoostVoting < ((len(contract.Boosters) * 2) / 3) {
+			votingStr += "failed"
+		} else {
 			votingStr += "passed"
 			contract.BoostOrder = 2
-		} else {
-			votingStr += "failed"
 		}
 		votingStr = fmt.Sprintf("%s %d/%d.", votingStr, contract.BoostVoting, len(contract.Boosters))
 		for _, el := range contract.Location {
