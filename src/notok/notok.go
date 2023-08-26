@@ -32,6 +32,10 @@ func init() {
 	wishes, err = loadData()
 	if err != nil {
 		wishes = new(WishStruct)
+	} else {
+		if len(wishes.Wishes) == 1 && wishes.Wishes[0] == " " {
+			wishes.Wishes = wishes.Wishes[:0]
+		}
 	}
 }
 
@@ -156,7 +160,8 @@ func wishImage(prompt string) string {
 		return ""
 	}
 	downloadFile("./ttbb-data/images", respURL.Data[0].URL, prompt)
-	//fmt.Println(respURL.Data[0].URL)
+	fmt.Println(prompt)
+	fmt.Println(respURL.Data[0].URL)
 	return respURL.Data[0].URL
 }
 
