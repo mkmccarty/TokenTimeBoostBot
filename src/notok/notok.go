@@ -149,7 +149,7 @@ func wishImage(prompt string) string {
 	respURL, err := client.CreateImage(
 		context.Background(),
 		openai.ImageRequest{
-			Prompt:         fmt.Sprintf("%s Represent this using creepy cryptid chickens in the style studio photographic portrait.", prompt),
+			Prompt:         fmt.Sprintf("%s Represent this using creepy cryptid chickens in the style of a 5 year olds crayon drawing.", prompt),
 			Size:           openai.CreateImageSize256x256,
 			ResponseFormat: openai.CreateImageResponseFormatURL,
 			N:              1,
