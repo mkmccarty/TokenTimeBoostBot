@@ -222,6 +222,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 			prefix = fmt.Sprintf("%2d - ", i)
 		}
 		//for i := 1; i <= len(contract.Boosters); i++ {
+		// TODO: This has crashed
 		var b = contract.Boosters[element]
 		var name = b.Name
 		var server = ""
@@ -487,6 +488,8 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 		return false
 	}
 	var index = offset - 1 // Index is 0 based
+
+	// TODO: This can crash if contract.Order[index] returns nothing
 
 	var activeBooster = contract.Boosters[contract.Order[index]].BoostState
 	var userID = contract.Order[index]
@@ -980,3 +983,7 @@ func Cluck(s *discordgo.Session, guildID string, channelID string, userID string
 	return nil
 }
 */
+
+func StartSignup(s *discordgo.Session, i *discordgo.InteractionCreate, number int, contractID string, coopID string, coopSize int, threshold int, threadChannel *discordgo.Channel) {
+
+}
