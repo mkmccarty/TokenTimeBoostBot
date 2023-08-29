@@ -55,10 +55,14 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 	switch {
 	case strings.HasPrefix(message.Content, "!notoki"):
 		str := wish(name)
-		discord.ChannelMessageSend(message.ChannelID, wishImage(str))
+		discord.ChannelMessageSend(message.ChannelID, wishImage(str, "Represent this using creepy cryptid chickens in the style of a 5 year olds crayon drawing."))
 		discord.ChannelMessageSend(message.ChannelID, str)
 	case strings.HasPrefix(message.Content, "!notok"):
 		discord.ChannelMessageSend(message.ChannelID, wish(name))
+	case strings.HasPrefix(message.Content, "!letmeout"):
+		str := letmeout(name)
+		discord.ChannelMessageSend(message.ChannelID, wishImage(str, "Represent this in the style of a crayon drawing."))
+		discord.ChannelMessageSend(message.ChannelID, str)
 	}
 }
 
@@ -127,6 +131,38 @@ func wish(mention string) string {
 	return str
 }
 
+func letmeout(mention string) string {
+	var str string = ""
+
+	var client = openai.NewClient(config.OpenAIKey)
+
+	var tokenPrompt = "A chicken egg farmer is locked in his farm " +
+		" held hostage by an unknown force. In 100 words tell random funny story about this confinement. " +
+		"Use gender neutral pronouns."
+
+	//var tokenPrompt = "A chicken farmer needs tokens to be successful on his farm. He finds a bottle with a genie who will grant him wishes. Tell me 3 wishes to ask for. Start the response of each wish with \"Farmer wishes \". Respond in a JSON format."
+	var resp, err = client.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Model: openai.GPT3Dot5Turbo0301,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: tokenPrompt,
+				},
+			},
+		},
+	)
+
+	if err != nil {
+		str = ""
+	} else {
+		str = resp.Choices[0].Message.Content
+	}
+
+	return str
+}
+
 func saveData(c *WishStruct) {
 	b, _ := json.Marshal(c)
 	boost.DataStore.Write("Wishes", b)
@@ -143,16 +179,17 @@ func loadData() (*WishStruct, error) {
 	return c, nil
 }
 
-func wishImage(prompt string) string {
+func wishImage(prompt string, coaching string) string {
 	var client = openai.NewClient(config.OpenAIKey)
 
 	respURL, err := client.CreateImage(
 		context.Background(),
 		openai.ImageRequest{
-			Prompt:         fmt.Sprintf("%s Represent this using creepy cryptid chickens in the style of a 5 year olds crayon drawing.", prompt),
+			Prompt:         fmt.Sprintf("%s %s", prompt, coaching),
+			N:              1,
 			Size:           openai.CreateImageSize256x256,
 			ResponseFormat: openai.CreateImageResponseFormatURL,
-			N:              1,
+			User:           "",
 		},
 	)
 	if err != nil {
