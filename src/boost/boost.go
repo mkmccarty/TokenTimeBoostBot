@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -84,6 +85,7 @@ type Contract struct {
 	RegisteredNum int
 	Boosters      map[string]*Booster // Boosters Registered
 	Order         []string
+	mutex         sync.Mutex // Keep this contract thread safe
 }
 
 var (
@@ -728,10 +730,10 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 	}
 	if contract.BoostState == 2 {
 		FinishContract(s, contract)
-	} else {
-		if pingUsers {
-			notifyBellBoosters(s, contract)
-		}
+	}
+
+	if pingUsers {
+		notifyBellBoosters(s, contract)
 	}
 }
 
@@ -872,6 +874,12 @@ func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
 		if farmer.Ping {
 			u, _ := s.UserChannelCreate(farmer.UserID)
 			var str = fmt.Sprintf("%s: Send Boost Tokens to %s", farmer.ChannelName, contract.Boosters[contract.Order[contract.BoostPosition]].Name)
+			if contract.BoostState == 2 {
+				t1 := contract.EndTime
+				t2 := contract.StartTime
+				duration := t1.Sub(t2)
+				str = fmt.Sprintf("%s: Contract Boosting Completed in %s ", farmer.ChannelName, duration.Round(time.Second))
+			}
 			_, err := s.ChannelMessageSend(u.ID, str)
 			if err != nil {
 				panic(err)
