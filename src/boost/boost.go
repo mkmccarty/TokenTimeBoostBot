@@ -728,13 +728,13 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		loc.ListMsgID = msg.ID
 		s.ChannelMessageSend(loc.ChannelID, str)
 	}
+	if pingUsers {
+		notifyBellBoosters(s, contract)
+	}
 	if contract.BoostState == 2 {
 		FinishContract(s, contract)
 	}
 
-	if pingUsers {
-		notifyBellBoosters(s, contract)
-	}
 }
 
 // If
@@ -873,12 +873,14 @@ func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
 		var farmer = contract.EggFarmers[contract.Boosters[i].UserID]
 		if farmer.Ping {
 			u, _ := s.UserChannelCreate(farmer.UserID)
-			var str = fmt.Sprintf("%s: Send Boost Tokens to %s", farmer.ChannelName, contract.Boosters[contract.Order[contract.BoostPosition]].Name)
+			var str = fmt.Sprintf("")
 			if contract.BoostState == 2 {
 				t1 := contract.EndTime
 				t2 := contract.StartTime
 				duration := t1.Sub(t2)
 				str = fmt.Sprintf("%s: Contract Boosting Completed in %s ", farmer.ChannelName, duration.Round(time.Second))
+			} else {
+				str = fmt.Sprintf("%s: Send Boost Tokens to %s", farmer.ChannelName, contract.Boosters[contract.Order[contract.BoostPosition]].Name)
 			}
 			_, err := s.ChannelMessageSend(u.ID, str)
 			if err != nil {
