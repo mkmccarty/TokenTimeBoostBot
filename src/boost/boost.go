@@ -119,6 +119,8 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) stri
 	var contract = FindContract(guildID, channelID)
 
 	if contract != nil {
+		contract.mutex.Lock()
+		defer contract.mutex.Unlock()
 		var coop = contract.ContractHash
 		saveEndData(contract) // Save for historical purposes
 
@@ -174,7 +176,9 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.CoopSize = coopSize
 		Contracts[ContractHash] = contract
 	} else {
+		contract.mutex.Lock()
 		contract.Location = append(contract.Location, loc)
+		contract.mutex.Unlock()
 	}
 
 	// Find our Token emoji
@@ -224,7 +228,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 			prefix = fmt.Sprintf("%2d - ", i)
 		}
 		//for i := 1; i <= len(contract.Boosters); i++ {
-		// TODO: This has crashed
+		// TODO: This has crashed before the mutex was added
 		var b = contract.Boosters[element]
 		var name = b.Name
 		var server = ""
@@ -293,6 +297,8 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
+	contract.mutex.Lock()
+	defer contract.mutex.Unlock()
 
 	if contract.CoopSize == len(contract.Order) {
 		return errors.New(errorContractFull)
@@ -416,6 +422,8 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 			return
 		}
 	}
+	contract.mutex.Lock()
+	defer contract.mutex.Unlock()
 
 	// If we get a stopwatch reaction from the contract creator, start the contract
 	if r.Emoji.Name == "⏱️" && contract.BoostState == 0 && r.UserID == contract.UserID {
@@ -492,6 +500,7 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 	var index = offset - 1 // Index is 0 based
 
 	// TODO: This can crash if contract.Order[index] returns nothing
+	// TODO: This crashed before the contract mutex was added
 
 	var activeBooster = contract.Boosters[contract.Order[index]].BoostState
 	var userID = contract.Order[index]
@@ -512,6 +521,8 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
+	contract.mutex.Lock()
+	defer contract.mutex.Unlock()
 
 	if contract.CoopSize == 0 {
 		return errors.New(errorContractEmpty)
@@ -560,6 +571,9 @@ func RemoveContractBooster(s *discordgo.Session, guildID string, channelID strin
 		return errors.New(errorNoContract)
 	}
 
+	contract.mutex.Lock()
+	defer contract.mutex.Unlock()
+
 	if len(contract.Order) == 0 {
 		return errors.New(errorContractEmpty)
 	}
@@ -587,6 +601,10 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 	if contract == nil {
 		return
 	}
+
+	contract.mutex.Lock()
+	defer contract.mutex.Unlock()
+
 	var farmer = contract.EggFarmers[r.UserID]
 	if farmer == nil {
 		return
@@ -647,6 +665,9 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
+
+	contract.mutex.Lock()
+	defer contract.mutex.Unlock()
 
 	if len(contract.Boosters) == 0 {
 		return errors.New(errorContractEmpty)
@@ -745,6 +766,9 @@ func BoostCommand(s *discordgo.Session, guildID string, channelID string, userID
 		return errors.New(errorNoContract)
 	}
 
+	contract.mutex.Lock()
+	defer contract.mutex.Unlock()
+
 	if contract.BoostState == 0 {
 		return errors.New(errorContractEmpty)
 	}
@@ -783,6 +807,9 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 		return errors.New(errorNoContract)
 	}
 
+	contract.mutex.Lock()
+	defer contract.mutex.Unlock()
+
 	if contract.BoostState == 0 {
 		return errors.New(errorContractNotStarted)
 	}
@@ -816,6 +843,9 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
+
+	contract.mutex.Lock()
+	defer contract.mutex.Unlock()
 
 	if contract.BoostState == 0 {
 		return errors.New(errorNotStarted)
