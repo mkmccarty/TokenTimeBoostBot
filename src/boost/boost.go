@@ -227,28 +227,28 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		if contract.BoostState != 0 {
 			prefix = fmt.Sprintf("%2d - ", i)
 		}
-		//for i := 1; i <= len(contract.Boosters); i++ {
-		// TODO: This has crashed before the mutex was added
-		var b = contract.Boosters[element]
-		var name = b.Name
-		var server = ""
-		var currentStartTime = fmt.Sprintf(" <t:%d:R> ", b.StartTime.Unix())
-		if len(contract.Location) > 1 {
-			server = fmt.Sprintf(" (%s) ", contract.EggFarmers[element].GuildName)
-		}
+		var b, ok = contract.Boosters[element]
+		if ok {
+			var name = b.Name
+			var server = ""
+			var currentStartTime = fmt.Sprintf(" <t:%d:R> ", b.StartTime.Unix())
+			if len(contract.Location) > 1 {
+				server = fmt.Sprintf(" (%s) ", contract.EggFarmers[element].GuildName)
+			}
 
-		switch b.BoostState {
-		case 0:
-			outputStr += fmt.Sprintf("%s %s%s\n", prefix, name, server)
-		case 1:
-			outputStr += fmt.Sprintf("%s %s %s%s%s\n", prefix, name, TokenStr, currentStartTime, server)
-		case 2:
-			t1 := contract.Boosters[element].EndTime
-			t2 := contract.Boosters[element].StartTime
-			duration := t1.Sub(t2)
-			outputStr += fmt.Sprintf("%s ~~%s~~  %s %s\n", prefix, name, duration.Round(time.Second), server)
+			switch b.BoostState {
+			case 0:
+				outputStr += fmt.Sprintf("%s %s%s\n", prefix, name, server)
+			case 1:
+				outputStr += fmt.Sprintf("%s %s %s%s%s\n", prefix, name, TokenStr, currentStartTime, server)
+			case 2:
+				t1 := contract.Boosters[element].EndTime
+				t2 := contract.Boosters[element].StartTime
+				duration := t1.Sub(t2)
+				outputStr += fmt.Sprintf("%s ~~%s~~  %s %s\n", prefix, name, duration.Round(time.Second), server)
+			}
+			i += 1
 		}
-		i += 1
 	}
 
 	// Only draw empty slots when contract is active
@@ -499,19 +499,18 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 	}
 	var index = offset - 1 // Index is 0 based
 
-	// TODO: This can crash if contract.Order[index] returns nothing
-	// TODO: This crashed before the contract mutex was added
+	var activeBooster, ok = contract.Boosters[contract.Order[index]]
+	if ok {
+		var activeBoosterState = activeBooster.BoostState
+		var userID = contract.Order[index]
+		contract.Order = RemoveIndex(contract.Order, index)
+		delete(contract.Boosters, userID)
 
-	var activeBooster = contract.Boosters[contract.Order[index]].BoostState
-	var userID = contract.Order[index]
-	contract.Order = RemoveIndex(contract.Order, index)
-	delete(contract.Boosters, userID)
-
-	// Active Booster is leaving contract.
-	if (activeBooster == 1) && len(contract.Order) > index {
-		contract.Boosters[contract.Order[index]].BoostState = 2
-		contract.Boosters[contract.Order[index]].StartTime = time.Now()
-
+		// Active Booster is leaving contract.
+		if (activeBoosterState == 1) && len(contract.Order) > index {
+			contract.Boosters[contract.Order[index]].BoostState = 2
+			contract.Boosters[contract.Order[index]].StartTime = time.Now()
+		}
 	}
 	return true
 }
@@ -903,7 +902,7 @@ func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
 		var farmer = contract.EggFarmers[contract.Boosters[i].UserID]
 		if farmer.Ping {
 			u, _ := s.UserChannelCreate(farmer.UserID)
-			var str = fmt.Sprintf("")
+			var str = ""
 			if contract.BoostState == 2 {
 				t1 := contract.EndTime
 				t2 := contract.StartTime
