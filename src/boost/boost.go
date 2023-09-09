@@ -415,18 +415,22 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		return
 	}
 
-	var contract, _ = FindContractByReactionID(r.ChannelID, r.MessageID)
+	var contract = FindContract(guildID, channelID)
 	if contract == nil {
-		contract, _ = FindContractByMessageID(r.ChannelID, r.MessageID)
-		if contract == nil {
-			return
-		}
+		return errors.New(errorNoContract)
 	}
+	//var contract, _ = FindContractByReactionID(r.ChannelID, r.MessageID)
+	//if contract == nil {
+	//	contract, _ = FindContractByMessageID(r.ChannelID, r.MessageID)
+	//	if contract == nil {
+	//		return
+	//	}
+	//}
 	contract.mutex.Lock()
-	defer contract.mutex.Unlock()
 
 	// If we get a stopwatch reaction from the contract creator, start the contract
 	if r.Emoji.Name == "⏱️" && contract.BoostState == 0 && r.UserID == contract.UserID {
+		contract.mutex.Unlock()
 		StartContractBoosting(s, r.GuildID, r.ChannelID)
 		return
 	}
@@ -440,6 +444,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 				var votingElection = (msg.Reactions[0].Count - 1) >= 2
 
 				if r.UserID == contract.Order[contract.BoostPosition] || votingElection || r.UserID == contract.UserID {
+					contract.mutex.Unlock()
 					Boosting(s, r.GuildID, r.ChannelID)
 				}
 				return
@@ -596,10 +601,14 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 	if err != nil {
 		return
 	}
-	var contract, _ = FindContractByReactionID(r.ChannelID, r.MessageID)
+	var contract = FindContract(guildID, channelID)
 	if contract == nil {
-		return
+		return errors.New(errorNoContract)
 	}
+	//var contract, _ = FindContractByReactionID(r.ChannelID, r.MessageID)
+	//if contract == nil {
+	//	return
+	//}
 
 	contract.mutex.Lock()
 	defer contract.mutex.Unlock()
