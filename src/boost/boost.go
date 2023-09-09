@@ -415,19 +415,18 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		return
 	}
 
-	//var contract = FindContract(r.GuildID, r.ChannelID)
-	//if contract == nil {
-	//	return errors.New(errorNoContract)
-	//}
-	var contract, _ = FindContractByReactionID(r.ChannelID, r.MessageID)
+	var contract = FindContract(r.GuildID, r.ChannelID)
 	if contract == nil {
-		contract, _ = FindContractByMessageID(r.ChannelID, r.MessageID)
+		contract, _ = FindContractByReactionID(r.ChannelID, r.MessageID)
 		if contract == nil {
-			return
+			contract, _ = FindContractByMessageID(r.ChannelID, r.MessageID)
+			if contract == nil {
+				return
+			}
 		}
 	}
 	contract.mutex.Lock()
-
+	defer saveData(Contracts)
 	// If we get a stopwatch reaction from the contract creator, start the contract
 	if r.Emoji.Name == "⏱️" && contract.BoostState == 0 && r.UserID == contract.UserID {
 		contract.mutex.Unlock()
@@ -454,11 +453,13 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 			if r.UserID == contract.Order[contract.BoostPosition] || r.UserID == contract.UserID {
 				if (contract.BoostPosition + 1) < len(contract.Order) {
 					if r.Emoji.Name == "🔃" {
+						contract.mutex.Unlock()
 						SkipBooster(s, r.GuildID, r.ChannelID, "")
 						return
 					}
 					// Reaction to jump to end
 					if r.Emoji.Name == "⤵️" {
+						contract.mutex.Unlock()
 						SkipBooster(s, r.GuildID, r.ChannelID, contract.Order[contract.BoostPosition])
 						return
 					}
@@ -466,7 +467,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 			}
 		}
 	}
-
+	defer contract.mutex.Unlock()
 	// Remove extra added emoji
 	if r.Emoji.Name != "🧑‍🌾" && r.Emoji.Name != "🔔" && r.Emoji.Name != "🎲" {
 		s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
@@ -601,17 +602,21 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 	if err != nil {
 		return
 	}
-	//var contract = FindContract(guildID, channelID)
-	//if contract == nil {
-	//	return errors.New(errorNoContract)
-	//}
-	var contract, _ = FindContractByReactionID(r.ChannelID, r.MessageID)
+
+	var contract = FindContract(r.GuildID, r.ChannelID)
 	if contract == nil {
-		return
+		contract, _ = FindContractByReactionID(r.ChannelID, r.MessageID)
+		if contract == nil {
+			contract, _ = FindContractByMessageID(r.ChannelID, r.MessageID)
+			if contract == nil {
+				return
+			}
+		}
 	}
 
 	contract.mutex.Lock()
 	defer contract.mutex.Unlock()
+	defer saveData(Contracts)
 
 	var farmer = contract.EggFarmers[r.UserID]
 	if farmer == nil {
