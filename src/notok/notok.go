@@ -136,8 +136,9 @@ func letmeout(mention string) string {
 
 	var client = openai.NewClient(config.OpenAIKey)
 
-	var tokenPrompt = "A chicken egg farmer is locked in his farm " +
-		" held hostage by an unknown force. In 100 words tell random funny story about this confinement. " +
+	var tokenPrompt = //"Using a random city on Earth as the location for this story, don't reuse a previous city choice.  Highlight that city's culture when telling this story about " +
+	"a group of chicken egg farmers are locked in their farm " +
+		"held hostage by an unknown force. In 100 words tell random funny story about this confinement. " +
 		"Use gender neutral pronouns."
 
 	//var tokenPrompt = "A chicken farmer needs tokens to be successful on his farm. He finds a bottle with a genie who will grant him wishes. Tell me 3 wishes to ask for. Start the response of each wish with \"Farmer wishes \". Respond in a JSON format."
