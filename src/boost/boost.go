@@ -415,16 +415,16 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		return
 	}
 
-	var contract = FindContract(r.GuildID, r.ChannelID)
+	//var contract = FindContract(r.GuildID, r.ChannelID)
+	//if contract == nil {
+	var contract, _ = FindContractByReactionID(r.ChannelID, r.MessageID)
 	if contract == nil {
-		contract, _ = FindContractByReactionID(r.ChannelID, r.MessageID)
+		contract, _ = FindContractByMessageID(r.ChannelID, r.MessageID)
 		if contract == nil {
-			contract, _ = FindContractByMessageID(r.ChannelID, r.MessageID)
-			if contract == nil {
-				return
-			}
+			return
 		}
 	}
+	//}
 	contract.mutex.Lock()
 	defer saveData(Contracts)
 	// If we get a stopwatch reaction from the contract creator, start the contract
@@ -603,16 +603,16 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 		return
 	}
 
-	var contract = FindContract(r.GuildID, r.ChannelID)
+	//var contract = FindContract(r.GuildID, r.ChannelID)
+	//if contract == nil {
+	var contract, _ = FindContractByReactionID(r.ChannelID, r.MessageID)
 	if contract == nil {
-		contract, _ = FindContractByReactionID(r.ChannelID, r.MessageID)
+		contract, _ = FindContractByMessageID(r.ChannelID, r.MessageID)
 		if contract == nil {
-			contract, _ = FindContractByMessageID(r.ChannelID, r.MessageID)
-			if contract == nil {
-				return
-			}
+			return
 		}
 	}
+	//}
 
 	contract.mutex.Lock()
 	defer contract.mutex.Unlock()
