@@ -174,11 +174,11 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.RegisteredNum = 0
 		contract.CoopSize = coopSize
 		Contracts[ContractHash] = contract
-	} else {
-		//contract.mutex.Lock()
-		//contract.Location = append(contract.Location, loc)
-		//contract.mutex.Unlock()
-	}
+	} //else {
+	//contract.mutex.Lock()
+	//contract.Location = append(contract.Location, loc)
+	//contract.mutex.Unlock()
+	//}
 
 	// Find our Token emoji
 	for _, el := range contract.Location {
