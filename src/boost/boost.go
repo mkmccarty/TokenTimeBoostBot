@@ -250,12 +250,6 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		}
 	}
 
-	// Only draw empty slots when contract is active
-	//if contract.BoostState != 2 {
-	//	for ; i <= contract.CoopSize; i++ {
-	//		outputStr += fmt.Sprintf("%2d -   open position\n", i)
-	//	}
-	//}
 	if contract.BoostState == 1 {
 		outputStr += "```"
 		outputStr += "React with 🚀 when you spend tokens to boost. Multiple 🚀 votes by others in the contract will also indicate a boost.\n"
@@ -299,7 +293,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 	//contract.mutex.Lock()
 	//defer contract.mutex.Unlock()
 
-	if contract.CoopSize == len(contract.Order) {
+	if contract.CoopSize == min(len(contract.Order), len(contract.Boosters)) {
 		return errors.New(errorContractFull)
 	}
 
@@ -360,7 +354,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 
 		contract.EggFarmers[userID] = farmer
 	}
-	farmer.Reactions += 1
+
 	var b = contract.Boosters[userID]
 	if b == nil {
 		// New Farmer - add them to boost list
@@ -380,8 +374,10 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			b.Mention = member.Mention()
 		}
 		contract.Boosters[farmer.UserID] = b
-		contract.Order = append(contract.Order, farmer.UserID)
-		contract.RegisteredNum += 1
+		if !userInContract(contract, farmer.UserID) {
+			contract.Order = append(contract.Order, farmer.UserID)
+		}
+		contract.RegisteredNum = len(contract.Boosters)
 
 		// Edit the boost list in place
 		for _, loc := range contract.Location {
@@ -399,7 +395,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 
 func userInContract(c *Contract, u string) bool {
 	for _, el := range c.Order {
-		if el == u {
+		if el == u && c.Boosters[u] != nil {
 			return true
 		}
 	}
@@ -481,6 +477,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 	if len(contract.Order) < contract.CoopSize {
 		var farmer, e = AddFarmerToContract(s, contract, r.GuildID, r.ChannelID, r.UserID)
 		if e == nil {
+			farmer.Reactions = getReactions(s, r.ChannelID, r.MessageID, r.UserID)
 			if r.Emoji.Name == "🔔" {
 				farmer.Ping = true
 				u, _ := s.UserChannelCreate(farmer.UserID)
@@ -516,6 +513,8 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 			contract.Boosters[contract.Order[index]].BoostState = 2
 			contract.Boosters[contract.Order[index]].StartTime = time.Now()
 		}
+	} else {
+		contract.Order = RemoveIndex(contract.Order, index)
 	}
 	return true
 }
@@ -548,7 +547,7 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 		if contract.Order[i] == userID {
 			found = true
 			if removeContractBoosterByContract(s, contract, i+1) {
-				contract.RegisteredNum -= 1
+				contract.RegisteredNum = len(contract.Boosters)
 			}
 			break
 		}
@@ -582,7 +581,7 @@ func RemoveContractBooster(s *discordgo.Session, guildID string, channelID strin
 		return errors.New(errorContractEmpty)
 	}
 	if removeContractBoosterByContract(s, contract, index) {
-		contract.RegisteredNum -= 1
+		contract.RegisteredNum = len(contract.Boosters)
 	}
 
 	// Remove the Boost List and thoen redisplay it
@@ -594,6 +593,22 @@ func RemoveContractBooster(s *discordgo.Session, guildID string, channelID strin
 		}
 	}
 	return nil
+}
+
+func getReactions(s *discordgo.Session, channelID string, messageID string, userID string) int {
+	var reaction = 0
+	var emoji = [2]string{"🧑‍🌾", "🔔"}
+	for _, e := range emoji {
+		var m, me = s.MessageReactions(channelID, messageID, e, 50, "", "")
+		if me == nil {
+			for _, r := range m {
+				if r.ID == userID {
+					reaction += 1
+				}
+			}
+		}
+	}
+	return reaction
 }
 
 func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
@@ -635,7 +650,7 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 		return
 	}
 
-	farmer.Reactions -= 1
+	farmer.Reactions = getReactions(s, r.ChannelID, r.MessageID, r.UserID)
 
 	if r.Emoji.Name == "🔔" {
 		farmer.Ping = false
@@ -649,7 +664,7 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 				break
 			}
 		}
-		contract.RegisteredNum -= 1
+		contract.RegisteredNum = len(contract.Boosters)
 
 		for _, loc := range contract.Location {
 			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract))
