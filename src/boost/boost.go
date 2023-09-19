@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -394,11 +395,22 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 }
 
 func userInContract(c *Contract, u string) bool {
+
+	if len(c.Boosters) != len(c.Order) {
+		// Exists in Boosters/Order but not in other
+		for k := range c.Boosters {
+			if !slices.Contains(c.Order, k) {
+				c.Order = append(c.Order, k)
+			}
+		}
+	}
+
 	for _, el := range c.Order {
 		if el == u && c.Boosters[u] != nil {
 			return true
 		}
 	}
+
 	return false
 }
 
