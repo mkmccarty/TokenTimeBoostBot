@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/peterbourgon/diskv/v3"
 	emutil "github.com/post04/discordgo-emoji-util"
 )
@@ -400,7 +399,7 @@ func userInContract(c *Contract, u string) bool {
 			return true
 		}
 	}
-	return u == config.AdminUserId
+	return false
 }
 
 func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
@@ -423,7 +422,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 	//contract.mutex.Lock()
 	defer saveData(Contracts)
 	// If we get a stopwatch reaction from the contract creator, start the contract
-	if r.Emoji.Name == "⏱️" && contract.BoostState == 0 && (r.UserID == contract.UserID || r.UserID == config.AdminUserId) {
+	if r.Emoji.Name == "⏱️" && contract.BoostState == 0 && (r.UserID == contract.UserID) {
 		//contract.mutex.Unlock()
 		StartContractBoosting(s, r.GuildID, r.ChannelID)
 		return
@@ -437,7 +436,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 			if r.Emoji.Name == "🚀" && contract.BoostState == 1 {
 				var votingElection = (msg.Reactions[0].Count - 1) >= 2
 
-				if r.UserID == contract.Order[contract.BoostPosition] || votingElection || r.UserID == contract.UserID || r.UserID == config.AdminUserId {
+				if r.UserID == contract.Order[contract.BoostPosition] || votingElection || r.UserID == contract.UserID {
 					//contract.mutex.Unlock()
 					Boosting(s, r.GuildID, r.ChannelID)
 				}
@@ -445,7 +444,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 			}
 
 			// Reaction to change places
-			if r.UserID == contract.Order[contract.BoostPosition] || r.UserID == contract.UserID || r.UserID == config.AdminUserId {
+			if r.UserID == contract.Order[contract.BoostPosition] || r.UserID == contract.UserID {
 				if (contract.BoostPosition + 1) < len(contract.Order) {
 					if r.Emoji.Name == "🔃" {
 						//contract.mutex.Unlock()
