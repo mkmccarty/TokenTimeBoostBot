@@ -12,6 +12,7 @@ var (
 	DiscordAppID   string
 	DiscordGuildID string
 	OpenAIKey      string
+	AdminUserId    string
 	config         *configStruct
 )
 
@@ -20,6 +21,7 @@ type configStruct struct {
 	DiscordAppID   string `json:"DiscordAppID"`
 	DiscordGuildID string `json:"DiscordGuildID"`
 	OpenAIKey      string `json:"OpenAIKey"`
+	AdminUserId    string `json:"AdminUserId"`
 }
 
 // ReadConfig will load the configuration files for API tokens.
@@ -46,6 +48,7 @@ func ReadConfig() error {
 	DiscordAppID = config.DiscordAppID
 	DiscordGuildID = "" //config.DiscordGuildID
 	OpenAIKey = config.OpenAIKey
+	AdminUserId = config.AdminUserId
 
 	return nil
 }
