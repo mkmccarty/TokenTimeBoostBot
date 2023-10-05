@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
@@ -20,10 +21,11 @@ const slashContract string = "contract"
 const slashSkip string = "skip"
 const slashBoost string = "boost"
 
-// const slashmsg string = "cluck"
+// const slashcluck string = "cluck"
 const slashLast string = "last"
 const slashPrune string = "prune"
 const slashJoin string = "join"
+const slashSignup string = "signup"
 
 // Bot parameters to override .config.json parameters
 var (
@@ -107,8 +109,10 @@ var (
 
 	commandsHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		slashJoin: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			var farmerName = ""
+			var farmerName *discordgo.User = nil
+			var guestName = ""
 			var str = "Joining Member"
+			var mention = ""
 
 			// User interacting with bot, is this first time ?
 			options := i.ApplicationCommandData().Options
@@ -118,13 +122,18 @@ var (
 			}
 
 			if opt, ok := optionMap["farmer"]; ok {
-				farmerName = opt.StringValue()
+				farmerName = opt.UserValue(s)
+				mention = farmerName.Mention()
+			}
+			if opt, ok := optionMap["guest"]; ok {
+				guestName = opt.StringValue()
 			}
 
-			var err = boost.AddContractMember(s, i.GuildID, i.ChannelID, i.Member.Mention(), farmerName)
+			var err = boost.AddContractMember(s, i.GuildID, i.ChannelID, i.Member.Mention(), mention, guestName)
 			if err != nil {
 				str = err.Error()
 			}
+
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
@@ -132,6 +141,127 @@ var (
 					Flags:      discordgo.MessageFlagsEphemeral,
 					Components: []discordgo.MessageComponent{}},
 			})
+
+		},
+		slashSignup: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			var contractID = i.GuildID
+			var coopID = i.GuildID // Default to the Guild ID
+			var number = 0
+			var coopSize = 0
+			var threshold = 0
+			var threadChannel *discordgo.Channel = nil
+
+			// User interacting with bot, is this first time ?
+			options := i.ApplicationCommandData().Options
+			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+			for _, opt := range options {
+				optionMap[opt.Name] = opt
+			}
+			if opt, ok := optionMap["number"]; ok {
+				number = int(opt.IntValue())
+			}
+			if opt, ok := optionMap["contract-id"]; ok {
+				contractID = opt.StringValue()
+				contractID = strings.Replace(contractID, " ", "", -1)
+			}
+			if opt, ok := optionMap["coop-id"]; ok {
+				coopID = opt.StringValue()
+				coopID = strings.Replace(coopID, " ", "", -1)
+			}
+			if opt, ok := optionMap["coop-size"]; ok {
+				coopSize = int(opt.IntValue())
+			}
+			if opt, ok := optionMap["threshold"]; ok {
+				threshold = int(opt.IntValue())
+			}
+			if opt, ok := optionMap["thread-channel"]; ok {
+				threadChannel = opt.ChannelValue(s)
+			}
+
+			boost.StartSignup(s, i, number, contractID, coopID, coopSize, threshold, threadChannel)
+			var embeds []*discordgo.MessageEmbed
+
+			embed := &discordgo.MessageEmbed{
+				Author: &discordgo.MessageEmbedAuthor{
+					Name: "RAIYC#0",
+				},
+				Type:        discordgo.EmbedTypeRich,
+				Color:       0x00ff00, // Green
+				Description: "Test embed",
+				Fields: []*discordgo.MessageEmbedField{
+					&discordgo.MessageEmbedField{
+						Name:   "I am a field",
+						Value:  "I am a value",
+						Inline: true,
+					},
+					&discordgo.MessageEmbedField{
+						Name:   "I am a secondfield",
+						Value:  "I am a value",
+						Inline: true,
+					},
+				},
+				Timestamp: time.Now().Format(time.RFC3339),
+				Title:     "I am an Embed",
+			}
+
+			embeds = append(embeds, embed)
+
+			var actionRows []discordgo.MessageComponent
+			var comp []discordgo.MessageComponent
+
+			for i := 0; i < number; i++ {
+				comp = append(comp,
+					discordgo.Button{
+						Label:    fmt.Sprintf("%d", i),
+						Style:    discordgo.PrimaryButton,
+						Disabled: false,
+						CustomID: fmt.Sprintf("fd_signup%d", i),
+					})
+			}
+			comp = append(comp,
+				discordgo.Button{
+					Label:    "Delete",
+					Style:    discordgo.DangerButton,
+					Disabled: false,
+					CustomID: "fd_delete",
+				})
+			// Build Action Rows
+			x := int(len(comp) / 5)
+			for i := 0; i <= x; i++ {
+				var c []discordgo.MessageComponent
+
+				for j := 0; j < 5; j++ {
+					if len(comp) == (i*5 + j) {
+						break
+					}
+					c = append(c, comp[i*5+j])
+				}
+				actionRows = append(actionRows,
+					discordgo.ActionsRow{
+						Components: c,
+					})
+			}
+			//embed := NewEmbed().
+			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Eggent Signup",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+			if err != nil {
+				fmt.Print(err.Error())
+				//panic(err)
+			}
+			_, err = s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
+				Content:    "Test",
+				Embeds:     embeds,
+				Components: actionRows,
+			})
+			if err != nil {
+				fmt.Print(err.Error())
+				//panic(err)
+			}
 
 		},
 		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -193,18 +323,18 @@ var (
 				},
 			})
 			if err != nil {
-				panic(err)
+				print(err)
 			}
 
 			msg, err := s.ChannelMessageSend(i.ChannelID, boost.DrawBoostList(s, contract))
 			if err != nil {
-				panic(err)
+				print(err)
 			}
 			boost.SetMessageID(contract, i.ChannelID, msg.ID)
 
 			reactionMsg, err := s.ChannelMessageSend(i.ChannelID, "`React with 🧑‍🌾 or 🔔 to signup. 🔔 will DM Updates, 🎲 is vote for random boost order, requires 2/3 supermajority to pass. Contract Creator can start the contract with ⏱️.`")
 			if err != nil {
-				panic(err)
+				print(err)
 			}
 			boost.SetReactionID(contract, i.ChannelID, reactionMsg.ID)
 			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🧑‍🌾") // Booster
@@ -371,15 +501,67 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
+	///signup number contract-id coop-base coop-size threshhold #contract_threads
 	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
-		Name:        slashJoin,
+		Name:        slashSignup,
 		Description: "Contract Boosting Elections",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "number",
+				Description: "Number of Sign-ups",
+				Required:    true,
+			},
+			{
 				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "contract-id",
+				Description: "Contract ID",
+				Required:    true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "coop-id",
+				Description: "Coop ID",
+				Required:    true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "coop-size",
+				Description: "Co-op Size",
+				Required:    true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "threshold",
+				Description: "Spawn at threshold",
+				Required:    true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionChannel,
+				Name:        "thread-channel",
+				Description: "Thread Channel",
+				Required:    true,
+			},
+		},
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
+		Name:        slashJoin,
+		Description: "Add farmer or guest to contract.",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionUser,
 				Name:        "farmer",
 				Description: "User Mention to add to existing contract",
-				Required:    true,
+				Required:    false,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "guest",
+				Description: "Guest Farmer to add to existing contract",
+				Required:    false,
 			},
 		},
 	})

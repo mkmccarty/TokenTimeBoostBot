@@ -256,7 +256,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		outputStr += "```"
 		outputStr += "React with 🚀 when you spend tokens to boost. Multiple 🚀 votes by others in the contract will also indicate a boost.\n"
 		if (contract.BoostPosition + 1) < len(contract.Order) {
-			outputStr += "React with 🔃 to exchange position with the next booster.\nReact with ⤵️ to move to last."
+			outputStr += "React with 🔃 to exchange position with the next booster.\nReact with ⤵️ to move to last. "
+			outputStr += "Add 🚽 to indicate you need to go now."
 		}
 		outputStr += "```"
 	}
@@ -287,7 +288,7 @@ func FindContractByReactionID(channelID string, ReactionID string) (*Contract, i
 	return nil, 0
 }
 
-func AddContractMember(s *discordgo.Session, guildID string, channelID string, operator string, mention string) error {
+func AddContractMember(s *discordgo.Session, guildID string, channelID string, operator string, mention string, guest string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -300,42 +301,62 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 	}
 
 	re := regexp.MustCompile(`[\\<>@#&!]`)
-	var userID = re.ReplaceAllString(mention, "")
+	if mention != "" {
+		var userID = re.ReplaceAllString(mention, "")
+		for i := range contract.Order {
+			if userID == contract.Order[i] {
+				return errors.New(errorUserInContract)
+			}
+		}
 
-	for i := range contract.Order {
-		if userID == contract.Order[i] {
-			return errors.New(errorUserInContract)
+		var u, err = s.User(userID)
+		if err != nil {
+			return errors.New(errorNoFarmer)
+		}
+		if u.Bot {
+			return errors.New(errorBot)
+		}
+		var farmer, fe = AddFarmerToContract(s, contract, guildID, channelID, u.ID)
+		if fe == nil {
+			// Need to rest the farmer reaction count when added this way
+			farmer.Reactions = 0
+		}
+		for _, loc := range contract.Location {
+			var listStr = "Boost"
+			if contract.BoostState == 0 {
+				listStr = "Sign-up"
+			}
+			var str = fmt.Sprintf("%s, was added to the %s List by %s", u.Mention(), listStr, operator)
+			s.ChannelMessageSend(loc.ChannelID, str)
 		}
 	}
 
-	var u, err = s.User(userID)
-	if err != nil {
-		return errors.New(errorNoFarmer)
-	}
-	if u.Bot {
-		return errors.New(errorBot)
-	}
-
-	var farmer, fe = AddFarmerToContract(s, contract, guildID, channelID, u.ID)
-	if fe == nil {
-		// Need to rest the farmer reaction count when added this way
-		farmer.Reactions = 0
-	}
-
-	for _, loc := range contract.Location {
-		var listStr = "Boost"
-		if contract.BoostState == 0 {
-			listStr = "Sign-up"
+	if guest != "" {
+		for i := range contract.Order {
+			if guest == contract.Order[i] {
+				return errors.New(errorUserInContract)
+			}
 		}
-		var str = fmt.Sprintf("%s, was added to the %s List by %s", u.Mention(), listStr, operator)
-		s.ChannelMessageSend(loc.ChannelID, str)
+
+		var farmer, fe = AddFarmerToContract(s, contract, guildID, channelID, guest)
+		if fe == nil {
+			// Need to rest the farmer reaction count when added this way
+			farmer.Reactions = 0
+		}
+		for _, loc := range contract.Location {
+			var listStr = "Boost"
+			if contract.BoostState == 0 {
+				listStr = "Sign-up"
+			}
+			var str = fmt.Sprintf("%s, was added to the %s List by %s", guest, listStr, operator)
+			s.ChannelMessageSend(loc.ChannelID, str)
+		}
 	}
 
 	return nil
 }
 
 func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string) (*EggFarmer, error) {
-	var err error
 	var farmer = contract.EggFarmers[userID]
 	if farmer == nil {
 		// New Farmer
@@ -350,9 +371,15 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		var g, _ = s.Guild(guildID)
 		farmer.GuildName = g.Name
 		var gm, _ = s.GuildMember(guildID, userID)
-		farmer.Username = gm.User.Username
-		farmer.Nick = gm.Nick
-		farmer.Unique = gm.User.String()
+		if gm != nil {
+			farmer.Username = gm.User.Username
+			farmer.Nick = gm.Nick
+			farmer.Unique = gm.User.String()
+		} else {
+			farmer.Username = userID
+			farmer.Nick = userID
+			farmer.Unique = userID
+		}
 
 		contract.EggFarmers[userID] = farmer
 	}
@@ -364,14 +391,18 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		b.UserID = farmer.UserID
 		b.Priority = false
 		b.Later = false
-		var user, _ = s.User(userID)
+		var user, err = s.User(userID)
 		if err == nil {
 			b.Name = user.Username
 			b.BoostState = 0
 			b.Mention = user.Mention()
+		} else {
+			b.Name = userID
+			b.BoostState = 0
+			b.Mention = userID
 		}
-		var member, err = s.GuildMember(guildID, userID)
-		if err == nil && member.Nick != "" {
+		var member, gmErr = s.GuildMember(guildID, userID)
+		if gmErr == nil && member.Nick != "" {
 			b.Name = member.Nick
 			b.Mention = member.Mention()
 		}
@@ -384,10 +415,10 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		// Edit the boost list in place
 		for _, loc := range contract.Location {
 			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract))
-			if err != nil {
-				panic(err)
+			if err == nil {
+				//panic(err)
+				loc.ListMsgID = msg.ID
 			}
-			loc.ListMsgID = msg.ID
 		}
 
 	}
@@ -456,7 +487,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 				return
 			}
 
-			// Reaction to change places
+			// Reaction for current booster to change places
 			if r.UserID == contract.Order[contract.BoostPosition] || r.UserID == contract.UserID || r.UserID == config.AdminUserId {
 				if (contract.BoostPosition + 1) < len(contract.Order) {
 					if r.Emoji.Name == "🔃" {
@@ -470,6 +501,11 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 						SkipBooster(s, r.GuildID, r.ChannelID, contract.Order[contract.BoostPosition])
 						return
 					}
+				}
+			} else {
+				// Reaction to indicate you need to boost now
+				if r.Emoji.Name == "🚽" {
+					SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
 				}
 			}
 		}
