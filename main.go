@@ -26,6 +26,7 @@ const slashLast string = "last"
 const slashPrune string = "prune"
 const slashJoin string = "join"
 const slashSignup string = "signup"
+const slashCoopETA string = "coopeta"
 
 // Bot parameters to override .config.json parameters
 var (
@@ -142,6 +143,41 @@ var (
 					Components: []discordgo.MessageComponent{}},
 			})
 
+		},
+		slashCoopETA: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			var rate = ""
+			var t = time.Now()
+			var hours = int64(0)
+			var minutes = int64(0)
+
+			// User interacting with bot, is this first time ?
+			options := i.ApplicationCommandData().Options
+			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+			for _, opt := range options {
+				optionMap[opt.Name] = opt
+			}
+
+			if opt, ok := optionMap["rate"]; ok {
+				rate = opt.StringValue()
+			}
+			if opt, ok := optionMap["hours"]; ok {
+				hours = opt.IntValue()
+			}
+			if opt, ok := optionMap["minutes"]; ok {
+				minutes = opt.IntValue()
+			}
+			dur, _ := time.ParseDuration(fmt.Sprint(hours, "h", minutes, "m"))
+			endTime := t.Add(dur)
+
+			var str = fmt.Sprintf("With rate of %s/hr completion <t:%d:R> near <t:%d:f>", rate, endTime.Unix(), endTime.Unix())
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: str,
+					//Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
 		},
 		slashSignup: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var contractID = i.GuildID
@@ -627,6 +663,34 @@ func main() {
 	})
 	if err != nil {
 		log.Fatalf("Cannot create slash command: %v", err)
+	}
+
+	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
+		Name:        slashCoopETA,
+		Description: "Display contract completion estimate.",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "rate",
+				Description: "Hourly production rate (i.e. 15.7q)",
+				Required:    true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "hours",
+				Description: "Hours",
+				Required:    true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "minutes",
+				Description: "Minutes",
+				Required:    true,
+			},
+		},
+	})
+	if err != nil {
+		fmt.Println(err)
 	}
 
 	err = s.Open()
