@@ -169,7 +169,7 @@ var (
 			dur, _ := time.ParseDuration(fmt.Sprint(hours, "h", minutes, "m"))
 			endTime := t.Add(dur)
 
-			var str = fmt.Sprintf("With rate of %s/hr completion <t:%d:R> near <t:%d:f>", rate, endTime.Unix(), endTime.Unix())
+			var str = fmt.Sprintf("Determined using production rate of %s/hr\nCompletion <t:%d:R> near <t:%d:f>", rate, endTime.Unix(), endTime.Unix()o
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -678,13 +678,13 @@ func main() {
 			{
 				Type:        discordgo.ApplicationCommandOptionInteger,
 				Name:        "hours",
-				Description: "Hours",
+				Description: "Hours remaining in this contract.",
 				Required:    true,
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionInteger,
 				Name:        "minutes",
-				Description: "Minutes",
+				Description: "Minutes remaining in this contract.",
 				Required:    true,
 			},
 		},
