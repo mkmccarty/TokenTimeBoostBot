@@ -816,13 +816,13 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			}
 
 			if pingUsers {
-				str = fmt.Sprintf("Send Tokens to %s", contract.Boosters[contract.Order[contract.BoostPosition]].Mention)
+				str = fmt.Sprintf("@here send Tokens to %s", contract.Boosters[contract.Order[contract.BoostPosition]].Mention)
 			}
 		} else {
 			t1 := contract.EndTime
 			t2 := contract.StartTime
 			duration := t1.Sub(t2)
-			str = fmt.Sprintf("Contract Boosting Complete in %s ", duration.Round(time.Second))
+			str = fmt.Sprintf("@here contract boosting complete in %s ", duration.Round(time.Second))
 		}
 		loc.ListMsgID = msg.ID
 		s.ChannelMessageSend(loc.ChannelID, str)
