@@ -816,7 +816,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			}
 
 			if pingUsers {
-				str = fmt.Sprintf("@here send Tokens to %s", contract.Boosters[contract.Order[contract.BoostPosition]].Mention)
+				str = fmt.Sprintf("@here send tokens to %s", contract.Boosters[contract.Order[contract.BoostPosition]].Mention)
 			}
 		} else {
 			t1 := contract.EndTime
