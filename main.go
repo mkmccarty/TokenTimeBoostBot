@@ -147,8 +147,7 @@ var (
 		slashCoopETA: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var rate = ""
 			var t = time.Now()
-			var hours = int64(0)
-			var minutes = int64(0)
+			var timespan = ""
 
 			// User interacting with bot, is this first time ?
 			options := i.ApplicationCommandData().Options
@@ -160,13 +159,11 @@ var (
 			if opt, ok := optionMap["rate"]; ok {
 				rate = opt.StringValue()
 			}
-			if opt, ok := optionMap["hours"]; ok {
-				hours = opt.IntValue()
+			if opt, ok := optionMap["timespan"]; ok {
+				timespan = opt.StringValue()
 			}
-			if opt, ok := optionMap["minutes"]; ok {
-				minutes = opt.IntValue()
-			}
-			dur, _ := time.ParseDuration(fmt.Sprint(hours, "h", minutes, "m"))
+
+			dur, _ := time.ParseDuration(timespan)
 			endTime := t.Add(dur)
 
 			var str = fmt.Sprintf("With a production rate of %s/hr\nCompletion <t:%d:R> near <t:%d:f>", rate, endTime.Unix(), endTime.Unix())
@@ -676,15 +673,9 @@ func main() {
 				Required:    true,
 			},
 			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "hours",
-				Description: "Hours remaining in this contract.",
-				Required:    true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "minutes",
-				Description: "Minutes remaining in this contract.",
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "timespan",
+				Description: "Time remaining in this contract. Example: 0d7h27m.",
 				Required:    true,
 			},
 		},
