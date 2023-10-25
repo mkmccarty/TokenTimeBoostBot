@@ -14,6 +14,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
+	"github.com/xhit/go-str2duration/v2"
 )
 
 // Slash Command Constants
@@ -163,7 +164,7 @@ var (
 				timespan = opt.StringValue()
 			}
 
-			dur, _ := time.ParseDuration(timespan)
+			dur, _ := str2duration.ParseDuration(timespan)
 			endTime := t.Add(dur)
 
 			var str = fmt.Sprintf("With a production rate of %s/hr\nCompletion <t:%d:R> near <t:%d:f>", rate, endTime.Unix(), endTime.Unix())

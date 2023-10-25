@@ -8,6 +8,7 @@ require (
 	github.com/post04/discordgo-emoji-util v0.0.0-20210226234616-e2c0f5ea133e
 	github.com/rs/xid v1.5.0
 	github.com/sashabaranov/go-openai v1.14.1
+	github.com/xhit/go-str2duration/v2 v2.1.0
 )
 
 require (
