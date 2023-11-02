@@ -86,9 +86,9 @@ func wish(mention string) string {
 	} else {
 		var client = openai.NewClient(config.OpenAIKey)
 
-		var tokenPrompt = "A chicken egg farmer needs a an item of currency, called a token," +
-			"to grow his farm. Compose a wish  " +
-			"which will bring me a token. The wish should be funny and draw " +
+		var tokenPrompt = "A chicken egg farmer needs an item of currency, called a token," +
+			"to grow their farm. Compose a wish  " +
+			"which will bring them a token. The wish should be funny and draw " +
 			"from current news events, excluding crypto currency items. Don't use names of real people. Start the response of each wish with " +
 			"\"Farmer wishes \". The word \"token\" must be used in the response. " +
 			"Use gender neutral pronouns. Don't number responses.."
