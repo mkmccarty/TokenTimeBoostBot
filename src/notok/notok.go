@@ -51,6 +51,8 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 		name = g.Nick
 	}
 
+	discord.ChannelTyping(message.ChannelID)
+
 	// Respond to messages
 	switch {
 	case strings.HasPrefix(message.Content, "!notoki"):
