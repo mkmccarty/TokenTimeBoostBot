@@ -187,9 +187,12 @@ func wishImage(prompt string, coaching string) string {
 		context.Background(),
 		openai.ImageRequest{
 			Prompt:         fmt.Sprintf("%s %s", prompt, coaching),
+			Model:          openai.CreateImageModelDallE3,
 			N:              1,
-			Size:           openai.CreateImageSize256x256,
+			Size:           openai.CreateImageSize1024x1024,
 			ResponseFormat: openai.CreateImageResponseFormatURL,
+			Quality:        openai.CreateImageQualityStandard,
+			Style:          openai.CreateImageStyleVivid,
 			User:           "",
 		},
 	)

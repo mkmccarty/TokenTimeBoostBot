@@ -10,8 +10,10 @@ github.com/post04/discordgo-emoji-util v0.0.0-20210226234616-e2c0f5ea133e h1:J7M
 github.com/post04/discordgo-emoji-util v0.0.0-20210226234616-e2c0f5ea133e/go.mod h1:Y2BX+vcWcFPxX/oqtUbDPqY3QNkKIuquWLLOdWZYB4o=
 github.com/rs/xid v1.5.0 h1:mKX4bl4iPYJtEIxp6CYiUuLQ/8DYMoz0PUdtGgMFRVc=
 github.com/rs/xid v1.5.0/go.mod h1:trrq9SKmegXys3aeAKXMUTdJsYXVwGY3RLcfgqegfbg=
-github.com/sashabaranov/go-openai v1.14.1 h1:jqfkdj8XHnBF84oi2aNtT8Ktp3EJ0MfuVjvcMkfI0LA=
-github.com/sashabaranov/go-openai v1.14.1/go.mod h1:lj5b/K+zjTSFxVLijLSTDZuP7adOgerWeFyZLUhAKRg=
+github.com/sashabaranov/go-openai v1.17.2 h1:Uj1Msqh43S9XhjUXYyOqOHMiRQtgQXCo5O0FeWZz7tU=
+github.com/sashabaranov/go-openai v1.17.2/go.mod h1:lj5b/K+zjTSFxVLijLSTDZuP7adOgerWeFyZLUhAKRg=
+github.com/sashabaranov/go-openai v1.17.3-0.20231108071622-a0159ad2b00e h1:bm03R4OfQ/MlOKN2/4Xc8Anwwb3e0ZDRyi7X1L3T0wo=
+github.com/sashabaranov/go-openai v1.17.3-0.20231108071622-a0159ad2b00e/go.mod h1:lj5b/K+zjTSFxVLijLSTDZuP7adOgerWeFyZLUhAKRg=
 github.com/xhit/go-str2duration/v2 v2.1.0 h1:lxklc02Drh6ynqX+DdPyp5pCKLUQpRT8bp8Ydu2Bstc=
 github.com/xhit/go-str2duration/v2 v2.1.0/go.mod h1:ohY8p+0f07DiV6Em5LKB0s2YpLtXVyJfNt1+BlmyAsU=
 golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b h1:7mWr3k41Qtv8XlltBkDkl8LoP3mpSgBW8BUoxtEdbXg=
