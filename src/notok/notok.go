@@ -51,17 +51,18 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 		name = g.Nick
 	}
 
-	discord.ChannelTyping(message.ChannelID)
-
 	// Respond to messages
 	switch {
 	case strings.HasPrefix(message.Content, "!notoki"):
+		discord.ChannelTyping(message.ChannelID)
 		str := wish(name)
 		discord.ChannelMessageSend(message.ChannelID, wishImage(str, "Represent this using creepy cryptid chickens in the style of a 5 year olds crayon drawing."))
 		discord.ChannelMessageSend(message.ChannelID, str)
 	case strings.HasPrefix(message.Content, "!notok"):
+		discord.ChannelTyping(message.ChannelID)
 		discord.ChannelMessageSend(message.ChannelID, wish(name))
 	case strings.HasPrefix(message.Content, "!letmeout"):
+		discord.ChannelTyping(message.ChannelID)
 		str := letmeout(name)
 		discord.ChannelMessageSend(message.ChannelID, wishImage(str, "Represent this in the style of a crayon drawing."))
 		discord.ChannelMessageSend(message.ChannelID, str)
