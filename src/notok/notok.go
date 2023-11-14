@@ -67,10 +67,16 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 		discord.ChannelMessageSend(message.ChannelID, wishImage(str, "Represent this in the style of a crayon drawing."))
 		discord.ChannelMessageSend(message.ChannelID, str)
 	case strings.HasPrefix(message.Content, "!gonow"):
-		str := gonow(name)
+		str := gonow()
 		discord.ChannelTyping(message.ChannelID)
 		discord.ChannelMessageSend(message.ChannelID, wishImage(str, ""))
 	}
+}
+
+func DoGoNow(discord *discordgo.Session, channelID string) {
+	var str = gonow()
+	discord.ChannelTyping(channelID)
+	discord.ChannelMessageSend(channelID, wishImage(str, ""))
 }
 
 func remove(s []string, i int) []string {
@@ -171,7 +177,7 @@ func letmeout(mention string) string {
 	return str
 }
 
-func gonow(mention string) string {
+func gonow() string {
 
 	var tokenPrompt = "Compose a scene with a chicken farmer needing blast off into space and racing off towards an outhouse shaped rocket ship " +
 		"in a comical cartoonish environment exaggerating the farmer's urgency."

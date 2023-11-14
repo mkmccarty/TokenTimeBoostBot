@@ -464,11 +464,11 @@ func userInContract(c *Contract, u string) bool {
 	return false
 }
 
-func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
+func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	// Find the message
 	var msg, err = s.ChannelMessage(r.ChannelID, r.MessageID)
 	if err != nil {
-		return
+		return ""
 	}
 
 	//var contract = FindContract(r.GuildID, r.ChannelID)
@@ -477,7 +477,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 	if contract == nil {
 		contract, _ = FindContractByMessageID(r.ChannelID, r.MessageID)
 		if contract == nil {
-			return
+			return ""
 		}
 	}
 	//}
@@ -487,7 +487,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 	if r.Emoji.Name == "⏱️" && contract.BoostState == 0 && creatorOfContract(contract, r.UserID) {
 		//contract.mutex.Unlock()
 		StartContractBoosting(s, r.GuildID, r.ChannelID)
-		return
+		return ""
 	}
 
 	if userInContract(contract, r.UserID) || creatorOfContract(contract, r.UserID) {
@@ -502,7 +502,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 					//contract.mutex.Unlock()
 					Boosting(s, r.GuildID, r.ChannelID)
 				}
-				return
+				return ""
 			}
 
 			// Reaction for current booster to change places
@@ -511,36 +511,38 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 					if r.Emoji.Name == "🔃" {
 						//contract.mutex.Unlock()
 						SkipBooster(s, r.GuildID, r.ChannelID, "")
-						return
+						return ""
 					}
 					// Reaction to jump to end
 					if r.Emoji.Name == "⤵️" {
 						//contract.mutex.Unlock()
 						SkipBooster(s, r.GuildID, r.ChannelID, contract.Order[contract.BoostPosition])
-						return
+						return ""
 					}
 				}
 			} else {
 				// Reaction to indicate you need to boost now
 				if r.Emoji.Name == "🚽" {
 					SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
+					return "!gonow"
 				}
 			}
 		}
 	}
 	if r.Emoji.Name == "🚽" {
 		SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
+		return "!gonow"
 	}
 	//defer contract.mutex.Unlock()
 	// Remove extra added emoji
 	if r.Emoji.Name != "🧑‍🌾" && r.Emoji.Name != "🔔" && r.Emoji.Name != "🎲" {
 		s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
-		return
+		return ""
 	}
 
 	if r.Emoji.Name == "🎲" {
 		contract.BoostVoting += 1
-		return
+		return ""
 	}
 
 	if len(contract.Order) < contract.CoopSize {
@@ -558,6 +560,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 			}
 		}
 	}
+	return ""
 }
 
 func RemoveIndex(s []string, index int) []string {

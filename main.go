@@ -500,7 +500,10 @@ func main() {
 	})
 	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 		if m.MessageReaction.UserID != s.State.User.ID {
-			boost.ReactionAdd(s, m.MessageReaction)
+			var str = boost.ReactionAdd(s, m.MessageReaction)
+			if str == "!gonow" {
+				notok.DoGoNow(s, m.ChannelID)
+			}
 		}
 	})
 	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageReactionRemove) {
