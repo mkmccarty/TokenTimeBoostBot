@@ -259,7 +259,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		outputStr += "React with 🚀 when you spend tokens to boost. Multiple 🚀 votes by others in the contract will also indicate a boost.\n"
 		if (contract.BoostPosition + 1) < len(contract.Order) {
 			outputStr += "React with 🔃 to exchange position with the next booster.\nReact with ⤵️ to move to last. "
-			outputStr += "Add 🚽 to indicate you need to go now."
+			outputStr += "\nAdd 🚽 (toilet) reaction to indicate you need to go now."
 		}
 		outputStr += "```"
 	}
