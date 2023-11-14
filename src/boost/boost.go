@@ -72,9 +72,9 @@ type LocationData struct {
 type Contract struct {
 	ContractHash  string // ContractID-CoopID
 	Location      []*LocationData
-	UserID        string // Farmer Name of Creator
-	ContractID    string // Contract ID
-	CoopID        string // CoopID
+	CreatorID     []string // Slice of creators
+	ContractID    string   // Contract ID
+	CoopID        string   // CoopID
 	CoopSize      int
 	BoostOrder    int
 	BoostVoting   int
@@ -172,15 +172,17 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.BoostOrder = BoostOrder
 		contract.BoostVoting = 0
 		contract.BoostState = 0
-		contract.UserID = userID // starting userid
+		contract.CreatorID = append(contract.CreatorID, userID)             // starting userid
+		contract.CreatorID = append(contract.CreatorID, config.AdminUserId) // overall admin user
 		contract.RegisteredNum = 0
 		contract.CoopSize = coopSize
 		Contracts[ContractHash] = contract
-	} //else {
-	//contract.mutex.Lock()
-	//contract.Location = append(contract.Location, loc)
-	//contract.mutex.Unlock()
-	//}
+	} else { //if !creatorOfContract(contract, userID) {
+		//contract.mutex.Lock()
+		contract.CreatorID = append(contract.CreatorID, userID) // starting userid
+		contract.Location = append(contract.Location, loc)
+		//contract.mutex.Unlock()
+	}
 
 	// Find our Token emoji
 	for _, el := range contract.Location {
@@ -230,7 +232,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		}
 		var b, ok = contract.Boosters[element]
 		if ok {
-			var name = b.Name
+			var name = b.Mention
 			var server = ""
 			var currentStartTime = fmt.Sprintf(" <t:%d:R> ", b.StartTime.Unix())
 			if len(contract.Location) > 1 {
@@ -257,7 +259,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		outputStr += "React with 🚀 when you spend tokens to boost. Multiple 🚀 votes by others in the contract will also indicate a boost.\n"
 		if (contract.BoostPosition + 1) < len(contract.Order) {
 			outputStr += "React with 🔃 to exchange position with the next booster.\nReact with ⤵️ to move to last. "
-			//outputStr += "Add 🚽 to indicate you need to go now."
+			outputStr += "Add 🚽 to indicate you need to go now."
 		}
 		outputStr += "```"
 	}
@@ -303,6 +305,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 	re := regexp.MustCompile(`[\\<>@#&!]`)
 	if mention != "" {
 		var userID = re.ReplaceAllString(mention, "")
+
 		for i := range contract.Order {
 			if userID == contract.Order[i] {
 				return errors.New(errorUserInContract)
@@ -327,7 +330,13 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 				listStr = "Sign-up"
 			}
 			var str = fmt.Sprintf("%s, was added to the %s List by %s", u.Mention(), listStr, operator)
-			s.ChannelMessageSend(loc.ChannelID, str)
+
+			var data discordgo.MessageSend
+			var am discordgo.MessageAllowedMentions
+			data.Content = str
+			data.AllowedMentions = &am
+
+			s.ChannelMessageSendComplex(loc.ChannelID, &data)
 		}
 	}
 
@@ -426,6 +435,15 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 	return farmer, nil
 }
 
+func creatorOfContract(c *Contract, u string) bool {
+	for _, el := range c.CreatorID {
+		if el == u {
+			return true
+		}
+	}
+	return false
+}
+
 func userInContract(c *Contract, u string) bool {
 
 	if len(c.Boosters) != len(c.Order) {
@@ -466,13 +484,13 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 	//contract.mutex.Lock()
 	defer saveData(Contracts)
 	// If we get a stopwatch reaction from the contract creator, start the contract
-	if r.Emoji.Name == "⏱️" && contract.BoostState == 0 && (r.UserID == contract.UserID || r.UserID == config.AdminUserId) {
+	if r.Emoji.Name == "⏱️" && contract.BoostState == 0 && creatorOfContract(contract, r.UserID) {
 		//contract.mutex.Unlock()
 		StartContractBoosting(s, r.GuildID, r.ChannelID)
 		return
 	}
 
-	if userInContract(contract, r.UserID) || r.UserID == config.AdminUserId {
+	if userInContract(contract, r.UserID) || creatorOfContract(contract, r.UserID) {
 
 		if contract.BoostState != 0 && contract.BoostPosition < len(contract.Order) {
 
@@ -480,7 +498,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 			if r.Emoji.Name == "🚀" && contract.BoostState == 1 {
 				var votingElection = (msg.Reactions[0].Count - 1) >= 2
 
-				if r.UserID == contract.Order[contract.BoostPosition] || votingElection || r.UserID == contract.UserID || r.UserID == config.AdminUserId {
+				if r.UserID == contract.Order[contract.BoostPosition] || votingElection || creatorOfContract(contract, r.UserID) {
 					//contract.mutex.Unlock()
 					Boosting(s, r.GuildID, r.ChannelID)
 				}
@@ -488,7 +506,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 			}
 
 			// Reaction for current booster to change places
-			if r.UserID == contract.Order[contract.BoostPosition] || r.UserID == contract.UserID || r.UserID == config.AdminUserId {
+			if r.UserID == contract.Order[contract.BoostPosition] || creatorOfContract(contract, r.UserID) {
 				if (contract.BoostPosition + 1) < len(contract.Order) {
 					if r.Emoji.Name == "🔃" {
 						//contract.mutex.Unlock()
@@ -800,7 +818,14 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 				s.ChannelMessageUnpin(loc.ChannelID, loc.ReactionID)
 			}
 			s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
-			msg, err = s.ChannelMessageSend(loc.ChannelID, DrawBoostList(s, contract))
+
+			// Compose the message without a Ping
+			var data discordgo.MessageSend
+			var am discordgo.MessageAllowedMentions
+			data.Content = DrawBoostList(s, contract)
+			data.AllowedMentions = &am
+			msg, err = s.ChannelMessageSendComplex(loc.ChannelID, &data)
+
 			loc.ListMsgID = msg.ID
 		}
 		if err == nil {
@@ -915,6 +940,16 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	return nil
 }
 
+// 0 <= index <= len(a)
+func insert(a []string, index int, value string) []string {
+	if len(a) == index { // nil or empty slice or after last element
+		return append(a, value)
+	}
+	a = append(a[:index+1], a[index:]...) // index < len(a)
+	a[index] = value
+	return a
+}
+
 func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID string) error {
 	var boosterSwap = false
 	var contract = FindContract(guildID, channelID)
@@ -967,8 +1002,11 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 		}
 	} else {
 		var skipped = contract.Order[selectedUser]
+		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = 0
 		contract.Order = RemoveIndex(contract.Order, selectedUser)
-		contract.Order = append(contract.Order, skipped)
+		contract.Order = insert(contract.Order, contract.BoostPosition, skipped)
+		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = 1
+		contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
 	}
 
 	sendNextNotification(s, contract, true)
