@@ -174,7 +174,7 @@ func letmeout(mention string) string {
 func gonow(mention string) string {
 
 	var tokenPrompt = "Compose a scene with a chicken farmer needing to use the toilet and running towards an outhouse " +
-		"in a comical cartoonish environment exaggerating the farmer'surgency."
+		"in a comical cartoonish environment exaggerating the farmer's urgency."
 
 	return tokenPrompt
 }
@@ -215,7 +215,7 @@ func wishImage(prompt string, coaching string) string {
 		fmt.Printf("Image creation error: %v\n", err)
 		return ""
 	}
-	downloadFile("./ttbb-data/images", respURL.Data[0].URL, prompt)
+	go downloadFile("./ttbb-data/images", respURL.Data[0].URL, prompt)
 	fmt.Println(prompt)
 	fmt.Println(respURL.Data[0].URL)
 	return respURL.Data[0].URL
