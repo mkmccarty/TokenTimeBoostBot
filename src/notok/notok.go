@@ -173,8 +173,11 @@ func letmeout(mention string) string {
 
 func gonow(mention string) string {
 
-	var tokenPrompt = "Compose a scene with a chicken farmer needing to use the toilet and running towards an outhouse " +
+	var tokenPrompt = "Compose a scene with a chicken farmer needing blast off into space and racing off towards an outhouse shaped rocket ship " +
 		"in a comical cartoonish environment exaggerating the farmer's urgency."
+
+	tokenPrompt = "Compose a scene with a chicken needing blast off quickly and racing towards an outhouse shaped rocket ship " +
+		"in a comical cartoonish environment exaggerating the urgency."
 
 	return tokenPrompt
 }
