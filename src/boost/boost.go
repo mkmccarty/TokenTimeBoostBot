@@ -415,21 +415,33 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			b.Name = member.Nick
 			b.Mention = member.Mention()
 		}
-		contract.Boosters[farmer.UserID] = b
+
 		if !userInContract(contract, farmer.UserID) {
-			contract.Order = append(contract.Order, farmer.UserID)
+			contract.Boosters[farmer.UserID] = b
+			// If contract hasn't started add booster to the end
+			// or if contract is on the last booster already
+			if contract.BoostState == 0 {
+				contract.Order = append(contract.Order, farmer.UserID)
+			} else {
+				// Insert booster randomly into non-boosting order
+				var remainingBoosters = len(contract.Boosters) - contract.BoostPosition - 1
+				var insertPosition = contract.BoostPosition + 1 + rand.Intn(remainingBoosters)
+				contract.Order = insert(contract.Order, insertPosition, farmer.UserID)
+			}
 		}
 		contract.RegisteredNum = len(contract.Boosters)
 
-		// Edit the boost list in place
-		for _, loc := range contract.Location {
-			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract))
-			if err == nil {
-				//panic(err)
-				loc.ListMsgID = msg.ID
+		sendNextNotification(s, contract, false)
+		/*
+			// Edit the boost list in place
+			for _, loc := range contract.Location {
+				msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract))
+				if err == nil {
+					//panic(err)
+					loc.ListMsgID = msg.ID
+				}
 			}
-		}
-
+		*/
 	}
 
 	return farmer, nil
@@ -776,22 +788,25 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 		return errors.New(errorContractAlreadyStarted)
 	}
 
-	// Check Voting for Randomized Order
+	// Check Voting for eeeeeeized Order
 	// Supermajority 2/3
-	if contract.BoostVoting > 1 {
-		var votingStr = "Random boost order supermajority vote "
-		if contract.BoostVoting < ((len(contract.Boosters) * 2) / 3) {
-			votingStr += "failed"
-		} else {
-			votingStr += "passed"
-			contract.BoostOrder = 2
+	/*
+		if contract.BoostVoting > 1 {
+			var votingStr = "Random boost order supermajority vote "
+			if contract.BoostVoting < ((len(contract.Boosters) * 2) / 3) {
+				votingStr += "failed"
+			} else {
+				votingStr += "passed"
+				contract.BoostOrder = 2
+			}
+			votingStr = fmt.Sprintf("%s %d/%d.", votingStr, contract.BoostVoting, len(contract.Boosters))
+			for _, el := range contract.Location {
+				s.ChannelMessageSend(el.ChannelID, votingStr)
+			}
 		}
-		votingStr = fmt.Sprintf("%s %d/%d.", votingStr, contract.BoostVoting, len(contract.Boosters))
-		for _, el := range contract.Location {
-			s.ChannelMessageSend(el.ChannelID, votingStr)
-		}
-	}
-
+	*/
+	// Contracts are always random order
+	contract.BoostOrder = 2
 	reorderBoosters(contract)
 
 	contract.BoostPosition = 0
@@ -831,7 +846,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 
 			loc.ListMsgID = msg.ID
 		}
-		if err == nil {
+		if err != nil {
 			fmt.Println("Unable to resend message.")
 		}
 		var str string = ""
