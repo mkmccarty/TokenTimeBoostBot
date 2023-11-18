@@ -431,8 +431,9 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		}
 		contract.RegisteredNum = len(contract.Boosters)
 
-		sendNextNotification(s, contract, false)
-		/*
+		if contract.BoostState != 0 {
+			sendNextNotification(s, contract, false)
+		} else {
 			// Edit the boost list in place
 			for _, loc := range contract.Location {
 				msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract))
@@ -441,7 +442,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 					loc.ListMsgID = msg.ID
 				}
 			}
-		*/
+		}
 	}
 
 	return farmer, nil
