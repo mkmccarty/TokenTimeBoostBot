@@ -56,7 +56,7 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 	case strings.HasPrefix(message.Content, "!notoki"):
 		discord.ChannelTyping(message.ChannelID)
 		str := wish(name)
-		discord.ChannelMessageSend(message.ChannelID, wishImage(str, "Represent this using creepy cryptid chickens in the style of a 5 year olds crayon drawing."))
+		discord.ChannelMessageSend(message.ChannelID, wishImage(str+" Represent this using creepy cryptid chickens in the style of a 5 year olds crayon drawing.", name, false))
 		discord.ChannelMessageSend(message.ChannelID, str)
 	case strings.HasPrefix(message.Content, "!notok"):
 		discord.ChannelTyping(message.ChannelID)
@@ -64,19 +64,26 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 	case strings.HasPrefix(message.Content, "!letmeout"):
 		discord.ChannelTyping(message.ChannelID)
 		str := letmeout(name)
-		discord.ChannelMessageSend(message.ChannelID, wishImage(str, "Represent this in the style of a crayon drawing."))
+		discord.ChannelMessageSend(message.ChannelID, wishImage(str, name, false))
 		discord.ChannelMessageSend(message.ChannelID, str)
 	case strings.HasPrefix(message.Content, "!gonow"):
 		str := gonow()
 		discord.ChannelTyping(message.ChannelID)
-		discord.ChannelMessageSend(message.ChannelID, wishImage(str, ""))
+		discord.ChannelMessageSend(message.ChannelID, wishImage(str, name, false))
+	case strings.HasPrefix(message.Content, "!draw"):
+		//str := "Depict a comical scene where a golden coin with an embossed lightning bolt is heroicly being delivered to a chicken farmer through mayhem and hijinks by their chickens."
+		//str = "Depict a frantic scene where chickens are in a panic looking in the craziest fantastical places for a long lost golden coin with an embossed lightning bolt."
+		//str = "Depict a scene from Max Headroom where chickens are conversing about a golden coin with an embossed lightning bolt."
+
+		discord.ChannelTyping(message.ChannelID)
+		discord.ChannelMessageSend(message.ChannelID, wishImage(strings.TrimPrefix(message.Content, "!test "), name, true))
 	}
 }
 
 func DoGoNow(discord *discordgo.Session, channelID string) {
 	var str = gonow()
 	discord.ChannelTyping(channelID)
-	discord.ChannelMessageSend(channelID, wishImage(str, ""))
+	discord.ChannelMessageSend(channelID, wishImage(str, "", false))
 }
 
 func remove(s []string, i int) []string {
@@ -204,29 +211,35 @@ func loadData() (*WishStruct, error) {
 	return c, nil
 }
 
-func wishImage(prompt string, coaching string) string {
+func wishImage(prompt string, user string, retry bool) string {
 	var client = openai.NewClient(config.OpenAIKey)
 
 	respURL, err := client.CreateImage(
 		context.Background(),
 		openai.ImageRequest{
-			Prompt:         fmt.Sprintf("%s %s", prompt, coaching),
+			Prompt:         fmt.Sprintf("%s %s", prompt, ""),
 			Model:          openai.CreateImageModelDallE3,
 			N:              1,
 			Size:           openai.CreateImageSize1024x1024,
 			ResponseFormat: openai.CreateImageResponseFormatURL,
 			Quality:        openai.CreateImageQualityStandard,
 			Style:          openai.CreateImageStyleVivid,
-			User:           "",
+			User:           user,
 		},
 	)
 	if err != nil {
+		if !retry {
+			return "No image returned. Many times this is an OpenAI content filter that blocks the image. Try again."
+		}
 		fmt.Printf("Image creation error: %v\n", err)
-		return ""
+		return wishImage(prompt, user, false)
 	}
-	go downloadFile("./ttbb-data/images", respURL.Data[0].URL, prompt)
+
 	fmt.Println(prompt)
 	fmt.Println(respURL.Data[0].URL)
+
+	go downloadFile("./ttbb-data/images", respURL.Data[0].URL, prompt)
+
 	return respURL.Data[0].URL
 }
 
