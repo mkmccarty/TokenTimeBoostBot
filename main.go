@@ -373,7 +373,6 @@ var (
 			boost.SetReactionID(contract, i.ChannelID, reactionMsg.ID)
 			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🧑‍🌾") // Booster
 			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🔔")   // Ping
-			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🎲")   // Boost Order
 			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "⏱️")  // Creator Start Contract
 
 			s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)

@@ -548,13 +548,8 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	}
 	//defer contract.mutex.Unlock()
 	// Remove extra added emoji
-	if r.Emoji.Name != "🧑‍🌾" && r.Emoji.Name != "🔔" && r.Emoji.Name != "🎲" {
+	if r.Emoji.Name != "🧑‍🌾" && r.Emoji.Name != "🔔" {
 		s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
-		return ""
-	}
-
-	if r.Emoji.Name == "🎲" {
-		contract.BoostVoting += 1
 		return ""
 	}
 
@@ -726,12 +721,7 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 		return
 	}
 
-	if r.Emoji.Name == "🎲" {
-		contract.BoostVoting -= 1
-		return
-	}
-
-	if r.Emoji.Name != "🧑‍🌾" && r.Emoji.Name != "🔔" && r.Emoji.Name != "🎲" {
+	if r.Emoji.Name != "🧑‍🌾" && r.Emoji.Name != "🔔" {
 		return
 	}
 
