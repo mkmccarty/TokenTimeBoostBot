@@ -35,6 +35,11 @@ const errorContractNotStarted = "contract hasn't started"
 const errorContractAlreadyStarted = "contract already started"
 const errorAlreadyBoosted = "farmer boosted already"
 
+const CONTRACT_ORDER_SIGNUP = 0
+const CONTRACT_ORDER_REVERSE = 1
+const CONTRACT_ORDER_RANDOM = 2
+const CONTRACT_ORDER_FAIR = 3
+
 type EggFarmer struct {
 	UserID      string // Discord User ID
 	Username    string
@@ -797,7 +802,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 		}
 	*/
 	// Contracts are always random order
-	contract.BoostOrder = 2
+	contract.BoostOrder = CONTRACT_ORDER_RANDOM
 	reorderBoosters(contract)
 
 	contract.BoostPosition = 0
@@ -1058,14 +1063,14 @@ func FinishContract(s *discordgo.Session, contract *Contract) error {
 
 func reorderBoosters(contract *Contract) {
 	switch contract.BoostOrder {
-	case 0:
+	case CONTRACT_ORDER_SIGNUP:
 		// Join Order
-	case 1:
+	case CONTRACT_ORDER_REVERSE:
 		// Reverse Order
 		for i, j := 0, len(contract.Order)-1; i < j; i, j = i+1, j-1 {
 			contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i] //reverse the slice
 		}
-	case 2:
+	case CONTRACT_ORDER_RANDOM:
 		rand.Shuffle(len(contract.Order), func(i, j int) {
 			contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i]
 		})
