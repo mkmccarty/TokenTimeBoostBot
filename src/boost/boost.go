@@ -184,8 +184,9 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.BoostOrder = BoostOrder
 		contract.BoostVoting = 0
 		contract.State = CONTRACT_STATE_SIGNUP
-		contract.CreatorID = append(contract.CreatorID, userID)             // starting userid
-		contract.CreatorID = append(contract.CreatorID, config.AdminUserId) // overall admin user
+		contract.CreatorID = append(contract.CreatorID, userID)               // starting userid
+		contract.CreatorID = append(contract.CreatorID, config.AdminUserId)   // overall admin user
+		contract.CreatorID = append(contract.CreatorID, "393477262412087319") // Tbone user id
 		contract.RegisteredNum = 0
 		contract.CoopSize = coopSize
 		Contracts[ContractHash] = contract
