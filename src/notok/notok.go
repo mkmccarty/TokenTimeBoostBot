@@ -83,7 +83,7 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 	case strings.HasPrefix(message.Content, "!draw"):
 		discord.ChannelMessageDelete(message.ChannelID, message.ID)
 		wishStr = strings.TrimPrefix(message.Content, "!draw ")
-		if wishStr == "" {
+		if wishStr == "!draw" {
 			wishStr = lastWish
 		}
 		aiMsg, _ = discord.ChannelMessageSend(message.ChannelID, AIBOT_STRING+" "+currentStartTime)
