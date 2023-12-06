@@ -75,10 +75,10 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 		str := gonow()
 		discord.ChannelTyping(message.ChannelID)
 		discord.ChannelMessageSend(message.ChannelID, wishImage(str, name, false))
-	case strings.HasPrefix(message.Content, "!ddraw"):
+	case strings.HasPrefix(message.Content, "!draw"):
 		discord.ChannelMessageDelete(message.ChannelID, message.ID)
 		mymsg, err := discord.ChannelMessageSend(message.ChannelID, "Hiring some AIrtists to come up with something...")
-		wishUrl := wishImage(strings.TrimPrefix(message.Content, "!ddraw "), name, true)
+		wishUrl := wishImage(strings.TrimPrefix(message.Content, "!draw "), name, true)
 		if err == nil {
 			discord.ChannelMessageDelete(message.ChannelID, mymsg.ID)
 		}
