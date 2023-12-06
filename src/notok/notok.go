@@ -143,6 +143,7 @@ func wish(mention string) string {
 		"Use gender neutral pronouns. Don't number responses.."
 
 	tokenPrompt = "Kevin, the developer of Egg, Inc. has stopped sending golden token shaped like a coin with lightning bolts to the contract players of his game. Compose a crazy reason requesting that he provide you a token. The leter should begin with \"Dear Kev,\"."
+	tokenPrompt = "Kevin, the developer of Egg, Inc. has stopped sending widgets to the contract players of his game. Compose a crazy reason requesting that he provide you a widget. The leter should begin with \"Dear Kev,\"."
 
 	var resp, _ = client.CreateChatCompletion(
 		context.Background(),
@@ -157,7 +158,10 @@ func wish(mention string) string {
 		},
 	)
 
-	str = strings.Replace(resp.Choices[0].Message.Content, "[Your Name]", mention, 1)
+	str = strings.Replace(resp.Choices[0].Message.Content, "[Your name]", mention, 1)
+	str = strings.Replace(str, "[Your Name]", mention, 1)
+	str = strings.Replace(str, "widget", "token", -1)
+
 	/*
 			if err == nil {
 				strmap := strings.Split(resp.Choices[0].Message.Content, "\n")
