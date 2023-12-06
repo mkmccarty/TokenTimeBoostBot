@@ -51,39 +51,48 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 		name = g.Nick
 	}
 
+	wishUrl := ""
+	wishStr := ""
+
 	// Respond to messages
 
 	switch {
 	case strings.HasPrefix(message.Content, "!notoki"):
 		discord.ChannelMessageDelete(message.ChannelID, message.ID)
 		discord.ChannelTyping(message.ChannelID)
-		str := wish(name)
-		discord.ChannelMessageSend(message.ChannelID, wishImage(str+" Represent this using creepy cryptid chickens in the style of a 5 year olds crayon drawing.", name, false))
-		discord.ChannelMessageSend(message.ChannelID, str)
+		wishStr = wish(name)
+		wishUrl = wishImage(wishStr+" Represent this using creepy cryptid chickens in the style of a 5 year olds crayon drawing.", name, false)
 	case strings.HasPrefix(message.Content, "!notok"):
 		discord.ChannelMessageDelete(message.ChannelID, message.ID)
 		discord.ChannelTyping(message.ChannelID)
-		discord.ChannelMessageSend(message.ChannelID, wish(name))
+		wishStr = wish(name)
 	case strings.HasPrefix(message.Content, "!letmeout"):
 		discord.ChannelMessageDelete(message.ChannelID, message.ID)
 		discord.ChannelTyping(message.ChannelID)
-		str := letmeout(name)
-		discord.ChannelMessageSend(message.ChannelID, wishImage(str, name, false))
-		discord.ChannelMessageSend(message.ChannelID, str)
+		wishStr = letmeout(name)
+		wishUrl = wishImage(wishStr, name, false)
 	case strings.HasPrefix(message.Content, "!gonow"):
 		discord.ChannelMessageDelete(message.ChannelID, message.ID)
 		str := gonow()
-		discord.ChannelTyping(message.ChannelID)
-		discord.ChannelMessageSend(message.ChannelID, wishImage(str, name, false))
-	case strings.HasPrefix(message.Content, "!draw"):
+		wishUrl = wishImage(str, name, false)
+	case strings.HasPrefix(message.Content, "!xdraw"):
 		discord.ChannelMessageDelete(message.ChannelID, message.ID)
-		mymsg, err := discord.ChannelMessageSend(message.ChannelID, "Hiring some AIrtists to come up with something...")
-		wishUrl := wishImage(strings.TrimPrefix(message.Content, "!draw "), name, true)
+		mymsg, err := discord.ChannelMessageSend(message.ChannelID, "Eggcellent, the AIrtists have started work and will reply shortly.")
+		wishUrl = wishImage(strings.TrimPrefix(message.Content, "!xdraw "), name, true)
 		if err == nil {
 			discord.ChannelMessageDelete(message.ChannelID, mymsg.ID)
 		}
-		discord.ChannelMessageSend(message.ChannelID, wishUrl)
+
 	}
+
+	if wishUrl != "" {
+		response, _ := http.Get(wishUrl)
+		discord.ChannelFileSend(message.ChannelID, "BB-img.png", response.Body)
+	}
+	if wishStr != "" {
+		discord.ChannelMessageSend(message.ChannelID, wishStr)
+	}
+
 }
 
 func DoGoNow(discord *discordgo.Session, channelID string) {
