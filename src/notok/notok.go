@@ -10,6 +10,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
@@ -57,6 +58,7 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 	wishStr := ""
 	var aiMsg *discordgo.Message
 	// Respond to messages
+	var currentStartTime = fmt.Sprintf(" <t:%d:R> ", time.Now().Unix())
 
 	switch {
 	case strings.HasPrefix(message.Content, "!notoki"):
@@ -66,11 +68,11 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 		wishUrl = wishImage(wishStr+" Represent this using creepy cryptid chickens in the style of a 5 year olds crayon drawing.", name, false)
 	case strings.HasPrefix(message.Content, "!notok"):
 		discord.ChannelMessageDelete(message.ChannelID, message.ID)
-		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AIBOT_STRING)
+		aiMsg, _ = discord.ChannelMessageSend(message.ChannelID, AIBOT_STRING+" "+currentStartTime)
 		wishStr = wish(name)
 	case strings.HasPrefix(message.Content, "!letmeout"):
 		discord.ChannelMessageDelete(message.ChannelID, message.ID)
-		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AIBOT_STRING)
+		aiMsg, _ = discord.ChannelMessageSend(message.ChannelID, AIBOT_STRING+" "+currentStartTime)
 		wishStr = letmeout(name)
 		wishUrl = wishImage(wishStr, name, false)
 	case strings.HasPrefix(message.Content, "!gonow"):
@@ -80,11 +82,11 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 	case strings.HasPrefix(message.Content, "!draw"):
 		discord.ChannelMessageDelete(message.ChannelID, message.ID)
 		wishStr = strings.TrimPrefix(message.Content, "!draw ")
-		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AIBOT_STRING)
+		aiMsg, _ = discord.ChannelMessageSend(message.ChannelID, AIBOT_STRING+" "+currentStartTime)
 		wishUrl = wishImage(wishStr, name, true)
 	}
 
-	if err == nil {
+	if aiMsg != nil {
 		discord.ChannelMessageDelete(message.ChannelID, aiMsg.ID)
 	}
 
