@@ -83,15 +83,22 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 		if err == nil {
 			discord.ChannelMessageDelete(message.ChannelID, mymsg.ID)
 		}
-
 	}
 
 	if wishUrl != "" {
 		discord.ChannelTyping(message.ChannelID)
 		response, _ := http.Get(wishUrl)
-		discord.ChannelFileSend(message.ChannelID, "BB-img.png", response.Body)
-	}
-	if wishStr != "" {
+		//discord.ChannelFileSend(message.ChannelID, "BB-img.png", response.Body)
+		var data discordgo.MessageSend
+		data.Content = wishStr
+		var myFile discordgo.File
+		myFile.ContentType = "image/png"
+		myFile.Name = "ttbb-dalle3.png"
+		myFile.Reader = response.Body
+		data.Files = append(data.Files, &myFile)
+
+		discord.ChannelMessageSendComplex(message.ChannelID, &data)
+	} else if wishStr != "" {
 		discord.ChannelMessageSend(message.ChannelID, wishStr)
 	}
 
