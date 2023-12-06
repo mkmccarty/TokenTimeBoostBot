@@ -26,6 +26,7 @@ type WishStruct struct {
 const AIBOT_STRING string = "Eggcellent, the AIrtists have started work and will reply shortly."
 const AIBOTTXT_STRING string = "Eggcellent, the wrAIters have been tasked with a composition for you.."
 
+var lastWish = "Draw a balloon animal staring into a lightbulb in an unhealthy way."
 var (
 	wishes *WishStruct
 )
@@ -82,6 +83,9 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 	case strings.HasPrefix(message.Content, "!draw"):
 		discord.ChannelMessageDelete(message.ChannelID, message.ID)
 		wishStr = strings.TrimPrefix(message.Content, "!draw ")
+		if wishStr == "" {
+			wishStr = lastWish
+		}
 		aiMsg, _ = discord.ChannelMessageSend(message.ChannelID, AIBOT_STRING+" "+currentStartTime)
 		wishUrl = wishImage(wishStr, name, true)
 	}
@@ -105,6 +109,9 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 		discord.ChannelMessageSendComplex(message.ChannelID, &data)
 	} else if wishStr != "" {
 		discord.ChannelMessageSend(message.ChannelID, wishStr)
+	}
+	if wishStr != "" {
+		lastWish = wishStr
 	}
 
 }
