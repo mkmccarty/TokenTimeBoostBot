@@ -23,6 +23,8 @@ type WishStruct struct {
 	Used   []string
 }
 
+const AIBOT_STRING string = "Eggcellent, the AIrtists have started work and will reply shortly."
+
 var (
 	wishes *WishStruct
 )
@@ -53,7 +55,7 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 
 	wishUrl := ""
 	wishStr := ""
-
+	var aiMsg *discordgo.Message
 	// Respond to messages
 
 	switch {
@@ -64,11 +66,11 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 		wishUrl = wishImage(wishStr+" Represent this using creepy cryptid chickens in the style of a 5 year olds crayon drawing.", name, false)
 	case strings.HasPrefix(message.Content, "!notok"):
 		discord.ChannelMessageDelete(message.ChannelID, message.ID)
-		discord.ChannelTyping(message.ChannelID)
+		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AIBOT_STRING)
 		wishStr = wish(name)
 	case strings.HasPrefix(message.Content, "!letmeout"):
 		discord.ChannelMessageDelete(message.ChannelID, message.ID)
-		discord.ChannelTyping(message.ChannelID)
+		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AIBOT_STRING)
 		wishStr = letmeout(name)
 		wishUrl = wishImage(wishStr, name, false)
 	case strings.HasPrefix(message.Content, "!gonow"):
@@ -78,11 +80,12 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 	case strings.HasPrefix(message.Content, "!draw"):
 		discord.ChannelMessageDelete(message.ChannelID, message.ID)
 		wishStr = strings.TrimPrefix(message.Content, "!draw ")
-		mymsg, err := discord.ChannelMessageSend(message.ChannelID, "Eggcellent, the AIrtists have started work and will reply shortly.")
+		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AIBOT_STRING)
 		wishUrl = wishImage(wishStr, name, true)
-		if err == nil {
-			discord.ChannelMessageDelete(message.ChannelID, mymsg.ID)
-		}
+	}
+
+	if err == nil {
+		discord.ChannelMessageDelete(message.ChannelID, aiMsg.ID)
 	}
 
 	if wishUrl != "" {
