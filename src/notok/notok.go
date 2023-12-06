@@ -165,8 +165,8 @@ func wish(mention string) string {
 		},
 	)
 
-	str = strings.Replace(resp.Choices[0].Message.Content, "[Your name]", mention, 1)
-	str = strings.Replace(str, "[Your Name]", mention, 1)
+	str = strings.Replace(resp.Choices[0].Message.Content, "\n[Your name]", "*"+mention+"*", 1)
+	str = strings.Replace(str, "\n[Your Name]", "*"+mention+"*", 1)
 	str = strings.Replace(str, "widget", "token", -1)
 
 	/*
