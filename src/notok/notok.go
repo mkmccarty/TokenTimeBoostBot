@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -33,6 +32,7 @@ var (
 
 func init() {
 	var err error
+
 	wishes, err = loadData()
 	if err != nil {
 		wishes = new(WishStruct)
@@ -122,17 +122,21 @@ func DoGoNow(discord *discordgo.Session, channelID string) {
 	discord.ChannelMessageSend(channelID, wishImage(str, "", false))
 }
 
-func remove(s []string, i int) []string {
-	s[i] = s[len(s)-1]
-	return s[:len(s)-1]
-}
+/*
+	func remove(s []string, i int) []string {
+		s[i] = s[len(s)-1]
+		return s[:len(s)-1]
+	}
+*/
 
+/*
 func getWish(w []string) (string, []string) {
 	index := rand.Intn(len(w))
 	str := w[index]
 	w = remove(w, index)
 	return str, w
 }
+*/
 
 func wish(mention string) string {
 	var str string = ""
@@ -238,10 +242,12 @@ func gonow() string {
 	return tokenPrompt
 }
 
-func saveData(c *WishStruct) {
-	b, _ := json.Marshal(c)
-	boost.DataStore.Write("Wishes", b)
-}
+/*
+	func saveData(c *WishStruct) {
+		b, _ := json.Marshal(c)
+		boost.DataStore.Write("Wishes", b)
+	}
+*/
 
 func loadData() (*WishStruct, error) {
 	//diskmutex.Lock()
