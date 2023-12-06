@@ -52,31 +52,37 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 	}
 
 	// Respond to messages
+
 	switch {
 	case strings.HasPrefix(message.Content, "!notoki"):
+		discord.ChannelMessageDelete(message.ChannelID, message.ID)
 		discord.ChannelTyping(message.ChannelID)
 		str := wish(name)
 		discord.ChannelMessageSend(message.ChannelID, wishImage(str+" Represent this using creepy cryptid chickens in the style of a 5 year olds crayon drawing.", name, false))
 		discord.ChannelMessageSend(message.ChannelID, str)
 	case strings.HasPrefix(message.Content, "!notok"):
+		discord.ChannelMessageDelete(message.ChannelID, message.ID)
 		discord.ChannelTyping(message.ChannelID)
 		discord.ChannelMessageSend(message.ChannelID, wish(name))
 	case strings.HasPrefix(message.Content, "!letmeout"):
+		discord.ChannelMessageDelete(message.ChannelID, message.ID)
 		discord.ChannelTyping(message.ChannelID)
 		str := letmeout(name)
 		discord.ChannelMessageSend(message.ChannelID, wishImage(str, name, false))
 		discord.ChannelMessageSend(message.ChannelID, str)
 	case strings.HasPrefix(message.Content, "!gonow"):
+		discord.ChannelMessageDelete(message.ChannelID, message.ID)
 		str := gonow()
 		discord.ChannelTyping(message.ChannelID)
 		discord.ChannelMessageSend(message.ChannelID, wishImage(str, name, false))
-	case strings.HasPrefix(message.Content, "!draw"):
-		//str := "Depict a comical scene where a golden coin with an embossed lightning bolt is heroicly being delivered to a chicken farmer through mayhem and hijinks by their chickens."
-		//str = "Depict a frantic scene where chickens are in a panic looking in the craziest fantastical places for a long lost golden coin with an embossed lightning bolt."
-		//str = "Depict a scene from Max Headroom where chickens are conversing about a golden coin with an embossed lightning bolt."
-
-		discord.ChannelTyping(message.ChannelID)
-		discord.ChannelMessageSend(message.ChannelID, wishImage(strings.TrimPrefix(message.Content, "!test "), name, true))
+	case strings.HasPrefix(message.Content, "!ddraw"):
+		discord.ChannelMessageDelete(message.ChannelID, message.ID)
+		mymsg, err := discord.ChannelMessageSend(message.ChannelID, "Hiring some AIrtists to come up with something...")
+		wishUrl := wishImage(strings.TrimPrefix(message.Content, "!ddraw "), name, true)
+		if err == nil {
+			discord.ChannelMessageDelete(message.ChannelID, mymsg.ID)
+		}
+		discord.ChannelMessageSend(message.ChannelID, wishUrl)
 	}
 }
 
