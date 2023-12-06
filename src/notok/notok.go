@@ -86,6 +86,7 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 	}
 
 	if wishUrl != "" {
+		discord.ChannelTyping(message.ChannelID)
 		response, _ := http.Get(wishUrl)
 		discord.ChannelFileSend(message.ChannelID, "BB-img.png", response.Body)
 	}
