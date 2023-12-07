@@ -109,7 +109,7 @@ func wish(mention string) string {
 
 	var client = openai.NewClient(config.OpenAIKey)
 
-	tokenPrompt = "Kevin, the developer of Egg, Inc. has stopped sending widgets to the contract players of his game. Compose a crazy reason requesting that he provide you a widget. The leter should begin with \"Dear Kev,\"."
+	tokenPrompt := "Kevin, the developer of Egg, Inc. has stopped sending widgets to the contract players of his game. Compose a crazy reason requesting that he provide you a widget. The leter should begin with \"Dear Kev,\"."
 
 	var resp, _ = client.CreateChatCompletion(
 		context.Background(),
