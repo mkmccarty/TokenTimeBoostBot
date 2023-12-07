@@ -2,45 +2,27 @@ package notok
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/rs/xid"
 	"github.com/sashabaranov/go-openai"
 )
 
-type WishStruct struct {
-	Wishes []string
-	Used   []string
-}
-
 const AIBOT_STRING string = "Eggcellent, the AIrtists have started work and will reply shortly."
 const AIBOTTXT_STRING string = "Eggcellent, the wrAIters have been tasked with a composition for you.."
 
 var lastWish = "Draw a balloon animal staring into a lightbulb in an unhealthy way."
-var (
-	wishes *WishStruct
-)
 
 func init() {
-	var err error
 
-	wishes, err = loadData()
-	if err != nil {
-		wishes = new(WishStruct)
-	} else {
-		if len(wishes.Wishes) == 1 && wishes.Wishes[0] == " " {
-			wishes.Wishes = wishes.Wishes[:0]
-		}
-	}
 }
 
 func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
@@ -122,38 +104,11 @@ func DoGoNow(discord *discordgo.Session, channelID string) {
 	discord.ChannelMessageSend(channelID, wishImage(str, "", false))
 }
 
-/*
-	func remove(s []string, i int) []string {
-		s[i] = s[len(s)-1]
-		return s[:len(s)-1]
-	}
-*/
-
-/*
-func getWish(w []string) (string, []string) {
-	index := rand.Intn(len(w))
-	str := w[index]
-	w = remove(w, index)
-	return str, w
-}
-*/
-
 func wish(mention string) string {
 	var str string = ""
 
-	//if len(wishes.Wishes) > 0 || config.OpenAIKey == "" {
-	//	str, wishes.Wishes = getWish(wishes.Wishes)
-	//} else {
 	var client = openai.NewClient(config.OpenAIKey)
 
-	var tokenPrompt = "A chicken egg farmer needs an item of currency, called a token," +
-		"to grow their farm. Compose a wish  " +
-		"which will bring them a token. The wish should be funny and draw " +
-		"from current news events, excluding crypto currency items. Don't use names of real people. Start the response of each wish with " +
-		"\"Farmer wishes \". The word \"token\" must be used in the response. " +
-		"Use gender neutral pronouns. Don't number responses.."
-
-	tokenPrompt = "Kevin, the developer of Egg, Inc. has stopped sending golden token shaped like a coin with lightning bolts to the contract players of his game. Compose a crazy reason requesting that he provide you a token. The leter should begin with \"Dear Kev,\"."
 	tokenPrompt = "Kevin, the developer of Egg, Inc. has stopped sending widgets to the contract players of his game. Compose a crazy reason requesting that he provide you a widget. The leter should begin with \"Dear Kev,\"."
 
 	var resp, _ = client.CreateChatCompletion(
@@ -168,33 +123,10 @@ func wish(mention string) string {
 			},
 		},
 	)
-
-	str = strings.Replace(resp.Choices[0].Message.Content, "[Your name]", "*"+mention+"*", 1)
-	str = strings.Replace(str, "[Your Name]", "*"+mention+"*", 1)
+	m1 := regexp.MustCompile(`\[[A-Za-z ]*\]`)
+	str = m1.ReplaceAllString(resp.Choices[0].Message.Content, "*"+mention+"*")
 	str = strings.Replace(str, "widget", "token", -1)
 
-	/*
-			if err == nil {
-				strmap := strings.Split(resp.Choices[0].Message.Content, "\n")
-				for _, el := range strmap {
-					if el != "" {
-						m1 := regexp.MustCompile(`^.*Farmer`)
-
-						wishes.Wishes = append(wishes.Wishes, m1.ReplaceAllString(el, "Farmer"))
-					}
-				}
-				str, wishes.Wishes = getWish(wishes.Wishes)
-			} else {
-				//fmt.Println(err.Error()) // Log this
-				str, wishes.Used = getWish(wishes.Used)
-			}
-		}
-
-		wishes.Used = append(wishes.Used, str)
-		saveData(wishes)
-		name := fmt.Sprintf("**%s**", mention)
-		str = strings.Replace(str, "Farmer", name, 1)
-	*/
 	return str
 }
 
@@ -240,24 +172,6 @@ func gonow() string {
 		"in a comical cartoonish environment exaggerating the urgency."
 
 	return tokenPrompt
-}
-
-/*
-	func saveData(c *WishStruct) {
-		b, _ := json.Marshal(c)
-		boost.DataStore.Write("Wishes", b)
-	}
-*/
-
-func loadData() (*WishStruct, error) {
-	//diskmutex.Lock()
-	var c *WishStruct
-	b, err := boost.DataStore.Read("Wishes")
-	if err != nil {
-		return c, err
-	}
-	json.Unmarshal(b, &c)
-	return c, nil
 }
 
 func wishImage(prompt string, user string, retry bool) string {
