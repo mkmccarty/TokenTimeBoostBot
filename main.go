@@ -511,9 +511,7 @@ var (
 			},
 			)
 
-			var err = notok.Notok(s, i, gptOption, gptText)
-			if err == nil {
-			}
+			var _ = notok.Notok(s, i, gptOption, gptText)
 		},
 	}
 )
@@ -699,7 +697,7 @@ func main() {
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "prompt",
-				Description: "Optional prompt to fine tune the original query.",
+				Description: "Optional prompt to fine tune the original query. For images it is used to describe the image.",
 				Required:    false,
 			},
 		},
