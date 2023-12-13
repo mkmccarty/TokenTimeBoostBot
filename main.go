@@ -691,7 +691,7 @@ func main() {
 						Value: 3,
 					},
 					{
-						Name:  "Create Dalle-3 image from your prompt.",
+						Name:  "Draw a fancy picture using the prompt text.",
 						Value: 4,
 					},
 				},
