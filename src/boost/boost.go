@@ -645,12 +645,11 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 	re := regexp.MustCompile(`[\\<>@#&!]`)
 	var userID = re.ReplaceAllString(mention, "")
 
-	var u, err = s.User(userID)
-	if err != nil {
-		return errors.New(errorNoFarmer)
-	}
-	if u.Bot {
-		return errors.New(errorBot)
+	var u, _ = s.User(userID)
+	if u != nil {
+		if u.Bot {
+			return errors.New(errorBot)
+		}
 	}
 
 	var found = false
