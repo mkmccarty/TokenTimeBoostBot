@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/divan/num2words"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/peterbourgon/diskv/v3"
 	emutil "github.com/post04/discordgo-emoji-util"
@@ -48,6 +49,18 @@ const BOOST_STATE_UNBOOSTED = 0
 const BOOST_STATE_TOKENTIME = 1
 const BOOST_STATE_BOOSTED = 2
 
+type Farmer struct {
+	UserID    string // Discord User ID
+	Username  string
+	Unique    string
+	Nick      string
+	GameName  string
+	GuildID   string // Discord Guild where this User is From
+	GuildName string
+	Ping      bool      // True/False
+	Register  time.Time // Time Farmer registered
+	//Cluck       []string  // Keep track of messages from each user
+}
 type EggFarmer struct {
 	UserID      string // Discord User ID
 	Username    string
@@ -104,10 +117,12 @@ type Contract struct {
 var (
 	// DiscordToken holds the API Token for discord.
 	Contracts map[string]*Contract
+	Farmers   map[string]*Farmer
 )
 
 func init() {
 	Contracts = make(map[string]*Contract)
+	Farmers = make(map[string]*Farmer)
 	//GlobalContracts = make(map[string][]*LocationData)
 
 	// DataStore to initialize a new diskv store, rooted at "my-data-dir", with a 1MB cache.
@@ -256,7 +271,11 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 			case BOOST_STATE_UNBOOSTED:
 				outputStr += fmt.Sprintf("%s %s%s\n", prefix, name, server)
 			case BOOST_STATE_TOKENTIME:
-				outputStr += fmt.Sprintf("%s %s %s%s%s\n", prefix, name, TokenStr, currentStartTime, server)
+				countStr := ""
+				if b.TokenCount > 0 {
+					countStr = ":" + num2words.Convert(b.TokenCount) + ":"
+				}
+				outputStr += fmt.Sprintf("%s %s %s%s%s\n", prefix, name, countStr+TokenStr, currentStartTime, server)
 			case BOOST_STATE_BOOSTED:
 				t1 := contract.Boosters[element].EndTime
 				t2 := contract.Boosters[element].StartTime
@@ -557,6 +576,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
 		return "!gonow"
 	}
+
 	//defer contract.mutex.Unlock()
 	// Remove extra added emoji
 	if r.Emoji.Name != "🧑‍🌾" && r.Emoji.Name != "🔔" {
@@ -1107,6 +1127,7 @@ func saveData(c map[string]*Contract) error {
 	//diskmutex.Lock()
 	b, _ := json.Marshal(c)
 	DataStore.Write("EggsBackup", b)
+
 	//diskmutex.Unlock()
 	return nil
 }

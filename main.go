@@ -26,8 +26,11 @@ const slashBoost string = "boost"
 const slashLast string = "last"
 const slashPrune string = "prune"
 const slashJoin string = "join"
-const slashSignup string = "signup"
+
+// const slashSignup string = "signup"
 const slashCoopETA string = "coopeta"
+
+const slashGPT string = "fun"
 
 // Bot parameters to override .config.json parameters
 var (
@@ -177,127 +180,129 @@ var (
 					Components: []discordgo.MessageComponent{}},
 			})
 		},
-		slashSignup: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			var contractID = i.GuildID
-			var coopID = i.GuildID // Default to the Guild ID
-			var number = 0
-			var coopSize = 0
-			var threshold = 0
-			var threadChannel *discordgo.Channel = nil
+		/*
+			slashSignup: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+				var contractID = i.GuildID
+				var coopID = i.GuildID // Default to the Guild ID
+				var number = 0
+				var coopSize = 0
+				var threshold = 0
+				var threadChannel *discordgo.Channel = nil
 
-			// User interacting with bot, is this first time ?
-			options := i.ApplicationCommandData().Options
-			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-			for _, opt := range options {
-				optionMap[opt.Name] = opt
-			}
-			if opt, ok := optionMap["number"]; ok {
-				number = int(opt.IntValue())
-			}
-			if opt, ok := optionMap["contract-id"]; ok {
-				contractID = opt.StringValue()
-				contractID = strings.Replace(contractID, " ", "", -1)
-			}
-			if opt, ok := optionMap["coop-id"]; ok {
-				coopID = opt.StringValue()
-				coopID = strings.Replace(coopID, " ", "", -1)
-			}
-			if opt, ok := optionMap["coop-size"]; ok {
-				coopSize = int(opt.IntValue())
-			}
-			if opt, ok := optionMap["threshold"]; ok {
-				threshold = int(opt.IntValue())
-			}
-			if opt, ok := optionMap["thread-channel"]; ok {
-				threadChannel = opt.ChannelValue(s)
-			}
+				// User interacting with bot, is this first time ?
+				options := i.ApplicationCommandData().Options
+				optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+				for _, opt := range options {
+					optionMap[opt.Name] = opt
+				}
+				if opt, ok := optionMap["number"]; ok {
+					number = int(opt.IntValue())
+				}
+				if opt, ok := optionMap["contract-id"]; ok {
+					contractID = opt.StringValue()
+					contractID = strings.Replace(contractID, " ", "", -1)
+				}
+				if opt, ok := optionMap["coop-id"]; ok {
+					coopID = opt.StringValue()
+					coopID = strings.Replace(coopID, " ", "", -1)
+				}
+				if opt, ok := optionMap["coop-size"]; ok {
+					coopSize = int(opt.IntValue())
+				}
+				if opt, ok := optionMap["threshold"]; ok {
+					threshold = int(opt.IntValue())
+				}
+				if opt, ok := optionMap["thread-channel"]; ok {
+					threadChannel = opt.ChannelValue(s)
+				}
 
-			boost.StartSignup(s, i, number, contractID, coopID, coopSize, threshold, threadChannel)
-			var embeds []*discordgo.MessageEmbed
+				boost.StartSignup(s, i, number, contractID, coopID, coopSize, threshold, threadChannel)
+				var embeds []*discordgo.MessageEmbed
 
-			embed := &discordgo.MessageEmbed{
-				Author: &discordgo.MessageEmbedAuthor{
-					Name: "RAIYC#0",
-				},
-				Type:        discordgo.EmbedTypeRich,
-				Color:       0x00ff00, // Green
-				Description: "Test embed",
-				Fields: []*discordgo.MessageEmbedField{
-					&discordgo.MessageEmbedField{
-						Name:   "I am a field",
-						Value:  "I am a value",
-						Inline: true,
+				embed := &discordgo.MessageEmbed{
+					Author: &discordgo.MessageEmbedAuthor{
+						Name: "RAIYC#0",
 					},
-					&discordgo.MessageEmbedField{
-						Name:   "I am a secondfield",
-						Value:  "I am a value",
-						Inline: true,
+					Type:        discordgo.EmbedTypeRich,
+					Color:       0x00ff00, // Green
+					Description: "Test embed",
+					Fields: []*discordgo.MessageEmbedField{
+						&discordgo.MessageEmbedField{
+							Name:   "I am a field",
+							Value:  "I am a value",
+							Inline: true,
+						},
+						&discordgo.MessageEmbedField{
+							Name:   "I am a secondfield",
+							Value:  "I am a value",
+							Inline: true,
+						},
 					},
-				},
-				Timestamp: time.Now().Format(time.RFC3339),
-				Title:     "I am an Embed",
-			}
+					Timestamp: time.Now().Format(time.RFC3339),
+					Title:     "I am an Embed",
+				}
 
-			embeds = append(embeds, embed)
+				embeds = append(embeds, embed)
 
-			var actionRows []discordgo.MessageComponent
-			var comp []discordgo.MessageComponent
+				var actionRows []discordgo.MessageComponent
+				var comp []discordgo.MessageComponent
 
-			for i := 0; i < number; i++ {
+				for i := 0; i < number; i++ {
+					comp = append(comp,
+						discordgo.Button{
+							Label:    fmt.Sprintf("%d", i),
+							Style:    discordgo.PrimaryButton,
+							Disabled: false,
+							CustomID: fmt.Sprintf("fd_signup%d", i),
+						})
+				}
 				comp = append(comp,
 					discordgo.Button{
-						Label:    fmt.Sprintf("%d", i),
-						Style:    discordgo.PrimaryButton,
+						Label:    "Delete",
+						Style:    discordgo.DangerButton,
 						Disabled: false,
-						CustomID: fmt.Sprintf("fd_signup%d", i),
+						CustomID: "fd_delete",
 					})
-			}
-			comp = append(comp,
-				discordgo.Button{
-					Label:    "Delete",
-					Style:    discordgo.DangerButton,
-					Disabled: false,
-					CustomID: "fd_delete",
-				})
-			// Build Action Rows
-			x := int(len(comp) / 5)
-			for i := 0; i <= x; i++ {
-				var c []discordgo.MessageComponent
+				// Build Action Rows
+				x := int(len(comp) / 5)
+				for i := 0; i <= x; i++ {
+					var c []discordgo.MessageComponent
 
-				for j := 0; j < 5; j++ {
-					if len(comp) == (i*5 + j) {
-						break
+					for j := 0; j < 5; j++ {
+						if len(comp) == (i*5 + j) {
+							break
+						}
+						c = append(c, comp[i*5+j])
 					}
-					c = append(c, comp[i*5+j])
+					actionRows = append(actionRows,
+						discordgo.ActionsRow{
+							Components: c,
+						})
 				}
-				actionRows = append(actionRows,
-					discordgo.ActionsRow{
-						Components: c,
-					})
-			}
-			//embed := NewEmbed().
-			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "Eggent Signup",
-					Flags:   discordgo.MessageFlagsEphemeral,
-				},
-			})
-			if err != nil {
-				fmt.Print(err.Error())
-				//panic(err)
-			}
-			_, err = s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
-				Content:    "Test",
-				Embeds:     embeds,
-				Components: actionRows,
-			})
-			if err != nil {
-				fmt.Print(err.Error())
-				//panic(err)
-			}
+				//embed := NewEmbed().
+				err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "Eggent Signup",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				if err != nil {
+					fmt.Print(err.Error())
+					//panic(err)
+				}
+				_, err = s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
+					Content:    "Test",
+					Embeds:     embeds,
+					Components: actionRows,
+				})
+				if err != nil {
+					fmt.Print(err.Error())
+					//panic(err)
+				}
 
-		},
+			},
+		*/
 		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var contractID = i.GuildID
 			var coopID = i.GuildID // Default to the Guild ID
@@ -366,14 +371,17 @@ var (
 			}
 			boost.SetMessageID(contract, i.ChannelID, msg.ID)
 
-			reactionMsg, err := s.ChannelMessageSend(i.ChannelID, "`React with 🧑‍🌾 or 🔔 to signup. 🔔 will DM Updates. Contract Creator can start the contract with ⏱️.`")
+			reactionMsg, err := s.ChannelMessageSend(i.ChannelID, "`React with 🧑‍🌾 or 🔔 to signup. 🔔 will DM Updates. Select :six: or :eight: to indicate your boost. Contract Creator can start the contract with ⏱️.`")
 			if err != nil {
 				print(err)
 			}
 			boost.SetReactionID(contract, i.ChannelID, reactionMsg.ID)
-			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🧑‍🌾") // Booster
-			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🔔")   // Ping
-			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "⏱️")  // Creator Start Contract
+			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🧑‍🌾")     // Booster
+			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🔔")       // Ping
+			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, ":six:")   // Six token
+			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, ":eight:") // Eight Token
+			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "+")       // Additional Token
+			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "⏱️")      // Creator Start Contract
 
 			s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
 
@@ -475,6 +483,38 @@ var (
 			})
 
 		},
+		slashGPT: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			var gptOption = int64(0)
+			var gptText = ""
+			//var str = ""
+
+			// User interacting with bot, is this first time ?
+			options := i.ApplicationCommandData().Options
+			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+			for _, opt := range options {
+				optionMap[opt.Name] = opt
+			}
+
+			if opt, ok := optionMap["action"]; ok {
+				gptOption = opt.IntValue()
+			}
+			if opt, ok := optionMap["prompt"]; ok {
+				gptText = opt.StringValue()
+			}
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				//Data: &discordgo.InteractionResponseData{
+				//	Content:    "",
+				//	Flags:      discordgo.MessageFlagsEphemeral,
+				//	Components: []discordgo.MessageComponent{}},
+			},
+			)
+
+			var err = notok.Notok(s, i, gptOption, gptText)
+			if err == nil {
+			}
+		},
 	}
 )
 
@@ -538,51 +578,53 @@ func main() {
 		fmt.Println(err)
 	}
 	///signup number contract-id coop-base coop-size threshhold #contract_threads
-	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
-		Name:        slashSignup,
-		Description: "Contract Boosting Elections",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "number",
-				Description: "Number of Sign-ups",
-				Required:    true,
+	/*
+		_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
+			Name:        slashSignup,
+			Description: "Contract Boosting Elections",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Name:        "number",
+					Description: "Number of Sign-ups",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "contract-id",
+					Description: "Contract ID",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "coop-id",
+					Description: "Coop ID",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Name:        "coop-size",
+					Description: "Co-op Size",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Name:        "threshold",
+					Description: "Spawn at threshold",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionChannel,
+					Name:        "thread-channel",
+					Description: "Thread Channel",
+					Required:    true,
+				},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "contract-id",
-				Description: "Contract ID",
-				Required:    true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "coop-id",
-				Description: "Coop ID",
-				Required:    true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "coop-size",
-				Description: "Co-op Size",
-				Required:    true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "threshold",
-				Description: "Spawn at threshold",
-				Required:    true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionChannel,
-				Name:        "thread-channel",
-				Description: "Thread Channel",
-				Required:    true,
-			},
-		},
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
+		})
+		if err != nil {
+			fmt.Println(err)
+		}
+	*/
 	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
 		Name:        slashJoin,
 		Description: "Add farmer or guest to contract.",
@@ -599,18 +641,80 @@ func main() {
 				Description: "Guest Farmer to add to existing contract",
 				Required:    false,
 			},
+			/*
+				{
+					Name:        "Order",
+					Description: "How farmer should be added to contract. Default is Random.",
+					Required:    false,
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Choices: []*discordgo.ApplicationCommandOptionChoice{
+						{
+							Name:  "Random",
+							Value: 1,
+						},
+						{
+							Name:  "Last",
+							Value: 2,
+						},
+					},
+				},
+			*/
 		},
 	})
 	if err != nil {
 		fmt.Println(err)
 	}
-	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
-		notok.Notok(s, m)
+	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
+		Name:        slashGPT,
+		Description: "OpenAI Fun",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Name:        "action",
+				Description: "What interaction?",
+				Required:    true,
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Choices: []*discordgo.ApplicationCommandOptionChoice{
+					{
+						Name:  "Wish for a token",
+						Value: 1,
+					},
+					{
+						Name:  "Compose letter asking for a token",
+						Value: 5,
+					},
+					{
+						Name:  "Let Me Out!",
+						Value: 2,
+					},
+					{
+						Name:  "Go Now!",
+						Value: 3,
+					},
+					{
+						Name:  "Create Dalle-3 image from your prompt.",
+						Value: 4,
+					},
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "prompt",
+				Description: "Optional prompt to fine tune the original query.",
+				Required:    false,
+			},
+		},
 	})
 	if err != nil {
 		fmt.Println(err)
 	}
-
+	/*
+		s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
+			notok.Notok(s, m)
+		})
+		if err != nil {
+			fmt.Println(err)
+		}
+	*/
 	/*
 		_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
 			Name:        slashStart,

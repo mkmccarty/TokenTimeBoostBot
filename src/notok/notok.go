@@ -19,61 +19,68 @@ import (
 const AIBOT_STRING string = "Eggcellent, the AIrtists have started work and will reply shortly."
 const AIBOTTXT_STRING string = "Eggcellent, the wrAIters have been tasked with a composition for you.."
 
-var lastWish = "Draw a balloon animal staring into a lightbulb in an unhealthy way."
+var defaultWish = "Draw a balloon animal staring into a lightbulb in an unhealthy way."
+var lastWish = defaultWish
 
 func init() {
 
 }
 
-func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
-
-	// Ignore bot messaage
-	if message.Author.ID == discord.State.User.ID {
-		return
-	}
-	var name = message.Author.Username
-	var g, err = discord.GuildMember(message.GuildID, message.Author.ID)
+func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd int64, text string) error {
+	var name = message.Member.Nick
+	var g, err = discord.GuildMember(message.GuildID, message.Member.User.ID)
 	if err == nil && g.Nick != "" {
 		name = g.Nick
 	}
 
 	wishUrl := ""
-	wishStr := ""
+	wishStr := text
 	var aiMsg *discordgo.Message
+
 	// Respond to messages
 	var currentStartTime = fmt.Sprintf(" <t:%d:R> ", time.Now().Unix())
 
-	switch {
-	//case strings.HasPrefix(message.Content, "!notoki"):
-	//	discord.ChannelMessageDelete(message.ChannelID, message.ID)
-	//	discord.ChannelTyping(message.ChannelID)
-	//	wishStr = wish(name)
-	//	wishUrl = wishImage(wishStr+" Represent this using creepy cryptid chickens in the style of a 5 year olds crayon drawing.", name, false)
-	case strings.HasPrefix(message.Content, "!notok"):
-		discord.ChannelMessageDelete(message.ChannelID, message.ID)
-		aiMsg, _ = discord.ChannelMessageSend(message.ChannelID, AIBOTTXT_STRING+" "+currentStartTime)
-		wishStr = wish(name)
-	case strings.HasPrefix(message.Content, "!letmeout"):
-		discord.ChannelMessageDelete(message.ChannelID, message.ID)
-		aiMsg, _ = discord.ChannelMessageSend(message.ChannelID, AIBOT_STRING+" "+currentStartTime)
-		wishStr = letmeout(name)
-		wishUrl = wishImage(wishStr, name, false)
-	case strings.HasPrefix(message.Content, "!gonow"):
-		discord.ChannelMessageDelete(message.ChannelID, message.ID)
+	switch cmd {
+	case 1:
+		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AIBOTTXT_STRING+" "+currentStartTime)
+		if err == nil {
+			wishStr = wish(name, text)
+		}
+	case 5: // Open Letter
+		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AIBOTTXT_STRING+" "+currentStartTime)
+		if err == nil {
+			wishStr = letter(name, text)
+		}
+	case 2:
+		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AIBOT_STRING+" "+currentStartTime)
+		if err == nil {
+			wishStr = letmeout(name, text)
+			wishUrl = wishImage(wishStr, name, false)
+		}
+	case 3:
 		str := gonow()
 		wishUrl = wishImage(str, name, false)
-	case strings.HasPrefix(message.Content, "!draw"):
-		discord.ChannelMessageDelete(message.ChannelID, message.ID)
-		wishStr = strings.TrimPrefix(message.Content, "!draw ")
-		if wishStr == "!draw" {
+	case 4:
+		if len(wishStr) == 0 {
 			wishStr = lastWish
 		}
-		aiMsg, _ = discord.ChannelMessageSend(message.ChannelID, AIBOT_STRING+" "+currentStartTime)
-		wishUrl = wishImage(wishStr, name, true)
+		if len(wishStr) < 20 {
+			wishStr = defaultWish
+		}
+		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AIBOT_STRING+" "+currentStartTime)
+		if err == nil {
+			wishUrl = wishImage(wishStr, name, true)
+		}
+	default:
+		return nil
 	}
 
 	if aiMsg != nil {
 		discord.ChannelMessageDelete(message.ChannelID, aiMsg.ID)
+	}
+
+	if err != nil {
+		return err
 	}
 
 	if wishUrl != "" {
@@ -81,7 +88,9 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 		response, _ := http.Get(wishUrl)
 		//discord.ChannelFileSend(message.ChannelID, "BB-img.png", response.Body)
 		var data discordgo.MessageSend
-		data.Content = wishStr
+		if wishStr != lastWish {
+			data.Content = wishStr
+		}
 		var myFile discordgo.File
 		myFile.ContentType = "image/png"
 		myFile.Name = "ttbb-dalle3.png"
@@ -91,11 +100,11 @@ func Notok(discord *discordgo.Session, message *discordgo.MessageCreate) {
 		discord.ChannelMessageSendComplex(message.ChannelID, &data)
 	} else if wishStr != "" {
 		discord.ChannelMessageSend(message.ChannelID, wishStr)
-	}
-	if wishStr != "" {
 		lastWish = wishStr
+	} else if wishStr == lastWish {
+		lastWish = defaultWish
 	}
-
+	return nil
 }
 
 func DoGoNow(discord *discordgo.Session, channelID string) {
@@ -104,13 +113,11 @@ func DoGoNow(discord *discordgo.Session, channelID string) {
 	discord.ChannelMessageSend(channelID, wishImage(str, "", false))
 }
 
-func wish(mention string) string {
+func letter(mention string, text string) string {
 	var str string = ""
-
 	var client = openai.NewClient(config.OpenAIKey)
-
-	tokenPrompt := "Kevin, the developer of Egg, Inc. has stopped sending widgets to the contract players of his game. Compose a crazy reason requesting that he provide you a widget. The leter should begin with \"Dear Kev,\"."
-
+	tokenPrompt := "Kevin, the developer of Egg, Inc. has stopped sending widgets to the contract players of his game. Compose a crazy reason requesting that he provide you a widget. The letter should begin with \"Dear Kev,\"."
+	tokenPrompt += " " + text
 	var resp, _ = client.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
@@ -130,16 +137,41 @@ func wish(mention string) string {
 	return str
 }
 
-func letmeout(mention string) string {
+func wish(mention string, text string) string {
+	var str string = ""
+	var client = openai.NewClient(config.OpenAIKey)
+	tokenPrompt := "A contract needs widgets to help with the delivery of eggs. Make a silly wish that would result in a widget being delivered by truck very soon. The response should start with \"I wish\""
+	tokenPrompt += " " + text
+
+	var resp, _ = client.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Model: openai.GPT3Dot5Turbo0301,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: tokenPrompt,
+				},
+			},
+		},
+	)
+	m1 := regexp.MustCompile(`\[[A-Za-z ]*\]`)
+	str = m1.ReplaceAllString(resp.Choices[0].Message.Content, "*"+mention+"*")
+	str = strings.Replace(str, "widget", "token", -1)
+	str = strings.Replace(str, "I wish", mention+" wishes", -1)
+
+	return str
+}
+
+func letmeout(mention string, text string) string {
 	var str string = ""
 
 	var client = openai.NewClient(config.OpenAIKey)
 
 	var tokenPrompt = //"Using a random city on Earth as the location for this story, don't reuse a previous city choice.  Highlight that city's culture when telling this story about " +
 	"a group of chicken egg farmers are locked in their farm " +
-		"held hostage by an unknown force. In 100 words tell random funny story about this confinement. " +
-		"Use gender neutral pronouns."
-
+		"held hostage by an unknown force. In 100 words tell random funny story about this confinement. "
+	tokenPrompt += " " + text
 	//var tokenPrompt = "A chicken farmer needs tokens to be successful on his farm. He finds a bottle with a genie who will grant him wishes. Tell me 3 wishes to ask for. Start the response of each wish with \"Farmer wishes \". Respond in a JSON format."
 	var resp, err = client.CreateChatCompletion(
 		context.Background(),
