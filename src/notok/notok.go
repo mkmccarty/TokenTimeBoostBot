@@ -89,7 +89,7 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 		//discord.ChannelFileSend(message.ChannelID, "BB-img.png", response.Body)
 		var data discordgo.MessageSend
 		if wishStr != lastWish {
-			data.Content = wishStr
+			data.Content = "||" + wishStr + "||"
 		}
 		var myFile discordgo.File
 		myFile.ContentType = "image/png"
