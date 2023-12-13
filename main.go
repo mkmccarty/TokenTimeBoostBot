@@ -116,6 +116,7 @@ var (
 		slashJoin: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var farmerName *discordgo.User = nil
 			var guestName = ""
+			var orderValue int64 = 2 // Default to Random
 			var str = "Joining Member"
 			var mention = ""
 
@@ -133,8 +134,11 @@ var (
 			if opt, ok := optionMap["guest"]; ok {
 				guestName = opt.StringValue()
 			}
+			if opt, ok := optionMap["order"]; ok {
+				orderValue = opt.IntValue()
+			}
 
-			var err = boost.AddContractMember(s, i.GuildID, i.ChannelID, i.Member.Mention(), mention, guestName)
+			var err = boost.AddContractMember(s, i.GuildID, i.ChannelID, i.Member.Mention(), mention, guestName, orderValue)
 			if err != nil {
 				str = err.Error()
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -648,24 +652,22 @@ func main() {
 				Description: "Guest Farmer to add to existing contract",
 				Required:    false,
 			},
-			/*
-				{
-					Name:        "Order",
-					Description: "How farmer should be added to contract. Default is Random.",
-					Required:    false,
-					Type:        discordgo.ApplicationCommandOptionInteger,
-					Choices: []*discordgo.ApplicationCommandOptionChoice{
-						{
-							Name:  "Random",
-							Value: 1,
-						},
-						{
-							Name:  "Last",
-							Value: 2,
-						},
+			{
+				Name:        "order",
+				Description: "How farmer should be added to contract. Default is Random.",
+				Required:    false,
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Choices: []*discordgo.ApplicationCommandOptionChoice{
+					{
+						Name:  "Random",
+						Value: 2,
+					},
+					{
+						Name:  "Last",
+						Value: 0,
 					},
 				},
-			*/
+			},
 		},
 	})
 	if err != nil {

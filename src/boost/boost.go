@@ -37,6 +37,7 @@ const errorContractAlreadyStarted = "contract already started"
 const errorAlreadyBoosted = "farmer boosted already"
 
 const CONTRACT_ORDER_SIGNUP = 0
+const CONTRACT_ORDER_LAST = 0
 const CONTRACT_ORDER_REVERSE = 1
 const CONTRACT_ORDER_RANDOM = 2
 const CONTRACT_ORDER_FAIR = 3
@@ -322,7 +323,7 @@ func FindContractByReactionID(channelID string, ReactionID string) (*Contract, i
 	return nil, 0
 }
 
-func AddContractMember(s *discordgo.Session, guildID string, channelID string, operator string, mention string, guest string) error {
+func AddContractMember(s *discordgo.Session, guildID string, channelID string, operator string, mention string, guest string, order int64) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -351,7 +352,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 		if u.Bot {
 			return errors.New(errorBot)
 		}
-		var farmer, fe = AddFarmerToContract(s, contract, guildID, channelID, u.ID)
+		var farmer, fe = AddFarmerToContract(s, contract, guildID, channelID, u.ID, order)
 		if fe == nil {
 			// Need to rest the farmer reaction count when added this way
 			farmer.Reactions = 0
@@ -379,7 +380,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 			}
 		}
 
-		var farmer, fe = AddFarmerToContract(s, contract, guildID, channelID, guest)
+		var farmer, fe = AddFarmerToContract(s, contract, guildID, channelID, guest, int64(contract.BoostOrder))
 		if fe == nil {
 			// Need to rest the farmer reaction count when added this way
 			farmer.Reactions = 0
@@ -397,7 +398,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 	return nil
 }
 
-func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string) (*EggFarmer, error) {
+func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string, order int64) (*EggFarmer, error) {
 	var farmer = contract.EggFarmers[userID]
 	if farmer == nil {
 		// New Farmer
@@ -450,7 +451,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			contract.Boosters[farmer.UserID] = b
 			// If contract hasn't started add booster to the end
 			// or if contract is on the last booster already
-			if contract.State == CONTRACT_STATE_SIGNUP {
+			if contract.State == CONTRACT_STATE_SIGNUP || order == CONTRACT_ORDER_LAST {
 				contract.Order = append(contract.Order, farmer.UserID)
 			} else {
 				// Insert booster randomly into non-boosting order
@@ -585,7 +586,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	}
 
 	if len(contract.Order) < contract.CoopSize {
-		var farmer, e = AddFarmerToContract(s, contract, r.GuildID, r.ChannelID, r.UserID)
+		var farmer, e = AddFarmerToContract(s, contract, r.GuildID, r.ChannelID, r.UserID, int64(contract.BoostOrder))
 		if e == nil {
 			farmer.Reactions = getReactions(s, r.ChannelID, r.MessageID, r.UserID)
 			if r.Emoji.Name == "🔔" {
