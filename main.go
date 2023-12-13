@@ -137,15 +137,24 @@ var (
 			var err = boost.AddContractMember(s, i.GuildID, i.ChannelID, i.Member.Mention(), mention, guestName)
 			if err != nil {
 				str = err.Error()
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content:    str,
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{}},
+				})
+			} else {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					/*
+						Data: &discordgo.InteractionResponseData{
+							Content:    str,
+							Flags:      discordgo.MessageFlagsEphemeral,
+							Components: []discordgo.MessageComponent{}},
+					*/
+				})
 			}
-
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content:    str,
-					Flags:      discordgo.MessageFlagsEphemeral,
-					Components: []discordgo.MessageComponent{}},
-			})
 
 		},
 		slashCoopETA: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
