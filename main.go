@@ -322,6 +322,7 @@ var (
 			var boostOrder = boost.CONTRACT_ORDER_RANDOM
 			var coopSize = 2
 			var ChannelID = i.ChannelID
+			var pingRole = "@here"
 
 			// User interacting with bot, is this first time ?
 			options := i.ApplicationCommandData().Options
@@ -332,6 +333,9 @@ var (
 
 			if opt, ok := optionMap["coop-size"]; ok {
 				coopSize = int(opt.IntValue())
+			}
+			if opt, ok := optionMap["ping-role"]; ok {
+				pingRole = opt.StringValue()
 			}
 			if opt, ok := optionMap["contract-id"]; ok {
 				contractID = opt.StringValue()
@@ -348,7 +352,7 @@ var (
 			}
 			mutex.Lock()
 
-			contract, err := boost.CreateContract(s, contractID, coopID, coopSize, boostOrder, i.GuildID, i.ChannelID, i.Member.User.ID)
+			contract, err := boost.CreateContract(s, contractID, coopID, coopSize, boostOrder, i.GuildID, i.ChannelID, i.Member.User.ID, pingRole)
 			if err != nil {
 				fmt.Print("Contract already exists")
 			}
@@ -585,6 +589,12 @@ func main() {
 				Name:        "coop-size",
 				Description: "Co-op Size",
 				Required:    true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionUser,
+				Name:        "ping-role",
+				Description: "Role to use to ping for this contract. Default is @here.",
+				Required:    false,
 			},
 		},
 	})

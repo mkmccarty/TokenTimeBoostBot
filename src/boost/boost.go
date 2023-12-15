@@ -91,6 +91,7 @@ type LocationData struct {
 	ChannelID      string // Contract Discord Channel
 	ChannelName    string
 	ChannelMention string
+	ChannelPing    string
 	ListMsgID      string // Message ID for the Last Boost Order message
 	ReactionID     string // Message ID for the reaction Order String
 }
@@ -164,7 +165,7 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) stri
 }
 
 // interface
-func CreateContract(s *discordgo.Session, contractID string, coopID string, coopSize int, BoostOrder int, guildID string, channelID string, userID string) (*Contract, error) {
+func CreateContract(s *discordgo.Session, contractID string, coopID string, coopSize int, BoostOrder int, guildID string, channelID string, userID string, pingRole string) (*Contract, error) {
 	var ContractHash = fmt.Sprintf("%s/%s", contractID, coopID)
 
 	contract := Contracts[ContractHash]
@@ -181,6 +182,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	if cerr == nil {
 		loc.ChannelName = c.Name
 		loc.ChannelMention = c.Mention()
+		loc.ChannelPing = pingRole
 	}
 	loc.ListMsgID = ""
 	loc.ReactionID = ""
@@ -880,13 +882,13 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			}
 
 			if pingUsers {
-				str = fmt.Sprintf("@here send tokens to %s", contract.Boosters[contract.Order[contract.BoostPosition]].Mention)
+				str = fmt.Sprintf(loc.ChannelPing+" send tokens to %s", contract.Boosters[contract.Order[contract.BoostPosition]].Mention)
 			}
 		} else {
 			t1 := contract.EndTime
 			t2 := contract.StartTime
 			duration := t1.Sub(t2)
-			str = fmt.Sprintf("@here contract boosting complete in %s ", duration.Round(time.Second))
+			str = fmt.Sprintf(loc.ChannelPing+" contract boosting complete in %s ", duration.Round(time.Second))
 		}
 		loc.ListMsgID = msg.ID
 		s.ChannelMessageSend(loc.ChannelID, str)
