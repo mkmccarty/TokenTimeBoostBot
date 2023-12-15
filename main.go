@@ -321,6 +321,7 @@ var (
 			var coopID = i.GuildID // Default to the Guild ID
 			var boostOrder = boost.CONTRACT_ORDER_RANDOM
 			var coopSize = 2
+			var ChannelID = i.ChannelID
 
 			// User interacting with bot, is this first time ?
 			options := i.ApplicationCommandData().Options
@@ -378,25 +379,27 @@ var (
 				print(err)
 			}
 
-			msg, err := s.ChannelMessageSend(i.ChannelID, boost.DrawBoostList(s, contract))
-			if err != nil {
+			var createMsg = boost.DrawBoostList(s, contract)
+			msg, err := s.ChannelMessageSend(ChannelID, createMsg)
+			if err == nil {
+				boost.SetMessageID(contract, ChannelID, msg.ID)
+
+				reactionMsg, err := s.ChannelMessageSend(ChannelID, "`React with 🧑‍🌾 or 🔔 to signup. 🔔 will DM Updates. Select :six: or :eight: to indicate your boost. Contract Creator can start the contract with ⏱️.`")
+				if err != nil {
+					print(err)
+				}
+				boost.SetReactionID(contract, msg.ChannelID, reactionMsg.ID)
+				s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🧑‍🌾") // Booster
+				s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🔔")   // Ping
+				//s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, ":six:")   // Six token
+				//s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, ":eight:") // Eight Token
+				//s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "+")       // Additional Token
+				s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "⏱️") // Creator Start Contract
+
+				s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
+			} else {
 				print(err)
 			}
-			boost.SetMessageID(contract, i.ChannelID, msg.ID)
-
-			reactionMsg, err := s.ChannelMessageSend(i.ChannelID, "`React with 🧑‍🌾 or 🔔 to signup. 🔔 will DM Updates. Select :six: or :eight: to indicate your boost. Contract Creator can start the contract with ⏱️.`")
-			if err != nil {
-				print(err)
-			}
-			boost.SetReactionID(contract, i.ChannelID, reactionMsg.ID)
-			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🧑‍🌾")     // Booster
-			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🔔")       // Ping
-			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, ":six:")   // Six token
-			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, ":eight:") // Eight Token
-			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "+")       // Additional Token
-			s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "⏱️")      // Creator Start Contract
-
-			s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
 
 		},
 		/*

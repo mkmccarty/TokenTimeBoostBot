@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/divan/num2words"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/peterbourgon/diskv/v3"
 	emutil "github.com/post04/discordgo-emoji-util"
@@ -273,9 +272,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 				outputStr += fmt.Sprintf("%s %s%s\n", prefix, name, server)
 			case BOOST_STATE_TOKENTIME:
 				countStr := ""
-				if b.TokenCount > 0 {
-					countStr = ":" + num2words.Convert(b.TokenCount) + ":"
-				}
+				//if b.TokenCount > 0 {
+				//	countStr = ":" + num2words.Convert(b.TokenCount) + ":"
+				//}
 				outputStr += fmt.Sprintf("%s %s %s%s%s\n", prefix, name, countStr+TokenStr, currentStartTime, server)
 			case BOOST_STATE_BOOSTED:
 				t1 := contract.Boosters[element].EndTime
