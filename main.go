@@ -384,7 +384,7 @@ var (
 			if err == nil {
 				boost.SetMessageID(contract, ChannelID, msg.ID)
 
-				reactionMsg, err := s.ChannelMessageSend(ChannelID, "`React with 🧑‍🌾 or 🔔 to signup. 🔔 will DM Updates. Select :six: or :eight: to indicate your boost. Contract Creator can start the contract with ⏱️.`")
+				reactionMsg, err := s.ChannelMessageSend(ChannelID, "`React with 🧑‍🌾 or 🔔 to signup. 🔔 will DM Updates. Contract Creator can start the contract with ⏱️.`")
 				if err != nil {
 					print(err)
 				}
