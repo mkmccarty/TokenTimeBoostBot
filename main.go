@@ -335,7 +335,9 @@ var (
 				coopSize = int(opt.IntValue())
 			}
 			if opt, ok := optionMap["ping-role"]; ok {
-				pingRole = opt.RoleValue().Mention()
+				role := opt.RoleValue(nil, "")
+				pingRole = role.Mention()
+
 			}
 			if opt, ok := optionMap["contract-id"]; ok {
 				contractID = opt.StringValue()
