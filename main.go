@@ -596,7 +596,7 @@ func main() {
 				Type:        discordgo.ApplicationCommandOptionRole,
 				Name:        "ping-role",
 				Description: "Role to use to ping for this contract. Default is @here.",
-				Required:    false,
+				Required:    true,
 			},
 		},
 	})
