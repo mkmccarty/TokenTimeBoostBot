@@ -60,6 +60,7 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 	case 3:
 		str := gonow()
 		wishUrl = wishImage(str, name, false)
+		wishStr = name + " expresses an urgent need to go next up in boost order."
 	case 4:
 		if len(wishStr) == 0 {
 			wishStr = lastWish
