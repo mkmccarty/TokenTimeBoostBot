@@ -319,7 +319,7 @@ var (
 		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var contractID = i.GuildID
 			var coopID = i.GuildID // Default to the Guild ID
-			var boostOrder = boost.CONTRACT_ORDER_RANDOM
+			var boostOrder = boost.ContractOrderRandom
 			var coopSize = 2
 			var ChannelID = i.ChannelID
 			var pingRole = "@here"

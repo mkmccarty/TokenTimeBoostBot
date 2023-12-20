@@ -1,10 +1,27 @@
 APP=TokenTimeBoostBot
-EXECUTABLE=TokenTimeBoostBot
-WINDOWS=$(EXECUTABLE)_windows_amd64.exe
-LINUX=$(EXECUTABLE)_linux_amd64
-DARWIN=$(EXECUTABLE)_darwin_amd64
-PI=$(EXECUTABLE)_linux_arm6
+BINARY_NAME=TokenTimeBoostBot
+WINDOWS=$(BINARY_NAME)_windows_amd64.exe
+LINUX=$(BINARY_NAME)_linux_amd64
+DARWIN=$(BINARY_NAME)_darwin_amd64
+PI=$(BINARY_NAME)_linux_arm6
 #PI64=$(EXECUTABLE)_linux_arm64
+
+## tidy: format code and tidy modfile
+.PHONY: tidy
+tidy:
+	go fmt ./...
+	go mod tidy -v
+
+## audit: run quality control checks
+.PHONY: audit
+audit:
+	go mod verify
+	go vet ./...
+	go run honnef.co/go/tools/cmd/staticcheck@latest -checks=all,-ST1000,-U1000 ./...
+	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+	go test -race -buildvcs -vet=off ./...
+
+
 
 #VERSION=$(shell git describe --tags --always --long --dirty)
 VERSION=$(shell git describe --tags --always --long --dirty)
@@ -28,6 +45,7 @@ darwin: $(DARWIN)  ## Build for Darwin
 pi: $(PI) ## Build for Raspberry Pi 4
 
 #pi64: $(PI64) ## Build for 64-bit Raspberry Pi
+
 
 $(WINDOWS):
 	env GOOS=windows GOARCH=amd64 go build -v -o $(WINDOWS) -ldflags="-s -w -X main.Version=$(VERSION)"
