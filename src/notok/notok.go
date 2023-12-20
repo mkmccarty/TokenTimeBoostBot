@@ -195,7 +195,7 @@ func wish(mention string, text string) string {
 func wish_gemini(mention string, text string) string {
 	var str string = ""
 
-	tokenPrompt := "A contract needs widgets to help purchase boosts and to share with others to improve speed the delivery of eggs. Make a silly wish that would result in a widget being delivered by truck very soon. The response should be less than 500 words and start with \"I wish\""
+	tokenPrompt := "A contract needs widgets to help purchase boosts and to share with others to improve speed the delivery of eggs. Make a silly wish that would result in a widget being delivered by truck very soon. The response should be no more than 3 or 4 sentences and start with \"I wish\""
 	tokenPrompt += " " + text
 
 	str = getStringFromGoogleGemini(tokenPrompt)
