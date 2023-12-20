@@ -122,7 +122,7 @@ func DoGoNow(discord *discordgo.Session, channelID string) {
 
 func letter(mention string, text string) string {
 	var str string = ""
-	tokenPrompt := "Kevin, the developer of Egg, Inc. has stopped sending widgets to the contract players of his game. Compose a crazy reason requesting that he provide you a widget. The letter should begin with \"Dear Kev,\"."
+	tokenPrompt := "Kevin, the developer of Egg, Inc. has stopped sending widgets to the contract players of his game. Compose a crazy reason requesting that he provide you a widget. The letter should be fairly short and begin with \"Dear Kev,\"."
 	tokenPrompt += " " + text
 	str = getStringFromGoogleGemini(tokenPrompt)
 	m1 := regexp.MustCompile(`\[[A-Za-z\- ]*\]`)
@@ -195,7 +195,7 @@ func wish(mention string, text string) string {
 func wish_gemini(mention string, text string) string {
 	var str string = ""
 
-	tokenPrompt := "A contract needs widgets to help with the delivery of eggs. Make a silly wish that would result in a widget being delivered by truck very soon. The response should start with \"I wish\""
+	tokenPrompt := "A contract needs widgets to help purchase boosts and to share with others to improve speed the delivery of eggs. Make a silly wish that would result in a widget being delivered by truck very soon. The response should be less than 500 words and start with \"I wish\""
 	tokenPrompt += " " + text
 
 	str = getStringFromGoogleGemini(tokenPrompt)
@@ -212,7 +212,7 @@ func printResponse(resp *genai.GenerateContentResponse) string {
 	for _, cand := range resp.Candidates {
 		if cand.Content != nil {
 			for _, part := range cand.Content.Parts {
-				//fmt.Println(part)
+				fmt.Println(part)
 				str += fmt.Sprint(part)
 			}
 		}
@@ -224,8 +224,8 @@ func letmeout(mention string, text string) string {
 	var str string = ""
 
 	var tokenPrompt = //"Using a random city on Earth as the location for this story, don't reuse a previous city choice.  Highlight that city's culture when telling this story about " +
-	"a group of chicken egg farmers are locked in their farm " +
-		"held hostage by an unknown force. In 100 words tell random funny story about this confinement. "
+	"A group of chicken egg farmers are locked in their farm " +
+		"held hostage by an unknown force. In 250 words or less tell random funny story about this confinement. "
 	tokenPrompt += " " + text
 	str = getStringFromGoogleGemini(tokenPrompt)
 
