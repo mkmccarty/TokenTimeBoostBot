@@ -124,7 +124,7 @@ func letter(mention string, text string) string {
 	var str string = ""
 	tokenPrompt := "Kevin, the developer of Egg, Inc. has stopped sending widgets to the contract players of his game. Compose a crazy reason requesting that he provide you a widget. The letter should begin with \"Dear Kev,\"."
 	tokenPrompt += " " + text
-	str = getStringFromGoogleGemini(text)
+	str = getStringFromGoogleGemini(tokenPrompt)
 	m1 := regexp.MustCompile(`\[[A-Za-z ]*\]`)
 	str = m1.ReplaceAllString(str, "*"+mention+"*")
 	str = strings.Replace(str, "widget", "token", -1)
