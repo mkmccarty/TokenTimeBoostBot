@@ -12,6 +12,7 @@ var (
 	DiscordAppID   string
 	DiscordGuildID string
 	OpenAIKey      string
+	GoogleAPIKey   string
 	AdminUserId    string
 	config         *configStruct
 )
@@ -21,6 +22,7 @@ type configStruct struct {
 	DiscordAppID   string `json:"DiscordAppID"`
 	DiscordGuildID string `json:"DiscordGuildID"`
 	OpenAIKey      string `json:"OpenAIKey"`
+	GoogleAPIKey   string `json:"GoogleAPIKey"`
 	AdminUserId    string `json:"AdminUserId"`
 }
 
@@ -48,6 +50,7 @@ func ReadConfig() error {
 	DiscordAppID = config.DiscordAppID
 	DiscordGuildID = "" //config.DiscordGuildID
 	OpenAIKey = config.OpenAIKey
+	GoogleAPIKey = config.GoogleAPIKey
 	AdminUserId = config.AdminUserId
 
 	return nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"regexp"
@@ -11,9 +12,11 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/google/generative-ai-go/genai"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/rs/xid"
 	"github.com/sashabaranov/go-openai"
+	"google.golang.org/api/option"
 )
 
 const AIBOT_STRING string = "Eggcellent, the AIrtists have started work and will reply shortly."
@@ -28,6 +31,9 @@ func init() {
 
 func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd int64, text string) error {
 	var name = message.Member.Nick
+	if name == "" {
+		name = message.Member.User.Username
+	}
 	var g, err = discord.GuildMember(message.GuildID, message.Member.User.ID)
 	if err == nil && g.Nick != "" {
 		name = g.Nick
@@ -44,7 +50,7 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 	case 1:
 		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AIBOTTXT_STRING+" "+currentStartTime)
 		if err == nil {
-			wishStr = wish(name, text)
+			wishStr = wish_gemini(name, text)
 		}
 	case 5: // Open Letter
 		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AIBOTTXT_STRING+" "+currentStartTime)
@@ -116,34 +122,19 @@ func DoGoNow(discord *discordgo.Session, channelID string) {
 
 func letter(mention string, text string) string {
 	var str string = ""
-	var client = openai.NewClient(config.OpenAIKey)
 	tokenPrompt := "Kevin, the developer of Egg, Inc. has stopped sending widgets to the contract players of his game. Compose a crazy reason requesting that he provide you a widget. The letter should begin with \"Dear Kev,\"."
 	tokenPrompt += " " + text
-	var resp, _ = client.CreateChatCompletion(
-		context.Background(),
-		openai.ChatCompletionRequest{
-			Model: openai.GPT3Dot5Turbo0301,
-			Messages: []openai.ChatCompletionMessage{
-				{
-					Role:    openai.ChatMessageRoleUser,
-					Content: tokenPrompt,
-				},
-			},
-		},
-	)
+	str = getStringFromGoogleGemini(text)
 	m1 := regexp.MustCompile(`\[[A-Za-z ]*\]`)
-	str = m1.ReplaceAllString(resp.Choices[0].Message.Content, "*"+mention+"*")
+	str = m1.ReplaceAllString(str, "*"+mention+"*")
 	str = strings.Replace(str, "widget", "token", -1)
 
 	return str
 }
 
-func wish(mention string, text string) string {
+func getStringFromOpenAI(text string) string {
 	var str string = ""
 	var client = openai.NewClient(config.OpenAIKey)
-	tokenPrompt := "A contract needs widgets to help with the delivery of eggs. Make a silly wish that would result in a widget being delivered by truck very soon. The response should start with \"I wish\""
-	tokenPrompt += " " + text
-
 	var resp, _ = client.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
@@ -151,47 +142,92 @@ func wish(mention string, text string) string {
 			Messages: []openai.ChatCompletionMessage{
 				{
 					Role:    openai.ChatMessageRoleUser,
-					Content: tokenPrompt,
+					Content: text,
 				},
 			},
 		},
 	)
+	str = resp.Choices[0].Message.Content
+	return str
+}
+
+func getStringFromGoogleGemini(text string) string {
+	ctx := context.Background()
+	client, err := genai.NewClient(ctx, option.WithAPIKey(config.GoogleAPIKey))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer client.Close()
+
+	model := client.GenerativeModel("gemini-pro")
+	model.SafetySettings = []*genai.SafetySetting{
+		{
+			Category:  genai.HarmCategoryDangerousContent,
+			Threshold: genai.HarmBlockNone,
+		},
+		{
+			Category:  genai.HarmCategoryHarassment,
+			Threshold: genai.HarmBlockNone,
+		},
+	}
+	resp, err := model.GenerateContent(ctx, genai.Text(text))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return printResponse(resp)
+}
+
+func wish(mention string, text string) string {
+	var str string = ""
+	tokenPrompt := "A contract needs widgets to help with the delivery of eggs. Make a silly wish that would result in a widget being delivered by truck very soon. The response should start with \"I wish\""
+	tokenPrompt += " " + text
+
+	str = getStringFromOpenAI(tokenPrompt)
 	m1 := regexp.MustCompile(`\[[A-Za-z ]*\]`)
-	str = m1.ReplaceAllString(resp.Choices[0].Message.Content, "*"+mention+"*")
+	str = m1.ReplaceAllString(str, "*"+mention+"*")
 	str = strings.Replace(str, "widget", "token", -1)
 	str = strings.Replace(str, "I wish", mention+" wishes", -1)
 
 	return str
 }
 
-func letmeout(mention string, text string) string {
+func wish_gemini(mention string, text string) string {
 	var str string = ""
 
-	var client = openai.NewClient(config.OpenAIKey)
+	tokenPrompt := "A contract needs widgets to help with the delivery of eggs. Make a silly wish that would result in a widget being delivered by truck very soon. The response should start with \"I wish\""
+	tokenPrompt += " " + text
+
+	str = getStringFromGoogleGemini(tokenPrompt)
+	m1 := regexp.MustCompile(`\[[A-Za-z ]*\]`)
+	str = m1.ReplaceAllString(str, "*"+mention+"*")
+	str = strings.Replace(str, "widget", "token", -1)
+	str = strings.Replace(str, "I wish", mention+" wishes", -1)
+
+	return str
+}
+
+func printResponse(resp *genai.GenerateContentResponse) string {
+	var str = ""
+	for _, cand := range resp.Candidates {
+		if cand.Content != nil {
+			for _, part := range cand.Content.Parts {
+				//fmt.Println(part)
+				str += fmt.Sprint(part)
+			}
+		}
+	}
+	return str
+}
+
+func letmeout(mention string, text string) string {
+	var str string = ""
 
 	var tokenPrompt = //"Using a random city on Earth as the location for this story, don't reuse a previous city choice.  Highlight that city's culture when telling this story about " +
 	"a group of chicken egg farmers are locked in their farm " +
 		"held hostage by an unknown force. In 100 words tell random funny story about this confinement. "
 	tokenPrompt += " " + text
-	//var tokenPrompt = "A chicken farmer needs tokens to be successful on his farm. He finds a bottle with a genie who will grant him wishes. Tell me 3 wishes to ask for. Start the response of each wish with \"Farmer wishes \". Respond in a JSON format."
-	var resp, err = client.CreateChatCompletion(
-		context.Background(),
-		openai.ChatCompletionRequest{
-			Model: openai.GPT3Dot5Turbo0301,
-			Messages: []openai.ChatCompletionMessage{
-				{
-					Role:    openai.ChatMessageRoleUser,
-					Content: tokenPrompt,
-				},
-			},
-		},
-	)
-
-	if err != nil {
-		str = ""
-	} else {
-		str = resp.Choices[0].Message.Content
-	}
+	str = getStringFromGoogleGemini(tokenPrompt)
 
 	return str
 }
