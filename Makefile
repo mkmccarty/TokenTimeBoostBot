@@ -4,7 +4,7 @@ WINDOWS=$(EXECUTABLE)_windows_amd64.exe
 LINUX=$(EXECUTABLE)_linux_amd64
 DARWIN=$(EXECUTABLE)_darwin_amd64
 PI=$(EXECUTABLE)_linux_arm6
-PI64=$(EXECUTABLE)_linux_arm64
+#PI64=$(EXECUTABLE)_linux_arm64
 
 #VERSION=$(shell git describe --tags --always --long --dirty)
 VERSION=$(shell git describe --tags --always --long --dirty)
@@ -27,7 +27,7 @@ darwin: $(DARWIN)  ## Build for Darwin
 
 pi: $(PI) ## Build for Raspberry Pi 4
 
-pi64: $(PI64) ## Build for 64-bit Raspberry Pi
+#pi64: $(PI64) ## Build for 64-bit Raspberry Pi
 
 $(WINDOWS):
 	env GOOS=windows GOARCH=amd64 go build -v -o $(WINDOWS) -ldflags="-s -w -X main.Version=$(VERSION)"
@@ -41,11 +41,11 @@ $(DARWIN):
 $(PI):
 	env GOOS=linux GOARCH=arm GOARM=6  go build -v -o $(PI) -ldflags="-s -w -X main.Version=$(VERSION)"  
 
-$(PI64):
-	env GOOS=linux GOARCH=arm64  go build -v -o $(PI) -ldflags="-s -w -X main.Version=$(VERSION)"  
+#$(PI64):
+#	env GOOS=linux GOARCH=arm64  go build -v -o $(PI) -ldflags="-s -w -X main.Version=$(VERSION)"  
 
 .PHONY: build
-build: windows linux darwin pi pi64 ## Build binaries
+build: windows linux darwin pi ## Build binaries
 	@echo version: $(VERSION)
 
 
