@@ -19,8 +19,8 @@ import (
 	"google.golang.org/api/option"
 )
 
-const AIBOT_STRING string = "Eggcellent, the AIrtists have started work and will reply shortly."
-const AIBOTTXT_STRING string = "Eggcellent, the wrAIters have been tasked with a composition for you.."
+const AiBotString string = "Eggcellent, the AIrtists have started work and will reply shortly."
+const AiTextString string = "Eggcellent, the wrAIters have been tasked with a composition for you.."
 
 var defaultWish = "Draw a balloon animal staring into a lightbulb in an unhealthy way."
 var lastWish = defaultWish
@@ -39,7 +39,7 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 		name = g.Nick
 	}
 
-	wishUrl := ""
+	wishURL := ""
 	wishStr := text
 	var aiMsg *discordgo.Message
 
@@ -48,24 +48,24 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 
 	switch cmd {
 	case 1:
-		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AIBOTTXT_STRING+" "+currentStartTime)
+		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AiTextString+" "+currentStartTime)
 		if err == nil {
-			wishStr = wish_gemini(name, text)
+			wishStr = wishGemini(name, text)
 		}
 	case 5: // Open Letter
-		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AIBOTTXT_STRING+" "+currentStartTime)
+		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AiTextString+" "+currentStartTime)
 		if err == nil {
 			wishStr = letter(name, text)
 		}
 	case 2:
-		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AIBOT_STRING+" "+currentStartTime)
+		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AiBotString+" "+currentStartTime)
 		if err == nil {
 			wishStr = letmeout(name, text)
-			wishUrl = wishImage(wishStr, name, false)
+			wishURL = wishImage(wishStr, name, false)
 		}
 	case 3:
 		str := gonow()
-		wishUrl = wishImage(str, name, false)
+		wishURL = wishImage(str, name, false)
 		wishStr = name + " expresses an urgent need to go next up in boost order."
 	case 4:
 		if len(wishStr) == 0 {
@@ -74,9 +74,9 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 		if len(wishStr) < 20 {
 			wishStr = defaultWish
 		}
-		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AIBOT_STRING+" "+currentStartTime)
+		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AiBotString+" "+currentStartTime)
 		if err == nil {
-			wishUrl = wishImage(wishStr, name, true)
+			wishURL = wishImage(wishStr, name, true)
 		}
 	default:
 		return nil
@@ -90,9 +90,9 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 		return err
 	}
 
-	if wishUrl != "" {
+	if wishURL != "" {
 		discord.ChannelTyping(message.ChannelID)
-		response, _ := http.Get(wishUrl)
+		response, _ := http.Get(wishURL)
 		//discord.ChannelFileSend(message.ChannelID, "BB-img.png", response.Body)
 		var data discordgo.MessageSend
 		if wishStr != lastWish {
@@ -121,7 +121,7 @@ func DoGoNow(discord *discordgo.Session, channelID string) {
 }
 
 func letter(mention string, text string) string {
-	var str string = ""
+	var str = ""
 	tokenPrompt := "Kevin, the developer of Egg, Inc. has stopped sending widgets to the contract players of his game. Compose a crazy reason requesting that he provide you a widget. The letter should be fairly short and begin with \"Dear Kev,\"."
 	tokenPrompt += " " + text
 	str = getStringFromGoogleGemini(tokenPrompt)
@@ -133,7 +133,7 @@ func letter(mention string, text string) string {
 }
 
 func getStringFromOpenAI(text string) string {
-	var str string = ""
+	var str = ""
 	var client = openai.NewClient(config.OpenAIKey)
 	var resp, _ = client.CreateChatCompletion(
 		context.Background(),
@@ -179,7 +179,7 @@ func getStringFromGoogleGemini(text string) string {
 }
 
 func wish(mention string, text string) string {
-	var str string = ""
+	var str = ""
 	tokenPrompt := "A contract needs widgets to help with the delivery of eggs. Make a silly wish that would result in a widget being delivered by truck very soon. The response should start with \"I wish\""
 	tokenPrompt += " " + text
 
@@ -192,8 +192,8 @@ func wish(mention string, text string) string {
 	return str
 }
 
-func wish_gemini(mention string, text string) string {
-	var str string = ""
+func wishGemini(mention string, text string) string {
+	var str = ""
 
 	tokenPrompt := "A contract needs widgets to help purchase boosts and to share with others to improve speed the delivery of eggs. Make a silly wish that would result in a widget being delivered by truck very soon. The response should be no more than 3 or 4 sentences and start with \"I wish\""
 	tokenPrompt += " " + text
@@ -221,7 +221,7 @@ func printResponse(resp *genai.GenerateContentResponse) string {
 }
 
 func letmeout(mention string, text string) string {
-	var str string = ""
+	var str = ""
 
 	var tokenPrompt = //"Using a random city on Earth as the location for this story, don't reuse a previous city choice.  Highlight that city's culture when telling this story about " +
 	"A group of chicken egg farmers are locked in their farm " +
@@ -291,8 +291,8 @@ func downloadFile(filepath string, url string, prompt string) error {
 
 	id := xid.New()
 	newfile := fmt.Sprintf("%s/%s.png", filepath, id.String())
-	newfile_prompt := fmt.Sprintf("%s/%s.txt", filepath, id.String())
-	os.WriteFile(newfile_prompt, []byte(prompt), 0664)
+	newfilePrompt := fmt.Sprintf("%s/%s.txt", filepath, id.String())
+	os.WriteFile(newfilePrompt, []byte(prompt), 0664)
 
 	// Create the file
 	out, err := os.Create(newfile)
