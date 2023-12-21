@@ -1,10 +1,41 @@
+# Change these variables as necessary.
+
 APP=TokenTimeBoostBot
 BINARY_NAME=TokenTimeBoostBot
+
 WINDOWS=$(BINARY_NAME)_windows_amd64.exe
 LINUX=$(BINARY_NAME)_linux_amd64
 DARWIN=$(BINARY_NAME)_darwin_amd64
 PI=$(BINARY_NAME)_linux_arm6
 #PI64=$(EXECUTABLE)_linux_arm64
+
+#VERSION=$(shell git describe --tags --always --long --dirty)
+VERSION=$(shell git describe --tags --always --long --dirty)
+
+# ==================================================================================== #
+# HELPERS
+# ==================================================================================== #
+
+## help: print this help message
+.PHONY: help
+help:
+	@echo "Usage:"
+	@sed -n 's/^##//p' ${MAKEFILE_LIST} | column -t -s ':' |  sed -e 's/^/ /'
+
+.PHONY: confirm
+confirm:
+	@echo -n 'Are you sure? [y/N] ' && read ans && [ $${ans:-N} = y ]
+
+.PHONY: no-dirty
+no-dirty:
+	git diff --exit-code
+
+
+
+# ==================================================================================== #
+# QUALITY CONTROL
+# ==================================================================================== #
+
 
 ## tidy: format code and tidy modfile
 .PHONY: tidy
@@ -21,10 +52,22 @@ audit:
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 	go test -race -buildvcs -vet=off ./...
 
+# ==================================================================================== #
+# DEVELOPMENT
+# ==================================================================================== #
 
+## test: run all tests
+.PHONY: test
+test:
+	go test -v -race -buildvcs ./...
 
-#VERSION=$(shell git describe --tags --always --long --dirty)
-VERSION=$(shell git describe --tags --always --long --dirty)
+## test/cover: run all tests and display coverage
+.PHONY: test/cover
+test/cover:
+	go test -v -race -buildvcs -coverprofile=/tmp/coverage.out ./...
+	go tool cover -html=/tmp/coverage.out
+
+## build: build the application
 
 all: fmt build
 
@@ -67,18 +110,6 @@ build: windows linux darwin pi ## Build binaries
 	@echo version: $(VERSION)
 
 
-.PHONY: test
-test:
-	go test -timeout 20s -race #-v ./...
-
-.PHONY: debs
-debs:
-	go get ./...
-
-.PHONY: fmt
-fmt:
-	gofmt -l -s .
-
 .PHONY: install
 install:
 	./scripts/stop_bot.sh
@@ -90,5 +121,3 @@ clean:
 	go clean
 	rm -f $(WINDOWS) $(LINUX) $(DARWIN) $(PI)
 
-help: ## Display available commands
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
