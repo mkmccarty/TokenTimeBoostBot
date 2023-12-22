@@ -1,6 +1,27 @@
 # TokenTimeBoostBot
 
-Boost Order Discord Bot
+Boost Order Management Discord Bot
+
+Allow for easy mobile creation and execution of a signup list and boost list for
+the game Egg Inc.
+
+The bot does not query information from the Egg Inc servers.
+
+
+
+## Basic Setup
+Create a discord application here: https://discord.com/developers/applications
+Take the Application ID and Secret and save those to configure the bot in .config.json.
+If you wish to restrict the bot to a specific server then add your Guild ID to **DiscordGuildID**
+
+    "DiscordToken": "APP_SECRET"
+    "DiscordAppID": "APP_ID"
+    "DiscordGuildID": "DISCORD_GUILD_ID"
+
+Install your bot into your discord server with this URL:
+https://discord.com/api/oauth2/authorize?client_id=$(BOT_APP_ID)&permissions=466004470848&scope=bot%20applications.commands
+
+
 
 ## Slash commands ##
 
@@ -75,3 +96,5 @@ command to swap yourself when currently boosting to next
 /priority to allow someone to signal they need to go early
 Player has indicated that they wish to boost early for
 Real Life reasons
+
+
