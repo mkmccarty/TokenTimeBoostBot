@@ -2,8 +2,13 @@
 
 Boost Order Management Discord Bot
 
-Allow for easy mobile creation and execution of a signup list and boost list for
+Features:
+• Allow for easy mobile creation and execution of a signup list and boost list for
 the game Egg Inc.
+• There is currently a limitation of one contract per channel.
+• This can be used to run a contract across multiple servers.
+
+
 
 The bot does not query information from the Egg Inc servers.
 
