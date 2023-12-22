@@ -46,7 +46,7 @@ func ReadConfig() error {
 
 	DiscordToken = config.DiscordToken
 	DiscordAppID = config.DiscordAppID
-	DiscordGuildID = "" //config.DiscordGuildID
+	DiscordGuildID = config.DiscordGuildID
 	OpenAIKey = config.OpenAIKey
 	GoogleAPIKey = config.GoogleAPIKey
 	AdminUserID = config.AdminUserID
