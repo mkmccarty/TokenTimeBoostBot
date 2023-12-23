@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,7 +22,7 @@ import (
 
 var DataStore *diskv.Diskv
 
-var TokenStr = "" //"<:token:778019329693450270>"
+//var TokenStr = "" //"<:token:778019329693450270>"
 
 const errorNoContract string = "contract doesn't exist"
 const errorNotStarted string = "contract not started"
@@ -94,6 +95,7 @@ type LocationData struct {
 	ChannelPing    string
 	ListMsgID      string // Message ID for the Last Boost Order message
 	ReactionID     string // Message ID for the reaction Order String
+	TokenStr       string // Emoji for Token
 }
 type Contract struct {
 	ContractHash  string // ContractID-CoopID
@@ -102,7 +104,7 @@ type Contract struct {
 	ContractID    string   // Contract ID
 	CoopID        string   // CoopID
 	CoopSize      int
-	BoostOrder    int
+	BoostOrder    int // How the contract is sorted
 	BoostVoting   int
 	BoostPosition int       // Starting Slot
 	State         int       // Boost Completed
@@ -112,6 +114,7 @@ type Contract struct {
 	RegisteredNum int
 	Boosters      map[string]*Booster // Boosters Registered
 	Order         []string
+	OrderRevision int // Incremented when Order is changed
 	//mutex         sync.Mutex // Keep this contract thread safe
 }
 
@@ -164,6 +167,15 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) stri
 	return ""
 }
 
+func FindTokenEmoji(s *discordgo.Session, guildID string) string {
+	g, _ := s.State.Guild(guildID) // RAIYC Playground
+	var e = emutil.FindEmoji(g.Emojis, "token", false)
+	if e != nil {
+		return e.MessageFormat()
+	}
+	return "🐣"
+}
+
 // CreateContract creates a new contract or joins an existing contract if run from a different location
 func CreateContract(s *discordgo.Session, contractID string, coopID string, coopSize int, BoostOrder int, guildID string, channelID string, userID string, pingRole string) (*Contract, error) {
 	var ContractHash = fmt.Sprintf("%s/%s", contractID, coopID)
@@ -200,6 +212,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.CoopID = coopID
 		contract.BoostOrder = BoostOrder
 		contract.BoostVoting = 0
+		contract.OrderRevision = 0
 		contract.State = ContractStateSignup
 		contract.CreatorID = append(contract.CreatorID, userID)               // starting userid
 		contract.CreatorID = append(contract.CreatorID, config.AdminUserID)   // overall admin user
@@ -216,11 +229,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 
 	// Find our Token emoji
 	for _, el := range contract.Location {
-		g, _ := s.State.Guild(el.GuildID) // RAIYC Playground
-		var e = emutil.FindEmoji(g.Emojis, "token", false)
-		if e != nil {
-			TokenStr = e.MessageFormat()
-		}
+		el.TokenStr = FindTokenEmoji(s, el.GuildID)
 	}
 
 	return contract, nil
@@ -242,7 +251,7 @@ func SetReactionID(contract *Contract, channelID string, messageID string) {
 	}
 }
 
-func DrawBoostList(s *discordgo.Session, contract *Contract) string {
+func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) string {
 	var outputStr string
 
 	saveData(Contracts)
@@ -277,7 +286,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 				//if b.TokenCount > 0 {
 				//	countStr = ":" + num2words.Convert(b.TokenCount) + ":"
 				//}
-				outputStr += fmt.Sprintf("%s %s %s%s%s\n", prefix, name, countStr+TokenStr, currentStartTime, server)
+				outputStr += fmt.Sprintf("%s %s %s%s%s\n", prefix, name, countStr+tokenStr, currentStartTime, server)
 			case BoostStateBoosted:
 				t1 := contract.Boosters[element].EndTime
 				t2 := contract.Boosters[element].StartTime
@@ -322,6 +331,130 @@ func FindContractByReactionID(channelID string, ReactionID string) (*Contract, i
 		}
 	}
 	return nil, 0
+}
+
+func ChangePingRole(s *discordgo.Session, guildID string, channelID string, pingRole string) error {
+	var contract = FindContract(guildID, channelID)
+	if contract == nil {
+		return errors.New(errorNoContract)
+	}
+
+	// return an error if the contract is in the signup state
+	if contract.State == ContractStateSignup {
+		return errors.New(errorContractNotStarted)
+	}
+
+	for _, loc := range contract.Location {
+		if loc.ChannelID == channelID {
+			loc.ChannelPing = pingRole
+			return nil
+		}
+	}
+	return errors.New(errorNoContract)
+}
+
+// write the function removeBoostOrderIndex which takes an array and an index as arguments and returns the array with the element at the given index removed.
+func removeBoostOrderIndex(s []string, index int) []string {
+	return append(s[:index], s[index+1:]...)
+}
+
+// write the function removeDuplicates which takes an array as an argument and returns the array with all duplicate elements removed.
+func removeDuplicates(s []string) []string {
+	var result []string
+	for i := range s {
+		if !slices.Contains(result, s[i]) {
+			result = append(result, s[i])
+		}
+	}
+	return result
+}
+
+func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, boostOrder string) error {
+	var contract = FindContract(guildID, channelID)
+	var boostOrderClean = ""
+	if contract == nil {
+		return errors.New(errorNoContract)
+	}
+
+	// if contract is in signup state return error
+	if contract.State == ContractStateSignup {
+		return errors.New(errorContractNotStarted)
+	}
+
+	// split the boostOrder string into an array by commas
+	re := regexp.MustCompile(`[\\<>@#&!]`)
+	if boostOrder != "" {
+		boostOrderClean = re.ReplaceAllString(boostOrder, "")
+	}
+
+	var boostOrderArray = strings.Split(boostOrderClean, ",")
+	// expand hyphenated values into a range, incrementing or decrementing as appropriate and append them to the boostOrderArray
+	for i, element := range boostOrderArray {
+		var hyphenArray = strings.Split(element, "-")
+		if len(hyphenArray) == 2 {
+			var start, _ = strconv.Atoi(hyphenArray[0])
+			var end, _ = strconv.Atoi(hyphenArray[1])
+			if start > end {
+				for j := start; j >= end; j-- {
+					boostOrderArray = append(boostOrderArray, strconv.Itoa(j))
+				}
+			} else {
+				for j := start; j <= end; j++ {
+					boostOrderArray = append(boostOrderArray, strconv.Itoa(j))
+				}
+			}
+			boostOrderArray = removeBoostOrderIndex(boostOrderArray, i)
+		}
+	}
+
+	// Remove duplicates from boostOrderArray calling removeDuplicates function
+	boostOrderArray = removeDuplicates(boostOrderArray)
+
+	// if length of boostorderarray doesn't mach length of contract.Order then return error
+	if len(boostOrderArray) != len(contract.Order) {
+		return errors.New("invalid boost order. Every position needs to be specified")
+	}
+
+	// convert boostOrderArray to an array of ints
+	var boostOrderIntArray []int
+	for _, element := range boostOrderArray {
+		var intElement, _ = strconv.Atoi(element)
+		boostOrderIntArray = append(boostOrderIntArray, intElement)
+	}
+
+	// reorder data in contract.Order using the idnex order specified in boostOrderIntArray
+	var newOrder []string
+	for _, element := range boostOrderIntArray {
+		newOrder = append(newOrder, contract.Order[element-1])
+	}
+
+	// Clear current booster boost state
+	contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateUnboosted
+
+	// set contract.BoostOrder to the index of the element contract.Boosters[element].BoostState == BoostStateTokenTime
+	contract.Order = newOrder
+	contract.OrderRevision += 1
+
+	for i, el := range newOrder {
+		if contract.Boosters[el].BoostState == BoostStateUnboosted {
+			contract.BoostPosition = i
+			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
+			contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+			break
+		}
+	}
+
+	sendNextNotification(s, contract, true)
+	/*
+		// Draw the boost List in place
+		for _, loc := range contract.Location {
+			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
+			if err == nil {
+				loc.ListMsgID = msg.ID
+			}
+		}
+	*/
+	return nil
 }
 
 func AddContractMember(s *discordgo.Session, guildID string, channelID string, operator string, mention string, guest string, order int64) error {
@@ -460,6 +593,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 				var insertPosition = contract.BoostPosition + 1 + rand.Intn(remainingBoosters)
 				contract.Order = insert(contract.Order, insertPosition, farmer.UserID)
 			}
+			contract.OrderRevision += 1
 		}
 		contract.RegisteredNum = len(contract.Boosters)
 
@@ -468,7 +602,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		} else {
 			// Edit the boost list in place
 			for _, loc := range contract.Location {
-				msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract))
+				msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
 				if err == nil {
 					//panic(err)
 					loc.ListMsgID = msg.ID
@@ -619,6 +753,7 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 		var activeBoosterState = activeBooster.BoostState
 		var userID = contract.Order[index]
 		contract.Order = RemoveIndex(contract.Order, index)
+		contract.OrderRevision += 1
 		delete(contract.Boosters, userID)
 
 		// Active Booster is leaving contract.
@@ -628,6 +763,7 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 		}
 	} else {
 		contract.Order = RemoveIndex(contract.Order, index)
+		contract.OrderRevision += 1
 	}
 	return true
 }
@@ -670,7 +806,7 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 
 	// Edit the boost List in place
 	for _, loc := range contract.Location {
-		msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract))
+		msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
 		if err == nil {
 			loc.ListMsgID = msg.ID
 		}
@@ -699,7 +835,7 @@ func RemoveContractBooster(s *discordgo.Session, guildID string, channelID strin
 	// Remove the Boost List and thoen redisplay it
 	for _, loc := range contract.Location {
 
-		msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract))
+		msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
 		if err == nil {
 			loc.ListMsgID = msg.ID
 		}
@@ -774,7 +910,7 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 		contract.RegisteredNum = len(contract.Boosters)
 
 		for _, loc := range contract.Location {
-			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract))
+			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
 			if err == nil {
 				loc.ListMsgID = msg.ID
 			}
@@ -850,7 +986,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		var err error
 
 		if contract.State == ContractStateSignup {
-			msg, err = s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract))
+			msg, err = s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
 			if err != nil {
 				fmt.Println("Unable to send this message")
 			}
@@ -863,7 +999,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			// Compose the message without a Ping
 			var data discordgo.MessageSend
 			var am discordgo.MessageAllowedMentions
-			data.Content = DrawBoostList(s, contract)
+			data.Content = DrawBoostList(s, contract, loc.TokenStr)
 			data.AllowedMentions = &am
 			msg, err = s.ChannelMessageSendComplex(loc.ChannelID, &data)
 
@@ -1049,6 +1185,7 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 		contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
 	}
+	contract.OrderRevision += 1
 
 	sendNextNotification(s, contract, true)
 
