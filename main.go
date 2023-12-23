@@ -546,7 +546,7 @@ var (
 
 			if opt, ok := optionMap["ping-role"]; ok {
 				role := opt.RoleValue(nil, "")
-				err := boost.ChangePingRole(s, i.GuildID, i.ChannelID, role.Mention())
+				err := boost.ChangePingRole(s, i.GuildID, i.ChannelID, i.User.ID, role.Mention())
 				if err != nil {
 					str += err.Error()
 				}
@@ -561,7 +561,7 @@ var (
 			*/
 			if opt, ok := optionMap["boost-order"]; ok {
 				boostOrder := opt.StringValue()
-				err := boost.ChangeBoostOrder(s, i.GuildID, i.ChannelID, boostOrder)
+				err := boost.ChangeBoostOrder(s, i.GuildID, i.ChannelID, i.User.ID, boostOrder)
 				if err != nil {
 					str += err.Error()
 				}

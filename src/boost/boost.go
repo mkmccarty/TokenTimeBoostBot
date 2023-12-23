@@ -333,7 +333,7 @@ func FindContractByReactionID(channelID string, ReactionID string) (*Contract, i
 	return nil, 0
 }
 
-func ChangePingRole(s *discordgo.Session, guildID string, channelID string, pingRole string) error {
+func ChangePingRole(s *discordgo.Session, guildID string, channelID string, userID string, pingRole string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -342,6 +342,11 @@ func ChangePingRole(s *discordgo.Session, guildID string, channelID string, ping
 	// return an error if the contract is in the signup state
 	if contract.State == ContractStateSignup {
 		return errors.New(errorContractNotStarted)
+	}
+
+	// return an error if the userID isn't the contract creator
+	if !creatorOfContract(contract, userID) {
+		return errors.New("only the contract creator can change the contract")
 	}
 
 	for _, loc := range contract.Location {
@@ -369,7 +374,7 @@ func removeDuplicates(s []string) []string {
 	return result
 }
 
-func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, boostOrder string) error {
+func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, userID string, boostOrder string) error {
 	var contract = FindContract(guildID, channelID)
 	var boostOrderClean = ""
 	if contract == nil {
@@ -379,6 +384,11 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, bo
 	// if contract is in signup state return error
 	if contract.State == ContractStateSignup {
 		return errors.New(errorContractNotStarted)
+	}
+
+	// return an error if the userID isn't the contract creator
+	if !creatorOfContract(contract, userID) {
+		return errors.New("only the contract creator can change the contract")
 	}
 
 	// split the boostOrder string into an array by commas
