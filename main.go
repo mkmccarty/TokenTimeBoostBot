@@ -21,6 +21,7 @@ import (
 const slashContract string = "contract"
 const slashSkip string = "skip"
 const slashBoost string = "boost"
+const slashChange string = "change"
 
 // const slashcluck string = "cluck"
 const slashLast string = "last"
@@ -337,7 +338,6 @@ var (
 			if opt, ok := optionMap["ping-role"]; ok {
 				role := opt.RoleValue(nil, "")
 				pingRole = role.Mention()
-
 			}
 			if opt, ok := optionMap["contract-id"]; ok {
 				contractID = opt.StringValue()
@@ -385,7 +385,7 @@ var (
 				print(err)
 			}
 
-			var createMsg = boost.DrawBoostList(s, contract)
+			var createMsg = boost.DrawBoostList(s, contract, boost.FindTokenEmoji(s, i.GuildID))
 			msg, err := s.ChannelMessageSend(ChannelID, createMsg)
 			if err == nil {
 				boost.SetMessageID(contract, ChannelID, msg.ID)
@@ -535,6 +535,46 @@ var (
 
 			var _ = notok.Notok(s, i, gptOption, gptText)
 		},
+		slashChange: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			var str = ""
+			// User interacting with bot, is this first time ?
+			options := i.ApplicationCommandData().Options
+			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+			for _, opt := range options {
+				optionMap[opt.Name] = opt
+			}
+
+			if opt, ok := optionMap["ping-role"]; ok {
+				role := opt.RoleValue(nil, "")
+				err := boost.ChangePingRole(s, i.GuildID, i.ChannelID, role.Mention())
+				if err != nil {
+					str += err.Error()
+				}
+			}
+			/*
+				if opt, ok := optionMap["contract-id"]; ok {
+					contractID := opt.StringValue()
+				}
+				if opt, ok := optionMap["coop-id"]; ok {
+					coopID := opt.StringValue()
+				}
+			*/
+			if opt, ok := optionMap["boost-order"]; ok {
+				boostOrder := opt.StringValue()
+				err := boost.ChangeBoostOrder(s, i.GuildID, i.ChannelID, boostOrder)
+				if err != nil {
+					str += err.Error()
+				}
+			}
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: str,
+					//Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
+		},
 	}
 )
 
@@ -596,7 +636,7 @@ func main() {
 				Type:        discordgo.ApplicationCommandOptionRole,
 				Name:        "ping-role",
 				Description: "Role to use to ping for this contract. Default is @here.",
-				Required:    true,
+				Required:    false,
 			},
 		},
 	})
@@ -808,6 +848,39 @@ func main() {
 				Name:        "timespan",
 				Description: "Time remaining in this contract. Example: 0d7h27m.",
 				Required:    true,
+			},
+		},
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
+		Name:        slashChange,
+		Description: "Change aspects of a running contract",
+		Options: []*discordgo.ApplicationCommandOption{
+			/*{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "coop-id",
+				Description: "Change the coop-id",
+				Required:    false,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "contract-id",
+				Description: "Change the contract-id",
+				Required:    false,
+			},*/
+			{
+				Type:        discordgo.ApplicationCommandOptionRole,
+				Name:        "ping-role",
+				Description: "Change the contract ping role.",
+				Required:    false,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "boost-order",
+				Description: "Provide new boost order. Example: 1,2,3,6,7,5,7-10",
+				Required:    false,
 			},
 		},
 	})
