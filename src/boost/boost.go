@@ -307,7 +307,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		}
 		outputStr += "```"
 	} else if contract.State == ContractStateWaiting {
-		outputStr += "  - waiting for other(s) to join..."
+		outputStr += "Waiting for other(s) to join..."
 		outputStr += "```"
 		outputStr += "React with 🏁 to end the contract."
 		outputStr += "```"
@@ -446,7 +446,9 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 	}
 
 	// Clear current booster boost state
-	contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateUnboosted
+	if contract.State == ContractStateStarted {
+		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateUnboosted
+	}
 
 	// set contract.BoostOrder to the index of the element contract.Boosters[element].BoostState == BoostStateTokenTime
 	contract.Order = newOrder
