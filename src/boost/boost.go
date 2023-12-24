@@ -44,7 +44,8 @@ const ContractOrderFair = 3
 
 const ContractStateSignup = 0
 const ContractStateStarted = 1
-const ContractStateCompleted = 2
+const ContractStateWaiting = 2
+const ContractStateCompleted = 3
 
 const BoostStateUnboosted = 0
 const BoostStateTokenTime = 1
@@ -305,6 +306,12 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 			outputStr += "\nAdd a 🚽 (toilet) reaction to express your urgency to go now."
 		}
 		outputStr += "```"
+	} else if contract.State == ContractStateWaiting {
+		outputStr += "  - waiting for other(s) to join..."
+		outputStr += "```"
+		outputStr += "React with 🏁 to end the contract."
+		outputStr += "```"
+
 	}
 	return outputStr
 }
@@ -595,7 +602,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			contract.Boosters[farmer.UserID] = b
 			// If contract hasn't started add booster to the end
 			// or if contract is on the last booster already
-			if contract.State == ContractStateSignup || order == ContractOrderLast {
+			if contract.State == ContractStateSignup || contract.State == ContractStateWaiting || order == ContractOrderLast {
 				contract.Order = append(contract.Order, farmer.UserID)
 			} else {
 				// Insert booster randomly into non-boosting order
@@ -607,6 +614,13 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		}
 		contract.RegisteredNum = len(contract.Boosters)
 
+		if contract.State == ContractStateWaiting {
+			// Reactivate the contract
+			// Set the newly added booster as boosting
+			contract.State = ContractStateStarted
+			b.StartTime = time.Now()
+			b.BoostState = BoostStateTokenTime
+		}
 		if contract.State != ContractStateSignup {
 			sendNextNotification(s, contract, false)
 		} else {
@@ -681,6 +695,14 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 	if userInContract(contract, r.UserID) || creatorOfContract(contract, r.UserID) {
 
+		// if contract state is waiting and the reaction is a 🏁 finish the contract
+		if contract.State == ContractStateWaiting && r.Emoji.Name == "🏁" {
+			contract.State = ContractStateCompleted
+			contract.EndTime = time.Now()
+			sendNextNotification(s, contract, true)
+			return ""
+		}
+
 		if contract.State != ContractStateSignup && contract.BoostPosition < len(contract.Order) {
 
 			// If Rocket reaction on Boost List, only that boosting user can apply a reaction
@@ -715,6 +737,13 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 					SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
 					return "!gonow"
 				}
+			}
+
+			if contract.State == ContractStateWaiting && r.Emoji.Name == "🔃" {
+				contract.State = ContractStateCompleted
+				contract.EndTime = time.Now()
+				sendNextNotification(s, contract, true)
+				return ""
 			}
 		}
 	}
@@ -767,9 +796,14 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 		delete(contract.Boosters, userID)
 
 		// Active Booster is leaving contract.
-		if (activeBoosterState == 1) && len(contract.Order) > index {
-			contract.Boosters[contract.Order[index]].BoostState = BoostStateBoosted
+		if contract.BoostPosition == len(contract.Order) {
+			// set contract to waiting
+			contract.State = ContractStateWaiting
+			sendNextNotification(s, contract, true)
+		} else if (activeBoosterState == BoostStateUnboosted) && len(contract.Order) > index {
+			contract.Boosters[contract.Order[index]].BoostState = BoostStateTokenTime
 			contract.Boosters[contract.Order[index]].StartTime = time.Now()
+			sendNextNotification(s, contract, true)
 		}
 	} else {
 		contract.Order = RemoveIndex(contract.Order, index)
@@ -1021,14 +1055,23 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		var str = ""
 
 		if contract.State != ContractStateCompleted {
-			s.MessageReactionAdd(loc.ChannelID, msg.ID, "🚀") // Booster
+			if contract.State == ContractStateStarted {
+				s.MessageReactionAdd(loc.ChannelID, msg.ID, "🚀") // Booster
+			}
 			if (contract.BoostPosition + 1) < len(contract.Order) {
 				s.MessageReactionAdd(loc.ChannelID, msg.ID, "🔃")  // Swap
 				s.MessageReactionAdd(loc.ChannelID, msg.ID, "⤵️") // Last
 			}
+			if contract.State == ContractStateWaiting {
+				s.MessageReactionAdd(loc.ChannelID, msg.ID, "🏁") // Finish
+			}
 
 			if pingUsers {
-				str = fmt.Sprintf(loc.ChannelPing+" send tokens to %s", contract.Boosters[contract.Order[contract.BoostPosition]].Mention)
+				if contract.State == ContractStateStarted {
+					str = fmt.Sprintf(loc.ChannelPing+" send tokens to %s", contract.Boosters[contract.Order[contract.BoostPosition]].Mention)
+				} else {
+					str = fmt.Sprintf(loc.ChannelPing + " contract boosting complete hold your tokens for late joining farmers.")
+				}
 			}
 		} else {
 			t1 := contract.EndTime
@@ -1114,9 +1157,11 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 		}
 	}
 
-	if contract.BoostPosition == contract.CoopSize || contract.BoostPosition == len(contract.Boosters) {
+	if contract.BoostPosition == contract.CoopSize {
 		contract.State = ContractStateCompleted // Finished
 		contract.EndTime = time.Now()
+	} else if contract.BoostPosition == len(contract.Boosters) {
+		contract.State = ContractStateWaiting // There could be more boosters joining later
 	} else {
 		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 		contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
@@ -1180,9 +1225,11 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 			contract.Order = append(contract.Order, skipped)
 		}
 
-		if contract.BoostPosition == contract.CoopSize || contract.BoostPosition == len(contract.Boosters) {
+		if contract.BoostPosition == contract.CoopSize {
 			contract.State = ContractStateCompleted // Finished
 			contract.EndTime = time.Now()
+		} else if contract.BoostPosition == len(contract.Boosters) {
+			contract.State = ContractStateWaiting
 		} else {
 			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 			contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
@@ -1213,6 +1260,11 @@ func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
 				t2 := contract.StartTime
 				duration := t1.Sub(t2)
 				str = fmt.Sprintf("%s: Contract Boosting Completed in %s ", farmer.ChannelName, duration.Round(time.Second))
+			} else if contract.State == ContractStateWaiting {
+				t1 := contract.EndTime
+				t2 := contract.StartTime
+				duration := t1.Sub(t2)
+				str = fmt.Sprintf("%s: Boosting Completed in %s. Still %d spots in the contract. ", farmer.ChannelName, duration.Round(time.Second), contract.CoopSize-len(contract.Boosters))
 			} else {
 				str = fmt.Sprintf("%s: Send Boost Tokens to %s", farmer.ChannelName, contract.Boosters[contract.Order[contract.BoostPosition]].Name)
 			}
