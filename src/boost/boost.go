@@ -607,8 +607,13 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			} else {
 				// Insert booster randomly into non-boosting order
 				var remainingBoosters = len(contract.Boosters) - contract.BoostPosition - 1
-				var insertPosition = contract.BoostPosition + 1 + rand.Intn(remainingBoosters)
-				contract.Order = insert(contract.Order, insertPosition, farmer.UserID)
+				if remainingBoosters == 0 {
+					contract.Order = append(contract.Order, farmer.UserID)
+				} else {
+					var insertPosition = contract.BoostPosition + 1 + rand.Intn(remainingBoosters)
+					contract.Order = insert(contract.Order, insertPosition, farmer.UserID)
+
+				}
 			}
 			contract.OrderRevision += 1
 		}
@@ -732,7 +737,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 					}
 				}
 			} else {
-				// Reaction to indicate you need to boost now
+				// Reaction to indicate you need to go now
 				if r.Emoji.Name == "🚽" {
 					SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
 					return "!gonow"
