@@ -833,6 +833,7 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 
 	re := regexp.MustCompile(`[\\<>@#&!]`)
 	var userID = re.ReplaceAllString(mention, "")
+	userID = strings.TrimSpace(userID)
 
 	var u, _ = s.User(userID)
 	if u != nil {
@@ -848,6 +849,13 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 	if contract.State == ContractStateWaiting {
 		contract.Boosters[userID].BoostState = BoostStateTokenTime
 		contract.State = ContractStateStarted
+		// set BoostPosition to unboosted user
+		for i := range contract.Order {
+			if contract.Order[i] == userID {
+				contract.BoostPosition = i
+				break
+			}
+		}
 
 		sendNextNotification(s, contract, true)
 	} else {
@@ -1204,7 +1212,7 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	// Advance past any that have already boosted
 	// Set boost order to last spot so end of contract handling can occur
 	// if nobody left unboosted
-	contract.BoostOrder = len(contract.Order)
+	contract.BoostPosition = len(contract.Order)
 
 	// loop through all contract.Order until we find a non-boosted user
 	for i := range contract.Order {
