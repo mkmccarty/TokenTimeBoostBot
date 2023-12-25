@@ -845,12 +845,19 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 		return errors.New(errorUserNotInContract)
 	}
 
-	contract.Boosters[userID].BoostState = BoostStateUnboosted
-	// Edit the boost List in place
-	for _, loc := range contract.Location {
-		msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
-		if err == nil {
-			loc.ListMsgID = msg.ID
+	if contract.State == ContractStateWaiting {
+		contract.Boosters[userID].BoostState = BoostStateTokenTime
+
+		sendNextNotification(s, contract, true)
+	} else {
+		contract.Boosters[userID].BoostState = BoostStateUnboosted
+
+		// Edit the boost List in place
+		for _, loc := range contract.Location {
+			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
+			if err == nil {
+				loc.ListMsgID = msg.ID
+			}
 		}
 	}
 	return nil
