@@ -1202,6 +1202,10 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	contract.Boosters[contract.Order[contract.BoostPosition]].EndTime = time.Now()
 
 	// Advance past any that have already boosted
+	// Set boost order to last spot so end of contract handling can occur
+	// if nobody left unboosted
+	contract.BoostOrder = len(contract.Order)
+
 	// loop through all contract.Order until we find a non-boosted user
 	for i := range contract.Order {
 		if contract.Boosters[contract.Order[i]].BoostState == BoostStateUnboosted {
@@ -1213,7 +1217,7 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	if contract.BoostPosition == contract.CoopSize {
 		contract.State = ContractStateCompleted // Finished
 		contract.EndTime = time.Now()
-	} else if contract.BoostPosition == len(contract.Boosters) {
+	} else if contract.BoostPosition == len(contract.Order) {
 		contract.State = ContractStateWaiting // There could be more boosters joining later
 	} else {
 		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
