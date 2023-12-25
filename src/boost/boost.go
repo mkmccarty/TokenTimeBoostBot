@@ -847,6 +847,7 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 
 	if contract.State == ContractStateWaiting {
 		contract.Boosters[userID].BoostState = BoostStateTokenTime
+		contract.State = ContractStateStarted
 
 		sendNextNotification(s, contract, true)
 	} else {
