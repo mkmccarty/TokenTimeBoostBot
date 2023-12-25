@@ -24,7 +24,7 @@ const slashBoost string = "boost"
 const slashChange string = "change"
 
 // const slashcluck string = "cluck"
-const slashLast string = "last"
+const slashUnboost string = "unboost"
 const slashPrune string = "prune"
 const slashJoin string = "join"
 
@@ -460,11 +460,23 @@ var (
 			})
 
 		},
-		slashLast: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			var str = "Move yourself to end of boost list."
-			var err = boost.SkipBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID)
+		slashUnboost: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			var str = ""
+			var farmer = ""
+			options := i.ApplicationCommandData().Options
+			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+			for _, opt := range options {
+				optionMap[opt.Name] = opt
+			}
+
+			if opt, ok := optionMap["farmer"]; ok {
+				farmer = opt.StringValue()
+			}
+			var err = boost.Unboost(s, i.GuildID, i.ChannelID, farmer)
 			if err != nil {
 				str = err.Error()
+			} else {
+				str = "Marked " + farmer + " as unboosted."
 			}
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -809,9 +821,16 @@ func main() {
 	}
 
 	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
-		Name:        slashLast,
-		Description: "Move yourself to last in boost order.",
-		Options:     []*discordgo.ApplicationCommandOption{},
+		Name:        slashUnboost,
+		Description: "Change boost state to unboosted.",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "farmer",
+				Description: "User Mention",
+				Required:    true,
+			},
+		},
 	})
 	if err != nil {
 		log.Fatalf("Cannot create slash command: %v", err)
