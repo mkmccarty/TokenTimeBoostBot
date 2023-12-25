@@ -1202,14 +1202,11 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	contract.Boosters[contract.Order[contract.BoostPosition]].EndTime = time.Now()
 
 	// Advance past any that have already boosted
-	for contract.Boosters[contract.Order[contract.BoostPosition]].BoostState == BoostStateBoosted {
-		contract.BoostPosition += 1
-		// loop through contract.Order until we find a non-boosted user
-		for i := range contract.Order {
-			if contract.Boosters[contract.Order[i]].BoostState == BoostStateUnboosted {
-				contract.BoostPosition = i
-				break
-			}
+	// loop through all contract.Order until we find a non-boosted user
+	for i := range contract.Order {
+		if contract.Boosters[contract.Order[i]].BoostState == BoostStateUnboosted {
+			contract.BoostPosition = i
+			break
 		}
 	}
 
