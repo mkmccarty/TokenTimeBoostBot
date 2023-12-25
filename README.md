@@ -92,11 +92,12 @@ selecting the 🚀 icon.  Two votes will elect a successful boost.
 
 Move current booster to last in the Boost List
 
-### Move Farmer to Last
+### Mark Farmer as Unboosted
 
-/last
+/unboost [farmer]
 
-Move yourself to last in the Boost List
+Sometimes mistakes happen and someone is marked as boosting too early. 
+Mark someone as unboosted to take care of it. Their position in the boost order stays the same and would boost next if they were earlier in the list than the current booster.
 
 ### Prune Farmer
 
