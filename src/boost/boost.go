@@ -819,6 +819,43 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 	return true
 }
 
+func Unboost(s *discordgo.Session, guildID string, channelID string, mention string) error {
+	var contract = FindContract(guildID, channelID)
+	if contract == nil {
+		return errors.New(errorNoContract)
+	}
+	//contract.mutex.Lock()
+	//defer contract.mutex.Unlock()
+
+	if contract.CoopSize == 0 {
+		return errors.New(errorContractEmpty)
+	}
+
+	re := regexp.MustCompile(`[\\<>@#&!]`)
+	var userID = re.ReplaceAllString(mention, "")
+
+	var u, _ = s.User(userID)
+	if u != nil {
+		if u.Bot {
+			return errors.New(errorBot)
+		}
+	}
+
+	if contract.Boosters[userID] == nil {
+		return errors.New(errorUserNotInContract)
+	}
+
+	contract.Boosters[userID].BoostState = BoostStateUnboosted
+	// Edit the boost List in place
+	for _, loc := range contract.Location {
+		msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
+		if err == nil {
+			loc.ListMsgID = msg.ID
+		}
+	}
+	return nil
+}
+
 func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channelID string, operator string, mention string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
@@ -1159,8 +1196,12 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	// Advance past any that have already boosted
 	for contract.Boosters[contract.Order[contract.BoostPosition]].BoostState == BoostStateBoosted {
 		contract.BoostPosition += 1
-		if contract.BoostPosition == len(contract.Order) {
-			break
+		// loop through contract.Order until we find a non-boosted user
+		for i := range contract.Order {
+			if contract.Boosters[contract.Order[i]].BoostState == BoostStateUnboosted {
+				contract.BoostPosition = i
+				break
+			}
 		}
 	}
 
