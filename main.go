@@ -87,10 +87,45 @@ func initDiscordBot() {
 	if err != nil {
 		log.Fatalf("Invalid bot parameters: %v", err)
 	}
-
 }
 
-// Important note: call every command in order it's placed in the example.
+func addBoostTokens(s *discordgo.Session, i *discordgo.InteractionCreate, value int) {
+	var str = "Contract not found."
+	tokenCount, _, err := boost.AddBoostTokens(s, i.GuildID, i.ChannelID, i.Member.User.ID, value, 0)
+	if (err == nil) && (tokenCount >= 0) {
+		nick := i.Member.Nick
+		if nick == "" {
+			nick = i.Member.User.Username
+		}
+
+		str = fmt.Sprintf("Tokens wanted by %s set to %d after adding %d", nick, tokenCount, value)
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content:    str,
+			Flags:      discordgo.MessageFlagsEphemeral,
+			Components: []discordgo.MessageComponent{}},
+	})
+}
+
+func JoinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell bool) {
+	var str = "Added to Contract"
+	err := boost.JoinContract(s, i.GuildID, i.ChannelID, i.Member.User.ID, bell)
+	if err != nil {
+		str = err.Error()
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content:    str,
+			Flags:      discordgo.MessageFlagsEphemeral,
+			Components: []discordgo.MessageComponent{}},
+	})
+
+}
 
 var (
 	componentsHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
@@ -110,6 +145,57 @@ var (
 					Components: []discordgo.MessageComponent{}},
 			})
 			s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
+		},
+		"fd_tokens1": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			addBoostTokens(s, i, 1)
+		},
+		"fd_tokens5": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			addBoostTokens(s, i, 5)
+		},
+		"fd_tokens6": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			addBoostTokens(s, i, 6)
+		},
+		"fd_tokens8": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			addBoostTokens(s, i, 8)
+		},
+		"fd_tokens_sub": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			addBoostTokens(s, i, -1)
+		},
+		"fd_signupStart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			err := boost.StartContractBoosting(s, i.GuildID, i.ChannelID, i.Member.User.ID)
+			if err != nil {
+				str := fmt.Sprint(err.Error())
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content:    str,
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{}},
+				})
+			} else {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{})
+			}
+		},
+		"fd_signupFarmer": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			JoinContract(s, i, false)
+		},
+		"fd_signupBell": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			JoinContract(s, i, true)
+		},
+		"fd_signupLeave": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			str := "Removed from Contract"
+			var err = boost.RemoveContractBoosterByMention(s, i.GuildID, i.ChannelID, i.Member.Mention(), i.Member.Mention())
+			if err != nil {
+				str = err.Error()
+			}
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content:    str,
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
 		},
 	}
 
@@ -389,18 +475,99 @@ var (
 			msg, err := s.ChannelMessageSend(ChannelID, createMsg)
 			if err == nil {
 				boost.SetMessageID(contract, ChannelID, msg.ID)
+				//var tokenEmoji = boost.FindTokenEmoji(s, i.GuildID)
+				// extract from tokenEmjoi the string between :'s
+				//tokenEmoji = tokenEmoji[strings.Index(tokenEmoji, ":")+1 : strings.LastIndex(tokenEmoji, ":")]
 
-				reactionMsg, err := s.ChannelMessageSend(ChannelID, "`React with 🧑‍🌾 or 🔔 to signup. 🔔 will DM Updates. Contract Creator can start the contract with ⏱️.`")
+				var data discordgo.MessageSend
+				data.Content = "" //`React with 🧑‍🌾 or 🔔 to signup. 🔔 will DM Updates. Contract Creator can start the contract with ⏱️.`"
+				data.Components = []discordgo.MessageComponent{
+					// add buttons to the action row
+					discordgo.ActionsRow{
+						Components: []discordgo.MessageComponent{
+							discordgo.Button{
+								Emoji: discordgo.ComponentEmoji{
+									Name: "🧑‍🌾",
+								},
+								Label:    "Join",
+								Style:    discordgo.PrimaryButton,
+								CustomID: "fd_signupFarmer",
+							},
+							discordgo.Button{
+								Emoji: discordgo.ComponentEmoji{
+									Name: "🔔",
+								},
+								Label:    "Join w/Ping",
+								Style:    discordgo.PrimaryButton,
+								CustomID: "fd_signupBell",
+							},
+							discordgo.Button{
+								Emoji: discordgo.ComponentEmoji{
+									Name: "❌",
+								},
+								Label:    "Leave",
+								Style:    discordgo.SecondaryButton,
+								CustomID: "fd_signupLeave",
+							},
+
+							discordgo.Button{
+								Emoji: discordgo.ComponentEmoji{
+									Name: "⏱️",
+								},
+								Label:    "Start Boost List",
+								Style:    discordgo.SuccessButton,
+								CustomID: "fd_signupStart",
+							},
+						},
+					},
+					discordgo.ActionsRow{
+						Components: []discordgo.MessageComponent{
+							discordgo.Button{
+								Label:    "+1",
+								Style:    discordgo.SecondaryButton,
+								CustomID: "fd_tokens1",
+							},
+							discordgo.Button{
+								Emoji: discordgo.ComponentEmoji{
+									Name: "5️⃣",
+								},
+								//Label:    "5",
+								Style:    discordgo.SecondaryButton,
+								CustomID: "fd_tokens5",
+							},
+							discordgo.Button{
+								Emoji: discordgo.ComponentEmoji{
+									Name: "6️⃣",
+								},
+								//Label:    "6",
+								Style:    discordgo.SecondaryButton,
+								CustomID: "fd_tokens6",
+							},
+							discordgo.Button{
+								Emoji: discordgo.ComponentEmoji{
+									Name: "8️⃣",
+								},
+								//Label:    "8",
+								Style:    discordgo.SecondaryButton,
+								CustomID: "fd_tokens8",
+							},
+							discordgo.Button{
+								Label:    "-1",
+								Style:    discordgo.SecondaryButton,
+								CustomID: "fd_tokens_sub",
+							},
+						},
+					},
+				}
+				reactionMsg, err := s.ChannelMessageSendComplex(ChannelID, &data)
+
 				if err != nil {
 					print(err)
 				}
 				boost.SetReactionID(contract, msg.ChannelID, reactionMsg.ID)
-				s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🧑‍🌾") // Booster
-				s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🔔")   // Ping
-				//s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, ":six:")   // Six token
-				//s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, ":eight:") // Eight Token
-				//s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "+")       // Additional Token
-				s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "⏱️") // Creator Start Contract
+				//s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🧑‍🌾") // Booster
+				//s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "🔔")   // Ping
+				//s.MessageReactionAdd(msg.ChannelID, reactionMsg.ID, "⏱️")  // Creator Start Contract
 
 				s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
 			} else {
@@ -408,25 +575,7 @@ var (
 			}
 
 		},
-		/*
-			slashStart: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-				var str = "Sorted, Starting boosting!"
-				var err = boost.StartContractBoosting(s, i.GuildID, i.ChannelID)
-				if err != nil {
-					str = err.Error()
-				}
-				fmt.Print(str)
 
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content:    str,
-						Flags:      discordgo.MessageFlagsEphemeral,
-						Components: []discordgo.MessageComponent{}},
-				})
-
-			},
-		*/
 		slashBoost: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 			var str = "Boosting!!"
@@ -593,7 +742,7 @@ var (
 func main() {
 
 	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
-		log.Println("Bot is up!")
+		log.Println("Boost Bot is up!")
 	})
 	// Components are part of interactions, so we register InteractionCreate handler
 	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
