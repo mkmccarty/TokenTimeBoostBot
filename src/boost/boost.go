@@ -413,11 +413,6 @@ func ChangePingRole(s *discordgo.Session, guildID string, channelID string, user
 	return errors.New(errorNoContract)
 }
 
-// write the function removeBoostOrderIndex which takes an array and an index as arguments and returns the array with the element at the given index removed.
-func removeBoostOrderIndex(s []string, index int) []string {
-	return append(s[:index], s[index+1:]...)
-}
-
 // write the function removeDuplicates which takes an array as an argument and returns the array with all duplicate elements removed.
 func removeDuplicates(s []string) []string {
 	var result []string
@@ -453,27 +448,31 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 	}
 
 	var boostOrderArray = strings.Split(boostOrderClean, ",")
+	var boostOrderExpanded []string
 	// expand hyphenated values into a range, incrementing or decrementing as appropriate and append them to the boostOrderArray
-	for i, element := range boostOrderArray {
+	for _, element := range boostOrderArray {
 		var hyphenArray = strings.Split(element, "-")
 		if len(hyphenArray) == 2 {
 			var start, _ = strconv.Atoi(hyphenArray[0])
 			var end, _ = strconv.Atoi(hyphenArray[1])
 			if start > end {
-				for j := start; j >= end; j-- {
-					boostOrderArray = append(boostOrderArray, strconv.Itoa(j))
+				for j := end; j >= start; j-- {
+					boostOrderExpanded = append(boostOrderExpanded, strconv.Itoa(j))
 				}
 			} else {
 				for j := start; j <= end; j++ {
-					boostOrderArray = append(boostOrderArray, strconv.Itoa(j))
+					boostOrderExpanded = append(boostOrderExpanded, strconv.Itoa(j))
 				}
 			}
-			boostOrderArray = removeBoostOrderIndex(boostOrderArray, i)
+			//boostOrderExpanded = removeBoostOrderIndex(boostOrderExpanded, i)
+		} else {
+			boostOrderExpanded = append(boostOrderExpanded, element)
 		}
+
 	}
 
 	// Remove duplicates from boostOrderArray calling removeDuplicates function
-	boostOrderArray = removeDuplicates(boostOrderArray)
+	boostOrderArray = removeDuplicates(boostOrderExpanded)
 
 	// if length of boostorderarray doesn't mach length of contract.Order then return error
 	if len(boostOrderArray) != len(contract.Order) {
@@ -581,7 +580,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 			}
 		}
 
-		var farmer, fe = AddFarmerToContract(s, contract, guildID, channelID, guest, int64(contract.BoostOrder))
+		var farmer, fe = AddFarmerToContract(s, contract, guildID, channelID, guest, order)
 		if fe == nil {
 			// Need to rest the farmer reaction count when added this way
 			farmer.Reactions = 0
