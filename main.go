@@ -115,14 +115,16 @@ func JoinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell boo
 	err := boost.JoinContract(s, i.GuildID, i.ChannelID, i.Member.User.ID, bell)
 	if err != nil {
 		str = err.Error()
+		fmt.Print(str)
 	}
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
+		/*
+			Data: &discordgo.InteractionResponseData{
+				//	Content:    str,
+				//	Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{}},*/
 	})
 
 }
