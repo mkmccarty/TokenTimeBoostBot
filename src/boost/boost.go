@@ -532,7 +532,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 			}
 		}
 
-		var farmer, fe = AddFarmerToContract(s, contract, guildID, channelID, guest, int64(contract.BoostOrder))
+		var farmer, fe = AddFarmerToContract(s, contract, guildID, channelID, guest, order)
 		if fe == nil {
 			// Need to rest the farmer reaction count when added this way
 			farmer.Reactions = 0
