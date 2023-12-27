@@ -336,7 +336,13 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 					tokens = 0
 				}
 				// make countStr string with tokens number of duplicates of tokenStr
-				countStr = strings.Repeat(tokenStr, tokens)
+				//countStr = strings.Repeat(tokenStr, tokens)
+				countStr = "🚀"
+				// loop for number of tokena
+				for i := 0; i < tokens; i++ {
+					countStr += fmt.Sprintf(":%s:", num2words.Convert(i+1))
+				}
+				countStr += tokenStr
 
 				signupCountStr = fmt.Sprintf(" :%s:", num2words.Convert(tokens))
 			}
