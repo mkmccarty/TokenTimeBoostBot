@@ -50,7 +50,7 @@ var mutex sync.Mutex
 var s *discordgo.Session
 
 func getSignupComponents(disableStartContract bool) (string, []discordgo.MessageComponent) {
-	var str = "Join the contract and indicate the number of tokens you'd like."
+	var str = "Join the contract and indicate the number boost tokens you'd like."
 	return str, []discordgo.MessageComponent{
 		// add buttons to the action row
 		discordgo.ActionsRow{
@@ -287,8 +287,8 @@ var (
 
 			// Rebuild the signup message to disable the start button
 			msg := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
-			str, comp := getSignupComponents(true)
-			msg.SetContent(str)
+			contentStr, comp := getSignupComponents(true) // True to get a disabled start button
+			msg.SetContent(contentStr)
 			msg.Components = comp
 			s.ChannelMessageEditComplex(msg)
 		},
@@ -370,7 +370,6 @@ var (
 					*/
 				})
 			}
-
 		},
 		slashCoopETA: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var rate = ""

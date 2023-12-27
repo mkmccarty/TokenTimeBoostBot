@@ -91,15 +91,16 @@ type Booster struct {
 }
 
 type LocationData struct {
-	GuildID        string
-	GuildName      string
-	ChannelID      string // Contract Discord Channel
-	ChannelName    string
-	ChannelMention string
-	ChannelPing    string
-	ListMsgID      string // Message ID for the Last Boost Order message
-	ReactionID     string // Message ID for the reaction Order String
-	TokenStr       string // Emoji for Token
+	GuildID          string
+	GuildName        string
+	ChannelID        string // Contract Discord Channel
+	ChannelName      string
+	ChannelMention   string
+	ChannelPing      string
+	ListMsgID        string // Message ID for the Last Boost Order message
+	ReactionID       string // Message ID for the reaction Order String
+	TokenStr         string // Emoji for Token
+	TokenReactionStr string // Emoji for Token Reaction
 }
 type Contract struct {
 	ContractHash  string // ContractID-CoopID
@@ -234,6 +235,8 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	// Find our Token emoji
 	for _, el := range contract.Location {
 		el.TokenStr = FindTokenEmoji(s, el.GuildID)
+		// set TokenReactionStr to the TokenStr without first 2 characters and last character
+		el.TokenReactionStr = el.TokenStr[2 : len(el.TokenStr)-1]
 	}
 
 	return contract, nil
@@ -326,19 +329,23 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 			}
 
 			countStr := ""
+			signupCountStr := ""
 			if b.TokensWant > 0 {
 				var tokens = b.TokensWant - b.TokensReceived
 				if tokens < 0 {
 					tokens = 0
 				}
-				countStr = fmt.Sprintf(" :%s:", num2words.Convert(tokens))
+				// make countStr string with tokens number of duplicates of tokenStr
+				countStr = strings.Repeat(tokenStr, tokens)
+
+				signupCountStr = fmt.Sprintf(" :%s:", num2words.Convert(tokens))
 			}
 
 			switch b.BoostState {
 			case BoostStateUnboosted:
-				outputStr += fmt.Sprintf("%s %s%s%s\n", prefix, name, countStr, server)
+				outputStr += fmt.Sprintf("%s %s%s%s\n", prefix, name, signupCountStr, server)
 			case BoostStateTokenTime:
-				outputStr += fmt.Sprintf("%s %s %s%s%s\n", prefix, name, countStr+tokenStr, currentStartTime, server)
+				outputStr += fmt.Sprintf("%s %s %s%s%s\n", prefix, name, countStr, currentStartTime, server)
 			case BoostStateBoosted:
 				t1 := contract.Boosters[element].EndTime
 				t2 := contract.Boosters[element].StartTime
@@ -743,14 +750,15 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	//contract.mutex.Lock()
 	defer saveData(Contracts)
 	// If we get a stopwatch reaction from the contract creator, start the contract
-	if r.Emoji.Name == "⏱️" {
-		//contract.mutex.Unlock()
-		err = StartContractBoosting(s, r.GuildID, r.ChannelID, r.UserID)
-		if err == nil {
-			return ""
+	/*
+		if r.Emoji.Name == "⏱️" {
+			//contract.mutex.Unlock()
+			err = StartContractBoosting(s, r.GuildID, r.ChannelID, r.UserID)
+			if err == nil {
+				return ""
+			}
 		}
-	}
-
+	*/
 	if userInContract(contract, r.UserID) || creatorOfContract(contract, r.UserID) {
 
 		// if contract state is waiting and the reaction is a 🏁 finish the contract
@@ -810,28 +818,29 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		return "!gonow"
 	}
 
-	//defer contract.mutex.Unlock()
-	// Remove extra added emoji
-	if r.Emoji.Name != "🧑‍🌾" && r.Emoji.Name != "🔔" {
-		s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
+	if r.Emoji.Name == "token" {
+		contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived += 1
+		for _, loc := range contract.Location {
+			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
+			if err == nil {
+				loc.ListMsgID = msg.ID
+			}
+			s.MessageReactionRemove(r.ChannelID, r.MessageID, loc.TokenReactionStr, r.UserID)
+		}
+
 		return ""
 	}
 
-	if len(contract.Order) < contract.CoopSize {
-		var farmer, e = AddFarmerToContract(s, contract, r.GuildID, r.ChannelID, r.UserID, int64(contract.BoostOrder))
-		if e == nil {
-			farmer.Reactions = getReactions(s, r.ChannelID, r.MessageID, r.UserID)
-			if r.Emoji.Name == "🔔" {
-				farmer.Ping = true
-				u, _ := s.UserChannelCreate(farmer.UserID)
-				var str = fmt.Sprintf("Boost notifications will be sent for %s.", contract.ContractHash)
-				_, err := s.ChannelMessageSend(u.ID, str)
-				if err != nil {
-					panic(err)
-				}
-			}
+	// Remove extra added emoji
+	s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
+
+	/*
+		if r.Emoji.Name != "🧑‍🌾" && r.Emoji.Name != "🔔" {
+			s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
+			return ""
 		}
-	}
+
+	*/
 	return ""
 }
 
@@ -1035,6 +1044,7 @@ func RemoveContractBooster(s *discordgo.Session, guildID string, channelID strin
 	return nil
 }
 
+/*
 func getReactions(s *discordgo.Session, channelID string, messageID string, userID string) int {
 	var reaction = 0
 	var emoji = [2]string{"🧑‍🌾", "🔔"}
@@ -1050,6 +1060,7 @@ func getReactions(s *discordgo.Session, channelID string, messageID string, user
 	}
 	return reaction
 }
+*/
 
 func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 	var _, err = s.ChannelMessage(r.ChannelID, r.MessageID)
@@ -1081,33 +1092,35 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 		return
 	}
 
-	if r.Emoji.Name != "🧑‍🌾" && r.Emoji.Name != "🔔" {
-		return
-	}
+	/*
+			if r.Emoji.Name != "🧑‍🌾" && r.Emoji.Name != "🔔" {
+				return
+			}
 
-	farmer.Reactions = getReactions(s, r.ChannelID, r.MessageID, r.UserID)
+			farmer.Reactions = getReactions(s, r.ChannelID, r.MessageID, r.UserID)
 
-	if r.Emoji.Name == "🔔" {
-		farmer.Ping = false
-	}
+			if r.Emoji.Name == "🔔" {
+				farmer.Ping = false
+			}
 
-	if farmer.Reactions == 0 {
-		// Remove farmer from boost list
-		for i := range contract.Order {
-			if contract.Order[i] == r.UserID {
-				removeContractBoosterByContract(s, contract, i+1)
-				break
+		if farmer.Reactions == 0 {
+			// Remove farmer from boost list
+			for i := range contract.Order {
+				if contract.Order[i] == r.UserID {
+					removeContractBoosterByContract(s, contract, i+1)
+					break
+				}
+			}
+			contract.RegisteredNum = len(contract.Boosters)
+
+			for _, loc := range contract.Location {
+				msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
+				if err == nil {
+					loc.ListMsgID = msg.ID
+				}
 			}
 		}
-		contract.RegisteredNum = len(contract.Boosters)
-
-		for _, loc := range contract.Location {
-			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
-			if err == nil {
-				loc.ListMsgID = msg.ID
-			}
-		}
-	}
+	*/
 }
 
 func FindContract(guildID string, channelID string) *Contract {
@@ -1191,7 +1204,8 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 
 		if contract.State != ContractStateCompleted {
 			if contract.State == ContractStateStarted {
-				s.MessageReactionAdd(loc.ChannelID, msg.ID, "🚀") // Booster
+				s.MessageReactionAdd(loc.ChannelID, msg.ID, "🚀")                  // Booster
+				s.MessageReactionAdd(loc.ChannelID, msg.ID, loc.TokenReactionStr) // Go Now
 			}
 			if (contract.BoostPosition + 1) < len(contract.Order) {
 				s.MessageReactionAdd(loc.ChannelID, msg.ID, "🔃")  // Swap
