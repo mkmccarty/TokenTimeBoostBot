@@ -239,7 +239,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	return contract, nil
 }
 
-func AddBoostTokens(s *discordgo.Session, guildID string, channelID string, userID string, countWant int, countReceived int) (int, int, error) {
+func AddBoostTokens(s *discordgo.Session, guildID string, channelID string, userID string, setCountWant int, countWantAdjust int, countReceivedAdjust int) (int, int, error) {
 	// Find the contract
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
@@ -255,16 +255,19 @@ func AddBoostTokens(s *discordgo.Session, guildID string, channelID string, user
 	if b == nil {
 		return 0, 0, errors.New(errorUserNotInContract)
 	}
-	if countWant > 0 {
-		b.TokensWant += countWant
-		if b.TokensWant < 0 {
-			b.TokensWant = 0
-		}
+
+	if setCountWant > 0 {
+		b.TokensWant = setCountWant
+	}
+
+	b.TokensWant += countWantAdjust
+	if b.TokensWant < 0 {
+		b.TokensWant = 0
 	}
 
 	// Add received tokens to current booster
-	if countReceived > 0 {
-		contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived += countReceived
+	if countReceivedAdjust > 0 {
+		contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived += countReceivedAdjust
 		//TODO: Maybe track who's sending tokens
 	}
 
