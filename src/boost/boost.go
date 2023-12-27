@@ -325,20 +325,20 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 				server = fmt.Sprintf(" (%s) ", contract.EggFarmers[element].GuildName)
 			}
 
-			countStr := tokenStr
+			countStr := ""
 			if b.TokensWant > 0 {
 				var tokens = b.TokensWant - b.TokensReceived
 				if tokens < 0 {
 					tokens = 0
 				}
-				countStr = fmt.Sprintf(" :%s:%s", num2words.Convert(tokens), tokenStr)
+				countStr = fmt.Sprintf(" :%s:", num2words.Convert(tokens))
 			}
 
 			switch b.BoostState {
 			case BoostStateUnboosted:
 				outputStr += fmt.Sprintf("%s %s%s%s\n", prefix, name, countStr, server)
 			case BoostStateTokenTime:
-				outputStr += fmt.Sprintf("%s %s %s%s%s\n", prefix, name, countStr, currentStartTime, server)
+				outputStr += fmt.Sprintf("%s %s %s%s%s\n", prefix, name, countStr+tokenStr, currentStartTime, server)
 			case BoostStateBoosted:
 				t1 := contract.Boosters[element].EndTime
 				t2 := contract.Boosters[element].StartTime
@@ -635,13 +635,13 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		var b = new(Booster)
 		b.UserID = farmer.UserID
 		var user, err = s.User(userID)
+		b.BoostState = BoostStateUnboosted
+		b.TokensWant = 8
 		if err == nil {
 			b.Name = user.Username
-			b.BoostState = BoostStateUnboosted
 			b.Mention = user.Mention()
 		} else {
 			b.Name = userID
-			b.BoostState = BoostStateUnboosted
 			b.Mention = userID
 		}
 		var member, gmErr = s.GuildMember(guildID, userID)

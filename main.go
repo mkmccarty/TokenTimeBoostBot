@@ -49,10 +49,94 @@ var mutex sync.Mutex
 
 var s *discordgo.Session
 
+func getSignupComponents(disableStartContract bool) (string, []discordgo.MessageComponent) {
+	var str = "Join the contract and indicate the number of tokens you'd like."
+	return str, []discordgo.MessageComponent{
+		// add buttons to the action row
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{
+					Emoji: discordgo.ComponentEmoji{
+						Name: "🧑‍🌾",
+					},
+					Label:    "Join",
+					Style:    discordgo.PrimaryButton,
+					CustomID: "fd_signupFarmer",
+				},
+				discordgo.Button{
+					Emoji: discordgo.ComponentEmoji{
+						Name: "🔔",
+					},
+					Label:    "Join w/Ping",
+					Style:    discordgo.PrimaryButton,
+					CustomID: "fd_signupBell",
+				},
+				discordgo.Button{
+					Emoji: discordgo.ComponentEmoji{
+						Name: "❌",
+					},
+					Label:    "Leave",
+					Style:    discordgo.SecondaryButton,
+					CustomID: "fd_signupLeave",
+				},
+				discordgo.Button{
+					Emoji: discordgo.ComponentEmoji{
+						Name: "⏱️",
+					},
+					Label:    "Start Boost List",
+					Style:    discordgo.SuccessButton,
+					CustomID: "fd_signupStart",
+					Disabled: disableStartContract,
+				},
+			},
+		},
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{
+					Emoji: discordgo.ComponentEmoji{
+						Name: "5️⃣",
+					},
+					Label:    " Tokens",
+					Style:    discordgo.SecondaryButton,
+					CustomID: "fd_tokens5",
+				},
+				discordgo.Button{
+					Emoji: discordgo.ComponentEmoji{
+						Name: "6️⃣",
+					},
+					Label:    " Tokens",
+					Style:    discordgo.SecondaryButton,
+					CustomID: "fd_tokens6",
+				},
+				discordgo.Button{
+					Emoji: discordgo.ComponentEmoji{
+						Name: "8️⃣",
+					},
+					Label:    " Tokens",
+					Style:    discordgo.SecondaryButton,
+					CustomID: "fd_tokens8",
+				},
+				discordgo.Button{
+					Label:    "+ Token",
+					Style:    discordgo.SecondaryButton,
+					CustomID: "fd_tokens1",
+				},
+				discordgo.Button{
+					Label:    "- Token",
+					Style:    discordgo.SecondaryButton,
+					CustomID: "fd_tokens_sub",
+				},
+			},
+		},
+	}
+
+}
+
 // main init to call other init functions in sequence
 func init() {
 	initLaunchParameters()
 	initDiscordBot()
+
 }
 
 func initLaunchParameters() {
@@ -179,6 +263,14 @@ var (
 			addBoostTokens(s, i, 0, -1)
 		},
 		"fd_signupStart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseDeferredMessageUpdate,
+				Data: &discordgo.InteractionResponseData{
+					Content:    "",
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
+
 			err := boost.StartContractBoosting(s, i.GuildID, i.ChannelID, i.Member.User.ID)
 			if err != nil {
 				str := fmt.Sprint(err.Error())
@@ -192,6 +284,13 @@ var (
 			} else {
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{})
 			}
+
+			// Rebuild the signup message to disable the start button
+			msg := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
+			str, comp := getSignupComponents(true)
+			msg.SetContent(str)
+			msg.Components = comp
+			s.ChannelMessageEditComplex(msg)
 		},
 		"fd_signupFarmer": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			JoinContract(s, i, false)
@@ -305,129 +404,6 @@ var (
 					Components: []discordgo.MessageComponent{}},
 			})
 		},
-		/*
-			slashSignup: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-				var contractID = i.GuildID
-				var coopID = i.GuildID // Default to the Guild ID
-				var number = 0
-				var coopSize = 0
-				var threshold = 0
-				var threadChannel *discordgo.Channel = nil
-
-				// User interacting with bot, is this first time ?
-				options := i.ApplicationCommandData().Options
-				optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-				for _, opt := range options {
-					optionMap[opt.Name] = opt
-				}
-				if opt, ok := optionMap["number"]; ok {
-					number = int(opt.IntValue())
-				}
-				if opt, ok := optionMap["contract-id"]; ok {
-					contractID = opt.StringValue()
-					contractID = strings.Replace(contractID, " ", "", -1)
-				}
-				if opt, ok := optionMap["coop-id"]; ok {
-					coopID = opt.StringValue()
-					coopID = strings.Replace(coopID, " ", "", -1)
-				}
-				if opt, ok := optionMap["coop-size"]; ok {
-					coopSize = int(opt.IntValue())
-				}
-				if opt, ok := optionMap["threshold"]; ok {
-					threshold = int(opt.IntValue())
-				}
-				if opt, ok := optionMap["thread-channel"]; ok {
-					threadChannel = opt.ChannelValue(s)
-				}
-
-				boost.StartSignup(s, i, number, contractID, coopID, coopSize, threshold, threadChannel)
-				var embeds []*discordgo.MessageEmbed
-
-				embed := &discordgo.MessageEmbed{
-					Author: &discordgo.MessageEmbedAuthor{
-						Name: "RAIYC#0",
-					},
-					Type:        discordgo.EmbedTypeRich,
-					Color:       0x00ff00, // Green
-					Description: "Test embed",
-					Fields: []*discordgo.MessageEmbedField{
-						&discordgo.MessageEmbedField{
-							Name:   "I am a field",
-							Value:  "I am a value",
-							Inline: true,
-						},
-						&discordgo.MessageEmbedField{
-							Name:   "I am a secondfield",
-							Value:  "I am a value",
-							Inline: true,
-						},
-					},
-					Timestamp: time.Now().Format(time.RFC3339),
-					Title:     "I am an Embed",
-				}
-
-				embeds = append(embeds, embed)
-
-				var actionRows []discordgo.MessageComponent
-				var comp []discordgo.MessageComponent
-
-				for i := 0; i < number; i++ {
-					comp = append(comp,
-						discordgo.Button{
-							Label:    fmt.Sprintf("%d", i),
-							Style:    discordgo.PrimaryButton,
-							Disabled: false,
-							CustomID: fmt.Sprintf("fd_signup%d", i),
-						})
-				}
-				comp = append(comp,
-					discordgo.Button{
-						Label:    "Delete",
-						Style:    discordgo.DangerButton,
-						Disabled: false,
-						CustomID: "fd_delete",
-					})
-				// Build Action Rows
-				x := int(len(comp) / 5)
-				for i := 0; i <= x; i++ {
-					var c []discordgo.MessageComponent
-
-					for j := 0; j < 5; j++ {
-						if len(comp) == (i*5 + j) {
-							break
-						}
-						c = append(c, comp[i*5+j])
-					}
-					actionRows = append(actionRows,
-						discordgo.ActionsRow{
-							Components: c,
-						})
-				}
-				//embed := NewEmbed().
-				err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content: "Eggent Signup",
-						Flags:   discordgo.MessageFlagsEphemeral,
-					},
-				})
-				if err != nil {
-					fmt.Print(err.Error())
-					//panic(err)
-				}
-				_, err = s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
-					Content:    "Test",
-					Embeds:     embeds,
-					Components: actionRows,
-				})
-				if err != nil {
-					fmt.Print(err.Error())
-					//panic(err)
-				}
-
-			},
-		*/
 		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var contractID = i.GuildID
 			var coopID = i.GuildID // Default to the Guild ID
@@ -505,85 +481,8 @@ var (
 				//tokenEmoji = tokenEmoji[strings.Index(tokenEmoji, ":")+1 : strings.LastIndex(tokenEmoji, ":")]
 
 				var data discordgo.MessageSend
-				data.Content = "Join the contract and indicate the number of tokens you'd like."
-				data.Components = []discordgo.MessageComponent{
-					// add buttons to the action row
-					discordgo.ActionsRow{
-						Components: []discordgo.MessageComponent{
-							discordgo.Button{
-								Emoji: discordgo.ComponentEmoji{
-									Name: "🧑‍🌾",
-								},
-								Label:    "Join",
-								Style:    discordgo.PrimaryButton,
-								CustomID: "fd_signupFarmer",
-							},
-							discordgo.Button{
-								Emoji: discordgo.ComponentEmoji{
-									Name: "🔔",
-								},
-								Label:    "Join w/Ping",
-								Style:    discordgo.PrimaryButton,
-								CustomID: "fd_signupBell",
-							},
-							discordgo.Button{
-								Emoji: discordgo.ComponentEmoji{
-									Name: "❌",
-								},
-								Label:    "Leave",
-								Style:    discordgo.SecondaryButton,
-								CustomID: "fd_signupLeave",
-							},
+				data.Content, data.Components = getSignupComponents(false)
 
-							discordgo.Button{
-								Emoji: discordgo.ComponentEmoji{
-									Name: "⏱️",
-								},
-								Label:    "Start Boost List",
-								Style:    discordgo.SuccessButton,
-								CustomID: "fd_signupStart",
-							},
-						},
-					},
-					discordgo.ActionsRow{
-						Components: []discordgo.MessageComponent{
-							discordgo.Button{
-								Emoji: discordgo.ComponentEmoji{
-									Name: "5️⃣",
-								},
-								Label:    " Tokens",
-								Style:    discordgo.SecondaryButton,
-								CustomID: "fd_tokens5",
-							},
-							discordgo.Button{
-								Emoji: discordgo.ComponentEmoji{
-									Name: "6️⃣",
-								},
-								Label:    " Tokens",
-								Style:    discordgo.SecondaryButton,
-								CustomID: "fd_tokens6",
-							},
-							discordgo.Button{
-								Emoji: discordgo.ComponentEmoji{
-									Name: "8️⃣",
-								},
-								Label:    " Tokens",
-								Style:    discordgo.SecondaryButton,
-								CustomID: "fd_tokens8",
-							},
-							discordgo.Button{
-								Label:    "+ Token",
-								Style:    discordgo.SecondaryButton,
-								CustomID: "fd_tokens1",
-							},
-							discordgo.Button{
-								Label:    "- Token",
-								Style:    discordgo.SecondaryButton,
-								CustomID: "fd_tokens_sub",
-							},
-						},
-					},
-				}
 				reactionMsg, err := s.ChannelMessageSendComplex(ChannelID, &data)
 
 				if err != nil {
@@ -825,54 +724,6 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	///signup number contract-id coop-base coop-size threshhold #contract_threads
-	/*
-		_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
-			Name:        slashSignup,
-			Description: "Contract Boosting Elections",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionInteger,
-					Name:        "number",
-					Description: "Number of Sign-ups",
-					Required:    true,
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "contract-id",
-					Description: "Contract ID",
-					Required:    true,
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "coop-id",
-					Description: "Coop ID",
-					Required:    true,
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionInteger,
-					Name:        "coop-size",
-					Description: "Co-op Size",
-					Required:    true,
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionInteger,
-					Name:        "threshold",
-					Description: "Spawn at threshold",
-					Required:    true,
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionChannel,
-					Name:        "thread-channel",
-					Description: "Thread Channel",
-					Required:    true,
-				},
-			},
-		})
-		if err != nil {
-			fmt.Println(err)
-		}
-	*/
 	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
 		Name:        slashJoin,
 		Description: "Add farmer or guest to contract.",
@@ -953,24 +804,6 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	/*
-		s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
-			notok.Notok(s, m)
-		})
-		if err != nil {
-			fmt.Println(err)
-		}
-	*/
-	/*
-		_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
-			Name:        slashStart,
-			Description: "Start Contract Boost",
-			Options:     []*discordgo.ApplicationCommandOption{},
-		})
-		if err != nil {
-			fmt.Println(err)
-		}
-	*/
 
 	_, err = s.ApplicationCommandCreate(*AppID, *GuildID, &discordgo.ApplicationCommand{
 		Name:        slashBoost,
