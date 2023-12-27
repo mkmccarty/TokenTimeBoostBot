@@ -136,7 +136,6 @@ func getSignupComponents(disableStartContract bool) (string, []discordgo.Message
 func init() {
 	initLaunchParameters()
 	initDiscordBot()
-
 }
 
 func initLaunchParameters() {
@@ -331,6 +330,14 @@ var (
 			var str = "Joining Member"
 			var mention = ""
 
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseDeferredMessageUpdate,
+				Data: &discordgo.InteractionResponseData{
+					Content:    str,
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
+
 			// User interacting with bot, is this first time ?
 			options := i.ApplicationCommandData().Options
 			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -353,7 +360,7 @@ var (
 			if err != nil {
 				str = err.Error()
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Type: discordgo.InteractionResponseUpdateMessage,
 					Data: &discordgo.InteractionResponseData{
 						Content:    str,
 						Flags:      discordgo.MessageFlagsEphemeral,
@@ -361,13 +368,11 @@ var (
 				})
 			} else {
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					/*
-						Data: &discordgo.InteractionResponseData{
-							Content:    str,
-							Flags:      discordgo.MessageFlagsEphemeral,
-							Components: []discordgo.MessageComponent{}},
-					*/
+					Type: discordgo.InteractionResponseUpdateMessage,
+					Data: &discordgo.InteractionResponseData{
+						Content:    str,
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{}},
 				})
 			}
 		},
@@ -475,13 +480,8 @@ var (
 			msg, err := s.ChannelMessageSend(ChannelID, createMsg)
 			if err == nil {
 				boost.SetMessageID(contract, ChannelID, msg.ID)
-				//var tokenEmoji = boost.FindTokenEmoji(s, i.GuildID)
-				// extract from tokenEmjoi the string between :'s
-				//tokenEmoji = tokenEmoji[strings.Index(tokenEmoji, ":")+1 : strings.LastIndex(tokenEmoji, ":")]
-
 				var data discordgo.MessageSend
 				data.Content, data.Components = getSignupComponents(false)
-
 				reactionMsg, err := s.ChannelMessageSendComplex(ChannelID, &data)
 
 				if err != nil {
