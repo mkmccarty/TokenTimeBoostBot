@@ -681,7 +681,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 			if contract.State == ContractStateSignup {
 				listStr = "Sign-up"
 			}
-			var str = fmt.Sprintf("%s, was added to the %s List by %s", guest, listStr, operator)
+			var str = fmt.Sprintf("%s was added to the %s List by %s", guest, listStr, operator)
 			s.ChannelMessageSend(loc.ChannelID, str)
 		}
 	}
