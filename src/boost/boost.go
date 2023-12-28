@@ -928,20 +928,22 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	// Remove extra added emoji
 	err = s.MessageReactionRemove(r.ChannelID, r.MessageID, emojiName, r.UserID)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err, emojiName)
 	}
 
-	// case insensitive compare for token emoji
-	if r.Emoji.Name == "➕" && r.UserID == contract.Order[contract.BoostPosition] {
-		// Add a token to the current booster
-		contract.Boosters[contract.Order[contract.BoostPosition]].TokensWant += 1
-		redraw = true
-	}
-	if r.Emoji.Name == "➖" && r.UserID == contract.Order[contract.BoostPosition] {
-		// Add a token to the current booster
-		contract.Boosters[contract.Order[contract.BoostPosition]].TokensWant -= 1
-		redraw = true
-	}
+	/*
+		// case insensitive compare for token emoji
+		if r.Emoji.Name == "➕" && r.UserID == contract.Order[contract.BoostPosition] {
+			// Add a token to the current booster
+			contract.Boosters[contract.Order[contract.BoostPosition]].TokensWant += 1
+			redraw = true
+		}
+		if r.Emoji.Name == "➖" && r.UserID == contract.Order[contract.BoostPosition] {
+			// Add a token to the current booster
+			contract.Boosters[contract.Order[contract.BoostPosition]].TokensWant -= 1
+			redraw = true
+		}
+	*/
 
 	if redraw {
 		for _, loc := range contract.Location {
@@ -956,7 +958,8 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		for _, loc := range contract.Location {
 			outputStr := "## Boost Bot Icon Meanings\n\n"
 			outputStr += "Active booster reaction of 🚀 to when spending tokens to boost. Multiple 🚀 votes by others in the contract will also indicate a boost.\n"
-			outputStr += "Farmers react with " + loc.TokenStr + " when sending tokens. Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n"
+			outputStr += "Farmers react with " + loc.TokenStr + " when sending tokens. "
+			//outputStr += "Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n"
 			outputStr += "Active booster reaction of 🔃 to exchange position with the next booster.\n"
 			outputStr += "Active booster reaction of ⤵️ to move to last in the boost order. "
 			outputStr += "Anyone can add a 🚽 reaction to express your urgency to boost next."
@@ -1011,6 +1014,8 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 	}
 	var index = offset - 1 // Index is 0 based
 
+	currentBooster := contract.Order[contract.BoostPosition]
+
 	var activeBooster, ok = contract.Boosters[contract.Order[index]]
 	if ok && contract.State != ContractStateSignup {
 		var activeBoosterState = activeBooster.BoostState
@@ -1018,6 +1023,14 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 		contract.Order = RemoveIndex(contract.Order, index)
 		contract.OrderRevision += 1
 		delete(contract.Boosters, userID)
+
+		// Make sure we retain our current booster
+		for i := range contract.Order {
+			if contract.Order[i] == currentBooster {
+				contract.BoostPosition = i
+				break
+			}
+		}
 
 		// Active Booster is leaving contract.
 		if contract.BoostPosition == len(contract.Order) {
