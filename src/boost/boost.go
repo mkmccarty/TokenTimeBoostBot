@@ -844,6 +844,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		return ""
 	}
 	redraw := false
+	emojiName := r.Emoji.Name
 
 	//var contract = FindContract(r.GuildID, r.ChannelID)
 	//if contract == nil {
@@ -918,13 +919,17 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		if strings.ToLower(r.Emoji.Name) == "token" {
 			if contract.BoostPosition < len(contract.Order) {
 				contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived += 1
+				emojiName = r.Emoji.Name + ":" + r.Emoji.ID
 				redraw = true
 			}
 		}
 	}
 
 	// Remove extra added emoji
-	s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
+	err = s.MessageReactionRemove(r.ChannelID, r.MessageID, emojiName, r.UserID)
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	// case insensitive compare for token emoji
 	if r.Emoji.Name == "➕" && r.UserID == contract.Order[contract.BoostPosition] {
