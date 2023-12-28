@@ -890,13 +890,15 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	}
 	// case insensitive compare for token emoji
 	if strings.ToLower(r.Emoji.Name) == "token" {
-		contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived += 1
-		for _, loc := range contract.Location {
-			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
-			if err == nil {
-				loc.ListMsgID = msg.ID
+		if contract.BoostPosition < len(contract.Order) {
+			contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived += 1
+			for _, loc := range contract.Location {
+				msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
+				if err == nil {
+					loc.ListMsgID = msg.ID
+				}
+				s.MessageReactionRemove(r.ChannelID, r.MessageID, loc.TokenReactionStr, r.UserID)
 			}
-			s.MessageReactionRemove(r.ChannelID, r.MessageID, loc.TokenReactionStr, r.UserID)
 		}
 
 		return ""
