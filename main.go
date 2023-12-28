@@ -143,7 +143,7 @@ func initLaunchParameters() {
 	flag.Parse()
 
 	// Read values from .env file
-	err := config.ReadConfig()
+	err := config.ReadConfig("./.config.json")
 
 	if err != nil {
 		fmt.Println(err.Error())
