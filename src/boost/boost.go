@@ -348,6 +348,20 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 
 	offset := 1
 
+	// Some actions result in an unboosted farmer with the contract state still unset
+
+	if contract.State == ContractStateWaiting {
+		//set unboosted to true if any boosters are unboosted
+		for _, element := range contract.Order {
+			var b, ok = contract.Boosters[element]
+			if ok {
+				if b.BoostState == BoostStateUnboosted {
+					contract.State = ContractStateStarted
+				}
+			}
+		}
+	}
+
 	show_boosted_nums := 2
 	window_size := 10
 	orderSubset := contract.Order
