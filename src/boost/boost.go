@@ -474,7 +474,6 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		outputStr += "```"
 		outputStr += "React with 🏁 to end the contract."
 		outputStr += "```"
-
 	}
 	return outputStr
 }
@@ -1348,10 +1347,20 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	contract.BoostPosition = len(contract.Order)
 
 	// loop through all contract.Order until we find a non-boosted user
+	foundActiveBooster := false
 	for i := range contract.Order {
-		if contract.Boosters[contract.Order[i]].BoostState == BoostStateUnboosted {
+		if contract.Boosters[contract.Order[i]].BoostState == BoostStateTokenTime {
 			contract.BoostPosition = i
+			foundActiveBooster = true
 			break
+		}
+	}
+	if !foundActiveBooster {
+		for i := range contract.Order {
+			if contract.Boosters[contract.Order[i]].BoostState == BoostStateUnboosted {
+				contract.BoostPosition = i
+				break
+			}
 		}
 	}
 
