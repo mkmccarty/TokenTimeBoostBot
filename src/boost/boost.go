@@ -653,7 +653,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 			if contract.State == ContractStateSignup {
 				listStr = "Sign-up"
 			}
-			var str = fmt.Sprintf("%s, was added to the %s List by %s", u.Mention(), listStr, operator)
+			var str = fmt.Sprintf("%s was added to the %s List by %s", u.Mention(), listStr, operator)
 
 			var data discordgo.MessageSend
 			var am discordgo.MessageAllowedMentions
@@ -744,6 +744,9 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			// or if contract is on the last booster already
 			if contract.State == ContractStateSignup || contract.State == ContractStateWaiting || order == ContractOrderLast {
 				contract.Order = append(contract.Order, farmer.UserID)
+				if contract.State == ContractStateWaiting {
+					contract.BoostPosition = len(contract.Order) - 1
+				}
 			} else {
 				// Insert booster randomly into non-boosting order
 				var remainingBoosters = len(contract.Boosters) - contract.BoostPosition - 1
