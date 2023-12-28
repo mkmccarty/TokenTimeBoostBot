@@ -843,6 +843,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	if err != nil {
 		return ""
 	}
+	redraw := false
 
 	//var contract = FindContract(r.GuildID, r.ChannelID)
 	//if contract == nil {
@@ -898,7 +899,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				// Reaction to indicate you need to go now
 				if r.Emoji.Name == "🚽" {
 					SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
-					return "!gonow"
+					return ""
 				}
 			}
 
@@ -909,20 +910,23 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				return ""
 			}
 		}
-	}
-	if r.Emoji.Name == "🚽" {
-		SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
-		return "" //"!gonow"
-	}
+		if r.Emoji.Name == "🚽" {
+			SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
+			return "" //"!gonow"
+		}
 
-	redraw := false
-	// case insensitive compare for token emoji
-	if strings.ToLower(r.Emoji.Name) == "token" {
-		if contract.BoostPosition < len(contract.Order) {
-			contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived += 1
-			redraw = true
+		if strings.ToLower(r.Emoji.Name) == "token" {
+			if contract.BoostPosition < len(contract.Order) {
+				contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived += 1
+				redraw = true
+			}
 		}
 	}
+
+	// Remove extra added emoji
+	s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
+
+	// case insensitive compare for token emoji
 	if r.Emoji.Name == "➕" && r.UserID == contract.Order[contract.BoostPosition] {
 		// Add a token to the current booster
 		contract.Boosters[contract.Order[contract.BoostPosition]].TokensWant += 1
@@ -953,11 +957,8 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			outputStr += "Anyone can add a 🚽 reaction to express your urgency to boost next."
 			s.ChannelMessageSend(loc.ChannelID, outputStr)
 		}
-
 	}
 
-	// Remove extra added emoji
-	s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
 	return ""
 }
 
