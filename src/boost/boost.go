@@ -178,7 +178,7 @@ func FindTokenEmoji(s *discordgo.Session, guildID string) string {
 	if e != nil {
 		return e.MessageFormat()
 	}
-	var e = emutil.FindEmoji(g.Emojis, "Token", false)
+	e = emutil.FindEmoji(g.Emojis, "Token", false)
 	if e != nil {
 		return e.MessageFormat()
 	}
@@ -381,7 +381,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		}
 		if earlyList != "" {
 			if start == 1 {
-				earlyList = fmt.Sprintf("1: %s\n", start, earlyList)
+				earlyList = fmt.Sprintf("1: %s\n", earlyList)
 			} else {
 				earlyList = fmt.Sprintf("1-%d: %s\n", start, earlyList)
 			}
