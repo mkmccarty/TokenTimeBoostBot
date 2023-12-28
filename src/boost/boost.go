@@ -355,8 +355,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		for _, element := range contract.Order {
 			var b, ok = contract.Boosters[element]
 			if ok {
-				if b.BoostState == BoostStateUnboosted {
+				if b.BoostState == BoostStateUnboosted || b.BoostState == BoostStateTokenTime {
 					contract.State = ContractStateStarted
+					break
 				}
 			}
 		}
