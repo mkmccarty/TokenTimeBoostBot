@@ -923,6 +923,12 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				redraw = true
 			}
 		}
+	} else {
+		// Custon token reaction from user not in contract
+		if strings.ToLower(r.Emoji.Name) == "token" {
+			emojiName = r.Emoji.Name + ":" + r.Emoji.ID
+			redraw = true
+		}
 	}
 
 	// Remove extra added emoji

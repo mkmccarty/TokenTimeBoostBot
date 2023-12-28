@@ -1,12 +1,21 @@
 # Change these variables as necessary.
 
+UNAME_A = `uname -m`
+UNAME_S = `uname -s`
+
+#// Get machine architecture into ARCH variable
+#ifeq ($(UNAME_A),aarch64)
+#	ARCH = arm64
+#else ifeq ($(UNAME_A),armv7l)
+#	ARCH = arm
+
 APP=TokenTimeBoostBot
 BINARY_NAME=TokenTimeBoostBot
 
 WINDOWS=$(BINARY_NAME)_windows_amd64.exe
 LINUX=$(BINARY_NAME)_linux_amd64
 DARWIN=$(BINARY_NAME)_darwin_amd64
-PI=$(BINARY_NAME)_linux_arm6
+PI=$(BINARY_NAME)_linux_$(ARCH)
 #PI64=$(EXECUTABLE)_linux_arm64
 
 #VERSION=$(shell git describe --tags --always --long --dirty)
@@ -87,7 +96,7 @@ darwin: $(DARWIN)  ## Build for Darwin
 
 pi: $(PI) ## Build for Raspberry Pi 4
 
-#pi64: $(PI64) ## Build for 64-bit Raspberry Pi
+i64: $(PI64) ## Build for 64-bit Raspberry Pi
 
 
 $(WINDOWS):
@@ -102,8 +111,8 @@ $(DARWIN):
 $(PI):
 	env GOOS=linux GOARCH=arm GOARM=6  go build -v -o $(PI) -ldflags="-s -w -X main.Version=$(VERSION)"  
 
-#$(PI64):
-#	env GOOS=linux GOARCH=arm64  go build -v -o $(PI) -ldflags="-s -w -X main.Version=$(VERSION)"  
+$(PI64):
+	env GOOS=linux GOARCH=arm64  go build -v -o $(PI) -ldflags="-s -w -X main.Version=$(VERSION)"  
 
 .PHONY: build
 build: windows linux darwin pi ## Build binaries
@@ -113,11 +122,11 @@ build: windows linux darwin pi ## Build binaries
 .PHONY: install
 install:
 	./scripts/stop_bot.sh
-	cp $(PI) ~pi/bots/TokenTimeBoostBot
+	cp $(PI5) ~pi/bots/TokenTimeBoostBot
 	./scripts/start_bot.sh
 
 .PHONY: clean
 clean:
 	go clean
-	rm -f $(WINDOWS) $(LINUX) $(DARWIN) $(PI)
+	rm -f $(WINDOWS) $(LINUX) $(DARWIN) $(PI) $(PI5)
 
