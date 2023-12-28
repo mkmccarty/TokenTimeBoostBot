@@ -313,12 +313,17 @@ func getTokenCountString(tokenStr string, tokensWanted int, tokensReceived int) 
 		if tokens < 0 {
 			tokens = 0
 		}
+
 		// make countStr string with tokens number of duplicates of tokenStr
 		// Build the token string, countdown from 8 to 1 and then emoji
 		if tokens == 0 {
 			countStr = "🚀"
 		} else {
 			for i := 0; i < tokens; i++ {
+				if i == 9 {
+					countStr += "+"
+					break
+				}
 				countStr += fmt.Sprintf(":%s:", num2words.Convert(i+1))
 			}
 		}
@@ -334,12 +339,12 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 	var outputStr = ""
 	saveData(Contracts)
 
-	outputStr = fmt.Sprintf("### %s  %d/%d ###\n", contract.ContractHash, len(contract.Boosters), contract.CoopSize)
+	outputStr = fmt.Sprintf("### %s  %d/%d\n", contract.ContractHash, len(contract.Boosters), contract.CoopSize)
 
 	if contract.State == ContractStateSignup {
-		outputStr += "## Sign-up List ##\n"
+		outputStr += "## Sign-up List\n"
 	} else {
-		outputStr += "## Boost List ##\n"
+		outputStr += "## Boost List\n"
 	}
 	var prefix = " - "
 
@@ -462,13 +467,17 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 
 	// Add reaction guidance to the bottom of this list
 	if contract.State == ContractStateStarted {
-		outputStr += "```"
-		outputStr += "React with 🚀 when you spend tokens to boost. Multiple 🚀 votes by others in the contract will also indicate a boost.\n"
-		if (contract.BoostPosition + 1) < len(contract.Order) {
-			outputStr += "React with 🔃 to exchange position with the next booster.\nReact with ⤵️ to move to last. "
-			outputStr += "\nAdd a 🚽 (toilet) reaction to express your urgency to go now."
-		}
-		outputStr += "```"
+		outputStr += "\n"
+		/*
+			outputStr += "```"
+			outputStr += "React with 🚀 when you spend tokens to boost. Multiple 🚀 votes by others in the contract will also indicate a boost.\n"
+			outputStr += "Farmers react with a token when sending tokens. Booster can react with ➕/➖ to adjust wanted tokens.\n"
+			if (contract.BoostPosition + 1) < len(contract.Order) {
+				outputStr += "React with 🔃 to exchange position with the next booster.\nReact with ⤵️ to move to last. "
+				outputStr += "\nAdd a 🚽 (toilet) reaction to express your urgency to go now."
+			}
+			outputStr += "```"
+		*/
 	} else if contract.State == ContractStateWaiting {
 		outputStr += "Waiting for other(s) to join..."
 		outputStr += "```"
@@ -905,27 +914,46 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
 		return "" //"!gonow"
 	}
+
+	redraw := false
 	// case insensitive compare for token emoji
 	if strings.ToLower(r.Emoji.Name) == "token" {
 		if contract.BoostPosition < len(contract.Order) {
 			contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived += 1
-			for _, loc := range contract.Location {
-				msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
-				if err == nil {
-					loc.ListMsgID = msg.ID
-				}
-				s.MessageReactionRemove(r.ChannelID, r.MessageID, loc.TokenReactionStr, r.UserID)
+			redraw = true
+		}
+	}
+	if r.Emoji.Name == "➕" && r.UserID == contract.Order[contract.BoostPosition] {
+		// Add a token to the current booster
+		contract.Boosters[contract.Order[contract.BoostPosition]].TokensWant += 1
+		redraw = true
+	}
+	if r.Emoji.Name == "➖" && r.UserID == contract.Order[contract.BoostPosition] {
+		// Add a token to the current booster
+		contract.Boosters[contract.Order[contract.BoostPosition]].TokensWant -= 1
+		redraw = true
+	}
+
+	if redraw {
+		for _, loc := range contract.Location {
+			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
+			if err == nil {
+				loc.ListMsgID = msg.ID
 			}
 		}
-		return ""
 	}
-	if r.Emoji.Name == "+" && r.UserID == contract.Order[contract.BoostPosition] {
-		// Add a token to the current booster
-		contract.Boosters[contract.Order[contract.BoostPosition]].TokensWant += 1
-	}
-	if r.Emoji.Name == "-" && r.UserID == contract.Order[contract.BoostPosition] {
-		// Add a token to the current booster
-		contract.Boosters[contract.Order[contract.BoostPosition]].TokensWant += 1
+
+	if r.Emoji.Name == "❓" {
+		for _, loc := range contract.Location {
+			outputStr := "## Boost Bot Icon Meanings\n\n"
+			outputStr += "Active booster reaction of 🚀 to when spending tokens to boost. Multiple 🚀 votes by others in the contract will also indicate a boost.\n"
+			outputStr += "Farmers react with " + loc.TokenStr + " when sending tokens. Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n"
+			outputStr += "Active booster reaction of 🔃 to exchange position with the next booster.\n"
+			outputStr += "Active booster reaction of ⤵️ to move to last in the boost order. "
+			outputStr += "Anyone can add a 🚽 reaction to express your urgency to boost next."
+			s.ChannelMessageSend(loc.ChannelID, outputStr)
+		}
+
 	}
 
 	// Remove extra added emoji
@@ -1246,9 +1274,9 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		if contract.State != ContractStateCompleted {
 			if contract.State == ContractStateStarted {
 				s.MessageReactionAdd(loc.ChannelID, msg.ID, "🚀")                  // Booster
-				s.MessageReactionAdd(loc.ChannelID, msg.ID, loc.TokenReactionStr) // Go Now
-				s.MessageReactionAdd(loc.ChannelID, msg.ID, "+")                  // Booster + needed
-				s.MessageReactionAdd(loc.ChannelID, msg.ID, "-")                  // Booster - needed
+				s.MessageReactionAdd(loc.ChannelID, msg.ID, loc.TokenReactionStr) // Token Reaction
+				s.MessageReactionAdd(loc.ChannelID, msg.ID, "➕")                  // Booster + needed
+				s.MessageReactionAdd(loc.ChannelID, msg.ID, "➖")                  // Booster - needed
 			}
 			if (contract.BoostPosition + 1) < len(contract.Order) {
 				s.MessageReactionAdd(loc.ChannelID, msg.ID, "🔃")  // Swap
@@ -1257,6 +1285,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			if contract.State == ContractStateWaiting {
 				s.MessageReactionAdd(loc.ChannelID, msg.ID, "🏁") // Finish
 			}
+			s.MessageReactionAdd(loc.ChannelID, msg.ID, "❓") // Finish
 
 			if pingUsers {
 				if contract.State == ContractStateStarted {
