@@ -15,7 +15,7 @@ BINARY_NAME=TokenTimeBoostBot
 WINDOWS=$(BINARY_NAME)_windows_amd64.exe
 LINUX=$(BINARY_NAME)_linux_amd64
 DARWIN=$(BINARY_NAME)_darwin_amd64
-PI=$(BINARY_NAME)_linux_$(ARCH)
+PI=$(BINARY_NAME)_linux_arm6
 #PI64=$(EXECUTABLE)_linux_arm64
 
 #VERSION=$(shell git describe --tags --always --long --dirty)
@@ -112,7 +112,7 @@ $(PI):
 	env GOOS=linux GOARCH=arm GOARM=6  go build -v -o $(PI) -ldflags="-s -w -X main.Version=$(VERSION)"  
 
 $(PI64):
-	env GOOS=linux GOARCH=arm64  go build -v -o $(PI) -ldflags="-s -w -X main.Version=$(VERSION)"  
+	env GOOS=linux GOARCH=arm64  go build -v -o $(PI64) -ldflags="-s -w -X main.Version=$(VERSION)"  
 
 .PHONY: build
 build: windows linux darwin pi ## Build binaries
@@ -122,7 +122,7 @@ build: windows linux darwin pi ## Build binaries
 .PHONY: install
 install:
 	./scripts/stop_bot.sh
-	cp $(PI5) ~pi/bots/TokenTimeBoostBot
+	cp $(PI) ~pi/bots/TokenTimeBoostBot
 	./scripts/start_bot.sh
 
 .PHONY: clean
