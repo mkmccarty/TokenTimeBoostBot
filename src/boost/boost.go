@@ -1294,8 +1294,8 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			if contract.State == ContractStateStarted {
 				s.MessageReactionAdd(loc.ChannelID, msg.ID, "🚀")                  // Booster
 				s.MessageReactionAdd(loc.ChannelID, msg.ID, loc.TokenReactionStr) // Token Reaction
-				s.MessageReactionAdd(loc.ChannelID, msg.ID, "➕")                  // Booster + needed
-				s.MessageReactionAdd(loc.ChannelID, msg.ID, "➖")                  // Booster - needed
+				//s.MessageReactionAdd(loc.ChannelID, msg.ID, "➕")                  // Booster + needed
+				//s.MessageReactionAdd(loc.ChannelID, msg.ID, "➖")                  // Booster - needed
 			}
 			if (contract.BoostPosition + 1) < len(contract.Order) {
 				s.MessageReactionAdd(loc.ChannelID, msg.ID, "🔃")  // Swap
