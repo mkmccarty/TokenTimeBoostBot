@@ -301,23 +301,119 @@ func SetReactionID(contract *Contract, channelID string, messageID string) {
 	}
 }
 
-func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) string {
-	var outputStr string
+func getTokenCountString(tokenStr string, tokensWanted int, tokensReceived int) (string, string) {
+	countStr := ""
+	signupCountStr := ""
+	if tokensWanted > 0 {
+		var tokens = tokensWanted - tokensReceived
+		if tokens < 0 {
+			tokens = 0
+		}
+		// make countStr string with tokens number of duplicates of tokenStr
+		// Build the token string, countdown from 8 to 1 and then emoji
+		if tokens == 0 {
+			countStr = "🚀"
+		} else {
+			for i := 0; i < tokens; i++ {
+				countStr += fmt.Sprintf(":%s:", num2words.Convert(i+1))
+			}
+		}
+		countStr += tokenStr
 
+		//signupCountStr = fmt.Sprintf(" :%s:", num2words.Convert(tokens))
+		signupCountStr = fmt.Sprintf(" (%d)", tokens)
+	}
+	return countStr, signupCountStr
+}
+
+func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) string {
+	var outputStr = ""
 	saveData(Contracts)
 
 	outputStr = fmt.Sprintf("### %s  %d/%d ###\n", contract.ContractHash, len(contract.Boosters), contract.CoopSize)
 
 	if contract.State == ContractStateSignup {
-		outputStr += "## Sign-up List ###\n"
+		outputStr += "## Sign-up List ##\n"
 	} else {
-		outputStr += "## Boost List ###\n"
+		outputStr += "## Boost List ##\n"
 	}
-	var i = 1
 	var prefix = " - "
-	for _, element := range contract.Order {
+
+	earlyList := ""
+	lateList := ""
+
+	offset := 1
+
+	show_boosted_nums := 2
+	window_size := 10
+	orderSubset := contract.Order
+	if contract.State != ContractStateSignup && len(contract.Order) > 16 {
+		// extract 10 elements around the current booster
+		var start = contract.BoostPosition - show_boosted_nums
+		var end = contract.BoostPosition + (window_size - show_boosted_nums)
+
+		if start < 0 {
+			// add the aboslute value of start to end
+			end += -start
+			start = 0
+		}
+		if end > len(contract.Order) {
+			start -= end - len(contract.Order)
+			end = len(contract.Order)
+		}
+		// populate earlyList with all elements from earlySubset
+		for i, element := range contract.Order[0:start] {
+			var b, ok = contract.Boosters[element]
+			if ok {
+				if b.BoostState == BoostStateBoosted {
+					earlyList += fmt.Sprintf("~~%s~~ ", b.Mention)
+				} else {
+					earlyList += fmt.Sprintf("%s(%d) ", b.Mention, b.TokensWant)
+				}
+				if i < start-1 {
+					earlyList += ", "
+				}
+			}
+		}
+		if earlyList != "" {
+			if start == 1 {
+				earlyList = fmt.Sprintf("1: %s\n", start, earlyList)
+			} else {
+				earlyList = fmt.Sprintf("1-%d: %s\n", start, earlyList)
+			}
+		}
+
+		for i, element := range contract.Order[end:len(contract.Order)] {
+			var b, ok = contract.Boosters[element]
+			if ok {
+				if b.BoostState == BoostStateBoosted {
+					lateList += fmt.Sprintf("~~%s~~ ", b.Mention)
+				} else {
+					lateList += fmt.Sprintf("%s(%d) ", b.Mention, b.TokensWant)
+				}
+				if (end + i + 1) < len(contract.Boosters) {
+					lateList += ", "
+				}
+			}
+		}
+		if lateList != "" {
+			if (end + 1) == len(contract.Order) {
+				lateList = fmt.Sprintf("%d: %s", end+1, lateList)
+			} else {
+				lateList = fmt.Sprintf("%d-%d: %s", end+1, len(contract.Order), lateList)
+			}
+		}
+
+		orderSubset = contract.Order[start:end]
+		offset = start + 1
+	}
+
+	outputStr += earlyList
+
+	for i, element := range orderSubset {
+
 		if contract.State != ContractStateSignup {
-			prefix = fmt.Sprintf("%2d - ", i)
+			prefix = fmt.Sprintf("%2d - ", i+offset)
 		}
 		var b, ok = contract.Boosters[element]
 		if ok {
@@ -328,40 +424,24 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 				server = fmt.Sprintf(" (%s) ", contract.EggFarmers[element].GuildName)
 			}
 
-			countStr := ""
-			signupCountStr := ""
-			if b.TokensWant > 0 {
-				var tokens = b.TokensWant - b.TokensReceived
-				if tokens < 0 {
-					tokens = 0
-				}
-				// make countStr string with tokens number of duplicates of tokenStr
-				//countStr = strings.Repeat(tokenStr, tokens)
-				countStr = "🚀"
-				// loop for number of tokena
-				for i := 0; i < tokens; i++ {
-					countStr += fmt.Sprintf(":%s:", num2words.Convert(i+1))
-				}
-				countStr += tokenStr
-
-				signupCountStr = fmt.Sprintf(" :%s:", num2words.Convert(tokens))
-			}
+			countStr, signupCountStr := getTokenCountString(tokenStr, b.TokensWant, b.TokensReceived)
 
 			switch b.BoostState {
 			case BoostStateUnboosted:
 				outputStr += fmt.Sprintf("%s %s%s%s\n", prefix, name, signupCountStr, server)
 			case BoostStateTokenTime:
-				outputStr += fmt.Sprintf("%s %s %s%s%s\n", prefix, name, countStr, currentStartTime, server)
+				outputStr += fmt.Sprintf("%s **%s** %s%s%s\n", prefix, name, countStr, currentStartTime, server)
 			case BoostStateBoosted:
 				t1 := contract.Boosters[element].EndTime
 				t2 := contract.Boosters[element].StartTime
 				duration := t1.Sub(t2)
 				outputStr += fmt.Sprintf("%s ~~%s~~  %s %s\n", prefix, name, duration.Round(time.Second), server)
 			}
-			i += 1
 		}
 	}
+	outputStr += lateList
 
+	// Add reaction guidance to the bottom of this list
 	if contract.State == ContractStateStarted {
 		outputStr += "```"
 		outputStr += "React with 🚀 when you spend tokens to boost. Multiple 🚀 votes by others in the contract will also indicate a boost.\n"
@@ -1150,7 +1230,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 				if contract.State == ContractStateStarted {
 					str = fmt.Sprintf(loc.ChannelPing+" send tokens to %s", contract.Boosters[contract.Order[contract.BoostPosition]].Mention)
 				} else {
-					str = fmt.Sprintf(loc.ChannelPing + " contract boosting complete hold your tokens for late joining farmers.")
+					str = fmt.Sprintf(loc.ChannelPing + " contract boosting complete. Hold your tokens for late joining farmers.")
 				}
 			}
 		} else {

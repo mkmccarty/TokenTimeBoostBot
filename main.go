@@ -330,14 +330,6 @@ var (
 			var str = "Joining Member"
 			var mention = ""
 
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseDeferredMessageUpdate,
-				Data: &discordgo.InteractionResponseData{
-					Content:    str,
-					Flags:      discordgo.MessageFlagsEphemeral,
-					Components: []discordgo.MessageComponent{}},
-			})
-
 			// User interacting with bot, is this first time ?
 			options := i.ApplicationCommandData().Options
 			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -355,6 +347,14 @@ var (
 			if opt, ok := optionMap["order"]; ok {
 				orderValue = opt.IntValue()
 			}
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseDeferredMessageUpdate,
+				Data: &discordgo.InteractionResponseData{
+					Content:    str,
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
 
 			var err = boost.AddContractMember(s, i.GuildID, i.ChannelID, i.Member.Mention(), mention, guestName, orderValue)
 			if err != nil {
