@@ -580,6 +580,7 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 			var end, _ = strconv.Atoi(hyphenArray[1])
 			if start > end {
 				for j := start; j >= end; j-- {
+
 					boostOrderExpanded = append(boostOrderExpanded, strconv.Itoa(j))
 				}
 			} else {
