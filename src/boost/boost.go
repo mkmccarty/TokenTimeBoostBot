@@ -178,6 +178,10 @@ func FindTokenEmoji(s *discordgo.Session, guildID string) string {
 	if e != nil {
 		return e.MessageFormat()
 	}
+	var e = emutil.FindEmoji(g.Emojis, "Token", false)
+	if e != nil {
+		return e.MessageFormat()
+	}
 	return "🐣"
 }
 
@@ -884,8 +888,8 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
 		return "!gonow"
 	}
-
-	if r.Emoji.Name == "token" {
+	// case insensitive compare for token emoji
+	if strings.ToLower(r.Emoji.Name) == "token" {
 		contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived += 1
 		for _, loc := range contract.Location {
 			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
