@@ -556,7 +556,7 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 			var start, _ = strconv.Atoi(hyphenArray[0])
 			var end, _ = strconv.Atoi(hyphenArray[1])
 			if start > end {
-				for j := end; j >= start; j-- {
+				for j := start; j >= end; j-- {
 					boostOrderExpanded = append(boostOrderExpanded, strconv.Itoa(j))
 				}
 			} else {
@@ -889,7 +889,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	}
 	if r.Emoji.Name == "🚽" {
 		SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
-		return "!gonow"
+		return "" //"!gonow"
 	}
 	// case insensitive compare for token emoji
 	if strings.ToLower(r.Emoji.Name) == "token" {
@@ -903,8 +903,15 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				s.MessageReactionRemove(r.ChannelID, r.MessageID, loc.TokenReactionStr, r.UserID)
 			}
 		}
-
 		return ""
+	}
+	if r.Emoji.Name == "+" && r.UserID == contract.Order[contract.BoostPosition] {
+		// Add a token to the current booster
+		contract.Boosters[contract.Order[contract.BoostPosition]].TokensWant += 1
+	}
+	if r.Emoji.Name == "-" && r.UserID == contract.Order[contract.BoostPosition] {
+		// Add a token to the current booster
+		contract.Boosters[contract.Order[contract.BoostPosition]].TokensWant += 1
 	}
 
 	// Remove extra added emoji
@@ -1226,6 +1233,8 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			if contract.State == ContractStateStarted {
 				s.MessageReactionAdd(loc.ChannelID, msg.ID, "🚀")                  // Booster
 				s.MessageReactionAdd(loc.ChannelID, msg.ID, loc.TokenReactionStr) // Go Now
+				s.MessageReactionAdd(loc.ChannelID, msg.ID, "+")                  // Booster + needed
+				s.MessageReactionAdd(loc.ChannelID, msg.ID, "-")                  // Booster - needed
 			}
 			if (contract.BoostPosition + 1) < len(contract.Order) {
 				s.MessageReactionAdd(loc.ChannelID, msg.ID, "🔃")  // Swap
@@ -1339,6 +1348,7 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	} else {
 		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 		contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+		contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived = 0 // reset these
 	}
 
 	sendNextNotification(s, contract, true)
