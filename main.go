@@ -340,9 +340,11 @@ var (
 			if opt, ok := optionMap["farmer"]; ok {
 				farmerName = opt.UserValue(s)
 				mention = farmerName.Mention()
+				str += " " + farmerName.Username
 			}
 			if opt, ok := optionMap["guest"]; ok {
 				guestName = opt.StringValue()
+				str += " " + guestName
 			}
 			if opt, ok := optionMap["order"]; ok {
 				orderValue = opt.IntValue()
