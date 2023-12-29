@@ -1,5 +1,14 @@
 # Change these variables as necessary.
 
+UNAME_A = `uname -m`
+UNAME_S = `uname -s`
+
+#// Get machine architecture into ARCH variable
+#ifeq ($(UNAME_A),aarch64)
+#	ARCH = arm64
+#else ifeq ($(UNAME_A),armv7l)
+#	ARCH = arm
+
 APP=TokenTimeBoostBot
 BINARY_NAME=TokenTimeBoostBot
 
@@ -87,7 +96,7 @@ darwin: $(DARWIN)  ## Build for Darwin
 
 pi: $(PI) ## Build for Raspberry Pi 4
 
-#pi64: $(PI64) ## Build for 64-bit Raspberry Pi
+i64: $(PI64) ## Build for 64-bit Raspberry Pi
 
 
 $(WINDOWS):
@@ -102,8 +111,8 @@ $(DARWIN):
 $(PI):
 	env GOOS=linux GOARCH=arm GOARM=6  go build -v -o $(PI) -ldflags="-s -w -X main.Version=$(VERSION)"  
 
-#$(PI64):
-#	env GOOS=linux GOARCH=arm64  go build -v -o $(PI) -ldflags="-s -w -X main.Version=$(VERSION)"  
+$(PI64):
+	env GOOS=linux GOARCH=arm64  go build -v -o $(PI64) -ldflags="-s -w -X main.Version=$(VERSION)"  
 
 .PHONY: build
 build: windows linux darwin pi ## Build binaries
@@ -119,5 +128,5 @@ install:
 .PHONY: clean
 clean:
 	go clean
-	rm -f $(WINDOWS) $(LINUX) $(DARWIN) $(PI)
+	rm -f $(WINDOWS) $(LINUX) $(DARWIN) $(PI) $(PI5)
 
