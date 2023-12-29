@@ -558,6 +558,12 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 		return errors.New("only the contract creator can change the contract")
 	}
 
+	// get current booster boost state
+	var currentBooster = ""
+	if contract.State == ContractStateStarted {
+		currentBooster = contract.Order[contract.BoostPosition]
+	}
+
 	// split the boostOrder string into an array by commas
 	re := regexp.MustCompile(`[\\<>@#&!]`)
 	if boostOrder != "" {
@@ -611,20 +617,19 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 	}
 
 	// Clear current booster boost state
-	if contract.State == ContractStateStarted {
-		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateUnboosted
-	}
+	//if contract.State == ContractStateStarted {
+	//	contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateUnboosted
+	//}
 
 	// set contract.BoostOrder to the index of the element contract.Boosters[element].BoostState == BoostStateTokenTime
 	contract.Order = newOrder
 	contract.OrderRevision += 1
 
-	for i, el := range newOrder {
-		if contract.Boosters[el].BoostState == BoostStateUnboosted {
-			contract.BoostPosition = i
-			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
-			contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
-			break
+	if contract.State == ContractStateStarted {
+		for i, el := range newOrder {
+			if el == currentBooster {
+				contract.BoostPosition = i
+			}
 		}
 	}
 
@@ -795,6 +800,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			contract.State = ContractStateStarted
 			b.StartTime = time.Now()
 			b.BoostState = BoostStateTokenTime
+			contract.BoostPosition = len(contract.Order) - 1
 		}
 		if contract.State != ContractStateSignup {
 			sendNextNotification(s, contract, false)
@@ -1147,18 +1153,13 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 		}
 	}
 
-	var found = false
 	for i := range contract.Order {
 		if contract.Order[i] == userID {
-			found = true
 			if removeContractBoosterByContract(s, contract, i+1) {
 				contract.RegisteredNum = len(contract.Boosters)
 			}
 			break
 		}
-	}
-	if !found {
-		return errors.New(errorUserNotInContract)
 	}
 
 	// Edit the boost List in place
@@ -1409,6 +1410,7 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	}
 	contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateBoosted
 	contract.Boosters[contract.Order[contract.BoostPosition]].EndTime = time.Now()
+	contract.Boosters[contract.Order[contract.BoostPosition]].Duration = time.Since(contract.Boosters[contract.Order[contract.BoostPosition]].StartTime)
 
 	// Advance past any that have already boosted
 	// Set boost order to last spot so end of contract handling can occur
@@ -1416,21 +1418,23 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	contract.BoostPosition = len(contract.Order)
 
 	// loop through all contract.Order until we find a non-boosted user
+	// Want to prevent two TokenTime boosters
 	foundActiveBooster := false
+	var firstUnboosted = -1 // Using same loop to verify single booster but remember first unboosted
 	for i := range contract.Order {
 		if contract.Boosters[contract.Order[i]].BoostState == BoostStateTokenTime {
 			contract.BoostPosition = i
 			foundActiveBooster = true
-			break
+		} else if foundActiveBooster {
+			contract.Boosters[contract.Order[i]].BoostState = BoostStateUnboosted
+		}
+		if contract.Boosters[contract.Order[i]].BoostState == BoostStateUnboosted {
+			firstUnboosted = i
 		}
 	}
-	if !foundActiveBooster {
-		for i := range contract.Order {
-			if contract.Boosters[contract.Order[i]].BoostState == BoostStateUnboosted {
-				contract.BoostPosition = i
-				break
-			}
-		}
+
+	if !foundActiveBooster && firstUnboosted != -1 {
+		contract.BoostPosition = firstUnboosted
 	}
 
 	if contract.BoostPosition == contract.CoopSize {
