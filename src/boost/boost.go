@@ -471,16 +471,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 	// Add reaction guidance to the bottom of this list
 	if contract.State == ContractStateStarted {
 		outputStr += "\n"
-		/*
-			outputStr += "```"
-			outputStr += "React with 🚀 when you spend tokens to boost. Multiple 🚀 votes by others in the contract will also indicate a boost.\n"
-			outputStr += "Farmers react with a token when sending tokens. Booster can react with ➕/➖ to adjust wanted tokens.\n"
-			if (contract.BoostPosition + 1) < len(contract.Order) {
-				outputStr += "React with 🔃 to exchange position with the next booster.\nReact with ⤵️ to move to last. "
-				outputStr += "\nAdd a 🚽 (toilet) reaction to express your urgency to go now."
-			}
-			outputStr += "```"
-		*/
+		outputStr += "> Active Booster: 🚀 when boosting. Anyone: " + tokenStr + " when sending tokens. ❓ Help.\n"
+		outputStr += "> Use pinned message to join this list and set boost " + tokenStr + " wanted.\n"
+		//outputStr += "```"
 	} else if contract.State == ContractStateWaiting {
 		outputStr += "Waiting for other(s) to join..."
 		outputStr += "```"
@@ -977,12 +970,13 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	if r.Emoji.Name == "❓" {
 		for _, loc := range contract.Location {
 			outputStr := "## Boost Bot Icon Meanings\n\n"
+			outputStr += "See pinned message to join the contract and select your number of boost tokens.\n"
 			outputStr += "Active booster reaction of 🚀 to when spending tokens to boost. Multiple 🚀 votes by others in the contract will also indicate a boost.\n"
-			outputStr += "Farmers react with " + loc.TokenStr + " when sending tokens. "
+			outputStr += "Farmers react with " + loc.TokenStr + " when sending tokens.\n"
 			//outputStr += "Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n"
 			outputStr += "Active booster reaction of 🔃 to exchange position with the next booster.\n"
-			outputStr += "Active booster reaction of ⤵️ to move to last in the boost order. "
-			outputStr += "Anyone can add a 🚽 reaction to express your urgency to boost next."
+			outputStr += "Active booster reaction of ⤵️ to move to last in the boost order.\n"
+			outputStr += "Anyone can add a 🚽 reaction to express your urgency to boost next.\n"
 			s.ChannelMessageSend(loc.ChannelID, outputStr)
 		}
 	}
