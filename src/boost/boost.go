@@ -85,12 +85,13 @@ type EggFarmer struct {
 type Booster struct {
 	UserID         string // Egg Farmer
 	Name           string
-	BoostState     int       // Indicates if current booster
-	Mention        string    // String which mentions user
-	TokensReceived int       // indicate number of boost tokens
-	TokensWant     int       // indicate number of boost tokens
-	StartTime      time.Time // Time Farmer started boost turn
-	EndTime        time.Time // Time Farmer ended boost turn
+	BoostState     int           // Indicates if current booster
+	Mention        string        // String which mentions user
+	TokensReceived int           // indicate number of boost tokens
+	TokensWant     int           // indicate number of boost tokens
+	StartTime      time.Time     // Time Farmer started boost turn
+	EndTime        time.Time     // Time Farmer ended boost turn
+	Duration       time.Duration // Duration of boost
 }
 
 type LocationData struct {
@@ -459,10 +460,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 			case BoostStateTokenTime:
 				outputStr += fmt.Sprintf("%s **%s** %s%s%s\n", prefix, name, countStr, currentStartTime, server)
 			case BoostStateBoosted:
-				t1 := contract.Boosters[element].EndTime
-				t2 := contract.Boosters[element].StartTime
-				duration := t1.Sub(t2)
-				outputStr += fmt.Sprintf("%s ~~%s~~  %s %s\n", prefix, name, duration.Round(time.Second), server)
+				outputStr += fmt.Sprintf("%s ~~%s~~  %s %s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), server)
 			}
 		}
 	}
@@ -1385,6 +1383,7 @@ func BoostCommand(s *discordgo.Session, guildID string, channelID string, userID
 					contract.Boosters[contract.Order[i]].StartTime = contract.Boosters[contract.Order[contract.BoostPosition-1]].StartTime
 				}
 				contract.Boosters[contract.Order[i]].EndTime = time.Now()
+				contract.Boosters[contract.Order[i]].Duration = time.Since(contract.Boosters[contract.Order[i]].StartTime)
 				sendNextNotification(s, contract, false)
 				return nil
 			}
