@@ -43,6 +43,7 @@ const ContractOrderLast = 0
 const ContractOrderReverse = 1
 const ContractOrderRandom = 2
 const ContractOrderFair = 3
+const ContractOrderTimeBased = 4
 
 const ContractStateSignup = 0
 const ContractStateStarted = 1
@@ -52,6 +53,8 @@ const ContractStateCompleted = 3
 const BoostStateUnboosted = 0
 const BoostStateTokenTime = 1
 const BoostStateBoosted = 2
+
+const BoostOrderTimeThresshold = 20
 
 type Farmer struct {
 	UserID    string // Discord User ID
@@ -638,7 +641,7 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 	return nil
 }
 
-func AddContractMember(s *discordgo.Session, guildID string, channelID string, operator string, mention string, guest string, order int64) error {
+func AddContractMember(s *discordgo.Session, guildID string, channelID string, operator string, mention string, guest string, order int) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -713,7 +716,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 	return nil
 }
 
-func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string, order int64) (*EggFarmer, error) {
+func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string, order int) (*EggFarmer, error) {
 	var farmer = contract.EggFarmers[userID]
 	if farmer == nil {
 		// New Farmer
@@ -760,6 +763,16 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		if gmErr == nil && member.Nick != "" {
 			b.Name = member.Nick
 			b.Mention = member.Mention()
+		}
+
+		// time since contract started
+		if order == ContractOrderTimeBased {
+			var timeSinceStart = time.Since(contract.StartTime)
+			if timeSinceStart.Minutes() < BoostOrderTimeThresshold {
+				order = ContractOrderRandom
+			} else {
+				order = ContractOrderLast
+			}
 		}
 
 		if !userInContract(contract, farmer.UserID) {
@@ -989,7 +1002,7 @@ func JoinContract(s *discordgo.Session, guildID string, channelID string, userID
 			return errors.New(errorContractFull)
 		}
 
-		_, err = AddFarmerToContract(s, contract, guildID, channelID, userID, int64(contract.BoostOrder))
+		_, err = AddFarmerToContract(s, contract, guildID, channelID, userID, ContractOrderTimeBased)
 		if err != nil {
 			return err
 		}
@@ -1021,6 +1034,7 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 	}
 	var index = offset - 1 // Index is 0 based
 
+	// Save current booster position
 	currentBooster := contract.Order[contract.BoostPosition]
 
 	var activeBooster, ok = contract.Boosters[contract.Order[index]]

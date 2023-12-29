@@ -326,7 +326,7 @@ var (
 		slashJoin: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var farmerName *discordgo.User = nil
 			var guestName = ""
-			var orderValue int64 = 2 // Default to Random
+			var orderValue int = boost.ContractOrderTimeBased // Default to Time Based
 			var str = "Joining Member"
 			var mention = ""
 
@@ -347,18 +347,9 @@ var (
 				str += " " + guestName
 			}
 			if opt, ok := optionMap["order"]; ok {
-				orderValue = opt.IntValue()
+				orderValue = int(opt.IntValue())
 			}
 
-			/*
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content:    str,
-						Flags:      discordgo.MessageFlagsEphemeral,
-						Components: []discordgo.MessageComponent{}},
-				})
-			*/
 			var err = boost.AddContractMember(s, i.GuildID, i.ChannelID, i.Member.Mention(), mention, guestName, orderValue)
 			if err != nil {
 				str = err.Error()
@@ -737,7 +728,7 @@ func main() {
 			},
 			{
 				Name:        "order",
-				Description: "How farmer should be added to contract. Default is Random.",
+				Description: "Order farmer added to contract. Default is random within first 20m, otherwise last.",
 				Required:    false,
 				Type:        discordgo.ApplicationCommandOptionInteger,
 				Choices: []*discordgo.ApplicationCommandOptionChoice{
