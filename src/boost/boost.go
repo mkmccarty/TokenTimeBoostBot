@@ -927,6 +927,13 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			if contract.BoostPosition < len(contract.Order) {
 				contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived += 1
 				emojiName = r.Emoji.Name + ":" + r.Emoji.ID
+
+				var b = contract.Boosters[contract.Order[contract.BoostPosition]]
+				if b.TokensReceived == b.TokensWant && b.UserID == b.Name {
+					// Guest farmer auto boosts
+					Boosting(s, r.GuildID, r.ChannelID)
+				}
+
 				redraw = true
 			}
 		}
