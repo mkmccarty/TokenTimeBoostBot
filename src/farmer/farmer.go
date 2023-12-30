@@ -8,9 +8,10 @@ import (
 )
 
 type Farmer struct {
-	UserID string // Discord User ID
+	userID string // Discord User ID
 	ping   bool   // True/False
 	tokens int    // Number of tokens this user wants
+	//order_history []string // List of order IDs this user has made
 }
 
 var (
@@ -26,7 +27,7 @@ func init() {
 		BasePath:          "ttbb-data",
 		AdvancedTransform: AdvancedTransform,
 		InverseTransform:  InverseTransform,
-		CacheSizeMax:      1024 * 1024,
+		CacheSizeMax:      512 * 512,
 	})
 
 	var f, err = loadData()
@@ -38,7 +39,7 @@ func init() {
 // NewFarmer creates a new Farmer
 func newFarmer(userID string) {
 	farmers[userID] = &Farmer{
-		UserID: userID,
+		userID: userID,
 		ping:   false,
 		tokens: 0,
 	}
