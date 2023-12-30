@@ -1,4 +1,4 @@
-package farmer
+package farmerstate
 
 import (
 	"encoding/json"
@@ -15,16 +15,16 @@ type Farmer struct {
 }
 
 var (
-	farmers   map[string]*Farmer
-	dataStore *diskv.Diskv
+	farmerstate map[string]*Farmer
+	dataStore   *diskv.Diskv
 )
 
 func init() {
-	farmers = make(map[string]*Farmer)
+	farmerstate = make(map[string]*Farmer)
 	//Glob
 	// DataStore to initialize a new diskv store, rooted at "my-data-dir", with a 1MB cache.
 	dataStore = diskv.New(diskv.Options{
-		BasePath:          "ttbb-data",
+		BasePath:          "../ttbb-data",
 		AdvancedTransform: AdvancedTransform,
 		InverseTransform:  InverseTransform,
 		CacheSizeMax:      512 * 512,
@@ -32,13 +32,13 @@ func init() {
 
 	var f, err = loadData()
 	if err == nil {
-		farmers = f
+		farmerstate = f
 	}
 }
 
 // NewFarmer creates a new Farmer
 func newFarmer(userID string) {
-	farmers[userID] = &Farmer{
+	farmerstate[userID] = &Farmer{
 		userID: userID,
 		ping:   false,
 		tokens: 0,
@@ -46,41 +46,41 @@ func newFarmer(userID string) {
 }
 
 func DeleteFarmer(userID string) {
-	delete(farmers, userID)
+	delete(farmerstate, userID)
 }
 
 func GetTokens(userID string) int {
-	if farmer, ok := farmers[userID]; ok {
-		return farmer.tokens
+	if farmerstate, ok := farmerstate[userID]; ok {
+		return farmerstate.tokens
 	}
 	return 0
 }
 
 func SetTokens(userID string, tokens int) {
-	if farmers[userID] == nil {
+	if farmerstate[userID] == nil {
 		newFarmer(userID)
 	}
 
-	farmers[userID].tokens = tokens
-	saveData(farmers)
+	farmerstate[userID].tokens = tokens
+	saveData(farmerstate)
 }
 
 func SetPing(userID string, ping bool) {
-	if farmers[userID] == nil {
+	if farmerstate[userID] == nil {
 		newFarmer(userID)
 	}
 
-	farmers[userID].ping = ping
-	saveData(farmers)
+	farmerstate[userID].ping = ping
+	saveData(farmerstate)
 }
 
 func GetPing(userID string) bool {
-	if farmers[userID] == nil {
+	if farmerstate[userID] == nil {
 		newFarmer(userID)
 	}
 
-	if farmer, ok := farmers[userID]; ok {
-		return farmer.ping
+	if farmerstate, ok := farmerstate[userID]; ok {
+		return farmerstate.ping
 	}
 	return false
 }
