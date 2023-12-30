@@ -8,10 +8,10 @@ import (
 )
 
 type Farmer struct {
-	userID string // Discord User ID
-	ping   bool   // True/False
-	tokens int    // Number of tokens this user wants
-	//order_history []string // List of order IDs this user has made
+	userID        string // Discord User ID
+	ping          bool   // True/False
+	tokens        int    // Number of tokens this user wants
+	order_history []int  // list of contract order percentiles
 }
 
 var (
@@ -83,6 +83,18 @@ func GetPing(userID string) bool {
 		return farmerstate.ping
 	}
 	return false
+}
+
+// farmerstate.SetOrderPercentile(i, contract.CoopSize)
+func SetOrderPercentile(userID string, boostNumber int, coopSize int) {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+
+	var percentile = boostNumber * 100 / coopSize
+
+	farmerstate[userID].order_history = append(farmerstate[userID].order_history, percentile)
+	saveData(farmerstate)
 }
 
 // AdvancedTransform for storing KV pairs

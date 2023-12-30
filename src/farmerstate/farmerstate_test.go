@@ -20,3 +20,18 @@ func TestGetPing(t *testing.T) {
 	}
 
 }
+
+func TestSetOrderPercentile(t *testing.T) {
+	SetOrderPercentile("TEST", 1, 10)
+
+	index := len(farmerstate["TEST"].order_history) - 1
+	if farmerstate["TEST"].order_history[index] != 10 {
+		t.Errorf("SetOrderPercentile() = %v, want %v", farmerstate["TEST"].order_history[index], 10)
+	}
+	SetOrderPercentile("TEST", 9, 10)
+	index = len(farmerstate["TEST"].order_history) - 1
+	if farmerstate["TEST"].order_history[index] != 90 {
+		t.Errorf("SetOrderPercentile() = %v, want %v", farmerstate["TEST"].order_history[index], 90)
+	}
+
+}

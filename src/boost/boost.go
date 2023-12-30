@@ -1373,6 +1373,7 @@ func BoostCommand(s *discordgo.Session, guildID string, channelID string, userID
 				}
 				contract.Boosters[contract.Order[i]].EndTime = time.Now()
 				contract.Boosters[contract.Order[i]].Duration = time.Since(contract.Boosters[contract.Order[i]].StartTime)
+				farmerstate.SetOrderPercentile(contract.Order[i], i, contract.CoopSize)
 				sendNextNotification(s, contract, false)
 				return nil
 			}
