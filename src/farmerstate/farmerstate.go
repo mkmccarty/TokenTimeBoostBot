@@ -8,10 +8,10 @@ import (
 )
 
 type Farmer struct {
-	userID        string // Discord User ID
-	ping          bool   // True/False
-	tokens        int    // Number of tokens this user wants
-	order_history []int  // list of contract order percentiles
+	UserID       string // Discord User ID
+	Ping         bool   // True/False
+	Tokens       int    // Number of tokens this user wants
+	OrderHistory []int  // list of contract order percentiles
 }
 
 var (
@@ -24,7 +24,7 @@ func init() {
 	//Glob
 	// DataStore to initialize a new diskv store, rooted at "my-data-dir", with a 1MB cache.
 	dataStore = diskv.New(diskv.Options{
-		BasePath:          "../../ttbb-data",
+		BasePath:          "ttbb-data",
 		AdvancedTransform: AdvancedTransform,
 		InverseTransform:  InverseTransform,
 		CacheSizeMax:      512 * 512,
@@ -39,9 +39,9 @@ func init() {
 // NewFarmer creates a new Farmer
 func newFarmer(userID string) {
 	farmerstate[userID] = &Farmer{
-		userID: userID,
-		ping:   false,
-		tokens: 0,
+		UserID: userID,
+		Ping:   false,
+		Tokens: 0,
 	}
 }
 
@@ -51,7 +51,7 @@ func DeleteFarmer(userID string) {
 
 func GetTokens(userID string) int {
 	if farmerstate, ok := farmerstate[userID]; ok {
-		return farmerstate.tokens
+		return farmerstate.Tokens
 	}
 	return 0
 }
@@ -61,7 +61,7 @@ func SetTokens(userID string, tokens int) {
 		newFarmer(userID)
 	}
 
-	farmerstate[userID].tokens = tokens
+	farmerstate[userID].Tokens = tokens
 	saveData(farmerstate)
 }
 
@@ -70,7 +70,7 @@ func SetPing(userID string, ping bool) {
 		newFarmer(userID)
 	}
 
-	farmerstate[userID].ping = ping
+	farmerstate[userID].Ping = ping
 	saveData(farmerstate)
 }
 
@@ -80,7 +80,7 @@ func GetPing(userID string) bool {
 	}
 
 	if farmerstate, ok := farmerstate[userID]; ok {
-		return farmerstate.ping
+		return farmerstate.Ping
 	}
 	return false
 }
@@ -93,7 +93,7 @@ func SetOrderPercentile(userID string, boostNumber int, coopSize int) {
 
 	var percentile = boostNumber * 100 / coopSize
 
-	farmerstate[userID].order_history = append(farmerstate[userID].order_history, percentile)
+	farmerstate[userID].OrderHistory = append(farmerstate[userID].OrderHistory, percentile)
 	saveData(farmerstate)
 }
 
