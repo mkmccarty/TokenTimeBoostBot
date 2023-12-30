@@ -56,18 +56,6 @@ const BoostStateBoosted = 2
 
 const BoostOrderTimeThresshold = 20
 
-type Farmer struct {
-	UserID    string // Discord User ID
-	Username  string
-	Unique    string
-	Nick      string
-	GameName  string
-	GuildID   string // Discord Guild where this User is From
-	GuildName string
-	Ping      bool      // True/False
-	Register  time.Time // Time Farmer registered
-	//Cluck       []string  // Keep track of messages from each user
-}
 type EggFarmer struct {
 	UserID      string // Discord User ID
 	Username    string
@@ -130,13 +118,10 @@ type Contract struct {
 var (
 	// DiscordToken holds the API Token for discord.
 	Contracts map[string]*Contract
-	Farmers   map[string]*Farmer
 )
 
 func init() {
 	Contracts = make(map[string]*Contract)
-	Farmers = make(map[string]*Farmer)
-	//GlobalContracts = make(map[string][]*LocationData)
 
 	// DataStore to initialize a new diskv store, rooted at "my-data-dir", with a 1MB cache.
 	DataStore = diskv.New(diskv.Options{
