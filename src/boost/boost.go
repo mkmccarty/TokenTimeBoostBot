@@ -14,6 +14,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/divan/num2words"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/peterbourgon/diskv/v3"
 	emutil "github.com/post04/discordgo-emoji-util"
 )
@@ -260,6 +261,8 @@ func AddBoostTokens(s *discordgo.Session, guildID string, channelID string, user
 	if b.TokensWant < 0 {
 		b.TokensWant = 0
 	}
+
+	farmerstate.SetTokens(b.UserID, b.TokensWant)
 
 	// Add received tokens to current booster
 	if countReceivedAdjust > 0 {
@@ -732,7 +735,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		b.UserID = farmer.UserID
 		var user, err = s.User(userID)
 		b.BoostState = BoostStateUnboosted
-		b.TokensWant = 8
+		b.TokensWant = farmerstate.GetTokens(b.UserID)
 		if err == nil {
 			b.Name = user.Username
 			b.Mention = user.Mention()
@@ -1576,14 +1579,14 @@ func AdvancedTransform(key string) *diskv.PathKey {
 	last := len(path) - 1
 	return &diskv.PathKey{
 		Path:     path[:last],
-		FileName: path[last] + ".txt",
+		FileName: path[last] + ".json",
 	}
 }
 
 // InverseTransform for storing KV pairs
 func InverseTransform(pathKey *diskv.PathKey) (key string) {
 	txt := pathKey.FileName[len(pathKey.FileName)-4:]
-	if txt != ".txt" {
+	if txt != ".json" {
 		panic("Invalid file found in storage folder!")
 	}
 	return strings.Join(pathKey.Path, "/") + pathKey.FileName[:len(pathKey.FileName)-4]
