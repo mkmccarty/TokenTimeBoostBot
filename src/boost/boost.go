@@ -77,7 +77,7 @@ type Booster struct {
 	BoostState     int           // Indicates if current booster
 	Mention        string        // String which mentions user
 	TokensReceived int           // indicate number of boost tokens
-	TokensWant     int           // indicate number of boost tokens
+	TokensWanted   int           // indicate number of boost tokens
 	StartTime      time.Time     // Time Farmer started boost turn
 	EndTime        time.Time     // Time Farmer ended boost turn
 	Duration       time.Duration // Duration of boost
@@ -254,15 +254,15 @@ func AddBoostTokens(s *discordgo.Session, guildID string, channelID string, user
 	}
 
 	if setCountWant > 0 {
-		b.TokensWant = setCountWant
+		b.TokensWanted = setCountWant
 	}
 
-	b.TokensWant += countWantAdjust
-	if b.TokensWant < 0 {
-		b.TokensWant = 0
+	b.TokensWanted += countWantAdjust
+	if b.TokensWanted < 0 {
+		b.TokensWanted = 0
 	}
 
-	farmerstate.SetTokens(b.UserID, b.TokensWant)
+	farmerstate.SetTokens(b.UserID, b.TokensWanted)
 
 	// Add received tokens to current booster
 	if countReceivedAdjust > 0 {
@@ -278,7 +278,7 @@ func AddBoostTokens(s *discordgo.Session, guildID string, channelID string, user
 		}
 	}
 
-	return b.TokensWant, b.TokensReceived, nil
+	return b.TokensWanted, b.TokensReceived, nil
 }
 
 func SetMessageID(contract *Contract, channelID string, messageID string) {
@@ -384,7 +384,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 				if b.BoostState == BoostStateBoosted {
 					earlyList += fmt.Sprintf("~~%s~~ ", b.Mention)
 				} else {
-					earlyList += fmt.Sprintf("%s(%d) ", b.Mention, b.TokensWant)
+					earlyList += fmt.Sprintf("%s(%d) ", b.Mention, b.TokensWanted)
 				}
 				if i < start-1 {
 					earlyList += ", "
@@ -405,7 +405,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 				if b.BoostState == BoostStateBoosted {
 					lateList += fmt.Sprintf("~~%s~~ ", b.Mention)
 				} else {
-					lateList += fmt.Sprintf("%s(%d) ", b.Mention, b.TokensWant)
+					lateList += fmt.Sprintf("%s(%d) ", b.Mention, b.TokensWanted)
 				}
 				if (end + i + 1) < len(contract.Boosters) {
 					lateList += ", "
@@ -440,7 +440,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 				server = fmt.Sprintf(" (%s) ", contract.EggFarmers[element].GuildName)
 			}
 
-			countStr, signupCountStr := getTokenCountString(tokenStr, b.TokensWant, b.TokensReceived)
+			countStr, signupCountStr := getTokenCountString(tokenStr, b.TokensWanted, b.TokensReceived)
 
 			switch b.BoostState {
 			case BoostStateUnboosted:
@@ -735,7 +735,10 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		b.UserID = farmer.UserID
 		var user, err = s.User(userID)
 		b.BoostState = BoostStateUnboosted
-		b.TokensWant = farmerstate.GetTokens(b.UserID)
+		b.TokensWanted = farmerstate.GetTokens(b.UserID)
+		if b.TokensWanted <= 0 {
+			b.TokensWanted = 8
+		}
 		if err == nil {
 			b.Name = user.Username
 			b.Mention = user.Mention()
@@ -921,7 +924,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				emojiName = r.Emoji.Name + ":" + r.Emoji.ID
 
 				var b = contract.Boosters[contract.Order[contract.BoostPosition]]
-				if b.TokensReceived == b.TokensWant && b.UserID == b.Name {
+				if b.TokensReceived == b.TokensWanted && b.UserID == b.Name {
 					// Guest farmer auto boosts
 					Boosting(s, r.GuildID, r.ChannelID)
 				}
@@ -947,12 +950,12 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		// case insensitive compare for token emoji
 		if r.Emoji.Name == "➕" && r.UserID == contract.Order[contract.BoostPosition] {
 			// Add a token to the current booster
-			contract.Boosters[contract.Order[contract.BoostPosition]].TokensWant += 1
+			contract.Boosters[contract.Order[contract.BoostPosition]].TokensWanted += 1
 			redraw = true
 		}
 		if r.Emoji.Name == "➖" && r.UserID == contract.Order[contract.BoostPosition] {
 			// Add a token to the current booster
-			contract.Boosters[contract.Order[contract.BoostPosition]].TokensWant -= 1
+			contract.Boosters[contract.Order[contract.BoostPosition]].TokensWanted -= 1
 			redraw = true
 		}
 	*/
@@ -1400,6 +1403,7 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateBoosted
 	contract.Boosters[contract.Order[contract.BoostPosition]].EndTime = time.Now()
 	contract.Boosters[contract.Order[contract.BoostPosition]].Duration = time.Since(contract.Boosters[contract.Order[contract.BoostPosition]].StartTime)
+	farmerstate.SetOrderPercentile(contract.Order[contract.BoostPosition], contract.BoostPosition, contract.CoopSize)
 
 	// Advance past any that have already boosted
 	// Set boost order to last spot so end of contract handling can occur
