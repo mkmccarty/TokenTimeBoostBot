@@ -2,6 +2,7 @@ package farmerstate
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 
 	"github.com/peterbourgon/diskv/v3"
@@ -12,6 +13,10 @@ type Farmer struct {
 	Ping         bool   // True/False
 	Tokens       int    // Number of tokens this user wants
 	OrderHistory []int  // list of contract order percentiles
+}
+
+type OrderHistory struct {
+	Order [][]string `json:"Order"`
 }
 
 var (
@@ -34,6 +39,22 @@ func init() {
 	if err == nil {
 		farmerstate = f
 	}
+
+	file, fileerr := os.ReadFile("ttbb-data/boost_data_history.json")
+	if fileerr == nil {
+		data := OrderHistory{}
+		json.Unmarshal([]byte(file), &data)
+
+		// create Farmer OrderHistory from read data
+		for _, boostHistory := range data.Order {
+			for i, user := range boostHistory {
+				SetOrderPercentile(user, i, len(boostHistory))
+			}
+		}
+		// delete the file
+		os.Remove("ttbb-data/boost_data_history.json")
+	}
+
 }
 
 // NewFarmer creates a new Farmer
@@ -126,14 +147,12 @@ func saveData(c map[string]*Farmer) error {
 }
 
 func loadData() (map[string]*Farmer, error) {
-	//diskmutex.Lock()
 	var c map[string]*Farmer
 	b, err := dataStore.Read("Farmers")
 	if err != nil {
 		return c, err
 	}
 	json.Unmarshal(b, &c)
-	//diskmutex.Unlock()
 
 	return c, nil
 }
