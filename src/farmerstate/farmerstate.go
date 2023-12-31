@@ -119,26 +119,41 @@ func SetOrderPercentile(userID string, boostNumber int, coopSize int) {
 	saveData(farmerstate)
 }
 
-// Create a function taking an array of userid's, return at most the last 10 percentiles for each user
-func GetOrderHistory(userIDs []string) map[string][]int {
-	var orderHistory = make(map[string][]int)
+func GetOrderHistory(userIDs []string, number int) []string {
+	var orderHistory = make(map[string]int)
 
 	for _, userID := range userIDs {
-		if farmerstate[userID] == nil {
-			newFarmer(userID)
-		}
 
-		if farmerstate, ok := farmerstate[userID]; ok {
-			// restrict this to the last 10 values in the array
-			if len(farmerstate.OrderHistory) > 10 {
-				farmerstate.OrderHistory = farmerstate.OrderHistory[len(farmerstate.OrderHistory)-10:]
-			}
-			orderHistory[userID] = farmerstate.OrderHistory
+		if farmerstate[userID] == nil {
+			orderHistory[userID] = rand.Intn(100) + 1
 		} else {
-			orderHistory[userID] = []int{rand.Intn(100) + 1}
+			count := len(farmerstate[userID].OrderHistory)
+			if count > number {
+				count = number
+			}
+			// get an average of the last count percentiles for this user
+			var sum int
+			for i := 0; i < count; i++ {
+				sum += farmerstate[userID].OrderHistory[len(farmerstate[userID].OrderHistory)-i-1]
+			}
+			orderHistory[userID] = sum / count
 		}
 	}
-	return orderHistory
+	// iterate over orderHistory and return a slice of userIDs sorted by percentile
+	var sortedOrderHistory []string
+	for i := 0; i < len(userIDs); i++ {
+		var max int
+		var maxUserID string
+		for userID, percentile := range orderHistory {
+			if percentile > max {
+				max = percentile
+				maxUserID = userID
+			}
+		}
+		sortedOrderHistory = append(sortedOrderHistory, maxUserID)
+		delete(orderHistory, maxUserID)
+	}
+	return sortedOrderHistory
 }
 
 // AdvancedTransform for storing KV pairs
