@@ -2,6 +2,7 @@ package farmerstate
 
 import (
 	"encoding/json"
+	"math/rand"
 	"os"
 	"strings"
 
@@ -116,6 +117,28 @@ func SetOrderPercentile(userID string, boostNumber int, coopSize int) {
 
 	farmerstate[userID].OrderHistory = append(farmerstate[userID].OrderHistory, percentile)
 	saveData(farmerstate)
+}
+
+// Create a function taking an array of userid's, return at most the last 10 percentiles for each user
+func GetOrderHistory(userIDs []string) map[string][]int {
+	var orderHistory = make(map[string][]int)
+
+	for _, userID := range userIDs {
+		if farmerstate[userID] == nil {
+			newFarmer(userID)
+		}
+
+		if farmerstate, ok := farmerstate[userID]; ok {
+			// restrict this to the last 10 values in the array
+			if len(farmerstate.OrderHistory) > 10 {
+				farmerstate.OrderHistory = farmerstate.OrderHistory[len(farmerstate.OrderHistory)-10:]
+			}
+			orderHistory[userID] = farmerstate.OrderHistory
+		} else {
+			orderHistory[userID] = []int{rand.Intn(100) + 1}
+		}
+	}
+	return orderHistory
 }
 
 // AdvancedTransform for storing KV pairs
