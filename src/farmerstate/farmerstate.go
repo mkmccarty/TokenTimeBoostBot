@@ -144,7 +144,7 @@ func GetOrderHistory(userIDs []string, number int) []string {
 		var max int
 		var maxUserID string
 		for userID, percentile := range orderHistory {
-			if percentile > max {
+			if percentile >= max {
 				max = percentile
 				maxUserID = userID
 			}
