@@ -2,7 +2,6 @@ package farmerstate
 
 import (
 	"encoding/json"
-	"math/rand"
 	"os"
 	"strings"
 
@@ -125,7 +124,7 @@ func GetOrderHistory(userIDs []string, number int) []string {
 	for _, userID := range userIDs {
 
 		if farmerstate[userID] == nil {
-			orderHistory[userID] = rand.Intn(100) + 1
+			orderHistory[userID] = 0 // Unknown user gets to be last
 		} else {
 			count := len(farmerstate[userID].OrderHistory)
 			if count > number {
