@@ -772,14 +772,29 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 					contract.BoostPosition = len(contract.Order) - 1
 				}
 			} else {
-				// Insert booster randomly into non-boosting order
-				var remainingBoosters = len(contract.Boosters) - contract.BoostPosition - 1
-				if remainingBoosters == 0 {
-					contract.Order = append(contract.Order, farmer.UserID)
-				} else {
-					var insertPosition = contract.BoostPosition + 1 + rand.Intn(remainingBoosters)
-					contract.Order = insert(contract.Order, insertPosition, farmer.UserID)
+
+				copyOrder := make([]string, len(contract.Order))
+				copy(copyOrder, contract.Order)
+				copyOrder = append(copyOrder, farmer.UserID)
+
+				newOrder := farmerstate.GetOrderHistory(copyOrder, 5)
+
+				// find index of farmer.UserID in newOrder
+				var index = slices.Index(newOrder, farmer.UserID)
+				if contract.BoostPosition >= index {
+					index = contract.BoostPosition + 1
 				}
+				contract.Order = insert(contract.Order, index, farmer.UserID)
+				/*
+					// Insert booster randomly into non-boosting order
+					var remainingBoosters = len(contract.Boosters) - contract.BoostPosition - 1
+					if remainingBoosters == 0 {
+						contract.Order = append(contract.Order, farmer.UserID)
+					} else {
+						var insertPosition = contract.BoostPosition + 1 + rand.Intn(remainingBoosters)
+						contract.Order = insert(contract.Order, insertPosition, farmer.UserID)
+					}
+				*/
 			}
 			contract.OrderRevision += 1
 		}
@@ -1054,7 +1069,7 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 			// set contract to waiting
 			contract.State = ContractStateWaiting
 			sendNextNotification(s, contract, true)
-		} else if (activeBoosterState == BoostStateUnboosted) && len(contract.Order) > index {
+		} else if (activeBoosterState == BoostStateTokenTime) && len(contract.Order) > index {
 			contract.Boosters[contract.Order[index]].BoostState = BoostStateTokenTime
 			contract.Boosters[contract.Order[index]].StartTime = time.Now()
 			sendNextNotification(s, contract, true)
@@ -1256,9 +1271,13 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 		return errors.New(errorNotContractCreator)
 	}
 
-	// Contracts are always random order
-	contract.BoostOrder = ContractOrderRandom
-	reorderBoosters(contract)
+	if contract.BoostOrder == ContractOrderFair {
+		newOrder := farmerstate.GetOrderHistory(contract.Order, 5)
+		contract.Order = newOrder
+	} else {
+		contract.BoostOrder = ContractOrderRandom
+		reorderBoosters(contract)
+	}
 
 	contract.BoostPosition = 0
 	contract.State = ContractStateStarted
