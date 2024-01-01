@@ -1432,15 +1432,15 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	// loop through all contract.Order until we find a non-boosted user
 	// Want to prevent two TokenTime boosters
 	foundActiveBooster := false
-	var firstUnboosted = -1 // Using same loop to verify single booster but remember first unboosted
+	var firstUnboosted = -1
 	for i := range contract.Order {
 		if contract.Boosters[contract.Order[i]].BoostState == BoostStateTokenTime {
 			contract.BoostPosition = i
 			foundActiveBooster = true
-		} else if foundActiveBooster {
+		} else if foundActiveBooster && contract.Boosters[contract.Order[i]].BoostState == BoostStateTokenTime {
 			contract.Boosters[contract.Order[i]].BoostState = BoostStateUnboosted
 		}
-		if contract.Boosters[contract.Order[i]].BoostState == BoostStateUnboosted {
+		if firstUnboosted == -1 && contract.Boosters[contract.Order[i]].BoostState == BoostStateUnboosted {
 			firstUnboosted = i
 		}
 	}
