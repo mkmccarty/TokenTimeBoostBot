@@ -124,7 +124,7 @@ func GetOrderHistory(userIDs []string, number int) []string {
 	for _, userID := range userIDs {
 
 		if farmerstate[userID] == nil {
-			orderHistory[userID] = 0 // Unknown user gets to be last
+			orderHistory[userID] = 1 // Unknown user gets to be last
 		} else {
 			count := len(farmerstate[userID].OrderHistory)
 			if count > number {
@@ -144,7 +144,7 @@ func GetOrderHistory(userIDs []string, number int) []string {
 		var max int
 		var maxUserID string
 		for userID, percentile := range orderHistory {
-			if percentile >= max {
+			if percentile > max {
 				max = percentile
 				maxUserID = userID
 			}
