@@ -130,17 +130,21 @@ var (
 				},
 				{
 					Name:        "order",
-					Description: "Order farmer added to contract. Default is random within first 20m, otherwise last.",
+					Description: "Order farmer added to contract. Default is Fair within first 20m, otherwise last.",
 					Required:    false,
 					Type:        discordgo.ApplicationCommandOptionInteger,
 					Choices: []*discordgo.ApplicationCommandOptionChoice{
 						{
+							Name:  "Fair",
+							Value: boost.ContractOrderFair,
+						},
+						{
 							Name:  "Random",
-							Value: 2,
+							Value: boost.ContractOrderRandom,
 						},
 						{
 							Name:  "Last",
-							Value: 0,
+							Value: boost.ContractOrderLast,
 						},
 					},
 				},
