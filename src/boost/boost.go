@@ -360,13 +360,13 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		}
 	}
 
-	show_boosted_nums := 2
-	window_size := 10
+	showBoostedNums := 2
+	windowSize := 10
 	orderSubset := contract.Order
 	if contract.State != ContractStateSignup && len(contract.Order) > 16 {
 		// extract 10 elements around the current booster
-		var start = contract.BoostPosition - show_boosted_nums
-		var end = contract.BoostPosition + (window_size - show_boosted_nums)
+		var start = contract.BoostPosition - showBoostedNums
+		var end = contract.BoostPosition + (windowSize - showBoostedNums)
 
 		if start < 0 {
 			// add the aboslute value of start to end
@@ -1395,7 +1395,6 @@ func BoostCommand(s *discordgo.Session, guildID string, channelID string, userID
 				}
 				contract.Boosters[contract.Order[i]].EndTime = time.Now()
 				contract.Boosters[contract.Order[i]].Duration = time.Since(contract.Boosters[contract.Order[i]].StartTime)
-				farmerstate.SetOrderPercentile(contract.Order[i], i, contract.CoopSize)
 				sendNextNotification(s, contract, false)
 				return nil
 			}
@@ -1422,7 +1421,6 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateBoosted
 	contract.Boosters[contract.Order[contract.BoostPosition]].EndTime = time.Now()
 	contract.Boosters[contract.Order[contract.BoostPosition]].Duration = time.Since(contract.Boosters[contract.Order[contract.BoostPosition]].StartTime)
-	farmerstate.SetOrderPercentile(contract.Order[contract.BoostPosition], contract.BoostPosition, contract.CoopSize)
 
 	// Advance past any that have already boosted
 	// Set boost order to last spot so end of contract handling can occur
@@ -1576,6 +1574,7 @@ func FinishContract(s *discordgo.Session, contract *Contract) error {
 	for _, loc := range contract.Location {
 		loc.ListMsgID = ""
 	}
+	farmerstate.SetOrderPercentileAll(contract.Order, contract.CoopSize)
 	DeleteContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID)
 	return nil
 }

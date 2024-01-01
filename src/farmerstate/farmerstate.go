@@ -2,9 +2,11 @@ package farmerstate
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
+	"testing"
 
 	"github.com/peterbourgon/diskv/v3"
 )
@@ -26,6 +28,13 @@ var (
 )
 
 func init() {
+
+	if flag.Lookup("test.v") == nil {
+		fmt.Println("normal run")
+	} else {
+		fmt.Println("run under go test")
+	}
+
 	farmerstate = make(map[string]*Farmer)
 	//Glob
 	// DataStore to initialize a new diskv store, rooted at "my-data-dir", with a 1MB cache.
@@ -48,9 +57,7 @@ func init() {
 
 		// create Farmer OrderHistory from read data
 		for _, boostHistory := range data.Order {
-			for i, user := range boostHistory {
-				SetOrderPercentile(user, i, len(boostHistory))
-			}
+			SetOrderPercentileAll(boostHistory, len(boostHistory))
 		}
 		// delete the file
 		os.Remove("ttbb-data/boost_data_history.json")
@@ -107,8 +114,7 @@ func GetPing(userID string) bool {
 	return false
 }
 
-// farmerstate.SetOrderPercentile(i, contract.CoopSize)
-func SetOrderPercentile(userID string, boostNumber int, coopSize int) {
+func SetOrderPercentileOne(userID string, boostNumber int, coopSize int) {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
 	}
@@ -116,6 +122,16 @@ func SetOrderPercentile(userID string, boostNumber int, coopSize int) {
 	var percentile = boostNumber * 100 / coopSize
 
 	farmerstate[userID].OrderHistory = append(farmerstate[userID].OrderHistory, percentile)
+	saveData(farmerstate)
+}
+
+func SetOrderPercentileAll(userIDs []string, coopSize int) {
+	for i, userID := range userIDs {
+		if farmerstate[userID] == nil {
+			newFarmer(userID)
+		}
+		farmerstate[userID].OrderHistory = append(farmerstate[userID].OrderHistory, (i+1)*100/coopSize)
+	}
 	saveData(farmerstate)
 }
 
@@ -182,10 +198,15 @@ func saveData(c map[string]*Farmer) error {
 	dataStore.Write("Farmers", b)
 
 	//diskmutex.Unlock()
+	if testing.Testing() {
+		return nil
+	}
+
 	return nil
 }
 
 func loadData() (map[string]*Farmer, error) {
+
 	var c map[string]*Farmer
 	b, err := dataStore.Read("Farmers")
 	if err != nil {
