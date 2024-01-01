@@ -2,6 +2,7 @@ package farmerstate
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 
@@ -138,6 +139,7 @@ func GetOrderHistory(userIDs []string, number int) []string {
 			orderHistory[userID] = sum / count
 		}
 	}
+	fmt.Println(orderHistory)
 	// iterate over orderHistory and return a slice of userIDs sorted by percentile
 	var sortedOrderHistory []string
 	for i := 0; i < len(userIDs); i++ {
