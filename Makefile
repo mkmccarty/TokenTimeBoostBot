@@ -16,7 +16,7 @@ WINDOWS=$(BINARY_NAME)_windows_amd64.exe
 LINUX=$(BINARY_NAME)_linux_amd64
 DARWIN=$(BINARY_NAME)_darwin_amd64
 PI=$(BINARY_NAME)_linux_arm6
-#PI64=$(EXECUTABLE)_linux_arm64
+PI64=$(BINARY_NAME)_linux_arm64
 
 #VERSION=$(shell git describe --tags --always --long --dirty)
 VERSION=$(shell git describe --tags --always --long --dirty)
@@ -96,7 +96,7 @@ darwin: $(DARWIN)  ## Build for Darwin
 
 pi: $(PI) ## Build for Raspberry Pi 4
 
-i64: $(PI64) ## Build for 64-bit Raspberry Pi
+pi64: $(PI64) ## Build for 64-bit Raspberry Pi
 
 
 $(WINDOWS):
@@ -122,7 +122,7 @@ build: windows linux darwin pi ## Build binaries
 .PHONY: install
 install:
 	./scripts/stop_bot.sh
-	cp $(PI) ~pi/bots/TokenTimeBoostBot
+	cp $(PI64) ~/bots/TokenTimeBoostBot
 	./scripts/start_bot.sh
 
 .PHONY: clean

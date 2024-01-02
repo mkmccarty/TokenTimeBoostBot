@@ -13,8 +13,8 @@ SyslogIdentifier=tokentimeboostbot
 User=root
 Group=root
 Environment=RUN_MODE=production
-WorkingDirectory=/home/pi/bots
-ExecStart=/home/pi/bots/TokenTimeBoostBot
+WorkingDirectory=/home/mkmccarty/bots
+ExecStart=/home/mkmccarty/bots/TokenTimeBoostBot
 
 [Install]
 WantedBy=multi-user.target
