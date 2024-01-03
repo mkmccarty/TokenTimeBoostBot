@@ -141,7 +141,8 @@ func GetOrderHistory(userIDs []string, number int) []string {
 	for _, userID := range userIDs {
 
 		if farmerstate[userID] == nil {
-			orderHistory[userID] = 1 // Unknown user gets to be last
+			newFarmer(userID)
+			farmerstate[userID].OrderHistory = append(farmerstate[userID].OrderHistory, 50)
 		} else {
 			count := len(farmerstate[userID].OrderHistory)
 			if count > number {

@@ -51,3 +51,15 @@ func TestSetOrderPercentileAll(t *testing.T) {
 	}
 
 }
+
+func TestGetOrderHistory(t *testing.T) {
+
+	order := []string{"TEST1", "TEST_MISSING"}
+
+	DeleteFarmer("TEST_MISSING")
+	GetOrderHistory(order, 5)
+
+	if farmerstate["TEST_MISSING"].OrderHistory[0] != 50 {
+		t.Errorf("GetOrderHistory() = %v, want %v", farmerstate["TEST_MISSING"].OrderHistory[0], 50)
+	}
+}
