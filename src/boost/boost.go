@@ -230,6 +230,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.CreatorID = append(contract.CreatorID, userID)               // starting userid
 		contract.CreatorID = append(contract.CreatorID, config.AdminUserID)   // overall admin user
 		contract.CreatorID = append(contract.CreatorID, "393477262412087319") // Tbone user id
+		contract.CreatorID = append(contract.CreatorID, "430186990260977665") // Aggie user id
 		contract.RegisteredNum = 0
 		contract.CoopSize = coopSize
 		Contracts[ContractHash] = contract
