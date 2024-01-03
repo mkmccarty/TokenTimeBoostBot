@@ -40,7 +40,6 @@ const errorAlreadyBoosted = "farmer boosted already"
 const errorNotContractCreator = "restricted to contract creator"
 
 const ContractOrderSignup = 0
-const ContractOrderLast = 0
 const ContractOrderReverse = 1
 const ContractOrderRandom = 2
 const ContractOrderFair = 3
@@ -90,10 +89,11 @@ type LocationData struct {
 	ChannelName      string
 	ChannelMention   string
 	ChannelPing      string
-	ListMsgID        string // Message ID for the Last Boost Order message
-	ReactionID       string // Message ID for the reaction Order String
-	TokenStr         string // Emoji for Token
-	TokenReactionStr string // Emoji for Token Reaction
+	ListMsgID        string   // Message ID for the Last Boost Order message
+	ReactionID       string   // Message ID for the reaction Order String
+	MessageIDs       []string // Array of message IDs for any contract message
+	TokenStr         string   // Emoji for Token
+	TokenReactionStr string   // Emoji for Token Reaction
 }
 type Contract struct {
 	ContractHash  string // ContractID-CoopID
@@ -103,6 +103,7 @@ type Contract struct {
 	CoopID        string   // CoopID
 	CoopSize      int
 	BoostOrder    int // How the contract is sorted
+	BoostOrderStr string
 	BoostVoting   int
 	BoostPosition int       // Starting Slot
 	State         int       // Boost Completed
@@ -210,6 +211,19 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.ContractID = contractID
 		contract.CoopID = coopID
 		contract.BoostOrder = BoostOrder
+		// Set the BoostOrderStr
+		switch BoostOrder {
+		case ContractOrderSignup:
+			contract.BoostOrderStr = "Sign-up"
+		case ContractOrderReverse:
+			contract.BoostOrderStr = "Reverse"
+		case ContractOrderRandom:
+			contract.BoostOrderStr = "Random"
+		case ContractOrderFair:
+			contract.BoostOrderStr = "Fair"
+		case ContractOrderTimeBased:
+			contract.BoostOrderStr = "Time"
+		}
 		contract.BoostVoting = 0
 		contract.OrderRevision = 0
 		contract.State = ContractStateSignup
@@ -274,6 +288,7 @@ func AddBoostTokens(s *discordgo.Session, guildID string, channelID string, user
 		msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
 		if err == nil {
 			//panic(err)
+			loc.MessageIDs = append(loc.MessageIDs, msg.ID)
 			loc.ListMsgID = msg.ID
 		}
 	}
@@ -285,6 +300,7 @@ func SetMessageID(contract *Contract, channelID string, messageID string) {
 	for _, element := range contract.Location {
 		if element.ChannelID == channelID {
 			element.ListMsgID = messageID
+			element.MessageIDs = append(element.MessageIDs, messageID)
 		}
 	}
 }
@@ -293,6 +309,7 @@ func SetReactionID(contract *Contract, channelID string, messageID string) {
 	for _, element := range contract.Location {
 		if element.ChannelID == channelID {
 			element.ReactionID = messageID
+			element.MessageIDs = append(element.MessageIDs, messageID)
 		}
 	}
 }
@@ -331,7 +348,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 	var outputStr = ""
 	saveData(Contracts)
 
-	outputStr = fmt.Sprintf("### %s  %d/%d\n", contract.ContractHash, len(contract.Boosters), contract.CoopSize)
+	outputStr = fmt.Sprintf("### %s - %s order - %d/%d\n", contract.ContractHash, contract.BoostOrderStr, len(contract.Boosters), contract.CoopSize)
 
 	if contract.State == ContractStateSignup {
 		outputStr += "## Sign-up List\n"
@@ -473,7 +490,7 @@ func FindContractByMessageID(channelID string, messageID string) (*Contract, int
 	// Given a
 	for _, c := range Contracts {
 		for i, loc := range c.Location {
-			if loc.ChannelID == channelID && loc.ListMsgID == messageID {
+			if slices.Index(loc.MessageIDs, messageID) != -1 {
 				return c, i
 			}
 		}
@@ -485,7 +502,7 @@ func FindContractByReactionID(channelID string, ReactionID string) (*Contract, i
 	// Given a
 	for _, c := range Contracts {
 		for i, loc := range c.Location {
-			if loc.ChannelID == channelID && loc.ReactionID == ReactionID {
+			if slices.Index(loc.MessageIDs, ReactionID) != -1 {
 				return c, i
 			}
 		}
@@ -527,6 +544,52 @@ func removeDuplicates(s []string) []string {
 		}
 	}
 	return result
+}
+
+// write ChangeCurrentBooster
+func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string, userID string, newBooster string) error {
+	var contract = FindContract(guildID, channelID)
+	if contract == nil {
+		return errors.New(errorNoContract)
+	}
+
+	// return an error if the contract is in the signup state
+	if contract.State == ContractStateSignup {
+		return errors.New(errorContractNotStarted)
+	}
+
+	// return an error if the userID isn't the contract creator
+	if !creatorOfContract(contract, userID) {
+		return errors.New("only the contract creator can change the contract")
+	}
+
+	re := regexp.MustCompile(`[\\<>@#&!]`)
+	var newBoosterUserID = re.ReplaceAllString(newBooster, "")
+
+	newBoosterIndex := slices.Index(contract.Order, newBoosterUserID)
+	if newBoosterIndex == -1 {
+		return errors.New("this booster not in contract")
+	}
+
+	switch contract.Boosters[newBoosterUserID].BoostState {
+	case BoostStateUnboosted:
+		// Clear current booster status
+		currentBooster := contract.Order[contract.BoostPosition]
+		if contract.Boosters[currentBooster].BoostState == BoostStateTokenTime {
+			contract.Boosters[currentBooster].BoostState = BoostStateUnboosted
+		}
+		contract.Boosters[newBoosterUserID].BoostState = BoostStateTokenTime
+		contract.Boosters[newBoosterUserID].StartTime = time.Now()
+		contract.BoostPosition = newBoosterIndex
+	case BoostStateTokenTime:
+		return errors.New("this booster is already currently receiving tokens")
+	case BoostStateBoosted:
+		return errors.New("this booster already boosted")
+	}
+
+	// Clear current booster boost state
+	sendNextNotification(s, contract, true)
+	return nil
 }
 
 func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, userID string, boostOrder string) error {
@@ -756,9 +819,9 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		if order == ContractOrderTimeBased {
 			var timeSinceStart = time.Since(contract.StartTime)
 			if timeSinceStart.Minutes() < BoostOrderTimeThresshold {
-				order = ContractOrderRandom
+				order = contract.BoostOrder
 			} else {
-				order = ContractOrderLast
+				order = ContractOrderSignup
 			}
 		}
 
@@ -766,7 +829,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			contract.Boosters[farmer.UserID] = b
 			// If contract hasn't started add booster to the end
 			// or if contract is on the last booster already
-			if contract.State == ContractStateSignup || contract.State == ContractStateWaiting || order == ContractOrderLast {
+			if contract.State == ContractStateSignup || contract.State == ContractStateWaiting || order == ContractOrderSignup {
 				contract.Order = append(contract.Order, farmer.UserID)
 				if contract.State == ContractStateWaiting {
 					contract.BoostPosition = len(contract.Order) - 1
@@ -817,6 +880,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 				if err == nil {
 					//panic(err)
 					loc.ListMsgID = msg.ID
+					loc.MessageIDs = append(loc.MessageIDs, msg.ID)
 				}
 			}
 		}
@@ -980,6 +1044,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
 			if err == nil {
 				loc.ListMsgID = msg.ID
+				loc.MessageIDs = append(loc.MessageIDs, msg.ID)
 			}
 		}
 	}
@@ -1131,6 +1196,7 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
 			if err == nil {
 				loc.ListMsgID = msg.ID
+				loc.MessageIDs = append(loc.MessageIDs, msg.ID)
 			}
 		}
 	}
@@ -1170,9 +1236,15 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 
 	// Edit the boost List in place
 	for _, loc := range contract.Location {
-		msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
+		outputStr := DrawBoostList(s, contract, loc.TokenStr)
+		msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, outputStr)
 		if err == nil {
 			loc.ListMsgID = msg.ID
+			loc.MessageIDs = append(loc.MessageIDs, msg.ID)
+		} else {
+			msg, _ := s.ChannelMessageSend(loc.ChannelID, outputStr)
+			loc.ListMsgID = msg.ID
+			loc.MessageIDs = append(loc.MessageIDs, msg.ID)
 		}
 	}
 
@@ -1202,6 +1274,7 @@ func RemoveContractBooster(s *discordgo.Session, guildID string, channelID strin
 		msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
 		if err == nil {
 			loc.ListMsgID = msg.ID
+			loc.MessageIDs = append(loc.MessageIDs, msg.ID)
 		}
 	}
 	return nil
@@ -1243,6 +1316,7 @@ func FindContract(guildID string, channelID string) *Contract {
 	for key, element := range Contracts {
 		for _, el := range element.Location {
 			if el.GuildID == guildID && el.ChannelID == channelID {
+				// Found the location of the contract, which one is it?
 				return Contracts[key]
 			}
 		}
@@ -1271,13 +1345,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 		return errors.New(errorNotContractCreator)
 	}
 
-	if contract.BoostOrder == ContractOrderFair {
-		newOrder := farmerstate.GetOrderHistory(contract.Order, 5)
-		contract.Order = newOrder
-	} else {
-		contract.BoostOrder = ContractOrderRandom
-		reorderBoosters(contract)
-	}
+	reorderBoosters(contract)
 
 	contract.BoostPosition = 0
 	contract.State = ContractStateStarted
@@ -1315,6 +1383,8 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			msg, err = s.ChannelMessageSendComplex(loc.ChannelID, &data)
 
 			loc.ListMsgID = msg.ID
+			loc.MessageIDs = append(loc.MessageIDs, msg.ID)
+
 		}
 		if err != nil {
 			fmt.Println("Unable to resend message.")
@@ -1351,6 +1421,8 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			str = fmt.Sprintf(loc.ChannelPing+" contract boosting complete in %s ", duration.Round(time.Second))
 		}
 		loc.ListMsgID = msg.ID
+		loc.MessageIDs = append(loc.MessageIDs, msg.ID)
+
 		s.ChannelMessageSend(loc.ChannelID, str)
 	}
 	if pingUsers {
@@ -1592,7 +1664,9 @@ func reorderBoosters(contract *Contract) {
 		rand.Shuffle(len(contract.Order), func(i, j int) {
 			contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i]
 		})
-
+	case ContractOrderFair:
+		newOrder := farmerstate.GetOrderHistory(contract.Order, 5)
+		contract.Order = newOrder
 	}
 }
 

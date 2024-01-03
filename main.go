@@ -79,7 +79,7 @@ var (
 	GuildID        = flag.String("guild", "", "Test guild ID")
 	BotToken       = flag.String("token", "", "Bot access token")
 	AppID          = flag.String("app", "", "Application ID")
-	RemoveCommands = flag.Bool("rmcmd", false, "Remove all commands after shutdowning or not")
+	RemoveCommands = flag.Bool("rmcmd", true, "Remove all commands after shutdowning or not")
 
 	commands = []*discordgo.ApplicationCommand{
 		{
@@ -103,6 +103,26 @@ var (
 					Name:        "coop-size",
 					Description: "Co-op Size",
 					Required:    true,
+				},
+				{
+					Name:        "boost-order",
+					Description: "Select how boost list is ordered. Default is Sign-up order.",
+					Required:    false,
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Choices: []*discordgo.ApplicationCommandOptionChoice{
+						{
+							Name:  "Sign-up Ordering",
+							Value: boost.ContractOrderSignup,
+						},
+						{
+							Name:  "Fair Ordering",
+							Value: boost.ContractOrderFair,
+						},
+						{
+							Name:  "Random Ordering",
+							Value: boost.ContractOrderRandom,
+						},
+					},
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionRole,
@@ -129,22 +149,26 @@ var (
 					Required:    false,
 				},
 				{
-					Name:        "order",
-					Description: "Order farmer added to contract. Default is Fair within first 20m, otherwise last.",
+					Name:        "boost-order",
+					Description: "Order farmer added to contract. Default is Signup order.",
 					Required:    false,
 					Type:        discordgo.ApplicationCommandOptionInteger,
 					Choices: []*discordgo.ApplicationCommandOptionChoice{
 						{
-							Name:  "Fair",
+							Name:  "Sign-up Ordering",
+							Value: boost.ContractOrderSignup,
+						},
+						{
+							Name:  "Fair Ordering",
 							Value: boost.ContractOrderFair,
 						},
 						{
-							Name:  "Random",
-							Value: boost.ContractOrderRandom,
+							Name:  "Time Based Ordering",
+							Value: boost.ContractOrderTimeBased,
 						},
 						{
-							Name:  "Last",
-							Value: boost.ContractOrderLast,
+							Name:  "Random Ordering",
+							Value: boost.ContractOrderRandom,
 						},
 					},
 				},
@@ -271,6 +295,12 @@ var (
 					Description: "Provide new boost order. Example: 1,2,3,6,7,5,7-10",
 					Required:    false,
 				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "current-booster",
+					Description: "Change the current booster. Example: @farmer",
+					Required:    false,
+				},
 			},
 		},
 	}
@@ -299,7 +329,7 @@ var (
 				guestName = opt.StringValue()
 				str += " " + guestName
 			}
-			if opt, ok := optionMap["order"]; ok {
+			if opt, ok := optionMap["boost-order"]; ok {
 				orderValue = int(opt.IntValue())
 			}
 
@@ -351,7 +381,7 @@ var (
 		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var contractID = i.GuildID
 			var coopID = i.GuildID // Default to the Guild ID
-			var boostOrder = boost.ContractOrderFair
+			var boostOrder = boost.ContractOrderSignup
 			var coopSize = 2
 			var ChannelID = i.ChannelID
 			var pingRole = "@here"
@@ -369,6 +399,9 @@ var (
 			if opt, ok := optionMap["ping-role"]; ok {
 				role := opt.RoleValue(nil, "")
 				pingRole = role.Mention()
+			}
+			if opt, ok := optionMap["boost-order"]; ok {
+				boostOrder = int(opt.IntValue())
 			}
 			if opt, ok := optionMap["contract-id"]; ok {
 				contractID = opt.StringValue()
@@ -579,6 +612,14 @@ var (
 					coopID := opt.StringValue()
 				}
 			*/
+			if opt, ok := optionMap["current-booster"]; ok {
+				currentBooster := opt.StringValue()
+				err := boost.ChangeCurrentBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID, currentBooster)
+				if err != nil {
+					str += err.Error()
+				}
+			}
+
 			if opt, ok := optionMap["boost-order"]; ok {
 				boostOrder := opt.StringValue()
 				err := boost.ChangeBoostOrder(s, i.GuildID, i.ChannelID, i.Member.User.ID, boostOrder)
@@ -586,7 +627,6 @@ var (
 					str += err.Error()
 				}
 			}
-
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
