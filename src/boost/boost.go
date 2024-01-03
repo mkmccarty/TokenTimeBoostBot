@@ -547,7 +547,7 @@ func removeDuplicates(s []string) []string {
 }
 
 // write ChangeCurrentBooster
-func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string, userID string, newBooster string) error {
+func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string, userID string, newBooster string, redraw bool) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -588,7 +588,9 @@ func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string
 	}
 
 	// Clear current booster boost state
-	sendNextNotification(s, contract, true)
+	if redraw {
+		sendNextNotification(s, contract, true)
+	}
 	return nil
 }
 

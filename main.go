@@ -612,21 +612,30 @@ var (
 					coopID := opt.StringValue()
 				}
 			*/
+			currentBooster := ""
+			boostOrder := ""
 			if opt, ok := optionMap["current-booster"]; ok {
-				currentBooster := opt.StringValue()
-				err := boost.ChangeCurrentBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID, currentBooster)
-				if err != nil {
-					str += err.Error()
-				}
+				currentBooster = opt.StringValue()
+			}
+			if opt, ok := optionMap["boost-order"]; ok {
+				boostOrder = opt.StringValue()
 			}
 
-			if opt, ok := optionMap["boost-order"]; ok {
-				boostOrder := opt.StringValue()
-				err := boost.ChangeBoostOrder(s, i.GuildID, i.ChannelID, i.Member.User.ID, boostOrder)
-				if err != nil {
-					str += err.Error()
-				}
+			redraw := true
+			if boostOrder != "" {
+				redraw = false
 			}
+
+			err := boost.ChangeCurrentBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID, currentBooster, redraw)
+			if err != nil {
+				str += err.Error()
+			}
+
+			err = boost.ChangeBoostOrder(s, i.GuildID, i.ChannelID, i.Member.User.ID, boostOrder)
+			if err != nil {
+				str += err.Error()
+			}
+
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
