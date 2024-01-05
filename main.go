@@ -459,9 +459,9 @@ var (
 
 				if err != nil {
 					print(err)
+					boost.SetReactionID(contract, msg.ChannelID, reactionMsg.ID)
+					s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
 				}
-				boost.SetReactionID(contract, msg.ChannelID, reactionMsg.ID)
-				s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
 			} else {
 				print(err)
 			}
@@ -748,7 +748,7 @@ func getSignupComponents(disableStartContract bool) (string, []discordgo.Message
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.Button{
-					Emoji: discordgo.ComponentEmoji{
+					Emoji: &discordgo.ComponentEmoji{
 						Name: "🧑‍🌾",
 					},
 					Label:    "Join",
@@ -756,7 +756,7 @@ func getSignupComponents(disableStartContract bool) (string, []discordgo.Message
 					CustomID: "fd_signupFarmer",
 				},
 				discordgo.Button{
-					Emoji: discordgo.ComponentEmoji{
+					Emoji: &discordgo.ComponentEmoji{
 						Name: "🔔",
 					},
 					Label:    "Join w/Ping",
@@ -764,7 +764,7 @@ func getSignupComponents(disableStartContract bool) (string, []discordgo.Message
 					CustomID: "fd_signupBell",
 				},
 				discordgo.Button{
-					Emoji: discordgo.ComponentEmoji{
+					Emoji: &discordgo.ComponentEmoji{
 						Name: "❌",
 					},
 					Label:    "Leave",
@@ -772,7 +772,7 @@ func getSignupComponents(disableStartContract bool) (string, []discordgo.Message
 					CustomID: "fd_signupLeave",
 				},
 				discordgo.Button{
-					Emoji: discordgo.ComponentEmoji{
+					Emoji: &discordgo.ComponentEmoji{
 						Name: "⏱️",
 					},
 					Label:    "Start Boost List",
@@ -785,7 +785,7 @@ func getSignupComponents(disableStartContract bool) (string, []discordgo.Message
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.Button{
-					Emoji: discordgo.ComponentEmoji{
+					Emoji: &discordgo.ComponentEmoji{
 						Name: "5️⃣",
 					},
 					Label:    " Tokens",
@@ -793,7 +793,7 @@ func getSignupComponents(disableStartContract bool) (string, []discordgo.Message
 					CustomID: "fd_tokens5",
 				},
 				discordgo.Button{
-					Emoji: discordgo.ComponentEmoji{
+					Emoji: &discordgo.ComponentEmoji{
 						Name: "6️⃣",
 					},
 					Label:    " Tokens",
@@ -801,7 +801,7 @@ func getSignupComponents(disableStartContract bool) (string, []discordgo.Message
 					CustomID: "fd_tokens6",
 				},
 				discordgo.Button{
-					Emoji: discordgo.ComponentEmoji{
+					Emoji: &discordgo.ComponentEmoji{
 						Name: "8️⃣",
 					},
 					Label:    " Tokens",
