@@ -778,6 +778,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		farmer.GuildID = guildID
 		ch, errCh := s.Channel(channelID)
 		if errCh != nil {
+			fmt.Println(channelID, errCh)
 			farmer.ChannelName = "Unknown"
 		} else {
 			farmer.ChannelName = ch.Name
@@ -785,6 +786,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 
 		g, errG := s.Guild(guildID)
 		if errG != nil {
+			fmt.Println(guildID, errG)
 			farmer.GuildName = "Unknown"
 		} else {
 			farmer.GuildName = g.Name
@@ -796,6 +798,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			farmer.Nick = gm.Nick
 			farmer.Unique = gm.User.String()
 		} else if errGM != nil {
+			fmt.Println(guildID, userID, errGM)
 			farmer.Username = userID
 			farmer.Nick = userID
 			farmer.Unique = userID
