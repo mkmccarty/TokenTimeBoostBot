@@ -310,8 +310,8 @@ var (
 			var farmerName *discordgo.User = nil
 			var guestName = ""
 			var orderValue int = boost.ContractOrderTimeBased // Default to Time Based
-			var str = "Joining Member"
 			var mention = ""
+			var str = "Joining Member"
 
 			// User interacting with bot, is this first time ?
 			options := i.ApplicationCommandData().Options
@@ -333,10 +333,6 @@ var (
 				orderValue = int(opt.IntValue())
 			}
 
-			var err = boost.AddContractMember(s, i.GuildID, i.ChannelID, i.Member.Mention(), mention, guestName, orderValue)
-			if err != nil {
-				str = err.Error()
-			}
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
@@ -344,6 +340,11 @@ var (
 					Flags:      discordgo.MessageFlagsEphemeral,
 					Components: []discordgo.MessageComponent{}},
 			})
+
+			var err = boost.AddContractMember(s, i.GuildID, i.ChannelID, i.Member.Mention(), mention, guestName, orderValue)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
 
 		},
 		slashCoopETA: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -718,7 +719,7 @@ var (
 		"fd_signupLeave": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			str := "Removed from Contract"
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseDeferredMessageUpdate,
+				Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content:    str,
 					Flags:      discordgo.MessageFlagsEphemeral,

@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -113,8 +114,8 @@ type Contract struct {
 	RegisteredNum int
 	Boosters      map[string]*Booster // Boosters Registered
 	Order         []string
-	OrderRevision int // Incremented when Order is changed
-	//mutex         sync.Mutex // Keep this contract thread safe
+	OrderRevision int        // Incremented when Order is changed
+	mutex         sync.Mutex // Keep this contract thread safe
 }
 
 var (
@@ -767,6 +768,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 }
 
 func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string, order int) (*EggFarmer, error) {
+	fmt.Println("AddFarmerToContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", order)
 	var farmer = contract.EggFarmers[userID]
 	if farmer == nil {
 		// New Farmer
@@ -1083,6 +1085,9 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 func JoinContract(s *discordgo.Session, guildID string, channelID string, userID string, bell bool) error {
 	var err error
+
+	fmt.Println("JoinContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Bell: ", bell)
+
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -1093,7 +1098,11 @@ func JoinContract(s *discordgo.Session, guildID string, channelID string, userID
 			return errors.New(errorContractFull)
 		}
 
+		// Wait here until we get our lock
+		contract.mutex.Lock()
 		_, err = AddFarmerToContract(s, contract, guildID, channelID, userID, ContractOrderTimeBased)
+
+		contract.mutex.Unlock()
 		if err != nil {
 			return err
 		}
@@ -1219,6 +1228,7 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 }
 
 func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channelID string, operator string, mention string) error {
+	fmt.Println("RemoveContractBoosterByMention", "GuildID: ", guildID, "ChannelID: ", channelID, "Operator: ", operator, "Mention: ", mention)
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
