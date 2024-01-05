@@ -460,6 +460,7 @@ var (
 
 				if err != nil {
 					print(err)
+				} else if err == nil {
 					boost.SetReactionID(contract, msg.ChannelID, reactionMsg.ID)
 					s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
 				}
