@@ -548,6 +548,7 @@ var (
 
 			var err = boost.RemoveContractBoosterByMention(s, i.GuildID, i.ChannelID, i.Member.Mention(), farmer)
 			if err != nil {
+				fmt.Println("/prune", err.Error())
 				str = err.Error()
 			}
 
