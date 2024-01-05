@@ -776,21 +776,30 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		farmer.Reactions = 0
 		farmer.UserID = userID
 		farmer.GuildID = guildID
-		var ch, _ = s.Channel(channelID)
-		farmer.ChannelName = ch.Name
-		var g, _ = s.Guild(guildID)
-		farmer.GuildName = g.Name
-		var gm, _ = s.GuildMember(guildID, userID)
+		ch, errCh := s.Channel(channelID)
+		if errCh != nil {
+			farmer.ChannelName = "Unknown"
+		} else {
+			farmer.ChannelName = ch.Name
+		}
+
+		g, errG := s.Guild(guildID)
+		if errG != nil {
+			farmer.GuildName = "Unknown"
+		} else {
+			farmer.GuildName = g.Name
+		}
+
+		gm, errGM := s.GuildMember(guildID, userID)
 		if gm != nil {
 			farmer.Username = gm.User.Username
 			farmer.Nick = gm.Nick
 			farmer.Unique = gm.User.String()
-		} else {
+		} else if errGM != nil {
 			farmer.Username = userID
 			farmer.Nick = userID
 			farmer.Unique = userID
 		}
-
 		contract.EggFarmers[userID] = farmer
 	}
 
