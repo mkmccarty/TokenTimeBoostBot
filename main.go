@@ -543,6 +543,7 @@ var (
 
 			if opt, ok := optionMap["farmer"]; ok {
 				farmer = opt.StringValue()
+				str += " " + farmer
 			}
 
 			var err = boost.RemoveContractBoosterByMention(s, i.GuildID, i.ChannelID, i.Member.Mention(), farmer)
