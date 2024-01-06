@@ -130,11 +130,11 @@ build: windows linux darwin pi pi64 freebsd ## Build binaries
 .PHONY: install
 install:
 	./scripts/stop_bot.sh
-	cp $(PI64) ~/bots/TokenTimeBoostBot
+	cp $(BUILD_OUTPUT)/$(PI64) ~/bots/TokenTimeBoostBot
 	./scripts/start_bot.sh
 
 .PHONY: clean
 clean:
 	go clean
-	rm -f $(WINDOWS) $(LINUX) $(DARWIN) $(PI) $(PI5)
+	rm -r $(BUILD_OUTPUT)/*
 

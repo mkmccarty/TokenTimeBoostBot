@@ -21,9 +21,13 @@ jobs:
       with:
         go-version: '1.21'
 
+    - name: Audit
+      run: make audit
+    -name: Test 
+      run: make test
     - name: Build
-      run: |
-        make audit
-        make freebsd
+      run: make all
+       
+        
 
   
