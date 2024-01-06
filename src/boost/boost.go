@@ -290,7 +290,6 @@ func AddBoostTokens(s *discordgo.Session, guildID string, channelID string, user
 		msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
 		if err == nil {
 			//panic(err)
-			loc.MessageIDs = append(loc.MessageIDs, msg.ID)
 			loc.ListMsgID = msg.ID
 		}
 	}
@@ -302,18 +301,24 @@ func SetMessageID(contract *Contract, channelID string, messageID string) {
 	for _, element := range contract.Location {
 		if element.ChannelID == channelID {
 			element.ListMsgID = messageID
-			element.MessageIDs = append(element.MessageIDs, messageID)
+			if slices.Index(element.MessageIDs, messageID) == -1 {
+				element.MessageIDs = append(element.MessageIDs, messageID)
+			}
 		}
 	}
+	saveData(Contracts)
 }
 
-func SetReactionID(contract *Contract, channelID string, messageID string) {
+func SetReactionID(contract *Contract, channelID string, reactionID string) {
 	for _, element := range contract.Location {
 		if element.ChannelID == channelID {
-			element.ReactionID = messageID
-			element.MessageIDs = append(element.MessageIDs, messageID)
+			element.ReactionID = reactionID
+			if slices.Index(element.MessageIDs, reactionID) == -1 {
+				element.MessageIDs = append(element.MessageIDs, reactionID)
+			}
 		}
 	}
+	saveData(Contracts)
 }
 
 func getTokenCountString(tokenStr string, tokensWanted int, tokensReceived int) (string, string) {
@@ -895,9 +900,8 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			for _, loc := range contract.Location {
 				msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
 				if err == nil {
-					//panic(err)
+					// This is an edit, it should be the same
 					loc.ListMsgID = msg.ID
-					loc.MessageIDs = append(loc.MessageIDs, msg.ID)
 				}
 			}
 		}
@@ -1061,7 +1065,6 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
 			if err == nil {
 				loc.ListMsgID = msg.ID
-				loc.MessageIDs = append(loc.MessageIDs, msg.ID)
 			}
 		}
 	}
@@ -1220,7 +1223,6 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
 			if err == nil {
 				loc.ListMsgID = msg.ID
-				loc.MessageIDs = append(loc.MessageIDs, msg.ID)
 			}
 		}
 	}
@@ -1265,11 +1267,9 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 		msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, outputStr)
 		if err == nil {
 			loc.ListMsgID = msg.ID
-			loc.MessageIDs = append(loc.MessageIDs, msg.ID)
 		} else {
 			msg, _ := s.ChannelMessageSend(loc.ChannelID, outputStr)
-			loc.ListMsgID = msg.ID
-			loc.MessageIDs = append(loc.MessageIDs, msg.ID)
+			SetMessageID(contract, loc.ChannelID, msg.ID)
 		}
 	}
 
@@ -1299,7 +1299,6 @@ func RemoveContractBooster(s *discordgo.Session, guildID string, channelID strin
 		msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
 		if err == nil {
 			loc.ListMsgID = msg.ID
-			loc.MessageIDs = append(loc.MessageIDs, msg.ID)
 		}
 	}
 	return nil
@@ -1406,10 +1405,9 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			data.Content = DrawBoostList(s, contract, loc.TokenStr)
 			data.AllowedMentions = &am
 			msg, err = s.ChannelMessageSendComplex(loc.ChannelID, &data)
-
-			loc.ListMsgID = msg.ID
-			loc.MessageIDs = append(loc.MessageIDs, msg.ID)
-
+			if err == nil {
+				SetMessageID(contract, loc.ChannelID, msg.ID)
+			}
 		}
 		if err != nil {
 			fmt.Println("Unable to resend message.")
@@ -1445,10 +1443,13 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			duration := t1.Sub(t2)
 			str = fmt.Sprintf(loc.ChannelPing+" contract boosting complete in %s ", duration.Round(time.Second))
 		}
-		loc.ListMsgID = msg.ID
-		loc.MessageIDs = append(loc.MessageIDs, msg.ID)
 
-		s.ChannelMessageSend(loc.ChannelID, str)
+		// Sending the update message
+		msg, err = s.ChannelMessageSend(loc.ChannelID, str)
+		if err == nil {
+			SetMessageID(contract, loc.ChannelID, msg.ID)
+		}
+
 	}
 	if pingUsers {
 		notifyBellBoosters(s, contract)
