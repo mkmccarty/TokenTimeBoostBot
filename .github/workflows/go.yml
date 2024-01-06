@@ -22,11 +22,14 @@ jobs:
         go-version: '1.21'
 
     - name: Build
-      run: make freebsd
+      run: |
+        make audit
+        make freebsd
 
-    - name: Test
-      run: make test
-    
-    artifacts:
-      paths:
-      - ${{ github.workspace }}/build
+    - name: Archive production artifacts
+            uses: actions/upload-artifact@v3
+        with:
+          name: boostboot-freebsd-arm64
+          path: |
+            build
+          
