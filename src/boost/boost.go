@@ -297,7 +297,7 @@ func AddBoostTokens(s *discordgo.Session, guildID string, channelID string, user
 	return b.TokensWanted, b.TokensReceived, nil
 }
 
-func SetMessageID(contract *Contract, channelID string, messageID string) {
+func SetListMessageID(contract *Contract, channelID string, messageID string) {
 	for _, element := range contract.Location {
 		if element.ChannelID == channelID {
 			element.ListMsgID = messageID
@@ -892,10 +892,13 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			b.StartTime = time.Now()
 			b.BoostState = BoostStateTokenTime
 			contract.BoostPosition = len(contract.Order) - 1
+			// for all locations delete the signup list message and send the boost list message
+			//for _, loc := range contract.Location {
+			//	s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
+			//}
+			sendNextNotification(s, contract, true)
 		}
-		if contract.State != ContractStateSignup {
-			sendNextNotification(s, contract, false)
-		} else {
+		{
 			// Edit the boost list in place
 			for _, loc := range contract.Location {
 				msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
@@ -1262,14 +1265,17 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 	}
 
 	// Edit the boost List in place
-	for _, loc := range contract.Location {
-		outputStr := DrawBoostList(s, contract, loc.TokenStr)
-		msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, outputStr)
-		if err == nil {
-			loc.ListMsgID = msg.ID
-		} else {
-			msg, _ := s.ChannelMessageSend(loc.ChannelID, outputStr)
-			SetMessageID(contract, loc.ChannelID, msg.ID)
+	if contract.BoostPosition != len(contract.Order) {
+		for _, loc := range contract.Location {
+			outputStr := DrawBoostList(s, contract, loc.TokenStr)
+			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, outputStr)
+			if err == nil {
+				loc.ListMsgID = msg.ID
+			} else {
+				s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
+				msg, _ := s.ChannelMessageSend(loc.ChannelID, outputStr)
+				SetListMessageID(contract, loc.ChannelID, msg.ID)
+			}
 		}
 	}
 
@@ -1406,7 +1412,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			data.AllowedMentions = &am
 			msg, err = s.ChannelMessageSendComplex(loc.ChannelID, &data)
 			if err == nil {
-				SetMessageID(contract, loc.ChannelID, msg.ID)
+				SetListMessageID(contract, loc.ChannelID, msg.ID)
 			}
 		}
 		if err != nil {
@@ -1445,10 +1451,10 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		}
 
 		// Sending the update message
-		msg, err = s.ChannelMessageSend(loc.ChannelID, str)
-		if err == nil {
-			SetMessageID(contract, loc.ChannelID, msg.ID)
-		}
+		s.ChannelMessageSend(loc.ChannelID, str)
+		//if err == nil {
+		//SetListMessageID(contract, loc.ChannelID, msg.ID)
+		//}
 
 	}
 	if pingUsers {

@@ -453,7 +453,7 @@ var (
 			var createMsg = boost.DrawBoostList(s, contract, boost.FindTokenEmoji(s, i.GuildID))
 			msg, err := s.ChannelMessageSend(ChannelID, createMsg)
 			if err == nil {
-				boost.SetMessageID(contract, ChannelID, msg.ID)
+				boost.SetListMessageID(contract, ChannelID, msg.ID)
 				var data discordgo.MessageSend
 				data.Content, data.Components = getSignupComponents(false)
 				reactionMsg, err := s.ChannelMessageSendComplex(ChannelID, &data)
