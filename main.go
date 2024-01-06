@@ -277,7 +277,7 @@ var (
 			Name:        slashChange,
 			Description: "Change aspects of a running contract",
 			Options: []*discordgo.ApplicationCommandOption{
-				/*{
+				{
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "coop-id",
 					Description: "Change the coop-id",
@@ -288,7 +288,7 @@ var (
 					Name:        "contract-id",
 					Description: "Change the contract-id",
 					Required:    false,
-				},*/
+				},
 				{
 					Type:        discordgo.ApplicationCommandOptionRole,
 					Name:        "ping-role",
@@ -610,6 +610,8 @@ var (
 		},
 		slashChange: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var str = ""
+			var contractID = ""
+			var coopID = ""
 			// User interacting with bot, is this first time ?
 			options := i.ApplicationCommandData().Options
 			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -624,14 +626,24 @@ var (
 					str += err.Error()
 				}
 			}
-			/*
-				if opt, ok := optionMap["contract-id"]; ok {
-					contractID := opt.StringValue()
+			if opt, ok := optionMap["contract-id"]; ok {
+				contractID = opt.StringValue()
+				contractID = strings.Replace(contractID, " ", "", -1)
+				str += "Contract ID changed to " + contractID
+			}
+			if opt, ok := optionMap["coop-id"]; ok {
+				coopID = opt.StringValue()
+				coopID = strings.Replace(coopID, " ", "", -1)
+				str += "Coop ID changed to " + coopID
+			}
+
+			if contractID != "" || coopID != "" {
+				err := boost.ChangeContractIDs(s, i.GuildID, i.ChannelID, i.Member.User.ID, contractID, coopID)
+				if err != nil {
+					str += err.Error()
 				}
-				if opt, ok := optionMap["coop-id"]; ok {
-					coopID := opt.StringValue()
-				}
-			*/
+			}
+
 			currentBooster := ""
 			boostOrder := ""
 			if opt, ok := optionMap["current-booster"]; ok {
@@ -646,14 +658,18 @@ var (
 				redraw = false
 			}
 
-			err := boost.ChangeCurrentBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID, currentBooster, redraw)
-			if err != nil {
-				str += err.Error()
+			if currentBooster != "" {
+				err := boost.ChangeCurrentBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID, currentBooster, redraw)
+				if err != nil {
+					str += err.Error()
+				}
 			}
 
-			err = boost.ChangeBoostOrder(s, i.GuildID, i.ChannelID, i.Member.User.ID, boostOrder)
-			if err != nil {
-				str += err.Error()
+			if boostOrder != "" {
+				err := boost.ChangeBoostOrder(s, i.GuildID, i.ChannelID, i.Member.User.ID, boostOrder)
+				if err != nil {
+					str += err.Error()
+				}
 			}
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -961,9 +977,17 @@ func main() {
 		// if err != nil {
 		// 	log.Fatalf("Could not fetch registered commands: %v", err)
 		// }
+		cmds, err := s.ApplicationCommands(config.DiscordAppID, config.DiscordGuildID)
+		if (err == nil) && (len(cmds) > 0) {
+			// loop through all cmds
+			for _, cmd := range cmds {
+				// delete each cmd
+				s.ApplicationCommandDelete(config.DiscordAppID, config.DiscordGuildID, cmd.ID)
+			}
+		}
 
 		for _, v := range registeredCommands {
-			err := s.ApplicationCommandDelete(s.State.User.ID, *GuildID, v.ID)
+			err := s.ApplicationCommandDelete(s.State.User.ID, config.DiscordGuildID, v.ID)
 			log.Printf("Delete command '%v' command.", v.Name)
 			if err != nil {
 				log.Panicf("Cannot delete '%v' command: %v", v.Name, err)

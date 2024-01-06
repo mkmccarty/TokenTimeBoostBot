@@ -553,6 +553,27 @@ func removeDuplicates(s []string) []string {
 	return result
 }
 
+// create a function to update the contractID
+func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, userID string, contractID string, coopID string) error {
+	var contract = FindContract(guildID, channelID)
+	if contract == nil {
+		return errors.New(errorNoContract)
+	}
+
+	// return an error if the userID isn't the contract creator
+	if !creatorOfContract(contract, userID) {
+		return errors.New("only the contract creator can change the contract")
+	}
+
+	if contractID != "" {
+		contract.ContractID = contractID
+	}
+	if coopID != "" {
+		contract.CoopID = coopID
+	}
+	return nil
+}
+
 // ChangeCurrentBooster will change the current booster to the specified userID
 func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string, userID string, newBooster string, redraw bool) error {
 	var contract = FindContract(guildID, channelID)
@@ -1106,7 +1127,7 @@ func JoinContract(s *discordgo.Session, guildID string, channelID string, userID
 
 		// Wait here until we get our lock
 		contract.mutex.Lock()
-		_, err = AddFarmerToContract(s, contract, guildID, channelID, userID, ContractOrderTimeBased)
+		_, err = AddFarmerToContract(s, contract, guildID, channelID, userID, contract.BoostOrder)
 
 		contract.mutex.Unlock()
 		if err != nil {
