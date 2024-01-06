@@ -26,10 +26,10 @@ jobs:
         make audit
         make freebsd
 
-    - name: Archive production artifacts
-            uses: actions/upload-artifact@v3
-        with:
-          name: boostboot-freebsd-arm64
-          path: |
-            build
-          
+    - name: Upload a Build Artifact
+  uses: actions/upload-artifact@v4.0.0
+  with:
+    # Artifact name
+    name: # optional, default is artifact
+    # A file, directory or wildcard pattern that describes what to upload
+    path: build
