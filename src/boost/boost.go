@@ -485,7 +485,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		outputStr += "> Use pinned message to join this list and set boost " + tokenStr + " wanted.\n"
 		//outputStr += "```"
 	} else if contract.State == ContractStateWaiting {
-		outputStr += "Waiting for other(s) to join..."
+		outputStr += "> Waiting for other(s) to join..."
+		outputStr += "> Use pinned message to join this list and set boost " + tokenStr + " wanted.\n"
 		outputStr += "```"
 		outputStr += "React with 🏁 to end the contract."
 		outputStr += "```"
