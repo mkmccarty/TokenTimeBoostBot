@@ -1429,7 +1429,8 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 				fmt.Println("Unable to send this message")
 			}
 		} else {
-			if contract.CoopSize == len(contract.Boosters) {
+			// Unpin message once the contract is completed
+			if contract.State == ContractStateCompleted {
 				s.ChannelMessageUnpin(loc.ChannelID, loc.ReactionID)
 			}
 			s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
