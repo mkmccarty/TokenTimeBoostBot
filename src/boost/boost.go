@@ -553,7 +553,7 @@ func removeDuplicates(s []string) []string {
 	return result
 }
 
-// create a function to update the contractID
+// ChangeContractIDs will change the contractID and/or coopID
 func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, userID string, contractID string, coopID string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
