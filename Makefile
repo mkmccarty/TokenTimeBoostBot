@@ -17,6 +17,7 @@ LINUX=$(BINARY_NAME)_linux_amd64
 DARWIN=$(BINARY_NAME)_darwin_amd64
 PI=$(BINARY_NAME)_linux_arm6
 PI64=$(BINARY_NAME)_linux_arm64
+BSD=$(BINARY_NAME)_freebsd_amd64
 
 #VERSION=$(shell git describe --tags --always --long --dirty)
 VERSION=$(shell git describe --tags --always --long --dirty)
@@ -98,6 +99,8 @@ pi: $(PI) ## Build for Raspberry Pi 4
 
 pi64: $(PI64) ## Build for 64-bit Raspberry Pi
 
+freebsd: $(BSD) ## Build for FreeBSD
+
 
 $(WINDOWS):
 	env GOOS=windows GOARCH=amd64 go build -v -o $(WINDOWS) -ldflags="-s -w -X main.Version=$(VERSION)"
@@ -114,8 +117,11 @@ $(PI):
 $(PI64):
 	env GOOS=linux GOARCH=arm64  go build -v -o $(PI64) -ldflags="-s -w -X main.Version=$(VERSION)"  
 
+$(BSD):
+	env GOOS=freebsd GOARCH=amd64  go build -v -o $(BSD) -ldflags="-s -w -X main.Version=$(VERSION)"  
+
 .PHONY: build
-build: windows linux darwin pi ## Build binaries
+build: windows linux darwin pi pi64 freebsd ## Build binaries
 	@echo version: $(VERSION)
 
 
