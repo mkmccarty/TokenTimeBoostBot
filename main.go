@@ -149,6 +149,12 @@ var (
 					Required:    false,
 				},
 				{
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Name:        "token-count",
+					Description: "Set the number of boost tokens for this farmer. Default is 8.",
+					Required:    false,
+				},
+				{
 					Name:        "boost-order",
 					Description: "Order farmer added to contract. Default is Signup order.",
 					Required:    false,
@@ -311,6 +317,7 @@ var (
 			var guestName = ""
 			var orderValue int = boost.ContractOrderTimeBased // Default to Time Based
 			var mention = ""
+			var tokenWant = 8
 			var str = "Joining Member"
 
 			// User interacting with bot, is this first time ?
@@ -329,8 +336,13 @@ var (
 				guestName = opt.StringValue()
 				str += " " + guestName
 			}
+			if opt, ok := optionMap["token-count"]; ok {
+				tokenWant = int(opt.IntValue())
+				str += " with " + fmt.Sprintf("%d", tokenWant) + " boost order"
+			}
 			if opt, ok := optionMap["boost-order"]; ok {
 				orderValue = int(opt.IntValue())
+				// convert int to string
 			}
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -345,7 +357,11 @@ var (
 			if err != nil {
 				fmt.Println(err.Error())
 			}
-
+			if guestName != "" {
+				boost.AddBoostTokens(s, i.GuildID, i.ChannelID, guestName, tokenWant, 0, 0)
+			} else {
+				boost.AddBoostTokens(s, i.GuildID, i.ChannelID, mention, tokenWant, 0, 0)
+			}
 		},
 		slashCoopETA: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var rate = ""
@@ -721,21 +737,13 @@ var (
 		},
 		"fd_signupLeave": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			str := "Removed from Contract"
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content:    str,
-					Flags:      discordgo.MessageFlagsEphemeral,
-					Components: []discordgo.MessageComponent{}},
-			})
-
 			var err = boost.RemoveContractBoosterByMention(s, i.GuildID, i.ChannelID, i.Member.Mention(), i.Member.Mention())
 			if err != nil {
 				str = err.Error()
 			}
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseUpdateMessage,
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content:    str,
 					Flags:      discordgo.MessageFlagsEphemeral,
