@@ -565,6 +565,8 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 		return errors.New("only the contract creator can change the contract")
 	}
 
+	fmt.Println("ChangeContractIDs", "ContractID: ", contractID, "CoopID: ", coopID, "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", "")
+
 	if contractID != "" {
 		contract.ContractID = contractID
 	}
@@ -590,6 +592,8 @@ func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string
 	if !creatorOfContract(contract, userID) {
 		return errors.New("only the contract creator can change the contract")
 	}
+
+	fmt.Println("ChangeCurrentBooster", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "NewBooster: ", newBooster)
 
 	re := regexp.MustCompile(`[\\<>@#&!]`)
 	var newBoosterUserID = re.ReplaceAllString(newBooster, "")
@@ -644,6 +648,8 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 	if contract.State == ContractStateStarted {
 		currentBooster = contract.Order[contract.BoostPosition]
 	}
+
+	fmt.Println("ChangeBoostOrder", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "BoostOrder: ", boostOrder)
 
 	// split the boostOrder string into an array by commas
 	re := regexp.MustCompile(`[\\<>@#&!]`)
