@@ -553,7 +553,7 @@ func removeDuplicates(s []string) []string {
 	return result
 }
 
-// write ChangeCurrentBooster
+// ChangeCurrentBooster will change the current booster to the specified userID
 func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string, userID string, newBooster string, redraw bool) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
