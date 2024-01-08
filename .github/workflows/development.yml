@@ -1,0 +1,79 @@
+name: Development
+on: [push, pull_request]
+jobs:
+  lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 20
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          args: "-v --new-from-rev HEAD~5"
+  test-build-upload:
+    strategy:
+      matrix:
+        go-version: [1.21.x]
+        platform: [ubuntu-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+    - name: Install Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ matrix.go-version }}
+        stable: false
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+          fetch-depth: 0
+    - name: Test
+      run: go test ./... -mod=vendor
+    - name: Build
+      run: |
+        mkdir -p output/{win,lin,mac,freebsd}
+        VERSION=$(git describe --tags)
+        CGO_ENABLED=0 GOOS=darwin GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git log --pretty=format:'%h' -n 1)" -o output/freebsd/boostbot-$VERSION-darwin-amd64
+        CGO_ENABLED=0 GOOS=darwin GOARCH=arm64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git log --pretty=format:'%h' -n 1)" -o output/freebsd/boostbot-$VERSION-darwin-arm64
+        CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git log --pretty=format:'%h' -n 1)" -o output/freebsd/boostbot-$VERSION-freebsd-amd64
+        CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git log --pretty=format:'%h' -n 1)" -o output/freebsd/boostbot-$VERSION-linux-arm
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git log --pretty=format:'%h' -n 1)" -o output/freebsd/boostbot-$VERSION-linux-amd64
+        CGO_ENABLED=0 GOOS=windows GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git log --pretty=format:'%h' -n 1)" -o output/freebsd/boostbot-$VERSION-windows-amd64
+    - name: Upload linux 64-bit
+      if: startsWith(matrix.go-version,'1.21')
+      uses: actions/upload-artifact@v3
+      with:
+        name: boostbot-linux-64bit
+        path: output/lin
+    - name: Upload linux arm 32-bit
+      if: startsWith(matrix.go-version,'1.21')
+      uses: actions/upload-artifact@v3
+      with:
+        name: boostbot-linux-arm
+        path: output/lin
+    - name: Upload windows 64-bit
+      if: startsWith(matrix.go-version,'1.21')
+      uses: actions/upload-artifact@v3
+      with:
+        name: boostbot-windows-64bit
+        path: output/win
+    - name: Upload darwin 64-bit intel
+      if: startsWith(matrix.go-version,'1.21')
+      uses: actions/upload-artifact@v3
+      with:
+        name: boostbot-darwin-64bit-intel
+        path: output/mac
+    - name: Upload darwin 64-bit apple silicon
+      if: startsWith(matrix.go-version,'1.21')
+      uses: actions/upload-artifact@v3
+      with:
+        name: boostbot-darwin-64bit-apple-silicon
+        path: output/mac
+    - name: Upload freebsd 64-bit
+      if: startsWith(matrix.go-version,'1.21')
+      uses: actions/upload-artifact@v3
+      with:
+        name: boostbot-freebsd-64bit
+        path: output/freebsd
