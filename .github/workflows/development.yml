@@ -33,7 +33,7 @@ jobs:
       run: go test ./...
     - name: Build
       run: |
-        mkdir -p output/{win,linux,mac,freebsd}
+        mkdir -p output/{linux,win,mac,freebsd}
         VERSION=$(git describe --tags)
         CGO_ENABLED=0 GOOS=darwin GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git log --pretty=format:'%h' -n 1)" -o output/mac/boostbot-$VERSION-darwin-amd64
         CGO_ENABLED=0 GOOS=darwin GOARCH=arm64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git log --pretty=format:'%h' -n 1)" -o output/mac/boostbot-$VERSION-darwin-arm64
@@ -46,7 +46,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: boostbot-linux
-        path: output/lin
+        path: output/linux
     - name: Upload windows 64-bit
       if: startsWith(matrix.go-version,'1.21')
       uses: actions/upload-artifact@v3
