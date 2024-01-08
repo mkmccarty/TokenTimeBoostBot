@@ -228,10 +228,17 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.BoostVoting = 0
 		contract.OrderRevision = 0
 		contract.State = ContractStateSignup
-		contract.CreatorID = append(contract.CreatorID, userID)               // starting userid
-		contract.CreatorID = append(contract.CreatorID, config.AdminUserID)   // overall admin user
-		contract.CreatorID = append(contract.CreatorID, "393477262412087319") // Tbone user id
-		contract.CreatorID = append(contract.CreatorID, "430186990260977665") // Aggie user id
+		contract.CreatorID = append(contract.CreatorID, userID) // starting userid
+
+		if slices.Index(contract.CreatorID, config.AdminUserID) == -1 {
+			contract.CreatorID = append(contract.CreatorID, config.AdminUserID) // overall admin user
+		}
+		if slices.Index(contract.CreatorID, "393477262412087319") == -1 {
+			contract.CreatorID = append(contract.CreatorID, "393477262412087319") // Tbone user id
+		}
+		if slices.Index(contract.CreatorID, "430186990260977665") == -1 {
+			contract.CreatorID = append(contract.CreatorID, "430186990260977665") // Aggie user id
+		}
 		contract.RegisteredNum = 0
 		contract.CoopSize = coopSize
 		Contracts[ContractHash] = contract
@@ -356,6 +363,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 	saveData(Contracts)
 
 	outputStr = fmt.Sprintf("### %s - %s order - %d/%d\n", contract.ContractHash, contract.BoostOrderStr, len(contract.Boosters), contract.CoopSize)
+	outputStr += fmt.Sprintf("> Coordinator: <@%s>\n", contract.CreatorID[0])
 
 	if contract.State == ContractStateSignup {
 		outputStr += "## Sign-up List\n"
