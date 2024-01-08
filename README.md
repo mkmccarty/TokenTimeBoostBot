@@ -1,3 +1,5 @@
+[![Go](https://github.com/mkmccarty/TokenTimeBoostBot/actions/workflows/go.yml/badge.svg)](https://github.com/mkmccarty/TokenTimeBoostBot/actions/workflows/go.yml)
+
 # TokenTimeBoostBot
 
 Boost Order Management Discord Bot
