@@ -34,13 +34,12 @@ jobs:
       run: |
         mkdir -p output/{linux,win,mac,freebsd}
         VERSION=$(git describe --tags)
-        CGO_ENABLED=0 GOOS=darwin GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/mac/boostbot-$VERSION-darwin-amd64
-        CGO_ENABLED=0 GOOS=darwin GOARCH=arm64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/mac/boostbot-$VERSION-darwin-arm64
-        CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/freebsd/boostbot-$VERSION-freebsd-amd64
-        CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/linux/boostbot-$VERSION-linux-arm
-        CGO_ENABLED=0 GOOS=linux GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/linux/boostbot-$VERSION-linux-amd64
-        CGO_ENABLED=0 GOOS=windows GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/win/boostbot-$VERSION-windows-amd64
-    - name: Upload linux
+        CGO_ENABLED=0 GOOS=darwin GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.Version=$(git describe --tags --always --long --dirty) -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git log --pretty=format:'%h' -n 1)"  -o output/mac/boostbot-$VERSION-darwin-amd64
+        CGO_ENABLED=0 GOOS=darwin GOARCH=arm64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.Version=$(git describe --tags --always --long --dirty) -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git log --pretty=format:'%h' -n 1)"  -o output/mac/boostbot-$VERSION-darwin-arm64
+        CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.Version=$(git describe --tags --always --long --dirty) -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git log --pretty=format:'%h' -n 1)"  -o output/freebsd/boostbot-$VERSION-freebsd-amd64
+        CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.Version=$(git describe --tags --always --long --dirty) -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git log --pretty=format:'%h' -n 1)"  -o output/linux/boostbot-$VERSION-linux-arm
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.Version=$(git describe --tags --always --long --dirty) -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git log --pretty=format:'%h' -n 1)"  -o output/linux/boostbot-$VERSION-linux-amd64
+        CGO_ENABLED=0 GOOS=windows GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.Version=$(git describe --tags --always --long --dirty) -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git log --pretty=format:'%h' -n 1)" -o output/win/boostbot-$VERSION-windows-amd64    - name: Upload linux
       if: startsWith(matrix.go-version,'1.21')
       uses: actions/upload-artifact@v3
       with:
