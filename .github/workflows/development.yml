@@ -1,18 +1,19 @@
 name: Development
 on: [push, pull_request]
 jobs:
-  lint:
-    name: golangci-lint
+  lint-go:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
         with:
-          fetch-depth: 20
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.47.3
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: latest
-          args: "-v --new-from-rev HEAD~5"
+        run: golangci-lint run --version --verbose --out-format=github-actions
   test-build-upload:
     strategy:
       matrix:
