@@ -1,4 +1,4 @@
-[![Go](https://github.com/mkmccarty/TokenTimeBoostBot/actions/workflows/go.yml/badge.svg)](https://github.com/mkmccarty/TokenTimeBoostBot/actions/workflows/go.yml)
+[![Development](https://github.com/mkmccarty/TokenTimeBoostBot/actions/workflows/development.yml/badge.svg)](https://github.com/mkmccarty/TokenTimeBoostBot/actions/workflows/development.yml)
 
 # TokenTimeBoostBot
 
