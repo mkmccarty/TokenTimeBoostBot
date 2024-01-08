@@ -7,7 +7,7 @@
 *.dll
 *.so
 *.dylib
-TokenTimeBoostBot_*
+output
 ttbb-data
 # Test binary, built with `go test -c`
 *.test
