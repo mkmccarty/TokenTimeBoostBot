@@ -14,6 +14,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
 	"github.com/mkmccarty/TokenTimeBoostBot/version"
 	"github.com/xhit/go-str2duration/v2"
@@ -29,6 +30,7 @@ const slashChange string = "change"
 const slashUnboost string = "unboost"
 const slashPrune string = "prune"
 const slashJoin string = "join"
+const slashSetEggIncName string = "seteggincname"
 
 // const slashSignup string = "signup"
 const slashCoopETA string = "coopeta"
@@ -312,6 +314,18 @@ var (
 				},
 			},
 		},
+		{
+			Name:        slashSetEggIncName,
+			Description: "Set Egg, Inc game name",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "ei-name",
+					Description: "Egg Inc user name",
+					Required:    true,
+				},
+			},
+		},
 	}
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
@@ -571,6 +585,32 @@ var (
 				fmt.Println("/prune", err.Error())
 				str = err.Error()
 			}
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content:    str,
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
+
+		},
+		slashSetEggIncName: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			var str = "Setting Egg, Inc name to "
+			var eiName = ""
+
+			options := i.ApplicationCommandData().Options
+			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+			for _, opt := range options {
+				optionMap[opt.Name] = opt
+			}
+
+			if opt, ok := optionMap["ei-name"]; ok {
+				eiName = opt.StringValue()
+				str += eiName
+			}
+
+			farmerstate.SetEggIncName(i.Member.User.ID, eiName)
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
