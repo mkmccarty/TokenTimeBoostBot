@@ -293,13 +293,7 @@ func AddBoostTokens(s *discordgo.Session, guildID string, channelID string, user
 		//TODO: Maybe track who's sending tokens
 	}
 
-	for _, loc := range contract.Location {
-		msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
-		if err == nil {
-			//panic(err)
-			loc.ListMsgID = msg.ID
-		}
-	}
+	refreshBoostListMessage(s, contract)
 
 	return b.TokensWanted, b.TokensReceived, nil
 }
@@ -934,19 +928,10 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			//	s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
 			//}
 			sendNextNotification(s, contract, true)
-		}
-		{
-			// Edit the boost list in place
-			for _, loc := range contract.Location {
-				msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
-				if err == nil {
-					// This is an edit, it should be the same
-					loc.ListMsgID = msg.ID
-				}
-			}
+		} else {
+			refreshBoostListMessage(s, contract)
 		}
 	}
-
 	return farmer, nil
 }
 
@@ -1101,12 +1086,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	*/
 
 	if redraw {
-		for _, loc := range contract.Location {
-			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
-			if err == nil {
-				loc.ListMsgID = msg.ID
-			}
-		}
+		refreshBoostListMessage(s, contract)
 	}
 
 	if r.Emoji.Name == "❓" {
@@ -1257,14 +1237,7 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 		sendNextNotification(s, contract, true)
 	} else {
 		contract.Boosters[userID].BoostState = BoostStateUnboosted
-
-		// Edit the boost List in place
-		for _, loc := range contract.Location {
-			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
-			if err == nil {
-				loc.ListMsgID = msg.ID
-			}
-		}
+		refreshBoostListMessage(s, contract)
 	}
 	return nil
 }
@@ -1337,13 +1310,7 @@ func RemoveContractBooster(s *discordgo.Session, guildID string, channelID strin
 	}
 
 	// Remove the Boost List and thoen redisplay it
-	for _, loc := range contract.Location {
-
-		msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
-		if err == nil {
-			loc.ListMsgID = msg.ID
-		}
-	}
+	refreshBoostListMessage(s, contract)
 	return nil
 }
 
@@ -1423,6 +1390,17 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	sendNextNotification(s, contract, true)
 
 	return nil
+}
+
+func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
+	// Edit the boost list in place
+	for _, loc := range contract.Location {
+		msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
+		if err == nil {
+			// This is an edit, it should be the same
+			loc.ListMsgID = msg.ID
+		}
+	}
 }
 
 func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bool) {
