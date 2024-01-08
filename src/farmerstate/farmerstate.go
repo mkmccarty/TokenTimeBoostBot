@@ -90,7 +90,11 @@ func SetEggIncName(userID string, eggIncName string) {
 		newFarmer(userID)
 	}
 	farmerstate[userID].EggIncName = eggIncName
-	saveData(farmerstate)
+
+	err := saveData(farmerstate)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func GetTokens(userID string) int {

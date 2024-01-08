@@ -612,13 +612,16 @@ var (
 
 			farmerstate.SetEggIncName(i.Member.User.ID, eiName)
 
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content:    str,
 					Flags:      discordgo.MessageFlagsEphemeral,
 					Components: []discordgo.MessageComponent{}},
 			})
+			if err != nil {
+				fmt.Println(err.Error())
+			}
 
 		},
 		slashGPT: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
