@@ -1,19 +1,6 @@
 name: Development
 on: [push, pull_request]
 jobs:
-  lint-go:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version-file: go.mod
-          cache: true
-          cache-dependency-path: go.sum
-      - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.47.3
-      - name: Run golangci-lint
-        run: golangci-lint run --version --verbose --out-format=github-actions
   test-build-upload:
     strategy:
       matrix:
@@ -29,8 +16,10 @@ jobs:
       uses: actions/checkout@v3
       with:
           fetch-depth: 0
+    - name: Audit
+      run: make audit
     - name: Test
-      run: go test ./...
+      run: make test
     - name: Build
       run: |
         mkdir -p output/{linux,win,mac,freebsd}
