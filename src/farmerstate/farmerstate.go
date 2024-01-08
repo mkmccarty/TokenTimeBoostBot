@@ -13,6 +13,7 @@ import (
 
 type Farmer struct {
 	UserID       string // Discord User ID
+	EggIncName   string // User's Egg Inc name
 	Ping         bool   // True/False
 	Tokens       int    // Number of tokens this user wants
 	OrderHistory []int  // list of contract order percentiles
@@ -76,6 +77,21 @@ func newFarmer(userID string) {
 
 func DeleteFarmer(userID string) {
 	delete(farmerstate, userID)
+}
+
+func GetEggIncName(userID string) string {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+	return farmerstate[userID].EggIncName
+}
+
+func SetEggIncName(userID string, eggIncName string) {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+	farmerstate[userID].EggIncName = eggIncName
+	saveData(farmerstate)
 }
 
 func GetTokens(userID string) int {

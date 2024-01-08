@@ -5,34 +5,50 @@ import (
 	"testing"
 )
 
-func TestSetTokens(t *testing.T) {
-	SetTokens("TEST", 5)
+func TestSetEggIncName(t *testing.T) {
+	SetEggIncName("TestUser", "TestEggIncName")
 
-	if GetTokens("TEST") != farmerstate["TEST"].Tokens {
-		t.Errorf("SetTokens() = %v, want %v", GetTokens("TEST"), farmerstate["TEST"].Tokens)
+	if GetEggIncName("TestUser") != farmerstate["TestUser"].EggIncName {
+		t.Errorf("SetEggIncName() = %v, want %v", GetEggIncName("TestUser"), farmerstate["TestUser"].EggIncName)
+	}
+}
+
+func TestGetEggIncName(t *testing.T) {
+	SetEggIncName("TestUser", "TestEggIncName")
+
+	if GetEggIncName("TestUser") != farmerstate["TestUser"].EggIncName {
+		t.Errorf("GetEggIncName() = %v, want %v", GetEggIncName("TestUser"), farmerstate["TestUser"].EggIncName)
+	}
+}
+
+func TestSetTokens(t *testing.T) {
+	SetTokens("TestUser", 5)
+
+	if GetTokens("TestUser") != farmerstate["TestUser"].Tokens {
+		t.Errorf("SetTokens() = %v, want %v", GetTokens("TestUser"), farmerstate["TestUser"].Tokens)
 	}
 }
 
 func TestGetPing(t *testing.T) {
-	SetPing("TEST", true)
+	SetPing("TestUser", true)
 
-	if GetPing("TEST") != farmerstate["TEST"].Ping {
-		t.Errorf("SetTokens() = %v, want %v", GetPing("TEST"), farmerstate["TEST"].Ping)
+	if GetPing("TestUser") != farmerstate["TestUser"].Ping {
+		t.Errorf("SetTokens() = %v, want %v", GetPing("TestUser"), farmerstate["TestUser"].Ping)
 	}
 
 }
 
 func TestSetOrderPercentileOne(t *testing.T) {
-	SetOrderPercentileOne("TEST", 1, 10)
+	SetOrderPercentileOne("TestUser", 1, 10)
 
-	index := len(farmerstate["TEST"].OrderHistory) - 1
-	if farmerstate["TEST"].OrderHistory[index] != 10 {
-		t.Errorf("SetOrderPercentile() = %v, want %v", farmerstate["TEST"].OrderHistory[index], 10)
+	index := len(farmerstate["TestUser"].OrderHistory) - 1
+	if farmerstate["TestUser"].OrderHistory[index] != 10 {
+		t.Errorf("SetOrderPercentile() = %v, want %v", farmerstate["TestUser"].OrderHistory[index], 10)
 	}
-	SetOrderPercentileOne("TEST", 9, 10)
-	index = len(farmerstate["TEST"].OrderHistory) - 1
-	if farmerstate["TEST"].OrderHistory[index] != 90 {
-		t.Errorf("SetOrderPercentile() = %v, want %v", farmerstate["TEST"].OrderHistory[index], 90)
+	SetOrderPercentileOne("TestUser", 9, 10)
+	index = len(farmerstate["TestUser"].OrderHistory) - 1
+	if farmerstate["TestUser"].OrderHistory[index] != 90 {
+		t.Errorf("SetOrderPercentile() = %v, want %v", farmerstate["TestUser"].OrderHistory[index], 90)
 	}
 
 }
@@ -54,7 +70,7 @@ func TestSetOrderPercentileAll(t *testing.T) {
 
 func TestGetOrderHistory(t *testing.T) {
 
-	order := []string{"TEST1", "TEST_MISSING"}
+	order := []string{"TestUser", "TEST_MISSING"}
 
 	DeleteFarmer("TEST_MISSING")
 	GetOrderHistory(order, 5)

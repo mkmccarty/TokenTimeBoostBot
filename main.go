@@ -15,6 +15,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
+	"github.com/mkmccarty/TokenTimeBoostBot/version"
 	"github.com/xhit/go-str2duration/v2"
 )
 
@@ -41,6 +42,8 @@ var mutex sync.Mutex
 var s *discordgo.Session
 
 func init() {
+	fmt.Printf("Starting Discord Bot: %s\n", version.Version)
+
 	// Read application parameters
 	flag.Parse()
 
