@@ -580,6 +580,57 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 	return nil
 }
 
+func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID string, boosterName string, boosterPosition int, redraw bool) error {
+	var contract = FindContract(guildID, channelID)
+	if contract == nil {
+		return errors.New(errorNoContract)
+	}
+
+	// return an error if the contract is in the signup state
+	if contract.State == ContractStateSignup {
+		return errors.New(errorContractNotStarted)
+	}
+
+	// return an error if the userID isn't the contract creator
+	if !creatorOfContract(contract, userID) {
+		return errors.New("only the contract creator can change the contract")
+	}
+
+	fmt.Println("MoveBooster", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "BoosterName: ", boosterName, "BoosterPosition: ", boosterPosition)
+
+	var boosterIndex = slices.Index(contract.Order, boosterName)
+	if boosterIndex == -1 {
+		return errors.New("this booster not in contract")
+	}
+
+	var newOrder []string
+	copyOrder := RemoveIndex(contract.Order, boosterIndex)
+	if len(copyOrder) == 0 {
+		newOrder = append(newOrder, boosterName)
+	} else if boosterPosition > len(copyOrder) {
+		// Booster at end of list
+		newOrder = append(copyOrder, boosterName)
+	} else {
+		// loop through copyOrder
+		for i, element := range copyOrder {
+			if i == boosterPosition-1 {
+				newOrder = append(newOrder, boosterName)
+				newOrder = append(newOrder, element)
+			} else {
+				newOrder = append(newOrder, element)
+			}
+		}
+	}
+
+	// Swap in the new order and redraw the list
+	contract.Order = newOrder
+	if redraw {
+		refreshBoostListMessage(s, contract)
+	}
+
+	return nil
+}
+
 // ChangeCurrentBooster will change the current booster to the specified userID
 func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string, userID string, newBooster string, redraw bool) error {
 	var contract = FindContract(guildID, channelID)
@@ -617,6 +668,13 @@ func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string
 		contract.Boosters[newBoosterUserID].BoostState = BoostStateTokenTime
 		contract.Boosters[newBoosterUserID].StartTime = time.Now()
 		contract.BoostPosition = newBoosterIndex
+
+		// Make sure there's only a single booster
+		for _, element := range contract.Order {
+			if element != newBoosterUserID && contract.Boosters[element].BoostState == BoostStateTokenTime {
+				contract.Boosters[currentBooster].BoostState = BoostStateUnboosted
+			}
+		}
 	case BoostStateTokenTime:
 		return errors.New("this booster is already currently receiving tokens")
 	case BoostStateBoosted:
@@ -630,7 +688,7 @@ func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string
 	return nil
 }
 
-func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, userID string, boostOrder string) error {
+func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, userID string, boostOrder string, redraw bool) error {
 	var contract = FindContract(guildID, channelID)
 	var boostOrderClean = ""
 	if contract == nil {
@@ -724,7 +782,10 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 		}
 	}
 
-	sendNextNotification(s, contract, true)
+	//sendNextNotification(s, contract, true)
+	if redraw {
+		refreshBoostListMessage(s, contract)
+	}
 	return nil
 }
 

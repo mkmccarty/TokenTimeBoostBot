@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -35,7 +36,7 @@ const slashSetEggIncName string = "seteggincname"
 // const slashSignup string = "signup"
 const slashCoopETA string = "coopeta"
 
-const slashGPT string = "fun"
+const slashFun string = "fun"
 
 // const slashTrueGPT string = "gpt"
 // const slashSignup string = "signup"
@@ -187,7 +188,7 @@ var (
 		},
 
 		{
-			Name:        slashGPT,
+			Name:        slashFun,
 			Description: "OpenAI Fun",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
@@ -213,7 +214,7 @@ var (
 							Value: 3,
 						},
 						{
-							Name:  "Draw a fancy picture using the prompt text.",
+							Name:  "Generate image. Use prompt.",
 							Value: 4,
 						},
 					},
@@ -298,6 +299,12 @@ var (
 					Type:        discordgo.ApplicationCommandOptionRole,
 					Name:        "ping-role",
 					Description: "Change the contract ping role.",
+					Required:    false,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "one-boost-position",
+					Description: "Move a booster to a specific order position.  Example: @farmer 4",
 					Required:    false,
 				},
 				{
@@ -624,7 +631,7 @@ var (
 			}
 
 		},
-		slashGPT: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		slashFun: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var gptOption = int64(0)
 			var gptText = ""
 			//var str = ""
@@ -692,27 +699,52 @@ var (
 
 			currentBooster := ""
 			boostOrder := ""
+			oneBoosterName := ""
+			oneBoosterPosition := 0
 			if opt, ok := optionMap["current-booster"]; ok {
-				currentBooster = opt.StringValue()
+				currentBooster = strings.TrimSpace(opt.StringValue())
 			}
 			if opt, ok := optionMap["boost-order"]; ok {
-				boostOrder = opt.StringValue()
+				boostOrder = strings.TrimSpace(opt.StringValue())
+			}
+			if opt, ok := optionMap["one-boost-position"]; ok {
+				// String in the form of mention
+				boosterString := strings.TrimSpace(opt.StringValue())
+				// split string into slice by space, comma or colon
+				boosterSlice := strings.FieldsFunc(boosterString, func(r rune) bool {
+					return r == ' ' || r == ',' || r == ':'
+				})
+				// booster name is boosterString without the last element of boosterSlice
+				oneBoosterName = strings.TrimSuffix(boosterString, boosterSlice[len(boosterSlice)-1])
+				oneBoosterName = strings.TrimSpace(oneBoosterName)
+				// Trim last character from oneBoosterName
+				oneBoosterName = strings.TrimSpace(strings.TrimSuffix(strings.TrimSuffix(oneBoosterName, ":"), ","))
+
+				re := regexp.MustCompile(`[\\<>@#&!]`)
+				oneBoosterName = re.ReplaceAllString(oneBoosterName, "")
+
+				// convert string to int
+				oneBoosterPosition = int(boosterSlice[len(boosterSlice)-1][0] - '0')
 			}
 
-			redraw := true
-			if boostOrder != "" {
-				redraw = false
-			}
-
-			if currentBooster != "" {
-				err := boost.ChangeCurrentBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID, currentBooster, redraw)
+			// Either change a single booster or the whole list
+			// Cannot change one booster's position and make them boost
+			if oneBoosterName != "" && oneBoosterPosition != 0 {
+				err := boost.MoveBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID, oneBoosterName, oneBoosterPosition, currentBooster == "")
 				if err != nil {
 					str += err.Error()
 				}
+			} else {
+				if boostOrder != "" {
+					err := boost.ChangeBoostOrder(s, i.GuildID, i.ChannelID, i.Member.User.ID, boostOrder, currentBooster == "")
+					if err != nil {
+						str += err.Error()
+					}
+				}
 			}
 
-			if boostOrder != "" {
-				err := boost.ChangeBoostOrder(s, i.GuildID, i.ChannelID, i.Member.User.ID, boostOrder)
+			if currentBooster != "" {
+				err := boost.ChangeCurrentBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID, currentBooster, true)
 				if err != nil {
 					str += err.Error()
 				}
