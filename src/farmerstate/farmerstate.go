@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"testing"
 
 	"github.com/peterbourgon/diskv/v3"
 )
@@ -213,11 +212,6 @@ func saveData(c map[string]*Farmer) error {
 	//diskmutex.Lock()
 	b, _ := json.Marshal(c)
 	dataStore.Write("Farmers", b)
-
-	//diskmutex.Unlock()
-	if testing.Testing() {
-		return nil
-	}
 
 	return nil
 }
