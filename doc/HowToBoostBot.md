@@ -12,7 +12,8 @@ There is a limitation of a single running contract per channel or thread as mess
 
 To change from the sign-up list to the actual boost list the coordinator needs to press the green **Start Boost List** button. The sign-up list is intended to gather farmers for a contract before starting a game lobby. Once you have enough of a group to start your boost list then hit the button.
 
-Start the contract with **/contract** and fill in the parameters contract-id coop-id coop-size boost-order and ping-role. The boost-order defaults to sign-up order. The ping-role defaults to `@here`, it can be changed with */change*
+Start the contract with **/contract** and fill in the parameters contract-id coop-id coop-size boost-order and ping-role. The boost-order defaults to sign-up order. The ping-role defaults to `@here`, it can be changed with */change*.
+
 Use */join*, */prune*, */unboost* and */change* to help organize the contract.
 
 The contract coordinator and some server admin's are able to react to the **Start Boost List** button and Boost-list reactions for :rocket: and 🔃 to help keep contracts moving.
