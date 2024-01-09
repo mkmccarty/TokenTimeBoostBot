@@ -693,11 +693,18 @@ var (
 			}
 
 			if opt, ok := optionMap["ei-name"]; ok {
-				eiName = opt.StringValue()
+				eiName = strings.TrimSpace(opt.StringValue())
 				str += eiName
 			}
 
-			farmerstate.SetEggIncName(i.Member.User.ID, eiName)
+			// if eiName matches this regex ^EI[1-9]*$ then it an invalid name
+			re := regexp.MustCompile(`^EI[1-9]*$`)
+			if re.MatchString(eiName) {
+				str = "Don't use your Egg, Inc. EI number."
+				eiName = ""
+			} else {
+				farmerstate.SetEggIncName(i.Member.User.ID, eiName)
+			}
 
 			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
