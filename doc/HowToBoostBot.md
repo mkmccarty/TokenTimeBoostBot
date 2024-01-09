@@ -1,6 +1,6 @@
 # How To Boost Bot
 
-The Boost Bot helps contract coordinators and farmers with the running of a boost list. Farmers can add themselves, indicate tokens are being passed and mark as boosted.
+The Boost Bot helps contract coordinators and farmers with the running of a boost list. Farmers can add themselves, indicate tokens are being passed and mark as boosted. Boost Bot does not interact with the Egg, Inc. game servers.
 
 ## Contract Coordinator
 
@@ -33,4 +33,4 @@ If you want to move yourself to the bottom of the boost list then ⤵️ is your
 ## Other commands
 /boost - Use this if you've boosted out of order.
 
-/seteggicname - Use this to set your Egg, Inc game name.
+/seteggicname - Use this to set your Egg, Inc game name, NOT your EI number.
