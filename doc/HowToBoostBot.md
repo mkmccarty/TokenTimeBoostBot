@@ -33,4 +33,4 @@ If you want to move yourself to the bottom of the boost list then ⤵️ is your
 ## Other commands
 /boost - Use this if you've boosted out of order.
 
-/seteggicname - Use this to set your Egg, Inc game name, NOT your EI number.
+/seteggicname - Use this if your Egg, Inc game name isn't your server name. Use without a parameter to clear it. Do not use your EI number.
