@@ -989,10 +989,10 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			//	s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
 			//}
 			sendNextNotification(s, contract, true)
-		} else {
-			refreshBoostListMessage(s, contract)
+			return farmer, nil
 		}
 	}
+	refreshBoostListMessage(s, contract)
 	return farmer, nil
 }
 
@@ -1084,14 +1084,13 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				// Reaction to jump to end
 				if r.Emoji.Name == "⤵️" {
 					//contract.mutex.Unlock()
-					currentBoosterPosition := contract.BoostPosition
-
 					if contract.Boosters[r.UserID].BoostState == BoostStateTokenTime {
-						MoveBooster(s, r.GuildID, r.ChannelID, r.UserID, r.UserID, len(contract.Order), false)
-						// This booster is currently boosting, need to set next booster
-						ChangeCurrentBooster(s, r.GuildID, r.ChannelID, r.UserID, contract.Order[currentBoosterPosition], true)
-						// This will cause a full redraw so no need to remove the reaction
-						return ""
+						currentBoosterPosition := findNextBooster(contract)
+						MoveBooster(s, r.GuildID, r.ChannelID, r.UserID, r.UserID, len(contract.Order), currentBoosterPosition == -1)
+						if currentBoosterPosition != -1 {
+							ChangeCurrentBooster(s, r.GuildID, r.ChannelID, r.UserID, contract.Order[currentBoosterPosition], true)
+							return ""
+						}
 					} else {
 						MoveBooster(s, r.GuildID, r.ChannelID, r.UserID, r.UserID, len(contract.Order), true)
 					}
@@ -1176,6 +1175,16 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	}
 
 	return ""
+}
+
+// findNextBooster returns the index of the next booster that needs to boost
+func findNextBooster(contract *Contract) int {
+	for i := 0; i < len(contract.Order); i++ {
+		if contract.Boosters[contract.Order[i]].BoostState == BoostStateUnboosted || contract.Boosters[contract.Order[i]].BoostState == BoostStateTokenTime {
+			return i
+		}
+	}
+	return -1
 }
 
 func JoinContract(s *discordgo.Session, guildID string, channelID string, userID string, bell bool) error {
@@ -1264,6 +1273,8 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 		contract.Order = RemoveIndex(contract.Order, index)
 		contract.OrderRevision += 1
 		//remove userID from Boosters
+		refreshBoostListMessage(s, contract)
+
 	}
 	return true
 }
@@ -1514,8 +1525,6 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 				s.MessageReactionAdd(loc.ChannelID, msg.ID, loc.TokenReactionStr) // Token Reaction
 				//s.MessageReactionAdd(loc.ChannelID, msg.ID, "➕")                  // Booster + needed
 				//s.MessageReactionAdd(loc.ChannelID, msg.ID, "➖")                  // Booster - needed
-			}
-			if (contract.BoostPosition + 1) < len(contract.Order) {
 				s.MessageReactionAdd(loc.ChannelID, msg.ID, "🔃")  // Swap
 				s.MessageReactionAdd(loc.ChannelID, msg.ID, "⤵️") // Last
 			}
