@@ -1056,14 +1056,15 @@ func main() {
 				s.ApplicationCommandDelete(config.DiscordAppID, config.DiscordGuildID, cmd.ID)
 			}
 		}
-
-		for _, v := range registeredCommands {
-			err := s.ApplicationCommandDelete(s.State.User.ID, config.DiscordGuildID, v.ID)
-			log.Printf("Delete command '%v' command.", v.Name)
-			if err != nil {
-				log.Printf("Cannot delete '%v' command: %v\n", v.Name, err)
+		/*
+			for _, v := range registeredCommands {
+				err := s.ApplicationCommandDelete(s.State.User.ID, config.DiscordGuildID, v.ID)
+				log.Printf("Delete command '%v' command.", v.Name)
+				if err != nil {
+					log.Printf("Cannot delete '%v' command: %v\n", v.Name, err)
+				}
 			}
-		}
+		*/
 	}
 
 	log.Println("Graceful shutdown")
