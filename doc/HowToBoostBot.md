@@ -17,7 +17,7 @@ Use */join*, */prune*, */unboost* and */change* to help organize the contract.
 
 ## Users of Boost Bot
 
-When the sign-list is created the buttons for that are pinned for quick future access. When the the sign-up or boost list has a change to show a different booster, the updated list will be posted as a new message, and the previous one deleted. This keeps the list moving with the channel or thread's timeline.
+When the sign-up list is created the buttons for that are pinned for quick future access. When the the sign-up or boost list has a change to show a different booster, the updated list will be posted as a new message, and the previous one deleted. This keeps the list moving with the channel or thread's timeline.
 
 From the pinned signup buttons, **Join** the contract and set the number of boost tokens you like to use, these default to 8 and anything set will persist for future contracts. The 5/6/8 set the number of tokens wanted with +/- adjusting that amount up or down so you get to any number.
 
