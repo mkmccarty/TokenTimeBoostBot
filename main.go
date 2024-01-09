@@ -143,16 +143,10 @@ var (
 			Description: "Add farmer or guest to contract.",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
-					Type:        discordgo.ApplicationCommandOptionUser,
-					Name:        "farmer",
-					Description: "User Mention to add to existing contract",
-					Required:    false,
-				},
-				{
 					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "guest",
-					Description: "Guest Farmer to add to existing contract",
-					Required:    false,
+					Name:        "farmer",
+					Description: "User mention or guest name to add to existing contract",
+					Required:    true,
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionInteger,
@@ -337,7 +331,6 @@ var (
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		slashJoin: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			var farmerName *discordgo.User = nil
 			var guestName = ""
 			var orderValue int = boost.ContractOrderTimeBased // Default to Time Based
 			var mention = ""
@@ -352,13 +345,13 @@ var (
 			}
 
 			if opt, ok := optionMap["farmer"]; ok {
-				farmerName = opt.UserValue(s)
-				mention = farmerName.Mention()
-				str += " " + farmerName.Username
-			}
-			if opt, ok := optionMap["guest"]; ok {
-				guestName = opt.StringValue()
-				str += " " + guestName
+				farmerName := opt.StringValue()
+				if strings.HasPrefix(farmerName, "<@") {
+					mention = farmerName
+				} else {
+					guestName = farmerName
+				}
+				str += " " + farmerName
 			}
 			if opt, ok := optionMap["token-count"]; ok {
 				tokenWant = int(opt.IntValue())
