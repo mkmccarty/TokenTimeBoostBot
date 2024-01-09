@@ -488,7 +488,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		//outputStr += "```"
 	} else if contract.State == ContractStateWaiting {
 		outputStr += "\n"
-		outputStr += "> Waiting for other(s) to join..."
+		outputStr += "> Waiting for other(s) to join...\n"
 		outputStr += "> Use pinned message to join this list and set boost " + tokenStr + " wanted.\n"
 		outputStr += "```"
 		outputStr += "React with 🏁 to end the contract."
@@ -672,7 +672,7 @@ func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string
 		// Make sure there's only a single booster
 		for _, element := range contract.Order {
 			if element != newBoosterUserID && contract.Boosters[element].BoostState == BoostStateTokenTime {
-				contract.Boosters[currentBooster].BoostState = BoostStateUnboosted
+				contract.Boosters[element].BoostState = BoostStateUnboosted
 			}
 		}
 	case BoostStateTokenTime:
@@ -1077,14 +1077,25 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 						SkipBooster(s, r.GuildID, r.ChannelID, "")
 						return ""
 					}
-					// Reaction to jump to end
-					if r.Emoji.Name == "⤵️" {
-						//contract.mutex.Unlock()
-						SkipBooster(s, r.GuildID, r.ChannelID, contract.Order[contract.BoostPosition])
+				}
+			}
+
+			{
+				// Reaction to jump to end
+				if r.Emoji.Name == "⤵️" {
+					//contract.mutex.Unlock()
+					currentBoosterPosition := contract.BoostPosition
+
+					if contract.Boosters[r.UserID].BoostState == BoostStateTokenTime {
+						MoveBooster(s, r.GuildID, r.ChannelID, r.UserID, r.UserID, len(contract.Order), false)
+						// This booster is currently boosting, need to set next booster
+						ChangeCurrentBooster(s, r.GuildID, r.ChannelID, r.UserID, contract.Order[currentBoosterPosition], true)
+						// This will cause a full redraw so no need to remove the reaction
 						return ""
+					} else {
+						MoveBooster(s, r.GuildID, r.ChannelID, r.UserID, r.UserID, len(contract.Order), true)
 					}
 				}
-			} else {
 				// Reaction to indicate you need to go now
 				if r.Emoji.Name == "🚽" {
 					SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
@@ -1158,7 +1169,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			outputStr += "Farmers react with " + loc.TokenStr + " when sending tokens.\n"
 			//outputStr += "Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n"
 			outputStr += "Active booster reaction of 🔃 to exchange position with the next booster.\n"
-			outputStr += "Active booster reaction of ⤵️ to move to last in the boost order.\n"
+			outputStr += "Reaction of ⤵️ to move yourself to last in the current boost order.\n"
 			outputStr += "Anyone can add a 🚽 reaction to express your urgency to boost next.\n"
 			s.ChannelMessageSend(loc.ChannelID, outputStr)
 		}
