@@ -21,7 +21,7 @@ When the sign-list is created the buttons for that are pinned for quick future a
 
 From the pinned signup buttons, **Join** the contract and set the number of boost tokens you like to use, these default to 8 and anything set will persist for future contracts. The 5/6/8 set the number of tokens wanted with +/- adjusting that amount up or down so you get to any number.
 
-When the boost list is shown, one farmer is the current booster with a display with the number of tokens wanted and several reaction icons. Select :token: each time you sent a token to the current booster. If you receive a token on your own through ads or other means use the token reaction on yourself so everyone is aware how many tokens you still need.
+When the boost list is shown, one farmer is the current booster with a display with the number of tokens wanted and several reaction icons. Select :token: each time you send a token to the current booster. If you are the current booster and receive a token on your own through ads or other means use the token reaction on yourself so everyone is aware how many tokens you still need.
 
 When the current booster has enough tokens they'll select the :rocket: to advance the boost list. Sometimes RL takes priority and you may not be present indicate you have enough tokens to boost with, two :rocket: reactions by others will also trigger a boost and select the next booster.
 
