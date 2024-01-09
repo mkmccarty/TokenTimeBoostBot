@@ -323,13 +323,13 @@ var (
 		},
 		{
 			Name:        slashSetEggIncName,
-			Description: "Set Egg, Inc game name",
+			Description: "Set Egg, Inc game name.",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "ei-name",
 					Description: "Egg Inc user name",
-					Required:    true,
+					Required:    false,
 				},
 			},
 		},

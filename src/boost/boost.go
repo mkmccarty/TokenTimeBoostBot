@@ -429,9 +429,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 			var b, ok = contract.Boosters[element]
 			if ok {
 				if b.BoostState == BoostStateBoosted {
-					lateList += fmt.Sprintf("~~%s~~ ", b.Mention)
+					lateList += fmt.Sprintf("~~%s%s~~ ", b.Mention, farmerstate.GetEggIncName(b.UserID))
 				} else {
-					lateList += fmt.Sprintf("%s(%d) ", b.Mention, b.TokensWanted)
+					lateList += fmt.Sprintf("%s%s(%d) ", b.Mention, farmerstate.GetEggIncName(b.UserID), b.TokensWanted)
 				}
 				if (end + i + 1) < len(contract.Boosters) {
 					lateList += ", "
@@ -460,6 +460,10 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		var b, ok = contract.Boosters[element]
 		if ok {
 			var name = b.Mention
+			var einame = farmerstate.GetEggIncName(b.UserID)
+			if einame != "" {
+				name += " " + einame
+			}
 			var server = ""
 			var currentStartTime = fmt.Sprintf(" <t:%d:R> ", b.StartTime.Unix())
 			if len(contract.Location) > 1 {
