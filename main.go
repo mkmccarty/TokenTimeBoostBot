@@ -331,6 +331,17 @@ var (
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		slashJoin: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			// Protection against DM use
+			if i.GuildID == "" {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content:    "This command can only be run in a server.",
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{}},
+				})
+				return
+			}
 			var guestName = ""
 			var orderValue int = boost.ContractOrderTimeBased // Default to Time Based
 			var mention = ""
@@ -381,6 +392,17 @@ var (
 			}
 		},
 		slashCoopETA: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			// Protection against DM use
+			if i.GuildID == "" {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content:    "This command can only be run in a server.",
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{}},
+				})
+				return
+			}
 			var rate = ""
 			var t = time.Now()
 			var timespan = ""
@@ -413,6 +435,17 @@ var (
 			})
 		},
 		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			// Protection against DM use
+			if i.GuildID == "" {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content:    "This command can only be run in a server.",
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{}},
+				})
+				return
+			}
 			var contractID = i.GuildID
 			var coopID = i.GuildID // Default to the Guild ID
 			var boostOrder = boost.ContractOrderSignup
@@ -504,7 +537,17 @@ var (
 		},
 
 		slashBoost: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-
+			// Protection against DM use
+			if i.GuildID == "" {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content:    "This command can only be run in a server.",
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{}},
+				})
+				return
+			}
 			var str = "Boosting!!"
 			var err = boost.BoostCommand(s, i.GuildID, i.ChannelID, i.Member.User.ID)
 			if err != nil {
@@ -521,6 +564,17 @@ var (
 		},
 
 		slashSkip: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			// Protection against DM use
+			if i.GuildID == "" {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content:    "This command can only be run in a server.",
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{}},
+				})
+				return
+			}
 			var str = "Skip to Next Booster"
 			var err = boost.SkipBooster(s, i.GuildID, i.ChannelID, "")
 			if err != nil {
@@ -537,6 +591,17 @@ var (
 
 		},
 		slashUnboost: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			// Protection against DM use
+			if i.GuildID == "" {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content:    "This command can only be run in a server.",
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{}},
+				})
+				return
+			}
 			var str = ""
 			var farmer = ""
 			options := i.ApplicationCommandData().Options
@@ -566,6 +631,17 @@ var (
 		},
 
 		slashPrune: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			// Protection against DM use
+			if i.GuildID == "" {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content:    "This command can only be run in a server.",
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{}},
+				})
+				return
+			}
 			var str = "Prune Booster"
 			var farmer = ""
 
@@ -596,6 +672,17 @@ var (
 
 		},
 		slashSetEggIncName: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			// Protection against DM use
+			if i.GuildID == "" {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content:    "This command can only be run in a server.",
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{}},
+				})
+				return
+			}
 			var str = "Setting Egg, Inc name to "
 			var eiName = ""
 
@@ -625,6 +712,17 @@ var (
 
 		},
 		slashFun: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			// Protection against DM use
+			if i.GuildID == "" {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content:    "This command can only be run in a server.",
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{}},
+				})
+				return
+			}
 			var gptOption = int64(0)
 			var gptText = ""
 			//var str = ""
@@ -655,6 +753,17 @@ var (
 			var _ = notok.Notok(s, i, gptOption, gptText)
 		},
 		slashChange: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			// Protection against DM use
+			if i.GuildID == "" {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content:    "This command can only be run in a server.",
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{}},
+				})
+				return
+			}
 			var str = ""
 			var contractID = ""
 			var coopID = ""
