@@ -1061,7 +1061,7 @@ func main() {
 			err := s.ApplicationCommandDelete(s.State.User.ID, config.DiscordGuildID, v.ID)
 			log.Printf("Delete command '%v' command.", v.Name)
 			if err != nil {
-				log.Panicf("Cannot delete '%v' command: %v", v.Name, err)
+				log.Println("Cannot delete '%v' command: %v", v.Name, err)
 			}
 		}
 	}
