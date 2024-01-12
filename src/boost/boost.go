@@ -1546,7 +1546,12 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 
 			if pingUsers {
 				if contract.State == ContractStateStarted {
-					str = fmt.Sprintf(loc.ChannelPing+" send tokens to %s", contract.Boosters[contract.Order[contract.BoostPosition]].Mention)
+					var einame = farmerstate.GetEggIncName(contract.Order[contract.BoostPosition])
+					if einame != "" {
+						einame += " " // Add a space to this
+					}
+					name := einame + contract.Boosters[contract.Order[contract.BoostPosition]].Mention
+					str = fmt.Sprintf(loc.ChannelPing+" send tokens to %s", name)
 				} else {
 					str = fmt.Sprintf(loc.ChannelPing + " contract boosting complete. Hold your tokens for late joining farmers.")
 				}
