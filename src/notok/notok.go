@@ -121,10 +121,12 @@ func DoGoNow(discord *discordgo.Session, channelID string) {
 }
 
 func letter(mention string, text string) string {
-	var str = ""
 	tokenPrompt := "Kevin, the developer of Egg, Inc. has stopped sending widgets to the contract players of his game. Compose a crazy reason requesting that he provide you a widget. The letter should be fairly short and begin with \"Dear Kev,\"."
 	tokenPrompt += " " + text
-	str = getStringFromGoogleGemini(tokenPrompt)
+	str, err := getStringFromGoogleGemini(tokenPrompt)
+	if err != nil {
+		return "Sorry, the AIrtists are not available at the moment."
+	}
 	m1 := regexp.MustCompile(`\[[A-Za-z\- ]*\]`)
 	str = m1.ReplaceAllString(str, "*"+mention+"*")
 	str = strings.Replace(str, "widget", "token", -1)
@@ -132,30 +134,32 @@ func letter(mention string, text string) string {
 	return str
 }
 
-func getStringFromOpenAI(text string) string {
-	var str = ""
-	var client = openai.NewClient(config.OpenAIKey)
-	var resp, _ = client.CreateChatCompletion(
-		context.Background(),
-		openai.ChatCompletionRequest{
-			Model: openai.GPT3Dot5Turbo0301,
-			Messages: []openai.ChatCompletionMessage{
-				{
-					Role:    openai.ChatMessageRoleUser,
-					Content: text,
+/*
+	func getStringFromOpenAI(text string) string {
+		var str = ""
+		var client = openai.NewClient(config.OpenAIKey)
+		var resp, _ = client.CreateChatCompletion(
+			context.Background(),
+			openai.ChatCompletionRequest{
+				Model: openai.GPT3Dot5Turbo0301,
+				Messages: []openai.ChatCompletionMessage{
+					{
+						Role:    openai.ChatMessageRoleUser,
+						Content: text,
+					},
 				},
 			},
-		},
-	)
-	str = resp.Choices[0].Message.Content
-	return str
-}
-
-func getStringFromGoogleGemini(text string) string {
+		)
+		str = resp.Choices[0].Message.Content
+		return str
+	}
+*/
+func getStringFromGoogleGemini(text string) (string, error) {
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, option.WithAPIKey(config.GoogleAPIKey))
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		return "", err
 	}
 	defer client.Close()
 
@@ -172,12 +176,14 @@ func getStringFromGoogleGemini(text string) string {
 	}
 	resp, err := model.GenerateContent(ctx, genai.Text(text))
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		return "", err
 	}
 
-	return printResponse(resp)
+	return printResponse(resp), nil
 }
 
+/*
 func wish(mention string, text string) string {
 	var str = ""
 	tokenPrompt := "A contract needs widgets to help with the delivery of eggs. Make a silly wish that would result in a widget being delivered by truck very soon. The response should start with \"I wish\""
@@ -191,14 +197,16 @@ func wish(mention string, text string) string {
 
 	return str
 }
+*/
 
 func wishGemini(mention string, text string) string {
-	var str = ""
-
 	tokenPrompt := "A contract needs widgets to help purchase boosts and to share with others to improve speed the delivery of eggs. Make a silly wish that would result in a widget being delivered by truck very soon. The response should be no more than 3 or 4 sentences and start with \"I wish\""
 	tokenPrompt += " " + text
 
-	str = getStringFromGoogleGemini(tokenPrompt)
+	str, err := getStringFromGoogleGemini(tokenPrompt)
+	if err != nil {
+		return "Sorry, the AIrtists are not available at the moment."
+	}
 	m1 := regexp.MustCompile(`\[[A-Za-z ]*\]`)
 	str = m1.ReplaceAllString(str, "*"+mention+"*")
 	str = strings.Replace(str, "widget", "token", -1)
@@ -221,13 +229,14 @@ func printResponse(resp *genai.GenerateContentResponse) string {
 }
 
 func letmeout(mention string, text string) string {
-	var str = ""
-
 	var tokenPrompt = //"Using a random city on Earth as the location for this story, don't reuse a previous city choice.  Highlight that city's culture when telling this story about " +
 	"A group of chicken egg farmers are locked in their farm " +
 		"held hostage by an unknown force. In 250 words or less tell random funny story about this confinement. "
 	tokenPrompt += " " + text
-	str = getStringFromGoogleGemini(tokenPrompt)
+	str, err := getStringFromGoogleGemini(tokenPrompt)
+	if err != nil {
+		return "Sorry, the AIrtists are not available at the moment."
+	}
 
 	return str
 }
