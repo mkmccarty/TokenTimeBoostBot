@@ -1467,7 +1467,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	return nil
 }
 
-// redrawBoostList will move the boost message to the bottom of the channel
+// RedrawBoostList will move the boost message to the bottom of the channel
 func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
