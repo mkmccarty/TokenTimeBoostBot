@@ -144,24 +144,25 @@ func RemoveLocIndex(s []*LocationData, index int) []*LocationData {
 	return append(s[:index], s[index+1:]...)
 }
 
-func DeleteContract(s *discordgo.Session, guildID string, channelID string) string {
+func DeleteContract(s *discordgo.Session, guildID string, channelID string) (string, error) {
 	var contract = FindContract(guildID, channelID)
-
-	if contract != nil {
-		//contract.mutex.Lock()
-		//defer contract.mutex.Unlock()
-		var coop = contract.ContractHash
-		saveEndData(contract) // Save for historical purposes
-
-		for _, el := range contract.Location {
-			s.ChannelMessageDelete(el.ChannelID, el.ListMsgID)
-			s.ChannelMessageDelete(el.ChannelID, el.ReactionID)
-		}
-		delete(Contracts, coop)
-		saveData(Contracts)
-		return coop
+	if contract == nil {
+		return "", errors.New(errorNoContract)
 	}
-	return ""
+
+	//contract.mutex.Lock()
+	//defer contract.mutex.Unlock()
+	var coop = contract.ContractHash
+	saveEndData(contract) // Save for historical purposes
+
+	for _, el := range contract.Location {
+		s.ChannelMessageDelete(el.ChannelID, el.ListMsgID)
+		s.ChannelMessageDelete(el.ChannelID, el.ReactionID)
+	}
+	delete(Contracts, coop)
+	saveData(Contracts)
+
+	return coop, nil
 }
 
 func FindTokenEmoji(s *discordgo.Session, guildID string) string {
@@ -501,28 +502,29 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 	return outputStr
 }
 
-func FindContractByMessageID(channelID string, messageID string) (*Contract, int) {
-	// Given a
-	for _, c := range Contracts {
-		for i, loc := range c.Location {
-			if slices.Index(loc.MessageIDs, messageID) != -1 {
-				return c, i
+func FindContract(guildID string, channelID string) *Contract {
+	// Look for the contract
+	for key, element := range Contracts {
+		for _, el := range element.Location {
+			if el.GuildID == guildID && el.ChannelID == channelID {
+				// Found the location of the contract, which one is it?
+				return Contracts[key]
 			}
 		}
 	}
-	return nil, 0
+	return nil
 }
 
-func FindContractByReactionID(channelID string, ReactionID string) (*Contract, int) {
+func FindContractByMessageID(channelID string, messageID string) *Contract {
 	// Given a
 	for _, c := range Contracts {
-		for i, loc := range c.Location {
-			if slices.Index(loc.MessageIDs, ReactionID) != -1 {
-				return c, i
+		for _, loc := range c.Location {
+			if slices.Index(loc.MessageIDs, messageID) != -1 {
+				return c
 			}
 		}
 	}
-	return nil, 0
+	return nil
 }
 
 func ChangePingRole(s *discordgo.Session, guildID string, channelID string, userID string, pingRole string) error {
@@ -1040,12 +1042,9 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 	//var contract = FindContract(r.GuildID, r.ChannelID)
 	//if contract == nil {
-	var contract, _ = FindContractByReactionID(r.ChannelID, r.MessageID)
+	var contract = FindContractByMessageID(r.ChannelID, r.MessageID)
 	if contract == nil {
-		contract, _ = FindContractByMessageID(r.ChannelID, r.MessageID)
-		if contract == nil {
-			return ""
-		}
+		return ""
 	}
 	//}
 	//contract.mutex.Lock()
@@ -1414,16 +1413,10 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 		return
 	}
 
-	//var contract = FindContract(r.GuildID, r.ChannelID)
-	//if contract == nil {
-	var contract, _ = FindContractByReactionID(r.ChannelID, r.MessageID)
+	var contract = FindContractByMessageID(r.ChannelID, r.MessageID)
 	if contract == nil {
-		contract, _ = FindContractByMessageID(r.ChannelID, r.MessageID)
-		if contract == nil {
-			return
-		}
+		return
 	}
-	//}
 
 	//contract.mutex.Lock()
 	//defer contract.mutex.Unlock()
@@ -1437,19 +1430,6 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 	if !userInContract(contract, r.UserID) {
 		return
 	}
-}
-
-func FindContract(guildID string, channelID string) *Contract {
-	// Look for the contract
-	for key, element := range Contracts {
-		for _, el := range element.Location {
-			if el.GuildID == guildID && el.ChannelID == channelID {
-				// Found the location of the contract, which one is it?
-				return Contracts[key]
-			}
-		}
-	}
-	return nil
 }
 
 func StartContractBoosting(s *discordgo.Session, guildID string, channelID string, userID string) error {
@@ -1483,6 +1463,34 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 
 	sendNextNotification(s, contract, true)
 
+	return nil
+}
+
+// redrawBoostList will move the boost message to the bottom of the channel
+func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) error {
+	var contract = FindContract(guildID, channelID)
+	if contract == nil {
+		return errors.New(errorNoContract)
+	}
+
+	if contract.State == ContractStateSignup {
+		return errors.New(errorContractNotStarted)
+	}
+
+	// Edit the boost list in place
+	for _, loc := range contract.Location {
+		if loc.GuildID == guildID && loc.ChannelID == channelID {
+			s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
+			var data discordgo.MessageSend
+			var am discordgo.MessageAllowedMentions
+			data.Content = DrawBoostList(s, contract, loc.TokenStr)
+			data.AllowedMentions = &am
+			msg, err := s.ChannelMessageSendComplex(loc.ChannelID, &data)
+			if err == nil {
+				SetListMessageID(contract, loc.ChannelID, msg.ID)
+			}
+		}
+	}
 	return nil
 }
 

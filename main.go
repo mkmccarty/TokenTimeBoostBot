@@ -32,6 +32,7 @@ const slashUnboost string = "unboost"
 const slashPrune string = "prune"
 const slashJoin string = "join"
 const slashSetEggIncName string = "seteggincname"
+const slashBump string = "bump"
 
 // const slashSignup string = "signup"
 const slashCoopETA string = "coopeta"
@@ -326,6 +327,10 @@ var (
 					Required:    false,
 				},
 			},
+		},
+		{
+			Name:        slashBump,
+			Description: "Redraw the boost list to the timeline.",
 		},
 	}
 
@@ -718,6 +723,22 @@ var (
 			}
 
 		},
+		slashBump: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			str := "Redrawing the boost list"
+			err := boost.RedrawBoostList(s, i.GuildID, i.ChannelID)
+			if err != nil {
+				str = err.Error()
+			}
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content:    str,
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
+		},
+		// Protection against DM use
 		slashFun: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Protection against DM use
 			if i.GuildID == "" {
@@ -873,8 +894,8 @@ var (
 		"fd_delete": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Delete coop
 			var str = "Contract not found."
-			var coopName = boost.DeleteContract(s, i.GuildID, i.ChannelID)
-			if coopName != "" {
+			coopName, err := boost.DeleteContract(s, i.GuildID, i.ChannelID)
+			if err == nil {
 				str = fmt.Sprintf("Contract %s Deleted", coopName)
 			}
 
