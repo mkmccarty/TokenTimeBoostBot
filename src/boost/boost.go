@@ -490,7 +490,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		outputStr += "\n"
 		outputStr += "> Active Booster: 🚀 when boosting.\n"
 		outputStr += "> Anyone: " + tokenStr + " when sending tokens. ❓ Help.\n"
-		outputStr += "> Use pinned message to join this list and set boost " + tokenStr + " wanted.\n"
+		if contract.CoopSize != len(contract.Order) {
+			outputStr += "> Use pinned message to join this list and set boost " + tokenStr + " wanted.\n"
+		}
 		//outputStr += "```"
 	} else if contract.State == ContractStateWaiting {
 		outputStr += "\n"
