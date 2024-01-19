@@ -166,8 +166,12 @@ func getStringFromGoogleGemini(text string) (string, error) {
 	model := client.GenerativeModel("gemini-pro")
 	model.SafetySettings = []*genai.SafetySetting{
 		{
+			Category:  genai.HarmCategorySexuallyExplicit,
+			Threshold: genai.HarmBlockOnlyHigh,
+		},
+		{
 			Category:  genai.HarmCategoryDangerousContent,
-			Threshold: genai.HarmBlockNone,
+			Threshold: genai.HarmBlockOnlyHigh,
 		},
 		{
 			Category:  genai.HarmCategoryHarassment,
