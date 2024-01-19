@@ -1169,7 +1169,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	if r.Emoji.Name == "❓" {
 		for _, loc := range contract.Location {
 			outputStr := "## Boost Bot Icon Meanings\n\n"
-			outputStr += "See pinned message to join the contract and select your number of boost tokens.\n"
+			outputStr += "See 📌 message to join the contract and select your number of boost tokens.\n"
 			outputStr += "Active booster reaction of 🚀 to when spending tokens to boost. Multiple 🚀 votes by others in the contract will also indicate a boost.\n"
 			outputStr += "Farmers react with " + loc.TokenStr + " when sending tokens.\n"
 			//outputStr += "Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n"
