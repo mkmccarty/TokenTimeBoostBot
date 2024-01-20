@@ -93,18 +93,23 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 	if wishURL != "" {
 		discord.ChannelTyping(message.ChannelID)
 		response, _ := http.Get(wishURL)
-		//discord.ChannelFileSend(message.ChannelID, "BB-img.png", response.Body)
 		var data discordgo.MessageSend
 		if wishStr != lastWish {
 			data.Content = "||" + wishStr + "||"
 		}
-		var myFile discordgo.File
-		myFile.ContentType = "image/png"
-		myFile.Name = "ttbb-dalle3.png"
-		myFile.Reader = response.Body
-		data.Files = append(data.Files, &myFile)
 
-		discord.ChannelMessageSendComplex(message.ChannelID, &data)
+		// MKM
+		if response.StatusCode == 200 {
+			var myFile discordgo.File
+			myFile.ContentType = "image/png"
+			myFile.Name = "ttbb-dalle3.png"
+			myFile.Reader = response.Body
+			data.Files = append(data.Files, &myFile)
+			discord.ChannelMessageSendComplex(message.ChannelID, &data)
+		} else {
+			discord.ChannelMessageSend(message.ChannelID, "Sorry, the AIrtists are not available at the moment.")
+		}
+
 	} else if wishStr != "" {
 		discord.ChannelMessageSend(message.ChannelID, wishStr)
 		lastWish = wishStr
