@@ -44,9 +44,10 @@ const slashFun string = "fun"
 // Mutex
 var mutex sync.Mutex
 var s *discordgo.Session
+var Version = "development"
 
 func init() {
-	fmt.Printf("Starting Discord Bot: %s\n", version.Version)
+	fmt.Printf("Starting Discord Bot: %s (%s)\n", version.Release, Version)
 
 	// Read application parameters
 	flag.Parse()
