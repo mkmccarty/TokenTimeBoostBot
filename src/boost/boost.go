@@ -1103,15 +1103,16 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				// Reaction to jump to end
 				if r.Emoji.Name == "⤵️" {
 					//contract.mutex.Unlock()
-					if contract.Boosters[r.UserID].BoostState == BoostStateTokenTime {
+					var uid = r.UserID // using a variable here for debugging
+					if contract.Boosters[uid].BoostState == BoostStateTokenTime {
 						currentBoosterPosition := findNextBooster(contract)
-						MoveBooster(s, r.GuildID, r.ChannelID, r.UserID, r.UserID, len(contract.Order), currentBoosterPosition == -1)
+						MoveBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], uid, len(contract.Order), currentBoosterPosition == -1)
 						if currentBoosterPosition != -1 {
-							ChangeCurrentBooster(s, r.GuildID, r.ChannelID, r.UserID, contract.Order[currentBoosterPosition], true)
+							ChangeCurrentBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], contract.Order[currentBoosterPosition], true)
 							return ""
 						}
 					} else {
-						MoveBooster(s, r.GuildID, r.ChannelID, r.UserID, r.UserID, len(contract.Order), true)
+						MoveBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], uid, len(contract.Order), true)
 					}
 				}
 				// Reaction to indicate you need to go now
