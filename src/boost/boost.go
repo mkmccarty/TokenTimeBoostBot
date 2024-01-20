@@ -55,7 +55,7 @@ const BoostStateUnboosted = 0
 const BoostStateTokenTime = 1
 const BoostStateBoosted = 2
 
-const BoostOrderTimeThresshold = 20
+const BoostOrderTimeThreshold = 20
 
 type EggFarmer struct {
 	UserID      string // Discord User ID
@@ -178,6 +178,29 @@ func FindTokenEmoji(s *discordgo.Session, guildID string) string {
 	return "🐣"
 }
 
+func getBoostOrderString(contract *Contract) string {
+	var thresholdStartTime = contract.StartTime.Add(time.Minute * time.Duration(BoostOrderTimeThreshold))
+	switch contract.BoostOrder {
+	case ContractOrderSignup:
+		return "Sign-up"
+	case ContractOrderReverse:
+		return "Reverse"
+	case ContractOrderRandom:
+		if contract.StartTime.IsZero() {
+			return "Random"
+		}
+		return fmt.Sprintf("Random now, Sign-up <t:%d:R> ", thresholdStartTime.Unix())
+	case ContractOrderFair:
+		if contract.StartTime.IsZero() {
+			return "Fair"
+		}
+		return fmt.Sprintf("Fair now, Sign-up <t:%d:R> ", thresholdStartTime.Unix())
+	case ContractOrderTimeBased:
+		return "Time"
+	}
+	return "Unknown"
+}
+
 // CreateContract creates a new contract or joins an existing contract if run from a different location
 func CreateContract(s *discordgo.Session, contractID string, coopID string, coopSize int, BoostOrder int, guildID string, channelID string, userID string, pingRole string) (*Contract, error) {
 	var ContractHash = fmt.Sprintf("%s/%s", contractID, coopID)
@@ -214,18 +237,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.CoopID = coopID
 		contract.BoostOrder = BoostOrder
 		// Set the BoostOrderStr
-		switch BoostOrder {
-		case ContractOrderSignup:
-			contract.BoostOrderStr = "Sign-up"
-		case ContractOrderReverse:
-			contract.BoostOrderStr = "Reverse"
-		case ContractOrderRandom:
-			contract.BoostOrderStr = "Random"
-		case ContractOrderFair:
-			contract.BoostOrderStr = "Fair"
-		case ContractOrderTimeBased:
-			contract.BoostOrderStr = "Time"
-		}
+		contract.BoostOrderStr = getBoostOrderString(contract)
 		contract.BoostVoting = 0
 		contract.OrderRevision = 0
 		contract.State = ContractStateSignup
@@ -357,8 +369,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 	var outputStr = ""
 	saveData(Contracts)
 
-	outputStr = fmt.Sprintf("### %s - %s order - %d/%d\n", contract.ContractHash, contract.BoostOrderStr, len(contract.Boosters), contract.CoopSize)
-	outputStr += fmt.Sprintf("> Coordinator: <@%s>\n", contract.CreatorID[0])
+	outputStr = fmt.Sprintf("### %s - 📋:%s - %d/%d\n", contract.ContractHash, contract.BoostOrderStr, len(contract.Boosters), contract.CoopSize)
+	outputStr += fmt.Sprintf("> Coordinator: <@%s>", contract.CreatorID[0])
+	outputStr += "\n"
 
 	if contract.State == ContractStateSignup {
 		outputStr += "## Sign-up List\n"
@@ -938,13 +951,18 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			b.Mention = member.Mention()
 		}
 
-		// time since contract started
-		if order == ContractOrderTimeBased {
-			var timeSinceStart = time.Since(contract.StartTime)
-			if timeSinceStart.Minutes() < BoostOrderTimeThresshold {
-				order = contract.BoostOrder
-			} else {
-				order = ContractOrderSignup
+		// Check if within the start period of a contract
+		if contract.State != ContractStateSignup {
+			if order == ContractOrderTimeBased || order == ContractOrderFair || order == ContractOrderRandom {
+				var timeSinceStart = time.Since(contract.StartTime)
+				var minutesSinceStart = int(timeSinceStart.Minutes())
+				if minutesSinceStart <= BoostOrderTimeThreshold {
+					order = contract.BoostOrder
+				} else {
+					contract.BoostOrder = ContractOrderSignup
+					contract.BoostOrderStr = getBoostOrderString(contract)
+					order = ContractOrderSignup
+				}
 			}
 		}
 
@@ -958,7 +976,6 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 					contract.BoostPosition = len(contract.Order) - 1
 				}
 			} else {
-
 				copyOrder := make([]string, len(contract.Order))
 				copy(copyOrder, contract.Order)
 				copyOrder = append(copyOrder, farmer.UserID)
@@ -971,16 +988,6 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 					index = contract.BoostPosition + 1
 				}
 				contract.Order = insert(contract.Order, index, farmer.UserID)
-				/*
-					// Insert booster randomly into non-boosting order
-					var remainingBoosters = len(contract.Boosters) - contract.BoostPosition - 1
-					if remainingBoosters == 0 {
-						contract.Order = append(contract.Order, farmer.UserID)
-					} else {
-						var insertPosition = contract.BoostPosition + 1 + rand.Intn(remainingBoosters)
-						contract.Order = insert(contract.Order, insertPosition, farmer.UserID)
-					}
-				*/
 			}
 			contract.OrderRevision += 1
 		}
@@ -1461,6 +1468,8 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	contract.BoostPosition = 0
 	contract.State = ContractStateStarted
 	contract.StartTime = time.Now()
+	contract.BoostOrderStr = getBoostOrderString(contract)
+
 	contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 	contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
 
