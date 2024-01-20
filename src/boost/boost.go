@@ -1822,7 +1822,7 @@ func FinishContract(s *discordgo.Session, contract *Contract) error {
 	for _, loc := range contract.Location {
 		loc.ListMsgID = ""
 	}
-	farmerstate.SetOrderPercentileAll(contract.Order, len(contract.Order)))
+	farmerstate.SetOrderPercentileAll(contract.Order, len(contract.Order))
 	DeleteContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID)
 	return nil
 }
