@@ -650,7 +650,7 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 	copyOrder := RemoveIndex(contract.Order, boosterIndex)
 	if len(copyOrder) == 0 {
 		newOrder = append(newOrder, boosterName)
-	} else if boosterPosition > len(copyOrder) {
+	} else if boosterPosition >= len(copyOrder) {
 		// Booster at end of list
 		newOrder = append(copyOrder, boosterName)
 	} else {
