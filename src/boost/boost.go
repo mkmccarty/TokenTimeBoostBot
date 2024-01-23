@@ -640,12 +640,11 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 		return errors.New("booster already in this position")
 	}
 
-	newBoostPosition := contract.BoostPosition
-
 	if boosterIndex < contract.BoostPosition {
 		boosterPosition--
-		newBoostPosition--
 	}
+
+	currentBooster := contract.Order[contract.BoostPosition]
 
 	var newOrder []string
 	copyOrder := RemoveIndex(contract.Order, boosterIndex)
@@ -660,7 +659,6 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 			if i == boosterPosition-1 {
 				newOrder = append(newOrder, boosterName)
 				newOrder = append(newOrder, element)
-				newBoostPosition = i - 1
 			} else {
 				newOrder = append(newOrder, element)
 			}
@@ -669,8 +667,15 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 
 	// Swap in the new order and redraw the list
 	contract.Order = newOrder
-	contract.BoostPosition = newBoostPosition
+	contract.OrderRevision += 1
 
+	if contract.State == ContractStateStarted {
+		for i, el := range newOrder {
+			if el == currentBooster {
+				contract.BoostPosition = i
+			}
+		}
+	}
 	if redraw {
 		refreshBoostListMessage(s, contract)
 	}
