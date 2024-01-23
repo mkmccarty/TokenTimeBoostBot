@@ -1111,7 +1111,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 							ChangeCurrentBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], contract.Order[currentBoosterPosition], true)
 							return ""
 						}
-					} else {
+					} else if contract.Boosters[uid].BoostState == BoostStateUnboosted {
 						MoveBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], uid, len(contract.Order), true)
 					}
 				}
