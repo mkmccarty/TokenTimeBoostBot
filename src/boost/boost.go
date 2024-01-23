@@ -625,11 +625,26 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 		return errors.New("only the contract creator can change the contract")
 	}
 
+	if boosterPosition > len(contract.Order) {
+		return errors.New("invalid position")
+	}
+
 	fmt.Println("MoveBooster", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "BoosterName: ", boosterName, "BoosterPosition: ", boosterPosition)
 
 	var boosterIndex = slices.Index(contract.Order, boosterName)
 	if boosterIndex == -1 {
 		return errors.New("this booster not in contract")
+	}
+
+	if (boosterIndex + 1) == boosterPosition {
+		return errors.New("booster already in this position")
+	}
+
+	newBoostPosition := contract.BoostPosition
+
+	if boosterIndex < contract.BoostPosition {
+		boosterPosition--
+		newBoostPosition--
 	}
 
 	var newOrder []string
@@ -645,6 +660,7 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 			if i == boosterPosition-1 {
 				newOrder = append(newOrder, boosterName)
 				newOrder = append(newOrder, element)
+				newBoostPosition = i - 1
 			} else {
 				newOrder = append(newOrder, element)
 			}
@@ -653,6 +669,8 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 
 	// Swap in the new order and redraw the list
 	contract.Order = newOrder
+	contract.BoostPosition = newBoostPosition
+
 	if redraw {
 		refreshBoostListMessage(s, contract)
 	}
@@ -1049,9 +1067,10 @@ func userInContract(c *Contract, u string) bool {
 
 func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	// Find the message
+	returnVal := ""
 	var msg, err = s.ChannelMessage(r.ChannelID, r.MessageID)
 	if err != nil {
-		return ""
+		return returnVal
 	}
 	redraw := false
 	emojiName := r.Emoji.Name
@@ -1060,7 +1079,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	//if contract == nil {
 	var contract = FindContractByMessageID(r.ChannelID, r.MessageID)
 	if contract == nil {
-		return ""
+		return returnVal
 	}
 	//}
 	//contract.mutex.Lock()
@@ -1072,7 +1091,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			contract.State = ContractStateCompleted
 			contract.EndTime = time.Now()
 			sendNextNotification(s, contract, true)
-			return ""
+			return returnVal
 		}
 
 		if contract.State != ContractStateSignup && contract.BoostPosition < len(contract.Order) {
@@ -1085,7 +1104,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 					//contract.mutex.Unlock()
 					Boosting(s, r.GuildID, r.ChannelID)
 				}
-				return ""
+				return returnVal
 			}
 
 			// Reaction for current booster to change places
@@ -1094,7 +1113,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 					if r.Emoji.Name == "🔃" {
 						//contract.mutex.Unlock()
 						SkipBooster(s, r.GuildID, r.ChannelID, "")
-						return ""
+						return returnVal
 					}
 				}
 			}
@@ -1109,16 +1128,19 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 						MoveBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], uid, len(contract.Order), currentBoosterPosition == -1)
 						if currentBoosterPosition != -1 {
 							ChangeCurrentBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], contract.Order[currentBoosterPosition], true)
-							return ""
+							return returnVal
 						}
 					} else if contract.Boosters[uid].BoostState == BoostStateUnboosted {
 						MoveBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], uid, len(contract.Order), true)
 					}
 				}
 				// Reaction to indicate you need to go now
-				if r.Emoji.Name == "🚽" {
-					SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
-					return ""
+				if r.Emoji.Name == "🚽" && contract.Boosters[r.UserID].BoostState == BoostStateUnboosted {
+					// Move Booster position is 1 based, so we need to add 2 to the current position
+					err := MoveBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], r.UserID, contract.BoostPosition+2, true)
+					if err == nil {
+						returnVal = "!gonow"
+					}
 				}
 			}
 
@@ -1126,12 +1148,8 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				contract.State = ContractStateCompleted
 				contract.EndTime = time.Now()
 				sendNextNotification(s, contract, true)
-				return ""
+				return returnVal
 			}
-		}
-		if r.Emoji.Name == "🚽" {
-			SkipBooster(s, r.GuildID, r.ChannelID, r.UserID)
-			return "" //"!gonow"
 		}
 
 		if strings.ToLower(r.Emoji.Name) == "token" {
@@ -1162,20 +1180,6 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		fmt.Println(err, emojiName)
 	}
 
-	/*
-		// case insensitive compare for token emoji
-		if r.Emoji.Name == "➕" && r.UserID == contract.Order[contract.BoostPosition] {
-			// Add a token to the current booster
-			contract.Boosters[contract.Order[contract.BoostPosition]].TokensWanted += 1
-			redraw = true
-		}
-		if r.Emoji.Name == "➖" && r.UserID == contract.Order[contract.BoostPosition] {
-			// Add a token to the current booster
-			contract.Boosters[contract.Order[contract.BoostPosition]].TokensWanted -= 1
-			redraw = true
-		}
-	*/
-
 	if redraw {
 		refreshBoostListMessage(s, contract)
 	}
@@ -1194,7 +1198,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		}
 	}
 
-	return ""
+	return returnVal
 }
 
 // findNextBooster returns the index of the next booster that needs to boost
