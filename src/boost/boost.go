@@ -1113,7 +1113,8 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			}
 
 			// Catch a condition where BoostPosition got set wrongly
-			if contract.BoostPosition < len(contract.Order) || contract.BoostPosition < 0 {
+			if contract.BoostPosition >= len(contract.Order) || contract.BoostPosition < 0 {
+				contract.BoostPosition = len(contract.Order) - 1
 				if contract.State == ContractStateStarted {
 					for i, el := range contract.Order {
 						if contract.Boosters[el].BoostState == BoostStateTokenTime {
@@ -1142,8 +1143,8 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 					var uid = r.UserID // using a variable here for debugging
 					if contract.Boosters[uid].BoostState == BoostStateTokenTime {
 						currentBoosterPosition := findNextBooster(contract)
-						MoveBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], uid, len(contract.Order), currentBoosterPosition == -1)
-						if currentBoosterPosition != -1 {
+						err := MoveBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], uid, len(contract.Order), currentBoosterPosition == -1)
+						if err == nil && currentBoosterPosition != -1 {
 							ChangeCurrentBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], contract.Order[currentBoosterPosition], true)
 							return returnVal
 						}
