@@ -1112,6 +1112,18 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				return returnVal
 			}
 
+			// Catch a condition where BoostPosition got set wrongly
+			if contract.BoostPosition < len(contract.Order) || contract.BoostPosition < 0 {
+				if contract.State == ContractStateStarted {
+					for i, el := range contract.Order {
+						if contract.Boosters[el].BoostState == BoostStateTokenTime {
+							contract.BoostPosition = i
+							break
+						}
+					}
+				}
+			}
+
 			// Reaction for current booster to change places
 			if r.UserID == contract.Order[contract.BoostPosition] || creatorOfContract(contract, r.UserID) {
 				if (contract.BoostPosition + 1) < len(contract.Order) {
