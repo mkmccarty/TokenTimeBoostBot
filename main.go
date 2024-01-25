@@ -495,12 +495,18 @@ var (
 				}
 			}
 			mutex.Lock()
-
 			contract, err := boost.CreateContract(s, contractID, coopID, coopSize, boostOrder, i.GuildID, i.ChannelID, i.Member.User.ID, pingRole)
-			if err != nil {
-				fmt.Print("Contract already exists")
-			}
 			mutex.Unlock()
+			if err != nil {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content:    err.Error(),
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{}},
+				})
+				return
+			}
 
 			err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
