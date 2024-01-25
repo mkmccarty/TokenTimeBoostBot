@@ -215,6 +215,12 @@ func getBoostOrderString(contract *Contract) string {
 func CreateContract(s *discordgo.Session, contractID string, coopID string, coopSize int, BoostOrder int, guildID string, channelID string, userID string, pingRole string) (*Contract, error) {
 	var ContractHash = fmt.Sprintf("%s/%s", contractID, coopID)
 
+	// Make sure this channel doesn't already have a contract
+	existingContract := FindContract(guildID, channelID)
+	if existingContract != nil {
+		return nil, errors.New("this channel already has a contract named: " + existingContract.ContractHash)
+	}
+
 	contract := Contracts[ContractHash]
 
 	loc := new(LocationData)
