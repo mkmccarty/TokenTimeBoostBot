@@ -33,6 +33,7 @@ const slashPrune string = "prune"
 const slashJoin string = "join"
 const slashSetEggIncName string = "seteggincname"
 const slashBump string = "bump"
+const slashHelp string = "help"
 
 // const slashSignup string = "signup"
 const slashCoopETA string = "coopeta"
@@ -332,6 +333,10 @@ var (
 		{
 			Name:        slashBump,
 			Description: "Redraw the boost list to the timeline.",
+		},
+		{
+			Name:        slashHelp,
+			Description: "Help with Boost Bot commands.",
 		},
 	}
 
@@ -732,6 +737,18 @@ var (
 				str = err.Error()
 			}
 
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content:    str,
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
+		},
+		slashHelp: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			str := "Context sensitive help"
+
+			// TODO
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
