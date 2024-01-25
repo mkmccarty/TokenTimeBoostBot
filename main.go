@@ -544,16 +544,17 @@ var (
 
 		slashBoost: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Protection against DM use
-			if i.GuildID == "" {
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content:    "This command can only be run in a server.",
-						Flags:      discordgo.MessageFlagsEphemeral,
-						Components: []discordgo.MessageComponent{}},
-				})
-				return
-			}
+			/*
+				if i.GuildID == "" {
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content:    "This command can only be run in a server.",
+							Flags:      discordgo.MessageFlagsEphemeral,
+							Components: []discordgo.MessageComponent{}},
+					})
+					return
+				}*/
 			var str = "Boosting!!"
 			var err = boost.BoostCommand(s, i.GuildID, i.ChannelID, i.Member.User.ID)
 			if err != nil {
@@ -841,21 +842,27 @@ var (
 			if opt, ok := optionMap["one-boost-position"]; ok {
 				// String in the form of mention
 				boosterString := strings.TrimSpace(opt.StringValue())
+
 				// split string into slice by space, comma or colon
 				boosterSlice := strings.FieldsFunc(boosterString, func(r rune) bool {
 					return r == ' ' || r == ',' || r == ':'
 				})
-				// booster name is boosterString without the last element of boosterSlice
-				oneBoosterName = strings.TrimSuffix(boosterString, boosterSlice[len(boosterSlice)-1])
-				oneBoosterName = strings.TrimSpace(oneBoosterName)
-				// Trim last character from oneBoosterName
-				oneBoosterName = strings.TrimSpace(strings.TrimSuffix(strings.TrimSuffix(oneBoosterName, ":"), ","))
+				if len(boosterSlice) >= 2 {
 
-				re := regexp.MustCompile(`[\\<>@#&!]`)
-				oneBoosterName = re.ReplaceAllString(oneBoosterName, "")
+					// booster name is boosterString without the last element of boosterSlice
+					oneBoosterName = strings.TrimSuffix(boosterString, boosterSlice[len(boosterSlice)-1])
+					oneBoosterName = strings.TrimSpace(oneBoosterName)
+					// Trim last character from oneBoosterName
+					oneBoosterName = strings.TrimSpace(strings.TrimSuffix(strings.TrimSuffix(oneBoosterName, ":"), ","))
 
-				// convert string to int
-				oneBoosterPosition = int(boosterSlice[len(boosterSlice)-1][0] - '0')
+					re := regexp.MustCompile(`[\\<>@#&!]`)
+					oneBoosterName = re.ReplaceAllString(oneBoosterName, "")
+
+					// convert string to int
+					oneBoosterPosition = int(boosterSlice[len(boosterSlice)-1][0] - '0')
+				} else {
+					str = "The one-boost-position parameter needs to be in the form of @farmer <space> 4"
+				}
 			}
 
 			// Either change a single booster or the whole list
@@ -884,8 +891,8 @@ var (
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
-					Content: str,
-					//Flags:      discordgo.MessageFlagsEphemeral,
+					Content:    str,
+					Flags:      discordgo.MessageFlagsEphemeral,
 					Components: []discordgo.MessageComponent{}},
 			})
 		},
@@ -1162,7 +1169,7 @@ func main() {
 	log.Println("Adding commands...")
 	registeredCommands := make([]*discordgo.ApplicationCommand, len(commands))
 	for i, v := range commands {
-		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, config.DiscordGuildID, v)
+		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, "", v)
 		if err != nil {
 			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
 		}
