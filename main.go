@@ -72,6 +72,7 @@ func init() {
 	if *GuildID == "" {
 		GuildID = &config.DiscordGuildID
 	}
+
 }
 
 func init() {
@@ -88,7 +89,7 @@ var (
 	GuildID        = flag.String("guild", "", "Test guild ID")
 	BotToken       = flag.String("token", "", "Bot access token")
 	AppID          = flag.String("app", "", "Application ID")
-	RemoveCommands = flag.Bool("rmcmd", true, "Remove all commands after shutdowning or not")
+	RemoveCommands = flag.Bool("rmcmd", false, "Remove all commands after shutdowning or not")
 
 	commands = []*discordgo.ApplicationCommand{
 		{
@@ -1189,10 +1190,32 @@ func main() {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
 
+	// Delete Guild Specific commands
+	cmds, err := s.ApplicationCommands(config.DiscordAppID, config.DiscordGuildID)
+	if (err == nil) && (len(cmds) > 0) {
+		// loop through all cmds
+		for _, cmd := range cmds {
+			// delete each cmd
+			s.ApplicationCommandDelete(config.DiscordAppID, config.DiscordGuildID, cmd.ID)
+		}
+	}
+
+	// Delete global commands
+	if config.DiscordGuildID != "" {
+		cmds, err = s.ApplicationCommands(config.DiscordAppID, "")
+		if (err == nil) && (len(cmds) > 0) {
+			// loop through all cmds
+			for _, cmd := range cmds {
+				// delete each cmd
+				s.ApplicationCommandDelete(config.DiscordAppID, "", cmd.ID)
+			}
+		}
+	}
+
 	log.Println("Adding commands...")
 	registeredCommands := make([]*discordgo.ApplicationCommand, len(commands))
 	for i, v := range commands {
-		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, "", v)
+		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, config.DiscordGuildID, v)
 		if err != nil {
 			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
 		}
@@ -1216,15 +1239,16 @@ func main() {
 		// if err != nil {
 		// 	log.Fatalf("Could not fetch registered commands: %v", err)
 		// }
-		cmds, err := s.ApplicationCommands(config.DiscordAppID, config.DiscordGuildID)
-		if (err == nil) && (len(cmds) > 0) {
-			// loop through all cmds
-			for _, cmd := range cmds {
-				// delete each cmd
-				s.ApplicationCommandDelete(config.DiscordAppID, config.DiscordGuildID, cmd.ID)
-			}
-		}
 		/*
+			cmds, err := s.ApplicationCommands(config.DiscordAppID, config.DiscordGuildID)
+			if (err == nil) && (len(cmds) > 0) {
+				// loop through all cmds
+				for _, cmd := range cmds {
+					// delete each cmd
+					s.ApplicationCommandDelete(config.DiscordAppID, config.DiscordGuildID, cmd.ID)
+				}
+			}
+
 			for _, v := range registeredCommands {
 				err := s.ApplicationCommandDelete(s.State.User.ID, config.DiscordGuildID, v.ID)
 				log.Printf("Delete command '%v' command.", v.Name)
