@@ -97,24 +97,25 @@ type LocationData struct {
 	TokenReactionStr string   // Emoji for Token Reaction
 }
 type Contract struct {
-	ContractHash  string // ContractID-CoopID
-	Location      []*LocationData
-	CreatorID     []string // Slice of creators
-	ContractID    string   // Contract ID
-	CoopID        string   // CoopID
-	CoopSize      int
-	BoostOrder    int // How the contract is sorted
-	BoostVoting   int
-	BoostPosition int       // Starting Slot
-	State         int       // Boost Completed
-	StartTime     time.Time // When Contract is started
-	EndTime       time.Time // When final booster ends
-	EggFarmers    map[string]*EggFarmer
-	RegisteredNum int
-	Boosters      map[string]*Booster // Boosters Registered
-	Order         []string
-	OrderRevision int        // Incremented when Order is changed
-	mutex         sync.Mutex // Keep this contract thread safe
+	ContractHash   string // ContractID-CoopID
+	Location       []*LocationData
+	CreatorID      []string // Slice of creators
+	ContractID     string   // Contract ID
+	CoopID         string   // CoopID
+	CoopSize       int
+	BoostOrder     int // How the contract is sorted
+	BoostVoting    int
+	BoostPosition  int       // Starting Slot
+	State          int       // Boost Completed
+	StartTime      time.Time // When Contract is started
+	EndTime        time.Time // When final booster ends
+	EggFarmers     map[string]*EggFarmer
+	RegisteredNum  int
+	Boosters       map[string]*Booster // Boosters Registered
+	Order          []string
+	OrderRevision  int        // Incremented when Order is changed
+	lastWishPrompt string     // saved prompt for this contract
+	mutex          sync.Mutex // Keep this contract thread safe
 }
 
 var (
@@ -1915,6 +1916,26 @@ func loadData() (map[string]*Contract, error) {
 	//diskmutex.Unlock()
 
 	return c, nil
+}
+
+func SetWish(guildID string, channelID string, wish string) error {
+	var contract = FindContract(guildID, channelID)
+	if contract == nil {
+		return errors.New(errorNoContract)
+	}
+
+	contract.lastWishPrompt = wish
+
+	return nil
+}
+
+func GetWish(guildID string, channelID string) string {
+	var contract = FindContract(guildID, channelID)
+	if contract == nil {
+		return ""
+	}
+
+	return contract.lastWishPrompt
 }
 
 /*
