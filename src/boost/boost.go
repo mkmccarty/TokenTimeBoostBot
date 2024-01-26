@@ -165,6 +165,16 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 	contractCreator := creatorOfContract(contract, userID)
 
 	if contractCreator {
+
+		if contract.State == ContractStateSignup {
+			str += `
+			## Start the contract
+			
+			Press the Green Button to move from the Sign-up phase to the Boost phase.
+			
+			`
+		}
+
 		// Important commands for contract creators
 		str += `## Coodinator Commands
 
@@ -205,7 +215,7 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 
 	// Basics for those Boosting
 	boosterStr := `## Booster Commands
-	
+
 	> **/boost** : Out of order boosting, mark yourself as boosted.
 	> **/unboost** : Mark a booster as unboosted.
 	> * *farmer* : Mention or guest farmer name.
