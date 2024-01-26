@@ -146,8 +146,9 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 	if contract == nil {
 		// No contract, show help for creating a contract
 		// Anyone can do this so just give the basic instructions
-		str += `## Create a contract
-		
+		str += `
+		## Create a contract
+
 		> **/contract**
 		> * *contract-id* : Contract name
 		> * *coop-id* : Coop name
@@ -166,6 +167,7 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 	if contractCreator {
 		// Important commands for contract creators
 		str += `## Coodinator Commands
+
 		> **/join** : Add a farmer to the contract.
 		> * *farmer* : Mention or guest farmer name.
 		> * *token-count* : (opt) Tokens this farmer wants to boost.
@@ -203,6 +205,7 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 
 	// Basics for those Boosting
 	boosterStr := `## Booster Commands
+	
 	> **/boost** : Out of order boosting, mark yourself as boosted.
 	> **/unboost** : Mark a booster as unboosted.
 	> * *farmer* : Mention or guest farmer name.
