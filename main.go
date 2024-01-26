@@ -308,7 +308,7 @@ var (
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "boost-order",
-					Description: "Provide new boost order. Example: 1,2,3,6,7,5,7-10",
+					Description: "Provide new boost order. Example: 1,2,3,6,7,5,8-10",
 					Required:    false,
 				},
 				{
@@ -756,6 +756,7 @@ var (
 			str := "Context sensitive help"
 
 			// TODO
+			str = boost.GetHelp(s, i.GuildID, i.ChannelID, i.Member.User.ID)
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
@@ -1189,25 +1190,26 @@ func main() {
 	if err != nil {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
-
-	// Delete Guild Specific commands
-	cmds, err := s.ApplicationCommands(config.DiscordAppID, config.DiscordGuildID)
-	if (err == nil) && (len(cmds) > 0) {
-		// loop through all cmds
-		for _, cmd := range cmds {
-			// delete each cmd
-			s.ApplicationCommandDelete(config.DiscordAppID, config.DiscordGuildID, cmd.ID)
-		}
-	}
-
-	// Delete global commands
-	if config.DiscordGuildID != "" {
-		cmds, err = s.ApplicationCommands(config.DiscordAppID, "")
+	if *RemoveCommands {
+		// Delete Guild Specific commands
+		cmds, err := s.ApplicationCommands(config.DiscordAppID, config.DiscordGuildID)
 		if (err == nil) && (len(cmds) > 0) {
 			// loop through all cmds
 			for _, cmd := range cmds {
 				// delete each cmd
-				s.ApplicationCommandDelete(config.DiscordAppID, "", cmd.ID)
+				s.ApplicationCommandDelete(config.DiscordAppID, config.DiscordGuildID, cmd.ID)
+			}
+		}
+
+		// Delete global commands
+		if config.DiscordGuildID != "" {
+			cmds, err = s.ApplicationCommands(config.DiscordAppID, "")
+			if (err == nil) && (len(cmds) > 0) {
+				// loop through all cmds
+				for _, cmd := range cmds {
+					// delete each cmd
+					s.ApplicationCommandDelete(config.DiscordAppID, "", cmd.ID)
+				}
 			}
 		}
 	}
@@ -1235,20 +1237,17 @@ func main() {
 		// // We are doing this from the returned commands on line 375, because using
 		// // this will delete all the commands, which might not be desirable, so we
 		// // are deleting only the commands that we added.
-		// registeredCommands, err := s.ApplicationCommands(s.State.User.ID, *GuildID)
-		// if err != nil {
-		// 	log.Fatalf("Could not fetch registered commands: %v", err)
-		// }
-		/*
-			cmds, err := s.ApplicationCommands(config.DiscordAppID, config.DiscordGuildID)
-			if (err == nil) && (len(cmds) > 0) {
-				// loop through all cmds
-				for _, cmd := range cmds {
-					// delete each cmd
-					s.ApplicationCommandDelete(config.DiscordAppID, config.DiscordGuildID, cmd.ID)
-				}
+		cmds, err := s.ApplicationCommands(config.DiscordAppID, config.DiscordGuildID)
+		if (err == nil) && (len(cmds) > 0) {
+			// loop through all cmds
+			for _, cmd := range cmds {
+				// delete each cmd
+				s.ApplicationCommandDelete(config.DiscordAppID, config.DiscordGuildID, cmd.ID)
 			}
+		}
 
+		registeredCommands, err := s.ApplicationCommands(s.State.User.ID, *GuildID)
+		if err == nil {
 			for _, v := range registeredCommands {
 				err := s.ApplicationCommandDelete(s.State.User.ID, config.DiscordGuildID, v.ID)
 				log.Printf("Delete command '%v' command.", v.Name)
@@ -1256,7 +1255,7 @@ func main() {
 					log.Printf("Cannot delete '%v' command: %v\n", v.Name, err)
 				}
 			}
-		*/
+		}
 	}
 
 	log.Println("Graceful shutdown")
