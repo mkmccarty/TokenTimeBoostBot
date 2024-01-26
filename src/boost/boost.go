@@ -146,7 +146,8 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 	if contract == nil {
 		// No contract, show help for creating a contract
 		// Anyone can do this so just give the basic instructions
-		str += `## Create a contract\n
+		str += `## Create a contract
+		
 		> **/contract**
 		> * *contract-id* : Contract name
 		> * *coop-id* : Coop name
