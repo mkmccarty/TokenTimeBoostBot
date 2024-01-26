@@ -160,15 +160,6 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 		return str
 	}
 
-	if !userInContract(contract, userID) {
-		str += `## Join the contract
-
-		See the pinned message for buttons to *Join*, *Join w/Ping* or *Leave* the contract.
-		You can set your boost tokens wanted by selecting :five: :six: or :eight: and adjusting it with the +Token and -Token buttons.
-		
-		`
-	}
-
 	contractCreator := creatorOfContract(contract, userID)
 
 	if contractCreator {
@@ -196,6 +187,17 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 		> **/bump** : Redraw the Boost List message.
 		
 		`
+	}
+
+	if !userInContract(contract, userID) {
+		str += `## Join the contract
+
+		See the pinned message for buttons to *Join*, *Join w/Ping* or *Leave* the contract.
+		You can set your boost tokens wanted by selecting :five: :six: or :eight: and adjusting it with the +Token and -Token buttons.
+		
+		`
+		// No point in showing the rest of the help
+		return str
 	}
 
 	// Basics for those Boosting
