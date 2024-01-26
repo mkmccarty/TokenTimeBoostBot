@@ -201,7 +201,7 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 	}
 
 	// Basics for those Boosting
-	booster_str := `## Booster Commands
+	boosterStr := `## Booster Commands
 	> **/boost** : Out of order boosting, mark yourself as boosted.
 	> **/unboost** : Mark a booster as unboosted.
 	> * *farmer* : Mention or guest farmer name.
@@ -211,8 +211,8 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 	> **/seteggincname** : Use to set your Egg, Inc game name.
 	> * *ei-name* : (opt) Your game name.
 `
-	if (len(str) + len(booster_str)) < 2000 {
-		str += booster_str
+	if (len(str) + len(boosterStr)) < 2000 {
+		str += boosterStr
 	}
 
 	return str
