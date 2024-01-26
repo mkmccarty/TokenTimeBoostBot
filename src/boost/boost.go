@@ -171,7 +171,7 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 			## Start the contract
 			
 			Press the Green Button to move from the Sign-up phase to the Boost phase.
-			
+
 			`
 		}
 
@@ -1213,7 +1213,11 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 			// Catch a condition where BoostPosition got set wrongly
 			if contract.BoostPosition >= len(contract.Order) || contract.BoostPosition < 0 {
-				contract.BoostPosition = len(contract.Order) - 1
+				if len(contract.Order) > 0 {
+					contract.BoostPosition = len(contract.Order) - 1
+				} else {
+					contract.BoostPosition = 0
+				}
 				if contract.State == ContractStateStarted {
 					for i, el := range contract.Order {
 						if contract.Boosters[el].BoostState == BoostStateTokenTime {
