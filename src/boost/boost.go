@@ -1260,6 +1260,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 					// Move Booster position is 1 based, so we need to add 2 to the current position
 					err := MoveBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], r.UserID, contract.BoostPosition+2, true)
 					if err == nil {
+						s.ChannelMessageSend(r.ChannelID, contract.Boosters[r.UserID].Name+" expressed a desire to go next!")
 						returnVal = "!gonow"
 					}
 				}
