@@ -475,7 +475,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 	var outputStr = ""
 	saveData(Contracts)
 
-	outputStr = fmt.Sprintf("### %s - 📋%s - %d/%d\n", contract.ContractHash, getBoostOrderString(contract), len(contract.Boosters), contract.CoopSize)
+	outputStr = fmt.Sprintf("### %s/%s - 📋%s - %d/%d\n", contract.ContractID, contract.CoopID, getBoostOrderString(contract), len(contract.Boosters), contract.CoopSize)
 	outputStr += fmt.Sprintf("> Coordinator: <@%s>", contract.CreatorID[0])
 	outputStr += "\n"
 
