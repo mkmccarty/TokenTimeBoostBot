@@ -107,7 +107,11 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 			data.Files = append(data.Files, &myFile)
 			discord.ChannelMessageSendComplex(message.ChannelID, &data)
 		} else {
-			discord.ChannelMessageSend(message.ChannelID, "Sorry, the AIrtists are not available at the moment.")
+			// Error message
+			// slice wishURL by colon character
+			wishURL = strings.Split(wishURL, ":")[2]
+
+			discord.ChannelMessageSend(message.ChannelID, "Sorry the AIrtists responsed with \""+wishURL+"\"") //"Sorry, the AIrtists are not available at the moment. Some image prompts ")
 		}
 
 	} else if wishStr != "" {
@@ -275,11 +279,7 @@ func wishImage(prompt string, user string, retry bool) string {
 		},
 	)
 	if err != nil {
-		if !retry {
-			return "No image returned. Many times this is an OpenAI content filter that blocks the image. Try again."
-		}
-		fmt.Printf("Image creation error: %v\n", err)
-		return wishImage(prompt, user, false)
+		return err.Error()
 	}
 
 	fmt.Println(prompt)
