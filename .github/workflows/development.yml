@@ -9,11 +9,11 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
     - name: Install Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@main
       with:
         go-version: ${{ matrix.go-version }}
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@main
       with:
           fetch-depth: 0
     - name: Audit
@@ -32,25 +32,25 @@ jobs:
         CGO_ENABLED=0 GOOS=windows GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/win/boostbot-$VERSION-windows-amd64
     - name: Upload linux
       if: startsWith(matrix.go-version,'1.21')
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@main
       with:
         name: boostbot-linux
         path: output/linux
     - name: Upload windows 64-bit
       if: startsWith(matrix.go-version,'1.21')
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@main
       with:
         name: boostbot-windows-64bit
         path: output/win
     - name: Upload darwin 64-bit
       if: startsWith(matrix.go-version,'1.21')
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@main
       with:
         name: boostbot-darwin-64bit
         path: output/mac
     - name: Upload freebsd 64-bit
       if: startsWith(matrix.go-version,'1.21')
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@main
       with:
         name: boostbot-freebsd-64bit
         path: output/freebsd
