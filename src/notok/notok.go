@@ -99,7 +99,7 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 		}
 
 		// MKM
-		if response.StatusCode == 200 {
+		if response != nil && response.StatusCode == 200 {
 			var myFile discordgo.File
 			myFile.ContentType = "image/png"
 			myFile.Name = "ttbb-dalle3.png"
