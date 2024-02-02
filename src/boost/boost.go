@@ -190,9 +190,9 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 		> * *ping-role* : Change the ping role to something else. The @here role cannot be selected.
 		> * *current-booster* : Change the current booster to a different farmer.
 		>  * User mention or guest farmer name.
-		> * one-boost-position* : Move a booster to a different position in the boost order.
+		> * *one-boost-position* : Move a booster to a different position in the boost order.
 		>  * Provide a mention or guest name and a position number. i.e "@farmer 3" or "guestfarmer 5"
-		> * boost-order : Change the entire boost order list.
+		> * *boost-order* : Change the entire boost order list.
 		>  * Provide a new boost order. Every booster must be included in the new order.
 		>  * Comma separated list of digits and/or ranges. i.e. "1,3,5,2,4" or "1,2,5-3" or "4,5,1-3".
 		>  * Range can be specified with a hypthen: 1-5
@@ -1280,7 +1280,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				emojiName = r.Emoji.Name + ":" + r.Emoji.ID
 
 				var b = contract.Boosters[contract.Order[contract.BoostPosition]]
-				if b.TokensReceived == b.TokensWanted && b.UserID == b.Name {
+				if b.TokensReceived >= b.TokensWanted && b.UserID == b.Name {
 					// Guest farmer auto boosts
 					Boosting(s, r.GuildID, r.ChannelID)
 				}
