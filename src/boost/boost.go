@@ -1316,6 +1316,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			outputStr += "Active booster reaction of 🔃 to exchange position with the next booster.\n"
 			outputStr += "Reaction of ⤵️ to move yourself to last in the current boost order.\n"
 			outputStr += "Anyone can add a 🚽 reaction to express your urgency to boost next.\n"
+			outputStr += "Additional help through the **/help** command.\n"
 			s.ChannelMessageSend(loc.ChannelID, outputStr)
 		}
 	}
