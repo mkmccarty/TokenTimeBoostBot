@@ -2,6 +2,7 @@ package notok
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -98,7 +99,6 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 			data.Content = "||" + wishStr + "||"
 		}
 
-		// MKM
 		if response != nil && response.StatusCode == 200 {
 			var myFile discordgo.File
 			myFile.ContentType = "image/png"
@@ -108,9 +108,6 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 			discord.ChannelMessageSendComplex(message.ChannelID, &data)
 		} else {
 			// Error message
-			// slice wishURL by colon character
-			wishURL = strings.Split(wishURL, ":")[2]
-
 			discord.ChannelMessageSend(message.ChannelID, "Sorry the AIrtists responsed with \""+wishURL+"\"") //"Sorry, the AIrtists are not available at the moment. Some image prompts ")
 		}
 
@@ -279,7 +276,13 @@ func wishImage(prompt string, user string, retry bool) string {
 		},
 	)
 	if err != nil {
-		return err.Error()
+		var apiError *openai.APIError
+		switch {
+		case errors.As(err, &apiError):
+			return apiError.Message
+		default:
+			return err.Error()
+		}
 	}
 
 	fmt.Println(prompt)
