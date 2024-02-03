@@ -271,7 +271,7 @@ func wishImage(prompt string, user string, retry bool) string {
 			Size:           openai.CreateImageSize1024x1024,
 			ResponseFormat: openai.CreateImageResponseFormatURL,
 			Quality:        openai.CreateImageQualityStandard,
-			Style:          openai.CreateImageStyleVivid,
+			Style:          openai.CreateImageStyleNatural,
 			User:           user,
 		},
 	)
