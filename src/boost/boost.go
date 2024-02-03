@@ -1042,17 +1042,26 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			farmer.GuildName = g.Name
 		}
 
+		// Determine if userID is a snowflake (17-19 character string of numbers) using regex
+		re := regexp.MustCompile(`[0-9]{17,19}`)
+		if re.MatchString(userID) {
+			// userID is a snowflake
 		gm, errGM := s.GuildMember(guildID, userID)
-		if gm != nil {
+			if errGM == nil {
 			farmer.Username = gm.User.Username
 			farmer.Nick = gm.Nick
 			farmer.Unique = gm.User.String()
-		} else if errGM != nil {
-			fmt.Println(guildID, userID, errGM)
+			}
+		}
+
+		// Guest Farmer or unknown guild member will have a blank username
+		if farmer.Username == "" {
+			// userID is not a snowflake
 			farmer.Username = userID
 			farmer.Nick = userID
 			farmer.Unique = userID
 		}
+
 		contract.EggFarmers[userID] = farmer
 	}
 
