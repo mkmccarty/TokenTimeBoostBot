@@ -248,8 +248,10 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 	saveEndData(contract) // Save for historical purposes
 
 	for _, el := range contract.Location {
-		s.ChannelMessageDelete(el.ChannelID, el.ListMsgID)
-		s.ChannelMessageDelete(el.ChannelID, el.ReactionID)
+		if s != nil {
+			s.ChannelMessageDelete(el.ChannelID, el.ListMsgID)
+			s.ChannelMessageDelete(el.ChannelID, el.ReactionID)
+		}
 	}
 	delete(Contracts, coop)
 	saveData(Contracts)
@@ -373,6 +375,11 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		el.TokenStr = FindTokenEmoji(s, el.GuildID)
 		// set TokenReactionStr to the TokenStr without first 2 characters and last character
 		el.TokenReactionStr = el.TokenStr[2 : len(el.TokenStr)-1]
+	}
+
+	if !saveStaleContracts(s) {
+		// Didn't prune any contracts so we should save this
+		saveData(Contracts)
 	}
 
 	return contract, nil
@@ -1046,11 +1053,11 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		re := regexp.MustCompile(`[0-9]{17,19}`)
 		if re.MatchString(userID) {
 			// userID is a snowflake
-		gm, errGM := s.GuildMember(guildID, userID)
+			gm, errGM := s.GuildMember(guildID, userID)
 			if errGM == nil {
-			farmer.Username = gm.User.Username
-			farmer.Nick = gm.Nick
-			farmer.Unique = gm.User.String()
+				farmer.Username = gm.User.Username
+				farmer.Nick = gm.Nick
+				farmer.Unique = gm.User.String()
 			}
 		}
 
@@ -1746,6 +1753,21 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 
 }
 
+func saveStaleContracts(s *discordgo.Session) bool {
+	returnValue := false
+	for _, c := range Contracts {
+		duration := time.Since(c.StartTime)
+		// If Endtime is unset and the contract has been running for more than 36 hours
+		// then we should finish the contract
+		if c.EndTime.IsZero() && int(duration.Hours()) > 48 {
+			c.State = ContractStateCompleted
+			FinishContract(s, c)
+			returnValue = true
+		}
+	}
+	return returnValue
+}
+
 // BoostCommand will trigger a contract boost of a user
 func BoostCommand(s *discordgo.Session, guildID string, channelID string, userID string) error {
 	var contract = FindContract(guildID, channelID)
@@ -2012,8 +2034,9 @@ func saveData(c map[string]*Contract) error {
 
 func saveEndData(c *Contract) error {
 	//diskmutex.Lock()
+	var saveName = fmt.Sprintf("%s/%s", c.ContractID, c.CoopID)
 	b, _ := json.Marshal(c)
-	DataStore.Write(c.ContractHash, b)
+	DataStore.Write(saveName, b)
 	//diskmutex.Unlock()
 	return nil
 }
