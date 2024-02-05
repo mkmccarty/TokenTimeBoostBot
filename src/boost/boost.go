@@ -377,10 +377,10 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		el.TokenReactionStr = el.TokenStr[2 : len(el.TokenStr)-1]
 	}
 
-	if !saveStaleContracts(s) {
-		// Didn't prune any contracts so we should save this
-		saveData(Contracts)
-	}
+	//	if !saveStaleContracts(s) {
+	// Didn't prune any contracts so we should save this
+	//	saveData(Contracts)
+	//	}
 
 	return contract, nil
 }
