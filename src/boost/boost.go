@@ -1507,15 +1507,19 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 	if contract.CoopSize == 0 {
 		return errors.New(errorContractEmpty)
 	}
+	userID := mention
 
-	re := regexp.MustCompile(`[\\<>@#&!]`)
-	var userID = re.ReplaceAllString(mention, "")
-
-	var u, _ = s.User(userID)
-	if u != nil {
-		if u.Bot {
-			return errors.New(errorBot)
+	// Determine if userID is a snowflake (17-19 character string of numbers) using regex
+	re := regexp.MustCompile(`<@![0-9]{17,19}>`)
+	if re.MatchString(mention) {
+		var u, _ = s.User(userID)
+		if u != nil {
+			if u.Bot {
+				return errors.New(errorBot)
+			}
 		}
+		re := regexp.MustCompile(`[\\<>@#&!]`)
+		userID = re.ReplaceAllString(mention, "")
 	}
 
 	for i := range contract.Order {
