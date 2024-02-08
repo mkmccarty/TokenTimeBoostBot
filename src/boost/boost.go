@@ -1975,7 +1975,7 @@ func FinishContract(s *discordgo.Session, contract *Contract) error {
 func GetContractList(s *discordgo.Session) (string, error) {
 	str := ""
 	if len(Contracts) == 0 {
-		return "", errors.New(errorNoContract)
+		return "", errors.New("no contracts found")
 	}
 
 	i := 1
