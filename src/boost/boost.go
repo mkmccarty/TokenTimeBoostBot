@@ -1981,10 +1981,10 @@ func GetContractList(s *discordgo.Session) (string, error) {
 	i := 1
 	for _, c := range Contracts {
 		str += fmt.Sprintf("%d - **%s**\n", i, c.ContractHash)
-		// Loop through all the locations
 		for _, loc := range c.Location {
 			str += fmt.Sprintf("> *%s*\t%s\t%s\n", loc.GuildName, loc.ChannelName, loc.ChannelMention)
 		}
+		str += fmt.Sprintf("> Started: <t:%d:R>\n", c.StartTime.Unix())
 		i++
 	}
 	return str, nil
