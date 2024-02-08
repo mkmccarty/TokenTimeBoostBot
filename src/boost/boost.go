@@ -242,8 +242,6 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 		return "", errors.New(errorNoContract)
 	}
 
-	//contract.mutex.Lock()
-	//defer contract.mutex.Unlock()
 	var coop = contract.ContractHash
 	saveEndData(contract) // Save for historical purposes
 
@@ -1757,21 +1755,6 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 
 }
 
-func saveStaleContracts(s *discordgo.Session) bool {
-	returnValue := false
-	for _, c := range Contracts {
-		duration := time.Since(c.StartTime)
-		// If Endtime is unset and the contract has been running for more than 36 hours
-		// then we should finish the contract
-		if c.EndTime.IsZero() && int(duration.Hours()) > 48 {
-			c.State = ContractStateCompleted
-			FinishContract(s, c)
-			returnValue = true
-		}
-	}
-	return returnValue
-}
-
 // BoostCommand will trigger a contract boost of a user
 func BoostCommand(s *discordgo.Session, guildID string, channelID string, userID string) error {
 	var contract = FindContract(guildID, channelID)
@@ -1986,6 +1969,47 @@ func FinishContract(s *discordgo.Session, contract *Contract) error {
 	}
 	farmerstate.SetOrderPercentileAll(contract.Order, len(contract.Order))
 	DeleteContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID)
+	return nil
+}
+
+func GetContractList(s *discordgo.Session) (string, error) {
+	str := ""
+	if len(Contracts) == 0 {
+		return "", errors.New(errorNoContract)
+	}
+
+	i := 1
+	for _, c := range Contracts {
+		str += fmt.Sprintf("%d - **%s**\n", i, c.ContractHash)
+		// Loop through all the locations
+		for _, loc := range c.Location {
+			str += fmt.Sprintf("> *%s*\t%s\t%s\n", loc.GuildName, loc.ChannelName, loc.ChannelMention)
+		}
+		i++
+	}
+	return str, nil
+}
+
+// FinishContractByHash is called only when the contract is complete
+func FinishContractByHash(s *discordgo.Session, contractHash string) error {
+	var contract *Contract
+	for _, c := range Contracts {
+		if c.ContractHash == contractHash {
+			contract = c
+			break
+		}
+	}
+	if contract == nil {
+		return errors.New(errorNoContract)
+	}
+
+	// Don't delete the final boost message
+	farmerstate.SetOrderPercentileAll(contract.Order, len(contract.Order))
+
+	saveEndData(contract) // Save for historical purposes
+	delete(Contracts, contract.ContractHash)
+	saveData(Contracts)
+
 	return nil
 }
 

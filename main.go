@@ -21,6 +21,11 @@ import (
 	"github.com/xhit/go-str2duration/v2"
 )
 
+// Admin Slash Command Constants
+const boostBotHomeGuild string = "766330702689992720"
+const slashAdminContractsList string = "contract-list"
+const slashAdminContractFinish string = "contract-finish"
+
 // Slash Command Constants
 const slashContract string = "contract"
 const slashSkip string = "skip"
@@ -90,6 +95,25 @@ var (
 	BotToken       = flag.String("token", "", "Bot access token")
 	AppID          = flag.String("app", "", "Application ID")
 	RemoveCommands = flag.Bool("rmcmd", false, "Remove all commands after shutdowning or not")
+
+	adminCommands = []*discordgo.ApplicationCommand{
+		{
+			Name:        slashAdminContractsList,
+			Description: "List all running contracts",
+		},
+		{
+			Name:        slashAdminContractFinish,
+			Description: "Mark a contract as finished",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "contract-hash",
+					Description: "Hash of the contract to finish",
+					Required:    true,
+				},
+			},
+		},
+	}
 
 	commands = []*discordgo.ApplicationCommand{
 		{
@@ -342,6 +366,49 @@ var (
 	}
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+		// Admin Commands
+		slashAdminContractsList: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			str, err := boost.GetContractList(s)
+			if err != nil {
+				str = err.Error()
+			}
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content:    str,
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
+		},
+		slashAdminContractFinish: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			contractHash := ""
+			options := i.ApplicationCommandData().Options
+			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+			for _, opt := range options {
+				optionMap[opt.Name] = opt
+			}
+
+			if opt, ok := optionMap["contract-hash"]; ok {
+				contractHash = strings.TrimSpace(opt.StringValue())
+			}
+
+			str := "Marking contract " + contractHash + " as finished."
+			err := boost.FinishContractByHash(s, contractHash)
+			if err != nil {
+				str = err.Error()
+			}
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content:    str,
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
+
+		},
+		// Normal Commands
 		slashJoin: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Protection against DM use
 			if i.GuildID == "" {
@@ -1215,13 +1282,21 @@ func main() {
 	}
 
 	log.Println("Adding commands...")
-	registeredCommands := make([]*discordgo.ApplicationCommand, len(commands))
+	registeredCommands := make([]*discordgo.ApplicationCommand, len(commands)+len(adminCommands))
 	for i, v := range commands {
 		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, config.DiscordGuildID, v)
 		if err != nil {
 			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
 		}
 		registeredCommands[i] = cmd
+	}
+	// Admin Commands exist only for the BoostBot Home Guild
+	for i, v := range adminCommands {
+		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, boostBotHomeGuild, v)
+		if err != nil {
+			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
+		}
+		registeredCommands[len(commands)+i] = cmd
 	}
 
 	defer s.Close()
@@ -1233,20 +1308,8 @@ func main() {
 
 	if *RemoveCommands {
 		log.Println("Removing commands...")
-		// // We need to fetch the commands, since deleting requires the command ID.
-		// // We are doing this from the returned commands on line 375, because using
-		// // this will delete all the commands, which might not be desirable, so we
-		// // are deleting only the commands that we added.
-		cmds, err := s.ApplicationCommands(config.DiscordAppID, config.DiscordGuildID)
-		if (err == nil) && (len(cmds) > 0) {
-			// loop through all cmds
-			for _, cmd := range cmds {
-				// delete each cmd
-				s.ApplicationCommandDelete(config.DiscordAppID, config.DiscordGuildID, cmd.ID)
-			}
-		}
 
-		registeredCommands, err := s.ApplicationCommands(s.State.User.ID, *GuildID)
+		//registeredCommands, err := s.ApplicationCommands(s.State.User.ID, *GuildID)
 		if err == nil {
 			for _, v := range registeredCommands {
 				err := s.ApplicationCommandDelete(s.State.User.ID, config.DiscordGuildID, v.ID)
