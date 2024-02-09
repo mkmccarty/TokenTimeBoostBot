@@ -1206,9 +1206,12 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 		// if contract state is waiting and the reaction is a 🏁 finish the contract
 		if contract.State == ContractStateWaiting && r.Emoji.Name == "🏁" {
-			contract.State = ContractStateCompleted
-			contract.EndTime = time.Now()
-			sendNextNotification(s, contract, true)
+			var votingElection = (msg.Reactions[0].Count - 1) >= 2
+			if votingElection || creatorOfContract(contract, r.UserID) {
+				contract.State = ContractStateCompleted
+				contract.EndTime = time.Now()
+				sendNextNotification(s, contract, true)
+			}
 			return returnVal
 		}
 
