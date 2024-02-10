@@ -1202,6 +1202,21 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	//}
 	//contract.mutex.Lock()
 	defer saveData(Contracts)
+
+	// If the user is in the contract then they can set their token count
+	if userInContract(contract, r.UserID) {
+		var numberSlice = []string{"0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"}
+		if slices.Contains(numberSlice, emojiName) {
+			var b = contract.Boosters[r.UserID]
+			if b != nil {
+				var tokenCount = slices.Index(numberSlice, emojiName)
+				farmerstate.SetTokens(r.UserID, tokenCount)
+				b.TokensWanted = tokenCount
+				redraw = true
+			}
+		}
+	}
+
 	if userInContract(contract, r.UserID) || creatorOfContract(contract, r.UserID) {
 
 		// if contract state is waiting and the reaction is a 🏁 finish the contract
@@ -1326,7 +1341,8 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	if r.Emoji.Name == "❓" {
 		for _, loc := range contract.Location {
 			outputStr := "## Boost Bot Icon Meanings\n\n"
-			outputStr += "See 📌 message to join the contract and select your number of boost tokens.\n"
+			outputStr += "See 📌 message to join the contract.\nSet your number of boost tokens there or "
+			outputStr += "add a 0️⃣ to 🔟 reaction to the boost list message.\n"
 			outputStr += "Active booster reaction of 🚀 to when spending tokens to boost. Multiple 🚀 votes by others in the contract will also indicate a boost.\n"
 			outputStr += "Farmers react with " + loc.TokenStr + " when sending tokens.\n"
 			//outputStr += "Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n"
