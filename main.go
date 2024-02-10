@@ -50,6 +50,8 @@ const slashFun string = "fun"
 // Mutex
 var mutex sync.Mutex
 var s *discordgo.Session
+
+// Version is set by the build system
 var Version = "development"
 
 func init() {
@@ -1054,10 +1056,10 @@ var (
 			}
 		},
 		"fd_signupFarmer": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			JoinContract(s, i, false)
+			joinContract(s, i, false)
 		},
 		"fd_signupBell": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			JoinContract(s, i, true)
+			joinContract(s, i, true)
 		},
 		"fd_signupLeave": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			str := "Removed from Contract"
@@ -1159,7 +1161,7 @@ func getSignupComponents(disableStartContract bool) (string, []discordgo.Message
 	}
 
 }
-func JoinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell bool) {
+func joinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell bool) {
 	var str = "Adding to Contract..."
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
