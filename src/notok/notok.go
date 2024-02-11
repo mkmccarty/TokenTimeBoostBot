@@ -20,8 +20,8 @@ import (
 	"google.golang.org/api/option"
 )
 
-const AiBotString string = "Eggcellent, the AIrtists have started work and will reply shortly."
-const AiTextString string = "Eggcellent, the wrAIters have been tasked with a composition for you.."
+const aiBotString string = "Eggcellent, the AIrtists have started work and will reply shortly."
+const aiTextString string = "Eggcellent, the wrAIters have been tasked with a composition for you.."
 
 var defaultWish = "Draw a balloon animal staring into a lightbulb in an unhealthy way."
 var lastWish = defaultWish
@@ -30,6 +30,7 @@ func init() {
 
 }
 
+// Notok is the main function for the notok command
 func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd int64, text string) error {
 	var name = message.Member.Nick
 	if name == "" {
@@ -40,6 +41,7 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 		name = g.Nick
 	}
 
+	hidden := true
 	wishURL := ""
 	wishStr := text
 	var aiMsg *discordgo.Message
@@ -49,20 +51,21 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 
 	switch cmd {
 	case 1:
-		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AiTextString+" "+currentStartTime)
+		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, aiTextString+" "+currentStartTime)
 		if err == nil {
 			wishStr = wishGemini(name, text)
 		}
 	case 5: // Open Letter
-		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AiTextString+" "+currentStartTime)
+		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, aiTextString+" "+currentStartTime)
 		if err == nil {
 			wishStr = letter(name, text)
 		}
 	case 2:
-		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AiBotString+" "+currentStartTime)
+		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, aiBotString+" "+currentStartTime)
 		if err == nil {
 			wishStr = letmeout(name, text)
 			wishURL = wishImage(wishStr, name, false)
+			hidden = false
 		}
 	case 3:
 		str := gonow()
@@ -75,7 +78,7 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 		if len(wishStr) < 20 {
 			wishStr = defaultWish
 		}
-		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, AiBotString+" "+currentStartTime)
+		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, aiBotString+" "+currentStartTime)
 		if err == nil {
 			wishURL = wishImage(wishStr, name, true)
 		}
@@ -96,7 +99,12 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 		response, _ := http.Get(wishURL)
 		var data discordgo.MessageSend
 		if wishStr != lastWish {
-			data.Content = "||" + wishStr + "||"
+			if hidden {
+				data.Content = "||" + wishStr + "||"
+			} else {
+				data.Content = wishStr
+			}
+
 		}
 
 		if response != nil && response.StatusCode == 200 {
@@ -120,6 +128,7 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 	return nil
 }
 
+// DoGoNow gets the AI to draw a chicken in a hurry
 func DoGoNow(discord *discordgo.Session, channelID string) {
 	var str = gonow()
 	discord.ChannelTyping(channelID)
