@@ -625,17 +625,16 @@ var (
 
 		slashBoost: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Protection against DM use
-			/*
-				if i.GuildID == "" {
-					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-						Type: discordgo.InteractionResponseChannelMessageWithSource,
-						Data: &discordgo.InteractionResponseData{
-							Content:    "This command can only be run in a server.",
-							Flags:      discordgo.MessageFlagsEphemeral,
-							Components: []discordgo.MessageComponent{}},
-					})
-					return
-				}*/
+			if i.GuildID == "" {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content:    "This command can only be run in a server.",
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{}},
+				})
+				return
+			}
 			var str = "Boosting!!"
 			var err = boost.UserBoost(s, i.GuildID, i.ChannelID, i.Member.User.ID)
 			if err != nil {
