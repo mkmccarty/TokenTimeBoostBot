@@ -95,30 +95,7 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 	}
 
 	if wishURL != "" {
-		discord.ChannelTyping(message.ChannelID)
-		response, _ := http.Get(wishURL)
-		var data discordgo.MessageSend
-		if wishStr != lastWish {
-			if hidden {
-				data.Content = "||" + wishStr + "||"
-			} else {
-				data.Content = wishStr
-			}
-
-		}
-
-		if response != nil && response.StatusCode == 200 {
-			var myFile discordgo.File
-			myFile.ContentType = "image/png"
-			myFile.Name = "ttbb-dalle3.png"
-			myFile.Reader = response.Body
-			data.Files = append(data.Files, &myFile)
-			discord.ChannelMessageSendComplex(message.ChannelID, &data)
-		} else {
-			// Error message
-			discord.ChannelMessageSend(message.ChannelID, "Sorry the AIrtists responsed with \""+wishURL+"\"") //"Sorry, the AIrtists are not available at the moment. Some image prompts ")
-		}
-
+		sendImageReply(discord, message.ChannelID, wishURL, wishStr, hidden)
 	} else if wishStr != "" {
 		discord.ChannelMessageSend(message.ChannelID, wishStr)
 		lastWish = wishStr
@@ -129,10 +106,35 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 }
 
 // DoGoNow gets the AI to draw a chicken in a hurry
-func DoGoNow(discord *discordgo.Session, channelID string) {
+func DoGoNow(s *discordgo.Session, channelID string) {
 	var str = gonow()
-	discord.ChannelTyping(channelID)
-	discord.ChannelMessageSend(channelID, wishImage(str, "", false))
+	s.ChannelTyping(channelID)
+	sendImageReply(s, channelID, wishImage(str, "", false), "", false)
+}
+
+func sendImageReply(s *discordgo.Session, channelID string, wishURL string, wishStr string, hidden bool) {
+	s.ChannelTyping(channelID)
+	response, _ := http.Get(wishURL)
+	var data discordgo.MessageSend
+	if wishStr != lastWish {
+		if hidden {
+			data.Content = "||" + wishStr + "||"
+		} else {
+			data.Content = wishStr
+		}
+	}
+
+	if response != nil && response.StatusCode == 200 {
+		var myFile discordgo.File
+		myFile.ContentType = "image/png"
+		myFile.Name = "ttbb-dalle3.png"
+		myFile.Reader = response.Body
+		data.Files = append(data.Files, &myFile)
+		s.ChannelMessageSendComplex(channelID, &data)
+	} else {
+		// Error message
+		s.ChannelMessageSend(channelID, "Sorry the AIrtists responsed with \""+wishURL+"\"") //"Sorry, the AIrtists are not available at the moment. Some image prompts ")
+	}
 }
 
 func letter(mention string, text string) string {
