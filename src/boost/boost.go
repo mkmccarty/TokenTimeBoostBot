@@ -1228,7 +1228,12 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 	// If the user is not in the contract then they can join with a farmer reaction
 	if !userInContract(contract, r.UserID) {
-		var farmerSlice = []string{"🧑‍🌾", "👩‍🌾", "👨‍🌾"}
+		var farmerSlice = []string{
+			"🧑‍🌾", "🧑🏻‍🌾", "🧑🏼‍🌾", "🧑🏽‍🌾", "🧑🏾‍🌾", "🧑🏿‍🌾", // farmer
+			"👩‍🌾", "👩🏻‍🌾", "👩🏼‍🌾", "👩🏽‍🌾", "👩🏾‍🌾", "👩🏿‍🌾", // woman farmer
+			"👨‍🌾", "👨🏻‍🌾", "👨🏼‍🌾", "👨🏼‍🌾", "👨🏾‍🌾", "👨🏿‍🌾", // man farmer
+		}
+
 		if slices.Contains(farmerSlice, emojiName) {
 			err := JoinContract(s, r.GuildID, r.ChannelID, r.UserID, false)
 			if err == nil {
