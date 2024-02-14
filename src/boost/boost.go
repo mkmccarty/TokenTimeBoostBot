@@ -23,7 +23,7 @@ import (
 //var usermutex sync.Mutex
 //var diskmutex sync.Mutex
 
-var DataStore *diskv.Diskv
+var dataStore *diskv.Diskv
 
 //var TokenStr = "" //"<:token:778019329693450270>"
 
@@ -40,23 +40,27 @@ const errorContractAlreadyStarted = "contract already started"
 const errorAlreadyBoosted = "farmer boosted already"
 const errorNotContractCreator = "restricted to contract creator"
 
-const ContractOrderSignup = 0
-const ContractOrderReverse = 1
-const ContractOrderRandom = 2
-const ContractOrderFair = 3
-const ContractOrderTimeBased = 4
+// Constnts for the contract
+const (
+	ContractOrderSignup    = 0 // Signup order
+	ContractOrderReverse   = 1 // Reverse order
+	ContractOrderRandom    = 2 // Randomized when the contract starts. After 20 minutes the order changes to Sign-up.
+	ContractOrderFair      = 3 // Fair based on position percentile of each farmers last 5 contracts. Those with no history use 50th percentile
+	ContractOrderTimeBased = 4 // Time based order
 
-const ContractStateSignup = 0
-const ContractStateStarted = 1
-const ContractStateWaiting = 2
-const ContractStateCompleted = 3
+	ContractStateSignup    = 0 // Contract is in signup phase
+	ContractStateStarted   = 1 // Contract is started
+	ContractStateWaiting   = 2 // Waiting for other(s) to join
+	ContractStateCompleted = 3 // Contract is completed
 
-const BoostStateUnboosted = 0
-const BoostStateTokenTime = 1
-const BoostStateBoosted = 2
+	BoostStateUnboosted = 0 // Unboosted
+	BoostStateTokenTime = 1 // TokenTime or turn to receive tokens
+	BoostStateBoosted   = 2 // Boosted
 
-const BoostOrderTimeThreshold = 20
+	BoostOrderTimeThreshold = 20 // minutes to switch from random or fair to signup
+)
 
+// EggFarmer was intended to be more for across contract tracking of users
 type EggFarmer struct {
 	UserID      string // Discord User ID
 	Username    string
@@ -71,6 +75,7 @@ type EggFarmer struct {
 	//Cluck       []string  // Keep track of messages from each user
 }
 
+// Booster holds the data for each booster within a Contract
 type Booster struct {
 	UserID         string // Egg Farmer
 	Name           string
@@ -83,6 +88,7 @@ type Booster struct {
 	Duration       time.Duration // Duration of boost
 }
 
+// LocationData holds server specific Data for a contract
 type LocationData struct {
 	GuildID          string
 	GuildName        string
@@ -96,6 +102,8 @@ type LocationData struct {
 	TokenStr         string   // Emoji for Token
 	TokenReactionStr string   // Emoji for Token Reaction
 }
+
+// Contract is the main struct for each contract
 type Contract struct {
 	ContractHash   string // ContractID-CoopID
 	Location       []*LocationData
@@ -119,15 +127,15 @@ type Contract struct {
 }
 
 var (
-	// DiscordToken holds the API Token for discord.
+	// Contracts is a map of contracts and is saved to disk
 	Contracts map[string]*Contract
 )
 
 func init() {
 	Contracts = make(map[string]*Contract)
 
-	// DataStore to initialize a new diskv store, rooted at "my-data-dir", with a 1MB cache.
-	DataStore = diskv.New(diskv.Options{
+	// dataStore to initialize a new diskv store, rooted at "my-data-dir", with a 1MB cache.
+	dataStore = diskv.New(diskv.Options{
 		BasePath:          "ttbb-data",
 		AdvancedTransform: AdvancedTransform,
 		InverseTransform:  InverseTransform,
@@ -140,6 +148,7 @@ func init() {
 	}
 }
 
+// GetHelp will return the help string for the contract
 func GetHelp(s *discordgo.Session, guildID string, channelID string, userID string) string {
 	str := "# Boost Bot Help"
 	var contract = FindContract(guildID, channelID)
@@ -232,10 +241,11 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 	return str
 }
 
-func RemoveLocIndex(s []*LocationData, index int) []*LocationData {
+func removeLocIndex(s []*LocationData, index int) []*LocationData {
 	return append(s[:index], s[index+1:]...)
 }
 
+// DeleteContract will delete the contract
 func DeleteContract(s *discordgo.Session, guildID string, channelID string) (string, error) {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
@@ -257,6 +267,7 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 	return coop, nil
 }
 
+// FindTokenEmoji will find the token emoji for the given guild
 func FindTokenEmoji(s *discordgo.Session, guildID string) string {
 	g, _ := s.State.Guild(guildID) // RAIYC Playground
 	var e = emutil.FindEmoji(g.Emojis, "token", false)
@@ -383,6 +394,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	return contract, nil
 }
 
+// AddBoostTokens will add tokens to the current booster and adjust the count of the booster
 func AddBoostTokens(s *discordgo.Session, guildID string, channelID string, userID string, setCountWant int, countWantAdjust int, countReceivedAdjust int) (int, int, error) {
 	// Find the contract
 	var contract = FindContract(guildID, channelID)
@@ -422,6 +434,7 @@ func AddBoostTokens(s *discordgo.Session, guildID string, channelID string, user
 	return b.TokensWanted, b.TokensReceived, nil
 }
 
+// SetListMessageID will save the list messageID for the contract
 func SetListMessageID(contract *Contract, channelID string, messageID string) {
 	for _, element := range contract.Location {
 		if element.ChannelID == channelID {
@@ -434,6 +447,7 @@ func SetListMessageID(contract *Contract, channelID string, messageID string) {
 	saveData(Contracts)
 }
 
+// SetReactionID will save the reactionID for the contract
 func SetReactionID(contract *Contract, channelID string, reactionID string) {
 	for _, element := range contract.Location {
 		if element.ChannelID == channelID {
@@ -476,6 +490,7 @@ func getTokenCountString(tokenStr string, tokensWanted int, tokensReceived int) 
 	return countStr, signupCountStr
 }
 
+// DrawBoostList will draw the boost list for the contract
 func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) string {
 	var outputStr = ""
 	saveData(Contracts)
@@ -629,6 +644,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 	return outputStr
 }
 
+// FindContract will find the contract by the guildID and channelID
 func FindContract(guildID string, channelID string) *Contract {
 	// Look for the contract
 	for key, element := range Contracts {
@@ -642,6 +658,7 @@ func FindContract(guildID string, channelID string) *Contract {
 	return nil
 }
 
+// FindContractByMessageID will find the contract by the messageID
 func FindContractByMessageID(channelID string, messageID string) *Contract {
 	// Given a
 	for _, c := range Contracts {
@@ -654,6 +671,7 @@ func FindContractByMessageID(channelID string, messageID string) *Contract {
 	return nil
 }
 
+// ChangePingRole will change the ping role for the contract
 func ChangePingRole(s *discordgo.Session, guildID string, channelID string, userID string, pingRole string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
@@ -713,6 +731,7 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 	return nil
 }
 
+// MoveBooster will move a booster to a new position in the contract
 func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID string, boosterName string, boosterPosition int, redraw bool) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
@@ -751,7 +770,7 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 	currentBooster := contract.Order[contract.BoostPosition]
 
 	var newOrder []string
-	copyOrder := RemoveIndex(contract.Order, boosterIndex)
+	copyOrder := removeIndex(contract.Order, boosterIndex)
 	if len(copyOrder) == 0 {
 		newOrder = append(newOrder, boosterName)
 	} else if boosterPosition >= len(copyOrder) {
@@ -771,7 +790,7 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 
 	// Swap in the new order and redraw the list
 	contract.Order = newOrder
-	contract.OrderRevision += 1
+	contract.OrderRevision++
 
 	if contract.State == ContractStateStarted {
 		for i, el := range newOrder {
@@ -844,6 +863,7 @@ func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string
 	return nil
 }
 
+// ChangeBoostOrder will change the order of the boosters in the contract
 func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, userID string, boostOrder string, redraw bool) error {
 	var contract = FindContract(guildID, channelID)
 	var boostOrderClean = ""
@@ -928,7 +948,7 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 
 	// set contract.BoostOrder to the index of the element contract.Boosters[element].BoostState == BoostStateTokenTime
 	contract.Order = newOrder
-	contract.OrderRevision += 1
+	contract.OrderRevision++
 
 	if contract.State == ContractStateStarted {
 		for i, el := range newOrder {
@@ -945,6 +965,7 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 	return nil
 }
 
+// AddContractMember adds a member to a contract
 func AddContractMember(s *discordgo.Session, guildID string, channelID string, operator string, mention string, guest string, order int) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
@@ -1020,6 +1041,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 	return nil
 }
 
+// AddFarmerToContract adds a farmer to a contract
 func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string, order int) (*EggFarmer, error) {
 	fmt.Println("AddFarmerToContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", order)
 	var farmer = contract.EggFarmers[userID]
@@ -1131,7 +1153,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 				}
 				contract.Order = insert(contract.Order, index, farmer.UserID)
 			}
-			contract.OrderRevision += 1
+			contract.OrderRevision++
 		}
 		contract.RegisteredNum = len(contract.Boosters)
 
@@ -1183,6 +1205,7 @@ func userInContract(c *Contract, u string) bool {
 	return false
 }
 
+// ReactionAdd is called when a reaction is added to a message
 func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	// Find the message
 	returnVal := ""
@@ -1319,7 +1342,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 		if strings.ToLower(r.Emoji.Name) == "token" {
 			if contract.BoostPosition < len(contract.Order) {
-				contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived += 1
+				contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived++
 				emojiName = r.Emoji.Name + ":" + r.Emoji.ID
 
 				var b = contract.Boosters[contract.Order[contract.BoostPosition]]
@@ -1378,6 +1401,7 @@ func findNextBooster(contract *Contract) int {
 	return -1
 }
 
+// JoinContract will add a user to the contract
 func JoinContract(s *discordgo.Session, guildID string, channelID string, userID string, bell bool) error {
 	var err error
 
@@ -1419,7 +1443,7 @@ func JoinContract(s *discordgo.Session, guildID string, channelID string, userID
 	return nil
 }
 
-func RemoveIndex(s []string, index int) []string {
+func removeIndex(s []string, index int) []string {
 	return append(s[:index], s[index+1:]...)
 }
 
@@ -1440,8 +1464,8 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 	if ok && contract.State != ContractStateSignup {
 		var activeBoosterState = activeBooster.BoostState
 		var userID = contract.Order[index]
-		contract.Order = RemoveIndex(contract.Order, index)
-		contract.OrderRevision += 1
+		contract.Order = removeIndex(contract.Order, index)
+		contract.OrderRevision++
 		delete(contract.Boosters, userID)
 
 		// Make sure we retain our current booster
@@ -1468,8 +1492,8 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 	} else {
 		delete(contract.Boosters, contract.Order[index])
 
-		contract.Order = RemoveIndex(contract.Order, index)
-		contract.OrderRevision += 1
+		contract.Order = removeIndex(contract.Order, index)
+		contract.OrderRevision++
 		//remove userID from Boosters
 		refreshBoostListMessage(s, contract)
 
@@ -1477,6 +1501,7 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 	return true
 }
 
+// Unboost will mark a user as unboosted
 func Unboost(s *discordgo.Session, guildID string, channelID string, mention string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
@@ -1523,6 +1548,7 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 	return nil
 }
 
+// RemoveContractBoosterByMention will remove a booster from the contract by mention
 func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channelID string, operator string, mention string) error {
 	fmt.Println("RemoveContractBoosterByMention", "GuildID: ", guildID, "ChannelID: ", channelID, "Operator: ", operator, "Mention: ", mention)
 	var contract = FindContract(guildID, channelID)
@@ -1577,6 +1603,7 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 	return nil
 }
 
+// RemoveContractBooster will remove a booster from the contract
 func RemoveContractBooster(s *discordgo.Session, guildID string, channelID string, index int) error {
 	var contract = FindContract(guildID, channelID)
 
@@ -1599,6 +1626,7 @@ func RemoveContractBooster(s *discordgo.Session, guildID string, channelID strin
 	return nil
 }
 
+// ReactionRemove handles a user removing a reaction from a message
 func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 	var _, err = s.ChannelMessage(r.ChannelID, r.MessageID)
 	if err != nil {
@@ -1624,6 +1652,7 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 	}
 }
 
+// StartContractBoosting will start the contract
 func StartContractBoosting(s *discordgo.Session, guildID string, channelID string, userID string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
@@ -1785,8 +1814,8 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 
 }
 
-// BoostCommand will trigger a contract boost of a user
-func BoostCommand(s *discordgo.Session, guildID string, channelID string, userID string) error {
+// UserBoost will trigger a contract boost of a user
+func UserBoost(s *discordgo.Session, guildID string, channelID string, userID string) error {
 	var contract = FindContract(guildID, channelID)
 
 	if contract == nil {
@@ -1895,6 +1924,7 @@ func insert(a []string, index int, value string) []string {
 	return a
 }
 
+// SkipBooster will skip the current booster and move to the next
 func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID string) error {
 	var boosterSwap = false
 	var contract = FindContract(guildID, channelID)
@@ -1934,7 +1964,7 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 			contract.Order[contract.BoostPosition+1] = skipped
 
 		} else {
-			contract.Order = RemoveIndex(contract.Order, contract.BoostPosition)
+			contract.Order = removeIndex(contract.Order, contract.BoostPosition)
 			contract.Order = append(contract.Order, skipped)
 		}
 
@@ -1950,12 +1980,12 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 	} else {
 		var skipped = contract.Order[selectedUser]
 		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateUnboosted
-		contract.Order = RemoveIndex(contract.Order, selectedUser)
+		contract.Order = removeIndex(contract.Order, selectedUser)
 		contract.Order = insert(contract.Order, contract.BoostPosition, skipped)
 		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 		contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
 	}
-	contract.OrderRevision += 1
+	contract.OrderRevision++
 
 	sendNextNotification(s, contract, true)
 
@@ -2001,6 +2031,7 @@ func FinishContract(s *discordgo.Session, contract *Contract) error {
 	return nil
 }
 
+// GetContractList returns a list of all contracts
 func GetContractList(s *discordgo.Session) (string, error) {
 	str := ""
 	if len(Contracts) == 0 {
@@ -2083,7 +2114,7 @@ func InverseTransform(pathKey *diskv.PathKey) (key string) {
 func saveData(c map[string]*Contract) error {
 	//diskmutex.Lock()
 	b, _ := json.Marshal(c)
-	DataStore.Write("EggsBackup", b)
+	dataStore.Write("EggsBackup", b)
 
 	//diskmutex.Unlock()
 	return nil
@@ -2093,7 +2124,7 @@ func saveEndData(c *Contract) error {
 	//diskmutex.Lock()
 	var saveName = fmt.Sprintf("%s/%s", c.ContractID, c.CoopID)
 	b, _ := json.Marshal(c)
-	DataStore.Write(saveName, b)
+	dataStore.Write(saveName, b)
 	//diskmutex.Unlock()
 	return nil
 }
@@ -2101,7 +2132,7 @@ func saveEndData(c *Contract) error {
 func loadData() (map[string]*Contract, error) {
 	//diskmutex.Lock()
 	var c map[string]*Contract
-	b, err := DataStore.Read("EggsBackup")
+	b, err := dataStore.Read("EggsBackup")
 	if err != nil {
 		return c, err
 	}
@@ -2111,6 +2142,7 @@ func loadData() (map[string]*Contract, error) {
 	return c, nil
 }
 
+// SetWish sets the wish for a contract identified by the guild ID and channel ID.
 func SetWish(guildID string, channelID string, wish string) error {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
@@ -2122,6 +2154,7 @@ func SetWish(guildID string, channelID string, wish string) error {
 	return nil
 }
 
+// GetWish gets the wish for a contract identified by the guild ID and channel ID.
 func GetWish(guildID string, channelID string) string {
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {

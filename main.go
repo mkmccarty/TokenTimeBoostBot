@@ -637,7 +637,7 @@ var (
 					return
 				}*/
 			var str = "Boosting!!"
-			var err = boost.BoostCommand(s, i.GuildID, i.ChannelID, i.Member.User.ID)
+			var err = boost.UserBoost(s, i.GuildID, i.ChannelID, i.Member.User.ID)
 			if err != nil {
 				str = err.Error()
 			}
