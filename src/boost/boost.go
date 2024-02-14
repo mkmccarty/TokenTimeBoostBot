@@ -630,13 +630,13 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		outputStr += "> Active Booster: 🚀 when boosting.\n"
 		outputStr += "> Anyone: " + tokenStr + " when sending tokens. ❓ Help.\n"
 		if contract.CoopSize != len(contract.Order) {
-			outputStr += "> Use pinned message to join this list and set boost " + tokenStr + " wanted.\n"
+			outputStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
 		}
 		//outputStr += "```"
 	} else if contract.State == ContractStateWaiting {
 		outputStr += "\n"
 		outputStr += "> Waiting for other(s) to join...\n"
-		outputStr += "> Use pinned message to join this list and set boost " + tokenStr + " wanted.\n"
+		outputStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
 		outputStr += "```"
 		outputStr += "React with 🏁 to end the contract."
 		outputStr += "```"
@@ -1226,7 +1226,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	//contract.mutex.Lock()
 	defer saveData(Contracts)
 
-	// If the user is not in the contract then they can join
+	// If the user is not in the contract then they can join with a farmer reaction
 	if !userInContract(contract, r.UserID) {
 		var farmerSlice = []string{"🧑‍🌾", "👩‍🌾", "👨‍🌾"}
 		if slices.Contains(farmerSlice, emojiName) {
