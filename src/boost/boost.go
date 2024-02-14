@@ -1203,6 +1203,17 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	//contract.mutex.Lock()
 	defer saveData(Contracts)
 
+	// If the user is not in the contract then they can join
+	if !userInContract(contract, r.UserID) {
+		var farmerSlice = []string{"🧑‍🌾", "👩‍🌾", "👨‍🌾"}
+		if slices.Contains(farmerSlice, emojiName) {
+			err := JoinContract(s, r.GuildID, r.ChannelID, r.UserID, false)
+			if err == nil {
+				redraw = true
+			}
+		}
+	}
+
 	// If the user is in the contract then they can set their token count
 	if userInContract(contract, r.UserID) {
 		var numberSlice = []string{"0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"}
