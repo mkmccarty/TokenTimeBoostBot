@@ -2050,6 +2050,7 @@ func GetContractList(s *discordgo.Session) (string, error) {
 		for _, loc := range c.Location {
 			str += fmt.Sprintf("> *%s*\t%s\t%s\n", loc.GuildName, loc.ChannelName, loc.ChannelMention)
 		}
+		str += fmt.Sprintf("> Hash: *%s*\n", c.ContractHash)
 		str += fmt.Sprintf("> Started: <t:%d:R>\n", c.StartTime.Unix())
 		i++
 	}
