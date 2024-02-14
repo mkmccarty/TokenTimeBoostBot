@@ -1793,14 +1793,13 @@ func BoostCommand(s *discordgo.Session, guildID string, channelID string, userID
 		return errors.New(errorNoContract)
 	}
 
-	//contract.mutex.Lock()
-	//defer contract.mutex.Unlock()
-
 	if contract.State == ContractStateSignup {
 		return errors.New(errorContractEmpty)
 	}
 
-	if userID == contract.Order[contract.BoostPosition] {
+	if contract.BoostPosition != -1 &&
+		contract.BoostPosition < len(contract.Order) &&
+		userID == contract.Order[contract.BoostPosition] {
 		// User is using /boost command instead of reaction
 		Boosting(s, guildID, channelID)
 	} else {
