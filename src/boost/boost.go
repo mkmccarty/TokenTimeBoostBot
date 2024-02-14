@@ -18,6 +18,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/peterbourgon/diskv/v3"
 	emutil "github.com/post04/discordgo-emoji-util"
+	"github.com/rs/xid"
 )
 
 //var usermutex sync.Mutex
@@ -316,12 +317,12 @@ func getBoostOrderString(contract *Contract) string {
 
 // CreateContract creates a new contract or joins an existing contract if run from a different location
 func CreateContract(s *discordgo.Session, contractID string, coopID string, coopSize int, BoostOrder int, guildID string, channelID string, userID string, pingRole string) (*Contract, error) {
-	var ContractHash = fmt.Sprintf("%s/%s", contractID, coopID)
+	var ContractHash = xid.New().String()
 
 	// Make sure this channel doesn't already have a contract
 	existingContract := FindContract(guildID, channelID)
 	if existingContract != nil {
-		return nil, errors.New("this channel already has a contract named: " + existingContract.ContractHash)
+		return nil, errors.New("this channel already has a contract named: " + existingContract.ContractID + "/" + existingContract.CoopID)
 	}
 
 	contract := Contracts[ContractHash]
@@ -1437,7 +1438,7 @@ func JoinContract(s *discordgo.Session, guildID string, channelID string, userID
 
 	if bell {
 		u, _ := s.UserChannelCreate(farmer.UserID)
-		var str = fmt.Sprintf("Boost notifications will be sent for %s.", contract.ContractHash)
+		var str = fmt.Sprintf("Boost notifications will be sent for %s/%s.", contract.ContractID, contract.CoopID)
 		_, err := s.ChannelMessageSend(u.ID, str)
 		if err != nil {
 			panic(err)
@@ -2045,7 +2046,7 @@ func GetContractList(s *discordgo.Session) (string, error) {
 
 	i := 1
 	for _, c := range Contracts {
-		str += fmt.Sprintf("%d - **%s**\n", i, c.ContractHash)
+		str += fmt.Sprintf("%d - **%s/%s**\n", i, c.ContractID, c.CoopID)
 		for _, loc := range c.Location {
 			str += fmt.Sprintf("> *%s*\t%s\t%s\n", loc.GuildName, loc.ChannelName, loc.ChannelMention)
 		}
