@@ -2,7 +2,6 @@ package farmerstate
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -28,13 +27,13 @@ var (
 )
 
 func init() {
-
-	if flag.Lookup("test.v") == nil {
-		fmt.Println("normal run")
-	} else {
-		fmt.Println("run under go test")
-	}
-
+	/*
+		if flag.Lookup("test.v") == nil {
+			fmt.Println("normal run")
+		} else {
+			fmt.Println("run under go test")
+		}
+	*/
 	farmerstate = make(map[string]*Farmer)
 	//Glob
 	// DataStore to initialize a new diskv store, rooted at "my-data-dir", with a 1MB cache.
