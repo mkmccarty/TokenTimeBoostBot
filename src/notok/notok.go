@@ -21,7 +21,7 @@ import (
 )
 
 const aiBotString string = "Eggcellent, the AIrtists have started work and will reply shortly."
-const aiTextString string = "Eggcellent, the wrAIters have been tasked with a composition for you.."
+const aiTextString string = "Eggcellent, the wrAIters have been tasked with a composition for you."
 
 var defaultWish = "Draw a balloon animal staring into a lightbulb in an unhealthy way."
 var lastWish = defaultWish
@@ -63,13 +63,13 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 	case 2:
 		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, aiBotString+" "+currentStartTime)
 		if err == nil {
-			wishStr = letmeout(name, text)
-			wishURL = wishImage(wishStr, name, false)
+			wishStr = getLetMeOutString(text)
+			wishURL = wishImage(wishStr, name)
 			hidden = false
 		}
 	case 3:
 		str := gonow()
-		wishURL = wishImage(str, name, false)
+		wishURL = wishImage(str, name)
 		wishStr = name + " expresses an urgent need to go next up in boost order."
 	case 4:
 		if len(wishStr) == 0 {
@@ -80,7 +80,7 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 		}
 		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, aiBotString+" "+currentStartTime)
 		if err == nil {
-			wishURL = wishImage(wishStr, name, true)
+			wishURL = wishImage(wishStr, name)
 		}
 	default:
 		return nil
@@ -109,7 +109,7 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 func DoGoNow(s *discordgo.Session, channelID string) {
 	var str = gonow()
 	s.ChannelTyping(channelID)
-	sendImageReply(s, channelID, wishImage(str, "", false), "", false)
+	sendImageReply(s, channelID, wishImage(str, ""), "", false)
 }
 
 func sendImageReply(s *discordgo.Session, channelID string, wishURL string, wishStr string, hidden bool) {
@@ -221,10 +221,13 @@ func wish(mention string, text string) string {
 */
 
 func wishGemini(mention string, text string) string {
-	tokenPrompt := "A contract needs widgets to help purchase boosts and to share with others to improve speed the delivery of eggs. Make a silly wish that would result in a widget being delivered by truck very soon. The response should be no more than 3 or 4 sentences and start with \"I wish\""
-	tokenPrompt += " " + text
+	var builder strings.Builder
+	builder.WriteString("A contract needs widgets to help purchase boosts and to share with others to improve speed the delivery of eggs.")
+	builder.WriteString("Make a silly wish that would result in a widget being delivered by truck very soon.")
+	builder.WriteString("The response should should be no more than 4 sentences and start with \"I wish\"")
+	builder.WriteString(text)
 
-	str, err := getStringFromGoogleGemini(tokenPrompt)
+	str, err := getStringFromGoogleGemini(builder.String())
 	if err != nil {
 		return "Sorry, the AIrtists are not available at the moment."
 	}
@@ -249,12 +252,12 @@ func printResponse(resp *genai.GenerateContentResponse) string {
 	return str
 }
 
-func letmeout(mention string, text string) string {
-	var tokenPrompt = //"Using a random city on Earth as the location for this story, don't reuse a previous city choice.  Highlight that city's culture when telling this story about " +
-	"A group of chicken egg farmers are locked in their farm " +
-		"held hostage by an unknown force. In 250 words or less tell random funny story about this confinement. "
-	tokenPrompt += " " + text
-	str, err := getStringFromGoogleGemini(tokenPrompt)
+func getLetMeOutString(text string) string {
+	var builder strings.Builder
+	builder.WriteString("A group of chickens are locked in their farm held hostage by an unknown force.\n")
+	builder.WriteString("In 150 words or less tell a funny story about this confinement.\n")
+	builder.WriteString(text)
+	str, err := getStringFromGoogleGemini(builder.String())
 	if err != nil {
 		return "Sorry, the AIrtists are not available at the moment."
 	}
@@ -270,7 +273,7 @@ func gonow() string {
 	return tokenPrompt
 }
 
-func wishImage(prompt string, user string, retry bool) string {
+func wishImage(prompt string, user string) string {
 	var client = openai.NewClient(config.OpenAIKey)
 
 	respURL, err := client.CreateImage(
