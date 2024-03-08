@@ -89,9 +89,8 @@ func init() {
 	if *GuildID == "" {
 		GuildID = &config.DiscordGuildID
 	}
-
 }
-}
+	
 func fmtDuration(d time.Duration) string {
 	str := ""
 	d = d.Round(time.Minute)
@@ -107,6 +106,7 @@ func fmtDuration(d time.Duration) string {
 		str = fmt.Sprintf("%dh%dm", h, m)
 	}
 	return strings.Replace(str, "0h0m", "", -1)
+}
 
 func init() {
 	var err error
