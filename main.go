@@ -920,7 +920,7 @@ var (
 				userID = re.ReplaceAllString(farmerMention, "")
 			}
 
-			var str = "Setting Egg, IGN for @<" + userID + "> to "
+			var str = "Setting Egg, IGN for <@" + userID + "> to "
 
 			if opt, ok := optionMap["ei-name"]; ok {
 				eiName = strings.TrimSpace(opt.StringValue())
