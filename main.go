@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -43,9 +44,18 @@ const slashHelp string = "help"
 // const slashSignup string = "signup"
 const slashCoopETA string = "coopeta"
 
+const slashLaunchHelper string = "launch-helper"
 const slashFun string = "fun"
 
 // const slashTrueGPT string = "gpt"
+type missionData struct {
+	Ships []struct {
+		Name     string   `json:"Name"`
+		Art      string   `json:"Art"`
+		Duration []string `json:"Duration"`
+	}
+}
+
 // const slashSignup string = "signup"
 // Mutex
 var mutex sync.Mutex
@@ -81,6 +91,22 @@ func init() {
 	}
 
 }
+}
+func fmtDuration(d time.Duration) string {
+	str := ""
+	d = d.Round(time.Minute)
+	h := d / time.Hour
+	d -= h * time.Hour
+	m := d / time.Minute
+	d = h / 24
+	h -= d * 24
+
+	if d > 0 {
+		str = fmt.Sprintf("%dd%dh%dm", d, h, m)
+	} else {
+		str = fmt.Sprintf("%dh%dm", h, m)
+	}
+	return strings.Replace(str, "0h0m", "", -1)
 
 func init() {
 	var err error
@@ -552,6 +578,90 @@ var (
 				boostOrder = int(opt.IntValue())
 			}
 			if opt, ok := optionMap["contract-id"]; ok {
+		slashLaunchHelper: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			// Protection against DM use
+			if i.GuildID == "" {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content:    "This command can only be run in a server.",
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{}},
+				})
+				return
+			}
+			var ftlLevel = 60
+			var ftlMult = 0.4
+			var t = time.Now()
+			var arrivalTimespan = ""
+
+			missionJSON := `{"ships":[
+				{"name": "Atreggies Henliner","art":"","duration":["2d","3d","4d"]},
+				{"name": "Henerprise","art":"","duration":["1d","2d","4d"]}
+				]}`
+
+			var mis missionData
+			json.Unmarshal([]byte(missionJSON), &mis)
+
+			// User interacting with bot, is this first time ?
+			options := i.ApplicationCommandData().Options
+			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+			for _, opt := range options {
+				optionMap[opt.Name] = opt
+			}
+
+			if opt, ok := optionMap["ftl"]; ok {
+				ftlLevel = int(opt.IntValue())
+				//ftlLevel between 0 and 60
+				if ftlLevel < 0 {
+					ftlLevel = 0
+				}
+				if ftlLevel > 60 {
+					ftlLevel = 60
+				}
+				ftlMult = float64(100-ftlLevel) / 100.0
+			}
+			if opt, ok := optionMap["timespan"]; ok {
+				// Timespan is when the next mission arrives
+				arrivalTimespan = opt.StringValue()
+				arrivalTimespan = strings.Replace(arrivalTimespan, "min", "m", -1)
+				arrivalTimespan = strings.Replace(arrivalTimespan, "hr", "h", -1)
+				arrivalTimespan = strings.Replace(arrivalTimespan, "sec", "s", -1)
+
+			}
+
+			dur, _ := str2duration.ParseDuration(arrivalTimespan)
+			arrivalTime := t.Add(dur)
+
+			shipDurationName := [...]string{"SH", "ST", "EX"}
+			// loop through missionData
+			// for each ship, calculate the arrival time
+			// if arrival time is less than endTime, then add to the message
+			var builder strings.Builder
+			builder.WriteString(fmt.Sprintf("Launch options for mission arriving at <t:%d:f> with FTL:%d\n", arrivalTime.Unix(), ftlLevel))
+			for _, ship := range mis.Ships {
+				builder.WriteString("**" + ship.Name + "**:\n")
+				for i, missionLen := range ship.Duration {
+					d, _ := str2duration.ParseDuration(missionLen)
+
+					minutesStr := fmt.Sprintf("%dm", int(d.Minutes()*ftlMult))
+					ftlDuration, _ := str2duration.ParseDuration(minutesStr)
+
+					launchTime := arrivalTime.Add(ftlDuration)
+					builder.WriteString(fmt.Sprintf("> %s (%s):  <t:%d:f>\n", shipDurationName[i], fmtDuration(ftlDuration), launchTime.Unix()))
+				}
+				builder.WriteString("\n")
+
+			}
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content:    builder.String(),
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
+		},
 				contractID = opt.StringValue()
 				contractID = strings.Replace(contractID, " ", "", -1)
 			}
