@@ -330,6 +330,24 @@ var (
 			},
 		},
 		{
+			Name:        slashLaunchHelper,
+			Description: "Display timestamp table for next mission.",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "timespan",
+					Description: "Time remaining for next mission. Example: 8h15m.",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Name:        "ftl",
+					Description: "FTL Drive Upgrades level. Default is 60.",
+					Required:    true,
+				},
+			},
+		},
+		{
 			Name:        slashChange,
 			Description: "Change aspects of a running contract",
 			Options: []*discordgo.ApplicationCommandOption{
