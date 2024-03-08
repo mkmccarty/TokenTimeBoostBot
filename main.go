@@ -90,7 +90,7 @@ func init() {
 		GuildID = &config.DiscordGuildID
 	}
 }
-	
+
 func fmtDuration(d time.Duration) string {
 	str := ""
 	d = d.Round(time.Minute)
@@ -541,43 +541,6 @@ var (
 					Components: []discordgo.MessageComponent{}},
 			})
 		},
-		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			// Protection against DM use
-			if i.GuildID == "" {
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content:    "This command can only be run in a server.",
-						Flags:      discordgo.MessageFlagsEphemeral,
-						Components: []discordgo.MessageComponent{}},
-				})
-				return
-			}
-			var contractID = i.GuildID
-			var coopID = i.GuildID // Default to the Guild ID
-			var boostOrder = boost.ContractOrderSignup
-			var coopSize = 2
-			var ChannelID = i.ChannelID
-			var pingRole = "@here"
-
-			// User interacting with bot, is this first time ?
-			options := i.ApplicationCommandData().Options
-			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-			for _, opt := range options {
-				optionMap[opt.Name] = opt
-			}
-
-			if opt, ok := optionMap["coop-size"]; ok {
-				coopSize = int(opt.IntValue())
-			}
-			if opt, ok := optionMap["ping-role"]; ok {
-				role := opt.RoleValue(nil, "")
-				pingRole = role.Mention()
-			}
-			if opt, ok := optionMap["boost-order"]; ok {
-				boostOrder = int(opt.IntValue())
-			}
-			if opt, ok := optionMap["contract-id"]; ok {
 		slashLaunchHelper: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Protection against DM use
 			if i.GuildID == "" {
@@ -662,6 +625,44 @@ var (
 					Components: []discordgo.MessageComponent{}},
 			})
 		},
+
+		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			// Protection against DM use
+			if i.GuildID == "" {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content:    "This command can only be run in a server.",
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{}},
+				})
+				return
+			}
+			var contractID = i.GuildID
+			var coopID = i.GuildID // Default to the Guild ID
+			var boostOrder = boost.ContractOrderSignup
+			var coopSize = 2
+			var ChannelID = i.ChannelID
+			var pingRole = "@here"
+
+			// User interacting with bot, is this first time ?
+			options := i.ApplicationCommandData().Options
+			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+			for _, opt := range options {
+				optionMap[opt.Name] = opt
+			}
+
+			if opt, ok := optionMap["coop-size"]; ok {
+				coopSize = int(opt.IntValue())
+			}
+			if opt, ok := optionMap["ping-role"]; ok {
+				role := opt.RoleValue(nil, "")
+				pingRole = role.Mention()
+			}
+			if opt, ok := optionMap["boost-order"]; ok {
+				boostOrder = int(opt.IntValue())
+			}
+			if opt, ok := optionMap["contract-id"]; ok {
 				contractID = opt.StringValue()
 				contractID = strings.Replace(contractID, " ", "", -1)
 			}
