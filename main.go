@@ -395,14 +395,14 @@ var (
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "ei-name",
+					Name:        "ei-ign",
 					Description: "Egg Inc IGN",
 					Required:    false,
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionUser,
-					Name:        "farmer-ign",
-					Description: "Farmer for this IGN assignment. Used by coordinator or admin to set another farmers IGN",
+					Name:        "discord-name",
+					Description: "Discord name for this IGN assignment. Used by coordinator or admin to set another farmers IGN",
 					Required:    false,
 				},
 			},
@@ -914,7 +914,7 @@ var (
 				optionMap[opt.Name] = opt
 			}
 
-			if opt, ok := optionMap["farmer-ign"]; ok {
+			if opt, ok := optionMap["discord-name"]; ok {
 				farmerMention := opt.UserValue(s).Mention()
 				re := regexp.MustCompile(`[\\<>@#&!]`)
 				userID = re.ReplaceAllString(farmerMention, "")
@@ -922,7 +922,7 @@ var (
 
 			var str = "Setting Egg, IGN for <@" + userID + "> to "
 
-			if opt, ok := optionMap["ei-name"]; ok {
+			if opt, ok := optionMap["ei-ign"]; ok {
 				eiName = strings.TrimSpace(opt.StringValue())
 				str += eiName
 			}
