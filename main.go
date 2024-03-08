@@ -343,7 +343,7 @@ var (
 					Type:        discordgo.ApplicationCommandOptionInteger,
 					Name:        "ftl",
 					Description: "FTL Drive Upgrades level. Default is 60.",
-					Required:    true,
+					Required:    false,
 				},
 			},
 		},
