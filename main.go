@@ -901,6 +901,7 @@ var (
 			}
 			var str = "Setting Egg, Inc name to "
 			var eiName = ""
+			var userID = i.Member.User.ID
 
 			options := i.ApplicationCommandData().Options
 			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -910,6 +911,16 @@ var (
 
 			if opt, ok := optionMap["ei-name"]; ok {
 				eiName = strings.TrimSpace(opt.StringValue())
+				// This could contain a mention "@mention EIName"
+				if strings.HasPrefix(eiName, "<@") {
+					// Mention detected
+					// extract number from within <@###> and extract the name
+					words := strings.Split(eiName, ">")
+					re := regexp.MustCompile(`[\\<>@#&!]`)
+					userID = re.ReplaceAllString(words[0], "")
+					// set eiName to string after the mention
+					eiName = strings.TrimSpace(eiName[len(userID)+3:])
+				}
 				str += eiName
 			}
 
@@ -919,7 +930,13 @@ var (
 				str = "Don't use your Egg, Inc. EI number."
 				eiName = ""
 			} else {
-				farmerstate.SetEggIncName(i.Member.User.ID, eiName)
+				// Is the user issuing the command a coordinator?
+				if userID != i.Member.User.ID && !boost.IsUserCreatorOfAnyContract(i.Member.User.ID) {
+					str = "This form of usage is restricted to contract coordinators and administrators."
+					eiName = ""
+				} else {
+					farmerstate.SetEggIncName(userID, eiName)
+				}
 			}
 
 			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

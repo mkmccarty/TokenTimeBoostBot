@@ -208,6 +208,8 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 		>  * Range can be specified with a hypthen: 1-5
 		>  * Reverse range can be specified with range: 5-1
 		> **/bump** : Redraw the Boost List message.
+		> **/seteggincname** : Set users Egg, Inc game name.
+		>  * *ei-name* : Include @mention in field to target a different user "@mention ei-name"
 		
 		`
 	}
@@ -1175,6 +1177,16 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 	}
 	refreshBoostListMessage(s, contract)
 	return farmer, nil
+}
+
+// IsUserCreatorOfAnyContract will return true if the user is the creator of any contract
+func IsUserCreatorOfAnyContract(userID string) bool {
+	for _, c := range Contracts {
+		if creatorOfContract(c, userID) {
+			return true
+		}
+	}
+	return false
 }
 
 func creatorOfContract(c *Contract, u string) bool {
