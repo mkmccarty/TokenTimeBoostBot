@@ -396,7 +396,13 @@ var (
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "ei-name",
-					Description: "Egg Inc user name",
+					Description: "Egg Inc IGN",
+					Required:    false,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionUser,
+					Name:        "farmer-ign",
+					Description: "Farmer for this IGN assignment. Used by coordinator or admin to set another farmers IGN",
 					Required:    false,
 				},
 			},
@@ -899,7 +905,6 @@ var (
 				})
 				return
 			}
-			var str = "Setting Egg, Inc name to "
 			var eiName = ""
 			var userID = i.Member.User.ID
 
@@ -909,18 +914,16 @@ var (
 				optionMap[opt.Name] = opt
 			}
 
+			if opt, ok := optionMap["farmer-ign"]; ok {
+				farmerMention := opt.UserValue(s).Mention()
+				re := regexp.MustCompile(`[\\<>@#&!]`)
+				userID = re.ReplaceAllString(farmerMention, "")
+			}
+
+			var str = "Setting Egg, IGN for @<" + userID + "> to "
+
 			if opt, ok := optionMap["ei-name"]; ok {
 				eiName = strings.TrimSpace(opt.StringValue())
-				// This could contain a mention "@mention EIName"
-				if strings.HasPrefix(eiName, "<@") {
-					// Mention detected
-					// extract number from within <@###> and extract the name
-					words := strings.Split(eiName, ">")
-					re := regexp.MustCompile(`[\\<>@#&!]`)
-					userID = re.ReplaceAllString(words[0], "")
-					// set eiName to string after the mention
-					eiName = strings.TrimSpace(eiName[len(userID)+3:])
-				}
 				str += eiName
 			}
 
