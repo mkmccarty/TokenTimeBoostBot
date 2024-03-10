@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/dannav/hhmmss"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
@@ -335,9 +336,15 @@ var (
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "timespan",
+					Name:        "mission-duration",
 					Description: "Time remaining for next mission. Example: 8h15m.",
 					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "dubcap-time",
+					Description: "Time remaining for double capacity event. Examples: `43:16:22` or `43h16m22s`",
+					Required:    false,
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionInteger,
@@ -590,6 +597,10 @@ var (
 			var mis missionData
 			json.Unmarshal([]byte(missionJSON), &mis)
 
+			showDubCap := false
+			doubleCapacityStr := ""
+			var dubCapTime = time.Now()
+
 			// User interacting with bot, is this first time ?
 			options := i.ApplicationCommandData().Options
 			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -608,13 +619,30 @@ var (
 				}
 				ftlMult = float64(100-ftlLevel) / 100.0
 			}
-			if opt, ok := optionMap["timespan"]; ok {
+			if opt, ok := optionMap["mission-duration"]; ok {
 				// Timespan is when the next mission arrives
 				arrivalTimespan = opt.StringValue()
 				arrivalTimespan = strings.Replace(arrivalTimespan, "min", "m", -1)
 				arrivalTimespan = strings.Replace(arrivalTimespan, "hr", "h", -1)
 				arrivalTimespan = strings.Replace(arrivalTimespan, "sec", "s", -1)
+			}
+			if opt, ok := optionMap["dubcap-time"]; ok {
+				// Timespan is when the next mission arrives
+				// Time could be HH:MM:SS or 1h2m3s
+				dcTimespan := opt.StringValue()
+				// Does String contain a colon? then it's in HH:MM:SS format
+				durDubCap, err := hhmmss.Parse(dcTimespan)
+				if err != nil {
+					dcTimespan = strings.Replace(dcTimespan, "min", "m", -1)
+					dcTimespan = strings.Replace(dcTimespan, "hr", "h", -1)
+					dcTimespan = strings.Replace(dcTimespan, "sec", "s", -1)
+					durDubCap, _ = str2duration.ParseDuration(dcTimespan)
+				}
 
+				dubCapTime = t.Add(durDubCap)
+
+				showDubCap = true
+				doubleCapacityStr = fmt.Sprintf("Double Capacity Event ends at <t:%d:f>\n", dubCapTime.Unix())
 			}
 
 			dur, _ := str2duration.ParseDuration(arrivalTimespan)
@@ -626,16 +654,29 @@ var (
 			// if arrival time is less than endTime, then add to the message
 			var builder strings.Builder
 			builder.WriteString(fmt.Sprintf("Launch options for mission arriving at <t:%d:f> with FTL:%d\n", arrivalTime.Unix(), ftlLevel))
+			if showDubCap {
+				builder.WriteString(doubleCapacityStr)
+			}
 			for _, ship := range mis.Ships {
 				builder.WriteString("**" + ship.Name + "**:\n")
 				for i, missionLen := range ship.Duration {
+					dcBubble := ""
 					d, _ := str2duration.ParseDuration(missionLen)
 
 					minutesStr := fmt.Sprintf("%dm", int(d.Minutes()*ftlMult))
 					ftlDuration, _ := str2duration.ParseDuration(minutesStr)
 
 					launchTime := arrivalTime.Add(ftlDuration)
-					builder.WriteString(fmt.Sprintf("> %s (%s):  <t:%d:f>\n", shipDurationName[i], fmtDuration(ftlDuration), launchTime.Unix()))
+					if showDubCap {
+						if launchTime.Before(dubCapTime) {
+							dcBubble = "🟢 "
+						} else if launchTime.Equal(dubCapTime) {
+							dcBubble = "🟡 "
+						} else {
+							dcBubble = "🔴 "
+						}
+					}
+					builder.WriteString(fmt.Sprintf("> %s%s (%s):  <t:%d:f>\n", dcBubble, shipDurationName[i], fmtDuration(ftlDuration), launchTime.Unix()))
 				}
 				builder.WriteString("\n")
 
