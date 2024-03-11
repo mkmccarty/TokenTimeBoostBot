@@ -600,6 +600,7 @@ var (
 			showDubCap := false
 			doubleCapacityStr := ""
 			var dubCapTime = time.Now()
+			var dubCapTimeCaution = time.Now()
 
 			// User interacting with bot, is this first time ?
 			options := i.ApplicationCommandData().Options
@@ -640,6 +641,7 @@ var (
 				}
 
 				dubCapTime = t.Add(durDubCap)
+				dubCapTimeCaution = dubCapTime.Add(-5 * time.Minute)
 
 				showDubCap = true
 				doubleCapacityStr = fmt.Sprintf("Double Capacity Event ends at <t:%d:f>\n", dubCapTime.Unix())
@@ -668,10 +670,10 @@ var (
 
 					launchTime := arrivalTime.Add(ftlDuration)
 					if showDubCap {
-						if launchTime.Before(dubCapTime) {
-							dcBubble = "🟢 "
-						} else if launchTime.Equal(dubCapTime) {
-							dcBubble = "🟡 "
+						if launchTime.Before(dubCapTimeCaution) {
+							dcBubble = "🟢 " // More than 5 min left in event
+						} else if launchTime.Before(dubCapTime) {
+							dcBubble = "🟡 " // Within 5 minutes
 						} else {
 							dcBubble = "🔴 "
 						}
