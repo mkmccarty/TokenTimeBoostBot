@@ -1189,7 +1189,7 @@ var (
 			var str = "Contract not found."
 			coopName, err := boost.DeleteContract(s, i.GuildID, i.ChannelID)
 			if err == nil {
-				str = fmt.Sprintf("Contract %s Deleted", coopName)
+				str = fmt.Sprintf("Contract %s deleted.", coopName)
 			}
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
