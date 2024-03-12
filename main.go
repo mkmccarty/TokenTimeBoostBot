@@ -337,7 +337,7 @@ var (
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "mission-duration",
-					Description: "Time remaining for next mission. Example: 8h15m.",
+					Description: "Time remaining for next mission(s). Example: 8h15m or \"8h15m, 10h5m, 1d2m\"",
 					Required:    true,
 				},
 				{
