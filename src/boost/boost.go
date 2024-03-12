@@ -255,7 +255,8 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 		return "", errors.New(errorNoContract)
 	}
 
-	var coop = contract.ContractHash
+	var coopHash = contract.ContractHash
+	var coopName = contract.ContractID + "/" + contract.CoopID
 	saveEndData(contract) // Save for historical purposes
 
 	for _, el := range contract.Location {
@@ -264,10 +265,10 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 			s.ChannelMessageDelete(el.ChannelID, el.ReactionID)
 		}
 	}
-	delete(Contracts, coop)
+	delete(Contracts, coopHash)
 	saveData(Contracts)
 
-	return coop, nil
+	return coopName, nil
 }
 
 // FindTokenEmoji will find the token emoji for the given guild
