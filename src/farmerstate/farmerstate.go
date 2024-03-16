@@ -9,14 +9,18 @@ import (
 	"github.com/peterbourgon/diskv/v3"
 )
 
+// Farmer struct to store user data
 type Farmer struct {
 	UserID       string // Discord User ID
 	EggIncName   string // User's Egg Inc name
 	Ping         bool   // True/False
 	Tokens       int    // Number of tokens this user wants
 	OrderHistory []int  // list of contract order percentiles
+	OutOut       bool   // If user opted out of saving data
+	LaunchChain  bool   // Launch History chain option
 }
 
+// OrderHistory struct to store order history data
 type OrderHistory struct {
 	Order [][]string `json:"Order"`
 }
@@ -67,9 +71,11 @@ func init() {
 // NewFarmer creates a new Farmer
 func newFarmer(userID string) {
 	farmerstate[userID] = &Farmer{
-		UserID: userID,
-		Ping:   false,
-		Tokens: 0,
+		UserID:      userID,
+		Ping:        false,
+		Tokens:      0,
+		OutOut:      false,
+		LaunchChain: false,
 	}
 }
 
@@ -89,6 +95,25 @@ func SetEggIncName(userID string, eggIncName string) {
 		newFarmer(userID)
 	}
 	farmerstate[userID].EggIncName = eggIncName
+
+	err := saveData(farmerstate)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func GetLaunchHistory(userID string) bool {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+	return farmerstate[userID].LaunchChain
+}
+
+func SetLaunchHistory(userID string, setting bool) {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+	farmerstate[userID].LaunchChain = setting
 
 	err := saveData(farmerstate)
 	if err != nil {

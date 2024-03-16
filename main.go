@@ -48,6 +48,8 @@ const slashCoopETA string = "coopeta"
 const slashLaunchHelper string = "launch-helper"
 const slashFun string = "fun"
 
+var integerFTLMinValue float64 = 0.0
+
 // const slashTrueGPT string = "gpt"
 type missionData struct {
 	Ships []struct {
@@ -56,6 +58,22 @@ type missionData struct {
 		Duration []string `json:"Duration"`
 	}
 }
+
+const missionJSON = `{"ships":[
+	{"name": "Atreggies Henliner","art":"","duration":["2d","3d","4d"]},
+	{"name": "Henerprise","art":"","duration":["1d","2d","4d"]},
+	{"name": "Voyegger","art":"","duration":["12h","1d12h","3d"]},
+	{"name": "Defihent","art":"","duration":["8h","1d","2d"]},
+	{"name": "Galeggtica","art":"","duration":["6h","16h","1d6h"]},
+	{"name": "Cornish-Hen Corvette","art":"","duration":["4h","12h","1d"]},
+	{"name": "Quintillion Chicken","art":"","duration":["3h","6h","12h"]},
+	{"name": "BCR","art":"","duration":["1h30m","4h","8h"]},
+	{"name": "Chicken Heavy","art":"","duration":["45m","1h30m","4h"]},
+	{"name": "Chicken Nine","art":"","duration":["30m","1h","3h"]},
+	{"name": "Chicken One","art":"","duration":["20m","1h","2h"]}
+	]}`
+
+var mis missionData
 
 // const slashSignup string = "signup"
 // Mutex
@@ -90,6 +108,9 @@ func init() {
 	if *GuildID == "" {
 		GuildID = &config.DiscordGuildID
 	}
+
+	json.Unmarshal([]byte(missionJSON), &mis)
+
 }
 
 func fmtDuration(d time.Duration) string {
@@ -347,9 +368,47 @@ var (
 					Required:    false,
 				},
 				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "chain",
+					Description: "Show time for a chained extended mission",
+					Required:    false,
+				},
+				/*
+					{
+						Type:        discordgo.ApplicationCommandOptionInteger,
+						Name:        "mission-ship",
+						Description: "Select the ship to display. Default is Atreggies Henliner & Henerprise.",
+						Choices: []*discordgo.ApplicationCommandOptionChoice{
+							{
+								Name:  "Atreggies Henliner & Henerprise",
+								Value: -1,
+							},
+							{
+								Name:  "Atreggies Henliner",
+								Value: 0,
+							},
+							{
+								Name:  "Henerprise",
+								Value: 1,
+							},
+							{
+								Name:  "Voyegger",
+								Value: 3,
+							},
+							{
+								Name:  "Defihent",
+								Value: 4,
+							},
+						},
+					},
+				*/
+
+				{
 					Type:        discordgo.ApplicationCommandOptionInteger,
 					Name:        "ftl",
 					Description: "FTL Drive Upgrades level. Default is 60.",
+					MinValue:    &integerFTLMinValue,
+					MaxValue:    60,
 					Required:    false,
 				},
 			},
@@ -588,14 +647,7 @@ var (
 			var ftlMult = 0.4
 			var t = time.Now()
 			var arrivalTimespan = ""
-
-			missionJSON := `{"ships":[
-				{"name": "Atreggies Henliner","art":"","duration":["2d","3d","4d"]},
-				{"name": "Henerprise","art":"","duration":["1d","2d","4d"]}
-				]}`
-
-			var mis missionData
-			json.Unmarshal([]byte(missionJSON), &mis)
+			var chainExtended = false
 
 			showDubCap := false
 			doubleCapacityStr := ""
@@ -611,14 +663,13 @@ var (
 
 			if opt, ok := optionMap["ftl"]; ok {
 				ftlLevel = int(opt.IntValue())
-				//ftlLevel between 0 and 60
-				if ftlLevel < 0 {
-					ftlLevel = 0
-				}
-				if ftlLevel > 60 {
-					ftlLevel = 60
-				}
 				ftlMult = float64(100-ftlLevel) / 100.0
+			}
+			if opt, ok := optionMap["chain"]; ok {
+				chainExtended = opt.BoolValue()
+				farmerstate.SetLaunchHistory(i.Member.User.ID, chainExtended)
+			} else {
+				chainExtended = farmerstate.GetLaunchHistory(i.Member.User.ID)
 			}
 			if opt, ok := optionMap["mission-duration"]; ok {
 				// Timespan is when the next mission arrives
@@ -656,6 +707,10 @@ var (
 				durationList = durationList[:3]
 			}
 
+			ed, _ := str2duration.ParseDuration("4d")
+			minutesStr := fmt.Sprintf("%dm", int(ed.Minutes()*ftlMult))
+			exDuration, _ := str2duration.ParseDuration(minutesStr)
+
 			for i, missionTimespanRaw := range durationList {
 				missionTimespan := strings.TrimSpace(missionTimespanRaw)
 				dur, err := str2duration.ParseDuration(missionTimespan)
@@ -677,7 +732,8 @@ var (
 				if showDubCap {
 					builder.WriteString(doubleCapacityStr)
 				}
-				for _, ship := range mis.Ships {
+
+				for _, ship := range mis.Ships[:2] {
 					builder.WriteString("__" + ship.Name + "__:\n")
 					for i, missionLen := range ship.Duration {
 						dcBubble := ""
@@ -696,7 +752,13 @@ var (
 								dcBubble = "🔴 "
 							}
 						}
-						builder.WriteString(fmt.Sprintf("> %s%s (%s):  <t:%d:f>\n", dcBubble, shipDurationName[i], fmtDuration(ftlDuration), launchTime.Unix()))
+						var chainString = ""
+						if chainExtended {
+							chainLaunchTime := launchTime.Add(exDuration)
+							chainString = fmt.Sprintf(" +next EX return <t:%d:t>", chainLaunchTime.Unix())
+						}
+
+						builder.WriteString(fmt.Sprintf("> %s%s (%s): <t:%d:t>%s\n", dcBubble, shipDurationName[i], fmtDuration(ftlDuration), launchTime.Unix(), chainString))
 					}
 				}
 			}
