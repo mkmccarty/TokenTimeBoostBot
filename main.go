@@ -48,7 +48,7 @@ const slashCoopETA string = "coopeta"
 const slashLaunchHelper string = "launch-helper"
 const slashFun string = "fun"
 
-var integerFTLMinValue float64 = 0.0
+var integerZeroMinValue float64 = 0.0
 
 // const slashTrueGPT string = "gpt"
 type missionData struct {
@@ -230,6 +230,8 @@ var (
 					Type:        discordgo.ApplicationCommandOptionInteger,
 					Name:        "token-count",
 					Description: "Set the number of boost tokens for this farmer. Default is 8.",
+					MinValue:    &integerZeroMinValue,
+					MaxValue:    14,
 					Required:    false,
 				},
 				{
@@ -407,7 +409,7 @@ var (
 					Type:        discordgo.ApplicationCommandOptionInteger,
 					Name:        "ftl",
 					Description: "FTL Drive Upgrades level. Default is 60.",
-					MinValue:    &integerFTLMinValue,
+					MinValue:    &integerZeroMinValue,
 					MaxValue:    60,
 					Required:    false,
 				},
