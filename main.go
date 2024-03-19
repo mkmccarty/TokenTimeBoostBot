@@ -392,6 +392,14 @@ var (
 							Value: -1,
 						},
 						{
+							Name:  "All Stars Club",
+							Value: -2,
+						},
+						{
+							Name:  "Starfleet Commander",
+							Value: -3,
+						},
+						{
 							Name:  "Henerprise",
 							Value: 1,
 						},
@@ -713,7 +721,19 @@ var (
 			missionShips = append(missionShips, mis.Ships[selectedShipPrimary])
 			if selectedShipSecondary != -1 && selectedShipPrimary != selectedShipSecondary {
 				// append secondary mission
-				missionShips = append(missionShips, mis.Ships[selectedShipSecondary])
+				switch selectedShipSecondary {
+				case -2: // All Stars Club
+					missionShips = append(missionShips, mis.Ships[1])
+					missionShips = append(missionShips, mis.Ships[2])
+					missionShips = append(missionShips, mis.Ships[3])
+					missionShips = append(missionShips, mis.Ships[4])
+					missionShips = append(missionShips, mis.Ships[5])
+					missionShips = append(missionShips, mis.Ships[6])
+				case -3: // Starfleet Commander
+					missionShips = append(missionShips, mis.Ships[1], mis.Ships[2], mis.Ships[3])
+				default:
+					missionShips = append(missionShips, mis.Ships[selectedShipSecondary])
+				}
 			}
 
 			if opt, ok := optionMap["ftl"]; ok {
@@ -789,7 +809,18 @@ var (
 				}
 
 				for shipIndex, ship := range missionShips {
-					builder.WriteString("__" + ship.Name + "__:\n")
+					var sName = " " + ship.Name
+					if shipIndex == 0 || len(missionShips) <= 2 {
+						builder.WriteString("__" + ship.Name + "__:\n")
+						sName = "" // Clear this out for single missions
+					} else if shipIndex == 1 {
+						if selectedShipSecondary == -2 {
+							builder.WriteString("__All Stars Club__:\n")
+						} else if selectedShipSecondary == -3 {
+							builder.WriteString("__Starfleet Commander__:\n")
+						}
+					}
+
 					for i, missionLen := range ship.Duration {
 						dcBubble := ""
 						d, _ := str2duration.ParseDuration(missionLen)
@@ -813,8 +844,8 @@ var (
 							chainString = fmt.Sprintf(" +next EX return <t:%d:t>", chainLaunchTime.Unix())
 						}
 
-						builder.WriteString(fmt.Sprintf("> %s%s (%s): <t:%d:t>%s\n", dcBubble, shipDurationName[i], fmtDuration(ftlDuration), launchTime.Unix(), chainString))
-						if shipIndex > 0 && selectedShipSecondary > 1 {
+						builder.WriteString(fmt.Sprintf("> %s%s%s (%s): <t:%d:t>%s\n", dcBubble, shipDurationName[i], sName, fmtDuration(ftlDuration), launchTime.Unix(), chainString))
+						if len(missionShips) > 2 && selectedShipSecondary < -1 {
 							break
 						}
 					}
