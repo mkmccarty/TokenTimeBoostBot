@@ -845,7 +845,7 @@ var (
 						}
 
 						builder.WriteString(fmt.Sprintf("> %s%s%s (%s): <t:%d:t>%s\n", dcBubble, shipDurationName[i], sName, fmtDuration(ftlDuration), launchTime.Unix(), chainString))
-						if len(missionShips) > 2 && selectedShipSecondary < -1 {
+						if shipIndex != 0 && len(missionShips) > 2 && selectedShipSecondary < -1 {
 							break
 						}
 					}
