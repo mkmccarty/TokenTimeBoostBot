@@ -50,13 +50,15 @@ const slashFun string = "fun"
 
 var integerZeroMinValue float64 = 0.0
 
+type shipData struct {
+	Name     string   `json:"Name"`
+	Art      string   `json:"Art"`
+	Duration []string `json:"Duration"`
+}
+
 // const slashTrueGPT string = "gpt"
 type missionData struct {
-	Ships []struct {
-		Name     string   `json:"Name"`
-		Art      string   `json:"Art"`
-		Duration []string `json:"Duration"`
-	}
+	Ships []shipData
 }
 
 const missionJSON = `{"ships":[
@@ -364,47 +366,69 @@ var (
 					Required:    true,
 				},
 				{
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Name:        "primary-ship",
+					Description: "Select the primary ship to display. Default is Atreggies Henliner. [Sticky]",
+					Required:    false,
+					Choices: []*discordgo.ApplicationCommandOptionChoice{
+						{
+							Name:  "Atreggies Henliner",
+							Value: 0,
+						},
+						{
+							Name:  "Henerprise",
+							Value: 1,
+						},
+					},
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Name:        "secondary-ship",
+					Description: "Select a secondary ship to display. Default is Henerprise. [Sticky]",
+					Required:    false,
+					Choices: []*discordgo.ApplicationCommandOptionChoice{
+						{
+							Name:  "None",
+							Value: -1,
+						},
+						{
+							Name:  "Henerprise",
+							Value: 1,
+						},
+						{
+							Name:  "Voyegger",
+							Value: 2,
+						},
+						{
+							Name:  "Defihent",
+							Value: 3,
+						},
+						{
+							Name:  "Galeggtica",
+							Value: 4,
+						},
+						{
+							Name:  "Cornish-Hen Corvette",
+							Value: 5,
+						},
+						{
+							Name:  "Quintillion Chicken",
+							Value: 6,
+						},
+					},
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "chain",
+					Description: "Show return time for a chained Henliner extended mission. [Sticky]",
+					Required:    false,
+				},
+				{
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "dubcap-time",
 					Description: "Time remaining for double capacity event. Examples: `43:16:22` or `43h16m22s`",
 					Required:    false,
 				},
-				{
-					Type:        discordgo.ApplicationCommandOptionBoolean,
-					Name:        "chain",
-					Description: "Show time for a chained extended mission",
-					Required:    false,
-				},
-				/*
-					{
-						Type:        discordgo.ApplicationCommandOptionInteger,
-						Name:        "mission-ship",
-						Description: "Select the ship to display. Default is Atreggies Henliner & Henerprise.",
-						Choices: []*discordgo.ApplicationCommandOptionChoice{
-							{
-								Name:  "Atreggies Henliner & Henerprise",
-								Value: -1,
-							},
-							{
-								Name:  "Atreggies Henliner",
-								Value: 0,
-							},
-							{
-								Name:  "Henerprise",
-								Value: 1,
-							},
-							{
-								Name:  "Voyegger",
-								Value: 3,
-							},
-							{
-								Name:  "Defihent",
-								Value: 4,
-							},
-						},
-					},
-				*/
-
 				{
 					Type:        discordgo.ApplicationCommandOptionInteger,
 					Name:        "ftl",
@@ -656,11 +680,40 @@ var (
 			var dubCapTime = time.Now()
 			var dubCapTimeCaution = time.Now()
 
+			var selectedShipPrimary = 0   // Default to AH
+			var selectedShipSecondary = 1 // Default to H
+
 			// User interacting with bot, is this first time ?
 			options := i.ApplicationCommandData().Options
 			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 			for _, opt := range options {
 				optionMap[opt.Name] = opt
+			}
+
+			if opt, ok := optionMap["primary-ship"]; ok {
+				selectedShipPrimary = int(opt.IntValue())
+				farmerstate.SetMissionShipPrimary(i.Member.User.ID, selectedShipPrimary)
+			} else {
+				selectedShipPrimary = farmerstate.GetMissionShipPrimary(i.Member.User.ID)
+			}
+
+			if opt, ok := optionMap["secondary-ship"]; ok {
+				selectedShipSecondary = int(opt.IntValue())
+				farmerstate.SetMissionShipSecondary(i.Member.User.ID, selectedShipSecondary)
+			} else {
+				selectedShipSecondary = farmerstate.GetMissionShipSecondary(i.Member.User.ID)
+				if selectedShipSecondary == 0 {
+					// This value should never be 0, so set to the default of 1
+					selectedShipPrimary = 1
+					farmerstate.SetMissionShipSecondary(i.Member.User.ID, selectedShipSecondary)
+				}
+			}
+
+			var missionShips []shipData
+			missionShips = append(missionShips, mis.Ships[selectedShipPrimary])
+			if selectedShipSecondary != -1 && selectedShipPrimary != selectedShipSecondary {
+				// append secondary mission
+				missionShips = append(missionShips, mis.Ships[selectedShipSecondary])
 			}
 
 			if opt, ok := optionMap["ftl"]; ok {
@@ -735,7 +788,7 @@ var (
 					builder.WriteString(doubleCapacityStr)
 				}
 
-				for _, ship := range mis.Ships[:2] {
+				for shipIndex, ship := range missionShips {
 					builder.WriteString("__" + ship.Name + "__:\n")
 					for i, missionLen := range ship.Duration {
 						dcBubble := ""
@@ -761,6 +814,9 @@ var (
 						}
 
 						builder.WriteString(fmt.Sprintf("> %s%s (%s): <t:%d:t>%s\n", dcBubble, shipDurationName[i], fmtDuration(ftlDuration), launchTime.Unix(), chainString))
+						if shipIndex > 0 && selectedShipSecondary > 1 {
+							break
+						}
 					}
 				}
 			}

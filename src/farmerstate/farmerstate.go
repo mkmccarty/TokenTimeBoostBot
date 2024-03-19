@@ -11,13 +11,15 @@ import (
 
 // Farmer struct to store user data
 type Farmer struct {
-	UserID       string // Discord User ID
-	EggIncName   string // User's Egg Inc name
-	Ping         bool   // True/False
-	Tokens       int    // Number of tokens this user wants
-	OrderHistory []int  // list of contract order percentiles
-	OutOut       bool   // If user opted out of saving data
-	LaunchChain  bool   // Launch History chain option
+	UserID               string // Discord User ID
+	EggIncName           string // User's Egg Inc name
+	Ping                 bool   // True/False
+	Tokens               int    // Number of tokens this user wants
+	OrderHistory         []int  // list of contract order percentiles
+	OutOut               bool   // If user opted out of saving data
+	LaunchChain          bool   // Launch History chain option
+	MissionShipPrimary   int    // Launch Helper Ship Selection - Primary
+	MissionShipSecondary int    // Launch Helper Ship Selection - Secondary
 }
 
 // OrderHistory struct to store order history data
@@ -71,11 +73,13 @@ func init() {
 // NewFarmer creates a new Farmer
 func newFarmer(userID string) {
 	farmerstate[userID] = &Farmer{
-		UserID:      userID,
-		Ping:        false,
-		Tokens:      0,
-		OutOut:      false,
-		LaunchChain: false,
+		UserID:               userID,
+		Ping:                 false,
+		Tokens:               0,
+		OutOut:               false,
+		LaunchChain:          false,
+		MissionShipPrimary:   0,
+		MissionShipSecondary: 1,
 	}
 }
 
@@ -114,6 +118,42 @@ func SetLaunchHistory(userID string, setting bool) {
 		newFarmer(userID)
 	}
 	farmerstate[userID].LaunchChain = setting
+
+	err := saveData(farmerstate)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func GetMissionShipPrimary(userID string) int {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+	return farmerstate[userID].MissionShipPrimary
+}
+func SetMissionShipPrimary(userID string, setting int) {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+	farmerstate[userID].MissionShipPrimary = setting
+
+	err := saveData(farmerstate)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func GetMissionShipSecondary(userID string) int {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+	return farmerstate[userID].MissionShipSecondary
+}
+func SetMissionShipSecondary(userID string, setting int) {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+	farmerstate[userID].MissionShipSecondary = setting
 
 	err := saveData(farmerstate)
 	if err != nil {
