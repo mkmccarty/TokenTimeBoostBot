@@ -16,6 +16,7 @@ import (
 	"github.com/divan/num2words"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 	"github.com/peterbourgon/diskv/v3"
 	emutil "github.com/post04/discordgo-emoji-util"
 	"github.com/rs/xid"
@@ -1365,6 +1366,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			if contract.BoostPosition < len(contract.Order) {
 				contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived++
 				emojiName = r.Emoji.Name + ":" + r.Emoji.ID
+				track.ContractTokenSent(s, r.ChannelID, r.UserID)
 
 				var b = contract.Boosters[contract.Order[contract.BoostPosition]]
 				if b.TokensReceived >= b.TokensWanted && b.UserID == b.Name {
