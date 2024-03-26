@@ -1,12 +1,14 @@
 package track
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/peterbourgon/diskv/v3"
 	"github.com/xhit/go-str2duration/v2"
 )
 
@@ -31,16 +33,28 @@ type tokenValue struct {
 }
 
 type tokenValues struct {
-	coop map[string]*tokenValue
+	Coop map[string]*tokenValue
 }
 
 var (
-	// Contracts is a map of contracts and is saved to disk
-	tokens map[string]*tokenValues // map is UserID
+	// Tokens is a map of contracts and is saved to disk
+	Tokens    map[string]*tokenValues // map is UserID
+	dataStore *diskv.Diskv
 )
 
 func init() {
-	tokens = make(map[string]*tokenValues)
+	dataStore = diskv.New(diskv.Options{
+		BasePath:          "ttbb-data",
+		AdvancedTransform: advancedTransform,
+		InverseTransform:  inverseTransform,
+		CacheSizeMax:      512 * 512,
+	})
+	Tokens = make(map[string]*tokenValues)
+
+	var t, err = loadData()
+	if err == nil {
+		Tokens = t
+	}
 }
 
 func resetTokenTracking(tv *tokenValue) {
@@ -114,9 +128,9 @@ func TokenTrackingAdjustTime(channelID string, userID string, name string, start
 }
 
 func getTokenTrackingString(td *tokenValue) string {
-
 	var builder strings.Builder
-	fmt.Fprintf(&builder, "Token tracking for **%s** with duration **%s**\n", td.Name, td.DurationTime.Round(time.Minute).String())
+	ts := td.DurationTime.Round(time.Minute).String()
+	fmt.Fprintf(&builder, "Token tracking for **%s** with duration **%s**\n", td.Name, ts[:len(ts)-2])
 	fmt.Fprint(&builder, "Contract channel: ", td.ChannelMention, "\n")
 	fmt.Fprintf(&builder, "Contract Start time <t:%d:t>\n", td.StartTime.Unix())
 
@@ -130,12 +144,20 @@ func getTokenTrackingString(td *tokenValue) string {
 		if td.Details {
 			for i, t := range td.TokenSentTime {
 				fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f\n", i+1, t.Unix(), td.TokenSentValues[i])
+				if builder.Len() > 1750 {
+					fmt.Fprint(&builder, "> ...\n")
+					break
+				}
 			}
 		}
 		fmt.Fprintf(&builder, "Received: **%d**  (%4.3f)\n", len(td.TokenReceivedTime), td.TokenValueReceived)
 		if td.Details {
 			for i, t := range td.TokenReceivedTime {
 				fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f\n", i+1, t.Unix(), td.TokenReceivedValues[i])
+				if builder.Len() > 1750 {
+					fmt.Fprint(&builder, "> ...\n")
+					break
+				}
 			}
 		}
 		fmt.Fprintf(&builder, "**Current △ TVal %4.3f**\n", td.TokenDelta)
@@ -145,30 +167,30 @@ func getTokenTrackingString(td *tokenValue) string {
 }
 
 func getTrack(userID string, name string) (*tokenValue, error) {
-	if tokens[userID] == nil {
-		tokens[userID] = new(tokenValues)
+	if Tokens[userID] == nil {
+		Tokens[userID] = new(tokenValues)
 	}
-	if tokens[userID].coop == nil || tokens[userID].coop[name] == nil {
-		tokens[userID].coop = make(map[string]*tokenValue)
-		tokens[userID].coop[name] = new(tokenValue)
-		tokens[userID].coop[name].UserID = userID
-		resetTokenTracking(tokens[userID].coop[name])
-		tokens[userID].coop[name].Name = name
+	if Tokens[userID].Coop == nil || Tokens[userID].Coop[name] == nil {
+		Tokens[userID].Coop = make(map[string]*tokenValue)
+		Tokens[userID].Coop[name] = new(tokenValue)
+		Tokens[userID].Coop[name].UserID = userID
+		resetTokenTracking(Tokens[userID].Coop[name])
+		Tokens[userID].Coop[name].Name = name
 	}
-	return tokens[userID].coop[name], nil
+	return Tokens[userID].Coop[name], nil
 }
 
 // TokenTracking is called as a starting point for token tracking
 func tokenTracking(channelID string, userID string, name string, duration time.Duration) (string, error) {
 	var builder strings.Builder
 
-	if tokens[userID] == nil {
-		tokens[userID] = new(tokenValues)
-		tokens[userID].coop = make(map[string]*tokenValue)
-		tokens[userID].coop[name] = new(tokenValue)
-		tokens[userID].coop[name].UserID = userID
-		resetTokenTracking(tokens[userID].coop[name])
-		tokens[userID].coop[name].Name = name
+	if Tokens[userID] == nil {
+		Tokens[userID] = new(tokenValues)
+		Tokens[userID].Coop = make(map[string]*tokenValue)
+		Tokens[userID].Coop[name] = new(tokenValue)
+		Tokens[userID].Coop[name].UserID = userID
+		resetTokenTracking(Tokens[userID].Coop[name])
+		Tokens[userID].Coop[name].Name = name
 	}
 
 	td, err := getTrack(userID, name)
@@ -256,7 +278,6 @@ func TokenAdjustTimestamp(s *discordgo.Session, i *discordgo.InteractionCreate, 
 
 // getTokenValComponents returns the components for the token value
 func getTokenValComponents(timeAdjust bool, name string) []discordgo.MessageComponent {
-
 	if !timeAdjust {
 		return []discordgo.MessageComponent{
 			discordgo.ActionsRow{
@@ -424,6 +445,7 @@ func HandleTokenSend(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 	})
+	saveData(Tokens)
 }
 
 // HandleTokenReceived will handle the token received button
@@ -445,6 +467,7 @@ func HandleTokenReceived(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 	})
+	saveData(Tokens)
 }
 
 // HandleTokenDetails will handle the token sent button
@@ -525,4 +548,63 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	},
 	)
+	saveData(Tokens)
+}
+
+// HandleTokenComplete will close the token tracking
+func HandleTokenComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	var userID string
+	if i.GuildID != "" {
+		userID = i.Member.User.ID
+	} else {
+		userID = i.User.ID
+	}
+	name, _ := extractTokenName(i.Message.Components[0])
+	if Tokens[userID] != nil {
+		if Tokens[userID].Coop != nil && Tokens[userID].Coop[name] != nil {
+			Tokens[userID].Coop[name] = nil
+		}
+	}
+
+	s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+	})
+	saveData(Tokens)
+}
+
+// AdvancedTransform for storing KV pairs
+func advancedTransform(key string) *diskv.PathKey {
+	path := strings.Split(key, "/")
+	last := len(path) - 1
+	return &diskv.PathKey{
+		Path:     path[:last],
+		FileName: path[last] + ".json",
+	}
+}
+
+// InverseTransform for storing KV pairs
+func inverseTransform(pathKey *diskv.PathKey) (key string) {
+	txt := pathKey.FileName[len(pathKey.FileName)-4:]
+	if txt != ".json" {
+		panic("Invalid file found in storage folder!")
+	}
+	return strings.Join(pathKey.Path, "/") + pathKey.FileName[:len(pathKey.FileName)-4]
+}
+
+func saveData(c map[string]*tokenValues) error {
+	b, _ := json.Marshal(c)
+	dataStore.Write("Tokens", b)
+	return nil
+}
+
+func loadData() (map[string]*tokenValues, error) {
+	var t map[string]*tokenValues
+	b, err := dataStore.Read("Tokens")
+	if err != nil {
+		return t, err
+	}
+	json.Unmarshal(b, &t)
+	return t, nil
 }

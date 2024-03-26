@@ -1433,11 +1433,7 @@ var (
 			track.HandleTokenDetails(s, i)
 		},
 		"fd_tokenComplete": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
-
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-			})
+			track.HandleTokenComplete(s, i)
 		},
 
 		"fd_signupStart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
