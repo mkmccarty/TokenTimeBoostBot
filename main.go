@@ -19,6 +19,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 	"github.com/mkmccarty/TokenTimeBoostBot/version"
 	"github.com/xhit/go-str2duration/v2"
 )
@@ -42,6 +43,8 @@ const slashSetEggIncName string = "seteggincname"
 const slashBump string = "bump"
 const slashHelp string = "help"
 
+const slashToken string = "token"
+
 // const slashSignup string = "signup"
 const slashCoopETA string = "coopeta"
 
@@ -56,7 +59,6 @@ type shipData struct {
 	Duration []string `json:"Duration"`
 }
 
-// const slashTrueGPT string = "gpt"
 type missionData struct {
 	Ships []shipData
 }
@@ -448,6 +450,25 @@ var (
 			},
 		},
 		{
+			Name:        slashToken,
+			Description: "Display contract completion estimate.",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "name",
+					Description: "Unique name for this tracking session. i.e. Use coop-id of the contract.",
+					Required:    true,
+					MaxLength:   16, // Keep this short
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "duration",
+					Description: "Time remaining in this contract. Example: 19h35m.",
+					Required:    true,
+				},
+			},
+		},
+		{
 			Name:        slashChange,
 			Description: "Change aspects of a running contract",
 			Options: []*discordgo.ApplicationCommandOption{
@@ -666,17 +687,6 @@ var (
 			})
 		},
 		slashLaunchHelper: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			// Protection against DM use
-			if i.GuildID == "" {
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content:    "This command can only be run in a server.",
-						Flags:      discordgo.MessageFlagsEphemeral,
-						Components: []discordgo.MessageComponent{}},
-				})
-				return
-			}
 			var ftlLevel = 60
 			var ftlMult = 0.4
 			var t = time.Now()
@@ -853,14 +863,16 @@ var (
 			}
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Type: discordgo.InteractionResponseDeferredMessageUpdate,
 				Data: &discordgo.InteractionResponseData{
 					Content:    builder.String(),
 					Flags:      discordgo.MessageFlagsEphemeral,
 					Components: []discordgo.MessageComponent{}},
 			})
 		},
-
+		slashToken: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			track.HandleTokenCommand(s, i)
+		},
 		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Protection against DM use
 			if i.GuildID == "" {
@@ -1384,6 +1396,50 @@ var (
 		"fd_tokens_sub": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			addBoostTokens(s, i, 0, -1)
 		},
+		"fd_tokenStartHourPlus": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			track.TokenAdjustTimestamp(s, i, 1, 0, 0, 0)
+		},
+		"fd_tokenStartHourMinus": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			track.TokenAdjustTimestamp(s, i, -1, 0, 0, 0)
+		},
+		"fd_tokenStartMinutePlusFive": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			track.TokenAdjustTimestamp(s, i, 0, 5, 0, 0)
+		},
+		"fd_tokenStartMinutePlusOne": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			track.TokenAdjustTimestamp(s, i, 0, 1, 0, 0)
+		},
+		"fd_tokenDurationHourPlus": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			track.TokenAdjustTimestamp(s, i, 0, 0, 1, 0)
+		},
+		"fd_tokenDurationHourMinus": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			track.TokenAdjustTimestamp(s, i, 0, 0, -1, 0)
+		},
+		"fd_tokenDurationMinutePlusFive": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			track.TokenAdjustTimestamp(s, i, 0, 0, 0, 5)
+		},
+		"fd_tokenDurationMinutePlusOne": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			track.TokenAdjustTimestamp(s, i, 0, 0, 0, 1)
+		},
+		"fd_tokenEdit": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			track.HandleTokenEdit(s, i)
+		},
+		"fd_tokenSent": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			track.HandleTokenSend(s, i)
+		},
+		"fd_tokenReceived": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			track.HandleTokenReceived(s, i)
+		},
+		"fd_tokenDetails": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			track.HandleTokenDetails(s, i)
+		},
+		"fd_tokenComplete": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+			})
+		},
+
 		"fd_signupStart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseDeferredMessageUpdate,
@@ -1518,8 +1574,8 @@ func getSignupComponents(disableStartContract bool) (string, []discordgo.Message
 			},
 		},
 	}
-
 }
+
 func joinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell bool) {
 	var str = "Adding to Contract..."
 
