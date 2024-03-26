@@ -58,21 +58,32 @@ func resetTokenTracking(tv *tokenValue) {
 
 // SetTokenTrackingDetails will toggle the details for token tracking
 func SetTokenTrackingDetails(userID string, name string) {
-	tokens[userID].coop[name].Details = !tokens[userID].coop[name].Details
+	td, err := getTrack(userID, name)
+	if err != nil {
+		return
+	}
+	td.Details = !td.Details
 }
 
 // tokenTrackingEditing will toggle the edit for token tracking
 func tokenTrackingEditing(userID string, name string, editSelected bool) bool {
-	if editSelected {
-		tokens[userID].coop[name].Edit = !tokens[userID].coop[name].Edit
+	td, err := getTrack(userID, name)
+	if err != nil {
+		return false
 	}
-	return tokens[userID].coop[name].Edit
+
+	if editSelected {
+		td.Edit = !td.Edit
+	}
+	return td.Edit
 }
 
 // TokenTrackingAdjustTime will adjust the time values for a contract
 func TokenTrackingAdjustTime(channelID string, userID string, name string, startHour int, startMinute int, endHour int, endMinute int) string {
-	td := tokens[userID].coop[name]
-
+	td, err := getTrack(userID, name)
+	if err != nil {
+		return ""
+	}
 	td.StartTime = td.StartTime.Add(time.Duration(startHour) * time.Hour)
 	td.StartTime = td.StartTime.Add(time.Duration(startMinute) * time.Minute)
 
@@ -133,6 +144,20 @@ func getTokenTrackingString(td *tokenValue) string {
 	return builder.String()
 }
 
+func getTrack(userID string, name string) (*tokenValue, error) {
+	if tokens[userID] == nil {
+		tokens[userID] = new(tokenValues)
+	}
+	if tokens[userID].coop == nil || tokens[userID].coop[name] == nil {
+		tokens[userID].coop = make(map[string]*tokenValue)
+		tokens[userID].coop[name] = new(tokenValue)
+		tokens[userID].coop[name].UserID = userID
+		resetTokenTracking(tokens[userID].coop[name])
+		tokens[userID].coop[name].Name = name
+	}
+	return tokens[userID].coop[name], nil
+}
+
 // TokenTracking is called as a starting point for token tracking
 func tokenTracking(channelID string, userID string, name string, duration time.Duration) (string, error) {
 	var builder strings.Builder
@@ -146,7 +171,10 @@ func tokenTracking(channelID string, userID string, name string, duration time.D
 		tokens[userID].coop[name].Name = name
 	}
 
-	td := tokens[userID].coop[name]
+	td, err := getTrack(userID, name)
+	if err != nil {
+		return "", err
+	}
 
 	td.ChannelID = channelID // Last channel gets responses
 	td.ChannelMention = fmt.Sprintf("<#%s>", channelID)
@@ -162,12 +190,10 @@ func tokenTracking(channelID string, userID string, name string, duration time.D
 
 // tokenTrackingTrack is called to track tokens sent and received
 func tokenTrackingTrack(userID string, name string, tokenSent int, tokenReceived int) string {
-
-	if tokens[userID] == nil {
-		return "Token Tracking not started."
+	td, err := getTrack(userID, name)
+	if err != nil {
+		return ""
 	}
-
-	td := tokens[userID].coop[name]
 	now := time.Now()
 	offsetTime := now.Sub(td.StartTime).Seconds()
 	tokenValue := getTokenValue(offsetTime, td.DurationTime.Seconds())
@@ -480,16 +506,16 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	if err != nil {
 		str = err.Error()
+	} else {
+		var data discordgo.MessageSend
+		data.Content = str
+		data.Components = getTokenValComponents(false, trackingName) // Initial state
+
+		u, _ := s.UserChannelCreate(userID)
+		s.ChannelMessageSendComplex(u.ID, &data)
+
+		str += "Interact with the bot on " + u.Mention() + " to track your token values."
 	}
-
-	var data discordgo.MessageSend
-	data.Content = str
-	data.Components = getTokenValComponents(false, trackingName) // Initial state
-
-	u, _ := s.UserChannelCreate(userID)
-	s.ChannelMessageSendComplex(u.ID, &data)
-
-	str += "Interact with the bot on " + u.Mention() + " to track your token values."
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
