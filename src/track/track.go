@@ -182,14 +182,23 @@ func getTrack(userID string, name string) (*tokenValue, error) {
 }
 
 // TokenTracking is called as a starting point for token tracking
-func tokenTracking(channelID string, userID string, name string, duration time.Duration) (string, error) {
+func tokenTracking(s *discordgo.Session, channelID string, userID string, name string, duration time.Duration) (string, error) {
 	var builder strings.Builder
 
 	if Tokens[userID] == nil {
 		Tokens[userID] = new(tokenValues)
+	}
+	if Tokens[userID].Coop == nil {
 		Tokens[userID].Coop = make(map[string]*tokenValue)
+	}
+	if Tokens[userID].Coop[name] == nil {
 		Tokens[userID].Coop[name] = new(tokenValue)
 		Tokens[userID].Coop[name].UserID = userID
+		resetTokenTracking(Tokens[userID].Coop[name])
+		Tokens[userID].Coop[name].Name = name
+	} else {
+		// Existing contract, reset the values
+		s.ChannelMessageDelete(Tokens[userID].Coop[name].UserChannelID, Tokens[userID].Coop[name].TokenMessageID)
 		resetTokenTracking(Tokens[userID].Coop[name])
 		Tokens[userID].Coop[name].Name = name
 	}
@@ -252,6 +261,16 @@ func extractTokenName(comp discordgo.MessageComponent) (string, error) {
 
 	// extract string from test2 until the backslash
 	return stage4[1 : len(stage4)-1], nil
+}
+
+func syncTokenTracking(name string, startTime time.Time, duration time.Duration) {
+	for _, v := range Tokens {
+		if v.Coop[name] != nil {
+			v.Coop[name].StartTime = startTime
+			v.Coop[name].DurationTime = duration
+			v.Coop[name].EstimatedEndTime = startTime.Add(duration)
+		}
+	}
 }
 
 // TokenAdjustTimestamp will adjust the timestamp for the token
@@ -525,7 +544,7 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		userID = i.User.ID
 	}
 
-	str, err := tokenTracking(i.ChannelID, userID, trackingName, duration)
+	str, err := tokenTracking(s, i.ChannelID, userID, trackingName, duration)
 
 	if err != nil {
 		str = err.Error()
