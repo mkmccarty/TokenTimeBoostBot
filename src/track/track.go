@@ -118,7 +118,7 @@ func getTokenTrackingString(td *tokenValue) string {
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "Token tracking for **%s** with duration **%s**\n", td.Name, td.DurationTime.Round(time.Minute).String())
 	fmt.Fprint(&builder, "Contract channel: ", td.ChannelMention, "\n")
-	fmt.Fprintf(&builder, "Contract Start time <t:%d:f>\n", td.StartTime.Unix())
+	fmt.Fprintf(&builder, "Contract Start time <t:%d:t>\n", td.StartTime.Unix())
 
 	offsetTime := time.Since(td.StartTime).Seconds()
 	fmt.Fprintf(&builder, "> Current token value: %f\n", getTokenValue(offsetTime, td.DurationTime.Seconds()))
