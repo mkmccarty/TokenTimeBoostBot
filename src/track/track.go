@@ -600,6 +600,7 @@ func ContractTokenSent(s *discordgo.Session, channelID string, userID string) {
 			v.TokenSentTime = append(v.TokenSentTime, now)
 			v.TokenSentValues = append(v.TokenSentValues, tokenValue)
 			v.TokenValueSent += tokenValue
+			v.TokenDelta = v.TokenValueSent - v.TokenValueReceived
 
 			str := getTokenTrackingString(v)
 			m := discordgo.NewMessageEdit(v.UserChannelID, v.TokenMessageID)
