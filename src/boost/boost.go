@@ -78,15 +78,17 @@ type EggFarmer struct {
 
 // Booster holds the data for each booster within a Contract
 type Booster struct {
-	UserID         string // Egg Farmer
-	Name           string
-	BoostState     int           // Indicates if current booster
-	Mention        string        // String which mentions user
-	TokensReceived int           // indicate number of boost tokens
-	TokensWanted   int           // indicate number of boost tokens
-	StartTime      time.Time     // Time Farmer started boost turn
-	EndTime        time.Time     // Time Farmer ended boost turn
-	Duration       time.Duration // Duration of boost
+	UserID            string // Egg Farmer
+	Name              string
+	BoostState        int           // Indicates if current booster
+	Mention           string        // String which mentions user
+	TokenSentTime     []time.Time   // time of each token sent
+	TokenReceivedTime []time.Time   // time of each received token
+	TokensReceived    int           // indicate number of boost tokens
+	TokensWanted      int           // indicate number of boost tokens
+	StartTime         time.Time     // Time Farmer started boost turn
+	EndTime           time.Time     // Time Farmer ended boost turn
+	Duration          time.Duration // Duration of boost
 }
 
 // LocationData holds server specific Data for a contract
