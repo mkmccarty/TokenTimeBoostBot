@@ -131,6 +131,9 @@ func TokenTrackingAdjustTime(channelID string, userID string, name string, start
 func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
 	var builder strings.Builder
 	ts := td.DurationTime.Round(time.Minute).String()
+	if finalDisplay {
+		fmt.Fprintf(&builder, "Final ")
+	}
 	fmt.Fprintf(&builder, "Token tracking for **%s** with duration **%s**\n", td.Name, ts[:len(ts)-2])
 	fmt.Fprint(&builder, "Contract channel: ", td.ChannelMention, "\n")
 	fmt.Fprintf(&builder, "Contract Start time <t:%d:t>\n", td.StartTime.Unix())
@@ -171,7 +174,13 @@ func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
 				}
 			}
 		}
-		fmt.Fprintf(&builder, "**Current △ TVal %4.3f**\n", td.TokenDelta)
+		if !finalDisplay {
+			builder.WriteString("**Current")
+		} else {
+			builder.WriteString("**Final")
+		}
+
+		fmt.Fprintf(&builder, " △ TVal %4.3f**\n", td.TokenDelta)
 	}
 
 	return builder.String()
