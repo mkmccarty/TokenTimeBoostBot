@@ -28,6 +28,7 @@ type tokenValue struct {
 	TokenValueReceived  float64       // sum of all token values
 	TokenDelta          float64       // difference between sent and received
 	TokenMessageID      string        // Message ID for the Last Token Value message
+	UserChannelID       string        // User Channel ID for the Last Token Value message
 	Details             bool          // Show details of each token sent
 	Edit                bool          // Editing is enabled
 }
@@ -273,7 +274,6 @@ func TokenAdjustTimestamp(s *discordgo.Session, i *discordgo.InteractionCreate, 
 	m.Components = getTokenValComponents(tokenTrackingEditing(userID, name, false), name)
 	m.SetContent(str)
 	s.ChannelMessageEditComplex(m)
-
 }
 
 // getTokenValComponents returns the components for the token value
@@ -535,7 +535,9 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		data.Components = getTokenValComponents(false, trackingName) // Initial state
 
 		u, _ := s.UserChannelCreate(userID)
-		s.ChannelMessageSendComplex(u.ID, &data)
+		msg, _ := s.ChannelMessageSendComplex(u.ID, &data)
+		Tokens[userID].Coop[trackingName].TokenMessageID = msg.ID
+		Tokens[userID].Coop[trackingName].UserChannelID = u.ID
 
 		str += "Interact with the bot on " + u.Mention() + " to track your token values."
 	}
@@ -581,6 +583,30 @@ func advancedTransform(key string) *diskv.PathKey {
 	return &diskv.PathKey{
 		Path:     path[:last],
 		FileName: path[last] + ".json",
+	}
+}
+
+// ContractTokenSent will track the token received from the contract Token reaction
+func ContractTokenSent(s *discordgo.Session, channelID string, userID string) {
+	if Tokens[userID] == nil {
+		return
+	}
+
+	for _, v := range Tokens[userID].Coop {
+		if v.ChannelID == channelID {
+			now := time.Now()
+			offsetTime := now.Sub(v.StartTime).Seconds()
+			tokenValue := getTokenValue(offsetTime, v.DurationTime.Seconds())
+			v.TokenSentTime = append(v.TokenSentTime, now)
+			v.TokenSentValues = append(v.TokenSentValues, tokenValue)
+			v.TokenValueSent += tokenValue
+
+			str := getTokenTrackingString(v)
+			m := discordgo.NewMessageEdit(v.UserChannelID, v.TokenMessageID)
+			m.Components = getTokenValComponents(tokenTrackingEditing(userID, v.Name, false), v.Name)
+			m.SetContent(str)
+			s.ChannelMessageEditComplex(m)
+		}
 	}
 }
 
