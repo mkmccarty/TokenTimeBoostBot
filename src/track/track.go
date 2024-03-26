@@ -265,7 +265,7 @@ func extractTokenName(comp discordgo.MessageComponent) (string, error) {
 
 func syncTokenTracking(name string, startTime time.Time, duration time.Duration) {
 	for _, v := range Tokens {
-		if v.Coop[name] != nil {
+		if v.Coop[name] != nil && v.Coop[name].Edit == false {
 			v.Coop[name].StartTime = startTime
 			v.Coop[name].DurationTime = duration
 			v.Coop[name].EstimatedEndTime = startTime.Add(duration)
