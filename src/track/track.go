@@ -125,26 +125,32 @@ func TokenTrackingAdjustTime(channelID string, userID string, name string, start
 	}
 	td.TokenDelta = td.TokenValueSent - td.TokenValueReceived
 
-	return getTokenTrackingString(td)
+	return getTokenTrackingString(td, false)
 }
 
-func getTokenTrackingString(td *tokenValue) string {
+func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
 	var builder strings.Builder
 	ts := td.DurationTime.Round(time.Minute).String()
 	fmt.Fprintf(&builder, "Token tracking for **%s** with duration **%s**\n", td.Name, ts[:len(ts)-2])
 	fmt.Fprint(&builder, "Contract channel: ", td.ChannelMention, "\n")
 	fmt.Fprintf(&builder, "Contract Start time <t:%d:t>\n", td.StartTime.Unix())
 
-	offsetTime := time.Since(td.StartTime).Seconds()
-	fmt.Fprintf(&builder, "> Current token value: %f\n", getTokenValue(offsetTime, td.DurationTime.Seconds()))
-	fmt.Fprintf(&builder, "> Token value in 30 minutes: %f\n", getTokenValue(offsetTime+(30*60), td.DurationTime.Seconds()))
-	fmt.Fprintf(&builder, "> Token value in one hour: %f\n\n", getTokenValue(offsetTime+(60*60), td.DurationTime.Seconds()))
+	if !finalDisplay {
+		offsetTime := time.Since(td.StartTime).Seconds()
+		fmt.Fprintf(&builder, "> Current token value: %f\n", getTokenValue(offsetTime, td.DurationTime.Seconds()))
+		fmt.Fprintf(&builder, "> Token value in 30 minutes: %f\n", getTokenValue(offsetTime+(30*60), td.DurationTime.Seconds()))
+		fmt.Fprintf(&builder, "> Token value in one hour: %f\n\n", getTokenValue(offsetTime+(60*60), td.DurationTime.Seconds()))
+	}
 
 	if (len(td.TokenSentTime) + len(td.TokenReceivedTime)) > 0 {
 		fmt.Fprintf(&builder, "Sent: **%d**  (%4.3f)\n", len(td.TokenSentTime), td.TokenValueSent)
 		if td.Details {
 			for i, t := range td.TokenSentTime {
-				fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f\n", i+1, t.Unix(), td.TokenSentValues[i])
+				if !finalDisplay {
+					fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f\n", i+1, t.Unix(), td.TokenSentValues[i])
+				} else {
+					fmt.Fprintf(&builder, "> %d: %s  %6.3f\n", i+1, t.Sub(td.StartTime).Round(time.Second), td.TokenSentValues[i])
+				}
 				if builder.Len() > 1750 {
 					fmt.Fprint(&builder, "> ...\n")
 					break
@@ -154,7 +160,11 @@ func getTokenTrackingString(td *tokenValue) string {
 		fmt.Fprintf(&builder, "Received: **%d**  (%4.3f)\n", len(td.TokenReceivedTime), td.TokenValueReceived)
 		if td.Details {
 			for i, t := range td.TokenReceivedTime {
-				fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f\n", i+1, t.Unix(), td.TokenReceivedValues[i])
+				if !finalDisplay {
+					fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f\n", i+1, t.Unix(), td.TokenReceivedValues[i])
+				} else {
+					fmt.Fprintf(&builder, "> %d: %s  %6.3f\n", i+1, t.Sub(td.StartTime).Round(time.Second), td.TokenReceivedValues[i])
+				}
 				if builder.Len() > 1750 {
 					fmt.Fprint(&builder, "> ...\n")
 					break
@@ -215,7 +225,7 @@ func tokenTracking(s *discordgo.Session, channelID string, userID string, name s
 	td.DurationTime = duration
 	td.EstimatedEndTime = time.Now().Add(duration)
 
-	builder.WriteString(getTokenTrackingString(td))
+	builder.WriteString(getTokenTrackingString(td, false))
 
 	return builder.String(), nil
 }
@@ -242,7 +252,7 @@ func tokenTrackingTrack(userID string, name string, tokenSent int, tokenReceived
 	}
 	td.TokenDelta = td.TokenValueSent - td.TokenValueReceived
 
-	return getTokenTrackingString(td)
+	return getTokenTrackingString(td, false)
 }
 
 func getTokenValue(seconds float64, durationSeconds float64) float64 {
@@ -581,13 +591,19 @@ func HandleTokenComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		userID = i.User.ID
 	}
 	name, _ := extractTokenName(i.Message.Components[0])
+	s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
+
+	td, err := getTrack(userID, name)
+	if err == nil {
+		str := getTokenTrackingString(td, true)
+		s.ChannelMessageSend(i.ChannelID, str)
+	}
+
 	if Tokens[userID] != nil {
 		if Tokens[userID].Coop != nil && Tokens[userID].Coop[name] != nil {
 			Tokens[userID].Coop[name] = nil
 		}
 	}
-
-	s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -621,7 +637,7 @@ func ContractTokenSent(s *discordgo.Session, channelID string, userID string) {
 			v.TokenValueSent += tokenValue
 			v.TokenDelta = v.TokenValueSent - v.TokenValueReceived
 			saveData(Tokens)
-			str := getTokenTrackingString(v)
+			str := getTokenTrackingString(v, false)
 			m := discordgo.NewMessageEdit(v.UserChannelID, v.TokenMessageID)
 			m.Components = getTokenValComponents(tokenTrackingEditing(userID, v.Name, false), v.Name)
 			m.SetContent(str)
