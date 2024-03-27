@@ -964,61 +964,6 @@ var (
 					Components: []discordgo.MessageComponent{}},
 			})
 		},
-		slashHelp: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			str := "Context sensitive help"
-
-			// TODO
-			str = boost.GetHelp(s, i.GuildID, i.ChannelID, i.Member.User.ID)
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content:    str,
-					Flags:      discordgo.MessageFlagsEphemeral,
-					Components: []discordgo.MessageComponent{}},
-			})
-		},
-		// Protection against DM use
-		slashFun: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			// Protection against DM use
-			if i.GuildID == "" {
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content:    "This command can only be run in a server.",
-						Flags:      discordgo.MessageFlagsEphemeral,
-						Components: []discordgo.MessageComponent{}},
-				})
-				return
-			}
-			var gptOption = int64(0)
-			var gptText = ""
-			//var str = ""
-
-			// User interacting with bot, is this first time ?
-			options := i.ApplicationCommandData().Options
-			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-			for _, opt := range options {
-				optionMap[opt.Name] = opt
-			}
-
-			if opt, ok := optionMap["action"]; ok {
-				gptOption = opt.IntValue()
-			}
-			if opt, ok := optionMap["prompt"]; ok {
-				gptText = opt.StringValue()
-			}
-
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				//Data: &discordgo.InteractionResponseData{
-				//	Content:    "",
-				//	Flags:      discordgo.MessageFlagsEphemeral,
-				//	Components: []discordgo.MessageComponent{}},
-			},
-			)
-
-			var _ = notok.Notok(s, i, gptOption, gptText)
-		},
 		slashChange: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Protection against DM use
 			if i.GuildID == "" {
@@ -1132,6 +1077,12 @@ var (
 					Flags:      discordgo.MessageFlagsEphemeral,
 					Components: []discordgo.MessageComponent{}},
 			})
+		},
+		slashHelp: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleHelpCommand(s, i)
+		},
+		slashFun: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			notok.FunHandler(s, i)
 		},
 	}
 
