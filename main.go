@@ -33,21 +33,16 @@ const slashContract string = "contract"
 const slashSkip string = "skip"
 const slashBoost string = "boost"
 const slashChange string = "change"
-
-// const slashcluck string = "cluck"
 const slashUnboost string = "unboost"
 const slashPrune string = "prune"
 const slashJoin string = "join"
 const slashSetEggIncName string = "seteggincname"
 const slashBump string = "bump"
 const slashHelp string = "help"
-
-const slashToken string = "token"
-
-// const slashSignup string = "signup"
+const slashSpeedrun string = "speedrun"
 const slashCoopETA string = "coopeta"
-
 const slashLaunchHelper string = "launch-helper"
+const slashToken string = "token"
 const slashFun string = "fun"
 
 var integerZeroMinValue float64 = 0.0
@@ -174,6 +169,48 @@ var (
 			},
 		},
 		{
+			Name:        slashSpeedrun,
+			Description: "Add speedrun features to a contract.",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionUser,
+					Name:        "sink-crt",
+					Description: "Token Sink during chicken run tango.",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "sink-post",
+					Description: "Token Sink after boosting completes.",
+					Required:    false,
+				},
+				{
+					Name:        "sink-position",
+					Description: "Default is First Booster",
+					Required:    false,
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Choices: []*discordgo.ApplicationCommandOptionChoice{
+						{
+							Name:  "First",
+							Value: boost.SinkBoostFirst,
+						},
+						{
+							Name:  "Last",
+							Value: boost.SinkBoostLast,
+						},
+					},
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Name:        "chicken-runs",
+					Description: "Number of chicken runs for this contract.",
+					MinValue:    &integerZeroMinValue,
+					MaxValue:    20,
+					Required:    false,
+				},
+			},
+		},
+		{
 			Name:        slashJoin,
 			Description: "Add farmer or guest to contract.",
 			Options: []*discordgo.ApplicationCommandOption{
@@ -217,7 +254,6 @@ var (
 				},
 			},
 		},
-
 		{
 			Name:        slashFun,
 			Description: "OpenAI Fun",
@@ -622,6 +658,9 @@ var (
 		slashToken: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			track.HandleTokenCommand(s, i)
 		},
+		slashSpeedrun: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleSpeedrunCommand(s, i)
+		},
 		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Protection against DM use
 			if i.GuildID == "" {
@@ -715,7 +754,7 @@ var (
 			if err == nil {
 				boost.SetListMessageID(contract, ChannelID, msg.ID)
 				var data discordgo.MessageSend
-				data.Content, data.Components = getSignupComponents(false)
+				data.Content, data.Components = getSignupComponents(false, contract.Speedrun)
 				reactionMsg, err := s.ChannelMessageSendComplex(ChannelID, &data)
 
 				if err != nil {
@@ -1144,7 +1183,6 @@ var (
 					Flags:      discordgo.MessageFlagsEphemeral,
 					Components: []discordgo.MessageComponent{}},
 			})
-
 			err := boost.StartContractBoosting(s, i.GuildID, i.ChannelID, i.Member.User.ID)
 			if err != nil {
 				str := fmt.Sprint(err.Error())
@@ -1160,7 +1198,7 @@ var (
 
 				// Rebuild the signup message to disable the start button
 				msg := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
-				contentStr, comp := getSignupComponents(true) // True to get a disabled start button
+				contentStr, comp := getSignupComponents(true, false) // True to get a disabled start button
 				msg.SetContent(contentStr)
 				msg.Components = comp
 				s.ChannelMessageEditComplex(msg)
@@ -1190,8 +1228,14 @@ var (
 	}
 )
 
-func getSignupComponents(disableStartContract bool) (string, []discordgo.MessageComponent) {
+func getSignupComponents(disableStartContract bool, speedrun bool) (string, []discordgo.MessageComponent) {
 	var str = "Join the contract and indicate the number boost tokens you'd like."
+	startLabel := "Start Boost List"
+	if speedrun {
+		startLabel = "Start Speedrun"
+	} else if disableStartContract {
+		startLabel = "Started"
+	}
 	return str, []discordgo.MessageComponent{
 		// add buttons to the action row
 		discordgo.ActionsRow{
@@ -1224,7 +1268,7 @@ func getSignupComponents(disableStartContract bool) (string, []discordgo.Message
 					Emoji: &discordgo.ComponentEmoji{
 						Name: "⏱️",
 					},
-					Label:    "Start Boost List",
+					Label:    startLabel,
 					Style:    discordgo.SuccessButton,
 					CustomID: "fd_signupStart",
 					Disabled: disableStartContract,

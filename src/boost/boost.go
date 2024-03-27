@@ -56,6 +56,16 @@ const (
 	BoostStateBoosted   = 2 // Boosted
 
 	BoostOrderTimeThreshold = 20 // minutes to switch from random or fair to signup
+
+	SpeedrunStateNone     = 0 // No speedrun
+	SpeedrunStateSignup   = 1 // Signup Speedrun
+	SpeedrunStateCRT      = 2 // CRT Speedrun
+	SpeedrunStateBoosting = 3 // Boosting Speedrun
+	SpeedrunStatePost     = 4 // Post Speedrun
+
+	SinkBoostFirst = 0 // First position
+	SinkBoostLast  = 1 // Last position
+
 )
 
 // EggFarmer was intended to be more for across contract tracking of users
@@ -105,25 +115,31 @@ type LocationData struct {
 
 // Contract is the main struct for each contract
 type Contract struct {
-	ContractHash   string // ContractID-CoopID
-	Location       []*LocationData
-	CreatorID      []string // Slice of creators
-	ContractID     string   // Contract ID
-	CoopID         string   // CoopID
-	CoopSize       int
-	BoostOrder     int // How the contract is sorted
-	BoostVoting    int
-	BoostPosition  int       // Starting Slot
-	State          int       // Boost Completed
-	StartTime      time.Time // When Contract is started
-	EndTime        time.Time // When final booster ends
-	EggFarmers     map[string]*EggFarmer
-	RegisteredNum  int
-	Boosters       map[string]*Booster // Boosters Registered
-	Order          []string
-	OrderRevision  int        // Incremented when Order is changed
-	lastWishPrompt string     // saved prompt for this contract
-	mutex          sync.Mutex // Keep this contract thread safe
+	ContractHash      string // ContractID-CoopID
+	Location          []*LocationData
+	CreatorID         []string // Slice of creators
+	ContractID        string   // Contract ID
+	CoopID            string   // CoopID
+	CoopSize          int
+	BoostOrder        int // How the contract is sorted
+	BoostVoting       int
+	BoostPosition     int       // Starting Slot
+	State             int       // Boost Completed
+	StartTime         time.Time // When Contract is started
+	EndTime           time.Time // When final booster ends
+	EggFarmers        map[string]*EggFarmer
+	RegisteredNum     int
+	Boosters          map[string]*Booster // Boosters Registered
+	Order             []string
+	OrderRevision     int        // Incremented when Order is changed
+	Speedrun          bool       // Speedrun mode
+	SpeedrunState     int        // Speedrun state
+	SinkCrtUserID     string     // Sink CRT User ID
+	SinkEndUserID     string     // Sink End of Contract User ID
+	SinkBoostPosition int        // Sink Boost Position
+	ChickenRuns       int        // Number of Chicken Runs for this contract
+	lastWishPrompt    string     // saved prompt for this contract
+	mutex             sync.Mutex // Keep this contract thread safe
 }
 
 var (
@@ -261,6 +277,8 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.OrderRevision = 0
 		contract.State = ContractStateSignup
 		contract.CreatorID = append(contract.CreatorID, userID) // starting userid
+		contract.Speedrun = false
+		contract.SpeedrunState = SpeedrunStateNone
 
 		if slices.Index(contract.CreatorID, config.AdminUserID) == -1 {
 			contract.CreatorID = append(contract.CreatorID, config.AdminUserID) // overall admin user
