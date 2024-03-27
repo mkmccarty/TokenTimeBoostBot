@@ -1,7 +1,6 @@
 package boost
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -17,15 +16,12 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
-	"github.com/peterbourgon/diskv/v3"
 	emutil "github.com/post04/discordgo-emoji-util"
 	"github.com/rs/xid"
 )
 
 //var usermutex sync.Mutex
 //var diskmutex sync.Mutex
-
-var dataStore *diskv.Diskv
 
 //var TokenStr = "" //"<:token:778019329693450270>"
 
@@ -138,13 +134,7 @@ var (
 func init() {
 	Contracts = make(map[string]*Contract)
 
-	// dataStore to initialize a new diskv store, rooted at "my-data-dir", with a 1MB cache.
-	dataStore = diskv.New(diskv.Options{
-		BasePath:          "ttbb-data",
-		AdvancedTransform: AdvancedTransform,
-		InverseTransform:  InverseTransform,
-		CacheSizeMax:      1024 * 1024,
-	})
+	initDataStore()
 
 	var c, err = loadData()
 	if err == nil {
@@ -2114,78 +2104,6 @@ func reorderBoosters(contract *Contract) {
 		newOrder := farmerstate.GetOrderHistory(contract.Order, 5)
 		contract.Order = newOrder
 	}
-}
-
-// AdvancedTransform for storing KV pairs
-func AdvancedTransform(key string) *diskv.PathKey {
-	path := strings.Split(key, "/")
-	last := len(path) - 1
-	return &diskv.PathKey{
-		Path:     path[:last],
-		FileName: path[last] + ".json",
-	}
-}
-
-// InverseTransform for storing KV pairs
-func InverseTransform(pathKey *diskv.PathKey) (key string) {
-	txt := pathKey.FileName[len(pathKey.FileName)-4:]
-	if txt != ".json" {
-		panic("Invalid file found in storage folder!")
-	}
-	return strings.Join(pathKey.Path, "/") + pathKey.FileName[:len(pathKey.FileName)-4]
-}
-
-func saveData(c map[string]*Contract) error {
-	//diskmutex.Lock()
-	b, _ := json.Marshal(c)
-	dataStore.Write("EggsBackup", b)
-
-	//diskmutex.Unlock()
-	return nil
-}
-
-func saveEndData(c *Contract) error {
-	//diskmutex.Lock()
-	var saveName = fmt.Sprintf("%s/%s", c.ContractID, c.CoopID)
-	b, _ := json.Marshal(c)
-	dataStore.Write(saveName, b)
-	//diskmutex.Unlock()
-	return nil
-}
-
-func loadData() (map[string]*Contract, error) {
-	//diskmutex.Lock()
-	var c map[string]*Contract
-	b, err := dataStore.Read("EggsBackup")
-	if err != nil {
-		return c, err
-	}
-	json.Unmarshal(b, &c)
-	//diskmutex.Unlock()
-
-	return c, nil
-}
-
-// SetWish sets the wish for a contract identified by the guild ID and channel ID.
-func SetWish(guildID string, channelID string, wish string) error {
-	var contract = FindContract(guildID, channelID)
-	if contract == nil {
-		return errors.New(errorNoContract)
-	}
-
-	contract.lastWishPrompt = wish
-
-	return nil
-}
-
-// GetWish gets the wish for a contract identified by the guild ID and channel ID.
-func GetWish(guildID string, channelID string) string {
-	var contract = FindContract(guildID, channelID)
-	if contract == nil {
-		return ""
-	}
-
-	return contract.lastWishPrompt
 }
 
 /*
