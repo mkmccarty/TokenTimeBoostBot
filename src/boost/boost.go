@@ -1261,7 +1261,9 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			if contract.BoostPosition < len(contract.Order) {
 				contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived++
 				emojiName = r.Emoji.Name + ":" + r.Emoji.ID
-				track.ContractTokenSent(s, r.ChannelID, r.UserID)
+				if r.UserID != contract.Order[contract.BoostPosition] {
+					track.ContractTokenSent(s, r.ChannelID, r.UserID)
+				}
 
 				var b = contract.Boosters[contract.Order[contract.BoostPosition]]
 				if b.TokensReceived >= b.TokensWanted && b.UserID == b.Name {
