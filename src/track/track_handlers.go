@@ -140,11 +140,12 @@ func HandleTokenEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	} else {
 		userID = i.User.ID
 	}
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+	})
 
 	name, _ := extractTokenName(i.Message.Components[0])
-
 	isEditing := tokenTrackingEditing(userID, name, true)
-
 	str := tokenTrackingTrack(userID, name, 0, 0)
 
 	m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
@@ -152,9 +153,6 @@ func HandleTokenEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	m.SetContent(str)
 	s.ChannelMessageEditComplex(m)
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-	})
 }
 
 // HandleTokenSend will handle the token send button
@@ -166,6 +164,10 @@ func HandleTokenSend(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		userID = i.User.ID
 	}
 
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+	})
+
 	name, _ := extractTokenName(i.Message.Components[0])
 	str := tokenTrackingTrack(userID, name, 1, 0)
 
@@ -174,9 +176,6 @@ func HandleTokenSend(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	m.SetContent(str)
 	s.ChannelMessageEditComplex(m)
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-	})
 	saveData(Tokens)
 }
 
@@ -188,6 +187,11 @@ func HandleTokenReceived(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	} else {
 		userID = i.User.ID
 	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+	})
+
 	name, _ := extractTokenName(i.Message.Components[0])
 	str := tokenTrackingTrack(userID, name, 0, 1)
 
@@ -196,9 +200,6 @@ func HandleTokenReceived(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	m.SetContent(str)
 	s.ChannelMessageEditComplex(m)
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-	})
 	saveData(Tokens)
 }
 
@@ -211,8 +212,11 @@ func HandleTokenDetails(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		userID = i.User.ID
 	}
 
-	name, _ := extractTokenName(i.Message.Components[0])
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+	})
 
+	name, _ := extractTokenName(i.Message.Components[0])
 	SetTokenTrackingDetails(userID, name)
 	str := tokenTrackingTrack(userID, name, 0, 0)
 
@@ -220,10 +224,6 @@ func HandleTokenDetails(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	m.Components = getTokenValComponents(tokenTrackingEditing(userID, name, false), name)
 	m.SetContent(str)
 	s.ChannelMessageEditComplex(m)
-
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-	})
 }
 
 // HandleTokenCommand will handle the /token command
@@ -234,6 +234,7 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	for _, opt := range options {
 		optionMap[opt.Name] = opt
 	}
+	linked := true
 	var duration time.Duration
 	if opt, ok := optionMap["duration"]; ok {
 		// Timespan of the contract duration
@@ -248,6 +249,9 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if opt, ok := optionMap["name"]; ok {
 		trackingName = opt.StringValue()
 	}
+	if opt, ok := optionMap["linked"]; ok {
+		linked = opt.BoolValue()
+	}
 
 	// Call into boost module to do that calculations
 	var userID string
@@ -257,7 +261,7 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		userID = i.User.ID
 	}
 
-	str, err := tokenTracking(s, i.ChannelID, userID, trackingName, duration)
+	str, err := tokenTracking(s, i.ChannelID, userID, trackingName, duration, linked)
 
 	if err != nil {
 		str = err.Error()
@@ -293,6 +297,11 @@ func HandleTokenComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	} else {
 		userID = i.User.ID
 	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+	})
+
 	name, _ := extractTokenName(i.Message.Components[0])
 	s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
 
@@ -308,8 +317,5 @@ func HandleTokenComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-	})
 	saveData(Tokens)
 }

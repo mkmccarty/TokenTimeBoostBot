@@ -419,6 +419,12 @@ var (
 					Description: "Time remaining in this contract. Example: 19h35m.",
 					Required:    true,
 				},
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "linked",
+					Description: "Link with boost list reactions in this contract channel. Default is true.",
+					Required:    false,
+				},
 			},
 		},
 		{

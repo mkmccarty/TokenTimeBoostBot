@@ -15,6 +15,7 @@ type tokenValue struct {
 	UserID              string        // The user ID that is tracking the token value
 	Name                string        // Tracking name for this contract
 	ChannelID           string        // The channel ID that is tracking the token value
+	Linked              bool          // If the tracker is linked to channel contract
 	ChannelMention      string        // The channel mention
 	StartTime           time.Time     // When Token Value time started
 	EstimatedEndTime    time.Time     // Time of Token Value time plus Duration
@@ -59,6 +60,7 @@ func init() {
 
 func resetTokenTracking(tv *tokenValue) {
 	tv.StartTime = time.Now()
+	tv.Linked = true
 	tv.TokenSentTime = nil
 	tv.TokenReceivedTime = nil
 	tv.TokenSentValues = nil
@@ -133,9 +135,12 @@ func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
 	if finalDisplay {
 		fmt.Fprintf(&builder, "Final ")
 	}
-	fmt.Fprintf(&builder, "Token tracking for **%s** with duration **%s**\n", td.Name, ts[:len(ts)-2])
-	fmt.Fprint(&builder, "Contract channel: ", td.ChannelMention, "\n")
-	fmt.Fprintf(&builder, "Contract Start time <t:%d:t>\n", td.StartTime.Unix())
+	fmt.Fprintf(&builder, "# Token tracking for **%s**\n", td.Name)
+	if td.Linked {
+		fmt.Fprint(&builder, "Contract channel: ", td.ChannelMention, "\n")
+	}
+	fmt.Fprintf(&builder, "Start time: <t:%d:t>\n", td.StartTime.Unix())
+	fmt.Fprintf(&builder, "Duration  : **%s**\n", ts[:len(ts)-2])
 
 	if !finalDisplay {
 		offsetTime := time.Since(td.StartTime).Seconds()
@@ -200,7 +205,7 @@ func getTrack(userID string, name string) (*tokenValue, error) {
 }
 
 // TokenTracking is called as a starting point for token tracking
-func tokenTracking(s *discordgo.Session, channelID string, userID string, name string, duration time.Duration) (string, error) {
+func tokenTracking(s *discordgo.Session, channelID string, userID string, name string, duration time.Duration, linked bool) (string, error) {
 	var builder strings.Builder
 
 	if Tokens[userID] == nil {
@@ -232,6 +237,7 @@ func tokenTracking(s *discordgo.Session, channelID string, userID string, name s
 	// Set the duration
 	td.DurationTime = duration
 	td.EstimatedEndTime = time.Now().Add(duration)
+	td.Linked = linked
 
 	builder.WriteString(getTokenTrackingString(td, false))
 
@@ -319,7 +325,7 @@ func ContractTokenSent(s *discordgo.Session, channelID string, userID string) {
 		return
 	}
 	for _, v := range Tokens[userID].Coop {
-		if v != nil && v.ChannelID == channelID {
+		if v != nil && v.ChannelID == channelID && v.Linked {
 			now := time.Now()
 			offsetTime := now.Sub(v.StartTime).Seconds()
 			tokenValue := getTokenValue(offsetTime, v.DurationTime.Seconds())
