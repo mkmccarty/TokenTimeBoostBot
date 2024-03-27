@@ -318,9 +318,8 @@ func ContractTokenSent(s *discordgo.Session, channelID string, userID string) {
 	if Tokens[userID] == nil {
 		return
 	}
-
 	for _, v := range Tokens[userID].Coop {
-		if v.ChannelID == channelID {
+		if v != nil && v.ChannelID == channelID {
 			now := time.Now()
 			offsetTime := now.Sub(v.StartTime).Seconds()
 			tokenValue := getTokenValue(offsetTime, v.DurationTime.Seconds())
