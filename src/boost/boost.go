@@ -1949,49 +1949,6 @@ func FinishContract(s *discordgo.Session, contract *Contract) error {
 	return nil
 }
 
-// GetContractList returns a list of all contracts
-func GetContractList(s *discordgo.Session) (string, error) {
-	str := ""
-	if len(Contracts) == 0 {
-		return "", errors.New("no contracts found")
-	}
-
-	i := 1
-	for _, c := range Contracts {
-		str += fmt.Sprintf("%d - **%s/%s**\n", i, c.ContractID, c.CoopID)
-		for _, loc := range c.Location {
-			str += fmt.Sprintf("> *%s*\t%s\t%s\n", loc.GuildName, loc.ChannelName, loc.ChannelMention)
-		}
-		str += fmt.Sprintf("> Hash: *%s*\n", c.ContractHash)
-		str += fmt.Sprintf("> Started: <t:%d:R>\n", c.StartTime.Unix())
-		i++
-	}
-	return str, nil
-}
-
-// FinishContractByHash is called only when the contract is complete
-func FinishContractByHash(s *discordgo.Session, contractHash string) error {
-	var contract *Contract
-	for _, c := range Contracts {
-		if c.ContractHash == contractHash {
-			contract = c
-			break
-		}
-	}
-	if contract == nil {
-		return errors.New(errorNoContract)
-	}
-
-	// Don't delete the final boost message
-	farmerstate.SetOrderPercentileAll(contract.Order, len(contract.Order))
-
-	saveEndData(contract) // Save for historical purposes
-	delete(Contracts, contract.ContractHash)
-	saveData(Contracts)
-
-	return nil
-}
-
 func reorderBoosters(contract *Contract) {
 	switch contract.BoostOrder {
 	case ContractOrderSignup:
