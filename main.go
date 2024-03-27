@@ -494,45 +494,10 @@ var (
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		// Admin Commands
 		slashAdminContractsList: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			str, err := boost.GetContractList(s)
-			if err != nil {
-				str = err.Error()
-			}
-
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content:    str,
-					Flags:      discordgo.MessageFlagsEphemeral,
-					Components: []discordgo.MessageComponent{}},
-			})
+			boost.HandleAdminContractList(s, i)
 		},
 		slashAdminContractFinish: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			contractHash := ""
-			options := i.ApplicationCommandData().Options
-			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-			for _, opt := range options {
-				optionMap[opt.Name] = opt
-			}
-
-			if opt, ok := optionMap["contract-hash"]; ok {
-				contractHash = strings.TrimSpace(opt.StringValue())
-			}
-
-			str := "Marking contract " + contractHash + " as finished."
-			err := boost.FinishContractByHash(s, contractHash)
-			if err != nil {
-				str = err.Error()
-			}
-
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content:    str,
-					Flags:      discordgo.MessageFlagsEphemeral,
-					Components: []discordgo.MessageComponent{}},
-			})
-
+			boost.HandleAdminContractFinish(s, i)
 		},
 		// Normal Commands
 		slashJoin: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
