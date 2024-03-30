@@ -422,7 +422,13 @@ var (
 				{
 					Type:        discordgo.ApplicationCommandOptionBoolean,
 					Name:        "linked",
-					Description: "Link with boost list reactions in this contract channel. Default is true.",
+					Description: "Link with contract channel reactions for sent tokens. Default is true.",
+					Required:    false,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "link-received",
+					Description: "Link with contract channel reactions for received tokens. Default is false.",
 					Required:    false,
 				},
 			},

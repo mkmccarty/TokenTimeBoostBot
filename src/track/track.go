@@ -11,11 +11,18 @@ import (
 	"github.com/peterbourgon/diskv/v3"
 )
 
+// Constants for token tracking
+const (
+	TokenSent     = 0 // TokenSent is a token sent
+	TokenReceived = 1 // TokenReceived is a token received
+)
+
 type tokenValue struct {
 	UserID              string        // The user ID that is tracking the token value
 	Name                string        // Tracking name for this contract
 	ChannelID           string        // The channel ID that is tracking the token value
 	Linked              bool          // If the tracker is linked to channel contract
+	LinkRecieved        bool          // If linked, log the received tokens
 	ChannelMention      string        // The channel mention
 	StartTime           time.Time     // When Token Value time started
 	EstimatedEndTime    time.Time     // Time of Token Value time plus Duration
@@ -24,8 +31,9 @@ type tokenValue struct {
 	TokenSentValues     []float64     // time of each token sent
 	TokenReceivedTime   []time.Time   // time of each received token
 	TokenReceivedValues []float64     // time of each token sent
-	TokenValueSent      float64       // sum of all token values
-	TokenValueReceived  float64       // sum of all token values
+	FarmedTokenTime     []time.Time   // time a self farmed token was received
+	SumValueSent        float64       // sum of all token values sent
+	SumValueReceived    float64       // sum of all token values received
 	TokenDelta          float64       // difference between sent and received
 	TokenMessageID      string        // Message ID for the Last Token Value message
 	UserChannelID       string        // User Channel ID for the Last Token Value message
@@ -61,12 +69,13 @@ func init() {
 func resetTokenTracking(tv *tokenValue) {
 	tv.StartTime = time.Now()
 	tv.Linked = true
+	tv.LinkRecieved = true
 	tv.TokenSentTime = nil
 	tv.TokenReceivedTime = nil
 	tv.TokenSentValues = nil
 	tv.TokenReceivedValues = nil
-	tv.TokenValueSent = 0.0
-	tv.TokenValueReceived = 0.0
+	tv.SumValueSent = 0.0
+	tv.SumValueReceived = 0.0
 	tv.TokenDelta = 0.0
 	tv.Details = false
 	tv.Edit = false
@@ -109,22 +118,22 @@ func TokenTrackingAdjustTime(channelID string, userID string, name string, start
 	td.EstimatedEndTime = td.StartTime.Add(td.DurationTime)
 
 	// Changed duration needs a recalculation
-	td.TokenValueSent = 0.0
+	td.SumValueSent = 0.0
 	for i, t := range td.TokenSentTime {
 		now := t
 		offsetTime := now.Sub(td.StartTime).Seconds()
 		td.TokenSentValues[i] = getTokenValue(offsetTime, td.DurationTime.Seconds())
-		td.TokenValueSent += td.TokenSentValues[i]
+		td.SumValueSent += td.TokenSentValues[i]
 	}
-	td.TokenValueReceived = 0.0
+	td.SumValueReceived = 0.0
 	for i, t := range td.TokenReceivedTime {
 		now := t
 		offsetTime := now.Sub(td.StartTime).Seconds()
 		td.TokenReceivedValues[i] = getTokenValue(offsetTime, td.DurationTime.Seconds())
-		td.TokenValueReceived += td.TokenReceivedValues[i]
+		td.SumValueReceived += td.TokenReceivedValues[i]
 
 	}
-	td.TokenDelta = td.TokenValueSent - td.TokenValueReceived
+	td.TokenDelta = td.SumValueSent - td.SumValueReceived
 
 	return getTokenTrackingString(td, false)
 }
@@ -150,7 +159,7 @@ func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
 	}
 
 	if (len(td.TokenSentTime) + len(td.TokenReceivedTime)) > 0 {
-		fmt.Fprintf(&builder, "Sent: **%d**  (%4.3f)\n", len(td.TokenSentTime), td.TokenValueSent)
+		fmt.Fprintf(&builder, "Sent: **%d**  (%4.3f)\n", len(td.TokenSentTime), td.SumValueSent)
 		if td.Details {
 			for i, t := range td.TokenSentTime {
 				if !finalDisplay {
@@ -164,7 +173,7 @@ func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
 				}
 			}
 		}
-		fmt.Fprintf(&builder, "Received: **%d**  (%4.3f)\n", len(td.TokenReceivedTime), td.TokenValueReceived)
+		fmt.Fprintf(&builder, "Received: **%d**  (%4.3f)\n", len(td.TokenReceivedTime), td.SumValueReceived)
 		if td.Details {
 			for i, t := range td.TokenReceivedTime {
 				if !finalDisplay {
@@ -205,7 +214,7 @@ func getTrack(userID string, name string) (*tokenValue, error) {
 }
 
 // TokenTracking is called as a starting point for token tracking
-func tokenTracking(s *discordgo.Session, channelID string, userID string, name string, duration time.Duration, linked bool) (string, error) {
+func tokenTracking(s *discordgo.Session, channelID string, userID string, name string, duration time.Duration, linked bool, linkReceived bool) (string, error) {
 	var builder strings.Builder
 
 	if Tokens[userID] == nil {
@@ -238,6 +247,7 @@ func tokenTracking(s *discordgo.Session, channelID string, userID string, name s
 	td.DurationTime = duration
 	td.EstimatedEndTime = time.Now().Add(duration)
 	td.Linked = linked
+	td.LinkRecieved = linkReceived
 
 	builder.WriteString(getTokenTrackingString(td, false))
 
@@ -257,14 +267,14 @@ func tokenTrackingTrack(userID string, name string, tokenSent int, tokenReceived
 	if tokenSent > 0 {
 		td.TokenSentTime = append(td.TokenSentTime, now)
 		td.TokenSentValues = append(td.TokenSentValues, tokenValue)
-		td.TokenValueSent += tokenValue
+		td.SumValueSent += tokenValue
 	}
 	if tokenReceived > 0 {
 		td.TokenReceivedTime = append(td.TokenReceivedTime, now)
 		td.TokenReceivedValues = append(td.TokenReceivedValues, tokenValue)
-		td.TokenValueReceived += tokenValue
+		td.SumValueReceived += tokenValue
 	}
-	td.TokenDelta = td.TokenValueSent - td.TokenValueReceived
+	td.TokenDelta = td.SumValueSent - td.SumValueReceived
 
 	return getTokenTrackingString(td, false)
 }
@@ -319,26 +329,46 @@ func TokenAdjustTimestamp(s *discordgo.Session, i *discordgo.InteractionCreate, 
 	s.ChannelMessageEditComplex(m)
 }
 
-// ContractTokenSent will track the token received from the contract Token reaction
-func ContractTokenSent(s *discordgo.Session, channelID string, userID string) {
+// FarmedToken will track the token sent from the contract Token reaction
+func FarmedToken(s *discordgo.Session, channelID string, userID string) {
+	for _, v := range Tokens[userID].Coop {
+		if v != nil && v.ChannelID == channelID && v.Linked {
+			v.FarmedTokenTime = append(v.FarmedTokenTime, time.Now())
+		}
+	}
+}
+
+// ContractTokenMessage will track the token sent from the contract Token reaction
+func ContractTokenMessage(s *discordgo.Session, channelID string, userID string, kind int) {
 	if Tokens[userID] == nil {
 		return
 	}
+	redraw := false
 	for _, v := range Tokens[userID].Coop {
 		if v != nil && v.ChannelID == channelID && v.Linked {
 			now := time.Now()
 			offsetTime := now.Sub(v.StartTime).Seconds()
 			tokenValue := getTokenValue(offsetTime, v.DurationTime.Seconds())
-			v.TokenSentTime = append(v.TokenSentTime, now)
-			v.TokenSentValues = append(v.TokenSentValues, tokenValue)
-			v.TokenValueSent += tokenValue
-			v.TokenDelta = v.TokenValueSent - v.TokenValueReceived
-			saveData(Tokens)
-			str := getTokenTrackingString(v, false)
-			m := discordgo.NewMessageEdit(v.UserChannelID, v.TokenMessageID)
-			m.Components = getTokenValComponents(tokenTrackingEditing(userID, v.Name, false), v.Name)
-			m.SetContent(str)
-			s.ChannelMessageEditComplex(m)
+			if kind == TokenSent {
+				v.TokenSentTime = append(v.TokenSentTime, now)
+				v.TokenSentValues = append(v.TokenSentValues, tokenValue)
+				v.SumValueSent += tokenValue
+				redraw = true
+			} else if v.LinkRecieved && kind == TokenReceived {
+				v.TokenReceivedTime = append(v.TokenReceivedTime, now)
+				v.TokenReceivedValues = append(v.TokenReceivedValues, tokenValue)
+				v.SumValueReceived += tokenValue
+				redraw = true
+			}
+			if redraw {
+				v.TokenDelta = v.SumValueSent - v.SumValueReceived
+				saveData(Tokens)
+				str := getTokenTrackingString(v, false)
+				m := discordgo.NewMessageEdit(v.UserChannelID, v.TokenMessageID)
+				m.Components = getTokenValComponents(tokenTrackingEditing(userID, v.Name, false), v.Name)
+				m.SetContent(str)
+				s.ChannelMessageEditComplex(m)
+			}
 		}
 	}
 }
