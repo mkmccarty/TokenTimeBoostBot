@@ -174,14 +174,14 @@ var (
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionUser,
-					Name:        "sink-crt",
-					Description: "Token Sink during chicken run tango.",
+					Name:        "contract-starter",
+					Description: "User who starts the EI contract.",
 					Required:    true,
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "sink-post",
-					Description: "Token Sink after boosting completes.",
+					Name:        "sink",
+					Description: "Token Sink",
 					Required:    false,
 				},
 				{
@@ -196,6 +196,22 @@ var (
 						},
 						{
 							Name:  "Last",
+							Value: boost.SinkBoostLast,
+						},
+					},
+				},
+				{
+					Name:        "style",
+					Description: "Style of speedrun. Default is Wonky",
+					Required:    false,
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Choices: []*discordgo.ApplicationCommandOptionChoice{
+						{
+							Name:  "Wonky",
+							Value: boost.SinkBoostFirst,
+						},
+						{
+							Name:  "Hybrid",
 							Value: boost.SinkBoostLast,
 						},
 					},
@@ -754,7 +770,7 @@ var (
 			if err == nil {
 				boost.SetListMessageID(contract, ChannelID, msg.ID)
 				var data discordgo.MessageSend
-				data.Content, data.Components = getSignupComponents(false, contract.Speedrun)
+				data.Content, data.Components = boost.GetSignupComponents(false, contract.Speedrun)
 				reactionMsg, err := s.ChannelMessageSendComplex(ChannelID, &data)
 
 				if err != nil {
@@ -1198,7 +1214,7 @@ var (
 
 				// Rebuild the signup message to disable the start button
 				msg := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
-				contentStr, comp := getSignupComponents(true, false) // True to get a disabled start button
+				contentStr, comp := boost.GetSignupComponents(true, false) // True to get a disabled start button
 				msg.SetContent(contentStr)
 				msg.Components = comp
 				s.ChannelMessageEditComplex(msg)
@@ -1227,94 +1243,6 @@ var (
 		},
 	}
 )
-
-func getSignupComponents(disableStartContract bool, speedrun bool) (string, []discordgo.MessageComponent) {
-	var str = "Join the contract and indicate the number boost tokens you'd like."
-	startLabel := "Start Boost List"
-	if speedrun {
-		startLabel = "Start Speedrun"
-	} else if disableStartContract {
-		startLabel = "Started"
-	}
-	return str, []discordgo.MessageComponent{
-		// add buttons to the action row
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "🧑‍🌾",
-					},
-					Label:    "Join",
-					Style:    discordgo.PrimaryButton,
-					CustomID: "fd_signupFarmer",
-				},
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "🔔",
-					},
-					Label:    "Join w/Ping",
-					Style:    discordgo.PrimaryButton,
-					CustomID: "fd_signupBell",
-				},
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "❌",
-					},
-					Label:    "Leave",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_signupLeave",
-				},
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "⏱️",
-					},
-					Label:    startLabel,
-					Style:    discordgo.SuccessButton,
-					CustomID: "fd_signupStart",
-					Disabled: disableStartContract,
-				},
-			},
-		},
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "5️⃣",
-					},
-					Label:    " Tokens",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokens5",
-				},
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "6️⃣",
-					},
-					Label:    " Tokens",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokens6",
-				},
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "8️⃣",
-					},
-					Label:    " Tokens",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokens8",
-				},
-				discordgo.Button{
-					Label:    "+ Token",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokens1",
-				},
-				discordgo.Button{
-					Label:    "- Token",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokens_sub",
-				},
-			},
-		},
-	}
-}
 
 func joinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell bool) {
 	var str = "Adding to Contract..."

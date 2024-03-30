@@ -115,31 +115,33 @@ type LocationData struct {
 
 // Contract is the main struct for each contract
 type Contract struct {
-	ContractHash      string // ContractID-CoopID
-	Location          []*LocationData
-	CreatorID         []string // Slice of creators
-	ContractID        string   // Contract ID
-	CoopID            string   // CoopID
-	CoopSize          int
-	BoostOrder        int // How the contract is sorted
-	BoostVoting       int
-	BoostPosition     int       // Starting Slot
-	State             int       // Boost Completed
-	StartTime         time.Time // When Contract is started
-	EndTime           time.Time // When final booster ends
-	EggFarmers        map[string]*EggFarmer
-	RegisteredNum     int
-	Boosters          map[string]*Booster // Boosters Registered
-	Order             []string
-	OrderRevision     int        // Incremented when Order is changed
-	Speedrun          bool       // Speedrun mode
-	SpeedrunState     int        // Speedrun state
-	SinkCrtUserID     string     // Sink CRT User ID
-	SinkEndUserID     string     // Sink End of Contract User ID
-	SinkBoostPosition int        // Sink Boost Position
-	ChickenRuns       int        // Number of Chicken Runs for this contract
-	lastWishPrompt    string     // saved prompt for this contract
-	mutex             sync.Mutex // Keep this contract thread safe
+	ContractHash          string // ContractID-CoopID
+	Location              []*LocationData
+	CreatorID             []string          // Slice of creators
+	SignupMsgID           map[string]string // Message ID for the Signup Message
+	ContractID            string            // Contract ID
+	CoopID                string            // CoopID
+	CoopSize              int
+	BoostOrder            int // How the contract is sorted
+	BoostVoting           int
+	BoostPosition         int       // Starting Slot
+	State                 int       // Boost Completed
+	StartTime             time.Time // When Contract is started
+	EndTime               time.Time // When final booster ends
+	EggFarmers            map[string]*EggFarmer
+	RegisteredNum         int
+	Boosters              map[string]*Booster // Boosters Registered
+	Order                 []string
+	OrderRevision         int        // Incremented when Order is changed
+	Speedrun              bool       // Speedrun mode
+	SpeedrunState         int        // Speedrun state
+	SpeedrunStarterUserID string     // Sink CRT User ID
+	SinkUserID            string     // Sink End of Contract User ID
+	SinkBoostPosition     int        // Sink Boost Position
+	SpeedrunStyle         int        // Speedrun Style
+	ChickenRuns           int        // Number of Chicken Runs for this contract
+	lastWishPrompt        string     // saved prompt for this contract
+	mutex                 sync.Mutex // Keep this contract thread safe
 }
 
 var (
