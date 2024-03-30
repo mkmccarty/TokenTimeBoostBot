@@ -33,21 +33,16 @@ const slashContract string = "contract"
 const slashSkip string = "skip"
 const slashBoost string = "boost"
 const slashChange string = "change"
-
-// const slashcluck string = "cluck"
 const slashUnboost string = "unboost"
 const slashPrune string = "prune"
 const slashJoin string = "join"
 const slashSetEggIncName string = "seteggincname"
 const slashBump string = "bump"
 const slashHelp string = "help"
-
-const slashToken string = "token"
-
-// const slashSignup string = "signup"
+const slashSpeedrun string = "speedrun"
 const slashCoopETA string = "coopeta"
-
 const slashLaunchHelper string = "launch-helper"
+const slashToken string = "token"
 const slashFun string = "fun"
 
 var integerZeroMinValue float64 = 0.0
@@ -174,6 +169,64 @@ var (
 			},
 		},
 		{
+			Name:        slashSpeedrun,
+			Description: "Add speedrun features to a contract.",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionUser,
+					Name:        "contract-starter",
+					Description: "User who starts the EI contract.",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "sink",
+					Description: "Token Sink",
+					Required:    false,
+				},
+				{
+					Name:        "sink-position",
+					Description: "Default is First Booster",
+					Required:    false,
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Choices: []*discordgo.ApplicationCommandOptionChoice{
+						{
+							Name:  "First",
+							Value: boost.SinkBoostFirst,
+						},
+						{
+							Name:  "Last",
+							Value: boost.SinkBoostLast,
+						},
+					},
+				},
+				{
+					Name:        "style",
+					Description: "Style of speedrun. Default is Wonky",
+					Required:    false,
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Choices: []*discordgo.ApplicationCommandOptionChoice{
+						{
+							Name:  "Wonky",
+							Value: boost.SinkBoostFirst,
+						},
+						{
+							Name:  "Hybrid",
+							Value: boost.SinkBoostLast,
+						},
+					},
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Name:        "chicken-runs",
+					Description: "Number of chicken runs for this contract.",
+					MinValue:    &integerZeroMinValue,
+					MaxValue:    20,
+					Required:    false,
+				},
+			},
+		},
+		{
 			Name:        slashJoin,
 			Description: "Add farmer or guest to contract.",
 			Options: []*discordgo.ApplicationCommandOption{
@@ -217,7 +270,6 @@ var (
 				},
 			},
 		},
-
 		{
 			Name:        slashFun,
 			Description: "OpenAI Fun",
@@ -622,6 +674,9 @@ var (
 		slashToken: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			track.HandleTokenCommand(s, i)
 		},
+		slashSpeedrun: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleSpeedrunCommand(s, i)
+		},
 		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Protection against DM use
 			if i.GuildID == "" {
@@ -715,7 +770,7 @@ var (
 			if err == nil {
 				boost.SetListMessageID(contract, ChannelID, msg.ID)
 				var data discordgo.MessageSend
-				data.Content, data.Components = getSignupComponents(false)
+				data.Content, data.Components = boost.GetSignupComponents(false, contract.Speedrun)
 				reactionMsg, err := s.ChannelMessageSendComplex(ChannelID, &data)
 
 				if err != nil {
@@ -1144,7 +1199,6 @@ var (
 					Flags:      discordgo.MessageFlagsEphemeral,
 					Components: []discordgo.MessageComponent{}},
 			})
-
 			err := boost.StartContractBoosting(s, i.GuildID, i.ChannelID, i.Member.User.ID)
 			if err != nil {
 				str := fmt.Sprint(err.Error())
@@ -1160,7 +1214,7 @@ var (
 
 				// Rebuild the signup message to disable the start button
 				msg := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
-				contentStr, comp := getSignupComponents(true) // True to get a disabled start button
+				contentStr, comp := boost.GetSignupComponents(true, false) // True to get a disabled start button
 				msg.SetContent(contentStr)
 				msg.Components = comp
 				s.ChannelMessageEditComplex(msg)
@@ -1189,88 +1243,6 @@ var (
 		},
 	}
 )
-
-func getSignupComponents(disableStartContract bool) (string, []discordgo.MessageComponent) {
-	var str = "Join the contract and indicate the number boost tokens you'd like."
-	return str, []discordgo.MessageComponent{
-		// add buttons to the action row
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "🧑‍🌾",
-					},
-					Label:    "Join",
-					Style:    discordgo.PrimaryButton,
-					CustomID: "fd_signupFarmer",
-				},
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "🔔",
-					},
-					Label:    "Join w/Ping",
-					Style:    discordgo.PrimaryButton,
-					CustomID: "fd_signupBell",
-				},
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "❌",
-					},
-					Label:    "Leave",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_signupLeave",
-				},
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "⏱️",
-					},
-					Label:    "Start Boost List",
-					Style:    discordgo.SuccessButton,
-					CustomID: "fd_signupStart",
-					Disabled: disableStartContract,
-				},
-			},
-		},
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "5️⃣",
-					},
-					Label:    " Tokens",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokens5",
-				},
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "6️⃣",
-					},
-					Label:    " Tokens",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokens6",
-				},
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "8️⃣",
-					},
-					Label:    " Tokens",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokens8",
-				},
-				discordgo.Button{
-					Label:    "+ Token",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokens1",
-				},
-				discordgo.Button{
-					Label:    "- Token",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokens_sub",
-				},
-			},
-		},
-	}
-}
 
 func joinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell bool) {
 	var str = "Adding to Contract..."
