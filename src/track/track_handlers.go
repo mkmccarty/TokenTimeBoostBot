@@ -235,6 +235,7 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		optionMap[opt.Name] = opt
 	}
 	linked := true
+	linkReceived := false
 	var duration time.Duration
 	if opt, ok := optionMap["duration"]; ok {
 		// Timespan of the contract duration
@@ -252,7 +253,9 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if opt, ok := optionMap["linked"]; ok {
 		linked = opt.BoolValue()
 	}
-
+	if opt, ok := optionMap["link-received"]; ok {
+		linkReceived = opt.BoolValue()
+	}
 	// Call into boost module to do that calculations
 	var userID string
 	if i.GuildID != "" {
@@ -261,7 +264,7 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		userID = i.User.ID
 	}
 
-	str, err := tokenTracking(s, i.ChannelID, userID, trackingName, duration, linked)
+	str, err := tokenTracking(s, i.ChannelID, userID, trackingName, duration, linked, linkReceived)
 
 	if err != nil {
 		str = err.Error()
@@ -313,7 +316,7 @@ func HandleTokenComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	if Tokens[userID] != nil {
 		if Tokens[userID].Coop != nil && Tokens[userID].Coop[name] != nil {
-			Tokens[userID].Coop[name] = nil
+			delete(Tokens[userID].Coop, name)
 		}
 	}
 

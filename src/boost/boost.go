@@ -1257,15 +1257,25 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			}
 		}
 
+		// Token reaction handling
 		if strings.ToLower(r.Emoji.Name) == "token" {
 			if contract.BoostPosition < len(contract.Order) {
-				contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived++
+				var b = contract.Boosters[contract.Order[contract.BoostPosition]]
+
+				b.TokensReceived++
 				emojiName = r.Emoji.Name + ":" + r.Emoji.ID
-				if r.UserID != contract.Order[contract.BoostPosition] {
-					track.ContractTokenSent(s, r.ChannelID, r.UserID)
+				if r.UserID != b.UserID {
+					// Record the Tokens as received
+					b.TokenReceivedTime = append(b.TokenReceivedTime, time.Now())
+					track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived)
+
+					// Record who sent the token
+					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent)
+					contract.Boosters[r.UserID].TokenSentTime = append(contract.Boosters[r.UserID].TokenSentTime, time.Now())
+				} else {
+					track.FarmedToken(s, r.ChannelID, r.UserID)
 				}
 
-				var b = contract.Boosters[contract.Order[contract.BoostPosition]]
 				if b.TokensReceived >= b.TokensWanted && b.UserID == b.Name {
 					// Guest farmer auto boosts
 					Boosting(s, r.GuildID, r.ChannelID)
