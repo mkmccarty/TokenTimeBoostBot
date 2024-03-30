@@ -12,11 +12,11 @@ require (
 	github.com/rs/xid v1.5.0
 	github.com/sashabaranov/go-openai v1.20.4
 	github.com/xhit/go-str2duration/v2 v2.1.0
-	google.golang.org/api v0.171.0
+	google.golang.org/api v0.172.0
 )
 
 require (
-	cloud.google.com/go v0.112.1 // indirect
+	cloud.google.com/go v0.112.2 // indirect
 	cloud.google.com/go/ai v0.3.4 // indirect
 	cloud.google.com/go/compute v1.25.1 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
