@@ -158,6 +158,23 @@ func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
 		fmt.Fprintf(&builder, "> Token value in one hour: %f\n\n", getTokenValue(offsetTime+(60*60), td.DurationTime.Seconds()))
 	}
 
+	if len(td.FarmedTokenTime) > 0 {
+		fmt.Fprintf(&builder, "Farmed: **%d**\n", len(td.FarmedTokenTime))
+		if td.Details {
+			for i, t := range td.FarmedTokenTime {
+				if !finalDisplay {
+					fmt.Fprintf(&builder, "> %d: <t:%d:R>\n", i+1, t.Unix())
+				} else {
+					fmt.Fprintf(&builder, "> %d: %s\n", i+1, t.Sub(td.StartTime).Round(time.Second))
+				}
+				if builder.Len() > 1750 {
+					fmt.Fprint(&builder, "> ...\n")
+					break
+				}
+			}
+		}
+	}
+
 	if (len(td.TokenSentTime) + len(td.TokenReceivedTime)) > 0 {
 		fmt.Fprintf(&builder, "Sent: **%d**  (%4.3f)\n", len(td.TokenSentTime), td.SumValueSent)
 		if td.Details {
@@ -334,11 +351,19 @@ func FarmedToken(s *discordgo.Session, channelID string, userID string) {
 	if Tokens[userID] == nil {
 		return
 	}
+
 	for _, v := range Tokens[userID].Coop {
 		if v != nil && v.ChannelID == channelID && v.Linked {
 			v.FarmedTokenTime = append(v.FarmedTokenTime, time.Now())
+			saveData(Tokens)
+			str := getTokenTrackingString(v, false)
+			m := discordgo.NewMessageEdit(v.UserChannelID, v.TokenMessageID)
+			m.Components = getTokenValComponents(tokenTrackingEditing(userID, v.Name, false), v.Name)
+			m.SetContent(str)
+			s.ChannelMessageEditComplex(m)
 		}
 	}
+
 }
 
 // ContractTokenMessage will track the token sent from the contract Token reaction
