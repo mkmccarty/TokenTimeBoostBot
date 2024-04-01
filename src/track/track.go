@@ -340,8 +340,9 @@ func TokenAdjustTimestamp(s *discordgo.Session, i *discordgo.InteractionCreate, 
 	name, _ := extractTokenName(i.Message.Components[0])
 	str := TokenTrackingAdjustTime(i.ChannelID, userID, name, startHour, startMinute, endHour, endMinute)
 
+	comp := getTokenValComponents(tokenTrackingEditing(userID, name, false), name)
 	m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
-	m.Components = getTokenValComponents(tokenTrackingEditing(userID, name, false), name)
+	m.Components = &comp
 	m.SetContent(str)
 	s.ChannelMessageEditComplex(m)
 }
@@ -357,8 +358,9 @@ func FarmedToken(s *discordgo.Session, channelID string, userID string) {
 			v.FarmedTokenTime = append(v.FarmedTokenTime, time.Now())
 			saveData(Tokens)
 			str := getTokenTrackingString(v, false)
+			comp := getTokenValComponents(tokenTrackingEditing(userID, v.Name, false), v.Name)
 			m := discordgo.NewMessageEdit(v.UserChannelID, v.TokenMessageID)
-			m.Components = getTokenValComponents(tokenTrackingEditing(userID, v.Name, false), v.Name)
+			m.Components = &comp
 			m.SetContent(str)
 			s.ChannelMessageEditComplex(m)
 		}
@@ -392,8 +394,9 @@ func ContractTokenMessage(s *discordgo.Session, channelID string, userID string,
 				v.TokenDelta = v.SumValueSent - v.SumValueReceived
 				saveData(Tokens)
 				str := getTokenTrackingString(v, false)
+				comp := getTokenValComponents(tokenTrackingEditing(userID, v.Name, false), v.Name)
 				m := discordgo.NewMessageEdit(v.UserChannelID, v.TokenMessageID)
-				m.Components = getTokenValComponents(tokenTrackingEditing(userID, v.Name, false), v.Name)
+				m.Components = &comp
 				m.SetContent(str)
 				s.ChannelMessageEditComplex(m)
 			}

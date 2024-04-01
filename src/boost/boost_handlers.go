@@ -193,7 +193,7 @@ func setSpeedrunOptions(s *discordgo.Session, guildID string, channelID string, 
 
 	contentStr, comp := GetSignupComponents(disableButton, contract.Speedrun) // True to get a disabled start button
 	msg.SetContent(contentStr)
-	msg.Components = comp
+	msg.Components = &comp
 	s.ChannelMessageEditComplex(msg)
 
 	return builder.String(), nil
