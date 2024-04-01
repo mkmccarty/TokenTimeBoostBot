@@ -1216,7 +1216,7 @@ var (
 				msg := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 				contentStr, comp := boost.GetSignupComponents(true, false) // True to get a disabled start button
 				msg.SetContent(contentStr)
-				msg.Components = comp
+				msg.Components = &comp
 				s.ChannelMessageEditComplex(msg)
 			}
 		},

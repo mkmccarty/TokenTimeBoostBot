@@ -3,7 +3,7 @@ module github.com/mkmccarty/TokenTimeBoostBot
 go 1.21
 
 require (
-	github.com/bwmarrin/discordgo v0.27.2-0.20240104191117-afc57886f91a
+	github.com/bwmarrin/discordgo v0.28.1
 	github.com/dannav/hhmmss v1.0.0
 	github.com/divan/num2words v0.0.0-20170904212200-57dba452f942
 	github.com/google/generative-ai-go v0.10.0
@@ -46,8 +46,8 @@ require (
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240325203815-454cdb8f5daa // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240325203815-454cdb8f5daa // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240401170217-c3f982113cda // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240401170217-c3f982113cda // indirect
 	google.golang.org/grpc v1.62.1 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 )
