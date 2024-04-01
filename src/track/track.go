@@ -331,6 +331,9 @@ func TokenAdjustTimestamp(s *discordgo.Session, i *discordgo.InteractionCreate, 
 
 // FarmedToken will track the token sent from the contract Token reaction
 func FarmedToken(s *discordgo.Session, channelID string, userID string) {
+	if Tokens[userID] == nil {
+		return
+	}
 	for _, v := range Tokens[userID].Coop {
 		if v != nil && v.ChannelID == channelID && v.Linked {
 			v.FarmedTokenTime = append(v.FarmedTokenTime, time.Now())
