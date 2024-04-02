@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -1290,9 +1291,13 @@ func init() {
 	// Components are part of interactions, so we register InteractionCreate handler
 	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 		if m.MessageReaction.UserID != s.State.User.ID {
-			var str = boost.ReactionAdd(s, m.MessageReaction)
-			if str == "!gonow" {
-				notok.DoGoNow(s, m.ChannelID)
+			if m.GuildID != "" {
+				var str = boost.ReactionAdd(s, m.MessageReaction)
+				if str == "!gonow" {
+					notok.DoGoNow(s, m.ChannelID)
+				}
+			} else {
+				track.ReactionAdd(s, m.MessageReaction)
 			}
 		}
 	})

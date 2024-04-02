@@ -404,6 +404,24 @@ func ContractTokenMessage(s *discordgo.Session, channelID string, userID string,
 	}
 }
 
+func removeReceivedToken(userID string, name string, index int) {
+	if Tokens[userID] == nil {
+		return
+	}
+
+	for _, v := range Tokens[userID].Coop {
+		if v != nil && v.Name == name {
+			if index < len(v.TokenReceivedTime) {
+				v.TokenReceivedTime = append(v.TokenReceivedTime[:index], v.TokenReceivedTime[index+1:]...)
+				v.TokenReceivedValues = append(v.TokenReceivedValues[:index], v.TokenReceivedValues[index+1:]...)
+				v.SumValueReceived -= v.TokenReceivedValues[index]
+				v.TokenDelta = v.SumValueSent - v.SumValueReceived
+				saveData(Tokens)
+			}
+		}
+	}
+}
+
 // AdvancedTransform for storing KV pairs
 func advancedTransform(key string) *diskv.PathKey {
 	path := strings.Split(key, "/")
