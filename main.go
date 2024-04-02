@@ -1318,7 +1318,13 @@ func init() {
 		case discordgo.InteractionMessageComponent:
 
 			if h, ok := componentHandlers[i.MessageComponentData().CustomID]; ok {
-				fmt.Println("Component: ", i.MessageComponentData().CustomID, i.MessageComponentData().Values)
+				userId := ""
+				if i.GuildID == "" {
+					userId = i.Member.User.ID
+				} else {
+					userId = i.Member.User.ID
+				}
+				fmt.Println("Component: ", i.MessageComponentData().CustomID, i.MessageComponentData().Values, userId)
 				h(s, i)
 			}
 		}
