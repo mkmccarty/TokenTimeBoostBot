@@ -1,6 +1,7 @@
 package track
 
 import (
+	"slices"
 	"strings"
 	"time"
 
@@ -325,4 +326,37 @@ func HandleTokenComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	saveData(Tokens)
+}
+
+// ReactionAdd is called when a reaction is added to a message
+func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
+	// Find the message
+	var msg, err = s.ChannelMessage(r.ChannelID, r.MessageID)
+
+	if err != nil {
+		return
+	}
+	name, _ := extractTokenName(msg.Components[0])
+	emojiName := r.Emoji.Name
+	userID := r.UserID
+	var numberSlice = []string{"0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"}
+	if slices.Contains(numberSlice, emojiName) {
+		var receivedIndex = slices.Index(numberSlice, emojiName)
+		removeReceivedToken(userID, name, receivedIndex)
+		str := tokenTrackingTrack(userID, name, 1, 0)
+		comp := getTokenValComponents(tokenTrackingEditing(userID, name, false), name)
+		m := discordgo.NewMessageEdit(r.ChannelID, r.MessageID)
+		m.Components = &comp
+		m.SetContent(str)
+		s.ChannelMessageEditComplex(m)
+		defer saveData(Tokens)
+	}
+
+	/*
+		err = s.MessageReactionRemove(r.ChannelID, r.MessageID, emojiName, r.UserID)
+		if err != nil {
+			fmt.Println(err, emojiName)
+		}
+	*/
+
 }
