@@ -203,6 +203,9 @@ func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
 					break
 				}
 			}
+			if td.LinkRecieved {
+				fmt.Fprintf(&builder, "React with 1️⃣..🔟 to remove errant received tokens at that index.\n", td.TokenDelta)
+			}
 		}
 		if !finalDisplay {
 			builder.WriteString("**Current")
