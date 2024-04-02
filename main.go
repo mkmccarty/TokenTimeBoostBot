@@ -28,6 +28,7 @@ import (
 const boostBotHomeGuild string = "766330702689992720"
 const slashAdminContractsList string = "contract-list"
 const slashAdminContractFinish string = "contract-finish"
+const slashAdminBotSettings string = "bot-settings"
 
 // Slash Command Constants
 const slashContract string = "contract"
@@ -55,6 +56,8 @@ var s *discordgo.Session
 
 // Version is set by the build system
 var Version = "development"
+
+var debugLogging = true
 
 func init() {
 	fmt.Printf("Starting Discord Bot: %s (%s)\n", version.Release, Version)
@@ -112,6 +115,18 @@ var (
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "contract-hash",
 					Description: "Hash of the contract to finish",
+					Required:    true,
+				},
+			},
+		},
+		{
+			Name:        slashAdminBotSettings,
+			Description: "Set various bot settings",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "debug-logging",
+					Description: "Enable or disable debug logging",
 					Required:    true,
 				},
 			},
@@ -1273,16 +1288,37 @@ func joinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell boo
 
 // main init to call other init functions in sequence
 func init() {
-
 	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		switch i.Type {
 		case discordgo.InteractionApplicationCommand:
 			if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
+				if debugLogging {
+					options := i.ApplicationCommandData().Options
+					optionMap := make(map[string]string, len(options))
+					for _, opt := range options {
+						switch opt.Type {
+						case discordgo.ApplicationCommandOptionString:
+							optionMap[opt.Name] = opt.StringValue()
+						case discordgo.ApplicationCommandOptionInteger:
+							optionMap[opt.Name] = strconv.Itoa(int(opt.IntValue()))
+						case discordgo.ApplicationCommandOptionBoolean:
+							optionMap[opt.Name] = strconv.FormatBool(opt.BoolValue())
+						case discordgo.ApplicationCommandOptionUser:
+							optionMap[opt.Name] = opt.UserValue(s).Username
+						default:
+							optionMap[opt.Name] = "Unknown"
+						}
+					}
+					if i.GuildID != "" {
+						fmt.Println("Command:", i.ApplicationCommandData().Name, optionMap, i.ChannelID, i.Member.User.ID)
+					}
+				}
 				h(s, i)
 			}
 		case discordgo.InteractionMessageComponent:
 
 			if h, ok := componentHandlers[i.MessageComponentData().CustomID]; ok {
+				fmt.Println("Component: ", i.MessageComponentData().CustomID, i.MessageComponentData().Values)
 				h(s, i)
 			}
 		}
