@@ -1324,7 +1324,7 @@ func init() {
 				} else {
 					userID = i.Member.User.ID
 				}
-				fmt.Println("Component: ", i.MessageComponentData().CustomID, i.MessageComponentData().Values, userID)
+				fmt.Println("Component: ", i.MessageComponentData().CustomID, userID)
 				h(s, i)
 			}
 		}
