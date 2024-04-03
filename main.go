@@ -1320,7 +1320,7 @@ func init() {
 			if h, ok := componentHandlers[i.MessageComponentData().CustomID]; ok {
 				userID := ""
 				if i.GuildID == "" {
-					userID = i.Member.User.ID
+					userID = i.User.ID
 				} else {
 					userID = i.Member.User.ID
 				}
