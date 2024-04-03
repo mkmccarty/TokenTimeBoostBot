@@ -224,11 +224,11 @@ var (
 					Choices: []*discordgo.ApplicationCommandOptionChoice{
 						{
 							Name:  "Wonky",
-							Value: boost.SinkBoostFirst,
+							Value: boost.SpeedrunStyleWonky,
 						},
 						{
-							Name:  "Hybrid",
-							Value: boost.SinkBoostLast,
+							Name:  "Boost List",
+							Value: boost.SpeedrunStyleFastrun,
 						},
 					},
 				},

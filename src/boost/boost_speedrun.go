@@ -79,20 +79,55 @@ func setSpeedrunOptions(s *discordgo.Session, guildID string, channelID string, 
 	}
 
 	contract.Speedrun = true
-	contract.SpeedrunStarterUserID = contractStarter
-	contract.SinkUserID = sink
-	contract.SinkBoostPosition = sinkPosition
-	contract.ChickenRuns = chickenRuns
-	contract.SpeedrunStyle = speedrunStyle
+	contract.SRData.SpeedrunStarterUserID = contractStarter
+	contract.SRData.SinkUserID = sink
+	contract.SRData.SinkBoostPosition = sinkPosition
+	contract.SRData.ChickenRuns = chickenRuns
+	contract.SRData.SpeedrunStyle = speedrunStyle
+	contract.SRData.SpeedrunState = SpeedrunStateSignup
+
+	// Set up the details for the Chicken Run Tango
+	// first lap is CoopSize -1, every following lap is CoopSize -2
+
+	contract.SRData.Tango[0] = max(0, contract.CoopSize-1)        // First Leg
+	contract.SRData.Tango[1] = max(0, contract.SRData.Tango[0]-1) // Middle Legs
+	contract.SRData.Tango[2] = 0                                  // Last Leg
+
+	runs := contract.SRData.ChickenRuns
+	contract.SRData.Legs = 0
+	for runs > 0 {
+		if contract.SRData.Legs == 0 {
+			runs -= contract.SRData.Tango[0]
+		} else if runs > contract.SRData.Tango[1] {
+			runs -= contract.SRData.Tango[1]
+		} else {
+			contract.SRData.Tango[2] = runs
+			runs = 0
+		}
+		contract.SRData.Legs++
+	}
+
+	var b strings.Builder
+	fmt.Fprint(&b, "> Speedrun can be started once the contract is full.\n\n")
+	fmt.Fprintf(&b, "> **%d** Chicken Run Legs to reach **%d** total chicken runs.\n", contract.SRData.Legs, contract.SRData.ChickenRuns)
+	if contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
+		fmt.Fprint(&b, "> **Wonky** style speed run:\n")
+		fmt.Fprintf(&b, "> * Send all tokens to <@%s>\n", contract.SRData.SpeedrunStarterUserID)
+		if contract.SRData.SpeedrunStarterUserID != contract.SRData.SinkUserID {
+			fmt.Fprintf(&b, "> * After contract boosting send all tokens to: <@%s> (This is unusual)\n", contract.SRData.SinkUserID)
+		}
+	} else {
+		fmt.Fprint(&b, "> **Boost List** style speed run:\n")
+		fmt.Fprintf(&b, "> * During CRT send tokens to <@%s>\n", contract.SRData.SpeedrunStarterUserID)
+		fmt.Fprint(&b, "> * Follow the Boost List for Token Passing.\n")
+		fmt.Fprintf(&b, "> * After contract boosting send all tokens to <@%s>\n", contract.SRData.SinkUserID)
+	}
+	contract.SRData.StatusStr = b.String()
 
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "Speedrun options set for %s/%s\n", contract.ContractID, contract.CoopID)
-	fmt.Fprintf(&builder, "Contract Starter: %s\n", contract.Boosters[contract.SpeedrunStarterUserID].Mention)
-	fmt.Fprintf(&builder, "Sink CRT: %s\n", contract.Boosters[contract.SinkUserID].Mention)
-
-	// Rebuild the signup message to disable the start button
-	msgID := contract.SignupMsgID[channelID]
-	msg := discordgo.NewMessageEdit(channelID, msgID)
+	fmt.Fprintf(&builder, "Contract Starter: <@%s>\n", contract.SRData.SpeedrunStarterUserID)
+	fmt.Fprintf(&builder, "Sink CRT: <@%s>\n", contract.SRData.SinkUserID)
 
 	disableButton := false
 	if contract.Speedrun && contract.CoopSize != len(contract.Boosters) {
@@ -102,10 +137,19 @@ func setSpeedrunOptions(s *discordgo.Session, guildID string, channelID string, 
 		disableButton = true
 	}
 
-	contentStr, comp := GetSignupComponents(disableButton, contract.Speedrun) // True to get a disabled start button
-	msg.SetContent(contentStr)
-	msg.Components = &comp
-	s.ChannelMessageEditComplex(msg)
+	// For each contract location, update the signup message
+	refreshBoostListMessage(s, contract)
+
+	for _, loc := range contract.Location {
+		// Rebuild the signup message to disable the start button
+		msgID := loc.ReactionID
+		msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
+
+		contentStr, comp := GetSignupComponents(disableButton, contract.Speedrun) // True to get a disabled start button
+		msg.SetContent(contentStr)
+		msg.Components = &comp
+		s.ChannelMessageEditComplex(msg)
+	}
 
 	return builder.String(), nil
 }
