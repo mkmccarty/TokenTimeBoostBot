@@ -1202,6 +1202,19 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 				msg, _ := s.ChannelMessageSend(loc.ChannelID, outputStr)
 				SetListMessageID(contract, loc.ChannelID, msg.ID)
 			}
+			// Need to disable the speedrun start button if the contract is no longer full
+			if contract.Speedrun && contract.State == ContractStateSignup {
+				if (contract.CoopSize - 1) == len(contract.Order) {
+					msgID := loc.ReactionID
+					msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
+					// Full contract for speedrun
+					contentStr, comp := GetSignupComponents(true, contract.Speedrun) // True to get a disabled start button
+					msg.SetContent(contentStr)
+					msg.Components = &comp
+					s.ChannelMessageEditComplex(msg)
+				}
+			}
+
 		}
 	}
 
