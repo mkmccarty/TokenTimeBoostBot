@@ -1637,21 +1637,25 @@ func FinishContract(s *discordgo.Session, contract *Contract) error {
 }
 
 func reorderBoosters(contract *Contract) {
-	switch contract.BoostOrder {
-	case ContractOrderSignup:
-		// Join Order
-	case ContractOrderReverse:
-		// Reverse Order
-		for i, j := 0, len(contract.Order)-1; i < j; i, j = i+1, j-1 {
-			contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i] //reverse the slice
+	if contract.Speedrun {
+		reorderSpeedrunBoosters(contract)
+	} else {
+		switch contract.BoostOrder {
+		case ContractOrderSignup:
+			// Join Order
+		case ContractOrderReverse:
+			// Reverse Order
+			for i, j := 0, len(contract.Order)-1; i < j; i, j = i+1, j-1 {
+				contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i] //reverse the slice
+			}
+		case ContractOrderRandom:
+			rand.Shuffle(len(contract.Order), func(i, j int) {
+				contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i]
+			})
+		case ContractOrderFair:
+			newOrder := farmerstate.GetOrderHistory(contract.Order, 5)
+			contract.Order = newOrder
 		}
-	case ContractOrderRandom:
-		rand.Shuffle(len(contract.Order), func(i, j int) {
-			contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i]
-		})
-	case ContractOrderFair:
-		newOrder := farmerstate.GetOrderHistory(contract.Order, 5)
-		contract.Order = newOrder
 	}
 }
 

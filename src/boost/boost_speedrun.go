@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // HandleSpeedrunCommand handles the speedrun command
@@ -69,7 +71,6 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	})
-
 }
 
 func setSpeedrunOptions(s *discordgo.Session, guildID string, channelID string, contractStarter string, sink string, sinkPosition int, chickenRuns int, speedrunStyle int) (string, error) {
@@ -79,7 +80,7 @@ func setSpeedrunOptions(s *discordgo.Session, guildID string, channelID string, 
 	}
 
 	if contract.State != ContractStateSignup {
-		return "", error.New("Contract must be in the Signu-up state to set speedrun options.")
+		return "", errors.New("contract must be in the Sign-up state to set speedrun options")
 	}
 
 	contract.Speedrun = true
@@ -156,4 +157,20 @@ func setSpeedrunOptions(s *discordgo.Session, guildID string, channelID string, 
 	}
 
 	return builder.String(), nil
+}
+
+func reorderSpeedrunBoosters(contract *Contract) {
+	// Speedrun contracts are always fair ordering over last 3 contracts
+	newOrder := farmerstate.GetOrderHistory(contract.Order, 3)
+
+	index := slices.Index(newOrder, contract.SRData.SpeedrunStarterUserID)
+	// Remove the speedrun starter from the list
+	newOrder = append(newOrder[:index], newOrder[index+1:]...)
+
+	if contract.SRData.SinkBoostPosition == SinkBoostFirst {
+		newOrder = append([]string{contract.SRData.SpeedrunStarterUserID}, newOrder...)
+	} else {
+		newOrder = append(newOrder, contract.SRData.SpeedrunStarterUserID)
+	}
+	contract.Order = newOrder
 }
