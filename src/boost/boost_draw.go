@@ -39,6 +39,13 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 	} else {
 		outputStr += "## Boost List\n"
 	}
+
+	if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateCRT {
+		// Handle Speedrun CRT
+		outputStr += drawSpeedrunCRT(contract, tokenStr)
+
+		return outputStr
+	}
 	var prefix = " - "
 
 	earlyList := ""

@@ -1272,8 +1272,15 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	contract.State = ContractStateStarted
 	contract.StartTime = time.Now()
 
-	contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
-	contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+	if contract.Speedrun {
+		contract.SRData.SpeedrunState = SpeedrunStateCRT
+		// Do not mark the token sink as boosting at this point
+		// This will happen when the CRT completes
+	} else {
+		// Start at the top of the boost list
+		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
+		contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+	}
 
 	sendNextNotification(s, contract, true)
 
@@ -1334,6 +1341,11 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 }
 
 func addContractReactions(s *discordgo.Session, contract *Contract, channelID string, messageID string, tokenStr string) {
+	if contract.Speedrun {
+		addSpeedrunContractReactions(s, contract, channelID, messageID, tokenStr)
+		return
+	}
+
 	if contract.State == ContractStateStarted {
 		s.MessageReactionAdd(channelID, messageID, "🚀")             // Booster
 		err := s.MessageReactionAdd(channelID, messageID, tokenStr) // Token Reaction

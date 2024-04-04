@@ -174,3 +174,46 @@ func reorderSpeedrunBoosters(contract *Contract) {
 	}
 	contract.Order = newOrder
 }
+
+func drawSpeedrunCRT(contract *Contract, tokenStr string) string {
+	var builder strings.Builder
+	if contract.SRData.SpeedrunState == SpeedrunStateCRT {
+		fmt.Fprintf(&builder, "# Chicken Run Tango Leg %d of %d\n", contract.SRData.CurrentLeg+1, contract.SRData.Legs)
+		fmt.Fprintf(&builder, "### Tips\n")
+		fmt.Fprintf(&builder, "- Don't use any boosts\n")
+		fmt.Fprintf(&builder, "- Equip coop artifacts: Deflector and SIAB\n")
+		fmt.Fprintf(&builder, "- A chicken run on <@%s> can be saved for the boost phase.\n", contract.SRData.SpeedrunStarterUserID)
+		fmt.Fprintf(&builder, "- :truck: reaction will indicate truck arriving and request a later kick. Send tokens through the boost menu if doing this.\n")
+		if contract.SRData.CurrentLeg == contract.SRData.Legs-1 {
+			fmt.Fprintf(&builder, "### Final Kick Leg\n")
+			fmt.Fprintf(&builder, "- After this kick build up your farm  as you would for boosting\n")
+		}
+		fmt.Fprintf(&builder, "## Tasks\n")
+		fmt.Fprintf(&builder, "- Upgrade habs\n")
+		fmt.Fprintf(&builder, "- Build up your farm to at least 20 chickens\n")
+		fmt.Fprintf(&builder, "- Equip shiny artifacts to force a server sync\n")
+		fmt.Fprintf(&builder, "- Run chickens on all the other farms and react with :white_check_mark: after all runs\n")
+	}
+	fmt.Fprintf(&builder, "> **Send %s to <@%s>**\n", tokenStr, contract.SRData.SpeedrunStarterUserID)
+
+	return builder.String()
+}
+
+func addSpeedrunContractReactions(s *discordgo.Session, contract *Contract, channelID string, messageID string, tokenStr string) {
+	if contract.SRData.SpeedrunState == SpeedrunStateCRT {
+		s.MessageReactionAdd(channelID, messageID, tokenStr) // Token Reaction
+		s.MessageReactionAdd(channelID, messageID, "✅")      // Run Reaction
+		s.MessageReactionAdd(channelID, messageID, "🚚")      // Truck Reaction
+		s.MessageReactionAdd(channelID, messageID, "🦵")      // Kick Reaction
+	}
+	if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
+		s.MessageReactionAdd(channelID, messageID, tokenStr) // Send token to Sink
+		s.MessageReactionAdd(channelID, messageID, "🚀")      // Indicate boosting
+		s.MessageReactionAdd(channelID, messageID, "💰")      // Sink sent requested number of tokens to booster
+	}
+	if contract.SRData.SpeedrunState == SpeedrunStatePost {
+		s.MessageReactionAdd(channelID, messageID, tokenStr) // Send token to Sink
+	}
+	s.MessageReactionAdd(channelID, messageID, "❓") // Finish
+
+}
