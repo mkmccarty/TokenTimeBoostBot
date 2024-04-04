@@ -239,6 +239,7 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	for _, opt := range options {
 		optionMap[opt.Name] = opt
 	}
+	channelID := i.ChannelID
 	linked := true
 	linkReceived := false
 	var duration time.Duration
@@ -253,13 +254,23 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 	var trackingName = ""
 	if opt, ok := optionMap["name"]; ok {
-		trackingName = opt.StringValue()
+		trackingName = strings.TrimSpace(opt.StringValue())
 	}
 	if opt, ok := optionMap["linked"]; ok {
 		linked = opt.BoolValue()
 	}
 	if opt, ok := optionMap["link-received"]; ok {
 		linkReceived = opt.BoolValue()
+	}
+	if opt, ok := optionMap["contract-channel"]; ok {
+		input := strings.TrimSpace(opt.StringValue())
+		s := strings.Split(input, "/")
+		if len(s) > 0 {
+			// set channelID to last entry in the slice
+			channelID = s[len(s)-1]
+		}
+		linked = false
+		linkReceived = false
 	}
 	// Call into boost module to do that calculations
 	var userID string
@@ -269,7 +280,7 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		userID = i.User.ID
 	}
 
-	str, err := tokenTracking(s, i.ChannelID, userID, trackingName, duration, linked, linkReceived)
+	str, err := tokenTracking(s, channelID, userID, trackingName, duration, linked, linkReceived)
 
 	if err != nil {
 		str = err.Error()

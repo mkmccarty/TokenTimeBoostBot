@@ -146,16 +146,18 @@ func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
 	}
 	fmt.Fprintf(&builder, "# Token tracking for **%s**\n", td.Name)
 	if td.Linked {
-		fmt.Fprint(&builder, "Contract channel: ", td.ChannelMention, "\n")
+		fmt.Fprint(&builder, "Linked Contract: ", td.ChannelMention, "\n")
+	} else {
+		fmt.Fprint(&builder, "Contract Channel: ", td.ChannelMention, "\n")
 	}
 	fmt.Fprintf(&builder, "Start time: <t:%d:t>\n", td.StartTime.Unix())
 	fmt.Fprintf(&builder, "Duration  : **%s**\n", ts[:len(ts)-2])
 
 	if !finalDisplay {
 		offsetTime := time.Since(td.StartTime).Seconds()
-		fmt.Fprintf(&builder, "> Current token value: %f\n", getTokenValue(offsetTime, td.DurationTime.Seconds()))
-		fmt.Fprintf(&builder, "> Token value in 30 minutes: %f\n", getTokenValue(offsetTime+(30*60), td.DurationTime.Seconds()))
-		fmt.Fprintf(&builder, "> Token value in one hour: %f\n\n", getTokenValue(offsetTime+(60*60), td.DurationTime.Seconds()))
+		fmt.Fprintf(&builder, "> Current token value: %1.3f\n", getTokenValue(offsetTime, td.DurationTime.Seconds()))
+		fmt.Fprintf(&builder, "> Token value in 30 minutes: %1.3f\n", getTokenValue(offsetTime+(30*60), td.DurationTime.Seconds()))
+		fmt.Fprintf(&builder, "> Token value in one hour: %1.3f\n\n", getTokenValue(offsetTime+(60*60), td.DurationTime.Seconds()))
 	}
 
 	if len(td.FarmedTokenTime) > 0 {
