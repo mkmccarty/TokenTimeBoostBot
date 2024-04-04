@@ -228,15 +228,20 @@ func GetOrderHistory(userIDs []string, number int) []string {
 			farmerstate[userID].OrderHistory = append(farmerstate[userID].OrderHistory, 50)
 		} else {
 			count := len(farmerstate[userID].OrderHistory)
-			if count > number {
-				count = number
+			if count > 0 {
+				if count > number {
+					count = number
+				}
+
+				// get an average of the last count percentiles for this user
+				var sum int
+				for i := 0; i < count; i++ {
+					sum += farmerstate[userID].OrderHistory[len(farmerstate[userID].OrderHistory)-i-1]
+				}
+				orderHistory[userID] = sum / count
+			} else {
+				orderHistory[userID] = 50
 			}
-			// get an average of the last count percentiles for this user
-			var sum int
-			for i := 0; i < count; i++ {
-				sum += farmerstate[userID].OrderHistory[len(farmerstate[userID].OrderHistory)-i-1]
-			}
-			orderHistory[userID] = sum / count
 		}
 	}
 	fmt.Println(orderHistory)
