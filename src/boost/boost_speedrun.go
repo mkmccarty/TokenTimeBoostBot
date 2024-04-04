@@ -78,6 +78,10 @@ func setSpeedrunOptions(s *discordgo.Session, guildID string, channelID string, 
 		return "", errors.New(errorNoContract)
 	}
 
+	if contract.State != ContractStateSignup {
+		return "", error.New("Contract must be in the Signu-up state to set speedrun options.")
+	}
+
 	contract.Speedrun = true
 	contract.SRData.SpeedrunStarterUserID = contractStarter
 	contract.SRData.SinkUserID = sink
