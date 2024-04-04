@@ -1304,6 +1304,19 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 			// This is an edit, it should be the same
 			loc.ListMsgID = msg.ID
 		}
+		if contract.Speedrun && contract.State == ContractStateSignup {
+			if contract.CoopSize == len(contract.Order) {
+				msgID := loc.ReactionID
+				msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
+
+				// Full contract for speedrun
+				contentStr, comp := GetSignupComponents(false, contract.Speedrun) // True to get a disabled start button
+				msg.SetContent(contentStr)
+				msg.Components = &comp
+				s.ChannelMessageEditComplex(msg)
+			}
+		}
+
 	}
 }
 
