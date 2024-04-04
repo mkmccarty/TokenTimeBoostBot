@@ -570,7 +570,8 @@ func FindContract(guildID string, channelID string) *Contract {
 	// Look for the contract
 	for key, element := range Contracts {
 		for _, el := range element.Location {
-			if el.GuildID == guildID && el.ChannelID == channelID {
+			// ChannelIDs are unique globally
+			if el.ChannelID == channelID {
 				// Found the location of the contract, which one is it?
 				return Contracts[key]
 			}
