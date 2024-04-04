@@ -1089,7 +1089,7 @@ var (
 					oneBoosterName = re.ReplaceAllString(oneBoosterName, "")
 
 					// convert string to int
-					oneBoosterPosition = int(boosterSlice[len(boosterSlice)-1][0] - '0')
+					oneBoosterPosition, _ = strconv.Atoi(boosterSlice[1])
 				} else {
 					str = "The one-boost-position parameter needs to be in the form of @farmer <space> 4"
 				}
