@@ -595,7 +595,6 @@ var (
 			var guestName = ""
 			var orderValue int = boost.ContractOrderTimeBased // Default to Time Based
 			var mention = ""
-			var tokenWant = 8
 			var str = "Joining Member"
 
 			// User interacting with bot, is this first time ?
@@ -615,12 +614,16 @@ var (
 				str += " " + farmerName
 			}
 			if opt, ok := optionMap["token-count"]; ok {
-				tokenWant = int(opt.IntValue())
+				tokenWant := int(opt.IntValue())
 				str += " with " + fmt.Sprintf("%d", tokenWant) + " boost order"
+				if guestName != "" {
+					farmerstate.SetTokens(guestName, tokenWant)
+				} else {
+					farmerstate.SetTokens(mention[2:len(mention)-1], tokenWant)
+				}
 			}
 			if opt, ok := optionMap["boost-order"]; ok {
 				orderValue = int(opt.IntValue())
-				// convert int to string
 			}
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -634,11 +637,6 @@ var (
 			var err = boost.AddContractMember(s, i.GuildID, i.ChannelID, i.Member.Mention(), mention, guestName, orderValue)
 			if err != nil {
 				fmt.Println(err.Error())
-			}
-			if guestName != "" {
-				boost.AddBoostTokens(s, i.GuildID, i.ChannelID, guestName, tokenWant, 0, 0)
-			} else {
-				boost.AddBoostTokens(s, i.GuildID, i.ChannelID, mention, tokenWant, 0, 0)
 			}
 		},
 		slashCoopETA: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
