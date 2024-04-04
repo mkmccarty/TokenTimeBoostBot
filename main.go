@@ -499,6 +499,12 @@ var (
 					Description: "Link with contract channel reactions for received tokens. Default is false.",
 					Required:    false,
 				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "contract-channel",
+					Description: "ChannelID or URL to Channel/Thread on Non-BootBot Server. Default is current channel.",
+					Required:    false,
+				},
 			},
 		},
 		{
