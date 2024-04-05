@@ -1416,7 +1416,9 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		}
 
 		// Sending the update message
-		s.ChannelMessageSend(loc.ChannelID, str)
+		if !contract.Speedrun {
+			s.ChannelMessageSend(loc.ChannelID, str)
+		}
 		//if err == nil {
 		//SetListMessageID(contract, loc.ChannelID, msg.ID)
 		//}

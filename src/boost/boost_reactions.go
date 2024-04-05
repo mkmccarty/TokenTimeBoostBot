@@ -61,6 +61,18 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 	if userInContract(contract, r.UserID) || creatorOfContract(contract, r.UserID) {
 
+		// Isolate Speedrun reactions for safety
+		if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateCRT {
+			return speedrunReactions(s, r, contract)
+		}
+		if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky &&
+			contract.SRData.SpeedrunState == SpeedrunStateBoosting {
+			return speedrunReactions(s, r, contract)
+		}
+		if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStatePost {
+			return speedrunReactions(s, r, contract)
+		}
+
 		// if contract state is waiting and the reaction is a 🏁 finish the contract
 		if contract.State == ContractStateWaiting && r.Emoji.Name == "🏁" {
 			var votingElection = (msg.Reactions[0].Count - 1) >= 2

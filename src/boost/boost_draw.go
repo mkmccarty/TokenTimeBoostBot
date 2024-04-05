@@ -14,19 +14,19 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 	saveData(Contracts)
 
 	outputStr = fmt.Sprintf("### %s/%s - 📋%s - %d/%d\n", contract.ContractID, contract.CoopID, getBoostOrderString(contract), len(contract.Boosters), contract.CoopSize)
-	outputStr += fmt.Sprintf("> Coordinator: <@%s>\n", contract.CreatorID[0])
+	outputStr += fmt.Sprintf("> Coordinator: <@%s>  <%s/%s/%s>\n", contract.CreatorID[0], "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID)
 	if contract.Speedrun {
 		switch contract.SRData.SpeedrunState {
 		case SpeedrunStateSignup:
 			outputStr += contract.SRData.StatusStr
 		case SpeedrunStateCRT:
-			outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SpeedrunStarterUserID)
+			//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SpeedrunStarterUserID)
 		case SpeedrunStateBoosting:
 			if contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
-				outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SinkUserID)
+				//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SinkUserID)
 			}
 		case SpeedrunStatePost:
-			outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SinkUserID)
+			//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SinkUserID)
 		}
 	}
 
@@ -36,8 +36,6 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		} else {
 			outputStr += "## Sign-up List\n"
 		}
-	} else {
-		outputStr += "## Boost List\n"
 	}
 
 	if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateCRT {
@@ -45,6 +43,10 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		outputStr += drawSpeedrunCRT(contract, tokenStr)
 
 		return outputStr
+	}
+
+	if contract.State == ContractStateStarted {
+		outputStr += "## Boost List\n"
 	}
 	var prefix = " - "
 
