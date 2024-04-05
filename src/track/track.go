@@ -185,11 +185,16 @@ func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
 	if (len(td.TokenSentTime) + len(td.TokenReceivedTime)) > 0 {
 		fmt.Fprintf(&builder, "Sent: **%d**  (%4.3f)\n", len(td.TokenSentTime), td.SumValueSent)
 		if td.Details {
+			id := "1124449428267343992"
 			for i, t := range td.TokenSentTime {
+				if len(td.TokenSentUserID) == len(td.TokenSentValues) {
+					// Transitional code to fix missing user ID
+					id = td.TokenSentUserID[i]
+				}
 				if !finalDisplay {
-					fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f <@%s>\n", i+1, t.Unix(), td.TokenSentValues[i], td.TokenSentUserID[i])
+					fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f <@%s>\n", i+1, t.Unix(), td.TokenSentValues[i], id)
 				} else {
-					fmt.Fprintf(&builder, "> %d: %s  %6.3f <@%s>\n", i+1, t.Sub(td.StartTime).Round(time.Second), td.TokenSentValues[i], td.TokenSentUserID[i])
+					fmt.Fprintf(&builder, "> %d: %s  %6.3f <@%s>\n", i+1, t.Sub(td.StartTime).Round(time.Second), td.TokenSentValues[i], id)
 				}
 				if builder.Len() > 1750 {
 					fmt.Fprint(&builder, "> ...\n")
@@ -199,11 +204,16 @@ func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
 		}
 		fmt.Fprintf(&builder, "Received: **%d**  (%4.3f)\n", len(td.TokenReceivedTime), td.SumValueReceived)
 		if td.Details {
+			id := "1124449428267343992" // Boost Bot ID
 			for i, t := range td.TokenReceivedTime {
+				if len(td.TokenReceivedUserID) == len(td.TokenReceivedValues) {
+					// Transitional code to fix missing user ID
+					id = td.TokenReceivedUserID[i]
+				}
 				if !finalDisplay {
-					fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f <@%s>\n", i+1, t.Unix(), td.TokenReceivedValues[i], td.TokenReceivedUserID[i])
+					fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f <@%s>\n", i+1, t.Unix(), td.TokenReceivedValues[i], id)
 				} else {
-					fmt.Fprintf(&builder, "> %d: %s  %6.3f <@%s>\n", i+1, t.Sub(td.StartTime).Round(time.Second), td.TokenReceivedValues[i], td.TokenReceivedUserID[i])
+					fmt.Fprintf(&builder, "> %d: %s  %6.3f <@%s>\n", i+1, t.Sub(td.StartTime).Round(time.Second), td.TokenReceivedValues[i], id)
 				}
 				if builder.Len() > 1750 {
 					fmt.Fprint(&builder, "> ...\n")
