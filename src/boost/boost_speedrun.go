@@ -241,10 +241,10 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 			if r.UserID != b.UserID {
 				// Record the Tokens as received
 				b.TokenReceivedTime = append(b.TokenReceivedTime, time.Now())
-				track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived)
+				track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, r.UserID)
 
 				// Record who sent the token
-				track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent)
+				track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, b.UserID)
 				contract.Boosters[r.UserID].TokenSentTime = append(contract.Boosters[r.UserID].TokenSentTime, time.Now())
 			} else {
 				track.FarmedToken(s, r.ChannelID, r.UserID)
