@@ -29,8 +29,10 @@ type tokenValue struct {
 	DurationTime        time.Duration // Duration of Token Value time
 	TokenSentTime       []time.Time   // time of each token sent
 	TokenSentValues     []float64     // time of each token sent
+	TokenSentUserID     []string      // User ID of where each token was sent to
 	TokenReceivedTime   []time.Time   // time of each received token
 	TokenReceivedValues []float64     // time of each token sent
+	TokenReceivedUserID []string      // User ID of where each token came from
 	FarmedTokenTime     []time.Time   // time a self farmed token was received
 	SumValueSent        float64       // sum of all token values sent
 	SumValueReceived    float64       // sum of all token values received
@@ -72,6 +74,8 @@ func resetTokenTracking(tv *tokenValue) {
 	tv.LinkRecieved = true
 	tv.TokenSentTime = nil
 	tv.TokenReceivedTime = nil
+	tv.TokenReceivedUserID = nil
+	tv.TokenSentUserID = nil
 	tv.TokenSentValues = nil
 	tv.TokenReceivedValues = nil
 	tv.SumValueSent = 0.0
@@ -183,9 +187,9 @@ func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
 		if td.Details {
 			for i, t := range td.TokenSentTime {
 				if !finalDisplay {
-					fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f\n", i+1, t.Unix(), td.TokenSentValues[i])
+					fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f <@%s>\n", i+1, t.Unix(), td.TokenSentValues[i], td.TokenSentUserID[i])
 				} else {
-					fmt.Fprintf(&builder, "> %d: %s  %6.3f\n", i+1, t.Sub(td.StartTime).Round(time.Second), td.TokenSentValues[i])
+					fmt.Fprintf(&builder, "> %d: %s  %6.3f <@%s>\n", i+1, t.Sub(td.StartTime).Round(time.Second), td.TokenSentValues[i], td.TokenSentUserID[i])
 				}
 				if builder.Len() > 1750 {
 					fmt.Fprint(&builder, "> ...\n")
@@ -197,16 +201,16 @@ func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
 		if td.Details {
 			for i, t := range td.TokenReceivedTime {
 				if !finalDisplay {
-					fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f\n", i+1, t.Unix(), td.TokenReceivedValues[i])
+					fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f <@%s>\n", i+1, t.Unix(), td.TokenReceivedValues[i], td.TokenReceivedUserID[i])
 				} else {
-					fmt.Fprintf(&builder, "> %d: %s  %6.3f\n", i+1, t.Sub(td.StartTime).Round(time.Second), td.TokenReceivedValues[i])
+					fmt.Fprintf(&builder, "> %d: %s  %6.3f <@%s>\n", i+1, t.Sub(td.StartTime).Round(time.Second), td.TokenReceivedValues[i], td.TokenReceivedUserID[i])
 				}
 				if builder.Len() > 1750 {
 					fmt.Fprint(&builder, "> ...\n")
 					break
 				}
 			}
-			if td.LinkRecieved {
+			if td.LinkRecieved && !finalDisplay {
 				fmt.Fprint(&builder, "React with 1️⃣..🔟 to remove errant received tokens at that index.\n")
 			}
 		}
@@ -290,11 +294,13 @@ func tokenTrackingTrack(userID string, name string, tokenSent int, tokenReceived
 	if tokenSent > 0 {
 		td.TokenSentTime = append(td.TokenSentTime, now)
 		td.TokenSentValues = append(td.TokenSentValues, tokenValue)
+		td.TokenSentUserID = append(td.TokenSentUserID, userID) // Self reported
 		td.SumValueSent += tokenValue
 	}
 	if tokenReceived > 0 {
 		td.TokenReceivedTime = append(td.TokenReceivedTime, now)
 		td.TokenReceivedValues = append(td.TokenReceivedValues, tokenValue)
+		td.TokenReceivedUserID = append(td.TokenReceivedUserID, userID) // Self reported
 		td.SumValueReceived += tokenValue
 	}
 	td.TokenDelta = td.SumValueSent - td.SumValueReceived
@@ -375,7 +381,7 @@ func FarmedToken(s *discordgo.Session, channelID string, userID string) {
 }
 
 // ContractTokenMessage will track the token sent from the contract Token reaction
-func ContractTokenMessage(s *discordgo.Session, channelID string, userID string, kind int) {
+func ContractTokenMessage(s *discordgo.Session, channelID string, userID string, kind int, actorUserID string) {
 	if Tokens[userID] == nil {
 		return
 	}
@@ -388,11 +394,13 @@ func ContractTokenMessage(s *discordgo.Session, channelID string, userID string,
 			if kind == TokenSent {
 				v.TokenSentTime = append(v.TokenSentTime, now)
 				v.TokenSentValues = append(v.TokenSentValues, tokenValue)
+				v.TokenSentUserID = append(v.TokenSentUserID, actorUserID) // Token sent to...
 				v.SumValueSent += tokenValue
 				redraw = true
 			} else if v.LinkRecieved && kind == TokenReceived {
 				v.TokenReceivedTime = append(v.TokenReceivedTime, now)
 				v.TokenReceivedValues = append(v.TokenReceivedValues, tokenValue)
+				v.TokenReceivedUserID = append(v.TokenReceivedUserID, actorUserID) // Token received from...
 				v.SumValueReceived += tokenValue
 				redraw = true
 			}

@@ -244,13 +244,18 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	linkReceived := false
 	var duration time.Duration
 	if opt, ok := optionMap["duration"]; ok {
+		var err error
 		// Timespan of the contract duration
 		contractTimespan := strings.TrimSpace(opt.StringValue())
 		contractTimespan = strings.Replace(contractTimespan, "day", "d", -1)
 		contractTimespan = strings.Replace(contractTimespan, "hr", "h", -1)
 		contractTimespan = strings.Replace(contractTimespan, "min", "m", -1)
 		contractTimespan = strings.Replace(contractTimespan, "sec", "s", -1)
-		duration, _ = str2duration.ParseDuration(contractTimespan)
+		duration, err = str2duration.ParseDuration(contractTimespan)
+		if err != nil {
+			// Invalid duration, just assigning a 12h
+			duration = 12 * time.Hour
+		}
 	}
 	var trackingName = ""
 	if opt, ok := optionMap["name"]; ok {
