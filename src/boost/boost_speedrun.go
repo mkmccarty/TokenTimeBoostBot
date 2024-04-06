@@ -217,6 +217,9 @@ func addSpeedrunContractReactions(s *discordgo.Session, contract *Contract, chan
 	}
 	if contract.SRData.SpeedrunState == SpeedrunStatePost {
 		s.MessageReactionAdd(channelID, messageID, tokenStr) // Send token to Sink
+		s.MessageReactionAdd(channelID, messageID, "🐓")      // Want Chicken Run
+		s.MessageReactionAdd(channelID, messageID, "🏁")      // Run Reaction
+
 	}
 }
 
@@ -228,29 +231,27 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 
 	// Token reaction handling
 	if strings.ToLower(r.Emoji.Name) == "token" {
-		if contract.BoostPosition < len(contract.Order) {
-			var b *Booster
-			if contract.SRData.SpeedrunState == SpeedrunStateCRT {
-				b = contract.Boosters[contract.SRData.SpeedrunStarterUserID]
-			} else {
-				b = contract.Boosters[contract.SRData.SinkUserID]
-			}
-
-			b.TokensReceived++
-			emojiName = r.Emoji.Name + ":" + r.Emoji.ID
-			if r.UserID != b.UserID {
-				// Record the Tokens as received
-				b.TokenReceivedTime = append(b.TokenReceivedTime, time.Now())
-				track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, r.UserID)
-
-				// Record who sent the token
-				track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, b.UserID)
-				contract.Boosters[r.UserID].TokenSentTime = append(contract.Boosters[r.UserID].TokenSentTime, time.Now())
-			} else {
-				track.FarmedToken(s, r.ChannelID, r.UserID)
-			}
-			redraw = false
+		var b *Booster
+		if contract.SRData.SpeedrunState == SpeedrunStateCRT {
+			b = contract.Boosters[contract.SRData.SpeedrunStarterUserID]
+		} else {
+			b = contract.Boosters[contract.SRData.SinkUserID]
 		}
+
+		b.TokensReceived++
+		emojiName = r.Emoji.Name + ":" + r.Emoji.ID
+		if r.UserID != b.UserID {
+			// Record the Tokens as received
+			b.TokenReceivedTime = append(b.TokenReceivedTime, time.Now())
+			track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, r.UserID)
+
+			// Record who sent the token
+			track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, b.UserID)
+			contract.Boosters[r.UserID].TokenSentTime = append(contract.Boosters[r.UserID].TokenSentTime, time.Now())
+		} else {
+			track.FarmedToken(s, r.ChannelID, r.UserID)
+		}
+		redraw = false
 	}
 
 	if contract.SRData.SpeedrunState == SpeedrunStateCRT {
@@ -283,6 +284,10 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 					contract.SRData.SpeedrunState = SpeedrunStateBoosting
 					str += " This was the final kick. Build up your farm as you would for boosting.\n"
 				}
+				//if contract.SRData.SpeedrunStyle == SpeedrunStyleFastrun {
+				contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
+				contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+				//}
 				s.ChannelMessageSend(contract.Location[0].ChannelID, str)
 				sendNextNotification(s, contract, true)
 			}
@@ -297,7 +302,9 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 				// Move to the next booster
 			}
 		}
+	}
 
+	if contract.SRData.SpeedrunState == SpeedrunStateBoosting || contract.SRData.SpeedrunState == SpeedrunStatePost {
 		if r.Emoji.Name == "🐓" {
 			// Indicate that a farmer is ready for chicken runs
 			str := fmt.Sprintf("<@%s> is ready for chicken runs.", r.UserID)
@@ -305,17 +312,26 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 			var am discordgo.MessageAllowedMentions
 			data.AllowedMentions = &am
 			data.Content = str
-			s.ChannelMessageSendComplex(contract.Location[0].ChannelID, &data)
-		}
+			msg, _ := s.ChannelMessageSendComplex(contract.Location[0].ChannelID, &data)
+			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🐣") // Indicate Chicken Run
+			keepReaction = true
 
+		}
+	}
+
+	if contract.SRData.SpeedrunState == SpeedrunStatePost && creatorOfContract(contract, r.UserID) {
+		// Coordinator can end the contract
+		if r.Emoji.Name == "🏁" {
+			contract.State = ContractStateArchive
+			contract.SRData.SpeedrunState = SpeedrunStateComplete
+			sendNextNotification(s, contract, true)
+			return returnVal
+		}
 	}
 
 	// Remove extra added emoji
 	if !keepReaction {
-		err := s.MessageReactionRemove(r.ChannelID, r.MessageID, emojiName, r.UserID)
-		if err != nil {
-			fmt.Println(err, emojiName)
-		}
+		s.MessageReactionRemove(r.ChannelID, r.MessageID, emojiName, r.UserID)
 	}
 
 	if redraw {

@@ -49,6 +49,7 @@ const (
 	ContractStateStarted   = 1 // Contract is started
 	ContractStateWaiting   = 2 // Waiting for other(s) to join
 	ContractStateCompleted = 3 // Contract is completed
+	ContractStateArchive   = 4 // Contract is ready to archive
 
 	BoostStateUnboosted = 0 // Unboosted
 	BoostStateTokenTime = 1 // TokenTime or turn to receive tokens
@@ -61,6 +62,7 @@ const (
 	SpeedrunStateCRT      = 2 // CRT Speedrun
 	SpeedrunStateBoosting = 3 // Boosting Speedrun
 	SpeedrunStatePost     = 4 // Post Speedrun
+	SpeedrunStateComplete = 5 // Speedrun Complete
 
 	SpeedrunFirstLeg   = 0
 	SpeedrunMiddleLegs = 1
@@ -1342,8 +1344,22 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 
 func addContractReactions(s *discordgo.Session, contract *Contract, channelID string, messageID string, tokenStr string) {
 	if contract.Speedrun {
-		addSpeedrunContractReactions(s, contract, channelID, messageID, tokenStr)
-		return
+		switch contract.SRData.SpeedrunState {
+		case SpeedrunStateCRT:
+			addSpeedrunContractReactions(s, contract, channelID, messageID, tokenStr)
+			return
+		case SpeedrunStateBoosting:
+			if contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
+				addSpeedrunContractReactions(s, contract, channelID, messageID, tokenStr)
+				return
+			}
+			break
+		case SpeedrunStatePost:
+			addSpeedrunContractReactions(s, contract, channelID, messageID, tokenStr)
+			return
+		default:
+			break
+		}
 	}
 
 	if contract.State == ContractStateStarted {
@@ -1354,10 +1370,13 @@ func addContractReactions(s *discordgo.Session, contract *Contract, channelID st
 		}
 		s.MessageReactionAdd(channelID, messageID, "🔃")  // Swap
 		s.MessageReactionAdd(channelID, messageID, "⤵️") // Last
+		s.MessageReactionAdd(channelID, messageID, "🐓")  // Want Chicken Run
 	}
 	if contract.State == ContractStateWaiting {
+		s.MessageReactionAdd(channelID, messageID, "🐓") // Want Chicken Run
 		s.MessageReactionAdd(channelID, messageID, "🏁") // Finish
 	}
+
 	s.MessageReactionAdd(channelID, messageID, "❓") // Finish
 }
 
@@ -1374,7 +1393,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			}
 		} else {
 			// Unpin message once the contract is completed
-			if contract.State == ContractStateCompleted {
+			if contract.State == ContractStateArchive {
 				s.ChannelMessageUnpin(loc.ChannelID, loc.ReactionID)
 			}
 			s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
@@ -1394,7 +1413,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		}
 		var str = ""
 
-		if contract.State != ContractStateCompleted {
+		if contract.State != ContractStateArchive && contract.State != ContractStateCompleted {
 			addContractReactions(s, contract, loc.ChannelID, msg.ID, loc.TokenReactionStr)
 			if pingUsers {
 				if contract.State == ContractStateStarted {
@@ -1408,7 +1427,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 					str = fmt.Sprintf(loc.ChannelPing + " contract boosting complete. Hold your tokens for late joining farmers.")
 				}
 			}
-		} else {
+		} else if contract.State == ContractStateCompleted {
 			t1 := contract.EndTime
 			t2 := contract.StartTime
 			duration := t1.Sub(t2)
@@ -1427,7 +1446,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 	if pingUsers {
 		notifyBellBoosters(s, contract)
 	}
-	if contract.State == ContractStateCompleted {
+	if contract.State == ContractStateArchive {
 		FinishContract(s, contract)
 	}
 
@@ -1520,6 +1539,9 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	if contract.BoostPosition == contract.CoopSize {
 		contract.State = ContractStateCompleted // Finished
 		contract.EndTime = time.Now()
+		if contract.Speedrun {
+			contract.SRData.SpeedrunState = SpeedrunStatePost
+		}
 	} else if contract.BoostPosition == len(contract.Order) {
 		contract.State = ContractStateWaiting // There could be more boosters joining later
 	} else {

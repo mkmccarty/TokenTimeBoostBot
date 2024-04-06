@@ -160,6 +160,17 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			}
 		}
 
+		if r.Emoji.Name == "🐓" {
+			// Indicate that a farmer is ready for chicken runs
+			str := fmt.Sprintf("<@%s> is ready for chicken runs.", r.UserID)
+			var data discordgo.MessageSend
+			var am discordgo.MessageAllowedMentions
+			data.AllowedMentions = &am
+			data.Content = str
+			msg, _ := s.ChannelMessageSendComplex(contract.Location[0].ChannelID, &data)
+			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🐣") // Indicate Chicken Run
+		}
+
 		// Token reaction handling
 		if strings.ToLower(r.Emoji.Name) == "token" {
 			if contract.BoostPosition < len(contract.Order) {
