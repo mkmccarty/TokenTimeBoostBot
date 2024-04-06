@@ -292,6 +292,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 	if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
 		if r.UserID == contract.SRData.SinkUserID {
 			if r.Emoji.Name == "💰" {
+				fmt.Println("Sink sent requested number of tokens to booster")
 				// Indicate that the Sink has sent the requested number of tokens to the booster
 				// Move to the next booster
 			}
