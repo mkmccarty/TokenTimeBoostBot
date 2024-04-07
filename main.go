@@ -1315,7 +1315,7 @@ func init() {
 						}
 					}
 					if i.GuildID != "" {
-						fmt.Println("Command:", i.ApplicationCommandData().Name, optionMap, i.ChannelID, i.Member.User.ID)
+						log.Println("Command:", i.ApplicationCommandData().Name, optionMap, i.ChannelID, i.Member.User.ID)
 					}
 				}
 				h(s, i)
@@ -1329,7 +1329,7 @@ func init() {
 				} else {
 					userID = i.Member.User.ID
 				}
-				fmt.Println("Component: ", i.MessageComponentData().CustomID, userID)
+				log.Println("Component: ", i.MessageComponentData().CustomID, userID)
 				h(s, i)
 			}
 		}
@@ -1428,7 +1428,7 @@ func main() {
 	for i, v := range commands {
 		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, config.DiscordGuildID, v)
 		if err != nil {
-			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
+			log.Printf("Cannot create '%v' command: %v", v.Name, err)
 		}
 		registeredCommands[i] = cmd
 	}
@@ -1436,7 +1436,7 @@ func main() {
 	for i, v := range adminCommands {
 		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, boostBotHomeGuild, v)
 		if err != nil {
-			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
+			log.Printf("Cannot create '%v' command: %v", v.Name, err)
 		}
 		registeredCommands[len(commands)+i] = cmd
 	}
