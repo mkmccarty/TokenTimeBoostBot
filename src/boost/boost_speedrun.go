@@ -105,6 +105,9 @@ func setSpeedrunOptions(s *discordgo.Session, guildID string, channelID string, 
 	for runs > 0 {
 		if contract.SRData.Legs == 0 {
 			runs -= contract.SRData.Tango[0]
+		} else if contract.SRData.Tango[1] == 0 {
+			// Not possible to do any CRT
+			break
 		} else if runs > contract.SRData.Tango[1] {
 			runs -= contract.SRData.Tango[1]
 		} else {
@@ -243,15 +246,15 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 		if r.UserID != b.UserID {
 			// Record the Tokens as received
 			b.TokenReceivedTime = append(b.TokenReceivedTime, time.Now())
-			track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, r.UserID)
+			track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, 1, r.UserID)
 
 			// Record who sent the token
-			track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, b.UserID)
+			track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, 1, b.UserID)
 			contract.Boosters[r.UserID].TokenSentTime = append(contract.Boosters[r.UserID].TokenSentTime, time.Now())
 		} else {
 			track.FarmedToken(s, r.ChannelID, r.UserID)
 		}
-		redraw = false
+		redraw = true
 	}
 
 	if contract.SRData.SpeedrunState == SpeedrunStateCRT {
@@ -298,8 +301,28 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 		if r.UserID == contract.SRData.SinkUserID {
 			if r.Emoji.Name == "💰" {
 				fmt.Println("Sink sent requested number of tokens to booster")
-				// Indicate that the Sink has sent the requested number of tokens to the booster
-				// Move to the next booster
+				var b *Booster
+				b = contract.Boosters[contract.Order[contract.BoostPosition]]
+				var sink *Booster
+				sink = contract.Boosters[contract.SRData.SinkUserID]
+
+				if r.UserID != b.UserID {
+					// Current booster number of tokens wanted
+					b.TokensReceived += b.TokensWanted
+					sink.TokensReceived -= b.TokensWanted
+					sink.TokensReceived = min(0, sink.TokensReceived)
+					// Record the Tokens as received
+					// Append TokensReceived number of time.Now() to the TokenReceivedTime slice
+					for i := 0; i < b.TokensWanted; i++ {
+						b.TokenReceivedTime = append(b.TokenReceivedTime, time.Now())
+						contract.Boosters[r.UserID].TokenSentTime = append(contract.Boosters[r.UserID].TokenSentTime, time.Now())
+					}
+					track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, b.TokensReceived, r.UserID)
+					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, b.TokensReceived, b.UserID)
+				}
+				Boosting(s, r.GuildID, r.ChannelID)
+
+				redraw = false
 			}
 		}
 	}

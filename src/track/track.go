@@ -391,7 +391,7 @@ func FarmedToken(s *discordgo.Session, channelID string, userID string) {
 }
 
 // ContractTokenMessage will track the token sent from the contract Token reaction
-func ContractTokenMessage(s *discordgo.Session, channelID string, userID string, kind int, actorUserID string) {
+func ContractTokenMessage(s *discordgo.Session, channelID string, userID string, kind int, count int, actorUserID string) {
 	if Tokens[userID] == nil {
 		return
 	}
@@ -402,16 +402,20 @@ func ContractTokenMessage(s *discordgo.Session, channelID string, userID string,
 			offsetTime := now.Sub(v.StartTime).Seconds()
 			tokenValue := getTokenValue(offsetTime, v.DurationTime.Seconds())
 			if kind == TokenSent {
-				v.TokenSentTime = append(v.TokenSentTime, now)
-				v.TokenSentValues = append(v.TokenSentValues, tokenValue)
-				v.TokenSentUserID = append(v.TokenSentUserID, actorUserID) // Token sent to...
-				v.SumValueSent += tokenValue
+				for i := 0; i < count; i++ {
+					v.TokenSentTime = append(v.TokenSentTime, now)
+					v.TokenSentValues = append(v.TokenSentValues, tokenValue)
+					v.TokenSentUserID = append(v.TokenSentUserID, actorUserID) // Token sent to...
+					v.SumValueSent += tokenValue
+				}
 				redraw = true
 			} else if v.LinkRecieved && kind == TokenReceived {
-				v.TokenReceivedTime = append(v.TokenReceivedTime, now)
-				v.TokenReceivedValues = append(v.TokenReceivedValues, tokenValue)
-				v.TokenReceivedUserID = append(v.TokenReceivedUserID, actorUserID) // Token received from...
-				v.SumValueReceived += tokenValue
+				for i := 0; i < count; i++ {
+					v.TokenReceivedTime = append(v.TokenReceivedTime, now)
+					v.TokenReceivedValues = append(v.TokenReceivedValues, tokenValue)
+					v.TokenReceivedUserID = append(v.TokenReceivedUserID, actorUserID) // Token received from...
+					v.SumValueReceived += tokenValue
+				}
 				redraw = true
 			}
 			if redraw {

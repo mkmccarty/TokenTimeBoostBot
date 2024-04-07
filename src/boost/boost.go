@@ -1274,12 +1274,14 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	contract.State = ContractStateStarted
 	contract.StartTime = time.Now()
 
-	if contract.Speedrun {
+	// Only need to do speedruns if we have more than one leg
+	if contract.Speedrun && contract.SRData.Legs > 1 {
 		contract.SRData.SpeedrunState = SpeedrunStateCRT
 		// Do not mark the token sink as boosting at this point
 		// This will happen when the CRT completes
 	} else {
 		// Start at the top of the boost list
+		contract.SRData.SpeedrunState = SpeedrunStateBoosting
 		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 		contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
 	}
@@ -1413,7 +1415,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		}
 		var str = ""
 
-		if contract.State != ContractStateArchive && contract.State != ContractStateCompleted {
+		if contract.State == ContractStateStarted || contract.State == ContractStateWaiting {
 			addContractReactions(s, contract, loc.ChannelID, msg.ID, loc.TokenReactionStr)
 			if pingUsers {
 				if contract.State == ContractStateStarted {
@@ -1427,7 +1429,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 					str = fmt.Sprintf(loc.ChannelPing + " contract boosting complete. Hold your tokens for late joining farmers.")
 				}
 			}
-		} else if contract.State == ContractStateCompleted {
+		} else if contract.State >= ContractStateCompleted {
 			t1 := contract.EndTime
 			t2 := contract.StartTime
 			duration := t1.Sub(t2)
@@ -1437,6 +1439,8 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		// Sending the update message
 		if !contract.Speedrun {
 			s.ChannelMessageSend(loc.ChannelID, str)
+		} else {
+			RedrawBoostList(s, loc.GuildID, loc.ChannelID)
 		}
 		//if err == nil {
 		//SetListMessageID(contract, loc.ChannelID, msg.ID)

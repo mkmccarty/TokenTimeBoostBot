@@ -157,13 +157,30 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 
 			countStr, signupCountStr := getTokenCountString(tokenStr, b.TokensWanted, b.TokensReceived)
 
-			switch b.BoostState {
-			case BoostStateUnboosted:
-				outputStr += fmt.Sprintf("%s %s%s%s\n", prefix, name, signupCountStr, server)
-			case BoostStateTokenTime:
-				outputStr += fmt.Sprintf("%s **%s** %s%s%s\n", prefix, name, countStr, currentStartTime, server)
-			case BoostStateBoosted:
-				outputStr += fmt.Sprintf("%s ~~%s~~  %s %s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), server)
+			if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
+				sinkIcon := ""
+				if contract.SRData.SinkUserID == b.UserID {
+					sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
+				}
+				switch b.BoostState {
+				case BoostStateUnboosted:
+					outputStr += fmt.Sprintf("%s %s%s%s%s\n", prefix, name, signupCountStr, sinkIcon, server)
+				case BoostStateTokenTime:
+					outputStr += fmt.Sprintf("%s **%s** %s%s%s%s\n", prefix, name, signupCountStr, currentStartTime, sinkIcon, server)
+				case BoostStateBoosted:
+					outputStr += fmt.Sprintf("%s ~~%s~~  %s %s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, server)
+				}
+
+			} else {
+
+				switch b.BoostState {
+				case BoostStateUnboosted:
+					outputStr += fmt.Sprintf("%s %s%s%s\n", prefix, name, signupCountStr, server)
+				case BoostStateTokenTime:
+					outputStr += fmt.Sprintf("%s **%s** %s%s%s\n", prefix, name, countStr, currentStartTime, server)
+				case BoostStateBoosted:
+					outputStr += fmt.Sprintf("%s ~~%s~~  %s %s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), server)
+				}
 			}
 		}
 	}
