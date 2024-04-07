@@ -189,7 +189,11 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 	// Add reaction guidance to the bottom of this list
 	if contract.State == ContractStateStarted {
 		outputStr += "\n"
-		outputStr += "> Active Booster: 🚀 when boosting.\n"
+		if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
+			outputStr += "> When active Booster is sent tokens they are marked as boosted.\n"
+		} else {
+			outputStr += "> Active Booster: 🚀 when boosting.\n"
+		}
 		outputStr += "> Anyone: " + tokenStr + " when sending tokens. ❓ Help.\n"
 		if contract.CoopSize != len(contract.Order) {
 			outputStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"

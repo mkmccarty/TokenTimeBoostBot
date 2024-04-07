@@ -119,10 +119,15 @@ func setSpeedrunOptions(s *discordgo.Session, guildID string, channelID string, 
 
 	var b strings.Builder
 	fmt.Fprint(&b, "> Speedrun can be started once the contract is full.\n\n")
-	fmt.Fprintf(&b, "> **%d** Chicken Run Legs to reach **%d** total chicken runs.\n", contract.SRData.Legs, contract.SRData.ChickenRuns)
+	if contract.SRData.Tango[0] != 1 {
+		fmt.Fprintf(&b, "> **%d** Chicken Run Legs to reach **%d** total chicken runs.\n", contract.SRData.Legs, contract.SRData.ChickenRuns)
+	} else {
+		fmt.Fprintf(&b, "> It's not possible to reach **%d** total chicken runs with only **%d** farmers.\n", contract.SRData.ChickenRuns, contract.CoopSize)
+	}
 	if contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
 		fmt.Fprint(&b, "> **Wonky** style speed run:\n")
 		fmt.Fprintf(&b, "> * Send all tokens to <@%s>\n", contract.SRData.SpeedrunStarterUserID)
+		fmt.Fprintf(&b, "> The sink will send you a full set of boost tokens.\n")
 		if contract.SRData.SpeedrunStarterUserID != contract.SRData.SinkUserID {
 			fmt.Fprintf(&b, "> * After contract boosting send all tokens to: <@%s> (This is unusual)\n", contract.SRData.SinkUserID)
 		}
@@ -214,9 +219,9 @@ func addSpeedrunContractReactions(s *discordgo.Session, contract *Contract, chan
 	}
 	if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
 		s.MessageReactionAdd(channelID, messageID, tokenStr) // Send token to Sink
-		s.MessageReactionAdd(channelID, messageID, "🚀")      // Indicate boosting
-		s.MessageReactionAdd(channelID, messageID, "🐓")      // Want Chicken Run
-		s.MessageReactionAdd(channelID, messageID, "💰")      // Sink sent requested number of tokens to booster
+		//s.MessageReactionAdd(channelID, messageID, "🚀")      // Indicate boosting
+		s.MessageReactionAdd(channelID, messageID, "🐓") // Want Chicken Run
+		s.MessageReactionAdd(channelID, messageID, "💰") // Sink sent requested number of tokens to booster
 	}
 	if contract.SRData.SpeedrunState == SpeedrunStatePost {
 		s.MessageReactionAdd(channelID, messageID, tokenStr) // Send token to Sink

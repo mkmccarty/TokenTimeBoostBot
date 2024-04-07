@@ -1450,7 +1450,9 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 	if pingUsers {
 		notifyBellBoosters(s, contract)
 	}
-	if contract.State == ContractStateArchive {
+	if !contract.Speedrun && contract.State == ContractStateCompleted {
+		FinishContract(s, contract)
+	} else if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateComplete {
 		FinishContract(s, contract)
 	}
 
