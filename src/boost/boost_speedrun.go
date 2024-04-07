@@ -57,9 +57,6 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	if opt, ok := optionMap["sink-position"]; ok {
 		sinkPosition = int(opt.IntValue())
 	}
-	if opt, ok := optionMap["style"]; ok {
-		speedrunStyle = int(opt.IntValue())
-	}
 
 	str, err := setSpeedrunOptions(s, i.GuildID, i.ChannelID, contractStarter, sink, sinkPosition, chickenRuns, speedrunStyle)
 	if err != nil {
@@ -83,6 +80,13 @@ func setSpeedrunOptions(s *discordgo.Session, guildID string, channelID string, 
 
 	if contract.State != ContractStateSignup {
 		return "", errors.New("contract must be in the Sign-up state to set speedrun options")
+	}
+
+	if speedrunStyle == SpeedrunStyleWonky {
+		// Verify that the sink is a snowflake id
+		if _, err := s.User(sink); err != nil {
+			return "", errors.New("sink must user mention for Wonky style boost lists")
+		}
 	}
 
 	contract.Speedrun = true
@@ -306,9 +310,9 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 		if r.UserID == contract.SRData.SinkUserID {
 			if r.Emoji.Name == "💰" {
 				fmt.Println("Sink sent requested number of tokens to booster")
-				var b *Booster
+				var b, sink *Booster
 				b = contract.Boosters[contract.Order[contract.BoostPosition]]
-				var sink *Booster
+				//var sink *Booster
 				sink = contract.Boosters[contract.SRData.SinkUserID]
 
 				if r.UserID != b.UserID {

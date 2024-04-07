@@ -1355,7 +1355,6 @@ func addContractReactions(s *discordgo.Session, contract *Contract, channelID st
 				addSpeedrunContractReactions(s, contract, channelID, messageID, tokenStr)
 				return
 			}
-			break
 		case SpeedrunStatePost:
 			addSpeedrunContractReactions(s, contract, channelID, messageID, tokenStr)
 			return
