@@ -223,15 +223,13 @@ func addSpeedrunContractReactions(s *discordgo.Session, contract *Contract, chan
 	}
 	if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
 		s.MessageReactionAdd(channelID, messageID, tokenStr) // Send token to Sink
-		//s.MessageReactionAdd(channelID, messageID, "🚀")      // Indicate boosting
-		s.MessageReactionAdd(channelID, messageID, "🐓") // Want Chicken Run
-		s.MessageReactionAdd(channelID, messageID, "💰") // Sink sent requested number of tokens to booster
+		s.MessageReactionAdd(channelID, messageID, "🐓")      // Want Chicken Run
+		s.MessageReactionAdd(channelID, messageID, "💰")      // Sink sent requested number of tokens to booster
 	}
 	if contract.SRData.SpeedrunState == SpeedrunStatePost {
 		s.MessageReactionAdd(channelID, messageID, tokenStr) // Send token to Sink
 		s.MessageReactionAdd(channelID, messageID, "🐓")      // Want Chicken Run
 		s.MessageReactionAdd(channelID, messageID, "🏁")      // Run Reaction
-
 	}
 }
 
