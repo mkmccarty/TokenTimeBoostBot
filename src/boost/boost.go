@@ -3,6 +3,7 @@ package boost
 import (
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"regexp"
 	"slices"
@@ -829,7 +830,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 
 // AddFarmerToContract adds a farmer to a contract
 func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string, order int) (*EggFarmer, error) {
-	fmt.Println("AddFarmerToContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", order)
+	log.Println("AddFarmerToContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", order)
 	var farmer = contract.EggFarmers[userID]
 	if farmer == nil {
 		// New Farmer
@@ -1015,7 +1016,7 @@ func findNextBooster(contract *Contract) int {
 func JoinContract(s *discordgo.Session, guildID string, channelID string, userID string, bell bool) error {
 	var err error
 
-	fmt.Println("JoinContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Bell: ", bell)
+	log.Println("JoinContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Bell: ", bell)
 
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
