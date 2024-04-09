@@ -19,7 +19,7 @@ func HandleHelpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 // GetHelp will return the help string for the contract
 func GetHelp(s *discordgo.Session, guildID string, channelID string, userID string) string {
 	str := "# Boost Bot Help"
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 	if contract == nil {
 		// No contract, show help for creating a contract
 		// Anyone can do this so just give the basic instructions

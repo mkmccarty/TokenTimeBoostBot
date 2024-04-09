@@ -6,7 +6,7 @@ import (
 
 // SetWish sets the wish for a contract identified by the guild ID and channel ID.
 func SetWish(guildID string, channelID string, wish string) error {
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
@@ -18,7 +18,7 @@ func SetWish(guildID string, channelID string, wish string) error {
 
 // GetWish gets the wish for a contract identified by the guild ID and channel ID.
 func GetWish(guildID string, channelID string) string {
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 	if contract == nil {
 		return ""
 	}
