@@ -11,6 +11,7 @@ import (
 // DrawBoostList will draw the boost list for the contract
 func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) string {
 	var outputStr = ""
+	var afterListStr = ""
 	saveData(Contracts)
 
 	outputStr = fmt.Sprintf("### %s/%s - 📋%s - %d/%d\n", contract.ContractID, contract.CoopID, getBoostOrderString(contract), len(contract.Boosters), contract.CoopSize)
@@ -23,8 +24,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 			//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SpeedrunStarterUserID)
 		case SpeedrunStateBoosting:
 			if contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
-				//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SinkUserID)
-				fmt.Println("Wonky Speedrun")
+				afterListStr += fmt.Sprintf("\n**Send all tokens to <@%s>**\n", contract.SRData.SinkUserID)
 			}
 		case SpeedrunStatePost:
 			//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SinkUserID)
@@ -47,7 +47,11 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 	}
 
 	if contract.State == ContractStateStarted {
-		outputStr += "## Boost List\n"
+		if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
+			outputStr += "## Wonky Speedrun Boost List\n"
+		} else {
+			outputStr += "## Boost List\n"
+		}
 	}
 	var prefix = " - "
 
@@ -186,11 +190,13 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 	}
 	outputStr += lateList
 
+	outputStr += afterListStr
+
 	// Add reaction guidance to the bottom of this list
 	if contract.State == ContractStateStarted {
 		outputStr += "\n"
 		if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
-			outputStr += "> When active Booster is sent tokens they are marked as boosted.\n"
+			outputStr += "> When active Booster is sent tokens by the sink they are marked as boosted.\n"
 		} else {
 			outputStr += "> Active Booster: 🚀 when boosting.\n"
 		}

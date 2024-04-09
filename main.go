@@ -1357,32 +1357,11 @@ func init() {
 }
 
 func addBoostTokens(s *discordgo.Session, i *discordgo.InteractionCreate, valueSet int, valueAdj int) {
-	var str = "Adjusting boost token count."
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
 	})
 
-	tokenCount, _, err := boost.AddBoostTokens(s, i.GuildID, i.ChannelID, i.Member.User.ID, valueSet, valueAdj, 0)
-	if (err == nil) && (tokenCount >= 0) {
-		nick := i.Member.Nick
-		if nick == "" {
-			nick = i.Member.User.Username
-		}
-
-		str = fmt.Sprintf("Boost tokens wanted by %s updated to %d", nick, tokenCount)
-	}
-
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseUpdateMessage,
-		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
-	})
+	boost.AddBoostTokens(s, i.GuildID, i.ChannelID, i.Member.User.ID, valueSet, valueAdj, 0)
 }
 
 func main() {

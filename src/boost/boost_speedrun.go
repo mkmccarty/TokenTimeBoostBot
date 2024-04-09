@@ -117,6 +117,7 @@ func setSpeedrunOptions(s *discordgo.Session, guildID string, channelID string, 
 		} else {
 			contract.SRData.Tango[2] = runs
 			runs = 0
+			break // No more runs to do, skips the Legs++ below
 		}
 		contract.SRData.Legs++
 	}
@@ -268,12 +269,22 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 
 		if r.Emoji.Name == "✅" {
 			keepReaction = true
+			var msg, err = s.ChannelMessage(r.ChannelID, r.MessageID)
+			if err == nil {
+				if msg.Reactions[0].Count > contract.CoopSize {
+					str := fmt.Sprintf("All players have run chickens. <@%s> can now react with 🦵 then kick all farmers and go to the next CRT leg with 💃.", r.UserID)
+					s.ChannelMessageSend(r.ChannelID, str)
+				}
+
+			}
 			// Indicate that the farmer has completed running chickens
 		}
 
 		if r.Emoji.Name == "🚚" {
 			keepReaction = true
 			// Indicate that the farmer has a truck incoming
+			str := fmt.Sprintf("Truck arriving for <@%s>. The sink may or may not pause kicks.", r.UserID)
+			s.ChannelMessageSend(contract.Location[0].ChannelID, str)
 		}
 
 		if r.UserID == contract.SRData.SpeedrunStarterUserID {
@@ -317,7 +328,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 					// Current booster number of tokens wanted
 					b.TokensReceived += b.TokensWanted
 					sink.TokensReceived -= b.TokensWanted
-					sink.TokensReceived = min(0, sink.TokensReceived)
+					sink.TokensReceived = max(0, sink.TokensReceived) // Avoid missing self farmed tokens
 					// Record the Tokens as received
 					// Append TokensReceived number of time.Now() to the TokenReceivedTime slice
 					for i := 0; i < b.TokensWanted; i++ {
@@ -327,7 +338,11 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 					track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, b.TokensReceived, r.UserID)
 					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, b.TokensReceived, b.UserID)
 				}
+
 				Boosting(s, r.GuildID, r.ChannelID)
+
+				str := fmt.Sprintf("<@%s> you've been sent %d tokens to boost with!", b.UserID, b.TokensWanted)
+				s.ChannelMessageSend(contract.Location[0].ChannelID, str)
 
 				redraw = false
 			}
@@ -337,7 +352,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 	if contract.SRData.SpeedrunState == SpeedrunStateBoosting || contract.SRData.SpeedrunState == SpeedrunStatePost {
 		if r.Emoji.Name == "🐓" {
 			// Indicate that a farmer is ready for chicken runs
-			str := fmt.Sprintf("<@%s> is ready for chicken runs.", r.UserID)
+			str := fmt.Sprintf("%s <@%s> is ready for chicken runs.", contract.Location[0].ChannelPing, r.UserID)
 			var data discordgo.MessageSend
 			var am discordgo.MessageAllowedMentions
 			data.AllowedMentions = &am
