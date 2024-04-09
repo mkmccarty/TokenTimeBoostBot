@@ -3,6 +3,7 @@ package boost
 import (
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"regexp"
 	"slices"
@@ -49,6 +50,7 @@ const (
 	ContractStateStarted   = 1 // Contract is started
 	ContractStateWaiting   = 2 // Waiting for other(s) to join
 	ContractStateCompleted = 3 // Contract is completed
+	ContractStateArchive   = 4 // Contract is ready to archive
 
 	BoostStateUnboosted = 0 // Unboosted
 	BoostStateTokenTime = 1 // TokenTime or turn to receive tokens
@@ -61,6 +63,14 @@ const (
 	SpeedrunStateCRT      = 2 // CRT Speedrun
 	SpeedrunStateBoosting = 3 // Boosting Speedrun
 	SpeedrunStatePost     = 4 // Post Speedrun
+	SpeedrunStateComplete = 5 // Speedrun Complete
+
+	SpeedrunFirstLeg   = 0
+	SpeedrunMiddleLegs = 1
+	SpeedrunFinalLeg   = 2
+
+	SpeedrunStyleWonky   = 0
+	SpeedrunStyleFastrun = 1
 
 	SinkBoostFirst = 0 // First position
 	SinkBoostLast  = 1 // Last position
@@ -114,33 +124,42 @@ type LocationData struct {
 
 // Contract is the main struct for each contract
 type Contract struct {
-	ContractHash          string // ContractID-CoopID
-	Location              []*LocationData
-	CreatorID             []string          // Slice of creators
-	SignupMsgID           map[string]string // Message ID for the Signup Message
-	ContractID            string            // Contract ID
-	CoopID                string            // CoopID
-	CoopSize              int
-	BoostOrder            int // How the contract is sorted
-	BoostVoting           int
-	BoostPosition         int       // Starting Slot
-	State                 int       // Boost Completed
-	StartTime             time.Time // When Contract is started
-	EndTime               time.Time // When final booster ends
-	EggFarmers            map[string]*EggFarmer
-	RegisteredNum         int
-	Boosters              map[string]*Booster // Boosters Registered
-	Order                 []string
-	OrderRevision         int        // Incremented when Order is changed
-	Speedrun              bool       // Speedrun mode
-	SpeedrunState         int        // Speedrun state
-	SpeedrunStarterUserID string     // Sink CRT User ID
-	SinkUserID            string     // Sink End of Contract User ID
-	SinkBoostPosition     int        // Sink Boost Position
-	SpeedrunStyle         int        // Speedrun Style
-	ChickenRuns           int        // Number of Chicken Runs for this contract
-	lastWishPrompt        string     // saved prompt for this contract
-	mutex                 sync.Mutex // Keep this contract thread safe
+	ContractHash string // ContractID-CoopID
+	Location     []*LocationData
+	CreatorID    []string // Slice of creators
+	//SignupMsgID    map[string]string // Message ID for the Signup Message
+	ContractID     string // Contract ID
+	CoopID         string // CoopID
+	CoopSize       int
+	BoostOrder     int // How the contract is sorted
+	BoostVoting    int
+	BoostPosition  int       // Starting Slot
+	State          int       // Boost Completed
+	StartTime      time.Time // When Contract is started
+	EndTime        time.Time // When final booster ends
+	EggFarmers     map[string]*EggFarmer
+	RegisteredNum  int
+	Boosters       map[string]*Booster // Boosters Registered
+	Order          []string
+	OrderRevision  int  // Incremented when Order is changed
+	Speedrun       bool // Speedrun mode
+	SRData         SpeedrunData
+	lastWishPrompt string     // saved prompt for this contract
+	mutex          sync.Mutex // Keep this contract thread safe
+}
+
+// SpeedrunData holds the data for a speedrun
+type SpeedrunData struct {
+	SpeedrunState         int    // Speedrun state
+	SpeedrunStarterUserID string // Sink CRT User ID
+	SinkUserID            string // Sink End of Contract User ID
+	SinkBoostPosition     int    // Sink Boost Position
+	SpeedrunStyle         int    // Speedrun Style
+	ChickenRuns           int    // Number of Chicken Runs for this contract
+	Legs                  int    // Number of legs for this Tango
+	Tango                 [3]int // The Tango itself (First, Middle, Last)
+	CurrentLeg            int    // Current Leg
+	StatusStr             string // Status string for the speedrun
 }
 
 var (
@@ -279,7 +298,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.State = ContractStateSignup
 		contract.CreatorID = append(contract.CreatorID, userID) // starting userid
 		contract.Speedrun = false
-		contract.SpeedrunState = SpeedrunStateNone
+		contract.SRData.SpeedrunState = SpeedrunStateNone
 
 		if slices.Index(contract.CreatorID, config.AdminUserID) == -1 {
 			contract.CreatorID = append(contract.CreatorID, config.AdminUserID) // overall admin user
@@ -409,160 +428,6 @@ func getTokenCountString(tokenStr string, tokensWanted int, tokensReceived int) 
 		signupCountStr = fmt.Sprintf(" (%d)", tokens)
 	}
 	return countStr, signupCountStr
-}
-
-// DrawBoostList will draw the boost list for the contract
-func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) string {
-	var outputStr = ""
-	saveData(Contracts)
-
-	outputStr = fmt.Sprintf("### %s/%s - 📋%s - %d/%d\n", contract.ContractID, contract.CoopID, getBoostOrderString(contract), len(contract.Boosters), contract.CoopSize)
-	outputStr += fmt.Sprintf("> Coordinator: <@%s>", contract.CreatorID[0])
-	outputStr += "\n"
-
-	if contract.State == ContractStateSignup {
-		outputStr += "## Sign-up List\n"
-	} else {
-		outputStr += "## Boost List\n"
-	}
-	var prefix = " - "
-
-	earlyList := ""
-	lateList := ""
-
-	offset := 1
-
-	// Some actions result in an unboosted farmer with the contract state still unset
-
-	if contract.State == ContractStateWaiting {
-		//set unboosted to true if any boosters are unboosted
-		for _, element := range contract.Order {
-			var b, ok = contract.Boosters[element]
-			if ok {
-				if b.BoostState == BoostStateUnboosted || b.BoostState == BoostStateTokenTime {
-					contract.State = ContractStateStarted
-					break
-				}
-			}
-		}
-	}
-
-	showBoostedNums := 2 // Try to show at least 2 previously boosted
-	windowSize := 10     // Number lines to show a single booster
-	orderSubset := contract.Order
-	if contract.State != ContractStateSignup && len(contract.Order) >= (windowSize+2) {
-		// extract 10 elements around the current booster
-		var start = contract.BoostPosition - showBoostedNums
-		var end = contract.BoostPosition + (windowSize - showBoostedNums)
-
-		if start < 0 {
-			// add the aboslute value of start to end
-			end += -start
-			start = 0
-		}
-		if end > len(contract.Order) {
-			start -= end - len(contract.Order)
-			end = len(contract.Order)
-		}
-		// populate earlyList with all elements from earlySubset
-		for i, element := range contract.Order[0:start] {
-			var b, ok = contract.Boosters[element]
-			if ok {
-				if b.BoostState == BoostStateBoosted {
-					earlyList += fmt.Sprintf("~~%s~~ ", b.Mention)
-				} else {
-					earlyList += fmt.Sprintf("%s(%d) ", b.Mention, b.TokensWanted)
-				}
-				if i < start-1 {
-					earlyList += ", "
-				}
-			}
-		}
-		if earlyList != "" {
-			if start == 1 {
-				earlyList = fmt.Sprintf("1: %s\n", earlyList)
-			} else {
-				earlyList = fmt.Sprintf("1-%d: %s\n", start, earlyList)
-			}
-		}
-
-		for i, element := range contract.Order[end:len(contract.Order)] {
-			var b, ok = contract.Boosters[element]
-			if ok {
-				if b.BoostState == BoostStateBoosted {
-					lateList += fmt.Sprintf("~~%s%s~~ ", b.Mention, farmerstate.GetEggIncName(b.UserID))
-				} else {
-					lateList += fmt.Sprintf("%s%s(%d) ", b.Mention, farmerstate.GetEggIncName(b.UserID), b.TokensWanted)
-				}
-				if (end + i + 1) < len(contract.Boosters) {
-					lateList += ", "
-				}
-			}
-		}
-		if lateList != "" {
-			if (end + 1) == len(contract.Order) {
-				lateList = fmt.Sprintf("%d: %s", end+1, lateList)
-			} else {
-				lateList = fmt.Sprintf("%d-%d: %s", end+1, len(contract.Order), lateList)
-			}
-		}
-
-		orderSubset = contract.Order[start:end]
-		offset = start + 1
-	}
-
-	outputStr += earlyList
-
-	for i, element := range orderSubset {
-
-		if contract.State != ContractStateSignup {
-			prefix = fmt.Sprintf("%2d - ", i+offset)
-		}
-		var b, ok = contract.Boosters[element]
-		if ok {
-			var name = b.Mention
-			var einame = farmerstate.GetEggIncName(b.UserID)
-			if einame != "" {
-				name += " " + einame
-			}
-			var server = ""
-			var currentStartTime = fmt.Sprintf(" <t:%d:R> ", b.StartTime.Unix())
-			if len(contract.Location) > 1 {
-				server = fmt.Sprintf(" (%s) ", contract.EggFarmers[element].GuildName)
-			}
-
-			countStr, signupCountStr := getTokenCountString(tokenStr, b.TokensWanted, b.TokensReceived)
-
-			switch b.BoostState {
-			case BoostStateUnboosted:
-				outputStr += fmt.Sprintf("%s %s%s%s\n", prefix, name, signupCountStr, server)
-			case BoostStateTokenTime:
-				outputStr += fmt.Sprintf("%s **%s** %s%s%s\n", prefix, name, countStr, currentStartTime, server)
-			case BoostStateBoosted:
-				outputStr += fmt.Sprintf("%s ~~%s~~  %s %s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), server)
-			}
-		}
-	}
-	outputStr += lateList
-
-	// Add reaction guidance to the bottom of this list
-	if contract.State == ContractStateStarted {
-		outputStr += "\n"
-		outputStr += "> Active Booster: 🚀 when boosting.\n"
-		outputStr += "> Anyone: " + tokenStr + " when sending tokens. ❓ Help.\n"
-		if contract.CoopSize != len(contract.Order) {
-			outputStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
-		}
-		//outputStr += "```"
-	} else if contract.State == ContractStateWaiting {
-		outputStr += "\n"
-		outputStr += "> Waiting for other(s) to join...\n"
-		outputStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
-		outputStr += "```"
-		outputStr += "React with 🏁 to end the contract."
-		outputStr += "```"
-	}
-	return outputStr
 }
 
 // FindContract will find the contract by the guildID and channelID
@@ -965,7 +830,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 
 // AddFarmerToContract adds a farmer to a contract
 func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string, order int) (*EggFarmer, error) {
-	fmt.Println("AddFarmerToContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", order)
+	log.Println("AddFarmerToContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", order)
 	var farmer = contract.EggFarmers[userID]
 	if farmer == nil {
 		// New Farmer
@@ -1151,7 +1016,7 @@ func findNextBooster(contract *Contract) int {
 func JoinContract(s *discordgo.Session, guildID string, channelID string, userID string, bell bool) error {
 	var err error
 
-	fmt.Println("JoinContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Bell: ", bell)
+	log.Println("JoinContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Bell: ", bell)
 
 	var contract = FindContract(guildID, channelID)
 	if contract == nil {
@@ -1340,6 +1205,19 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 				msg, _ := s.ChannelMessageSend(loc.ChannelID, outputStr)
 				SetListMessageID(contract, loc.ChannelID, msg.ID)
 			}
+			// Need to disable the speedrun start button if the contract is no longer full
+			if contract.Speedrun && contract.State == ContractStateSignup {
+				if (contract.CoopSize - 1) == len(contract.Order) {
+					msgID := loc.ReactionID
+					msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
+					// Full contract for speedrun
+					contentStr, comp := GetSignupComponents(true, contract.Speedrun) // True to get a disabled start button
+					msg.SetContent(contentStr)
+					msg.Components = &comp
+					s.ChannelMessageEditComplex(msg)
+				}
+			}
+
 		}
 	}
 
@@ -1397,8 +1275,17 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	contract.State = ContractStateStarted
 	contract.StartTime = time.Now()
 
-	contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
-	contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+	// Only need to do speedruns if we have more than one leg
+	if contract.Speedrun && contract.SRData.Legs > 1 {
+		contract.SRData.SpeedrunState = SpeedrunStateCRT
+		// Do not mark the token sink as boosting at this point
+		// This will happen when the CRT completes
+	} else {
+		// Start at the top of the boost list
+		contract.SRData.SpeedrunState = SpeedrunStateBoosting
+		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
+		contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+	}
 
 	sendNextNotification(s, contract, true)
 
@@ -1442,10 +1329,41 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 			// This is an edit, it should be the same
 			loc.ListMsgID = msg.ID
 		}
+		if contract.Speedrun && contract.State == ContractStateSignup {
+			if contract.CoopSize == len(contract.Order) {
+				msgID := loc.ReactionID
+				msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
+
+				// Full contract for speedrun
+				contentStr, comp := GetSignupComponents(false, contract.Speedrun) // True to get a disabled start button
+				msg.SetContent(contentStr)
+				msg.Components = &comp
+				s.ChannelMessageEditComplex(msg)
+			}
+		}
+
 	}
 }
 
 func addContractReactions(s *discordgo.Session, contract *Contract, channelID string, messageID string, tokenStr string) {
+	if contract.Speedrun {
+		switch contract.SRData.SpeedrunState {
+		case SpeedrunStateCRT:
+			addSpeedrunContractReactions(s, contract, channelID, messageID, tokenStr)
+			return
+		case SpeedrunStateBoosting:
+			if contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
+				addSpeedrunContractReactions(s, contract, channelID, messageID, tokenStr)
+				return
+			}
+		case SpeedrunStatePost:
+			addSpeedrunContractReactions(s, contract, channelID, messageID, tokenStr)
+			return
+		default:
+			break
+		}
+	}
+
 	if contract.State == ContractStateStarted {
 		s.MessageReactionAdd(channelID, messageID, "🚀")             // Booster
 		err := s.MessageReactionAdd(channelID, messageID, tokenStr) // Token Reaction
@@ -1454,10 +1372,13 @@ func addContractReactions(s *discordgo.Session, contract *Contract, channelID st
 		}
 		s.MessageReactionAdd(channelID, messageID, "🔃")  // Swap
 		s.MessageReactionAdd(channelID, messageID, "⤵️") // Last
+		s.MessageReactionAdd(channelID, messageID, "🐓")  // Want Chicken Run
 	}
 	if contract.State == ContractStateWaiting {
+		s.MessageReactionAdd(channelID, messageID, "🐓") // Want Chicken Run
 		s.MessageReactionAdd(channelID, messageID, "🏁") // Finish
 	}
+
 	s.MessageReactionAdd(channelID, messageID, "❓") // Finish
 }
 
@@ -1474,7 +1395,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			}
 		} else {
 			// Unpin message once the contract is completed
-			if contract.State == ContractStateCompleted {
+			if contract.State == ContractStateArchive {
 				s.ChannelMessageUnpin(loc.ChannelID, loc.ReactionID)
 			}
 			s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
@@ -1494,7 +1415,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		}
 		var str = ""
 
-		if contract.State != ContractStateCompleted {
+		if contract.State == ContractStateStarted || contract.State == ContractStateWaiting {
 			addContractReactions(s, contract, loc.ChannelID, msg.ID, loc.TokenReactionStr)
 			if pingUsers {
 				if contract.State == ContractStateStarted {
@@ -1508,7 +1429,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 					str = fmt.Sprintf(loc.ChannelPing + " contract boosting complete. Hold your tokens for late joining farmers.")
 				}
 			}
-		} else {
+		} else if contract.State >= ContractStateCompleted {
 			t1 := contract.EndTime
 			t2 := contract.StartTime
 			duration := t1.Sub(t2)
@@ -1516,7 +1437,11 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		}
 
 		// Sending the update message
-		s.ChannelMessageSend(loc.ChannelID, str)
+		if !contract.Speedrun {
+			s.ChannelMessageSend(loc.ChannelID, str)
+		} else {
+			RedrawBoostList(s, loc.GuildID, loc.ChannelID)
+		}
 		//if err == nil {
 		//SetListMessageID(contract, loc.ChannelID, msg.ID)
 		//}
@@ -1525,7 +1450,9 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 	if pingUsers {
 		notifyBellBoosters(s, contract)
 	}
-	if contract.State == ContractStateCompleted {
+	if !contract.Speedrun && contract.State == ContractStateCompleted {
+		FinishContract(s, contract)
+	} else if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateComplete {
 		FinishContract(s, contract)
 	}
 
@@ -1618,6 +1545,9 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	if contract.BoostPosition == contract.CoopSize {
 		contract.State = ContractStateCompleted // Finished
 		contract.EndTime = time.Now()
+		if contract.Speedrun {
+			contract.SRData.SpeedrunState = SpeedrunStatePost
+		}
 	} else if contract.BoostPosition == len(contract.Order) {
 		contract.State = ContractStateWaiting // There could be more boosters joining later
 	} else {
@@ -1749,21 +1679,25 @@ func FinishContract(s *discordgo.Session, contract *Contract) error {
 }
 
 func reorderBoosters(contract *Contract) {
-	switch contract.BoostOrder {
-	case ContractOrderSignup:
-		// Join Order
-	case ContractOrderReverse:
-		// Reverse Order
-		for i, j := 0, len(contract.Order)-1; i < j; i, j = i+1, j-1 {
-			contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i] //reverse the slice
+	if contract.Speedrun {
+		reorderSpeedrunBoosters(contract)
+	} else {
+		switch contract.BoostOrder {
+		case ContractOrderSignup:
+			// Join Order
+		case ContractOrderReverse:
+			// Reverse Order
+			for i, j := 0, len(contract.Order)-1; i < j; i, j = i+1, j-1 {
+				contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i] //reverse the slice
+			}
+		case ContractOrderRandom:
+			rand.Shuffle(len(contract.Order), func(i, j int) {
+				contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i]
+			})
+		case ContractOrderFair:
+			newOrder := farmerstate.GetOrderHistory(contract.Order, 5)
+			contract.Order = newOrder
 		}
-	case ContractOrderRandom:
-		rand.Shuffle(len(contract.Order), func(i, j int) {
-			contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i]
-		})
-	case ContractOrderFair:
-		newOrder := farmerstate.GetOrderHistory(contract.Order, 5)
-		contract.Order = newOrder
 	}
 }
 

@@ -61,6 +61,18 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 	if userInContract(contract, r.UserID) || creatorOfContract(contract, r.UserID) {
 
+		// Isolate Speedrun reactions for safety
+		if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateCRT {
+			return speedrunReactions(s, r, contract)
+		}
+		if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky &&
+			contract.SRData.SpeedrunState == SpeedrunStateBoosting {
+			return speedrunReactions(s, r, contract)
+		}
+		if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStatePost {
+			return speedrunReactions(s, r, contract)
+		}
+
 		// if contract state is waiting and the reaction is a 🏁 finish the contract
 		if contract.State == ContractStateWaiting && r.Emoji.Name == "🏁" {
 			var votingElection = (msg.Reactions[0].Count - 1) >= 2
@@ -148,6 +160,17 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			}
 		}
 
+		if r.Emoji.Name == "🐓" {
+			// Indicate that a farmer is ready for chicken runs
+			str := fmt.Sprintf("<@%s> is ready for chicken runs.", r.UserID)
+			var data discordgo.MessageSend
+			var am discordgo.MessageAllowedMentions
+			data.AllowedMentions = &am
+			data.Content = str
+			msg, _ := s.ChannelMessageSendComplex(contract.Location[0].ChannelID, &data)
+			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🐣") // Indicate Chicken Run
+		}
+
 		// Token reaction handling
 		if strings.ToLower(r.Emoji.Name) == "token" {
 			if contract.BoostPosition < len(contract.Order) {
@@ -158,10 +181,10 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				if r.UserID != b.UserID {
 					// Record the Tokens as received
 					b.TokenReceivedTime = append(b.TokenReceivedTime, time.Now())
-					track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, r.UserID)
+					track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, 1, r.UserID)
 
 					// Record who sent the token
-					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, b.UserID)
+					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, 1, b.UserID)
 					contract.Boosters[r.UserID].TokenSentTime = append(contract.Boosters[r.UserID].TokenSentTime, time.Now())
 				} else {
 					track.FarmedToken(s, r.ChannelID, r.UserID)
@@ -203,6 +226,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			//outputStr += "Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n"
 			outputStr += "Active booster reaction of 🔃 to exchange position with the next booster.\n"
 			outputStr += "Reaction of ⤵️ to move yourself to last in the current boost order.\n"
+			outputStr += "Reaction of 🐓 when you're ready for others to run chickens on your farm.\n"
 			outputStr += "Anyone can add a 🚽 reaction to express your urgency to boost next.\n"
 			outputStr += "Additional help through the **/help** command.\n"
 			s.ChannelMessageSend(loc.ChannelID, outputStr)

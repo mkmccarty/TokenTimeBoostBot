@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"regexp"
@@ -224,11 +225,11 @@ var (
 					Choices: []*discordgo.ApplicationCommandOptionChoice{
 						{
 							Name:  "Wonky",
-							Value: boost.SinkBoostFirst,
+							Value: boost.SpeedrunStyleWonky,
 						},
 						{
-							Name:  "Hybrid",
-							Value: boost.SinkBoostLast,
+							Name:  "Boost List",
+							Value: boost.SpeedrunStyleFastrun,
 						},
 					},
 				},
@@ -1314,7 +1315,7 @@ func init() {
 						}
 					}
 					if i.GuildID != "" {
-						fmt.Println("Command:", i.ApplicationCommandData().Name, optionMap, i.ChannelID, i.Member.User.ID)
+						log.Println("Command:", i.ApplicationCommandData().Name, optionMap, i.ChannelID, i.Member.User.ID)
 					}
 				}
 				h(s, i)
@@ -1328,7 +1329,7 @@ func init() {
 				} else {
 					userID = i.Member.User.ID
 				}
-				fmt.Println("Component: ", i.MessageComponentData().CustomID, userID)
+				log.Println("Component: ", i.MessageComponentData().CustomID, userID)
 				h(s, i)
 			}
 		}
@@ -1356,36 +1357,20 @@ func init() {
 }
 
 func addBoostTokens(s *discordgo.Session, i *discordgo.InteractionCreate, valueSet int, valueAdj int) {
-	var str = "Adjusting boost token count."
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
 	})
 
-	tokenCount, _, err := boost.AddBoostTokens(s, i.GuildID, i.ChannelID, i.Member.User.ID, valueSet, valueAdj, 0)
-	if (err == nil) && (tokenCount >= 0) {
-		nick := i.Member.Nick
-		if nick == "" {
-			nick = i.Member.User.Username
-		}
-
-		str = fmt.Sprintf("Boost tokens wanted by %s updated to %d", nick, tokenCount)
-	}
-
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseUpdateMessage,
-		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
-	})
+	boost.AddBoostTokens(s, i.GuildID, i.ChannelID, i.Member.User.ID, valueSet, valueAdj, 0)
 }
 
 func main() {
 
+	/*
+		go func() {
+			log.Println(http.ListenAndServe("localhost:6060", nil))
+		}()
+	*/
 	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
 		log.Printf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
 	})
@@ -1422,7 +1407,7 @@ func main() {
 	for i, v := range commands {
 		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, config.DiscordGuildID, v)
 		if err != nil {
-			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
+			log.Printf("Cannot create '%v' command: %v", v.Name, err)
 		}
 		registeredCommands[i] = cmd
 	}
@@ -1430,7 +1415,7 @@ func main() {
 	for i, v := range adminCommands {
 		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, boostBotHomeGuild, v)
 		if err != nil {
-			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
+			log.Printf("Cannot create '%v' command: %v", v.Name, err)
 		}
 		registeredCommands[len(commands)+i] = cmd
 	}
