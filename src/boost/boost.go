@@ -187,7 +187,7 @@ func removeLocIndex(s []*LocationData, index int) []*LocationData {
 
 // DeleteContract will delete the contract
 func DeleteContract(s *discordgo.Session, guildID string, channelID string) (string, error) {
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 	if contract == nil {
 		return "", errors.New(errorNoContract)
 	}
@@ -260,7 +260,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	var ContractHash = xid.New().String()
 
 	// Make sure this channel doesn't already have a contract
-	existingContract := FindContract(guildID, channelID)
+	existingContract := FindContract(channelID)
 	if existingContract != nil {
 		return nil, errors.New("this channel already has a contract named: " + existingContract.ContractID + "/" + existingContract.CoopID)
 	}
@@ -340,7 +340,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 // AddBoostTokens will add tokens to the current booster and adjust the count of the booster
 func AddBoostTokens(s *discordgo.Session, guildID string, channelID string, userID string, setCountWant int, countWantAdjust int, countReceivedAdjust int) (int, int, error) {
 	// Find the contract
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 	if contract == nil {
 		return 0, 0, errors.New(errorNoContract)
 	}
@@ -434,7 +434,7 @@ func getTokenCountString(tokenStr string, tokensWanted int, tokensReceived int) 
 }
 
 // FindContract will find the contract by the guildID and channelID
-func FindContract(guildID string, channelID string) *Contract {
+func FindContract(channelID string) *Contract {
 	// Look for the contract
 	for key, element := range Contracts {
 		for _, el := range element.Location {
@@ -463,7 +463,7 @@ func FindContractByMessageID(channelID string, messageID string) *Contract {
 
 // ChangePingRole will change the ping role for the contract
 func ChangePingRole(s *discordgo.Session, guildID string, channelID string, userID string, pingRole string) error {
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
@@ -500,7 +500,7 @@ func removeDuplicates(s []string) []string {
 
 // ChangeContractIDs will change the contractID and/or coopID
 func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, userID string, contractID string, coopID string) error {
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
@@ -523,7 +523,7 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 
 // MoveBooster will move a booster to a new position in the contract
 func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID string, boosterName string, boosterPosition int, redraw bool) error {
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
@@ -598,7 +598,7 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 
 // ChangeCurrentBooster will change the current booster to the specified userID
 func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string, userID string, newBooster string, redraw bool) error {
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
@@ -655,7 +655,7 @@ func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string
 
 // ChangeBoostOrder will change the order of the boosters in the contract
 func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, userID string, boostOrder string, redraw bool) error {
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 	var boostOrderClean = ""
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -757,7 +757,7 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 
 // AddContractMember adds a member to a contract
 func AddContractMember(s *discordgo.Session, guildID string, channelID string, operator string, mention string, guest string, order int) error {
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
@@ -1021,7 +1021,7 @@ func JoinContract(s *discordgo.Session, guildID string, channelID string, userID
 
 	log.Println("JoinContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Bell: ", bell)
 
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
@@ -1117,7 +1117,7 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 
 // Unboost will mark a user as unboosted
 func Unboost(s *discordgo.Session, guildID string, channelID string, mention string) error {
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
@@ -1165,7 +1165,7 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 // RemoveContractBoosterByMention will remove a booster from the contract by mention
 func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channelID string, operator string, mention string) error {
 	fmt.Println("RemoveContractBoosterByMention", "GuildID: ", guildID, "ChannelID: ", channelID, "Operator: ", operator, "Mention: ", mention)
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
@@ -1229,7 +1229,7 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 
 // RemoveContractBooster will remove a booster from the contract
 func RemoveContractBooster(s *discordgo.Session, guildID string, channelID string, index int) error {
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -1252,7 +1252,7 @@ func RemoveContractBooster(s *discordgo.Session, guildID string, channelID strin
 
 // StartContractBoosting will start the contract
 func StartContractBoosting(s *discordgo.Session, guildID string, channelID string, userID string) error {
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
@@ -1297,7 +1297,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 
 // RedrawBoostList will move the boost message to the bottom of the channel
 func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) error {
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
@@ -1463,7 +1463,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 
 // UserBoost will trigger a contract boost of a user
 func UserBoost(s *discordgo.Session, guildID string, channelID string, userID string) error {
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -1505,7 +1505,7 @@ func UserBoost(s *discordgo.Session, guildID string, channelID string, userID st
 
 // Boosting will mark a as boosted and advance to the next in the list
 func Boosting(s *discordgo.Session, guildID string, channelID string) error {
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
@@ -1577,7 +1577,7 @@ func insert(a []string, index int, value string) []string {
 // SkipBooster will skip the current booster and move to the next
 func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID string) error {
 	var boosterSwap = false
-	var contract = FindContract(guildID, channelID)
+	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}

@@ -58,7 +58,7 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		sinkPosition = int(opt.IntValue())
 	}
 
-	str, err := setSpeedrunOptions(s, i.GuildID, i.ChannelID, contractStarter, sink, sinkPosition, chickenRuns, speedrunStyle)
+	str, err := setSpeedrunOptions(s, i.ChannelID, contractStarter, sink, sinkPosition, chickenRuns, speedrunStyle)
 	if err != nil {
 		str = err.Error()
 	}
@@ -72,8 +72,8 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	})
 }
 
-func setSpeedrunOptions(s *discordgo.Session, guildID string, channelID string, contractStarter string, sink string, sinkPosition int, chickenRuns int, speedrunStyle int) (string, error) {
-	var contract = FindContract(guildID, channelID)
+func setSpeedrunOptions(s *discordgo.Session, channelID string, contractStarter string, sink string, sinkPosition int, chickenRuns int, speedrunStyle int) (string, error) {
+	var contract = FindContract(channelID)
 	if contract == nil {
 		return "", errors.New(errorNoContract)
 	}
