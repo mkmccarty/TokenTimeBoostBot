@@ -99,9 +99,12 @@ type Booster struct {
 	BoostState        int           // Indicates if current booster
 	Mention           string        // String which mentions user
 	TokenSentTime     []time.Time   // time of each token sent
+	TokenSentName     []string      // recipient of each token
 	TokenReceivedTime []time.Time   // time of each received token
+	TokenReceivedName []string      // name of sender of received tokens
 	TokensReceived    int           // indicate number of boost tokens
 	TokensWanted      int           // indicate number of boost tokens
+	TokensFarmedTime  []time.Time   // When each token was farmed
 	StartTime         time.Time     // Time Farmer started boost turn
 	EndTime           time.Time     // Time Farmer ended boost turn
 	Duration          time.Duration // Duration of boost
