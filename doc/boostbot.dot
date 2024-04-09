@@ -1,0 +1,39 @@
+strict digraph {
+    center = true
+    discord [shape="Mdiamond" label="Discord"]
+    end [shape="Mdiamond"]
+
+    signup [shape="ellipse" style="filled" fillcolor="#00DDFF" label="Fastrun Signup"]
+    sr_signup [shape="ellipse" style="filled" fillcolor="#FF5555" label="Speedrun Signup"]
+
+    boostlist [shape="polygon" style="filled" fillcolor="#00DDFF" label="Boost List"]  
+    sr_wonky [shape="polygon" style="filled" fillcolor="#FF5555" label="Wonky Boost List"]
+    sr_boostlist [shape="polygon" style="filled" fillcolor="#FF5555" label="Boost List"]  
+
+    sink [shape="polygon" style="filled" fillcolor="#FF5555" label="Token Sink"]  
+
+    crt [shape="polygon" style="filled" fillcolor="#FF5555" label="Chicken Run Tango"]
+    wait [shape="polygon" style="filled" fillcolor="#00DDFF" label="Wait for\nlate joiners"]
+    greenbutton [style="filled" fillcolor="#00EE00" label="Start Contract"]
+
+    discord -> signup [label="/contract"]
+    signup -> greenbutton [label = "One\nfarmer"]
+
+    signup -> sr_signup [label = "/speedrun"]
+    sr_signup -> greenbutton [label="Full Contract"]
+    
+    greenbutton -> boostlist [label="Fastrun"]
+    greenbutton -> crt [label="Speedrun"]
+    
+    crt -> crt [label="n\nLegs" ]
+    crt->{sr_boostlist sr_wonky}
+    
+    {sr_boostlist sr_wonky} -> sink
+    sink -> end
+
+    boostlist -> wait [label="< coop size"]
+    boostlist -> end [label="everyone boosted"]
+    wait -> end
+}
+
+
