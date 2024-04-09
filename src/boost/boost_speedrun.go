@@ -360,7 +360,6 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 			msg, _ := s.ChannelMessageSendComplex(contract.Location[0].ChannelID, &data)
 			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🐣") // Indicate Chicken Run
 			keepReaction = true
-
 		}
 	}
 

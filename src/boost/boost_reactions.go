@@ -162,7 +162,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 		if r.Emoji.Name == "🐓" {
 			// Indicate that a farmer is ready for chicken runs
-			str := fmt.Sprintf("<@%s> is ready for chicken runs.", r.UserID)
+			str := fmt.Sprintf("%s <@%s> is ready for chicken runs.", contract.Location[0].ChannelPing, r.UserID)
 			var data discordgo.MessageSend
 			var am discordgo.MessageAllowedMentions
 			data.AllowedMentions = &am
@@ -181,12 +181,15 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				if r.UserID != b.UserID {
 					// Record the Tokens as received
 					b.TokenReceivedTime = append(b.TokenReceivedTime, time.Now())
+					b.TokenReceivedName = append(b.TokenReceivedName, r.UserID)
 					track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, 1, r.UserID)
 
 					// Record who sent the token
-					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, 1, b.UserID)
 					contract.Boosters[r.UserID].TokenSentTime = append(contract.Boosters[r.UserID].TokenSentTime, time.Now())
+					contract.Boosters[r.UserID].TokenSentName = append(contract.Boosters[r.UserID].TokenSentName, b.UserID)
+					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, 1, b.UserID)
 				} else {
+					b.TokensFarmedTime = append(b.TokensFarmedTime, time.Now())
 					track.FarmedToken(s, r.ChannelID, r.UserID)
 				}
 
