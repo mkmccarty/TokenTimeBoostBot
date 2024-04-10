@@ -1654,7 +1654,7 @@ func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
 				duration := t1.Sub(t2)
 				str = fmt.Sprintf("%s: Contract Boosting Completed in %s ", farmer.ChannelName, duration.Round(time.Second))
 			} else if contract.State == ContractStateWaiting {
-				t1 := contract.EndTime
+				t1 := time.Now()
 				t2 := contract.StartTime
 				duration := t1.Sub(t2)
 				str = fmt.Sprintf("%s: Boosting Completed in %s. Still %d spots in the contract. ", farmer.ChannelName, duration.Round(time.Second), contract.CoopSize-len(contract.Boosters))
