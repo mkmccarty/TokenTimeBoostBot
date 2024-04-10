@@ -1044,6 +1044,8 @@ var (
 				err := boost.ChangePingRole(s, i.GuildID, i.ChannelID, i.Member.User.ID, role.Mention())
 				if err != nil {
 					str += err.Error()
+				} else {
+					str = "Changed ping role to " + role.Mention() + "\n"
 				}
 			}
 			if opt, ok := optionMap["contract-id"]; ok {
