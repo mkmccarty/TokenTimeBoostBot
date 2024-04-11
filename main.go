@@ -21,7 +21,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/launch"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
-	"github.com/mkmccarty/TokenTimeBoostBot/version"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/version"
 	"github.com/xhit/go-str2duration/v2"
 )
 
@@ -61,7 +61,7 @@ var Version = "development"
 var debugLogging = true
 
 func init() {
-	fmt.Printf("Starting Discord Bot: %s (%s)\n", version.Release, Version)
+	log.Printf("Starting Discord Bot: %s (%s)\n", version.Release, Version)
 
 	// Read application parameters
 	flag.Parse()
@@ -70,7 +70,7 @@ func init() {
 	err := config.ReadConfig("./.config.json")
 
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -643,7 +643,7 @@ var (
 
 			var err = boost.AddContractMember(s, i.GuildID, i.ChannelID, i.Member.Mention(), mention, guestName, orderValue)
 			if err != nil {
-				fmt.Println(err.Error())
+				log.Println(err.Error())
 			}
 		},
 		slashCoopETA: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -928,7 +928,7 @@ var (
 
 			var err = boost.RemoveContractBoosterByMention(s, i.GuildID, i.ChannelID, i.Member.Mention(), farmer)
 			if err != nil {
-				fmt.Println("/prune", err.Error())
+				log.Println("/prune", err.Error())
 				str = err.Error()
 			}
 
@@ -998,7 +998,7 @@ var (
 					Components: []discordgo.MessageComponent{}},
 			})
 			if err != nil {
-				fmt.Println(err.Error())
+				log.Println(err.Error())
 			}
 
 		},
