@@ -2,7 +2,7 @@ package farmerstate
 
 import (
 	"encoding/json"
-	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -83,10 +83,12 @@ func newFarmer(userID string) {
 	}
 }
 
+// DeleteFarmer deletes a Farmer from the map
 func DeleteFarmer(userID string) {
 	delete(farmerstate, userID)
 }
 
+// GetEggIncName returns a Farmer Egg Inc name
 func GetEggIncName(userID string) string {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
@@ -94,6 +96,7 @@ func GetEggIncName(userID string) string {
 	return farmerstate[userID].EggIncName
 }
 
+// SetEggIncName sets a Farmer Egg Inc name
 func SetEggIncName(userID string, eggIncName string) {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
@@ -102,10 +105,11 @@ func SetEggIncName(userID string, eggIncName string) {
 
 	err := saveData(farmerstate)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 }
 
+// GetLaunchHistory returns a Farmer Launch History
 func GetLaunchHistory(userID string) bool {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
@@ -113,6 +117,7 @@ func GetLaunchHistory(userID string) bool {
 	return farmerstate[userID].LaunchChain
 }
 
+// SetLaunchHistory sets a Farmer Launch History
 func SetLaunchHistory(userID string, setting bool) {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
@@ -121,16 +126,19 @@ func SetLaunchHistory(userID string, setting bool) {
 
 	err := saveData(farmerstate)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 }
 
+// GetMissionShipPrimary returns a Farmer Mission Ship Primary
 func GetMissionShipPrimary(userID string) int {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
 	}
 	return farmerstate[userID].MissionShipPrimary
 }
+
+// SetMissionShipPrimary sets a Farmer Mission Ship Primary
 func SetMissionShipPrimary(userID string, setting int) {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
@@ -139,16 +147,19 @@ func SetMissionShipPrimary(userID string, setting int) {
 
 	err := saveData(farmerstate)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 }
 
+// GetMissionShipSecondary returns a Farmer Mission Ship Secondary
 func GetMissionShipSecondary(userID string) int {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
 	}
 	return farmerstate[userID].MissionShipSecondary
 }
+
+// SetMissionShipSecondary sets a Farmer Mission Ship Secondary
 func SetMissionShipSecondary(userID string, setting int) {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
@@ -157,10 +168,11 @@ func SetMissionShipSecondary(userID string, setting int) {
 
 	err := saveData(farmerstate)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 }
 
+// GetTokens returns a Farmer's tokens
 func GetTokens(userID string) int {
 	if farmerstate, ok := farmerstate[userID]; ok {
 		return farmerstate.Tokens
@@ -168,6 +180,7 @@ func GetTokens(userID string) int {
 	return 0
 }
 
+// SetTokens sets a Farmer's tokens
 func SetTokens(userID string, tokens int) {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
@@ -177,6 +190,7 @@ func SetTokens(userID string, tokens int) {
 	saveData(farmerstate)
 }
 
+// SetPing sets a Farmer's ping preference
 func SetPing(userID string, ping bool) {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
@@ -186,6 +200,7 @@ func SetPing(userID string, ping bool) {
 	saveData(farmerstate)
 }
 
+// GetPing returns a Farmer's ping preference
 func GetPing(userID string) bool {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
@@ -197,6 +212,7 @@ func GetPing(userID string) bool {
 	return false
 }
 
+// SetOrderPercentileOne sets a Farmer's order percentile
 func SetOrderPercentileOne(userID string, boostNumber int, coopSize int) {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
@@ -208,6 +224,7 @@ func SetOrderPercentileOne(userID string, boostNumber int, coopSize int) {
 	saveData(farmerstate)
 }
 
+// SetOrderPercentileAll sets a Farmer's order percentiles from a slice
 func SetOrderPercentileAll(userIDs []string, coopSize int) {
 	for i, userID := range userIDs {
 		if farmerstate[userID] == nil {
@@ -218,6 +235,7 @@ func SetOrderPercentileAll(userIDs []string, coopSize int) {
 	saveData(farmerstate)
 }
 
+// GetOrderHistory returns a Farmer's order history
 func GetOrderHistory(userIDs []string, number int) []string {
 	var orderHistory = make(map[string]int)
 
@@ -244,7 +262,6 @@ func GetOrderHistory(userIDs []string, number int) []string {
 			}
 		}
 	}
-	fmt.Println(orderHistory)
 	// iterate over orderHistory and return a slice of userIDs sorted by percentile
 	var sortedOrderHistory []string
 	for i := 0; i < len(userIDs); i++ {
@@ -259,6 +276,7 @@ func GetOrderHistory(userIDs []string, number int) []string {
 		sortedOrderHistory = append(sortedOrderHistory, maxUserID)
 		delete(orderHistory, maxUserID)
 	}
+	log.Println("getOrderHistory", sortedOrderHistory)
 	return sortedOrderHistory
 }
 
