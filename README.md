@@ -1,6 +1,6 @@
 [![Development](https://github.com/mkmccarty/TokenTimeBoostBot/actions/workflows/development.yml/badge.svg)](https://github.com/mkmccarty/TokenTimeBoostBot/actions/workflows/development.yml)
 
-# TokenTimeBoostBot
+# Boost Bot
 
 Boost Order Management Discord Bot
 
