@@ -1108,12 +1108,16 @@ var (
 				err := boost.MoveBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID, oneBoosterName, oneBoosterPosition, currentBooster == "")
 				if err != nil {
 					str += err.Error()
+				} else {
+					str += fmt.Sprintf("Move <@%s> to position %d.", oneBoosterName, oneBoosterPosition)
 				}
 			} else {
 				if boostOrder != "" {
 					err := boost.ChangeBoostOrder(s, i.GuildID, i.ChannelID, i.Member.User.ID, boostOrder, currentBooster == "")
 					if err != nil {
 						str += err.Error()
+					} else {
+						str += fmt.Sprintf("Change Boost Order to %s.", boostOrder)
 					}
 				}
 			}
@@ -1122,6 +1126,8 @@ var (
 				err := boost.ChangeCurrentBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID, currentBooster, true)
 				if err != nil {
 					str += err.Error()
+				} else {
+					str += fmt.Sprintf("Current changed to <@%s>.", currentBooster)
 				}
 			}
 
@@ -1392,7 +1398,7 @@ func main() {
 		}
 
 		// Delete global commands
-		if config.DiscordGuildID != "" {
+		if config.DiscordGuildID != `` {
 			cmds, err = s.ApplicationCommands(config.DiscordAppID, "")
 			if (err == nil) && (len(cmds) > 0) {
 				// loop through all cmds
