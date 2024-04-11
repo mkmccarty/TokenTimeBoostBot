@@ -1287,7 +1287,9 @@ func joinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell boo
 	err := boost.JoinContract(s, i.GuildID, i.ChannelID, i.Member.User.ID, bell)
 	if err != nil {
 		str = err.Error()
-		fmt.Print(str)
+		log.Print(str)
+	} else {
+		str = fmt.Sprintf("Added <@%s> to contract", i.Member.User.ID)
 	}
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

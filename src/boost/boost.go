@@ -790,20 +790,23 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 			// Need to rest the farmer reaction count when added this way
 			farmer.Reactions = 0
 		}
-		for _, loc := range contract.Location {
-			var listStr = "Boost"
-			if contract.State == ContractStateSignup {
-				listStr = "Sign-up"
+		/*
+			// TODO: Commented for now, it's just noise announcing it to the channel
+			for _, loc := range contract.Location {
+				var listStr = "Boost"
+				if contract.State == ContractStateSignup {
+					listStr = "Sign-up"
+				}
+				var str = fmt.Sprintf("%s was added to the %s List by %s", u.Mention(), listStr, operator)
+
+				var data discordgo.MessageSend
+				var am discordgo.MessageAllowedMentions
+				data.Content = str
+				data.AllowedMentions = &am
+
+				s.ChannelMessageSendComplex(loc.ChannelID, &data)
 			}
-			var str = fmt.Sprintf("%s was added to the %s List by %s", u.Mention(), listStr, operator)
-
-			var data discordgo.MessageSend
-			var am discordgo.MessageAllowedMentions
-			data.Content = str
-			data.AllowedMentions = &am
-
-			s.ChannelMessageSendComplex(loc.ChannelID, &data)
-		}
+		*/
 	}
 
 	if guest != "" {
