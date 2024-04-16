@@ -494,12 +494,14 @@ var (
 					Description: "Link with contract channel reactions for sent tokens. Default is true.",
 					Required:    false,
 				},
-				{
-					Type:        discordgo.ApplicationCommandOptionBoolean,
-					Name:        "link-received",
-					Description: "Link with contract channel reactions for received tokens. Default is false.",
-					Required:    false,
-				},
+				/*
+					{
+						Type:        discordgo.ApplicationCommandOptionBoolean,
+						Name:        "link-received",
+						Description: "Link with contract channel reactions for received tokens. Default is false.",
+						Required:    false,
+					},
+				*/
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "contract-channel",
