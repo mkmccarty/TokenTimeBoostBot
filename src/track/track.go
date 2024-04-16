@@ -440,9 +440,10 @@ func removeReceivedToken(userID string, name string, index int) {
 	for _, v := range Tokens[userID].Coop {
 		if v != nil && v.Name == name {
 			if index < len(v.TokenReceivedTime) {
+				v.SumValueReceived -= v.TokenReceivedValues[index]
 				v.TokenReceivedTime = append(v.TokenReceivedTime[:index], v.TokenReceivedTime[index+1:]...)
 				v.TokenReceivedValues = append(v.TokenReceivedValues[:index], v.TokenReceivedValues[index+1:]...)
-				v.SumValueReceived -= v.TokenReceivedValues[index]
+				v.TokenReceivedUserID = append(v.TokenReceivedUserID[:index], v.TokenReceivedUserID[index+1:]...)
 				v.TokenDelta = v.SumValueSent - v.SumValueReceived
 				saveData(Tokens)
 			}
