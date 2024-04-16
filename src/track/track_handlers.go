@@ -355,11 +355,11 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 	name, _ := extractTokenName(msg.Components[0])
 	emojiName := r.Emoji.Name
 	userID := r.UserID
-	var numberSlice = []string{"0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"}
+	var numberSlice = []string{"1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"}
 	if slices.Contains(numberSlice, emojiName) {
 		var receivedIndex = slices.Index(numberSlice, emojiName)
 		removeReceivedToken(userID, name, receivedIndex)
-		str := tokenTrackingTrack(userID, name, 1, 0)
+		str := tokenTrackingTrack(userID, name, 0, 0) // No sent or
 		comp := getTokenValComponents(tokenTrackingEditing(userID, name, false), name)
 		m := discordgo.NewMessageEdit(r.ChannelID, r.MessageID)
 		m.Components = &comp
