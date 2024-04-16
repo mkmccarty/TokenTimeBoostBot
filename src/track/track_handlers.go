@@ -1,6 +1,7 @@
 package track
 
 import (
+	"log"
 	"slices"
 	"strings"
 	"time"
@@ -241,7 +242,7 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 	channelID := i.ChannelID
 	linked := true
-	linkReceived := false
+	linkReceived := true
 	var duration time.Duration
 	if opt, ok := optionMap["duration"]; ok {
 		var err error
@@ -264,9 +265,11 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if opt, ok := optionMap["linked"]; ok {
 		linked = opt.BoolValue()
 	}
-	if opt, ok := optionMap["link-received"]; ok {
-		linkReceived = opt.BoolValue()
-	}
+	/*
+		if opt, ok := optionMap["link-received"]; ok {
+			linkReceived = opt.BoolValue()
+		}
+	*/
 	if opt, ok := optionMap["contract-channel"]; ok {
 		input := strings.TrimSpace(opt.StringValue())
 		s := strings.Split(input, "/")
@@ -357,9 +360,10 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 	userID := r.UserID
 	var numberSlice = []string{"1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"}
 	if slices.Contains(numberSlice, emojiName) {
+		log.Printf("Token-Reaction: %s id:%s user:%s", emojiName, name, userID)
 		var receivedIndex = slices.Index(numberSlice, emojiName)
 		removeReceivedToken(userID, name, receivedIndex)
-		str := tokenTrackingTrack(userID, name, 0, 0) // No sent or
+		str := tokenTrackingTrack(userID, name, 0, 0) // No sent or received
 		comp := getTokenValComponents(tokenTrackingEditing(userID, name, false), name)
 		m := discordgo.NewMessageEdit(r.ChannelID, r.MessageID)
 		m.Components = &comp

@@ -3,6 +3,7 @@ package track
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"strings"
 	"time"
@@ -221,7 +222,7 @@ func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
 				}
 			}
 			if td.LinkRecieved && !finalDisplay {
-				fmt.Fprint(&builder, "React with 1️⃣..🔟 to remove errant received tokens at that index.\n")
+				fmt.Fprint(&builder, "React with 1️⃣..🔟 to remove errant received tokens at that index. The bot cannot remove your DM reactions.\n")
 			}
 		}
 		if !finalDisplay {
@@ -395,6 +396,7 @@ func ContractTokenMessage(s *discordgo.Session, channelID string, userID string,
 	if Tokens[userID] == nil {
 		return
 	}
+	log.Printf("ContractTokenMessage: %s %d %d %s\n", userID, kind, count, actorUserID)
 	redraw := false
 	for _, v := range Tokens[userID].Coop {
 		if v != nil && v.ChannelID == channelID && v.Linked {
