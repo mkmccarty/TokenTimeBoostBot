@@ -1448,10 +1448,6 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		} else {
 			RedrawBoostList(s, loc.GuildID, loc.ChannelID)
 		}
-		//if err == nil {
-		//SetListMessageID(contract, loc.ChannelID, msg.ID)
-		//}
-
 	}
 	if pingUsers {
 		notifyBellBoosters(s, contract)
