@@ -14,7 +14,7 @@ To change from the sign-up list to the actual boost list the coordinator needs t
 
 Start the contract with **/contract** and fill in the parameters contract-id coop-id coop-size boost-order and ping-role. The boost-order defaults to sign-up order. The ping-role defaults to `@here`, it can be changed with */change*.
 
-Use */join*, */prune*, */unboost* and */change* to help organize the contract.
+Use */join-contract*, */prune*, */unboost* and */change* to help organize the contract.
 
 The contract coordinator and some server admin's are able to react to the **Start Boost List** button and Boost-list reactions for 🚀 and 🔃 to help keep contracts moving.
 
