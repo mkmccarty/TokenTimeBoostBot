@@ -10,9 +10,9 @@ require (
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/post04/discordgo-emoji-util v0.0.0-20210226234616-e2c0f5ea133e
 	github.com/rs/xid v1.5.0
-	github.com/sashabaranov/go-openai v1.21.0
+	github.com/sashabaranov/go-openai v1.22.0
 	github.com/xhit/go-str2duration/v2 v2.1.0
-	google.golang.org/api v0.172.0
+	google.golang.org/api v0.173.0
 )
 
 require (
