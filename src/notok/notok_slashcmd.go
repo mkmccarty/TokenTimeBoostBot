@@ -2,6 +2,50 @@ package notok
 
 import "github.com/bwmarrin/discordgo"
 
+// SlashFunCommand returns the command for the /fun command
+func SlashFunCommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "OpenAI Fun",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Name:        "action",
+				Description: "What interaction?",
+				Required:    true,
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Choices: []*discordgo.ApplicationCommandOptionChoice{
+					{
+						Name:  "Wish for a token",
+						Value: 1,
+					},
+					{
+						Name:  "Compose letter asking for a token",
+						Value: 5,
+					},
+					{
+						Name:  "Let Me Out!",
+						Value: 2,
+					},
+					{
+						Name:  "Go Now!",
+						Value: 3,
+					},
+					{
+						Name:  "Generate image. Use prompt.",
+						Value: 4,
+					},
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "prompt",
+				Description: "Optional prompt to fine tune the original query. For images it is used to describe the image.",
+				Required:    false,
+			},
+		},
+	}
+}
+
 // FunHandler handles the /fun command
 func FunHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
