@@ -287,46 +287,7 @@ var (
 				},
 			},
 		},
-		{
-			Name:        slashFun,
-			Description: "OpenAI Fun",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Name:        "action",
-					Description: "What interaction?",
-					Required:    true,
-					Type:        discordgo.ApplicationCommandOptionInteger,
-					Choices: []*discordgo.ApplicationCommandOptionChoice{
-						{
-							Name:  "Wish for a token",
-							Value: 1,
-						},
-						{
-							Name:  "Compose letter asking for a token",
-							Value: 5,
-						},
-						{
-							Name:  "Let Me Out!",
-							Value: 2,
-						},
-						{
-							Name:  "Go Now!",
-							Value: 3,
-						},
-						{
-							Name:  "Generate image. Use prompt.",
-							Value: 4,
-						},
-					},
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "prompt",
-					Description: "Optional prompt to fine tune the original query. For images it is used to describe the image.",
-					Required:    false,
-				},
-			},
-		},
+		notok.SlashFunCommand(slashFun),
 		{
 			Name:        slashBoost,
 			Description: "Spending tokens to boost!",
@@ -379,137 +340,8 @@ var (
 				},
 			},
 		},
-		{
-			Name:        slashLaunchHelper,
-			Description: "Display timestamp table for next mission.",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "mission-duration",
-					Description: "Time remaining for next mission(s). Example: 8h15m or \"8h15m, 10h5m, 1d2m\"",
-					Required:    true,
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionInteger,
-					Name:        "primary-ship",
-					Description: "Select the primary ship to display. Default is Atreggies Henliner. [Sticky]",
-					Required:    false,
-					Choices: []*discordgo.ApplicationCommandOptionChoice{
-						{
-							Name:  "Atreggies Henliner",
-							Value: 0,
-						},
-						{
-							Name:  "Henerprise",
-							Value: 1,
-						},
-					},
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionInteger,
-					Name:        "secondary-ship",
-					Description: "Select a secondary ship to display. Default is Henerprise. [Sticky]",
-					Required:    false,
-					Choices: []*discordgo.ApplicationCommandOptionChoice{
-						{
-							Name:  "None",
-							Value: -1,
-						},
-						{
-							Name:  "All Stars Club",
-							Value: -2,
-						},
-						{
-							Name:  "Starfleet Commander",
-							Value: -3,
-						},
-						{
-							Name:  "Henerprise",
-							Value: 1,
-						},
-						{
-							Name:  "Voyegger",
-							Value: 2,
-						},
-						{
-							Name:  "Defihent",
-							Value: 3,
-						},
-						{
-							Name:  "Galeggtica",
-							Value: 4,
-						},
-						{
-							Name:  "Cornish-Hen Corvette",
-							Value: 5,
-						},
-						{
-							Name:  "Quintillion Chicken",
-							Value: 6,
-						},
-					},
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionBoolean,
-					Name:        "chain",
-					Description: "Show return time for a chained Henliner extended mission. [Sticky]",
-					Required:    false,
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "dubcap-time",
-					Description: "Time remaining for double capacity event. Examples: `43:16:22` or `43h16m22s`",
-					Required:    false,
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionInteger,
-					Name:        "ftl",
-					Description: "FTL Drive Upgrades level. Default is 60.",
-					MinValue:    &integerZeroMinValue,
-					MaxValue:    60,
-					Required:    false,
-				},
-			},
-		},
-		{
-			Name:        slashToken,
-			Description: "Display contract completion estimate.",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "name",
-					Description: "Unique name for this tracking session. i.e. Use coop-id of the contract.",
-					Required:    true,
-					MaxLength:   16, // Keep this short
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "duration",
-					Description: "Time remaining in this contract. Example: 19h35m.",
-					Required:    true,
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionBoolean,
-					Name:        "linked",
-					Description: "Link with contract channel reactions for sent tokens. Default is true.",
-					Required:    false,
-				},
-				/*
-					{
-						Type:        discordgo.ApplicationCommandOptionBoolean,
-						Name:        "link-received",
-						Description: "Link with contract channel reactions for received tokens. Default is false.",
-						Required:    false,
-					},
-				*/
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "contract-channel",
-					Description: "ChannelID or URL to Channel/Thread on Non-BootBot Server. Default is current channel.",
-					Required:    false,
-				},
-			},
-		},
+		launch.SlashLaunchHelperCommand(slashLaunchHelper),
+		track.GetSlashTokenCommand(slashToken),
 		{
 			Name:        slashChange,
 			Description: "Change aspects of a running contract",
@@ -552,24 +384,7 @@ var (
 				},
 			},
 		},
-		{
-			Name:        slashSetEggIncName,
-			Description: "Set Egg, Inc game name.",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "ei-ign",
-					Description: "Egg Inc IGN",
-					Required:    false,
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionUser,
-					Name:        "discord-name",
-					Description: "Discord name for this IGN assignment. Used by coordinator or admin to set another farmers IGN",
-					Required:    false,
-				},
-			},
-		},
+		farmerstate.SlashSetEggIncNameCommand(slashSetEggIncName),
 		{
 			Name:        slashBump,
 			Description: "Redraw the boost list to the timeline.",
