@@ -96,6 +96,7 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, contractStarter 
 	contract.SRData.ChickenRuns = chickenRuns
 	contract.SRData.SpeedrunStyle = speedrunStyle
 	contract.SRData.SpeedrunState = SpeedrunStateSignup
+	contract.BoostOrder = ContractOrderFair
 
 	// Set up the details for the Chicken Run Tango
 	// first lap is CoopSize -1, every following lap is CoopSize -2
@@ -324,7 +325,11 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 				//var sink *Booster
 				sink = contract.Boosters[contract.SRData.SinkUserID]
 
-				if r.UserID != b.UserID {
+				if r.UserID == b.UserID {
+					// Current booster subtract number of tokens wanted
+					sink.TokensReceived -= b.TokensWanted
+					sink.TokensReceived = max(0, sink.TokensReceived) // Avoid missing self farmed tokens
+				} else {
 					// Current booster number of tokens wanted
 					b.TokensReceived += b.TokensWanted
 					sink.TokensReceived -= b.TokensWanted
