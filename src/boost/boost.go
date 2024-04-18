@@ -1390,6 +1390,7 @@ func addContractReactions(s *discordgo.Session, contract *Contract, channelID st
 
 func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bool) {
 	// Start boosting contract
+	drawn := false
 	for _, loc := range contract.Location {
 		var msg *discordgo.Message
 		var err error
@@ -1415,6 +1416,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			if err == nil {
 				SetListMessageID(contract, loc.ChannelID, msg.ID)
 			}
+			drawn = true
 		}
 		if err != nil {
 			fmt.Println("Unable to resend message.")
@@ -1445,7 +1447,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		// Sending the update message
 		if !contract.Speedrun {
 			s.ChannelMessageSend(loc.ChannelID, str)
-		} else {
+		} else if !drawn {
 			RedrawBoostList(s, loc.GuildID, loc.ChannelID)
 		}
 	}
@@ -1555,7 +1557,9 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	} else {
 		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 		contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
-		contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived = 0 // reset these
+		if contract.Order[contract.BoostPosition] == contract.SRData.SinkUserID {
+			contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived = 0 // reset these
+		}
 	}
 
 	sendNextNotification(s, contract, true)

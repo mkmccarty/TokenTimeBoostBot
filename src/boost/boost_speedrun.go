@@ -3,6 +3,7 @@ package boost
 import (
 	"errors"
 	"fmt"
+	"log"
 	"regexp"
 	"slices"
 	"strings"
@@ -319,7 +320,6 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 	if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
 		if r.UserID == contract.SRData.SinkUserID {
 			if r.Emoji.Name == "💰" {
-				fmt.Println("Sink sent requested number of tokens to booster")
 				var b, sink *Booster
 				b = contract.Boosters[contract.Order[contract.BoostPosition]]
 				//var sink *Booster
@@ -327,9 +327,11 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 
 				if r.UserID == b.UserID {
 					// Current booster subtract number of tokens wanted
+					log.Printf("Sink indicating they are boosting with %d tokens.\n", b.TokensWanted)
 					sink.TokensReceived -= b.TokensWanted
 					sink.TokensReceived = max(0, sink.TokensReceived) // Avoid missing self farmed tokens
 				} else {
+					log.Printf("Sink sent %d tokens to booster\n", b.TokensWanted)
 					// Current booster number of tokens wanted
 					b.TokensReceived += b.TokensWanted
 					sink.TokensReceived -= b.TokensWanted
