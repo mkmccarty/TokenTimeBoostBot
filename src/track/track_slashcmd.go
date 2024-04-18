@@ -12,7 +12,7 @@ import (
 func GetSlashTokenCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
-		Description: "Display contract completion estimate.",
+		Description: "Start token value tracking for a contract",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
