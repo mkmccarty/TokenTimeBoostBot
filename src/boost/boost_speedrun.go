@@ -256,13 +256,16 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 		if r.UserID != b.UserID {
 			// Record the Tokens as received
 			b.TokenReceivedTime = append(b.TokenReceivedTime, time.Now())
+			b.TokenReceivedName = append(b.TokenReceivedName, r.UserID)
 			track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, 1, r.UserID)
 
 			// Record who sent the token
 			track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, 1, b.UserID)
 			contract.Boosters[r.UserID].TokenSentTime = append(contract.Boosters[r.UserID].TokenSentTime, time.Now())
+			contract.Boosters[r.UserID].TokenSentName = append(contract.Boosters[r.UserID].TokenSentName, b.UserID)
 		} else {
 			track.FarmedToken(s, r.ChannelID, r.UserID)
+			b.TokensFarmedTime = append(b.TokensFarmedTime, time.Now())
 		}
 		redraw = true
 	}
@@ -340,7 +343,9 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 					// Append TokensReceived number of time.Now() to the TokenReceivedTime slice
 					for i := 0; i < b.TokensWanted; i++ {
 						b.TokenReceivedTime = append(b.TokenReceivedTime, time.Now())
+						b.TokenReceivedName = append(b.TokenReceivedName, r.UserID)
 						contract.Boosters[r.UserID].TokenSentTime = append(contract.Boosters[r.UserID].TokenSentTime, time.Now())
+						contract.Boosters[r.UserID].TokenSentName = append(contract.Boosters[r.UserID].TokenSentName, b.UserID)
 					}
 					track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, b.TokensReceived, r.UserID)
 					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, b.TokensReceived, b.UserID)
