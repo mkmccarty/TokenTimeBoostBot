@@ -22,6 +22,12 @@ func GetSlashCalcContractTval(cmd string) *discordgo.ApplicationCommand {
 				Description: "Total duration of this contract. Example: 19h35m.",
 				Required:    true,
 			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "details",
+				Description: "Show individual token values. Default is false.",
+				Required:    false,
+			},
 		},
 	}
 }
@@ -36,6 +42,7 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 	}
 	channelID := i.ChannelID
 	var duration time.Duration
+	details := false
 	if opt, ok := optionMap["duration"]; ok {
 		var err error
 		// Timespan of the contract duration
@@ -51,6 +58,9 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 			// Invalid duration, just assigning a 12h
 			duration = 12 * time.Hour
 		}
+	}
+	if opt, ok := optionMap["details"]; ok {
+		details = opt.BoolValue()
 	}
 
 	// Call into boost module to do that calculations
@@ -72,7 +82,7 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 			str = "You are not part of this contract"
 		} else {
 			// Calculate the token value
-			str = calculateTokenValue(contract.StartTime, duration, contract.Boosters[userID])
+			str = calculateTokenValue(contract.StartTime, duration, details, contract.Boosters[userID])
 		}
 
 	}
@@ -87,7 +97,7 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 	)
 }
 
-func calculateTokenValue(startTime time.Time, duration time.Duration, booster *Booster) string {
+func calculateTokenValue(startTime time.Time, duration time.Duration, details bool, booster *Booster) string {
 	// Calculate the token value
 	var builder strings.Builder
 
@@ -103,31 +113,40 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, booster *B
 
 	// for each Token Sent, calculate the value
 	if len(booster.TokensFarmedTime) != 0 {
-		fmt.Fprintf(&builder, "**Tokens Farmed:**\n")
-		for i, token := range booster.TokensFarmedTime {
-			fmt.Fprintf(&builder, "> %d: %s\n", i+1, token.Sub(startTime).Round(time.Second))
+		fmt.Fprintf(&builder, "**Tokens Farmed: %d**\n", len(booster.TokensFarmedTime))
+		if details {
+			for i, token := range booster.TokensFarmedTime {
+				fmt.Fprintf(&builder, "> %d: %s\n", i+1, token.Sub(startTime).Round(time.Second))
+			}
 		}
 	}
 	if len(booster.TokenSentTime) != 0 {
-		fmt.Fprintf(&builder, "**Tokens Sent:**\n")
-
+		sval := make([]float64, len(booster.TokenSentTime))
 		for i, token := range booster.TokenSentTime {
-			tval := getTokenValue(token.Sub(startTime).Seconds(), duration.Seconds())
-			sentValue += tval
-			fmt.Fprintf(&builder, "> %d: %s  %6.3f\n", i+1, token.Sub(startTime).Round(time.Second), tval)
+			sval[i] = getTokenValue(token.Sub(startTime).Seconds(), duration.Seconds())
+			sentValue += sval[i]
+		}
+		fmt.Fprintf(&builder, "**Tokens Sent: %d for %4.3f**\n", len(booster.TokenSentTime), sentValue)
+		if details {
+			for i, token := range booster.TokenSentTime {
+				fmt.Fprintf(&builder, "> %d: %s  %6.3f\n", i+1, token.Sub(startTime).Round(time.Second), sval[i])
+			}
 		}
 	}
-
 	if len(booster.TokenReceivedTime) != 0 {
-		fmt.Fprintf(&builder, "**Token Received:**\n")
+		rval := make([]float64, len(booster.TokenReceivedTime))
 
 		for i, token := range booster.TokenReceivedTime {
-			tval := getTokenValue(token.Sub(startTime).Seconds(), duration.Seconds())
-			receivedValue += tval
-			fmt.Fprintf(&builder, "> %d: %s  %6.3f\n", i+1, token.Sub(startTime).Round(time.Second), tval)
+			rval[i] = getTokenValue(token.Sub(startTime).Seconds(), duration.Seconds())
+			receivedValue += rval[i]
+		}
+		fmt.Fprintf(&builder, "**Token Received: %d for %4.3f**\n", len(booster.TokenReceivedTime), receivedValue)
+		if details {
+			for i, token := range booster.TokenReceivedTime {
+				fmt.Fprintf(&builder, "> %d: %s  %6.3f\n", i+1, token.Sub(startTime).Round(time.Second), rval[i])
+			}
 		}
 	}
-
 	fmt.Fprintf(&builder, "\n** △ TVal %4.3f**\n", sentValue-receivedValue)
 	return builder.String()
 }
