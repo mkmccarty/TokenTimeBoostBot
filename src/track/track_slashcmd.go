@@ -88,8 +88,10 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// set channelID to last entry in the slice
 			channelID = s[len(s)-1]
 		}
-		linked = false
-		linkReceived = false
+		if channelID != i.ChannelID {
+			linked = false
+			linkReceived = false
+		}
 	}
 	// Call into boost module to do that calculations
 	var userID string
