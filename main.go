@@ -46,6 +46,7 @@ const slashSpeedrun string = "speedrun"
 const slashCoopETA string = "coopeta"
 const slashLaunchHelper string = "launch-helper"
 const slashToken string = "token"
+const slashCalcContractTval string = "calc-contract-tval"
 const slashFun string = "fun"
 
 var integerZeroMinValue float64 = 0.0
@@ -101,7 +102,7 @@ var (
 	GuildID        = flag.String("guild", "", "Test guild ID")
 	BotToken       = flag.String("token", "", "Bot access token")
 	AppID          = flag.String("app", "", "Application ID")
-	RemoveCommands = flag.Bool("rmcmd", true, "Remove all commands after shutdowning or not")
+	RemoveCommands = flag.Bool("rmcmd", false, "Remove all commands after shutdowning or not")
 
 	adminCommands = []*discordgo.ApplicationCommand{
 		{
@@ -340,6 +341,7 @@ var (
 				},
 			},
 		},
+		boost.GetSlashCalcContractTval(slashCalcContractTval),
 		launch.SlashLaunchHelperCommand(slashLaunchHelper),
 		track.GetSlashTokenCommand(slashToken),
 		{
@@ -511,6 +513,9 @@ var (
 		},
 		slashToken: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			track.HandleTokenCommand(s, i)
+		},
+		slashCalcContractTval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleContractCalcContractTvalCommand(s, i)
 		},
 		slashSpeedrun: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleSpeedrunCommand(s, i)
