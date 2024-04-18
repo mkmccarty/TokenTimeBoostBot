@@ -44,6 +44,8 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 		contractTimespan = strings.Replace(contractTimespan, "hr", "h", -1)
 		contractTimespan = strings.Replace(contractTimespan, "min", "m", -1)
 		contractTimespan = strings.Replace(contractTimespan, "sec", "s", -1)
+		// replace all spaces with nothing
+		contractTimespan = strings.Replace(contractTimespan, " ", "", -1)
 		duration, err = str2duration.ParseDuration(contractTimespan)
 		if err != nil {
 			// Invalid duration, just assigning a 12h
