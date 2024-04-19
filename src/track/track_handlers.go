@@ -145,12 +145,13 @@ func HandleTokenEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	name, _ := extractTokenName(i.Message.Components[0])
 	isEditing := tokenTrackingEditing(userID, name, true)
-	str := tokenTrackingTrack(userID, name, 0, 0)
+	embed := tokenTrackingTrack(userID, name, 0, 0)
 
 	comp := getTokenValComponents(isEditing, name)
 	m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 	m.Components = &comp
-	m.SetContent(str)
+	m.SetEmbeds(embed.Embeds)
+	m.SetContent("")
 	s.ChannelMessageEditComplex(m)
 
 }
@@ -169,12 +170,13 @@ func HandleTokenSend(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	})
 
 	name, _ := extractTokenName(i.Message.Components[0])
-	str := tokenTrackingTrack(userID, name, 1, 0)
+	embed := tokenTrackingTrack(userID, name, 1, 0)
 
 	comp := getTokenValComponents(tokenTrackingEditing(userID, name, false), name)
 	m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 	m.Components = &comp
-	m.SetContent(str)
+	m.SetEmbeds(embed.Embeds)
+	m.SetContent("")
 	s.ChannelMessageEditComplex(m)
 
 	saveData(Tokens)
@@ -194,12 +196,13 @@ func HandleTokenReceived(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	})
 
 	name, _ := extractTokenName(i.Message.Components[0])
-	str := tokenTrackingTrack(userID, name, 0, 1)
+	embed := tokenTrackingTrack(userID, name, 0, 1)
 
 	comp := getTokenValComponents(tokenTrackingEditing(userID, name, false), name)
 	m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 	m.Components = &comp
-	m.SetContent(str)
+	m.SetEmbeds(embed.Embeds)
+	m.SetContent("")
 	s.ChannelMessageEditComplex(m)
 
 	saveData(Tokens)
@@ -220,12 +223,13 @@ func HandleTokenDetails(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	name, _ := extractTokenName(i.Message.Components[0])
 	SetTokenTrackingDetails(userID, name)
-	str := tokenTrackingTrack(userID, name, 0, 0)
+	embed := tokenTrackingTrack(userID, name, 0, 0)
 
 	comp := getTokenValComponents(tokenTrackingEditing(userID, name, false), name)
 	m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 	m.Components = &comp
-	m.SetContent(str)
+	m.SetEmbeds(embed.Embeds)
+	m.SetContent("")
 	s.ChannelMessageEditComplex(m)
 }
 
@@ -247,8 +251,13 @@ func HandleTokenComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	td, err := getTrack(userID, name)
 	if err == nil {
-		str := getTokenTrackingString(td, true)
-		s.ChannelMessageSend(i.ChannelID, str)
+		/*
+			str := getTokenTrackingString(td, true)
+			s.ChannelMessageSend(i.ChannelID, str)
+		*/
+		embed := getTokenTrackingEmbed(td, true)
+		s.ChannelMessageSendComplex(i.ChannelID, embed)
+
 	}
 
 	if Tokens[userID] != nil {
@@ -276,11 +285,12 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		log.Printf("Token-Reaction: %s id:%s user:%s", emojiName, name, userID)
 		var receivedIndex = slices.Index(numberSlice, emojiName)
 		removeReceivedToken(userID, name, receivedIndex)
-		str := tokenTrackingTrack(userID, name, 0, 0) // No sent or received
+		embed := tokenTrackingTrack(userID, name, 0, 0) // No sent or received
 		comp := getTokenValComponents(tokenTrackingEditing(userID, name, false), name)
 		m := discordgo.NewMessageEdit(r.ChannelID, r.MessageID)
 		m.Components = &comp
-		m.SetContent(str)
+		m.SetEmbeds(embed.Embeds)
+		m.SetContent("")
 		s.ChannelMessageEditComplex(m)
 		defer saveData(Tokens)
 	}

@@ -101,13 +101,13 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		userID = i.User.ID
 	}
 
-	str, err := tokenTracking(s, channelID, userID, trackingName, duration, linked, linkReceived)
+	str, embed, err := tokenTracking(s, channelID, userID, trackingName, duration, linked, linkReceived)
 
 	if err != nil {
 		str = err.Error()
 	} else {
 		var data discordgo.MessageSend
-		data.Content = str
+		data.Embeds = embed.Embeds
 		data.Components = getTokenValComponents(false, trackingName) // Initial state
 
 		u, _ := s.UserChannelCreate(userID)

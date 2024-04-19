@@ -109,10 +109,10 @@ func tokenTrackingEditing(userID string, name string, editSelected bool) bool {
 }
 
 // TokenTrackingAdjustTime will adjust the time values for a contract
-func TokenTrackingAdjustTime(channelID string, userID string, name string, startHour int, startMinute int, endHour int, endMinute int) string {
+func TokenTrackingAdjustTime(channelID string, userID string, name string, startHour int, startMinute int, endHour int, endMinute int) *discordgo.MessageSend {
 	td, err := getTrack(userID, name)
 	if err != nil {
-		return ""
+		return nil
 	}
 	td.StartTime = td.StartTime.Add(time.Duration(startHour) * time.Hour)
 	td.StartTime = td.StartTime.Add(time.Duration(startMinute) * time.Minute)
@@ -140,7 +140,7 @@ func TokenTrackingAdjustTime(channelID string, userID string, name string, start
 	}
 	td.TokenDelta = td.SumValueSent - td.SumValueReceived
 
-	return getTokenTrackingString(td, false)
+	return getTokenTrackingEmbed(td, false)
 }
 
 func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
@@ -158,83 +158,273 @@ func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
 	}
 	fmt.Fprintf(&builder, "Start time: <t:%d:t>\n", td.StartTime.Unix())
 	fmt.Fprintf(&builder, "Duration  : **%s**\n", ts[:len(ts)-2])
+	/*
+		if !finalDisplay {
+			offsetTime := time.Since(td.StartTime).Seconds()
+			fmt.Fprintf(&builder, "> Current token value: %1.3f\n", getTokenValue(offsetTime, td.DurationTime.Seconds()))
+			fmt.Fprintf(&builder, "> Token value in 30 minutes: %1.3f\n", getTokenValue(offsetTime+(30*60), td.DurationTime.Seconds()))
+			fmt.Fprintf(&builder, "> Token value in one hour: %1.3f\n\n", getTokenValue(offsetTime+(60*60), td.DurationTime.Seconds()))
+		}
+
+		if len(td.FarmedTokenTime) > 0 {
+			fmt.Fprintf(&builder, "Farmed: **%d**\n", len(td.FarmedTokenTime))
+			if td.Details {
+				for i, t := range td.FarmedTokenTime {
+					if !finalDisplay {
+						fmt.Fprintf(&builder, "> %d: <t:%d:R>\n", i+1, t.Unix())
+					} else {
+						fmt.Fprintf(&builder, "> %d: %s\n", i+1, t.Sub(td.StartTime).Round(time.Second))
+					}
+					if builder.Len() > 1750 {
+						fmt.Fprint(&builder, "> ...\n")
+						break
+					}
+				}
+			}
+		}
+
+		if (len(td.TokenSentTime) + len(td.TokenReceivedTime)) > 0 {
+			fmt.Fprintf(&builder, "Sent: **%d**  (%4.3f)\n", len(td.TokenSentTime), td.SumValueSent)
+			if td.Details {
+				id := "1124449428267343992"
+				for i, t := range td.TokenSentTime {
+					if len(td.TokenSentUserID) == len(td.TokenSentValues) {
+						// Transitional code to fix missing user ID
+						id = td.TokenSentUserID[i]
+					}
+					if !finalDisplay {
+						fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f <@%s>\n", i+1, t.Unix(), td.TokenSentValues[i], id)
+					} else {
+						fmt.Fprintf(&builder, "> %d: %s  %6.3f <@%s>\n", i+1, t.Sub(td.StartTime).Round(time.Second), td.TokenSentValues[i], id)
+					}
+					if builder.Len() > 1750 {
+						fmt.Fprint(&builder, "> ...\n")
+						break
+					}
+				}
+			}
+			fmt.Fprintf(&builder, "Received: **%d**  (%4.3f)\n", len(td.TokenReceivedTime), td.SumValueReceived)
+			if td.Details {
+				id := "1124449428267343992" // Boost Bot ID
+				for i, t := range td.TokenReceivedTime {
+					if len(td.TokenReceivedUserID) == len(td.TokenReceivedValues) {
+						// Transitional code to fix missing user ID
+						id = td.TokenReceivedUserID[i]
+					}
+					if !finalDisplay {
+						fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f <@%s>\n", i+1, t.Unix(), td.TokenReceivedValues[i], id)
+					} else {
+						fmt.Fprintf(&builder, "> %d: %s  %6.3f <@%s>\n", i+1, t.Sub(td.StartTime).Round(time.Second), td.TokenReceivedValues[i], id)
+					}
+					if builder.Len() > 1750 {
+						fmt.Fprint(&builder, "> ...\n")
+						break
+					}
+				}
+				if td.LinkRecieved && !finalDisplay {
+					fmt.Fprint(&builder, "React with 1️⃣..🔟 to remove errant received tokens at that index. The bot cannot remove your DM reactions.\n")
+				}
+			}
+			if !finalDisplay {
+				builder.WriteString("**Current")
+			} else {
+				builder.WriteString("**Final")
+			}
+
+			fmt.Fprintf(&builder, " △ TVal %4.3f**\n", td.TokenDelta)
+		}
+	*/
+	return builder.String()
+}
+
+func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.MessageSend {
+	var description strings.Builder
+	var linkedHdr strings.Builder
+
+	var totalHeader string
+	var finalTotal string
+
+	var field []*discordgo.MessageEmbedField
+
+	ts := td.DurationTime.Round(time.Minute).String()
+	if finalDisplay {
+		fmt.Fprintf(&description, "Final Token tracking for **%s**\n", td.Name)
+	} else {
+		fmt.Fprintf(&description, "Token tracking for **%s**\n", td.Name)
+	}
+	fmt.Fprintf(&description, "Start time: <t:%d:t>\n", td.StartTime.Unix())
+	fmt.Fprintf(&description, "Duration  : **%s**\n", ts[:len(ts)-2])
+
+	if td.Linked {
+		fmt.Fprint(&linkedHdr, "Linked Contract")
+	} else {
+		fmt.Fprint(&linkedHdr, "Contract Channel")
+	}
+	field = append(field, &discordgo.MessageEmbedField{
+		Name:   linkedHdr.String(),
+		Value:  td.ChannelMention,
+		Inline: false,
+	})
 
 	if !finalDisplay {
+		//var tokenValues strings.Builder
+
 		offsetTime := time.Since(td.StartTime).Seconds()
-		fmt.Fprintf(&builder, "> Current token value: %1.3f\n", getTokenValue(offsetTime, td.DurationTime.Seconds()))
-		fmt.Fprintf(&builder, "> Token value in 30 minutes: %1.3f\n", getTokenValue(offsetTime+(30*60), td.DurationTime.Seconds()))
-		fmt.Fprintf(&builder, "> Token value in one hour: %1.3f\n\n", getTokenValue(offsetTime+(60*60), td.DurationTime.Seconds()))
+		//fmt.Fprintf(&tokenValues, "Value now: %1.3f\n", getTokenValue(offsetTime, td.DurationTime.Seconds()))
+		//fmt.Fprintf(&tokenValues, "Value in 30 minutes: %1.3f\n", getTokenValue(offsetTime+(30*60), td.DurationTime.Seconds()))
+		//fmt.Fprintf(&tokenValues, "Value in one hour: %1.3f\n\n", getTokenValue(offsetTime+(60*60), td.DurationTime.Seconds()))
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   "Value Now",
+			Value:  fmt.Sprintf("%1.3f\n", getTokenValue(offsetTime, td.DurationTime.Seconds())),
+			Inline: true,
+		})
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   "in 30 Minutes",
+			Value:  fmt.Sprintf("%1.3f\n", getTokenValue(offsetTime+(30*60), td.DurationTime.Seconds())),
+			Inline: true,
+		})
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   "in 1 Hour",
+			Value:  fmt.Sprintf("%1.3f\n", getTokenValue(offsetTime+(60*60), td.DurationTime.Seconds())),
+			Inline: true,
+		})
+
 	}
 
 	if len(td.FarmedTokenTime) > 0 {
-		fmt.Fprintf(&builder, "Farmed: **%d**\n", len(td.FarmedTokenTime))
+		var fbuilder strings.Builder
+
+		fmt.Fprintf(&fbuilder, "Farmed: %d\n", len(td.FarmedTokenTime))
 		if td.Details {
 			for i, t := range td.FarmedTokenTime {
 				if !finalDisplay {
-					fmt.Fprintf(&builder, "> %d: <t:%d:R>\n", i+1, t.Unix())
+					fmt.Fprintf(&fbuilder, "%d: <t:%d:R>\n", i+1, t.Unix())
 				} else {
-					fmt.Fprintf(&builder, "> %d: %s\n", i+1, t.Sub(td.StartTime).Round(time.Second))
-				}
-				if builder.Len() > 1750 {
-					fmt.Fprint(&builder, "> ...\n")
-					break
+					fmt.Fprintf(&fbuilder, "%d: %s\n", i+1, t.Sub(td.StartTime).Round(time.Second))
 				}
 			}
-		}
-	}
-
-	if (len(td.TokenSentTime) + len(td.TokenReceivedTime)) > 0 {
-		fmt.Fprintf(&builder, "Sent: **%d**  (%4.3f)\n", len(td.TokenSentTime), td.SumValueSent)
-		if td.Details {
-			id := "1124449428267343992"
-			for i, t := range td.TokenSentTime {
-				if len(td.TokenSentUserID) == len(td.TokenSentValues) {
-					// Transitional code to fix missing user ID
-					id = td.TokenSentUserID[i]
-				}
-				if !finalDisplay {
-					fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f <@%s>\n", i+1, t.Unix(), td.TokenSentValues[i], id)
-				} else {
-					fmt.Fprintf(&builder, "> %d: %s  %6.3f <@%s>\n", i+1, t.Sub(td.StartTime).Round(time.Second), td.TokenSentValues[i], id)
-				}
-				if builder.Len() > 1750 {
-					fmt.Fprint(&builder, "> ...\n")
-					break
-				}
-			}
-		}
-		fmt.Fprintf(&builder, "Received: **%d**  (%4.3f)\n", len(td.TokenReceivedTime), td.SumValueReceived)
-		if td.Details {
-			id := "1124449428267343992" // Boost Bot ID
-			for i, t := range td.TokenReceivedTime {
-				if len(td.TokenReceivedUserID) == len(td.TokenReceivedValues) {
-					// Transitional code to fix missing user ID
-					id = td.TokenReceivedUserID[i]
-				}
-				if !finalDisplay {
-					fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f <@%s>\n", i+1, t.Unix(), td.TokenReceivedValues[i], id)
-				} else {
-					fmt.Fprintf(&builder, "> %d: %s  %6.3f <@%s>\n", i+1, t.Sub(td.StartTime).Round(time.Second), td.TokenReceivedValues[i], id)
-				}
-				if builder.Len() > 1750 {
-					fmt.Fprint(&builder, "> ...\n")
-					break
-				}
-			}
-			if td.LinkRecieved && !finalDisplay {
-				fmt.Fprint(&builder, "React with 1️⃣..🔟 to remove errant received tokens at that index. The bot cannot remove your DM reactions.\n")
-			}
-		}
-		if !finalDisplay {
-			builder.WriteString("**Current")
 		} else {
-			builder.WriteString("**Final")
+			fmt.Fprintf(&fbuilder, "%d", len(td.FarmedTokenTime))
 		}
-
-		fmt.Fprintf(&builder, " △ TVal %4.3f**\n", td.TokenDelta)
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   "Farmed Tokens",
+			Value:  fbuilder.String(),
+			Inline: false,
+		})
 	}
 
-	return builder.String()
+	if len(td.TokenSentTime) > 0 {
+		var sbuilder strings.Builder
+		brief := false
+		if len(td.TokenReceivedTime) > 30 {
+			brief = true
+		}
+
+		fmt.Fprintf(&sbuilder, "%d valued at %4.3f\n", len(td.TokenSentTime), td.SumValueSent)
+		if td.Details {
+			for i, t := range td.TokenSentTime {
+				id := td.TokenSentUserID[i]
+				if !brief {
+					if !finalDisplay {
+						fmt.Fprintf(&sbuilder, "> %d: <t:%d:R> %6.3f <@%s>\n", i+1, t.Unix(), td.TokenSentValues[i], id)
+					} else {
+						fmt.Fprintf(&sbuilder, "> %d: %s  %6.3f <@%s>\n", i+1, t.Sub(td.StartTime).Round(time.Second), td.TokenSentValues[i], id)
+					}
+				} else {
+					if !finalDisplay {
+						fmt.Fprintf(&sbuilder, "> %d: %6.3f\n", i+1, td.TokenSentValues[i])
+					} else {
+						fmt.Fprintf(&sbuilder, "> %d: %6.3f\n", i+1, td.TokenSentValues[i])
+					}
+				}
+				if i > 0 && (i+1)%25 == 0 {
+					field = append(field, &discordgo.MessageEmbedField{
+						Name:   "Sent Tokens",
+						Value:  sbuilder.String(),
+						Inline: brief,
+					})
+					sbuilder.Reset()
+					sbuilder.WriteString("> \n")
+				}
+			}
+
+		}
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   "Sent Tokens",
+			Value:  sbuilder.String(),
+			Inline: brief,
+		})
+	}
+
+	if len(td.TokenReceivedTime) > 0 {
+		var rbuilder strings.Builder
+		brief := false
+		if len(td.TokenReceivedTime) > 30 {
+			brief = true
+		}
+
+		fmt.Fprintf(&rbuilder, "%d valued at %4.3f\n", len(td.TokenReceivedTime), td.SumValueReceived)
+		if td.Details {
+			for i, t := range td.TokenReceivedTime {
+				id := td.TokenReceivedUserID[i]
+				if !brief {
+					if !finalDisplay {
+						fmt.Fprintf(&rbuilder, "> %d: <t:%d:R> %6.3f <@%s>\n", i+1, t.Unix(), td.TokenReceivedValues[i], id)
+					} else {
+						fmt.Fprintf(&rbuilder, "> %d: %s  %6.3f <@%s>\n", i+1, t.Sub(td.StartTime).Round(time.Second), td.TokenReceivedValues[i], id)
+					}
+				} else {
+					if !finalDisplay {
+						fmt.Fprintf(&rbuilder, "> %d: %6.3f\n", i+1, td.TokenReceivedValues[i])
+					} else {
+						fmt.Fprintf(&rbuilder, "> %d: %6.3f\n", i+1, td.TokenReceivedValues[i])
+					}
+				}
+				if i > 0 && (i+1)%25 == 0 {
+					field = append(field, &discordgo.MessageEmbedField{
+						Name:   "Received Tokens",
+						Value:  rbuilder.String(),
+						Inline: brief,
+					})
+					rbuilder.Reset()
+					rbuilder.WriteString("> \n")
+				}
+			}
+
+			if td.LinkRecieved && !finalDisplay {
+				fmt.Fprint(&rbuilder, "\nReact with 1️⃣..🔟 to remove errant received tokens at that index. The bot cannot remove your DM reactions.\n")
+			}
+		}
+
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   "Received Tokens",
+			Value:  rbuilder.String(),
+			Inline: brief,
+		})
+		totalHeader = "Current △ TVal"
+		if finalDisplay {
+			totalHeader = "Final △ TVal"
+		}
+		finalTotal = fmt.Sprintf("%4.3f", td.TokenDelta)
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   totalHeader,
+			Value:  finalTotal,
+			Inline: false,
+		})
+	}
+
+	embed := &discordgo.MessageSend{
+		Embeds: []*discordgo.MessageEmbed{{
+			Type:        discordgo.EmbedTypeRich,
+			Title:       "Token Tracking",
+			Description: description.String(),
+			Color:       0xffaa00,
+			Fields:      field,
+		},
+		},
+	}
+
+	return embed
 }
 
 func getTrack(userID string, name string) (*tokenValue, error) {
@@ -252,9 +442,7 @@ func getTrack(userID string, name string) (*tokenValue, error) {
 }
 
 // TokenTracking is called as a starting point for token tracking
-func tokenTracking(s *discordgo.Session, channelID string, userID string, name string, duration time.Duration, linked bool, linkReceived bool) (string, error) {
-	var builder strings.Builder
-
+func tokenTracking(s *discordgo.Session, channelID string, userID string, name string, duration time.Duration, linked bool, linkReceived bool) (string, *discordgo.MessageSend, error) {
 	if Tokens[userID] == nil {
 		Tokens[userID] = new(tokenValues)
 	}
@@ -275,7 +463,7 @@ func tokenTracking(s *discordgo.Session, channelID string, userID string, name s
 
 	td, err := getTrack(userID, name)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	td.ChannelID = channelID // Last channel gets responses
@@ -287,16 +475,14 @@ func tokenTracking(s *discordgo.Session, channelID string, userID string, name s
 	td.Linked = linked
 	td.LinkRecieved = linkReceived
 
-	builder.WriteString(getTokenTrackingString(td, false))
-
-	return builder.String(), nil
+	return getTokenTrackingString(td, false), getTokenTrackingEmbed(td, false), nil
 }
 
 // tokenTrackingTrack is called to track tokens sent and received
-func tokenTrackingTrack(userID string, name string, tokenSent int, tokenReceived int) string {
+func tokenTrackingTrack(userID string, name string, tokenSent int, tokenReceived int) *discordgo.MessageSend {
 	td, err := getTrack(userID, name)
 	if err != nil {
-		return ""
+		return nil
 	}
 	now := time.Now()
 	offsetTime := now.Sub(td.StartTime).Seconds()
@@ -316,7 +502,7 @@ func tokenTrackingTrack(userID string, name string, tokenSent int, tokenReceived
 	}
 	td.TokenDelta = td.SumValueSent - td.SumValueReceived
 
-	return getTokenTrackingString(td, false)
+	return getTokenTrackingEmbed(td, false)
 }
 
 func getTokenValue(seconds float64, durationSeconds float64) float64 {
@@ -361,12 +547,13 @@ func TokenAdjustTimestamp(s *discordgo.Session, i *discordgo.InteractionCreate, 
 	})
 
 	name, _ := extractTokenName(i.Message.Components[0])
-	str := TokenTrackingAdjustTime(i.ChannelID, userID, name, startHour, startMinute, endHour, endMinute)
+	embed := TokenTrackingAdjustTime(i.ChannelID, userID, name, startHour, startMinute, endHour, endMinute)
 
 	comp := getTokenValComponents(tokenTrackingEditing(userID, name, false), name)
 	m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 	m.Components = &comp
-	m.SetContent(str)
+	m.SetEmbeds(embed.Embeds)
+	m.SetContent("")
 	s.ChannelMessageEditComplex(m)
 }
 
@@ -380,11 +567,12 @@ func FarmedToken(s *discordgo.Session, channelID string, userID string) {
 		if v != nil && v.ChannelID == channelID && v.Linked {
 			v.FarmedTokenTime = append(v.FarmedTokenTime, time.Now())
 			saveData(Tokens)
-			str := getTokenTrackingString(v, false)
+			embed := getTokenTrackingEmbed(v, false)
 			comp := getTokenValComponents(tokenTrackingEditing(userID, v.Name, false), v.Name)
 			m := discordgo.NewMessageEdit(v.UserChannelID, v.TokenMessageID)
 			m.Components = &comp
-			m.SetContent(str)
+			m.SetEmbeds(embed.Embeds)
+			m.SetContent("")
 			s.ChannelMessageEditComplex(m)
 		}
 	}
@@ -423,11 +611,12 @@ func ContractTokenMessage(s *discordgo.Session, channelID string, userID string,
 			if redraw {
 				v.TokenDelta = v.SumValueSent - v.SumValueReceived
 				saveData(Tokens)
-				str := getTokenTrackingString(v, false)
+				embed := getTokenTrackingEmbed(v, false)
 				comp := getTokenValComponents(tokenTrackingEditing(userID, v.Name, false), v.Name)
 				m := discordgo.NewMessageEdit(v.UserChannelID, v.TokenMessageID)
 				m.Components = &comp
-				m.SetContent(str)
+				m.SetEmbeds(embed.Embeds)
+				m.SetContent("")
 				s.ChannelMessageEditComplex(m)
 			}
 		}
