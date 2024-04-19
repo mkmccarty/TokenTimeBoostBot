@@ -294,7 +294,6 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 	if len(td.FarmedTokenTime) > 0 {
 		var fbuilder strings.Builder
 
-		fmt.Fprintf(&fbuilder, "Farmed: %d\n", len(td.FarmedTokenTime))
 		if td.Details {
 			for i, t := range td.FarmedTokenTime {
 				if !finalDisplay {
