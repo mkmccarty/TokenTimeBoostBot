@@ -147,6 +147,7 @@ type Contract struct {
 	OrderRevision  int  // Incremented when Order is changed
 	Speedrun       bool // Speedrun mode
 	SRData         SpeedrunData
+	VolunteerSink  string     // Sink for Post contract tokens
 	lastWishPrompt string     // saved prompt for this contract
 	mutex          sync.Mutex // Keep this contract thread safe
 }
@@ -302,6 +303,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.CreatorID = append(contract.CreatorID, userID) // starting userid
 		contract.Speedrun = false
 		contract.SRData.SpeedrunState = SpeedrunStateNone
+		contract.VolunteerSink = ""
 
 		if slices.Index(contract.CreatorID, config.AdminUserID) == -1 {
 			contract.CreatorID = append(contract.CreatorID, config.AdminUserID) // overall admin user
@@ -1380,7 +1382,10 @@ func addContractReactions(s *discordgo.Session, contract *Contract, channelID st
 		s.MessageReactionAdd(channelID, messageID, "⤵️") // Last
 		s.MessageReactionAdd(channelID, messageID, "🐓")  // Want Chicken Run
 	}
-	if contract.State == ContractStateWaiting {
+	if contract.State == ContractStateWaiting || contract.State == ContractStateCompleted {
+		if contract.VolunteerSink != "" {
+			s.MessageReactionAdd(channelID, messageID, tokenStr) // Token Reaction
+		}
 		s.MessageReactionAdd(channelID, messageID, "🐓") // Want Chicken Run
 		s.MessageReactionAdd(channelID, messageID, "🏁") // Finish
 	}
@@ -1434,14 +1439,35 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 					name := einame + contract.Boosters[contract.Order[contract.BoostPosition]].Mention
 					str = fmt.Sprintf(loc.ChannelPing+" send tokens to %s", name)
 				} else {
-					str = fmt.Sprintf(loc.ChannelPing + " contract boosting complete. Hold your tokens for late joining farmers.")
+					if contract.VolunteerSink == "" {
+						str = fmt.Sprintf(loc.ChannelPing + " contract boosting complete. Hold your tokens for late joining farmers.")
+					} else {
+						str = "Contract boosting complete. There may late joining farmers. "
+						if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {
+							var einame = farmerstate.GetEggIncName(contract.VolunteerSink)
+							if einame != "" {
+								einame += " " // Add a space to this
+							}
+							name := einame + contract.Boosters[contract.VolunteerSink].Mention
+							str = fmt.Sprintf(loc.ChannelPing+" send tokens to our volunteer sink %s", name)
+						}
+					}
 				}
 			}
-		} else if contract.State >= ContractStateCompleted {
+		} else if contract.State == ContractStateCompleted {
+			addContractReactions(s, contract, loc.ChannelID, msg.ID, loc.TokenReactionStr)
 			t1 := contract.EndTime
 			t2 := contract.StartTime
 			duration := t1.Sub(t2)
 			str = fmt.Sprintf(loc.ChannelPing+" contract boosting complete in %s ", duration.Round(time.Second))
+			if contract.VolunteerSink != "" {
+				var einame = farmerstate.GetEggIncName(contract.VolunteerSink)
+				if einame != "" {
+					einame += " " // Add a space to this
+				}
+				name := einame + contract.Boosters[contract.VolunteerSink].Mention
+				str += fmt.Sprintf("\nSnd tokens to our volunteer sink %s", name)
+			}
 		}
 
 		// Sending the update message
@@ -1454,7 +1480,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 	if pingUsers {
 		notifyBellBoosters(s, contract)
 	}
-	if !contract.Speedrun && contract.State == ContractStateCompleted {
+	if !contract.Speedrun && contract.State == ContractStateArchive {
 		FinishContract(s, contract)
 	} else if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateComplete {
 		FinishContract(s, contract)
@@ -1547,7 +1573,7 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	}
 
 	if contract.BoostPosition == contract.CoopSize {
-		contract.State = ContractStateCompleted // Finished
+		contract.State = ContractStateCompleted // Waiting for sink
 		contract.EndTime = time.Now()
 		if contract.Speedrun {
 			contract.SRData.SpeedrunState = SpeedrunStatePost
@@ -1666,7 +1692,7 @@ func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
 			}
 			_, err := s.ChannelMessageSend(u.ID, str)
 			if err != nil {
-				panic(err)
+				log.Println(err)
 			}
 		}
 	}

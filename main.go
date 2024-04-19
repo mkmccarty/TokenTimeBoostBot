@@ -47,6 +47,7 @@ const slashCoopETA string = "coopeta"
 const slashLaunchHelper string = "launch-helper"
 const slashToken string = "token"
 const slashCalcContractTval string = "calc-contract-tval"
+const slashVolunteerSink string = "volunteer-sink"
 const slashFun string = "fun"
 
 var integerZeroMinValue float64 = 0.0
@@ -341,6 +342,7 @@ var (
 				},
 			},
 		},
+		boost.GetSlashVolunteerSink(slashVolunteerSink),
 		boost.GetSlashCalcContractTval(slashCalcContractTval),
 		launch.SlashLaunchHelperCommand(slashLaunchHelper),
 		track.GetSlashTokenCommand(slashToken),
@@ -519,6 +521,9 @@ var (
 		},
 		slashSpeedrun: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleSpeedrunCommand(s, i)
+		},
+		slashVolunteerSink: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleSlashVolunteerSinkCommand(s, i)
 		},
 		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Protection against DM use

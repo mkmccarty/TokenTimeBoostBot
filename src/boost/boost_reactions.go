@@ -74,14 +74,23 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		}
 
 		// if contract state is waiting and the reaction is a 🏁 finish the contract
-		if contract.State == ContractStateWaiting && r.Emoji.Name == "🏁" {
-			var votingElection = (msg.Reactions[0].Count - 1) >= 2
-			if votingElection || creatorOfContract(contract, r.UserID) {
-				contract.State = ContractStateCompleted
-				contract.EndTime = time.Now()
-				sendNextNotification(s, contract, true)
+		if r.Emoji.Name == "🏁" {
+			if contract.State == ContractStateWaiting {
+				var votingElection = (msg.Reactions[0].Count - 1) >= 2
+				if votingElection || creatorOfContract(contract, r.UserID) {
+					contract.State = ContractStateCompleted
+					contract.EndTime = time.Now()
+					sendNextNotification(s, contract, true)
+				}
+				return returnVal
 			}
-			return returnVal
+
+			if !contract.Speedrun && contract.State == ContractStateCompleted && creatorOfContract(contract, r.UserID) {
+				// Coordinator can end the contract
+				contract.State = ContractStateArchive
+				sendNextNotification(s, contract, true)
+				return returnVal
+			}
 		}
 
 		if contract.State != ContractStateSignup && contract.BoostPosition < len(contract.Order) {
@@ -173,11 +182,22 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 		// Token reaction handling
 		if strings.ToLower(r.Emoji.Name) == "token" {
-			if contract.BoostPosition < len(contract.Order) {
+			emojiName = r.Emoji.Name + ":" + r.Emoji.ID
+			if contract.State == ContractStateWaiting || contract.State == ContractStateCompleted {
+				if contract.VolunteerSink != "" {
+					sink := contract.Boosters[contract.VolunteerSink]
+					sink.TokenReceivedTime = append(sink.TokenReceivedTime, time.Now())
+					sink.TokenReceivedName = append(sink.TokenReceivedName, r.UserID)
+					track.ContractTokenMessage(s, r.ChannelID, sink.UserID, track.TokenReceived, 1, r.UserID)
+					// Record who sent the token
+					contract.Boosters[r.UserID].TokenSentTime = append(contract.Boosters[r.UserID].TokenSentTime, time.Now())
+					contract.Boosters[r.UserID].TokenSentName = append(contract.Boosters[r.UserID].TokenSentName, sink.UserID)
+					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, 1, sink.UserID)
+				}
+			} else if contract.BoostPosition < len(contract.Order) {
 				var b = contract.Boosters[contract.Order[contract.BoostPosition]]
 
 				b.TokensReceived++
-				emojiName = r.Emoji.Name + ":" + r.Emoji.ID
 				if r.UserID != b.UserID {
 					// Record the Tokens as received
 					b.TokenReceivedTime = append(b.TokenReceivedTime, time.Now())
