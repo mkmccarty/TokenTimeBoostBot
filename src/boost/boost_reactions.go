@@ -173,8 +173,6 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			// Indicate that a farmer is ready for chicken runs
 			str := fmt.Sprintf("%s <@%s> is ready for chicken runs.", contract.Location[0].ChannelPing, r.UserID)
 			var data discordgo.MessageSend
-			var am discordgo.MessageAllowedMentions
-			data.AllowedMentions = &am
 			data.Content = str
 			msg, _ := s.ChannelMessageSendComplex(contract.Location[0].ChannelID, &data)
 			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🐣") // Indicate Chicken Run
