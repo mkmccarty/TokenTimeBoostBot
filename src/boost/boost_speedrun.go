@@ -298,7 +298,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 				keepReaction = true
 				// Indicate that the Sink is starting to kick users
 				str := "**Starting to kick users.** Swap shiny artifacts if you need to force a server sync.\n"
-				str += "After the sink kicks all farmers they should react with 💃 to move to the next tango."
+				str += "Sink: React with 💃 after kicks to move to the next tango."
 				msg, _ := s.ChannelMessageSend(contract.Location[0].ChannelID, str)
 				s.MessageReactionAdd(contract.Location[0].ChannelID, msg.ID, "💃") // Tango Reaction
 				SetReactionID(contract, contract.Location[0].ChannelID, msg.ID)
