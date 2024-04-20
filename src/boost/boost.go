@@ -911,7 +911,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		var member, gmErr = s.GuildMember(guildID, userID)
 		if gmErr == nil && member.Nick != "" {
 			b.Name = member.Nick
-			b.Mention = member.Mention()
+			b.Mention = member.User.Mention()
 		}
 
 		// Check if within the start period of a contract
