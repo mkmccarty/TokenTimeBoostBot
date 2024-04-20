@@ -368,7 +368,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 	if contract.SRData.SpeedrunState == SpeedrunStateBoosting || contract.SRData.SpeedrunState == SpeedrunStatePost {
 		if r.Emoji.Name == "🐓" {
 			// Indicate that a farmer is ready for chicken runs
-			str := fmt.Sprintf("%s <@%s> is ready for chicken runs.", contract.Location[0].ChannelPing, r.UserID)
+			str := fmt.Sprintf("%s <@%s> is ready for chicken runs, check for incoming trucks before visiting.", contract.Location[0].ChannelPing, r.UserID)
 			var data discordgo.MessageSend
 			data.Content = str
 			msg, _ := s.ChannelMessageSendComplex(contract.Location[0].ChannelID, &data)
