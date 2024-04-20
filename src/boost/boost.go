@@ -83,6 +83,7 @@ type EggFarmer struct {
 	Username    string
 	Unique      string
 	Nick        string
+	GlobalName  string
 	ChannelName string
 	GuildID     string // Discord Guild where this User is From
 	GuildName   string
@@ -872,6 +873,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			if errGM == nil {
 				farmer.Username = gm.User.Username
 				farmer.Nick = gm.Nick
+				farmer.GlobalName = gm.User.GlobalName
 				farmer.Unique = gm.User.String()
 			}
 		}
@@ -882,6 +884,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			farmer.Username = userID
 			farmer.Nick = userID
 			farmer.Unique = userID
+			farmer.GlobalName = userID
 		}
 
 		contract.EggFarmers[userID] = farmer
@@ -1189,7 +1192,11 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 				return errors.New(errorBot)
 			}
 		}
-		userID = mention[2 : len(mention)-1]
+		offset := 2
+		if strings.HasPrefix(userID, "<@!") {
+			offset = 3
+		}
+		userID = mention[offset : len(mention)-1]
 	}
 
 	for i := range contract.Order {
