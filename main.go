@@ -462,7 +462,7 @@ var (
 					Components: []discordgo.MessageComponent{}},
 			})
 
-			var err = boost.AddContractMember(s, i.GuildID, i.ChannelID, i.Member.Mention(), mention, guestName, orderValue)
+			var err = boost.AddContractMember(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), mention, guestName, orderValue)
 			if err != nil {
 				log.Println(err.Error())
 			}
@@ -753,7 +753,7 @@ var (
 				str += " " + farmer
 			}
 
-			var err = boost.RemoveContractBoosterByMention(s, i.GuildID, i.ChannelID, i.Member.Mention(), farmer)
+			var err = boost.RemoveContractBoosterByMention(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), farmer)
 			if err != nil {
 				log.Println("/prune", err.Error())
 				str = err.Error()
@@ -1084,7 +1084,7 @@ var (
 		},
 		"fd_signupLeave": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			str := "Removed from Contract"
-			var err = boost.RemoveContractBoosterByMention(s, i.GuildID, i.ChannelID, i.Member.Mention(), i.Member.Mention())
+			var err = boost.RemoveContractBoosterByMention(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), i.Member.User.Mention())
 			if err != nil {
 				str = err.Error()
 			}
