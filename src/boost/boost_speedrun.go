@@ -298,7 +298,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 				keepReaction = true
 				// Indicate that the Sink is starting to kick users
 				str := "**Starting to kick users.** Swap shiny artifacts if you need to force a server sync.\n"
-				str += "Sink: React with 💃 after kicks to move to advance the tango."
+				str += "Sink: React with 💃 after kicks to move to advance the maketango."
 				msg, _ := s.ChannelMessageSend(contract.Location[0].ChannelID, str)
 				s.MessageReactionAdd(contract.Location[0].ChannelID, msg.ID, "💃") // Tango Reaction
 				SetReactionID(contract, contract.Location[0].ChannelID, msg.ID)
@@ -370,8 +370,6 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 			// Indicate that a farmer is ready for chicken runs
 			str := fmt.Sprintf("%s <@%s> is ready for chicken runs.", contract.Location[0].ChannelPing, r.UserID)
 			var data discordgo.MessageSend
-			var am discordgo.MessageAllowedMentions
-			data.AllowedMentions = &am
 			data.Content = str
 			msg, _ := s.ChannelMessageSendComplex(contract.Location[0].ChannelID, &data)
 			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🐣") // Indicate Chicken Run
