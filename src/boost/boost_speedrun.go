@@ -201,6 +201,7 @@ func drawSpeedrunCRT(contract *Contract, tokenStr string) string {
 		fmt.Fprintf(&builder, "- Equip coop artifacts: Deflector and SIAB\n")
 		fmt.Fprintf(&builder, "- A chicken run on <@%s> can be saved for the boost phase.\n", contract.SRData.SpeedrunStarterUserID)
 		fmt.Fprintf(&builder, "- :truck: reaction will indicate truck arriving and request a later kick. Send tokens through the boost menu if doing this.\n")
+		fmt.Fprintf(&builder, "- Sink will react with 🦵 when starting to kick.\n")
 		if contract.SRData.CurrentLeg == contract.SRData.Legs-1 {
 			fmt.Fprintf(&builder, "### Final Kick Leg\n")
 			fmt.Fprintf(&builder, "- After this kick you can build up your farm as you would for boosting\n")
@@ -222,7 +223,7 @@ func addSpeedrunContractReactions(s *discordgo.Session, contract *Contract, chan
 		s.MessageReactionAdd(channelID, messageID, "✅")      // Run Reaction
 		s.MessageReactionAdd(channelID, messageID, "🚚")      // Truck Reaction
 		s.MessageReactionAdd(channelID, messageID, "🦵")      // Kick Reaction
-		s.MessageReactionAdd(channelID, messageID, "💃")      // Tango Reaction
+		//s.MessageReactionAdd(channelID, messageID, "💃")      // Tango Reaction
 	}
 	if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
 		s.MessageReactionAdd(channelID, messageID, tokenStr) // Send token to Sink
@@ -296,8 +297,11 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 			if r.Emoji.Name == "🦵" {
 				keepReaction = true
 				// Indicate that the Sink is starting to kick users
-				str := "Starting to kick users. Swap shiny artifacts if you need to force a server sync."
-				s.ChannelMessageSend(contract.Location[0].ChannelID, str)
+				str := "**Starting to kick users.** Swap shiny artifacts if you need to force a server sync.\n"
+				str += "After the sink kicks all farmers they should react with 💃 to move to the next tango."
+				msg, _ := s.ChannelMessageSend(contract.Location[0].ChannelID, str)
+				s.MessageReactionAdd(contract.Location[0].ChannelID, msg.ID, "💃") // Tango Reaction
+				SetReactionID(contract, contract.Location[0].ChannelID, msg.ID)
 			}
 
 			if r.Emoji.Name == "💃" {
