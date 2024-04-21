@@ -1249,6 +1249,7 @@ func downloadEggIncContracts() {
 		// Compare the current file size with the downloaded data size
 		if currentSize == int64(len(body)) {
 			// File size has not changed, no need to save to disk
+			log.Print("EI-Contracts. No new data to save.")
 			return
 		}
 	}
@@ -1258,7 +1259,6 @@ func downloadEggIncContracts() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// Notify bot if data is different
 
 	// Save to disk
 	err = os.WriteFile(eggIncContractsFile, body, 0644)
@@ -1268,6 +1268,7 @@ func downloadEggIncContracts() {
 
 	// Notify bot of out new data
 	boost.LoadContractData(eggIncContractsFile)
+	log.Print("EI-Contracts. New data loaded.")
 }
 
 func executeCronJob() {
