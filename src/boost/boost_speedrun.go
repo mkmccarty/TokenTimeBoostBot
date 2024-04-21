@@ -277,7 +277,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 			keepReaction = true
 			var msg, err = s.ChannelMessage(r.ChannelID, r.MessageID)
 			if err == nil {
-				if msg.Reactions[0].Count > contract.CoopSize {
+				if msg.Reactions[1].Count > contract.CoopSize {
 					str := fmt.Sprintf("All players have run chickens. <@%s> can now react with 🦵 then kick all farmers and go to the next CRT leg with 💃.", r.UserID)
 					s.ChannelMessageSend(r.ChannelID, str)
 				}
