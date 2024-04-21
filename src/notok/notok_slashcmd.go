@@ -2,6 +2,8 @@ package notok
 
 import "github.com/bwmarrin/discordgo"
 
+var integerFunMinValue float64 = 20.0
+
 // SlashFunCommand returns the command for the /fun command
 func SlashFunCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
@@ -40,6 +42,8 @@ func SlashFunCommand(cmd string) *discordgo.ApplicationCommand {
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "prompt",
 				Description: "Optional prompt to fine tune the original query. For images it is used to describe the image.",
+				MinValue:    &integerFunMinValue,
+				MaxValue:    250.0,
 				Required:    false,
 			},
 		},
