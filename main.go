@@ -1273,8 +1273,9 @@ func downloadEggIncContracts() {
 func executeCronJob() {
 	if _, err := os.Stat(eggIncContractsFile); os.IsNotExist(err) {
 		downloadEggIncContracts()
+	} else {
+		boost.LoadContractData(eggIncContractsFile)
 	}
-	boost.LoadContractData(eggIncContractsFile)
 	gocron.Every(1).Day().At("16:00:15").Do(downloadEggIncContracts)
 	gocron.Every(1).Day().Do(boost.ArchiveContracts)
 
