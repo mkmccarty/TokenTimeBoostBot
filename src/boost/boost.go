@@ -22,8 +22,7 @@ import (
 	"github.com/rs/xid"
 )
 
-//var usermutex sync.Mutex
-//var diskmutex sync.Mutex
+var mutex sync.Mutex
 
 //var TokenStr = "" //"<:token:778019329693450270>"
 
