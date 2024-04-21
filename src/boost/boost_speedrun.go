@@ -223,7 +223,6 @@ func addSpeedrunContractReactions(s *discordgo.Session, contract *Contract, chan
 		s.MessageReactionAdd(channelID, messageID, "✅")      // Run Reaction
 		s.MessageReactionAdd(channelID, messageID, "🚚")      // Truck Reaction
 		s.MessageReactionAdd(channelID, messageID, "🦵")      // Kick Reaction
-		//s.MessageReactionAdd(channelID, messageID, "💃")      // Tango Reaction
 	}
 	if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
 		s.MessageReactionAdd(channelID, messageID, tokenStr) // Send token to Sink
