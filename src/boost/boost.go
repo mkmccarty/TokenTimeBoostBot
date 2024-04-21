@@ -262,6 +262,14 @@ func getBoostOrderString(contract *Contract) string {
 func CreateContract(s *discordgo.Session, contractID string, coopID string, coopSize int, BoostOrder int, guildID string, channelID string, userID string, pingRole string) (*Contract, error) {
 	var ContractHash = xid.New().String()
 
+	// When creating contracts, we can make sure to clean up and archived ones
+	// Just in case a contract was immediately recreated
+	for _, c := range Contracts {
+		if c.State == ContractStateArchive {
+			FinishContract(s, c)
+		}
+	}
+
 	// Make sure this channel doesn't already have a contract
 	existingContract := FindContract(channelID)
 	if existingContract != nil {
@@ -342,19 +350,23 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 }
 
 // AddBoostTokens will add tokens to the current booster and adjust the count of the booster
-func AddBoostTokens(s *discordgo.Session, guildID string, channelID string, userID string, setCountWant int, countWantAdjust int, countReceivedAdjust int) (int, int, error) {
+func AddBoostTokens(s *discordgo.Session, i *discordgo.InteractionCreate, setCountWant int, countWantAdjust int) (int, int, error) {
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+	})
+
 	// Find the contract
-	var contract = FindContract(channelID)
+	var contract = FindContract(i.ChannelID)
 	if contract == nil {
 		return 0, 0, errors.New(errorNoContract)
 	}
 	// verify the user is in the contract
-	if !userInContract(contract, userID) {
+	if !userInContract(contract, i.Member.User.ID) {
 		return 0, 0, errors.New(errorUserNotInContract)
 	}
 
 	// Add the token count for the userID, ensure the count is not negative
-	var b = contract.Boosters[userID]
+	var b = contract.Boosters[i.Member.User.ID]
 	if b == nil {
 		return 0, 0, errors.New(errorUserNotInContract)
 	}
@@ -369,12 +381,6 @@ func AddBoostTokens(s *discordgo.Session, guildID string, channelID string, user
 	}
 
 	farmerstate.SetTokens(b.UserID, b.TokensWanted)
-
-	// Add received tokens to current booster
-	if countReceivedAdjust > 0 {
-		contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived += countReceivedAdjust
-		//TODO: Maybe track who's sending tokens
-	}
 
 	refreshBoostListMessage(s, contract)
 
@@ -1808,31 +1814,3 @@ func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCr
 			Choices: choices,
 		}})
 }
-
-/*
-func Cluck(s *discordgo.Session, guildID string, channelID string, userID string, msg string) error {
-	var contract = FindContract(guildID, channelID)
-	if contract == nil {
-		return errors.New(errorNoContract)
-	}
-	var booster = contract.Boosters[userID]
-	if booster == nil {
-		return errors.New(errorNoFarmer)
-	}
-	var farmer = contract.EggFarmers[userID]
-	if farmer == nil {
-		return errors.New(errorNoFarmer)
-	}
-
-	// Save every cross channel message
-	append(farmer.Cluck, msg)
-
-	for _, el := range contract.Location {
-
-		s.ChannelMessageSend(el.ChannelID, fmt.Sprintf("%s clucks: %s", booster.Name, msg))
-		s.ChannelMessageDelete(el.ChannelID, el.ListMsgID)
-		s.ChannelMessageDelete(el.ChannelID, el.ReactionID)
-	}
-	return nil
-}
-*/

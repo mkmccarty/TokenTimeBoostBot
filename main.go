@@ -550,19 +550,19 @@ var (
 			s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
 		},
 		"fd_tokens5": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			addBoostTokens(s, i, 5, 0)
+			boost.AddBoostTokens(s, i, 5, 0)
 		},
 		"fd_tokens6": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			addBoostTokens(s, i, 6, 0)
+			boost.AddBoostTokens(s, i, 6, 0)
 		},
 		"fd_tokens8": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			addBoostTokens(s, i, 8, 0)
+			boost.AddBoostTokens(s, i, 8, 0)
 		},
 		"fd_tokens1": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			addBoostTokens(s, i, 0, 1)
+			boost.AddBoostTokens(s, i, 0, 1)
 		},
 		"fd_tokens_sub": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			addBoostTokens(s, i, 0, -1)
+			boost.AddBoostTokens(s, i, 0, -1)
 		},
 		"fd_tokenStartHourPlus": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			track.TokenAdjustTimestamp(s, i, 1, 0, 0, 0)
@@ -751,15 +751,6 @@ func init() {
 			boost.ReactionRemove(s, m.MessageReaction)
 		}
 	})
-
-}
-
-func addBoostTokens(s *discordgo.Session, i *discordgo.InteractionCreate, valueSet int, valueAdj int) {
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-	})
-
-	boost.AddBoostTokens(s, i.GuildID, i.ChannelID, i.Member.User.ID, valueSet, valueAdj, 0)
 }
 
 func downloadEggIncContracts() {
