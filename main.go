@@ -3,7 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
@@ -15,6 +17,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/jasonlvhit/gocron"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
@@ -30,6 +33,8 @@ const boostBotHomeGuild string = "766330702689992720"
 const slashAdminContractsList string = "contract-list"
 const slashAdminContractFinish string = "contract-finish"
 const slashAdminBotSettings string = "bot-settings"
+const eggIncContractsURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json"
+const eggIncContractsFile string = "ttbb-data/ei-contracts.json"
 
 // Slash Command Constants
 const slashContract string = "contract"
@@ -142,10 +147,11 @@ var (
 			Description: "Contract Boosting Elections",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "contract-id",
-					Description: "Contract ID",
-					Required:    true,
+					Type:         discordgo.ApplicationCommandOptionString,
+					Name:         "contract-id",
+					Description:  "Contract ID",
+					Required:     true,
+					Autocomplete: true,
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
@@ -357,10 +363,11 @@ var (
 					Required:    false,
 				},
 				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "contract-id",
-					Description: "Change the contract-id",
-					Required:    false,
+					Type:         discordgo.ApplicationCommandOptionString,
+					Name:         "contract-id",
+					Description:  "Change the contract-id",
+					Required:     false,
+					Autocomplete: true,
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionRole,
@@ -396,6 +403,16 @@ var (
 		{
 			Name:        slashHelp,
 			Description: "Help with Boost Bot commands.",
+		},
+	}
+
+	autocompleteHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+		// Admin Commands
+		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleContractAutoComplete(s, i)
+		},
+		slashChange: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleContractAutoComplete(s, i)
 		},
 	}
 
@@ -526,6 +543,7 @@ var (
 			boost.HandleSlashVolunteerSinkCommand(s, i)
 		},
 		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+
 			// Protection against DM use
 			if i.GuildID == "" {
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -1157,6 +1175,10 @@ func init() {
 				}
 				h(s, i)
 			}
+		case discordgo.InteractionApplicationCommandAutocomplete:
+			if h, ok := autocompleteHandlers[i.ApplicationCommandData().Name]; ok {
+				h(s, i)
+			}
 		case discordgo.InteractionMessageComponent:
 
 			if h, ok := componentHandlers[i.MessageComponentData().CustomID]; ok {
@@ -1201,13 +1223,74 @@ func addBoostTokens(s *discordgo.Session, i *discordgo.InteractionCreate, valueS
 	boost.AddBoostTokens(s, i.GuildID, i.ChannelID, i.Member.User.ID, valueSet, valueAdj, 0)
 }
 
-func main() {
+func downloadEggIncContracts() {
+	// Download the latest data from this URL https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json
+	// save it to disk and put it into an array of structs
+	resp, err := http.Get(eggIncContractsURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
 
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Check if the file already exists
+	if _, err := os.Stat(eggIncContractsFile); err == nil {
+		// Get the current file size
+		fileInfo, err := os.Stat(eggIncContractsFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		currentSize := fileInfo.Size()
+
+		// Compare the current file size with the downloaded data size
+		if currentSize == int64(len(body)) {
+			// File size has not changed, no need to save to disk
+			return
+		}
+	}
+
+	// Save to disk
+	err = os.WriteFile(eggIncContractsFile, body, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// Notify bot if data is different
+
+	// Save to disk
+	err = os.WriteFile(eggIncContractsFile, body, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Notify bot of out new data
+	boost.LoadContractData(eggIncContractsFile)
+}
+
+func executeCronJob() {
+	if _, err := os.Stat(eggIncContractsFile); os.IsNotExist(err) {
+		downloadEggIncContracts()
+	}
+	boost.LoadContractData(eggIncContractsFile)
+	gocron.Every(1).Day().At("16:00:15").Do(downloadEggIncContracts)
+	gocron.Every(1).Day().Do(boost.ArchiveContracts)
+
+	<-gocron.Start()
+}
+
+func main() {
 	/*
 		go func() {
 			log.Println(http.ListenAndServe("localhost:6060", nil))
 		}()
 	*/
+
+	// Start our CRON job to grab Egg Inc contract data from the Carpet github repository
+	go executeCronJob()
+
 	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
 		log.Printf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
 	})

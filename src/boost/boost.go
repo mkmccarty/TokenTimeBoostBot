@@ -1,10 +1,12 @@
 package boost
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
 	"regexp"
 	"slices"
 	"strconv"
@@ -1738,6 +1740,68 @@ func reorderBoosters(contract *Contract) {
 			contract.Order = newOrder
 		}
 	}
+}
+
+// ArchiveContracts will set a contract state to Archive if it is older than 5 days
+func ArchiveContracts() {
+	currentTime := time.Now()
+	for _, contract := range Contracts {
+		if currentTime.Sub(contract.StartTime) > 5*24*time.Hour {
+			contract.State = ContractStateArchive
+			// A different task will handle the deletion of the contract
+		}
+	}
+}
+
+// EggIncContract is a raw contract data for Egg Inc
+type EggIncContract struct {
+	ID string `json:"id"`
+	//Proto string `json:"proto"`
+}
+
+// EggIncContracts holds a list of all contracts, newest is last
+var EggIncContracts []EggIncContract
+
+// LoadContractData will load contract data from a file
+func LoadContractData(filename string) {
+
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&EggIncContracts)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Trim EggIncContracts to only keep the last 10 contracts
+	if len(EggIncContracts) > 10 {
+		EggIncContracts = EggIncContracts[len(EggIncContracts)-10:]
+	}
+
+	// TODO: Parse the protobuf to find the valid current contracts
+}
+
+// HandleContractAutoComplete will handle the contract auto complete of contract-id's
+func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// User interacting with bot, is this first time ?
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+	for _, c := range EggIncContracts {
+		choice := discordgo.ApplicationCommandOptionChoice{
+			Name:  c.ID,
+			Value: c.ID,
+		}
+		choices = append(choices, &choice)
+	}
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Contract ID",
+			Choices: choices,
+		}})
 }
 
 /*
