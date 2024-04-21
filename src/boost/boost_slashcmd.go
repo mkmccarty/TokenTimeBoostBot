@@ -384,7 +384,7 @@ func HandleBumpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	})
 }
 
-// HandlechangeCommand will handle the /change command
+// HandleChangeCommand will handle the /change command
 func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
 	if i.GuildID == "" {
