@@ -19,7 +19,7 @@ func GetSlashTokenCommand(cmd string) *discordgo.ApplicationCommand {
 				Name:        "name",
 				Description: "Unique name for this tracking session. i.e. Use coop-id of the contract.",
 				Required:    true,
-				MaxLength:   16, // Keep this short
+				MaxLength:   32, // Keep this short
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
@@ -76,11 +76,6 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if opt, ok := optionMap["linked"]; ok {
 		linked = opt.BoolValue()
 	}
-	/*
-		if opt, ok := optionMap["link-received"]; ok {
-			linkReceived = opt.BoolValue()
-		}
-	*/
 	if opt, ok := optionMap["contract-channel"]; ok {
 		input := strings.TrimSpace(opt.StringValue())
 		s := strings.Split(input, "/")
