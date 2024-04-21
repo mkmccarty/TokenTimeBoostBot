@@ -1080,7 +1080,9 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 	var currentBooster = ""
 
 	// Save current booster position
-	if contract.State != ContractStateWaiting {
+	if contract.State == ContractStateCompleted {
+		currentBooster = ""
+	} else if contract.State != ContractStateWaiting {
 		currentBooster = contract.Order[contract.BoostPosition]
 	}
 
@@ -1101,7 +1103,11 @@ func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, o
 		}
 
 		// Active Booster is leaving contract.
-		if contract.State == ContractStateWaiting {
+		if contract.State == ContractStateCompleted {
+			contract.State = ContractStateWaiting
+			contract.BoostPosition--
+			sendNextNotification(s, contract, true)
+		} else if contract.State == ContractStateWaiting {
 			contract.BoostPosition = len(contract.Order)
 			sendNextNotification(s, contract, true)
 		} else if contract.State == ContractStateStarted && contract.BoostPosition == len(contract.Order) {
