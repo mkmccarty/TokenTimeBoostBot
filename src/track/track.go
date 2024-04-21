@@ -158,82 +158,7 @@ func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
 	}
 	fmt.Fprintf(&builder, "Start time: <t:%d:t>\n", td.StartTime.Unix())
 	fmt.Fprintf(&builder, "Duration  : **%s**\n", ts[:len(ts)-2])
-	/*
-		if !finalDisplay {
-			offsetTime := time.Since(td.StartTime).Seconds()
-			fmt.Fprintf(&builder, "> Current token value: %1.3f\n", getTokenValue(offsetTime, td.DurationTime.Seconds()))
-			fmt.Fprintf(&builder, "> Token value in 30 minutes: %1.3f\n", getTokenValue(offsetTime+(30*60), td.DurationTime.Seconds()))
-			fmt.Fprintf(&builder, "> Token value in one hour: %1.3f\n\n", getTokenValue(offsetTime+(60*60), td.DurationTime.Seconds()))
-		}
 
-		if len(td.FarmedTokenTime) > 0 {
-			fmt.Fprintf(&builder, "Farmed: **%d**\n", len(td.FarmedTokenTime))
-			if td.Details {
-				for i, t := range td.FarmedTokenTime {
-					if !finalDisplay {
-						fmt.Fprintf(&builder, "> %d: <t:%d:R>\n", i+1, t.Unix())
-					} else {
-						fmt.Fprintf(&builder, "> %d: %s\n", i+1, t.Sub(td.StartTime).Round(time.Second))
-					}
-					if builder.Len() > 1750 {
-						fmt.Fprint(&builder, "> ...\n")
-						break
-					}
-				}
-			}
-		}
-
-		if (len(td.TokenSentTime) + len(td.TokenReceivedTime)) > 0 {
-			fmt.Fprintf(&builder, "Sent: **%d**  (%4.3f)\n", len(td.TokenSentTime), td.SumValueSent)
-			if td.Details {
-				id := "1124449428267343992"
-				for i, t := range td.TokenSentTime {
-					if len(td.TokenSentUserID) == len(td.TokenSentValues) {
-						// Transitional code to fix missing user ID
-						id = td.TokenSentUserID[i]
-					}
-					if !finalDisplay {
-						fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f <@%s>\n", i+1, t.Unix(), td.TokenSentValues[i], id)
-					} else {
-						fmt.Fprintf(&builder, "> %d: %s  %6.3f <@%s>\n", i+1, t.Sub(td.StartTime).Round(time.Second), td.TokenSentValues[i], id)
-					}
-					if builder.Len() > 1750 {
-						fmt.Fprint(&builder, "> ...\n")
-						break
-					}
-				}
-			}
-			fmt.Fprintf(&builder, "Received: **%d**  (%4.3f)\n", len(td.TokenReceivedTime), td.SumValueReceived)
-			if td.Details {
-				id := "1124449428267343992" // Boost Bot ID
-				for i, t := range td.TokenReceivedTime {
-					if len(td.TokenReceivedUserID) == len(td.TokenReceivedValues) {
-						// Transitional code to fix missing user ID
-						id = td.TokenReceivedUserID[i]
-					}
-					if !finalDisplay {
-						fmt.Fprintf(&builder, "> %d: <t:%d:R> %6.3f <@%s>\n", i+1, t.Unix(), td.TokenReceivedValues[i], id)
-					} else {
-						fmt.Fprintf(&builder, "> %d: %s  %6.3f <@%s>\n", i+1, t.Sub(td.StartTime).Round(time.Second), td.TokenReceivedValues[i], id)
-					}
-					if builder.Len() > 1750 {
-						fmt.Fprint(&builder, "> ...\n")
-						break
-					}
-				}
-				if td.LinkRecieved && !finalDisplay {
-					fmt.Fprint(&builder, "React with 1️⃣..🔟 to remove errant received tokens at that index. The bot cannot remove your DM reactions.\n")
-				}
-			}
-			if !finalDisplay {
-				builder.WriteString("**Current")
-			} else {
-				builder.WriteString("**Final")
-			}
-
-			fmt.Fprintf(&builder, " △ TVal %4.3f**\n", td.TokenDelta)
-		}
-	*/
 	return builder.String()
 }
 
@@ -419,6 +344,9 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 			Description: description.String(),
 			Color:       0xffaa00,
 			Fields:      field,
+			Footer: &discordgo.MessageEmbedFooter{
+				Text: "Tracker uses discord interactions and reactions to track tokens. For the most accurate values make sure the start time and total contract time is accurate.",
+			},
 		},
 		},
 	}

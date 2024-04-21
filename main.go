@@ -1268,7 +1268,7 @@ func downloadEggIncContracts() {
 
 	// Notify bot of out new data
 	boost.LoadContractData(eggIncContractsFile)
-	log.Print("EI-Contracts. New data loaded.")
+	log.Print("EI-Contracts. New data loaded, length: ", int64(len(body)))
 }
 
 func executeCronJob() {
