@@ -40,6 +40,8 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 	for _, opt := range options {
 		optionMap[opt.Name] = opt
 	}
+
+	invalidDuration := false
 	channelID := i.ChannelID
 	var duration time.Duration
 	details := false
@@ -57,6 +59,7 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 		if err != nil {
 			// Invalid duration, just assigning a 12h
 			duration = 12 * time.Hour
+			invalidDuration = true
 		}
 	}
 	if opt, ok := optionMap["details"]; ok {
@@ -84,7 +87,11 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 			// Calculate the token value
 			str = calculateTokenValue(contract.StartTime, duration, details, contract.Boosters[userID])
 		}
-
+		if invalidDuration {
+			str += "\n\n__Invalid duration used__\n"
+			str += "**Defaulting to 12 hours**.\n"
+			str += "Format should be entered like `19h35m` or `1d 2h 3m` or `1d2h3m` or `1d 2h"
+		}
 	}
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
