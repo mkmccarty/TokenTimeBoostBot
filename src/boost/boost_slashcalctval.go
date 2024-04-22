@@ -156,7 +156,7 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 	}
 	fmt.Fprintf(&builder, "\n** △ TVal %4.3f**\n", sentValue-receivedValue)
 
-	fmt.Fprintf(&builder, "ᵀʳᵃᶜᵏᵉʳ ᵘˢᵉˢ ᵈᶦˢᶜᵒʳᵈ ᶦⁿᵗᵉʳᵃᶜᵗᶦᵒⁿˢ ᵃⁿᵈ ʳᵉᵃᶜᵗᶦᵒⁿˢ ᵗᵒ ᵗʳᵃᶜᵏ ᵗᵒᵏᵉⁿˢ. ᶠᵒʳ ᵗʰᵉ ᵐᵒˢᵗ ᵃᶜᶜᵘʳᵃᵗᵉ ᵛᵃˡᵘᵉˢ ᵐᵃᵏᵉ ˢᵘʳᵉ ᵗʰᵉ ˢᵗᵃʳᵗ ᵗᶦᵐᵉ ᵃⁿᵈ ᵗᵒᵗᵃˡ ᶜᵒⁿᵗʳᵃᶜᵗ ᵗᶦᵐᵉ ᶦˢ ᵃᶜᶜᵘʳᵃᵗᵉ")
+	fmt.Fprintf(&builder, "ᵀʳᵃᶜᵏᵉʳ ᵘˢᵉˢ ᵈᶦˢᶜᵒʳᵈ ᶦⁿᵗᵉʳᵃᶜᵗᶦᵒⁿˢ ᵃⁿᵈ ʳᵉᵃᶜᵗᶦᵒⁿˢ ᵗᵒ ᵗʳᵃᶜᵏ ᵗᵒᵏᵉⁿˢ. ᶠᵒʳ ᵗʰᵉ ᵐᵒˢᵗ ᵃᶜᶜᵘʳᵃᵗᵉ ᵛᵃˡᵘᵉˢ ᵐᵃᵏᵉ ˢᵘʳᵉ ᵗʰᵉ ᵗᵒᵗᵃˡ ᶜᵒⁿᵗʳᵃᶜᵗ ᵗᶦᵐᵉ ᶦˢ ᵃᶜᶜᵘʳᵃᵗᵉ")
 	return builder.String()
 }
 
