@@ -339,12 +339,14 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 				} else {
 					log.Printf("Sink sent %d tokens to booster\n", b.TokensWanted)
 					// Current booster number of tokens wanted
-					b.TokensReceived += b.TokensWanted
-					sink.TokensReceived -= b.TokensWanted
+					// How many tokens does booster want?  Check to see if sink has that many
+					tokensToSend := min(b.TokensWanted, sink.TokensReceived)
+					b.TokensReceived += tokensToSend
+					sink.TokensReceived -= tokensToSend
 					sink.TokensReceived = max(0, sink.TokensReceived) // Avoid missing self farmed tokens
 					// Record the Tokens as received
 					// Append TokensReceived number of time.Now() to the TokenReceivedTime slice
-					for i := 0; i < b.TokensWanted; i++ {
+					for i := 0; i < tokensToSend; i++ {
 						b.TokenReceivedTime = append(b.TokenReceivedTime, time.Now())
 						b.TokenReceivedName = append(b.TokenReceivedName, r.UserID)
 						contract.Boosters[r.UserID].TokenSentTime = append(contract.Boosters[r.UserID].TokenSentTime, time.Now())

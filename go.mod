@@ -13,7 +13,7 @@ require (
 	github.com/rs/xid v1.5.0
 	github.com/sashabaranov/go-openai v1.22.0
 	github.com/xhit/go-str2duration/v2 v2.1.0
-	google.golang.org/api v0.175.0
+	google.golang.org/api v0.176.0
 )
 
 require (

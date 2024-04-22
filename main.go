@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jasonlvhit/gocron"
@@ -32,6 +34,8 @@ const slashAdminContractFinish string = "contract-finish"
 const slashAdminBotSettings string = "bot-settings"
 const eggIncContractsURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json"
 const eggIncContractsFile string = "ttbb-data/ei-contracts.json"
+
+var lastContractUpdate time.Time
 
 // Slash Command Constants
 const slashContract string = "contract"
@@ -843,7 +847,7 @@ func downloadEggIncContracts() bool {
 	_, err = os.Stat(eggIncContractsFile)
 	if err == nil {
 		// Delete the file
-		err = os.Remove(eggIncContractsFile)
+		os.Remove(eggIncContractsFile)
 	}
 
 	// Save to disk
