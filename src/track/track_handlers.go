@@ -79,6 +79,26 @@ func getTokenValComponents(timeAdjust bool, name string) []discordgo.MessageComp
 				},
 			},
 		},
+		/*
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.SelectMenu{
+						CustomID:    "fd_tokenRemove",
+						Placeholder: "Select token to remove",
+						Options: []discordgo.SelectMenuOption{
+							{
+								Label: "1",
+								Value: "0",
+							},
+							{
+								Label: "2",
+								Value: "2",
+							},
+						},
+					},
+				},
+			},
+		*/
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.Button{
@@ -294,12 +314,4 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		s.ChannelMessageEditComplex(m)
 		defer saveData(Tokens)
 	}
-
-	/*
-		err = s.MessageReactionRemove(r.ChannelID, r.MessageID, emojiName, r.UserID)
-		if err != nil {
-			fmt.Println(err, emojiName)
-		}
-	*/
-
 }
