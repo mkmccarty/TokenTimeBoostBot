@@ -123,6 +123,13 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var selectedShipPrimary = 0   // Default to AH
 	var selectedShipSecondary = 1 // Default to H
 
+	var userID string
+	if i.GuildID != "" {
+		userID = i.Member.User.ID
+	} else {
+		userID = i.User.ID
+	}
+
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -132,20 +139,20 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	if opt, ok := optionMap["primary-ship"]; ok {
 		selectedShipPrimary = int(opt.IntValue())
-		farmerstate.SetMissionShipPrimary(i.Member.User.ID, selectedShipPrimary)
+		farmerstate.SetMissionShipPrimary(userID, selectedShipPrimary)
 	} else {
-		selectedShipPrimary = farmerstate.GetMissionShipPrimary(i.Member.User.ID)
+		selectedShipPrimary = farmerstate.GetMissionShipPrimary(userID)
 	}
 
 	if opt, ok := optionMap["secondary-ship"]; ok {
 		selectedShipSecondary = int(opt.IntValue())
-		farmerstate.SetMissionShipSecondary(i.Member.User.ID, selectedShipSecondary)
+		farmerstate.SetMissionShipSecondary(userID, selectedShipSecondary)
 	} else {
-		selectedShipSecondary = farmerstate.GetMissionShipSecondary(i.Member.User.ID)
+		selectedShipSecondary = farmerstate.GetMissionShipSecondary(userID)
 		if selectedShipSecondary == 0 {
 			// This value should never be 0, so set to the default of 1
 			selectedShipPrimary = 1
-			farmerstate.SetMissionShipSecondary(i.Member.User.ID, selectedShipSecondary)
+			farmerstate.SetMissionShipSecondary(userID, selectedShipSecondary)
 		}
 	}
 
@@ -174,9 +181,9 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 	if opt, ok := optionMap["chain"]; ok {
 		chainExtended = opt.BoolValue()
-		farmerstate.SetLaunchHistory(i.Member.User.ID, chainExtended)
+		farmerstate.SetLaunchHistory(userID, chainExtended)
 	} else {
-		chainExtended = farmerstate.GetLaunchHistory(i.Member.User.ID)
+		chainExtended = farmerstate.GetLaunchHistory(userID)
 	}
 	if opt, ok := optionMap["mission-duration"]; ok {
 		// Timespan is when the next mission arrives
