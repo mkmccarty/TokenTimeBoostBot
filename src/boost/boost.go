@@ -165,6 +165,7 @@ type SpeedrunData struct {
 	Legs                  int    // Number of legs for this Tango
 	Tango                 [3]int // The Tango itself (First, Middle, Last)
 	CurrentLeg            int    // Current Leg
+	LegReactionMessageID  string // Message ID for the Leg Reaction Message
 	StatusStr             string // Status string for the speedrun
 }
 
