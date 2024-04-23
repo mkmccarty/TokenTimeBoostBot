@@ -276,24 +276,43 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 			keepReaction = true
 			var msg, err = s.ChannelMessage(r.ChannelID, r.MessageID)
 			if err == nil {
-				/*
-					// TODO: This could be used to display who has not run chickens yet
-						uids, _ := s.MessageReactions(r.ChannelID, r.MessageID, "✅", 100, "", "1124449428267343992", nil)
-						copyOrder := make([]string, len(contract.Order))
-						copy(copyOrder, contract.Order)
-						for _, uid := range uids {
-							// get the index of uid.ID within copyOrder
-							index := slices.Index(copyOrder, uid.ID)
-							if index != -1 {
-								copyOrder = append(copyOrder[:index], copyOrder[index+1:]...)
-							}
-						}
-				*/
-				if msg.Reactions[1].Count > contract.CoopSize {
-					str := fmt.Sprintf("All players have run chickens. <@%s> can now react with 🦵 then kick all farmers and go to the next CRT leg with 💃.", r.UserID)
-					s.ChannelMessageSend(r.ChannelID, str)
+				// Display the list of users who have not run chickens yet
+				uids, _ := s.MessageReactions(r.ChannelID, r.MessageID, r.Emoji.Name, 100, "", "")
+				copyOrder := make([]string, len(contract.Order))
+				copy(copyOrder, contract.Order)
+				for _, uid := range uids {
+					// get the index of uid.ID within copyOrder
+					index := slices.Index(copyOrder, uid.ID)
+					if index != -1 {
+						copyOrder = append(copyOrder[:index], copyOrder[index+1:]...)
+					}
+				}
+				// create a string of the remaining users and post it to the channel
+				remainingUsers := ""
+				for _, uid := range copyOrder {
+					remainingUsers += "<@" + uid + "> "
 				}
 
+				if len(copyOrder) <= 3 {
+					str := fmt.Sprintf("Waiting on chicken runs from: %s", remainingUsers)
+
+					if contract.SRData.ChickenRunCheckMsgID == "" {
+						msg, _ := s.ChannelMessageSend(r.ChannelID, str)
+						contract.SRData.ChickenRunCheckMsgID = msg.ID
+					} else {
+						msg := discordgo.NewMessageEdit(r.ChannelID, contract.SRData.ChickenRunCheckMsgID)
+						msg.SetContent(str)
+						s.ChannelMessageEditComplex(msg)
+					}
+				}
+
+				if msg.Reactions[1].Count > contract.CoopSize {
+					s.ChannelMessageDelete(r.ChannelID, contract.SRData.ChickenRunCheckMsgID)
+					contract.SRData.ChickenRunCheckMsgID = ""
+
+					str := fmt.Sprintf("All players have run chickens. <@%s> should now react with 🦵 then start to kick all farmers.", r.UserID)
+					s.ChannelMessageSend(r.ChannelID, str)
+				}
 			}
 			// Indicate that the farmer has completed running chickens
 		}
@@ -315,6 +334,10 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 				s.MessageReactionAdd(contract.Location[0].ChannelID, msg.ID, "💃") // Tango Reaction
 				SetReactionID(contract, contract.Location[0].ChannelID, msg.ID)
 				contract.SRData.LegReactionMessageID = msg.ID
+				if contract.SRData.ChickenRunCheckMsgID != "" {
+					s.ChannelMessageDelete(r.ChannelID, contract.SRData.ChickenRunCheckMsgID)
+					contract.SRData.ChickenRunCheckMsgID = ""
+				}
 			}
 
 			if r.Emoji.Name == "💃" && r.MessageID == contract.SRData.LegReactionMessageID {
