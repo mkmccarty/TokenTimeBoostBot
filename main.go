@@ -141,6 +141,12 @@ var (
 		},
 	}
 
+	globalCommands = []*discordgo.ApplicationCommand{
+		launch.SlashLaunchHelperCommand(slashLaunchHelper),
+		track.GetSlashTokenCommand(slashToken),
+		track.GetSlashTokenRemoveCommand(slashTokenRemove),
+	}
+
 	commands = []*discordgo.ApplicationCommand{
 		{
 			Name:        slashContract,
@@ -350,9 +356,6 @@ var (
 		},
 		boost.GetSlashVolunteerSink(slashVolunteerSink),
 		boost.GetSlashCalcContractTval(slashCalcContractTval),
-		launch.SlashLaunchHelperCommand(slashLaunchHelper),
-		track.GetSlashTokenCommand(slashToken),
-		track.GetSlashTokenRemoveCommand(slashTokenRemove),
 		{
 			Name:        slashChange,
 			Description: "Change aspects of a running contract",
@@ -969,16 +972,21 @@ func main() {
 	registeredCommands := make([]*discordgo.ApplicationCommand, len(commands)+len(adminCommands))
 	for i, v := range commands {
 		gid := config.DiscordGuildID
-		if v.Name == slashTokenRemove || v.Name == slashToken || v.Name == slashLaunchHelper {
-			// Only for token commands can they be DM
-			gid = ""
-		}
 		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, gid, v)
 		if err != nil {
 			log.Printf("Cannot create '%v' command: %v", v.Name, err)
 		}
 		registeredCommands[i] = cmd
 	}
+	// Global Commands exist only for the BoostBot Home Guild
+	for i, v := range globalCommands {
+		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, "", v)
+		if err != nil {
+			log.Printf("Cannot create '%v' command: %v", v.Name, err)
+		}
+		registeredCommands[len(commands)+i] = cmd
+	}
+
 	// Admin Commands exist only for the BoostBot Home Guild
 	for i, v := range adminCommands {
 		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, boostBotHomeGuild, v)
