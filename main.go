@@ -753,6 +753,8 @@ func init() {
 					}
 					if i.GuildID != "" {
 						log.Println("Command:", i.ApplicationCommandData().Name, optionMap, i.ChannelID, i.Member.User.ID)
+					} else {
+						log.Println("Command:", i.ApplicationCommandData().Name, optionMap, i.ChannelID, i.User.ID)
 					}
 				}
 				h(s, i)
