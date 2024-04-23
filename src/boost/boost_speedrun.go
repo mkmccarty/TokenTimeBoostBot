@@ -276,6 +276,19 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 			keepReaction = true
 			var msg, err = s.ChannelMessage(r.ChannelID, r.MessageID)
 			if err == nil {
+				/*
+					// TODO: This could be used to display who has not run chickens yet
+						uids, _ := s.MessageReactions(r.ChannelID, r.MessageID, "✅", 100, "", "1124449428267343992", nil)
+						copyOrder := make([]string, len(contract.Order))
+						copy(copyOrder, contract.Order)
+						for _, uid := range uids {
+							// get the index of uid.ID within copyOrder
+							index := slices.Index(copyOrder, uid.ID)
+							if index != -1 {
+								copyOrder = append(copyOrder[:index], copyOrder[index+1:]...)
+							}
+						}
+				*/
 				if msg.Reactions[1].Count > contract.CoopSize {
 					str := fmt.Sprintf("All players have run chickens. <@%s> can now react with 🦵 then kick all farmers and go to the next CRT leg with 💃.", r.UserID)
 					s.ChannelMessageSend(r.ChannelID, str)
