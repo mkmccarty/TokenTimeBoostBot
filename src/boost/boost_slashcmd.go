@@ -526,7 +526,7 @@ func HandleTokenRemoveAutoComplete(s *discordgo.Session, i *discordgo.Interactio
 }
 
 // HandleTokenRemoveCommand will handle the /token-remove command
-func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
+func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCreate) string {
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -553,13 +553,13 @@ func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 	str := "No contract running here"
 	c := FindContract(i.ChannelID)
 	if c == nil {
-		return false
+		return "Contract not found."
 	}
 	if c.Boosters[userID] != nil {
 		b := c.Boosters[userID]
 
 		if tokenIndex >= len(b.TokenSentTime) {
-			return false
+			return fmt.Sprintf("There are only %d tokens to remove.", len(b.TokenSentTime))
 		}
 		tokenIndex--
 
@@ -573,14 +573,6 @@ func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 		}
 		str = "Token removed from tracking on <#" + i.ChannelID + ">."
 	}
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: str,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	},
-	)
 	saveData(Contracts)
-	return true
+	return str
 }

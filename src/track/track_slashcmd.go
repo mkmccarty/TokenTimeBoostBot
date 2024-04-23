@@ -1,6 +1,7 @@
 package track
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -168,7 +169,7 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 }
 
 // HandleTokenRemoveCommand will handle the /token-remove command
-func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCreate) string {
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -195,15 +196,22 @@ func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 	if opt, ok := optionMap["token-index"]; ok {
 		tokenIndex = int(opt.IntValue())
 	}
-
-	// Need to figure out which list to remove from
-	if tokenType == 0 {
-		removeSentToken(userID, tokenList, tokenIndex)
-	} else {
-		removeReceivedToken(userID, tokenList, tokenIndex)
-	}
 	var str = "Token tracker not found in tracking list."
+
 	if Tokens[userID] != nil && Tokens[userID].Coop[tokenList] != nil {
+		t := Tokens[userID].Coop[tokenList]
+		// Need to figure out which list to remove from
+		if tokenType == 0 {
+			if len(t.TokenSentTime) <= tokenIndex {
+				return fmt.Sprintf("Invalid token index. You have sent %d tokens.", len(t.TokenSentTime))
+			}
+			removeSentToken(userID, tokenList, tokenIndex)
+		} else {
+			if len(t.TokenReceivedTime) <= tokenIndex {
+				return fmt.Sprintf("Invalid token index. You have received %d tokens.", len(t.TokenReceivedTime))
+			}
+			removeReceivedToken(userID, tokenList, tokenIndex)
+		}
 		str = "Token removed from tracking on <#" + Tokens[userID].Coop[tokenList].UserChannelID + ">."
 
 		defer saveData(Tokens)
@@ -219,15 +227,8 @@ func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 		}
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: str,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	},
-	)
 	saveData(Tokens)
+	return str
 }
 
 // HandleTokenRemoveAutoComplete will handle the /token-remove autocomplete

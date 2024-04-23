@@ -416,18 +416,24 @@ var (
 			boost.HandleContractAutoComplete(s, i)
 		},
 		slashTokenRemove: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			sstr, cchoices := boost.HandleTokenRemoveAutoComplete(s, i)
+			if i.GuildID == "" {
+				str, choices := track.HandleTokenRemoveAutoComplete(s, i)
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+					Data: &discordgo.InteractionResponseData{
+						Content: str,
+						Choices: choices,
+					}})
 
-			str, choices := track.HandleTokenRemoveAutoComplete(s, i)
-			str = sstr + str
-			choices = append(choices, cchoices...)
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-				Data: &discordgo.InteractionResponseData{
-					Content: str,
-					Choices: choices,
-				}})
-
+			} else {
+				str, choices := boost.HandleTokenRemoveAutoComplete(s, i)
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+					Data: &discordgo.InteractionResponseData{
+						Content: str,
+						Choices: choices,
+					}})
+			}
 		},
 	}
 
@@ -453,9 +459,18 @@ var (
 			track.HandleTokenCommand(s, i)
 		},
 		slashTokenRemove: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			if !boost.HandleTokenRemoveCommand(s, i) {
-				track.HandleTokenRemoveCommand(s, i)
+			var str = "Token not found."
+			if i.GuildID == "" {
+				str = track.HandleTokenRemoveCommand(s, i)
+			} else {
+				str = boost.HandleTokenRemoveCommand(s, i)
 			}
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: str,
+					Flags:   discordgo.MessageFlagsEphemeral,
+				}})
 		},
 		slashCalcContractTval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractCalcContractTvalCommand(s, i)
@@ -953,7 +968,12 @@ func main() {
 	log.Println("Adding commands...")
 	registeredCommands := make([]*discordgo.ApplicationCommand, len(commands)+len(adminCommands))
 	for i, v := range commands {
-		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, config.DiscordGuildID, v)
+		gid := config.DiscordGuildID
+		if v.Name == slashTokenRemove || v.Name == slashToken {
+			// Only for token commands can they be DM
+			gid = ""
+		}
+		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, gid, v)
 		if err != nil {
 			log.Printf("Cannot create '%v' command: %v", v.Name, err)
 		}
