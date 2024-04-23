@@ -197,7 +197,7 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 		offsetTime := time.Since(td.StartTime).Seconds()
 
 		field = append(field, &discordgo.MessageEmbedField{
-			Name:   fmt.Sprintf("Token Value <t:%d:R>", time.Now().Unix()),
+			Name:   fmt.Sprintf("Value <t:%d:R>", time.Now().Unix()),
 			Value:  fmt.Sprintf("%1.3f\n", getTokenValue(offsetTime, td.DurationTime.Seconds())),
 			Inline: true,
 		})
