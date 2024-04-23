@@ -195,21 +195,19 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 		//var tokenValues strings.Builder
 
 		offsetTime := time.Since(td.StartTime).Seconds()
-		//fmt.Fprintf(&tokenValues, "Value now: %1.3f\n", getTokenValue(offsetTime, td.DurationTime.Seconds()))
-		//fmt.Fprintf(&tokenValues, "Value in 30 minutes: %1.3f\n", getTokenValue(offsetTime+(30*60), td.DurationTime.Seconds()))
-		//fmt.Fprintf(&tokenValues, "Value in one hour: %1.3f\n\n", getTokenValue(offsetTime+(60*60), td.DurationTime.Seconds()))
+
 		field = append(field, &discordgo.MessageEmbedField{
-			Name:   "Value Now",
+			Name:   fmt.Sprintf("Token Value <t:%d:R>", time.Now().Unix()),
 			Value:  fmt.Sprintf("%1.3f\n", getTokenValue(offsetTime, td.DurationTime.Seconds())),
 			Inline: true,
 		})
 		field = append(field, &discordgo.MessageEmbedField{
-			Name:   "in 30 Minutes",
+			Name:   fmt.Sprintf("<t:%d:R>", time.Now().Add(30*time.Minute).Unix()),
 			Value:  fmt.Sprintf("%1.3f\n", getTokenValue(offsetTime+(30*60), td.DurationTime.Seconds())),
 			Inline: true,
 		})
 		field = append(field, &discordgo.MessageEmbedField{
-			Name:   "in 1 Hour",
+			Name:   fmt.Sprintf("<t:%d:R>", time.Now().Add(60*time.Minute).Unix()),
 			Value:  fmt.Sprintf("%1.3f\n", getTokenValue(offsetTime+(60*60), td.DurationTime.Seconds())),
 			Inline: true,
 		})

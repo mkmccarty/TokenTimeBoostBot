@@ -111,12 +111,12 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 	sentValue := 0.0
 	receivedValue := 0.0
 
-	fmt.Fprint(&builder, "## Calculating Token Value for Contract based on your contract reactions\n")
+	fmt.Fprint(&builder, "## Token value for contract based on contract reactions\n")
 	fmt.Fprintf(&builder, "### Contract started at: <t:%d:f> with a duration of %s\n", startTime.Unix(), duration.Round(time.Second))
 	offsetTime := time.Since(startTime).Seconds()
-	fmt.Fprintf(&builder, "> **Current token value: %1.3f**\n", getTokenValue(offsetTime, duration.Seconds()))
-	fmt.Fprintf(&builder, "> Token value in 30 minutes: %1.3f\n", getTokenValue(offsetTime+(30*60), duration.Seconds()))
-	fmt.Fprintf(&builder, "> Token value in one hour: %1.3f\n\n", getTokenValue(offsetTime+(60*60), duration.Seconds()))
+	fmt.Fprintf(&builder, "> **Token value <t:%d:R> %1.3f**\n", time.Now().Unix(), getTokenValue(offsetTime, duration.Seconds()))
+	fmt.Fprintf(&builder, "> Token value <t:%d:R>  %1.3f\n", time.Now().Add(30*time.Minute).Unix(), getTokenValue(offsetTime+(30*60), duration.Seconds()))
+	fmt.Fprintf(&builder, "> Token value <t:%d:R>  %1.3f\n\n", time.Now().Add(60*time.Minute).Unix(), getTokenValue(offsetTime+(60*60), duration.Seconds()))
 
 	// for each Token Sent, calculate the value
 	if len(booster.TokensFarmedTime) != 0 {
@@ -154,7 +154,7 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 			}
 		}
 	}
-	fmt.Fprintf(&builder, "\n** △ TVal %4.3f**\n", sentValue-receivedValue)
+	fmt.Fprintf(&builder, "\n**Current △ TVal %4.3f**\n", sentValue-receivedValue)
 
 	fmt.Fprintf(&builder, "ᵀʳᵃᶜᵏᵉʳ ᵘˢᵉˢ ᵈᶦˢᶜᵒʳᵈ ᶦⁿᵗᵉʳᵃᶜᵗᶦᵒⁿˢ ᵃⁿᵈ ʳᵉᵃᶜᵗᶦᵒⁿˢ ᵗᵒ ᵗʳᵃᶜᵏ ᵗᵒᵏᵉⁿˢ. ᶠᵒʳ ᵗʰᵉ ᵐᵒˢᵗ ᵃᶜᶜᵘʳᵃᵗᵉ ᵛᵃˡᵘᵉˢ ᵐᵃᵏᵉ ˢᵘʳᵉ ᵗʰᵉ ᵗᵒᵗᵃˡ ᶜᵒⁿᵗʳᵃᶜᵗ ᵗᶦᵐᵉ ᶦˢ ᵃᶜᶜᵘʳᵃᵗᵉ")
 	return builder.String()
