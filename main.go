@@ -969,7 +969,7 @@ func main() {
 	registeredCommands := make([]*discordgo.ApplicationCommand, len(commands)+len(adminCommands))
 	for i, v := range commands {
 		gid := config.DiscordGuildID
-		if v.Name == slashTokenRemove || v.Name == slashToken {
+		if v.Name == slashTokenRemove || v.Name == slashToken || v.Name == slashLaunchHelper {
 			// Only for token commands can they be DM
 			gid = ""
 		}
