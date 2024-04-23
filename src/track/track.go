@@ -553,13 +553,33 @@ func removeReceivedToken(userID string, name string, index int) {
 		return
 	}
 
+	index--
 	for _, v := range Tokens[userID].Coop {
 		if v != nil && v.Name == name {
-			if index < len(v.TokenReceivedTime) {
+			if index <= len(v.TokenReceivedTime) {
 				v.SumValueReceived -= v.TokenReceivedValues[index]
 				v.TokenReceivedTime = append(v.TokenReceivedTime[:index], v.TokenReceivedTime[index+1:]...)
 				v.TokenReceivedValues = append(v.TokenReceivedValues[:index], v.TokenReceivedValues[index+1:]...)
 				v.TokenReceivedUserID = append(v.TokenReceivedUserID[:index], v.TokenReceivedUserID[index+1:]...)
+				v.TokenDelta = v.SumValueSent - v.SumValueReceived
+				saveData(Tokens)
+			}
+		}
+	}
+}
+
+func removeSentToken(userID string, name string, index int) {
+	if Tokens[userID] == nil {
+		return
+	}
+	index--
+	for _, v := range Tokens[userID].Coop {
+		if v != nil && v.Name == name {
+			if index < len(v.TokenSentTime) {
+				v.SumValueSent -= v.TokenSentValues[index]
+				v.TokenSentTime = append(v.TokenSentTime[:index], v.TokenSentTime[index+1:]...)
+				v.TokenSentValues = append(v.TokenSentValues[:index], v.TokenSentValues[index+1:]...)
+				v.TokenSentUserID = append(v.TokenSentUserID[:index], v.TokenSentUserID[index+1:]...)
 				v.TokenDelta = v.SumValueSent - v.SumValueReceived
 				saveData(Tokens)
 			}

@@ -52,6 +52,7 @@ const slashSpeedrun string = "speedrun"
 const slashCoopETA string = "coopeta"
 const slashLaunchHelper string = "launch-helper"
 const slashToken string = "token"
+const slashTokenRemove string = "token-remove"
 const slashCalcContractTval string = "calc-contract-tval"
 const slashVolunteerSink string = "volunteer-sink"
 const slashFun string = "fun"
@@ -351,6 +352,7 @@ var (
 		boost.GetSlashCalcContractTval(slashCalcContractTval),
 		launch.SlashLaunchHelperCommand(slashLaunchHelper),
 		track.GetSlashTokenCommand(slashToken),
+		track.GetSlashTokenRemoveCommand(slashTokenRemove),
 		{
 			Name:        slashChange,
 			Description: "Change aspects of a running contract",
@@ -413,6 +415,20 @@ var (
 		slashChange: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractAutoComplete(s, i)
 		},
+		slashTokenRemove: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			sstr, cchoices := boost.HandleTokenRemoveAutoComplete(s, i)
+
+			str, choices := track.HandleTokenRemoveAutoComplete(s, i)
+			str = sstr + str
+			choices = append(choices, cchoices...)
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+				Data: &discordgo.InteractionResponseData{
+					Content: str,
+					Choices: choices,
+				}})
+
+		},
 	}
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
@@ -435,6 +451,11 @@ var (
 		},
 		slashToken: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			track.HandleTokenCommand(s, i)
+		},
+		slashTokenRemove: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			if !boost.HandleTokenRemoveCommand(s, i) {
+				track.HandleTokenRemoveCommand(s, i)
+			}
 		},
 		slashCalcContractTval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractCalcContractTvalCommand(s, i)

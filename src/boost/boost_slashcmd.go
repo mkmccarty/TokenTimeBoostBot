@@ -508,3 +508,79 @@ func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	})
 
 }
+
+// HandleTokenRemoveAutoComplete will handle the /token-remove autocomplete
+func HandleTokenRemoveAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) (string, []*discordgo.ApplicationCommandOptionChoice) {
+	// User interacting with bot, is this first time ?
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+
+	c := FindContract(i.ChannelID)
+
+	choice := discordgo.ApplicationCommandOptionChoice{
+		Name:  c.ContractID + "/" + c.CoopID,
+		Value: c.CoopID,
+	}
+	choices = append(choices, &choice)
+
+	return "Select tracker to adjust the token.", choices
+}
+
+// HandleTokenRemoveCommand will handle the /token-remove command
+func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
+	// User interacting with bot, is this first time ?
+	options := i.ApplicationCommandData().Options
+	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+	for _, opt := range options {
+		optionMap[opt.Name] = opt
+	}
+	var userID string
+	if i.GuildID != "" {
+		userID = i.Member.User.ID
+	} else {
+		userID = i.User.ID
+	}
+
+	var tokenType int
+	var tokenIndex int
+
+	if opt, ok := optionMap["token-type"]; ok {
+		tokenType = int(opt.IntValue())
+	}
+	if opt, ok := optionMap["token-index"]; ok {
+		tokenIndex = int(opt.IntValue())
+	}
+
+	str := "No contract running here"
+	c := FindContract(i.ChannelID)
+	if c == nil {
+		return false
+	}
+	if c.Boosters[userID] != nil {
+		b := c.Boosters[userID]
+
+		if tokenIndex >= len(b.TokenSentTime) {
+			return false
+		}
+		tokenIndex--
+
+		// Need to figure out which list to remove from
+		if tokenType == 0 {
+			b.TokenSentTime = append(b.TokenSentTime[:tokenIndex], b.TokenSentTime[tokenIndex+1:]...)
+			b.TokenSentName = append(b.TokenSentName[:tokenIndex], b.TokenSentName[tokenIndex+1:]...)
+		} else {
+			b.TokenReceivedTime = append(b.TokenReceivedTime[:tokenIndex], b.TokenReceivedTime[tokenIndex+1:]...)
+			b.TokenReceivedName = append(b.TokenReceivedName[:tokenIndex], b.TokenReceivedName[tokenIndex+1:]...)
+		}
+		str = "Token removed from tracking on <#" + i.ChannelID + ">."
+	}
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: str,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	},
+	)
+	saveData(Contracts)
+	return true
+}
