@@ -606,6 +606,12 @@ func removeSentToken(userID string, name string, index int) {
 	}
 }
 
+// SaveAllData will remove a token from the tracking list
+func SaveAllData() {
+	log.Print("Saving all token data")
+	saveData(Tokens)
+}
+
 // AdvancedTransform for storing KV pairs
 func advancedTransform(key string) *diskv.PathKey {
 	path := strings.Split(key, "/")
