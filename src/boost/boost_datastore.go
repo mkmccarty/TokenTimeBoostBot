@@ -3,12 +3,19 @@ package boost
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/peterbourgon/diskv/v3"
 )
 
 var dataStore *diskv.Diskv
+
+// SaveAllData will remove a token from the Contracts
+func SaveAllData() {
+	log.Print("Saving contact data")
+	saveData(Contracts)
+}
 
 func initDataStore() {
 
