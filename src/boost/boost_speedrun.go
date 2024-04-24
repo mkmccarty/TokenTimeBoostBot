@@ -12,6 +12,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
+	"github.com/rs/xid"
 )
 
 // HandleSpeedrunCommand handles the speedrun command
@@ -254,15 +255,16 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 		b.TokensReceived++
 		emojiName = r.Emoji.Name + ":" + r.Emoji.ID
 		if r.UserID != b.UserID {
+
 			// Record the Tokens as received
-			b.TokenReceivedTime = append(b.TokenReceivedTime, time.Now())
-			b.TokenReceivedName = append(b.TokenReceivedName, r.UserID)
-			track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, 1, r.UserID)
+			rSerial := xid.New().String()
+			b.Received = append(b.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: r.UserID, Serial: rSerial})
+			track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, 1, r.UserID, rSerial)
 
 			// Record who sent the token
-			track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, 1, b.UserID)
-			contract.Boosters[r.UserID].TokenSentTime = append(contract.Boosters[r.UserID].TokenSentTime, time.Now())
-			contract.Boosters[r.UserID].TokenSentName = append(contract.Boosters[r.UserID].TokenSentName, b.UserID)
+			sSerial := xid.New().String()
+			track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, 1, b.UserID, sSerial)
+			contract.Boosters[r.UserID].Sent = append(contract.Boosters[r.UserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: b.UserID, Serial: sSerial})
 		} else {
 			track.FarmedToken(s, r.ChannelID, r.UserID)
 			b.TokensFarmedTime = append(b.TokensFarmedTime, time.Now())
@@ -382,15 +384,14 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 					sink.TokensReceived -= tokensToSend
 					sink.TokensReceived = max(0, sink.TokensReceived) // Avoid missing self farmed tokens
 					// Record the Tokens as received
-					// Append TokensReceived number of time.Now() to the TokenReceivedTime slice
+					rSerial := xid.New().String()
+					sSerial := xid.New().String()
 					for i := 0; i < tokensToSend; i++ {
-						b.TokenReceivedTime = append(b.TokenReceivedTime, time.Now())
-						b.TokenReceivedName = append(b.TokenReceivedName, r.UserID)
-						contract.Boosters[r.UserID].TokenSentTime = append(contract.Boosters[r.UserID].TokenSentTime, time.Now())
-						contract.Boosters[r.UserID].TokenSentName = append(contract.Boosters[r.UserID].TokenSentName, b.UserID)
+						b.Received = append(b.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: r.UserID, Serial: rSerial})
+						contract.Boosters[r.UserID].Sent = append(contract.Boosters[r.UserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: b.UserID, Serial: sSerial})
 					}
-					track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, b.TokensReceived, r.UserID)
-					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, b.TokensReceived, b.UserID)
+					track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, b.TokensReceived, r.UserID, rSerial)
+					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, b.TokensReceived, b.UserID, sSerial)
 				}
 
 				Boosting(s, r.GuildID, r.ChannelID)

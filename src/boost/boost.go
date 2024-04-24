@@ -94,22 +94,28 @@ type EggFarmer struct {
 	//Cluck       []string  // Keep track of messages from each user
 }
 
+// TokenUnit holds the data for each token
+type TokenUnit struct {
+	Time   time.Time
+	Value  float64
+	UserID string // Who sent or received the token
+	Serial string // Serial number of the token
+}
+
 // Booster holds the data for each booster within a Contract
 type Booster struct {
-	UserID            string // Egg Farmer
-	Name              string
-	BoostState        int           // Indicates if current booster
-	Mention           string        // String which mentions user
-	TokenSentTime     []time.Time   // time of each token sent
-	TokenSentName     []string      // recipient of each token
-	TokenReceivedTime []time.Time   // time of each received token
-	TokenReceivedName []string      // name of sender of received tokens
-	TokensReceived    int           // indicate number of boost tokens
-	TokensWanted      int           // indicate number of boost tokens
-	TokensFarmedTime  []time.Time   // When each token was farmed
-	StartTime         time.Time     // Time Farmer started boost turn
-	EndTime           time.Time     // Time Farmer ended boost turn
-	Duration          time.Duration // Duration of boost
+	UserID           string // Egg Farmer
+	Name             string
+	BoostState       int           // Indicates if current booster
+	Mention          string        // String which mentions user
+	Sent             []TokenUnit   // Tokens sent
+	Received         []TokenUnit   // Tokens received
+	TokensReceived   int           // indicate number of boost tokens
+	TokensWanted     int           // indicate number of boost tokens
+	TokensFarmedTime []time.Time   // When each token was farmed
+	StartTime        time.Time     // Time Farmer started boost turn
+	EndTime          time.Time     // Time Farmer ended boost turn
+	Duration         time.Duration // Duration of boost
 }
 
 // LocationData holds server specific Data for a contract

@@ -9,6 +9,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
+	"github.com/rs/xid"
 )
 
 // ReactionAdd is called when a reaction is added to a message
@@ -183,14 +184,19 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			emojiName = r.Emoji.Name + ":" + r.Emoji.ID
 			if contract.State == ContractStateWaiting || contract.State == ContractStateCompleted {
 				if contract.VolunteerSink != "" {
+					rSerial := xid.New().String()
+					sSerial := xid.New().String()
+
 					sink := contract.Boosters[contract.VolunteerSink]
-					sink.TokenReceivedTime = append(sink.TokenReceivedTime, time.Now())
-					sink.TokenReceivedName = append(sink.TokenReceivedName, r.UserID)
-					track.ContractTokenMessage(s, r.ChannelID, sink.UserID, track.TokenReceived, 1, r.UserID)
+					sink.Received = append(sink.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: r.UserID, Serial: rSerial})
+					//sink.TokenReceivedTime = append(sink.TokenReceivedTime, time.Now())
+					//sink.TokenReceivedName = append(sink.TokenReceivedName, r.UserID)
+					track.ContractTokenMessage(s, r.ChannelID, sink.UserID, track.TokenReceived, 1, r.UserID, rSerial)
 					// Record who sent the token
-					contract.Boosters[r.UserID].TokenSentTime = append(contract.Boosters[r.UserID].TokenSentTime, time.Now())
-					contract.Boosters[r.UserID].TokenSentName = append(contract.Boosters[r.UserID].TokenSentName, sink.UserID)
-					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, 1, sink.UserID)
+					contract.Boosters[r.UserID].Sent = append(contract.Boosters[r.UserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: sink.UserID, Serial: sSerial})
+					//contract.Boosters[r.UserID].TokenSentTime = append(contract.Boosters[r.UserID].TokenSentTime, time.Now())
+					//contract.Boosters[r.UserID].TokenSentName = append(contract.Boosters[r.UserID].TokenSentName, sink.UserID)
+					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, 1, sink.UserID, sSerial)
 				}
 			} else if contract.BoostPosition < len(contract.Order) {
 				var b = contract.Boosters[contract.Order[contract.BoostPosition]]
@@ -198,14 +204,18 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				b.TokensReceived++
 				if r.UserID != b.UserID {
 					// Record the Tokens as received
-					b.TokenReceivedTime = append(b.TokenReceivedTime, time.Now())
-					b.TokenReceivedName = append(b.TokenReceivedName, r.UserID)
-					track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, 1, r.UserID)
+					rSerial := xid.New().String()
+					sSerial := xid.New().String()
+					b.Received = append(b.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: r.UserID, Serial: rSerial})
+					//b.TokenReceivedTime = append(b.TokenReceivedTime, time.Now())
+					//b.TokenReceivedName = append(b.TokenReceivedName, r.UserID)
+					track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, 1, r.UserID, rSerial)
 
 					// Record who sent the token
-					contract.Boosters[r.UserID].TokenSentTime = append(contract.Boosters[r.UserID].TokenSentTime, time.Now())
-					contract.Boosters[r.UserID].TokenSentName = append(contract.Boosters[r.UserID].TokenSentName, b.UserID)
-					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, 1, b.UserID)
+					contract.Boosters[r.UserID].Sent = append(contract.Boosters[r.UserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: b.UserID, Serial: sSerial})
+					//contract.Boosters[r.UserID].TokenSentTime = append(contract.Boosters[r.UserID].TokenSentTime, time.Now())
+					//contract.Boosters[r.UserID].TokenSentName = append(contract.Boosters[r.UserID].TokenSentName, b.UserID)
+					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, 1, b.UserID, sSerial)
 				} else {
 					b.TokensFarmedTime = append(b.TokensFarmedTime, time.Now())
 					track.FarmedToken(s, r.ChannelID, r.UserID)
