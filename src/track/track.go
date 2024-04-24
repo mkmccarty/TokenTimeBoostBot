@@ -21,10 +21,10 @@ const (
 
 // TokenUnit holds everything we need to know about a token
 type TokenUnit struct {
-	Time   time.Time
-	Value  float64
-	UserID string // Who sent or received the token
-	Serial string // Serial number of the token
+	Time   time.Time // Time the token was sent or received
+	Value  float64   // Calculated value of the token
+	UserID string    // Who sent or received the token
+	Serial string    // Serial number of the token
 }
 
 type tokenValue struct {
@@ -39,13 +39,6 @@ type tokenValue struct {
 	DurationTime     time.Duration // Duration of Token Value time
 	Sent             []TokenUnit
 	Received         []TokenUnit
-
-	//TokenSentTime       []time.Time // time of each token sent
-	//TokenSentValues     []float64   // time of each token sent
-	//TokenSentUserID     []string    // User ID of where each token was sent to
-	//TokenReceivedTime   []time.Time // time of each received token
-	//TokenReceivedValues []float64   // time of each token sent
-	//TokenReceivedUserID []string    // User ID of where each token came from
 	FarmedTokenTime  []time.Time // time a self farmed token was received
 	SumValueSent     float64     // sum of all token values sent
 	SumValueReceived float64     // sum of all token values received

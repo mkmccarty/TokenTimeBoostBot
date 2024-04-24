@@ -104,16 +104,12 @@ type TokenUnit struct {
 
 // Booster holds the data for each booster within a Contract
 type Booster struct {
-	UserID     string // Egg Farmer
-	Name       string
-	BoostState int         // Indicates if current booster
-	Mention    string      // String which mentions user
-	Sent       []TokenUnit // Tokens sent
-	Received   []TokenUnit // Tokens received
-	//TokenSentTime     []time.Time   // time of each token sent
-	//TokenSentName     []string      // recipient of each token
-	//TokenReceivedTime []time.Time   // time of each received token
-	//TokenReceivedName []string      // name of sender of received tokens
+	UserID           string // Egg Farmer
+	Name             string
+	BoostState       int           // Indicates if current booster
+	Mention          string        // String which mentions user
+	Sent             []TokenUnit   // Tokens sent
+	Received         []TokenUnit   // Tokens received
 	TokensReceived   int           // indicate number of boost tokens
 	TokensWanted     int           // indicate number of boost tokens
 	TokensFarmedTime []time.Time   // When each token was farmed
