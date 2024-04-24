@@ -335,6 +335,11 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 		})
 	}
 
+	footerStr := "For the most accurate values make sure the start time and total contract time is accurate."
+	if td.Linked {
+		footerStr += " Linked contracts will automatically track tokens sent and received through discord message reactions. "
+	}
+
 	embed := &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{{
 			Type:        discordgo.EmbedTypeRich,
@@ -343,7 +348,7 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 			Color:       0xffaa00,
 			Fields:      field,
 			Footer: &discordgo.MessageEmbedFooter{
-				Text: "Tracker uses discord interactions and reactions to track tokens. For the most accurate values make sure the start time and total contract time is accurate.",
+				Text: footerStr,
 			},
 		},
 		},
