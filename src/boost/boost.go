@@ -326,6 +326,10 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		if slices.Index(contract.CreatorID, "430186990260977665") == -1 {
 			contract.CreatorID = append(contract.CreatorID, "430186990260977665") // Aggie user id
 		}
+		if slices.Index(contract.CreatorID, "184063956539670528") == -1 {
+			contract.CreatorID = append(contract.CreatorID, "184063956539670528") // Halcyon user id
+		}
+
 		contract.RegisteredNum = 0
 		contract.CoopSize = coopSize
 		Contracts[ContractHash] = contract

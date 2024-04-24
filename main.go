@@ -876,13 +876,13 @@ func downloadEggIncContracts() bool {
 		log.Print(err)
 		return false
 	}
-	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Print(err)
 		return false
 	}
+	defer resp.Body.Close()
 
 	// Check if the file already exists
 	_, err = os.Stat(eggIncContractsFile)
@@ -915,7 +915,6 @@ func executeCronJob() {
 	   at utc 16, 17, and 18 it checks on the hour and every minute for the first 9 minutes after and then every 5 minutes the rest of the hour. The rest of the time it checks every 30 minutes. It happens rarely but sometimes contracts get released late.
 
 	   TLDR yes it checks right at contract release time and also fairly frequently for the next hour or two after contract release time and then every 30 minutes
-
 	*/
 	gocron.Every(1).Day().At("16:00:05").Do(downloadEggIncContracts)
 	gocron.Every(1).Day().At("16:00:15").Do(downloadEggIncContracts)
@@ -926,6 +925,7 @@ func executeCronJob() {
 	gocron.Every(1).Day().Do(boost.ArchiveContracts)
 
 	<-gocron.Start()
+	log.Print("Exiting cron job")
 }
 
 func main() {
@@ -939,7 +939,8 @@ func main() {
 	go executeCronJob()
 
 	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
-		log.Printf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
+		log.Printf("Ready message for: %v#%v", s.State.User.Username, s.State.User.Discriminator)
+		log.Printf("Ready Vers:%v  SessId:%v", r.Version, r.SessionID)
 	})
 	err := s.Open()
 	if err != nil {
