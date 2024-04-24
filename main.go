@@ -1006,6 +1006,9 @@ func main() {
 	log.Println("Press Ctrl+C to exit")
 	<-stop
 
+	boost.SaveAllData()
+	track.SaveAllData()
+
 	if *RemoveCommands {
 		log.Println("Removing commands...")
 
