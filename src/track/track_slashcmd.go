@@ -202,13 +202,13 @@ func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 		t := Tokens[userID].Coop[tokenList]
 		// Need to figure out which list to remove from
 		if tokenType == 0 {
-			if len(t.TokenSentTime) <= tokenIndex {
-				return fmt.Sprintf("Invalid token index. You have sent %d tokens.", len(t.TokenSentTime))
+			if len(t.Sent) <= tokenIndex {
+				return fmt.Sprintf("Invalid token index. You have sent %d tokens.", len(t.Sent))
 			}
 			removeSentToken(userID, tokenList, tokenIndex)
 		} else {
-			if len(t.TokenReceivedTime) <= tokenIndex {
-				return fmt.Sprintf("Invalid token index. You have received %d tokens.", len(t.TokenReceivedTime))
+			if len(t.Received) <= tokenIndex {
+				return fmt.Sprintf("Invalid token index. You have received %d tokens.", len(t.Received))
 			}
 			removeReceivedToken(userID, tokenList, tokenIndex)
 		}

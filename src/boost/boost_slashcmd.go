@@ -558,18 +558,20 @@ func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 	if c.Boosters[userID] != nil {
 		b := c.Boosters[userID]
 
-		if tokenIndex >= len(b.TokenSentTime) {
-			return fmt.Sprintf("There are only %d tokens to remove.", len(b.TokenSentTime))
+		if tokenIndex >= len(b.Sent) {
+			return fmt.Sprintf("There are only %d tokens to remove.", len(b.Sent))
 		}
 		tokenIndex--
 
 		// Need to figure out which list to remove from
 		if tokenType == 0 {
-			b.TokenSentTime = append(b.TokenSentTime[:tokenIndex], b.TokenSentTime[tokenIndex+1:]...)
-			b.TokenSentName = append(b.TokenSentName[:tokenIndex], b.TokenSentName[tokenIndex+1:]...)
+			b.Sent = append(b.Sent[:tokenIndex], b.Sent[tokenIndex+1:]...)
+			//b.TokenSentTime = append(b.TokenSentTime[:tokenIndex], b.TokenSentTime[tokenIndex+1:]...)
+			//b.TokenSentName = append(b.TokenSentName[:tokenIndex], b.TokenSentName[tokenIndex+1:]...)
 		} else {
-			b.TokenReceivedTime = append(b.TokenReceivedTime[:tokenIndex], b.TokenReceivedTime[tokenIndex+1:]...)
-			b.TokenReceivedName = append(b.TokenReceivedName[:tokenIndex], b.TokenReceivedName[tokenIndex+1:]...)
+			b.Received = append(b.Received[:tokenIndex], b.Received[tokenIndex+1:]...)
+			//b.TokenReceivedTime = append(b.TokenReceivedTime[:tokenIndex], b.TokenReceivedTime[tokenIndex+1:]...)
+			//b.TokenReceivedName = append(b.TokenReceivedName[:tokenIndex], b.TokenReceivedName[tokenIndex+1:]...)
 		}
 		str = "Token removed from tracking on <#" + i.ChannelID + ">."
 	}

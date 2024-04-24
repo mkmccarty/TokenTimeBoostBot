@@ -127,30 +127,27 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 			}
 		}
 	}
-	if len(booster.TokenSentTime) != 0 {
-		sval := make([]float64, len(booster.TokenSentTime))
-		for i, token := range booster.TokenSentTime {
-			sval[i] = getTokenValue(token.Sub(startTime).Seconds(), duration.Seconds())
-			sentValue += sval[i]
+	if len(booster.Sent) != 0 {
+		for _, token := range booster.Sent {
+			token.Value = getTokenValue(token.Time.Sub(startTime).Seconds(), duration.Seconds())
+			sentValue += token.Value
 		}
-		fmt.Fprintf(&builder, "**Tokens Sent: %d for %4.3f**\n", len(booster.TokenSentTime), sentValue)
+		fmt.Fprintf(&builder, "**Tokens Sent: %d for %4.3f**\n", len(booster.Sent), sentValue)
 		if details {
-			for i, token := range booster.TokenSentTime {
-				fmt.Fprintf(&builder, "> %d: %s  %6.3f\n", i+1, token.Sub(startTime).Round(time.Second), sval[i])
+			for i, token := range booster.Sent {
+				fmt.Fprintf(&builder, "> %d: %s  %6.3f\n", i+1, token.Time.Sub(startTime).Round(time.Second), token.Value)
 			}
 		}
 	}
-	if len(booster.TokenReceivedTime) != 0 {
-		rval := make([]float64, len(booster.TokenReceivedTime))
-
-		for i, token := range booster.TokenReceivedTime {
-			rval[i] = getTokenValue(token.Sub(startTime).Seconds(), duration.Seconds())
-			receivedValue += rval[i]
+	if len(booster.Received) != 0 {
+		for _, token := range booster.Received {
+			token.Value = getTokenValue(token.Time.Sub(startTime).Seconds(), duration.Seconds())
+			receivedValue += token.Value
 		}
-		fmt.Fprintf(&builder, "**Token Received: %d for %4.3f**\n", len(booster.TokenReceivedTime), receivedValue)
+		fmt.Fprintf(&builder, "**Token Received: %d for %4.3f**\n", len(booster.Received), receivedValue)
 		if details {
-			for i, token := range booster.TokenReceivedTime {
-				fmt.Fprintf(&builder, "> %d: %s  %6.3f\n", i+1, token.Sub(startTime).Round(time.Second), rval[i])
+			for i, token := range booster.Received {
+				fmt.Fprintf(&builder, "> %d: %s  %6.3f\n", i+1, token.Time.Sub(startTime).Round(time.Second), token.Value)
 			}
 		}
 	}
