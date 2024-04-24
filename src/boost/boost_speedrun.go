@@ -324,7 +324,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 			s.ChannelMessageSend(contract.Location[0].ChannelID, str)
 		}
 
-		if r.UserID == contract.SRData.SpeedrunStarterUserID {
+		if r.UserID == contract.SRData.SpeedrunStarterUserID || creatorOfContract(contract, r.UserID) {
 			if r.Emoji.Name == "🦵" {
 				keepReaction = true
 				// Indicate that the Sink is starting to kick users
@@ -340,7 +340,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 				}
 			}
 
-			if r.Emoji.Name == "💃" && r.MessageID == contract.SRData.LegReactionMessageID {
+			if r.Emoji.Name == "💃" {
 				keepReaction = true
 
 				// Indicate that this Tango Leg is complete
@@ -377,7 +377,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 					log.Printf("Sink sent %d tokens to booster\n", b.TokensWanted)
 					// Current booster number of tokens wanted
 					// How many tokens does booster want?  Check to see if sink has that many
-					tokensToSend := min(b.TokensWanted, sink.TokensReceived)
+					tokensToSend := b.TokensWanted // If Sink is pressing 💰 they are assumed to be sending that many
 					b.TokensReceived += tokensToSend
 					sink.TokensReceived -= tokensToSend
 					sink.TokensReceived = max(0, sink.TokensReceived) // Avoid missing self farmed tokens
