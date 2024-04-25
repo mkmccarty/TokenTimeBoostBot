@@ -78,22 +78,6 @@ const (
 
 )
 
-// EggFarmer was intended to be more for across contract tracking of users
-type EggFarmer struct {
-	UserID      string // Discord User ID
-	Username    string
-	Unique      string
-	Nick        string
-	GlobalName  string
-	ChannelName string
-	GuildID     string // Discord Guild where this User is From
-	GuildName   string
-	Reactions   int       // Number of times farmer reacted
-	Ping        bool      // True/False
-	Register    time.Time //o Time Farmer registered to boost
-	//Cluck       []string  // Keep track of messages from each user
-}
-
 // TokenUnit holds the data for each token
 type TokenUnit struct {
 	Time   time.Time
@@ -104,10 +88,20 @@ type TokenUnit struct {
 
 // Booster holds the data for each booster within a Contract
 type Booster struct {
-	UserID           string // Egg Farmer
-	Name             string
+	UserID      string // Egg Farmer
+	GlobalName  string
+	ChannelName string
+	GuildID     string // Discord Guild where this User is From
+	GuildName   string
+	Ping        bool      // True/False
+	Register    time.Time //o Time Farmer registered to boost
+
+	Name    string
+	Unique  string
+	Nick    string
+	Mention string // String which mentions user
+
 	BoostState       int           // Indicates if current booster
-	Mention          string        // String which mentions user
 	Sent             []TokenUnit   // Tokens sent
 	Received         []TokenUnit   // Tokens received
 	TokensReceived   int           // indicate number of boost tokens
@@ -139,16 +133,16 @@ type Contract struct {
 	Location     []*LocationData
 	CreatorID    []string // Slice of creators
 	//SignupMsgID    map[string]string // Message ID for the Signup Message
-	ContractID     string // Contract ID
-	CoopID         string // CoopID
-	CoopSize       int
-	BoostOrder     int // How the contract is sorted
-	BoostVoting    int
-	BoostPosition  int       // Starting Slot
-	State          int       // Boost Completed
-	StartTime      time.Time // When Contract is started
-	EndTime        time.Time // When final booster ends
-	EggFarmers     map[string]*EggFarmer
+	ContractID    string // Contract ID
+	CoopID        string // CoopID
+	CoopSize      int
+	BoostOrder    int // How the contract is sorted
+	BoostVoting   int
+	BoostPosition int       // Starting Slot
+	State         int       // Boost Completed
+	StartTime     time.Time // When Contract is started
+	EndTime       time.Time // When final booster ends
+	//EggFarmers     map[string]*EggFarmer
 	RegisteredNum  int
 	Boosters       map[string]*Booster // Boosters Registered
 	Order          []string
@@ -310,7 +304,6 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.ContractHash = ContractHash
 
 		//GlobalContracts[ContractHash] = append(GlobalContracts[ContractHash], loc)
-		contract.EggFarmers = make(map[string]*EggFarmer)
 		contract.Boosters = make(map[string]*Booster)
 		contract.ContractID = contractID
 		contract.CoopID = coopID
@@ -807,28 +800,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 		if u.Bot {
 			return errors.New(errorBot)
 		}
-		var farmer, fe = AddFarmerToContract(s, contract, guildID, channelID, u.ID, order)
-		if fe == nil {
-			// Need to rest the farmer reaction count when added this way
-			farmer.Reactions = 0
-		}
-		/*
-			// TODO: Commented for now, it's just noise announcing it to the channel
-			for _, loc := range contract.Location {
-				var listStr = "Boost"
-				if contract.State == ContractStateSignup {
-					listStr = "Sign-up"
-				}
-				var str = fmt.Sprintf("%s was added to the %s List by %s", u.Mention(), listStr, operator)
-
-				var data discordgo.MessageSend
-				var am discordgo.MessageAllowedMentions
-				data.Content = str
-				data.AllowedMentions = &am
-
-				s.ChannelMessageSendComplex(loc.ChannelID, &data)
-			}
-		*/
+		AddFarmerToContract(s, contract, guildID, channelID, u.ID, order)
 	}
 
 	if guest != "" {
@@ -838,11 +810,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 			}
 		}
 
-		var farmer, fe = AddFarmerToContract(s, contract, guildID, channelID, guest, order)
-		if fe == nil {
-			// Need to rest the farmer reaction count when added this way
-			farmer.Reactions = 0
-		}
+		AddFarmerToContract(s, contract, guildID, channelID, guest, order)
 		for _, loc := range contract.Location {
 			var listStr = "Boost"
 			if contract.State == ContractStateSignup {
@@ -857,82 +825,58 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 }
 
 // AddFarmerToContract adds a farmer to a contract
-func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string, order int) (*EggFarmer, error) {
+func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string, order int) (*Booster, error) {
 	log.Println("AddFarmerToContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", order)
-	var farmer = contract.EggFarmers[userID]
-	if farmer == nil {
-		// New Farmer
-		farmer = new(EggFarmer)
-		farmer.Register = time.Now()
-		farmer.Ping = false
-		farmer.Reactions = 0
-		farmer.UserID = userID
-		farmer.GuildID = guildID
-		ch, errCh := s.Channel(channelID)
-		if errCh != nil {
-			fmt.Println(channelID, errCh)
-			farmer.ChannelName = "Unknown"
-		} else {
-			farmer.ChannelName = ch.Name
-		}
-
-		g, errG := s.Guild(guildID)
-		if errG != nil {
-			fmt.Println(guildID, errG)
-			farmer.GuildName = "Unknown"
-		} else {
-			farmer.GuildName = g.Name
-		}
-
-		// Determine if userID is a snowflake (17-19 character string of numbers) using regex
-		re := regexp.MustCompile(`[0-9]{17,19}`)
-		if re.MatchString(userID) {
-			// userID is a snowflake
-			gm, errGM := s.GuildMember(guildID, userID)
-			if errGM == nil {
-				farmer.Username = gm.User.Username
-				farmer.Nick = gm.Nick
-				farmer.GlobalName = gm.User.GlobalName
-				farmer.Unique = gm.User.String()
-			}
-		}
-
-		// Guest Farmer or unknown guild member will have a blank username
-		if farmer.Username == "" {
-			// userID is not a snowflake
-			farmer.Username = userID
-			farmer.Nick = userID
-			farmer.Unique = userID
-			farmer.GlobalName = userID
-		}
-
-		contract.EggFarmers[userID] = farmer
-	}
 
 	var b = contract.Boosters[userID]
 	if b == nil {
-		// New Farmer - add them to boost list
+		// New Booster - add them to boost list
 		var b = new(Booster)
-		b.UserID = farmer.UserID
+		b.Register = time.Now()
+		b.UserID = userID
+
 		var user, err = s.User(userID)
+		if err != nil {
+			b.GlobalName = userID
+			b.Name = userID
+			b.Nick = userID
+			b.Unique = userID
+			b.Mention = userID
+		} else {
+			b.GlobalName = user.GlobalName
+			b.Name = user.Username
+			b.Mention = user.Mention()
+			gm, errGM := s.GuildMember(guildID, userID)
+			if errGM == nil {
+				if gm.Nick != "" {
+					b.Nick = gm.Nick
+				}
+				b.Unique = gm.User.String()
+			}
+		}
+
+		b.GuildID = guildID
+		// Get Guild Name
+		g, errG := s.Guild(guildID)
+		if errG != nil {
+			b.GuildName = "Unknown"
+		} else {
+			b.GuildName = g.Name
+		}
+		// Get Channel Name
+		ch, errCh := s.Channel(channelID)
+		if errCh != nil {
+			b.ChannelName = "Unknown"
+		} else {
+			b.ChannelName = ch.Name
+		}
+
+		b.Ping = false
 		b.BoostState = BoostStateUnboosted
 		b.TokensWanted = farmerstate.GetTokens(b.UserID)
 		if b.TokensWanted <= 0 {
 			b.TokensWanted = 8
 		}
-		if err == nil {
-			b.Name = user.Username
-			b.Mention = user.Mention()
-		} else {
-			b.Name = userID
-			b.Mention = userID
-		}
-		var member, gmErr = s.GuildMember(guildID, userID)
-		if gmErr == nil && member.Nick != "" {
-			b.Name = member.Nick
-			b.Mention = member.User.Mention()
-		}
-
 		// Check if within the start period of a contract
 		if contract.State != ContractStateSignup {
 			if order == ContractOrderTimeBased || order == ContractOrderFair || order == ContractOrderRandom {
@@ -947,28 +891,28 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			}
 		}
 
-		if !userInContract(contract, farmer.UserID) {
-			contract.Boosters[farmer.UserID] = b
+		if !userInContract(contract, b.UserID) {
+			contract.Boosters[b.UserID] = b
 			// If contract hasn't started add booster to the end
 			// or if contract is on the last booster already
 			if contract.State == ContractStateSignup || contract.State == ContractStateWaiting || order == ContractOrderSignup {
-				contract.Order = append(contract.Order, farmer.UserID)
+				contract.Order = append(contract.Order, b.UserID)
 				if contract.State == ContractStateWaiting {
 					contract.BoostPosition = len(contract.Order) - 1
 				}
 			} else {
 				copyOrder := make([]string, len(contract.Order))
 				copy(copyOrder, contract.Order)
-				copyOrder = append(copyOrder, farmer.UserID)
+				copyOrder = append(copyOrder, b.UserID)
 
 				newOrder := farmerstate.GetOrderHistory(copyOrder, 5)
 
 				// find index of farmer.UserID in newOrder
-				var index = slices.Index(newOrder, farmer.UserID)
+				var index = slices.Index(newOrder, b.UserID)
 				if contract.BoostPosition >= index {
 					index = contract.BoostPosition + 1
 				}
-				contract.Order = insert(contract.Order, index, farmer.UserID)
+				contract.Order = insert(contract.Order, index, b.UserID)
 			}
 			contract.OrderRevision++
 		}
@@ -986,11 +930,11 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			//	s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
 			//}
 			sendNextNotification(s, contract, true)
-			return farmer, nil
+			return b, nil
 		}
 	}
 	refreshBoostListMessage(s, contract)
-	return farmer, nil
+	return b, nil
 }
 
 // IsUserCreatorOfAnyContract will return true if the user is the creator of any contract
@@ -1068,11 +1012,10 @@ func JoinContract(s *discordgo.Session, guildID string, channelID string, userID
 		}
 	}
 
-	var farmer = contract.EggFarmers[userID]
-	farmer.Ping = bell
+	contract.Boosters[userID].Ping = bell
 
 	if bell {
-		u, _ := s.UserChannelCreate(farmer.UserID)
+		u, _ := s.UserChannelCreate(userID)
 		var str = fmt.Sprintf("Boost notifications will be sent for %s/%s.", contract.ContractID, contract.CoopID)
 		_, err := s.ChannelMessageSend(u.ID, str)
 		if err != nil {
@@ -1704,23 +1647,22 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 }
 
 func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
-	for i := range contract.Boosters {
-		var farmer = contract.EggFarmers[contract.Boosters[i].UserID]
-		if farmer.Ping {
-			u, _ := s.UserChannelCreate(farmer.UserID)
+	for i, b := range contract.Boosters {
+		if contract.Boosters[i].Ping {
+			u, _ := s.UserChannelCreate(b.UserID)
 			var str = ""
 			if contract.State == ContractStateCompleted {
 				t1 := contract.EndTime
 				t2 := contract.StartTime
 				duration := t1.Sub(t2)
-				str = fmt.Sprintf("%s: Contract Boosting Completed in %s ", farmer.ChannelName, duration.Round(time.Second))
+				str = fmt.Sprintf("%s: Contract Boosting Completed in %s ", b.ChannelName, duration.Round(time.Second))
 			} else if contract.State == ContractStateWaiting {
 				t1 := time.Now()
 				t2 := contract.StartTime
 				duration := t1.Sub(t2)
-				str = fmt.Sprintf("%s: Boosting Completed in %s. Still %d spots in the contract. ", farmer.ChannelName, duration.Round(time.Second), contract.CoopSize-len(contract.Boosters))
+				str = fmt.Sprintf("%s: Boosting Completed in %s. Still %d spots in the contract. ", b.ChannelName, duration.Round(time.Second), contract.CoopSize-len(contract.Boosters))
 			} else {
-				str = fmt.Sprintf("%s: Send Boost Tokens to %s", farmer.ChannelName, contract.Boosters[contract.Order[contract.BoostPosition]].Name)
+				str = fmt.Sprintf("%s: Send Boost Tokens to %s", b.ChannelName, contract.Boosters[contract.Order[contract.BoostPosition]].Name)
 			}
 			_, err := s.ChannelMessageSend(u.ID, str)
 			if err != nil {

@@ -283,11 +283,6 @@ func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
 	//defer contract.mutex.Unlock()
 	defer saveData(Contracts)
 
-	var farmer = contract.EggFarmers[r.UserID]
-	if farmer == nil {
-		return
-	}
-
 	if !userInContract(contract, r.UserID) {
 		return
 	}
