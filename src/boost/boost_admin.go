@@ -3,11 +3,15 @@ package boost
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
+
+var adminUsers = []string{config.AdminUserID, "238786501700222986", "393477262412087319", "430186990260977665", "184063956539670528"}
 
 // HandleAdminContractFinish is called when the contract is complete
 func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -20,6 +24,18 @@ func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCre
 
 	if opt, ok := optionMap["contract-hash"]; ok {
 		contractHash = strings.TrimSpace(opt.StringValue())
+	}
+
+	// Only allow command if users is in the admin list
+	if slices.Index(adminUsers, i.Member.User.ID) == -1 {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "You are not authorized to use this command.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{}},
+		})
+		return
 	}
 
 	str := "Marking contract " + contractHash + " as finished."
@@ -63,11 +79,16 @@ func getContractList() (string, error) {
 	i := 1
 	for _, c := range Contracts {
 		str += fmt.Sprintf("%d - **%s/%s**\n", i, c.ContractID, c.CoopID)
+		str += fmt.Sprintf("> Coordinator: <@%s>  <%s/%s/%s>\n", c.CreatorID[0], "https://eicoop-carpet.netlify.app", c.ContractID, c.CoopID)
 		for _, loc := range c.Location {
 			str += fmt.Sprintf("> *%s*\t%s\t%s\n", loc.GuildName, loc.ChannelName, loc.ChannelMention)
 		}
-		str += fmt.Sprintf("> Hash: *%s*\n", c.ContractHash)
 		str += fmt.Sprintf("> Started: <t:%d:R>\n", c.StartTime.Unix())
+		str += fmt.Sprintf("> Contract State: *%s*\n", contractStateNames[c.State])
+		if c.Speedrun {
+			str += fmt.Sprintf("> Speedrun State: *%s*\n", speedrunStateNames[c.SRData.SpeedrunState])
+		}
+		str += fmt.Sprintf("> Hash: *%s*\n", c.ContractHash)
 		i++
 	}
 	return str, nil

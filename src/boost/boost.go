@@ -16,7 +16,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/divan/num2words"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	emutil "github.com/post04/discordgo-emoji-util"
 	"github.com/rs/xid"
@@ -38,6 +37,24 @@ const errorContractNotStarted = "contract hasn't started"
 const errorContractAlreadyStarted = "contract already started"
 const errorAlreadyBoosted = "farmer boosted already"
 const errorNotContractCreator = "restricted to contract creator"
+
+// Create a slice with the names of the ContractState const names
+var contractStateNames = []string{
+	"ContractStateSignup",
+	"ContractStateStarted",
+	"ContractStateWaiting",
+	"ContractStateCompleted",
+	"ContractStateArchive",
+}
+
+var speedrunStateNames = []string{
+	"SpeedrunStateNone",
+	"SpeedrunStateSignup",
+	"SpeedrunStateCRT",
+	"SpeedrunStateBoosting",
+	"SpeedrunStatePost",
+	"SpeedrunStateComplete",
+}
 
 // Constnts for the contract
 const (
@@ -315,18 +332,12 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.Speedrun = false
 		contract.SRData.SpeedrunState = SpeedrunStateNone
 		contract.VolunteerSink = ""
+		contract.StartTime = time.Now()
 
-		if slices.Index(contract.CreatorID, config.AdminUserID) == -1 {
-			contract.CreatorID = append(contract.CreatorID, config.AdminUserID) // overall admin user
-		}
-		if slices.Index(contract.CreatorID, "393477262412087319") == -1 {
-			contract.CreatorID = append(contract.CreatorID, "393477262412087319") // Tbone user id
-		}
-		if slices.Index(contract.CreatorID, "430186990260977665") == -1 {
-			contract.CreatorID = append(contract.CreatorID, "430186990260977665") // Aggie user id
-		}
-		if slices.Index(contract.CreatorID, "184063956539670528") == -1 {
-			contract.CreatorID = append(contract.CreatorID, "184063956539670528") // Halcyon user id
+		for _, el := range adminUsers {
+			if slices.Index(contract.CreatorID, el) == -1 {
+				contract.CreatorID = append(contract.CreatorID, el) // Add admin users to the contract
+			}
 		}
 
 		contract.RegisteredNum = 0
