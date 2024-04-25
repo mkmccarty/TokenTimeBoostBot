@@ -159,7 +159,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 			var server = ""
 			var currentStartTime = fmt.Sprintf(" <t:%d:R> ", b.StartTime.Unix())
 			if len(contract.Location) > 1 {
-				server = fmt.Sprintf(" (%s) ", contract.EggFarmers[element].GuildName)
+				server = fmt.Sprintf(" (%s) ", b.GuildName)
 			}
 
 			countStr, signupCountStr := getTokenCountString(tokenStr, b.TokensWanted, b.TokensReceived)
