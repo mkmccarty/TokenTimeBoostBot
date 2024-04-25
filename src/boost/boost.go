@@ -1651,7 +1651,7 @@ func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
 		if contract.Boosters[i].Ping {
 			u, _ := s.UserChannelCreate(b.UserID)
 			var str = ""
-			if contract.State == ContractStateCompleted {
+			if contract.State == ContractStateCompleted || contract.State == ContractStateArchive {
 				t1 := contract.EndTime
 				t2 := contract.StartTime
 				duration := t1.Sub(t2)
