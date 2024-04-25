@@ -128,26 +128,26 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 		}
 	}
 	if len(booster.Sent) != 0 {
-		for _, token := range booster.Sent {
-			token.Value = getTokenValue(token.Time.Sub(startTime).Seconds(), duration.Seconds())
-			sentValue += token.Value
+		for i := range booster.Sent {
+			booster.Sent[i].Value = getTokenValue(booster.Sent[i].Time.Sub(startTime).Seconds(), duration.Seconds())
+			sentValue += booster.Sent[i].Value
 		}
 		fmt.Fprintf(&builder, "**Tokens Sent: %d for %4.3f**\n", len(booster.Sent), sentValue)
 		if details {
-			for i, token := range booster.Sent {
-				fmt.Fprintf(&builder, "> %d: %s  %6.3f\n", i+1, token.Time.Sub(startTime).Round(time.Second), token.Value)
+			for i := range booster.Sent {
+				fmt.Fprintf(&builder, "> %d: %s  %6.3f\n", i+1, booster.Sent[i].Time.Sub(startTime).Round(time.Second), booster.Sent[i].Value)
 			}
 		}
 	}
 	if len(booster.Received) != 0 {
-		for _, token := range booster.Received {
-			token.Value = getTokenValue(token.Time.Sub(startTime).Seconds(), duration.Seconds())
-			receivedValue += token.Value
+		for i := range booster.Received {
+			booster.Received[i].Value = getTokenValue(booster.Received[i].Time.Sub(startTime).Seconds(), duration.Seconds())
+			receivedValue += booster.Received[i].Value
 		}
 		fmt.Fprintf(&builder, "**Token Received: %d for %4.3f**\n", len(booster.Received), receivedValue)
 		if details {
-			for i, token := range booster.Received {
-				fmt.Fprintf(&builder, "> %d: %s  %6.3f\n", i+1, token.Time.Sub(startTime).Round(time.Second), token.Value)
+			for i := range booster.Received {
+				fmt.Fprintf(&builder, "> %d: %s  %6.3f\n", i+1, booster.Received[i].Time.Sub(startTime).Round(time.Second), booster.Received[i].Value)
 			}
 		}
 	}
