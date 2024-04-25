@@ -131,18 +131,18 @@ func TokenTrackingAdjustTime(channelID string, userID string, name string, start
 
 	// Changed duration needs a recalculation
 	td.SumValueSent = 0.0
-	for _, t := range td.Sent {
+	for i, t := range td.Sent {
 		now := t.Time
 		offsetTime := now.Sub(td.StartTime).Seconds()
-		t.Value = getTokenValue(offsetTime, td.DurationTime.Seconds())
-		td.SumValueSent += t.Value
+		td.Sent[i].Value = getTokenValue(offsetTime, td.DurationTime.Seconds())
+		td.SumValueSent += td.Sent[i].Value
 	}
 	td.SumValueReceived = 0.0
-	for _, t := range td.Received {
+	for i, t := range td.Received {
 		now := t.Time
 		offsetTime := now.Sub(td.StartTime).Seconds()
-		t.Value = getTokenValue(offsetTime, td.DurationTime.Seconds())
-		td.SumValueReceived += t.Value
+		td.Received[i].Value = getTokenValue(offsetTime, td.DurationTime.Seconds())
+		td.SumValueReceived += td.Received[i].Value
 
 	}
 	td.TokenDelta = td.SumValueSent - td.SumValueReceived
@@ -225,11 +225,11 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 		var fbuilder strings.Builder
 
 		if td.Details {
-			for i, t := range td.FarmedTokenTime {
+			for i := range td.FarmedTokenTime {
 				if !finalDisplay {
-					fmt.Fprintf(&fbuilder, "%d: <t:%d:R>\n", i+1, t.Unix())
+					fmt.Fprintf(&fbuilder, "%d: <t:%d:R>\n", i+1, td.FarmedTokenTime[i].Unix())
 				} else {
-					fmt.Fprintf(&fbuilder, "%d: %s\n", i+1, t.Sub(td.StartTime).Round(time.Second))
+					fmt.Fprintf(&fbuilder, "%d: %s\n", i+1, td.FarmedTokenTime[i].Sub(td.StartTime).Round(time.Second))
 				}
 			}
 		} else {
@@ -276,7 +276,6 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 					sbuilder.WriteString("> \n")
 				}
 			}
-
 		}
 		field = append(field, &discordgo.MessageEmbedField{
 			Name:   "Sent Tokens",
@@ -427,16 +426,10 @@ func tokenTrackingTrack(userID string, name string, tokenSent int, tokenReceived
 
 	if tokenSent > 0 {
 		td.Sent = append(td.Sent, TokenUnit{Time: now, Value: tokenValue, UserID: userID, Serial: xid.New().String()})
-		//td.TokenSentTime = append(td.TokenSentTime, now)
-		//td.TokenSentValues = append(td.TokenSentValues, tokenValue)
-		//td.TokenSentUserID = append(td.TokenSentUserID, userID) // Self reported
 		td.SumValueSent += tokenValue
 	}
 	if tokenReceived > 0 {
 		td.Received = append(td.Received, TokenUnit{Time: now, Value: tokenValue, UserID: userID, Serial: xid.New().String()})
-		//td.TokenReceivedTime = append(td.TokenReceivedTime, now)
-		//td.TokenReceivedValues = append(td.TokenReceivedValues, tokenValue)
-		//td.TokenReceivedUserID = append(td.TokenReceivedUserID, userID) // Self reported
 		td.SumValueReceived += tokenValue
 	}
 	td.TokenDelta = td.SumValueSent - td.SumValueReceived
@@ -533,18 +526,12 @@ func ContractTokenMessage(s *discordgo.Session, channelID string, userID string,
 			if kind == TokenSent {
 				for i := 0; i < count; i++ {
 					v.Sent = append(v.Sent, TokenUnit{Time: now, Value: tokenValue, UserID: actorUserID, Serial: serialID})
-					//v.TokenSentTime = append(v.TokenSentTime, now)
-					//v.TokenSentValues = append(v.TokenSentValues, tokenValue)
-					//v.TokenSentUserID = append(v.TokenSentUserID, actorUserID) // Token sent to...
 					v.SumValueSent += tokenValue
 				}
 				redraw = true
 			} else if v.LinkRecieved && kind == TokenReceived {
 				for i := 0; i < count; i++ {
 					v.Received = append(v.Received, TokenUnit{Time: now, Value: tokenValue, UserID: actorUserID, Serial: serialID})
-					//v.TokenReceivedTime = append(v.TokenReceivedTime, now)
-					//v.TokenReceivedValues = append(v.TokenReceivedValues, tokenValue)
-					//v.TokenReceivedUserID = append(v.TokenReceivedUserID, actorUserID) // Token received from...
 					v.SumValueReceived += tokenValue
 				}
 				redraw = true
@@ -575,9 +562,6 @@ func removeReceivedToken(userID string, name string, index int) {
 			if index <= len(v.Received) {
 				v.SumValueReceived -= v.Received[index].Value
 				v.Received = append(v.Received[:index], v.Received[index+1:]...)
-				//v.TokenReceivedTime = append(v.TokenReceivedTime[:index], v.TokenReceivedTime[index+1:]...)
-				//v.TokenReceivedValues = append(v.TokenReceivedValues[:index], v.TokenReceivedValues[index+1:]...)
-				//v.TokenReceivedUserID = append(v.TokenReceivedUserID[:index], v.TokenReceivedUserID[index+1:]...)
 				v.TokenDelta = v.SumValueSent - v.SumValueReceived
 				saveData(Tokens)
 			}
@@ -596,9 +580,6 @@ func removeSentToken(userID string, name string, index int) {
 				v.SumValueSent -= v.Sent[index].Value
 				// Rewrite the following 3 lines to use TokenUnit
 				v.Sent = append(v.Sent[:index], v.Sent[index+1:]...)
-				//v.TokenSentTime = append(v.TokenSentTime[:index], v.TokenSentTime[index+1:]...)
-				//v.TokenSentValues = append(v.TokenSentValues[:index], v.TokenSentValues[index+1:]...)
-				//v.TokenSentUserID = append(v.TokenSentUserID[:index], v.TokenSentUserID[index+1:]...)
 				v.TokenDelta = v.SumValueSent - v.SumValueReceived
 				saveData(Tokens)
 			}

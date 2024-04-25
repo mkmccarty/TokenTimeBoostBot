@@ -813,11 +813,13 @@ func isNewEggIncContractDataAvailable() bool {
 			return false
 		}
 
+		const EvalWidth = 256
+
 		fileSize := fileInfo.Size()
-		rangeStart := fileSize - 1024
-		rangeEnd := fileSize + 4096
-		rangeHeader := fmt.Sprintf("bytes=%d-%d", rangeStart, rangeEnd)
+		rangeStart := fileSize - EvalWidth
+		rangeHeader := fmt.Sprintf("bytes=%d-", rangeStart)
 		req.Header.Add("Range", rangeHeader)
+		log.Print("EI-Contracts: Requested Range", rangeHeader)
 		var client http.Client
 		resp, err := client.Do(req)
 		if err != nil {
@@ -829,6 +831,9 @@ func isNewEggIncContractDataAvailable() bool {
 		if err != nil {
 			return false
 		}
+		str := string(body)
+		log.Print("EI-Contracts: Downloaded ", len(body), " bytes")
+		log.Print("EI-Contracts: Downloaded Bytes:", str)
 
 		if len(body) > 0 {
 			// Test if the end of the the file eggIncContractsFile is the same as the body
@@ -839,15 +844,18 @@ func isNewEggIncContractDataAvailable() bool {
 			}
 			defer file.Close()
 			// Read the last 1024 bytes from the file
-			file.Seek(-1024, io.SeekEnd)
-			fileBytes := make([]byte, 1024)
+			file.Seek(-EvalWidth, io.SeekEnd)
+			fileBytes := make([]byte, EvalWidth)
 			_, err = file.Read(fileBytes)
 			if err != nil {
 				log.Print(err)
 				return false
 			}
+			log.Print("EI-Contracts: Bytes ", string(fileBytes))
+			log.Print("EI-Contracts: Compare ", bytes.Equal(fileBytes, body), " Len:", len(fileBytes), len(body))
+
 			// Compare the last 1024 bytes of the file with the body
-			if bytes.Equal(fileBytes, body) && len(fileBytes) == len(body) {
+			if string(fileBytes) == string(body) && len(fileBytes) == len(body) {
 				return false
 			}
 
