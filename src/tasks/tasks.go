@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/jasonlvhit/gocron"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 )
@@ -17,6 +18,24 @@ const eggIncContractsURL string = "https://raw.githubusercontent.com/carpetsage/
 const eggIncContractsFile string = "ttbb-data/ei-contracts.json"
 
 var lastContractUpdate time.Time
+
+// HandleReloadContractsCommand will handle the /reload command
+func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	str := "No updated Egg Inc contract data available"
+
+	result := downloadEggIncContracts()
+	if result {
+		str += "New contract data loaded"
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content:    str,
+			Flags:      discordgo.MessageFlagsEphemeral,
+			Components: []discordgo.MessageComponent{}},
+	})
+}
 
 func isNewEggIncContractDataAvailable() bool {
 	req, err := http.NewRequest("GET", eggIncContractsURL, nil)
