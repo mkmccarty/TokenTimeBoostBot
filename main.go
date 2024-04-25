@@ -28,6 +28,7 @@ const boostBotHomeGuild string = "766330702689992720"
 const slashAdminContractsList string = "contract-list"
 const slashAdminContractFinish string = "contract-finish"
 const slashAdminBotSettings string = "bot-settings"
+const slashReloadContracts string = "reload-contracts"
 
 // Slash Command Constants
 const slashContract string = "contract"
@@ -130,6 +131,10 @@ var (
 					Required:    true,
 				},
 			},
+		},
+		{
+			Name:        slashReloadContracts,
+			Description: "Manual check for new Egg Inc contract data.",
 		},
 	}
 
@@ -439,6 +444,9 @@ var (
 		},
 		slashAdminContractFinish: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAdminContractFinish(s, i)
+		},
+		slashReloadContracts: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			tasks.HandleReloadContractsCommand(s, i)
 		},
 		// Normal Commands
 		slashJoin: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
