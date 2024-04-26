@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
@@ -48,6 +49,7 @@ const slashToken string = "token"
 const slashTokenRemove string = "token-remove"
 const slashCalcContractTval string = "calc-contract-tval"
 const slashVolunteerSink string = "volunteer-sink"
+const slashVoluntellSink string = "voluntell-sink"
 const slashFun string = "fun"
 
 var integerZeroMinValue float64 = 0.0
@@ -352,6 +354,7 @@ var (
 			},
 		},
 		boost.GetSlashVolunteerSink(slashVolunteerSink),
+		boost.GetSlashVoluntellSink(slashVoluntellSink),
 		boost.GetSlashCalcContractTval(slashCalcContractTval),
 		{
 			Name:        slashChange,
@@ -483,6 +486,9 @@ var (
 		},
 		slashVolunteerSink: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleSlashVolunteerSinkCommand(s, i)
+		},
+		slashVoluntellSink: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleSlashVoluntellSinkCommand(s, i)
 		},
 		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractCommand(s, i)

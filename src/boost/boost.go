@@ -97,10 +97,10 @@ const (
 
 // TokenUnit holds the data for each token
 type TokenUnit struct {
-	Time   time.Time
-	Value  float64
-	UserID string // Who sent or received the token
-	Serial string // Serial number of the token
+	Time   time.Time // Time token was received
+	Value  float64   // Last calculated value of the token
+	UserID string    // Who sent or received the token
+	Serial string    // Serial number of the token
 }
 
 // Booster holds the data for each booster within a Contract

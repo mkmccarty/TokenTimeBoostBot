@@ -7,11 +7,10 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
-var adminUsers = []string{config.AdminUserID, "238786501700222986", "393477262412087319", "430186990260977665", "184063956539670528"}
+var adminUsers = []string{"238786501700222986", "393477262412087319", "430186990260977665", "184063956539670528"}
 
 // HandleAdminContractFinish is called when the contract is complete
 func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCreate) {
