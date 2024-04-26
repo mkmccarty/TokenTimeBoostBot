@@ -58,6 +58,7 @@ func isNewEggIncContractDataAvailable() bool {
 		rangeStart := fileSize - EvalWidth
 		rangeHeader := fmt.Sprintf("bytes=%d-", rangeStart)
 		req.Header.Add("Range", rangeHeader)
+		req.Header.Add("Cache-Control", "no-cache")
 		log.Print("EI-Contracts: Requested Range", rangeHeader)
 		var client http.Client
 		resp, err := client.Do(req)
@@ -90,7 +91,7 @@ func isNewEggIncContractDataAvailable() bool {
 				log.Print(err)
 				return false
 			}
-			log.Print("EI-Contracts: Bytes ", string(fileBytes))
+			log.Print("EI-Contracts: Saved File Bytes:", string(fileBytes))
 			log.Print("EI-Contracts: Compare ", bytes.Equal(fileBytes, body), " Len:", len(fileBytes), len(body))
 
 			// Compare the last 1024 bytes of the file with the body
@@ -164,11 +165,22 @@ func ExecuteCronJob() {
 
 		TLDR yes it checks right at contract release time and also fairly frequently for the next hour or two after contract release time and then every 30 minutes
 	*/
-	gocron.Every(1).Day().At("16:00:05").Do(downloadEggIncContracts)
-	gocron.Every(1).Day().At("16:00:15").Do(downloadEggIncContracts)
-	gocron.Every(1).Day().At("16:01:15").Do(downloadEggIncContracts)
-	gocron.Every(1).Day().At("16:02:15").Do(downloadEggIncContracts)
-	gocron.Every(1).Day().At("16:03:15").Do(downloadEggIncContracts)
+
+	// Contracts always start at 9:00 AM Pacific Time
+
+	//pacificTime, e := time.LoadLocation("America/Los_Angeles")
+
+	// 9:00 AM Pacific Time is 16:00 UTC
+
+	// TODO: Change to use https://github.com/go-co-op/gocron
+	gocron.Every(1).Day().At("9:00:00").Do(downloadEggIncContracts)
+	gocron.Every(1).Day().At("9:00:10").Do(downloadEggIncContracts)
+	gocron.Every(1).Day().At("9:00:15").Do(downloadEggIncContracts)
+	gocron.Every(1).Day().At("9:00:30").Do(downloadEggIncContracts)
+	gocron.Every(1).Day().At("9:00:45").Do(downloadEggIncContracts)
+	gocron.Every(1).Day().At("9:01:00").Do(downloadEggIncContracts)
+	gocron.Every(1).Day().At("9:02:00").Do(downloadEggIncContracts)
+	gocron.Every(1).Day().At("9:03:00").Do(downloadEggIncContracts)
 
 	gocron.Every(1).Day().Do(boost.ArchiveContracts)
 
