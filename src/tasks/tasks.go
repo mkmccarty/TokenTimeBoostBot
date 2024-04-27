@@ -181,7 +181,8 @@ func ExecuteCronJob() {
 	var checkTimes []string
 
 	for _, t := range minuteTimes {
-		checkTimes = append(checkTimes, fmt.Sprintf("%02d%s", 16+offset, t))
+		checkTimes = append(checkTimes, fmt.Sprintf("%02d%s", 16+offset, t)) // Handle daylight savings time
+		checkTimes = append(checkTimes, fmt.Sprintf("%02d%s", 17+offset, t)) // Handle standard time
 	}
 
 	for _, t := range checkTimes {
