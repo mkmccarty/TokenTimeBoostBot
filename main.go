@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
@@ -63,9 +62,6 @@ var Version = "development"
 var debugLogging = true
 
 func init() {
-	// Do everything in Los Angeles time.
-	time.LoadLocation("America/Los_Angeles")
-
 	log.Printf("Starting Discord Bot: %s (%s)\n", version.Release, Version)
 
 	// Read application parameters
