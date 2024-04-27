@@ -174,13 +174,13 @@ func ExecuteCronJob() {
 
 	// TODO: Change to use https://github.com/go-co-op/gocron
 	gocron.Every(1).Day().At("9:00:00").Do(downloadEggIncContracts)
-	gocron.Every(1).Day().At("9:00:10").Do(downloadEggIncContracts)
 	gocron.Every(1).Day().At("9:00:15").Do(downloadEggIncContracts)
 	gocron.Every(1).Day().At("9:00:30").Do(downloadEggIncContracts)
 	gocron.Every(1).Day().At("9:00:45").Do(downloadEggIncContracts)
 	gocron.Every(1).Day().At("9:01:00").Do(downloadEggIncContracts)
 	gocron.Every(1).Day().At("9:02:00").Do(downloadEggIncContracts)
 	gocron.Every(1).Day().At("9:03:00").Do(downloadEggIncContracts)
+	gocron.Every(1).Day().At("9:05:00").Do(downloadEggIncContracts)
 
 	gocron.Every(1).Day().Do(boost.ArchiveContracts)
 
