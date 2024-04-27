@@ -1,7 +1,6 @@
 package boost
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -129,7 +128,7 @@ func HandleSlashVoluntellSinkCommand(s *discordgo.Session, i *discordgo.Interact
 			// if VolunteerSink is already set, reply with error
 			// Check if user is already in contract
 			if userInContract(contract, VoluntellName) {
-				contract.VolunteerSink = fmt.Sprintf("**%s**", VoluntellName)
+				contract.VolunteerSink = VoluntellName
 				if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {
 					RedrawBoostList(s, i.GuildID, i.ChannelID)
 				}
