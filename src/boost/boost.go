@@ -1451,8 +1451,10 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 				if einame != "" {
 					einame += " " // Add a space to this
 				}
-				name := einame + contract.Boosters[contract.VolunteerSink].Mention
-				str += fmt.Sprintf("\nSnd tokens to our volunteer sink %s", name)
+				if contract.State != ContractStateArchive {
+					name := einame + contract.Boosters[contract.VolunteerSink].Mention
+					str += fmt.Sprintf("\nSend tokens to our volunteer sink %s", name)
+				}
 			}
 		}
 
