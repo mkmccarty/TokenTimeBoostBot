@@ -109,9 +109,10 @@ func isNewEggIncContractDataAvailable() bool {
 func downloadEggIncContracts() bool {
 	// Download the latest data from this URL https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json
 	// save it to disk and put it into an array of structs
-	if time.Since(lastContractUpdate) < 10*time.Minute {
+	// If data has been read within the last 70 minutes then skip it.
+	// This wil handle daylight savings time changes
+	if time.Since(lastContractUpdate) < 70*time.Minute {
 		log.Print("EI-Contracts. New data was updated ", lastContractUpdate)
-
 		return false
 	}
 	if !isNewEggIncContractDataAvailable() {
@@ -167,20 +168,13 @@ func ExecuteCronJob() {
 	*/
 
 	// Contracts always start at 9:00 AM Pacific Time
-
-	//pacificTime, e := time.LoadLocation("America/Los_Angeles")
-
 	// 9:00 AM Pacific Time is 16:00 UTC
 
 	// TODO: Change to use https://github.com/go-co-op/gocron
-	gocron.Every(1).Day().At("9:00:00").Do(downloadEggIncContracts)
-	gocron.Every(1).Day().At("9:00:15").Do(downloadEggIncContracts)
-	gocron.Every(1).Day().At("9:00:30").Do(downloadEggIncContracts)
-	gocron.Every(1).Day().At("9:00:45").Do(downloadEggIncContracts)
-	gocron.Every(1).Day().At("9:01:00").Do(downloadEggIncContracts)
-	gocron.Every(1).Day().At("9:02:00").Do(downloadEggIncContracts)
-	gocron.Every(1).Day().At("9:03:00").Do(downloadEggIncContracts)
-	gocron.Every(1).Day().At("9:05:00").Do(downloadEggIncContracts)
+	times := []string{"16:00:00", "16:00:15", "16:00:30", "16:00:45", "16:01:00", "16:02:00", "16:03:00", "16:05:00"}
+	for _, t := range times {
+		gocron.Every(1).Day().At(t).Do(downloadEggIncContracts)
+	}
 
 	gocron.Every(1).Day().Do(boost.ArchiveContracts)
 
