@@ -169,10 +169,22 @@ func ExecuteCronJob() {
 
 	// Contracts always start at 9:00 AM Pacific Time
 	// 9:00 AM Pacific Time is 16:00 UTC
+	// Get current system timezone
 
-	// TODO: Change to use https://github.com/go-co-op/gocron
-	times := []string{"16:00:00", "16:00:15", "16:00:30", "16:00:45", "16:01:00", "16:02:00", "16:03:00", "16:05:00"}
-	for _, t := range times {
+	currentTime := time.Now()
+	currentTimeZone, offset := currentTime.Zone()
+	offset = offset / 3600
+	log.Println("The Current time zone is:", currentTimeZone)
+	log.Println("Time zone offset:", offset)
+
+	minuteTimes := []string{":00:00", ":00:15", ":00:30", ":00:45", ":01:00", ":02:00", ":03:00", ":05:00"}
+	var checkTimes []string
+
+	for _, t := range minuteTimes {
+		checkTimes = append(checkTimes, fmt.Sprintf("%02d%s", 16+offset, t))
+	}
+
+	for _, t := range checkTimes {
 		gocron.Every(1).Day().At(t).Do(downloadEggIncContracts)
 	}
 
