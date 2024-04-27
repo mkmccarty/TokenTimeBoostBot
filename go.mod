@@ -1,9 +1,12 @@
 module github.com/mkmccarty/TokenTimeBoostBot
 
-go 1.21
+go 1.22
+
+toolchain go1.22.2
 
 require (
 	github.com/bwmarrin/discordgo v0.28.1
+	github.com/ewohltman/discordgo-mock v0.0.11
 	github.com/dannav/hhmmss v1.0.0
 	github.com/divan/num2words v0.0.0-20170904212200-57dba452f942
 	github.com/google/generative-ai-go v0.11.0
@@ -33,6 +36,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.3 // indirect
+	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/smartystreets/goconvey v1.8.1 // indirect
 	go.opencensus.io v0.24.0 // indirect
