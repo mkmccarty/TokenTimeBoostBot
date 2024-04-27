@@ -71,7 +71,7 @@ func HandleSlashVolunteerSinkCommand(s *discordgo.Session, i *discordgo.Interact
 		} else {
 			// Check if user is already in contract
 			if userInContract(contract, i.Interaction.Member.User.ID) {
-				contract.VolunteerSink = i.Interaction.Member.User.Mention()
+				contract.VolunteerSink = i.Interaction.Member.User.ID
 				if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {
 					RedrawBoostList(s, i.GuildID, i.ChannelID)
 				}
