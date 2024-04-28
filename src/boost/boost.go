@@ -179,6 +179,7 @@ type SpeedrunData struct {
 	SinkBoostPosition     int    // Sink Boost Position
 	SpeedrunStyle         int    // Speedrun Style
 	ChickenRuns           int    // Number of Chicken Runs for this contract
+	SelfRuns              bool   // Farmers performing self runs
 	Legs                  int    // Number of legs for this Tango
 	Tango                 [3]int // The Tango itself (First, Middle, Last)
 	CurrentLeg            int    // Current Leg

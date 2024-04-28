@@ -23,7 +23,9 @@ import (
 const aiBotString string = "Eggcellent, the AIrtists have started work and will reply shortly."
 const aiTextString string = "Eggcellent, the wrAIters have been tasked with a composition for you."
 
-var defaultWish = "Draw a balloon animal staring into a lightbulb in an unhealthy way."
+// var defaultWish = "Draw a balloon animal staring into a lightbulb in an unhealthy way."
+var defaultWish = "Show a potato staring into a lightbulb in an unhealthy way."
+
 var lastWish = defaultWish
 
 func init() {

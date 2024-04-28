@@ -34,6 +34,7 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	sink := ""
 	sinkPosition := SinkBoostFirst
 	speedrunStyle := 0
+	selfRuns := false
 
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -56,11 +57,14 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	if opt, ok := optionMap["chicken-runs"]; ok {
 		chickenRuns = int(opt.IntValue())
 	}
+	if opt, ok := optionMap["self-runs"]; ok {
+		selfRuns = opt.BoolValue()
+	}
 	if opt, ok := optionMap["sink-position"]; ok {
 		sinkPosition = int(opt.IntValue())
 	}
 
-	str, err := setSpeedrunOptions(s, i.ChannelID, contractStarter, sink, sinkPosition, chickenRuns, speedrunStyle)
+	str, err := setSpeedrunOptions(s, i.ChannelID, contractStarter, sink, sinkPosition, chickenRuns, speedrunStyle, selfRuns)
 	if err != nil {
 		str = err.Error()
 	}
@@ -74,7 +78,7 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	})
 }
 
-func setSpeedrunOptions(s *discordgo.Session, channelID string, contractStarter string, sink string, sinkPosition int, chickenRuns int, speedrunStyle int) (string, error) {
+func setSpeedrunOptions(s *discordgo.Session, channelID string, contractStarter string, sink string, sinkPosition int, chickenRuns int, speedrunStyle int, selfRuns bool) (string, error) {
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return "", errors.New(errorNoContract)
@@ -96,16 +100,22 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, contractStarter 
 	contract.SRData.SinkUserID = sink
 	contract.SRData.SinkBoostPosition = sinkPosition
 	contract.SRData.ChickenRuns = chickenRuns
+	contract.SRData.SelfRuns = selfRuns
 	contract.SRData.SpeedrunStyle = speedrunStyle
 	contract.SRData.SpeedrunState = SpeedrunStateSignup
 	contract.BoostOrder = ContractOrderFair
 
 	// Set up the details for the Chicken Run Tango
 	// first lap is CoopSize -1, every following lap is CoopSize -2
+	// unless self runs
+	selfRunMod := 1
+	if selfRuns {
+		selfRunMod = 0
+	}
 
-	contract.SRData.Tango[0] = max(0, contract.CoopSize-1)        // First Leg
-	contract.SRData.Tango[1] = max(0, contract.SRData.Tango[0]-1) // Middle Legs
-	contract.SRData.Tango[2] = 0                                  // Last Leg
+	contract.SRData.Tango[0] = max(0, contract.CoopSize-selfRunMod) // First Leg
+	contract.SRData.Tango[1] = max(0, contract.SRData.Tango[0]-1)   // Middle Legs
+	contract.SRData.Tango[2] = 0                                    // Last Leg
 
 	runs := contract.SRData.ChickenRuns
 	contract.SRData.Legs = 0
@@ -127,6 +137,9 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, contractStarter 
 
 	var b strings.Builder
 	fmt.Fprint(&b, "> Speedrun can be started once the contract is full.\n\n")
+	if contract.SRData.SelfRuns {
+		fmt.Fprintf(&b, "> --> **Self run of chickens is required** <--\n")
+	}
 	if contract.SRData.Tango[0] != 1 {
 		fmt.Fprintf(&b, "> **%d** Chicken Run Legs to reach **%d** total chicken runs.\n", contract.SRData.Legs, contract.SRData.ChickenRuns)
 	} else {
@@ -331,7 +344,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 				keepReaction = true
 				// Indicate that the Sink is starting to kick users
 				str := "**Starting to kick users.** Swap shiny artifacts if you need to force a server sync.\n"
-				str += "<@" + contract.SRData.SpeedrunStarterUserID + "> Sink: React here with 💃 after kicks to move to advance the maketango."
+				str += "<@" + contract.SRData.SpeedrunStarterUserID + "> Sink: React here with 💃 after kicks to advance the tango."
 				msg, _ := s.ChannelMessageSend(contract.Location[0].ChannelID, str)
 				s.MessageReactionAdd(contract.Location[0].ChannelID, msg.ID, "💃") // Tango Reaction
 				SetReactionID(contract, contract.Location[0].ChannelID, msg.ID)
