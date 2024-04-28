@@ -253,6 +253,12 @@ var (
 					MaxValue:    20,
 					Required:    false,
 				},
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "self-runs",
+					Description: "Self Runs during CRT",
+					Required:    false,
+				},
 			},
 		},
 		{
