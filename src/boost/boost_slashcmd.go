@@ -63,6 +63,25 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			coopID = c.Name
 		}
 	}
+
+	if coopSize == 0 {
+		found := false
+		for _, x := range EggIncContracts {
+			if x.ID == contractID {
+				found = true
+			}
+		}
+		if !found {
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content:    "Select a contract-id from the dropdown list.\nIf the contract-id list doesn't have your contract then supply a coop-size parameter.",
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{}},
+			})
+			return
+		}
+	}
 	mutex.Lock()
 	contract, err := CreateContract(s, contractID, coopID, coopSize, boostOrder, i.GuildID, i.ChannelID, i.Member.User.ID, pingRole)
 	mutex.Unlock()
