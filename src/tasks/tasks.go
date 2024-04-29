@@ -14,7 +14,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 )
 
-const eggIncContractsURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json"
+const eggIncContractsURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json?"
 const eggIncContractsFile string = "ttbb-data/ei-contracts.json"
 
 var lastContractUpdate time.Time
@@ -111,10 +111,10 @@ func downloadEggIncContracts(force bool) bool {
 	// save it to disk and put it into an array of structs
 	// If data has been read within the last 70 minutes then skip it.
 	// This wil handle daylight savings time changes
-	if !force && time.Since(lastContractUpdate) < 70*time.Minute {
-		log.Print("EI-Contracts. New data was updated ", lastContractUpdate)
-		return false
-	}
+	//if !force && time.Since(lastContractUpdate) < 10*time.Minute {
+	//	log.Print("EI-Contracts. New data was updated ", lastContractUpdate)
+	//	return false
+	//}
 	if !force && !isNewEggIncContractDataAvailable() {
 		log.Print("EI-Contracts. No new data available")
 		return false
@@ -137,7 +137,11 @@ func downloadEggIncContracts(force bool) bool {
 	_, err = os.Stat(eggIncContractsFile)
 	if err == nil {
 		// Delete the file
-		os.Remove(eggIncContractsFile)
+		log.Print("Deleging", eggIncContractsFile)
+		err = os.Remove(eggIncContractsFile)
+		if err != nil {
+			log.Print("Error Deleting EI-Contracts File ", err.Error())
+		}
 	}
 
 	// Save to disk
