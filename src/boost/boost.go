@@ -18,11 +18,11 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/divan/num2words"
-	"github.com/golang/protobuf/proto"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	emutil "github.com/post04/discordgo-emoji-util"
 	"github.com/rs/xid"
+	"google.golang.org/protobuf/proto"
 )
 
 var mutex sync.Mutex
@@ -1764,7 +1764,7 @@ func LoadContractData(filename string) {
 	EggIncContracts = nil
 	decodedBuf := &ei.Contract{}
 	for _, c := range EggIncContractsLoaded {
-		rawDecodedText, err := base64.StdEncoding.DecodeString(c.Proto)
+		rawDecodedText, _ := base64.StdEncoding.DecodeString(c.Proto)
 		err = proto.Unmarshal(rawDecodedText, decodedBuf)
 		if err != nil {
 			log.Fatalln("Failed to parse address book:", err)
