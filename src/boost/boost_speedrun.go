@@ -99,7 +99,6 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, contractStarter 
 	contract.SRData.SpeedrunStarterUserID = contractStarter
 	contract.SRData.SinkUserID = sink
 	contract.SRData.SinkBoostPosition = sinkPosition
-	contract.SRData.ChickenRuns = chickenRuns
 	contract.SRData.SelfRuns = selfRuns
 	contract.SRData.SpeedrunStyle = speedrunStyle
 	contract.SRData.SpeedrunState = SpeedrunStateSignup
@@ -107,12 +106,8 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, contractStarter 
 
 	// Chicken Runs Calc
 	// Info from https://egg-inc.fandom.com/wiki/Contracts
-	if contract.LengthInSeconds > 0 && chickenRuns == 0 {
-		var d time.Duration
-		d = time.Duration(contract.LengthInSeconds) * time.Second
-		days := int(d.Hours() / 24) // 2 days
-
-		contract.SRData.ChickenRuns = min(20, (days*contract.CoopSize)/2)
+	if chickenRuns != 0 {
+		contract.SRData.ChickenRuns = chickenRuns
 	}
 
 	// Set up the details for the Chicken Run Tango

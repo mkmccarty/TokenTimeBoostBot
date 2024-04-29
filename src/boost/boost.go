@@ -354,6 +354,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 				if cc.ID == contractID {
 					contract.CoopSize = cc.MaxCoopSize
 					contract.LengthInSeconds = cc.LengthInSeconds
+					contract.SRData.ChickenRuns = cc.ChickenRuns
 				}
 			}
 		}
@@ -1751,6 +1752,7 @@ type EggIncContract struct {
 	ID                        string `json:"id"`
 	Proto                     string `json:"proto"`
 	MaxCoopSize               int
+	ChickenRuns               int
 	LengthInSeconds           int
 	ChickenRunCooldownMinutes int
 }
@@ -1789,6 +1791,14 @@ func LoadContractData(filename string) {
 			c.MaxCoopSize = int((*(*decodedBuf).MaxCoopSize))
 			c.LengthInSeconds = int((*(*decodedBuf).LengthSeconds))
 			c.ChickenRunCooldownMinutes = int((*(*decodedBuf).ChickenRunCooldownMinutes))
+			if c.LengthInSeconds > 0 {
+				var d time.Duration
+				d = time.Duration(c.LengthInSeconds) * time.Second
+				days := int(d.Hours() / 24) // 2 days
+
+				c.ChickenRuns = min(20, (days*c.MaxCoopSize)/2)
+			}
+
 			EggIncContracts = append(EggIncContracts, c)
 		}
 	}
