@@ -1792,8 +1792,7 @@ func LoadContractData(filename string) {
 			c.LengthInSeconds = int((*(*decodedBuf).LengthSeconds))
 			c.ChickenRunCooldownMinutes = int((*(*decodedBuf).ChickenRunCooldownMinutes))
 			if c.LengthInSeconds > 0 {
-				var d time.Duration
-				d = time.Duration(c.LengthInSeconds) * time.Second
+				d := time.Duration(c.LengthInSeconds) * time.Second
 				days := int(d.Hours() / 24) // 2 days
 
 				c.ChickenRuns = min(20, (days*c.MaxCoopSize)/2)
