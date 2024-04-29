@@ -154,15 +154,16 @@ type Contract struct {
 	Location     []*LocationData
 	CreatorID    []string // Slice of creators
 	//SignupMsgID    map[string]string // Message ID for the Signup Message
-	ContractID    string // Contract ID
-	CoopID        string // CoopID
-	CoopSize      int
-	BoostOrder    int // How the contract is sorted
-	BoostVoting   int
-	BoostPosition int       // Starting Slot
-	State         int       // Boost Completed
-	StartTime     time.Time // When Contract is started
-	EndTime       time.Time // When final booster ends
+	ContractID      string // Contract ID
+	CoopID          string // CoopID
+	CoopSize        int
+	LengthInSeconds int
+	BoostOrder      int // How the contract is sorted
+	BoostVoting     int
+	BoostPosition   int       // Starting Slot
+	State           int       // Boost Completed
+	StartTime       time.Time // When Contract is started
+	EndTime         time.Time // When final booster ends
 	//EggFarmers     map[string]*EggFarmer
 	RegisteredNum  int
 	Boosters       map[string]*Booster // Boosters Registered
@@ -347,6 +348,15 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 
 		contract.RegisteredNum = 0
 		contract.CoopSize = coopSize
+		if coopSize == 0 {
+			// Pull size from Contract
+			for _, cc := range EggIncContracts {
+				if cc.ID == contractID {
+					contract.CoopSize = cc.MaxCoopSize
+					contract.LengthInSeconds = cc.LengthInSeconds
+				}
+			}
+		}
 		Contracts[ContractHash] = contract
 	} else { //if !creatorOfContract(contract, userID) {
 		//contract.mutex.Lock()

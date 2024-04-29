@@ -166,8 +166,8 @@ var (
 				{
 					Type:        discordgo.ApplicationCommandOptionInteger,
 					Name:        "coop-size",
-					Description: "Co-op Size",
-					Required:    true,
+					Description: "Co-op Size. This will be pulled from EI Contract data if unset.",
+					Required:    false,
 				},
 				{
 					Name:        "boost-order",

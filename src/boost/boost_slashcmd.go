@@ -29,7 +29,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	var contractID = i.GuildID
 	var coopID = i.GuildID // Default to the Guild ID
 	var boostOrder = ContractOrderSignup
-	var coopSize = 2
+	var coopSize = 0
 	var ChannelID = i.ChannelID
 	var pingRole = "@here"
 

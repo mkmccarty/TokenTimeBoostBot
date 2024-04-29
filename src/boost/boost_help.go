@@ -29,7 +29,7 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 		> **/contract**
 		> * *contract-id* : Contract name
 		> * *coop-id* : Coop name
-		> * *coop-size* : Number of farmers for the coop.
+		> * *coop-size* : Number of farmers for the coop. (optional)
 		> * *boost-order* : (opt)
 		>  * *Sign-up Order* : Default. Boosters are ordered in the order they join.
 		>  * *Random Order* : Randomized when the contract starts. After 20 minutes the order changes to Sign-up.
