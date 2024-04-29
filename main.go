@@ -164,6 +164,12 @@ var (
 					Required:    true,
 				},
 				{
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Name:        "coop-size",
+					Description: "Co-op Size",
+					Required:    true,
+				},
+				{
 					Name:        "boost-order",
 					Description: "Select how boost list is ordered. Default is Sign-up order.",
 					Required:    false,
