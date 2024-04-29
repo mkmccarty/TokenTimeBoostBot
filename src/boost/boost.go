@@ -1,10 +1,12 @@
 package boost
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 	"regexp"
@@ -16,6 +18,8 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/divan/num2words"
+	"github.com/golang/protobuf/proto"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	emutil "github.com/post04/discordgo-emoji-util"
 	"github.com/rs/xid"
@@ -1734,8 +1738,8 @@ func ArchiveContracts() {
 
 // EggIncContract is a raw contract data for Egg Inc
 type EggIncContract struct {
-	ID string `json:"id"`
-	//Proto string `json:"proto"`
+	ID    string `json:"id"`
+	Proto string `json:"proto"`
 }
 
 // EggIncContracts holds a list of all contracts, newest is last
@@ -1744,6 +1748,7 @@ var EggIncContracts []EggIncContract
 // LoadContractData will load contract data from a file
 func LoadContractData(filename string) {
 
+	var EggIncContractsLoaded []EggIncContract
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Fatal(err)
@@ -1751,17 +1756,26 @@ func LoadContractData(filename string) {
 	defer file.Close()
 
 	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&EggIncContracts)
+	err = decoder.Decode(&EggIncContractsLoaded)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Trim EggIncContracts to only keep the last 10 contracts
-	if len(EggIncContracts) > 10 {
-		EggIncContracts = EggIncContracts[len(EggIncContracts)-10:]
-	}
+	EggIncContracts = nil
+	decodedBuf := &ei.Contract{}
+	for _, c := range EggIncContractsLoaded {
+		rawDecodedText, err := base64.StdEncoding.DecodeString(c.Proto)
+		err = proto.Unmarshal(rawDecodedText, decodedBuf)
+		if err != nil {
+			log.Fatalln("Failed to parse address book:", err)
+		}
+		expirationTime := int64(math.Round((*(*decodedBuf).ExpirationTime)))
+		contractTime := time.Unix(expirationTime, 0)
 
-	// TODO: Parse the protobuf to find the valid current contracts
+		if contractTime.After(time.Now().UTC()) {
+			EggIncContracts = append(EggIncContracts, c)
+		}
+	}
 }
 
 // HandleContractAutoComplete will handle the contract auto complete of contract-id's
