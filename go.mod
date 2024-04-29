@@ -9,7 +9,6 @@ require (
 	github.com/dannav/hhmmss v1.0.0
 	github.com/divan/num2words v0.0.0-20170904212200-57dba452f942
 	github.com/ewohltman/discordgo-mock v0.0.11
-	github.com/golang/protobuf v1.5.4
 	github.com/google/generative-ai-go v0.11.0
 	github.com/jasonlvhit/gocron v0.0.1
 	github.com/peterbourgon/diskv/v3 v3.0.1
@@ -33,6 +32,7 @@ require (
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -57,4 +57,5 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20240415180920-8c6c420018be // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240415180920-8c6c420018be // indirect
 	google.golang.org/grpc v1.63.2 // indirect
+
 )
