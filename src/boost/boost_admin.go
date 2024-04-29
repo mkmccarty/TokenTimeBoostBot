@@ -3,6 +3,7 @@ package boost
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"slices"
 	"strings"
 
@@ -54,7 +55,7 @@ func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCre
 
 // HandleAdminContractList will list all contracts
 func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	str, err := getContractList()
+	str, embed, err := getContractList()
 	if err != nil {
 		str = err.Error()
 	}
@@ -63,22 +64,28 @@ func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreat
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content:    str,
+			Embeds:     embed.Embeds,
 			Flags:      discordgo.MessageFlagsEphemeral,
 			Components: []discordgo.MessageComponent{}},
 	})
 }
 
+func getRandomColor() int {
+	return rand.Intn(16777216) // 16777216 is the maximum value for a 24-bit color
+}
+
 // getContractList returns a list of all contracts
-func getContractList() (string, error) {
+func getContractList() (string, *discordgo.MessageSend, error) {
+	var field []*discordgo.MessageEmbedField
+
 	str := ""
 	if len(Contracts) == 0 {
-		return "", errors.New("no contracts found")
+		return "", nil, errors.New("no contracts found")
 	}
 
 	i := 1
 	for _, c := range Contracts {
-		str += fmt.Sprintf("%d - **%s/%s**\n", i, c.ContractID, c.CoopID)
-		str += fmt.Sprintf("> Coordinator: <@%s>  <%s/%s/%s>\n", c.CreatorID[0], "https://eicoop-carpet.netlify.app", c.ContractID, c.CoopID)
+		str := fmt.Sprintf("> Coordinator: <@%s>  <%s/%s/%s>\n", c.CreatorID[0], "https://eicoop-carpet.netlify.app", c.ContractID, c.CoopID)
 		for _, loc := range c.Location {
 			str += fmt.Sprintf("> *%s*\t%s\t%s\n", loc.GuildName, loc.ChannelName, loc.ChannelMention)
 		}
@@ -88,9 +95,25 @@ func getContractList() (string, error) {
 			str += fmt.Sprintf("> Speedrun State: *%s*\n", speedrunStateNames[c.SRData.SpeedrunState])
 		}
 		str += fmt.Sprintf("> Hash: *%s*\n", c.ContractHash)
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   fmt.Sprintf("%d - **%s/%s**\n", i, c.ContractID, c.CoopID),
+			Value:  str,
+			Inline: false,
+		})
 		i++
 	}
-	return str, nil
+
+	embed := &discordgo.MessageSend{
+		Embeds: []*discordgo.MessageEmbed{{
+			Type:        discordgo.EmbedTypeRich,
+			Title:       "Contract List",
+			Description: "Admin contract list",
+			Color:       getRandomColor(),
+			Fields:      field,
+		}},
+	}
+
+	return str, embed, nil
 }
 
 // finishContractByHash is called only when the contract is complete
