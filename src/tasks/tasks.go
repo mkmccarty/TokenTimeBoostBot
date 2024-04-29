@@ -23,7 +23,7 @@ var lastContractUpdate time.Time
 func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	str := "No updated Egg Inc contract data available"
 
-	result := downloadEggIncContracts()
+	result := downloadEggIncContracts(true)
 	if result {
 		str += "New contract data loaded"
 	}
@@ -106,16 +106,16 @@ func isNewEggIncContractDataAvailable() bool {
 	return true
 }
 
-func downloadEggIncContracts() bool {
+func downloadEggIncContracts(force bool) bool {
 	// Download the latest data from this URL https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json
 	// save it to disk and put it into an array of structs
 	// If data has been read within the last 70 minutes then skip it.
 	// This wil handle daylight savings time changes
-	if time.Since(lastContractUpdate) < 70*time.Minute {
+	if !force && time.Since(lastContractUpdate) < 70*time.Minute {
 		log.Print("EI-Contracts. New data was updated ", lastContractUpdate)
 		return false
 	}
-	if !isNewEggIncContractDataAvailable() {
+	if !force && !isNewEggIncContractDataAvailable() {
 		log.Print("EI-Contracts. No new data available")
 		return false
 	}
@@ -156,7 +156,7 @@ func downloadEggIncContracts() bool {
 
 // ExecuteCronJob runs the cron jobs for the bot
 func ExecuteCronJob() {
-	if !downloadEggIncContracts() {
+	if !downloadEggIncContracts(false) {
 		boost.LoadContractData(eggIncContractsFile)
 	}
 	/*
