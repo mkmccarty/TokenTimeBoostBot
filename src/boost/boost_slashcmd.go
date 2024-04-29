@@ -29,6 +29,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	var contractID = i.GuildID
 	var coopID = i.GuildID // Default to the Guild ID
 	var boostOrder = ContractOrderSignup
+	var coopSize = 2
 	var ChannelID = i.ChannelID
 	var pingRole = "@here"
 
@@ -39,6 +40,9 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		optionMap[opt.Name] = opt
 	}
 
+	if opt, ok := optionMap["coop-size"]; ok {
+		coopSize = int(opt.IntValue())
+	}
 	if opt, ok := optionMap["ping-role"]; ok {
 		role := opt.RoleValue(nil, "")
 		pingRole = role.Mention()
@@ -60,7 +64,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		}
 	}
 	mutex.Lock()
-	contract, err := CreateContract(s, contractID, coopID, boostOrder, i.GuildID, i.ChannelID, i.Member.User.ID, pingRole)
+	contract, err := CreateContract(s, contractID, coopID, coopSize, boostOrder, i.GuildID, i.ChannelID, i.Member.User.ID, pingRole)
 	mutex.Unlock()
 	if err != nil {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
