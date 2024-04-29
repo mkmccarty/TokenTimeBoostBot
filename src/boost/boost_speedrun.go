@@ -105,6 +105,16 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, contractStarter 
 	contract.SRData.SpeedrunState = SpeedrunStateSignup
 	contract.BoostOrder = ContractOrderFair
 
+	// Chicken Runs Calc
+	// Info from https://egg-inc.fandom.com/wiki/Contracts
+	if contract.LengthInSeconds > 0 && chickenRuns == 0 {
+		var d time.Duration
+		d = time.Duration(contract.LengthInSeconds) * time.Second
+		days := int(d.Hours() / 24) // 2 days
+
+		contract.SRData.ChickenRuns = min(20, (days*contract.CoopSize)/2)
+	}
+
 	// Set up the details for the Chicken Run Tango
 	// first lap is CoopSize -1, every following lap is CoopSize -2
 	// unless self runs

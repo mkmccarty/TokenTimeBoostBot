@@ -248,7 +248,7 @@ var (
 				{
 					Type:        discordgo.ApplicationCommandOptionInteger,
 					Name:        "chicken-runs",
-					Description: "Number of chicken runs for this contract.",
+					Description: "Number of chicken runs for this contract. Optional if contract-id was selected via auto fill.",
 					MinValue:    &integerZeroMinValue,
 					MaxValue:    20,
 					Required:    false,
