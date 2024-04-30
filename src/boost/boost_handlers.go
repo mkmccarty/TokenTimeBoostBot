@@ -50,6 +50,15 @@ func GetSignupComponents(disableStartContract bool, speedrun bool) (string, []di
 					CustomID: "fd_signupStart",
 					Disabled: disableStartContract,
 				},
+				discordgo.Button{
+					Emoji: &discordgo.ComponentEmoji{
+						Name: "♻️",
+					},
+					Label:    "Contract",
+					Style:    discordgo.DangerButton,
+					Disabled: false,
+					CustomID: "fd_delete",
+				},
 			},
 		},
 		discordgo.ActionsRow{

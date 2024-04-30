@@ -99,22 +99,9 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "Boost Order Management",
+			Content: "Contract created. Use the ♻️Contract button if you have to recycle it.",
 			Flags:   discordgo.MessageFlagsEphemeral,
 			// Buttons and other components are specified in Components field.
-			Components: []discordgo.MessageComponent{
-				// ActionRow is a container of all buttons within the same row.
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.Button{
-							Label:    "Delete Contract",
-							Style:    discordgo.DangerButton,
-							Disabled: false,
-							CustomID: "fd_delete",
-						},
-					},
-				},
-			},
 		},
 	})
 	if err != nil {
@@ -596,4 +583,32 @@ func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 	}
 	saveData(Contracts)
 	return str
+}
+
+// HandleContractDelete facilitates the deletion of a channel contract
+func HandleContractDelete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// Delete coop
+	var str = "Contract not found."
+	// if user is contract coordinator
+	contract := FindContract(i.ChannelID)
+
+	if contract != nil {
+
+		if creatorOfContract(contract, i.Member.User.ID) {
+			coopName, err := DeleteContract(s, i.GuildID, i.ChannelID)
+			if err == nil {
+				str = fmt.Sprintf("Contract %s recycled.", coopName)
+			}
+			s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
+		} else {
+			str = "Only the coordinator can recycle this contract."
+		}
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: str,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		}})
 }
