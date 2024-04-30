@@ -106,6 +106,10 @@ func isNewEggIncContractDataAvailable() bool {
 	return true
 }
 
+func cronDownloadEggIncContracts() {
+	downloadEggIncContracts(false)
+}
+
 func downloadEggIncContracts(force bool) bool {
 	// Download the latest data from this URL https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json
 	// save it to disk and put it into an array of structs
@@ -185,12 +189,12 @@ func ExecuteCronJob() {
 	var checkTimes []string
 
 	for _, t := range minuteTimes {
-		checkTimes = append(checkTimes, fmt.Sprintf("%02d%s", 16+offset, t)) // Handle daylight savings time
-		checkTimes = append(checkTimes, fmt.Sprintf("%02d%s", 17+offset, t)) // Handle standard time
+		checkTimes = append(checkTimes, fmt.Sprintf("%d%s", 16+offset, t)) // Handle daylight savings time
+		checkTimes = append(checkTimes, fmt.Sprintf("%d%s", 17+offset, t)) // Handle standard time
 	}
 
 	for _, t := range checkTimes {
-		gocron.Every(1).Day().At(t).Do(downloadEggIncContracts)
+		gocron.Every(1).Day().At(t).Do(cronDownloadEggIncContracts)
 	}
 
 	gocron.Every(1).Day().Do(boost.ArchiveContracts)
