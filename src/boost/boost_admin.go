@@ -80,12 +80,22 @@ func getContractList() (string, *discordgo.MessageSend, error) {
 
 	str := ""
 	if len(Contracts) == 0 {
-		return "", nil, errors.New("no contracts found")
+		embed := &discordgo.MessageSend{
+			Embeds: []*discordgo.MessageEmbed{{
+				Type:        discordgo.EmbedTypeRich,
+				Title:       "Contract List",
+				Description: "No contracts available",
+				Color:       getRandomColor(),
+				Fields:      field,
+			}},
+		}
+
+		return "", embed, nil
 	}
 
 	i := 1
 	for _, c := range Contracts {
-		str := fmt.Sprintf("> Coordinator: <@%s>  <%s/%s/%s>\n", c.CreatorID[0], "https://eicoop-carpet.netlify.app", c.ContractID, c.CoopID)
+		str := fmt.Sprintf("> Coordinator: <@%s>  link:[%s](%s/%s/%s)\n", c.CreatorID[0], c.CoopID, "https://eicoop-carpet.netlify.app", c.ContractID, c.CoopID)
 		for _, loc := range c.Location {
 			str += fmt.Sprintf("> *%s*\t%s\t%s\n", loc.GuildName, loc.ChannelName, loc.ChannelMention)
 		}
@@ -107,7 +117,7 @@ func getContractList() (string, *discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{{
 			Type:        discordgo.EmbedTypeRich,
 			Title:       "Contract List",
-			Description: "Admin contract list",
+			Description: fmt.Sprintf("%d contracts running", len(Contracts)),
 			Color:       getRandomColor(),
 			Fields:      field,
 		}},
