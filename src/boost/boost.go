@@ -154,8 +154,18 @@ type Contract struct {
 	Location     []*LocationData
 	CreatorID    []string // Slice of creators
 	//SignupMsgID    map[string]string // Message ID for the Signup Message
-	ContractID      string // Contract ID
-	CoopID          string // CoopID
+	ContractID string // Contract ID
+	CoopID     string // CoopID
+
+	Name                      string
+	Description               string
+	Egg                       int32
+	EggName                   string
+	TargetAmount              []float64
+	qTargetAmount             []float64
+	ChickenRunCooldownMinutes int
+	MinutesPerToken           int
+
 	CoopSize        int
 	LengthInSeconds int
 	BoostOrder      int // How the contract is sorted
@@ -355,6 +365,15 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 					contract.CoopSize = cc.MaxCoopSize
 					contract.LengthInSeconds = cc.LengthInSeconds
 					contract.SRData.ChickenRuns = cc.ChickenRuns
+
+					contract.Name = cc.Name
+					contract.Description = cc.Description
+					contract.EggName = cc.EggName
+					contract.TargetAmount = cc.TargetAmount
+					contract.qTargetAmount = cc.qTargetAmount
+					contract.ChickenRunCooldownMinutes = cc.ChickenRunCooldownMinutes
+					contract.MinutesPerToken = cc.MinutesPerToken
+					break
 				}
 			}
 		}
