@@ -1753,9 +1753,11 @@ type EggIncContract struct {
 	Proto                     string `json:"proto"`
 	Name                      string
 	Description               string
-	Egg                       int
+	Egg                       int32
+	EggName                   string
 	MaxCoopSize               int
 	TargetAmount              []float64
+	qTargetAmount             []float64
 	ChickenRuns               int
 	LengthInSeconds           int
 	ChickenRunCooldownMinutes int
@@ -1791,7 +1793,10 @@ func LoadContractData(filename string) {
 		}
 		expirationTime := int64(math.Round((*(*decodedBuf).ExpirationTime)))
 		contractTime := time.Unix(expirationTime, 0)
-		coopAllowed := (*(*decodedBuf).CoopAllowed)
+		coopAllowed := false
+		if (*decodedBuf).CoopAllowed != nil {
+			coopAllowed = (*(*decodedBuf).CoopAllowed)
+		}
 
 		if coopAllowed && contractTime.After(time.Now().UTC()) {
 			c.MaxCoopSize = int((*(*decodedBuf).MaxCoopSize))
@@ -1799,10 +1804,12 @@ func LoadContractData(filename string) {
 			c.ChickenRunCooldownMinutes = int((*(*decodedBuf).ChickenRunCooldownMinutes))
 			c.Name = (*(*decodedBuf).Name)
 			c.Description = (*(*decodedBuf).Description)
-			c.Egg = int((*(*decodedBuf).Egg))
+			c.Egg = int32(*(*decodedBuf).Egg)
+			c.EggName = ei.Egg_name[c.Egg]
 			c.MinutesPerToken = int((*(*decodedBuf).MinutesPerToken))
 			for i := range (*(*decodedBuf).GradeSpecs[4]).Goals {
 				c.TargetAmount = append(c.TargetAmount, (*(*(*(*decodedBuf).GradeSpecs[4]).Goals[i]).TargetAmount))
+				c.qTargetAmount = append(c.qTargetAmount, c.TargetAmount[i]/1e15)
 			}
 			if c.LengthInSeconds > 0 {
 				d := time.Duration(c.LengthInSeconds) * time.Second
