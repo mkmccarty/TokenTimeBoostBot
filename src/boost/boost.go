@@ -1751,10 +1751,15 @@ func ArchiveContracts() {
 type EggIncContract struct {
 	ID                        string `json:"id"`
 	Proto                     string `json:"proto"`
+	Name                      string
+	Description               string
+	Egg                       int
 	MaxCoopSize               int
+	TargetAmount              []float64
 	ChickenRuns               int
 	LengthInSeconds           int
 	ChickenRunCooldownMinutes int
+	MinutesPerToken           int
 }
 
 // EggIncContracts holds a list of all contracts, newest is last
@@ -1786,11 +1791,19 @@ func LoadContractData(filename string) {
 		}
 		expirationTime := int64(math.Round((*(*decodedBuf).ExpirationTime)))
 		contractTime := time.Unix(expirationTime, 0)
+		coopAllowed := (*(*decodedBuf).CoopAllowed)
 
-		if contractTime.After(time.Now().UTC()) {
+		if coopAllowed && contractTime.After(time.Now().UTC()) {
 			c.MaxCoopSize = int((*(*decodedBuf).MaxCoopSize))
 			c.LengthInSeconds = int((*(*decodedBuf).LengthSeconds))
 			c.ChickenRunCooldownMinutes = int((*(*decodedBuf).ChickenRunCooldownMinutes))
+			c.Name = (*(*decodedBuf).Name)
+			c.Description = (*(*decodedBuf).Description)
+			c.Egg = int((*(*decodedBuf).Egg))
+			c.MinutesPerToken = int((*(*decodedBuf).MinutesPerToken))
+			for i := range (*(*decodedBuf).GradeSpecs[4]).Goals {
+				c.TargetAmount = append(c.TargetAmount, (*(*(*(*decodedBuf).GradeSpecs[4]).Goals[i]).TargetAmount))
+			}
 			if c.LengthInSeconds > 0 {
 				d := time.Duration(c.LengthInSeconds) * time.Second
 				days := int(d.Hours() / 24) // 2 days
