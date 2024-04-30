@@ -587,21 +587,7 @@ var (
 
 	componentHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		"fd_delete": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			// Delete coop
-			var str = "Contract not found."
-			coopName, err := boost.DeleteContract(s, i.GuildID, i.ChannelID)
-			if err == nil {
-				str = fmt.Sprintf("Contract %s deleted.", coopName)
-			}
-
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseUpdateMessage,
-				Data: &discordgo.InteractionResponseData{
-					Content:    str,
-					Flags:      discordgo.MessageFlagsEphemeral,
-					Components: []discordgo.MessageComponent{}},
-			})
-			s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
+			boost.HandleContractDelete(s, i)
 		},
 		"fd_tokens5": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.AddBoostTokens(s, i, 5, 0)
