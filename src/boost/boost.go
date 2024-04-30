@@ -1848,7 +1848,7 @@ func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCr
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
 	for _, c := range EggIncContracts {
 		choice := discordgo.ApplicationCommandOptionChoice{
-			Name:  c.ID,
+			Name:  fmt.Sprintf("%s (%s)", c.Name, c.ID),
 			Value: c.ID,
 		}
 		choices = append(choices, &choice)
