@@ -3,7 +3,7 @@ package boost
 import (
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"slices"
 	"strings"
 
@@ -71,7 +71,7 @@ func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreat
 }
 
 func getRandomColor() int {
-	return rand.Intn(16777216) // 16777216 is the maximum value for a 24-bit color
+	return rand.IntN(16777216) // 16777216 is the maximum value for a 24-bit color
 }
 
 // getContractList returns a list of all contracts
