@@ -13,8 +13,17 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 	var outputStr = ""
 	var afterListStr = ""
 	saveData(Contracts)
+	if contract.EggEmoji == "" {
+		contract.EggEmoji = FindEggEmoji(s, "485162044652388384", contract.EggName)
+	}
 
-	outputStr = fmt.Sprintf("## %s (%s) - 📋%s - %d/%d\n", contract.Name, contract.CoopID, getBoostOrderString(contract), len(contract.Boosters), contract.CoopSize)
+	if len(contract.Boosters) == contract.CoopSize {
+		// Full contract, don't need extra details
+		outputStr = fmt.Sprintf("## %s %s (%s)\n", contract.EggEmoji, contract.Name, contract.CoopID)
+	} else {
+		outputStr = fmt.Sprintf("## %s %s (%s) - 📋%s - %d/%d\n", contract.EggEmoji, contract.Name, contract.CoopID, getBoostOrderString(contract), len(contract.Boosters), contract.CoopSize)
+	}
+
 	outputStr += fmt.Sprintf("> Coordinator: <@%s> \n> <%s/%s/%s>\n", contract.CreatorID[0], "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID)
 	if !contract.Speedrun && contract.VolunteerSink != "" {
 		outputStr += fmt.Sprintf("> Post Contract Sink: %s\n", contract.Boosters[contract.VolunteerSink].Mention)
@@ -55,6 +64,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		} else {
 			outputStr += "## Boost List\n"
 		}
+	} else if contract.State >= ContractStateWaiting {
+		outputStr += "## Boost List\n"
 	}
 	var prefix = " - "
 

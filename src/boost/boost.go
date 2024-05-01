@@ -27,6 +27,8 @@ import (
 
 var mutex sync.Mutex
 
+const boostBotHomeGuild string = "766330702689992720"
+
 //var TokenStr = "" //"<:token:778019329693450270>"
 
 const errorNoContract string = "contract doesn't exist"
@@ -161,6 +163,7 @@ type Contract struct {
 	Description               string
 	Egg                       int32
 	EggName                   string
+	EggEmoji                  string
 	TargetAmount              []float64
 	qTargetAmount             []float64
 	ChickenRunCooldownMinutes int
@@ -248,16 +251,32 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 
 // FindTokenEmoji will find the token emoji for the given guild
 func FindTokenEmoji(s *discordgo.Session, guildID string) string {
-	g, _ := s.State.Guild(guildID) // RAIYC Playground
+	g, _ := s.State.Guild(boostBotHomeGuild) // RAIYC Playground
 	var e = emutil.FindEmoji(g.Emojis, "token", false)
 	if e != nil {
 		return e.MessageFormat()
 	}
-	e = emutil.FindEmoji(g.Emojis, "Token", false)
+	/*
+		e = emutil.FindEmoji(g.Emojis, "Token", false)
+		if e != nil {
+			return e.MessageFormat()
+		}
+	*/
+	return "🐣"
+}
+
+// FindEggEmoji will find the token emoji for the given guild
+func FindEggEmoji(s *discordgo.Session, guildID string, egg string) string {
+	g, _ := s.State.Guild(boostBotHomeGuild) // RAIYC Playground
+	// remove _ from egg
+	egg = strings.Replace(egg, "_", "", -1)
+	var e = emutil.FindEmoji(g.Emojis, "egg_"+strings.ToLower(egg), false)
 	if e != nil {
 		return e.MessageFormat()
 	}
-	return "🐣"
+
+	e = emutil.FindEmoji(g.Emojis, "egg_unknown", false)
+	return e.MessageFormat()
 }
 
 func getBoostOrderString(contract *Contract) string {
@@ -358,24 +377,10 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 
 		contract.RegisteredNum = 0
 		contract.CoopSize = coopSize
+		contract.Name = contractID
 		if coopSize == 0 {
 			// Pull size from Contract
-			for _, cc := range EggIncContracts {
-				if cc.ID == contractID {
-					contract.CoopSize = cc.MaxCoopSize
-					contract.LengthInSeconds = cc.LengthInSeconds
-					contract.SRData.ChickenRuns = cc.ChickenRuns
-
-					contract.Name = cc.Name
-					contract.Description = cc.Description
-					contract.EggName = cc.EggName
-					contract.TargetAmount = cc.TargetAmount
-					contract.qTargetAmount = cc.qTargetAmount
-					contract.ChickenRunCooldownMinutes = cc.ChickenRunCooldownMinutes
-					contract.MinutesPerToken = cc.MinutesPerToken
-					break
-				}
-			}
+			updateContractWithEggIncData(contract)
 		}
 		Contracts[ContractHash] = contract
 	} else { //if !creatorOfContract(contract, userID) {
@@ -575,6 +580,7 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 
 	if contractID != "" {
 		contract.ContractID = contractID
+		updateContractWithEggIncData(contract)
 	}
 	if coopID != "" {
 		contract.CoopID = coopID
@@ -1838,6 +1844,25 @@ func LoadContractData(filename string) {
 			}
 
 			EggIncContracts = append(EggIncContracts, c)
+		}
+	}
+}
+
+func updateContractWithEggIncData(contract *Contract) {
+	for _, cc := range EggIncContracts {
+		if cc.ID == contract.ContractID {
+			contract.CoopSize = cc.MaxCoopSize
+			contract.LengthInSeconds = cc.LengthInSeconds
+			contract.SRData.ChickenRuns = cc.ChickenRuns
+
+			contract.Name = cc.Name
+			contract.Description = cc.Description
+			contract.EggName = cc.EggName
+			contract.TargetAmount = cc.TargetAmount
+			contract.qTargetAmount = cc.qTargetAmount
+			contract.ChickenRunCooldownMinutes = cc.ChickenRunCooldownMinutes
+			contract.MinutesPerToken = cc.MinutesPerToken
+			break
 		}
 	}
 }
