@@ -6,7 +6,14 @@ import "github.com/bwmarrin/discordgo"
 func HandleHelpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	str := "Context sensitive help"
 
-	str = GetHelp(s, i.GuildID, i.ChannelID, i.Member.User.ID)
+	userID := ""
+	if i.GuildID == "" {
+		userID = i.User.ID
+	} else {
+		userID = i.Member.User.ID
+	}
+
+	str = GetHelp(s, i.GuildID, i.ChannelID, userID)
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
