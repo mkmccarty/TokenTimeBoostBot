@@ -58,8 +58,10 @@ func isNewEggIncContractDataAvailable() bool {
 		rangeStart := fileSize - EvalWidth
 		rangeHeader := fmt.Sprintf("bytes=%d-", rangeStart)
 		req.Header.Add("Range", rangeHeader)
-		req.Header.Add("Cache-Control", "no-cache")
-		log.Print("EI-Contracts: Requested Range", rangeHeader)
+		req.Header.Add("Cache-Control", "no-cache, no-store, must-revalidate")
+		req.Header.Add("Pragma", "no-cache")
+		req.Header.Add("Expires", "0")
+		//		log.Print("EI-Contracts: Requested Range", rangeHeader)
 		var client http.Client
 		resp, err := client.Do(req)
 		if err != nil {
@@ -124,16 +126,25 @@ func downloadEggIncContracts(force bool) bool {
 		return false
 	}
 
-	resp, err := http.Get(eggIncContractsURL)
+	req, err := http.NewRequest("GET", eggIncContractsURL, nil)
 	if err != nil {
 		log.Print(err)
+		return false
+	}
+
+	req.Header.Add("Cache-Control", "no-cache, no-store, must-revalidate")
+	req.Header.Add("Pragma", "no-cache")
+	req.Header.Add("Expires", "0")
+
+	var client http.Client
+	resp, err := client.Do(req)
+	if err != nil {
 		return false
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Print(err)
-		return false
 	}
 	defer resp.Body.Close()
 
