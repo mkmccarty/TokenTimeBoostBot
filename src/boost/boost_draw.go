@@ -14,8 +14,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 	var afterListStr = ""
 	saveData(Contracts)
 
-	outputStr = fmt.Sprintf("## %s/%s - 📋%s - %d/%d\n", contract.ContractID, contract.CoopID, getBoostOrderString(contract), len(contract.Boosters), contract.CoopSize)
-	outputStr += fmt.Sprintf("> Coordinator: <@%s>  <%s/%s/%s>\n", contract.CreatorID[0], "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID)
+	outputStr = fmt.Sprintf("## %s (%s) - 📋%s - %d/%d\n", contract.Name, contract.CoopID, getBoostOrderString(contract), len(contract.Boosters), contract.CoopSize)
+	outputStr += fmt.Sprintf("> Coordinator: <@%s> \n> <%s/%s/%s>\n", contract.CreatorID[0], "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID)
 	if !contract.Speedrun && contract.VolunteerSink != "" {
 		outputStr += fmt.Sprintf("> Post Contract Sink: %s\n", contract.Boosters[contract.VolunteerSink].Mention)
 	}
