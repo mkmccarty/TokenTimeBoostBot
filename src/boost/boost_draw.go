@@ -179,7 +179,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 				sinkIcon := ""
 				if contract.SRData.SinkUserID == b.UserID {
 					sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
-					signupCountStr = fmt.Sprint(b.TokensWanted)
+					signupCountStr = fmt.Sprintf("(%d)", b.TokensWanted)
 				}
 				switch b.BoostState {
 				case BoostStateUnboosted:
