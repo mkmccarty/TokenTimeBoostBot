@@ -14,7 +14,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 )
 
-const eggIncContractsURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json?"
+const eggIncContractsURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json"
 const eggIncContractsFile string = "ttbb-data/ei-contracts.json"
 
 var lastContractUpdate time.Time
