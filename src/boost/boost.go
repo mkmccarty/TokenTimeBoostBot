@@ -378,10 +378,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.RegisteredNum = 0
 		contract.CoopSize = coopSize
 		contract.Name = contractID
-		if coopSize == 0 {
-			// Pull size from Contract
-			updateContractWithEggIncData(contract)
-		}
+		updateContractWithEggIncData(contract)
 		Contracts[ContractHash] = contract
 	} else { //if !creatorOfContract(contract, userID) {
 		//contract.mutex.Lock()
