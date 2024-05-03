@@ -230,6 +230,10 @@ func drawSpeedrunCRT(contract *Contract, tokenStr string) string {
 		fmt.Fprintf(&builder, "2. Build up your farm to at least 20 chickens\n")
 		fmt.Fprintf(&builder, "3. Equip shiny artifact to force a server sync\n")
 		fmt.Fprintf(&builder, "4. Run chickens on all the other farms and react with :white_check_mark: after all runs\n")
+		if contract.SRData.SelfRuns {
+			fmt.Fprintf(&builder, "5. **Run chickens on your own farm**\n")
+		}
+
 	}
 	fmt.Fprintf(&builder, "\n**Send %s to <@%s>**\n", tokenStr, contract.SRData.SpeedrunStarterUserID)
 
