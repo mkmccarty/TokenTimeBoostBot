@@ -9,7 +9,7 @@ require (
 	github.com/dannav/hhmmss v1.0.0
 	github.com/divan/num2words v0.0.0-20170904212200-57dba452f942
 	github.com/ewohltman/discordgo-mock v0.0.11
-	github.com/google/generative-ai-go v0.11.0
+	github.com/google/generative-ai-go v0.11.1
 	github.com/jasonlvhit/gocron v0.0.1
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/post04/discordgo-emoji-util v0.0.0-20210226234616-e2c0f5ea133e
@@ -37,7 +37,7 @@ require (
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
-	github.com/googleapis/gax-go/v2 v2.12.3 // indirect
+	github.com/googleapis/gax-go/v2 v2.12.4 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/smartystreets/goconvey v1.8.1 // indirect
