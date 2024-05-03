@@ -330,7 +330,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 					s.ChannelMessageDelete(r.ChannelID, contract.SRData.ChickenRunCheckMsgID)
 					contract.SRData.ChickenRunCheckMsgID = ""
 
-					str := fmt.Sprintf("All players have run chickens. <@%s> should now react with 🦵 then start to kick all farmers.", r.UserID)
+					str := fmt.Sprintf("All players have run chickens. <@%s> should now react with 🦵 then start to kick all farmers.", contract.SRData.SinkUserID)
 					s.ChannelMessageSend(r.ChannelID, str)
 				}
 			}
