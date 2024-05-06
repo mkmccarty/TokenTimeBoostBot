@@ -12,6 +12,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/jasonlvhit/gocron"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
+	"github.com/rs/xid"
 )
 
 const eggIncContractsURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json"
@@ -38,7 +39,7 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 }
 
 func isNewEggIncContractDataAvailable() bool {
-	req, err := http.NewRequest("GET", eggIncContractsURL, nil)
+	req, err := http.NewRequest("GET", eggIncContractsURL+"?token="+xid.New().String(), nil)
 	if err != nil {
 		log.Print(err)
 		return false
@@ -125,8 +126,7 @@ func downloadEggIncContracts(force bool) bool {
 		log.Print("EI-Contracts. No new data available")
 		return false
 	}
-
-	req, err := http.NewRequest("GET", eggIncContractsURL, nil)
+	req, err := http.NewRequest("GET", eggIncContractsURL+"?token="+xid.New().String(), nil)
 	if err != nil {
 		log.Print(err)
 		return false
