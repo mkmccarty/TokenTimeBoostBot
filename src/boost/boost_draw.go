@@ -26,7 +26,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 
 	outputStr += fmt.Sprintf("> Coordinator: <@%s> \n> <%s/%s/%s>\n", contract.CreatorID[0], "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID)
 	if !contract.Speedrun && contract.VolunteerSink != "" {
-		outputStr += fmt.Sprintf("> Post Contract Sink: %s\n", contract.Boosters[contract.VolunteerSink].Mention)
+		outputStr += fmt.Sprintf("> Post Contract Sink: **%s**\n", contract.Boosters[contract.VolunteerSink].Mention)
 	}
 	if contract.Speedrun {
 		switch contract.SRData.SpeedrunState {
