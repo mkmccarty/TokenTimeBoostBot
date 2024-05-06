@@ -210,6 +210,8 @@ func ExecuteCronJob() {
 
 	gocron.Every(1).Day().Do(boost.ArchiveContracts)
 
+	boost.ArchiveContracts()
+
 	<-gocron.Start()
 	log.Print("Exiting cron job")
 }

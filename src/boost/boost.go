@@ -20,6 +20,7 @@ import (
 	"github.com/divan/num2words"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 	emutil "github.com/post04/discordgo-emoji-util"
 	"github.com/rs/xid"
 	"google.golang.org/protobuf/proto"
@@ -1767,6 +1768,8 @@ func ArchiveContracts() {
 			// A different task will handle the deletion of the contract
 		}
 	}
+	track.ArchiveTrackerData()
+
 }
 
 // EggIncContract is a raw contract data for Egg Inc

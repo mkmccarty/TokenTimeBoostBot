@@ -345,6 +345,7 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 	if td.Linked {
 		footerStr += " Linked contracts will automatically track tokens sent and received through discord message reactions. "
 	}
+	footerStr += " After 4 days any tracker not marked as finished will be purged."
 
 	embed := &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{{
@@ -626,4 +627,21 @@ func loadData() (map[string]*tokenValues, error) {
 	}
 	json.Unmarshal(b, &t)
 	return t, nil
+}
+
+// ArchiveTrackerData purges stale tracker data after 4 days
+func ArchiveTrackerData() {
+	if Tokens == nil {
+		return
+	}
+	// For each user, check if the token tracking is older than 3 days
+	// If it is, Finish the data
+	for k, v := range Tokens {
+		for name, tv := range v.Coop {
+			if tv.StartTime.Before(time.Now().Add(-96 * time.Hour)) {
+				delete(Tokens[k].Coop, name)
+			}
+		}
+	}
+	saveData(Tokens)
 }
