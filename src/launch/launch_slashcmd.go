@@ -97,6 +97,30 @@ func SlashLaunchHelperCommand(cmd string) *discordgo.ApplicationCommand {
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "fast-missions",
+				Description: "Missions return 2x, 3x or 4x faster. Default is 1x.",
+				Required:    false,
+				Choices: []*discordgo.ApplicationCommandOptionChoice{
+					{
+						Name:  "1x / None",
+						Value: 1,
+					},
+					{
+						Name:  "2x",
+						Value: 2,
+					},
+					{
+						Name:  "3x",
+						Value: 3,
+					},
+					{
+						Name:  "4x",
+						Value: 4,
+					},
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
 				Name:        "ftl",
 				Description: "FTL Drive Upgrades level. Default is 60.",
 				MinValue:    &integerZeroMinValue,
@@ -119,6 +143,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	doubleCapacityStr := ""
 	var dubCapTime = time.Now()
 	var dubCapTimeCaution = time.Now()
+	var fasterMissions = 1.0
 
 	var selectedShipPrimary = 0   // Default to AH
 	var selectedShipSecondary = 1 // Default to H
@@ -212,6 +237,19 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		showDubCap = true
 		doubleCapacityStr = fmt.Sprintf("Double Capacity Event ends at <t:%d:f>\n", dubCapTime.Unix())
 	}
+	if opt, ok := optionMap["fast-missions"]; ok {
+		switch opt.IntValue() {
+		case 2:
+			fasterMissions = 0.5
+		case 3:
+			fasterMissions = 0.333
+		case 4:
+			fasterMissions = 0.25
+		default:
+			fasterMissions = 1.0
+		}
+
+	}
 	var builder strings.Builder
 	shipDurationName := [...]string{"SH", "ST", "EX"}
 
@@ -222,7 +260,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	ed, _ := str2duration.ParseDuration("4d")
-	minutesStr := fmt.Sprintf("%dm", int(ed.Minutes()*ftlMult))
+	minutesStr := fmt.Sprintf("%dm", int(ed.Minutes()*ftlMult*fasterMissions))
 	exDuration, _ := str2duration.ParseDuration(minutesStr)
 
 	for i, missionTimespanRaw := range durationList {
@@ -264,7 +302,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				dcBubble := ""
 				d, _ := str2duration.ParseDuration(missionLen)
 
-				minutesStr := fmt.Sprintf("%dm", int(d.Minutes()*ftlMult))
+				minutesStr := fmt.Sprintf("%dm", int(d.Minutes()*ftlMult*fasterMissions))
 				ftlDuration, _ := str2duration.ParseDuration(minutesStr)
 
 				launchTime := arrivalTime.Add(ftlDuration)
@@ -281,6 +319,10 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				if chainExtended {
 					chainLaunchTime := launchTime.Add(exDuration)
 					chainString = fmt.Sprintf(" +next EX return <t:%d:t>", chainLaunchTime.Unix())
+					if fasterMissions != 1.0 {
+						chainLaunchTime := launchTime.Add(exDuration * 2)
+						chainString += fmt.Sprintf(" +return <t:%d:t>", chainLaunchTime.Unix())
+					}
 				}
 
 				builder.WriteString(fmt.Sprintf("> %s%s%s (%s): <t:%d:t>%s\n", dcBubble, shipDurationName[i], sName, fmtDuration(ftlDuration), launchTime.Unix(), chainString))
