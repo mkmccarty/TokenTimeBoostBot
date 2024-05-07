@@ -206,7 +206,9 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 					track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, 1, r.UserID, rSerial)
 
 					// Record who sent the token
-					contract.Boosters[r.UserID].Sent = append(contract.Boosters[r.UserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: b.UserID, Serial: sSerial})
+					if contract.Boosters[r.UserID] != nil {
+						contract.Boosters[r.UserID].Sent = append(contract.Boosters[r.UserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: b.UserID, Serial: sSerial})
+					}
 					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, 1, b.UserID, sSerial)
 				} else {
 					b.TokensFarmedTime = append(b.TokensFarmedTime, time.Now())
