@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand/v2"
 	"net/http"
 	"os"
 	"time"
@@ -53,7 +54,7 @@ func isNewEggIncContractDataAvailable() bool {
 			return false
 		}
 
-		const EvalWidth = 256
+		EvalWidth := int64(256 - rand.IntN(128)/2 + 1)
 
 		fileSize := fileInfo.Size()
 		rangeStart := fileSize - EvalWidth
@@ -62,12 +63,14 @@ func isNewEggIncContractDataAvailable() bool {
 		req.Header.Add("Cache-Control", "no-cache, no-store, must-revalidate")
 		req.Header.Add("Pragma", "no-cache")
 		req.Header.Add("Expires", "0")
+		req.Header.Add("Clear-Site-Data", "*")
 		//		log.Print("EI-Contracts: Requested Range", rangeHeader)
 		var client http.Client
 		resp, err := client.Do(req)
 		if err != nil {
 			return false
 		}
+		log.Print("EI-Contracts: Response Status:", resp.Status, resp.Header)
 		defer resp.Body.Close()
 
 		body, err := io.ReadAll(resp.Body)
@@ -196,7 +199,7 @@ func ExecuteCronJob() {
 	log.Println("The Current time zone is:", currentTimeZone)
 	log.Println("Time zone offset:", offset)
 
-	minuteTimes := []string{":00:00", ":00:15", ":00:30", ":00:45", ":01:00", ":02:00", ":03:00", ":05:00"}
+	minuteTimes := []string{":00:15", ":00:30", ":01:00", ":02:00", ":03:00", ":05:00"}
 	var checkTimes []string
 
 	for _, t := range minuteTimes {
