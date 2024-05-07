@@ -68,6 +68,8 @@ func HandleSlashVolunteerSinkCommand(s *discordgo.Session, i *discordgo.Interact
 			str = "You must confirm you want to be the token sink"
 		} else if contract.Speedrun {
 			str = "You cannot use this command on a speedrun contract"
+		} else if contract.VolunteerSink != "" {
+			str = "Token sink is already set"
 		} else {
 			// Check if user is already in contract
 			if userInContract(contract, i.Interaction.Member.User.ID) {
@@ -124,6 +126,8 @@ func HandleSlashVoluntellSinkCommand(s *discordgo.Session, i *discordgo.Interact
 			str = "This should be a guest farmer within this contract and not a user mention."
 		} else if contract.Speedrun {
 			str = "You cannot use this command on a speedrun contract"
+		} else if contract.VolunteerSink != "" {
+			str = "Token sink is already set"
 		} else {
 			// if VolunteerSink is already set, reply with error
 			// Check if user is already in contract
