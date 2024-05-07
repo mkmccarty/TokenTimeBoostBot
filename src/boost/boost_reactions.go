@@ -207,6 +207,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 					// Record who sent the token
 					if contract.Boosters[r.UserID] != nil {
+						// Make sure this isn't an admin user who's sending on behalf of an alt
 						contract.Boosters[r.UserID].Sent = append(contract.Boosters[r.UserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: b.UserID, Serial: sSerial})
 					}
 					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, 1, b.UserID, sSerial)
