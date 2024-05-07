@@ -200,6 +200,21 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
+	pacificLoc, _ := time.LoadLocation("America/Los_Angeles")
+	// Based on current time, when will it be UTC Sunday at 3pm, standard time
+	var sundayEventStart = time.Now()
+	// change eventStart to be the next Sunday at 3pm == 9AM PST
+	for sundayEventStart.Weekday() != time.Sunday {
+		dayDiff := 7 - int(sundayEventStart.Weekday())
+		sundayEventStart = sundayEventStart.AddDate(0, 0, dayDiff)
+	}
+	sundayEventStart = time.Date(sundayEventStart.Year(), sundayEventStart.Month(), sundayEventStart.Day(), 17, 0, 0, 0, time.UTC)
+	utc := sundayEventStart.UTC()
+	if utc.In(pacificLoc).IsDST() {
+		sundayEventStart = sundayEventStart.Add(-1 * time.Hour)
+	}
+	//log.Print("Sunday Event Start: ", sundayEventStart.Unix())
+
 	if opt, ok := optionMap["ftl"]; ok {
 		ftlLevel = int(opt.IntValue())
 		ftlMult = float64(100-ftlLevel) / 100.0
@@ -207,7 +222,6 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if opt, ok := optionMap["chain"]; ok {
 		chainExtended = opt.BoolValue()
 		farmerstate.SetLaunchHistory(userID, chainExtended)
-	} else {
 		chainExtended = farmerstate.GetLaunchHistory(userID)
 	}
 	if opt, ok := optionMap["mission-duration"]; ok {
@@ -300,6 +314,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 			for i, missionLen := range ship.Duration {
 				dcBubble := ""
+				sunBubble := ""
 				d, _ := str2duration.ParseDuration(missionLen)
 
 				minutesStr := fmt.Sprintf("%dm", int(d.Minutes()*ftlMult*fasterMissions))
@@ -315,6 +330,9 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 						dcBubble = "🔴 "
 					}
 				}
+				if launchTime.After(sundayEventStart) && launchTime.Before(sundayEventStart.Add(ftlDuration)) {
+					sunBubble = "⚠️ "
+				}
 				var chainString = ""
 				if chainExtended {
 					chainLaunchTime := launchTime.Add(exDuration)
@@ -325,7 +343,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 					}
 				}
 
-				builder.WriteString(fmt.Sprintf("> %s%s%s (%s): <t:%d:t>%s\n", dcBubble, shipDurationName[i], sName, fmtDuration(ftlDuration), launchTime.Unix(), chainString))
+				builder.WriteString(fmt.Sprintf("> %s%s%s%s (%s): <t:%d:t>%s\n", dcBubble, sunBubble, shipDurationName[i], sName, fmtDuration(ftlDuration), launchTime.Unix(), chainString))
 				if shipIndex != 0 && len(missionShips) > 2 && selectedShipSecondary < -1 {
 					break
 				}

@@ -134,9 +134,9 @@ func HandleBoostCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content:    "This command can only be run in a server.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
+				Content: "This command can only be run in a server.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
 		})
 		return
 	}
@@ -148,9 +148,9 @@ func HandleBoostCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
+			Content: str,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
 	})
 }
 
