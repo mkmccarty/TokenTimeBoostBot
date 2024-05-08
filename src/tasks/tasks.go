@@ -199,7 +199,7 @@ func ExecuteCronJob() {
 	log.Println("The Current time zone is:", currentTimeZone)
 	log.Println("Time zone offset:", offset)
 
-	minuteTimes := []string{":00:15", ":00:30", ":01:00", ":02:00", ":03:00", ":05:00"}
+	minuteTimes := []string{":00:15", ":00:30", ":00:45", ":01:00", ":01:30", ":02:00", ":03:00", ":05:00"}
 	var checkTimes []string
 
 	for _, t := range minuteTimes {
