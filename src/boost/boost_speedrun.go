@@ -208,7 +208,7 @@ func reorderSpeedrunBoosters(contract *Contract) {
 	} else {
 		newOrder = append(newOrder, contract.SRData.SpeedrunStarterUserID)
 	}
-	contract.Order = newOrder
+	contract.Order = removeDuplicates(newOrder)
 }
 
 func drawSpeedrunCRT(contract *Contract, tokenStr string) string {
