@@ -12,6 +12,8 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+var integerOneMinValue float64 = 1.0
+
 // GetSlashChangeCommand adjust aspects of a running contract
 func GetSlashChangeCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
@@ -39,12 +41,6 @@ func GetSlashChangeCommand(cmd string) *discordgo.ApplicationCommand {
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "one-boost-position",
-				Description: "Move a booster to a specific order position.  Example: @farmer 4",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "boost-order",
 				Description: "Provide new boost order. Example: 1,2,3,6,7,5,8-10",
 				Required:    false,
@@ -57,6 +53,231 @@ func GetSlashChangeCommand(cmd string) *discordgo.ApplicationCommand {
 			},
 		},
 	}
+}
+
+// GetSlashChangeOneBoosterCommand adjust aspects of a running contract
+func GetSlashChangeOneBoosterCommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "Move booster to a new position. If current booster, will assign new booster",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "booster-name",
+				Description: "Booster to move. Use an @mention or guest farmer name",
+				Required:    true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "new-position",
+				Description: "Position to move the booster to",
+				Required:    true,
+				MinValue:    &integerOneMinValue,
+			},
+		},
+	}
+}
+
+// HandleChangeCommand will handle the /change command
+func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// Protection against DM use
+	if i.GuildID == "" {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "This command can only be run in a server.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{}},
+		})
+		return
+	}
+	var str = ""
+	var contractID = ""
+	var coopID = ""
+	// User interacting with bot, is this first time ?
+	options := i.ApplicationCommandData().Options
+	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+	for _, opt := range options {
+		optionMap[opt.Name] = opt
+	}
+
+	if opt, ok := optionMap["ping-role"]; ok {
+		role := opt.RoleValue(nil, "")
+		err := ChangePingRole(s, i.GuildID, i.ChannelID, i.Member.User.ID, role.Mention())
+		if err != nil {
+			str += err.Error()
+		} else {
+			str = "Changed ping role to " + role.Mention() + "\n"
+		}
+	}
+	if opt, ok := optionMap["contract-id"]; ok {
+		contractID = opt.StringValue()
+		contractID = strings.Replace(contractID, " ", "", -1)
+		str += "Contract ID changed to " + contractID
+	}
+	if opt, ok := optionMap["coop-id"]; ok {
+		coopID = opt.StringValue()
+		coopID = strings.Replace(coopID, " ", "", -1)
+		str += "Coop ID changed to " + coopID
+	}
+
+	if contractID != "" || coopID != "" {
+		err := ChangeContractIDs(s, i.GuildID, i.ChannelID, i.Member.User.ID, contractID, coopID)
+		if err != nil {
+			str += err.Error()
+		}
+	}
+
+	currentBooster := ""
+	boostOrder := ""
+	if opt, ok := optionMap["current-booster"]; ok {
+		currentBooster = strings.TrimSpace(opt.StringValue())
+	}
+	if opt, ok := optionMap["boost-order"]; ok {
+		boostOrder = strings.TrimSpace(opt.StringValue())
+	}
+
+	// Either change a single booster or the whole list
+	// Cannot change one booster's position and make them boost
+	if boostOrder != "" {
+		err := ChangeBoostOrder(s, i.GuildID, i.ChannelID, i.Member.User.ID, boostOrder, currentBooster == "")
+		if err != nil {
+			str += err.Error()
+		} else {
+			str += fmt.Sprintf("Change Boost Order to %s.", boostOrder)
+		}
+	}
+
+	if currentBooster != "" {
+		err := ChangeCurrentBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID, currentBooster, true)
+		if err != nil {
+			str += err.Error()
+		} else {
+			str += fmt.Sprintf("Current changed to <@%s>.", currentBooster)
+		}
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content:    str,
+			Flags:      discordgo.MessageFlagsEphemeral,
+			Components: []discordgo.MessageComponent{}},
+	})
+}
+
+func extractUserID(s *discordgo.Session, boosterName string) (string, error) {
+	if strings.HasPrefix(boosterName, "<@") {
+		re := regexp.MustCompile(`[<>@!]`)
+		userID := re.ReplaceAllString(boosterName, "")
+
+		// Verify if this is an actual user
+		var u, err = s.User(userID)
+		if err != nil {
+			return "", err
+		}
+		return u.ID, nil
+	}
+	return boosterName, nil
+}
+
+// HandleChangeOneBoosterCommand will handle the /change-one-booster command
+func HandleChangeOneBoosterCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// Protection against DM use as we need the channel ID to find the contract
+	if i.GuildID == "" {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "This command can only be run in a server.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{}},
+		})
+		return
+	}
+
+	var str = ""
+	options := i.ApplicationCommandData().Options
+	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+	for _, opt := range options {
+		optionMap[opt.Name] = opt
+	}
+
+	var err error
+	contract := FindContract(i.ChannelID)
+	position := 0
+	boosterName := ""
+	newBooster := ""
+
+	if opt, ok := optionMap["new-position"]; ok {
+		position = int(opt.IntValue())
+		if position > len(contract.Order) {
+			str = "Invalid position, must be between 1 and " + strconv.Itoa(len(contract.Order))
+		}
+	}
+
+	if opt, ok := optionMap["booster-name"]; ok {
+		// String in the form of mention
+		boosterName = strings.TrimSpace(opt.StringValue())
+		boosterName, err = extractUserID(s, boosterName)
+		if err != nil {
+			str = err.Error()
+		}
+
+		// Is this booster in the contract?
+		if _, ok := contract.Boosters[boosterName]; !ok {
+			str = "This farmer is not in the contract"
+		} else {
+			// If this booster has alread boosted then we can't move them
+			if contract.Boosters[boosterName].BoostState == BoostStateBoosted {
+				str = "This farmer has already boosted, no need to move them."
+			} else if boosterName == contract.Order[contract.BoostPosition] {
+				// If this is current booster, we need to reassign this to the next booster
+				newBoosterIndex := findNextBoosterAfterUser(contract, boosterName)
+				if newBoosterIndex != -1 {
+					newBooster = contract.Order[newBoosterIndex]
+				}
+			} else {
+				// Is the new position the current booster?
+				if contract.Order[position-1] == contract.Order[contract.BoostPosition] {
+					newBooster = boosterName
+				}
+			}
+		}
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing...",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+
+	// Empty string means we are good to go
+	if str == "" {
+
+		err := MoveBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID, boosterName, position, newBooster == "")
+		if err != nil {
+			str += err.Error()
+		} else {
+			str += fmt.Sprintf("Moved %s to position %d.", contract.Boosters[boosterName].Mention, position)
+
+			if newBooster != "" {
+				err := ChangeCurrentBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID, newBooster, true)
+				if err != nil {
+					str += " " + strings.Title(err.Error())
+				} else {
+					str += fmt.Sprintf(" Current booster changed to %s.", contract.Boosters[newBooster].Mention)
+				}
+			}
+		}
+	}
+
+	s.FollowupMessageCreate(i.Interaction, true,
+		&discordgo.WebhookParams{
+			Content: str},
+	)
+
 }
 
 // removeDuplicates takes a slice as an argument and returns the array with all duplicate elements removed.
@@ -321,7 +542,7 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 	copyOrder := removeIndex(contract.Order, boosterIndex)
 	if len(copyOrder) == 0 {
 		newOrder = append(newOrder, boosterName)
-	} else if boosterPosition >= len(copyOrder) {
+	} else if boosterPosition > len(copyOrder) {
 		// Booster at end of list
 		newOrder = append(copyOrder, boosterName)
 	} else {
