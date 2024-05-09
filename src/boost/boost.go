@@ -179,15 +179,17 @@ type Contract struct {
 	StartTime       time.Time // When Contract is started
 	EndTime         time.Time // When final booster ends
 	//EggFarmers     map[string]*EggFarmer
-	RegisteredNum  int
-	Boosters       map[string]*Booster // Boosters Registered
-	Order          []string
-	OrderRevision  int  // Incremented when Order is changed
-	Speedrun       bool // Speedrun mode
-	SRData         SpeedrunData
-	VolunteerSink  string     // Sink for Post contract tokens
-	lastWishPrompt string     // saved prompt for this contract
-	mutex          sync.Mutex // Keep this contract thread safe
+	RegisteredNum     int
+	Boosters          map[string]*Booster // Boosters Registered
+	Order             []string
+	OrderRevision     int  // Incremented when Order is changed
+	Speedrun          bool // Speedrun mode
+	SRData            SpeedrunData
+	VolunteerSink     string // Sink for Post contract tokens
+	CalcOperations    int
+	CalcOperationTime time.Time
+	lastWishPrompt    string     // saved prompt for this contract
+	mutex             sync.Mutex // Keep this contract thread safe
 }
 
 // SpeedrunData holds the data for a speedrun
@@ -321,7 +323,9 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	// Just in case a contract was immediately recreated
 	for _, c := range Contracts {
 		if c.State == ContractStateArchive {
-			FinishContract(s, c)
+			if c.CalcOperations == 0 || time.Since(c.CalcOperationTime).Minutes() > 20 {
+				FinishContract(s, c)
+			}
 		}
 	}
 
@@ -1508,7 +1512,10 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		notifyBellBoosters(s, contract)
 	}
 	if !contract.Speedrun && contract.State == ContractStateArchive {
-		FinishContract(s, contract)
+		// Only purge the contract from memory if /calc isn't being used
+		if contract.CalcOperations == 0 || time.Since(contract.CalcOperationTime).Minutes() > 20 {
+			FinishContract(s, contract)
+		}
 	} else if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateComplete {
 		FinishContract(s, contract)
 	}
