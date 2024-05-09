@@ -265,7 +265,7 @@ func HandleChangeOneBoosterCommand(s *discordgo.Session, i *discordgo.Interactio
 			if newBooster != "" {
 				err := ChangeCurrentBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID, newBooster, true)
 				if err != nil {
-					str += " " + strings.Title(err.Error())
+					str += " " + strings.ToUpper(string(err.Error()[0])) + err.Error()[1:]
 				} else {
 					str += fmt.Sprintf(" Current booster changed to %s.", contract.Boosters[newBooster].Mention)
 				}
