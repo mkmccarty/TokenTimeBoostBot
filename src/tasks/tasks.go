@@ -1,7 +1,6 @@
 package tasks
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -70,7 +69,7 @@ func isNewEggIncContractDataAvailable() bool {
 		if err != nil {
 			return false
 		}
-		log.Print("EI-Contracts: Response Status:", resp.Status, resp.Header)
+		//log.Print("EI-Contracts: Response Status:", resp.Status, resp.Header)
 		defer resp.Body.Close()
 
 		body, err := io.ReadAll(resp.Body)
@@ -97,8 +96,8 @@ func isNewEggIncContractDataAvailable() bool {
 				log.Print(err)
 				return false
 			}
-			log.Print("EI-Contracts: Saved File Bytes:", string(fileBytes))
-			log.Print("EI-Contracts: Compare ", bytes.Equal(fileBytes, body), " Len:", len(fileBytes), len(body))
+			//log.Print("EI-Contracts: Saved File Bytes:", string(fileBytes))
+			//log.Print("EI-Contracts: Compare ", bytes.Equal(fileBytes, body), " Len:", len(fileBytes), len(body))
 
 			// Compare the last 1024 bytes of the file with the body
 			if string(fileBytes) == string(body) && len(fileBytes) == len(body) {
@@ -138,6 +137,7 @@ func downloadEggIncContracts(force bool) bool {
 	req.Header.Add("Cache-Control", "no-cache, no-store, must-revalidate")
 	req.Header.Add("Pragma", "no-cache")
 	req.Header.Add("Expires", "0")
+	req.Header.Add("Clear-Site-Data", "*")
 
 	var client http.Client
 	resp, err := client.Do(req)
@@ -155,7 +155,7 @@ func downloadEggIncContracts(force bool) bool {
 	_, err = os.Stat(eggIncContractsFile)
 	if err == nil {
 		// Delete the file
-		log.Print("Deleging", eggIncContractsFile)
+		//log.Print("Deleting", eggIncContractsFile)
 		err = os.Remove(eggIncContractsFile)
 		if err != nil {
 			log.Print("Error Deleting EI-Contracts File ", err.Error())
@@ -196,8 +196,7 @@ func ExecuteCronJob() {
 	currentTime := time.Now()
 	currentTimeZone, offset := currentTime.Zone()
 	offset = offset / 3600
-	log.Println("The Current time zone is:", currentTimeZone)
-	log.Println("Time zone offset:", offset)
+	log.Println("The Current time zone is:", currentTimeZone, " Offset:", offset)
 
 	minuteTimes := []string{":00:15", ":00:30", ":00:45", ":01:00", ":01:30", ":02:00", ":03:00", ":05:00"}
 	var checkTimes []string
