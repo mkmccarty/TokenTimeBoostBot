@@ -361,49 +361,7 @@ var (
 		boost.GetSlashVolunteerSink(slashVolunteerSink),
 		boost.GetSlashVoluntellSink(slashVoluntellSink),
 		boost.GetSlashCalcContractTval(slashCalcContractTval),
-		{
-			Name:        slashChange,
-			Description: "Change aspects of a running contract",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "coop-id",
-					Description: "Change the coop-id",
-					Required:    false,
-				},
-				{
-					Type:         discordgo.ApplicationCommandOptionString,
-					Name:         "contract-id",
-					Description:  "Change the contract-id",
-					Required:     false,
-					Autocomplete: true,
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionRole,
-					Name:        "ping-role",
-					Description: "Change the contract ping role.",
-					Required:    false,
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "one-boost-position",
-					Description: "Move a booster to a specific order position.  Example: @farmer 4",
-					Required:    false,
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "boost-order",
-					Description: "Provide new boost order. Example: 1,2,3,6,7,5,8-10",
-					Required:    false,
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "current-booster",
-					Description: "Change the current booster. Example: @farmer",
-					Required:    false,
-				},
-			},
-		},
+		boost.GetSlashChangeCommand(slashChange),
 		farmerstate.SlashSetEggIncNameCommand(slashSetEggIncName),
 		{
 			Name:        slashBump,
