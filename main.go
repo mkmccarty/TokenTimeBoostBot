@@ -35,6 +35,7 @@ const slashContract string = "contract"
 const slashSkip string = "skip"
 const slashBoost string = "boost"
 const slashChange string = "change"
+const slashChangeOneBooster string = "change-one-booster"
 const slashUnboost string = "unboost"
 const slashPrune string = "prune"
 const slashJoin string = "join-contract"
@@ -362,6 +363,7 @@ var (
 		boost.GetSlashVoluntellSink(slashVoluntellSink),
 		boost.GetSlashCalcContractTval(slashCalcContractTval),
 		boost.GetSlashChangeCommand(slashChange),
+		boost.GetSlashChangeOneBoosterCommand(slashChangeOneBooster),
 		farmerstate.SlashSetEggIncNameCommand(slashSetEggIncName),
 		{
 			Name:        slashBump,
@@ -473,6 +475,9 @@ var (
 		},
 		slashChange: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleChangeCommand(s, i)
+		},
+		slashChangeOneBooster: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleChangeOneBoosterCommand(s, i)
 		},
 		slashHelp: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleHelpCommand(s, i)

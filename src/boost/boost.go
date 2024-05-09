@@ -745,6 +745,15 @@ func findNextBooster(contract *Contract) int {
 	return -1
 }
 
+func findNextBoosterAfterUser(contract *Contract, userID string) int {
+	for i := 0; i < len(contract.Order); i++ {
+		if contract.Boosters[contract.Order[i]].BoostState == BoostStateUnboosted && contract.Order[i] != userID {
+			return i
+		}
+	}
+	return -1
+}
+
 // JoinContract will add a user to the contract
 func JoinContract(s *discordgo.Session, guildID string, channelID string, userID string, bell bool) error {
 	var err error
