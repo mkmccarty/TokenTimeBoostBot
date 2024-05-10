@@ -154,6 +154,15 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	} else {
 		userID = i.User.ID
 	}
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing request...",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+
+	var field []*discordgo.MessageEmbedField
 
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
@@ -265,6 +274,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	}
 	var builder strings.Builder
+	//var header strings.Builder
 	shipDurationName := [...]string{"SH", "ST", "EX"}
 
 	// Split array, trim to 3 elements
@@ -276,6 +286,8 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	ed, _ := str2duration.ParseDuration("4d")
 	minutesStr := fmt.Sprintf("%dm", int(ed.Minutes()*ftlMult*fasterMissions))
 	exDuration, _ := str2duration.ParseDuration(minutesStr)
+	displayDubcapInstructions := false
+	displaySunInstructions := false
 
 	for i, missionTimespanRaw := range durationList {
 		missionTimespan := strings.TrimSpace(missionTimespanRaw)
@@ -294,7 +306,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		// loop through missionData
 		// for each ship, calculate the arrival time
 		// if arrival time is less than endTime, then add to the message
-		builder.WriteString(fmt.Sprintf("**Launch options for mission arriving on <t:%d:f> (FTL:%d)**\n", arrivalTime.Unix(), ftlLevel))
+		builder.WriteString(fmt.Sprintf("**Mission arriving on <t:%d:f> (FTL:%d)**\n", arrivalTime.Unix(), ftlLevel))
 		if showDubCap {
 			builder.WriteString(doubleCapacityStr)
 		}
@@ -333,6 +345,14 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				if launchTime.After(sundayEventStart) && launchTime.Before(sundayEventStart.Add(ftlDuration)) {
 					sunBubble = "⚠️ "
 				}
+
+				if dcBubble != "" {
+					displayDubcapInstructions = true
+				}
+				if sunBubble != "" {
+					displaySunInstructions = true
+				}
+
 				var chainString = ""
 				if chainExtended {
 					chainLaunchTime := launchTime.Add(exDuration)
@@ -349,14 +369,38 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				}
 			}
 		}
+		/*
+			field = append(field, &discordgo.MessageEmbedField{
+				Name:   header.String(),
+				Value:  builder.String(),
+				Inline: false,
+			})*/
+		//header.Reset()
+		//builder.Reset()
+	}
+	var instr strings.Builder
+	if displaySunInstructions {
+		instr.WriteString("⚠️ Arrives after Sunday event\n")
+	}
+	if displayDubcapInstructions {
+		instr.WriteString("🟢 Arrives within dubcap.\n")
+		instr.WriteString("🟡 Arrives with less than 5 minutes of dubcap\n")
+		instr.WriteString("🔴 After Dubcap\n")
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:    builder.String(),
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
-	})
+	s.FollowupMessageCreate(i.Interaction, true,
+		&discordgo.WebhookParams{
+			Content: builder.String(),
+			Embeds: []*discordgo.MessageEmbed{{
+				Type: discordgo.EmbedTypeRich,
+				//Title: "Mission Arrival Times",
+				//Description: "",
+				Color:  0xffaa00,
+				Fields: field,
+				Footer: &discordgo.MessageEmbedFooter{
+					Text: instr.String(),
+				},
+			}},
+		})
 
 }
