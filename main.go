@@ -676,7 +676,7 @@ func joinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell boo
 	}
 
 	s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: str,
+		//		Content: str,
 	})
 }
 
