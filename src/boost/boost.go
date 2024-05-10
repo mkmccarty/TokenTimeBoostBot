@@ -799,115 +799,6 @@ func removeIndex(s []string, index int) []string {
 	return append(s[:index], s[index+1:]...)
 }
 
-func removeContractBoosterByContract(s *discordgo.Session, contract *Contract, offset int) bool {
-	if offset > len(contract.Boosters) {
-		return false
-	}
-	var index = offset - 1 // Index is 0 based
-
-	var currentBooster = ""
-
-	// Save current booster position
-	if contract.State == ContractStateCompleted {
-		currentBooster = ""
-	} else if contract.State != ContractStateWaiting {
-		currentBooster = contract.Order[contract.BoostPosition]
-	}
-
-	var activeBooster, ok = contract.Boosters[contract.Order[index]]
-	if ok && contract.State != ContractStateSignup {
-		var activeBoosterState = activeBooster.BoostState
-		var userID = contract.Order[index]
-		contract.Order = removeIndex(contract.Order, index)
-		contract.Order = removeDuplicates(contract.Order)
-		contract.OrderRevision++
-		delete(contract.Boosters, userID)
-
-		// Make sure we retain our current booster
-		for i := range contract.Order {
-			if contract.Order[i] == currentBooster {
-				contract.BoostPosition = i
-				break
-			}
-		}
-
-		// Active Booster is leaving contract.
-		if contract.State == ContractStateCompleted {
-			contract.State = ContractStateWaiting
-			contract.BoostPosition--
-			sendNextNotification(s, contract, true)
-		} else if contract.State == ContractStateWaiting {
-			contract.BoostPosition = len(contract.Order)
-			sendNextNotification(s, contract, true)
-		} else if contract.State == ContractStateStarted && contract.BoostPosition == len(contract.Order) {
-			// set contract to waiting
-			contract.State = ContractStateWaiting
-			sendNextNotification(s, contract, true)
-		} else if (activeBoosterState == BoostStateTokenTime) && len(contract.Order) > index {
-			contract.Boosters[contract.Order[index]].BoostState = BoostStateTokenTime
-			contract.Boosters[contract.Order[index]].StartTime = time.Now()
-			sendNextNotification(s, contract, true)
-		}
-	} else {
-		//remove userID from Boosters
-		delete(contract.Boosters, contract.Order[index])
-
-		contract.Order = removeIndex(contract.Order, index)
-		contract.Order = removeDuplicates(contract.Order)
-		contract.OrderRevision++
-		refreshBoostListMessage(s, contract)
-
-	}
-	return true
-}
-
-// Unboost will mark a user as unboosted
-func Unboost(s *discordgo.Session, guildID string, channelID string, mention string) error {
-	var contract = FindContract(channelID)
-	if contract == nil {
-		return errors.New(errorNoContract)
-	}
-	//contract.mutex.Lock()
-	//defer contract.mutex.Unlock()
-
-	if contract.CoopSize == 0 {
-		return errors.New(errorContractEmpty)
-	}
-
-	re := regexp.MustCompile(`[\\<>@#&!]`)
-	var userID = re.ReplaceAllString(mention, "")
-	userID = strings.TrimSpace(userID)
-
-	var u, _ = s.User(userID)
-	if u != nil {
-		if u.Bot {
-			return errors.New(errorBot)
-		}
-	}
-
-	if contract.Boosters[userID] == nil {
-		return errors.New(errorUserNotInContract)
-	}
-
-	if contract.State == ContractStateWaiting {
-		contract.Boosters[userID].BoostState = BoostStateTokenTime
-		contract.State = ContractStateStarted
-		// set BoostPosition to unboosted user
-		for i := range contract.Order {
-			if contract.Order[i] == userID {
-				contract.BoostPosition = i
-				break
-			}
-		}
-
-		sendNextNotification(s, contract, true)
-	} else {
-		contract.Boosters[userID].BoostState = BoostStateUnboosted
-		refreshBoostListMessage(s, contract)
-	}
-	return nil
-}
-
 // RemoveContractBoosterByMention will remove a booster from the contract by mention
 func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channelID string, operator string, mention string) error {
 	fmt.Println("RemoveContractBoosterByMention", "GuildID: ", guildID, "ChannelID: ", channelID, "Operator: ", operator, "Mention: ", mention)
@@ -915,8 +806,6 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
-	//contract.mutex.Lock()
-	//defer contract.mutex.Unlock()
 
 	if contract.CoopSize == 0 {
 		return errors.New(errorContractEmpty)
@@ -937,12 +826,37 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 		userID = mention[offset : len(mention)-1]
 	}
 
-	for i := range contract.Order {
-		if contract.Order[i] == userID {
-			if removeContractBoosterByContract(s, contract, i+1) {
-				contract.RegisteredNum = len(contract.Boosters)
-			}
-			break
+	removalIndex := slices.Index(contract.Order, userID)
+	currentBooster := ""
+
+	// Save current booster name
+	if contract.State != ContractStateWaiting && contract.BoostPosition != len(contract.Order) && userID != contract.Order[contract.BoostPosition] {
+		currentBooster = contract.Order[contract.BoostPosition]
+	}
+
+	// Remove the booster from the contract
+	contract.Order = removeIndex(contract.Order, removalIndex)
+	contract.OrderRevision++
+	delete(contract.Boosters, userID)
+	contract.RegisteredNum = len(contract.Boosters)
+
+	if currentBooster != "" {
+		contract.BoostPosition = slices.Index(contract.Order, currentBooster)
+	} else {
+		// Active Booster is leaving contract.
+		if contract.State == ContractStateCompleted || contract.State == ContractStateArchive || contract.State == ContractStateWaiting {
+			contract.State = ContractStateWaiting
+			contract.BoostPosition = len(contract.Order)
+			sendNextNotification(s, contract, true)
+		} else if contract.State == ContractStateStarted && contract.BoostPosition == len(contract.Order) {
+			// set contract to waiting
+			contract.State = ContractStateWaiting
+			sendNextNotification(s, contract, true)
+		} else {
+			contract.BoostPosition = findNextBooster(contract)
+			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
+			contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+			sendNextNotification(s, contract, true)
 		}
 	}
 
@@ -970,7 +884,6 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 					s.ChannelMessageEditComplex(msg)
 				}
 			}
-
 		}
 	}
 
@@ -1317,6 +1230,53 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 
 	sendNextNotification(s, contract, true)
 
+	return nil
+}
+
+// Unboost will mark a user as unboosted
+func Unboost(s *discordgo.Session, guildID string, channelID string, mention string) error {
+	var contract = FindContract(channelID)
+	if contract == nil {
+		return errors.New(errorNoContract)
+	}
+	//contract.mutex.Lock()
+	//defer contract.mutex.Unlock()
+
+	if contract.CoopSize == 0 {
+		return errors.New(errorContractEmpty)
+	}
+
+	re := regexp.MustCompile(`[\\<>@#&!]`)
+	var userID = re.ReplaceAllString(mention, "")
+	userID = strings.TrimSpace(userID)
+
+	var u, _ = s.User(userID)
+	if u != nil {
+		if u.Bot {
+			return errors.New(errorBot)
+		}
+	}
+
+	if contract.Boosters[userID] == nil {
+		return errors.New(errorUserNotInContract)
+	}
+
+	if contract.State == ContractStateWaiting {
+		contract.Boosters[userID].BoostState = BoostStateTokenTime
+		contract.State = ContractStateStarted
+		// set BoostPosition to unboosted user
+		for i := range contract.Order {
+			if contract.Order[i] == userID {
+				contract.BoostPosition = i
+				break
+			}
+		}
+
+		sendNextNotification(s, contract, true)
+	} else {
+		contract.Boosters[userID].BoostState = BoostStateUnboosted
+		refreshBoostListMessage(s, contract)
+	}
 	return nil
 }
 
