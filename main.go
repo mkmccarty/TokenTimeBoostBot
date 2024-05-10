@@ -618,15 +618,11 @@ var (
 			err := boost.StartContractBoosting(s, i.GuildID, i.ChannelID, i.Member.User.ID)
 			if err != nil {
 				str := fmt.Sprint(err.Error())
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content:    str,
-						Flags:      discordgo.MessageFlagsEphemeral,
-						Components: []discordgo.MessageComponent{}},
+				s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+					Content: str,
 				})
 			} else {
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{})
+				s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
 
 				// Rebuild the signup message to disable the start button
 				msg := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
@@ -679,12 +675,8 @@ func joinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell boo
 		str = fmt.Sprintf("Added <@%s> to contract", i.Member.User.ID)
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseUpdateMessage,
-		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
+	s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content: str,
 	})
 }
 
