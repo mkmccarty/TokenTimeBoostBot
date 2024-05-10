@@ -380,22 +380,22 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 	var instr strings.Builder
 	if displaySunInstructions {
-		instr.WriteString("⚠️ Arrives after Sunday event\n")
+		instr.WriteString("⚠️ Arrives after Sunday event begins\n")
 	}
 	if displayDubcapInstructions {
-		instr.WriteString("🟢 Arrives within dubcap.\n")
-		instr.WriteString("🟡 Arrives with less than 5 minutes of dubcap\n")
-		instr.WriteString("🔴 After Dubcap\n")
+		instr.WriteString("🟢 Arrives during dubcap\n")
+		instr.WriteString("🟡 Arrives with less than 5 minutes of dubcap end\n")
+		instr.WriteString("🔴 After Dubcap ends\n")
 	}
 
 	s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
-			Content: builder.String(),
+			Content: builder.String() + "\n",
 			Embeds: []*discordgo.MessageEmbed{{
 				Type: discordgo.EmbedTypeRich,
 				//Title: "Mission Arrival Times",
 				//Description: "",
-				Color:  0xffaa00,
+				Color:  0xff5500,
 				Fields: field,
 				Footer: &discordgo.MessageEmbedFooter{
 					Text: instr.String(),
