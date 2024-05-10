@@ -671,9 +671,10 @@ func joinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell boo
 	if err != nil {
 		str = err.Error()
 		log.Print(str)
-	} else {
-		str = fmt.Sprintf("Added <@%s> to contract", i.Member.User.ID)
 	}
+	//else {
+	//	str = fmt.Sprintf("Added <@%s> to contract", i.Member.User.ID)
+	//}
 
 	s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		//		Content: str,
