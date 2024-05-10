@@ -204,6 +204,17 @@ func HandleChangeOneBoosterCommand(s *discordgo.Session, i *discordgo.Interactio
 
 	var err error
 	contract := FindContract(i.ChannelID)
+	if contract == nil {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    errorNoContract,
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{}},
+		})
+		return
+	}
+
 	position := 0
 	boosterName := ""
 	newBooster := ""
