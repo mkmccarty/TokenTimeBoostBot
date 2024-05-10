@@ -269,18 +269,21 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
+			Content: "Working on it...",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
 	})
-
 	var err = AddContractMember(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), mention, guestName, orderValue)
 	if err != nil {
 		log.Println(err.Error())
 	}
 
+	s.FollowupMessageCreate(i.Interaction, true,
+		&discordgo.WebhookParams{
+			Content: str},
+	)
 }
 
 // HandlePruneCommand will handle the /prune command
@@ -309,20 +312,23 @@ func HandlePruneCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		farmer = opt.StringValue()
 		str += " " + farmer
 	}
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content:    "Working on it...",
+			Flags:      discordgo.MessageFlagsEphemeral,
+			Components: []discordgo.MessageComponent{}},
+	})
 
 	var err = RemoveContractBoosterByMention(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), farmer)
 	if err != nil {
 		log.Println("/prune", err.Error())
 		str = err.Error()
 	}
-
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
-	})
+	s.FollowupMessageCreate(i.Interaction, true,
+		&discordgo.WebhookParams{
+			Content: str},
+	)
 }
 
 // HandleCoopETACommand will handle the /coopeta command

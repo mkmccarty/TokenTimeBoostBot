@@ -977,29 +977,6 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 	return nil
 }
 
-// RemoveContractBooster will remove a booster from the contract
-func RemoveContractBooster(s *discordgo.Session, guildID string, channelID string, index int) error {
-	var contract = FindContract(channelID)
-
-	if contract == nil {
-		return errors.New(errorNoContract)
-	}
-
-	//contract.mutex.Lock()
-	//defer contract.mutex.Unlock()
-
-	if len(contract.Order) == 0 {
-		return errors.New(errorContractEmpty)
-	}
-	if removeContractBoosterByContract(s, contract, index) {
-		contract.RegisteredNum = len(contract.Boosters)
-	}
-
-	// Remove the Boost List and thoen redisplay it
-	refreshBoostListMessage(s, contract)
-	return nil
-}
-
 // StartContractBoosting will start the contract
 func StartContractBoosting(s *discordgo.Session, guildID string, channelID string, userID string) error {
 	var contract = FindContract(channelID)
