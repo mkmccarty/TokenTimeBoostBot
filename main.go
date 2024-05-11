@@ -717,8 +717,11 @@ func init() {
 				h(s, i)
 			}
 		case discordgo.InteractionMessageComponent:
+			// Handlers could include a parameter to help identify this uniquly
 
-			if h, ok := componentHandlers[i.MessageComponentData().CustomID]; ok {
+			handlerID := strings.Split(i.MessageComponentData().CustomID, "#")[0]
+
+			if h, ok := componentHandlers[handlerID]; ok {
 				userID := ""
 				if i.GuildID == "" {
 					userID = i.User.ID
