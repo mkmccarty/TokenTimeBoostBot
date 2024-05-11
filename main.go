@@ -594,6 +594,9 @@ var (
 		"fd_tokenEdit": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			track.HandleTokenEdit(s, i)
 		},
+		"fd_trackerEdit": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			track.HandleTrackerEdit(s, i)
+		},
 		"fd_tokenSent": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			track.HandleTokenSend(s, i)
 		},
@@ -716,9 +719,22 @@ func init() {
 			if h, ok := autocompleteHandlers[i.ApplicationCommandData().Name]; ok {
 				h(s, i)
 			}
+
+		case discordgo.InteractionModalSubmit:
+			// Handlers could include a parameter to help identify this uniquly
+			handlerID := strings.Split(i.ModalSubmitData().CustomID, "#")[0]
+			if h, ok := componentHandlers[handlerID]; ok {
+				userID := ""
+				if i.GuildID == "" {
+					userID = i.User.ID
+				} else {
+					userID = i.Member.User.ID
+				}
+				log.Println("Component: ", i.ModalSubmitData().CustomID, userID)
+				h(s, i)
+			}
 		case discordgo.InteractionMessageComponent:
 			// Handlers could include a parameter to help identify this uniquly
-
 			handlerID := strings.Split(i.MessageComponentData().CustomID, "#")[0]
 
 			if h, ok := componentHandlers[handlerID]; ok {

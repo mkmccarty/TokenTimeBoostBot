@@ -168,6 +168,88 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	saveData(Tokens)
 }
 
+// HandleTrackerEdit will handle the tracker edit button
+func HandleTrackerEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	var userID string
+	if i.GuildID != "" {
+		userID = i.Member.User.ID
+	} else {
+		userID = i.User.ID
+	}
+	name := extractTokenName(i.ModalSubmitData().CustomID)
+
+	if Tokens[userID] == nil || Tokens[userID].Coop == nil || Tokens[userID].Coop[name] == nil {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Tracker not found.",
+			},
+		})
+	}
+
+	str := ""
+
+	t := Tokens[userID].Coop[name]
+	data := i.ModalSubmitData()
+	for _, comp := range data.Components {
+		input := comp.(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput)
+		if input.CustomID == "duration" {
+			// Timespan of the contract duration
+			contractTimespan := strings.TrimSpace(input.Value)
+			contractTimespan = strings.Replace(contractTimespan, "day", "d", -1)
+			contractTimespan = strings.Replace(contractTimespan, "hr", "h", -1)
+			contractTimespan = strings.Replace(contractTimespan, "min", "m", -1)
+			contractTimespan = strings.Replace(contractTimespan, "sec", "s", -1)
+			duration, err := str2duration.ParseDuration(contractTimespan)
+			if err == nil {
+				t.DurationTime = duration
+				t.EstimatedEndTime = t.StartTime.Add(duration)
+				str = fmt.Sprintf("Duration updated to %s.", duration.String())
+			} else {
+				str = "Invalid duration format. Use something like 19h35m."
+			}
+		}
+		if input.CustomID == "since-start" && input.Value != "" {
+			var err error
+			// Timespan of the contract duration
+			contractTimespan := strings.TrimSpace(input.Value)
+			contractTimespan = strings.Replace(contractTimespan, "day", "d", -1)
+			contractTimespan = strings.Replace(contractTimespan, "hr", "h", -1)
+			contractTimespan = strings.Replace(contractTimespan, "min", "m", -1)
+			contractTimespan = strings.Replace(contractTimespan, "sec", "s", -1)
+			sinceStart, err := str2duration.ParseDuration(contractTimespan)
+			if err == nil {
+				// Invalid duration, just assigning a 12h
+				t.StartTime = time.Now().Add(-sinceStart)
+				t.EstimatedEndTime = t.StartTime.Add(t.DurationTime)
+				str += fmt.Sprintf("\nUpdate start time to <t:%d:R>", t.StartTime.Unix())
+			} else {
+				str += "\nInvalid start time format. Enter how long ago the contract started. Use something like 1h35m."
+			}
+		}
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: str,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+
+	//newDuration := data.Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
+	//newStarTime := data.Components[1].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
+
+	saveData(Tokens)
+	embed := getTokenTrackingEmbed(t, false)
+	comp := getTokenValComponents(tokenTrackingEditing(userID, t.Name, false), t.Name)
+	m := discordgo.NewMessageEdit(t.UserChannelID, t.TokenMessageID)
+	m.Components = &comp
+	m.SetEmbeds(embed.Embeds)
+	m.SetContent("")
+	s.ChannelMessageEditComplex(m)
+}
+
 // HandleTokenRemoveCommand will handle the /token-remove command
 func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCreate) string {
 	// User interacting with bot, is this first time ?
