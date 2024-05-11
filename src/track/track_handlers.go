@@ -1,8 +1,10 @@
 package track
 
 import (
+	"fmt"
 	"log"
 	"slices"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -139,23 +141,62 @@ func HandleTokenEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	} else {
 		userID = i.User.ID
 	}
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-	})
 
 	name := extractTokenName(i.MessageComponentData().CustomID)
 	if name == "" {
 		name = extractTokenNameOriginal(i.Message.Components[0])
 	}
-	isEditing := tokenTrackingEditing(userID, name, true)
-	embed := tokenTrackingTrack(userID, name, 0, 0)
 
-	comp := getTokenValComponents(isEditing, name)
-	m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
-	m.Components = &comp
-	m.SetEmbeds(embed.Embeds)
-	m.SetContent("")
-	s.ChannelMessageEditComplex(m)
+	if Tokens[userID] == nil || Tokens[userID].Coop == nil || Tokens[userID].Coop[name] == nil {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Tracker not found.",
+			},
+		})
+	}
+
+	t := Tokens[userID].Coop[name]
+
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseModal,
+		Data: &discordgo.InteractionResponseData{
+			CustomID: "fd_trackerEdit#" + name,
+			Title:    "Update Tracker Details for " + name,
+			Components: []discordgo.MessageComponent{
+				discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.TextInput{
+							CustomID:    "duration",
+							Label:       "Total Duration",
+							Style:       discordgo.TextInputShort,
+							Placeholder: fmt.Sprintf("%s", t.DurationTime.String()),
+							Required:    true,
+							MaxLength:   10,
+							MinLength:   2,
+						},
+					},
+				},
+				discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.TextInput{
+							CustomID:    "since-start",
+							Label:       "How long ago did this start?",
+							Style:       discordgo.TextInputShort,
+							Placeholder: fmt.Sprintf("%s ago. Example: 1h30m", time.Since(t.StartTime).Round(time.Minute).String()),
+							Required:    false,
+							MaxLength:   10,
+							MinLength:   2,
+						},
+					},
+				},
+			}}})
+	if err == nil {
+		return
+	}
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	})
 
 }
 
