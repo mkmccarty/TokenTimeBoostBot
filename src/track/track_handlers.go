@@ -16,30 +16,30 @@ func getTokenValComponents(timeAdjust bool, name string) []discordgo.MessageComp
 					discordgo.Button{
 						Label:    "Send a Token",
 						Style:    discordgo.SuccessButton,
-						CustomID: "fd_tokenSent",
+						CustomID: "fd_tokenSent#" + name,
 					},
 					discordgo.Button{
 						Label:    "Receive a Token",
 						Style:    discordgo.DangerButton,
-						CustomID: "fd_tokenReceived",
+						CustomID: "fd_tokenReceived#" + name,
 					},
 					discordgo.Button{
 						Label:    "Details",
 						Style:    discordgo.PrimaryButton,
-						CustomID: "fd_tokenDetails",
+						CustomID: "fd_tokenDetails#" + name,
 					},
 					discordgo.Button{
 						Emoji: &discordgo.ComponentEmoji{
 							Name: "📝",
 						},
-						Label:    name,
+						Label:    "Edit",
 						Style:    discordgo.SecondaryButton,
-						CustomID: "fd_tokenEdit",
+						CustomID: "fd_tokenEdit#" + name,
 					},
 					discordgo.Button{
 						Label:    "Finish",
 						Style:    discordgo.SecondaryButton,
-						CustomID: "fd_tokenComplete",
+						CustomID: "fd_tokenComplete#" + name,
 					},
 				},
 			},
@@ -52,74 +52,54 @@ func getTokenValComponents(timeAdjust bool, name string) []discordgo.MessageComp
 				discordgo.Button{
 					Label:    "Send a Token",
 					Style:    discordgo.SuccessButton,
-					CustomID: "fd_tokenSent",
+					CustomID: "fd_tokenSent#" + name,
 				},
 				discordgo.Button{
 					Label:    "Receive a Token",
 					Style:    discordgo.DangerButton,
-					CustomID: "fd_tokenReceived",
+					CustomID: "fd_tokenReceived#" + name,
 				},
 				discordgo.Button{
 					Label:    "Details",
 					Style:    discordgo.PrimaryButton,
-					CustomID: "fd_tokenDetails",
+					CustomID: "fd_tokenDetails#" + name,
 				},
 				discordgo.Button{
 					Emoji: &discordgo.ComponentEmoji{
 						Name: "💾",
 					},
-					Label:    name,
+					Label:    "Save",
 					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokenEdit",
+					CustomID: "fd_tokenEdit#" + name,
 				},
 				discordgo.Button{
 					Label:    "Finish",
 					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokenComplete",
+					CustomID: "fd_tokenComplete#" + name,
 				},
 			},
 		},
-		/*
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.SelectMenu{
-						CustomID:    "fd_tokenRemove",
-						Placeholder: "Select token to remove",
-						Options: []discordgo.SelectMenuOption{
-							{
-								Label: "1",
-								Value: "0",
-							},
-							{
-								Label: "2",
-								Value: "2",
-							},
-						},
-					},
-				},
-			},
-		*/
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.Button{
 					Label:    "Start Hour +1",
 					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokenStartHourPlus",
+					CustomID: "fd_tokenStartHourPlus#" + name,
 				},
 				discordgo.Button{
 					Label:    "Start Minute +5",
 					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokenStartMinutePlusFive",
+					CustomID: "fd_tokenStartMinutePlusFive#" + name,
 				},
 				discordgo.Button{
 					Label:    "Start Minute +1",
 					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokenStartMinutePlusOne",
+					CustomID: "fd_tokenStartMinutePlusOne#" + name,
 				},
 				discordgo.Button{
 					Label:    "Start Hour -1",
 					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokenStartHourMinus",
+					CustomID: "fd_tokenStartHourMinus#" + name,
 				},
 			},
 		},
@@ -128,22 +108,22 @@ func getTokenValComponents(timeAdjust bool, name string) []discordgo.MessageComp
 				discordgo.Button{
 					Label:    "Duration Hour +1",
 					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokenDurationHourPlus",
+					CustomID: "fd_tokenDurationHourPlus#" + name,
 				},
 				discordgo.Button{
 					Label:    "Duration Minute +5",
 					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokenDurationMinutePlusFive",
+					CustomID: "fd_tokenDurationMinutePlusFive#" + name,
 				},
 				discordgo.Button{
 					Label:    "Duration Minute +1",
 					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokenDurationMinutePlusOne",
+					CustomID: "fd_tokenDurationMinutePlusOne#" + name,
 				},
 				discordgo.Button{
 					Label:    "Duration Hour -1",
 					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokenDurationHourMinus",
+					CustomID: "fd_tokenDurationHourMinus#" + name,
 				},
 			},
 		},
@@ -163,7 +143,10 @@ func HandleTokenEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 	})
 
-	name, _ := extractTokenName(i.Message.Components[0])
+	name := extractTokenName(i.MessageComponentData().CustomID)
+	if name == "" {
+		name = extractTokenNameOriginal(i.Message.Components[0])
+	}
 	isEditing := tokenTrackingEditing(userID, name, true)
 	embed := tokenTrackingTrack(userID, name, 0, 0)
 
@@ -189,7 +172,10 @@ func HandleTokenSend(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 	})
 
-	name, _ := extractTokenName(i.Message.Components[0])
+	name := extractTokenName(i.MessageComponentData().CustomID)
+	if name == "" {
+		name = extractTokenNameOriginal(i.Message.Components[0])
+	}
 	embed := tokenTrackingTrack(userID, name, 1, 0)
 
 	comp := getTokenValComponents(tokenTrackingEditing(userID, name, false), name)
@@ -215,7 +201,10 @@ func HandleTokenReceived(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 	})
 
-	name, _ := extractTokenName(i.Message.Components[0])
+	name := extractTokenName(i.MessageComponentData().CustomID)
+	if name == "" {
+		name = extractTokenNameOriginal(i.Message.Components[0])
+	}
 	embed := tokenTrackingTrack(userID, name, 0, 1)
 
 	comp := getTokenValComponents(tokenTrackingEditing(userID, name, false), name)
@@ -241,7 +230,10 @@ func HandleTokenDetails(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 	})
 
-	name, _ := extractTokenName(i.Message.Components[0])
+	name := extractTokenName(i.MessageComponentData().CustomID)
+	if name == "" {
+		name = extractTokenNameOriginal(i.Message.Components[0])
+	}
 	SetTokenTrackingDetails(userID, name)
 	embed := tokenTrackingTrack(userID, name, 0, 0)
 
@@ -266,7 +258,10 @@ func HandleTokenComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 	})
 
-	name, _ := extractTokenName(i.Message.Components[0])
+	name := extractTokenName(i.MessageComponentData().CustomID)
+	if name == "" {
+		name = extractTokenNameOriginal(i.Message.Components[0])
+	}
 	s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
 
 	td, err := getTrack(userID, name)
@@ -291,13 +286,24 @@ func HandleTokenComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 // ReactionAdd is called when a reaction is added to a message
 func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
-	// Find the message
-	var msg, err = s.ChannelMessage(r.ChannelID, r.MessageID)
 
-	if err != nil {
+	if Tokens[r.UserID] == nil || Tokens[r.UserID].Coop == nil {
 		return
 	}
-	name, _ := extractTokenName(msg.Components[0])
+	name := ""
+
+	// Find the name of this tracker from the messageID
+	for _, v := range Tokens[r.UserID].Coop {
+		if v.TokenMessageID == r.MessageID {
+			name = v.Name
+			break
+			// This is the tracker
+		}
+	}
+	if name == "" {
+		return
+	}
+
 	emojiName := r.Emoji.Name
 	userID := r.UserID
 	var numberSlice = []string{"1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"}

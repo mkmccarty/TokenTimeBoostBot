@@ -445,15 +445,23 @@ func getTokenValue(seconds float64, durationSeconds float64) float64 {
 }
 
 // extractTokenName will extract the token name from the message component
-func extractTokenName(comp discordgo.MessageComponent) (string, error) {
+func extractTokenNameOriginal(comp discordgo.MessageComponent) string {
 	jsonBlob, _ := discordgo.Marshal(comp)
 	stage1 := string(jsonBlob[:])
 	stage2 := strings.Split(stage1, "{")[5]
 	stage3 := strings.Split(stage2, ",")[0]
 	stage4 := strings.Split(stage3, ":")[1]
-
 	// extract string from test2 until the backslash
-	return stage4[1 : len(stage4)-1], nil
+	return stage4[1 : len(stage4)-1]
+}
+
+func extractTokenName(customID string) string {
+	// name is the part of the CustomID after the first #
+	name := strings.Split(customID, "#")
+	if len(name) == 1 {
+		return ""
+	}
+	return name[1]
 }
 
 func syncTokenTracking(name string, startTime time.Time, duration time.Duration) {
@@ -479,7 +487,10 @@ func TokenAdjustTimestamp(s *discordgo.Session, i *discordgo.InteractionCreate, 
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 	})
 
-	name, _ := extractTokenName(i.Message.Components[0])
+	name := extractTokenName(i.MessageComponentData().CustomID)
+	if name == "" {
+		name = extractTokenNameOriginal(i.Message.Components[0])
+	}
 	embed := TokenTrackingAdjustTime(i.ChannelID, userID, name, startHour, startMinute, endHour, endMinute)
 
 	comp := getTokenValComponents(tokenTrackingEditing(userID, name, false), name)
@@ -557,7 +568,6 @@ func removeReceivedToken(userID string, name string, index int) {
 		return
 	}
 
-	index--
 	for _, v := range Tokens[userID].Coop {
 		if v != nil && v.Name == name {
 			if index <= len(v.Received) {
