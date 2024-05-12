@@ -164,6 +164,7 @@ type Contract struct {
 	Egg                       int32
 	EggName                   string
 	EggEmoji                  string
+	ChickenRunEmoji           string
 	TargetAmount              []float64
 	qTargetAmount             []float64
 	ChickenRunCooldownMinutes int
@@ -267,14 +268,28 @@ func FindTokenEmoji(s *discordgo.Session, guildID string) string {
 	return "🐣"
 }
 
+func findBoostBotGuildEmoji(s *discordgo.Session, emoji string, reactionIcon bool) string {
+	g, _ := s.State.Guild(boostBotHomeGuild) // RAIYC Playground
+	e := emutil.FindEmoji(g.Emojis, emoji, false)
+	if e != nil {
+		if reactionIcon {
+			// Reactions need to be in the format "<:emoji:ID"
+			retVal := e.MessageFormat()
+			return retVal[:len(retVal)-1]
+		}
+		return e.MessageFormat()
+	}
+	return ""
+}
+
 // FindEggEmoji will find the token emoji for the given guild
-func FindEggEmoji(s *discordgo.Session, guildID string, egg string) string {
+func FindEggEmoji(s *discordgo.Session, guildID string, eggOrig string) string {
 	g, _ := s.State.Guild(boostBotHomeGuild) // RAIYC Playground
 	// remove _ from egg
-	egg = strings.Replace(egg, "_", "", -1)
+	egg := strings.Replace(eggOrig, "_", "", -1)
 	var e = emutil.FindEmoji(g.Emojis, "egg_"+strings.ToLower(egg), false)
 	if e != nil {
-		return e.MessageFormat()
+		return e.MessageFormat()[:len(e.MessageFormat())-1]
 	}
 
 	e = emutil.FindEmoji(g.Emojis, "egg_unknown", false)
@@ -372,6 +387,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.SRData.SpeedrunState = SpeedrunStateNone
 		contract.VolunteerSink = ""
 		contract.StartTime = time.Now()
+		contract.ChickenRunEmoji = findBoostBotGuildEmoji(s, "icon_chicken_run", true)
 
 		for _, el := range adminUsers {
 			if slices.Index(contract.CreatorID, el) == -1 {
