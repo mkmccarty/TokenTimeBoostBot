@@ -9,14 +9,14 @@ require (
 	github.com/dannav/hhmmss v1.0.0
 	github.com/divan/num2words v0.0.0-20170904212200-57dba452f942
 	github.com/ewohltman/discordgo-mock v0.0.11
-	github.com/google/generative-ai-go v0.11.2
+	github.com/google/generative-ai-go v0.12.0
 	github.com/jasonlvhit/gocron v0.0.1
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/post04/discordgo-emoji-util v0.0.0-20210226234616-e2c0f5ea133e
 	github.com/rs/xid v1.5.0
 	github.com/sashabaranov/go-openai v1.23.1
 	github.com/xhit/go-str2duration/v2 v2.1.0
-	google.golang.org/api v0.179.0
+	google.golang.org/api v0.180.0
 	google.golang.org/protobuf v1.34.1
 
 )
