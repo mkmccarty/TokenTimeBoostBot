@@ -147,7 +147,7 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	} else {
 		var data discordgo.MessageSend
 		data.Embeds = embed.Embeds
-		data.Components = getTokenValComponents(false, trackingName) // Initial state
+		data.Components = getTokenValComponents(trackingName) // Initial state
 
 		u, _ := s.UserChannelCreate(userID)
 		msg, _ := s.ChannelMessageSendComplex(u.ID, &data)
@@ -241,8 +241,9 @@ func HandleTrackerEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	//newStarTime := data.Components[1].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
 
 	saveData(Tokens)
-	embed := getTokenTrackingEmbed(t, false)
-	comp := getTokenValComponents(tokenTrackingEditing(userID, t.Name, false), t.Name)
+	//embed := getTokenTrackingEmbed(t, false)
+	embed := TokenTrackingAdjustTime(i.ChannelID, userID, name, 0, 0, 0, 0)
+	comp := getTokenValComponents(t.Name)
 	m := discordgo.NewMessageEdit(t.UserChannelID, t.TokenMessageID)
 	m.Components = &comp
 	m.SetEmbeds(embed.Embeds)
@@ -298,7 +299,7 @@ func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 
 		defer saveData(Tokens)
 		embed := tokenTrackingTrack(userID, tokenList, 0, 0) // No sent or received
-		comp := getTokenValComponents(tokenTrackingEditing(userID, tokenList, false), tokenList)
+		comp := getTokenValComponents(tokenList)
 		m := discordgo.NewMessageEdit(Tokens[userID].Coop[tokenList].UserChannelID, Tokens[userID].Coop[tokenList].TokenMessageID)
 		m.Components = &comp
 		m.SetEmbeds(embed.Embeds)

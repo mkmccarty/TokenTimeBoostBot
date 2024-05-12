@@ -46,7 +46,6 @@ type tokenValue struct {
 	TokenMessageID   string      // Message ID for the Last Token Value message
 	UserChannelID    string      // User Channel ID for the Last Token Value message
 	Details          bool        // Show details of each token sent
-	Edit             bool        // Editing is enabled
 }
 
 type tokenValues struct {
@@ -90,7 +89,6 @@ func resetTokenTracking(tv *tokenValue) {
 	tv.SumValueReceived = 0.0
 	tv.TokenDelta = 0.0
 	tv.Details = false
-	tv.Edit = false
 }
 
 // SetTokenTrackingDetails will toggle the details for token tracking
@@ -100,19 +98,6 @@ func SetTokenTrackingDetails(userID string, name string) {
 		return
 	}
 	td.Details = !td.Details
-}
-
-// tokenTrackingEditing will toggle the edit for token tracking
-func tokenTrackingEditing(userID string, name string, editSelected bool) bool {
-	td, err := getTrack(userID, name)
-	if err != nil {
-		return false
-	}
-
-	if editSelected {
-		td.Edit = !td.Edit
-	}
-	return td.Edit
 }
 
 // TokenTrackingAdjustTime will adjust the time values for a contract
@@ -466,39 +451,12 @@ func extractTokenName(customID string) string {
 
 func syncTokenTracking(name string, startTime time.Time, duration time.Duration) {
 	for _, v := range Tokens {
-		if v.Coop[name] != nil && !v.Coop[name].Edit {
+		if v.Coop[name] != nil {
 			v.Coop[name].StartTime = startTime
 			v.Coop[name].DurationTime = duration
 			v.Coop[name].EstimatedEndTime = startTime.Add(duration)
 		}
 	}
-}
-
-// TokenAdjustTimestamp will adjust the timestamp for the token
-func TokenAdjustTimestamp(s *discordgo.Session, i *discordgo.InteractionCreate, startHour int, startMinute int, endHour int, endMinute int) {
-	var userID string
-	if i.GuildID != "" {
-		userID = i.Member.User.ID
-	} else {
-		userID = i.User.ID
-	}
-
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-	})
-
-	name := extractTokenName(i.MessageComponentData().CustomID)
-	if name == "" {
-		name = extractTokenNameOriginal(i.Message.Components[0])
-	}
-	embed := TokenTrackingAdjustTime(i.ChannelID, userID, name, startHour, startMinute, endHour, endMinute)
-
-	comp := getTokenValComponents(tokenTrackingEditing(userID, name, false), name)
-	m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
-	m.Components = &comp
-	m.SetEmbeds(embed.Embeds)
-	m.SetContent("")
-	s.ChannelMessageEditComplex(m)
 }
 
 // FarmedToken will track the token sent from the contract Token reaction
@@ -512,7 +470,7 @@ func FarmedToken(s *discordgo.Session, channelID string, userID string) {
 			v.FarmedTokenTime = append(v.FarmedTokenTime, time.Now())
 			saveData(Tokens)
 			embed := getTokenTrackingEmbed(v, false)
-			comp := getTokenValComponents(tokenTrackingEditing(userID, v.Name, false), v.Name)
+			comp := getTokenValComponents(v.Name)
 			m := discordgo.NewMessageEdit(v.UserChannelID, v.TokenMessageID)
 			m.Components = &comp
 			m.SetEmbeds(embed.Embeds)
@@ -552,7 +510,7 @@ func ContractTokenMessage(s *discordgo.Session, channelID string, userID string,
 				v.TokenDelta = v.SumValueSent - v.SumValueReceived
 				saveData(Tokens)
 				embed := getTokenTrackingEmbed(v, false)
-				comp := getTokenValComponents(tokenTrackingEditing(userID, v.Name, false), v.Name)
+				comp := getTokenValComponents(v.Name)
 				m := discordgo.NewMessageEdit(v.UserChannelID, v.TokenMessageID)
 				m.Components = &comp
 				m.SetEmbeds(embed.Embeds)
