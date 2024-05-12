@@ -380,7 +380,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 	var instr strings.Builder
 	if displaySunInstructions {
-		instr.WriteString("⚠️ Arrives after Sunday event begins\n")
+		instr.WriteString("⚠️ Launch before Sunday event will arrive event begins\n")
 	}
 	if displayDubcapInstructions {
 		instr.WriteString("🟢 Arrives during dubcap\n")

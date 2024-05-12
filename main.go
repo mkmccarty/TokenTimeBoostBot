@@ -567,30 +567,6 @@ var (
 		"fd_tokens_sub": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.AddBoostTokens(s, i, 0, -1)
 		},
-		"fd_tokenStartHourPlus": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			track.TokenAdjustTimestamp(s, i, 1, 0, 0, 0)
-		},
-		"fd_tokenStartHourMinus": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			track.TokenAdjustTimestamp(s, i, -1, 0, 0, 0)
-		},
-		"fd_tokenStartMinutePlusFive": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			track.TokenAdjustTimestamp(s, i, 0, 5, 0, 0)
-		},
-		"fd_tokenStartMinutePlusOne": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			track.TokenAdjustTimestamp(s, i, 0, 1, 0, 0)
-		},
-		"fd_tokenDurationHourPlus": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			track.TokenAdjustTimestamp(s, i, 0, 0, 1, 0)
-		},
-		"fd_tokenDurationHourMinus": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			track.TokenAdjustTimestamp(s, i, 0, 0, -1, 0)
-		},
-		"fd_tokenDurationMinutePlusFive": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			track.TokenAdjustTimestamp(s, i, 0, 0, 0, 5)
-		},
-		"fd_tokenDurationMinutePlusOne": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			track.TokenAdjustTimestamp(s, i, 0, 0, 0, 1)
-		},
 		"fd_tokenEdit": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			track.HandleTokenEdit(s, i)
 		},
