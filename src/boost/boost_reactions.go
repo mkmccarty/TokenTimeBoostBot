@@ -176,7 +176,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			var data discordgo.MessageSend
 			data.Content = str
 			msg, _ := s.ChannelMessageSendComplex(contract.Location[0].ChannelID, &data)
-			s.MessageReactionAdd(msg.ChannelID, msg.ID, "🐣") // Indicate Chicken Run
+			s.MessageReactionAdd(msg.ChannelID, msg.ID, contract.ChickenRunEmoji) // Indicate Chicken Run
 		}
 
 		// Token reaction handling
