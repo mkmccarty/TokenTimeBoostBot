@@ -388,19 +388,26 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		instr.WriteString("🔴 After Dubcap ends\n")
 	}
 
-	s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Content: builder.String() + "\n",
-			Embeds: []*discordgo.MessageEmbed{{
-				Type: discordgo.EmbedTypeRich,
-				//Title: "Mission Arrival Times",
-				//Description: "",
-				Color:  0xff5500,
-				Fields: field,
-				Footer: &discordgo.MessageEmbedFooter{
-					Text: instr.String(),
-				},
-			}},
-		})
+	if instr.Len() > 0 {
+		s.FollowupMessageCreate(i.Interaction, true,
+			&discordgo.WebhookParams{
+				Content: builder.String() + "\n",
+				Embeds: []*discordgo.MessageEmbed{{
+					Type: discordgo.EmbedTypeRich,
+					//Title: "Mission Arrival Times",
+					//Description: "",
+					Color:  0xff5500,
+					Fields: field,
+					Footer: &discordgo.MessageEmbedFooter{
+						Text: instr.String(),
+					},
+				}},
+			})
+	} else {
+		s.FollowupMessageCreate(i.Interaction, true,
+			&discordgo.WebhookParams{
+				Content: builder.String() + "\n",
+			})
+	}
 
 }
