@@ -309,11 +309,6 @@ func ChangePingRole(s *discordgo.Session, guildID string, channelID string, user
 		return errors.New(errorNoContract)
 	}
 
-	// return an error if the contract is in the signup state
-	if contract.State == ContractStateSignup {
-		return errors.New(errorContractNotStarted)
-	}
-
 	// return an error if the userID isn't the contract creator
 	if !creatorOfContract(contract, userID) {
 		return errors.New("only the contract creator can change the contract")
