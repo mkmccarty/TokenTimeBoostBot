@@ -34,12 +34,6 @@ func GetSlashChangeCommand(cmd string) *discordgo.ApplicationCommand {
 				Autocomplete: true,
 			},
 			{
-				Type:        discordgo.ApplicationCommandOptionRole,
-				Name:        "ping-role",
-				Description: "Change the contract ping role.",
-				Required:    false,
-			},
-			{
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "boost-order",
 				Description: "Provide new boost order. Example: 1,2,3,6,7,5,8-10",
@@ -78,6 +72,22 @@ func GetSlashChangeOneBoosterCommand(cmd string) *discordgo.ApplicationCommand {
 	}
 }
 
+// GetSlashChangePingRoleCommand adjust aspects of a running contract
+func GetSlashChangePingRoleCommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "Change contract ping role. Use with no parameters will set ping to @here.",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionRole,
+				Name:        "ping-role",
+				Description: "Select ping role. ACO Example: @TeamA",
+				Required:    false,
+			},
+		},
+	}
+}
+
 // HandleChangeCommand will handle the /change command
 func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
@@ -101,15 +111,6 @@ func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		optionMap[opt.Name] = opt
 	}
 
-	if opt, ok := optionMap["ping-role"]; ok {
-		role := opt.RoleValue(nil, "")
-		err := ChangePingRole(s, i.GuildID, i.ChannelID, i.Member.User.ID, role.Mention())
-		if err != nil {
-			str += err.Error()
-		} else {
-			str = "Changed ping role to " + role.Mention() + "\n"
-		}
-	}
 	if opt, ok := optionMap["contract-id"]; ok {
 		contractID = opt.StringValue()
 		contractID = strings.Replace(contractID, " ", "", -1)
@@ -291,6 +292,75 @@ func HandleChangeOneBoosterCommand(s *discordgo.Session, i *discordgo.Interactio
 
 }
 
+// HandleChangePingRoleCommand will handle the /change-ping-role command
+func HandleChangePingRoleCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// Protection against DM use as we need the channel ID to find the contract
+	if i.GuildID == "" {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "This command can only be run in a server.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{}},
+		})
+		return
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing...",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+
+	var str = ""
+
+	contract := FindContract(i.ChannelID)
+	if contract == nil {
+		str = errorNoContract
+	} else {
+		if !creatorOfContract(contract, i.Member.User.ID) {
+			str = "only the contract creator can change the contract"
+		}
+	}
+
+	// No error string means we are good to go
+	if str == "" {
+		// Default to @here when there is no parameter
+		newRole := "@here"
+
+		options := i.ApplicationCommandData().Options
+		optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+		for _, opt := range options {
+			optionMap[opt.Name] = opt
+		}
+
+		if opt, ok := optionMap["ping-role"]; ok {
+			role := opt.RoleValue(nil, "")
+			newRole = role.Mention()
+		}
+
+		for _, loc := range contract.Location {
+			if loc.ChannelID == i.ChannelID {
+				if loc.ChannelPing == newRole {
+					str = "Ping role already set to " + newRole
+					break
+				}
+				loc.ChannelPing = newRole
+				str = "Ping role changed to " + newRole
+				s.ChannelMessageSend(i.ChannelID, str)
+				break
+			}
+		}
+	}
+
+	s.FollowupMessageCreate(i.Interaction, true,
+		&discordgo.WebhookParams{
+			Content: str},
+	)
+}
+
 // removeDuplicates takes a slice as an argument and returns the array with all duplicate elements removed.
 func removeDuplicates(s []string) []string {
 	var result []string
@@ -300,27 +370,6 @@ func removeDuplicates(s []string) []string {
 		}
 	}
 	return result
-}
-
-// ChangePingRole will change the ping role for the contract
-func ChangePingRole(s *discordgo.Session, guildID string, channelID string, userID string, pingRole string) error {
-	var contract = FindContract(channelID)
-	if contract == nil {
-		return errors.New(errorNoContract)
-	}
-
-	// return an error if the userID isn't the contract creator
-	if !creatorOfContract(contract, userID) {
-		return errors.New("only the contract creator can change the contract")
-	}
-
-	for _, loc := range contract.Location {
-		if loc.ChannelID == channelID {
-			loc.ChannelPing = pingRole
-			return nil
-		}
-	}
-	return errors.New(errorNoContract)
 }
 
 // ChangeContractIDs will change the contractID and/or coopID
