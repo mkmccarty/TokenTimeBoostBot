@@ -289,7 +289,7 @@ func FindEggEmoji(s *discordgo.Session, guildID string, eggOrig string) string {
 	egg := strings.Replace(eggOrig, "_", "", -1)
 	var e = emutil.FindEmoji(g.Emojis, "egg_"+strings.ToLower(egg), false)
 	if e != nil {
-		return e.MessageFormat()[:len(e.MessageFormat())-1]
+		return e.MessageFormat()
 	}
 
 	e = emutil.FindEmoji(g.Emojis, "egg_unknown", false)
