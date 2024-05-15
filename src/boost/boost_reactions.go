@@ -97,7 +97,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		if contract.State != ContractStateSignup && contract.BoostPosition < len(contract.Order) {
 
 			// If Rocket reaction on Boost List, only that boosting user can apply a reaction
-			if r.Emoji.Name == "🚀" && contract.State == ContractStateStarted {
+			if r.Emoji.Name == boostIconName && contract.State == ContractStateStarted {
 				var votingElection = (msg.Reactions[0].Count - 1) >= 2
 
 				if r.UserID == contract.Order[contract.BoostPosition] || votingElection || creatorOfContract(contract, r.UserID) {
@@ -247,7 +247,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			outputStr := "## Boost Bot Icon Meanings\n\n"
 			outputStr += "See 📌 message to join the contract.\nSet your number of boost tokens there or "
 			outputStr += "add a 4️⃣ to 🔟 reaction to the boost list message.\n"
-			outputStr += "Active booster reaction of 🚀 to when spending tokens to boost. Multiple 🚀 votes by others in the contract will also indicate a boost.\n"
+			outputStr += "Active booster reaction of " + boostIcon + " to when spending tokens to boost. Multiple " + boostIcon + " votes by others in the contract will also indicate a boost.\n"
 			outputStr += "Farmers react with " + loc.TokenStr + " when sending tokens.\n"
 			//outputStr += "Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n"
 			outputStr += "Active booster reaction of 🔃 to exchange position with the next booster.\n"
