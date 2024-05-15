@@ -348,12 +348,13 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 			}
 		}
 	}
-
-	if boostIcon == "🚀" {
-		boostIconName = "chickenboost"
-		boostIconReaction = findBoostBotGuildEmoji(s, boostIconName, true)
-		boostIcon = boostIconReaction + ">"
-	}
+	/*
+		if boostIcon == "🚀" {
+			boostIconName = "chickenboost"
+			boostIconReaction = findBoostBotGuildEmoji(s, boostIconName, true)
+			boostIcon = boostIconReaction + ">"
+		}
+	*/
 
 	// Make sure this channel doesn't already have a contract
 	existingContract := FindContract(channelID)
