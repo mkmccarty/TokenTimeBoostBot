@@ -938,7 +938,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	contract.StartTime = time.Now()
 
 	// Only need to do speedruns if we have more than one leg
-	if contract.Speedrun && contract.SRData.Legs > 1 {
+	if contract.Speedrun && contract.SRData.Legs >= 1 {
 		contract.SRData.SpeedrunState = SpeedrunStateCRT
 		// Do not mark the token sink as boosting at this point
 		// This will happen when the CRT completes

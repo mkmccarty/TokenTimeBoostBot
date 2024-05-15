@@ -127,6 +127,9 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, contractStarter 
 	for runs > 0 {
 		if contract.SRData.Legs == 0 {
 			runs -= contract.SRData.Tango[0]
+			if runs <= 0 {
+				break
+			}
 		} else if contract.SRData.Tango[1] == 0 {
 			// Not possible to do any CRT
 			break
