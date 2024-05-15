@@ -110,10 +110,17 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		for i, element := range contract.Order[0:start] {
 			var b, ok = contract.Boosters[element]
 			if ok {
+				sinkIcon := ""
+				if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
+					if contract.SRData.SinkUserID == b.UserID {
+						sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
+					}
+				}
+
 				if b.BoostState == BoostStateBoosted {
-					earlyList += fmt.Sprintf("~~%s~~ ", b.Mention)
+					earlyList += fmt.Sprintf("~~%s~~%s ", b.Mention, sinkIcon)
 				} else {
-					earlyList += fmt.Sprintf("%s(%d) ", b.Mention, b.TokensWanted)
+					earlyList += fmt.Sprintf("%s(%d)%s ", b.Mention, b.TokensWanted, sinkIcon)
 				}
 				if i < start-1 {
 					earlyList += ", "
@@ -131,10 +138,17 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		for i, element := range contract.Order[end:len(contract.Order)] {
 			var b, ok = contract.Boosters[element]
 			if ok {
+				sinkIcon := ""
+				if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
+					if contract.SRData.SinkUserID == b.UserID {
+						sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
+					}
+				}
+
 				if b.BoostState == BoostStateBoosted {
-					lateList += fmt.Sprintf("~~%s~~ ", b.Mention)
+					lateList += fmt.Sprintf("~~%s~~%s ", b.Mention, sinkIcon)
 				} else {
-					lateList += fmt.Sprintf("%s(%d) ", b.Mention, b.TokensWanted)
+					lateList += fmt.Sprintf("%s(%d)%s ", b.Mention, b.TokensWanted, sinkIcon)
 				}
 				if (end + i + 1) < len(contract.Boosters) {
 					lateList += ", "
