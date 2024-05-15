@@ -232,7 +232,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 			outputStr += "> -Adjust the number of boost tokens you want by adding a 6️⃣ to 🔟 reaction to the boost list message.\n"
 
 		} else {
-			outputStr += "> Active Booster: 🚀 when boosting.\n"
+			outputStr += "> Active Booster: " + boostIcon + " when boosting.\n"
 			outputStr += "> Anyone: " + tokenStr + " when sending tokens. ❓ Help.\n"
 		}
 		if contract.CoopSize != len(contract.Order) {

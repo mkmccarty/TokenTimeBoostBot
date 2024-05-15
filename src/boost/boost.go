@@ -98,8 +98,11 @@ const (
 
 	SinkBoostFirst = 0 // First position
 	SinkBoostLast  = 1 // Last position
-
 )
+
+var boostIconName = "🚀"     // For Reaction tests
+var boostReactionIcon = "🚀" // For displaying
+var boostIcon = "🚀"         // For displaying
 
 // TokenUnit holds the data for each token
 type TokenUnit struct {
@@ -346,6 +349,12 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		}
 	}
 
+	if boostIcon == "🚀" {
+		boostIconName = "chickenboost"
+		boostReactionIcon = findBoostBotGuildEmoji(s, boostIconName, true)
+		boostIcon = boostReactionIcon + ">"
+	}
+
 	// Make sure this channel doesn't already have a contract
 	existingContract := FindContract(channelID)
 	if existingContract != nil {
@@ -501,7 +510,7 @@ func getTokenCountString(tokenStr string, tokensWanted int, tokensReceived int) 
 		// make countStr string with tokens number of duplicates of tokenStr
 		// Build the token string, countdown from 8 to 1 and then emoji
 		if tokens == 0 {
-			countStr = "🚀"
+			countStr = boostIcon
 		} else {
 			for i := 0; i < tokens; i++ {
 				if i == 9 {
@@ -1027,8 +1036,8 @@ func addContractReactions(s *discordgo.Session, contract *Contract, channelID st
 	}
 
 	if contract.State == ContractStateStarted {
-		s.MessageReactionAdd(channelID, messageID, "🚀")             // Booster
-		err := s.MessageReactionAdd(channelID, messageID, tokenStr) // Token Reaction
+		s.MessageReactionAdd(channelID, messageID, boostReactionIcon) // Booster
+		err := s.MessageReactionAdd(channelID, messageID, tokenStr)   // Token Reaction
 		if err != nil {
 			fmt.Print(err.Error())
 		}
