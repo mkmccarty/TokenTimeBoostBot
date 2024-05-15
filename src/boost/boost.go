@@ -101,7 +101,7 @@ const (
 )
 
 var boostIconName = "🚀"     // For Reaction tests
-var boostReactionIcon = "🚀" // For displaying
+var boostIconReaction = "🚀" // For displaying
 var boostIcon = "🚀"         // For displaying
 
 // TokenUnit holds the data for each token
@@ -351,8 +351,8 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 
 	if boostIcon == "🚀" {
 		boostIconName = "chickenboost"
-		boostReactionIcon = findBoostBotGuildEmoji(s, boostIconName, true)
-		boostIcon = boostReactionIcon + ">"
+		boostIconReaction = findBoostBotGuildEmoji(s, boostIconName, true)
+		boostIcon = boostIconReaction + ">"
 	}
 
 	// Make sure this channel doesn't already have a contract
@@ -1036,7 +1036,7 @@ func addContractReactions(s *discordgo.Session, contract *Contract, channelID st
 	}
 
 	if contract.State == ContractStateStarted {
-		s.MessageReactionAdd(channelID, messageID, boostReactionIcon) // Booster
+		s.MessageReactionAdd(channelID, messageID, boostIconReaction) // Booster
 		err := s.MessageReactionAdd(channelID, messageID, tokenStr)   // Token Reaction
 		if err != nil {
 			fmt.Print(err.Error())
