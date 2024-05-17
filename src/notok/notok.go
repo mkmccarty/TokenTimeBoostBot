@@ -33,12 +33,12 @@ func init() {
 }
 
 // Notok is the main function for the notok command
-func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd int64, text string) error {
-	var name = message.Member.Nick
+func Notok(s *discordgo.Session, i *discordgo.InteractionCreate, cmd int64, text string) error {
+	var name = i.Member.Nick
 	if name == "" {
-		name = message.Member.User.Username
+		name = i.Member.User.Username
 	}
-	var g, err = discord.GuildMember(message.GuildID, message.Member.User.ID)
+	var g, err = s.GuildMember(i.GuildID, i.Member.User.ID)
 	if err == nil && g.Nick != "" {
 		name = g.Nick
 	}
@@ -46,32 +46,24 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 	hidden := true
 	wishURL := ""
 	wishStr := text
-	var aiMsg *discordgo.Message
 
 	// Respond to messages
-	var currentStartTime = fmt.Sprintf(" <t:%d:R> ", time.Now().Unix())
+	var currentStartTime = time.Now()
 
 	switch cmd {
 	case 1:
-		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, aiTextString+" "+currentStartTime)
-		if err == nil {
-			wishStr = wishGemini(name, text)
-		}
+		wishStr, err = wishGemini(name, text)
 	case 5: // Open Letter
-		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, aiTextString+" "+currentStartTime)
-		if err == nil {
-			wishStr = letter(name, text)
-		}
+		wishStr, err = letter(name, text)
 	case 2:
-		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, aiBotString+" "+currentStartTime)
+		wishStr, err = getLetMeOutString(text)
 		if err == nil {
-			wishStr = getLetMeOutString(text)
-			wishURL = wishImage(wishStr, name)
-			hidden = false
+			wishURL, err = wishImage(wishStr, name)
 		}
+		hidden = false
 	case 3:
 		str := gonow()
-		wishURL = wishImage(str, name)
+		wishURL, err = wishImage(str, name)
 		wishStr = name + " expresses an urgent need to go next up in boost order."
 	case 4:
 		if len(wishStr) == 0 {
@@ -80,27 +72,42 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 		if len(wishStr) < 20 {
 			wishStr = defaultWish
 		}
-		aiMsg, err = discord.ChannelMessageSend(message.ChannelID, aiBotString+" "+currentStartTime)
-		if err == nil {
-			wishURL = wishImage(wishStr, name)
-		}
+		wishURL, err = wishImage(wishStr, name)
 	default:
 		return nil
 	}
 
-	if aiMsg != nil {
-		discord.ChannelMessageDelete(message.ChannelID, aiMsg.ID)
-	}
-
 	if err != nil {
+		s.FollowupMessageCreate(i.Interaction, true,
+			&discordgo.WebhookParams{
+				Content: fmt.Sprintf("%s\nResponse time: %s", err.Error(), time.Since(currentStartTime).Round(time.Second).String()),
+			},
+		)
 		return err
 	}
 
 	if wishURL != "" {
-		sendImageReply(discord, message.ChannelID, wishURL, wishStr, hidden)
+		s.FollowupMessageCreate(i.Interaction, true,
+			&discordgo.WebhookParams{
+				Content: fmt.Sprintf("Success\nResponse time: %s", time.Since(currentStartTime).Round(time.Second).String()),
+			},
+		)
+		sendImageReply(s, i.ChannelID, wishURL, wishStr, hidden)
 	} else if wishStr != "" {
-		discord.ChannelMessageSend(message.ChannelID, wishStr)
-		lastWish = wishStr
+		if strings.HasPrefix(text, "!!") {
+			s.FollowupMessageCreate(i.Interaction, true,
+				&discordgo.WebhookParams{
+					Content: wishStr},
+			)
+		} else {
+			s.FollowupMessageCreate(i.Interaction, true,
+				&discordgo.WebhookParams{
+					Content: fmt.Sprintf("Success\nResponse time: %s", time.Since(currentStartTime).Round(time.Second).String()),
+				},
+			)
+			s.ChannelMessageSend(i.ChannelID, wishStr)
+			lastWish = wishStr
+		}
 	} else if wishStr == lastWish {
 		lastWish = defaultWish
 	}
@@ -111,7 +118,8 @@ func Notok(discord *discordgo.Session, message *discordgo.InteractionCreate, cmd
 func DoGoNow(s *discordgo.Session, channelID string) {
 	var str = gonow()
 	s.ChannelTyping(channelID)
-	sendImageReply(s, channelID, wishImage(str, ""), "", false)
+	wishURL, _ := wishImage(str, "")
+	sendImageReply(s, channelID, wishURL, "", false)
 }
 
 func sendImageReply(s *discordgo.Session, channelID string, wishURL string, wishStr string, hidden bool) {
@@ -139,18 +147,19 @@ func sendImageReply(s *discordgo.Session, channelID string, wishURL string, wish
 	}
 }
 
-func letter(mention string, text string) string {
+func letter(mention string, text string) (string, error) {
 	tokenPrompt := "Kevin, the developer of Egg, Inc. has stopped sending widgets to the contract players of his game. Compose a crazy reason requesting that he provide you a widget. The letter should be fairly short and begin with \"Dear Kev,\"."
 	tokenPrompt += " " + text
 	str, err := getStringFromGoogleGemini(tokenPrompt)
 	if err != nil {
-		return "Sorry, the AIrtists are not available at the moment."
+		return "", err
 	}
+
 	m1 := regexp.MustCompile(`\[[A-Za-z\- ]*\]`)
 	str = m1.ReplaceAllString(str, "*"+mention+"*")
 	str = strings.Replace(str, "widget", "token", -1)
 
-	return str
+	return str, nil
 }
 
 /*
@@ -186,21 +195,23 @@ func getStringFromGoogleGemini(text string) (string, error) {
 	model.SafetySettings = []*genai.SafetySetting{
 		{
 			Category:  genai.HarmCategorySexuallyExplicit,
-			Threshold: genai.HarmBlockOnlyHigh,
-		},
+			Threshold: genai.HarmBlockOnlyHigh},
 		{
 			Category:  genai.HarmCategoryDangerousContent,
-			Threshold: genai.HarmBlockOnlyHigh,
-		},
+			Threshold: genai.HarmBlockOnlyHigh},
 		{
 			Category:  genai.HarmCategoryHarassment,
-			Threshold: genai.HarmBlockNone,
-		},
+			Threshold: genai.HarmBlockOnlyHigh},
 	}
 	resp, err := model.GenerateContent(ctx, genai.Text(text))
 	if err != nil {
 		log.Print(err)
 		return "", err
+	}
+
+	respStr := printResponse(resp)
+	if strings.HasPrefix(respStr, "I'm sorry, but") {
+		return "", errors.New(respStr)
 	}
 
 	return printResponse(resp), nil
@@ -222,23 +233,27 @@ func wish(mention string, text string) string {
 }
 */
 
-func wishGemini(mention string, text string) string {
+func wishGemini(mention string, text string) (string, error) {
 	var builder strings.Builder
-	builder.WriteString("A contract needs widgets to help purchase boosts and to share with others to improve speed the delivery of eggs.")
-	builder.WriteString("Make a silly wish that would result in a widget being delivered by truck very soon.")
-	builder.WriteString("The response should should be no more than 4 sentences and start with \"I wish\"")
-	builder.WriteString(text)
+	if !strings.HasPrefix(text, "!!") {
+		builder.WriteString("A contract needs widgets to help purchase boosts and to share with others to improve speed the delivery of eggs.")
+		builder.WriteString("Make a silly wish that would result in a widget being delivered by truck very soon.")
+		builder.WriteString("The response should should be no more than 4 sentences and start with \"I wish\"")
+		builder.WriteString(text)
+	} else {
+		builder.WriteString(text[2:])
+	}
 
 	str, err := getStringFromGoogleGemini(builder.String())
 	if err != nil {
-		return "Sorry, the AIrtists are not available at the moment."
+		return "", err
 	}
 	m1 := regexp.MustCompile(`\[[A-Za-z ]*\]`)
 	str = m1.ReplaceAllString(str, "*"+mention+"*")
 	str = strings.Replace(str, "widget", "token", -1)
 	str = strings.Replace(str, "I wish", mention+" wishes", -1)
 
-	return str
+	return str, err
 }
 
 func printResponse(resp *genai.GenerateContentResponse) string {
@@ -246,7 +261,7 @@ func printResponse(resp *genai.GenerateContentResponse) string {
 	for _, cand := range resp.Candidates {
 		if cand.Content != nil {
 			for _, part := range cand.Content.Parts {
-				fmt.Println(part)
+				log.Println(part)
 				str += fmt.Sprint(part)
 			}
 		}
@@ -254,17 +269,17 @@ func printResponse(resp *genai.GenerateContentResponse) string {
 	return str
 }
 
-func getLetMeOutString(text string) string {
+func getLetMeOutString(text string) (string, error) {
 	var builder strings.Builder
 	builder.WriteString("A group of chickens are locked in their farm held hostage by an unknown force.\n")
 	builder.WriteString("In 150 words or less tell a funny story about this confinement.\n")
 	builder.WriteString(text)
 	str, err := getStringFromGoogleGemini(builder.String())
 	if err != nil {
-		return "Sorry, the AIrtists are not available at the moment."
+		return "", err
 	}
 
-	return str
+	return str, nil
 }
 
 func gonow() string {
@@ -275,7 +290,7 @@ func gonow() string {
 	return tokenPrompt
 }
 
-func wishImage(prompt string, user string) string {
+func wishImage(prompt string, user string) (string, error) {
 	var client = openai.NewClient(config.OpenAIKey)
 
 	respURL, err := client.CreateImage(
@@ -287,7 +302,7 @@ func wishImage(prompt string, user string) string {
 			Size:           openai.CreateImageSize1024x1024,
 			ResponseFormat: openai.CreateImageResponseFormatURL,
 			Quality:        openai.CreateImageQualityStandard,
-			Style:          openai.CreateImageStyleNatural,
+			Style:          openai.CreateImageStyleVivid,
 			User:           user,
 		},
 	)
@@ -295,9 +310,9 @@ func wishImage(prompt string, user string) string {
 		var apiError *openai.APIError
 		switch {
 		case errors.As(err, &apiError):
-			return apiError.Message
+			return "", errors.New(apiError.Message)
 		default:
-			return err.Error()
+			return "", errors.New("error creating image")
 		}
 	}
 
@@ -306,7 +321,7 @@ func wishImage(prompt string, user string) string {
 
 	go downloadFile("./ttbb-data/images", respURL.Data[0].URL, prompt)
 
-	return respURL.Data[0].URL
+	return respURL.Data[0].URL, nil
 }
 
 func downloadFile(filepath string, url string, prompt string) error {
