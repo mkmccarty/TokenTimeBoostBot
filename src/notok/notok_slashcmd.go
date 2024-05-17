@@ -1,6 +1,8 @@
 package notok
 
-import "github.com/bwmarrin/discordgo"
+import (
+	"github.com/bwmarrin/discordgo"
+)
 
 var integerFunMinValue float64 = 20.0
 
@@ -81,11 +83,11 @@ func FunHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		//Data: &discordgo.InteractionResponseData{
-		//	Content:    "",
-		//	Flags:      discordgo.MessageFlagsEphemeral,
-		//	Components: []discordgo.MessageComponent{}},
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content:    "",
+			Flags:      discordgo.MessageFlagsEphemeral,
+			Components: []discordgo.MessageComponent{}},
 	},
 	)
 
