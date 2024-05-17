@@ -231,6 +231,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if opt, ok := optionMap["chain"]; ok {
 		chainExtended = opt.BoolValue()
 		farmerstate.SetLaunchHistory(userID, chainExtended)
+	} else {
 		chainExtended = farmerstate.GetLaunchHistory(userID)
 	}
 	if opt, ok := optionMap["mission-duration"]; ok {
