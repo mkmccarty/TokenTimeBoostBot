@@ -186,6 +186,10 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 			if len(contract.Location) > 1 {
 				server = fmt.Sprintf(" (%s) ", b.GuildName)
 			}
+			var chickenStr = ""
+			if time.Since(b.RunChickensTime) < 4*time.Minute {
+				chickenStr = fmt.Sprintf(" - <t:%d:R>%s>", b.RunChickensTime.Unix(), contract.ChickenRunEmoji)
+			}
 
 			countStr, signupCountStr := getTokenCountString(tokenStr, b.TokensWanted, b.TokensReceived)
 
@@ -201,7 +205,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 				case BoostStateTokenTime:
 					outputStr += fmt.Sprintf("%s **%s** %s%s%s%s\n", prefix, name, signupCountStr, currentStartTime, sinkIcon, server)
 				case BoostStateBoosted:
-					outputStr += fmt.Sprintf("%s ~~%s~~  %s %s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, server)
+					outputStr += fmt.Sprintf("%s ~~%s~~  %s %s%s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, chickenStr, server)
 				}
 
 			} else {
@@ -212,7 +216,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 				case BoostStateTokenTime:
 					outputStr += fmt.Sprintf("%s **%s** %s%s%s\n", prefix, name, countStr, currentStartTime, server)
 				case BoostStateBoosted:
-					outputStr += fmt.Sprintf("%s ~~%s~~  %s %s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), server)
+					outputStr += fmt.Sprintf("%s ~~%s~~  %s%s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), chickenStr, server)
 				}
 			}
 		}

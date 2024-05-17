@@ -172,11 +172,13 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 		if r.Emoji.Name == "🐓" {
 			// Indicate that a farmer is ready for chicken runs
+			contract.Boosters[r.UserID].RunChickensTime = time.Now()
 			str := fmt.Sprintf("%s <@%s> is ready for chicken runs, check for incoming trucks before visiting.", contract.Location[0].ChannelPing, r.UserID)
 			var data discordgo.MessageSend
 			data.Content = str
 			msg, _ := s.ChannelMessageSendComplex(contract.Location[0].ChannelID, &data)
 			s.MessageReactionAdd(msg.ChannelID, msg.ID, contract.ChickenRunEmoji) // Indicate Chicken Run
+			redraw = true
 		}
 
 		// Token reaction handling
