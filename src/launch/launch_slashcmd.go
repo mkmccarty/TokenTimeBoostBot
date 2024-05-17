@@ -276,6 +276,8 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var builder strings.Builder
 	//var header strings.Builder
 	shipDurationName := [...]string{"SH", "ST", "EX"}
+	var header strings.Builder
+	var normal strings.Builder
 
 	// Split array, trim to 3 elements
 	durationList := strings.Split(arrivalTimespan, ",")
@@ -288,6 +290,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	exDuration, _ := str2duration.ParseDuration(minutesStr)
 	displayDubcapInstructions := false
 	displaySunInstructions := false
+	displaySizeWarning := false
 
 	for i, missionTimespanRaw := range durationList {
 		missionTimespan := strings.TrimSpace(missionTimespanRaw)
@@ -298,7 +301,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 
 		if i != 0 {
-			builder.WriteString("\n")
+			normal.WriteString("\n")
 		}
 
 		arrivalTime := t.Add(dur)
@@ -306,7 +309,8 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		// loop through missionData
 		// for each ship, calculate the arrival time
 		// if arrival time is less than endTime, then add to the message
-		builder.WriteString(fmt.Sprintf("**Mission arriving on <t:%d:f> (FTL:%d)**\n", arrivalTime.Unix(), ftlLevel))
+		normal.WriteString(fmt.Sprintf("**Mission arriving on <t:%d:f> (FTL:%d)**\n", arrivalTime.Unix(), ftlLevel))
+		header.WriteString(fmt.Sprintf("Mission arriving on <t:%d:f> (FTL:%d)\n", arrivalTime.Unix(), ftlLevel))
 		if showDubCap {
 			builder.WriteString(doubleCapacityStr)
 		}
@@ -352,6 +356,10 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				if sunBubble != "" {
 					displaySunInstructions = true
 				}
+				if chainExtended && normal.Len() > 1500 {
+					displaySizeWarning = true
+					//chainExtended = false
+				}
 
 				var chainString = ""
 				if chainExtended {
@@ -369,14 +377,15 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				}
 			}
 		}
-		/*
-			field = append(field, &discordgo.MessageEmbedField{
-				Name:   header.String(),
-				Value:  builder.String(),
-				Inline: false,
-			})*/
-		//header.Reset()
-		//builder.Reset()
+
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   header.String(),
+			Value:  builder.String(),
+			Inline: false,
+		})
+		header.Reset()
+		normal.WriteString(builder.String())
+		builder.Reset()
 	}
 	var instr strings.Builder
 	if displaySunInstructions {
@@ -387,27 +396,52 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		instr.WriteString("🟡 Arrives with less than 5 minutes of dubcap end\n")
 		instr.WriteString("🔴 After Dubcap ends\n")
 	}
+	if displaySizeWarning {
+		instr.WriteString("📈 Display size limit reached. Please reduce the number of missions or disable the chain option.")
+	}
 
-	if instr.Len() > 0 {
-		s.FollowupMessageCreate(i.Interaction, true,
+	if displaySizeWarning {
+		_, err := s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
-				Content: builder.String() + "\n",
+				Content: "",
 				Embeds: []*discordgo.MessageEmbed{{
 					Type: discordgo.EmbedTypeRich,
-					//Title: "Mission Arrival Times",
+					//Title:       "Mission Arrival Times",
 					//Description: "",
-					Color:  0xff5500,
+					Color:  0x555500,
 					Fields: field,
 					Footer: &discordgo.MessageEmbedFooter{
 						Text: instr.String(),
 					},
 				}},
 			})
+		if err != nil {
+			fmt.Println("Error sending message: ", err)
+		}
+
 	} else {
-		s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: builder.String() + "\n",
-			})
+
+		if instr.Len() > 0 {
+			s.FollowupMessageCreate(i.Interaction, true,
+				&discordgo.WebhookParams{
+					Content: normal.String() + "\n",
+					Embeds: []*discordgo.MessageEmbed{{
+						Type: discordgo.EmbedTypeRich,
+						//Title: "Mission Arrival Times",
+						//Description: "",
+						Color:  0xff5500,
+						Fields: field,
+						Footer: &discordgo.MessageEmbedFooter{
+							Text: instr.String(),
+						},
+					}},
+				})
+		} else {
+			s.FollowupMessageCreate(i.Interaction, true,
+				&discordgo.WebhookParams{
+					Content: normal.String() + "\n",
+				})
+		}
 	}
 
 }
