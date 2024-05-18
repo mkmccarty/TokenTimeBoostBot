@@ -320,12 +320,12 @@ func getBoostOrderString(contract *Contract) string {
 	case ContractOrderReverse:
 		return "Reverse"
 	case ContractOrderRandom:
-		if contract.StartTime.IsZero() {
+		if contract.StartTime.IsZero() || contract.State == ContractStateSignup {
 			return "Random"
 		}
 		return fmt.Sprintf("Random -> Sign-up <t:%d:R> ", thresholdStartTime.Unix())
 	case ContractOrderFair:
-		if contract.StartTime.IsZero() {
+		if contract.StartTime.IsZero() || contract.State == ContractStateSignup {
 			return "Fair"
 		}
 		return fmt.Sprintf("Fair -> Sign-up <t:%d:R> ", thresholdStartTime.Unix())
@@ -859,8 +859,10 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 	currentBooster := ""
 
 	// Save current booster name
-	if contract.State != ContractStateWaiting && contract.BoostPosition != len(contract.Order) && userID != contract.Order[contract.BoostPosition] {
-		currentBooster = contract.Order[contract.BoostPosition]
+	if contract.BoostPosition != -1 {
+		if contract.State != ContractStateWaiting && contract.BoostPosition != len(contract.Order) && userID != contract.Order[contract.BoostPosition] {
+			currentBooster = contract.Order[contract.BoostPosition]
+		}
 	}
 
 	// Remove the booster from the contract
@@ -883,8 +885,10 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 			sendNextNotification(s, contract, true)
 		} else {
 			contract.BoostPosition = findNextBooster(contract)
-			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
-			contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+			if contract.BoostPosition != -1 {
+				contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
+				contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+			}
 			sendNextNotification(s, contract, true)
 		}
 	}
