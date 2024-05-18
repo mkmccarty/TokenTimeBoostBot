@@ -21,7 +21,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		outputStr = fmt.Sprintf("## %s %s (%s)\n", contract.EggEmoji, contract.Name, contract.CoopID)
 	} else {
 		outputStr = fmt.Sprintf("## %s %s (%s) - %d/%d\n", contract.EggEmoji, contract.Name, contract.CoopID, len(contract.Boosters), contract.CoopSize)
-		outputStr += fmt.Sprintf("### Order: **%s**\n", getBoostOrderString(contract))
+		outputStr += fmt.Sprintf("### Join order is %s\n", getBoostOrderString(contract))
 	}
 
 	outputStr += fmt.Sprintf("> Coordinator: <@%s> \n> <%s/%s/%s>\n", contract.CreatorID[0], "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID)
