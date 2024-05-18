@@ -474,9 +474,13 @@ func HandleContractDelete(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	if contract != nil {
 
 		if creatorOfContract(contract, i.Member.User.ID) {
+
 			coopName, err := DeleteContract(s, i.GuildID, i.ChannelID)
 			if err == nil {
 				str = fmt.Sprintf("Contract %s recycled.", coopName)
+			}
+			for _, loc := range contract.Location {
+				s.ChannelMessageUnpin(loc.ChannelID, loc.ReactionID)
 			}
 			s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
 		} else {
