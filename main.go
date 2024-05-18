@@ -97,6 +97,10 @@ func init() {
 	if err != nil {
 		log.Fatalf("Invalid bot parameters: %v", err)
 	}
+	// if ttbb-data directory doesn't exist, create it
+	if _, err := os.Stat("ttbb-data"); os.IsNotExist(err) {
+		os.Mkdir("ttbb-data", 0755)
+	}
 }
 
 // Bot parameters to override .config.json parameters
