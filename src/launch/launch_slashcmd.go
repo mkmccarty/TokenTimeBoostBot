@@ -430,8 +430,8 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 						Type: discordgo.EmbedTypeRich,
 						//Title: "Mission Arrival Times",
 						//Description: "",
-						Color:  0xff5500,
-						Fields: field,
+						Color: 0xff5500,
+						//Fields: field,
 						Footer: &discordgo.MessageEmbedFooter{
 							Text: instr.String(),
 						},
