@@ -21,6 +21,13 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		outputStr = fmt.Sprintf("## %s %s (%s)\n", contract.EggEmoji, contract.Name, contract.CoopID)
 	} else {
 		outputStr = fmt.Sprintf("## %s %s (%s) - %d/%d\n", contract.EggEmoji, contract.Name, contract.CoopID, len(contract.Boosters), contract.CoopSize)
+	}
+
+	if contract.State == ContractStateSignup && contract.PlannedStartTime.After(time.Now()) {
+		outputStr += fmt.Sprintf("## Planned Start Time: <t:%d:f>\n", contract.PlannedStartTime.Unix())
+	}
+
+	if len(contract.Boosters) != contract.CoopSize {
 		outputStr += fmt.Sprintf("### Join order is %s\n", getBoostOrderString(contract))
 	}
 
