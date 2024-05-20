@@ -37,6 +37,7 @@ const slashBoost string = "boost"
 const slashChange string = "change"
 const slashChangeOneBooster string = "change-one-booster"
 const slashChangePingRole string = "change-ping-role"
+const slashChangePlannedStartCommand string = "change-planned-start"
 const slashUnboost string = "unboost"
 const slashPrune string = "prune"
 const slashJoin string = "join-contract"
@@ -370,6 +371,7 @@ var (
 		boost.GetSlashChangeCommand(slashChange),
 		boost.GetSlashChangeOneBoosterCommand(slashChangeOneBooster),
 		boost.GetSlashChangePingRoleCommand(slashChangePingRole),
+		boost.GetSlashChangePlannedStartCommand(slashChangePlannedStartCommand),
 		farmerstate.SlashSetEggIncNameCommand(slashSetEggIncName),
 		{
 			Name:        slashBump,
@@ -487,6 +489,9 @@ var (
 		},
 		slashChangePingRole: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleChangePingRoleCommand(s, i)
+		},
+		slashChangePlannedStartCommand: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleChangePlannedStartCommand(s, i)
 		},
 		slashHelp: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleHelpCommand(s, i)

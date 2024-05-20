@@ -88,6 +88,22 @@ func GetSlashChangePingRoleCommand(cmd string) *discordgo.ApplicationCommand {
 	}
 }
 
+// GetSlashChangePlannedStartCommand adjust aspects of a running contract
+func GetSlashChangePlannedStartCommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "Change the planned start time of the contract",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "start-time",
+				Description: "Start time in Discord Timestamp format. Example: <t:1716822000:f>",
+				Required:    true,
+			},
+		},
+	}
+}
+
 // HandleChangeCommand will handle the /change command
 func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
@@ -351,6 +367,85 @@ func HandleChangePingRoleCommand(s *discordgo.Session, i *discordgo.InteractionC
 				str = "Ping role changed to " + newRole
 				s.ChannelMessageSend(i.ChannelID, str)
 				break
+			}
+		}
+	}
+
+	s.FollowupMessageCreate(i.Interaction, true,
+		&discordgo.WebhookParams{
+			Content: str},
+	)
+}
+
+// HandleChangePlannedStartCommand will handle the /change--planned-start command
+func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// Protection against DM use as we need the channel ID to find the contract
+	if i.GuildID == "" {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "This command can only be run in a server.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{}},
+		})
+		return
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing...",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+
+	var str = ""
+
+	contract := FindContract(i.ChannelID)
+	if contract == nil {
+		str = errorNoContract
+	} else {
+		if !creatorOfContract(contract, i.Member.User.ID) {
+			str = "only the contract creator can change the contract"
+		}
+	}
+
+	// No error string means we are good to go
+	if str == "" {
+		// Default to @here when there is no parameter
+
+		options := i.ApplicationCommandData().Options
+		optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+		for _, opt := range options {
+			optionMap[opt.Name] = opt
+		}
+
+		if opt, ok := optionMap["start-time"]; ok {
+			var startTime int64
+			var err error
+			startTimeStr := opt.StringValue()
+			// Split string by colons to get the timestamp
+			startTimeArry := strings.Split(startTimeStr, ":")
+			if len(startTimeArry) == 1 {
+				startTime, err = strconv.ParseInt(startTimeArry[0], 10, 64)
+			} else {
+				startTime, err = strconv.ParseInt(startTimeArry[1], 10, 64)
+			}
+
+			if err != nil {
+				str = "Invalid start time format. Use timestamps from [Discord Timestamp](https://discordtimestamp.com)"
+			} else {
+				contract.PlannedStartTime = time.Unix(startTime, 0)
+				if startTime == 0 {
+					str = "Planned start time cleared"
+					refreshBoostListMessage(s, contract)
+				} else if contract.PlannedStartTime.After(time.Now()) && contract.PlannedStartTime.Before(time.Now().AddDate(0, 0, 7)) {
+					str = "Planned start time changed to " + "<t:" + strconv.FormatInt(startTime, 10) + ":f>"
+					refreshBoostListMessage(s, contract)
+				} else {
+					str = "Planned start time must be within the next 7 days. Use timestamps from [Discord Timestamp](https://discordtimestamp.com)"
+					contract.PlannedStartTime = time.Unix(0, 0)
+				}
 			}
 		}
 	}
