@@ -23,7 +23,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		outputStr = fmt.Sprintf("## %s %s (%s) - %d/%d\n", contract.EggEmoji, contract.Name, contract.CoopID, len(contract.Boosters), contract.CoopSize)
 	}
 
-	if contract.State == ContractStateSignup && contract.PlannedStartTime.After(time.Now()) {
+	if contract.State == ContractStateSignup && contract.PlannedStartTime.After(time.Now()) && contract.PlannedStartTime.Before(time.Now().Add(7*24*time.Hour)) {
 		outputStr += fmt.Sprintf("## Planned Start Time: <t:%d:f>\n", contract.PlannedStartTime.Unix())
 	}
 
