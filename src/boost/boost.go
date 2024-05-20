@@ -176,14 +176,16 @@ type Contract struct {
 	ChickenRunCooldownMinutes int
 	MinutesPerToken           int
 
-	CoopSize        int
-	LengthInSeconds int
-	BoostOrder      int // How the contract is sorted
-	BoostVoting     int
-	BoostPosition   int       // Starting Slot
-	State           int       // Boost Completed
-	StartTime       time.Time // When Contract is started
-	EndTime         time.Time // When final booster ends
+	CoopSize         int
+	LengthInSeconds  int
+	BoostOrder       int // How the contract is sorted
+	BoostVoting      int
+	BoostPosition    int       // Starting Slot
+	State            int       // Boost Completed
+	StartTime        time.Time // When Contract is started
+	EndTime          time.Time // When final booster ends
+	PlannedStartTime time.Time // Parameter start time
+	ActualStartTime  time.Time // Actual start time for token tracking
 	//EggFarmers     map[string]*EggFarmer
 	RegisteredNum     int
 	Boosters          map[string]*Booster // Boosters Registered
@@ -809,7 +811,10 @@ func JoinContract(s *discordgo.Session, guildID string, channelID string, userID
 		}
 	}
 
-	contract.Boosters[userID].Ping = bell
+	// test if userID in Boosters
+	if contract.Boosters[userID] != nil {
+		contract.Boosters[userID].Ping = bell
+	}
 
 	if bell {
 		u, _ := s.UserChannelCreate(userID)
@@ -836,7 +841,7 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 		return errors.New(errorNoContract)
 	}
 
-	if contract.CoopSize == 0 {
+	if len(contract.Boosters) == 0 {
 		return errors.New(errorContractEmpty)
 	}
 	userID := mention
