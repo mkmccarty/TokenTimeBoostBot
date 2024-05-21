@@ -29,6 +29,7 @@ type TokenUnit struct {
 
 type tokenValue struct {
 	UserID           string        // The user ID that is tracking the token value
+	Username         string        // The username that is tracking the token value
 	Name             string        // Tracking name for this contract
 	ChannelID        string        // The channel ID that is tracking the token value
 	Linked           bool          // If the tracker is linked to channel contract
@@ -240,9 +241,9 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 				id := td.Sent[i].UserID
 				if !brief {
 					if !finalDisplay {
-						fmt.Fprintf(&sbuilder, "> %d: <t:%d:R> %6.3f <@%s>\n", i+1, t.Time.Unix(), t.Value, id)
+						fmt.Fprintf(&sbuilder, "> %d: <t:%d:R> %6.3f %s\n", i+1, t.Time.Unix(), t.Value, id)
 					} else {
-						fmt.Fprintf(&sbuilder, "> %d: %s  %6.3f <@%s>\n", i+1, t.Time.Sub(td.StartTime).Round(time.Second), t.Value, id)
+						fmt.Fprintf(&sbuilder, "> %d: %s  %6.3f %s\n", i+1, t.Time.Sub(td.StartTime).Round(time.Second), t.Value, id)
 					}
 				} else {
 					if !finalDisplay {
@@ -282,9 +283,9 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 				id := t.UserID
 				if !brief {
 					if !finalDisplay {
-						fmt.Fprintf(&rbuilder, "> %d: <t:%d:R> %6.3f <@%s>\n", i+1, t.Time.Unix(), t.Value, id)
+						fmt.Fprintf(&rbuilder, "> %d: <t:%d:R> %6.3f %s\n", i+1, t.Time.Unix(), t.Value, id)
 					} else {
-						fmt.Fprintf(&rbuilder, "> %d: %s  %6.3f <@%s>\n", i+1, t.Time.Sub(td.StartTime).Round(time.Second), t.Value, id)
+						fmt.Fprintf(&rbuilder, "> %d: %s  %6.3f %s\n", i+1, t.Time.Sub(td.StartTime).Round(time.Second), t.Value, id)
 					}
 				} else {
 					if !finalDisplay {
@@ -374,6 +375,13 @@ func tokenTracking(s *discordgo.Session, channelID string, userID string, name s
 	if Tokens[userID].Coop[name] == nil {
 		Tokens[userID].Coop[name] = new(tokenValue)
 		Tokens[userID].Coop[name].UserID = userID
+		u, err := s.User(userID)
+		if err != nil {
+			Tokens[userID].Coop[name].Username = "<@" + userID + ">"
+		} else {
+			Tokens[userID].Coop[name].Username = u.GlobalName
+		}
+
 		resetTokenTracking(Tokens[userID].Coop[name])
 		Tokens[userID].Coop[name].Name = name
 	} else {
@@ -411,11 +419,11 @@ func tokenTrackingTrack(userID string, name string, tokenSent int, tokenReceived
 	tokenValue := getTokenValue(offsetTime, td.DurationTime.Seconds())
 
 	if tokenSent > 0 {
-		td.Sent = append(td.Sent, TokenUnit{Time: now, Value: tokenValue, UserID: userID, Serial: xid.New().String()})
+		td.Sent = append(td.Sent, TokenUnit{Time: now, Value: tokenValue, UserID: td.Username, Serial: xid.New().String()})
 		td.SumValueSent += tokenValue
 	}
 	if tokenReceived > 0 {
-		td.Received = append(td.Received, TokenUnit{Time: now, Value: tokenValue, UserID: userID, Serial: xid.New().String()})
+		td.Received = append(td.Received, TokenUnit{Time: now, Value: tokenValue, UserID: td.Username, Serial: xid.New().String()})
 		td.SumValueReceived += tokenValue
 	}
 	td.TokenDelta = td.SumValueSent - td.SumValueReceived

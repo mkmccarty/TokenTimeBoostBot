@@ -181,44 +181,57 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			redraw = true
 		}
 
+		tokenReactionStr := "token"
+		userID := r.UserID
+		// Special handling for alt icons representing token reactions
+		if slices.Index(contract.AltIcons, r.Emoji.Name) != -1 {
+			idx := slices.Index(contract.Boosters[r.UserID].AltsIcons, r.Emoji.Name)
+			if idx != -1 {
+				userID = contract.Boosters[r.UserID].Alts[idx]
+				tokenReactionStr = r.Emoji.Name
+			}
+		}
+
 		// Token reaction handling
-		if strings.ToLower(r.Emoji.Name) == "token" {
-			emojiName = r.Emoji.Name + ":" + r.Emoji.ID
+		if strings.ToLower(r.Emoji.Name) == tokenReactionStr {
+			if r.Emoji.ID != "" {
+				emojiName = r.Emoji.Name + ":" + r.Emoji.ID
+			}
 			if contract.State == ContractStateWaiting || contract.State == ContractStateCompleted {
 				if contract.VolunteerSink != "" {
 					rSerial := xid.New().String()
 					sSerial := xid.New().String()
 
 					sink := contract.Boosters[contract.VolunteerSink]
-					sink.Received = append(sink.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: r.UserID, Serial: rSerial})
-					track.ContractTokenMessage(s, r.ChannelID, sink.UserID, track.TokenReceived, 1, r.UserID, rSerial)
+					sink.Received = append(sink.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[userID].Nick, Serial: rSerial})
+					track.ContractTokenMessage(s, r.ChannelID, sink.UserID, track.TokenReceived, 1, userID, rSerial)
 					// Record who sent the token
-					contract.Boosters[r.UserID].Sent = append(contract.Boosters[r.UserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: sink.UserID, Serial: sSerial})
-					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, 1, sink.UserID, sSerial)
+					contract.Boosters[userID].Sent = append(contract.Boosters[r.UserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[sink.UserID].Nick, Serial: sSerial})
+					track.ContractTokenMessage(s, r.ChannelID, userID, track.TokenSent, 1, sink.UserID, sSerial)
 				}
 			} else if contract.BoostPosition < len(contract.Order) {
 				var b = contract.Boosters[contract.Order[contract.BoostPosition]]
 
 				b.TokensReceived++
-				if r.UserID != b.UserID {
+				if userID != b.UserID {
 					// Record the Tokens as received
 					rSerial := xid.New().String()
 					sSerial := xid.New().String()
-					b.Received = append(b.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: r.UserID, Serial: rSerial})
-					track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, 1, r.UserID, rSerial)
+					b.Received = append(b.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[userID].Nick, Serial: rSerial})
+					track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, 1, contract.Boosters[userID].Nick, rSerial)
 
 					// Record who sent the token
-					if contract.Boosters[r.UserID] != nil {
+					if contract.Boosters[userID] != nil {
 						// Make sure this isn't an admin user who's sending on behalf of an alt
-						contract.Boosters[r.UserID].Sent = append(contract.Boosters[r.UserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: b.UserID, Serial: sSerial})
+						contract.Boosters[userID].Sent = append(contract.Boosters[userID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: b.Nick, Serial: sSerial})
 					}
-					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, 1, b.UserID, sSerial)
+					track.ContractTokenMessage(s, r.ChannelID, userID, track.TokenSent, 1, b.Nick, sSerial)
 				} else {
 					b.TokensFarmedTime = append(b.TokensFarmedTime, time.Now())
-					track.FarmedToken(s, r.ChannelID, r.UserID)
+					track.FarmedToken(s, r.ChannelID, userID)
 				}
 
-				if b.TokensReceived >= b.TokensWanted && b.UserID == b.Name {
+				if b.TokensReceived >= b.TokensWanted && userID == b.Name {
 					// Guest farmer auto boosts
 					Boosting(s, r.GuildID, r.ChannelID)
 				}
@@ -238,6 +251,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	err = s.MessageReactionRemove(r.ChannelID, r.MessageID, emojiName, r.UserID)
 	if err != nil {
 		fmt.Println(err, emojiName)
+		s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
 	}
 
 	if redraw {

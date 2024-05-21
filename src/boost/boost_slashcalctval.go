@@ -137,7 +137,7 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 		fmt.Fprintf(&builder, "**Tokens Sent: %d for %4.3f**\n", len(booster.Sent), sentValue)
 		if details {
 			for i := range booster.Sent {
-				fmt.Fprintf(&builder, "> %d: %s  %6.3f\n", i+1, booster.Sent[i].Time.Sub(startTime).Round(time.Second), booster.Sent[i].Value)
+				fmt.Fprintf(&builder, "> %d: %s  %6.3f %16s\n", i+1, booster.Sent[i].Time.Sub(startTime).Round(time.Second), booster.Sent[i].Value, booster.Sent[i].UserID)
 			}
 		}
 	}
@@ -149,7 +149,7 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 		fmt.Fprintf(&builder, "**Token Received: %d for %4.3f**\n", len(booster.Received), receivedValue)
 		if details {
 			for i := range booster.Received {
-				fmt.Fprintf(&builder, "> %d: %s  %6.3f\n", i+1, booster.Received[i].Time.Sub(startTime).Round(time.Second), booster.Received[i].Value)
+				fmt.Fprintf(&builder, "> %d: %s  %6.3f %16s\n", i+1, booster.Received[i].Time.Sub(startTime).Round(time.Second), booster.Received[i].Value, booster.Received[i].UserID)
 			}
 		}
 	}
