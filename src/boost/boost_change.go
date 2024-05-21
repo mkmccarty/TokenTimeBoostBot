@@ -104,6 +104,23 @@ func GetSlashChangePlannedStartCommand(cmd string) *discordgo.ApplicationCommand
 	}
 }
 
+// GetSlasLinkAlternateCommand allows a player to associate an alt
+func GetSlasLinkAlternateCommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "Add an alternate persona for this contract.",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "farmer-name",
+				Description:  "Name of your alternate persona. This guest needs to be in the contract.",
+				Required:     true,
+				Autocomplete: true,
+			},
+		},
+	}
+}
+
 // HandleChangeCommand will handle the /change command
 func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
@@ -723,4 +740,136 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 	}
 
 	return nil
+}
+
+// HandleLinkAlternateCommand will handle the /link-alternate command
+func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// Protection against DM use as we need the channel ID to find the contract
+	if i.GuildID == "" {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "This command can only be run in a server.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{}},
+		})
+		return
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing...",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+
+	var str = ""
+
+	contract := FindContract(i.ChannelID)
+	if contract == nil {
+		str = errorNoContract
+	}
+
+	// Is this user in the contract?
+	if !userInContract(contract, i.Member.User.ID) {
+		str = "You need to be in this contract to link an alternate that is also in the contract."
+	}
+
+	// No error string means we are good to go
+	if str == "" {
+		// Default to @here when there is no parameter
+		newAlt := ""
+
+		options := i.ApplicationCommandData().Options
+		optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+		for _, opt := range options {
+			optionMap[opt.Name] = opt
+		}
+
+		if opt, ok := optionMap["farmer-name"]; ok {
+			newAlt = strings.TrimSpace(opt.StringValue())
+
+			// Is this booster in the contract?
+			if _, ok := contract.Boosters[newAlt]; !ok {
+				str = "This farmer is not in the contract"
+			} else {
+				b := contract.Boosters[i.Member.User.ID]
+				newAltIcon := ""
+
+				// Create an alphabet slice of 🇦 to 🇿
+				alphabet := make([]string, 0)
+				for i := 'A'; i <= 'Z'; i++ {
+					alphabet = append(alphabet, string('🇦'+(i-'A')))
+				}
+				for _, char := range strings.ToLower(newAlt) {
+					// Only want alpha digits
+					if char < 'a' || char > 'z' {
+						continue
+					}
+
+					newAltIcon = alphabet[char-'a']
+					if slices.Index(contract.AltIcons, newAltIcon) == -1 {
+						break
+					}
+				}
+
+				b.Alts = append(b.Alts, newAlt)
+				b.AltsIcons = append(b.AltsIcons, newAltIcon)
+				contract.AltIcons = append(contract.AltIcons, newAltIcon)
+				contract.Boosters[newAlt].AltController = i.Member.User.ID
+				rebuildAltList(contract)
+				str = "Associated your `" + newAlt + "` alt with " + i.Member.User.Mention() + "\n"
+				str += "> Use the " + boostIcon + " reaction to indicate when your main or alt(s) boost.\n"
+				str += "> Use the " + newAltIcon + " reaction to indicate when `" + newAlt + "` sends tokens."
+				defer saveData(Contracts)
+				RedrawBoostList(s, i.GuildID, i.ChannelID)
+			}
+		}
+	}
+
+	s.FollowupMessageCreate(i.Interaction, true,
+		&discordgo.WebhookParams{
+			Content: str},
+	)
+}
+
+func rebuildAltList(contract *Contract) {
+	contract.AltIcons = make([]string, 0)
+	for _, b := range contract.Boosters {
+		if len(b.AltsIcons) != 0 {
+			contract.AltIcons = append(contract.AltIcons, b.AltsIcons...)
+		}
+	}
+
+}
+
+// HandleLinkAlternateAutoComplete will handle the /link-alternate autocomplete
+func HandleLinkAlternateAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+
+	contract := FindContract(i.ChannelID)
+	if contract != nil {
+		for _, b := range contract.Boosters {
+			if b.UserID != b.Name {
+				continue
+			}
+			if b.AltController != "" {
+				continue
+			}
+
+			choice := discordgo.ApplicationCommandOptionChoice{
+				Name:  b.Name,
+				Value: b.Name,
+			}
+			choices = append(choices, &choice)
+		}
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Contract ID",
+			Choices: choices,
+		}})
 }

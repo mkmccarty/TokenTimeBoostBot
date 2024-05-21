@@ -122,10 +122,13 @@ type Booster struct {
 	Ping        bool      // True/False
 	Register    time.Time //o Time Farmer registered to boost
 
-	Name    string
-	Unique  string
-	Nick    string
-	Mention string // String which mentions user
+	Name          string
+	Unique        string
+	Nick          string
+	Mention       string   // String which mentions user
+	Alts          []string // Array of alternate ids for the user
+	AltsIcons     []string // Array of alternate icons for the user
+	AltController string   // User ID of the controller of this alternate
 
 	BoostState       int           // Indicates if current booster
 	Sent             []TokenUnit   // Tokens sent
@@ -189,6 +192,7 @@ type Contract struct {
 	//EggFarmers     map[string]*EggFarmer
 	RegisteredNum     int
 	Boosters          map[string]*Booster // Boosters Registered
+	AltIcons          []string            // Array of alternate icons for the Boosters
 	Order             []string
 	OrderRevision     int  // Incremented when Order is changed
 	Speedrun          bool // Speedrun mode
@@ -837,6 +841,7 @@ func removeIndex(s []string, index int) []string {
 func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channelID string, operator string, mention string) error {
 	fmt.Println("RemoveContractBoosterByMention", "GuildID: ", guildID, "ChannelID: ", channelID, "Operator: ", operator, "Mention: ", mention)
 	var contract = FindContract(channelID)
+	redraw := false
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
@@ -871,6 +876,26 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 	}
 
 	// Remove the booster from the contract
+
+	// If this is an alt, remove its entries from main
+	if contract.Boosters[userID].AltController != "" {
+		mainUserID := contract.Boosters[userID].AltController
+		altIdx := slices.Index(contract.Boosters[mainUserID].Alts, userID)
+		contract.Boosters[mainUserID].Alts = removeIndex(contract.Boosters[mainUserID].Alts, altIdx)
+		contract.Boosters[mainUserID].AltsIcons = removeIndex(contract.Boosters[mainUserID].AltsIcons, altIdx)
+		rebuildAltList(contract)
+		redraw = true
+	} else if len(contract.Boosters[userID].Alts) > 0 {
+		// If this is a main with alts, clear the alts
+		for _, alt := range contract.Boosters[userID].Alts {
+			contract.Boosters[alt].AltController = ""
+		}
+		contract.Boosters[userID].Alts = nil
+		contract.Boosters[userID].AltsIcons = nil
+
+		rebuildAltList(contract)
+		redraw = true
+	}
 	contract.Order = removeIndex(contract.Order, removalIndex)
 	contract.OrderRevision++
 	delete(contract.Boosters, userID)
@@ -901,6 +926,10 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 	// Edit the boost List in place
 	if contract.BoostPosition != len(contract.Order) {
 		for _, loc := range contract.Location {
+			if redraw {
+				RedrawBoostList(s, loc.GuildID, loc.ChannelID)
+				continue
+			}
 			outputStr := DrawBoostList(s, contract, loc.TokenStr)
 			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, outputStr)
 			if err == nil {
@@ -1047,9 +1076,9 @@ func addContractReactions(s *discordgo.Session, contract *Contract, channelID st
 
 	if contract.State == ContractStateStarted {
 		s.MessageReactionAdd(channelID, messageID, boostIconReaction) // Booster
-		err := s.MessageReactionAdd(channelID, messageID, tokenStr)   // Token Reaction
-		if err != nil {
-			fmt.Print(err.Error())
+		s.MessageReactionAdd(channelID, messageID, tokenStr)          // Token Reaction
+		for _, el := range contract.AltIcons {
+			s.MessageReactionAdd(channelID, messageID, el)
 		}
 		s.MessageReactionAdd(channelID, messageID, "🔃")  // Swap
 		s.MessageReactionAdd(channelID, messageID, "⤵️") // Last
@@ -1058,6 +1087,9 @@ func addContractReactions(s *discordgo.Session, contract *Contract, channelID st
 	if contract.State == ContractStateWaiting || contract.State == ContractStateCompleted {
 		if contract.VolunteerSink != "" {
 			s.MessageReactionAdd(channelID, messageID, tokenStr) // Token Reaction
+			for _, el := range contract.AltIcons {
+				s.MessageReactionAdd(channelID, messageID, el)
+			}
 		}
 		s.MessageReactionAdd(channelID, messageID, "🐓") // Want Chicken Run
 		s.MessageReactionAdd(channelID, messageID, "🏁") // Finish

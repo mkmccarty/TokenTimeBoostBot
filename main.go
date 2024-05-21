@@ -52,6 +52,7 @@ const slashTokenRemove string = "token-remove"
 const slashCalcContractTval string = "calc-contract-tval"
 const slashVolunteerSink string = "volunteer-sink"
 const slashVoluntellSink string = "voluntell-sink"
+const slashLinkAlternate string = "link-alternate"
 const slashFun string = "fun"
 
 var integerZeroMinValue float64 = 0.0
@@ -367,6 +368,7 @@ var (
 		},
 		boost.GetSlashVolunteerSink(slashVolunteerSink),
 		boost.GetSlashVoluntellSink(slashVoluntellSink),
+		boost.GetSlasLinkAlternateCommand(slashLinkAlternate),
 		boost.GetSlashCalcContractTval(slashCalcContractTval),
 		boost.GetSlashChangeCommand(slashChange),
 		boost.GetSlashChangeOneBoosterCommand(slashChangeOneBooster),
@@ -390,6 +392,9 @@ var (
 		},
 		slashChange: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractAutoComplete(s, i)
+		},
+		slashLinkAlternate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleLinkAlternateAutoComplete(s, i)
 		},
 		slashTokenRemove: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			if i.GuildID == "" {
@@ -492,6 +497,9 @@ var (
 		},
 		slashChangePlannedStartCommand: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleChangePlannedStartCommand(s, i)
+		},
+		slashLinkAlternate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleLinkAlternateCommand(s, i)
 		},
 		slashHelp: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleHelpCommand(s, i)
