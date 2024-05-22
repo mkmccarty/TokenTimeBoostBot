@@ -117,6 +117,12 @@ func GetSlasLinkAlternateCommand(cmd string) *discordgo.ApplicationCommand {
 				Required:     true,
 				Autocomplete: true,
 			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "speedrun-sink",
+				Description: "Use this alternate persona as the speedrun sink.",
+				Required:    false,
+			},
 		},
 	}
 }
@@ -780,11 +786,16 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 	if str == "" {
 		// Default to @here when there is no parameter
 		newAlt := ""
+		speedrunSink := false
 
 		options := i.ApplicationCommandData().Options
 		optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 		for _, opt := range options {
 			optionMap[opt.Name] = opt
+		}
+
+		if opt, ok := optionMap["speedrun-sink"]; ok {
+			speedrunSink = opt.BoolValue()
 		}
 
 		if opt, ok := optionMap["farmer-name"]; ok {
@@ -822,8 +833,23 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 				str = "Associated your `" + newAlt + "` alt with " + i.Member.User.Mention() + "\n"
 				str += "> Use the " + boostIcon + " reaction to indicate when your main or alt(s) boost.\n"
 				str += "> Use the " + newAltIcon + " reaction to indicate when `" + newAlt + "` sends tokens."
+				if speedrunSink && contract.SRData.SpeedrunState == SpeedrunStateSignup {
+					if contract.SRData.SinkUserID == i.Member.User.ID {
+						contract.SRData.SinkUserID = newAlt
+						str += "\n> Speedrun sink changed to `" + newAlt + "`."
+					}
+					if contract.SRData.SpeedrunStarterUserID == i.Member.User.ID {
+						contract.SRData.SpeedrunStarterUserID = newAlt
+						str += "\n> Speedrun CRT sink changed to `" + newAlt + "`."
+					}
+
+				}
 				defer saveData(Contracts)
-				RedrawBoostList(s, i.GuildID, i.ChannelID)
+				if contract.State == ContractStateSignup {
+					refreshBoostListMessage(s, contract)
+				} else {
+					RedrawBoostList(s, i.GuildID, i.ChannelID)
+				}
 			}
 		}
 	}

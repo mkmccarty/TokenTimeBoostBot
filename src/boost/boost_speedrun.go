@@ -88,6 +88,14 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, contractStarter 
 		return "", errors.New("contract must be in the Sign-up state to set speedrun options")
 	}
 
+	// is contractStarter and sink in the contract
+	if _, ok := contract.Boosters[contractStarter]; !ok {
+		return "", errors.New("contract starter not in the contract")
+	}
+	if _, ok := contract.Boosters[sink]; !ok {
+		return "", errors.New("sink not in the contract")
+	}
+
 	if speedrunStyle == SpeedrunStyleWonky {
 		// Verify that the sink is a snowflake id
 		if _, err := s.User(sink); err != nil {
@@ -155,23 +163,23 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, contractStarter 
 	}
 	if contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
 		fmt.Fprint(&b, "> **Wonky** style speed run:\n")
-		fmt.Fprintf(&b, "> * Send all tokens to <@%s>\n", contract.SRData.SpeedrunStarterUserID)
+		fmt.Fprintf(&b, "> * Send all tokens to %s\n", contract.Boosters[contract.SRData.SpeedrunStarterUserID].Mention)
 		fmt.Fprintf(&b, "> The sink will send you a full set of boost tokens.\n")
 		if contract.SRData.SpeedrunStarterUserID != contract.SRData.SinkUserID {
-			fmt.Fprintf(&b, "> * After contract boosting send all tokens to: <@%s> (This is unusual)\n", contract.SRData.SinkUserID)
+			fmt.Fprintf(&b, "> * After contract boosting send all tokens to: %s (This is unusual)\n", contract.Boosters[contract.SRData.SinkUserID].Mention)
 		}
 	} else {
 		fmt.Fprint(&b, "> **Boost List** style speed run:\n")
-		fmt.Fprintf(&b, "> * During CRT send tokens to <@%s>\n", contract.SRData.SpeedrunStarterUserID)
+		fmt.Fprintf(&b, "> * During CRT send tokens to %s\n", contract.Boosters[contract.SRData.SpeedrunStarterUserID].Mention)
 		fmt.Fprint(&b, "> * Follow the Boost List for Token Passing.\n")
-		fmt.Fprintf(&b, "> * After contract boosting send all tokens to <@%s>\n", contract.SRData.SinkUserID)
+		fmt.Fprintf(&b, "> * After contract boosting send all tokens to %s\n", contract.Boosters[contract.SRData.SinkUserID].Mention)
 	}
 	contract.SRData.StatusStr = b.String()
 
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "Speedrun options set for %s/%s\n", contract.ContractID, contract.CoopID)
-	fmt.Fprintf(&builder, "Contract Starter: <@%s>\n", contract.SRData.SpeedrunStarterUserID)
-	fmt.Fprintf(&builder, "Sink CRT: <@%s>\n", contract.SRData.SinkUserID)
+	fmt.Fprintf(&builder, "Contract Starter: %s\n", contract.Boosters[contract.SRData.SpeedrunStarterUserID].Mention)
+	fmt.Fprintf(&builder, "Sink CRT: %s\n", contract.Boosters[contract.SRData.SinkUserID].Mention)
 
 	disableButton := false
 	if contract.Speedrun && contract.CoopSize != len(contract.Boosters) {
@@ -221,7 +229,7 @@ func drawSpeedrunCRT(contract *Contract, tokenStr string) string {
 		fmt.Fprintf(&builder, "### Tips\n")
 		fmt.Fprintf(&builder, "- Don't use any boosts\n")
 		fmt.Fprintf(&builder, "- Equip coop artifacts: Deflector and SIAB\n")
-		fmt.Fprintf(&builder, "- A chicken run on <@%s> can be saved for the boost phase.\n", contract.SRData.SpeedrunStarterUserID)
+		fmt.Fprintf(&builder, "- A chicken run on %s can be saved for the boost phase.\n", contract.Boosters[contract.SRData.SpeedrunStarterUserID].Mention)
 		fmt.Fprintf(&builder, "- :truck: reaction will indicate truck arriving and request a later kick. Send tokens through the boost menu if doing this.\n")
 		fmt.Fprintf(&builder, "- Sink will react with 🦵 when starting to kick.\n")
 		if contract.SRData.CurrentLeg == contract.SRData.Legs-1 {
@@ -238,7 +246,7 @@ func drawSpeedrunCRT(contract *Contract, tokenStr string) string {
 		}
 
 	}
-	fmt.Fprintf(&builder, "\n**Send %s to <@%s>**\n", tokenStr, contract.SRData.SpeedrunStarterUserID)
+	fmt.Fprintf(&builder, "\n**Send %s to %s**\n", tokenStr, contract.Boosters[contract.SRData.SpeedrunStarterUserID].Mention)
 
 	return builder.String()
 }
@@ -373,7 +381,13 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 			s.ChannelMessageSend(contract.Location[0].ChannelID, str)
 		}
 
-		if r.UserID == contract.SRData.SpeedrunStarterUserID || creatorOfContract(contract, r.UserID) {
+		idx := slices.Index(contract.Boosters[r.UserID].Alts, contract.SRData.SpeedrunStarterUserID)
+		if idx != -1 {
+			// This is an alternate
+			userID = contract.Boosters[r.UserID].Alts[idx]
+		}
+
+		if userID == contract.SRData.SpeedrunStarterUserID || creatorOfContract(contract, r.UserID) {
 			if r.Emoji.Name == "🦵" {
 				keepReaction = true
 				// Indicate that the Sink is starting to kick users
@@ -410,14 +424,18 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 	}
 
 	if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
-		if r.UserID == contract.SRData.SinkUserID {
+		idx := slices.Index(contract.Boosters[r.UserID].Alts, contract.SRData.SinkUserID)
+		if idx != -1 {
+			// This is an alternate
+			userID = contract.Boosters[r.UserID].Alts[idx]
+		}
+		if userID == contract.SRData.SinkUserID {
 			if r.Emoji.Name == "💰" {
 				var b, sink *Booster
 				b = contract.Boosters[contract.Order[contract.BoostPosition]]
-				//var sink *Booster
 				sink = contract.Boosters[contract.SRData.SinkUserID]
 
-				if r.UserID == b.UserID {
+				if userID == b.UserID {
 					// Current booster subtract number of tokens wanted
 					log.Printf("Sink indicating they are boosting with %d tokens.\n", b.TokensWanted)
 					sink.TokensReceived -= b.TokensWanted
@@ -434,11 +452,11 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 					rSerial := xid.New().String()
 					sSerial := xid.New().String()
 					for i := 0; i < tokensToSend; i++ {
-						b.Received = append(b.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: r.UserID, Serial: rSerial})
-						contract.Boosters[r.UserID].Sent = append(contract.Boosters[r.UserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: b.UserID, Serial: sSerial})
+						b.Received = append(b.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[userID].Mention, Serial: rSerial})
+						contract.Boosters[userID].Sent = append(contract.Boosters[userID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[b.UserID].Mention, Serial: sSerial})
 					}
-					track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, b.TokensReceived, r.UserID, rSerial)
-					track.ContractTokenMessage(s, r.ChannelID, r.UserID, track.TokenSent, b.TokensReceived, b.UserID, sSerial)
+					track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, b.TokensReceived, contract.Boosters[userID].Mention, rSerial)
+					track.ContractTokenMessage(s, r.ChannelID, userID, track.TokenSent, b.TokensReceived, contract.Boosters[b.UserID].Mention, sSerial)
 				}
 
 				Boosting(s, r.GuildID, r.ChannelID)
@@ -460,7 +478,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 		if r.Emoji.Name == "🐓" {
 			// Indicate that a farmer is ready for chicken runs
 			contract.Boosters[r.UserID].RunChickensTime = time.Now()
-			str := fmt.Sprintf("%s <@%s> is ready for chicken runs, check for incoming trucks before visiting.", contract.Location[0].ChannelPing, r.UserID)
+			str := fmt.Sprintf("%s %s is ready for chicken runs, check for incoming trucks before visiting.", contract.Location[0].ChannelPing, contract.Boosters[r.UserID].Mention)
 			var data discordgo.MessageSend
 			data.Content = str
 			msg, _ := s.ChannelMessageSendComplex(contract.Location[0].ChannelID, &data)

@@ -43,7 +43,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 			//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SpeedrunStarterUserID)
 		case SpeedrunStateBoosting:
 			if contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
-				afterListStr += fmt.Sprintf("\n**Send all tokens to <@%s>**\n", contract.SRData.SinkUserID)
+				afterListStr += fmt.Sprintf("\n**Send all tokens to %s**\n", contract.Boosters[contract.SRData.SinkUserID].Mention)
 			}
 		case SpeedrunStatePost:
 			//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SinkUserID)
