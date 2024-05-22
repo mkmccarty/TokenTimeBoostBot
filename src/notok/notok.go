@@ -14,6 +14,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/google/generative-ai-go/genai"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/rs/xid"
 	"github.com/sashabaranov/go-openai"
@@ -49,20 +50,22 @@ func Notok(s *discordgo.Session, i *discordgo.InteractionCreate, cmd int64, text
 
 	// Respond to messages
 	var currentStartTime = time.Now()
+	contractDesc := boost.GetContractDescription(i.ChannelID)
 
 	switch cmd {
 	case 1:
-		wishStr, err = wishGemini(name, text)
+
+		wishStr, err = wishGemini(name, text, contractDesc)
 	case 5: // Open Letter
-		wishStr, err = letter(name, text)
+		wishStr, err = letter(name, text, contractDesc)
 	case 2:
-		wishStr, err = getLetMeOutString(text)
+		wishStr, err = getLetMeOutString(text, contractDesc)
 		if err == nil {
 			wishURL, err = wishImage(wishStr, name)
 		}
 		hidden = false
 	case 3:
-		str := gonow()
+		str := gonow(contractDesc)
 		wishURL, err = wishImage(str, name)
 		wishStr = name + " expresses an urgent need to go next up in boost order."
 	case 4:
@@ -116,7 +119,7 @@ func Notok(s *discordgo.Session, i *discordgo.InteractionCreate, cmd int64, text
 
 // DoGoNow gets the AI to draw a chicken in a hurry
 func DoGoNow(s *discordgo.Session, channelID string) {
-	var str = gonow()
+	var str = gonow(boost.GetContractDescription(channelID))
 	s.ChannelTyping(channelID)
 	wishURL, _ := wishImage(str, "")
 	sendImageReply(s, channelID, wishURL, "", false)
@@ -147,10 +150,18 @@ func sendImageReply(s *discordgo.Session, channelID string, wishURL string, wish
 	}
 }
 
-func letter(mention string, text string) (string, error) {
-	tokenPrompt := "Kevin, the developer of Egg, Inc. has stopped sending widgets to the contract players of his game. Compose a crazy reason requesting that he provide you a widget. The letter should be fairly short and begin with \"Dear Kev,\"."
-	tokenPrompt += " " + text
-	str, err := getStringFromGoogleGemini(tokenPrompt)
+func letter(mention string, text string, desc string) (string, error) {
+	var builder strings.Builder
+
+	builder.WriteString("Your role is a farmer of chickens who needs the delivery of widgets to help with the delivery of their chicken eggs for a contract.")
+	if desc != "" {
+		builder.WriteString(desc + ".")
+	}
+	builder.WriteString("Kevin, the developer of Egg, Inc. has stopped sending widgets to the contract players of his game. Compose a crazy reason requesting that he provide you a widget. The letter should be fairly short and begin with \"Dear Kev,\".")
+
+	builder.WriteString(" " + text)
+
+	str, err := getStringFromGoogleGemini(builder.String())
 	if err != nil {
 		return "", err
 	}
@@ -158,6 +169,7 @@ func letter(mention string, text string) (string, error) {
 	m1 := regexp.MustCompile(`\[[A-Za-z\- ]*\]`)
 	str = m1.ReplaceAllString(str, "*"+mention+"*")
 	str = strings.Replace(str, "widget", "token", -1)
+	str = strings.Replace(str, "Widget", "Token", -1)
 
 	return str, nil
 }
@@ -233,13 +245,16 @@ func wish(mention string, text string) string {
 }
 */
 
-func wishGemini(mention string, text string) (string, error) {
+func wishGemini(mention string, text string, desc string) (string, error) {
 	var builder strings.Builder
 	if !strings.HasPrefix(text, "!!") {
-		builder.WriteString("A contract needs widgets to help purchase boosts and to share with others to improve speed the delivery of eggs.")
-		builder.WriteString("Make a silly wish that would result in a widget being delivered by truck very soon.")
-		builder.WriteString("The response should should be no more than 4 sentences and start with \"I wish\"")
-		builder.WriteString(text)
+		builder.WriteString("Your role is a farmer of chickens who needs the delivery of widgets to help with the delivery of their chicken eggs for a contract.")
+		if desc != "" {
+			builder.WriteString(desc + ".")
+		}
+		builder.WriteString("Compose a randomly comical or desparate wish that could result in a widget being delivered by truck very soon.")
+		builder.WriteString("The response should should be no more than 5 sentences and start with \"I wish\"")
+		builder.WriteString("\n" + text)
 	} else {
 		builder.WriteString(text[2:])
 	}
@@ -269,8 +284,13 @@ func printResponse(resp *genai.GenerateContentResponse) string {
 	return str
 }
 
-func getLetMeOutString(text string) (string, error) {
+func getLetMeOutString(text string, desc string) (string, error) {
 	var builder strings.Builder
+	builder.WriteString("Your role is a farmer of chickens who needs the delivery of widgets to help with the delivery of their chicken eggs for a contract.")
+	if desc != "" {
+		builder.WriteString(desc + ".")
+	}
+
 	builder.WriteString("A group of chickens are locked in their farm held hostage by an unknown force.\n")
 	builder.WriteString("In 150 words or less tell a funny story about this confinement.\n")
 	builder.WriteString(text)
@@ -282,12 +302,17 @@ func getLetMeOutString(text string) (string, error) {
 	return str, nil
 }
 
-func gonow() string {
+func gonow(desc string) string {
+	var builder strings.Builder
+	builder.WriteString("Your role is a farmer of chickens who is working to deliver their chicken eggs for a contract.")
+	if desc != "" {
+		builder.WriteString(desc + ".")
+	}
 
-	var tokenPrompt = "Compose a scene with a chicken needing blast off quickly and racing towards an outhouse shaped rocket ship " +
-		"in a comical cartoonish environment exaggerating the urgency."
+	builder.WriteString("Compose a scene with a chicken needing blast off quickly and racing towards an outhouse shaped rocket ship " +
+		"in a comical cartoonish environment exaggerating the urgency.")
 
-	return tokenPrompt
+	return builder.String()
 }
 
 func wishImage(prompt string, user string) (string, error) {
