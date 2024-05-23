@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 
@@ -157,19 +156,16 @@ func letter(mention string, text string, desc string) (string, error) {
 	if desc != "" {
 		builder.WriteString(desc + ".")
 	}
-	builder.WriteString("Kevin, the developer of Egg, Inc. has stopped sending widgets to the contract players of his game. Compose a crazy reason requesting that he provide you a widget. The letter should be fairly short and begin with \"Dear Kev,\".")
-
-	builder.WriteString(" " + text)
+	builder.WriteString("Kevin, the developer of Egg, Inc. has stopped sending widgets to the contract players of his game. ")
+	builder.WriteString("Compose a crazy reason requesting that he provide you a widget. The letter should be fairly short and begin with \"Dear Kev,\".")
+	builder.WriteString(mention + " would like suggest this additional consideration when composing the letter \"" + text + "\".")
+	builder.WriteString("The letter should be signed as if sent by " + mention + ".")
+	builder.WriteString("The response should replace any form of use of \"widget\" with the appropriate \"token\".")
 
 	str, err := getStringFromGoogleGemini(builder.String())
 	if err != nil {
 		return "", err
 	}
-
-	m1 := regexp.MustCompile(`\[[A-Za-z\- ]*\]`)
-	str = m1.ReplaceAllString(str, "*"+mention+"*")
-	str = strings.Replace(str, "widget", "token", -1)
-	str = strings.Replace(str, "Widget", "Token", -1)
 
 	return str, nil
 }
@@ -221,29 +217,13 @@ func getStringFromGoogleGemini(text string) (string, error) {
 		return "", err
 	}
 
-	respStr := printResponse(resp)
+	respStr := printResponse(resp, true)
 	if strings.HasPrefix(respStr, "I'm sorry, but") {
 		return "", errors.New(respStr)
 	}
 
-	return printResponse(resp), nil
+	return printResponse(resp, false), nil
 }
-
-/*
-func wish(mention string, text string) string {
-	var str = ""
-	tokenPrompt := "A contract needs widgets to help with the delivery of eggs. Make a silly wish that would result in a widget being delivered by truck very soon. The response should start with \"I wish\""
-	tokenPrompt += " " + text
-
-	str = getStringFromOpenAI(tokenPrompt)
-	m1 := regexp.MustCompile(`\[[A-Za-z ]*\]`)
-	str = m1.ReplaceAllString(str, "*"+mention+"*")
-	str = strings.Replace(str, "widget", "token", -1)
-	str = strings.Replace(str, "I wish", mention+" wishes", -1)
-
-	return str
-}
-*/
 
 func wishGemini(mention string, text string, desc string) (string, error) {
 	var builder strings.Builder
@@ -253,8 +233,11 @@ func wishGemini(mention string, text string, desc string) (string, error) {
 			builder.WriteString(desc + ".")
 		}
 		builder.WriteString("Compose a randomly comical or desparate wish that could result in a widget being delivered by truck very soon.")
-		builder.WriteString("The response should should be no more than 5 sentences and start with \"I wish\"")
-		builder.WriteString("\n" + text)
+		builder.WriteString("The response should should be no more than 5 sentences. ")
+		builder.WriteString("The wish should start with \"" + mention + " wishes\".")
+		builder.WriteString("In the response replace any form of use of the word \"widget\" with an appropriate form of \"token\".")
+		builder.WriteString(mention + " would like suggest this additional consideration for adjusting the response \"" + text + "\".")
+		//builder.WriteString("The response should should be no more than 5 sentences and start with \"I wish\"")
 	} else {
 		builder.WriteString(text[2:])
 	}
@@ -263,20 +246,18 @@ func wishGemini(mention string, text string, desc string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	m1 := regexp.MustCompile(`\[[A-Za-z ]*\]`)
-	str = m1.ReplaceAllString(str, "*"+mention+"*")
-	str = strings.Replace(str, "widget", "token", -1)
-	str = strings.Replace(str, "I wish", mention+" wishes", -1)
 
 	return str, err
 }
 
-func printResponse(resp *genai.GenerateContentResponse) string {
+func printResponse(resp *genai.GenerateContentResponse, logit bool) string {
 	var str = ""
 	for _, cand := range resp.Candidates {
 		if cand.Content != nil {
 			for _, part := range cand.Content.Parts {
-				log.Println(part)
+				if logit {
+					log.Println(part)
+				}
 				str += fmt.Sprint(part)
 			}
 		}
