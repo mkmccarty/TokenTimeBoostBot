@@ -2,17 +2,18 @@ package boost
 
 import (
 	"errors"
+	"fmt"
 )
 
 // GetContractDescription gets the description for a contract identified by the channel ID.
 func GetContractDescription(channelID string) string {
-
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return ""
 	}
 
-	return contract.Description
+	str := fmt.Sprintf("The is contract is named \"%s\", and the contract requirement is \"%s\"", contract.Name, contract.Description)
+	return str
 }
 
 // SetWish sets the wish for a contract identified by the guild ID and channel ID.
