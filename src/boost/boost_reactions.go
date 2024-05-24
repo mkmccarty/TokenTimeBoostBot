@@ -184,15 +184,15 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		if r.Emoji.Name == "🐓" {
 			// Indicate that a farmer is ready for chicken runs
 			userID := r.UserID
-			// Check if the user has any alts
 			if len(contract.Boosters[r.UserID].Alts) > 0 {
-				// Find the most recent boost time among the user and their alts
-				mostRecentTime := contract.Boosters[userID].EndTime
-				for _, altID := range contract.Boosters[r.UserID].Alts {
-					alt := contract.Boosters[altID]
-					if alt.EndTime.After(mostRecentTime) {
-						mostRecentTime = alt.EndTime
-						userID = altID
+				ids := append(contract.Boosters[r.UserID].Alts, r.UserID)
+				for _, id := range contract.Order {
+					if slices.Index(ids, id) != -1 {
+						alt := contract.Boosters[id]
+						if alt.BoostState == BoostStateBoosted && alt.RunChickensTime.IsZero() {
+							userID = id
+							break
+						}
 					}
 				}
 			}
