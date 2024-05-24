@@ -222,6 +222,8 @@ func getStringFromGoogleGemini(text string) (string, error) {
 		return "", errors.New(respStr)
 	}
 
+	respStr = strings.ReplaceAll(respStr, "widget", "token")
+
 	return printResponse(resp, false), nil
 }
 
