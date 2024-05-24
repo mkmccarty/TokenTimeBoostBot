@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/olekukonko/tablewriter"
 	"github.com/xhit/go-str2duration/v2"
 )
 
@@ -136,9 +137,17 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 		}
 		fmt.Fprintf(&builder, "**Tokens Sent: %d for %4.3f**\n", len(booster.Sent), sentValue)
 		if details {
+			table := tablewriter.NewWriter(&builder)
+			table.SetHeader([]string{"", "Time", "Value", "Recipient"})
+			table.SetBorder(false)
+			fmt.Fprint(&builder, "```")
 			for i := range booster.Sent {
-				fmt.Fprintf(&builder, "> %d: %s  %6.3f %16s\n", i+1, booster.Sent[i].Time.Sub(startTime).Round(time.Second), booster.Sent[i].Value, booster.Sent[i].UserID)
+				table.Append([]string{fmt.Sprintf("%d", i+1), booster.Sent[i].Time.Sub(startTime).Round(time.Second).String(), fmt.Sprintf("%6.3f", booster.Sent[i].Value), booster.Sent[i].UserID})
+
+				//fmt.Fprintf(&builder, "> %d: %s  %6.3f %16s\n", i+1, booster.Sent[i].Time.Sub(startTime).Round(time.Second), booster.Sent[i].Value, booster.Sent[i].UserID)
 			}
+			table.Render()
+			fmt.Fprint(&builder, "```")
 		}
 	}
 	if len(booster.Received) != 0 {
@@ -148,9 +157,16 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 		}
 		fmt.Fprintf(&builder, "**Token Received: %d for %4.3f**\n", len(booster.Received), receivedValue)
 		if details {
+			table := tablewriter.NewWriter(&builder)
+			table.SetHeader([]string{"", "Time", "Value", "Sender"})
+			table.SetBorder(false)
+			fmt.Fprint(&builder, "```")
 			for i := range booster.Received {
-				fmt.Fprintf(&builder, "> %d: %s  %6.3f %16s\n", i+1, booster.Received[i].Time.Sub(startTime).Round(time.Second), booster.Received[i].Value, booster.Received[i].UserID)
+				//fmt.Fprintf(&builder, "> %d: %s  %6.3f %16s\n", i+1, booster.Received[i].Time.Sub(startTime).Round(time.Second), booster.Received[i].Value, booster.Received[i].UserID)
+				table.Append([]string{fmt.Sprintf("%d", i+1), booster.Received[i].Time.Sub(startTime).Round(time.Second).String(), fmt.Sprintf("%6.3f", booster.Received[i].Value), booster.Received[i].UserID})
 			}
+			table.Render()
+			fmt.Fprint(&builder, "```")
 		}
 	}
 	fmt.Fprintf(&builder, "\n**Current △ TVal %4.3f**\n", sentValue-receivedValue)
