@@ -140,6 +140,14 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 			table := tablewriter.NewWriter(&builder)
 			table.SetHeader([]string{"", "Time", "Value", "Recipient"})
 			table.SetBorder(false)
+			//table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+			//table.SetAlignment(tablewriter.ALIGN_LEFT)
+			table.SetCenterSeparator("")
+			table.SetColumnSeparator("")
+			table.SetRowSeparator("")
+			table.SetHeaderLine(false)
+			table.SetTablePadding("\t") // pad with tabs
+			table.SetNoWhiteSpace(true)
 			fmt.Fprint(&builder, "```")
 			for i := range booster.Sent {
 				table.Append([]string{fmt.Sprintf("%d", i+1), booster.Sent[i].Time.Sub(startTime).Round(time.Second).String(), fmt.Sprintf("%6.3f", booster.Sent[i].Value), booster.Sent[i].UserID})
@@ -160,6 +168,15 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 			table := tablewriter.NewWriter(&builder)
 			table.SetHeader([]string{"", "Time", "Value", "Sender"})
 			table.SetBorder(false)
+			//table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+			//table.SetAlignment(tablewriter.ALIGN_LEFT)
+			table.SetCenterSeparator("")
+			table.SetColumnSeparator("")
+			table.SetRowSeparator("")
+			table.SetHeaderLine(false)
+			table.SetTablePadding("\t") // pad with tabs
+			table.SetNoWhiteSpace(true)
+
 			fmt.Fprint(&builder, "```")
 			for i := range booster.Received {
 				//fmt.Fprintf(&builder, "> %d: %s  %6.3f %16s\n", i+1, booster.Received[i].Time.Sub(startTime).Round(time.Second), booster.Received[i].Value, booster.Received[i].UserID)
