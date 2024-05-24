@@ -100,7 +100,18 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			if r.Emoji.Name == boostIconName && contract.State == ContractStateStarted {
 				var votingElection = (msg.Reactions[0].Count - 1) >= 2
 
-				if r.UserID == contract.Order[contract.BoostPosition] || votingElection || creatorOfContract(contract, r.UserID) {
+				userID := r.UserID
+				if len(contract.Boosters[r.UserID].Alts) > 0 {
+					// Find the most recent boost time among the user and their alts
+					for _, altID := range contract.Boosters[r.UserID].Alts {
+						if altID == contract.Order[contract.BoostPosition] {
+							userID = altID
+							break
+						}
+					}
+				}
+
+				if userID == contract.Order[contract.BoostPosition] || votingElection || creatorOfContract(contract, r.UserID) {
 					//contract.mutex.Unlock()
 					Boosting(s, r.GuildID, r.ChannelID)
 				}
@@ -172,8 +183,22 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 		if r.Emoji.Name == "🐓" {
 			// Indicate that a farmer is ready for chicken runs
-			contract.Boosters[r.UserID].RunChickensTime = time.Now()
-			str := fmt.Sprintf("%s <@%s> is ready for chicken runs, check for incoming trucks before visiting.", contract.Location[0].ChannelPing, r.UserID)
+			userID := r.UserID
+			// Check if the user has any alts
+			if len(contract.Boosters[r.UserID].Alts) > 0 {
+				// Find the most recent boost time among the user and their alts
+				mostRecentTime := contract.Boosters[userID].EndTime
+				for _, altID := range contract.Boosters[r.UserID].Alts {
+					alt := contract.Boosters[altID]
+					if alt.EndTime.After(mostRecentTime) {
+						mostRecentTime = alt.EndTime
+						userID = altID
+					}
+				}
+			}
+
+			contract.Boosters[userID].RunChickensTime = time.Now()
+			str := fmt.Sprintf("%s **%s** is ready for chicken runs, check for incoming trucks before visiting.", contract.Location[0].ChannelPing, contract.Boosters[userID].Mention)
 			var data discordgo.MessageSend
 			data.Content = str
 			msg, _ := s.ChannelMessageSendComplex(contract.Location[0].ChannelID, &data)
@@ -231,7 +256,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 					track.FarmedToken(s, r.ChannelID, userID)
 				}
 
-				if b.TokensReceived >= b.TokensWanted && userID == b.Name {
+				if b.TokensReceived >= b.TokensWanted && userID == b.Name && b.AltController == "" {
 					// Guest farmer auto boosts
 					Boosting(s, r.GuildID, r.ChannelID)
 				}
