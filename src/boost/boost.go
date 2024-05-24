@@ -646,6 +646,9 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 				}
 				b.Unique = gm.User.String()
 			}
+			if b.Nick == "" {
+				b.Nick = b.Name
+			}
 		}
 
 		b.GuildID = guildID
