@@ -201,6 +201,7 @@ type Contract struct {
 	CalcOperations    int
 	CalcOperationTime time.Time
 	lastWishPrompt    string     // saved prompt for this contract
+	lastDrawTime      time.Time  // last time the contract was drawn
 	mutex             sync.Mutex // Keep this contract thread safe
 }
 

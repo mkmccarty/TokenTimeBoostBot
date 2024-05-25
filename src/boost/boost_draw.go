@@ -12,6 +12,8 @@ import (
 func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) string {
 	var outputStr = ""
 	var afterListStr = ""
+	contract.lastDrawTime = time.Now()
+
 	saveData(Contracts)
 	if contract.EggEmoji == "" {
 		contract.EggEmoji = FindEggEmoji(s, "485162044652388384", contract.EggName)
