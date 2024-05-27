@@ -20,6 +20,8 @@ type Farmer struct {
 	LaunchChain          bool   // Launch History chain option
 	MissionShipPrimary   int    // Launch Helper Ship Selection - Primary
 	MissionShipSecondary int    // Launch Helper Ship Selection - Secondary
+	MiscSettingsFlag     map[string]bool
+	MiscSettingsString   map[string]string
 }
 
 // OrderHistory struct to store order history data
@@ -278,6 +280,35 @@ func GetOrderHistory(userIDs []string, number int) []string {
 	}
 	log.Println("getOrderHistory", sortedOrderHistory)
 	return sortedOrderHistory
+}
+
+// SetMiscSettingFlag sets a key-value sticky setting
+func SetMiscSettingFlag(userID string, key string, value bool) {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+
+	if farmerstate[userID].MiscSettingsFlag == nil {
+		farmerstate[userID].MiscSettingsFlag = make(map[string]bool)
+	}
+
+	farmerstate[userID].MiscSettingsFlag[key] = value
+	saveData(farmerstate)
+}
+
+// GetMiscSettingFlag returns a Farmer sticky setting
+func GetMiscSettingFlag(userID string, key string) bool {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+
+	if farmer, ok := farmerstate[userID]; ok {
+		if farmer.MiscSettingsFlag == nil {
+			farmer.MiscSettingsFlag = make(map[string]bool)
+		}
+		return farmer.MiscSettingsFlag[key]
+	}
+	return false
 }
 
 // AdvancedTransform for storing KV pairs

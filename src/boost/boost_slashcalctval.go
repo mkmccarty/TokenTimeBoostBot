@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/olekukonko/tablewriter"
 	"github.com/xhit/go-str2duration/v2"
 )
@@ -26,7 +27,7 @@ func GetSlashCalcContractTval(cmd string) *discordgo.ApplicationCommand {
 			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "details",
-				Description: "Show individual token values. Default is false.",
+				Description: "Show individual token values. Default is false. (sticky)",
 				Required:    false,
 			},
 		},
@@ -40,6 +41,14 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 	for _, opt := range options {
 		optionMap[opt.Name] = opt
+	}
+
+	// Call into boost module to do that calculations
+	var userID string
+	if i.GuildID != "" {
+		userID = i.Member.User.ID
+	} else {
+		userID = i.User.ID
 	}
 
 	invalidDuration := false
@@ -65,14 +74,9 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 	}
 	if opt, ok := optionMap["details"]; ok {
 		details = opt.BoolValue()
-	}
-
-	// Call into boost module to do that calculations
-	var userID string
-	if i.GuildID != "" {
-		userID = i.Member.User.ID
+		farmerstate.SetMiscSettingFlag(userID, "calc-details", details)
 	} else {
-		userID = i.User.ID
+		details = farmerstate.GetMiscSettingFlag(userID, "calc-details")
 	}
 
 	str := ""
