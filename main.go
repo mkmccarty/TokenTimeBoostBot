@@ -779,8 +779,8 @@ func main() {
 	go tasks.ExecuteCronJob()
 
 	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
-		log.Printf("Ready message for: %v#%v", s.State.User.Username, s.State.User.Discriminator)
-		log.Printf("Ready Vers:%v  SessId:%v", r.Version, r.SessionID)
+		log.Printf("Ready message for: %v#%v  SessID:%v", s.State.User.Username, s.State.User.Discriminator, r.SessionID)
+		//log.Printf("Ready Vers:%v  SessId:%v", r.Version, r.SessionID)
 	})
 	err := s.Open()
 	if err != nil {

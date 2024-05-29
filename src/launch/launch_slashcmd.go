@@ -299,14 +299,14 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
-	dur := getEventMultiplier("mission-duration")
+	fastDuration := getEventMultiplier("mission-duration")
 	durationStr := ""
-	if dur != nil {
-		if !dur.Ultra || (dur.Ultra && ultra) {
-			durationStr = fmt.Sprintf("%s  Ends <t:%d:R>\n", dur.Message, dur.EndTime.Unix())
-			fasterMissions = dur.Multiplier
+	if fastDuration != nil {
+		if !fastDuration.Ultra || (fastDuration.Ultra && ultra) {
+			durationStr = fmt.Sprintf("%s  Ends <t:%d:R>\n", fastDuration.Message, fastDuration.EndTime.Unix())
+			fasterMissions = fastDuration.Multiplier
 		} else {
-			durationStr = fmt.Sprintf("Ultra only : %s Not used in calculations.\n", dur.Message)
+			durationStr = fmt.Sprintf("Ultra only : %s Not used in calculations.\n", fastDuration.Message)
 		}
 
 	}
@@ -324,9 +324,6 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		durationList = durationList[:3]
 	}
 
-	ed, _ := str2duration.ParseDuration("4d")
-	minutesStr := fmt.Sprintf("%dm", int(ed.Minutes()*ftlMult*fasterMissions))
-	exDuration, _ := str2duration.ParseDuration(minutesStr)
 	displayDubcapInstructions := false
 	displaySunInstructions := false
 	displaySizeWarning := false
@@ -342,6 +339,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	for i, missionTimespanRaw := range durationList {
+
 		missionTimespan := strings.TrimSpace(missionTimespanRaw)
 		dur, err := str2duration.ParseDuration(missionTimespan)
 		if err != nil {
@@ -380,6 +378,9 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				d, _ := str2duration.ParseDuration(missionLen)
 
 				minutesStr := fmt.Sprintf("%dm", int(d.Minutes()*ftlMult*fasterMissions))
+				if fastDuration != nil && arrivalTime.After(fastDuration.EndTime) {
+					minutesStr = fmt.Sprintf("%dm", int(d.Minutes()*ftlMult*1.0))
+				}
 				ftlDuration, _ := str2duration.ParseDuration(minutesStr)
 
 				launchTime := arrivalTime.Add(ftlDuration)
@@ -409,10 +410,25 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 				var chainString = ""
 				if chainExtended {
+
+					exhenDuration, _ := str2duration.ParseDuration("4d")
+					minutesStr := fmt.Sprintf("%dm", int(exhenDuration.Minutes()*ftlMult*fasterMissions))
+					if fastDuration != nil && arrivalTime.After(fastDuration.EndTime) {
+						minutesStr = fmt.Sprintf("%dm", int(exhenDuration.Minutes()*ftlMult*1.0))
+					}
+					exDuration, _ := str2duration.ParseDuration(minutesStr)
+
 					chainLaunchTime := launchTime.Add(exDuration)
 					chainString = fmt.Sprintf(" +next EX return <t:%d:t>", chainLaunchTime.Unix())
 					if fasterMissions != 1.0 {
-						chainLaunchTime := launchTime.Add(exDuration * 2)
+						// Calculate an additional duration
+						minutesStr := fmt.Sprintf("%dm", int(exhenDuration.Minutes()*ftlMult*fasterMissions))
+						if fastDuration != nil && chainLaunchTime.After(fastDuration.EndTime) {
+							minutesStr = fmt.Sprintf("%dm", int(exhenDuration.Minutes()*ftlMult*1.0))
+						}
+						exDuration, _ := str2duration.ParseDuration(minutesStr)
+
+						chainLaunchTime = chainLaunchTime.Add(exDuration)
 						chainString += fmt.Sprintf(" +return <t:%d:t>", chainLaunchTime.Unix())
 					}
 				}

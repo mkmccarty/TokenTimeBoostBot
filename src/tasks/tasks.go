@@ -22,39 +22,64 @@ const eggIncContractsFile string = "ttbb-data/ei-contracts.json"
 const eggIncEventsURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/events.json"
 const eggIncEventsFile string = "ttbb-data/ei-events.json"
 
+var lastContractUpdate time.Time
+var lastEventUpdate time.Time
+
 // HandleReloadContractsCommand will handle the /reload command
 func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	str := "No updated Egg Inc contract data available"
-
-	result := downloadEggIncData(eggIncContractsURL, eggIncContractsFile, true)
-	if result {
-		str += "New contract data loaded"
-	}
-
-	result = downloadEggIncData(eggIncEventsURL, eggIncEventsFile, true)
-	if result {
-		str += " New event data loaded"
-	}
+	str := "No updated Egg Inc contract data available.\n"
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
+			Content: "Working on it...",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
 	})
+	lastContractUpdate = time.Time{}
+	lastEventUpdate = time.Time{}
+	downloadEggIncData(eggIncContractsURL, eggIncContractsFile)
+	downloadEggIncData(eggIncEventsURL, eggIncEventsFile)
+
+	// if lastContractUpdate or lastEventUpdate was updated within the last 1 minute
+	// then we have new data
+	if time.Since(lastContractUpdate) < 1*time.Minute || time.Since(lastEventUpdate) < 1*time.Minute {
+		str = "Updated Egg Inc contract data:.\n"
+		str += fmt.Sprintf("> Contracts: %s\n", lastContractUpdate.Format(time.RFC1123))
+		str += fmt.Sprintf("> Events: %s\n", lastEventUpdate.Format(time.RFC1123))
+	} else {
+		str += fmt.Sprintf("> Contracts: %s\n", lastContractUpdate.Format(time.RFC1123))
+		str += fmt.Sprintf("> Events: %s\n", lastEventUpdate.Format(time.RFC1123))
+	}
+
+	s.FollowupMessageCreate(i.Interaction, true,
+		&discordgo.WebhookParams{
+			Content: str},
+	)
+
 }
 
 func isNewEggIncDataAvailable(url string, finalname string) bool {
-	req, err := http.NewRequest("GET", url+"?token="+xid.New().String(), nil)
-	if err != nil {
-		log.Print(err)
-		return false
-	}
-
-	if _, err = os.Stat(finalname); err == nil {
+	if _, err := os.Stat(finalname); err == nil {
 		// Get the current file size
 		fileInfo, err := os.Stat(finalname)
+		if err != nil {
+			log.Print(err)
+			return true
+		}
+
+		switch finalname {
+		case eggIncContractsFile:
+			if time.Since(lastContractUpdate) < 2*time.Hour {
+				return false
+			}
+		case eggIncEventsFile:
+			if time.Since(lastEventUpdate) < 2*time.Hour {
+				return false
+			}
+		}
+
+		req, err := http.NewRequest("GET", url+"?token="+xid.New().String(), nil)
 		if err != nil {
 			log.Print(err)
 			return false
@@ -84,8 +109,8 @@ func isNewEggIncDataAvailable(url string, finalname string) bool {
 			return false
 		}
 		str := string(body)
-		log.Print("EI-Contracts: Downloaded ", len(body), " bytes")
-		log.Print("EI-Contracts: Downloaded Bytes:", str)
+		log.Print("EI-Data: Downloaded ", len(body), " bytes")
+		log.Print("EI-Data: Downloaded Bytes:", str)
 
 		if len(body) > 0 {
 			// Test if the end of the the file eggIncContractsFile is the same as the body
@@ -108,6 +133,16 @@ func isNewEggIncDataAvailable(url string, finalname string) bool {
 
 			// Compare the last 1024 bytes of the file with the body
 			if string(fileBytes) == string(body) && len(fileBytes) == len(body) {
+				switch finalname {
+				case eggIncContractsFile:
+					if lastContractUpdate.IsZero() {
+						lastContractUpdate = time.Now()
+					}
+				case eggIncEventsFile:
+					if lastEventUpdate.IsZero() {
+						lastEventUpdate = time.Now()
+					}
+				}
 				return false
 			}
 
@@ -119,13 +154,11 @@ func isNewEggIncDataAvailable(url string, finalname string) bool {
 }
 
 func crondownloadEggIncData() {
-	downloadEggIncData(eggIncContractsURL, eggIncContractsFile, false)
-
-	downloadEggIncData(eggIncEventsURL, eggIncEventsFile, false)
-
+	downloadEggIncData(eggIncContractsURL, eggIncContractsFile)
+	downloadEggIncData(eggIncEventsURL, eggIncEventsFile)
 }
 
-func downloadEggIncData(url string, filename string, force bool) bool {
+func downloadEggIncData(url string, filename string) bool {
 	// Download the latest data from this URL https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json
 	// save it to disk and put it into an array of structs
 	// If data has been read within the last 70 minutes then skip it.
@@ -134,8 +167,8 @@ func downloadEggIncData(url string, filename string, force bool) bool {
 	//	log.Print("EI-Contracts. New data was updated ", lastContractUpdate)
 	//	return false
 	//}
-	if !force && !isNewEggIncDataAvailable(url, filename) {
-		log.Print("EI-Contracts. No new data available")
+	if !isNewEggIncDataAvailable(url, filename) {
+		log.Print("EI-Data. No new data available for ", filename)
 		return false
 	}
 	req, err := http.NewRequest("GET", url+"?token="+xid.New().String(), nil)
@@ -164,8 +197,6 @@ func downloadEggIncData(url string, filename string, force bool) bool {
 	// Check if the file already exists
 	_, err = os.Stat(filename)
 	if err == nil {
-		// Delete the file
-		//log.Print("Deleting", eggIncContractsFile)
 		err = os.Remove(filename)
 		if err != nil {
 			log.Print("Error Deleting EI-Contracts File ", err.Error())
@@ -182,9 +213,11 @@ func downloadEggIncData(url string, filename string, force bool) bool {
 	// Notify bot of out new data
 	if filename == eggIncContractsFile {
 		boost.LoadContractData(filename)
+		lastContractUpdate = time.Now()
 		log.Print("EI-Contracts. New data loaded, length: ", int64(len(body)))
 	} else if filename == eggIncEventsFile {
 		launch.LoadEventData(filename)
+		lastEventUpdate = time.Now()
 		log.Print("EI-Events. New data loaded, length: ", int64(len(body)))
 
 	}
@@ -193,10 +226,10 @@ func downloadEggIncData(url string, filename string, force bool) bool {
 
 // ExecuteCronJob runs the cron jobs for the bot
 func ExecuteCronJob() {
-	if !downloadEggIncData(eggIncContractsURL, eggIncContractsFile, false) {
+	if !downloadEggIncData(eggIncContractsURL, eggIncContractsFile) {
 		boost.LoadContractData(eggIncContractsFile)
 	}
-	if !downloadEggIncData(eggIncEventsURL, eggIncEventsFile, false) {
+	if !downloadEggIncData(eggIncEventsURL, eggIncEventsFile) {
 		launch.LoadEventData(eggIncEventsFile)
 	}
 	/*
