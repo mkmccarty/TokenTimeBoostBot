@@ -110,7 +110,7 @@ var (
 	GuildID        = flag.String("guild", "", "Test guild ID")
 	BotToken       = flag.String("token", "", "Bot access token")
 	AppID          = flag.String("app", "", "Application ID")
-	RemoveCommands = flag.Bool("rmcmd", false, "Remove all commands after shutdowning or not")
+	RemoveCommands = flag.Bool("rmcmd", true, "Remove all commands after shutdowning or not")
 
 	adminCommands = []*discordgo.ApplicationCommand{
 		{
