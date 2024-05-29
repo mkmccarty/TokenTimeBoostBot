@@ -280,7 +280,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	fuel := getEventMultiplier("mission-fuel")
 	fuelStr := ""
 	if fuel != nil {
-		fuelStr = fmt.Sprintf("%s ends <t:%d:R>\n", fuel.Message, fuel.EndTime.Unix())
+		fuelStr = fmt.Sprintf("%s Ends <t:%d:R>\n", fuel.Message, fuel.EndTime.Unix())
 	}
 
 	capacity := getEventMultiplier("mission-capacity")
