@@ -280,7 +280,11 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	fuel := getEventMultiplier("mission-fuel")
 	fuelStr := ""
 	if fuel != nil {
-		fuelStr = fmt.Sprintf("%s Ends <t:%d:R>\n", fuel.Message, fuel.EndTime.Unix())
+		if !fuel.Ultra || (fuel.Ultra && ultra) {
+			fuelStr = fmt.Sprintf("%s Ends <t:%d:R>\n", fuel.Message, fuel.EndTime.Unix())
+		} else {
+			fuelStr = fmt.Sprintf("Ultra only : %s\n", fuel.Message)
+		}
 	}
 
 	capacity := getEventMultiplier("mission-capacity")
@@ -291,7 +295,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			dubCapTimeCaution = dubCapTime.Add(-5 * time.Minute)
 			doubleCapacityStr = fmt.Sprintf("%s Ends <t:%d:R>\n", capacity.Message, dubCapTime.Unix())
 		} else {
-			doubleCapacityStr = fmt.Sprintf("%s ultra event.\n", capacity.Message)
+			doubleCapacityStr = fmt.Sprintf("Ultra only : %s Not used in calculations.\n", capacity.Message)
 		}
 	}
 
@@ -302,7 +306,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			durationStr = fmt.Sprintf("%s  Ends <t:%d:R>\n", dur.Message, dur.EndTime.Unix())
 			fasterMissions = dur.Multiplier
 		} else {
-			durationStr = fmt.Sprintf("%s ultra event.\n", dur.Message)
+			durationStr = fmt.Sprintf("Ultra only : %s Not used in calculations.\n", dur.Message)
 		}
 
 	}
