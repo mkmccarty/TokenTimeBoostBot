@@ -3,6 +3,9 @@ package launch
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"math"
+	"os"
 	"strings"
 	"time"
 )
@@ -54,4 +57,68 @@ func fmtDuration(d time.Duration) string {
 		str = fmt.Sprintf("%dh%dm", h, m)
 	}
 	return strings.Replace(str, "0h0m", "", -1)
+}
+
+// EggIncEvent is a raw event data for Egg Inc
+type EggIncEvent struct {
+	EndTimestamp   float64 `json:"endTimestamp"`
+	ID             string  `json:"id"`
+	Message        string  `json:"message"`
+	Multiplier     float64 `json:"multiplier"`
+	StartTimestamp float64 `json:"startTimestamp"`
+	EventType      string  `json:"type"`
+	Ultra          bool    `json:"ultra"`
+
+	StartTime time.Time
+	EndTime   time.Time
+}
+
+// EggIncEvents holds a list of all Events, newest is last
+var EggIncEvents []EggIncEvent
+
+func getEventMultiplier(event string) *EggIncEvent {
+	// loop through EggIncEvents and if there is a matching event return it
+	for _, e := range EggIncEvents {
+		if e.EventType == event {
+			return &EggIncEvent{
+				Message:    e.Message,
+				Multiplier: e.Multiplier,
+				EventType:  e.EventType,
+				Ultra:      e.Ultra,
+				StartTime:  e.StartTime,
+				EndTime:    e.EndTime,
+			}
+		}
+	}
+	return nil
+}
+
+// LoadEventData will load event data from a file
+func LoadEventData(filename string) {
+
+	var EggIncEventsLoaded []EggIncEvent
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&EggIncEventsLoaded)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	EggIncEvents = nil
+	for _, e := range EggIncEventsLoaded {
+		endTimestampRaw := int64(math.Round(e.EndTimestamp))
+		e.EndTime = time.Unix(endTimestampRaw, 0)
+
+		StartTimestampRaw := int64(math.Round(e.StartTimestamp))
+		e.StartTime = time.Unix(StartTimestampRaw, 0)
+
+		if e.StartTime.Before(time.Now().UTC()) && e.EndTime.After(time.Now().UTC()) {
+			EggIncEvents = append(EggIncEvents, e)
+		}
+	}
 }
