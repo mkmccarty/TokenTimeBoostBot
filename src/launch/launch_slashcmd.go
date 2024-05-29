@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/dannav/hhmmss"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/xhit/go-str2duration/v2"
 )
@@ -89,42 +88,49 @@ func SlashLaunchHelperCommand(cmd string) *discordgo.ApplicationCommand {
 				Description: "Show return time for a chained Henliner extended mission. [Sticky]",
 				Required:    false,
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "dubcap-time",
-				Description: "Time remaining for double capacity event. Examples: `43:16:22` or `43h16m22s`",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "fast-missions",
-				Description: "Missions return 2x, 3x or 4x faster. Default is 1x.",
-				Required:    false,
-				Choices: []*discordgo.ApplicationCommandOptionChoice{
-					{
-						Name:  "1x / None",
-						Value: 1,
-					},
-					{
-						Name:  "2x",
-						Value: 2,
-					},
-					{
-						Name:  "3x",
-						Value: 3,
-					},
-					{
-						Name:  "4x",
-						Value: 4,
-					},
+			/*
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "dubcap-time",
+					Description: "Time remaining for double capacity event. Examples: `43:16:22` or `43h16m22s`",
+					Required:    false,
 				},
-			},
+				{
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Name:        "fast-missions",
+					Description: "Missions return 2x, 3x or 4x faster. Default is 1x.",
+					Required:    false,
+					Choices: []*discordgo.ApplicationCommandOptionChoice{
+						{
+							Name:  "1x / None",
+							Value: 1,
+						},
+						{
+							Name:  "2x",
+							Value: 2,
+						},
+						{
+							Name:  "3x",
+							Value: 3,
+						},
+						{
+							Name:  "4x",
+							Value: 4,
+						},
+					},
+				},*/
 			{
 				Type:        discordgo.ApplicationCommandOptionInteger,
 				Name:        "ftl",
 				Description: "FTL Drive Upgrades level. Default is 60.",
 				MinValue:    &integerZeroMinValue,
 				MaxValue:    60,
+				Required:    false,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "ultra",
+				Description: "Enable ultra event calculations. Default is false. [Sticky]",
 				Required:    false,
 			},
 		},
@@ -241,39 +247,67 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		arrivalTimespan = strings.Replace(arrivalTimespan, "hr", "h", -1)
 		arrivalTimespan = strings.Replace(arrivalTimespan, "sec", "s", -1)
 	}
-	if opt, ok := optionMap["dubcap-time"]; ok {
-		// Timespan is when the next mission arrives
-		// Time could be HH:MM:SS or 1h2m3s
-		dcTimespan := opt.StringValue()
-		// Does String contain a colon? then it's in HH:MM:SS format
-		durDubCap, err := hhmmss.Parse(dcTimespan)
-		if err != nil {
-			dcTimespan = strings.Replace(dcTimespan, "day", "d", -1)
-			dcTimespan = strings.Replace(dcTimespan, "hr", "h", -1)
-			dcTimespan = strings.Replace(dcTimespan, "min", "m", -1)
-			dcTimespan = strings.Replace(dcTimespan, "sec", "s", -1)
-			durDubCap, _ = str2duration.ParseDuration(dcTimespan)
+
+	ultra := false
+	if opt, ok := optionMap["ultra"]; ok {
+		ultra = opt.BoolValue()
+		farmerstate.SetMiscSettingFlag(userID, "ultra", ultra)
+	} else {
+		ultra = farmerstate.GetMiscSettingFlag(userID, "ultra")
+	}
+	/*
+		if opt, ok := optionMap["dubcap-time"]; ok {
+			// Timespan is when the next mission arrives
+			// Time could be HH:MM:SS or 1h2m3s
+			dcTimespan := opt.StringValue()
+			// Does String contain a colon? then it's in HH:MM:SS format
+			durDubCap, err := hhmmss.Parse(dcTimespan)
+			if err != nil {
+				dcTimespan = strings.Replace(dcTimespan, "day", "d", -1)
+				dcTimespan = strings.Replace(dcTimespan, "hr", "h", -1)
+				dcTimespan = strings.Replace(dcTimespan, "min", "m", -1)
+				dcTimespan = strings.Replace(dcTimespan, "sec", "s", -1)
+				durDubCap, _ = str2duration.ParseDuration(dcTimespan)
+			}
+
+			dubCapTime = t.Add(durDubCap)
+			dubCapTimeCaution = dubCapTime.Add(-5 * time.Minute)
+
+			showDubCap = true
+			doubleCapacityStr = fmt.Sprintf("Double Capacity Event ends at <t:%d:f>\n", dubCapTime.Unix())
+		}
+	*/
+	fuel := getEventMultiplier("mission-fuel")
+	fuelStr := ""
+	if fuel != nil {
+		fuelStr = fmt.Sprintf("%s ends <t:%d:R>\n", fuel.Message, fuel.EndTime.Unix())
+	}
+
+	capacity := getEventMultiplier("mission-capacity")
+	if capacity != nil {
+		if !capacity.Ultra || (capacity.Ultra && ultra) {
+			showDubCap = true
+			dubCapTime = capacity.EndTime
+			dubCapTimeCaution = dubCapTime.Add(-5 * time.Minute)
+			doubleCapacityStr = fmt.Sprintf("%s Ends <t:%d:R>\n", capacity.Message, dubCapTime.Unix())
+		} else {
+			doubleCapacityStr = fmt.Sprintf("%s ultra event.\n", capacity.Message)
+		}
+	}
+
+	dur := getEventMultiplier("mission-duration")
+	durationStr := ""
+	if dur != nil {
+		if !dur.Ultra || (dur.Ultra && ultra) {
+			durationStr = fmt.Sprintf("%s  Ends <t:%d:R>\n", dur.Message, dur.EndTime.Unix())
+			fasterMissions = dur.Multiplier
+		} else {
+			durationStr = fmt.Sprintf("%s ultra event.\n", dur.Message)
 		}
 
-		dubCapTime = t.Add(durDubCap)
-		dubCapTimeCaution = dubCapTime.Add(-5 * time.Minute)
-
-		showDubCap = true
-		doubleCapacityStr = fmt.Sprintf("Double Capacity Event ends at <t:%d:f>\n", dubCapTime.Unix())
 	}
-	if opt, ok := optionMap["fast-missions"]; ok {
-		switch opt.IntValue() {
-		case 2:
-			fasterMissions = 0.5
-		case 3:
-			fasterMissions = 0.333
-		case 4:
-			fasterMissions = 0.25
-		default:
-			fasterMissions = 1.0
-		}
 
-	}
+	var events strings.Builder
 	var builder strings.Builder
 	//var header strings.Builder
 	shipDurationName := [...]string{"SH", "ST", "EX"}
@@ -292,6 +326,16 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	displayDubcapInstructions := false
 	displaySunInstructions := false
 	displaySizeWarning := false
+
+	if showDubCap {
+		events.WriteString(doubleCapacityStr)
+	}
+	if fuelStr != "" {
+		events.WriteString(fuelStr)
+	}
+	if durationStr != "" {
+		events.WriteString(durationStr)
+	}
 
 	for i, missionTimespanRaw := range durationList {
 		missionTimespan := strings.TrimSpace(missionTimespanRaw)
@@ -312,9 +356,6 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		// if arrival time is less than endTime, then add to the message
 		normal.WriteString(fmt.Sprintf("**Mission arriving on <t:%d:f> (FTL:%d)**\n", arrivalTime.Unix(), ftlLevel))
 		header.WriteString(fmt.Sprintf("Mission arriving on <t:%d:f> (FTL:%d)\n", arrivalTime.Unix(), ftlLevel))
-		if showDubCap {
-			builder.WriteString(doubleCapacityStr)
-		}
 
 		for shipIndex, ship := range missionShips {
 			var sName = " " + ship.Name
@@ -404,7 +445,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if displaySizeWarning {
 		_, err := s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
-				Content: "",
+				Content: events.String(),
 				Embeds: []*discordgo.MessageEmbed{{
 					Type: discordgo.EmbedTypeRich,
 					//Title:       "Mission Arrival Times",
@@ -425,7 +466,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if instr.Len() > 0 {
 			s.FollowupMessageCreate(i.Interaction, true,
 				&discordgo.WebhookParams{
-					Content: normal.String() + "\n",
+					Content: events.String() + normal.String() + "\n",
 					Embeds: []*discordgo.MessageEmbed{{
 						Type: discordgo.EmbedTypeRich,
 						//Title: "Mission Arrival Times",
@@ -440,7 +481,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		} else {
 			s.FollowupMessageCreate(i.Interaction, true,
 				&discordgo.WebhookParams{
-					Content: normal.String() + "\n",
+					Content: events.String() + normal.String() + "\n",
 				})
 		}
 	}

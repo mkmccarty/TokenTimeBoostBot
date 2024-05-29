@@ -12,21 +12,28 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/jasonlvhit/gocron"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/launch"
 	"github.com/rs/xid"
 )
 
 const eggIncContractsURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json"
 const eggIncContractsFile string = "ttbb-data/ei-contracts.json"
 
-var lastContractUpdate time.Time
+const eggIncEventsURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/events.json"
+const eggIncEventsFile string = "ttbb-data/ei-events.json"
 
 // HandleReloadContractsCommand will handle the /reload command
 func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	str := "No updated Egg Inc contract data available"
 
-	result := downloadEggIncContracts(true)
+	result := downloadEggIncData(eggIncContractsURL, eggIncContractsFile, true)
 	if result {
 		str += "New contract data loaded"
+	}
+
+	result = downloadEggIncData(eggIncEventsURL, eggIncEventsFile, true)
+	if result {
+		str += " New event data loaded"
 	}
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -38,16 +45,16 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 	})
 }
 
-func isNewEggIncContractDataAvailable() bool {
-	req, err := http.NewRequest("GET", eggIncContractsURL+"?token="+xid.New().String(), nil)
+func isNewEggIncDataAvailable(url string, finalname string) bool {
+	req, err := http.NewRequest("GET", url+"?token="+xid.New().String(), nil)
 	if err != nil {
 		log.Print(err)
 		return false
 	}
 
-	if _, err = os.Stat(eggIncContractsFile); err == nil {
+	if _, err = os.Stat(finalname); err == nil {
 		// Get the current file size
-		fileInfo, err := os.Stat(eggIncContractsFile)
+		fileInfo, err := os.Stat(finalname)
 		if err != nil {
 			log.Print(err)
 			return false
@@ -82,7 +89,7 @@ func isNewEggIncContractDataAvailable() bool {
 
 		if len(body) > 0 {
 			// Test if the end of the the file eggIncContractsFile is the same as the body
-			file, err := os.Open(eggIncContractsFile)
+			file, err := os.Open(finalname)
 			if err != nil {
 				log.Print(err)
 				return false
@@ -111,11 +118,14 @@ func isNewEggIncContractDataAvailable() bool {
 	return true
 }
 
-func cronDownloadEggIncContracts() {
-	downloadEggIncContracts(false)
+func crondownloadEggIncData() {
+	downloadEggIncData(eggIncContractsURL, eggIncContractsFile, false)
+
+	downloadEggIncData(eggIncEventsURL, eggIncEventsFile, false)
+
 }
 
-func downloadEggIncContracts(force bool) bool {
+func downloadEggIncData(url string, filename string, force bool) bool {
 	// Download the latest data from this URL https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json
 	// save it to disk and put it into an array of structs
 	// If data has been read within the last 70 minutes then skip it.
@@ -124,11 +134,11 @@ func downloadEggIncContracts(force bool) bool {
 	//	log.Print("EI-Contracts. New data was updated ", lastContractUpdate)
 	//	return false
 	//}
-	if !force && !isNewEggIncContractDataAvailable() {
+	if !force && !isNewEggIncDataAvailable(url, filename) {
 		log.Print("EI-Contracts. No new data available")
 		return false
 	}
-	req, err := http.NewRequest("GET", eggIncContractsURL+"?token="+xid.New().String(), nil)
+	req, err := http.NewRequest("GET", url+"?token="+xid.New().String(), nil)
 	if err != nil {
 		log.Print(err)
 		return false
@@ -152,34 +162,42 @@ func downloadEggIncContracts(force bool) bool {
 	defer resp.Body.Close()
 
 	// Check if the file already exists
-	_, err = os.Stat(eggIncContractsFile)
+	_, err = os.Stat(filename)
 	if err == nil {
 		// Delete the file
 		//log.Print("Deleting", eggIncContractsFile)
-		err = os.Remove(eggIncContractsFile)
+		err = os.Remove(filename)
 		if err != nil {
 			log.Print("Error Deleting EI-Contracts File ", err.Error())
 		}
 	}
 
 	// Save to disk
-	err = os.WriteFile(eggIncContractsFile, body, 0644)
+	err = os.WriteFile(filename, body, 0644)
 	if err != nil {
 		log.Print(err)
 		return false
 	}
 
 	// Notify bot of out new data
-	boost.LoadContractData(eggIncContractsFile)
-	lastContractUpdate = time.Now()
-	log.Print("EI-Contracts. New data loaded, length: ", int64(len(body)))
+	if filename == eggIncContractsFile {
+		boost.LoadContractData(filename)
+		log.Print("EI-Contracts. New data loaded, length: ", int64(len(body)))
+	} else if filename == eggIncEventsFile {
+		launch.LoadEventData(filename)
+		log.Print("EI-Events. New data loaded, length: ", int64(len(body)))
+
+	}
 	return true
 }
 
 // ExecuteCronJob runs the cron jobs for the bot
 func ExecuteCronJob() {
-	if !downloadEggIncContracts(false) {
+	if !downloadEggIncData(eggIncContractsURL, eggIncContractsFile, false) {
 		boost.LoadContractData(eggIncContractsFile)
+	}
+	if !downloadEggIncData(eggIncEventsURL, eggIncEventsFile, false) {
+		launch.LoadEventData(eggIncEventsFile)
 	}
 	/*
 		Here's the exact cron config for the cloudflare worker that triggers the github action that updates contracts.
@@ -207,7 +225,7 @@ func ExecuteCronJob() {
 	}
 
 	for _, t := range checkTimes {
-		gocron.Every(1).Day().At(t).Do(cronDownloadEggIncContracts)
+		gocron.Every(1).Day().At(t).Do(crondownloadEggIncData)
 	}
 
 	gocron.Every(1).Day().Do(boost.ArchiveContracts)
