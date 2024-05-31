@@ -8,7 +8,7 @@ require (
 	github.com/bwmarrin/discordgo v0.28.1
 	github.com/divan/num2words v0.0.0-20170904212200-57dba452f942
 	github.com/ewohltman/discordgo-mock v0.0.11
-	github.com/google/generative-ai-go v0.12.0
+	github.com/google/generative-ai-go v0.13.0
 	github.com/jasonlvhit/gocron v0.0.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/peterbourgon/diskv/v3 v3.0.1
@@ -23,7 +23,7 @@ require (
 
 require (
 	cloud.google.com/go v0.114.0 // indirect
-	cloud.google.com/go/ai v0.5.0 // indirect
+	cloud.google.com/go/ai v0.6.0 // indirect
 	cloud.google.com/go/auth v0.5.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
@@ -56,6 +56,7 @@ require (
 	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
+	google.golang.org/genproto v0.0.0-20240528184218-531527333157 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240528184218-531527333157 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157 // indirect
 	google.golang.org/grpc v1.64.0 // indirect
