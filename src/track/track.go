@@ -615,9 +615,12 @@ func ArchiveTrackerData(s *discordgo.Session) {
 	for k, v := range Tokens {
 		for name, tv := range v.Coop {
 			if tv.StartTime.Before(time.Now().Add(-72 * time.Hour)) {
-				s.ChannelMessageDelete(tv.UserChannelID, tv.TokenMessageID)
+				msg := discordgo.NewMessageEdit(tv.UserChannelID, tv.TokenMessageID)
+				msg.SetContent("")
+				msg.Components = &[]discordgo.MessageComponent{}
 				embed := getTokenTrackingEmbed(tv, true)
-				s.ChannelMessageSendComplex(tv.UserChannelID, embed)
+				msg.SetEmbeds(embed.Embeds)
+				s.ChannelMessageEditComplex(msg)
 				delete(Tokens[k].Coop, name)
 			}
 		}

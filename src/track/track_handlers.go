@@ -218,17 +218,15 @@ func HandleTokenComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if name == "" {
 		name = extractTokenNameOriginal(i.Message.Components[0])
 	}
-	s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
 
 	td, err := getTrack(userID, name)
 	if err == nil {
-		/*
-			str := getTokenTrackingString(td, true)
-			s.ChannelMessageSend(i.ChannelID, str)
-		*/
 		embed := getTokenTrackingEmbed(td, true)
-		s.ChannelMessageSendComplex(i.ChannelID, embed)
-
+		msg := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
+		msg.SetContent("")
+		msg.Components = &[]discordgo.MessageComponent{}
+		msg.SetEmbeds(embed.Embeds)
+		s.ChannelMessageEditComplex(msg)
 	}
 
 	if Tokens[userID] != nil {
