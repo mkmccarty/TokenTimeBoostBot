@@ -606,7 +606,7 @@ func loadData() (map[string]*tokenValues, error) {
 }
 
 // ArchiveTrackerData purges stale tracker data after 4 days
-func ArchiveTrackerData() {
+func ArchiveTrackerData(s *discordgo.Session) {
 	if Tokens == nil {
 		return
 	}
@@ -614,7 +614,10 @@ func ArchiveTrackerData() {
 	// If it is, Finish the data
 	for k, v := range Tokens {
 		for name, tv := range v.Coop {
-			if tv.StartTime.Before(time.Now().Add(-96 * time.Hour)) {
+			if tv.StartTime.Before(time.Now().Add(-72 * time.Hour)) {
+				s.ChannelMessageDelete(tv.UserChannelID, tv.TokenMessageID)
+				embed := getTokenTrackingEmbed(tv, true)
+				s.ChannelMessageSendComplex(tv.UserChannelID, embed)
 				delete(Tokens[k].Coop, name)
 			}
 		}
