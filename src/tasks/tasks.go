@@ -263,8 +263,6 @@ func ExecuteCronJob(s *discordgo.Session) {
 
 	gocron.Every(1).Day().Do(boost.ArchiveContracts, s)
 
-	gocron.Every(1).Minute().Do(boost.ArchiveContracts, s)
-
 	<-gocron.Start()
 	log.Print("Exiting cron job")
 }
