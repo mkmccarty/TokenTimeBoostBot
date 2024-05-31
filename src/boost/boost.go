@@ -1495,7 +1495,7 @@ func reorderBoosters(contract *Contract) {
 }
 
 // ArchiveContracts will set a contract state to Archive if it is older than 5 days
-func ArchiveContracts() {
+func ArchiveContracts(s *discordgo.Session) {
 	currentTime := time.Now()
 	for _, contract := range Contracts {
 		if currentTime.Sub(contract.StartTime) > 5*24*time.Hour {
@@ -1503,7 +1503,7 @@ func ArchiveContracts() {
 			// A different task will handle the deletion of the contract
 		}
 	}
-	track.ArchiveTrackerData()
+	track.ArchiveTrackerData(s)
 
 }
 

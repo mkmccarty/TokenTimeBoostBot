@@ -225,7 +225,7 @@ func downloadEggIncData(url string, filename string) bool {
 }
 
 // ExecuteCronJob runs the cron jobs for the bot
-func ExecuteCronJob() {
+func ExecuteCronJob(s *discordgo.Session) {
 	if !downloadEggIncData(eggIncContractsURL, eggIncContractsFile) {
 		boost.LoadContractData(eggIncContractsFile)
 	}
@@ -261,7 +261,7 @@ func ExecuteCronJob() {
 		gocron.Every(1).Day().At(t).Do(crondownloadEggIncData)
 	}
 
-	gocron.Every(1).Day().Do(boost.ArchiveContracts)
+	gocron.Every(1).Day().Do(boost.ArchiveContracts, s)
 
 	<-gocron.Start()
 	log.Print("Exiting cron job")

@@ -776,7 +776,7 @@ func main() {
 	*/
 
 	// Start our CRON job to grab Egg Inc contract data from the Carpet github repository
-	go tasks.ExecuteCronJob()
+	go tasks.ExecuteCronJob(s)
 
 	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
 		log.Printf("Ready message for: %v#%v  SessID:%v", s.State.User.Username, s.State.User.Discriminator, r.SessionID)
