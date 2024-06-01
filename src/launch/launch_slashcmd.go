@@ -413,7 +413,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 					exhenDuration, _ := str2duration.ParseDuration("4d")
 					minutesStr := fmt.Sprintf("%dm", int(exhenDuration.Minutes()*ftlMult*fasterMissions))
-					if fastDuration != nil && arrivalTime.After(fastDuration.EndTime) {
+					if fastDuration != nil && launchTime.After(fastDuration.EndTime) {
 						minutesStr = fmt.Sprintf("%dm", int(exhenDuration.Minutes()*ftlMult*1.0))
 					}
 					exDuration, _ := str2duration.ParseDuration(minutesStr)
