@@ -615,6 +615,7 @@ func ArchiveTrackerData(s *discordgo.Session) {
 	for k, v := range Tokens {
 		for name, tv := range v.Coop {
 			if tv.StartTime.Before(time.Now().Add(-72 * time.Hour)) {
+				log.Print("Purging Tracker ", tv.Name, " for ", tv.Username)
 				msg := discordgo.NewMessageEdit(tv.UserChannelID, tv.TokenMessageID)
 				msg.SetContent("")
 				msg.Components = &[]discordgo.MessageComponent{}

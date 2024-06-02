@@ -1499,6 +1499,7 @@ func ArchiveContracts(s *discordgo.Session) {
 	currentTime := time.Now()
 	for _, contract := range Contracts {
 		if currentTime.Sub(contract.StartTime) > 5*24*time.Hour {
+			log.Println("Archiving contract: ", contract.ContractID, " / ", contract.CoopID)
 			contract.State = ContractStateArchive
 			// A different task will handle the deletion of the contract
 		}
