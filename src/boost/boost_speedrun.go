@@ -452,8 +452,8 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 					rSerial := xid.New().String()
 					sSerial := xid.New().String()
 					for i := 0; i < tokensToSend; i++ {
-						b.Received = append(b.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[userID].Mention, Serial: rSerial})
-						contract.Boosters[userID].Sent = append(contract.Boosters[userID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[b.UserID].Mention, Serial: sSerial})
+						b.Received = append(b.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[userID].Nick, Serial: rSerial})
+						contract.Boosters[userID].Sent = append(contract.Boosters[userID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[b.UserID].Nick, Serial: sSerial})
 					}
 					track.ContractTokenMessage(s, r.ChannelID, b.UserID, track.TokenReceived, b.TokensReceived, contract.Boosters[userID].Nick, rSerial)
 					track.ContractTokenMessage(s, r.ChannelID, userID, track.TokenSent, b.TokensReceived, contract.Boosters[b.UserID].Nick, sSerial)
