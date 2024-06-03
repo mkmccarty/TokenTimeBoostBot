@@ -746,31 +746,34 @@ func IsUserCreatorOfAnyContract(userID string) bool {
 }
 
 func creatorOfContract(c *Contract, u string) bool {
-	for _, el := range c.CreatorID {
-		if el == u {
-			return true
+	if c != nil {
+		for _, el := range c.CreatorID {
+			if el == u {
+				return true
+			}
 		}
 	}
 	return false
 }
 
 func userInContract(c *Contract, u string) bool {
+	if c != nil {
 
-	if len(c.Boosters) != len(c.Order) {
-		// Exists in Boosters/Order but not in other
-		for k := range c.Boosters {
-			if !slices.Contains(c.Order, k) {
-				c.Order = append(c.Order, k)
+		if len(c.Boosters) != len(c.Order) {
+			// Exists in Boosters/Order but not in other
+			for k := range c.Boosters {
+				if !slices.Contains(c.Order, k) {
+					c.Order = append(c.Order, k)
+				}
+			}
+		}
+
+		for _, el := range c.Order {
+			if el == u && c.Boosters[u] != nil {
+				return true
 			}
 		}
 	}
-
-	for _, el := range c.Order {
-		if el == u && c.Boosters[u] != nil {
-			return true
-		}
-	}
-
 	return false
 }
 
@@ -884,6 +887,15 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 	// If this is an alt, remove its entries from main
 	if contract.Boosters[userID].AltController != "" {
 		mainUserID := contract.Boosters[userID].AltController
+		if contract.Speedrun {
+			if contract.SRData.SpeedrunStarterUserID == userID {
+				contract.SRData.SpeedrunStarterUserID = mainUserID
+			}
+			if contract.SRData.SinkUserID == userID {
+				contract.SRData.SinkUserID = mainUserID
+			}
+			contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
+		}
 		altIdx := slices.Index(contract.Boosters[mainUserID].Alts, userID)
 		contract.Boosters[mainUserID].Alts = removeIndex(contract.Boosters[mainUserID].Alts, altIdx)
 		contract.Boosters[mainUserID].AltsIcons = removeIndex(contract.Boosters[mainUserID].AltsIcons, altIdx)

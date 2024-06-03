@@ -78,6 +78,33 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	})
 }
 
+func getSpeedrunStatusStr(contract *Contract) string {
+	var b strings.Builder
+	fmt.Fprint(&b, "> Speedrun can be started once the contract is full.\n\n")
+	if contract.SRData.SelfRuns {
+		fmt.Fprintf(&b, "> --> **Self run of chickens is required** <--\n")
+	}
+	if contract.SRData.Tango[0] != 1 {
+		fmt.Fprintf(&b, "> **%d** Chicken Run Legs to reach **%d** total chicken runs.\n", contract.SRData.Legs, contract.SRData.ChickenRuns)
+	} else {
+		fmt.Fprintf(&b, "> It's not possible to reach **%d** total chicken runs with only **%d** farmers.\n", contract.SRData.ChickenRuns, contract.CoopSize)
+	}
+	if contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
+		fmt.Fprint(&b, "> **Wonky** style speed run:\n")
+		fmt.Fprintf(&b, "> * Send all tokens to **%s**\n", contract.Boosters[contract.SRData.SpeedrunStarterUserID].Mention)
+		fmt.Fprintf(&b, "> The sink will send you a full set of boost tokens.\n")
+		if contract.SRData.SpeedrunStarterUserID != contract.SRData.SinkUserID {
+			fmt.Fprintf(&b, "> * After contract boosting send all tokens to: %s (This is unusual)\n", contract.Boosters[contract.SRData.SinkUserID].Mention)
+		}
+	} else {
+		fmt.Fprint(&b, "> **Boost List** style speed run:\n")
+		fmt.Fprintf(&b, "> * During CRT send tokens to %s\n", contract.Boosters[contract.SRData.SpeedrunStarterUserID].Mention)
+		fmt.Fprint(&b, "> * Follow the Boost List for Token Passing.\n")
+		fmt.Fprintf(&b, "> * After contract boosting send all tokens to %s\n", contract.Boosters[contract.SRData.SinkUserID].Mention)
+	}
+	return b.String()
+}
+
 func setSpeedrunOptions(s *discordgo.Session, channelID string, contractStarter string, sink string, sinkPosition int, chickenRuns int, speedrunStyle int, selfRuns bool) (string, error) {
 	var contract = FindContract(channelID)
 	if contract == nil {
@@ -151,30 +178,7 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, contractStarter 
 		contract.SRData.Legs++
 	}
 
-	var b strings.Builder
-	fmt.Fprint(&b, "> Speedrun can be started once the contract is full.\n\n")
-	if contract.SRData.SelfRuns {
-		fmt.Fprintf(&b, "> --> **Self run of chickens is required** <--\n")
-	}
-	if contract.SRData.Tango[0] != 1 {
-		fmt.Fprintf(&b, "> **%d** Chicken Run Legs to reach **%d** total chicken runs.\n", contract.SRData.Legs, contract.SRData.ChickenRuns)
-	} else {
-		fmt.Fprintf(&b, "> It's not possible to reach **%d** total chicken runs with only **%d** farmers.\n", contract.SRData.ChickenRuns, contract.CoopSize)
-	}
-	if contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
-		fmt.Fprint(&b, "> **Wonky** style speed run:\n")
-		fmt.Fprintf(&b, "> * Send all tokens to %s\n", contract.Boosters[contract.SRData.SpeedrunStarterUserID].Mention)
-		fmt.Fprintf(&b, "> The sink will send you a full set of boost tokens.\n")
-		if contract.SRData.SpeedrunStarterUserID != contract.SRData.SinkUserID {
-			fmt.Fprintf(&b, "> * After contract boosting send all tokens to: %s (This is unusual)\n", contract.Boosters[contract.SRData.SinkUserID].Mention)
-		}
-	} else {
-		fmt.Fprint(&b, "> **Boost List** style speed run:\n")
-		fmt.Fprintf(&b, "> * During CRT send tokens to %s\n", contract.Boosters[contract.SRData.SpeedrunStarterUserID].Mention)
-		fmt.Fprint(&b, "> * Follow the Boost List for Token Passing.\n")
-		fmt.Fprintf(&b, "> * After contract boosting send all tokens to %s\n", contract.Boosters[contract.SRData.SinkUserID].Mention)
-	}
-	contract.SRData.StatusStr = b.String()
+	contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
 
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "Speedrun options set for %s/%s\n", contract.ContractID, contract.CoopID)
