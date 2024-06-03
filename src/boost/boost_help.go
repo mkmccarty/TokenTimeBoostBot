@@ -1,11 +1,14 @@
 package boost
 
-import "github.com/bwmarrin/discordgo"
+import (
+	"log"
+	"strings"
+
+	"github.com/bwmarrin/discordgo"
+)
 
 // HandleHelpCommand will handle the help command
 func HandleHelpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	str := "Context sensitive help"
-
 	userID := ""
 	if i.GuildID == "" {
 		userID = i.User.ID
@@ -13,107 +16,161 @@ func HandleHelpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		userID = i.Member.User.ID
 	}
 
-	str = GetHelp(s, i.GuildID, i.ChannelID, userID)
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	embed := GetHelp(s, i.GuildID, i.ChannelID, userID)
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content:    str,
+			Content:    "",
+			Embeds:     embed.Embeds,
 			Flags:      discordgo.MessageFlagsEphemeral,
 			Components: []discordgo.MessageComponent{}},
 	})
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 // GetHelp will return the help string for the contract
-func GetHelp(s *discordgo.Session, guildID string, channelID string, userID string) string {
-	str := "# Boost Bot Help"
+func GetHelp(s *discordgo.Session, guildID string, channelID string, userID string) *discordgo.MessageSend {
+	var field []*discordgo.MessageEmbedField
+
+	var builder strings.Builder
+	var footer strings.Builder
+
+	builder.WriteString("Context aware useful commands for Boost Bot.")
+
+	footer.WriteString("Bold parameters are required. Italic parameters are optional.")
+
 	var contract = FindContract(channelID)
 	if contract == nil {
+
 		// No contract, show help for creating a contract
 		// Anyone can do this so just give the basic instructions
-		str += `
-		## Create a contract
-
-		> **/contract**
-		> * *contract-id* : Contract name
-		> * *coop-id* : Coop name
-		> * *coop-size* : Number of farmers for the coop. (optional)
-		> * *boost-order* : (opt)
-		>  * *Sign-up Order* : Default. Boosters are ordered in the order they join.
-		>  * *Random Order* : Randomized when the contract starts. After 20 minutes the order changes to Sign-up.
-		>  * *Fair Order* : Fair based on position percentile of each farmers last 5 contracts. Those with no history use 50th percentile. After 20 minutes the order changes to Sign-up.
-		> *ping-role* : (opt) Default is @here. Role to ping when a new booster is up.
+		str := `__**/contract**__
+		> * **contract-id** : Select from dropdown of contracts.
+		> * **coop-id** : Coop id
 		`
-		return str
+
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   "CREATE CONTRACT",
+			Value:  str,
+			Inline: false,
+		})
 	}
 
 	contractCreator := creatorOfContract(contract, userID)
 
-	if contractCreator {
+	if contract != nil && contractCreator {
 
 		if contract.State == ContractStateSignup {
-			str += `
-			## Start the contract
-			
-			Press the Green Button to move from the Sign-up phase to the Boost phase.
 
+			// Speedrun info
+			speedRunStr := `__**/speedrun**__  (runs from contract data, Wonky style, sink boosts first)
+			> * **contract-starter** : Sink during CRT & boosting. 
+			>  * If farmer using an alt as the sink, use the farmer's name as sink.
+			__**/link-alternate**__
+			> * After */speedrun*, a farmer with an alt can use this to swap in their alt as the contract-starter sink.
+			__**/change-planned-start**__
+			> * Set the planned start time for the contract.
 			`
+
+			field = append(field, &discordgo.MessageEmbedField{
+				Name:   "MODIFY CONTRACT TO SPEEDRUN",
+				Value:  speedRunStr,
+				Inline: false,
+			})
+
+			str := `
+			Press the 🟩 Green Button to move from the Sign-up phase to the Boost phase.
+			`
+			field = append(field, &discordgo.MessageEmbedField{
+				Name:   "START CONTRACT",
+				Value:  str,
+				Inline: false,
+			})
+
 		}
 
 		// Important commands for contract creators
-		str += `## Coodinator Commands
-
-		> **/join** : Add a farmer to the contract.
-		> * *farmer* : Mention or guest farmer name.
-		> * *token-count* : (opt) Tokens this farmer wants to boost.
-		> * *boost-order* : (opt) position to add this farmer to the contract.
-		> **/prune** : Remove a booster from the contract.
-		> * *farmer* : Mention or guest farmer name.
-		> **/change** : Alter aspects of a running contract
+		str := `> __**/join-contract**__ : Add a farmer to the contract.
+		> __**/prune**__ : Remove a booster from the contract.
+		> __**/change**__ : Alter aspects of a running contract
 		> * *contract-id* : Change the contract-id.
 		> * *coop-id* : Change the coop-id.
-		> * *ping-role* : Change the ping role to something else. The @here role cannot be selected.
-		> * *current-booster* : Change the current booster to a different farmer.
-		>  * User mention or guest farmer name.
-		> * *one-boost-position* : Move a booster to a different position in the boost order.
-		>  * Provide a mention or guest name and a position number. i.e "@farmer 3" or "guestfarmer 5"
-		> * *boost-order* : Change the entire boost order list.
-		>  * Provide a new boost order. Every booster must be included in the new order.
-		>  * Comma separated list of digits and/or ranges. i.e. "1,3,5,2,4" or "1,2,5-3" or "4,5,1-3".
-		>  * Range can be specified with a hypthen: 1-5
-		>  * Reverse range can be specified with range: 5-1
-		> **/bump** : Redraw the Boost List message.
-		> **/seteggincname** : Set users Egg, Inc game name.
-		>  * *ei-name* : Include @mention in field to target a different user "@mention ei-name"
-		
+		> __**/change-ping-role**__ : Change the ping role to something else.
+		> __**/change-one-booster**__ : Move a single booster to a different position.
+		> __**/bump**__ : Redraw the Boost List message.
 		`
+
+		if len(str) > 900 {
+			str = str[:900]
+		}
+
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   "COORDINATOR COMMANDS",
+			Value:  str,
+			Inline: false,
+		})
 	}
 
-	if !userInContract(contract, userID) {
-		str += `## Join the contract
+	if contract != nil {
 
-		See the pinned message for buttons to *Join*, *Join w/Ping* or *Leave* the contract.
+		if !userInContract(contract, userID) {
+			str := ` See the pinned message for buttons to *Join*, *Join w/Ping* or *Leave* the contract.
 		You can set your boost tokens wanted by selecting :five: :six: or :eight: and adjusting it with the +Token and -Token buttons.
-		
 		`
-		// No point in showing the rest of the help
-		return str
-	}
+			field = append(field, &discordgo.MessageEmbedField{
+				Name:   "JOIN CONTRACT",
+				Value:  str,
+				Inline: false,
+			})
 
-	// Basics for those Boosting
-	boosterStr := `## Booster Commands
+			// No point in showing the rest of the help
+		}
 
-	> **/boost** : Out of order boosting, mark yourself as boosted.
-	> **/unboost** : Mark a booster as unboosted.
-	> * *farmer* : Mention or guest farmer name.
-	> **/coopeta** : Display a discord message with a discord timestamp of the contract completion time.
-	> * *rate* : Hourly production rate of the contract (i.e. 15.7q)
-	> * *timespan* : Time remaining on the contract (i.e. 2d3h15m)
-	> **/seteggincname** : Use to set your Egg, Inc game name.
-	> * *ei-name* : (opt) Your game name.
+		// Basics for those Boosting
+		boosterStr := `
+	> __**/calc-contract-tval**__ : Display what the bot knows about your token values.
+	> __**/boost**__ : Out of order boosting, mark yourself as boosted.
+	> __**/unboost**__ : Mark a booster as unboosted.
+	> __**/coopeta**__ : Display a discord message with a discord timestamp of the contract completion time.
+	> __**/seteggincname**__ : Use to set your Egg, Inc game name.
 `
-	if (len(str) + len(boosterStr)) < 2000 {
-		str += boosterStr
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   "BOOSTER COMMANDS",
+			Value:  boosterStr,
+			Inline: false,
+		})
 	}
 
-	return str
+	if true {
+		str := `
+		> __**/launch-helper**__ : Launch planning helper.
+		> __**/token**__ : General purpose Token Tracker via DM.
+		> __**/fun**__ : Some fun commands that use LLM to create wishes and images.
+		`
+
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   "GENERAL COMMANDS",
+			Value:  str,
+			Inline: false,
+		})
+
+	}
+
+	embed := &discordgo.MessageSend{
+		Embeds: []*discordgo.MessageEmbed{{
+			Type:        discordgo.EmbedTypeRich,
+			Title:       "Boost Bot Help",
+			Description: builder.String(),
+			Color:       0x888888, // Warm purple color
+			Fields:      field,
+			Footer: &discordgo.MessageEmbedFooter{
+				Text: footer.String(),
+			},
+		},
+		},
+	}
+
+	return embed
 }
