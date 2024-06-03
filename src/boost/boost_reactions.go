@@ -101,12 +101,14 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				var votingElection = (msg.Reactions[0].Count - 1) >= 2
 
 				userID := r.UserID
-				if len(contract.Boosters[r.UserID].Alts) > 0 {
-					// Find the most recent boost time among the user and their alts
-					for _, altID := range contract.Boosters[r.UserID].Alts {
-						if altID == contract.Order[contract.BoostPosition] {
-							userID = altID
-							break
+				if contract.Speedrun {
+					if contract.Boosters[r.UserID] != nil && len(contract.Boosters[r.UserID].Alts) > 0 {
+						// Find the most recent boost time among the user and their alts
+						for _, altID := range contract.Boosters[r.UserID].Alts {
+							if altID == contract.Order[contract.BoostPosition] {
+								userID = altID
+								break
+							}
 						}
 					}
 				}
