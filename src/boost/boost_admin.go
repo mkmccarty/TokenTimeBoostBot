@@ -11,7 +11,15 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
-var adminUsers = []string{"238786501700222986", "393477262412087319", "430186990260977665", "184063956539670528"}
+var adminUsers = []string{
+	"238786501700222986", // RAIYC
+	"393477262412087319", // Tbone
+	"430186990260977665", // aggie
+	"184063956539670528", // Halcyon
+	"662685289885466672", // DipDip
+	"429540887383506954", // Hypnojustice
+	"899945319582822400", // LousyCurve
+}
 
 // HandleAdminContractFinish is called when the contract is complete
 func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCreate) {
