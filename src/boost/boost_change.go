@@ -842,6 +842,7 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 						contract.SRData.SpeedrunStarterUserID = newAlt
 						str += "\n> Speedrun CRT sink changed to `" + newAlt + "`."
 					}
+					contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
 
 				}
 				defer saveData(Contracts)
