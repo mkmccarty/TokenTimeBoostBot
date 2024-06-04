@@ -409,7 +409,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.StartTime = time.Now()
 		contract.ChickenRunEmoji = findBoostBotGuildEmoji(s, "icon_chicken_run", true)
 
-		for _, el := range adminUsers {
+		for _, el := range AdminUsers {
 			if slices.Index(contract.CreatorID, el) == -1 {
 				contract.CreatorID = append(contract.CreatorID, el) // Add admin users to the contract
 			}

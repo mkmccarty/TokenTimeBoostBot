@@ -7,6 +7,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -28,6 +29,25 @@ var lastEventUpdate time.Time
 // HandleReloadContractsCommand will handle the /reload command
 func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	str := "No updated Egg Inc contract data available.\n"
+
+	userID := ""
+	if i.GuildID == "" {
+		userID = i.User.ID
+	} else {
+		userID = i.Member.User.ID
+	}
+
+	// Only allow command if users is in the admin list
+	if slices.Index(boost.AdminUsers, userID) == -1 {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "You are not authorized to use this command.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{}},
+		})
+		return
+	}
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
