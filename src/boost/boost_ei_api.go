@@ -23,6 +23,10 @@ func downloadCoopStatus(contractID string, coopID string) {
 	}
 	enc := base64.StdEncoding
 	reqBin, err := proto.Marshal(&coopStatusRequest)
+	if err != nil {
+		log.Print(err)
+		return
+	}
 	reqDataEncoded := enc.EncodeToString(reqBin)
 
 	response, err := http.PostForm(reqURL, url.Values{"data": {reqDataEncoded}})
@@ -44,9 +48,17 @@ func downloadCoopStatus(contractID string, coopID string) {
 	decodedAuthBuf := &ei.AuthenticatedMessage{}
 	rawDecodedText, _ := enc.DecodeString(string(body))
 	err = proto.Unmarshal(rawDecodedText, decodedAuthBuf)
+	if err != nil {
+		log.Print(err)
+		return
+	}
 
 	decodeCoopStatus := &ei.ContractCoopStatusResponse{}
 	err = proto.Unmarshal(decodedAuthBuf.Message, decodeCoopStatus)
+	if err != nil {
+		log.Print(err)
+		return
+	}
 
 	for _, c := range decodeCoopStatus.GetContributors() {
 		name := c.GetUserName()
