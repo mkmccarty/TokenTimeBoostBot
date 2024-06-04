@@ -25,10 +25,10 @@ import (
 
 // Admin Slash Command Constants
 const boostBotHomeGuild string = "766330702689992720"
-const slashAdminContractsList string = "contract-list"
-const slashAdminContractFinish string = "contract-finish"
-const slashAdminBotSettings string = "bot-settings"
-const slashReloadContracts string = "reload-contracts"
+const slashAdminContractsList string = "admin-contract-list"
+const slashAdminContractFinish string = "admin-contract-finish"
+const slashAdminBotSettings string = "admin-bot-settings"
+const slashReloadContracts string = "admin-reload-contracts"
 
 // Slash Command Constants
 const slashContract string = "contract"
@@ -110,7 +110,7 @@ var (
 	GuildID        = flag.String("guild", "", "Test guild ID")
 	BotToken       = flag.String("token", "", "Bot access token")
 	AppID          = flag.String("app", "", "Application ID")
-	RemoveCommands = flag.Bool("rmcmd", false, "Remove all commands after shutdowning or not")
+	RemoveCommands = flag.Bool("rmcmd", true, "Remove all commands after shutdowning or not")
 
 	adminCommands = []*discordgo.ApplicationCommand{
 		{
@@ -125,18 +125,6 @@ var (
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "contract-hash",
 					Description: "Hash of the contract to finish",
-					Required:    true,
-				},
-			},
-		},
-		{
-			Name:        slashAdminBotSettings,
-			Description: "Set various bot settings",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionBoolean,
-					Name:        "debug-logging",
-					Description: "Enable or disable debug logging",
 					Required:    true,
 				},
 			},
@@ -832,7 +820,7 @@ func main() {
 
 	// Admin Commands exist only for the BoostBot Home Guild
 	for i, v := range adminCommands {
-		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, boostBotHomeGuild, v)
+		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, "", v)
 		if err != nil {
 			log.Printf("Cannot create '%v' command: %v", v.Name, err)
 		}

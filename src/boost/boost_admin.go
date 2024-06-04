@@ -11,7 +11,8 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
-var adminUsers = []string{
+// AdminUsers is a list of users who are allowed to use admin commands
+var AdminUsers = []string{
 	"238786501700222986", // RAIYC
 	"393477262412087319", // Tbone
 	"430186990260977665", // aggie
@@ -34,8 +35,15 @@ func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCre
 		contractHash = strings.TrimSpace(opt.StringValue())
 	}
 
+	userID := ""
+	if i.GuildID == "" {
+		userID = i.User.ID
+	} else {
+		userID = i.Member.User.ID
+	}
+
 	// Only allow command if users is in the admin list
-	if slices.Index(adminUsers, i.Member.User.ID) == -1 {
+	if slices.Index(AdminUsers, userID) == -1 {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
@@ -68,6 +76,24 @@ func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreat
 		str = err.Error()
 	}
 
+	userID := ""
+	if i.GuildID == "" {
+		userID = i.User.ID
+	} else {
+		userID = i.Member.User.ID
+	}
+
+	// Only allow command if users is in the admin list
+	if slices.Index(AdminUsers, userID) == -1 {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "You are not authorized to use this command.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{}},
+		})
+		return
+	}
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
