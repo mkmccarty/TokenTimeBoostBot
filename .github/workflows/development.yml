@@ -4,7 +4,7 @@ jobs:
   test-build-upload:
     strategy:
       matrix:
-        go-version: [1.22.3]
+        go-version: [1.22.4]
         platform: [ubuntu-latest]
     runs-on: ${{ matrix.platform }}
     steps:
@@ -31,25 +31,25 @@ jobs:
         CGO_ENABLED=0 GOOS=linux GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/linux/boostbot-$VERSION-linux-amd64
         CGO_ENABLED=0 GOOS=windows GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/win/boostbot-$VERSION-windows-amd64
     - name: Upload linux
-      if: startsWith(matrix.go-version,'1.22.3')
+      if: startsWith(matrix.go-version,'1.22.4')
       uses: actions/upload-artifact@main
       with:
         name: boostbot-linux
         path: output/linux
     - name: Upload windows 64-bit
-      if: startsWith(matrix.go-version,'1.22.3')
+      if: startsWith(matrix.go-version,'1.22.4')
       uses: actions/upload-artifact@main
       with:
         name: boostbot-windows-64bit
         path: output/win
     - name: Upload darwin 64-bit
-      if: startsWith(matrix.go-version,'1.22.3')
+      if: startsWith(matrix.go-version,'1.22.4')
       uses: actions/upload-artifact@main
       with:
         name: boostbot-darwin-64bit
         path: output/mac
     - name: Upload freebsd 64-bit
-      if: startsWith(matrix.go-version,'1.22.3')
+      if: startsWith(matrix.go-version,'1.22.4')
       uses: actions/upload-artifact@main
       with:
         name: boostbot-freebsd-64bit
