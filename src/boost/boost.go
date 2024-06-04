@@ -1557,32 +1557,34 @@ func LoadContractData(filename string) {
 	}
 
 	EggIncContracts = nil
-	decodedBuf := &ei.Contract{}
+	contractProtoBuf := &ei.Contract{}
 	for _, c := range EggIncContractsLoaded {
 		rawDecodedText, _ := base64.StdEncoding.DecodeString(c.Proto)
-		err = proto.Unmarshal(rawDecodedText, decodedBuf)
+		err = proto.Unmarshal(rawDecodedText, contractProtoBuf)
 		if err != nil {
 			log.Fatalln("Failed to parse address book:", err)
 		}
-		expirationTime := int64(math.Round((*(*decodedBuf).ExpirationTime)))
+		expirationTime := int64(math.Round(contractProtoBuf.GetExpirationTime()))
 		contractTime := time.Unix(expirationTime, 0)
 		coopAllowed := false
-		if (*decodedBuf).CoopAllowed != nil {
-			coopAllowed = (*(*decodedBuf).CoopAllowed)
-		}
+		coopAllowed = contractProtoBuf.GetCoopAllowed()
 
 		if coopAllowed && contractTime.After(time.Now().UTC()) {
-			c.MaxCoopSize = int((*(*decodedBuf).MaxCoopSize))
-			c.LengthInSeconds = int((*(*decodedBuf).LengthSeconds))
-			c.ChickenRunCooldownMinutes = int((*(*decodedBuf).ChickenRunCooldownMinutes))
-			c.Name = (*(*decodedBuf).Name)
-			c.Description = (*(*decodedBuf).Description)
-			c.Egg = int32(*(*decodedBuf).Egg)
+			c.MaxCoopSize = int(contractProtoBuf.GetMaxCoopSize())
+			c.LengthInSeconds = int(contractProtoBuf.GetLengthSeconds())
+			c.ChickenRunCooldownMinutes = int(contractProtoBuf.GetChickenRunCooldownMinutes())
+			c.Name = contractProtoBuf.GetName()
+			c.Description = contractProtoBuf.GetDescription()
+			c.Egg = int32(contractProtoBuf.GetEgg())
 			c.EggName = ei.Egg_name[c.Egg]
-			c.MinutesPerToken = int((*(*decodedBuf).MinutesPerToken))
-			for i := range (*(*decodedBuf).GradeSpecs[4]).Goals {
-				c.TargetAmount = append(c.TargetAmount, (*(*(*(*decodedBuf).GradeSpecs[4]).Goals[i]).TargetAmount))
-				c.qTargetAmount = append(c.qTargetAmount, c.TargetAmount[i]/1e15)
+			c.MinutesPerToken = int(contractProtoBuf.GetMinutesPerToken())
+			for _, s := range contractProtoBuf.GetGradeSpecs() {
+				if s.GetGrade() == ei.Contract_GRADE_AAA {
+					for _, g := range s.GetGoals() {
+						c.TargetAmount = append(c.TargetAmount, g.GetTargetAmount())
+						c.qTargetAmount = append(c.qTargetAmount, g.GetTargetAmount()/1e15)
+					}
+				}
 			}
 			if c.LengthInSeconds > 0 {
 				d := time.Duration(c.LengthInSeconds) * time.Second
