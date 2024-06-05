@@ -74,25 +74,27 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			return speedrunReactions(s, r, contract)
 		}
 
-		// if contract state is waiting and the reaction is a 🏁 finish the contract
-		if r.Emoji.Name == "🏁" {
-			if contract.State == ContractStateWaiting {
-				var votingElection = (msg.Reactions[0].Count - 1) >= 2
-				if votingElection || creatorOfContract(contract, r.UserID) {
-					contract.State = ContractStateCompleted
-					contract.EndTime = time.Now()
-					sendNextNotification(s, contract, true)
+		/*
+			// if contract state is waiting and the reaction is a 🏁 finish the contract
+			if r.Emoji.Name == "🏁" {
+				if contract.State == ContractStateWaiting {
+					var votingElection = (msg.Reactions[0].Count - 1) >= 2
+					if votingElection || creatorOfContract(contract, r.UserID) {
+						contract.State = ContractStateCompleted
+						contract.EndTime = time.Now()
+						sendNextNotification(s, contract, true)
+					}
+					return returnVal
 				}
-				return returnVal
-			}
 
-			if !contract.Speedrun && contract.State == ContractStateCompleted && creatorOfContract(contract, r.UserID) {
-				// Coordinator can end the contract
-				contract.State = ContractStateArchive
-				sendNextNotification(s, contract, true)
-				return returnVal
+				if !contract.Speedrun && contract.State == ContractStateCompleted && creatorOfContract(contract, r.UserID) {
+					// Coordinator can end the contract
+					contract.State = ContractStateArchive
+					sendNextNotification(s, contract, true)
+					return returnVal
+				}
 			}
-		}
+		*/
 
 		if contract.State != ContractStateSignup && contract.BoostPosition < len(contract.Order) {
 
