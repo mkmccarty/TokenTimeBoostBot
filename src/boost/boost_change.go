@@ -164,7 +164,7 @@ func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if contractID != "" || coopID != "" {
 		err := ChangeContractIDs(s, i.GuildID, i.ChannelID, i.Member.User.ID, contractID, coopID)
 		if err != nil {
-			str += err.Error()
+			str = err.Error()
 		}
 	}
 
