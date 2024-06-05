@@ -1108,7 +1108,7 @@ func addContractReactions(s *discordgo.Session, contract *Contract, channelID st
 			}
 		}
 		s.MessageReactionAdd(channelID, messageID, "🐓") // Want Chicken Run
-		s.MessageReactionAdd(channelID, messageID, "🏁") // Finish
+		//s.MessageReactionAdd(channelID, messageID, "🏁") // Finish
 	}
 
 	s.MessageReactionAdd(channelID, messageID, "❓") // Finish

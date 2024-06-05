@@ -264,17 +264,10 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		outputStr += "\n"
 		outputStr += "> Waiting for other(s) to join...\n"
 		outputStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
-		outputStr += "```"
-		outputStr += "React with 🏁 to end the contract."
-		outputStr += "```"
 	} else if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStatePost {
 		outputStr += "\n"
 		outputStr += "Contract Boosting Completed!\n\n"
 		outputStr += "> Send every " + tokenStr + " to our sink " + contract.Boosters[contract.SRData.SinkUserID].Mention + "\n"
-		outputStr += "```"
-		outputStr += "Coordinator can react with 🏁 to end the contract."
-		outputStr += "```"
-
 	}
 	return outputStr
 }

@@ -279,7 +279,7 @@ func addSpeedrunContractReactions(s *discordgo.Session, contract *Contract, chan
 			s.MessageReactionAdd(channelID, messageID, el)
 		}
 		s.MessageReactionAdd(channelID, messageID, "🐓") // Want Chicken Run
-		s.MessageReactionAdd(channelID, messageID, "🏁") // Run Reaction
+		//s.MessageReactionAdd(channelID, messageID, "🏁") // Run Reaction
 	}
 }
 
@@ -506,15 +506,17 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 		}
 	}
 
-	if contract.SRData.SpeedrunState == SpeedrunStatePost && creatorOfContract(contract, r.UserID) {
-		// Coordinator can end the contract
-		if r.Emoji.Name == "🏁" {
-			contract.State = ContractStateArchive
-			contract.SRData.SpeedrunState = SpeedrunStateComplete
-			sendNextNotification(s, contract, true)
-			return returnVal
+	/*
+		if contract.SRData.SpeedrunState == SpeedrunStatePost && creatorOfContract(contract, r.UserID) {
+			// Coordinator can end the contract
+			if r.Emoji.Name == "🏁" {
+				contract.State = ContractStateArchive
+				contract.SRData.SpeedrunState = SpeedrunStateComplete
+				sendNextNotification(s, contract, true)
+				return returnVal
+			}
 		}
-	}
+	*/
 
 	// Remove extra added emoji
 	if !keepReaction {
