@@ -285,8 +285,23 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 		contractDurationSeconds = duration.Seconds()
 		//endTime = startTime.Add(duration)
 	}
-
 	log.Print("Contract Duration: ", contractDurationSeconds)
+
+	// Take care of other parameter calculations here
+
+	// Chicken Runs
+	contractDurationInDays := int(contractDurationSeconds / 86400.0)
+	fCR := max(12.0/float64(contract.CoopSize*contractDurationInDays), 0.3)
+	CR := min(fCR, 6.0)
+
+	// Token Values
+	BTA := contractDurationSeconds / float64(contract.MinutesPerToken)
+	T := 0.0
+	if BTA <= 42.0 {
+		T = (2.0 / 3.0 * (3.0)) + ((8.0 / 3.0) * min(tval, 3.0))
+	} else {
+		T = (200.0/(7.0*BTA))*(0.07*BTA) + (800.0 / (7.0 * BTA) * min(tval, 0.07*BTA))
+	}
 
 	//serverTimestampUnix := time.Now().Unix()
 	contractUserName := contract.Boosters[userID].Nick
@@ -337,7 +352,11 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 	*/
 	for i, b := range BuffTimeValues {
 		if i == len(BuffTimeValues)-1 {
-			BuffTimeValues[i].durationEquiped = int64(contractDurationSeconds) - b.timeEquiped
+			if decodeCoopStatus.GetSecondsSinceAllGoalsAchieved() == 0 {
+				BuffTimeValues[i].durationEquiped = b.timeEquiped
+			} else {
+				BuffTimeValues[i].durationEquiped = int64(contractDurationSeconds) - b.timeEquiped
+			}
 		} else {
 			BuffTimeValues[i].durationEquiped = BuffTimeValues[i+1].timeEquiped - b.timeEquiped
 		}
@@ -383,9 +402,6 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 		//completionTime :=
 
 		B := min(buffTimeValue/contractDurationSeconds, 2)
-
-		CR := min(0.0, 6.0)
-		T := 0.0
 
 		TeamworkScore := ((5.0 * B) + CR + T) / 19.0
 		table.SetFooter([]string{"", "", "", "", "", "", fmt.Sprintf("%8.2f", buffTimeValue), fmt.Sprintf("%1.8f", TeamworkScore)})
