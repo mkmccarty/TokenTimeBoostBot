@@ -76,6 +76,7 @@ func init() {
 	err := config.ReadConfig("./.config.json")
 
 	if err != nil {
+		boost.AdminUsers = config.AdminUsers
 		log.Println(err.Error())
 		return
 	}
