@@ -350,16 +350,18 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 		Date.now() - secondsSinceAllGoalsAchieved
 		Then use day.js to generate timespan and then create time string
 	*/
+	remainingTime := contractDurationSeconds
 	for i, b := range BuffTimeValues {
 		if i == len(BuffTimeValues)-1 {
 			if decodeCoopStatus.GetSecondsSinceAllGoalsAchieved() == 0 {
-				BuffTimeValues[i].durationEquiped = b.timeEquiped
+				BuffTimeValues[i].durationEquiped = int64(remainingTime)
 			} else {
 				BuffTimeValues[i].durationEquiped = int64(contractDurationSeconds) - b.timeEquiped
 			}
 		} else {
 			BuffTimeValues[i].durationEquiped = BuffTimeValues[i+1].timeEquiped - b.timeEquiped
 		}
+		remainingTime -= float64(BuffTimeValues[i].durationEquiped)
 	}
 	var builder strings.Builder
 
@@ -402,6 +404,8 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 		//completionTime :=
 
 		B := min(buffTimeValue/contractDurationSeconds, 2)
+		CR = 0.0
+		T = 0.0
 
 		TeamworkScore := ((5.0 * B) + CR + T) / 19.0
 		table.SetFooter([]string{"", "", "", "", "", "", fmt.Sprintf("%8.2f", buffTimeValue), fmt.Sprintf("%1.8f", TeamworkScore)})
