@@ -53,6 +53,7 @@ const slashCalcContractTval string = "calc-contract-tval"
 const slashVolunteerSink string = "volunteer-sink"
 const slashVoluntellSink string = "voluntell-sink"
 const slashLinkAlternate string = "link-alternate"
+const slashTeamworkEval string = "teamwork-eval"
 const slashFun string = "fun"
 
 var integerZeroMinValue float64 = 0.0
@@ -358,6 +359,7 @@ var (
 		boost.GetSlashVoluntellSink(slashVoluntellSink),
 		boost.GetSlasLinkAlternateCommand(slashLinkAlternate),
 		boost.GetSlashCalcContractTval(slashCalcContractTval),
+		boost.GetSlashTeamworkEval(slashTeamworkEval),
 		boost.GetSlashChangeCommand(slashChange),
 		boost.GetSlashChangeOneBoosterCommand(slashChangeOneBooster),
 		boost.GetSlashChangePingRoleCommand(slashChangePingRole),
@@ -446,6 +448,9 @@ var (
 		},
 		slashCalcContractTval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractCalcContractTvalCommand(s, i)
+		},
+		slashTeamworkEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleTeamworkEvalCommand(s, i)
 		},
 		slashSpeedrun: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleSpeedrunCommand(s, i)

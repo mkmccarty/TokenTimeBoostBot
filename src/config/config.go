@@ -14,6 +14,7 @@ var (
 	OpenAIKey      string
 	GoogleAPIKey   string
 	AdminUserID    string
+	EIUserID       string
 	config         *configStruct
 )
 
@@ -24,6 +25,7 @@ type configStruct struct {
 	OpenAIKey      string `json:"OpenAIKey"`
 	GoogleAPIKey   string `json:"GoogleAPIKey"`
 	AdminUserID    string `json:"AdminUserId"`
+	EIUserID       string `json:"EIUserId"`
 }
 
 // ReadConfig will load the configuration files for API tokens.
@@ -50,6 +52,7 @@ func ReadConfig(cfgFile string) error {
 	OpenAIKey = config.OpenAIKey
 	GoogleAPIKey = config.GoogleAPIKey
 	AdminUserID = config.AdminUserID
+	EIUserID = config.EIUserID
 
 	return nil
 }
