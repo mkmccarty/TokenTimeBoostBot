@@ -311,6 +311,35 @@ func GetMiscSettingFlag(userID string, key string) bool {
 	return false
 }
 
+// SetMiscSettingString sets a key-value sticky setting
+func SetMiscSettingString(userID string, key string, value string) {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+
+	if farmerstate[userID].MiscSettingsString == nil {
+		farmerstate[userID].MiscSettingsString = make(map[string]string)
+	}
+
+	farmerstate[userID].MiscSettingsString[key] = value
+	saveData(farmerstate)
+}
+
+// GetMiscSettingString returns a Farmer sticky setting
+func GetMiscSettingString(userID string, key string) string {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+
+	if farmer, ok := farmerstate[userID]; ok {
+		if farmer.MiscSettingsString == nil {
+			farmer.MiscSettingsString = make(map[string]string)
+		}
+		return farmer.MiscSettingsString[key]
+	}
+	return ""
+}
+
 // AdvancedTransform for storing KV pairs
 func AdvancedTransform(key string) *diskv.PathKey {
 	path := strings.Split(key, "/")

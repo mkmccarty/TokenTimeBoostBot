@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -86,7 +87,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	isAdmin := false
-	for _, el := range AdminUsers[:4] {
+	for _, el := range AdminUsers[:3] {
 		if el == userID {
 			isAdmin = true
 			break
@@ -141,6 +142,14 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
 				Content: "No contract found in this channel.",
+			})
+
+		return
+	}
+	if slices.Index(contract.Order, userID) == -1 {
+		s.FollowupMessageCreate(i.Interaction, true,
+			&discordgo.WebhookParams{
+				Content: "User isn't in this contract.",
 			})
 
 		return
@@ -216,19 +225,20 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 			log.Print(err)
 			return err.Error()
 		}
+		/*
+			file, err := os.Create(filename)
+			if err != nil {
+				log.Print(err)
+				return err.Error()
+			}
+			defer file.Close()
 
-		file, err := os.Create(filename)
-		if err != nil {
-			log.Print(err)
-			return err.Error()
-		}
-		defer file.Close()
-
-		_, err = file.Write(body)
-		if err != nil {
-			log.Print(err)
-			return err.Error()
-		}
+			_, err = file.Write(body)
+			if err != nil {
+				log.Print(err)
+				return err.Error()
+			}
+		*/
 		protoData = string(body)
 	}
 
@@ -279,11 +289,21 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 	log.Print("Contract Duration: ", contractDurationSeconds)
 
 	//serverTimestampUnix := time.Now().Unix()
+	contractUserName := contract.Boosters[userID].Nick
 
 	for _, c := range decodeCoopStatus.GetContributors() {
-		name := c.GetUserName()
 
-		einame := farmerstate.GetEggIncName(userID)
+		// Force a few things for testing so they can match up
+		farmerstate.SetMiscSettingString("238786501700222986", "EggIncRawName", "\ue10c")     // RAIYC
+		farmerstate.SetMiscSettingString("184063956539670528", "EggIncRawName", "Halceyx")    // Hal
+		farmerstate.SetMiscSettingString("393477262412087319", "EggIncRawName", "iDaHotBone") // Tbone
+
+		name := c.GetUserName()
+		einame := farmerstate.GetMiscSettingString(userID, "EggIncRawName")
+		if einame == "" {
+			einame = contractUserName
+		}
+
 		if einame != name {
 			continue
 		}
@@ -322,57 +342,62 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 			BuffTimeValues[i].durationEquiped = BuffTimeValues[i+1].timeEquiped - b.timeEquiped
 		}
 	}
-
 	var builder strings.Builder
-	table := tablewriter.NewWriter(&builder)
-	table.SetHeader([]string{"Time", "Duration", "Defl", "SIAB", "BTV-Defl", "BTV-SIAB ", "Buff Val", "TeamWork"})
-	table.SetBorder(false)
-	//table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.SetAlignment(tablewriter.ALIGN_RIGHT)
-	//table.SetCenterSeparator("")
-	//table.SetColumnSeparator("")
-	//table.SetRowSeparator("")
-	//table.SetHeaderLine(false)
-	//table.EnableBorder(false)
-	//table.SetTablePadding(" ") // pad with tabs
-	//table.SetNoWhiteSpace(true)
 
-	var buffTimeValue float64
-	for _, b := range BuffTimeValues {
-		if b.durationEquiped < 0 {
-			b.durationEquiped = 0
+	if len(BuffTimeValues) == 0 {
+		builder.WriteString("No buffs found for this contract.")
+	} else {
+
+		table := tablewriter.NewWriter(&builder)
+		table.SetHeader([]string{"Time", "Duration", "Defl", "SIAB", "BTV-Defl", "BTV-SIAB ", "Buff Val", "TeamWork"})
+		table.SetBorder(false)
+		//table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+		table.SetAlignment(tablewriter.ALIGN_RIGHT)
+		//table.SetCenterSeparator("")
+		//table.SetColumnSeparator("")
+		//table.SetRowSeparator("")
+		//table.SetHeaderLine(false)
+		//table.EnableBorder(false)
+		//table.SetTablePadding(" ") // pad with tabs
+		//table.SetNoWhiteSpace(true)
+
+		var buffTimeValue float64
+		for _, b := range BuffTimeValues {
+			if b.durationEquiped < 0 {
+				b.durationEquiped = 0
+			}
+
+			b.buffTimeValue = float64(b.durationEquiped)*b.earningsCalc + float64(b.durationEquiped)*b.eggRateCalc
+			B := min(b.buffTimeValue/contractDurationSeconds, 2)
+			CR := min(0.0, 6.0)
+			T := 0.0
+			teamworkScore := ((5.0 * B) + CR + T) / 19.0
+
+			dur := time.Duration(b.durationEquiped) * time.Second
+
+			table.Append([]string{fmt.Sprintf("%d", b.timeEquiped), fmt.Sprintf("%v", dur.Round(time.Second)), fmt.Sprintf("%d%%", b.eggRate), fmt.Sprintf("%d%%", b.earnings), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.eggRateCalc), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.earningsCalc), fmt.Sprintf("%8.2f", b.buffTimeValue), fmt.Sprintf("%1.8f", teamworkScore)})
+
+			buffTimeValue += b.buffTimeValue
 		}
 
-		b.buffTimeValue = float64(b.durationEquiped)*b.earningsCalc + float64(b.durationEquiped)*b.eggRateCalc
-		B := min(b.buffTimeValue/contractDurationSeconds, 2)
+		//completionTime :=
+
+		B := min(buffTimeValue/contractDurationSeconds, 2)
+
 		CR := min(0.0, 6.0)
 		T := 0.0
-		teamworkScore := ((5.0 * B) + CR + T) / 19.0
 
-		dur := time.Duration(b.durationEquiped) * time.Second
+		TeamworkScore := ((5.0 * B) + CR + T) / 19.0
+		table.SetFooter([]string{"", "", "", "", "", "", fmt.Sprintf("%8.2f", buffTimeValue), fmt.Sprintf("%1.8f", TeamworkScore)})
+		log.Printf("Teamwork Score: %f\n", TeamworkScore)
 
-		table.Append([]string{fmt.Sprintf("%d", b.timeEquiped), fmt.Sprintf("%v", dur.Round(time.Second)), fmt.Sprintf("%d%%", b.eggRate), fmt.Sprintf("%d%%", b.earnings), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.eggRateCalc), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.earningsCalc), fmt.Sprintf("%8.2f", b.buffTimeValue), fmt.Sprintf("%1.8f", teamworkScore)})
+		builder.WriteString("```")
+		table.Render()
+		builder.WriteString("```")
 
-		buffTimeValue += b.buffTimeValue
+		log.Printf("\n%s", builder.String())
+		log.Print("Buff Time Value: ", buffTimeValue)
 	}
-
-	//completionTime :=
-
-	B := min(buffTimeValue/contractDurationSeconds, 2)
-
-	CR := min(0.0, 6.0)
-	T := 0.0
-
-	TeamworkScore := ((5.0 * B) + CR + T) / 19.0
-	table.SetFooter([]string{"", "", "", "", "", "", fmt.Sprintf("%8.2f", buffTimeValue), fmt.Sprintf("%1.8f", TeamworkScore)})
-	log.Printf("Teamwork Score: %f\n", TeamworkScore)
-
-	builder.WriteString("```")
-	table.Render()
-	builder.WriteString("```")
-
-	log.Printf("\n%s", builder.String())
-	log.Print("Buff Time Value: ", buffTimeValue)
 
 	return builder.String()
 }
