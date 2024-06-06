@@ -15,17 +15,19 @@ var (
 	GoogleAPIKey   string
 	AdminUserID    string
 	EIUserID       string
+	AdminUsers     []string
 	config         *configStruct
 )
 
 type configStruct struct {
-	DiscordToken   string `json:"DiscordToken"`
-	DiscordAppID   string `json:"DiscordAppID"`
-	DiscordGuildID string `json:"DiscordGuildID"`
-	OpenAIKey      string `json:"OpenAIKey"`
-	GoogleAPIKey   string `json:"GoogleAPIKey"`
-	AdminUserID    string `json:"AdminUserId"`
-	EIUserID       string `json:"EIUserId"`
+	DiscordToken   string   `json:"DiscordToken"`
+	DiscordAppID   string   `json:"DiscordAppID"`
+	DiscordGuildID string   `json:"DiscordGuildID"`
+	OpenAIKey      string   `json:"OpenAIKey"`
+	GoogleAPIKey   string   `json:"GoogleAPIKey"`
+	AdminUserID    string   `json:"AdminUserId"`
+	EIUserID       string   `json:"EIUserId"`
+	AdminUsers     []string `json:"AdminUsers"`
 }
 
 // ReadConfig will load the configuration files for API tokens.
@@ -53,6 +55,7 @@ func ReadConfig(cfgFile string) error {
 	GoogleAPIKey = config.GoogleAPIKey
 	AdminUserID = config.AdminUserID
 	EIUserID = config.EIUserID
+	AdminUsers = config.AdminUsers
 
 	return nil
 }

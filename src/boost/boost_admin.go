@@ -12,16 +12,7 @@ import (
 )
 
 // AdminUsers is a list of users who are allowed to use admin commands
-var AdminUsers = []string{
-	"238786501700222986", // RAIYC
-	"184063956539670528", // Halcyon
-	"393477262412087319", // Tbone
-	"430186990260977665", // aggie
-	"662685289885466672", // DipDip
-	"429540887383506954", // Hypnojustice
-	"899945319582822400", // LousyCurve
-	"322180654773305356", // Scottsaxman
-}
+var AdminUsers = []string{}
 
 // HandleAdminContractFinish is called when the contract is complete
 func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCreate) {

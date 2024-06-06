@@ -87,7 +87,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	isAdmin := false
-	for _, el := range AdminUsers[:3] {
+	for _, el := range config.AdminUsers[:4] {
 		if el == userID {
 			isAdmin = true
 			break
