@@ -273,7 +273,7 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
 	} else {
 		contractDurationSeconds = duration.Seconds()
-		endTime = startTime.Add(duration)
+		//endTime = startTime.Add(duration)
 	}
 
 	log.Print("Contract Duration: ", contractDurationSeconds)
