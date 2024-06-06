@@ -43,7 +43,7 @@ func fmtDuration(d time.Duration) string {
 func GetSlashTeamworkEval(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
-		Description: "Calculate token values of current running contract",
+		Description: "Evaluate teamwork values a contract",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
