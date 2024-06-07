@@ -884,6 +884,10 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 
 	// Remove the booster from the contract
 
+	if userID == contract.VolunteerSink {
+		contract.VolunteerSink = ""
+	}
+
 	// If this is an alt, remove its entries from main
 	if contract.Boosters[userID].AltController != "" {
 		mainUserID := contract.Boosters[userID].AltController
