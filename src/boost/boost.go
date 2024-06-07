@@ -1535,10 +1535,18 @@ type EggIncContract struct {
 	LengthInSeconds           int
 	ChickenRunCooldownMinutes int
 	MinutesPerToken           int
+	contractDurationInDays    int
 }
 
 // EggIncContracts holds a list of all contracts, newest is last
 var EggIncContracts []EggIncContract
+
+// EggIncContractsAll holds a list of all contracts, newest is last
+var EggIncContractsAll map[string]EggIncContract
+
+func init() {
+	EggIncContractsAll = make(map[string]EggIncContract)
+}
 
 // LoadContractData will load contract data from a file
 func LoadContractData(filename string) {
@@ -1556,7 +1564,8 @@ func LoadContractData(filename string) {
 		log.Fatal(err)
 	}
 
-	EggIncContracts = nil
+	var EggIncContractsNew []EggIncContract
+	EggIncContractsAllNew := make(map[string]EggIncContract, 800)
 	contractProtoBuf := &ei.Contract{}
 	for _, c := range EggIncContractsLoaded {
 		rawDecodedText, _ := base64.StdEncoding.DecodeString(c.Proto)
@@ -1569,33 +1578,38 @@ func LoadContractData(filename string) {
 		coopAllowed := false
 		coopAllowed = contractProtoBuf.GetCoopAllowed()
 
-		if coopAllowed && contractTime.After(time.Now().UTC()) {
-			c.MaxCoopSize = int(contractProtoBuf.GetMaxCoopSize())
-			c.LengthInSeconds = int(contractProtoBuf.GetLengthSeconds())
-			c.ChickenRunCooldownMinutes = int(contractProtoBuf.GetChickenRunCooldownMinutes())
-			c.Name = contractProtoBuf.GetName()
-			c.Description = contractProtoBuf.GetDescription()
-			c.Egg = int32(contractProtoBuf.GetEgg())
-			c.EggName = ei.Egg_name[c.Egg]
-			c.MinutesPerToken = int(contractProtoBuf.GetMinutesPerToken())
-			for _, s := range contractProtoBuf.GetGradeSpecs() {
-				if s.GetGrade() == ei.Contract_GRADE_AAA {
-					for _, g := range s.GetGoals() {
-						c.TargetAmount = append(c.TargetAmount, g.GetTargetAmount())
-						c.qTargetAmount = append(c.qTargetAmount, g.GetTargetAmount()/1e15)
-					}
+		c.MaxCoopSize = int(contractProtoBuf.GetMaxCoopSize())
+		c.LengthInSeconds = int(contractProtoBuf.GetLengthSeconds())
+		c.ChickenRunCooldownMinutes = int(contractProtoBuf.GetChickenRunCooldownMinutes())
+		c.Name = contractProtoBuf.GetName()
+		c.Description = contractProtoBuf.GetDescription()
+		c.Egg = int32(contractProtoBuf.GetEgg())
+		c.EggName = ei.Egg_name[c.Egg]
+		c.MinutesPerToken = int(contractProtoBuf.GetMinutesPerToken())
+		for _, s := range contractProtoBuf.GetGradeSpecs() {
+			if s.GetGrade() == ei.Contract_GRADE_AAA {
+				for _, g := range s.GetGoals() {
+					c.TargetAmount = append(c.TargetAmount, g.GetTargetAmount())
+					c.qTargetAmount = append(c.qTargetAmount, g.GetTargetAmount()/1e15)
 				}
 			}
-			if c.LengthInSeconds > 0 {
-				d := time.Duration(c.LengthInSeconds) * time.Second
-				days := int(d.Hours() / 24) // 2 days
-
-				c.ChickenRuns = min(20, (days*c.MaxCoopSize)/2)
-			}
-
-			EggIncContracts = append(EggIncContracts, c)
 		}
+		if c.LengthInSeconds > 0 {
+			d := time.Duration(c.LengthInSeconds) * time.Second
+			days := int(d.Hours() / 24) // 2 days
+			c.contractDurationInDays = days
+			c.ChickenRuns = min(20, (days*c.MaxCoopSize)/2)
+
+		}
+		c.Proto = ""
+		if coopAllowed && contractTime.After(time.Now().UTC()) {
+			EggIncContractsNew = append(EggIncContractsNew, c)
+		}
+		EggIncContractsAllNew[c.ID] = c
+
 	}
+	EggIncContracts = EggIncContractsNew
+	EggIncContractsAll = EggIncContractsAllNew
 }
 
 func updateContractWithEggIncData(contract *Contract) {
