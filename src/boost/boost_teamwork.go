@@ -175,17 +175,9 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 	filename = contract.ContractID + "-" + contract.CoopID + ".bin"
 	filename = strings.ReplaceAll(filename, " ", "")
 
-	var eiContract *EggIncContract
-	for _, c := range EggIncContracts {
-		if c.ID == contract.ContractID {
-			log.Print("Contract Found: ", c.ID)
-			eiContract = &c
-			break
-		}
-	}
-
-	if eiContract == nil {
-		return "No contract found in the EI data"
+	eiContract := EggIncContractsAll[contract.ContractID]
+	if eiContract.ID == "" {
+		return "Invalid contract ID."
 	}
 
 	// Check if the file exists
