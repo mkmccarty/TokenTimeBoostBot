@@ -282,7 +282,9 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
-			Content: str},
+			Content: str,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
 	)
 }
 

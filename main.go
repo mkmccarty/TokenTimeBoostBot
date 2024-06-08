@@ -615,6 +615,7 @@ var (
 				str := fmt.Sprint(err.Error())
 				s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 					Content: str,
+					Flags:   discordgo.MessageFlagsEphemeral,
 				})
 			} else {
 				s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
