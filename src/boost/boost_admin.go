@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
@@ -68,6 +69,8 @@ func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreat
 		str = err.Error()
 	}
 
+	ArchiveContracts(s)
+
 	userID := ""
 	if i.GuildID == "" {
 		userID = i.User.ID
@@ -76,7 +79,7 @@ func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreat
 	}
 
 	// Only allow command if users is in the admin list
-	if slices.Index(AdminUsers, userID) == -1 {
+	if slices.Index(config.AdminUsers, userID) == -1 {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
