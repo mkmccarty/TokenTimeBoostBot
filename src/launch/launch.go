@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -76,6 +77,9 @@ type EggIncEvent struct {
 // EggIncEvents holds a list of all Events, newest is last
 var EggIncEvents []EggIncEvent
 
+// LastMissionEvent holds the most recent mission event
+var LastMissionEvent []EggIncEvent
+
 func getEventMultiplier(event string) *EggIncEvent {
 	// loop through EggIncEvents and if there is a matching event return it
 	for _, e := range EggIncEvents {
@@ -109,7 +113,9 @@ func LoadEventData(filename string) {
 		log.Fatal(err)
 	}
 
-	EggIncEvents = nil
+	eventmap := make(map[string]EggIncEvent)
+
+	var newEggIncEvents []EggIncEvent
 	for _, e := range EggIncEventsLoaded {
 		endTimestampRaw := int64(math.Round(e.EndTimestamp))
 		e.EndTime = time.Unix(endTimestampRaw, 0)
@@ -118,7 +124,25 @@ func LoadEventData(filename string) {
 		e.StartTime = time.Unix(StartTimestampRaw, 0)
 
 		if e.StartTime.Before(time.Now().UTC()) && e.EndTime.After(time.Now().UTC()) {
-			EggIncEvents = append(EggIncEvents, e)
+			newEggIncEvents = append(newEggIncEvents, e)
+			continue
+		}
+		// Continue above retains the previous event
+		if strings.HasPrefix(e.EventType, "mission-") {
+			eventmap[e.EventType] = e
 		}
 	}
+
+	EggIncEvents = newEggIncEvents
+
+	// Sort eventmap by StartTime, oldest first into LstMissionEvent
+	var missionEvent []EggIncEvent
+	for _, event := range eventmap {
+		missionEvent = append(missionEvent, event)
+	}
+	sort.Slice(missionEvent, func(i, j int) bool {
+		return missionEvent[i].StartTime.Before(missionEvent[j].StartTime)
+	})
+	LastMissionEvent = missionEvent
+
 }
