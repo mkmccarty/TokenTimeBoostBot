@@ -23,7 +23,7 @@ func SetWish(guildID string, channelID string, wish string) error {
 		return errors.New(errorNoContract)
 	}
 
-	contract.lastWishPrompt = wish
+	contract.LastWishPrompt = wish
 
 	return nil
 }
@@ -35,5 +35,5 @@ func GetWish(guildID string, channelID string) string {
 		return ""
 	}
 
-	return contract.lastWishPrompt
+	return contract.LastWishPrompt
 }

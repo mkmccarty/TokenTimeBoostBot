@@ -281,7 +281,7 @@ func ExecuteCronJob(s *discordgo.Session) {
 		gocron.Every(1).Day().At(t).Do(crondownloadEggIncData)
 	}
 
-	gocron.Every(1).Day().Do(boost.ArchiveContracts, s)
+	gocron.Every(8).Hours().Do(boost.ArchiveContracts, s)
 
 	<-gocron.Start()
 	log.Print("Exiting cron job")
