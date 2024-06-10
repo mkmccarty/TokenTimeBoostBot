@@ -54,6 +54,9 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			sink = sink[2 : len(sink)-1]
 		}
 	}
+	if opt, ok := optionMap["style"]; ok {
+		speedrunStyle = int(opt.IntValue())
+	}
 	if opt, ok := optionMap["chicken-runs"]; ok {
 		chickenRuns = int(opt.IntValue())
 	}
