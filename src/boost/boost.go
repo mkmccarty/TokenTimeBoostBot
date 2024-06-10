@@ -190,19 +190,19 @@ type Contract struct {
 	PlannedStartTime time.Time // Parameter start time
 	ActualStartTime  time.Time // Actual start time for token tracking
 	//EggFarmers     map[string]*EggFarmer
-	RegisteredNum     int
-	Boosters          map[string]*Booster // Boosters Registered
-	AltIcons          []string            // Array of alternate icons for the Boosters
-	Order             []string
-	OrderRevision     int  // Incremented when Order is changed
-	Speedrun          bool // Speedrun mode
-	SRData            SpeedrunData
-	VolunteerSink     string // Sink for Post contract tokens
-	CalcOperations    int
-	CalcOperationTime time.Time
-	lastWishPrompt    string     // saved prompt for this contract
-	lastDrawTime      time.Time  // last time the contract was drawn
-	mutex             sync.Mutex // Keep this contract thread safe
+	RegisteredNum       int
+	Boosters            map[string]*Booster // Boosters Registered
+	AltIcons            []string            // Array of alternate icons for the Boosters
+	Order               []string
+	OrderRevision       int  // Incremented when Order is changed
+	Speedrun            bool // Speedrun mode
+	SRData              SpeedrunData
+	VolunteerSink       string // Sink for Post contract tokens
+	CalcOperations      int
+	CalcOperationTime   time.Time
+	LastWishPrompt      string     // saved prompt for this contract
+	LastInteractionTime time.Time  // last time the contract was drawn
+	mutex               sync.Mutex // Keep this contract thread safe
 }
 
 // SpeedrunData holds the data for a speedrun
@@ -1512,16 +1512,23 @@ func reorderBoosters(contract *Contract) {
 
 // ArchiveContracts will set a contract state to Archive if it is older than 5 days
 func ArchiveContracts(s *discordgo.Session) {
+
+	var finishHash []string
 	currentTime := time.Now()
 	for _, contract := range Contracts {
-		if currentTime.Sub(contract.StartTime) > 5*24*time.Hour {
-			log.Println("Archiving contract: ", contract.ContractID, " / ", contract.CoopID)
-			contract.State = ContractStateArchive
-			// A different task will handle the deletion of the contract
+		// It's been 3 days since the contract.StartTime and at least 36 hours since the ListInteractionTime
+		if currentTime.After(contract.StartTime.Add(3 * 24 * time.Hour)) {
+			if currentTime.After(contract.LastInteractionTime.Add(36 * time.Hour)) {
+				log.Println("Archiving contract: ", contract.ContractID, " / ", contract.CoopID)
+				contract.State = ContractStateArchive
+				finishHash = append(finishHash, contract.ContractHash)
+			}
 		}
 	}
+	for _, hash := range finishHash {
+		finishContractByHash(hash)
+	}
 	track.ArchiveTrackerData(s)
-
 }
 
 // EggIncContract is a raw contract data for Egg Inc

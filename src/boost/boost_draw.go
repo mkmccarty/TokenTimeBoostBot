@@ -12,7 +12,7 @@ import (
 func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) string {
 	var outputStr = ""
 	var afterListStr = ""
-	contract.lastDrawTime = time.Now()
+	contract.LastInteractionTime = time.Now()
 
 	saveData(Contracts)
 	if contract.EggEmoji == "" {

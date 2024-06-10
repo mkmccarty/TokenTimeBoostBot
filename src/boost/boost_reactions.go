@@ -61,7 +61,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	}
 
 	if userInContract(contract, r.UserID) || creatorOfContract(contract, r.UserID) {
-
+		contract.LastInteractionTime = time.Now()
 		// Isolate Speedrun reactions for safety
 		if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateCRT {
 			return speedrunReactions(s, r, contract)
