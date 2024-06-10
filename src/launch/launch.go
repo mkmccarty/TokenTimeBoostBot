@@ -129,7 +129,11 @@ func LoadEventData(filename string) {
 		}
 		// Continue above retains the previous event
 		if strings.HasPrefix(e.EventType, "mission-") {
-			eventmap[e.EventType] = e
+			name := e.EventType
+			if e.Ultra {
+				name += "-ultra"
+			}
+			eventmap[name] = e
 		}
 	}
 
