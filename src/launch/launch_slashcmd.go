@@ -450,6 +450,8 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		builder.Reset()
 	}
 	var instr strings.Builder
+	var prevEvents strings.Builder
+
 	if displaySunInstructions {
 		instr.WriteString("⚠️ Launch before Sunday event will arrive after event begins\n")
 	}
@@ -461,6 +463,17 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if displaySizeWarning {
 		instr.WriteString("📈 Display size limit reached. Please reduce the number of missions or disable the chain option.")
 	}
+
+	for _, e := range LastMissionEvent {
+		hours := e.EndTime.Sub(e.StartTime).Hours()
+		prevEvents.WriteString(fmt.Sprintf("%s for %.2dh on <t:%d:d>\n", e.Message, int(hours), e.StartTime.Unix()))
+		//prevEvents.WriteString(fmt.Sprintf("%s on <t:%d:d>\n", e.Message, e.StartTime.Unix()))
+	}
+	field = append(field, &discordgo.MessageEmbedField{
+		Name:   "Event History",
+		Value:  prevEvents.String(),
+		Inline: false,
+	})
 
 	if displaySizeWarning {
 		_, err := s.FollowupMessageCreate(i.Interaction, true,
@@ -484,6 +497,13 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	} else {
 
 		if instr.Len() > 0 {
+			field = nil
+			field = append(field, &discordgo.MessageEmbedField{
+				Name:   "Event History",
+				Value:  prevEvents.String(),
+				Inline: false,
+			})
+
 			s.FollowupMessageCreate(i.Interaction, true,
 				&discordgo.WebhookParams{
 					Content: events.String() + normal.String() + "\n",
@@ -491,17 +511,31 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 						Type: discordgo.EmbedTypeRich,
 						//Title: "Mission Arrival Times",
 						//Description: "",
-						Color: 0xff5500,
-						//Fields: field,
+						Color:  0xff5500,
+						Fields: field,
 						Footer: &discordgo.MessageEmbedFooter{
 							Text: instr.String(),
 						},
 					}},
 				})
 		} else {
+			field = nil
+			field = append(field, &discordgo.MessageEmbedField{
+				Name:   "Event History",
+				Value:  prevEvents.String(),
+				Inline: false,
+			})
+
 			s.FollowupMessageCreate(i.Interaction, true,
 				&discordgo.WebhookParams{
-					Content: events.String() + normal.String() + "\n",
+					Content: events.String() + normal.String() + "\n\n",
+					Embeds: []*discordgo.MessageEmbed{{
+						Type: discordgo.EmbedTypeRich,
+						//Title: "Mission Arrival Times",
+						//Description: "",
+						Color:  0x555500,
+						Fields: field,
+					}},
 				})
 		}
 	}
