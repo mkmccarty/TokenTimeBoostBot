@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -54,7 +55,13 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	if str == "" {
-		str = fmt.Sprintf("Hal says that **%s** with %d farmers needing to ship %dq eggs will take **%v**", c.ID, int(c.MaxCoopSize), int(c.qTargetAmount[len(c.qTargetAmount)-1]), c.estimatedDuration.Round(time.Second))
+		fstr := "farmers"
+		if int(c.MaxCoopSize) == 1 {
+			fstr = "farmer"
+		}
+		estStr := c.estimatedDuration.Round(time.Minute).String()
+		estStr = strings.TrimRight(estStr, "0s")
+		str = fmt.Sprintf("**%s** (%s) with %d %s needing to ship %dq eggs is estimated to take **about %v**", c.Name, c.ID, int(c.MaxCoopSize), fstr, int(c.qTargetAmount[len(c.qTargetAmount)-1]), estStr)
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
