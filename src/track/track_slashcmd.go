@@ -1,11 +1,13 @@
 package track
 
 import (
+	"flag"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	petname "github.com/dustinkirkland/golang-petname"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/xhit/go-str2duration/v2"
 )
@@ -22,7 +24,7 @@ func GetSlashTokenCommand(cmd string) *discordgo.ApplicationCommand {
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "name",
 				Description: "Unique name for this tracking session. i.e. Use coop-id of the contract.",
-				Required:    true,
+				Required:    false,
 				MaxLength:   32, // Keep this short
 			},
 			{
@@ -122,6 +124,12 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, co
 	var trackingName = ""
 	if opt, ok := optionMap["name"]; ok {
 		trackingName = strings.TrimSpace(opt.StringValue())
+	} else {
+		words := flag.Int("words", 2, "The number of words in the pet name")
+		separator := flag.String("separator", "-", "The separator between words in the pet name")
+		flag.Parse()
+		trackingName = fmt.Sprintln(petname.Generate(*words, *separator))
+
 	}
 	if opt, ok := optionMap["linked"]; ok {
 		linked = opt.BoolValue()

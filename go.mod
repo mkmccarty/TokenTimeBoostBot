@@ -7,6 +7,7 @@ toolchain go1.22.2
 require (
 	github.com/bwmarrin/discordgo v0.28.1
 	github.com/divan/num2words v0.0.0-20170904212200-57dba452f942
+	github.com/dustinkirkland/golang-petname v0.0.0-20240428194347-eebcea082ee0
 	github.com/ewohltman/discordgo-mock v0.0.11
 	github.com/google/generative-ai-go v0.13.0
 	github.com/jasonlvhit/gocron v0.0.1
