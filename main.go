@@ -436,7 +436,7 @@ var (
 			launch.HandleLaunchHelper(s, i)
 		},
 		slashToken: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			track.HandleTokenCommand(s, i)
+			boost.HandleTokenCommand(s, i)
 		},
 		slashTokenRemove: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var str = "Token not found."
