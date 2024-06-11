@@ -403,7 +403,7 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 
 		BTA := (contractDurationSeconds / 60) / float64(eiContract.MinutesPerToken)
 
-		tableT.SetHeader([]string{"TVAL", "0-sent", "2.5-sent", "3-sent"})
+		tableT.SetHeader([]string{"△ TVAL", "sent 0 tval", "2.5 tval", "3 tval"})
 		tableT.SetBorder(false)
 		tableT.SetAlignment(tablewriter.ALIGN_RIGHT)
 
