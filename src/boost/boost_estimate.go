@@ -54,7 +54,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	if str == "" {
-		str = fmt.Sprintf("Hal says that **%s** with %d farmers needing to ship %dq eggs will take  **%v**", c.ID, int(c.MaxCoopSize), int(c.qTargetAmount[len(c.qTargetAmount)-1]), c.estimatedDuration.Round(time.Second))
+		str = fmt.Sprintf("Hal says that **%s** with %d farmers needing to ship %dq eggs will take **%v**", c.ID, int(c.MaxCoopSize), int(c.qTargetAmount[len(c.qTargetAmount)-1]), c.estimatedDuration.Round(time.Second))
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
