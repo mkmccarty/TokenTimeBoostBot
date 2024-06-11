@@ -1,7 +1,6 @@
 package track
 
 import (
-	"flag"
 	"fmt"
 	"strings"
 	"time"
@@ -38,6 +37,13 @@ func GetSlashTokenCommand(cmd string) *discordgo.ApplicationCommand {
 				Name:        "linked",
 				Description: "Link with contract channel reactions for sent tokens. Default is true.",
 				Required:    false,
+			},
+			{
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "contract-id",
+				Description:  "Contract ID",
+				Required:     false,
+				Autocomplete: true,
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
@@ -91,7 +97,7 @@ func GetSlashTokenRemoveCommand(cmd string) *discordgo.ApplicationCommand {
 }
 
 // HandleTokenCommand will handle the /token command
-func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, contractID string) {
+func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, contractID string, name string) {
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -102,6 +108,13 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, co
 	linked := true
 	linkReceived := true
 	duration := 12 * time.Hour
+
+	if contractID == "" {
+		if opt, ok := optionMap["contract-id"]; ok {
+			contractID = opt.StringValue()
+		}
+	}
+
 	if opt, ok := optionMap["duration"]; ok {
 		var err error
 		// Timespan of the contract duration
@@ -121,14 +134,12 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, co
 			duration = d.EstimatedDuration
 		}
 	}
-	var trackingName = ""
+	var trackingName = name
 	if opt, ok := optionMap["name"]; ok {
 		trackingName = strings.TrimSpace(opt.StringValue())
-	} else {
-		words := flag.Int("words", 2, "The number of words in the pet name")
-		separator := flag.String("separator", "-", "The separator between words in the pet name")
-		flag.Parse()
-		trackingName = fmt.Sprintln(petname.Generate(*words, *separator))
+	} else if trackingName == "" {
+
+		trackingName = fmt.Sprintln(petname.Generate(2, "-"))
 
 	}
 	if opt, ok := optionMap["linked"]; ok {
