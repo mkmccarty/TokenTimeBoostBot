@@ -178,6 +178,9 @@ type Contract struct {
 	qTargetAmount             []float64
 	ChickenRunCooldownMinutes int
 	MinutesPerToken           int
+	EstimatedDuration         time.Duration
+	CompletionDuration        time.Duration
+	EstimatedDurationValid    bool
 
 	CoopSize         int
 	LengthInSeconds  int
@@ -1547,6 +1550,7 @@ type EggIncContract struct {
 	ChickenRunCooldownMinutes int
 	MinutesPerToken           int
 	contractDurationInDays    int
+	estimatedDuration         time.Duration
 }
 
 // EggIncContracts holds a list of all contracts, newest is last
@@ -1612,6 +1616,12 @@ func LoadContractData(filename string) {
 			c.ChickenRuns = min(20, (days*c.MaxCoopSize)/2)
 
 		}
+		// Duration estimate
+		if len(c.TargetAmount) != 0 {
+			c.estimatedDuration = getContractDurationEstimate(c.qTargetAmount[len(c.qTargetAmount)-1], float64(c.MaxCoopSize))
+			//log.Printf("%s,%d,%d,%v\n", c.ID, int(c.qTargetAmount[len(c.qTargetAmount)-1]), int(c.MaxCoopSize), c.estimatedDuration.Round(time.Second))
+		}
+
 		c.Proto = ""
 		if coopAllowed && contractTime.After(time.Now().UTC()) {
 			EggIncContractsNew = append(EggIncContractsNew, c)
@@ -1621,6 +1631,14 @@ func LoadContractData(filename string) {
 	}
 	EggIncContracts = EggIncContractsNew
 	EggIncContractsAll = EggIncContractsAllNew
+
+	/*
+		// Call the function to write the estimated durations to a CSV file
+		err = WriteEstimatedDurationsToCSV("estimated_durations.csv")
+		if err != nil {
+			log.Fatal(err)
+		}
+	*/
 }
 
 func updateContractWithEggIncData(contract *Contract) {
