@@ -128,11 +128,13 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 
 	cacheID := contract.ContractID + ":" + contract.CoopID
 	cachedData := eiDatas[cacheID]
+	var nowTime time.Time
 
 	// Check if the file exists
 	if cachedData != nil && time.Now().Before(cachedData.expirationTimestamp) {
 		protoData = cachedData.protoData
 		dataTimestampStr = fmt.Sprintf("\nUsing cached data retrieved <t:%d:R>, refresh <t:%d:R>", cachedData.timestamp.Unix(), cachedData.expirationTimestamp.Unix())
+		nowTime = cachedData.timestamp
 		// Use protoData as needed
 	} else {
 		coopStatusRequest := ei.ContractCoopStatusRequest{
@@ -165,6 +167,7 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 		protoData = string(body)
 		data := eiData{ID: cacheID, timestamp: time.Now(), expirationTimestamp: time.Now().Add(10 * time.Minute), contractID: contract.ContractID, coopID: contract.CoopID, protoData: protoData}
 		eiDatas[cacheID] = &data
+		nowTime = time.Now()
 	}
 
 	decodedAuthBuf := &ei.AuthenticatedMessage{}
@@ -212,9 +215,9 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 		Then use day.js to generate timespan and then create time string
 	*/
 
-	startTime := time.Now()
+	startTime := nowTime
 	secondsRemaining := int64(decodeCoopStatus.GetSecondsRemaining())
-	endTime := time.Now()
+	endTime := nowTime
 	if decodeCoopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
 		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
 		startTime = startTime.Add(-time.Duration(eiContract.LengthInSeconds) * time.Second)
@@ -234,7 +237,7 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 		startTime = startTime.Add(-time.Duration(eiContract.LengthInSeconds) * time.Second)
 		totalReq := contract.TargetAmount[len(contract.TargetAmount)-1]
 		calcSecondsRemaining = int64((totalReq - totalContributions) / contributionRatePerSecond)
-		endTime = time.Now().Add(time.Duration(calcSecondsRemaining) * time.Second)
+		endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
 
 	}
