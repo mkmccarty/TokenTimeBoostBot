@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/xhit/go-str2duration/v2"
 )
@@ -64,7 +65,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	if coopSize == 0 {
 		found := false
-		for _, x := range EggIncContracts {
+		for _, x := range ei.EggIncContracts {
 			if x.ID == contractID {
 				found = true
 			}
