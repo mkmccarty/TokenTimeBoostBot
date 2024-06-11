@@ -117,10 +117,6 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 	var protoData string
 	var dataTimestampStr string
 
-	var filename string
-	filename = contract.ContractID + "-" + contract.CoopID + ".bin"
-	filename = strings.ReplaceAll(filename, " ", "")
-
 	eiContract := EggIncContractsAll[contract.ContractID]
 	if eiContract.ID == "" {
 		return "Invalid contract ID."
