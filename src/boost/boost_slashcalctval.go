@@ -22,7 +22,7 @@ func GetSlashCalcContractTval(cmd string) *discordgo.ApplicationCommand {
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "duration",
 				Description: "Total duration of this contract. Example: 19h35m.",
-				Required:    true,
+				Required:    false,
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
@@ -51,8 +51,10 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 		userID = i.User.ID
 	}
 
+	str := ""
 	invalidDuration := false
 	channelID := i.ChannelID
+	contract := FindContract(channelID)
 	var duration time.Duration
 	details := false
 	if opt, ok := optionMap["duration"]; ok {
@@ -67,9 +69,15 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 		contractTimespan = strings.Replace(contractTimespan, " ", "", -1)
 		duration, err = str2duration.ParseDuration(contractTimespan)
 		if err != nil {
-			// Invalid duration, just assigning a 12h
 			duration = 12 * time.Hour
 			invalidDuration = true
+		}
+	} else {
+		if contract != nil {
+			c := EggIncContractsAll[contract.ContractID]
+			if c.ID != "" {
+				duration = c.estimatedDuration
+			}
 		}
 	}
 	if opt, ok := optionMap["details"]; ok {
@@ -79,26 +87,20 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 		details = farmerstate.GetMiscSettingFlag(userID, "calc-details")
 	}
 
-	str := ""
-	// Find the contract
-	contract := FindContract(channelID)
 	if contract == nil {
 		str = "No contract found in this channel"
+	} else if !userInContract(contract, userID) {
+		str = "You are not part of this contract"
 	} else {
-		// Is user in this contract ?
-		if !userInContract(contract, userID) {
-			str = "You are not part of this contract"
-		} else {
-			// Calculate the token value
-			str = calculateTokenValue(contract.StartTime, duration, details, contract.Boosters[userID])
-			contract.CalcOperations++
-			contract.CalcOperationTime = time.Now()
-		}
-		if invalidDuration {
-			str += "\n\n__Invalid duration used__\n"
-			str += "**Defaulting to 12 hours**.\n"
-			str += "Format should be entered like `19h35m` or `1d 2h 3m` or `1d2h3m` or `1d 2h"
-		}
+		// Calculate the token value
+		str = calculateTokenValue(contract.StartTime, duration, details, contract.Boosters[userID])
+		contract.CalcOperations++
+		contract.CalcOperationTime = time.Now()
+	}
+	if invalidDuration {
+		str += "\n\n__Invalid duration used__\n"
+		str += "**Defaulting to 12 hours**.\n"
+		str += "Format should be entered like `19h35m` or `1d 2h 3m` or `1d2h3m` or `1d 2h"
 	}
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
