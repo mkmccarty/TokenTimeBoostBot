@@ -18,7 +18,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/olekukonko/tablewriter"
-	"github.com/xhit/go-str2duration/v2"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -44,26 +43,7 @@ func GetSlashTeamworkEval(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Evaluate teamwork values a contract",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "duration",
-				Description: "Total duration of this contract. Example: 19h35m. Ignored if the contract is completed.",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "runs",
-				Description: "Total number of chicken runs. Default is 0.",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "tval",
-				Description: "Total token time value delta. default is 0.",
-				Required:    false,
-			},
-		},
+		Options:     []*discordgo.ApplicationCommandOption{},
 	}
 }
 
@@ -102,43 +82,6 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		return
 	}
 
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
-
-	var duration time.Duration
-	var runs int
-	var tval float64
-
-	if opt, ok := optionMap["duration"]; ok {
-		var err error
-		// Timespan of the contract duration
-		contractTimespan := strings.TrimSpace(opt.StringValue())
-		contractTimespan = strings.Replace(contractTimespan, "day", "d", -1)
-		contractTimespan = strings.Replace(contractTimespan, "hr", "h", -1)
-		contractTimespan = strings.Replace(contractTimespan, "min", "m", -1)
-		contractTimespan = strings.Replace(contractTimespan, "sec", "s", -1)
-		// replace all spaces with nothing
-		contractTimespan = strings.Replace(contractTimespan, " ", "", -1)
-		duration, err = str2duration.ParseDuration(contractTimespan)
-		if err != nil {
-			// Invalid duration, just assigning a 12h
-			duration = 12 * time.Hour
-			//invalidDuration = true
-		}
-	}
-	/*
-		if opt, ok := optionMap["runs"]; ok {
-			runs = int(opt.IntValue())
-		}
-
-		if opt, ok := optionMap["tval"]; ok {
-			//tval = float64(opt.FloatValue())
-		}
-
-	*/
 	contract := FindContract(i.ChannelID)
 	if contract == nil {
 		s.FollowupMessageCreate(i.Interaction, true,
@@ -157,7 +100,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		return
 	}
 
-	builder.WriteString(DownloadCoopStatus(userID, contract, duration, runs, tval))
+	builder.WriteString(DownloadCoopStatus(userID, contract))
 
 	s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
@@ -166,7 +109,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 }
 
 // DownloadCoopStatus will download the coop status for a given contract and coop ID
-func DownloadCoopStatus(userID string, contract *Contract, duration time.Duration, runs int, tval float64) string {
+func DownloadCoopStatus(userID string, contract *Contract) string {
 	eggIncID := config.EIUserID
 	reqURL := "https://www.auxbrain.com/ei/coop_status"
 	enc := base64.StdEncoding
@@ -267,12 +210,26 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 	var BuffTimeValues []BuffTimeValue
 	var contractDurationSeconds float64
 	var calcSecondsRemaining int64
+
+	//prevServerTimestamp = int64(decodeCoopStatus.GetSecondsRemaining()) + BuffTimeValues[0].timeEquiped
+	// If the coop completed, the secondsSinceAllGoalsAchieved (towards the end) is present.
+	// If coop isn't complete, you have to back calculate from secondsRemaining,
+	// and estimate completion time based off rates
+
+	/*
+		Start time can be found via:
+		Date.now() + secondsRemaining - contract.gradeSpecs[(grade)].lengthSeconds
+		End time can be found via:
+		Date.now() - secondsSinceAllGoalsAchieved
+		Then use day.js to generate timespan and then create time string
+	*/
+
 	startTime := time.Now()
 	secondsRemaining := int64(decodeCoopStatus.GetSecondsRemaining())
-	startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
-	startTime = startTime.Add(-time.Duration(eiContract.LengthInSeconds) * time.Second)
 	endTime := time.Now()
 	if decodeCoopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
+		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
+		startTime = startTime.Add(-time.Duration(eiContract.LengthInSeconds) * time.Second)
 		secondsSinceAllGoals := int64(decodeCoopStatus.GetSecondsSinceAllGoalsAchieved())
 		endTime = endTime.Add(-time.Duration(secondsSinceAllGoals) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
@@ -285,10 +242,9 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 			totalContributions += -(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()) // offline eggs
 			contributionRatePerSecond += c.GetContributionRate()
 		}
-		totalReq := contract.TargetAmount[len(contract.TargetAmount)-1]
-		startTime = time.Now()
 		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
 		startTime = startTime.Add(-time.Duration(eiContract.LengthInSeconds) * time.Second)
+		totalReq := contract.TargetAmount[len(contract.TargetAmount)-1]
 		calcSecondsRemaining = int64((totalReq - totalContributions) / contributionRatePerSecond)
 		endTime = time.Now().Add(time.Duration(calcSecondsRemaining) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
@@ -357,19 +313,6 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 		}
 	}
 
-	//prevServerTimestamp = int64(decodeCoopStatus.GetSecondsRemaining()) + BuffTimeValues[0].timeEquiped
-	// If the coop completed, the secondsSinceAllGoalsAchieved (towards the end) is present.
-	// If coop isn't complete, you have to back calculate from secondsRemaining,
-	// and estimate completion time based off rates
-
-	/*
-		Start time can be found via:
-		Date.now() + secondsRemaining - contract.gradeSpecs[(grade)].lengthSeconds
-		End time can be found via:
-		Date.now() - secondsSinceAllGoalsAchieved
-		Then use day.js to generate timespan and then create time string
-	*/
-
 	remainingTime := contractDurationSeconds
 	for i, b := range BuffTimeValues {
 		if i == len(BuffTimeValues)-1 {
@@ -424,7 +367,7 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 		CR := min(0.0, 6.0)
 		T := 0.0
 
-		TeamworkScore := ((5.0 * B) + CR + T) / 19.0
+		TeamworkScore := ((5.0 * B) + (CR * 0) + (T * 0)) / 19.0
 		table.SetFooter([]string{"", "", "", "", "", "", fmt.Sprintf("%8.2f", buffTimeValue), fmt.Sprintf("%1.8f", TeamworkScore)})
 		log.Printf("Teamwork Score: %f\n", TeamworkScore)
 
@@ -432,7 +375,60 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 		table.Render()
 		builder.WriteString("```")
 
+		// Calculate the ChickenRun score
+		tableCR := tablewriter.NewWriter(&builder)
+		tableCR.ClearRows()
+
+		tableCR.SetHeader([]string{"1 Run", "N*Runs", fmt.Sprintf("%d Runs", eiContract.ChickenRuns)})
+		tableCR.SetBorder(false)
+		tableCR.SetAlignment(tablewriter.ALIGN_RIGHT)
+
+		fCR := max(12.0/float64(eiContract.MaxCoopSize*eiContract.contractDurationInDays), 0.3)
+		//for i := range eiContract.ChickenRuns {
+		CR = min(fCR*float64(1), 6.0)
+		CRTeamworkScore := ((5.0 * B * 0) + CR + (T * 0)) / 19.0
+		CRMax := min(fCR*float64(eiContract.ChickenRuns), 6.0)
+		CRMaxTeamworkScore := ((5.0 * B * 0) + CRMax + (T * 0)) / 19.0
+		tableCR.Append([]string{
+			fmt.Sprintf("%1.6f", CRTeamworkScore),
+			fmt.Sprintf("N * %1.6f", CRTeamworkScore),
+			fmt.Sprintf("%1.6f", CRMaxTeamworkScore)})
+		//}
+		builder.WriteString("```")
+		tableCR.Render()
+		builder.WriteString("```")
+
+		tableT := tablewriter.NewWriter(&builder)
+		tableT.ClearRows()
+
+		BTA := (contractDurationSeconds / 60) / float64(eiContract.MinutesPerToken)
+
+		tableT.SetHeader([]string{"TVAL", "0-sent", "2.5-sent", "3-sent"})
+		tableT.SetBorder(false)
+		tableT.SetAlignment(tablewriter.ALIGN_RIGHT)
+
+		for tval := -3.0; tval <= 3.0; tval += 1.0 {
+			var items []string
+			items = append(items, fmt.Sprintf("%1.1f", tval))
+			for tSent := 0.0; tSent <= 3.0; tSent += 1.5 {
+				if BTA <= 42.0 {
+					T = (2.0 / 3.0 * min(tSent, 3.0)) + ((8.0 / 3.0) * min(tval, 3.0))
+				} else {
+					T = (200.0/(7.0*BTA))*min(tSent, 0.07*BTA) + (800.0 / (7.0 * BTA) * min(tval, 0.07*BTA))
+				}
+				TTeamworkScore := ((5.0 * B * 0) + (CR * 0) + T) / 19.0
+				items = append(items, fmt.Sprintf("%1.4f", TTeamworkScore))
+				//		tableT.Append([]string{fmt.Sprintf("%1.1f", tval), fmt.Sprintf("%1.6f", tSent), fmt.Sprintf("%1.6f", TTeamworkScore)})
+			}
+			tableT.Append(items)
+		}
+		//builder.Reset()
+		builder.WriteString("```")
+		tableT.Render()
+		builder.WriteString("```")
+
 		log.Printf("\n%s", builder.String())
+
 		log.Print("Buff Time Value: ", buffTimeValue)
 	}
 
