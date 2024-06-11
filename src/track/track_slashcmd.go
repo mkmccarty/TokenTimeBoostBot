@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/xhit/go-str2duration/v2"
 )
 
@@ -27,8 +28,8 @@ func GetSlashTokenCommand(cmd string) *discordgo.ApplicationCommand {
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "duration",
-				Description: "Time remaining in this contract. Example: 19h35m.",
-				Required:    true,
+				Description: "Time remaining in this contract. Example: 19h35m. Linked contracts know this.",
+				Required:    false,
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
@@ -88,7 +89,7 @@ func GetSlashTokenRemoveCommand(cmd string) *discordgo.ApplicationCommand {
 }
 
 // HandleTokenCommand will handle the /token command
-func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, contractID string) {
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -98,7 +99,7 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	channelID := i.ChannelID
 	linked := true
 	linkReceived := true
-	var duration time.Duration
+	duration := 12 * time.Hour
 	if opt, ok := optionMap["duration"]; ok {
 		var err error
 		// Timespan of the contract duration
@@ -111,6 +112,11 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if err != nil {
 			// Invalid duration, just assigning a 12h
 			duration = 12 * time.Hour
+		}
+	} else {
+		d := ei.EggIncContractsAll[contractID]
+		if d.ID != "" {
+			duration = d.EstimatedDuration
 		}
 	}
 	var trackingName = ""
