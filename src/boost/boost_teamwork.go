@@ -348,9 +348,9 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 			eggRate := int(math.Round(a.GetEggLayingRate()*100 - 100))
 			serverTimestamp := int64(a.GetServerTimestamp()) // When it was equipped
 			if decodeCoopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
-				serverTimestamp = int64(a.GetServerTimestamp()) - int64(decodeCoopStatus.GetSecondsSinceAllGoalsAchieved())
+				serverTimestamp -= int64(decodeCoopStatus.GetSecondsSinceAllGoalsAchieved())
 			} else {
-				serverTimestamp = int64(a.GetServerTimestamp()) + calcSecondsRemaining
+				serverTimestamp += calcSecondsRemaining
 			}
 			serverTimestamp = int64(contractDurationSeconds) - serverTimestamp
 			BuffTimeValues = append(BuffTimeValues, BuffTimeValue{name, earnings, 0.0075 * float64(earnings), eggRate, 0.0075 * float64(eggRate) * 10.0, serverTimestamp, 0, 0, 0, 0})
@@ -411,8 +411,9 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 			teamworkScore := ((5.0 * B) + CR + T) / 19.0
 
 			dur := time.Duration(b.durationEquiped) * time.Second
+			when := time.Duration(b.timeEquiped) * time.Second
 
-			table.Append([]string{fmt.Sprintf("%d", b.timeEquiped), fmt.Sprintf("%v", dur.Round(time.Second)), fmt.Sprintf("%d%%", b.eggRate), fmt.Sprintf("%d%%", b.earnings), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.eggRateCalc), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.earningsCalc), fmt.Sprintf("%8.2f", b.buffTimeValue), fmt.Sprintf("%1.8f", teamworkScore)})
+			table.Append([]string{fmt.Sprintf("%v", when.Round(time.Second)), fmt.Sprintf("%v", dur.Round(time.Second)), fmt.Sprintf("%d%%", b.eggRate), fmt.Sprintf("%d%%", b.earnings), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.eggRateCalc), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.earningsCalc), fmt.Sprintf("%8.2f", b.buffTimeValue), fmt.Sprintf("%1.8f", teamworkScore)})
 
 			buffTimeValue += b.buffTimeValue
 		}
