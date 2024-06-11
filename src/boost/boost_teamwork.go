@@ -87,7 +87,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	isAdmin := false
-	for _, el := range config.AdminUsers[:4] {
+	for _, el := range config.AdminUsers {
 		if el == userID {
 			isAdmin = true
 			break
@@ -129,14 +129,16 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			//invalidDuration = true
 		}
 	}
-	if opt, ok := optionMap["runs"]; ok {
-		runs = int(opt.IntValue())
-	}
+	/*
+		if opt, ok := optionMap["runs"]; ok {
+			runs = int(opt.IntValue())
+		}
 
-	if opt, ok := optionMap["tval"]; ok {
-		tval = float64(opt.FloatValue())
-	}
+		if opt, ok := optionMap["tval"]; ok {
+			//tval = float64(opt.FloatValue())
+		}
 
+	*/
 	contract := FindContract(i.ChannelID)
 	if contract == nil {
 		s.FollowupMessageCreate(i.Interaction, true,
@@ -264,6 +266,7 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 
 	var BuffTimeValues []BuffTimeValue
 	var contractDurationSeconds float64
+	var calcSecondsRemaining int64
 	startTime := time.Now()
 	secondsRemaining := int64(decodeCoopStatus.GetSecondsRemaining())
 	startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
@@ -274,8 +277,22 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 		endTime = endTime.Add(-time.Duration(secondsSinceAllGoals) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
 	} else {
-		contractDurationSeconds = duration.Seconds()
-		//endTime = startTime.Add(duration)
+		var totalContributions float64
+		var contributionRatePerSecond float64
+		// Need to figure out the
+		for _, c := range decodeCoopStatus.GetContributors() {
+			totalContributions += c.GetContributionAmount()
+			totalContributions += -(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()) // offline eggs
+			contributionRatePerSecond += c.GetContributionRate()
+		}
+		totalReq := contract.TargetAmount[len(contract.TargetAmount)-1]
+		startTime = time.Now()
+		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
+		startTime = startTime.Add(-time.Duration(eiContract.LengthInSeconds) * time.Second)
+		calcSecondsRemaining = int64((totalReq - totalContributions) / contributionRatePerSecond)
+		endTime = time.Now().Add(time.Duration(calcSecondsRemaining) * time.Second)
+		contractDurationSeconds = endTime.Sub(startTime).Seconds()
+
 	}
 	log.Print("Contract Duration: ", contractDurationSeconds)
 
@@ -300,12 +317,21 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 	//serverTimestampUnix := time.Now().Unix()
 	contractUserName := contract.Boosters[userID].Nick
 
-	for _, c := range decodeCoopStatus.GetContributors() {
+	// Force a few things for testing so they can match up
+	farmerstate.SetMiscSettingString("238786501700222986", "EggIncRawName", "\ue10c")     // RAIYC
+	farmerstate.SetMiscSettingString("184063956539670528", "EggIncRawName", "Halceyx")    // Hal
+	farmerstate.SetMiscSettingString("393477262412087319", "EggIncRawName", "iDaHotBone") // Tbone
 
-		// Force a few things for testing so they can match up
-		farmerstate.SetMiscSettingString("238786501700222986", "EggIncRawName", "\ue10c")     // RAIYC
-		farmerstate.SetMiscSettingString("184063956539670528", "EggIncRawName", "Halceyx")    // Hal
-		farmerstate.SetMiscSettingString("393477262412087319", "EggIncRawName", "iDaHotBone") // Tbone
+	farmerstate.SetMiscSettingString("430186990260977665", "EggIncRawName", "aggiemd91")           // aggie
+	farmerstate.SetMiscSettingString("662685289885466672", "EggIncRawName", "DipDipPotatoChip420") // Dip
+	farmerstate.SetMiscSettingString("899945319582822400", "EggIncRawName", "LousyCurve15")        // Lousy
+	farmerstate.SetMiscSettingString("322180654773305356", "EggIncRawName", "scottsaxman")         // Scott
+	farmerstate.SetMiscSettingString("429540887383506954", "EggIncRawName", "HypnoticJustice1357") // hypno
+
+	farmerstate.SetMiscSettingString("638076607323701248", "EggIncRawName", "scorpnicole") // scorp
+	farmerstate.SetMiscSettingString("831283419891630091", "EggIncRawName", "sarane1")     // sara
+
+	for _, c := range decodeCoopStatus.GetContributors() {
 
 		name := c.GetUserName()
 		einame := farmerstate.GetMiscSettingString(userID, "EggIncRawName")
@@ -317,15 +343,14 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 			continue
 		}
 
-		//cAmt := c.GetContributionAmount()
-		//cRate := c.GetContributionRate()
-
 		for _, a := range c.GetBuffHistory() {
 			earnings := int(math.Round(a.GetEarnings()*100 - 100))
 			eggRate := int(math.Round(a.GetEggLayingRate()*100 - 100))
 			serverTimestamp := int64(a.GetServerTimestamp()) // When it was equipped
 			if decodeCoopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
 				serverTimestamp = int64(a.GetServerTimestamp()) - int64(decodeCoopStatus.GetSecondsSinceAllGoalsAchieved())
+			} else {
+				serverTimestamp = int64(a.GetServerTimestamp()) + calcSecondsRemaining
 			}
 			serverTimestamp = int64(contractDurationSeconds) - serverTimestamp
 			BuffTimeValues = append(BuffTimeValues, BuffTimeValue{name, earnings, 0.0075 * float64(earnings), eggRate, 0.0075 * float64(eggRate) * 10.0, serverTimestamp, 0, 0, 0, 0})
@@ -344,14 +369,11 @@ func DownloadCoopStatus(userID string, contract *Contract, duration time.Duratio
 		Date.now() - secondsSinceAllGoalsAchieved
 		Then use day.js to generate timespan and then create time string
 	*/
+
 	remainingTime := contractDurationSeconds
 	for i, b := range BuffTimeValues {
 		if i == len(BuffTimeValues)-1 {
-			if decodeCoopStatus.GetSecondsSinceAllGoalsAchieved() == 0 {
-				BuffTimeValues[i].durationEquiped = int64(remainingTime)
-			} else {
-				BuffTimeValues[i].durationEquiped = int64(contractDurationSeconds) - b.timeEquiped
-			}
+			BuffTimeValues[i].durationEquiped = int64(contractDurationSeconds) - b.timeEquiped
 		} else {
 			BuffTimeValues[i].durationEquiped = BuffTimeValues[i+1].timeEquiped - b.timeEquiped
 		}
