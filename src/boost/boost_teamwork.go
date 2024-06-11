@@ -8,7 +8,6 @@ import (
 	"math"
 	"net/http"
 	"net/url"
-	"os"
 	"slices"
 	"strings"
 	"time"
@@ -66,22 +65,23 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		userID = i.User.ID
 	}
 
-	isAdmin := false
-	for _, el := range config.AdminUsers {
-		if el == userID {
-			isAdmin = true
-			break
+	/*
+		isAdmin := false
+		for _, el := range config.AdminUsers {
+			if el == userID {
+				isAdmin = true
+				break
+			}
 		}
-	}
 
-	if !isAdmin {
-		s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: "This feature is currently under test.",
-			})
-		return
-	}
-
+		if !isAdmin {
+			s.FollowupMessageCreate(i.Interaction, true,
+				&discordgo.WebhookParams{
+					Content: "This feature is currently under test.",
+				})
+			return
+		}
+	*/
 	contract := FindContract(i.ChannelID)
 	if contract == nil {
 		s.FollowupMessageCreate(i.Interaction, true,
@@ -115,6 +115,7 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 	enc := base64.StdEncoding
 
 	var protoData string
+	var dataTimestampStr string
 
 	var filename string
 	filename = contract.ContractID + "-" + contract.CoopID + ".bin"
@@ -125,15 +126,13 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 		return "Invalid contract ID."
 	}
 
+	cacheID := contract.ContractID + ":" + contract.CoopID
+	cachedData := eiDatas[cacheID]
+
 	// Check if the file exists
-	if _, err := os.Stat(filename); err == nil {
-		// Read the file into a string
-		file, err := os.ReadFile(filename)
-		if err != nil {
-			log.Print(err)
-			return err.Error()
-		}
-		protoData = string(file)
+	if cachedData != nil && time.Now().Before(cachedData.expirationTimestamp) {
+		protoData = cachedData.protoData
+		dataTimestampStr = fmt.Sprintf("\nUsing cached data retrieved <t:%d:R>, refresh <t:%d:R>", cachedData.timestamp.Unix(), cachedData.expirationTimestamp.Unix())
 		// Use protoData as needed
 	} else {
 		coopStatusRequest := ei.ContractCoopStatusRequest{
@@ -162,21 +161,10 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 			log.Print(err)
 			return err.Error()
 		}
-		/*
-			file, err := os.Create(filename)
-			if err != nil {
-				log.Print(err)
-				return err.Error()
-			}
-			defer file.Close()
-
-			_, err = file.Write(body)
-			if err != nil {
-				log.Print(err)
-				return err.Error()
-			}
-		*/
+		dataTimestampStr = ""
 		protoData = string(body)
+		data := eiData{ID: cacheID, timestamp: time.Now(), expirationTimestamp: time.Now().Add(10 * time.Minute), contractID: contract.ContractID, coopID: contract.CoopID, protoData: protoData}
+		eiDatas[cacheID] = &data
 	}
 
 	decodedAuthBuf := &ei.AuthenticatedMessage{}
@@ -430,6 +418,10 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 		log.Printf("\n%s", builder.String())
 
 		log.Print("Buff Time Value: ", buffTimeValue)
+	}
+
+	if dataTimestampStr != "" {
+		builder.WriteString(dataTimestampStr)
 	}
 
 	return builder.String()

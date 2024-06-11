@@ -225,13 +225,24 @@ type SpeedrunData struct {
 	StatusStr             string // Status string for the speedrun
 }
 
+type eiData struct {
+	ID                  string
+	timestamp           time.Time
+	expirationTimestamp time.Time
+	contractID          string
+	coopID              string
+	protoData           string
+}
+
 var (
 	// Contracts is a map of contracts and is saved to disk
 	Contracts map[string]*Contract
+	eiDatas   map[string]*eiData
 )
 
 func init() {
 	Contracts = make(map[string]*Contract)
+	eiDatas = make(map[string]*eiData)
 
 	initDataStore()
 
@@ -1531,6 +1542,18 @@ func ArchiveContracts(s *discordgo.Session) {
 	for _, hash := range finishHash {
 		finishContractByHash(hash)
 	}
+
+	// clear finishHash
+	finishHash = nil
+	for _, d := range eiDatas {
+		if time.Now().After(d.expirationTimestamp) {
+			finishHash = append(finishHash, d.ID)
+		}
+	}
+	for _, hash := range finishHash {
+		eiDatas[hash] = nil
+	}
+
 	track.ArchiveTrackerData(s)
 }
 
