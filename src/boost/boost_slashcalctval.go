@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/olekukonko/tablewriter"
 	"github.com/xhit/go-str2duration/v2"
@@ -74,9 +75,9 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 		}
 	} else {
 		if contract != nil {
-			c := EggIncContractsAll[contract.ContractID]
+			c := ei.EggIncContractsAll[contract.ContractID]
 			if c.ID != "" {
-				duration = c.estimatedDuration
+				duration = c.EstimatedDuration
 			}
 		}
 	}

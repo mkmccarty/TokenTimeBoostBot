@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 // GetSlashEstimateTime is the definition of the slash command
@@ -47,7 +48,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			contractID = runningContract.ContractID
 		}
 	}
-	c := EggIncContractsAll[contractID]
+	c := ei.EggIncContractsAll[contractID]
 
 	if c.ID == "" {
 		str = "No contract found in this channel, use the command parameters to pick one."
@@ -59,9 +60,9 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		if int(c.MaxCoopSize) == 1 {
 			fstr = "farmer"
 		}
-		estStr := c.estimatedDuration.Round(time.Minute).String()
+		estStr := c.EstimatedDuration.Round(time.Minute).String()
 		estStr = strings.TrimRight(estStr, "0s")
-		str = fmt.Sprintf("**%s** (%s) with %d %s needing to ship %dq eggs is estimated to take **about %v**", c.Name, c.ID, int(c.MaxCoopSize), fstr, int(c.qTargetAmount[len(c.qTargetAmount)-1]), estStr)
+		str = fmt.Sprintf("**%s** (%s) with %d %s needing to ship %dq eggs is estimated to take **about %v**", c.Name, c.ID, int(c.MaxCoopSize), fstr, int(c.TargetAmountq[len(c.TargetAmountq)-1]), estStr)
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{

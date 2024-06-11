@@ -1557,39 +1557,10 @@ func ArchiveContracts(s *discordgo.Session) {
 	track.ArchiveTrackerData(s)
 }
 
-// EggIncContract is a raw contract data for Egg Inc
-type EggIncContract struct {
-	ID                        string `json:"id"`
-	Proto                     string `json:"proto"`
-	Name                      string
-	Description               string
-	Egg                       int32
-	EggName                   string
-	MaxCoopSize               int
-	TargetAmount              []float64
-	qTargetAmount             []float64
-	ChickenRuns               int
-	LengthInSeconds           int
-	ChickenRunCooldownMinutes int
-	MinutesPerToken           int
-	contractDurationInDays    int
-	estimatedDuration         time.Duration
-}
-
-// EggIncContracts holds a list of all contracts, newest is last
-var EggIncContracts []EggIncContract
-
-// EggIncContractsAll holds a list of all contracts, newest is last
-var EggIncContractsAll map[string]EggIncContract
-
-func init() {
-	EggIncContractsAll = make(map[string]EggIncContract)
-}
-
 // LoadContractData will load contract data from a file
 func LoadContractData(filename string) {
 
-	var EggIncContractsLoaded []EggIncContract
+	var EggIncContractsLoaded []ei.EggIncContract
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Fatal(err)
@@ -1602,8 +1573,8 @@ func LoadContractData(filename string) {
 		log.Fatal(err)
 	}
 
-	var EggIncContractsNew []EggIncContract
-	EggIncContractsAllNew := make(map[string]EggIncContract, 800)
+	var EggIncContractsNew []ei.EggIncContract
+	EggIncContractsAllNew := make(map[string]ei.EggIncContract, 800)
 	contractProtoBuf := &ei.Contract{}
 	for _, c := range EggIncContractsLoaded {
 		rawDecodedText, _ := base64.StdEncoding.DecodeString(c.Proto)
@@ -1628,20 +1599,20 @@ func LoadContractData(filename string) {
 			if s.GetGrade() == ei.Contract_GRADE_AAA {
 				for _, g := range s.GetGoals() {
 					c.TargetAmount = append(c.TargetAmount, g.GetTargetAmount())
-					c.qTargetAmount = append(c.qTargetAmount, g.GetTargetAmount()/1e15)
+					c.TargetAmountq = append(c.TargetAmountq, g.GetTargetAmount()/1e15)
 				}
 			}
 		}
 		if c.LengthInSeconds > 0 {
 			d := time.Duration(c.LengthInSeconds) * time.Second
 			days := int(d.Hours() / 24) // 2 days
-			c.contractDurationInDays = days
+			c.ContractDurationInDays = days
 			c.ChickenRuns = min(20, (days*c.MaxCoopSize)/2)
 
 		}
 		// Duration estimate
 		if len(c.TargetAmount) != 0 {
-			c.estimatedDuration = getContractDurationEstimate(c.qTargetAmount[len(c.qTargetAmount)-1], float64(c.MaxCoopSize))
+			c.EstimatedDuration = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize))
 			//log.Printf("%s,%d,%d,%v\n", c.ID, int(c.qTargetAmount[len(c.qTargetAmount)-1]), int(c.MaxCoopSize), c.estimatedDuration.Round(time.Second))
 		}
 
@@ -1652,8 +1623,8 @@ func LoadContractData(filename string) {
 		EggIncContractsAllNew[c.ID] = c
 
 	}
-	EggIncContracts = EggIncContractsNew
-	EggIncContractsAll = EggIncContractsAllNew
+	ei.EggIncContracts = EggIncContractsNew
+	ei.EggIncContractsAll = EggIncContractsAllNew
 
 	/*
 		// Call the function to write the estimated durations to a CSV file
@@ -1665,7 +1636,7 @@ func LoadContractData(filename string) {
 }
 
 func updateContractWithEggIncData(contract *Contract) {
-	for _, cc := range EggIncContracts {
+	for _, cc := range ei.EggIncContracts {
 		if cc.ID == contract.ContractID {
 			contract.CoopSize = cc.MaxCoopSize
 			contract.LengthInSeconds = cc.LengthInSeconds
@@ -1675,7 +1646,7 @@ func updateContractWithEggIncData(contract *Contract) {
 			contract.Description = cc.Description
 			contract.EggName = cc.EggName
 			contract.TargetAmount = cc.TargetAmount
-			contract.qTargetAmount = cc.qTargetAmount
+			contract.qTargetAmount = cc.TargetAmountq
 			contract.ChickenRunCooldownMinutes = cc.ChickenRunCooldownMinutes
 			contract.MinutesPerToken = cc.MinutesPerToken
 			break
@@ -1687,7 +1658,7 @@ func updateContractWithEggIncData(contract *Contract) {
 func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// User interacting with bot, is this first time ?
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
-	for _, c := range EggIncContracts {
+	for _, c := range ei.EggIncContracts {
 		choice := discordgo.ApplicationCommandOptionChoice{
 			Name:  fmt.Sprintf("%s (%s)", c.Name, c.ID),
 			Value: c.ID,

@@ -117,7 +117,7 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 	var protoData string
 	var dataTimestampStr string
 
-	eiContract := EggIncContractsAll[contract.ContractID]
+	eiContract := ei.EggIncContractsAll[contract.ContractID]
 	if eiContract.ID == "" {
 		return "Invalid contract ID."
 	}
@@ -370,7 +370,7 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 		tableCR.SetBorder(false)
 		tableCR.SetAlignment(tablewriter.ALIGN_RIGHT)
 
-		fCR := max(12.0/float64(eiContract.MaxCoopSize*eiContract.contractDurationInDays), 0.3)
+		fCR := max(12.0/float64(eiContract.MaxCoopSize*eiContract.ContractDurationInDays), 0.3)
 		//for i := range eiContract.ChickenRuns {
 		CR = min(fCR*float64(1), 6.0)
 		CRTeamworkScore := ((5.0 * B * 0) + CR + (T * 0)) / 19.0
