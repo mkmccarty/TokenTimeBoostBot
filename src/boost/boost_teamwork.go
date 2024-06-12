@@ -210,6 +210,7 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 		Date.now() - secondsSinceAllGoalsAchieved
 		Then use day.js to generate timespan and then create time string
 	*/
+	var builder strings.Builder
 
 	startTime := nowTime
 	secondsRemaining := int64(decodeCoopStatus.GetSecondsRemaining())
@@ -220,6 +221,11 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 		secondsSinceAllGoals := int64(decodeCoopStatus.GetSecondsSinceAllGoalsAchieved())
 		endTime = endTime.Add(-time.Duration(secondsSinceAllGoals) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
+		builder.WriteString(fmt.Sprintf("Completed contract **%s/%s**\n", contract.ContractID, contract.CoopID))
+		builder.WriteString(fmt.Sprintf("Start Time: <t:%d:f>\n", startTime.Unix()))
+		builder.WriteString(fmt.Sprintf("End Time: <t:%d:f>\n", endTime.Unix()))
+		builder.WriteString(fmt.Sprintf("Duration: %v\n", (endTime.Sub(startTime)).Round(time.Second)))
+
 	} else {
 		var totalContributions float64
 		var contributionRatePerSecond float64
@@ -235,7 +241,10 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 		calcSecondsRemaining = int64((totalReq - totalContributions) / contributionRatePerSecond)
 		endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
-
+		builder.WriteString(fmt.Sprintf("Contract **%s/%s** on target to complete <t:%d:R>\n", contract.ContractID, contract.CoopID, endTime.Unix()))
+		builder.WriteString(fmt.Sprintf("Start Time: <t:%d:f>\n", startTime.Unix()))
+		builder.WriteString(fmt.Sprintf("Est. End Time: <t:%d:f>\n", endTime.Unix()))
+		builder.WriteString(fmt.Sprintf("Duration: %v\n", (endTime.Sub(startTime)).Round(time.Second)))
 	}
 	log.Print("Contract Duration: ", contractDurationSeconds)
 
@@ -259,20 +268,6 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 
 	//serverTimestampUnix := time.Now().Unix()
 	contractUserName := contract.Boosters[userID].Nick
-
-	// Force a few things for testing so they can match up
-	farmerstate.SetMiscSettingString("238786501700222986", "EggIncRawName", "\ue10c")     // RAIYC
-	farmerstate.SetMiscSettingString("184063956539670528", "EggIncRawName", "Halceyx")    // Hal
-	farmerstate.SetMiscSettingString("393477262412087319", "EggIncRawName", "iDaHotBone") // Tbone
-
-	farmerstate.SetMiscSettingString("430186990260977665", "EggIncRawName", "aggiemd91")           // aggie
-	farmerstate.SetMiscSettingString("662685289885466672", "EggIncRawName", "DipDipPotatoChip420") // Dip
-	farmerstate.SetMiscSettingString("899945319582822400", "EggIncRawName", "LousyCurve15")        // Lousy
-	farmerstate.SetMiscSettingString("322180654773305356", "EggIncRawName", "scottsaxman")         // Scott
-	farmerstate.SetMiscSettingString("429540887383506954", "EggIncRawName", "HypnoticJustice1357") // hypno
-
-	farmerstate.SetMiscSettingString("638076607323701248", "EggIncRawName", "scorpnicole") // scorp
-	farmerstate.SetMiscSettingString("831283419891630091", "EggIncRawName", "sarane1")     // sara
 
 	for _, c := range decodeCoopStatus.GetContributors() {
 
@@ -309,7 +304,6 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 		}
 		remainingTime -= float64(BuffTimeValues[i].durationEquiped)
 	}
-	var builder strings.Builder
 
 	if len(BuffTimeValues) == 0 {
 		builder.WriteString("No buffs found for this contract.")
@@ -404,7 +398,11 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 					T = (200.0/(7.0*BTA))*min(tSent, 0.07*BTA) + (800.0 / (7.0 * BTA) * min(tval, 0.07*BTA))
 				}
 				TTeamworkScore := ((5.0 * B * 0) + (CR * 0) + T) / 19.0
-				items = append(items, fmt.Sprintf("%1.4f", TTeamworkScore))
+				if tSent < tval {
+					items = append(items, "")
+				} else {
+					items = append(items, fmt.Sprintf("%1.4f", TTeamworkScore))
+				}
 				//		tableT.Append([]string{fmt.Sprintf("%1.1f", tval), fmt.Sprintf("%1.6f", tSent), fmt.Sprintf("%1.6f", TTeamworkScore)})
 			}
 			tableT.Append(items)
