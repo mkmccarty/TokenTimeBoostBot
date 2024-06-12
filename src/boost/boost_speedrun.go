@@ -235,7 +235,7 @@ func drawSpeedrunCRT(contract *Contract, tokenStr string) string {
 		fmt.Fprintf(&builder, "# Chicken Run Tango - Leg %d of %d\n", contract.SRData.CurrentLeg+1, contract.SRData.Legs)
 		fmt.Fprintf(&builder, "### Tips\n")
 		fmt.Fprintf(&builder, "- Don't use any boosts\n")
-		fmt.Fprintf(&builder, "- Equip coop artifacts: Deflector and SIAB\n")
+		//fmt.Fprintf(&builder, "- Equip coop artifacts: Deflector and SIAB\n")
 		fmt.Fprintf(&builder, "- A chicken run on %s can be saved for the boost phase.\n", contract.Boosters[contract.SRData.SpeedrunStarterUserID].Mention)
 		fmt.Fprintf(&builder, "- :truck: reaction will indicate truck arriving and request a later kick. Send tokens through the boost menu if doing this.\n")
 		fmt.Fprintf(&builder, "- Sink will react with 🦵 when starting to kick.\n")
@@ -399,7 +399,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 				keepReaction = true
 				// Indicate that the Sink is starting to kick users
 				str := "**Starting to kick users.** Swap shiny artifacts if you need to force a server sync.\n"
-				str += contract.Boosters[contract.SRData.SpeedrunStarterUserID].Mention + " Sink: React here with 💃 after kicks to advance the tango."
+				str += contract.Boosters[contract.SRData.SpeedrunStarterUserID].Mention + " will react here with 💃 after kicks to advance the tango."
 				msg, _ := s.ChannelMessageSend(contract.Location[0].ChannelID, str)
 				s.MessageReactionAdd(contract.Location[0].ChannelID, msg.ID, "💃") // Tango Reaction
 				SetReactionID(contract, contract.Location[0].ChannelID, msg.ID)
