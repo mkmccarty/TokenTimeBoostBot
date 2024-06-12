@@ -107,8 +107,11 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 		return
 	}
-
-	builder.WriteString(DownloadCoopStatus(userID, eggign, contract))
+	if config.EIUserID != "" {
+		builder.WriteString(DownloadCoopStatus(userID, eggign, contract))
+	} else {
+		builder.WriteString("This command is missing a configuration option necessary to function.")
+	}
 
 	s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
