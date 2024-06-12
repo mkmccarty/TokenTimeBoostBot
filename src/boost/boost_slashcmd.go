@@ -383,9 +383,15 @@ func HandleCoopETACommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 // HandleBumpCommand will handle the /bump command
 func HandleBumpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	str := "Redrawing the boost list"
-	err := RedrawBoostList(s, i.GuildID, i.ChannelID)
-	if err != nil {
-		str = err.Error()
+
+	contract := FindContract(i.ChannelID)
+	if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateCRT {
+		str = "Speedrun CRT is in progress, cannot bump as the message will lose reactions."
+	} else {
+		err := RedrawBoostList(s, i.GuildID, i.ChannelID)
+		if err != nil {
+			str = err.Error()
+		}
 	}
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
