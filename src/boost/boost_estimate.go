@@ -86,7 +86,7 @@ func getContractDurationEstimate(contractEggs float64, numFarmers float64) time.
 	//ASSUME: average fast player has triple leg contract artis and T4C deflector and spends 10% of contract time unboosted
 	//shiny deflectors pull completion time faster than estimate, epic artifacts push slower than estimate
 
-	estimate := contractEggs / (numFarmers * 5.7 * (1.0 + 0.15*min(numFarmers-1.0, 10.0)) * math.Pow(1.05, max(0.0, 10.0-numFarmers)))
+	estimate := contractEggs / (numFarmers * 5.8 * (1.0 + 0.15*min(numFarmers-1.0, 10.0)) * math.Pow(1.05, max(0.0, 10.0-numFarmers)))
 	estimateDuration := time.Duration(estimate * float64(time.Hour))
 
 	//log.Printf("%s: %dq for %d farmers = %v", ID, int(contractEggs), int(numFarmers), estimateDuration.Round(time.Second))
