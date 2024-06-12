@@ -17,6 +17,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/divan/num2words"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
@@ -423,6 +424,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.StartTime = time.Now()
 		contract.ChickenRunEmoji = findBoostBotGuildEmoji(s, "icon_chicken_run", true)
 
+		AdminUsers = config.AdminUsers
 		for _, el := range AdminUsers {
 			if slices.Index(contract.CreatorID, el) == -1 {
 				contract.CreatorID = append(contract.CreatorID, el) // Add admin users to the contract
@@ -897,7 +899,6 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 	}
 
 	// Remove the booster from the contract
-
 	if userID == contract.VolunteerSink {
 		contract.VolunteerSink = ""
 	}
@@ -934,6 +935,11 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 	contract.OrderRevision++
 	delete(contract.Boosters, userID)
 	contract.RegisteredNum = len(contract.Boosters)
+
+	if userID == contract.CreatorID[0] {
+		// Remove the first element of CreatorID
+		contract.CreatorID = contract.CreatorID[1:]
+	}
 
 	if currentBooster != "" {
 		contract.BoostPosition = slices.Index(contract.Order, currentBooster)
