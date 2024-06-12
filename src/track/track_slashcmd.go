@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	petname "github.com/dustinkirkland/golang-petname"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/xhit/go-str2duration/v2"
 )
@@ -22,7 +23,7 @@ func GetSlashTokenCommand(cmd string) *discordgo.ApplicationCommand {
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "name",
 				Description: "Unique name for this tracking session. i.e. Use coop-id of the contract.",
-				Required:    true,
+				Required:    false,
 				MaxLength:   32, // Keep this short
 			},
 			{
@@ -36,6 +37,13 @@ func GetSlashTokenCommand(cmd string) *discordgo.ApplicationCommand {
 				Name:        "linked",
 				Description: "Link with contract channel reactions for sent tokens. Default is true.",
 				Required:    false,
+			},
+			{
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "contract-id",
+				Description:  "Contract ID",
+				Required:     false,
+				Autocomplete: true,
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
@@ -89,7 +97,7 @@ func GetSlashTokenRemoveCommand(cmd string) *discordgo.ApplicationCommand {
 }
 
 // HandleTokenCommand will handle the /token command
-func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, contractID string) {
+func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, contractID string, name string) {
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -100,6 +108,13 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, co
 	linked := true
 	linkReceived := true
 	duration := 12 * time.Hour
+
+	if contractID == "" {
+		if opt, ok := optionMap["contract-id"]; ok {
+			contractID = opt.StringValue()
+		}
+	}
+
 	if opt, ok := optionMap["duration"]; ok {
 		var err error
 		// Timespan of the contract duration
@@ -119,9 +134,13 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, co
 			duration = d.EstimatedDuration
 		}
 	}
-	var trackingName = ""
+	var trackingName = name
 	if opt, ok := optionMap["name"]; ok {
 		trackingName = strings.TrimSpace(opt.StringValue())
+	} else if trackingName == "" {
+
+		trackingName = fmt.Sprintln(petname.Generate(2, "-"))
+
 	}
 	if opt, ok := optionMap["linked"]; ok {
 		linked = opt.BoolValue()

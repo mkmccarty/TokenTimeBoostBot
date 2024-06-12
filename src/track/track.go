@@ -140,9 +140,9 @@ func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
 	var builder strings.Builder
 	ts := td.DurationTime.Round(time.Minute).String()
 	if finalDisplay {
-		fmt.Fprintf(&builder, "# Final Token tracking for **%s**\n", td.Name)
+		fmt.Fprintf(&builder, "# Final Token tracking for %s\n", td.Name)
 	} else {
-		fmt.Fprintf(&builder, "# Token tracking for **%s**\n", td.Name)
+		fmt.Fprintf(&builder, "# Token tracking for %s\n", td.Name)
 	}
 	if td.Linked {
 		fmt.Fprint(&builder, "Linked Contract: ", td.ChannelMention, "\n")
