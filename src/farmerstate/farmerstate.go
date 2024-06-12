@@ -104,7 +104,7 @@ func SetEggIncName(userID string, eggIncName string) {
 		newFarmer(userID)
 	}
 	farmerstate[userID].EggIncName = eggIncName
-
+	SetMiscSettingString(userID, "EggIncRawName", eggIncName)
 	err := saveData(farmerstate)
 	if err != nil {
 		log.Println(err)
