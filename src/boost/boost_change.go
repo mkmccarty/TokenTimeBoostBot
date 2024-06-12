@@ -34,6 +34,12 @@ func GetSlashChangeCommand(cmd string) *discordgo.ApplicationCommand {
 				Autocomplete: true,
 			},
 			{
+				Type:        discordgo.ApplicationCommandOptionUser,
+				Name:        "coordinator",
+				Description: "Change the coordinator",
+				Required:    false,
+			},
+			{
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "boost-order",
 				Description: "Provide new boost order. Example: 1,2,3,6,7,5,8-10",
@@ -143,6 +149,7 @@ func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var str = ""
 	var contractID = ""
 	var coopID = ""
+	var coordinatorID = ""
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -160,9 +167,12 @@ func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		coopID = strings.Replace(coopID, " ", "", -1)
 		str += "Coop ID changed to " + coopID
 	}
+	if opt, ok := optionMap["coordinator"]; ok {
+		coordinatorID = opt.UserValue(s).ID
+	}
 
-	if contractID != "" || coopID != "" {
-		err := ChangeContractIDs(s, i.GuildID, i.ChannelID, i.Member.User.ID, contractID, coopID)
+	if contractID != "" || coopID != "" || coordinatorID != "" {
+		err := ChangeContractIDs(s, i.GuildID, i.ChannelID, i.Member.User.ID, contractID, coopID, coordinatorID)
 		if err != nil {
 			str = err.Error()
 		}
@@ -491,7 +501,7 @@ func removeDuplicates(s []string) []string {
 }
 
 // ChangeContractIDs will change the contractID and/or coopID
-func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, userID string, contractID string, coopID string) error {
+func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, userID string, contractID string, coopID string, coordinatorID string) error {
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -510,6 +520,13 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 	}
 	if coopID != "" {
 		contract.CoopID = coopID
+	}
+	if coordinatorID != "" {
+		if slices.Index(contract.Order, coordinatorID) != -1 {
+			contract.CreatorID[0] = coordinatorID
+		} else {
+			return errors.New("the selected coordinator needs to be in the contract")
+		}
 	}
 	return nil
 }
