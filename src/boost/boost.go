@@ -937,8 +937,8 @@ func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channe
 	contract.RegisteredNum = len(contract.Boosters)
 
 	if userID == contract.CreatorID[0] {
-		// Remove the first element of CreatorID
-		contract.CreatorID = contract.CreatorID[1:]
+		// Reassign CreatorID to the Bot
+		contract.CreatorID[0] = "1124449428267343992"
 	}
 
 	if currentBooster != "" {
