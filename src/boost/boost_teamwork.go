@@ -241,10 +241,10 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 		calcSecondsRemaining = int64((totalReq - totalContributions) / contributionRatePerSecond)
 		endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
-		builder.WriteString(fmt.Sprintf("Contract **%s/%s** on target to complete <t:%d:R>\n", contract.ContractID, contract.CoopID, endTime.Unix()))
+		builder.WriteString(fmt.Sprintf("In Progress **%s/%s** on target to complete <t:%d:R>\n", contract.ContractID, contract.CoopID, endTime.Unix()))
 		builder.WriteString(fmt.Sprintf("Start Time: <t:%d:f>\n", startTime.Unix()))
 		builder.WriteString(fmt.Sprintf("Est. End Time: <t:%d:f>\n", endTime.Unix()))
-		builder.WriteString(fmt.Sprintf("Duration: %v\n", (endTime.Sub(startTime)).Round(time.Second)))
+		builder.WriteString(fmt.Sprintf("Est. Duration: %v\n", (endTime.Sub(startTime)).Round(time.Second)))
 	}
 	log.Print("Contract Duration: ", contractDurationSeconds)
 
