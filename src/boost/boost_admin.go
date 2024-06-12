@@ -124,7 +124,7 @@ func getContractList() (string, *discordgo.MessageSend, error) {
 
 	i := 1
 	for _, c := range Contracts {
-		str := fmt.Sprintf("> Coordinator: <@%s>  link:[%s](%s/%s/%s)\n", c.CreatorID[0], c.CoopID, "https://eicoop-carpet.netlify.app", c.ContractID, c.CoopID)
+		str := fmt.Sprintf("> Coordinator: <@%s>  [%s](%s/%s/%s)\n", c.CreatorID[0], c.CoopID, "https://eicoop-carpet.netlify.app", c.ContractID, c.CoopID)
 		for _, loc := range c.Location {
 			str += fmt.Sprintf("> *%s*\t%s\n", loc.GuildName, loc.ChannelMention)
 		}
