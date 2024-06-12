@@ -42,7 +42,14 @@ func GetSlashTeamworkEval(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Evaluate teamwork values a contract",
-		Options:     []*discordgo.ApplicationCommandOption{},
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "egginc-ign",
+				Description: "Egg Inc, in game name to evaluate.",
+				Required:    false,
+			},
+		},
 	}
 }
 
@@ -65,23 +72,24 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		userID = i.User.ID
 	}
 
-	/*
-		isAdmin := false
-		for _, el := range config.AdminUsers {
-			if el == userID {
-				isAdmin = true
-				break
-			}
+	var eggign string
+	// User interacting with bot, is this first time ?
+	options := i.ApplicationCommandData().Options
+	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+	for _, opt := range options {
+		optionMap[opt.Name] = opt
+	}
+
+	if opt, ok := optionMap["egginc-ign"]; ok {
+		eggign = opt.StringValue()
+	} else {
+		name := farmerstate.GetMiscSettingString(userID, "EggIncRawName")
+		if name != "" {
+			eggign = name
 		}
 
-		if !isAdmin {
-			s.FollowupMessageCreate(i.Interaction, true,
-				&discordgo.WebhookParams{
-					Content: "This feature is currently under test.",
-				})
-			return
-		}
-	*/
+	}
+
 	contract := FindContract(i.ChannelID)
 	if contract == nil {
 		s.FollowupMessageCreate(i.Interaction, true,
@@ -100,7 +108,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		return
 	}
 
-	builder.WriteString(DownloadCoopStatus(userID, contract))
+	builder.WriteString(DownloadCoopStatus(userID, eggign, contract))
 
 	s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
@@ -109,7 +117,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 }
 
 // DownloadCoopStatus will download the coop status for a given contract and coop ID
-func DownloadCoopStatus(userID string, contract *Contract) string {
+func DownloadCoopStatus(userID string, einame string, contract *Contract) string {
 	eggIncID := config.EIUserID
 	reqURL := "https://www.auxbrain.com/ei/coop_status"
 	enc := base64.StdEncoding
@@ -246,7 +254,7 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 		builder.WriteString(fmt.Sprintf("Est. End Time: <t:%d:f>\n", endTime.Unix()))
 		builder.WriteString(fmt.Sprintf("Est. Duration: %v\n", (endTime.Sub(startTime)).Round(time.Second)))
 	}
-	log.Print("Contract Duration: ", contractDurationSeconds)
+	builder.WriteString(fmt.Sprintf("Evaluating data for **%s**\n", einame))
 
 	// Take care of other parameter calculations here
 
@@ -266,20 +274,22 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 		}
 	*/
 
-	//serverTimestampUnix := time.Now().Unix()
-	contractUserName := contract.Boosters[userID].Nick
+	if einame == "" {
+		einame = contract.Boosters[userID].Nick
+	}
+
+	found := false
+	var teamworkNames []string
 
 	for _, c := range decodeCoopStatus.GetContributors() {
 
 		name := c.GetUserName()
-		einame := farmerstate.GetMiscSettingString(userID, "EggIncRawName")
-		if einame == "" {
-			einame = contractUserName
-		}
 
 		if einame != name {
+			teamworkNames = append(teamworkNames, name)
 			continue
 		}
+		found = true
 
 		for _, a := range c.GetBuffHistory() {
 			earnings := int(math.Round(a.GetEarnings()*100 - 100))
@@ -306,7 +316,7 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 	}
 
 	if len(BuffTimeValues) == 0 {
-		builder.WriteString("No buffs found for this contract.")
+		builder.WriteString("**No buffs found for this contract.**\n")
 	} else {
 
 		table := tablewriter.NewWriter(&builder)
@@ -415,6 +425,16 @@ func DownloadCoopStatus(userID string, contract *Contract) string {
 		log.Printf("\n%s", builder.String())
 
 		log.Print("Buff Time Value: ", buffTimeValue)
+	}
+
+	if !found {
+		// Write to builder a message about using /seteiname to associate your discorn name with your Eggs IGN
+		// create string of teamworkNames
+		teamworkNamesStr := strings.Join(teamworkNames, ", ")
+		builder.WriteString("\n")
+		builder.WriteString("Your discord name must be different from your EggInc IGN.\n")
+		builder.WriteString("Use **/seteggincname** to make this association.\n\n")
+		builder.WriteString(fmt.Sprintf("Farmers in this contract are:\n> %s", teamworkNamesStr))
 	}
 
 	if dataTimestampStr != "" {
