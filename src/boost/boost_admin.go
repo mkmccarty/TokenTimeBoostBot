@@ -3,17 +3,13 @@ package boost
 import (
 	"errors"
 	"fmt"
+	"log"
 	"math/rand/v2"
-	"slices"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
-
-// AdminUsers is a list of users who are allowed to use admin commands
-var AdminUsers = []string{}
 
 // HandleAdminContractFinish is called when the contract is complete
 func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -35,8 +31,11 @@ func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCre
 		userID = i.Member.User.ID
 	}
 
-	// Only allow command if users is in the admin list
-	if slices.Index(AdminUsers, userID) == -1 {
+	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
+	if err != nil {
+		log.Println(err)
+	}
+	if perms&discordgo.PermissionAdministrator == 0 {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
@@ -48,7 +47,7 @@ func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	str := "Marking contract " + contractHash + " as finished."
-	err := finishContractByHash(contractHash)
+	err = finishContractByHash(contractHash)
 	if err != nil {
 		str = err.Error()
 	}
@@ -79,7 +78,11 @@ func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreat
 	}
 
 	// Only allow command if users is in the admin list
-	if slices.Index(config.AdminUsers, userID) == -1 {
+	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
+	if err != nil {
+		log.Println(err)
+	}
+	if perms&discordgo.PermissionAdministrator == 0 {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{

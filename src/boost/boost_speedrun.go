@@ -394,7 +394,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 			userID = contract.Boosters[r.UserID].Alts[idx]
 		}
 
-		if userID == contract.SRData.SpeedrunStarterUserID || creatorOfContract(contract, r.UserID) {
+		if userID == contract.SRData.SpeedrunStarterUserID || creatorOfContract(s, contract, r.UserID) {
 			if r.Emoji.Name == "🦵" {
 				keepReaction = true
 				// Indicate that the Sink is starting to kick users

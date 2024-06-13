@@ -58,7 +58,7 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 		})
 	}
 
-	contractCreator := creatorOfContract(contract, userID)
+	contractCreator := creatorOfContract(s, contract, userID)
 
 	if contract != nil && contractCreator {
 

@@ -369,7 +369,7 @@ func HandleChangePingRoleCommand(s *discordgo.Session, i *discordgo.InteractionC
 	if contract == nil {
 		str = errorNoContract
 	} else {
-		if !creatorOfContract(contract, i.Member.User.ID) {
+		if !creatorOfContract(s, contract, i.Member.User.ID) {
 			str = "only the contract creator can change the contract"
 		}
 	}
@@ -438,7 +438,7 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 	if contract == nil {
 		str = errorNoContract
 	} else {
-		if !creatorOfContract(contract, i.Member.User.ID) {
+		if !creatorOfContract(s, contract, i.Member.User.ID) {
 			str = "only the contract creator can change the contract"
 		}
 	}
@@ -508,7 +508,7 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 	}
 
 	// return an error if the userID isn't the contract creator
-	if !creatorOfContract(contract, userID) {
+	if !creatorOfContract(s, contract, userID) {
 		return errors.New("only the contract creator can change the contract")
 	}
 
@@ -544,7 +544,7 @@ func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string
 	}
 
 	// return an error if the userID isn't the contract creator
-	if !creatorOfContract(contract, userID) {
+	if !creatorOfContract(s, contract, userID) {
 		return errors.New("only the contract creator can change the contract")
 	}
 
@@ -602,7 +602,7 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 	}
 
 	// return an error if the userID isn't the contract creator
-	if !creatorOfContract(contract, userID) {
+	if !creatorOfContract(s, contract, userID) {
 		return errors.New("only the contract creator can change the contract")
 	}
 
@@ -703,7 +703,7 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 	}
 
 	// return an error if the userID isn't the contract creator
-	if !creatorOfContract(contract, userID) {
+	if !creatorOfContract(s, contract, userID) {
 		return errors.New("only the contract creator can change the contract")
 	}
 
