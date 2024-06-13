@@ -7,7 +7,6 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"os"
-	"slices"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -38,7 +37,11 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 	}
 
 	// Only allow command if users is in the admin list
-	if slices.Index(boost.AdminUsers, userID) == -1 {
+	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
+	if err != nil {
+		log.Println(err)
+	}
+	if perms&discordgo.PermissionAdministrator == 0 {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{

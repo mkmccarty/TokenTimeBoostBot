@@ -17,7 +17,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/divan/num2words"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
@@ -424,13 +423,6 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.StartTime = time.Now()
 		contract.ChickenRunEmoji = findBoostBotGuildEmoji(s, "icon_chicken_run", true)
 
-		AdminUsers = config.AdminUsers
-		for _, el := range AdminUsers {
-			if slices.Index(contract.CreatorID, el) == -1 {
-				contract.CreatorID = append(contract.CreatorID, el) // Add admin users to the contract
-			}
-		}
-
 		contract.RegisteredNum = 0
 		contract.CoopSize = coopSize
 		contract.Name = contractID
@@ -752,21 +744,31 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 }
 
 // IsUserCreatorOfAnyContract will return true if the user is the creator of any contract
-func IsUserCreatorOfAnyContract(userID string) bool {
+func IsUserCreatorOfAnyContract(s *discordgo.Session, userID string) bool {
 	for _, c := range Contracts {
-		if creatorOfContract(c, userID) {
+		if creatorOfContract(s, c, userID) {
 			return true
 		}
 	}
 	return false
 }
 
-func creatorOfContract(c *Contract, u string) bool {
+func creatorOfContract(s *discordgo.Session, c *Contract, u string) bool {
 	if c != nil {
 		for _, el := range c.CreatorID {
 			if el == u {
 				return true
 			}
+		}
+	}
+
+	for _, el := range c.Location {
+		perms, err := s.UserChannelPermissions(u, el.ChannelID)
+		if err != nil {
+			log.Println(err)
+		}
+		if perms&discordgo.PermissionAdministrator != 0 {
+			return true
 		}
 	}
 	return false
@@ -1015,7 +1017,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 		return errors.New(errorContractAlreadyStarted)
 	}
 
-	if !creatorOfContract(contract, userID) {
+	if !creatorOfContract(s, contract, userID) {
 		return errors.New(errorNotContractCreator)
 	}
 

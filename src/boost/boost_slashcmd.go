@@ -382,15 +382,19 @@ func HandleCoopETACommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 
 // HandleBumpCommand will handle the /bump command
 func HandleBumpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	str := "Redrawing the boost list"
+	str := "Contract not found"
 
 	contract := FindContract(i.ChannelID)
-	if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateCRT {
-		str = "Speedrun CRT is in progress, cannot bump as the message will lose reactions."
-	} else {
-		err := RedrawBoostList(s, i.GuildID, i.ChannelID)
-		if err != nil {
-			str = err.Error()
+	if contract != nil {
+
+		if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateCRT {
+			str = "Speedrun CRT is in progress, cannot bump as the message will lose reactions."
+		} else {
+			str = "Redrawing the boost list"
+			err := RedrawBoostList(s, i.GuildID, i.ChannelID)
+			if err != nil {
+				str = err.Error()
+			}
 		}
 	}
 
@@ -482,7 +486,7 @@ func HandleContractDelete(s *discordgo.Session, i *discordgo.InteractionCreate) 
 
 	if contract != nil {
 
-		if creatorOfContract(contract, i.Member.User.ID) {
+		if creatorOfContract(s, contract, i.Member.User.ID) {
 
 			coopName, err := DeleteContract(s, i.GuildID, i.ChannelID)
 			if err == nil {

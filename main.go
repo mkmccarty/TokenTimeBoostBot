@@ -77,7 +77,6 @@ func init() {
 	err := config.ReadConfig("./.config.json")
 
 	if err != nil {
-		boost.AdminUsers = config.AdminUsers
 		log.Println(err.Error())
 		return
 	}
@@ -553,7 +552,7 @@ var (
 				eiName = ""
 			} else {
 				// Is the user issuing the command a coordinator?
-				if userID != i.Member.User.ID && !boost.IsUserCreatorOfAnyContract(i.Member.User.ID) {
+				if userID != i.Member.User.ID && !boost.IsUserCreatorOfAnyContract(s, i.Member.User.ID) {
 					str = "This form of usage is restricted to contract coordinators and administrators."
 					eiName = ""
 				} else {

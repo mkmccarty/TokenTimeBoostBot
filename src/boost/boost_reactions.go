@@ -60,7 +60,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		}
 	}
 
-	if userInContract(contract, r.UserID) || creatorOfContract(contract, r.UserID) {
+	if userInContract(contract, r.UserID) || creatorOfContract(s, contract, r.UserID) {
 		contract.LastInteractionTime = time.Now()
 		// Isolate Speedrun reactions for safety
 		if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateCRT {
@@ -115,7 +115,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 					}
 				}
 
-				if userID == contract.Order[contract.BoostPosition] || votingElection || creatorOfContract(contract, r.UserID) {
+				if userID == contract.Order[contract.BoostPosition] || votingElection || creatorOfContract(s, contract, r.UserID) {
 					//contract.mutex.Unlock()
 					Boosting(s, r.GuildID, r.ChannelID)
 				}
@@ -140,7 +140,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			}
 
 			// Reaction for current booster to change places
-			if r.UserID == contract.Order[contract.BoostPosition] || creatorOfContract(contract, r.UserID) {
+			if r.UserID == contract.Order[contract.BoostPosition] || creatorOfContract(s, contract, r.UserID) {
 				if (contract.BoostPosition + 1) < len(contract.Order) {
 					if r.Emoji.Name == "🔃" {
 						//contract.mutex.Unlock()
