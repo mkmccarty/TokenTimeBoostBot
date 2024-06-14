@@ -8,7 +8,6 @@ import (
 	"math"
 	"net/http"
 	"net/url"
-	"slices"
 	"strings"
 	"time"
 
@@ -99,14 +98,16 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 		return
 	}
-	if slices.Index(contract.Order, userID) == -1 {
-		s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: "User isn't in this contract.",
-			})
+	/*
+		if slices.Index(contract.Order, userID) == -1 {
+			s.FollowupMessageCreate(i.Interaction, true,
+				&discordgo.WebhookParams{
+					Content: "User isn't in this contract.",
+				})
 
-		return
-	}
+			return
+		}
+	*/
 	if config.EIUserID != "" {
 		builder.WriteString(DownloadCoopStatus(userID, eggign, contract))
 	} else {
@@ -144,9 +145,12 @@ func DownloadCoopStatus(userID string, einame string, contract *Contract) string
 		nowTime = cachedData.timestamp
 		// Use protoData as needed
 	} else {
+		coopID := strings.ToLower(contract.CoopID)
+		contractID := strings.ToLower(contract.ContractID)
+
 		coopStatusRequest := ei.ContractCoopStatusRequest{
-			ContractIdentifier: &contract.ContractID,
-			CoopIdentifier:     &contract.CoopID,
+			ContractIdentifier: &contractID,
+			CoopIdentifier:     &coopID,
 			UserId:             &eggIncID,
 		}
 		reqBin, err := proto.Marshal(&coopStatusRequest)
@@ -392,38 +396,41 @@ func DownloadCoopStatus(userID string, einame string, contract *Contract) string
 		tableCR.Render()
 		builder.WriteString("```")
 
-		tableT := tablewriter.NewWriter(&builder)
-		tableT.ClearRows()
+		if builder.Len() < 1500 {
 
-		BTA := (contractDurationSeconds / 60) / float64(eiContract.MinutesPerToken)
+			tableT := tablewriter.NewWriter(&builder)
+			tableT.ClearRows()
 
-		tableT.SetHeader([]string{"△ TVAL", "sent 0 tval", "2.5 tval", "3 tval"})
-		tableT.SetBorder(false)
-		tableT.SetAlignment(tablewriter.ALIGN_RIGHT)
+			BTA := (contractDurationSeconds / 60) / float64(eiContract.MinutesPerToken)
 
-		for tval := -3.0; tval <= 3.0; tval += 1.0 {
-			var items []string
-			items = append(items, fmt.Sprintf("%1.1f", tval))
-			for tSent := 0.0; tSent <= 3.0; tSent += 1.5 {
-				if BTA <= 42.0 {
-					T = (2.0 / 3.0 * min(tSent, 3.0)) + ((8.0 / 3.0) * min(tval, 3.0))
-				} else {
-					T = (200.0/(7.0*BTA))*min(tSent, 0.07*BTA) + (800.0 / (7.0 * BTA) * min(tval, 0.07*BTA))
+			tableT.SetHeader([]string{"△ TVAL", "sent 0 tval", "2.5 tval", "3 tval"})
+			tableT.SetBorder(false)
+			tableT.SetAlignment(tablewriter.ALIGN_RIGHT)
+
+			for tval := -3.0; tval <= 3.0; tval += 1.0 {
+				var items []string
+				items = append(items, fmt.Sprintf("%1.1f", tval))
+				for tSent := 0.0; tSent <= 3.0; tSent += 1.5 {
+					if BTA <= 42.0 {
+						T = (2.0 / 3.0 * min(tSent, 3.0)) + ((8.0 / 3.0) * min(tval, 3.0))
+					} else {
+						T = (200.0/(7.0*BTA))*min(tSent, 0.07*BTA) + (800.0 / (7.0 * BTA) * min(tval, 0.07*BTA))
+					}
+					TTeamworkScore := ((5.0 * B * 0) + (CR * 0) + T) / 19.0
+					if tSent < tval {
+						items = append(items, "")
+					} else {
+						items = append(items, fmt.Sprintf("%1.4f", TTeamworkScore))
+					}
+					//		tableT.Append([]string{fmt.Sprintf("%1.1f", tval), fmt.Sprintf("%1.6f", tSent), fmt.Sprintf("%1.6f", TTeamworkScore)})
 				}
-				TTeamworkScore := ((5.0 * B * 0) + (CR * 0) + T) / 19.0
-				if tSent < tval {
-					items = append(items, "")
-				} else {
-					items = append(items, fmt.Sprintf("%1.4f", TTeamworkScore))
-				}
-				//		tableT.Append([]string{fmt.Sprintf("%1.1f", tval), fmt.Sprintf("%1.6f", tSent), fmt.Sprintf("%1.6f", TTeamworkScore)})
+				tableT.Append(items)
 			}
-			tableT.Append(items)
+			//builder.Reset()
+			builder.WriteString("```")
+			tableT.Render()
+			builder.WriteString("```")
 		}
-		//builder.Reset()
-		builder.WriteString("```")
-		tableT.Render()
-		builder.WriteString("```")
 
 		log.Printf("\n%s", builder.String())
 

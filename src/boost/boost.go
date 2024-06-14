@@ -1018,7 +1018,9 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	}
 
 	if !creatorOfContract(s, contract, userID) {
-		return errors.New(errorNotContractCreator)
+		if !(contract.Speedrun && contract.SRData.SpeedrunStarterUserID == userID) {
+			return errors.New(errorNotContractCreator)
+		}
 	}
 
 	reorderBoosters(contract)
