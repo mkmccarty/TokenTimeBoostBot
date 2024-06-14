@@ -1506,6 +1506,7 @@ func FinishContract(s *discordgo.Session, contract *Contract) error {
 	for _, loc := range contract.Location {
 		loc.ListMsgID = ""
 	}
+	// Location[0] for this since the original contract is on the first location
 	farmerstate.SetOrderPercentileAll(contract.Order, len(contract.Order))
 	DeleteContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID)
 	return nil
