@@ -15,7 +15,7 @@ require (
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/post04/discordgo-emoji-util v0.0.0-20210226234616-e2c0f5ea133e
 	github.com/rs/xid v1.5.0
-	github.com/sashabaranov/go-openai v1.24.2
+	github.com/sashabaranov/go-openai v1.25.0
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	google.golang.org/api v0.184.0
 	google.golang.org/protobuf v1.34.2
@@ -40,7 +40,7 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.4 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
-	github.com/gorilla/websocket v1.5.2 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/smartystreets/goconvey v1.8.1 // indirect
