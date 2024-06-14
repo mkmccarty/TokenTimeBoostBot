@@ -98,6 +98,13 @@ func HandleSlashVoluntellSinkCommand(s *discordgo.Session, i *discordgo.Interact
 	// User interacting with bot, is this first time ?
 	str := "Voluntell as token sink for this contract. It will show up on the next boost list refresh."
 
+	var userID string
+	if i.GuildID != "" {
+		userID = i.Member.User.ID
+	} else {
+		userID = i.User.ID
+	}
+
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 	for _, opt := range options {
@@ -120,13 +127,22 @@ func HandleSlashVoluntellSinkCommand(s *discordgo.Session, i *discordgo.Interact
 	if contract == nil {
 		str = "No contract found in this channel"
 	} else {
+
+		isAdmin := false
+		perms, err := s.UserChannelPermissions(userID, i.Interaction.ChannelID)
+		if err == nil {
+			if perms&discordgo.PermissionAdministrator != 0 {
+				isAdmin = true
+			}
+		}
+
 		if !confirm {
 			str = "You must confirm you want to be the token sink"
 		} else if strings.HasPrefix(VoluntellName, "<@") {
 			str = "This should be a guest farmer within this contract and not a user mention."
 		} else if contract.Speedrun {
 			str = "You cannot use this command on a speedrun contract"
-		} else if contract.VolunteerSink != "" {
+		} else if contract.VolunteerSink != "" && !isAdmin {
 			str = "Token sink is already set"
 		} else {
 			// if VolunteerSink is already set, reply with error
