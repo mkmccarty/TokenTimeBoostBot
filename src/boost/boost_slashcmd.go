@@ -125,9 +125,14 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		if err == nil {
 			if !ch.IsThread() {
 				// Default to 1 day timeout
+				var builder strings.Builder
+				builder.WriteString(coopID)
 				info := ei.EggIncContractsAll[contractID]
-				threadName := fmt.Sprintf("%s : (0/%d) ~ %s", coopID, info.MaxCoopSize, info.EstimatedDuration.Round(time.Second))
-				thread, err := s.ThreadStart(ChannelID, threadName, discordgo.ChannelTypeGuildPublicThread, 60*24)
+				if info.ID != "" {
+					fmt.Fprintf(&builder, " (0/%d)", info.MaxCoopSize)
+				}
+
+				thread, err := s.ThreadStart(ChannelID, builder.String(), discordgo.ChannelTypeGuildPublicThread, 60*24)
 				if err == nil {
 					ChannelID = thread.ID
 					s.ThreadJoin(i.Member.User.ID)
