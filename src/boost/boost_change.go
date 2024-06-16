@@ -3,6 +3,7 @@ package boost
 import (
 	"errors"
 	"fmt"
+	"log"
 	"regexp"
 	"slices"
 	"strconv"
@@ -190,11 +191,11 @@ func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Either change a single booster or the whole list
 	// Cannot change one booster's position and make them boost
 	if boostOrder != "" {
-		err := ChangeBoostOrder(s, i.GuildID, i.ChannelID, i.Member.User.ID, boostOrder, currentBooster == "")
+		resultStr, err := ChangeBoostOrder(s, i.GuildID, i.ChannelID, i.Member.User.ID, boostOrder, currentBooster == "")
 		if err != nil {
 			str += err.Error()
 		} else {
-			str += fmt.Sprintf("Change Boost Order to %s.", boostOrder)
+			str += resultStr
 		}
 	}
 
@@ -589,21 +590,21 @@ func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string
 }
 
 // ChangeBoostOrder will change the order of the boosters in the contract
-func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, userID string, boostOrder string, redraw bool) error {
+func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, userID string, boostOrder string, redraw bool) (string, error) {
 	var contract = FindContract(channelID)
 	var boostOrderClean = ""
 	if contract == nil {
-		return errors.New(errorNoContract)
+		return "", errors.New(errorNoContract)
 	}
 
 	// if contract is in signup state return error
 	if contract.State == ContractStateSignup {
-		return errors.New(errorContractNotStarted)
+		return "", errors.New(errorContractNotStarted)
 	}
 
 	// return an error if the userID isn't the contract creator
 	if !creatorOfContract(s, contract, userID) {
-		return errors.New("only the contract creator can change the contract")
+		return "", errors.New("only the contract creator can change the contract")
 	}
 
 	// get current booster boost state
@@ -612,7 +613,7 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 		currentBooster = contract.Order[contract.BoostPosition]
 	}
 
-	fmt.Println("ChangeBoostOrder", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "BoostOrder: ", boostOrder)
+	log.Println("ChangeBoostOrder", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "BoostOrder: ", boostOrder)
 
 	// split the boostOrder string into an array by commas
 	re := regexp.MustCompile(`[\\<>@#&!]`)
@@ -650,7 +651,7 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 
 	// if length of boostorderarray doesn't mach length of contract.Order then return error
 	if len(boostOrderArray) != len(contract.Order) {
-		return errors.New("invalid boost order. Every position needs to be specified")
+		return "", errors.New("invalid boost order. Every position needs to be specified")
 	}
 
 	// convert boostOrderArray to an array of ints
@@ -687,7 +688,13 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 	if redraw {
 		refreshBoostListMessage(s, contract)
 	}
-	return nil
+
+	summaryStr := fmt.Sprintf("Boost order changed to %s.", boostOrder)
+	if contract.BoostPosition < len(contract.Order) {
+		summaryStr += fmt.Sprintf(" Current booster is %s. ", contract.Boosters[contract.Order[contract.BoostPosition]].Mention)
+	}
+
+	return summaryStr, nil
 }
 
 // MoveBooster will move a booster to a new position in the contract
