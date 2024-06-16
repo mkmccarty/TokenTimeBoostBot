@@ -862,8 +862,8 @@ func removeIndex(s []string, index int) []string {
 	return append(s[:index], s[index+1:]...)
 }
 
-// RemoveContractBoosterByMention will remove a booster from the contract by mention
-func RemoveContractBoosterByMention(s *discordgo.Session, guildID string, channelID string, operator string, mention string) error {
+// RemoveFarmerByMention will remove a booster from the contract by mention
+func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID string, operator string, mention string) error {
 	fmt.Println("RemoveContractBoosterByMention", "GuildID: ", guildID, "ChannelID: ", channelID, "Operator: ", operator, "Mention: ", mention)
 	var contract = FindContract(channelID)
 	redraw := false

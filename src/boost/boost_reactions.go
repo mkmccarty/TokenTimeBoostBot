@@ -185,6 +185,10 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			}
 		}
 
+		if r.Emoji.Name == "🌊" {
+			UpdateThreadName(s, contract)
+		}
+
 		if r.Emoji.Name == "🐓" {
 			// Indicate that a farmer is ready for chicken runs
 			userID := r.UserID
