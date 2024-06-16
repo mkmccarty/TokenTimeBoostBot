@@ -193,6 +193,12 @@ var (
 					Description: "Role to use to ping for this contract. Default is @here.",
 					Required:    false,
 				},
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "make-thread",
+					Description: "Create a thread for this contract? (default: false)",
+					Required:    false,
+				},
 			},
 		},
 		{
@@ -646,7 +652,7 @@ var (
 		},
 		"fd_signupLeave": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			str := "Removed from Contract"
-			var err = boost.RemoveContractBoosterByMention(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), i.Member.User.Mention())
+			var err = boost.RemoveFarmerByMention(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), i.Member.User.Mention())
 			if err != nil {
 				str = err.Error()
 			}

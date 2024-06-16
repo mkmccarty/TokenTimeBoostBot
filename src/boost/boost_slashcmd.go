@@ -12,6 +12,39 @@ import (
 	"github.com/xhit/go-str2duration/v2"
 )
 
+// UpdateThreadName will update a threads name to the current contract state
+func UpdateThreadName(s *discordgo.Session, contract *Contract) {
+	if contract == nil {
+		return
+	}
+	var builder strings.Builder
+	builder.WriteString(contract.CoopID + " ")
+	if len(contract.Order) != contract.CoopSize {
+		fmt.Fprintf(&builder, "(%d/%d)", len(contract.Order), contract.CoopSize)
+	} else {
+		builder.WriteString(" (full)")
+	}
+	/*
+		if contract.Speedrun {
+			builder.WriteString(" " + speedrunStateNames[contract.SRData.SpeedrunState])
+		} else {
+			builder.WriteString(" " + contractStateNames[contract.State])
+		}
+	*/
+
+	for _, loc := range contract.Location {
+		ch, err := s.Channel(loc.ChannelID)
+		if err == nil {
+
+			if ch.IsThread() {
+				s.ChannelEdit(loc.ChannelID, &discordgo.ChannelEdit{
+					Name: builder.String(),
+				})
+			}
+		}
+	}
+}
+
 // HandleContractCommand will handle the /contract command
 func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
@@ -31,6 +64,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	var coopSize = 0
 	var ChannelID = i.ChannelID
 	var pingRole = "@here"
+	makeThread := false
 
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
@@ -57,10 +91,13 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		coopID = opt.StringValue()
 		coopID = strings.Replace(coopID, " ", "", -1)
 	} else {
-		var c, err = s.Channel(i.ChannelID)
+		var c, err = s.Channel(ChannelID)
 		if err != nil {
 			coopID = c.Name
 		}
+	}
+	if opt, ok := optionMap["make-thread"]; ok {
+		makeThread = opt.BoolValue()
 	}
 
 	if coopSize == 0 {
@@ -81,10 +118,31 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			return
 		}
 	}
+
+	// Create a new thread for this contract
+	if makeThread {
+		ch, err := s.Channel(ChannelID)
+		if err == nil {
+			if !ch.IsThread() {
+				// Default to 1 day timeout
+				info := ei.EggIncContractsAll[contractID]
+				threadName := fmt.Sprintf("%s : (0/%d) ~ %s", coopID, info.MaxCoopSize, info.EstimatedDuration.Round(time.Second))
+				thread, err := s.ThreadStart(ChannelID, threadName, discordgo.ChannelTypeGuildPublicThread, 60*24)
+				if err == nil {
+					ChannelID = thread.ID
+					s.ThreadJoin(i.Member.User.ID)
+				} else {
+					log.Print(err)
+				}
+			}
+		}
+	}
+
 	mutex.Lock()
-	contract, err := CreateContract(s, contractID, coopID, coopSize, boostOrder, i.GuildID, i.ChannelID, i.Member.User.ID, pingRole)
+	contract, err := CreateContract(s, contractID, coopID, coopSize, boostOrder, i.GuildID, ChannelID, i.Member.User.ID, pingRole)
 	mutex.Unlock()
 	if err != nil {
+
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
@@ -323,7 +381,7 @@ func HandlePruneCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Components: []discordgo.MessageComponent{}},
 	})
 
-	var err = RemoveContractBoosterByMention(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), farmer)
+	var err = RemoveFarmerByMention(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), farmer)
 	if err != nil {
 		log.Println("/prune", err.Error())
 		str = err.Error()
