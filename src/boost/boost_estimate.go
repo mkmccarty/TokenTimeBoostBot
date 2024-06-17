@@ -60,9 +60,10 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		if int(c.MaxCoopSize) == 1 {
 			fstr = "farmer"
 		}
+		// A speedrun or fastrun of $CONTRACT with $NUMBER farmer(s) needing to ship $GOAL eggs is estimated to take about $TIME
 		estStr := c.EstimatedDuration.Round(time.Minute).String()
 		estStr = strings.TrimRight(estStr, "0s")
-		str = fmt.Sprintf("**%s** (%s) with %d %s needing to ship %dq eggs is estimated to take **about %v**", c.Name, c.ID, int(c.MaxCoopSize), fstr, int(c.TargetAmountq[len(c.TargetAmountq)-1]), estStr)
+		str = fmt.Sprintf("A speedrun or fastrun of **%s** (%s) with %d %s needing to ship %dq eggs is estimated to take **about %v**", c.Name, c.ID, int(c.MaxCoopSize), fstr, int(c.TargetAmountq[len(c.TargetAmountq)-1]), estStr)
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
