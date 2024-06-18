@@ -850,9 +850,9 @@ func main() {
 	}
 
 	commandSet := append(commands, globalCommands...)
+	commandSet = append(commandSet, adminCommands...)
 
 	syncCommands(s, config.DiscordGuildID, commandSet)
-	syncCommands(s, "", adminCommands)
 
 	defer s.Close()
 
