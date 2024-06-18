@@ -24,11 +24,28 @@ func UpdateThreadName(s *discordgo.Session, contract *Contract) {
 	} else {
 		builder.WriteString(" (full)")
 	}
+	if !contract.PlannedStartTime.IsZero() && contract.State == ContractStateSignup {
+		nyTime, err := time.LoadLocation("America/New_York")
+		if err != nil {
+			log.Println("Failed to load New York time zone:", err)
+			return
+		}
+		currentTime := contract.PlannedStartTime.In(nyTime)
+
+		// Format the current time as a string
+		formattedTime := currentTime.Format("15:04pm MST")
+
+		// Append the formatted time to the thread name
+		builder.WriteString(" " + formattedTime)
+
+	}
 	/*
 		if contract.Speedrun {
 			builder.WriteString(" " + speedrunStateNames[contract.SRData.SpeedrunState])
 		} else {
 			builder.WriteString(" " + contractStateNames[contract.State])
+
+			// Get the current time in New York
 		}
 	*/
 
@@ -160,7 +177,8 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	var builder strings.Builder
 	builder.WriteString("Contract created. Use the Contract button if you have to recycle it.\n")
-	builder.WriteString(("This fastrun contract can be converted to a `/speedrun` anytime during the sign-up list.\n"))
+	builder.WriteString("This fastrun contract can be converted to a `/speedrun` anytime during the sign-up list.\n")
+	builder.WriteString("If this contract isn't an immediate start use `/change-planned-start` to add the time to the sign-up message.\n")
 	builder.WriteString("React with 🌊 to automaticaly update the thread name.")
 
 	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
