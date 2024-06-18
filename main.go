@@ -779,6 +779,57 @@ func init() {
 	})
 }
 
+func syncCommands(s *discordgo.Session, guildID string, desiredCommandList []*discordgo.ApplicationCommand) {
+	existingCommands, err := s.ApplicationCommands(s.State.User.ID, guildID)
+	if err != nil {
+		log.Fatalf("Failed to fetch commands for guild %s: %v", guildID, err)
+		return
+	}
+
+	desiredMap := make(map[string]*discordgo.ApplicationCommand)
+	for _, cmd := range desiredCommandList {
+		desiredMap[cmd.Name] = cmd
+	}
+
+	existingMap := make(map[string]*discordgo.ApplicationCommand)
+	for _, cmd := range existingCommands {
+		existingMap[cmd.Name] = cmd
+	}
+
+	// Delete commands not in the desired list
+	for _, cmd := range existingCommands {
+		if _, found := desiredMap[cmd.Name]; !found {
+			err := s.ApplicationCommandDelete(s.State.User.ID, guildID, cmd.ID)
+			if err != nil {
+				log.Printf("Failed to delete command %s (%s) in guild %s: %v", cmd.Name, cmd.ID, guildID, err)
+			} else {
+				log.Printf("Successfully deleted command %s (%s) in guild %s", cmd.Name, cmd.ID, guildID)
+			}
+		}
+	}
+
+	// Create or update existing commands
+	for _, cmd := range desiredCommandList {
+		if existingCmd, found := existingMap[cmd.Name]; found {
+			// Edit existing command
+			_, err := s.ApplicationCommandEdit(s.State.User.ID, guildID, existingCmd.ID, cmd)
+			if err != nil {
+				log.Printf("Failed to edit command %s (%s) in guild %s: %v", cmd.Name, cmd.ID, guildID, err)
+			} else {
+				log.Printf("Successfully edited command %s (%s) in guild %s", cmd.Name, cmd.ID, guildID)
+			}
+		} else {
+			// Create new command
+			_, err := s.ApplicationCommandCreate(s.State.User.ID, guildID, cmd)
+			if err != nil {
+				log.Printf("Failed to create command %s in guild %s: %v", cmd.Name, guildID, err)
+			} else {
+				log.Printf("Successfully created command %s in guild %s", cmd.Name, guildID)
+			}
+		}
+	}
+}
+
 func main() {
 	/*
 		go func() {
@@ -797,58 +848,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
-	if *RemoveCommands {
-		// Delete Guild Specific commands
-		cmds, err := s.ApplicationCommands(config.DiscordAppID, config.DiscordGuildID)
-		if (err == nil) && (len(cmds) > 0) {
-			// loop through all cmds
-			for _, cmd := range cmds {
-				// delete each cmd
-				log.Printf("Delete command '%v' command.", cmd.Name)
-				s.ApplicationCommandDelete(config.DiscordAppID, config.DiscordGuildID, cmd.ID)
-			}
-		}
 
-		// Delete global commands
-		if config.DiscordGuildID != `` {
-			cmds, err = s.ApplicationCommands(config.DiscordAppID, "")
-			if (err == nil) && (len(cmds) > 0) {
-				// loop through all cmds
-				for _, cmd := range cmds {
-					// delete each cmd
-					s.ApplicationCommandDelete(config.DiscordAppID, "", cmd.ID)
-				}
-			}
-		}
-	}
+	commandSet := append(commands, globalCommands...)
 
-	log.Println("Adding commands...")
-	registeredCommands := make([]*discordgo.ApplicationCommand, len(commands)+len(adminCommands))
-	for i, v := range commands {
-		gid := config.DiscordGuildID
-		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, gid, v)
-		if err != nil {
-			log.Printf("Cannot create '%v' command: %v", v.Name, err)
-		}
-		registeredCommands[i] = cmd
-	}
-	// Global Commands exist only for the BoostBot Home Guild
-	for i, v := range globalCommands {
-		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, "", v)
-		if err != nil {
-			log.Printf("Cannot create '%v' command: %v", v.Name, err)
-		}
-		registeredCommands[len(commands)+i] = cmd
-	}
-
-	// Admin Commands exist only for the BoostBot Home Guild
-	for i, v := range adminCommands {
-		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, "", v)
-		if err != nil {
-			log.Printf("Cannot create '%v' command: %v", v.Name, err)
-		}
-		registeredCommands[len(commands)+i] = cmd
-	}
+	syncCommands(s, config.DiscordGuildID, commandSet)
+	syncCommands(s, "", adminCommands)
 
 	defer s.Close()
 
@@ -859,21 +863,6 @@ func main() {
 
 	boost.SaveAllData()
 	track.SaveAllData()
-
-	if *RemoveCommands {
-		log.Println("Removing commands...")
-
-		//registeredCommands, err := s.ApplicationCommands(s.State.User.ID, *GuildID)
-		if err == nil {
-			for _, v := range registeredCommands {
-				err := s.ApplicationCommandDelete(s.State.User.ID, config.DiscordGuildID, v.ID)
-				log.Printf("Delete command '%v' command.", v.Name)
-				if err != nil {
-					log.Printf("Cannot delete '%v' command: %v\n", v.Name, err)
-				}
-			}
-		}
-	}
 
 	log.Println("Graceful shutdown")
 }
