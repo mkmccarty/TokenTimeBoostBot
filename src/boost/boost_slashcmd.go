@@ -158,10 +158,15 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		return
 	}
 
+	var builder strings.Builder
+	builder.WriteString("Contract created. Use the Contract button if you have to recycle it.\n")
+	builder.WriteString(("This fastrun contract can be converted to a `/speedrun` anytime during the sign-up list.\n"))
+	builder.WriteString("React with 🌊 to automaticaly update the thread name.")
+
 	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "Contract created. Use the ♻️Contract button if you have to recycle it.",
+			Content: builder.String(),
 			Flags:   discordgo.MessageFlagsEphemeral,
 			// Buttons and other components are specified in Components field.
 		},
