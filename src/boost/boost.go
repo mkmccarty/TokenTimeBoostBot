@@ -142,6 +142,7 @@ type Booster struct {
 	RunChickensTime  time.Time     // Time Farmer triggered chicken run reaction
 	RanChickensOn    []string      // Array of users that the farmer ran chickens on
 	BoostTriggerTime time.Time     // Used for time remaining in boost
+	Hint             []string      // Used to track which hints have been given
 }
 
 // LocationData holds server specific Data for a contract

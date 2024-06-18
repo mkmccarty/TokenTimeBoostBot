@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"time"
 
@@ -195,7 +196,10 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 	}
 	fmt.Fprintf(&builder, "\n**Current △ TVal %4.3f**\n", sentValue-receivedValue)
 
-	fmt.Fprintf(&builder, "ᵀʳᵃᶜᵏᵉʳ ᵘˢᵉˢ ᵈᶦˢᶜᵒʳᵈ ᶦⁿᵗᵉʳᵃᶜᵗᶦᵒⁿˢ ᵃⁿᵈ ʳᵉᵃᶜᵗᶦᵒⁿˢ ᵗᵒ ᵗʳᵃᶜᵏ ᵗᵒᵏᵉⁿˢ. ᶠᵒʳ ᵗʰᵉ ᵐᵒˢᵗ ᵃᶜᶜᵘʳᵃᵗᵉ ᵛᵃˡᵘᵉˢ ᵐᵃᵏᵉ ˢᵘʳᵉ ᵗʰᵉ ᵗᵒᵗᵃˡ ᶜᵒⁿᵗʳᵃᶜᵗ ᵗᶦᵐᵉ ᶦˢ ᵃᶜᶜᵘʳᵃᵗᵉ")
+	if slices.Index(booster.Hint, "TokenRemove") == -1 {
+		fmt.Fprintf(&builder, "\nThe `/token-remove` command can be used to adjust sent/received tokens.\n")
+		booster.Hint = append(booster.Hint, "TokenRemove")
+	}
 	return builder.String()
 }
 
