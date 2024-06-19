@@ -15,6 +15,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/db"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/launch"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
@@ -836,6 +837,9 @@ func main() {
 			log.Println(http.ListenAndServe("localhost:6060", nil))
 		}()
 	*/
+	// Init Mongodb
+	db.Open()
+	defer db.Close()
 
 	// Start our CRON job to grab Egg Inc contract data from the Carpet github repository
 	go tasks.ExecuteCronJob(s)
