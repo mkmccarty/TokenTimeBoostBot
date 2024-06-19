@@ -512,6 +512,10 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 		}
 	}
 
+	if r.Emoji.Name == "🌊" {
+		UpdateThreadName(s, contract)
+	}
+
 	/*
 		if contract.SRData.SpeedrunState == SpeedrunStatePost && creatorOfContract(contract, r.UserID) {
 			// Coordinator can end the contract
