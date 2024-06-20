@@ -330,12 +330,6 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 			Inline: true,
 		})
 
-		if td.MinutesPerToken == 0 {
-			if len(td.Sent)+len(td.Received) > 30 {
-				td.MinutesPerToken = 5
-			}
-		}
-
 		if td.MinutesPerToken != 0 {
 			BTA := td.DurationTime.Minutes() / float64(td.MinutesPerToken)
 			targetTval := 3.0
