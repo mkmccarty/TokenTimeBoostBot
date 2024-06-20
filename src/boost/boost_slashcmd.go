@@ -485,13 +485,12 @@ func HandleBumpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateCRT {
 			str = "Speedrun CRT is in progress, cannot bump as the message will lose reactions."
 		} else {
-			str = "Redrawing the boost list"
+			str = "Boost list moved."
 			err := RedrawBoostList(s, i.GuildID, i.ChannelID)
 			if err != nil {
 				str = err.Error()
 			}
 		}
-		str = "Boost list moved."
 	}
 
 	msg, _ := s.FollowupMessageCreate(i.Interaction, true,
