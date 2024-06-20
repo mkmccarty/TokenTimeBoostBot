@@ -60,7 +60,7 @@ func init() {
 	file, fileerr := os.ReadFile("ttbb-data/boost_data_history.json")
 	if fileerr == nil {
 		data := OrderHistory{}
-		json.Unmarshal([]byte(file), &data)
+		_ = json.Unmarshal([]byte(file), &data)
 
 		// create Farmer OrderHistory from read data
 		for _, boostHistory := range data.Order {
@@ -105,10 +105,7 @@ func SetEggIncName(userID string, eggIncName string) {
 	}
 	farmerstate[userID].EggIncName = eggIncName
 	SetMiscSettingString(userID, "EggIncRawName", eggIncName)
-	err := saveData(farmerstate)
-	if err != nil {
-		log.Println(err)
-	}
+	saveData(farmerstate)
 }
 
 // GetLaunchHistory returns a Farmer Launch History
@@ -126,10 +123,7 @@ func SetLaunchHistory(userID string, setting bool) {
 	}
 	farmerstate[userID].LaunchChain = setting
 
-	err := saveData(farmerstate)
-	if err != nil {
-		log.Println(err)
-	}
+	saveData(farmerstate)
 }
 
 // GetMissionShipPrimary returns a Farmer Mission Ship Primary
@@ -146,11 +140,7 @@ func SetMissionShipPrimary(userID string, setting int) {
 		newFarmer(userID)
 	}
 	farmerstate[userID].MissionShipPrimary = setting
-
-	err := saveData(farmerstate)
-	if err != nil {
-		log.Println(err)
-	}
+	saveData(farmerstate)
 }
 
 // GetMissionShipSecondary returns a Farmer Mission Ship Secondary
@@ -168,10 +158,7 @@ func SetMissionShipSecondary(userID string, setting int) {
 	}
 	farmerstate[userID].MissionShipSecondary = setting
 
-	err := saveData(farmerstate)
-	if err != nil {
-		log.Println(err)
-	}
+	saveData(farmerstate)
 }
 
 // GetTokens returns a Farmer's tokens
@@ -359,12 +346,10 @@ func InverseTransform(pathKey *diskv.PathKey) (key string) {
 	return strings.Join(pathKey.Path, "/") + pathKey.FileName[:len(pathKey.FileName)-4]
 }
 
-func saveData(c map[string]*Farmer) error {
+func saveData(c map[string]*Farmer) {
 	//diskmutex.Lock()
 	b, _ := json.Marshal(c)
-	dataStore.Write("Farmers", b)
-
-	return nil
+	_ = dataStore.Write("Farmers", b)
 }
 
 func loadData() (map[string]*Farmer, error) {
@@ -374,7 +359,10 @@ func loadData() (map[string]*Farmer, error) {
 	if err != nil {
 		return c, err
 	}
-	json.Unmarshal(b, &c)
+	err = json.Unmarshal(b, &c)
+	if err != nil {
+		return c, err
+	}
 
 	return c, nil
 }

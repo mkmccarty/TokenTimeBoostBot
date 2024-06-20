@@ -91,7 +91,7 @@ func HandleSlashVolunteerSinkCommand(s *discordgo.Session, i *discordgo.Interact
 			if userInContract(contract, i.Interaction.Member.User.ID) {
 				contract.VolunteerSink = i.Interaction.Member.User.ID
 				if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {
-					RedrawBoostList(s, i.GuildID, i.ChannelID)
+					_ = RedrawBoostList(s, i.GuildID, i.ChannelID)
 				}
 			} else {
 				str = "You are not in this contract"
@@ -99,7 +99,7 @@ func HandleSlashVolunteerSinkCommand(s *discordgo.Session, i *discordgo.Interact
 		}
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: str,
@@ -166,7 +166,7 @@ func HandleSlashVoluntellSinkCommand(s *discordgo.Session, i *discordgo.Interact
 			if userInContract(contract, VoluntellName) {
 				contract.VolunteerSink = VoluntellName
 				if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {
-					RedrawBoostList(s, i.GuildID, i.ChannelID)
+					_ = RedrawBoostList(s, i.GuildID, i.ChannelID)
 				}
 			} else {
 				str = "They are not in this contract"
@@ -174,7 +174,7 @@ func HandleSlashVoluntellSinkCommand(s *discordgo.Session, i *discordgo.Interact
 		}
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: str,

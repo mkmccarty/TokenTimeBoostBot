@@ -39,7 +39,7 @@ func GetSlashTeamworkEval(cmd string) *discordgo.ApplicationCommand {
 func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var builder strings.Builder
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: "Processing request...",
@@ -74,7 +74,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 	contract := FindContract(i.ChannelID)
 	if contract == nil {
-		s.FollowupMessageCreate(i.Interaction, true,
+		_, _ = s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
 				Content: "No contract found in this channel.",
 			})
@@ -97,7 +97,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		builder.WriteString("This command is missing a configuration option necessary to function.")
 	}
 
-	s.FollowupMessageCreate(i.Interaction, true,
+	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
 			Content: builder.String(),
 		})

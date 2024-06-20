@@ -403,7 +403,7 @@ func tokenTracking(s *discordgo.Session, channelID string, userID string, name s
 		Tokens[userID].Coop[name].Name = name
 	} else {
 		// Existing contract, reset the values
-		s.ChannelMessageDelete(Tokens[userID].Coop[name].UserChannelID, Tokens[userID].Coop[name].TokenMessageID)
+		_ = s.ChannelMessageDelete(Tokens[userID].Coop[name].UserChannelID, Tokens[userID].Coop[name].TokenMessageID)
 		resetTokenTracking(Tokens[userID].Coop[name])
 		Tokens[userID].Coop[name].Name = name
 	}
@@ -484,6 +484,7 @@ func extractTokenName(customID string) string {
 	return name[1]
 }
 
+/*
 func syncTokenTracking(name string, startTime time.Time, duration time.Duration) {
 	for _, v := range Tokens {
 		if v.Coop[name] != nil {
@@ -493,6 +494,7 @@ func syncTokenTracking(name string, startTime time.Time, duration time.Duration)
 		}
 	}
 }
+*/
 
 // FarmedToken will track the token sent from the contract Token reaction
 func FarmedToken(s *discordgo.Session, channelID string, userID string) {
@@ -510,7 +512,7 @@ func FarmedToken(s *discordgo.Session, channelID string, userID string) {
 			m.Components = &comp
 			m.SetEmbeds(embed.Embeds)
 			m.SetContent("")
-			s.ChannelMessageEditComplex(m)
+			_, _ = s.ChannelMessageEditComplex(m)
 		}
 	}
 
@@ -550,7 +552,7 @@ func ContractTokenMessage(s *discordgo.Session, channelID string, userID string,
 				m.Components = &comp
 				m.SetEmbeds(embed.Embeds)
 				m.SetContent("")
-				s.ChannelMessageEditComplex(m)
+				_, _ = s.ChannelMessageEditComplex(m)
 			}
 		}
 	}
@@ -616,10 +618,9 @@ func inverseTransform(pathKey *diskv.PathKey) (key string) {
 	return strings.Join(pathKey.Path, "/") + pathKey.FileName[:len(pathKey.FileName)-4]
 }
 
-func saveData(c map[string]*tokenValues) error {
+func saveData(c map[string]*tokenValues) {
 	b, _ := json.Marshal(c)
-	dataStore.Write("Tokens", b)
-	return nil
+	_ = dataStore.Write("Tokens", b)
 }
 
 func loadData() (map[string]*tokenValues, error) {
@@ -628,7 +629,11 @@ func loadData() (map[string]*tokenValues, error) {
 	if err != nil {
 		return t, err
 	}
-	json.Unmarshal(b, &t)
+	err = json.Unmarshal(b, &t)
+	if err != nil {
+		return t, err
+	}
+
 	return t, nil
 }
 
@@ -648,7 +653,7 @@ func ArchiveTrackerData(s *discordgo.Session) {
 				msg.Components = &[]discordgo.MessageComponent{}
 				embed := getTokenTrackingEmbed(tv, true)
 				msg.SetEmbeds(embed.Embeds)
-				s.ChannelMessageEditComplex(msg)
+				_, _ = s.ChannelMessageEditComplex(msg)
 				delete(Tokens[k].Coop, name)
 			}
 		}

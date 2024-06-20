@@ -19,7 +19,7 @@ import (
 func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
 	if i.GuildID == "" {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    "This command can only be run in a server.",
@@ -72,7 +72,7 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		str = err.Error()
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: str,
@@ -209,7 +209,7 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, contractStarter 
 		contentStr, comp := GetSignupComponents(disableButton, contract.Speedrun) // True to get a disabled start button
 		msg.SetContent(contentStr)
 		msg.Components = &comp
-		s.ChannelMessageEditComplex(msg)
+		_, _ = s.ChannelMessageEditComplex(msg)
 	}
 
 	return builder.String(), nil
@@ -367,12 +367,12 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 					} else {
 						msg := discordgo.NewMessageEdit(r.ChannelID, contract.SRData.ChickenRunCheckMsgID)
 						msg.SetContent(str)
-						s.ChannelMessageEditComplex(msg)
+						_, _ = s.ChannelMessageEditComplex(msg)
 					}
 				}
 
 				if msg.Reactions[1].Count > contract.CoopSize {
-					s.ChannelMessageDelete(r.ChannelID, contract.SRData.ChickenRunCheckMsgID)
+					_ = s.ChannelMessageDelete(r.ChannelID, contract.SRData.ChickenRunCheckMsgID)
 					contract.SRData.ChickenRunCheckMsgID = ""
 
 					str := fmt.Sprintf("All players have run chickens. **%s** should now react with 🦵 then start to kick all farmers.", contract.Boosters[contract.SRData.SinkUserID].Mention)
@@ -406,7 +406,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 				SetReactionID(contract, contract.Location[0].ChannelID, msg.ID)
 				contract.SRData.LegReactionMessageID = msg.ID
 				if contract.SRData.ChickenRunCheckMsgID != "" {
-					s.ChannelMessageDelete(r.ChannelID, contract.SRData.ChickenRunCheckMsgID)
+					_ = s.ChannelMessageDelete(r.ChannelID, contract.SRData.ChickenRunCheckMsgID)
 					contract.SRData.ChickenRunCheckMsgID = ""
 				}
 			}
@@ -467,7 +467,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 					track.ContractTokenMessage(s, r.ChannelID, userID, track.TokenSent, b.TokensReceived, contract.Boosters[b.UserID].Nick, sSerial)
 				}
 
-				Boosting(s, r.GuildID, r.ChannelID)
+				_ = Boosting(s, r.GuildID, r.ChannelID)
 
 				str := fmt.Sprintf("**%s** ", contract.Boosters[b.UserID].Mention)
 				if contract.Boosters[b.UserID].AltController != "" {

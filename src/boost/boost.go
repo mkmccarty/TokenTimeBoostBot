@@ -262,7 +262,7 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 
 	var coopHash = contract.ContractHash
 	var coopName = contract.ContractID + "/" + contract.CoopID
-	saveEndData(contract) // Save for historical purposes
+	_ = saveEndData(contract) // Save for historical purposes
 
 	for _, el := range contract.Location {
 		if s != nil {
@@ -619,7 +619,11 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 		if u.Bot {
 			return errors.New(errorBot)
 		}
-		AddFarmerToContract(s, contract, guildID, channelID, u.ID, order)
+		_, err = AddFarmerToContract(s, contract, guildID, channelID, u.ID, order)
+		if err != nil {
+			return err
+		}
+
 	}
 
 	if guest != "" {
@@ -629,7 +633,10 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 			}
 		}
 
-		AddFarmerToContract(s, contract, guildID, channelID, guest, order)
+		_, err := AddFarmerToContract(s, contract, guildID, channelID, guest, order)
+		if err != nil {
+			return err
+		}
 		for _, loc := range contract.Location {
 			var listStr = "Boost"
 			if contract.State == ContractStateSignup {
@@ -986,7 +993,7 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 	if contract.BoostPosition != len(contract.Order) {
 		for _, loc := range contract.Location {
 			if redraw {
-				RedrawBoostList(s, loc.GuildID, loc.ChannelID)
+				_ = RedrawBoostList(s, loc.GuildID, loc.ChannelID)
 				continue
 			}
 			outputStr := DrawBoostList(s, contract, loc.TokenStr)
@@ -1241,7 +1248,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		if !contract.Speedrun {
 			_, _ = s.ChannelMessageSend(loc.ChannelID, str)
 		} else if !drawn {
-			RedrawBoostList(s, loc.GuildID, loc.ChannelID)
+			_ = RedrawBoostList(s, loc.GuildID, loc.ChannelID)
 		}
 	}
 	if pingUsers {
@@ -1274,7 +1281,7 @@ func UserBoost(s *discordgo.Session, guildID string, channelID string, userID st
 		contract.BoostPosition < len(contract.Order) &&
 		userID == contract.Order[contract.BoostPosition] {
 		// User is using /boost command instead of reaction
-		Boosting(s, guildID, channelID)
+		_ = Boosting(s, guildID, channelID)
 	} else {
 		for i := range contract.Order {
 			if contract.Order[i] == userID {
@@ -1517,15 +1524,14 @@ func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
 }
 
 // FinishContract is called only when the contract is complete
-func FinishContract(s *discordgo.Session, contract *Contract) error {
+func FinishContract(s *discordgo.Session, contract *Contract) {
 	// Don't delete the final boost message
 	for _, loc := range contract.Location {
 		loc.ListMsgID = ""
 	}
 	// Location[0] for this since the original contract is on the first location
 	farmerstate.SetOrderPercentileAll(contract.Order, len(contract.Order))
-	DeleteContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID)
-	return nil
+	_, _ = DeleteContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID)
 }
 
 func reorderBoosters(contract *Contract) {
@@ -1567,7 +1573,7 @@ func ArchiveContracts(s *discordgo.Session) {
 		}
 	}
 	for _, hash := range finishHash {
-		finishContractByHash(hash)
+		_ = finishContractByHash(hash)
 	}
 
 	// clear finishHash
@@ -1692,7 +1698,7 @@ func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCr
 		}
 		choices = append(choices, &choice)
 	}
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
 		Data: &discordgo.InteractionResponseData{
 			Content: "Contract ID",

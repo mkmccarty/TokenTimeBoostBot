@@ -408,7 +408,7 @@ var (
 		slashTokenRemove: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			if i.GuildID == "" {
 				str, choices := track.HandleTokenRemoveAutoComplete(s, i)
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionApplicationCommandAutocompleteResult,
 					Data: &discordgo.InteractionResponseData{
 						Content: str,
@@ -417,7 +417,7 @@ var (
 
 			} else {
 				str, choices := boost.HandleTokenRemoveAutoComplete(s, i)
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionApplicationCommandAutocompleteResult,
 					Data: &discordgo.InteractionResponseData{
 						Content: str,
@@ -458,7 +458,7 @@ var (
 			} else {
 				str = boost.HandleTokenRemoveCommand(s, i)
 			}
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content: str,
@@ -525,7 +525,7 @@ var (
 		slashSetEggIncName: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Protection against DM use
 			if i.GuildID == "" {
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
 						Content:    "This command can only be run in a server.",
@@ -622,7 +622,7 @@ var (
 		},
 
 		"fd_signupStart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseDeferredMessageUpdate,
 				Data: &discordgo.InteractionResponseData{
 					Content:    "",
@@ -632,19 +632,19 @@ var (
 			err := boost.StartContractBoosting(s, i.GuildID, i.ChannelID, i.Member.User.ID)
 			if err != nil {
 				str := fmt.Sprint(err.Error())
-				s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+				_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 					Content: str,
 					Flags:   discordgo.MessageFlagsEphemeral,
 				})
 			} else {
-				s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
+				_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
 
 				// Rebuild the signup message to disable the start button
 				msg := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 				contentStr, comp := boost.GetSignupComponents(true, false) // True to get a disabled start button
 				msg.SetContent(contentStr)
 				msg.Components = &comp
-				s.ChannelMessageEditComplex(msg)
+				_, _ = s.ChannelMessageEditComplex(msg)
 			}
 		},
 		"fd_signupFarmer": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -660,7 +660,7 @@ var (
 				str = err.Error()
 			}
 
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content:    str,
@@ -674,7 +674,7 @@ var (
 func joinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell bool) {
 	var str = "Adding to Contract..."
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredMessageUpdate,
 		Data: &discordgo.InteractionResponseData{
 			Content:    str,
@@ -691,7 +691,7 @@ func joinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell boo
 	//	str = fmt.Sprintf("Added <@%s> to contract", i.Member.User.ID)
 	//}
 
-	s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		//		Content: str,
 	})
 }

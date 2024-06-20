@@ -117,7 +117,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 				if userID == contract.Order[contract.BoostPosition] || votingElection || creatorOfContract(s, contract, r.UserID) {
 					//contract.mutex.Unlock()
-					Boosting(s, r.GuildID, r.ChannelID)
+					_ = Boosting(s, r.GuildID, r.ChannelID)
 				}
 				return returnVal
 			}
@@ -144,7 +144,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				if (contract.BoostPosition + 1) < len(contract.Order) {
 					if r.Emoji.Name == "🔃" {
 						//contract.mutex.Unlock()
-						SkipBooster(s, r.GuildID, r.ChannelID, "")
+						_ = SkipBooster(s, r.GuildID, r.ChannelID, "")
 						return returnVal
 					}
 				}
@@ -159,11 +159,11 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 						currentBoosterPosition := findNextBooster(contract)
 						err := MoveBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], uid, len(contract.Order), currentBoosterPosition == -1)
 						if err == nil && currentBoosterPosition != -1 {
-							ChangeCurrentBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], contract.Order[currentBoosterPosition], true)
+							_ = ChangeCurrentBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], contract.Order[currentBoosterPosition], true)
 							return returnVal
 						}
 					} else if contract.Boosters[uid].BoostState == BoostStateUnboosted {
-						MoveBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], uid, len(contract.Order), true)
+						_ = MoveBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], uid, len(contract.Order), true)
 					}
 				}
 				// Reaction to indicate you need to go now
@@ -268,7 +268,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 				if b.TokensReceived >= b.TokensWanted && userID == b.Name && b.AltController == "" {
 					// Guest farmer auto boosts
-					Boosting(s, r.GuildID, r.ChannelID)
+					_ = Boosting(s, r.GuildID, r.ChannelID)
 				}
 
 				redraw = true

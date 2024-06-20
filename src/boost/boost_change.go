@@ -138,7 +138,7 @@ func GetSlasLinkAlternateCommand(cmd string) *discordgo.ApplicationCommand {
 func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
 	if i.GuildID == "" {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    "This command can only be run in a server.",
@@ -208,7 +208,7 @@ func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content:    str,
@@ -236,7 +236,7 @@ func extractUserID(s *discordgo.Session, boosterName string) (string, error) {
 func HandleChangeOneBoosterCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use as we need the channel ID to find the contract
 	if i.GuildID == "" {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    "This command can only be run in a server.",
@@ -256,7 +256,7 @@ func HandleChangeOneBoosterCommand(s *discordgo.Session, i *discordgo.Interactio
 	var err error
 	contract := FindContract(i.ChannelID)
 	if contract == nil {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    errorNoContract,
@@ -307,7 +307,7 @@ func HandleChangeOneBoosterCommand(s *discordgo.Session, i *discordgo.Interactio
 		}
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: "Processing...",
@@ -335,7 +335,7 @@ func HandleChangeOneBoosterCommand(s *discordgo.Session, i *discordgo.Interactio
 		}
 	}
 
-	s.FollowupMessageCreate(i.Interaction, true,
+	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
 			Content: str},
 	)
@@ -346,7 +346,7 @@ func HandleChangeOneBoosterCommand(s *discordgo.Session, i *discordgo.Interactio
 func HandleChangePingRoleCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use as we need the channel ID to find the contract
 	if i.GuildID == "" {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    "This command can only be run in a server.",
@@ -356,7 +356,7 @@ func HandleChangePingRoleCommand(s *discordgo.Session, i *discordgo.InteractionC
 		return
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: "Processing...",
@@ -405,7 +405,7 @@ func HandleChangePingRoleCommand(s *discordgo.Session, i *discordgo.InteractionC
 		}
 	}
 
-	s.FollowupMessageCreate(i.Interaction, true,
+	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
 			Content: str},
 	)
@@ -415,7 +415,7 @@ func HandleChangePingRoleCommand(s *discordgo.Session, i *discordgo.InteractionC
 func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use as we need the channel ID to find the contract
 	if i.GuildID == "" {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    "This command can only be run in a server.",
@@ -425,7 +425,7 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 		return
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: "Processing...",
@@ -484,7 +484,7 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 		}
 	}
 
-	s.FollowupMessageCreate(i.Interaction, true,
+	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
 			Content: str},
 	)
@@ -776,7 +776,7 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use as we need the channel ID to find the contract
 	if i.GuildID == "" {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    "This command can only be run in a server.",
@@ -786,7 +786,7 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 		return
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: "Processing...",
@@ -873,13 +873,13 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 				if contract.State == ContractStateSignup {
 					refreshBoostListMessage(s, contract)
 				} else {
-					RedrawBoostList(s, i.GuildID, i.ChannelID)
+					_ = RedrawBoostList(s, i.GuildID, i.ChannelID)
 				}
 			}
 		}
 	}
 
-	s.FollowupMessageCreate(i.Interaction, true,
+	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
 			Content: str},
 	)
@@ -917,7 +917,7 @@ func HandleLinkAlternateAutoComplete(s *discordgo.Session, i *discordgo.Interact
 		}
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
 		Data: &discordgo.InteractionResponseData{
 			Content: "Contract ID",

@@ -143,7 +143,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var ftlMult = 0.4
 	var t = time.Now()
 	var arrivalTimespan = ""
-	var chainExtended = false
+	var chainExtended bool
 
 	showDubCap := false
 	doubleCapacityStr := ""
@@ -151,8 +151,8 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var dubCapTimeCaution = time.Now()
 	var fasterMissions = 1.0
 
-	var selectedShipPrimary = 0   // Default to AH
-	var selectedShipSecondary = 1 // Default to H
+	var selectedShipPrimary int
+	var selectedShipSecondary int
 
 	var userID string
 	if i.GuildID != "" {
@@ -160,7 +160,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	} else {
 		userID = i.User.ID
 	}
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: "Processing request...",
@@ -191,7 +191,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		selectedShipSecondary = farmerstate.GetMissionShipSecondary(userID)
 		if selectedShipSecondary == 0 {
 			// This value should never be 0, so set to the default of 1
-			selectedShipPrimary = 1
+			selectedShipPrimary = 1 // Default to Henterprise
 			farmerstate.SetMissionShipSecondary(userID, selectedShipSecondary)
 		}
 	}
@@ -511,7 +511,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				Inline: false,
 			})
 
-			s.FollowupMessageCreate(i.Interaction, true,
+			_, _ = s.FollowupMessageCreate(i.Interaction, true,
 				&discordgo.WebhookParams{
 					Content: events.String() + normal.String() + "\n",
 					Embeds: []*discordgo.MessageEmbed{{
@@ -533,7 +533,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				Inline: false,
 			})
 
-			s.FollowupMessageCreate(i.Interaction, true,
+			_, _ = s.FollowupMessageCreate(i.Interaction, true,
 				&discordgo.WebhookParams{
 					Content: events.String() + normal.String() + "\n\n",
 					Embeds: []*discordgo.MessageEmbed{{
