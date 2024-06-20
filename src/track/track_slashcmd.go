@@ -167,7 +167,7 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, co
 		userID = i.User.ID
 	}
 
-	str, embed, err := tokenTracking(s, channelID, userID, trackingName, duration, linked, linkReceived)
+	str, embed, err := tokenTracking(s, channelID, userID, trackingName, contractID, duration, linked, linkReceived)
 
 	if err != nil {
 		str = err.Error()

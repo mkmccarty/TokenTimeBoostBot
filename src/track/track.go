@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/peterbourgon/diskv/v3"
 	"github.com/rs/xid"
 )
@@ -32,6 +33,7 @@ type tokenValue struct {
 	Username         string        // The username that is tracking the token value
 	Name             string        // Tracking name for this contract
 	ChannelID        string        // The channel ID that is tracking the token value
+	ContractID       string        // The contract ID
 	Linked           bool          // If the tracker is linked to channel contract
 	LinkRecieved     bool          // If linked, log the received tokens
 	ChannelMention   string        // The channel mention
@@ -47,6 +49,7 @@ type tokenValue struct {
 	TokenMessageID   string      // Message ID for the Last Token Value message
 	UserChannelID    string      // User Channel ID for the Last Token Value message
 	Details          bool        // Show details of each token sent
+	MinutesPerToken  int         // Used for token value calculation
 }
 
 type tokenValues struct {
@@ -315,6 +318,7 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 			Value:  rbuilder.String(),
 			Inline: brief,
 		})
+
 		totalHeader = "Current △ TVal"
 		if finalDisplay {
 			totalHeader = "Final △ TVal"
@@ -323,8 +327,27 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 		field = append(field, &discordgo.MessageEmbedField{
 			Name:   totalHeader,
 			Value:  finalTotal,
-			Inline: false,
+			Inline: true,
 		})
+
+		if td.MinutesPerToken == 0 {
+			if len(td.Sent)+len(td.Received) > 30 {
+				td.MinutesPerToken = 5
+			}
+		}
+
+		if td.MinutesPerToken != 0 {
+			BTA := td.DurationTime.Minutes() / float64(td.MinutesPerToken)
+			targetTval := 3.0
+			if BTA > 42.0 {
+				targetTval = 0.07 * BTA
+			}
+			field = append(field, &discordgo.MessageEmbedField{
+				Name:   "Target TVal",
+				Value:  fmt.Sprintf("%4.3f", targetTval),
+				Inline: true,
+			})
+		}
 	}
 
 	footerStr := "For the most accurate values make sure the start time and total contract time is accurate."
@@ -365,7 +388,7 @@ func getTrack(userID string, name string) (*tokenValue, error) {
 }
 
 // TokenTracking is called as a starting point for token tracking
-func tokenTracking(s *discordgo.Session, channelID string, userID string, name string, duration time.Duration, linked bool, linkReceived bool) (string, *discordgo.MessageSend, error) {
+func tokenTracking(s *discordgo.Session, channelID string, userID string, name string, contractID string, duration time.Duration, linked bool, linkReceived bool) (string, *discordgo.MessageSend, error) {
 	if Tokens[userID] == nil {
 		Tokens[userID] = new(tokenValues)
 	}
@@ -404,6 +427,16 @@ func tokenTracking(s *discordgo.Session, channelID string, userID string, name s
 	td.EstimatedEndTime = time.Now().Add(duration)
 	td.Linked = linked
 	td.LinkRecieved = linkReceived
+	td.ContractID = contractID
+	td.MinutesPerToken = 0
+
+	if contractID != "" {
+		td.ContractID = contractID
+		c := ei.EggIncContractsAll[contractID]
+		if c.ID != "" {
+			td.MinutesPerToken = c.MinutesPerToken
+		}
+	}
 
 	return getTokenTrackingString(td, false), getTokenTrackingEmbed(td, false), nil
 }
