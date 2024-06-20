@@ -399,7 +399,7 @@ func HandleChangePingRoleCommand(s *discordgo.Session, i *discordgo.InteractionC
 				}
 				loc.ChannelPing = newRole
 				str = "Ping role changed to " + newRole
-				s.ChannelMessageSend(i.ChannelID, str)
+				_, _ = s.ChannelMessageSend(i.ChannelID, str)
 				break
 			}
 		}

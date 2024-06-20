@@ -14,7 +14,10 @@ var dataStore *diskv.Diskv
 // SaveAllData will remove a token from the Contracts
 func SaveAllData() {
 	log.Print("Saving contact data")
-	saveData(Contracts)
+	err := saveData(Contracts)
+	if err != nil {
+		log.Print("SaveAllData error saving Contracts:", err)
+	}
 }
 
 func initDataStore() {
@@ -48,12 +51,8 @@ func InverseTransform(pathKey *diskv.PathKey) (key string) {
 }
 
 func saveData(c map[string]*Contract) error {
-	//diskmutex.Lock()
 	b, _ := json.Marshal(c)
-	dataStore.Write("EggsBackup", b)
-
-	//diskmutex.Unlock()
-	return nil
+	return dataStore.Write("EggsBackup", b)
 }
 
 func saveEndData(c *Contract) error {

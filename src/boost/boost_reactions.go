@@ -171,7 +171,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 					// Move Booster position is 1 based, so we need to add 2 to the current position
 					err := MoveBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], r.UserID, contract.BoostPosition+2, true)
 					if err == nil {
-						s.ChannelMessageSend(r.ChannelID, contract.Boosters[r.UserID].Name+" expressed a desire to go next!")
+						_, _ = s.ChannelMessageSend(r.ChannelID, contract.Boosters[r.UserID].Name+" expressed a desire to go next!")
 						returnVal = "!gonow"
 					}
 				}
@@ -211,7 +211,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				var data discordgo.MessageSend
 				data.Content = str
 				msg, _ := s.ChannelMessageSendComplex(location.ChannelID, &data)
-				s.MessageReactionAdd(msg.ChannelID, msg.ID, contract.ChickenRunEmoji) // Indicate Chicken Run
+				_ = s.MessageReactionAdd(msg.ChannelID, msg.ID, contract.ChickenRunEmoji) // Indicate Chicken Run
 			}
 			redraw = true
 		}
@@ -286,7 +286,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	err = s.MessageReactionRemove(r.ChannelID, r.MessageID, emojiName, r.UserID)
 	if err != nil {
 		fmt.Println(err, emojiName)
-		s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
+		_ = s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
 	}
 
 	if redraw {
@@ -306,7 +306,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			outputStr += "Reaction of 🐓 when you're ready for others to run chickens on your farm.\n"
 			outputStr += "Anyone can add a 🚽 reaction to express your urgency to boost next.\n"
 			outputStr += "Additional help through the **/help** command.\n"
-			s.ChannelMessageSend(loc.ChannelID, outputStr)
+			_, _ = s.ChannelMessageSend(loc.ChannelID, outputStr)
 		}
 	}
 

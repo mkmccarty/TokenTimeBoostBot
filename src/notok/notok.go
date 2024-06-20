@@ -107,7 +107,7 @@ func Notok(s *discordgo.Session, i *discordgo.InteractionCreate, cmd int64, text
 					Content: fmt.Sprintf("Success\nResponse time: %s", time.Since(currentStartTime).Round(time.Second).String()),
 				},
 			)
-			s.ChannelMessageSend(i.ChannelID, wishStr)
+			_, _ = s.ChannelMessageSend(i.ChannelID, wishStr)
 			lastWish = wishStr
 		}
 	} else if wishStr == lastWish {
@@ -119,13 +119,13 @@ func Notok(s *discordgo.Session, i *discordgo.InteractionCreate, cmd int64, text
 // DoGoNow gets the AI to draw a chicken in a hurry
 func DoGoNow(s *discordgo.Session, channelID string) {
 	var str = gonow(boost.GetContractDescription(channelID))
-	s.ChannelTyping(channelID)
+	_ = s.ChannelTyping(channelID)
 	wishURL, _ := wishImage(str, "")
 	sendImageReply(s, channelID, wishURL, "", false)
 }
 
 func sendImageReply(s *discordgo.Session, channelID string, wishURL string, wishStr string, hidden bool) {
-	s.ChannelTyping(channelID)
+	_ = s.ChannelTyping(channelID)
 	response, _ := http.Get(wishURL)
 	var data discordgo.MessageSend
 	if wishStr != lastWish {
@@ -142,10 +142,10 @@ func sendImageReply(s *discordgo.Session, channelID string, wishURL string, wish
 		myFile.Name = "ttbb-dalle3.png"
 		myFile.Reader = response.Body
 		data.Files = append(data.Files, &myFile)
-		s.ChannelMessageSendComplex(channelID, &data)
+		_, _ = s.ChannelMessageSendComplex(channelID, &data)
 	} else {
 		// Error message
-		s.ChannelMessageSend(channelID, "Sorry the AIrtists responsed with \""+wishURL+"\"") //"Sorry, the AIrtists are not available at the moment. Some image prompts ")
+		_, _ = s.ChannelMessageSend(channelID, "Sorry the AIrtists responsed with \""+wishURL+"\"") //"Sorry, the AIrtists are not available at the moment. Some image prompts ")
 	}
 }
 
@@ -350,7 +350,10 @@ func downloadFile(filepath string, url string, prompt string) error {
 	id := xid.New()
 	newfile := fmt.Sprintf("%s/%s.png", filepath, id.String())
 	newfilePrompt := fmt.Sprintf("%s/%s.txt", filepath, id.String())
-	os.WriteFile(newfilePrompt, []byte(prompt), 0664)
+	err = os.WriteFile(newfilePrompt, []byte(prompt), 0664)
+	if err != nil {
+		log.Print(err)
+	}
 
 	// Create the file
 	out, err := os.Create(newfile)

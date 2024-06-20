@@ -266,8 +266,8 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 
 	for _, el := range contract.Location {
 		if s != nil {
-			s.ChannelMessageDelete(el.ChannelID, el.ListMsgID)
-			s.ChannelMessageDelete(el.ChannelID, el.ReactionID)
+			_ = s.ChannelMessageDelete(el.ChannelID, el.ListMsgID)
+			_ = s.ChannelMessageDelete(el.ChannelID, el.ReactionID)
 		}
 	}
 	delete(Contracts, coopHash)
@@ -450,7 +450,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 // AddBoostTokensInteraction handles the interactions responses for AddBoostTokens
 func AddBoostTokensInteraction(s *discordgo.Session, i *discordgo.InteractionCreate, setCountWant int, countWantAdjust int) {
 	var str string
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: "Processing request...",
@@ -465,7 +465,7 @@ func AddBoostTokensInteraction(s *discordgo.Session, i *discordgo.InteractionCre
 		str = fmt.Sprintf("Adjusted. Tokens Wanted %d, Received %d", tSent, tRecv)
 	}
 
-	s.FollowupMessageCreate(i.Interaction, true,
+	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
 			Content: str,
 		})
@@ -636,7 +636,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 				listStr = "Sign-up"
 			}
 			var str = fmt.Sprintf("%s was added to the %s List by %s", guest, listStr, operator)
-			s.ChannelMessageSend(loc.ChannelID, str)
+			_, _ = s.ChannelMessageSend(loc.ChannelID, str)
 		}
 	}
 
@@ -994,7 +994,7 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 			if err == nil {
 				loc.ListMsgID = msg.ID
 			} else {
-				s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
+				_ = s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
 				msg, _ := s.ChannelMessageSend(loc.ChannelID, outputStr)
 				SetListMessageID(contract, loc.ChannelID, msg.ID)
 			}
@@ -1007,7 +1007,7 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 					contentStr, comp := GetSignupComponents(true, contract.Speedrun) // True to get a disabled start button
 					msg.SetContent(contentStr)
 					msg.Components = &comp
-					s.ChannelMessageEditComplex(msg)
+					_, _ = s.ChannelMessageEditComplex(msg)
 				}
 			}
 		}
@@ -1077,7 +1077,7 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 	// Edit the boost list in place
 	for _, loc := range contract.Location {
 		if loc.GuildID == guildID && loc.ChannelID == channelID {
-			s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
+			_ = s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
 			var data discordgo.MessageSend
 			var am discordgo.MessageAllowedMentions
 			data.Content = DrawBoostList(s, contract, loc.TokenStr)
@@ -1109,7 +1109,7 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 				contentStr, comp := GetSignupComponents(false, contract.Speedrun) // True to get a disabled start button
 				msg.SetContent(contentStr)
 				msg.Components = &comp
-				s.ChannelMessageEditComplex(msg)
+				_, _ = s.ChannelMessageEditComplex(msg)
 			}
 		}
 
@@ -1136,27 +1136,26 @@ func addContractReactions(s *discordgo.Session, contract *Contract, channelID st
 	}
 
 	if contract.State == ContractStateStarted {
-		s.MessageReactionAdd(channelID, messageID, boostIconReaction) // Booster
-		s.MessageReactionAdd(channelID, messageID, tokenStr)          // Token Reaction
+		_ = s.MessageReactionAdd(channelID, messageID, boostIconReaction) // Booster
+		_ = s.MessageReactionAdd(channelID, messageID, tokenStr)          // Token Reaction
 		for _, el := range contract.AltIcons {
-			s.MessageReactionAdd(channelID, messageID, el)
+			_ = s.MessageReactionAdd(channelID, messageID, el)
 		}
-		s.MessageReactionAdd(channelID, messageID, "🔃")  // Swap
-		s.MessageReactionAdd(channelID, messageID, "⤵️") // Last
-		s.MessageReactionAdd(channelID, messageID, "🐓")  // Want Chicken Run
+		_ = s.MessageReactionAdd(channelID, messageID, "🔃")  // Swap
+		_ = s.MessageReactionAdd(channelID, messageID, "⤵️") // Last
+		_ = s.MessageReactionAdd(channelID, messageID, "🐓")  // Want Chicken Run
 	}
 	if contract.State == ContractStateWaiting || contract.State == ContractStateCompleted {
 		if contract.VolunteerSink != "" {
-			s.MessageReactionAdd(channelID, messageID, tokenStr) // Token Reaction
+			_ = s.MessageReactionAdd(channelID, messageID, tokenStr) // Token Reaction
 			for _, el := range contract.AltIcons {
-				s.MessageReactionAdd(channelID, messageID, el)
+				_ = s.MessageReactionAdd(channelID, messageID, el)
 			}
 		}
-		s.MessageReactionAdd(channelID, messageID, "🐓") // Want Chicken Run
-		//s.MessageReactionAdd(channelID, messageID, "🏁") // Finish
+		_ = s.MessageReactionAdd(channelID, messageID, "🐓") // Want Chicken Run
 	}
 
-	s.MessageReactionAdd(channelID, messageID, "❓") // Finish
+	_ = s.MessageReactionAdd(channelID, messageID, "❓") // Finish
 }
 
 func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bool) {
@@ -1174,9 +1173,9 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		} else {
 			// Unpin message once the contract is completed
 			if contract.State == ContractStateArchive {
-				s.ChannelMessageUnpin(loc.ChannelID, loc.ReactionID)
+				_ = s.ChannelMessageUnpin(loc.ChannelID, loc.ReactionID)
 			}
-			s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
+			_ = s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
 
 			// Compose the message without a Ping
 			var data discordgo.MessageSend
@@ -1240,7 +1239,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 
 		// Sending the update message
 		if !contract.Speedrun {
-			s.ChannelMessageSend(loc.ChannelID, str)
+			_, _ = s.ChannelMessageSend(loc.ChannelID, str)
 		} else if !drawn {
 			RedrawBoostList(s, loc.GuildID, loc.ChannelID)
 		}
