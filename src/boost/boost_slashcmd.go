@@ -194,7 +194,10 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 
 	var createMsg = DrawBoostList(s, contract, FindTokenEmoji(s, i.GuildID))
-	msg, err := s.ChannelMessageSend(ChannelID, createMsg)
+	var data discordgo.MessageSend
+	data.Content = createMsg
+	data.Flags = discordgo.MessageFlagsSuppressEmbeds
+	msg, err := s.ChannelMessageSendComplex(ChannelID, &data)
 	if err == nil {
 		SetListMessageID(contract, ChannelID, msg.ID)
 		var data discordgo.MessageSend
@@ -469,7 +472,13 @@ func HandleCoopETACommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 // HandleBumpCommand will handle the /bump command
 func HandleBumpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	str := "Contract not found"
-
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing request...",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
 	contract := FindContract(i.ChannelID)
 	if contract != nil {
 
@@ -482,15 +491,15 @@ func HandleBumpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				str = err.Error()
 			}
 		}
+		str = "Boost list moved."
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
-	})
+	msg, _ := s.FollowupMessageCreate(i.Interaction, true,
+		&discordgo.WebhookParams{
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Content: str,
+		})
+	_ = s.FollowupMessageDelete(i.Interaction, msg.ID)
 }
 
 // HandleTokenRemoveAutoComplete will handle the /token-remove autocomplete

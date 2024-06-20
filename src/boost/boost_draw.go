@@ -19,11 +19,11 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		contract.EggEmoji = FindEggEmoji(s, "485162044652388384", contract.EggName)
 	}
 
-	if len(contract.Boosters) == contract.CoopSize {
-		outputStr = fmt.Sprintf("## %s %s (%s)\n", contract.EggEmoji, contract.Name, contract.CoopID)
-	} else {
-		outputStr = fmt.Sprintf("## %s %s (%s) - %d/%d\n", contract.EggEmoji, contract.Name, contract.CoopID, len(contract.Boosters), contract.CoopSize)
+	outputStr = fmt.Sprintf("## %s %s : [%s](%s/%s/%s)", contract.EggEmoji, contract.Name, contract.CoopID, "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID)
+	if len(contract.Boosters) != contract.CoopSize {
+		outputStr += fmt.Sprintf(" - %d/%d\n", len(contract.Boosters), contract.CoopSize)
 	}
+	outputStr += "\n"
 
 	if contract.State == ContractStateSignup && contract.PlannedStartTime.After(time.Now()) && contract.PlannedStartTime.Before(time.Now().Add(7*24*time.Hour)) {
 		outputStr += fmt.Sprintf("## Planned Start Time: <t:%d:f>\n", contract.PlannedStartTime.Unix())
@@ -33,7 +33,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 		outputStr += fmt.Sprintf("### Join order is %s\n", getBoostOrderString(contract))
 	}
 
-	outputStr += fmt.Sprintf("> Coordinator: <@%s> \n> <%s/%s/%s>\n", contract.CreatorID[0], "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID)
+	outputStr += fmt.Sprintf("> Coordinator: <@%s>\n", contract.CreatorID[0])
 	if !contract.Speedrun && contract.VolunteerSink != "" {
 		if contract.Boosters[contract.VolunteerSink] != nil {
 			outputStr += fmt.Sprintf("> Post Contract Sink: **%s**\n", contract.Boosters[contract.VolunteerSink].Mention)

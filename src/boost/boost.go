@@ -996,14 +996,14 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 				_ = RedrawBoostList(s, loc.GuildID, loc.ChannelID)
 				continue
 			}
-			outputStr := DrawBoostList(s, contract, loc.TokenStr)
-			msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, outputStr)
+
+			msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
+			contentStr := DrawBoostList(s, contract, loc.TokenStr)
+			msgedit.SetContent(contentStr)
+			msgedit.Flags = discordgo.MessageFlagsSuppressEmbeds
+			msg, err := s.ChannelMessageEditComplex(msgedit)
 			if err == nil {
 				loc.ListMsgID = msg.ID
-			} else {
-				_ = s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
-				msg, _ := s.ChannelMessageSend(loc.ChannelID, outputStr)
-				SetListMessageID(contract, loc.ChannelID, msg.ID)
 			}
 			// Need to disable the speedrun start button if the contract is no longer full
 			if contract.Speedrun && contract.State == ContractStateSignup {
@@ -1013,6 +1013,7 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 					// Full contract for speedrun
 					contentStr, comp := GetSignupComponents(true, contract.Speedrun) // True to get a disabled start button
 					msg.SetContent(contentStr)
+					msg.Flags = discordgo.MessageFlagsSuppressEmbeds
 					msg.Components = &comp
 					_, _ = s.ChannelMessageEditComplex(msg)
 				}
@@ -1089,6 +1090,7 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 			var am discordgo.MessageAllowedMentions
 			data.Content = DrawBoostList(s, contract, loc.TokenStr)
 			data.AllowedMentions = &am
+			data.Flags = discordgo.MessageFlagsSuppressEmbeds
 			msg, err := s.ChannelMessageSendComplex(loc.ChannelID, &data)
 			if err == nil {
 				SetListMessageID(contract, loc.ChannelID, msg.ID)
@@ -1102,7 +1104,12 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 	// Edit the boost list in place
 	for _, loc := range contract.Location {
-		msg, err := s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
+		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
+		// Full contract for speedrun
+		contentStr := DrawBoostList(s, contract, loc.TokenStr)
+		msgedit.SetContent(contentStr)
+		msgedit.Flags = discordgo.MessageFlagsSuppressEmbeds
+		msg, err := s.ChannelMessageEditComplex(msgedit)
 		if err == nil {
 			// This is an edit, it should be the same
 			loc.ListMsgID = msg.ID
@@ -1173,7 +1180,12 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		var err error
 
 		if contract.State == ContractStateSignup {
-			msg, err = s.ChannelMessageEdit(loc.ChannelID, loc.ListMsgID, DrawBoostList(s, contract, loc.TokenStr))
+			msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
+			// Full contract for speedrun
+			contentStr := DrawBoostList(s, contract, loc.TokenStr)
+			msgedit.SetContent(contentStr)
+			msgedit.Flags = discordgo.MessageFlagsSuppressEmbeds
+			_, err := s.ChannelMessageEditComplex(msgedit)
 			if err != nil {
 				fmt.Println("Unable to send this message")
 			}
@@ -1189,6 +1201,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			var am discordgo.MessageAllowedMentions
 			data.Content = DrawBoostList(s, contract, loc.TokenStr)
 			data.AllowedMentions = &am
+			data.Flags = discordgo.MessageFlagsSuppressEmbeds
 			msg, err = s.ChannelMessageSendComplex(loc.ChannelID, &data)
 			if err == nil {
 				SetListMessageID(contract, loc.ChannelID, msg.ID)
