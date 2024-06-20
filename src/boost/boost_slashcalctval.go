@@ -94,8 +94,13 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 	} else if !userInContract(contract, userID) {
 		str = "You are not part of this contract"
 	} else {
+		BTA := duration.Minutes() / float64(contract.MinutesPerToken)
+		targetTval := 3.0
+		if BTA > 42.0 {
+			targetTval = 0.07 * BTA
+		}
 		// Calculate the token value
-		str = calculateTokenValue(contract.StartTime, duration, details, contract.Boosters[userID])
+		str = calculateTokenValue(contract.StartTime, duration, details, contract.Boosters[userID], targetTval)
 		contract.CalcOperations++
 		contract.CalcOperationTime = time.Now()
 	}
@@ -115,7 +120,7 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 	)
 }
 
-func calculateTokenValue(startTime time.Time, duration time.Duration, details bool, booster *Booster) string {
+func calculateTokenValue(startTime time.Time, duration time.Duration, details bool, booster *Booster, targetTval float64) string {
 	// Calculate the token value
 	var builder strings.Builder
 
@@ -129,6 +134,9 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 	fmt.Fprintf(&builder, "> Token value <t:%d:R>  %1.3f\n", time.Now().Add(30*time.Minute).Unix(), getTokenValue(offsetTime+(30*60), duration.Seconds()))
 	fmt.Fprintf(&builder, "> Token value <t:%d:R>  %1.3f\n\n", time.Now().Add(60*time.Minute).Unix(), getTokenValue(offsetTime+(60*60), duration.Seconds()))
 
+	if (len(booster.Sent) + len(booster.Received)) > 30 {
+		details = false
+	}
 	// for each Token Sent, calculate the value
 	if len(booster.TokensFarmedTime) != 0 {
 		fmt.Fprintf(&builder, "**Tokens Farmed: %d**\n", len(booster.TokensFarmedTime))
@@ -194,7 +202,7 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 			fmt.Fprint(&builder, "```")
 		}
 	}
-	fmt.Fprintf(&builder, "\n**Current △ TVal %4.3f**\n", sentValue-receivedValue)
+	fmt.Fprintf(&builder, "\n**Current △ TVal %4.3f**  need %4.3f\n", sentValue-receivedValue, targetTval)
 
 	if slices.Index(booster.Hint, "TokenRemove") == -1 {
 		fmt.Fprintf(&builder, "\nThe `/token-remove` command can be used to adjust sent/received tokens.\n")
