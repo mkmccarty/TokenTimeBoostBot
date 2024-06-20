@@ -18,6 +18,15 @@ func GetSlashTokenCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Start token value tracking for a contract",
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+			discordgo.InteractionContextBotDM,
+			discordgo.InteractionContextPrivateChannel,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+			discordgo.ApplicationIntegrationUserInstall,
+		},
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
@@ -60,6 +69,15 @@ func GetSlashTokenRemoveCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Remove a sent or received token from tracking",
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+			discordgo.InteractionContextBotDM,
+			discordgo.InteractionContextPrivateChannel,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+			discordgo.ApplicationIntegrationUserInstall,
+		},
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 
