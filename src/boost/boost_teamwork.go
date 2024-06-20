@@ -19,23 +19,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func fmtDuration(d time.Duration) string {
-	str := ""
-	d = d.Round(time.Minute)
-	h := d / time.Hour
-	d -= h * time.Hour
-	m := d / time.Minute
-	d = h / 24
-	h -= d * 24
-
-	if d > 0 {
-		str = fmt.Sprintf("%dd%dh%dm", d, h, m)
-	} else {
-		str = fmt.Sprintf("%dh%dm", h, m)
-	}
-	return strings.Replace(str, "0h0m", "", -1)
-}
-
 // GetSlashTeamworkEval will return the discord command for calculating token values of a running contract
 func GetSlashTeamworkEval(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{

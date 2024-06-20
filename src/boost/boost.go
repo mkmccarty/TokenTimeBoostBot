@@ -253,10 +253,6 @@ func init() {
 	}
 }
 
-func removeLocIndex(s []*LocationData, index int) []*LocationData {
-	return append(s[:index], s[index+1:]...)
-}
-
 // DeleteContract will delete the contract
 func DeleteContract(s *discordgo.Session, guildID string, channelID string) (string, error) {
 	var contract = FindContract(channelID)
@@ -451,12 +447,32 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	return contract, nil
 }
 
-// AddBoostTokens will add tokens to the current booster and adjust the count of the booster
-func AddBoostTokens(s *discordgo.Session, i *discordgo.InteractionCreate, setCountWant int, countWantAdjust int) (int, int, error) {
+// AddBoostTokensInteraction handles the interactions responses for AddBoostTokens
+func AddBoostTokensInteraction(s *discordgo.Session, i *discordgo.InteractionCreate, setCountWant int, countWantAdjust int) {
+	var str string
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing request...",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
 	})
 
+	tSent, tRecv, err := AddBoostTokens(s, i, setCountWant, countWantAdjust)
+	if err != nil {
+		str = err.Error()
+	} else {
+		str = fmt.Sprintf("Adjusted. Tokens Wanted %d, Received %d", tSent, tRecv)
+	}
+
+	s.FollowupMessageCreate(i.Interaction, true,
+		&discordgo.WebhookParams{
+			Content: str,
+		})
+}
+
+// AddBoostTokens will add tokens to the current booster and adjust the count of the booster
+func AddBoostTokens(s *discordgo.Session, i *discordgo.InteractionCreate, setCountWant int, countWantAdjust int) (int, int, error) {
 	// Find the contract
 	var contract = FindContract(i.ChannelID)
 	if contract == nil {
@@ -1478,7 +1494,7 @@ func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
 	for i, b := range contract.Boosters {
 		if contract.Boosters[i].Ping {
 			u, _ := s.UserChannelCreate(b.UserID)
-			var str = ""
+			var str string
 			if contract.State == ContractStateCompleted || contract.State == ContractStateArchive {
 				t1 := contract.EndTime
 				t2 := contract.StartTime

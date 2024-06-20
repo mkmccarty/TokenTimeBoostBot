@@ -178,7 +178,6 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, contractStarter 
 			runs -= contract.SRData.Tango[1]
 		} else {
 			contract.SRData.Tango[2] = runs
-			runs = 0
 			break // No more runs to do, skips the Legs++ below
 		}
 		contract.SRData.Legs++

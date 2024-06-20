@@ -68,7 +68,8 @@ audit:
 
 .PHONY: lint
 lint:
-	golangci-lint run --out-format=github-actions -v --new-from-rev HEAD~5
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.59.1
+	$(shell go env GOPATH)/bin/golangci-lint run
 
 # ==================================================================================== #
 # DEVELOPMENT
