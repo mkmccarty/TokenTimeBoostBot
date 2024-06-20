@@ -54,7 +54,7 @@ func UpdateThreadName(s *discordgo.Session, contract *Contract) {
 		if err == nil {
 
 			if ch.IsThread() {
-				s.ChannelEdit(loc.ChannelID, &discordgo.ChannelEdit{
+				_, _ = s.ChannelEdit(loc.ChannelID, &discordgo.ChannelEdit{
 					Name: builder.String(),
 				})
 			}
@@ -152,7 +152,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 				thread, err := s.ThreadStart(ChannelID, builder.String(), discordgo.ChannelTypeGuildPublicThread, 60*24)
 				if err == nil {
 					ChannelID = thread.ID
-					s.ThreadJoin(i.Member.User.ID)
+					_ = s.ThreadJoin(i.Member.User.ID)
 				} else {
 					log.Print(err)
 				}
@@ -205,7 +205,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			log.Print(err)
 		} else {
 			SetReactionID(contract, msg.ChannelID, reactionMsg.ID)
-			s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
+			_ = s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
 		}
 	} else {
 		log.Print(err)
@@ -579,7 +579,7 @@ func HandleContractDelete(s *discordgo.Session, i *discordgo.InteractionCreate) 
 				str = fmt.Sprintf("Contract %s recycled.", coopName)
 			}
 			for _, loc := range contract.Location {
-				s.ChannelMessageUnpin(loc.ChannelID, loc.ReactionID)
+				_ = s.ChannelMessageUnpin(loc.ChannelID, loc.ReactionID)
 			}
 			s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
 		} else {

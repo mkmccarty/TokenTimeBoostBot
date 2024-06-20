@@ -144,7 +144,10 @@ func isNewEggIncDataAvailable(url string, finalname string) bool {
 			}
 			defer file.Close()
 			// Read the last 1024 bytes from the file
-			file.Seek(-EvalWidth, io.SeekEnd)
+			_, err = file.Seek(-EvalWidth, io.SeekEnd)
+			if err != nil {
+				log.Print(err)
+			}
 			fileBytes := make([]byte, EvalWidth)
 			_, err = file.Read(fileBytes)
 			if err != nil {
@@ -281,10 +284,16 @@ func ExecuteCronJob(s *discordgo.Session) {
 	}
 
 	for _, t := range checkTimes {
-		gocron.Every(1).Day().At(t).Do(crondownloadEggIncData)
+		err := gocron.Every(1).Day().At(t).Do(crondownloadEggIncData)
+		if err != nil {
+			log.Print(err)
+		}
 	}
 
-	gocron.Every(8).Hours().Do(boost.ArchiveContracts, s)
+	err := gocron.Every(8).Hours().Do(boost.ArchiveContracts, s)
+	if err != nil {
+		log.Print(err)
+	}
 
 	<-gocron.Start()
 	log.Print("Exiting cron job")

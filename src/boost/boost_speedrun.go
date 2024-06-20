@@ -262,29 +262,28 @@ func drawSpeedrunCRT(contract *Contract, tokenStr string) string {
 
 func addSpeedrunContractReactions(s *discordgo.Session, contract *Contract, channelID string, messageID string, tokenStr string) {
 	if contract.SRData.SpeedrunState == SpeedrunStateCRT {
-		s.MessageReactionAdd(channelID, messageID, tokenStr) // Token Reaction
+		_ = s.MessageReactionAdd(channelID, messageID, tokenStr) // Token Reaction
 		for _, el := range contract.AltIcons {
-			s.MessageReactionAdd(channelID, messageID, el)
+			_ = s.MessageReactionAdd(channelID, messageID, el)
 		}
-		s.MessageReactionAdd(channelID, messageID, "✅") // Run Reaction
-		s.MessageReactionAdd(channelID, messageID, "🚚") // Truck Reaction
-		s.MessageReactionAdd(channelID, messageID, "🦵") // Kick Reaction
+		_ = s.MessageReactionAdd(channelID, messageID, "✅") // Run Reaction
+		_ = s.MessageReactionAdd(channelID, messageID, "🚚") // Truck Reaction
+		_ = s.MessageReactionAdd(channelID, messageID, "🦵") // Kick Reaction
 	}
 	if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
-		s.MessageReactionAdd(channelID, messageID, tokenStr) // Send token to Sink
+		_ = s.MessageReactionAdd(channelID, messageID, tokenStr) // Send token to Sink
 		for _, el := range contract.AltIcons {
-			s.MessageReactionAdd(channelID, messageID, el)
+			_ = s.MessageReactionAdd(channelID, messageID, el)
 		}
-		s.MessageReactionAdd(channelID, messageID, "🐓") // Want Chicken Run
-		s.MessageReactionAdd(channelID, messageID, "💰") // Sink sent requested number of tokens to booster
+		_ = s.MessageReactionAdd(channelID, messageID, "🐓") // Want Chicken Run
+		_ = s.MessageReactionAdd(channelID, messageID, "💰") // Sink sent requested number of tokens to booster
 	}
 	if contract.SRData.SpeedrunState == SpeedrunStatePost {
-		s.MessageReactionAdd(channelID, messageID, tokenStr) // Send token to Sink
+		_ = s.MessageReactionAdd(channelID, messageID, tokenStr) // Send token to Sink
 		for _, el := range contract.AltIcons {
-			s.MessageReactionAdd(channelID, messageID, el)
+			_ = s.MessageReactionAdd(channelID, messageID, el)
 		}
-		s.MessageReactionAdd(channelID, messageID, "🐓") // Want Chicken Run
-		//s.MessageReactionAdd(channelID, messageID, "🏁") // Run Reaction
+		_ = s.MessageReactionAdd(channelID, messageID, "🐓") // Want Chicken Run
 	}
 }
 
@@ -377,7 +376,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 					contract.SRData.ChickenRunCheckMsgID = ""
 
 					str := fmt.Sprintf("All players have run chickens. **%s** should now react with 🦵 then start to kick all farmers.", contract.Boosters[contract.SRData.SinkUserID].Mention)
-					s.ChannelMessageSend(r.ChannelID, str)
+					_, _ = s.ChannelMessageSend(r.ChannelID, str)
 				}
 			}
 			// Indicate that the farmer has completed running chickens
@@ -387,7 +386,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 			keepReaction = true
 			// Indicate that the farmer has a truck incoming
 			str := fmt.Sprintf("Truck arriving for **%s**. The sink may or may not pause kicks.", contract.Boosters[r.UserID].Mention)
-			s.ChannelMessageSend(contract.Location[0].ChannelID, str)
+			_, _ = s.ChannelMessageSend(contract.Location[0].ChannelID, str)
 		}
 
 		idx := slices.Index(contract.Boosters[r.UserID].Alts, contract.SRData.SpeedrunStarterUserID)
@@ -403,7 +402,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 				str := "**Starting to kick users.** Swap shiny artifacts if you need to force a server sync.\n"
 				str += contract.Boosters[contract.SRData.SpeedrunStarterUserID].Mention + " will react here with 💃 after kicks to advance the tango."
 				msg, _ := s.ChannelMessageSend(contract.Location[0].ChannelID, str)
-				s.MessageReactionAdd(contract.Location[0].ChannelID, msg.ID, "💃") // Tango Reaction
+				_ = s.MessageReactionAdd(contract.Location[0].ChannelID, msg.ID, "💃") // Tango Reaction
 				SetReactionID(contract, contract.Location[0].ChannelID, msg.ID)
 				contract.SRData.LegReactionMessageID = msg.ID
 				if contract.SRData.ChickenRunCheckMsgID != "" {
@@ -426,7 +425,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 				contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 				contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
 				//}
-				s.ChannelMessageSend(contract.Location[0].ChannelID, str)
+				_, _ = s.ChannelMessageSend(contract.Location[0].ChannelID, str)
 				sendNextNotification(s, contract, true)
 			}
 		}
@@ -476,7 +475,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 				}
 				str += fmt.Sprintf("you've been sent %d tokens to boost with!", b.TokensWanted)
 
-				s.ChannelMessageSend(contract.Location[0].ChannelID, str)
+				_, _ = s.ChannelMessageSend(contract.Location[0].ChannelID, str)
 
 				redraw = false
 			}
@@ -505,7 +504,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 			var data discordgo.MessageSend
 			data.Content = str
 			msg, _ := s.ChannelMessageSendComplex(contract.Location[0].ChannelID, &data)
-			s.MessageReactionAdd(msg.ChannelID, msg.ID, contract.ChickenRunEmoji) // Indicate Chicken Run
+			_ = s.MessageReactionAdd(msg.ChannelID, msg.ID, contract.ChickenRunEmoji) // Indicate Chicken Run
 			keepReaction = true
 			redraw = true
 		}
@@ -529,7 +528,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 
 	// Remove extra added emoji
 	if !keepReaction {
-		s.MessageReactionRemove(r.ChannelID, r.MessageID, emojiName, r.UserID)
+		_ = s.MessageReactionRemove(r.ChannelID, r.MessageID, emojiName, r.UserID)
 	}
 
 	if redraw {
