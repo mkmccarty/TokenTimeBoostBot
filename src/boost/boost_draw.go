@@ -10,7 +10,7 @@ import (
 
 // DrawBoostList will draw the boost list for the contract
 func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) string {
-	var outputStr = ""
+	var outputStr string
 	var afterListStr = ""
 	contract.LastInteractionTime = time.Now()
 

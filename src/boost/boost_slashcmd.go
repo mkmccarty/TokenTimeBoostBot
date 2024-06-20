@@ -252,7 +252,7 @@ func HandleUnboostCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		})
 		return
 	}
-	var str = ""
+	var str string
 	var farmer = ""
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))

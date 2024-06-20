@@ -25,10 +25,11 @@ import (
 )
 
 // Admin Slash Command Constants
-const boostBotHomeGuild string = "766330702689992720"
+// const boostBotHomeGuild string = "766330702689992720"
 const slashAdminContractsList string = "admin-contract-list"
 const slashAdminContractFinish string = "admin-contract-finish"
-const slashAdminBotSettings string = "admin-bot-settings"
+
+// const slashAdminBotSettings string = "admin-bot-settings"
 const slashReloadContracts string = "admin-reload-contracts"
 
 // Slash Command Constants
@@ -104,7 +105,10 @@ func init() {
 	}
 	// if ttbb-data directory doesn't exist, create it
 	if _, err := os.Stat("ttbb-data"); os.IsNotExist(err) {
-		os.Mkdir("ttbb-data", 0755)
+		err := os.Mkdir("ttbb-data", 0755)
+		if err != nil {
+			log.Print(err)
+		}
 	}
 }
 
@@ -448,7 +452,7 @@ var (
 			boost.HandleTokenCommand(s, i)
 		},
 		slashTokenRemove: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			var str = "Token not found."
+			var str string
 			if i.GuildID == "" {
 				str = track.HandleTokenRemoveCommand(s, i)
 			} else {
@@ -530,7 +534,7 @@ var (
 				})
 				return
 			}
-			var eiName = ""
+			var eiName string
 			var userID = i.Member.User.ID
 
 			options := i.ApplicationCommandData().Options
@@ -556,12 +560,10 @@ var (
 			re := regexp.MustCompile(`^EI[1-9]*$`)
 			if re.MatchString(eiName) {
 				str = "Don't use your Egg, Inc. EI number."
-				eiName = ""
 			} else {
 				// Is the user issuing the command a coordinator?
 				if userID != i.Member.User.ID && !boost.IsUserCreatorOfAnyContract(s, i.Member.User.ID) {
 					str = "This form of usage is restricted to contract coordinators and administrators."
-					eiName = ""
 				} else {
 					farmerstate.SetEggIncName(userID, eiName)
 				}
@@ -586,19 +588,19 @@ var (
 			boost.HandleContractDelete(s, i)
 		},
 		"fd_tokens5": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.AddBoostTokens(s, i, 5, 0)
+			boost.AddBoostTokensInteraction(s, i, 5, 0)
 		},
 		"fd_tokens6": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.AddBoostTokens(s, i, 6, 0)
+			boost.AddBoostTokensInteraction(s, i, 6, 0)
 		},
 		"fd_tokens8": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.AddBoostTokens(s, i, 8, 0)
+			boost.AddBoostTokensInteraction(s, i, 8, 0)
 		},
 		"fd_tokens1": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.AddBoostTokens(s, i, 0, 1)
+			boost.AddBoostTokensInteraction(s, i, 0, 1)
 		},
 		"fd_tokens_sub": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.AddBoostTokens(s, i, 0, -1)
+			boost.AddBoostTokensInteraction(s, i, 0, -1)
 		},
 		"fd_tokenEdit": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			track.HandleTokenEdit(s, i)

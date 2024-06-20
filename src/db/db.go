@@ -16,7 +16,10 @@ var mongoDB *mongo.Client
 
 // Open is used to establish the database connection
 func Open() {
-	godotenv.Load()
+	err := godotenv.Load()
+	if err != nil {
+		log.Print(err)
+	}
 
 	var uri string
 
