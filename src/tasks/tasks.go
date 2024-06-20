@@ -42,7 +42,7 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 		log.Println(err)
 	}
 	if perms&discordgo.PermissionAdministrator == 0 {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    "You are not authorized to use this command.",
@@ -52,7 +52,7 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 		return
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: "Working on it...",
@@ -75,7 +75,7 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 		str += fmt.Sprintf("> Events: %s\n", lastEventUpdate.Format(time.RFC1123))
 	}
 
-	s.FollowupMessageCreate(i.Interaction, true,
+	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
 			Content: str},
 	)

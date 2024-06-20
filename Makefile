@@ -66,9 +66,12 @@ audit:
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 	go test -race -buildvcs -vet=off ./...
 
+.PHONY: lint-update
+lint-update:
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.59.1
+
 .PHONY: lint
 lint:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.59.1
 	$(shell go env GOPATH)/bin/golangci-lint run
 
 # ==================================================================================== #

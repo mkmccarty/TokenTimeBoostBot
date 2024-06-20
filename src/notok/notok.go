@@ -80,7 +80,7 @@ func Notok(s *discordgo.Session, i *discordgo.InteractionCreate, cmd int64, text
 	}
 
 	if err != nil {
-		s.FollowupMessageCreate(i.Interaction, true,
+		_, _ = s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
 				Content: fmt.Sprintf("%s\nResponse time: %s", err.Error(), time.Since(currentStartTime).Round(time.Second).String()),
 			},
@@ -89,7 +89,7 @@ func Notok(s *discordgo.Session, i *discordgo.InteractionCreate, cmd int64, text
 	}
 
 	if wishURL != "" {
-		s.FollowupMessageCreate(i.Interaction, true,
+		_, _ = s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
 				Content: fmt.Sprintf("Success\nResponse time: %s", time.Since(currentStartTime).Round(time.Second).String()),
 			},
@@ -97,12 +97,12 @@ func Notok(s *discordgo.Session, i *discordgo.InteractionCreate, cmd int64, text
 		sendImageReply(s, i.ChannelID, wishURL, wishStr, hidden)
 	} else if wishStr != "" {
 		if strings.HasPrefix(text, "!!") {
-			s.FollowupMessageCreate(i.Interaction, true,
+			_, _ = s.FollowupMessageCreate(i.Interaction, true,
 				&discordgo.WebhookParams{
 					Content: wishStr},
 			)
 		} else {
-			s.FollowupMessageCreate(i.Interaction, true,
+			_, _ = s.FollowupMessageCreate(i.Interaction, true,
 				&discordgo.WebhookParams{
 					Content: fmt.Sprintf("Success\nResponse time: %s", time.Since(currentStartTime).Round(time.Second).String()),
 				},
@@ -328,9 +328,13 @@ func wishImage(prompt string, user string) (string, error) {
 	fmt.Println(prompt)
 	fmt.Println(respURL.Data[0].URL)
 
-	go downloadFile("./ttbb-data/images", respURL.Data[0].URL, prompt)
+	go downloadFileNoErr("./ttbb-data/images", respURL.Data[0].URL, prompt)
 
 	return respURL.Data[0].URL, nil
+}
+
+func downloadFileNoErr(filepath string, url string, prompt string) {
+	_ = downloadFile(filepath, url, prompt)
 }
 
 func downloadFile(filepath string, url string, prompt string) error {

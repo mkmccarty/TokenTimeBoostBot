@@ -63,7 +63,7 @@ func HandleTokenEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	if Tokens[userID] == nil || Tokens[userID].Coop == nil || Tokens[userID].Coop[name] == nil {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content: "Tracker not found.",
@@ -109,7 +109,7 @@ func HandleTokenEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if err == nil {
 		return
 	}
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
 
@@ -124,7 +124,7 @@ func HandleTokenSend(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		userID = i.User.ID
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 	})
 
@@ -139,7 +139,7 @@ func HandleTokenSend(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	m.Components = &comp
 	m.SetEmbeds(embed.Embeds)
 	m.SetContent("")
-	s.ChannelMessageEditComplex(m)
+	_, _ = s.ChannelMessageEditComplex(m)
 
 	saveData(Tokens)
 }
@@ -153,7 +153,7 @@ func HandleTokenReceived(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		userID = i.User.ID
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 	})
 
@@ -168,7 +168,7 @@ func HandleTokenReceived(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	m.Components = &comp
 	m.SetEmbeds(embed.Embeds)
 	m.SetContent("")
-	s.ChannelMessageEditComplex(m)
+	_, _ = s.ChannelMessageEditComplex(m)
 
 	saveData(Tokens)
 }
@@ -182,7 +182,7 @@ func HandleTokenDetails(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		userID = i.User.ID
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 	})
 
@@ -198,7 +198,7 @@ func HandleTokenDetails(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	m.Components = &comp
 	m.SetEmbeds(embed.Embeds)
 	m.SetContent("")
-	s.ChannelMessageEditComplex(m)
+	_, _ = s.ChannelMessageEditComplex(m)
 }
 
 // HandleTokenComplete will close the token tracking
@@ -210,7 +210,7 @@ func HandleTokenComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		userID = i.User.ID
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 	})
 
@@ -226,7 +226,7 @@ func HandleTokenComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		msg.SetContent("")
 		msg.Components = &[]discordgo.MessageComponent{}
 		msg.SetEmbeds(embed.Embeds)
-		s.ChannelMessageEditComplex(msg)
+		_, _ = s.ChannelMessageEditComplex(msg)
 	}
 
 	if Tokens[userID] != nil {
@@ -271,7 +271,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		m.Components = &comp
 		m.SetEmbeds(embed.Embeds)
 		m.SetContent("")
-		s.ChannelMessageEditComplex(m)
+		_, _ = s.ChannelMessageEditComplex(m)
 		defer saveData(Tokens)
 	}
 }

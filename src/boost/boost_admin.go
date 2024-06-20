@@ -36,7 +36,7 @@ func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCre
 		log.Println(err)
 	}
 	if perms&discordgo.PermissionAdministrator == 0 {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    "You are not authorized to use this command.",
@@ -52,7 +52,7 @@ func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCre
 		str = err.Error()
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content:    str,
@@ -83,7 +83,7 @@ func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreat
 		log.Println(err)
 	}
 	if perms&discordgo.PermissionAdministrator == 0 {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    "You are not authorized to use this command.",
@@ -92,7 +92,7 @@ func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreat
 		})
 		return
 	}
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content:    str,
@@ -174,7 +174,7 @@ func finishContractByHash(contractHash string) error {
 	// Don't delete the final boost message
 	farmerstate.SetOrderPercentileAll(contract.Order, len(contract.Order))
 
-	saveEndData(contract) // Save for historical purposes
+	_ = saveEndData(contract) // Save for historical purposes
 	delete(Contracts, contract.ContractHash)
 	saveData(Contracts)
 

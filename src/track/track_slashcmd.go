@@ -184,7 +184,7 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, co
 		str += "Interact with the bot on " + u.Mention() + " to track your token values."
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: str,
@@ -206,7 +206,7 @@ func HandleTrackerEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	name := extractTokenName(i.ModalSubmitData().CustomID)
 
 	if Tokens[userID] == nil || Tokens[userID].Coop == nil || Tokens[userID].Coop[name] == nil {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content: "Tracker not found.",
@@ -256,7 +256,7 @@ func HandleTrackerEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: str,
@@ -275,7 +275,7 @@ func HandleTrackerEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	m.Components = &comp
 	m.SetEmbeds(embed.Embeds)
 	m.SetContent("")
-	s.ChannelMessageEditComplex(m)
+	_, _ = s.ChannelMessageEditComplex(m)
 }
 
 // HandleTokenRemoveCommand will handle the /token-remove command

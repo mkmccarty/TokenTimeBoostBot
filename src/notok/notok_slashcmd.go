@@ -56,7 +56,7 @@ func SlashFunCommand(cmd string) *discordgo.ApplicationCommand {
 func FunHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
 	if i.GuildID == "" {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    "This command can only be run in a server.",
@@ -82,7 +82,7 @@ func FunHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		gptText = opt.StringValue()
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content:    "",

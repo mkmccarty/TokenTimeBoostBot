@@ -66,7 +66,7 @@ func UpdateThreadName(s *discordgo.Session, contract *Contract) {
 func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
 	if i.GuildID == "" {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    "This command can only be run in a server.",
@@ -125,7 +125,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			}
 		}
 		if !found {
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content:    "Select a contract-id from the dropdown list.\nIf the contract-id list doesn't have your contract then supply a coop-size parameter.",
@@ -165,7 +165,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	mutex.Unlock()
 	if err != nil {
 
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    err.Error(),
@@ -216,7 +216,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 func HandleBoostCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
 	if i.GuildID == "" {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content: "This command can only be run in a server.",
@@ -230,7 +230,7 @@ func HandleBoostCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if err != nil {
 		str = err.Error()
 	}
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: str,
@@ -243,7 +243,7 @@ func HandleBoostCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 func HandleUnboostCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
 	if i.GuildID == "" {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    "This command can only be run in a server.",
@@ -270,7 +270,7 @@ func HandleUnboostCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		str = "Marked " + farmer + " as unboosted."
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content:    str,
@@ -284,7 +284,7 @@ func HandleUnboostCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 func HandleSkipCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
 	if i.GuildID == "" {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    "This command can only be run in a server.",
@@ -299,7 +299,7 @@ func HandleSkipCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		str = err.Error()
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content:    str,
@@ -312,7 +312,7 @@ func HandleSkipCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
 	if i.GuildID == "" {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    "This command can only be run in a server.",
@@ -355,7 +355,7 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		orderValue = int(opt.IntValue())
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: "Working on it...",
@@ -367,7 +367,7 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		log.Println(err.Error())
 	}
 
-	s.FollowupMessageCreate(i.Interaction, true,
+	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
 			Content: str,
 			Flags:   discordgo.MessageFlagsEphemeral,
@@ -379,7 +379,7 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 func HandlePruneCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
 	if i.GuildID == "" {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    "This command can only be run in a server.",
@@ -401,7 +401,7 @@ func HandlePruneCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		farmer = opt.StringValue()
 		str += " " + farmer
 	}
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content:    "Working on it...",
@@ -414,7 +414,7 @@ func HandlePruneCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		log.Println("/prune", err.Error())
 		str = err.Error()
 	}
-	s.FollowupMessageCreate(i.Interaction, true,
+	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
 			Content: str},
 	)
@@ -424,7 +424,7 @@ func HandlePruneCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 func HandleCoopETACommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
 	if i.GuildID == "" {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    "This command can only be run in a server.",
@@ -456,7 +456,7 @@ func HandleCoopETACommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 
 	var str = fmt.Sprintf("With a production rate of %s/hr completion <t:%d:R> near <t:%d:f>", rate, endTime.Unix(), endTime.Unix())
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: str,
@@ -484,7 +484,7 @@ func HandleBumpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content:    str,
@@ -581,13 +581,13 @@ func HandleContractDelete(s *discordgo.Session, i *discordgo.InteractionCreate) 
 			for _, loc := range contract.Location {
 				_ = s.ChannelMessageUnpin(loc.ChannelID, loc.ReactionID)
 			}
-			s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
+			_ = s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
 		} else {
 			str = "Only the coordinator can recycle this contract."
 		}
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: str,

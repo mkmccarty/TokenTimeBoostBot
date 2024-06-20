@@ -40,7 +40,7 @@ const missionJSON = `{"ships":[
 var mis missionData
 
 func init() {
-	json.Unmarshal([]byte(missionJSON), &mis)
+	_ = json.Unmarshal([]byte(missionJSON), &mis)
 }
 
 func fmtDuration(d time.Duration) string {
