@@ -214,6 +214,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 					data.Content = str
 					msg, _ := s.ChannelMessageSendComplex(location.ChannelID, &data)
 					_ = s.MessageReactionAdd(msg.ChannelID, msg.ID, contract.ChickenRunEmoji) // Indicate Chicken Run
+					//SetReactionID(contract, location.ChannelID, msg.ID)
 				}
 				keepReaction = true
 				redraw = true

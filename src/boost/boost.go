@@ -213,19 +213,20 @@ type Contract struct {
 
 // SpeedrunData holds the data for a speedrun
 type SpeedrunData struct {
-	SpeedrunState         int    // Speedrun state
-	SpeedrunStarterUserID string // Sink CRT User ID
-	SinkUserID            string // Sink End of Contract User ID
-	SinkBoostPosition     int    // Sink Boost Position
-	SpeedrunStyle         int    // Speedrun Style
-	ChickenRuns           int    // Number of Chicken Runs for this contract
-	SelfRuns              bool   // Farmers performing self runs
-	Legs                  int    // Number of legs for this Tango
-	Tango                 [3]int // The Tango itself (First, Middle, Last)
-	CurrentLeg            int    // Current Leg
-	LegReactionMessageID  string // Message ID for the Leg Reaction Message
-	ChickenRunCheckMsgID  string // Message ID for the Chicken Run Check Message
-	StatusStr             string // Status string for the speedrun
+	SpeedrunState        int    // Speedrun state
+	CrtSinkUserID        string // Sink CRT User ID
+	BoostingSinkUserID   string // Sink CRT User ID
+	PostSinkUserID       string // Sink End of Contract User ID
+	SinkBoostPosition    int    // Sink Boost Position
+	SpeedrunStyle        int    // Speedrun Style
+	ChickenRuns          int    // Number of Chicken Runs for this contract
+	SelfRuns             bool   // Farmers performing self runs
+	Legs                 int    // Number of legs for this Tango
+	Tango                [3]int // The Tango itself (First, Middle, Last)
+	CurrentLeg           int    // Current Leg
+	LegReactionMessageID string // Message ID for the Leg Reaction Message
+	ChickenRunCheckMsgID string // Message ID for the Chicken Run Check Message
+	StatusStr            string // Status string for the speedrun
 }
 
 type eiData struct {
@@ -591,8 +592,8 @@ func FindContractByMessageID(channelID string, messageID string) *Contract {
 	// Given a
 	for _, c := range Contracts {
 		for _, loc := range c.Location {
-			if loc.ChannelID == channelID {
-				//if slices.Index(loc.MessageIDs, messageID) != -1 {
+			//if loc.ChannelID == channelID {
+			if slices.Index(loc.MessageIDs, messageID) != -1 {
 				return c
 			}
 		}
@@ -944,11 +945,14 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 	if contract.Boosters[userID].AltController != "" {
 		mainUserID := contract.Boosters[userID].AltController
 		if contract.Speedrun {
-			if contract.SRData.SpeedrunStarterUserID == userID {
-				contract.SRData.SpeedrunStarterUserID = mainUserID
+			if contract.SRData.CrtSinkUserID == userID {
+				contract.SRData.CrtSinkUserID = mainUserID
 			}
-			if contract.SRData.SinkUserID == userID {
-				contract.SRData.SinkUserID = mainUserID
+			if contract.SRData.BoostingSinkUserID == userID {
+				contract.SRData.BoostingSinkUserID = mainUserID
+			}
+			if contract.SRData.PostSinkUserID == userID {
+				contract.SRData.PostSinkUserID = mainUserID
 			}
 			contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
 		}
@@ -1054,7 +1058,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	}
 
 	if !creatorOfContract(s, contract, userID) {
-		if !(contract.Speedrun && contract.SRData.SpeedrunStarterUserID == userID) {
+		if !(contract.Speedrun && contract.SRData.CrtSinkUserID == userID) {
 			return errors.New(errorNotContractCreator)
 		}
 	}
@@ -1389,7 +1393,7 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	} else {
 		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 		contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
-		if contract.Order[contract.BoostPosition] == contract.SRData.SinkUserID {
+		if contract.Order[contract.BoostPosition] == contract.SRData.BoostingSinkUserID {
 			contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived = 0 // reset these
 		}
 	}

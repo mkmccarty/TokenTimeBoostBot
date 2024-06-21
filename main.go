@@ -223,14 +223,20 @@ var (
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionUser,
-					Name:        "contract-starter",
-					Description: "User who starts the EI contract.",
+					Name:        "sink-crt",
+					Description: "The user to sink during CRT. Used for other sink parameters if those are missing.",
 					Required:    true,
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "sink",
-					Description: "Token Sink",
+					Name:        "sink-boosting",
+					Description: "Sink during boosting.",
+					Required:    false,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "sink-post",
+					Description: "Post contract sink.",
 					Required:    false,
 				},
 				{
