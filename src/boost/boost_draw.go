@@ -50,7 +50,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 			//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SpeedrunStarterUserID)
 		case SpeedrunStateBoosting:
 			if contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
-				afterListStr += fmt.Sprintf("\n**Send all tokens to %s**\n", contract.Boosters[contract.SRData.SinkUserID].Mention)
+				afterListStr += fmt.Sprintf("\n**Send all tokens to %s**\n", contract.Boosters[contract.SRData.BoostingSinkUserID].Mention)
 			}
 		case SpeedrunStatePost:
 			//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SinkUserID)
@@ -126,7 +126,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 			if ok {
 				sinkIcon := ""
 				if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
-					if contract.SRData.SinkUserID == b.UserID {
+					if contract.SRData.BoostingSinkUserID == b.UserID {
 						sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
 					}
 				}
@@ -154,7 +154,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 			if ok {
 				sinkIcon := ""
 				if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
-					if contract.SRData.SinkUserID == b.UserID {
+					if contract.SRData.BoostingSinkUserID == b.UserID {
 						sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
 					}
 				}
@@ -209,7 +209,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 
 			if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
 				sinkIcon := ""
-				if contract.SRData.SinkUserID == b.UserID {
+				if contract.SRData.BoostingSinkUserID == b.UserID {
 					sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
 					signupCountStr = fmt.Sprintf("(%d)", b.TokensWanted)
 				}
@@ -272,7 +272,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 	} else if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStatePost {
 		outputStr += "\n"
 		outputStr += "Contract Boosting Completed!\n\n"
-		outputStr += "> Send every " + tokenStr + " to our sink " + contract.Boosters[contract.SRData.SinkUserID].Mention + "\n"
+		outputStr += "> Send every " + tokenStr + " to our sink " + contract.Boosters[contract.SRData.PostSinkUserID].Mention + "\n"
 	}
 	return outputStr
 }
