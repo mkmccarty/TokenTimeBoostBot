@@ -152,7 +152,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 				thread, err := s.ThreadStart(ChannelID, builder.String(), discordgo.ChannelTypeGuildPublicThread, 60*24)
 				if err == nil {
 					ChannelID = thread.ID
-					_ = s.ThreadJoin(i.Member.User.ID)
+					_ = s.ThreadJoin(getIntentUserID(i))
 				} else {
 					log.Print(err)
 				}
@@ -161,7 +161,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 
 	mutex.Lock()
-	contract, err := CreateContract(s, contractID, coopID, coopSize, boostOrder, i.GuildID, ChannelID, i.Member.User.ID, pingRole)
+	contract, err := CreateContract(s, contractID, coopID, coopSize, boostOrder, i.GuildID, ChannelID, getIntentUserID(i), pingRole)
 	mutex.Unlock()
 	if err != nil {
 

@@ -17,6 +17,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/divan/num2words"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
@@ -194,19 +195,20 @@ type Contract struct {
 	PlannedStartTime time.Time // Parameter start time
 	ActualStartTime  time.Time // Actual start time for token tracking
 	//EggFarmers     map[string]*EggFarmer
-	RegisteredNum       int
-	Boosters            map[string]*Booster // Boosters Registered
-	AltIcons            []string            // Array of alternate icons for the Boosters
-	Order               []string
-	OrderRevision       int  // Incremented when Order is changed
-	Speedrun            bool // Speedrun mode
-	SRData              SpeedrunData
-	VolunteerSink       string // Sink for Post contract tokens
-	CalcOperations      int
-	CalcOperationTime   time.Time
-	LastWishPrompt      string     // saved prompt for this contract
-	LastInteractionTime time.Time  // last time the contract was drawn
-	mutex               sync.Mutex // Keep this contract thread safe
+	RegisteredNum         int
+	Boosters              map[string]*Booster // Boosters Registered
+	AltIcons              []string            // Array of alternate icons for the Boosters
+	Order                 []string
+	OrderRevision         int  // Incremented when Order is changed
+	Speedrun              bool // Speedrun mode
+	SRData                SpeedrunData
+	VolunteerSink         string // Sink for Post contract tokens
+	CalcOperations        int
+	CalcOperationTime     time.Time
+	LastWishPrompt        string     // saved prompt for this contract
+	LastInteractionTime   time.Time  // last time the contract was drawn
+	UseInteractionButtons bool       // Use buttons for interaction
+	mutex                 sync.Mutex // Keep this contract thread safe
 }
 
 // SpeedrunData holds the data for a speedrun
@@ -251,6 +253,13 @@ func init() {
 	if err == nil {
 		Contracts = c
 	}
+}
+
+func getIntentUserID(i *discordgo.InteractionCreate) string {
+	if i.GuildID == "" {
+		return i.User.ID
+	}
+	return i.Member.User.ID
 }
 
 // DeleteContract will delete the contract
@@ -404,6 +413,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract = new(Contract)
 		contract.Location = append(contract.Location, loc)
 		contract.ContractHash = ContractHash
+		contract.UseInteractionButtons = config.GetTestMode() // Featuer under test
 
 		//GlobalContracts[ContractHash] = append(GlobalContracts[ContractHash], loc)
 		contract.Boosters = make(map[string]*Booster)
@@ -479,12 +489,12 @@ func AddBoostTokens(s *discordgo.Session, i *discordgo.InteractionCreate, setCou
 		return 0, 0, errors.New(errorNoContract)
 	}
 	// verify the user is in the contract
-	if !userInContract(contract, i.Member.User.ID) {
+	if !userInContract(contract, getIntentUserID(i)) {
 		return 0, 0, errors.New(errorUserNotInContract)
 	}
 
 	// Add the token count for the userID, ensure the count is not negative
-	var b = contract.Boosters[i.Member.User.ID]
+	var b = contract.Boosters[getIntentUserID(i)]
 	if b == nil {
 		return 0, 0, errors.New(errorUserNotInContract)
 	}
@@ -1096,7 +1106,12 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 			if err == nil {
 				SetListMessageID(contract, loc.ChannelID, msg.ID)
 			}
-			addContractReactions(s, contract, loc.ChannelID, msg.ID, loc.TokenReactionStr)
+			if contract.UseInteractionButtons {
+				addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID, loc.TokenReactionStr)
+
+			} else {
+				addContractReactions(s, contract, loc.ChannelID, msg.ID, loc.TokenReactionStr)
+			}
 		}
 	}
 	return nil

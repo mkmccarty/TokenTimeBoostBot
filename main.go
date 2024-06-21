@@ -151,7 +151,18 @@ var (
 	commands = []*discordgo.ApplicationCommand{
 		{
 			Name:        slashContract,
-			Description: "Contract Boosting Elections",
+			Description: "Create a contract boost list.",
+			/*
+				Contexts: &[]discordgo.InteractionContextType{
+					discordgo.InteractionContextGuild,
+					discordgo.InteractionContextBotDM,
+					discordgo.InteractionContextPrivateChannel,
+				},
+				IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+					discordgo.ApplicationIntegrationGuildInstall,
+					discordgo.ApplicationIntegrationUserInstall,
+				},
+			*/
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:         discordgo.ApplicationCommandOptionString,
@@ -535,7 +546,8 @@ var (
 				return
 			}
 			var eiName string
-			var userID = i.Member.User.ID
+			var callerUserID = getIntentUserID(i)
+			var userID = getIntentUserID(i)
 
 			options := i.ApplicationCommandData().Options
 			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -562,7 +574,7 @@ var (
 				str = "Don't use your Egg, Inc. EI number."
 			} else {
 				// Is the user issuing the command a coordinator?
-				if userID != i.Member.User.ID && !boost.IsUserCreatorOfAnyContract(s, i.Member.User.ID) {
+				if userID != callerUserID && !boost.IsUserCreatorOfAnyContract(s, callerUserID) {
 					str = "This form of usage is restricted to contract coordinators and administrators."
 				} else {
 					farmerstate.SetEggIncName(userID, eiName)
@@ -620,7 +632,9 @@ var (
 		"fd_tokenComplete": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			track.HandleTokenComplete(s, i)
 		},
-
+		"rc_": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleContractReactions(s, i)
+		},
 		"fd_signupStart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseDeferredMessageUpdate,
@@ -629,7 +643,7 @@ var (
 					Flags:      discordgo.MessageFlagsEphemeral,
 					Components: []discordgo.MessageComponent{}},
 			})
-			err := boost.StartContractBoosting(s, i.GuildID, i.ChannelID, i.Member.User.ID)
+			err := boost.StartContractBoosting(s, i.GuildID, i.ChannelID, getIntentUserID(i))
 			if err != nil {
 				str := fmt.Sprint(err.Error())
 				_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
@@ -682,7 +696,9 @@ func joinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell boo
 			Components: []discordgo.MessageComponent{}},
 	})
 
-	err := boost.JoinContract(s, i.GuildID, i.ChannelID, i.Member.User.ID, bell)
+	userID := getIntentUserID(i)
+
+	err := boost.JoinContract(s, i.GuildID, i.ChannelID, userID, bell)
 	if err != nil {
 		str = err.Error()
 		log.Print(str)
@@ -736,12 +752,7 @@ func init() {
 			// Handlers could include a parameter to help identify this uniquly
 			handlerID := strings.Split(i.ModalSubmitData().CustomID, "#")[0]
 			if h, ok := componentHandlers[handlerID]; ok {
-				userID := ""
-				if i.GuildID == "" {
-					userID = i.User.ID
-				} else {
-					userID = i.Member.User.ID
-				}
+				userID := getIntentUserID(i)
 				log.Println("Component: ", i.ModalSubmitData().CustomID, userID)
 				h(s, i)
 			}
@@ -750,12 +761,7 @@ func init() {
 			handlerID := strings.Split(i.MessageComponentData().CustomID, "#")[0]
 
 			if h, ok := componentHandlers[handlerID]; ok {
-				userID := ""
-				if i.GuildID == "" {
-					userID = i.User.ID
-				} else {
-					userID = i.Member.User.ID
-				}
+				userID := getIntentUserID(i)
 				log.Println("Component: ", i.MessageComponentData().CustomID, userID)
 				h(s, i)
 			}
@@ -871,4 +877,11 @@ func main() {
 	track.SaveAllData()
 
 	log.Println("Graceful shutdown")
+}
+
+func getIntentUserID(i *discordgo.InteractionCreate) string {
+	if i.GuildID == "" {
+		return i.User.ID
+	}
+	return i.Member.User.ID
 }
