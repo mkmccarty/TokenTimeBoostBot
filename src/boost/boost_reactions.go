@@ -15,6 +15,7 @@ import (
 // ReactionAdd is called when a reaction is added to a message
 func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	// Find the message
+	keepReaction := false
 	returnVal := ""
 	var msg, err = s.ChannelMessage(r.ChannelID, r.MessageID)
 	if err != nil {
@@ -189,7 +190,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			UpdateThreadName(s, contract)
 		}
 
-		if r.Emoji.Name == "🐓" {
+		if r.Emoji.Name == "🐓" && userInContract(contract, r.UserID) {
 			// Indicate that a farmer is ready for chicken runs
 			userID := r.UserID
 			if len(contract.Boosters[r.UserID].Alts) > 0 {
@@ -205,15 +206,33 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				}
 			}
 
-			contract.Boosters[userID].RunChickensTime = time.Now()
-			for _, location := range contract.Location {
-				str := fmt.Sprintf("%s **%s** is ready for chicken runs, check for incoming trucks before visiting.", location.ChannelPing, contract.Boosters[userID].Mention)
-				var data discordgo.MessageSend
-				data.Content = str
-				msg, _ := s.ChannelMessageSendComplex(location.ChannelID, &data)
-				_ = s.MessageReactionAdd(msg.ChannelID, msg.ID, contract.ChickenRunEmoji) // Indicate Chicken Run
+			if contract.Boosters[userID].BoostState == BoostStateBoosted && contract.Boosters[userID].RunChickensTime.IsZero() {
+				contract.Boosters[userID].RunChickensTime = time.Now()
+				for _, location := range contract.Location {
+					str := fmt.Sprintf("%s **%s** is ready for chicken runs, check for incoming trucks before visiting.\nRunners:", location.ChannelPing, contract.Boosters[userID].Mention)
+					var data discordgo.MessageSend
+					data.Content = str
+					msg, _ := s.ChannelMessageSendComplex(location.ChannelID, &data)
+					_ = s.MessageReactionAdd(msg.ChannelID, msg.ID, contract.ChickenRunEmoji) // Indicate Chicken Run
+				}
+				keepReaction = true
+				redraw = true
 			}
-			redraw = true
+		}
+
+		if r.Emoji.Name == "icon_chicken_run" && userInContract(contract, r.UserID) {
+			emojiName = r.Emoji.Name + ":" + r.Emoji.ID
+
+			msgedit := discordgo.NewMessageEdit(r.ChannelID, r.MessageID)
+
+			str := msg.Content
+			userMention := contract.Boosters[r.UserID].Mention
+			if !strings.Contains(strings.Split(str, "\n")[1], userMention) {
+				str += " " + contract.Boosters[r.UserID].Mention
+				msgedit.SetContent(str)
+				msgedit.Flags = discordgo.MessageFlagsSuppressNotifications
+				_, _ = s.ChannelMessageEditComplex(msgedit)
+			}
 		}
 
 		tokenReactionStr := "token"
@@ -283,10 +302,12 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	}
 
 	// Remove extra added emoji
-	err = s.MessageReactionRemove(r.ChannelID, r.MessageID, emojiName, r.UserID)
-	if err != nil {
-		fmt.Println(err, emojiName)
-		_ = s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
+	if !keepReaction {
+		err = s.MessageReactionRemove(r.ChannelID, r.MessageID, emojiName, r.UserID)
+		if err != nil {
+			fmt.Println(err, emojiName)
+			_ = s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
+		}
 	}
 
 	if redraw {
