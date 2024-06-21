@@ -232,6 +232,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				msgedit.SetContent(str)
 				msgedit.Flags = discordgo.MessageFlagsSuppressNotifications
 				_, _ = s.ChannelMessageEditComplex(msgedit)
+				keepReaction = true
 			}
 		}
 
