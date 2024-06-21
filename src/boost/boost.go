@@ -581,7 +581,8 @@ func FindContractByMessageID(channelID string, messageID string) *Contract {
 	// Given a
 	for _, c := range Contracts {
 		for _, loc := range c.Location {
-			if slices.Index(loc.MessageIDs, messageID) != -1 {
+			if loc.ChannelID == channelID {
+				//if slices.Index(loc.MessageIDs, messageID) != -1 {
 				return c
 			}
 		}
