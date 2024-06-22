@@ -242,29 +242,31 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 	if contract.Boosters[userID].BoostState == BoostStateBoosted && contract.Boosters[userID].RunChickensTime.IsZero() {
 
 		contract.Boosters[userID].RunChickensTime = time.Now()
-		for _, location := range contract.Location {
-			str := fmt.Sprintf("%s **%s** is ready for chicken runs, check for incoming trucks before visiting.\nRunners:", location.ChannelPing, contract.Boosters[userID].Mention)
-			var data discordgo.MessageSend
-			data.Content = str
-			data.Components = []discordgo.MessageComponent{
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.Button{
-							Emoji: &discordgo.ComponentEmoji{
-								Name: strings.Split(contract.ChickenRunEmoji, ":")[1],
-								ID:   strings.Split(contract.ChickenRunEmoji, ":")[2],
+		go func() {
+			for _, location := range contract.Location {
+				str := fmt.Sprintf("%s **%s** is ready for chicken runs, check for incoming trucks before visiting.\nRunners:", location.ChannelPing, contract.Boosters[userID].Mention)
+				var data discordgo.MessageSend
+				data.Content = str
+				data.Components = []discordgo.MessageComponent{
+					discordgo.ActionsRow{
+						Components: []discordgo.MessageComponent{
+							discordgo.Button{
+								Emoji: &discordgo.ComponentEmoji{
+									Name: strings.Split(contract.ChickenRunEmoji, ":")[1],
+									ID:   strings.Split(contract.ChickenRunEmoji, ":")[2],
+								},
+								Style:    discordgo.SecondaryButton,
+								CustomID: fmt.Sprintf("rc_#RanChicken#%s", contract.ContractHash),
 							},
-							Style:    discordgo.SecondaryButton,
-							CustomID: fmt.Sprintf("rc_#RanChicken#%s", contract.ContractHash),
 						},
 					},
-				},
+				}
+				msg, err := s.ChannelMessageSendComplex(location.ChannelID, &data)
+				if err == nil {
+					setChickenRunMessageID(contract, msg.ID)
+				}
 			}
-			msg, err := s.ChannelMessageSendComplex(location.ChannelID, &data)
-			if err == nil {
-				setChickenRunMessageID(contract, msg.ID)
-			}
-		}
+		}()
 		return true
 	}
 	return false
