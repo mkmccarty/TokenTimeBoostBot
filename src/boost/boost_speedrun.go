@@ -256,7 +256,7 @@ func reorderSpeedrunBoosters(contract *Contract) {
 	contract.Order = removeDuplicates(newOrder)
 }
 
-func drawSpeedrunCRT(contract *Contract, tokenStr string) string {
+func drawSpeedrunCRT(contract *Contract) string {
 	var builder strings.Builder
 	if contract.SRData.SpeedrunState == SpeedrunStateCRT {
 		fmt.Fprintf(&builder, "# Chicken Run Tango - Leg %d of %d\n", contract.SRData.CurrentLeg+1, contract.SRData.Legs)
@@ -280,7 +280,7 @@ func drawSpeedrunCRT(contract *Contract, tokenStr string) string {
 		}
 
 	}
-	fmt.Fprintf(&builder, "\n**Send %s to %s**\n", tokenStr, contract.Boosters[contract.SRData.CrtSinkUserID].Mention)
+	fmt.Fprintf(&builder, "\n**Send %s to %s**\n", contract.TokenStr, contract.Boosters[contract.SRData.CrtSinkUserID].Mention)
 
 	return builder.String()
 }

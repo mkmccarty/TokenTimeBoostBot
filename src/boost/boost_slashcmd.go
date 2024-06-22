@@ -193,7 +193,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		log.Print(err)
 	}
 
-	var createMsg = DrawBoostList(s, contract, FindTokenEmoji(s, i.GuildID))
+	var createMsg = DrawBoostList(s, contract)
 	var data discordgo.MessageSend
 	data.Content = createMsg
 	data.Flags = discordgo.MessageFlagsSuppressEmbeds

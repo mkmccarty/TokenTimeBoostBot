@@ -105,6 +105,14 @@ var boostIconName = "🚀"     // For Reaction tests
 var boostIconReaction = "🚀" // For displaying
 var boostIcon = "🚀"         // For displaying
 
+// CompMap is a cached set of components for this contract
+type CompMap struct {
+	Emoji    string
+	ID       string
+	Style    discordgo.ButtonStyle
+	CustomID string
+}
+
 // TokenUnit holds the data for each token
 type TokenUnit struct {
 	Time   time.Time // Time token was received
@@ -148,17 +156,17 @@ type Booster struct {
 
 // LocationData holds server specific Data for a contract
 type LocationData struct {
-	GuildID          string
-	GuildName        string
-	ChannelID        string // Contract Discord Channel
-	ChannelName      string
-	ChannelMention   string
-	ChannelPing      string
-	ListMsgID        string   // Message ID for the Last Boost Order message
-	ReactionID       string   // Message ID for the reaction Order String
-	MessageIDs       []string // Array of message IDs for any contract message
-	TokenStr         string   // Emoji for Token
-	TokenReactionStr string   // Emoji for Token Reaction
+	GuildID           string
+	GuildName         string
+	ChannelID         string // Contract Discord Channel
+	ChannelName       string
+	ChannelMention    string
+	ChannelPing       string
+	ListMsgID         string   // Message ID for the Last Boost Order message
+	ReactionID        string   // Message ID for the reaction Order String
+	MessageIDs        []string // Array of message IDs for any contract message
+	TokenXStr         string   // Emoji for Token
+	TokenXReactionStr string   // Emoji for Token Reaction
 }
 
 // Contract is the main struct for each contract
@@ -176,6 +184,8 @@ type Contract struct {
 	EggName                   string
 	EggEmoji                  string
 	ChickenRunEmoji           string
+	TokenStr                  string // Emoji for Token
+	TokenReactionStr          string // Emoji for Token Reaction
 	TargetAmount              []float64
 	qTargetAmount             []float64
 	ChickenRunCooldownMinutes int
@@ -207,10 +217,11 @@ type Contract struct {
 	VolunteerSink         string // Sink for Post contract tokens
 	CalcOperations        int
 	CalcOperationTime     time.Time
-	LastWishPrompt        string     // saved prompt for this contract
-	LastInteractionTime   time.Time  // last time the contract was drawn
-	UseInteractionButtons bool       // Use buttons for interaction
-	mutex                 sync.Mutex // Keep this contract thread safe
+	LastWishPrompt        string             // saved prompt for this contract
+	LastInteractionTime   time.Time          // last time the contract was drawn
+	UseInteractionButtons bool               // Use buttons for interaction
+	buttonComponents      map[string]CompMap // Cached components for this contract
+	mutex                 sync.Mutex         // Keep this contract thread safe
 }
 
 // SpeedrunData holds the data for a speedrun
@@ -289,18 +300,12 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 }
 
 // FindTokenEmoji will find the token emoji for the given guild
-func FindTokenEmoji(s *discordgo.Session, guildID string) string {
+func FindTokenEmoji(s *discordgo.Session) string {
 	g, _ := s.State.Guild(boostBotHomeGuild) // RAIYC Playground
 	var e = emutil.FindEmoji(g.Emojis, "token", false)
 	if e != nil {
 		return e.MessageFormat()
 	}
-	/*
-		e = emutil.FindEmoji(g.Emojis, "Token", false)
-		if e != nil {
-			return e.MessageFormat()
-		}
-	*/
 	return "🐣"
 }
 
@@ -447,11 +452,9 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	}
 
 	// Find our Token emoji
-	for _, el := range contract.Location {
-		el.TokenStr = FindTokenEmoji(s, el.GuildID)
-		// set TokenReactionStr to the TokenStr without first 2 characters and last character
-		el.TokenReactionStr = el.TokenStr[2 : len(el.TokenStr)-1]
-	}
+	contract.TokenStr = FindTokenEmoji(s)
+	// set TokenReactionStr to the TokenStr without first 2 characters and last character
+	contract.TokenReactionStr = contract.TokenStr[2 : len(contract.TokenStr)-1]
 
 	//	if !saveStaleContracts(s) {
 	// Didn't prune any contracts so we should save this
@@ -1022,7 +1025,7 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 			}
 
 			msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
-			contentStr := DrawBoostList(s, contract, loc.TokenStr)
+			contentStr := DrawBoostList(s, contract)
 			msgedit.SetContent(contentStr)
 			msgedit.Flags = discordgo.MessageFlagsSuppressEmbeds
 			msg, err := s.ChannelMessageEditComplex(msgedit)
@@ -1112,7 +1115,7 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 			_ = s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
 			var data discordgo.MessageSend
 			var am discordgo.MessageAllowedMentions
-			data.Content = DrawBoostList(s, contract, loc.TokenStr)
+			data.Content = DrawBoostList(s, contract)
 			data.AllowedMentions = &am
 			data.Flags = discordgo.MessageFlagsSuppressEmbeds
 			msg, err := s.ChannelMessageSendComplex(loc.ChannelID, &data)
@@ -1120,10 +1123,10 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 				SetListMessageID(contract, loc.ChannelID, msg.ID)
 			}
 			if contract.UseInteractionButtons {
-				addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID, loc.TokenReactionStr)
+				addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID, contract.TokenReactionStr)
 
 			} else {
-				addContractReactions(s, contract, loc.ChannelID, msg.ID, loc.TokenReactionStr)
+				addContractReactions(s, contract, loc.ChannelID, msg.ID, contract.TokenReactionStr)
 			}
 		}
 	}
@@ -1135,7 +1138,7 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 	for _, loc := range contract.Location {
 		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
 		// Full contract for speedrun
-		contentStr := DrawBoostList(s, contract, loc.TokenStr)
+		contentStr := DrawBoostList(s, contract)
 		msgedit.SetContent(contentStr)
 		msgedit.Flags = discordgo.MessageFlagsSuppressEmbeds
 		msg, err := s.ChannelMessageEditComplex(msgedit)
@@ -1211,7 +1214,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		if contract.State == ContractStateSignup {
 			msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
 			// Full contract for speedrun
-			contentStr := DrawBoostList(s, contract, loc.TokenStr)
+			contentStr := DrawBoostList(s, contract)
 			msgedit.SetContent(contentStr)
 			msgedit.Flags = discordgo.MessageFlagsSuppressEmbeds
 			_, err := s.ChannelMessageEditComplex(msgedit)
@@ -1228,7 +1231,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			// Compose the message without a Ping
 			var data discordgo.MessageSend
 			var am discordgo.MessageAllowedMentions
-			data.Content = DrawBoostList(s, contract, loc.TokenStr)
+			data.Content = DrawBoostList(s, contract)
 			data.AllowedMentions = &am
 			data.Flags = discordgo.MessageFlagsSuppressEmbeds
 			msg, err = s.ChannelMessageSendComplex(loc.ChannelID, &data)
@@ -1243,7 +1246,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		var str = ""
 
 		if contract.State == ContractStateStarted || contract.State == ContractStateWaiting {
-			addContractReactions(s, contract, loc.ChannelID, msg.ID, loc.TokenReactionStr)
+			addContractReactions(s, contract, loc.ChannelID, msg.ID, contract.TokenReactionStr)
 			if pingUsers {
 				if contract.State == ContractStateStarted {
 					var einame = farmerstate.GetEggIncName(contract.Order[contract.BoostPosition])
@@ -1269,7 +1272,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 				}
 			}
 		} else if contract.State == ContractStateCompleted {
-			addContractReactions(s, contract, loc.ChannelID, msg.ID, loc.TokenReactionStr)
+			addContractReactions(s, contract, loc.ChannelID, msg.ID, contract.TokenReactionStr)
 			t1 := contract.EndTime
 			t2 := contract.StartTime
 			duration := t1.Sub(t2)

@@ -295,7 +295,7 @@ func buttonReactionHelp(s *discordgo.Session, i *discordgo.InteractionCreate, co
 	outputStr += "See 📌 message to join the contract.\nSet your number of boost tokens there or "
 	outputStr += "add a 4️⃣ to 🔟 reaction to the boost list message.\n"
 	outputStr += "Active booster reaction of " + boostIcon + " to when spending tokens to boost. Multiple " + boostIcon + " votes by others in the contract will also indicate a boost.\n"
-	outputStr += "Farmers react with " + contract.Location[0].TokenStr + " when sending tokens.\n"
+	outputStr += "Farmers react with " + contract.TokenStr + " when sending tokens.\n"
 	//outputStr += "Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n"
 	outputStr += "Active booster reaction of 🔃 to exchange position with the next booster.\n"
 	outputStr += "Reaction of ⤵️ to move yourself to last in the current boost order.\n"
@@ -313,31 +313,29 @@ func buttonReactionHelp(s *discordgo.Session, i *discordgo.InteractionCreate, co
 }
 
 func addContractReactionsButtons(s *discordgo.Session, contract *Contract, channelID string, messageID string, tokenStr string) {
+	if contract.buttonComponents == nil {
+		compVals := make(map[string]CompMap, 14)
+		compVals[boostIconReaction] = CompMap{Emoji: boostIconReaction, Style: discordgo.SecondaryButton, CustomID: "rc_#Boost#"}
+		compVals[tokenStr] = CompMap{Emoji: strings.Split(tokenStr, ":")[0], ID: strings.Split(tokenStr, ":")[1], Style: discordgo.SecondaryButton, CustomID: "rc_#Token#"}
+		compVals["💰"] = CompMap{Emoji: "💰", Style: discordgo.SecondaryButton, CustomID: "rc_#Bag#"}
+		compVals["🚚"] = CompMap{Emoji: "🚚", Style: discordgo.SecondaryButton, CustomID: "rc_#Truck#"}
+		compVals["💃"] = CompMap{Emoji: "💃", Style: discordgo.SecondaryButton, CustomID: "rc_#Tango#"}
+		compVals["🦵"] = CompMap{Emoji: "🦵", Style: discordgo.SecondaryButton, CustomID: "rc_#Leg#"}
+		compVals["🔃"] = CompMap{Emoji: "🔃", Style: discordgo.SecondaryButton, CustomID: "rc_#Swap#"}
+		compVals["⤵️"] = CompMap{Emoji: "⤵️", Style: discordgo.SecondaryButton, CustomID: "rc_#Last#"}
+		compVals["🐓"] = CompMap{Emoji: "🐓", Style: discordgo.SecondaryButton, CustomID: "rc_#CR#"}
+		compVals["✅"] = CompMap{Emoji: "✅", Style: discordgo.SecondaryButton, CustomID: "rc_#Check#"}
+		compVals["❓"] = CompMap{Emoji: "❓", Style: discordgo.SecondaryButton, CustomID: "rc_#Help#"}
+		for i, el := range contract.AltIcons {
+			compVals[el] = CompMap{Emoji: el, Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("rc_#Alt-%d#", i)}
+		}
+		contract.buttonComponents = compVals
+	}
+
+	compVals := contract.buttonComponents
 
 	iconsRow := make([][]string, 2)
 	iconsRow[0], iconsRow[1] = addContractReactionsGather(contract, tokenStr)
-	type CompMap struct {
-		Emoji    string
-		ID       string
-		Style    discordgo.ButtonStyle
-		CustomID string
-	}
-
-	compVals := make(map[string]CompMap, 12)
-	compVals[boostIconReaction] = CompMap{Emoji: boostIconReaction, Style: discordgo.SecondaryButton, CustomID: "rc_#Boost#"}
-	compVals[tokenStr] = CompMap{Emoji: strings.Split(tokenStr, ":")[0], ID: strings.Split(tokenStr, ":")[1], Style: discordgo.SecondaryButton, CustomID: "rc_#Token#"}
-	compVals["💰"] = CompMap{Emoji: "💰", Style: discordgo.SecondaryButton, CustomID: "rc_#Bag#"}
-	compVals["🚚"] = CompMap{Emoji: "🚚", Style: discordgo.SecondaryButton, CustomID: "rc_#Truck#"}
-	compVals["💃"] = CompMap{Emoji: "💃", Style: discordgo.SecondaryButton, CustomID: "rc_#Tango#"}
-	compVals["🦵"] = CompMap{Emoji: "🦵", Style: discordgo.SecondaryButton, CustomID: "rc_#Leg#"}
-	compVals["🔃"] = CompMap{Emoji: "🔃", Style: discordgo.SecondaryButton, CustomID: "rc_#Swap#"}
-	compVals["⤵️"] = CompMap{Emoji: "⤵️", Style: discordgo.SecondaryButton, CustomID: "rc_#Last#"}
-	compVals["🐓"] = CompMap{Emoji: "🐓", Style: discordgo.SecondaryButton, CustomID: "rc_#CR#"}
-	compVals["✅"] = CompMap{Emoji: "✅", Style: discordgo.SecondaryButton, CustomID: "rc_#Check#"}
-	compVals["❓"] = CompMap{Emoji: "❓", Style: discordgo.SecondaryButton, CustomID: "rc_#Help#"}
-	for i, el := range contract.AltIcons {
-		compVals[el] = CompMap{Emoji: el, Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("rc_#Alt-%d#", i)}
-	}
 
 	// Alt icons can go on a second action row
 	//icons = append(icons, contract.AltIcons...)
