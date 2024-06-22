@@ -75,28 +75,6 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			return speedrunReactions(s, r, contract)
 		}
 
-		/*
-			// if contract state is waiting and the reaction is a 🏁 finish the contract
-			if r.Emoji.Name == "🏁" {
-				if contract.State == ContractStateWaiting {
-					var votingElection = (msg.Reactions[0].Count - 1) >= 2
-					if votingElection || creatorOfContract(contract, r.UserID) {
-						contract.State = ContractStateCompleted
-						contract.EndTime = time.Now()
-						sendNextNotification(s, contract, true)
-					}
-					return returnVal
-				}
-
-				if !contract.Speedrun && contract.State == ContractStateCompleted && creatorOfContract(contract, r.UserID) {
-					// Coordinator can end the contract
-					contract.State = ContractStateArchive
-					sendNextNotification(s, contract, true)
-					return returnVal
-				}
-			}
-		*/
-
 		if contract.State != ContractStateSignup && contract.BoostPosition < len(contract.Order) {
 
 			// If Rocket reaction on Boost List, only that boosting user can apply a reaction
@@ -214,7 +192,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 					data.Content = str
 					msg, _ := s.ChannelMessageSendComplex(location.ChannelID, &data)
 					_ = s.MessageReactionAdd(msg.ChannelID, msg.ID, contract.ChickenRunEmoji) // Indicate Chicken Run
-					//SetReactionID(contract, location.ChannelID, msg.ID)
+					setChickenRunMessageID(contract, msg.ID)
 				}
 				keepReaction = true
 				redraw = true
@@ -222,18 +200,18 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		}
 
 		if r.Emoji.Name == "icon_chicken_run" && userInContract(contract, r.UserID) {
-			emojiName = r.Emoji.Name + ":" + r.Emoji.ID
+			if slices.Index(contract.CRMessageIDs, r.MessageID) != -1 {
+				msgedit := discordgo.NewMessageEdit(r.ChannelID, r.MessageID)
 
-			msgedit := discordgo.NewMessageEdit(r.ChannelID, r.MessageID)
-
-			str := msg.Content
-			userMention := contract.Boosters[r.UserID].Mention
-			if !strings.Contains(strings.Split(str, "\n")[1], userMention) {
-				str += " " + contract.Boosters[r.UserID].Mention
-				msgedit.SetContent(str)
-				msgedit.Flags = discordgo.MessageFlagsSuppressNotifications
-				_, _ = s.ChannelMessageEditComplex(msgedit)
-				keepReaction = true
+				str := msg.Content
+				userMention := contract.Boosters[r.UserID].Mention
+				if !strings.Contains(strings.Split(str, "\n")[1], userMention) {
+					str += " " + contract.Boosters[r.UserID].Mention
+					msgedit.SetContent(str)
+					msgedit.Flags = discordgo.MessageFlagsSuppressNotifications
+					_, _ = s.ChannelMessageEditComplex(msgedit)
+					keepReaction = true
+				}
 			}
 		}
 
@@ -250,9 +228,6 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 		// Token reaction handling
 		if strings.ToLower(r.Emoji.Name) == tokenReactionStr {
-			if r.Emoji.ID != "" {
-				emojiName = r.Emoji.Name + ":" + r.Emoji.ID
-			}
 			if contract.State == ContractStateWaiting || contract.State == ContractStateCompleted {
 				if contract.VolunteerSink != "" {
 					rSerial := xid.New().String()
@@ -296,20 +271,12 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			}
 		}
 	} else {
-		// Custon token reaction from user not in contract
-		if strings.ToLower(r.Emoji.Name) == "token" {
-			emojiName = r.Emoji.Name + ":" + r.Emoji.ID
-			redraw = true
-		}
+		keepReaction = false
 	}
 
 	// Remove extra added emoji
 	if !keepReaction {
-		err = s.MessageReactionRemove(r.ChannelID, r.MessageID, emojiName, r.UserID)
-		if err != nil {
-			fmt.Println(err, emojiName)
-			_ = s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
-		}
+		go RemoveAddedReaction(s, r)
 	}
 
 	if redraw {
@@ -336,23 +303,23 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	return returnVal
 }
 
+// RemoveAddedReaction removes an added reaction from a message so it can be reactivated
+func RemoveAddedReaction(s *discordgo.Session, r *discordgo.MessageReaction) {
+	var emojiName = r.Emoji.Name
+
+	if r.Emoji.ID != "" {
+		emojiName = r.Emoji.Name + ":" + r.Emoji.ID
+	}
+
+	err := s.MessageReactionRemove(r.ChannelID, r.MessageID, emojiName, r.UserID)
+	if err != nil {
+		fmt.Println(err, emojiName)
+		_ = s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
+	}
+
+}
+
 // ReactionRemove handles a user removing a reaction from a message
 func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
-	var _, err = s.ChannelMessage(r.ChannelID, r.MessageID)
-	if err != nil {
-		return
-	}
-
-	var contract = FindContractByMessageID(r.ChannelID, r.MessageID)
-	if contract == nil {
-		return
-	}
-
-	//contract.mutex.Lock()
-	//defer contract.mutex.Unlock()
-	defer saveData(Contracts)
-
-	if !userInContract(contract, r.UserID) {
-		return
-	}
+	// Don't need to track removal of reactions at this point
 }

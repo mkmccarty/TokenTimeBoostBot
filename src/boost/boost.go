@@ -184,6 +184,8 @@ type Contract struct {
 	CompletionDuration        time.Duration
 	EstimatedDurationValid    bool
 
+	CRMessageIDs []string // Array of message IDs for chicken run messages
+
 	CoopSize         int
 	LengthInSeconds  int
 	BoostOrder       int // How the contract is sorted
@@ -424,7 +426,8 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.BoostVoting = 0
 		contract.OrderRevision = 0
 		contract.State = ContractStateSignup
-		contract.CreatorID = append(contract.CreatorID, userID) // starting userid
+		contract.CreatorID = append(contract.CreatorID, userID)               // starting userid
+		contract.CreatorID = append(contract.CreatorID, "650743870253957160") // Mugwump
 		contract.Speedrun = false
 		contract.SRData.SpeedrunState = SpeedrunStateNone
 		contract.VolunteerSink = ""
@@ -540,6 +543,12 @@ func SetReactionID(contract *Contract, channelID string, reactionID string) {
 		}
 	}
 	saveData(Contracts)
+}
+
+func setChickenRunMessageID(contract *Contract, messageID string) {
+	if slices.Index(contract.CRMessageIDs, messageID) == -1 {
+		contract.CRMessageIDs = append(contract.CRMessageIDs, messageID)
+	}
 }
 
 func getTokenCountString(tokenStr string, tokensWanted int, tokensReceived int) (string, string) {

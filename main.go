@@ -789,7 +789,7 @@ func init() {
 	})
 	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageReactionRemove) {
 		if m.MessageReaction.UserID != s.State.User.ID {
-			boost.ReactionRemove(s, m.MessageReaction)
+			go boost.ReactionRemove(s, m.MessageReaction)
 		}
 	})
 }
