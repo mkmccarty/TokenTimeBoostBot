@@ -9,9 +9,17 @@ import (
 )
 
 // DrawBoostList will draw the boost list for the contract
-func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) string {
+func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	var outputStr string
 	var afterListStr = ""
+	tokenStr := contract.TokenStr
+	if tokenStr == "" {
+		// TODO: Remove this after June 30th
+		contract.TokenStr = FindTokenEmoji(s)
+		contract.TokenReactionStr = contract.TokenStr[2 : len(contract.TokenStr)-1]
+		tokenStr = contract.TokenStr
+	}
+
 	contract.LastInteractionTime = time.Now()
 
 	saveData(Contracts)
@@ -67,7 +75,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract, tokenStr string) st
 
 	if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateCRT {
 		// Handle Speedrun CRT
-		outputStr += drawSpeedrunCRT(contract, tokenStr)
+		outputStr += drawSpeedrunCRT(contract)
 
 		return outputStr
 	}

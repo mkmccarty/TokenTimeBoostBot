@@ -242,19 +242,19 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 	if r.Emoji.Name == "❓" {
 		go func() {
-			for _, loc := range contract.Location {
-				outputStr := "## Boost Bot Icon Meanings\n\n"
-				outputStr += "See 📌 message to join the contract.\nSet your number of boost tokens there or "
-				outputStr += "add a 4️⃣ to 🔟 reaction to the boost list message.\n"
-				outputStr += "Active booster reaction of " + boostIcon + " to when spending tokens to boost. Multiple " + boostIcon + " votes by others in the contract will also indicate a boost.\n"
-				outputStr += "Farmers react with " + loc.TokenStr + " when sending tokens.\n"
-				//outputStr += "Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n"
-				outputStr += "Active booster reaction of 🔃 to exchange position with the next booster.\n"
-				outputStr += "Reaction of ⤵️ to move yourself to last in the current boost order.\n"
-				outputStr += "Reaction of 🐓 when you're ready for others to run chickens on your farm.\n"
-				outputStr += "Anyone can add a 🚽 reaction to express your urgency to boost next.\n"
-				outputStr += "Additional help through the **/help** command.\n"
+			outputStr := "## Boost Bot Icon Meanings\n\n"
+			outputStr += "See 📌 message to join the contract.\nSet your number of boost tokens there or "
+			outputStr += "add a 4️⃣ to 🔟 reaction to the boost list message.\n"
+			outputStr += "Active booster reaction of " + boostIcon + " to when spending tokens to boost. Multiple " + boostIcon + " votes by others in the contract will also indicate a boost.\n"
+			outputStr += "Farmers react with " + contract.TokenStr + " when sending tokens.\n"
+			//outputStr += "Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n"
+			outputStr += "Active booster reaction of 🔃 to exchange position with the next booster.\n"
+			outputStr += "Reaction of ⤵️ to move yourself to last in the current boost order.\n"
+			outputStr += "Reaction of 🐓 when you're ready for others to run chickens on your farm.\n"
+			outputStr += "Anyone can add a 🚽 reaction to express your urgency to boost next.\n"
+			outputStr += "Additional help through the **/help** command.\n"
 
+			for _, loc := range contract.Location {
 				_, _ = s.ChannelMessageSend(loc.ChannelID, outputStr)
 			}
 		}()
