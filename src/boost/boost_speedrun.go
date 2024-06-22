@@ -512,48 +512,51 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 	if contract.SRData.SpeedrunState == SpeedrunStateBoosting || contract.SRData.SpeedrunState == SpeedrunStatePost {
 		if r.Emoji.Name == "🐓" && userInContract(contract, r.UserID) {
 			// Indicate that a farmer is ready for chicken runs
-
-			userID := r.UserID
-			if len(contract.Boosters[r.UserID].Alts) > 0 {
-				ids := append(contract.Boosters[r.UserID].Alts, r.UserID)
-				for _, id := range contract.Order {
-					if slices.Index(ids, id) != -1 {
-						alt := contract.Boosters[id]
-						if alt.BoostState == BoostStateBoosted && alt.RunChickensTime.IsZero() {
-							userID = id
-							break
+			redraw = buttonReactionRunChickens(s, contract, r.UserID)
+			/*
+				userID := r.UserID
+				if len(contract.Boosters[r.UserID].Alts) > 0 {
+					ids := append(contract.Boosters[r.UserID].Alts, r.UserID)
+					for _, id := range contract.Order {
+						if slices.Index(ids, id) != -1 {
+							alt := contract.Boosters[id]
+							if alt.BoostState == BoostStateBoosted && alt.RunChickensTime.IsZero() {
+								userID = id
+								break
+							}
 						}
 					}
 				}
-			}
-			if contract.Boosters[userID].BoostState == BoostStateBoosted && contract.Boosters[userID].RunChickensTime.IsZero() {
-				contract.Boosters[userID].RunChickensTime = time.Now()
-				for _, location := range contract.Location {
-					str := fmt.Sprintf("%s **%s** is ready for chicken runs, check for incoming trucks before visiting.\nRunners:", location.ChannelPing, contract.Boosters[userID].Mention)
-					var data discordgo.MessageSend
-					data.Content = str
-					msg, _ := s.ChannelMessageSendComplex(location.ChannelID, &data)
-					_ = s.MessageReactionAdd(msg.ChannelID, msg.ID, contract.ChickenRunEmoji) // Indicate Chicken Run
+				if contract.Boosters[userID].BoostState == BoostStateBoosted && contract.Boosters[userID].RunChickensTime.IsZero() {
+					contract.Boosters[userID].RunChickensTime = time.Now()
+					for _, location := range contract.Location {
+						str := fmt.Sprintf("%s **%s** is ready for chicken runs, check for incoming trucks before visiting.\nRunners:", location.ChannelPing, contract.Boosters[userID].Mention)
+						var data discordgo.MessageSend
+						data.Content = str
+						msg, _ := s.ChannelMessageSendComplex(location.ChannelID, &data)
+						_ = s.MessageReactionAdd(msg.ChannelID, msg.ID, contract.ChickenRunEmoji) // Indicate Chicken Run
+					}
+					keepReaction = true
+					redraw = true
 				}
-				keepReaction = true
-				redraw = true
-			}
+			*/
 		}
+		/*
+			if r.Emoji.Name == "icon_chicken_run" && userInContract(contract, r.UserID) {
+				emojiName = r.Emoji.Name + ":" + r.Emoji.ID
+				var msg, _ = s.ChannelMessage(r.ChannelID, r.MessageID)
+				msgedit := discordgo.NewMessageEdit(r.ChannelID, r.MessageID)
 
-		if r.Emoji.Name == "icon_chicken_run" && userInContract(contract, r.UserID) {
-			emojiName = r.Emoji.Name + ":" + r.Emoji.ID
-			var msg, _ = s.ChannelMessage(r.ChannelID, r.MessageID)
-			msgedit := discordgo.NewMessageEdit(r.ChannelID, r.MessageID)
-
-			str := msg.Content
-			userMention := contract.Boosters[r.UserID].Mention
-			if !strings.Contains(strings.Split(str, "\n")[1], userMention) {
-				str += " " + contract.Boosters[r.UserID].Mention
-				msgedit.SetContent(str)
-				msgedit.Flags = discordgo.MessageFlagsSuppressNotifications
-				_, _ = s.ChannelMessageEditComplex(msgedit)
+				str := msg.Content
+				userMention := contract.Boosters[r.UserID].Mention
+				if !strings.Contains(strings.Split(str, "\n")[1], userMention) {
+					str += " " + contract.Boosters[r.UserID].Mention
+					msgedit.SetContent(str)
+					msgedit.Flags = discordgo.MessageFlagsSuppressNotifications
+					_, _ = s.ChannelMessageEditComplex(msgedit)
+				}
 			}
-		}
+		*/
 	}
 
 	if r.Emoji.Name == "🌊" {
