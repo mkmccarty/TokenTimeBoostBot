@@ -729,10 +729,6 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 		return errors.New("booster already in this position")
 	}
 
-	if boosterIndex < contract.BoostPosition {
-		boosterPosition--
-	}
-
 	currentBooster := contract.Order[contract.BoostPosition]
 
 	var newOrder []string
