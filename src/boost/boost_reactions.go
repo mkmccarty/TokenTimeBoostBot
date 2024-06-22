@@ -170,55 +170,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 		if r.Emoji.Name == "🐓" && userInContract(contract, r.UserID) {
 			redraw = buttonReactionRunChickens(s, contract, r.UserID)
-			/*
-				// Indicate that a farmer is ready for chicken runs
-				userID := r.UserID
-				if len(contract.Boosters[r.UserID].Alts) > 0 {
-					ids := append(contract.Boosters[r.UserID].Alts, r.UserID)
-					for _, id := range contract.Order {
-						if slices.Index(ids, id) != -1 {
-							alt := contract.Boosters[id]
-							if alt.BoostState == BoostStateBoosted && alt.RunChickensTime.IsZero() {
-								userID = id
-								break
-							}
-						}
-					}
-				}
-
-				if contract.Boosters[userID].BoostState == BoostStateBoosted && contract.Boosters[userID].RunChickensTime.IsZero() {
-					contract.Boosters[userID].RunChickensTime = time.Now()
-					for _, location := range contract.Location {
-						str := fmt.Sprintf("%s **%s** is ready for chicken runs, check for incoming trucks before visiting.\nRunners:", location.ChannelPing, contract.Boosters[userID].Mention)
-						var data discordgo.MessageSend
-						data.Content = str
-						msg, _ := s.ChannelMessageSendComplex(location.ChannelID, &data)
-						_ = s.MessageReactionAdd(msg.ChannelID, msg.ID, contract.ChickenRunEmoji) // Indicate Chicken Run
-						setChickenRunMessageID(contract, msg.ID)
-					}
-					keepReaction = true
-					redraw = true
-				}
-			*/
 		}
-		/*
-			if r.Emoji.Name == "icon_chicken_run" && userInContract(contract, r.UserID) {
-
-				if slices.Index(contract.CRMessageIDs, r.MessageID) != -1 {
-					msgedit := discordgo.NewMessageEdit(r.ChannelID, r.MessageID)
-
-					str := msg.Content
-					userMention := contract.Boosters[r.UserID].Mention
-					if !strings.Contains(strings.Split(str, "\n")[1], userMention) {
-						str += " " + contract.Boosters[r.UserID].Mention
-						msgedit.SetContent(str)
-						msgedit.Flags = discordgo.MessageFlagsSuppressNotifications
-						_, _ = s.ChannelMessageEditComplex(msgedit)
-						keepReaction = true
-					}
-				}
-			}
-		*/
 
 		tokenReactionStr := "token"
 		userID := r.UserID
@@ -289,20 +241,23 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	}
 
 	if r.Emoji.Name == "❓" {
-		for _, loc := range contract.Location {
-			outputStr := "## Boost Bot Icon Meanings\n\n"
-			outputStr += "See 📌 message to join the contract.\nSet your number of boost tokens there or "
-			outputStr += "add a 4️⃣ to 🔟 reaction to the boost list message.\n"
-			outputStr += "Active booster reaction of " + boostIcon + " to when spending tokens to boost. Multiple " + boostIcon + " votes by others in the contract will also indicate a boost.\n"
-			outputStr += "Farmers react with " + loc.TokenStr + " when sending tokens.\n"
-			//outputStr += "Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n"
-			outputStr += "Active booster reaction of 🔃 to exchange position with the next booster.\n"
-			outputStr += "Reaction of ⤵️ to move yourself to last in the current boost order.\n"
-			outputStr += "Reaction of 🐓 when you're ready for others to run chickens on your farm.\n"
-			outputStr += "Anyone can add a 🚽 reaction to express your urgency to boost next.\n"
-			outputStr += "Additional help through the **/help** command.\n"
-			_, _ = s.ChannelMessageSend(loc.ChannelID, outputStr)
-		}
+		go func() {
+			for _, loc := range contract.Location {
+				outputStr := "## Boost Bot Icon Meanings\n\n"
+				outputStr += "See 📌 message to join the contract.\nSet your number of boost tokens there or "
+				outputStr += "add a 4️⃣ to 🔟 reaction to the boost list message.\n"
+				outputStr += "Active booster reaction of " + boostIcon + " to when spending tokens to boost. Multiple " + boostIcon + " votes by others in the contract will also indicate a boost.\n"
+				outputStr += "Farmers react with " + loc.TokenStr + " when sending tokens.\n"
+				//outputStr += "Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n"
+				outputStr += "Active booster reaction of 🔃 to exchange position with the next booster.\n"
+				outputStr += "Reaction of ⤵️ to move yourself to last in the current boost order.\n"
+				outputStr += "Reaction of 🐓 when you're ready for others to run chickens on your farm.\n"
+				outputStr += "Anyone can add a 🚽 reaction to express your urgency to boost next.\n"
+				outputStr += "Additional help through the **/help** command.\n"
+
+				_, _ = s.ChannelMessageSend(loc.ChannelID, outputStr)
+			}
+		}()
 	}
 
 	return returnVal
