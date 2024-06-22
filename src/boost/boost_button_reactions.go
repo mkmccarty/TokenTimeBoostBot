@@ -260,11 +260,14 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 					},
 				},
 			}
-			_, _ = s.ChannelMessageSendComplex(location.ChannelID, &data)
+			msg, err := s.ChannelMessageSendComplex(location.ChannelID, &data)
+			if err == nil {
+				setChickenRunMessageID(contract, msg.ID)
+			}
 		}
+		return true
 	}
-
-	return true
+	return false
 }
 
 func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, cUserID string) {
