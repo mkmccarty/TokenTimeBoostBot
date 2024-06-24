@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	petname "github.com/dustinkirkland/golang-petname"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/moby/moby/pkg/namesgenerator"
 	"github.com/xhit/go-str2duration/v2"
 )
 
@@ -110,6 +110,13 @@ func GetSlashTokenRemoveCommand(cmd string) *discordgo.ApplicationCommand {
 				MinValue:    &integerOneMinValue,
 				Required:    true,
 			},
+			{
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "alternate",
+				Description:  "Select a linked alternate to show their token values",
+				Required:     false,
+				Autocomplete: true,
+			},
 		},
 	}
 }
@@ -157,7 +164,7 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, co
 		trackingName = strings.TrimSpace(opt.StringValue())
 	} else if trackingName == "" {
 
-		trackingName = fmt.Sprintln(petname.Generate(2, "-"))
+		trackingName = fmt.Sprintln(namesgenerator.GetRandomName(0))
 
 	}
 	if opt, ok := optionMap["linked"]; ok {
@@ -330,12 +337,12 @@ func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 		t := Tokens[userID].Coop[tokenList]
 		// Need to figure out which list to remove from
 		if tokenType == 0 {
-			if len(t.Sent) <= tokenIndex {
+			if len(t.Sent) < tokenIndex {
 				return fmt.Sprintf("Invalid token index. You have sent %d tokens.", len(t.Sent))
 			}
 			removeSentToken(userID, tokenList, tokenIndex)
 		} else {
-			if len(t.Received) <= tokenIndex {
+			if len(t.Received) < tokenIndex {
 				return fmt.Sprintf("Invalid token index. You have received %d tokens.", len(t.Received))
 			}
 			removeReceivedToken(userID, tokenList, tokenIndex)
@@ -387,7 +394,8 @@ func HandleTokenRemoveAutoComplete(s *discordgo.Session, i *discordgo.Interactio
 			Data: &discordgo.InteractionResponseData{
 				Content: "Select tracker to adjust the token.",
 				Choices: choices,
-			}})*/
+			}})
+	*/
 	return "Select tracker to adjust the token.", choices
 
 }

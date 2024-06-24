@@ -422,25 +422,36 @@ var (
 		slashLinkAlternate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleLinkAlternateAutoComplete(s, i)
 		},
+		slashCalcContractTval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleAltsAutoComplete(s, i)
+		},
 		slashTokenRemove: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			if i.GuildID == "" {
-				str, choices := track.HandleTokenRemoveAutoComplete(s, i)
-				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-					Data: &discordgo.InteractionResponseData{
-						Content: str,
-						Choices: choices,
-					}})
-
-			} else {
-				str, choices := boost.HandleTokenRemoveAutoComplete(s, i)
-				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-					Data: &discordgo.InteractionResponseData{
-						Content: str,
-						Choices: choices,
-					}})
+			data := i.ApplicationCommandData()
+			for _, opt := range data.Options {
+				if opt.Name == "alternate" && opt.Focused {
+					boost.HandleAltsAutoComplete(s, i)
+				}
+				if opt.Name == "token-list" && opt.Focused {
+					if i.GuildID == "" {
+						str, choices := track.HandleTokenRemoveAutoComplete(s, i)
+						_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+							Data: &discordgo.InteractionResponseData{
+								Content: str,
+								Choices: choices,
+							}})
+					} else {
+						str, choices := boost.HandleTokenRemoveAutoComplete(s, i)
+						_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+							Data: &discordgo.InteractionResponseData{
+								Content: str,
+								Choices: choices,
+							}})
+					}
+				}
 			}
+
 		},
 	}
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -56,7 +57,7 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 		compVals["🦵"] = CompMap{Emoji: "🦵", Style: discordgo.SecondaryButton, CustomID: "rc_#Leg#"}
 		compVals["✅"] = CompMap{Emoji: "✅", Style: discordgo.SecondaryButton, CustomID: "rc_#Check#"}
 		for i, el := range contract.AltIcons {
-			compVals[el] = CompMap{Emoji: el, Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("rc_#Alt-%d#", i)}
+			compVals[el] = CompMap{Emoji: el, Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("rc_#Token-%d#", i)}
 
 	*/
 
@@ -70,41 +71,60 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 		return
 	}
 	// Ack the message for every other command
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-	})
+	if cmd != "cr" {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+		})
+	}
 
 	redraw := false
 
+	// Handle the alt icons and mapping to the correct alt user
+	if strings.Contains(cmd, "alt-") {
+		// Special handling for alt icons representing token reactions
+		idx, _ := strconv.Atoi(strings.Split(cmd, "-")[1])
+		if idx < len(contract.AltIcons) {
+			idx := slices.Index(contract.Boosters[userID].AltsIcons, contract.AltIcons[idx])
+			if idx != -1 {
+				userID = contract.Boosters[userID].Alts[idx]
+				cmd = "token"
+			}
+		}
+	}
+
 	switch cmd {
 	case "boost":
-		redraw = buttonReactionBoost(s, i, contract, userID)
-
+		if i.Message.ID == contract.Location[0].ListMsgID {
+			redraw = buttonReactionBoost(s, i.GuildID, i.ChannelID, contract, userID)
+		}
+	case "bag":
+		_, redraw = buttonReactionBag(s, i.GuildID, i.ChannelID, contract, userID)
 	case "token":
-		// Token also needs to handle the alt icons
-		/*
-			userID := r.UserID
-			// Special handling for alt icons representing token reactions
-			if slices.Index(contract.AltIcons, r.Emoji.Name) != -1 {
-				idx := slices.Index(contract.Boosters[r.UserID].AltsIcons, r.Emoji.Name)
-				if idx != -1 {
-					userID = contract.Boosters[r.UserID].Alts[idx]
-					tokenReactionStr = r.Emoji.Name
-				}
-			}
-		*/
-
-		// Help button
-		redraw = buttonReactionToken(s, i, contract, userID)
-
+		_, redraw = buttonReactionToken(s, i.GuildID, i.ChannelID, contract, userID)
 	case "swap":
-		redraw = buttonReactionSwap(s, i, contract, userID)
+		redraw = buttonReactionSwap(s, i.GuildID, i.ChannelID, contract, userID)
 	case "last":
-		redraw = buttonReactionLast(s, i, contract, userID)
+		_, redraw = buttonReactionLast(s, i.GuildID, i.ChannelID, contract, userID)
 	case "cr":
 		redraw = buttonReactionRunChickens(s, contract, userID)
+		// Ack the message for every other command
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "You've asked for Chicken Runs, now what...\n...\nMaybe.. check on your habs and gusset?  \nI'm sure you've already forced a game sync so no need to remind about that.\nMaybe self-runs?",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
 	case "ranchicken":
 		buttonReactionRanChicken(s, i, contract, userID)
+	case "truck":
+		redraw = buttonReactionTruck(s, contract, userID)
+	case "leg":
+		redraw = buttonReactionLeg(s, contract, userID)
+	case "tango":
+		redraw = buttonReactionTango(s, contract, userID)
+	case "check":
+		redraw = buttonReactionCheck(s, i.ChannelID, contract, userID)
 	}
 
 	if redraw {
@@ -112,113 +132,182 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	}
 }
 
-func buttonReactionBoost(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, cUserID string) bool {
-	if contract.State != ContractStateSignup && contract.BoostPosition < len(contract.Order) {
-		// If Rocket reaction on Boost List, only that boosting user can apply a reaction
-		if contract.State == ContractStateStarted {
-			//var votingElection = (msg.Reactions[0].Count - 1) >= 2
-			var votingElection = false
+func buttonReactionBoost(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, cUserID string) bool {
+	// If Rocket reaction on Boost List, only that boosting user can apply a reaction
+	redraw := false
+	if contract.State == ContractStateStarted {
+		votingElection := false
 
-			userID := cUserID
-			if contract.Speedrun {
-				if contract.Boosters[cUserID] != nil && len(contract.Boosters[cUserID].Alts) > 0 {
-					// Find the most recent boost time among the user and their alts
-					for _, altID := range contract.Boosters[cUserID].Alts {
-						if altID == contract.Order[contract.BoostPosition] {
-							userID = altID
-							break
-						}
+		userID := cUserID
+		if contract.Speedrun {
+			if contract.Boosters[cUserID] != nil && len(contract.Boosters[cUserID].Alts) > 0 {
+				// Find the most recent boost time among the user and their alts
+				for _, altID := range contract.Boosters[cUserID].Alts {
+					if altID == contract.Order[contract.BoostPosition] {
+						userID = altID
+						break
 					}
 				}
 			}
-
-			if userID == contract.Order[contract.BoostPosition] || votingElection || creatorOfContract(s, contract, userID) {
-				_ = Boosting(s, i.GuildID, i.ChannelID)
-				return false
-			}
 		}
 
-	}
+		if userID != contract.Order[contract.BoostPosition] {
+			b := contract.Boosters[contract.Order[contract.BoostPosition]]
+			b.VotingList = append(b.VotingList, userID)
+			votesNeeded := 2
+			if len(b.VotingList) >= votesNeeded {
+				votingElection = true
+			} else {
+				redraw = true
+			}
+			log.Printf("Vote for %s to boost from %s - vote count %d or %d\n", b.UserID, userID, len(b.VotingList), votesNeeded)
+		}
 
-	return false
+		if userID == contract.Order[contract.BoostPosition] || votingElection || creatorOfContract(s, contract, cUserID) {
+			//contract.mutex.Unlock()
+			_ = Boosting(s, GuildID, ChannelID)
+			return true
+		}
+	}
+	return redraw
 }
 
-func buttonReactionToken(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, fromUserID string) bool {
-	if contract.State == ContractStateWaiting || contract.State == ContractStateCompleted {
-		if contract.VolunteerSink != "" {
+func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, cUserID string) (bool, bool) {
+	redraw := false
+	if cUserID == contract.SRData.BoostingSinkUserID {
+		var b, sink *Booster
+		b = contract.Boosters[contract.Order[contract.BoostPosition]]
+		sink = contract.Boosters[contract.SRData.BoostingSinkUserID]
+
+		if cUserID == b.UserID {
+			// Current booster subtract number of tokens wanted
+			log.Printf("Sink indicating they are boosting with %d tokens.\n", b.TokensWanted)
+			sink.TokensReceived -= b.TokensWanted
+			sink.TokensReceived = max(0, sink.TokensReceived) // Avoid missing self farmed tokens
+		} else {
+			log.Printf("Sink sent %d tokens to booster\n", b.TokensWanted)
+			// Current booster number of tokens wanted
+			// How many tokens does booster want?  Check to see if sink has that many
+			tokensToSend := b.TokensWanted // If Sink is pressing 💰 they are assumed to be sending that many
+			b.TokensReceived += tokensToSend
+			sink.TokensReceived -= tokensToSend
+			sink.TokensReceived = max(0, sink.TokensReceived) // Avoid missing self farmed tokens
+			// Record the Tokens as received
 			rSerial := xid.New().String()
 			sSerial := xid.New().String()
-
-			sink := contract.Boosters[contract.VolunteerSink]
-			sink.Received = append(sink.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[fromUserID].Nick, Serial: rSerial})
-			track.ContractTokenMessage(s, i.ChannelID, sink.UserID, track.TokenReceived, 1, fromUserID, rSerial)
-			// Record who sent the token
-			contract.Boosters[fromUserID].Sent = append(contract.Boosters[fromUserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[sink.UserID].Nick, Serial: sSerial})
-			track.ContractTokenMessage(s, i.ChannelID, fromUserID, track.TokenSent, 1, sink.UserID, sSerial)
+			for i := 0; i < tokensToSend; i++ {
+				b.Received = append(b.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[cUserID].Nick, Serial: rSerial})
+				contract.Boosters[cUserID].Sent = append(contract.Boosters[cUserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[b.UserID].Nick, Serial: sSerial})
+			}
+			track.ContractTokenMessage(s, ChannelID, b.UserID, track.TokenReceived, b.TokensReceived, contract.Boosters[cUserID].Nick, rSerial)
+			track.ContractTokenMessage(s, ChannelID, cUserID, track.TokenSent, b.TokensReceived, contract.Boosters[b.UserID].Nick, sSerial)
 		}
-	} else if contract.BoostPosition < len(contract.Order) {
-		var b = contract.Boosters[contract.Order[contract.BoostPosition]]
+
+		str := fmt.Sprintf("**%s** ", contract.Boosters[b.UserID].Mention)
+		if contract.Boosters[b.UserID].AltController != "" {
+			str = fmt.Sprintf("%s **(%s)** ", contract.Boosters[contract.Boosters[b.UserID].AltController].Mention, b.UserID)
+		}
+		str += fmt.Sprintf("you've been sent %d tokens to boost with!", b.TokensWanted)
+
+		_, _ = s.ChannelMessageSend(contract.Location[0].ChannelID, str)
+
+		_ = Boosting(s, GuildID, ChannelID)
+
+		return false, redraw
+	}
+	return false, redraw
+}
+
+func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, fromUserID string) (bool, bool) {
+	if !contract.Speedrun && (contract.State == ContractStateWaiting || contract.State == ContractStateCompleted) {
+		// Without a volunteer sink in the condition there is nobody to assign the tokens to...
+		// The icon for this
+		if contract.VolunteerSink != "" {
+			sink := contract.Boosters[contract.VolunteerSink]
+			// Record who received the token
+			rSerial := xid.New().String()
+			sink.Received = append(sink.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[fromUserID].Nick, Serial: rSerial})
+			track.ContractTokenMessage(s, ChannelID, sink.UserID, track.TokenReceived, 1, contract.Boosters[fromUserID].Nick, rSerial)
+			// Record who sent the token
+			sSerial := xid.New().String()
+			contract.Boosters[fromUserID].Sent = append(contract.Boosters[fromUserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[sink.UserID].Nick, Serial: sSerial})
+			track.ContractTokenMessage(s, ChannelID, fromUserID, track.TokenSent, 1, contract.Boosters[sink.UserID].Nick, sSerial)
+		}
+	} else if contract.Speedrun || contract.BoostPosition < len(contract.Order) {
+		var b *Booster
+		// Speedrun will use the sink booster instead
+		if contract.Speedrun && (contract.SRData.SpeedrunState == SpeedrunStateCRT ||
+			contract.SRData.SpeedrunStyle == SpeedrunStyleWonky && contract.SRData.SpeedrunState == SpeedrunStateBoosting ||
+			contract.SRData.SpeedrunState == SpeedrunStatePost) {
+
+			if contract.SRData.SpeedrunState == SpeedrunStateCRT {
+				b = contract.Boosters[contract.SRData.CrtSinkUserID]
+			} else if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
+				b = contract.Boosters[contract.SRData.BoostingSinkUserID]
+			} else if contract.SRData.SpeedrunState == SpeedrunStatePost {
+				b = contract.Boosters[contract.SRData.PostSinkUserID]
+			}
+		} else {
+			b = contract.Boosters[contract.Order[contract.BoostPosition]]
+		}
 
 		b.TokensReceived++
 		if fromUserID != b.UserID {
 			// Record the Tokens as received
 			rSerial := xid.New().String()
-			sSerial := xid.New().String()
 			b.Received = append(b.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[fromUserID].Nick, Serial: rSerial})
-			track.ContractTokenMessage(s, i.ChannelID, b.UserID, track.TokenReceived, 1, contract.Boosters[fromUserID].Nick, rSerial)
+			track.ContractTokenMessage(s, ChannelID, b.UserID, track.TokenReceived, 1, contract.Boosters[fromUserID].Nick, rSerial)
 
 			// Record who sent the token
+			sSerial := xid.New().String()
 			if contract.Boosters[fromUserID] != nil {
 				// Make sure this isn't an admin user who's sending on behalf of an alt
 				contract.Boosters[fromUserID].Sent = append(contract.Boosters[fromUserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: b.Nick, Serial: sSerial})
 			}
-			track.ContractTokenMessage(s, i.ChannelID, fromUserID, track.TokenSent, 1, b.Nick, sSerial)
+			track.ContractTokenMessage(s, ChannelID, fromUserID, track.TokenSent, 1, b.Nick, sSerial)
 		} else {
+			track.FarmedToken(s, ChannelID, fromUserID)
 			b.TokensFarmedTime = append(b.TokensFarmedTime, time.Now())
-			track.FarmedToken(s, i.ChannelID, fromUserID)
+		}
+		if b.TokensReceived == b.TokensWanted {
+			b.BoostingTokenTimestamp = time.Now()
 		}
 
-		if b.TokensReceived >= b.TokensWanted && fromUserID == b.Name && b.AltController == "" {
+		if !contract.Speedrun && b.Name == b.UserID && b.TokensReceived >= b.TokensWanted && b.AltController == "" {
 			// Guest farmer auto boosts
-			_ = Boosting(s, i.GuildID, i.ChannelID)
-			return false
+			_ = Boosting(s, GuildID, ChannelID)
+			return true, false
 		}
-		return true
+		return false, true
 	}
 
-	return false
+	return false, false
 }
 
-func buttonReactionLast(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, cUserID string) bool {
+func buttonReactionLast(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, cUserID string) (bool, bool) {
 	var uid = cUserID
 	if contract.Boosters[uid].BoostState == BoostStateTokenTime {
 		currentBoosterPosition := findNextBooster(contract)
-		err := MoveBooster(s, i.GuildID, i.ChannelID, contract.CreatorID[0], uid, len(contract.Order), currentBoosterPosition == -1)
+		err := MoveBooster(s, GuildID, ChannelID, contract.CreatorID[0], uid, len(contract.Order), currentBoosterPosition == -1)
 		if err == nil && currentBoosterPosition != -1 {
-			_ = ChangeCurrentBooster(s, i.GuildID, i.ChannelID, contract.CreatorID[0], contract.Order[currentBoosterPosition], true)
-			return false
+			_ = ChangeCurrentBooster(s, GuildID, ChannelID, contract.CreatorID[0], contract.Order[currentBoosterPosition], true)
+			return true, false
 		}
 	} else if contract.Boosters[uid].BoostState == BoostStateUnboosted {
-		_ = MoveBooster(s, i.GuildID, i.ChannelID, contract.CreatorID[0], uid, len(contract.Order), true)
+		_ = MoveBooster(s, GuildID, ChannelID, contract.CreatorID[0], uid, len(contract.Order), true)
 	}
 
-	return false
+	return false, false
 }
 
-func buttonReactionSwap(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, cUserID string) bool {
+func buttonReactionSwap(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, cUserID string) bool {
 	// Reaction for current booster to change places
-	if contract.State == ContractStateStarted && contract.Boosters[cUserID].BoostState == BoostStateTokenTime {
+	if cUserID == contract.Order[contract.BoostPosition] || creatorOfContract(s, contract, cUserID) {
 		if (contract.BoostPosition + 1) < len(contract.Order) {
-			_ = SkipBooster(s, i.GuildID, i.ChannelID, "")
+			_ = SkipBooster(s, GuildID, ChannelID, "")
+			return true
 		}
 	}
-	/*
-		if contract.State == ContractStateWaiting {
-			contract.State = ContractStateCompleted
-			contract.EndTime = time.Now()
-			sendNextNotification(s, contract, true)
-		}
-	*/
 	return false
 }
 
@@ -280,13 +369,147 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 	str := i.Message.Content
 
 	userMention := contract.Boosters[cUserID].Mention
+	repost := false
 
 	if !strings.Contains(strings.Split(str, "\n")[1], userMention) {
 		str += " " + contract.Boosters[cUserID].Mention
+		repost = true
+	} else if len(contract.Boosters[cUserID].Alts) > 0 {
+		for _, altID := range contract.Boosters[cUserID].Alts {
+			if !strings.Contains(strings.Split(str, "\n")[1], contract.Boosters[altID].Mention) {
+				str += " " + contract.Boosters[altID].Mention
+				repost = true
+				break
+			}
+		}
+	}
+	if repost {
 		msgedit.SetContent(str)
 		msgedit.Flags = discordgo.MessageFlagsSuppressNotifications
 		_, _ = s.ChannelMessageEditComplex(msgedit)
 	}
+}
+
+func remove(s []string, i int) []string {
+	s[i] = s[len(s)-1]
+	return s[:len(s)-1]
+}
+
+func buttonReactionCheck(s *discordgo.Session, ChannelID string, contract *Contract, cUserID string) bool {
+	if contract.SRData.ChickenRunCheckMsgID == "" {
+		// Empty list, build a new one
+		boosterNames := make([]string, 0, len(contract.Boosters))
+		for _, booster := range contract.Boosters {
+			// Saving the CRT sink from having to react to run chickens
+			if contract.SRData.CrtSinkUserID != booster.UserID {
+				boosterNames = append(boosterNames, booster.Mention)
+			}
+		}
+		slices.Sort(boosterNames)
+		contract.SRData.NeedToRunChickens = boosterNames
+	}
+
+	index := slices.Index(contract.SRData.NeedToRunChickens, contract.Boosters[cUserID].Mention)
+	if index != -1 {
+		contract.SRData.NeedToRunChickens = remove(contract.SRData.NeedToRunChickens, index)
+	} else if len(contract.Boosters[cUserID].Alts) > 0 {
+		// Check for alts and remove them one by one
+		for _, altID := range contract.Boosters[cUserID].Alts {
+			index = slices.Index(contract.SRData.NeedToRunChickens, contract.Boosters[altID].Mention)
+			if index != -1 {
+				// only remove one name for each press of the button
+				contract.SRData.NeedToRunChickens = remove(contract.SRData.NeedToRunChickens, index)
+				break
+			}
+		}
+	}
+
+	if len(contract.SRData.NeedToRunChickens) <= 3 {
+		str := fmt.Sprintf("Waiting on CRT chicken runs from: **%s**", strings.Join(contract.SRData.NeedToRunChickens, ","))
+
+		if contract.SRData.ChickenRunCheckMsgID == "" {
+			msg, _ := s.ChannelMessageSend(ChannelID, str)
+			contract.SRData.ChickenRunCheckMsgID = msg.ID
+		} else {
+			msg := discordgo.NewMessageEdit(ChannelID, contract.SRData.ChickenRunCheckMsgID)
+			msg.SetContent(str)
+			_, _ = s.ChannelMessageEditComplex(msg)
+		}
+	}
+
+	if len(contract.SRData.NeedToRunChickens) > contract.CoopSize {
+		_ = s.ChannelMessageDelete(ChannelID, contract.SRData.ChickenRunCheckMsgID)
+		contract.SRData.ChickenRunCheckMsgID = ""
+
+		str := fmt.Sprintf("All players have run chickens. **%s** should now react with 🦵 then start to kick all farmers.", contract.Boosters[contract.SRData.CrtSinkUserID].Mention)
+		_, _ = s.ChannelMessageSend(ChannelID, str)
+	}
+	// Indicate to remove the reaction
+	return true
+}
+
+func buttonReactionTruck(s *discordgo.Session, contract *Contract, cUserID string) bool {
+	// Indicate that the farmer has a truck incoming
+	str := fmt.Sprintf("Truck arriving for **%s**. The sink may or may not pause kicks.", contract.Boosters[cUserID].Mention)
+	for _, location := range contract.Location {
+		_, _ = s.ChannelMessageSend(location.ChannelID, str)
+	}
+	return false
+}
+
+func buttonReactionLeg(s *discordgo.Session, contract *Contract, cUserID string) bool {
+	if cUserID == contract.SRData.CrtSinkUserID || creatorOfContract(s, contract, cUserID) {
+		// Indicate that the Sink is starting to kick users
+		str := "**Starting to kick users.** Swap shiny artifacts if you need to force a server sync.\n"
+		str += contract.Boosters[contract.SRData.CrtSinkUserID].Mention + " will react here with 💃 after kicks to advance the tango."
+		for _, location := range contract.Location {
+			var data discordgo.MessageSend
+			data.Content = str
+			data.Components = []discordgo.MessageComponent{
+				discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.Button{
+							Emoji: &discordgo.ComponentEmoji{
+								Name: "💃",
+							},
+							Style:    discordgo.SecondaryButton,
+							CustomID: fmt.Sprintf("rc_#tango#%s", contract.ContractHash),
+						},
+					},
+				},
+			}
+			msg, err := s.ChannelMessageSendComplex(location.ChannelID, &data)
+			if err == nil {
+				contract.SRData.LegReactionMessageID = msg.ID
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func buttonReactionTango(s *discordgo.Session, contract *Contract, cUserID string) bool {
+	// Indicate that this Tango Leg is complete
+	if cUserID == contract.SRData.CrtSinkUserID || creatorOfContract(s, contract, cUserID) {
+		str := "Kicks completed."
+		contract.SRData.CurrentLeg++ // Move to the next leg
+		contract.SRData.LegReactionMessageID = ""
+		contract.SRData.ChickenRunCheckMsgID = ""
+		contract.SRData.NeedToRunChickens = nil
+		if contract.SRData.CurrentLeg == contract.SRData.Legs {
+			contract.SRData.SpeedrunState = SpeedrunStateBoosting
+			str += " This was the final kick. Build up your farm as you would for boosting.\n"
+		}
+		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
+		contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+
+		for _, location := range contract.Location {
+			_, _ = s.ChannelMessageSend(location.ChannelID, str)
+		}
+		sendNextNotification(s, contract, true)
+		return true
+	}
+	return false
 }
 
 func buttonReactionHelp(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract) {
@@ -317,17 +540,17 @@ func addContractReactionsButtons(s *discordgo.Session, contract *Contract, chann
 		compVals := make(map[string]CompMap, 14)
 		compVals[boostIconReaction] = CompMap{Emoji: boostIconReaction, Style: discordgo.SecondaryButton, CustomID: "rc_#Boost#"}
 		compVals[tokenStr] = CompMap{Emoji: strings.Split(tokenStr, ":")[0], ID: strings.Split(tokenStr, ":")[1], Style: discordgo.SecondaryButton, CustomID: "rc_#Token#"}
-		compVals["💰"] = CompMap{Emoji: "💰", Style: discordgo.SecondaryButton, CustomID: "rc_#Bag#"}
-		compVals["🚚"] = CompMap{Emoji: "🚚", Style: discordgo.SecondaryButton, CustomID: "rc_#Truck#"}
-		compVals["💃"] = CompMap{Emoji: "💃", Style: discordgo.SecondaryButton, CustomID: "rc_#Tango#"}
-		compVals["🦵"] = CompMap{Emoji: "🦵", Style: discordgo.SecondaryButton, CustomID: "rc_#Leg#"}
-		compVals["🔃"] = CompMap{Emoji: "🔃", Style: discordgo.SecondaryButton, CustomID: "rc_#Swap#"}
-		compVals["⤵️"] = CompMap{Emoji: "⤵️", Style: discordgo.SecondaryButton, CustomID: "rc_#Last#"}
-		compVals["🐓"] = CompMap{Emoji: "🐓", Style: discordgo.SecondaryButton, CustomID: "rc_#CR#"}
-		compVals["✅"] = CompMap{Emoji: "✅", Style: discordgo.SecondaryButton, CustomID: "rc_#Check#"}
-		compVals["❓"] = CompMap{Emoji: "❓", Style: discordgo.SecondaryButton, CustomID: "rc_#Help#"}
+		compVals["💰"] = CompMap{Emoji: "💰", Style: discordgo.SecondaryButton, CustomID: "rc_#bag#"}
+		compVals["🚚"] = CompMap{Emoji: "🚚", Style: discordgo.SecondaryButton, CustomID: "rc_#truck#"}
+		compVals["💃"] = CompMap{Emoji: "💃", Style: discordgo.SecondaryButton, CustomID: "rc_#tango#"}
+		compVals["🦵"] = CompMap{Emoji: "🦵", Style: discordgo.SecondaryButton, CustomID: "rc_#leg#"}
+		compVals["🔃"] = CompMap{Emoji: "🔃", Style: discordgo.SecondaryButton, CustomID: "rc_#swap#"}
+		compVals["⤵️"] = CompMap{Emoji: "⤵️", Style: discordgo.SecondaryButton, CustomID: "rc_#last#"}
+		compVals["🐓"] = CompMap{Emoji: "🐓", Style: discordgo.SecondaryButton, CustomID: "rc_#cr#"}
+		compVals["✅"] = CompMap{Emoji: "✅", Style: discordgo.SecondaryButton, CustomID: "rc_#check#"}
+		compVals["❓"] = CompMap{Emoji: "❓", Style: discordgo.SecondaryButton, CustomID: "rc_#help#"}
 		for i, el := range contract.AltIcons {
-			compVals[el] = CompMap{Emoji: el, Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("rc_#Alt-%d#", i)}
+			compVals[el] = CompMap{Emoji: el, Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("rc_#alt-%d#", i)}
 		}
 		contract.buttonComponents = compVals
 	}

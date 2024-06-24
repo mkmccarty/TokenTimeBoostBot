@@ -869,6 +869,7 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 					contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
 
 				}
+				contract.buttonComponents = nil // reset button components
 				defer saveData(Contracts)
 				if contract.State == ContractStateSignup {
 					refreshBoostListMessage(s, contract)
