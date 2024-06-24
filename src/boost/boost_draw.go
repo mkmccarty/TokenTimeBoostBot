@@ -241,7 +241,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 						outputStr += fmt.Sprintf("%s **%s** 🚀%s%s%s\n", prefix, name, countStr, currentStartTime, server)
 					} else {
 						if !b.BoostingTokenTimestamp.IsZero() {
-							currentStartTime = fmt.Sprintf(" <t:%d:R> since 🚀 votes:%d", b.BoostingTokenTimestamp.Unix(), len(b.VotingList))
+							currentStartTime = fmt.Sprintf(" <t:%d:R> since ️T-0️⃣ / votes:%d", b.BoostingTokenTimestamp.Unix(), len(b.VotingList))
 						}
 						outputStr += fmt.Sprintf("%s **%s** %s%s%s\n", prefix, name, countStr, currentStartTime, server)
 					}
