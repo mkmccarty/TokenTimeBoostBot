@@ -236,7 +236,15 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 				case BoostStateUnboosted:
 					outputStr += fmt.Sprintf("%s %s%s%s\n", prefix, name, signupCountStr, server)
 				case BoostStateTokenTime:
-					outputStr += fmt.Sprintf("%s **%s** %s%s%s\n", prefix, name, countStr, currentStartTime, server)
+					if b.UserID == b.Name && b.AltController == "" {
+						// Add a rocket for auto boosting
+						outputStr += fmt.Sprintf("%s **%s** 🚀%s%s%s\n", prefix, name, countStr, currentStartTime, server)
+					} else {
+						if !b.BoostingTokenTimestamp.IsZero() {
+							currentStartTime = fmt.Sprintf(" <t:%d:R> since 🚀 votes:%d", b.BoostingTokenTimestamp.Unix(), len(b.VotingList))
+						}
+						outputStr += fmt.Sprintf("%s **%s** %s%s%s\n", prefix, name, countStr, currentStartTime, server)
+					}
 				case BoostStateBoosted:
 					outputStr += fmt.Sprintf("%s ~~%s~~  %s%s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), chickenStr, server)
 				}

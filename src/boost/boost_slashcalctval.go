@@ -32,8 +32,39 @@ func GetSlashCalcContractTval(cmd string) *discordgo.ApplicationCommand {
 				Description: "Show individual token values. Default is false. (sticky)",
 				Required:    false,
 			},
+			{
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "alternate",
+				Description:  "Select a linked alternate to show their token values",
+				Required:     false,
+				Autocomplete: true,
+			},
 		},
 	}
+}
+
+// HandleAltsAutoComplete will populate with linked alternate names
+func HandleAltsAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+	userID := getInteractionUserID(i)
+
+	contract := FindContract(i.ChannelID)
+	if contract != nil && contract.Boosters[userID] != nil {
+		for _, name := range contract.Boosters[userID].Alts {
+			choice := discordgo.ApplicationCommandOptionChoice{
+				Name:  name,
+				Value: name,
+			}
+			choices = append(choices, &choice)
+		}
+	}
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Contract ID",
+			Choices: choices,
+		}})
 }
 
 // HandleContractCalcContractTvalCommand will handle the /contract-token-tval command
@@ -89,6 +120,10 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 		details = farmerstate.GetMiscSettingFlag(userID, "calc-details")
 	}
 
+	if opt, ok := optionMap["alternate"]; ok {
+		userID = opt.StringValue()
+	}
+
 	if contract == nil {
 		str = "No contract found in this channel"
 	} else if !userInContract(contract, userID) {
@@ -127,7 +162,7 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 	sentValue := 0.0
 	receivedValue := 0.0
 
-	fmt.Fprint(&builder, "## Token value for contract based on contract reactions\n")
+	fmt.Fprintf(&builder, "## %s token value for contract based on contract reactions\n", booster.Name)
 	fmt.Fprintf(&builder, "### Contract started at: <t:%d:f> with a duration of %s\n", startTime.Unix(), duration.Round(time.Second))
 	offsetTime := time.Since(startTime).Seconds()
 	fmt.Fprintf(&builder, "> **Token value <t:%d:R> %1.3f**\n", time.Now().Unix(), getTokenValue(offsetTime, duration.Seconds()))

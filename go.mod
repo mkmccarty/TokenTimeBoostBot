@@ -7,11 +7,11 @@ toolchain go1.22.2
 require (
 	github.com/bwmarrin/discordgo v0.28.2-0.20240621074108-e189ee5de8c2
 	github.com/divan/num2words v0.0.0-20170904212200-57dba452f942
-	github.com/dustinkirkland/golang-petname v0.0.0-20240428194347-eebcea082ee0
 	github.com/ewohltman/discordgo-mock v0.0.11
 	github.com/google/generative-ai-go v0.14.0
 	github.com/jasonlvhit/gocron v0.0.1
 	github.com/joho/godotenv v1.5.1
+	github.com/moby/moby v27.0.0+incompatible
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/post04/discordgo-emoji-util v0.0.0-20210226234616-e2c0f5ea133e
@@ -27,7 +27,7 @@ require (
 require (
 	cloud.google.com/go v0.115.0 // indirect
 	cloud.google.com/go/ai v0.7.0 // indirect
-	cloud.google.com/go/auth v0.5.1 // indirect
+	cloud.google.com/go/auth v0.5.2 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/longrunning v0.5.7 // indirect
@@ -66,9 +66,9 @@ require (
 	golang.org/x/sys v0.21.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	google.golang.org/genproto v0.0.0-20240617180043-68d350f18fd4 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240617180043-68d350f18fd4 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240617180043-68d350f18fd4 // indirect
+	google.golang.org/genproto v0.0.0-20240624140628-dc46fd24d27d // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240624140628-dc46fd24d27d // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240624140628-dc46fd24d27d // indirect
 	google.golang.org/grpc v1.64.0 // indirect
 
 )

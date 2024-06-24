@@ -152,7 +152,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 				thread, err := s.ThreadStart(ChannelID, builder.String(), discordgo.ChannelTypeGuildPublicThread, 60*24)
 				if err == nil {
 					ChannelID = thread.ID
-					_ = s.ThreadJoin(getIntentUserID(i))
+					_ = s.ThreadJoin(getInteractionUserID(i))
 				} else {
 					log.Print(err)
 				}
@@ -161,7 +161,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 
 	mutex.Lock()
-	contract, err := CreateContract(s, contractID, coopID, coopSize, boostOrder, i.GuildID, ChannelID, getIntentUserID(i), pingRole)
+	contract, err := CreateContract(s, contractID, coopID, coopSize, boostOrder, i.GuildID, ChannelID, getInteractionUserID(i), pingRole)
 	mutex.Unlock()
 	if err != nil {
 
@@ -367,7 +367,7 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	})
 	var err = AddContractMember(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), mention, guestName, orderValue)
 	if err != nil {
-		log.Println(err.Error())
+		str = err.Error()
 	}
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
@@ -482,9 +482,10 @@ func HandleBumpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	contract := FindContract(i.ChannelID)
 	if contract != nil {
 
-		if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateCRT {
-			str = "Speedrun CRT is in progress, cannot bump as the message will lose reactions."
-		} else {
+		//	if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateCRT && contract.UseInteractionButtons == 0 {
+		//	str = "Speedrun CRT is in progress, cannot bump as the message will lose reactions."
+		//} else
+		{
 			str = "Boost list moved."
 			err := RedrawBoostList(s, i.GuildID, i.ChannelID)
 			if err != nil {
@@ -541,6 +542,9 @@ func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 	if opt, ok := optionMap["token-index"]; ok {
 		tokenIndex = int(opt.IntValue())
 	}
+	if opt, ok := optionMap["alternate"]; ok {
+		userID = opt.StringValue()
+	}
 
 	str := "No contract running here"
 	c := FindContract(i.ChannelID)
@@ -550,7 +554,7 @@ func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 	if c.Boosters[userID] != nil {
 		b := c.Boosters[userID]
 
-		if tokenIndex >= len(b.Sent) {
+		if tokenIndex > len(b.Sent) {
 			return fmt.Sprintf("There are only %d tokens to remove.", len(b.Sent))
 		}
 		tokenIndex--
