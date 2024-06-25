@@ -396,14 +396,15 @@ func remove(s []string, i int) []string {
 }
 
 func buttonReactionCheck(s *discordgo.Session, ChannelID string, contract *Contract, cUserID string) bool {
+	keepReaction := true
 	if contract.SRData.ChickenRunCheckMsgID == "" {
 		// Empty list, build a new one
 		boosterNames := make([]string, 0, len(contract.Boosters))
 		for _, booster := range contract.Boosters {
 			// Saving the CRT sink from having to react to run chickens
-			if contract.SRData.CrtSinkUserID != booster.UserID {
-				boosterNames = append(boosterNames, booster.Mention)
-			}
+			//if contract.SRData.CrtSinkUserID != booster.UserID {
+			boosterNames = append(boosterNames, booster.Mention)
+			//}
 		}
 		slices.Sort(boosterNames)
 		contract.SRData.NeedToRunChickens = boosterNames
@@ -412,6 +413,10 @@ func buttonReactionCheck(s *discordgo.Session, ChannelID string, contract *Contr
 	index := slices.Index(contract.SRData.NeedToRunChickens, contract.Boosters[cUserID].Mention)
 	if index != -1 {
 		contract.SRData.NeedToRunChickens = remove(contract.SRData.NeedToRunChickens, index)
+		if len(contract.Boosters[cUserID].Alts) > 0 {
+			// This user has an alt, clear the reaction so they can select it again
+			keepReaction = false
+		}
 	} else if len(contract.Boosters[cUserID].Alts) > 0 {
 		// Check for alts and remove them one by one
 		for _, altID := range contract.Boosters[cUserID].Alts {
@@ -419,13 +424,21 @@ func buttonReactionCheck(s *discordgo.Session, ChannelID string, contract *Contr
 			if index != -1 {
 				// only remove one name for each press of the button
 				contract.SRData.NeedToRunChickens = remove(contract.SRData.NeedToRunChickens, index)
+				if index == (len(contract.Boosters[cUserID].Alts) - 1) {
+					keepReaction = false
+				}
 				break
 			}
 		}
 	}
 
-	if len(contract.SRData.NeedToRunChickens) <= 3 {
-		str := fmt.Sprintf("Waiting on CRT chicken runs from: **%s**", strings.Join(contract.SRData.NeedToRunChickens, ","))
+	if len(contract.SRData.NeedToRunChickens) > 0 {
+		var str string
+		if len(contract.SRData.NeedToRunChickens) <= 3 {
+			str = fmt.Sprintf("Waiting on CRT chicken run ✅ from: **%s**", strings.Join(contract.SRData.NeedToRunChickens, ","))
+		} else {
+			str = fmt.Sprintf("Waiting on CRT chicken run ✅ from **%d/%d**", len(contract.SRData.NeedToRunChickens), contract.CoopSize)
+		}
 
 		if contract.SRData.ChickenRunCheckMsgID == "" {
 			msg, _ := s.ChannelMessageSend(ChannelID, str)
@@ -445,7 +458,7 @@ func buttonReactionCheck(s *discordgo.Session, ChannelID string, contract *Contr
 		_, _ = s.ChannelMessageSend(ChannelID, str)
 	}
 	// Indicate to remove the reaction
-	return true
+	return keepReaction
 }
 
 func buttonReactionTruck(s *discordgo.Session, contract *Contract, cUserID string) bool {
@@ -458,7 +471,7 @@ func buttonReactionTruck(s *discordgo.Session, contract *Contract, cUserID strin
 }
 
 func buttonReactionLeg(s *discordgo.Session, contract *Contract, cUserID string) bool {
-	if cUserID == contract.SRData.CrtSinkUserID || creatorOfContract(s, contract, cUserID) {
+	if (cUserID == contract.SRData.CrtSinkUserID || creatorOfContract(s, contract, cUserID)) && contract.SRData.LegReactionMessageID == "" {
 		// Indicate that the Sink is starting to kick users
 		str := "**Starting to kick users.** Swap shiny artifacts if you need to force a server sync.\n"
 		str += contract.Boosters[contract.SRData.CrtSinkUserID].Mention + " will react here with 💃 after kicks to advance the tango."

@@ -275,6 +275,13 @@ func drawSpeedrunCRT(contract *Contract) string {
 			fmt.Fprintf(&builder, "5. **Run chickens on your own farm**\n")
 		}
 
+		if contract.SRData.ChickenRunCheckMsgID != "" {
+			var link string
+			//ch := s.Channel(contract.Location[0].ChannelID)
+			link = fmt.Sprintf("https://discordapp.com/channels/%s/%s/%s", contract.Location[0].GuildID, contract.Location[0].ChannelID, contract.SRData.ChickenRunCheckMsgID)
+			fmt.Fprintf(&builder, "\n[link to Chicken Run Check Status](%s)\n", link)
+		}
+
 	}
 	fmt.Fprintf(&builder, "\n**Send %s to %s**\n", contract.TokenStr, contract.Boosters[contract.SRData.CrtSinkUserID].Mention)
 
@@ -312,7 +319,6 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 	returnVal := ""
 	keepReaction := false
 	redraw := false
-	emojiName := r.Emoji.Name
 
 	// Token reaction handling
 	tokenReactionStr := "token"
@@ -332,7 +338,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 	if contract.SRData.SpeedrunState == SpeedrunStateCRT {
 
 		if r.Emoji.Name == "✅" {
-			buttonReactionCheck(s, r.ChannelID, contract, r.UserID)
+			keepReaction = buttonReactionCheck(s, r.ChannelID, contract, r.UserID)
 		}
 
 		if r.Emoji.Name == "👽" {
@@ -398,7 +404,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 
 	// Remove extra added emoji
 	if !keepReaction {
-		_ = s.MessageReactionRemove(r.ChannelID, r.MessageID, emojiName, r.UserID)
+		go RemoveAddedReaction(s, r)
 	}
 
 	if redraw {
