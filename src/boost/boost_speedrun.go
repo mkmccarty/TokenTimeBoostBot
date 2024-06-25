@@ -276,9 +276,7 @@ func drawSpeedrunCRT(contract *Contract) string {
 		}
 
 		if contract.SRData.ChickenRunCheckMsgID != "" {
-			var link string
-			//ch := s.Channel(contract.Location[0].ChannelID)
-			link = fmt.Sprintf("https://discordapp.com/channels/%s/%s/%s", contract.Location[0].GuildID, contract.Location[0].ChannelID, contract.SRData.ChickenRunCheckMsgID)
+			link := fmt.Sprintf("https://discordapp.com/channels/%s/%s/%s", contract.Location[0].GuildID, contract.Location[0].ChannelID, contract.SRData.ChickenRunCheckMsgID)
 			fmt.Fprintf(&builder, "\n[link to Chicken Run Check Status](%s)\n", link)
 		}
 
