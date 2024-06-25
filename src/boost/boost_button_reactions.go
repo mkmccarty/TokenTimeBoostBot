@@ -572,6 +572,11 @@ func addContractReactionsButtons(s *discordgo.Session, contract *Contract, chann
 
 	iconsRow := make([][]string, 2)
 	iconsRow[0], iconsRow[1] = addContractReactionsGather(contract, tokenStr)
+	if len(iconsRow[1]) > 5 {
+		iconsRow[2] = iconsRow[1][5:] // Grab overflow icons to new row
+		iconsRow[1] = iconsRow[1][:5] // Limit this row to 5 icons
+		iconsRow[2] = iconsRow[2][:5] // Limit the number of alt icons to 5
+	}
 
 	// Alt icons can go on a second action row
 	//icons = append(icons, contract.AltIcons...)
