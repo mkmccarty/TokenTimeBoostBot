@@ -27,7 +27,6 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
 	cmd := strings.ToLower(reaction[1])
 	contractHash := reaction[len(reaction)-1]
-	log.Print(cmd, contractHash)
 
 	contract := Contracts[contractHash]
 	if contract == nil {
