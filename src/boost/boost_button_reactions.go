@@ -441,8 +441,13 @@ func buttonReactionCheck(s *discordgo.Session, ChannelID string, contract *Contr
 		}
 
 		if contract.SRData.ChickenRunCheckMsgID == "" {
-			msg, _ := s.ChannelMessageSend(ChannelID, str)
-			contract.SRData.ChickenRunCheckMsgID = msg.ID
+			var data discordgo.MessageSend
+			data.Content = str
+			data.Flags = discordgo.MessageFlagsSuppressNotifications
+			msg, err := s.ChannelMessageSendComplex(ChannelID, &data)
+			if err == nil {
+				contract.SRData.ChickenRunCheckMsgID = msg.ID
+			}
 		} else {
 			msg := discordgo.NewMessageEdit(ChannelID, contract.SRData.ChickenRunCheckMsgID)
 			msg.SetContent(str)
@@ -450,7 +455,7 @@ func buttonReactionCheck(s *discordgo.Session, ChannelID string, contract *Contr
 		}
 	}
 
-	if len(contract.SRData.NeedToRunChickens) > contract.CoopSize {
+	if len(contract.SRData.NeedToRunChickens) == 0 {
 		_ = s.ChannelMessageDelete(ChannelID, contract.SRData.ChickenRunCheckMsgID)
 		contract.SRData.ChickenRunCheckMsgID = ""
 
