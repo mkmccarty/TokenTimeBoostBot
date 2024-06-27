@@ -22,35 +22,20 @@ jobs:
       run: make test
     - name: Build
       run: |
-        mkdir -p output/{linux,win,mac,freebsd}
+        mkdir -p output/{linux,freebsd}
         VERSION=$(git describe --tags)
-        CGO_ENABLED=0 GOOS=darwin GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/mac/boostbot-$VERSION-darwin-amd64
-        CGO_ENABLED=0 GOOS=darwin GOARCH=arm64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/mac/boostbot-$VERSION-darwin-arm64
         CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/freebsd/boostbot-$VERSION-freebsd-amd64
         CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/linux/boostbot-$VERSION-linux-arm
         CGO_ENABLED=0 GOOS=linux GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/linux/boostbot-$VERSION-linux-amd64
-        CGO_ENABLED=0 GOOS=windows GOARCH=amd64  go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/win/boostbot-$VERSION-windows-amd64
     - name: Upload linux
       if: startsWith(matrix.go-version,'1.22.4')
       uses: actions/upload-artifact@main
       with:
         name: boostbot-linux
         path: output/linux
-    - name: Upload windows 64-bit
+    - name: Upload freebsd
       if: startsWith(matrix.go-version,'1.22.4')
       uses: actions/upload-artifact@main
       with:
-        name: boostbot-windows-64bit
-        path: output/win
-    - name: Upload darwin 64-bit
-      if: startsWith(matrix.go-version,'1.22.4')
-      uses: actions/upload-artifact@main
-      with:
-        name: boostbot-darwin-64bit
-        path: output/mac
-    - name: Upload freebsd 64-bit
-      if: startsWith(matrix.go-version,'1.22.4')
-      uses: actions/upload-artifact@main
-      with:
-        name: boostbot-freebsd-64bit
-        path: output/freebsd
+        name: boostbot-freebsd
+        path: output/freebsd        
