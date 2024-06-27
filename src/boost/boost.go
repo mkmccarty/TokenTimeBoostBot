@@ -399,11 +399,14 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		return nil, errors.New("this channel already has a contract named: " + existingContract.ContractID + "/" + existingContract.CoopID)
 	}
 
-	var ContractHash = namesgenerator.GetRandomName(0)
-	for Contracts[ContractHash] != nil {
-		ContractHash = namesgenerator.GetRandomName(0)
+	var contract *Contract
+	// Does a coop already exist for this contract-id and coop-id
+	for _, c := range Contracts {
+		if c.ContractID == contractID && c.CoopID == coopID {
+			// We have a coop, add this channel to the coop
+			contract = c
+		}
 	}
-	contract := Contracts[ContractHash]
 
 	loc := new(LocationData)
 	loc.GuildID = guildID
@@ -423,6 +426,11 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	loc.ReactionID = ""
 
 	if contract == nil {
+		var ContractHash = namesgenerator.GetRandomName(0)
+		for Contracts[ContractHash] != nil {
+			ContractHash = namesgenerator.GetRandomName(0)
+		}
+
 		// We don't have this contract on this channel, it could exist in another channel
 		contract = new(Contract)
 		contract.Location = append(contract.Location, loc)
