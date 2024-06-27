@@ -134,8 +134,14 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 			if ok {
 				sinkIcon := ""
 				if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
-					if contract.SRData.BoostingSinkUserID == b.UserID {
-						sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
+					if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
+						if contract.SRData.BoostingSinkUserID == b.UserID {
+							sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
+						}
+					} else if contract.SRData.SpeedrunState == SpeedrunStatePost {
+						if contract.SRData.PostSinkUserID == b.UserID {
+							sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
+						}
 					}
 				}
 
@@ -162,8 +168,14 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 			if ok {
 				sinkIcon := ""
 				if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
-					if contract.SRData.BoostingSinkUserID == b.UserID {
-						sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
+					if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
+						if contract.SRData.BoostingSinkUserID == b.UserID {
+							sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
+						}
+					} else if contract.SRData.SpeedrunState == SpeedrunStatePost {
+						if contract.SRData.PostSinkUserID == b.UserID {
+							sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
+						}
 					}
 				}
 
@@ -217,9 +229,16 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 
 			if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
 				sinkIcon := ""
-				if contract.SRData.BoostingSinkUserID == b.UserID {
-					sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
-					signupCountStr = fmt.Sprintf("(%d)", b.TokensWanted)
+				if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
+					if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
+						if contract.SRData.BoostingSinkUserID == b.UserID {
+							sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
+						}
+					} else if contract.SRData.SpeedrunState == SpeedrunStatePost {
+						if contract.SRData.PostSinkUserID == b.UserID {
+							sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
+						}
+					}
 				}
 				switch b.BoostState {
 				case BoostStateUnboosted:
