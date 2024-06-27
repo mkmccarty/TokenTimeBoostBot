@@ -878,6 +878,17 @@ func main() {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
 
+	err = s.UpdateStatusComplex(discordgo.UpdateStatusData{
+		AFK: false,
+		Activities: []*discordgo.Activity{
+			{
+				Name: "Egg, Inc.",
+				Type: discordgo.ActivityTypeGame,
+			},
+		},
+		Status: string(discordgo.StatusOnline),
+	})
+
 	commandSet := append(commands, globalCommands...)
 	commandSet = append(commandSet, adminCommands...)
 
