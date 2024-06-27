@@ -878,7 +878,7 @@ func main() {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
 
-	err = s.UpdateStatusComplex(discordgo.UpdateStatusData{
+	_ = s.UpdateStatusComplex(discordgo.UpdateStatusData{
 		AFK: false,
 		Activities: []*discordgo.Activity{
 			{
