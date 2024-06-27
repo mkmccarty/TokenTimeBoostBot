@@ -8,6 +8,22 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
+func getSinkIcon(contract *Contract, b *Booster) string {
+	var sinkIcon = ""
+	if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
+		if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
+			if contract.SRData.BoostingSinkUserID == b.UserID {
+				sinkIcon = fmt.Sprintf("%s[%d] %s", contract.TokenStr, b.TokensReceived, "🫂")
+			}
+		} else if contract.SRData.SpeedrunState == SpeedrunStatePost {
+			if contract.SRData.PostSinkUserID == b.UserID {
+				sinkIcon = fmt.Sprintf("%s[%d] %s", contract.TokenStr, b.TokensReceived, "🫂")
+			}
+		}
+	}
+	return sinkIcon
+}
+
 // DrawBoostList will draw the boost list for the contract
 func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	var outputStr string
@@ -132,18 +148,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		for i, element := range contract.Order[0:start] {
 			var b, ok = contract.Boosters[element]
 			if ok {
-				sinkIcon := ""
-				if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
-					if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
-						if contract.SRData.BoostingSinkUserID == b.UserID {
-							sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
-						}
-					} else if contract.SRData.SpeedrunState == SpeedrunStatePost {
-						if contract.SRData.PostSinkUserID == b.UserID {
-							sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
-						}
-					}
-				}
+				sinkIcon := getSinkIcon(contract, b)
 
 				if b.BoostState == BoostStateBoosted {
 					earlyList += fmt.Sprintf("~~%s~~%s ", b.Mention, sinkIcon)
@@ -166,18 +171,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		for i, element := range contract.Order[end:len(contract.Order)] {
 			var b, ok = contract.Boosters[element]
 			if ok {
-				sinkIcon := ""
-				if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
-					if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
-						if contract.SRData.BoostingSinkUserID == b.UserID {
-							sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
-						}
-					} else if contract.SRData.SpeedrunState == SpeedrunStatePost {
-						if contract.SRData.PostSinkUserID == b.UserID {
-							sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
-						}
-					}
-				}
+				sinkIcon := getSinkIcon(contract, b)
 
 				if b.BoostState == BoostStateBoosted {
 					lateList += fmt.Sprintf("~~%s~~%s ", b.Mention, sinkIcon)
@@ -228,18 +222,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 			countStr, signupCountStr := getTokenCountString(tokenStr, b.TokensWanted, b.TokensReceived)
 
 			if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
-				sinkIcon := ""
-				if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
-					if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
-						if contract.SRData.BoostingSinkUserID == b.UserID {
-							sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
-						}
-					} else if contract.SRData.SpeedrunState == SpeedrunStatePost {
-						if contract.SRData.PostSinkUserID == b.UserID {
-							sinkIcon = fmt.Sprintf("%s[%d] %s", tokenStr, b.TokensReceived, "🫂")
-						}
-					}
-				}
+				sinkIcon := getSinkIcon(contract, b)
+
 				switch b.BoostState {
 				case BoostStateUnboosted:
 					outputStr += fmt.Sprintf("%s %s%s%s%s\n", prefix, name, signupCountStr, sinkIcon, server)
