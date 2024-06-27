@@ -92,7 +92,7 @@ func getSpeedrunStatusStr(contract *Contract) string {
 	if contract.SRData.SelfRuns {
 		fmt.Fprintf(&b, "> --> **Self-run of chickens is required** <--\n")
 		if contract.Location[0].GuildID == "485162044652388384" {
-			fmt.Fprintf(&b, "> * how-to self-run: %s\n", "https://discord.com/channels/485162044652388384/490151868631089152/1255671965998383295")
+			fmt.Fprintf(&b, "> * how-to self-run: %s\n", "https://discord.com/channels/485162044652388384/490151868631089152/1255676641192054834")
 		}
 	}
 	if contract.SRData.Tango[0] != 1 {
