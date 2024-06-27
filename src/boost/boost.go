@@ -21,8 +21,8 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
+	"github.com/moby/moby/pkg/namesgenerator"
 	emutil "github.com/post04/discordgo-emoji-util"
-	"github.com/rs/xid"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -376,8 +376,6 @@ func getBoostOrderString(contract *Contract) string {
 
 // CreateContract creates a new contract or joins an existing contract if run from a different location
 func CreateContract(s *discordgo.Session, contractID string, coopID string, coopSize int, BoostOrder int, guildID string, channelID string, userID string, pingRole string) (*Contract, error) {
-	var ContractHash = xid.New().String()
-
 	// When creating contracts, we can make sure to clean up and archived ones
 	// Just in case a contract was immediately recreated
 	for _, c := range Contracts {
@@ -401,6 +399,10 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		return nil, errors.New("this channel already has a contract named: " + existingContract.ContractID + "/" + existingContract.CoopID)
 	}
 
+	var ContractHash = namesgenerator.GetRandomName(0)
+	for Contracts[ContractHash] != nil {
+		ContractHash = namesgenerator.GetRandomName(0)
+	}
 	contract := Contracts[ContractHash]
 
 	loc := new(LocationData)
