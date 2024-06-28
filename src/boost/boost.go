@@ -98,8 +98,9 @@ const (
 	SpeedrunStyleWonky   = 0
 	SpeedrunStyleFastrun = 1
 
-	SinkBoostFirst = 0 // First position
-	SinkBoostLast  = 1 // Last position
+	SinkBoostUnset = -1 // Unset position
+	SinkBoostFirst = 0  // First position
+	SinkBoostLast  = 1  // Last position
 )
 
 var boostIconName = "🚀"     // For Reaction tests

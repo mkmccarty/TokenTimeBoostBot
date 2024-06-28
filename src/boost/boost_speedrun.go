@@ -11,6 +11,92 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
+// GetSlashChangeSpeedRunSinkCommand returns the slash command for changing speedrun sink assignments
+func GetSlashChangeSpeedRunSinkCommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "Change speedrun sink assignements of a running contract",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionUser,
+				Name:        "sink-crt",
+				Description: "The user to sink during CRT. Used for other sink parameters if those are missing.",
+				Required:    true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "sink-boosting",
+				Description: "Sink during boosting.",
+				Required:    false,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "sink-post",
+				Description: "Post contract sink.",
+				Required:    false,
+			}},
+	}
+}
+
+// HandleChangeSpeedrunSinkCommand handles the change speedrun sink command
+func HandleChangeSpeedrunSinkCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// Protection against DM use
+	if i.GuildID == "" {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "This command can only be run in a server.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{}},
+		})
+		return
+	}
+
+	sinkCrt := ""
+	sinkBoost := ""
+	sinkPost := ""
+	options := i.ApplicationCommandData().Options
+	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+	for _, opt := range options {
+		optionMap[opt.Name] = opt
+	}
+
+	if opt, ok := optionMap["sink-crt"]; ok {
+		sinkCrt = opt.UserValue(s).Mention()
+		sinkCrt = sinkCrt[2 : len(sinkCrt)-1]
+		sinkBoost = sinkCrt
+		sinkPost = sinkCrt
+	}
+	if opt, ok := optionMap["sink-boosting"]; ok {
+		sinkPost = strings.TrimSpace(opt.StringValue())
+		reMention := regexp.MustCompile(`<@!?(\d+)>`)
+		if reMention.MatchString(sinkBoost) {
+			sinkBoost = sinkBoost[2 : len(sinkBoost)-1]
+		}
+	}
+	if opt, ok := optionMap["sink-post"]; ok {
+		sinkPost = strings.TrimSpace(opt.StringValue())
+		reMention := regexp.MustCompile(`<@!?(\d+)>`)
+		if reMention.MatchString(sinkPost) {
+			sinkPost = sinkPost[2 : len(sinkPost)-1]
+		}
+	}
+
+	str, err := setSpeedrunOptions(s, i.ChannelID, sinkCrt, sinkBoost, sinkPost, -1, -1, -1, false, true)
+	if err != nil {
+		str = err.Error()
+	}
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: str,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+
+}
+
 // HandleSpeedrunCommand handles the speedrun command
 func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
@@ -72,7 +158,7 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		sinkPosition = int(opt.IntValue())
 	}
 
-	str, err := setSpeedrunOptions(s, i.ChannelID, sinkCrt, sinkBoost, sinkPost, sinkPosition, chickenRuns, speedrunStyle, selfRuns)
+	str, err := setSpeedrunOptions(s, i.ChannelID, sinkCrt, sinkBoost, sinkPost, sinkPosition, chickenRuns, speedrunStyle, selfRuns, false)
 	if err != nil {
 		str = err.Error()
 	}
@@ -123,13 +209,13 @@ func getSpeedrunStatusStr(contract *Contract) string {
 	return b.String()
 }
 
-func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, sinkBoosting string, sinkPost string, sinkPosition int, chickenRuns int, speedrunStyle int, selfRuns bool) (string, error) {
+func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, sinkBoosting string, sinkPost string, sinkPosition int, chickenRuns int, speedrunStyle int, selfRuns bool, changeSinksOnly bool) (string, error) {
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return "", errors.New(errorNoContract)
 	}
 
-	if contract.State != ContractStateSignup {
+	if contract.State != ContractStateSignup && !changeSinksOnly {
 		return "", errors.New("contract must be in the Sign-up state to set speedrun options")
 	}
 
@@ -153,6 +239,19 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 		if _, err := s.User(sinkPost); err != nil {
 			return "", errors.New("post contract sink must be a user mention for Wonky style boost lists")
 		}
+	}
+
+	if changeSinksOnly && !contract.Speedrun {
+		return "", errors.New("sinks can only be changed for an existing speedrun contract")
+	}
+
+	if changeSinksOnly && contract.Speedrun {
+
+		contract.SRData.CrtSinkUserID = sinkCrt
+		contract.SRData.BoostingSinkUserID = sinkBoosting
+		contract.SRData.PostSinkUserID = sinkPost
+
+		return "Updated the speedrun sinks", nil
 	}
 
 	contract.Speedrun = true

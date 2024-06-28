@@ -40,6 +40,7 @@ const slashChange string = "change"
 const slashChangeOneBooster string = "change-one-booster"
 const slashChangePingRole string = "change-ping-role"
 const slashChangePlannedStartCommand string = "change-planned-start"
+const slashChangeSpeedRunSink string = "change-speedrun-sink"
 const slashUnboost string = "unboost"
 const slashPrune string = "prune"
 const slashJoin string = "join-contract"
@@ -287,6 +288,7 @@ var (
 				},
 			},
 		},
+		boost.GetSlashChangeSpeedRunSinkCommand(slashChangeSpeedRunSink),
 		{
 			Name:        slashJoin,
 			Description: "Add farmer or guest to contract.",
