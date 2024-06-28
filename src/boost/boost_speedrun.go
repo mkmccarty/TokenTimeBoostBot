@@ -20,8 +20,8 @@ func GetSlashChangeSpeedRunSinkCommand(cmd string) *discordgo.ApplicationCommand
 			{
 				Type:        discordgo.ApplicationCommandOptionUser,
 				Name:        "sink-crt",
-				Description: "The user to sink during CRT. Used for other sink parameters if those are missing.",
-				Required:    true,
+				Description: "The user to sink during CRT.",
+				Required:    false,
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
@@ -64,8 +64,6 @@ func HandleChangeSpeedrunSinkCommand(s *discordgo.Session, i *discordgo.Interact
 	if opt, ok := optionMap["sink-crt"]; ok {
 		sinkCrt = opt.UserValue(s).Mention()
 		sinkCrt = sinkCrt[2 : len(sinkCrt)-1]
-		sinkBoost = sinkCrt
-		sinkPost = sinkCrt
 	}
 	if opt, ok := optionMap["sink-boosting"]; ok {
 		sinkPost = strings.TrimSpace(opt.StringValue())
@@ -246,12 +244,20 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 	}
 
 	if changeSinksOnly && contract.Speedrun {
-
-		contract.SRData.CrtSinkUserID = sinkCrt
-		contract.SRData.BoostingSinkUserID = sinkBoosting
-		contract.SRData.PostSinkUserID = sinkPost
-
-		return "Updated the speedrun sinks", nil
+		var builder strings.Builder
+		if sinkCrt != "" {
+			contract.SRData.CrtSinkUserID = sinkCrt
+			fmt.Fprintf(&builder, "CRT Sink set to %s\n", contract.Boosters[contract.SRData.CrtSinkUserID].Mention)
+		}
+		if sinkBoosting != "" {
+			contract.SRData.BoostingSinkUserID = sinkBoosting
+			fmt.Fprintf(&builder, "Boosting Sink set to %s\n", contract.Boosters[contract.SRData.BoostingSinkUserID].Mention)
+		}
+		if sinkPost != "" {
+			contract.SRData.PostSinkUserID = sinkPost
+			fmt.Fprintf(&builder, "Post Sink set to %s\n", contract.Boosters[contract.SRData.PostSinkUserID].Mention)
+		}
+		return builder.String(), nil
 	}
 
 	contract.Speedrun = true
