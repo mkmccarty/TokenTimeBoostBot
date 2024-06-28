@@ -8,7 +8,7 @@ require (
 	github.com/bwmarrin/discordgo v0.28.2-0.20240622145303-28f8d4252d9e
 	github.com/divan/num2words v0.0.0-20170904212200-57dba452f942
 	github.com/ewohltman/discordgo-mock v0.0.11
-	github.com/google/generative-ai-go v0.15.0
+	github.com/google/generative-ai-go v0.15.1
 	github.com/jasonlvhit/gocron v0.0.1
 	github.com/joho/godotenv v1.5.1
 	github.com/moby/moby v27.0.2+incompatible
