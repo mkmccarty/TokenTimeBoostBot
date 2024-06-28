@@ -230,7 +230,7 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 		return "", errors.New("post contract sink not in the contract")
 	}
 
-	if speedrunStyle == SpeedrunStyleWonky {
+	if speedrunStyle == SpeedrunStyleWonky && !changeSinksOnly {
 		// Verify that the sink is a snowflake id
 		if _, err := s.User(sinkBoosting); err != nil {
 			return "", errors.New("boosting sink must be a user mention for Wonky style boost lists")

@@ -507,6 +507,9 @@ var (
 		slashSpeedrun: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleSpeedrunCommand(s, i)
 		},
+		slashChangeSpeedRunSink: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleChangeSpeedrunSinkCommand(s, i)
+		},
 		slashVolunteerSink: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleSlashVolunteerSinkCommand(s, i)
 		},
