@@ -101,7 +101,7 @@ const (
 	SpeedrunMiddleLegs = 1
 	SpeedrunFinalLeg   = 2
 
-	SpeedrunStyleBanker   = 0
+	SpeedrunStyleBanker  = 0
 	SpeedrunStyleFastrun = 1
 
 	SinkBoostUnset = -1 // Unset position
