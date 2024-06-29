@@ -16,8 +16,8 @@ jobs:
       uses: actions/checkout@main
       with:
           fetch-depth: 0
-    - name: Audit
-      #run: make audit
+#    - name: Audit
+#      run: make audit
     - name: Test
       run: make test
     - name: Build
