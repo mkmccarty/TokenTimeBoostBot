@@ -7,7 +7,7 @@ strict digraph {
     sr_signup [shape="ellipse" style="filled" fillcolor="#FF5555" label="Speedrun Signup"]
 
     boostlist [shape="polygon" style="filled" fillcolor="#00DDFF" label="Boost List"]  
-    sr_wonky [shape="polygon" style="filled" fillcolor="#FF5555" label="Wonky Boost List"]
+    sr_wonky [shape="polygon" style="filled" fillcolor="#FF5555" label="Banker Boost List"]
     sr_boostlist [shape="polygon" style="filled" fillcolor="#FF5555" label="Boost List"]  
 
     sink [shape="polygon" style="filled" fillcolor="#FF5555" label="Token Sink"]  

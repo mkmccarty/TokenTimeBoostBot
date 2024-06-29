@@ -184,8 +184,8 @@ func getSpeedrunStatusStr(contract *Contract) string {
 	} else {
 		fmt.Fprintf(&b, "> It's not possible to reach **%d** total chicken runs with only **%d** farmers.\n", contract.SRData.ChickenRuns, contract.CoopSize)
 	}
-	if contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
-		fmt.Fprint(&b, "> **Wonky** style speed run:\n")
+	if contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
+		fmt.Fprint(&b, "> **Banker** style speed run:\n")
 		if contract.SRData.CrtSinkUserID == contract.SRData.BoostingSinkUserID && contract.SRData.CrtSinkUserID == contract.SRData.PostSinkUserID {
 			fmt.Fprintf(&b, "> * Send all tokens to **%s**\n", contract.Boosters[contract.SRData.CrtSinkUserID].Mention)
 		} else if contract.SRData.CrtSinkUserID == contract.SRData.BoostingSinkUserID {
@@ -228,14 +228,14 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 		return "", errors.New("post contract sink not in the contract")
 	}
 
-	if speedrunStyle == SpeedrunStyleWonky && !changeSinksOnly {
+	if speedrunStyle == SpeedrunStyleBanker && !changeSinksOnly {
 		// Verify that the sink is a snowflake id
 		if _, err := s.User(sinkBoosting); err != nil {
-			return "", errors.New("boosting sink must be a user mention for Wonky style boost lists")
+			return "", errors.New("boosting sink must be a user mention for Banker style boost lists")
 		}
 
 		if _, err := s.User(sinkPost); err != nil {
-			return "", errors.New("post contract sink must be a user mention for Wonky style boost lists")
+			return "", errors.New("post contract sink must be a user mention for Banker style boost lists")
 		}
 	}
 
@@ -270,7 +270,7 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 	contract.SRData.SpeedrunState = SpeedrunStateSignup
 	contract.BoostOrder = ContractOrderFair
 
-	if speedrunStyle == SpeedrunStyleWonky {
+	if speedrunStyle == SpeedrunStyleBanker {
 		contract.Style = ContractFlagBanker
 	}
 	if selfRuns {

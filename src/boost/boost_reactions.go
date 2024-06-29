@@ -60,7 +60,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		contract.LastInteractionTime = time.Now()
 		// Isolate Speedrun reactions for safety
 		if contract.Speedrun && (contract.SRData.SpeedrunState == SpeedrunStateCRT ||
-			contract.SRData.SpeedrunStyle == SpeedrunStyleWonky && contract.SRData.SpeedrunState == SpeedrunStateBoosting ||
+			contract.SRData.SpeedrunStyle == SpeedrunStyleBanker && contract.SRData.SpeedrunState == SpeedrunStateBoosting ||
 			contract.SRData.SpeedrunState == SpeedrunStatePost) {
 			return speedrunReactions(s, r, contract)
 		}

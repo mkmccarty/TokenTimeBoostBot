@@ -258,13 +258,13 @@ var (
 				},
 				{
 					Name:        "style",
-					Description: "Style of speedrun. Default is Wonky",
+					Description: "Style of speedrun. Default is Banker",
 					Required:    false,
 					Type:        discordgo.ApplicationCommandOptionInteger,
 					Choices: []*discordgo.ApplicationCommandOptionChoice{
 						{
-							Name:  "Wonky",
-							Value: boost.SpeedrunStyleWonky,
+							Name:  "Banker",
+							Value: boost.SpeedrunStyleBanker,
 						},
 						{
 							Name:  "Boost List",

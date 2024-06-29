@@ -65,7 +65,7 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 		if contract.State == ContractStateSignup {
 
 			// Speedrun info
-			speedRunStr := `__**/speedrun**__  (runs from contract data, Wonky style, sink boosts first)
+			speedRunStr := `__**/speedrun**__  (runs from contract data, Banker style, sink boosts first)
 			> * **contract-starter** : Sink during CRT & boosting. 
 			>  * If farmer using an alt as the sink, use the farmer's name as sink.
 			__**/link-alternate**__
