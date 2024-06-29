@@ -513,7 +513,7 @@ func buttonReactionTango(s *discordgo.Session, contract *Contract, cUserID strin
 		contract.SRData.LegReactionMessageID = ""
 		contract.SRData.ChickenRunCheckMsgID = ""
 		contract.SRData.NeedToRunChickens = nil
-		if contract.SRData.CurrentLeg == contract.SRData.Legs {
+		if contract.SRData.CurrentLeg >= contract.SRData.Legs {
 			contract.SRData.SpeedrunState = SpeedrunStateBoosting
 			str += " This was the final kick. Build up your farm as you would for boosting.\n"
 		}

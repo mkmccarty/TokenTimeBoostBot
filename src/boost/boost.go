@@ -48,16 +48,16 @@ const errorSpeedrunContract = "not available for a speedrun contract"
 
 // Create a slice with the names of the ContractState const names
 var contractStateNames = []string{
-	"ContractStateNone",
 	"ContractStateSignup",
 	"ContractStateStarted",
-	"ContractStateCRT",
-	"ContractStateBoosting",
-	"ContractStateBanker",
 	"ContractStateWaiting",
 	"ContractStateCompleted",
 	"ContractStateArchive",
+	"ContractStateCRT",
+	"ContractStateBoosting",
+	"ContractStateBanker",
 }
+
 var speedrunStateNames = []string{
 	"SpeedrunStateNone",
 	"SpeedrunStateSignup",
@@ -75,15 +75,14 @@ const (
 	ContractOrderFair      = 3 // Fair based on position percentile of each farmers last 5 contracts. Those with no history use 50th percentile
 	ContractOrderTimeBased = 4 // Time based order
 
-	ContractStateNone      = 0
-	ContractStateSignup    = 1 // Contract is in signup phase
-	ContractStateCRT       = 2
-	ContractStateStarted   = 3 // Contract is started
-	ContractStateBoosting  = 3 // Contract is started
-	ContractStateBanker    = 4
-	ContractStateWaiting   = 5 // Waiting for other(s) to join
-	ContractStateCompleted = 6 // Contract is completed
-	ContractStateArchive   = 7 // Contract is ready to archive
+	ContractStateSignup    = 0 // Contract is in signup phase
+	ContractStateStarted   = 1 // Contract is started
+	ContractStateWaiting   = 2 // Waiting for other(s) to join
+	ContractStateCompleted = 3 // Contract is completed
+	ContractStateArchive   = 4 // Contract is ready to archive
+	ContractStateCRT       = 5 // Contract is doing CRT
+	ContractStateBoosting  = 6 // Contract is Boosting with Token Sharing
+	ContractStateBanker    = 7 // Contract is Boosting with Banker
 
 	BoostStateUnboosted = 0 // Unboosted
 	BoostStateTokenTime = 1 // TokenTime or turn to receive tokens
@@ -109,6 +108,7 @@ const (
 	SinkBoostFirst = 0  // First position
 	SinkBoostLast  = 1  // Last position
 
+	// These are an int64 flaglist to construct the style of the contract
 	ContractFlagFastrun  = 0x00
 	ContractFlagCrt      = 0x01
 	ContractFlagSelfRuns = 0x02
