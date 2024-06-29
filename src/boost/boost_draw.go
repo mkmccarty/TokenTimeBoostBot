@@ -10,7 +10,7 @@ import (
 
 func getSinkIcon(contract *Contract, b *Booster) string {
 	var sinkIcon = ""
-	if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
+	if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
 		if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
 			if contract.SRData.BoostingSinkUserID == b.UserID {
 				sinkIcon = fmt.Sprintf("%s[%d] %s", contract.TokenStr, b.TokensReceived, "🫂")
@@ -73,7 +73,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		case SpeedrunStateCRT:
 			//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SpeedrunStarterUserID)
 		case SpeedrunStateBoosting:
-			if contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
+			if contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
 				afterListStr += fmt.Sprintf("\n**Send all tokens to %s**\n", contract.Boosters[contract.SRData.BoostingSinkUserID].Mention)
 			}
 		case SpeedrunStatePost:
@@ -97,8 +97,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	}
 
 	if contract.State == ContractStateStarted {
-		if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
-			outputStr += "## Wonky Speedrun Boost List\n"
+		if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
+			outputStr += "## Banker Speedrun Boost List\n"
 		} else {
 			outputStr += "## Boost List\n"
 		}
@@ -221,7 +221,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 
 			countStr, signupCountStr := getTokenCountString(tokenStr, b.TokensWanted, b.TokensReceived)
 
-			if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
+			if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
 				sinkIcon := getSinkIcon(contract, b)
 
 				switch b.BoostState {
@@ -261,7 +261,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	// Add reaction guidance to the bottom of this list
 	if contract.State == ContractStateStarted {
 		outputStr += "\n"
-		if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
+		if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
 			outputStr += "> " + tokenStr + " when sending tokens to the sink"
 			if len(contract.AltIcons) > 0 {
 				outputStr += ", alts use 🇦-🇿"

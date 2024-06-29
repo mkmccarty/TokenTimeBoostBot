@@ -101,7 +101,7 @@ const (
 	SpeedrunMiddleLegs = 1
 	SpeedrunFinalLeg   = 2
 
-	SpeedrunStyleWonky   = 0
+	SpeedrunStyleBanker   = 0
 	SpeedrunStyleFastrun = 1
 
 	SinkBoostUnset = -1 // Unset position
@@ -1209,7 +1209,7 @@ func addContractReactions(s *discordgo.Session, contract *Contract, channelID st
 			addSpeedrunContractReactions(s, contract, channelID, messageID, tokenStr)
 			return
 		case SpeedrunStateBoosting:
-			if contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
+			if contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
 				addSpeedrunContractReactions(s, contract, channelID, messageID, tokenStr)
 				return
 			}

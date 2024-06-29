@@ -236,7 +236,7 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 		var b *Booster
 		// Speedrun will use the sink booster instead
 		if contract.Speedrun && (contract.SRData.SpeedrunState == SpeedrunStateCRT ||
-			contract.SRData.SpeedrunStyle == SpeedrunStyleWonky && contract.SRData.SpeedrunState == SpeedrunStateBoosting ||
+			contract.SRData.SpeedrunStyle == SpeedrunStyleBanker && contract.SRData.SpeedrunState == SpeedrunStateBoosting ||
 			contract.SRData.SpeedrunState == SpeedrunStatePost) {
 
 			if contract.SRData.SpeedrunState == SpeedrunStateCRT {
@@ -643,7 +643,7 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 		case SpeedrunStateCRT:
 			return addSpeedrunContractReactionsButtons(contract, tokenStr)
 		case SpeedrunStateBoosting:
-			if contract.SRData.SpeedrunStyle == SpeedrunStyleWonky {
+			if contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
 				return addSpeedrunContractReactionsButtons(contract, tokenStr)
 			}
 		case SpeedrunStatePost:
