@@ -48,13 +48,16 @@ const errorSpeedrunContract = "not available for a speedrun contract"
 
 // Create a slice with the names of the ContractState const names
 var contractStateNames = []string{
+	"ContractStateNone",
 	"ContractStateSignup",
 	"ContractStateStarted",
+	"ContractStateCRT",
+	"ContractStateBoosting",
+	"ContractStateBanker",
 	"ContractStateWaiting",
 	"ContractStateCompleted",
 	"ContractStateArchive",
 }
-
 var speedrunStateNames = []string{
 	"SpeedrunStateNone",
 	"SpeedrunStateSignup",
@@ -72,11 +75,15 @@ const (
 	ContractOrderFair      = 3 // Fair based on position percentile of each farmers last 5 contracts. Those with no history use 50th percentile
 	ContractOrderTimeBased = 4 // Time based order
 
-	ContractStateSignup    = 0 // Contract is in signup phase
-	ContractStateStarted   = 1 // Contract is started
-	ContractStateWaiting   = 2 // Waiting for other(s) to join
-	ContractStateCompleted = 3 // Contract is completed
-	ContractStateArchive   = 4 // Contract is ready to archive
+	ContractStateNone      = 0
+	ContractStateSignup    = 1 // Contract is in signup phase
+	ContractStateCRT       = 2
+	ContractStateStarted   = 3 // Contract is started
+	ContractStateBoosting  = 3 // Contract is started
+	ContractStateBanker    = 4
+	ContractStateWaiting   = 5 // Waiting for other(s) to join
+	ContractStateCompleted = 6 // Contract is completed
+	ContractStateArchive   = 7 // Contract is ready to archive
 
 	BoostStateUnboosted = 0 // Unboosted
 	BoostStateTokenTime = 1 // TokenTime or turn to receive tokens
@@ -101,6 +108,16 @@ const (
 	SinkBoostUnset = -1 // Unset position
 	SinkBoostFirst = 0  // First position
 	SinkBoostLast  = 1  // Last position
+
+	ContractFlagFastrun  = 0x00
+	ContractFlagCrt      = 0x01
+	ContractFlagSelfRuns = 0x02
+	ContractFlagBanker   = 0x04
+
+	ContractStyleFastrun           = ContractFlagFastrun
+	ContractStyleFastrunBanker     = ContractFlagBanker
+	ContractStyleSpeedrunBoostList = ContractFlagCrt | ContractFlagFastrun
+	ContractStyleSpeedrunBanker    = ContractFlagCrt | ContractFlagBanker
 )
 
 var boostIconName = "🚀"     // For Reaction tests
@@ -201,6 +218,7 @@ type Contract struct {
 	CRMessageIDs []string // Array of message IDs for chicken run messages
 
 	CoopSize         int
+	Style            int64 // Mask for the Contract Style
 	LengthInSeconds  int
 	BoostOrder       int // How the contract is sorted
 	BoostVoting      int
@@ -437,6 +455,8 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.Location = append(contract.Location, loc)
 		contract.ContractHash = ContractHash
 		contract.UseInteractionButtons = config.GetTestMode() // Featuer under test
+
+		contract.Style = ContractStyleFastrun
 
 		//GlobalContracts[ContractHash] = append(GlobalContracts[ContractHash], loc)
 		contract.Boosters = make(map[string]*Booster)
