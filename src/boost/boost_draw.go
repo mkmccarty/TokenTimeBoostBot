@@ -29,12 +29,6 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	var outputStr string
 	var afterListStr = ""
 	tokenStr := contract.TokenStr
-	if tokenStr == "" {
-		// TODO: Remove this after June 30th
-		contract.TokenStr = FindTokenEmoji(s)
-		contract.TokenReactionStr = contract.TokenStr[2 : len(contract.TokenStr)-1]
-		tokenStr = contract.TokenStr
-	}
 
 	contract.LastInteractionTime = time.Now()
 

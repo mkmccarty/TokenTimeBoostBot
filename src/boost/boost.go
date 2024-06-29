@@ -109,10 +109,10 @@ const (
 	SinkBoostLast  = 1  // Last position
 
 	// These are an int64 flaglist to construct the style of the contract
-	ContractFlagFastrun  = 0x00
-	ContractFlagCrt      = 0x01
-	ContractFlagSelfRuns = 0x02
-	ContractFlagBanker   = 0x04
+	ContractFlagFastrun  = 0x0000
+	ContractFlagCrt      = 0x0001
+	ContractFlagSelfRuns = 0x0002
+	ContractFlagBanker   = 0x0400
 
 	ContractStyleFastrun           = ContractFlagFastrun
 	ContractStyleFastrunBanker     = ContractFlagBanker
