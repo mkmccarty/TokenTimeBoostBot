@@ -270,6 +270,16 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 	contract.SRData.SpeedrunState = SpeedrunStateSignup
 	contract.BoostOrder = ContractOrderFair
 
+	if speedrunStyle == SpeedrunStyleWonky {
+		contract.Style = ContractFlagBanker
+	}
+	if selfRuns {
+		contract.Style |= ContractFlagSelfRuns
+	} else {
+		contract.Style &= ^ContractFlagSelfRuns
+
+	}
+
 	// Chicken Runs Calc
 	// Info from https://egg-inc.fandom.com/wiki/Contracts
 	if chickenRuns != 0 {
@@ -306,6 +316,12 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 			break // No more runs to do, skips the Legs++ below
 		}
 		contract.SRData.Legs++
+	}
+
+	if contract.SRData.Legs == 0 {
+		contract.Style &= ^ContractFlagSelfRuns
+	} else {
+		contract.Style |= ContractFlagSelfRuns
 	}
 
 	contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
