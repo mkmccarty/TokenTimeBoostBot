@@ -262,15 +262,21 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 		return "", errors.New("contract must be in the Sign-up state to set speedrun options")
 	}
 
-	// is contractStarter and sink in the contract
-	if _, ok := contract.Boosters[sinkCrt]; !ok {
-		return "", errors.New("crt sink not in the contract")
+	if sinkCrt != "" {
+		// is contractStarter and sink in the contract
+		if _, ok := contract.Boosters[sinkCrt]; !ok {
+			return "", errors.New("crt sink not in the contract")
+		}
 	}
-	if _, ok := contract.Boosters[sinkBoosting]; !ok {
-		return "", errors.New("boosting sink not in the contract")
+	if sinkBoosting != "" {
+		if _, ok := contract.Boosters[sinkBoosting]; !ok {
+			return "", errors.New("boosting sink not in the contract")
+		}
 	}
-	if _, ok := contract.Boosters[sinkPost]; !ok {
-		return "", errors.New("post contract sink not in the contract")
+	if sinkPost != "" {
+		if _, ok := contract.Boosters[sinkPost]; !ok {
+			return "", errors.New("post contract sink not in the contract")
+		}
 	}
 
 	if speedrunStyle == SpeedrunStyleBanker && !changeSinksOnly {
@@ -306,7 +312,6 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 		return builder.String(), nil
 	}
 
-	contract.Speedrun = true
 	contract.SRData.CrtSinkUserID = sinkCrt
 	contract.SRData.BoostingSinkUserID = sinkBoosting
 	contract.SRData.PostSinkUserID = sinkPost
@@ -325,8 +330,10 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 		contract.Style |= ContractFlagSelfRuns
 	} else {
 		contract.Style &= ^ContractFlagSelfRuns
-
 	}
+
+	contract.Speedrun = contract.Style&ContractFlagBanker != 0
+	contract.Speedrun = true // TODO: this will be removed in favor of flags
 
 	// Chicken Runs Calc
 	// Info from https://egg-inc.fandom.com/wiki/Contracts
