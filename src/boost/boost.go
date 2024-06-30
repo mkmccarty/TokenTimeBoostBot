@@ -255,7 +255,6 @@ type SpeedrunData struct {
 	SinkBoostPosition    int      // Sink Boost Position
 	SpeedrunStyle        int      // Speedrun Style
 	ChickenRuns          int      // Number of Chicken Runs for this contract
-	SelfRuns             bool     // Farmers performing self runs
 	Legs                 int      // Number of legs for this Tango
 	Tango                [3]int   // The Tango itself (First, Middle, Last)
 	CurrentLeg           int      // Current Leg
@@ -811,6 +810,17 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		}
 		contract.RegisteredNum = len(contract.Boosters)
 
+		if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
+			if len(contract.Order) == 1 {
+				// Reset contract sink to the first booster to signup
+				contract.SRData.CrtSinkUserID = contract.Order[0]
+				contract.SRData.BoostingSinkUserID = contract.Order[0]
+				contract.SRData.PostSinkUserID = contract.Order[0]
+			}
+
+			calculateTangoLegs(contract, true)
+		}
+
 		if contract.State == ContractStateWaiting {
 			// Reactivate the contract
 			// Set the newly added booster as boosting
@@ -1051,8 +1061,10 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 			if contract.BoostPosition != -1 {
 				contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 				contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+				sendNextNotification(s, contract, true)
+				// Returning here since we're actively boosting and will send a new message
+				return nil
 			}
-			sendNextNotification(s, contract, true)
 		}
 	}
 
@@ -1063,7 +1075,15 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 				_ = RedrawBoostList(s, loc.GuildID, loc.ChannelID)
 				continue
 			}
-
+			if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
+				if len(contract.Order) == 0 {
+					// Need to clear all the contract sinks
+					contract.SRData.CrtSinkUserID = ""
+					contract.SRData.BoostingSinkUserID = ""
+					contract.SRData.PostSinkUserID = ""
+				}
+				calculateTangoLegs(contract, true)
+			}
 			msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
 			contentStr := DrawBoostList(s, contract)
 			msgedit.SetContent(contentStr)
@@ -1073,17 +1093,19 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 				loc.ListMsgID = msg.ID
 			}
 			// Need to disable the speedrun start button if the contract is no longer full
-			if contract.Speedrun && contract.State == ContractStateSignup {
-				if (contract.CoopSize - 1) == len(contract.Order) {
-					msgID := loc.ReactionID
-					msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
-					// Full contract for speedrun
-					contentStr, comp := GetSignupComponents(true, contract.Speedrun) // True to get a disabled start button
-					msg.SetContent(contentStr)
-					msg.Flags = discordgo.MessageFlagsSuppressEmbeds
-					msg.Components = &comp
-					_, _ = s.ChannelMessageEditComplex(msg)
+			if contract.Style&ContractFlagCrt != 0 && contract.State == ContractStateSignup {
+				enableButton := false
+				if len(contract.Order) == 0 {
+					enableButton = true
 				}
+				msgID := loc.ReactionID
+				msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
+				// Full contract for speedrun
+				contentStr, comp := GetSignupComponents(enableButton, contract.Style&ContractFlagCrt != 0) // True to get a disabled start button
+				msg.SetContent(contentStr)
+				msg.Flags = discordgo.MessageFlagsSuppressEmbeds
+				msg.Components = &comp
+				_, _ = s.ChannelMessageEditComplex(msg)
 			}
 		}
 	}
@@ -1186,17 +1208,15 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 			// This is an edit, it should be the same
 			loc.ListMsgID = msg.ID
 		}
-		if contract.Speedrun && contract.State == ContractStateSignup {
-			if contract.CoopSize == len(contract.Order) {
-				msgID := loc.ReactionID
-				msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
+		if contract.Style&ContractFlagCrt != 0 && contract.State == ContractStateSignup {
+			msgID := loc.ReactionID
+			msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
 
-				// Full contract for speedrun
-				contentStr, comp := GetSignupComponents(false, contract.Speedrun) // True to get a disabled start button
-				msg.SetContent(contentStr)
-				msg.Components = &comp
-				_, _ = s.ChannelMessageEditComplex(msg)
-			}
+			// Full contract for speedrun
+			contentStr, comp := GetSignupComponents(len(contract.Order) < 1, contract.Style&ContractFlagCrt != 0) // True to get a disabled start button
+			msg.SetContent(contentStr)
+			msg.Components = &comp
+			_, _ = s.ChannelMessageEditComplex(msg)
 		}
 
 	}
