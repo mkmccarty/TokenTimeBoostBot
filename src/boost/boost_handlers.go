@@ -7,9 +7,9 @@ import (
 // GetSignupComponents returns the signup components for a contract
 func GetSignupComponents(disableStartContract bool, speedrun bool) (string, []discordgo.MessageComponent) {
 	var str = "Join the contract and indicate the number boost tokens you'd like."
-	startLabel := "Start Boost List"
+	startLabel := "Start Boosting"
 	if speedrun {
-		startLabel = "Start Speedrun"
+		startLabel = "Start CRT"
 	} else if disableStartContract {
 		startLabel = "Started"
 	}

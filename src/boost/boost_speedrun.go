@@ -172,17 +172,26 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 func getSpeedrunStatusStr(contract *Contract) string {
 	var b strings.Builder
-	fmt.Fprint(&b, "> Speedrun can be started once the contract is full.\n\n")
-	if contract.SRData.SelfRuns {
-		fmt.Fprintf(&b, "> --> **Self-run of chickens is required** <--\n")
-		if contract.Location[0].GuildID == "485162044652388384" {
-			fmt.Fprintf(&b, "> * how-to self-run: %s\n", "https://discord.com/channels/485162044652388384/490151868631089152/1255676641192054834")
+	//fmt.Fprint(&b, "> Speedrun can be started once the contract is full.\n\n")
+	if contract.SRData.Tango[0] > 1 {
+		if contract.Style&ContractFlagSelfRuns != 0 {
+			fmt.Fprintf(&b, "> --> **Self-run of chickens is required** <--\n")
+			if contract.Location[0].GuildID == "485162044652388384" {
+				fmt.Fprintf(&b, "> * how-to self-run: %s\n", "https://discord.com/channels/485162044652388384/490151868631089152/1255676641192054834")
+			}
 		}
-	}
-	if contract.SRData.Tango[0] != 1 {
+
 		fmt.Fprintf(&b, "> **%d** Chicken Run Legs to reach **%d** total chicken runs.\n", contract.SRData.Legs, contract.SRData.ChickenRuns)
 	} else {
-		fmt.Fprintf(&b, "> It's not possible to reach **%d** total chicken runs with only **%d** farmers.\n", contract.SRData.ChickenRuns, contract.CoopSize)
+		farmerPlural := "s"
+		if len(contract.Order) == 1 {
+			farmerPlural = ""
+		}
+
+		fmt.Fprintf(&b, "> It's not possible to reach **%d** total chicken runs with only **%d** farmer%s.\n\n", contract.SRData.ChickenRuns, len(contract.Order), farmerPlural)
+	}
+	if len(contract.Order) == 0 {
+		return b.String()
 	}
 	if contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
 		fmt.Fprint(&b, "> **Banker** style speed run:\n")
@@ -207,6 +216,42 @@ func getSpeedrunStatusStr(contract *Contract) string {
 	return b.String()
 }
 
+func calculateTangoLegs(contract *Contract, setStatus bool) {
+	selfRunMod := 0
+	if contract.Style&ContractFlagSelfRuns != 0 {
+		selfRunMod = 1
+	}
+
+	contract.SRData.Tango[0] = max(0, len(contract.Order)-selfRunMod) // First Leg
+	contract.SRData.Tango[1] = max(0, contract.SRData.Tango[0]-1)     // Middle Legs
+	contract.SRData.Tango[2] = 0                                      // Last Leg
+
+	runs := contract.SRData.ChickenRuns
+	contract.SRData.Legs = 0
+	for runs > 0 {
+		if contract.SRData.Legs == 0 {
+			runs -= contract.SRData.Tango[0]
+			if runs <= 0 {
+				break
+			}
+		} else if contract.SRData.Tango[1] == 0 {
+			// Not possible to do any CRT
+			contract.SRData.Legs = 0 // Reset the legs here
+			break
+		} else if runs > contract.SRData.Tango[1] {
+			runs -= contract.SRData.Tango[1]
+		} else {
+			contract.SRData.Tango[2] = runs
+			break // No more runs to do, skips the Legs++ below
+		}
+		contract.SRData.Legs++
+	}
+
+	if setStatus {
+		contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
+	}
+}
+
 func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, sinkBoosting string, sinkPost string, sinkPosition int, chickenRuns int, speedrunStyle int, selfRuns bool, changeSinksOnly bool) (string, error) {
 	var contract = FindContract(channelID)
 	if contract == nil {
@@ -229,6 +274,7 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 	}
 
 	if speedrunStyle == SpeedrunStyleBanker && !changeSinksOnly {
+
 		// Verify that the sink is a snowflake id
 		if _, err := s.User(sinkBoosting); err != nil {
 			return "", errors.New("boosting sink must be a user mention for Banker style boost lists")
@@ -265,13 +311,15 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 	contract.SRData.BoostingSinkUserID = sinkBoosting
 	contract.SRData.PostSinkUserID = sinkPost
 	contract.SRData.SinkBoostPosition = sinkPosition
-	contract.SRData.SelfRuns = selfRuns
 	contract.SRData.SpeedrunStyle = speedrunStyle
 	contract.SRData.SpeedrunState = SpeedrunStateSignup
 	contract.BoostOrder = ContractOrderFair
 
+	// This kind of contract is always a CRT
+	contract.Style = ContractStyleSpeedrunBoostList
+
 	if speedrunStyle == SpeedrunStyleBanker {
-		contract.Style = ContractFlagBanker
+		contract.Style = ContractStyleSpeedrunBanker
 	}
 	if selfRuns {
 		contract.Style |= ContractFlagSelfRuns
@@ -286,45 +334,7 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 		contract.SRData.ChickenRuns = chickenRuns
 	}
 
-	// Set up the details for the Chicken Run Tango
-	// first lap is CoopSize -1, every following lap is CoopSize -2
-	// unless self runs
-	selfRunMod := 1
-	if selfRuns {
-		selfRunMod = 0
-	}
-
-	contract.SRData.Tango[0] = max(0, contract.CoopSize-selfRunMod) // First Leg
-	contract.SRData.Tango[1] = max(0, contract.SRData.Tango[0]-1)   // Middle Legs
-	contract.SRData.Tango[2] = 0                                    // Last Leg
-
-	runs := contract.SRData.ChickenRuns
-	contract.SRData.Legs = 0
-	for runs > 0 {
-		if contract.SRData.Legs == 0 {
-			runs -= contract.SRData.Tango[0]
-			if runs <= 0 {
-				break
-			}
-		} else if contract.SRData.Tango[1] == 0 {
-			// Not possible to do any CRT
-			break
-		} else if runs > contract.SRData.Tango[1] {
-			runs -= contract.SRData.Tango[1]
-		} else {
-			contract.SRData.Tango[2] = runs
-			break // No more runs to do, skips the Legs++ below
-		}
-		contract.SRData.Legs++
-	}
-
-	if contract.SRData.Legs == 0 {
-		contract.Style &= ^ContractFlagSelfRuns
-	} else {
-		contract.Style |= ContractFlagSelfRuns
-	}
-
-	contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
+	calculateTangoLegs(contract, true)
 
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "Speedrun options set for %s/%s\n", contract.ContractID, contract.CoopID)
@@ -333,9 +343,6 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 	fmt.Fprintf(&builder, "Post Sink: %s\n", contract.Boosters[contract.SRData.PostSinkUserID].Mention)
 
 	disableButton := false
-	if contract.Speedrun && contract.CoopSize != len(contract.Boosters) {
-		disableButton = true
-	}
 	if contract.State != ContractStateSignup {
 		disableButton = true
 	}
@@ -348,7 +355,7 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 		msgID := loc.ReactionID
 		msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
 
-		contentStr, comp := GetSignupComponents(disableButton, contract.Speedrun) // True to get a disabled start button
+		contentStr, comp := GetSignupComponents(disableButton, contract.Style&ContractFlagCrt != 0) // True to get a disabled start button
 		msg.SetContent(contentStr)
 		msg.Components = &comp
 		_, _ = s.ChannelMessageEditComplex(msg)
@@ -392,7 +399,7 @@ func drawSpeedrunCRT(contract *Contract) string {
 		fmt.Fprintf(&builder, "2. Build up your farm to at least 20 chickens\n")
 		fmt.Fprintf(&builder, "3. Equip shiny artifact to force a server sync\n")
 		fmt.Fprintf(&builder, "4. Run chickens on all the other farms and react with :white_check_mark: after all runs\n")
-		if contract.SRData.SelfRuns {
+		if contract.Style&ContractFlagSelfRuns != 0 {
 			fmt.Fprintf(&builder, "5. **Run chickens on your own farm**\n")
 		}
 
