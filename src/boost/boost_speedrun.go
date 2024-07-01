@@ -317,7 +317,6 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 	contract.SRData.PostSinkUserID = sinkPost
 	contract.SRData.SinkBoostPosition = sinkPosition
 	contract.SRData.SpeedrunStyle = speedrunStyle
-	contract.SRData.SpeedrunState = SpeedrunStateSignup
 	contract.BoostOrder = ContractOrderFair
 
 	// This kind of contract is always a CRT
