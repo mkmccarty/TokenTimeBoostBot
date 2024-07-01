@@ -387,52 +387,12 @@ func reorderSpeedrunBoosters(contract *Contract) {
 	contract.Order = removeDuplicates(newOrder)
 }
 
-func drawSpeedrunCRT(contract *Contract) string {
-	var builder strings.Builder
-	if contract.SRData.SpeedrunState == SpeedrunStateCRT {
-		fmt.Fprintf(&builder, "# Chicken Run Tango - Leg %d of %d\n", contract.SRData.CurrentLeg+1, contract.SRData.Legs)
-		fmt.Fprintf(&builder, "### Tips\n")
-		fmt.Fprintf(&builder, "- Don't use any boosts\n")
-		//fmt.Fprintf(&builder, "- Equip coop artifacts: Deflector and SIAB\n")
-		fmt.Fprintf(&builder, "- A chicken run on %s can be saved for the boost phase.\n", contract.Boosters[contract.SRData.CrtSinkUserID].Mention)
-		fmt.Fprintf(&builder, "- :truck: reaction will indicate truck arriving and request a later kick. Send tokens through the boost menu if doing this.\n")
-		fmt.Fprintf(&builder, "- Sink will react with 🦵 when starting to kick.\n")
-		if contract.SRData.CurrentLeg == contract.SRData.Legs-1 {
-			fmt.Fprintf(&builder, "### Final Kick Leg\n")
-			fmt.Fprintf(&builder, "- After this kick you can build up your farm as you would for boosting\n")
-		}
-		fmt.Fprintf(&builder, "## Tasks\n")
-		fmt.Fprintf(&builder, "1. Upgrade habs\n")
-		fmt.Fprintf(&builder, "2. Build up your farm to at least 20 chickens\n")
-		fmt.Fprintf(&builder, "3. Equip shiny artifact to force a server sync\n")
-		fmt.Fprintf(&builder, "4. Run chickens on all the other farms and react with :white_check_mark: after all runs\n")
-		if contract.Style&ContractFlagSelfRuns != 0 {
-			fmt.Fprintf(&builder, "5. **Run chickens on your own farm**\n")
-		}
-
-		if contract.SRData.ChickenRunCheckMsgID != "" {
-			link := fmt.Sprintf("https://discordapp.com/channels/%s/%s/%s", contract.Location[0].GuildID, contract.Location[0].ChannelID, contract.SRData.ChickenRunCheckMsgID)
-			fmt.Fprintf(&builder, "\n[link to Chicken Run Check Status](%s)\n", link)
-		}
-
-	}
-	fmt.Fprintf(&builder, "\n**Send %s to %s**\n", contract.TokenStr, contract.Boosters[contract.SRData.CrtSinkUserID].Mention)
-
-	return builder.String()
-}
-
-func addSpeedrunContractReactions(s *discordgo.Session, contract *Contract, channelID string, messageID string, tokenStr string) {
-	if contract.SRData.SpeedrunState == SpeedrunStateCRT {
-		_ = s.MessageReactionAdd(channelID, messageID, tokenStr) // Token Reaction
-		for _, el := range contract.AltIcons {
-			_ = s.MessageReactionAdd(channelID, messageID, el)
-		}
-		_ = s.MessageReactionAdd(channelID, messageID, "✅") // Run Reaction
-		_ = s.MessageReactionAdd(channelID, messageID, "🚚") // Truck Reaction
-		_ = s.MessageReactionAdd(channelID, messageID, "🦵") // Kick Reaction
+func addSpeedrunContractReactions(s *discordgo.Session, contract *Contract, channelID string, messageID string) {
+	if contract.State == ContractStateCRT {
+		addReactionIconsCRT(s, contract, channelID, messageID)
 	}
 	if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
-		_ = s.MessageReactionAdd(channelID, messageID, tokenStr) // Send token to Sink
+		_ = s.MessageReactionAdd(channelID, messageID, contract.TokenStr) // Send token to Sink
 		for _, el := range contract.AltIcons {
 			_ = s.MessageReactionAdd(channelID, messageID, el)
 		}
@@ -440,7 +400,7 @@ func addSpeedrunContractReactions(s *discordgo.Session, contract *Contract, chan
 		_ = s.MessageReactionAdd(channelID, messageID, "💰") // Sink sent requested number of tokens to booster
 	}
 	if contract.SRData.SpeedrunState == SpeedrunStatePost {
-		_ = s.MessageReactionAdd(channelID, messageID, tokenStr) // Send token to Sink
+		_ = s.MessageReactionAdd(channelID, messageID, contract.TokenStr) // Send token to Sink
 		for _, el := range contract.AltIcons {
 			_ = s.MessageReactionAdd(channelID, messageID, el)
 		}
@@ -468,37 +428,6 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 		_, redraw = buttonReactionToken(s, r.GuildID, r.ChannelID, contract, userID)
 	}
 
-	if contract.SRData.SpeedrunState == SpeedrunStateCRT {
-
-		if r.Emoji.Name == "✅" {
-			keepReaction = buttonReactionCheck(s, r.ChannelID, contract, r.UserID)
-		}
-
-		if r.Emoji.Name == "👽" {
-			contract.UseInteractionButtons = !contract.UseInteractionButtons
-		}
-
-		if r.Emoji.Name == "🚚" {
-			keepReaction = buttonReactionTruck(s, contract, r.UserID)
-		}
-
-		idx := slices.Index(contract.Boosters[r.UserID].Alts, contract.SRData.CrtSinkUserID)
-		if idx != -1 {
-			// This is an alternate
-			userID = contract.Boosters[r.UserID].Alts[idx]
-		}
-
-		if userID == contract.SRData.CrtSinkUserID || creatorOfContract(s, contract, r.UserID) {
-			if r.Emoji.Name == "🦵" {
-				redraw = buttonReactionLeg(s, contract, r.UserID)
-			}
-
-			if r.Emoji.Name == "💃" {
-				keepReaction = buttonReactionTango(s, contract, r.UserID)
-			}
-		}
-	}
-
 	if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
 		idx := slices.Index(contract.Boosters[r.UserID].Alts, contract.SRData.BoostingSinkUserID)
 		if idx != -1 {
@@ -522,18 +451,6 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 	if r.Emoji.Name == "🌊" {
 		UpdateThreadName(s, contract)
 	}
-
-	/*
-		if contract.SRData.SpeedrunState == SpeedrunStatePost && creatorOfContract(contract, r.UserID) {
-			// Coordinator can end the contract
-			if r.Emoji.Name == "🏁" {
-				contract.State = ContractStateArchive
-				contract.SRData.SpeedrunState = SpeedrunStateComplete
-				sendNextNotification(s, contract, true)
-				return returnVal
-			}
-		}
-	*/
 
 	// Remove extra added emoji
 	if !keepReaction {

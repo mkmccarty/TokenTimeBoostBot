@@ -58,11 +58,15 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 	if userInContract(contract, r.UserID) || creatorOfContract(s, contract, r.UserID) {
 		contract.LastInteractionTime = time.Now()
-		// Isolate Speedrun reactions for safety
-		if contract.Speedrun && (contract.SRData.SpeedrunState == SpeedrunStateCRT ||
-			contract.SRData.SpeedrunStyle == SpeedrunStyleBanker && contract.SRData.SpeedrunState == SpeedrunStateBoosting ||
-			contract.SRData.SpeedrunState == SpeedrunStatePost) {
-			return speedrunReactions(s, r, contract)
+
+		switch contract.State {
+		case ContractStateCRT:
+			reactionCRT(s, r, contract)
+		default:
+			if contract.Speedrun && (contract.SRData.SpeedrunStyle == SpeedrunStyleBanker && contract.SRData.SpeedrunState == SpeedrunStateBoosting ||
+				contract.SRData.SpeedrunState == SpeedrunStatePost) {
+				return speedrunReactions(s, r, contract)
+			}
 		}
 
 		if contract.State != ContractStateSignup && contract.BoostPosition < len(contract.Order) {
