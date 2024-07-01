@@ -226,7 +226,7 @@ var (
 					Type:        discordgo.ApplicationCommandOptionUser,
 					Name:        "sink-crt",
 					Description: "The user to sink during CRT. Used for other sink parameters if those are missing.",
-					Required:    false,
+					Required:    true,
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionString,

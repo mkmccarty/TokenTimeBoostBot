@@ -90,9 +90,9 @@ const (
 
 	BoostOrderTimeThreshold = 20 // minutes to switch from random or fair to signup
 
-	SpeedrunStateNone     = 0 // No speedrun
-	SpeedrunStateSignup   = 1 // Signup Speedrun
-	SpeedrunStateCRT      = 2 // CRT Speedrun
+	SpeedrunStateNone   = 0 // No speedrun
+	SpeedrunStateSignup = 1 // Signup Speedrun
+	//SpeedrunStateCRT      = 2 // CRT Speedrun
 	SpeedrunStateBoosting = 3 // Boosting Speedrun
 	SpeedrunStatePost     = 4 // Post Speedrun
 	SpeedrunStateComplete = 5 // Speedrun Complete
@@ -1145,7 +1145,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 
 	// Only need to do speedruns if we have more than one leg
 	if contract.Speedrun && contract.SRData.Legs >= 1 {
-		contract.SRData.SpeedrunState = SpeedrunStateCRT
+		contract.State = ContractStateCRT
 		// Do not mark the token sink as boosting at this point
 		// This will happen when the CRT completes
 	} else {
@@ -1185,7 +1185,7 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 				SetListMessageID(contract, loc.ChannelID, msg.ID)
 			}
 			if contract.UseInteractionButtons {
-				addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID, contract.TokenReactionStr)
+				addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
 
 			} else {
 				addContractReactions(s, contract, loc.ChannelID, msg.ID, contract.TokenReactionStr)
@@ -1224,20 +1224,22 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 
 func addContractReactions(s *discordgo.Session, contract *Contract, channelID string, messageID string, tokenStr string) {
 	if contract.Speedrun {
-		switch contract.SRData.SpeedrunState {
-		case SpeedrunStateCRT:
-			addSpeedrunContractReactions(s, contract, channelID, messageID, tokenStr)
-			return
-		case SpeedrunStateBoosting:
-			if contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
-				addSpeedrunContractReactions(s, contract, channelID, messageID, tokenStr)
-				return
-			}
-		case SpeedrunStatePost:
-			addSpeedrunContractReactions(s, contract, channelID, messageID, tokenStr)
-			return
+		switch contract.State {
+		case ContractStateCRT:
+			addSpeedrunContractReactions(s, contract, channelID, messageID)
 		default:
-			break
+			switch contract.SRData.SpeedrunState {
+			case SpeedrunStateBoosting:
+				if contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
+					addSpeedrunContractReactions(s, contract, channelID, messageID)
+					return
+				}
+			case SpeedrunStatePost:
+				addSpeedrunContractReactions(s, contract, channelID, messageID)
+				return
+			default:
+				break
+			}
 		}
 	}
 
@@ -1305,9 +1307,10 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		}
 		var str = ""
 
-		if contract.State == ContractStateStarted || contract.State == ContractStateWaiting {
+		switch contract.State {
+		case ContractStateStarted, ContractStateWaiting, ContractStateCRT, ContractStateBanker, ContractStateBoosting:
 			if contract.UseInteractionButtons {
-				addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID, contract.TokenReactionStr)
+				addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
 
 			} else {
 				addContractReactions(s, contract, loc.ChannelID, msg.ID, contract.TokenReactionStr)
@@ -1336,9 +1339,9 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 					}
 				}
 			}
-		} else if contract.State == ContractStateCompleted {
+		case ContractStateCompleted:
 			if contract.UseInteractionButtons {
-				addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID, contract.TokenReactionStr)
+				addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
 
 			} else {
 				addContractReactions(s, contract, loc.ChannelID, msg.ID, contract.TokenReactionStr)
@@ -1357,6 +1360,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 					str += fmt.Sprintf("\nSend tokens to our volunteer sink %s", name)
 				}
 			}
+		default:
 		}
 
 		// Sending the update message

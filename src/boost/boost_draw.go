@@ -61,17 +61,21 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		}
 	}
 	if contract.Speedrun {
-		switch contract.SRData.SpeedrunState {
-		case SpeedrunStateSignup:
-			outputStr += contract.SRData.StatusStr
-		case SpeedrunStateCRT:
+		switch contract.State {
+		case ContractStateCRT:
 			//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SpeedrunStarterUserID)
-		case SpeedrunStateBoosting:
-			if contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
-				afterListStr += fmt.Sprintf("\n**Send all tokens to %s**\n", contract.Boosters[contract.SRData.BoostingSinkUserID].Mention)
+
+		default:
+			switch contract.SRData.SpeedrunState {
+			case SpeedrunStateSignup:
+				outputStr += contract.SRData.StatusStr
+			case SpeedrunStateBoosting:
+				if contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
+					afterListStr += fmt.Sprintf("\n**Send all tokens to %s**\n", contract.Boosters[contract.SRData.BoostingSinkUserID].Mention)
+				}
+			case SpeedrunStatePost:
+				//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SinkUserID)
 			}
-		case SpeedrunStatePost:
-			//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SinkUserID)
 		}
 	}
 
@@ -83,7 +87,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		}
 	}
 
-	if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateCRT {
+	if contract.State == ContractStateCRT {
 		// Handle Speedrun CRT
 		outputStr += drawSpeedrunCRT(contract)
 
