@@ -90,8 +90,8 @@ const (
 
 	BoostOrderTimeThreshold = 20 // minutes to switch from random or fair to signup
 
-	SpeedrunStateNone   = 0 // No speedrun
-	SpeedrunStateSignup = 1 // Signup Speedrun
+	SpeedrunStateNone = 0 // No speedrun
+	//SpeedrunStateSignup = 1 // Signup Speedrun
 	//SpeedrunStateCRT      = 2 // CRT Speedrun
 	SpeedrunStateBoosting = 3 // Boosting Speedrun
 	SpeedrunStatePost     = 4 // Post Speedrun

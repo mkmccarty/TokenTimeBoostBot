@@ -853,7 +853,7 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 				str = "Associated your `" + newAlt + "` alt with " + i.Member.User.Mention() + "\n"
 				str += "> Use the " + boostIcon + " reaction to indicate when your main or alt(s) boost.\n"
 				str += "> Use the " + newAltIcon + " reaction to indicate when `" + newAlt + "` sends tokens."
-				if speedrunSink && contract.SRData.SpeedrunState == SpeedrunStateSignup {
+				if speedrunSink && contract.State == ContractStateSignup {
 					if contract.SRData.PostSinkUserID == i.Member.User.ID {
 						contract.SRData.PostSinkUserID = newAlt
 						str += "\n> Post speedrun sink changed to `" + newAlt + "`."
