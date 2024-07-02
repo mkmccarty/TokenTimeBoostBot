@@ -986,6 +986,9 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 	}
 
 	removalIndex := slices.Index(contract.Order, userID)
+	if removalIndex == -1 {
+		return errors.New(errorUserNotInContract)
+	}
 	currentBooster := ""
 
 	// Save current booster name
