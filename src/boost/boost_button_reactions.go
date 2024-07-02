@@ -160,6 +160,10 @@ func buttonReactionBoost(s *discordgo.Session, GuildID string, ChannelID string,
 }
 
 func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, fromUserID string) (bool, bool) {
+	if !userInContract(contract, fromUserID) {
+		return false, false
+	}
+
 	if !contract.Speedrun && (contract.State == ContractStateWaiting || contract.State == ContractStateCompleted) {
 		// Without a volunteer sink in the condition there is nobody to assign the tokens to...
 		// The icon for this
@@ -307,16 +311,15 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 }
 
 func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, cUserID string) {
+	if !userInContract(contract, cUserID) {
+		// Ignore if the user isn't in the contract
+		return
+	}
 
 	log.Print("Ran Chicken")
 	msgedit := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 
 	str := i.Message.Content
-
-	if !userInContract(contract, cUserID) {
-		// Ignore if the user isn't in the contract
-		return
-	}
 
 	userMention := contract.Boosters[cUserID].Mention
 	repost := false
