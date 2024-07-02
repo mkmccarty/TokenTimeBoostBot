@@ -653,14 +653,12 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
-	//contract.mutex.Lock()
-	//defer contract.mutex.Unlock()
 
 	re := regexp.MustCompile(`[\\<>@#&!]`)
 	if mention != "" {
 		var userID = re.ReplaceAllString(mention, "")
 		idx := slices.Index(contract.Order, userID)
-		if idx == -1 {
+		if idx != -1 {
 			return errors.New(errorUserInContract)
 		}
 
