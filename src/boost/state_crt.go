@@ -10,6 +10,11 @@ import (
 )
 
 func buttonReactionCheck(s *discordgo.Session, ChannelID string, contract *Contract, cUserID string) bool {
+
+	if !userInContract(contract, cUserID) {
+		return false
+	}
+
 	keepReaction := true
 	if contract.SRData.ChickenRunCheckMsgID == "" {
 		// Empty list, build a new one
@@ -81,6 +86,10 @@ func buttonReactionCheck(s *discordgo.Session, ChannelID string, contract *Contr
 }
 
 func buttonReactionTruck(s *discordgo.Session, contract *Contract, cUserID string) bool {
+	if !userInContract(contract, cUserID) {
+		return false
+	}
+
 	// Indicate that the farmer has a truck incoming
 	str := fmt.Sprintf("Truck arriving for **%s**. The sink may or may not pause kicks.", contract.Boosters[cUserID].Mention)
 	for _, location := range contract.Location {

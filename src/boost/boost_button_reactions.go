@@ -255,6 +255,10 @@ func buttonReactionSwap(s *discordgo.Session, GuildID string, ChannelID string, 
 func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID string) bool {
 	userID := cUserID
 
+	if !userInContract(contract, cUserID) {
+		return false
+	}
+
 	// Indicate that a farmer is ready for chicken runs
 	if len(contract.Boosters[cUserID].Alts) > 0 {
 		ids := append(contract.Boosters[cUserID].Alts, cUserID)
