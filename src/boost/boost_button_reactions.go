@@ -309,6 +309,11 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 
 	str := i.Message.Content
 
+	if !userInContract(contract, cUserID) {
+		// Ignore if the user isn't in the contract
+		return
+	}
+
 	userMention := contract.Boosters[cUserID].Mention
 	repost := false
 
