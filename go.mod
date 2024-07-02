@@ -19,7 +19,7 @@ require (
 	github.com/sashabaranov/go-openai v1.26.2
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	go.mongodb.org/mongo-driver v1.16.0
-	google.golang.org/api v0.186.0
+	google.golang.org/api v0.187.0
 	google.golang.org/protobuf v1.34.2
 
 )
@@ -27,10 +27,10 @@ require (
 require (
 	cloud.google.com/go v0.115.0 // indirect
 	cloud.google.com/go/ai v0.8.0 // indirect
-	cloud.google.com/go/auth v0.6.0 // indirect
+	cloud.google.com/go/auth v0.6.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
-	cloud.google.com/go/compute/metadata v0.3.0 // indirect
-	cloud.google.com/go/longrunning v0.5.8 // indirect
+	cloud.google.com/go/compute/metadata v0.4.0 // indirect
+	cloud.google.com/go/longrunning v0.5.9 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
