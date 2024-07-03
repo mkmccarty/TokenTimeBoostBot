@@ -218,7 +218,7 @@ func getSpeedrunStatusStr(contract *Contract) string {
 
 func calculateTangoLegs(contract *Contract, setStatus bool) {
 	selfRunMod := 0
-	if contract.Style&ContractFlagSelfRuns != 0 {
+	if contract.Style&ContractFlagSelfRuns == 0 {
 		selfRunMod = 1
 	}
 
