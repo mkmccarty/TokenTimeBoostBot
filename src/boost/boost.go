@@ -1750,7 +1750,11 @@ func LoadContractData(filename string) {
 		c.Name = contractProtoBuf.GetName()
 		c.Description = contractProtoBuf.GetDescription()
 		c.Egg = int32(contractProtoBuf.GetEgg())
-		c.EggName = ei.Egg_name[c.Egg]
+		if c.Egg == int32(ei.Egg_CUSTOM_EGG) {
+			c.EggName = contractProtoBuf.GetCustomEggId()
+		} else {
+			c.EggName = ei.Egg_name[c.Egg]
+		}
 		c.MinutesPerToken = int(contractProtoBuf.GetMinutesPerToken())
 		for _, s := range contractProtoBuf.GetGradeSpecs() {
 			if s.GetGrade() == ei.Contract_GRADE_AAA {
