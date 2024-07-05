@@ -609,7 +609,7 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 
 	// get current booster boost state
 	var currentBooster = ""
-	if contract.State == ContractStateStarted {
+	if contract.State == ContractStateFastrun || contract.State == ContractStateBanker {
 		currentBooster = contract.Order[contract.BoostPosition]
 	}
 
@@ -676,7 +676,7 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 	contract.Order = removeDuplicates(newOrder)
 	contract.OrderRevision++
 
-	if contract.State == ContractStateStarted {
+	if contract.State == ContractStateFastrun || contract.State == ContractStateBanker {
 		for i, el := range newOrder {
 			if el == currentBooster {
 				contract.BoostPosition = i
@@ -754,7 +754,7 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 	contract.Order = removeDuplicates(newOrder)
 	contract.OrderRevision++
 
-	if contract.State == ContractStateStarted {
+	if contract.State == ContractStateFastrun || contract.State == ContractStateBanker {
 		for i, el := range newOrder {
 			if el == currentBooster {
 				contract.BoostPosition = i
@@ -854,16 +854,16 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 				str += "> Use the " + boostIcon + " reaction to indicate when your main or alt(s) boost.\n"
 				str += "> Use the " + newAltIcon + " reaction to indicate when `" + newAlt + "` sends tokens."
 				if speedrunSink && contract.State == ContractStateSignup {
-					if contract.SRData.PostSinkUserID == i.Member.User.ID {
-						contract.SRData.PostSinkUserID = newAlt
+					if contract.Banker.PostSinkUserID == i.Member.User.ID {
+						contract.Banker.PostSinkUserID = newAlt
 						str += "\n> Post speedrun sink changed to `" + newAlt + "`."
 					}
-					if contract.SRData.CrtSinkUserID == i.Member.User.ID {
-						contract.SRData.CrtSinkUserID = newAlt
+					if contract.Banker.CrtSinkUserID == i.Member.User.ID {
+						contract.Banker.CrtSinkUserID = newAlt
 						str += "\n> Speedrun CRT sink changed to `" + newAlt + "`."
 					}
-					if contract.SRData.BoostingSinkUserID == i.Member.User.ID {
-						contract.SRData.BoostingSinkUserID = newAlt
+					if contract.Banker.BoostingSinkUserID == i.Member.User.ID {
+						contract.Banker.BoostingSinkUserID = newAlt
 						str += "\n> Boosting sink changed to `" + newAlt + "`."
 					}
 					contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
