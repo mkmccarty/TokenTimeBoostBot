@@ -62,11 +62,10 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		switch contract.State {
 		case ContractStateCRT:
 			reactionCRT(s, r, contract)
-		default:
-			if contract.Speedrun && (contract.SRData.SpeedrunStyle == SpeedrunStyleBanker && contract.SRData.SpeedrunState == SpeedrunStateBoosting ||
-				contract.SRData.SpeedrunState == SpeedrunStatePost) {
-				return speedrunReactions(s, r, contract)
-			}
+		case ContractStateBanker:
+			return speedrunReactions(s, r, contract)
+		case ContractStateCompleted:
+			return speedrunReactions(s, r, contract)
 		}
 
 		if contract.State != ContractStateSignup && contract.BoostPosition < len(contract.Order) {
@@ -78,7 +77,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				} else {
 					contract.BoostPosition = 0
 				}
-				if contract.State == ContractStateStarted {
+				if contract.State == ContractStateFastrun {
 					for i, el := range contract.Order {
 						if contract.Boosters[el].BoostState == BoostStateTokenTime {
 							contract.BoostPosition = i
@@ -129,7 +128,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			UpdateThreadName(s, contract)
 		case "🐓":
 			if userInContract(contract, r.UserID) {
-				redraw = buttonReactionRunChickens(s, contract, r.UserID)
+				redraw, _ = buttonReactionRunChickens(s, contract, r.UserID)
 			}
 		case "🐿️":
 			if creatorOfContract(s, contract, r.UserID) {

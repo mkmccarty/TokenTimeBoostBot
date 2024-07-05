@@ -24,12 +24,7 @@ func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCre
 		contractHash = strings.TrimSpace(opt.StringValue())
 	}
 
-	userID := ""
-	if i.GuildID == "" {
-		userID = i.User.ID
-	} else {
-		userID = i.Member.User.ID
-	}
+	userID := getInteractionUserID(i)
 
 	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
 	if err != nil {
@@ -70,12 +65,7 @@ func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreat
 
 	ArchiveContracts(s)
 
-	userID := ""
-	if i.GuildID == "" {
-		userID = i.User.ID
-	} else {
-		userID = i.Member.User.ID
-	}
+	userID := getInteractionUserID(i)
 
 	// Only allow command if users is in the admin list
 	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
@@ -133,9 +123,6 @@ func getContractList() (string, *discordgo.MessageSend, error) {
 		}
 		str += fmt.Sprintf("> Started: <t:%d:R>\n", c.StartTime.Unix())
 		str += fmt.Sprintf("> Contract State: *%s*\n", contractStateNames[c.State])
-		if c.Speedrun {
-			str += fmt.Sprintf("> Speedrun State: *%s*\n", speedrunStateNames[c.SRData.SpeedrunState])
-		}
 		str += fmt.Sprintf("> Hash: *%s*\n", c.ContractHash)
 		field = append(field, &discordgo.MessageEmbedField{
 			Name:   fmt.Sprintf("%d - **%s/%s**\n", i, c.ContractID, c.CoopID),

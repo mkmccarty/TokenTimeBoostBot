@@ -96,7 +96,16 @@ func getContractDurationEstimate(contractEggs float64, numFarmers float64) time.
 	//ASSUME: average fast player has triple leg contract artis and T4C deflector and spends 10% of contract time unboosted
 	//shiny deflectors pull completion time faster than estimate, epic artifacts push slower than estimate
 
-	estimate := contractEggs / (numFarmers * 5.8 * (1.0 + 0.15*min(numFarmers-1.0, 10.0)) * math.Pow(1.05, max(0.0, 10.0-numFarmers)))
+	// With the colleggitbles
+	// Once we have access to the data mined pumpkin colleggtible this changes slightly to
+	// Time = Goal / (Coop_Size * 5.8 * (1 + 0.15 * MIN(11, Coop_Size - 1)) * 1.05 ^ MAX(0, 10 - Coop_Size)) to account for the 5% shipping bonus.
+
+	pumpkinColMod := 0.0
+	//if contract.EggType == "pumpkin-never" {
+	//	pumpkinColMod = 1.0
+	//}
+
+	estimate := contractEggs / (numFarmers * 5.8 * (1.0 + 0.15*min(numFarmers-1.0, 10.0+pumpkinColMod)) * math.Pow(1.05, max(0.0, 10.0-numFarmers)))
 	estimateDuration := time.Duration(estimate * float64(time.Hour))
 
 	//log.Printf("%s: %dq for %d farmers = %v", ID, int(contractEggs), int(numFarmers), estimateDuration.Round(time.Second))

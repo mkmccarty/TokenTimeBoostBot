@@ -12,10 +12,10 @@ import (
 
 func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, cUserID string) (bool, bool) {
 	redraw := false
-	if cUserID == contract.SRData.BoostingSinkUserID {
+	if cUserID == contract.Banker.BoostingSinkUserID {
 		var b, sink *Booster
 		b = contract.Boosters[contract.Order[contract.BoostPosition]]
-		sink = contract.Boosters[contract.SRData.BoostingSinkUserID]
+		sink = contract.Boosters[contract.Banker.CurrentBanker]
 
 		if cUserID == b.UserID {
 			// Current booster subtract number of tokens wanted
@@ -54,12 +54,4 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 		return false, redraw
 	}
 	return false, redraw
-}
-
-func addReactionButtonsBanker(contract *Contract) ([]string, []string) {
-	iconsRowA := []string{}
-	iconsRowB := []string{} //mainly for alt icons
-	iconsRowA = append(iconsRowA, []string{contract.TokenStr, "🐓", "💰"}...)
-	iconsRowB = append(iconsRowB, contract.AltIcons...)
-	return iconsRowA, iconsRowB
 }

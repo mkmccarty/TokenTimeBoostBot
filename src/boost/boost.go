@@ -17,11 +17,9 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/divan/num2words"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
-	"github.com/moby/moby/pkg/namesgenerator"
 	emutil "github.com/post04/discordgo-emoji-util"
 	"google.golang.org/protobuf/proto"
 )
@@ -49,22 +47,12 @@ const errorSpeedrunContract = "not available for a speedrun contract"
 // Create a slice with the names of the ContractState const names
 var contractStateNames = []string{
 	"ContractStateSignup",
-	"ContractStateStarted",
+	"ContractStateFastrun",
 	"ContractStateWaiting",
 	"ContractStateCompleted",
 	"ContractStateArchive",
 	"ContractStateCRT",
-	"ContractStateBoosting",
 	"ContractStateBanker",
-}
-
-var speedrunStateNames = []string{
-	"SpeedrunStateNone",
-	"SpeedrunStateSignup",
-	"SpeedrunStateCRT",
-	"SpeedrunStateBoosting",
-	"SpeedrunStatePost",
-	"SpeedrunStateComplete",
 }
 
 // Constnts for the contract
@@ -76,13 +64,12 @@ const (
 	ContractOrderTimeBased = 4 // Time based order
 
 	ContractStateSignup    = 0 // Contract is in signup phase
-	ContractStateStarted   = 1 // Contract is started
+	ContractStateFastrun   = 1 // Contract in Boosting as fastrun
 	ContractStateWaiting   = 2 // Waiting for other(s) to join
 	ContractStateCompleted = 3 // Contract is completed
 	ContractStateArchive   = 4 // Contract is ready to archive
 	ContractStateCRT       = 5 // Contract is doing CRT
-	ContractStateBoosting  = 6 // Contract is Boosting with Token Sharing
-	ContractStateBanker    = 7 // Contract is Boosting with Banker
+	ContractStateBanker    = 6 // Contract is Boosting with Banker
 
 	BoostStateUnboosted = 0 // Unboosted
 	BoostStateTokenTime = 1 // TokenTime or turn to receive tokens
@@ -90,17 +77,7 @@ const (
 
 	BoostOrderTimeThreshold = 20 // minutes to switch from random or fair to signup
 
-	SpeedrunStateNone = 0 // No speedrun
-	//SpeedrunStateSignup = 1 // Signup Speedrun
-	//SpeedrunStateCRT      = 2 // CRT Speedrun
-	SpeedrunStateBoosting = 3 // Boosting Speedrun
-	SpeedrunStatePost     = 4 // Post Speedrun
-	SpeedrunStateComplete = 5 // Speedrun Complete
-
-	SpeedrunFirstLeg   = 0
-	SpeedrunMiddleLegs = 1
-	SpeedrunFinalLeg   = 2
-
+	// These are used for the /speedrun command
 	SpeedrunStyleBanker  = 0
 	SpeedrunStyleFastrun = 1
 
@@ -109,10 +86,11 @@ const (
 	SinkBoostLast  = 1  // Last position
 
 	// These are an int64 flaglist to construct the style of the contract
-	ContractFlagFastrun  = 0x0000
+	ContractFlagNone     = 0x0000
 	ContractFlagCrt      = 0x0001
 	ContractFlagSelfRuns = 0x0002
-	ContractFlagBanker   = 0x0400
+	ContractFlagFastrun  = 0x4000
+	ContractFlagBanker   = 0x8000
 
 	ContractStyleFastrun           = ContractFlagFastrun
 	ContractStyleFastrunBanker     = ContractFlagBanker
@@ -180,7 +158,6 @@ type LocationData struct {
 	GuildID           string
 	GuildName         string
 	ChannelID         string // Contract Discord Channel
-	ChannelName       string
 	ChannelMention    string
 	ChannelPing       string
 	ListMsgID         string   // Message ID for the Last Boost Order message
@@ -188,6 +165,16 @@ type LocationData struct {
 	MessageIDs        []string // Array of message IDs for any contract message
 	TokenXStr         string   // Emoji for Token
 	TokenXReactionStr string   // Emoji for Token Reaction
+}
+
+// BankerInfo holds information about contract Banker
+type BankerInfo struct {
+	CurrentBanker      string // Current Banker
+	VolunteerSink      string // Sink for Post contract tokens
+	CrtSinkUserID      string // Sink CRT User ID
+	BoostingSinkUserID string // Sink CRT User ID
+	PostSinkUserID     string // Sink End of Contract User ID
+	SinkBoostPosition  int    // Sink Boost Position
 }
 
 // Contract is the main struct for each contract
@@ -217,18 +204,17 @@ type Contract struct {
 
 	CRMessageIDs []string // Array of message IDs for chicken run messages
 
-	CoopSize         int
-	Style            int64 // Mask for the Contract Style
-	LengthInSeconds  int
-	BoostOrder       int // How the contract is sorted
-	BoostVoting      int
-	BoostPosition    int       // Starting Slot
-	State            int       // Boost Completed
-	StartTime        time.Time // When Contract is started
-	EndTime          time.Time // When final booster ends
-	PlannedStartTime time.Time // Parameter start time
-	ActualStartTime  time.Time // Actual start time for token tracking
-	//EggFarmers     map[string]*EggFarmer
+	CoopSize              int
+	Style                 int64 // Mask for the Contract Style
+	LengthInSeconds       int
+	BoostOrder            int // How the contract is sorted
+	BoostVoting           int
+	BoostPosition         int       // Starting Slot
+	State                 int       // Boost Completed
+	StartTime             time.Time // When Contract is started
+	EndTime               time.Time // When final booster ends
+	PlannedStartTime      time.Time // Parameter start time
+	ActualStartTime       time.Time // Actual start time for token tracking
 	RegisteredNum         int
 	Boosters              map[string]*Booster // Boosters Registered
 	AltIcons              []string            // Array of alternate icons for the Boosters
@@ -236,7 +222,7 @@ type Contract struct {
 	OrderRevision         int  // Incremented when Order is changed
 	Speedrun              bool // Speedrun mode
 	SRData                SpeedrunData
-	VolunteerSink         string // Sink for Post contract tokens
+	Banker                BankerInfo // Banker for the contract
 	CalcOperations        int
 	CalcOperationTime     time.Time
 	LastWishPrompt        string             // saved prompt for this contract
@@ -248,12 +234,6 @@ type Contract struct {
 
 // SpeedrunData holds the data for a speedrun
 type SpeedrunData struct {
-	SpeedrunState        int      // Speedrun state
-	CrtSinkUserID        string   // Sink CRT User ID
-	BoostingSinkUserID   string   // Sink CRT User ID
-	PostSinkUserID       string   // Sink End of Contract User ID
-	SinkBoostPosition    int      // Sink Boost Position
-	SpeedrunStyle        int      // Speedrun Style
 	ChickenRuns          int      // Number of Chicken Runs for this contract
 	Legs                 int      // Number of legs for this Tango
 	Tango                [3]int   // The Tango itself (First, Middle, Last)
@@ -289,6 +269,29 @@ func init() {
 	if err == nil {
 		Contracts = c
 	}
+}
+
+func changeContractState(contract *Contract, newstate int) {
+	contract.State = newstate
+
+	// Set the banker to a common sink variable
+	// This will avoid adding this logic in multiple places
+	switch contract.State {
+	case ContractStateCRT:
+		contract.Banker.CurrentBanker = contract.Banker.CrtSinkUserID
+	case ContractStateBanker:
+		contract.Banker.CurrentBanker = contract.Banker.BoostingSinkUserID
+	case ContractStateWaiting:
+		contract.Banker.CurrentBanker = contract.Banker.BoostingSinkUserID
+	case ContractStateCompleted:
+		contract.Banker.CurrentBanker = contract.Banker.VolunteerSink
+		if contract.Banker.CurrentBanker == "" {
+			contract.Banker.CurrentBanker = contract.Banker.PostSinkUserID
+		}
+	default:
+		contract.Banker.CurrentBanker = ""
+	}
+
 }
 
 func getInteractionUserID(i *discordgo.InteractionCreate) string {
@@ -390,112 +393,6 @@ func getBoostOrderString(contract *Contract) string {
 		return "Time"
 	}
 	return "Unknown"
-}
-
-// CreateContract creates a new contract or joins an existing contract if run from a different location
-func CreateContract(s *discordgo.Session, contractID string, coopID string, coopSize int, BoostOrder int, guildID string, channelID string, userID string, pingRole string) (*Contract, error) {
-	// When creating contracts, we can make sure to clean up and archived ones
-	// Just in case a contract was immediately recreated
-	for _, c := range Contracts {
-		if c.State == ContractStateArchive {
-			if c.CalcOperations == 0 || time.Since(c.CalcOperationTime).Minutes() > 20 {
-				FinishContract(s, c)
-			}
-		}
-	}
-	/*
-		if boostIcon == "🚀" {
-			boostIconName = "chickenboost"
-			boostIconReaction = findBoostBotGuildEmoji(s, boostIconName, true)
-			boostIcon = boostIconReaction + ">"
-		}
-	*/
-
-	// Make sure this channel doesn't already have a contract
-	existingContract := FindContract(channelID)
-	if existingContract != nil {
-		return nil, errors.New("this channel already has a contract named: " + existingContract.ContractID + "/" + existingContract.CoopID)
-	}
-
-	var contract *Contract
-	// Does a coop already exist for this contract-id and coop-id
-	for _, c := range Contracts {
-		if c.ContractID == contractID && c.CoopID == coopID {
-			// We have a coop, add this channel to the coop
-			contract = c
-		}
-	}
-
-	loc := new(LocationData)
-	loc.GuildID = guildID
-	loc.ChannelID = channelID
-	var g, gerr = s.Guild(guildID)
-	if gerr == nil {
-		loc.GuildName = g.Name
-
-	}
-	var c, cerr = s.Channel(channelID)
-	if cerr == nil {
-		loc.ChannelName = c.Name
-		loc.ChannelMention = c.Mention()
-		loc.ChannelPing = pingRole
-	}
-	loc.ListMsgID = ""
-	loc.ReactionID = ""
-
-	if contract == nil {
-		var ContractHash = namesgenerator.GetRandomName(0)
-		for Contracts[ContractHash] != nil {
-			ContractHash = namesgenerator.GetRandomName(0)
-		}
-
-		// We don't have this contract on this channel, it could exist in another channel
-		contract = new(Contract)
-		contract.Location = append(contract.Location, loc)
-		contract.ContractHash = ContractHash
-		contract.UseInteractionButtons = config.GetTestMode() // Featuer under test
-
-		contract.Style = ContractStyleFastrun
-
-		//GlobalContracts[ContractHash] = append(GlobalContracts[ContractHash], loc)
-		contract.Boosters = make(map[string]*Booster)
-		contract.ContractID = contractID
-		contract.CoopID = coopID
-		contract.BoostOrder = BoostOrder
-		contract.BoostVoting = 0
-		contract.OrderRevision = 0
-		contract.State = ContractStateSignup
-		contract.CreatorID = append(contract.CreatorID, userID)               // starting userid
-		contract.CreatorID = append(contract.CreatorID, "650743870253957160") // Mugwump
-		contract.Speedrun = false
-		contract.SRData.SpeedrunState = SpeedrunStateNone
-		contract.VolunteerSink = ""
-		contract.StartTime = time.Now()
-		contract.ChickenRunEmoji = findBoostBotGuildEmoji(s, "icon_chicken_run", true)
-
-		contract.RegisteredNum = 0
-		contract.CoopSize = coopSize
-		contract.Name = contractID
-		updateContractWithEggIncData(contract)
-		Contracts[ContractHash] = contract
-	} else { //if !creatorOfContract(contract, userID) {
-		//contract.mutex.Lock()
-		contract.CreatorID = append(contract.CreatorID, userID) // starting userid
-		contract.Location = append(contract.Location, loc)
-		//contract.mutex.Unlock()
-	}
-
-	// Find our Token emoji
-	contract.TokenStr = FindTokenEmoji(s)
-	// set TokenReactionStr to the TokenStr without first 2 characters and last character
-	contract.TokenReactionStr = contract.TokenStr[2 : len(contract.TokenStr)-1]
-
-	//	if !saveStaleContracts(s) {
-	// Didn't prune any contracts so we should save this
-	//	saveData(Contracts)
-	//	}
-
-	return contract, nil
 }
 
 // AddBoostTokensInteraction handles the interactions responses for AddBoostTokens
@@ -811,9 +708,9 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
 			if len(contract.Order) == 1 {
 				// Reset contract sink to the first booster to signup
-				contract.SRData.CrtSinkUserID = contract.Order[0]
-				contract.SRData.BoostingSinkUserID = contract.Order[0]
-				contract.SRData.PostSinkUserID = contract.Order[0]
+				contract.Banker.CrtSinkUserID = contract.Order[0]
+				contract.Banker.BoostingSinkUserID = contract.Order[0]
+				contract.Banker.PostSinkUserID = contract.Order[0]
 			}
 
 			calculateTangoLegs(contract, true)
@@ -822,7 +719,13 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		if contract.State == ContractStateWaiting {
 			// Reactivate the contract
 			// Set the newly added booster as boosting
-			contract.State = ContractStateStarted
+			if contract.Style&ContractFlagBanker != 0 {
+				changeContractState(contract, ContractStateBanker)
+			} else if contract.Style&ContractFlagFastrun != 0 {
+				changeContractState(contract, ContractStateFastrun)
+			} else {
+				panic("Invalid contract style")
+			}
 			b.StartTime = time.Now()
 			b.BoostState = BoostStateTokenTime
 			contract.BoostPosition = len(contract.Order) - 1
@@ -999,25 +902,25 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 	}
 
 	// Remove the booster from the contract
-	if userID == contract.VolunteerSink {
-		contract.VolunteerSink = ""
+	if userID == contract.Banker.VolunteerSink {
+		contract.Banker.VolunteerSink = ""
+		changeContractState(contract, contract.State)
 	}
 
 	// If this is an alt, remove its entries from main
 	if contract.Boosters[userID].AltController != "" {
 		mainUserID := contract.Boosters[userID].AltController
-		if contract.Speedrun {
-			if contract.SRData.CrtSinkUserID == userID {
-				contract.SRData.CrtSinkUserID = mainUserID
-			}
-			if contract.SRData.BoostingSinkUserID == userID {
-				contract.SRData.BoostingSinkUserID = mainUserID
-			}
-			if contract.SRData.PostSinkUserID == userID {
-				contract.SRData.PostSinkUserID = mainUserID
-			}
-			contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
+		if contract.Banker.CrtSinkUserID == userID {
+			contract.Banker.CrtSinkUserID = mainUserID
 		}
+		if contract.Banker.BoostingSinkUserID == userID {
+			contract.Banker.BoostingSinkUserID = mainUserID
+		}
+		if contract.Banker.PostSinkUserID == userID {
+			contract.Banker.PostSinkUserID = mainUserID
+		}
+		contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
+
 		altIdx := slices.Index(contract.Boosters[mainUserID].Alts, userID)
 		contract.Boosters[mainUserID].Alts = removeIndex(contract.Boosters[mainUserID].Alts, altIdx)
 		contract.Boosters[mainUserID].AltsIcons = removeIndex(contract.Boosters[mainUserID].AltsIcons, altIdx)
@@ -1050,12 +953,12 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 	} else {
 		// Active Booster is leaving contract.
 		if contract.State == ContractStateCompleted || contract.State == ContractStateArchive || contract.State == ContractStateWaiting {
-			contract.State = ContractStateWaiting
+			changeContractState(contract, ContractStateWaiting)
 			contract.BoostPosition = len(contract.Order)
 			sendNextNotification(s, contract, true)
-		} else if contract.State == ContractStateStarted && contract.BoostPosition == len(contract.Order) {
+		} else if (contract.State == ContractStateFastrun || contract.State == ContractStateBanker) && contract.BoostPosition == len(contract.Order) {
 			// set contract to waiting
-			contract.State = ContractStateWaiting
+			changeContractState(contract, ContractStateWaiting)
 			sendNextNotification(s, contract, true)
 		} else {
 			contract.BoostPosition = findNextBooster(contract)
@@ -1079,9 +982,9 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 			if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
 				if len(contract.Order) == 0 {
 					// Need to clear all the contract sinks
-					contract.SRData.CrtSinkUserID = ""
-					contract.SRData.BoostingSinkUserID = ""
-					contract.SRData.PostSinkUserID = ""
+					contract.Banker.CrtSinkUserID = ""
+					contract.Banker.BoostingSinkUserID = ""
+					contract.Banker.PostSinkUserID = ""
 				}
 				calculateTangoLegs(contract, true)
 			}
@@ -1133,7 +1036,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	}
 
 	if !creatorOfContract(s, contract, userID) {
-		if !(contract.Speedrun && contract.SRData.CrtSinkUserID == userID) {
+		if !(contract.Style&ContractFlagCrt != 0 && contract.Banker.CrtSinkUserID == userID) {
 			return errors.New(errorNotContractCreator)
 		}
 	}
@@ -1141,19 +1044,21 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	reorderBoosters(contract)
 
 	contract.BoostPosition = 0
-	contract.State = ContractStateStarted
 	contract.StartTime = time.Now()
-
-	// Only need to do speedruns if we have more than one leg
-	if contract.Speedrun && contract.SRData.Legs >= 1 {
-		contract.State = ContractStateCRT
+	if contract.Style&ContractFlagCrt != 0 && contract.SRData.Legs != 0 {
+		changeContractState(contract, ContractStateCRT)
 		// Do not mark the token sink as boosting at this point
 		// This will happen when the CRT completes
-	} else {
-		// Start at the top of the boost list
-		contract.SRData.SpeedrunState = SpeedrunStateBoosting
+	} else if contract.Style&ContractFlagBanker != 0 {
+		changeContractState(contract, ContractStateBanker)
 		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 		contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+	} else if contract.Style&ContractFlagFastrun != 0 {
+		changeContractState(contract, ContractStateFastrun)
+		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
+		contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+	} else {
+		panic("Invalid contract style")
 	}
 
 	sendNextNotification(s, contract, true)
@@ -1224,27 +1129,23 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 }
 
 func addContractReactions(s *discordgo.Session, contract *Contract, channelID string, messageID string, tokenStr string) {
-	if contract.Speedrun {
-		switch contract.State {
-		case ContractStateCRT:
-			addSpeedrunContractReactions(s, contract, channelID, messageID)
-		default:
-			switch contract.SRData.SpeedrunState {
-			case SpeedrunStateBoosting:
-				if contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
-					addSpeedrunContractReactions(s, contract, channelID, messageID)
-					return
-				}
-			case SpeedrunStatePost:
-				addSpeedrunContractReactions(s, contract, channelID, messageID)
-				return
-			default:
-				break
-			}
+	switch contract.State {
+	case ContractStateBanker:
+		_ = s.MessageReactionAdd(channelID, messageID, contract.TokenStr) // Send token to Sink
+		for _, el := range contract.AltIcons {
+			_ = s.MessageReactionAdd(channelID, messageID, el)
 		}
-	}
-
-	if contract.State == ContractStateStarted {
+		_ = s.MessageReactionAdd(channelID, messageID, "🐓") // Want Chicken Run
+		_ = s.MessageReactionAdd(channelID, messageID, "💰") // Sink sent requested number of tokens to booster
+	case ContractStateCRT:
+		_ = s.MessageReactionAdd(channelID, messageID, contract.TokenReactionStr) // Token Reaction
+		for _, el := range contract.AltIcons {
+			_ = s.MessageReactionAdd(channelID, messageID, el)
+		}
+		_ = s.MessageReactionAdd(channelID, messageID, "✅") // Run Reaction
+		_ = s.MessageReactionAdd(channelID, messageID, "🚚") // Truck Reaction
+		_ = s.MessageReactionAdd(channelID, messageID, "🦵") // Kick Reaction	}
+	case ContractStateFastrun:
 		_ = s.MessageReactionAdd(channelID, messageID, boostIconReaction) // Booster
 		_ = s.MessageReactionAdd(channelID, messageID, tokenStr)          // Token Reaction
 		for _, el := range contract.AltIcons {
@@ -1253,9 +1154,9 @@ func addContractReactions(s *discordgo.Session, contract *Contract, channelID st
 		_ = s.MessageReactionAdd(channelID, messageID, "🔃")  // Swap
 		_ = s.MessageReactionAdd(channelID, messageID, "⤵️") // Last
 		_ = s.MessageReactionAdd(channelID, messageID, "🐓")  // Want Chicken Run
-	}
-	if contract.State == ContractStateWaiting || contract.State == ContractStateCompleted {
-		if contract.VolunteerSink != "" {
+	case ContractStateWaiting, ContractStateCompleted:
+		sinkID := contract.Banker.CurrentBanker
+		if sinkID != "" {
 			_ = s.MessageReactionAdd(channelID, messageID, tokenStr) // Token Reaction
 			for _, el := range contract.AltIcons {
 				_ = s.MessageReactionAdd(channelID, messageID, el)
@@ -1309,7 +1210,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		var str = ""
 
 		switch contract.State {
-		case ContractStateStarted, ContractStateWaiting, ContractStateCRT, ContractStateBanker, ContractStateBoosting:
+		case ContractStateWaiting, ContractStateCRT, ContractStateBanker, ContractStateFastrun:
 			if contract.UseInteractionButtons {
 				addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
 
@@ -1317,24 +1218,25 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 				addContractReactions(s, contract, loc.ChannelID, msg.ID, contract.TokenReactionStr)
 			}
 			if pingUsers {
-				if contract.State == ContractStateStarted {
+				if contract.State == ContractStateFastrun || contract.State == ContractStateBanker {
 					var einame = farmerstate.GetEggIncName(contract.Order[contract.BoostPosition])
 					if einame != "" {
 						einame += " " // Add a space to this
 					}
+
 					name := einame + contract.Boosters[contract.Order[contract.BoostPosition]].Mention
 					str = fmt.Sprintf(loc.ChannelPing+" send tokens to %s", name)
 				} else {
-					if contract.VolunteerSink == "" {
+					if contract.Banker.CurrentBanker == "" {
 						str = fmt.Sprintf(loc.ChannelPing + " contract boosting complete. Hold your tokens for late joining farmers.")
 					} else {
 						str = "Contract boosting complete. There may late joining farmers. "
 						if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {
-							var einame = farmerstate.GetEggIncName(contract.VolunteerSink)
+							var einame = farmerstate.GetEggIncName(contract.Banker.CurrentBanker)
 							if einame != "" {
 								einame += " " // Add a space to this
 							}
-							name := einame + contract.Boosters[contract.VolunteerSink].Mention
+							name := einame + contract.Boosters[contract.Banker.CurrentBanker].Mention
 							str = fmt.Sprintf(loc.ChannelPing+" send tokens to our volunteer sink **%s**", name)
 						}
 					}
@@ -1351,20 +1253,21 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			t2 := contract.StartTime
 			duration := t1.Sub(t2)
 			str = fmt.Sprintf(loc.ChannelPing+" contract boosting complete in %s ", duration.Round(time.Second))
-			if contract.VolunteerSink != "" {
-				var einame = farmerstate.GetEggIncName(contract.VolunteerSink)
+			if contract.Banker.CurrentBanker != "" {
+				var einame = farmerstate.GetEggIncName(contract.Banker.CurrentBanker)
 				if einame != "" {
 					einame += " " // Add a space to this
 				}
 				if contract.State != ContractStateArchive {
-					name := einame + contract.Boosters[contract.VolunteerSink].Mention
-					str += fmt.Sprintf("\nSend tokens to our volunteer sink %s", name)
+					name := einame + contract.Boosters[contract.Banker.CurrentBanker].Mention
+					str += fmt.Sprintf("\nSend tokens to our volunteer sink **%s**", name)
 				}
 			}
 		default:
 		}
 
 		// Sending the update message
+		// TODO: Need to figure out just what message to send for banker/fastrun/crt
 		if !contract.Speedrun {
 			_, _ = s.ChannelMessageSend(loc.ChannelID, str)
 		} else if !drawn {
@@ -1374,15 +1277,14 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 	if pingUsers {
 		notifyBellBoosters(s, contract)
 	}
-	if !contract.Speedrun && contract.State == ContractStateArchive {
-		// Only purge the contract from memory if /calc isn't being used
-		if contract.CalcOperations == 0 || time.Since(contract.CalcOperationTime).Minutes() > 20 {
-			FinishContract(s, contract)
+	/*
+		if contract.State == ContractStateArchive {
+			// Only purge the contract from memory if /calc isn't being used
+			if contract.CalcOperations == 0 || time.Since(contract.CalcOperationTime).Minutes() > 20 {
+				FinishContract(s, contract)
+			}
 		}
-	} else if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStateComplete {
-		FinishContract(s, contract)
-	}
-
+	*/
 }
 
 // UserBoost will trigger a contract boost of a user
@@ -1470,17 +1372,14 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	}
 
 	if contract.BoostPosition == contract.CoopSize {
-		contract.State = ContractStateCompleted // Waiting for sink
+		changeContractState(contract, ContractStateCompleted) // Waiting for sink
 		contract.EndTime = time.Now()
-		if contract.Speedrun {
-			contract.SRData.SpeedrunState = SpeedrunStatePost
-		}
 	} else if contract.BoostPosition == len(contract.Order) {
-		contract.State = ContractStateWaiting // There could be more boosters joining later
+		changeContractState(contract, ContractStateWaiting) // There could be more boosters joining later
 	} else {
 		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 		contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
-		if contract.Order[contract.BoostPosition] == contract.SRData.BoostingSinkUserID {
+		if contract.Order[contract.BoostPosition] == contract.Banker.BoostingSinkUserID {
 			contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived = 0 // reset these
 		}
 	}
@@ -1523,8 +1422,14 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 	}
 
 	if contract.State == ContractStateWaiting {
+		if contract.Style&ContractFlagBanker != 0 {
+			changeContractState(contract, ContractStateBanker)
+		} else if contract.Style&ContractFlagFastrun != 0 {
+			changeContractState(contract, ContractStateFastrun)
+		} else {
+			panic("Invalid contract style")
+		}
 		contract.Boosters[userID].BoostState = BoostStateTokenTime
-		contract.State = ContractStateStarted
 		// set BoostPosition to unboosted user
 		for i := range contract.Order {
 			if contract.Order[i] == userID {
@@ -1596,10 +1501,10 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 		}
 
 		if contract.BoostPosition == contract.CoopSize {
-			contract.State = ContractStateCompleted // Finished
+			changeContractState(contract, ContractStateCompleted) // Finished
 			contract.EndTime = time.Now()
 		} else if contract.BoostPosition == len(contract.Boosters) {
-			contract.State = ContractStateWaiting
+			changeContractState(contract, ContractStateWaiting)
 		} else {
 			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 			contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
@@ -1691,7 +1596,7 @@ func ArchiveContracts(s *discordgo.Session) {
 		if currentTime.After(contract.StartTime.Add(3 * 24 * time.Hour)) {
 			if currentTime.After(contract.LastInteractionTime.Add(36 * time.Hour)) {
 				log.Println("Archiving contract: ", contract.ContractID, " / ", contract.CoopID)
-				contract.State = ContractStateArchive
+				changeContractState(contract, ContractStateArchive)
 				finishHash = append(finishHash, contract.ContractHash)
 			}
 		}

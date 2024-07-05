@@ -10,17 +10,10 @@ import (
 
 func getSinkIcon(contract *Contract, b *Booster) string {
 	var sinkIcon = ""
-	if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
-		if contract.SRData.SpeedrunState == SpeedrunStateBoosting {
-			if contract.SRData.BoostingSinkUserID == b.UserID {
-				sinkIcon = fmt.Sprintf("%s[%d] %s", contract.TokenStr, b.TokensReceived, "🫂")
-			}
-		} else if contract.SRData.SpeedrunState == SpeedrunStatePost {
-			if contract.SRData.PostSinkUserID == b.UserID {
-				sinkIcon = fmt.Sprintf("%s[%d] %s", contract.TokenStr, b.TokensReceived, "🫂")
-			}
-		}
+	if contract.Banker.CurrentBanker == b.UserID {
+		sinkIcon = fmt.Sprintf("%s[%d] %s", contract.TokenStr, b.TokensReceived, "🫂")
 	}
+
 	return sinkIcon
 }
 
@@ -52,32 +45,24 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	}
 
 	outputStr += fmt.Sprintf("> Coordinator: <@%s>\n", contract.CreatorID[0])
-	if !contract.Speedrun && contract.VolunteerSink != "" {
-		if contract.Boosters[contract.VolunteerSink] != nil {
-			outputStr += fmt.Sprintf("> Post Contract Sink: **%s**\n", contract.Boosters[contract.VolunteerSink].Mention)
-		} else {
-			// Auto correct this
-			contract.VolunteerSink = ""
+	if contract.Style&ContractStyleFastrun != 0 && contract.Banker.VolunteerSink != "" {
+		// The post contract volunteer sink is only for fastrun contracts
+		if contract.Boosters[contract.Banker.VolunteerSink] != nil {
+			outputStr += fmt.Sprintf("> Post Contract Sink: **%s**\n", contract.Boosters[contract.Banker.VolunteerSink].Mention)
 		}
 	}
-	if contract.Speedrun {
-		switch contract.State {
-		case ContractStateSignup:
-			outputStr += contract.SRData.StatusStr
 
-		case ContractStateCRT:
-			//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SpeedrunStarterUserID)
+	switch contract.State {
+	case ContractStateSignup:
+		outputStr += contract.SRData.StatusStr
 
-		default:
-			switch contract.SRData.SpeedrunState {
-			case SpeedrunStateBoosting:
-				if contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
-					afterListStr += fmt.Sprintf("\n**Send all tokens to %s**\n", contract.Boosters[contract.SRData.BoostingSinkUserID].Mention)
-				}
-			case SpeedrunStatePost:
-				//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SinkUserID)
-			}
-		}
+	case ContractStateCRT:
+		//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SpeedrunStarterUserID)
+
+	case ContractStateBanker:
+		afterListStr += fmt.Sprintf("\n**Send all tokens to %s**\n", contract.Boosters[contract.Banker.CurrentBanker].Mention)
+
+	default:
 	}
 
 	if contract.State == ContractStateSignup {
@@ -95,15 +80,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		return outputStr
 	}
 
-	if contract.State == ContractStateStarted {
-		if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
-			outputStr += "## Banker Speedrun Boost List\n"
-		} else {
-			outputStr += "## Boost List\n"
-		}
-	} else if contract.State >= ContractStateWaiting {
-		outputStr += "## Boost List\n"
-	}
+	outputStr += "## Boost List\n"
 	var prefix = " - "
 
 	earlyList := ""
@@ -119,7 +96,13 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 			var b, ok = contract.Boosters[element]
 			if ok {
 				if b.BoostState == BoostStateUnboosted || b.BoostState == BoostStateTokenTime {
-					contract.State = ContractStateStarted
+					if contract.Style&ContractFlagBanker != 0 {
+						changeContractState(contract, ContractStateBanker)
+					} else if contract.Style&ContractFlagFastrun != 0 {
+						changeContractState(contract, ContractStateFastrun)
+					} else {
+						panic("Invalid contract style")
+					}
 					break
 				}
 			}
@@ -219,9 +202,12 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 			}
 
 			countStr, signupCountStr := getTokenCountString(tokenStr, b.TokensWanted, b.TokensReceived)
+			if b.UserID == contract.Banker.CurrentBanker && b.BoostState == BoostStateUnboosted {
+				countStr, signupCountStr = getTokenCountString(tokenStr, b.TokensWanted, 0)
+			}
 
-			if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
-				sinkIcon := getSinkIcon(contract, b)
+			sinkIcon := getSinkIcon(contract, b)
+			if contract.State == ContractStateBanker {
 
 				switch b.BoostState {
 				case BoostStateUnboosted:
@@ -238,7 +224,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 				case BoostStateUnboosted:
 					outputStr += fmt.Sprintf("%s %s%s%s\n", prefix, name, signupCountStr, server)
 				case BoostStateTokenTime:
-					if b.UserID == b.Name && b.AltController == "" && !contract.Speedrun {
+					if b.UserID == b.Name && b.AltController == "" && contract.State != ContractStateBanker {
 						// Add a rocket for auto boosting
 						outputStr += fmt.Sprintf("%s **%s** 🚀%s%s%s\n", prefix, name, countStr, currentStartTime, server)
 					} else {
@@ -248,7 +234,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 						outputStr += fmt.Sprintf("%s **%s** %s%s%s\n", prefix, name, countStr, currentStartTime, server)
 					}
 				case BoostStateBoosted:
-					outputStr += fmt.Sprintf("%s ~~%s~~  %s%s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), chickenStr, server)
+					outputStr += fmt.Sprintf("%s ~~%s~~  %s %s%s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, chickenStr, server)
 				}
 			}
 		}
@@ -258,39 +244,47 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	outputStr += afterListStr
 
 	// Add reaction guidance to the bottom of this list
-	if contract.State == ContractStateStarted {
+	switch contract.State {
+	case ContractStateFastrun:
 		outputStr += "\n"
-		if contract.Speedrun && contract.SRData.SpeedrunStyle == SpeedrunStyleBanker {
-			outputStr += "> " + tokenStr + " when sending tokens to the sink"
-			if len(contract.AltIcons) > 0 {
-				outputStr += ", alts use 🇦-🇿"
-			}
-			outputStr += ".\n"
-			outputStr += "> 🐓 when you're ready for others to run chickens on your farm.\n"
-			outputStr += "> 💰 is used by the Sink to send the requested number of tokens to the booster.\n"
-			outputStr += "> -When active Booster is sent tokens by the sink they are marked as boosted.\n"
-			outputStr += "> -Adjust the number of boost tokens you want by adding a 6️⃣ to 🔟 reaction to the boost list message.\n"
-
-		} else {
-			outputStr += "> Active Booster: " + boostIcon + " when boosting. \n"
-			outputStr += "> Anyone: " + tokenStr + " when sending tokens "
-			if len(contract.AltIcons) > 0 {
-				outputStr += ", alts use 🇦-🇿"
-			}
-			outputStr += ". ❓ Help.\n"
+		outputStr += "> Active Booster: " + boostIcon + " when boosting. \n"
+		outputStr += "> Anyone: " + tokenStr + " when sending tokens "
+		if len(contract.AltIcons) > 0 {
+			outputStr += ", alts use 🇦-🇿"
 		}
+		outputStr += ". ❓ Help.\n"
 		if contract.CoopSize != len(contract.Order) {
 			outputStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
 		}
-		//outputStr += "```"
-	} else if contract.State == ContractStateWaiting {
+
+	case ContractStateBanker:
+		outputStr += "\n"
+		outputStr += "> " + tokenStr + " when sending tokens to the sink"
+		if len(contract.AltIcons) > 0 {
+			outputStr += ", alts use 🇦-🇿"
+		}
+		outputStr += ".\n"
+		outputStr += "> 🐓 when you're ready for others to run chickens on your farm.\n"
+		outputStr += "> 💰 is used by the Sink to send the requested number of tokens to the booster.\n"
+		outputStr += "> -When active Booster is sent tokens by the sink they are marked as boosted.\n"
+		outputStr += "> -Adjust the number of boost tokens you want by adding a 6️⃣ to 🔟 reaction to the boost list message.\n"
+		if contract.CoopSize != len(contract.Order) {
+			outputStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
+		}
+
+	case ContractStateWaiting:
 		outputStr += "\n"
 		outputStr += "> Waiting for other(s) to join...\n"
 		outputStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
-	} else if contract.Speedrun && contract.SRData.SpeedrunState == SpeedrunStatePost {
-		outputStr += "\n"
-		outputStr += "Contract Boosting Completed!\n\n"
-		outputStr += "> Send every " + tokenStr + " to our sink " + contract.Boosters[contract.SRData.PostSinkUserID].Mention + "\n"
+
+	case ContractStateCompleted:
+		sinkID := contract.Banker.CurrentBanker
+		if sinkID != "" {
+			outputStr += "\n"
+			outputStr += "Contract Boosting Completed!\n\n"
+			outputStr += "> Send every " + tokenStr + " to our sink " + contract.Boosters[sinkID].Mention + "\n"
+		}
 	}
+
 	return outputStr
 }

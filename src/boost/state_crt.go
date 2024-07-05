@@ -21,7 +21,6 @@ func buttonReactionCheck(s *discordgo.Session, ChannelID string, contract *Contr
 		boosterNames := make([]string, 0, len(contract.Boosters))
 		for _, booster := range contract.Boosters {
 			// Saving the CRT sink from having to react to run chickens
-			//if contract.SRData.CrtSinkUserID != booster.UserID {
 			boosterNames = append(boosterNames, booster.Mention)
 			//}
 		}
@@ -78,7 +77,7 @@ func buttonReactionCheck(s *discordgo.Session, ChannelID string, contract *Contr
 		_ = s.ChannelMessageDelete(ChannelID, contract.SRData.ChickenRunCheckMsgID)
 		contract.SRData.ChickenRunCheckMsgID = ""
 
-		str := fmt.Sprintf("All players have run chickens. **%s** should now react with 🦵 then start to kick all farmers.", contract.Boosters[contract.SRData.CrtSinkUserID].Mention)
+		str := fmt.Sprintf("All players have run chickens. **%s** should now react with 🦵 then start to kick all farmers.", contract.Boosters[contract.Banker.CurrentBanker].Mention)
 		_, _ = s.ChannelMessageSend(ChannelID, str)
 	}
 	// Indicate to remove the reaction
@@ -99,10 +98,10 @@ func buttonReactionTruck(s *discordgo.Session, contract *Contract, cUserID strin
 }
 
 func buttonReactionLeg(s *discordgo.Session, contract *Contract, cUserID string) bool {
-	if (cUserID == contract.SRData.CrtSinkUserID || creatorOfContract(s, contract, cUserID)) && contract.SRData.LegReactionMessageID == "" {
+	if (cUserID == contract.Banker.CurrentBanker || creatorOfContract(s, contract, cUserID)) && contract.SRData.LegReactionMessageID == "" {
 		// Indicate that the Sink is starting to kick users
 		str := "**Starting to kick users.** Swap shiny artifacts if you need to force a server sync.\n"
-		str += contract.Boosters[contract.SRData.CrtSinkUserID].Mention + " will react here with 💃 after kicks to advance the tango."
+		str += contract.Boosters[contract.Banker.CurrentBanker].Mention + " will react here with 💃 after kicks to advance the tango."
 		for _, location := range contract.Location {
 			var data discordgo.MessageSend
 			data.Content = str
@@ -131,15 +130,29 @@ func buttonReactionLeg(s *discordgo.Session, contract *Contract, cUserID string)
 
 func buttonReactionTango(s *discordgo.Session, contract *Contract, cUserID string) bool {
 	// Indicate that this Tango Leg is complete
-	if cUserID == contract.SRData.CrtSinkUserID || creatorOfContract(s, contract, cUserID) {
+	if cUserID == contract.Banker.CurrentBanker || creatorOfContract(s, contract, cUserID) {
 		str := "Kicks completed."
 		contract.SRData.CurrentLeg++ // Move to the next leg
 		contract.SRData.LegReactionMessageID = ""
 		contract.SRData.ChickenRunCheckMsgID = ""
 		contract.SRData.NeedToRunChickens = nil
 		if contract.SRData.CurrentLeg >= contract.SRData.Legs {
-			contract.SRData.SpeedrunState = SpeedrunStateBoosting
-			contract.State = ContractStateStarted
+			if contract.Style&ContractFlagBanker != 0 {
+				changeContractState(contract, ContractStateBanker)
+			} else if contract.Style&ContractFlagFastrun != 0 {
+				changeContractState(contract, ContractStateFastrun)
+			} else {
+				panic("Invalid contract style")
+			}
+
+			if contract.Style&ContractFlagBanker != 0 {
+				changeContractState(contract, ContractStateBanker)
+			} else if contract.Style&ContractFlagFastrun != 0 {
+				changeContractState(contract, ContractStateFastrun)
+			} else {
+				panic("Invalid contract style")
+			}
+
 			str += " This was the final kick. Build up your farm as you would for boosting.\n"
 		}
 		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
@@ -171,13 +184,13 @@ func reactionCRT(s *discordgo.Session, r *discordgo.MessageReaction, contract *C
 		keepReaction = buttonReactionTruck(s, contract, r.UserID)
 	}
 
-	idx := slices.Index(contract.Boosters[r.UserID].Alts, contract.SRData.CrtSinkUserID)
+	idx := slices.Index(contract.Boosters[r.UserID].Alts, contract.Banker.CurrentBanker)
 	if idx != -1 {
 		// This is an alternate
 		userID = contract.Boosters[r.UserID].Alts[idx]
 	}
 
-	if userID == contract.SRData.CrtSinkUserID || creatorOfContract(s, contract, r.UserID) {
+	if userID == contract.Banker.CurrentBanker || creatorOfContract(s, contract, r.UserID) {
 		if r.Emoji.Name == "🦵" {
 			redraw = buttonReactionLeg(s, contract, r.UserID)
 		}
@@ -197,25 +210,6 @@ func reactionCRT(s *discordgo.Session, r *discordgo.MessageReaction, contract *C
 	}
 }
 
-func addReactionButtonsCRT(contract *Contract) ([]string, []string) {
-	iconsRowA := []string{}
-	iconsRowB := []string{} //mainly for alt icons
-
-	iconsRowA = append(iconsRowA, []string{contract.TokenStr, "✅", "🚚", "🦵"}...)
-	iconsRowB = append(iconsRowB, contract.AltIcons...)
-	return iconsRowA, iconsRowB
-}
-
-func addReactionIconsCRT(s *discordgo.Session, contract *Contract, channelID string, messageID string) {
-	_ = s.MessageReactionAdd(channelID, messageID, contract.TokenReactionStr) // Token Reaction
-	for _, el := range contract.AltIcons {
-		_ = s.MessageReactionAdd(channelID, messageID, el)
-	}
-	_ = s.MessageReactionAdd(channelID, messageID, "✅") // Run Reaction
-	_ = s.MessageReactionAdd(channelID, messageID, "🚚") // Truck Reaction
-	_ = s.MessageReactionAdd(channelID, messageID, "🦵") // Kick Reaction
-}
-
 func drawSpeedrunCRT(contract *Contract) string {
 	var builder strings.Builder
 	if contract.State == ContractStateCRT {
@@ -223,7 +217,7 @@ func drawSpeedrunCRT(contract *Contract) string {
 		fmt.Fprintf(&builder, "### Tips\n")
 		fmt.Fprintf(&builder, "- Don't use any boosts\n")
 		//fmt.Fprintf(&builder, "- Equip coop artifacts: Deflector and SIAB\n")
-		fmt.Fprintf(&builder, "- A chicken run on %s can be saved for the boost phase.\n", contract.Boosters[contract.SRData.CrtSinkUserID].Mention)
+		fmt.Fprintf(&builder, "- A chicken run on %s can be saved for the boost phase.\n", contract.Boosters[contract.Banker.CurrentBanker].Mention)
 		fmt.Fprintf(&builder, "- :truck: reaction will indicate truck arriving and request a later kick. Send tokens through the boost menu if doing this.\n")
 		fmt.Fprintf(&builder, "- Sink will react with 🦵 when starting to kick.\n")
 		if contract.SRData.CurrentLeg == contract.SRData.Legs-1 {
@@ -245,7 +239,7 @@ func drawSpeedrunCRT(contract *Contract) string {
 		}
 
 	}
-	fmt.Fprintf(&builder, "\n**Send %s to %s**\n", contract.TokenStr, contract.Boosters[contract.SRData.CrtSinkUserID].Mention)
+	fmt.Fprintf(&builder, "\n**Send %s to %s** [%d]\n", contract.TokenStr, contract.Boosters[contract.Banker.CurrentBanker].Mention, contract.Boosters[contract.Banker.CurrentBanker].TokensReceived)
 
 	return builder.String()
 }
