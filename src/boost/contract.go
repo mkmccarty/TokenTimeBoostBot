@@ -49,26 +49,28 @@ func GetSlashContractCommand(cmd string) *discordgo.ApplicationCommand {
 				Description: "Co-op Size. This will be pulled from EI Contract data if unset.",
 				Required:    false,
 			},
-			{
-				Name:        "boost-order",
-				Description: "Select how boost list is ordered. Default is Sign-up order.",
-				Required:    false,
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Choices: []*discordgo.ApplicationCommandOptionChoice{
-					{
-						Name:  "Sign-up Ordering",
-						Value: ContractOrderSignup,
-					},
-					{
-						Name:  "Fair Ordering",
-						Value: ContractOrderFair,
-					},
-					{
-						Name:  "Random Ordering",
-						Value: ContractOrderRandom,
+			/*
+				{
+					Name:        "boost-order",
+					Description: "Select how boost list is ordered. Default is Sign-up order.",
+					Required:    false,
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Choices: []*discordgo.ApplicationCommandOptionChoice{
+						{
+							Name:  "Sign-up Ordering",
+							Value: ContractOrderSignup,
+						},
+						{
+							Name:  "Fair Ordering",
+							Value: ContractOrderFair,
+						},
+						{
+							Name:  "Random Ordering",
+							Value: ContractOrderRandom,
+						},
 					},
 				},
-			},
+			*/
 			{
 				Type:        discordgo.ApplicationCommandOptionRole,
 				Name:        "ping-role",
@@ -186,6 +188,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	mutex.Lock()
 	contract, err := CreateContract(s, contractID, coopID, coopSize, boostOrder, i.GuildID, ChannelID, getInteractionUserID(i), pingRole)
 	mutex.Unlock()
+
 	if err != nil {
 
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -198,22 +201,25 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		return
 	}
 
-	var builder strings.Builder
-	builder.WriteString("Contract created. Use the Contract button if you have to recycle it.\n")
-	builder.WriteString("This fastrun contract can be converted to a `/speedrun` anytime during the sign-up list.\n")
-	builder.WriteString("If this contract isn't an immediate start use `/change-planned-start` to add the time to the sign-up message.\n")
-	builder.WriteString("React with 🌊 to automaticaly update the thread name.")
+	if len(contract.Location) == 1 {
+		str, comp := getSignupContractSettings(contract.Location[0].ChannelID, contract.ContractHash)
 
-	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: builder.String(),
-			Flags:   discordgo.MessageFlagsEphemeral,
-			// Buttons and other components are specified in Components field.
-		},
-	})
-	if err != nil {
-		log.Print(err)
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    str,
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: comp,
+			},
+		})
+	} else {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "This contract was initiated in <#" + contract.Location[0].ChannelID + ">. The coordinator will take care of the options.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
 	}
 
 	var createMsg = DrawBoostList(s, contract)
@@ -233,6 +239,9 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			SetReactionID(contract, msg.ChannelID, reactionMsg.ID)
 			_ = s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
 		}
+		// Auto join the caller into this contract
+		_ = JoinContract(s, i.GuildID, ChannelID, getInteractionUserID(i), false)
+
 	} else {
 		log.Print(err)
 	}
@@ -333,4 +342,99 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	contract.TokenReactionStr = contract.TokenStr[2 : len(contract.TokenStr)-1]
 
 	return contract, nil
+}
+
+// HandleContractSettingsReactions handles all the button reactions for a contract settings
+func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// This is only coming from the caller of the contract
+
+	// cs_#Name # cs_#ID # HASH
+	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
+	cmd := strings.ToLower(reaction[1])
+	contractHash := reaction[len(reaction)-1]
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+		},
+	})
+
+	contract := Contracts[contractHash]
+	if contract == nil {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true,
+			&discordgo.WebhookParams{
+				Content: "Unable to find this contract.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			})
+	}
+
+	data := i.MessageComponentData()
+
+	if cmd == "style" {
+		values := data.Values
+
+		contract.Style &= ^(ContractFlagFastrun + ContractFlagBanker)
+		switch values[0] {
+		case "boostlist":
+			contract.Style |= ContractFlagFastrun
+		case "banker":
+			contract.Style |= ContractFlagBanker
+
+			// If banker style is selected then we need to set the banker
+			if len(contract.Order) == 0 {
+				// No users yet, set the caller as a user
+				userID := getInteractionUserID(i)
+				_ = JoinContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID, userID, false)
+			}
+			contract.Banker.CrtSinkUserID = contract.Order[0]
+			contract.Banker.BoostingSinkUserID = contract.Order[0]
+			contract.Banker.PostSinkUserID = contract.Order[0]
+		}
+	}
+
+	if cmd == "crt" {
+		contract.Style &= ^(ContractFlagCrt + ContractFlagSelfRuns)
+		values := data.Values
+		switch values[0] {
+		case "no_crt":
+			contract.Style |= ContractFlagNone
+			contract.Speedrun = false
+		case "crt":
+			contract.Style |= ContractFlagCrt
+			contract.Speedrun = true
+		case "self_runs":
+			contract.Style |= (ContractFlagCrt + ContractFlagSelfRuns)
+			contract.Speedrun = true
+		}
+	}
+
+	if cmd == "order" {
+		values := data.Values
+		switch values[0] {
+		case "signup":
+			contract.BoostOrder = ContractOrderSignup
+		case "fair":
+			contract.BoostOrder = ContractOrderFair
+		case "random":
+			contract.BoostOrder = ContractOrderRandom
+		}
+
+	}
+
+	calculateTangoLegs(contract, true)
+
+	for _, loc := range contract.Location {
+		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
+		contentStr := DrawBoostList(s, contract)
+		msgedit.SetContent(contentStr)
+		msgedit.Flags = discordgo.MessageFlagsSuppressEmbeds
+		msg, err := s.ChannelMessageEditComplex(msgedit)
+		if err == nil {
+			loc.ListMsgID = msg.ID
+		}
+	}
+	_, _ = s.FollowupMessageCreate(i.Interaction, true,
+		&discordgo.WebhookParams{})
+
 }

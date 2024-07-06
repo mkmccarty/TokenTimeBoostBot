@@ -16,12 +16,7 @@ import (
 // HandleContractReactions handles all the button reactions for a contract
 func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
-	var userID string
-	if i.GuildID != "" {
-		userID = i.Member.User.ID
-	} else {
-		userID = i.User.ID
-	}
+	userID := getInteractionUserID(i)
 
 	// rc_Name # rc_ID # HASH
 	reaction := strings.Split(i.MessageComponentData().CustomID, "#")

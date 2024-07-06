@@ -523,6 +523,9 @@ var (
 		"rc_": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractReactions(s, i)
 		},
+		"cs_": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleContractSettingsReactions(s, i)
+		},
 		"fd_signupStart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseDeferredMessageUpdate,

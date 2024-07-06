@@ -249,45 +249,63 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 func getSpeedrunStatusStr(contract *Contract) string {
 	var b strings.Builder
 	//fmt.Fprint(&b, "> Speedrun can be started once the contract is full.\n\n")
-	if contract.SRData.Tango[0] > 1 {
-		if contract.Style&ContractFlagSelfRuns != 0 {
-			fmt.Fprintf(&b, "> --> **Self-run of chickens is required** <--\n")
-			if contract.Location[0].GuildID == "485162044652388384" {
-				fmt.Fprintf(&b, "> * how-to self-run: %s\n", "https://discord.com/channels/485162044652388384/490151868631089152/1255676641192054834")
+	if contract.Style&ContractFlagCrt != 0 {
+		if contract.SRData.Tango[0] > 1 {
+			if contract.Style&ContractFlagSelfRuns != 0 {
+				fmt.Fprintf(&b, "> --> **Self-run of chickens is required** <--\n")
+				if contract.Location[0].GuildID == "485162044652388384" {
+					fmt.Fprintf(&b, "> * how-to self-run: %s\n", "https://discord.com/channels/485162044652388384/490151868631089152/1255676641192054834")
+				}
 			}
-		}
 
-		fmt.Fprintf(&b, "> **%d** Chicken Run Legs to reach **%d** total chicken runs.\n", contract.SRData.Legs, contract.SRData.ChickenRuns)
-	} else {
-		farmerPlural := "s"
-		if len(contract.Order) == 1 {
-			farmerPlural = ""
-		}
+			legPlural := "s"
+			if contract.SRData.Legs == 1 {
+				legPlural = ""
+			}
+			fmt.Fprintf(&b, "> **%d** Chicken Run Leg%s to reach **%d** total chicken runs.\n", contract.SRData.Legs, legPlural, contract.SRData.ChickenRuns)
 
-		fmt.Fprintf(&b, "> It's not possible to reach **%d** total chicken runs with only **%d** farmer%s.\n\n", contract.SRData.ChickenRuns, len(contract.Order), farmerPlural)
+		} else {
+			farmerPlural := "s"
+			if len(contract.Order) == 1 {
+				farmerPlural = ""
+			}
+
+			fmt.Fprintf(&b, "> It's not possible to reach **%d** total chicken runs with only **%d** farmer%s.\n\n", contract.SRData.ChickenRuns, len(contract.Order), farmerPlural)
+		}
 	}
 	if len(contract.Order) == 0 {
 		return b.String()
 	}
-	if contract.State == ContractStateBanker {
-		fmt.Fprint(&b, "> **Banker** style speed run:\n")
-		if contract.Banker.CrtSinkUserID == contract.Banker.BoostingSinkUserID && contract.Banker.CrtSinkUserID == contract.Banker.PostSinkUserID {
-			fmt.Fprintf(&b, "> * Send all tokens to **%s**\n", contract.Boosters[contract.Banker.CrtSinkUserID].Mention)
-		} else if contract.Banker.CrtSinkUserID == contract.Banker.BoostingSinkUserID {
-			fmt.Fprintf(&b, "> * Send CRT & Boosting tokens to **%s**\n", contract.Boosters[contract.Banker.CrtSinkUserID].Mention)
-		} else {
-			fmt.Fprintf(&b, "> * Send CRT tokens to **%s**\n", contract.Boosters[contract.Banker.CrtSinkUserID].Mention)
-			fmt.Fprintf(&b, "> * Send Boosting tokens to **%s**\n", contract.Boosters[contract.Banker.BoostingSinkUserID].Mention)
+
+	if contract.Style&ContractFlagBanker != 0 {
+		fmt.Fprint(&b, "> **Banker** style contract\n")
+		if contract.Style&ContractFlagCrt != 0 {
+			if contract.Banker.CrtSinkUserID == "" {
+				fmt.Fprintf(&b, "> * Currently there are farmers assigned to sink. CRT will be skipped.\n")
+			} else if contract.Banker.CrtSinkUserID == contract.Banker.BoostingSinkUserID && contract.Banker.CrtSinkUserID == contract.Banker.PostSinkUserID {
+				fmt.Fprintf(&b, "> * Send all tokens to **%s**\n", contract.Boosters[contract.Banker.CrtSinkUserID].Mention)
+			} else if contract.Banker.CrtSinkUserID == contract.Banker.BoostingSinkUserID {
+				fmt.Fprintf(&b, "> * Send CRT & Boosting tokens to **%s**\n", contract.Boosters[contract.Banker.CrtSinkUserID].Mention)
+			} else {
+				fmt.Fprintf(&b, "> * Send CRT tokens to **%s**\n", contract.Boosters[contract.Banker.CrtSinkUserID].Mention)
+				fmt.Fprintf(&b, "> * Send Boosting tokens to **%s**\n", contract.Boosters[contract.Banker.BoostingSinkUserID].Mention)
+			}
+			fmt.Fprintf(&b, "> The sink will send you a full set of boost tokens.\n")
+			if contract.Banker.PostSinkUserID != "" && contract.Banker.BoostingSinkUserID != contract.Banker.PostSinkUserID {
+				fmt.Fprintf(&b, "> * After contract boosting send all tokens to: %s (This is unusual)\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention)
+			}
 		}
-		fmt.Fprintf(&b, "> The sink will send you a full set of boost tokens.\n")
-		if contract.Banker.BoostingSinkUserID != contract.Banker.PostSinkUserID {
-			fmt.Fprintf(&b, "> * After contract boosting send all tokens to: %s (This is unusual)\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention)
+	} else if contract.Style&ContractFlagFastrun != 0 {
+		fmt.Fprint(&b, "> **Boost List** style contract\n")
+		if contract.Style&ContractFlagCrt != 0 {
+			if contract.Banker.CrtSinkUserID != "" {
+				fmt.Fprintf(&b, "> * During CRT send tokens to %s\n", contract.Boosters[contract.Banker.CrtSinkUserID].Mention)
+				fmt.Fprint(&b, "> * Follow the Boost List for Token Passing.\n")
+				fmt.Fprintf(&b, "> * After contract boosting send all tokens to %s\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention)
+			} else {
+				fmt.Fprintf(&b, "> * Currently there are farmers assigned to sink. CRT will be skipped.\n")
+			}
 		}
-	} else {
-		fmt.Fprint(&b, "> **Boost List** style speed run:\n")
-		fmt.Fprintf(&b, "> * During CRT send tokens to %s\n", contract.Boosters[contract.Banker.CrtSinkUserID].Mention)
-		fmt.Fprint(&b, "> * Follow the Boost List for Token Passing.\n")
-		fmt.Fprintf(&b, "> * After contract boosting send all tokens to %s\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention)
 	}
 	return b.String()
 }

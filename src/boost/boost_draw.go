@@ -65,14 +65,6 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	default:
 	}
 
-	if contract.State == ContractStateSignup {
-		if contract.Speedrun {
-			outputStr += "## Speedrun Sign-up List\n"
-		} else {
-			outputStr += "## Sign-up List\n"
-		}
-	}
-
 	if contract.State == ContractStateCRT {
 		// Handle Speedrun CRT
 		outputStr += drawSpeedrunCRT(contract)
@@ -80,7 +72,12 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		return outputStr
 	}
 
-	outputStr += "## Boost List\n"
+	if contract.State == ContractStateSignup {
+		outputStr += "## Sign-up List\n"
+	} else {
+		outputStr += "## Boost List\n"
+	}
+
 	var prefix = " - "
 
 	earlyList := ""
