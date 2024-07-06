@@ -293,6 +293,11 @@ func getSpeedrunStatusStr(contract *Contract) string {
 }
 
 func calculateTangoLegs(contract *Contract, setStatus bool) {
+
+	if contract.State != ContractStateSignup {
+		// We don't want this changing after the CRT starts
+		return
+	}
 	selfRunMod := 0
 	if contract.Style&ContractFlagSelfRuns == 0 {
 		selfRunMod = 1
