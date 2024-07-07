@@ -274,6 +274,11 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		outputStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
 
 	case ContractStateCompleted:
+		t1 := contract.EndTime
+		t2 := contract.StartTime
+		duration := t1.Sub(t2)
+		outputStr += fmt.Sprintf("Contract boosting complete in %s\n", duration.Round(time.Second))
+
 		sinkID := contract.Banker.CurrentBanker
 		if sinkID != "" {
 			outputStr += "\n"
