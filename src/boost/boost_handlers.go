@@ -13,7 +13,7 @@ func getSignupContractSettings(channelID string, id string) (string, []discordgo
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "Contract created in <#%s>\n", channelID)
 	builder.WriteString("Use the Contract button if you have to recycle it.\n")
-	builder.WriteString("**Use the menus to set your contract style. These will work until the contrct is started.**\n")
+	builder.WriteString("**Use the menus to set your contract style. These will work until the contract is started.**\n")
 	builder.WriteString("If this contract isn't an immediate start use `/change-planned-start` to add the time to the sign-up message.\n")
 	builder.WriteString("React with 🌊 on the boost list to automaticaly update the thread name.")
 
