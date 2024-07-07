@@ -277,12 +277,11 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		t1 := contract.EndTime
 		t2 := contract.StartTime
 		duration := t1.Sub(t2)
-		outputStr += fmt.Sprintf("Contract boosting complete in %s\n", duration.Round(time.Second))
+		outputStr += "\n"
+		outputStr += fmt.Sprintf("Contract boosting complete in %s!!\n", duration.Round(time.Second))
 
 		sinkID := contract.Banker.CurrentBanker
 		if sinkID != "" {
-			outputStr += "\n"
-			outputStr += "Contract Boosting Completed!\n\n"
 			outputStr += "> Send every " + tokenStr + " to our sink " + contract.Boosters[sinkID].Mention + "\n"
 		}
 	}
