@@ -82,14 +82,12 @@ func HandleSlashVolunteerSinkCommand(s *discordgo.Session, i *discordgo.Interact
 
 		if !confirm {
 			str = "You must confirm you want to be the token sink"
-		} else if contract.Speedrun {
-			str = "You cannot use this command on a speedrun contract"
-		} else if contract.Banker.VolunteerSink != "" && !isAdmin {
+		} else if contract.Banker.PostSinkUserID != "" && !isAdmin {
 			str = "Token sink is already set"
 		} else {
 			// Check if user is already in contract
 			if userInContract(contract, i.Interaction.Member.User.ID) {
-				contract.Banker.VolunteerSink = i.Interaction.Member.User.ID
+				contract.Banker.PostSinkUserID = i.Interaction.Member.User.ID
 				changeContractState(contract, contract.State) // Update the changed sink
 				if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {
 					_ = RedrawBoostList(s, i.GuildID, i.ChannelID)
@@ -157,15 +155,13 @@ func HandleSlashVoluntellSinkCommand(s *discordgo.Session, i *discordgo.Interact
 			str = "You must confirm you want to be the token sink"
 		} else if strings.HasPrefix(VoluntellName, "<@") {
 			str = "This should be a guest farmer within this contract and not a user mention."
-		} else if contract.Speedrun {
-			str = "You cannot use this command on a speedrun contract"
-		} else if contract.Banker.VolunteerSink != "" && !isAdmin {
+		} else if contract.Banker.PostSinkUserID != "" && !isAdmin {
 			str = "Token sink is already set"
 		} else {
 			// if VolunteerSink is already set, reply with error
 			// Check if user is already in contract
 			if userInContract(contract, VoluntellName) {
-				contract.Banker.VolunteerSink = VoluntellName
+				contract.Banker.PostSinkUserID = VoluntellName
 				changeContractState(contract, contract.State) // Update the changed sink
 				if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {
 					_ = RedrawBoostList(s, i.GuildID, i.ChannelID)

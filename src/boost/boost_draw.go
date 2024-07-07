@@ -40,15 +40,14 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		outputStr += fmt.Sprintf("## Planned Start Time: <t:%d:f>\n", contract.PlannedStartTime.Unix())
 	}
 
-	if len(contract.Boosters) != contract.CoopSize {
-		outputStr += fmt.Sprintf("### Join order is %s\n", getBoostOrderString(contract))
+	if len(contract.Boosters) != contract.CoopSize || contract.State == ContractStateSignup {
+		outputStr += fmt.Sprintf("### Boost ordering is %s\n", getBoostOrderString(contract))
 	}
 
 	outputStr += fmt.Sprintf("> Coordinator: <@%s>\n", contract.CreatorID[0])
-	if contract.Style&ContractStyleFastrun != 0 && contract.Banker.VolunteerSink != "" {
-		// The post contract volunteer sink is only for fastrun contracts
-		if contract.Boosters[contract.Banker.VolunteerSink] != nil {
-			outputStr += fmt.Sprintf("> Post Contract Sink: **%s**\n", contract.Boosters[contract.Banker.VolunteerSink].Mention)
+	if contract.Style&ContractStyleFastrun != 0 && contract.Banker.PostSinkUserID != "" {
+		if contract.State != ContractStateSignup && contract.Boosters[contract.Banker.PostSinkUserID] != nil {
+			outputStr += fmt.Sprintf("> Post Contract Sink: **%s**\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention)
 		}
 	}
 

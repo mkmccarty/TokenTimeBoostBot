@@ -97,12 +97,21 @@ func getSignupContractSettings(channelID string, id string) (string, []discordgo
 					Options: []discordgo.SelectMenuOption{
 						{
 							Label:       "Sign-up Order",
-							Description: "Boost list is in the order people sign up",
+							Description: "Boost list is in the order farmers sign up",
 							Value:       "signup",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "😑",
 							},
 							Default: true,
+						},
+						{
+							Label:       "Reverse Sign-up Order",
+							Description: "Boost list is in the reverse order farmers sign up",
+							Value:       "reverse",
+							Emoji: &discordgo.ComponentEmoji{
+								Name: "😬",
+							},
+							Default: false,
 						},
 						{
 							Label:       "Fair Order",
@@ -132,99 +141,182 @@ func getSignupContractSettings(channelID string, id string) (string, []discordgo
 }
 
 // GetSignupComponents returns the signup components for a contract
-func GetSignupComponents(disableStartContract bool, speedrun bool) (string, []discordgo.MessageComponent) {
+func GetSignupComponents(disableStartContract bool, contract *Contract) (string, []discordgo.MessageComponent) {
 	var str = "Join the contract and indicate the number boost tokens you'd like."
 	startLabel := "Start Boosting"
-	if speedrun {
+	if contract != nil && contract.Style&ContractFlagCrt != 0 {
 		startLabel = "Start CRT"
 	} else if disableStartContract {
 		startLabel = "Started"
 	}
-	return str, []discordgo.MessageComponent{
-		// add buttons to the action row
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "🧑‍🌾",
-					},
-					Label:    "Join",
-					Style:    discordgo.PrimaryButton,
-					CustomID: "fd_signupFarmer",
-				},
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "🔔",
-					},
-					Label:    "Join w/Ping",
-					Style:    discordgo.PrimaryButton,
-					CustomID: "fd_signupBell",
-				},
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "❌",
-					},
-					Label:    "Leave",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_signupLeave",
-				},
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "⏱️",
-					},
-					Label:    startLabel,
-					Style:    discordgo.SuccessButton,
-					CustomID: "fd_signupStart",
-					Disabled: disableStartContract,
-				},
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "♻️",
-					},
-					Label:    "Contract",
-					Style:    discordgo.DangerButton,
-					Disabled: false,
-					CustomID: "fd_delete",
-				},
-			},
-		},
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "5️⃣",
-					},
-					Label:    " Tokens",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokens5",
-				},
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "6️⃣",
-					},
-					Label:    " Tokens",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokens6",
-				},
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "8️⃣",
-					},
-					Label:    " Tokens",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokens8",
-				},
-				discordgo.Button{
-					Label:    "+ Token",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokens1",
-				},
-				discordgo.Button{
-					Label:    "- Token",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokens_sub",
-				},
-			},
-		},
+	if contract != nil {
+
+		// There needs to be at least one booster to start the contract
+		if len(contract.Boosters) == 0 {
+			disableStartContract = true
+		} else {
+			disableStartContract = false
+		}
+		// If Banker style then we need to have at least a banker sink
+		if contract.Style&ContractFlagBanker != 0 && contract.Banker.BoostingSinkUserID == "" {
+			disableStartContract = true
+		}
+		/*
+			// If the contract is both Banker and CRT it needs crt, boost and post sink
+			if contract.Style&ContractFlagBanker != 0 && contract.Style&ContractFlagCrt != 0 {
+				if contract.Banker.CrtSinkUserID == "" || contract.Banker.BoostingSinkUserID == "" || contract.Banker.PostSinkUserID == "" {
+					disableStartContract = true
+				}
+			}
+		*/
+
 	}
+
+	// Build the return message
+	var buttons []discordgo.MessageComponent
+	// Add the buttons to join, leave, and start the contract
+	buttons = append(buttons, discordgo.ActionsRow{
+		Components: []discordgo.MessageComponent{
+			discordgo.Button{
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "🧑‍🌾",
+				},
+				Label:    "Join",
+				Style:    discordgo.PrimaryButton,
+				CustomID: "fd_signupFarmer",
+			},
+			discordgo.Button{
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "🔔",
+				},
+				Label:    "Join w/Ping",
+				Style:    discordgo.PrimaryButton,
+				CustomID: "fd_signupBell",
+			},
+			discordgo.Button{
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "❌",
+				},
+				Label:    "Leave",
+				Style:    discordgo.SecondaryButton,
+				CustomID: "fd_signupLeave",
+			},
+			discordgo.Button{
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "⏱️",
+				},
+				Label:    startLabel,
+				Style:    discordgo.SuccessButton,
+				CustomID: "fd_signupStart",
+				Disabled: disableStartContract,
+			},
+			discordgo.Button{
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "♻️",
+				},
+				Label:    "Contract",
+				Style:    discordgo.DangerButton,
+				Disabled: false,
+				CustomID: "fd_delete",
+			},
+		},
+	})
+
+	// Add the buttons to adjust the numbers of tokens
+	buttons = append(buttons, discordgo.ActionsRow{
+		Components: []discordgo.MessageComponent{
+			discordgo.Button{
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "5️⃣",
+				},
+				Label:    " Tokens",
+				Style:    discordgo.SecondaryButton,
+				CustomID: "fd_tokens5",
+			},
+			discordgo.Button{
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "6️⃣",
+				},
+				Label:    " Tokens",
+				Style:    discordgo.SecondaryButton,
+				CustomID: "fd_tokens6",
+			},
+			discordgo.Button{
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "8️⃣",
+				},
+				Label:    " Tokens",
+				Style:    discordgo.SecondaryButton,
+				CustomID: "fd_tokens8",
+			},
+			discordgo.Button{
+				Label:    "+ Token",
+				Style:    discordgo.SecondaryButton,
+				CustomID: "fd_tokens1",
+			},
+			discordgo.Button{
+				Label:    "- Token",
+				Style:    discordgo.SecondaryButton,
+				CustomID: "fd_tokens_sub",
+			},
+		},
+	})
+
+	if contract != nil && contract.State == ContractStateSignup {
+
+		type SinkList struct {
+			name   string
+			userID string
+			id     string
+		}
+
+		var sinkList []SinkList
+
+		// Volunteer Sink is only for fastrun contracts without a CRT
+		if contract.Style&ContractFlagFastrun != 0 && contract.Style&ContractFlagCrt == 0 {
+			sinkList = append(sinkList, SinkList{"Post Contract Sink", contract.Banker.PostSinkUserID, "postsink"})
+		} else {
+			if contract.Style&ContractFlagCrt != 0 && contract.SRData.Legs > 0 {
+				sinkList = append(sinkList, SinkList{"CRT Sink", contract.Banker.CrtSinkUserID, "crtsink"})
+			}
+			if contract.Style&ContractFlagBanker != 0 {
+				sinkList = append(sinkList, SinkList{"Boost Sink", contract.Banker.BoostingSinkUserID, "boostsink"})
+			}
+			sinkList = append(sinkList, SinkList{"Post Contract Sink", contract.Banker.PostSinkUserID, "postsink"})
+		}
+
+		var mComp []discordgo.MessageComponent
+		for _, sink := range sinkList {
+			buttonStyle := discordgo.SecondaryButton
+			if sink.userID == "" {
+				buttonStyle = discordgo.PrimaryButton
+			}
+			mComp = append(mComp, discordgo.Button{
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "🫂",
+				},
+				Label:    sink.name,
+				Style:    buttonStyle,
+				CustomID: "cs_#" + sink.id + "#" + contract.ContractHash,
+			})
+		}
+
+		if contract.Style&ContractFlagBanker != 0 {
+			name := "Sink Boosts First"
+			if contract.Banker.SinkBoostPosition == SinkBoostLast {
+				name = "Sink Boosts Last"
+			}
+
+			mComp = append(mComp, discordgo.Button{
+				Label:    name,
+				Style:    discordgo.SecondaryButton,
+				CustomID: "cs_#sinkorder#" + contract.ContractHash,
+			})
+
+		}
+
+		buttons = append(buttons, discordgo.ActionsRow{Components: mComp})
+	}
+
+	return str, buttons
 }

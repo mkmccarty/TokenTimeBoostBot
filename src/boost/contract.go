@@ -230,7 +230,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	if err == nil {
 		SetListMessageID(contract, ChannelID, msg.ID)
 		var data discordgo.MessageSend
-		data.Content, data.Components = GetSignupComponents(false, contract.Speedrun)
+		data.Content, data.Components = GetSignupComponents(false, contract)
 		reactionMsg, err := s.ChannelMessageSendComplex(ChannelID, &data)
 
 		if err != nil {
@@ -240,7 +240,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			_ = s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
 		}
 		// Auto join the caller into this contract
-		_ = JoinContract(s, i.GuildID, ChannelID, getInteractionUserID(i), false)
+		//_ = JoinContract(s, i.GuildID, ChannelID, getInteractionUserID(i), false)
 
 	} else {
 		log.Print(err)
@@ -322,7 +322,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.CreatorID = append(contract.CreatorID, userID)               // starting userid
 		contract.CreatorID = append(contract.CreatorID, "650743870253957160") // Mugwump
 		contract.Speedrun = false
-		contract.Banker.VolunteerSink = ""
+		contract.Banker.SinkBoostPosition = SinkBoostFirst
 		contract.StartTime = time.Now()
 		contract.ChickenRunEmoji = findBoostBotGuildEmoji(s, "icon_chicken_run", true)
 
@@ -346,6 +346,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 
 // HandleContractSettingsReactions handles all the button reactions for a contract settings
 func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	redrawSignup := true
 	// This is only coming from the caller of the contract
 
 	// cs_#Name # cs_#ID # HASH
@@ -380,16 +381,6 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			contract.Style |= ContractFlagFastrun
 		case "banker":
 			contract.Style |= ContractFlagBanker
-
-			// If banker style is selected then we need to set the banker
-			if len(contract.Order) == 0 {
-				// No users yet, set the caller as a user
-				userID := getInteractionUserID(i)
-				_ = JoinContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID, userID, false)
-			}
-			contract.Banker.CrtSinkUserID = contract.Order[0]
-			contract.Banker.BoostingSinkUserID = contract.Order[0]
-			contract.Banker.PostSinkUserID = contract.Order[0]
 		}
 	}
 
@@ -414,12 +405,44 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		switch values[0] {
 		case "signup":
 			contract.BoostOrder = ContractOrderSignup
+		case "reverse":
+			contract.BoostOrder = ContractOrderReverse
 		case "fair":
 			contract.BoostOrder = ContractOrderFair
 		case "random":
 			contract.BoostOrder = ContractOrderRandom
 		}
+	}
 
+	switch cmd {
+	case "crtsink":
+		sid := getInteractionUserID(i)
+		if contract.Banker.CrtSinkUserID == sid {
+			contract.Banker.CrtSinkUserID = ""
+		} else if userInContract(contract, sid) {
+			contract.Banker.CrtSinkUserID = sid
+		}
+	case "boostsink":
+		sid := getInteractionUserID(i)
+		if contract.Banker.BoostingSinkUserID == sid {
+			contract.Banker.BoostingSinkUserID = ""
+		} else if userInContract(contract, sid) {
+			contract.Banker.BoostingSinkUserID = sid
+		}
+	case "postsink":
+		sid := getInteractionUserID(i)
+		if contract.Banker.PostSinkUserID == sid {
+			contract.Banker.PostSinkUserID = ""
+		} else if userInContract(contract, sid) {
+			contract.Banker.PostSinkUserID = sid
+		}
+	case "sinkorder":
+		// toggle the sink order
+		if contract.Banker.SinkBoostPosition == SinkBoostFirst {
+			contract.Banker.SinkBoostPosition = SinkBoostLast
+		} else {
+			contract.Banker.SinkBoostPosition = SinkBoostFirst
+		}
 	}
 
 	calculateTangoLegs(contract, true)
@@ -433,7 +456,19 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		if err == nil {
 			loc.ListMsgID = msg.ID
 		}
+		if redrawSignup {
+
+			// Rebuild the signup message to disable the start button
+			msgID := loc.ReactionID
+			msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
+
+			contentStr, comp := GetSignupComponents(contract.State != ContractStateSignup, contract) // True to get a disabled start button
+			msg.SetContent(contentStr)
+			msg.Components = &comp
+			_, _ = s.ChannelMessageEditComplex(msg)
+		}
 	}
+
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{})
 

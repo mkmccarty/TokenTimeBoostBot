@@ -546,7 +546,7 @@ var (
 
 				// Rebuild the signup message to disable the start button
 				msg := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
-				contentStr, comp := boost.GetSignupComponents(true, false) // True to get a disabled start button
+				contentStr, comp := boost.GetSignupComponents(true, nil) // True to get a disabled start button
 				msg.SetContent(contentStr)
 				msg.Components = &comp
 				_, _ = s.ChannelMessageEditComplex(msg)
