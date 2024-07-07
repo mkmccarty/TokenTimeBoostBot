@@ -523,6 +523,9 @@ var (
 		"rc_": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractReactions(s, i)
 		},
+		"cs_": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleContractSettingsReactions(s, i)
+		},
 		"fd_signupStart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseDeferredMessageUpdate,
@@ -543,7 +546,7 @@ var (
 
 				// Rebuild the signup message to disable the start button
 				msg := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
-				contentStr, comp := boost.GetSignupComponents(true, false) // True to get a disabled start button
+				contentStr, comp := boost.GetSignupComponents(true, nil) // True to get a disabled start button
 				msg.SetContent(contentStr)
 				msg.Components = &comp
 				_, _ = s.ChannelMessageEditComplex(msg)

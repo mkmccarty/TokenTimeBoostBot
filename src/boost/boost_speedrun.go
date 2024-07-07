@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 var integerZeroMinValue float64 = 0.0
@@ -249,46 +248,68 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 func getSpeedrunStatusStr(contract *Contract) string {
 	var b strings.Builder
 	//fmt.Fprint(&b, "> Speedrun can be started once the contract is full.\n\n")
-	if contract.SRData.Tango[0] > 1 {
-		if contract.Style&ContractFlagSelfRuns != 0 {
-			fmt.Fprintf(&b, "> --> **Self-run of chickens is required** <--\n")
-			if contract.Location[0].GuildID == "485162044652388384" {
-				fmt.Fprintf(&b, "> * how-to self-run: %s\n", "https://discord.com/channels/485162044652388384/490151868631089152/1255676641192054834")
+	if contract.Style&ContractFlagCrt != 0 {
+		if contract.SRData.Tango[0] > 1 {
+			if contract.Style&ContractFlagSelfRuns != 0 {
+				fmt.Fprintf(&b, "> --> **Self-run of chickens is required** <--\n")
+				if contract.Location[0].GuildID == "485162044652388384" {
+					fmt.Fprintf(&b, "> * how-to self-run: %s\n", "https://discord.com/channels/485162044652388384/490151868631089152/1255676641192054834")
+				}
 			}
-		}
 
-		fmt.Fprintf(&b, "> **%d** Chicken Run Legs to reach **%d** total chicken runs.\n", contract.SRData.Legs, contract.SRData.ChickenRuns)
-	} else {
-		farmerPlural := "s"
-		if len(contract.Order) == 1 {
-			farmerPlural = ""
-		}
+			legPlural := "s"
+			if contract.SRData.Legs == 1 {
+				legPlural = ""
+			}
+			fmt.Fprintf(&b, "> **%d** Chicken Run Leg%s to reach **%d** total chicken runs.\n", contract.SRData.Legs, legPlural, contract.SRData.ChickenRuns)
 
-		fmt.Fprintf(&b, "> It's not possible to reach **%d** total chicken runs with only **%d** farmer%s.\n\n", contract.SRData.ChickenRuns, len(contract.Order), farmerPlural)
+		} else {
+			farmerPlural := "s"
+			if len(contract.Order) == 1 {
+				farmerPlural = ""
+			}
+
+			fmt.Fprintf(&b, "> It's not possible to reach **%d** total chicken runs with only **%d** farmer%s.\n", contract.SRData.ChickenRuns, len(contract.Order), farmerPlural)
+		}
 	}
 	if len(contract.Order) == 0 {
 		return b.String()
 	}
-	if contract.State == ContractStateBanker {
-		fmt.Fprint(&b, "> **Banker** style speed run:\n")
-		if contract.Banker.CrtSinkUserID == contract.Banker.BoostingSinkUserID && contract.Banker.CrtSinkUserID == contract.Banker.PostSinkUserID {
-			fmt.Fprintf(&b, "> * Send all tokens to **%s**\n", contract.Boosters[contract.Banker.CrtSinkUserID].Mention)
-		} else if contract.Banker.CrtSinkUserID == contract.Banker.BoostingSinkUserID {
-			fmt.Fprintf(&b, "> * Send CRT & Boosting tokens to **%s**\n", contract.Boosters[contract.Banker.CrtSinkUserID].Mention)
-		} else {
-			fmt.Fprintf(&b, "> * Send CRT tokens to **%s**\n", contract.Boosters[contract.Banker.CrtSinkUserID].Mention)
-			fmt.Fprintf(&b, "> * Send Boosting tokens to **%s**\n", contract.Boosters[contract.Banker.BoostingSinkUserID].Mention)
-		}
-		fmt.Fprintf(&b, "> The sink will send you a full set of boost tokens.\n")
-		if contract.Banker.BoostingSinkUserID != contract.Banker.PostSinkUserID {
-			fmt.Fprintf(&b, "> * After contract boosting send all tokens to: %s (This is unusual)\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention)
-		}
+
+	if contract.Style&ContractFlagBanker != 0 {
+		fmt.Fprint(&b, "\n## **Banker** style contract\n")
+		fmt.Fprintf(&b, "> During boosting the Banker will send you a full set of boost tokens.\n")
 	} else {
-		fmt.Fprint(&b, "> **Boost List** style speed run:\n")
-		fmt.Fprintf(&b, "> * During CRT send tokens to %s\n", contract.Boosters[contract.Banker.CrtSinkUserID].Mention)
-		fmt.Fprint(&b, "> * Follow the Boost List for Token Passing.\n")
-		fmt.Fprintf(&b, "> * After contract boosting send all tokens to %s\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention)
+		fmt.Fprint(&b, "\n## **Boost List** style contract\n")
+		fmt.Fprintf(&b, "> During boosting send tokens to farmer with %s\n", contract.TokenStr)
 	}
+
+	// CRT Sink
+	if contract.Style&ContractFlagCrt != 0 {
+		if contract.Banker.CrtSinkUserID != "" {
+			fmt.Fprintf(&b, "> * Send CRT tokens to **%s**\n", contract.Boosters[contract.Banker.CrtSinkUserID].Mention)
+		} else if contract.SRData.Legs > 0 {
+			fmt.Fprintf(&b, "> * Currently there are no farmers assigned for CRT Banker. **CRT will be skipped**.\n")
+		}
+	}
+	// Boosting Sink
+	if contract.Style&ContractFlagBanker != 0 {
+		if contract.Banker.BoostingSinkUserID != "" {
+			fmt.Fprintf(&b, "> * During boosting send all tokens to **%s**\n", contract.Boosters[contract.Banker.BoostingSinkUserID].Mention)
+			if contract.Banker.SinkBoostPosition == SinkBoostLast {
+				fmt.Fprint(&b, ">  * Banker boosts **Last**\n")
+			} else {
+				fmt.Fprint(&b, ">  * Banker boosts **First**\n")
+			}
+
+		} else {
+			fmt.Fprintf(&b, "> * **Contract cannot start**. Banker required for boosting phase.\n")
+		}
+	}
+	if contract.Banker.PostSinkUserID != "" {
+		fmt.Fprintf(&b, "> * After contract boosting send all tokens to: %s\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention)
+	}
+
 	return b.String()
 }
 
@@ -441,7 +462,7 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 		msgID := loc.ReactionID
 		msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
 
-		contentStr, comp := GetSignupComponents(disableButton, contract.Style&ContractFlagCrt != 0) // True to get a disabled start button
+		contentStr, comp := GetSignupComponents(disableButton, contract) // True to get a disabled start button
 		msg.SetContent(contentStr)
 		msg.Components = &comp
 		_, _ = s.ChannelMessageEditComplex(msg)
@@ -452,7 +473,7 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 
 func reorderSpeedrunBoosters(contract *Contract) {
 	// Speedrun contracts are always fair ordering over last 3 contracts
-	newOrder := farmerstate.GetOrderHistory(contract.Order, 3)
+	newOrder := contract.Order
 
 	index := slices.Index(newOrder, contract.Banker.BoostingSinkUserID)
 	// Remove the speedrun starter from the list

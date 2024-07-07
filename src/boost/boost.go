@@ -170,7 +170,6 @@ type LocationData struct {
 // BankerInfo holds information about contract Banker
 type BankerInfo struct {
 	CurrentBanker      string // Current Banker
-	VolunteerSink      string // Sink for Post contract tokens
 	CrtSinkUserID      string // Sink CRT User ID
 	BoostingSinkUserID string // Sink CRT User ID
 	PostSinkUserID     string // Sink End of Contract User ID
@@ -284,10 +283,7 @@ func changeContractState(contract *Contract, newstate int) {
 	case ContractStateWaiting:
 		contract.Banker.CurrentBanker = contract.Banker.BoostingSinkUserID
 	case ContractStateCompleted:
-		contract.Banker.CurrentBanker = contract.Banker.VolunteerSink
-		if contract.Banker.CurrentBanker == "" {
-			contract.Banker.CurrentBanker = contract.Banker.PostSinkUserID
-		}
+		contract.Banker.CurrentBanker = contract.Banker.PostSinkUserID
 	default:
 		contract.Banker.CurrentBanker = ""
 	}
@@ -376,17 +372,20 @@ func getBoostOrderString(contract *Contract) string {
 
 	switch contract.BoostOrder {
 	case ContractOrderSignup:
-		return "Sign-up"
+		return "in Sign-up order"
 	case ContractOrderReverse:
-		return "Reverse"
+		if contract.StartTime.IsZero() || contract.State == ContractStateSignup {
+			return "in Reverse Sign-up order"
+		}
+		return fmt.Sprintf("Reverse -> Sign-up <t:%d:R> ", thresholdStartTime.Unix())
 	case ContractOrderRandom:
 		if contract.StartTime.IsZero() || contract.State == ContractStateSignup {
-			return "Random"
+			return "Random order"
 		}
 		return fmt.Sprintf("Random -> Sign-up <t:%d:R> ", thresholdStartTime.Unix())
 	case ContractOrderFair:
 		if contract.StartTime.IsZero() || contract.State == ContractStateSignup {
-			return "Fair"
+			return "Fair order"
 		}
 		return fmt.Sprintf("Fair -> Sign-up <t:%d:R> ", thresholdStartTime.Unix())
 	case ContractOrderTimeBased:
@@ -902,8 +901,8 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 	}
 
 	// Remove the booster from the contract
-	if userID == contract.Banker.VolunteerSink {
-		contract.Banker.VolunteerSink = ""
+	if userID == contract.Banker.PostSinkUserID {
+		contract.Banker.PostSinkUserID = ""
 		changeContractState(contract, contract.State)
 	}
 
@@ -1005,7 +1004,7 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 				msgID := loc.ReactionID
 				msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
 				// Full contract for speedrun
-				contentStr, comp := GetSignupComponents(enableButton, contract.Style&ContractFlagCrt != 0) // True to get a disabled start button
+				contentStr, comp := GetSignupComponents(enableButton, contract) // True to get a disabled start button
 				msg.SetContent(contentStr)
 				msg.Flags = discordgo.MessageFlagsSuppressEmbeds
 				msg.Components = &comp
@@ -1045,7 +1044,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 
 	contract.BoostPosition = 0
 	contract.StartTime = time.Now()
-	if contract.Style&ContractFlagCrt != 0 && contract.SRData.Legs != 0 {
+	if contract.Style&ContractFlagCrt != 0 && contract.SRData.Legs != 0 && contract.Banker.CrtSinkUserID != "" {
 		changeContractState(contract, ContractStateCRT)
 		// Do not mark the token sink as boosting at this point
 		// This will happen when the CRT completes
@@ -1119,7 +1118,7 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 			msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
 
 			// Full contract for speedrun
-			contentStr, comp := GetSignupComponents(len(contract.Order) < 1, contract.Style&ContractFlagCrt != 0) // True to get a disabled start button
+			contentStr, comp := GetSignupComponents(len(contract.Order) < 1, contract) // True to get a disabled start button
 			msg.SetContent(contentStr)
 			msg.Components = &comp
 			_, _ = s.ChannelMessageEditComplex(msg)
@@ -1564,25 +1563,25 @@ func FinishContract(s *discordgo.Session, contract *Contract) {
 }
 
 func reorderBoosters(contract *Contract) {
-	if contract.Speedrun {
-		reorderSpeedrunBoosters(contract)
-	} else {
-		switch contract.BoostOrder {
-		case ContractOrderSignup:
-			// Join Order
-		case ContractOrderReverse:
-			// Reverse Order
-			for i, j := 0, len(contract.Order)-1; i < j; i, j = i+1, j-1 {
-				contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i] //reverse the slice
-			}
-		case ContractOrderRandom:
-			rand.Shuffle(len(contract.Order), func(i, j int) {
-				contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i]
-			})
-		case ContractOrderFair:
-			newOrder := farmerstate.GetOrderHistory(contract.Order, 5)
-			contract.Order = removeDuplicates(newOrder)
+	switch contract.BoostOrder {
+	case ContractOrderSignup:
+		// Join Order
+	case ContractOrderReverse:
+		// Reverse Order
+		for i, j := 0, len(contract.Order)-1; i < j; i, j = i+1, j-1 {
+			contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i] //reverse the slice
 		}
+	case ContractOrderRandom:
+		rand.Shuffle(len(contract.Order), func(i, j int) {
+			contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i]
+		})
+	case ContractOrderFair:
+		newOrder := farmerstate.GetOrderHistory(contract.Order, 5)
+		contract.Order = removeDuplicates(newOrder)
+	}
+	//
+	if contract.Speedrun && contract.Banker.BoostingSinkUserID != "" {
+		reorderSpeedrunBoosters(contract)
 	}
 }
 
