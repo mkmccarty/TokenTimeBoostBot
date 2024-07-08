@@ -151,6 +151,7 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 	} else if disableStartContract {
 		startLabel = "Started"
 	}
+
 	if contract != nil {
 
 		// There needs to be at least one booster to start the contract
@@ -161,6 +162,9 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 		}
 		// If Banker style then we need to have at least a banker sink
 		if contract.Style&ContractFlagBanker != 0 && contract.Banker.BoostingSinkUserID == "" {
+			disableStartContract = true
+		}
+		if contract.State != ContractStateSignup {
 			disableStartContract = true
 		}
 		/*
@@ -305,7 +309,7 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 			})
 		}
 
-		if contract.Style&ContractFlagBanker != 0 {
+		if contract.State == ContractStateSignup && contract.Style&ContractFlagBanker != 0 {
 			name := "Sink Boosts First"
 			if contract.Banker.SinkBoostPosition == SinkBoostLast {
 				name = "Sink Boosts Last"
