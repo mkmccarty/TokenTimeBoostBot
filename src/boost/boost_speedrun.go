@@ -141,7 +141,7 @@ func HandleChangeSpeedrunSinkCommand(s *discordgo.Session, i *discordgo.Interact
 		sinkCrt = sinkCrt[2 : len(sinkCrt)-1]
 	}
 	if opt, ok := optionMap["sink-boosting"]; ok {
-		sinkPost = strings.TrimSpace(opt.StringValue())
+		sinkBoost = strings.TrimSpace(opt.StringValue())
 		reMention := regexp.MustCompile(`<@!?(\d+)>`)
 		if reMention.MatchString(sinkBoost) {
 			sinkBoost = sinkBoost[2 : len(sinkBoost)-1]
@@ -449,25 +449,26 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 	fmt.Fprintf(&builder, "Boosting Sink: %s\n", contract.Boosters[contract.Banker.BoostingSinkUserID].Mention)
 	fmt.Fprintf(&builder, "Post Sink: %s\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention)
 
-	disableButton := false
-	if contract.State != ContractStateSignup {
-		disableButton = true
-	}
-
-	// For each contract location, update the signup message
-	refreshBoostListMessage(s, contract)
-
 	for _, loc := range contract.Location {
-		// Rebuild the signup message to disable the start button
-		msgID := loc.ReactionID
-		msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
+		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
+		contentStr := DrawBoostList(s, contract)
+		msgedit.SetContent(contentStr)
+		msgedit.Flags = discordgo.MessageFlagsSuppressEmbeds
+		msg, err := s.ChannelMessageEditComplex(msgedit)
+		if err == nil {
+			loc.ListMsgID = msg.ID
+		}
+		if contract.State == ContractStateSignup {
 
-		contentStr, comp := GetSignupComponents(disableButton, contract) // True to get a disabled start button
-		msg.SetContent(contentStr)
-		msg.Components = &comp
-		_, _ = s.ChannelMessageEditComplex(msg)
+			msgID := loc.ReactionID
+			msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
+
+			contentStr, comp := GetSignupComponents(contract.State != ContractStateSignup, contract) // True to get a disabled start button
+			msg.SetContent(contentStr)
+			msg.Components = &comp
+			_, _ = s.ChannelMessageEditComplex(msg)
+		}
 	}
-
 	return builder.String(), nil
 }
 

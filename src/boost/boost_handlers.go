@@ -153,7 +153,7 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 
 		// There needs to be at least one booster to start the contract
 		if len(contract.Boosters) == 0 {
-			disableStartContract = true
+			disableStartContract = false
 		} else {
 			disableStartContract = false
 		}
