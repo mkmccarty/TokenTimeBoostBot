@@ -46,6 +46,7 @@ const slashPrune string = "prune"
 const slashJoin string = "join-contract"
 const slashSetEggIncName string = "seteggincname"
 const slashBump string = "bump"
+const slashContractSettings string = "contract-settings"
 const slashHelp string = "help"
 const slashSpeedrun string = "speedrun"
 const slashCoopETA string = "coopeta"
@@ -271,6 +272,10 @@ var (
 			Name:        slashHelp,
 			Description: "Help with Boost Bot commands.",
 		},
+		{
+			Name:        slashContractSettings,
+			Description: "Coordinator of contract can use this to show initial settings",
+		},
 	}
 
 	autocompleteHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
@@ -399,6 +404,9 @@ var (
 		},
 		slashBump: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleBumpCommand(s, i)
+		},
+		slashContractSettings: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleContractSettingsCommand(s, i)
 		},
 		slashChange: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleChangeCommand(s, i)
