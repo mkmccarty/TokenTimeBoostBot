@@ -10,6 +10,8 @@ import (
 func getSignupContractSettings(channelID string, id string) (string, []discordgo.MessageComponent) {
 	minValues := 1
 
+	// is this channelID a thread
+
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "Contract created in <#%s>\n", channelID)
 	builder.WriteString("Use the Contract button if you have to recycle it.\n")
@@ -262,7 +264,7 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 		},
 	})
 
-	if contract != nil && contract.State == ContractStateSignup {
+	if contract != nil {
 
 		type SinkList struct {
 			name   string
@@ -276,11 +278,13 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 		if contract.Style&ContractFlagFastrun != 0 && contract.Style&ContractFlagCrt == 0 {
 			sinkList = append(sinkList, SinkList{"Post Contract Sink", contract.Banker.PostSinkUserID, "postsink"})
 		} else {
-			if contract.Style&ContractFlagCrt != 0 && contract.SRData.Legs > 0 {
-				sinkList = append(sinkList, SinkList{"CRT Sink", contract.Banker.CrtSinkUserID, "crtsink"})
-			}
-			if contract.Style&ContractFlagBanker != 0 {
-				sinkList = append(sinkList, SinkList{"Boost Sink", contract.Banker.BoostingSinkUserID, "boostsink"})
+			if contract.State == ContractStateSignup {
+				if contract.Style&ContractFlagCrt != 0 && contract.SRData.Legs > 0 {
+					sinkList = append(sinkList, SinkList{"CRT Sink", contract.Banker.CrtSinkUserID, "crtsink"})
+				}
+				if contract.Style&ContractFlagBanker != 0 {
+					sinkList = append(sinkList, SinkList{"Boost Sink", contract.Banker.BoostingSinkUserID, "boostsink"})
+				}
 			}
 			sinkList = append(sinkList, SinkList{"Post Contract Sink", contract.Banker.PostSinkUserID, "postsink"})
 		}

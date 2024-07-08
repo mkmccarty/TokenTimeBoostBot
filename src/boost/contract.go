@@ -100,6 +100,16 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		})
 		return
 	}
+
+	// Initial response to the user
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content:    "Processing...",
+			Flags:      discordgo.MessageFlagsEphemeral,
+			Components: []discordgo.MessageComponent{}},
+	})
+
 	var contractID = i.GuildID
 	var coopID = i.GuildID // Default to the Guild ID
 	var boostOrder = ContractOrderSignup
@@ -150,13 +160,13 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			}
 		}
 		if !found {
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
+			_, _ = s.FollowupMessageCreate(i.Interaction, true,
+				&discordgo.WebhookParams{
 					Content:    "Select a contract-id from the dropdown list.\nIf the contract-id list doesn't have your contract then supply a coop-size parameter.",
 					Flags:      discordgo.MessageFlagsEphemeral,
-					Components: []discordgo.MessageComponent{}},
-			})
+					Components: []discordgo.MessageComponent{},
+				},
+			)
 			return
 		}
 	}
@@ -190,36 +200,37 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	mutex.Unlock()
 
 	if err != nil {
-
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
+		_, _ = s.FollowupMessageCreate(i.Interaction, true,
+			&discordgo.WebhookParams{
 				Content:    err.Error(),
 				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
-		})
+				Components: []discordgo.MessageComponent{},
+			},
+		)
 		return
 	}
 
 	if len(contract.Location) == 1 {
 		str, comp := getSignupContractSettings(contract.Location[0].ChannelID, contract.ContractHash)
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
+		if ChannelID != i.ChannelID {
+			str += "\nThis message can be moved into the contract thread via `/contract-settings` command in that thread."
+		}
+
+		_, _ = s.FollowupMessageCreate(i.Interaction, true,
+			&discordgo.WebhookParams{
 				Content:    str,
 				Flags:      discordgo.MessageFlagsEphemeral,
 				Components: comp,
 			},
-		})
+		)
 	} else {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
+		_, _ = s.FollowupMessageCreate(i.Interaction, true,
+			&discordgo.WebhookParams{
 				Content: "This contract was initiated in <#" + contract.Location[0].ChannelID + ">. The coordinator will take care of the options.",
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
-		})
+		)
 	}
 
 	var createMsg = DrawBoostList(s, contract)
@@ -472,4 +483,35 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{})
 
+}
+
+// HandleContractSettingsCommand will handle the /contract-settings command
+func HandleContractSettingsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	str := "Contract not found"
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing request...",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+	contract := FindContract(i.ChannelID)
+	if contract != nil {
+		str, comp := getSignupContractSettings(contract.Location[0].ChannelID, contract.ContractHash)
+		_, _ = s.FollowupMessageCreate(i.Interaction, true,
+			&discordgo.WebhookParams{
+				Content:    str,
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: comp,
+			},
+		)
+		return
+
+	}
+
+	_, _ = s.FollowupMessageCreate(i.Interaction, true,
+		&discordgo.WebhookParams{
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Content: str,
+		})
 }
