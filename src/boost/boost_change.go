@@ -204,7 +204,7 @@ func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if err != nil {
 			str += err.Error()
 		} else {
-			str += fmt.Sprintf("Current changed to <@%s>.", currentBooster)
+			str += fmt.Sprintf("Current changed to %s.", currentBooster)
 		}
 	}
 
