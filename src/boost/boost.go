@@ -281,7 +281,11 @@ func changeContractState(contract *Contract, newstate int) {
 	case ContractStateBanker:
 		contract.Banker.CurrentBanker = contract.Banker.BoostingSinkUserID
 	case ContractStateWaiting:
-		contract.Banker.CurrentBanker = contract.Banker.BoostingSinkUserID
+		if contract.Style&ContractFlagBanker != 0 {
+			contract.Banker.CurrentBanker = contract.Banker.BoostingSinkUserID
+		} else {
+			contract.Banker.CurrentBanker = contract.Banker.PostSinkUserID
+		}
 	case ContractStateCompleted:
 		contract.Banker.CurrentBanker = contract.Banker.PostSinkUserID
 	default:
