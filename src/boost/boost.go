@@ -1404,11 +1404,11 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 	if contract.CoopSize == 0 {
 		return errors.New(errorContractEmpty)
 	}
-
-	if contract.Speedrun {
-		return errors.New(errorSpeedrunContract)
-	}
-
+	/*
+		if contract.Speedrun {
+			return errors.New(errorSpeedrunContract)
+		}
+	*/
 	re := regexp.MustCompile(`[\\<>@#&!]`)
 	var userID = re.ReplaceAllString(mention, "")
 	userID = strings.TrimSpace(userID)
