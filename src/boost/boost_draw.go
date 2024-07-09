@@ -209,7 +209,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 				case BoostStateUnboosted:
 					outputStr += fmt.Sprintf("%s %s%s%s%s\n", prefix, name, signupCountStr, sinkIcon, server)
 				case BoostStateTokenTime:
-					outputStr += fmt.Sprintf("%s **%s** %s%s%s%s\n", prefix, name, signupCountStr, currentStartTime, sinkIcon, server)
+					outputStr += fmt.Sprintf("%s ➡️ **%s** %s%s%s%s\n", prefix, name, signupCountStr, currentStartTime, sinkIcon, server)
 				case BoostStateBoosted:
 					outputStr += fmt.Sprintf("%s ~~%s~~  %s %s%s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, chickenStr, server)
 				}
