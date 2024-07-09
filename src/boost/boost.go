@@ -42,7 +42,8 @@ const errorContractNotStarted = "contract hasn't started"
 const errorContractAlreadyStarted = "contract already started"
 const errorAlreadyBoosted = "farmer boosted already"
 const errorNotContractCreator = "restricted to contract creator"
-const errorSpeedrunContract = "not available for a speedrun contract"
+
+//const errorSpeedrunContract = "not available for a speedrun contract"
 
 // Create a slice with the names of the ContractState const names
 var contractStateNames = []string{
