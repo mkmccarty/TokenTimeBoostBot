@@ -1675,9 +1675,9 @@ func LoadContractData(filename string) {
 		}
 		if c.LengthInSeconds > 0 {
 			d := time.Duration(c.LengthInSeconds) * time.Second
-			days := int(d.Hours() / 24) // 2 days
-			c.ContractDurationInDays = days
-			c.ChickenRuns = min(20, (days*c.MaxCoopSize)/2)
+			days := d.Hours() / 24.0 // 2 days
+			c.ContractDurationInDays = int(days)
+			c.ChickenRuns = int(min(20.0, math.Ceil((days*float64(c.MaxCoopSize))/2.0)))
 
 		}
 		// Duration estimate
