@@ -167,11 +167,13 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 
 	var field []*discordgo.MessageEmbedField
 
+	URL := fmt.Sprintf("[%s](%s/%s/%s)", td.Name, "https://eicoop-carpet.netlify.app", td.ContractID, td.Name)
+
 	ts := td.DurationTime.Round(time.Minute).String()
 	if finalDisplay {
-		fmt.Fprintf(&description, "Final Token tracking for **%s**\n", td.Name)
+		fmt.Fprintf(&description, "Final Token tracking for **%s**\n", URL)
 	} else {
-		fmt.Fprintf(&description, "Token tracking for **%s**\n", td.Name)
+		fmt.Fprintf(&description, "Token tracking for **%s**\n", URL)
 	}
 	fmt.Fprintf(&description, "Start time: <t:%d:t>\n", td.StartTime.Unix())
 	fmt.Fprintf(&description, "Duration  : **%s**\n", ts[:len(ts)-2])
