@@ -310,9 +310,9 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 		}
 
 		if contract.State == ContractStateSignup && contract.Style&ContractFlagBanker != 0 {
-			name := "Sink Boosts First"
+			name := "Sink First (switch to Last)"
 			if contract.Banker.SinkBoostPosition == SinkBoostLast {
-				name = "Sink Boosts Last"
+				name = "Sink Last (switch to First)"
 			}
 
 			mComp = append(mComp, discordgo.Button{
