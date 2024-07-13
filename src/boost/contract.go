@@ -80,7 +80,7 @@ func GetSlashContractCommand(cmd string) *discordgo.ApplicationCommand {
 			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "make-thread",
-				Description: "Create a thread for this contract? (default: false)",
+				Description: "Create a thread for this contract? (default: true)",
 				Required:    false,
 			},
 		},
@@ -116,7 +116,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	var coopSize = 0
 	var ChannelID = i.ChannelID
 	var pingRole = "@here"
-	makeThread := false
+	makeThread := true // Default is to always make a thread
 
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
@@ -148,9 +148,24 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			coopID = c.Name
 		}
 	}
-	if opt, ok := optionMap["make-thread"]; ok {
-		makeThread = opt.BoolValue()
+
+	ch, err := s.Channel(i.ChannelID)
+	if err == nil {
+		if ch.IsThread() {
+			makeThread = false
+		} else {
+			perms, err := s.State.UserChannelPermissions(config.DiscordAppID, i.ChannelID)
+			if err == nil && perms&discordgo.PermissionCreatePublicThreads != 0 {
+				if opt, ok := optionMap["make-thread"]; ok {
+					makeThread = opt.BoolValue()
+				}
+			} else {
+				makeThread = false
+			}
+
+		}
 	}
+	// Is the bot allowed to create a thread?
 
 	if coopSize == 0 {
 		found := false
@@ -173,25 +188,20 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	// Create a new thread for this contract
 	if makeThread {
-		ch, err := s.Channel(ChannelID)
-		if err == nil {
-			if !ch.IsThread() {
-				// Default to 1 day timeout
-				var builder strings.Builder
-				builder.WriteString(coopID)
-				info := ei.EggIncContractsAll[contractID]
-				if info.ID != "" {
-					fmt.Fprintf(&builder, " (0/%d)", info.MaxCoopSize)
-				}
+		// Default to 1 day timeout
+		var builder strings.Builder
+		builder.WriteString(coopID)
+		info := ei.EggIncContractsAll[contractID]
+		if info.ID != "" {
+			fmt.Fprintf(&builder, " (0/%d)", info.MaxCoopSize)
+		}
 
-				thread, err := s.ThreadStart(ChannelID, builder.String(), discordgo.ChannelTypeGuildPublicThread, 60*24)
-				if err == nil {
-					ChannelID = thread.ID
-					_ = s.ThreadJoin(getInteractionUserID(i))
-				} else {
-					log.Print(err)
-				}
-			}
+		thread, err := s.ThreadStart(ChannelID, builder.String(), discordgo.ChannelTypeGuildPublicThread, 60*24)
+		if err == nil {
+			ChannelID = thread.ID
+			_ = s.ThreadJoin(getInteractionUserID(i))
+		} else {
+			log.Print(err)
 		}
 	}
 
