@@ -37,7 +37,7 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 	}
 
 	// Only allow command if users is in the admin list
-	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
+	perms, err := s.State.UserChannelPermissions(userID, i.ChannelID)
 	if err != nil {
 		log.Println(err)
 	}
