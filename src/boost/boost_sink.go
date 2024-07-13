@@ -73,7 +73,7 @@ func HandleSlashVolunteerSinkCommand(s *discordgo.Session, i *discordgo.Interact
 		}
 
 		isAdmin := false
-		perms, err := s.UserChannelPermissions(userID, i.Interaction.ChannelID)
+		perms, err := s.State.UserChannelPermissions(userID, i.Interaction.ChannelID)
 		if err == nil {
 			if perms&discordgo.PermissionAdministrator != 0 {
 				isAdmin = true
@@ -144,7 +144,7 @@ func HandleSlashVoluntellSinkCommand(s *discordgo.Session, i *discordgo.Interact
 		}
 
 		isAdmin := false
-		perms, err := s.UserChannelPermissions(userID, i.Interaction.ChannelID)
+		perms, err := s.State.UserChannelPermissions(userID, i.Interaction.ChannelID)
 		if err == nil {
 			if perms&discordgo.PermissionAdministrator != 0 {
 				isAdmin = true
