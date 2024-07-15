@@ -32,7 +32,7 @@ func UpdateThreadName(s *discordgo.Session, contract *Contract) {
 		currentTime := contract.PlannedStartTime.In(nyTime)
 
 		// Format the current time as a string
-		formattedTime := currentTime.Format("15:04pm MST")
+		formattedTime := currentTime.Format("3:04pm MST")
 
 		// Append the formatted time to the thread name
 		builder.WriteString(" " + formattedTime)
