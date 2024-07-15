@@ -763,7 +763,7 @@ func creatorOfContract(s *discordgo.Session, c *Contract, u string) bool {
 			}
 		}
 		for _, el := range c.Location {
-			perms, err := s.State.UserChannelPermissions(u, el.ChannelID)
+			perms, err := s.UserChannelPermissions(u, el.ChannelID)
 			if err != nil {
 				log.Println(err)
 			}

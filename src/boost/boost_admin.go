@@ -26,7 +26,7 @@ func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCre
 
 	userID := getInteractionUserID(i)
 
-	perms, err := s.State.UserChannelPermissions(userID, i.ChannelID)
+	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
 	if err != nil {
 		log.Println(err)
 	}
@@ -68,7 +68,7 @@ func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreat
 	userID := getInteractionUserID(i)
 
 	// Only allow command if users is in the admin list
-	perms, err := s.State.UserChannelPermissions(userID, i.ChannelID)
+	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
 	if err != nil {
 		log.Println(err)
 	}
