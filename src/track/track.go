@@ -332,18 +332,18 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 			Inline: true,
 		})
 
-		if td.MinutesPerToken != 0 {
-			BTA := td.DurationTime.Minutes() / float64(td.MinutesPerToken)
-			targetTval := 3.0
-			if BTA > 42.0 {
-				targetTval = 0.07 * BTA
-			}
-			field = append(field, &discordgo.MessageEmbedField{
-				Name:   "Target TVal",
-				Value:  fmt.Sprintf("%4.3f", targetTval),
-				Inline: true,
-			})
+	}
+	if td.MinutesPerToken != 0 {
+		BTA := td.DurationTime.Minutes() / float64(td.MinutesPerToken)
+		targetTval := 3.0
+		if BTA > 42.0 {
+			targetTval = 0.07 * BTA
 		}
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   "Target TVal",
+			Value:  fmt.Sprintf("%4.3f", targetTval),
+			Inline: true,
+		})
 	}
 
 	footerStr := "For the most accurate values make sure the start time and total contract time is accurate."
