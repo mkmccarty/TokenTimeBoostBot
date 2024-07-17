@@ -79,7 +79,7 @@ func HandleRenameThreadCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			// Provide help on the command
 			fmt.Fprint(&builder, "You can use the following variables in the thread name:\n")
 			fmt.Fprint(&builder, "$NAME, $N - The name of the contract\n")
-			fmt.Fprint(&builder, "$COUNT, $C  - The status of the contract\n")
+			fmt.Fprint(&builder, "$COUNT, $C  - Signup count of the contract\n")
 			fmt.Fprint(&builder, "$STYLE, $S - The style of the contract\n")
 			fmt.Fprint(&builder, "$TIME, $T - The start time of the contract, If time not set will be TBD\n")
 			fmt.Fprint(&builder, "\n")
