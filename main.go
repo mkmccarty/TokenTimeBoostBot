@@ -59,6 +59,7 @@ const slashVoluntellSink string = "voluntell-sink"
 const slashLinkAlternate string = "link-alternate"
 const slashTeamworkEval string = "teamwork-eval"
 const slashEstimateTime string = "estimate-contract-time"
+const slashRenameThread string = "rename-thread"
 const slashFun string = "fun"
 
 var integerZeroMinValue float64 = 0.0
@@ -154,6 +155,7 @@ var (
 
 		boost.GetSlashContractCommand(slashContract),
 		boost.GetSlashSpeedrunCommand(slashSpeedrun),
+		boost.GetSlashRenameThread(slashRenameThread),
 
 		boost.GetSlashChangeSpeedRunSinkCommand(slashChangeSpeedRunSink),
 		{
@@ -422,6 +424,9 @@ var (
 		},
 		slashLinkAlternate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleLinkAlternateCommand(s, i)
+		},
+		slashRenameThread: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleRenameThreadCommand(s, i)
 		},
 		slashHelp: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleHelpCommand(s, i)
