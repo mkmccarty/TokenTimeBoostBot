@@ -710,16 +710,19 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		}
 		contract.RegisteredNum = len(contract.Boosters)
 
-		if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
-			if len(contract.Order) == 1 {
-				// Reset contract sink to the first booster to signup
-				contract.Banker.CrtSinkUserID = contract.Order[0]
-				contract.Banker.BoostingSinkUserID = contract.Order[0]
-				contract.Banker.PostSinkUserID = contract.Order[0]
-			}
+		/*
+			// Disabling this for now, leave the signup open
+				if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
+					if len(contract.Order) == 1 {
+						// Reset contract sink to the first booster to signup
+						contract.Banker.CrtSinkUserID = contract.Order[0]
+						contract.Banker.BoostingSinkUserID = contract.Order[0]
+						contract.Banker.PostSinkUserID = contract.Order[0]
+					}
 
-			calculateTangoLegs(contract, true)
-		}
+					calculateTangoLegs(contract, true)
+				}
+		*/
 
 		if contract.State == ContractStateWaiting {
 			// Reactivate the contract
