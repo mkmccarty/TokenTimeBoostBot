@@ -115,7 +115,7 @@ func generateThreadName(c *Contract) string {
 			threadName += " $T"
 		}
 	}
-	if strings.Contains(threadName, "$S") || strings.Contains(threadName, "$S") {
+	if strings.Contains(threadName, "$STYLE") || strings.Contains(threadName, "$S") {
 		var styleStr string
 		if c.Style&ContractFlagBanker != 0 {
 			styleStr += "Banker"
