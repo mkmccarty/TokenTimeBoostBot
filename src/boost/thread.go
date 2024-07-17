@@ -78,10 +78,10 @@ func HandleRenameThreadCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		if strings.HasPrefix(threadName, "help") {
 			// Provide help on the command
 			fmt.Fprint(&builder, "You can use the following variables in the thread name:\n")
-			fmt.Fprint(&builder, "$COOP_NAME - The name of the contract\n")
-			fmt.Fprint(&builder, "$COOP_SIGNUP_STATUS - The status of the contract\n")
-			fmt.Fprint(&builder, "$COOP_STYLE - The style of the contract\n")
-			fmt.Fprint(&builder, "$COOP_TIME - The start time of the contract, If time not set will be TBD\n")
+			fmt.Fprint(&builder, "$NAME, $N - The name of the contract\n")
+			fmt.Fprint(&builder, "$COUNT, $C  - The status of the contract\n")
+			fmt.Fprint(&builder, "$STYLE, $S - The style of the contract\n")
+			fmt.Fprint(&builder, "$TIME, $T - The start time of the contract, If time not set will be TBD\n")
 			fmt.Fprint(&builder, "\n")
 			fmt.Fprint(&builder, "clear - Clear the thread name and use the default\n")
 		} else if strings.HasPrefix(threadName, "clear") {
@@ -107,15 +107,15 @@ func HandleRenameThreadCommand(s *discordgo.Session, i *discordgo.InteractionCre
 func generateThreadName(c *Contract) string {
 	var threadName = c.ThreadName
 	//For example I tell BB that I want to name the thread
-	//"CRT rerun with GG". Can I then later do 🌊 and have BB update the name to "CRT rerun with GG $COOP_NAME [$COOP_TIME] ($COOP_SIGNUP_STATUS)"?
+	//"CRT rerun with GG". Can I then later do 🌊 and have BB update the name to "CRT rerun with GG $NAME [$TIME] ($STATUS)"?
 
 	if threadName == "" {
-		threadName = "$COOP_NAME $COOP_SIGNUP_STATUS"
+		threadName = "$N $C"
 		if !c.PlannedStartTime.IsZero() && c.State == ContractStateSignup {
-			threadName += " $COOP_TIME"
+			threadName += " $T"
 		}
 	}
-	if strings.Contains(threadName, "$COOP_STYLE") {
+	if strings.Contains(threadName, "$S") || strings.Contains(threadName, "$S") {
 		var styleStr string
 		if c.Style&ContractFlagBanker != 0 {
 			styleStr += "Banker"
@@ -125,10 +125,12 @@ func generateThreadName(c *Contract) string {
 		if c.Style&ContractFlagCrt != 0 {
 			styleStr += "+CRT"
 		}
-		threadName = strings.Replace(threadName, "$COOP_STYLE", styleStr, -1)
+		threadName = strings.Replace(threadName, "$STYLE", styleStr, -1)
+		threadName = strings.Replace(threadName, "$S", styleStr, -1)
+
 	}
 
-	if strings.Contains(threadName, "$COOP_TIME") {
+	if strings.Contains(threadName, "$TIME") || strings.Contains(threadName, "$T") {
 		if !c.PlannedStartTime.IsZero() && c.State == ContractStateSignup {
 			nyTime, err := time.LoadLocation("America/New_York")
 			if err == nil {
@@ -138,22 +140,26 @@ func generateThreadName(c *Contract) string {
 				formattedTime := currentTime.Format("3:04pm MST")
 
 				// Append the formatted time to the thread name
-				threadName = strings.Replace(threadName, "$COOP_TIME", formattedTime, -1)
+				threadName = strings.Replace(threadName, "$TIME", formattedTime, -1)
+				threadName = strings.Replace(threadName, "$T", formattedTime, -1)
 			}
 		} else if c.State == ContractStateSignup {
-			threadName = strings.Replace(threadName, "$COOP_TIME", "TBD", -1)
+			threadName = strings.Replace(threadName, "$TIME", "TBD", -1)
+			threadName = strings.Replace(threadName, "$T", "TBD", -1)
 		}
 	}
-	threadName = strings.Replace(threadName, "$COOP_NAME", c.CoopID, -1)
+	threadName = strings.Replace(threadName, "$NAME", c.CoopID, -1)
+	threadName = strings.Replace(threadName, "$N", c.CoopID, -1)
 
-	if strings.Contains(threadName, "$COOP_SIGNUP_STATUS") {
+	if strings.Contains(threadName, "$COUNT") || strings.Contains(threadName, "$C") {
 		var statusStr string
 		if len(c.Order) != c.CoopSize {
 			statusStr = fmt.Sprintf("(%d/%d)", len(c.Order), c.CoopSize)
 		} else {
 			statusStr = "Full"
 		}
-		threadName = strings.Replace(threadName, "$COOP_SIGNUP_STATUS", statusStr, -1)
+		threadName = strings.Replace(threadName, "$COUNT", statusStr, -1)
+		threadName = strings.Replace(threadName, "$C", statusStr, -1)
 	}
 	return threadName
 }
