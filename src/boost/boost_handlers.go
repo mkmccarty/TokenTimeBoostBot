@@ -7,7 +7,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func getSignupContractSettings(channelID string, id string) (string, []discordgo.MessageComponent) {
+func getSignupContractSettings(channelID string, id string, thread bool) (string, []discordgo.MessageComponent) {
 	minValues := 1
 
 	// is this channelID a thread
@@ -17,7 +17,11 @@ func getSignupContractSettings(channelID string, id string) (string, []discordgo
 	builder.WriteString("Use the Contract button if you have to recycle it.\n")
 	builder.WriteString("**Use the menus to set your contract style. These will work until the contract is started.**\n")
 	builder.WriteString("If this contract isn't an immediate start use `/change-planned-start` to add the time to the sign-up message.\n")
-	builder.WriteString("React with 🌊 on the boost list to automaticaly update the thread name.")
+	if thread {
+		builder.WriteString("React with 🌊 on the boost list to automaticaly update the thread name (`/rename-thread`).")
+	} else {
+		builder.WriteString("This contract is in a channel and it cannot be renamed. Create it in a thread to permit renaming.")
+	}
 
 	return builder.String(), []discordgo.MessageComponent{
 		discordgo.ActionsRow{

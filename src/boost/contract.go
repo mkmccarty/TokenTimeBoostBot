@@ -221,7 +221,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 
 	if len(contract.Location) == 1 {
-		str, comp := getSignupContractSettings(contract.Location[0].ChannelID, contract.ContractHash)
+		str, comp := getSignupContractSettings(contract.Location[0].ChannelID, contract.ContractHash, makeThread)
 
 		if ChannelID != i.ChannelID {
 			str += "\nThis message can be moved into the contract thread via `/contract-settings` command in that thread."
@@ -507,7 +507,12 @@ func HandleContractSettingsCommand(s *discordgo.Session, i *discordgo.Interactio
 	})
 	contract := FindContract(i.ChannelID)
 	if contract != nil {
-		str, comp := getSignupContractSettings(contract.Location[0].ChannelID, contract.ContractHash)
+		inThread := false
+		ch, err := s.Channel(i.ChannelID)
+		if err == nil && ch.IsThread() {
+			inThread = true
+		}
+		str, comp := getSignupContractSettings(contract.Location[0].ChannelID, contract.ContractHash, inThread)
 		_, _ = s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
 				Content:    str,
