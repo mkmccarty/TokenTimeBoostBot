@@ -193,7 +193,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 				server = fmt.Sprintf(" (%s) ", b.GuildName)
 			}
 			var chickenStr = ""
-			if time.Since(b.RunChickensTime) < 5*time.Minute {
+			//if time.Since(b.RunChickensTime) < 10*time.Minute {
+			if !b.RunChickensTime.IsZero() {
 				chickenStr = fmt.Sprintf(" - <t:%d:R>%s>", b.RunChickensTime.Unix(), contract.ChickenRunEmoji)
 			}
 
