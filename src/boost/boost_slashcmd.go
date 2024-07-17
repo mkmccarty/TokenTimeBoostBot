@@ -17,36 +17,7 @@ func UpdateThreadName(s *discordgo.Session, contract *Contract) {
 		return
 	}
 	var builder strings.Builder
-	builder.WriteString(contract.CoopID + " ")
-	if len(contract.Order) != contract.CoopSize {
-		fmt.Fprintf(&builder, "(%d/%d)", len(contract.Order), contract.CoopSize)
-	} else {
-		builder.WriteString(" (full)")
-	}
-	if !contract.PlannedStartTime.IsZero() && contract.State == ContractStateSignup {
-		nyTime, err := time.LoadLocation("America/New_York")
-		if err != nil {
-			log.Println("Failed to load New York time zone:", err)
-			return
-		}
-		currentTime := contract.PlannedStartTime.In(nyTime)
-
-		// Format the current time as a string
-		formattedTime := currentTime.Format("3:04pm MST")
-
-		// Append the formatted time to the thread name
-		builder.WriteString(" " + formattedTime)
-
-	}
-	/*
-		if contract.Speedrun {
-			builder.WriteString(" " + speedrunStateNames[contract.SRData.SpeedrunState])
-		} else {
-			builder.WriteString(" " + contractStateNames[contract.State])
-
-			// Get the current time in New York
-		}
-	*/
+	builder.WriteString(generateThreadName(contract))
 
 	for _, loc := range contract.Location {
 		ch, err := s.Channel(loc.ChannelID)
