@@ -34,6 +34,7 @@ type tokenValue struct {
 	Name             string        // Tracking name for this contract
 	ChannelID        string        // The channel ID that is tracking the token value
 	ContractID       string        // The contract ID
+	CoopID           string        // The coop ID
 	Linked           bool          // If the tracker is linked to channel contract
 	LinkRecieved     bool          // If linked, log the received tokens
 	ChannelMention   string        // The channel mention
@@ -167,7 +168,12 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 
 	var field []*discordgo.MessageEmbedField
 
-	URL := fmt.Sprintf("[%s](%s/%s/%s)", td.Name, "https://eicoop-carpet.netlify.app", td.ContractID, td.Name)
+	// TODO: Remove this block after 7/25/2024
+	if td.CoopID == "" {
+		td.CoopID = td.Name
+	}
+
+	URL := fmt.Sprintf("[%s](%s/%s/%s)", td.CoopID, "https://eicoop-carpet.netlify.app", td.ContractID, td.CoopID)
 
 	ts := td.DurationTime.Round(time.Minute).String()
 	if finalDisplay {
@@ -379,6 +385,7 @@ func getTrack(userID string, name string) (*tokenValue, error) {
 		Tokens[userID].Coop[name].UserID = userID
 		resetTokenTracking(Tokens[userID].Coop[name])
 		Tokens[userID].Coop[name].Name = name
+		Tokens[userID].Coop[name].CoopID = name
 	}
 	return Tokens[userID].Coop[name], nil
 }

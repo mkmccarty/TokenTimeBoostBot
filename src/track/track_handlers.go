@@ -82,11 +82,22 @@ func HandleTokenEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				discordgo.ActionsRow{
 					Components: []discordgo.MessageComponent{
 						discordgo.TextInput{
+							CustomID:    "coop-id",
+							Label:       "Coop ID",
+							Style:       discordgo.TextInputShort,
+							Placeholder: t.CoopID,
+							Required:    false,
+						},
+					},
+				},
+				discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.TextInput{
 							CustomID:    "duration",
 							Label:       "Total Duration",
 							Style:       discordgo.TextInputShort,
 							Placeholder: t.DurationTime.Round(time.Second).String(),
-							Required:    true,
+							Required:    false,
 							MaxLength:   10,
 							MinLength:   2,
 						},
@@ -98,9 +109,9 @@ func HandleTokenEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 							CustomID:    "since-start",
 							Label:       "How long ago did this start?",
 							Style:       discordgo.TextInputShort,
-							Placeholder: fmt.Sprintf("%s ago. Example: 1h30m", time.Since(t.StartTime).Round(time.Minute).String()),
+							Placeholder: fmt.Sprintf("%s ago. Example: 1h30m, or discord timestamp of start.", time.Since(t.StartTime).Round(time.Minute).String()),
 							Required:    false,
-							MaxLength:   10,
+							MaxLength:   30,
 							MinLength:   2,
 						},
 					},
