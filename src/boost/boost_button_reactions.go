@@ -136,6 +136,8 @@ func buttonReactionBoost(s *discordgo.Session, GuildID string, ChannelID string,
 
 	if userID != contract.Order[contract.BoostPosition] {
 		b := contract.Boosters[contract.Order[contract.BoostPosition]]
+		// TODO: This is currently not a unique list of userID's, maybe needs to be a unqiue insert,
+		// but it's not a big deal in practice.
 		b.VotingList = append(b.VotingList, userID)
 		votesNeeded := 2
 		if len(b.VotingList) >= votesNeeded {
