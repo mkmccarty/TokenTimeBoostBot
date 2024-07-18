@@ -258,6 +258,11 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 		}
 	}
 
+	if contract.Boosters[userID].BoostState == BoostStateBoosted && !contract.Boosters[userID].RunChickensTime.IsZero() {
+		// Already asked for chicken runs
+		return false, "You've already asked for Chicken Runs, if you have an alternate use `/link-alternate` to link them to your main account and then ask for chicken runs."
+	}
+
 	if contract.Boosters[userID].BoostState == BoostStateBoosted && contract.Boosters[userID].RunChickensTime.IsZero() {
 
 		contract.Boosters[userID].RunChickensTime = time.Now()
