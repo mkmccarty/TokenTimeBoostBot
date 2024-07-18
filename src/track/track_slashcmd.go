@@ -297,7 +297,7 @@ func HandleTrackerEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 					str += fmt.Sprintf("\nUpdate start time to <t:%d:R>", t.StartTime.Unix())
 				} else {
 					str += "\nInvalid start time format. Enter how long ago the contract started. Use something like 1h35m."
-					str = "Optionally enter a timestamp from [Discord Timestamp](https://discordtimestamp.com)"
+					str += "Optionally enter a timestamp from [Discord Timestamp](https://discordtimestamp.com)"
 				}
 			}
 		}
