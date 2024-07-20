@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -109,7 +110,20 @@ func HandleTokenEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 							CustomID:    "since-start",
 							Label:       "How long ago did this start?",
 							Style:       discordgo.TextInputShort,
-							Placeholder: fmt.Sprintf("%s ago. Example: 1h30m, or discord timestamp of start.", time.Since(t.StartTime).Round(time.Minute).String()),
+							Placeholder: fmt.Sprintf("%s (ago), or use timestamp", strings.Replace(time.Since(t.StartTime).Round(time.Minute).String(), "0s", "", -1)),
+							Required:    false,
+							MaxLength:   30,
+							MinLength:   2,
+						},
+					},
+				},
+				discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.TextInput{
+							CustomID:    "start-timestamp",
+							Label:       "Start Timestamp",
+							Style:       discordgo.TextInputShort,
+							Placeholder: fmt.Sprintf("<t:%d:t> or %d.  Discord timestamp", t.StartTime.Unix(), t.StartTime.Unix()),
 							Required:    false,
 							MaxLength:   30,
 							MinLength:   2,
