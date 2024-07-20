@@ -266,7 +266,7 @@ func HandleTrackerEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				str = "Invalid duration format. Use something like 19h35m."
 			}
 		}
-		if input.CustomID == "since-start" && input.Value != "" {
+		if input.CustomID == "start-timestamp" && input.Value != "" {
 			var err error
 			// Timespan of the contract duration
 			contractTimespan := strings.TrimSpace(input.Value)
@@ -284,21 +284,26 @@ func HandleTrackerEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				t.StartTime = time.Unix(contracTime, 0)
 				t.EstimatedEndTime = t.StartTime.Add(t.DurationTime)
 			} else {
+				str = "Optionally enter a timestamp from [Discord Timestamp](https://discordtimestamp.com)"
+			}
+		}
+		if input.CustomID == "since-start" && input.Value != "" {
+			var err error
+			// Timespan of the contract duration
+			contractTimespan := strings.TrimSpace(input.Value)
 
-				contractTimespan = strings.Replace(contractTimespan, "day", "d", -1)
-				contractTimespan = strings.Replace(contractTimespan, "hr", "h", -1)
-				contractTimespan = strings.Replace(contractTimespan, "min", "m", -1)
-				contractTimespan = strings.Replace(contractTimespan, "sec", "s", -1)
-				sinceStart, err := str2duration.ParseDuration(contractTimespan)
-				if err == nil {
-					// Invalid duration, just assigning a 12h
-					t.StartTime = time.Now().Add(-sinceStart)
-					t.EstimatedEndTime = t.StartTime.Add(t.DurationTime)
-					str += fmt.Sprintf("\nUpdate start time to <t:%d:R>", t.StartTime.Unix())
-				} else {
-					str += "\nInvalid start time format. Enter how long ago the contract started. Use something like 1h35m."
-					str += "Optionally enter a timestamp from [Discord Timestamp](https://discordtimestamp.com)"
-				}
+			contractTimespan = strings.Replace(contractTimespan, "day", "d", -1)
+			contractTimespan = strings.Replace(contractTimespan, "hr", "h", -1)
+			contractTimespan = strings.Replace(contractTimespan, "min", "m", -1)
+			contractTimespan = strings.Replace(contractTimespan, "sec", "s", -1)
+			sinceStart, err := str2duration.ParseDuration(contractTimespan)
+			if err == nil {
+				// Invalid duration, just assigning a 12h
+				t.StartTime = time.Now().Add(-sinceStart)
+				t.EstimatedEndTime = t.StartTime.Add(t.DurationTime)
+				str += fmt.Sprintf("\nUpdate start time to <t:%d:R>", t.StartTime.Unix())
+			} else {
+				str += "\nInvalid start time format. Enter how long ago the contract started. Use something like 1h35m."
 			}
 		}
 	}
