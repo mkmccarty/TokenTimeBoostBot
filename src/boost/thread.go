@@ -95,7 +95,7 @@ func HandleRenameThreadCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		}
 
 		if c.ThreadName != "" {
-			fmt.Fprintf(&builder, "\n\nThe thread name is currently set to:\n> %s", c.Name)
+			fmt.Fprintf(&builder, "\n\nThe thread name is currently set to:\n> %s", c.ThreadName)
 		}
 	}
 
