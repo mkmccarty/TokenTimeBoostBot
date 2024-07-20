@@ -246,11 +246,11 @@ func HandleTrackerEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	data := i.ModalSubmitData()
 	for _, comp := range data.Components {
 		input := comp.(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput)
-		if input.CustomID == "coop-id" {
+		if input.CustomID == "coop-id" && input.Value != "" {
 			coopID := strings.TrimSpace(input.Value)
 			t.CoopID = coopID
 		}
-		if input.CustomID == "duration" {
+		if input.CustomID == "duration" && input.Value != "" {
 			// Timespan of the contract duration
 			contractTimespan := strings.TrimSpace(input.Value)
 			contractTimespan = strings.Replace(contractTimespan, "day", "d", -1)
