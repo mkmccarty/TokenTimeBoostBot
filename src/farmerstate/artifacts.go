@@ -1,12 +1,6 @@
 package farmerstate
 
-import (
-	"fmt"
-	"strings"
-
-	"github.com/bwmarrin/discordgo"
-)
-
+/*
 func getArtifactsComponents(userID string) (string, []discordgo.MessageComponent) {
 	minValues := 1
 
@@ -70,3 +64,4 @@ func getArtifactsComponents(userID string) (string, []discordgo.MessageComponent
 	}
 
 }
+*/
