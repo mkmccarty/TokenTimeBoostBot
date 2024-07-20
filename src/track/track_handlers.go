@@ -97,7 +97,7 @@ func HandleTokenEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 							CustomID:    "duration",
 							Label:       "Total Duration",
 							Style:       discordgo.TextInputShort,
-							Placeholder: t.DurationTime.Round(time.Second).String(),
+							Placeholder: strings.Replace(t.DurationTime.Round(time.Minute).String(), "0s", "", -1),
 							Required:    false,
 							MaxLength:   10,
 							MinLength:   2,
