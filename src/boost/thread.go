@@ -93,6 +93,10 @@ func HandleRenameThreadCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			fmt.Fprintf(&builder, "> %s", generateThreadName(c))
 			fmt.Fprint(&builder, "\nUse the 🌊 reaction to rename the thread.")
 		}
+
+		if c.ThreadName != "" {
+			fmt.Fprintf(&builder, "\n\nThe thread name is currently set to:\n> %s", c.Name)
+		}
 	}
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
