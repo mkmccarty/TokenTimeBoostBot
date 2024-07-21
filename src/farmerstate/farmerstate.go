@@ -2,12 +2,20 @@ package farmerstate
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/peterbourgon/diskv/v3"
 )
+
+// Link will hold bookmark links
+type Link struct {
+	Link      string    `json:"Link"`
+	Timestamp time.Time `json:"Timestamp"`
+}
 
 // Farmer struct to store user data
 type Farmer struct {
@@ -22,6 +30,7 @@ type Farmer struct {
 	MissionShipSecondary int    // Launch Helper Ship Selection - Secondary
 	MiscSettingsFlag     map[string]bool
 	MiscSettingsString   map[string]string
+	Links                []Link // Array of Links
 }
 
 // OrderHistory struct to store order history data
@@ -325,6 +334,55 @@ func GetMiscSettingString(userID string, key string) string {
 		return farmer.MiscSettingsString[key]
 	}
 	return ""
+}
+
+// GetLinks will return a slice of bookmark links
+func GetLinks(userID string) []string {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+
+	var retLinks []string
+	// Collect all Links.link into a slice
+	for _, link := range farmerstate[userID].Links {
+		retLinks = append(retLinks, link.Link)
+	}
+
+	return retLinks
+}
+
+// SetLink will store a link for a user
+func SetLink(userID string, description string, guildID string, channelID string, messageID string) {
+	//	link := fmt.Sprintf("https://discordapp.com/channels/%s/%s/%s", contract.Location[0].GuildID, contract.Location[0].ChannelID, contract.SRData.ChickenRunCheckMsgID)
+	//
+	// fmt.Fprintf(&builder, "\n[link to Chicken Run Check Status](%s)\n", link)
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+	var link Link
+	var strURL string
+	link.Timestamp = time.Now()
+	if messageID == "" {
+		link.Link = description + " <#" + channelID + ">"
+	} else if guildID != "" {
+		strURL = "https://discordapp.com/channels/" + guildID + "/" + channelID + "/" + messageID
+		link.Link = fmt.Sprintf("%s %s", description, strURL)
+	} else {
+		// https://discord.com/channels/@me/1124490885204287610/1264231460244815913
+		strURL = "https://discordapp.com/channels/@me/" + channelID + "/" + messageID
+		link.Link = fmt.Sprintf("%s %s", description, strURL)
+	}
+
+	newList := append(farmerstate[userID].Links, link)
+	farmerstate[userID].Links = nil
+	// Prune farmerstate links older than 2 days
+	for _, el := range newList {
+		if el.Timestamp.Before(time.Now().Add(-48 * time.Hour)) {
+			farmerstate[userID].Links = append(farmerstate[userID].Links, el)
+		}
+	}
+	saveData(farmerstate)
+
 }
 
 // AdvancedTransform for storing KV pairs
