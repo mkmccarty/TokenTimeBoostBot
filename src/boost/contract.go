@@ -110,6 +110,18 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			Components: []discordgo.MessageComponent{}},
 	})
 
+	ch, err := s.Channel(i.ChannelID)
+	if err != nil {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true,
+			&discordgo.WebhookParams{
+				Content:    "No permissions to write to this channel.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{},
+			},
+		)
+		return
+	}
+
 	var contractID = i.GuildID
 	var coopID = i.GuildID // Default to the Guild ID
 	var boostOrder = ContractOrderSignup
@@ -149,22 +161,19 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		}
 	}
 
-	ch, err := s.Channel(i.ChannelID)
-	if err == nil {
-		if ch.IsThread() {
-			makeThread = false
-		} else {
-			perms, err := s.UserChannelPermissions(config.DiscordAppID, i.ChannelID)
-			if err == nil && perms&discordgo.PermissionCreatePublicThreads != 0 {
-				if opt, ok := optionMap["make-thread"]; ok {
-					makeThread = opt.BoolValue()
-				}
-			} else {
-				makeThread = false
+	if ch.IsThread() {
+		makeThread = false
+	} else {
+		perms, err := s.UserChannelPermissions(config.DiscordAppID, i.ChannelID)
+		if err == nil && perms&discordgo.PermissionCreatePublicThreads != 0 {
+			if opt, ok := optionMap["make-thread"]; ok {
+				makeThread = opt.BoolValue()
 			}
-
+		} else {
+			makeThread = false
 		}
 	}
+
 	// Is the bot allowed to create a thread?
 
 	if coopSize == 0 {
