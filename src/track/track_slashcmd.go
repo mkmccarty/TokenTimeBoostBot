@@ -8,6 +8,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/moby/moby/pkg/namesgenerator"
 	"github.com/xhit/go-str2duration/v2"
 )
@@ -208,6 +209,8 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, co
 		Tokens[userID].Coop[trackingName].UserChannelID = u.ID
 
 		str += "Interact with the bot on " + u.Mention() + " to track your token values."
+		farmerstate.SetLink(userID, "Tracking:"+trackingName, i.GuildID, i.ChannelID, "")
+		farmerstate.SetLink(userID, "Tracker:"+trackingName, "", u.ID, msg.ID)
 	}
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
