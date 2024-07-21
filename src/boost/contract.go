@@ -164,6 +164,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	if ch.IsThread() {
 		makeThread = false
 	} else {
+		// Is the bot allowed to create a thread?
 		perms, err := s.UserChannelPermissions(config.DiscordAppID, i.ChannelID)
 		if err == nil && perms&discordgo.PermissionCreatePublicThreads != 0 {
 			if opt, ok := optionMap["make-thread"]; ok {
@@ -173,8 +174,6 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			makeThread = false
 		}
 	}
-
-	// Is the bot allowed to create a thread?
 
 	if coopSize == 0 {
 		found := false
