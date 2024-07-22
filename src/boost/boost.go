@@ -355,6 +355,7 @@ func FindEggEmoji(s *discordgo.Session, guildID string, eggOrig string) string {
 	g, _ := s.State.Guild(boostBotHomeGuild) // RAIYC Playground
 	// remove _ from egg
 	egg := strings.Replace(eggOrig, "_", "", -1)
+	egg = strings.Replace(egg, "-", "", -1) // carbon fiber egg
 	var e = emutil.FindEmoji(g.Emojis, "egg_"+strings.ToLower(egg), false)
 	if e != nil {
 		return e.MessageFormat()
