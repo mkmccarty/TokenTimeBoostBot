@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 )
 
 func getSignupContractSettings(channelID string, id string, thread bool) (string, []discordgo.MessageComponent) {
@@ -161,6 +162,9 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 		// There needs to be at least one booster to start the contract
 		if len(contract.Boosters) == 0 {
 			disableStartContract = false
+		} else if contract.CreatorID[0] == config.DiscordAppID {
+			// If the Bot is the creator, then don't allow the contract to be started
+			disableStartContract = true
 		} else {
 			disableStartContract = false
 		}
