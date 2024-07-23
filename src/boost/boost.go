@@ -17,6 +17,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/divan/num2words"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
@@ -711,6 +712,12 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		}
 		contract.RegisteredNum = len(contract.Boosters)
 
+		// If the BoostBot is the creator, the first person joining becomes
+		// the coordinator
+		if contract.CreatorID[0] == config.DiscordAppID {
+			contract.CreatorID[0] = userID
+		}
+
 		// Disabling this for now, leave the signup open
 		if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
 			/*
@@ -953,30 +960,40 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 	contract.RegisteredNum = len(contract.Boosters)
 
 	if userID == contract.CreatorID[0] {
-		// Reassign CreatorID to the Bot
-		contract.CreatorID[0] = "1124449428267343992"
+		// Reassign CreatorID to the Bot, then if there's a non-guest, make them the coordinator
+		contract.CreatorID[0] = config.DiscordAppID
+		for _, el := range contract.Order {
+			if contract.Boosters[el] != nil {
+				if contract.Boosters[el].UserID != contract.Boosters[el].Mention {
+					contract.CreatorID[0] = contract.Boosters[el].UserID
+					break
+				}
+			}
+		}
 	}
 
-	if currentBooster != "" {
-		contract.BoostPosition = slices.Index(contract.Order, currentBooster)
-	} else {
-		// Active Booster is leaving contract.
-		if contract.State == ContractStateCompleted || contract.State == ContractStateArchive || contract.State == ContractStateWaiting {
-			changeContractState(contract, ContractStateWaiting)
-			contract.BoostPosition = len(contract.Order)
-			sendNextNotification(s, contract, true)
-		} else if (contract.State == ContractStateFastrun || contract.State == ContractStateBanker) && contract.BoostPosition == len(contract.Order) {
-			// set contract to waiting
-			changeContractState(contract, ContractStateWaiting)
-			sendNextNotification(s, contract, true)
+	if contract.State != ContractStateSignup {
+		if currentBooster != "" {
+			contract.BoostPosition = slices.Index(contract.Order, currentBooster)
 		} else {
-			contract.BoostPosition = findNextBooster(contract)
-			if contract.BoostPosition != -1 {
-				contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
-				contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+			// Active Booster is leaving contract.
+			if contract.State == ContractStateCompleted || contract.State == ContractStateArchive || contract.State == ContractStateWaiting {
+				changeContractState(contract, ContractStateWaiting)
+				contract.BoostPosition = len(contract.Order)
 				sendNextNotification(s, contract, true)
-				// Returning here since we're actively boosting and will send a new message
-				return nil
+			} else if (contract.State == ContractStateFastrun || contract.State == ContractStateBanker) && contract.BoostPosition == len(contract.Order) {
+				// set contract to waiting
+				changeContractState(contract, ContractStateWaiting)
+				sendNextNotification(s, contract, true)
+			} else {
+				contract.BoostPosition = findNextBooster(contract)
+				if contract.BoostPosition != -1 {
+					contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
+					contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+					sendNextNotification(s, contract, true)
+					// Returning here since we're actively boosting and will send a new message
+					return nil
+				}
 			}
 		}
 	}
@@ -1044,7 +1061,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 		return errors.New(errorContractAlreadyStarted)
 	}
 
-	if !creatorOfContract(s, contract, userID) {
+	if !creatorOfContract(s, contract, userID) && contract.CreatorID[0] != config.DiscordAppID {
 		if !(contract.Style&ContractFlagCrt != 0 && contract.Banker.CrtSinkUserID == userID) {
 			return errors.New(errorNotContractCreator)
 		}
