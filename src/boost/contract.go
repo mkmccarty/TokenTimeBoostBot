@@ -269,7 +269,8 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			_ = s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
 		}
 		// Auto join the caller into this contract
-		//_ = JoinContract(s, i.GuildID, ChannelID, getInteractionUserID(i), false)
+		// TODO: This will end up causing a double draw of the contract list
+		_ = JoinContract(s, i.GuildID, ChannelID, getInteractionUserID(i), false)
 
 	} else {
 		log.Print(err)
