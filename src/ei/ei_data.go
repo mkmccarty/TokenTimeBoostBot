@@ -19,6 +19,7 @@ type EggIncContract struct {
 	MinutesPerToken           int
 	ContractDurationInDays    int
 	EstimatedDuration         time.Duration
+	EstimatedDurationShip     time.Duration
 }
 
 // EggIncContracts holds a list of all contracts, newest is last

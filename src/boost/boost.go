@@ -1704,7 +1704,8 @@ func LoadContractData(filename string) {
 		}
 		// Duration estimate
 		if len(c.TargetAmount) != 0 {
-			c.EstimatedDuration = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize))
+			c.EstimatedDuration = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), false)
+			c.EstimatedDurationShip = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), true)
 			//log.Printf("%s,%d,%d,%v\n", c.ID, int(c.qTargetAmount[len(c.qTargetAmount)-1]), int(c.MaxCoopSize), c.estimatedDuration.Round(time.Second))
 		}
 

@@ -72,11 +72,19 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		// A speedrun or fastrun of $CONTRACT with $NUMBER farmer(s) needing to ship $GOAL eggs is estimated to take about $TIME
 		if c.TargetAmountq[len(c.TargetAmountq)-1] < 1.0 {
 			estStr := c.EstimatedDuration.Round(time.Second).String()
-			str = fmt.Sprintf("A speedrun or fastrun of **%s** (%s) with %d %s needing to ship %.3fq eggs is estimated to take **about %v**", c.Name, c.ID, int(c.MaxCoopSize), fstr, c.TargetAmountq[len(c.TargetAmountq)-1], estStr)
+			str = fmt.Sprintf("A speedrun or fastrun of **%s** (%s) with %d %s needing to ship %.3fq eggs is estimated to take **about %v**\n", c.Name, c.ID, int(c.MaxCoopSize), fstr, c.TargetAmountq[len(c.TargetAmountq)-1], estStr)
+			if c.EstimatedDuration != c.EstimatedDurationShip {
+				str += fmt.Sprintf("> w/Carbon Fiber: **about %v**", c.EstimatedDurationShip.Round(time.Second).String())
+			}
 		} else {
 			estStr := c.EstimatedDuration.Round(time.Minute).String()
 			estStr = strings.TrimRight(estStr, "0s")
-			str = fmt.Sprintf("A speedrun or fastrun of **%s** (%s) with %d %s needing to ship %dq eggs is estimated to take **about %v**", c.Name, c.ID, int(c.MaxCoopSize), fstr, int(c.TargetAmountq[len(c.TargetAmountq)-1]), estStr)
+			estStrShip := c.EstimatedDurationShip.Round(time.Minute).String()
+			estStrShip = strings.TrimRight(estStrShip, "0s")
+			str = fmt.Sprintf("A speedrun or fastrun of **%s** (%s) with %d %s needing to ship %dq eggs is estimated to take **about %v**\n", c.Name, c.ID, int(c.MaxCoopSize), fstr, int(c.TargetAmountq[len(c.TargetAmountq)-1]), estStr)
+			if c.EstimatedDuration != c.EstimatedDurationShip {
+				str += fmt.Sprintf("> w/Carbon Fiber: **about %v**", estStrShip)
+			}
 		}
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -97,7 +105,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 }
 
-func getContractDurationEstimate(contractEggs float64, numFarmers float64) time.Duration {
+func getContractDurationEstimate(contractEggs float64, numFarmers float64, collegtible bool) time.Duration {
 	//ASSUME: average fast player has triple leg contract artis and T4C deflector and spends 10% of contract time unboosted
 	//shiny deflectors pull completion time faster than estimate, epic artifacts push slower than estimate
 
@@ -105,12 +113,12 @@ func getContractDurationEstimate(contractEggs float64, numFarmers float64) time.
 	// Once we have access to the data mined pumpkin colleggtible this changes slightly to
 	// Time = Goal / (Coop_Size * 5.8 * (1 + 0.15 * MIN(11, Coop_Size - 1)) * 1.05 ^ MAX(0, 10 - Coop_Size)) to account for the 5% shipping bonus.
 
-	pumpkinColMod := 0.0
-	//if contract.EggType == "pumpkin-never" {
-	//	pumpkinColMod = 1.0
-	//}
+	shippingMod := 0.0
+	if collegtible {
+		shippingMod = 1.0
+	}
 
-	estimate := contractEggs / (numFarmers * 5.8 * (1.0 + 0.15*min(numFarmers-1.0, 10.0+pumpkinColMod)) * math.Pow(1.05, max(0.0, 10.0-numFarmers)))
+	estimate := contractEggs / (numFarmers * 5.8 * (1.0 + 0.15*min(numFarmers-1.0, 10.0+shippingMod)) * math.Pow(1.05, max(0.0, 10.0-numFarmers)))
 	estimateDuration := time.Duration(estimate * float64(time.Hour))
 
 	//log.Printf("%s: %dq for %d farmers = %v", ID, int(contractEggs), int(numFarmers), estimateDuration.Round(time.Second))
