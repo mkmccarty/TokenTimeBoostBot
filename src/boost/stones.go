@@ -199,7 +199,6 @@ func DownloadCoopStatusStones(contractID string, coopID string) string {
 	}
 
 	type artifact struct {
-		name    string
 		abbrev  string
 		percent float64
 	}
@@ -220,13 +219,11 @@ func DownloadCoopStatusStones(contractID string, coopID string) string {
 		sr           float64
 		farmCapacity float64
 
-		tachWant        int
-		quantWant       int
-		bestELR         float64
-		bestSR          float64
-		collegtibleShip float64
-		collegtibleELR  float64
-		collegg         []string
+		tachWant  int
+		quantWant int
+		bestELR   float64
+		bestSR    float64
+		collegg   []string
 	}
 	var artifactSets []artifactSet
 
@@ -309,7 +306,7 @@ func DownloadCoopStatusStones(contractID string, coopID string) string {
 	}
 
 	table := tablewriter.NewWriter(&builder)
-	table.SetHeader([]string{"Name", "Def", "Met", "Com", "Gus", "Tach", "Quant", "ELR", "SR", "Delivery", "Collegg"})
+	table.SetHeader([]string{"Name", "Def", "Met", "Com", "Gus", "Tach", "Quant", "ELR", "SR", "Delivery", "Collegg", "Notes"})
 	table.SetCenterSeparator("")
 	table.SetColumnSeparator("")
 	table.SetRowSeparator("")
@@ -360,30 +357,32 @@ func DownloadCoopStatusStones(contractID string, coopID string) string {
 				as.bestSR = stoneShipRate
 				//bestString = fmt.Sprintf("T-%d Q-%d %2.3f %2.3f  min:%2.3f\n", i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
 			}
-			//fmt.Printf("Stone %d/%d: %2.3f %2.3f  min:%2.3f\n", i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
+			fmt.Printf("Stone %d/%d: %2.3f %2.3f  min:%2.3f\n", i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
 		}
+		var notes string
 		matchQ := ""
 		if as.quantWant == as.quantStones {
 			matchQ = "*"
 		} else if as.quantWant > as.quantStones {
-			matchQ = fmt.Sprintf("(+%d)", as.quantWant-as.quantWant)
+			notes = fmt.Sprintf("%d more quant", as.quantWant-as.quantStones)
 		}
 		matchT := ""
 		if as.tachWant == as.tachStones {
 			matchT = "*"
 		} else if as.tachWant > as.tachStones {
-			matchT = fmt.Sprintf("(+%d)", as.tachWant-as.tachStones)
+			notes = fmt.Sprintf("%d more tach", as.tachWant-as.tachStones)
 		}
 		table.Append([]string{as.name,
 			as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
 			fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
 			fmt.Sprintf("%2.3f", as.bestELR), fmt.Sprintf("%2.3f", as.bestSR),
 			fmt.Sprintf("%2.3f", bestTotal),
-			fmt.Sprintf("%s", strings.Join(as.collegg, ","))})
+			strings.Join(as.collegg, ","), notes})
 
 	}
 	fmt.Fprintf(&builder, "Stones Report for **%s**/**%s**\n", contractID, coopID)
 	fmt.Fprintf(&builder, "Coop Deflector Bonus: %2.0f%%\n", everyoneDeflectorPercent)
+	fmt.Fprint(&builder, "Tachyon & Quantum columns show the optimal mix.\n")
 
 	builder.WriteString("```")
 	table.Render()
