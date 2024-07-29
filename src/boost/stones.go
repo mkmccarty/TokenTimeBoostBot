@@ -220,12 +220,14 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 	}
 
 	type artifactSet struct {
-		name      string
-		stones    int
-		deflector artifact
-		metronome artifact
-		compass   artifact
-		gusset    artifact
+		name             string
+		baseLayingRate   float64
+		baseShippingRate float64
+		stones           int
+		deflector        artifact
+		metronome        artifact
+		compass          artifact
+		gusset           artifact
 
 		tachStones  int
 		quantStones int
@@ -244,8 +246,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 	}
 	var artifactSets []artifactSet
 
-	baseLaying := 3.772
-	baseShipping := 7.148
+	//baseLaying := 3.772
+	//baseShipping := 7.148
 
 	everyoneDeflectorPercent := 0.0
 	for _, c := range decodeCoopStatus.GetContributors() {
@@ -275,86 +277,50 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 		for _, cr := range fi.GetCommonResearch() {
 			switch cr.GetId() {
 			case "comfy_nests":
-				userLayRate += userLayRate * 0.1 * float64(cr.GetLevel()) // Comfortable Nests 10%
+				userLayRate *= (1 + 0.1*float64(cr.GetLevel())) // Comfortable Nests 10%
 			case "hen_house_ac":
-				userLayRate += userLayRate * 0.05 * float64(cr.GetLevel()) // Hen House Expansion 10%
+				userLayRate *= (1 + 0.05*float64(cr.GetLevel())) // Hen House Expansion 10%
 			case "improved_genetics":
-				userLayRate += userLayRate * 0.15 * float64(cr.GetLevel()) // Internal Hatcheries 15%
+				userLayRate *= (1 + 0.15*float64(cr.GetLevel())) // Internal Hatcheries 15%
 			case "time_compress":
-				userLayRate += userLayRate * 0.1 * float64(cr.GetLevel()) // Time Compression 10%
+				userLayRate *= (1 + 0.1*float64(cr.GetLevel())) // Time Compression 10%
 			case "timeline_diversion":
-				userLayRate += userLayRate * 0.02 * float64(cr.GetLevel()) // Timeline Diversion 2%
+				userLayRate *= (1 + 0.02*float64(cr.GetLevel())) // Timeline Diversion 2%
 			case "relativity_optimization":
-				userLayRate += userLayRate * 0.1 * float64(cr.GetLevel()) // Relativity Optimization 10%
+				userLayRate *= (1 + 0.1*float64(cr.GetLevel())) // Relativity Optimization 10%
 			case "leafsprings":
-				userShippingCap += (1 + 0.05*float64(cr.GetLevel())) // Leafsprings 5%
+				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Leafsprings 5%
 			case "lightweight_boxes":
-				userShippingCap += (1 + 0.1*float64(cr.GetLevel())) // Lightweight Boxes 10%
+				userShippingCap *= (1 + 0.1*float64(cr.GetLevel())) // Lightweight Boxes 10%
 			case "driver_training":
-				userShippingCap += (1 + 0.05*float64(cr.GetLevel())) // Driver Training 5%
+				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Driver Training 5%
 			case "super_alloy":
-				userShippingCap += (1 + 0.05*float64(cr.GetLevel())) // Super Alloy 5%
+				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Super Alloy 5%
 			case "quantum_storage":
-				userShippingCap += (1 + 0.05*float64(cr.GetLevel())) // Quantum Storage 5%
+				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Quantum Storage 5%
 			case "hover_upgrades":
-				userShippingCap += (1 + 0.05*float64(cr.GetLevel())) // Hover Upgrades 5%
+				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Hover Upgrades 5%
 			case "dark_containment":
-				userShippingCap += (1 + 0.05*float64(cr.GetLevel())) // Dark Containment 5%
+				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Dark Containment 5%
 			case "neural_net_refine":
-				userShippingCap += (1 + 0.05*float64(cr.GetLevel())) // Neural Net Refine 5%
+				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Neural Net Refine 5%
 			case "hyper_portalling":
-				userShippingCap += (1 + 0.05*float64(cr.GetLevel())) // Hyper Portalling 5%
-			case "transportation_lobbyist":
-				userShippingCap += (1 + 0.05*float64(cr.GetLevel())) // Transportation Lobbyist 5%
+				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Hyper Portalling 5%
 			}
 		}
 
-		/*()
-		20   // {"leafsprings", 0.05, 30},
-		21   // {"lightweight_boxes", 0.1, 40},
-		22   // {"driver_training", 0.05, 30},
-		23   // {"super_alloy", 0.05, 50},
-		24   // {"quantum_storage", 0.05, 20},
-		25   // {"hover_upgrades", 0.05, 25},
-		26   // {"dark_containment", 0.05, 25},
-		27   // {"neural_net_refine", 0.05, 25},
-		28   // {"hyper_portalling", 0.05, 25},
-		29   // {"transportation_lobbyist", 0.05, 30}
-		30   return (
-		31     50_000_000 *
-		32     (1 + 0.05 * 30) *
-		33     (1 + 0.1 * 40) *
-		34     (1 + 0.05 * 30) *
-		35     (1 + 0.05 * 50) *
-		36     (1 + 0.05 * 20) *
-		37     (1 + 0.05 * 25) *
-		38     (1 + 0.05 * 25) *
-		39     (1 + 0.05 * 25) *
-		40     (1 + 0.05 * 25) *
-		41     (1 + 0.05 * 30) *
-		42     // 10 cars per hyperloop train, 17 trains
-		43     10 *
-		44     17 *
-		45     // 60 minutes
-		46     60
-		47   );
-		48
-		*/
 		for _, er := range fi.GetEpicResearch() {
 			switch er.GetId() {
 			case "epic_egg_laying":
-				userLayRate += userLayRate * 0.05 * float64(er.GetLevel()) // Epic Egg Laying 5%
+				userLayRate *= (1 + 0.05*float64(er.GetLevel())) // Epic Egg Laying 5%
+			case "transportation_lobbyist":
+				userShippingCap *= (1 + 0.05*float64(er.GetLevel())) // Transportation Lobbyist 5%
 			}
 		}
 
-		userShippingCap *= 10.0 * float64(len(fi.GetTrainLength()))
-		userShippingCap *= 60.0 // minutes
-
-		fmt.Print("User Shipping Cap: ", userShippingCap, "\n")
-
 		//userLayRate *= 3600 // convert to hr rate
-		ly := userLayRate * as.farmPopulation * 3600.0 / 1e15
-		fmt.Printf("User Lay Rate: %2.3f\n", ly)
+		as.baseLayingRate = userLayRate * 11340000000.0 * 3600.0 / 1e15
+		as.baseShippingRate = userShippingCap * 10.0 * float64(len(fi.GetTrainLength())) * 60 / 1e16
 
 		for _, a := range fi.GetEquippedArtifacts() {
 			spec := a.GetSpec()
@@ -428,8 +394,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 	for _, as := range artifactSets {
 
 		//fmt.Printf("name:\"%s\"  Stones:%d  elr:%f egg/chicken/s  sr:%f egg/s\n", as.name, as.stones, as.elr, as.sr)
-		layingRate := (baseLaying) * (1 + as.metronome.percent/100.0) * (1 + as.gusset.percent/100.0)
-		shippingRate := (baseShipping) * (1 + as.compass.percent/100.0)
+		layingRate := (as.baseLayingRate) * (1 + as.metronome.percent/100.0) * (1 + as.gusset.percent/100.0)
+		shippingRate := (as.baseShippingRate) * (1 + as.compass.percent/100.0)
 
 		// Determine Colleggtible Increase
 		stoneLayRateNow := layingRate * (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
@@ -441,18 +407,15 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 		if collegELR > 1.000 {
 			//fmt.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
 			as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
-			//farmerstate.SetMiscSettingString(as.name, "coll-ELR", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
-		} else {
+			//farmerstate.SetMiscSettingString(as.name, "coll-elr", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
+		} /*else {
+			hasColl := farmerstate.GetMiscSettingString(as.name, "coll-elr")
+			if hasColl != "" {
+				as.collegg = append(as.collegg, fmt.Sprintf("(ELR:%s)", hasColl))
+				collegELR *= 1.05
 
-			/*
-				hasColl := farmerstate.GetMiscSettingString(as.name, "coll-ELR")
-				if hasColl != "" {
-					as.collegg = append(as.collegg, fmt.Sprintf("(ELR:%s)", hasColl))
-					collegELR *= 1.05
-
-				}
-			*/
-		}
+			}
+		}*/
 
 		stoneShipRateNow := shippingRate * math.Pow(1.05, float64((as.quantStones)))
 		//fmt.Printf("Calc SR: %2.3f  param.Sr: %2.3f   Diff:%2.2f\n", stoneShipRateNow, as.sr/1e15, (as.sr/1e15)/stoneShipRateNow)
@@ -460,14 +423,14 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 		if collegShip > 1.000 {
 			//fmt.Printf("Colleggtible Shipping Rate Factored in with %2.2f%%\n", collegShip)
 			as.collegg = append(as.collegg, fmt.Sprintf("SR:%2.0f%%", (collegShip-1.0)*100.0))
-			farmerstate.SetMiscSettingString(as.name, "coll-SR", fmt.Sprintf("%2.0f%%", (collegShip-1.0)*100.0))
-		} else {
+			//farmerstate.SetMiscSettingString(as.name, "coll-SR", fmt.Sprintf("%2.0f%%", (collegShip-1.0)*100.0))
+		} /* else {
 			hasColl := farmerstate.GetMiscSettingString(as.name, "coll-SR")
 			if hasColl != "" {
 				as.collegg = append(as.collegg, fmt.Sprintf("(SR:%s)", hasColl))
 				collegShip = collegShip * 1.05
 			}
-		}
+		}*/
 		bestTotal := 0.0
 		//bestString := ""
 
