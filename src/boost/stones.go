@@ -350,6 +350,14 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 		if collegELR > 1.000 {
 			//fmt.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
 			as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
+			farmerstate.SetMiscSettingString(as.name, "coll-ELR", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
+		} else {
+			hasColl := farmerstate.GetMiscSettingString(as.name, "coll-ELR")
+			if hasColl != "" {
+				as.collegg = append(as.collegg, fmt.Sprintf("(ELR:%s)", hasColl))
+				collegELR *= 1.05
+
+			}
 		}
 
 		stoneShipRateNow := shippingRate * math.Pow(1.05, float64((as.quantStones)))
@@ -358,6 +366,13 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 		if collegShip > 1.000 {
 			//fmt.Printf("Colleggtible Shipping Rate Factored in with %2.2f%%\n", collegShip)
 			as.collegg = append(as.collegg, fmt.Sprintf("SR:%2.0f%%", (collegShip-1.0)*100.0))
+			farmerstate.SetMiscSettingString(as.name, "coll-SR", fmt.Sprintf("%2.0f%%", (collegShip-1.0)*100.0))
+		} else {
+			hasColl := farmerstate.GetMiscSettingString(as.name, "coll-SR")
+			if hasColl != "" {
+				as.collegg = append(as.collegg, fmt.Sprintf("(SR:%s)", hasColl))
+				collegShip = collegShip * 1.05
+			}
 		}
 		bestTotal := 0.0
 		//bestString := ""

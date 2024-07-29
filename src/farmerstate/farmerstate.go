@@ -317,8 +317,10 @@ func SetMiscSettingString(userID string, key string, value string) {
 		farmerstate[userID].MiscSettingsString = make(map[string]string)
 	}
 
-	farmerstate[userID].MiscSettingsString[key] = value
-	saveData(farmerstate)
+	if farmerstate[userID].MiscSettingsString[key] != value {
+		farmerstate[userID].MiscSettingsString[key] = value
+		saveData(farmerstate)
+	}
 }
 
 // GetMiscSettingString returns a Farmer sticky setting
