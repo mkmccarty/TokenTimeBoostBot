@@ -14,6 +14,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/olekukonko/tablewriter"
 	"google.golang.org/protobuf/proto"
 )
@@ -46,6 +47,12 @@ func GetSlashStones(cmd string) *discordgo.ApplicationCommand {
 				Description: "Your coop-id",
 				Required:    false,
 			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "details",
+				Description: "Show full details. Default is false. (sticky)",
+				Required:    false,
+			},
 		},
 	}
 }
@@ -64,6 +71,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	var contractID string
 	var coopID string
+	details := false
 
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
@@ -79,6 +87,13 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if opt, ok := optionMap["coop-id"]; ok {
 		coopID = strings.ToLower(opt.StringValue())
 		coopID = strings.Replace(coopID, " ", "", -1)
+	}
+	userID := getInteractionUserID(i)
+	if opt, ok := optionMap["details"]; ok {
+		details = opt.BoolValue()
+		farmerstate.SetMiscSettingFlag(userID, "stone-details", details)
+	} else {
+		details = farmerstate.GetMiscSettingFlag(userID, "stone-details")
 	}
 
 	// Unser contractID and coopID means we want the Boost Bot contract
@@ -96,7 +111,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		coopID = strings.ToLower(contract.CoopID)
 	}
 
-	builder.WriteString(DownloadCoopStatusStones(contractID, coopID))
+	builder.WriteString(DownloadCoopStatusStones(contractID, coopID, details))
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
@@ -105,7 +120,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 }
 
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
-func DownloadCoopStatusStones(contractID string, coopID string) string {
+func DownloadCoopStatusStones(contractID string, coopID string, details bool) string {
 	eggIncID := config.EIUserID
 	reqURL := "https://www.auxbrain.com/ei/coop_status"
 	enc := base64.StdEncoding
@@ -151,7 +166,7 @@ func DownloadCoopStatusStones(contractID string, coopID string) string {
 		}
 		//dataTimestampStr = ""
 		protoData = string(body)
-		data := eiData{ID: cacheID, timestamp: time.Now(), expirationTimestamp: time.Now().Add(10 * time.Minute), contractID: contractID, coopID: coopID, protoData: protoData}
+		data := eiData{ID: cacheID, timestamp: time.Now(), expirationTimestamp: time.Now().Add(1 * time.Minute), contractID: contractID, coopID: coopID, protoData: protoData}
 		eiDatas[cacheID] = &data
 		//nowTime = time.Now()
 	}
@@ -199,6 +214,7 @@ func DownloadCoopStatusStones(contractID string, coopID string) string {
 	}
 
 	type artifact struct {
+		name    string
 		abbrev  string
 		percent float64
 	}
@@ -248,35 +264,35 @@ func DownloadCoopStatusStones(contractID string, coopID string) string {
 		as.compass.percent = 0.0
 		as.metronome.percent = 0.0
 		as.metronome.percent = 0.0
-		fmt.Printf("Farm: %s\n", as.name)
+		//fmt.Printf("Farm: %s\n", as.name)
 
 		fi := c.GetFarmInfo()
 		for _, a := range fi.GetEquippedArtifacts() {
 			spec := a.GetSpec()
 			strType := levels[spec.GetLevel()] + rarity[spec.GetRarity()]
 
-			var name string
+			//var name string
 			numStones := len(a.GetStones())
 			switch spec.GetName() {
 			case ei.ArtifactSpec_TACHYON_DEFLECTOR:
 				as.deflector.percent = deflector[strType]
-				name = fmt.Sprintf("%s %s %2.0f%% %d slots", "Deflector", strType, as.deflector.percent, numStones)
+				as.deflector.name = fmt.Sprintf("%s %s %2.0f%% %d slots", "Deflector", strType, as.deflector.percent, numStones)
 				as.deflector.abbrev = strType
 				everyoneDeflectorPercent += as.deflector.percent
 			case ei.ArtifactSpec_QUANTUM_METRONOME:
 				as.metronome.percent = metronome[strType]
-				name = fmt.Sprintf("%s %s %2.0f%% %d slots", "Metronome", strType, as.metronome.percent, numStones)
+				as.metronome.name = fmt.Sprintf("%s %s %2.0f%% %d slots", "Metronome", strType, as.metronome.percent, numStones)
 				as.metronome.abbrev = strType
 			case ei.ArtifactSpec_INTERSTELLAR_COMPASS:
 				as.compass.percent = compass[strType]
-				name = fmt.Sprintf("%s %s %2.0f%% %d slots", "Compass", strType, as.compass.percent, numStones)
+				as.metronome.name = fmt.Sprintf("%s %s %2.0f%% %d slots", "Compass", strType, as.compass.percent, numStones)
 				as.compass.abbrev = strType
 			case ei.ArtifactSpec_ORNATE_GUSSET:
 				as.gusset.percent = gussett[strType]
-				name = fmt.Sprintf("%s %s %2.0f%% %d slots", "Gusset", strType, as.metronome.percent, numStones)
+				as.metronome.name = fmt.Sprintf("%s %s %2.0f%% %d slots", "Gusset", strType, as.metronome.percent, numStones)
 				as.gusset.abbrev = strType
 			default:
-				name = fmt.Sprintf("%s %s %2.0f%% %d slots", "Other", strType, 0.0, numStones)
+				//name = fmt.Sprintf("%s %s %2.0f%% %d slots", "Other", strType, 0.0, numStones)
 			}
 
 			for _, st := range a.GetStones() {
@@ -297,16 +313,20 @@ func DownloadCoopStatusStones(contractID string, coopID string) string {
 					fmt.Printf("Stone %d: %2.3f %2.3f\n", i, stoneLayRate, stoneShipRate)
 				}*/
 			//totalStones += as.stones
-			fmt.Println(name)
+			//fmt.Println(name)
 		}
 		//fmt.Printf("Total Stones: %d\n", totalStones)
 		artifactSets = append(artifactSets, as)
 
-		fmt.Printf("%s  %2.0f\n", decodeCoopStatus.GetCoopIdentifier(), everyoneDeflectorPercent)
+		//fmt.Printf("%s  %2.0f\n", decodeCoopStatus.GetCoopIdentifier(), everyoneDeflectorPercent)
 	}
 
 	table := tablewriter.NewWriter(&builder)
-	table.SetHeader([]string{"Name", "Def", "Met", "Com", "Gus", "Tach", "Quant", "ELR", "SR", "Delivery", "Collegg", "Notes"})
+	if details {
+		table.SetHeader([]string{"Name", "Def", "Met", "Com", "Gus", "Tach", "Quant", "ELR", "SR", "Delivery", "Collegg", "Notes"})
+	} else {
+		table.SetHeader([]string{"Name", "Tach", "Quant", "Notes"})
+	}
 	table.SetCenterSeparator("")
 	table.SetColumnSeparator("")
 	table.SetRowSeparator("")
@@ -317,7 +337,7 @@ func DownloadCoopStatusStones(contractID string, coopID string) string {
 
 	// 1e15
 	for _, as := range artifactSets {
-		fmt.Printf("name:\"%s\"  Stones:%d  elr:%f egg/chicken/s  sr:%f egg/s\n", as.name, as.stones, as.elr, as.sr)
+		//fmt.Printf("name:\"%s\"  Stones:%d  elr:%f egg/chicken/s  sr:%f egg/s\n", as.name, as.stones, as.elr, as.sr)
 		layingRate := (baseLaying) * (1 + as.metronome.percent/100.0) * (1 + as.gusset.percent/100.0)
 		shippingRate := (baseShipping) * (1 + as.compass.percent/100.0)
 
@@ -326,17 +346,17 @@ func DownloadCoopStatusStones(contractID string, coopID string) string {
 		stoneLayRateNow = stoneLayRateNow * math.Pow(1.05, float64(as.tachStones))
 		chickELR := as.elr * as.farmCapacity * 3600.0 / 1e15
 		collegELR := math.Round(chickELR/stoneLayRateNow*100.0) / 100.0
-		fmt.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
+		//fmt.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
 		if collegELR > 1.000 {
-			fmt.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
+			//fmt.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
 			as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
 		}
 
 		stoneShipRateNow := shippingRate * math.Pow(1.05, float64((as.quantStones)))
-		fmt.Printf("Calc SR: %2.3f  param.Sr: %2.3f   Diff:%2.2f\n", stoneShipRateNow, as.sr/1e15, (as.sr/1e15)/stoneShipRateNow)
+		//fmt.Printf("Calc SR: %2.3f  param.Sr: %2.3f   Diff:%2.2f\n", stoneShipRateNow, as.sr/1e15, (as.sr/1e15)/stoneShipRateNow)
 		collegShip := math.Round((as.sr/1e15)/stoneShipRateNow*100.0) / 100.0
 		if collegShip > 1.000 {
-			fmt.Printf("Colleggtible Shipping Rate Factored in with %2.2f%%\n", collegShip)
+			//fmt.Printf("Colleggtible Shipping Rate Factored in with %2.2f%%\n", collegShip)
 			as.collegg = append(as.collegg, fmt.Sprintf("SR:%2.0f%%", (collegShip-1.0)*100.0))
 		}
 		bestTotal := 0.0
@@ -357,7 +377,7 @@ func DownloadCoopStatusStones(contractID string, coopID string) string {
 				as.bestSR = stoneShipRate
 				//bestString = fmt.Sprintf("T-%d Q-%d %2.3f %2.3f  min:%2.3f\n", i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
 			}
-			fmt.Printf("Stone %d/%d: %2.3f %2.3f  min:%2.3f\n", i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
+			//fmt.Printf("Stone %d/%d: %2.3f %2.3f  min:%2.3f\n", i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
 		}
 		var notes string
 		matchQ := ""
@@ -372,17 +392,28 @@ func DownloadCoopStatusStones(contractID string, coopID string) string {
 		} else if as.tachWant > as.tachStones {
 			notes = fmt.Sprintf("%d more tach", as.tachWant-as.tachStones)
 		}
-		table.Append([]string{as.name,
-			as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
-			fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
-			fmt.Sprintf("%2.3f", as.bestELR), fmt.Sprintf("%2.3f", as.bestSR),
-			fmt.Sprintf("%2.3f", bestTotal),
-			strings.Join(as.collegg, ","), notes})
+
+		if details {
+			table.Append([]string{as.name,
+				as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
+				fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
+				fmt.Sprintf("%2.3f", as.bestELR), fmt.Sprintf("%2.3f", as.bestSR),
+				fmt.Sprintf("%2.3f", bestTotal),
+				strings.Join(as.collegg, ","), notes})
+		} else if matchT != "*" {
+			table.Append([]string{as.name,
+				fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
+				notes})
+		}
 
 	}
 	fmt.Fprintf(&builder, "Stones Report for **%s**/**%s**\n", contractID, coopID)
 	fmt.Fprintf(&builder, "Coop Deflector Bonus: %2.0f%%\n", everyoneDeflectorPercent)
 	fmt.Fprint(&builder, "Tachyon & Quantum columns show the optimal mix.\n")
+	if !details {
+		fmt.Fprint(&builder, "Only showing farmers needing to swap stones.\n")
+
+	}
 
 	builder.WriteString("```")
 	table.Render()
