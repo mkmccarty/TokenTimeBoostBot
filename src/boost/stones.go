@@ -403,6 +403,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 		chickELR := as.elr * as.farmCapacity * 3600.0 / 1e15
 		collegELR := math.Round(chickELR/stoneLayRateNow*100.0) / 100.0
 		//fmt.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
+		if collegELR < 1.00 {
+			// Possible due to being offline
+			collegELR = 1.00
+		}
 		if collegELR > 1.000 {
 			//fmt.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
 			as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
