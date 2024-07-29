@@ -159,7 +159,7 @@ func DownloadCoopStatus(userID string, einame string, contract *Contract) string
 		}
 		dataTimestampStr = ""
 		protoData = string(body)
-		data := eiData{ID: cacheID, timestamp: time.Now(), expirationTimestamp: time.Now().Add(10 * time.Minute), contractID: contract.ContractID, coopID: contract.CoopID, protoData: protoData}
+		data := eiData{ID: cacheID, timestamp: time.Now(), expirationTimestamp: time.Now().Add(2 * time.Minute), contractID: contract.ContractID, coopID: contract.CoopID, protoData: protoData}
 		eiDatas[cacheID] = &data
 		nowTime = time.Now()
 	}
