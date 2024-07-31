@@ -12,6 +12,17 @@ import (
 
 func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, cUserID string) (bool, bool) {
 	redraw := false
+
+	if contract.Boosters[cUserID] != nil && len(contract.Boosters[cUserID].Alts) > 0 {
+		// Find the most recent boost time among the user and their alts
+		for _, altID := range contract.Boosters[cUserID].Alts {
+			if altID == contract.Banker.BoostingSinkUserID {
+				cUserID = altID
+				break
+			}
+		}
+	}
+
 	if cUserID == contract.Banker.BoostingSinkUserID {
 		var b, sink *Booster
 		b = contract.Boosters[contract.Order[contract.BoostPosition]]
