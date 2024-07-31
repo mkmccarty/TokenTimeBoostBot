@@ -392,6 +392,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 
 	// 1e15
 	for _, as := range artifactSets {
+		var notes string
 
 		//fmt.Printf("name:\"%s\"  Stones:%d  elr:%f egg/chicken/s  sr:%f egg/s\n", as.name, as.stones, as.elr, as.sr)
 		layingRate := (as.baseLayingRate) * (1 + as.metronome.percent/100.0) * (1 + as.gusset.percent/100.0)
@@ -405,6 +406,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 		//fmt.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
 		if collegELR < 1.00 {
 			// Possible due to being offline
+			notes = "sync needed."
 			collegELR = 1.00
 		}
 		if collegELR > 1.000 {
@@ -454,18 +456,17 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 			}
 			//fmt.Printf("Stone %d/%d: %2.3f %2.3f  min:%2.3f\n", i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
 		}
-		var notes string
 		matchQ := ""
 		if as.quantWant == as.quantStones {
 			matchQ = "*"
-		} else if as.quantWant > as.quantStones {
-			notes = fmt.Sprintf("%d more quant", as.quantWant-as.quantStones)
+		} else if as.quantWant > as.quantStones && notes != "" {
+			notes += fmt.Sprintf("%d more quant", as.quantWant-as.quantStones)
 		}
 		matchT := ""
 		if as.tachWant == as.tachStones {
 			matchT = "*"
-		} else if as.tachWant > as.tachStones {
-			notes = fmt.Sprintf("%d more tach", as.tachWant-as.tachStones)
+		} else if as.tachWant > as.tachStones && notes != "" {
+			notes += fmt.Sprintf("%d more tach", as.tachWant-as.tachStones)
 		}
 
 		if details {
