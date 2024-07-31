@@ -124,12 +124,6 @@ func GetSlasLinkAlternateCommand(cmd string) *discordgo.ApplicationCommand {
 				Required:     true,
 				Autocomplete: true,
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "speedrun-sink",
-				Description: "Use this alternate persona as the speedrun sink.",
-				Required:    false,
-			},
 		},
 	}
 }
@@ -807,16 +801,11 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 	if str == "" {
 		// Default to @here when there is no parameter
 		newAlt := ""
-		speedrunSink := false
 
 		options := i.ApplicationCommandData().Options
 		optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 		for _, opt := range options {
 			optionMap[opt.Name] = opt
-		}
-
-		if opt, ok := optionMap["speedrun-sink"]; ok {
-			speedrunSink = opt.BoolValue()
 		}
 
 		if opt, ok := optionMap["farmer-name"]; ok {
@@ -852,24 +841,9 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 				contract.Boosters[newAlt].AltController = i.Member.User.ID
 				rebuildAltList(contract)
 				str = "Associated your `" + newAlt + "` alt with " + i.Member.User.Mention() + "\n"
+				str += "> Use the Signup sink buttons to select your alt for sinks, these cycle through alts so you may need to press them multiple times.\n"
 				str += "> Use the " + boostIcon + " reaction to indicate when your main or alt(s) boost.\n"
 				str += "> Use the " + newAltIcon + " reaction to indicate when `" + newAlt + "` sends tokens."
-				if speedrunSink && contract.State == ContractStateSignup {
-					//if contract.Banker.CrtSinkUserID == i.Member.User.ID {
-					contract.Banker.CrtSinkUserID = newAlt
-					str += "\n> Speedrun CRT sink changed to `" + newAlt + "`."
-					//}
-					//if contract.Banker.PostSinkUserID == i.Member.User.ID {
-					contract.Banker.PostSinkUserID = newAlt
-					str += "\n> Post speedrun sink changed to `" + newAlt + "`."
-					//}
-					//if contract.Banker.BoostingSinkUserID == i.Member.User.ID {
-					contract.Banker.BoostingSinkUserID = newAlt
-					str += "\n> Boosting sink changed to `" + newAlt + "`."
-					//}
-					contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
-
-				}
 				contract.buttonComponents = nil // reset button components
 				defer saveData(Contracts)
 				if contract.State == ContractStateSignup {
