@@ -307,7 +307,7 @@ func getSpeedrunStatusStr(contract *Contract) string {
 		}
 	}
 	if contract.Banker.PostSinkUserID != "" {
-		fmt.Fprintf(&b, "> * After contract boosting send all tokens to: %s\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention)
+		fmt.Fprintf(&b, "> * After contract boosting send all tokens to **%s**\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention)
 	}
 
 	return b.String()
