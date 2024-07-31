@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"slices"
 	"strings"
 	"time"
 
@@ -447,6 +448,16 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 	switch cmd {
 	case "crtsink":
 		sid := getInteractionUserID(i)
+		alts := append([]string{sid}, contract.Boosters[sid].Alts...)
+		altIdx := slices.Index(alts, contract.Banker.CrtSinkUserID)
+		if altIdx != -1 {
+			if altIdx != len(alts)-1 {
+				sid = alts[altIdx+1]
+			} else {
+				sid = alts[altIdx] // Allow for the state to reset
+			}
+		}
+
 		if contract.Banker.CrtSinkUserID == sid {
 			contract.Banker.CrtSinkUserID = ""
 		} else if userInContract(contract, sid) {
@@ -454,6 +465,16 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		}
 	case "boostsink":
 		sid := getInteractionUserID(i)
+		alts := append([]string{sid}, contract.Boosters[sid].Alts...)
+		altIdx := slices.Index(alts, contract.Banker.BoostingSinkUserID)
+		if altIdx != -1 {
+			if altIdx != len(alts)-1 {
+				sid = alts[altIdx+1]
+			} else {
+				sid = alts[altIdx] // Allow for the state to reset
+			}
+		}
+
 		if contract.Banker.BoostingSinkUserID == sid {
 			contract.Banker.BoostingSinkUserID = ""
 		} else if userInContract(contract, sid) {
@@ -461,6 +482,15 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		}
 	case "postsink":
 		sid := getInteractionUserID(i)
+		alts := append([]string{sid}, contract.Boosters[sid].Alts...)
+		altIdx := slices.Index(alts, contract.Banker.PostSinkUserID)
+		if altIdx != -1 {
+			if altIdx != len(alts)-1 {
+				sid = alts[altIdx+1]
+			} else {
+				sid = alts[altIdx] // Allow for the state to reset
+			}
+		}
 		if contract.Banker.PostSinkUserID == sid {
 			contract.Banker.PostSinkUserID = ""
 		} else if userInContract(contract, sid) {
