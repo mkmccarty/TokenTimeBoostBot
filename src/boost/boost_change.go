@@ -855,18 +855,18 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 				str += "> Use the " + boostIcon + " reaction to indicate when your main or alt(s) boost.\n"
 				str += "> Use the " + newAltIcon + " reaction to indicate when `" + newAlt + "` sends tokens."
 				if speedrunSink && contract.State == ContractStateSignup {
-					if contract.Banker.PostSinkUserID == i.Member.User.ID {
-						contract.Banker.PostSinkUserID = newAlt
-						str += "\n> Post speedrun sink changed to `" + newAlt + "`."
-					}
-					if contract.Banker.CrtSinkUserID == i.Member.User.ID {
-						contract.Banker.CrtSinkUserID = newAlt
-						str += "\n> Speedrun CRT sink changed to `" + newAlt + "`."
-					}
-					if contract.Banker.BoostingSinkUserID == i.Member.User.ID {
-						contract.Banker.BoostingSinkUserID = newAlt
-						str += "\n> Boosting sink changed to `" + newAlt + "`."
-					}
+					//if contract.Banker.CrtSinkUserID == i.Member.User.ID {
+					contract.Banker.CrtSinkUserID = newAlt
+					str += "\n> Speedrun CRT sink changed to `" + newAlt + "`."
+					//}
+					//if contract.Banker.PostSinkUserID == i.Member.User.ID {
+					contract.Banker.PostSinkUserID = newAlt
+					str += "\n> Post speedrun sink changed to `" + newAlt + "`."
+					//}
+					//if contract.Banker.BoostingSinkUserID == i.Member.User.ID {
+					contract.Banker.BoostingSinkUserID = newAlt
+					str += "\n> Boosting sink changed to `" + newAlt + "`."
+					//}
 					contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
 
 				}
