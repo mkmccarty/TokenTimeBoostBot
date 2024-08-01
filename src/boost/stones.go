@@ -251,6 +251,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 
 	var totalContributions float64
 	var contributionRatePerSecond float64
+	setContractEstimage := true
 
 	everyoneDeflectorPercent := 0.0
 	for _, c := range decodeCoopStatus.GetContributors() {
@@ -386,9 +387,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 
 	table := tablewriter.NewWriter(&builder)
 	if details {
-		table.SetHeader([]string{"Name", "Dfl", "Met", "Com", "Gus", "Tach", "Tach", "ELR", "SR", "Delivery", "Collegg", "Notes"})
+		table.SetHeader([]string{"Name", "Dfl", "Met", "Com", "Gus", "Tach", "Quant", "ELR", "SR", "Delivery", "Collegg", "Notes"})
 	} else {
-		table.SetHeader([]string{"Name", "Tach", "Tach", "Notes"})
+		table.SetHeader([]string{"Name", "Tach", "Quant", "Notes"})
 	}
 	table.SetCenterSeparator("")
 	table.SetColumnSeparator("")
@@ -471,12 +472,14 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 			matchQ = "*"
 		} else if as.quantWant > as.quantStones {
 			notes += fmt.Sprintf("+%d quant", as.quantWant-as.quantStones)
+			setContractEstimage = false
 		}
 		matchT := ""
 		if as.tachWant == as.tachStones {
 			matchT = "*"
 		} else if as.tachWant > as.tachStones {
 			notes += fmt.Sprintf("+%d tach", as.tachWant-as.tachStones)
+			setContractEstimage = false
 		}
 
 		if details {
@@ -515,6 +518,15 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 			endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 			endStr = "Est End:"
 			//contractDurationSeconds := endTime.Sub(startTime).Seconds()
+			if setContractEstimage {
+				c := FindContract(contractID)
+				if c != nil {
+					c.EstimatedDuration = time.Duration(calcSecondsRemaining) * time.Second
+					c.EstimatedDurationValid = true
+					c.StartTime = startTime
+					c.EstimatedEndTime = endTime
+				}
+			}
 		}
 		builder.WriteString(fmt.Sprintf("Start: **<t:%d:t>**   %s: **<t:%d:t>** for **%v**\n", startTime.Unix(), endStr, endTime.Unix(), endTime.Sub(startTime).Round(time.Second)))
 	}
