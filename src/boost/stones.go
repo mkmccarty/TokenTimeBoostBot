@@ -249,8 +249,16 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 	//baseLaying := 3.772
 	//baseShipping := 7.148
 
+	var totalContributions float64
+	var contributionRatePerSecond float64
+
 	everyoneDeflectorPercent := 0.0
 	for _, c := range decodeCoopStatus.GetContributors() {
+
+		totalContributions += c.GetContributionAmount()
+		totalContributions += -(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()) // offline eggs
+		contributionRatePerSecond += c.GetContributionRate()
+
 		as := artifactSet{}
 		as.name = c.GetUserName()
 
@@ -378,15 +386,15 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 
 	table := tablewriter.NewWriter(&builder)
 	if details {
-		table.SetHeader([]string{"Name", "Def", "Met", "Com", "Gus", "Tach", "Quant", "ELR", "SR", "Delivery", "Collegg", "Notes"})
+		table.SetHeader([]string{"Name", "Dfl", "Met", "Com", "Gus", "Tach", "Tach", "ELR", "SR", "Delivery", "Collegg", "Notes"})
 	} else {
-		table.SetHeader([]string{"Name", "Tach", "Quant", "Notes"})
+		table.SetHeader([]string{"Name", "Tach", "Tach", "Notes"})
 	}
 	table.SetCenterSeparator("")
 	table.SetColumnSeparator("")
 	table.SetRowSeparator("")
 	table.SetHeaderLine(false)
-	table.SetTablePadding("\t") // pad with tabs
+	table.SetTablePadding(" ") // pad with tabs
 	table.SetNoWhiteSpace(true)
 	table.SetAlignment(tablewriter.ALIGN_RIGHT)
 
@@ -410,8 +418,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 		}
 		if collegELR > 1.000 {
 			//fmt.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
-			as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
+			//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
 			//farmerstate.SetMiscSettingString(as.name, "coll-elr", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
+			collegELR = 1.00
 		} /*else {
 			hasColl := farmerstate.GetMiscSettingString(as.name, "coll-elr")
 			if hasColl != "" {
@@ -461,13 +470,13 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 		if as.quantWant == as.quantStones {
 			matchQ = "*"
 		} else if as.quantWant > as.quantStones {
-			notes += fmt.Sprintf("%d more quant", as.quantWant-as.quantStones)
+			notes += fmt.Sprintf("+%d quant", as.quantWant-as.quantStones)
 		}
 		matchT := ""
 		if as.tachWant == as.tachStones {
 			matchT = "*"
 		} else if as.tachWant > as.tachStones {
-			notes += fmt.Sprintf("%d more tach", as.tachWant-as.tachStones)
+			notes += fmt.Sprintf("+%d tach", as.tachWant-as.tachStones)
 		}
 
 		if details {
@@ -485,6 +494,31 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 
 	}
 	fmt.Fprintf(&builder, "Stones Report for **%s**/**%s**\n", contractID, coopID)
+	eiContract := ei.EggIncContractsAll[contractID]
+	if eiContract.ID != "" {
+		nowTime := time.Now()
+		startTime := nowTime
+		endTime := nowTime
+		endStr := "End:"
+		secondsRemaining := int64(decodeCoopStatus.GetSecondsRemaining())
+		if decodeCoopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
+			startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
+			startTime = startTime.Add(-time.Duration(eiContract.LengthInSeconds) * time.Second)
+			secondsSinceAllGoals := int64(decodeCoopStatus.GetSecondsSinceAllGoalsAchieved())
+			endTime = endTime.Add(-time.Duration(secondsSinceAllGoals) * time.Second)
+			//contractDurationSeconds = endTime.Sub(startTime).Seconds()
+		} else {
+			startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
+			startTime = startTime.Add(-time.Duration(eiContract.LengthInSeconds) * time.Second)
+			totalReq := eiContract.TargetAmount[len(eiContract.TargetAmount)-1]
+			calcSecondsRemaining := int64((totalReq - totalContributions) / contributionRatePerSecond)
+			endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
+			endStr = "Est End:"
+			//contractDurationSeconds := endTime.Sub(startTime).Seconds()
+		}
+		builder.WriteString(fmt.Sprintf("Start: **<t:%d:t>**   %s: **<t:%d:t>** for **%v**\n", startTime.Unix(), endStr, endTime.Unix(), endTime.Sub(startTime).Round(time.Second)))
+	}
+
 	fmt.Fprintf(&builder, "Coop Deflector Bonus: %2.0f%%\n", everyoneDeflectorPercent)
 	fmt.Fprint(&builder, "Tachyon & Quantum columns show the optimal mix.\n")
 	if !details {
