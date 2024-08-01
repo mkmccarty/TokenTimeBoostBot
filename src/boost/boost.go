@@ -201,6 +201,7 @@ type Contract struct {
 	MinutesPerToken           int
 	EstimatedDuration         time.Duration
 	CompletionDuration        time.Duration
+	EstimatedEndTime          time.Time
 	EstimatedDurationValid    bool
 	ThreadName                string
 
