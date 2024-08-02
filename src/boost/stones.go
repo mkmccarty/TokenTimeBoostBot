@@ -129,8 +129,16 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 	var dataTimestampStr string
 	var protoData string
 
+	eiContract := ei.EggIncContractsAll[contractID]
 	cacheID := contractID + ":" + coopID
 	cachedData := eiDatas[cacheID]
+
+	skipArtifact := false
+
+	if eiContract.MaxCoopSize > 15 {
+		// Larger contracts take more text, skip artifacts
+		skipArtifact = true
+	}
 
 	// Check if the file exists
 	if cachedData != nil && time.Now().Before(cachedData.expirationTimestamp) {
@@ -387,7 +395,11 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 
 	table := tablewriter.NewWriter(&builder)
 	if details {
-		table.SetHeader([]string{"Name", "Dfl", "Met", "Com", "Gus", "Tach", "Quant", "ELR", "SR", "Delivery", "Collegg", "Notes"})
+		if !skipArtifact {
+			table.SetHeader([]string{"Name", "Dfl", "Met", "Com", "Gus", "Tach", "Quant", "ELR", "SR", "Delivery", "Collegg", "Notes"})
+		} else {
+			table.SetHeader([]string{"Name", "Tach", "Quant", "ELR", "SR", "Delivery", "Collegg", "Notes"})
+		}
 	} else {
 		table.SetHeader([]string{"Name", "Tach", "Quant", "Notes"})
 	}
@@ -483,12 +495,20 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 		}
 
 		if details {
-			table.Append([]string{as.name,
-				as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
-				fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
-				fmt.Sprintf("%2.3f", as.bestELR), fmt.Sprintf("%2.3f", as.bestSR),
-				fmt.Sprintf("%2.3f", bestTotal),
-				strings.Join(as.collegg, ","), notes})
+			if !skipArtifact {
+				table.Append([]string{as.name,
+					as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
+					fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
+					fmt.Sprintf("%2.3f", as.bestELR), fmt.Sprintf("%2.3f", as.bestSR),
+					fmt.Sprintf("%2.3f", bestTotal),
+					strings.Join(as.collegg, ","), notes})
+			} else {
+				table.Append([]string{as.name,
+					fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
+					fmt.Sprintf("%2.3f", as.bestELR), fmt.Sprintf("%2.3f", as.bestSR),
+					fmt.Sprintf("%2.3f", bestTotal),
+					strings.Join(as.collegg, ","), notes})
+			}
 		} else if matchT != "*" {
 			table.Append([]string{as.name,
 				fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
@@ -497,7 +517,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 
 	}
 	fmt.Fprintf(&builder, "Stones Report for **%s**/**%s**\n", contractID, coopID)
-	eiContract := ei.EggIncContractsAll[contractID]
 	if eiContract.ID != "" {
 		nowTime := time.Now()
 		startTime := nowTime
@@ -544,6 +563,13 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 
 	if dataTimestampStr != "" {
 		builder.WriteString(dataTimestampStr)
+	}
+
+	if len(builder.String()) > 2000 {
+		if !details {
+			return "Output too large for Discord, try again with details=false"
+		}
+		return DownloadCoopStatusStones(contractID, coopID, false)
 	}
 
 	return builder.String()
