@@ -388,6 +388,20 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 			//fmt.Println(name)
 		}
 		//fmt.Printf("Total Stones: %d\n", totalStones)
+		if as.baseShippingRate == 0 {
+			// Private Farm
+			history := c.GetBuffHistory()
+			if len(history) > 0 {
+				b := history[len(history)-1]
+				elr := b.GetEggLayingRate()
+				if elr > 1.0 {
+					as.deflector.percent = math.Round((elr - 1.0) * 100.0)
+					everyoneDeflectorPercent += as.deflector.percent
+				}
+
+			}
+
+		}
 		artifactSets = append(artifactSets, as)
 
 		//fmt.Printf("%s  %2.0f\n", decodeCoopStatus.GetCoopIdentifier(), everyoneDeflectorPercent)
