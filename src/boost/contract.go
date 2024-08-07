@@ -195,6 +195,20 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		}
 	}
 
+	// Before we make a thread, make sure this isn't a duplicate contract
+	for _, c := range Contracts {
+		if c.ContractID == contractID && c.CoopID == coopID {
+			_, _ = s.FollowupMessageCreate(i.Interaction, true,
+				&discordgo.WebhookParams{
+					Content:    "A contract with this coop-id (" + c.CoopID + ") exists in " + c.Location[0].ChannelMention,
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{},
+				},
+			)
+			return
+		}
+	}
+
 	// Create a new thread for this contract
 	if makeThread {
 		// Default to 1 day timeout
@@ -308,7 +322,8 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	for _, c := range Contracts {
 		if c.ContractID == contractID && c.CoopID == coopID {
 			// We have a coop, add this channel to the coop
-			contract = c
+			return nil, errors.New("a contract with this coop-id (" + c.CoopID + ") exists in " + c.Location[0].ChannelMention)
+			//contract = c
 		}
 	}
 
@@ -328,44 +343,45 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	loc.ListMsgID = ""
 	loc.ReactionID = ""
 
-	if contract == nil {
-		var ContractHash = namesgenerator.GetRandomName(0)
-		for Contracts[ContractHash] != nil {
-			ContractHash = namesgenerator.GetRandomName(0)
-		}
-
-		// We don't have this contract on this channel, it could exist in another channel
-		contract = new(Contract)
-		contract.Location = append(contract.Location, loc)
-		contract.ContractHash = ContractHash
-		contract.UseInteractionButtons = config.GetTestMode() // Featuer under test
-
-		contract.Style = ContractStyleFastrun
-
-		//GlobalContracts[ContractHash] = append(GlobalContracts[ContractHash], loc)
-		contract.Boosters = make(map[string]*Booster)
-		contract.ContractID = contractID
-		contract.CoopID = coopID
-		contract.BoostOrder = BoostOrder
-		contract.BoostVoting = 0
-		contract.OrderRevision = 0
-		changeContractState(contract, ContractStateSignup)
-		contract.CreatorID = append(contract.CreatorID, userID)               // starting userid
-		contract.CreatorID = append(contract.CreatorID, "650743870253957160") // Mugwump
-		contract.Speedrun = false
-		contract.Banker.SinkBoostPosition = SinkBoostFirst
-		contract.StartTime = time.Now()
-		contract.ChickenRunEmoji = findBoostBotGuildEmoji(s, "icon_chicken_run", true)
-
-		contract.RegisteredNum = 0
-		contract.CoopSize = coopSize
-		contract.Name = contractID
-		updateContractWithEggIncData(contract)
-		Contracts[ContractHash] = contract
-	} else { //if !creatorOfContract(contract, userID) {
-		contract.CreatorID = append(contract.CreatorID, userID) // starting userid
-		contract.Location = append(contract.Location, loc)
+	//if contract == nil {
+	var ContractHash = namesgenerator.GetRandomName(0)
+	for Contracts[ContractHash] != nil {
+		ContractHash = namesgenerator.GetRandomName(0)
 	}
+
+	// We don't have this contract on this channel, it could exist in another channel
+	contract = new(Contract)
+	contract.Location = append(contract.Location, loc)
+	contract.ContractHash = ContractHash
+	contract.UseInteractionButtons = config.GetTestMode() // Featuer under test
+
+	contract.Style = ContractStyleFastrun
+
+	//GlobalContracts[ContractHash] = append(GlobalContracts[ContractHash], loc)
+	contract.Boosters = make(map[string]*Booster)
+	contract.ContractID = contractID
+	contract.CoopID = coopID
+	contract.BoostOrder = BoostOrder
+	contract.BoostVoting = 0
+	contract.OrderRevision = 0
+	changeContractState(contract, ContractStateSignup)
+	contract.CreatorID = append(contract.CreatorID, userID)               // starting userid
+	contract.CreatorID = append(contract.CreatorID, "650743870253957160") // Mugwump
+	contract.Speedrun = false
+	contract.Banker.SinkBoostPosition = SinkBoostFirst
+	contract.StartTime = time.Now()
+	contract.ChickenRunEmoji = findBoostBotGuildEmoji(s, "icon_chicken_run", true)
+
+	contract.RegisteredNum = 0
+	contract.CoopSize = coopSize
+	contract.Name = contractID
+	updateContractWithEggIncData(contract)
+	Contracts[ContractHash] = contract
+	/*
+		} else { //if !creatorOfContract(contract, userID) {
+			contract.CreatorID = append(contract.CreatorID, userID) // starting userid
+			contract.Location = append(contract.Location, loc)
+		}*/
 
 	// Find our Token emoji
 	contract.TokenStr = FindTokenEmoji(s)
