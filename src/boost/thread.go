@@ -160,7 +160,7 @@ func generateThreadName(c *Contract) string {
 		if len(c.Order) != c.CoopSize {
 			statusStr = fmt.Sprintf("(%d/%d)", len(c.Order), c.CoopSize)
 		} else {
-			statusStr = "Full"
+			statusStr = "(FULL)"
 		}
 		threadName = strings.Replace(threadName, "$COUNT", statusStr, -1)
 		threadName = strings.Replace(threadName, "$C", statusStr, -1)
