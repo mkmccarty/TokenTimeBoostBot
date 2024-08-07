@@ -1210,7 +1210,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			msgedit.Flags = discordgo.MessageFlagsSuppressEmbeds
 			_, err := s.ChannelMessageEditComplex(msgedit)
 			if err != nil {
-				fmt.Println("Unable to send this message")
+				fmt.Println("Unable to send this message." + err.Error())
 			}
 		} else {
 			// Unpin message once the contract is completed
@@ -1232,9 +1232,13 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			drawn = true
 		}
 		if err != nil {
-			fmt.Println("Unable to resend message.")
+			fmt.Println("Unable to resend message." + err.Error())
 		}
 		var str = ""
+		if msg == nil {
+			// Maybe this location is broken
+			continue
+		}
 
 		switch contract.State {
 		case ContractStateWaiting, ContractStateCRT, ContractStateBanker, ContractStateFastrun:
@@ -1635,8 +1639,10 @@ func ArchiveContracts(s *discordgo.Session) {
 	// clear finishHash
 	finishHash = nil
 	for _, d := range eiDatas {
-		if time.Now().After(d.expirationTimestamp) {
-			finishHash = append(finishHash, d.ID)
+		if d != nil {
+			if time.Now().After(d.expirationTimestamp) {
+				finishHash = append(finishHash, d.ID)
+			}
 		}
 	}
 	for _, hash := range finishHash {
