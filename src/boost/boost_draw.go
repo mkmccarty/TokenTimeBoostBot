@@ -105,7 +105,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		}
 	}
 
-	showBoostedNums := 2 // Try to show at least 2 previously boosted
+	showBoostedNums := 6 // Try to show at least 6 previously boosted
 	windowSize := 10     // Number lines to show a single booster
 	orderSubset := contract.Order
 	if contract.State != ContractStateSignup && len(contract.Order) >= (windowSize+2) {
