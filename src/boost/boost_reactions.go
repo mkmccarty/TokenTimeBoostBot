@@ -120,10 +120,6 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 		// Anyone can use these reactions
 		switch r.Emoji.Name {
-		case "👽":
-			if creatorOfContract(s, contract, r.UserID) {
-				contract.UseInteractionButtons = !contract.UseInteractionButtons
-			}
 		case "🌊":
 			UpdateThreadName(s, contract)
 		case "🐓":
