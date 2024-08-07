@@ -353,7 +353,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	contract = new(Contract)
 	contract.Location = append(contract.Location, loc)
 	contract.ContractHash = ContractHash
-	contract.UseInteractionButtons = config.GetTestMode() // Featuer under test
+	//	contract.UseInteractionButtons = config.GetTestMode() // Feature under test
 
 	contract.Style = ContractStyleFastrun
 

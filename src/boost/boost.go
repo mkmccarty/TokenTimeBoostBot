@@ -207,32 +207,32 @@ type Contract struct {
 
 	CRMessageIDs []string // Array of message IDs for chicken run messages
 
-	CoopSize              int
-	Style                 int64 // Mask for the Contract Style
-	LengthInSeconds       int
-	BoostOrder            int // How the contract is sorted
-	BoostVoting           int
-	BoostPosition         int       // Starting Slot
-	State                 int       // Boost Completed
-	StartTime             time.Time // When Contract is started
-	EndTime               time.Time // When final booster ends
-	PlannedStartTime      time.Time // Parameter start time
-	ActualStartTime       time.Time // Actual start time for token tracking
-	RegisteredNum         int
-	Boosters              map[string]*Booster // Boosters Registered
-	AltIcons              []string            // Array of alternate icons for the Boosters
-	Order                 []string
-	OrderRevision         int  // Incremented when Order is changed
-	Speedrun              bool // Speedrun mode
-	SRData                SpeedrunData
-	Banker                BankerInfo // Banker for the contract
-	CalcOperations        int
-	CalcOperationTime     time.Time
-	LastWishPrompt        string             // saved prompt for this contract
-	LastInteractionTime   time.Time          // last time the contract was drawn
-	UseInteractionButtons bool               // Use buttons for interaction
-	buttonComponents      map[string]CompMap // Cached components for this contract
-	mutex                 sync.Mutex         // Keep this contract thread safe
+	CoopSize            int
+	Style               int64 // Mask for the Contract Style
+	LengthInSeconds     int
+	BoostOrder          int // How the contract is sorted
+	BoostVoting         int
+	BoostPosition       int       // Starting Slot
+	State               int       // Boost Completed
+	StartTime           time.Time // When Contract is started
+	EndTime             time.Time // When final booster ends
+	PlannedStartTime    time.Time // Parameter start time
+	ActualStartTime     time.Time // Actual start time for token tracking
+	RegisteredNum       int
+	Boosters            map[string]*Booster // Boosters Registered
+	AltIcons            []string            // Array of alternate icons for the Boosters
+	Order               []string
+	OrderRevision       int  // Incremented when Order is changed
+	Speedrun            bool // Speedrun mode
+	SRData              SpeedrunData
+	Banker              BankerInfo // Banker for the contract
+	CalcOperations      int
+	CalcOperationTime   time.Time
+	LastWishPrompt      string    // saved prompt for this contract
+	LastInteractionTime time.Time // last time the contract was drawn
+	//UseInteractionButtons bool               // Use buttons for interaction
+	buttonComponents map[string]CompMap // Cached components for this contract
+	mutex            sync.Mutex         // Keep this contract thread safe
 }
 
 // SpeedrunData holds the data for a speedrun
@@ -1117,12 +1117,7 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 			if err == nil {
 				SetListMessageID(contract, loc.ChannelID, msg.ID)
 			}
-			if contract.UseInteractionButtons {
-				addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
-
-			} else {
-				addContractReactions(s, contract, loc.ChannelID, msg.ID, contract.TokenReactionStr)
-			}
+			addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
 		}
 	}
 	return nil
@@ -1155,6 +1150,7 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 	}
 }
 
+/*
 func addContractReactions(s *discordgo.Session, contract *Contract, channelID string, messageID string, tokenStr string) {
 	switch contract.State {
 	case ContractStateBanker:
@@ -1194,6 +1190,7 @@ func addContractReactions(s *discordgo.Session, contract *Contract, channelID st
 
 	_ = s.MessageReactionAdd(channelID, messageID, "❓") // Finish
 }
+*/
 
 func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bool) {
 	// Start boosting contract
@@ -1242,12 +1239,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 
 		switch contract.State {
 		case ContractStateWaiting, ContractStateCRT, ContractStateBanker, ContractStateFastrun:
-			if contract.UseInteractionButtons {
-				addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
-
-			} else {
-				addContractReactions(s, contract, loc.ChannelID, msg.ID, contract.TokenReactionStr)
-			}
+			addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
 			if pingUsers {
 				if contract.State == ContractStateFastrun || contract.State == ContractStateBanker {
 					var einame = farmerstate.GetEggIncName(contract.Order[contract.BoostPosition])
@@ -1274,12 +1266,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 				}
 			}
 		case ContractStateCompleted:
-			if contract.UseInteractionButtons {
-				addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
-
-			} else {
-				addContractReactions(s, contract, loc.ChannelID, msg.ID, contract.TokenReactionStr)
-			}
+			addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
 			t1 := contract.EndTime
 			t2 := contract.StartTime
 			duration := t1.Sub(t2)

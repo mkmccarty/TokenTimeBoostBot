@@ -176,10 +176,6 @@ func reactionCRT(s *discordgo.Session, r *discordgo.MessageReaction, contract *C
 		keepReaction = buttonReactionCheck(s, r.ChannelID, contract, r.UserID)
 	}
 
-	if r.Emoji.Name == "👽" {
-		contract.UseInteractionButtons = !contract.UseInteractionButtons
-	}
-
 	if r.Emoji.Name == "🚚" {
 		keepReaction = buttonReactionTruck(s, contract, r.UserID)
 	}
