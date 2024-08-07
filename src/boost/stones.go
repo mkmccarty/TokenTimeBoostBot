@@ -8,6 +8,8 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -141,7 +143,51 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 	}
 
 	// Check if the file exists
-	if cachedData != nil && time.Now().Before(cachedData.expirationTimestamp) {
+	if strings.HasPrefix(coopID, "!!") {
+		basename := coopID[2:]
+		coopID = coopID[2:]
+		fname := fmt.Sprintf("ttbb-data/%s.pb", basename)
+
+		if strings.HasPrefix(basename, "!") {
+			coopID = coopID[2:]
+			index, err := strconv.Atoi(basename[1:2])
+			if err == nil {
+				files, err := os.ReadDir("ttbb-data")
+				if err != nil {
+					return err.Error()
+				}
+
+				var filenames []string
+				for _, file := range files {
+					if strings.HasPrefix(file.Name(), fmt.Sprintf("%s-%s-", contractID, coopID)) {
+						filenames = append(filenames, file.Name())
+					}
+				}
+
+				if len(filenames) > 0 && index < len(filenames) {
+					fname = fmt.Sprintf("ttbb-data/%s", filenames[index])
+				} else {
+					return fmt.Sprint("Files: ", strings.Join(filenames, ", "))
+				}
+			}
+
+			// Process the filenames...
+		}
+
+		// read the contents of filename into protoData
+		protoDataBytes, _ := os.ReadFile(fname)
+		protoData = string(protoDataBytes)
+
+		fileNameParts := strings.Split(fname[:len(fname)-3], "-")
+		timestampStr := fileNameParts[len(fileNameParts)-1]
+		timestamp, err := strconv.ParseInt(timestampStr, 10, 64)
+		if err != nil {
+			return err.Error()
+		}
+		dataTimestampStr = fmt.Sprintf("\nUsing cached data from file %s", fname)
+		dataTimestampStr += fmt.Sprintf(", timestamp: %s", time.Unix(timestamp, 0).Format("2006-01-02 15:04:05"))
+
+	} else if cachedData != nil && time.Now().Before(cachedData.expirationTimestamp) {
 		protoData = cachedData.protoData
 		dataTimestampStr = fmt.Sprintf("\nUsing cached data retrieved <t:%d:R>, refresh <t:%d:R>", cachedData.timestamp.Unix(), cachedData.expirationTimestamp.Unix())
 	} else {
@@ -176,6 +222,14 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 		protoData = string(body)
 		data := eiData{ID: cacheID, timestamp: time.Now(), expirationTimestamp: time.Now().Add(1 * time.Minute), contractID: contractID, coopID: coopID, protoData: protoData}
 		eiDatas[cacheID] = &data
+
+		// Save protoData into a file
+		fileName := fmt.Sprintf("ttbb-data/%s-%s-%d.pb", contractID, coopID, time.Now().Unix())
+		err = os.WriteFile(fileName, []byte(protoData), 0644)
+		if err != nil {
+			log.Print(err)
+			return err.Error()
+		}
 		//nowTime = time.Now()
 	}
 
@@ -229,6 +283,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 
 	type artifactSet struct {
 		name             string
+		note             []string
 		baseLayingRate   float64
 		baseShippingRate float64
 		stones           int
@@ -388,19 +443,27 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 			//fmt.Println(name)
 		}
 		//fmt.Printf("Total Stones: %d\n", totalStones)
-		if as.baseShippingRate == 0 {
-			// Private Farm
-			history := c.GetBuffHistory()
-			if len(history) > 0 {
-				b := history[len(history)-1]
-				elr := b.GetEggLayingRate()
-				if elr > 1.0 {
-					as.deflector.percent = math.Round((elr - 1.0) * 100.0)
+		//if as.baseShippingRate == 0 {
+		history := c.GetBuffHistory()
+		if len(history) > 0 {
+			b := history[len(history)-1]
+			elr := b.GetEggLayingRate()
+			if elr > 1.0 {
+				// Check to see if we have a match for the deflector in BuffHistory
+				buffElr := math.Round((elr - 1.0) * 100.0)
+				if as.deflector.percent == 0.0 {
+					// Handle private farms with no known artifacts
+					as.deflector.abbrev = "PVT"
+					as.deflector.percent = buffElr
 					everyoneDeflectorPercent += as.deflector.percent
+				} else if as.deflector.percent != buffElr {
+					as.note = append(as.note, fmt.Sprintf("DEFL Mismatch ∆ %f %f", as.deflector.percent, buffElr))
 				}
-
 			}
-
+		}
+		//}
+		if as.deflector.percent == 0.0 {
+			as.note = append(as.note, "Missing Deflector")
 		}
 		artifactSets = append(artifactSets, as)
 
@@ -574,6 +637,12 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 	builder.WriteString("```")
 	table.Render()
 	builder.WriteString("```")
+
+	for _, as := range artifactSets {
+		if len(as.note) > 0 {
+			builder.WriteString(fmt.Sprintf("**%s** Notes: %s\n", as.name, strings.Join(as.note, ", ")))
+		}
+	}
 
 	if dataTimestampStr != "" {
 		builder.WriteString(dataTimestampStr)
