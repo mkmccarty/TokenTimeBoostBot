@@ -572,6 +572,7 @@ func removeReceivedToken(userID string, name string, index int) {
 		return
 	}
 
+	index--
 	for _, v := range Tokens[userID].Coop {
 		if v != nil && v.Name == name {
 			if index <= len(v.Received) {
