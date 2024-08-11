@@ -62,6 +62,7 @@ const slashEstimateTime string = "estimate-contract-time"
 const slashRenameThread string = "rename-thread"
 const slashFun string = "fun"
 const slashStones string = "stones"
+const slashTimer string = "timer"
 
 var integerZeroMinValue float64 = 0.0
 
@@ -262,6 +263,7 @@ var (
 		boost.GetSlashCalcContractTval(slashCalcContractTval),
 		boost.GetSlashTeamworkEval(slashTeamworkEval),
 		boost.GetSlashStones(slashStones),
+		boost.GetSlashTimer(slashTimer),
 		boost.GetSlashEstimateTime(slashEstimateTime),
 		boost.GetSlashChangeCommand(slashChange),
 		boost.GetSlashChangeOneBoosterCommand(slashChangeOneBooster),
@@ -381,6 +383,9 @@ var (
 		},
 		slashStones: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleStonesCommand(s, i)
+		},
+		slashTimer: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleTimerCommand(s, i)
 		},
 		slashEstimateTime: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleEstimateTimeCommand(s, i)

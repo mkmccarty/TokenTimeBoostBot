@@ -120,6 +120,16 @@ type TokenUnit struct {
 	Serial string    // Serial number of the token
 }
 
+// ContractTimer holds the data for each timer
+type ContractTimer struct {
+	ID       string // Unique ID for this timer
+	Reminder time.Time
+	Timer    *time.Timer
+	Message  string
+	UserID   string
+	Active   bool
+}
+
 // Booster holds the data for each booster within a Contract
 type Booster struct {
 	UserID      string // Egg Farmer
@@ -232,7 +242,8 @@ type Contract struct {
 	LastInteractionTime time.Time // last time the contract was drawn
 	//UseInteractionButtons bool               // Use buttons for interaction
 	buttonComponents map[string]CompMap // Cached components for this contract
-	mutex            sync.Mutex         // Keep this contract thread safe
+	Timers           []ContractTimer
+	mutex            sync.Mutex // Keep this contract thread safe
 }
 
 // SpeedrunData holds the data for a speedrun
