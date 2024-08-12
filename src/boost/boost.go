@@ -124,7 +124,7 @@ type TokenUnit struct {
 type ContractTimer struct {
 	ID       string // Unique ID for this timer
 	Reminder time.Time
-	Timer    *time.Timer
+	timer    *time.Timer
 	Message  string
 	UserID   string
 	Active   bool

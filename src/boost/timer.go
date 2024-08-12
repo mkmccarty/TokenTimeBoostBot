@@ -89,12 +89,12 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Reminder: time.Now().Add(minutes),
 		Message:  message,
 		UserID:   userID,
-		Timer:    time.NewTimer(minutes),
+		timer:    time.NewTimer(minutes),
 		Active:   true,
 	}
 
 	go func(t *ContractTimer) {
-		<-t.Timer.C
+		<-t.timer.C
 		u, _ := s.UserChannelCreate(t.UserID)
 		_, _ = s.ChannelMessageSend(u.ID, t.Message)
 		t.Active = false
@@ -108,4 +108,5 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Content: "timer set",
 		})
 
+	saveData(Contracts)
 }
