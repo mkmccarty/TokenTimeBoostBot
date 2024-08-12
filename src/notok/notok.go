@@ -199,7 +199,8 @@ func getStringFromGoogleGemini(text string) (string, error) {
 	}
 	defer client.Close()
 
-	model := client.GenerativeModel("gemini-pro")
+	model := client.GenerativeModel("gemini-1.5-flash")
+	//model := client.GenerativeModel("gemini-pro")
 	model.SafetySettings = []*genai.SafetySetting{
 		{
 			Category:  genai.HarmCategorySexuallyExplicit,
