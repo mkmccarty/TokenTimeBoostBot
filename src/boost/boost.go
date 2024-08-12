@@ -283,6 +283,28 @@ func init() {
 	if err == nil {
 		Contracts = c
 	}
+
+}
+
+// LaunchReminderTimers will restart any reminder timers that were active
+func LaunchReminderTimers(s *discordgo.Session) {
+	for _, contract := range Contracts {
+		for _, t := range contract.Timers {
+			if t.Active {
+				mextTimer := t.Reminder.Sub(time.Now())
+				if mextTimer > 0 {
+					t.timer = time.NewTimer(mextTimer)
+
+					go func(t *ContractTimer) {
+						<-t.timer.C
+						u, _ := s.UserChannelCreate(t.UserID)
+						_, _ = s.ChannelMessageSend(u.ID, t.Message)
+						t.Active = false
+					}(&t)
+				}
+			}
+		}
+	}
 }
 
 func changeContractState(contract *Contract, newstate int) {

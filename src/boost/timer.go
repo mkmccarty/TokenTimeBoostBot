@@ -51,7 +51,7 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: "Processing request...",
-			//Flags:   discordgo.MessageFlagsEphemeral,
+			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	})
 
@@ -105,7 +105,7 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
-			Content: "timer set",
+			Content: "Timer set for " + message,
 		})
 
 	saveData(Contracts)
