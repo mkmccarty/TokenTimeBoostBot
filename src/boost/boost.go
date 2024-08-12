@@ -291,7 +291,7 @@ func LaunchReminderTimers(s *discordgo.Session) {
 	for _, contract := range Contracts {
 		for _, t := range contract.Timers {
 			if t.Active {
-				mextTimer := t.Reminder.Sub(time.Now())
+				mextTimer := time.Until(t.Reminder)
 				if mextTimer > 0 {
 					t.timer = time.NewTimer(mextTimer)
 
