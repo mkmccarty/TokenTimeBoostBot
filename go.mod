@@ -1,8 +1,8 @@
 module github.com/mkmccarty/TokenTimeBoostBot
 
-go 1.22
+go 1.23
 
-toolchain go1.22.5
+toolchain go1.23.0
 
 require (
 	github.com/bwmarrin/discordgo v0.28.2-0.20240622145303-28f8d4252d9e
@@ -11,7 +11,7 @@ require (
 	github.com/google/generative-ai-go v0.17.0
 	github.com/jasonlvhit/gocron v0.0.1
 	github.com/joho/godotenv v1.5.1
-	github.com/moby/moby v27.1.1+incompatible
+	github.com/moby/moby v27.1.2+incompatible
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/post04/discordgo-emoji-util v0.0.0-20210226234616-e2c0f5ea133e
