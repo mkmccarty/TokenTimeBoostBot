@@ -2,6 +2,7 @@ package track
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -203,14 +204,23 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, co
 		data.Embeds = embed.Embeds
 		data.Components = getTokenValComponents(trackingName) // Initial state
 
-		u, _ := s.UserChannelCreate(userID)
-		msg, _ := s.ChannelMessageSendComplex(u.ID, &data)
-		Tokens[userID].Coop[trackingName].TokenMessageID = msg.ID
-		Tokens[userID].Coop[trackingName].UserChannelID = u.ID
+		u, err := s.UserChannelCreate(userID)
+		if err == nil {
+			msg, err := s.ChannelMessageSendComplex(u.ID, &data)
+			if err == nil {
+				Tokens[userID].Coop[trackingName].TokenMessageID = msg.ID
+				Tokens[userID].Coop[trackingName].UserChannelID = u.ID
 
-		str += "Interact with the bot on " + u.Mention() + " to track your token values."
-		farmerstate.SetLink(userID, "Tracking:"+trackingName, i.GuildID, i.ChannelID, "")
-		farmerstate.SetLink(userID, "Tracker:"+trackingName, "", u.ID, msg.ID)
+				str += "Interact with the bot on " + u.Mention() + " to track your token values."
+				farmerstate.SetLink(userID, "Tracking:"+trackingName, i.GuildID, i.ChannelID, "")
+				farmerstate.SetLink(userID, "Tracker:"+trackingName, "", u.ID, msg.ID)
+			} else {
+				str = "Error writing to channel. " + err.Error()
+			}
+		} else {
+			str = fmt.Sprintf("Error creating user channel. %s", err.Error())
+			log.Println(str)
+		}
 	}
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
