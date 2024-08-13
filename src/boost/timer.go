@@ -54,7 +54,7 @@ func GetSlashTimer(cmd string) *discordgo.ApplicationCommand {
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "timer",
+				Name:        "duration",
 				Description: "When do you want the timer to remind you? Example: 4m or 1h30m5s",
 				Required:    true,
 			},
@@ -96,7 +96,7 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		message = fmt.Sprintf("activity reminder in <#%s>", i.ChannelID)
 	}
 
-	if opt, ok := optionMap["timer"]; ok {
+	if opt, ok := optionMap["duration"]; ok {
 		timespan := opt.StringValue()
 		timespan = strings.Replace(timespan, "min", "m", -1)
 		timespan = strings.Replace(timespan, "hr", "h", -1)
