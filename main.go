@@ -783,7 +783,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
-	boost.LaunchReminderTimers(s)
+	boost.LaunchIndependentTimers(s)
 
 	_ = s.UpdateStatusComplex(discordgo.UpdateStatusData{
 		AFK: false,

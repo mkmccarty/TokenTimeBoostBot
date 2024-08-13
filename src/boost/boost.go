@@ -120,8 +120,8 @@ type TokenUnit struct {
 	Serial string    // Serial number of the token
 }
 
-// ContractTimer holds the data for each timer
-type ContractTimer struct {
+// BotTimer holds the data for each timer
+type BotTimer struct {
 	ID       string // Unique ID for this timer
 	Reminder time.Time
 	timer    *time.Timer
@@ -242,7 +242,7 @@ type Contract struct {
 	LastInteractionTime time.Time // last time the contract was drawn
 	//UseInteractionButtons bool               // Use buttons for interaction
 	buttonComponents map[string]CompMap // Cached components for this contract
-	Timers           []ContractTimer
+	Timers           []BotTimer
 	mutex            sync.Mutex // Keep this contract thread safe
 }
 
@@ -283,30 +283,6 @@ func init() {
 	if err == nil {
 		Contracts = c
 	}
-
-}
-
-// LaunchReminderTimers will restart any reminder timers that were active
-func LaunchReminderTimers(s *discordgo.Session) {
-	for _, contract := range Contracts {
-		for _, t := range contract.Timers {
-			if t.Active {
-				mextTimer := time.Until(t.Reminder)
-				if mextTimer > 0 {
-					t.timer = time.NewTimer(mextTimer)
-
-					go func(t *ContractTimer) {
-						<-t.timer.C
-						u, _ := s.UserChannelCreate(t.UserID)
-						_, _ = s.ChannelMessageSend(u.ID, t.Message)
-						t.Active = false
-					}(&t)
-				}
-			}
-		}
-	}
-
-	LaunchIndependentTimers(s)
 }
 
 func changeContractState(contract *Contract, newstate int) {

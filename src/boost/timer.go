@@ -11,7 +11,7 @@ import (
 	"github.com/xhit/go-str2duration/v2"
 )
 
-var timers []ContractTimer
+var timers []BotTimer
 
 func init() {
 	loadTimerData()
@@ -20,19 +20,22 @@ func init() {
 // LaunchIndependentTimers will start all the timers that are active
 func LaunchIndependentTimers(s *discordgo.Session) {
 
+	now := time.Now()
 	for _, t := range timers {
-		if t.Active {
-			mextTimer := time.Until(t.Reminder)
-			if mextTimer > 0 {
-				t.timer = time.NewTimer(mextTimer)
+		if now.Before(t.Reminder) {
+			nextTimer := time.Until(t.Reminder)
+			if nextTimer >= 0 {
+				t.timer = time.NewTimer(nextTimer)
 
-				go func(t *ContractTimer) {
+				go func(t *BotTimer) {
 					<-t.timer.C
 					u, _ := s.UserChannelCreate(t.UserID)
 					_, _ = s.ChannelMessageSend(u.ID, t.Message)
 					t.Active = false
 				}(&t)
 			}
+		} else {
+			t.Active = false
 		}
 	}
 }
@@ -120,10 +123,10 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	contract := FindContract(i.ChannelID)
+	//contract := FindContract(i.ChannelID)
 	userID := getInteractionUserID(i)
 
-	t := ContractTimer{
+	t := BotTimer{
 		ID:       xid.New().String(),
 		Reminder: time.Now().Add(duration),
 		Message:  message,
@@ -132,28 +135,24 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Active:   true,
 	}
 
-	go func(t *ContractTimer) {
+	go func(t *BotTimer) {
 		<-t.timer.C
 		u, _ := s.UserChannelCreate(t.UserID)
 		_, _ = s.ChannelMessageSend(u.ID, t.Message)
 		t.Active = false
 	}(&t)
 
-	if contract != nil {
-		// Save this timer for later
-		contract.Timers = append(contract.Timers, t)
-		saveData(Contracts)
-	} else {
-		timers = append(timers, t)
-		var newTimers []ContractTimer
-		for _, el := range timers {
-			if el.Active {
-				newTimers = append(newTimers, el)
-			}
+	timers = append(timers, t)
+	var newTimers []BotTimer
+	now := time.Now()
+	for _, el := range timers {
+		if now.Before(el.Reminder) {
+			// Only move over new timers
+			newTimers = append(newTimers, el)
 		}
-		timers = newTimers
-		saveTimerData()
 	}
+	timers = newTimers
+	saveTimerData()
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
