@@ -139,7 +139,7 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		<-t.timer.C
 		u, _ := s.UserChannelCreate(t.UserID)
 		_, _ = s.ChannelMessageSend(u.ID, t.Message)
-		t.Active = false
+		timerSetActiveState(t.ID, false)
 	}(&t)
 
 	timers = append(timers, t)
@@ -158,7 +158,15 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		&discordgo.WebhookParams{
 			Content: "Timer set for " + message,
 		})
+}
 
+func timerSetActiveState(id string, active bool) {
+	for i, t := range timers {
+		if t.ID == id {
+			timers[i].Active = active
+			break
+		}
+	}
 }
 
 func saveTimerData() {
