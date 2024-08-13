@@ -142,6 +142,9 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		timerSetActiveState(t.ID, false)
 	}(&t)
 
+	var builder strings.Builder
+	builder.WriteString("Timer set. Existing timers:")
+
 	timers = append(timers, t)
 	var newTimers []BotTimer
 	now := time.Now()
@@ -149,6 +152,9 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if now.Before(el.Reminder) {
 			// Only move over new timers
 			newTimers = append(newTimers, el)
+			if el.UserID == userID {
+				fmt.Fprintf(&builder, "\n> <t:%d:R> %s", el.Reminder.Unix(), el.Message)
+			}
 		}
 	}
 	timers = newTimers
@@ -156,7 +162,7 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
-			Content: "Timer set for " + message,
+			Content: builder.String(),
 		})
 }
 
