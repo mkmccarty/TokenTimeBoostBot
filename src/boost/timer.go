@@ -1,37 +1,61 @@
 package boost
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
+	"github.com/xhit/go-str2duration/v2"
 )
 
-var integeOneMinValue float64 = 1.0
+var timers []ContractTimer
+
+func init() {
+	loadTimerData()
+}
+
+// LaunchIndependentTimers will start all the timers that are active
+func LaunchIndependentTimers(s *discordgo.Session) {
+
+	for _, t := range timers {
+		if t.Active {
+			mextTimer := time.Until(t.Reminder)
+			if mextTimer > 0 {
+				t.timer = time.NewTimer(mextTimer)
+
+				go func(t *ContractTimer) {
+					<-t.timer.C
+					u, _ := s.UserChannelCreate(t.UserID)
+					_, _ = s.ChannelMessageSend(u.ID, t.Message)
+					t.Active = false
+				}(&t)
+			}
+		}
+	}
+}
 
 // GetSlashTimer will return the discord command for calculating ideal stone set
 func GetSlashTimer(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Set a DM reminder timer for a contract",
-		/*
-			Contexts: &[]discordgo.InteractionContextType{
-				discordgo.InteractionContextGuild,
-				discordgo.InteractionContextBotDM,
-				discordgo.InteractionContextPrivateChannel,
-			},
-			IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-				discordgo.ApplicationIntegrationGuildInstall,
-				discordgo.ApplicationIntegrationUserInstall,
-			},
-		*/
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+			discordgo.InteractionContextBotDM,
+			discordgo.InteractionContextPrivateChannel,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+			discordgo.ApplicationIntegrationUserInstall,
+		},
 		Options: []*discordgo.ApplicationCommandOption{
 			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "minutes",
-				Description: "Minutes to set the timer for",
-				MinValue:    &integeOneMinValue,
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "timer-duration",
+				Description: "When do you want the timer to remind you? Example: 4m or 1h30m5s",
 				Required:    true,
 			},
 			{
@@ -46,6 +70,7 @@ func GetSlashTimer(cmd string) *discordgo.ApplicationCommand {
 
 // HandleTimerCommand will handle the /stones command
 func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	setTimer := false
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -55,8 +80,8 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	})
 
-	minutes := time.Duration(1 * time.Minute)
-	message := fmt.Sprintf("Reminding you about your contract <#%s>", i.ChannelID)
+	duration := time.Duration(1 * time.Minute)
+	var message string
 
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
@@ -65,31 +90,45 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		optionMap[opt.Name] = opt
 	}
 
-	if opt, ok := optionMap["minutes"]; ok {
-		min := opt.IntValue()
-		minutes = time.Duration(min * int64(time.Minute))
-	}
 	if opt, ok := optionMap["message"]; ok {
 		message = fmt.Sprintf("%s <#%s>", opt.StringValue(), i.ChannelID)
+	} else {
+		message = fmt.Sprintf("activity reminder in <#%s>", i.ChannelID)
 	}
 
-	contract := FindContract(i.ChannelID)
-	if contract == nil {
+	if opt, ok := optionMap["timer-duration"]; ok {
+		timespan := opt.StringValue()
+		timespan = strings.Replace(timespan, "min", "m", -1)
+		timespan = strings.Replace(timespan, "hr", "h", -1)
+		timespan = strings.Replace(timespan, "sec", "s", -1)
+		timespan = strings.TrimSpace(timespan)
+		dur, err := str2duration.ParseDuration(timespan)
+		if err == nil {
+			// Error during parsing means skip this duration
+			duration = dur
+			setTimer = true
+		} else {
+			message = fmt.Sprintf("Error parsing duration: %s", err.Error())
+		}
+	}
+
+	if !setTimer {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
-				Content: "No contract found in this channel. Please provide a contract-id and coop-id.",
+				Content: message,
 			})
 		return
 	}
 
+	contract := FindContract(i.ChannelID)
 	userID := getInteractionUserID(i)
 
 	t := ContractTimer{
 		ID:       xid.New().String(),
-		Reminder: time.Now().Add(minutes),
+		Reminder: time.Now().Add(duration),
 		Message:  message,
 		UserID:   userID,
-		timer:    time.NewTimer(minutes),
+		timer:    time.NewTimer(duration),
 		Active:   true,
 	}
 
@@ -100,13 +139,37 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		t.Active = false
 	}(&t)
 
-	// Save this timer for later
-	contract.Timers = append(contract.Timers, t)
+	if contract != nil {
+		// Save this timer for later
+		contract.Timers = append(contract.Timers, t)
+		saveData(Contracts)
+	} else {
+		timers = append(timers, t)
+		var newTimers []ContractTimer
+		for _, el := range timers {
+			if el.Active {
+				newTimers = append(newTimers, el)
+			}
+		}
+		timers = newTimers
+		saveTimerData()
+	}
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
 			Content: "Timer set for " + message,
 		})
 
-	saveData(Contracts)
+}
+
+func saveTimerData() {
+	b, _ := json.Marshal(timers)
+	_ = dataStore.Write("Timers", b)
+}
+
+func loadTimerData() {
+	b, err := dataStore.Read("Timers")
+	if err == nil {
+		_ = json.Unmarshal(b, &timers)
+	}
 }

@@ -305,6 +305,8 @@ func LaunchReminderTimers(s *discordgo.Session) {
 			}
 		}
 	}
+
+	LaunchIndependentTimers(s)
 }
 
 func changeContractState(contract *Contract, newstate int) {
