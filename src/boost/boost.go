@@ -242,8 +242,7 @@ type Contract struct {
 	LastInteractionTime time.Time // last time the contract was drawn
 	//UseInteractionButtons bool               // Use buttons for interaction
 	buttonComponents map[string]CompMap // Cached components for this contract
-	Timers           []BotTimer
-	mutex            sync.Mutex // Keep this contract thread safe
+	mutex            sync.Mutex         // Keep this contract thread safe
 }
 
 // SpeedrunData holds the data for a speedrun
