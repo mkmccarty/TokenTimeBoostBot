@@ -1261,7 +1261,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 					str = fmt.Sprintf(loc.ChannelPing+" send tokens to %s", name)
 				} else {
 					if contract.Banker.CurrentBanker == "" {
-						str = fmt.Sprintf(loc.ChannelPing + " contract boosting complete. Hold your tokens for late joining farmers.")
+						str = loc.ChannelPing + " contract boosting complete. Hold your tokens for late joining farmers."
 					} else {
 						str = "Contract boosting complete. There may late joining farmers. "
 						if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {
