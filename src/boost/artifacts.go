@@ -340,7 +340,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 					Options: []discordgo.SelectMenuOption{
 						{
 							Label:       "Carbon Fiber",
-							Description: "Carbon Fiber (5% Shipping)",
+							Description: "5% Shipping",
 							Value:       "CarbonFiber",
 							Default:     strings.Contains(coll, "CarbonFiber"),
 							Emoji: &discordgo.ComponentEmoji{
@@ -350,7 +350,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 						},
 						{
 							Label:       "Pumpkin",
-							Description: "Pumpkin (5% Shipping)",
+							Description: "5% Shipping",
 							Value:       "Pumpkin",
 							Default:     strings.Contains(coll, "Pumpkin"),
 							Emoji: &discordgo.ComponentEmoji{
