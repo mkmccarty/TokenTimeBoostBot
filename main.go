@@ -63,6 +63,7 @@ const slashRenameThread string = "rename-thread"
 const slashFun string = "fun"
 const slashStones string = "stones"
 const slashTimer string = "timer"
+const slashArtifact string = "artifact"
 
 var integerZeroMinValue float64 = 0.0
 
@@ -158,7 +159,7 @@ var (
 		boost.GetSlashContractCommand(slashContract),
 		boost.GetSlashSpeedrunCommand(slashSpeedrun),
 		boost.GetSlashRenameThread(slashRenameThread),
-
+		boost.SlashArtifactsCommand(slashArtifact),
 		boost.GetSlashChangeSpeedRunSinkCommand(slashChangeSpeedRunSink),
 		{
 			Name:        slashJoin,
@@ -347,6 +348,9 @@ var (
 		},
 		slashReloadContracts: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			tasks.HandleReloadContractsCommand(s, i)
+		},
+		slashArtifact: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleArtifactCommand(s, i)
 		},
 		// Normal Commands
 		slashJoin: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -551,6 +555,9 @@ var (
 		},
 		"cs_": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractSettingsReactions(s, i)
+		},
+		"as_": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleArtifactReactions(s, i)
 		},
 		"fd_signupStart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

@@ -308,13 +308,6 @@ func changeContractState(contract *Contract, newstate int) {
 
 }
 
-func getInteractionUserID(i *discordgo.InteractionCreate) string {
-	if i.GuildID == "" {
-		return i.User.ID
-	}
-	return i.Member.User.ID
-}
-
 // DeleteContract will delete the contract
 func DeleteContract(s *discordgo.Session, guildID string, channelID string) (string, error) {
 	var contract = FindContract(channelID)
