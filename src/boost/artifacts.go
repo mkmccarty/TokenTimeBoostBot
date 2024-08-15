@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
@@ -330,6 +331,8 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 	}
 
 	if !contractOnly {
+		_, carbonfiber := ei.FindEggComponentEmoji("CARBON-FIBER")
+		_, pumpkin := ei.FindEggComponentEmoji("PUMPKIN")
 		component = append(component, discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.SelectMenu{
@@ -344,8 +347,8 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Value:       "CarbonFiber",
 							Default:     strings.Contains(coll, "CarbonFiber"),
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "egg_carbonfiber",
-								ID:   "1255909877356957749",
+								Name: carbonfiber.Name,
+								ID:   carbonfiber.ID,
 							},
 						},
 						{
@@ -354,8 +357,8 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Value:       "Pumpkin",
 							Default:     strings.Contains(coll, "Pumpkin"),
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "egg_pumpkin",
-								ID:   "1235290097427943485",
+								Name: pumpkin.Name,
+								ID:   pumpkin.ID,
 							},
 						},
 					},
