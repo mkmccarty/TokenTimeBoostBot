@@ -54,7 +54,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     defl == "T4L",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_tachyon_deflector_4",
-								ID:   "1273656738150613110",
+								ID:   "863987172674371604",
 							},
 						},
 						{
@@ -64,7 +64,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     defl == "T4E",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_tachyon_deflector_4",
-								ID:   "1273656738150613110",
+								ID:   "863987172674371604",
 							},
 						},
 						{
@@ -74,7 +74,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     defl == "T4R",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_tachyon_deflector_4",
-								ID:   "1273656738150613110",
+								ID:   "863987172674371604",
 							},
 						},
 						{
@@ -84,7 +84,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     defl == "T4C",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_tachyon_deflector_4",
-								ID:   "1273656738150613110",
+								ID:   "863987172674371604",
 							},
 						},
 						{
@@ -94,7 +94,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     defl == "T3R",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_tachyon_deflector_3",
-								ID:   "1273656761957744744",
+								ID:   "857435256944984095",
 							},
 						},
 						{
@@ -104,7 +104,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     defl == "T3C",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_tachyon_deflector_3",
-								ID:   "1273656761957744744",
+								ID:   "857435256944984095",
 							},
 						},
 					},
@@ -126,7 +126,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     metr == "T4L",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_quantum_metronome_4",
-								ID:   "1273656933760630784",
+								ID:   "863987171563798528",
 							},
 						},
 						{
@@ -136,7 +136,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     metr == "T4E",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_quantum_metronome_4",
-								ID:   "1273656933760630784",
+								ID:   "863987171563798528",
 							},
 						},
 						{
@@ -146,7 +146,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     metr == "T4R",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_quantum_metronome_4",
-								ID:   "1273656933760630784",
+								ID:   "863987171563798528",
 							},
 						},
 						{
@@ -156,7 +156,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     metr == "T4C",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_quantum_metronome_4",
-								ID:   "1273656933760630784",
+								ID:   "863987171563798528",
 							},
 						},
 						{
@@ -166,7 +166,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     metr == "T3E",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_quantum_metronome_3",
-								ID:   "1273656949161857075",
+								ID:   "857435255182983179",
 							},
 						},
 						{
@@ -176,7 +176,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     metr == "T3R",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_quantum_metronome_3",
-								ID:   "1273656949161857075",
+								ID:   "857435255182983179",
 							},
 						},
 						{
@@ -186,7 +186,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     metr == "T3C",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_quantum_metronome_3",
-								ID:   "1273656949161857075",
+								ID:   "857435255182983179",
 							},
 						},
 					},
@@ -208,7 +208,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     comp == "T4L",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_interstellar_compass_4",
-								ID:   "1273657032439762994",
+								ID:   "857435263658360852",
 							},
 						},
 						{
@@ -218,7 +218,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     comp == "T4E",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_interstellar_compass_4",
-								ID:   "1273657032439762994",
+								ID:   "857435263658360852",
 							},
 						},
 						{
@@ -228,7 +228,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     comp == "T4R",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_interstellar_compass_4",
-								ID:   "1273657032439762994",
+								ID:   "857435263658360852",
 							},
 						},
 						{
@@ -238,7 +238,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     comp == "T4C",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_interstellar_compass_4",
-								ID:   "1273657032439762994",
+								ID:   "857435263658360852",
 							},
 						},
 						{
@@ -248,7 +248,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     comp == "T3R",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_interstellar_compass_3",
-								ID:   "1273657048302747678",
+								ID:   "863987172091756594",
 							},
 						},
 						{
@@ -258,7 +258,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     comp == "T3C",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_interstellar_compass_3",
-								ID:   "1273657048302747678",
+								ID:   "863987172091756594",
 							},
 						},
 					},
@@ -280,7 +280,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     guss == "T4L",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_ornate_gusset_4",
-								ID:   "1273656984540938291",
+								ID:   "857435261024600085",
 							},
 						},
 						{
@@ -290,7 +290,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     guss == "T4E",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_ornate_gusset_4",
-								ID:   "1273656984540938291",
+								ID:   "857435261024600085",
 							},
 						},
 						{
@@ -300,7 +300,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     guss == "T4C",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_ornate_gusset_4",
-								ID:   "1273656984540938291",
+								ID:   "857435261024600085",
 							},
 						},
 						{
@@ -310,7 +310,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     guss == "T3R",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_ornate_gusset_3",
-								ID:   "1273656996981112975",
+								ID:   "1273680487092850760",
 							},
 						},
 						{
@@ -320,7 +320,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 							Default:     guss == "T3C",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "afx_ornate_gusset_3",
-								ID:   "1273656996981112975",
+								ID:   "1273680487092850760",
 							},
 						},
 					},
@@ -340,7 +340,7 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 					Options: []discordgo.SelectMenuOption{
 						{
 							Label:       "Carbon Fiber",
-							Description: "5% Shipping",
+							Description: "5% Shipping)",
 							Value:       "CarbonFiber",
 							Default:     strings.Contains(coll, "CarbonFiber"),
 							Emoji: &discordgo.ComponentEmoji{
