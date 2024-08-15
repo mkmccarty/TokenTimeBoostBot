@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -458,7 +459,8 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 			farmerstate.SetMiscSettingString(userID, cmd, strings.Join(data.Values, ","))
 		}
 	} else {
-		// Set the user artifacts for the contract
+		// TODO: Set the user artifacts for the contract
+		log.Println("Contract artifacts not implemented yet.")
 	}
 
 }
