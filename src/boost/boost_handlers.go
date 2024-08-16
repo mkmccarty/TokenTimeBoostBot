@@ -141,7 +141,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 						},
 						{
 							Label:       "ELR Order",
-							Description: "Boost order is based on ELR",
+							Description: "Highest ELR first",
 							Value:       "elr",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "🧮",
