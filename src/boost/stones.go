@@ -270,7 +270,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 	}
 	gussett := map[string]float64{
 		"T1C": 5.0,
-		"T2C": 10.0, "T2R": 12.0,
+		"T2C": 10.0, "T2E": 12.0,
 		"T3C": 16.0, "T3R": 19.0,
 		"T4C": 20.0, "T4E": 22.0, "T4L": 25.0,
 	}
