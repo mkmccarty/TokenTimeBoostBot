@@ -141,7 +141,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 						},
 						{
 							Label:       "ELR Order",
-							Description: "Highest ELR first",
+							Description: "Highest Egg Lay Rate first",
 							Value:       "elr",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "🧮",
