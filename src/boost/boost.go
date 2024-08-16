@@ -11,6 +11,7 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -29,8 +30,6 @@ var mutex sync.Mutex
 
 const boostBotHomeGuild string = "766330702689992720"
 
-//var TokenStr = "" //"<:token:778019329693450270>"
-
 const errorNoContract string = "contract doesn't exist"
 const errorNotStarted string = "contract not started"
 const errorContractFull string = "contract is full"
@@ -43,8 +42,6 @@ const errorContractNotStarted = "contract hasn't started"
 const errorContractAlreadyStarted = "contract already started"
 const errorAlreadyBoosted = "farmer boosted already"
 const errorNotContractCreator = "restricted to contract creator"
-
-//const errorSpeedrunContract = "not available for a speedrun contract"
 
 // Create a slice with the names of the ContractState const names
 var contractStateNames = []string{
@@ -64,6 +61,7 @@ const (
 	ContractOrderRandom    = 2 // Randomized when the contract starts. After 20 minutes the order changes to Sign-up.
 	ContractOrderFair      = 3 // Fair based on position percentile of each farmers last 5 contracts. Those with no history use 50th percentile
 	ContractOrderTimeBased = 4 // Time based order
+	ContractOrderELR       = 5 // ELR based order
 
 	ContractStateSignup    = 0 // Contract is in signup phase
 	ContractStateFastrun   = 1 // Contract in Boosting as fastrun
@@ -130,6 +128,13 @@ type BotTimer struct {
 	Active   bool
 }
 
+// ArtifactSet holds the data for each set of artifacts
+type ArtifactSet struct {
+	Artifacts []ei.Artifact
+	LayRate   float64
+	ShipRate  float64
+}
+
 // Booster holds the data for each booster within a Contract
 type Booster struct {
 	UserID      string // Egg Farmer
@@ -163,6 +168,7 @@ type Booster struct {
 	RanChickensOn          []string      // Array of users that the farmer ran chickens on
 	BoostTriggerTime       time.Time     // Used for time remaining in boost
 	Hint                   []string      // Used to track which hints have been given
+	ArtifactSet            ArtifactSet   // Set of artifacts for this booster
 }
 
 // LocationData holds server specific Data for a contract
@@ -402,6 +408,11 @@ func getBoostOrderString(contract *Contract) string {
 		return fmt.Sprintf("Fair -> Sign-up <t:%d:R> ", thresholdStartTime.Unix())
 	case ContractOrderTimeBased:
 		return "Time"
+	case ContractOrderELR:
+		if contract.StartTime.IsZero() || contract.State == ContractStateSignup {
+			return "ELR order"
+		}
+		return fmt.Sprintf("ELR -> Sign-up <t:%d:R> ", thresholdStartTime.Unix())
 	}
 	return "Unknown"
 }
@@ -613,6 +624,49 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 	return nil
 }
 
+func getUserArtifacts(userID string, inSet *ArtifactSet) ArtifactSet {
+	var mySet ArtifactSet
+	// Pull in any saved artifacts
+	if inSet == nil {
+		prefix := []string{"", "D-", "M-", "C-", "G-"}
+		for i, el := range []string{"collegg", "defl", "metr", "comp", "guss"} {
+			art := farmerstate.GetMiscSettingString(userID, el)
+			if art == "" {
+				continue
+			}
+			if i == 0 {
+				// Colleggtible
+				for _, a := range strings.Split(art, ",") {
+					if a != "" {
+						colleg := ei.ArtifactMap[a]
+						mySet.Artifacts = append(mySet.Artifacts, *colleg)
+					}
+				}
+			} else {
+				if art != "" {
+					a := ei.ArtifactMap[prefix[i]+art]
+					fmt.Print(a)
+					mySet.Artifacts = append(mySet.Artifacts, *a)
+				}
+			}
+		}
+	} else {
+		mySet = *inSet
+	}
+
+	baseLaying := 3.772
+	baseShipping := 7.148
+	layRate := baseLaying
+	shipRate := baseShipping
+	for _, a := range mySet.Artifacts {
+		layRate *= a.LayBuff * math.Pow(1.05, float64(a.Stones))
+		shipRate *= a.ShipBuff * math.Pow(1.05, float64(a.Stones))
+	}
+	mySet.LayRate = layRate
+	mySet.ShipRate = shipRate
+	return mySet
+}
+
 // AddFarmerToContract adds a farmer to a contract
 func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string, order int) (*Booster, error) {
 	log.Println("AddFarmerToContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", order)
@@ -674,6 +728,8 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		if b.TokensWanted <= 0 {
 			b.TokensWanted = 8
 		}
+		b.ArtifactSet = getUserArtifacts(userID, nil)
+
 		// Check if within the start period of a contract
 		if contract.State != ContractStateSignup {
 			if order == ContractOrderTimeBased || order == ContractOrderFair || order == ContractOrderRandom {
@@ -1600,6 +1656,32 @@ func reorderBoosters(contract *Contract) {
 	case ContractOrderFair:
 		newOrder := farmerstate.GetOrderHistory(contract.Order, 5)
 		contract.Order = removeDuplicates(newOrder)
+	case ContractOrderELR:
+		type ELRPair struct {
+			Name string
+			ELR  float64
+		}
+
+		var elrPairs []ELRPair
+		for _, el := range contract.Order {
+			elrPairs = append(elrPairs, ELRPair{
+				Name: el,
+				ELR:  min(contract.Boosters[el].ArtifactSet.LayRate, contract.Boosters[el].ArtifactSet.ShipRate),
+			})
+		}
+
+		sort.Slice(elrPairs, func(i, j int) bool {
+			return elrPairs[i].ELR > elrPairs[j].ELR
+		})
+
+		var orderedNames []string
+		for _, pair := range elrPairs {
+			orderedNames = append(orderedNames, pair.Name)
+		}
+		contract.Order = orderedNames
+		// Reset this to Signup after the initial ELR sort
+		contract.BoostOrder = ContractOrderSignup
+
 	}
 	//
 	if contract.Speedrun && contract.Banker.BoostingSinkUserID != "" {

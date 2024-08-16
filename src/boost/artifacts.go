@@ -2,7 +2,6 @@ package boost
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -10,7 +9,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
-func getArtifactsComponents(userID string, contractOnly bool) (string, []discordgo.MessageComponent) {
+func getArtifactsComponents(userID string, channelID string, contractOnly bool) (string, []discordgo.MessageComponent) {
 	minValues := 0
 	minV := 0
 
@@ -18,24 +17,48 @@ func getArtifactsComponents(userID string, contractOnly bool) (string, []discord
 
 	var builder strings.Builder
 	if !contractOnly {
-		fmt.Fprintf(&builder, "Select your coop artifacts <@%s>", userID)
+		fmt.Fprintf(&builder, "Select your global coop artifacts <@%s>", userID)
 	} else {
 		fmt.Fprintf(&builder, "Adjust your coop artifact overrides for this contract <@%s>", userID)
-		fmt.Fprintf(&builder, "\n**This doesn't do anything until Contract ELR is implemented.**")
 	}
 
-	// Menus for Deflector, Metronome, Compass and Gusset
-	// Menu for Colleggtables
-
-	defl := farmerstate.GetMiscSettingString(userID, "defl")
-	metr := farmerstate.GetMiscSettingString(userID, "metr")
-	comp := farmerstate.GetMiscSettingString(userID, "comp")
-	guss := farmerstate.GetMiscSettingString(userID, "guss")
-	coll := farmerstate.GetMiscSettingString(userID, "collegg")
+	// These are the global settings
+	defl := ""
+	metr := ""
+	comp := ""
+	guss := ""
+	coll := ""
 
 	temp := "PERM"
 	if contractOnly {
 		temp = "TEMP"
+		contract := FindContract(channelID)
+		if contract != nil {
+			if userInContract(contract, userID) {
+				for a := range contract.Boosters[userID].ArtifactSet.Artifacts {
+					if strings.Contains(contract.Boosters[userID].ArtifactSet.Artifacts[a].Type, "Deflector") {
+						defl = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
+					}
+					if strings.Contains(contract.Boosters[userID].ArtifactSet.Artifacts[a].Type, "Metronome") {
+						metr = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
+					}
+					if strings.Contains(contract.Boosters[userID].ArtifactSet.Artifacts[a].Type, "Compass") {
+						comp = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
+					}
+					if strings.Contains(contract.Boosters[userID].ArtifactSet.Artifacts[a].Type, "Gusset") {
+						guss = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
+					}
+				}
+			}
+		} else {
+			return "No contract exists in this channel", nil
+		}
+	} else {
+		defl = farmerstate.GetMiscSettingString(userID, "defl")
+		metr = farmerstate.GetMiscSettingString(userID, "metr")
+		comp = farmerstate.GetMiscSettingString(userID, "comp")
+		guss = farmerstate.GetMiscSettingString(userID, "guss")
+		coll = farmerstate.GetMiscSettingString(userID, "collegg")
 	}
 	// Remove the extra closing brace
 
@@ -410,7 +433,7 @@ func HandleArtifactCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		contractOnly = opt.BoolValue()
 	}
 
-	str, comp := getArtifactsComponents(userID, contractOnly)
+	str, comp := getArtifactsComponents(userID, i.ChannelID, contractOnly)
 
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -442,18 +465,17 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 		},
 	})
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			//Content: "",
-			//Flags: discordgo.MessageFlagsEphemeral,
-		})
-
 	data := i.MessageComponentData()
+
+	setValue := true
+	if len(data.Values) == 0 {
+		setValue = false
+	}
 
 	if override == "PERM" {
 		switch cmd {
 		case "defl", "metr", "comp", "guss":
-			if len(data.Values) > 0 {
+			if setValue {
 				farmerstate.SetMiscSettingString(userID, cmd, data.Values[0])
 			} else {
 				farmerstate.SetMiscSettingString(userID, cmd, "") // Clear the value
@@ -462,8 +484,54 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 			farmerstate.SetMiscSettingString(userID, cmd, strings.Join(data.Values, ","))
 		}
 	} else {
-		// TODO: Set the user artifacts for the contract
-		log.Println("Contract artifacts not implemented yet.")
+		contract := FindContract(i.ChannelID)
+		if contract != nil {
+			if userInContract(contract, userID) {
+				// User in this contract
+				currentSet := contract.Boosters[userID].ArtifactSet
+
+				var prefix string
+				switch cmd {
+				case "defl":
+					prefix = "D-"
+				case "metr":
+					prefix = "M-"
+				case "comp":
+					prefix = "C-"
+				case "guss":
+					prefix = "G-"
+				}
+				newArtifact := ei.ArtifactMap[prefix+data.Values[0]]
+				// Check if the artifact already exists in the current set
+				exists := false
+				for i, artifact := range currentSet.Artifacts {
+					if artifact.Type == newArtifact.Type {
+						exists = true
+						if setValue {
+							currentSet.Artifacts[i] = *newArtifact
+						} else {
+							// Removing this artifact
+							currentSet.Artifacts = append(currentSet.Artifacts[:i], currentSet.Artifacts[i+1:]...)
+						}
+						break
+					}
+				}
+				// If the artifact doesn't exist, add it to the current set
+				if !exists {
+					currentSet.Artifacts = append(currentSet.Artifacts, *newArtifact)
+				}
+
+				contract.Boosters[userID].ArtifactSet = getUserArtifacts(userID, &currentSet)
+
+				refreshBoostListMessage(s, contract)
+
+			}
+		}
 	}
+	_, _ = s.FollowupMessageCreate(i.Interaction, true,
+		&discordgo.WebhookParams{
+			//Content: "",
+			//Flags: discordgo.MessageFlagsEphemeral,
+		})
 
 }

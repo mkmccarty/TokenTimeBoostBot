@@ -131,10 +131,20 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 						},
 						{
 							Label:       "Random Order",
-							Description: "Less Tango Legs ",
+							Description: "Boost order is random",
 							Value:       "random",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "🤪",
+							},
+
+							Default: false,
+						},
+						{
+							Label:       "ELR Order",
+							Description: "Boost order is based on ELR",
+							Value:       "elr",
+							Emoji: &discordgo.ComponentEmoji{
+								Name: "🧮",
 							},
 
 							Default: false,

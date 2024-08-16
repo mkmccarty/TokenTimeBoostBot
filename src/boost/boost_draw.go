@@ -203,12 +203,17 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 				countStr, signupCountStr = getTokenCountString(tokenStr, b.TokensWanted, 0)
 			}
 
+			elrRate := ""
+			if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderELR {
+				elrRate = fmt.Sprintf(" **ELR:%2.3f** ", min(b.ArtifactSet.LayRate, b.ArtifactSet.ShipRate))
+			}
+
 			sinkIcon := getSinkIcon(contract, b)
 			if contract.State == ContractStateBanker {
 
 				switch b.BoostState {
 				case BoostStateUnboosted:
-					outputStr += fmt.Sprintf("%s %s%s%s%s\n", prefix, name, signupCountStr, sinkIcon, server)
+					outputStr += fmt.Sprintf("%s %s%s%s%s%s\n", prefix, name, signupCountStr, elrRate, sinkIcon, server)
 				case BoostStateTokenTime:
 					outputStr += fmt.Sprintf("%s ➡️ **%s** %s%s%s%s\n", prefix, name, signupCountStr, currentStartTime, sinkIcon, server)
 				case BoostStateBoosted:
@@ -219,7 +224,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 
 				switch b.BoostState {
 				case BoostStateUnboosted:
-					outputStr += fmt.Sprintf("%s %s%s%s\n", prefix, name, signupCountStr, server)
+					outputStr += fmt.Sprintf("%s %s%s%s%s\n", prefix, name, signupCountStr, elrRate, server)
 				case BoostStateTokenTime:
 					if b.UserID == b.Name && b.AltController == "" && contract.State != ContractStateBanker {
 						// Add a rocket for auto boosting
