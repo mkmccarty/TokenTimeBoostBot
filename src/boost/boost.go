@@ -409,10 +409,7 @@ func getBoostOrderString(contract *Contract) string {
 	case ContractOrderTimeBased:
 		return "Time"
 	case ContractOrderELR:
-		if contract.StartTime.IsZero() || contract.State == ContractStateSignup {
-			return "ELR order"
-		}
-		return fmt.Sprintf("ELR -> Sign-up <t:%d:R> ", thresholdStartTime.Unix())
+		return "Egg Lay Rate order"
 	}
 	return "Unknown"
 }
