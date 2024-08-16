@@ -50,28 +50,6 @@ func GetSlashContractCommand(cmd string) *discordgo.ApplicationCommand {
 				Description: "Co-op Size. This will be pulled from EI Contract data if unset.",
 				Required:    false,
 			},
-			/*
-				{
-					Name:        "boost-order",
-					Description: "Select how boost list is ordered. Default is Sign-up order.",
-					Required:    false,
-					Type:        discordgo.ApplicationCommandOptionInteger,
-					Choices: []*discordgo.ApplicationCommandOptionChoice{
-						{
-							Name:  "Sign-up Ordering",
-							Value: ContractOrderSignup,
-						},
-						{
-							Name:  "Fair Ordering",
-							Value: ContractOrderFair,
-						},
-						{
-							Name:  "Random Ordering",
-							Value: ContractOrderRandom,
-						},
-					},
-				},
-			*/
 			{
 				Type:        discordgo.ApplicationCommandOptionRole,
 				Name:        "ping-role",
@@ -458,6 +436,8 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			contract.BoostOrder = ContractOrderFair
 		case "random":
 			contract.BoostOrder = ContractOrderRandom
+		case "elr":
+			contract.BoostOrder = ContractOrderELR
 		}
 	}
 
