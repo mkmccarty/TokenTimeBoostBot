@@ -347,6 +347,16 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 								ID:   "1273680487092850760",
 							},
 						},
+						{
+							Label:       "Gusset T2E",
+							Description: "Epic",
+							Value:       "T2E",
+							Default:     guss == "T2E",
+							Emoji: &discordgo.ComponentEmoji{
+								Name: "afx_ornate_gusset_2",
+								ID:   "882430054695583824",
+							},
+						},
 					},
 				},
 			},
@@ -501,7 +511,12 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 				case "guss":
 					prefix = "G-"
 				}
-				newArtifact := ei.ArtifactMap[prefix+data.Values[0]]
+				var newArtifact *ei.Artifact
+				if len(data.Values) == 0 {
+					newArtifact = ei.ArtifactMap[prefix+"NONE"]
+				} else {
+					newArtifact = ei.ArtifactMap[prefix+data.Values[0]]
+				}
 				// Check if the artifact already exists in the current set
 				exists := false
 				for i, artifact := range currentSet.Artifacts {
