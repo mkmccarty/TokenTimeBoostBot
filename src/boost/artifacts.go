@@ -408,14 +408,6 @@ func SlashArtifactsCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Indicate best contract artifacts you have.",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "contract-only",
-				Description: "Specify a set only for this contract.",
-				Required:    false,
-			},
-		},
 	}
 }
 
@@ -438,9 +430,11 @@ func HandleArtifactCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 
 	contractOnly := false
-
-	if opt, ok := optionMap["contract-only"]; ok {
-		contractOnly = opt.BoolValue()
+	contract := FindContract(i.ChannelID)
+	if contract != nil {
+		if contract.BoostOrder == ContractOrderELR {
+			contractOnly = true
+		}
 	}
 
 	str, comp := getArtifactsComponents(userID, i.ChannelID, contractOnly)
