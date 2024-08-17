@@ -15,7 +15,13 @@ import (
 
 // HandleContractReactions handles all the button reactions for a contract
 func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
-
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		Data: &discordgo.InteractionResponseData{
+			Content:    "",
+			Flags:      discordgo.MessageFlagsEphemeral,
+			Components: []discordgo.MessageComponent{}},
+	})
 	userID := getInteractionUserID(i)
 
 	// rc_Name # rc_ID # HASH
@@ -25,38 +31,30 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 
 	contract := Contracts[contractHash]
 	if contract == nil {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: "Unable to find this contract.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			})
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: "Unable to find this contract.",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		})
+		return
 	}
 
 	if cmd == "help" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags: discordgo.MessageFlagsEphemeral,
-			},
-		})
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
 		buttonReactionHelp(s, i, contract)
 		return
 	}
 
 	// Restring commands to those within the contract
 	if !userInContract(contract, userID) && !creatorOfContract(s, contract, userID) {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: "Unable to find this contract.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			})
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: "User isn't in this contract.",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		})
 		return
 	}
 	// Ack the message for every other command
 	if cmd != "cr" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-		})
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
 	}
 
 	redraw := false
@@ -91,12 +89,9 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 		var str string
 		redraw, str = buttonReactionRunChickens(s, contract, userID)
 		// Ack the message for every other command
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: str,
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: str,
+			Flags:   discordgo.MessageFlagsEphemeral,
 		})
 	case "ranchicken":
 		buttonReactionRanChicken(s, i, contract, userID)
