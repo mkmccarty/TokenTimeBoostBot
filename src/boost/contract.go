@@ -378,6 +378,7 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
 	cmd := strings.ToLower(reaction[1])
 	contractHash := reaction[len(reaction)-1]
+	refreshBoostListComponents := false
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredMessageUpdate,
@@ -492,6 +493,10 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		} else if userInContract(contract, sid) {
 			contract.Banker.PostSinkUserID = sid
 		}
+		if contract.State == ContractStateCompleted {
+			contract.Banker.CurrentBanker = contract.Banker.PostSinkUserID
+			refreshBoostListComponents = true
+		}
 	case "sinkorder":
 		// toggle the sink order
 		if contract.Banker.SinkBoostPosition == SinkBoostFirst {
@@ -507,10 +512,14 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
 		contentStr := DrawBoostList(s, contract)
 		msgedit.SetContent(contentStr)
+
 		msgedit.Flags = discordgo.MessageFlagsSuppressEmbeds
 		msg, err := s.ChannelMessageEditComplex(msgedit)
 		if err == nil {
 			loc.ListMsgID = msg.ID
+		}
+		if refreshBoostListComponents {
+			addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
 		}
 		if redrawSignup {
 
