@@ -24,9 +24,12 @@ func UpdateThreadName(s *discordgo.Session, contract *Contract) {
 		if err == nil {
 
 			if ch.IsThread() {
-				_, _ = s.ChannelEdit(loc.ChannelID, &discordgo.ChannelEdit{
+				_, err := s.ChannelEdit(loc.ChannelID, &discordgo.ChannelEdit{
 					Name: builder.String(),
 				})
+				if err != nil {
+					log.Println("Error updating thread name", err)
+				}
 			}
 		}
 	}
