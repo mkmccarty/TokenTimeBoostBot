@@ -121,7 +121,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		// Anyone can use these reactions
 		switch r.Emoji.Name {
 		case "🌊":
-			UpdateThreadName(s, contract)
+			go UpdateThreadName(s, contract)
 		case "🐓":
 			if userInContract(contract, r.UserID) {
 				redraw, _ = buttonReactionRunChickens(s, contract, r.UserID)
