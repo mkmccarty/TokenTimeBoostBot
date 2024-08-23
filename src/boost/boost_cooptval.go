@@ -129,6 +129,7 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			})
 		if err == nil {
 			contract.CoopTokenValueMsgID = msg.ID
+			s.ChannelMessagePin(i.ChannelID, msg.ID)
 		}
 	}
 }
