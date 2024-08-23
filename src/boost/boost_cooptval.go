@@ -35,7 +35,6 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	for _, opt := range options {
 		optionMap[opt.Name] = opt
 	}
-
 	invalidDuration := false
 	channelID := i.ChannelID
 	contract := FindContract(channelID)
@@ -67,6 +66,17 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	if contract == nil {
 		fmt.Fprintf(&builder, "No contract found in this channel")
 	} else {
+		flag := discordgo.MessageFlagsEphemeral
+		if contract.CoopTokenValueMsgID == "" {
+			flag = 0
+		}
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Processing request...",
+				Flags:   flag,
+			},
+		})
 		BTA := duration.Minutes() / float64(contract.MinutesPerToken)
 		targetTval := 3.0
 		if BTA > 42.0 {
@@ -74,10 +84,10 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		}
 		// Calculate the token value
 		fmt.Fprintf(&builder, "## Coop token value for contract based on contract reactions\n")
-		fmt.Fprintf(&builder, "### Contract started at: <t:%d:f> with a duration of %s\n", contract.StartTime.Unix(), duration.Round(time.Second))
-		fmt.Fprintf(&builder, "### Target token value: %6.3f\n", targetTval)
+		fmt.Fprintf(&builder, "Contract started at: <t:%d:f> with a duration of %s\n", contract.StartTime.Unix(), duration.Round(time.Second))
+		fmt.Fprintf(&builder, "Target token value: %6.3f\n", targetTval)
 		table := tablewriter.NewWriter(&builder)
-		table.SetHeader([]string{"Name", "Sent ∆", "Value ∆"})
+		table.SetHeader([]string{"", "Sent ∆", "Value ∆"})
 		table.SetBorder(false)
 		table.SetCenterSeparator("")
 		table.SetColumnSeparator("")
@@ -102,14 +112,25 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		}
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: builder.String(),
-			//Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	},
-	)
+	if contract.CoopTokenValueMsgID != "" {
+		strURL := "https://discordapp.com/channels/@me/" + i.ChannelID + "/" + contract.CoopTokenValueMsgID
+		_, _ = s.FollowupMessageCreate(i.Interaction, true,
+			&discordgo.WebhookParams{
+				Content: "Updated original response " + strURL,
+			})
+		//if err == nil {
+		//	_ = s.FollowupMessageDelete(i.Interaction, msg.ID)
+		//}
+		_, _ = s.ChannelMessageEdit(i.ChannelID, contract.CoopTokenValueMsgID, builder.String())
+	} else {
+		msg, err := s.FollowupMessageCreate(i.Interaction, true,
+			&discordgo.WebhookParams{
+				Content: builder.String(),
+			})
+		if err == nil {
+			contract.CoopTokenValueMsgID = msg.ID
+		}
+	}
 }
 
 func calculateTokenValueCoop(startTime time.Time, duration time.Duration, booster *Booster) (string, int64, float64) {
