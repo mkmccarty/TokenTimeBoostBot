@@ -244,6 +244,7 @@ type Contract struct {
 	Banker              BankerInfo // Banker for the contract
 	CalcOperations      int
 	CalcOperationTime   time.Time
+	CoopTokenValueMsgID string
 	LastWishPrompt      string    // saved prompt for this contract
 	LastInteractionTime time.Time // last time the contract was drawn
 	//UseInteractionButtons bool               // Use buttons for interaction
