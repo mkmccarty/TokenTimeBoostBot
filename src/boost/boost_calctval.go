@@ -136,8 +136,6 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 		}
 		// Calculate the token value
 		str = calculateTokenValue(contract.StartTime, duration, details, contract.Boosters[userID], targetTval)
-		contract.CalcOperations++
-		contract.CalcOperationTime = time.Now()
 	}
 	if invalidDuration {
 		str += "\n\n__Invalid duration used__\n"

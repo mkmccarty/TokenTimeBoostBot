@@ -54,6 +54,7 @@ const slashLaunchHelper string = "launch-helper"
 const slashToken string = "token"
 const slashTokenRemove string = "token-remove"
 const slashCalcContractTval string = "calc-contract-tval"
+const slashCoopTval string = "coop-tval"
 const slashVolunteerSink string = "volunteer-sink"
 const slashVoluntellSink string = "voluntell-sink"
 const slashLinkAlternate string = "link-alternate"
@@ -262,6 +263,7 @@ var (
 		boost.GetSlashVoluntellSink(slashVoluntellSink),
 		boost.GetSlasLinkAlternateCommand(slashLinkAlternate),
 		boost.GetSlashCalcContractTval(slashCalcContractTval),
+		boost.GetSlashCoopTval(slashCoopTval),
 		boost.GetSlashTeamworkEval(slashTeamworkEval),
 		boost.GetSlashStones(slashStones),
 		boost.GetSlashTimer(slashTimer),
@@ -381,6 +383,9 @@ var (
 		},
 		slashCalcContractTval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractCalcContractTvalCommand(s, i)
+		},
+		slashCoopTval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleCoopTvalCommand(s, i)
 		},
 		slashTeamworkEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleTeamworkEvalCommand(s, i)
