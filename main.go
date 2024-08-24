@@ -14,6 +14,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/db"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
@@ -65,6 +66,7 @@ const slashFun string = "fun"
 const slashStones string = "stones"
 const slashTimer string = "timer"
 const slashArtifact string = "artifact"
+const slashRemoveDMMessage string = "remove-dm-message"
 
 var integerZeroMinValue float64 = 0.0
 
@@ -272,6 +274,7 @@ var (
 		boost.GetSlashChangeOneBoosterCommand(slashChangeOneBooster),
 		boost.GetSlashChangePingRoleCommand(slashChangePingRole),
 		boost.GetSlashChangePlannedStartCommand(slashChangePlannedStartCommand),
+		bottools.GetSlashRemoveMessage(slashRemoveDMMessage),
 		farmerstate.SlashSetEggIncNameCommand(slashSetEggIncName),
 		{
 			Name:        slashBump,
@@ -449,6 +452,9 @@ var (
 		},
 		slashRenameThread: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleRenameThreadCommand(s, i)
+		},
+		slashRemoveDMMessage: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			bottools.HandleRemoveMessageCommand(s, i)
 		},
 		slashHelp: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleHelpCommand(s, i)
