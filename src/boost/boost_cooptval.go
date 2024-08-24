@@ -106,6 +106,7 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		}
 		table.Render()
 		fmt.Fprint(&builder, "```")
+		fmt.Fprintf(&builder, "Updated at: <t:%d:R>\n", time.Now().Unix())
 	}
 	if invalidDuration {
 		if invalidDuration {
