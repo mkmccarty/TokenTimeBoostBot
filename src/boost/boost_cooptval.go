@@ -87,7 +87,7 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		fmt.Fprintf(&builder, "Contract started at: <t:%d:f> with a duration of %s\n", contract.StartTime.Unix(), duration.Round(time.Second))
 		fmt.Fprintf(&builder, "Target token value: %6.3f\n", targetTval)
 		table := tablewriter.NewWriter(&builder)
-		table.SetHeader([]string{"", "Sent ∆", "Value ∆"})
+		table.SetHeader([]string{"", "∆", "Val ∆"})
 		table.SetBorder(false)
 		table.SetCenterSeparator("")
 		table.SetColumnSeparator("")
@@ -98,7 +98,7 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		fmt.Fprint(&builder, "```")
 
 		for _, booster := range contract.Boosters {
-			if booster.Name == booster.UserID {
+			if booster.Name == booster.UserID && booster.AltController == "" {
 				continue
 			}
 			name, tcount, tval := calculateTokenValueCoop(contract.StartTime, duration, booster)
