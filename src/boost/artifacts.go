@@ -430,12 +430,14 @@ func HandleArtifactCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 
 	contractOnly := false
-	contract := FindContract(i.ChannelID)
-	if contract != nil {
-		if contract.BoostOrder == ContractOrderELR {
-			contractOnly = true
+	/*
+		contract := FindContract(i.ChannelID)
+		if contract != nil {
+			if contract.BoostOrder == ContractOrderELR {
+				contractOnly = true
+			}
 		}
-	}
+	*/
 
 	str, comp := getArtifactsComponents(userID, i.ChannelID, contractOnly)
 
@@ -460,7 +462,7 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
 	cmd := strings.ToLower(reaction[1])
 	userID := reaction[len(reaction)-2]
-	override := reaction[len(reaction)-1]
+	//override := reaction[len(reaction)-1]
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredMessageUpdate,
@@ -476,67 +478,67 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 		setValue = false
 	}
 
-	if override == "PERM" {
-		switch cmd {
-		case "defl", "metr", "comp", "guss":
-			if setValue {
-				farmerstate.SetMiscSettingString(userID, cmd, data.Values[0])
-			} else {
-				farmerstate.SetMiscSettingString(userID, cmd, "") // Clear the value
-			}
-		case "collegg":
-			farmerstate.SetMiscSettingString(userID, cmd, strings.Join(data.Values, ","))
+	//if override == "PERM" {
+	switch cmd {
+	case "defl", "metr", "comp", "guss":
+		if setValue {
+			farmerstate.SetMiscSettingString(userID, cmd, data.Values[0])
+		} else {
+			farmerstate.SetMiscSettingString(userID, cmd, "") // Clear the value
 		}
-	} else {
-		contract := FindContract(i.ChannelID)
-		if contract != nil {
-			if userInContract(contract, userID) {
-				// User in this contract
-				currentSet := contract.Boosters[userID].ArtifactSet
+	case "collegg":
+		farmerstate.SetMiscSettingString(userID, cmd, strings.Join(data.Values, ","))
+	}
+	//} else {
+	contract := FindContract(i.ChannelID)
+	if contract != nil {
+		if userInContract(contract, userID) {
+			// User in this contract
+			currentSet := contract.Boosters[userID].ArtifactSet
 
-				var prefix string
-				switch cmd {
-				case "defl":
-					prefix = "D-"
-				case "metr":
-					prefix = "M-"
-				case "comp":
-					prefix = "C-"
-				case "guss":
-					prefix = "G-"
-				}
-				var newArtifact *ei.Artifact
-				if len(data.Values) == 0 {
-					newArtifact = ei.ArtifactMap[prefix+"NONE"]
-				} else {
-					newArtifact = ei.ArtifactMap[prefix+data.Values[0]]
-				}
-				// Check if the artifact already exists in the current set
-				exists := false
-				for i, artifact := range currentSet.Artifacts {
-					if artifact.Type == newArtifact.Type {
-						exists = true
-						if setValue {
-							currentSet.Artifacts[i] = *newArtifact
-						} else {
-							// Removing this artifact
-							currentSet.Artifacts = append(currentSet.Artifacts[:i], currentSet.Artifacts[i+1:]...)
-						}
-						break
-					}
-				}
-				// If the artifact doesn't exist, add it to the current set
-				if !exists {
-					currentSet.Artifacts = append(currentSet.Artifacts, *newArtifact)
-				}
-
-				contract.Boosters[userID].ArtifactSet = getUserArtifacts(userID, &currentSet)
-
-				refreshBoostListMessage(s, contract)
-
+			var prefix string
+			switch cmd {
+			case "defl":
+				prefix = "D-"
+			case "metr":
+				prefix = "M-"
+			case "comp":
+				prefix = "C-"
+			case "guss":
+				prefix = "G-"
 			}
+			var newArtifact *ei.Artifact
+			if len(data.Values) == 0 {
+				newArtifact = ei.ArtifactMap[prefix+"NONE"]
+			} else {
+				newArtifact = ei.ArtifactMap[prefix+data.Values[0]]
+			}
+			// Check if the artifact already exists in the current set
+			exists := false
+			for i, artifact := range currentSet.Artifacts {
+				if artifact.Type == newArtifact.Type {
+					exists = true
+					if setValue {
+						currentSet.Artifacts[i] = *newArtifact
+					} else {
+						// Removing this artifact
+						currentSet.Artifacts = append(currentSet.Artifacts[:i], currentSet.Artifacts[i+1:]...)
+					}
+					break
+				}
+			}
+			// If the artifact doesn't exist, add it to the current set
+			if !exists {
+				currentSet.Artifacts = append(currentSet.Artifacts, *newArtifact)
+			}
+
+			contract.Boosters[userID].ArtifactSet = getUserArtifacts(userID, &currentSet)
+
+			refreshBoostListMessage(s, contract)
+
 		}
 	}
+	//}
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
 			//Content: "",
