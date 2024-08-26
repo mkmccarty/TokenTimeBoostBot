@@ -30,6 +30,8 @@ func GetSlashCoopTval(cmd string) *discordgo.ApplicationCommand {
 // HandleCoopTvalCommand will handle the /contract-token-tval command
 func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// User interacting with bot, is this first time ?
+	command := i.ApplicationCommandData().Name
+
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 	for _, opt := range options {
@@ -78,13 +80,16 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		if contract.CoopTokenValueMsgID == "" {
 			flag = 0
 		}
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Processing request...",
-				Flags:   flag,
-			},
-		})
+
+		if command != "bump" {
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Processing request...",
+					Flags:   flag,
+				},
+			})
+		}
 		BTA := duration.Minutes() / float64(contract.MinutesPerToken)
 		targetTval := 3.0
 		if BTA > 42.0 {
@@ -126,10 +131,12 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	if contract.CoopTokenValueMsgID != "" {
 		strURL := "https://discordapp.com/channels/@me/" + i.ChannelID + "/" + contract.CoopTokenValueMsgID
-		_, _ = s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: "Updated original response " + strURL,
-			})
+		if command != "bump" {
+			_, _ = s.FollowupMessageCreate(i.Interaction, true,
+				&discordgo.WebhookParams{
+					Content: "Updated original response " + strURL,
+				})
+		}
 		//if err == nil {
 		//	_ = s.FollowupMessageDelete(i.Interaction, msg.ID)
 		//}
