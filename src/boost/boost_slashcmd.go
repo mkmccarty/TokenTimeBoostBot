@@ -312,6 +312,10 @@ func HandleBumpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				str = err.Error()
 			}
 		}
+		if contract.CoopTokenValueMsgID != "" {
+			HandleCoopTvalCommand(s, i)
+		}
+
 	}
 
 	msg, _ := s.FollowupMessageCreate(i.Interaction, true,
@@ -320,6 +324,7 @@ func HandleBumpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Content: str,
 		})
 	_ = s.FollowupMessageDelete(i.Interaction, msg.ID)
+
 }
 
 // HandleTokenRemoveAutoComplete will handle the /token-remove autocomplete
