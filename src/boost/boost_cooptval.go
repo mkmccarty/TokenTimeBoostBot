@@ -39,6 +39,9 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	channelID := i.ChannelID
 	contract := FindContract(channelID)
 	var duration time.Duration
+	if contract != nil {
+		duration = contract.EstimatedDuration
+	}
 	if opt, ok := optionMap["duration"]; ok {
 		var err error
 		// Timespan of the contract duration
@@ -53,12 +56,17 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		if err != nil {
 			duration = 12 * time.Hour
 			invalidDuration = true
+		} else {
+			contract.EstimatedDuration = duration
+			contract.EstimatedEndTime = contract.StartTime.Add(duration)
 		}
 	} else {
 		if contract != nil {
-			c := ei.EggIncContractsAll[contract.ContractID]
-			if c.ID != "" {
-				duration = c.EstimatedDuration
+			if contract.EstimatedDuration == 0 {
+				c := ei.EggIncContractsAll[contract.ContractID]
+				if c.ID != "" {
+					duration = c.EstimatedDuration
+				}
 			}
 		}
 	}
