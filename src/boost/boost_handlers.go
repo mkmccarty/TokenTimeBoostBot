@@ -24,6 +24,8 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 		builder.WriteString("This contract is in a channel and it cannot be renamed. Create it in a thread to permit renaming.")
 	}
 
+	contract := Contracts[id]
+
 	return builder.String(), []discordgo.MessageComponent{
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
@@ -37,7 +39,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 							Label:       "Boost List Style",
 							Description: "Everyone sends tokens to the current booster",
 							Value:       "boostlist",
-							Default:     true,
+							Default:     (contract.Style & ContractFlagFastrun) != 0,
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "📜",
 							},
@@ -46,7 +48,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 							Label:       "Banker Style",
 							Description: "Everyone sends tokens to a banker.",
 							Value:       "banker",
-							Default:     false,
+							Default:     (contract.Style & ContractFlagBanker) != 0,
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "💰",
 							},
@@ -67,7 +69,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 							Label:       "No-CRT",
 							Description: "Standard vanilla option for this contract",
 							Value:       "no_crt",
-							Default:     true,
+							Default:     (contract.Style & ContractFlagCrt) == 0,
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "🍦",
 							},
@@ -76,7 +78,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 							Label:       "CRT",
 							Description: "Chicken Run Tango",
 							Value:       "crt",
-							Default:     false,
+							Default:     (contract.Style&ContractFlagCrt) != 0 && (contract.Style&ContractFlagSelfRuns) == 0,
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "🔁",
 							},
@@ -85,7 +87,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 							Label:       "CRT+selfrun",
 							Description: "Less Tango Legs ",
 							Value:       "self_runs",
-							Default:     false,
+							Default:     (contract.Style&ContractFlagCrt) != 0 && (contract.Style&ContractFlagSelfRuns) != 0,
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "🔂",
 							},
@@ -109,7 +111,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "😑",
 							},
-							Default: true,
+							Default: contract.BoostOrder == ContractOrderSignup,
 						},
 						{
 							Label:       "Reverse Sign-up Order",
@@ -118,7 +120,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "😬",
 							},
-							Default: false,
+							Default: contract.BoostOrder == ContractOrderReverse,
 						},
 						{
 							Label:       "Fair Order",
@@ -127,7 +129,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "😇",
 							},
-							Default: false,
+							Default: contract.BoostOrder == ContractOrderFair,
 						},
 						{
 							Label:       "Random Order",
@@ -137,7 +139,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 								Name: "🤪",
 							},
 
-							Default: false,
+							Default: contract.BoostOrder == ContractOrderRandom,
 						},
 						{
 							Label:       "ELR Order",
@@ -147,7 +149,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 								Name: "🧮",
 							},
 
-							Default: false,
+							Default: contract.BoostOrder == ContractOrderELR,
 						},
 					},
 				},
