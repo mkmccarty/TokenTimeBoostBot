@@ -624,6 +624,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 
 func getUserArtifacts(userID string, inSet *ArtifactSet) ArtifactSet {
 	var mySet ArtifactSet
+	mySet.Artifacts = make([]ei.Artifact, 4)
 	// Pull in any saved artifacts
 	if inSet == nil {
 		prefix := []string{"", "D-", "M-", "C-", "G-"}
@@ -643,8 +644,10 @@ func getUserArtifacts(userID string, inSet *ArtifactSet) ArtifactSet {
 			} else {
 				if art != "" {
 					a := ei.ArtifactMap[prefix[i]+art]
-					fmt.Print(a)
-					mySet.Artifacts = append(mySet.Artifacts, *a)
+					if a != nil {
+						fmt.Print(a)
+						mySet.Artifacts = append(mySet.Artifacts, *a)
+					}
 				}
 			}
 		}
