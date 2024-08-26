@@ -439,6 +439,12 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			contract.BoostOrder = ContractOrderRandom
 		case "elr":
 			contract.BoostOrder = ContractOrderELR
+			for _, b := range contract.Boosters {
+				// Refresh the user's artifact set
+				contract.Boosters[b.UserID].ArtifactSet = getUserArtifacts(b.UserID, nil)
+				//log.Print("ELR: ", b.UserID, " ", contract.Boosters[b.UserID].ArtifactSet)
+			}
+
 		}
 	}
 
