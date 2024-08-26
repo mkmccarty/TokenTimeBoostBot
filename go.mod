@@ -14,7 +14,7 @@ require (
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/post04/discordgo-emoji-util v0.0.0-20210226234616-e2c0f5ea133e
 	github.com/rs/xid v1.5.0
-	github.com/sashabaranov/go-openai v1.28.2
+	github.com/sashabaranov/go-openai v1.29.0
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	go.mongodb.org/mongo-driver v1.16.1
 	google.golang.org/api v0.194.0
