@@ -512,7 +512,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	// 1e15
 	for _, as := range artifactSets {
 
-		if strings.ToLower(as.name) != soloName {
+		if soloName != "" && strings.ToLower(as.name) != soloName {
 			continue
 		}
 
