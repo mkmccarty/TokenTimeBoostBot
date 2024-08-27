@@ -120,12 +120,14 @@ type TokenUnit struct {
 
 // BotTimer holds the data for each timer
 type BotTimer struct {
-	ID       string // Unique ID for this timer
-	Reminder time.Time
-	timer    *time.Timer
-	Message  string
-	UserID   string
-	Active   bool
+	ID        string // Unique ID for this timer
+	Reminder  time.Time
+	timer     *time.Timer
+	Message   string
+	UserID    string
+	ChannelID string
+	MsgID     string
+	Active    bool
 }
 
 // ArtifactSet holds the data for each set of artifacts
