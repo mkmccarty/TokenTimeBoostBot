@@ -1845,3 +1845,54 @@ func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCr
 			Choices: choices,
 		}})
 }
+
+// HandleStonesAutoComplete will handle the contract auto complete of contract-id's
+func HandleStonesAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// User interacting with bot, is this first time ?
+
+	options := i.ApplicationCommandData().Options
+	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+	for _, opt := range options {
+		optionMap[opt.Name] = opt
+	}
+
+	searchString := ""
+
+	if opt, ok := optionMap["contract-id"]; ok {
+		searchString = opt.StringValue()
+	}
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+
+	if searchString == "" {
+		for _, c := range ei.EggIncContracts {
+			choice := discordgo.ApplicationCommandOptionChoice{
+				Name:  fmt.Sprintf("%s (%s)", c.Name, c.ID),
+				Value: c.ID,
+			}
+			choices = append(choices, &choice)
+		}
+	} else {
+
+		for _, c := range ei.EggIncContractsAll {
+			if strings.Contains(c.ID, searchString) {
+
+				choice := discordgo.ApplicationCommandOptionChoice{
+					Name:  fmt.Sprintf("%s (%s)", c.Name, c.ID),
+					Value: c.ID,
+				}
+				choices = append(choices, &choice)
+				if len(choices) >= 15 {
+					break
+				}
+
+			}
+		}
+	}
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Contract ID",
+			Choices: choices,
+		}})
+}

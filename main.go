@@ -311,7 +311,7 @@ var (
 			boost.HandleAltsAutoComplete(s, i)
 		},
 		slashStones: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleContractAutoComplete(s, i)
+			boost.HandleStonesAutoComplete(s, i)
 		},
 		slashTokenRemove: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			data := i.ApplicationCommandData()
