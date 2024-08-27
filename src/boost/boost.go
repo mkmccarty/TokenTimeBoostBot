@@ -1871,28 +1871,33 @@ func HandleStonesAutoComplete(s *discordgo.Session, i *discordgo.InteractionCrea
 			}
 			choices = append(choices, &choice)
 		}
-	} else {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Contract ID",
+				Choices: choices,
+			}})
+		return
+	}
 
-		for _, c := range ei.EggIncContractsAll {
-			if strings.Contains(c.ID, searchString) {
+	for _, c := range ei.EggIncContractsAll {
+		if strings.Contains(c.ID, searchString) {
 
-				choice := discordgo.ApplicationCommandOptionChoice{
-					Name:  fmt.Sprintf("%s (%s)", c.Name, c.ID),
-					Value: c.ID,
-				}
-				choices = append(choices, &choice)
-				if len(choices) >= 15 {
-					break
-				}
-
+			choice := discordgo.ApplicationCommandOptionChoice{
+				Name:  fmt.Sprintf("%s (%s)", c.Name, c.ID),
+				Value: c.ID,
+			}
+			choices = append(choices, &choice)
+			if len(choices) >= 10 {
+				break
 			}
 		}
 	}
-
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
 		Data: &discordgo.InteractionResponseData{
 			Content: "Contract ID",
 			Choices: choices,
 		}})
+
 }
