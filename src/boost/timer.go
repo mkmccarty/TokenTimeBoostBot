@@ -30,8 +30,11 @@ func LaunchIndependentTimers(s *discordgo.Session) {
 				go func(t *BotTimer) {
 					<-t.timer.C
 					u, _ := s.UserChannelCreate(t.UserID)
-					_, _ = s.ChannelMessageSend(u.ID, t.Message)
-					t.Active = false
+					msg, _ := s.ChannelMessageSend(u.ID, t.Message)
+					timerSetActiveState(t.ID, false)
+					if msg != nil {
+						timerSetMsgID(t.ID, u.ID, msg.ID)
+					}
 				}(&t)
 			}
 		} else {
@@ -138,8 +141,11 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	go func(t *BotTimer) {
 		<-t.timer.C
 		u, _ := s.UserChannelCreate(t.UserID)
-		_, _ = s.ChannelMessageSend(u.ID, t.Message)
+		msg, _ := s.ChannelMessageSend(u.ID, t.Message)
 		timerSetActiveState(t.ID, false)
+		if msg != nil {
+			timerSetMsgID(t.ID, u.ID, msg.ID)
+		}
 	}(&t)
 
 	var builder strings.Builder
@@ -154,6 +160,11 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			newTimers = append(newTimers, el)
 			if el.UserID == userID {
 				fmt.Fprintf(&builder, "\n> <t:%d:R> %s", el.Reminder.Unix(), el.Message)
+			}
+		} else {
+			if el.ChannelID != "" && el.MsgID != "" {
+				// Purge old timer messages when a new one is scheduled
+				_ = s.ChannelMessageDelete(el.ChannelID, el.MsgID)
 			}
 		}
 	}
@@ -170,6 +181,16 @@ func timerSetActiveState(id string, active bool) {
 	for i, t := range timers {
 		if t.ID == id {
 			timers[i].Active = active
+			break
+		}
+	}
+}
+
+func timerSetMsgID(id string, channelID string, msgID string) {
+	for i, t := range timers {
+		if t.ID == id {
+			timers[i].ChannelID = channelID
+			timers[i].MsgID = msgID
 			break
 		}
 	}
