@@ -50,6 +50,12 @@ func GetSlashStones(cmd string) *discordgo.ApplicationCommand {
 				Required:    false,
 			},
 			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "solo-report-name",
+				Description: "egg-inc game name for solo report",
+				Required:    false,
+			},
+			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "details",
 				Description: "Show full details. Default is false. (sticky)",
@@ -63,16 +69,10 @@ func GetSlashStones(cmd string) *discordgo.ApplicationCommand {
 func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var builder strings.Builder
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			//Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
-
 	var contractID string
 	var coopID string
+	var soloName string
+	flags := discordgo.MessageFlags(0)
 	details := false
 
 	// User interacting with bot, is this first time ?
@@ -90,6 +90,10 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		coopID = strings.ToLower(opt.StringValue())
 		coopID = strings.Replace(coopID, " ", "", -1)
 	}
+	if opt, ok := optionMap["solo-report-name"]; ok {
+		soloName = strings.ToLower(opt.StringValue())
+		flags = discordgo.MessageFlagsEphemeral
+	}
 	userID := getInteractionUserID(i)
 	if opt, ok := optionMap["details"]; ok {
 		details = opt.BoolValue()
@@ -97,6 +101,14 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	} else {
 		details = farmerstate.GetMiscSettingFlag(userID, "stone-details")
 	}
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing request...",
+			Flags:   flags,
+		},
+	})
 
 	// Unser contractID and coopID means we want the Boost Bot contract
 	if contractID == "" || coopID == "" {
@@ -113,7 +125,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		coopID = strings.ToLower(contract.CoopID)
 	}
 
-	builder.WriteString(DownloadCoopStatusStones(contractID, coopID, details))
+	builder.WriteString(DownloadCoopStatusStones(contractID, coopID, details, soloName))
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
@@ -122,7 +134,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 }
 
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
-func DownloadCoopStatusStones(contractID string, coopID string, details bool) string {
+func DownloadCoopStatusStones(contractID string, coopID string, details bool, soloName string) string {
 	eggIncID := config.EIUserID
 	reqURL := "https://www.auxbrain.com/ei/coop_status"
 	enc := base64.StdEncoding
@@ -306,6 +318,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 		bestELR   float64
 		bestSR    float64
 		collegg   []string
+		soloData  [][]string
 	}
 	var artifactSets []artifactSet
 
@@ -420,6 +433,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 				as.gusset.abbrev = strType
 			default:
 				//name = fmt.Sprintf("%s %s %2.0f%% %d slots", "Other", strType, 0.0, numStones)
+				if len(a.GetStones()) < 3 {
+					artifactName := int32(spec.GetName())
+					as.note = append(as.note, fmt.Sprintf("%s only %d slots", ei.ArtifactSpec_Name_name[artifactName], numStones))
+				}
 			}
 
 			for _, st := range a.GetStones() {
@@ -471,14 +488,18 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 	}
 
 	table := tablewriter.NewWriter(&builder)
-	if details {
-		if !skipArtifact {
-			table.SetHeader([]string{"Name", "Dfl", "Met", "Com", "Gus", "Tach", "Quant", "ELR", "SR", "Delivery", "Collegg", "Notes"})
-		} else {
-			table.SetHeader([]string{"Name", "Tach", "Quant", "ELR", "SR", "Delivery", "Collegg", "Notes"})
-		}
+	if soloName != "" {
+		table.SetHeader([]string{"Name", "Dfl", "Met", "Com", "Gus", "T", "Q", "ELR", "SR", "DLVRY", "egg", "Notes"})
 	} else {
-		table.SetHeader([]string{"Name", "Tach", "Quant", "Notes"})
+		if details {
+			if !skipArtifact {
+				table.SetHeader([]string{"Name", "Dfl", "Met", "Com", "Gus", "Tach", "Quant", "ELR", "SR", "Delivery", "Collegg", "Notes"})
+			} else {
+				table.SetHeader([]string{"Name", "Tach", "Quant", "ELR", "SR", "Delivery", "Collegg", "Notes"})
+			}
+		} else {
+			table.SetHeader([]string{"Name", "Tach", "Quant", "Notes"})
+		}
 	}
 	table.SetCenterSeparator("")
 	table.SetColumnSeparator("")
@@ -490,6 +511,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 
 	// 1e15
 	for _, as := range artifactSets {
+
+		if strings.ToLower(as.name) != soloName {
+			continue
+		}
 
 		//fmt.Printf("name:\"%s\"  Stones:%d  elr:%f egg/chicken/s  sr:%f egg/s\n", as.name, as.stones, as.elr, as.sr)
 		layingRate := (as.baseLayingRate) * (1 + as.metronome.percent/100.0) * (1 + as.gusset.percent/100.0)
@@ -543,6 +568,14 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 
 			//stoneShipRate := shippingRate * math.Pow(1.05, float64((as.stones-i)))
 			stoneShipRate := shippingRate * math.Pow(1.05, float64((as.stones-i))) * collegShip
+
+			as.soloData = append(as.soloData, []string{as.name,
+				as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
+				fmt.Sprintf("%d%s", i, ""), fmt.Sprintf("%d%s", as.stones-i, ""),
+				fmt.Sprintf("%2.3f", stoneLayRate), fmt.Sprintf("%2.3f", stoneShipRate),
+				fmt.Sprintf("%2.3f", min(stoneLayRate, stoneShipRate)),
+				strings.Join(as.collegg, ","), strings.Join(as.note, ",")})
+
 			bestMin := min(stoneLayRate, stoneShipRate)
 			if bestMin > bestTotal {
 				bestTotal = bestMin
@@ -571,25 +604,32 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 			setContractEstimage = false
 		}
 
-		if details {
-			if !skipArtifact {
-				table.Append([]string{as.name,
-					as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
-					fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
-					fmt.Sprintf("%2.3f", as.bestELR), fmt.Sprintf("%2.3f", as.bestSR),
-					fmt.Sprintf("%2.3f", bestTotal),
-					strings.Join(as.collegg, ","), notes})
-			} else {
-				table.Append([]string{as.name,
-					fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
-					fmt.Sprintf("%2.3f", as.bestELR), fmt.Sprintf("%2.3f", as.bestSR),
-					fmt.Sprintf("%2.3f", bestTotal),
-					strings.Join(as.collegg, ","), notes})
+		if soloName != "" {
+			for _, d := range as.soloData {
+				table.Append(d)
 			}
-		} else if matchT != "*" {
-			table.Append([]string{as.name,
-				fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
-				notes})
+		} else {
+
+			if details {
+				if !skipArtifact {
+					table.Append([]string{as.name,
+						as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
+						fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
+						fmt.Sprintf("%2.3f", as.bestELR), fmt.Sprintf("%2.3f", as.bestSR),
+						fmt.Sprintf("%2.3f", bestTotal),
+						strings.Join(as.collegg, ","), notes})
+				} else {
+					table.Append([]string{as.name,
+						fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
+						fmt.Sprintf("%2.3f", as.bestELR), fmt.Sprintf("%2.3f", as.bestSR),
+						fmt.Sprintf("%2.3f", bestTotal),
+						strings.Join(as.collegg, ","), notes})
+				}
+			} else if matchT != "*" {
+				table.Append([]string{as.name,
+					fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
+					notes})
+			}
 		}
 
 	}
@@ -628,10 +668,13 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 	}
 
 	fmt.Fprintf(&builder, "Coop Deflector Bonus: %2.0f%%\n", everyoneDeflectorPercent)
-	fmt.Fprint(&builder, "Tachyon & Quantum columns show the optimal mix.\n")
-	if !details {
-		fmt.Fprint(&builder, "Only showing farmers needing to swap stones.\n")
-
+	if soloName == "" {
+		fmt.Fprint(&builder, "Tachyon & Quantum columns show the optimal mix.\n")
+		if !details {
+			fmt.Fprint(&builder, "Only showing farmers needing to swap stones.\n")
+		}
+	} else {
+		fmt.Fprint(&builder, "Showing all stone variations for solo report.\n")
 	}
 
 	builder.WriteString("```")
@@ -652,7 +695,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool) st
 		if !details {
 			return "Output too large for Discord, try again with details=false"
 		}
-		return DownloadCoopStatusStones(contractID, coopID, false)
+		return DownloadCoopStatusStones(contractID, coopID, false, soloName)
 	}
 
 	return builder.String()
