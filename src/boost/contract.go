@@ -344,6 +344,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	contract.OrderRevision = 0
 	changeContractState(contract, ContractStateSignup)
 	contract.CreatorID = append(contract.CreatorID, userID)               // starting userid
+	contract.CreatorID = append(contract.CreatorID, "662685289885466672") // DipDip
 	contract.CreatorID = append(contract.CreatorID, "650743870253957160") // Mugwump
 	contract.Speedrun = false
 	contract.Banker.SinkBoostPosition = SinkBoostFirst
