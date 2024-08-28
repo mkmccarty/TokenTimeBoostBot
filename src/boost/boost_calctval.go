@@ -76,6 +76,13 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 		optionMap[opt.Name] = opt
 	}
 
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing request...",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
 	// Call into boost module to do that calculations
 	var userID string
 	if i.GuildID != "" {
@@ -151,14 +158,10 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 		str += "Format should be entered like `19h35m` or `1d 2h 3m` or `1d2h3m` or `1d 2h"
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
+	_, _ = s.FollowupMessageCreate(i.Interaction, true,
+		&discordgo.WebhookParams{
 			Content: str,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	},
-	)
+		})
 }
 
 func calculateTokenValue(startTime time.Time, duration time.Duration, details bool, booster *Booster, targetTval float64) string {
@@ -207,7 +210,11 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 			table.SetNoWhiteSpace(true)
 			fmt.Fprint(&builder, "```")
 			for i := range booster.Sent {
-				table.Append([]string{fmt.Sprintf("%d", i+1), booster.Sent[i].Time.Sub(startTime).Round(time.Second).String(), fmt.Sprintf("%6.3f", booster.Sent[i].Value), booster.Sent[i].UserID})
+				name := booster.Sent[i].UserID
+				if len(name) > 12 {
+					name = name[:12]
+				}
+				table.Append([]string{fmt.Sprintf("%d", i+1), booster.Sent[i].Time.Sub(startTime).Round(time.Second).String(), fmt.Sprintf("%6.3f", booster.Sent[i].Value), name})
 
 				//fmt.Fprintf(&builder, "> %d: %s  %6.3f %16s\n", i+1, booster.Sent[i].Time.Sub(startTime).Round(time.Second), booster.Sent[i].Value, booster.Sent[i].UserID)
 			}
@@ -236,8 +243,12 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 
 			fmt.Fprint(&builder, "```")
 			for i := range booster.Received {
+				name := booster.Received[i].UserID
+				if len(name) > 12 {
+					name = name[:12]
+				}
 				//fmt.Fprintf(&builder, "> %d: %s  %6.3f %16s\n", i+1, booster.Received[i].Time.Sub(startTime).Round(time.Second), booster.Received[i].Value, booster.Received[i].UserID)
-				table.Append([]string{fmt.Sprintf("%d", i+1), booster.Received[i].Time.Sub(startTime).Round(time.Second).String(), fmt.Sprintf("%6.3f", booster.Received[i].Value), booster.Received[i].UserID})
+				table.Append([]string{fmt.Sprintf("%d", i+1), booster.Received[i].Time.Sub(startTime).Round(time.Second).String(), fmt.Sprintf("%6.3f", booster.Received[i].Value), name})
 			}
 			table.Render()
 			fmt.Fprint(&builder, "```")
