@@ -151,6 +151,10 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 		}
 		// Calculate the token value
 		str = calculateTokenValue(contract.StartTime, duration, details, contract.Boosters[userID], targetTval)
+		if len(str) > 2000 {
+			str = calculateTokenValue(contract.StartTime, duration, false, contract.Boosters[userID], targetTval)
+			str += "> **Message too long, details disabled**\n"
+		}
 	}
 	if invalidDuration {
 		str += "\n\n__Invalid duration used__\n"
@@ -212,7 +216,7 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 			for i := range booster.Sent {
 				name := booster.Sent[i].UserID
 				if len(name) > 12 {
-					name = name[:12]
+					name = name[:12] + "…"
 				}
 				table.Append([]string{fmt.Sprintf("%d", i+1), booster.Sent[i].Time.Sub(startTime).Round(time.Second).String(), fmt.Sprintf("%6.3f", booster.Sent[i].Value), name})
 
@@ -245,7 +249,7 @@ func calculateTokenValue(startTime time.Time, duration time.Duration, details bo
 			for i := range booster.Received {
 				name := booster.Received[i].UserID
 				if len(name) > 12 {
-					name = name[:12]
+					name = name[:12] + "…"
 				}
 				//fmt.Fprintf(&builder, "> %d: %s  %6.3f %16s\n", i+1, booster.Received[i].Time.Sub(startTime).Round(time.Second), booster.Received[i].Value, booster.Received[i].UserID)
 				table.Append([]string{fmt.Sprintf("%d", i+1), booster.Received[i].Time.Sub(startTime).Round(time.Second).String(), fmt.Sprintf("%6.3f", booster.Received[i].Value), name})
