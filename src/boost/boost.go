@@ -640,7 +640,9 @@ func getUserArtifacts(userID string, inSet *ArtifactSet) ArtifactSet {
 				for _, a := range strings.Split(art, ",") {
 					if a != "" {
 						colleg := ei.ArtifactMap[a]
-						mySet.Artifacts = append(mySet.Artifacts, *colleg)
+						if colleg != nil {
+							mySet.Artifacts = append(mySet.Artifacts, *colleg)
+						}
 					}
 				}
 			} else {
