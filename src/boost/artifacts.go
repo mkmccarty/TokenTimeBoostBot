@@ -365,14 +365,17 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 
 	if !contractOnly {
 		_, carbonfiber := ei.FindEggComponentEmoji("CARBON-FIBER")
+		_, firework := ei.FindEggComponentEmoji("FIREWORK")
 		_, pumpkin := ei.FindEggComponentEmoji("PUMPKIN")
+		_, waterballoon := ei.FindEggComponentEmoji("WATERBALLOON")
+
 		component = append(component, discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.SelectMenu{
 					CustomID:    "as_#COLLEGG#" + userID + "#" + temp,
 					Placeholder: "Select your Colleggtibles",
 					MinValues:   &minV,
-					MaxValues:   2,
+					MaxValues:   4,
 					Options: []discordgo.SelectMenuOption{
 						{
 							Label:       "Carbon Fiber",
@@ -385,6 +388,16 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							},
 						},
 						{
+							Label:       "Firework",
+							Description: "5% Earnings",
+							Value:       "Firework",
+							Default:     strings.Contains(coll, "Firework"),
+							Emoji: &discordgo.ComponentEmoji{
+								Name: firework.Name,
+								ID:   firework.ID,
+							},
+						},
+						{
 							Label:       "Pumpkin",
 							Description: "5% Shipping",
 							Value:       "Pumpkin",
@@ -392,6 +405,16 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Emoji: &discordgo.ComponentEmoji{
 								Name: pumpkin.Name,
 								ID:   pumpkin.ID,
+							},
+						},
+						{
+							Label:       "Waterballoon",
+							Description: "5% Unknown",
+							Value:       "Waterballoon",
+							Default:     strings.Contains(coll, "Waterballoon"),
+							Emoji: &discordgo.ComponentEmoji{
+								Name: waterballoon.Name,
+								ID:   waterballoon.ID,
 							},
 						},
 					},
