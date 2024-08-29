@@ -167,7 +167,7 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 	if opt, ok := optionMap["token-count"]; ok {
 		tokenWant := int(opt.IntValue())
-		str += " with " + fmt.Sprintf("%d", tokenWant) + " boost order"
+		str += " with " + fmt.Sprintf("%d", tokenWant) + " boost tokens"
 		if guestName != "" {
 			farmerstate.SetTokens(guestName, tokenWant)
 		} else {
