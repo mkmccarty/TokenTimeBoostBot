@@ -365,6 +365,8 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 
 	if !contractOnly {
 		_, carbonfiber := ei.FindEggComponentEmoji("CARBON-FIBER")
+		_, chocolate := ei.FindEggComponentEmoji("CHOCOLATE")
+		_, easter := ei.FindEggComponentEmoji("EASTER")
 		_, firework := ei.FindEggComponentEmoji("FIREWORK")
 		_, pumpkin := ei.FindEggComponentEmoji("PUMPKIN")
 		_, waterballoon := ei.FindEggComponentEmoji("WATERBALLOON")
@@ -385,6 +387,26 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Emoji: &discordgo.ComponentEmoji{
 								Name: carbonfiber.Name,
 								ID:   carbonfiber.ID,
+							},
+						},
+						{
+							Label:       "Cocolate",
+							Description: "100% Away Earnings",
+							Value:       "Chocolate",
+							Default:     strings.Contains(coll, "Chocolate"),
+							Emoji: &discordgo.ComponentEmoji{
+								Name: chocolate.Name,
+								ID:   chocolate.ID,
+							},
+						},
+						{
+							Label:       "Easter",
+							Description: "5% Internal Hatchery Rate",
+							Value:       "Easter",
+							Default:     strings.Contains(coll, "Easter"),
+							Emoji: &discordgo.ComponentEmoji{
+								Name: easter.Name,
+								ID:   easter.ID,
 							},
 						},
 						{
