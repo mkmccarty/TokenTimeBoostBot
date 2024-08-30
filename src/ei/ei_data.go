@@ -92,6 +92,24 @@ func FindEggComponentEmoji(eggOrig string) (string, EggEmojiData) {
 	return eggIconString, eggEmojiData
 }
 
+// FindEggEmoji will find the token emoji for the given guild
+func FindEggEmoji(eggOrig string) string {
+	var eggIconString string
+
+	var eggEmojiData EggEmojiData
+
+	eggIcon, ok := EggEmojiMap[strings.ToUpper(eggOrig)]
+	if ok {
+		eggEmojiData = eggIcon
+		eggIconString = fmt.Sprintf("<:%s:%s>", eggEmojiData.Name, eggEmojiData.ID)
+	} else {
+		eggEmojiData = eggIcon
+		eggIconString = fmt.Sprintf("<:%s:%s>", EggEmojiMap["UNKNOWN"].Name, EggEmojiMap["UNKNOWN"].ID)
+	}
+
+	return eggIconString
+}
+
 // Artifact holds the data for each artifact
 type Artifact struct {
 	Type     string
