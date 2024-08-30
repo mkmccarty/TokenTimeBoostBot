@@ -363,7 +363,11 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		}*/
 
 	// Find our Token emoji
-	contract.TokenStr = FindTokenEmoji(s)
+	contract.TokenStr = "<:token:1279216492927385652>"
+	if config.DiscordAppID == "1187298713903829042" {
+		contract.TokenStr = "<:token:1279216759131476123>" // Dev Bot
+	}
+
 	// set TokenReactionStr to the TokenStr without first 2 characters and last character
 	contract.TokenReactionStr = contract.TokenStr[2 : len(contract.TokenStr)-1]
 
