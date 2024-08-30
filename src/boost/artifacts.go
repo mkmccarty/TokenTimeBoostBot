@@ -409,7 +409,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 						},
 						{
 							Label:       "Waterballoon",
-							Description: "5% Unknown",
+							Description: "95% Research Cost",
 							Value:       "Waterballoon",
 							Default:     strings.Contains(coll, "Waterballoon"),
 							Emoji: &discordgo.ComponentEmoji{
