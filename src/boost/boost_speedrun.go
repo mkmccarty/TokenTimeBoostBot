@@ -50,6 +50,10 @@ func GetSlashSpeedrunCommand(cmd string) *discordgo.ApplicationCommand {
 						Name:  "Last",
 						Value: SinkBoostLast,
 					},
+					{
+						Name:  "Follow Order",
+						Value: SinkBoostFollowOrder,
+					},
 				},
 			},
 			{
@@ -296,10 +300,13 @@ func getSpeedrunStatusStr(contract *Contract) string {
 	if contract.Style&ContractFlagBanker != 0 {
 		if contract.Banker.BoostingSinkUserID != "" {
 			fmt.Fprintf(&b, "> * During boosting send all tokens to **%s**\n", contract.Boosters[contract.Banker.BoostingSinkUserID].Mention)
-			if contract.Banker.SinkBoostPosition == SinkBoostLast {
-				fmt.Fprint(&b, ">  * Banker boosts **Last**\n")
-			} else {
+			switch contract.Banker.SinkBoostPosition {
+			case SinkBoostFirst:
 				fmt.Fprint(&b, ">  * Banker boosts **First**\n")
+			case SinkBoostLast:
+				fmt.Fprint(&b, ">  * Banker boosts **Last**\n")
+			default:
+				fmt.Fprint(&b, ">  * Banker folows normal boost order\n")
 			}
 
 		} else {
@@ -472,7 +479,10 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 	return builder.String(), nil
 }
 
-func reorderSpeedrunBoosters(contract *Contract) {
+func repositionSinkBoostPosition(contract *Contract) {
+	if contract.Banker.SinkBoostPosition == SinkBoostFollowOrder {
+		return
+	}
 	// Speedrun contracts are always fair ordering over last 3 contracts
 	newOrder := contract.Order
 

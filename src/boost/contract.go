@@ -347,7 +347,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	contract.CreatorID = append(contract.CreatorID, "662685289885466672") // DipDip
 	contract.CreatorID = append(contract.CreatorID, "650743870253957160") // Mugwump
 	contract.Speedrun = false
-	contract.Banker.SinkBoostPosition = SinkBoostFirst
+	contract.Banker.SinkBoostPosition = SinkBoostFollowOrder
 	contract.StartTime = time.Now()
 	contract.ChickenRunEmoji = findBoostBotGuildEmoji(s, "icon_chicken_run", true)
 
@@ -506,9 +506,12 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		}
 	case "sinkorder":
 		// toggle the sink order
-		if contract.Banker.SinkBoostPosition == SinkBoostFirst {
+		switch contract.Banker.SinkBoostPosition {
+		case SinkBoostFirst:
 			contract.Banker.SinkBoostPosition = SinkBoostLast
-		} else {
+		case SinkBoostLast:
+			contract.Banker.SinkBoostPosition = SinkBoostFollowOrder
+		case SinkBoostFollowOrder:
 			contract.Banker.SinkBoostPosition = SinkBoostFirst
 		}
 	}

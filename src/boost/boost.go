@@ -81,9 +81,9 @@ const (
 	SpeedrunStyleBanker  = 0
 	SpeedrunStyleFastrun = 1
 
-	SinkBoostUnset = -1 // Unset position
-	SinkBoostFirst = 0  // First position
-	SinkBoostLast  = 1  // Last position
+	SinkBoostFollowOrder = -1 // Follow the order
+	SinkBoostFirst       = 0  // First position
+	SinkBoostLast        = 1  // Last position
 
 	// These are an int64 flaglist to construct the style of the contract
 	ContractFlagNone     = 0x0000
@@ -1690,7 +1690,7 @@ func reorderBoosters(contract *Contract) {
 	}
 	//
 	if contract.Speedrun && contract.Banker.BoostingSinkUserID != "" {
-		reorderSpeedrunBoosters(contract)
+		repositionSinkBoostPosition(contract)
 	}
 }
 

@@ -162,6 +162,9 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 // GetSignupComponents returns the signup components for a contract
 func GetSignupComponents(disableStartContract bool, contract *Contract) (string, []discordgo.MessageComponent) {
 	var str = "Join the contract and indicate the number boost tokens you'd like."
+	if contract.State == ContractStateSignup && contract.Style&ContractFlagBanker != 0 {
+		str += "\nThe Sink boost position button cycles from First->Last->Follow Order."
+	}
 	startLabel := "Start Boosting"
 	if contract != nil && contract.Style&ContractFlagCrt != 0 {
 		startLabel = "Start CRT"
@@ -330,9 +333,14 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 		}
 
 		if contract.State == ContractStateSignup && contract.Style&ContractFlagBanker != 0 {
-			name := "Sink First (switch to Last)"
-			if contract.Banker.SinkBoostPosition == SinkBoostLast {
-				name = "Sink Last (switch to First)"
+			name := ""
+			switch contract.Banker.SinkBoostPosition {
+			case SinkBoostFirst:
+				name = "Sink is FIRST"
+			case SinkBoostLast:
+				name = "Sink is LAST"
+			case SinkBoostFollowOrder:
+				name = "Sink will follow order"
 			}
 
 			mComp = append(mComp, discordgo.Button{
