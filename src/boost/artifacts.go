@@ -77,8 +77,8 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Value:       "T4L",
 							Default:     defl == "T4L",
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_tachyon_deflector_4",
-								ID:   "1279201926893797416",
+								Name: "DT4La",
+								ID:   "1279530304612204574",
 							},
 						},
 						{
@@ -87,8 +87,8 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Value:       "T4E",
 							Default:     defl == "T4E",
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_tachyon_deflector_4",
-								ID:   "863987172674371604",
+								Name: "DT4Ea",
+								ID:   "1279530331820523551",
 							},
 						},
 						{
@@ -97,8 +97,8 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Value:       "T4R",
 							Default:     defl == "T4R",
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_tachyon_deflector_4",
-								ID:   "863987172674371604",
+								Name: "DT4Ra",
+								ID:   "1279530356965380177",
 							},
 						},
 						{
@@ -117,8 +117,8 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Value:       "T3R",
 							Default:     defl == "T3R",
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_tachyon_deflector_3",
-								ID:   "1279201840755642479",
+								Name: "DT3Ra",
+								ID:   "1279530534539890748",
 							},
 						},
 						{
@@ -149,8 +149,8 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Value:       "T4L",
 							Default:     metr == "T4L",
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_quantum_metronome_4",
-								ID:   "1279205882097565788",
+								Name: "MT4La",
+								ID:   "1279530626470383618",
 							},
 						},
 						{
@@ -159,7 +159,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Value:       "T4E",
 							Default:     metr == "T4E",
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_quantum_metronome_4",
+								Name: "MT4Ea",
 								ID:   "1279205882097565788",
 							},
 						},
@@ -169,7 +169,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Value:       "T4R",
 							Default:     metr == "T4R",
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_quantum_metronome_4",
+								Name: "MT4Ra",
 								ID:   "1279205882097565788",
 							},
 						},
@@ -189,8 +189,8 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Value:       "T3E",
 							Default:     metr == "T3E",
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_quantum_metronome_3",
-								ID:   "857435255182983179",
+								Name: "MT3Ea",
+								ID:   "1279530849339052072",
 							},
 						},
 						{
@@ -199,8 +199,8 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Value:       "T3R",
 							Default:     metr == "T3R",
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_quantum_metronome_3",
-								ID:   "1279205835893117032",
+								Name: "MT3Ra",
+								ID:   "1279530956377554955",
 							},
 						},
 						{
@@ -231,8 +231,8 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Value:       "T4L",
 							Default:     comp == "T4L",
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_interstellar_compass_4",
-								ID:   "1279205584645652491",
+								Name: "CT4La",
+								ID:   "1279531047251607605",
 							},
 						},
 						{
@@ -241,8 +241,8 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Value:       "T4E",
 							Default:     comp == "T4E",
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_interstellar_compass_4",
-								ID:   "1279205584645652491",
+								Name: "CT4Ea",
+								ID:   "1279531101672702022",
 							},
 						},
 						{
@@ -251,8 +251,8 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Value:       "T4R",
 							Default:     comp == "T4R",
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_interstellar_compass_4",
-								ID:   "1279205584645652491",
+								Name: "CT4Ra",
+								ID:   "1279532221455269949",
 							},
 						},
 						{
@@ -271,8 +271,8 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Value:       "T3R",
 							Default:     comp == "T3R",
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_interstellar_compass_3",
-								ID:   "1279205540731551854",
+								Name: "CT3Ra",
+								ID:   "1279532322802237614",
 							},
 						},
 						{
@@ -303,9 +303,8 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Value:       "T4L",
 							Default:     guss == "T4L",
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_ornate_gusset_4",
-								ID:   "1279206200541450364",
-							},
+								Name: "GT4Ra",
+								ID:   "1279532396802474014"},
 						},
 						{
 							Label:       "Gusset T4E",
@@ -313,8 +312,8 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Value:       "T4E",
 							Default:     guss == "T4E",
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_ornate_gusset_4",
-								ID:   "1279206200541450364",
+								Name: "GT4Ea",
+								ID:   "1279532417627197502",
 							},
 						},
 						{
@@ -333,8 +332,8 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Value:       "T3R",
 							Default:     guss == "T3R",
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_ornate_gusset_3",
-								ID:   "1279206172355727514",
+								Name: "GT3Ra",
+								ID:   "1279532512007295008",
 							},
 						},
 						{
@@ -353,8 +352,8 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Value:       "T2E",
 							Default:     guss == "T2E",
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_ornate_gusset_2",
-								ID:   "1279206141674393651",
+								Name: "GT2Ea",
+								ID:   "1279532584904298588",
 							},
 						},
 					},
