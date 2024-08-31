@@ -160,7 +160,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Default:     metr == "T4E",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "MT4Ea",
-								ID:   "1279205882097565788",
+								ID:   "1279530656614977649",
 							},
 						},
 						{
@@ -170,7 +170,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Default:     metr == "T4R",
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "MT4Ra",
-								ID:   "1279205882097565788",
+								ID:   "1279530692392390656",
 							},
 						},
 						{
