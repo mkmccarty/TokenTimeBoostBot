@@ -251,6 +251,7 @@ type Contract struct {
 	LastInteractionTime time.Time // last time the contract was drawn
 	//UseInteractionButtons bool               // Use buttons for interaction
 	buttonComponents map[string]CompMap // Cached components for this contract
+	SavedStats       bool               // Saved stats for this contract
 	mutex            sync.Mutex         // Keep this contract thread safe
 }
 
@@ -311,6 +312,10 @@ func changeContractState(contract *Contract, newstate int) {
 		}
 	case ContractStateCompleted:
 		contract.Banker.CurrentBanker = contract.Banker.PostSinkUserID
+		if contract.SavedStats {
+			farmerstate.SetOrderPercentileAll(contract.Order, len(contract.Order))
+			contract.SavedStats = true
+		}
 	default:
 		contract.Banker.CurrentBanker = ""
 	}
@@ -1641,7 +1646,10 @@ func FinishContract(s *discordgo.Session, contract *Contract) {
 		loc.ListMsgID = ""
 	}
 	// Location[0] for this since the original contract is on the first location
-	farmerstate.SetOrderPercentileAll(contract.Order, len(contract.Order))
+	if !contract.SavedStats {
+		farmerstate.SetOrderPercentileAll(contract.Order, len(contract.Order))
+		contract.SavedStats = true
+	}
 	_, _ = DeleteContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID)
 }
 
