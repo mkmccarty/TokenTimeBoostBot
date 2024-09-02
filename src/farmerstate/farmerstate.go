@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -24,13 +23,14 @@ type Farmer struct {
 	Ping                 bool   // True/False
 	Tokens               int    // Number of tokens this user wants
 	OrderHistory         []int  // list of contract order percentiles
-	OutOut               bool   // If user opted out of saving data
 	LaunchChain          bool   // Launch History chain option
 	MissionShipPrimary   int    // Launch Helper Ship Selection - Primary
 	MissionShipSecondary int    // Launch Helper Ship Selection - Secondary
 	MiscSettingsFlag     map[string]bool
 	MiscSettingsString   map[string]string
 	Links                []Link // Array of Links
+	LastUpdated          time.Time
+	DataPrivacy          bool // User data privacy setting
 }
 
 // OrderHistory struct to store order history data
@@ -66,19 +66,12 @@ func init() {
 		farmerstate = f
 	}
 
-	file, fileerr := os.ReadFile("ttbb-data/boost_data_history.json")
-	if fileerr == nil {
-		data := OrderHistory{}
-		_ = json.Unmarshal([]byte(file), &data)
-
-		// create Farmer OrderHistory from read data
-		for _, boostHistory := range data.Order {
-			SetOrderPercentileAll(boostHistory, len(boostHistory))
+	// Keep only the last 10 order percentiles
+	for _, farmer := range farmerstate {
+		if len(farmerstate[farmer.UserID].OrderHistory) > 10 {
+			farmerstate[farmer.UserID].OrderHistory = farmerstate[farmer.UserID].OrderHistory[len(farmerstate[farmer.UserID].OrderHistory)-10:]
 		}
-		// delete the file
-		os.Remove("ttbb-data/boost_data_history.json")
 	}
-
 }
 
 // NewFarmer creates a new Farmer
@@ -87,7 +80,7 @@ func newFarmer(userID string) {
 		UserID:               userID,
 		Ping:                 false,
 		Tokens:               0,
-		OutOut:               false,
+		DataPrivacy:          false,
 		LaunchChain:          false,
 		MissionShipPrimary:   0,
 		MissionShipSecondary: 1,
@@ -112,9 +105,12 @@ func SetEggIncName(userID string, eggIncName string) {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
 	}
-	farmerstate[userID].EggIncName = eggIncName
-	SetMiscSettingString(userID, "EggIncRawName", eggIncName)
-	saveData(farmerstate)
+	if !farmerstate[userID].DataPrivacy {
+		farmerstate[userID].LastUpdated = time.Now()
+		farmerstate[userID].EggIncName = eggIncName
+		SetMiscSettingString(userID, "EggIncRawName", eggIncName)
+		saveData(farmerstate)
+	}
 }
 
 // GetLaunchHistory returns a Farmer Launch History
@@ -130,9 +126,11 @@ func SetLaunchHistory(userID string, setting bool) {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
 	}
-	farmerstate[userID].LaunchChain = setting
-
-	saveData(farmerstate)
+	if !farmerstate[userID].DataPrivacy {
+		farmerstate[userID].LastUpdated = time.Now()
+		farmerstate[userID].LaunchChain = setting
+		saveData(farmerstate)
+	}
 }
 
 // GetMissionShipPrimary returns a Farmer Mission Ship Primary
@@ -148,8 +146,11 @@ func SetMissionShipPrimary(userID string, setting int) {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
 	}
-	farmerstate[userID].MissionShipPrimary = setting
-	saveData(farmerstate)
+	if !farmerstate[userID].DataPrivacy {
+		farmerstate[userID].LastUpdated = time.Now()
+		farmerstate[userID].MissionShipPrimary = setting
+		saveData(farmerstate)
+	}
 }
 
 // GetMissionShipSecondary returns a Farmer Mission Ship Secondary
@@ -165,9 +166,11 @@ func SetMissionShipSecondary(userID string, setting int) {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
 	}
-	farmerstate[userID].MissionShipSecondary = setting
-
-	saveData(farmerstate)
+	if !farmerstate[userID].DataPrivacy {
+		farmerstate[userID].LastUpdated = time.Now()
+		farmerstate[userID].MissionShipSecondary = setting
+		saveData(farmerstate)
+	}
 }
 
 // GetTokens returns a Farmer's tokens
@@ -183,9 +186,11 @@ func SetTokens(userID string, tokens int) {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
 	}
-
-	farmerstate[userID].Tokens = tokens
-	saveData(farmerstate)
+	if !farmerstate[userID].DataPrivacy {
+		farmerstate[userID].LastUpdated = time.Now()
+		farmerstate[userID].Tokens = tokens
+		saveData(farmerstate)
+	}
 }
 
 // SetPing sets a Farmer's ping preference
@@ -194,8 +199,11 @@ func SetPing(userID string, ping bool) {
 		newFarmer(userID)
 	}
 
-	farmerstate[userID].Ping = ping
-	saveData(farmerstate)
+	if !farmerstate[userID].DataPrivacy {
+		farmerstate[userID].LastUpdated = time.Now()
+		farmerstate[userID].Ping = ping
+		saveData(farmerstate)
+	}
 }
 
 // GetPing returns a Farmer's ping preference
@@ -215,11 +223,16 @@ func SetOrderPercentileOne(userID string, boostNumber int, coopSize int) {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
 	}
+	if !farmerstate[userID].DataPrivacy {
+		farmerstate[userID].LastUpdated = time.Now()
+		var percentile = boostNumber * 100 / coopSize
 
-	var percentile = boostNumber * 100 / coopSize
-
-	farmerstate[userID].OrderHistory = append(farmerstate[userID].OrderHistory, percentile)
-	saveData(farmerstate)
+		farmerstate[userID].OrderHistory = append(farmerstate[userID].OrderHistory, percentile)
+		if len(farmerstate[userID].OrderHistory) > 10 {
+			farmerstate[userID].OrderHistory = farmerstate[userID].OrderHistory[len(farmerstate[userID].OrderHistory)-10:]
+		}
+		saveData(farmerstate)
+	}
 }
 
 // SetOrderPercentileAll sets a Farmer's order percentiles from a slice
@@ -228,7 +241,13 @@ func SetOrderPercentileAll(userIDs []string, coopSize int) {
 		if farmerstate[userID] == nil {
 			newFarmer(userID)
 		}
-		farmerstate[userID].OrderHistory = append(farmerstate[userID].OrderHistory, (i+1)*100/coopSize)
+		if !farmerstate[userID].DataPrivacy {
+			farmerstate[userID].LastUpdated = time.Now()
+			farmerstate[userID].OrderHistory = append(farmerstate[userID].OrderHistory, (i+1)*100/coopSize)
+			if len(farmerstate[userID].OrderHistory) > 10 {
+				farmerstate[userID].OrderHistory = farmerstate[userID].OrderHistory[len(farmerstate[userID].OrderHistory)-10:]
+			}
+		}
 	}
 	saveData(farmerstate)
 }
@@ -287,9 +306,11 @@ func SetMiscSettingFlag(userID string, key string, value bool) {
 	if farmerstate[userID].MiscSettingsFlag == nil {
 		farmerstate[userID].MiscSettingsFlag = make(map[string]bool)
 	}
-
-	farmerstate[userID].MiscSettingsFlag[key] = value
-	saveData(farmerstate)
+	if !farmerstate[userID].DataPrivacy {
+		farmerstate[userID].LastUpdated = time.Now()
+		farmerstate[userID].MiscSettingsFlag[key] = value
+		saveData(farmerstate)
+	}
 }
 
 // GetMiscSettingFlag returns a Farmer sticky setting
@@ -317,9 +338,12 @@ func SetMiscSettingString(userID string, key string, value string) {
 		farmerstate[userID].MiscSettingsString = make(map[string]string)
 	}
 
-	if farmerstate[userID].MiscSettingsString[key] != value {
-		farmerstate[userID].MiscSettingsString[key] = value
-		saveData(farmerstate)
+	if !farmerstate[userID].DataPrivacy {
+		farmerstate[userID].LastUpdated = time.Now()
+		if farmerstate[userID].MiscSettingsString[key] != value {
+			farmerstate[userID].MiscSettingsString[key] = value
+			saveData(farmerstate)
+		}
 	}
 }
 
@@ -361,30 +385,32 @@ func SetLink(userID string, description string, guildID string, channelID string
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
 	}
-	var link Link
-	var strURL string
-	link.Timestamp = time.Now()
-	if messageID == "" {
-		link.Link = description + " <#" + channelID + ">"
-	} else if guildID != "" {
-		strURL = "https://discordapp.com/channels/" + guildID + "/" + channelID + "/" + messageID
-		link.Link = fmt.Sprintf("%s %s", description, strURL)
-	} else {
-		// https://discord.com/channels/@me/1124490885204287610/1264231460244815913
-		strURL = "https://discordapp.com/channels/@me/" + channelID + "/" + messageID
-		link.Link = fmt.Sprintf("%s %s", description, strURL)
-	}
-
-	newList := append(farmerstate[userID].Links, link)
-	farmerstate[userID].Links = nil
-	// Prune farmerstate links older than 2 days
-	for _, el := range newList {
-		if el.Timestamp.Before(time.Now().Add(-48 * time.Hour)) {
-			farmerstate[userID].Links = append(farmerstate[userID].Links, el)
+	if !farmerstate[userID].DataPrivacy {
+		farmerstate[userID].LastUpdated = time.Now()
+		var link Link
+		var strURL string
+		link.Timestamp = time.Now()
+		if messageID == "" {
+			link.Link = description + " <#" + channelID + ">"
+		} else if guildID != "" {
+			strURL = "https://discordapp.com/channels/" + guildID + "/" + channelID + "/" + messageID
+			link.Link = fmt.Sprintf("%s %s", description, strURL)
+		} else {
+			// https://discord.com/channels/@me/1124490885204287610/1264231460244815913
+			strURL = "https://discordapp.com/channels/@me/" + channelID + "/" + messageID
+			link.Link = fmt.Sprintf("%s %s", description, strURL)
 		}
-	}
-	saveData(farmerstate)
 
+		newList := append(farmerstate[userID].Links, link)
+		farmerstate[userID].Links = nil
+		// Prune farmerstate links older than 2 days
+		for _, el := range newList {
+			if el.Timestamp.Before(time.Now().Add(-48 * time.Hour)) {
+				farmerstate[userID].Links = append(farmerstate[userID].Links, el)
+			}
+		}
+		saveData(farmerstate)
+	}
 }
 
 // AdvancedTransform for storing KV pairs

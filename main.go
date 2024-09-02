@@ -67,6 +67,7 @@ const slashStones string = "stones"
 const slashTimer string = "timer"
 const slashArtifact string = "artifact"
 const slashRemoveDMMessage string = "remove-dm-message"
+const slashPrivacy string = "privacy"
 
 var integerZeroMinValue float64 = 0.0
 
@@ -276,6 +277,7 @@ var (
 		boost.GetSlashChangePlannedStartCommand(slashChangePlannedStartCommand),
 		bottools.GetSlashRemoveMessage(slashRemoveDMMessage),
 		farmerstate.SlashSetEggIncNameCommand(slashSetEggIncName),
+		farmerstate.GetSlashPrivacyCommand(slashPrivacy),
 		{
 			Name:        slashBump,
 			Description: "Redraw the boost list to the timeline.",
@@ -461,6 +463,9 @@ var (
 		},
 		slashFun: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			notok.FunHandler(s, i)
+		},
+		slashPrivacy: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			farmerstate.HandlePrivacyCommand(s, i)
 		},
 		slashSetEggIncName: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Protection against DM use
