@@ -24,17 +24,17 @@ type missionData struct {
 }
 
 const missionJSON = `{"ships":[
-	{"name": "Atreggies Henliner","art":"","duration":["2d","3d","4d"]},
-	{"name": "Henerprise","art":"","duration":["1d","2d","4d"]},
-	{"name": "Voyegger","art":"","duration":["12h","1d12h","3d"]},
-	{"name": "Defihent","art":"","duration":["8h","1d","2d"]},
-	{"name": "Galeggtica","art":"","duration":["6h","16h","1d6h"]},
-	{"name": "Cornish-Hen Corvette","art":"","duration":["4h","12h","1d"]},
-	{"name": "Quintillion Chicken","art":"","duration":["3h","6h","12h"]},
-	{"name": "BCR","art":"","duration":["1h30m","4h","8h"]},
-	{"name": "Chicken Heavy","art":"","duration":["45m","1h30m","4h"]},
-	{"name": "Chicken Nine","art":"","duration":["30m","1h","3h"]},
-	{"name": "Chicken One","art":"","duration":["20m","1h","2h"]}
+	{"name": "Atreggies Henliner","art":"<:afx_ship_atreggies:1280038674398183464>","duration":["2d","3d","4d"]},
+	{"name": "Henerprise","art":"<:afx_ship_henerprise:1280038539328749609>","duration":["1d","2d","4d"]},
+	{"name": "Voyegger","art":"<:afx_ship_voyegger:1280041822416273420>","duration":["12h","1d12h","3d"]},
+	{"name": "Defihent","art":"<:afx_ship_defihent:1280044758001258577>","duration":["8h","1d","2d"]},
+	{"name": "Galeggtica","art":"<:afx_ship_galeggtica:1280045010917527593>","duration":["6h","16h","1d6h"]},
+	{"name": "Cornish-Hen Corvette","art":"<:afx_ship_corellihen_corvette:1280045137518657536>","duration":["4h","12h","1d"]},
+	{"name": "Quintillion Chicken","art":"<:afx_ship_millenium_chicken:1280045411444326400>","duration":["3h","6h","12h"]},
+	{"name": "BCR","art":"<:afx_ship_bcr:1280045542495228008>","duration":["1h30m","4h","8h"]},
+	{"name": "Chicken Heavy","art":"<:afx_ship_chicken_heavy:1280045643922018315>","duration":["45m","1h30m","4h"]},
+	{"name": "Chicken Nine","art":"<:afx_ship_chicken_9:1280045842442616902>","duration":["30m","1h","3h"]},
+	{"name": "Chicken One","art":"<:afx_ship_chicken_1:1280045945974951949>","duration":["20m","1h","2h"]}
 	]}`
 
 var mis missionData
