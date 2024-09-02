@@ -370,9 +370,11 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 		for shipIndex, ship := range missionShips {
 			var sName = " " + ship.Name
+			var sArt = ship.Art
 			if shipIndex == 0 || len(missionShips) <= 2 {
-				builder.WriteString("__" + ship.Name + "__:\n")
+				builder.WriteString(ship.Art + " __" + ship.Name + "__:\n")
 				sName = "" // Clear this out for single missions
+				sArt = ""
 			} else if shipIndex == 1 {
 				if selectedShipSecondary == -2 {
 					builder.WriteString("__All Stars Club__:\n")
@@ -442,7 +444,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 					}
 				}
 
-				builder.WriteString(fmt.Sprintf("> %s%s%s%s (%s): <t:%d:t>%s\n", dcBubble, sunBubble, shipDurationName[i], sName, fmtDuration(ftlDuration), launchTime.Unix(), chainString))
+				builder.WriteString(fmt.Sprintf("> %s%s%s%s%s (%s): <t:%d:t>%s\n", dcBubble, sunBubble, sArt, shipDurationName[i], sName, fmtDuration(ftlDuration), launchTime.Unix(), chainString))
 				if shipIndex != 0 && len(missionShips) > 2 && selectedShipSecondary < -1 {
 					break
 				}
