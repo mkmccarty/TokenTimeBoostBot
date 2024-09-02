@@ -159,7 +159,10 @@ func finishContractByHash(contractHash string) error {
 	}
 
 	// Don't delete the final boost message
-	farmerstate.SetOrderPercentileAll(contract.Order, len(contract.Order))
+	if len(contract.BoostedOrder) != len(contract.Order) {
+		contract.BoostedOrder = contract.Order
+	}
+	farmerstate.SetOrderPercentileAll(contract.BoostedOrder, len(contract.Order))
 
 	_ = saveEndData(contract) // Save for historical purposes
 	delete(Contracts, contract.ContractHash)

@@ -240,8 +240,9 @@ type Contract struct {
 	Boosters            map[string]*Booster // Boosters Registered
 	AltIcons            []string            // Array of alternate icons for the Boosters
 	Order               []string
-	OrderRevision       int  // Incremented when Order is changed
-	Speedrun            bool // Speedrun mode
+	BoostedOrder        []string // Actual order of boosting
+	OrderRevision       int      // Incremented when Order is changed
+	Speedrun            bool     // Speedrun mode
 	SRData              SpeedrunData
 	Banker              BankerInfo // Banker for the contract
 	CalcOperations      int
@@ -313,7 +314,10 @@ func changeContractState(contract *Contract, newstate int) {
 	case ContractStateCompleted:
 		contract.Banker.CurrentBanker = contract.Banker.PostSinkUserID
 		if contract.SavedStats {
-			farmerstate.SetOrderPercentileAll(contract.Order, len(contract.Order))
+			if len(contract.BoostedOrder) != len(contract.Order) {
+				contract.BoostedOrder = contract.Order
+			}
+			farmerstate.SetOrderPercentileAll(contract.BoostedOrder, len(contract.Order))
 			contract.SavedStats = true
 		}
 	default:
@@ -1400,6 +1404,8 @@ func UserBoost(s *discordgo.Session, guildID string, channelID string, userID st
 				// Mark user as complete
 				// Taking start time from current booster start time
 				contract.Boosters[contract.Order[i]].BoostState = BoostStateBoosted
+				// Unique insert into contract.BoostedOrder
+				contract.BoostedOrder = append(contract.BoostedOrder, contract.Order[i])
 				if contract.Boosters[contract.Order[i]].StartTime.IsZero() {
 					// Keep existing start time if they already boosted
 					contract.Boosters[contract.Order[i]].StartTime = contract.Boosters[contract.Order[contract.BoostPosition-1]].StartTime
@@ -1432,6 +1438,7 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateBoosted
 	contract.Boosters[contract.Order[contract.BoostPosition]].EndTime = time.Now()
 	contract.Boosters[contract.Order[contract.BoostPosition]].Duration = time.Since(contract.Boosters[contract.Order[contract.BoostPosition]].StartTime)
+	contract.BoostedOrder = append(contract.BoostedOrder, contract.Order[contract.BoostPosition])
 
 	// Advance past any that have already boosted
 	// Set boost order to last spot so end of contract handling can occur
@@ -1516,6 +1523,8 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 		} else {
 			panic("Invalid contract style")
 		}
+		// Remove user from contract.BootedOrder
+		contract.BoostedOrder = removeIndex(contract.BoostedOrder, slices.Index(contract.BoostedOrder, userID))
 		contract.Boosters[userID].BoostState = BoostStateTokenTime
 		// set BoostPosition to unboosted user
 		for i := range contract.Order {
@@ -1528,6 +1537,7 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 		sendNextNotification(s, contract, true)
 	} else {
 		contract.Boosters[userID].BoostState = BoostStateUnboosted
+		contract.BoostedOrder = removeIndex(contract.BoostedOrder, slices.Index(contract.BoostedOrder, userID))
 		refreshBoostListMessage(s, contract)
 	}
 	return nil
@@ -1647,7 +1657,10 @@ func FinishContract(s *discordgo.Session, contract *Contract) {
 	}
 	// Location[0] for this since the original contract is on the first location
 	if !contract.SavedStats {
-		farmerstate.SetOrderPercentileAll(contract.Order, len(contract.Order))
+		if len(contract.BoostedOrder) != len(contract.Order) {
+			contract.BoostedOrder = contract.Order
+		}
+		farmerstate.SetOrderPercentileAll(contract.BoostedOrder, len(contract.Order))
 		contract.SavedStats = true
 	}
 	_, _ = DeleteContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID)
