@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/xhit/go-str2duration/v2"
 )
@@ -371,8 +372,11 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		for shipIndex, ship := range missionShips {
 			var sName = " " + ship.Name
 			var sArt = ship.Art
+			if config.DiscordAppID == "1187298713903829042" {
+				sArt = ship.ArtDev
+			}
 			if shipIndex == 0 || len(missionShips) <= 2 {
-				builder.WriteString(ship.Art + " __" + ship.Name + "__:\n")
+				builder.WriteString(sArt + " __" + ship.Name + "__:\n")
 				sName = "" // Clear this out for single missions
 				sArt = ""
 			} else if shipIndex == 1 {

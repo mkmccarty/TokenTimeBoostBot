@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 )
 
 // EggIncContract is a raw contract data for Egg Inc
@@ -38,41 +40,42 @@ func init() {
 
 // EggEmojiData is a struct to hold the name and ID of an egg emoji
 type EggEmojiData struct {
-	Name string
-	ID   string
+	Name  string
+	ID    string
+	DevID string
 }
 
 // EggEmojiMap of egg emojis from the Egg Inc Discord
 var EggEmojiMap = map[string]EggEmojiData{
-	"EDIBLE":         {"egg_edible", "1279201065983672331"},
-	"SUPERFOOD":      {"egg_superfood", "1279201277498101871"},
-	"MEDICAL":        {"egg_medical", "1279201164264607845"},
-	"ROCKET_FUEL":    {"egg_rocketfuel", "1279201250310881301"},
-	"SUPER_MATERIAL": {"egg_supermaterial", "1279201294040432690"},
-	"FUSION":         {"egg_fusion", "1279201108119519254"},
-	"QUANTUM":        {"egg_quantum", "1279201237106954260"},
-	"CRISPR":         {"egg_crispr", "1279202262941696032"},
-	"IMMORTALITY":    {"egg_crispr", "1279201128675934263"},
-	"TACHYON":        {"egg_tachyon", "1279201308494135316"},
-	"GRAVITON":       {"egg_graviton", "1279201119066783765"},
-	"DILITHIUM":      {"egg_dilithium", "1279201030747459717"},
-	"PRODIGY":        {"egg_prodigy", "1279201210473123954"},
-	"TERRAFORM":      {"egg_terraform", "1279201322671014042"},
-	"ANTIMATTER":     {"egg_antimatter", "1279200966423347311"},
-	"DARKMATTER":     {"egg_darkmatter", "1279201008471380019"},
-	"AI":             {"egg_ai", "1279200905081782313"},
-	"NEBULA":         {"egg_nebula", "1279201366396633231"},
-	"UNIVERSE":       {"egg_universe", "1279201333081145364"},
-	"ENLIGHTENMENT":  {"egg_enlightenment", "1279201086531702895"},
-	"UNKNOWN":        {"egg_unknown", "1279201352408633425"},
-	"WATERBALLOON":   {"egg_waterballoon", "1279201379227009076"},
-	"FIREWORK":       {"egg_firework", "1279201097348812830"},
-	"PUMPKIN":        {"egg_pumpkin", "1279201221235703900"},
-	"CHOCOLATE":      {"egg_chocolate", "1279200983523524659"},
-	"EASTER":         {"egg_easter", "1279201048845881414"},
-	"CARBON-FIBER":   {"egg_carbonfiber", "1279202173904752802"},
-	"SOUL":           {"egg_soul", "1279201265628348490"},
-	"PROPHECY":       {"egg_prophecy", "1279201195872878652"},
+	"EDIBLE":         {"egg_edible", "1279201065983672331", "1280382273165725707"},
+	"SUPERFOOD":      {"egg_superfood", "1279201277498101871", "1280383008901173400"},
+	"MEDICAL":        {"egg_medical", "1279201164264607845", "1280382360554180661"},
+	"ROCKET_FUEL":    {"egg_rocketfuel", "1279201250310881301", "1280382980753457162"},
+	"SUPER_MATERIAL": {"egg_supermaterial", "1279201294040432690", "1280383030858350624"},
+	"FUSION":         {"egg_fusion", "1279201108119519254", "1280382311166382113"},
+	"QUANTUM":        {"egg_quantum", "1279201237106954260", "1280382968069886045"},
+	"CRISPR":         {"egg_crispr", "1279202262941696032", "1280385130363490324"},
+	"IMMORTALITY":    {"egg_crispr", "1279201128675934263", "1280382335577227355"},
+	"TACHYON":        {"egg_tachyon", "1279201308494135316", "1280383045710381066"},
+	"GRAVITON":       {"egg_graviton", "1279201119066783765", "1280382323652821124"},
+	"DILITHIUM":      {"egg_dilithium", "1279201030747459717", "1280382245189713984"},
+	"PRODIGY":        {"egg_prodigy", "1279201210473123954", "1280382940383285290"},
+	"TERRAFORM":      {"egg_terraform", "1279201322671014042", "1280383061007269910"},
+	"ANTIMATTER":     {"egg_antimatter", "1279200966423347311", "1280382205084041287"},
+	"DARKMATTER":     {"egg_darkmatter", "1279201008471380019", "1280382231361093706"},
+	"AI":             {"egg_ai", "1279200905081782313", "1280382185257566278"},
+	"NEBULA":         {"egg_nebula", "1279201366396633231", "1280383107236626482"},
+	"UNIVERSE":       {"egg_universe", "1279201333081145364", "1280383077415125086"},
+	"ENLIGHTENMENT":  {"egg_enlightenment", "1279201086531702895", "1280382287980269618"},
+	"UNKNOWN":        {"egg_unknown", "1279201352408633425", "1280383094448328717"},
+	"WATERBALLOON":   {"egg_waterballoon", "1279201379227009076", "1280383119618473984"},
+	"FIREWORK":       {"egg_firework", "1279201097348812830", "1280382299141050399"},
+	"PUMPKIN":        {"egg_pumpkin", "1279201221235703900", "1280382955239247965"},
+	"CHOCOLATE":      {"egg_chocolate", "1279200983523524659", "1280382217822146560"},
+	"EASTER":         {"egg_easter", "1279201048845881414", "1280382259630964767"},
+	"CARBON-FIBER":   {"egg_carbonfiber", "1279202173904752802", "1280385218213187640"},
+	"SOUL":           {"egg_soul", "1279201265628348490", "1280382995282526208"},
+	"PROPHECY":       {"egg_prophecy", "1279201195872878652", "1280382926470643754"},
 }
 
 // FindEggComponentEmoji will find the token emoji for the given guild
@@ -82,12 +85,23 @@ func FindEggComponentEmoji(eggOrig string) (string, EggEmojiData) {
 	var eggEmojiData EggEmojiData
 
 	eggIcon, ok := EggEmojiMap[strings.ToUpper(eggOrig)]
-	if ok {
-		eggEmojiData = eggIcon
-		eggIconString = fmt.Sprintf("<:%s:%s>", eggEmojiData.Name, eggEmojiData.ID)
+	if config.DiscordAppID == "1187298713903829042" { // Dev
+		if ok {
+			eggEmojiData = eggIcon
+			eggIconString = fmt.Sprintf("<:%s:%s>", eggEmojiData.Name, eggEmojiData.DevID)
+		} else {
+			eggEmojiData = eggIcon
+			eggIconString = fmt.Sprintf("<:%s:%s>", EggEmojiMap["UNKNOWN"].Name, EggEmojiMap["UNKNOWN"].DevID)
+		}
+
 	} else {
-		eggEmojiData = eggIcon
-		eggIconString = fmt.Sprintf("<:%s:%s>", EggEmojiMap["UNKNOWN"].Name, EggEmojiMap["UNKNOWN"].ID)
+		if ok {
+			eggEmojiData = eggIcon
+			eggIconString = fmt.Sprintf("<:%s:%s>", eggEmojiData.Name, eggEmojiData.ID)
+		} else {
+			eggEmojiData = eggIcon
+			eggIconString = fmt.Sprintf("<:%s:%s>", EggEmojiMap["UNKNOWN"].Name, EggEmojiMap["UNKNOWN"].ID)
+		}
 	}
 	return eggIconString, eggEmojiData
 }
@@ -97,14 +111,26 @@ func FindEggEmoji(eggOrig string) string {
 	var eggIconString string
 
 	var eggEmojiData EggEmojiData
+	if config.DiscordAppID == "1187298713903829042" { // Dev
 
-	eggIcon, ok := EggEmojiMap[strings.ToUpper(eggOrig)]
-	if ok {
-		eggEmojiData = eggIcon
-		eggIconString = fmt.Sprintf("<:%s:%s>", eggEmojiData.Name, eggEmojiData.ID)
+		eggIcon, ok := EggEmojiMap[strings.ToUpper(eggOrig)]
+		if ok {
+			eggEmojiData = eggIcon
+			eggIconString = fmt.Sprintf("<:%s:%s>", eggEmojiData.Name, eggEmojiData.DevID)
+		} else {
+			eggEmojiData = eggIcon
+			eggIconString = fmt.Sprintf("<:%s:%s>", EggEmojiMap["UNKNOWN"].Name, EggEmojiMap["UNKNOWN"].DevID)
+		}
 	} else {
-		eggEmojiData = eggIcon
-		eggIconString = fmt.Sprintf("<:%s:%s>", EggEmojiMap["UNKNOWN"].Name, EggEmojiMap["UNKNOWN"].ID)
+		eggIcon, ok := EggEmojiMap[strings.ToUpper(eggOrig)]
+		if ok {
+			eggEmojiData = eggIcon
+			eggIconString = fmt.Sprintf("<:%s:%s>", eggEmojiData.Name, eggEmojiData.ID)
+		} else {
+			eggEmojiData = eggIcon
+			eggIconString = fmt.Sprintf("<:%s:%s>", EggEmojiMap["UNKNOWN"].Name, EggEmojiMap["UNKNOWN"].ID)
+		}
+
 	}
 
 	return eggIconString
