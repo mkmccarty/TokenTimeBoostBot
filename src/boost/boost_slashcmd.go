@@ -192,7 +192,9 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		guestNames := strings.Split(guestNames, ",")
 		for _, guestNameRaw := range guestNames {
 			guestName := strings.TrimSpace(guestNameRaw)
-			farmerstate.SetTokens(guestName, tokenWant)
+			if tokenWant != 0 {
+				farmerstate.SetTokens(guestName, tokenWant)
+			}
 			var err = AddContractMember(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), "", guestName, orderValue)
 			if err != nil {
 				str = err.Error()
