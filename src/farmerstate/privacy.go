@@ -135,7 +135,6 @@ func HandlePrivacyCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 			userData = farmerstate[userID]
 
 			filename = "boostbot-data-" + userID + ".json"
-			//jsonData, err := json.Marshal(userData)
 			buf := &bytes.Buffer{}
 			jsonData, err := json.Marshal(userData)
 			if err != nil {
