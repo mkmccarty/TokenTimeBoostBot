@@ -144,10 +144,11 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		})
 		return
 	}
-	var guestName = ""
+	var guestNames = ""
 	var orderValue int = ContractOrderTimeBased // Default to Time Based
 	var mention = ""
 	var str = "Joining Member"
+	var tokenWant = 0
 
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
@@ -161,18 +162,19 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if strings.HasPrefix(farmerName, "<@") {
 			mention = farmerName
 		} else {
-			guestName = farmerName
+			guestNames = farmerName
 		}
 		str += " " + farmerName
 	}
+
+	// TODO make this handle multiple farmers with tokens
 	if opt, ok := optionMap["token-count"]; ok {
-		tokenWant := int(opt.IntValue())
+		tokenWant = int(opt.IntValue())
 		str += " with " + fmt.Sprintf("%d", tokenWant) + " boost tokens"
-		if guestName != "" {
-			farmerstate.SetTokens(guestName, tokenWant)
-		} else {
+		if guestNames == "" {
 			farmerstate.SetTokens(mention[2:len(mention)-1], tokenWant)
 		}
+
 	}
 	if opt, ok := optionMap["boost-order"]; ok {
 		orderValue = int(opt.IntValue())
@@ -185,9 +187,22 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	})
-	var err = AddContractMember(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), mention, guestName, orderValue)
-	if err != nil {
-		str = err.Error()
+
+	if guestNames != "" {
+		guestNames := strings.Split(guestNames, ",")
+		for _, guestNameRaw := range guestNames {
+			guestName := strings.TrimSpace(guestNameRaw)
+			farmerstate.SetTokens(guestName, tokenWant)
+			var err = AddContractMember(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), "", guestName, orderValue)
+			if err != nil {
+				str = err.Error()
+			}
+		}
+	} else {
+		var err = AddContractMember(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), mention, "", orderValue)
+		if err != nil {
+			str = err.Error()
+		}
 	}
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
