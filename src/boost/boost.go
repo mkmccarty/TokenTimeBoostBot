@@ -22,13 +22,12 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
-	emutil "github.com/post04/discordgo-emoji-util"
 	"google.golang.org/protobuf/proto"
 )
 
 var mutex sync.Mutex
 
-const boostBotHomeGuild string = "766330702689992720"
+//const boostBotHomeGuild string = "766330702689992720"
 
 const errorNoContract string = "contract doesn't exist"
 const errorNotStarted string = "contract not started"
@@ -347,30 +346,6 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 	saveData(Contracts)
 
 	return coopName, nil
-}
-
-// FindTokenEmoji will find the token emoji for the given guild
-func FindTokenEmoji(s *discordgo.Session) string {
-	g, _ := s.State.Guild(boostBotHomeGuild) // RAIYC Playground
-	var e = emutil.FindEmoji(g.Emojis, "token", false)
-	if e != nil {
-		return e.MessageFormat()
-	}
-	return "🐣"
-}
-
-func findBoostBotGuildEmoji(s *discordgo.Session, emoji string, reactionIcon bool) string {
-	g, _ := s.State.Guild(boostBotHomeGuild) // RAIYC Playground
-	e := emutil.FindEmoji(g.Emojis, emoji, false)
-	if e != nil {
-		if reactionIcon {
-			// Reactions need to be in the format "<:emoji:ID"
-			retVal := e.MessageFormat()
-			return retVal[:len(retVal)-1]
-		}
-		return e.MessageFormat()
-	}
-	return ""
 }
 
 // FindEggEmoji will find the token emoji for the given guild
