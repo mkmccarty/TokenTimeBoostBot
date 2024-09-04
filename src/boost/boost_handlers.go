@@ -165,7 +165,7 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 	if contract.State == ContractStateSignup && contract.Style&ContractFlagBanker != 0 {
 		str += "\nThe Sink boost position button cycles from First->Last->Follow Order."
 	}
-	startLabel := "Start Boosting"
+	startLabel := "Start Boost List"
 	if contract != nil && contract.Style&ContractFlagCrt != 0 {
 		startLabel = "Start CRT"
 	} else if disableStartContract {
