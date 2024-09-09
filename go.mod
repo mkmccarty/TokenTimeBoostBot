@@ -9,7 +9,7 @@ require (
 	github.com/google/generative-ai-go v0.17.0
 	github.com/jasonlvhit/gocron v0.0.1
 	github.com/joho/godotenv v1.5.1
-	github.com/moby/moby v27.2.0+incompatible
+	github.com/moby/moby v27.2.1+incompatible
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/rs/xid v1.6.0
