@@ -170,20 +170,21 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 		b.TokensReceived++
 		if fromUserID != b.UserID {
 			// Record the Tokens as received
-			rSerial := xid.New().String()
-			b.Received = append(b.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[fromUserID].Nick, Serial: rSerial})
-			track.ContractTokenMessage(s, ChannelID, b.UserID, track.TokenReceived, 1, contract.Boosters[fromUserID].Nick, rSerial)
+			tokenSerial := xid.New().String()
+			b.Received = append(b.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[fromUserID].Nick, Serial: tokenSerial})
+			track.ContractTokenMessage(s, ChannelID, b.UserID, track.TokenReceived, 1, contract.Boosters[fromUserID].Nick, tokenSerial)
 
 			// Record who sent the token
-			sSerial := xid.New().String()
 			if contract.Boosters[fromUserID] != nil {
 				// Make sure this isn't an admin user who's sending on behalf of an alt
-				contract.Boosters[fromUserID].Sent = append(contract.Boosters[fromUserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: b.Nick, Serial: sSerial})
+				contract.Boosters[fromUserID].Sent = append(contract.Boosters[fromUserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: b.Nick, Serial: tokenSerial})
 			}
-			track.ContractTokenMessage(s, ChannelID, fromUserID, track.TokenSent, 1, b.Nick, sSerial)
+			contract.TokenLog = append(contract.TokenLog, TokenUnitLog{Time: time.Now(), Quantity: 1, FromUserID: fromUserID, ToUserID: b.UserID, Serial: tokenSerial})
+			track.ContractTokenMessage(s, ChannelID, fromUserID, track.TokenSent, 1, b.Nick, tokenSerial)
 		} else {
 			track.FarmedToken(s, ChannelID, fromUserID)
 			b.TokensFarmedTime = append(b.TokensFarmedTime, time.Now())
+			contract.TokenLog = append(contract.TokenLog, TokenUnitLog{Time: time.Now(), Quantity: 1, FromUserID: fromUserID, ToUserID: fromUserID, Serial: xid.New().String()})
 		}
 		if b.TokensReceived == b.TokensWanted {
 			b.BoostingTokenTimestamp = time.Now()

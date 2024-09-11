@@ -42,14 +42,14 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 			sink.TokensReceived -= tokensToSend
 			sink.TokensReceived = max(0, sink.TokensReceived) // Avoid missing self farmed tokens
 			// Record the Tokens as received
-			rSerial := xid.New().String()
-			sSerial := xid.New().String()
+			tokenSerial := xid.New().String()
 			for i := 0; i < tokensToSend; i++ {
-				b.Received = append(b.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[cUserID].Nick, Serial: rSerial})
-				contract.Boosters[cUserID].Sent = append(contract.Boosters[cUserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[b.UserID].Nick, Serial: sSerial})
+				b.Received = append(b.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[cUserID].Nick, Serial: tokenSerial})
+				contract.Boosters[cUserID].Sent = append(contract.Boosters[cUserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[b.UserID].Nick, Serial: tokenSerial})
 			}
-			track.ContractTokenMessage(s, ChannelID, b.UserID, track.TokenReceived, b.TokensReceived, contract.Boosters[cUserID].Nick, rSerial)
-			track.ContractTokenMessage(s, ChannelID, cUserID, track.TokenSent, b.TokensReceived, contract.Boosters[b.UserID].Nick, sSerial)
+			track.ContractTokenMessage(s, ChannelID, b.UserID, track.TokenReceived, b.TokensReceived, contract.Boosters[cUserID].Nick, tokenSerial)
+			track.ContractTokenMessage(s, ChannelID, cUserID, track.TokenSent, b.TokensReceived, contract.Boosters[b.UserID].Nick, tokenSerial)
+			contract.TokenLog = append(contract.TokenLog, TokenUnitLog{Time: time.Now(), Quantity: tokensToSend, FromUserID: cUserID, ToUserID: b.UserID, Serial: tokenSerial})
 		}
 
 		str := fmt.Sprintf("**%s** ", contract.Boosters[b.UserID].Mention)
