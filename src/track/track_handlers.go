@@ -78,7 +78,7 @@ func HandleTokenEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Type: discordgo.InteractionResponseModal,
 		Data: &discordgo.InteractionResponseData{
 			CustomID: "fd_trackerEdit#" + name,
-			Title:    "Update Tracker Details for " + name,
+			Title:    "Update Tracker for " + name,
 			Components: []discordgo.MessageComponent{
 				discordgo.ActionsRow{
 					Components: []discordgo.MessageComponent{
@@ -87,6 +87,7 @@ func HandleTokenEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 							Label:       "Coop ID",
 							Style:       discordgo.TextInputShort,
 							Placeholder: t.CoopID,
+							MaxLength:   30,
 							Required:    false,
 						},
 					},
@@ -131,12 +132,17 @@ func HandleTokenEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 					},
 				},
 			}}})
+	if err != nil {
+		log.Println(err)
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: err.Error(),
+			}})
+	}
 	if err == nil {
 		return
 	}
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-	})
 
 }
 
