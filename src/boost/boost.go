@@ -213,7 +213,7 @@ type Contract struct {
 	TokenStr                  string // Emoji for Token
 	TokenReactionStr          string // Emoji for Token Reaction
 	TargetAmount              []float64
-	qTargetAmount             []float64
+	QTargetAmount             []float64
 	ChickenRunCooldownMinutes int
 	MinutesPerToken           int
 	EstimatedDuration         time.Duration
@@ -1117,6 +1117,9 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	}
 
 	reorderBoosters(contract)
+	if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
+		calculateTangoLegs(contract, true)
+	}
 
 	contract.BoostPosition = 0
 	contract.StartTime = time.Now()
@@ -1819,7 +1822,7 @@ func updateContractWithEggIncData(contract *Contract) {
 			contract.Description = cc.Description
 			contract.EggName = cc.EggName
 			contract.TargetAmount = cc.TargetAmount
-			contract.qTargetAmount = cc.TargetAmountq
+			contract.QTargetAmount = cc.TargetAmountq
 			contract.ChickenRunCooldownMinutes = cc.ChickenRunCooldownMinutes
 			contract.MinutesPerToken = cc.MinutesPerToken
 			break
