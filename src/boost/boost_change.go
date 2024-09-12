@@ -515,7 +515,6 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 		contract.EggEmoji = FindEggEmoji(s, "485162044652388384", contract.EggName)
 		if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
 			calculateTangoLegs(contract, true)
-
 		}
 		refreshBoostListMessage(s, contract)
 	}
