@@ -49,7 +49,9 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 			}
 			track.ContractTokenMessage(s, ChannelID, b.UserID, track.TokenReceived, b.TokensReceived, contract.Boosters[cUserID].Nick, tokenSerial)
 			track.ContractTokenMessage(s, ChannelID, cUserID, track.TokenSent, b.TokensReceived, contract.Boosters[b.UserID].Nick, tokenSerial)
-			contract.TokenLog = append(contract.TokenLog, TokenUnitLog{Time: time.Now(), Quantity: tokensToSend, FromUserID: cUserID, ToUserID: b.UserID, Serial: tokenSerial})
+			contract.mutex.Lock()
+			contract.TokenLog = append(contract.TokenLog, TokenUnitLog{Time: time.Now(), Quantity: tokensToSend, FromUserID: cUserID, FromNick: contract.Boosters[cUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial})
+			contract.mutex.Unlock()
 		}
 
 		str := fmt.Sprintf("**%s** ", contract.Boosters[b.UserID].Mention)

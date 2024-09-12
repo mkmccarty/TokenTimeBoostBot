@@ -354,11 +354,13 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 		contract.ChickenRunEmoji = "<:icon_chicken_run:1280378140694286427"
 	}
 
+	contract.NewFeature = 1
 	contract.RegisteredNum = 0
 	contract.CoopSize = coopSize
 	contract.Name = contractID
 	updateContractWithEggIncData(contract)
 	Contracts[ContractHash] = contract
+
 	/*
 		} else { //if !creatorOfContract(contract, userID) {
 			contract.CreatorID = append(contract.CreatorID, userID) // starting userid

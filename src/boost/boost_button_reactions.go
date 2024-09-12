@@ -179,12 +179,16 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 				// Make sure this isn't an admin user who's sending on behalf of an alt
 				contract.Boosters[fromUserID].Sent = append(contract.Boosters[fromUserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: b.Nick, Serial: tokenSerial})
 			}
-			contract.TokenLog = append(contract.TokenLog, TokenUnitLog{Time: time.Now(), Quantity: 1, FromUserID: fromUserID, ToUserID: b.UserID, Serial: tokenSerial})
+			contract.mutex.Lock()
+			contract.TokenLog = append(contract.TokenLog, TokenUnitLog{Time: time.Now(), Quantity: 1, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial})
+			contract.mutex.Unlock()
 			track.ContractTokenMessage(s, ChannelID, fromUserID, track.TokenSent, 1, b.Nick, tokenSerial)
 		} else {
 			track.FarmedToken(s, ChannelID, fromUserID)
 			b.TokensFarmedTime = append(b.TokensFarmedTime, time.Now())
-			contract.TokenLog = append(contract.TokenLog, TokenUnitLog{Time: time.Now(), Quantity: 1, FromUserID: fromUserID, ToUserID: fromUserID, Serial: xid.New().String()})
+			contract.mutex.Lock()
+			contract.TokenLog = append(contract.TokenLog, TokenUnitLog{Time: time.Now(), Quantity: 1, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: fromUserID, ToNick: contract.Boosters[fromUserID].Nick, Serial: xid.New().String()})
+			contract.mutex.Unlock()
 		}
 		if b.TokensReceived == b.TokensWanted {
 			b.BoostingTokenTimestamp = time.Now()
