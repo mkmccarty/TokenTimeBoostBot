@@ -168,11 +168,6 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 
 	var field []*discordgo.MessageEmbedField
 
-	// TODO: Remove this block after 7/25/2024
-	if td.CoopID == "" {
-		td.CoopID = td.Name
-	}
-
 	URL := fmt.Sprintf("[%s](%s/%s/%s)", td.CoopID, "https://eicoop-carpet.netlify.app", td.ContractID, td.CoopID)
 
 	ts := td.DurationTime.Round(time.Minute).String()
@@ -327,18 +322,18 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 			Inline: brief,
 		})
 
-		totalHeader = "Current △ TVal"
-		if finalDisplay {
-			totalHeader = "Final △ TVal"
-		}
-		finalTotal = fmt.Sprintf("%4.3f", td.TokenDelta)
-		field = append(field, &discordgo.MessageEmbedField{
-			Name:   totalHeader,
-			Value:  finalTotal,
-			Inline: true,
-		})
-
 	}
+	totalHeader = "Current △ TVal"
+	if finalDisplay {
+		totalHeader = "Final △ TVal"
+	}
+	finalTotal = fmt.Sprintf("%4.3f", td.TokenDelta)
+	field = append(field, &discordgo.MessageEmbedField{
+		Name:   totalHeader,
+		Value:  finalTotal,
+		Inline: true,
+	})
+
 	if td.MinutesPerToken != 0 {
 		BTA := td.DurationTime.Minutes() / float64(td.MinutesPerToken)
 		targetTval := 3.0
