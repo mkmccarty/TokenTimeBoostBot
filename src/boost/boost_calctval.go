@@ -265,8 +265,9 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 	if len(TokensSent) > 0 {
 		var sbuilder strings.Builder
 		sentStr := "Sent Tokens"
+		sentOffset := 0
 
-		if len(TokensSent) > 20 {
+		if len(TokensSent) > 15 {
 
 			// Create a sorted list of keys from tokenCount
 			keys := make([]string, 0, len(tokenCountTo))
@@ -296,6 +297,7 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 
 			// Trim tokens Sent to last 5
 			sentStr = "Last 5 Sent Tokens"
+			sentOffset = len(TokensSent) - 5
 			TokensSent = TokensSent[len(TokensSent)-5:]
 		}
 
@@ -307,7 +309,7 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 				if t.Quantity > 1 {
 					quant = fmt.Sprintf("x%d", t.Quantity)
 				}
-				fmt.Fprintf(&sbuilder, "> %d%s: <t:%d:R> %6.3f %s\n", i+1, quant, t.Time.Unix(), t.Value, id)
+				fmt.Fprintf(&sbuilder, "> %d%s: <t:%d:R> %6.3f %s\n", i+1+sentOffset, quant, t.Time.Unix(), t.Value, id)
 
 				if i > 0 && (i+1)%25 == 0 {
 					field = append(field, &discordgo.MessageEmbedField{
@@ -330,8 +332,9 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 	if len(TokensReceived) > 0 {
 		var rbuilder strings.Builder
 		recvStr := "Received Tokens"
+		recvOffset := 0
 
-		if len(TokensReceived) > 20 {
+		if len(TokensReceived) > 15 {
 			// Create a sorted list of keys from tokenCount
 			keys := make([]string, 0, len(tokenCountFrom))
 			for key := range tokenCountFrom {
@@ -360,6 +363,7 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 
 			// Trim tokens Sent to last 5
 			recvStr = "Last 5 Received Tokens"
+			recvOffset = len(TokensReceived) - 5
 			TokensReceived = TokensReceived[len(TokensReceived)-5:]
 		}
 		fmt.Fprintf(&rbuilder, "%d valued at %4.3f\n", ReceivedCount, ReceivedValue)
@@ -370,7 +374,7 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 				if t.Quantity > 1 {
 					quant = fmt.Sprintf("x%d", t.Quantity)
 				}
-				fmt.Fprintf(&rbuilder, "> %d%s: <t:%d:R> %6.3f %s\n", i+1, quant, t.Time.Unix(), t.Value, id)
+				fmt.Fprintf(&rbuilder, "> %d%s: <t:%d:R> %6.3f %s\n", i+1+recvOffset, quant, t.Time.Unix(), t.Value, id)
 				if i > 0 && (i+1)%25 == 0 {
 					field = append(field, &discordgo.MessageEmbedField{
 						Name:   "Received Tokens",
