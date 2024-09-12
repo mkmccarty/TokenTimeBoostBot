@@ -108,6 +108,7 @@ func HandlePrivacyCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		} else if userPrivacy && !confirmOption {
 			builder.WriteString("You have not confirmed the privacy setting change, use the **confirm-request** option.")
 		} else {
+			setDataPrivacy(userID, userPrivacy)
 			builder.WriteString("Boost Bot will store save a small amount of data about you. You can download this data at any time.")
 		}
 	}
