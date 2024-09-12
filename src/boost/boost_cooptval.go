@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -110,13 +111,18 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		table.SetNoWhiteSpace(true)
 		fmt.Fprint(&builder, "```")
 
-		for _, booster := range contract.Boosters {
-			if booster.Name == booster.UserID && booster.AltController == "" {
-				continue
+		if contract.NewFeature == 0 {
+			for _, booster := range contract.Boosters {
+				if booster.Name == booster.UserID && booster.AltController == "" {
+					continue
+				}
+				name, tcount, tval := calculateTokenValueCoop(contract.StartTime, duration, booster)
+				table.Append([]string{name, fmt.Sprintf("%d", tcount), fmt.Sprintf("%6.3f", tval)})
 			}
-			name, tcount, tval := calculateTokenValueCoop(contract.StartTime, duration, booster)
-			table.Append([]string{name, fmt.Sprintf("%d", tcount), fmt.Sprintf("%6.3f", tval)})
+		} else {
+			calculateTokenValueCoopLog(contract, duration, table)
 		}
+
 		table.Render()
 		fmt.Fprint(&builder, "```")
 		fmt.Fprintf(&builder, "Updated <t:%d:R>\n", time.Now().Unix())
@@ -175,4 +181,40 @@ func calculateTokenValueCoop(startTime time.Time, duration time.Duration, booste
 	}
 
 	return name, int64(len(booster.Sent) - len(booster.Received)), sentValue - receivedValue
+}
+
+func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, table *tablewriter.Table) {
+	tokenCount := make(map[string]int)
+	tokenValue := make(map[string]float64)
+
+	//	table.Append([]string{name, fmt.Sprintf("%d", tcount), fmt.Sprintf("%6.3f", tval)})
+	for _, t := range contract.TokenLog {
+		if t.FromUserID == t.ToUserID {
+			// Farmed token, ignore
+			continue
+		}
+		t.Value = getTokenValue(t.Time.Sub(contract.StartTime).Seconds(), duration.Seconds())
+		// Sent tokens
+		tokenCount[t.ToNick] -= t.Quantity
+		tokenValue[t.ToNick] -= t.Value * float64(t.Quantity)
+		// Received tokens
+		tokenCount[t.FromNick] += t.Quantity
+		tokenValue[t.FromNick] += t.Value * float64(t.Quantity)
+	}
+
+	// Create a sorted list of keys from tokenCount
+	keys := make([]string, 0, len(tokenCount))
+	for key := range tokenCount {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	// Iterate through the sorted keys
+	for _, key := range keys {
+		name := key
+		if len(name) > 12 {
+			name = name[:12]
+		}
+		table.Append([]string{name, fmt.Sprintf("%d", tokenCount[key]), fmt.Sprintf("%6.3f", tokenValue[key])})
+	}
 }

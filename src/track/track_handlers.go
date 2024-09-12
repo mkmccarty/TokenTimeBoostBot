@@ -255,7 +255,10 @@ func HandleTokenDetails(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	m.Components = &comp
 	m.SetEmbeds(embed.Embeds)
 	m.SetContent("")
-	_, _ = s.ChannelMessageEditComplex(m)
+	_, err = s.ChannelMessageEditComplex(m)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 // HandleTokenComplete will close the token tracking

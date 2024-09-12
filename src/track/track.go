@@ -22,10 +22,11 @@ const (
 
 // TokenUnit holds everything we need to know about a token
 type TokenUnit struct {
-	Time   time.Time // Time the token was sent or received
-	Value  float64   // Calculated value of the token
-	UserID string    // Who sent or received the token
-	Serial string    // Serial number of the token
+	Time     time.Time // Time the token was sent or received
+	Value    float64   // Calculated value of the token
+	UserID   string    // Who sent or received the token
+	Serial   string    // Serial number of the token
+	Quantity int       // Quantity of the tokens
 }
 
 type tokenValue struct {
@@ -42,7 +43,9 @@ type tokenValue struct {
 	EstimatedEndTime time.Time     // Time of Token Value time plus Duration
 	DurationTime     time.Duration // Duration of Token Value time
 	Sent             []TokenUnit
+	SentCount        int
 	Received         []TokenUnit
+	ReceivedCount    int
 	FarmedTokenTime  []time.Time // time a self farmed token was received
 	SumValueSent     float64     // sum of all token values sent
 	SumValueReceived float64     // sum of all token values received
@@ -124,16 +127,15 @@ func TokenTrackingAdjustTime(channelID string, userID string, name string, start
 	for i, t := range td.Sent {
 		now := t.Time
 		offsetTime := now.Sub(td.StartTime).Seconds()
-		td.Sent[i].Value = getTokenValue(offsetTime, td.DurationTime.Seconds())
+		td.Sent[i].Value = getTokenValue(offsetTime, td.DurationTime.Seconds()) * float64(t.Quantity)
 		td.SumValueSent += td.Sent[i].Value
 	}
 	td.SumValueReceived = 0.0
 	for i, t := range td.Received {
 		now := t.Time
 		offsetTime := now.Sub(td.StartTime).Seconds()
-		td.Received[i].Value = getTokenValue(offsetTime, td.DurationTime.Seconds())
+		td.Received[i].Value = getTokenValue(offsetTime, td.DurationTime.Seconds()) * float64(t.Quantity)
 		td.SumValueReceived += td.Received[i].Value
-
 	}
 	td.TokenDelta = td.SumValueSent - td.SumValueReceived
 
@@ -215,18 +217,20 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 
 	if len(td.FarmedTokenTime) > 0 {
 		var fbuilder strings.Builder
-
-		if td.Details {
-			for i := range td.FarmedTokenTime {
-				if !finalDisplay {
-					fmt.Fprintf(&fbuilder, "%d: <t:%d:R>\n", i+1, td.FarmedTokenTime[i].Unix())
-				} else {
-					fmt.Fprintf(&fbuilder, "%d: %s\n", i+1, td.FarmedTokenTime[i].Sub(td.StartTime).Round(time.Second))
+		/*
+			if td.Details {
+				for i := range td.FarmedTokenTime {
+					if !finalDisplay {
+						fmt.Fprintf(&fbuilder, "%d: <t:%d:R>\n", i+1, td.FarmedTokenTime[i].Unix())
+					} else {
+						fmt.Fprintf(&fbuilder, "%d: %s\n", i+1, td.FarmedTokenTime[i].Sub(td.StartTime).Round(time.Second))
+					}
 				}
+			} else {
+				fmt.Fprintf(&fbuilder, "%d", len(td.FarmedTokenTime))
 			}
-		} else {
-			fmt.Fprintf(&fbuilder, "%d", len(td.FarmedTokenTime))
-		}
+		*/
+		fmt.Fprintf(&fbuilder, "%d", len(td.FarmedTokenTime))
 		field = append(field, &discordgo.MessageEmbedField{
 			Name:   "Farmed Tokens",
 			Value:  fbuilder.String(),
@@ -237,25 +241,34 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 	if len(td.Sent) > 0 {
 		var sbuilder strings.Builder
 		brief := false
-		if len(td.Received) > 30 {
+		if len(td.Received) > 20 {
 			brief = true
 		}
+		if len(td.Sent) != td.SentCount {
+			// Indicates that this was a banker user
+			brief = false
+		}
 
-		fmt.Fprintf(&sbuilder, "%d valued at %4.3f\n", len(td.Sent), td.SumValueSent)
+		fmt.Fprintf(&sbuilder, "%d valued at %4.3f\n", td.SentCount, td.SumValueSent)
 		if td.Details {
 			for i, t := range td.Sent {
 				id := td.Sent[i].UserID
-				if !brief {
+				quant := ""
+				if t.Quantity > 1 {
+					quant = fmt.Sprintf("x%d", t.Quantity)
+				}
+
+				if !brief || (len(td.Sent) != td.SentCount && t.Quantity > 1) {
 					if !finalDisplay {
-						fmt.Fprintf(&sbuilder, "> %d: <t:%d:R> %6.3f %s\n", i+1, t.Time.Unix(), t.Value, id)
+						fmt.Fprintf(&sbuilder, "> %d%s: <t:%d:R> %6.3f %s\n", i+1, quant, t.Time.Unix(), t.Value, id)
 					} else {
-						fmt.Fprintf(&sbuilder, "> %d: %s  %6.3f %s\n", i+1, t.Time.Sub(td.StartTime).Round(time.Second), t.Value, id)
+						fmt.Fprintf(&sbuilder, "> %d%s: %s  %6.3f %s\n", i+1, quant, t.Time.Sub(td.StartTime).Round(time.Second), t.Value, id)
 					}
 				} else {
 					if !finalDisplay {
-						fmt.Fprintf(&sbuilder, "> %d: %6.3f\n", i+1, t.Value)
+						fmt.Fprintf(&sbuilder, "> %d%s: %6.3f\n", i+1, quant, t.Value)
 					} else {
-						fmt.Fprintf(&sbuilder, "> %d: %6.3f\n", i+1, t.Value)
+						fmt.Fprintf(&sbuilder, "> %d%s: %6.3f\n", i+1, quant, t.Value)
 					}
 				}
 				if i > 0 && (i+1)%25 == 0 {
@@ -279,25 +292,30 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 	if len(td.Received) > 0 {
 		var rbuilder strings.Builder
 		brief := false
-		if len(td.Received) > 30 {
+		if len(td.Received) > 20 {
 			brief = true
 		}
 
-		fmt.Fprintf(&rbuilder, "%d valued at %4.3f\n", len(td.Received), td.SumValueReceived)
+		fmt.Fprintf(&rbuilder, "%d valued at %4.3f\n", td.ReceivedCount, td.SumValueReceived)
 		if td.Details {
 			for i, t := range td.Received {
 				id := t.UserID
-				if !brief {
+				quant := ""
+				if t.Quantity > 1 {
+					quant = fmt.Sprintf("x%d", t.Quantity)
+				}
+
+				if !brief || (len(td.Received) != td.ReceivedCount && t.Quantity > 1) {
 					if !finalDisplay {
-						fmt.Fprintf(&rbuilder, "> %d: <t:%d:R> %6.3f %s\n", i+1, t.Time.Unix(), t.Value, id)
+						fmt.Fprintf(&rbuilder, "> %d%s: <t:%d:R> %6.3f %s\n", i+1, quant, t.Time.Unix(), t.Value, id)
 					} else {
-						fmt.Fprintf(&rbuilder, "> %d: %s  %6.3f %s\n", i+1, t.Time.Sub(td.StartTime).Round(time.Second), t.Value, id)
+						fmt.Fprintf(&rbuilder, "> %d%s: %s  %6.3f %s\n", i+1, quant, t.Time.Sub(td.StartTime).Round(time.Second), t.Value, id)
 					}
 				} else {
 					if !finalDisplay {
-						fmt.Fprintf(&rbuilder, "> %d: %6.3f\n", i+1, t.Value)
+						fmt.Fprintf(&rbuilder, "> %d%s: %6.3f\n", i+1, quant, t.Value)
 					} else {
-						fmt.Fprintf(&rbuilder, "> %d: %6.3f\n", i+1, t.Value)
+						fmt.Fprintf(&rbuilder, "> %d%s: %6.3f\n", i+1, quant, t.Value)
 					}
 				}
 				if i > 0 && (i+1)%25 == 0 {
@@ -426,6 +444,7 @@ func tokenTracking(s *discordgo.Session, channelID string, userID string, name s
 	td.Linked = linked
 	td.LinkRecieved = linkReceived
 	td.ContractID = contractID
+	td.CoopID = name
 	td.MinutesPerToken = 0
 
 	if contractID != "" {
@@ -534,17 +553,16 @@ func ContractTokenMessage(s *discordgo.Session, channelID string, userID string,
 			now := time.Now()
 			offsetTime := now.Sub(v.StartTime).Seconds()
 			tokenValue := getTokenValue(offsetTime, v.DurationTime.Seconds())
+			tokenValue *= float64(count)
 			if kind == TokenSent {
-				for i := 0; i < count; i++ {
-					v.Sent = append(v.Sent, TokenUnit{Time: now, Value: tokenValue, UserID: actorUserID, Serial: serialID})
-					v.SumValueSent += tokenValue
-				}
+				v.Sent = append(v.Sent, TokenUnit{Time: now, Value: tokenValue, UserID: actorUserID, Serial: serialID, Quantity: count})
+				v.SumValueSent += tokenValue
+				v.SentCount += count
 				redraw = true
 			} else if v.LinkRecieved && kind == TokenReceived {
-				for i := 0; i < count; i++ {
-					v.Received = append(v.Received, TokenUnit{Time: now, Value: tokenValue, UserID: actorUserID, Serial: serialID})
-					v.SumValueReceived += tokenValue
-				}
+				v.Received = append(v.Received, TokenUnit{Time: now, Value: tokenValue, UserID: actorUserID, Serial: serialID, Quantity: count})
+				v.SumValueReceived += tokenValue
+				v.ReceivedCount += count
 				redraw = true
 			}
 			if redraw {

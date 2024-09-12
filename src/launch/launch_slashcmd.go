@@ -434,7 +434,11 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 					exDuration, _ := str2duration.ParseDuration(minutesStr)
 
 					chainLaunchTime := launchTime.Add(exDuration)
-					chainString = fmt.Sprintf(" +exLnr (%s) <t:%d:t>", fmtDuration(exDuration), chainLaunchTime.Unix())
+					if showDubCap && launchTime.Before(dubCapTimeCaution) {
+						chainString = fmt.Sprintf(" +🟢exLnr (%s) <t:%d:t>", fmtDuration(exDuration), chainLaunchTime.Unix())
+					} else {
+						chainString = fmt.Sprintf(" +exLnr (%s) <t:%d:t>", fmtDuration(exDuration), chainLaunchTime.Unix())
+					}
 					if fasterMissions != 1.0 {
 						// Calculate an additional duration
 						minutesStr := fmt.Sprintf("%dm", int(exhenDuration.Minutes()*ftlMult*fasterMissions))
