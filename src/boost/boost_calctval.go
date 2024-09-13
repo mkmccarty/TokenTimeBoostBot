@@ -188,9 +188,9 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 	var totalHeader string
 	var finalTotal string
 
-	var TokensFarmed []TokenUnitLog // When each token was farmed
-	var TokensSent []TokenUnitLog
-	var TokensReceived []TokenUnitLog
+	var TokensFarmed []ei.TokenUnitLog // When each token was farmed
+	var TokensSent []ei.TokenUnitLog
+	var TokensReceived []ei.TokenUnitLog
 
 	var SentValue float64
 	var SentCount int

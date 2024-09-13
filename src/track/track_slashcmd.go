@@ -125,7 +125,7 @@ func GetSlashTokenRemoveCommand(cmd string) *discordgo.ApplicationCommand {
 }
 
 // HandleTokenCommand will handle the /token command
-func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, contractID string, coopID string) {
+func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, contractID string, coopID string, contractStartTime time.Time, pastTokens *[]ei.TokenUnitLog) {
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -194,8 +194,12 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, co
 	} else {
 		userID = i.User.ID
 	}
+	startTime := time.Now()
+	if pastTokens != nil {
+		startTime = contractStartTime
+	}
 
-	str, embed, err := tokenTracking(s, channelID, userID, trackingName, contractID, duration, linked, linkReceived)
+	str, embed, err := tokenTracking(s, channelID, userID, trackingName, contractID, duration, linked, linkReceived, startTime, pastTokens)
 
 	if err != nil {
 		str = err.Error()
