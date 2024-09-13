@@ -8,6 +8,18 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 )
 
+// TokenUnitLog is a full log of all passed tokens
+type TokenUnitLog struct {
+	Time       time.Time // Time token was received
+	Quantity   int       // Number of tokens
+	Value      float64   // Last calculated value of the token
+	FromUserID string    // Who sent the token
+	FromNick   string    // Who sent the token
+	ToUserID   string    // Who received the token
+	ToNick     string    // Who received the token
+	Serial     string    // Serial number of the token
+}
+
 // EggIncContract is a raw contract data for Egg Inc
 type EggIncContract struct {
 	ID                        string `json:"id"`

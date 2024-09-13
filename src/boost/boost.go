@@ -117,18 +117,6 @@ type TokenUnit struct {
 	Serial string    // Serial number of the token
 }
 
-// TokenUnitLog is a full log of all passed tokens
-type TokenUnitLog struct {
-	Time       time.Time // Time token was received
-	Quantity   int       // Number of tokens
-	Value      float64   // Last calculated value of the token
-	FromUserID string    // Who sent the token
-	FromNick   string    // Who sent the token
-	ToUserID   string    // Who received the token
-	ToNick     string    // Who received the token
-	Serial     string    // Serial number of the token
-}
-
 // BotTimer holds the data for each timer
 type BotTimer struct {
 	ID        string // Unique ID for this timer
@@ -256,7 +244,7 @@ type Contract struct {
 	Speedrun            bool     // Speedrun mode
 	SRData              SpeedrunData
 	Banker              BankerInfo // Banker for the contract
-	TokenLog            []TokenUnitLog
+	TokenLog            []ei.TokenUnitLog
 	CalcOperations      int
 	CalcOperationTime   time.Time
 	CoopTokenValueMsgID string

@@ -404,7 +404,7 @@ func getTrack(userID string, name string) (*tokenValue, error) {
 }
 
 // TokenTracking is called as a starting point for token tracking
-func tokenTracking(s *discordgo.Session, channelID string, userID string, name string, contractID string, duration time.Duration, linked bool, linkReceived bool) (string, *discordgo.MessageSend, error) {
+func tokenTracking(s *discordgo.Session, channelID string, userID string, name string, contractID string, duration time.Duration, linked bool, linkReceived bool, startTime time.Time, pastTokens *[]ei.TokenUnitLog) (string, *discordgo.MessageSend, error) {
 	if Tokens[userID] == nil {
 		Tokens[userID] = new(tokenValues)
 	}
@@ -435,6 +435,8 @@ func tokenTracking(s *discordgo.Session, channelID string, userID string, name s
 		return "", nil, err
 	}
 
+	td.StartTime = startTime
+
 	td.ChannelID = channelID // Last channel gets responses
 	td.ChannelMention = fmt.Sprintf("<#%s>", channelID)
 
@@ -453,6 +455,28 @@ func tokenTracking(s *discordgo.Session, channelID string, userID string, name s
 		if c.ID != "" {
 			td.MinutesPerToken = c.MinutesPerToken
 		}
+	}
+
+	if pastTokens != nil {
+		for _, t := range *pastTokens {
+			if t.FromUserID == userID && t.ToUserID == userID {
+				td.FarmedTokenTime = append(td.FarmedTokenTime, t.Time)
+				continue
+			}
+
+			if t.FromUserID == userID {
+				value := getTokenValue(t.Time.Sub(td.StartTime).Seconds(), td.DurationTime.Seconds()) * float64(t.Quantity)
+				td.Sent = append(td.Sent, TokenUnit{Time: t.Time, Value: value, UserID: t.FromNick, Serial: t.Serial, Quantity: t.Quantity})
+				td.SumValueSent += value
+				td.SentCount += t.Quantity
+			} else {
+				value := getTokenValue(t.Time.Sub(td.StartTime).Seconds(), td.DurationTime.Seconds()) * float64(t.Quantity)
+				td.Received = append(td.Received, TokenUnit{Time: t.Time, Value: t.Value, UserID: t.FromNick, Serial: t.Serial, Quantity: t.Quantity})
+				td.SumValueReceived += value
+				td.ReceivedCount += t.Quantity
+			}
+		}
+		td.TokenDelta = td.SumValueSent - td.SumValueReceived
 	}
 
 	return getTokenTrackingString(td, false), getTokenTrackingEmbed(td, false), nil
