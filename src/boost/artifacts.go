@@ -390,7 +390,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 						},
 						{
 							Label:       "Chocolate",
-							Description: "100% Away Earnings",
+							Description: "3x Away Earnings",
 							Value:       "Chocolate",
 							Default:     strings.Contains(coll, "Chocolate"),
 							Emoji: &discordgo.ComponentEmoji{
