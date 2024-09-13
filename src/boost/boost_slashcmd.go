@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
+	"github.com/rs/xid"
 	"github.com/xhit/go-str2duration/v2"
 )
 
@@ -344,8 +346,8 @@ func HandleBumpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 }
 
-// HandleTokenRemoveAutoComplete will handle the /token-remove autocomplete
-func HandleTokenRemoveAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) (string, []*discordgo.ApplicationCommandOptionChoice) {
+// HandleTokenListAutoComplete will handle the /token-remove autocomplete
+func HandleTokenListAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) (string, []*discordgo.ApplicationCommandOptionChoice) {
 	// User interacting with bot, is this first time ?
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
 
@@ -358,6 +360,171 @@ func HandleTokenRemoveAutoComplete(s *discordgo.Session, i *discordgo.Interactio
 	choices = append(choices, &choice)
 
 	return "Select tracker to adjust the token.", choices
+}
+
+// HandleTokenIDAutoComplete will handle the /token-edit token-id autocomplete
+func HandleTokenIDAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) (string, []*discordgo.ApplicationCommandOptionChoice) {
+	// User interacting with bot, is this first time ?
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+
+	options := i.ApplicationCommandData().Options
+	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+	for _, opt := range options {
+		optionMap[opt.Name] = opt
+	}
+	c := FindContract(i.ChannelID)
+
+	var myTokes []ei.TokenUnitLog
+	for _, t := range c.TokenLog {
+		if t.FromUserID == i.Member.User.ID && t.ToUserID != i.Member.User.ID {
+			t.Value = getTokenValue(t.Time.Sub(c.StartTime).Seconds(), c.EstimatedDuration.Seconds()) * float64(t.Quantity)
+			myTokes = append(myTokes, t)
+		}
+	}
+	// Trim myTokes to last 10
+	if len(myTokes) > 15 {
+		myTokes = myTokes[len(myTokes)-15:]
+	}
+
+	for _, t := range myTokes {
+		x, _ := xid.FromString(t.Serial)
+		choice := discordgo.ApplicationCommandOptionChoice{
+			Name:  fmt.Sprintf("%ds ago %s - %d @ %2.3f", int(time.Since(t.Time).Seconds()), t.ToNick, t.Quantity, t.Value),
+			Value: x.Counter(),
+		}
+		choices = append(choices, &choice)
+	}
+
+	return "Select token to modify", choices
+}
+
+// HandleTokenReceiverAutoComplete will handle the /token-edit new-receiver autocomplete
+func HandleTokenReceiverAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) (string, []*discordgo.ApplicationCommandOptionChoice) {
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+
+	options := i.ApplicationCommandData().Options
+	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+	for _, opt := range options {
+		optionMap[opt.Name] = opt
+	}
+	c := FindContract(i.ChannelID)
+	if c == nil {
+		return "Contract not found.", choices
+	}
+	searchString := ""
+
+	/*
+		if opt, ok := optionMap["new-receiver"]; ok {
+			searchString = opt.IntValue()()
+		}
+	*/
+	if searchString == "" {
+		for i, o := range c.Order {
+			b := c.Boosters[o]
+
+			choice := discordgo.ApplicationCommandOptionChoice{
+				Name:  b.Nick,
+				Value: i,
+			}
+			choices = append(choices, &choice)
+			if len(choices) > 15 {
+				break
+			}
+		}
+	} /* else {
+		for i, o := range c.Order {
+			b := c.Boosters[o]
+
+			if strings.Contains(strings.ToLower(b.Nick), strings.ToLower(searchString)) {
+				choice := discordgo.ApplicationCommandOptionChoice{
+					Name:  b.Nick,
+					Value: i,
+				}
+				choices = append(choices, &choice)
+				if len(choices) > 15 {
+					break
+				}
+			}
+		}
+	}
+	*/
+	return "Select new recipient", choices
+}
+
+// HandleTokenEditCommand will handle the /token-edit command
+func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate) string {
+	// User interacting with bot, is this first time ?
+	options := i.ApplicationCommandData().Options
+	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+	for _, opt := range options {
+		optionMap[opt.Name] = opt
+	}
+	userID := getInteractionUserID(i)
+	str := "No contract running here"
+	c := FindContract(i.ChannelID)
+	if c == nil {
+		return "Contract not found."
+	}
+	if !userInContract(c, userID) {
+		return "You are not in this contract."
+	}
+	var action int // 0:Move, 1: Delete, 2 Modify Count
+	//var tokenCoop string
+	var tokenIndex int32
+	var boostIndex int64
+	var tokenCount int64
+	if opt, ok := optionMap["action"]; ok {
+		action = int(opt.IntValue())
+	}
+	/*
+		if opt, ok := optionMap["list"]; ok {
+			tokenCoop = opt.StringValue()
+		}
+	*/
+	if opt, ok := optionMap["id"]; ok {
+		tokenIndex = int32(opt.IntValue())
+	}
+	if opt, ok := optionMap["new-receiver"]; ok {
+		boostIndex = opt.IntValue()
+	}
+	if opt, ok := optionMap["new-count"]; ok {
+		tokenCount = opt.IntValue()
+	}
+
+	if action == 0 { // Move
+		str = "Token not found"
+		for i, t := range c.TokenLog {
+			xid, _ := xid.FromString(t.Serial)
+			if xid.Counter() == tokenIndex {
+				c.TokenLog[i].ToUserID = c.Order[boostIndex]
+				c.TokenLog[i].ToNick = c.Boosters[c.Order[boostIndex]].Nick
+				str = fmt.Sprintf("Token moved to %s", c.TokenLog[i].ToNick)
+				break
+			}
+		}
+	} else if action == 1 { // Delete str = "Token not found"
+		for i, t := range c.TokenLog {
+			xid, _ := xid.FromString(t.Serial)
+			if xid.Counter() == tokenIndex {
+				c.TokenLog = append(c.TokenLog[:i], c.TokenLog[i+1:]...)
+				str = "Token deleted"
+				break
+			}
+		}
+	} else if action == 2 { // Modify Count
+		str = "Token not found"
+		for i, t := range c.TokenLog {
+			xid, _ := xid.FromString(t.Serial)
+			if xid.Counter() == tokenIndex {
+				c.TokenLog[i].Quantity = int(tokenCount)
+				c.TokenLog[i].Value = getTokenValue(c.TokenLog[i].Time.Sub(c.StartTime).Seconds(), c.EstimatedDuration.Seconds()) * float64(c.TokenLog[i].Quantity)
+				str = "Token count modified"
+				break
+			}
+		}
+	}
+	saveData(Contracts)
+	return str
 }
 
 // HandleTokenRemoveCommand will handle the /token-remove command
@@ -404,12 +571,8 @@ func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 		// Need to figure out which list to remove from
 		if tokenType == 0 {
 			b.Sent = append(b.Sent[:tokenIndex], b.Sent[tokenIndex+1:]...)
-			//b.TokenSentTime = append(b.TokenSentTime[:tokenIndex], b.TokenSentTime[tokenIndex+1:]...)
-			//b.TokenSentName = append(b.TokenSentName[:tokenIndex], b.TokenSentName[tokenIndex+1:]...)
 		} else {
 			b.Received = append(b.Received[:tokenIndex], b.Received[tokenIndex+1:]...)
-			//b.TokenReceivedTime = append(b.TokenReceivedTime[:tokenIndex], b.TokenReceivedTime[tokenIndex+1:]...)
-			//b.TokenReceivedName = append(b.TokenReceivedName[:tokenIndex], b.TokenReceivedName[tokenIndex+1:]...)
 		}
 		str = "Token removed from tracking on <#" + i.ChannelID + ">."
 	}
