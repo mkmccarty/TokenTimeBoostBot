@@ -53,7 +53,9 @@ const slashSpeedrun string = "speedrun"
 const slashCoopETA string = "coopeta"
 const slashLaunchHelper string = "launch-helper"
 const slashToken string = "token"
-const slashTokenRemove string = "token-remove"
+
+// const slashTokenRemove string = "token-remove"
+const slashTokenEdit string = "token-edit"
 const slashCalcContractTval string = "calc-contract-tval"
 const slashCoopTval string = "coop-tval"
 const slashVolunteerSink string = "volunteer-sink"
@@ -155,7 +157,8 @@ var (
 	globalCommands = []*discordgo.ApplicationCommand{
 		launch.SlashLaunchHelperCommand(slashLaunchHelper),
 		track.GetSlashTokenCommand(slashToken),
-		track.GetSlashTokenRemoveCommand(slashTokenRemove),
+		//track.GetSlashTokenRemoveCommand(slashTokenRemove),
+		track.GetSlashTokenEditCommand(slashTokenEdit),
 	}
 
 	commands = []*discordgo.ApplicationCommand{
@@ -315,15 +318,41 @@ var (
 		slashStones: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleStonesAutoComplete(s, i)
 		},
-		slashTokenRemove: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		/*
+			slashTokenRemove: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+				data := i.ApplicationCommandData()
+				for _, opt := range data.Options {
+					if opt.Name == "alternate" && opt.Focused {
+						boost.HandleAltsAutoComplete(s, i)
+					}
+					if opt.Name == "token-list" && opt.Focused {
+						if i.GuildID == "" {
+							str, choices := track.HandleTokenListAutoComplete(s, i)
+							_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+								Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+								Data: &discordgo.InteractionResponseData{
+									Content: str,
+									Choices: choices,
+								}})
+						} else {
+							str, choices := boost.HandleTokenListAutoComplete(s, i)
+							_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+								Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+								Data: &discordgo.InteractionResponseData{
+									Content: str,
+									Choices: choices,
+								}})
+						}
+					}
+				}
+			},
+		*/
+		slashTokenEdit: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			data := i.ApplicationCommandData()
 			for _, opt := range data.Options {
-				if opt.Name == "alternate" && opt.Focused {
-					boost.HandleAltsAutoComplete(s, i)
-				}
-				if opt.Name == "token-list" && opt.Focused {
+				if opt.Name == "list" && opt.Focused {
 					if i.GuildID == "" {
-						str, choices := track.HandleTokenRemoveAutoComplete(s, i)
+						str, choices := track.HandleTokenListAutoComplete(s, i)
 						_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 							Type: discordgo.InteractionApplicationCommandAutocompleteResult,
 							Data: &discordgo.InteractionResponseData{
@@ -331,7 +360,7 @@ var (
 								Choices: choices,
 							}})
 					} else {
-						str, choices := boost.HandleTokenRemoveAutoComplete(s, i)
+						str, choices := boost.HandleTokenListAutoComplete(s, i)
 						_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 							Type: discordgo.InteractionApplicationCommandAutocompleteResult,
 							Data: &discordgo.InteractionResponseData{
@@ -340,8 +369,44 @@ var (
 							}})
 					}
 				}
-			}
+				if opt.Name == "id" && opt.Focused {
+					if i.GuildID == "" {
+						str, choices := track.HandleTokenIDAutoComplete(s, i)
+						_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+							Data: &discordgo.InteractionResponseData{
+								Content: str,
+								Choices: choices,
+							}})
+					} else {
+						str, choices := boost.HandleTokenIDAutoComplete(s, i)
+						err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+							Data: &discordgo.InteractionResponseData{
+								Content: str,
+								Choices: choices,
+							}})
+						if err != nil {
+							log.Println(err.Error())
+						}
+					}
+				}
+				if opt.Name == "new-receiver" && opt.Focused {
+					if i.GuildID != "" {
+						str, choices := boost.HandleTokenReceiverAutoComplete(s, i)
+						err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+							Data: &discordgo.InteractionResponseData{
+								Content: str,
+								Choices: choices,
+							}})
+						if err != nil {
+							log.Println(err.Error())
+						}
 
+					}
+				}
+			}
 		},
 	}
 
@@ -372,12 +437,28 @@ var (
 		slashToken: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleTokenCommand(s, i)
 		},
-		slashTokenRemove: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		/*
+			slashTokenRemove: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+				var str string
+				if i.GuildID == "" {
+					str = track.HandleTokenRemoveCommand(s, i)
+				} else {
+					str = boost.HandleTokenRemoveCommand(s, i)
+				}
+				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: str,
+						Flags:   discordgo.MessageFlagsEphemeral,
+					}})
+			},
+		*/
+		slashTokenEdit: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var str string
 			if i.GuildID == "" {
-				str = track.HandleTokenRemoveCommand(s, i)
+				str = track.HandleTokenEditCommand(s, i)
 			} else {
-				str = boost.HandleTokenRemoveCommand(s, i)
+				str = boost.HandleTokenEditCommand(s, i)
 			}
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
