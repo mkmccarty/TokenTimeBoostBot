@@ -460,7 +460,6 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		optionMap[opt.Name] = opt
 	}
 	userID := getInteractionUserID(i)
-	str := "No contract running here"
 	c := FindContract(i.ChannelID)
 	if c == nil {
 		return "Contract not found."
@@ -491,7 +490,7 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		tokenCount = opt.IntValue()
 	}
 
-	str = "Token not found"
+	str := "Token not found"
 	c.mutex.Lock()
 	if action == 0 { // Move
 		for i, t := range c.TokenLog {
