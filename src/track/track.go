@@ -493,12 +493,12 @@ func tokenTrackingTrack(userID string, name string, tokenSent int, tokenReceived
 	tokenValue := getTokenValue(offsetTime, td.DurationTime.Seconds())
 
 	if tokenSent > 0 {
-		td.Sent = append(td.Sent, TokenUnit{Time: now, Value: tokenValue, UserID: td.Username, Serial: xid.New().String()})
+		td.Sent = append(td.Sent, TokenUnit{Time: now, Value: tokenValue, UserID: td.Username, Quantity: tokenSent, Serial: xid.New().String()})
 		td.SentCount += tokenSent
 		td.SumValueSent += tokenValue
 	}
 	if tokenReceived > 0 {
-		td.Received = append(td.Received, TokenUnit{Time: now, Value: tokenValue, UserID: td.Username, Serial: xid.New().String()})
+		td.Received = append(td.Received, TokenUnit{Time: now, Value: tokenValue, UserID: td.Username, Quantity: tokenReceived, Serial: xid.New().String()})
 		td.ReceivedCount += tokenReceived
 		td.SumValueReceived += tokenValue
 	}
@@ -617,24 +617,6 @@ func removeReceivedToken(userID string, name string, index int) {
 			if index <= len(v.Received) {
 				v.SumValueReceived -= v.Received[index].Value
 				v.Received = append(v.Received[:index], v.Received[index+1:]...)
-				v.TokenDelta = v.SumValueSent - v.SumValueReceived
-				saveData(Tokens)
-			}
-		}
-	}
-}
-
-func removeSentToken(userID string, name string, index int) {
-	if Tokens[userID] == nil {
-		return
-	}
-	index--
-	for _, v := range Tokens[userID].Coop {
-		if v != nil && v.Name == name {
-			if index < len(v.Sent) {
-				v.SumValueSent -= v.Sent[index].Value
-				// Rewrite the following 3 lines to use TokenUnit
-				v.Sent = append(v.Sent[:index], v.Sent[index+1:]...)
 				v.TokenDelta = v.SumValueSent - v.SumValueReceived
 				saveData(Tokens)
 			}
