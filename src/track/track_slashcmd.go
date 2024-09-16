@@ -11,6 +11,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/moby/moby/pkg/namesgenerator"
+	"github.com/rs/xid"
 	"github.com/xhit/go-str2duration/v2"
 )
 
@@ -347,134 +348,122 @@ func HandleTrackerEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	_, _ = s.ChannelMessageEditComplex(m)
 }
 
-// HandleTokenEditCommand will handle the /token-remove command
-func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate) string {
+// HandleTokenEditTrackCommand will handle the /token-edit command
+func HandleTokenEditTrackCommand(s *discordgo.Session, i *discordgo.InteractionCreate) string {
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 	for _, opt := range options {
 		optionMap[opt.Name] = opt
 	}
-	if i.GuildID == "" {
-		return "This isn't supported yet for the `/token` tracker."
-	}
+
 	var userID string
+
 	if i.GuildID != "" {
 		userID = i.Member.User.ID
 	} else {
 		userID = i.User.ID
 	}
 
-	var tokenList string
-	var tokenType int
-	var tokenIndex int
+	var action int   // 0:Move, 1: Delete, 2 Modify Count
+	var typeList int // 1: Sent, 2: Received
+	var tokenCoop string
+	var tokenIndex int32
+	var tokenCount int64
 	if opt, ok := optionMap["action"]; ok {
-		tokenList = opt.StringValue()
+		action = int(opt.IntValue())
 	}
+	if opt, ok := optionMap["type"]; ok {
+		typeList = int(opt.IntValue())
+	}
+
 	if opt, ok := optionMap["list"]; ok {
-		tokenList = opt.StringValue()
+		tokenCoop = opt.StringValue()
 	}
+
 	if opt, ok := optionMap["id"]; ok {
-		tokenType = int(opt.IntValue())
+		tokenIndex = int32(opt.IntValue())
 	}
-	if opt, ok := optionMap["new-receiver"]; ok {
-		tokenIndex = int(opt.IntValue())
+	if opt, ok := optionMap["new-quantity"]; ok {
+		tokenCount = opt.IntValue()
 	}
-	if opt, ok := optionMap["sent-token-count"]; ok {
-		tokenIndex = int(opt.IntValue())
-	}
-	var str = "Token tracker not found in tracking list."
 
-	if Tokens[userID] != nil && Tokens[userID].Coop[tokenList] != nil {
-		t := Tokens[userID].Coop[tokenList]
-		// Need to figure out which list to remove from
-		if tokenType == 0 {
-			if len(t.Sent) < tokenIndex {
-				return fmt.Sprintf("Invalid token index. You have sent %d tokens.", len(t.Sent))
-			}
-			removeSentToken(userID, tokenList, tokenIndex)
-		} else {
-			if len(t.Received) < tokenIndex {
-				return fmt.Sprintf("Invalid token index. You have received %d tokens.", len(t.Received))
-			}
-			removeReceivedToken(userID, tokenList, tokenIndex)
-		}
-		str = "Token removed from tracking on <#" + Tokens[userID].Coop[tokenList].UserChannelID + ">."
+	tracker := Tokens[userID].Coop[tokenCoop]
+	if tracker == nil {
+		return "Contract not found."
+	}
 
-		defer saveData(Tokens)
-		embed := tokenTrackingTrack(userID, tokenList, 0, 0) // No sent or received
-		comp := getTokenValComponents(tokenList)
-		m := discordgo.NewMessageEdit(Tokens[userID].Coop[tokenList].UserChannelID, Tokens[userID].Coop[tokenList].TokenMessageID)
-		m.Components = &comp
-		m.SetEmbeds(embed.Embeds)
-		m.SetContent("")
-		_, err := s.ChannelMessageEditComplex(m)
-		if err != nil {
-			str = "Error updating the token message. " + err.Error()
+	str := "Token not found"
+	if action == 1 { // Delete
+		if typeList == 1 { // Sent
+			for i, t := range tracker.Sent {
+				xid, _ := xid.FromString(t.Serial)
+				if xid.Counter() == tokenIndex {
+					tracker.Sent = append(tracker.Sent[:i], tracker.Sent[i+1:]...)
+					str = "Token deleted"
+					break
+				}
+			}
+		} else { // Received
+			for i, t := range tracker.Received {
+				xid, _ := xid.FromString(t.Serial)
+				if xid.Counter() == tokenIndex {
+					tracker.Received = append(tracker.Received[:i], tracker.Received[i+1:]...)
+					str = "Token deleted"
+					break
+				}
+			}
+		}
+	} else if action == 2 { // Modify Count
+		if typeList == 1 { // Sent
+			for i, t := range tracker.Sent {
+				xid, _ := xid.FromString(t.Serial)
+				if xid.Counter() == tokenIndex {
+					tracker.Sent[i].Quantity = int(tokenCount)
+					tracker.Sent[i].Value = getTokenValue(tracker.Sent[i].Time.Sub(tracker.StartTime).Seconds(), float64(tracker.DurationTime.Seconds()*float64(tracker.Sent[i].Quantity)))
+					str = "Token count modified"
+					break
+				}
+			}
+		} else { // Received
+			for i, t := range tracker.Received {
+				xid, _ := xid.FromString(t.Serial)
+				if xid.Counter() == tokenIndex {
+					tracker.Received[i].Quantity = int(tokenCount)
+					tracker.Received[i].Value = getTokenValue(tracker.Received[i].Time.Sub(tracker.StartTime).Seconds(), float64(tracker.DurationTime.Seconds()*float64(tracker.Received[i].Quantity)))
+					str = "Token count modified"
+					break
+				}
+			}
 		}
 	}
+
+	// Recalculate the token values
+	tracker.SumValueSent = 0
+	tracker.SumValueReceived = 0
+	tracker.SentCount = 0
+	tracker.ReceivedCount = 0
+	for i, t := range tracker.Sent {
+		tracker.Sent[i].Value = getTokenValue(tracker.Sent[i].Time.Sub(tracker.StartTime).Seconds(), float64(tracker.DurationTime.Seconds())*float64(tracker.Sent[i].Quantity))
+		tracker.SentCount += t.Quantity
+		tracker.SumValueSent += tracker.Sent[i].Value
+	}
+	for i, t := range tracker.Received {
+		tracker.Received[i].Value = getTokenValue(tracker.Received[i].Time.Sub(tracker.StartTime).Seconds(), float64(tracker.DurationTime.Seconds())*float64(tracker.Received[i].Quantity))
+		tracker.ReceivedCount += t.Quantity
+		tracker.SumValueReceived += tracker.Received[i].Value
+	}
+
 	saveData(Tokens)
-
-	return str
-}
-
-// HandleTokenRemoveCommand will handle the /token-remove command
-func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCreate) string {
-	// User interacting with bot, is this first time ?
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
-	var userID string
-	if i.GuildID != "" {
-		userID = i.Member.User.ID
-	} else {
-		userID = i.User.ID
-	}
-
-	var tokenList string
-	var tokenType int
-	var tokenIndex int
-
-	if opt, ok := optionMap["token-list"]; ok {
-		tokenList = opt.StringValue()
-	}
-	if opt, ok := optionMap["token-type"]; ok {
-		tokenType = int(opt.IntValue())
-	}
-	if opt, ok := optionMap["token-index"]; ok {
-		tokenIndex = int(opt.IntValue())
-	}
-	var str = "Token tracker not found in tracking list."
-
-	if Tokens[userID] != nil && Tokens[userID].Coop[tokenList] != nil {
-		t := Tokens[userID].Coop[tokenList]
-		// Need to figure out which list to remove from
-		if tokenType == 0 {
-			if len(t.Sent) < tokenIndex {
-				return fmt.Sprintf("Invalid token index. You have sent %d tokens.", len(t.Sent))
-			}
-			removeSentToken(userID, tokenList, tokenIndex)
-		} else {
-			if len(t.Received) < tokenIndex {
-				return fmt.Sprintf("Invalid token index. You have received %d tokens.", len(t.Received))
-			}
-			removeReceivedToken(userID, tokenList, tokenIndex)
-		}
-		str = "Token removed from tracking on <#" + Tokens[userID].Coop[tokenList].UserChannelID + ">."
-
-		defer saveData(Tokens)
-		embed := tokenTrackingTrack(userID, tokenList, 0, 0) // No sent or received
-		comp := getTokenValComponents(tokenList)
-		m := discordgo.NewMessageEdit(Tokens[userID].Coop[tokenList].UserChannelID, Tokens[userID].Coop[tokenList].TokenMessageID)
-		m.Components = &comp
-		m.SetEmbeds(embed.Embeds)
-		m.SetContent("")
-		_, err := s.ChannelMessageEditComplex(m)
-		if err != nil {
-			str = "Error updating the token message. " + err.Error()
-		}
+	embed := tokenTrackingTrack(userID, tokenCoop, 0, 0) // No sent or received
+	comp := getTokenValComponents(tokenCoop)
+	m := discordgo.NewMessageEdit(Tokens[userID].Coop[tokenCoop].UserChannelID, Tokens[userID].Coop[tokenCoop].TokenMessageID)
+	m.Components = &comp
+	m.SetEmbeds(embed.Embeds)
+	m.SetContent("")
+	_, err := s.ChannelMessageEditComplex(m)
+	if err != nil {
+		str = "Error updating the token message. " + err.Error()
 	}
 
 	return str
@@ -493,7 +482,7 @@ func HandleTokenListAutoComplete(s *discordgo.Session, i *discordgo.InteractionC
 	}
 
 	if _, ok := Tokens[userID]; !ok {
-		return "", nil
+		return "No trackers found", nil
 	}
 	for _, c := range Tokens[userID].Coop {
 		choice := discordgo.ApplicationCommandOptionChoice{
@@ -506,13 +495,12 @@ func HandleTokenListAutoComplete(s *discordgo.Session, i *discordgo.InteractionC
 
 }
 
-// GetSlashTokenEditCommand returns the slash command for token tracking removal
-func GetSlashTokenEditCommand(cmd string) *discordgo.ApplicationCommand {
+// GetSlashTokenEditTrackCommand returns the slash command for token tracking removal
+func GetSlashTokenEditTrackCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Edit a tracked token",
 		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
 			discordgo.InteractionContextBotDM,
 			discordgo.InteractionContextPrivateChannel,
 		},
@@ -528,15 +516,27 @@ func GetSlashTokenEditCommand(cmd string) *discordgo.ApplicationCommand {
 				Required:    true,
 				Choices: []*discordgo.ApplicationCommandOptionChoice{
 					{
-						Name:  "Move Token",
-						Value: 0,
-					},
-					{
 						Name:  "Delete Token",
 						Value: 1,
 					},
 					{
 						Name:  "Modify Token Count",
+						Value: 2,
+					},
+				},
+			},
+			{
+				Name:        "type",
+				Description: "Which type of token to modify",
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Required:    true,
+				Choices: []*discordgo.ApplicationCommandOptionChoice{
+					{
+						Name:  "Sent",
+						Value: 1,
+					},
+					{
+						Name:  "Received",
 						Value: 2,
 					},
 				},
@@ -556,15 +556,8 @@ func GetSlashTokenEditCommand(cmd string) *discordgo.ApplicationCommand {
 				Autocomplete: true,
 			},
 			{
-				Type:         discordgo.ApplicationCommandOptionInteger,
-				Name:         "new-receiver",
-				Description:  "Who received the token",
-				Autocomplete: true,
-				Required:     false,
-			},
-			{
 				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "new-count",
+				Name:        "new-quantity",
 				Description: "Update token count",
 				Required:    false,
 				MinValue:    &integerOneMinValue,
@@ -579,6 +572,12 @@ func HandleTokenIDAutoComplete(s *discordgo.Session, i *discordgo.InteractionCre
 	// User interacting with bot, is this first time ?
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
 
+	options := i.ApplicationCommandData().Options
+	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+	for _, opt := range options {
+		optionMap[opt.Name] = opt
+	}
+
 	var userID string
 	if i.GuildID != "" {
 		userID = i.Member.User.ID
@@ -586,15 +585,54 @@ func HandleTokenIDAutoComplete(s *discordgo.Session, i *discordgo.InteractionCre
 		userID = i.User.ID
 	}
 
+	var tokenlist string
+
+	if opt, ok := optionMap["list"]; ok {
+		tokenlist = opt.StringValue()
+	} else {
+		return "Select token list first", choices
+	}
+
 	if _, ok := Tokens[userID]; !ok {
 		return "", nil
 	}
-	for _, c := range Tokens[userID].Coop {
-		choice := discordgo.ApplicationCommandOptionChoice{
-			Name:  c.Name,
-			Value: c.Name,
-		}
-		choices = append(choices, &choice)
+
+	// Create a list of choices from the last 7 sent and received tokens (14 total)
+	c := Tokens[userID].Coop[tokenlist]
+	if c == nil {
+		return "Tracker not found", nil
 	}
-	return "Select tracker to adjust the token.", choices
+
+	listType := 1 // Sent
+
+	// Which list ?
+	if opt, ok := optionMap["type"]; ok {
+		listType = int(opt.IntValue())
+	}
+
+	if listType == 1 {
+		// Last 7 sent tokens from c.Sent and last 7 received tokens from c.Received
+		for i := len(c.Sent) - 1; i >= 0 && len(choices) < 10; i-- {
+			t := c.Sent[i]
+			x, _ := xid.FromString(t.Serial)
+			choice := &discordgo.ApplicationCommandOptionChoice{
+				Name:  fmt.Sprintf("%ds ago %s - %d @ %2.3f", int(time.Since(t.Time).Seconds()), t.UserID, t.Quantity, t.Value),
+				Value: x.Counter(),
+			}
+			choices = append(choices, choice)
+		}
+	} else {
+		for i := len(c.Received) - 1; i >= 0 && len(choices) < 10; i-- {
+			t := c.Received[i]
+			x, _ := xid.FromString(t.Serial)
+			choice := &discordgo.ApplicationCommandOptionChoice{
+				Name:  fmt.Sprintf("%ds ago %s - %d @ %2.3f", int(time.Since(t.Time).Seconds()), t.UserID, t.Quantity, t.Value),
+				Value: x.Counter(),
+			}
+			choices = append(choices, choice)
+		}
+	}
+
+	return "Select token to modify", choices
+
 }

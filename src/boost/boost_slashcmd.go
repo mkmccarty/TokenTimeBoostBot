@@ -353,6 +353,10 @@ func HandleTokenListAutoComplete(s *discordgo.Session, i *discordgo.InteractionC
 
 	c := FindContract(i.ChannelID)
 
+	if c == nil {
+		return "Contract not found.", choices
+	}
+
 	choice := discordgo.ApplicationCommandOptionChoice{
 		Name:  c.ContractID + "/" + c.CoopID,
 		Value: c.CoopID,
@@ -373,6 +377,10 @@ func HandleTokenIDAutoComplete(s *discordgo.Session, i *discordgo.InteractionCre
 		optionMap[opt.Name] = opt
 	}
 	c := FindContract(i.ChannelID)
+
+	if c == nil {
+		return "Contract not found.", choices
+	}
 
 	var myTokes []ei.TokenUnitLog
 	for _, t := range c.TokenLog {
@@ -486,7 +494,7 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 	if opt, ok := optionMap["new-receiver"]; ok {
 		boostIndex = opt.IntValue()
 	}
-	if opt, ok := optionMap["new-count"]; ok {
+	if opt, ok := optionMap["new-quantity"]; ok {
 		tokenCount = opt.IntValue()
 	}
 
