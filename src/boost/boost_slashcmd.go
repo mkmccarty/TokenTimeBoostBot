@@ -491,8 +491,9 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		tokenCount = opt.IntValue()
 	}
 
+	str = "Token not found"
+	c.mutex.Lock()
 	if action == 0 { // Move
-		str = "Token not found"
 		for i, t := range c.TokenLog {
 			xid, _ := xid.FromString(t.Serial)
 			if xid.Counter() == tokenIndex {
@@ -512,7 +513,6 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			}
 		}
 	} else if action == 2 { // Modify Count
-		str = "Token not found"
 		for i, t := range c.TokenLog {
 			xid, _ := xid.FromString(t.Serial)
 			if xid.Counter() == tokenIndex {
@@ -523,59 +523,7 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			}
 		}
 	}
-	saveData(Contracts)
-	return str
-}
-
-// HandleTokenRemoveCommand will handle the /token-remove command
-func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCreate) string {
-	// User interacting with bot, is this first time ?
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
-	var userID string
-	if i.GuildID != "" {
-		userID = i.Member.User.ID
-	} else {
-		userID = i.User.ID
-	}
-
-	var tokenType int
-	var tokenIndex int
-
-	if opt, ok := optionMap["token-type"]; ok {
-		tokenType = int(opt.IntValue())
-	}
-	if opt, ok := optionMap["token-index"]; ok {
-		tokenIndex = int(opt.IntValue())
-	}
-	if opt, ok := optionMap["alternate"]; ok {
-		userID = opt.StringValue()
-	}
-
-	str := "No contract running here"
-	c := FindContract(i.ChannelID)
-	if c == nil {
-		return "Contract not found."
-	}
-	if c.Boosters[userID] != nil {
-		b := c.Boosters[userID]
-
-		if tokenIndex > len(b.Sent) {
-			return fmt.Sprintf("There are only %d tokens to remove.", len(b.Sent))
-		}
-		tokenIndex--
-
-		// Need to figure out which list to remove from
-		if tokenType == 0 {
-			b.Sent = append(b.Sent[:tokenIndex], b.Sent[tokenIndex+1:]...)
-		} else {
-			b.Received = append(b.Received[:tokenIndex], b.Received[tokenIndex+1:]...)
-		}
-		str = "Token removed from tracking on <#" + i.ChannelID + ">."
-	}
+	c.mutex.Unlock()
 	saveData(Contracts)
 	return str
 }

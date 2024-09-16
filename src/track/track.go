@@ -494,10 +494,12 @@ func tokenTrackingTrack(userID string, name string, tokenSent int, tokenReceived
 
 	if tokenSent > 0 {
 		td.Sent = append(td.Sent, TokenUnit{Time: now, Value: tokenValue, UserID: td.Username, Serial: xid.New().String()})
+		td.SentCount += tokenSent
 		td.SumValueSent += tokenValue
 	}
 	if tokenReceived > 0 {
 		td.Received = append(td.Received, TokenUnit{Time: now, Value: tokenValue, UserID: td.Username, Serial: xid.New().String()})
+		td.ReceivedCount += tokenReceived
 		td.SumValueReceived += tokenValue
 	}
 	td.TokenDelta = td.SumValueSent - td.SumValueReceived
