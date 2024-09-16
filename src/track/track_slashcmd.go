@@ -477,7 +477,6 @@ func HandleTokenRemoveCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 		}
 	}
 
-	saveData(Tokens)
 	return str
 }
 
