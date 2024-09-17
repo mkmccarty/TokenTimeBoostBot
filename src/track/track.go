@@ -567,6 +567,67 @@ func FarmedToken(s *discordgo.Session, channelID string, userID string) {
 
 }
 
+// ContractTokenUpdate will remove a token from the tracking list
+func ContractTokenUpdate(s *discordgo.Session, channelID string, modifyToken *ei.TokenUnitLog) {
+	redraw := false
+
+	var track *tokenValue
+
+	// FromUserID - Modify Token
+	if Tokens[modifyToken.FromUserID] != nil {
+		for _, v := range Tokens[modifyToken.FromUserID].Coop {
+			if v != nil && v.ChannelID == channelID && v.Linked {
+				for i, t := range v.Sent {
+					if t.Serial == modifyToken.Serial {
+						track = v
+						v.SumValueSent -= t.Value
+						v.SentCount -= t.Quantity
+						Tokens[modifyToken.FromUserID].Coop[v.Name].Sent[i] = TokenUnit{Time: t.Time, Value: t.Value, UserID: modifyToken.ToNick, Serial: modifyToken.Serial, Quantity: modifyToken.Quantity}
+						Tokens[modifyToken.FromUserID].Coop[v.Name].Sent[i].Value = getTokenValue(t.Time.Sub(v.StartTime).Seconds(), v.DurationTime.Seconds()) * float64(modifyToken.Quantity)
+						v.SumValueSent += Tokens[modifyToken.FromUserID].Coop[v.Name].Sent[i].Value
+						v.SentCount += t.Quantity
+						redraw = true
+						break
+					}
+				}
+
+			}
+		}
+	} else if Tokens[modifyToken.ToUserID] != nil {
+		for _, v := range Tokens[modifyToken.ToUserID].Coop {
+			if v != nil && v.ChannelID == channelID && v.Linked {
+				for i, t := range v.Received {
+					if t.Serial == modifyToken.Serial {
+						track = v
+						v.SumValueReceived -= t.Value
+						v.ReceivedCount -= t.Quantity
+						Tokens[modifyToken.FromUserID].Coop[v.Name].Received[i] = TokenUnit{Time: t.Time, Value: t.Value, UserID: modifyToken.FromNick, Serial: modifyToken.Serial, Quantity: modifyToken.Quantity}
+						Tokens[modifyToken.FromUserID].Coop[v.Name].Received[i].Value = getTokenValue(t.Time.Sub(v.StartTime).Seconds(), v.DurationTime.Seconds()) * float64(modifyToken.Quantity)
+						v.SumValueReceived += Tokens[modifyToken.FromUserID].Coop[v.Name].Received[i].Value
+						v.ReceivedCount += t.Quantity
+						redraw = true
+						break
+					}
+				}
+
+			}
+		}
+	}
+
+	if redraw {
+		track.TokenDelta = track.SumValueSent - track.SumValueReceived
+		saveData(Tokens)
+		embed := getTokenTrackingEmbed(track, false)
+		comp := getTokenValComponents(track.Name)
+		m := discordgo.NewMessageEdit(track.UserChannelID, track.TokenMessageID)
+		m.Components = &comp
+		m.SetEmbeds(embed.Embeds)
+		m.SetContent("")
+		_, _ = s.ChannelMessageEditComplex(m)
+	}
+
+}
+
 // ContractTokenMessage will track the token sent from the contract Token reaction
 func ContractTokenMessage(s *discordgo.Session, channelID string, userID string, kind int, count int, actorUserID string, serialID string) {
 	if Tokens[userID] == nil {
