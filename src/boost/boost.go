@@ -155,11 +155,8 @@ type Booster struct {
 	AltController string   // User ID of the controller of this alternate
 
 	BoostState             int           // Indicates if current booster
-	Sent                   []TokenUnit   // Tokens sent
-	Received               []TokenUnit   // Tokens received
 	TokensReceived         int           // indicate number of boost tokens
 	TokensWanted           int           // indicate number of boost tokens
-	TokensFarmedTime       []time.Time   // When each token was farmed
 	StartTime              time.Time     // Time Farmer started boost turn
 	EndTime                time.Time     // Time Farmer ended boost turn
 	Duration               time.Duration // Duration of boost

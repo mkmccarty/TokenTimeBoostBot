@@ -3,7 +3,6 @@ package boost
 import (
 	"fmt"
 	"math"
-	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -11,7 +10,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-	"github.com/olekukonko/tablewriter"
 	"github.com/xhit/go-str2duration/v2"
 )
 
@@ -151,15 +149,7 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 			targetTval = 0.07 * BTA
 		}
 		// Calculate the token value
-		if contract.NewFeature == 1 {
-			embed = calculateTokenValueFromLog(contract, duration, details, targetTval, userID)
-		} else {
-			str = calculateTokenValue(contract.StartTime, duration, details, contract.Boosters[userID], targetTval)
-			if len(str) > 2000 {
-				str = calculateTokenValue(contract.StartTime, duration, false, contract.Boosters[userID], targetTval)
-				str += "> **Message too long, details disabled**\n"
-			}
-		}
+		embed = calculateTokenValueFromLog(contract, duration, details, targetTval, userID)
 
 	}
 	if invalidDuration {
@@ -168,18 +158,11 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 		str += "Format should be entered like `19h35m` or `1d 2h 3m` or `1d2h3m` or `1d 2h"
 	}
 
-	if contract.NewFeature == 1 {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: str,
-				Embeds:  embed.Embeds,
-			})
-	} else {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: str,
-			})
-	}
+	_, _ = s.FollowupMessageCreate(i.Interaction, true,
+		&discordgo.WebhookParams{
+			Content: str,
+			Embeds:  embed.Embeds,
+		})
 }
 
 func calculateTokenValueFromLog(contract *Contract, duration time.Duration, details bool, targetTval float64, userID string) *discordgo.MessageSend {
@@ -425,105 +408,6 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 	}
 
 	return embed
-}
-
-func calculateTokenValue(startTime time.Time, duration time.Duration, details bool, booster *Booster, targetTval float64) string {
-	// Calculate the token value
-	var builder strings.Builder
-
-	sentValue := 0.0
-	receivedValue := 0.0
-
-	fmt.Fprintf(&builder, "## %s token value for contract based on contract reactions\n", booster.Name)
-	fmt.Fprintf(&builder, "### Contract started at: <t:%d:f> with a duration of %s\n", startTime.Unix(), duration.Round(time.Second))
-	offsetTime := time.Since(startTime).Seconds()
-	fmt.Fprintf(&builder, "> **Token value <t:%d:R> %1.3f**\n", time.Now().Unix(), getTokenValue(offsetTime, duration.Seconds()))
-	fmt.Fprintf(&builder, "> Token value <t:%d:R>  %1.3f\n", time.Now().Add(30*time.Minute).Unix(), getTokenValue(offsetTime+(30*60), duration.Seconds()))
-	fmt.Fprintf(&builder, "> Token value <t:%d:R>  %1.3f\n\n", time.Now().Add(60*time.Minute).Unix(), getTokenValue(offsetTime+(60*60), duration.Seconds()))
-
-	if (len(booster.Sent) + len(booster.Received)) > 30 {
-		details = false
-	}
-	// for each Token Sent, calculate the value
-	if len(booster.TokensFarmedTime) != 0 {
-		fmt.Fprintf(&builder, "**Tokens Farmed: %d**\n", len(booster.TokensFarmedTime))
-		if details {
-			for i, token := range booster.TokensFarmedTime {
-				fmt.Fprintf(&builder, "> %d: %s\n", i+1, token.Sub(startTime).Round(time.Second))
-			}
-		}
-	}
-	if len(booster.Sent) != 0 {
-		for i := range booster.Sent {
-			booster.Sent[i].Value = getTokenValue(booster.Sent[i].Time.Sub(startTime).Seconds(), duration.Seconds())
-			sentValue += booster.Sent[i].Value
-		}
-		fmt.Fprintf(&builder, "**Tokens Sent: %d for %4.3f**\n", len(booster.Sent), sentValue)
-		if details {
-			table := tablewriter.NewWriter(&builder)
-			table.SetHeader([]string{"", "Time", "Value", "Recipient"})
-			table.SetBorder(false)
-			//table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-			//table.SetAlignment(tablewriter.ALIGN_LEFT)
-			table.SetCenterSeparator("")
-			table.SetColumnSeparator("")
-			table.SetRowSeparator("")
-			table.SetHeaderLine(false)
-			table.SetTablePadding("\t") // pad with tabs
-			table.SetNoWhiteSpace(true)
-			fmt.Fprint(&builder, "```")
-			for i := range booster.Sent {
-				name := booster.Sent[i].UserID
-				if len(name) > 12 {
-					name = name[:12] + "…"
-				}
-				table.Append([]string{fmt.Sprintf("%d", i+1), booster.Sent[i].Time.Sub(startTime).Round(time.Second).String(), fmt.Sprintf("%6.3f", booster.Sent[i].Value), name})
-
-				//fmt.Fprintf(&builder, "> %d: %s  %6.3f %16s\n", i+1, booster.Sent[i].Time.Sub(startTime).Round(time.Second), booster.Sent[i].Value, booster.Sent[i].UserID)
-			}
-			table.Render()
-			fmt.Fprint(&builder, "```")
-		}
-	}
-	if len(booster.Received) != 0 {
-		for i := range booster.Received {
-			booster.Received[i].Value = getTokenValue(booster.Received[i].Time.Sub(startTime).Seconds(), duration.Seconds())
-			receivedValue += booster.Received[i].Value
-		}
-		fmt.Fprintf(&builder, "**Token Received: %d for %4.3f**\n", len(booster.Received), receivedValue)
-		if details {
-			table := tablewriter.NewWriter(&builder)
-			table.SetHeader([]string{"", "Time", "Value", "Sender"})
-			table.SetBorder(false)
-			//table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-			//table.SetAlignment(tablewriter.ALIGN_LEFT)
-			table.SetCenterSeparator("")
-			table.SetColumnSeparator("")
-			table.SetRowSeparator("")
-			table.SetHeaderLine(false)
-			table.SetTablePadding("\t") // pad with tabs
-			table.SetNoWhiteSpace(true)
-
-			fmt.Fprint(&builder, "```")
-			for i := range booster.Received {
-				name := booster.Received[i].UserID
-				if len(name) > 12 {
-					name = name[:12] + "…"
-				}
-				//fmt.Fprintf(&builder, "> %d: %s  %6.3f %16s\n", i+1, booster.Received[i].Time.Sub(startTime).Round(time.Second), booster.Received[i].Value, booster.Received[i].UserID)
-				table.Append([]string{fmt.Sprintf("%d", i+1), booster.Received[i].Time.Sub(startTime).Round(time.Second).String(), fmt.Sprintf("%6.3f", booster.Received[i].Value), name})
-			}
-			table.Render()
-			fmt.Fprint(&builder, "```")
-		}
-	}
-	fmt.Fprintf(&builder, "\n**Current △ TVal %4.3f**  need %4.3f\n", sentValue-receivedValue, targetTval)
-
-	if slices.Index(booster.Hint, "TokenRemove") == -1 {
-		fmt.Fprintf(&builder, "\nThe `/token-remove` command can be used to adjust sent/received tokens.\n")
-		booster.Hint = append(booster.Hint, "TokenRemove")
-	}
-	return builder.String()
 }
 
 func getTokenValue(seconds float64, durationSeconds float64) float64 {

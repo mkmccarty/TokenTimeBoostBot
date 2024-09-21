@@ -172,21 +172,15 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 		if fromUserID != b.UserID {
 			// Record the Tokens as received
 			tokenSerial := xid.New().String()
-			b.Received = append(b.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[fromUserID].Nick, Serial: tokenSerial})
 			track.ContractTokenMessage(s, ChannelID, b.UserID, track.TokenReceived, 1, contract.Boosters[fromUserID].Nick, tokenSerial)
 
 			// Record who sent the token
-			if contract.Boosters[fromUserID] != nil {
-				// Make sure this isn't an admin user who's sending on behalf of an alt
-				contract.Boosters[fromUserID].Sent = append(contract.Boosters[fromUserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: b.Nick, Serial: tokenSerial})
-			}
 			contract.mutex.Lock()
 			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: 1, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial})
 			contract.mutex.Unlock()
 			track.ContractTokenMessage(s, ChannelID, fromUserID, track.TokenSent, 1, b.Nick, tokenSerial)
 		} else {
 			track.FarmedToken(s, ChannelID, fromUserID)
-			b.TokensFarmedTime = append(b.TokensFarmedTime, time.Now())
 			contract.mutex.Lock()
 			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: 1, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: fromUserID, ToNick: contract.Boosters[fromUserID].Nick, Serial: xid.New().String()})
 			contract.mutex.Unlock()
