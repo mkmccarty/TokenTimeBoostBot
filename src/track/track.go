@@ -564,7 +564,6 @@ func FarmedToken(s *discordgo.Session, channelID string, userID string) {
 			_, _ = s.ChannelMessageEditComplex(m)
 		}
 	}
-
 }
 
 // ContractTokenUpdate will remove a token from the tracking list
@@ -590,7 +589,6 @@ func ContractTokenUpdate(s *discordgo.Session, channelID string, modifyToken *ei
 						break
 					}
 				}
-
 			}
 		}
 	} else if Tokens[modifyToken.ToUserID] != nil {

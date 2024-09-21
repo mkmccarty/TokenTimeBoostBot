@@ -44,10 +44,6 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 			sink.TokensReceived = max(0, sink.TokensReceived) // Avoid missing self farmed tokens
 			// Record the Tokens as received
 			tokenSerial := xid.New().String()
-			for i := 0; i < tokensToSend; i++ {
-				b.Received = append(b.Received, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[cUserID].Nick, Serial: tokenSerial})
-				contract.Boosters[cUserID].Sent = append(contract.Boosters[cUserID].Sent, TokenUnit{Time: time.Now(), Value: 0.0, UserID: contract.Boosters[b.UserID].Nick, Serial: tokenSerial})
-			}
 			track.ContractTokenMessage(s, ChannelID, b.UserID, track.TokenReceived, b.TokensReceived, contract.Boosters[cUserID].Nick, tokenSerial)
 			track.ContractTokenMessage(s, ChannelID, cUserID, track.TokenSent, b.TokensReceived, contract.Boosters[b.UserID].Nick, tokenSerial)
 			contract.mutex.Lock()

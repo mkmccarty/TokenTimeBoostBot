@@ -111,17 +111,7 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		table.SetNoWhiteSpace(true)
 		fmt.Fprint(&builder, "```")
 
-		if contract.NewFeature == 0 {
-			for _, booster := range contract.Boosters {
-				if booster.Name == booster.UserID && booster.AltController == "" {
-					continue
-				}
-				name, tcount, tval := calculateTokenValueCoop(contract.StartTime, duration, booster)
-				table.Append([]string{name, fmt.Sprintf("%d", tcount), fmt.Sprintf("%6.3f", tval)})
-			}
-		} else {
-			calculateTokenValueCoopLog(contract, duration, table)
-		}
+		calculateTokenValueCoopLog(contract, duration, table)
 
 		table.Render()
 		fmt.Fprint(&builder, "```")
@@ -157,30 +147,6 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			_ = s.ChannelMessagePin(i.ChannelID, msg.ID)
 		}
 	}
-}
-
-func calculateTokenValueCoop(startTime time.Time, duration time.Duration, booster *Booster) (string, int64, float64) {
-	sentValue := 0.0
-	receivedValue := 0.0
-
-	if len(booster.Sent) != 0 {
-		for i := range booster.Sent {
-			booster.Sent[i].Value = getTokenValue(booster.Sent[i].Time.Sub(startTime).Seconds(), duration.Seconds())
-			sentValue += booster.Sent[i].Value
-		}
-	}
-	if len(booster.Received) != 0 {
-		for i := range booster.Received {
-			booster.Received[i].Value = getTokenValue(booster.Received[i].Time.Sub(startTime).Seconds(), duration.Seconds())
-			receivedValue += booster.Received[i].Value
-		}
-	}
-	name := booster.Name
-	if len(name) > 12 {
-		name = name[:12]
-	}
-
-	return name, int64(len(booster.Sent) - len(booster.Received)), sentValue - receivedValue
 }
 
 func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, table *tablewriter.Table) {
