@@ -486,7 +486,11 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	for _, e := range LastMissionEvent {
 		ultraStr := ""
 		if e.Ultra {
-			ultraStr = " (ultra)"
+			if config.DiscordAppID == "1124449428267343992" {
+				ultraStr = "<:ultra:1286890801963470848>"
+			} else {
+				ultraStr = "<:ultra:1286890849719812147>"
+			}
 			if !ultra {
 				continue
 			}
