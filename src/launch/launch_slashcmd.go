@@ -154,6 +154,13 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var t = time.Now()
 	var arrivalTimespan = ""
 	var chainExtended bool
+	var ultraIcon string
+
+	if config.DiscordAppID == "1124449428267343992" {
+		ultraIcon = "<:ultra:1286890801963470848>"
+	} else {
+		ultraIcon = "<:ultra:1286890849719812147>"
+	}
 
 	showDubCap := false
 	doubleCapacityStr := ""
@@ -300,10 +307,14 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	capacity := getEventMultiplier("mission-capacity")
 	if capacity != nil {
 		if !capacity.Ultra || (capacity.Ultra && ultra) {
+			capIcon := ""
+			if capacity.Ultra {
+				capIcon = ultraIcon
+			}
 			showDubCap = true
 			dubCapTime = capacity.EndTime
 			dubCapTimeCaution = dubCapTime.Add(-5 * time.Minute)
-			doubleCapacityStr = fmt.Sprintf("%s Ends <t:%d:R>\n", capacity.Message, dubCapTime.Unix())
+			doubleCapacityStr = fmt.Sprintf("%s%s Ends <t:%d:R>\n", capIcon, capacity.Message, dubCapTime.Unix())
 		} else {
 			doubleCapacityStr = fmt.Sprintf("Ultra only : %s Not used in calculations.\n", capacity.Message)
 		}
@@ -313,7 +324,11 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	durationStr := ""
 	if fastDuration != nil {
 		if !fastDuration.Ultra || (fastDuration.Ultra && ultra) {
-			durationStr = fmt.Sprintf("%s  Ends <t:%d:R>\n", fastDuration.Message, fastDuration.EndTime.Unix())
+			durIcon := ""
+			if fastDuration.Ultra {
+				durIcon = ultraIcon
+			}
+			durationStr = fmt.Sprintf("%s%s  Ends <t:%d:R>\n", durIcon, fastDuration.Message, fastDuration.EndTime.Unix())
 			fasterMissions = fastDuration.Multiplier
 		} else {
 			durationStr = fmt.Sprintf("Ultra only : %s Not used in calculations.\n", fastDuration.Message)
