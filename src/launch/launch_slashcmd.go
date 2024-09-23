@@ -501,17 +501,13 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	for _, e := range LastMissionEvent {
 		ultraStr := ""
 		if e.Ultra {
-			if config.DiscordAppID == "1124449428267343992" {
-				ultraStr = "<:ultra:1286890801963470848>"
-			} else {
-				ultraStr = "<:ultra:1286890849719812147>"
-			}
+			ultraStr = ultraIcon
 			if !ultra {
 				continue
 			}
 		}
 		hours := e.EndTime.Sub(e.StartTime).Hours()
-		prevEvents.WriteString(fmt.Sprintf("%s for %.2dh on <t:%d:R>%s\n", e.Message, int(hours), e.StartTime.Unix(), ultraStr))
+		prevEvents.WriteString(fmt.Sprintf("%s%s for %.2dh on <t:%d:R>\n", ultraStr, e.Message, int(hours), e.StartTime.Unix()))
 		//prevEvents.WriteString(fmt.Sprintf("%s on <t:%d:d>\n", e.Message, e.StartTime.Unix()))
 	}
 	field = append(field, &discordgo.MessageEmbedField{
