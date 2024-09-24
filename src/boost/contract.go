@@ -437,6 +437,15 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 	}
 
 	if cmd == "order" {
+		if contract.State != ContractStateSignup {
+			_, _ = s.FollowupMessageCreate(i.Interaction, true,
+				&discordgo.WebhookParams{
+					Content: "The contract order cannot change after the contract has started.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				})
+			return
+		}
+
 		values := data.Values
 		switch values[0] {
 		case "signup":
@@ -452,11 +461,9 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			for _, b := range contract.Boosters {
 				// Refresh the user's artifact set
 				contract.Boosters[b.UserID].ArtifactSet = getUserArtifacts(b.UserID, nil)
-				//log.Print("ELR: ", b.UserID, " ", contract.Boosters[b.UserID].ArtifactSet)
 			}
 		case "tval":
 			contract.BoostOrder = ContractOrderTVal
-
 		}
 	}
 
