@@ -203,9 +203,13 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 				countStr, signupCountStr = getTokenCountString(tokenStr, b.TokensWanted, 0)
 			}
 
-			elrRate := ""
+			// Additions for contract state value display
+			sortRate := ""
 			if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderELR {
-				elrRate = fmt.Sprintf(" **ELR:%2.3f** ", min(b.ArtifactSet.LayRate, b.ArtifactSet.ShipRate))
+				sortRate = fmt.Sprintf(" **ELR:%2.3f** ", min(b.ArtifactSet.LayRate, b.ArtifactSet.ShipRate))
+			}
+			if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.BoostOrder == ContractOrderTVal {
+				sortRate = fmt.Sprintf(" *∆:%2.3f* ", b.TokenValue)
 			}
 
 			sinkIcon := getSinkIcon(contract, b)
@@ -213,7 +217,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 
 				switch b.BoostState {
 				case BoostStateUnboosted:
-					outputStr += fmt.Sprintf("%s %s%s%s%s%s\n", prefix, name, signupCountStr, elrRate, sinkIcon, server)
+					outputStr += fmt.Sprintf("%s %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, sinkIcon, server)
 				case BoostStateTokenTime:
 					outputStr += fmt.Sprintf("%s ➡️ **%s** %s%s%s%s\n", prefix, name, signupCountStr, currentStartTime, sinkIcon, server)
 				case BoostStateBoosted:
@@ -224,7 +228,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 
 				switch b.BoostState {
 				case BoostStateUnboosted:
-					outputStr += fmt.Sprintf("%s %s%s%s%s\n", prefix, name, signupCountStr, elrRate, server)
+					outputStr += fmt.Sprintf("%s %s%s%s%s\n", prefix, name, signupCountStr, sortRate, server)
 				case BoostStateTokenTime:
 					if b.UserID == b.Name && b.AltController == "" && contract.State != ContractStateBanker {
 						// Add a rocket for auto boosting
