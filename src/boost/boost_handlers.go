@@ -28,6 +28,13 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 	tokenName := strings.Split(contract.TokenReactionStr, ":")[0]
 	tokenID := strings.Split(contract.TokenReactionStr, ":")[1]
 
+	elrName := "ELR"
+	elrIcon := "1288152787494109216"
+
+	if config.DiscordAppID == "1187298713903829042" { // Dev Bot
+		elrIcon = "1288152690001580072"
+	}
+
 	return builder.String(), []discordgo.MessageComponent{
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
@@ -148,7 +155,8 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 							Description: "Highest Egg Lay Rate first",
 							Value:       "elr",
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "🧮",
+								Name: elrName,
+								ID:   elrIcon,
 							},
 
 							Default: contract.BoostOrder == ContractOrderELR,
