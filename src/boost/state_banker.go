@@ -54,7 +54,8 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 				tval := getTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
 				contract.Boosters[cUserID].TokenValue += tval * float64(tokensToSend)
 				contract.Boosters[b.UserID].TokenValue -= tval * float64(tokensToSend)
-				reorderBoosters(contract)
+				// Don't reorder on the bag send as we need a tiny amount of stability for the send to get to the correct person
+				//reorderBoosters(contract)
 			}
 		}
 
