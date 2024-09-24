@@ -379,6 +379,7 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 
 	totalHeader = "Current △ TVal"
 	finalTotal = fmt.Sprintf("%4.3f", SentValue-ReceivedValue)
+	contract.Boosters[userID].TokenValue = SentValue - ReceivedValue
 	field = append(field, &discordgo.MessageEmbedField{
 		Name:   totalHeader,
 		Value:  finalTotal,

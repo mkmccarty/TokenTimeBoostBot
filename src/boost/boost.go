@@ -61,6 +61,7 @@ const (
 	ContractOrderFair      = 3 // Fair based on position percentile of each farmers last 5 contracts. Those with no history use 50th percentile
 	ContractOrderTimeBased = 4 // Time based order
 	ContractOrderELR       = 5 // ELR based order
+	ContractOrderTVal      = 6 // Token Value based order
 
 	ContractStateSignup    = 0 // Contract is in signup phase
 	ContractStateFastrun   = 1 // Contract in Boosting as fastrun
@@ -157,6 +158,7 @@ type Booster struct {
 	BoostState             int           // Indicates if current booster
 	TokensReceived         int           // indicate number of boost tokens
 	TokensWanted           int           // indicate number of boost tokens
+	TokenValue             float64       // Current Token Value
 	StartTime              time.Time     // Time Farmer started boost turn
 	EndTime                time.Time     // Time Farmer ended boost turn
 	Duration               time.Duration // Duration of boost
@@ -396,6 +398,8 @@ func getBoostOrderString(contract *Contract) string {
 		return "Time"
 	case ContractOrderELR:
 		return "Egg Lay Rate order"
+	case ContractOrderTVal:
+		return "Token Value order"
 	}
 	return "Unknown"
 }
@@ -1690,6 +1694,44 @@ func reorderBoosters(contract *Contract) {
 		contract.Order = orderedNames
 		// Reset this to Signup after the initial ELR sort
 		contract.BoostOrder = ContractOrderSignup
+	case ContractOrderTVal:
+		if contract.State == ContractStateFastrun || contract.State == ContractStateBanker {
+			type TValPair struct {
+				name string
+				val  float64
+			}
+
+			var orderedNames []string
+			var tvalPairs []TValPair
+			contract.mutex.Lock()
+			for _, el := range contract.Order {
+				if contract.Boosters[el].BoostState == BoostStateBoosted {
+					orderedNames = append(orderedNames, el)
+				} else if contract.Style&ContractFlagFastrun != 0 && contract.Boosters[el].BoostState == BoostStateTokenTime {
+					// Fastrun style keeps current booster in place
+					orderedNames = append(orderedNames, el)
+				} else {
+					tvalPairs = append(tvalPairs, TValPair{
+						name: el,
+						val:  contract.Boosters[el].TokenValue,
+					})
+				}
+			}
+
+			sort.Slice(tvalPairs, func(i, j int) bool {
+				return tvalPairs[i].val > tvalPairs[j].val
+			})
+
+			for _, pair := range tvalPairs {
+				orderedNames = append(orderedNames, pair.name)
+			}
+
+			// Adjust the current booster
+			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateUnboosted
+			contract.Order = orderedNames
+			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
+			contract.mutex.Unlock()
+		}
 
 	}
 	//

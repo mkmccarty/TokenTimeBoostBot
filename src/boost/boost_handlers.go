@@ -25,6 +25,8 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 	}
 
 	contract := Contracts[id]
+	tokenName := strings.Split(contract.TokenReactionStr, ":")[0]
+	tokenID := strings.Split(contract.TokenReactionStr, ":")[1]
 
 	return builder.String(), []discordgo.MessageComponent{
 		discordgo.ActionsRow{
@@ -150,6 +152,16 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 							},
 
 							Default: contract.BoostOrder == ContractOrderELR,
+						},
+						{
+							Label:       "Token Value Order",
+							Description: "Highest token value boosts earlier",
+							Value:       "tval",
+							Emoji: &discordgo.ComponentEmoji{
+								Name: tokenName,
+								ID:   tokenID,
+							},
+							Default: contract.BoostOrder == ContractOrderTVal,
 						},
 					},
 				},

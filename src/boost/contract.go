@@ -454,6 +454,8 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 				contract.Boosters[b.UserID].ArtifactSet = getUserArtifacts(b.UserID, nil)
 				//log.Print("ELR: ", b.UserID, " ", contract.Boosters[b.UserID].ArtifactSet)
 			}
+		case "tval":
+			contract.BoostOrder = ContractOrderTVal
 
 		}
 	}

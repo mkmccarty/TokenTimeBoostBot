@@ -179,6 +179,12 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: 1, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial})
 			contract.mutex.Unlock()
 			track.ContractTokenMessage(s, ChannelID, fromUserID, track.TokenSent, 1, b.Nick, tokenSerial)
+			if contract.BoostOrder == ContractOrderTVal {
+				tval := getTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
+				contract.Boosters[fromUserID].TokenValue += tval
+				contract.Boosters[b.UserID].TokenValue -= tval
+				reorderBoosters(contract)
+			}
 		} else {
 			track.FarmedToken(s, ChannelID, fromUserID)
 			contract.mutex.Lock()
