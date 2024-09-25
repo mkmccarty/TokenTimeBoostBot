@@ -154,11 +154,9 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var t = time.Now()
 	var arrivalTimespan = ""
 	var chainExtended bool
-	var ultraIcon string
 
-	if config.DiscordAppID == "1124449428267343992" {
-		ultraIcon = "<:ultra:1286890801963470848>"
-	} else {
+	ultraIcon := "<:ultra:1286890801963470848>"
+	if config.IsDevBot() {
 		ultraIcon = "<:ultra:1286890849719812147>"
 	}
 
@@ -387,7 +385,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		for shipIndex, ship := range missionShips {
 			var sName = " " + ship.Name
 			var sArt = ship.Art
-			if config.DiscordAppID == "1187298713903829042" {
+			if config.IsDevBot() {
 				sArt = ship.ArtDev
 			}
 			if shipIndex == 0 || len(missionShips) <= 2 {

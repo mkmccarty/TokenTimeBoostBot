@@ -350,7 +350,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	contract.Banker.SinkBoostPosition = SinkBoostFollowOrder
 	contract.StartTime = time.Now()
 	contract.ChickenRunEmoji = "<:icon_chicken_run:1280374089227178015"
-	if config.DiscordAppID == "1187298713903829042" {
+	if config.IsDevBot() {
 		contract.ChickenRunEmoji = "<:icon_chicken_run:1280378140694286427"
 	}
 
@@ -369,8 +369,8 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 
 	// Find our Token emoji
 	contract.TokenStr = "<:token:1279216492927385652>"
-	if config.DiscordAppID == "1187298713903829042" {
-		contract.TokenStr = "<:token:1279216759131476123>" // Dev Bot
+	if config.IsDevBot() {
+		contract.TokenStr = "<:token:1279216759131476123>"
 	}
 
 	// set TokenReactionStr to the TokenStr without first 2 characters and last character

@@ -97,7 +97,7 @@ func FindEggComponentEmoji(eggOrig string) (string, EggEmojiData) {
 	var eggEmojiData EggEmojiData
 
 	eggIcon, ok := EggEmojiMap[strings.ToUpper(eggOrig)]
-	if config.DiscordAppID == "1187298713903829042" { // Dev
+	if config.IsDevBot() {
 		if ok {
 			eggEmojiData = eggIcon
 			eggIconString = fmt.Sprintf("<:%s:%s>", eggEmojiData.Name, eggEmojiData.DevID)
@@ -123,8 +123,7 @@ func FindEggEmoji(eggOrig string) string {
 	var eggIconString string
 
 	var eggEmojiData EggEmojiData
-	if config.DiscordAppID == "1187298713903829042" { // Dev
-
+	if config.IsDevBot() {
 		eggIcon, ok := EggEmojiMap[strings.ToUpper(eggOrig)]
 		if ok {
 			eggEmojiData = eggIcon

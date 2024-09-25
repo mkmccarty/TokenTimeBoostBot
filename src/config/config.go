@@ -17,6 +17,7 @@ var (
 	EIUserID       string
 	AdminUsers     []string
 	TestMode       bool
+	DevBotAppID    string
 	config         *configStruct
 )
 
@@ -30,6 +31,7 @@ type configStruct struct {
 	EIUserID       string   `json:"EIUserId"`
 	AdminUsers     []string `json:"AdminUsers"`
 	TestMode       bool     `json:"TestMode"`
+	DevBotAppID    string   `json:"DevBotAppID"`
 }
 
 // ReadConfig will load the configuration files for API tokens.
@@ -59,10 +61,17 @@ func ReadConfig(cfgFile string) error {
 	EIUserID = config.EIUserID
 	AdminUsers = config.AdminUsers
 	TestMode = config.TestMode
+	DevBotAppID = "1187298713903829042"
 
 	return nil
 }
 
+// IsDevBot returns true if the bot is running in development mode.
+func IsDevBot() bool {
+	return DiscordAppID == DevBotAppID
+}
+
+// GetTestMode returns the current test mode status.
 func GetTestMode() bool {
 	return TestMode
 }
