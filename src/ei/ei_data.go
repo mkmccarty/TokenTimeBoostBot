@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 )
 
@@ -145,6 +146,77 @@ func FindEggEmoji(eggOrig string) string {
 	}
 
 	return eggIconString
+}
+
+// BotEmojiData is a struct to hold the name and ID of an egg emoji
+type BotEmojiData struct {
+	Name  string
+	ID    string
+	DevID string
+}
+
+// BotEmojiMap of all bot emojis for production and development environments
+var BotEmojiMap = map[string]BotEmojiData{
+	"unknown": {"unknown", "1288394311305658452", "1288394382516424725"},
+	"signup":  {"signup", "1288391738758795284", "1288391860431360093"},
+	"reverse": {"reverse", "1288577307451326575", "1288577133995753635"},
+	"random":  {"random", "1288394311305658452", "1288394382516424725"},
+	"fair":    {"fair", "1288579576435445792", "1288579727598026857"},
+	"elr":     {"ELR", "1288152787494109216", "1288152690001580072"},
+	"sharing": {"sharing", "1288581074124804106", "1288580958794158090"},
+	"ultra":   {"ultra", "1286890801963470848", "1286890849719812147"},
+	"token":   {"token", "1279216492927385652", "1279216759131476123"},
+}
+
+// GetBotComponentEmoji will return a ComponentEmoji for the given name
+func GetBotComponentEmoji(name string) *discordgo.ComponentEmoji {
+	compEmoji := new(discordgo.ComponentEmoji)
+	var emojiName string
+	var emojiID string
+
+	emoji, ok := BotEmojiMap[strings.ToLower(name)]
+	if ok {
+		emojiName = emoji.Name
+		emojiID = emoji.ID
+		if config.IsDevBot() {
+			emojiID = emoji.DevID
+		}
+	} else {
+		emojiName = BotEmojiMap["unknown"].Name
+		emojiID = BotEmojiMap["unknown"].ID
+		if config.IsDevBot() {
+			emojiID = BotEmojiMap["unknown"].DevID
+		}
+	}
+	compEmoji.Name = emojiName
+	compEmoji.ID = emojiID
+
+	return compEmoji
+}
+
+// GetBotEmoji will return the token name and id for the given token
+func GetBotEmoji(name string) (string, string, string) {
+	var emojiName string
+	var emojiID string
+	var markdown string
+
+	emoji, ok := BotEmojiMap[strings.ToLower(name)]
+	if ok {
+		emojiName = emoji.Name
+		emojiID = emoji.ID
+		if config.IsDevBot() {
+			emojiID = emoji.DevID
+		}
+	} else {
+		emojiName = BotEmojiMap["unknown"].Name
+		emojiID = BotEmojiMap["unknown"].ID
+		if config.IsDevBot() {
+			emojiID = BotEmojiMap["unknown"].DevID
+		}
+	}
+	markdown = fmt.Sprintf("<:%s:%s>", emojiName, emojiID)
+
+	return markdown, emojiName, emojiID
 }
 
 // Artifact holds the data for each artifact
