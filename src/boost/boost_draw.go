@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
@@ -269,8 +270,10 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		if len(contract.AltIcons) > 0 {
 			outputStr += ", alts use 🇦-🇿"
 		}
+		runReady, _, _ := ei.GetBotEmoji("runready")
+
 		outputStr += ".\n"
-		outputStr += "> 🐓 when you're ready for others to run chickens on your farm.\n"
+		outputStr += "> " + runReady + " when you're ready for others to run chickens on your farm.\n"
 		outputStr += "> 💰 is used by the Sink to send the requested number of tokens to the booster.\n"
 		outputStr += "> -When active Booster is sent tokens by the sink they are marked as boosted.\n"
 		outputStr += "> -Adjust the number of boost tokens you want by adding a 6️⃣ to 🔟 reaction to the boost list message.\n"
