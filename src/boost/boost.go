@@ -1726,8 +1726,12 @@ func reorderBoosters(contract *Contract) {
 				orderedNames = append(orderedNames, pair.name)
 			}
 
-			// Adjust the current booster
-			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateUnboosted
+			// Adjust the current booster, make sure we start with a clean state of Unboosted
+			for i, el := range orderedNames {
+				if contract.Boosters[el].BoostState != BoostStateBoosted {
+					contract.Boosters[orderedNames[i]].BoostState = BoostStateUnboosted
+				}
+			}
 			contract.Order = orderedNames
 			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 			contract.mutex.Unlock()
