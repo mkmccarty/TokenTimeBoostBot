@@ -6,6 +6,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 func getSignupContractSettings(channelID string, id string, thread bool) (string, []discordgo.MessageComponent) {
@@ -25,15 +26,6 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 	}
 
 	contract := Contracts[id]
-	tokenName := strings.Split(contract.TokenReactionStr, ":")[0]
-	tokenID := strings.Split(contract.TokenReactionStr, ":")[1]
-
-	elrName := "ELR"
-	elrIcon := "1288152787494109216"
-
-	if config.IsDevBot() {
-		elrIcon = "1288152690001580072"
-	}
 
 	return builder.String(), []discordgo.MessageComponent{
 		discordgo.ActionsRow{
@@ -117,59 +109,43 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 							Label:       "Sign-up Order",
 							Description: "Boost list is in the order farmers sign up",
 							Value:       "signup",
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "😑",
-							},
-							Default: contract.BoostOrder == ContractOrderSignup,
+							Emoji:       ei.GetBotComponentEmoji("signup"),
+							Default:     contract.BoostOrder == ContractOrderSignup,
 						},
 						{
 							Label:       "Reverse Sign-up Order",
 							Description: "Boost list is in the reverse order farmers sign up",
 							Value:       "reverse",
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "😬",
-							},
-							Default: contract.BoostOrder == ContractOrderReverse,
+							Emoji:       ei.GetBotComponentEmoji("reverse"),
+							Default:     contract.BoostOrder == ContractOrderReverse,
 						},
 						{
 							Label:       "Fair Order",
 							Description: "Boost order is based order history in last 5 contracts",
 							Value:       "fair",
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "😇",
-							},
-							Default: contract.BoostOrder == ContractOrderFair,
+							Emoji:       ei.GetBotComponentEmoji("fair"),
+							Default:     contract.BoostOrder == ContractOrderFair,
 						},
 						{
 							Label:       "Random Order",
 							Description: "Boost order is random",
 							Value:       "random",
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "🤪",
-							},
-
-							Default: contract.BoostOrder == ContractOrderRandom,
+							Emoji:       ei.GetBotComponentEmoji("random"),
+							Default:     contract.BoostOrder == ContractOrderRandom,
 						},
 						{
 							Label:       "ELR Order",
 							Description: "Highest Egg Lay Rate first",
 							Value:       "elr",
-							Emoji: &discordgo.ComponentEmoji{
-								Name: elrName,
-								ID:   elrIcon,
-							},
-
-							Default: contract.BoostOrder == ContractOrderELR,
+							Emoji:       ei.GetBotComponentEmoji("elr"),
+							Default:     contract.BoostOrder == ContractOrderELR,
 						},
 						{
 							Label:       "Token Value Order",
 							Description: "Highest token value boosts earlier",
 							Value:       "tval",
-							Emoji: &discordgo.ComponentEmoji{
-								Name: tokenName,
-								ID:   tokenID,
-							},
-							Default: contract.BoostOrder == ContractOrderTVal,
+							Emoji:       ei.GetBotComponentEmoji("sharing"),
+							Default:     contract.BoostOrder == ContractOrderTVal,
 						},
 					},
 				},
