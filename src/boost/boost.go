@@ -104,10 +104,11 @@ var boostIcon = "🚀"         // For displaying
 
 // CompMap is a cached set of components for this contract
 type CompMap struct {
-	Emoji    string
-	ID       string
-	Style    discordgo.ButtonStyle
-	CustomID string
+	Emoji          string
+	ID             string
+	Style          discordgo.ButtonStyle
+	CustomID       string
+	ComponentEmoji *discordgo.ComponentEmoji
 }
 
 // TokenUnit holds the data for each token

@@ -338,6 +338,7 @@ func remove(s []string, i int) []string {
 
 func buttonReactionHelp(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract) {
 
+	chickMention, _, _ := ei.GetBotEmoji("runready")
 	outputStr := "## Boost Bot Icon Meanings\n\n"
 	outputStr += "See 📌 message to join the contract.\nSet your number of boost tokens there or "
 	outputStr += "add a 4️⃣ to 🔟 reaction to the boost list message.\n"
@@ -346,7 +347,7 @@ func buttonReactionHelp(s *discordgo.Session, i *discordgo.InteractionCreate, co
 	//outputStr += "Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n"
 	outputStr += "Active booster reaction of 🔃 to exchange position with the next booster.\n"
 	outputStr += "Reaction of ⤵️ to move yourself to last in the current boost order.\n"
-	outputStr += "Reaction of 🐓 when you're ready for others to run chickens on your farm.\n"
+	outputStr += "Reaction of " + chickMention + " when you're ready for others to run chickens on your farm.\n"
 	outputStr += "Anyone can add a 🚽 reaction to express your urgency to boost next.\n"
 	outputStr += "Additional help through the **/help** command.\n"
 
@@ -370,7 +371,7 @@ func addContractReactionsButtons(s *discordgo.Session, contract *Contract, chann
 		compVals["🦵"] = CompMap{Emoji: "🦵", Style: discordgo.SecondaryButton, CustomID: "rc_#leg#"}
 		compVals["🔃"] = CompMap{Emoji: "🔃", Style: discordgo.SecondaryButton, CustomID: "rc_#swap#"}
 		compVals["⤵️"] = CompMap{Emoji: "⤵️", Style: discordgo.SecondaryButton, CustomID: "rc_#last#"}
-		compVals["🐓"] = CompMap{Emoji: "🐓", Style: discordgo.SecondaryButton, CustomID: "rc_#cr#"}
+		compVals["🐓"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("runready"), Style: discordgo.SecondaryButton, CustomID: "rc_#cr#"}
 		compVals["✅"] = CompMap{Emoji: "✅", Style: discordgo.SecondaryButton, CustomID: "rc_#check#"}
 		compVals["❓"] = CompMap{Emoji: "❓", Style: discordgo.SecondaryButton, CustomID: "rc_#help#"}
 		for i, el := range contract.AltIcons {
@@ -399,15 +400,25 @@ func addContractReactionsButtons(s *discordgo.Session, contract *Contract, chann
 	for _, row := range iconsRow {
 		var mComp []discordgo.MessageComponent
 		for _, el := range row {
-			mComp = append(mComp, discordgo.Button{
-				//Label: "Send a Token",
-				Emoji: &discordgo.ComponentEmoji{
-					Name: compVals[el].Emoji,
-					ID:   compVals[el].ID,
-				},
-				Style:    compVals[el].Style,
-				CustomID: compVals[el].CustomID + contract.ContractHash,
-			})
+			if compVals[el].Emoji == "" {
+				mComp = append(mComp, discordgo.Button{
+					//Label: "Send a Token",
+					Emoji:    compVals[el].ComponentEmoji,
+					Style:    compVals[el].Style,
+					CustomID: compVals[el].CustomID + contract.ContractHash,
+				})
+
+			} else {
+				mComp = append(mComp, discordgo.Button{
+					//Label: "Send a Token",
+					Emoji: &discordgo.ComponentEmoji{
+						Name: compVals[el].Emoji,
+						ID:   compVals[el].ID,
+					},
+					Style:    compVals[el].Style,
+					CustomID: compVals[el].CustomID + contract.ContractHash,
+				})
+			}
 		}
 
 		actionRow := discordgo.ActionsRow{Components: mComp}
