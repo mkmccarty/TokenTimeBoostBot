@@ -1,12 +1,17 @@
 package ei
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/pkg/errors"
+	"google.golang.org/protobuf/encoding/protojson"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 // TokenUnitLog is a full log of all passed tokens
@@ -49,6 +54,7 @@ var EggIncContractsAll map[string]EggIncContract
 
 func init() {
 	EggIncContractsAll = make(map[string]EggIncContract)
+
 }
 
 // EggEmojiData is a struct to hold the name and ID of an egg emoji
@@ -267,4 +273,163 @@ var ArtifactMap = map[string]*Artifact{
 	"Firework":     {Type: "Collegg", Quality: "5%", ShipBuff: 1.0, LayBuff: 1.0, DeflBuff: 1.0, Stones: 0},
 	"Pumpkin":      {Type: "Collegg", Quality: "5%", ShipBuff: 1.05, LayBuff: 1.0, DeflBuff: 1.0, Stones: 0},
 	"Waterballoon": {Type: "Collegg", Quality: "95%", ShipBuff: 1.0, LayBuff: 1.0, DeflBuff: 1.0, Stones: 0},
+}
+
+var data *Store
+var artifactConfig *ArtifactsConfigurationResponse
+
+type Store struct {
+	Schema           string    `json:"$schema"`
+	ArtifactFamilies []*Family `json:"artifact_families"`
+}
+
+type Family struct {
+	CoreFamily
+
+	Effect       string  `json:"effect"`
+	EffectTarget string  `json:"effect_target"`
+	Tiers        []*Tier `json:"tiers"`
+}
+
+type CoreFamily struct {
+	Id          string              `json:"id"`
+	AfxId       ArtifactSpec_Name   `json:"afx_id"`
+	Name        string              `json:"name"`
+	AfxType     ArtifactSpec_Type   `json:"afx_type"`
+	Type        string              `json:"type"`
+	SortKey     uint32              `json:"sort_key"`
+	ChildAfxIds []ArtifactSpec_Name `json:"child_afx_ids"`
+}
+
+type Tier struct {
+	Family *CoreFamily `json:"family"`
+
+	CoreTier
+
+	Quality               float64               `json:"quality"`
+	Craftable             bool                  `json:"craftable"`
+	BaseCraftingPrices    []float64             `json:"base_crafting_prices"`
+	HasRarities           bool                  `json:"has_rarities"`
+	PossibleAfxRarities   []ArtifactSpec_Rarity `json:"possible_afx_rarities"`
+	HasEffects            bool                  `json:"has_effects"`
+	AvailableFromMissions bool                  `json:"available_from_missions"`
+
+	Effects []*Effect `json:"effects"`
+	Recipe  *Recipe   `json:"recipe"`
+
+	IngredientsAvailableFromMissions bool         `json:"ingredients_available_from_missions"`
+	HardDependencies                 []Ingredient `json:"hard_dependencies"`
+	OddsMultiplier                   float64      `json:"odds_multiplier"`
+}
+
+type CoreTier struct {
+	ItemIdentifiers
+	TierNumber   int               `json:"tier_number"`
+	TierName     string            `json:"tier_name"`
+	AfxType      ArtifactSpec_Type `json:"afx_type"`
+	Type         string            `json:"type"`
+	IconFilename string            `json:"icon_filename"`
+}
+
+type ItemIdentifiers struct {
+	Id       string             `json:"id"`
+	AfxId    ArtifactSpec_Name  `json:"afx_id"`
+	AfxLevel ArtifactSpec_Level `json:"afx_level"`
+	Name     string             `json:"name"`
+}
+
+type Effect struct {
+	AfxRarity    ArtifactSpec_Rarity `json:"afx_rarity"`
+	Rarity       string              `json:"rarity"`
+	Effect       string              `json:"effect"`
+	EffectTarget string              `json:"effect_target"`
+	EffectSize   string              `json:"effect_size"`
+	EffectDelta  float64             `json:"effect_delta"`
+	FamilyEffect string              `json:"family_effect"`
+	// May be null (for stones).
+	Slots          *uint32 `json:"slots"`
+	OddsMultiplier float64 `json:"odds_multiplier"`
+}
+
+type Recipe struct {
+	Ingredients   []Ingredient  `json:"ingredients"`
+	CraftingPrice CraftingPrice `json:"crafting_price"`
+}
+
+type Ingredient struct {
+	CoreTier
+	Count uint32 `json:"count"`
+}
+
+type CraftingPrice struct {
+	Base    float64 `json:"base"`
+	Low     float64 `json:"low"`
+	Domain  uint32  `json:"domain"`
+	Curve   float64 `json:"curve"`
+	Initial uint32  `json:"initial"`
+	Minimum uint32  `json:"minimum"`
+}
+
+func LoadConfig(configFile string) error {
+
+	// Read the dataFile from disk into _eiafxConfigJSON
+	fileContent, err := os.ReadFile(configFile)
+	if err != nil {
+		return errors.Wrap(err, "error reading configFile")
+	}
+	_eiafxConfigJSON := []byte(strings.Replace(string(fileContent), "./data.schema.json", "./ttbb-data/data.schema.json", -1))
+
+	artifactConfig = &ArtifactsConfigurationResponse{}
+	err = protojson.Unmarshal(_eiafxConfigJSON, artifactConfig)
+	if err != nil {
+		return errors.Wrap(err, "error unmarshalling eiafx-config.json")
+	}
+	return nil
+}
+
+func LoadData(dataFile string) error {
+
+	// Read the dataFile from disk into _eiafxConfigJSON
+	fileContent, err := os.ReadFile(dataFile)
+	if err != nil {
+		return errors.Wrap(err, "error reading dataFile")
+	}
+	_eiafxDataJSON := []byte(strings.Replace(string(fileContent), "./data.schema.json", "./ttbb-data/data.schema.json", -1))
+
+	data = &Store{}
+	err = json.Unmarshal(_eiafxDataJSON, data)
+	if err != nil {
+		return errors.Wrap(err, "error unmarshalling eiafx-data.json")
+	}
+
+	return nil
+}
+
+// GetStones returns the number of stones for the given artifact
+func GetStones(afxName ArtifactSpec_Name, afxLevel ArtifactSpec_Level, afxRarity ArtifactSpec_Rarity) (int, error) {
+	//afxID := fmt.Sprintf("%s-%d", spec.Name, spec.GetLevel())
+	//familyAfxID := spec.Name
+	for _, f := range data.ArtifactFamilies {
+		if f.AfxId != afxName {
+			continue
+		}
+		fmt.Print(f.AfxId)
+		tier := f.Tiers[afxLevel]
+		for _, e := range tier.Effects {
+			if e.AfxRarity == afxRarity {
+				return int(*e.Slots), nil
+			}
+		}
+		/*
+			if f.AfxId == familyAfxID {
+				for _, t := range f.Tiers {
+					if t.AfxId == afxID && t.AfxLevel == afxLevel {
+						return t, nil
+					}
+				}
+				break
+			}
+		*/
+	}
+	return 0, errors.Errorf("artifact (%s, %s) not found in data.json", afxName, afxLevel)
 }

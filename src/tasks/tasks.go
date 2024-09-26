@@ -12,6 +12,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/jasonlvhit/gocron"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/launch"
 	"github.com/rs/xid"
 )
@@ -21,6 +22,15 @@ const eggIncContractsFile string = "ttbb-data/ei-contracts.json"
 
 const eggIncEventsURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/events.json"
 const eggIncEventsFile string = "ttbb-data/ei-events.json"
+
+const eggIncDataSchemaURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/lib/artifacts/data.schema.json"
+const eggIncDataSchemaFile string = "ttbb-data/data.schema.json"
+
+const eggIncEiAfxDataURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/wasmegg/_common/eiafx/eiafx-data.json"
+const eggIncEiAfxDataFile string = "ttbb-data/eiafx-data.json"
+
+//const eggIncEiAfxConfigURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/wasmegg/_common/eiafx/eiafx-config.json"
+//const eggIncEiAfxConfigFile string = "ttbb-data/eiafx-config.json"
 
 var lastContractUpdate time.Time
 var lastEventUpdate time.Time
@@ -245,8 +255,18 @@ func downloadEggIncData(url string, filename string) bool {
 		launch.LoadEventData(filename)
 		lastEventUpdate = time.Now()
 		log.Print("EI-Events. New data loaded, length: ", int64(len(body)))
-
+	} else if filename == eggIncEiAfxDataFile {
+		err := ei.LoadData(filename)
+		if err != nil {
+			log.Print(err)
+		} else {
+			log.Print("EI-AFX-Data. New data loaded, length: ", int64(len(body)))
+		}
 	}
+	/*else if filename == eggIncEiAfxConfigFile {
+		ei.LoadConfig(filename)
+		log.Print("EI-AFX-Config. New data loaded, length: ", int64(len(body)))
+	}*/
 	return true
 }
 
@@ -257,6 +277,14 @@ func ExecuteCronJob(s *discordgo.Session) {
 	}
 	if !downloadEggIncData(eggIncEventsURL, eggIncEventsFile) {
 		launch.LoadEventData(eggIncEventsFile)
+	}
+	downloadEggIncData(eggIncDataSchemaURL, eggIncDataSchemaFile)
+
+	if !downloadEggIncData(eggIncEiAfxDataURL, eggIncEiAfxDataFile) {
+		err := ei.LoadData(eggIncEiAfxDataFile)
+		if err != nil {
+			log.Print(err)
+		}
 	}
 	/*
 		Here's the exact cron config for the cloudflare worker that triggers the github action that updates contracts.
