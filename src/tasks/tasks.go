@@ -29,8 +29,8 @@ const eggIncDataSchemaFile string = "ttbb-data/data.schema.json"
 const eggIncEiAfxDataURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/wasmegg/_common/eiafx/eiafx-data.json"
 const eggIncEiAfxDataFile string = "ttbb-data/eiafx-data.json"
 
-const eggIncEiAfxConfigURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/wasmegg/_common/eiafx/eiafx-config.json"
-const eggIncEiAfxConfigFile string = "ttbb-data/eiafx-config.json"
+//const eggIncEiAfxConfigURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/wasmegg/_common/eiafx/eiafx-config.json"
+//const eggIncEiAfxConfigFile string = "ttbb-data/eiafx-config.json"
 
 var lastContractUpdate time.Time
 var lastEventUpdate time.Time
@@ -256,8 +256,12 @@ func downloadEggIncData(url string, filename string) bool {
 		lastEventUpdate = time.Now()
 		log.Print("EI-Events. New data loaded, length: ", int64(len(body)))
 	} else if filename == eggIncEiAfxDataFile {
-		ei.LoadData(filename)
-		log.Print("EI-AFX-Data. New data loaded, length: ", int64(len(body)))
+		err := ei.LoadData(filename)
+		if err != nil {
+			log.Print(err)
+		} else {
+			log.Print("EI-AFX-Data. New data loaded, length: ", int64(len(body)))
+		}
 	}
 	/*else if filename == eggIncEiAfxConfigFile {
 		ei.LoadConfig(filename)
@@ -277,20 +281,11 @@ func ExecuteCronJob(s *discordgo.Session) {
 	downloadEggIncData(eggIncDataSchemaURL, eggIncDataSchemaFile)
 
 	if !downloadEggIncData(eggIncEiAfxDataURL, eggIncEiAfxDataFile) {
-		ei.LoadData(eggIncEiAfxDataFile)
-	}
-	/*
-		if !downloadEggIncData(eggIncEiAfxConfigURL, eggIncEiAfxConfigFile) {
-			ei.LoadConfig(eggIncEiAfxConfigFile)
+		err := ei.LoadData(eggIncEiAfxDataFile)
+		if err != nil {
+			log.Print(err)
 		}
-	*/
-
-	const eggIncEiAfxDataURL string = "https://raw.githubusercontent.com/carpetsage/egg/wasmegg/_common/eiafx/eiafx-data.json"
-	const eggIncEiAfxDataFile string = "ttbb-data/eiafx-data.json"
-
-	const eggIncEiAfxConfigURL string = "https://raw.githubusercontent.com/carpetsage/egg/wasmegg/_common/eiafx/eiafx-config.json"
-	const eggIncEiAfxConfigFile string = "ttbb-data/data.schema.json"
-
+	}
 	/*
 		Here's the exact cron config for the cloudflare worker that triggers the github action that updates contracts.
 		Normal contract time is either 16 or 17 utc depending on US daylight savings.
