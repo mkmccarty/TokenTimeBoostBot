@@ -411,8 +411,11 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			spec := a.GetSpec()
 			strType := levels[spec.GetLevel()] + rarity[spec.GetRarity()]
 
-			//var name string
-			numStones := len(a.GetStones())
+			numStones, _ := ei.GetStones(spec.GetName(), spec.GetLevel(), spec.GetRarity())
+			if numStones != len(a.GetStones()) {
+				as.note = append(as.note, fmt.Sprintf("%s %d/%d slots used", ei.ArtifactSpec_Name_name[int32(spec.GetName())], len(a.GetStones()), numStones))
+			}
+
 			switch spec.GetName() {
 			case ei.ArtifactSpec_TACHYON_DEFLECTOR:
 				as.deflector.percent = deflector[strType]
