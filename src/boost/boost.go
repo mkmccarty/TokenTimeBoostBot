@@ -1205,48 +1205,6 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 	}
 }
 
-/*
-func addContractReactions(s *discordgo.Session, contract *Contract, channelID string, messageID string, tokenStr string) {
-	switch contract.State {
-	case ContractStateBanker:
-		_ = s.MessageReactionAdd(channelID, messageID, contract.TokenStr) // Send token to Sink
-		for _, el := range contract.AltIcons {
-			_ = s.MessageReactionAdd(channelID, messageID, el)
-		}
-		_ = s.MessageReactionAdd(channelID, messageID, "🐓") // Want Chicken Run
-		_ = s.MessageReactionAdd(channelID, messageID, "💰") // Sink sent requested number of tokens to booster
-	case ContractStateCRT:
-		_ = s.MessageReactionAdd(channelID, messageID, contract.TokenReactionStr) // Token Reaction
-		for _, el := range contract.AltIcons {
-			_ = s.MessageReactionAdd(channelID, messageID, el)
-		}
-		_ = s.MessageReactionAdd(channelID, messageID, "✅") // Run Reaction
-		_ = s.MessageReactionAdd(channelID, messageID, "🚚") // Truck Reaction
-		_ = s.MessageReactionAdd(channelID, messageID, "🦵") // Kick Reaction	}
-	case ContractStateFastrun:
-		_ = s.MessageReactionAdd(channelID, messageID, boostIconReaction) // Booster
-		_ = s.MessageReactionAdd(channelID, messageID, tokenStr)          // Token Reaction
-		for _, el := range contract.AltIcons {
-			_ = s.MessageReactionAdd(channelID, messageID, el)
-		}
-		_ = s.MessageReactionAdd(channelID, messageID, "🔃")  // Swap
-		_ = s.MessageReactionAdd(channelID, messageID, "⤵️") // Last
-		_ = s.MessageReactionAdd(channelID, messageID, "🐓")  // Want Chicken Run
-	case ContractStateWaiting, ContractStateCompleted:
-		sinkID := contract.Banker.CurrentBanker
-		if sinkID != "" {
-			_ = s.MessageReactionAdd(channelID, messageID, tokenStr) // Token Reaction
-			for _, el := range contract.AltIcons {
-				_ = s.MessageReactionAdd(channelID, messageID, el)
-			}
-		}
-		_ = s.MessageReactionAdd(channelID, messageID, "🐓") // Want Chicken Run
-	}
-
-	_ = s.MessageReactionAdd(channelID, messageID, "❓") // Finish
-}
-*/
-
 func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bool) {
 	// Start boosting contract
 	drawn := false
