@@ -531,13 +531,6 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 		}
 	}
 
-	if contract.State == ContractStateBanker || contract.State == ContractStateCompleted {
-		if r.Emoji.Name == "🐓" && userInContract(contract, r.UserID) {
-			// Indicate that a farmer is ready for chicken runs
-			redraw, _ = buttonReactionRunChickens(s, contract, r.UserID)
-		}
-	}
-
 	if r.Emoji.Name == "🌊" {
 		UpdateThreadName(s, contract)
 	}
