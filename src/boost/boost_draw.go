@@ -52,6 +52,10 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		}
 	}
 
+	if contract.State != ContractStateSignup {
+		outputStr += fmt.Sprintf("> TPM Rate: %2.2f\n", float64(len(contract.TokenLog))/time.Since(contract.StartTime).Minutes())
+	}
+
 	switch contract.State {
 	case ContractStateSignup:
 		outputStr += contract.SRData.StatusStr
