@@ -1654,47 +1654,79 @@ func reorderBoosters(contract *Contract) {
 		// Reset this to Signup after the initial ELR sort
 		contract.BoostOrder = ContractOrderSignup
 	case ContractOrderTVal:
-		if contract.State == ContractStateFastrun || contract.State == ContractStateBanker {
-			type TValPair struct {
-				name string
-				val  float64
-			}
-
-			var orderedNames []string
-			var tvalPairs []TValPair
-			contract.mutex.Lock()
-			for _, el := range contract.Order {
-				if contract.Boosters[el].BoostState == BoostStateBoosted {
-					orderedNames = append(orderedNames, el)
-				} else if contract.Style&ContractFlagFastrun != 0 && contract.Boosters[el].BoostState == BoostStateTokenTime {
-					// Fastrun style keeps current booster in place
-					orderedNames = append(orderedNames, el)
-				} else {
-					tvalPairs = append(tvalPairs, TValPair{
-						name: el,
-						val:  contract.Boosters[el].TokenValue,
-					})
-				}
-			}
-
-			sort.Slice(tvalPairs, func(i, j int) bool {
-				return tvalPairs[i].val > tvalPairs[j].val
-			})
-
-			for _, pair := range tvalPairs {
-				orderedNames = append(orderedNames, pair.name)
-			}
-
-			// Adjust the current booster, make sure we start with a clean state of Unboosted
-			for i, el := range orderedNames {
-				if contract.Boosters[el].BoostState != BoostStateBoosted {
-					contract.Boosters[orderedNames[i]].BoostState = BoostStateUnboosted
-				}
-			}
-			contract.Order = orderedNames
-			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
-			contract.mutex.Unlock()
+		type TValPair struct {
+			name string
+			val  float64
 		}
+		var orderedNames []string
+		var lastOrderNames []string
+		var tvalPairs []TValPair
+		lastBoostTime := time.Now()
+		contract.mutex.Lock()
+		for i, el := range contract.Order {
+			if contract.Banker.SinkBoostPosition == SinkBoostFirst {
+				// Sink boosting last or in order will end up with negative tval
+				// and drop lowest in the list anyway
+				if el == contract.Banker.BoostingSinkUserID {
+					// Put the banker at the front of orderedNames
+					orderedNames = append([]string{el}, orderedNames...)
+					if contract.Boosters[el].BoostState == BoostStateBoosted {
+						lastBoostTime = contract.Boosters[el].EndTime
+					}
+					continue
+				}
+			} else if contract.Banker.SinkBoostPosition == SinkBoostLast {
+				if el == contract.Banker.BoostingSinkUserID {
+					// Hold the banker until the end
+					lastOrderNames = append(lastOrderNames, el)
+					if i == contract.BoostPosition && contract.Boosters[el].BoostState == BoostStateTokenTime {
+						// If this is the current booster, reset it to unboosed
+						contract.Boosters[el].BoostState = BoostStateUnboosted
+					}
+					continue
+				}
+			}
+
+			if contract.Boosters[el].BoostState == BoostStateBoosted {
+				orderedNames = append(orderedNames, el)
+				lastBoostTime = contract.Boosters[el].EndTime
+			} else if contract.Style&ContractFlagFastrun != 0 && contract.Boosters[el].BoostState == BoostStateTokenTime {
+				// Fastrun style keeps current booster in place
+				orderedNames = append(orderedNames, el)
+			} else {
+				tvalPairs = append(tvalPairs, TValPair{
+					name: el,
+					val:  contract.Boosters[el].TokenValue,
+				})
+			}
+		}
+
+		sort.Slice(tvalPairs, func(i, j int) bool {
+			return tvalPairs[i].val > tvalPairs[j].val
+		})
+
+		log.Print(orderedNames)
+		log.Print(tvalPairs)
+
+		newBoostPosition := len(orderedNames)
+		if contract.Boosters[contract.Order[contract.BoostPosition]].BoostState == BoostStateTokenTime {
+			newBoostPosition = contract.BoostPosition
+		}
+
+		// These boosters are all dymanic, any of them could be the next booster
+		for _, pair := range tvalPairs {
+			contract.Boosters[pair.name].BoostState = BoostStateUnboosted
+			contract.Boosters[pair.name].StartTime = lastBoostTime
+			orderedNames = append(orderedNames, pair.name)
+		}
+		if contract.Banker.SinkBoostPosition == SinkBoostLast {
+			orderedNames = append(orderedNames, lastOrderNames...)
+		}
+
+		contract.Order = orderedNames
+		contract.BoostPosition = newBoostPosition
+		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
+		contract.mutex.Unlock()
 
 	}
 	//
