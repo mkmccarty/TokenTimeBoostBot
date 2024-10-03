@@ -382,7 +382,7 @@ func addContractReactionsButtons(s *discordgo.Session, contract *Contract, chann
 
 	compVals := contract.buttonComponents
 
-	iconsRow := make([][]string, 2)
+	iconsRow := make([][]string, 5)
 	iconsRow[0], iconsRow[1] = addContractReactionsGather(contract, contract.TokenStr)
 	if len(iconsRow[1]) > 5 {
 		iconsRow[2] = iconsRow[1][5:] // Grab overflow icons to new row
