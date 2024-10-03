@@ -1706,9 +1706,6 @@ func reorderBoosters(contract *Contract) {
 			return tvalPairs[i].val > tvalPairs[j].val
 		})
 
-		log.Print(orderedNames)
-		log.Print(tvalPairs)
-
 		newBoostPosition := len(orderedNames)
 		if contract.Boosters[contract.Order[contract.BoostPosition]].BoostState == BoostStateTokenTime {
 			newBoostPosition = contract.BoostPosition

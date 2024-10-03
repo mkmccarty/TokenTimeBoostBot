@@ -417,6 +417,16 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		}
 	}
 
+	if cmd == "dyna" {
+		values := data.Values
+		switch values[0] {
+		case "dynamic":
+			contract.Style |= ContractFlagDynamicTokens
+		case "user":
+			contract.Style &= ^ContractFlagDynamicTokens
+		}
+	}
+
 	if cmd == "crt" {
 		contract.Style &= ^(ContractFlagCrt + ContractFlagSelfRuns)
 		values := data.Values
