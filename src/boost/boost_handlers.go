@@ -151,6 +151,36 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 				},
 			},
 		},
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.SelectMenu{
+					CustomID:    "cs_#dyna#" + id,
+					Placeholder: "Dynamic Boost Tokens",
+					MinValues:   &minValues,
+					MaxValues:   1,
+					Options: []discordgo.SelectMenuOption{
+						{
+							Label:       "User Set Boost Tokens",
+							Description: "From user settings",
+							Value:       "user",
+							Default:     (contract.Style & ContractFlagDynamicTokens) == 0,
+							Emoji: &discordgo.ComponentEmoji{
+								Name: "👤",
+							},
+						},
+						{
+							Label:       "Dynamic Boost Tokens",
+							Description: "Based on highest 120min delivery rate",
+							Value:       "dynamic",
+							Default:     (contract.Style & ContractFlagDynamicTokens) != 0,
+							Emoji: &discordgo.ComponentEmoji{
+								Name: "🤖",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 }

@@ -168,26 +168,29 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 		// When not using a banker, adjust the boost countdown variable
 	}
 	if b != nil {
-		b.TokensReceived++
 		if fromUserID != b.UserID {
 			// Record the Tokens as received
 			tokenSerial := xid.New().String()
 			track.ContractTokenMessage(s, ChannelID, b.UserID, track.TokenReceived, 1, contract.Boosters[fromUserID].Nick, tokenSerial)
 
 			// Record who sent the token
+			track.ContractTokenMessage(s, ChannelID, fromUserID, track.TokenSent, 1, b.Nick, tokenSerial)
 			contract.mutex.Lock()
+			b.TokensReceived++
 			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: 1, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial})
 			contract.mutex.Unlock()
-			track.ContractTokenMessage(s, ChannelID, fromUserID, track.TokenSent, 1, b.Nick, tokenSerial)
 			if contract.BoostOrder == ContractOrderTVal {
 				tval := getTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
+				contract.mutex.Lock()
 				contract.Boosters[fromUserID].TokenValue += tval
 				contract.Boosters[b.UserID].TokenValue -= tval
+				contract.mutex.Unlock()
 				reorderBoosters(contract)
 			}
 		} else {
 			track.FarmedToken(s, ChannelID, fromUserID)
 			contract.mutex.Lock()
+			b.TokensReceived++
 			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: 1, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: fromUserID, ToNick: contract.Boosters[fromUserID].Nick, Serial: xid.New().String()})
 			contract.mutex.Unlock()
 		}
