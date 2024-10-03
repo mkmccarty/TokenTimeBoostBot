@@ -292,8 +292,8 @@ type Family struct {
 }
 
 type CoreFamily struct {
-	Id          string              `json:"id"`
-	AfxId       ArtifactSpec_Name   `json:"afx_id"`
+	ID          string              `json:"id"`
+	AfxID       ArtifactSpec_Name   `json:"afx_id"`
 	Name        string              `json:"name"`
 	AfxType     ArtifactSpec_Type   `json:"afx_type"`
 	Type        string              `json:"type"`
@@ -332,8 +332,8 @@ type CoreTier struct {
 }
 
 type ItemIdentifiers struct {
-	Id       string             `json:"id"`
-	AfxId    ArtifactSpec_Name  `json:"afx_id"`
+	ID       string             `json:"id"`
+	AfxID    ArtifactSpec_Name  `json:"afx_id"`
 	AfxLevel ArtifactSpec_Level `json:"afx_level"`
 	Name     string             `json:"name"`
 }
@@ -410,10 +410,10 @@ func GetStones(afxName ArtifactSpec_Name, afxLevel ArtifactSpec_Level, afxRarity
 	//afxID := fmt.Sprintf("%s-%d", spec.Name, spec.GetLevel())
 	//familyAfxID := spec.Name
 	for _, f := range data.ArtifactFamilies {
-		if f.AfxId != afxName {
+		if f.AfxID != afxName {
 			continue
 		}
-		fmt.Print(f.AfxId)
+		fmt.Print(f.AfxID)
 		tier := f.Tiers[afxLevel]
 		for _, e := range tier.Effects {
 			if e.AfxRarity == afxRarity {
