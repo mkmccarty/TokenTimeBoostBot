@@ -11,6 +11,7 @@ import (
 
 func getSignupContractSettings(channelID string, id string, thread bool) (string, []discordgo.MessageComponent) {
 	minValues := 1
+	minZeroValues := 0
 
 	// is this channelID a thread
 
@@ -154,20 +155,11 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.SelectMenu{
-					CustomID:    "cs_#dyna#" + id,
-					Placeholder: "Dynamic Boost Tokens",
-					MinValues:   &minValues,
+					CustomID:    "cs_#features#" + id,
+					Placeholder: "Optional Features",
+					MinValues:   &minZeroValues,
 					MaxValues:   1,
 					Options: []discordgo.SelectMenuOption{
-						{
-							Label:       "User Set Boost Tokens",
-							Description: "From user settings",
-							Value:       "user",
-							Default:     (contract.Style & ContractFlagDynamicTokens) == 0,
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "👤",
-							},
-						},
 						{
 							Label:       "Dynamic Boost Tokens",
 							Description: "Based on highest 120min delivery rate",
