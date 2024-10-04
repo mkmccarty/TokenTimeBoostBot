@@ -1815,6 +1815,7 @@ func LoadContractData(filename string) {
 				for _, g := range s.GetGoals() {
 					c.TargetAmount = append(c.TargetAmount, g.GetTargetAmount())
 					c.TargetAmountq = append(c.TargetAmountq, g.GetTargetAmount()/1e15)
+					c.LengthInSeconds = int(s.GetLengthSeconds())
 				}
 			}
 		}
