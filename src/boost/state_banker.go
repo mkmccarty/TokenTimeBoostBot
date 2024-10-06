@@ -57,6 +57,10 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 				// Don't reorder on the bag send as we need a tiny amount of stability for the send to get to the correct person
 				//reorderBoosters(contract)
 			}
+			if contract.Style&ContractFlagDynamicTokens != 0 {
+				// Determine the dynamic tokens
+				determineDynamicTokens(contract)
+			}
 		}
 
 		str := fmt.Sprintf("**%s** ", contract.Boosters[b.UserID].Mention)
