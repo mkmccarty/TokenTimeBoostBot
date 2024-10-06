@@ -295,8 +295,12 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	fuel := getEventMultiplier("mission-fuel")
 	fuelStr := ""
 	if fuel != nil {
+		uIcon := ""
+		if fuel.Ultra {
+			uIcon = ultraIcon
+		}
 		if !fuel.Ultra || (fuel.Ultra && ultra) {
-			fuelStr = fmt.Sprintf("%s Ends <t:%d:R>\n", fuel.Message, fuel.EndTime.Unix())
+			fuelStr = fmt.Sprintf("%s%s Ends <t:%d:R>\n", uIcon, fuel.Message, fuel.EndTime.Unix())
 		} else {
 			fuelStr = fmt.Sprintf("Ultra only : %s\n", fuel.Message)
 		}
