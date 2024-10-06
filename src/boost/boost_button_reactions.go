@@ -187,6 +187,10 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 				contract.mutex.Unlock()
 				reorderBoosters(contract)
 			}
+			if contract.Style&ContractFlagDynamicTokens != 0 {
+				// Determine the dynamic tokens
+				determineDynamicTokens(contract)
+			}
 		} else {
 			track.FarmedToken(s, ChannelID, fromUserID)
 			contract.mutex.Lock()
