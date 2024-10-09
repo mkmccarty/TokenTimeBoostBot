@@ -376,7 +376,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 					CustomID:    "as_#COLLEGG#" + userID + "#" + temp,
 					Placeholder: "Select your Colleggtibles",
 					MinValues:   &minV,
-					MaxValues:   4,
+					MaxValues:   6,
 					Options: []discordgo.SelectMenuOption{
 						{
 							Label:       "Carbon Fiber",
