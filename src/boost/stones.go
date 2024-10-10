@@ -492,7 +492,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	table := tablewriter.NewWriter(&builder)
 	if soloName != "" {
-		table.SetHeader([]string{"Name", "Dfl", "Met", "Com", "Gus", "T", "Q", "ELR", "SR", "DLVRY", "egg", "Notes"})
+		table.SetHeader([]string{"Name", "Dfl", "Met", "Com", "Gus", "T", "Q", "ELR", "SR", "DLVRY", "egg%", "Notes"})
 	} else {
 		if details {
 			if !skipArtifact {
@@ -550,18 +550,11 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		stoneShipRateNow := shippingRate * math.Pow(1.05, float64((as.quantStones)))
 		//fmt.Printf("Calc SR: %2.3f  param.Sr: %2.3f   Diff:%2.2f\n", stoneShipRateNow, as.sr/1e15, (as.sr/1e15)/stoneShipRateNow)
-		collegShip := math.Round((as.sr/1e15)/stoneShipRateNow*100.0) / 100.0
+		collegShip := math.Round((as.sr/1e15)/stoneShipRateNow*100000.0) / 100000.0
 		if collegShip > 1.000 {
-			//fmt.Printf("Colleggtible Shipping Rate Factored in with %2.2f%%\n", collegShip)
-			as.collegg = append(as.collegg, fmt.Sprintf("SR:%2.0f%%", (collegShip-1.0)*100.0))
-			//farmerstate.SetMiscSettingString(as.name, "coll-SR", fmt.Sprintf("%2.0f%%", (collegShip-1.0)*100.0))
-		} /* else {
-			hasColl := farmerstate.GetMiscSettingString(as.name, "coll-SR")
-			if hasColl != "" {
-				as.collegg = append(as.collegg, fmt.Sprintf("(SR:%s)", hasColl))
-				collegShip = collegShip * 1.05
-			}
-		}*/
+			val := fmt.Sprintf("%2.2f🚚", (collegShip-1.0)*100.0)
+			as.collegg = append(as.collegg, strings.Replace(strings.Replace(val, ".00", "", -1), ".25", "¼", -1))
+		}
 		bestTotal := 0.0
 		//bestString := ""
 
@@ -569,15 +562,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			stoneLayRate := layingRate * (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
 			stoneLayRate = stoneLayRate * math.Pow(1.05, float64(i)) * collegELR
 
-			//stoneShipRate := shippingRate * math.Pow(1.05, float64((as.stones-i)))
 			stoneShipRate := shippingRate * math.Pow(1.05, float64((as.stones-i))) * collegShip
-
-			as.soloData = append(as.soloData, []string{as.name,
-				as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
-				fmt.Sprintf("%d%s", i, ""), fmt.Sprintf("%d%s", as.stones-i, ""),
-				fmt.Sprintf("%2.3f", stoneLayRate), fmt.Sprintf("%2.3f", stoneShipRate),
-				fmt.Sprintf("%2.3f", min(stoneLayRate, stoneShipRate)),
-				strings.Join(as.collegg, ","), strings.Join(as.note, ",")})
 
 			bestMin := min(stoneLayRate, stoneShipRate)
 			if bestMin > bestTotal {
@@ -590,18 +575,36 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			}
 			//fmt.Printf("Stone %d/%d: %2.3f %2.3f  min:%2.3f\n", i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
 		}
+		for i := 0; i <= as.stones; i++ {
+			stoneLayRate := layingRate * (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
+			stoneLayRate = stoneLayRate * math.Pow(1.05, float64(i)) * collegELR
+
+			stoneShipRate := shippingRate * math.Pow(1.05, float64((as.stones-i))) * collegShip
+
+			best := ""
+			if as.tachWant == i {
+				best = "⭐️"
+			}
+			as.soloData = append(as.soloData, []string{as.name,
+				as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
+				fmt.Sprintf("%d%s", i, ""), fmt.Sprintf("%d%s", as.stones-i, ""),
+				fmt.Sprintf("%2.3f", stoneLayRate), fmt.Sprintf("%2.3f", stoneShipRate),
+				fmt.Sprintf("%s%2.3f", best, min(stoneLayRate, stoneShipRate)),
+				strings.Join(as.collegg, ","), strings.Join(as.note, ",")})
+
+		}
 		var notes string
 
 		matchQ := ""
 		if as.quantWant == as.quantStones {
-			matchQ = "*"
+			matchQ = "⭐️"
 		} else if as.quantWant > as.quantStones {
 			notes += fmt.Sprintf("+%d quant", as.quantWant-as.quantStones)
 			setContractEstimage = false
 		}
 		matchT := ""
 		if as.tachWant == as.tachStones {
-			matchT = "*"
+			matchT = "⭐️"
 		} else if as.tachWant > as.tachStones {
 			notes += fmt.Sprintf("+%d tach", as.tachWant-as.tachStones)
 			setContractEstimage = false
