@@ -338,6 +338,8 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		//table.SetNoWhiteSpace(true)
 
 		BestSIAB := 0
+		LastSIAB := 0
+		LastSIABCalc := 0.0
 		var buffTimeValue float64
 		for _, b := range BuffTimeValues {
 			if b.durationEquiped < 0 {
@@ -356,6 +358,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 			if b.earnings > int(BestSIAB) {
 				BestSIAB = b.earnings
 			}
+			LastSIABCalc = dur.Seconds() * 0.75 * float64(LastSIAB) / 100.0
 
 			table.Append([]string{fmt.Sprintf("%v", when.Round(time.Second)), fmt.Sprintf("%v", dur.Round(time.Second)), fmt.Sprintf("%d%%", b.eggRate), fmt.Sprintf("%d%%", b.earnings), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.eggRateCalc), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.earningsCalc), fmt.Sprintf("%8.2f", b.buffTimeValue), fmt.Sprintf("%1.6f", teamworkScore)})
 
@@ -369,7 +372,8 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		CR := min(0.0, 6.0)
 		T := 0.0
 
-		shortTeamwork := (contractDurationSeconds * 2.0) - buffTimeValue
+		// If SIAB still equipped, subtract that time from the total
+		shortTeamwork := (contractDurationSeconds * 2.0) - (buffTimeValue - LastSIABCalc)
 		siabSecondsNeeded := shortTeamwork / (0.75 * float64(BestSIAB) / 100.0)
 		// SIABTimeEquipped * 0.75 * SIABPercentage/100
 		// make siabSecondsNeeded a time.Duration
@@ -382,7 +386,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		builder.WriteString("```")
 		table.Render()
 		if BestSIAB > 0 {
-			builder.WriteString(fmt.Sprintf("Equip SIAB for %s to max BuffValue.\n", fmtDuration(siabTimeEquipped)))
+			builder.WriteString(fmt.Sprintf("Equip SIAB for %s in the most recent teamwork segment to max BuffValue.\n", fmtDuration(siabTimeEquipped)))
 		}
 		builder.WriteString("```")
 
