@@ -319,6 +319,9 @@ var (
 		slashStones: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleStonesAutoComplete(s, i)
 		},
+		slashTeamworkEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleContractAutoComplete(s, i)
+		},
 		slashTokenEditTrack: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			data := i.ApplicationCommandData()
 			for _, opt := range data.Options {

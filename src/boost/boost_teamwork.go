@@ -31,6 +31,19 @@ func GetSlashTeamworkEval(cmd string) *discordgo.ApplicationCommand {
 				Description: "Egg Inc, in game name to evaluate.",
 				Required:    false,
 			},
+			{
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "contract-id",
+				Description:  "Select a contract-id",
+				Required:     false,
+				Autocomplete: true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "coop-id",
+				Description: "Your coop-id",
+				Required:    false,
+			},
 		},
 	}
 }
@@ -53,7 +66,8 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	} else {
 		userID = i.User.ID
 	}
-
+	var contractID string
+	var coopID string
 	var eggign string
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
@@ -69,30 +83,33 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		if name != "" {
 			eggign = name
 		}
-
 	}
 
-	contract := FindContract(i.ChannelID)
-	if contract == nil {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: "No contract found in this channel.",
-			})
-
-		return
+	if opt, ok := optionMap["contract-id"]; ok {
+		contractID = strings.ToLower(opt.StringValue())
+		contractID = strings.Replace(contractID, " ", "", -1)
 	}
-	/*
-		if slices.Index(contract.Order, userID) == -1 {
-			s.FollowupMessageCreate(i.Interaction, true,
+	if opt, ok := optionMap["coop-id"]; ok {
+		coopID = strings.ToLower(opt.StringValue())
+		coopID = strings.Replace(coopID, " ", "", -1)
+	}
+	// Unser contractID and coopID means we want the Boost Bot contract
+	if contractID == "" || coopID == "" {
+		contract := FindContract(i.ChannelID)
+		if contract == nil {
+			_, _ = s.FollowupMessageCreate(i.Interaction, true,
 				&discordgo.WebhookParams{
-					Content: "User isn't in this contract.",
+					Content: "No contract found in this channel. Please provide a contract-id and coop-id.",
 				})
 
 			return
 		}
-	*/
+		contractID = strings.ToLower(contract.ContractID)
+		coopID = strings.ToLower(contract.CoopID)
+	}
+
 	if config.EIUserID != "" {
-		builder.WriteString(DownloadCoopStatus(userID, eggign, contract))
+		builder.WriteString(DownloadCoopStatus(userID, eggign, contractID, coopID))
 	} else {
 		builder.WriteString("This command is missing a configuration option necessary to function.")
 	}
@@ -104,7 +121,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 }
 
 // DownloadCoopStatus will download the coop status for a given contract and coop ID
-func DownloadCoopStatus(userID string, einame string, contract *Contract) string {
+func DownloadCoopStatus(userID string, einame string, contractID string, coopID string) string {
 	eggIncID := config.EIUserID
 	reqURL := "https://www.auxbrain.com/ei/coop_status"
 	enc := base64.StdEncoding
@@ -112,12 +129,12 @@ func DownloadCoopStatus(userID string, einame string, contract *Contract) string
 	var protoData string
 	var dataTimestampStr string
 
-	eiContract := ei.EggIncContractsAll[contract.ContractID]
+	eiContract := ei.EggIncContractsAll[contractID]
 	if eiContract.ID == "" {
 		return "Invalid contract ID."
 	}
 
-	cacheID := contract.ContractID + ":" + contract.CoopID
+	cacheID := contractID + ":" + coopID
 	cachedData := eiDatas[cacheID]
 	var nowTime time.Time
 
@@ -128,8 +145,8 @@ func DownloadCoopStatus(userID string, einame string, contract *Contract) string
 		nowTime = cachedData.timestamp
 		// Use protoData as needed
 	} else {
-		coopID := strings.ToLower(contract.CoopID)
-		contractID := strings.ToLower(contract.ContractID)
+		coopID := strings.ToLower(coopID)
+		contractID := strings.ToLower(contractID)
 
 		coopStatusRequest := ei.ContractCoopStatusRequest{
 			ContractIdentifier: &contractID,
@@ -159,7 +176,7 @@ func DownloadCoopStatus(userID string, einame string, contract *Contract) string
 		}
 		dataTimestampStr = ""
 		protoData = string(body)
-		data := eiData{ID: cacheID, timestamp: time.Now(), expirationTimestamp: time.Now().Add(2 * time.Minute), contractID: contract.ContractID, coopID: contract.CoopID, protoData: protoData}
+		data := eiData{ID: cacheID, timestamp: time.Now(), expirationTimestamp: time.Now().Add(2 * time.Minute), contractID: contractID, coopID: coopID, protoData: protoData}
 		eiDatas[cacheID] = &data
 		nowTime = time.Now()
 	}
@@ -219,7 +236,7 @@ func DownloadCoopStatus(userID string, einame string, contract *Contract) string
 		secondsSinceAllGoals := int64(decodeCoopStatus.GetSecondsSinceAllGoalsAchieved())
 		endTime = endTime.Add(-time.Duration(secondsSinceAllGoals) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
-		builder.WriteString(fmt.Sprintf("Completed contract **%s/%s**\n", contract.ContractID, contract.CoopID))
+		builder.WriteString(fmt.Sprintf("Completed contract **%s/%s**\n", contractID, coopID))
 		builder.WriteString(fmt.Sprintf("Start Time: <t:%d:f>\n", startTime.Unix()))
 		builder.WriteString(fmt.Sprintf("End Time: <t:%d:f>\n", endTime.Unix()))
 		builder.WriteString(fmt.Sprintf("Duration: %v\n", (endTime.Sub(startTime)).Round(time.Second)))
@@ -235,11 +252,11 @@ func DownloadCoopStatus(userID string, einame string, contract *Contract) string
 		}
 		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
 		startTime = startTime.Add(-time.Duration(eiContract.LengthInSeconds) * time.Second)
-		totalReq := contract.TargetAmount[len(contract.TargetAmount)-1]
+		totalReq := eiContract.TargetAmount[len(eiContract.TargetAmount)-1]
 		calcSecondsRemaining = int64((totalReq - totalContributions) / contributionRatePerSecond)
 		endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
-		builder.WriteString(fmt.Sprintf("In Progress **%s/%s** on target to complete <t:%d:R>\n", contract.ContractID, contract.CoopID, endTime.Unix()))
+		builder.WriteString(fmt.Sprintf("In Progress **%s/%s** on target to complete <t:%d:R>\n", contractID, coopID, endTime.Unix()))
 		builder.WriteString(fmt.Sprintf("Start Time: <t:%d:f>\n", startTime.Unix()))
 		builder.WriteString(fmt.Sprintf("Est. End Time: <t:%d:f>\n", endTime.Unix()))
 		builder.WriteString(fmt.Sprintf("Est. Duration: %v\n", (endTime.Sub(startTime)).Round(time.Second)))
@@ -263,10 +280,6 @@ func DownloadCoopStatus(userID string, einame string, contract *Contract) string
 			T = (200.0/(7.0*BTA))*(0.07*BTA) + (800.0 / (7.0 * BTA) * min(tval, 0.07*BTA))
 		}
 	*/
-
-	if einame == "" {
-		einame = contract.Boosters[userID].Nick
-	}
 
 	found := false
 	var teamworkNames []string
@@ -379,41 +392,43 @@ func DownloadCoopStatus(userID string, einame string, contract *Contract) string
 		tableCR.Render()
 		builder.WriteString("```")
 
-		if builder.Len() < 1500 {
+		/*
+			if builder.Len() < 1500 {
 
-			tableT := tablewriter.NewWriter(&builder)
-			tableT.ClearRows()
+				tableT := tablewriter.NewWriter(&builder)
+				tableT.ClearRows()
 
-			BTA := (contractDurationSeconds / 60) / float64(eiContract.MinutesPerToken)
+				BTA := (contractDurationSeconds / 60) / float64(eiContract.MinutesPerToken)
 
-			tableT.SetHeader([]string{"△ TVAL", "sent 0 tval", "2.5 tval", "3 tval"})
-			tableT.SetBorder(false)
-			tableT.SetAlignment(tablewriter.ALIGN_RIGHT)
+				tableT.SetHeader([]string{"△ TVAL", "sent 0 tval", "2.5 tval", "3 tval"})
+				tableT.SetBorder(false)
+				tableT.SetAlignment(tablewriter.ALIGN_RIGHT)
 
-			for tval := -3.0; tval <= 3.0; tval += 1.0 {
-				var items []string
-				items = append(items, fmt.Sprintf("%1.1f", tval))
-				for tSent := 0.0; tSent <= 3.0; tSent += 1.5 {
-					if BTA <= 42.0 {
-						T = (2.0 / 3.0 * min(tSent, 3.0)) + ((8.0 / 3.0) * min(tval, 3.0))
-					} else {
-						T = (200.0/(7.0*BTA))*min(tSent, 0.07*BTA) + (800.0 / (7.0 * BTA) * min(tval, 0.07*BTA))
+				for tval := -3.0; tval <= 3.0; tval += 1.0 {
+					var items []string
+					items = append(items, fmt.Sprintf("%1.1f", tval))
+					for tSent := 0.0; tSent <= 3.0; tSent += 1.5 {
+						if BTA <= 42.0 {
+							T = (2.0 / 3.0 * min(tSent, 3.0)) + ((8.0 / 3.0) * min(tval, 3.0))
+						} else {
+							T = (200.0/(7.0*BTA))*min(tSent, 0.07*BTA) + (800.0 / (7.0 * BTA) * min(tval, 0.07*BTA))
+						}
+						TTeamworkScore := ((5.0 * B * 0) + (CR * 0) + T) / 19.0
+						if tSent < tval {
+							items = append(items, "")
+						} else {
+							items = append(items, fmt.Sprintf("%1.4f", TTeamworkScore))
+						}
+						//		tableT.Append([]string{fmt.Sprintf("%1.1f", tval), fmt.Sprintf("%1.6f", tSent), fmt.Sprintf("%1.6f", TTeamworkScore)})
 					}
-					TTeamworkScore := ((5.0 * B * 0) + (CR * 0) + T) / 19.0
-					if tSent < tval {
-						items = append(items, "")
-					} else {
-						items = append(items, fmt.Sprintf("%1.4f", TTeamworkScore))
-					}
-					//		tableT.Append([]string{fmt.Sprintf("%1.1f", tval), fmt.Sprintf("%1.6f", tSent), fmt.Sprintf("%1.6f", TTeamworkScore)})
+					tableT.Append(items)
 				}
-				tableT.Append(items)
+				//builder.Reset()
+				builder.WriteString("```")
+				tableT.Render()
+				builder.WriteString("```")
 			}
-			//builder.Reset()
-			builder.WriteString("```")
-			tableT.Render()
-			builder.WriteString("```")
-		}
+		*/
 
 		log.Printf("\n%s", builder.String())
 
