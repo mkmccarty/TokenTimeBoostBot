@@ -320,7 +320,7 @@ var (
 			boost.HandleStonesAutoComplete(s, i)
 		},
 		slashTeamworkEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleContractAutoComplete(s, i)
+			boost.HandleStonesAutoComplete(s, i)
 		},
 		slashTokenEditTrack: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			data := i.ApplicationCommandData()
