@@ -340,6 +340,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		BestSIAB := 0
 		LastSIAB := 0
 		LastSIABCalc := 0.0
+		var MostRecentDuration time.Time
 		var buffTimeValue float64
 		for _, b := range BuffTimeValues {
 			if b.durationEquiped < 0 {
@@ -354,6 +355,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 
 			dur := time.Duration(b.durationEquiped) * time.Second
 			when := time.Duration(b.timeEquiped) * time.Second
+			MostRecentDuration = startTime.Add(when)
 
 			if b.earnings > int(BestSIAB) {
 				BestSIAB = b.earnings
@@ -385,10 +387,10 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 
 		builder.WriteString("```")
 		table.Render()
-		if BestSIAB > 0 {
-			builder.WriteString(fmt.Sprintf("Equip SIAB for %s in the most recent teamwork segment to max BuffValue.\n", fmtDuration(siabTimeEquipped)))
-		}
 		builder.WriteString("```")
+		if BestSIAB > 0 {
+			builder.WriteString(fmt.Sprintf("\n> Equip SIAB for %s (<t:%d:R>) in the most recent teamwork segment to max BuffValue.\n", fmtDuration(siabTimeEquipped), MostRecentDuration.Add(siabTimeEquipped).Unix()))
+		}
 
 		// Calculate the ChickenRun score
 		tableCR := tablewriter.NewWriter(&builder)
