@@ -337,8 +337,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		//table.SetTablePadding(" ") // pad with tabs
 		//table.SetNoWhiteSpace(true)
 
-		BestSIAB := 0
-		LastSIAB := 0
+		BestSIAB := 0.0
 		LastSIABCalc := 0.0
 		var MostRecentDuration time.Time
 		var buffTimeValue float64
@@ -358,9 +357,9 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 			MostRecentDuration = startTime.Add(when)
 
 			if b.earnings > int(BestSIAB) {
-				BestSIAB = b.earnings
+				BestSIAB = b.earningsCalc
 			}
-			LastSIABCalc = dur.Seconds() * 0.75 * float64(LastSIAB) / 100.0
+			LastSIABCalc = float64(b.durationEquiped) * b.earningsCalc
 
 			table.Append([]string{fmt.Sprintf("%v", when.Round(time.Second)), fmt.Sprintf("%v", dur.Round(time.Second)), fmt.Sprintf("%d%%", b.eggRate), fmt.Sprintf("%d%%", b.earnings), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.eggRateCalc), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.earningsCalc), fmt.Sprintf("%8.2f", b.buffTimeValue), fmt.Sprintf("%1.6f", teamworkScore)})
 
@@ -376,7 +375,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 
 		// If SIAB still equipped, subtract that time from the total
 		shortTeamwork := (contractDurationSeconds * 2.0) - (buffTimeValue - LastSIABCalc)
-		siabSecondsNeeded := shortTeamwork / (0.75 * float64(BestSIAB) / 100.0)
+		siabSecondsNeeded := shortTeamwork / BestSIAB
 		// SIABTimeEquipped * 0.75 * SIABPercentage/100
 		// make siabSecondsNeeded a time.Duration
 		siabTimeEquipped := time.Duration(siabSecondsNeeded) * time.Second
@@ -389,7 +388,15 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		table.Render()
 		builder.WriteString("```")
 		if BestSIAB > 0 {
-			builder.WriteString(fmt.Sprintf("\n> Equip SIAB for %s (<t:%d:R>) in the most recent teamwork segment to max BuffValue.\n", fmtDuration(siabTimeEquipped), MostRecentDuration.Add(siabTimeEquipped).Unix()))
+			if LastSIABCalc != 0 {
+				builder.WriteString(fmt.Sprintf("\n> Equip SIAB for %s (<t:%d:R>) in the most recent teamwork segment to max BuffValue.\n", fmtDuration(siabTimeEquipped), MostRecentDuration.Add(siabTimeEquipped).Unix()))
+			} else {
+				if time.Now().Add(siabTimeEquipped).After(endTime) {
+					builder.WriteString(fmt.Sprintf("\n> Equip SIAB through end of contract (<t:%d:R>) in new teamwork segment to improve BuffValue.\n", endTime.Unix()))
+				} else {
+					builder.WriteString(fmt.Sprintf("\n> Equip SIAB for %s (<t:%d:R>) in new teamwork segment to max BuffValue.\n", fmtDuration(siabTimeEquipped), time.Now().Add(siabTimeEquipped).Unix()))
+				}
+			}
 		}
 
 		// Calculate the ChickenRun score
