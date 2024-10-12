@@ -91,6 +91,11 @@ test/cover:
 
 ## build: build the application
 
+.PHONY: protobuf
+protobuf:
+	protoc -I=src/ei --go_out=src/ei src/ei/ei.proto 
+
+
 all: fmt build
 
 .PHONY: run
