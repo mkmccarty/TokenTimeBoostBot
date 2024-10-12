@@ -261,7 +261,9 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		builder.WriteString(fmt.Sprintf("Est. End Time: <t:%d:f>\n", endTime.Unix()))
 		builder.WriteString(fmt.Sprintf("Est. Duration: %v\n", (endTime.Sub(startTime)).Round(time.Second)))
 	}
-	builder.WriteString(fmt.Sprintf("Evaluating data for **%s**\n", einame))
+	if einame != "" {
+		builder.WriteString(fmt.Sprintf("Evaluating data for **%s**\n", einame))
+	}
 
 	// Take care of other parameter calculations here
 
