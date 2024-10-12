@@ -513,7 +513,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	table.SetAlignment(tablewriter.ALIGN_RIGHT)
 
 	// 1e15
-	for _, as := range artifactSets {
+	for i, as := range artifactSets {
 
 		if soloName != "" && strings.ToLower(as.name) != soloName {
 			continue
@@ -554,6 +554,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if collegShip > 1.000 {
 			val := fmt.Sprintf("%2.2f🚚", (collegShip-1.0)*100.0)
 			as.collegg = append(as.collegg, strings.Replace(strings.Replace(val, ".00", "", -1), ".25", "¼", -1))
+		} else {
+			artifactSets[i].note = append(artifactSets[i].note, fmt.Sprintf("SR: %2.4f(%d) - ei.sr: %2.4f  ratio:%2.4f", shippingRate, as.quantStones, (as.sr/1e15), collegShip))
 		}
 		bestTotal := 0.0
 		//bestString := ""
