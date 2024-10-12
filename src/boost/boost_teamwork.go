@@ -337,6 +337,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		//table.SetTablePadding(" ") // pad with tabs
 		//table.SetNoWhiteSpace(true)
 
+		BestSIAB := 0
 		var buffTimeValue float64
 		for _, b := range BuffTimeValues {
 			if b.durationEquiped < 0 {
@@ -352,23 +353,37 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 			dur := time.Duration(b.durationEquiped) * time.Second
 			when := time.Duration(b.timeEquiped) * time.Second
 
-			table.Append([]string{fmt.Sprintf("%v", when.Round(time.Second)), fmt.Sprintf("%v", dur.Round(time.Second)), fmt.Sprintf("%d%%", b.eggRate), fmt.Sprintf("%d%%", b.earnings), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.eggRateCalc), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.earningsCalc), fmt.Sprintf("%8.2f", b.buffTimeValue), fmt.Sprintf("%1.8f", teamworkScore)})
+			if b.earnings > int(BestSIAB) {
+				BestSIAB = b.earnings
+			}
+
+			table.Append([]string{fmt.Sprintf("%v", when.Round(time.Second)), fmt.Sprintf("%v", dur.Round(time.Second)), fmt.Sprintf("%d%%", b.eggRate), fmt.Sprintf("%d%%", b.earnings), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.eggRateCalc), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.earningsCalc), fmt.Sprintf("%8.2f", b.buffTimeValue), fmt.Sprintf("%1.6f", teamworkScore)})
 
 			buffTimeValue += b.buffTimeValue
 		}
 
 		//completionTime :=
 
-		B := min(buffTimeValue/contractDurationSeconds, 2)
+		uncappedBuffTimeValue := buffTimeValue / contractDurationSeconds
+		B := min(uncappedBuffTimeValue, 2.0)
 		CR := min(0.0, 6.0)
 		T := 0.0
 
+		shortTeamwork := (contractDurationSeconds * 2.0) - buffTimeValue
+		siabSecondsNeeded := shortTeamwork / (0.75 * float64(BestSIAB) / 100.0)
+		// SIABTimeEquipped * 0.75 * SIABPercentage/100
+		// make siabSecondsNeeded a time.Duration
+		siabTimeEquipped := time.Duration(siabSecondsNeeded) * time.Second
+
 		TeamworkScore := ((5.0 * B) + (CR * 0) + (T * 0)) / 19.0
-		table.SetFooter([]string{"", "", "", "", "", "", fmt.Sprintf("%8.2f", buffTimeValue), fmt.Sprintf("%1.8f", TeamworkScore)})
+		table.SetFooter([]string{"", "", "", "", "", "", fmt.Sprintf("%8.2f", buffTimeValue), fmt.Sprintf("%1.6f", TeamworkScore)})
 		log.Printf("Teamwork Score: %f\n", TeamworkScore)
 
 		builder.WriteString("```")
 		table.Render()
+		if BestSIAB > 0 {
+			builder.WriteString(fmt.Sprintf("Equip SIAB for %s to max BuffValue.\n", fmtDuration(siabTimeEquipped)))
+		}
 		builder.WriteString("```")
 
 		// Calculate the ChickenRun score
@@ -523,3 +538,20 @@ func GetEggIncEvents() {
 
 }
 */
+
+func fmtDuration(d time.Duration) string {
+	str := ""
+	d = d.Round(time.Minute)
+	h := d / time.Hour
+	d -= h * time.Hour
+	m := d / time.Minute
+	d = h / 24
+	h -= d * 24
+
+	if d > 0 {
+		str = fmt.Sprintf("%dd%dh%dm", d, h, m)
+	} else {
+		str = fmt.Sprintf("%dh%dm", h, m)
+	}
+	return strings.Replace(str, "0h0m", "", -1)
+}
