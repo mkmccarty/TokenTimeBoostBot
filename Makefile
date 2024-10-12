@@ -93,7 +93,10 @@ test/cover:
 
 .PHONY: protobuf
 protobuf:
-	protoc -I=src/ei --go_out=src/ei src/ei/ei.proto 
+	protoc -I=src/ei --go_out=src/ei src/ei/ei.proto
+	@cp src/ei/github.com/elgranjero/EggUtils/ei/ei.pb.go src/ei/ei.pb.go
+	@rm -rf src/ei/github.com
+	
 
 
 all: fmt build
