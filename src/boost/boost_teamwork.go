@@ -107,21 +107,36 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		contractID = strings.ToLower(contract.ContractID)
 		coopID = strings.ToLower(contract.CoopID)
 	}
+	var embed *discordgo.MessageSend
 
 	if config.EIUserID != "" {
-		builder.WriteString(DownloadCoopStatus(userID, eggign, contractID, coopID))
+		var str string
+		str, embed = DownloadCoopStatus(userID, eggign, contractID, coopID)
+		builder.WriteString(str)
 	} else {
 		builder.WriteString("This command is missing a configuration option necessary to function.")
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true,
+	if embed == nil {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true,
+			&discordgo.WebhookParams{
+				Content: builder.String(),
+			})
+		return
+	}
+	_, err := s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
 			Content: builder.String(),
+			Embeds:  embed.Embeds,
 		})
+	if err != nil {
+		log.Print(err)
+	}
+
 }
 
 // DownloadCoopStatus will download the coop status for a given contract and coop ID
-func DownloadCoopStatus(userID string, einame string, contractID string, coopID string) string {
+func DownloadCoopStatus(userID string, einame string, contractID string, coopID string) (string, *discordgo.MessageSend) {
 	eggIncID := config.EIUserID
 	reqURL := "https://www.auxbrain.com/ei/coop_status"
 	enc := base64.StdEncoding
@@ -131,12 +146,14 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 
 	eiContract := ei.EggIncContractsAll[contractID]
 	if eiContract.ID == "" {
-		return "Invalid contract ID."
+		return "Invalid contract ID.", nil
 	}
 
 	cacheID := contractID + ":" + coopID
 	cachedData := eiDatas[cacheID]
 	var nowTime time.Time
+
+	var field []*discordgo.MessageEmbedField
 
 	// Check if the file exists
 	if cachedData != nil && time.Now().Before(cachedData.expirationTimestamp) {
@@ -155,7 +172,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		}
 		reqBin, err := proto.Marshal(&coopStatusRequest)
 		if err != nil {
-			return err.Error()
+			return err.Error(), nil
 		}
 		reqDataEncoded := enc.EncodeToString(reqBin)
 
@@ -163,7 +180,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 
 		if err != nil {
 			log.Print(err)
-			return err.Error()
+			return err.Error(), nil
 		}
 
 		defer response.Body.Close()
@@ -172,7 +189,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
 			log.Print(err)
-			return err.Error()
+			return err.Error(), nil
 		}
 		dataTimestampStr = ""
 		protoData = string(body)
@@ -186,14 +203,14 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 	err := proto.Unmarshal(rawDecodedText, decodedAuthBuf)
 	if err != nil {
 		log.Print(err)
-		return err.Error()
+		return err.Error(), nil
 	}
 
 	decodeCoopStatus := &ei.ContractCoopStatusResponse{}
 	err = proto.Unmarshal(decodedAuthBuf.Message, decodeCoopStatus)
 	if err != nil {
 		log.Print(err)
-		return err.Error()
+		return err.Error(), nil
 	}
 
 	type BuffTimeValue struct {
@@ -226,6 +243,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		Then use day.js to generate timespan and then create time string
 	*/
 	var builder strings.Builder
+	var teamwork strings.Builder
 
 	startTime := nowTime
 	secondsRemaining := int64(decodeCoopStatus.GetSecondsRemaining())
@@ -321,19 +339,23 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 	}
 
 	if len(BuffTimeValues) == 0 {
-		builder.WriteString("**No buffs found for this contract.**\n")
+		teamwork.WriteString("**No buffs found for this contract.**\n")
 	} else {
 
-		table := tablewriter.NewWriter(&builder)
-		table.SetHeader([]string{"Time", "Duration", "Defl", "SIAB", "BTV-Defl", "BTV-SIAB ", "Buff Val", "TeamWork"})
+		table := tablewriter.NewWriter(&teamwork)
+		//table.SetHeader([]string{"Time", "Duration", "Defl", "SIAB", "BTV-Defl", "BTV-SIAB ", "Buff Val", "TeamWork"})
+		table.SetHeader([]string{"Time", "Duration", "Defl", "SIAB", "BTV", "TeamWork"})
 		table.SetBorder(false)
 		//table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
 		table.SetAlignment(tablewriter.ALIGN_RIGHT)
-		//table.SetCenterSeparator("")
-		//table.SetColumnSeparator("")
-		//table.SetRowSeparator("")
-		//table.SetHeaderLine(false)
-		//table.EnableBorder(false)
+		//if len(BuffTimeValues) > 10 {
+		table.SetCenterSeparator("")
+		table.SetColumnSeparator("")
+		table.SetRowSeparator("")
+		table.SetHeaderLine(false)
+		table.SetTablePadding(" ") // pad with tabs
+		table.SetNoWhiteSpace(true)
+		//}
 		//table.SetTablePadding(" ") // pad with tabs
 		//table.SetNoWhiteSpace(true)
 
@@ -361,8 +383,9 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 			}
 			LastSIABCalc = float64(b.durationEquiped) * b.earningsCalc
 
-			table.Append([]string{fmt.Sprintf("%v", when.Round(time.Second)), fmt.Sprintf("%v", dur.Round(time.Second)), fmt.Sprintf("%d%%", b.eggRate), fmt.Sprintf("%d%%", b.earnings), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.eggRateCalc), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.earningsCalc), fmt.Sprintf("%8.2f", b.buffTimeValue), fmt.Sprintf("%1.6f", teamworkScore)})
-
+			//table.Append([]string{fmt.Sprintf("%v", when.Round(time.Second)), fmt.Sprintf("%v", dur.Round(time.Second)), fmt.Sprintf("%d%%", b.eggRate), fmt.Sprintf("%d%%", b.earnings), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.eggRateCalc), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.earningsCalc), fmt.Sprintf("%8.2f", b.buffTimeValue), fmt.Sprintf("%1.6f", teamworkScore)})
+			table.Append([]string{fmt.Sprintf("%v", when.Round(time.Second)), fmt.Sprintf("%v", dur.Round(time.Second)), fmt.Sprintf("%d%%", b.eggRate), fmt.Sprintf("%d%%", b.earnings), fmt.Sprintf("%8.2f", b.buffTimeValue), fmt.Sprintf("%1.6f", teamworkScore)})
+			//table.Append([]string{fmt.Sprintf("%v", when.Round(time.Second)), fmt.Sprintf("%v", dur.Round(time.Second)), fmt.Sprintf("%d%%", b.eggRate), fmt.Sprintf("%d%%", b.earnings), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.eggRateCalc), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.earningsCalc), fmt.Sprintf("%8.2f", b.buffTimeValue), fmt.Sprintf("%1.6f", teamworkScore)})
 			buffTimeValue += b.buffTimeValue
 		}
 
@@ -384,44 +407,85 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		table.SetFooter([]string{"", "", "", "", "", "", fmt.Sprintf("%8.2f", buffTimeValue), fmt.Sprintf("%1.6f", TeamworkScore)})
 		log.Printf("Teamwork Score: %f\n", TeamworkScore)
 
-		builder.WriteString("```")
 		table.Render()
-		builder.WriteString("```")
+		// If the length of teamwork is > 1500 then split it into two fields. Find a linefeed nearest to 1500
+		teamworkStr := teamwork.String()
+		if len(teamworkStr) > 1020 {
+			i := 0
+			for len(teamworkStr) > 0 {
+				i++
+				chunkSize := 1022
+				if len(teamworkStr) < chunkSize {
+					chunkSize = len(teamworkStr)
+				} else {
+					splitIndex := strings.LastIndex(teamworkStr[:chunkSize], "\n")
+					if splitIndex != -1 {
+						chunkSize = splitIndex
+					}
+				}
+				field = append(field, &discordgo.MessageEmbedField{
+					Name:   fmt.Sprintf("Teamwork-%d", i),
+					Value:  "```" + teamworkStr[:chunkSize] + "```",
+					Inline: false,
+				})
+				teamworkStr = teamworkStr[chunkSize:]
+			}
+		} else {
+			field = append(field, &discordgo.MessageEmbedField{
+				Name:   "Teamwork",
+				Value:  "```" + teamworkStr + "```",
+				Inline: false,
+			})
+		}
 		if BestSIAB > 0 {
+			var maxTeamwork strings.Builder
 			if LastSIABCalc != 0 {
-				builder.WriteString(fmt.Sprintf("\n> Equip SIAB for %s (<t:%d:R>) in the most recent teamwork segment to max BuffValue.\n", fmtDuration(siabTimeEquipped), MostRecentDuration.Add(siabTimeEquipped).Unix()))
+				maxTeamwork.WriteString(fmt.Sprintf("\n> Equip SIAB for %s (<t:%d:R>) in the most recent teamwork segment to max BuffValue.\n", fmtDuration(siabTimeEquipped), MostRecentDuration.Add(siabTimeEquipped).Unix()))
 			} else {
 				if time.Now().Add(siabTimeEquipped).After(endTime) {
-					builder.WriteString(fmt.Sprintf("\n> Equip SIAB through end of contract (<t:%d:R>) in new teamwork segment to improve BuffValue.\n", endTime.Unix()))
+					maxTeamwork.WriteString(fmt.Sprintf("\n> Equip SIAB through end of contract (<t:%d:R>) in new teamwork segment to improve BuffValue.\n", endTime.Unix()))
 				} else {
-					builder.WriteString(fmt.Sprintf("\n> Equip SIAB for %s (<t:%d:R>) in new teamwork segment to max BuffValue.\n", fmtDuration(siabTimeEquipped), time.Now().Add(siabTimeEquipped).Unix()))
+					maxTeamwork.WriteString(fmt.Sprintf("\n> Equip SIAB for %s (<t:%d:R>) in new teamwork segment to max BuffValue.\n", fmtDuration(siabTimeEquipped), time.Now().Add(siabTimeEquipped).Unix()))
 				}
 			}
+			field = append(field, &discordgo.MessageEmbedField{
+				Name:   "Maximize Teamwork",
+				Value:  maxTeamwork.String(),
+				Inline: false,
+			})
 		}
 
-		// Calculate the ChickenRun score
-		tableCR := tablewriter.NewWriter(&builder)
-		tableCR.ClearRows()
+		if len(BuffTimeValues) <= 10 {
+			var chickenRun strings.Builder
+			// Calculate the ChickenRun score
+			tableCR := tablewriter.NewWriter(&chickenRun)
+			tableCR.ClearRows()
 
-		tableCR.SetHeader([]string{"1 Run", "N*Runs", fmt.Sprintf("%d Runs", eiContract.ChickenRuns)})
-		tableCR.SetBorder(false)
-		tableCR.SetAlignment(tablewriter.ALIGN_RIGHT)
+			tableCR.SetHeader([]string{"1 Run", "N*Runs", fmt.Sprintf("%d Runs", eiContract.ChickenRuns)})
+			tableCR.SetBorder(false)
+			tableCR.SetAlignment(tablewriter.ALIGN_RIGHT)
 
-		fCR := max(12.0/float64(eiContract.MaxCoopSize*eiContract.ContractDurationInDays), 0.3)
-		//for i := range eiContract.ChickenRuns {
-		CR = min(fCR*float64(1), 6.0)
-		CRTeamworkScore := ((5.0 * B * 0) + CR + (T * 0)) / 19.0
-		CRMax := min(fCR*float64(eiContract.ChickenRuns), 6.0)
-		CRMaxTeamworkScore := ((5.0 * B * 0) + CRMax + (T * 0)) / 19.0
-		tableCR.Append([]string{
-			fmt.Sprintf("%1.6f", CRTeamworkScore),
-			fmt.Sprintf("N * %1.6f", CRTeamworkScore),
-			fmt.Sprintf("%1.6f", CRMaxTeamworkScore)})
-		//}
-		builder.WriteString("```")
-		tableCR.Render()
-		builder.WriteString("```")
+			fCR := max(12.0/float64(eiContract.MaxCoopSize*eiContract.ContractDurationInDays), 0.3)
+			//for i := range eiContract.ChickenRuns {
+			CR = min(fCR*float64(1), 6.0)
+			CRTeamworkScore := ((5.0 * B * 0) + CR + (T * 0)) / 19.0
+			CRMax := min(fCR*float64(eiContract.ChickenRuns), 6.0)
+			CRMaxTeamworkScore := ((5.0 * B * 0) + CRMax + (T * 0)) / 19.0
+			tableCR.Append([]string{
+				fmt.Sprintf("%1.6f", CRTeamworkScore),
+				fmt.Sprintf("N * %1.6f", CRTeamworkScore),
+				fmt.Sprintf("%1.6f", CRMaxTeamworkScore)})
+			//}
+			chickenRun.WriteString("```")
+			tableCR.Render()
+			chickenRun.WriteString("```")
+			field = append(field, &discordgo.MessageEmbedField{
+				Name:   "Chicken Run",
+				Value:  chickenRun.String(),
+				Inline: false,
+			})
 
+		}
 		/*
 			if builder.Len() < 1500 {
 
@@ -466,20 +530,37 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 	}
 
 	if !found {
+		var notes strings.Builder
+
 		// Write to builder a message about using /seteiname to associate your discorn name with your Eggs IGN
 		// create string of teamworkNames
 		teamworkNamesStr := strings.Join(teamworkNames, ", ")
-		builder.WriteString("\n")
-		builder.WriteString("Your discord name must be different from your EggInc IGN.\n")
-		builder.WriteString("Use **/seteggincname** to make this association.\n\n")
-		builder.WriteString(fmt.Sprintf("Farmers in this contract are:\n> %s", teamworkNamesStr))
+		notes.WriteString("\n")
+		notes.WriteString("Your discord name must be different from your EggInc IGN.\n")
+		notes.WriteString("Use **/seteggincname** to make this association.\n\n")
+		notes.WriteString(fmt.Sprintf("Farmers in this contract are:\n> %s", teamworkNamesStr))
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   "Name not Found",
+			Value:  notes.String(),
+			Inline: false,
+		})
 	}
 
-	if dataTimestampStr != "" {
-		builder.WriteString(dataTimestampStr)
+	embed := &discordgo.MessageSend{
+		Embeds: []*discordgo.MessageEmbed{{
+			Type:        discordgo.EmbedTypeRich,
+			Title:       "Teamwork Evaluation",
+			Description: "",
+			Color:       0xffaa00,
+			Fields:      field,
+			Footer: &discordgo.MessageEmbedFooter{
+				Text: dataTimestampStr,
+			},
+		},
+		},
 	}
 
-	return builder.String()
+	return builder.String(), embed
 }
 
 /*
