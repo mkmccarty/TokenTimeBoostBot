@@ -355,6 +355,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		table.SetHeaderLine(false)
 		table.SetTablePadding(" ") // pad with tabs
 		table.SetNoWhiteSpace(true)
+		table.SetBorders(tablewriter.Border{Left: false, Top: false, Right: false, Bottom: false})
 		//}
 		//table.SetTablePadding(" ") // pad with tabs
 		//table.SetNoWhiteSpace(true)
@@ -384,7 +385,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 			LastSIABCalc = float64(b.durationEquiped) * b.earningsCalc
 
 			//table.Append([]string{fmt.Sprintf("%v", when.Round(time.Second)), fmt.Sprintf("%v", dur.Round(time.Second)), fmt.Sprintf("%d%%", b.eggRate), fmt.Sprintf("%d%%", b.earnings), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.eggRateCalc), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.earningsCalc), fmt.Sprintf("%8.2f", b.buffTimeValue), fmt.Sprintf("%1.6f", teamworkScore)})
-			table.Append([]string{fmt.Sprintf("%v", when.Round(time.Second)), fmt.Sprintf("%v", dur.Round(time.Second)), fmt.Sprintf("%d%%", b.eggRate), fmt.Sprintf("%d%%", b.earnings), fmt.Sprintf("%8.2f", b.buffTimeValue), fmt.Sprintf("%1.6f", teamworkScore)})
+			table.Append([]string{fmt.Sprintf("%v", when.Round(time.Second)), fmt.Sprintf("%v", dur.Round(time.Second)), fmt.Sprintf("%d%%", b.eggRate), fmt.Sprintf("%d%%", b.earnings), fmt.Sprintf("%6.0f", b.buffTimeValue), fmt.Sprintf("%1.6f", teamworkScore)})
 			//table.Append([]string{fmt.Sprintf("%v", when.Round(time.Second)), fmt.Sprintf("%v", dur.Round(time.Second)), fmt.Sprintf("%d%%", b.eggRate), fmt.Sprintf("%d%%", b.earnings), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.eggRateCalc), fmt.Sprintf("%8.2f", float64(b.durationEquiped)*b.earningsCalc), fmt.Sprintf("%8.2f", b.buffTimeValue), fmt.Sprintf("%1.6f", teamworkScore)})
 			buffTimeValue += b.buffTimeValue
 		}
@@ -404,7 +405,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		siabTimeEquipped := time.Duration(siabSecondsNeeded) * time.Second
 
 		TeamworkScore := ((5.0 * B) + (CR * 0) + (T * 0)) / 19.0
-		table.SetFooter([]string{"", "", "", "", "", "", fmt.Sprintf("%8.2f", buffTimeValue), fmt.Sprintf("%1.6f", TeamworkScore)})
+		table.Append([]string{"", "", "", "", fmt.Sprintf("%6.0f", buffTimeValue), fmt.Sprintf("%1.6f", TeamworkScore)})
 		log.Printf("Teamwork Score: %f\n", TeamworkScore)
 
 		table.Render()
@@ -440,12 +441,19 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		if BestSIAB > 0 {
 			var maxTeamwork strings.Builder
 			if LastSIABCalc != 0 {
-				maxTeamwork.WriteString(fmt.Sprintf("\n> Equip SIAB for %s (<t:%d:R>) in the most recent teamwork segment to max BuffValue.\n", fmtDuration(siabTimeEquipped), MostRecentDuration.Add(siabTimeEquipped).Unix()))
+				maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB for %s (<t:%d:R>) in the most recent teamwork segment to max BTV by %6.0f.\n", fmtDuration(siabTimeEquipped), MostRecentDuration.Add(siabTimeEquipped).Unix(), shortTeamwork))
 			} else {
 				if time.Now().Add(siabTimeEquipped).After(endTime) {
-					maxTeamwork.WriteString(fmt.Sprintf("\n> Equip SIAB through end of contract (<t:%d:R>) in new teamwork segment to improve BuffValue.\n", endTime.Unix()))
+					// How much longer is this siabTimeEquipped than the end of the contract
+					extraTime := time.Now().Add(siabTimeEquipped).Sub(endTime)
+
+					// Calculate the shortTeamwork reducing the extra time from the siabTimeEquipped
+					extraPercent := (siabTimeEquipped - extraTime).Seconds() / siabTimeEquipped.Seconds()
+
+					maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB through end of contract (<t:%d:R>) in new teamwork segment to improve BTV by %6.0f. ", endTime.Unix(), shortTeamwork*extraPercent))
+					maxTeamwork.WriteString(fmt.Sprintf("The maximum BTV increase of %6.0f would be achieved if the contract finished at <t:%d:f>.", shortTeamwork, time.Now().Add(siabTimeEquipped).Unix()))
 				} else {
-					maxTeamwork.WriteString(fmt.Sprintf("\n> Equip SIAB for %s (<t:%d:R>) in new teamwork segment to max BuffValue.\n", fmtDuration(siabTimeEquipped), time.Now().Add(siabTimeEquipped).Unix()))
+					maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB for %s (<t:%d:R>) in new teamwork segment to max BTV by %6.0f.\n", fmtDuration(siabTimeEquipped), time.Now().Add(siabTimeEquipped).Unix(), shortTeamwork))
 				}
 			}
 			field = append(field, &discordgo.MessageEmbedField{
