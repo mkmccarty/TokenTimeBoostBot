@@ -438,7 +438,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 				Inline: false,
 			})
 		}
-		if BestSIAB > 0 {
+		if BestSIAB > 0 && decodeCoopStatus.GetSecondsSinceAllGoalsAchieved() <= 0 {
 			var maxTeamwork strings.Builder
 			if LastSIABCalc != 0 {
 				maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB for %s (<t:%d:R>) in the most recent teamwork segment to max BTV by %6.0f.\n", fmtDuration(siabTimeEquipped), MostRecentDuration.Add(siabTimeEquipped).Unix(), shortTeamwork))
