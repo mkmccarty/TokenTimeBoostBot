@@ -44,6 +44,10 @@ type EggIncContract struct {
 	ContractDurationInDays    int
 	EstimatedDuration         time.Duration
 	EstimatedDurationShip     time.Duration
+	ModifierIHR               float64
+	ModifierELR               float64
+	ModifierSR                float64
+	ModifierHabCap            float64
 }
 
 // EggIncContracts holds a list of all contracts, newest is last
