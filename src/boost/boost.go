@@ -1804,6 +1804,11 @@ func LoadContractData(filename string) {
 		c.Name = contractProtoBuf.GetName()
 		c.Description = contractProtoBuf.GetDescription()
 		c.Egg = int32(contractProtoBuf.GetEgg())
+		c.ModifierIHR = 1.0
+		c.ModifierELR = 1.0
+		c.ModifierSR = 1.0
+		c.ModifierHabCap = 1.0
+
 		if c.Egg == int32(ei.Egg_CUSTOM_EGG) {
 			c.EggName = contractProtoBuf.GetCustomEggId()
 		} else {
@@ -1816,6 +1821,18 @@ func LoadContractData(filename string) {
 					c.TargetAmount = append(c.TargetAmount, g.GetTargetAmount())
 					c.TargetAmountq = append(c.TargetAmountq, g.GetTargetAmount()/1e15)
 					c.LengthInSeconds = int(s.GetLengthSeconds())
+				}
+				for _, mod := range s.GetModifiers() {
+					switch mod.GetDimension() {
+					case ei.GameModifier_INTERNAL_HATCHERY_RATE:
+						c.ModifierIHR = mod.GetValue()
+					case ei.GameModifier_EGG_LAYING_RATE:
+						c.ModifierELR = mod.GetValue()
+					case ei.GameModifier_SHIPPING_CAPACITY:
+						c.ModifierSR = mod.GetValue()
+					case ei.GameModifier_HAB_CAPACITY:
+						c.ModifierHabCap = mod.GetValue()
+					}
 				}
 			}
 		}

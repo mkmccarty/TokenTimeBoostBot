@@ -520,18 +520,19 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 
 		//fmt.Printf("name:\"%s\"  Stones:%d  elr:%f egg/chicken/s  sr:%f egg/s\n", as.name, as.stones, as.elr, as.sr)
-		layingRate := (as.baseLayingRate) * (1 + as.metronome.percent/100.0) * (1 + as.gusset.percent/100.0)
-		shippingRate := (as.baseShippingRate) * (1 + as.compass.percent/100.0)
+		layingRate := (as.baseLayingRate) * (1 + as.metronome.percent/100.0) * (1 + as.gusset.percent/100.0) * eiContract.ModifierELR
+		shippingRate := (as.baseShippingRate) * (1 + as.compass.percent/100.0) * eiContract.ModifierSR
 
 		// Determine Colleggtible Increase
 		stoneLayRateNow := layingRate * (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
 		stoneLayRateNow = stoneLayRateNow * math.Pow(1.05, float64(as.tachStones))
-		chickELR := as.elr * as.farmCapacity * 3600.0 / 1e15
+		chickELR := as.elr * as.farmCapacity * eiContract.ModifierHabCap * 3600.0 / 1e15
 		collegELR := math.Round(chickELR/stoneLayRateNow*100.0) / 100.0
 		//fmt.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
 		if collegELR < 1.00 {
 			// Possible due to being offline
 			//as.notes = "sync needed."
+			// Maybe not fully boosted
 			collegELR = 1.00
 		}
 		if collegELR > 1.000 {
@@ -673,6 +674,16 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			}
 		}
 		builder.WriteString(fmt.Sprintf("Start: **<t:%d:t>**   %s: **<t:%d:t>** for **%v**\n", startTime.Unix(), endStr, endTime.Unix(), endTime.Sub(startTime).Round(time.Second)))
+		if eiContract.ModifierELR != 1.0 {
+			fmt.Fprintf(&builder, "ELR Modifier: %2.1fx\n", eiContract.ModifierELR)
+		}
+		if eiContract.ModifierSR != 1.0 {
+			fmt.Fprintf(&builder, "SR Modifier: %2.1fx\n", eiContract.ModifierSR)
+		}
+		if eiContract.ModifierHabCap != 1.0 {
+			fmt.Fprintf(&builder, "Hab Capacity Modifier: %2.1fx\n", eiContract.ModifierHabCap)
+		}
+
 	}
 
 	fmt.Fprintf(&builder, "Coop Deflector Bonus: %2.0f%%\n", everyoneDeflectorPercent)
