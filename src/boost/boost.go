@@ -1662,6 +1662,13 @@ func reorderBoosters(contract *Contract) {
 		var orderedNames []string
 		var lastOrderNames []string
 		var tvalPairs []TValPair
+		if contract.BoostPosition == contract.CoopSize {
+			log.Print("TVal Boosting complete", contract.BoostPosition, len(contract.Order))
+			contract.BoostOrder = ContractOrderSignup
+			return
+		} else if contract.BoostPosition == len(contract.Order) {
+			return
+		}
 		lastBoostTime := time.Now()
 		contract.mutex.Lock()
 		for i, el := range contract.Order {
