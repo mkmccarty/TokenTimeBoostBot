@@ -118,6 +118,11 @@ func getContractDurationEstimate(contractEggs float64, numFarmers float64, colle
 		shippingMod = 1.0
 	}
 
+	//baseLaying := 3.772
+	//baseShipping := 7.148
+
+	// The 5.8 is Solo production without stones times 0.9
+
 	estimate := contractEggs / (numFarmers * 5.8 * (1.0 + 0.15*min(numFarmers-1.0, 10.0+shippingMod)) * math.Pow(1.05, max(0.0, 10.0-numFarmers)))
 	estimateDuration := time.Duration(estimate * float64(time.Hour))
 

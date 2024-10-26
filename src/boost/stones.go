@@ -556,6 +556,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			val := fmt.Sprintf("%2.2f🚚", (collegShip-1.0)*100.0)
 			as.collegg = append(as.collegg, strings.Replace(strings.Replace(val, ".00", "", -1), ".25", "¼", -1))
 		} else {
+			// Likely because of a change in in a coop deflector value since they last synced
 			artifactSets[i].note = append(artifactSets[i].note, fmt.Sprintf("SR: %2.4f(q:%d) - ei.sr: %2.4f  ratio:%2.4f", shippingRate, as.quantStones, (as.sr/1e15), collegShip))
 		}
 		bestTotal := 0.0
