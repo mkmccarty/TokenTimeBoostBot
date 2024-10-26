@@ -1714,7 +1714,8 @@ func reorderBoosters(contract *Contract) {
 		})
 
 		newBoostPosition := len(orderedNames)
-		if contract.Boosters[contract.Order[contract.BoostPosition]].BoostState == BoostStateTokenTime {
+		if contract.Banker.SinkBoostPosition == SinkBoostFirst && contract.BoostPosition == 0 ||
+			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState == BoostStateTokenTime {
 			newBoostPosition = contract.BoostPosition
 		}
 
