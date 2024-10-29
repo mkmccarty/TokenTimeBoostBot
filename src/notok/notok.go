@@ -20,10 +20,8 @@ import (
 	"google.golang.org/api/option"
 )
 
-//const aiBotString string = "Eggcellent, the AIrtists have started work and will reply shortly."
-//const aiTextString string = "Eggcellent, the wrAIters have been tasked with a composition for you."
+const googleModel = "gemini-1.5-flash-8b"
 
-// var defaultWish = "Draw a balloon animal staring into a lightbulb in an unhealthy way."
 var defaultWish = "Show a potato staring into a lightbulb in an unhealthy way."
 
 var lastWish = defaultWish
@@ -199,8 +197,7 @@ func getStringFromGoogleGemini(text string) (string, error) {
 	}
 	defer client.Close()
 
-	model := client.GenerativeModel("gemini-1.5-flash")
-	//model := client.GenerativeModel("gemini-pro")
+	model := client.GenerativeModel(googleModel)
 	model.SafetySettings = []*genai.SafetySetting{
 		{
 			Category:  genai.HarmCategorySexuallyExplicit,
