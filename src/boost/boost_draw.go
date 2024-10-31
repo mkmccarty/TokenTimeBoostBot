@@ -52,7 +52,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		}
 	}
 
-	if contract.State != ContractStateSignup {
+	if contract.State != ContractStateSignup && contract.State != ContractStateCompleted {
 		outputStr += fmt.Sprintf("> %s/min: %2.2f\n", contract.TokenStr, float64(len(contract.TokenLog))/time.Since(contract.StartTime).Minutes())
 	}
 
@@ -76,12 +76,13 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		return outputStr
 	}
 
-	if contract.State == ContractStateSignup {
-		outputStr += "## Sign-up List\n"
-	} else {
-		outputStr += "## Boost List\n"
-	}
-
+	/*
+		if contract.State == ContractStateSignup {
+			outputStr += "## Sign-up List\n"
+		} else {
+			outputStr += "## Boost List\n"
+		}
+	*/
 	var prefix = " - "
 
 	earlyList := ""
@@ -112,148 +113,172 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 
 	showBoostedNums := 6 // Try to show at least 6 previously boosted
 	windowSize := 10     // Number lines to show a single booster
-	orderSubset := contract.Order
-	if contract.State != ContractStateSignup && len(contract.Order) >= (windowSize+2) {
-		// extract 10 elements around the current booster
-		var start = contract.BoostPosition - showBoostedNums
-		var end = contract.BoostPosition + (windowSize - showBoostedNums)
 
-		if start < 0 {
-			// add the aboslute value of start to end
-			end += -start
-			start = 0
-		}
-		if end > len(contract.Order) {
-			start -= end - len(contract.Order)
-			end = len(contract.Order)
-		}
-		// populate earlyList with all elements from earlySubset
-		for i, element := range contract.Order[0:start] {
-			var b, ok = contract.Boosters[element]
-			if ok {
-				sinkIcon := getSinkIcon(contract, b)
-
-				if b.BoostState == BoostStateBoosted {
-					earlyList += fmt.Sprintf("~~%s~~%s ", b.Mention, sinkIcon)
-				} else {
-					earlyList += fmt.Sprintf("%s(%d)%s ", b.Mention, b.TokensWanted, sinkIcon)
-				}
-				if i < start-1 {
-					earlyList += ", "
-				}
-			}
-		}
-		if earlyList != "" {
-			if start == 1 {
-				earlyList = fmt.Sprintf("1: %s\n", earlyList)
-			} else {
-				earlyList = fmt.Sprintf("1-%d: %s\n", start, earlyList)
-			}
-		}
-
-		for i, element := range contract.Order[end:len(contract.Order)] {
-			var b, ok = contract.Boosters[element]
-			if ok {
-				sinkIcon := getSinkIcon(contract, b)
-
-				if b.BoostState == BoostStateBoosted {
-					lateList += fmt.Sprintf("~~%s~~%s ", b.Mention, sinkIcon)
-				} else {
-					lateList += fmt.Sprintf("%s(%d)%s ", b.Mention, b.TokensWanted, sinkIcon)
-				}
-				if (end + i + 1) < len(contract.Boosters) {
-					lateList += ", "
-				}
-			}
-		}
-		if lateList != "" {
-			if (end + 1) == len(contract.Order) {
-				lateList = fmt.Sprintf("%d: %s", end+1, lateList)
-			} else {
-				lateList = fmt.Sprintf("%d-%d: %s", end+1, len(contract.Order), lateList)
-			}
-		}
-
-		orderSubset = contract.Order[start:end]
-		offset = start + 1
-	}
-
-	outputStr += earlyList
-
-	for i, element := range orderSubset {
-
-		if contract.State != ContractStateSignup {
-			prefix = fmt.Sprintf("%2d - ", i+offset)
-		}
-		var b, ok = contract.Boosters[element]
-		if ok {
+	// If the contract has been completed for 20 minutes then just show the sink without the entire list
+	if contract.State == ContractStateCompleted && time.Since(contract.EndTime) > 1*time.Minute {
+		//outputStr += "## Boost\n"
+		if contract.Banker.CurrentBanker == "" {
+			outputStr += "\nNo volunteer sink for this contract, hold your tokens.\n"
+		} else {
+			b := contract.Boosters[contract.Banker.CurrentBanker]
 			var name = b.Mention
 			var einame = farmerstate.GetEggIncName(b.UserID)
 			if einame != "" {
 				name += " " + einame
 			}
-			var server = ""
-			var currentStartTime = fmt.Sprintf(" <t:%d:R> ", b.StartTime.Unix())
-			if len(contract.Location) > 1 {
-				server = fmt.Sprintf(" (%s) ", b.GuildName)
-			}
-			var chickenStr = ""
-			//if time.Since(b.RunChickensTime) < 10*time.Minute {
-			if !b.RunChickensTime.IsZero() {
-				chickenStr = fmt.Sprintf(" - <t:%d:R>%s>", b.RunChickensTime.Unix(), contract.ChickenRunEmoji)
-			}
-
-			countStr, signupCountStr := getTokenCountString(tokenStr, b.TokensWanted, b.TokensReceived)
-			if b.UserID == contract.Banker.CurrentBanker && b.BoostState == BoostStateUnboosted {
-				countStr, signupCountStr = getTokenCountString(tokenStr, b.TokensWanted, 0)
-			}
-
-			// Additions for contract state value display
-			sortRate := ""
-			if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderELR {
-				sortRate = fmt.Sprintf(" **ELR:%2.3f** ", min(b.ArtifactSet.LayRate, b.ArtifactSet.ShipRate))
-			}
-			if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.BoostOrder == ContractOrderTVal {
-				sortRate = fmt.Sprintf(" *∆:%2.3f* ", b.TokenValue)
-			}
 
 			sinkIcon := getSinkIcon(contract, b)
-			if contract.State == ContractStateBanker {
+			outputStr += fmt.Sprintf("\n%s  %s\n", name, sinkIcon)
+		}
+	} else {
+		if contract.State == ContractStateSignup {
+			outputStr += "## Sign-up List\n"
+		} else {
+			outputStr += "## Boost List\n"
+		}
 
-				switch b.BoostState {
-				case BoostStateUnboosted:
-					outputStr += fmt.Sprintf("%s %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, sinkIcon, server)
-				case BoostStateTokenTime:
-					outputStr += fmt.Sprintf("%s ➡️ **%s** %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, currentStartTime, sinkIcon, server)
-				case BoostStateBoosted:
-					outputStr += fmt.Sprintf("%s ~~%s~~  %s %s%s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, chickenStr, server)
+		orderSubset := contract.Order
+		if contract.State != ContractStateSignup && len(contract.Order) >= (windowSize+2) {
+			// extract 10 elements around the current booster
+			var start = contract.BoostPosition - showBoostedNums
+			var end = contract.BoostPosition + (windowSize - showBoostedNums)
+
+			if start < 0 {
+				// add the aboslute value of start to end
+				end += -start
+				start = 0
+			}
+			if end > len(contract.Order) {
+				start -= end - len(contract.Order)
+				end = len(contract.Order)
+			}
+			// populate earlyList with all elements from earlySubset
+			for i, element := range contract.Order[0:start] {
+				var b, ok = contract.Boosters[element]
+				if ok {
+					sinkIcon := getSinkIcon(contract, b)
+
+					if b.BoostState == BoostStateBoosted {
+						earlyList += fmt.Sprintf("~~%s~~%s ", b.Mention, sinkIcon)
+					} else {
+						earlyList += fmt.Sprintf("%s(%d)%s ", b.Mention, b.TokensWanted, sinkIcon)
+					}
+					if i < start-1 {
+						earlyList += ", "
+					}
+				}
+			}
+			if earlyList != "" {
+				if start == 1 {
+					earlyList = fmt.Sprintf("1: %s\n", earlyList)
+				} else {
+					earlyList = fmt.Sprintf("1-%d: %s\n", start, earlyList)
+				}
+			}
+
+			for i, element := range contract.Order[end:len(contract.Order)] {
+				var b, ok = contract.Boosters[element]
+				if ok {
+					sinkIcon := getSinkIcon(contract, b)
+
+					if b.BoostState == BoostStateBoosted {
+						lateList += fmt.Sprintf("~~%s~~%s ", b.Mention, sinkIcon)
+					} else {
+						lateList += fmt.Sprintf("%s(%d)%s ", b.Mention, b.TokensWanted, sinkIcon)
+					}
+					if (end + i + 1) < len(contract.Boosters) {
+						lateList += ", "
+					}
+				}
+			}
+			if lateList != "" {
+				if (end + 1) == len(contract.Order) {
+					lateList = fmt.Sprintf("%d: %s", end+1, lateList)
+				} else {
+					lateList = fmt.Sprintf("%d-%d: %s", end+1, len(contract.Order), lateList)
+				}
+			}
+
+			orderSubset = contract.Order[start:end]
+			offset = start + 1
+		}
+
+		outputStr += earlyList
+
+		for i, element := range orderSubset {
+
+			if contract.State != ContractStateSignup {
+				prefix = fmt.Sprintf("%2d - ", i+offset)
+			}
+			var b, ok = contract.Boosters[element]
+			if ok {
+				var name = b.Mention
+				var einame = farmerstate.GetEggIncName(b.UserID)
+				if einame != "" {
+					name += " " + einame
+				}
+				var server = ""
+				var currentStartTime = fmt.Sprintf(" <t:%d:R> ", b.StartTime.Unix())
+				if len(contract.Location) > 1 {
+					server = fmt.Sprintf(" (%s) ", b.GuildName)
+				}
+				var chickenStr = ""
+				//if time.Since(b.RunChickensTime) < 10*time.Minute {
+				if !b.RunChickensTime.IsZero() {
+					chickenStr = fmt.Sprintf(" - <t:%d:R>%s>", b.RunChickensTime.Unix(), contract.ChickenRunEmoji)
 				}
 
-			} else {
+				countStr, signupCountStr := getTokenCountString(tokenStr, b.TokensWanted, b.TokensReceived)
+				if b.UserID == contract.Banker.CurrentBanker && b.BoostState == BoostStateUnboosted {
+					countStr, signupCountStr = getTokenCountString(tokenStr, b.TokensWanted, 0)
+				}
 
-				switch b.BoostState {
-				case BoostStateUnboosted:
-					outputStr += fmt.Sprintf("%s %s%s%s%s\n", prefix, name, signupCountStr, sortRate, server)
-				case BoostStateTokenTime:
-					if b.UserID == b.Name && b.AltController == "" && contract.State != ContractStateBanker {
-						// Add a rocket for auto boosting
-						outputStr += fmt.Sprintf("%s ➡️ **%s** 🚀%s%s%s%s\n", prefix, name, countStr, sortRate, currentStartTime, server)
-					} else {
-						if !b.BoostingTokenTimestamp.IsZero() {
-							currentStartTime = fmt.Sprintf(" <t:%d:R> since ️T-0️⃣ / votes:%d", b.BoostingTokenTimestamp.Unix(), len(b.VotingList))
-						}
-						outputStr += fmt.Sprintf("%s ➡️ **%s** %s%s%s%s\n", prefix, name, countStr, sortRate, currentStartTime, server)
+				// Additions for contract state value display
+				sortRate := ""
+				if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderELR {
+					sortRate = fmt.Sprintf(" **ELR:%2.3f** ", min(b.ArtifactSet.LayRate, b.ArtifactSet.ShipRate))
+				}
+				if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.BoostOrder == ContractOrderTVal {
+					sortRate = fmt.Sprintf(" *∆:%2.3f* ", b.TokenValue)
+				}
+
+				sinkIcon := getSinkIcon(contract, b)
+				if contract.State == ContractStateBanker {
+
+					switch b.BoostState {
+					case BoostStateUnboosted:
+						outputStr += fmt.Sprintf("%s %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, sinkIcon, server)
+					case BoostStateTokenTime:
+						outputStr += fmt.Sprintf("%s ➡️ **%s** %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, currentStartTime, sinkIcon, server)
+					case BoostStateBoosted:
+						outputStr += fmt.Sprintf("%s ~~%s~~  %s %s%s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, chickenStr, server)
 					}
-				case BoostStateBoosted:
-					outputStr += fmt.Sprintf("%s ~~%s~~  %s %s%s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, chickenStr, server)
+
+				} else {
+
+					switch b.BoostState {
+					case BoostStateUnboosted:
+						outputStr += fmt.Sprintf("%s %s%s%s%s\n", prefix, name, signupCountStr, sortRate, server)
+					case BoostStateTokenTime:
+						if b.UserID == b.Name && b.AltController == "" && contract.State != ContractStateBanker {
+							// Add a rocket for auto boosting
+							outputStr += fmt.Sprintf("%s ➡️ **%s** 🚀%s%s%s%s\n", prefix, name, countStr, sortRate, currentStartTime, server)
+						} else {
+							if !b.BoostingTokenTimestamp.IsZero() {
+								currentStartTime = fmt.Sprintf(" <t:%d:R> since ️T-0️⃣ / votes:%d", b.BoostingTokenTimestamp.Unix(), len(b.VotingList))
+							}
+							outputStr += fmt.Sprintf("%s ➡️ **%s** %s%s%s%s\n", prefix, name, countStr, sortRate, currentStartTime, server)
+						}
+					case BoostStateBoosted:
+						outputStr += fmt.Sprintf("%s ~~%s~~  %s %s%s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, chickenStr, server)
+					}
 				}
 			}
 		}
+		outputStr += lateList
+
+		outputStr += afterListStr
 	}
-	outputStr += lateList
-
-	outputStr += afterListStr
-
 	// Add reaction guidance to the bottom of this list
 	switch contract.State {
 	case ContractStateFastrun:
