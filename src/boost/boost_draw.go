@@ -115,7 +115,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	windowSize := 10     // Number lines to show a single booster
 
 	// If the contract has been completed for 20 minutes then just show the sink without the entire list
-	if contract.State == ContractStateCompleted && time.Since(contract.EndTime) > 1*time.Minute {
+	if contract.State == ContractStateCompleted && time.Since(contract.EndTime) > 15*time.Minute {
 		//outputStr += "## Boost\n"
 		if contract.Banker.CurrentBanker == "" {
 			outputStr += "\nNo volunteer sink for this contract, hold your tokens.\n"
