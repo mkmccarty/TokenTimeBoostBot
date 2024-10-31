@@ -14,7 +14,7 @@ require (
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/pkg/errors v0.9.1
 	github.com/rs/xid v1.6.0
-	github.com/sashabaranov/go-openai v1.32.3
+	github.com/sashabaranov/go-openai v1.32.5
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	go.mongodb.org/mongo-driver v1.17.1
 	google.golang.org/api v0.203.0
@@ -25,8 +25,8 @@ require (
 require (
 	cloud.google.com/go v0.116.0 // indirect
 	cloud.google.com/go/ai v0.8.2 // indirect
-	cloud.google.com/go/auth v0.9.9 // indirect
-	cloud.google.com/go/auth/oauth2adapt v0.2.4 // indirect
+	cloud.google.com/go/auth v0.10.0 // indirect
+	cloud.google.com/go/auth/oauth2adapt v0.2.5 // indirect
 	cloud.google.com/go/compute/metadata v0.5.2 // indirect
 	cloud.google.com/go/longrunning v0.6.2 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
