@@ -486,8 +486,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			as.note = append(as.note, "Missing Deflector")
 		}
 		artifactSets = append(artifactSets, as)
-
-		//fmt.Printf("%s  %2.0f\n", decodeCoopStatus.GetCoopIdentifier(), everyoneDeflectorPercent)
 	}
 
 	table := tablewriter.NewWriter(&builder)

@@ -467,21 +467,7 @@ func HandleArtifactCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	userID := getInteractionUserID(i)
 
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
-
 	contractOnly := false
-	/*
-		contract := FindContract(i.ChannelID)
-		if contract != nil {
-			if contract.BoostOrder == ContractOrderELR {
-				contractOnly = true
-			}
-		}
-	*/
 
 	str, comp := getArtifactsComponents(userID, i.ChannelID, contractOnly)
 
