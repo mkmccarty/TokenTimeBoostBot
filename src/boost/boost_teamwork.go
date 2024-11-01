@@ -441,7 +441,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		if BestSIAB > 0 && decodeCoopStatus.GetSecondsSinceAllGoalsAchieved() <= 0 {
 			var maxTeamwork strings.Builder
 			if LastSIABCalc != 0 {
-				maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB for %s (<t:%d:R>) in the most recent teamwork segment to max BTV by %6.0f.\n", fmtDuration(siabTimeEquipped), MostRecentDuration.Add(siabTimeEquipped).Unix(), shortTeamwork))
+				maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB for %s (<t:%d:t>) in the most recent teamwork segment to max BTV by %6.0f.\n", fmtDuration(siabTimeEquipped), MostRecentDuration.Add(siabTimeEquipped).Unix(), shortTeamwork))
 			} else {
 				if time.Now().Add(siabTimeEquipped).After(endTime) {
 					// How much longer is this siabTimeEquipped than the end of the contract
@@ -450,10 +450,10 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 					// Calculate the shortTeamwork reducing the extra time from the siabTimeEquipped
 					extraPercent := (siabTimeEquipped - extraTime).Seconds() / siabTimeEquipped.Seconds()
 
-					maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB through end of contract (<t:%d:R>) in new teamwork segment to improve BTV by %6.0f. ", endTime.Unix(), shortTeamwork*extraPercent))
+					maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB through end of contract (<t:%d:t>) in new teamwork segment to improve BTV by %6.0f. ", endTime.Unix(), shortTeamwork*extraPercent))
 					maxTeamwork.WriteString(fmt.Sprintf("The maximum BTV increase of %6.0f would be achieved if the contract finished at <t:%d:f>.", shortTeamwork, time.Now().Add(siabTimeEquipped).Unix()))
 				} else {
-					maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB for %s (<t:%d:R>) in new teamwork segment to max BTV by %6.0f.\n", fmtDuration(siabTimeEquipped), time.Now().Add(siabTimeEquipped).Unix(), shortTeamwork))
+					maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB for %s (<t:%d:t>) in new teamwork segment to max BTV by %6.0f.\n", fmtDuration(siabTimeEquipped), time.Now().Add(siabTimeEquipped).Unix(), shortTeamwork))
 				}
 			}
 			field = append(field, &discordgo.MessageEmbedField{
