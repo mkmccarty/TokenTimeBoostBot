@@ -417,7 +417,7 @@ func GetStones(afxName ArtifactSpec_Name, afxLevel ArtifactSpec_Level, afxRarity
 		if f.AfxID != afxName {
 			continue
 		}
-		fmt.Print(f.AfxID)
+		//fmt.Print(f.AfxID)
 		tier := f.Tiers[afxLevel]
 		for _, e := range tier.Effects {
 			if e.AfxRarity == afxRarity {
