@@ -87,12 +87,6 @@ func resetTokenTracking(tv *tokenValue) {
 	tv.LinkRecieved = true
 	tv.Sent = nil
 	tv.Received = nil
-	//tv.TokenSentTime = nil
-	//tv.TokenReceivedTime = nil
-	//tv.TokenReceivedUserID = nil
-	//tv.TokenSentUserID = nil
-	//tv.TokenSentValues = nil
-	//tv.TokenReceivedValues = nil
 	tv.SumValueSent = 0.0
 	tv.SumValueReceived = 0.0
 	tv.TokenDelta = 0.0
