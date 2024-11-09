@@ -41,7 +41,8 @@ const errorContractNotStarted = "contract hasn't started"
 const errorContractAlreadyStarted = "contract already started"
 const errorAlreadyBoosted = "farmer boosted already"
 const errorNotContractCreator = "restricted to contract creator"
-const errorContractNotWaiting = "contract not in waiting state"
+
+//const errorContractNotWaiting = "contract not in waiting state"
 
 // Create a slice with the names of the ContractState const names
 var contractStateNames = []string{
@@ -594,6 +595,14 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 		if idx != -1 {
 			b := contract.Boosters[guest]
 			wantedTokens := farmerstate.GetTokens(b.UserID)
+			if contract.State != ContractStateSignup {
+				if contract.Style&ContractFlag6Tokens != 0 {
+					wantedTokens = 6
+				} else if contract.Style&ContractFlag8Tokens != 0 {
+					wantedTokens = 8
+				}
+			}
+
 			if b.TokensWanted != wantedTokens {
 				b.TokensWanted = wantedTokens
 				return fmt.Errorf("token count for **%s** adjusted to %d. This will show on the next contract refresh", guest, wantedTokens)
@@ -726,6 +735,13 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		b.TokensWanted = farmerstate.GetTokens(b.UserID)
 		if b.TokensWanted <= 0 {
 			b.TokensWanted = defaultFamerTokens // Default to 6
+		}
+		if contract.State != ContractStateSignup {
+			if contract.Style&ContractFlag6Tokens != 0 {
+				b.TokensWanted = 6
+			} else if contract.Style&ContractFlag8Tokens != 0 {
+				b.TokensWanted = 8
+			}
 		}
 		b.ArtifactSet = getUserArtifacts(userID, nil)
 
