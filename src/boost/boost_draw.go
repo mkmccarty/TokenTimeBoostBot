@@ -49,7 +49,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		} else if contract.Style&ContractFlag8Tokens != 0 {
 			outputStr += fmt.Sprintf(">  8️⃣%s boosting for everyone!\n", contract.TokenStr)
 		} else if contract.Style&ContractFlagDynamicTokens != 0 {
-			outputStr += fmt.Sprintf("> 🤖 Dynamic tokens (coming soon)\n")
+			outputStr += "> 🤖 Dynamic tokens (coming soon)\n"
 		}
 	}
 
