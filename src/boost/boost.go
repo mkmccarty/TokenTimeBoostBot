@@ -463,7 +463,10 @@ func AddBoostTokens(s *discordgo.Session, i *discordgo.InteractionCreate, setCou
 		b.TokensWanted = 0
 	}
 
-	farmerstate.SetTokens(b.UserID, b.TokensWanted)
+	if (ContractFlagDynamicTokens+ContractFlag8Tokens+ContractFlag6Tokens)&contract.Style == 0 {
+		// Only set this if the contract isn't controlling the wanted tokens
+		farmerstate.SetTokens(b.UserID, b.TokensWanted)
+	}
 
 	refreshBoostListMessage(s, contract)
 
