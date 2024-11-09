@@ -162,7 +162,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 					Options: []discordgo.SelectMenuOption{
 						{
 							Label:       "6 token boosts",
-							Description: "Everyone joins with 6 token boosts",
+							Description: "Everyone joins wanting 6 token boosts",
 							Value:       "boost6",
 							Default:     (contract.Style & ContractFlag6Tokens) != 0,
 							Emoji: &discordgo.ComponentEmoji{
@@ -171,7 +171,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 						},
 						{
 							Label:       "8 token boosts",
-							Description: "Everyone joins with 8 token boosts",
+							Description: "Everyone joins wanting 8 token boosts",
 							Value:       "boost8",
 							Default:     (contract.Style & ContractFlag8Tokens) != 0,
 							Emoji: &discordgo.ComponentEmoji{
