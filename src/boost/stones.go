@@ -125,12 +125,15 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		coopID = strings.ToLower(contract.CoopID)
 	}
 
-	builder.WriteString(DownloadCoopStatusStones(contractID, coopID, details, soloName))
+	s1 := DownloadCoopStatusStones(contractID, coopID, details, soloName)
+	builder.WriteString(s1)
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
 			Content: builder.String(),
 		})
+	// Split s1 message into 2000 character chunks separated by newlines
+
 }
 
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
@@ -328,6 +331,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	var totalContributions float64
 	var contributionRatePerSecond float64
 	setContractEstimage := true
+
+	alternateStr := ""
 
 	everyoneDeflectorPercent := 0.0
 	for _, c := range decodeCoopStatus.GetContributors() {
@@ -637,6 +642,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				table.Append([]string{as.name,
 					fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
 					notes})
+				alternateStr += as.name + ": T" + strconv.Itoa(as.tachWant) + " / Q" + strconv.Itoa(as.quantWant) + "\n"
+			} else {
+				alternateStr += as.name + ": T" + strconv.Itoa(as.tachWant) + " / Q" + strconv.Itoa(as.quantWant) + "⭐️\n"
 			}
 		}
 
@@ -694,13 +702,14 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	} else {
 		fmt.Fprint(&builder, "Showing all stone variations for solo report.\n")
 	}
+	alternateStrHeader := builder.String()
 
 	builder.WriteString("```")
 	table.Render()
 	builder.WriteString("```")
 
 	for _, as := range artifactSets {
-		if len(as.note) > 0 {
+		if len(as.note) > 0 && len(builder.String()) < 2000 {
 			builder.WriteString(fmt.Sprintf("**%s** Notes: %s\n", as.name, strings.Join(as.note, ", ")))
 		}
 	}
@@ -711,7 +720,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	if len(builder.String()) > 2000 {
 		if !details {
-			return "Output too large for Discord, try again with details=false"
+			return alternateStrHeader + "\n" + alternateStr
 		}
 		return DownloadCoopStatusStones(contractID, coopID, false, soloName)
 	}
