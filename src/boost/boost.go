@@ -41,6 +41,7 @@ const errorContractNotStarted = "contract hasn't started"
 const errorContractAlreadyStarted = "contract already started"
 const errorAlreadyBoosted = "farmer boosted already"
 const errorNotContractCreator = "restricted to contract creator"
+const errorContractNotWaiting = "contract not in waiting state"
 
 // Create a slice with the names of the ContractState const names
 var contractStateNames = []string{
@@ -89,7 +90,9 @@ const (
 	ContractFlagNone          = 0x0000
 	ContractFlagCrt           = 0x0001
 	ContractFlagSelfRuns      = 0x0002
-	ContractFlagDynamicTokens = 0x0100
+	ContractFlag6Tokens       = 0x0100
+	ContractFlag8Tokens       = 0x0200
+	ContractFlagDynamicTokens = 0x0400
 	ContractFlagFastrun       = 0x4000
 	ContractFlagBanker        = 0x8000
 
@@ -98,6 +101,8 @@ const (
 	ContractStyleSpeedrunBoostList = ContractFlagCrt | ContractFlagFastrun
 	ContractStyleSpeedrunBanker    = ContractFlagCrt | ContractFlagBanker
 )
+
+const defaultFamerTokens = 6
 
 var boostIconName = "🚀"     // For Reaction tests
 var boostIconReaction = "🚀" // For displaying
@@ -720,7 +725,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		b.BoostState = BoostStateUnboosted
 		b.TokensWanted = farmerstate.GetTokens(b.UserID)
 		if b.TokensWanted <= 0 {
-			b.TokensWanted = 8
+			b.TokensWanted = defaultFamerTokens // Default to 6
 		}
 		b.ArtifactSet = getUserArtifacts(userID, nil)
 
@@ -1124,6 +1129,15 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	reorderBoosters(contract)
 	if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
 		calculateTangoLegs(contract, true)
+	}
+
+	// Set tokens...
+	for i := range contract.Boosters {
+		if contract.Style&ContractFlag6Tokens != 0 {
+			contract.Boosters[i].TokensWanted = 6
+		} else if contract.Style&ContractFlag8Tokens != 0 {
+			contract.Boosters[i].TokensWanted = 8
+		}
 	}
 
 	contract.BoostPosition = 0

@@ -421,9 +421,29 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		values := data.Values
 		if len(values) == 0 {
 			contract.Style &= ^ContractFlagDynamicTokens
+			contract.Style &= ^ContractFlag6Tokens
+			contract.Style &= ^ContractFlag8Tokens
 		} else {
 			switch values[0] {
+			case "boost6":
+				contract.Style &= ^ContractFlagDynamicTokens
+				contract.Style &= ^ContractFlag8Tokens
+				if contract.Style&ContractFlag6Tokens != 0 {
+					contract.Style &= ^ContractFlag6Tokens
+				} else {
+					contract.Style |= ContractFlag6Tokens
+				}
+			case "boost8":
+				contract.Style &= ^ContractFlagDynamicTokens
+				contract.Style &= ^ContractFlag6Tokens
+				if contract.Style&ContractFlag8Tokens != 0 {
+					contract.Style &= ^ContractFlag8Tokens
+				} else {
+					contract.Style |= ContractFlag8Tokens
+				}
 			case "dynamic":
+				contract.Style &= ^ContractFlag6Tokens
+				contract.Style &= ^ContractFlag8Tokens
 				if contract.Style&ContractFlagDynamicTokens != 0 {
 					contract.Style &= ^ContractFlagDynamicTokens
 				} else {
