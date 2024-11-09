@@ -161,6 +161,24 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 					MaxValues:   1,
 					Options: []discordgo.SelectMenuOption{
 						{
+							Label:       "6 token boosts",
+							Description: "Everyone joins with 6 token boosts",
+							Value:       "boost6",
+							Default:     (contract.Style & ContractFlag6Tokens) != 0,
+							Emoji: &discordgo.ComponentEmoji{
+								Name: "6️⃣",
+							},
+						},
+						{
+							Label:       "8 token boosts",
+							Description: "Everyone joins with 8 token boosts",
+							Value:       "boost8",
+							Default:     (contract.Style & ContractFlag8Tokens) != 0,
+							Emoji: &discordgo.ComponentEmoji{
+								Name: "8️⃣",
+							},
+						},
+						{
 							Label:       "Dynamic Boost Tokens",
 							Description: "Based on highest 120min delivery rate",
 							Value:       "dynamic",
