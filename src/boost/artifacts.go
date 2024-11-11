@@ -421,7 +421,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 						},
 						{
 							Label:       "Lithium",
-							Description: "10% Vehicle Cost",
+							Description: "-10% Vehicle Cost",
 							Value:       "Lithium",
 							Default:     strings.Contains(coll, "Lithium"),
 							Emoji: &discordgo.ComponentEmoji{
