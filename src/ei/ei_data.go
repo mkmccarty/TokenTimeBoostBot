@@ -97,6 +97,7 @@ var EggEmojiMap = map[string]EggEmojiData{
 	"CHOCOLATE":      {"egg_chocolate", "1279200983523524659", "1280382217822146560"},
 	"EASTER":         {"egg_easter", "1279201048845881414", "1280382259630964767"},
 	"CARBON-FIBER":   {"egg_carbonfiber", "1279202173904752802", "1280385218213187640"},
+	"LITHIUM":        {"egg_lithium", "1305429259048718387", "1305429887749853185"},
 	"SOUL":           {"egg_soul", "1279201265628348490", "1280382995282526208"},
 	"PROPHECY":       {"egg_prophecy", "1279201195872878652", "1280382926470643754"},
 }
@@ -275,6 +276,7 @@ var ArtifactMap = map[string]*Artifact{
 	"Chocolate":    {Type: "Collegg", Quality: "3x", ShipBuff: 1.0, LayBuff: 1.0, DeflBuff: 1.0, Stones: 0},
 	"Easter":       {Type: "Collegg", Quality: "5%", ShipBuff: 1.0, LayBuff: 1.0, DeflBuff: 1.0, Stones: 0},
 	"Firework":     {Type: "Collegg", Quality: "5%", ShipBuff: 1.0, LayBuff: 1.0, DeflBuff: 1.0, Stones: 0},
+	"Lithium":      {Type: "Collegg", Quality: "10%", ShipBuff: 1.0, LayBuff: 1.0, DeflBuff: 1.0, Stones: 0},
 	"Pumpkin":      {Type: "Collegg", Quality: "5%", ShipBuff: 1.05, LayBuff: 1.0, DeflBuff: 1.0, Stones: 0},
 	"Waterballoon": {Type: "Collegg", Quality: "95%", ShipBuff: 1.0, LayBuff: 1.0, DeflBuff: 1.0, Stones: 0},
 }
