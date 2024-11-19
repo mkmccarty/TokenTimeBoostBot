@@ -504,7 +504,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				as.note = append(as.note, "Missing Deflector")
 			} else {
 				as.note = append(as.note, fmt.Sprintf("DEFL from BuffHist %2.0f%%", bestDeflectorPercent))
-				as.deflector.abbrev = "B-H"
+				as.deflector.abbrev = fmt.Sprintf("%d%%", int(bestDeflectorPercent))
 				as.deflector.percent = bestDeflectorPercent
 				everyoneDeflectorPercent += as.deflector.percent
 			}
