@@ -469,26 +469,45 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 		//fmt.Printf("Total Stones: %d\n", totalStones)
 		//if as.baseShippingRate == 0 {
-		history := c.GetBuffHistory()
-		if len(history) > 0 {
-			b := history[len(history)-1]
-			elr := b.GetEggLayingRate()
-			if elr > 1.0 {
-				// Check to see if we have a match for the deflector in BuffHistory
-				buffElr := math.Round((elr - 1.0) * 100.0)
-				if as.deflector.percent == 0.0 {
-					// Handle private farms with no known artifacts
-					as.deflector.abbrev = "PVT"
-					as.deflector.percent = buffElr
-					everyoneDeflectorPercent += as.deflector.percent
-				} else if as.deflector.percent != buffElr {
-					as.note = append(as.note, fmt.Sprintf("DEFL Mismatch ∆ %f %f", as.deflector.percent, buffElr))
+		/*
+			history := c.GetBuffHistory()
+			if len(history) > 0 {
+				b := history[len(history)-1]
+				elr := b.GetEggLayingRate()
+				if elr > 1.0 {
+					// Check to see if we have a match for the deflector in BuffHistory
+					buffElr := math.Round((elr - 1.0) * 100.0)
+					if as.deflector.percent == 0.0 {
+						// Handle private farms with no known artifacts
+						as.deflector.abbrev = "PVT"
+						as.deflector.percent = buffElr
+						everyoneDeflectorPercent += as.deflector.percent
+					} else if as.deflector.percent != buffElr {
+						as.note = append(as.note, fmt.Sprintf("DEFL Mismatch ∆ %f %f", as.deflector.percent, buffElr))
+					}
 				}
 			}
-		}
+		*/
 		//}
 		if as.deflector.percent == 0.0 {
-			as.note = append(as.note, "Missing Deflector")
+
+			bestDeflectorPercent := 0.0
+			for _, b := range c.BuffHistory {
+				if b.GetEggLayingRate() > 1.0 {
+					buffElr := math.Round((b.GetEggLayingRate() - 1.0) * 100.0)
+					if buffElr > bestDeflectorPercent {
+						bestDeflectorPercent = buffElr
+					}
+				}
+			}
+			if bestDeflectorPercent == 0.0 {
+				as.note = append(as.note, "Missing Deflector")
+			} else {
+				as.note = append(as.note, fmt.Sprintf("DEFL from BuffHist %2.0f%%", bestDeflectorPercent))
+				as.deflector.abbrev = "B-H"
+				as.deflector.percent = bestDeflectorPercent
+				everyoneDeflectorPercent += as.deflector.percent
+			}
 		}
 		artifactSets = append(artifactSets, as)
 	}
