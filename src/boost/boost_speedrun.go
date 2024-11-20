@@ -412,6 +412,9 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 		}
 		if sinkBoosting != "" {
 			contract.Banker.BoostingSinkUserID = sinkBoosting
+			if contract.State == ContractStateBanker {
+				contract.Banker.CurrentBanker = contract.Banker.BoostingSinkUserID
+			}
 			fmt.Fprintf(&builder, "Boosting Sink set to %s\n", contract.Boosters[contract.Banker.BoostingSinkUserID].Mention)
 		}
 		if sinkPost != "" {
