@@ -90,7 +90,8 @@ test/cover:
 	go tool cover -html=/tmp/coverage.out
 
 ## build: build the application
-
+# Build the protobuf go source. Requires the following in the .proto file:
+# option go_package = "github.com/elgranjero/EggUtils/ei";
 .PHONY: protobuf
 protobuf:
 	protoc -I=src/ei --go_out=src/ei src/ei/ei.proto
