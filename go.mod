@@ -4,7 +4,7 @@ go 1.23.3
 
 require (
 	github.com/bwmarrin/discordgo v0.28.2-0.20241006165315-247b6f7a76f9
-	github.com/divan/num2words v0.0.0-20170904212200-57dba452f942
+	github.com/divan/num2words v1.0.1
 	github.com/ewohltman/discordgo-mock v0.0.11
 	github.com/google/generative-ai-go v0.18.0
 	github.com/jasonlvhit/gocron v0.0.1
@@ -17,7 +17,7 @@ require (
 	github.com/sashabaranov/go-openai v1.35.7
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	go.mongodb.org/mongo-driver v1.17.1
-	google.golang.org/api v0.208.0
+	google.golang.org/api v0.209.0
 	google.golang.org/protobuf v1.35.2
 
 )
@@ -25,8 +25,8 @@ require (
 require (
 	cloud.google.com/go v0.116.0 // indirect
 	cloud.google.com/go/ai v0.9.0 // indirect
-	cloud.google.com/go/auth v0.10.2 // indirect
-	cloud.google.com/go/auth/oauth2adapt v0.2.5 // indirect
+	cloud.google.com/go/auth v0.11.0 // indirect
+	cloud.google.com/go/auth/oauth2adapt v0.2.6 // indirect
 	cloud.google.com/go/compute/metadata v0.5.2 // indirect
 	cloud.google.com/go/longrunning v0.6.3 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
@@ -45,7 +45,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/montanaflynn/stats v0.7.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/smartystreets/goconvey v1.8.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.2 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
