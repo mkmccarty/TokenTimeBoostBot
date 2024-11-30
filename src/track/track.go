@@ -23,7 +23,7 @@ const (
 // TokenUnit holds everything we need to know about a token
 type TokenUnit struct {
 	Time     time.Time // Time the token was sent or received
-	Value    float64   // Calculated value of the token
+	Value    float64   // Calculated value of the token * Quantity
 	UserID   string    // Who sent or received the token
 	Serial   string    // Serial number of the token
 	Quantity int       // Quantity of the tokens
@@ -465,7 +465,7 @@ func tokenTracking(s *discordgo.Session, channelID string, userID string, name s
 				td.SentCount += t.Quantity
 			} else if t.ToUserID == userID {
 				value := getTokenValue(t.Time.Sub(td.StartTime).Seconds(), td.DurationTime.Seconds()) * float64(t.Quantity)
-				td.Received = append(td.Received, TokenUnit{Time: t.Time, Value: t.Value, UserID: t.FromNick, Serial: t.Serial, Quantity: t.Quantity})
+				td.Received = append(td.Received, TokenUnit{Time: t.Time, Value: value, UserID: t.FromNick, Serial: t.Serial, Quantity: t.Quantity})
 				td.SumValueReceived += value
 				td.ReceivedCount += t.Quantity
 			}

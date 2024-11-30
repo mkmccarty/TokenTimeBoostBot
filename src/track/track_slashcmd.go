@@ -420,7 +420,7 @@ func HandleTokenEditTrackCommand(s *discordgo.Session, i *discordgo.InteractionC
 				xid, _ := xid.FromString(t.Serial)
 				if xid.Counter() == tokenIndex {
 					tracker.Sent[i].Quantity = int(tokenCount)
-					tracker.Sent[i].Value = getTokenValue(tracker.Sent[i].Time.Sub(tracker.StartTime).Seconds(), float64(tracker.DurationTime.Seconds()*float64(tracker.Sent[i].Quantity)))
+					tracker.Sent[i].Value = getTokenValue(tracker.Sent[i].Time.Sub(tracker.StartTime).Seconds(), float64(tracker.DurationTime.Seconds())) * float64(tracker.Sent[i].Quantity)
 					str = "Token count modified"
 					break
 				}
@@ -430,7 +430,7 @@ func HandleTokenEditTrackCommand(s *discordgo.Session, i *discordgo.InteractionC
 				xid, _ := xid.FromString(t.Serial)
 				if xid.Counter() == tokenIndex {
 					tracker.Received[i].Quantity = int(tokenCount)
-					tracker.Received[i].Value = getTokenValue(tracker.Received[i].Time.Sub(tracker.StartTime).Seconds(), float64(tracker.DurationTime.Seconds()*float64(tracker.Received[i].Quantity)))
+					tracker.Received[i].Value = getTokenValue(tracker.Received[i].Time.Sub(tracker.StartTime).Seconds(), float64(tracker.DurationTime.Seconds())) * float64(tracker.Received[i].Quantity)
 					str = "Token count modified"
 					break
 				}
@@ -444,14 +444,14 @@ func HandleTokenEditTrackCommand(s *discordgo.Session, i *discordgo.InteractionC
 	tracker.SentCount = 0
 	tracker.ReceivedCount = 0
 	for i, t := range tracker.Sent {
-		tracker.Sent[i].Value = getTokenValue(tracker.Sent[i].Time.Sub(tracker.StartTime).Seconds(), float64(tracker.DurationTime.Seconds())*float64(tracker.Sent[i].Quantity))
+		//tracker.Sent[i].Value = getTokenValue(t.Time.Sub(tracker.StartTime).Seconds(), float64(tracker.DurationTime.Seconds()))
 		tracker.SentCount += t.Quantity
-		tracker.SumValueSent += tracker.Sent[i].Value * float64(t.Quantity)
+		tracker.SumValueSent += tracker.Sent[i].Value
 	}
 	for i, t := range tracker.Received {
-		tracker.Received[i].Value = getTokenValue(tracker.Received[i].Time.Sub(tracker.StartTime).Seconds(), float64(tracker.DurationTime.Seconds())*float64(tracker.Received[i].Quantity))
+		//tracker.Received[i].Value = getTokenValue(t.Time.Sub(tracker.StartTime).Seconds(), float64(tracker.DurationTime.Seconds()))
 		tracker.ReceivedCount += t.Quantity
-		tracker.SumValueReceived += tracker.Received[i].Value * float64(t.Quantity)
+		tracker.SumValueReceived += tracker.Received[i].Value
 	}
 
 	saveData(Tokens)
