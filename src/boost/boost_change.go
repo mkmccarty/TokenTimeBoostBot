@@ -164,6 +164,7 @@ func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 	if opt, ok := optionMap["coordinator"]; ok {
 		coordinatorID = opt.UserValue(s).ID
+		str += "Coordinator changed to " + opt.UserValue(s).Username + ". The change will show after the next redraw."
 	}
 
 	if contractID != "" || coopID != "" || coordinatorID != "" {
