@@ -446,12 +446,12 @@ func HandleTokenEditTrackCommand(s *discordgo.Session, i *discordgo.InteractionC
 	for i, t := range tracker.Sent {
 		tracker.Sent[i].Value = getTokenValue(tracker.Sent[i].Time.Sub(tracker.StartTime).Seconds(), float64(tracker.DurationTime.Seconds())*float64(tracker.Sent[i].Quantity))
 		tracker.SentCount += t.Quantity
-		tracker.SumValueSent += tracker.Sent[i].Value
+		tracker.SumValueSent += tracker.Sent[i].Value * float64(t.Quantity)
 	}
 	for i, t := range tracker.Received {
 		tracker.Received[i].Value = getTokenValue(tracker.Received[i].Time.Sub(tracker.StartTime).Seconds(), float64(tracker.DurationTime.Seconds())*float64(tracker.Received[i].Quantity))
 		tracker.ReceivedCount += t.Quantity
-		tracker.SumValueReceived += tracker.Received[i].Value
+		tracker.SumValueReceived += tracker.Received[i].Value * float64(t.Quantity)
 	}
 
 	saveData(Tokens)
