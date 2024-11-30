@@ -37,7 +37,7 @@ type tokenValue struct {
 	ContractID       string        // The contract ID
 	CoopID           string        // The coop ID
 	Linked           bool          // If the tracker is linked to channel contract
-	LinkRecieved     bool          // If linked, log the received tokens
+	LinkReceived     bool          // If linked, log the received tokens
 	ChannelMention   string        // The channel mention
 	StartTime        time.Time     // When Token Value time started
 	EstimatedEndTime time.Time     // Time of Token Value time plus Duration
@@ -84,7 +84,7 @@ func init() {
 func resetTokenTracking(tv *tokenValue) {
 	tv.StartTime = time.Now()
 	tv.Linked = true
-	tv.LinkRecieved = true
+	tv.LinkReceived = true
 	tv.Sent = nil
 	tv.Received = nil
 	tv.SumValueSent = 0.0
@@ -323,7 +323,7 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 				}
 			}
 
-			if td.LinkRecieved && !finalDisplay {
+			if td.LinkReceived && !finalDisplay {
 				fmt.Fprint(&rbuilder, "\nReact with 1️⃣..🔟 to remove errant received tokens at that index. The bot cannot remove your DM reactions.\n")
 			}
 		}
@@ -438,7 +438,7 @@ func tokenTracking(s *discordgo.Session, channelID string, userID string, name s
 	td.DurationTime = duration
 	td.EstimatedEndTime = time.Now().Add(duration)
 	td.Linked = linked
-	td.LinkRecieved = linkReceived
+	td.LinkReceived = linkReceived
 	td.ContractID = contractID
 	td.CoopID = name
 	td.MinutesPerToken = 0
@@ -638,7 +638,7 @@ func ContractTokenMessage(s *discordgo.Session, channelID string, userID string,
 				v.SumValueSent += tokenValue
 				v.SentCount += count
 				redraw = true
-			} else if v.LinkRecieved && kind == TokenReceived {
+			} else if v.LinkReceived && kind == TokenReceived {
 				v.Received = append(v.Received, TokenUnit{Time: now, Value: tokenValue, UserID: actorUserID, Serial: serialID, Quantity: count})
 				v.SumValueReceived += tokenValue
 				v.ReceivedCount += count
