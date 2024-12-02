@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/fsnotify/fsnotify"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
@@ -24,6 +25,8 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/version"
 )
+
+const configFileName = "./.config.json"
 
 // Admin Slash Command Constants
 // const boostBotHomeGuild string = "766330702689992720"
@@ -89,8 +92,7 @@ func init() {
 	flag.Parse()
 
 	// Read values from .env file
-	err := config.ReadConfig("./.config.json")
-
+	err := config.ReadConfig(configFileName)
 	if err != nil {
 		log.Println(err.Error())
 		return
@@ -903,9 +905,48 @@ func main() {
 
 	defer s.Close()
 
+	// Add a config file watcher to pick up changes to the config file
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer watcher.Close()
+
+	go func() {
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				log.Println("event:", event)
+				if event.Has(fsnotify.Write) {
+					if event.Name == configFileName {
+						log.Println("modified file:", event.Name)
+						err := config.ReadConfig(event.Name)
+						if err != nil {
+							log.Println(err.Error())
+						}
+					}
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				log.Println("error:", err)
+			}
+		}
+	}()
+
+	err = watcher.Add(configFileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	log.Println("Press Ctrl+C to exit")
+
 	<-stop
 
 	boost.SaveAllData()
