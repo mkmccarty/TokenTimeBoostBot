@@ -310,7 +310,7 @@ var (
 			boost.HandleContractAutoComplete(s, i)
 		},
 		slashEstimateTime: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleContractAutoComplete(s, i)
+			boost.HandleAllContractsAutoComplete(s, i)
 		},
 		slashLinkAlternate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleLinkAlternateAutoComplete(s, i)
@@ -319,10 +319,10 @@ var (
 			boost.HandleAltsAutoComplete(s, i)
 		},
 		slashStones: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleStonesAutoComplete(s, i)
+			boost.HandleAllContractsAutoComplete(s, i)
 		},
 		slashTeamworkEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleStonesAutoComplete(s, i)
+			boost.HandleAllContractsAutoComplete(s, i)
 		},
 		slashTokenEditTrack: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			data := i.ApplicationCommandData()

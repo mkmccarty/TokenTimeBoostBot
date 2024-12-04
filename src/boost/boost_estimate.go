@@ -86,10 +86,18 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 				str += fmt.Sprintf("> w/Carbon Fiber: **about %v**", estStrShip)
 			}
 		}
+
+		noteStr := ""
+		if c.ContractVersion == 1 {
+			noteStr = fmt.Sprintf("**This is a ELITE Version 1 contract last seen <t:%d:F>.**\n", c.StartTime.Unix())
+		} else if c.ExpirationTime.Before(time.Now().UTC()) {
+			noteStr = fmt.Sprintf("**This is an unavailable V2 contract last seen <t:%d:F>.**\n", c.StartTime.Unix())
+		}
+
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: str,
+				Content: noteStr + str,
 				//Flags:      discordgo.MessageFlagsEphemeral,
 				Components: []discordgo.MessageComponent{}},
 		})

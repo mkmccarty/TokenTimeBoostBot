@@ -48,6 +48,9 @@ type EggIncContract struct {
 	ModifierELR               float64
 	ModifierSR                float64
 	ModifierHabCap            float64
+	StartTime                 time.Time
+	ExpirationTime            time.Time
+	ContractVersion           int // 1 = old, 2 = new
 }
 
 // EggIncContracts holds a list of all contracts, newest is last
