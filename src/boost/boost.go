@@ -1849,6 +1849,9 @@ func LoadContractData(filename string) {
 		c.ModifierELR = 1.0
 		c.ModifierSR = 1.0
 		c.ModifierHabCap = 1.0
+		c.ContractVersion = 2
+		c.StartTime = time.Unix(int64(contractProtoBuf.GetStartTime()), 0)
+		c.ExpirationTime = contractTime
 
 		if c.Egg == int32(ei.Egg_CUSTOM_EGG) {
 			c.EggName = contractProtoBuf.GetCustomEggId()
@@ -1876,6 +1879,14 @@ func LoadContractData(filename string) {
 					}
 				}
 			}
+		}
+		if c.TargetAmount == nil {
+			for _, g := range contractProtoBuf.GetGoals() {
+				c.ContractVersion = 1
+				c.TargetAmount = append(c.TargetAmount, g.GetTargetAmount())
+				c.TargetAmountq = append(c.TargetAmountq, g.GetTargetAmount()/1e15)
+			}
+			log.Print("No target amount found for contract ", c.ID)
 		}
 		if c.LengthInSeconds > 0 {
 			d := time.Duration(c.LengthInSeconds) * time.Second
@@ -1948,9 +1959,9 @@ func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCr
 		}})
 }
 
-// HandleStonesAutoComplete will handle the contract auto complete of contract-id's
-func HandleStonesAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	// User interacting with bot, is this first time ?
+// HandleAllContractsAutoComplete will handle the contract auto complete of contract-id's
+// default to new contracts but allow searching all contracts
+func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
