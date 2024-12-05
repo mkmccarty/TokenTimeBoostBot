@@ -1780,6 +1780,14 @@ func ArchiveContracts(s *discordgo.Session) {
 	var finishHash []string
 	currentTime := time.Now()
 	for _, contract := range Contracts {
+		contractInfo, ok := ei.EggIncContractsAll[contract.ContractID]
+		if ok {
+			// If the contract is still in the signup phase and hasn't expired, don't archive it
+			if contract.State == ContractStateSignup && !currentTime.After(contractInfo.ExpirationTime) {
+				continue
+			}
+		}
+
 		// It's been 3 days since the contract.StartTime and at least 36 hours since the ListInteractionTime
 		if currentTime.After(contract.StartTime.Add(3 * 24 * time.Hour)) {
 			if currentTime.After(contract.LastInteractionTime.Add(36 * time.Hour)) {
