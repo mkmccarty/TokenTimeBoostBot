@@ -112,7 +112,7 @@ func isNewEggIncDataAvailable(url string, filename string) bool {
 			}
 		}
 
-		req, err := http.NewRequest("GET", url+"?token="+xid.New().String(), nil)
+		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			log.Print(err)
 			return false
