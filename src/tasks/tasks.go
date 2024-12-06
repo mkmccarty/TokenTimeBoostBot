@@ -14,7 +14,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/launch"
-	"github.com/rs/xid"
 )
 
 const eggIncContractsURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json"
@@ -207,7 +206,7 @@ func downloadEggIncData(url string, filename string) bool {
 		log.Print("EI-Data. No new data available for ", filename)
 		return false
 	}
-	req, err := http.NewRequest("GET", url+"?token="+xid.New().String(), nil)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Print(err)
 		return false
