@@ -111,7 +111,8 @@ func LoadEventData(filename string) {
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&EggIncEventsLoaded)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		return
 	}
 
 	eventmap := make(map[string]EggIncEvent)

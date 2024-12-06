@@ -1830,7 +1830,8 @@ func LoadContractData(filename string) {
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&EggIncContractsLoaded)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		//return
 	}
 
 	var EggIncContractsNew []ei.EggIncContract
