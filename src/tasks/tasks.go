@@ -13,7 +13,7 @@ import (
 	"github.com/jasonlvhit/gocron"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/launch"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
 )
 
 const eggIncContractsURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json"
@@ -251,7 +251,7 @@ func downloadEggIncData(url string, filename string) bool {
 		lastContractUpdate = time.Now()
 		log.Print("EI-Contracts. New data loaded, length: ", int64(len(body)))
 	} else if filename == eggIncEventsFile {
-		launch.LoadEventData(filename)
+		events.LoadEventData(filename)
 		lastEventUpdate = time.Now()
 		log.Print("EI-Events. New data loaded, length: ", int64(len(body)))
 	} else if filename == eggIncEiAfxDataFile {
@@ -275,7 +275,7 @@ func ExecuteCronJob(s *discordgo.Session) {
 		boost.LoadContractData(eggIncContractsFile)
 	}
 	if !downloadEggIncData(eggIncEventsURL, eggIncEventsFile) {
-		launch.LoadEventData(eggIncEventsFile)
+		events.LoadEventData(eggIncEventsFile)
 	}
 	downloadEggIncData(eggIncDataSchemaURL, eggIncDataSchemaFile)
 

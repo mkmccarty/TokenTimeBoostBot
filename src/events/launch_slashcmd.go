@@ -1,4 +1,4 @@
-package launch
+package events
 
 import (
 	"fmt"
