@@ -18,8 +18,8 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/db"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/launch"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/tasks"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
@@ -55,6 +55,7 @@ const slashHelp string = "help"
 const slashSpeedrun string = "speedrun"
 const slashCoopETA string = "coopeta"
 const slashLaunchHelper string = "launch-helper"
+const slashEventHelper string = "events"
 const slashToken string = "token"
 
 // const slashTokenRemove string = "token-remove"
@@ -158,7 +159,8 @@ var (
 	}
 
 	globalCommands = []*discordgo.ApplicationCommand{
-		launch.SlashLaunchHelperCommand(slashLaunchHelper),
+		events.SlashLaunchHelperCommand(slashLaunchHelper),
+		events.SlashEventHelperCommand(slashEventHelper),
 		track.GetSlashTokenCommand(slashToken),
 		track.GetSlashTokenEditTrackCommand(slashTokenEditTrack),
 	}
@@ -436,7 +438,10 @@ var (
 			boost.HandleCoopETACommand(s, i)
 		},
 		slashLaunchHelper: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			launch.HandleLaunchHelper(s, i)
+			events.HandleLaunchHelper(s, i)
+		},
+		slashEventHelper: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			events.HandleEventHelper(s, i)
 		},
 		slashToken: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleTokenCommand(s, i)
