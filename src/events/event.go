@@ -66,9 +66,17 @@ func HandleEventHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var field []*discordgo.MessageEmbedField
 	var events strings.Builder
 
+	eventMutex.Lock()
+	localLastEvent := make([]EggIncEvent, len(LastEvent))
+	copy(localLastEvent, LastEvent)
+
+	localEggIncEvents := make([]EggIncEvent, len(EggIncEvents))
+	copy(localEggIncEvents, EggIncEvents)
+	eventMutex.Unlock()
+
 	events.WriteString("## Current Events:\n")
 	// Build list of current Events
-	for _, e := range EggIncEvents {
+	for _, e := range localEggIncEvents {
 		ultraStr := ""
 		if e.Ultra {
 			ultraStr = ultraIcon
@@ -90,8 +98,9 @@ func HandleEventHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	str := ""
 
 	continuedStr := ""
+
 	// Previous Non Ultra Events
-	for _, e := range LastEvent {
+	for _, e := range localLastEvent {
 		ultraStr := ""
 		if e.Ultra {
 			ultraStr = ultraIcon
