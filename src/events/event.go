@@ -86,7 +86,7 @@ func HandleEventHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 		hours := e.EndTime.Sub(e.StartTime).Hours()
 		if hours < 1.0 {
-			mins := e.EndTime.Sub(e.StartTime).Hours()
+			mins := e.EndTime.Sub(e.StartTime).Minutes()
 			events.WriteString(fmt.Sprintf("%s%s for %.2dm <t:%d:R>\n", ultraStr, e.Message, int(mins), e.StartTime.Unix()))
 		} else {
 			events.WriteString(fmt.Sprintf("%s%s for %.2dh <t:%d:R>\n", ultraStr, e.Message, int(hours), e.StartTime.Unix()))
@@ -110,7 +110,7 @@ func HandleEventHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 		hours := e.EndTime.Sub(e.StartTime).Hours()
 		if hours < 1.0 {
-			mins := e.EndTime.Sub(e.StartTime).Hours()
+			mins := e.EndTime.Sub(e.StartTime).Minutes()
 			str = fmt.Sprintf("%s%s for %.2dm <t:%d:R>\n", ultraStr, e.Message, int(mins), e.StartTime.Unix())
 		} else {
 			str = fmt.Sprintf("%s%s for %.2dh <t:%d:R>\n", ultraStr, e.Message, int(hours), e.StartTime.Unix())
