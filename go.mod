@@ -18,7 +18,7 @@ require (
 	github.com/sashabaranov/go-openai v1.36.0
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	go.mongodb.org/mongo-driver v1.17.1
-	google.golang.org/api v0.209.0
+	google.golang.org/api v0.210.0
 	google.golang.org/protobuf v1.35.2
 
 )
