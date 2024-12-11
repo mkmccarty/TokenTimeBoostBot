@@ -26,6 +26,20 @@ type TokenUnitLog struct {
 	Serial     string    // Serial number of the token
 }
 
+// EggIncCustomEgg is custom egg data for Egg Inc
+type EggIncCustomEgg struct {
+	ID             string `json:"id"`
+	Proto          string `json:"proto"`
+	Name           string
+	Value          float64
+	IconName       string
+	IconURL        string
+	IconWidth      int
+	IconHeight     int
+	Dimension      GameModifier_GameDimension
+	DimensionValue []float64
+}
+
 // EggIncContract is a raw contract data for Egg Inc
 type EggIncContract struct {
 	ID                        string `json:"id"`
