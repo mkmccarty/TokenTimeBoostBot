@@ -125,9 +125,10 @@ func isNewEggIncDataAvailable(url string, filename string) bool {
 		req.Header.Add("Range", rangeHeader)
 		req.Header.Add("Cache-Control", "no-cache, no-store, must-revalidate")
 		req.Header.Add("Pragma", "no-cache")
-		req.Header.Add("Expires", time.Now().Add(-26*time.Hour).Format(time.RFC1123))
+		req.Header.Add("Expires", "0")
 		req.Header.Add("Clear-Site-Data", "*")
 		//		log.Print("EI-Contracts: Requested Range", rangeHeader)
+
 		var client http.Client
 		resp, err := client.Do(req)
 		if err != nil {
