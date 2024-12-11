@@ -12,6 +12,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/jasonlvhit/gocron"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
 )
@@ -50,7 +51,7 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 	if err != nil {
 		log.Println(err)
 	}
-	if perms&discordgo.PermissionAdministrator == 0 {
+	if perms&discordgo.PermissionAdministrator == 0 && userID != config.AdminUserID {
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
@@ -72,6 +73,8 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 	lastEventUpdate = time.Time{}
 	downloadEggIncData(eggIncContractsURL, eggIncContractsFile)
 	downloadEggIncData(eggIncEventsURL, eggIncEventsFile)
+
+	boost.GetEggIncEvents(s)
 
 	// if lastContractUpdate or lastEventUpdate was updated within the last 1 minute
 	// then we have new data
@@ -286,6 +289,7 @@ func ExecuteCronJob(s *discordgo.Session) {
 			log.Print(err)
 		}
 	}
+
 	/*
 		Here's the exact cron config for the cloudflare worker that triggers the github action that updates contracts.
 		Normal contract time is either 16 or 17 utc depending on US daylight savings.
@@ -319,6 +323,17 @@ func ExecuteCronJob(s *discordgo.Session) {
 	}
 
 	err := gocron.Every(8).Hours().Do(boost.ArchiveContracts, s)
+	if err != nil {
+		log.Print(err)
+	}
+
+	// Check for new periodicals every 30 minutes
+	err = gocron.Every(1).Day().At(fmt.Sprintf("%d:00:15", 16+offset)).Do(boost.GetEggIncEvents, s)
+	if err != nil {
+		log.Print(err)
+	}
+
+	err = gocron.Every(1).Day().At(fmt.Sprintf("%d:00:15", 17+offset)).Do(boost.GetEggIncEvents, s)
 	if err != nil {
 		log.Print(err)
 	}
