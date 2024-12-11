@@ -73,9 +73,11 @@ var EggIncContracts []EggIncContract
 // EggIncContractsAll holds a list of all contracts, newest is last
 var EggIncContractsAll map[string]EggIncContract
 
+var CustomEggMap map[string]*EggIncCustomEgg
+
 func init() {
 	EggIncContractsAll = make(map[string]EggIncContract)
-
+	CustomEggMap = make(map[string]*EggIncCustomEgg)
 }
 
 // EggEmojiData is a struct to hold the name and ID of an egg emoji
@@ -456,4 +458,32 @@ func GetStones(afxName ArtifactSpec_Name, afxLevel ArtifactSpec_Level, afxRarity
 		*/
 	}
 	return 0, errors.Errorf("artifact (%s, %s) not found in data.json", afxName, afxLevel)
+}
+
+// GetGameDimensionString returns the string representation of the GameModifier_GameDimension
+func GetGameDimensionString(d GameModifier_GameDimension) string {
+	switch d {
+	case GameModifier_INVALID:
+		return "INVALID"
+	case GameModifier_EARNINGS:
+		return "EARNINGS"
+	case GameModifier_AWAY_EARNINGS:
+		return "AWAY_EARNINGS"
+	case GameModifier_INTERNAL_HATCHERY_RATE:
+		return "INTERNAL_HATCHERY_RATE"
+	case GameModifier_EGG_LAYING_RATE:
+		return "EGG_LAYING_RATE"
+	case GameModifier_SHIPPING_CAPACITY:
+		return "SHIPPING_CAPACITY"
+	case GameModifier_HAB_CAPACITY:
+		return "HAB_CAPACITY"
+	case GameModifier_VEHICLE_COST:
+		return "VEHICLE_COST"
+	case GameModifier_HAB_COST:
+		return "HAB_COST"
+	case GameModifier_RESEARCH_COST:
+		return "RESEARCH_COST"
+	default:
+		return "UNKNOWN"
+	}
 }

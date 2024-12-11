@@ -3,20 +3,23 @@ package boost
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"math"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"google.golang.org/protobuf/proto"
 )
 
 // GetEggIncEvents will download the events from the Egg Inc API
-func GetEggIncEvents() {
+func GetEggIncEvents(s *discordgo.Session) {
 	userID := config.EIUserID
 	reqURL := "https://www.auxbrain.com/ei/get_periodicals"
 	enc := base64.StdEncoding
@@ -83,24 +86,24 @@ func GetEggIncEvents() {
 	}
 
 	// Look for new contracts
+	/*
+		for _, contract := range periodicalsResponse.GetContracts().GetContracts() {
+			var c ei.EggIncContract
 
-	for _, contract := range periodicalsResponse.GetContracts().GetContracts() {
-		var c ei.EggIncContract
+			// Create a protobuf for the contract
+			contractBin, _ := proto.Marshal(contract)
+			c.ID = contract.GetIdentifier()
+			c.Proto = base64.StdEncoding.EncodeToString(contractBin)
 
-		// Create a protobuf for the contract
-		contractBin, _ := proto.Marshal(contract)
-		c.ID = contract.GetIdentifier()
-		c.Proto = base64.StdEncoding.EncodeToString(contractBin)
-
-		// Print the ID and the fist 32 bytes of the c.Proto
-		log.Print("contract details: ", c.ID, " ", contract.GetCcOnly())
-	}
-
+			// Print the ID and the fist 32 bytes of the c.Proto
+			log.Print("contract details: ", c.ID, " ", contract.GetCcOnly())
+		}
+	*/
 	// Look for new Custom Eggs
 
-	eggMap, err := loadCustomEggData()
+	ei.CustomEggMap, err = loadCustomEggData()
 	if err != nil {
-		eggMap = make(map[string]*ei.EggIncCustomEgg)
+		ei.CustomEggMap = make(map[string]*ei.EggIncCustomEgg)
 	}
 	changed := false
 	// Look for new Custom Eggs
@@ -121,23 +124,48 @@ func GetEggIncEvents() {
 		eggProtoBin, _ := proto.Marshal(customEgg)
 		egg.Proto = base64.StdEncoding.EncodeToString(eggProtoBin)
 
-		if _, exists := eggMap[egg.ID]; exists {
-			// If the proto is the same, skip
-			if eggMap[egg.ID].Proto == egg.Proto {
+		if _, exists := ei.CustomEggMap[egg.ID]; exists {
+			if ei.CustomEggMap[egg.ID].Proto == egg.Proto {
 				continue
+			}
+		} else {
+			var builder strings.Builder
+			builder.WriteString(fmt.Sprintf("New Custom Egg Detected: %s", egg.Name))
+
+			u, _ := s.UserChannelCreate(config.AdminUserID)
+			var data discordgo.MessageSend
+			data.Content = builder.String()
+			data.Embed = &discordgo.MessageEmbed{
+				Title:       egg.Name,
+				Description: fmt.Sprintf("%s %s\nValue: %f", ei.GetGameDimensionString(egg.Dimension), float64SliceToStringSlice(egg.DimensionValue), egg.Value),
+				Thumbnail: &discordgo.MessageEmbedThumbnail{
+					URL: egg.IconURL,
+				},
+			}
+
+			_, err := s.ChannelMessageSendComplex(u.ID, &data)
+			if err != nil {
+				log.Print(err)
 			}
 		}
 
 		log.Print("custom egg details: ", egg.ID, "  ", egg.Proto[:32])
 
-		eggMap[egg.ID] = &egg
+		ei.CustomEggMap[egg.ID] = &egg
 		changed = true
 	}
 
 	if changed {
-		saveCustomEggData(eggMap)
+		saveCustomEggData(ei.CustomEggMap)
 	}
-	log.Print("done")
+}
+
+func float64SliceToStringSlice(slice []float64) string {
+	strSlice := make([]string, len(slice))
+	for i, v := range slice {
+		strSlice[i] = fmt.Sprintf("%2.2f", v)
+	}
+	return strings.Join(strSlice, ", ")
 }
 
 func saveCustomEggData(c map[string]*ei.EggIncCustomEgg) {
