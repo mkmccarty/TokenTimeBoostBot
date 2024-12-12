@@ -74,7 +74,7 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 	downloadEggIncData(eggIncContractsURL, eggIncContractsFile)
 	downloadEggIncData(eggIncEventsURL, eggIncEventsFile)
 
-	events.GetEggIncEvents(s)
+	events.GetPeriodicalsFromAPI(s)
 
 	// if lastContractUpdate or lastEventUpdate was updated within the last 1 minute
 	// then we have new data
@@ -130,14 +130,20 @@ func isNewEggIncDataAvailable(url string, filename string) bool {
 		req.Header.Add("Pragma", "no-cache")
 		req.Header.Add("Expires", "0")
 		req.Header.Add("Clear-Site-Data", "*")
-		//		log.Print("EI-Contracts: Requested Range", rangeHeader)
+		req.Header.Add("my-secret", fmt.Sprintf("%d", rand.IntN(1000)))
+		log.Print("EI-Contracts: Requested Range", rangeHeader)
 
 		var client http.Client
 		resp, err := client.Do(req)
 		if err != nil {
 			return false
 		}
-		//log.Print("EI-Contracts: Response Status:", resp.Status, resp.Header)
+		log.Print("EI-Contracts: Response Status:", resp.Status)
+		for key, values := range resp.Header {
+			for _, value := range values {
+				log.Printf("%s: %s", key, value)
+			}
+		}
 		defer resp.Body.Close()
 
 		body, err := io.ReadAll(resp.Body)
@@ -307,8 +313,12 @@ func ExecuteCronJob(s *discordgo.Session) {
 	offset = offset / 3600
 	log.Println("The Current time zone is:", currentTimeZone, " Offset:", offset)
 
-	minuteTimes := []string{":00:15", ":00:30", ":00:45", ":01:00", ":01:30", ":02:00", ":03:00", ":05:00"}
+	minuteTimes := []string{":00:30", ":00:45", ":01:00", ":01:30", ":02:00", ":03:00", ":05:00", "10:00"}
 	var checkTimes []string
+
+	// Hit the server so the cache is hit 3 minutes earlier
+	checkTimes = append(checkTimes, fmt.Sprintf("%d:57:00", 15+offset))
+	checkTimes = append(checkTimes, fmt.Sprintf("%d:57:00", 16+offset))
 
 	for _, t := range minuteTimes {
 		checkTimes = append(checkTimes, fmt.Sprintf("%d%s", 16+offset, t)) // Handle daylight savings time
@@ -327,18 +337,19 @@ func ExecuteCronJob(s *discordgo.Session) {
 		log.Print(err)
 	}
 
-	// Check for new periodicals every 30 minutes
-	err = gocron.Every(1).Day().At(fmt.Sprintf("%d:00:15", 16+offset)).Do(events.GetEggIncEvents, s)
+	// Check for new periodicals once at 9 PDT
+	err = gocron.Every(1).Day().At(fmt.Sprintf("%d:00:05", 16+offset)).Do(events.GetPeriodicalsFromAPI, s)
 	if err != nil {
 		log.Print(err)
 	}
 
-	err = gocron.Every(1).Day().At(fmt.Sprintf("%d:00:15", 17+offset)).Do(events.GetEggIncEvents, s)
+	// Check for new periodicals once at 9 PST
+	err = gocron.Every(1).Day().At(fmt.Sprintf("%d:00:05", 17+offset)).Do(events.GetPeriodicalsFromAPI, s)
 	if err != nil {
 		log.Print(err)
 	}
 
-	//events.GetEggIncEvents(s)
+	//events.GetPeriodicalsFromAPI(s)
 
 	<-gocron.Start()
 	log.Print("Exiting cron job")
