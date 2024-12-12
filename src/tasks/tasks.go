@@ -313,7 +313,7 @@ func ExecuteCronJob(s *discordgo.Session) {
 	offset = offset / 3600
 	log.Println("The Current time zone is:", currentTimeZone, " Offset:", offset)
 
-	minuteTimes := []string{":00:30", ":00:45", ":01:00", ":01:30", ":02:00", ":03:00", ":05:00", "10:00"}
+	minuteTimes := []string{":00:30", ":00:45", ":01:00", ":01:30", ":02:00", ":03:00", ":05:00", ":10:00"}
 	var checkTimes []string
 
 	// Hit the server so the cache is hit 3 minutes earlier
