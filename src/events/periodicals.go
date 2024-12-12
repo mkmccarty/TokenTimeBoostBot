@@ -73,14 +73,10 @@ func GetEggIncEvents(s *discordgo.Session) {
 		localEventMap[k] = v
 	}
 
-	var newEggIncEvents []ei.EggEvent
+	var currentEggIncEvents []ei.EggEvent
 	newEvents := false
 
 	for _, event := range periodicalsResponse.GetEvents().GetEvents() {
-		//log.Print("event details: ")
-		//log.Printf("  type: %s", event.GetType())
-		//log.Printf("  text: %s", event.GetSubtitle())
-		//log.Printf("  multiplier: %f", event.GetMultiplier())
 		var e ei.EggEvent
 		e.ID = event.GetIdentifier()
 		e.EventType = event.GetType()
@@ -93,7 +89,7 @@ func GetEggIncEvents(s *discordgo.Session) {
 		e.EndTime = e.StartTime.Add(time.Duration(event.GetDuration()) * time.Second)
 		log.Printf("  start time: %s", e.StartTime)
 
-		newEggIncEvents = append(newEggIncEvents, e)
+		currentEggIncEvents = append(currentEggIncEvents, e)
 
 		// Want to add the ultra extension to the event type so only unique events are kept
 		name := e.EventType
@@ -103,11 +99,15 @@ func GetEggIncEvents(s *discordgo.Session) {
 		if localEventMap[name].ID != e.ID {
 			localEventMap[name] = e
 			newEvents = true
+			log.Print("event details: ")
+			log.Printf("  type: %s", event.GetType())
+			log.Printf("  text: %s", event.GetSubtitle())
+			log.Printf("  multiplier: %f", event.GetMultiplier())
 		}
 	}
 
 	if newEvents {
-		sortAndSwapEvents(localEventMap, newEggIncEvents)
+		sortAndSwapEvents(localEventMap, currentEggIncEvents)
 
 	}
 	// Look for new contracts

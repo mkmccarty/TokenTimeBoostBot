@@ -126,7 +126,7 @@ func LoadEventData(filename string) {
 
 	// allEventMap is a map of event types
 	allEventMap := make(map[string]ei.EggEvent)
-	var newEggIncEvents []ei.EggEvent
+	var currentEggIncEvents []ei.EggEvent
 
 	for _, e := range EggIncEventsLoaded {
 		endTimestampRaw := int64(math.Round(e.EndTimestamp))
@@ -136,7 +136,7 @@ func LoadEventData(filename string) {
 		e.StartTime = time.Unix(StartTimestampRaw, 0)
 
 		if e.StartTime.Before(time.Now().UTC()) && e.EndTime.After(time.Now().UTC()) {
-			newEggIncEvents = append(newEggIncEvents, e)
+			currentEggIncEvents = append(currentEggIncEvents, e)
 			//continue
 		}
 
@@ -147,10 +147,10 @@ func LoadEventData(filename string) {
 		allEventMap[name] = e
 
 	}
-	sortAndSwapEvents(allEventMap, newEggIncEvents)
+	sortAndSwapEvents(allEventMap, currentEggIncEvents)
 }
 
-func sortAndSwapEvents(allEventMap map[string]ei.EggEvent, newEggIncEvents []ei.EggEvent) {
+func sortAndSwapEvents(allEventMap map[string]ei.EggEvent, currentEggIncEvents []ei.EggEvent) {
 	// Sort missionEventMap by StartTime, oldest first into LastMissionEvent
 	var missionEvent []ei.EggEvent
 
@@ -174,7 +174,7 @@ func sortAndSwapEvents(allEventMap map[string]ei.EggEvent, newEggIncEvents []ei.
 
 	// Swap in our new data
 	eventMutex.Lock()
-	EggIncEvents = newEggIncEvents
+	EggIncEvents = currentEggIncEvents
 	LastMissionEvent = missionEvent
 	LastEvent = allEvent
 	AllEventMap = allEventMap
