@@ -67,10 +67,10 @@ func HandleEventHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var events strings.Builder
 
 	eventMutex.Lock()
-	localLastEvent := make([]EggIncEvent, len(LastEvent))
+	localLastEvent := make([]ei.EggEvent, len(LastEvent))
 	copy(localLastEvent, LastEvent)
 
-	localEggIncEvents := make([]EggIncEvent, len(EggIncEvents))
+	localEggIncEvents := make([]ei.EggEvent, len(EggIncEvents))
 	copy(localEggIncEvents, EggIncEvents)
 	eventMutex.Unlock()
 

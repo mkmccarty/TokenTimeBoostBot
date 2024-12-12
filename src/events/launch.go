@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 var integerZeroMinValue float64 = 0.0
@@ -64,30 +65,23 @@ func fmtDuration(d time.Duration) string {
 	return strings.Replace(str, "0h0m", "", -1)
 }
 
-// EggIncEvent is a raw event data for Egg Inc
-type EggIncEvent struct {
-	EndTimestamp   float64 `json:"endTimestamp"`
-	ID             string  `json:"id"`
-	Message        string  `json:"message"`
-	Multiplier     float64 `json:"multiplier"`
-	StartTimestamp float64 `json:"startTimestamp"`
-	EventType      string  `json:"type"`
-	Ultra          bool    `json:"ultra"`
-
-	StartTime time.Time
-	EndTime   time.Time
-}
-
 var eventMutex sync.Mutex
 
 // EggIncEvents holds a list of all Events, newest is last
-var EggIncEvents []EggIncEvent
+var EggIncEvents []ei.EggEvent
 
 // LastMissionEvent holds the most recent mission event
-var LastMissionEvent []EggIncEvent
+var LastMissionEvent []ei.EggEvent
 
 // LastEvent holds the most recent event of each type
-var LastEvent []EggIncEvent
+var LastEvent []ei.EggEvent
+
+// AllEventMap holds all events by type
+var AllEventMap map[string]ei.EggEvent
+
+func init() {
+	AllEventMap = make(map[string]ei.EggEvent)
+}
 
 func getInteractionUserID(i *discordgo.InteractionCreate) string {
 	if i.GuildID == "" {
@@ -96,11 +90,11 @@ func getInteractionUserID(i *discordgo.InteractionCreate) string {
 	return i.Member.User.ID
 }
 
-func getEventMultiplier(event string) *EggIncEvent {
+func getEventMultiplier(event string) *ei.EggEvent {
 	// loop through EggIncEvents and if there is a matching event return it
 	for _, e := range EggIncEvents {
 		if e.EventType == event {
-			return &EggIncEvent{
+			return &ei.EggEvent{
 				Message:    e.Message,
 				Multiplier: e.Multiplier,
 				EventType:  e.EventType,
@@ -116,7 +110,7 @@ func getEventMultiplier(event string) *EggIncEvent {
 // LoadEventData will load event data from a file
 func LoadEventData(filename string) {
 
-	var EggIncEventsLoaded []EggIncEvent
+	var EggIncEventsLoaded []ei.EggEvent
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Fatal(err)
@@ -130,10 +124,10 @@ func LoadEventData(filename string) {
 		return
 	}
 
-	missionEventMap := make(map[string]EggIncEvent)
-	allEventMap := make(map[string]EggIncEvent)
+	// allEventMap is a map of event types
+	allEventMap := make(map[string]ei.EggEvent)
+	var newEggIncEvents []ei.EggEvent
 
-	var newEggIncEvents []EggIncEvent
 	for _, e := range EggIncEventsLoaded {
 		endTimestampRaw := int64(math.Round(e.EndTimestamp))
 		e.EndTime = time.Unix(endTimestampRaw, 0)
@@ -143,7 +137,7 @@ func LoadEventData(filename string) {
 
 		if e.StartTime.Before(time.Now().UTC()) && e.EndTime.After(time.Now().UTC()) {
 			newEggIncEvents = append(newEggIncEvents, e)
-			continue
+			//continue
 		}
 
 		name := e.EventType
@@ -152,26 +146,28 @@ func LoadEventData(filename string) {
 		}
 		allEventMap[name] = e
 
-		// Continue above retains the previous event
-		if strings.HasPrefix(e.EventType, "mission-") {
-			missionEventMap[name] = e
+	}
+	sortAndSwapEvents(allEventMap, newEggIncEvents)
+}
+
+func sortAndSwapEvents(allEventMap map[string]ei.EggEvent, newEggIncEvents []ei.EggEvent) {
+	// Sort missionEventMap by StartTime, oldest first into LastMissionEvent
+	var missionEvent []ei.EggEvent
+
+	// Spin through all events in the map and extract mission and all events for sorting
+	var allEvent []ei.EggEvent
+	for _, event := range allEventMap {
+		allEvent = append(allEvent, event)
+
+		if strings.HasPrefix(event.EventType, "mission-") {
+			missionEvent = append(missionEvent, event)
 		}
 	}
 
-	// Sort missionEventMap by StartTime, oldest first into LastMissionEvent
-	var missionEvent []EggIncEvent
-	for _, event := range missionEventMap {
-		missionEvent = append(missionEvent, event)
-	}
 	sort.Slice(missionEvent, func(i, j int) bool {
 		return missionEvent[i].StartTime.Before(missionEvent[j].StartTime)
 	})
 
-	// All events
-	var allEvent []EggIncEvent
-	for _, event := range allEventMap {
-		allEvent = append(allEvent, event)
-	}
 	sort.Slice(allEvent, func(i, j int) bool {
 		return allEvent[i].StartTime.Before(allEvent[j].StartTime)
 	})
@@ -181,5 +177,6 @@ func LoadEventData(filename string) {
 	EggIncEvents = newEggIncEvents
 	LastMissionEvent = missionEvent
 	LastEvent = allEvent
+	AllEventMap = allEventMap
 	eventMutex.Unlock()
 }
