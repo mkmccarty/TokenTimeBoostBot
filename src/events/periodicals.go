@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"google.golang.org/protobuf/proto"
@@ -111,19 +112,28 @@ func GetEggIncEvents(s *discordgo.Session) {
 
 	}
 	// Look for new contracts
-	/*
-		for _, contract := range periodicalsResponse.GetContracts().GetContracts() {
-			var c ei.EggIncContract
-
-			// Create a protobuf for the contract
-			contractBin, _ := proto.Marshal(contract)
-			c.ID = contract.GetIdentifier()
-			c.Proto = base64.StdEncoding.EncodeToString(contractBin)
-
-			// Print the ID and the fist 32 bytes of the c.Proto
-			log.Print("contract details: ", c.ID, " ", contract.GetCcOnly())
+	var newContract []ei.EggIncContract
+	for _, contract := range periodicalsResponse.GetContracts().GetContracts() {
+		c := boost.PopulateContractFromProto(contract)
+		if c.ID == "first-contract" {
+			continue
 		}
-	*/
+		log.Print("contract details: ", c.ID, " ", contract.GetCcOnly())
+
+		if existingContract, exists := ei.EggIncContractsAll[c.ID]; exists {
+			if existingContract.StartTime != c.StartTime {
+				newContract = append(newContract, c)
+				ei.EggIncContractsAll[c.ID] = c
+			}
+		} else {
+			newContract = append(newContract, c)
+			ei.EggIncContractsAll[c.ID] = c
+		}
+	}
+
+	if len(newContract) > 0 {
+		ei.EggIncContracts = newContract
+	}
 
 	// Look for new Custom Eggs
 	ei.CustomEggMap, err = loadCustomEggData()

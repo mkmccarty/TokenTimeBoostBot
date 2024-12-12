@@ -1845,76 +1845,14 @@ func LoadContractData(filename string) {
 		}
 		expirationTime := int64(math.Round(contractProtoBuf.GetExpirationTime()))
 		contractTime := time.Unix(expirationTime, 0)
-		coopAllowed := false
-		coopAllowed = contractProtoBuf.GetCoopAllowed()
 
-		c.MaxCoopSize = int(contractProtoBuf.GetMaxCoopSize())
-		c.LengthInSeconds = int(contractProtoBuf.GetLengthSeconds())
-		c.ChickenRunCooldownMinutes = int(contractProtoBuf.GetChickenRunCooldownMinutes())
-		c.Name = contractProtoBuf.GetName()
-		c.Description = contractProtoBuf.GetDescription()
-		c.Egg = int32(contractProtoBuf.GetEgg())
-		c.ModifierIHR = 1.0
-		c.ModifierELR = 1.0
-		c.ModifierSR = 1.0
-		c.ModifierHabCap = 1.0
-		c.ContractVersion = 2
-		c.StartTime = time.Unix(int64(contractProtoBuf.GetStartTime()), 0)
-		c.ExpirationTime = contractTime
+		//c.Proto = ""
+		c = PopulateContractFromProto(contractProtoBuf)
 
-		if c.Egg == int32(ei.Egg_CUSTOM_EGG) {
-			c.EggName = contractProtoBuf.GetCustomEggId()
-		} else {
-			c.EggName = ei.Egg_name[c.Egg]
-		}
-		c.MinutesPerToken = int(contractProtoBuf.GetMinutesPerToken())
-		for _, s := range contractProtoBuf.GetGradeSpecs() {
-			if s.GetGrade() == ei.Contract_GRADE_AAA {
-				for _, g := range s.GetGoals() {
-					c.TargetAmount = append(c.TargetAmount, g.GetTargetAmount())
-					c.TargetAmountq = append(c.TargetAmountq, g.GetTargetAmount()/1e15)
-					c.LengthInSeconds = int(s.GetLengthSeconds())
-				}
-				for _, mod := range s.GetModifiers() {
-					switch mod.GetDimension() {
-					case ei.GameModifier_INTERNAL_HATCHERY_RATE:
-						c.ModifierIHR = mod.GetValue()
-					case ei.GameModifier_EGG_LAYING_RATE:
-						c.ModifierELR = mod.GetValue()
-					case ei.GameModifier_SHIPPING_CAPACITY:
-						c.ModifierSR = mod.GetValue()
-					case ei.GameModifier_HAB_CAPACITY:
-						c.ModifierHabCap = mod.GetValue()
-					}
-				}
-			}
-		}
-		if c.TargetAmount == nil {
-			for _, g := range contractProtoBuf.GetGoals() {
-				c.ContractVersion = 1
-				c.TargetAmount = append(c.TargetAmount, g.GetTargetAmount())
-				c.TargetAmountq = append(c.TargetAmountq, g.GetTargetAmount()/1e15)
-			}
-			log.Print("No target amount found for contract ", c.ID)
-		}
-		if c.LengthInSeconds > 0 {
-			d := time.Duration(c.LengthInSeconds) * time.Second
-			days := d.Hours() / 24.0 // 2 days
-			c.ContractDurationInDays = int(days)
-			c.ChickenRuns = int(min(20.0, math.Ceil((days*float64(c.MaxCoopSize))/2.0)))
-
-		}
-		// Duration estimate
-		if len(c.TargetAmount) != 0 {
-			c.EstimatedDuration = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), false)
-			c.EstimatedDurationShip = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), true)
-			//log.Printf("%s,%d,%d,%v\n", c.ID, int(c.qTargetAmount[len(c.qTargetAmount)-1]), int(c.MaxCoopSize), c.estimatedDuration.Round(time.Second))
-		}
-
-		c.Proto = ""
-		if coopAllowed && contractTime.After(time.Now().UTC()) {
+		if c.CoopAllowed && contractTime.After(time.Now().UTC()) {
 			EggIncContractsNew = append(EggIncContractsNew, c)
 		}
+
 		EggIncContractsAllNew[c.ID] = c
 
 	}
@@ -1928,6 +1866,83 @@ func LoadContractData(filename string) {
 			log.Fatal(err)
 		}
 	*/
+}
+
+// PopulateContractFromProto will populate a contract from a protobuf
+func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract {
+	var c ei.EggIncContract
+	c.ID = contractProtoBuf.GetIdentifier()
+	if c.Proto == "" {
+		// Create a protobuf for the contract
+		contractBin, _ := proto.Marshal(contractProtoBuf)
+		c.ID = contractProtoBuf.GetIdentifier()
+		c.Proto = base64.StdEncoding.EncodeToString(contractBin)
+	}
+	expirationTime := int64(math.Round(contractProtoBuf.GetExpirationTime()))
+	contractTime := time.Unix(expirationTime, 0)
+
+	c.MaxCoopSize = int(contractProtoBuf.GetMaxCoopSize())
+	c.LengthInSeconds = int(contractProtoBuf.GetLengthSeconds())
+	c.ChickenRunCooldownMinutes = int(contractProtoBuf.GetChickenRunCooldownMinutes())
+	c.Name = contractProtoBuf.GetName()
+	c.Description = contractProtoBuf.GetDescription()
+	c.Egg = int32(contractProtoBuf.GetEgg())
+	c.ModifierIHR = 1.0
+	c.ModifierELR = 1.0
+	c.ModifierSR = 1.0
+	c.ModifierHabCap = 1.0
+	c.ContractVersion = 2
+	c.StartTime = time.Unix(int64(contractProtoBuf.GetStartTime()), 0)
+	c.ExpirationTime = contractTime
+	c.CoopAllowed = contractProtoBuf.GetCoopAllowed()
+
+	if c.Egg == int32(ei.Egg_CUSTOM_EGG) {
+		c.EggName = contractProtoBuf.GetCustomEggId()
+	} else {
+		c.EggName = ei.Egg_name[c.Egg]
+	}
+	c.MinutesPerToken = int(contractProtoBuf.GetMinutesPerToken())
+	for _, s := range contractProtoBuf.GetGradeSpecs() {
+		if s.GetGrade() == ei.Contract_GRADE_AAA {
+			for _, g := range s.GetGoals() {
+				c.TargetAmount = append(c.TargetAmount, g.GetTargetAmount())
+				c.TargetAmountq = append(c.TargetAmountq, g.GetTargetAmount()/1e15)
+				c.LengthInSeconds = int(s.GetLengthSeconds())
+			}
+			for _, mod := range s.GetModifiers() {
+				switch mod.GetDimension() {
+				case ei.GameModifier_INTERNAL_HATCHERY_RATE:
+					c.ModifierIHR = mod.GetValue()
+				case ei.GameModifier_EGG_LAYING_RATE:
+					c.ModifierELR = mod.GetValue()
+				case ei.GameModifier_SHIPPING_CAPACITY:
+					c.ModifierSR = mod.GetValue()
+				case ei.GameModifier_HAB_CAPACITY:
+					c.ModifierHabCap = mod.GetValue()
+				}
+			}
+		}
+	}
+	if c.TargetAmount == nil {
+		for _, g := range contractProtoBuf.GetGoals() {
+			c.ContractVersion = 1
+			c.TargetAmount = append(c.TargetAmount, g.GetTargetAmount())
+			c.TargetAmountq = append(c.TargetAmountq, g.GetTargetAmount()/1e15)
+		}
+		log.Print("No target amount found for contract ", c.ID)
+	}
+	if c.LengthInSeconds > 0 {
+		d := time.Duration(c.LengthInSeconds) * time.Second
+		days := d.Hours() / 24.0 // 2 days
+		c.ContractDurationInDays = int(days)
+		c.ChickenRuns = int(min(20.0, math.Ceil((days*float64(c.MaxCoopSize))/2.0)))
+	}
+	// Duration estimate
+	if len(c.TargetAmount) != 0 {
+		c.EstimatedDuration = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), false)
+		c.EstimatedDurationShip = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), true)
+	}
+	return c
 }
 
 func updateContractWithEggIncData(contract *Contract) {
