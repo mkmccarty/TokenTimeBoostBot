@@ -62,6 +62,7 @@ type EggIncContract struct {
 	Description               string
 	Egg                       int32
 	EggName                   string
+	CoopAllowed               bool
 	MaxCoopSize               int
 	TargetAmount              []float64
 	TargetAmountq             []float64
