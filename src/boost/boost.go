@@ -1846,14 +1846,13 @@ func LoadContractData(filename string) {
 		expirationTime := int64(math.Round(contractProtoBuf.GetExpirationTime()))
 		contractTime := time.Unix(expirationTime, 0)
 
-		//c.Proto = ""
-		c = PopulateContractFromProto(contractProtoBuf)
+		contract := PopulateContractFromProto(contractProtoBuf)
 
-		if c.CoopAllowed && contractTime.After(time.Now().UTC()) {
-			EggIncContractsNew = append(EggIncContractsNew, c)
+		if contract.CoopAllowed && contractTime.After(time.Now().UTC()) {
+			EggIncContractsNew = append(EggIncContractsNew, contract)
 		}
 
-		EggIncContractsAllNew[c.ID] = c
+		EggIncContractsAllNew[c.ID] = contract
 
 	}
 	ei.EggIncContracts = EggIncContractsNew
@@ -1872,12 +1871,11 @@ func LoadContractData(filename string) {
 func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract {
 	var c ei.EggIncContract
 	c.ID = contractProtoBuf.GetIdentifier()
-	if c.Proto == "" {
-		// Create a protobuf for the contract
-		contractBin, _ := proto.Marshal(contractProtoBuf)
-		c.ID = contractProtoBuf.GetIdentifier()
-		c.Proto = base64.StdEncoding.EncodeToString(contractBin)
-	}
+
+	// Create a protobuf for the contract
+	//contractBin, _ := proto.Marshal(contractProtoBuf)
+	//c.Proto = base64.StdEncoding.EncodeToString(contractBin)
+
 	expirationTime := int64(math.Round(contractProtoBuf.GetExpirationTime()))
 	contractTime := time.Unix(expirationTime, 0)
 

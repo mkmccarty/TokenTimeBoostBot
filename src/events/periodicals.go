@@ -18,8 +18,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// GetEggIncEvents will download the events from the Egg Inc API
-func GetEggIncEvents(s *discordgo.Session) {
+// GetPeriodicalsFromAPI will download the events from the Egg Inc API
+func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	userID := config.EIUserID
 	reqURL := "https://www.auxbrain.com/ei/get_periodicals"
 	enc := base64.StdEncoding
