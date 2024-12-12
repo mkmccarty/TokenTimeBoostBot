@@ -74,7 +74,7 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 	downloadEggIncData(eggIncContractsURL, eggIncContractsFile)
 	downloadEggIncData(eggIncEventsURL, eggIncEventsFile)
 
-	boost.GetEggIncEvents(s)
+	events.GetEggIncEvents(s)
 
 	// if lastContractUpdate or lastEventUpdate was updated within the last 1 minute
 	// then we have new data
@@ -328,15 +328,17 @@ func ExecuteCronJob(s *discordgo.Session) {
 	}
 
 	// Check for new periodicals every 30 minutes
-	err = gocron.Every(1).Day().At(fmt.Sprintf("%d:00:15", 16+offset)).Do(boost.GetEggIncEvents, s)
+	err = gocron.Every(1).Day().At(fmt.Sprintf("%d:00:15", 16+offset)).Do(events.GetEggIncEvents, s)
 	if err != nil {
 		log.Print(err)
 	}
 
-	err = gocron.Every(1).Day().At(fmt.Sprintf("%d:00:15", 17+offset)).Do(boost.GetEggIncEvents, s)
+	err = gocron.Every(1).Day().At(fmt.Sprintf("%d:00:15", 17+offset)).Do(events.GetEggIncEvents, s)
 	if err != nil {
 		log.Print(err)
 	}
+
+	//events.GetEggIncEvents(s)
 
 	<-gocron.Start()
 	log.Print("Exiting cron job")

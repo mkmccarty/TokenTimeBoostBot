@@ -1,8 +1,7 @@
-package boost
+package events
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -69,22 +68,48 @@ func GetEggIncEvents(s *discordgo.Session) {
 	}
 
 	// Look for new events
-	for _, event := range periodicalsResponse.GetEvents().GetEvents() {
-		log.Print("event details: ")
-		log.Printf("  type: %s", event.GetType())
-		log.Printf("  text: %s", event.GetSubtitle())
-		log.Printf("  multiplier: %f", event.GetMultiplier())
-
-		startTimestamp := int64(math.Round(event.GetStartTime()))
-		startTime := time.Unix(startTimestamp, 0)
-		endTime := startTime.Add(time.Duration(event.GetDuration()) * time.Second)
-		log.Printf("  start time: %s", startTime)
-		log.Printf("  end time: %s", endTime)
-
-		log.Printf("ultra: %t", event.GetCcOnly())
-
+	localEventMap := make(map[string]ei.EggEvent)
+	for k, v := range AllEventMap {
+		localEventMap[k] = v
 	}
 
+	var newEggIncEvents []ei.EggEvent
+	newEvents := false
+
+	for _, event := range periodicalsResponse.GetEvents().GetEvents() {
+		//log.Print("event details: ")
+		//log.Printf("  type: %s", event.GetType())
+		//log.Printf("  text: %s", event.GetSubtitle())
+		//log.Printf("  multiplier: %f", event.GetMultiplier())
+		var e ei.EggEvent
+		e.ID = event.GetIdentifier()
+		e.EventType = event.GetType()
+		e.Message = event.GetSubtitle()
+		e.Multiplier = event.GetMultiplier()
+		e.Ultra = event.GetCcOnly()
+		e.StartTimestamp = event.GetStartTime()
+		e.EndTimestamp = event.GetStartTime() + event.GetDuration()
+		e.StartTime = time.Unix(int64(math.Round(event.GetStartTime())), 0)
+		e.EndTime = e.StartTime.Add(time.Duration(event.GetDuration()) * time.Second)
+		log.Printf("  start time: %s", e.StartTime)
+
+		newEggIncEvents = append(newEggIncEvents, e)
+
+		// Want to add the ultra extension to the event type so only unique events are kept
+		name := e.EventType
+		if e.Ultra {
+			name += "-ultra"
+		}
+		if localEventMap[name].ID != e.ID {
+			localEventMap[name] = e
+			newEvents = true
+		}
+	}
+
+	if newEvents {
+		sortAndSwapEvents(localEventMap, newEggIncEvents)
+
+	}
 	// Look for new contracts
 	/*
 		for _, contract := range periodicalsResponse.GetContracts().GetContracts() {
@@ -99,8 +124,8 @@ func GetEggIncEvents(s *discordgo.Session) {
 			log.Print("contract details: ", c.ID, " ", contract.GetCcOnly())
 		}
 	*/
-	// Look for new Custom Eggs
 
+	// Look for new Custom Eggs
 	ei.CustomEggMap, err = loadCustomEggData()
 	if err != nil {
 		ei.CustomEggMap = make(map[string]*ei.EggIncCustomEgg)
@@ -166,23 +191,4 @@ func float64SliceToStringSlice(slice []float64) string {
 		strSlice[i] = fmt.Sprintf("%2.2f", v)
 	}
 	return strings.Join(strSlice, ", ")
-}
-
-func saveCustomEggData(c map[string]*ei.EggIncCustomEgg) {
-	b, _ := json.Marshal(c)
-	_ = dataStore.Write("ei-customeggs", b)
-}
-
-func loadCustomEggData() (map[string]*ei.EggIncCustomEgg, error) {
-	var c map[string]*ei.EggIncCustomEgg
-	b, err := dataStore.Read("ei-customeggs")
-	if err != nil {
-		return c, err
-	}
-	err = json.Unmarshal(b, &c)
-	if err != nil {
-		return c, err
-	}
-
-	return c, nil
 }

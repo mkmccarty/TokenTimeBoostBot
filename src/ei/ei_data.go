@@ -26,6 +26,20 @@ type TokenUnitLog struct {
 	Serial     string    // Serial number of the token
 }
 
+// EggEvent is a raw event data for Egg Inc
+type EggEvent struct {
+	EndTimestamp   float64 `json:"endTimestamp"`
+	ID             string  `json:"id"`
+	Message        string  `json:"message"`
+	Multiplier     float64 `json:"multiplier"`
+	StartTimestamp float64 `json:"startTimestamp"`
+	EventType      string  `json:"type"`
+	Ultra          bool    `json:"ultra"`
+
+	StartTime time.Time
+	EndTime   time.Time
+}
+
 // EggIncCustomEgg is custom egg data for Egg Inc
 type EggIncCustomEgg struct {
 	ID             string `json:"id"`
