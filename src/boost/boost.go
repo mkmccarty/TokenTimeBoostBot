@@ -1835,7 +1835,7 @@ func LoadContractData(filename string) {
 	}
 
 	var EggIncContractsNew []ei.EggIncContract
-	EggIncContractsAllNew := make(map[string]ei.EggIncContract, 800)
+	//EggIncContractsAllNew := make(map[string]ei.EggIncContract, 800)
 	contractProtoBuf := &ei.Contract{}
 	for _, c := range EggIncContractsLoaded {
 		rawDecodedText, _ := base64.StdEncoding.DecodeString(c.Proto)
@@ -1852,11 +1852,19 @@ func LoadContractData(filename string) {
 			EggIncContractsNew = append(EggIncContractsNew, contract)
 		}
 
-		EggIncContractsAllNew[c.ID] = contract
+		if existingContract, exists := ei.EggIncContractsAll[c.ID]; exists {
+			//if existingContract.PeriodicalAPI == false {
+			if existingContract.StartTime != c.StartTime {
+				//newContract = append(newContract, contract)
+			}
+		} else {
+			// All new contract
+			ei.EggIncContractsAll[c.ID] = contract
+		}
 
 	}
 	ei.EggIncContracts = EggIncContractsNew
-	ei.EggIncContractsAll = EggIncContractsAllNew
+	//ei.EggIncContractsAll = EggIncContractsAllNew
 
 	/*
 		// Call the function to write the estimated durations to a CSV file
@@ -1879,6 +1887,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	expirationTime := int64(math.Round(contractProtoBuf.GetExpirationTime()))
 	contractTime := time.Unix(expirationTime, 0)
 
+	c.PeriodicalAPI = false // Default this to false
 	c.MaxCoopSize = int(contractProtoBuf.GetMaxCoopSize())
 	c.LengthInSeconds = int(contractProtoBuf.GetLengthSeconds())
 	c.ChickenRunCooldownMinutes = int(contractProtoBuf.GetChickenRunCooldownMinutes())

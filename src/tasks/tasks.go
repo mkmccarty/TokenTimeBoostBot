@@ -23,6 +23,9 @@ const eggIncContractsFile string = "ttbb-data/ei-contracts.json"
 const eggIncEventsURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/events.json"
 const eggIncEventsFile string = "ttbb-data/ei-events.json"
 
+const eggIncCustomEggsURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/customeggs.json"
+const eggIncCustomEggsFile string = "ttbb-data/ei-customeggs.json"
+
 const eggIncDataSchemaURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/lib/artifacts/data.schema.json"
 const eggIncDataSchemaFile string = "ttbb-data/data.schema.json"
 
@@ -201,6 +204,7 @@ func isNewEggIncDataAvailable(url string, filename string) bool {
 func crondownloadEggIncData() {
 	downloadEggIncData(eggIncContractsURL, eggIncContractsFile)
 	downloadEggIncData(eggIncEventsURL, eggIncEventsFile)
+	//downloadEggIncData(eggIncCustomEggsURL, eggIncCustomEggsFile)
 }
 
 func downloadEggIncData(url string, filename string) bool {
@@ -313,26 +317,34 @@ func ExecuteCronJob(s *discordgo.Session) {
 	offset = offset / 3600
 	log.Println("The Current time zone is:", currentTimeZone, " Offset:", offset)
 
-	minuteTimes := []string{":00:30", ":00:45", ":01:00", ":01:30", ":02:00", ":03:00", ":05:00", ":10:00"}
-	var checkTimes []string
+	/*
+		minuteTimes := []string{":00:30", ":00:45", ":01:00", ":01:30", ":02:00", ":03:00", ":05:00", ":10:00"}
+		var checkTimes []string
 
-	// Hit the server so the cache is hit 3 minutes earlier
-	checkTimes = append(checkTimes, fmt.Sprintf("%d:57:00", 15+offset))
-	checkTimes = append(checkTimes, fmt.Sprintf("%d:57:00", 16+offset))
+			// Hit the server so the cache is hit 3 minutes earlier
+			checkTimes = append(checkTimes, fmt.Sprintf("%d:57:00", 15+offset))
+			checkTimes = append(checkTimes, fmt.Sprintf("%d:57:00", 16+offset))
 
-	for _, t := range minuteTimes {
-		checkTimes = append(checkTimes, fmt.Sprintf("%d%s", 16+offset, t)) // Handle daylight savings time
-		checkTimes = append(checkTimes, fmt.Sprintf("%d%s", 17+offset, t)) // Handle standard time
-	}
+			for _, t := range minuteTimes {
+				checkTimes = append(checkTimes, fmt.Sprintf("%d%s", 16+offset, t)) // Handle daylight savings time
+				checkTimes = append(checkTimes, fmt.Sprintf("%d%s", 17+offset, t)) // Handle standard time
+			}
 
-	for _, t := range checkTimes {
-		err := gocron.Every(1).Day().At(t).Do(crondownloadEggIncData)
-		if err != nil {
-			log.Print(err)
-		}
-	}
+			for _, t := range checkTimes {
+				err := gocron.Every(1).Day().At(t).Do(crondownloadEggIncData)
+				if err != nil {
+					log.Print(err)
+				}
+			}
+	*/
 
 	err := gocron.Every(8).Hours().Do(boost.ArchiveContracts, s)
+	if err != nil {
+		log.Print(err)
+	}
+
+	// Want to check Egg Inc data once a day day minutes
+	err = gocron.Every(1).Day().At("00:00:05").Do(crondownloadEggIncData)
 	if err != nil {
 		log.Print(err)
 	}
