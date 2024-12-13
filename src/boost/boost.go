@@ -1930,7 +1930,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			c.TargetAmount = append(c.TargetAmount, g.GetTargetAmount())
 			c.TargetAmountq = append(c.TargetAmountq, g.GetTargetAmount()/1e15)
 		}
-		log.Print("No target amount found for contract ", c.ID)
+		//log.Print("No target amount found for contract ", c.ID)
 	}
 	if c.LengthInSeconds > 0 {
 		d := time.Duration(c.LengthInSeconds) * time.Second
