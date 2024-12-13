@@ -204,7 +204,7 @@ func isNewEggIncDataAvailable(url string, filename string) bool {
 func crondownloadEggIncData() {
 	downloadEggIncData(eggIncContractsURL, eggIncContractsFile)
 	downloadEggIncData(eggIncEventsURL, eggIncEventsFile)
-	//downloadEggIncData(eggIncCustomEggsURL, eggIncCustomEggsFile)
+	downloadEggIncData(eggIncCustomEggsURL, eggIncCustomEggsFile)
 }
 
 func downloadEggIncData(url string, filename string) bool {

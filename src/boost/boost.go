@@ -1852,19 +1852,13 @@ func LoadContractData(filename string) {
 			EggIncContractsNew = append(EggIncContractsNew, contract)
 		}
 
-		if existingContract, exists := ei.EggIncContractsAll[c.ID]; exists {
-			//if existingContract.PeriodicalAPI == false {
-			if existingContract.StartTime != c.StartTime {
-				//newContract = append(newContract, contract)
-			}
-		} else {
-			// All new contract
+		// Only add completely new contracts to this list
+		if _, exists := ei.EggIncContractsAll[c.ID]; !exists {
 			ei.EggIncContractsAll[c.ID] = contract
 		}
 
 	}
 	ei.EggIncContracts = EggIncContractsNew
-	//ei.EggIncContractsAll = EggIncContractsAllNew
 
 	/*
 		// Call the function to write the estimated durations to a CSV file
