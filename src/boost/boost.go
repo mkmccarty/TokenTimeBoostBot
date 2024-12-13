@@ -1893,7 +1893,14 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	c.ModifierSR = 1.0
 	c.ModifierHabCap = 1.0
 	c.ContractVersion = 2
-	c.StartTime = time.Unix(int64(contractProtoBuf.GetStartTime()), 0)
+
+	if contractProtoBuf.GetStartTime() == 0 {
+		c.StartTime = contractTime.Add(-time.Duration(c.LengthInSeconds) * time.Second)
+		log.Print("No start time found for contract ", c.ID, " derive from ExpirationTime ", c.StartTime)
+
+	} else {
+		c.StartTime = time.Unix(int64(contractProtoBuf.GetStartTime()), 0)
+	}
 	c.ExpirationTime = contractTime
 	c.CoopAllowed = contractProtoBuf.GetCoopAllowed()
 

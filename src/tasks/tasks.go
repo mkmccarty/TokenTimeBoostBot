@@ -300,6 +300,8 @@ func ExecuteCronJob(s *discordgo.Session) {
 		}
 	}
 
+	events.GetPeriodicalsFromAPI(s)
+
 	/*
 		Here's the exact cron config for the cloudflare worker that triggers the github action that updates contracts.
 		Normal contract time is either 16 or 17 utc depending on US daylight savings.

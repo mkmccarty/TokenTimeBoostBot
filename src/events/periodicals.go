@@ -118,11 +118,20 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 		if c.ID == "first-contract" {
 			continue
 		}
-		log.Print("contract details: ", c.ID, " ", contract.GetCcOnly())
+		//log.Print("contract details: ", c.ID, " ", contract.GetCcOnly())
 		// Time this record was imported from the periodicals API
 		c.PeriodicalAPI = true
 
 		// If we're reading a contract from a periodical then it's currently active
+		// Check if the contract already exists and is the same
+		existingContract, exists := ei.EggIncContractsAll[c.ID]
+		if exists {
+			if existingContract.ExpirationTime != c.ExpirationTime {
+				log.Print("New Leggacy contract: ", c.ID)
+			}
+		} else {
+			log.Print("New Original contract: ", c.ID)
+		}
 		ei.EggIncContractsAll[c.ID] = c
 		newContract = append(newContract, c)
 	}
