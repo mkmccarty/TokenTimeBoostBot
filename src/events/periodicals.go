@@ -109,8 +109,8 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 
 	if newEvents {
 		sortAndSwapEvents(localEventMap, currentEggIncEvents)
-
 	}
+
 	// Look for new contracts
 	var newContract []ei.EggIncContract
 	for _, contract := range periodicalsResponse.GetContracts().GetContracts() {
@@ -119,18 +119,15 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 			continue
 		}
 		log.Print("contract details: ", c.ID, " ", contract.GetCcOnly())
+		// Time this record was imported from the periodicals API
+		c.PeriodicalAPI = true
 
-		if existingContract, exists := ei.EggIncContractsAll[c.ID]; exists {
-			if existingContract.StartTime != c.StartTime {
-				newContract = append(newContract, c)
-				ei.EggIncContractsAll[c.ID] = c
-			}
-		} else {
-			newContract = append(newContract, c)
-			ei.EggIncContractsAll[c.ID] = c
-		}
+		// If we're reading a contract from a periodical then it's currently active
+		ei.EggIncContractsAll[c.ID] = c
+		newContract = append(newContract, c)
 	}
 
+	// Replace all new contracts
 	if len(newContract) > 0 {
 		ei.EggIncContracts = newContract
 	}
