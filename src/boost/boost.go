@@ -1853,7 +1853,7 @@ func LoadContractData(filename string) {
 		}
 
 		// Only add completely new contracts to this list
-		if _, exists := ei.EggIncContractsAll[c.ID]; !exists {
+		if existingContract, exists := ei.EggIncContractsAll[c.ID]; !exists || contract.StartTime.After(existingContract.StartTime) {
 			ei.EggIncContractsAll[c.ID] = contract
 		}
 
@@ -1868,6 +1868,9 @@ func LoadContractData(filename string) {
 		}
 	*/
 }
+
+const originalContractValidDuration = 21 * 86400
+const legacyContractValidDuration = 7 * 86400
 
 // PopulateContractFromProto will populate a contract from a protobuf
 func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract {
@@ -1895,8 +1898,12 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	c.ContractVersion = 2
 
 	if contractProtoBuf.GetStartTime() == 0 {
-		c.StartTime = contractTime.Add(-time.Duration(c.LengthInSeconds) * time.Second)
-		log.Print("No start time found for contract ", c.ID, " derive from ExpirationTime ", c.StartTime)
+
+		if contractProtoBuf.Leggacy == nil || contractProtoBuf.GetLeggacy() == true {
+			c.StartTime = contractTime.Add(-time.Duration(c.LengthInSeconds-legacyContractValidDuration) * time.Second)
+		} else {
+			c.StartTime = contractTime.Add(-time.Duration(c.LengthInSeconds-originalContractValidDuration) * time.Second)
+		}
 
 	} else {
 		c.StartTime = time.Unix(int64(contractProtoBuf.GetStartTime()), 0)
