@@ -1899,7 +1899,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 
 	if contractProtoBuf.GetStartTime() == 0 {
 
-		if contractProtoBuf.Leggacy == nil || contractProtoBuf.GetLeggacy() == true {
+		if contractProtoBuf.Leggacy == nil || contractProtoBuf.GetLeggacy() {
 			c.StartTime = contractTime.Add(-time.Duration(c.LengthInSeconds-legacyContractValidDuration) * time.Second)
 		} else {
 			c.StartTime = contractTime.Add(-time.Duration(c.LengthInSeconds-originalContractValidDuration) * time.Second)
