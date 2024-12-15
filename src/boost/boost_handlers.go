@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -28,6 +29,69 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 
 	contract := Contracts[id]
 
+	// Dynamic Boost List Styles
+	runStyleOptions := []discordgo.SelectMenuOption{}
+	if !slices.Contains(config.FeatureFlags, "BANKER_ONLY") {
+		runStyleOptions = append(runStyleOptions, discordgo.SelectMenuOption{
+			Label:       "Boost List Style",
+			Description: "Everyone sends tokens to the current booster",
+			Value:       "boostlist",
+			Default:     (contract.Style & ContractFlagFastrun) != 0,
+			Emoji: &discordgo.ComponentEmoji{
+				Name: "📜",
+			},
+		})
+	} else {
+		// Need to clear the defaults of these flags so it's set correctly
+		contract.Style &^= ContractFlagFastrun
+		contract.Style |= ContractFlagBanker
+	}
+
+	runStyleOptions = append(runStyleOptions, discordgo.SelectMenuOption{
+		Label:       "Banker Style",
+		Description: "Everyone sends tokens to a banker.",
+		Value:       "banker",
+		Default:     (contract.Style & ContractFlagBanker) != 0,
+		Emoji: &discordgo.ComponentEmoji{
+			Name: "💰",
+		},
+	})
+
+	crtOptions := []discordgo.SelectMenuOption{}
+	crtOptions = append(crtOptions, discordgo.SelectMenuOption{
+		Label:       "No-CRT",
+		Description: "Standard vanilla option for this contract",
+		Value:       "no_crt",
+		Default:     (contract.Style & ContractFlagCrt) == 0,
+		Emoji: &discordgo.ComponentEmoji{
+			Name: "🍦",
+		},
+	})
+	crtOptions = append(crtOptions, discordgo.SelectMenuOption{
+		Label:       "CRT",
+		Description: "Chicken Run Tango",
+		Value:       "crt",
+		Default:     (contract.Style&ContractFlagCrt) != 0 && (contract.Style&ContractFlagSelfRuns) == 0,
+		Emoji: &discordgo.ComponentEmoji{
+			Name: "🔁",
+		},
+	})
+
+	if !slices.Contains(config.FeatureFlags, "DISABLE_SELFRUN") {
+		crtOptions = append(crtOptions, discordgo.SelectMenuOption{
+			Label:       "CRT+selfrun",
+			Description: "Less Tango Legs ",
+			Value:       "self_runs",
+			Default:     (contract.Style&ContractFlagCrt) != 0 && (contract.Style&ContractFlagSelfRuns) != 0,
+			Emoji: &discordgo.ComponentEmoji{
+				Name: "🔂",
+			},
+		})
+	} else {
+		// Make sure this flag is cleared if the feature is disabled
+		contract.Style &^= ContractFlagSelfRuns
+	}
+
 	return builder.String(), []discordgo.MessageComponent{
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
@@ -36,26 +100,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 					Placeholder: "Select contract styles",
 					MinValues:   &minValues,
 					MaxValues:   1,
-					Options: []discordgo.SelectMenuOption{
-						{
-							Label:       "Boost List Style",
-							Description: "Everyone sends tokens to the current booster",
-							Value:       "boostlist",
-							Default:     (contract.Style & ContractFlagFastrun) != 0,
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "📜",
-							},
-						},
-						{
-							Label:       "Banker Style",
-							Description: "Everyone sends tokens to a banker.",
-							Value:       "banker",
-							Default:     (contract.Style & ContractFlagBanker) != 0,
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "💰",
-							},
-						},
-					},
+					Options:     runStyleOptions,
 				},
 			},
 		},
@@ -66,35 +111,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 					Placeholder: "Choose your options for CRT",
 					MinValues:   &minValues,
 					MaxValues:   1,
-					Options: []discordgo.SelectMenuOption{
-						{
-							Label:       "No-CRT",
-							Description: "Standard vanilla option for this contract",
-							Value:       "no_crt",
-							Default:     (contract.Style & ContractFlagCrt) == 0,
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "🍦",
-							},
-						},
-						{
-							Label:       "CRT",
-							Description: "Chicken Run Tango",
-							Value:       "crt",
-							Default:     (contract.Style&ContractFlagCrt) != 0 && (contract.Style&ContractFlagSelfRuns) == 0,
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "🔁",
-							},
-						},
-						{
-							Label:       "CRT+selfrun",
-							Description: "Less Tango Legs ",
-							Value:       "self_runs",
-							Default:     (contract.Style&ContractFlagCrt) != 0 && (contract.Style&ContractFlagSelfRuns) != 0,
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "🔂",
-							},
-						},
-					},
+					Options:     crtOptions,
 				},
 			},
 		},
