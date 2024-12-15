@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -216,7 +217,6 @@ var (
 				},
 			},
 		},
-		notok.SlashFunCommand(slashFun),
 		{
 			Name:        slashBoost,
 			Description: "Spending tokens to boost!",
@@ -903,7 +903,12 @@ func main() {
 		Status: string(discordgo.StatusOnline),
 	})
 
+	if !slices.Contains(config.FeatureFlags, "NO_FUN") {
+		commands = append(commands, notok.SlashFunCommand(slashFun))
+	}
+
 	commandSet := append(commands, globalCommands...)
+
 	commandSet = append(commandSet, adminCommands...)
 
 	syncCommands(s, config.DiscordGuildID, commandSet)
