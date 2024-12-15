@@ -6,11 +6,6 @@ Boost Order Management Discord Bot
 
 Allow for easy mobile creation and execution of a sign-up list and boost list for the game Egg Inc.
 * There is a limitation of one contract per channel or thread.
-* This can be used to run a contract across multiple servers.
-
-
-
-The bot does not query information from the Egg Inc servers.
 
 ## Basic Setup
 
@@ -19,14 +14,15 @@ Create a discord application here: <https://discord.com/developers/applications>
 Take the Application ID and Secret and save those to configure the bot in .config.json.
 If you wish to restrict the bot to a specific server then add your Guild ID to **DiscordGuildID**
 
-```
+```json
 .config.json:
 {
- "DiscordToken": "APP_SECRET"
- "DiscordAppID": "APP_ID"
+ "DiscordToken": "APP_SECRET",
+ "DiscordAppID": "APP_ID",
  "DiscordGuildID": "DISCORD_GUILD_ID"
 }
 ```
+
 Install your bot into your discord server with this URL:
 <https://discord.com/api/oauth2/authorize?client_id=$(BOT_APP_ID)&permissions=466004470848&scope=bot%20applications.commands>
 
