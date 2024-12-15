@@ -27,10 +27,10 @@ const eggIncCustomEggsURL string = "https://raw.githubusercontent.com/carpetsage
 const eggIncCustomEggsFile string = "ttbb-data/ei-customeggs.json"
 
 const eggIncDataSchemaURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/lib/artifacts/data.schema.json"
-const eggIncDataSchemaFile string = "ttbb-data/data.schema.json"
+const eggIncDataSchemaFile string = "ttbb-data/ei-data.schema.json"
 
 const eggIncEiAfxDataURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/wasmegg/_common/eiafx/eiafx-data.json"
-const eggIncEiAfxDataFile string = "ttbb-data/eiafx-data.json"
+const eggIncEiAfxDataFile string = "ttbb-data/ei-afx-data.json"
 
 //const eggIncEiAfxConfigURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/wasmegg/_common/eiafx/eiafx-config.json"
 //const eggIncEiAfxConfigFile string = "ttbb-data/eiafx-config.json"
