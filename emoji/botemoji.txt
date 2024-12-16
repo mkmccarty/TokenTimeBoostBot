@@ -1,3 +1,4 @@
+# Emoji Name, URL to download from discord cdn.
 token,http://cdn.discordapp.com/emojis/1279216759131476123.png
 icon_chicken_run,http://cdn.discordapp.com/emojis/1280378140694286427.png
 ultra,http://cdn.discordapp.com/emojis/1286890849719812147.png
