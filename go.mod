@@ -3,7 +3,7 @@ module github.com/mkmccarty/TokenTimeBoostBot
 go 1.23.4
 
 require (
-	github.com/bwmarrin/discordgo v0.28.2-0.20241006165315-247b6f7a76f9
+	github.com/bwmarrin/discordgo v0.28.2-0.20241208071600-33ffff21d31a
 	github.com/divan/num2words v1.0.1
 	github.com/ewohltman/discordgo-mock v0.0.11
 	github.com/fsnotify/fsnotify v1.8.0
