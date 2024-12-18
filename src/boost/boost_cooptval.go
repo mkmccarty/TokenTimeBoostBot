@@ -173,7 +173,9 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tabl
 	for key := range tokenCount {
 		keys = append(keys, key)
 	}
-	sort.Strings(keys)
+	sort.Slice(keys, func(i, j int) bool {
+		return strings.ToLower(keys[i]) < strings.ToLower(keys[j])
+	})
 
 	// Iterate through the sorted keys
 	for _, key := range keys {
