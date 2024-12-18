@@ -65,27 +65,57 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	if str == "" {
+		eggStr := FindEggEmoji(c.EggName)
+		tokenStr, _, _ := ei.GetBotEmoji("token")
+		runStr, _, _ := ei.GetBotEmoji("icon_chicken_run")
+
+		str = fmt.Sprintf("%s %d🧑‍🌾 %dm/%s %d %s\n", eggStr, c.MaxCoopSize, c.MinutesPerToken, tokenStr, c.ChickenRuns, runStr)
 		fstr := "farmers"
 		if int(c.MaxCoopSize) == 1 {
 			fstr = "farmer"
 		}
+
+		BTA := c.EstimatedDuration.Minutes() / float64(c.MinutesPerToken)
+		BTA2 := c.EstimatedDurationShip.Minutes() / float64(c.MinutesPerToken)
+		targetTval := 3.0
+		if BTA > 42.0 {
+			targetTval = 0.07 * BTA
+		}
+
 		// A speedrun or fastrun of $CONTRACT with $NUMBER farmer(s) needing to ship $GOAL eggs is estimated to take about $TIME
 		if c.TargetAmountq[len(c.TargetAmountq)-1] < 1.0 {
 			estStr := c.EstimatedDuration.Round(time.Second).String()
-			str = fmt.Sprintf("A speedrun or fastrun of **%s** (%s) with %d %s needing to ship %.3fq eggs is estimated to take **about %v**\n", c.Name, c.ID, int(c.MaxCoopSize), fstr, c.TargetAmountq[len(c.TargetAmountq)-1], estStr)
+			str += fmt.Sprintf("A speedrun or fastrun of **%s** (%s) with %d %s needing to ship %.3fq eggs is estimated to take **about %v**\n", c.Name, c.ID, int(c.MaxCoopSize), fstr, c.TargetAmountq[len(c.TargetAmountq)-1], estStr)
 			if c.EstimatedDuration != c.EstimatedDurationShip {
 				str += fmt.Sprintf("> w/Carbon Fiber: **about %v**", c.EstimatedDurationShip.Round(time.Second).String())
+				if BTA2 > 42.0 {
+					targetTval = 0.07 * BTA2
+				}
 			}
+
+			str += fmt.Sprintf("\nTarget TVal: **%.2f**", targetTval)
+
 		} else {
 			estStr := c.EstimatedDuration.Round(time.Minute).String()
 			estStr = strings.TrimRight(estStr, "0s")
 			estStrShip := c.EstimatedDurationShip.Round(time.Minute).String()
 			estStrShip = strings.TrimRight(estStrShip, "0s")
-			str = fmt.Sprintf("A speedrun or fastrun of **%s** (%s) with %d %s needing to ship %dq eggs is estimated to take **about %v**\n", c.Name, c.ID, int(c.MaxCoopSize), fstr, int(c.TargetAmountq[len(c.TargetAmountq)-1]), estStr)
+			str += fmt.Sprintf("A speedrun or fastrun of **%s** (%s) with %d %s needing to ship %dq eggs is estimated to take **about %v**\n", c.Name, c.ID, int(c.MaxCoopSize), fstr, int(c.TargetAmountq[len(c.TargetAmountq)-1]), estStr)
 			if c.EstimatedDuration != c.EstimatedDurationShip {
 				str += fmt.Sprintf("> w/Carbon Fiber: **about %v**", estStrShip)
 			}
+
+			str += fmt.Sprintf("\nTarget TVal: **%.2f**\n", targetTval)
 		}
+
+		/*
+			Goal: 950q
+			:clock: Duration: 3d
+			:icon_coop: Coop size: 15
+			:b_icon_token: Token timer: 15m
+			:r_icon_relativity_optimization: Laying rate per player: 879T/hr
+			:chickenrun: Chicken Runs target: 20
+		*/
 
 		noteStr := ""
 		if c.ContractVersion == 1 {

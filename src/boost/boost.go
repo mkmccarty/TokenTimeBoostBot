@@ -358,7 +358,7 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 }
 
 // FindEggEmoji will find the token emoji for the given guild
-func FindEggEmoji(s *discordgo.Session, guildID string, eggOrig string) string {
+func FindEggEmoji(eggOrig string) string {
 	// remove _ from egg
 	//egg := strings.Replace(eggOrig, "_", "", -1)
 	//egg = strings.Replace(egg, "-", "", -1) // carbon fibre egg
