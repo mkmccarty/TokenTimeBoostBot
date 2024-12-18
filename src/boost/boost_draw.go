@@ -28,7 +28,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 
 	saveData(Contracts)
 	if contract.EggEmoji == "" {
-		contract.EggEmoji = FindEggEmoji(s, "485162044652388384", contract.EggName)
+		contract.EggEmoji = FindEggEmoji(contract.EggName)
 	}
 
 	outputStr = fmt.Sprintf("## %s %s : [%s](%s/%s/%s)", contract.EggEmoji, contract.Name, contract.CoopID, "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID)

@@ -348,10 +348,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	contract.Speedrun = false
 	contract.Banker.SinkBoostPosition = SinkBoostFollowOrder
 	contract.StartTime = time.Now()
-	contract.ChickenRunEmoji = "<:icon_chicken_run:1280374089227178015"
-	if config.IsDevBot() {
-		contract.ChickenRunEmoji = "<:icon_chicken_run:1280378140694286427"
-	}
+	contract.ChickenRunEmoji, _, _ = ei.GetBotEmoji("icon_chicken_run")
 
 	contract.NewFeature = 1
 	contract.RegisteredNum = 0
