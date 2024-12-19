@@ -70,10 +70,6 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		runStr, _, _ := ei.GetBotEmoji("icon_chicken_run")
 
 		str = fmt.Sprintf("%s %d🧑‍🌾 %dm/%s %d %s\n", eggStr, c.MaxCoopSize, c.MinutesPerToken, tokenStr, c.ChickenRuns, runStr)
-		fstr := "farmers"
-		if int(c.MaxCoopSize) == 1 {
-			fstr = "farmer"
-		}
 
 		BTA := c.EstimatedDuration.Minutes() / float64(c.MinutesPerToken)
 		BTA2 := c.EstimatedDurationShip.Minutes() / float64(c.MinutesPerToken)
@@ -85,7 +81,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		// A speedrun or fastrun of $CONTRACT with $NUMBER farmer(s) needing to ship $GOAL eggs is estimated to take about $TIME
 		if c.TargetAmountq[len(c.TargetAmountq)-1] < 1.0 {
 			estStr := c.EstimatedDuration.Round(time.Second).String()
-			str += fmt.Sprintf("A speedrun or fastrun of **%s** (%s) with %d %s needing to ship %.3fq eggs is estimated to take **about %v**\n", c.Name, c.ID, int(c.MaxCoopSize), fstr, c.TargetAmountq[len(c.TargetAmountq)-1], estStr)
+			str += fmt.Sprintf("A speedrun or fastrun of **%s** (%s) needing to ship %.3fq eggs is estimated to take **about %v**\n", c.Name, c.ID, c.TargetAmountq[len(c.TargetAmountq)-1], estStr)
 			if c.EstimatedDuration != c.EstimatedDurationShip {
 				str += fmt.Sprintf("> w/Carbon Fiber: **about %v**", c.EstimatedDurationShip.Round(time.Second).String())
 				if BTA2 > 42.0 {
@@ -100,7 +96,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			estStr = strings.TrimRight(estStr, "0s")
 			estStrShip := c.EstimatedDurationShip.Round(time.Minute).String()
 			estStrShip = strings.TrimRight(estStrShip, "0s")
-			str += fmt.Sprintf("A speedrun or fastrun of **%s** (%s) with %d %s needing to ship %dq eggs is estimated to take **about %v**\n", c.Name, c.ID, int(c.MaxCoopSize), fstr, int(c.TargetAmountq[len(c.TargetAmountq)-1]), estStr)
+			str += fmt.Sprintf("A speedrun or fastrun of **%s** (%s) needing to ship %dq eggs is estimated to take **about %v**\n", c.Name, c.ID, int(c.TargetAmountq[len(c.TargetAmountq)-1]), estStr)
 			if c.EstimatedDuration != c.EstimatedDurationShip {
 				str += fmt.Sprintf("> w/Carbon Fiber: **about %v**", estStrShip)
 			}
