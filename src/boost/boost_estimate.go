@@ -69,7 +69,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		tokenStr, _, _ := ei.GetBotEmoji("token")
 		runStr, _, _ := ei.GetBotEmoji("icon_chicken_run")
 
-		str = fmt.Sprintf("%s %d🧑‍🌾 %dm/%s %d %s\n", eggStr, c.MaxCoopSize, c.MinutesPerToken, tokenStr, c.ChickenRuns, runStr)
+		str = fmt.Sprintf("%s **%s** (%s)\n%d🧑‍🌾 %dm/%s %d %s\n", eggStr, c.Name, c.ID, c.MaxCoopSize, c.MinutesPerToken, tokenStr, c.ChickenRuns, runStr)
 
 		BTA := c.EstimatedDuration.Minutes() / float64(c.MinutesPerToken)
 		BTA2 := c.EstimatedDurationShip.Minutes() / float64(c.MinutesPerToken)
@@ -81,9 +81,10 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		// A speedrun or fastrun of $CONTRACT with $NUMBER farmer(s) needing to ship $GOAL eggs is estimated to take about $TIME
 		if c.TargetAmountq[len(c.TargetAmountq)-1] < 1.0 {
 			estStr := c.EstimatedDuration.Round(time.Second).String()
-			str += fmt.Sprintf("A speedrun or fastrun of **%s** (%s) needing to ship %.3fq eggs is estimated to take **about %v**\n", c.Name, c.ID, c.TargetAmountq[len(c.TargetAmountq)-1], estStr)
+			str += fmt.Sprintf("**%v** for a speedrun or fastrun needing to ship %.3fq eggs\n", estStr, c.TargetAmountq[len(c.TargetAmountq)-1])
+			//			str += fmt.Sprintf("A speedrun or fastrun of **%s** (%s) needing to ship %.3fq eggs is estimated to take **about %v**\n", c.Name, c.ID, c.TargetAmountq[len(c.TargetAmountq)-1], estStr)
 			if c.EstimatedDuration != c.EstimatedDurationShip {
-				str += fmt.Sprintf("> w/Carbon Fiber: **about %v**", c.EstimatedDurationShip.Round(time.Second).String())
+				str += fmt.Sprintf("> w/Carbon Fiber: **about %v**\n", c.EstimatedDurationShip.Round(time.Second).String())
 				if BTA2 > 42.0 {
 					targetTval = 0.07 * BTA2
 				}
@@ -96,12 +97,13 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			estStr = strings.TrimRight(estStr, "0s")
 			estStrShip := c.EstimatedDurationShip.Round(time.Minute).String()
 			estStrShip = strings.TrimRight(estStrShip, "0s")
-			str += fmt.Sprintf("A speedrun or fastrun of **%s** (%s) needing to ship %dq eggs is estimated to take **about %v**\n", c.Name, c.ID, int(c.TargetAmountq[len(c.TargetAmountq)-1]), estStr)
+			//str += fmt.Sprintf("A speedrun or fastrun of **%s** (%s) needing to ship %dq eggs is estimated to take **about %v**\n", c.Name, c.ID, int(c.TargetAmountq[len(c.TargetAmountq)-1]), estStr)
+			str += fmt.Sprintf("**%v** for a speedrun or fastrun needing to ship %.dq eggs\n", estStr, int(c.TargetAmountq[len(c.TargetAmountq)-1]))
 			if c.EstimatedDuration != c.EstimatedDurationShip {
-				str += fmt.Sprintf("> w/Carbon Fiber: **about %v**", estStrShip)
+				str += fmt.Sprintf("> w/Carbon Fiber: **about %v**\n", estStrShip)
 			}
 
-			str += fmt.Sprintf("\nTarget TVal: **%.2f**\n", targetTval)
+			str += fmt.Sprintf("Target TVal: **%.2f**\n", targetTval)
 		}
 
 		/*
