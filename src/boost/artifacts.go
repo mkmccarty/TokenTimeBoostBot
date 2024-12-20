@@ -23,10 +23,10 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 	}
 
 	// These are the global settings
-	defl := ""
-	metr := ""
-	comp := ""
-	guss := ""
+	deflector := ""
+	metronome := ""
+	compass := ""
+	gusset := ""
 	coll := ""
 
 	temp := "PERM"
@@ -37,16 +37,16 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 			if userInContract(contract, userID) {
 				for a := range contract.Boosters[userID].ArtifactSet.Artifacts {
 					if strings.Contains(contract.Boosters[userID].ArtifactSet.Artifacts[a].Type, "Deflector") {
-						defl = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
+						deflector = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
 					}
 					if strings.Contains(contract.Boosters[userID].ArtifactSet.Artifacts[a].Type, "Metronome") {
-						metr = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
+						metronome = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
 					}
 					if strings.Contains(contract.Boosters[userID].ArtifactSet.Artifacts[a].Type, "Compass") {
-						comp = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
+						compass = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
 					}
 					if strings.Contains(contract.Boosters[userID].ArtifactSet.Artifacts[a].Type, "Gusset") {
-						guss = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
+						gusset = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
 					}
 				}
 			}
@@ -54,10 +54,10 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 			return "No contract exists in this channel", nil
 		}
 	} else {
-		defl = farmerstate.GetMiscSettingString(userID, "defl")
-		metr = farmerstate.GetMiscSettingString(userID, "metr")
-		comp = farmerstate.GetMiscSettingString(userID, "comp")
-		guss = farmerstate.GetMiscSettingString(userID, "guss")
+		deflector = farmerstate.GetMiscSettingString(userID, "defl")
+		metronome = farmerstate.GetMiscSettingString(userID, "metr")
+		compass = farmerstate.GetMiscSettingString(userID, "comp")
+		gusset = farmerstate.GetMiscSettingString(userID, "guss")
 		coll = farmerstate.GetMiscSettingString(userID, "collegg")
 	}
 	// Remove the extra closing brace
@@ -75,41 +75,41 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Label:       "Deflector T4L",
 							Description: "Legendary",
 							Value:       "T4L",
-							Default:     defl == "T4L",
+							Default:     deflector == "T4L",
 							Emoji:       ei.GetBotComponentEmoji("DT4La")},
 						{
 							Label:       "Deflector T4E",
 							Description: "Epic",
 							Value:       "T4E",
-							Default:     defl == "T4E",
+							Default:     deflector == "T4E",
 							Emoji:       ei.GetBotComponentEmoji("DT4Ea"),
 						},
 						{
 							Label:       "Deflector T4R",
 							Description: "Rare",
 							Value:       "T4R",
-							Default:     defl == "T4R",
+							Default:     deflector == "T4R",
 							Emoji:       ei.GetBotComponentEmoji("DT4Ra"),
 						},
 						{
 							Label:       "Deflector T4C",
 							Description: "Common",
 							Value:       "T4C",
-							Default:     defl == "T4C",
+							Default:     deflector == "T4C",
 							Emoji:       ei.GetBotComponentEmoji("afx_tachyon_deflector_4"),
 						},
 						{
 							Label:       "Deflector T3R",
 							Description: "Rare",
 							Value:       "T3R",
-							Default:     defl == "T3R",
+							Default:     deflector == "T3R",
 							Emoji:       ei.GetBotComponentEmoji("DT3Ra"),
 						},
 						{
 							Label:       "Deflector T3C",
 							Description: "Common",
 							Value:       "T3C",
-							Default:     defl == "T3C",
+							Default:     deflector == "T3C",
 							Emoji:       ei.GetBotComponentEmoji("afx_tachyon_deflector_3"),
 						},
 					},
@@ -128,49 +128,49 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Label:       "Metronome T4L",
 							Description: "Legendary",
 							Value:       "T4L",
-							Default:     metr == "T4L",
+							Default:     metronome == "T4L",
 							Emoji:       ei.GetBotComponentEmoji("MT4La"),
 						},
 						{
 							Label:       "Metronome T4E",
 							Description: "Epic",
 							Value:       "T4E",
-							Default:     metr == "T4E",
+							Default:     metronome == "T4E",
 							Emoji:       ei.GetBotComponentEmoji("MT4Ea"),
 						},
 						{
 							Label:       "Metronome T4R",
 							Description: "Rare",
 							Value:       "T4R",
-							Default:     metr == "T4R",
+							Default:     metronome == "T4R",
 							Emoji:       ei.GetBotComponentEmoji("MT4Ra"),
 						},
 						{
 							Label:       "Metronome T4C",
 							Description: "Common",
 							Value:       "T4C",
-							Default:     metr == "T4C",
+							Default:     metronome == "T4C",
 							Emoji:       ei.GetBotComponentEmoji("afx_quantum_metronome_4"),
 						},
 						{
 							Label:       "Metronome T3E",
 							Description: "Epic",
 							Value:       "T3E",
-							Default:     metr == "T3E",
+							Default:     metronome == "T3E",
 							Emoji:       ei.GetBotComponentEmoji("MT3Ea"),
 						},
 						{
 							Label:       "Metronome T3R",
 							Description: "Rare",
 							Value:       "T3R",
-							Default:     metr == "T3R",
+							Default:     metronome == "T3R",
 							Emoji:       ei.GetBotComponentEmoji("MT3Ra"),
 						},
 						{
 							Label:       "Metronome T3C",
 							Description: "Common",
 							Value:       "T3C",
-							Default:     metr == "T3C",
+							Default:     metronome == "T3C",
 							Emoji:       ei.GetBotComponentEmoji("afx_quantum_metronome_3"),
 						},
 					},
@@ -189,42 +189,42 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Label:       "Compass T4L",
 							Description: "Legendary",
 							Value:       "T4L",
-							Default:     comp == "T4L",
+							Default:     compass == "T4L",
 							Emoji:       ei.GetBotComponentEmoji("CT4La"),
 						},
 						{
 							Label:       "Compass T4E",
 							Description: "Epic",
 							Value:       "T4E",
-							Default:     comp == "T4E",
+							Default:     compass == "T4E",
 							Emoji:       ei.GetBotComponentEmoji("CT4Ea"),
 						},
 						{
 							Label:       "Compass T4R",
 							Description: "Rare",
 							Value:       "T4R",
-							Default:     comp == "T4R",
+							Default:     compass == "T4R",
 							Emoji:       ei.GetBotComponentEmoji("CT4Ra"),
 						},
 						{
 							Label:       "Compass T4C",
 							Description: "Common",
 							Value:       "T4C",
-							Default:     comp == "T4C",
+							Default:     compass == "T4C",
 							Emoji:       ei.GetBotComponentEmoji("afx_interstellar_compass_4"),
 						},
 						{
 							Label:       "Compass T3R",
 							Description: "Rare",
 							Value:       "T3R",
-							Default:     comp == "T3R",
+							Default:     compass == "T3R",
 							Emoji:       ei.GetBotComponentEmoji("CT3Ra"),
 						},
 						{
 							Label:       "Compass T3C",
 							Description: "Common",
 							Value:       "T3C",
-							Default:     comp == "T3C",
+							Default:     compass == "T3C",
 							Emoji:       ei.GetBotComponentEmoji("afx_interstellar_compass_3"),
 						},
 					},
@@ -243,60 +243,43 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Label:       "Gusset T4L",
 							Description: "Legendary",
 							Value:       "T4L",
-							Default:     guss == "T4L",
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "GT4Ra",
-								ID:   "1279532396802474014"},
+							Default:     gusset == "T4L",
+							Emoji:       ei.GetBotComponentEmoji("GT4Ra"),
 						},
 						{
 							Label:       "Gusset T4E",
 							Description: "Epic",
 							Value:       "T4E",
-							Default:     guss == "T4E",
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "GT4Ea",
-								ID:   "1279532417627197502",
-							},
+							Default:     gusset == "T4E",
+							Emoji:       ei.GetBotComponentEmoji("GT4Ea"),
 						},
 						{
 							Label:       "Gusset T4C",
 							Description: "Common",
 							Value:       "T4C",
-							Default:     guss == "T4C",
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_ornate_gusset_4",
-								ID:   "1279206200541450364",
-							},
+							Default:     gusset == "T4C",
+							Emoji:       ei.GetBotComponentEmoji("afx_ornate_gusset_4"),
 						},
 						{
 							Label:       "Gusset T3R",
 							Description: "Rare",
 							Value:       "T3R",
-							Default:     guss == "T3R",
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "GT3Ra",
-								ID:   "1279532512007295008",
-							},
+							Default:     gusset == "T3R",
+							Emoji:       ei.GetBotComponentEmoji("GT3Ra"),
 						},
 						{
 							Label:       "Gusset T3C",
 							Description: "Common",
 							Value:       "T3C",
-							Default:     guss == "T3C",
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "afx_ornate_gusset_3",
-								ID:   "1279206172355727514",
-							},
+							Default:     gusset == "T3C",
+							Emoji:       ei.GetBotComponentEmoji("afx_ornate_gusset_3"),
 						},
 						{
 							Label:       "Gusset T2E",
 							Description: "Epic",
 							Value:       "T2E",
-							Default:     guss == "T2E",
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "GT2Ea",
-								ID:   "1279532584904298588",
-							},
+							Default:     gusset == "T2E",
+							Emoji:       ei.GetBotComponentEmoji("GT2Ea"),
 						},
 					},
 				},
