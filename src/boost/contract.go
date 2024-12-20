@@ -355,6 +355,8 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	contract.CoopSize = coopSize
 	contract.Name = contractID
 	updateContractWithEggIncData(contract)
+
+	contract.DynamicData = createDynamicTokenData()
 	Contracts[ContractHash] = contract
 
 	/*

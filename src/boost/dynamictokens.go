@@ -10,17 +10,19 @@ import (
 type DynamicTokenData struct {
 	TokenTimer int
 
-	HabNumber          int64
-	OfflineIHR         int64
-	Name               string
-	ELR                float64
-	TokenBoost         [5]int64
-	BoostTimeMinutes   [5]float64
-	IhrBase            int64
-	FourHabsOffline    int64
-	MaxHab             float64
-	IHRMultiplier      float64
-	ColleggtibleEaster float64
+	HabNumber             int64
+	OfflineIHR            int64
+	Name                  string
+	ELR                   float64
+	TokenBoost            [5]int64
+	BoostTimeSeconds      [5]time.Duration
+	ChickenRunTimeSeconds [5]time.Duration
+	IhrBase               int64
+	FourHabsOffline       int64
+	MaxHab                float64
+	ChickenRunHab         float64
+	IHRMultiplier         float64
+	ColleggtibleEaster    float64
 }
 
 // Returns an slice of integers for all contract players with needed token counts
@@ -50,6 +52,19 @@ func calculateDynamicTokens(dt *DynamicTokenData, count int, tpm float64, heldTo
 	return retSlice
 }
 
+// getBoostTimeSeconds returns the boost time as a time.Duration for a given number of tokens
+func getBoostTimeSeconds(dt *DynamicTokenData, tokens int) (time.Duration, time.Duration) {
+	if tokens < 4 || tokens > 9 {
+		log.Printf("Invalid number of tokens: %d. Must be between 4 and 9.", tokens)
+		return 0, 0
+	}
+	// Check if someone is using a 9th token for a soul mirror boost
+	if tokens == 9 {
+		tokens = 8
+	}
+	return dt.BoostTimeSeconds[tokens-4], dt.ChickenRunTimeSeconds[tokens-4]
+}
+
 // createDynamicTokenData creates all the common underlying data for dynamic tokens
 func createDynamicTokenData() *DynamicTokenData {
 	dt := new(DynamicTokenData)
@@ -59,7 +74,8 @@ func createDynamicTokenData() *DynamicTokenData {
 
 	// Chickens per minute
 	// Assumption is that the player has completed Epic and Common Research
-	dt.IhrBase = 7440 // chickens/min/hab
+	dt.IhrBase = 7440                                           // chickens/min/hab
+	dt.IhrBase = int64(float64(dt.IhrBase) * math.Pow(1.05, 1)) // 5% from Easter Colleggtibles
 	dt.FourHabsOffline = dt.IhrBase * dt.HabNumber * dt.OfflineIHR
 
 	// 1000x + number of 10x free boosts * multiplier
@@ -74,9 +90,11 @@ func createDynamicTokenData() *DynamicTokenData {
 	dt.ColleggtibleEaster = 1.05
 	dt.IHRMultiplier = 1.4 * 1.25 * math.Pow(1.04, 11.0) * dt.ColleggtibleEaster
 	dt.MaxHab = 14175000000.0
+	dt.ChickenRunHab = 9000000000.0
 	// Create boost times for 4 through 9 tokens
 	for i := 0; i < len(dt.TokenBoost); i++ {
-		dt.BoostTimeMinutes[i] = dt.MaxHab / (float64(dt.TokenBoost[i]) * dt.IHRMultiplier)
+		dt.BoostTimeSeconds[i] = time.Duration(dt.MaxHab / (float64(dt.TokenBoost[i]) * dt.IHRMultiplier) * 60.0 * float64(time.Second))
+		dt.ChickenRunTimeSeconds[i] = time.Duration(dt.ChickenRunHab / (float64(dt.TokenBoost[i]) * dt.IHRMultiplier) * 60.0 * float64(time.Second))
 	}
 	return dt
 }
