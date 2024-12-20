@@ -177,6 +177,9 @@ type Booster struct {
 	BoostTriggerTime       time.Time     // Used for time remaining in boost
 	Hint                   []string      // Used to track which hints have been given
 	ArtifactSet            ArtifactSet   // Set of artifacts for this booster
+	EstDurationOfBoost     time.Duration // Estimated duration of the boost
+	EstEndOfBoost          time.Time     // Estimated end of the boost
+	EstRequestChickenRuns  time.Time     // Estimated time to request chicken runs
 }
 
 // LocationData holds server specific Data for a contract
@@ -261,7 +264,9 @@ type Contract struct {
 	buttonComponents map[string]CompMap // Cached components for this contract
 	SavedStats       bool               // Saved stats for this contract
 	NewFeature       int                // Used to slide in new features
-	mutex            sync.Mutex         // Keep this contract thread safe
+	DynamicData      *DynamicTokenData
+
+	mutex sync.Mutex // Keep this contract thread safe
 }
 
 // SpeedrunData holds the data for a speedrun
@@ -1418,6 +1423,16 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateBoosted
 	contract.Boosters[contract.Order[contract.BoostPosition]].EndTime = time.Now()
 	contract.Boosters[contract.Order[contract.BoostPosition]].Duration = time.Since(contract.Boosters[contract.Order[contract.BoostPosition]].StartTime)
+
+	// These fields are for the dynamic token assignment
+	if contract.DynamicData != nil {
+		wiggleRoom := time.Duration(30 * time.Second) // Add 30 seconds to the end of the boost
+		boostDuration, chickenRunDuration := getBoostTimeSeconds(contract.DynamicData, contract.Boosters[contract.Order[contract.BoostPosition]].TokensWanted)
+		contract.Boosters[contract.Order[contract.BoostPosition]].EstDurationOfBoost = boostDuration
+		contract.Boosters[contract.Order[contract.BoostPosition]].EstEndOfBoost = time.Now().Add(boostDuration).Add(wiggleRoom)
+		contract.Boosters[contract.Order[contract.BoostPosition]].EstRequestChickenRuns = time.Now().Add(chickenRunDuration).Add(wiggleRoom)
+	}
+
 	contract.BoostedOrder = append(contract.BoostedOrder, contract.Order[contract.BoostPosition])
 
 	// Advance past any that have already boosted
