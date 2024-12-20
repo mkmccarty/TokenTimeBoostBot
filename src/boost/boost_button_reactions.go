@@ -351,6 +351,7 @@ func buttonReactionHelp(s *discordgo.Session, i *discordgo.InteractionCreate, co
 	outputStr += "add a 4️⃣ to 🔟 reaction to the boost list message.\n"
 	outputStr += "Active booster reaction of " + boostIcon + " to when spending tokens to boost. Multiple " + boostIcon + " votes by others in the contract will also indicate a boost.\n"
 	outputStr += "Farmers react with " + contract.TokenStr + " when sending tokens.\n"
+	outputStr += fmt.Sprintf("Farmer status line, %s:Requested Run, %s:10B Est, %s: Full Hab Est.\n", ei.GetBotEmojiMarkdown("icon_chicken_run"), ei.GetBotEmojiMarkdown("trophy_diamond"), ei.GetBotEmojiMarkdown("fullhab"))
 	//outputStr += "Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n"
 	outputStr += "Active booster reaction of 🔃 to exchange position with the next booster.\n"
 	outputStr += "Reaction of ⤵️ to move yourself to last in the current boost order.\n"
