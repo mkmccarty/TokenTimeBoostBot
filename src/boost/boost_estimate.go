@@ -69,7 +69,11 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		tokenStr, _, _ := ei.GetBotEmoji("token")
 		runStr, _, _ := ei.GetBotEmoji("icon_chicken_run")
 
-		str = fmt.Sprintf("%s **%s** (%s)\n%d🧑‍🌾 %dm/%s %d %s\n", eggStr, c.Name, c.ID, c.MaxCoopSize, c.MinutesPerToken, tokenStr, c.ChickenRuns, runStr)
+		str = fmt.Sprintf("%s **%s** (%s)\n%d🧑‍🌾 %dm/%s %d %s", eggStr, c.Name, c.ID, c.MaxCoopSize, c.MinutesPerToken, tokenStr, c.ChickenRuns, runStr)
+		if c.ModifierSR != 1.0 && c.ModifierSR > 0.0 {
+			str += fmt.Sprintf(" / 🛻 %2.1fx", c.ModifierSR)
+		}
+		str += "\n"
 
 		BTA := c.EstimatedDuration.Minutes() / float64(c.MinutesPerToken)
 		BTA2 := c.EstimatedDurationShip.Minutes() / float64(c.MinutesPerToken)
@@ -141,7 +145,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 }
 
-func getContractDurationEstimate(contractEggs float64, numFarmers float64, collegtible bool) time.Duration {
+func getContractDurationEstimate(contractEggs float64, numFarmers float64, collegtible bool, modifierSR float64) time.Duration {
 	//ASSUME: average fast player has triple leg contract artis and T4C deflector and spends 10% of contract time unboosted
 	//shiny deflectors pull completion time faster than estimate, epic artifacts push slower than estimate
 
@@ -158,8 +162,12 @@ func getContractDurationEstimate(contractEggs float64, numFarmers float64, colle
 	//baseShipping := 7.148
 
 	// The 5.8 is Solo production without stones times 0.9
+	soloRate := 5.8
+	if modifierSR != 1.0 && modifierSR > 0.0 {
+		soloRate *= modifierSR
+	}
 
-	estimate := contractEggs / (numFarmers * 5.8 * (1.0 + 0.15*min(numFarmers-1.0, 10.0+shippingMod)) * math.Pow(1.05, max(0.0, 10.0-numFarmers)))
+	estimate := contractEggs / (numFarmers * soloRate * (1.0 + 0.15*min(numFarmers-1.0, 10.0+shippingMod)) * math.Pow(1.05, max(0.0, 10.0-numFarmers)))
 	estimateDuration := time.Duration(estimate * float64(time.Hour))
 
 	//log.Printf("%s: %dq for %d farmers = %v", ID, int(contractEggs), int(numFarmers), estimateDuration.Round(time.Second))

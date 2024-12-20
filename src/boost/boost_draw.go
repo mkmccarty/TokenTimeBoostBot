@@ -287,7 +287,16 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 							outputStr += fmt.Sprintf("%s ➡️ **%s** %s%s%s%s\n", prefix, name, countStr, sortRate, currentStartTime, server)
 						}
 					case BoostStateBoosted:
-						outputStr += fmt.Sprintf("%s ~~%s~~  %s %s%s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, chickenStr, server)
+						boostingString := ""
+						if time.Now().Before(b.EstEndOfBoost) {
+							diamond, _, _ := ei.GetBotEmoji("trophy_diamond")
+							habFull, _, _ := ei.GetBotEmoji("hab_full")
+							if b.RunChickensTime.IsZero() {
+								boostingString = fmt.Sprintf(" %s<t:%d:R> / ", diamond, b.EstRequestChickenRuns.Unix())
+							}
+							boostingString += fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
+						}
+						outputStr += fmt.Sprintf("%s ~~%s~~  %s %s%s%s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server)
 					}
 				}
 			}

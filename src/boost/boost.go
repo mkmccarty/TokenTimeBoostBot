@@ -1969,8 +1969,8 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	}
 	// Duration estimate
 	if len(c.TargetAmount) != 0 {
-		c.EstimatedDuration = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), false)
-		c.EstimatedDurationShip = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), true)
+		c.EstimatedDuration = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), false, c.ModifierSR)
+		c.EstimatedDurationShip = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), true, c.ModifierSR)
 	}
 	return c
 }
