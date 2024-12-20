@@ -214,6 +214,8 @@ var BotEmojiMap = map[string]BotEmojiData{
 	"ultra":            {"ultra", "1286890801963470848", "1286890849719812147"},
 	"token":            {"token", "1279216492927385652", "1279216759131476123"},
 	"icon_chicken_run": {"icon_chicken_run", "1288641440074698845", "1288641283010728037"},
+	"trophy_diamond":   {"trophy_diamond", "1319400780070916188", "1319400460582654115"},
+	"hab_full":         {"hab_full", "1319401420058919045", "1319401703795064913"},
 }
 
 // GetBotComponentEmoji will return a ComponentEmoji for the given name
