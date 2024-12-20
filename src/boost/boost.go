@@ -1784,7 +1784,7 @@ func reorderBoosters(contract *Contract) {
 
 	}
 	//
-	if contract.Speedrun && contract.Banker.BoostingSinkUserID != "" {
+	if contract.Style&ContractFlagBanker != 0 && contract.Banker.BoostingSinkUserID != "" {
 		repositionSinkBoostPosition(contract)
 	}
 }
