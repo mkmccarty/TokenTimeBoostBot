@@ -283,10 +283,7 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 					discordgo.ActionsRow{
 						Components: []discordgo.MessageComponent{
 							discordgo.Button{
-								Emoji: &discordgo.ComponentEmoji{
-									Name: strings.Split(contract.ChickenRunEmoji, ":")[1],
-									ID:   strings.Split(contract.ChickenRunEmoji, ":")[2],
-								},
+								Emoji:    ei.GetBotComponentEmoji("runready"),
 								Style:    discordgo.SecondaryButton,
 								CustomID: fmt.Sprintf("rc_#RanChicken#%s", contract.ContractHash),
 							},
