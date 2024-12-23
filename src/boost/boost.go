@@ -219,7 +219,6 @@ type Contract struct {
 	Egg                       int32
 	EggName                   string
 	EggEmoji                  string
-	ChickenRunEmoji           string
 	TokenStr                  string // Emoji for Token
 	TokenReactionStr          string // Emoji for Token Reaction
 	TargetAmount              []float64
