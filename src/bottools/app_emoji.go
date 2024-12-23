@@ -82,6 +82,9 @@ func ImportEggImage(s *discordgo.Session, eggID, IconURL string) (string, error)
 
 	var src image.Image
 	src, _, err = image.Decode(strings.NewReader(string(iconData)))
+	if err != nil {
+		return "", err
+	}
 
 	// Create a new variable for egg.ID, but remove spaces and hyphens from its name and make it lowercase
 	cleanEggID := strings.ReplaceAll(strings.ReplaceAll(strings.ToLower(eggID), " ", ""), "-", "")
