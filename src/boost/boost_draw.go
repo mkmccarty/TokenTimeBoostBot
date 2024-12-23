@@ -233,7 +233,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 				var chickenStr = ""
 				//if time.Since(b.RunChickensTime) < 10*time.Minute {
 				if !b.RunChickensTime.IsZero() {
-					chickenStr = fmt.Sprintf(" - <t:%d:R>%s", b.RunChickensTime.Unix(), contract.ChickenRunEmoji)
+					chickenStr = fmt.Sprintf(" - <t:%d:R>%s", b.RunChickensTime.Unix(), ei.GetBotEmojiMarkdown("icon_chicken_run"))
 				}
 
 				countStr, signupCountStr := getTokenCountString(tokenStr, b.TokensWanted, b.TokensReceived)
