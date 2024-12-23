@@ -13,6 +13,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"google.golang.org/protobuf/proto"
@@ -171,8 +172,15 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 			}
 		} else {
 			var builder strings.Builder
+			// Do we have an icon for this egg?
 			builder.WriteString(fmt.Sprintf("New Custom Egg Detected: %s", egg.Name))
+			str, err := bottools.ImportEggImage(s, egg.ID, egg.IconURL)
+			if err != nil {
+				log.Print(err)
+			}
+			log.Print(str)
 
+			// Send a message about a new egg
 			u, _ := s.UserChannelCreate(config.AdminUserID)
 			var data discordgo.MessageSend
 			data.Content = builder.String()
@@ -183,11 +191,11 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 					URL: egg.IconURL,
 				},
 			}
-
-			_, err := s.ChannelMessageSendComplex(u.ID, &data)
+			_, err = s.ChannelMessageSendComplex(u.ID, &data)
 			if err != nil {
 				log.Print(err)
 			}
+
 		}
 
 		log.Print("custom egg details: ", egg.ID, "  ", egg.Proto[:32])
@@ -199,6 +207,8 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	if changed {
 		saveCustomEggData(ei.CustomEggMap)
 	}
+
+	bottools.ExploreEmoji(s)
 }
 
 func float64SliceToStringSlice(slice []float64) string {
