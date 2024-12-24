@@ -367,9 +367,6 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	// Find our Token emoji
 	contract.TokenStr, _, _ = ei.GetBotEmoji("token")
 
-	// set TokenReactionStr to the TokenStr without first 2 characters and last character
-	contract.TokenReactionStr = contract.TokenStr[2 : len(contract.TokenStr)-1]
-
 	return contract, nil
 }
 
