@@ -369,7 +369,7 @@ func addContractReactionsButtons(s *discordgo.Session, contract *Contract, chann
 	if contract.buttonComponents == nil {
 		compVals := make(map[string]CompMap, 14)
 		compVals[boostIconReaction] = CompMap{Emoji: boostIconReaction, Style: discordgo.SecondaryButton, CustomID: "rc_#Boost#"}
-		compVals[contract.TokenStr] = CompMap{Emoji: strings.Split(contract.TokenReactionStr, ":")[0], ID: strings.Split(contract.TokenReactionStr, ":")[1], Style: discordgo.SecondaryButton, CustomID: "rc_#Token#"}
+		compVals[contract.TokenStr] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("token"), Style: discordgo.SecondaryButton, CustomID: "rc_#Token#"}
 		compVals["💰"] = CompMap{Emoji: "💰", Style: discordgo.SecondaryButton, CustomID: "rc_#bag#"}
 		compVals["🚚"] = CompMap{Emoji: "🚚", Style: discordgo.SecondaryButton, CustomID: "rc_#truck#"}
 		compVals["💃"] = CompMap{Emoji: "💃", Style: discordgo.SecondaryButton, CustomID: "rc_#tango#"}
