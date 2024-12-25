@@ -288,13 +288,6 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 	}
 
 	if !contractOnly {
-		_, carbonfiber := ei.FindEggComponentEmoji("CARBON-FIBER")
-		_, chocolate := ei.FindEggComponentEmoji("CHOCOLATE")
-		_, easter := ei.FindEggComponentEmoji("EASTER")
-		_, firework := ei.FindEggComponentEmoji("FIREWORK")
-		_, pumpkin := ei.FindEggComponentEmoji("PUMPKIN")
-		_, waterballoon := ei.FindEggComponentEmoji("WATERBALLOON")
-		_, lithium := ei.FindEggComponentEmoji("LITHIUM")
 
 		component = append(component, discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
@@ -309,70 +302,49 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Description: "5% Shipping",
 							Value:       "CarbonFiber",
 							Default:     strings.Contains(coll, "CarbonFiber"),
-							Emoji: &discordgo.ComponentEmoji{
-								Name: carbonfiber.Name,
-								ID:   carbonfiber.ID,
-							},
+							Emoji:       ei.GetBotComponentEmoji("egg_carbonfiber"),
 						},
 						{
 							Label:       "Chocolate",
 							Description: "3x Away Earnings",
 							Value:       "Chocolate",
 							Default:     strings.Contains(coll, "Chocolate"),
-							Emoji: &discordgo.ComponentEmoji{
-								Name: chocolate.Name,
-								ID:   chocolate.ID,
-							},
+							Emoji:       ei.GetBotComponentEmoji("egg_chocolate"),
 						},
 						{
 							Label:       "Easter",
 							Description: "5% Internal Hatchery Rate",
 							Value:       "Easter",
 							Default:     strings.Contains(coll, "Easter"),
-							Emoji: &discordgo.ComponentEmoji{
-								Name: easter.Name,
-								ID:   easter.ID,
-							},
+							Emoji:       ei.GetBotComponentEmoji("egg_easter"),
 						},
 						{
 							Label:       "Firework",
 							Description: "5% Earnings",
 							Value:       "Firework",
 							Default:     strings.Contains(coll, "Firework"),
-							Emoji: &discordgo.ComponentEmoji{
-								Name: firework.Name,
-								ID:   firework.ID,
-							},
+							Emoji:       ei.GetBotComponentEmoji("egg_firework"),
 						},
 						{
 							Label:       "Lithium",
 							Description: "-10% Vehicle Cost",
 							Value:       "Lithium",
 							Default:     strings.Contains(coll, "Lithium"),
-							Emoji: &discordgo.ComponentEmoji{
-								Name: lithium.Name,
-								ID:   lithium.ID,
-							},
+							Emoji:       ei.GetBotComponentEmoji("egg_lithium"),
 						},
 						{
 							Label:       "Pumpkin",
 							Description: "5% Shipping",
 							Value:       "Pumpkin",
 							Default:     strings.Contains(coll, "Pumpkin"),
-							Emoji: &discordgo.ComponentEmoji{
-								Name: pumpkin.Name,
-								ID:   pumpkin.ID,
-							},
+							Emoji:       ei.GetBotComponentEmoji("egg_pumpkin"),
 						},
 						{
 							Label:       "Waterballoon",
 							Description: "95% Research Cost",
 							Value:       "Waterballoon",
 							Default:     strings.Contains(coll, "Waterballoon"),
-							Emoji: &discordgo.ComponentEmoji{
-								Name: waterballoon.Name,
-								ID:   waterballoon.ID,
-							},
+							Emoji:       ei.GetBotComponentEmoji("egg_waterballoon"),
 						},
 					},
 				},
