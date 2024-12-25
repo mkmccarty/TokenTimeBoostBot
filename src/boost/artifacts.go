@@ -244,7 +244,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Description: "Legendary",
 							Value:       "T4L",
 							Default:     gusset == "T4L",
-							Emoji:       ei.GetBotComponentEmoji("GT4Ra"),
+							Emoji:       ei.GetBotComponentEmoji("GT4La"),
 						},
 						{
 							Label:       "Gusset T4E",
