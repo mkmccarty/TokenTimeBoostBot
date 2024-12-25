@@ -94,6 +94,7 @@ var CustomEggMap map[string]*EggIncCustomEgg
 func init() {
 	EggIncContractsAll = make(map[string]EggIncContract)
 	CustomEggMap = make(map[string]*EggIncCustomEgg)
+	EmoteMap = make(map[string]Emotes)
 }
 
 // EggEmojiData is a struct to hold the name and ID of an egg emoji
@@ -194,54 +195,15 @@ func FindEggEmoji(eggOrig string) string {
 	return eggIconString
 }
 
-// BotEmojiData is a struct to hold the name and ID of an egg emoji
-type BotEmojiData struct {
-	Name  string
-	ID    string
-	DevID string
+// Emotes is a struct to hold the name and ID of an egg emoji
+type Emotes struct {
+	Name string
+	ID   string
+	URL  string
 }
 
-// BotEmojiMap of all bot emojis for production and development environments
-var BotEmojiMap = map[string]BotEmojiData{
-	"runready":                   {"runchicken", "1288641440074698845", "1288641283010728037"},
-	"unknown":                    {"unknown", "1288638240886095872", "1288638345970454570"},
-	"signup":                     {"signup", "1288391738758795284", "1288391860431360093"},
-	"reverse":                    {"reverse", "1288577307451326575", "1288577133995753635"},
-	"random":                     {"random", "1288394311305658452", "1288394382516424725"},
-	"fair":                       {"fair", "1288579576435445792", "1288579727598026857"},
-	"elr":                        {"elr", "1288152787494109216", "1288152690001580072"},
-	"sharing":                    {"sharing", "1288581074124804106", "1288580958794158090"},
-	"ultra":                      {"ultra", "1286890801963470848", "1286890849719812147"},
-	"token":                      {"token", "1279216492927385652", "1279216759131476123"},
-	"icon_chicken_run":           {"icon_chicken_run", "1280374089227178015", "1280378140694286427"},
-	"trophy_diamond":             {"trophy_diamond", "1319400780070916188", "1319400460582654115"},
-	"hab_full":                   {"hab_full", "1319401420058919045", "1319401703795064913"},
-	"dt4la":                      {"dt4la", "1279530304612204574", "1319555594809507841"},
-	"dt4ea":                      {"dt4ea", "1279530331820523551", "1279530331820523551"},
-	"dt4ra":                      {"dt4ra", "1279530356965380177", "1279530356965380177"},
-	"afx_tachyon_deflector_4":    {"afx_tachyon_deflector_4", "863987172674371604", "863987172674371604"},
-	"dt3ra":                      {"dt3ra", "1279530534539890748", "1279530534539890748"},
-	"afx_tachyon_deflector_3":    {"afx_tachyon_deflector_3", "1279201840755642479", "1279201840755642479"},
-	"mt4la":                      {"mt4la", "1279530626470383618", "1279530626470383618"},
-	"mt4ea":                      {"mt4ea", "1279530656614977649", "1279530656614977649"},
-	"mt4ra":                      {"mt4ra", "1279530692392390656", "1279530692392390656"},
-	"afx_quantum_metronome_4":    {"afx_quantum_metronome_4", "1279205882097565788", "1279205882097565788"},
-	"mt3ea":                      {"mt3ea", "1279530849339052072", "1279530849339052072"},
-	"mt3ra":                      {"mt3ra", "1279530956377554955", "1279530956377554955"},
-	"afx_quantum_metronome_3":    {"afx_quantum_metronome_3", "1279205835893117032", "1279205835893117032"},
-	"ct4la":                      {"ct4la", "1279531047251607605", "1279531047251607605"},
-	"ct4ea":                      {"ct4ea", "1279531101672702022", "1279531101672702022"},
-	"ct4ra":                      {"ct4ra", "1279532221455269949", "1279532221455269949"},
-	"afx_interstellar_compass_4": {"afx_interstellar_compass_4", "1279205584645652491", "1279205584645652491"},
-	"ct3ra":                      {"ct3ra", "1279532322802237614", "1279532322802237614"},
-	"afx_interstellar_compass_3": {"afx_interstellar_compass_3", "1279205540731551854", "1279205540731551854"},
-	"gt4ra":                      {"gt4ra", "1279532396802474014", "1279532396802474014"},
-	"gt4ea":                      {"gt4ea", "1279532417627197502", "1279532417627197502"},
-	"afx_ornate_gusset_4":        {"afx_ornate_gusset_4", "1279206200541450364", "1279206200541450364"},
-	"gt3ra":                      {"gt3ra", "1279532512007295008", "1279532512007295008"},
-	"afx_ornate_gusset_3":        {"afx_ornate_gusset_3", "1279206172355727514", "1279206172355727514"},
-	"gt2ea":                      {"gt2ea", "1279532584904298588", "1279532584904298588"},
-}
+// EmoteMap of egg emojis from the Egg Inc Discord
+var EmoteMap map[string]Emotes
 
 // GetBotComponentEmoji will return a ComponentEmoji for the given name
 func GetBotComponentEmoji(name string) *discordgo.ComponentEmoji {
@@ -249,19 +211,13 @@ func GetBotComponentEmoji(name string) *discordgo.ComponentEmoji {
 	var emojiName string
 	var emojiID string
 
-	emoji, ok := BotEmojiMap[strings.ToLower(name)]
+	emoji, ok := EmoteMap[strings.ToLower(name)]
 	if ok {
 		emojiName = emoji.Name
 		emojiID = emoji.ID
-		if config.IsDevBot() {
-			emojiID = emoji.DevID
-		}
 	} else {
-		emojiName = BotEmojiMap["unknown"].Name
-		emojiID = BotEmojiMap["unknown"].ID
-		if config.IsDevBot() {
-			emojiID = BotEmojiMap["unknown"].DevID
-		}
+		emojiName = EmoteMap["unknown"].Name
+		emojiID = EmoteMap["unknown"].ID
 	}
 	compEmoji.Name = emojiName
 	compEmoji.ID = emojiID
@@ -275,19 +231,13 @@ func GetBotEmoji(name string) (string, string, string) {
 	var emojiID string
 	var markdown string
 
-	emoji, ok := BotEmojiMap[strings.ToLower(name)]
+	emoji, ok := EmoteMap[strings.ToLower(name)]
 	if ok {
 		emojiName = emoji.Name
 		emojiID = emoji.ID
-		if config.IsDevBot() {
-			emojiID = emoji.DevID
-		}
 	} else {
-		emojiName = BotEmojiMap["unknown"].Name
-		emojiID = BotEmojiMap["unknown"].ID
-		if config.IsDevBot() {
-			emojiID = BotEmojiMap["unknown"].DevID
-		}
+		emojiName = EmoteMap["unknown"].Name
+		emojiID = EmoteMap["unknown"].ID
 	}
 	markdown = fmt.Sprintf("<:%s:%s>", emojiName, emojiID)
 
@@ -300,19 +250,13 @@ func GetBotEmojiMarkdown(name string) string {
 	var emojiID string
 	var markdown string
 
-	emoji, ok := BotEmojiMap[strings.ToLower(name)]
+	emoji, ok := EmoteMap[strings.ToLower(name)]
 	if ok {
 		emojiName = emoji.Name
 		emojiID = emoji.ID
-		if config.IsDevBot() {
-			emojiID = emoji.DevID
-		}
 	} else {
-		emojiName = BotEmojiMap["unknown"].Name
-		emojiID = BotEmojiMap["unknown"].ID
-		if config.IsDevBot() {
-			emojiID = BotEmojiMap["unknown"].DevID
-		}
+		emojiName = EmoteMap["unknown"].Name
+		emojiID = EmoteMap["unknown"].ID
 	}
 	markdown = fmt.Sprintf("<:%s:%s>", emojiName, emojiID)
 

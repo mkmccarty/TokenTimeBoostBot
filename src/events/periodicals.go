@@ -207,8 +207,6 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	if changed {
 		saveCustomEggData(ei.CustomEggMap)
 	}
-
-	bottools.ExploreEmoji(s)
 }
 
 func float64SliceToStringSlice(slice []float64) string {

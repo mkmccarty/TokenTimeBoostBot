@@ -890,6 +890,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
+	bottools.LoadEmotes(s, false)
 	boost.LaunchIndependentTimers(s)
 
 	_ = s.UpdateStatusComplex(discordgo.UpdateStatusData{

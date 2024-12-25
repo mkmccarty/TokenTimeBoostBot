@@ -12,6 +12,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/jasonlvhit/gocron"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
@@ -76,6 +77,7 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 	lastEventUpdate = time.Time{}
 	downloadEggIncData(eggIncContractsURL, eggIncContractsFile)
 	downloadEggIncData(eggIncEventsURL, eggIncEventsFile)
+	bottools.LoadEmotes(s, true)
 
 	events.GetPeriodicalsFromAPI(s)
 

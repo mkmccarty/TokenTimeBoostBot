@@ -3,13 +3,16 @@ package bottools
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/png"
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
@@ -17,52 +20,88 @@ import (
 	"golang.org/x/image/draw"
 )
 
-// ExploreEmoji will list all the emojis in the app
-func ExploreEmoji(s *discordgo.Session) {
+const emoteFilePath = "ttbb-data/Emotes.json"
 
+// fetchEmojis fetches emojis from the discord API
+func fetchEmojis(s *discordgo.Session) map[string]ei.Emotes {
+	emotes := make(map[string]ei.Emotes)
 	appEmoji, err := s.ApplicationEmojis(config.DiscordAppID)
+	if err != nil {
+		return emotes
+	}
+	for _, e := range appEmoji {
+		emotes[strings.ToLower(e.Name)] = ei.Emotes{
+			Name: e.Name,
+			ID:   e.ID,
+		}
+	}
+	return emotes
+}
+
+// LoadEmotes will load all the emojis from the app
+func LoadEmotes(s *discordgo.Session, force bool) {
+	EmoteMapNew := make(map[string]ei.Emotes)
+
+	// Attempt to load the file
+	fileInfo, err := os.Stat(emoteFilePath)
+	if force || err != nil {
+		if force || os.IsNotExist(err) {
+			// File didn't eist load fresh data
+			EmoteMapNew = fetchEmojis(s)
+			ei.EmoteMap = EmoteMapNew
+			saveEmotesToFile(emoteFilePath, EmoteMapNew)
+			ei.EmoteMap = EmoteMapNew
+			return
+		}
+	} else {
+		// File exists, load the data
+		EmoteMapNew, err = loadEmotesFromFile(emoteFilePath)
+		if err != nil {
+			log.Print(err)
+		}
+		ei.EmoteMap = EmoteMapNew
+	}
+
+	// If data is empty or the file is older than 1 day, fetch new data
+	if len(EmoteMapNew) == 0 || time.Since(fileInfo.ModTime()) > 24*time.Hour {
+		EmoteMapNew = fetchEmojis(s)
+		if len(EmoteMapNew) != len(ei.EmoteMap) {
+			ei.EmoteMap = EmoteMapNew
+			saveEmotesToFile(emoteFilePath, EmoteMapNew)
+		}
+	}
+}
+
+// saveEmotesToFile saves the emotes to a file
+func saveEmotesToFile(emoteFilePath string, emotes map[string]ei.Emotes) {
+	file, err := os.Create(emoteFilePath)
 	if err != nil {
 		log.Print(err)
 		return
 	}
-	for _, e := range appEmoji {
-		emoji, err := s.ApplicationEmoji(config.DiscordAppID, e.ID)
-		if err != nil {
-			log.Print(err)
-			return
-		}
-		log.Print(emoji.Name, emoji.ID, emoji.Animated)
+	defer file.Close()
+	encoder := json.NewEncoder(file)
+	err = encoder.Encode(emotes)
+	if err != nil {
+		log.Print(err)
+		return
 	}
-	// eparam.Name = "test"
-	/*
-		s.ApplicationEmojiCreate(config.DiscordAppID, "test", "https://cdn.discordapp.com/emojis/1234567890.png", nil)
-		s.ApplicationEmojiDelete(config.DiscordAppID, "test2")
+}
 
-	*/
-
-	/*
-			var builder strings.Builder
-			builder.WriteString("URL for the following is all /")
-
-			for _, e := range appEmoji {
-				builder.WriteString(fmt.Sprintf("%s,http://cdn.discordapp.com/emojis/%s.png\n", e.Name, e.ID))
-			}
-			log.Print(builder.String())
-		*
-			/*
-				u, _ := s.UserChannelCreate(config.AdminUserID)
-				var data discordgo.MessageSend
-				data.Content = builder.String()
-				data.Embed = &discordgo.MessageEmbed{
-					Title:       "emoji",
-					Description: "Images",
-				}
-
-				_, err = s.ChannelMessageSendComplex(u.ID, &data)
-				if err != nil {
-					log.Print(err)
-				}
-	*/
+// loadEmotesFromFile loads the emotes from a file
+func loadEmotesFromFile(emoteFilePath string) (map[string]ei.Emotes, error) {
+	file, err := os.Open(emoteFilePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	var emotes map[string]ei.Emotes
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&emotes)
+	if err != nil {
+		return nil, err
+	}
+	return emotes, nil
 }
 
 // ImportEggImage will import an egg image into the discord app
@@ -117,11 +156,11 @@ func ImportEggImage(s *discordgo.Session, eggID, IconURL string) (string, error)
 		log.Print(err)
 		return "", err
 	}
-	emojiData := ei.EggEmojiData{
-		Name:  newID.Name,
-		ID:    newID.ID,
-		DevID: newID.ID,
+	emojiData := ei.Emotes{
+		Name: newID.Name,
+		ID:   newID.ID,
 	}
-	ei.EggEmojiMap[strings.ToUpper(eggID)] = emojiData
+	ei.EmoteMap[strings.ToLower(eggID)] = emojiData
+	saveEmotesToFile(emoteFilePath, ei.EmoteMap)
 	return fmt.Sprintf(":%s:%s:", newID.Name, newID.ID), nil
 }
