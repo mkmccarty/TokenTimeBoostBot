@@ -19,8 +19,9 @@ require (
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	go.mongodb.org/mongo-driver v1.17.1
 	golang.org/x/image v0.23.0
+	golang.org/x/text v0.21.0
 	google.golang.org/api v0.214.0
-	google.golang.org/protobuf v1.36.0
+	google.golang.org/protobuf v1.36.1
 
 )
 
@@ -61,10 +62,9 @@ require (
 	golang.org/x/oauth2 v0.24.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/time v0.8.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20241219192143-6b3ec007d9bb // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20241219192143-6b3ec007d9bb // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20241223144023-3abc09e42ca8 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20241223144023-3abc09e42ca8 // indirect
 	google.golang.org/grpc v1.69.2 // indirect
 
 )
