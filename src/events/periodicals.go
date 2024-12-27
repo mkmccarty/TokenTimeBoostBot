@@ -149,7 +149,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	if err != nil {
 		ei.CustomEggMap = make(map[string]*ei.EggIncCustomEgg)
 	}
-	changed := false
+	changed := true
 	c := cases.Title(language.Und)
 
 	// Look for new Custom Eggs
@@ -214,8 +214,6 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 			}
 
 		}
-
-		log.Print("custom egg details: ", egg.ID, "  ", egg.Proto[:32])
 
 		ei.CustomEggMap[egg.ID] = &egg
 		changed = true
