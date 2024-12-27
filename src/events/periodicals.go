@@ -176,7 +176,9 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 			}
 		}
 
-		egg.Description += strings.Join(egg.DimensionValueString, ",") + " " + egg.DimensionName
+		if len(egg.DimensionValueString) > 0 {
+			egg.Description = "Up to " + egg.DimensionValueString[len(egg.DimensionValueString)-1] + " " + egg.DimensionName
+		}
 
 		eggProtoBin, _ := proto.Marshal(customEgg)
 		egg.Proto = base64.StdEncoding.EncodeToString(eggProtoBin)
@@ -189,18 +191,19 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 			var builder strings.Builder
 			// Do we have an icon for this egg?
 			builder.WriteString(fmt.Sprintf("New Custom Egg Detected: %s", egg.Name))
-			str, err := bottools.ImportEggImage(s, egg.ID, egg.IconURL)
+			_, err := bottools.ImportEggImage(s, egg.ID, egg.IconURL)
 			if err != nil {
 				log.Print(err)
 			}
-			log.Print(str)
+
+			description := strings.Join(egg.DimensionValueString, ",") + " " + egg.DimensionName
 			// Send a message about a new egg
 			u, _ := s.UserChannelCreate(config.AdminUserID)
 			var data discordgo.MessageSend
 			data.Content = builder.String()
 			data.Embed = &discordgo.MessageEmbed{
 				Title:       egg.Name,
-				Description: egg.Description,
+				Description: description,
 				Thumbnail: &discordgo.MessageEmbedThumbnail{
 					URL: egg.IconURL,
 				},
