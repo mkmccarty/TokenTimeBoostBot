@@ -16,6 +16,8 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -148,11 +150,13 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 		ei.CustomEggMap = make(map[string]*ei.EggIncCustomEgg)
 	}
 	changed := false
+	c := cases.Title(language.Und)
+
 	// Look for new Custom Eggs
 	for _, customEgg := range periodicalsResponse.GetContracts().GetCustomEggs() {
 		var egg ei.EggIncCustomEgg
-		egg.ID = customEgg.GetIdentifier()
-		egg.Name = customEgg.GetName()
+		egg.ID = strings.Replace(customEgg.GetIdentifier(), " ", "", -1)
+		egg.Name = c.String(customEgg.GetName())
 		egg.Value = customEgg.GetValue()
 		egg.IconName = customEgg.GetIcon().GetName()
 		egg.IconURL = customEgg.GetIcon().GetUrl()
@@ -160,8 +164,19 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 		egg.IconHeight = int(customEgg.GetIconHeight())
 		for _, d := range customEgg.GetBuffs() {
 			egg.Dimension = d.GetDimension()
+			egg.DimensionName = ei.GetGameDimensionString(d.GetDimension())
 			egg.DimensionValue = append(egg.DimensionValue, d.GetValue())
+			if d.GetValue() >= 2.0 {
+				egg.DimensionValueString = append(egg.DimensionValueString, fmt.Sprintf("%1.0fx", d.GetValue()))
+			} else if d.GetValue() > 1.0 {
+				egg.DimensionValueString = append(egg.DimensionValueString, fmt.Sprintf("+%1.0f%%", (d.GetValue()-1.0)*100.0))
+
+			} else {
+				egg.DimensionValueString = append(egg.DimensionValueString, fmt.Sprintf("%1.0f%%", d.GetValue()*100.0))
+			}
 		}
+
+		egg.Description += strings.Join(egg.DimensionValueString, ",") + " " + egg.DimensionName
 
 		eggProtoBin, _ := proto.Marshal(customEgg)
 		egg.Proto = base64.StdEncoding.EncodeToString(eggProtoBin)
@@ -179,7 +194,6 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 				log.Print(err)
 			}
 			log.Print(str)
-
 			// Send a message about a new egg
 			u, _ := s.UserChannelCreate(config.AdminUserID)
 			var data discordgo.MessageSend
@@ -207,12 +221,4 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	if changed {
 		saveCustomEggData(ei.CustomEggMap)
 	}
-}
-
-func float64SliceToStringSlice(slice []float64) string {
-	strSlice := make([]string, len(slice))
-	for i, v := range slice {
-		strSlice[i] = fmt.Sprintf("%2.2f", v)
-	}
-	return strings.Join(strSlice, ", ")
 }

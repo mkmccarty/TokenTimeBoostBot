@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -42,16 +41,19 @@ type EggEvent struct {
 
 // EggIncCustomEgg is custom egg data for Egg Inc
 type EggIncCustomEgg struct {
-	ID             string `json:"id"`
-	Proto          string `json:"proto"`
-	Name           string
-	Value          float64
-	IconName       string
-	IconURL        string
-	IconWidth      int
-	IconHeight     int
-	Dimension      GameModifier_GameDimension
-	DimensionValue []float64
+	ID                   string `json:"id"`
+	Proto                string `json:"proto"`
+	Name                 string
+	Value                float64
+	IconName             string
+	IconURL              string
+	IconWidth            int
+	IconHeight           int
+	Dimension            GameModifier_GameDimension
+	DimensionName        string
+	DimensionValue       []float64
+	DimensionValueString []string
+	Description          string
 }
 
 // EggIncContract is a raw contract data for Egg Inc
@@ -97,6 +99,7 @@ func init() {
 	EmoteMap = make(map[string]Emotes)
 }
 
+/*
 // EggEmojiData is a struct to hold the name and ID of an egg emoji
 type EggEmojiData struct {
 	Name  string
@@ -137,7 +140,9 @@ var EggEmojiMap = map[string]EggEmojiData{
 	"SOUL":           {"egg_soul", "1279201265628348490", "1280382995282526208"},
 	"PROPHECY":       {"egg_prophecy", "1279201195872878652", "1280382926470643754"},
 }
+*/
 
+/*
 // FindEggComponentEmoji will find the token emoji for the given guild
 func FindEggComponentEmoji(eggOrig string) (string, EggEmojiData) {
 	var eggIconString string
@@ -165,31 +170,30 @@ func FindEggComponentEmoji(eggOrig string) (string, EggEmojiData) {
 	}
 	return eggIconString, eggEmojiData
 }
+*/
 
-// FindEggEmoji will find the token emoji for the given guild
+const eggUnknownName = "egg_unknown"
+
+// FindEggEmoji will find the token emoji
 func FindEggEmoji(eggOrig string) string {
 	var eggIconString string
 
-	var eggEmojiData EggEmojiData
-	if config.IsDevBot() {
-		eggIcon, ok := EggEmojiMap[strings.ToUpper(eggOrig)]
-		if ok {
-			eggEmojiData = eggIcon
-			eggIconString = fmt.Sprintf("<:%s:%s>", eggEmojiData.Name, eggEmojiData.DevID)
-		} else {
-			eggEmojiData = eggIcon
-			eggIconString = fmt.Sprintf("<:%s:%s>", EggEmojiMap["UNKNOWN"].Name, EggEmojiMap["UNKNOWN"].DevID)
-		}
-	} else {
-		eggIcon, ok := EggEmojiMap[strings.ToUpper(eggOrig)]
-		if ok {
-			eggEmojiData = eggIcon
-			eggIconString = fmt.Sprintf("<:%s:%s>", eggEmojiData.Name, eggEmojiData.ID)
-		} else {
-			eggEmojiData = eggIcon
-			eggIconString = fmt.Sprintf("<:%s:%s>", EggEmojiMap["UNKNOWN"].Name, EggEmojiMap["UNKNOWN"].ID)
-		}
+	if !strings.HasPrefix(eggOrig, "egg_") {
+		eggOrig = "egg_" + eggOrig
+	}
 
+	eggOrig = strings.ReplaceAll(eggOrig, " ", "")
+	eggOrig = strings.ReplaceAll(eggOrig, "-", "")
+	eggOrig = strings.ReplaceAll(eggOrig, "_", "")
+
+	var eggEmojiData Emotes
+	eggIcon, ok := EmoteMap[strings.ToUpper(eggOrig)]
+	if ok {
+		eggEmojiData = eggIcon
+		eggIconString = fmt.Sprintf("<:%s:%s>", eggEmojiData.Name, eggEmojiData.ID)
+	} else {
+		eggEmojiData = eggIcon
+		eggIconString = fmt.Sprintf("<:%s:%s>", EmoteMap[eggUnknownName].Name, EmoteMap[eggUnknownName].ID)
 	}
 
 	return eggIconString
@@ -210,6 +214,8 @@ func GetBotComponentEmoji(name string) *discordgo.ComponentEmoji {
 	compEmoji := new(discordgo.ComponentEmoji)
 	var emojiName string
 	var emojiID string
+
+	name = strings.ReplaceAll(name, "-", "")
 
 	emoji, ok := EmoteMap[strings.ToLower(name)]
 	if ok {
@@ -477,26 +483,26 @@ func GetStones(afxName ArtifactSpec_Name, afxLevel ArtifactSpec_Level, afxRarity
 func GetGameDimensionString(d GameModifier_GameDimension) string {
 	switch d {
 	case GameModifier_INVALID:
-		return "INVALID"
+		return "Invalid"
 	case GameModifier_EARNINGS:
-		return "EARNINGS"
+		return "Earnings"
 	case GameModifier_AWAY_EARNINGS:
-		return "AWAY_EARNINGS"
+		return "Away Earnings"
 	case GameModifier_INTERNAL_HATCHERY_RATE:
-		return "INTERNAL_HATCHERY_RATE"
+		return "Internal Hatchery Rate"
 	case GameModifier_EGG_LAYING_RATE:
-		return "EGG_LAYING_RATE"
+		return "Egg Laying Rate"
 	case GameModifier_SHIPPING_CAPACITY:
-		return "SHIPPING_CAPACITY"
+		return "Shipping Capacity"
 	case GameModifier_HAB_CAPACITY:
 		return "HAB_CAPACITY"
 	case GameModifier_VEHICLE_COST:
-		return "VEHICLE_COST"
+		return "Vehicle Cost"
 	case GameModifier_HAB_COST:
-		return "HAB_COST"
+		return "Hab Cost"
 	case GameModifier_RESEARCH_COST:
-		return "RESEARCH_COST"
+		return "Research Cost"
 	default:
-		return "UNKNOWN"
+		return "Unknown"
 	}
 }

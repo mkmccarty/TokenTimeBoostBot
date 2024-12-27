@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -59,6 +60,10 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 		compass = farmerstate.GetMiscSettingString(userID, "comp")
 		gusset = farmerstate.GetMiscSettingString(userID, "guss")
 		coll = farmerstate.GetMiscSettingString(userID, "collegg")
+
+		// Need to perform a conversion on what's in coll.
+		// CarbonFiber,Chocolate,Easter,Firework,Pumpkin,Waterballoon,Lithium
+		coll = strings.Replace(coll, "CarbonFiber", "Carbon Fiber", -1)
 	}
 	// Remove the extra closing brace
 
@@ -288,6 +293,24 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 	}
 
 	if !contractOnly {
+		keys := make([]string, 0, len(ei.CustomEggMap))
+		for k := range ei.CustomEggMap {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		// Dynamically build the list of custom eggs
+
+		var eggOptions []discordgo.SelectMenuOption
+		for _, k := range keys {
+			eggOptions = append(eggOptions, discordgo.SelectMenuOption{
+				Label:       ei.CustomEggMap[k].Name,
+				Description: ei.CustomEggMap[k].Description,
+				Value:       strings.ReplaceAll(ei.CustomEggMap[k].Name, " ", ""),
+				Default:     strings.Contains(coll, ei.CustomEggMap[k].Name),
+				Emoji:       ei.GetBotComponentEmoji("egg_" + ei.CustomEggMap[k].ID),
+			})
+		}
 
 		component = append(component, discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
@@ -296,57 +319,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 					Placeholder: "Select your Colleggtibles",
 					MinValues:   &minV,
 					MaxValues:   7,
-					Options: []discordgo.SelectMenuOption{
-						{
-							Label:       "Carbon Fiber",
-							Description: "5% Shipping",
-							Value:       "CarbonFiber",
-							Default:     strings.Contains(coll, "CarbonFiber"),
-							Emoji:       ei.GetBotComponentEmoji("egg_carbonfiber"),
-						},
-						{
-							Label:       "Chocolate",
-							Description: "3x Away Earnings",
-							Value:       "Chocolate",
-							Default:     strings.Contains(coll, "Chocolate"),
-							Emoji:       ei.GetBotComponentEmoji("egg_chocolate"),
-						},
-						{
-							Label:       "Easter",
-							Description: "5% Internal Hatchery Rate",
-							Value:       "Easter",
-							Default:     strings.Contains(coll, "Easter"),
-							Emoji:       ei.GetBotComponentEmoji("egg_easter"),
-						},
-						{
-							Label:       "Firework",
-							Description: "5% Earnings",
-							Value:       "Firework",
-							Default:     strings.Contains(coll, "Firework"),
-							Emoji:       ei.GetBotComponentEmoji("egg_firework"),
-						},
-						{
-							Label:       "Lithium",
-							Description: "-10% Vehicle Cost",
-							Value:       "Lithium",
-							Default:     strings.Contains(coll, "Lithium"),
-							Emoji:       ei.GetBotComponentEmoji("egg_lithium"),
-						},
-						{
-							Label:       "Pumpkin",
-							Description: "5% Shipping",
-							Value:       "Pumpkin",
-							Default:     strings.Contains(coll, "Pumpkin"),
-							Emoji:       ei.GetBotComponentEmoji("egg_pumpkin"),
-						},
-						{
-							Label:       "Waterballoon",
-							Description: "95% Research Cost",
-							Value:       "Waterballoon",
-							Default:     strings.Contains(coll, "Waterballoon"),
-							Emoji:       ei.GetBotComponentEmoji("egg_waterballoon"),
-						},
-					},
+					Options:     eggOptions,
 				},
 			},
 		})
