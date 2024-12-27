@@ -200,7 +200,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 			data.Content = builder.String()
 			data.Embed = &discordgo.MessageEmbed{
 				Title:       egg.Name,
-				Description: fmt.Sprintf("%s %s\nValue: %f", ei.GetGameDimensionString(egg.Dimension), float64SliceToStringSlice(egg.DimensionValue), egg.Value),
+				Description: egg.Description,
 				Thumbnail: &discordgo.MessageEmbedThumbnail{
 					URL: egg.IconURL,
 				},
