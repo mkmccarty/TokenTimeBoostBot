@@ -225,12 +225,3 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 		saveCustomEggData(ei.CustomEggMap)
 	}
 }
-
-// float64SliceToStringSlice converts a slice of float64 to a slice of strings
-func float64SliceToStringSlice(slice []float64) []string {
-	strSlice := make([]string, len(slice))
-	for i, v := range slice {
-		strSlice[i] = fmt.Sprintf("%f", v)
-	}
-	return strSlice
-}
