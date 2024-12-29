@@ -7,6 +7,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/xhit/go-str2duration/v2"
 )
@@ -155,10 +156,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var arrivalTimespan = ""
 	var chainExtended bool
 
-	ultraIcon := "<:ultra:1286890801963470848>"
-	if config.IsDevBot() {
-		ultraIcon = "<:ultra:1286890849719812147>"
-	}
+	ultraIcon := ei.GetBotEmojiMarkdown("ultra")
 
 	showDubCap := false
 	doubleCapacityStr := ""
@@ -297,7 +295,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if fuel != nil {
 		uIcon := ""
 		if fuel.Ultra {
-			uIcon = ultraIcon
+			uIcon = ei.GetBotEmojiMarkdown("ultra_fuel")
 		}
 		if !fuel.Ultra || (fuel.Ultra && ultra) {
 			fuelStr = fmt.Sprintf("%s%s Ends <t:%d:R>\n", uIcon, fuel.Message, fuel.EndTime.Unix())
@@ -311,7 +309,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if !capacity.Ultra || (capacity.Ultra && ultra) {
 			capIcon := ""
 			if capacity.Ultra {
-				capIcon = ultraIcon
+				capIcon = ei.GetBotEmojiMarkdown("ultra_dubcap")
 			}
 			showDubCap = true
 			dubCapTime = capacity.EndTime
@@ -326,9 +324,9 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	durationStr := ""
 	if fastDuration != nil {
 		if !fastDuration.Ultra || (fastDuration.Ultra && ultra) {
-			durIcon := ""
+			durIcon := ei.GetBotEmojiMarkdown("icon_fast")
 			if fastDuration.Ultra {
-				durIcon = ultraIcon
+				durIcon = ei.GetBotEmojiMarkdown("ultra_fast")
 			}
 			durationStr = fmt.Sprintf("%s%s  Ends <t:%d:R>\n", durIcon, fastDuration.Message, fastDuration.EndTime.Unix())
 			fasterMissions = fastDuration.Multiplier
@@ -504,6 +502,14 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		ultraStr := ""
 		if e.Ultra {
 			ultraStr = ultraIcon
+			switch e.EventType {
+			case "mission-duration":
+				ultraStr = ei.GetBotEmojiMarkdown("ultra_fast")
+			case "mission-capacity":
+				ultraStr = ei.GetBotEmojiMarkdown("ultra_dubcap")
+			case "mission-fuel":
+				ultraStr = ei.GetBotEmojiMarkdown("ultra_fuel")
+			}
 			if !ultra {
 				continue
 			}
