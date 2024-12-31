@@ -448,8 +448,8 @@ func GetGameDimensionString(d GameModifier_GameDimension) string {
 }
 
 // GetContractGradeString returns the string representation of the Contract_PlayerGrade
-func GetContractGradeString(grade int32) string {
-	str := Contract_PlayerGrade_name[grade]
+func GetContractGradeString(grade int) string {
+	str := Contract_PlayerGrade_name[int32(grade)]
 	parts := strings.Split(str, "_")
 	if len(parts) > 1 {
 		return parts[1]
