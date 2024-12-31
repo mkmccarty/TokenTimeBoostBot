@@ -245,16 +245,18 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 	var builder strings.Builder
 	var teamwork strings.Builder
 
+	grade := int(decodeCoopStatus.GetGrade())
+
 	startTime := nowTime
 	secondsRemaining := int64(decodeCoopStatus.GetSecondsRemaining())
 	endTime := nowTime
 	if decodeCoopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
 		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
-		startTime = startTime.Add(-time.Duration(eiContract.LengthInSeconds) * time.Second)
+		startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
 		secondsSinceAllGoals := int64(decodeCoopStatus.GetSecondsSinceAllGoalsAchieved())
 		endTime = endTime.Add(-time.Duration(secondsSinceAllGoals) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
-		builder.WriteString(fmt.Sprintf("Completed contract **%s/%s**\n", contractID, coopID))
+		builder.WriteString(fmt.Sprintf("Completed %s contract **%s/%s**\n", ei.GetContractGradeString(grade), contractID, coopID))
 		builder.WriteString(fmt.Sprintf("Start Time: <t:%d:f>\n", startTime.Unix()))
 		builder.WriteString(fmt.Sprintf("End Time: <t:%d:f>\n", endTime.Unix()))
 		builder.WriteString(fmt.Sprintf("Duration: %v\n", (endTime.Sub(startTime)).Round(time.Second)))
@@ -269,12 +271,12 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 			contributionRatePerSecond += c.GetContributionRate()
 		}
 		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
-		startTime = startTime.Add(-time.Duration(eiContract.LengthInSeconds) * time.Second)
-		totalReq := eiContract.TargetAmount[len(eiContract.TargetAmount)-1]
+		startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
+		totalReq := eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1]
 		calcSecondsRemaining = int64((totalReq - totalContributions) / contributionRatePerSecond)
 		endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
-		builder.WriteString(fmt.Sprintf("In Progress **%s/%s** on target to complete <t:%d:R>\n", contractID, coopID, endTime.Unix()))
+		builder.WriteString(fmt.Sprintf("In Progress %s **%s/%s** on target to complete <t:%d:R>\n", ei.GetContractGradeString(grade), contractID, coopID, endTime.Unix()))
 		builder.WriteString(fmt.Sprintf("Start Time: <t:%d:f>\n", startTime.Unix()))
 		builder.WriteString(fmt.Sprintf("Est. End Time: <t:%d:f>\n", endTime.Unix()))
 		builder.WriteString(fmt.Sprintf("Est. Duration: %v\n", (endTime.Sub(startTime)).Round(time.Second)))

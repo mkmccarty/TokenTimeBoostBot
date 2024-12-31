@@ -335,7 +335,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	alternateStr := ""
 
-	grade := decodeCoopStatus.GetGrade()
+	grade := int(decodeCoopStatus.GetGrade())
 
 	everyoneDeflectorPercent := 0.0
 	for _, c := range decodeCoopStatus.GetContributors() {
@@ -672,7 +672,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	}
 
-	fmt.Fprintf(&builder, "Stones Report for %s [**%s/%s**](%s)\n", ei.GetContractGradeString(int32(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID))
+	fmt.Fprintf(&builder, "Stones Report for %s [**%s/%s**](%s)\n", ei.GetContractGradeString(grade), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID))
 	if eiContract.ID != "" {
 		nowTime := time.Now()
 		startTime := nowTime
