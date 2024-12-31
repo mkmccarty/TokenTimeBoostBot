@@ -57,6 +57,18 @@ type EggIncCustomEgg struct {
 }
 
 // EggIncContract is a raw contract data for Egg Inc
+type ContractGrade struct {
+	TargetAmount          []float64
+	TargetAmountq         []float64
+	LengthInSeconds       int
+	EstimatedDuration     time.Duration
+	EstimatedDurationShip time.Duration
+
+	ModifierIHR    float64
+	ModifierELR    float64
+	ModifierSR     float64
+	ModifierHabCap float64
+}
 type EggIncContract struct {
 	ID                        string `json:"id"`
 	Proto                     string `json:"proto"`
@@ -83,6 +95,7 @@ type EggIncContract struct {
 	StartTime                 time.Time
 	ExpirationTime            time.Time
 	ContractVersion           int // 1 = old, 2 = new
+	Grade                     []ContractGrade
 }
 
 // EggIncContracts holds a list of all contracts, newest is last
@@ -505,4 +518,14 @@ func GetGameDimensionString(d GameModifier_GameDimension) string {
 	default:
 		return "Unknown"
 	}
+}
+
+// GetContractGradeString returns the string representation of the Contract_PlayerGrade
+func GetContractGradeString(grade int32) string {
+	str := Contract_PlayerGrade_name[grade]
+	parts := strings.Split(str, "_")
+	if len(parts) > 1 {
+		return parts[1]
+	}
+	return str
 }
