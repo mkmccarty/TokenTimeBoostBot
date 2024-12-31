@@ -131,6 +131,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
 			Content: builder.String(),
+			Flags:   discordgo.MessageFlagsSupressEmbeds,
 		})
 	// Split s1 message into 2000 character chunks separated by newlines
 
@@ -333,6 +334,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	setContractEstimage := true
 
 	alternateStr := ""
+
+	grade := decodeCoopStatus.GetGrade()
 
 	everyoneDeflectorPercent := 0.0
 	for _, c := range decodeCoopStatus.GetContributors() {
@@ -542,13 +545,13 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 
 		//fmt.Printf("name:\"%s\"  Stones:%d  elr:%f egg/chicken/s  sr:%f egg/s\n", as.name, as.stones, as.elr, as.sr)
-		layingRate := (as.baseLayingRate) * (1 + as.metronome.percent/100.0) * (1 + as.gusset.percent/100.0) * eiContract.ModifierELR
-		shippingRate := (as.baseShippingRate) * (1 + as.compass.percent/100.0) * eiContract.ModifierSR
+		layingRate := (as.baseLayingRate) * (1 + as.metronome.percent/100.0) * (1 + as.gusset.percent/100.0) * eiContract.Grade[grade].ModifierELR
+		shippingRate := (as.baseShippingRate) * (1 + as.compass.percent/100.0) * eiContract.Grade[grade].ModifierSR
 
 		// Determine Colleggtible Increase
 		stoneLayRateNow := layingRate * (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
 		stoneLayRateNow = stoneLayRateNow * math.Pow(1.05, float64(as.tachStones))
-		chickELR := as.elr * as.farmCapacity * eiContract.ModifierHabCap * 3600.0 / 1e15
+		chickELR := as.elr * as.farmCapacity * eiContract.Grade[grade].ModifierHabCap * 3600.0 / 1e15
 		collegELR := math.Round(chickELR/stoneLayRateNow*100.0) / 100.0
 		//fmt.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
 		if collegELR < 1.00 {
@@ -668,7 +671,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 
 	}
-	fmt.Fprintf(&builder, "Stones Report for **%s**/**%s**\n", contractID, coopID)
+
+	fmt.Fprintf(&builder, "Stones Report for %s [**%s/%s**](%s)\n", ei.GetContractGradeString(int32(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID))
 	if eiContract.ID != "" {
 		nowTime := time.Now()
 		startTime := nowTime
@@ -677,14 +681,14 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		secondsRemaining := int64(decodeCoopStatus.GetSecondsRemaining())
 		if decodeCoopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
 			startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
-			startTime = startTime.Add(-time.Duration(eiContract.LengthInSeconds) * time.Second)
+			startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
 			secondsSinceAllGoals := int64(decodeCoopStatus.GetSecondsSinceAllGoalsAchieved())
 			endTime = endTime.Add(-time.Duration(secondsSinceAllGoals) * time.Second)
 			//contractDurationSeconds = endTime.Sub(startTime).Seconds()
 		} else {
 			startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
-			startTime = startTime.Add(-time.Duration(eiContract.LengthInSeconds) * time.Second)
-			totalReq := eiContract.TargetAmount[len(eiContract.TargetAmount)-1]
+			startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
+			totalReq := eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1]
 			calcSecondsRemaining := int64((totalReq - totalContributions) / contributionRatePerSecond)
 			endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 			endStr = "Est End:"
