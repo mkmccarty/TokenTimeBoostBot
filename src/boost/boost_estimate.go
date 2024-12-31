@@ -69,7 +69,11 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		tokenStr, _, _ := ei.GetBotEmoji("token")
 		runStr, _, _ := ei.GetBotEmoji("icon_chicken_run")
 
-		str = fmt.Sprintf("%s **%s** (%s)\n%d🧑‍🌾 %dm/%s %d %s", eggStr, c.Name, c.ID, c.MaxCoopSize, c.MinutesPerToken, tokenStr, c.ChickenRuns, runStr)
+		str = fmt.Sprintf("%s **%s** (%s)\n%d🧑‍🌾 - %s/%dm - %s%d/%dm",
+			eggStr, c.Name, c.ID,
+			c.MaxCoopSize,
+			tokenStr, c.MinutesPerToken,
+			runStr, c.ChickenRuns, c.ChickenRunCooldownMinutes)
 		if c.ModifierSR != 1.0 && c.ModifierSR > 0.0 {
 			str += fmt.Sprintf(" / 🛻 %2.1fx", c.ModifierSR)
 		}
