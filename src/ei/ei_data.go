@@ -119,16 +119,16 @@ const eggUnknownName = "egg_unknown"
 func FindEggEmoji(eggOrig string) string {
 	var eggIconString string
 
-	if !strings.HasPrefix(eggOrig, "egg_") {
-		eggOrig = "egg_" + eggOrig
-	}
-
 	eggOrig = strings.ReplaceAll(eggOrig, " ", "")
 	eggOrig = strings.ReplaceAll(eggOrig, "-", "")
 	eggOrig = strings.ReplaceAll(eggOrig, "_", "")
 
+	if !strings.HasPrefix(eggOrig, "egg_") {
+		eggOrig = "egg_" + eggOrig
+	}
+
 	var eggEmojiData Emotes
-	eggIcon, ok := EmoteMap[strings.ToUpper(eggOrig)]
+	eggIcon, ok := EmoteMap[strings.ToLower(eggOrig)]
 	if ok {
 		eggEmojiData = eggIcon
 		eggIconString = fmt.Sprintf("<:%s:%s>", eggEmojiData.Name, eggEmojiData.ID)
