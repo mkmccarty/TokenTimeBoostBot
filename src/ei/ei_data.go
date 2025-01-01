@@ -58,11 +58,12 @@ type EggIncCustomEgg struct {
 
 // EggIncContract is a raw contract data for Egg Inc
 type ContractGrade struct {
-	TargetAmount          []float64
-	TargetAmountq         []float64
-	LengthInSeconds       int
-	EstimatedDuration     time.Duration
-	EstimatedDurationShip time.Duration
+	TargetAmount           []float64
+	TargetAmountq          []float64
+	LengthInSeconds        int
+	EstimatedDuration      time.Duration
+	EstimatedDurationLower time.Duration
+	//	EstimatedDurationShip      time.Duration
 
 	ModifierIHR    float64
 	ModifierELR    float64
@@ -87,7 +88,7 @@ type EggIncContract struct {
 	MinutesPerToken           int
 	ContractDurationInDays    int
 	EstimatedDuration         time.Duration
-	EstimatedDurationShip     time.Duration
+	EstimatedDurationLower    time.Duration
 	ModifierIHR               float64
 	ModifierELR               float64
 	ModifierSR                float64
