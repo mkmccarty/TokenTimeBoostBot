@@ -31,8 +31,9 @@ func fetchEmojis(s *discordgo.Session) map[string]ei.Emotes {
 	}
 	for _, e := range appEmoji {
 		emotes[strings.ToLower(e.Name)] = ei.Emotes{
-			Name: e.Name,
-			ID:   e.ID,
+			Name:     e.Name,
+			ID:       e.ID,
+			Animated: e.Animated,
 		}
 	}
 	return emotes

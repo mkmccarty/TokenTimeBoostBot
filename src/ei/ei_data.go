@@ -142,9 +142,10 @@ func FindEggEmoji(eggOrig string) string {
 
 // Emotes is a struct to hold the name and ID of an egg emoji
 type Emotes struct {
-	Name string
-	ID   string
-	URL  string
+	Name     string
+	ID       string
+	Animated bool
+	URL      string
 }
 
 // EmoteMap of egg emojis from the Egg Inc Discord
@@ -196,16 +197,20 @@ func GetBotEmojiMarkdown(name string) string {
 	var emojiName string
 	var emojiID string
 	var markdown string
+	animated := ""
 
 	emoji, ok := EmoteMap[strings.ToLower(name)]
 	if ok {
 		emojiName = emoji.Name
 		emojiID = emoji.ID
+		if emoji.Animated {
+			animated = "a"
+		}
 	} else {
 		emojiName = EmoteMap["unknown"].Name
 		emojiID = EmoteMap["unknown"].ID
 	}
-	markdown = fmt.Sprintf("<:%s:%s>", emojiName, emojiID)
+	markdown = fmt.Sprintf("<%s:%s:%s>", animated, emojiName, emojiID)
 
 	return markdown
 }
