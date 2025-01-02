@@ -167,7 +167,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 	// Check if the file exists
 	if cachedData != nil && time.Now().Before(cachedData.expirationTimestamp) {
 		protoData = cachedData.protoData
-		dataTimestampStr = fmt.Sprintf("\nUsing cached data retrieved <t:%d:R>, refresh <t:%d:R>", cachedData.timestamp.Unix(), cachedData.expirationTimestamp.Unix())
+		dataTimestampStr = fmt.Sprintf("Using cached data, within %d second cooldown.", 60)
 		nowTime = cachedData.timestamp
 		// Use protoData as needed
 	} else {
@@ -202,7 +202,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		}
 		dataTimestampStr = ""
 		protoData = string(body)
-		data := eiData{ID: cacheID, timestamp: time.Now(), expirationTimestamp: time.Now().Add(2 * time.Minute), contractID: contractID, coopID: coopID, protoData: protoData}
+		data := eiData{ID: cacheID, timestamp: time.Now(), expirationTimestamp: time.Now().Add(1 * time.Minute), contractID: contractID, coopID: coopID, protoData: protoData}
 		eiDatas[cacheID] = &data
 		nowTime = time.Now()
 	}
@@ -572,6 +572,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 			Description: "",
 			Color:       0xffaa00,
 			Fields:      field,
+			Timestamp:   nowTime.Format(time.RFC3339),
 			Footer: &discordgo.MessageEmbedFooter{
 				Text: dataTimestampStr,
 			},
