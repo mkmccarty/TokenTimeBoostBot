@@ -56,7 +56,7 @@ type EggIncCustomEgg struct {
 	Description          string
 }
 
-// EggIncContract is a raw contract data for Egg Inc
+// ContractGrade is a raw contract data for a Grade in Egg Inc
 type ContractGrade struct {
 	TargetAmount           []float64
 	TargetAmountq          []float64
