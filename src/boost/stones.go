@@ -287,7 +287,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	gussett := map[string]float64{
 		"T1C": 5.0,
 		"T2C": 10.0, "T2E": 12.0,
-		"T3C": 16.0, "T3R": 19.0,
+		"T3C": 15.0, "T3R": 16.0,
 		"T4C": 20.0, "T4E": 22.0, "T4L": 25.0,
 	}
 
@@ -308,8 +308,14 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		compass          artifact
 		gusset           artifact
 
-		tachStones  int
-		quantStones int
+		tachStoneSlotted   int
+		tachStones         []int
+		tachStonesPercent  float64
+		tachStonesBest     float64
+		quantStones        []int
+		quantStoneSlotted  int
+		quantStonesPercent float64
+		quantStonesBest    float64
 
 		elr            float64
 		ihr            float64
@@ -336,6 +342,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	alternateStr := ""
 
 	grade := int(decodeCoopStatus.GetGrade())
+
+	artifactPercentLevels := []float64{1.2, 1.04, 1.05}
 
 	everyoneDeflectorPercent := 0.0
 	for _, c := range decodeCoopStatus.GetContributors() {
@@ -415,13 +423,13 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		as.baseLayingRate = userLayRate * 11340000000.0 * 3600.0 / 1e15
 		as.baseShippingRate = userShippingCap * 10.0 * float64(len(fi.GetTrainLength())) * 60 / 1e16
 
-		for _, a := range fi.GetEquippedArtifacts() {
-			spec := a.GetSpec()
+		for _, artifact := range fi.GetEquippedArtifacts() {
+			spec := artifact.GetSpec()
 			strType := levels[spec.GetLevel()] + rarity[spec.GetRarity()]
 
 			numStones, _ := ei.GetStones(spec.GetName(), spec.GetLevel(), spec.GetRarity())
-			if numStones != len(a.GetStones()) {
-				as.note = append(as.note, fmt.Sprintf("%s %d/%d slots used", ei.ArtifactSpec_Name_name[int32(spec.GetName())], len(a.GetStones()), numStones))
+			if numStones != len(artifact.GetStones()) {
+				as.note = append(as.note, fmt.Sprintf("%s %d/%d slots used", ei.ArtifactSpec_Name_name[int32(spec.GetName())], len(artifact.GetStones()), numStones))
 			}
 
 			switch spec.GetName() {
@@ -450,48 +458,39 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				}
 			}
 
-			for _, st := range a.GetStones() {
-				if st.GetName() == ei.ArtifactSpec_TACHYON_STONE {
-					as.tachStones += 1.0
+			if as.tachStones == nil {
+				as.tachStones = make([]int, 5)
+				as.tachStonesPercent = 1.0
+			}
+			if as.quantStones == nil {
+				as.quantStones = make([]int, 5)
+				as.quantStonesPercent = 1.0
+			}
+			for _, stone := range artifact.GetStones() {
+				if stone.GetName() == ei.ArtifactSpec_TACHYON_STONE {
+					as.tachStones[stone.GetLevel()]++
+					value := artifactPercentLevels[stone.GetLevel()]
+					as.tachStonesPercent *= value
+					if value > as.tachStonesBest {
+						as.tachStonesBest = value
+					}
+					as.tachStoneSlotted++
 				}
-				if st.GetName() == ei.ArtifactSpec_QUANTUM_STONE {
-					as.quantStones += 1.0
+				if stone.GetName() == ei.ArtifactSpec_QUANTUM_STONE {
+					as.quantStones[stone.GetLevel()]++
+					value := artifactPercentLevels[stone.GetLevel()]
+					as.quantStonesPercent *= value
+					if value > as.quantStonesBest {
+						as.quantStonesBest = value
+					}
+					as.quantStoneSlotted++
 				}
 			}
 
-			as.stones += len(a.GetStones())
-			/*
-				for i := 0; i < as.stones; i++ {
-					stoneLayRate := layingRate * math.Pow(1.05, float64(i))
-					stoneLayRate = stoneLayRate * (1 + as.deflector.percent/100.0)
-					stoneShipRate := shippingRate * math.Pow(1.05, float64((as.stones-i)))
-					fmt.Printf("Stone %d: %2.3f %2.3f\n", i, stoneLayRate, stoneShipRate)
-				}*/
-			//totalStones += as.stones
-			//fmt.Println(name)
+			// Now the count of stone slots
+			as.stones += len(artifact.GetStones())
 		}
-		//fmt.Printf("Total Stones: %d\n", totalStones)
-		//if as.baseShippingRate == 0 {
-		/*
-			history := c.GetBuffHistory()
-			if len(history) > 0 {
-				b := history[len(history)-1]
-				elr := b.GetEggLayingRate()
-				if elr > 1.0 {
-					// Check to see if we have a match for the deflector in BuffHistory
-					buffElr := math.Round((elr - 1.0) * 100.0)
-					if as.deflector.percent == 0.0 {
-						// Handle private farms with no known artifacts
-						as.deflector.abbrev = "PVT"
-						as.deflector.percent = buffElr
-						everyoneDeflectorPercent += as.deflector.percent
-					} else if as.deflector.percent != buffElr {
-						as.note = append(as.note, fmt.Sprintf("DEFL Mismatch ∆ %f %f", as.deflector.percent, buffElr))
-					}
-				}
-			}
-		*/
-		//}
+
 		if as.deflector.percent == 0.0 {
 
 			bestDeflectorPercent := 0.0
@@ -550,7 +549,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		// Determine Colleggtible Increase
 		stoneLayRateNow := layingRate * (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
-		stoneLayRateNow = stoneLayRateNow * math.Pow(1.05, float64(as.tachStones))
+		stoneLayRateNow *= math.Pow(1.02, float64(as.tachStones[ei.ArtifactSpec_INFERIOR]))
+		stoneLayRateNow *= math.Pow(1.04, float64(as.tachStones[ei.ArtifactSpec_LESSER]))
+		stoneLayRateNow *= math.Pow(1.05, float64(as.tachStones[ei.ArtifactSpec_NORMAL]))
 		chickELR := as.elr * as.farmCapacity * eiContract.Grade[grade].ModifierHabCap * 3600.0 / 1e15
 		collegELR := math.Round(chickELR/stoneLayRateNow*100.0) / 100.0
 		//fmt.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
@@ -574,7 +575,11 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			}
 		}*/
 
-		stoneShipRateNow := shippingRate * math.Pow(1.05, float64((as.quantStones)))
+		stoneShipRateNow := shippingRate
+		stoneShipRateNow *= math.Pow(1.02, float64(as.quantStones[ei.ArtifactSpec_INFERIOR]))
+		stoneShipRateNow *= math.Pow(1.04, float64(as.quantStones[ei.ArtifactSpec_LESSER]))
+		stoneShipRateNow *= math.Pow(1.05, float64(as.quantStones[ei.ArtifactSpec_NORMAL]))
+
 		//fmt.Printf("Calc SR: %2.3f  param.Sr: %2.3f   Diff:%2.2f\n", stoneShipRateNow, as.sr/1e15, (as.sr/1e15)/stoneShipRateNow)
 		collegShip := math.Round((as.sr/1e15)/stoneShipRateNow*100000.0) / 100000.0
 		if collegShip > 1.000 {
@@ -585,13 +590,37 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			artifactSets[i].note = append(artifactSets[i].note, fmt.Sprintf("SR: %2.4f(q:%d) - ei.sr: %2.4f  ratio:%2.4f", shippingRate, as.quantStones, (as.sr/1e15), collegShip))
 		}
 		bestTotal := 0.0
-		//bestString := ""
 
+		// Default this to the maximum
+		stoneBonusIncrease := 1.05
+
+		hasLesserStones := as.quantStones[ei.ArtifactSpec_INFERIOR] + as.tachStones[ei.ArtifactSpec_INFERIOR] +
+			as.quantStones[ei.ArtifactSpec_LESSER] + as.tachStones[*ei.ArtifactSpec_LESSER.Enum()]
+
+		if hasLesserStones > 0 {
+			maxPercentage := as.quantStonesPercent * as.tachStonesPercent
+
+			// Empty stone slots assume lowest seen artifact quality.
+			if as.stones != (as.quantStoneSlotted + as.tachStoneSlotted) {
+				// Missing stone value, assign it the lowest seen quantity
+				stoneDiff := as.stones - (as.quantStoneSlotted + as.tachStoneSlotted)
+				if as.quantStones[ei.ArtifactSpec_INFERIOR] > 0 || as.tachStones[ei.ArtifactSpec_INFERIOR] > 0 {
+					maxPercentage *= float64(stoneDiff) * artifactPercentLevels[ei.ArtifactSpec_INFERIOR]
+				} else if as.quantStones[ei.ArtifactSpec_LESSER] > 0 || as.tachStones[ei.ArtifactSpec_LESSER] > 0 {
+					maxPercentage *= float64(stoneDiff) * artifactPercentLevels[ei.ArtifactSpec_LESSER]
+				}
+			}
+			// we know we have a certain number of stones
+			// knowing our exponent we need the average value of each stone
+			stoneBonusIncrease = math.Pow(math.E, math.Log(maxPercentage)/float64(as.stones))
+		}
+
+		// Simple search for those with only the 5% stones
 		for i := 0; i <= as.stones; i++ {
 			stoneLayRate := layingRate * (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
-			stoneLayRate = stoneLayRate * math.Pow(1.05, float64(i)) * collegELR
+			stoneLayRate = stoneLayRate * math.Pow(stoneBonusIncrease, float64(i)) * collegELR
 
-			stoneShipRate := shippingRate * math.Pow(1.05, float64((as.stones-i))) * collegShip
+			stoneShipRate := shippingRate * math.Pow(stoneBonusIncrease, float64((as.stones-i))) * collegShip
 
 			bestMin := min(stoneLayRate, stoneShipRate)
 			if bestMin > bestTotal {
@@ -604,6 +633,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			}
 			//fmt.Printf("Stone %d/%d: %2.3f %2.3f  min:%2.3f\n", i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
 		}
+
 		for i := 0; i <= as.stones; i++ {
 			stoneLayRate := layingRate * (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
 			stoneLayRate = stoneLayRate * math.Pow(1.05, float64(i)) * collegELR
@@ -625,18 +655,27 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		var notes string
 
 		matchQ := ""
-		if as.quantWant == as.quantStones {
+		qStones := as.quantStones[ei.ArtifactSpec_INFERIOR] + as.quantStones[ei.ArtifactSpec_LESSER] + as.quantStones[ei.ArtifactSpec_NORMAL]
+		if as.quantWant == qStones {
 			matchQ = "⭐️"
-		} else if as.quantWant > as.quantStones {
-			notes += fmt.Sprintf("+%d quant", as.quantWant-as.quantStones)
+		} else if as.quantWant > qStones {
+			notes += fmt.Sprintf("+%d quant", as.quantWant-qStones)
 			setContractEstimage = false
 		}
 		matchT := ""
-		if as.tachWant == as.tachStones {
+		tStones := as.tachStones[ei.ArtifactSpec_INFERIOR] + as.tachStones[ei.ArtifactSpec_LESSER] + as.tachStones[ei.ArtifactSpec_NORMAL]
+
+		if as.tachWant == tStones {
 			matchT = "⭐️"
-		} else if as.tachWant > as.tachStones {
-			notes += fmt.Sprintf("+%d tach", as.tachWant-as.tachStones)
+		} else if as.tachWant > tStones {
+			notes += fmt.Sprintf("+%d tach", as.tachWant-tStones)
 			setContractEstimage = false
+		}
+		if stoneBonusIncrease != 1.05 {
+			if notes != "" {
+				notes += " "
+			}
+			notes += fmt.Sprintf("(%1.2f^%d)", stoneBonusIncrease, as.stones)
 		}
 
 		if soloName != "" {
@@ -660,7 +699,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 						fmt.Sprintf("%2.3f", bestTotal),
 						strings.Join(as.collegg, ","), notes})
 				}
-			} else if matchT != "*" {
+			} else if matchT != "⭐️" {
 				table.Append([]string{as.name,
 					fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
 					notes})
