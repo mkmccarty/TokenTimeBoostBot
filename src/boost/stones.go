@@ -452,10 +452,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				as.gusset.abbrev = strType
 			default:
 				//name = fmt.Sprintf("%s %s %2.0f%% %d slots", "Other", strType, 0.0, numStones)
-				if numStones < 3 {
-					artifactName := int32(spec.GetName())
-					as.note = append(as.note, fmt.Sprintf("%s only %d slots", ei.ArtifactSpec_Name_name[artifactName], numStones))
-				}
+				//if numStones < 3 {
+				//	artifactName := int32(spec.GetName())
+				//	as.note = append(as.note, fmt.Sprintf("%s only %d slots", ei.ArtifactSpec_Name_name[artifactName], numStones))
+				//}
 			}
 
 			if as.tachStones == nil {
