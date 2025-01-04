@@ -343,7 +343,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	grade := int(decodeCoopStatus.GetGrade())
 
-	artifactPercentLevels := []float64{1.2, 1.04, 1.05}
+	artifactPercentLevels := []float64{1.02, 1.04, 1.05}
 
 	everyoneDeflectorPercent := 0.0
 	for _, c := range decodeCoopStatus.GetContributors() {
