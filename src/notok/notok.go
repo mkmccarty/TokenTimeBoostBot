@@ -286,12 +286,12 @@ func getLetMeOutString(text string, desc string) (string, error) {
 
 func gonow(desc string) string {
 	var builder strings.Builder
-	builder.WriteString("Your role is a farmer of chickens who is working to deliver their chicken eggs for a contract.")
+	builder.WriteString("Your role is a typical American chicken farmer who is working to deliver their chicken eggs for a contract.")
 	if desc != "" {
 		builder.WriteString(desc + ".")
 	}
 
-	builder.WriteString("Compose a scene with a chicken needing blast off quickly and racing towards an outhouse shaped rocket ship " +
+	builder.WriteString("Compose a scene where one of those chickens needs to quickly find an outhouse shaped like a rocket ship " +
 		"in a comical cartoonish environment exaggerating the urgency.")
 
 	return builder.String()
