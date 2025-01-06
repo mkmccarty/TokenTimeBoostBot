@@ -459,11 +459,11 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			}
 
 			if as.tachStones == nil {
-				as.tachStones = make([]int, 5)
+				as.tachStones = make([]int, 3)
 				as.tachStonesPercent = 1.0
 			}
 			if as.quantStones == nil {
-				as.quantStones = make([]int, 5)
+				as.quantStones = make([]int, 3)
 				as.quantStonesPercent = 1.0
 			}
 			for _, stone := range artifact.GetStones() {
@@ -606,8 +606,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				stoneDiff := as.stones - (as.quantStoneSlotted + as.tachStoneSlotted)
 				if as.quantStones[ei.ArtifactSpec_INFERIOR] > 0 || as.tachStones[ei.ArtifactSpec_INFERIOR] > 0 {
 					maxPercentage *= float64(stoneDiff) * artifactPercentLevels[ei.ArtifactSpec_INFERIOR]
+					as.note = append(as.note, fmt.Sprintf("%d missing stones valued at %1.2f", stoneDiff, artifactPercentLevels[ei.ArtifactSpec_INFERIOR]))
 				} else if as.quantStones[ei.ArtifactSpec_LESSER] > 0 || as.tachStones[ei.ArtifactSpec_LESSER] > 0 {
 					maxPercentage *= float64(stoneDiff) * artifactPercentLevels[ei.ArtifactSpec_LESSER]
+					as.note = append(as.note, fmt.Sprintf("%d missing stones valued at %1.2f", stoneDiff, artifactPercentLevels[ei.ArtifactSpec_LESSER]))
 				}
 			}
 			// we know we have a certain number of stones
