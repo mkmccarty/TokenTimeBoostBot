@@ -372,51 +372,127 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		//fmt.Printf("Farm: %s\n", as.name)
 
 		fi := c.GetFarmInfo()
+		researchComplete := true
+		var missingResearch []string
 
 		userLayRate := 1 / 30.0 // 1 chicken per 30 seconds
 		userShippingCap := 500000000.0
 		for _, cr := range fi.GetCommonResearch() {
 			switch cr.GetId() {
-			case "comfy_nests":
+			case "comfy_nests": // 50
 				userLayRate *= (1 + 0.1*float64(cr.GetLevel())) // Comfortable Nests 10%
-			case "hen_house_ac":
+				if cr.GetLevel() != 50 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("comfy_nests %d/50", cr.GetLevel()))
+				}
+			case "hen_house_ac": // 50
 				userLayRate *= (1 + 0.05*float64(cr.GetLevel())) // Hen House Expansion 10%
-			case "improved_genetics":
+				if cr.GetLevel() != 50 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("hen_house_ac %d/50", cr.GetLevel()))
+				}
+			case "improved_genetics": // 30
 				userLayRate *= (1 + 0.15*float64(cr.GetLevel())) // Internal Hatcheries 15%
-			case "time_compress":
+				if cr.GetLevel() != 30 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("improved_genetics %d/30", cr.GetLevel()))
+				}
+			case "time_compress": // 20
 				userLayRate *= (1 + 0.1*float64(cr.GetLevel())) // Time Compression 10%
-			case "timeline_diversion":
+				if cr.GetLevel() != 20 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("time_compress %d/20", cr.GetLevel()))
+				}
+			case "timeline_diversion": // 50
 				userLayRate *= (1 + 0.02*float64(cr.GetLevel())) // Timeline Diversion 2%
-			case "relativity_optimization":
+				if cr.GetLevel() != 50 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("timeline_diversion %d/50", cr.GetLevel()))
+				}
+			case "relativity_optimization": // 10
 				userLayRate *= (1 + 0.1*float64(cr.GetLevel())) // Relativity Optimization 10%
-			case "leafsprings":
+				if cr.GetLevel() != 10 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("relativity_optimization %d/10", cr.GetLevel()))
+				}
+			case "leafsprings": // 30
 				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Leafsprings 5%
-			case "lightweight_boxes":
+				if cr.GetLevel() != 30 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("leafsprings %d/30", cr.GetLevel()))
+				}
+			case "lightweight_boxes": // 40
 				userShippingCap *= (1 + 0.1*float64(cr.GetLevel())) // Lightweight Boxes 10%
-			case "driver_training":
+				if cr.GetLevel() != 40 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("lightweight_boxes %d/40", cr.GetLevel()))
+				}
+			case "driver_training": // 30
 				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Driver Training 5%
-			case "super_alloy":
+				if cr.GetLevel() != 30 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("driver_training %d/30", cr.GetLevel()))
+				}
+			case "super_alloy": // 50
 				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Super Alloy 5%
-			case "quantum_storage":
+				if cr.GetLevel() != 50 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("super_alloy %d/50", cr.GetLevel()))
+				}
+			case "quantum_storage": // 20
 				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Quantum Storage 5%
-			case "hover_upgrades":
+				if cr.GetLevel() != 20 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("quantum_storage %d/20", cr.GetLevel()))
+				}
+			case "hover_upgrades": // 25
+				// Need to only do this for the vehicles that have hover upgrades
 				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Hover Upgrades 5%
-			case "dark_containment":
+				if cr.GetLevel() != 25 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("hover_upgrades %d/25", cr.GetLevel()))
+				}
+			case "dark_containment": // 25
 				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Dark Containment 5%
-			case "neural_net_refine":
+				if cr.GetLevel() != 25 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("dark_containment %d/25", cr.GetLevel()))
+				}
+			case "neural_net_refine": // 25
 				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Neural Net Refine 5%
-			case "hyper_portalling":
+				if cr.GetLevel() != 25 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("neural_net_refine %d/25", cr.GetLevel()))
+				}
+			case "hyper_portalling": // 25
 				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Hyper Portalling 5%
+				if cr.GetLevel() != 25 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("hyper_portalling %d/25", cr.GetLevel()))
+				}
 			}
 		}
 
 		for _, er := range fi.GetEpicResearch() {
 			switch er.GetId() {
-			case "epic_egg_laying":
+			case "epic_egg_laying": // 20
 				userLayRate *= (1 + 0.05*float64(er.GetLevel())) // Epic Egg Laying 5%
-			case "transportation_lobbyist":
+				if er.GetLevel() != 20 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("epic_egg_laying %d/20", er.GetLevel()))
+				}
+			case "transportation_lobbyist": // 30
 				userShippingCap *= (1 + 0.05*float64(er.GetLevel())) // Transportation Lobbyist 5%
+				if er.GetLevel() != 30 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("transportation_lobbyist %d/30", er.GetLevel()))
+				}
 			}
+		}
+
+		if !researchComplete {
+			as.note = append(as.note, strings.Join(missingResearch, ", "))
+			//log.Print(strings.Join(missingResearch, ", "))
 		}
 
 		//userLayRate *= 3600 // convert to hr rate
