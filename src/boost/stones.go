@@ -300,6 +300,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	type artifactSet struct {
 		name             string
 		note             []string
+		offline          string
 		baseLayingRate   float64
 		baseShippingRate float64
 		stones           int
@@ -501,7 +502,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		offlineTime := -c.GetFarmInfo().GetTimestamp() / 60
 		if offlineTime > 5 {
-			as.note = append(as.note, fmt.Sprintf("Offline %1.0fm", math.Round(offlineTime)))
+			as.offline = fmt.Sprintf("🎣%1.0fm ", math.Round(offlineTime))
 		}
 		if !researchComplete {
 			as.note = append(as.note, strings.Join(missingResearch, ", "))
@@ -742,6 +743,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		}
 		var notes string
+		if as.offline != "" {
+			notes = as.offline
+		}
 
 		matchQ := ""
 		qStones := as.quantStones[ei.ArtifactSpec_INFERIOR] + as.quantStones[ei.ArtifactSpec_LESSER] + as.quantStones[ei.ArtifactSpec_NORMAL]
