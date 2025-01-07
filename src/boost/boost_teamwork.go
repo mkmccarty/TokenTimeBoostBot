@@ -146,7 +146,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 // DownloadCoopStatus will download the coop status for a given contract and coop ID
 func DownloadCoopStatus(userID string, einame string, contractID string, coopID string) (string, *discordgo.MessageSend) {
-	eggIncID := config.EIUserID
+	eggIncID := config.EIUserIdBasic
 	reqURL := "https://www.auxbrain.com/ei/coop_status"
 	enc := base64.StdEncoding
 
