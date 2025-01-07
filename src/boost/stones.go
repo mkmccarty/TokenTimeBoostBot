@@ -376,7 +376,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		var missingResearch []string
 
 		userLayRate := 1 / 30.0 // 1 chicken per 30 seconds
-		userShippingCap := 500000000.0
+		userShippingCap := 50000000.0
+		hoverOnlyMultiplier := 1.0
+		hyperloopOnlyMultiplier := 1.0
+		universalShippingMultiplier := 1.0
 		for _, cr := range fi.GetCommonResearch() {
 			switch cr.GetId() {
 			case "comfy_nests": // 50
@@ -416,56 +419,56 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 					missingResearch = append(missingResearch, fmt.Sprintf("relativity_optimization %d/10", cr.GetLevel()))
 				}
 			case "leafsprings": // 30
-				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Leafsprings 5%
+				universalShippingMultiplier *= (1 + 0.05*float64(cr.GetLevel())) // Leafsprings 5%
 				if cr.GetLevel() != 30 {
 					researchComplete = false
 					missingResearch = append(missingResearch, fmt.Sprintf("leafsprings %d/30", cr.GetLevel()))
 				}
 			case "lightweight_boxes": // 40
-				userShippingCap *= (1 + 0.1*float64(cr.GetLevel())) // Lightweight Boxes 10%
+				universalShippingMultiplier *= (1 + 0.1*float64(cr.GetLevel())) // Lightweight Boxes 10%
 				if cr.GetLevel() != 40 {
 					researchComplete = false
 					missingResearch = append(missingResearch, fmt.Sprintf("lightweight_boxes %d/40", cr.GetLevel()))
 				}
 			case "driver_training": // 30
-				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Driver Training 5%
+				universalShippingMultiplier *= (1 + 0.05*float64(cr.GetLevel())) // Driver Training 5%
 				if cr.GetLevel() != 30 {
 					researchComplete = false
 					missingResearch = append(missingResearch, fmt.Sprintf("driver_training %d/30", cr.GetLevel()))
 				}
 			case "super_alloy": // 50
-				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Super Alloy 5%
+				universalShippingMultiplier *= (1 + 0.05*float64(cr.GetLevel())) // Super Alloy 5%
 				if cr.GetLevel() != 50 {
 					researchComplete = false
 					missingResearch = append(missingResearch, fmt.Sprintf("super_alloy %d/50", cr.GetLevel()))
 				}
 			case "quantum_storage": // 20
-				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Quantum Storage 5%
+				universalShippingMultiplier *= (1 + 0.05*float64(cr.GetLevel())) // Quantum Storage 5%
 				if cr.GetLevel() != 20 {
 					researchComplete = false
 					missingResearch = append(missingResearch, fmt.Sprintf("quantum_storage %d/20", cr.GetLevel()))
 				}
 			case "hover_upgrades": // 25
 				// Need to only do this for the vehicles that have hover upgrades
-				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Hover Upgrades 5%
+				hoverOnlyMultiplier = (1 + 0.05*float64(cr.GetLevel())) // Hover Upgrades 5%
 				if cr.GetLevel() != 25 {
 					researchComplete = false
 					missingResearch = append(missingResearch, fmt.Sprintf("hover_upgrades %d/25", cr.GetLevel()))
 				}
 			case "dark_containment": // 25
-				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Dark Containment 5%
+				universalShippingMultiplier *= (1 + 0.05*float64(cr.GetLevel())) // Dark Containment 5%
 				if cr.GetLevel() != 25 {
 					researchComplete = false
 					missingResearch = append(missingResearch, fmt.Sprintf("dark_containment %d/25", cr.GetLevel()))
 				}
 			case "neural_net_refine": // 25
-				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Neural Net Refine 5%
+				universalShippingMultiplier *= (1 + 0.05*float64(cr.GetLevel())) // Neural Net Refine 5%
 				if cr.GetLevel() != 25 {
 					researchComplete = false
 					missingResearch = append(missingResearch, fmt.Sprintf("neural_net_refine %d/25", cr.GetLevel()))
 				}
 			case "hyper_portalling": // 25
-				userShippingCap *= (1 + 0.05*float64(cr.GetLevel())) // Hyper Portalling 5%
+				hyperloopOnlyMultiplier = (1 + 0.05*float64(cr.GetLevel())) // Hyper Portalling 5%
 				if cr.GetLevel() != 25 {
 					researchComplete = false
 					missingResearch = append(missingResearch, fmt.Sprintf("hyper_portalling %d/25", cr.GetLevel()))
@@ -482,22 +485,30 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 					missingResearch = append(missingResearch, fmt.Sprintf("epic_egg_laying %d/20", er.GetLevel()))
 				}
 			case "transportation_lobbyist": // 30
-				userShippingCap *= (1 + 0.05*float64(er.GetLevel())) // Transportation Lobbyist 5%
+				universalShippingMultiplier *= (1 + 0.05*float64(er.GetLevel())) // Transportation Lobbyist 5%
 				if er.GetLevel() != 30 {
 					researchComplete = false
 					missingResearch = append(missingResearch, fmt.Sprintf("transportation_lobbyist %d/30", er.GetLevel()))
 				}
 			}
 		}
-
-		if !researchComplete {
-			as.note = append(as.note, strings.Join(missingResearch, ", "))
-			//log.Print(strings.Join(missingResearch, ", "))
-		}
-
 		//userLayRate *= 3600 // convert to hr rate
 		as.baseLayingRate = userLayRate * 11340000000.0 * 3600.0 / 1e15
-		as.baseShippingRate = userShippingCap * 10.0 * float64(len(fi.GetTrainLength())) * 60 / 1e16
+		//as.baseShippingRate = userShippingCap * 10.0 * float64(len(fi.GetTrainLength())) * 60 / 1e16
+
+		userShippingCap, shippingNote := ei.GetVehiclesShippingCapacity(fi.GetVehicles(), fi.GetTrainLength(), universalShippingMultiplier, hoverOnlyMultiplier, hyperloopOnlyMultiplier)
+		as.baseShippingRate = userShippingCap * 60 / 1e15
+
+		offlineTime := -c.GetFarmInfo().GetTimestamp() / 60
+		if offlineTime > 5 {
+			as.note = append(as.note, fmt.Sprintf("Offline %1.0fm", math.Round(offlineTime)))
+		}
+		if !researchComplete {
+			as.note = append(as.note, strings.Join(missingResearch, ", "))
+		}
+		if len(shippingNote) > 0 {
+			as.note = append(as.note, shippingNote)
+		}
 
 		for _, artifact := range fi.GetEquippedArtifacts() {
 			spec := artifact.GetSpec()
