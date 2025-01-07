@@ -476,3 +476,117 @@ func GetContractGradeString(grade int) string {
 	}
 	return str
 }
+
+// Vehicles
+
+type vehicleType struct {
+	ID           int
+	Name         string
+	BaseCapacity float64 // Unupgraded shipping capacity per second.
+}
+
+var vehicleTypes = []vehicleType{
+	{
+		ID:           -1,
+		Name:         "None",
+		BaseCapacity: 0,
+	},
+	{
+		ID:           0,
+		Name:         "Trike",
+		BaseCapacity: 5e3,
+	},
+	{
+		ID:           1,
+		Name:         "Transit Van",
+		BaseCapacity: 15e3,
+	},
+	{
+		ID:           2,
+		Name:         "Pickup",
+		BaseCapacity: 50e3,
+	},
+	{
+		ID:           3,
+		Name:         "10 Foot",
+		BaseCapacity: 100e3,
+	},
+	{
+		ID:           4,
+		Name:         "24 Foot",
+		BaseCapacity: 250e3,
+	},
+	{
+		ID:           5,
+		Name:         "Semi",
+		BaseCapacity: 500e3,
+	},
+	{
+		ID:           6,
+		Name:         "Double Semi",
+		BaseCapacity: 1e6,
+	},
+	{
+		ID:           7,
+		Name:         "Future Semi",
+		BaseCapacity: 5e6,
+	},
+	{
+		ID:           8,
+		Name:         "Mega Semi",
+		BaseCapacity: 15e6,
+	},
+	{
+		ID:           10,
+		Name:         "Quantum Transporter",
+		BaseCapacity: 50e6,
+	},
+	{
+		ID:           11,
+		Name:         "Hyperloop Train",
+		BaseCapacity: 50e6,
+	},
+}
+
+func isHoverVehicle(vehicle vehicleType) bool {
+	return vehicle.ID >= 9
+}
+
+func isHyperloop(vehicle vehicleType) bool {
+	return vehicle.ID == 11
+}
+
+func GetVehiclesShippingCapacity(vehicles []uint32, trainLength []uint32, univMult float64, hoverOnlyMult float64, hyperOnlyMult float64) (float64, string) {
+	userShippingCap := 0.0
+	shippingNote := ""
+	fullyUpgraded := true
+
+	for i, v := range vehicles {
+		if v == 0 {
+			continue
+		}
+		vehicleType := vehicleTypes[v]
+		capacity := vehicleType.BaseCapacity
+		if vehicleType.ID != 11 || trainLength[i] != 10 {
+			fullyUpgraded = false
+		}
+		if isHoverVehicle(vehicleType) {
+			capacity *= hoverOnlyMult
+		}
+		if isHyperloop(vehicleType) {
+			capacity *= hyperOnlyMult
+		}
+		capacity *= univMult
+		if trainLength[i] > 0 {
+			lengthOfOneTrain := trainLength[i]
+			capacity *= float64(lengthOfOneTrain)
+		}
+		userShippingCap += capacity
+
+	}
+	if !fullyUpgraded {
+		shippingNote = "Vehicles not fully upgraded"
+	}
+
+	return userShippingCap, shippingNote
+}
