@@ -377,7 +377,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		var missingResearch []string
 
 		userLayRate := 1 / 30.0 // 1 chicken per 30 seconds
-		userShippingCap := 50000000.0
+		//userShippingCap := 50000000.0
 		hoverOnlyMultiplier := 1.0
 		hyperloopOnlyMultiplier := 1.0
 		universalShippingMultiplier := 1.0
