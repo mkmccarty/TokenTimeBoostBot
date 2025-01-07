@@ -13,6 +13,20 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+var currentGGEvent = 1.0
+var currentUltraGGEvent = 1.0
+
+// GetGenerousGiftEvent will return the current Generous Gift event multiplier
+func GetGenerousGiftEvent() (float64, float64) {
+	return currentGGEvent, currentUltraGGEvent
+}
+
+// SetGenerousGiftEvent will return the current Generous Gift event multiplier
+func SetGenerousGiftEvent(gg float64, ugg float64) {
+	currentGGEvent = gg
+	currentUltraGGEvent = ugg
+}
+
 // TokenUnitLog is a full log of all passed tokens
 type TokenUnitLog struct {
 	Time       time.Time // Time token was received

@@ -180,6 +180,7 @@ type Booster struct {
 	EstDurationOfBoost     time.Duration // Estimated duration of the boost
 	EstEndOfBoost          time.Time     // Estimated end of the boost
 	EstRequestChickenRuns  time.Time     // Estimated time to request chicken runs
+	Ultra                  bool          // Does this player have Ultra
 }
 
 // LocationData holds server specific Data for a contract
@@ -233,6 +234,7 @@ type Contract struct {
 	CRMessageIDs []string // Array of message IDs for chicken run messages
 
 	CoopSize            int
+	UltraCount          int
 	Style               int64 // Mask for the Contract Style
 	LengthInSeconds     int
 	BoostOrder          int // How the contract is sorted

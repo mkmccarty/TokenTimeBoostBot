@@ -61,7 +61,22 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	}
 
 	if contract.State != ContractStateSignup && contract.State != ContractStateCompleted {
-		outputStr += fmt.Sprintf("> %s/min: %2.2f\n", contract.TokenStr, float64(len(contract.TokenLog))/time.Since(contract.StartTime).Minutes())
+		/*
+			(0.101332 * GG + 1/TokenTimer) * AllPlayers
+			TokenTimer: Token Timer in minutes
+			GG: 2 for all Generous Gifts, 1 + (UltraPlayers/AllPlayers) for Ultra GG, 1 for normal day
+			UltraPlayers: Number of players in coop with ultra
+			AllPlayers: size of coop
+
+			0.144803 is rate with epic rainstick and habs full
+		*/
+		gg, ugg := ei.GetGenerousGiftEvent()
+		if ugg > 1.0 {
+			// farmers with ultra
+			gg = ugg + (float64(contract.UltraCount) / float64(contract.CoopSize))
+		}
+		estTPM := (float64(0.101332)*gg + 1/float64(contract.MinutesPerToken)) * float64(contract.CoopSize)
+		outputStr += fmt.Sprintf("> %s/min: %2.2f   Expected %1.2f\n", contract.TokenStr, float64(len(contract.TokenLog))/time.Since(contract.StartTime).Minutes(), estTPM)
 	}
 
 	switch contract.State {

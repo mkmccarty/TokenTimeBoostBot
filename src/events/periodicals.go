@@ -80,6 +80,9 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	var currentEggIncEvents []ei.EggEvent
 	newEvents := false
 
+	newGG := 1.0
+	newUltraGG := 1.0
+
 	for _, event := range periodicalsResponse.GetEvents().GetEvents() {
 		var e ei.EggEvent
 		e.ID = event.GetIdentifier()
@@ -97,6 +100,14 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 
 		// Want to add the ultra extension to the event type so only unique events are kept
 		name := e.EventType
+		if e.EventType == "gift-boost" {
+			if e.Ultra {
+				newUltraGG = e.Multiplier
+			} else {
+				newGG = e.Multiplier
+			}
+		}
+
 		if e.Ultra {
 			name += "-ultra"
 		}
@@ -113,6 +124,9 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	if newEvents {
 		sortAndSwapEvents(localEventMap, currentEggIncEvents)
 	}
+
+	// Set our current Event variables
+	ei.SetGenerousGiftEvent(newGG, newUltraGG)
 
 	// Look for new contracts
 	var newContract []ei.EggIncContract
