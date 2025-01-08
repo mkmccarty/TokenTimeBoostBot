@@ -165,7 +165,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		fname := fmt.Sprintf("ttbb-data/%s.pb", basename)
 
 		if strings.HasPrefix(basename, "!") {
-			coopID = coopID[2:]
+			coopID = coopID[1:]
 			index, err := strconv.Atoi(basename[1:2])
 			if err == nil {
 				files, err := os.ReadDir("ttbb-data")
@@ -300,6 +300,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	type artifactSet struct {
 		name             string
 		note             []string
+		missingResearch  []string
 		offline          string
 		baseLayingRate   float64
 		baseShippingRate float64
@@ -381,6 +382,11 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		hoverOnlyMultiplier := 1.0
 		hyperloopOnlyMultiplier := 1.0
 		universalShippingMultiplier := 1.0
+
+		//commonLayRate := 1.0
+		universalHabCapacity := 1.0
+		portalHabCapacity := 1.0
+
 		for _, cr := range fi.GetCommonResearch() {
 			switch cr.GetId() {
 			case "comfy_nests": // 50
@@ -474,7 +480,32 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 					researchComplete = false
 					missingResearch = append(missingResearch, fmt.Sprintf("hyper_portalling %d/25", cr.GetLevel()))
 				}
+			case "hab_capacity1": // 8
+				universalHabCapacity *= (1.0 + 0.05*float64(cr.GetLevel())) // Hab Capacity 5%
+				if cr.GetLevel() != 8 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("hab_capacity %d/8", cr.GetLevel()))
+				}
+			case "microlux": // 10
+				universalHabCapacity *= (1.0 + 0.05*float64(cr.GetLevel())) // Microlux 5%
+				if cr.GetLevel() != 10 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("microlux %d/10", cr.GetLevel()))
+				}
+			case "grav_plating": // 25
+				universalHabCapacity *= (1.0 + 0.02*float64(cr.GetLevel())) // Grav Plating 2%
+				if cr.GetLevel() != 25 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("grav_plating %d/25", cr.GetLevel()))
+				}
+			case "wormhole_dampening": // 25
+				portalHabCapacity = (1.0 + 0.02*float64(cr.GetLevel())) // Wormhole Dampening 2%
+				if cr.GetLevel() != 25 {
+					researchComplete = false
+					missingResearch = append(missingResearch, fmt.Sprintf("wormhole_dampening %d/25", cr.GetLevel()))
+				}
 			}
+
 		}
 
 		for _, er := range fi.GetEpicResearch() {
@@ -493,8 +524,39 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				}
 			}
 		}
+
 		//userLayRate *= 3600 // convert to hr rate
-		as.baseLayingRate = userLayRate * 11340000000.0 * 3600.0 / 1e15
+		habPopulation := 0.0
+		for _, hab := range fi.GetHabPopulation() {
+			habPopulation += float64(hab)
+		}
+		habCapacity := 0.0
+		for _, hab := range fi.GetHabCapacity() {
+			habCapacity += float64(hab)
+		}
+		baseHab := 0.0
+		for _, hab := range fi.GetHabs() {
+			// Values 1->18 for each of these
+			value := 0.0
+			if hab != 19 {
+				value = float64(ei.Habs[hab].BaseCapacity)
+				if ei.IsPortalHab(ei.Habs[hab]) {
+					value *= portalHabCapacity
+				}
+				value *= universalHabCapacity
+			}
+			baseHab += value
+		}
+		baseHab = math.Round(baseHab)
+
+		// Compare production hab capacity and production hab population
+		if as.farmCapacity != habCapacity || habPopulation != as.farmPopulation {
+			log.Print("Farm Capacity and Farm Population do not match")
+		}
+
+		//userLayRate *= 3600 // convert to hr rate
+		as.baseLayingRate = userLayRate * baseHab * 3600.0 / 1e15
+		//as.baseLayingRate = userLayRate * 11340000000.0 * 3600.0 / 1e15
 		//as.baseShippingRate = userShippingCap * 10.0 * float64(len(fi.GetTrainLength())) * 60 / 1e16
 
 		userShippingCap, shippingNote := ei.GetVehiclesShippingCapacity(fi.GetVehicles(), fi.GetTrainLength(), universalShippingMultiplier, hoverOnlyMultiplier, hyperloopOnlyMultiplier)
@@ -505,7 +567,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			as.offline = fmt.Sprintf("🎣%1.0fm ", math.Round(offlineTime))
 		}
 		if !researchComplete {
-			as.note = append(as.note, strings.Join(missingResearch, ", "))
+			as.missingResearch = append(as.missingResearch, strings.Join(missingResearch, ", "))
 		}
 		if len(shippingNote) > 0 {
 			as.note = append(as.note, shippingNote)
@@ -622,7 +684,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	table.SetHeaderLine(false)
 	table.SetTablePadding(" ") // pad with tabs
 	table.SetNoWhiteSpace(true)
-	table.SetAlignment(tablewriter.ALIGN_RIGHT)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
 
 	// 1e15
 	for i, as := range artifactSets {
@@ -743,8 +805,12 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		}
 		var notes string
+		if len(as.missingResearch) > 0 {
+			notes += "🚩"
+		}
+
 		if as.offline != "" {
-			notes = as.offline
+			notes += as.offline
 		}
 
 		matchQ := ""
