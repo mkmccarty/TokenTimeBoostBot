@@ -646,7 +646,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			bestDeflectorPercent := 0.0
 			for _, b := range c.BuffHistory {
 				if b.GetEggLayingRate() > 1.0 {
-					buffElr := math.Round((b.GetEggLayingRate() - 1.0) * 100.0)
+					buffElr := (b.GetEggLayingRate() - 1.0) * 100.0
 					if buffElr > bestDeflectorPercent {
 						bestDeflectorPercent = buffElr
 					}
@@ -703,7 +703,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		stoneLayRateNow *= math.Pow(1.04, float64(as.tachStones[ei.ArtifactSpec_LESSER]))
 		stoneLayRateNow *= math.Pow(1.05, float64(as.tachStones[ei.ArtifactSpec_NORMAL]))
 		chickELR := as.elr * as.farmCapacity * eiContract.Grade[grade].ModifierHabCap * 3600.0 / 1e15
-		collegELR := math.Round(chickELR/stoneLayRateNow*100.0) / 100.0
+		collegELR := chickELR / stoneLayRateNow
 		//fmt.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
 		if collegELR < 1.00 {
 			// Possible due to being offline
@@ -725,20 +725,30 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			}
 		}*/
 
+		if chickELR < 1.00 {
+			// If the user hasn't build up the farm much then the ELR will be low
+			collegELR = 1.00
+		}
+
 		stoneShipRateNow := shippingRate
 		stoneShipRateNow *= math.Pow(1.02, float64(as.quantStones[ei.ArtifactSpec_INFERIOR]))
 		stoneShipRateNow *= math.Pow(1.04, float64(as.quantStones[ei.ArtifactSpec_LESSER]))
 		stoneShipRateNow *= math.Pow(1.05, float64(as.quantStones[ei.ArtifactSpec_NORMAL]))
 
 		//fmt.Printf("Calc SR: %2.3f  param.Sr: %2.3f   Diff:%2.2f\n", stoneShipRateNow, as.sr/1e15, (as.sr/1e15)/stoneShipRateNow)
-		collegShip := math.Round((as.sr/1e15)/stoneShipRateNow*100000.0) / 100000.0
-		if collegShip > 1.000 {
-			val := fmt.Sprintf("%2.2f🚚", (collegShip-1.0)*100.0)
-			as.collegg = append(as.collegg, strings.Replace(strings.Replace(val, ".00", "", -1), ".25", "¼", -1))
+		collegShip := (as.sr / 1e15) / stoneShipRateNow
+		if stoneShipRateNow > 1.0 {
+			if collegShip > 1.000 {
+				val := fmt.Sprintf("%2.2f🚚", (collegShip-1.0)*100.0)
+				as.collegg = append(as.collegg, strings.Replace(strings.Replace(val, ".00", "", -1), ".25", "¼", -1))
+			} else {
+				// Likely because of a change in in a coop deflector value since they last synced
+				artifactSets[i].note = append(artifactSets[i].note, fmt.Sprintf("SR: %2.4f(q:%d) - ei.sr: %2.4f  ratio:%2.4f", shippingRate, as.quantStones, (as.sr/1e15), collegShip))
+			}
 		} else {
-			// Likely because of a change in in a coop deflector value since they last synced
-			artifactSets[i].note = append(artifactSets[i].note, fmt.Sprintf("SR: %2.4f(q:%d) - ei.sr: %2.4f  ratio:%2.4f", shippingRate, as.quantStones, (as.sr/1e15), collegShip))
+			as.collegg = append(as.collegg, "🏋")
 		}
+
 		bestTotal := 0.0
 
 		// Default this to the maximum
