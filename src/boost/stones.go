@@ -568,8 +568,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 
 		//userLayRate *= 3600 // convert to hr rate
-		as.baseLayingRate = userLayRate * habPopulation * 3600.0 / 1e15
-		//as.baseShippingRate = userShippingCap * 10.0 * float64(len(fi.GetTrainLength())) * 60 / 1e16
+		as.baseLayingRate = userLayRate * min(habPopulation, as.baseHab) * 3600.0 / 1e15
 
 		userShippingCap, shippingNote := ei.GetVehiclesShippingCapacity(fi.GetVehicles(), fi.GetTrainLength(), universalShippingMultiplier, hoverOnlyMultiplier, hyperloopOnlyMultiplier)
 		as.baseShippingRate = userShippingCap * 60 / 1e15
