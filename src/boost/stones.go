@@ -890,10 +890,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		if as.farmPopulation != as.farmCapacity {
 			needLegend = true
+			notes += "🏠"
 			if as.farmPopulation/as.farmCapacity < 0.95 {
-				notes += "🏚️️"
-			} else {
-				notes += "🏠"
+				notes += "🐣"
 			}
 		}
 
@@ -1026,14 +1025,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	// Need to write out a legend for the stones
 	if needLegend {
-		builder.WriteString("🚩Research / 🪨Missing / 🏠~Full (🏚️CR) / 🎣Away\n")
+		builder.WriteString("🚩Research / 🪨Missing / 🏠Filling(🐣CR) / 🎣Away\n")
 	}
-	/*
-		🚩 Unfinished research
-		🏠 Habs not full
-		🏚️ Habs not full but CR available
-		🎣 offline > 5m
-	*/
 
 	if dataTimestampStr != "" {
 		builder.WriteString(dataTimestampStr)
