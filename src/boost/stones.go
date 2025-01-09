@@ -304,6 +304,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		offline          string
 		baseLayingRate   float64
 		baseShippingRate float64
+		baseHab          float64
 		stones           int
 		deflector        artifact
 		metronome        artifact
@@ -534,6 +535,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		for _, hab := range fi.GetHabCapacity() {
 			habCapacity += float64(hab)
 		}
+
 		baseHab := 0.0
 		for _, hab := range fi.GetHabs() {
 			// Values 1->18 for each of these
@@ -547,7 +549,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			}
 			baseHab += value
 		}
-		baseHab = math.Round(baseHab)
+		as.baseHab = math.Round(baseHab)
 
 		// Compare production hab capacity and production hab population
 		if as.farmCapacity != habCapacity || habPopulation != as.farmPopulation {
