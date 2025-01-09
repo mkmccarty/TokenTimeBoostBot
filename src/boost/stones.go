@@ -357,6 +357,16 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		as := artifactSet{}
 		as.name = c.GetUserName()
+		// Strip any multibyte characters from as.name and replace with ~
+		cleanName := make([]rune, len(as.name))
+		for i, r := range as.name {
+			if r > 127 {
+				cleanName[i] = '?'
+			} else {
+				cleanName[i] = r
+			}
+		}
+		as.name = strings.ReplaceAll(string(cleanName), "\x00", "")
 
 		p := c.GetProductionParams()
 		as.farmCapacity = p.GetFarmCapacity()
@@ -667,16 +677,55 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	table := tablewriter.NewWriter(&builder)
 	if soloName != "" {
-		table.SetHeader([]string{"Name", "Dfl", "Met", "Com", "Gus", "T", "Q", "ELR", "SR", "DLVRY", "egg%", "Notes"})
+		table.SetHeader([]string{
+			"Name",
+			"Dfl", "Met", "Com", "Gus",
+			"T", "Q",
+			"ELR", "SR", "DLV",
+			"🥚", "📓"})
+		table.SetColumnAlignment([]int{
+			tablewriter.ALIGN_RIGHT,
+			tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT,
+			tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
+			tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT,
+			tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_LEFT})
+
 	} else {
 		if details {
 			if !skipArtifact {
-				table.SetHeader([]string{"Name", "Dfl", "Met", "Com", "Gus", "Tach", "Quant", "ELR", "SR", "Delivery", "Collegg", "Notes"})
+				table.SetHeader([]string{
+					"Name",
+					"Dfl", "Met", "Com", "Gus",
+					"Tach", "Quant",
+					"ELR", "SR", "DLV",
+					"🥚", "📓"})
+
+				table.SetColumnAlignment([]int{
+					tablewriter.ALIGN_RIGHT,
+					tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT,
+					tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
+					tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT,
+					tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_LEFT})
 			} else {
-				table.SetHeader([]string{"Name", "Tach", "Quant", "ELR", "SR", "Delivery", "Collegg", "Notes"})
+				table.SetHeader([]string{
+					"Name",
+					"Tach", "Quant",
+					"ELR", "SR", "DLV",
+					"🥚", "📓"})
+				table.SetColumnAlignment([]int{
+					tablewriter.ALIGN_RIGHT,
+					tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
+					tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT,
+					tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_LEFT})
+
 			}
 		} else {
-			table.SetHeader([]string{"Name", "Tach", "Quant", "Notes"})
+			table.SetHeader([]string{"Name", "Tach", "Quant", "📓"})
+			table.SetColumnAlignment([]int{
+				tablewriter.ALIGN_RIGHT,
+				tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
+				tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_LEFT})
+
 		}
 	}
 	table.SetCenterSeparator("")
@@ -685,7 +734,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	table.SetHeaderLine(false)
 	table.SetTablePadding(" ") // pad with tabs
 	table.SetNoWhiteSpace(true)
-	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	//table.SetAlignment(tablewriter.ALIGN_LEFT)
 
 	// 1e15
 	for i, as := range artifactSets {
@@ -739,8 +788,12 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		//fmt.Printf("Calc SR: %2.3f  param.Sr: %2.3f   Diff:%2.2f\n", stoneShipRateNow, as.sr/1e15, (as.sr/1e15)/stoneShipRateNow)
 		collegShip := (as.sr / 1e15) / stoneShipRateNow
 		if collegShip > 1.000 {
-			val := fmt.Sprintf("%2.2f🚚", (collegShip-1.0)*100.0)
-			as.collegg = append(as.collegg, strings.Replace(strings.Replace(val, ".00", "", -1), ".25", "¼", -1))
+			val := fmt.Sprintf("%2.2f🚚 ", (collegShip-1.0)*100.0)
+			val = strings.Replace(val, ".00", "", -1)
+			val = strings.Replace(val, ".25", "¼", -1)
+			val = strings.Replace(val, ".5", "½", -1)
+			val = strings.Replace(val, ".75", "¾", -1)
+			as.collegg = append(as.collegg, val)
 		} else {
 			// Likely because of a change in in a coop deflector value since they last synced
 			artifactSets[i].note = append(artifactSets[i].note, fmt.Sprintf("SR: %2.4f(q:%d) - ei.sr: %2.4f  ratio:%2.4f", shippingRate, as.quantStones, (as.sr/1e15), collegShip))
@@ -841,7 +894,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			if notes != "" {
 				notes += " "
 			}
-			notes += fmt.Sprintf("(%1.2f^%d)", stoneBonusIncrease, as.stones)
+			//notes += fmt.Sprintf("(%1.2f^%d)", stoneBonusIncrease, as.stones)
 		}
 
 		if soloName != "" {
