@@ -932,18 +932,28 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		} else {
 
 			if details {
+				lBestELR := fmt.Sprintf("%2.3f", as.bestELR)
+				if as.bestELR < 1.0 {
+					lBestELR = fmt.Sprintf("%2.2fT", as.bestELR*1000.0)
+				}
+				lBestSR := fmt.Sprintf("%2.3f", as.bestSR)
+				if as.bestSR < 1.0 {
+					lBestSR = fmt.Sprintf("%2.2fT", as.bestSR*1000.0)
+				}
+				lBestTotal := fmt.Sprintf("%2.3f", bestTotal)
+				if bestTotal < 1.0 {
+					lBestTotal = fmt.Sprintf("%2.2fT", bestTotal*1000.0)
+				}
 				if !skipArtifact {
 					table.Append([]string{as.name,
 						as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
 						fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
-						fmt.Sprintf("%2.3f", as.bestELR), fmt.Sprintf("%2.3f", as.bestSR),
-						fmt.Sprintf("%2.3f", bestTotal),
+						lBestELR, lBestSR, lBestTotal,
 						strings.Join(as.collegg, ","), notes})
 				} else {
 					table.Append([]string{as.name,
 						fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
-						fmt.Sprintf("%2.3f", as.bestELR), fmt.Sprintf("%2.3f", as.bestSR),
-						fmt.Sprintf("%2.3f", bestTotal),
+						lBestELR, lBestSR, lBestTotal,
 						strings.Join(as.collegg, ","), notes})
 				}
 			} else if matchT != "⭐️" {
