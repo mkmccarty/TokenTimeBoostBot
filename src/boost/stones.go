@@ -891,7 +891,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if as.farmPopulation != as.farmCapacity {
 			needLegend = true
 			if as.farmPopulation/as.farmCapacity < 0.95 {
-				notes += "🏚️"
+				notes += "🏚️️"
 			} else {
 				notes += "🏠"
 			}
