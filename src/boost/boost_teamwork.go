@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
@@ -452,7 +453,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		if BestSIAB > 0 && decodeCoopStatus.GetSecondsSinceAllGoalsAchieved() <= 0 {
 			var maxTeamwork strings.Builder
 			if LastSIABCalc != 0 {
-				maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB for %s (<t:%d:t>) in the most recent teamwork segment to max BTV by %6.0f.\n", fmtDuration(siabTimeEquipped), MostRecentDuration.Add(siabTimeEquipped).Unix(), shortTeamwork))
+				maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB for %s (<t:%d:t>) in the most recent teamwork segment to max BTV by %6.0f.\n", bottools.FmtDuration(siabTimeEquipped), MostRecentDuration.Add(siabTimeEquipped).Unix(), shortTeamwork))
 			} else {
 				if time.Now().Add(siabTimeEquipped).After(endTime) {
 					// How much longer is this siabTimeEquipped than the end of the contract
@@ -464,7 +465,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 					maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB through end of contract (<t:%d:t>) in new teamwork segment to improve BTV by %6.0f. ", endTime.Unix(), shortTeamwork*extraPercent))
 					maxTeamwork.WriteString(fmt.Sprintf("The maximum BTV increase of %6.0f would be achieved if the contract finished at <t:%d:f>.", shortTeamwork, time.Now().Add(siabTimeEquipped).Unix()))
 				} else {
-					maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB for %s (<t:%d:t>) in new teamwork segment to max BTV by %6.0f.\n", fmtDuration(siabTimeEquipped), time.Now().Add(siabTimeEquipped).Unix(), shortTeamwork))
+					maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB for %s (<t:%d:t>) in new teamwork segment to max BTV by %6.0f.\n", bottools.FmtDuration(siabTimeEquipped), time.Now().Add(siabTimeEquipped).Unix(), shortTeamwork))
 				}
 			}
 			field = append(field, &discordgo.MessageEmbedField{
@@ -581,21 +582,4 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 	}
 
 	return builder.String(), embed
-}
-
-func fmtDuration(d time.Duration) string {
-	str := ""
-	d = d.Round(time.Minute)
-	h := d / time.Hour
-	d -= h * time.Hour
-	m := d / time.Minute
-	d = h / 24
-	h -= d * 24
-
-	if d > 0 {
-		str = fmt.Sprintf("%dd%dh%dm", d, h, m)
-	} else {
-		str = fmt.Sprintf("%dh%dm", h, m)
-	}
-	return strings.Replace(str, "0h0m", "", -1)
 }

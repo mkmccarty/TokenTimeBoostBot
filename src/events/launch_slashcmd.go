@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
@@ -450,9 +451,9 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 					chainLaunchTime := launchTime.Add(exDuration)
 					if showDubCap && launchTime.Before(dubCapTimeCaution) {
-						chainString = fmt.Sprintf(" +🟢exLnr (%s) <t:%d:t>", fmtDuration(exDuration), chainLaunchTime.Unix())
+						chainString = fmt.Sprintf(" +🟢exLnr (%s) <t:%d:t>", bottools.FmtDuration(exDuration), chainLaunchTime.Unix())
 					} else {
-						chainString = fmt.Sprintf(" +exLnr (%s) <t:%d:t>", fmtDuration(exDuration), chainLaunchTime.Unix())
+						chainString = fmt.Sprintf(" +exLnr (%s) <t:%d:t>", bottools.FmtDuration(exDuration), chainLaunchTime.Unix())
 					}
 					if fasterMissions != 1.0 {
 						// Calculate an additional duration
@@ -463,11 +464,11 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 						exDuration, _ := str2duration.ParseDuration(minutesStr)
 
 						chainLaunchTime = chainLaunchTime.Add(exDuration)
-						chainString += fmt.Sprintf(" +exLnr (%s) <t:%d:t>", fmtDuration(exDuration), chainLaunchTime.Unix())
+						chainString += fmt.Sprintf(" +exLnr (%s) <t:%d:t>", bottools.FmtDuration(exDuration), chainLaunchTime.Unix())
 					}
 				}
 
-				builder.WriteString(fmt.Sprintf("> %s%s%s%s%s (%s): <t:%d:t>%s\n", dcBubble, sunBubble, sArt, shipDurationName[i], sName, fmtDuration(ftlDuration), launchTime.Unix(), chainString))
+				builder.WriteString(fmt.Sprintf("> %s%s%s%s%s (%s): <t:%d:t>%s\n", dcBubble, sunBubble, sArt, shipDurationName[i], sName, bottools.FmtDuration(ftlDuration), launchTime.Unix(), chainString))
 				if shipIndex != 0 && len(missionShips) > 2 && selectedShipSecondary < -1 {
 					break
 				}
