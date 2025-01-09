@@ -381,6 +381,11 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		as.sr *= 3600.0
 		//log.Print(fCapacity, elr, ihr, sr)
 
+		as.tachStones = make([]int, 3)
+		as.tachStonesPercent = 1.0
+		as.quantStones = make([]int, 3)
+		as.quantStonesPercent = 1.0
+
 		//totalStones := 0
 		as.deflector.percent = 0.0
 		as.compass.percent = 0.0
@@ -626,14 +631,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				//}
 			}
 
-			if as.tachStones == nil {
-				as.tachStones = make([]int, 3)
-				as.tachStonesPercent = 1.0
-			}
-			if as.quantStones == nil {
-				as.quantStones = make([]int, 3)
-				as.quantStonesPercent = 1.0
-			}
 			for _, stone := range artifact.GetStones() {
 				if stone.GetName() == ei.ArtifactSpec_TACHYON_STONE {
 					as.tachStones[stone.GetLevel()]++
