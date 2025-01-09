@@ -165,7 +165,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		fname := fmt.Sprintf("ttbb-data/%s-%s.pb", contractID, basename)
 
 		if strings.HasPrefix(basename, "!") {
-			coopID = coopID[1:]
+			coopID = coopID[2:]
 			index, err := strconv.Atoi(basename[1:2])
 			if err == nil {
 				files, err := os.ReadDir("ttbb-data")
@@ -181,7 +181,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				}
 
 				if len(filenames) > 0 && index < len(filenames) {
-					fname = fmt.Sprintf("ttbb-data/%s-%s", contractID, filenames[index])
+					fname = fmt.Sprintf("ttbb-data/%s", filenames[index])
 				} else {
 					return fmt.Sprint("Files: ", strings.Join(filenames, ", "))
 				}
