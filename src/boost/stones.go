@@ -306,6 +306,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		baseLayingRate   float64
 		baseShippingRate float64
 		baseHab          float64
+		userLayRate      float64
 		stones           int
 		deflector        artifact
 		metronome        artifact
@@ -560,6 +561,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			}
 			baseHab += value
 		}
+
+		as.userLayRate = userLayRate
 		as.baseHab = math.Round(baseHab)
 
 		// Compare production hab capacity and production hab population
@@ -568,7 +571,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 
 		//userLayRate *= 3600 // convert to hr rate
-		as.baseLayingRate = userLayRate * as.baseHab * 3600.0 / 1e15
+		as.baseLayingRate = as.userLayRate * as.baseHab * 3600.0 / 1e15
 		//as.baseLayingRate = userLayRate * min(habPopulation, as.baseHab) * 3600.0 / 1e15
 
 		userShippingCap, shippingNote := ei.GetVehiclesShippingCapacity(fi.GetVehicles(), fi.GetTrainLength(), universalShippingMultiplier, hoverOnlyMultiplier, hyperloopOnlyMultiplier)
@@ -743,6 +746,11 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if soloName != "" && strings.ToLower(as.name) != soloName {
 			continue
 		}
+		//if as.farmPopulation != as.baseHab {
+		// need to reduce the farm population by the gusset percent
+		unmodifiedPop := as.farmPopulation / (1 + as.gusset.percent/100.0)
+		as.baseLayingRate = as.userLayRate * unmodifiedPop * 3600.0 / 1e15
+		//}
 
 		//fmt.Printf("name:\"%s\"  Stones:%d  elr:%f egg/chicken/s  sr:%f egg/s\n", as.name, as.stones, as.elr, as.sr)
 		layingRate := (as.baseLayingRate) * (1 + as.metronome.percent/100.0) * (1 + as.gusset.percent/100.0) * eiContract.Grade[grade].ModifierELR
