@@ -263,6 +263,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		log.Print(err)
 		return err.Error()
 	}
+	coopID = decodeCoopStatus.GetCoopIdentifier()
 
 	levels := []string{"T1", "T2", "T3", "T4", "T5"}
 	rarity := []string{"C", "R", "E", "L"}
