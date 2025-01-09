@@ -1013,6 +1013,14 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 	}
 
+	// Need to write out a legend for the stones
+	/*
+		🚩 Unfinished research
+		🏠 Habs not full
+		🏚️ Habs not full but CR available
+		🎣 offline > 5m
+	*/
+
 	if dataTimestampStr != "" {
 		builder.WriteString(dataTimestampStr)
 	}
