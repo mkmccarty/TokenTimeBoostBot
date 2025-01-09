@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
@@ -578,8 +579,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		as.baseShippingRate = userShippingCap * 60 / 1e15
 
 		offlineTime := -c.GetFarmInfo().GetTimestamp() / 60
-		if offlineTime > 5 {
-			as.offline = fmt.Sprintf("🎣%1.0fm ", math.Round(offlineTime))
+		if offlineTime >= 5 {
+			as.offline = fmt.Sprintf("🎣%s ", bottools.FmtDuration(time.Duration(offlineTime)*time.Minute))
 		}
 		if !researchComplete {
 			as.missingResearch = append(as.missingResearch, strings.Join(missingResearch, ", "))
