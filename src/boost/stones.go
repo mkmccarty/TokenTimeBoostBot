@@ -162,7 +162,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	if strings.HasPrefix(coopID, "!!") {
 		basename := coopID[2:]
 		coopID = coopID[2:]
-		fname := fmt.Sprintf("ttbb-data/%s.pb", basename)
+		fname := fmt.Sprintf("ttbb-data/%s-%s.pb", contractID, basename)
 
 		if strings.HasPrefix(basename, "!") {
 			coopID = coopID[1:]
@@ -175,13 +175,13 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 				var filenames []string
 				for _, file := range files {
-					if strings.HasPrefix(file.Name(), fmt.Sprintf("%s-%s-", contractID, coopID)) {
+					if strings.HasPrefix(file.Name(), fmt.Sprintf("%s-%s", contractID, coopID)) {
 						filenames = append(filenames, file.Name())
 					}
 				}
 
 				if len(filenames) > 0 && index < len(filenames) {
-					fname = fmt.Sprintf("ttbb-data/%s", filenames[index])
+					fname = fmt.Sprintf("ttbb-data/%s-%s", contractID, filenames[index])
 				} else {
 					return fmt.Sprint("Files: ", strings.Join(filenames, ", "))
 				}
@@ -555,8 +555,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 
 		//userLayRate *= 3600 // convert to hr rate
-		as.baseLayingRate = userLayRate * baseHab * 3600.0 / 1e15
-		//as.baseLayingRate = userLayRate * 11340000000.0 * 3600.0 / 1e15
+		as.baseLayingRate = userLayRate * habPopulation * 3600.0 / 1e15
 		//as.baseShippingRate = userShippingCap * 10.0 * float64(len(fi.GetTrainLength())) * 60 / 1e16
 
 		userShippingCap, shippingNote := ei.GetVehiclesShippingCapacity(fi.GetVehicles(), fi.GetTrainLength(), universalShippingMultiplier, hoverOnlyMultiplier, hyperloopOnlyMultiplier)
@@ -702,7 +701,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		stoneLayRateNow *= math.Pow(1.02, float64(as.tachStones[ei.ArtifactSpec_INFERIOR]))
 		stoneLayRateNow *= math.Pow(1.04, float64(as.tachStones[ei.ArtifactSpec_LESSER]))
 		stoneLayRateNow *= math.Pow(1.05, float64(as.tachStones[ei.ArtifactSpec_NORMAL]))
-		chickELR := as.elr * as.farmCapacity * eiContract.Grade[grade].ModifierHabCap * 3600.0 / 1e15
+		chickELR := as.elr * as.farmPopulation * eiContract.Grade[grade].ModifierHabCap * 3600.0 / 1e15
 		collegELR := chickELR / stoneLayRateNow
 		//fmt.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
 		if collegELR < 1.00 {
@@ -725,10 +724,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			}
 		}*/
 
-		if chickELR < 1.00 {
-			// If the user hasn't build up the farm much then the ELR will be low
-			collegELR = 1.00
-		}
+		//	if collegELR < 1.00 {
+		// If the user hasn't build up the farm much then the ELR will be low
+		//	collegELR = 1.00
+		//	}
 
 		stoneShipRateNow := shippingRate
 		stoneShipRateNow *= math.Pow(1.02, float64(as.quantStones[ei.ArtifactSpec_INFERIOR]))
@@ -737,16 +736,12 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		//fmt.Printf("Calc SR: %2.3f  param.Sr: %2.3f   Diff:%2.2f\n", stoneShipRateNow, as.sr/1e15, (as.sr/1e15)/stoneShipRateNow)
 		collegShip := (as.sr / 1e15) / stoneShipRateNow
-		if stoneShipRateNow > 1.0 {
-			if collegShip > 1.000 {
-				val := fmt.Sprintf("%2.2f🚚", (collegShip-1.0)*100.0)
-				as.collegg = append(as.collegg, strings.Replace(strings.Replace(val, ".00", "", -1), ".25", "¼", -1))
-			} else {
-				// Likely because of a change in in a coop deflector value since they last synced
-				artifactSets[i].note = append(artifactSets[i].note, fmt.Sprintf("SR: %2.4f(q:%d) - ei.sr: %2.4f  ratio:%2.4f", shippingRate, as.quantStones, (as.sr/1e15), collegShip))
-			}
+		if collegShip > 1.000 {
+			val := fmt.Sprintf("%2.2f🚚", (collegShip-1.0)*100.0)
+			as.collegg = append(as.collegg, strings.Replace(strings.Replace(val, ".00", "", -1), ".25", "¼", -1))
 		} else {
-			as.collegg = append(as.collegg, "🏋")
+			// Likely because of a change in in a coop deflector value since they last synced
+			artifactSets[i].note = append(artifactSets[i].note, fmt.Sprintf("SR: %2.4f(q:%d) - ei.sr: %2.4f  ratio:%2.4f", shippingRate, as.quantStones, (as.sr/1e15), collegShip))
 		}
 
 		bestTotal := 0.0

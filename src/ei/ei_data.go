@@ -480,68 +480,63 @@ func GetContractGradeString(grade int) string {
 // Vehicles
 
 type vehicleType struct {
-	ID           int
+	ID           uint32
 	Name         string
 	BaseCapacity float64 // Unupgraded shipping capacity per second.
 }
 
-var vehicleTypes = []vehicleType{
-	{
-		ID:           -1,
-		Name:         "None",
-		BaseCapacity: 0,
-	},
-	{
+var vehicleTypes = map[uint32]vehicleType{
+	0: {
 		ID:           0,
 		Name:         "Trike",
 		BaseCapacity: 5e3,
 	},
-	{
+	1: {
 		ID:           1,
 		Name:         "Transit Van",
 		BaseCapacity: 15e3,
 	},
-	{
+	2: {
 		ID:           2,
 		Name:         "Pickup",
 		BaseCapacity: 50e3,
 	},
-	{
+	3: {
 		ID:           3,
 		Name:         "10 Foot",
 		BaseCapacity: 100e3,
 	},
-	{
+	4: {
 		ID:           4,
 		Name:         "24 Foot",
 		BaseCapacity: 250e3,
 	},
-	{
+	5: {
 		ID:           5,
 		Name:         "Semi",
 		BaseCapacity: 500e3,
 	},
-	{
+	6: {
 		ID:           6,
 		Name:         "Double Semi",
 		BaseCapacity: 1e6,
 	},
-	{
+	7: {
 		ID:           7,
 		Name:         "Future Semi",
 		BaseCapacity: 5e6,
 	},
-	{
+	8: {
 		ID:           8,
 		Name:         "Mega Semi",
 		BaseCapacity: 15e6,
 	},
-	{
+	10: {
 		ID:           10,
 		Name:         "Quantum Transporter",
 		BaseCapacity: 50e6,
 	},
-	{
+	11: {
 		ID:           11,
 		Name:         "Hyperloop Train",
 		BaseCapacity: 50e6,
@@ -567,20 +562,21 @@ func GetVehiclesShippingCapacity(vehicles []uint32, trainLength []uint32, univMu
 		}
 		vehicleType := vehicleTypes[v]
 		capacity := vehicleType.BaseCapacity
-		if vehicleType.ID != 11 || trainLength[i] != 10 {
+		if vehicleType.ID != 11 && trainLength[i] != 10 {
 			fullyUpgraded = false
 		}
 		if isHoverVehicle(vehicleType) {
 			capacity *= hoverOnlyMult
 		}
+		capacity *= univMult
 		if isHyperloop(vehicleType) {
 			capacity *= hyperOnlyMult
+			if trainLength[i] > 0 {
+				lengthOfOneTrain := trainLength[i]
+				capacity *= float64(lengthOfOneTrain)
+			}
 		}
-		capacity *= univMult
-		if trainLength[i] > 0 {
-			lengthOfOneTrain := trainLength[i]
-			capacity *= float64(lengthOfOneTrain)
-		}
+
 		userShippingCap += capacity
 
 	}
