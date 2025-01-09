@@ -308,7 +308,7 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 		return
 	}
 
-	log.Print("Ran Chicken")
+	//log.Print("Ran Chicken")
 	msgedit := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 
 	str := i.Message.Content
