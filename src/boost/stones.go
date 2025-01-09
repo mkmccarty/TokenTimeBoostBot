@@ -303,6 +303,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		name             string
 		note             []string
 		missingResearch  []string
+		missingStones    bool
 		offline          string
 		baseLayingRate   float64
 		baseShippingRate float64
@@ -595,7 +596,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 			numStones, _ := ei.GetStones(spec.GetName(), spec.GetLevel(), spec.GetRarity())
 			if numStones != len(artifact.GetStones()) {
-				as.note = append(as.note, fmt.Sprintf("%s %d/%d slots used", ei.ArtifactSpec_Name_name[int32(spec.GetName())], len(artifact.GetStones()), numStones))
+				as.missingStones = true
+				//as.note = append(as.note, fmt.Sprintf("%s %d/%d slots used", ei.ArtifactSpec_Name_name[int32(spec.GetName())], len(artifact.GetStones()), numStones))
 			}
 
 			switch spec.GetName() {
@@ -741,6 +743,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	table.SetNoWhiteSpace(true)
 	//table.SetAlignment(tablewriter.ALIGN_LEFT)
 
+	needLegend := false
+
 	// 1e15
 	for i, as := range artifactSets {
 
@@ -877,17 +881,24 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		var notes string
 		if len(as.missingResearch) > 0 {
 			notes += "🚩"
+			needLegend = true
 		}
+		if as.missingStones {
+			needLegend = true
+			notes += "🪨"
+		}
+
 		if as.farmPopulation != as.farmCapacity {
+			needLegend = true
 			if as.farmPopulation/as.farmCapacity < 0.95 {
 				notes += "🏚️"
 			} else {
 				notes += "🏠"
 			}
-
 		}
 
 		if as.offline != "" {
+			needLegend = true
 			notes += as.offline
 		}
 
@@ -1014,6 +1025,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	}
 
 	// Need to write out a legend for the stones
+	if needLegend {
+		builder.WriteString("🚩Research / 🪨Missing / 🏠~Full (🏚️CR) / 🎣Away\n")
+	}
 	/*
 		🚩 Unfinished research
 		🏠 Habs not full
