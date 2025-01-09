@@ -749,7 +749,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		//if as.farmPopulation != as.baseHab {
 		// need to reduce the farm population by the gusset percent
 		unmodifiedPop := as.farmPopulation / (1 + as.gusset.percent/100.0)
-		as.baseLayingRate = as.userLayRate * unmodifiedPop * 3600.0 / 1e15
+		as.baseLayingRate = as.userLayRate * min(unmodifiedPop, as.baseHab) * 3600.0 / 1e15
 		//}
 
 		//fmt.Printf("name:\"%s\"  Stones:%d  elr:%f egg/chicken/s  sr:%f egg/s\n", as.name, as.stones, as.elr, as.sr)
@@ -876,6 +876,14 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		var notes string
 		if len(as.missingResearch) > 0 {
 			notes += "🚩"
+		}
+		if as.farmPopulation != as.farmCapacity {
+			if as.farmPopulation/as.farmCapacity < 0.95 {
+				notes += "🏚️"
+			} else {
+				notes += "🏠"
+			}
+
 		}
 
 		if as.offline != "" {
