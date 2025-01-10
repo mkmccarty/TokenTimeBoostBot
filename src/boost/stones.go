@@ -786,9 +786,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		stoneShipRateNow *= math.Pow(1.04, float64(as.quantStones[ei.ArtifactSpec_LESSER]))
 		stoneShipRateNow *= math.Pow(1.05, float64(as.quantStones[ei.ArtifactSpec_NORMAL]))
 
-		if as.name == "fadedshotgun435" {
-			log.Print("Name: ", "fadedshotgun435")
-		}
 		if stoneShipRateNow == 0.0 {
 			stoneShipRateNow = as.sr / 1e15
 			as.bestSR = stoneShipRateNow
