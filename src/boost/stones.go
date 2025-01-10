@@ -386,24 +386,20 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		as.quantStones = make([]int, 3)
 		as.quantStonesPercent = 1.0
 
-		//totalStones := 0
 		as.deflector.percent = 0.0
 		as.compass.percent = 0.0
 		as.metronome.percent = 0.0
 		as.metronome.percent = 0.0
-		//fmt.Printf("Farm: %s\n", as.name)
 
 		fi := c.GetFarmInfo()
 		researchComplete := true
 		var missingResearch []string
 
 		userLayRate := 1 / 30.0 // 1 chicken per 30 seconds
-		//userShippingCap := 50000000.0
 		hoverOnlyMultiplier := 1.0
 		hyperloopOnlyMultiplier := 1.0
 		universalShippingMultiplier := 1.0
 
-		//commonLayRate := 1.0
 		universalHabCapacity := 1.0
 		portalHabCapacity := 1.0
 
@@ -748,13 +744,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if soloName != "" && strings.ToLower(as.name) != soloName {
 			continue
 		}
-		//if as.farmPopulation != as.baseHab {
 		// need to reduce the farm population by the gusset percent
 		unmodifiedPop := as.farmPopulation / (1 + as.gusset.percent/100.0)
 		as.baseLayingRate = as.userLayRate * min(unmodifiedPop, as.baseHab) * 3600.0 / 1e15
-		//}
 
-		//fmt.Printf("name:\"%s\"  Stones:%d  elr:%f egg/chicken/s  sr:%f egg/s\n", as.name, as.stones, as.elr, as.sr)
 		layingRate := (as.baseLayingRate) * (1 + as.metronome.percent/100.0) * (1 + as.gusset.percent/100.0) * eiContract.Grade[grade].ModifierELR
 		shippingRate := (as.baseShippingRate) * (1 + as.compass.percent/100.0) * eiContract.Grade[grade].ModifierSR
 
@@ -766,10 +759,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		chickELR := as.elr * as.farmPopulation * eiContract.Grade[grade].ModifierHabCap * 3600.0 / 1e15
 		collegELR := chickELR / stoneLayRateNow
 		//fmt.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
+		// No IHR Egg yet, this will need to be revisited
 		if collegELR < 1.00 {
-			// Possible due to being offline
-			//as.notes = "sync needed."
-			// Maybe not fully boosted
 			collegELR = 1.00
 		}
 		if collegELR > 1.000 {
@@ -777,19 +768,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
 			//farmerstate.SetMiscSettingString(as.name, "coll-elr", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
 			collegELR = 1.00
-		} /*else {
-			hasColl := farmerstate.GetMiscSettingString(as.name, "coll-elr")
-			if hasColl != "" {
-				as.collegg = append(as.collegg, fmt.Sprintf("(ELR:%s)", hasColl))
-				collegELR *= 1.05
-
-			}
-		}*/
-
-		//	if collegELR < 1.00 {
-		// If the user hasn't build up the farm much then the ELR will be low
-		//	collegELR = 1.00
-		//	}
+		}
 
 		stoneShipRateNow := shippingRate
 		stoneShipRateNow *= math.Pow(1.02, float64(as.quantStones[ei.ArtifactSpec_INFERIOR]))
