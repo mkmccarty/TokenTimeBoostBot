@@ -545,7 +545,7 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		} else if userInContract(contract, sid) {
 			contract.Banker.PostSinkUserID = sid
 		}
-		if contract.State == ContractStateCompleted {
+		if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {
 			contract.Banker.CurrentBanker = contract.Banker.PostSinkUserID
 			refreshBoostListComponents = true
 		}
