@@ -140,7 +140,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
 func DownloadCoopStatusStones(contractID string, coopID string, details bool, soloName string) string {
-	eggIncID := config.EIUserIdBasic
+	eggIncID := config.EIUserIDBasic
 	reqURL := "https://www.auxbrain.com/ei/coop_status"
 	enc := base64.StdEncoding
 
@@ -263,6 +263,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	if err != nil {
 		log.Print(err)
 		return err.Error()
+	}
+	if decodeCoopStatus.GetCoopIdentifier() != coopID {
+		return "Invalid coop-id."
 	}
 	coopID = decodeCoopStatus.GetCoopIdentifier()
 

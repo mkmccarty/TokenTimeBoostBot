@@ -15,7 +15,7 @@ var (
 	GoogleAPIKey   string
 	AdminUserID    string
 	EIUserID       string
-	EIUserIdBasic  string
+	EIUserIDBasic  string
 	AdminUsers     []string
 	TestMode       bool
 	DevBotAppID    string
@@ -30,7 +30,7 @@ type configStruct struct {
 	OpenAIKey      string   `json:"OpenAIKey"`
 	GoogleAPIKey   string   `json:"GoogleAPIKey"`
 	AdminUserID    string   `json:"AdminUserId"`
-	EIUserIdBasic  string   `json:"EIUserIdBasic"`
+	EIUserIDBasic  string   `json:"EIUserIDBasic"`
 	EIUserID       string   `json:"EIUserId"`
 	AdminUsers     []string `json:"AdminUsers"`
 	TestMode       bool     `json:"TestMode"`
@@ -63,7 +63,7 @@ func ReadConfig(cfgFile string) error {
 	GoogleAPIKey = config.GoogleAPIKey
 	AdminUserID = config.AdminUserID
 	EIUserID = config.EIUserID
-	EIUserIdBasic = config.EIUserIdBasic
+	EIUserIDBasic = config.EIUserIDBasic
 	AdminUsers = config.AdminUsers
 	TestMode = config.TestMode
 	DevBotAppID = config.DevBotAppID
