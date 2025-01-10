@@ -754,12 +754,20 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		layingRate := (as.baseLayingRate) * (1 + as.metronome.percent/100.0) * (1 + as.gusset.percent/100.0) * eiContract.Grade[grade].ModifierELR
 		shippingRate := (as.baseShippingRate) * (1 + as.compass.percent/100.0) * eiContract.Grade[grade].ModifierSR
 
+		privateFarm := false
 		// Determine Colleggtible Increase
 		stoneLayRateNow := layingRate * (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
 		stoneLayRateNow *= math.Pow(1.02, float64(as.tachStones[ei.ArtifactSpec_INFERIOR]))
 		stoneLayRateNow *= math.Pow(1.04, float64(as.tachStones[ei.ArtifactSpec_LESSER]))
 		stoneLayRateNow *= math.Pow(1.05, float64(as.tachStones[ei.ArtifactSpec_NORMAL]))
 		chickELR := as.elr * as.farmPopulation * eiContract.Grade[grade].ModifierHabCap * 3600.0 / 1e15
+
+		if stoneLayRateNow == 0.0 {
+			privateFarm = true
+			stoneLayRateNow = chickELR
+			as.bestELR = stoneLayRateNow
+			layingRate = stoneLayRateNow
+		}
 		collegELR := chickELR / stoneLayRateNow
 		//fmt.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
 		// No IHR Egg yet, this will need to be revisited
@@ -778,6 +786,14 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		stoneShipRateNow *= math.Pow(1.04, float64(as.quantStones[ei.ArtifactSpec_LESSER]))
 		stoneShipRateNow *= math.Pow(1.05, float64(as.quantStones[ei.ArtifactSpec_NORMAL]))
 
+		if as.name == "fadedshotgun435" {
+			log.Print("Name: ", "fadedshotgun435")
+		}
+		if stoneShipRateNow == 0.0 {
+			stoneShipRateNow = as.sr / 1e15
+			as.bestSR = stoneShipRateNow
+			shippingRate = stoneShipRateNow
+		}
 		//fmt.Printf("Calc SR: %2.3f  param.Sr: %2.3f   Diff:%2.2f\n", stoneShipRateNow, as.sr/1e15, (as.sr/1e15)/stoneShipRateNow)
 		collegShip := (as.sr / 1e15) / stoneShipRateNow
 		if collegShip > 1.000 {
@@ -822,8 +838,11 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		// Simple search for those with only the 5% stones
 		for i := 0; i <= as.stones; i++ {
-			stoneLayRate := layingRate * (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
-			stoneLayRate = stoneLayRate * math.Pow(stoneBonusIncrease, float64(i)) * collegELR
+			stoneLayRate := layingRate
+			if !privateFarm {
+				stoneLayRate *= (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
+			}
+			stoneLayRate *= math.Pow(stoneBonusIncrease, float64(i)) * collegELR
 
 			stoneShipRate := shippingRate * math.Pow(stoneBonusIncrease, float64((as.stones-i))) * collegShip
 
