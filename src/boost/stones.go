@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -356,7 +357,15 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	artifactPercentLevels := []float64{1.02, 1.04, 1.05}
 
 	everyoneDeflectorPercent := 0.0
-	for _, c := range decodeCoopStatus.GetContributors() {
+
+	contributors := decodeCoopStatus.GetContributors()
+	sort.Slice(contributors, func(i, j int) bool {
+		return strings.ToLower(contributors[i].GetUserName()) < strings.ToLower(contributors[j].GetUserName())
+	})
+
+	for _, c := range contributors {
+
+		//for _, c := range decodeCoopStatus.GetContributors() {
 
 		totalContributions += c.GetContributionAmount()
 		totalContributions += -(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()) // offline eggs
