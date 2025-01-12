@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -145,6 +146,11 @@ func HandleEventHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Value:  ultraEvents.String(),
 			Inline: false,
 		})
+	}
+
+	if len(config.EventsURL) > 0 {
+		events.WriteString("[Event Calendar](" + config.EventsURL + ")")
+		//footerStr = fmt.Sprint("[Event Calendar](" + config.EventsURL + ")")
 	}
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
