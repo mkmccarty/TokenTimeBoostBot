@@ -8,5 +8,8 @@
     "EIUserId": "",
     "AdminUsers": [],
     "DevBotAppID": "",
-    "FeatureFlags": []
+    "FeatureFlags": [],
+    "EventsURL": "https://wasmegg-carpet.netlify.app/events/",
+    "RocketsURL": "https://wasmegg-carpet.netlify.app/rockets-tracker/"
+
 }

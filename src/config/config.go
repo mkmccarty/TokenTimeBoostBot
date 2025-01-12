@@ -20,6 +20,8 @@ var (
 	TestMode       bool
 	DevBotAppID    string
 	FeatureFlags   []string
+	EventsURL      string
+	RocketsURL     string
 	config         *configStruct
 )
 
@@ -36,6 +38,8 @@ type configStruct struct {
 	TestMode       bool     `json:"TestMode"`
 	DevBotAppID    string   `json:"DevBotAppID"`
 	FeatureFlags   []string `json:"FeatureFlags"`
+	RocketsURL     string   `json:"RocketsURL"`
+	EventsURL      string   `json:"EventsURL"`
 }
 
 // ReadConfig will load the configuration files for API tokens.
@@ -68,6 +72,8 @@ func ReadConfig(cfgFile string) error {
 	TestMode = config.TestMode
 	DevBotAppID = config.DevBotAppID
 	FeatureFlags = config.FeatureFlags
+	EventsURL = config.EventsURL
+	RocketsURL = config.RocketsURL
 
 	return nil
 }
