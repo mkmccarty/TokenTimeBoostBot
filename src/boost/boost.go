@@ -234,6 +234,7 @@ type Contract struct {
 	CRMessageIDs []string // Array of message IDs for chicken run messages
 
 	CoopSize            int
+	Ultra               bool
 	UltraCount          int
 	Style               int64 // Mask for the Contract Style
 	LengthInSeconds     int
@@ -769,6 +770,9 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 
 		if !userInContract(contract, b.UserID) {
 			contract.Boosters[b.UserID] = b
+			if contract.Ultra {
+				contract.UltraCount++
+			}
 			// If contract hasn't started add booster to the end
 			// or if contract is on the last booster already
 			if contract.State == ContractStateSignup || contract.State == ContractStateWaiting || order == ContractOrderSignup {
@@ -1041,6 +1045,9 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 	contract.OrderRevision++
 	delete(contract.Boosters, userID)
 	contract.RegisteredNum = len(contract.Boosters)
+	if contract.Ultra {
+		contract.UltraCount--
+	}
 
 	if userID == contract.CreatorID[0] {
 		// Reassign CreatorID to the Bot, then if there's a non-guest, make them the coordinator
@@ -1912,6 +1919,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	c.ModifierSR = 1.0
 	c.ModifierHabCap = 1.0
 	c.ContractVersion = 2
+	c.Ultra = contractProtoBuf.GetCcOnly()
 
 	if contractProtoBuf.GetStartTime() == 0 {
 
