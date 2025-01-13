@@ -157,7 +157,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var arrivalTimespan = ""
 	var chainExtended bool
 
-	ultraIcon := ei.GetBotEmojiMarkdown("ultra")
+	//ultraIcon := ei.GetBotEmojiMarkdown("ultra")
 
 	showDubCap := false
 	doubleCapacityStr := ""
@@ -294,7 +294,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	fuel := getEventMultiplier("mission-fuel")
 	fuelStr := ""
 	if fuel != nil {
-		uIcon := ""
+		uIcon := ei.GetBotEmojiMarkdown("std_fuel")
 		if fuel.Ultra {
 			uIcon = ei.GetBotEmojiMarkdown("ultra_fuel")
 		}
@@ -308,7 +308,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	capacity := getEventMultiplier("mission-capacity")
 	if capacity != nil {
 		if !capacity.Ultra || (capacity.Ultra && ultra) {
-			capIcon := ""
+			capIcon := ei.GetBotEmojiMarkdown("std_dubcap")
 			if capacity.Ultra {
 				capIcon = ei.GetBotEmojiMarkdown("ultra_dubcap")
 			}
@@ -325,7 +325,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	durationStr := ""
 	if fastDuration != nil {
 		if !fastDuration.Ultra || (fastDuration.Ultra && ultra) {
-			durIcon := ei.GetBotEmojiMarkdown("icon_fast")
+			durIcon := ei.GetBotEmojiMarkdown("std_fast")
 			if fastDuration.Ultra {
 				durIcon = ei.GetBotEmojiMarkdown("ultra_fast")
 			}
@@ -500,23 +500,31 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	for _, e := range LastMissionEvent {
-		ultraStr := ""
+		eventIconStr := ""
+		switch e.EventType {
+		case "mission-duration":
+			eventIconStr = ei.GetBotEmojiMarkdown("std_fast")
+		case "mission-capacity":
+			eventIconStr = ei.GetBotEmojiMarkdown("std_dubcap")
+		case "mission-fuel":
+			eventIconStr = ei.GetBotEmojiMarkdown("std_fuel")
+		}
+
 		if e.Ultra {
-			ultraStr = ultraIcon
-			switch e.EventType {
-			case "mission-duration":
-				ultraStr = ei.GetBotEmojiMarkdown("ultra_fast")
-			case "mission-capacity":
-				ultraStr = ei.GetBotEmojiMarkdown("ultra_dubcap")
-			case "mission-fuel":
-				ultraStr = ei.GetBotEmojiMarkdown("ultra_fuel")
-			}
 			if !ultra {
 				continue
 			}
+			switch e.EventType {
+			case "mission-duration":
+				eventIconStr = ei.GetBotEmojiMarkdown("ultra_fast")
+			case "mission-capacity":
+				eventIconStr = ei.GetBotEmojiMarkdown("ultra_dubcap")
+			case "mission-fuel":
+				eventIconStr = ei.GetBotEmojiMarkdown("ultra_fuel")
+			}
 		}
 		hours := e.EndTime.Sub(e.StartTime).Hours()
-		prevEvents.WriteString(fmt.Sprintf("%s%s for %.2dh on <t:%d:R>\n", ultraStr, e.Message, int(hours), e.StartTime.Unix()))
+		prevEvents.WriteString(fmt.Sprintf("%s%s for %.2dh on <t:%d:R>\n", eventIconStr, e.Message, int(hours), e.StartTime.Unix()))
 		//prevEvents.WriteString(fmt.Sprintf("%s on <t:%d:d>\n", e.Message, e.StartTime.Unix()))
 	}
 	field = append(field, &discordgo.MessageEmbedField{
