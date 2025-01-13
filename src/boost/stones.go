@@ -180,7 +180,7 @@ type artifactSet struct {
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
 func DownloadCoopStatusStones(contractID string, coopID string, details bool, soloName string) string {
 
-	decodeCoopStatus, _, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID)
+	coopStatus, _, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID)
 	if err != nil {
 		return err.Error()
 	}
@@ -188,10 +188,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	eiContract := ei.EggIncContractsAll[contractID]
 	skipArtifact := false
 
-	if decodeCoopStatus.GetCoopIdentifier() != coopID {
+	if coopStatus.GetCoopIdentifier() != coopID {
 		return "Invalid coop-id."
 	}
-	coopID = decodeCoopStatus.GetCoopIdentifier()
+	coopID = coopStatus.GetCoopIdentifier()
 
 	levels := []string{"T1", "T2", "T3", "T4", "T5"}
 	rarity := []string{"C", "R", "E", "L"}
@@ -231,20 +231,20 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	alternateStr := ""
 
-	grade := int(decodeCoopStatus.GetGrade())
+	grade := int(coopStatus.GetGrade())
 
 	artifactPercentLevels := []float64{1.02, 1.04, 1.05}
 
 	everyoneDeflectorPercent := 0.0
 
-	contributors := decodeCoopStatus.GetContributors()
+	contributors := coopStatus.GetContributors()
 	sort.Slice(contributors, func(i, j int) bool {
 		return strings.ToLower(contributors[i].GetUserName()) < strings.ToLower(contributors[j].GetUserName())
 	})
 
 	for _, c := range contributors {
 
-		//for _, c := range decodeCoopStatus.GetContributors() {
+		//for _, c := range coopStatus.GetContributors() {
 
 		totalContributions += c.GetContributionAmount()
 		totalContributions += -(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()) // offline eggs
@@ -857,11 +857,11 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		startTime := nowTime
 		endTime := nowTime
 		endStr := "End:"
-		secondsRemaining := int64(decodeCoopStatus.GetSecondsRemaining())
-		if decodeCoopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
+		secondsRemaining := int64(coopStatus.GetSecondsRemaining())
+		if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
 			startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
 			startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
-			secondsSinceAllGoals := int64(decodeCoopStatus.GetSecondsSinceAllGoalsAchieved())
+			secondsSinceAllGoals := int64(coopStatus.GetSecondsSinceAllGoalsAchieved())
 			endTime = endTime.Add(-time.Duration(secondsSinceAllGoals) * time.Second)
 			//contractDurationSeconds = endTime.Sub(startTime).Seconds()
 		} else {

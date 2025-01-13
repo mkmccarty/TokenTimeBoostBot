@@ -152,12 +152,12 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		return "Invalid contract ID.", nil
 	}
 
-	decodeCoopStatus, timestamp, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID)
+	coopStatus, timestamp, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID)
 	if err != nil {
 		return err.Error(), nil
 	}
 
-	if decodeCoopStatus.GetCoopIdentifier() != coopID {
+	if coopStatus.GetCoopIdentifier() != coopID {
 		return "Invalid coop-id.", nil
 	}
 
@@ -193,15 +193,15 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 	var builder strings.Builder
 	var teamwork strings.Builder
 
-	grade := int(decodeCoopStatus.GetGrade())
+	grade := int(coopStatus.GetGrade())
 
 	startTime := nowTime
-	secondsRemaining := int64(decodeCoopStatus.GetSecondsRemaining())
+	secondsRemaining := int64(coopStatus.GetSecondsRemaining())
 	endTime := nowTime
-	if decodeCoopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
+	if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
 		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
 		startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
-		secondsSinceAllGoals := int64(decodeCoopStatus.GetSecondsSinceAllGoalsAchieved())
+		secondsSinceAllGoals := int64(coopStatus.GetSecondsSinceAllGoalsAchieved())
 		endTime = endTime.Add(-time.Duration(secondsSinceAllGoals) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
 		builder.WriteString(fmt.Sprintf("Completed %s contract **%s/%s**\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID))
@@ -213,7 +213,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		var totalContributions float64
 		var contributionRatePerSecond float64
 		// Need to figure out the
-		for _, c := range decodeCoopStatus.GetContributors() {
+		for _, c := range coopStatus.GetContributors() {
 			totalContributions += c.GetContributionAmount()
 			totalContributions += -(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()) // offline eggs
 			contributionRatePerSecond += c.GetContributionRate()
@@ -254,7 +254,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 	found := false
 	var teamworkNames []string
 
-	for _, c := range decodeCoopStatus.GetContributors() {
+	for _, c := range coopStatus.GetContributors() {
 
 		name := c.GetUserName()
 
@@ -268,8 +268,8 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 			earnings := int(math.Round(a.GetEarnings()*100 - 100))
 			eggRate := int(math.Round(a.GetEggLayingRate()*100 - 100))
 			serverTimestamp := int64(a.GetServerTimestamp()) // When it was equipped
-			if decodeCoopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
-				serverTimestamp -= int64(decodeCoopStatus.GetSecondsSinceAllGoalsAchieved())
+			if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
+				serverTimestamp -= int64(coopStatus.GetSecondsSinceAllGoalsAchieved())
 			} else {
 				serverTimestamp += calcSecondsRemaining
 			}
@@ -388,7 +388,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 				Inline: false,
 			})
 		}
-		if BestSIAB > 0 && decodeCoopStatus.GetSecondsSinceAllGoalsAchieved() <= 0 {
+		if BestSIAB > 0 && coopStatus.GetSecondsSinceAllGoalsAchieved() <= 0 {
 			var maxTeamwork strings.Builder
 			if LastSIABCalc != 0 {
 				maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB for %s (<t:%d:t>) in the most recent teamwork segment to max BTV by %6.0f.\n", bottools.FmtDuration(siabTimeEquipped), MostRecentDuration.Add(siabTimeEquipped).Unix(), shortTeamwork))
