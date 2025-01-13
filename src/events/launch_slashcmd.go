@@ -385,13 +385,8 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		// for each ship, calculate the arrival time
 		// if arrival time is less than endTime, then add to the message
 
-		if arrivalTime.Before(dubCapTime) {
-			normal.WriteString(fmt.Sprintf("**Mission arriving on %s<t:%d:f> (FTL:%d)**\n", dupcapIcon, arrivalTime.Unix(), ftlLevel))
-			header.WriteString(fmt.Sprintf("Mission arriving on %s<t:%d:f> (FTL:%d)\n", dupcapIcon, arrivalTime.Unix(), ftlLevel))
-		} else {
-			normal.WriteString(fmt.Sprintf("**Mission arriving on <t:%d:f> (FTL:%d)**\n", arrivalTime.Unix(), ftlLevel))
-			header.WriteString(fmt.Sprintf("Mission arriving on <t:%d:f> (FTL:%d)\n", arrivalTime.Unix(), ftlLevel))
-		}
+		normal.WriteString(fmt.Sprintf("**Mission arriving on <t:%d:f> (FTL:%d)**\n", arrivalTime.Unix(), ftlLevel))
+		header.WriteString(fmt.Sprintf("Mission arriving on <t:%d:f> (FTL:%d)\n", arrivalTime.Unix(), ftlLevel))
 
 		for shipIndex, ship := range missionShips {
 			var sName = " " + ship.Name
