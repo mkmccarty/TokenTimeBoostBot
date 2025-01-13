@@ -742,6 +742,13 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			}
 		}
 		b.ArtifactSet = getUserArtifacts(userID, nil)
+		if contract.Ultra {
+			farmerstate.SetUltra(userID)
+		}
+
+		if farmerstate.IsUltra(userID) {
+			contract.UltraCount++
+		}
 
 		// Check if within the start period of a contract
 		if contract.State != ContractStateSignup {
@@ -1036,6 +1043,10 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 	contract.RegisteredNum = len(contract.Boosters)
 	if contract.Ultra {
 		contract.UltraCount--
+	} else {
+		if farmerstate.IsUltra(userID) {
+			contract.UltraCount--
+		}
 	}
 
 	if userID == contract.CreatorID[0] {

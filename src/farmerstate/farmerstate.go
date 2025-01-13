@@ -18,14 +18,15 @@ type Link struct {
 
 // Farmer struct to store user data
 type Farmer struct {
-	UserID               string // Discord User ID
-	EggIncName           string // User's Egg Inc name
-	Ping                 bool   // True/False
-	Tokens               int    // Number of tokens this user wants
-	OrderHistory         []int  // list of contract order percentiles
-	LaunchChain          bool   // Launch History chain option
-	MissionShipPrimary   int    // Launch Helper Ship Selection - Primary
-	MissionShipSecondary int    // Launch Helper Ship Selection - Secondary
+	UserID               string    // Discord User ID
+	EggIncName           string    // User's Egg Inc name
+	Ping                 bool      // True/False
+	Tokens               int       // Number of tokens this user wants
+	OrderHistory         []int     // list of contract order percentiles
+	LaunchChain          bool      // Launch History chain option
+	MissionShipPrimary   int       // Launch Helper Ship Selection - Primary
+	MissionShipSecondary int       // Launch Helper Ship Selection - Secondary
+	UltraContract        time.Time // Date last Ultra contract was detected
 	MiscSettingsFlag     map[string]bool
 	MiscSettingsString   map[string]string
 	Links                []Link // Array of Links
@@ -409,6 +410,26 @@ func SetLink(userID string, description string, guildID string, channelID string
 				farmerstate[userID].Links = append(farmerstate[userID].Links, el)
 			}
 		}
+		saveData(farmerstate)
+	}
+}
+
+// IsUltra will return if a player has joined an ultra contract in last 60 days
+func IsUltra(userID string) bool {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+
+	return time.Since(farmerstate[userID].UltraContract) <= 60*24*time.Hour
+}
+
+// SetUltra sets a player to have joined an ultra contract
+func SetUltra(userID string) {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+	if !farmerstate[userID].DataPrivacy {
+		farmerstate[userID].UltraContract = time.Now()
 		saveData(farmerstate)
 	}
 }
