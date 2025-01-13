@@ -454,9 +454,9 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 					chainLaunchTime := launchTime.Add(exDuration)
 					if showDubCap && launchTime.Before(dubCapTimeCaution) {
-						chainString = fmt.Sprintf(" +%sexLnr (%s) <t:%d:t>", dupcapIcon, bottools.FmtDuration(exDuration), chainLaunchTime.Unix())
+						chainString = fmt.Sprintf(" +%sEX (%s) <t:%d:t>", dupcapIcon, bottools.FmtDuration(exDuration), chainLaunchTime.Unix())
 					} else {
-						chainString = fmt.Sprintf(" +exLnr (%s) <t:%d:t>", bottools.FmtDuration(exDuration), chainLaunchTime.Unix())
+						chainString = fmt.Sprintf(" +EX (%s) <t:%d:t>", bottools.FmtDuration(exDuration), chainLaunchTime.Unix())
 					}
 					if fasterMissions != 1.0 {
 						// Calculate an additional duration
@@ -467,7 +467,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 						exDuration, _ := str2duration.ParseDuration(minutesStr)
 
 						chainLaunchTime = chainLaunchTime.Add(exDuration)
-						chainString += fmt.Sprintf(" +exLnr (%s) <t:%d:t>", bottools.FmtDuration(exDuration), chainLaunchTime.Unix())
+						chainString += fmt.Sprintf(" +EX (%s) <t:%d:t>", bottools.FmtDuration(exDuration), chainLaunchTime.Unix())
 					}
 				}
 
@@ -497,6 +497,9 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		//instr.WriteString(dupcapIcon + " Arrives during dubcap\n")
 		instr.WriteString("🟡 Arrives with less than 5 minutes of dubcap end\n")
 		//instr.WriteString("🔴 After Dubcap ends\n")
+	}
+	if chainExtended {
+		instr.WriteString("Chained EX launches are Henliner/Henerprise extended missions\n")
 	}
 	if displaySizeWarning {
 		instr.WriteString("📈 Display size limit reached. Please reduce the number of missions or disable the chain option.")
