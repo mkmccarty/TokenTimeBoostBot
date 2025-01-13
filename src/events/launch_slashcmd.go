@@ -424,9 +424,9 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 				launchTime := arrivalTime.Add(ftlDuration)
 				if showDubCap {
-					if launchTime.Before(dubCapTimeCaution) {
+					if arrivalTime.Before(dubCapTimeCaution) {
 						dcBubble = dupcapIcon + " " // More than 5 min left in event
-					} else if launchTime.Before(dubCapTime) {
+					} else if arrivalTime.Before(dubCapTime) {
 						dcBubble = dupcapIcon + "🟡 " // Within 5 minutes
 					} else {
 						dcBubble = ""
