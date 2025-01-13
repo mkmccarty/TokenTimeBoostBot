@@ -1,14 +1,9 @@
 package boost
 
 import (
-	"encoding/base64"
 	"fmt"
-	"io"
 	"log"
 	"math"
-	"net/http"
-	"net/url"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,11 +11,9 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/olekukonko/tablewriter"
-	"google.golang.org/protobuf/proto"
 )
 
 // GetSlashStones will return the discord command for calculating ideal stone set
@@ -139,132 +132,62 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 }
 
+type artifact struct {
+	name    string
+	abbrev  string
+	percent float64
+}
+
+type artifactSet struct {
+	name             string
+	note             []string
+	missingResearch  []string
+	missingStones    bool
+	offline          string
+	baseLayingRate   float64
+	baseShippingRate float64
+	baseHab          float64
+	userLayRate      float64
+	stones           int
+	deflector        artifact
+	metronome        artifact
+	compass          artifact
+	gusset           artifact
+
+	tachStoneSlotted   int
+	tachStones         []int
+	tachStonesPercent  float64
+	tachStonesBest     float64
+	quantStones        []int
+	quantStoneSlotted  int
+	quantStonesPercent float64
+	quantStonesBest    float64
+
+	elr            float64
+	ihr            float64
+	sr             float64
+	farmCapacity   float64
+	farmPopulation float64
+
+	tachWant  int
+	quantWant int
+	bestELR   float64
+	bestSR    float64
+	collegg   []string
+	soloData  [][]string
+}
+
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
 func DownloadCoopStatusStones(contractID string, coopID string, details bool, soloName string) string {
-	eggIncID := config.EIUserIDBasic
-	reqURL := "https://www.auxbrain.com/ei/coop_status"
-	enc := base64.StdEncoding
 
+	decodeCoopStatus, _, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID)
+	if err != nil {
+		return err.Error()
+	}
 	var builder strings.Builder
-	var dataTimestampStr string
-	var protoData string
-
 	eiContract := ei.EggIncContractsAll[contractID]
-	cacheID := contractID + ":" + coopID
-	cachedData := eiDatas[cacheID]
-
 	skipArtifact := false
 
-	if eiContract.MaxCoopSize > 15 {
-		// Larger contracts take more text, skip artifacts
-		skipArtifact = true
-	}
-
-	// Check if the file exists
-	if strings.HasPrefix(coopID, "!!") {
-		basename := coopID[2:]
-		coopID = coopID[2:]
-		fname := fmt.Sprintf("ttbb-data/%s-%s.pb", contractID, basename)
-
-		if strings.HasPrefix(basename, "!") {
-			coopID = coopID[2:]
-			index, err := strconv.Atoi(basename[1:2])
-			if err == nil {
-				files, err := os.ReadDir("ttbb-data")
-				if err != nil {
-					return err.Error()
-				}
-
-				var filenames []string
-				for _, file := range files {
-					if strings.HasPrefix(file.Name(), fmt.Sprintf("%s-%s", contractID, coopID)) {
-						filenames = append(filenames, file.Name())
-					}
-				}
-
-				if len(filenames) > 0 && index < len(filenames) {
-					fname = fmt.Sprintf("ttbb-data/%s", filenames[index])
-				} else {
-					return fmt.Sprint("Files: ", strings.Join(filenames, ", "))
-				}
-			}
-
-			// Process the filenames...
-		}
-
-		// read the contents of filename into protoData
-		protoDataBytes, _ := os.ReadFile(fname)
-		protoData = string(protoDataBytes)
-
-		fileNameParts := strings.Split(fname[:len(fname)-3], "-")
-		timestampStr := fileNameParts[len(fileNameParts)-1]
-		timestamp, err := strconv.ParseInt(timestampStr, 10, 64)
-		if err != nil {
-			return err.Error()
-		}
-		dataTimestampStr = fmt.Sprintf("\nUsing cached data from file %s", fname)
-		dataTimestampStr += fmt.Sprintf(", timestamp: %s", time.Unix(timestamp, 0).Format("2006-01-02 15:04:05"))
-
-	} else if cachedData != nil && time.Now().Before(cachedData.expirationTimestamp) {
-		protoData = cachedData.protoData
-		dataTimestampStr = fmt.Sprintf("\nUsing cached data retrieved <t:%d:R>, refresh <t:%d:R>", cachedData.timestamp.Unix(), cachedData.expirationTimestamp.Unix())
-	} else {
-
-		coopStatusRequest := ei.ContractCoopStatusRequest{
-			ContractIdentifier: &contractID,
-			CoopIdentifier:     &coopID,
-			UserId:             &eggIncID,
-		}
-		reqBin, err := proto.Marshal(&coopStatusRequest)
-		if err != nil {
-			return err.Error()
-		}
-		reqDataEncoded := enc.EncodeToString(reqBin)
-
-		response, err := http.PostForm(reqURL, url.Values{"data": {reqDataEncoded}})
-
-		if err != nil {
-			log.Print(err)
-			return err.Error()
-		}
-
-		defer response.Body.Close()
-
-		// Read the response body
-		body, err := io.ReadAll(response.Body)
-		if err != nil {
-			log.Print(err)
-			return err.Error()
-		}
-		//dataTimestampStr = ""
-		protoData = string(body)
-		data := eiData{ID: cacheID, timestamp: time.Now(), expirationTimestamp: time.Now().Add(1 * time.Minute), contractID: contractID, coopID: coopID, protoData: protoData}
-		eiDatas[cacheID] = &data
-
-		// Save protoData into a file
-		fileName := fmt.Sprintf("ttbb-data/%s-%s-%d.pb", contractID, coopID, time.Now().Unix())
-		err = os.WriteFile(fileName, []byte(protoData), 0644)
-		if err != nil {
-			log.Print(err)
-			return err.Error()
-		}
-		//nowTime = time.Now()
-	}
-
-	decodedAuthBuf := &ei.AuthenticatedMessage{}
-	rawDecodedText, _ := enc.DecodeString(protoData)
-	err := proto.Unmarshal(rawDecodedText, decodedAuthBuf)
-	if err != nil {
-		log.Print(err)
-		return err.Error()
-	}
-
-	decodeCoopStatus := &ei.ContractCoopStatusResponse{}
-	err = proto.Unmarshal(decodedAuthBuf.Message, decodeCoopStatus)
-	if err != nil {
-		log.Print(err)
-		return err.Error()
-	}
 	if decodeCoopStatus.GetCoopIdentifier() != coopID {
 		return "Invalid coop-id."
 	}
@@ -297,50 +220,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		"T4C": 20.0, "T4E": 22.0, "T4L": 25.0,
 	}
 
-	type artifact struct {
-		name    string
-		abbrev  string
-		percent float64
-	}
-
-	type artifactSet struct {
-		name             string
-		note             []string
-		missingResearch  []string
-		missingStones    bool
-		offline          string
-		baseLayingRate   float64
-		baseShippingRate float64
-		baseHab          float64
-		userLayRate      float64
-		stones           int
-		deflector        artifact
-		metronome        artifact
-		compass          artifact
-		gusset           artifact
-
-		tachStoneSlotted   int
-		tachStones         []int
-		tachStonesPercent  float64
-		tachStonesBest     float64
-		quantStones        []int
-		quantStoneSlotted  int
-		quantStonesPercent float64
-		quantStonesBest    float64
-
-		elr            float64
-		ihr            float64
-		sr             float64
-		farmCapacity   float64
-		farmPopulation float64
-
-		tachWant  int
-		quantWant int
-		bestELR   float64
-		bestSR    float64
-		collegg   []string
-		soloData  [][]string
-	}
 	var artifactSets []artifactSet
 
 	//baseLaying := 3.772

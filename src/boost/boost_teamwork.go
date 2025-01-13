@@ -1,13 +1,9 @@
 package boost
 
 import (
-	"encoding/base64"
 	"fmt"
-	"io"
 	"log"
 	"math"
-	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -17,7 +13,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/olekukonko/tablewriter"
-	"google.golang.org/protobuf/proto"
 )
 
 // GetSlashTeamworkEval will return the discord command for calculating token values of a running contract
@@ -147,81 +142,21 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 // DownloadCoopStatus will download the coop status for a given contract and coop ID
 func DownloadCoopStatus(userID string, einame string, contractID string, coopID string) (string, *discordgo.MessageSend) {
-	eggIncID := config.EIUserIDBasic
-	reqURL := "https://www.auxbrain.com/ei/coop_status"
-	enc := base64.StdEncoding
 
-	var protoData string
 	var dataTimestampStr string
+	var field []*discordgo.MessageEmbedField
+	var nowTime time.Time
 
 	eiContract := ei.EggIncContractsAll[contractID]
 	if eiContract.ID == "" {
 		return "Invalid contract ID.", nil
 	}
 
-	cacheID := contractID + ":" + coopID
-	cachedData := eiDatas[cacheID]
-	var nowTime time.Time
-
-	var field []*discordgo.MessageEmbedField
-
-	// Check if the file exists
-	if cachedData != nil && time.Now().Before(cachedData.expirationTimestamp) {
-		protoData = cachedData.protoData
-		dataTimestampStr = fmt.Sprintf("Using cached data, within %d second cooldown.", 60)
-		nowTime = cachedData.timestamp
-		// Use protoData as needed
-	} else {
-		coopID := strings.ToLower(coopID)
-		contractID := strings.ToLower(contractID)
-
-		coopStatusRequest := ei.ContractCoopStatusRequest{
-			ContractIdentifier: &contractID,
-			CoopIdentifier:     &coopID,
-			UserId:             &eggIncID,
-		}
-		reqBin, err := proto.Marshal(&coopStatusRequest)
-		if err != nil {
-			return err.Error(), nil
-		}
-		reqDataEncoded := enc.EncodeToString(reqBin)
-
-		response, err := http.PostForm(reqURL, url.Values{"data": {reqDataEncoded}})
-
-		if err != nil {
-			log.Print(err)
-			return err.Error(), nil
-		}
-
-		defer response.Body.Close()
-
-		// Read the response body
-		body, err := io.ReadAll(response.Body)
-		if err != nil {
-			log.Print(err)
-			return err.Error(), nil
-		}
-		dataTimestampStr = ""
-		protoData = string(body)
-		data := eiData{ID: cacheID, timestamp: time.Now(), expirationTimestamp: time.Now().Add(1 * time.Minute), contractID: contractID, coopID: coopID, protoData: protoData}
-		eiDatas[cacheID] = &data
-		nowTime = time.Now()
-	}
-
-	decodedAuthBuf := &ei.AuthenticatedMessage{}
-	rawDecodedText, _ := enc.DecodeString(protoData)
-	err := proto.Unmarshal(rawDecodedText, decodedAuthBuf)
+	decodeCoopStatus, timestamp, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID)
 	if err != nil {
-		log.Print(err)
 		return err.Error(), nil
 	}
 
-	decodeCoopStatus := &ei.ContractCoopStatusResponse{}
-	err = proto.Unmarshal(decodedAuthBuf.Message, decodeCoopStatus)
-	if err != nil {
-		log.Print(err)
-		return err.Error(), nil
-	}
 	if decodeCoopStatus.GetCoopIdentifier() != coopID {
 		return "Invalid coop-id.", nil
 	}
@@ -576,7 +511,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 			Description: "",
 			Color:       0xffaa00,
 			Fields:      field,
-			Timestamp:   nowTime.Format(time.RFC3339),
+			Timestamp:   timestamp.Format(time.RFC3339),
 			Footer: &discordgo.MessageEmbedFooter{
 				Text: dataTimestampStr,
 			},
