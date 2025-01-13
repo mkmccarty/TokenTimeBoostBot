@@ -304,6 +304,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			fuelStr = fmt.Sprintf("Ultra only : %s\n", fuel.Message)
 		}
 	}
+	dupcapIcon := ""
 
 	capacity := getEventMultiplier("mission-capacity")
 	if capacity != nil {
@@ -312,6 +313,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			if capacity.Ultra {
 				capIcon = ei.GetBotEmojiMarkdown("ultra_dubcap")
 			}
+			dupcapIcon = capIcon
 			showDubCap = true
 			dubCapTime = capacity.EndTime
 			dubCapTimeCaution = dubCapTime.Add(-5 * time.Minute)
@@ -382,8 +384,14 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		// loop through missionData
 		// for each ship, calculate the arrival time
 		// if arrival time is less than endTime, then add to the message
-		normal.WriteString(fmt.Sprintf("**Mission arriving on <t:%d:f> (FTL:%d)**\n", arrivalTime.Unix(), ftlLevel))
-		header.WriteString(fmt.Sprintf("Mission arriving on <t:%d:f> (FTL:%d)\n", arrivalTime.Unix(), ftlLevel))
+
+		if arrivalTime.Before(dubCapTime) {
+			normal.WriteString(fmt.Sprintf("**Mission arriving on %s<t:%d:f> (FTL:%d)**\n", dupcapIcon, arrivalTime.Unix(), ftlLevel))
+			header.WriteString(fmt.Sprintf("Mission arriving on %s<t:%d:f> (FTL:%d)\n", dupcapIcon, arrivalTime.Unix(), ftlLevel))
+		} else {
+			normal.WriteString(fmt.Sprintf("**Mission arriving on <t:%d:f> (FTL:%d)**\n", arrivalTime.Unix(), ftlLevel))
+			header.WriteString(fmt.Sprintf("Mission arriving on <t:%d:f> (FTL:%d)\n", arrivalTime.Unix(), ftlLevel))
+		}
 
 		for shipIndex, ship := range missionShips {
 			var sName = " " + ship.Name
@@ -417,11 +425,11 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				launchTime := arrivalTime.Add(ftlDuration)
 				if showDubCap {
 					if launchTime.Before(dubCapTimeCaution) {
-						dcBubble = "🟢 " // More than 5 min left in event
+						dcBubble = dupcapIcon + " " // More than 5 min left in event
 					} else if launchTime.Before(dubCapTime) {
-						dcBubble = "🟡 " // Within 5 minutes
+						dcBubble = dupcapIcon + "🟡 " // Within 5 minutes
 					} else {
-						dcBubble = "🔴 "
+						dcBubble = ""
 					}
 				}
 				if launchTime.After(sundayEventStart) && launchTime.Before(sundayEventStart.Add(ftlDuration)) {
@@ -451,7 +459,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 					chainLaunchTime := launchTime.Add(exDuration)
 					if showDubCap && launchTime.Before(dubCapTimeCaution) {
-						chainString = fmt.Sprintf(" +🟢exLnr (%s) <t:%d:t>", bottools.FmtDuration(exDuration), chainLaunchTime.Unix())
+						chainString = fmt.Sprintf(" +%sexLnr (%s) <t:%d:t>", dupcapIcon, bottools.FmtDuration(exDuration), chainLaunchTime.Unix())
 					} else {
 						chainString = fmt.Sprintf(" +exLnr (%s) <t:%d:t>", bottools.FmtDuration(exDuration), chainLaunchTime.Unix())
 					}
@@ -491,9 +499,9 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		instr.WriteString("⚠️ Launch before Sunday event will arrive after event begins\n")
 	}
 	if displayDubcapInstructions {
-		instr.WriteString("🟢 Arrives during dubcap\n")
+		//instr.WriteString(dupcapIcon + " Arrives during dubcap\n")
 		instr.WriteString("🟡 Arrives with less than 5 minutes of dubcap end\n")
-		instr.WriteString("🔴 After Dubcap ends\n")
+		//instr.WriteString("🔴 After Dubcap ends\n")
 	}
 	if displaySizeWarning {
 		instr.WriteString("📈 Display size limit reached. Please reduce the number of missions or disable the chain option.")
