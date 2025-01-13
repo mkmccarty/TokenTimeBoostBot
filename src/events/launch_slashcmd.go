@@ -157,8 +157,6 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var arrivalTimespan = ""
 	var chainExtended bool
 
-	//ultraIcon := ei.GetBotEmojiMarkdown("ultra")
-
 	showDubCap := false
 	doubleCapacityStr := ""
 	var dubCapTime = time.Now()
