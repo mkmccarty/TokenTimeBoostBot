@@ -31,7 +31,7 @@ func SlashLaunchHelperCommand(cmd string) *discordgo.ApplicationCommand {
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "mission-duration",
-				Description: "Time remaining for next mission(s). Example: 8h15m or \"8h15m, 10h5m, 1d2m\"",
+				Description: "Time remaining for next mission(s). Example: 8h15m",
 				Required:    true,
 			},
 			{
@@ -254,10 +254,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 	if opt, ok := optionMap["mission-duration"]; ok {
 		// Timespan is when the next mission arrives
-		arrivalTimespan = opt.StringValue()
-		arrivalTimespan = strings.Replace(arrivalTimespan, "min", "m", -1)
-		arrivalTimespan = strings.Replace(arrivalTimespan, "hr", "h", -1)
-		arrivalTimespan = strings.Replace(arrivalTimespan, "sec", "s", -1)
+		arrivalTimespan = bottools.SanitizeStringDuration(opt.StringValue())
 	}
 
 	ultra := false

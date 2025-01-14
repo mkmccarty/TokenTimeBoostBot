@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/moby/moby/pkg/namesgenerator"
@@ -147,11 +148,7 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, co
 	if opt, ok := optionMap["duration"]; ok {
 		var err error
 		// Timespan of the contract duration
-		contractTimespan := strings.TrimSpace(opt.StringValue())
-		contractTimespan = strings.Replace(contractTimespan, "day", "d", -1)
-		contractTimespan = strings.Replace(contractTimespan, "hr", "h", -1)
-		contractTimespan = strings.Replace(contractTimespan, "min", "m", -1)
-		contractTimespan = strings.Replace(contractTimespan, "sec", "s", -1)
+		contractTimespan := bottools.SanitizeStringDuration(opt.StringValue())
 		duration, err = str2duration.ParseDuration(contractTimespan)
 		if err != nil {
 			// Invalid duration, just assigning a 12h
@@ -270,11 +267,7 @@ func HandleTrackerEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 		if input.CustomID == "duration" && input.Value != "" {
 			// Timespan of the contract duration
-			contractTimespan := strings.TrimSpace(input.Value)
-			contractTimespan = strings.Replace(contractTimespan, "day", "d", -1)
-			contractTimespan = strings.Replace(contractTimespan, "hr", "h", -1)
-			contractTimespan = strings.Replace(contractTimespan, "min", "m", -1)
-			contractTimespan = strings.Replace(contractTimespan, "sec", "s", -1)
+			contractTimespan := bottools.SanitizeStringDuration(input.Value)
 			duration, err := str2duration.ParseDuration(contractTimespan)
 			if err == nil {
 				t.DurationTime = duration
@@ -308,12 +301,7 @@ func HandleTrackerEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if input.CustomID == "since-start" && input.Value != "" {
 			var err error
 			// Timespan of the contract duration
-			contractTimespan := strings.TrimSpace(input.Value)
-
-			contractTimespan = strings.Replace(contractTimespan, "day", "d", -1)
-			contractTimespan = strings.Replace(contractTimespan, "hr", "h", -1)
-			contractTimespan = strings.Replace(contractTimespan, "min", "m", -1)
-			contractTimespan = strings.Replace(contractTimespan, "sec", "s", -1)
+			contractTimespan := bottools.SanitizeStringDuration(input.Value)
 			sinceStart, err := str2duration.ParseDuration(contractTimespan)
 			if err == nil {
 				// Invalid duration, just assigning a 12h
