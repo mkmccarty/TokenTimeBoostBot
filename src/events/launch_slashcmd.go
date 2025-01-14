@@ -254,7 +254,13 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 	if opt, ok := optionMap["mission-duration"]; ok {
 		// Timespan is when the next mission arrives
-		arrivalTimespan = bottools.SanitizeStringDuration(opt.StringValue())
+		var list []string
+		inputStr := opt.StringValue()
+		inputList := strings.Split(inputStr, ",")
+		for _, durationStr := range inputList {
+			list = append(list, bottools.SanitizeStringDuration(durationStr))
+		}
+		arrivalTimespan = strings.Join(list, ",")
 	}
 
 	ultra := false
