@@ -220,7 +220,6 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			missionShips = append(missionShips, mis.Ships[4])
 			missionShips = append(missionShips, mis.Ships[5])
 			missionShips = append(missionShips, mis.Ships[6])
-			chainExtended = false
 		case -3: // Starfleet Commander
 			missionShips = append(missionShips, mis.Ships[1], mis.Ships[2], mis.Ships[3])
 		default:
