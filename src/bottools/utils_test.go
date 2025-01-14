@@ -4,9 +4,6 @@ import (
 	"testing"
 )
 
-// Write a test for ReadConfig
-// Make sure to use the testing package
-
 func TestSanitizeStringDuration(t *testing.T) {
 
 	if SanitizeStringDuration("1h30m15s") != "1h30m15s" {
