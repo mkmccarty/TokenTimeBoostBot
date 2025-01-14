@@ -10,7 +10,7 @@ require (
 	github.com/google/generative-ai-go v0.19.0
 	github.com/jasonlvhit/gocron v0.0.1
 	github.com/joho/godotenv v1.5.1
-	github.com/moby/moby v27.4.1+incompatible
+	github.com/moby/moby v27.5.0+incompatible
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/pkg/errors v0.9.1
@@ -65,6 +65,6 @@ require (
 	golang.org/x/time v0.9.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250106144421-5f5ef82da422 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250106144421-5f5ef82da422 // indirect
-	google.golang.org/grpc v1.69.2 // indirect
+	google.golang.org/grpc v1.69.4 // indirect
 
 )

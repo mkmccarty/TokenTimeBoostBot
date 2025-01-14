@@ -46,3 +46,18 @@ func TestSanitizeStringDuration(t *testing.T) {
 		t.Errorf("SanitizeStringDuration() = %v, want %v", SanitizeStringDuration("5d1h30m15s, 2h34s"), "5d1h30m15s")
 	}
 }
+
+func FuzzSanitizeStringDuration(f *testing.F) {
+	f.Add("1h30m15s")
+	f.Add("1h 30m 15s")
+	f.Add("1h 15s 30m")
+	f.Add("1h30m15s, 2h34s")
+	f.Add("5d1h30m15s, 2h34s")
+	f.Fuzz(func(t *testing.T, s string) {
+		result := SanitizeStringDuration(s)
+		if len(result) > 0 {
+			t.Logf("SanitizeStringDuration(%s) = %s", s, result)
+		}
+	})
+
+}
