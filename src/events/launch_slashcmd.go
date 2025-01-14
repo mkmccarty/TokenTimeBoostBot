@@ -220,6 +220,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			missionShips = append(missionShips, mis.Ships[4])
 			missionShips = append(missionShips, mis.Ships[5])
 			missionShips = append(missionShips, mis.Ships[6])
+			chainExtended = false
 		case -3: // Starfleet Commander
 			missionShips = append(missionShips, mis.Ships[1], mis.Ships[2], mis.Ships[3])
 		default:
@@ -351,6 +352,11 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	durationList := strings.Split(arrivalTimespan, ",")
 	if len(durationList) > 3 {
 		durationList = durationList[:3]
+	}
+
+	if len(missionShips) > 4 {
+		// If more than 4 ships, limit to one duration
+		durationList = durationList[:1]
 	}
 
 	displayDubcapInstructions := false
@@ -485,6 +491,10 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Inline: false,
 		})
 		header.Reset()
+		if normal.Len()+builder.Len() > 1700 {
+			displaySizeWarning = true
+			break
+		}
 		normal.WriteString(builder.String())
 		builder.Reset()
 	}
@@ -504,41 +514,43 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 	if displaySizeWarning {
 		instr.WriteString("📈 Display size limit reached. Please reduce the number of missions or disable the chain option.")
-	}
+	} else {
 
-	for _, e := range LastMissionEvent {
-		eventIconStr := ""
-		switch e.EventType {
-		case "mission-duration":
-			eventIconStr = ei.GetBotEmojiMarkdown("std_fast")
-		case "mission-capacity":
-			eventIconStr = ei.GetBotEmojiMarkdown("std_dubcap")
-		case "mission-fuel":
-			eventIconStr = ei.GetBotEmojiMarkdown("std_fuel")
-		}
-
-		if e.Ultra {
-			if !ultra {
-				continue
-			}
+		for _, e := range LastMissionEvent {
+			eventIconStr := ""
 			switch e.EventType {
 			case "mission-duration":
-				eventIconStr = ei.GetBotEmojiMarkdown("ultra_fast")
+				eventIconStr = ei.GetBotEmojiMarkdown("std_fast")
 			case "mission-capacity":
-				eventIconStr = ei.GetBotEmojiMarkdown("ultra_dubcap")
+				eventIconStr = ei.GetBotEmojiMarkdown("std_dubcap")
 			case "mission-fuel":
-				eventIconStr = ei.GetBotEmojiMarkdown("ultra_fuel")
+				eventIconStr = ei.GetBotEmojiMarkdown("std_fuel")
 			}
+
+			if e.Ultra {
+				if !ultra {
+					continue
+				}
+				switch e.EventType {
+				case "mission-duration":
+					eventIconStr = ei.GetBotEmojiMarkdown("ultra_fast")
+				case "mission-capacity":
+					eventIconStr = ei.GetBotEmojiMarkdown("ultra_dubcap")
+				case "mission-fuel":
+					eventIconStr = ei.GetBotEmojiMarkdown("ultra_fuel")
+				}
+			}
+			hours := e.EndTime.Sub(e.StartTime).Hours()
+			prevEvents.WriteString(fmt.Sprintf("%s%s for %.2dh on <t:%d:R>\n", eventIconStr, e.Message, int(hours), e.StartTime.Unix()))
+			//prevEvents.WriteString(fmt.Sprintf("%s on <t:%d:d>\n", e.Message, e.StartTime.Unix()))
 		}
-		hours := e.EndTime.Sub(e.StartTime).Hours()
-		prevEvents.WriteString(fmt.Sprintf("%s%s for %.2dh on <t:%d:R>\n", eventIconStr, e.Message, int(hours), e.StartTime.Unix()))
-		//prevEvents.WriteString(fmt.Sprintf("%s on <t:%d:d>\n", e.Message, e.StartTime.Unix()))
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   "Event History",
+			Value:  prevEvents.String(),
+			Inline: false,
+		})
+
 	}
-	field = append(field, &discordgo.MessageEmbedField{
-		Name:   "Event History",
-		Value:  prevEvents.String(),
-		Inline: false,
-	})
 
 	if displaySizeWarning {
 		_, err := s.FollowupMessageCreate(i.Interaction, true,
