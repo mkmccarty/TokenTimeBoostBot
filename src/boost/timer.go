@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/rs/xid"
 	"github.com/xhit/go-str2duration/v2"
 )
@@ -142,11 +143,7 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	if opt, ok := optionMap["duration"]; ok {
-		timespan := opt.StringValue()
-		timespan = strings.Replace(timespan, "min", "m", -1)
-		timespan = strings.Replace(timespan, "hr", "h", -1)
-		timespan = strings.Replace(timespan, "sec", "s", -1)
-		timespan = strings.TrimSpace(timespan)
+		timespan := bottools.SanitizeStringDuration(opt.StringValue())
 		dur, err := str2duration.ParseDuration(timespan)
 		if err == nil {
 			// Error during parsing means skip this duration

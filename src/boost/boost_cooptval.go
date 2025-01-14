@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/olekukonko/tablewriter"
 	"github.com/xhit/go-str2duration/v2"
@@ -48,13 +49,7 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	if opt, ok := optionMap["duration"]; ok {
 		var err error
 		// Timespan of the contract duration
-		contractTimespan := strings.TrimSpace(opt.StringValue())
-		contractTimespan = strings.Replace(contractTimespan, "day", "d", -1)
-		contractTimespan = strings.Replace(contractTimespan, "hr", "h", -1)
-		contractTimespan = strings.Replace(contractTimespan, "min", "m", -1)
-		contractTimespan = strings.Replace(contractTimespan, "sec", "s", -1)
-		// replace all spaces with nothing
-		contractTimespan = strings.Replace(contractTimespan, " ", "", -1)
+		contractTimespan := bottools.SanitizeStringDuration(opt.StringValue())
 		duration, err = str2duration.ParseDuration(contractTimespan)
 		if err != nil {
 			duration = 12 * time.Hour
