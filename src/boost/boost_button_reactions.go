@@ -307,6 +307,8 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 		// Ignore if the user isn't in the contract
 		return
 	}
+	contract.mutex.Lock()
+	defer contract.mutex.Unlock()
 
 	//log.Print("Ran Chicken")
 	msgedit := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)

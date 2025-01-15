@@ -14,7 +14,8 @@ func buttonReactionCheck(s *discordgo.Session, ChannelID string, contract *Contr
 	if !userInContract(contract, cUserID) {
 		return false
 	}
-
+	contract.mutex.Lock()
+	defer contract.mutex.Unlock()
 	keepReaction := true
 	if contract.SRData.ChickenRunCheckMsgID == "" {
 		// Empty list, build a new one
