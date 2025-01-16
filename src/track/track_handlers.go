@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,12 +19,12 @@ func getTokenValComponents(name string) []discordgo.MessageComponent {
 				discordgo.Button{
 					Label:    "Send a Token",
 					Style:    discordgo.SuccessButton,
-					CustomID: "fd_tokenSent#" + name,
+					CustomID: "fd_tokenSent#1x!" + name,
 				},
 				discordgo.Button{
 					Label:    "Receive a Token",
 					Style:    discordgo.DangerButton,
-					CustomID: "fd_tokenReceived#" + name,
+					CustomID: "fd_tokenReceived#1x!" + name,
 				},
 				discordgo.Button{
 					Label:    "Details",
@@ -42,6 +43,30 @@ func getTokenValComponents(name string) []discordgo.MessageComponent {
 					Label:    "Finish",
 					Style:    discordgo.SecondaryButton,
 					CustomID: "fd_tokenComplete#" + name,
+				},
+			},
+		},
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{
+					Label:    "Send 2 Tokens",
+					Style:    discordgo.SuccessButton,
+					CustomID: "fd_tokenSent#2x!" + name,
+				},
+				discordgo.Button{
+					Label:    "Receive 2 Tokens",
+					Style:    discordgo.DangerButton,
+					CustomID: "fd_tokenReceived#2x!" + name,
+				},
+				discordgo.Button{
+					Label:    "Send 6 Tokens",
+					Style:    discordgo.SuccessButton,
+					CustomID: "fd_tokenSent#6x!" + name,
+				},
+				discordgo.Button{
+					Label:    "Receive 6 Tokens",
+					Style:    discordgo.DangerButton,
+					CustomID: "fd_tokenReceived#6x!" + name,
 				},
 			},
 		},
@@ -172,7 +197,18 @@ func HandleTokenSend(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if name == "" {
 		name = extractTokenNameOriginal(i.Message.Components[0])
 	}
-	embed := tokenTrackingTrack(userID, name, 1, 0)
+
+	// Extract the token count from before the name
+	tokens := 1
+	tokenname := strings.Split(name, "!")
+	if len(tokenname) > 1 {
+		if len(tokenname[0]) > 0 && tokenname[0][0] >= '0' && tokenname[0][0] <= '9' {
+			tokens, _ = strconv.Atoi(tokenname[0][0:1])
+		}
+		name = tokenname[1]
+	}
+
+	embed := tokenTrackingTrack(userID, name, tokens, 0)
 
 	comp := getTokenValComponents(name)
 	m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
@@ -210,7 +246,17 @@ func HandleTokenReceived(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if name == "" {
 		name = extractTokenNameOriginal(i.Message.Components[0])
 	}
-	embed := tokenTrackingTrack(userID, name, 0, 1)
+	// Extract the token count from before the name
+	tokens := 1
+	tokenname := strings.Split(name, "!")
+	if len(tokenname) > 1 {
+		if len(tokenname[0]) > 0 && tokenname[0][0] >= '0' && tokenname[0][0] <= '9' {
+			tokens, _ = strconv.Atoi(tokenname[0][0:1])
+		}
+		name = tokenname[1]
+	}
+
+	embed := tokenTrackingTrack(userID, name, 0, tokens)
 
 	comp := getTokenValComponents(name)
 	m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
