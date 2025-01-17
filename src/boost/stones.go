@@ -14,6 +14,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/olekukonko/tablewriter"
+	"github.com/rs/xid"
 )
 
 // GetSlashStones will return the discord command for calculating ideal stone set
@@ -121,16 +122,139 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	s1 := DownloadCoopStatusStones(contractID, coopID, details, soloName)
-	builder.WriteString(s1)
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Content: builder.String(),
-			Flags:   discordgo.MessageFlagsSupressEmbeds,
-		})
-	// Split s1 message into 2000 character chunks separated by newlines
+	if len(s1) <= 2000 {
+		builder.WriteString(s1)
+
+		_, _ = s.FollowupMessageCreate(i.Interaction, true,
+			&discordgo.WebhookParams{
+				Content: builder.String(),
+				Flags:   discordgo.MessageFlagsSupressEmbeds,
+			})
+		return
+	}
+
+	// Split string by "```" characters into a header, body and footer
+	split := strings.Split(s1, "```")
+
+	table := strings.Split(split[1], "\n")
+	var trimmedTable []string
+	for _, line := range table {
+		if strings.TrimSpace(line) != "" {
+			trimmedTable = append(trimmedTable, line)
+		}
+	}
+	table = trimmedTable
+	tableHeader := table[0] + "\n"
+	table = table[1:]
+
+	cache := stonesCache{xid: xid.New().String(), header: split[0], footer: split[2], tableHeader: tableHeader, table: table, page: 0, pages: len(table) / 10, expirationTimestamp: time.Now().Add(1 * time.Minute)}
+	stonesCacheMap[cache.xid] = cache
+
+	sendStonesPage(s, i, true, cache.xid)
 
 }
+
+func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMessage bool, xid string) {
+	cache, exists := stonesCacheMap[xid]
+
+	if !exists || cache.expirationTimestamp.Before(time.Now()) {
+		comp := []discordgo.MessageComponent{}
+		m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
+		m.Components = &comp
+		m.SetContent("The stones data has expired. Please re-run the command.")
+		_, _ = s.ChannelMessageEditComplex(m)
+		return
+	}
+
+	if cache.page*10 >= len(cache.table) {
+		cache.page = 0
+	}
+
+	page := cache.page
+	var builder strings.Builder
+	builder.WriteString(cache.header)
+	builder.WriteString("```")
+	builder.WriteString(cache.tableHeader)
+
+	start := page * 10
+	end := start + 10
+	if end > len(cache.table) {
+		end = len(cache.table)
+	}
+	for _, line := range cache.table[start:end] {
+		builder.WriteString(line + "\n")
+	}
+
+	builder.WriteString("```")
+	builder.WriteString(cache.footer)
+
+	cache.page = page + 1
+	stonesCacheMap[cache.xid] = cache
+
+	if newMessage {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true,
+			&discordgo.WebhookParams{
+				Content:    builder.String(),
+				Flags:      discordgo.MessageFlagsSupressEmbeds,
+				Components: getStonesComponents(cache.xid, page, cache.pages),
+			})
+	} else {
+		comp := getStonesComponents(cache.xid, page, cache.pages)
+		m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
+		m.Components = &comp
+		m.SetContent(builder.String())
+		_, _ = s.ChannelMessageEditComplex(m)
+	}
+}
+
+// HandleStonesPage steps a page of cached stones data
+func HandleStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// cs_#Name # cs_#ID # HASH
+	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
+
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		Data: &discordgo.InteractionResponseData{
+			Content:    "",
+			Flags:      discordgo.MessageFlagsEphemeral,
+			Components: []discordgo.MessageComponent{}},
+	})
+	if err != nil {
+		log.Println(err)
+	}
+
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
+	sendStonesPage(s, i, false, reaction[1])
+}
+
+// getTokenValComponents returns the components for the token value
+func getStonesComponents(name string, page int, pageEnd int) []discordgo.MessageComponent {
+	return []discordgo.MessageComponent{
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{
+					Label:    fmt.Sprintf("Page %d/%d", page+1, pageEnd),
+					Style:    discordgo.SecondaryButton,
+					CustomID: fmt.Sprintf("fd_stones#%s", name),
+				},
+			},
+		},
+	}
+}
+
+type stonesCache struct {
+	xid                 string
+	header              string
+	footer              string
+	tableHeader         string
+	table               []string
+	page                int
+	pages               int
+	expirationTimestamp time.Time
+}
+
+var stonesCacheMap = make(map[string]stonesCache)
 
 type artifact struct {
 	name    string
@@ -241,11 +365,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	sort.Slice(contributors, func(i, j int) bool {
 		return strings.ToLower(contributors[i].GetUserName()) < strings.ToLower(contributors[j].GetUserName())
 	})
-
-	first := true
-	if dataTimestampStr != "" {
-		first = false
-	}
 
 	for _, c := range contributors {
 
@@ -818,45 +937,38 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				table.Append(d)
 			}
 		} else {
-			useThis := first && i < 10 || !first && i >= 10
-
-			if len(artifactSets) <= 12 {
-				useThis = true
-			}
-			if useThis {
-				if details {
-					lBestELR := fmt.Sprintf("%2.3f", as.bestELR)
-					if as.bestELR < 1.0 {
-						lBestELR = fmt.Sprintf("%2.2fT", as.bestELR*1000.0)
-					}
-					lBestSR := fmt.Sprintf("%2.3f", as.bestSR)
-					if as.bestSR < 1.0 {
-						lBestSR = fmt.Sprintf("%2.2fT", as.bestSR*1000.0)
-					}
-					lBestTotal := fmt.Sprintf("%2.3f", bestTotal)
-					if bestTotal < 1.0 {
-						lBestTotal = fmt.Sprintf("%2.2fT", bestTotal*1000.0)
-					}
-					if !skipArtifact {
-						table.Append([]string{as.name,
-							as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
-							fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
-							lBestELR, lBestSR, lBestTotal,
-							strings.Join(as.collegg, ","), notes})
-					} else {
-						table.Append([]string{as.name,
-							fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
-							lBestELR, lBestSR, lBestTotal,
-							strings.Join(as.collegg, ","), notes})
-					}
-				} else if matchT != "⭐️" {
+			if details {
+				lBestELR := fmt.Sprintf("%2.3f", as.bestELR)
+				if as.bestELR < 1.0 {
+					lBestELR = fmt.Sprintf("%2.2fT", as.bestELR*1000.0)
+				}
+				lBestSR := fmt.Sprintf("%2.3f", as.bestSR)
+				if as.bestSR < 1.0 {
+					lBestSR = fmt.Sprintf("%2.2fT", as.bestSR*1000.0)
+				}
+				lBestTotal := fmt.Sprintf("%2.3f", bestTotal)
+				if bestTotal < 1.0 {
+					lBestTotal = fmt.Sprintf("%2.2fT", bestTotal*1000.0)
+				}
+				if !skipArtifact {
+					table.Append([]string{as.name,
+						as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
+						fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
+						lBestELR, lBestSR, lBestTotal,
+						strings.Join(as.collegg, ","), notes})
+				} else {
 					table.Append([]string{as.name,
 						fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
-						notes})
-					alternateStr += as.name + ": T" + strconv.Itoa(as.tachWant) + " / Q" + strconv.Itoa(as.quantWant) + "\n"
-				} else {
-					alternateStr += as.name + ": T" + strconv.Itoa(as.tachWant) + " / Q" + strconv.Itoa(as.quantWant) + "⭐️\n"
+						lBestELR, lBestSR, lBestTotal,
+						strings.Join(as.collegg, ","), notes})
 				}
+			} else if matchT != "⭐️" {
+				table.Append([]string{as.name,
+					fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
+					notes})
+				alternateStr += as.name + ": T" + strconv.Itoa(as.tachWant) + " / Q" + strconv.Itoa(as.quantWant) + "\n"
+			} else {
+				alternateStr += as.name + ": T" + strconv.Itoa(as.tachWant) + " / Q" + strconv.Itoa(as.quantWant) + "⭐️\n"
 			}
 		}
 
@@ -915,14 +1027,13 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	} else {
 		fmt.Fprint(&builder, "Showing all stone variations for solo report.\n")
 	}
-	alternateStrHeader := builder.String()
 
 	builder.WriteString("```")
 	table.Render()
 	builder.WriteString("```")
 
 	for _, as := range artifactSets {
-		if len(as.note) > 0 && len(builder.String()) < 2000 {
+		if len(as.note) > 0 {
 			builder.WriteString(fmt.Sprintf("**%s** Notes: %s\n", as.name, strings.Join(as.note, ", ")))
 		}
 	}
@@ -934,13 +1045,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	if dataTimestampStr != "" {
 		builder.WriteString(dataTimestampStr)
-	}
-
-	if len(builder.String()) > 2000 {
-		if !details {
-			return alternateStrHeader + "\n" + alternateStr
-		}
-		return DownloadCoopStatusStones(contractID, coopID, false, soloName)
 	}
 
 	return builder.String()
