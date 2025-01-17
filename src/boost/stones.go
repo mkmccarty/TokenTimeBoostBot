@@ -166,11 +166,17 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 	}
 
 	if !exists {
+		str := "The stones data has expired. Please re-run the command."
 		comp := []discordgo.MessageComponent{}
-		m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
-		m.Components = &comp
-		m.SetContent("The stones data has expired. Please re-run the command.")
-		_, _ = s.ChannelMessageEditComplex(m)
+		d2 := discordgo.WebhookEdit{
+			Content:    &str,
+			Components: &comp,
+		}
+
+		_, err := s.FollowupMessageEdit(i.Interaction, i.Message.ID, &d2)
+		if err != nil {
+			log.Println(err)
+		}
 		return
 	}
 
@@ -199,17 +205,6 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 	cache.page = page + 1
 
 	if newMessage {
-		/*
-			msg, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
-				Content:    builder.String(),
-				Components: getStonesComponents(cache.xid, page, cache.pages),
-			})
-			if err != nil {
-				log.Println(err)
-			}
-			cache.msgID = msg.ID
-		*/
-
 		msg, err := s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
 				Content:    builder.String(),
@@ -230,7 +225,7 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 			Components: &comp,
 		}
 
-		msg, err := s.FollowupMessageEdit(i.Interaction, cache.msgID, &d2)
+		msg, err := s.FollowupMessageEdit(i.Interaction, i.Message.ID, &d2)
 		if err != nil {
 			log.Println(err)
 		}
