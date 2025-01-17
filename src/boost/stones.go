@@ -57,6 +57,12 @@ func GetSlashStones(cmd string) *discordgo.ApplicationCommand {
 				Description: "Show full details. Default is false. (sticky)",
 				Required:    false,
 			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "use-buffhistory",
+				Description: "Use Buff History for unequipped Deflector. Default is false.",
+				Required:    false,
+			},
 		},
 	}
 }
@@ -97,6 +103,10 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	} else {
 		details = farmerstate.GetMiscSettingFlag(userID, "stone-details")
 	}
+	useBuffHistory := false
+	if opt, ok := optionMap["use-buffhistory"]; ok {
+		useBuffHistory = opt.BoolValue()
+	}
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -121,7 +131,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		coopID = strings.ToLower(contract.CoopID)
 	}
 
-	s1 := DownloadCoopStatusStones(contractID, coopID, details, soloName)
+	s1 := DownloadCoopStatusStones(contractID, coopID, details, soloName, useBuffHistory)
 
 	if len(s1) <= 2000 {
 		builder.WriteString(s1)
@@ -340,7 +350,7 @@ type artifactSet struct {
 }
 
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
-func DownloadCoopStatusStones(contractID string, coopID string, details bool, soloName string) string {
+func DownloadCoopStatusStones(contractID string, coopID string, details bool, soloName string, useBuffHistory bool) string {
 
 	coopStatus, _, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID)
 	if err != nil {
@@ -718,7 +728,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			}
 			if bestDeflectorPercent == 0.0 {
 				as.note = append(as.note, "Missing Deflector")
-			} else {
+			} else if useBuffHistory {
 				as.note = append(as.note, fmt.Sprintf("DEFL from BuffHist %2.0f%%", bestDeflectorPercent))
 				as.deflector.abbrev = fmt.Sprintf("%d%%", int(bestDeflectorPercent))
 				as.deflector.percent = bestDeflectorPercent
