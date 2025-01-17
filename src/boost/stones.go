@@ -187,6 +187,13 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		if err != nil {
 			log.Println(err)
 		}
+
+		time.AfterFunc(10*time.Second, func() {
+			err := s.FollowupMessageDelete(i.Interaction, i.Message.ID)
+			if err != nil {
+				log.Println(err)
+			}
+		})
 		return
 	}
 
@@ -240,17 +247,6 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 			log.Println(err)
 		}
 		log.Print(msg.ID)
-
-		/*
-			m := discordgo.NewMessageEdit(i.ChannelID, cache.msgID)
-			m.Components = &comp
-			m.SetContent(builder.String())
-			msg, err := s.ChannelMessageEditComplex(m)
-			if err != nil {
-				log.Println(err)
-			}
-			log.Print(msg.ID)
-		*/
 	}
 	stonesCacheMap[cache.xid] = cache
 }
