@@ -242,6 +242,11 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		return strings.ToLower(contributors[i].GetUserName()) < strings.ToLower(contributors[j].GetUserName())
 	})
 
+	first := true
+	if dataTimestampStr != "" {
+		first = false
+	}
+
 	for _, c := range contributors {
 
 		//for _, c := range coopStatus.GetContributors() {
@@ -813,39 +818,45 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				table.Append(d)
 			}
 		} else {
+			useThis := first && i < 10 || !first && i >= 10
 
-			if details {
-				lBestELR := fmt.Sprintf("%2.3f", as.bestELR)
-				if as.bestELR < 1.0 {
-					lBestELR = fmt.Sprintf("%2.2fT", as.bestELR*1000.0)
-				}
-				lBestSR := fmt.Sprintf("%2.3f", as.bestSR)
-				if as.bestSR < 1.0 {
-					lBestSR = fmt.Sprintf("%2.2fT", as.bestSR*1000.0)
-				}
-				lBestTotal := fmt.Sprintf("%2.3f", bestTotal)
-				if bestTotal < 1.0 {
-					lBestTotal = fmt.Sprintf("%2.2fT", bestTotal*1000.0)
-				}
-				if !skipArtifact {
+			if len(artifactSets) <= 12 {
+				useThis = true
+			}
+			if useThis {
+				if details {
+					lBestELR := fmt.Sprintf("%2.3f", as.bestELR)
+					if as.bestELR < 1.0 {
+						lBestELR = fmt.Sprintf("%2.2fT", as.bestELR*1000.0)
+					}
+					lBestSR := fmt.Sprintf("%2.3f", as.bestSR)
+					if as.bestSR < 1.0 {
+						lBestSR = fmt.Sprintf("%2.2fT", as.bestSR*1000.0)
+					}
+					lBestTotal := fmt.Sprintf("%2.3f", bestTotal)
+					if bestTotal < 1.0 {
+						lBestTotal = fmt.Sprintf("%2.2fT", bestTotal*1000.0)
+					}
+					if !skipArtifact {
+						table.Append([]string{as.name,
+							as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
+							fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
+							lBestELR, lBestSR, lBestTotal,
+							strings.Join(as.collegg, ","), notes})
+					} else {
+						table.Append([]string{as.name,
+							fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
+							lBestELR, lBestSR, lBestTotal,
+							strings.Join(as.collegg, ","), notes})
+					}
+				} else if matchT != "⭐️" {
 					table.Append([]string{as.name,
-						as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
 						fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
-						lBestELR, lBestSR, lBestTotal,
-						strings.Join(as.collegg, ","), notes})
+						notes})
+					alternateStr += as.name + ": T" + strconv.Itoa(as.tachWant) + " / Q" + strconv.Itoa(as.quantWant) + "\n"
 				} else {
-					table.Append([]string{as.name,
-						fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
-						lBestELR, lBestSR, lBestTotal,
-						strings.Join(as.collegg, ","), notes})
+					alternateStr += as.name + ": T" + strconv.Itoa(as.tachWant) + " / Q" + strconv.Itoa(as.quantWant) + "⭐️\n"
 				}
-			} else if matchT != "⭐️" {
-				table.Append([]string{as.name,
-					fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
-					notes})
-				alternateStr += as.name + ": T" + strconv.Itoa(as.tachWant) + " / Q" + strconv.Itoa(as.quantWant) + "\n"
-			} else {
-				alternateStr += as.name + ": T" + strconv.Itoa(as.tachWant) + " / Q" + strconv.Itoa(as.quantWant) + "⭐️\n"
 			}
 		}
 
