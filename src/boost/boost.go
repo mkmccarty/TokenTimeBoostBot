@@ -1217,8 +1217,8 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 			msg, err := s.ChannelMessageSendComplex(loc.ChannelID, &data)
 			if err == nil {
 				SetListMessageID(contract, loc.ChannelID, msg.ID)
+				addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
 			}
-			addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
 		}
 	}
 	return nil
