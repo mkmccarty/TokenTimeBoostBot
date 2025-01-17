@@ -223,14 +223,29 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 
 	} else {
 		comp := getStonesComponents(cache.xid, page, cache.pages)
-		m := discordgo.NewMessageEdit(i.ChannelID, cache.msgID)
-		m.Components = &comp
-		m.SetContent(builder.String())
-		msg, err := s.ChannelMessageEditComplex(m)
+
+		str := builder.String()
+		d2 := discordgo.WebhookEdit{
+			Content:    &str,
+			Components: &comp,
+		}
+
+		msg, err := s.FollowupMessageEdit(i.Interaction, cache.msgID, &d2)
 		if err != nil {
 			log.Println(err)
 		}
 		log.Print(msg.ID)
+
+		/*
+			m := discordgo.NewMessageEdit(i.ChannelID, cache.msgID)
+			m.Components = &comp
+			m.SetContent(builder.String())
+			msg, err := s.ChannelMessageEditComplex(m)
+			if err != nil {
+				log.Println(err)
+			}
+			log.Print(msg.ID)
+		*/
 	}
 	stonesCacheMap[cache.xid] = cache
 }
