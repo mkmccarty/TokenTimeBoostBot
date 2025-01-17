@@ -151,6 +151,8 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	cache := stonesCache{xid: xid.New().String(), header: split[0], footer: split[2], tableHeader: tableHeader, table: table, page: 0, pages: len(table) / 10, expirationTimestamp: time.Now().Add(1 * time.Minute)}
 	stonesCacheMap[cache.xid] = cache
 
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
+
 	sendStonesPage(s, i, true, cache.xid)
 
 }
@@ -158,7 +160,12 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMessage bool, xid string) {
 	cache, exists := stonesCacheMap[xid]
 
-	if !exists || cache.expirationTimestamp.Before(time.Now()) {
+	if exists && cache.expirationTimestamp.Before(time.Now()) {
+		delete(stonesCacheMap, xid)
+		exists = false
+	}
+
+	if !exists {
 		comp := []discordgo.MessageComponent{}
 		m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 		m.Components = &comp
@@ -190,22 +197,42 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 	builder.WriteString(cache.footer)
 
 	cache.page = page + 1
-	stonesCacheMap[cache.xid] = cache
 
 	if newMessage {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true,
+		/*
+			msg, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
+				Content:    builder.String(),
+				Components: getStonesComponents(cache.xid, page, cache.pages),
+			})
+			if err != nil {
+				log.Println(err)
+			}
+			cache.msgID = msg.ID
+		*/
+
+		msg, err := s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
 				Content:    builder.String(),
 				Flags:      discordgo.MessageFlagsSupressEmbeds,
 				Components: getStonesComponents(cache.xid, page, cache.pages),
 			})
+		if err != nil {
+			log.Println(err)
+		}
+		cache.msgID = msg.ID
+
 	} else {
 		comp := getStonesComponents(cache.xid, page, cache.pages)
-		m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
+		m := discordgo.NewMessageEdit(i.ChannelID, cache.msgID)
 		m.Components = &comp
 		m.SetContent(builder.String())
-		_, _ = s.ChannelMessageEditComplex(m)
+		msg, err := s.ChannelMessageEditComplex(m)
+		if err != nil {
+			log.Println(err)
+		}
+		log.Print(msg.ID)
 	}
+	stonesCacheMap[cache.xid] = cache
 }
 
 // HandleStonesPage steps a page of cached stones data
@@ -245,6 +272,7 @@ func getStonesComponents(name string, page int, pageEnd int) []discordgo.Message
 
 type stonesCache struct {
 	xid                 string
+	msgID               string
 	header              string
 	footer              string
 	tableHeader         string
