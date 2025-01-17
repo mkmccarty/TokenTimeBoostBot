@@ -308,6 +308,7 @@ type artifact struct {
 
 type artifactSet struct {
 	name             string
+	nameRaw          string
 	note             []string
 	missingResearch  []string
 	missingStones    bool
@@ -420,6 +421,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		as := artifactSet{}
 		as.name = c.GetUserName()
+		as.nameRaw = as.name
 		// Strip any multibyte characters from as.name and replace with ~
 		cleanName := make([]rune, len(as.name))
 		for i, r := range as.name {
@@ -800,7 +802,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	// 1e15
 	for i, as := range artifactSets {
 
-		if soloName != "" && strings.ToLower(as.name) != soloName {
+		if soloName != "" && strings.ToLower(as.nameRaw) != soloName {
 			continue
 		}
 		// need to reduce the farm population by the gusset percent
