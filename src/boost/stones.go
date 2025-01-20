@@ -144,8 +144,32 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
+	cache := buildStonesCache(s1)
+	// Fill in our calling parameters
+	cache.contractID = contractID
+	cache.coopID = coopID
+	cache.details = details
+	cache.soloName = soloName
+	cache.useBuffHistory = useBuffHistory
+
+	stonesCacheMap[cache.xid] = cache
+
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
+
+	sendStonesPage(s, i, true, cache.xid)
+
+	// Traverse stonesCacheMap and delete expired entries
+	for key, cache := range stonesCacheMap {
+		if cache.expirationTimestamp.Before(time.Now()) {
+			delete(stonesCacheMap, key)
+		}
+	}
+}
+
+// buildStonesCache will build a cache of the stones data
+func buildStonesCache(s string) stonesCache {
 	// Split string by "```" characters into a header, body and footer
-	split := strings.Split(s1, "```")
+	split := strings.Split(s, "```")
 
 	table := strings.Split(split[1], "\n")
 	var trimmedTable []string
@@ -158,21 +182,31 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	tableHeader := table[0] + "\n"
 	table = table[1:]
 
-	cache := stonesCache{xid: xid.New().String(), header: split[0], footer: split[2], tableHeader: tableHeader, table: table, page: 0, pages: len(table) / 10, expirationTimestamp: time.Now().Add(1 * time.Minute)}
-	stonesCacheMap[cache.xid] = cache
-
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
-
-	sendStonesPage(s, i, true, cache.xid)
-
+	return stonesCache{xid: xid.New().String(), header: split[0], footer: split[2], tableHeader: tableHeader, table: table, page: 0, pages: len(table) / 10, expirationTimestamp: time.Now().Add(1 * time.Minute)}
 }
 
 func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMessage bool, xid string) {
 	cache, exists := stonesCacheMap[xid]
 
 	if exists && cache.expirationTimestamp.Before(time.Now()) {
+		/*
+			s1 := DownloadCoopStatusStones(cache.contractID, cache.coopID, cache.details, cache.soloName, cache.useBuffHistory)
+			newCache := buildStonesCache(s1)
+
+			newCache.xid = cache.xid
+			newCache.contractID = cache.contractID
+			newCache.coopID = cache.coopID
+			newCache.details = cache.details
+			newCache.soloName = cache.soloName
+			newCache.useBuffHistory = cache.useBuffHistory
+			newCache.page = cache.page
+			cache = newCache
+			stonesCacheMap[cache.xid] = newCache
+		*/
+
 		delete(stonesCacheMap, xid)
 		exists = false
+
 	}
 
 	if !exists {
@@ -296,6 +330,11 @@ type stonesCache struct {
 	page                int
 	pages               int
 	expirationTimestamp time.Time
+	contractID          string
+	coopID              string
+	details             bool
+	soloName            string
+	useBuffHistory      bool
 }
 
 var stonesCacheMap = make(map[string]stonesCache)
