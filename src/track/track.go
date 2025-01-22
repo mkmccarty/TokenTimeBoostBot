@@ -460,7 +460,7 @@ func tokenTracking(s *discordgo.Session, channelID string, userID string, name s
 
 			if t.FromUserID == userID {
 				value := getTokenValue(t.Time.Sub(td.StartTime).Seconds(), td.DurationTime.Seconds()) * float64(t.Quantity)
-				td.Sent = append(td.Sent, TokenUnit{Time: t.Time, Value: value, UserID: t.FromNick, Serial: t.Serial, Quantity: t.Quantity})
+				td.Sent = append(td.Sent, TokenUnit{Time: t.Time, Value: value, UserID: t.ToNick, Serial: t.Serial, Quantity: t.Quantity})
 				td.SumValueSent += value
 				td.SentCount += t.Quantity
 			} else if t.ToUserID == userID {
