@@ -8,21 +8,38 @@ import (
 
 var (
 	// DiscordToken holds the API Token for discord.
-	DiscordToken   string
-	DiscordAppID   string
+	DiscordToken string
+	// DiscordAppID holds the application ID for the bot.
+	DiscordAppID string
+	// DiscordGuildID holds a GuildID to restring the bot to a single guild.
 	DiscordGuildID string
-	OpenAIKey      string
-	GoogleAPIKey   string
-	AdminUserID    string
-	EIUserID       string
-	EIUserIDBasic  string
-	AdminUsers     []string
-	TestMode       bool
-	DevBotAppID    string
-	FeatureFlags   []string
-	EventsURL      string
-	RocketsURL     string
-	config         *configStruct
+	// OpenAIKey holds the API key for OpenAI.
+	OpenAIKey string
+	// GoogleAPIKey holds the API key for Google.
+	GoogleAPIKey string
+	// AdminUserID holds primary admin's DiscordID
+	AdminUserID string
+	// EIUserID holds the DiscordID used for EI API calls requiring Ultra (Periodicals)
+	EIUserID string
+	// EIUserIDBasic holds the DiscordID used for non-Ultra responses
+	EIUserIDBasic string
+	// AdminUsers holds a list of DiscordIDs for other admins
+	AdminUsers []string
+	// TestMode is true if the bot is running in test mode.
+	TestMode bool
+	// DevBotAppID is the application ID for the development bot.
+	DevBotAppID string
+	// FeatureFlags is a list of feature flags for the bot.
+	FeatureFlags []string
+	// EventsURL is the URL for the carpet-wasmegg events page.
+	EventsURL string
+	// RocketsURL is the URL for the carpet-wasmegg rockets page].
+	RocketsURL string
+	// GistToken is the token used to access the gist.
+	GistToken string
+	// GistID is the ID of the gist used for storage.
+	GistID string
+	config *configStruct
 )
 
 type configStruct struct {
@@ -40,6 +57,8 @@ type configStruct struct {
 	FeatureFlags   []string `json:"FeatureFlags"`
 	RocketsURL     string   `json:"RocketsURL"`
 	EventsURL      string   `json:"EventsURL"`
+	GistToken      string   `json:"GistToken"`
+	GistID         string   `json:"GistID"`
 }
 
 // ReadConfig will load the configuration files for API tokens.
@@ -74,6 +93,8 @@ func ReadConfig(cfgFile string) error {
 	FeatureFlags = config.FeatureFlags
 	EventsURL = config.EventsURL
 	RocketsURL = config.RocketsURL
+	GistToken = config.GistToken
+	GistID = config.GistID
 
 	return nil
 }
