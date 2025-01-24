@@ -435,7 +435,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	var totalContributions float64
 	var contributionRatePerSecond float64
-	setContractEstimage := true
+	setContractEstimate := true
 
 	alternateStr := ""
 
@@ -781,13 +781,13 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			"Name",
 			"Dfl", "Met", "Com", "Gus",
 			"T", "Q",
-			"ELR", "SR", "DLV",
+			"ELR", "SR",
 			"🥚", "📓"})
 		table.SetColumnAlignment([]int{
 			tablewriter.ALIGN_RIGHT,
 			tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT,
 			tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
-			tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT,
+			tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
 			tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_LEFT})
 
 	} else {
@@ -796,31 +796,31 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				table.SetHeader([]string{
 					"Name",
 					"Dfl", "Met", "Com", "Gus",
-					"Tach", "Quant",
-					"ELR", "SR", "DLV",
+					"T", "Q",
+					"ELR", "SR",
 					"🥚", "📓"})
 
 				table.SetColumnAlignment([]int{
 					tablewriter.ALIGN_RIGHT,
 					tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT,
 					tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
-					tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT,
+					tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
 					tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_LEFT})
 			} else {
 				table.SetHeader([]string{
 					"Name",
-					"Tach", "Quant",
-					"ELR", "SR", "DLV",
+					"T", "Q",
+					"ELR", "SR",
 					"🥚", "📓"})
 				table.SetColumnAlignment([]int{
 					tablewriter.ALIGN_RIGHT,
 					tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
-					tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT,
+					tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
 					tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_LEFT})
 
 			}
 		} else {
-			table.SetHeader([]string{"Name", "Tach", "Quant", "📓"})
+			table.SetHeader([]string{"Name", "T", "Q", "📓"})
 			table.SetColumnAlignment([]int{
 				tablewriter.ALIGN_RIGHT,
 				tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
@@ -958,15 +958,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 			stoneShipRate := shippingRate * math.Pow(1.05, float64((as.stones-i))) * collegShip
 
-			best := ""
-			if as.tachWant == i {
-				best = "⭐️"
-			}
 			as.soloData = append(as.soloData, []string{as.name,
 				as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
 				fmt.Sprintf("%d%s", i, ""), fmt.Sprintf("%d%s", as.stones-i, ""),
 				fmt.Sprintf("%2.3f", stoneLayRate), fmt.Sprintf("%2.3f", stoneShipRate),
-				fmt.Sprintf("%s%2.3f", best, min(stoneLayRate, stoneShipRate)),
 				strings.Join(as.collegg, ","), strings.Join(as.note, ",")})
 
 		}
@@ -977,7 +972,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 		if as.missingStones {
 			needLegend = true
-			notes += "🪨"
+			notes += "💎"
 		}
 
 		if as.farmPopulation != as.farmCapacity {
@@ -988,33 +983,32 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			}
 		}
 
-		if as.offline != "" {
-			needLegend = true
-			notes += as.offline
-		}
-
-		matchQ := ""
 		qStones := as.quantStones[ei.ArtifactSpec_INFERIOR] + as.quantStones[ei.ArtifactSpec_LESSER] + as.quantStones[ei.ArtifactSpec_NORMAL]
-		if as.quantWant == qStones {
-			matchQ = "⭐️"
-		} else if as.quantWant > qStones {
-			notes += fmt.Sprintf("+%d quant", as.quantWant-qStones)
-			setContractEstimage = false
-		}
-		matchT := ""
 		tStones := as.tachStones[ei.ArtifactSpec_INFERIOR] + as.tachStones[ei.ArtifactSpec_LESSER] + as.tachStones[ei.ArtifactSpec_NORMAL]
+		if as.quantWant != qStones || as.tachWant != tStones {
+			notes += fmt.Sprintf("🧩%dT/%dQ", tStones, qStones)
+			setContractEstimate = false
+		}
 
+		displayQ := fmt.Sprintf("%d", as.quantWant)
+		if as.quantWant == qStones {
+			displayQ = "*"
+		}
+
+		displayT := fmt.Sprintf("%d", as.tachWant)
 		if as.tachWant == tStones {
-			matchT = "⭐️"
-		} else if as.tachWant > tStones {
-			notes += fmt.Sprintf("+%d tach", as.tachWant-tStones)
-			setContractEstimage = false
+			displayT = "*"
 		}
 		if stoneBonusIncrease != 1.05 {
 			if notes != "" {
 				notes += " "
 			}
 			//notes += fmt.Sprintf("(%1.2f^%d)", stoneBonusIncrease, as.stones)
+		}
+
+		if as.offline != "" {
+			needLegend = true
+			notes += as.offline
 		}
 
 		if soloName != "" {
@@ -1031,29 +1025,27 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				if as.bestSR < 1.0 {
 					lBestSR = fmt.Sprintf("%2.2fT", as.bestSR*1000.0)
 				}
-				lBestTotal := fmt.Sprintf("%2.3f", bestTotal)
-				if bestTotal < 1.0 {
-					lBestTotal = fmt.Sprintf("%2.2fT", bestTotal*1000.0)
-				}
+				//lBestTotal := fmt.Sprintf("%2.3f", bestTotal)
+				//if bestTotal < 1.0 {
+				//	lBestTotal = fmt.Sprintf("%2.2fT", bestTotal*1000.0)
+				//}
 				if !skipArtifact {
 					table.Append([]string{as.name,
 						as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
-						fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
-						lBestELR, lBestSR, lBestTotal,
+						displayT, displayQ,
+						lBestELR, lBestSR,
 						strings.Join(as.collegg, ","), notes})
 				} else {
 					table.Append([]string{as.name,
-						fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
-						lBestELR, lBestSR, lBestTotal,
+						displayT, displayQ,
+						lBestELR, lBestSR,
 						strings.Join(as.collegg, ","), notes})
 				}
-			} else if matchT != "⭐️" {
+			} else {
 				table.Append([]string{as.name,
-					fmt.Sprintf("%d%s", as.tachWant, matchT), fmt.Sprintf("%d%s", as.quantWant, matchQ),
+					displayT, displayQ,
 					notes})
 				alternateStr += as.name + ": T" + strconv.Itoa(as.tachWant) + " / Q" + strconv.Itoa(as.quantWant) + "\n"
-			} else {
-				alternateStr += as.name + ": T" + strconv.Itoa(as.tachWant) + " / Q" + strconv.Itoa(as.quantWant) + "⭐️\n"
 			}
 		}
 
@@ -1080,7 +1072,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 			endStr = "Est End:"
 			//contractDurationSeconds := endTime.Sub(startTime).Seconds()
-			if setContractEstimage {
+			if setContractEstimate {
 				c := FindContract(contractID)
 				if c != nil {
 					c.EstimatedDuration = time.Duration(calcSecondsRemaining) * time.Second
@@ -1125,7 +1117,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	// Need to write out a legend for the stones
 	if needLegend {
-		builder.WriteString("🚩Research / 🪨Missing / 🏠Filling(🐣CR) / 🎣Away\n")
+		builder.WriteString("🚩Research / 💎Missing / 🏠Filling(🐣CR) / 🧩Slotted / 🎣Away\n")
 	}
 
 	if dataTimestampStr != "" {
