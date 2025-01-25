@@ -3,6 +3,7 @@ package boost
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +27,7 @@ func init() {
 }
 
 func startTimer(s *discordgo.Session, t *BotTimer) {
+	deleteDuration := 30 * time.Second
 	go func(t *BotTimer) {
 		<-t.timer.C
 		u, err := s.UserChannelCreate(t.UserID)
@@ -33,14 +35,23 @@ func startTimer(s *discordgo.Session, t *BotTimer) {
 			fmt.Printf("Error creating user channel: %v\n", err)
 			return
 		}
-		msg, err := s.ChannelMessageSend(u.ID, t.Message)
+		msg, err := s.ChannelMessageSend(u.ID, fmt.Sprintf("%s\nReminder deleting <t:%d:R>", t.Message, time.Now().Add(deleteDuration).Unix()))
 		if err != nil {
 			fmt.Printf("Error sending message: %v\n", err)
 			return
 		}
+
 		timerSetActiveState(t.ID, false)
 		if msg != nil {
 			timerSetMsgID(t.ID, u.ID, msg.ID)
+			time.AfterFunc(deleteDuration, func() {
+				err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+				if err != nil {
+					log.Println(err)
+				}
+				timerSetMsgID(t.ID, "", "")
+				saveTimerData()
+			})
 			saveTimerData()
 		}
 	}(t)
@@ -54,12 +65,9 @@ func purgeOldTimers(s *discordgo.Session) {
 	for i := range timers {
 		if now.After(timers[i].Reminder.Add(5 * time.Minute)) {
 			if timers[i].ChannelID != "" && timers[i].MsgID != "" {
-				err := s.ChannelMessageDelete(timers[i].ChannelID, timers[i].MsgID)
-				if err != nil {
-					fmt.Printf("Error deleting message: %v\n", err)
-				}
-				purgeIndexes = append(purgeIndexes, i)
+				_ = s.ChannelMessageDelete(timers[i].ChannelID, timers[i].MsgID)
 			}
+			purgeIndexes = append(purgeIndexes, i)
 		}
 	}
 	for _, i := range purgeIndexes {
@@ -191,11 +199,7 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		} else {
 			if timers[i].ChannelID != "" && timers[i].MsgID != "" {
 				// Purge old timer messages when a new one is scheduled
-				err := s.ChannelMessageDelete(timers[i].ChannelID, timers[i].MsgID)
-				if err != nil {
-					fmt.Fprintf(&builder, "\n> Error deleting message: %s", err.Error())
-				}
-
+				_ = s.ChannelMessageDelete(timers[i].ChannelID, timers[i].MsgID)
 			}
 		}
 	}
