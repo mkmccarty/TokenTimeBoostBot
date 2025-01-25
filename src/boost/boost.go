@@ -1964,7 +1964,8 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		c.Grade[grade].ModifierHabCap = c.ModifierHabCap
 		c.Grade[grade].LengthInSeconds = c.LengthInSeconds
 
-		c.Grade[grade].EstimatedDuration, c.Grade[grade].EstimatedDurationLower = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), c.LengthInSeconds)
+		c.Grade[grade].EstimatedDuration, c.Grade[grade].EstimatedDurationLower = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
+			c.ModifierSR, c.ModifierELR, c.ModifierHabCap)
 	}
 	if c.TargetAmount == nil {
 		for _, g := range contractProtoBuf.GetGoals() {
@@ -1982,7 +1983,8 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	}
 	// Duration estimate
 	if len(c.TargetAmount) != 0 {
-		c.EstimatedDuration, c.EstimatedDurationLower = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), c.LengthInSeconds)
+		c.EstimatedDuration, c.EstimatedDurationLower = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
+			c.ModifierSR, c.ModifierELR, c.ModifierHabCap)
 	}
 	return c
 }

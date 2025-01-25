@@ -149,7 +149,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 }
 
-func getContractDurationEstimate(contractEggsInSmallQ float64, numFarmers float64, contractLengthInSeconds int) (time.Duration, time.Duration) {
+func getContractDurationEstimate(contractEggsInSmallQ float64, numFarmers float64, contractLengthInSeconds int, modifierSR float64, modifierELR float64, modifierHabCap float64) (time.Duration, time.Duration) {
 	//baseLaying := 3.772
 	//baseShipping := 7.148
 	// 6440.0 is the base Internal Hatchery Rate for a solo player with no boosts
