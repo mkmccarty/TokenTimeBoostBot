@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"log"
 	"slices"
 	"strings"
 	"time"
@@ -124,7 +125,20 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		// Anyone can use these reactions
 		switch r.Emoji.Name {
 		case "🌊":
-			go UpdateThreadName(s, contract)
+			if time.Since(contract.ThreadRenameTime) < 3*time.Minute {
+				msg, err := s.ChannelMessageSend(r.ChannelID, fmt.Sprintf("🌊 thread renaming is on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(3*time.Minute).Unix()))
+				if err == nil {
+					time.AfterFunc(10*time.Second, func() {
+						err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+						if err != nil {
+							log.Println(err)
+						}
+					})
+				}
+			} else {
+				UpdateThreadName(s, contract)
+			}
+
 		case "🐓":
 			if userInContract(contract, r.UserID) {
 				redraw, _ = buttonReactionRunChickens(s, contract, r.UserID)

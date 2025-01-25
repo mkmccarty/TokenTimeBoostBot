@@ -19,6 +19,9 @@ func UpdateThreadName(s *discordgo.Session, contract *Contract) {
 	if contract == nil {
 		return
 	}
+
+	contract.ThreadRenameTime = time.Now()
+
 	var builder strings.Builder
 	builder.WriteString(generateThreadName(contract))
 
