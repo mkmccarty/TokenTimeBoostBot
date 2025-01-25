@@ -96,6 +96,9 @@ func buttonReactionTruck(s *discordgo.Session, contract *Contract, cUserID strin
 		_, _ = s.ChannelMessageSendComplex(location.ChannelID, &discordgo.MessageSend{
 			Content: str,
 			Flags:   discordgo.MessageFlagsSuppressNotifications,
+			AllowedMentions: &discordgo.MessageAllowedMentions{
+				Parse: []discordgo.AllowedMentionType{},
+			},
 		})
 	}
 	return false
