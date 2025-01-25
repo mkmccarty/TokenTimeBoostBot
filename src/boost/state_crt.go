@@ -93,7 +93,10 @@ func buttonReactionTruck(s *discordgo.Session, contract *Contract, cUserID strin
 	// Indicate that the farmer has a truck incoming
 	str := fmt.Sprintf("Truck arriving for **%s**. The sink may or may not pause kicks.", contract.Boosters[cUserID].Mention)
 	for _, location := range contract.Location {
-		_, _ = s.ChannelMessageSend(location.ChannelID, str)
+		_, _ = s.ChannelMessageSendComplex(location.ChannelID, &discordgo.MessageSend{
+			Content: str,
+			Flags:   discordgo.MessageFlagsSuppressNotifications,
+		})
 	}
 	return false
 }
