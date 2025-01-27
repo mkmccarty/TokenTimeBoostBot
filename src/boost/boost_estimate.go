@@ -192,11 +192,11 @@ func getContractDurationEstimate(contractEggsInSmallQ float64, numFarmers float6
 
 	// T4C and 3 T4Ls with no colleggtibles (upper estimate bound):
 	estimateUpper := 0.75 + contractEggsInSmallQ/(numFarmers*min(15.841, 6.365*(1.0+0.15*min(10, numFarmers-1.0))*math.Pow(1.05, max(0.0, min(8.0, 9.0-(numFarmers-1.0)*8.0/9.0)))))
-	estimateDurationUpper := time.Duration(estimateUpper*float64(time.Hour)) + time.Duration(45*float64(time.Minute))
+	estimateDurationUpper := time.Duration(estimateUpper * float64(time.Hour))
 
 	// T4R and 3 T4Ls with all colleggtibles (lower estimate bound):
 	estimateLower := 0.75 + contractEggsInSmallQ/(numFarmers*min(18.338, 6.365*(1.0+0.17*min(12, numFarmers-1.0))*math.Pow(1.05, max(0.0, min(9.0, 10.0-(numFarmers-1.0)*9.0/10.0)))))
-	estimateDurationLower := time.Duration(estimateLower*float64(time.Hour)) + time.Duration(45*float64(time.Minute))
+	estimateDurationLower := time.Duration(estimateLower * float64(time.Hour))
 
 	if estimateDurationUpper > contractDuration {
 		return contractDuration, contractDuration
