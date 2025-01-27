@@ -15,12 +15,13 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 	minV := 0
 
 	// is this channelID a thread
+	as := getUserArtifacts(userID, nil)
 
 	var builder strings.Builder
 	if !contractOnly {
-		fmt.Fprintf(&builder, "Select your global coop artifacts <@%s>", userID)
+		fmt.Fprintf(&builder, "Select your global coop artifacts <@%s>\nELR: %1.3f", userID, as.LayRate)
 	} else {
-		fmt.Fprintf(&builder, "Adjust your coop artifact overrides for this contract <@%s>", userID)
+		fmt.Fprintf(&builder, "Adjust your coop artifact overrides for this contract <@%s>\n ELR: %2.3f  SR:%2.3f", userID, as.LayRate, as.ShipRate)
 	}
 
 	// These are the global settings
@@ -400,6 +401,18 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	case "collegg":
 		farmerstate.SetMiscSettingString(userID, cmd, strings.Join(data.Values, ","))
 	}
+
+	// Redraw the artifact list
+	str, comp := getArtifactsComponents(userID, i.ChannelID, false)
+
+	_, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content:    &str,
+		Components: &comp,
+	})
+	if err != nil {
+		fmt.Println("InteractionResponseEdit: ", err)
+	}
+
 	//} else {
 	contract := FindContract(i.ChannelID)
 	if contract != nil {
