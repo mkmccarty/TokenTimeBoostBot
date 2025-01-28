@@ -145,7 +145,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 
 	var dataTimestampStr string
 	var field []*discordgo.MessageEmbedField
-	var nowTime time.Time
+	nowTime := time.Now()
 
 	eiContract := ei.EggIncContractsAll[contractID]
 	if eiContract.ID == "" {
