@@ -275,6 +275,7 @@ type Contract struct {
 type SpeedrunData struct {
 	ChickenRuns          int      // Number of Chicken Runs for this contract
 	Legs                 int      // Number of legs for this Tango
+	NoSelfRunLegs        int      // Number of legs for the Without Selfrun
 	Tango                [3]int   // The Tango itself (First, Middle, Last)
 	CurrentLeg           int      // Current Leg
 	LegReactionMessageID string   // Message ID for the Leg Reaction Message
