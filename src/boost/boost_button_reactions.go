@@ -283,7 +283,7 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 					{
 						Title:       "Runners",
 						Description: "",
-						Color:       0x000ff0,
+						Color:       0x00dd00,
 					},
 				}
 				data.Components = []discordgo.MessageComponent{
@@ -343,7 +343,7 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 			{
 				Title:       "Runners",
 				Description: str,
-				Color:       0xffffff,
+				Color:       0x00dd00,
 			},
 		}
 		msgedit.SetEmbeds(embeds)
