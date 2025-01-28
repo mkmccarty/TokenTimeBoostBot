@@ -276,9 +276,16 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 		contract.Boosters[userID].RunChickensTime = time.Now()
 		go func() {
 			for _, location := range contract.Location {
-				str := fmt.Sprintf("%s **%s** is ready for chicken runs, check for incoming trucks before visiting.\nRunners:", location.ChannelPing, contract.Boosters[userID].Mention)
+				str := fmt.Sprintf("%s **%s** is ready for chicken runs, check for incoming trucks before visiting.", location.ChannelPing, contract.Boosters[userID].Mention)
 				var data discordgo.MessageSend
 				data.Content = str
+				data.Embeds = []*discordgo.MessageEmbed{
+					{
+						Title:       "Runners",
+						Description: "",
+						Color:       0x000ff0,
+					},
+				}
 				data.Components = []discordgo.MessageComponent{
 					discordgo.ActionsRow{
 						Components: []discordgo.MessageComponent{
@@ -313,17 +320,17 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 	//log.Print("Ran Chicken")
 	msgedit := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 
-	str := i.Message.Content
+	str := i.Message.Embeds[0].Description
 
 	userMention := contract.Boosters[cUserID].Mention
 	repost := false
 
-	if !strings.Contains(strings.Split(str, "\n")[1], userMention) {
+	if !strings.Contains(str, userMention) {
 		str += " " + contract.Boosters[cUserID].Mention
 		repost = true
 	} else if len(contract.Boosters[cUserID].Alts) > 0 {
 		for _, altID := range contract.Boosters[cUserID].Alts {
-			if !strings.Contains(strings.Split(str, "\n")[1], contract.Boosters[altID].Mention) {
+			if !strings.Contains(str, contract.Boosters[altID].Mention) {
 				str += " " + contract.Boosters[altID].Mention
 				repost = true
 				break
@@ -331,7 +338,15 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 		}
 	}
 	if repost {
-		msgedit.SetContent(str)
+		//msgedit.SetContent(str)
+		embeds := []*discordgo.MessageEmbed{
+			{
+				Title:       "Runners",
+				Description: str,
+				Color:       0xffffff,
+			},
+		}
+		msgedit.SetEmbeds(embeds)
 		msgedit.Flags = discordgo.MessageFlagsSuppressNotifications
 		_, _ = s.ChannelMessageEditComplex(msgedit)
 	}
