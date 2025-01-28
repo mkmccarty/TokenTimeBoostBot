@@ -512,12 +512,10 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 			Color:       0xffaa00,
 			Fields:      field,
 			Timestamp:   timestamp.Format(time.RFC3339),
-			Footer: &discordgo.MessageEmbedFooter{
-				Text: dataTimestampStr,
-			},
 		},
 		},
 	}
+	builder.WriteString(dataTimestampStr)
 
 	return builder.String(), embed
 }

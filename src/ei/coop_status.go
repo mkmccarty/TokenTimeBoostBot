@@ -95,7 +95,7 @@ func GetCoopStatus(contractID string, coopID string) (*ContractCoopStatusRespons
 	} else if cachedData != nil && time.Now().Before(cachedData.expirationTimestamp) {
 		protoData = cachedData.protoData
 		timestamp = cachedData.timestamp
-		dataTimestampStr = fmt.Sprintf("\nUsing cached data retrieved <t:%d:R>, refresh <t:%d:R>", cachedData.timestamp.Unix(), cachedData.expirationTimestamp.Unix())
+		dataTimestampStr = fmt.Sprintf("\nUsing cached data retrieved <t:%d:R>, expires <t:%d:R>", cachedData.timestamp.Unix(), cachedData.expirationTimestamp.Unix())
 	} else {
 
 		coopStatusRequest := ContractCoopStatusRequest{
