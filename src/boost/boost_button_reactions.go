@@ -10,6 +10,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 	"github.com/rs/xid"
 )
@@ -274,6 +275,12 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 	if contract.Boosters[userID].BoostState == BoostStateBoosted && contract.Boosters[userID].RunChickensTime.IsZero() {
 
 		contract.Boosters[userID].RunChickensTime = time.Now()
+
+		var name = contract.Boosters[userID].Nick
+		var einame = farmerstate.GetEggIncName(userID)
+		if einame != "" {
+			name += " " + einame
+		}
 		go func() {
 			for _, location := range contract.Location {
 				str := fmt.Sprintf("%s **%s** is ready for chicken runs, check for incoming trucks before visiting.", location.ChannelPing, contract.Boosters[userID].Mention)
@@ -281,7 +288,7 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 				data.Content = str
 				data.Embeds = []*discordgo.MessageEmbed{
 					{
-						Title:       "Runners",
+						Title:       fmt.Sprintf("%s Runners", name),
 						Description: "",
 						Color:       0x00dd00,
 					},
@@ -341,7 +348,7 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 		//msgedit.SetContent(str)
 		embeds := []*discordgo.MessageEmbed{
 			{
-				Title:       "Runners",
+				Title:       i.Message.Embeds[0].Title,
 				Description: str,
 				Color:       0x00dd00,
 			},
