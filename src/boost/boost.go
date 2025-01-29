@@ -149,6 +149,7 @@ type ArtifactSet struct {
 type Booster struct {
 	UserID      string // Egg Farmer
 	GlobalName  string
+	UserName    string
 	ChannelName string
 	GuildID     string // Discord Guild where this User is From
 	GuildName   string
@@ -699,7 +700,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			b.Mention = userID
 		} else {
 			b.GlobalName = user.GlobalName
-			b.Name = user.Username
+			b.UserName = user.Username
 			b.Mention = user.Mention()
 			gm, errGM := s.GuildMember(guildID, userID)
 			if errGM == nil {
@@ -710,7 +711,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 				b.Unique = gm.User.String()
 			}
 			if b.Nick == "" {
-				b.Nick = b.Name
+				b.Nick = b.GlobalName
 			}
 		}
 
