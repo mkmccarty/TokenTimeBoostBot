@@ -837,6 +837,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	//table.SetAlignment(tablewriter.ALIGN_LEFT)
 
 	needLegend := false
+	showGlitch := false
 
 	// 1e15
 	for _, as := range artifactSets {
@@ -978,12 +979,16 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			notes += "💎"
 		}
 
-		if as.farmPopulation != as.farmCapacity {
+		if as.farmPopulation <= as.farmCapacity {
 			needLegend = true
 			notes += "🏠"
 			if as.farmPopulation/as.farmCapacity < 0.95 {
 				notes += "🐣"
 			}
+		} else if as.farmPopulation > as.farmCapacity {
+			needLegend = true
+			showGlitch = true
+			notes += "🤥"
 		}
 
 		qStones := as.quantStones[ei.ArtifactSpec_INFERIOR] + as.quantStones[ei.ArtifactSpec_LESSER] + as.quantStones[ei.ArtifactSpec_NORMAL]
@@ -1120,7 +1125,11 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	// Need to write out a legend for the stones
 	if needLegend {
-		builder.WriteString("🚩Research / 💎Missing / 🏠Filling(🐣CR) / 🧩Slotted / 🎣Away\n")
+		habGlitch := ""
+		if showGlitch {
+			habGlitch = " / 🤥 HabGlitch"
+		}
+		builder.WriteString("🚩Research / 💎Missing / 🏠Filling(🐣CR) / 🧩Slotted / 🎣Away" + habGlitch + "\n")
 	}
 
 	if dataTimestampStr != "" {
