@@ -2,7 +2,6 @@ package boost
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"strings"
 	"time"
@@ -204,9 +203,6 @@ func getContractDurationEstimate(contractEggsInSmallQ float64, numFarmers float6
 	modShip := modifierSR
 	colELR := 1.0
 	colShip := 1.1025
-	if modShip != 1.0 {
-		log.Print("modShip: ", modShip)
-	}
 
 	coopSize := numFarmers - 1.0
 
