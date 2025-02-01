@@ -128,41 +128,13 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	// Set our current Event variables
 	ei.SetGenerousGiftEvent(newGG, newUltraGG)
 
-	// Look for new contracts
-	var newContract []ei.EggIncContract
-	for _, contract := range periodicalsResponse.GetContracts().GetContracts() {
-		c := boost.PopulateContractFromProto(contract)
-		if c.ID == "first-contract" {
-			continue
+	/*
+		// Look for new Custom Eggs
+		ei.CustomEggMap, err = LoadCustomEggData()
+		if err != nil {
+			ei.CustomEggMap = make(map[string]*ei.EggIncCustomEgg)
 		}
-		//log.Print("contract details: ", c.ID, " ", contract.GetCcOnly())
-		// Time this record was imported from the periodicals API
-		c.PeriodicalAPI = true
-
-		// If we're reading a contract from a periodical then it's currently active
-		// Check if the contract already exists and is the same
-		existingContract, exists := ei.EggIncContractsAll[c.ID]
-		if exists {
-			if existingContract.ExpirationTime != c.ExpirationTime {
-				log.Print("New Leggacy contract: ", c.ID)
-			}
-		} else {
-			log.Print("New Original contract: ", c.ID)
-		}
-		ei.EggIncContractsAll[c.ID] = c
-		newContract = append(newContract, c)
-	}
-
-	// Replace all new contracts
-	if len(newContract) > 0 {
-		ei.EggIncContracts = newContract
-	}
-
-	// Look for new Custom Eggs
-	ei.CustomEggMap, err = loadCustomEggData()
-	if err != nil {
-		ei.CustomEggMap = make(map[string]*ei.EggIncCustomEgg)
-	}
+	*/
 	changed := true
 	c := cases.Title(language.Und)
 
@@ -230,7 +202,38 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 		}
 
 		ei.CustomEggMap[egg.ID] = &egg
+		ei.SetColleggtibleValues()
 		changed = true
+	}
+
+	// Look for new contracts
+	var newContract []ei.EggIncContract
+	for _, contract := range periodicalsResponse.GetContracts().GetContracts() {
+		c := boost.PopulateContractFromProto(contract)
+		if c.ID == "first-contract" {
+			continue
+		}
+		//log.Print("contract details: ", c.ID, " ", contract.GetCcOnly())
+		// Time this record was imported from the periodicals API
+		c.PeriodicalAPI = true
+
+		// If we're reading a contract from a periodical then it's currently active
+		// Check if the contract already exists and is the same
+		existingContract, exists := ei.EggIncContractsAll[c.ID]
+		if exists {
+			if existingContract.ExpirationTime != c.ExpirationTime {
+				log.Print("New Leggacy contract: ", c.ID)
+			}
+		} else {
+			log.Print("New Original contract: ", c.ID)
+		}
+		ei.EggIncContractsAll[c.ID] = c
+		newContract = append(newContract, c)
+	}
+
+	// Replace all new contracts
+	if len(newContract) > 0 {
+		ei.EggIncContracts = newContract
 	}
 
 	if changed {

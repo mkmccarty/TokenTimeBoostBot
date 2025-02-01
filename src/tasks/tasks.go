@@ -287,6 +287,16 @@ func downloadEggIncData(url string, filename string) bool {
 
 // ExecuteCronJob runs the cron jobs for the bot
 func ExecuteCronJob(s *discordgo.Session) {
+	// Look for new Custom Eggs
+
+	var err error
+	ei.CustomEggMap, err = events.LoadCustomEggData()
+	if err != nil {
+		ei.CustomEggMap = make(map[string]*ei.EggIncCustomEgg)
+		events.GetPeriodicalsFromAPI(s)
+	}
+	ei.SetColleggtibleValues()
+
 	if !downloadEggIncData(eggIncContractsURL, eggIncContractsFile) {
 		boost.LoadContractData(eggIncContractsFile)
 	}
@@ -342,7 +352,7 @@ func ExecuteCronJob(s *discordgo.Session) {
 			}
 	*/
 
-	err := gocron.Every(8).Hours().Do(boost.ArchiveContracts, s)
+	err = gocron.Every(8).Hours().Do(boost.ArchiveContracts, s)
 	if err != nil {
 		log.Print(err)
 	}

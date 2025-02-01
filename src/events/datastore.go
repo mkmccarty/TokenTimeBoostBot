@@ -45,7 +45,8 @@ func saveCustomEggData(c map[string]*ei.EggIncCustomEgg) {
 	_ = dataStore.Write("ei-customeggs", b)
 }
 
-func loadCustomEggData() (map[string]*ei.EggIncCustomEgg, error) {
+// LoadCustomEggData will load the custom egg data from the diskv store
+func LoadCustomEggData() (map[string]*ei.EggIncCustomEgg, error) {
 	var c map[string]*ei.EggIncCustomEgg
 	b, err := dataStore.Read("ei-customeggs")
 	if err != nil {
