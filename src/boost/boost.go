@@ -715,6 +715,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 				if s.State.MemberAdd(gm) == nil {
 					b.Color = s.State.UserColor(userID, channelID)
 				}
+
 			}
 
 			if b.Nick == "" {
@@ -1480,6 +1481,9 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	if contract.BoostPosition == contract.CoopSize {
 		changeContractState(contract, ContractStateCompleted) // Waiting for sink
 		contract.EndTime = time.Now()
+		for _, loc := range contract.Location {
+			track.UnlinkTokenTracking(s, loc.ChannelID)
+		}
 	} else if contract.BoostPosition == len(contract.Order) {
 		changeContractState(contract, ContractStateWaiting) // There could be more boosters joining later
 	} else {
@@ -1612,6 +1616,9 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 		if contract.BoostPosition == contract.CoopSize {
 			changeContractState(contract, ContractStateCompleted) // Finished
 			contract.EndTime = time.Now()
+			for _, loc := range contract.Location {
+				track.UnlinkTokenTracking(s, loc.ChannelID)
+			}
 		} else if contract.BoostPosition == len(contract.Boosters) {
 			changeContractState(contract, ContractStateWaiting)
 		} else {

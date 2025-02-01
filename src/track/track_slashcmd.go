@@ -127,7 +127,7 @@ func GetSlashTokenRemoveCommand(cmd string) *discordgo.ApplicationCommand {
 }
 
 // HandleTokenCommand will handle the /token command
-func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, contractID string, coopID string, contractStartTime time.Time, pastTokens *[]ei.TokenUnitLog) {
+func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, contractID string, coopID string, contractStartTime time.Time, pastTokens *[]ei.TokenUnitLog, linked bool) {
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -135,7 +135,6 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, co
 		optionMap[opt.Name] = opt
 	}
 	channelID := i.ChannelID
-	linked := true
 	linkReceived := true
 	duration := 12 * time.Hour
 
@@ -204,7 +203,7 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, co
 	} else {
 		var data discordgo.MessageSend
 		data.Embeds = embed.Embeds
-		data.Components = getTokenValComponents(trackingName) // Initial state
+		data.Components = getTokenValComponents(trackingName, linked) // Initial state
 
 		u, err := s.UserChannelCreate(userID)
 		if err == nil {
@@ -328,7 +327,7 @@ func HandleTrackerEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	saveData(Tokens)
 	//embed := getTokenTrackingEmbed(t, false)
 	embed := TokenTrackingAdjustTime(i.ChannelID, userID, name, 0, 0, 0, 0)
-	comp := getTokenValComponents(t.Name)
+	comp := getTokenValComponents(t.Name, t.Linked)
 	m := discordgo.NewMessageEdit(t.UserChannelID, t.TokenMessageID)
 	m.Components = &comp
 	m.SetEmbeds(embed.Embeds)
@@ -443,8 +442,8 @@ func HandleTokenEditTrackCommand(s *discordgo.Session, i *discordgo.InteractionC
 	}
 
 	saveData(Tokens)
-	embed := tokenTrackingTrack(userID, tokenCoop, 0, 0) // No sent or received
-	comp := getTokenValComponents(tokenCoop)
+	embed, linked := tokenTrackingTrack(userID, tokenCoop, 0, 0) // No sent or received
+	comp := getTokenValComponents(tokenCoop, linked)
 	m := discordgo.NewMessageEdit(Tokens[userID].Coop[tokenCoop].UserChannelID, Tokens[userID].Coop[tokenCoop].TokenMessageID)
 	m.Components = &comp
 	m.SetEmbeds(embed.Embeds)

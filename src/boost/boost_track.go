@@ -80,11 +80,13 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	startTime := time.Now()
 	var pastTokens *[]ei.TokenUnitLog
 	contract := FindContract(i.ChannelID)
+	linked := false
 	if contract != nil {
 		contractID = contract.ContractID
 		coopID = contract.CoopID
 		pastTokens = &contract.TokenLog
 		startTime = contract.StartTime
+		linked = true
 	}
-	track.HandleTokenCommand(s, i, contractID, coopID, startTime, pastTokens)
+	track.HandleTokenCommand(s, i, contractID, coopID, startTime, pastTokens, linked)
 }
