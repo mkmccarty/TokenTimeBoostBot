@@ -712,11 +712,16 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 				}
 				b.Unique = gm.User.String()
 				// See if we can find a color
+				//position := 0
+				s.State.MemberAdd(gm)
+				b.Color = s.State.UserColor(userID, channelID)
+
 				for _, roleID := range gm.Roles {
 					role, err := s.State.Role(guildID, roleID)
 					if err == nil && role.Color != 0 {
+						//position = role.Position
 						b.Color = role.Color
-						break
+						//break
 					}
 				}
 
