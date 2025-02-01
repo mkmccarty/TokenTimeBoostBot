@@ -281,6 +281,10 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 		if einame != "" {
 			name += " " + einame
 		}
+		color := contract.Boosters[userID].Color
+		if color == 0 {
+			color = 0x00cc00
+		}
 		go func() {
 			for _, location := range contract.Location {
 				str := fmt.Sprintf("%s **%s** is ready for chicken runs, check for incoming trucks before visiting.", location.ChannelPing, contract.Boosters[userID].Mention)
@@ -290,7 +294,7 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 					{
 						Title:       fmt.Sprintf("%s Runners", name),
 						Description: "",
-						Color:       0x00dd00,
+						Color:       color,
 					},
 				}
 				data.Components = []discordgo.MessageComponent{
@@ -350,7 +354,7 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 			{
 				Title:       i.Message.Embeds[0].Title,
 				Description: str,
-				Color:       0x00dd00,
+				Color:       i.Message.Embeds[0].Color,
 			},
 		}
 		msgedit.SetEmbeds(embeds)
