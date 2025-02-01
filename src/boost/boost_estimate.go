@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"strings"
 	"time"
@@ -77,6 +78,12 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			runStr, c.ChickenRuns, c.ChickenRunCooldownMinutes)
 		if c.ModifierSR != 1.0 && c.ModifierSR > 0.0 {
 			str += fmt.Sprintf(" / 🛻 %2.1fx", c.ModifierSR)
+		}
+		if c.ModifierELR != 1.0 && c.ModifierELR > 0.0 {
+			str += fmt.Sprintf(" / 🥚 %2.1fx", c.ModifierELR)
+		}
+		if c.ModifierHabCap != 1.0 && c.ModifierHabCap > 0.0 {
+			str += fmt.Sprintf(" / 🏠 %2.1fx", c.ModifierHabCap)
 		}
 		str += "\n"
 
@@ -183,19 +190,44 @@ func getContractDurationEstimate(contractEggsInSmallQ float64, numFarmers float6
 	the allowed shipping cap to account for the additional quantum stone.
 	*/
 
-	/*
-		T4C and 3 T4Ls with no colleggtibles (upper estimate bound):
-		   time(hours) = 0.75 + Goal / (Coop_Size * MIN(15.841, 6.365 * (1 + 0.15 * MIN(10, Coop_Size-1)) * 1.05 ^ MAX(0, MIN(8, 9-(Coop_Size-1)*8/9))))
-		T4R and 3 T4Ls with all colleggtibles (lower estimate bound):
-		   time(hours) = 0.75 + Goal / (Coop_Size * MIN(18.338, 6.365 * (1 + 0.17 * MIN(12, Coop_Size-1)) * 1.05 ^ MAX(0, MIN(9, 10-(Coop_Size-1)*9/10))))
+	/* New Rev
+
+	I realized I was accounting for maximum useful deflectors in the overall shipping cap already so simplified that section considerably.
+
+	For future reference, the general equation for the number of tachyon stones used is given by
+	stones = slots + [maximum deflector% w/ all tachs] / [own deflector%] * shipping modifiers/ELR modifiers - deflectors * (slots / (slots + [maximum deflector% w/ all tachs] / [own deflector%] * shipping modifiers/ELR modifiers))
+	which has been simplified in both estimates to set [maximum deflector% w/ all tachs] / [own deflector%] = free external deflectors = 1. At a later date this simplification may prove to be a problem should we get a large imbalance in colleggtibles one way or the other.
+
 	*/
 
-	// T4C and 3 T4Ls with no colleggtibles (upper estimate bound):
-	estimateUpper := 0.75 + contractEggsInSmallQ/(numFarmers*min(15.841, 6.365*(1.0+0.15*min(10, numFarmers-1.0))*math.Pow(1.05, max(0.0, min(8.0, 9.0-(numFarmers-1.0)*8.0/9.0)))))
+	modELR := modifierELR * modifierHabCap
+	modShip := modifierSR
+	colELR := 1.0
+	colShip := 1.1025
+	if modShip != 1.0 {
+		log.Print("modShip: ", modShip)
+	}
+
+	coopSize := numFarmers - 1.0
+
+	/*
+		UPPER ESTIMATE BOUND
+		time(hours) = 0.75 + Goal / (Coop_size * Rate)
+		Rate = MIN(15.841 * ship_mod , 6.365 * ELR_mod * (1 + 0.15 * Coop_size-1) * 1.05 ^ MAX(0, MIN(8, 8 + (ship_mod/ELR_mod) - (Coop_size-1) * 8 / (8 + (ship_mod/ELR_mod)))))
+	*/
+
+	upperRate := min(15.841*modShip, 6.365*modELR*(1.0+0.15*coopSize)*math.Pow(1.05, max(0.0, min(8.0, 8.0+(modShip/modELR)-(coopSize)*8.0/(8.0+(modShip/modELR))))))
+	estimateUpper := 0.75 + contractEggsInSmallQ/(numFarmers*upperRate)
 	estimateDurationUpper := time.Duration(estimateUpper * float64(time.Hour))
 
-	// T4R and 3 T4Ls with all colleggtibles (lower estimate bound):
-	estimateLower := 0.75 + contractEggsInSmallQ/(numFarmers*min(18.338, 6.365*(1.0+0.17*min(12, numFarmers-1.0))*math.Pow(1.05, max(0.0, min(9.0, 10.0-(numFarmers-1.0)*9.0/10.0)))))
+	/*
+		LOWER ESTIMATE BOUND
+		Use maximum colleggtible modifiers
+		time(hours) = 0.75 + Goal / (Coop_size * Rate)
+		Rate = MIN(16.633 * ship_col * ship_mod , 6.365 * ELR_mod * ELR_col * (1 + 0.17 * Coop_size-1) * 1.05 ^ MAX(0, MIN(9, 9 + (ship_mod * ship_col / ELR_mod * ELR_col) - (Coop_size-1) * 9 / (9 + (ship_mod * ship_col / ELR_mod * ELR_col)))))
+	*/
+	lowerRate := min(16.663*modShip*colShip, 6.365*modELR*colELR*(1.0+0.17*coopSize)*math.Pow(1.05, max(0.0, min(9.0, 9.0+(modShip/modELR)-(coopSize)*9.0/(9.0+(modShip*colShip/modELR*colELR))))))
+	estimateLower := 0.75 + contractEggsInSmallQ/(numFarmers*lowerRate)
 	estimateDurationLower := time.Duration(estimateLower * float64(time.Hour))
 
 	if estimateDurationUpper > contractDuration {
