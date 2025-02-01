@@ -1059,7 +1059,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	}
 
-	fmt.Fprintf(&builder, "Stones Report for %s [**%s/%s**](%s)\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID))
+	fmt.Fprintf(&builder, "Stones Report for %s %s/[**%s**](%s)\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID))
 	if eiContract.ID != "" {
 		nowTime := time.Now()
 		startTime := nowTime
