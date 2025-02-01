@@ -1959,6 +1959,10 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			c.TargetAmountq = append(c.TargetAmountq, g.GetTargetAmount()/1e15)
 			c.LengthInSeconds = int(s.GetLengthSeconds())
 		}
+		c.ModifierIHR = 1.0
+		c.ModifierELR = 1.0
+		c.ModifierSR = 1.0
+		c.ModifierHabCap = 1.0
 		for _, mod := range s.GetModifiers() {
 			switch mod.GetDimension() {
 			case ei.GameModifier_INTERNAL_HATCHERY_RATE:
