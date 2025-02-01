@@ -779,15 +779,15 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	if soloName != "" {
 		table.SetHeader([]string{
 			"Name",
-			"Dfl", "Met", "Com", "Gus",
 			"T", "Q",
 			"ELR", "SR",
+			"Dfl", "Met", "Com", "Gus",
 			"🥚", "📓"})
 		table.SetColumnAlignment([]int{
 			tablewriter.ALIGN_RIGHT,
+			tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
+			tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
 			tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT,
-			tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
-			tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
 			tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_LEFT})
 
 	} else {
@@ -795,16 +795,16 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			if !skipArtifact {
 				table.SetHeader([]string{
 					"Name",
-					"Dfl", "Met", "Com", "Gus",
 					"T", "Q",
 					"ELR", "SR",
+					"Dfl", "Met", "Com", "Gus",
 					"🥚", "📓"})
 
 				table.SetColumnAlignment([]int{
 					tablewriter.ALIGN_RIGHT,
+					tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
+					tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
 					tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT,
-					tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
-					tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
 					tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_LEFT})
 			} else {
 				table.SetHeader([]string{
@@ -963,9 +963,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			stoneShipRate := shippingRate * math.Pow(1.05, float64((as.stones-i))) * collegShip
 
 			as.soloData = append(as.soloData, []string{as.name,
-				as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
 				fmt.Sprintf("%d%s", i, ""), fmt.Sprintf("%d%s", as.stones-i, ""),
 				fmt.Sprintf("%2.3f", stoneLayRate), fmt.Sprintf("%2.3f", stoneShipRate),
+				as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
 				strings.Join(as.collegg, ","), strings.Join(as.note, ",")})
 
 		}
@@ -1033,15 +1033,11 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				if as.bestSR < 1.0 {
 					lBestSR = fmt.Sprintf("%2.2fT", as.bestSR*1000.0)
 				}
-				//lBestTotal := fmt.Sprintf("%2.3f", bestTotal)
-				//if bestTotal < 1.0 {
-				//	lBestTotal = fmt.Sprintf("%2.2fT", bestTotal*1000.0)
-				//}
 				if !skipArtifact {
 					table.Append([]string{as.name,
-						as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
 						displayT, displayQ,
 						lBestELR, lBestSR,
+						as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
 						strings.Join(as.collegg, ","), notes})
 				} else {
 					table.Append([]string{as.name,
@@ -1105,7 +1101,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	fmt.Fprintf(&builder, "Coop Deflector Bonus: %2.0f%%\n", everyoneDeflectorPercent)
 	if soloName == "" {
-		fmt.Fprint(&builder, "Tachyon & Quantum columns show the optimal mix.\n")
+		fmt.Fprint(&builder, "**T**achyon & **Q**uantum columns show optimal quantity.\n")
 		if !details {
 			fmt.Fprint(&builder, "Only showing farmers needing to swap stones.\n")
 		}
@@ -1129,7 +1125,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if showGlitch {
 			habGlitch = " / 🤥 HabGlitch"
 		}
-		builder.WriteString("🚩Research / 💎Missing / 🏠Filling(🐣CR) / 🧩Slotted / 🎣Away" + habGlitch + "\n")
+		builder.WriteString("* Match / 🚩Research / 💎Missing / 🏠Filling(🐣CR) / 🧩Slotted / 🎣Away" + habGlitch + "\n")
 	}
 
 	if dataTimestampStr != "" {
