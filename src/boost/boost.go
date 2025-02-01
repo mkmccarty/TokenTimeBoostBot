@@ -159,7 +159,8 @@ type Booster struct {
 	Name          string
 	Unique        string
 	Nick          string
-	Mention       string   // String which mentions user
+	Mention       string // String which mentions user
+	Color         int
 	Alts          []string // Array of alternate ids for the user
 	AltsIcons     []string // Array of alternate icons for the user
 	AltController string   // User ID of the controller of this alternate
@@ -690,6 +691,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		var b = new(Booster)
 		b.Register = time.Now()
 		b.UserID = userID
+		b.Color = 0x00cc00
 
 		var user, err = s.User(userID)
 		if err != nil {
@@ -709,7 +711,17 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 					b.Name = gm.Nick
 				}
 				b.Unique = gm.User.String()
+				// See if we can find a color
+				for _, roleID := range gm.Roles {
+					role, err := s.State.Role(guildID, roleID)
+					if err == nil && role.Color != 0 {
+						b.Color = role.Color
+						break
+					}
+				}
+
 			}
+
 			if b.Nick == "" {
 				b.Nick = b.GlobalName
 			}
