@@ -69,9 +69,10 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		tokenStr, _, _ := ei.GetBotEmoji("token")
 		runStr, _, _ := ei.GetBotEmoji("icon_chicken_run")
 
-		str = fmt.Sprintf("%s%s **%s** (%s)\n%d%s - %s/%dm - %s%d/%dm",
+		str = fmt.Sprintf("%s%s **%s** [%s](%s)\n%d%s - %s/%dm - %s%d/%dm",
 			ei.GetBotEmojiMarkdown("contract_grade_aaa"),
 			eggStr, c.Name, c.ID,
+			fmt.Sprintf("https://eicoop-carpet.netlify.app/?q=%s", c.ID),
 			c.MaxCoopSize, ei.GetBotEmojiMarkdown("icon_coop"),
 			tokenStr, c.MinutesPerToken,
 			runStr, c.ChickenRuns, c.ChickenRunCooldownMinutes)
@@ -139,8 +140,8 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: noteStr + str,
-				//Flags:      discordgo.MessageFlagsEphemeral,
+				Content:    noteStr + str,
+				Flags:      discordgo.MessageFlagsSuppressEmbeds,
 				Components: []discordgo.MessageComponent{}},
 		})
 	} else {
@@ -149,7 +150,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content:    str,
-				Flags:      discordgo.MessageFlagsEphemeral,
+				Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsSuppressEmbeds,
 				Components: []discordgo.MessageComponent{}},
 		})
 	}
