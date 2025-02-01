@@ -464,10 +464,10 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 	}
 
 	if cmd == "order" {
-		if contract.State != ContractStateSignup {
+		if contract.State != ContractStateSignup && data.Values[0] != "signup" {
 			_, _ = s.FollowupMessageCreate(i.Interaction, true,
 				&discordgo.WebhookParams{
-					Content: "The contract order cannot change after the contract has started.",
+					Content: "Once the contract has started, you may change to Sign-up Order to cancel the original order selection.",
 					Flags:   discordgo.MessageFlagsEphemeral,
 				})
 			return
