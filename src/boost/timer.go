@@ -158,7 +158,9 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			duration = dur
 			setTimer = true
 		} else {
-			message = fmt.Sprintf("Error parsing duration: %s", err.Error())
+			duration = time.Duration(4 * time.Minute)
+			setTimer = true
+			message = fmt.Sprintf("Error parsing duration: %s, set to 4 minutes", err.Error())
 		}
 	}
 
