@@ -12,19 +12,23 @@ import (
 )
 
 // getTokenValComponents returns the components for the token value
-func getTokenValComponents(name string) []discordgo.MessageComponent {
+func getTokenValComponents(name string, linked bool) []discordgo.MessageComponent {
+	greenButton := discordgo.SuccessButton
+	redButton := discordgo.DangerButton
 	return []discordgo.MessageComponent{
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.Button{
 					Label:    "Send a Token",
-					Style:    discordgo.SuccessButton,
+					Style:    greenButton,
 					CustomID: "fd_tokenSent#1x!" + name,
+					Disabled: linked,
 				},
 				discordgo.Button{
 					Label:    "Receive a Token",
-					Style:    discordgo.DangerButton,
+					Style:    redButton,
 					CustomID: "fd_tokenReceived#1x!" + name,
+					Disabled: linked,
 				},
 				discordgo.Button{
 					Label:    "Details",
@@ -50,23 +54,27 @@ func getTokenValComponents(name string) []discordgo.MessageComponent {
 			Components: []discordgo.MessageComponent{
 				discordgo.Button{
 					Label:    "Send 2 Tokens",
-					Style:    discordgo.SuccessButton,
+					Style:    greenButton,
 					CustomID: "fd_tokenSent#2x!" + name,
+					Disabled: linked,
 				},
 				discordgo.Button{
 					Label:    "Receive 2 Tokens",
-					Style:    discordgo.DangerButton,
+					Style:    redButton,
 					CustomID: "fd_tokenReceived#2x!" + name,
+					Disabled: linked,
 				},
 				discordgo.Button{
 					Label:    "Send 6 Tokens",
-					Style:    discordgo.SuccessButton,
+					Style:    greenButton,
 					CustomID: "fd_tokenSent#6x!" + name,
+					Disabled: linked,
 				},
 				discordgo.Button{
 					Label:    "Receive 6 Tokens",
-					Style:    discordgo.DangerButton,
+					Style:    redButton,
 					CustomID: "fd_tokenReceived#6x!" + name,
+					Disabled: linked,
 				},
 			},
 		},
@@ -208,9 +216,9 @@ func HandleTokenSend(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		name = tokenname[1]
 	}
 
-	embed := tokenTrackingTrack(userID, name, tokens, 0)
+	embed, linked := tokenTrackingTrack(userID, name, tokens, 0)
 
-	comp := getTokenValComponents(name)
+	comp := getTokenValComponents(name, linked)
 	m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 	m.Components = &comp
 	m.SetEmbeds(embed.Embeds)
@@ -256,9 +264,9 @@ func HandleTokenReceived(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		name = tokenname[1]
 	}
 
-	embed := tokenTrackingTrack(userID, name, 0, tokens)
+	embed, linked := tokenTrackingTrack(userID, name, 0, tokens)
 
-	comp := getTokenValComponents(name)
+	comp := getTokenValComponents(name, linked)
 	m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 	m.Components = &comp
 	m.SetEmbeds(embed.Embeds)
@@ -294,9 +302,9 @@ func HandleTokenDetails(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		name = extractTokenNameOriginal(i.Message.Components[0])
 	}
 	SetTokenTrackingDetails(userID, name)
-	embed := tokenTrackingTrack(userID, name, 0, 0)
+	embed, linked := tokenTrackingTrack(userID, name, 0, 0)
 
-	comp := getTokenValComponents(name)
+	comp := getTokenValComponents(name, linked)
 	m := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 	m.Components = &comp
 	m.SetEmbeds(embed.Embeds)
@@ -380,8 +388,8 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) {
 		log.Printf("Token-Reaction: %s id:%s user:%s", emojiName, name, userID)
 		var receivedIndex = slices.Index(numberSlice, emojiName)
 		removeReceivedToken(userID, name, receivedIndex)
-		embed := tokenTrackingTrack(userID, name, 0, 0) // No sent or received
-		comp := getTokenValComponents(name)
+		embed, linked := tokenTrackingTrack(userID, name, 0, 0) // No sent or received
+		comp := getTokenValComponents(name, linked)
 		m := discordgo.NewMessageEdit(r.ChannelID, r.MessageID)
 		m.Components = &comp
 		m.SetEmbeds(embed.Embeds)
