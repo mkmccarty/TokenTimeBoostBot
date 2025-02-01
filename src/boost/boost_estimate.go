@@ -201,8 +201,9 @@ func getContractDurationEstimate(contractEggsInSmallQ float64, numFarmers float6
 
 	modELR := modifierELR * modifierHabCap
 	modShip := modifierSR
-	colELR := 1.0
-	colShip := 1.1025
+
+	colELR, colShip, colHab := ei.GetColleggtibleValues()
+	colELR *= colHab
 
 	coopSize := numFarmers - 1.0
 
