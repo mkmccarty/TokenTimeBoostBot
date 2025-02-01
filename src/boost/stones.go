@@ -979,7 +979,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			notes += "💎"
 		}
 
-		if as.farmPopulation <= as.farmCapacity {
+		if as.farmPopulation < as.farmCapacity {
 			needLegend = true
 			notes += "🏠"
 			if as.farmPopulation/as.farmCapacity < 0.95 {
