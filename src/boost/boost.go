@@ -806,6 +806,28 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		}
 		contract.RegisteredNum = len(contract.Boosters)
 
+		altController := farmerstate.GetMiscSettingString(userID, "AltController")
+		if altController != "" {
+			if contract.Boosters[altController] != nil {
+				contract.mutex.Lock()
+				// We have an alt we can auto link
+				newAltIcon := findAltIcon(userID, contract.AltIcons)
+				contract.Boosters[altController].Alts = append(contract.Boosters[altController].Alts, userID)
+				contract.Boosters[altController].AltsIcons = append(contract.Boosters[altController].AltsIcons, newAltIcon)
+				contract.AltIcons = append(contract.AltIcons, newAltIcon)
+				contract.Boosters[userID].AltController = altController
+				rebuildAltList(contract)
+				/*
+					str := "Associated your `" + userID + "` alt with " + contract.Boosters[altController].Mention + "\n"
+					str += "> Use the Signup sink buttons to select your alt for sinks, these cycle through alts so you may need to press them multiple times.\n"
+					str += "> Use the " + boostIcon + " reaction to indicate when your main or alt(s) boost.\n"
+					str += "> Use the " + newAltIcon + " reaction to indicate when `" + userID + "` sends tokens."
+				*/
+				contract.buttonComponents = nil // reset button components
+				contract.mutex.Unlock()
+			}
+		}
+
 		// If the BoostBot is the creator, the first person joining becomes
 		// the coordinator
 		if contract.CreatorID[0] == config.DiscordAppID {
@@ -946,6 +968,7 @@ func JoinContract(s *discordgo.Session, guildID string, channelID string, userID
 		if err != nil {
 			return err
 		}
+
 	}
 
 	// test if userID in Boosters
@@ -1239,6 +1262,11 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 	// Edit the boost list in place
 	for _, loc := range contract.Location {
 		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
+
+		if contract.buttonComponents == nil {
+			addContractReactionsButtons(s, contract, loc.ChannelID, loc.ListMsgID)
+		}
+
 		// Full contract for speedrun
 		contentStr := DrawBoostList(s, contract)
 		msgedit.SetContent(contentStr)
