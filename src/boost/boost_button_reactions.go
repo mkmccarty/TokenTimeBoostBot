@@ -408,7 +408,14 @@ func addContractReactionsButtons(s *discordgo.Session, contract *Contract, chann
 		compVals["✅"] = CompMap{Emoji: "✅", Style: discordgo.SecondaryButton, CustomID: "rc_#check#"}
 		compVals["❓"] = CompMap{Emoji: "❓", Style: discordgo.SecondaryButton, CustomID: "rc_#help#"}
 		for i, el := range contract.AltIcons {
-			compVals[el] = CompMap{Emoji: el, Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("rc_#alt-%d#", i)}
+			name := ""
+			for _, booster := range contract.Boosters {
+				idx := slices.Index(booster.AltsIcons, el)
+				if idx != -1 {
+					name = booster.Alts[idx]
+				}
+			}
+			compVals[el] = CompMap{Emoji: el, Name: name, Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("rc_#alt-%d#", i)}
 		}
 		contract.buttonComponents = compVals
 	}
@@ -443,7 +450,7 @@ func addContractReactionsButtons(s *discordgo.Session, contract *Contract, chann
 
 			} else {
 				mComp = append(mComp, discordgo.Button{
-					//Label: "Send a Token",
+					Label: compVals[el].Name,
 					Emoji: &discordgo.ComponentEmoji{
 						Name: compVals[el].Emoji,
 						ID:   compVals[el].ID,
