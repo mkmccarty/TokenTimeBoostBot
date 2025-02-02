@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 var integerOneMinValue float64 = 1.0
@@ -821,24 +822,11 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 				str = "This farmer is not in the contract"
 			} else {
 				b := contract.Boosters[i.Member.User.ID]
-				newAltIcon := ""
 
-				// Create an alphabet slice of 🇦 to 🇿
-				alphabet := make([]string, 0)
-				for i := 'A'; i <= 'Z'; i++ {
-					alphabet = append(alphabet, string('🇦'+(i-'A')))
-				}
-				for _, char := range strings.ToLower(newAlt) {
-					// Only want alpha digits
-					if char < 'a' || char > 'z' {
-						continue
-					}
+				newAltIcon := findAltIcon(newAlt, contract.AltIcons)
 
-					newAltIcon = alphabet[char-'a']
-					if slices.Index(contract.AltIcons, newAltIcon) == -1 {
-						break
-					}
-				}
+				// Save remember this alt's owner so we can auto link next time
+				farmerstate.SetMiscSettingString(newAlt, "AltController", i.Member.User.ID)
 
 				b.Alts = append(b.Alts, newAlt)
 				b.AltsIcons = append(b.AltsIcons, newAltIcon)
@@ -864,6 +852,27 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 		&discordgo.WebhookParams{
 			Content: str},
 	)
+}
+
+func findAltIcon(newAlt string, altIcons []string) string {
+	altIcon := ""
+	// Create an alphabet slice of 🇦 to 🇿
+	alphabet := make([]string, 0)
+	for i := 'A'; i <= 'Z'; i++ {
+		alphabet = append(alphabet, string('🇦'+(i-'A')))
+	}
+	for _, char := range strings.ToLower(newAlt) {
+		// Only want alpha digits
+		if char < 'a' || char > 'z' {
+			continue
+		}
+
+		altIcon = alphabet[char-'a']
+		if slices.Index(altIcons, altIcon) == -1 {
+			break
+		}
+	}
+	return altIcon
 }
 
 func rebuildAltList(contract *Contract) {
