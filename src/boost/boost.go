@@ -113,6 +113,7 @@ var boostIcon = "🚀"         // For displaying
 type CompMap struct {
 	Emoji          string
 	ID             string
+	Name           string
 	Style          discordgo.ButtonStyle
 	CustomID       string
 	ComponentEmoji *discordgo.ComponentEmoji
