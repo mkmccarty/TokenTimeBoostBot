@@ -206,9 +206,11 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 			}
 
 			// Also send this for ACO
-			_, err = s.ChannelMessageSendComplex("1257340301438222401", &data)
-			if err != nil {
-				log.Print(err)
+			if !config.IsDevBot() {
+				_, err = s.ChannelMessageSendComplex("1257340301438222401", &data)
+				if err != nil {
+					log.Print(err)
+				}
 			}
 
 		}
