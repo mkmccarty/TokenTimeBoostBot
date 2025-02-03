@@ -138,6 +138,12 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	changed := true
 	c := cases.Title(language.Und)
 
+	notifyDiscordOfNewEgg := true
+
+	if len(ei.CustomEggMap) == 0 {
+		notifyDiscordOfNewEgg = false
+	}
+
 	// Look for new Custom Eggs
 	for _, customEgg := range periodicalsResponse.GetContracts().GetCustomEggs() {
 		var egg ei.EggIncCustomEgg
@@ -173,7 +179,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 			if ei.CustomEggMap[egg.ID].Proto == egg.Proto {
 				continue
 			}
-		} else {
+		} else if notifyDiscordOfNewEgg {
 			var builder strings.Builder
 			// Do we have an icon for this egg?
 			builder.WriteString(fmt.Sprintf("New Custom Egg Detected: %s", egg.Name))
@@ -195,6 +201,12 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 				},
 			}
 			_, err = s.ChannelMessageSendComplex(u.ID, &data)
+			if err != nil {
+				log.Print(err)
+			}
+
+			// Also send this for ACO
+			_, err = s.ChannelMessageSendComplex("1257340301438222401", &data)
 			if err != nil {
 				log.Print(err)
 			}
