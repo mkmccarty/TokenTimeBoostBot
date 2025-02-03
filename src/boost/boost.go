@@ -1070,6 +1070,7 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 		contract.Boosters[userID].AltsIcons = nil
 
 		rebuildAltList(contract)
+		contract.buttonComponents = nil
 		redraw = true
 	}
 	contract.Order = removeIndex(contract.Order, removalIndex)
@@ -1127,7 +1128,9 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 	if contract.BoostPosition != len(contract.Order) {
 		for _, loc := range contract.Location {
 			if redraw {
-				_ = RedrawBoostList(s, loc.GuildID, loc.ChannelID)
+				refreshBoostListMessage(s, contract)
+
+				//				_ = RedrawBoostList(s, loc.GuildID, loc.ChannelID)
 				continue
 			}
 			if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {

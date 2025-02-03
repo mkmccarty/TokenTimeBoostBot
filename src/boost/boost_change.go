@@ -839,11 +839,11 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 				str += "> Use the " + newAltIcon + " reaction to indicate when `" + newAlt + "` sends tokens."
 				contract.buttonComponents = nil // reset button components
 				defer saveData(Contracts)
-				if contract.State == ContractStateSignup {
-					refreshBoostListMessage(s, contract)
-				} else {
-					_ = RedrawBoostList(s, i.GuildID, i.ChannelID)
-				}
+				//if contract.State == ContractStateSignup {
+				refreshBoostListMessage(s, contract)
+				//} else {
+				//	_ = RedrawBoostList(s, i.GuildID, i.ChannelID)
+				//}
 			}
 		}
 	}
