@@ -226,14 +226,21 @@ func drawSpeedrunCRT(contract *Contract) string {
 			fmt.Fprintf(&builder, "### Final Kick Leg\n")
 			fmt.Fprintf(&builder, "- After this kick you can build up your farm as you would for boosting\n")
 		}
+		taskNum := 1
 		fmt.Fprintf(&builder, "## Tasks\n")
-		fmt.Fprintf(&builder, "1. Upgrade habs\n")
-		fmt.Fprintf(&builder, "2. Build up your farm to at least 20 chickens\n")
-		fmt.Fprintf(&builder, "3. Equip shiny artifact to force a server sync\n")
-		fmt.Fprintf(&builder, "4. Run chickens on all the other farms and react with :white_check_mark: after all runs\n")
+		fmt.Fprintf(&builder, "%d. Upgrade habs\n", taskNum)
+		taskNum++
+		fmt.Fprintf(&builder, "%d. Build up your farm to at least 20 chickens\n", taskNum)
+		taskNum++
+		fmt.Fprintf(&builder, "%d. Equip shiny artifact to force a server sync\n", taskNum)
+		taskNum++
 		if contract.Style&ContractFlagSelfRuns != 0 {
-			fmt.Fprintf(&builder, "5. **Run chickens on your own farm**\n")
+			if contract.SRData.Legs == contract.SRData.NoSelfRunLegs {
+				fmt.Fprintf(&builder, "%d. **Run chickens on your own farm**\n", taskNum)
+				taskNum++
+			}
 		}
+		fmt.Fprintf(&builder, "%d. Run chickens on all the other farms and react with :white_check_mark: after all runs\n", taskNum)
 
 		if contract.SRData.ChickenRunCheckMsgID != "" {
 			link := fmt.Sprintf("https://discordapp.com/channels/%s/%s/%s", contract.Location[0].GuildID, contract.Location[0].ChannelID, contract.SRData.ChickenRunCheckMsgID)
