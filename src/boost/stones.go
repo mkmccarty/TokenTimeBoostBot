@@ -396,7 +396,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	eiContract := ei.EggIncContractsAll[contractID]
 	skipArtifact := false
 
-	if coopStatus.GetCoopIdentifier() != coopID {
+	if !strings.HasSuffix(coopID, coopStatus.GetCoopIdentifier()) {
 		return "Invalid coop-id."
 	}
 	coopID = coopStatus.GetCoopIdentifier()
