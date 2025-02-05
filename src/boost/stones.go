@@ -824,7 +824,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			table.SetColumnAlignment([]int{
 				tablewriter.ALIGN_RIGHT,
 				tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
-				tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_LEFT})
+				tablewriter.ALIGN_LEFT})
 
 		}
 	}
