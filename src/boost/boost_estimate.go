@@ -243,7 +243,7 @@ func getContractDurationEstimate(contractEggsInSmallQ float64, numFarmers float6
 		time(hours) = 0.75 + Goal / (Coop_size * Rate)
 		Rate = MIN(16.633 * ship_col * ship_mod , 6.365 * ELR_mod * ELR_col * (1 + 0.17 * (Coop_size-1)) * 1.05 ^ MAX(0, MIN(9, 9 + (ship_mod * ship_col / ELR_mod * ELR_col) - (Coop_size-1) * 9 / (9 + (ship_mod * ship_col / ELR_mod * ELR_col)))))
 	*/
-	lowerRate := min(16.633*modShip*colShip, 6.365*modELR*colELR*(1.0+0.17*deflectorsOnFarmer)*math.Pow(1.05, max(0.0, min(9.0, 9.0+(modShip*colShip/modELR*colELR)-(deflectorsOnFarmer)*9.0/(9.0+(modShip*colShip/modELR*colELR))))))
+	lowerRate := min(16.633*modShip*colShip, 6.365*modELR*colELR*(1.0+0.17*deflectorsOnFarmer)*math.Pow(1.05, max(0.0, min(9.0, 9.0+((modShip*colShip)/(modELR*colELR))-(deflectorsOnFarmer)*9.0/(9.0+((modShip*colShip)/(modELR*colELR)))))))
 	estimateLower := 0.75 + contractEggsInSmallQ/(numFarmers*lowerRate)
 	estimateDurationLower := time.Duration(estimateLower * float64(time.Hour))
 
