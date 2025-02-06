@@ -315,6 +315,11 @@ func getStonesComponents(name string, page int, pageEnd int) []discordgo.Message
 					Style:    discordgo.SecondaryButton,
 					CustomID: fmt.Sprintf("fd_stones#%s", name),
 				},
+				discordgo.Button{
+					Label:    fmt.Sprintf("Refresh <t:%d:R>", time.Now().Unix()),
+					Style:    discordgo.SecondaryButton,
+					CustomID: fmt.Sprintf("fd_stones#%s#refresh", name),
+				},
 			},
 		},
 	}
@@ -1000,12 +1005,12 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		displayQ := fmt.Sprintf("%d", as.quantWant)
 		if as.quantWant == qStones {
-			displayQ = "*"
+			displayQ += "*"
 		}
 
 		displayT := fmt.Sprintf("%d", as.tachWant)
 		if as.tachWant == tStones {
-			displayT = "*"
+			displayT += "*"
 		}
 		if stoneBonusIncrease != 1.05 {
 			if notes != "" {
