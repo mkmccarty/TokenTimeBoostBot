@@ -1995,8 +1995,18 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		c.ModifierELR = 1.0
 		c.ModifierSR = 1.0
 		c.ModifierHabCap = 1.0
+		c.ModifierEarnings = 1.0
+		c.ModifierAwayEarnings = 1.0
+		c.ModifierVehicleCost = 1.0
+		c.ModifierHabCost = 1.0
+		c.ModifierResearchCost = 1.0
 		for _, mod := range s.GetModifiers() {
 			switch mod.GetDimension() {
+
+			case ei.GameModifier_EARNINGS:
+				c.ModifierEarnings = mod.GetValue()
+			case ei.GameModifier_AWAY_EARNINGS:
+				c.ModifierAwayEarnings = mod.GetValue()
 			case ei.GameModifier_INTERNAL_HATCHERY_RATE:
 				c.ModifierIHR = mod.GetValue()
 			case ei.GameModifier_EGG_LAYING_RATE:
@@ -2005,6 +2015,12 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 				c.ModifierSR = mod.GetValue()
 			case ei.GameModifier_HAB_CAPACITY:
 				c.ModifierHabCap = mod.GetValue()
+			case ei.GameModifier_VEHICLE_COST:
+				c.ModifierVehicleCost = mod.GetValue()
+			case ei.GameModifier_HAB_COST:
+				c.ModifierHabCost = mod.GetValue()
+			case ei.GameModifier_RESEARCH_COST:
+				c.ModifierResearchCost = mod.GetValue()
 			}
 		}
 		//		}
@@ -2014,6 +2030,11 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		c.Grade[grade].ModifierELR = c.ModifierELR
 		c.Grade[grade].ModifierSR = c.ModifierSR
 		c.Grade[grade].ModifierHabCap = c.ModifierHabCap
+		c.Grade[grade].ModifierEarnings = c.ModifierEarnings
+		c.Grade[grade].ModifierAwayEarnings = c.ModifierAwayEarnings
+		c.Grade[grade].ModifierVehicleCost = c.ModifierVehicleCost
+		c.Grade[grade].ModifierHabCost = c.ModifierHabCost
+		c.Grade[grade].ModifierResearchCost = c.ModifierResearchCost
 		c.Grade[grade].LengthInSeconds = c.LengthInSeconds
 
 		c.Grade[grade].EstimatedDuration, c.Grade[grade].EstimatedDurationLower = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
@@ -2035,6 +2056,11 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	}
 	// Duration estimate
 	if len(c.TargetAmount) != 0 {
+		/*
+			if hasModifier {
+				fmt.Printf("Coop Name: %s, ID: %s, Modifiers: IHR: %f, ELR: %f, SR: %f, HabCap: %f\n",
+					c.Name, c.ID, c.ModifierIHR, c.ModifierELR, c.ModifierSR, c.ModifierHabCap)
+			}*/
 		c.EstimatedDuration, c.EstimatedDurationLower = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
 			c.ModifierSR, c.ModifierELR, c.ModifierHabCap)
 	}
