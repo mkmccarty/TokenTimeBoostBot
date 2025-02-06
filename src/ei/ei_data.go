@@ -110,10 +110,15 @@ type ContractGrade struct {
 	EstimatedDurationLower time.Duration
 	//	EstimatedDurationShip      time.Duration
 
-	ModifierIHR    float64
-	ModifierELR    float64
-	ModifierSR     float64
-	ModifierHabCap float64
+	ModifierEarnings     float64
+	ModifierIHR          float64
+	ModifierELR          float64
+	ModifierSR           float64
+	ModifierHabCap       float64
+	ModifierAwayEarnings float64
+	ModifierVehicleCost  float64
+	ModifierResearchCost float64
+	ModifierHabCost      float64
 }
 type EggIncContract struct {
 	ID                        string `json:"id"`
@@ -135,10 +140,15 @@ type EggIncContract struct {
 	ContractDurationInDays    int
 	EstimatedDuration         time.Duration
 	EstimatedDurationLower    time.Duration
+	ModifierEarnings          float64
 	ModifierIHR               float64
 	ModifierELR               float64
 	ModifierSR                float64
 	ModifierHabCap            float64
+	ModifierAwayEarnings      float64
+	ModifierVehicleCost       float64
+	ModifierResearchCost      float64
+	ModifierHabCost           float64
 	StartTime                 time.Time
 	ExpirationTime            time.Time
 	ContractVersion           int // 1 = old, 2 = new

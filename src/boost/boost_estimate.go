@@ -77,13 +77,31 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			tokenStr, c.MinutesPerToken,
 			runStr, c.ChickenRuns, c.ChickenRunCooldownMinutes)
 		if c.ModifierSR != 1.0 && c.ModifierSR > 0.0 {
-			str += fmt.Sprintf(" / 🛻 %2.1fx", c.ModifierSR)
+			str += fmt.Sprintf(" / 🛻 %1.2fx", c.ModifierSR)
 		}
 		if c.ModifierELR != 1.0 && c.ModifierELR > 0.0 {
-			str += fmt.Sprintf(" / 🥚 %2.1fx", c.ModifierELR)
+			str += fmt.Sprintf(" / 🥚 %1.2fx", c.ModifierELR)
 		}
 		if c.ModifierHabCap != 1.0 && c.ModifierHabCap > 0.0 {
-			str += fmt.Sprintf(" / 🏠 %2.1fx", c.ModifierHabCap)
+			str += fmt.Sprintf(" / 🏠 %2.2fx", c.ModifierHabCap)
+		}
+		if c.ModifierEarnings != 1.0 && c.ModifierEarnings > 0.0 {
+			str += fmt.Sprintf(" / 💰 %2.2fx", c.ModifierEarnings)
+		}
+		if c.ModifierIHR != 1.0 && c.ModifierIHR > 0.0 {
+			str += fmt.Sprintf(" / 🐣 %2.2fx", c.ModifierIHR)
+		}
+		if c.ModifierAwayEarnings != 1.0 && c.ModifierAwayEarnings > 0.0 {
+			str += fmt.Sprintf(" / 🏝️💰 %2.2fx", c.ModifierAwayEarnings)
+		}
+		if c.ModifierVehicleCost != 1.0 && c.ModifierVehicleCost > 0.0 {
+			str += fmt.Sprintf(" / 🚗💲 %2.2fx", c.ModifierVehicleCost)
+		}
+		if c.ModifierResearchCost != 1.0 && c.ModifierResearchCost > 0.0 {
+			str += fmt.Sprintf(" / 📚💲 %2.2fx", c.ModifierResearchCost)
+		}
+		if c.ModifierHabCost != 1.0 && c.ModifierHabCost > 0.0 {
+			str += fmt.Sprintf(" / 🏠💲 %2.2fx", c.ModifierHabCost)
 		}
 		str += "\n"
 
@@ -206,15 +224,15 @@ func getContractDurationEstimate(contractEggsInSmallQ float64, numFarmers float6
 	colELR, colShip, colHab := ei.GetColleggtibleValues()
 	colELR *= colHab
 
-	coopSize := numFarmers - 1.0
+	deflectorsOnFarmer := numFarmers - 1.0
 
 	/*
 		UPPER ESTIMATE BOUND
 		time(hours) = 0.75 + Goal / (Coop_size * Rate)
-		Rate = MIN(15.841 * ship_mod , 6.365 * ELR_mod * (1 + 0.15 * Coop_size-1) * 1.05 ^ MAX(0, MIN(8, 8 + (ship_mod/ELR_mod) - (Coop_size-1) * 8 / (8 + (ship_mod/ELR_mod)))))
+		Rate = MIN(15.841 * ship_mod , 6.365 * ELR_mod * (1 + 0.15 * (Coop_size-1)) * 1.05 ^ MAX(0, MIN(8, 8 + (ship_mod/ELR_mod) - (Coop_size-1) * 8 / (8 + (ship_mod/ELR_mod)))))
 	*/
 
-	upperRate := min(15.841*modShip, 6.365*modELR*(1.0+0.15*coopSize)*math.Pow(1.05, max(0.0, min(8.0, 8.0+(modShip/modELR)-(coopSize)*8.0/(8.0+(modShip/modELR))))))
+	upperRate := min(15.841*modShip, 6.365*modELR*(1.0+0.15*deflectorsOnFarmer)*math.Pow(1.05, max(0.0, min(8.0, 8.0+(modShip/modELR)-(deflectorsOnFarmer)*8.0/(8.0+(modShip/modELR))))))
 	estimateUpper := 0.75 + contractEggsInSmallQ/(numFarmers*upperRate)
 	estimateDurationUpper := time.Duration(estimateUpper * float64(time.Hour))
 
@@ -222,11 +240,20 @@ func getContractDurationEstimate(contractEggsInSmallQ float64, numFarmers float6
 		LOWER ESTIMATE BOUND
 		Use maximum colleggtible modifiers
 		time(hours) = 0.75 + Goal / (Coop_size * Rate)
-		Rate = MIN(16.633 * ship_col * ship_mod , 6.365 * ELR_mod * ELR_col * (1 + 0.17 * Coop_size-1) * 1.05 ^ MAX(0, MIN(9, 9 + (ship_mod * ship_col / ELR_mod * ELR_col) - (Coop_size-1) * 9 / (9 + (ship_mod * ship_col / ELR_mod * ELR_col)))))
+		Rate = MIN(16.633 * ship_col * ship_mod , 6.365 * ELR_mod * ELR_col * (1 + 0.17 * (Coop_size-1)) * 1.05 ^ MAX(0, MIN(9, 9 + (ship_mod * ship_col / ELR_mod * ELR_col) - (Coop_size-1) * 9 / (9 + (ship_mod * ship_col / ELR_mod * ELR_col)))))
 	*/
-	lowerRate := min(16.663*modShip*colShip, 6.365*modELR*colELR*(1.0+0.17*coopSize)*math.Pow(1.05, max(0.0, min(9.0, 9.0+(modShip/modELR)-(coopSize)*9.0/(9.0+(modShip*colShip/modELR*colELR))))))
+	lowerRate := min(16.633*modShip*colShip, 6.365*modELR*colELR*(1.0+0.17*deflectorsOnFarmer)*math.Pow(1.05, max(0.0, min(9.0, 9.0+(modShip*colShip/modELR*colELR)-(deflectorsOnFarmer)*9.0/(9.0+(modShip*colShip/modELR*colELR))))))
 	estimateLower := 0.75 + contractEggsInSmallQ/(numFarmers*lowerRate)
 	estimateDurationLower := time.Duration(estimateLower * float64(time.Hour))
+
+	/*
+		if modShip == 1.25 {
+			log.Printf("\ncolELR: %v\ncolShip: %v\ncolHab: %v\n", colELR, colShip, colHab)
+
+			log.Printf("\nelrMOD: %v\nshipMod: %v\nupperboundRate %v\nupperboundHours %v\nupperboundSeconds %v\nupperBoundTimeString %v\n\nlowerboundRate %v\nlowerboundHours %v\nlowerboundSeconds %v\nlowerBoundTimeString %v\n",
+				modELR, modShip, upperRate, estimateUpper, estimateUpper*3600, estimateDurationUpper.String(),
+				lowerRate, estimateLower, estimateLower*3600, estimateDurationLower.String())
+		}*/
 
 	if estimateDurationUpper > contractDuration {
 		return contractDuration, contractDuration
