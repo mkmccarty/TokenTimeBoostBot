@@ -77,32 +77,33 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			tokenStr, c.MinutesPerToken,
 			runStr, c.ChickenRuns, c.ChickenRunCooldownMinutes)
 		if c.ModifierSR != 1.0 && c.ModifierSR > 0.0 {
-			str += fmt.Sprintf(" / 🛻 %1.2fx", c.ModifierSR)
+			str += fmt.Sprintf(" / 🛻 %1.3gx", c.ModifierSR)
 		}
 		if c.ModifierELR != 1.0 && c.ModifierELR > 0.0 {
-			str += fmt.Sprintf(" / 🥚 %1.2fx", c.ModifierELR)
+			str += fmt.Sprintf(" / 🥚 %1.3gx", c.ModifierELR)
 		}
 		if c.ModifierHabCap != 1.0 && c.ModifierHabCap > 0.0 {
-			str += fmt.Sprintf(" / 🏠 %2.2fx", c.ModifierHabCap)
+			str += fmt.Sprintf(" / 🏠 %1.3gx", c.ModifierHabCap)
 		}
 		if c.ModifierEarnings != 1.0 && c.ModifierEarnings > 0.0 {
-			str += fmt.Sprintf(" / 💰 %2.2fx", c.ModifierEarnings)
+			str += fmt.Sprintf(" / 💰 %1.3gx", c.ModifierEarnings)
 		}
 		if c.ModifierIHR != 1.0 && c.ModifierIHR > 0.0 {
-			str += fmt.Sprintf(" / 🐣 %2.2fx", c.ModifierIHR)
+			str += fmt.Sprintf(" / 🐣 %1.3gx", c.ModifierIHR)
 		}
 		if c.ModifierAwayEarnings != 1.0 && c.ModifierAwayEarnings > 0.0 {
-			str += fmt.Sprintf(" / 🏝️💰 %2.2fx", c.ModifierAwayEarnings)
+			str += fmt.Sprintf(" / 🏝️💰 %1.3gx", c.ModifierAwayEarnings)
 		}
 		if c.ModifierVehicleCost != 1.0 && c.ModifierVehicleCost > 0.0 {
-			str += fmt.Sprintf(" / 🚗💲 %2.2fx", c.ModifierVehicleCost)
+			str += fmt.Sprintf(" / 🚗💲 %1.3gx", c.ModifierVehicleCost)
 		}
 		if c.ModifierResearchCost != 1.0 && c.ModifierResearchCost > 0.0 {
-			str += fmt.Sprintf(" / 📚💲 %2.2fx", c.ModifierResearchCost)
+			str += fmt.Sprintf(" / 📚💲 %1.3gx", c.ModifierResearchCost)
 		}
 		if c.ModifierHabCost != 1.0 && c.ModifierHabCost > 0.0 {
-			str += fmt.Sprintf(" / 🏠💲 %2.2fx", c.ModifierHabCost)
+			str += fmt.Sprintf(" / 🏠💲 %1.3gx", c.ModifierHabCost)
 		}
+
 		str += "\n"
 
 		BTA := c.EstimatedDuration.Minutes() / float64(c.MinutesPerToken)
