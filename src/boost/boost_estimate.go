@@ -191,95 +191,43 @@ func getContractDurationEstimate(contractEggsInSmallQ float64, numFarmers float6
 
 	contractDuration := time.Duration(contractLengthInSeconds) * time.Second
 
-	/* Future ideas
-
-	- Colleggtibles increasing ELR or hab will Increase 6.365 base rate,
-	decrease the cap on useful deflectors in the deflector multiplier,
-	and decrease the number of "free deflectors" accounted for in the tachyon stone multiplier.
-	This may affect the slope of the linear approximation of stone swaps.
-
-	- Colleggtibles increasing shipping will increase the maximum shipping cap,
-	increase the cap on useful deflectors in the deflector multiplier,
-	and increase the number of "free deflectors" accounted for in the tachyon stone multiplier.
-	This may affect the slope of the linear approximation of stone swaps.
-
-	- If it becomes desirable to bound the estimate using higher-grade deflectors
-	this will affect the power of each deflector in the deflector multiplier and the
-	number of available stone slots in the tachyon stone multiplier as well as increase
-	the allowed shipping cap to account for the additional quantum stone.
-	*/
-
-	/* New Rev
-
-	I realized I was accounting for maximum useful deflectors in the overall shipping cap already so simplified that section considerably.
-
-	For future reference, the general equation for the number of tachyon stones used is given by
-	stones = slots + [maximum deflector% w/ all tachs] / [own deflector%] * shipping modifiers/ELR modifiers - deflectors * (slots / (slots + [maximum deflector% w/ all tachs] / [own deflector%] * shipping modifiers/ELR modifiers))
-	which has been simplified in both estimates to set [maximum deflector% w/ all tachs] / [own deflector%] = free external deflectors = 1. At a later date this simplification may prove to be a problem should we get a large imbalance in colleggtibles one way or the other.
-
-	*/
-
 	modELR := modifierELR * modifierHabCap
 	modShip := modifierSR
 
-	colELR, colShip, colHab := ei.GetColleggtibleValues()
-	colELR *= colHab
+	collectibleELR, colllectibleShip, colleggtibleHab := ei.GetColleggtibleValues()
+	collectibleELR *= colleggtibleHab
 
 	deflectorsOnFarmer := numFarmers - 1.0
 
-	/*
-		UPPER ESTIMATE BOUND
-		time(hours) = 0.75 + Goal / (Coop_size * Rate)
-		Rate = MIN(15.841 * ship_mod , 6.365 * ELR_mod * (1 + 0.15 * (Coop_size-1)) * 1.05 ^ MAX(0, MIN(8, 8 + (ship_mod/ELR_mod) - (Coop_size-1) * 8 / (8 + (ship_mod/ELR_mod)))))
-	*/
+	estimates := []struct {
+		slots          float64
+		deflectorBonus float64
+		colELR         float64
+		colShip        float64
+	}{
+		{
+			slots:          8.0,
+			deflectorBonus: 0.15,
+			colELR:         1.0,
+			colShip:        1.0,
+		},
+		{
+			slots:          9.0,
+			deflectorBonus: 0.17,
+			colELR:         collectibleELR,
+			colShip:        colllectibleShip,
+		},
+	}
+
 	var estimateDurationUpper time.Duration
 	var estimateDurationLower time.Duration
 
-	{
-		slots := 8.0
-		deflectorBonus := 0.15
-		baseELR := 3.772 * 1.35 * 1.25
-		baseShipping := 7.148 * 1.5
-		maxShipping := baseShipping * math.Pow(1.05, slots)
-		contractBaseELR := baseELR * modELR
-		contractShipCap := maxShipping * modShip
-		deflectorMultiplier := 1.0 + deflectorBonus*numFarmers
-		tachStones := slots + (modShip*1.0)/(modELR*1.0) - deflectorsOnFarmer*slots/(slots+(modShip*1.0)/(modELR*1.0))
-		tachBounded := max(0.0, min(slots, tachStones))
-		tachMultiplier := math.Pow(1.05, tachBounded)
-		contractELR := contractBaseELR * deflectorMultiplier * tachMultiplier
-		boundedELR := min(contractShipCap, contractELR)
-		estimate := 0.75 + contractEggsInSmallQ/(numFarmers*boundedELR)
+	for _, est := range estimates {
+		slots := est.slots
+		deflectorBonus := est.deflectorBonus
+		colELR := est.colELR
+		colShip := est.colShip
 
-		estimateDurationUpper = time.Duration(estimate * float64(time.Hour))
-
-		/*
-			if modShip == 1.25 {
-				fmt.Printf("contractBaseELR: %v\n", contractBaseELR)
-				fmt.Printf("contractShipCap: %v\n", contractShipCap)
-				fmt.Printf("deflectorMultiplier: %v\n", deflectorMultiplier)
-				fmt.Printf("slots: %v\n", slots)
-				fmt.Printf("tachStones: %v\n", tachStones)
-				fmt.Printf("tachBounded: %v\n", tachBounded)
-				fmt.Printf("tachMultiplier: %v\n", tachMultiplier)
-				fmt.Printf("contractELR: %v\n", contractELR)
-				fmt.Printf("boundedELR: %v\n", boundedELR)
-				fmt.Printf("estimateUpper: %v\n", estimateUpper)
-				fmt.Printf("estimateDurationUpper: %v\n", estimateDurationUpper)
-			}
-		*/
-	}
-
-	/*
-		LOWER ESTIMATE BOUND
-		Use maximum colleggtible modifiers
-		time(hours) = 0.75 + Goal / (Coop_size * Rate)
-		Rate = MIN(16.633 * ship_col * ship_mod , 6.365 * ELR_mod * ELR_col * (1 + 0.17 * (Coop_size-1)) * 1.05 ^ MAX(0, MIN(9, 9 + (ship_mod * ship_col / ELR_mod * ELR_col) - (Coop_size-1) * 9 / (9 + (ship_mod * ship_col / ELR_mod * ELR_col)))))
-																																	=B6+D6/D7-(D5-1)*B6/(B6+D6/D7)
-	*/
-	{
-		slots := 9.0
-		deflectorBonus := 0.17
 		baseELR := 3.772 * 1.35 * 1.25
 		baseShipping := 7.148 * 1.5 * colShip
 		maxShipping := baseShipping * math.Pow(1.05, slots)
@@ -293,37 +241,40 @@ func getContractDurationEstimate(contractEggsInSmallQ float64, numFarmers float6
 		boundedELR := min(contractShipCap, contractELR)
 		estimate := 0.75 + contractEggsInSmallQ/(numFarmers*boundedELR)
 
-		estimateDurationLower = time.Duration(estimate * float64(time.Hour))
+		if est.slots == 8.0 {
+			estimateDurationUpper = time.Duration(estimate * float64(time.Hour))
+		} else {
+			estimateDurationLower = time.Duration(estimate * float64(time.Hour))
+		}
 
 		/*
 			if modShip == 1.25 {
+				fmt.Printf("slots: %v\n", slots)
+				fmt.Printf("modELR: %v\n", modELR)
+				fmt.Printf("modShip: %v\n", modShip)
+				fmt.Printf("colELR: %v\n", colELR)
+				fmt.Printf("colShip: %v\n", colShip)
+				fmt.Printf("baseELR: %v\n", baseELR)
+				fmt.Printf("baseShipping: %v\n", baseShipping)
+				fmt.Printf("maxShipping: %v\n", maxShipping)
+
 				fmt.Printf("contractBaseELR: %v\n", contractBaseELR)
 				fmt.Printf("contractShipCap: %v\n", contractShipCap)
 				fmt.Printf("deflectorMultiplier: %v\n", deflectorMultiplier)
-				fmt.Printf("slots: %v\n", slots)
 				fmt.Printf("tachStones: %v\n", tachStones)
 				fmt.Printf("tachBounded: %v\n", tachBounded)
 				fmt.Printf("tachMultiplier: %v\n", tachMultiplier)
 				fmt.Printf("contractELR: %v\n", contractELR)
 				fmt.Printf("boundedELR: %v\n", boundedELR)
-				fmt.Printf("estimateUpper: %v\n", estimateUpper)
-				fmt.Printf("estimateDurationUpper: %v\n", estimateDurationLower)
+				if est.slots == 8.0 {
+					fmt.Printf("estimateUpper: %v\n", estimateDurationUpper)
+					fmt.Print("--------------------\n")
+				} else {
+					fmt.Printf("estimateUpper: %v\n", estimateDurationLower)
+				}
 			}
 		*/
 	}
-
-	//lowerRate := min(16.633*modShip*colShip, 6.365*modELR*colELR*(1.0+0.17*deflectorsOnFarmer)*math.Pow(1.05, max(0.0, min(9.0, (9.0+(modShip*colShip)/(modELR*colELR)-deflectorsOnFarmer)*9.0/(9.0+((modShip*colShip)/(modELR*colELR)))))))
-	//estimateLower := 0.75 + contractEggsInSmallQ/(numFarmers*lowerRate)
-	//estimateDurationLower := time.Duration(estimateLower * float64(time.Hour))
-
-	/*
-		if modShip == 1.25 {
-			log.Printf("\ncolELR: %v\ncolShip: %v\ncolHab: %v\n", colELR, colShip, colHab)
-
-			log.Printf("\nelrMOD: %v\nshipMod: %v\nupperboundRate %v\nupperboundHours %v\nupperboundSeconds %v\nupperBoundTimeString %v\n\nlowerboundRate %v\nlowerboundHours %v\nlowerboundSeconds %v\nlowerBoundTimeString %v\n",
-				modELR, modShip, upperRate, estimateUpper, estimateUpper*3600, estimateDurationUpper.String(),
-				lowerRate, estimateLower, estimateLower*3600, estimateDurationLower.String())
-		}*/
 
 	if estimateDurationUpper > contractDuration {
 		return contractDuration, contractDuration
