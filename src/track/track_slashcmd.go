@@ -293,6 +293,7 @@ func HandleTrackerEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			if err == nil {
 				t.StartTime = time.Unix(contracTime, 0)
 				t.EstimatedEndTime = t.StartTime.Add(t.DurationTime)
+				str += fmt.Sprintf("\nUpdate start time to <t:%d:R>", t.StartTime.Unix())
 			} else {
 				str = "Optionally enter a timestamp from [Discord Timestamp](https://discordtimestamp.com)"
 			}
