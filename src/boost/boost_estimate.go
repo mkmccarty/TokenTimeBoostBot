@@ -249,8 +249,9 @@ func getContractDurationEstimate(contractEggsInSmallQ float64, numFarmers float6
 		tachMultiplier := math.Pow(1.05, tachBounded)
 		contractELR := contractBaseELR * deflectorMultiplier * tachMultiplier
 		boundedELR := min(contractShipCap, contractELR)
-		estimateUpper := 0.75 + contractEggsInSmallQ/(numFarmers*boundedELR)
-		estimateDurationUpper = time.Duration(estimateUpper * float64(time.Hour))
+		estimate := 0.75 + contractEggsInSmallQ/(numFarmers*boundedELR)
+
+		estimateDurationUpper = time.Duration(estimate * float64(time.Hour))
 
 		/*
 			if modShip == 1.25 {
@@ -290,8 +291,9 @@ func getContractDurationEstimate(contractEggsInSmallQ float64, numFarmers float6
 		tachMultiplier := math.Pow(1.05, tachBounded)
 		contractELR := contractBaseELR * deflectorMultiplier * tachMultiplier
 		boundedELR := min(contractShipCap, contractELR)
-		estimateUpper := 0.75 + contractEggsInSmallQ/(numFarmers*boundedELR)
-		estimateDurationLower = time.Duration(estimateUpper * float64(time.Hour))
+		estimate := 0.75 + contractEggsInSmallQ/(numFarmers*boundedELR)
+
+		estimateDurationLower = time.Duration(estimate * float64(time.Hour))
 
 		/*
 			if modShip == 1.25 {
