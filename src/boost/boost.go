@@ -1244,6 +1244,7 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 	}
 
 	// Edit the boost list in place
+	comp := getContractReactionsComponents(contract)
 	for _, loc := range contract.Location {
 		if loc.GuildID == guildID && loc.ChannelID == channelID {
 			_ = s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
@@ -1252,10 +1253,11 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 			data.Content = DrawBoostList(s, contract)
 			data.AllowedMentions = &am
 			data.Flags = discordgo.MessageFlagsSuppressEmbeds
+			data.Components = comp
 			msg, err := s.ChannelMessageSendComplex(loc.ChannelID, &data)
 			if err == nil {
 				SetListMessageID(contract, loc.ChannelID, msg.ID)
-				addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
+				//				addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
 			}
 		}
 	}
@@ -1268,12 +1270,17 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
 
 		if contract.buttonComponents == nil {
-			addContractReactionsButtons(s, contract, loc.ChannelID, loc.ListMsgID)
+			comp := getContractReactionsComponents(contract)
+			if contract.State != ContractStateSignup {
+				msgedit.Components = &comp
+			}
+			//addContractReactionsButtons(s, contract, loc.ChannelID, loc.ListMsgID)
 		}
 
 		// Full contract for speedrun
 		contentStr := DrawBoostList(s, contract)
 		msgedit.SetContent(contentStr)
+
 		msgedit.Flags = discordgo.MessageFlagsSuppressEmbeds
 		msg, err := s.ChannelMessageEditComplex(msgedit)
 		if err == nil {
@@ -1324,6 +1331,8 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			data.Content = DrawBoostList(s, contract)
 			data.AllowedMentions = &am
 			data.Flags = discordgo.MessageFlagsSuppressEmbeds
+			comp := getContractReactionsComponents(contract)
+			data.Components = comp
 			msg, err = s.ChannelMessageSendComplex(loc.ChannelID, &data)
 			if err == nil {
 				SetListMessageID(contract, loc.ChannelID, msg.ID)
@@ -1341,7 +1350,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 
 		switch contract.State {
 		case ContractStateWaiting, ContractStateCRT, ContractStateBanker, ContractStateFastrun:
-			addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
+			//addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
 			if pingUsers {
 				if contract.State == ContractStateFastrun || contract.State == ContractStateBanker {
 					var name string
@@ -1374,7 +1383,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 				}
 			}
 		case ContractStateCompleted:
-			addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
+			//addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
 			t1 := contract.EndTime
 			t2 := contract.StartTime
 			duration := t1.Sub(t2)

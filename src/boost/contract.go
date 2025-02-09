@@ -569,13 +569,17 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		msgedit.SetContent(contentStr)
 
 		msgedit.Flags = discordgo.MessageFlagsSuppressEmbeds
+		if refreshBoostListComponents {
+			comp := getContractReactionsComponents(contract)
+			msgedit.Components = &comp
+		}
 		msg, err := s.ChannelMessageEditComplex(msgedit)
 		if err == nil {
 			loc.ListMsgID = msg.ID
 		}
-		if refreshBoostListComponents {
-			addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
-		}
+		//if refreshBoostListComponents {
+		//	addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
+		//}
 		if redrawSignup {
 
 			// Rebuild the signup message to disable the start button
