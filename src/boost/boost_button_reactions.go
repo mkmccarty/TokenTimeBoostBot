@@ -470,6 +470,7 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 	return out
 }
 
+/*
 func addContractReactionsButtons(s *discordgo.Session, contract *Contract, channelID string, messageID string) {
 	if contract.buttonComponents == nil {
 		compVals := make(map[string]CompMap, 14)
@@ -553,6 +554,7 @@ func addContractReactionsButtons(s *discordgo.Session, contract *Contract, chann
 		log.Println(err)
 	}
 }
+*/
 
 func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, []string) {
 
