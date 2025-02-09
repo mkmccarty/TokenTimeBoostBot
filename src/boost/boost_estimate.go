@@ -175,19 +175,8 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 }
 
+// getContractDurationEstimate returns two estimated durations of a contract based for great and well equiped artifact sets
 func getContractDurationEstimate(contractEggsInSmallQ float64, numFarmers float64, contractLengthInSeconds int, modifierSR float64, modifierELR float64, modifierHabCap float64) (time.Duration, time.Duration) {
-	//baseLaying := 3.772
-	//baseShipping := 7.148
-	// 6440.0 is the base Internal Hatchery Rate for a solo player with no boosts
-	//maxIHR := 6440.0
-	// 10% if the time is building the farm, so only credit for 90% of the time
-	//averagingMult := 1.0
-	// When the averingMult i 1.0 then we'll use the extraMinutes to add to the estimate
-	// The 5.8 is Solo production without stones times 0.9
-	//	soloIHRRate := maxIHR * averagingMult / 1000.0
-	//if modifierSR != 1.0 && modifierSR > 0.0 {
-	//soloIHRRate *= modifierSR
-	//}
 
 	contractDuration := time.Duration(contractLengthInSeconds) * time.Second
 
