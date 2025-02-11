@@ -484,6 +484,12 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		as.ihr = p.GetIhr()
 		as.sr = p.GetSr() // This is per second, convert to hour
 		as.sr *= 3600.0
+
+		// To simulate colleggtibles we can multiply these Production Params by a percentage.
+		//as.farmCapacity *= 1.05
+		//as.elr *= 1.05
+		//as.elr *= 1.05
+
 		//log.Print(fCapacity, elr, ihr, sr)
 
 		as.tachStones = make([]int, 3)
@@ -676,6 +682,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		// Compare production hab capacity and production hab population
 		if as.farmCapacity != habCapacity || habPopulation != as.farmPopulation {
 			log.Print("Farm Capacity and Farm Population do not match")
+
+			// Probably a colleggtible
 		}
 
 		//userLayRate *= 3600 // convert to hr rate
@@ -859,6 +867,24 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		privateFarm := false
 		// Determine Colleggtible Increase
+
+		collegHab := as.farmCapacity / (as.baseHab * (1 + as.gusset.percent/100.0))
+		// Check for hab size
+		if collegHab < 1.00 {
+			collegHab = 1.00
+		}
+		if collegHab > 1.000 {
+			//fmt.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
+			//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
+			//farmerstate.SetMiscSettingString(as.name, "coll-elr", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
+			val := fmt.Sprintf("%2.2f🛖", (collegHab-1.0)*100.0)
+			val = strings.Replace(val, ".00", "", -1)
+			val = strings.Replace(val, ".25", "¼", -1)
+			val = strings.Replace(val, ".5", "½", -1)
+			val = strings.Replace(val, ".75", "¾", -1)
+			as.collegg = append(as.collegg, val)
+		}
+
 		stoneLayRateNow := layingRate * (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
 		stoneLayRateNow *= math.Pow(1.02, float64(as.tachStones[ei.ArtifactSpec_INFERIOR]))
 		stoneLayRateNow *= math.Pow(1.04, float64(as.tachStones[ei.ArtifactSpec_LESSER]))
@@ -881,7 +907,12 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			//fmt.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
 			//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
 			//farmerstate.SetMiscSettingString(as.name, "coll-elr", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
-			collegELR = 1.00
+			val := fmt.Sprintf("%2.2f📦", (collegELR-1.0)*100.0)
+			val = strings.Replace(val, ".00", "", -1)
+			val = strings.Replace(val, ".25", "¼", -1)
+			val = strings.Replace(val, ".5", "½", -1)
+			val = strings.Replace(val, ".75", "¾", -1)
+			as.collegg = append(as.collegg, val)
 		}
 
 		stoneShipRateNow := shippingRate
@@ -897,7 +928,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		//fmt.Printf("Calc SR: %2.3f  param.Sr: %2.3f   Diff:%2.2f\n", stoneShipRateNow, as.sr/1e15, (as.sr/1e15)/stoneShipRateNow)
 		collegShip := (as.sr / 1e15) / stoneShipRateNow
 		if collegShip > 1.000 {
-			val := fmt.Sprintf("%2.2f🚚 ", (collegShip-1.0)*100.0)
+			val := fmt.Sprintf("%2.2f🚚", (collegShip-1.0)*100.0)
 			val = strings.Replace(val, ".00", "", -1)
 			val = strings.Replace(val, ".25", "¼", -1)
 			val = strings.Replace(val, ".5", "½", -1)
