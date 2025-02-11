@@ -235,7 +235,7 @@ func drawSpeedrunCRT(contract *Contract) string {
 		fmt.Fprintf(&builder, "%d. Equip shiny artifact to force a server sync\n", taskNum)
 		taskNum++
 		if contract.Style&ContractFlagSelfRuns != 0 {
-			if contract.SRData.Legs == contract.SRData.NoSelfRunLegs {
+			if contract.SRData.Legs != contract.SRData.NoSelfRunLegs {
 				fmt.Fprintf(&builder, "%d. **Run chickens on your own farm**\n", taskNum)
 				taskNum++
 			}
