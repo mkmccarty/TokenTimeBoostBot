@@ -37,13 +37,11 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 		log.Print(err)
 		return
 	}
-	reqDataEncoded := enc.EncodeToString(reqBin)
-
 	values := url.Values{}
+	reqDataEncoded := enc.EncodeToString(reqBin)
 	values.Set("data", string(reqDataEncoded))
 
 	response, err := http.PostForm(reqURL, values)
-
 	if err != nil {
 		log.Print(err)
 		return
