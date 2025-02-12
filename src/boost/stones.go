@@ -5,7 +5,6 @@ import (
 	"log"
 	"math"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -435,6 +434,21 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	var artifactSets []artifactSet
 
+	// Find maximum Colleggtibles
+	maxCollectibleELR, maxColllectibleShip, maxColleggtibleHab := ei.GetColleggtibleValues()
+	anyColleggtiblesToShow := false
+	maxCollectibleELR *= 1.05
+	colleggtibleStr := []string{}
+	if maxColllectibleShip > 1.0 {
+		colleggtibleStr = append(colleggtibleStr, fmt.Sprintf("🚚%2.4g%%", (maxColllectibleShip-1.0)*100))
+	}
+	if maxCollectibleELR > 1.0 {
+		colleggtibleStr = append(colleggtibleStr, fmt.Sprintf("📦%2.4g%%", (maxCollectibleELR-1.0)*100))
+	}
+	if maxColleggtibleHab > 1.0 {
+		colleggtibleStr = append(colleggtibleStr, fmt.Sprintf("🛖%2.4g%%", (maxColleggtibleHab-1.0)*100))
+	}
+
 	//baseLaying := 3.772
 	//baseShipping := 7.148
 
@@ -442,7 +456,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	var contributionRatePerSecond float64
 	setContractEstimate := true
 
-	alternateStr := ""
+	//alternateStr := ""
 
 	grade := int(coopStatus.GetGrade())
 
@@ -487,7 +501,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		// To simulate colleggtibles we can multiply these Production Params by a percentage.
 		//as.farmCapacity *= 1.05
-		//as.elr *= 1.05
+		//as.elr *= 1.03
 		//as.elr *= 1.05
 
 		//log.Print(fCapacity, elr, ihr, sr)
@@ -789,58 +803,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	}
 
 	table := tablewriter.NewWriter(&builder)
-	if soloName != "" {
-		table.SetHeader([]string{
-			"Name",
-			"T", "Q",
-			"ELR", "SR",
-			"Dfl", "Met", "Com", "Gus",
-			"🥚", "📓"})
-		table.SetColumnAlignment([]int{
-			tablewriter.ALIGN_RIGHT,
-			tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
-			tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
-			tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT,
-			tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_LEFT})
 
-	} else {
-		if details {
-			if !skipArtifact {
-				table.SetHeader([]string{
-					"Name",
-					"T", "Q",
-					"ELR", "SR",
-					"Dfl", "Met", "Com", "Gus",
-					"🥚", "📓"})
-
-				table.SetColumnAlignment([]int{
-					tablewriter.ALIGN_RIGHT,
-					tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
-					tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
-					tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT,
-					tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_LEFT})
-			} else {
-				table.SetHeader([]string{
-					"Name",
-					"T", "Q",
-					"ELR", "SR",
-					"🥚", "📓"})
-				table.SetColumnAlignment([]int{
-					tablewriter.ALIGN_RIGHT,
-					tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
-					tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
-					tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_LEFT})
-
-			}
-		} else {
-			table.SetHeader([]string{"Name", "T", "Q", "📓"})
-			table.SetColumnAlignment([]int{
-				tablewriter.ALIGN_RIGHT,
-				tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
-				tablewriter.ALIGN_LEFT})
-
-		}
-	}
 	table.SetCenterSeparator("")
 	table.SetColumnSeparator("")
 	table.SetRowSeparator("")
@@ -873,16 +836,22 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if collegHab < 1.00 {
 			collegHab = 1.00
 		}
-		if collegHab > 1.000 {
-			//fmt.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
-			//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
-			//farmerstate.SetMiscSettingString(as.name, "coll-elr", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
-			val := fmt.Sprintf("%2.2f🛖", (collegHab-1.0)*100.0)
-			val = strings.Replace(val, ".00", "", -1)
-			val = strings.Replace(val, ".25", "¼", -1)
-			val = strings.Replace(val, ".5", "½", -1)
-			val = strings.Replace(val, ".75", "¾", -1)
-			as.collegg = append(as.collegg, val)
+		if maxColleggtibleHab > 1.0 {
+			if collegHab > 1.000 && collegHab < maxColleggtibleHab {
+				//fmt.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
+				//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
+				//farmerstate.SetMiscSettingString(as.name, "coll-elr", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
+				val := fmt.Sprintf("%2.2f🛖", (collegHab-1.0)*100.0)
+				val = strings.Replace(val, ".00", "", -1)
+				val = strings.Replace(val, ".25", "¼", -1)
+				val = strings.Replace(val, ".5", "½", -1)
+				val = strings.Replace(val, ".75", "¾", -1)
+				as.collegg = append(as.collegg, val)
+				//anyColleggtiblesToShow = true
+			} else if collegHab <= 1.0 {
+				as.collegg = append(as.collegg, "🛖")
+				//anyColleggtiblesToShow = true
+			}
 		}
 
 		stoneLayRateNow := layingRate * (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
@@ -903,16 +872,22 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if collegELR < 1.00 {
 			collegELR = 1.00
 		}
-		if collegELR > 1.000 {
-			//fmt.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
-			//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
-			//farmerstate.SetMiscSettingString(as.name, "coll-elr", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
-			val := fmt.Sprintf("%2.2f📦", (collegELR-1.0)*100.0)
-			val = strings.Replace(val, ".00", "", -1)
-			val = strings.Replace(val, ".25", "¼", -1)
-			val = strings.Replace(val, ".5", "½", -1)
-			val = strings.Replace(val, ".75", "¾", -1)
-			as.collegg = append(as.collegg, val)
+		if maxCollectibleELR > 1.0 {
+			if collegELR > 1.000 && collegELR < maxCollectibleELR {
+				//fmt.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
+				//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
+				//farmerstate.SetMiscSettingString(as.name, "coll-elr", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
+				val := fmt.Sprintf("%2.2f📦", (collegELR-1.0)*100.0)
+				val = strings.Replace(val, ".00", "", -1)
+				val = strings.Replace(val, ".25", "¼", -1)
+				val = strings.Replace(val, ".5", "½", -1)
+				val = strings.Replace(val, ".75", "¾", -1)
+				as.collegg = append(as.collegg, val)
+				//anyColleggtiblesToShow = true
+			} else if collegELR <= 1.0 {
+				as.collegg = append(as.collegg, "📦")
+				//anyColleggtiblesToShow = true
+			}
 		}
 
 		stoneShipRateNow := shippingRate
@@ -927,13 +902,19 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 		//fmt.Printf("Calc SR: %2.3f  param.Sr: %2.3f   Diff:%2.2f\n", stoneShipRateNow, as.sr/1e15, (as.sr/1e15)/stoneShipRateNow)
 		collegShip := (as.sr / 1e15) / stoneShipRateNow
-		if collegShip > 1.000 {
-			val := fmt.Sprintf("%2.2f🚚", (collegShip-1.0)*100.0)
-			val = strings.Replace(val, ".00", "", -1)
-			val = strings.Replace(val, ".25", "¼", -1)
-			val = strings.Replace(val, ".5", "½", -1)
-			val = strings.Replace(val, ".75", "¾", -1)
-			as.collegg = append(as.collegg, val)
+		if maxColllectibleShip > 1.0 {
+			if collegShip > 1.000 && collegShip < maxColllectibleShip {
+				val := fmt.Sprintf("%2.2f🚚", (collegShip-1.0)*100.0)
+				val = strings.Replace(val, ".00", "", -1)
+				val = strings.Replace(val, ".25", "¼", -1)
+				val = strings.Replace(val, ".5", "½", -1)
+				val = strings.Replace(val, ".75", "¾", -1)
+				as.collegg = append(as.collegg, val)
+				//anyColleggtiblesToShow = true
+			} else if collegShip <= 1.0 {
+				as.collegg = append(as.collegg, "🚚")
+				//anyColleggtiblesToShow = true
+			}
 		}
 		/*
 			else{
@@ -998,11 +979,16 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 			stoneShipRate := shippingRate * math.Pow(1.05, float64((as.stones-i))) * collegShip
 
-			as.soloData = append(as.soloData, []string{as.name,
+			soloData := []string{as.name,
 				fmt.Sprintf("%d%s", i, ""), fmt.Sprintf("%d%s", as.stones-i, ""),
 				fmt.Sprintf("%2.3f", stoneLayRate), fmt.Sprintf("%2.3f", stoneShipRate),
-				as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
-				strings.Join(as.collegg, ","), strings.Join(as.note, ",")})
+				as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev}
+			if len(as.collegg) > 0 {
+				combined := append(as.collegg, as.note...)
+				as.note = combined
+			}
+			soloData = append(soloData, strings.Join(as.note, ","))
+			as.soloData = append(as.soloData, soloData)
 
 		}
 		var notes string
@@ -1060,6 +1046,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				table.Append(d)
 			}
 		} else {
+
+			statsLine := []string{as.name,
+				displayT, displayQ}
+
 			if details {
 				lBestELR := fmt.Sprintf("%2.3f", as.bestELR)
 				if as.bestELR < 1.0 {
@@ -1069,25 +1059,114 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				if as.bestSR < 1.0 {
 					lBestSR = fmt.Sprintf("%2.2fT", as.bestSR*1000.0)
 				}
+				// Details
+				statsLine = append(statsLine, lBestELR, lBestSR)
+
 				if !skipArtifact {
-					table.Append([]string{as.name,
-						displayT, displayQ,
-						lBestELR, lBestSR,
-						as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
-						strings.Join(as.collegg, ","), notes})
+					statsLine = append(statsLine, as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev)
+				}
+
+				//if anyColleggtiblesToShow {
+				//					statsLine = append(statsLine, strings.Join(as.collegg, ","))
+				//		}
+				if len(as.collegg) > 0 {
+					statsLine = append(statsLine, strings.Join(as.collegg, ",")+","+notes)
+				} else {
+					statsLine = append(statsLine, notes)
+				}
+			}
+			table.Append(statsLine)
+			/*
+				if details {
+					lBestELR := fmt.Sprintf("%2.3f", as.bestELR)
+					if as.bestELR < 1.0 {
+						lBestELR = fmt.Sprintf("%2.2fT", as.bestELR*1000.0)
+					}
+					lBestSR := fmt.Sprintf("%2.3f", as.bestSR)
+					if as.bestSR < 1.0 {
+						lBestSR = fmt.Sprintf("%2.2fT", as.bestSR*1000.0)
+					}
+
+					statsLine := []string{as.name,
+						displayT, displayQ}
+
+					// Details
+
+					statsLine = append(statsLine, lBestELR, lBestSR)
+
+					table.Append(statsLine)
+
+					if !skipArtifact {
+						table.Append([]string{as.name,
+							displayT, displayQ,
+							lBestELR, lBestSR,
+							as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
+							strings.Join(as.collegg, ","), notes})
+					} else {
+						table.Append([]string{as.name,
+							displayT, displayQ,
+							lBestELR, lBestSR,
+							strings.Join(as.collegg, ","), notes})
+					}
 				} else {
 					table.Append([]string{as.name,
 						displayT, displayQ,
-						lBestELR, lBestSR,
-						strings.Join(as.collegg, ","), notes})
+						notes})
+					alternateStr += as.name + ": T" + strconv.Itoa(as.tachWant) + " / Q" + strconv.Itoa(as.quantWant) + "\n"
 				}
-			} else {
-				table.Append([]string{as.name,
-					displayT, displayQ,
-					notes})
-				alternateStr += as.name + ": T" + strconv.Itoa(as.tachWant) + " / Q" + strconv.Itoa(as.quantWant) + "\n"
+			*/
+		}
+
+	}
+
+	// Now add headers since we know if we have all the columns
+	if soloName != "" {
+		headerStr := []string{"Name",
+			"T", "Q",
+			"ELR", "SR",
+			"Dfl", "Met", "Com", "Gus"}
+		alignment := []int{
+			tablewriter.ALIGN_RIGHT,
+			tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
+			tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
+			tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT}
+
+		if anyColleggtiblesToShow {
+			headerStr = append(headerStr, "🥚")
+			alignment = append(alignment, tablewriter.ALIGN_RIGHT)
+		}
+		headerStr = append(headerStr, "📓")
+		alignment = append(alignment, tablewriter.ALIGN_LEFT)
+
+		table.SetHeader(headerStr)
+		table.SetColumnAlignment(alignment)
+	} else {
+		headerStr := []string{"Name", "T", "Q"}
+		alignment := []int{
+			tablewriter.ALIGN_RIGHT,
+			tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER}
+
+		if details {
+			headerStr = append(headerStr, "ELR", "SR")
+			alignment = append(alignment, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER)
+
+			// Skip Artifacts
+			if !skipArtifact {
+				headerStr = append(headerStr, "Dfl", "Met", "Com", "Gus")
+				alignment = append(alignment, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT)
+			}
+
+			// Show Colleggtibles only if there are anyone not at max
+			if anyColleggtiblesToShow {
+				headerStr = append(headerStr, "🥚")
+				alignment = append(alignment, tablewriter.ALIGN_CENTER)
 			}
 		}
+		headerStr = append(headerStr, "📓")
+		alignment = append(alignment, tablewriter.ALIGN_LEFT)
+
+		table.SetHeader(headerStr)
+		table.SetColumnAlignment(alignment)
 
 	}
 
@@ -1132,7 +1211,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if eiContract.ModifierHabCap != 1.0 {
 			fmt.Fprintf(&builder, "Hab Capacity Modifier: %2.1fx\n", eiContract.ModifierHabCap)
 		}
-
 	}
 
 	fmt.Fprintf(&builder, "Coop Deflector Bonus: %2.0f%%\n", everyoneDeflectorPercent)
@@ -1162,6 +1240,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			habGlitch = " / 🤥 HabGlitch"
 		}
 		builder.WriteString("* Match / 🚩Research / 💎Missing / 🏠Filling(🐣CR) / 🧩Slotted / 🎣Away" + habGlitch + "\n")
+		builder.WriteString(fmt.Sprintf("Colleggtibles show when less than %s\n", strings.Join(colleggtibleStr, ", ")))
 	}
 
 	if dataTimestampStr != "" {
