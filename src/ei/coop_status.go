@@ -107,12 +107,12 @@ func GetCoopStatus(contractID string, coopID string) (*ContractCoopStatusRespons
 		if err != nil {
 			return nil, timestamp, dataTimestampStr, err
 		}
-		reqDataEncoded := enc.EncodeToString(reqBin)
 
 		values := url.Values{}
+		reqDataEncoded := enc.EncodeToString(reqBin)
 		values.Set("data", string(reqDataEncoded))
-		response, err := http.PostForm(reqURL, values)
 
+		response, err := http.PostForm(reqURL, values)
 		if err != nil {
 			log.Print(err)
 			return nil, timestamp, dataTimestampStr, err
