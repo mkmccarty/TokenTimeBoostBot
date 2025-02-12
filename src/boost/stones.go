@@ -437,7 +437,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	// Find maximum Colleggtibles
 	maxCollectibleELR, maxColllectibleShip, maxColleggtibleHab := ei.GetColleggtibleValues()
 	anyColleggtiblesToShow := false
-	maxCollectibleELR *= 1.05
 	colleggtibleStr := []string{}
 	if maxColllectibleShip > 1.0 {
 		colleggtibleStr = append(colleggtibleStr, fmt.Sprintf("🚚%2.4g%%", (maxColllectibleShip-1.0)*100))
