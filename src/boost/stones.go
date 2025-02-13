@@ -503,8 +503,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		//as.elr *= 1.03
 		//as.elr *= 1.05
 
-		//log.Print(fCapacity, elr, ihr, sr)
-
 		as.tachStones = make([]int, 3)
 		as.tachStonesPercent = 1.0
 		as.quantStones = make([]int, 3)
@@ -1068,54 +1066,14 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				//if anyColleggtiblesToShow {
 				//					statsLine = append(statsLine, strings.Join(as.collegg, ","))
 				//		}
-				if len(as.collegg) > 0 {
-					statsLine = append(statsLine, strings.Join(as.collegg, ",")+","+notes)
-				} else {
-					statsLine = append(statsLine, notes)
-				}
+			}
+			if len(as.collegg) > 0 {
+				statsLine = append(statsLine, strings.Join(as.collegg, ",")+","+notes)
+			} else {
+				statsLine = append(statsLine, notes)
 			}
 			table.Append(statsLine)
-			/*
-				if details {
-					lBestELR := fmt.Sprintf("%2.3f", as.bestELR)
-					if as.bestELR < 1.0 {
-						lBestELR = fmt.Sprintf("%2.2fT", as.bestELR*1000.0)
-					}
-					lBestSR := fmt.Sprintf("%2.3f", as.bestSR)
-					if as.bestSR < 1.0 {
-						lBestSR = fmt.Sprintf("%2.2fT", as.bestSR*1000.0)
-					}
-
-					statsLine := []string{as.name,
-						displayT, displayQ}
-
-					// Details
-
-					statsLine = append(statsLine, lBestELR, lBestSR)
-
-					table.Append(statsLine)
-
-					if !skipArtifact {
-						table.Append([]string{as.name,
-							displayT, displayQ,
-							lBestELR, lBestSR,
-							as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev,
-							strings.Join(as.collegg, ","), notes})
-					} else {
-						table.Append([]string{as.name,
-							displayT, displayQ,
-							lBestELR, lBestSR,
-							strings.Join(as.collegg, ","), notes})
-					}
-				} else {
-					table.Append([]string{as.name,
-						displayT, displayQ,
-						notes})
-					alternateStr += as.name + ": T" + strconv.Itoa(as.tachWant) + " / Q" + strconv.Itoa(as.quantWant) + "\n"
-				}
-			*/
 		}
-
 	}
 
 	// Now add headers since we know if we have all the columns
