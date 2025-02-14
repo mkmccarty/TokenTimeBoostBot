@@ -2090,6 +2090,7 @@ func updateContractWithEggIncData(contract *Contract) {
 			contract.QTargetAmount = cc.TargetAmountq
 			contract.ChickenRunCooldownMinutes = cc.ChickenRunCooldownMinutes
 			contract.MinutesPerToken = cc.MinutesPerToken
+			contract.Ultra = cc.Ultra
 			break
 		}
 	}
