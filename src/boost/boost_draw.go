@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -80,7 +81,10 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 			gg = ugg + (float64(contract.UltraCount) / float64(contract.CoopSize))
 			ggicon = " " + ei.GetBotEmojiMarkdown("ultra_gg")
 		}
-		estTPM := (float64(0.101332)*gg + 1/float64(contract.MinutesPerToken)) * float64(contract.CoopSize)
+
+		timerTokensSinceStart := math.Floor(float64(time.Since(contract.StartTime).Minutes()) / float64(float64(contract.MinutesPerToken)))
+
+		estTPM := (float64(0.101332)*gg + timerTokensSinceStart/time.Since(contract.StartTime).Minutes()) * float64(contract.CoopSize)
 		// How many single token entries are in the log, excludes banker sent tokens
 		singleTokenEntries := 0
 		for _, logEntry := range contract.TokenLog {
