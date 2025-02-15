@@ -88,6 +88,7 @@ var Version = "development"
 var debugLogging = true
 
 func init() {
+	version.Version = Version
 	log.Printf("Starting Discord Bot: %s (%s)\n", version.Release, Version)
 
 	// Read application parameters

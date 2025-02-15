@@ -16,6 +16,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/version"
 )
 
 const eggIncContractsURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json"
@@ -85,11 +86,15 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 	// then we have new data
 	if time.Since(lastContractUpdate) < 1*time.Minute || time.Since(lastEventUpdate) < 1*time.Minute {
 		str = "Updated Egg Inc contract data:.\n"
+		str += fmt.Sprintf("> Boost Bot version:  %s (%s)\n", version.Release, version.Version)
 		str += fmt.Sprintf("> Contracts: %s\n", lastContractUpdate.Format(time.RFC1123))
 		str += fmt.Sprintf("> Events: %s\n", lastEventUpdate.Format(time.RFC1123))
+		str += fmt.Sprintf("> Collegeggtibles: %d\n", len(ei.CustomEggMap))
 	} else {
+		str += fmt.Sprintf("> Boost Bot version:  %s (%s)\n", version.Release, version.Version)
 		str += fmt.Sprintf("> Contracts: %s\n", lastContractUpdate.Format(time.RFC1123))
 		str += fmt.Sprintf("> Events: %s\n", lastEventUpdate.Format(time.RFC1123))
+		str += fmt.Sprintf("> Collegeggtibles: %d\n", len(ei.CustomEggMap))
 	}
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
