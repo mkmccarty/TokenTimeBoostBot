@@ -62,6 +62,12 @@ func GetSlashStones(cmd string) *discordgo.ApplicationCommand {
 				Description: "Use Buff History for unequipped Deflector. Default is false.",
 				Required:    false,
 			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "private-reply",
+				Description: "Respond privately. Default is false.",
+				Required:    false,
+			},
 		},
 	}
 }
@@ -105,6 +111,11 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	useBuffHistory := false
 	if opt, ok := optionMap["use-buffhistory"]; ok {
 		useBuffHistory = opt.BoolValue()
+	}
+	if opt, ok := optionMap["private-reply"]; ok {
+		if opt.BoolValue() {
+			flags = discordgo.MessageFlagsEphemeral
+		}
 	}
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
