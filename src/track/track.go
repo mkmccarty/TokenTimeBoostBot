@@ -37,6 +37,7 @@ type tokenValue struct {
 	ContractID       string        // The contract ID
 	CoopID           string        // The coop ID
 	Linked           bool          // If the tracker is linked to channel contract
+	LinkedCompleted  bool          // If the linked tracker has a completed contract
 	LinkReceived     bool          // If linked, log the received tokens
 	ChannelMention   string        // The channel mention
 	StartTime        time.Time     // When Token Value time started
@@ -84,6 +85,7 @@ func init() {
 func resetTokenTracking(tv *tokenValue) {
 	tv.StartTime = time.Now()
 	tv.Linked = true
+	tv.LinkedCompleted = false
 	tv.LinkReceived = true
 	tv.Sent = nil
 	tv.Received = nil
@@ -498,7 +500,7 @@ func tokenTrackingTrack(userID string, name string, tokenSent int, tokenReceived
 	}
 	td.TokenDelta = td.SumValueSent - td.SumValueReceived
 
-	return getTokenTrackingEmbed(td, false), td.Linked
+	return getTokenTrackingEmbed(td, false), td.Linked && !td.LinkedCompleted
 }
 
 func getTokenValue(seconds float64, durationSeconds float64) float64 {
@@ -545,10 +547,10 @@ func UnlinkTokenTracking(s *discordgo.Session, channelID string) {
 	for userID, t := range Tokens {
 		for _, v := range t.Coop {
 			if v != nil && v.ChannelID == channelID && v.Linked {
-				Tokens[userID].Coop[v.Name].Linked = false
+				Tokens[userID].Coop[v.Name].LinkedCompleted = true
 				saveData(Tokens)
 				embed := getTokenTrackingEmbed(v, false)
-				comp := getTokenValComponents(v.Name, v.Linked)
+				comp := getTokenValComponents(v.Name, false)
 				m := discordgo.NewMessageEdit(v.UserChannelID, v.TokenMessageID)
 				m.Components = &comp
 				m.SetEmbeds(embed.Embeds)
@@ -570,7 +572,7 @@ func FarmedToken(s *discordgo.Session, channelID string, userID string) {
 			v.FarmedTokenTime = append(v.FarmedTokenTime, time.Now())
 			saveData(Tokens)
 			embed := getTokenTrackingEmbed(v, false)
-			comp := getTokenValComponents(v.Name, v.Linked)
+			comp := getTokenValComponents(v.Name, v.Linked && !v.LinkedCompleted)
 			m := discordgo.NewMessageEdit(v.UserChannelID, v.TokenMessageID)
 			m.Components = &comp
 			m.SetEmbeds(embed.Embeds)
@@ -630,7 +632,7 @@ func ContractTokenUpdate(s *discordgo.Session, channelID string, modifyToken *ei
 		track.TokenDelta = track.SumValueSent - track.SumValueReceived
 		saveData(Tokens)
 		embed := getTokenTrackingEmbed(track, false)
-		comp := getTokenValComponents(track.Name, track.Linked)
+		comp := getTokenValComponents(track.Name, track.Linked && !track.LinkedCompleted)
 		m := discordgo.NewMessageEdit(track.UserChannelID, track.TokenMessageID)
 		m.Components = &comp
 		m.SetEmbeds(embed.Embeds)
@@ -668,7 +670,7 @@ func ContractTokenMessage(s *discordgo.Session, channelID string, userID string,
 				v.TokenDelta = v.SumValueSent - v.SumValueReceived
 				saveData(Tokens)
 				embed := getTokenTrackingEmbed(v, false)
-				comp := getTokenValComponents(v.Name, v.Linked)
+				comp := getTokenValComponents(v.Name, v.Linked && !v.LinkedCompleted)
 				m := discordgo.NewMessageEdit(v.UserChannelID, v.TokenMessageID)
 				m.Components = &comp
 				m.SetEmbeds(embed.Embeds)
