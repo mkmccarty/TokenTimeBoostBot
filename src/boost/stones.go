@@ -1197,8 +1197,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			habGlitch = " / 🤥 HabGlitch"
 		}
 		builder.WriteString("* Match / 🚩Research / 💎Missing / 🏠Filling(🐣CR) / 🧩Slotted / 🎣Away" + habGlitch + "\n")
-		builder.WriteString(fmt.Sprintf("Colleggtibles show when less than %s\n", strings.Join(colleggtibleStr, ", ")))
 	}
+	builder.WriteString(fmt.Sprintf("Colleggtibles show when less than %s\n", strings.Join(colleggtibleStr, ", ")))
 
 	if dataTimestampStr != "" {
 		builder.WriteString(dataTimestampStr)
