@@ -81,7 +81,16 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 			ggicon = " " + ei.GetBotEmojiMarkdown("ultra_gg")
 		}
 		estTPM := (float64(0.101332)*gg + 1/float64(contract.MinutesPerToken)) * float64(contract.CoopSize)
-		outputStr += fmt.Sprintf("> %s/min: %2.2f   Expected %1.2f%s\n", contract.TokenStr, float64(len(contract.TokenLog))/time.Since(contract.StartTime).Minutes(), estTPM, ggicon)
+		// How many single token entries are in the log, excludes banker sent tokens
+		singleTokenEntries := 0
+		for _, logEntry := range contract.TokenLog {
+			if logEntry.Quantity == 1 {
+				singleTokenEntries++
+			}
+		}
+		// Save this into the contract
+		contract.TokensPerMinute = float64(singleTokenEntries) / time.Since(contract.StartTime).Minutes()
+		outputStr += fmt.Sprintf("> %s/min: %2.2f   Expected %1.2f%s\n", contract.TokenStr, contract.TokensPerMinute, estTPM, ggicon)
 	}
 
 	switch contract.State {
@@ -366,7 +375,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		t2 := contract.StartTime
 		duration := t1.Sub(t2)
 		outputStr += "\n"
-		outputStr += fmt.Sprintf("Contract boosting complete in %s!!\n", duration.Round(time.Second))
+		outputStr += fmt.Sprintf("Contract boosting complete in %s with a rate of %2.3g %s/min\n", duration.Round(time.Second), contract.TokensPerMinute, contract.TokenStr)
 
 		sinkID := contract.Banker.CurrentBanker
 		if sinkID != "" {
