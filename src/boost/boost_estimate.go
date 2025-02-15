@@ -222,7 +222,7 @@ func getContractDurationEstimate(contractEggsInSmallQ float64, numFarmers float6
 		maxShipping := baseShipping * math.Pow(1.05, slots)
 		contractBaseELR := baseELR * modELR
 		contractShipCap := maxShipping * modShip
-		deflectorMultiplier := 1.0 + deflectorBonus*numFarmers
+		deflectorMultiplier := 1.0 + deflectorBonus*deflectorsOnFarmer
 		tachStones := slots + ((modShip * colShip) / (modELR * colELR)) - deflectorsOnFarmer*slots/(slots+(modShip*colShip)/(modELR*colELR))
 		tachBounded := max(0.0, min(slots, tachStones))
 		tachMultiplier := math.Pow(1.05, tachBounded)
