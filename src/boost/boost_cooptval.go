@@ -137,9 +137,15 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			&discordgo.WebhookParams{
 				Content: builder.String(),
 			})
+		if err != nil {
+			fmt.Println(err)
+		}
 		if err == nil {
 			contract.CoopTokenValueMsgID = msg.ID
-			_ = s.ChannelMessagePin(i.ChannelID, msg.ID)
+			err = s.ChannelMessagePin(i.ChannelID, msg.ID)
+			if err != nil {
+				fmt.Println(err)
+			}
 		}
 	}
 }
