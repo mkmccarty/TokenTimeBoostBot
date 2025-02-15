@@ -260,6 +260,7 @@ type Contract struct {
 	SRData              SpeedrunData
 	Banker              BankerInfo // Banker for the contract
 	TokenLog            []ei.TokenUnitLog
+	TokensPerMinute     float64
 	CalcOperations      int
 	CalcOperationTime   time.Time
 	CoopTokenValueMsgID string
