@@ -114,7 +114,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 	if opt, ok := optionMap["private-reply"]; ok {
 		if opt.BoolValue() {
-			flags = discordgo.MessageFlagsEphemeral
+			flags |= discordgo.MessageFlagsEphemeral
 		}
 	}
 

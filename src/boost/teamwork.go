@@ -49,6 +49,12 @@ func GetSlashTeamworkEval(cmd string) *discordgo.ApplicationCommand {
 				Description: "Your coop-id",
 				Required:    false,
 			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "public-reply",
+				Description: "Respond publicly. Default is false.",
+				Required:    false,
+			},
 		},
 	}
 }
@@ -57,13 +63,7 @@ func GetSlashTeamworkEval(cmd string) *discordgo.ApplicationCommand {
 func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var builder strings.Builder
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
+	flags := discordgo.MessageFlagsEphemeral
 
 	var userID string
 	if i.GuildID != "" {
@@ -98,6 +98,21 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		coopID = strings.ToLower(opt.StringValue())
 		coopID = strings.Replace(coopID, " ", "", -1)
 	}
+	if opt, ok := optionMap["public-reply"]; ok {
+		if opt.BoolValue() {
+			flags &= ^discordgo.MessageFlagsEphemeral
+			builder.WriteString("Public Reply Enabled\n")
+		}
+	}
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing request...",
+			Flags:   flags,
+		},
+	})
+
 	// Unser contractID and coopID means we want the Boost Bot contract
 	if contractID == "" || coopID == "" {
 		contract := FindContract(i.ChannelID)
