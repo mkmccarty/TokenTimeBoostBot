@@ -102,7 +102,7 @@ func decode(chars string) uint64 {
 }
 
 // Chunk16 converts a string of numbers into chunks of length 16, and encodes each using base62.
-func Chunk16(x string) string {
+func chunk16(x string) string {
 	dataEncoded62 := ""
 	if len(x) < 16 {
 		return encode(uint64(parseInt(x)))
@@ -119,7 +119,7 @@ func Chunk16(x string) string {
 }
 
 // Unchunk16 does the exact opposite of Chunk16.
-func Unchunk16(dataEncoded62 string) string {
+func unchunk16(dataEncoded62 string) string {
 	x := ""
 	inputLength := 9
 	if len(dataEncoded62) < 10 {
@@ -198,7 +198,7 @@ func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, 
 		itemsData[8] = "00"
 	}
 	itemsData[9] = "01" // DeflectorSelect for All Deflectors
-	base62encoded := Chunk16(strings.Join(itemsData, ""))
+	base62encoded := chunk16(strings.Join(itemsData, ""))
 
 	return link + version + base64encoded + "=" + base62encoded
 }
