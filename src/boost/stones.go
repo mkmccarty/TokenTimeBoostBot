@@ -1396,7 +1396,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	fmt.Fprintf(&builder, "Coop Deflector Bonus: %2.0f%%\n", everyoneDeflectorPercent)
 	if soloName == "" {
-		fmt.Fprint(&builder, "**T**achyon & **Q**uantum columns show optimal quantity.\n")
+		fmt.Fprintf(&builder, "%s & %s show optimal quantity.\n", ei.GetBotEmojiMarkdown("afx_tachyon_stone_4"), ei.GetBotEmojiMarkdown("afx_quantum_stone_4"))
 		if !details {
 			fmt.Fprint(&builder, "Only showing farmers needing to swap stones.\n")
 		}
