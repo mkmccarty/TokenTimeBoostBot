@@ -1293,7 +1293,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			}
 
 			field = append(field, &discordgo.MessageEmbedField{
-				Name:   fmt.Sprintf("%s", safeName),
+				Name:   safeName,
 				Value:  tileBuilder.String(),
 				Inline: true,
 			})
