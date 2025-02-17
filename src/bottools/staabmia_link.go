@@ -13,32 +13,32 @@ import (
 // Taken from https://srsandbox-staabmia.netlify.app/scriptsStoneCalc.js
 
 var metroIndexMap = map[string]string{
-	"T4L":      "00",
-	"T4E":      "01",
-	"T4R":      "02",
-	"T4C":      "03",
-	"T3E":      "04",
-	"3 Slot":   "05",
-	"T3R":      "06",
-	"T3C":      "07",
-	"T2R":      "08",
-	"T2C":      "09",
-	"T1C":      "10",
-	"T4L SIAB": "11",
-	"T4E SIAB": "12",
-	"T4R SIAB": "13",
-	"Empty":    "14",
+	"T4L Metro": "00",
+	"T4E Metro": "01",
+	"T4R Metro": "02",
+	"T4C Metro": "03",
+	"T3E Metro": "04",
+	"3 Slot":    "05",
+	"T3R Metro": "06",
+	"T3C Metro": "07",
+	"T2R Metro": "08",
+	"T2C Metro": "09",
+	"T1C Metro": "10",
+	"T4L SIAB":  "11",
+	"T4E SIAB":  "12",
+	"T4R SIAB":  "13",
+	"Empty":     "14",
 }
 
 var compassIndexMap = map[string]string{
-	"T4L":      "00",
-	"T4E":      "01",
-	"T4R":      "02",
-	"T4C":      "03",
-	"T3R":      "04",
-	"T3C":      "05",
-	"T2C":      "06",
-	"T1C":      "07",
+	"T4L Comp": "00",
+	"T4E Comp": "01",
+	"T4R Comp": "02",
+	"T4C Comp": "03",
+	"T3R Comp": "04",
+	"T3C Comp": "05",
+	"T2C Comp": "06",
+	"T1C Comp": "07",
 	"3 Slot":   "08",
 	"T4L SIAB": "09",
 	"T4E SIAB": "10",
@@ -47,32 +47,32 @@ var compassIndexMap = map[string]string{
 }
 
 var gussetIndexMap = map[string]string{
-	"T4L":      "00",
-	"T4E":      "01",
-	"T2E":      "02",
-	"3 Slot":   "03",
-	"T4C":      "04",
-	"T3R":      "05",
-	"T3C":      "06",
-	"T2C":      "07",
-	"T1C":      "08",
-	"T4L SIAB": "09",
-	"T4E SIAB": "10",
-	"T4R SIAB": "11",
-	"Empty":    "12",
+	"T4L Gusset": "00",
+	"T4E Gusset": "01",
+	"T2E Gusset": "02",
+	"3 Slot":     "03",
+	"T4C Gusset": "04",
+	"T3R Gusset": "05",
+	"T3C Gusset": "06",
+	"T2C Gusset": "07",
+	"T1C Gusset": "08",
+	"T4L SIAB":   "09",
+	"T4E SIAB":   "10",
+	"T4R SIAB":   "11",
+	"Empty":      "12",
 }
 
 var deflectorIndexMap = map[string]string{
-	"T4L":    "00",
-	"T4E":    "01",
-	"T4R":    "02",
-	"T4C":    "03",
-	"T3R":    "04",
-	"T3C":    "05",
-	"T2C":    "06",
-	"T1C":    "07",
-	"3 Slot": "08",
-	"Empty":  "09",
+	"T4L Defl.": "00",
+	"T4E Defl.": "01",
+	"T4R Defl.": "02",
+	"T4C Defl.": "03",
+	"T3R Defl.": "04",
+	"T3C Defl.": "05",
+	"T2C Defl.": "06",
+	"T1C Defl.": "07",
+	"3 Slot":    "08",
+	"Empty":     "09",
 }
 
 var base62 = struct {
@@ -142,7 +142,7 @@ func parseInt(s string) uint64 {
 }
 
 // GetStaabmiaLink returns a link to the Staabia calculator.
-func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, modifierMult float64, coopDeflectorBonus int, deflectorSlot string, metroSlot string, compassSlot string, gussetSlot string, shippingRate float64) string {
+func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, modifierMult float64, coopDeflectorBonus int, artifacts []string, shippingRate float64) string {
 	link := "https://srsandbox-staabmia.netlify.app/stone-calc?data="
 	version := "v-4"
 	itemsToSweep := []string{"Padding", "DarkMode", "Metro", "Comp", "Gusset", "Defl", "ShipColleggtibles", "ShipColleggtibles2", "Modifiers", "DeflectorSelect"}
@@ -160,10 +160,73 @@ func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, 
 		itemsData[1] = "1" // Dark Mode
 	}
 
-	itemsData[2] = metroIndexMap[metroSlot]         // Metro
-	itemsData[3] = compassIndexMap[compassSlot]     // Comp
-	itemsData[4] = gussetIndexMap[gussetSlot]       // Gusset
-	itemsData[5] = deflectorIndexMap[deflectorSlot] // Defl
+	// Find our slot data for the common types
+	siabSlot := -1
+	stoneSlots := 0
+
+	for i, artifact := range artifacts {
+		if strings.Contains(artifact, "Metro") {
+			itemsData[2] = metroIndexMap[artifact]
+		} else if strings.Contains(artifact, "Comp") {
+			itemsData[3] = compassIndexMap[artifact]
+		} else if strings.Contains(artifact, "Gusset") {
+			itemsData[4] = gussetIndexMap[artifact]
+		} else if strings.Contains(artifact, "Defl") {
+			itemsData[5] = deflectorIndexMap[artifact]
+		} else if strings.Contains(artifact, "SIAB") {
+			siabSlot = i
+		} else if strings.Contains(artifact, "Slot") {
+			stoneSlots++
+		}
+	}
+	// Handle "Empty" slots
+	for i := 2; i <= 5; i++ {
+		if itemsData[i] == "" {
+			// Empty slot, replace it with the SIAB slot if it exists
+			if siabSlot != -1 {
+				switch i {
+				case 2:
+					itemsData[2] = metroIndexMap[artifacts[siabSlot]]
+				case 3:
+					itemsData[3] = compassIndexMap[artifacts[siabSlot]]
+				case 4:
+					itemsData[4] = gussetIndexMap[artifacts[siabSlot]]
+				case 5:
+					itemsData[5] = deflectorIndexMap[artifacts[siabSlot]]
+				}
+				siabSlot = -1
+			} else if stoneSlots > 0 {
+				switch i {
+				case 2:
+					itemsData[2] = metroIndexMap["3 Slot"]
+				case 3:
+					itemsData[3] = compassIndexMap["3 Slot"]
+				case 4:
+					itemsData[4] = gussetIndexMap["3 Slot"]
+				case 5:
+					itemsData[5] = deflectorIndexMap["3 Slot"]
+				}
+				stoneSlots--
+			} else {
+				// Empty slot, replace it with the last stone slot
+				switch i {
+				case 2:
+					itemsData[2] = metroIndexMap["Empty"]
+				case 3:
+					itemsData[3] = compassIndexMap["Empty"]
+				case 4:
+					itemsData[4] = gussetIndexMap["Empty"]
+				case 5:
+					itemsData[5] = deflectorIndexMap["Empty"]
+				}
+			}
+		}
+	}
+
+	//itemsData[2] = metroIndexMap[metroSlot]         // Metro
+	//itemsData[3] = compassIndexMap[compassSlot]     // Comp
+	//itemsData[4] = gussetIndexMap[gussetSlot]       // Gusset
+	//itemsData[5] = deflectorIndexMap[deflectorSlot] // Defl
 
 	// Determine the combination of multipliers for shippingRate
 	multipliers := []float64{1.0, 1.01, 1.02, 1.03, 1.05}
@@ -180,7 +243,7 @@ func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, 
 			break
 		}
 		for j := 0; j < len(multipliers); j++ {
-			fmt.Printf("%f %f %f %f\n", multipliers[i], multipliers[j], (multipliers[i] * multipliers[j]), shippingRate)
+			//fmt.Printf("%f %f %f %f\n", multipliers[i], multipliers[j], (multipliers[i] * multipliers[j]), shippingRate)
 			if math.Abs(multipliers[i]*multipliers[j]-shippingRate) < 1e-9 {
 				itemsData[6] = multiplierMap[multipliers[i]] // ShipColleggtibles
 				itemsData[7] = multiplierMap[multipliers[j]] // ShipColleggtibles2
@@ -189,6 +252,7 @@ func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, 
 		}
 	}
 
+	itemsData[8] = "00" // Default this to unset
 	switch modifierType {
 	case ei.GameModifier_EGG_LAYING_RATE:
 		itemsData[8] = "01"
