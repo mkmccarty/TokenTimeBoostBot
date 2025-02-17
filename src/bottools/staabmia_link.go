@@ -93,6 +93,7 @@ func encode(integer uint64) string {
 	return string(s)
 }
 
+/*
 func decode(chars string) uint64 {
 	var result uint64
 	for i, c := range chars {
@@ -100,6 +101,7 @@ func decode(chars string) uint64 {
 	}
 	return result
 }
+*/
 
 // Chunk16 converts a string of numbers into chunks of length 16, and encodes each using base62.
 func chunk16(x string) string {
@@ -118,6 +120,7 @@ func chunk16(x string) string {
 	return dataEncoded62
 }
 
+/*
 // Unchunk16 does the exact opposite of Chunk16.
 func unchunk16(dataEncoded62 string) string {
 	x := ""
@@ -134,6 +137,7 @@ func unchunk16(dataEncoded62 string) string {
 	x += strconv.FormatUint(decode(tmp), 10)[1:]
 	return x
 }
+*/
 
 // parseInt converts a string to an integer.
 func parseInt(s string) uint64 {

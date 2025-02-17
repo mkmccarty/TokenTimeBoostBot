@@ -212,11 +212,14 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 			flags += discordgo.MessageFlagsEphemeral
 		}
 
-		s.FollowupMessageCreate(i.Interaction, true,
+		_, err := s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
 				Content: fmt.Sprintf("## Staabmia's Stone Calculator Links\n%s", cache.url),
 				Flags:   flags,
 			})
+		if err != nil {
+			log.Println(err)
+		}
 		cache.LinkTime = time.Now().Add(1 * time.Minute)
 		stonesCacheMap[xid] = cache
 		return
@@ -445,8 +448,8 @@ type artifactSet struct {
 	soloData       [][]string
 	staabArtifacts []string
 	colleggSR      float64
-	colleggELR     float64
-	colleggHab     float64
+	//colleggELR     float64
+	//colleggHab     float64
 }
 
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
