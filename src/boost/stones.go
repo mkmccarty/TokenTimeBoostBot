@@ -1255,7 +1255,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			if len(as.collegg) > 0 {
 				fmt.Fprintf(&tileBuilder, "🥚: %s\n", strings.Join(as.collegg, ","))
 			}
-			if len(as.note) > 0 {
+			if len(notes) > 0 {
 				fmt.Fprintf(&tileBuilder, "📓: %s\n", notes)
 			}
 
