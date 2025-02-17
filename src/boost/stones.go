@@ -283,19 +283,6 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		//exists = false
 	}
 
-	if toggle {
-		cache.displayTiles = !cache.displayTiles
-		stonesCacheMap[cache.xid] = cache
-	}
-
-	// if Refresh this should be the previous page
-	if refresh || toggle {
-		cache.page = cache.page - 1
-		if cache.page < 0 {
-			cache.page = 0
-		}
-	}
-
 	if !exists {
 		str := "The stones data has expired. Please re-run the command."
 		comp := []discordgo.MessageComponent{}
@@ -316,6 +303,19 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 			}
 		})
 		return
+	}
+
+	if toggle {
+		cache.displayTiles = !cache.displayTiles
+		stonesCacheMap[cache.xid] = cache
+	}
+
+	// if Refresh this should be the previous page
+	if refresh || toggle {
+		cache.page = cache.page - 1
+		if cache.page < 0 {
+			cache.page = 0
+		}
 	}
 
 	itemaPerPage := 9
@@ -445,14 +445,14 @@ func getStonesComponents(name string, page int, pageEnd int) []discordgo.Message
 			Style:    discordgo.SecondaryButton,
 			CustomID: fmt.Sprintf("fd_stones#%s#refresh", name),
 		})
-
-	buttons = append(buttons,
-		discordgo.Button{
-			Label:    "Tile/Table",
-			Style:    discordgo.SecondaryButton,
-			CustomID: fmt.Sprintf("fd_stones#%s#toggle", name),
-		})
-
+	/*
+		buttons = append(buttons,
+			discordgo.Button{
+				Label:    "Tile/Table",
+				Style:    discordgo.SecondaryButton,
+				CustomID: fmt.Sprintf("fd_stones#%s#toggle", name),
+			})
+	*/
 	buttons = append(buttons,
 		discordgo.Button{
 			Label:    "staabmia links",
