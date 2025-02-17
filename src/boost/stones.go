@@ -204,7 +204,7 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 
 	if exists && links && cache.url != "" {
 
-		if time.Now().Before(cache.LinkTime) {
+		if time.Now().Before(cache.LinkTime) && len(cache.urlPages) == 1 {
 			return
 		}
 		flags := discordgo.MessageFlagsSupressEmbeds
@@ -212,13 +212,37 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 			flags += discordgo.MessageFlagsEphemeral
 		}
 
+		if len(cache.urlPages) == 0 {
+			var pageBuilder strings.Builder
+			var currentPageSize int
+
+			for _, line := range strings.Split(cache.url, "\n") {
+				lineSize := len(line) + 1 // +1 for the newline character
+				if currentPageSize+lineSize > 1800 {
+					cache.urlPages = append(cache.urlPages, pageBuilder.String())
+					pageBuilder.Reset()
+					currentPageSize = 0
+				}
+				pageBuilder.WriteString(line + "\n")
+				currentPageSize += lineSize
+			}
+
+			if pageBuilder.Len() > 0 {
+				cache.urlPages = append(cache.urlPages, pageBuilder.String())
+			}
+		}
+
 		_, err := s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
-				Content: fmt.Sprintf("## Staabmia's Stone Calculator Links\n%s", cache.url),
+				Content: fmt.Sprintf("## Staabmia's Stone Calculator Links (%d/%d)\n%s", cache.urlPage+1, len(cache.urlPages), cache.urlPages[cache.urlPage]),
 				Flags:   flags,
 			})
 		if err != nil {
 			log.Println(err)
+		}
+		cache.urlPage++
+		if cache.urlPage >= len(cache.urlPages) {
+			cache.urlPage = 0
 		}
 		cache.LinkTime = time.Now().Add(1 * time.Minute)
 		stonesCacheMap[xid] = cache
@@ -396,6 +420,8 @@ type stonesCache struct {
 	soloName            string
 	useBuffHistory      bool
 	url                 string
+	urlPage             int
+	urlPages            []string
 	private             bool
 	LinkTime            time.Time
 }
