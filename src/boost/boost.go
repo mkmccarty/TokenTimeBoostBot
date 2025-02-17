@@ -1807,6 +1807,13 @@ func reorderBoosters(contract *Contract) {
 					}
 					continue
 				}
+			} else if contract.Banker.SinkBoostPosition == SinkBoostFollowOrder {
+				if el == contract.Banker.BoostingSinkUserID {
+					if i == contract.BoostPosition && contract.Boosters[el].BoostState == BoostStateTokenTime {
+						// If this is the current booster, reset it to unboosed
+						contract.Boosters[el].BoostState = BoostStateUnboosted
+					}
+				}
 			}
 
 			if contract.Boosters[el].BoostState == BoostStateBoosted {
