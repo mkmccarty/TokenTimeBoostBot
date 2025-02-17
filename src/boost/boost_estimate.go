@@ -124,15 +124,15 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 		/*
 			upperEstEmotes := fmt.Sprintf("%s%s%s%s",
-				ei.GetBotEmojiMarkdown("afx_tachyon_deflector_4"),
-				ei.GetBotEmojiMarkdown("MT4La"),
-				ei.GetBotEmojiMarkdown("CT4La"),
-				ei.GetBotEmojiMarkdown("GT4La"))
+				ei.GetBotEmojiMarkdown("defl_T4C"),
+				ei.GetBotEmojiMarkdown("metr_T4L"),
+				ei.GetBotEmojiMarkdown("comp_T4L"),
+				ei.GetBotEmojiMarkdown("gusset_T4L"))
 			lowerEstEmotes := fmt.Sprintf("%s%s%s%s%s%s",
-				ei.GetBotEmojiMarkdown("DT4La"),
-				ei.GetBotEmojiMarkdown("MT4La"),
-				ei.GetBotEmojiMarkdown("CT4La"),
-				ei.GetBotEmojiMarkdown("GT4La"),
+				ei.GetBotEmojiMarkdown("defl_T4L"),
+				ei.GetBotEmojiMarkdown("metr_T4L"),
+				ei.GetBotEmojiMarkdown("comp_T4L"),
+				ei.GetBotEmojiMarkdown("gusset_T4L"),
 				ei.GetBotEmojiMarkdown("egg_carbonfiber"),
 				ei.GetBotEmojiMarkdown("egg_pumpkin"))
 		*/

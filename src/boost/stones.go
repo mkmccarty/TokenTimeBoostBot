@@ -45,9 +45,9 @@ func GetSlashStones(cmd string) *discordgo.ApplicationCommand {
 				Required:    false,
 			},
 			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "solo-report-name",
-				Description: "egg-inc game name for solo report",
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "tiled",
+				Description: "Display using embedded tiles. Default is false.",
 				Required:    false,
 			},
 			{
@@ -58,14 +58,21 @@ func GetSlashStones(cmd string) *discordgo.ApplicationCommand {
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "use-buffhistory",
-				Description: "Use Buff History for unequipped Deflector. Default is false.",
+				Name:        "private-reply",
+				Description: "Respond privately. Default is false.",
 				Required:    false,
 			},
 			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "solo-report-name",
+				Description: "egg-inc game name for solo report",
+				Required:    false,
+			},
+
+			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "private-reply",
-				Description: "Respond privately. Default is false.",
+				Name:        "use-buffhistory",
+				Description: "Use Buff History for unequipped Deflector. Default is false.",
 				Required:    false,
 			},
 		},
@@ -80,6 +87,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	privateReply := false
 	flags := discordgo.MessageFlags(0)
 	details := false
+	useTiles := false
 
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
@@ -117,6 +125,9 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			flags |= discordgo.MessageFlagsEphemeral
 		}
 	}
+	if opt, ok := optionMap["tiled"]; ok {
+		useTiles = opt.BoolValue()
+	}
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -141,7 +152,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		coopID = strings.ToLower(contract.CoopID)
 	}
 
-	s1, urls := DownloadCoopStatusStones(contractID, coopID, details, soloName, useBuffHistory)
+	s1, urls, tiles := DownloadCoopStatusStones(contractID, coopID, details, soloName, useBuffHistory)
 
 	/*
 		// This bit of code is when the message is short
@@ -157,7 +168,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			return
 		}
 	*/
-	cache := buildStonesCache(s1, urls)
+	cache := buildStonesCache(s1, urls, tiles)
 	// Fill in our calling parameters
 	cache.contractID = contractID
 	cache.coopID = coopID
@@ -165,12 +176,13 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	cache.soloName = soloName
 	cache.private = privateReply
 	cache.useBuffHistory = useBuffHistory
+	cache.displayTiles = useTiles
 
 	stonesCacheMap[cache.xid] = cache
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
 
-	sendStonesPage(s, i, true, cache.xid, false, false)
+	sendStonesPage(s, i, true, cache.xid, false, false, false)
 
 	// Traverse stonesCacheMap and delete expired entries
 	for key, cache := range stonesCacheMap {
@@ -181,7 +193,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 }
 
 // buildStonesCache will build a cache of the stones data
-func buildStonesCache(s string, url string) stonesCache {
+func buildStonesCache(s string, url string, tiles []*discordgo.MessageEmbedField) stonesCache {
 	// Split string by "```" characters into a header, body and footer
 	split := strings.Split(s, "```")
 
@@ -196,10 +208,10 @@ func buildStonesCache(s string, url string) stonesCache {
 	tableHeader := table[0] + "\n"
 	table = table[1:]
 
-	return stonesCache{xid: xid.New().String(), header: split[0], footer: split[2], tableHeader: tableHeader, table: table, page: 0, pages: len(table) / 10, expirationTimestamp: time.Now().Add(1 * time.Minute), url: url}
+	return stonesCache{xid: xid.New().String(), header: split[0], footer: split[2], tableHeader: tableHeader, table: table, page: 0, pages: len(table) / 10, expirationTimestamp: time.Now().Add(1 * time.Minute), url: url, tiles: tiles}
 }
 
-func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMessage bool, xid string, refresh bool, links bool) {
+func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMessage bool, xid string, refresh bool, links bool, toggle bool) {
 	cache, exists := stonesCacheMap[xid]
 
 	if exists && links && cache.url != "" {
@@ -252,8 +264,8 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 
 	if exists && (refresh || cache.expirationTimestamp.Before(time.Now())) {
 
-		s1, urls := DownloadCoopStatusStones(cache.contractID, cache.coopID, cache.details, cache.soloName, cache.useBuffHistory)
-		newCache := buildStonesCache(s1, urls)
+		s1, urls, tiles := DownloadCoopStatusStones(cache.contractID, cache.coopID, cache.details, cache.soloName, cache.useBuffHistory)
+		newCache := buildStonesCache(s1, urls, tiles)
 
 		newCache.private = cache.private
 		newCache.xid = cache.xid
@@ -263,11 +275,25 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		newCache.soloName = cache.soloName
 		newCache.useBuffHistory = cache.useBuffHistory
 		newCache.page = cache.page
+		newCache.displayTiles = cache.displayTiles
 		cache = newCache
 		stonesCacheMap[cache.xid] = newCache
 
 		//delete(stonesCacheMap, xid)
 		//exists = false
+	}
+
+	if toggle {
+		cache.displayTiles = !cache.displayTiles
+		stonesCacheMap[cache.xid] = cache
+	}
+
+	// if Refresh this should be the previous page
+	if refresh || toggle {
+		cache.page = cache.page - 1
+		if cache.page < 0 {
+			cache.page = 0
+		}
 	}
 
 	if !exists {
@@ -292,27 +318,51 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		return
 	}
 
-	if cache.page*10 >= len(cache.table) {
+	itemaPerPage := 9
+
+	if cache.page*itemaPerPage >= len(cache.table) {
 		cache.page = 0
 	}
 
+	var flags discordgo.MessageFlags
+
+	field := []*discordgo.MessageEmbedField{}
+	var embed []*discordgo.MessageEmbed
+
 	page := cache.page
 	var builder strings.Builder
-	builder.WriteString(cache.header)
-	builder.WriteString("```")
-	builder.WriteString(cache.tableHeader)
 
-	start := page * 10
-	end := start + 10
+	start := page * itemaPerPage
+	end := start + itemaPerPage
 	if end > len(cache.table) {
 		end = len(cache.table)
 	}
-	for _, line := range cache.table[start:end] {
-		builder.WriteString(line + "\n")
-	}
 
-	builder.WriteString("```")
-	builder.WriteString(cache.footer)
+	if !cache.displayTiles {
+		flags |= discordgo.MessageFlagsSuppressEmbeds
+		builder.WriteString(cache.header)
+		builder.WriteString("```")
+		builder.WriteString(cache.tableHeader)
+
+		for _, line := range cache.table[start:end] {
+			builder.WriteString(line + "\n")
+		}
+
+		builder.WriteString("```")
+		builder.WriteString(cache.footer)
+	} else {
+
+		field = append(field, cache.tiles[start:end]...)
+
+		embed = []*discordgo.MessageEmbed{{
+			Type:        discordgo.EmbedTypeRich,
+			Title:       "Stones Report",
+			Description: cache.header,
+			Fields:      field,
+			Footer:      &discordgo.MessageEmbedFooter{Text: cache.footer},
+		}}
+
+	}
 
 	cache.page = page + 1
 
@@ -320,8 +370,9 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		msg, err := s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
 				Content:    builder.String(),
-				Flags:      discordgo.MessageFlagsSupressEmbeds,
+				Flags:      flags,
 				Components: getStonesComponents(cache.xid, page, cache.pages),
+				Embeds:     embed,
 			})
 		if err != nil {
 			log.Println(err)
@@ -335,6 +386,7 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		d2 := discordgo.WebhookEdit{
 			Content:    &str,
 			Components: &comp,
+			Embeds:     &embed,
 		}
 
 		msg, err := s.FollowupMessageEdit(i.Interaction, i.Message.ID, &d2)
@@ -351,6 +403,7 @@ func HandleStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// cs_#Name # cs_#ID # HASH
 	refresh := false
 	links := false
+	toggle := false
 	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
 
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -369,7 +422,10 @@ func HandleStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if len(reaction) == 3 && reaction[2] == "links" {
 		links = true
 	}
-	sendStonesPage(s, i, false, reaction[1], refresh, links)
+	if len(reaction) == 3 && reaction[2] == "toggle" {
+		toggle = true
+	}
+	sendStonesPage(s, i, false, reaction[1], refresh, links, toggle)
 }
 
 // getTokenValComponents returns the components for the token value
@@ -392,6 +448,13 @@ func getStonesComponents(name string, page int, pageEnd int) []discordgo.Message
 
 	buttons = append(buttons,
 		discordgo.Button{
+			Label:    "Tile/Table",
+			Style:    discordgo.SecondaryButton,
+			CustomID: fmt.Sprintf("fd_stones#%s#toggle", name),
+		})
+
+	buttons = append(buttons,
+		discordgo.Button{
 			Label:    "staabmia links",
 			Style:    discordgo.SecondaryButton,
 			CustomID: fmt.Sprintf("fd_stones#%s#links", name),
@@ -407,6 +470,7 @@ func getStonesComponents(name string, page int, pageEnd int) []discordgo.Message
 type stonesCache struct {
 	xid                 string
 	msgID               string
+	displayTiles        bool
 	header              string
 	footer              string
 	tableHeader         string
@@ -424,6 +488,7 @@ type stonesCache struct {
 	urlPages            []string
 	private             bool
 	LinkTime            time.Time
+	tiles               []*discordgo.MessageEmbedField
 }
 
 var stonesCacheMap = make(map[string]stonesCache)
@@ -474,16 +539,19 @@ type artifactSet struct {
 	soloData       [][]string
 	staabArtifacts []string
 	colleggSR      float64
+	artifactSlots  []string // Name of artifacts in each slot
 	//colleggELR     float64
 	//colleggHab     float64
 }
 
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
-func DownloadCoopStatusStones(contractID string, coopID string, details bool, soloName string, useBuffHistory bool) (string, string) {
+func DownloadCoopStatusStones(contractID string, coopID string, details bool, soloName string, useBuffHistory bool) (string, string, []*discordgo.MessageEmbedField) {
 	var builderURL strings.Builder
+	var field []*discordgo.MessageEmbedField
+
 	coopStatus, _, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID)
 	if err != nil {
-		return err.Error(), ""
+		return err.Error(), "", field
 	}
 	var builder strings.Builder
 	eiContract := ei.EggIncContractsAll[contractID]
@@ -505,7 +573,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	skipArtifact := false
 
 	if !strings.HasSuffix(coopID, coopStatus.GetCoopIdentifier()) {
-		return "Invalid coop-id.", ""
+		return "Invalid coop-id.", "", field
 	}
 	coopID = coopStatus.GetCoopIdentifier()
 
@@ -820,6 +888,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 
 		as.staabArtifacts = make([]string, 4)
+		as.artifactSlots = make([]string, 4)
 
 		for i, artifact := range fi.GetEquippedArtifacts() {
 			spec := artifact.GetSpec()
@@ -830,6 +899,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				as.missingStones = true
 				//as.note = append(as.note, fmt.Sprintf("%s %d/%d slots used", ei.ArtifactSpec_Name_name[int32(spec.GetName())], len(artifact.GetStones()), numStones))
 			}
+
+			as.artifactSlots[i] = fmt.Sprintf("%s%s", ei.ShortArtifactName[int32(spec.GetName())], strType)
 
 			switch spec.GetName() {
 			case ei.ArtifactSpec_TACHYON_DEFLECTOR:
@@ -1165,18 +1236,33 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			}
 		} else {
 
+			lBestELR := fmt.Sprintf("%2.3f", as.bestELR)
+			if as.bestELR < 1.0 {
+				lBestELR = fmt.Sprintf("%2.2fT", as.bestELR*1000.0)
+			}
+			lBestSR := fmt.Sprintf("%2.3f", as.bestSR)
+			if as.bestSR < 1.0 {
+				lBestSR = fmt.Sprintf("%2.2fT", as.bestSR*1000.0)
+			}
+
+			// Build tile info
+			var tileBuilder strings.Builder
+			for _, c := range as.artifactSlots {
+				fmt.Fprintf(&tileBuilder, "%s", ei.GetBotEmojiMarkdown(c))
+			}
+			fmt.Fprintf(&tileBuilder, "\n**Want:**\n> %s%s\n> %s%s\n", ei.GetBotEmojiMarkdown("afx_tachyon_stone_4"), displayT, ei.GetBotEmojiMarkdown("afx_quantum_stone_4"), displayQ)
+			fmt.Fprintf(&tileBuilder, "**ELR:** %2.3f\n**SR:** %2.3f\n", as.bestELR, as.bestSR)
+			if len(as.collegg) > 0 {
+				fmt.Fprintf(&tileBuilder, "🥚: %s\n", strings.Join(as.collegg, ","))
+			}
+			if len(as.note) > 0 {
+				fmt.Fprintf(&tileBuilder, "📓: %s\n", notes)
+			}
+
 			statsLine := []string{as.name,
 				displayT, displayQ}
 
 			if details {
-				lBestELR := fmt.Sprintf("%2.3f", as.bestELR)
-				if as.bestELR < 1.0 {
-					lBestELR = fmt.Sprintf("%2.2fT", as.bestELR*1000.0)
-				}
-				lBestSR := fmt.Sprintf("%2.3f", as.bestSR)
-				if as.bestSR < 1.0 {
-					lBestSR = fmt.Sprintf("%2.2fT", as.bestSR*1000.0)
-				}
 				// Details
 				statsLine = append(statsLine, lBestELR, lBestSR)
 
@@ -1197,8 +1283,20 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 			if as.name != "[departed]" {
 				url := bottools.GetStaabmiaLink(true, dimension, rate, int(everyoneDeflectorPercent), as.staabArtifacts, as.colleggSR)
-				builderURL.WriteString(fmt.Sprintf("🔗[%s](%s)\n", as.name, url))
+				builderURL.WriteString(fmt.Sprintf("🔗[%s](%s)\n", as.nameRaw, url))
+				fmt.Fprintf(&tileBuilder, "🔗[Stone Calc](%s)", url)
 			}
+
+			safeName := as.nameRaw
+			if strings.HasPrefix(safeName, ">") {
+				safeName = "\\" + safeName
+			}
+
+			field = append(field, &discordgo.MessageEmbedField{
+				Name:   safeName,
+				Value:  tileBuilder.String(),
+				Inline: true,
+			})
 		}
 	}
 
@@ -1330,5 +1428,5 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		builder.WriteString(dataTimestampStr)
 	}
 
-	return builder.String(), builderURL.String()
+	return builder.String(), builderURL.String(), field
 }
