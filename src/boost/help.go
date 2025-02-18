@@ -48,11 +48,9 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 
 		// No contract, show help for creating a contract
 		// Anyone can do this so just give the basic instructions
-		str := bottools.GetFormattedCommand("contract")
-		str += `
-		> * **contract-id** : Select from dropdown of contracts.
-		> * **coop-id** : Coop id
-		`
+		str := fmt.Sprintf(">>> %s\n", bottools.GetFormattedCommand("contract"))
+		str += fmt.Sprint("* **contract-id** : Select from dropdown of contracts.\n")
+		str += fmt.Sprint("* **coop-id** : Coop id")
 
 		field = append(field, &discordgo.MessageEmbedField{
 			Name:   "CREATE CONTRACT",
@@ -68,21 +66,15 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 		if contract.State == ContractStateSignup {
 
 			// Speedrun info
-			speedRunStr := fmt.Sprintf(`__**%s**__  (runs from contract data, Banker style, sink boosts first)
-			> * **contract-starter** : Sink during CRT & boosting. 
-			>  * If farmer using an alt as the sink, use the farmer's name as sink.
-			__**%s**__
-			> * After %s, a farmer with an alt can use this to swap in their alt as the contract-starter sink.
-			__**%s**__
-			> * Set the planned start time for the contract.
+			speedRunStr := fmt.Sprintf(`
+			> * Use %s to bring up the contract settings.
+			> * Use %s to set the planned start time for the contract.
 			`,
-				bottools.GetFormattedCommand("speedrun"),
-				bottools.GetFormattedCommand("link-alternate"),
-				bottools.GetFormattedCommand("speedrun"),
+				bottools.GetFormattedCommand("contract-settings"),
 				bottools.GetFormattedCommand("change-planned-start"))
 
 			field = append(field, &discordgo.MessageEmbedField{
-				Name:   "MODIFY CONTRACT TO SPEEDRUN",
+				Name:   "Basic Contract Info",
 				Value:  speedRunStr,
 				Inline: false,
 			})
@@ -99,29 +91,24 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 		}
 
 		// Important commands for contract creators
-		str := fmt.Sprintf(`> %s : Add a farmer to the contract.
-		> %s : Remove a booster from the contract.
-		> %s : Alter aspects of a running contract
-		> * *contract-id* : Change the contract-id.
-		> * *coop-id* : Change the coop-id.
-		> %s : Change the ping role to something else.
-		> %s : Move a single booster to a different position.
-		> %s : Redraw the Boost List message.
-		`,
-			bottools.GetFormattedCommand("join-contract"),
-			bottools.GetFormattedCommand("prune"),
-			bottools.GetFormattedCommand("change"),
-			bottools.GetFormattedCommand("change-ping-role"),
-			bottools.GetFormattedCommand("change-one-booster"),
-			bottools.GetFormattedCommand("bump"))
+		var strBuilder strings.Builder
+		fmt.Fprintf(&strBuilder, ">>> %s : Add a farmer to the contract (don't use a mention for guest/alt).\n", bottools.GetFormattedCommand("join-contract"))
+		fmt.Fprintf(&strBuilder, "%s : Remove a booster from the contract.\n", bottools.GetFormattedCommand("prune"))
+		fmt.Fprintf(&strBuilder, "%s : Alter aspects of a running contract\n", bottools.GetFormattedCommand("change"))
+		fmt.Fprintf(&strBuilder, "* *contract-id* : Change the contract-id.\n")
+		fmt.Fprintf(&strBuilder, "* *coop-id* : Change the coop-id.\n")
+		fmt.Fprintf(&strBuilder, "%s : Change the ping role to something else.\n", bottools.GetFormattedCommand("change-ping-role"))
+		fmt.Fprintf(&strBuilder, "%s : Move a single booster to a different position.\n", bottools.GetFormattedCommand("change-one-booster"))
+		fmt.Fprintf(&strBuilder, "%s : Redraw the Boost List message.\n", bottools.GetFormattedCommand("bump"))
 
-		if len(str) > 900 {
-			str = str[:900]
+		str := strBuilder.String()
+		if len(str) >= 1000 {
+			str = str[:1000]
 		}
 
 		field = append(field, &discordgo.MessageEmbedField{
 			Name:   "COORDINATOR COMMANDS",
-			Value:  str,
+			Value:  strBuilder.String(),
 			Inline: false,
 		})
 	}
@@ -143,12 +130,16 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 
 		// Basics for those Boosting
 		boosterStr := fmt.Sprintf(`
-	> %s : Display what the bot knows about your token values.
-	> %s : Out of order boosting, mark yourself as boosted.
-	> %s : Mark a booster as unboosted.
-	> %s : Display a discord message with a discord timestamp of the contract completion time.
-	> %s : Use to set your Egg, Inc game name.
+	>>> %s : Add a farmer to the contract (don't use a mention for guest/alt).
+	%s : To link an alternate to a main account.
+	%s : Display what the bot knows about your token values.
+	%s : Out of order boosting, mark yourself as boosted.
+	%s : Mark a booster as unboosted.
+	%s : Display a discord message with a discord timestamp of the contract completion time.
+	%s : Use to set your Egg, Inc game name.
 `,
+			bottools.GetFormattedCommand("join-contract"),
+			bottools.GetFormattedCommand("link-alternate"),
 			bottools.GetFormattedCommand("calc-contract-tval"),
 			bottools.GetFormattedCommand("boost"),
 			bottools.GetFormattedCommand("unboost"),
@@ -163,10 +154,10 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 
 	if true {
 		var builder strings.Builder
-		fmt.Fprintf(&builder, "> %s : Launch planning helper.\n", bottools.GetFormattedCommand("launch-helper"))
-		fmt.Fprintf(&builder, "> %s : General purpose Token Tracker via DM.\n", bottools.GetFormattedCommand("token"))
-		fmt.Fprintf(&builder, "> %s : Last occurrance of every event.\n", bottools.GetFormattedCommand("events"))
-		fmt.Fprintf(&builder, "> %s : Timer tool\n", bottools.GetFormattedCommand("timer"))
+		fmt.Fprintf(&builder, ">>> %s : Launch planning helper.\n", bottools.GetFormattedCommand("launch-helper"))
+		fmt.Fprintf(&builder, "%s : General purpose Token Tracker via DM.\n", bottools.GetFormattedCommand("token"))
+		fmt.Fprintf(&builder, "%s : Last occurrance of every event.\n", bottools.GetFormattedCommand("events"))
+		fmt.Fprintf(&builder, "%s : Timer tool\n", bottools.GetFormattedCommand("timer"))
 
 		field = append(field, &discordgo.MessageEmbedField{
 			Name:   "GENERAL COMMANDS",
