@@ -49,8 +49,8 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 		// No contract, show help for creating a contract
 		// Anyone can do this so just give the basic instructions
 		str := fmt.Sprintf(">>> %s\n", bottools.GetFormattedCommand("contract"))
-		str += fmt.Sprint("* **contract-id** : Select from dropdown of contracts.\n")
-		str += fmt.Sprint("* **coop-id** : Coop id")
+		str += "* **contract-id** : Select from dropdown of contracts.\n"
+		str += "* **coop-id** : Coop id"
 
 		field = append(field, &discordgo.MessageEmbedField{
 			Name:   "CREATE CONTRACT",
@@ -100,11 +100,6 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 		fmt.Fprintf(&strBuilder, "%s : Change the ping role to something else.\n", bottools.GetFormattedCommand("change-ping-role"))
 		fmt.Fprintf(&strBuilder, "%s : Move a single booster to a different position.\n", bottools.GetFormattedCommand("change-one-booster"))
 		fmt.Fprintf(&strBuilder, "%s : Redraw the Boost List message.\n", bottools.GetFormattedCommand("bump"))
-
-		str := strBuilder.String()
-		if len(str) >= 1000 {
-			str = str[:1000]
-		}
 
 		field = append(field, &discordgo.MessageEmbedField{
 			Name:   "COORDINATOR COMMANDS",
