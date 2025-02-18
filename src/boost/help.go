@@ -129,25 +129,19 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 		}
 
 		// Basics for those Boosting
-		boosterStr := fmt.Sprintf(`
-	>>> %s : Add a farmer to the contract (don't use a mention for guest/alt).
-	%s : To link an alternate to a main account.
-	%s : Display what the bot knows about your token values.
-	%s : Out of order boosting, mark yourself as boosted.
-	%s : Mark a booster as unboosted.
-	%s : Display a discord message with a discord timestamp of the contract completion time.
-	%s : Use to set your Egg, Inc game name.
-`,
-			bottools.GetFormattedCommand("join-contract"),
-			bottools.GetFormattedCommand("link-alternate"),
-			bottools.GetFormattedCommand("calc-contract-tval"),
-			bottools.GetFormattedCommand("boost"),
-			bottools.GetFormattedCommand("unboost"),
-			bottools.GetFormattedCommand("coopeta"),
-			bottools.GetFormattedCommand("seteggincname"))
+		var boosterStrBuilder strings.Builder
+		fmt.Fprintf(&boosterStrBuilder, ">>> %s : Add a farmer to the contract (don't use a mention for guest/alt).\n", bottools.GetFormattedCommand("join-contract"))
+		fmt.Fprintf(&boosterStrBuilder, "%s : To link an alternate to a main account.\n", bottools.GetFormattedCommand("link-alternate"))
+		fmt.Fprintf(&boosterStrBuilder, "%s : To set your artifacts for ELR boost order.\n", bottools.GetFormattedCommand("artifact"))
+		fmt.Fprintf(&boosterStrBuilder, "%s : Display what the bot knows about your token values.\n", bottools.GetFormattedCommand("calc-contract-tval"))
+		fmt.Fprintf(&boosterStrBuilder, "%s : Out of order boosting, mark yourself as boosted.\n", bottools.GetFormattedCommand("boost"))
+		fmt.Fprintf(&boosterStrBuilder, "%s : Mark a booster as unboosted.\n", bottools.GetFormattedCommand("unboost"))
+		fmt.Fprintf(&boosterStrBuilder, "%s : Display a discord message with a discord timestamp of the contract completion time.\n", bottools.GetFormattedCommand("coopeta"))
+		fmt.Fprintf(&boosterStrBuilder, "%s : Use to set your Egg, Inc game name.\n", bottools.GetFormattedCommand("seteggincname"))
+
 		field = append(field, &discordgo.MessageEmbedField{
 			Name:   "BOOSTER COMMANDS",
-			Value:  boosterStr,
+			Value:  boosterStrBuilder.String(),
 			Inline: false,
 		})
 	}
