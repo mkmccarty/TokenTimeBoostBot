@@ -1250,18 +1250,19 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 			// Build tile info
 			var tileBuilder strings.Builder
+			prefix := ">>> "
 			for _, c := range as.artifactSlots {
-				fmt.Fprintf(&tileBuilder, "%s", ei.GetBotEmojiMarkdown(c))
+				fmt.Fprintf(&tileBuilder, "%s%s", prefix, ei.GetBotEmojiMarkdown(c))
+				prefix = ""
 			}
-			fmt.Fprintf(&tileBuilder, "\n**Want:**\n> %s %s\n> %s %s\n", ei.GetBotEmojiMarkdown("afx_tachyon_stone_4"), strings.Replace(displayT, "*", "⭐️", 1), ei.GetBotEmojiMarkdown("afx_quantum_stone_4"), strings.Replace(displayQ, "*", "⭐️", 1))
+			fmt.Fprintf(&tileBuilder, "\n %s %s\n %s %s\n", ei.GetBotEmojiMarkdown("afx_tachyon_stone_4"), strings.Replace(displayT, "*", "⭐️", 1), ei.GetBotEmojiMarkdown("afx_quantum_stone_4"), strings.Replace(displayQ, "*", "⭐️", 1))
 			fmt.Fprintf(&tileBuilder, "**ELR:** %2.3f\n**SR:** %2.3f\n", as.bestELR, as.bestSR)
 			if len(as.collegg) > 0 {
 				fmt.Fprintf(&tileBuilder, "🥚: %s\n", strings.Join(as.collegg, ","))
 			}
 			if len(notes) > 0 {
-				//fmt.Fprintf(&tileBuilder, "📓: %s\n", notes)
 				for _, n := range strings.Split(notes, ",") {
-					fmt.Fprintf(&tileBuilder, "> %s\n", n)
+					fmt.Fprintf(&tileBuilder, "%s\n", n)
 				}
 			}
 
