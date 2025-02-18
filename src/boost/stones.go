@@ -591,8 +591,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	}
 
 	skipArtifact := false
-	if coopStatus.GetResponseStatus() == ei.ContractCoopStatusResponse_COOP_NOT_FOUND {
-		return "Coop not found.", "", nil
+	if coopStatus.GetResponseStatus() != ei.ContractCoopStatusResponse_NO_ERROR {
+		return ei.ContractCoopStatusResponse_ResponseStatus_name[int32(coopStatus.GetResponseStatus())], "", nil
 	}
 
 	coopID = coopStatus.GetCoopIdentifier()
