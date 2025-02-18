@@ -116,7 +116,7 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 		table.Render()
 		fmt.Fprint(&builder, "```")
-		fmt.Fprintf(&builder, "Updated <t:%d:R>\n", time.Now().Unix())
+		fmt.Fprintf(&builder, "Updated <t:%d:R>, refresh with %s\n", time.Now().Unix(), bottools.GetFormattedCommand("coop-tval"))
 	}
 	if invalidDuration {
 		if invalidDuration {
