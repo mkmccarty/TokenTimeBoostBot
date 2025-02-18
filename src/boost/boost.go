@@ -18,6 +18,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/divan/num2words"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
@@ -406,7 +407,7 @@ func getBoostOrderString(contract *Contract) string {
 	case ContractOrderTimeBased:
 		return "Time"
 	case ContractOrderELR:
-		return "Egg Lay Rate order"
+		return fmt.Sprintf("Egg Lay Rate order (%s)", bottools.GetFormattedCommand("artifact"))
 	case ContractOrderTVal:
 		return "Token Value order"
 	}
