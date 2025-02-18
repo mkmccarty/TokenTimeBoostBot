@@ -68,14 +68,18 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 		if contract.State == ContractStateSignup {
 
 			// Speedrun info
-			speedRunStr := `__**/speedrun**__  (runs from contract data, Banker style, sink boosts first)
+			speedRunStr := fmt.Sprintf(`__**%s**__  (runs from contract data, Banker style, sink boosts first)
 			> * **contract-starter** : Sink during CRT & boosting. 
 			>  * If farmer using an alt as the sink, use the farmer's name as sink.
-			__**/link-alternate**__
-			> * After */speedrun*, a farmer with an alt can use this to swap in their alt as the contract-starter sink.
-			__**/change-planned-start**__
+			__**%s**__
+			> * After %s, a farmer with an alt can use this to swap in their alt as the contract-starter sink.
+			__**%s**__
 			> * Set the planned start time for the contract.
-			`
+			`,
+				bottools.GetFormattedCommand("speedrun"),
+				bottools.GetFormattedCommand("link-alternate"),
+				bottools.GetFormattedCommand("speedrun"),
+				bottools.GetFormattedCommand("change-planned-start"))
 
 			field = append(field, &discordgo.MessageEmbedField{
 				Name:   "MODIFY CONTRACT TO SPEEDRUN",
@@ -95,15 +99,21 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 		}
 
 		// Important commands for contract creators
-		str := `> __**/join-contract**__ : Add a farmer to the contract.
-		> __**/prune**__ : Remove a booster from the contract.
-		> __**/change**__ : Alter aspects of a running contract
+		str := fmt.Sprintf(`> %s : Add a farmer to the contract.
+		> %s : Remove a booster from the contract.
+		> %s : Alter aspects of a running contract
 		> * *contract-id* : Change the contract-id.
 		> * *coop-id* : Change the coop-id.
-		> __**/change-ping-role**__ : Change the ping role to something else.
-		> __**/change-one-booster**__ : Move a single booster to a different position.
-		> __**/bump**__ : Redraw the Boost List message.
-		`
+		> %s : Change the ping role to something else.
+		> %s : Move a single booster to a different position.
+		> %s : Redraw the Boost List message.
+		`,
+			bottools.GetFormattedCommand("join-contract"),
+			bottools.GetFormattedCommand("prune"),
+			bottools.GetFormattedCommand("change"),
+			bottools.GetFormattedCommand("change-ping-role"),
+			bottools.GetFormattedCommand("change-one-booster"),
+			bottools.GetFormattedCommand("bump"))
 
 		if len(str) > 900 {
 			str = str[:900]
@@ -132,13 +142,18 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 		}
 
 		// Basics for those Boosting
-		boosterStr := `
-	> __**/calc-contract-tval**__ : Display what the bot knows about your token values.
-	> __**/boost**__ : Out of order boosting, mark yourself as boosted.
-	> __**/unboost**__ : Mark a booster as unboosted.
-	> __**/coopeta**__ : Display a discord message with a discord timestamp of the contract completion time.
-	> __**/seteggincname**__ : Use to set your Egg, Inc game name.
-`
+		boosterStr := fmt.Sprintf(`
+	> %s : Display what the bot knows about your token values.
+	> %s : Out of order boosting, mark yourself as boosted.
+	> %s : Mark a booster as unboosted.
+	> %s : Display a discord message with a discord timestamp of the contract completion time.
+	> %s : Use to set your Egg, Inc game name.
+`,
+			bottools.GetFormattedCommand("calc-contract-tval"),
+			bottools.GetFormattedCommand("boost"),
+			bottools.GetFormattedCommand("unboost"),
+			bottools.GetFormattedCommand("coopeta"),
+			bottools.GetFormattedCommand("seteggincname"))
 		field = append(field, &discordgo.MessageEmbedField{
 			Name:   "BOOSTER COMMANDS",
 			Value:  boosterStr,
