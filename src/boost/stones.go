@@ -1252,7 +1252,11 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			var tileBuilder strings.Builder
 			prefix := ">>> "
 			for _, c := range as.artifactSlots {
-				fmt.Fprintf(&tileBuilder, "%s%s", prefix, ei.GetBotEmojiMarkdown(c))
+				md := ei.GetBotEmojiMarkdown(c)
+				if strings.Contains(md, "unknown") {
+					md = ""
+				}
+				fmt.Fprintf(&tileBuilder, "%s%s", prefix, md)
 				prefix = ""
 			}
 			fmt.Fprintf(&tileBuilder, "\n %s %s\n %s %s\n", ei.GetBotEmojiMarkdown("afx_tachyon_stone_4"), strings.Replace(displayT, "*", " ⭐️", 1), ei.GetBotEmojiMarkdown("afx_quantum_stone_4"), strings.Replace(displayQ, "*", " ⭐️", 1))
