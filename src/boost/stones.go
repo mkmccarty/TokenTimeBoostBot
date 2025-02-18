@@ -47,7 +47,7 @@ func GetSlashStones(cmd string) *discordgo.ApplicationCommand {
 			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "tiled",
-				Description: "Display using embedded tiles. Default is false.",
+				Description: "Display using embedded tiles. Default is false. (sticky)",
 				Required:    false,
 			},
 			{
@@ -127,6 +127,9 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 	if opt, ok := optionMap["tiled"]; ok {
 		useTiles = opt.BoolValue()
+		farmerstate.SetMiscSettingFlag(userID, "stone-tiled", useTiles)
+	} else {
+		useTiles = farmerstate.GetMiscSettingFlag(userID, "stone-tiled")
 	}
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
