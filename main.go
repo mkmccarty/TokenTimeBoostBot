@@ -828,6 +828,7 @@ func syncCommands(s *discordgo.Session, guildID string, desiredCommandList []*di
 		log.Fatalf("Failed to fetch commands for guild %s: %v", guildID, err)
 		return
 	}
+	bottools.UpdateCommandMap(existingCommands)
 
 	desiredMap := make(map[string]*discordgo.ApplicationCommand)
 	for _, cmd := range desiredCommandList {
@@ -871,6 +872,13 @@ func syncCommands(s *discordgo.Session, guildID string, desiredCommandList []*di
 			}
 		}
 	}
+
+	existingCommands, err = s.ApplicationCommands(s.State.User.ID, guildID)
+	if err != nil {
+		log.Fatalf("Failed to fetch commands for guild %s: %v", guildID, err)
+		return
+	}
+	bottools.UpdateCommandMap(existingCommands)
 }
 
 func main() {
