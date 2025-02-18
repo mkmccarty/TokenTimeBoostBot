@@ -1,10 +1,12 @@
 package boost
 
 import (
+	"fmt"
 	"log"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 )
 
 // HandleHelpCommand will handle the help command
@@ -46,7 +48,8 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 
 		// No contract, show help for creating a contract
 		// Anyone can do this so just give the basic instructions
-		str := `__**/contract**__
+		str := bottools.GetFormattedCommand("contract")
+		str += `
 		> * **contract-id** : Select from dropdown of contracts.
 		> * **coop-id** : Coop id
 		`
@@ -144,15 +147,15 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 	}
 
 	if true {
-		str := `
-		> __**/launch-helper**__ : Launch planning helper.
-		> __**/token**__ : General purpose Token Tracker via DM.
-		> __**/fun**__ : Some fun commands that use LLM to create wishes and images.
-		`
+		var builder strings.Builder
+		fmt.Fprintf(&builder, "> %s : Launch planning helper.\n", bottools.GetFormattedCommand("launch-helper"))
+		fmt.Fprintf(&builder, "> %s : General purpose Token Tracker via DM.\n", bottools.GetFormattedCommand("token"))
+		fmt.Fprintf(&builder, "> %s : Last occurrance of every event.\n", bottools.GetFormattedCommand("events"))
+		fmt.Fprintf(&builder, "> %s : Timer tool\n", bottools.GetFormattedCommand("timer"))
 
 		field = append(field, &discordgo.MessageEmbedField{
 			Name:   "GENERAL COMMANDS",
-			Value:  str,
+			Value:  builder.String(),
 			Inline: false,
 		})
 
