@@ -321,10 +321,21 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		}
 	}
 
-	itemaPerPage := 9
+	var itemaPerPage int
 
-	if cache.page*itemaPerPage >= len(cache.table) {
-		cache.page = 0
+	if cache.displayTiles {
+		itemaPerPage = 18
+		if cache.page*itemaPerPage >= len(cache.tiles) {
+			cache.page = 0
+		}
+		cache.pages = len(cache.tiles) / itemaPerPage
+
+	} else {
+		itemaPerPage = 10
+		if cache.page*itemaPerPage >= len(cache.table) {
+			cache.page = 0
+		}
+		cache.pages = len(cache.table) / itemaPerPage
 	}
 
 	var flags discordgo.MessageFlags
