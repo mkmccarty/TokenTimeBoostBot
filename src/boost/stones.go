@@ -171,27 +171,33 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			return
 		}
 	*/
-	cache := buildStonesCache(s1, urls, tiles)
-	// Fill in our calling parameters
-	cache.contractID = contractID
-	cache.coopID = coopID
-	cache.details = details
-	cache.soloName = soloName
-	cache.private = privateReply
-	cache.useBuffHistory = useBuffHistory
-	cache.displayTiles = useTiles
+	if tiles != nil {
+		cache := buildStonesCache(s1, urls, tiles)
+		// Fill in our calling parameters
+		cache.contractID = contractID
+		cache.coopID = coopID
+		cache.details = details
+		cache.soloName = soloName
+		cache.private = privateReply
+		cache.useBuffHistory = useBuffHistory
+		cache.displayTiles = useTiles
 
-	stonesCacheMap[cache.xid] = cache
+		stonesCacheMap[cache.xid] = cache
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
 
-	sendStonesPage(s, i, true, cache.xid, false, false, false)
+		sendStonesPage(s, i, true, cache.xid, false, false, false)
 
-	// Traverse stonesCacheMap and delete expired entries
-	for key, cache := range stonesCacheMap {
-		if cache.expirationTimestamp.Before(time.Now()) {
-			delete(stonesCacheMap, key)
+		// Traverse stonesCacheMap and delete expired entries
+		for key, cache := range stonesCacheMap {
+			if cache.expirationTimestamp.Before(time.Now()) {
+				delete(stonesCacheMap, key)
+			}
 		}
+	} else {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: s1,
+		})
 	}
 }
 
@@ -585,10 +591,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	}
 
 	skipArtifact := false
-
-	if !strings.HasSuffix(coopID, coopStatus.GetCoopIdentifier()) {
-		return "Invalid coop-id.", "", field
+	if coopStatus.GetResponseStatus() == ei.ContractCoopStatusResponse_COOP_NOT_FOUND {
+		return "Coop not found.", "", nil
 	}
+
 	coopID = coopStatus.GetCoopIdentifier()
 
 	levels := []string{"T1", "T2", "T3", "T4", "T5"}
