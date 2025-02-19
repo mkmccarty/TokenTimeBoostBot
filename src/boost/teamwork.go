@@ -172,8 +172,8 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		return err.Error(), nil
 	}
 
-	if coopStatus.GetCoopIdentifier() != coopID {
-		return "Invalid coop-id.", nil
+	if coopStatus.GetResponseStatus() != ei.ContractCoopStatusResponse_NO_ERROR {
+		return ei.ContractCoopStatusResponse_ResponseStatus_name[int32(coopStatus.GetResponseStatus())], nil
 	}
 
 	type BuffTimeValue struct {
