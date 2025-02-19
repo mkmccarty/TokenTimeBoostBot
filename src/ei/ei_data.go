@@ -101,6 +101,9 @@ type EggIncCustomEgg struct {
 	Description          string
 }
 
+// GradeMultiplier is a list of multipliers for each grade
+var GradeMultiplier = []float64{1.0, 2.0, 3.5, 5.0, 7.0}
+
 // ContractGrade is a raw contract data for a Grade in Egg Inc
 type ContractGrade struct {
 	TargetAmount           []float64
@@ -119,6 +122,8 @@ type ContractGrade struct {
 	ModifierVehicleCost  float64
 	ModifierResearchCost float64
 	ModifierHabCost      float64
+
+	BasePoints float64
 }
 type EggIncContract struct {
 	ID                        string `json:"id"`
