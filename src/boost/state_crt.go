@@ -106,7 +106,7 @@ func buttonReactionTruck(s *discordgo.Session, contract *Contract, cUserID strin
 func buttonReactionLeg(s *discordgo.Session, contract *Contract, cUserID string) bool {
 	if (cUserID == contract.Banker.CurrentBanker || creatorOfContract(s, contract, cUserID)) && contract.SRData.LegReactionMessageID == "" {
 		// Indicate that the Sink is starting to kick users
-		str := "**Starting to kick users.** Swap shiny artifacts if you need to force a server sync.\n"
+		str := fmt.Sprintf("**Starting to kick %d farmers.** Swap shiny artifacts if you need to force a server sync.\n", contract.SRData.Tango[0]-1)
 		str += contract.Boosters[contract.Banker.CurrentBanker].Mention + " will react here with 💃 after kicks to advance the tango."
 		for _, location := range contract.Location {
 			var data discordgo.MessageSend
