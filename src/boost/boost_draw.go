@@ -156,7 +156,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 	showBoostedNums := 6 // Try to show at least 6 previously boosted
 	windowSize := 10     // Number lines to show a single booster
 
-	// If the contract has been completed for 20 minutes then just show the sink without the entire list
+	// If the contract has been completed for 15 minutes then just show the sink without the entire list
 	if contract.State == ContractStateCompleted && time.Since(contract.EndTime) > 15*time.Minute {
 		//outputStr += "## Boost\n"
 		if contract.Banker.CurrentBanker == "" {
@@ -376,7 +376,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		outputStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
 
 	case ContractStateCompleted:
-		if time.Since(contract.EndTime) < 5*time.Minute {
+		if time.Since(contract.EndTime) > 15*time.Minute {
 			outputStr += "\n## Post Boost Tools\n"
 			outputStr += fmt.Sprintf("> **Boost Bot:** %s %s %s\n", bottools.GetFormattedCommand("stones"), bottools.GetFormattedCommand("calc-contract-tval"), bottools.GetFormattedCommand("coop-tval"))
 			outputStr += "> **Wonky:** </auditcoop:1231383614701174814> </srtracker:1158969351702069328>\n"

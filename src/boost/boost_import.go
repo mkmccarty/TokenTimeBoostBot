@@ -174,7 +174,10 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		c.Grade[grade].EstimatedDuration, c.Grade[grade].EstimatedDurationLower = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
 			c.ModifierSR, c.ModifierELR, c.ModifierHabCap)
 
-		c.Grade[grade].BasePoints = 1.0 + (1.0/259200.0*float64(c.LengthInSeconds))*ei.GradeMultiplier[grade]
+		gradeKey := ei.Contract_PlayerGrade_name[int32(grade)]
+		if gradeMult, ok := ei.GradeMultiplier[gradeKey]; ok {
+			c.Grade[grade].BasePoints = 1.0 + (1.0/259200.0*float64(c.LengthInSeconds))*float64(gradeMult)
+		}
 	}
 	if c.TargetAmount == nil {
 		for _, g := range contractProtoBuf.GetGoals() {

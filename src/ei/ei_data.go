@@ -102,7 +102,14 @@ type EggIncCustomEgg struct {
 }
 
 // GradeMultiplier is a list of multipliers for each grade
-var GradeMultiplier = []float64{1.0, 2.0, 3.5, 5.0, 7.0}
+var GradeMultiplier = map[string]float64{
+	"GRADE_UNSET": 0.0,
+	"GRADE_C":     1.0,
+	"GRADE_B":     2.0,
+	"GRADE_A":     3.5,
+	"GRADE_AA":    5.0,
+	"GRADE_AAA":   7.0,
+}
 
 // ContractGrade is a raw contract data for a Grade in Egg Inc
 type ContractGrade struct {
