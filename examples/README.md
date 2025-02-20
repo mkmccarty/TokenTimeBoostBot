@@ -14,7 +14,10 @@ Place a configuration file in the same directory as the bot. When launched the b
     "AdminUserId": "",
     "AdminUsers": [],
     "EIUserId": "",
-    "FeatureFlags": []
+    "EIUserIdBasic": "",
+    "FeatureFlags": [],
+    "EventsURL": "https://wasmegg-carpet.netlify.app/events/",
+    "RocketsURL": "https://wasmegg-carpet.netlify.app/rockets-tracker/"
 }
 ```
 
@@ -51,6 +54,10 @@ This should ideally be subscribed to Ultra to receive the Ultra events and contr
 
 For iOS you could create a second AppleID and with that create a new GameCenter account to use for this purpose. With your primary AppleID you can sign out of Game Center and then sign in with the GameCenter ID from the new AppleID. Once in the game you can Restore Purchases to get the Ultra subscription added to this new EI User ID. You don't need to do anything else with this account.
 
+## EIUserIdBasic
+You need to use an Eggs Inc. user ID so that can be used for retrieving coop_status information.
+This doesn't need to have Ultra.
+
 ## AdminUsers
 
 If want to allow other Discord users to have admin permissions you can add their user IDs to this list.
@@ -70,3 +77,11 @@ This will restrict the /contract to always be a banker contract.
 ### NO_FUN
 
 This will remove the fun commands from the bot.
+
+## EventsURL
+
+This is the URL that will be displayed with the /events command. This is optional.
+
+## RocketsURL
+
+This is the URL that will be displayed with the /launch-helper command. This is optional.
