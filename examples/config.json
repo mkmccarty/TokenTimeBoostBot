@@ -6,10 +6,10 @@
     "GoogleAPIKey": "",
     "AdminUserId": "",
     "EIUserId": "",
+    "EIUserIdBasic": "",
     "AdminUsers": [],
     "DevBotAppID": "",
     "FeatureFlags": [],
     "EventsURL": "https://wasmegg-carpet.netlify.app/events/",
     "RocketsURL": "https://wasmegg-carpet.netlify.app/rockets-tracker/"
-
 }
