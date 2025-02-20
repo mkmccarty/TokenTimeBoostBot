@@ -2,14 +2,12 @@ package ei
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -54,43 +52,22 @@ func GetCoopStatus(contractID string, coopID string) (*ContractCoopStatusRespons
 		coopID = coopID[2:]
 		fname := fmt.Sprintf("ttbb-data/%s-%s.pb", contractID, basename)
 
-		if strings.HasPrefix(basename, "!") {
-			coopID = coopID[2:]
-			index, err := strconv.Atoi(basename[1:2])
-			if err == nil {
-				files, err := os.ReadDir("ttbb-data")
-				if err != nil {
-					return nil, timestamp, dataTimestampStr, err
-				}
-
-				var filenames []string
-				for _, file := range files {
-					if strings.HasPrefix(file.Name(), fmt.Sprintf("%s-%s", contractID, coopID)) {
-						filenames = append(filenames, file.Name())
-					}
-				}
-
-				if len(filenames) > 0 && index < len(filenames) {
-					fname = fmt.Sprintf("ttbb-data/%s", filenames[index])
-				} else {
-					return nil, timestamp, dataTimestampStr, errors.New(fmt.Sprint("Files: ", strings.Join(filenames, ", ")))
-				}
-			}
-		}
-
 		// read the contents of filename into protoData
-		protoDataBytes, _ := os.ReadFile(fname)
-		protoData = string(protoDataBytes)
-
-		fileNameParts := strings.Split(fname[:len(fname)-3], "-")
-		timestampStr := fileNameParts[len(fileNameParts)-1]
-		fileTimestamp, err := strconv.ParseInt(timestampStr, 10, 64)
+		fileInfo, err := os.Stat(fname)
 		if err != nil {
 			return nil, timestamp, dataTimestampStr, err
 		}
-		timestamp = time.Unix(fileTimestamp, 0)
+		fileTimestamp := fileInfo.ModTime()
+
+		protoDataBytes, err := os.ReadFile(fname)
+		if err != nil {
+			return nil, timestamp, dataTimestampStr, err
+		}
+		protoData = string(protoDataBytes)
+
+		timestamp = fileTimestamp
 		dataTimestampStr = fmt.Sprintf("\nUsing cached data from file %s", fname)
-		dataTimestampStr += fmt.Sprintf(", timestamp: %s", time.Unix(fileTimestamp, 0).Format("2006-01-02 15:04:05"))
+		dataTimestampStr += fmt.Sprintf(", timestamp: %s", fileTimestamp.Format("2006-01-02 15:04:05"))
 
 	} else if cachedData != nil && time.Now().Before(cachedData.expirationTimestamp) {
 		protoData = cachedData.protoData
@@ -132,7 +109,7 @@ func GetCoopStatus(contractID string, coopID string) (*ContractCoopStatusRespons
 		eiDatas[cacheID] = &data
 
 		// Save protoData into a file
-		fileName := fmt.Sprintf("ttbb-data/%s-%s-%d.pb", contractID, coopID, time.Now().Unix())
+		fileName := fmt.Sprintf("ttbb-data/%s-%s.pb", contractID, coopID)
 		err = os.WriteFile(fileName, []byte(protoData), 0644)
 		if err != nil {
 			log.Print(err)
