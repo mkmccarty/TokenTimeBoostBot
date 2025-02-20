@@ -330,7 +330,7 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 	var itemaPerPage int
 
 	if cache.displayTiles {
-		itemaPerPage = 18
+		itemaPerPage = 12
 		if cache.page*itemaPerPage >= len(cache.tiles) {
 			cache.page = 0
 		}
