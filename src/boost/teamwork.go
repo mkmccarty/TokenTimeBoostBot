@@ -445,10 +445,12 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 
 			// Final calculations on the score
 			// Chicken Runs
+			// Maximize Token Value for this
+			T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 0.0)
 			capCR := min((eiContract.MaxCoopSize*contractDurationInDays)/2, 20)
 			var crBuilder strings.Builder
 			for maxCR := capCR; maxCR >= 0; maxCR-- {
-				CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, eiContract.MaxCoopSize*contractDurationInDays, maxCR)
+				CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, maxCR)
 				score := calculateContractScore(grade,
 					eiContract.MaxCoopSize,
 					eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
