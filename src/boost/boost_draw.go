@@ -106,7 +106,14 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SpeedrunStarterUserID)
 
 	case ContractStateBanker:
-		afterListStr += fmt.Sprintf("\n**Send all tokens to %s**\n", contract.Boosters[contract.Banker.CurrentBanker].Mention)
+		if contract.Banker.CurrentBanker == "" {
+			if contract.Banker.PostSinkUserID != "" {
+				contract.Banker.CurrentBanker = contract.Banker.PostSinkUserID
+			}
+		}
+		if contract.Banker.CurrentBanker != "" {
+			afterListStr += fmt.Sprintf("\n**Send all tokens to %s**\n", contract.Boosters[contract.Banker.CurrentBanker].Mention)
+		}
 
 	default:
 	}
