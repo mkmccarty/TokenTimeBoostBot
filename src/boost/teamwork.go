@@ -483,7 +483,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 
 		// Now for the Token Sink
 		capCR := min((eiContract.MaxCoopSize*contractDurationInDays)/2, 20)
-		CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, eiContract.MaxCoopSize*contractDurationInDays, 20)
+		CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, capCR)
 		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 3.0, 100.0)
 
 		scoreMin := calculateContractScore(grade,
