@@ -144,6 +144,7 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 	if true {
 		var builder strings.Builder
 		fmt.Fprintf(&builder, ">>> %s : Launch planning helper.\n", bottools.GetFormattedCommand("launch-helper"))
+		fmt.Fprintf(&builder, "%s : Contract completion estimate.\n", bottools.GetFormattedCommand("estimate-contract-time"))
 		fmt.Fprintf(&builder, "%s : General purpose Token Tracker via DM.\n", bottools.GetFormattedCommand("token"))
 		fmt.Fprintf(&builder, "%s : Last occurrance of every event.\n", bottools.GetFormattedCommand("events"))
 		fmt.Fprintf(&builder, "%s : Timer tool\n", bottools.GetFormattedCommand("timer"))
