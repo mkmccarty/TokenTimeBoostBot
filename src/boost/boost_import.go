@@ -177,6 +177,8 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		gradeKey := ei.Contract_PlayerGrade_name[int32(grade)]
 		if gradeMult, ok := ei.GradeMultiplier[gradeKey]; ok {
 			c.Grade[grade].BasePoints = 1.0 + (1.0/259200.0*float64(c.LengthInSeconds))*float64(gradeMult)
+			goalsCompleted := 1.0
+			c.Grade[grade].BasePoints = 187.5 * float64(gradeMult) * goalsCompleted
 		}
 	}
 	if c.TargetAmount == nil {
