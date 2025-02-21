@@ -145,16 +145,30 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			return
 		}
 	}
+	var embed *discordgo.MessageSend
 
-	embed := &discordgo.MessageSend{
-		Embeds: []*discordgo.MessageEmbed{{
-			Type:        discordgo.EmbedTypeRich,
-			Title:       fmt.Sprintf("%s Teamwork Evaluation", field[0].Value),
-			Description: "",
-			Color:       0xffaa00,
-			Fields:      field[1:],
-			Timestamp:   time.Now().Format(time.RFC3339),
-		}},
+	if eggign != "siab" {
+		embed = &discordgo.MessageSend{
+			Embeds: []*discordgo.MessageEmbed{{
+				Type:        discordgo.EmbedTypeRich,
+				Title:       fmt.Sprintf("%s Teamwork Evaluation", field[0].Value),
+				Description: "",
+				Color:       0xffaa00,
+				Fields:      field[1:],
+				Timestamp:   time.Now().Format(time.RFC3339),
+			}},
+		}
+	} else {
+		embed = &discordgo.MessageSend{
+			Embeds: []*discordgo.MessageEmbed{{
+				Type:        discordgo.EmbedTypeRich,
+				Title:       "Equip SIAB Until...",
+				Description: "",
+				Color:       0xffaa00,
+				Fields:      field,
+				Timestamp:   time.Now().Format(time.RFC3339),
+			}},
+		}
 	}
 
 	_, err := s.FollowupMessageCreate(i.Interaction, true,
@@ -170,7 +184,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 // DownloadCoopStatus will download the coop status for a given contract and coop ID
 func DownloadCoopStatus(userID string, einame string, contractID string, coopID string) (string, map[string][]*discordgo.MessageEmbedField) {
-
+	var siabMsg strings.Builder
 	var dataTimestampStr string
 	nowTime := time.Now()
 
@@ -393,9 +407,11 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 			siabTimeEquipped := time.Duration(siabSecondsNeeded) * time.Second
 
 			if BestSIAB > 0 && coopStatus.GetSecondsSinceAllGoalsAchieved() <= 0 {
+
 				var maxTeamwork strings.Builder
 				if LastSIABCalc != 0 {
 					maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB for %s (<t:%d:t>) in the most recent teamwork segment to max BTV by %6.0f.\n", bottools.FmtDuration(siabTimeEquipped), MostRecentDuration.Add(siabTimeEquipped).Unix(), shortTeamwork))
+					fmt.Fprintf(&siabMsg, "<t:%d:t> %s\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
 				} else {
 					if time.Now().Add(siabTimeEquipped).After(endTime) {
 						// How much longer is this siabTimeEquipped than the end of the contract
@@ -406,10 +422,13 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 
 						maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB through end of contract (<t:%d:t>) in new teamwork segment to improve BTV by %6.0f. ", endTime.Unix(), shortTeamwork*extraPercent))
 						maxTeamwork.WriteString(fmt.Sprintf("The maximum BTV increase of %6.0f would be achieved if the contract finished at <t:%d:f>.", shortTeamwork, time.Now().Add(siabTimeEquipped).Unix()))
+						fmt.Fprintf(&siabMsg, "<t:%d:t> %s\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
 					} else {
 						maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB for %s (<t:%d:t>) in new teamwork segment to max BTV by %6.0f.\n", bottools.FmtDuration(siabTimeEquipped), time.Now().Add(siabTimeEquipped).Unix(), shortTeamwork))
+						fmt.Fprintf(&siabMsg, "<t:%d:t> %s\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
 					}
 				}
+
 				field = append(field, &discordgo.MessageEmbedField{
 					Name:   "Maximize Teamwork",
 					Value:  maxTeamwork.String(),
@@ -489,6 +508,13 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 			farmerFields[name] = field
 		}
 	}
+	var siabMax []*discordgo.MessageEmbedField
+	siabMax = append(siabMax, &discordgo.MessageEmbedField{
+		Name:   "SIAB",
+		Value:  siabMsg.String(),
+		Inline: false,
+	})
+	farmerFields["siab"] = siabMax
 
 	builder.WriteString(dataTimestampStr)
 
