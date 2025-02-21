@@ -157,20 +157,6 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	s1, urls, tiles := DownloadCoopStatusStones(contractID, coopID, details, soloName, useBuffHistory)
 
-	/*
-		// This bit of code is when the message is short
-		if len(s1) <= 2000 {
-			var builder strings.Builder
-			builder.WriteString(s1)
-
-			_, _ = s.FollowupMessageCreate(i.Interaction, true,
-				&discordgo.WebhookParams{
-					Content: builder.String(),
-					Flags:   discordgo.MessageFlagsSupressEmbeds,
-				})
-			return
-		}
-	*/
 	if tiles != nil {
 		cache := buildStonesCache(s1, urls, tiles)
 		// Fill in our calling parameters
