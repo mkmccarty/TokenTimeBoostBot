@@ -492,6 +492,18 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 			B, CR, T)
 		fmt.Fprintf(&cBuilder, "Sink: %d (CR=%d)\n", scoreMid, capCR)
 
+		// Sink Contract Score with current buffs and max CR & negative TVAL
+		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 0.0, 11.0)
+		CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, 0)
+		scoreMin := calculateContractScore(grade,
+			eiContract.MaxCoopSize,
+			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+			contribution[userIdx],
+			eiContract.Grade[grade].LengthInSeconds,
+			contractDurationSeconds,
+			B, CR, T)
+		fmt.Fprintf(&cBuilder, "Min: %d (CR/TV=0)\n", scoreMin)
+
 		field = append(field, &discordgo.MessageEmbedField{
 			Name:   "Contract Score",
 			Value:  cBuilder.String(),
