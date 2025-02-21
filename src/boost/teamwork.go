@@ -253,14 +253,12 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 	}
 
 	// Take care of other parameter calculations here
-	sumOfAll := 0.0
 	for idx, c := range coopStatus.GetContributors() {
 		if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
 			offlineDeliveries := float64(0.0)
 			futureDeliveries := c.GetContributionRate() * float64(calcSecondsRemaining)
 			contributionPast := c.GetContributionAmount()
 			contribution[idx] = contributionPast + offlineDeliveries + futureDeliveries
-			sumOfAll += contribution[idx]
 		} else {
 			// Contract not finished, so we need to estimate the contribution ratio
 			// based on the current rate and the estimated completion time
@@ -269,7 +267,6 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 			contributionPast := c.GetContributionAmount()
 			contribution[idx] = contributionPast + offlineDeliveries + futureDeliveries
 			//contributionRatios[idx] = contribution[idx] / float64(eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1])
-			sumOfAll += contribution[idx]
 		}
 
 	}
@@ -283,7 +280,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 
 		name := c.GetUserName()
 
-		if einame != name {
+		if strings.EqualFold(einame, name) {
 			teamworkNames = append(teamworkNames, name)
 			continue
 		}
@@ -346,10 +343,10 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 			}
 
 			b.buffTimeValue = float64(b.durationEquiped)*b.earningsCalc + float64(b.durationEquiped)*b.eggRateCalc
-			B := 5 * min(2, b.buffTimeValue/contractDurationSeconds)
+			B := min(2, b.buffTimeValue/contractDurationSeconds)
 			CR := min(0.0, 6.0)
 			T := 0.0
-			teamworkScore := (B + CR + T) / 19.0
+			teamworkScore := (5.0*B + CR + T) / 19.0
 
 			dur := time.Duration(b.durationEquiped) * time.Second
 			when := time.Duration(b.timeEquiped) * time.Second
@@ -446,7 +443,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 			// Final calculations on the score
 			// Chicken Runs
 			// Maximize Token Value for this
-			T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 0.0)
+			T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 10.0, 0)
 			capCR := min((eiContract.MaxCoopSize*contractDurationInDays)/2, 20)
 			var crBuilder strings.Builder
 			for maxCR := capCR; maxCR >= 0; maxCR-- {
@@ -461,18 +458,18 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 				crBuilder.WriteString(fmt.Sprintf("%d:%d ", maxCR, score))
 			}
 			field = append(field, &discordgo.MessageEmbedField{
-				Name:   "Contract Scores with Chicken Runs",
+				Name:   "Chicken Runs w/Tval 🎯",
 				Value:  "```" + crBuilder.String() + "```",
 				Inline: false,
 			})
-
 		}
 
-		tokenValueSent := 10.0
-		tokenValueRecv := 0.0
-		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, tokenValueSent, tokenValueRecv)
+		var cBuilder strings.Builder
 
-		CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, eiContract.MaxCoopSize*contractDurationInDays, 20)
+		// Maximum Contract Score with current buffs and max CR & TVAL
+		capCR := min((eiContract.MaxCoopSize*contractDurationInDays)/2, 20)
+		CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, capCR)
+		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 10.0, 5.0)
 		scoreMax := calculateContractScore(grade,
 			eiContract.MaxCoopSize,
 			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
@@ -481,27 +478,25 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 			contractDurationSeconds,
 			B, CR, T)
 
-		// Now for the Token Sink
-		capCR := min((eiContract.MaxCoopSize*contractDurationInDays)/2, 20)
-		CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, capCR)
-		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 3.0, 100.0)
+		fmt.Fprintf(&cBuilder, "Max: %d\n", scoreMax)
 
-		scoreMin := calculateContractScore(grade,
+		// Sink Contract Score with current buffs and max CR & negative TVAL
+		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 3.0, 11.0)
+		CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, capCR)
+		scoreMid := calculateContractScore(grade,
 			eiContract.MaxCoopSize,
 			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
 			contribution[userIdx],
 			eiContract.Grade[grade].LengthInSeconds,
 			contractDurationSeconds,
 			B, CR, T)
+		fmt.Fprintf(&cBuilder, "Sink: %d (CR=%d)\n", scoreMid, capCR)
 
 		field = append(field, &discordgo.MessageEmbedField{
 			Name:   "Contract Score",
-			Value:  fmt.Sprintf(">>> Maximum: %d\nMinimum (CR=%d) %d", scoreMax, capCR, scoreMin),
+			Value:  cBuilder.String(),
 			Inline: false,
 		})
-		log.Printf("\n%s", builder.String())
-
-		log.Print("Buff Time Value: ", buffTimeValue)
 	}
 
 	if !found {
@@ -538,7 +533,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 }
 
 func calculateChickenRunTeamwork(coopSize int, durationInDays int, runs int) float64 {
-	fCR := max(12.0/(float64(coopSize)*float64(durationInDays)), 0.3)
+	fCR := max(12.0/(float64(coopSize*durationInDays)), 0.3)
 	CR := min(fCR*float64(runs), 6.0)
 	return CR
 }
@@ -548,7 +543,7 @@ func calculateTokenTeamwork(contractDurationSeconds float64, minutesPerToken int
 	T := 0.0
 
 	if BTA <= 42.0 {
-		T = (2.0 / 3.0 * min(tokenValueSent, 3.0)) + ((8.0 / 3.0) * min(max(tokenValueSent-tokenValueReceived, 0.0), 3.0))
+		T = ((2.0 / 3.0) * min(tokenValueSent, 3.0)) + ((8.0 / 3.0) * min(max(tokenValueSent-tokenValueReceived, 0.0), 3.0))
 	} else {
 		T = (200.0/(7.0*BTA))*min(tokenValueSent, 0.07*BTA) + (800.0 / (7.0 * BTA) * min(max(tokenValueSent-tokenValueReceived, 0.0), 0.07*BTA))
 	}
@@ -568,7 +563,7 @@ func calculateContractScore(grade int, coopSize int, targetGoal float64, contrib
 	completionFactor := 1.0
 	score *= completionFactor
 
-	ratio := (contribution * float64(coopSize)) / targetGoal
+	ratio := contribution / (targetGoal / float64(coopSize))
 	contributionFactor := 0.0
 	if ratio <= 2.5 {
 		contributionFactor = 1 + 3*math.Pow(ratio, 0.15)
@@ -587,3 +582,9 @@ func calculateContractScore(grade int, coopSize int, targetGoal float64, contrib
 
 	return int64(math.Ceil(score))
 }
+
+/*
+func getPredictedTeamwork(B float64, CR float64, T float64) float64 {
+	return (5.0*B + CR + T) / 19.0
+}
+*/
