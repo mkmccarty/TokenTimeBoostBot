@@ -2,7 +2,6 @@ package boost
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"strings"
 	"time"
@@ -50,6 +49,12 @@ func GetSlashTeamworkEval(cmd string) *discordgo.ApplicationCommand {
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "show-scores",
+				Description: "Show Contract Scores only. Default is false. (sticky)",
+				Required:    false,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "public-reply",
 				Description: "Respond publicly. Default is false.",
 				Required:    false,
@@ -60,8 +65,8 @@ func GetSlashTeamworkEval(cmd string) *discordgo.ApplicationCommand {
 
 // HandleTeamworkEvalCommand will handle the /teamwork-eval command
 func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	var builder strings.Builder
 
+	publicReply := false
 	flags := discordgo.MessageFlagsEphemeral
 
 	var userID string
@@ -73,6 +78,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	var contractID string
 	var coopID string
 	var eggign string
+	scoresFirst := false
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -98,10 +104,17 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		coopID = strings.Replace(coopID, " ", "", -1)
 	}
 	if opt, ok := optionMap["public-reply"]; ok {
+		publicReply = !opt.BoolValue()
 		if opt.BoolValue() {
 			flags &= ^discordgo.MessageFlagsEphemeral
-			builder.WriteString("Public Reply Enabled\n")
 		}
+	}
+	if opt, ok := optionMap["show-scores"]; ok {
+		// If show-scores is true, then we want to show the scores only
+		scoresFirst = opt.BoolValue()
+		farmerstate.SetMiscSettingFlag(userID, "teamwork-scores", scoresFirst)
+	} else {
+		scoresFirst = farmerstate.GetMiscSettingFlag(userID, "teamwork-scores")
 	}
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -128,62 +141,40 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	var str string
-	str, fields := DownloadCoopStatus(userID, eggign, contractID, coopID)
-	builder.WriteString(str)
+	str, fields := DownloadCoopStatusTeamwork(contractID, coopID)
 
-	field := fields[eggign]
-	if field == nil {
-		for k := range fields {
-			field = fields[k]
-			break
-		}
-		if field == nil {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true,
-				&discordgo.WebhookParams{
-					Content: "No data found for the specified Egg Inc IGN.",
-				})
-			return
-		}
-	}
-	var embed *discordgo.MessageSend
-
-	if eggign != "siab" {
-		embed = &discordgo.MessageSend{
-			Embeds: []*discordgo.MessageEmbed{{
-				Type:        discordgo.EmbedTypeRich,
-				Title:       fmt.Sprintf("%s Teamwork Evaluation", field[0].Value),
-				Description: "",
-				Color:       0xffaa00,
-				Fields:      field[1:],
-				Timestamp:   time.Now().Format(time.RFC3339),
-			}},
-		}
-	} else {
-		embed = &discordgo.MessageSend{
-			Embeds: []*discordgo.MessageEmbed{{
-				Type:        discordgo.EmbedTypeRich,
-				Title:       "Equip SIAB Until...",
-				Description: "",
-				Color:       0xffaa00,
-				Fields:      field,
-				Timestamp:   time.Now().Format(time.RFC3339),
-			}},
+	cache := buildTeamworkCache(str, fields)
+	// Fill in our calling parameters
+	cache.contractID = contractID
+	cache.coopID = coopID
+	cache.public = publicReply
+	cache.showScores = scoresFirst
+	if eggign != "" {
+		for idx, name := range cache.names {
+			if strings.EqualFold(name, eggign) {
+				cache.page = idx
+				break
+			}
 		}
 	}
 
-	_, err := s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Content: builder.String(),
-			Embeds:  embed.Embeds,
-		})
-	if err != nil {
-		log.Print(err)
+	teamworkCacheMap[cache.xid] = cache
+
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
+
+	sendTeamworkPage(s, i, true, cache.xid, false, false, false)
+
+	// Traverse stonesCacheMap and delete expired entries
+	for key, cache := range teamworkCacheMap {
+		if cache.expirationTimestamp.Before(time.Now()) {
+			delete(teamworkCacheMap, key)
+		}
 	}
 
 }
 
-// DownloadCoopStatus will download the coop status for a given contract and coop ID
-func DownloadCoopStatus(userID string, einame string, contractID string, coopID string) (string, map[string][]*discordgo.MessageEmbedField) {
+// DownloadCoopStatusTeamwork will download the coop status for a given contract and coop ID
+func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[string][]*discordgo.MessageEmbedField) {
 	var siabMsg strings.Builder
 	var dataTimestampStr string
 	nowTime := time.Now()
@@ -248,7 +239,8 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		secondsSinceAllGoals := int64(coopStatus.GetSecondsSinceAllGoalsAchieved())
 		endTime = endTime.Add(-time.Duration(secondsSinceAllGoals) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
-		builder.WriteString(fmt.Sprintf("Completed %s contract **%s/%s**\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID))
+
+		builder.WriteString(fmt.Sprintf("Completed %s contract %s/[**%s**](%s)\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID)))
 		builder.WriteString(fmt.Sprintf("Start Time: <t:%d:f>\n", startTime.Unix()))
 		builder.WriteString(fmt.Sprintf("End Time: <t:%d:f>\n", endTime.Unix()))
 		builder.WriteString(fmt.Sprintf("Duration: %v\n", (endTime.Sub(startTime)).Round(time.Second)))
@@ -268,7 +260,7 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 		calcSecondsRemaining = int64((totalReq - totalContributions) / contributionRatePerSecond)
 		endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
-		builder.WriteString(fmt.Sprintf("In Progress %s **%s/%s** on target to complete <t:%d:R>\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, endTime.Unix()))
+		builder.WriteString(fmt.Sprintf("In Progress %s %s/[**%s**](%s) on target to complete <t:%d:R>\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID), endTime.Unix()))
 		builder.WriteString(fmt.Sprintf("Start Time: <t:%d:f>\n", startTime.Unix()))
 		builder.WriteString(fmt.Sprintf("Est. End Time: <t:%d:f>\n", endTime.Unix()))
 		builder.WriteString(fmt.Sprintf("Est. Duration: %v\n", (endTime.Sub(startTime)).Round(time.Second)))
@@ -519,59 +511,4 @@ func DownloadCoopStatus(userID string, einame string, contractID string, coopID 
 	builder.WriteString(dataTimestampStr)
 
 	return builder.String(), farmerFields
-}
-
-func calculateChickenRunTeamwork(coopSize int, durationInDays int, runs int) float64 {
-	fCR := max(12.0/(float64(coopSize*durationInDays)), 0.3)
-	CR := min(fCR*float64(runs), 6.0)
-	return CR
-}
-
-func calculateTokenTeamwork(contractDurationSeconds float64, minutesPerToken int, tokenValueSent float64, tokenValueReceived float64) float64 {
-	BTA := contractDurationSeconds / (float64(minutesPerToken) * 60)
-	T := 0.0
-
-	if BTA <= 42.0 {
-		T = ((2.0 / 3.0) * min(tokenValueSent, 3.0)) + ((8.0 / 3.0) * min(max(tokenValueSent-tokenValueReceived, 0.0), 3.0))
-	} else {
-		T = (200.0/(7.0*BTA))*min(tokenValueSent, 0.07*BTA) + (800.0 / (7.0 * BTA) * min(max(tokenValueSent-tokenValueReceived, 0.0), 0.07*BTA))
-	}
-
-	//T := 2.0 * (min(V, tokenValueSent) + 4*min(V, max(0.0, tokenValueSent-tokenValueReceived))) / V
-	return T
-}
-
-func calculateContractScore(grade int, coopSize int, targetGoal float64, contribution float64, contractLength int, contractDurationSeconds float64, B float64, CR float64, T float64) int64 {
-	basePoints := 1.0
-	durationPoints := 1.0 / 259200.0
-	score := basePoints + durationPoints*float64(contractLength)
-
-	gradeMultiplier := ei.GradeMultiplier[ei.Contract_PlayerGrade_name[int32(grade)]]
-	score *= gradeMultiplier
-
-	completionFactor := 1.0
-	score *= completionFactor
-
-	ratio := contribution / (targetGoal / float64(coopSize))
-	contributionFactor := 0.0
-	if ratio <= 2.5 {
-		contributionFactor = 1 + 3*math.Pow(ratio, 0.15)
-	} else {
-		contributionFactor = 0.02221*min(ratio, 12.5) + 4.386486
-	}
-	score *= contributionFactor
-
-	completionTimeBonus := 1.0 + 4.0*math.Pow((1.0-float64(contractDurationSeconds)/float64(contractLength)), 3)
-	score *= completionTimeBonus
-
-	teamworkScore := (5.0*B + CR + T) / 19.0
-	teamworkBonus := 1.0 + 0.19*teamworkScore
-	score *= teamworkBonus
-	score *= float64(187.5)
-
-	return int64(math.Ceil(score))
-}
-
-func getPredictedTeamwork(B float64, CR float64, T float64) float64 {
-	return (5.0*B + CR + T) / 19.0
 }
