@@ -663,6 +663,9 @@ var (
 		"fd_stones": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleStonesPage(s, i)
 		},
+		"fd_teamwork": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleTeamworkPage(s, i)
+		},
 		"fd_signupStart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseDeferredMessageUpdate,
