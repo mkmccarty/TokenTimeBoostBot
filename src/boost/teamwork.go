@@ -230,6 +230,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 	contribution := make([]float64, len(coopStatus.GetContributors()))
 	contractDurationInDays := int(float64(eiContract.Grade[grade].LengthInSeconds) / 86400.0)
 
+	prefix := ""
 	startTime := nowTime
 	secondsRemaining := int64(coopStatus.GetSecondsRemaining())
 	endTime := nowTime
@@ -239,13 +240,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 		secondsSinceAllGoals := int64(coopStatus.GetSecondsSinceAllGoalsAchieved())
 		endTime = endTime.Add(-time.Duration(secondsSinceAllGoals) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
-
 		builder.WriteString(fmt.Sprintf("Completed %s contract %s/[**%s**](%s)\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID)))
-		builder.WriteString(fmt.Sprintf("Start Time: <t:%d:f>\n", startTime.Unix()))
-		builder.WriteString(fmt.Sprintf("End Time: <t:%d:f>\n", endTime.Unix()))
-		builder.WriteString(fmt.Sprintf("Duration: %v\n", (endTime.Sub(startTime)).Round(time.Second)))
-
 	} else {
+		prefix = "Est. "
 		var totalContributions float64
 		var contributionRatePerSecond float64
 		// Need to figure out how much longer this contract will run
@@ -261,11 +258,39 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 		endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
 		builder.WriteString(fmt.Sprintf("In Progress %s %s/[**%s**](%s) on target to complete <t:%d:R>\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID), endTime.Unix()))
-		builder.WriteString(fmt.Sprintf("Start Time: <t:%d:f>\n", startTime.Unix()))
-		builder.WriteString(fmt.Sprintf("Est. End Time: <t:%d:f>\n", endTime.Unix()))
-		builder.WriteString(fmt.Sprintf("Est. Duration: %v\n", (endTime.Sub(startTime)).Round(time.Second)))
 	}
+	builder.WriteString(fmt.Sprintf("Start Time: <t:%d:f>\n", startTime.Unix()))
+	builder.WriteString(fmt.Sprintf("%sEnd Time: <t:%d:f>\n", prefix, endTime.Unix()))
+	builder.WriteString(fmt.Sprintf("%sDuration: %v\n", prefix, (endTime.Sub(startTime)).Round(time.Second)))
 
+	/*
+
+		// Want to retrieve this so we can adjust duration for SIAB strategy
+		type Production struct {
+			ELR       float64
+			SR        float64
+			Delivered float64
+			SIAB      bool
+		}
+		farmerProduction := make(map[int]Production)
+
+		for i, c := range coopStatus.GetContributors() {
+			p := c.GetProductionParams()
+			PP := Production{ELR: p.GetElr(), SR: p.GetSr(), Delivered: p.GetDelivered(), SIAB: false}
+			// Determine if SIAB is equipped in last segment
+			bh := c.GetBuffHistory()
+			if len(bh) > 0 {
+				// If the last buff is SIAB, then we need to adjust the duration
+				if bh[len(bh)-1].GetEarnings() != 0.0 {
+					PP.SIAB = true
+				}
+			}
+			// If the last buff is SIAB, then we need to adjust the duration
+			farmerProduction[i] = PP
+		}
+	*/
+
+	// Used to collect the return values for each farmer
 	var farmerFields = make(map[string][]*discordgo.MessageEmbedField)
 
 	for i, c := range coopStatus.GetContributors() {
