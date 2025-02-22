@@ -1417,6 +1417,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	} else {
 		fmt.Fprint(&builder, "Showing all stone variations for solo report.\n")
 	}
+	if dataTimestampStr != "" {
+		builder.WriteString(dataTimestampStr)
+	}
 
 	builder.WriteString("```")
 	table.Render()
@@ -1437,10 +1440,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		builder.WriteString("* Match / 🚩Research / 💎Missing / 🏠Filling(🐣CR) / 🧩Slotted / 🎣Away" + habGlitch + "\n")
 	}
 	builder.WriteString(fmt.Sprintf("Colleggtibles show when less than %s\n", strings.Join(colleggtibleStr, ", ")))
-
-	if dataTimestampStr != "" {
-		builder.WriteString(dataTimestampStr)
-	}
 
 	return builder.String(), builderURL.String(), field
 }
