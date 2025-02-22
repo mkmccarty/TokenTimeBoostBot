@@ -258,7 +258,7 @@ func getTeamworkComponents(name string, page int, pageEnd int) []discordgo.Messa
 	*/
 	buttons = append(buttons,
 		discordgo.Button{
-			Label:    "SIAB Uneqip Times",
+			Label:    "SIAB Swap Times",
 			Style:    discordgo.SecondaryButton,
 			CustomID: fmt.Sprintf("fd_teamwork#%s#siab", name),
 		})
