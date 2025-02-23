@@ -36,7 +36,7 @@ func GetSlashEstimateTime(cmd string) *discordgo.ApplicationCommand {
 	}
 }
 
-// HandleEstimateTimeCommand will handle the /teamwork-eval command
+// HandleEstimateTimeCommand will handle the estimate-contract-time command
 func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	//var builder strings.Builder
 	var contractID = ""

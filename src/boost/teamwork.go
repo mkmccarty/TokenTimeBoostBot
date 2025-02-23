@@ -63,7 +63,7 @@ func GetSlashTeamworkEval(cmd string) *discordgo.ApplicationCommand {
 	}
 }
 
-// HandleTeamworkEvalCommand will handle the /teamwork-eval command
+// HandleTeamworkEvalCommand will handle the /teamwork command
 func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	publicReply := false
