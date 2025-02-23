@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/rs/xid"
 )
 
@@ -92,7 +93,7 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 	}
 
 	if !exists {
-		str := "The teamwork data has expired. Please re-run the command."
+		str := fmt.Sprintf("The teamwork data has expired. Please re-run the %s command.", bottools.GetFormattedCommand("teamwork"))
 		comp := []discordgo.MessageComponent{}
 		d2 := discordgo.WebhookEdit{
 			Content:    &str,

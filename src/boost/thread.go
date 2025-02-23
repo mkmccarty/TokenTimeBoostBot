@@ -34,7 +34,7 @@ func GetSlashRenameThread(cmd string) *discordgo.ApplicationCommand {
 	}
 }
 
-// HandleRenameThreadCommand will handle the /teamwork-eval command
+// HandleRenameThreadCommand will handle the thread rename command
 func HandleRenameThreadCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	//var builder strings.Builder
 	// User interacting with bot, is this first time ?
