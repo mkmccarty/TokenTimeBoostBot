@@ -357,6 +357,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 			LastSIABCalc := 0.0
 			var MostRecentDuration time.Time
 			var buffTimeValue float64
+
+			//buffTimeValue2, B2 = calculateBuffTimeValue(contractDurationSeconds, c.GetBuffHistory())
+
 			for _, b := range BuffTimeValues {
 				if b.durationEquiped < 0 {
 					b.durationEquiped = 0

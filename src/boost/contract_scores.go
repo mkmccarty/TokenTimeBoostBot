@@ -6,6 +6,23 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
+/*
+	func calculateBuffTimeValue(contractDurationSeconds float64, buffHistory []*ei.CoopBuffState) (float64, float64) {
+		totalBuffTime := 0.0
+				earnings := int(math.Round(a.GetEarnings()*100 - 100))
+				eggRate := int(math.Round(a.GetEggLayingRate()*100 - 100))
+				serverTimestamp := int64(a.GetServerTimestamp()) // When it was equipped
+				if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
+					serverTimestamp -= int64(coopStatus.GetSecondsSinceAllGoalsAchieved())
+				} else {
+					serverTimestamp += calcSecondsRemaining
+				}
+				serverTimestamp = int64(contractDurationSeconds) - serverTimestamp
+				BuffTimeValues = append(BuffTimeValues, BuffTimeValue{name, earnings, 0.0075 * float64(earnings), eggRate, 0.0075 * float64(eggRate) * 10.0, serverTimestamp, 0, 0, 0, 0})
+		B := min(buffTimeValue/contractDurationSeconds, 2.0)
+		return buffTimeValue, B
+	}
+*/
 func calculateChickenRunTeamwork(coopSize int, durationInDays int, runs int) float64 {
 	fCR := max(12.0/(float64(coopSize*durationInDays)), 0.3)
 	CR := min(fCR*float64(runs), 6.0)

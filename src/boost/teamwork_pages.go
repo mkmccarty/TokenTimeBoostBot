@@ -31,7 +31,7 @@ type teamworkCache struct {
 
 var teamworkCacheMap = make(map[string]teamworkCache)
 
-// buildStonesCache will build a cache of the stones data
+// buildTeamworkCache will build a cache of the teamwork data
 func buildTeamworkCache(s string, fields map[string][]*discordgo.MessageEmbedField) teamworkCache {
 
 	// Extract SIAB Fields from the fields map
@@ -63,7 +63,7 @@ func buildTeamworkCache(s string, fields map[string][]*discordgo.MessageEmbedFie
 		footer:              "",
 		page:                0,
 		pages:               len(fields),
-		expirationTimestamp: time.Now().Add(5 * time.Minute),
+		expirationTimestamp: time.Now().Add(15 * time.Minute),
 		names:               keys,
 		fields:              fields,
 		scorefields:         scoreFields,
@@ -92,7 +92,7 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 	}
 
 	if !exists {
-		str := "The stones data has expired. Please re-run the command."
+		str := "The teamwork data has expired. Please re-run the command."
 		comp := []discordgo.MessageComponent{}
 		d2 := discordgo.WebhookEdit{
 			Content:    &str,
@@ -201,7 +201,7 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 	teamworkCacheMap[cache.xid] = cache
 }
 
-// HandleTeamworkPage steps a page of cached stones data
+// HandleTeamworkPage steps a page of cached teamwork data
 func HandleTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// cs_#Name # cs_#ID # HASH
 	refresh := false
