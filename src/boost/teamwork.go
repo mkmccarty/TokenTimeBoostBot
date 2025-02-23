@@ -443,13 +443,13 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 
 						maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB through end of contract (<t:%d:t>) in new teamwork segment to improve BTV by %6.0f. ", endTime.Unix(), shortTeamwork*extraPercent))
 						maxTeamwork.WriteString(fmt.Sprintf("The maximum BTV increase of %6.0f would be achieved if the contract finished at <t:%d:f>.", shortTeamwork, time.Now().Add(siabTimeEquipped).Unix()))
-						if MostRecentDuration.Add(siabTimeEquipped).Before(endTime) {
-							fmt.Fprintf(&siabMsg, "<t:%d:t> %s\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
+						if time.Now().Add(siabTimeEquipped).Before(endTime) {
+							fmt.Fprintf(&siabMsg, "<t:%d:t> %s\n", endTime.Unix(), name)
 						}
 					} else {
 						maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB for %s (<t:%d:t>) in new teamwork segment to max BTV by %6.0f.\n", bottools.FmtDuration(siabTimeEquipped), time.Now().Add(siabTimeEquipped).Unix(), shortTeamwork))
 						if time.Now().Add(siabTimeEquipped).Before(endTime) {
-							fmt.Fprintf(&siabMsg, "<t:%d:t> %s\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
+							fmt.Fprintf(&siabMsg, "<t:%d:t> %s\n", time.Now().Add(siabTimeEquipped).Unix(), name)
 						}
 					}
 				}
