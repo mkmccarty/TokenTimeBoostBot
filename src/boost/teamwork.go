@@ -263,6 +263,8 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 	builder.WriteString(fmt.Sprintf("%sEnd Time: <t:%d:f>\n", prefix, endTime.Unix()))
 	builder.WriteString(fmt.Sprintf("%sDuration: %v\n", prefix, (endTime.Sub(startTime)).Round(time.Second)))
 
+	siabMsg.WriteString("Showing those with SIAB equipped and can swap it out before the end of the contract without losing teamwork score.\n")
+
 	/*
 
 		// Want to retrieve this so we can adjust duration for SIAB strategy
