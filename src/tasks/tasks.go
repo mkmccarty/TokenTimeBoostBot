@@ -149,11 +149,13 @@ func isNewEggIncDataAvailable(url string, filename string) bool {
 			return false
 		}
 		log.Print("EI-Contracts: Response Status:", resp.Status)
-		for key, values := range resp.Header {
-			for _, value := range values {
-				log.Printf("%s: %s", key, value)
+		/*
+			for key, values := range resp.Header {
+				for _, value := range values {
+					log.Printf("%s: %s", key, value)
+				}
 			}
-		}
+		*/
 		defer resp.Body.Close()
 
 		body, err := io.ReadAll(resp.Body)
