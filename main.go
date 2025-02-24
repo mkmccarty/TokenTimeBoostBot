@@ -132,19 +132,22 @@ func init() {
 
 // Bot parameters to override .config.json parameters
 var (
-	GuildID        = flag.String("guild", "", "Test guild ID")
-	BotToken       = flag.String("token", "", "Bot access token")
-	AppID          = flag.String("app", "", "Application ID")
-	RemoveCommands = flag.Bool("rmcmd", false, "Remove all commands after shutdowning or not")
+	GuildID         = flag.String("guild", "", "Test guild ID")
+	BotToken        = flag.String("token", "", "Bot access token")
+	AppID           = flag.String("app", "", "Application ID")
+	RemoveCommands  = flag.Bool("rmcmd", false, "Remove all commands after shutdowning or not")
+	adminPermission = int64(0)
 
 	adminCommands = []*discordgo.ApplicationCommand{
 		{
-			Name:        slashAdminContractsList,
-			Description: "List all running contracts",
+			Name:                     slashAdminContractsList,
+			Description:              "List all running contracts",
+			DefaultMemberPermissions: &adminPermission,
 		},
 		{
-			Name:        slashAdminContractFinish,
-			Description: "Mark a contract as finished",
+			Name:                     slashAdminContractFinish,
+			Description:              "Mark a contract as finished",
+			DefaultMemberPermissions: &adminPermission,
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
@@ -155,8 +158,9 @@ var (
 			},
 		},
 		{
-			Name:        slashReloadContracts,
-			Description: "Manual check for new Egg Inc contract data.",
+			Name:                     slashReloadContracts,
+			Description:              "Manual check for new Egg Inc contract data.",
+			DefaultMemberPermissions: &adminPermission,
 		},
 	}
 
