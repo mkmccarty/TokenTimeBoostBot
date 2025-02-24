@@ -264,7 +264,7 @@ func getStonesComponents(name string, page int, pageEnd int) []discordgo.Message
 
 	if pageEnd != 0 {
 		buttons = append(buttons, discordgo.Button{
-			Label:    fmt.Sprintf("Page %d/%d", page+1, pageEnd+1),
+			Label:    fmt.Sprintf("Page %d/%d", page+1, pageEnd),
 			Style:    discordgo.SecondaryButton,
 			CustomID: fmt.Sprintf("fd_stones#%s", name),
 		})
