@@ -28,7 +28,6 @@ func getTokenValComponents(name string, linked bool) []discordgo.MessageComponen
 					Label:    "Receive a Token",
 					Style:    redButton,
 					CustomID: "fd_tokenReceived#1x!" + name,
-					Disabled: linked,
 				},
 				discordgo.Button{
 					Label:    "Details",
@@ -62,7 +61,6 @@ func getTokenValComponents(name string, linked bool) []discordgo.MessageComponen
 					Label:    "Receive 2 Tokens",
 					Style:    redButton,
 					CustomID: "fd_tokenReceived#2x!" + name,
-					Disabled: linked,
 				},
 				discordgo.Button{
 					Label:    "Send 6 Tokens",
@@ -74,7 +72,6 @@ func getTokenValComponents(name string, linked bool) []discordgo.MessageComponen
 					Label:    "Receive 6 Tokens",
 					Style:    redButton,
 					CustomID: "fd_tokenReceived#6x!" + name,
-					Disabled: linked,
 				},
 			},
 		},
