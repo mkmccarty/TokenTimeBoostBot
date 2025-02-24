@@ -98,6 +98,18 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		outputStr += fmt.Sprintf("> %s/min: %2.2f   Expected %1.2f%s\n", contract.TokenStr, contract.TokensPerMinute, estTPM, ggicon)
 	}
 
+	// Current tval
+	if contract.State != ContractStateSignup {
+		if contract.EstimatedDuration == 0 {
+			c := ei.EggIncContractsAll[contract.ContractID]
+			if c.ID != "" {
+				contract.EstimatedDuration = c.EstimatedDuration
+			}
+		}
+		tval := getTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
+		outputStr += fmt.Sprintf("> Current TVal: %2.4f\n", tval)
+	}
+
 	switch contract.State {
 	case ContractStateSignup:
 		outputStr += contract.SRData.StatusStr
