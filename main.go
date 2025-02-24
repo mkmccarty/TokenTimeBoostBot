@@ -859,33 +859,44 @@ func syncCommands(s *discordgo.Session, guildID string, desiredCommandList []*di
 		}
 	}
 
-	// Create or update existing commands
-	for _, cmd := range desiredCommandList {
-		if existingCmd, found := existingMap[cmd.Name]; found {
-			// Edit existing command
-			_, err := s.ApplicationCommandEdit(s.State.User.ID, guildID, existingCmd.ID, cmd)
-			if err != nil {
-				log.Printf("Failed to edit command %s (%s) in guild %s: %v", cmd.Name, cmd.ID, guildID, err)
-			} else {
-				log.Printf("Successfully edited command %s (%s) in guild %s", cmd.Name, cmd.ID, guildID)
-			}
-		} else {
-			// Create new command
-			_, err := s.ApplicationCommandCreate(s.State.User.ID, guildID, cmd)
-			if err != nil {
-				log.Printf("Failed to create command %s in guild %s: %v", cmd.Name, guildID, err)
-			} else {
-				log.Printf("Successfully created command %s in guild %s", cmd.Name, guildID)
-			}
-		}
-	}
-
-	existingCommands, err = s.ApplicationCommands(s.State.User.ID, guildID)
+	cmds, err := s.ApplicationCommandBulkOverwrite(s.State.User.ID, guildID, desiredCommandList)
 	if err != nil {
-		log.Fatalf("Failed to fetch commands for guild %s: %v", guildID, err)
-		return
+		log.Fatalf("Failed to bulk overwrite commands for guild %s: %v", guildID, err)
+	} else {
+		bottools.UpdateCommandMap(cmds)
 	}
-	bottools.UpdateCommandMap(existingCommands)
+	/*
+	   // Create or update existing commands
+
+	   	for _, cmd := range desiredCommandList {
+	   		if existingCmd, found := existingMap[cmd.Name]; found {
+	   			// Edit existing command
+	   			_, err := s.ApplicationCommandEdit(s.State.User.ID, guildID, existingCmd.ID, cmd)
+	   			if err != nil {
+	   				log.Printf("Failed to edit command %s (%s) in guild %s: %v", cmd.Name, cmd.ID, guildID, err)
+	   			} else {
+	   				log.Printf("Successfully edited command %s (%s) in guild %s", cmd.Name, cmd.ID, guildID)
+	   			}
+	   		} else {
+	   			// Create new command
+	   			_, err := s.ApplicationCommandCreate(s.State.User.ID, guildID, cmd)
+	   			if err != nil {
+	   				log.Printf("Failed to create command %s in guild %s: %v", cmd.Name, guildID, err)
+	   			} else {
+	   				log.Printf("Successfully created command %s in guild %s", cmd.Name, guildID)
+	   			}
+	   		}
+	   	}
+
+	   existingCommands, err = s.ApplicationCommands(s.State.User.ID, guildID)
+
+	   	if err != nil {
+	   		log.Fatalf("Failed to fetch commands for guild %s: %v", guildID, err)
+	   		return
+	   	}
+
+	   bottools.UpdateCommandMap(existingCommands)
+	*/
 }
 
 func main() {

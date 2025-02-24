@@ -148,7 +148,7 @@ func isNewEggIncDataAvailable(url string, filename string) bool {
 		if err != nil {
 			return false
 		}
-		log.Print("EI-Contracts: Response Status:", resp.Status)
+		log.Printf("EI-Contracts: Response Status: %s\n", resp.Status)
 		/*
 			for key, values := range resp.Header {
 				for _, value := range values {
@@ -177,7 +177,7 @@ func isNewEggIncDataAvailable(url string, filename string) bool {
 			// Read the last 1024 bytes from the file
 			_, err = file.Seek(-EvalWidth, io.SeekEnd)
 			if err != nil {
-				log.Print(err)
+				log.Println(err)
 			}
 			fileBytes := make([]byte, EvalWidth)
 			_, err = file.Read(fileBytes)
@@ -226,7 +226,7 @@ func downloadEggIncData(url string, filename string) bool {
 	//	return false
 	//}
 	if !isNewEggIncDataAvailable(url, filename) {
-		log.Print("EI-Data. No new data available for ", filename)
+		log.Println("EI-Data. No new data available for ", filename)
 		return false
 	}
 	req, err := http.NewRequest("GET", url, nil)
@@ -257,7 +257,7 @@ func downloadEggIncData(url string, filename string) bool {
 	if err == nil {
 		err = os.Remove(filename)
 		if err != nil {
-			log.Print("Error Deleting EI-Contracts File ", err.Error())
+			log.Println("Error Deleting EI-Contracts File ", err.Error())
 		}
 	}
 
@@ -272,17 +272,17 @@ func downloadEggIncData(url string, filename string) bool {
 	if filename == eggIncContractsFile {
 		boost.LoadContractData(filename)
 		lastContractUpdate = time.Now()
-		log.Print("EI-Contracts. New data loaded, length: ", int64(len(body)))
+		log.Printf("EI-Contracts. New data loaded, length: %d\n", int64(len(body)))
 	} else if filename == eggIncEventsFile {
 		events.LoadEventData(filename)
 		lastEventUpdate = time.Now()
-		log.Print("EI-Events. New data loaded, length: ", int64(len(body)))
+		log.Printf("EI-Events. New data loaded, length: %d\n", int64(len(body)))
 	} else if filename == eggIncEiAfxDataFile {
 		err := ei.LoadData(filename)
 		if err != nil {
 			log.Print(err)
 		} else {
-			log.Print("EI-AFX-Data. New data loaded, length: ", int64(len(body)))
+			log.Printf("EI-AFX-Data. New data loaded, length: %d\n", int64(len(body)))
 		}
 	}
 	/*else if filename == eggIncEiAfxConfigFile {
