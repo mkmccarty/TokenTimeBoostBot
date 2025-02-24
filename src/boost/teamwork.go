@@ -451,9 +451,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 						}
 					} else {
 						maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB for %s (<t:%d:t>) in new teamwork segment to max BTV by %6.0f.\n", bottools.FmtDuration(siabTimeEquipped), time.Now().Add(siabTimeEquipped).Unix(), shortTeamwork))
-						if time.Now().Add(siabTimeEquipped).Before(endTime) {
-							fmt.Fprintf(&siabMsg, "<t:%d:t> %s\n", time.Now().Add(siabTimeEquipped).Unix(), name)
-						}
+						//if time.Now().Add(siabTimeEquipped).Before(endTime) {
+						//	fmt.Fprintf(&siabMsg, "<t:%d:t> %s\n", time.Now().Add(siabTimeEquipped).Unix(), name)
+						//}
 					}
 				}
 
