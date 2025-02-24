@@ -107,7 +107,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 			}
 		}
 		tval := getTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
-		outputStr += fmt.Sprintf("> Current TVal: %2.4f\n", tval)
+		outputStr += fmt.Sprintf("> Current TVal: %2.3g\n", tval)
 	}
 
 	switch contract.State {
