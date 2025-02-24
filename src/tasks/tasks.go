@@ -141,7 +141,7 @@ func isNewEggIncDataAvailable(url string, filename string) bool {
 		req.Header.Add("Expires", "0")
 		req.Header.Add("Clear-Site-Data", "*")
 		req.Header.Add("my-secret", fmt.Sprintf("%d", rand.IntN(1000)))
-		log.Print("EI-Contracts: Requested Range", rangeHeader)
+		//log.Print("EI-Contracts: Requested Range", rangeHeader)
 
 		var client http.Client
 		resp, err := client.Do(req)
@@ -160,9 +160,9 @@ func isNewEggIncDataAvailable(url string, filename string) bool {
 		if err != nil {
 			return false
 		}
-		str := string(body)
-		log.Print("EI-Data: Downloaded ", len(body), " bytes")
-		log.Print("EI-Data: Downloaded Bytes:", str)
+		//str := string(body)
+		//log.Print("EI-Data: Downloaded ", len(body), " bytes")
+		//log.Print("EI-Data: Downloaded Bytes:", str)
 
 		if len(body) > 0 {
 			// Test if the end of the the file eggIncContractsFile is the same as the body
