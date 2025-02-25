@@ -160,9 +160,9 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 		// Calculate and display contract scores
 		if showScores {
-			scoreLower := getContractEstimate(c, true, 100, 45, 20, 0, 100, 100, 5)
-			score := getContractEstimate(c, false, 60, 45, 15, 0, c.MaxCoopSize-1, 100, 5)
-			scoreSink := getContractEstimate(c, false, 60, 45, 15, 0, c.MaxCoopSize-1, 3, 100)
+			scoreLower := getContractScoreEstimate(c, true, 100, 45, 20, 0, 100, 100, 5)
+			score := getContractScoreEstimate(c, false, 60, 45, 15, 0, c.MaxCoopSize-1, 100, 5)
+			scoreSink := getContractScoreEstimate(c, false, 60, 45, 15, 0, c.MaxCoopSize-1, 3, 100)
 
 			str += fmt.Sprintf("Contract Score Top: **%d** (100%%/20%%/CR/TVAL)\n", scoreLower)
 			str += fmt.Sprintf("Contract Score ACO Fastrun: **%d**(60%%/15%%/TVAL)\n", score)
@@ -193,35 +193,6 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 				Components: []discordgo.MessageComponent{}},
 		})
 	}
-}
-
-func getContractEstimate(c ei.EggIncContract, fastest bool, siabPercent int, siabMinutes int, deflPercent int, deflMinutesReduction int, chickenRuns int, sentTokens int, receivedTokens int) int64 {
-	earnings := float64(siabPercent) * 0.0075
-	eggRate := float64(deflPercent) * 0.075
-
-	contractDuration := c.EstimatedDurationLower
-	if !fastest {
-		contractDuration = c.EstimatedDuration
-	}
-
-	siabDuration := (time.Duration(siabMinutes) * time.Minute).Seconds()
-	deflectorDuration := (contractDuration - time.Duration(deflMinutesReduction)*time.Minute).Seconds()
-
-	BTV := siabDuration*earnings + deflectorDuration*eggRate
-	BuffTimeValue := BTV / contractDuration.Seconds()
-	B := min(BuffTimeValue, 2.0)
-
-	CR := calculateChickenRunTeamwork(c.MaxCoopSize, c.ContractDurationInDays, chickenRuns)
-	T := calculateTokenTeamwork(contractDuration.Seconds(), c.MinutesPerToken, float64(sentTokens), float64(receivedTokens))
-	score := calculateContractScore(int(ei.Contract_GRADE_AAA),
-		c.MaxCoopSize,
-		c.Grade[ei.Contract_GRADE_AAA].TargetAmount[len(c.Grade[ei.Contract_GRADE_AAA].TargetAmount)-1],
-		c.TargetAmount[len(c.TargetAmount)-1]/float64(c.MaxCoopSize),
-		c.Grade[ei.Contract_GRADE_AAA].LengthInSeconds,
-		contractDuration.Seconds(),
-		B, CR, T)
-
-	return score
 }
 
 // getContractDurationEstimate returns two estimated durations of a contract based for great and well equiped artifact sets

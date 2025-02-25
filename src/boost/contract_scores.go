@@ -2,6 +2,7 @@ package boost
 
 import (
 	"math"
+	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
@@ -76,4 +77,35 @@ func calculateContractScore(grade int, coopSize int, targetGoal float64, contrib
 
 func getPredictedTeamwork(B float64, CR float64, T float64) float64 {
 	return (5.0*B + CR + T) / 19.0
+}
+
+// getContractScoreEstimate will return the estimated score for the contract
+// based on the given parameters
+func getContractScoreEstimate(c ei.EggIncContract, fastest bool, siabPercent int, siabMinutes int, deflPercent int, deflMinutesReduction int, chickenRuns int, sentTokens int, receivedTokens int) int64 {
+	earnings := float64(siabPercent) * 0.0075
+	eggRate := float64(deflPercent) * 0.075
+
+	contractDuration := c.EstimatedDurationLower
+	if !fastest {
+		contractDuration = c.EstimatedDuration
+	}
+
+	siabDuration := (time.Duration(siabMinutes) * time.Minute).Seconds()
+	deflectorDuration := (contractDuration - time.Duration(deflMinutesReduction)*time.Minute).Seconds()
+
+	BTV := siabDuration*earnings + deflectorDuration*eggRate
+	BuffTimeValue := BTV / contractDuration.Seconds()
+	B := min(BuffTimeValue, 2.0)
+
+	CR := calculateChickenRunTeamwork(c.MaxCoopSize, c.ContractDurationInDays, chickenRuns)
+	T := calculateTokenTeamwork(contractDuration.Seconds(), c.MinutesPerToken, float64(sentTokens), float64(receivedTokens))
+	score := calculateContractScore(int(ei.Contract_GRADE_AAA),
+		c.MaxCoopSize,
+		c.Grade[ei.Contract_GRADE_AAA].TargetAmount[len(c.Grade[ei.Contract_GRADE_AAA].TargetAmount)-1],
+		c.TargetAmount[len(c.TargetAmount)-1]/float64(c.MaxCoopSize),
+		c.Grade[ei.Contract_GRADE_AAA].LengthInSeconds,
+		contractDuration.Seconds(),
+		B, CR, T)
+
+	return score
 }
