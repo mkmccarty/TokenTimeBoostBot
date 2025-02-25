@@ -427,22 +427,22 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 			}
 
 			// Compensate for someone having a lesser SIAB equipped
-			nowSIAB := BestSIAB
+			lastOrBestSIAB := BestSIAB
 			if LastSIAB > 0 {
-				nowSIAB = LastSIAB
+				lastOrBestSIAB = LastSIAB
 			}
 
 			// If SIAB still equipped, subtract that time from the total
 			shortTeamwork := (contractDurationSeconds * 2.0) - (buffTimeValue - LastSIABCalc)
 
 			// Using the current, or best SIAB if none equipped, calculate the time needed to max BTV
-			siabSecondsNeeded := shortTeamwork / nowSIAB
+			siabSecondsNeeded := shortTeamwork / lastOrBestSIAB
 			siabTimeEquipped := time.Duration(siabSecondsNeeded) * time.Second
 
-			if nowSIAB > 0 && coopStatus.GetSecondsSinceAllGoalsAchieved() <= 0 {
+			if lastOrBestSIAB > 0 && coopStatus.GetSecondsSinceAllGoalsAchieved() <= 0 {
 				// Your deflector % + your ship % (divided by 10) needs to average 26.7 over the course of the contract
 				var maxTeamwork strings.Builder
-				if nowSIAB != 0 {
+				if lastOrBestSIAB != 0 {
 					maxTeamwork.WriteString(fmt.Sprintf("Equip current SIAB for %s (<t:%d:t>) in the most recent teamwork segment to max BTV by %6.0f.\n",
 						bottools.FmtDuration(siabTimeEquipped),
 						MostRecentDuration.Add(siabTimeEquipped).Unix(),
