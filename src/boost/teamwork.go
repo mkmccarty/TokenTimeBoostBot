@@ -176,6 +176,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 // DownloadCoopStatusTeamwork will download the coop status for a given contract and coop ID
 func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[string][]*discordgo.MessageEmbedField) {
 	var siabMsg strings.Builder
+	siabMsgCount := 0
 	var dataTimestampStr string
 	nowTime := time.Now()
 
@@ -356,6 +357,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 			table.SetBorders(tablewriter.Border{Left: false, Top: false, Right: false, Bottom: false})
 
 			BestSIAB := 0.0
+			LastSIAB := 0.0
 			LastSIABCalc := 0.0
 			var MostRecentDuration time.Time
 			var buffTimeValue float64
@@ -380,6 +382,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 				if b.earnings > int(BestSIAB) {
 					BestSIAB = b.earningsCalc
 				}
+				LastSIAB = b.earningsCalc
 				LastSIABCalc = float64(b.durationEquiped) * b.earningsCalc
 
 				table.Append([]string{fmt.Sprintf("%v", when.Round(time.Second)), fmt.Sprintf("%v", dur.Round(time.Second)), fmt.Sprintf("%d%%", b.eggRate), fmt.Sprintf("%d%%", b.earnings), fmt.Sprintf("%6.0f", b.buffTimeValue), fmt.Sprintf("%1.6f", segmentTeamworkScore)})
@@ -425,18 +428,26 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 
 			// If SIAB still equipped, subtract that time from the total
 			shortTeamwork := (contractDurationSeconds * 2.0) - (buffTimeValue - LastSIABCalc)
-			siabSecondsNeeded := shortTeamwork / BestSIAB
+			siabSecondsNeeded := shortTeamwork / LastSIAB
 			siabTimeEquipped := time.Duration(siabSecondsNeeded) * time.Second
 
-			if BestSIAB > 0 && coopStatus.GetSecondsSinceAllGoalsAchieved() <= 0 {
+			// Compensate for someone having a lesser SIAB equipped
+			nowSIAB := BestSIAB
+			if LastSIAB > 0 {
+				nowSIAB = LastSIAB
+			}
 
+			if nowSIAB > 0 && coopStatus.GetSecondsSinceAllGoalsAchieved() <= 0 {
 				// Your deflector % + your ship % (divided by 10) needs to average 26.7 over the course of the contract
-
 				var maxTeamwork strings.Builder
-				if LastSIABCalc != 0 {
-					maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB for %s (<t:%d:t>) in the most recent teamwork segment to max BTV by %6.0f.\n", bottools.FmtDuration(siabTimeEquipped), MostRecentDuration.Add(siabTimeEquipped).Unix(), shortTeamwork))
+				if nowSIAB != 0 {
+					maxTeamwork.WriteString(fmt.Sprintf("Equip current SIAB for %s (<t:%d:t>) in the most recent teamwork segment to max BTV by %6.0f.\n",
+						bottools.FmtDuration(siabTimeEquipped),
+						MostRecentDuration.Add(siabTimeEquipped).Unix(),
+						shortTeamwork))
 					if MostRecentDuration.Add(siabTimeEquipped).Before(endTime) {
 						fmt.Fprintf(&siabMsg, "<t:%d:t> %s\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
+						siabMsgCount++
 					}
 				} else {
 					if time.Now().Add(siabTimeEquipped).After(endTime) {
@@ -446,13 +457,14 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 						// Calculate the shortTeamwork reducing the extra time from the siabTimeEquipped
 						extraPercent := (siabTimeEquipped - extraTime).Seconds() / siabTimeEquipped.Seconds()
 
-						maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB through end of contract (<t:%d:t>) in new teamwork segment to improve BTV by %6.0f. ", endTime.Unix(), shortTeamwork*extraPercent))
+						maxTeamwork.WriteString(fmt.Sprintf("Equip your best SIAB through end of contract (<t:%d:t>) in new teamwork segment to improve BTV by %6.0f. ", endTime.Unix(), shortTeamwork*extraPercent))
 						maxTeamwork.WriteString(fmt.Sprintf("The maximum BTV increase of %6.0f would be achieved if the contract finished at <t:%d:f>.", shortTeamwork, time.Now().Add(siabTimeEquipped).Unix()))
 						if time.Now().Add(siabTimeEquipped).Before(endTime) {
 							fmt.Fprintf(&siabMsg, "<t:%d:t> %s\n", endTime.Unix(), name)
+							siabMsgCount++
 						}
 					} else {
-						maxTeamwork.WriteString(fmt.Sprintf("Equip SIAB for %s (<t:%d:t>) in new teamwork segment to max BTV by %6.0f.\n", bottools.FmtDuration(siabTimeEquipped), time.Now().Add(siabTimeEquipped).Unix(), shortTeamwork))
+						maxTeamwork.WriteString(fmt.Sprintf("Equip your best SIAB for %s (<t:%d:t>) in new teamwork segment to max BTV by %6.0f.\n", bottools.FmtDuration(siabTimeEquipped), time.Now().Add(siabTimeEquipped).Unix(), shortTeamwork))
 						//if time.Now().Add(siabTimeEquipped).Before(endTime) {
 						//	fmt.Fprintf(&siabMsg, "<t:%d:t> %s\n", time.Now().Add(siabTimeEquipped).Unix(), name)
 						//}
@@ -539,6 +551,11 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 		}
 	}
 	var siabMax []*discordgo.MessageEmbedField
+	if siabMsgCount == 0 {
+		siabMsg.WriteString("\nNo SIAB swaps needed.\n")
+	} else {
+		siabMsg.WriteString("\nUsing your best SiaB will result in higher CS.\n")
+	}
 	siabMax = append(siabMax, &discordgo.MessageEmbedField{
 		Name:   "SIAB",
 		Value:  siabMsg.String(),
