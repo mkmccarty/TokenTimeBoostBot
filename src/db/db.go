@@ -1,69 +1,71 @@
 package db
 
 import (
-	"context"
-	"fmt"
-	"log"
-	"os"
-
-	"github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 var mongoDB *mongo.Client
 
 // Open is used to establish the database connection
 func Open() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Print(err)
-	}
 
-	var uri string
+	/*
+		err := godotenv.Load()
+		if err != nil {
+			log.Print(err)
+		}
 
-	if uri = os.Getenv("MONGODB_URI"); uri == "" {
-		log.Print("You must set your 'MONGODB_URI' environment variable. See\n\t https://www.mongodb.com/docs/drivers/go/current/usage-examples/#environment-variable")
-		return
-	}
+		var uri string
 
-	//	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	//	defer cancel()
+		if uri = os.Getenv("MONGODB_URI"); uri == "" {
+			log.Print("You must set your 'MONGODB_URI' environment variable. See\n\t https://www.mongodb.com/docs/drivers/go/current/usage-examples/#environment-variable")
+			return
+		}
 
-	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(uri))
+		//	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		//	defer cancel()
 
-	if err != nil {
-		log.Print(err)
-	} else {
+		client, err := mongo.Connect(options.Client().ApplyURI(uri))
 
-		mongoDB = client
-	}
+		if err != nil {
+			log.Print(err)
+		} else {
+
+			mongoDB = client
+		}
+	*/
 }
 
 // StoreRecord writes a single record to a collection
 func StoreRecord(database string, collection string, key string, document interface{}) {
-	if mongoDB == nil {
-		return
-	}
+	/*
+		if mongoDB == nil {
+			return
+		}
 
-	// Updates the first document that has the specified "_id" value
-	coll := mongoDB.Database(database).Collection(collection)
-	opts := options.Update().SetUpsert(true)
+		// Updates the first document that has the specified "_id" value
+		collection = mongoDB.Database(database).Collection(collection)
+		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 
-	filter := bson.D{{Key: "hash", Value: key}}
-	result, err := coll.UpdateOne(context.TODO(), filter, document, opts)
+		res, _ := collection.InsertOne(ctx, bson.D{{"name", "pi"}, {"value", 3.14159}})
 
-	if err != nil {
-		log.Print(err)
-	}
+		filter := bson.D{{Key: "hash", Value: key}}
+		result, err := collection.UpdateOne(ctx, filter, document, opts)
 
-	fmt.Printf("Document inserted with ID: %s\n", result.UpsertedID)
+		if err != nil {
+			log.Print(err)
+		}
+
+		fmt.Printf("Document inserted with ID: %s\n", result.UpsertedID)
+	*/
 }
 
 // Close is used to nicely shutdown the DB connection
 func Close() {
-	if err := mongoDB.Disconnect(context.TODO()); err != nil {
-		panic(err)
-	}
+	/*
+		if err := mongoDB.Disconnect(ctx); err != nil {
+			panic(err)
+		}
+	*/
 }
