@@ -1,10 +1,6 @@
 package db
 
-import (
-	"go.mongodb.org/mongo-driver/v2/mongo"
-)
-
-var mongoDB *mongo.Client
+//var mongoDB *mongo.Client
 
 // Open is used to establish the database connection
 func Open() {
