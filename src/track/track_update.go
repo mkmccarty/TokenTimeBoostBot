@@ -38,16 +38,21 @@ func HandleTrackerRefresh(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	t, err := getTrack(userID, name)
 	if err == nil {
 		startTime, contractDurationSeconds, err := DownloadCoopStatusTracker(t.ContractID, t.CoopID)
-		if err == nil {
-			t.TimeFromCoopStatus = time.Now()
-			embed := TokenTrackingAdjustTime(i.ChannelID, userID, name, 0, 0, 0, 0, startTime, contractDurationSeconds)
-			comp := getTokenValComponents(t.Name, t.Linked && !t.LinkedCompleted)
-			m := discordgo.NewMessageEdit(t.UserChannelID, t.TokenMessageID)
-			m.Components = &comp
-			m.SetEmbeds(embed.Embeds)
-			m.SetContent("")
-			_, _ = s.ChannelMessageEditComplex(m)
+		if err != nil {
+			errorStr := fmt.Sprintf("Error: %s, check your coop-id", err)
+			s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+				Content: &errorStr,
+			})
+			return
 		}
+		t.TimeFromCoopStatus = time.Now()
+		embed := TokenTrackingAdjustTime(i.ChannelID, userID, name, 0, 0, 0, 0, startTime, contractDurationSeconds)
+		comp := getTokenValComponents(t.Name, t.Linked && !t.LinkedCompleted)
+		m := discordgo.NewMessageEdit(t.UserChannelID, t.TokenMessageID)
+		m.Components = &comp
+		m.SetEmbeds(embed.Embeds)
+		m.SetContent("")
+		_, _ = s.ChannelMessageEditComplex(m)
 	}
 	_ = s.InteractionResponseDelete(i.Interaction)
 

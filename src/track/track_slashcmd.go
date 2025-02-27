@@ -263,6 +263,8 @@ func HandleTrackerEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if input.CustomID == "coop-id" && input.Value != "" {
 			coopID := strings.TrimSpace(input.Value)
 			t.CoopID = coopID
+			t.TimeFromCoopStatus = time.Time{}
+			str = fmt.Sprintf("Coop ID updated to %s.", coopID)
 		}
 		if input.CustomID == "duration" && input.Value != "" {
 			// Timespan of the contract duration
