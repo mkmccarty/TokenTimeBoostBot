@@ -30,31 +30,32 @@ type TokenUnit struct {
 }
 
 type tokenValue struct {
-	UserID           string        // The user ID that is tracking the token value
-	Username         string        // The username that is tracking the token value
-	Name             string        // Tracking name for this contract
-	ChannelID        string        // The channel ID that is tracking the token value
-	ContractID       string        // The contract ID
-	CoopID           string        // The coop ID
-	Linked           bool          // If the tracker is linked to channel contract
-	LinkedCompleted  bool          // If the linked tracker has a completed contract
-	LinkReceived     bool          // If linked, log the received tokens
-	ChannelMention   string        // The channel mention
-	StartTime        time.Time     // When Token Value time started
-	EstimatedEndTime time.Time     // Time of Token Value time plus Duration
-	DurationTime     time.Duration // Duration of Token Value time
-	Sent             []TokenUnit
-	SentCount        int
-	Received         []TokenUnit
-	ReceivedCount    int
-	FarmedTokenTime  []time.Time // time a self farmed token was received
-	SumValueSent     float64     // sum of all token values sent
-	SumValueReceived float64     // sum of all token values received
-	TokenDelta       float64     // difference between sent and received
-	TokenMessageID   string      // Message ID for the Last Token Value message
-	UserChannelID    string      // User Channel ID for the Last Token Value message
-	Details          bool        // Show details of each token sent
-	MinutesPerToken  int         // Used for token value calculation
+	UserID             string        // The user ID that is tracking the token value
+	Username           string        // The username that is tracking the token value
+	Name               string        // Tracking name for this contract
+	ChannelID          string        // The channel ID that is tracking the token value
+	ContractID         string        // The contract ID
+	CoopID             string        // The coop ID
+	Linked             bool          // If the tracker is linked to channel contract
+	LinkedCompleted    bool          // If the linked tracker has a completed contract
+	LinkReceived       bool          // If linked, log the received tokens
+	ChannelMention     string        // The channel mention
+	StartTime          time.Time     // When Token Value time started
+	EstimatedEndTime   time.Time     // Time of Token Value time plus Duration
+	DurationTime       time.Duration // Duration of Token Value time
+	TimeFromCoopStatus time.Time     // If the time was set from the coop status
+	Sent               []TokenUnit
+	SentCount          int
+	Received           []TokenUnit
+	ReceivedCount      int
+	FarmedTokenTime    []time.Time // time a self farmed token was received
+	SumValueSent       float64     // sum of all token values sent
+	SumValueReceived   float64     // sum of all token values received
+	TokenDelta         float64     // difference between sent and received
+	TokenMessageID     string      // Message ID for the Last Token Value message
+	UserChannelID      string      // User Channel ID for the Last Token Value message
+	Details            bool        // Show details of each token sent
+	MinutesPerToken    int         // Used for token value calculation
 }
 
 type tokenValues struct {
@@ -105,18 +106,24 @@ func SetTokenTrackingDetails(userID string, name string) {
 }
 
 // TokenTrackingAdjustTime will adjust the time values for a contract
-func TokenTrackingAdjustTime(channelID string, userID string, name string, startHour int, startMinute int, endHour int, endMinute int) *discordgo.MessageSend {
+func TokenTrackingAdjustTime(channelID string, userID string, name string, startHour int, startMinute int, endHour int, endMinute int, startTime time.Time, duration float64) *discordgo.MessageSend {
 	td, err := getTrack(userID, name)
 	if err != nil {
 		return nil
 	}
-	td.StartTime = td.StartTime.Add(time.Duration(startHour) * time.Hour)
-	td.StartTime = td.StartTime.Add(time.Duration(startMinute) * time.Minute)
+	if startTime != (time.Time{}) && duration != 0 {
+		td.StartTime = startTime
+		td.DurationTime = time.Duration(duration) * time.Second
+		td.EstimatedEndTime = startTime.Add(td.DurationTime)
+	} else {
+		td.StartTime = td.StartTime.Add(time.Duration(startHour) * time.Hour)
+		td.StartTime = td.StartTime.Add(time.Duration(startMinute) * time.Minute)
 
-	td.DurationTime = max(0, td.DurationTime+(time.Duration(endHour)*time.Hour))
-	td.DurationTime = max(0, td.DurationTime+(time.Duration(endMinute)*time.Minute))
+		td.DurationTime = max(0, td.DurationTime+(time.Duration(endHour)*time.Hour))
+		td.DurationTime = max(0, td.DurationTime+(time.Duration(endMinute)*time.Minute))
 
-	td.EstimatedEndTime = td.StartTime.Add(td.DurationTime)
+		td.EstimatedEndTime = td.StartTime.Add(td.DurationTime)
+	}
 
 	// Changed duration needs a recalculation
 	td.SumValueSent = 0.0
@@ -152,7 +159,11 @@ func getTokenTrackingString(td *tokenValue, finalDisplay bool) string {
 		fmt.Fprint(&builder, "Contract Channel: ", td.ChannelMention, "\n")
 	}
 	fmt.Fprintf(&builder, "Start time: <t:%d:t>\n", td.StartTime.Unix())
-	fmt.Fprintf(&builder, "Duration  : **%s**\n", ts[:len(ts)-2])
+	if td.TimeFromCoopStatus.IsZero() {
+		fmt.Fprintf(&builder, "Duration  : **%s** Estimate\n", ts[:len(ts)-2])
+	} else {
+		fmt.Fprintf(&builder, "Duration  : **%s**  retrieved <t:%d:r>\n", ts[:len(ts)-2], td.TimeFromCoopStatus.Unix())
+	}
 
 	return builder.String()
 }
@@ -175,7 +186,11 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 		fmt.Fprintf(&description, "Token tracking for **%s**\n", URL)
 	}
 	fmt.Fprintf(&description, "Start time: <t:%d:t>\n", td.StartTime.Unix())
-	fmt.Fprintf(&description, "Duration  : **%s**\n", ts[:len(ts)-2])
+	if td.TimeFromCoopStatus.IsZero() {
+		fmt.Fprintf(&description, "Duration (Estimate): **%s** \n", ts[:len(ts)-2])
+	} else {
+		fmt.Fprintf(&description, "Duration (<t:%d:R>): **%s**\n", td.TimeFromCoopStatus.Unix(), ts[:len(ts)-2])
+	}
 
 	if td.Linked {
 		fmt.Fprint(&linkedHdr, "Linked Contract")

@@ -655,6 +655,9 @@ var (
 		"fd_tokenComplete": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			track.HandleTokenComplete(s, i)
 		},
+		"fd_tokenRefresh": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			track.HandleTrackerRefresh(s, i)
+		},
 		"rc_": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractReactions(s, i)
 		},
