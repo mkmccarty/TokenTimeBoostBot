@@ -40,7 +40,7 @@ func HandleTrackerRefresh(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		startTime, contractDurationSeconds, err := DownloadCoopStatusTracker(t.ContractID, t.CoopID)
 		if err != nil {
 			errorStr := fmt.Sprintf("Error: %s, check your coop-id", err)
-			s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 				Content: &errorStr,
 			})
 			return
