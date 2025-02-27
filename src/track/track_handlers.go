@@ -43,9 +43,9 @@ func getTokenValComponents(name string, linked bool) []discordgo.MessageComponen
 					CustomID: "fd_tokenEdit#" + name,
 				},
 				discordgo.Button{
-					Label:    "Finish",
+					Label:    "Sync w/EI",
 					Style:    discordgo.SecondaryButton,
-					CustomID: "fd_tokenComplete#" + name,
+					CustomID: "fd_tokenRefresh#" + name,
 				},
 			},
 		},
@@ -72,6 +72,15 @@ func getTokenValComponents(name string, linked bool) []discordgo.MessageComponen
 					Label:    "Receive 6 Tokens",
 					Style:    redButton,
 					CustomID: "fd_tokenReceived#6x!" + name,
+				},
+			},
+		},
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{
+					Label:    "Finish",
+					Style:    discordgo.SecondaryButton,
+					CustomID: "fd_tokenComplete#" + name,
 				},
 			},
 		},

@@ -327,7 +327,7 @@ func HandleTrackerEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	saveData(Tokens)
 	//embed := getTokenTrackingEmbed(t, false)
-	embed := TokenTrackingAdjustTime(i.ChannelID, userID, name, 0, 0, 0, 0)
+	embed := TokenTrackingAdjustTime(i.ChannelID, userID, name, 0, 0, 0, 0, time.Time{}, 0)
 	comp := getTokenValComponents(t.Name, t.Linked && !t.LinkedCompleted)
 	m := discordgo.NewMessageEdit(t.UserChannelID, t.TokenMessageID)
 	m.Components = &comp
