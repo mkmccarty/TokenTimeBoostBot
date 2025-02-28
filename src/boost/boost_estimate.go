@@ -48,6 +48,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		optionMap[opt.Name] = opt
 	}
 
+	showScores := false
 	if opt, ok := optionMap["contract-id"]; ok {
 		contractID = opt.StringValue()
 	} else {
@@ -57,7 +58,6 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			contractID = runningContract.ContractID
 		}
 	}
-	showScores := false
 	if strings.HasPrefix(contractID, "-") {
 		parts := strings.Split(contractID, "(")
 		if len(parts) > 1 {
@@ -72,114 +72,13 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		str = "No contract found in this channel, use the command parameters to pick one."
 
 	}
-
 	if str == "" {
-		eggStr := FindEggEmoji(c.EggName)
-		tokenStr, _, _ := ei.GetBotEmoji("token")
-		runStr, _, _ := ei.GetBotEmoji("icon_chicken_run")
-
-		str = fmt.Sprintf("%s%s **%s** [%s](%s)\n%d%s - %s/%dm - %s%d/%dm",
-			ei.GetBotEmojiMarkdown("contract_grade_aaa"),
-			eggStr, c.Name, c.ID,
-			fmt.Sprintf("https://eicoop-carpet.netlify.app/?q=%s", c.ID),
-			c.MaxCoopSize, ei.GetBotEmojiMarkdown("icon_coop"),
-			tokenStr, c.MinutesPerToken,
-			runStr, c.ChickenRuns, c.ChickenRunCooldownMinutes)
-		if c.ModifierSR != 1.0 && c.ModifierSR > 0.0 {
-			str += fmt.Sprintf(" / 🛻 %1.3gx", c.ModifierSR)
-		}
-		if c.ModifierELR != 1.0 && c.ModifierELR > 0.0 {
-			str += fmt.Sprintf(" / 🥚 %1.3gx", c.ModifierELR)
-		}
-		if c.ModifierHabCap != 1.0 && c.ModifierHabCap > 0.0 {
-			str += fmt.Sprintf(" / 🏠 %1.3gx", c.ModifierHabCap)
-		}
-		if c.ModifierEarnings != 1.0 && c.ModifierEarnings > 0.0 {
-			str += fmt.Sprintf(" / 💰 %1.3gx", c.ModifierEarnings)
-		}
-		if c.ModifierIHR != 1.0 && c.ModifierIHR > 0.0 {
-			str += fmt.Sprintf(" / 🐣 %1.3gx", c.ModifierIHR)
-		}
-		if c.ModifierAwayEarnings != 1.0 && c.ModifierAwayEarnings > 0.0 {
-			str += fmt.Sprintf(" / 🏝️💰 %1.3gx", c.ModifierAwayEarnings)
-		}
-		if c.ModifierVehicleCost != 1.0 && c.ModifierVehicleCost > 0.0 {
-			str += fmt.Sprintf(" / 🚗💲 %1.3gx", c.ModifierVehicleCost)
-		}
-		if c.ModifierResearchCost != 1.0 && c.ModifierResearchCost > 0.0 {
-			str += fmt.Sprintf(" / 📚💲 %1.3gx", c.ModifierResearchCost)
-		}
-		if c.ModifierHabCost != 1.0 && c.ModifierHabCost > 0.0 {
-			str += fmt.Sprintf(" / 🏠💲 %1.3gx", c.ModifierHabCost)
-		}
-
-		str += "\n"
-
-		BTA := c.EstimatedDuration.Minutes() / float64(c.MinutesPerToken)
-		targetTval := 3.0
-		if BTA > 42.0 {
-			targetTval = 0.07 * BTA
-		}
-		BTALower := c.EstimatedDurationLower.Minutes() / float64(c.MinutesPerToken)
-		targetTvalLower := 3.0
-		if BTALower > 42.0 {
-			targetTvalLower = 0.07 * BTALower
-		}
-
-		estStr := c.EstimatedDuration.Round(time.Minute).String()
-		estStr = strings.TrimRight(estStr, "0s")
-		estStrLower := c.EstimatedDurationLower.Round(time.Minute).String()
-		estStrLower = strings.TrimRight(estStrLower, "0s")
-
-		/*
-			upperEstEmotes := fmt.Sprintf("%s%s%s%s",
-				ei.GetBotEmojiMarkdown("defl_T4C"),
-				ei.GetBotEmojiMarkdown("metr_T4L"),
-				ei.GetBotEmojiMarkdown("comp_T4L"),
-				ei.GetBotEmojiMarkdown("gusset_T4L"))
-			lowerEstEmotes := fmt.Sprintf("%s%s%s%s%s%s",
-				ei.GetBotEmojiMarkdown("defl_T4L"),
-				ei.GetBotEmojiMarkdown("metr_T4L"),
-				ei.GetBotEmojiMarkdown("comp_T4L"),
-				ei.GetBotEmojiMarkdown("gusset_T4L"),
-				ei.GetBotEmojiMarkdown("egg_carbonfiber"),
-				ei.GetBotEmojiMarkdown("egg_pumpkin"))
-		*/
-		// A speedrun or fastrun of $CONTRACT with $NUMBER farmer(s) needing to ship $GOAL eggs is estimated to take about $TIME
-		if c.TargetAmountq[len(c.TargetAmountq)-1] < 1.0 {
-			str += fmt.Sprintf("**%v** - **%v** for a fastrun needing to ship **%.3fq** eggs\n", estStrLower, estStr, float64(c.TargetAmountq[len(c.TargetAmountq)-1]))
-		} else {
-			str += fmt.Sprintf("**%v** - **%v** for a fastrun needing to ship **%.dq** eggs\n", estStrLower, estStr, int(c.TargetAmountq[len(c.TargetAmountq)-1]))
-		}
-		if math.Round(targetTval*100)/100 == math.Round(targetTvalLower*100)/100 {
-			str += fmt.Sprintf("Target TVal: **%.2f**\n", targetTval)
-		} else {
-			str += fmt.Sprintf("Target TVal: **%.2f** for lower estimate\n", targetTvalLower)
-			str += fmt.Sprintf("Target TVal: **%.2f** for upper estimate\n", targetTval)
-		}
-
-		// Calculate and display contract scores
-		if showScores {
-			scoreLower := getContractScoreEstimate(c, true, 100, 45, 20, 0, 100, 100, 5)
-			score := getContractScoreEstimate(c, false, 60, 45, 15, 0, c.MaxCoopSize-1, 100, 5)
-			scoreSink := getContractScoreEstimate(c, false, 60, 45, 15, 0, c.MaxCoopSize-1, 3, 100)
-
-			str += fmt.Sprintf("Contract Score Top: **%d** (100%%/20%%/CR/TVAL)\n", scoreLower)
-			str += fmt.Sprintf("Contract Score ACO Fastrun: **%d**(60%%/15%%/TVAL)\n", score)
-			str += fmt.Sprintf("Contract Score Sink: **%d**(60%%/15%%)\n", scoreSink)
-		}
-
-		noteStr := ""
-		if c.ContractVersion == 1 {
-			noteStr = fmt.Sprintf("**This is a ELITE Version 1 contract last seen <t:%d:F>.**\n", c.StartTime.Unix())
-		} else if c.ExpirationTime.Before(time.Now().UTC()) {
-			noteStr = fmt.Sprintf("**This is an unavailable V2 contract last seen <t:%d:F>.**\n", c.StartTime.Unix())
-		}
+		str := getContractEstimateString(contractID, showScores)
 
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content:    noteStr + str,
+				Content:    str,
 				Flags:      discordgo.MessageFlagsSuppressEmbeds,
 				Components: []discordgo.MessageComponent{}},
 		})
@@ -193,6 +92,128 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 				Components: []discordgo.MessageComponent{}},
 		})
 	}
+}
+
+func getContractEstimateString(contractID string, showScores bool) string {
+
+	str := ""
+	c := ei.EggIncContractsAll[contractID]
+
+	if c.ID == "" {
+		str = "No contract found in this channel, use the command parameters to pick one."
+		return str
+	}
+	eggStr := FindEggEmoji(c.EggName)
+	tokenStr, _, _ := ei.GetBotEmoji("token")
+	runStr, _, _ := ei.GetBotEmoji("icon_chicken_run")
+	seasonalStr := ""
+	if c.SeasonID != "" {
+		seasonYear := strings.Split(c.SeasonID, "_")[1]
+		seasonIcon := strings.Split(c.SeasonID, "_")[0]
+		seasonEmote := map[string]string{"winter": "❄️", "spring": "🌷", "summer": "🌞", "fall": "🍂"}
+		seasonalStr = fmt.Sprintf("Seasonal: %s %s\n", seasonEmote[seasonIcon], seasonYear)
+		//seasonalStr = fmt.Sprintf(" - %s %s", seasonEmote[seasonIcon], seasonYear)
+	}
+
+	str = fmt.Sprintf("%s%s **%s** [%s](%s)\n%s%d%s - %s/%dm - %s%d/%dm",
+		ei.GetBotEmojiMarkdown("contract_grade_aaa"),
+		eggStr, c.Name, c.ID,
+		fmt.Sprintf("https://eicoop-carpet.netlify.app/?q=%s", c.ID),
+		seasonalStr,
+		c.MaxCoopSize, ei.GetBotEmojiMarkdown("icon_coop"),
+		tokenStr, c.MinutesPerToken,
+		runStr, c.ChickenRuns, c.ChickenRunCooldownMinutes)
+	if c.ModifierSR != 1.0 && c.ModifierSR > 0.0 {
+		str += fmt.Sprintf(" / 🛻 %1.3gx", c.ModifierSR)
+	}
+	if c.ModifierELR != 1.0 && c.ModifierELR > 0.0 {
+		str += fmt.Sprintf(" / 🥚 %1.3gx", c.ModifierELR)
+	}
+	if c.ModifierHabCap != 1.0 && c.ModifierHabCap > 0.0 {
+		str += fmt.Sprintf(" / 🏠 %1.3gx", c.ModifierHabCap)
+	}
+	if c.ModifierEarnings != 1.0 && c.ModifierEarnings > 0.0 {
+		str += fmt.Sprintf(" / 💰 %1.3gx", c.ModifierEarnings)
+	}
+	if c.ModifierIHR != 1.0 && c.ModifierIHR > 0.0 {
+		str += fmt.Sprintf(" / 🐣 %1.3gx", c.ModifierIHR)
+	}
+	if c.ModifierAwayEarnings != 1.0 && c.ModifierAwayEarnings > 0.0 {
+		str += fmt.Sprintf(" / 🏝️💰 %1.3gx", c.ModifierAwayEarnings)
+	}
+	if c.ModifierVehicleCost != 1.0 && c.ModifierVehicleCost > 0.0 {
+		str += fmt.Sprintf(" / 🚗💲 %1.3gx", c.ModifierVehicleCost)
+	}
+	if c.ModifierResearchCost != 1.0 && c.ModifierResearchCost > 0.0 {
+		str += fmt.Sprintf(" / 📚💲 %1.3gx", c.ModifierResearchCost)
+	}
+	if c.ModifierHabCost != 1.0 && c.ModifierHabCost > 0.0 {
+		str += fmt.Sprintf(" / 🏠💲 %1.3gx", c.ModifierHabCost)
+	}
+	str += "\n"
+	/*
+		BTA := c.EstimatedDuration.Minutes() / float64(c.MinutesPerToken)
+		targetTval := 3.0
+		if BTA > 42.0 {
+			targetTval = 0.07 * BTA
+		}
+		BTALower := c.EstimatedDurationLower.Minutes() / float64(c.MinutesPerToken)
+		targetTvalLower := 3.0
+		if BTALower > 42.0 {
+			targetTvalLower = 0.07 * BTALower
+		}
+	*/
+	estStr := c.EstimatedDuration.Round(time.Minute).String()
+	estStr = strings.TrimRight(estStr, "0s")
+	estStrLower := c.EstimatedDurationLower.Round(time.Minute).String()
+	estStrLower = strings.TrimRight(estStrLower, "0s")
+
+	/*
+		upperEstEmotes := fmt.Sprintf("%s%s%s%s",
+			ei.GetBotEmojiMarkdown("defl_T4C"),
+			ei.GetBotEmojiMarkdown("metr_T4L"),
+			ei.GetBotEmojiMarkdown("comp_T4L"),
+			ei.GetBotEmojiMarkdown("gusset_T4L"))
+		lowerEstEmotes := fmt.Sprintf("%s%s%s%s%s%s",
+			ei.GetBotEmojiMarkdown("defl_T4L"),
+			ei.GetBotEmojiMarkdown("metr_T4L"),
+			ei.GetBotEmojiMarkdown("comp_T4L"),
+			ei.GetBotEmojiMarkdown("gusset_T4L"),
+			ei.GetBotEmojiMarkdown("egg_carbonfiber"),
+			ei.GetBotEmojiMarkdown("egg_pumpkin"))
+	*/
+	// A speedrun or fastrun of $CONTRACT with $NUMBER farmer(s) needing to ship $GOAL eggs is estimated to take about $TIME
+	if c.TargetAmountq[len(c.TargetAmountq)-1] < 1.0 {
+		str += fmt.Sprintf("**%v** - **%v** for a fastrun needing to ship **%.3fq** eggs\n", estStrLower, estStr, float64(c.TargetAmountq[len(c.TargetAmountq)-1]))
+	} else {
+		str += fmt.Sprintf("**%v** - **%v** for a fastrun needing to ship **%.dq** eggs\n", estStrLower, estStr, int(c.TargetAmountq[len(c.TargetAmountq)-1]))
+	}
+	if math.Round(c.TargetTval*100)/100 == math.Round(c.TargetTvalLower*100)/100 {
+		str += fmt.Sprintf("Target TVal: **%.2f**\n", c.TargetTval)
+	} else {
+		str += fmt.Sprintf("Target TVal: **%.2f** for lower estimate\n", c.TargetTvalLower)
+		str += fmt.Sprintf("Target TVal: **%.2f** for upper estimate\n", c.TargetTval)
+	}
+
+	// Calculate and display contract scores
+	if showScores {
+		scoreLower := getContractScoreEstimate(c, ei.Contract_GRADE_AAA, true, 1.0, 100, 45, 20, 0, 100, 100, 5)
+		score := getContractScoreEstimate(c, ei.Contract_GRADE_AAA, false, 1.0, 60, 45, 15, 0, c.MaxCoopSize-1, 100, 5)
+		scoreSink := getContractScoreEstimate(c, ei.Contract_GRADE_AAA, false, 1.0, 60, 45, 15, 0, c.MaxCoopSize-1, 3, 100)
+
+		str += fmt.Sprintf("Contract Score Top: **%d** (100%%/20%%/CR/TVAL)\n", scoreLower)
+		str += fmt.Sprintf("Contract Score ACO Fastrun: **%d**(60%%/15%%/TVAL)\n", score)
+		str += fmt.Sprintf("Contract Score Sink: **%d**(60%%/15%%)\n", scoreSink)
+	}
+
+	noteStr := ""
+	if c.ContractVersion == 1 {
+		noteStr = fmt.Sprintf("**This is a ELITE Version 1 contract last seen <t:%d:F>.**\n", c.StartTime.Unix())
+	} else if c.ExpirationTime.Before(time.Now().UTC()) {
+		noteStr = fmt.Sprintf("**This is an unavailable V2 contract last seen <t:%d:F>.**\n", c.StartTime.Unix())
+	}
+
+	return noteStr + str
 }
 
 // getContractDurationEstimate returns two estimated durations of a contract based for great and well equiped artifact sets

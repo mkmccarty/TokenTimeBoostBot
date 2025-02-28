@@ -118,6 +118,8 @@ type ContractGrade struct {
 	LengthInSeconds        int
 	EstimatedDuration      time.Duration
 	EstimatedDurationLower time.Duration
+	TargetTval             float64
+	TargetTvalLower        float64
 	//	EstimatedDurationShip      time.Duration
 
 	ModifierEarnings     float64
@@ -129,8 +131,7 @@ type ContractGrade struct {
 	ModifierVehicleCost  float64
 	ModifierResearchCost float64
 	ModifierHabCost      float64
-
-	BasePoints float64
+	BasePoints           float64
 }
 type EggIncContract struct {
 	ID                        string `json:"id"`
@@ -142,6 +143,7 @@ type EggIncContract struct {
 	EggName                   string
 	CoopAllowed               bool
 	Ultra                     bool
+	SeasonID                  string
 	MaxCoopSize               int
 	TargetAmount              []float64
 	TargetAmountq             []float64
@@ -152,6 +154,8 @@ type EggIncContract struct {
 	ContractDurationInDays    int
 	EstimatedDuration         time.Duration
 	EstimatedDurationLower    time.Duration
+	TargetTval                float64
+	TargetTvalLower           float64
 	ModifierEarnings          float64
 	ModifierIHR               float64
 	ModifierELR               float64

@@ -81,7 +81,7 @@ func getPredictedTeamwork(B float64, CR float64, T float64) float64 {
 
 // getContractScoreEstimate will return the estimated score for the contract
 // based on the given parameters
-func getContractScoreEstimate(c ei.EggIncContract, fastest bool, siabPercent int, siabMinutes int, deflPercent int, deflMinutesReduction int, chickenRuns int, sentTokens int, receivedTokens int) int64 {
+func getContractScoreEstimate(c ei.EggIncContract, grade ei.Contract_PlayerGrade, fastest bool, fairShare float64, siabPercent int, siabMinutes int, deflPercent int, deflMinutesReduction int, chickenRuns int, sentTokens float64, receivedTokens float64) int64 {
 	earnings := float64(siabPercent) * 0.0075
 	eggRate := float64(deflPercent) * 0.075
 
@@ -98,12 +98,12 @@ func getContractScoreEstimate(c ei.EggIncContract, fastest bool, siabPercent int
 	B := min(BuffTimeValue, 2.0)
 
 	CR := calculateChickenRunTeamwork(c.MaxCoopSize, c.ContractDurationInDays, chickenRuns)
-	T := calculateTokenTeamwork(contractDuration.Seconds(), c.MinutesPerToken, float64(sentTokens), float64(receivedTokens))
+	T := calculateTokenTeamwork(contractDuration.Seconds(), c.MinutesPerToken, sentTokens, receivedTokens)
 	score := calculateContractScore(int(ei.Contract_GRADE_AAA),
 		c.MaxCoopSize,
-		c.Grade[ei.Contract_GRADE_AAA].TargetAmount[len(c.Grade[ei.Contract_GRADE_AAA].TargetAmount)-1],
-		c.TargetAmount[len(c.TargetAmount)-1]/float64(c.MaxCoopSize),
-		c.Grade[ei.Contract_GRADE_AAA].LengthInSeconds,
+		c.Grade[grade].TargetAmount[len(c.Grade[grade].TargetAmount)-1],
+		c.TargetAmount[len(c.TargetAmount)-1]/float64(c.MaxCoopSize)*fairShare,
+		c.Grade[grade].LengthInSeconds,
 		contractDuration.Seconds(),
 		B, CR, T)
 
