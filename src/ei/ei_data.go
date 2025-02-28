@@ -585,6 +585,11 @@ var vehicleTypes = map[uint32]vehicleType{
 		Name:         "Mega Semi",
 		BaseCapacity: 15e6,
 	},
+	9: {
+		ID:           9,
+		Name:         "Hover Semi",
+		BaseCapacity: 30e6,
+	},
 	10: {
 		ID:           10,
 		Name:         "Quantum Transporter",
