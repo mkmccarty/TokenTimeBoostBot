@@ -34,8 +34,15 @@ func GetSlashTokenCommand(cmd string) *discordgo.ApplicationCommand {
 		},
 		Options: []*discordgo.ApplicationCommandOption{
 			{
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "contract-id",
+				Description:  "Contract ID",
+				Required:     false,
+				Autocomplete: true,
+			},
+			{
 				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "name",
+				Name:        "coop-id",
 				Description: "Unique name for this tracking session. i.e. Use coop-id of the contract.",
 				Required:    false,
 				MaxLength:   32, // Keep this short
@@ -51,13 +58,6 @@ func GetSlashTokenCommand(cmd string) *discordgo.ApplicationCommand {
 				Name:        "linked",
 				Description: "Link with contract channel reactions for sent tokens. Default is true.",
 				Required:    false,
-			},
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "contract-id",
-				Description:  "Contract ID",
-				Required:     false,
-				Autocomplete: true,
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
@@ -160,7 +160,7 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, co
 		}
 	}
 	var trackingName = coopID
-	if opt, ok := optionMap["name"]; ok {
+	if opt, ok := optionMap["coop-id"]; ok {
 		trackingName = strings.TrimSpace(opt.StringValue())
 	} else if trackingName == "" {
 
