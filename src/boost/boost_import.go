@@ -93,6 +93,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	c.ModifierHabCap = 1.0
 	c.ContractVersion = 2
 	c.Ultra = contractProtoBuf.GetCcOnly()
+	c.SeasonID = contractProtoBuf.GetSeasonId()
 
 	if contractProtoBuf.GetStartTime() == 0 {
 
@@ -180,6 +181,19 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			goalsCompleted := 1.0
 			c.Grade[grade].BasePoints = 187.5 * float64(gradeMult) * goalsCompleted
 		}
+
+		BTA := c.EstimatedDuration.Minutes() / float64(c.MinutesPerToken)
+		c.Grade[grade].TargetTval = 3.0
+		if BTA > 42.0 {
+			c.Grade[grade].TargetTval = 0.07 * BTA
+		}
+		BTALower := c.EstimatedDurationLower.Minutes() / float64(c.MinutesPerToken)
+		c.Grade[grade].TargetTvalLower = 3.0
+		if BTALower > 42.0 {
+			c.Grade[grade].TargetTvalLower = 0.07 * BTALower
+		}
+		c.TargetTval = c.Grade[grade].TargetTval
+		c.TargetTvalLower = c.Grade[grade].TargetTvalLower
 	}
 	if c.TargetAmount == nil {
 		for _, g := range contractProtoBuf.GetGoals() {
