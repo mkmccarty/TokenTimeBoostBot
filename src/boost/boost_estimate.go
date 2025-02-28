@@ -112,7 +112,6 @@ func getContractEstimateString(contractID string, showScores bool) string {
 		seasonIcon := strings.Split(c.SeasonID, "_")[0]
 		seasonEmote := map[string]string{"winter": "❄️", "spring": "🌷", "summer": "🌞", "fall": "🍂"}
 		seasonalStr = fmt.Sprintf("Seasonal: %s %s\n", seasonEmote[seasonIcon], seasonYear)
-		//seasonalStr = fmt.Sprintf(" - %s %s", seasonEmote[seasonIcon], seasonYear)
 	}
 
 	str = fmt.Sprintf("%s%s **%s** [%s](%s)\n%s%d%s - %s/%dm - %s%d/%dm",
