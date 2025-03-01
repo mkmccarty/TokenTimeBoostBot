@@ -459,6 +459,8 @@ func tokenTracking(s *discordgo.Session, channelID string, userID string, name s
 	td.ContractID = contractID
 	td.CoopID = name
 	td.MinutesPerToken = 0
+	td.SentCount = 0
+	td.ReceivedCount = 0
 
 	if contractID != "" {
 		td.ContractID = contractID
@@ -488,6 +490,21 @@ func tokenTracking(s *discordgo.Session, channelID string, userID string, name s
 			}
 		}
 		td.TokenDelta = td.SumValueSent - td.SumValueReceived
+	}
+
+	// Recalculate the token values just in case there was a previous /token command
+	// and for some reason it's run a multiple times.
+	td.SumValueSent = 0
+	td.SumValueReceived = 0
+	td.SentCount = 0
+	td.ReceivedCount = 0
+	for i, t := range td.Sent {
+		td.SentCount += t.Quantity
+		td.SumValueSent += td.Sent[i].Value
+	}
+	for i, t := range td.Received {
+		td.ReceivedCount += t.Quantity
+		td.SumValueReceived += td.Received[i].Value
 	}
 
 	return getTokenTrackingString(td, false), getTokenTrackingEmbed(td, false), nil
