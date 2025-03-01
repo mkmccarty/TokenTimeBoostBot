@@ -11,7 +11,6 @@ import (
 )
 
 var playStyles = []string{"Speedrun", "Fastrun", "Casual", "Public"}
-var playStyleValues = []float64{1.0, 1.0, 1.2, 3.0}
 var fairShare = []float64{1.5, 1.1, 1, 0.9, 0.5, 0.1}
 var tokenSentValueStr = []string{"50", "3", "1", "0", "Sink"}
 var tokenSentValue = []float64{50, 3, 1, 0, 20}
@@ -207,7 +206,7 @@ func getScorePlaygroundCalculations(params scoreCalcParams) (string, *discordgo.
 	})
 
 	embed := &discordgo.MessageEmbed{}
-	embed.Title = fmt.Sprintf("Score Playground")
+	embed.Title = "Score Playground"
 	embed.Description = fmt.Sprintf("Calculations for contract %s", params.contractID)
 	embed.Fields = field
 
@@ -231,7 +230,7 @@ func getScorePlaygroundComponents(param scoreCalcParams) []discordgo.MessageComp
 
 	buttons = append(buttons,
 		discordgo.Button{
-			Label:    fmt.Sprintf("%s", playStyles[param.style]),
+			Label:    playStyles[param.style],
 			Style:    discordgo.SecondaryButton,
 			CustomID: fmt.Sprintf("fd_playground#%s#style", param.xid),
 		})
@@ -328,7 +327,7 @@ func HandleScorePlaygroundPage(s *discordgo.Session, i *discordgo.InteractionCre
 	params, exists := scoreCalcMap[reaction[1]]
 	if !exists {
 		log.Println("Invalid reaction ID")
-		s.InteractionResponseDelete(i.Interaction)
+		_ = s.InteractionResponseDelete(i.Interaction)
 		return
 	}
 
@@ -366,7 +365,7 @@ func HandleScorePlaygroundPage(s *discordgo.Session, i *discordgo.InteractionCre
 		}
 	}
 	if len(reaction) == 3 && reaction[2] == "close" {
-		s.InteractionResponseDelete(i.Interaction)
+		_ = s.InteractionResponseDelete(i.Interaction)
 		return
 	}
 	scoreCalcMap[params.xid] = params
