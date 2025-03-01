@@ -196,9 +196,9 @@ func getContractEstimateString(contractID string, showScores bool) string {
 
 	// Calculate and display contract scores
 	if showScores {
-		scoreLower := getContractScoreEstimate(c, ei.Contract_GRADE_AAA, true, 1.0, 100, 45, 20, 0, 100, 100, 5)
-		score := getContractScoreEstimate(c, ei.Contract_GRADE_AAA, false, 1.0, 60, 45, 15, 0, c.MaxCoopSize-1, 100, 5)
-		scoreSink := getContractScoreEstimate(c, ei.Contract_GRADE_AAA, false, 1.0, 60, 45, 15, 0, c.MaxCoopSize-1, 3, 100)
+		scoreLower := getContractScoreEstimate(c, ei.Contract_GRADE_AAA, true, 1.0, 1.0, 100, 45, 20, 0, 100, 100, 5)
+		score := getContractScoreEstimate(c, ei.Contract_GRADE_AAA, false, 1.0, 1.0, 60, 45, 15, 0, c.MaxCoopSize-1, 100, 5)
+		scoreSink := getContractScoreEstimate(c, ei.Contract_GRADE_AAA, false, 1.0, 1.0, 60, 45, 15, 0, c.MaxCoopSize-1, 3, 100)
 
 		str += fmt.Sprintf("Contract Score Top: **%d** (100%%/20%%/CR/TVAL)\n", scoreLower)
 		str += fmt.Sprintf("Contract Score ACO Fastrun: **%d**(60%%/15%%/TVAL)\n", score)
