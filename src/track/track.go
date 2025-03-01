@@ -125,6 +125,9 @@ func TokenTrackingAdjustTime(channelID string, userID string, name string, start
 		td.EstimatedEndTime = td.StartTime.Add(td.DurationTime)
 	}
 
+	td.SentCount = 0
+	td.ReceivedCount = 0
+
 	// Changed duration needs a recalculation
 	td.SumValueSent = 0.0
 	for i, t := range td.Sent {
@@ -132,6 +135,7 @@ func TokenTrackingAdjustTime(channelID string, userID string, name string, start
 		offsetTime := now.Sub(td.StartTime).Seconds()
 		td.Sent[i].Value = getTokenValue(offsetTime, td.DurationTime.Seconds()) * float64(t.Quantity)
 		td.SumValueSent += td.Sent[i].Value
+		td.SentCount += t.Quantity
 	}
 	td.SumValueReceived = 0.0
 	for i, t := range td.Received {
@@ -139,6 +143,7 @@ func TokenTrackingAdjustTime(channelID string, userID string, name string, start
 		offsetTime := now.Sub(td.StartTime).Seconds()
 		td.Received[i].Value = getTokenValue(offsetTime, td.DurationTime.Seconds()) * float64(t.Quantity)
 		td.SumValueReceived += td.Received[i].Value
+		td.ReceivedCount += t.Quantity
 	}
 	td.TokenDelta = td.SumValueSent - td.SumValueReceived
 
