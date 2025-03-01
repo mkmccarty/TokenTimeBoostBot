@@ -81,7 +81,7 @@ func getPredictedTeamwork(B float64, CR float64, T float64) float64 {
 
 // getContractScoreEstimate will return the estimated score for the contract
 // based on the given parameters
-func getContractScoreEstimate(c ei.EggIncContract, grade ei.Contract_PlayerGrade, fastest bool, fairShare float64, siabPercent int, siabMinutes int, deflPercent int, deflMinutesReduction int, chickenRuns int, sentTokens float64, receivedTokens float64) int64 {
+func getContractScoreEstimate(c ei.EggIncContract, grade ei.Contract_PlayerGrade, fastest bool, durationMod float64, fairShare float64, siabPercent int, siabMinutes int, deflPercent int, deflMinutesReduction int, chickenRuns int, sentTokens float64, receivedTokens float64) int64 {
 	earnings := float64(siabPercent) * 0.0075
 	eggRate := float64(deflPercent) * 0.075
 
@@ -89,6 +89,7 @@ func getContractScoreEstimate(c ei.EggIncContract, grade ei.Contract_PlayerGrade
 	if !fastest {
 		contractDuration = c.EstimatedDuration
 	}
+	contractDuration = time.Duration(float64(contractDuration) * durationMod)
 
 	siabDuration := (time.Duration(siabMinutes) * time.Minute).Seconds()
 	deflectorDuration := (contractDuration - time.Duration(deflMinutesReduction)*time.Minute).Seconds()
