@@ -45,7 +45,7 @@ func HandleEventHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: "Processing request...",
-			Flags:   discordgo.MessageFlagsEphemeral,
+			Flags:   0, //discordgo.MessageFlagsEphemeral,
 		},
 	})
 
