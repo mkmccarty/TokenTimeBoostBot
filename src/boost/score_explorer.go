@@ -36,8 +36,8 @@ type scoreCalcParams struct {
 
 var scoreCalcMap = make(map[string]scoreCalcParams)
 
-// GetSlashScorePlaygroundCommand returns the slash command for token tracking
-func GetSlashScorePlaygroundCommand(cmd string) *discordgo.ApplicationCommand {
+// GetSlashScoreExplorerCommand returns the slash command for token tracking
+func GetSlashScoreExplorerCommand(cmd string) *discordgo.ApplicationCommand {
 	adminPermission := int64(0)
 	return &discordgo.ApplicationCommand{
 		Name:                     cmd,
@@ -99,8 +99,8 @@ func GetSlashScorePlaygroundCommand(cmd string) *discordgo.ApplicationCommand {
 	}
 }
 
-// HandleScorePlaygroundCommand will handle the /playground command
-func HandleScorePlaygroundCommand(s *discordgo.Session, i *discordgo.InteractionCreate) { // User interacting with bot, is this first time ?
+// HandleScoreExplorerCommand will handle the /playground command
+func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) { // User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 	for _, opt := range options {
@@ -148,9 +148,9 @@ func HandleScorePlaygroundCommand(s *discordgo.Session, i *discordgo.Interaction
 	scoreCalcParams.chickenRunValues = append(scoreCalcParams.chickenRunValues, crValues...)
 	scoreCalcMap[xid] = scoreCalcParams
 
-	_, embed := getScorePlaygroundCalculations(scoreCalcParams)
+	_, embed := getScoreExplorerCalculations(scoreCalcParams)
 
-	components := getScorePlaygroundComponents(scoreCalcParams)
+	components := getScoreExplorerComponents(scoreCalcParams)
 
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -160,7 +160,7 @@ func HandleScorePlaygroundCommand(s *discordgo.Session, i *discordgo.Interaction
 			Components: components,
 			Embeds:     []*discordgo.MessageEmbed{embed},
 			CustomID:   "maybe-store-data",
-			Title:      "Contract Score Playground",
+			Title:      "Contract Score Explorer",
 		},
 	},
 	)
@@ -169,7 +169,7 @@ func HandleScorePlaygroundCommand(s *discordgo.Session, i *discordgo.Interaction
 	}
 }
 
-func getScorePlaygroundCalculations(params scoreCalcParams) (string, *discordgo.MessageEmbed) {
+func getScoreExplorerCalculations(params scoreCalcParams) (string, *discordgo.MessageEmbed) {
 	var field []*discordgo.MessageEmbedField
 	var builder strings.Builder
 	grade := params.grade
@@ -206,7 +206,7 @@ func getScorePlaygroundCalculations(params scoreCalcParams) (string, *discordgo.
 	})
 
 	embed := &discordgo.MessageEmbed{}
-	embed.Title = "Score Playground"
+	embed.Title = "Score Explorer"
 	embed.Description = fmt.Sprintf("Calculations for contract %s", params.contractID)
 	embed.Fields = field
 
@@ -214,7 +214,7 @@ func getScorePlaygroundCalculations(params scoreCalcParams) (string, *discordgo.
 }
 
 // getTokenValComponents returns the components for the token value
-func getScorePlaygroundComponents(param scoreCalcParams) []discordgo.MessageComponent {
+func getScoreExplorerComponents(param scoreCalcParams) []discordgo.MessageComponent {
 	var buttons []discordgo.Button
 
 	/*
@@ -311,8 +311,8 @@ func getScorePlaygroundComponents(param scoreCalcParams) []discordgo.MessageComp
 
 }
 
-// HandleScorePlaygroundPage steps a page of cached teamwork data
-func HandleScorePlaygroundPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleScoreExplorerPage steps a page of cached teamwork data
+func HandleScoreExplorerPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// cs_#Name # cs_#ID # HASH
 	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
 
@@ -370,9 +370,9 @@ func HandleScorePlaygroundPage(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 	scoreCalcMap[params.xid] = params
 
-	_, embed := getScorePlaygroundCalculations(params)
+	_, embed := getScoreExplorerCalculations(params)
 
-	components := getScorePlaygroundComponents(params)
+	components := getScoreExplorerComponents(params)
 	embeds := []*discordgo.MessageEmbed{embed}
 
 	edit := discordgo.WebhookEdit{
