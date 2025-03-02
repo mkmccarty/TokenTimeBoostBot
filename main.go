@@ -74,7 +74,7 @@ const slashFun string = "fun"
 const slashStones string = "stones"
 const slashTimer string = "timer"
 const slashArtifact string = "artifact"
-const slashScorePlayground string = "score-playground"
+const slashScoreExplorer string = "score-explorer"
 const slashRemoveDMMessage string = "remove-dm-message"
 const slashPrivacy string = "privacy"
 
@@ -178,7 +178,7 @@ var (
 		boost.GetSlashSpeedrunCommand(slashSpeedrun),
 		boost.GetSlashRenameThread(slashRenameThread),
 		boost.SlashArtifactsCommand(slashArtifact),
-		boost.GetSlashScorePlaygroundCommand(slashScorePlayground),
+		boost.GetSlashScoreExplorerCommand(slashScoreExplorer),
 		boost.GetSlashChangeSpeedRunSinkCommand(slashChangeSpeedRunSink),
 		{
 			Name:        slashJoin,
@@ -333,7 +333,7 @@ var (
 		slashTeamworkEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAllContractsAutoComplete(s, i)
 		},
-		slashScorePlayground: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		slashScoreExplorer: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAllContractsAutoComplete(s, i)
 		},
 		slashTokenEditTrack: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -440,8 +440,8 @@ var (
 		slashArtifact: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleArtifactCommand(s, i)
 		},
-		slashScorePlayground: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleScorePlaygroundCommand(s, i)
+		slashScoreExplorer: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleScoreExplorerCommand(s, i)
 		},
 		// Normal Commands
 		slashJoin: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -681,8 +681,8 @@ var (
 		"fd_teamwork": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleTeamworkPage(s, i)
 		},
-		"fd_playground": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleScorePlaygroundPage(s, i)
+		"fd_Explorer": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleScoreExplorerPage(s, i)
 		},
 		"fd_signupStart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
