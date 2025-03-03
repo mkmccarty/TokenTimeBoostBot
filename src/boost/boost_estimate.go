@@ -48,7 +48,6 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		optionMap[opt.Name] = opt
 	}
 
-	showScores := false
 	if opt, ok := optionMap["contract-id"]; ok {
 		contractID = opt.StringValue()
 	} else {
@@ -58,14 +57,6 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			contractID = runningContract.ContractID
 		}
 	}
-	if strings.HasPrefix(contractID, "-") {
-		parts := strings.Split(contractID, "(")
-		if len(parts) > 1 {
-			contractID = strings.Split(parts[1], ")")[0]
-		}
-		showScores = true
-
-	}
 	c := ei.EggIncContractsAll[contractID]
 
 	if c.ID == "" {
@@ -73,7 +64,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 	}
 	if str == "" {
-		str := getContractEstimateString(contractID, showScores)
+		str := getContractEstimateString(contractID)
 
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -94,7 +85,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 }
 
-func getContractEstimateString(contractID string, showScores bool) string {
+func getContractEstimateString(contractID string) string {
 
 	str := ""
 	c := ei.EggIncContractsAll[contractID]
