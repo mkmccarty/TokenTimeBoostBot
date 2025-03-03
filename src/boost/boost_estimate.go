@@ -187,22 +187,36 @@ func getContractEstimateString(contractID string, showScores bool) string {
 	} else {
 		str += fmt.Sprintf("**%v** - **%v** for a fastrun needing to ship **%.dq** eggs\n", estStrLower, estStr, int(c.TargetAmountq[len(c.TargetAmountq)-1]))
 	}
+
+	// Two ranges of estimates
+	// Speedrun w/ perfect set through to Sink with decent set
+	// Fair share from 1.05 to 0.92
+	scoreBest := getContractScoreEstimate(c, ei.Contract_GRADE_AAA, true, 1.0,
+		1.05,    // Fair Share
+		100, 20, // SIAB %, minutes
+		20, 10, // Deflector %, minutes reduction
+		100, // Chicken Runs
+		100, 5)
+	scoreBestSink := getContractScoreEstimate(c, ei.Contract_GRADE_AAA, false, 1.0,
+		0.92,
+		60, 45,
+		15, 0,
+		100, // Chicken Runs
+		3, 100)
+	scoreBestEffort := getContractScoreEstimate(c, ei.Contract_GRADE_AAA, false, 1.20,
+		1.0,
+		60, 45,
+		14, 20,
+		c.MaxCoopSize-1, // Chicken Runs
+		0, 0)
+
+	str += fmt.Sprintf("CS Est: **%d** (SR) - **%d** (Sink) - **%d** (Best Effort)\n", scoreBest, scoreBestSink, scoreBestEffort)
+
 	if math.Round(c.TargetTval*100)/100 == math.Round(c.TargetTvalLower*100)/100 {
 		str += fmt.Sprintf("Target TVal: **%.2f**\n", c.TargetTval)
 	} else {
 		str += fmt.Sprintf("Target TVal: **%.2f** for lower estimate\n", c.TargetTvalLower)
 		str += fmt.Sprintf("Target TVal: **%.2f** for upper estimate\n", c.TargetTval)
-	}
-
-	// Calculate and display contract scores
-	if showScores {
-		scoreLower := getContractScoreEstimate(c, ei.Contract_GRADE_AAA, true, 1.0, 1.0, 100, 45, 20, 0, 100, 100, 5)
-		score := getContractScoreEstimate(c, ei.Contract_GRADE_AAA, false, 1.0, 1.0, 60, 45, 15, 0, c.MaxCoopSize-1, 100, 5)
-		scoreSink := getContractScoreEstimate(c, ei.Contract_GRADE_AAA, false, 1.0, 1.0, 60, 45, 15, 0, c.MaxCoopSize-1, 3, 100)
-
-		str += fmt.Sprintf("Contract Score Top: **%d** (100%%/20%%/CR/TVAL)\n", scoreLower)
-		str += fmt.Sprintf("Contract Score ACO Fastrun: **%d**(60%%/15%%/TVAL)\n", score)
-		str += fmt.Sprintf("Contract Score Sink: **%d**(60%%/15%%)\n", scoreSink)
 	}
 
 	noteStr := ""
