@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
@@ -12,26 +13,30 @@ import (
 
 var playStyles = []string{"Speedrun", "Fastrun", "Casual", "Public"}
 var fairShare = []float64{1.5, 1.1, 1, 0.9, 0.5, 0.1}
-var tokenSentValueStr = []string{"50", "3", "1", "0", "Sink"}
+var tokenSentValueStr = []string{"Tval Met", "3", "1", "0", "Sink"}
 var tokenSentValue = []float64{50, 3, 1, 0, 20}
 var tokenRecvValueStr = []string{"8", "6", "1", "0", "Sink"}
 var tokenRecvValue = []float64{8, 6, 1, 0, 1000}
-var chickenRunsStr = []string{"Met", "CoopSize", "CoopSize -1", "None"}
+var chickenRunsStr = []string{"Max", "CoopSize", "CoopSize -1", "None"}
 
 type scoreCalcParams struct {
-	xid              string
-	contractID       string
-	contract         ei.EggIncContract
-	contractInfo     string
-	grade            ei.Contract_PlayerGrade
-	public           bool
-	style            int
-	playStyleValues  []float64
-	fairShare        int
-	tvalSent         int
-	tvalReceived     int
-	chickenRuns      int
-	chickenRunValues []int
+	xid                  string
+	contractID           string
+	contract             ei.EggIncContract
+	contractInfo         string
+	grade                ei.Contract_PlayerGrade
+	public               bool
+	deflector            int
+	deflectorDownMinutes int
+	siab                 int
+	siabMinutes          int
+	style                int
+	playStyleValues      []float64
+	fairShare            int
+	tvalSent             int
+	tvalReceived         int
+	chickenRuns          int
+	chickenRunValues     []int
 }
 
 var scoreCalcMap = make(map[string]scoreCalcParams)
@@ -129,16 +134,20 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 
 	xid := xid.New().String()
 	scoreCalcParams := scoreCalcParams{
-		xid:          xid,
-		contractID:   contractID,
-		contract:     c,
-		grade:        grade,
-		public:       flags == 0,
-		fairShare:    2,
-		tvalSent:     0,
-		tvalReceived: 1,
-		chickenRuns:  2,
-		contractInfo: getContractEstimateString(contractID),
+		xid:                  xid,
+		contractID:           contractID,
+		contract:             c,
+		grade:                grade,
+		public:               flags == 0,
+		deflector:            20,
+		deflectorDownMinutes: 0,
+		siab:                 100,
+		siabMinutes:          45,
+		fairShare:            2,
+		tvalSent:             0,
+		tvalReceived:         1,
+		chickenRuns:          2,
+		contractInfo:         getContractEstimateString(contractID),
 	}
 
 	playStyleValues := []float64{1.0, 1.0, 1.20, 2.0}
@@ -189,15 +198,13 @@ func getScoreExplorerCalculations(params scoreCalcParams) (string, *discordgo.Me
 	ratio := fairShare[params.fairShare]
 
 	scoreLower := getContractScoreEstimate(c, grade,
-		durationSpeed, params.playStyleValues[params.style], ratio, 100, 45, 20, 0,
+		durationSpeed, params.playStyleValues[params.style], ratio,
+		params.siab, params.siabMinutes,
+		params.deflector, params.deflectorDownMinutes,
 		params.chickenRunValues[params.chickenRuns],
 		tokenSentValue[params.tvalSent],
 		tokenRecvValue[params.tvalReceived])
-	//score := getContractScoreEstimate(c, grade, false, ratio, 60, 45, 15, 0, c.MaxCoopSize-1, 100, 5)
-	//scoreSink := getContractScoreEstimate(c, grade, false, ratio, 60, 45, 15, 0, c.MaxCoopSize-1, 3, 100)
-	fmt.Fprintf(&builder, "Contract Score Top: **%d** (100%%/20%%/CR/TVAL)\n", scoreLower)
-	//fmt.Fprintf(&builder, "Contract Score ACO Fastrun: **%d**(60%%/15%%/TVAL)\n", score)
-	//fmt.Fprintf(&builder, "Contract Score Sink: **%d**(60%%/15%%)\n", scoreSink)
+	fmt.Fprintf(&builder, "**%d**", scoreLower)
 
 	field = append(field, &discordgo.MessageEmbedField{
 		Name:   "Contract Score",
@@ -205,9 +212,25 @@ func getScoreExplorerCalculations(params scoreCalcParams) (string, *discordgo.Me
 		Inline: true,
 	})
 
+	contractDur := c.EstimatedDurationLower * time.Duration(params.playStyleValues[params.style])
+	if !durationSpeed {
+		contractDur = c.EstimatedDuration * time.Duration(params.playStyleValues[params.style])
+	}
+
+	// Explain the settings
+	builder.Reset()
+	fmt.Fprintf(&builder, "Playstyle: %s - duration %v\n", playStyles[params.style], contractDur.Round(time.Minute).String())
+	fmt.Fprintf(&builder, "Deflector: %d%% unequipped for %dm\n", params.deflector, params.deflectorDownMinutes)
+	fmt.Fprintf(&builder, "SIAB: %d%% equipped for %dm\n", params.siab, params.siabMinutes)
+	fmt.Fprintf(&builder, "Fair Share: %2.1fx\n", ratio)
+	fmt.Fprintf(&builder, "TVal Sent: %s\n", tokenSentValueStr[params.tvalSent])
+	fmt.Fprintf(&builder, "TVal Recv: %s\n", tokenRecvValueStr[params.tvalReceived])
+	fmt.Fprintf(&builder, "Chicken Runs: %d\n", params.chickenRunValues[params.chickenRuns])
+
 	embed := &discordgo.MessageEmbed{}
 	embed.Title = "Score Explorer"
-	embed.Description = fmt.Sprintf("Calculations for contract %s", params.contractID)
+	embed.Description = builder.String()
+	embed.Color = 0x9a8b7c
 	embed.Fields = field
 
 	return builder.String(), embed
@@ -224,8 +247,6 @@ func getScoreExplorerComponents(param scoreCalcParams) []discordgo.MessageCompon
 		SIAB Quality: [range] [duration]
 		Tokens: Met Tval, Not Quite, Low, Sink.
 		Chicken Runs: CRT, Coop-size, none.
-
-
 	*/
 
 	buttons = append(buttons,
