@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"log"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +20,8 @@ var tokenSentValue = []float64{50, 3, 1, 0, 20}
 var tokenRecvValueStr = []string{"8", "6", "1", "0", "Sink"}
 var tokenRecvValue = []float64{8, 6, 1, 0, 1000}
 var chickenRunsStr = []string{"Max", "CoopSize", "CoopSize -1", "None"}
+var siabDurationStr = []string{"30m", "45m", "Half Duration", "Full Duration"}
+var deflectorDurationsStr = []string{"Full Duration", "CRT Offset", "Boost Time"}
 
 type scoreCalcParams struct {
 	xid                  string
@@ -38,17 +41,21 @@ type scoreCalcParams struct {
 	tvalReceived         int
 	chickenRuns          int
 	chickenRunValues     []int
+	siabTimes            []int
+	siabIndex            int
+	deflTimes            []int
+	deflIndex            int
 }
 
 var scoreCalcMap = make(map[string]scoreCalcParams)
 
 // GetSlashScoreExplorerCommand returns the slash command for token tracking
 func GetSlashScoreExplorerCommand(cmd string) *discordgo.ApplicationCommand {
-	adminPermission := int64(0)
+	//adminPermission := int64(0)
 	return &discordgo.ApplicationCommand{
-		Name:                     cmd,
-		Description:              "Start token value tracking for a contract",
-		DefaultMemberPermissions: &adminPermission,
+		Name:        cmd,
+		Description: "Start token value tracking for a contract",
+		//DefaultMemberPermissions: &adminPermission,
 		Contexts: &[]discordgo.InteractionContextType{
 			discordgo.InteractionContextGuild,
 			discordgo.InteractionContextBotDM,
@@ -63,7 +70,7 @@ func GetSlashScoreExplorerCommand(cmd string) *discordgo.ApplicationCommand {
 				Type:         discordgo.ApplicationCommandOptionString,
 				Name:         "contract-id",
 				Description:  "Contract ID",
-				Required:     false,
+				Required:     true,
 				Autocomplete: true,
 			},
 			/*
@@ -133,6 +140,18 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 
 	c := ei.EggIncContractsAll[contractID]
 
+	if c.ID == "" {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Unknown contract ID",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		},
+		)
+		return
+	}
+
 	xid := xid.New().String()
 	scoreCalcParams := scoreCalcParams{
 		xid:                  xid,
@@ -156,6 +175,20 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 	// Calculate CR Values
 	crValues := []int{c.ChickenRuns, c.MaxCoopSize, c.MaxCoopSize - 1, 0}
 	scoreCalcParams.chickenRunValues = append(scoreCalcParams.chickenRunValues, crValues...)
+
+	siabTimes := []int{30, 45, -1, -1}
+	scoreCalcParams.siabTimes = append(scoreCalcParams.siabTimes, siabTimes...)
+
+	runLegs := 0
+	legQty := c.MaxCoopSize - 1
+	if c.ChickenRuns >= legQty {
+		runLegs++
+		remainingRuns := c.ChickenRunCooldownMinutes - legQty
+		runLegs += int(math.Ceil(float64(remainingRuns) / float64(legQty-1)))
+	}
+	deflTimes := []int{0, runLegs * 7, 20}
+	scoreCalcParams.deflTimes = append(scoreCalcParams.deflTimes, deflTimes...)
+
 	scoreCalcMap[xid] = scoreCalcParams
 
 	_, embed := getScoreExplorerCalculations(scoreCalcParams)
@@ -198,6 +231,17 @@ func getScoreExplorerCalculations(params scoreCalcParams) (string, *discordgo.Me
 
 	ratio := fairShare[params.fairShare]
 
+	contractDur := c.EstimatedDurationLower * time.Duration(params.playStyleValues[params.style])
+	if !durationSpeed {
+		contractDur = c.EstimatedDuration * time.Duration(params.playStyleValues[params.style])
+	}
+
+	params.siabTimes[len(params.siabTimes)-1] = int(contractDur.Minutes())
+	params.siabTimes[len(params.siabTimes)-2] = int(contractDur.Minutes() / 2)
+
+	params.siabMinutes = params.siabTimes[params.siabIndex]
+	params.deflectorDownMinutes = params.deflTimes[params.deflIndex]
+
 	scoreLower := getContractScoreEstimate(c, grade,
 		durationSpeed, params.playStyleValues[params.style], ratio,
 		params.siab, params.siabMinutes,
@@ -212,11 +256,6 @@ func getScoreExplorerCalculations(params scoreCalcParams) (string, *discordgo.Me
 		Value:  builder.String(),
 		Inline: true,
 	})
-
-	contractDur := c.EstimatedDurationLower * time.Duration(params.playStyleValues[params.style])
-	if !durationSpeed {
-		contractDur = c.EstimatedDuration * time.Duration(params.playStyleValues[params.style])
-	}
 
 	// Explain the settings
 	builder.Reset()
@@ -284,6 +323,28 @@ func getScoreExplorerComponents(param scoreCalcParams) []discordgo.MessageCompon
 			Style:    discordgo.SecondaryButton,
 			CustomID: fmt.Sprintf("fd_playground#%s#runs", param.xid),
 		})
+
+	buttons = append(buttons,
+		discordgo.Button{
+			Label:    fmt.Sprintf("Defl Offset: %s", deflectorDurationsStr[param.deflIndex]),
+			Style:    discordgo.SecondaryButton,
+			CustomID: fmt.Sprintf("fd_playground#%s#defltime", param.xid),
+		})
+
+	buttons = append(buttons,
+		discordgo.Button{
+			Label:    fmt.Sprintf("SIAB: %s", siabDurationStr[param.siabIndex]),
+			Style:    discordgo.SecondaryButton,
+			CustomID: fmt.Sprintf("fd_playground#%s#siabtime", param.xid),
+		})
+
+	buttons = append(buttons,
+		discordgo.Button{
+			Label:    "Close",
+			Style:    discordgo.DangerButton,
+			CustomID: fmt.Sprintf("fd_playground#%s#close", param.xid),
+		})
+
 	MinValues := 1
 
 	menu = append(menu, discordgo.SelectMenu{
@@ -411,23 +472,6 @@ func getScoreExplorerComponents(param scoreCalcParams) []discordgo.MessageCompon
 		},
 	})
 	/*
-		deflectorQuality := []string{"T4L", "T4E", "T4R", "T4C", "T3R"}
-		buttons = append(buttons,
-			discordgo.Button{
-				Label:    fmt.Sprintf("Deflector: %s", deflectorQuality[0]),
-				Style:    discordgo.SecondaryButton,
-				CustomID: fmt.Sprintf("fd_playground#%s#deflector", param.xid),
-			})
-
-		siabQuality := []string{"T4L", "T4E", "T4R", "T4C", "T3R"}
-		buttons = append(buttons,
-			discordgo.Button{
-				Label:    fmt.Sprintf("SIAB: %s", siabQuality[0]),
-				Style:    discordgo.SecondaryButton,
-				CustomID: fmt.Sprintf("fd_playground#%s#siab", param.xid),
-			})
-	*/
-	/*
 		buttons = append(buttons,
 			discordgo.Button{
 				Label:    "Tile/Table",
@@ -437,6 +481,14 @@ func getScoreExplorerComponents(param scoreCalcParams) []discordgo.MessageCompon
 	*/
 
 	var components []discordgo.MessageComponent
+	/*
+		for _, m := range menu {
+			components = append(components, discordgo.ActionsRow{Components: []discordgo.MessageComponent{m}})
+		}
+	*/
+
+	components = append(components, discordgo.ActionsRow{Components: []discordgo.MessageComponent{menu[0]}})
+	components = append(components, discordgo.ActionsRow{Components: []discordgo.MessageComponent{menu[1]}})
 
 	for i := 0; i < len(buttons); i += 5 {
 		end := i + 5
@@ -449,8 +501,6 @@ func getScoreExplorerComponents(param scoreCalcParams) []discordgo.MessageCompon
 		}
 		components = append(components, discordgo.ActionsRow{Components: rowComponents})
 	}
-	components = append(components, discordgo.ActionsRow{Components: []discordgo.MessageComponent{menu[0]}})
-	components = append(components, discordgo.ActionsRow{Components: []discordgo.MessageComponent{menu[1]}})
 	/*
 
 		buttons = append(,
@@ -460,11 +510,6 @@ func getScoreExplorerComponents(param scoreCalcParams) []discordgo.MessageCompon
 				CustomID: fmt.Sprintf("fd_playground#%s#close", param.xid),
 			})
 	*/
-	components = append(components, discordgo.ActionsRow{Components: []discordgo.MessageComponent{discordgo.Button{
-		Label:    "Close",
-		Style:    discordgo.DangerButton,
-		CustomID: fmt.Sprintf("fd_playground#%s#close", param.xid),
-	}}})
 
 	return components
 
@@ -521,6 +566,18 @@ func HandleScoreExplorerPage(s *discordgo.Session, i *discordgo.InteractionCreat
 		params.chickenRuns++
 		if params.chickenRuns >= len(chickenRunsStr) {
 			params.chickenRuns = 0
+		}
+	}
+	if len(reaction) == 3 && reaction[2] == "defltime" {
+		params.deflIndex++
+		if params.deflIndex >= len(deflectorDurationsStr) {
+			params.deflIndex = 0
+		}
+	}
+	if len(reaction) == 3 && reaction[2] == "siabtime" {
+		params.siabIndex++
+		if params.siabIndex >= len(siabDurationStr) {
+			params.siabIndex = 0
 		}
 	}
 	if len(reaction) == 3 && reaction[2] == "deflector" {
