@@ -27,27 +27,27 @@ var deflectorDurationsStr = []string{"Full Duration", "CRT Offset", "Boost Time"
 
 // ScoreCalcParams is the parameters for the score calculator
 type ScoreCalcParams struct {
-	Xid                  string                  `json:"xid"`
-	ContractID           string                  `json:"contract_id"`
-	Contract             ei.EggIncContract       `json:"contract"`
-	ContractInfo         string                  `json:"contract_info"`
+	xid                  string
+	contractID           string
+	contract             ei.EggIncContract
+	contractInfo         string
 	Grade                ei.Contract_PlayerGrade `json:"grade"`
-	Public               bool                    `json:"public"`
-	Deflector            int                     `json:"deflector"`
-	DeflectorDownMinutes int                     `json:"deflector_down_minutes"`
-	Siab                 int                     `json:"siab"`
-	SiabMinutes          int                     `json:"siab_minutes"`
-	Style                int                     `json:"style"`
-	PlayStyleValues      []float64               `json:"play_style_values"`
-	FairShare            int                     `json:"fair_share"`
-	TvalSent             int                     `json:"tval_sent"`
-	TvalReceived         int                     `json:"tval_received"`
-	ChickenRuns          int                     `json:"chicken_runs"`
-	ChickenRunValues     []int                   `json:"chicken_run_values"`
-	SiabTimes            []int                   `json:"siab_times"`
-	SiabIndex            int                     `json:"siab_index"`
-	DeflTimes            []int                   `json:"defl_times"`
-	DeflIndex            int                     `json:"defl_index"`
+	public               bool
+	Deflector            int       `json:"deflector"`
+	DeflectorDownMinutes int       `json:"deflector_down_minutes"`
+	Siab                 int       `json:"siab"`
+	SiabMinutes          int       `json:"siab_minutes"`
+	Style                int       `json:"style"`
+	PlayStyleValues      []float64 `json:"play_style_values"`
+	FairShare            int       `json:"fair_share"`
+	TvalSent             int       `json:"tval_sent"`
+	TvalReceived         int       `json:"tval_received"`
+	ChickenRuns          int
+	chickenRunValues     []int
+	SiabTimes            []int `json:"siab_times"`
+	SiabIndex            int   `json:"siab_index"`
+	deflTimes            []int
+	DeflIndex            int `json:"defl_index"`
 }
 
 var scoreCalcMap = make(map[string]ScoreCalcParams)
@@ -157,11 +157,11 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 
 	xid := xid.New().String()
 	scoreCalcParams := ScoreCalcParams{
-		Xid:                  xid,
-		ContractID:           contractID,
-		Contract:             c,
+		xid:                  xid,
+		contractID:           contractID,
+		contract:             c,
 		Grade:                grade,
-		Public:               flags == 0,
+		public:               flags == 0,
 		Deflector:            0,
 		DeflectorDownMinutes: 0,
 		Siab:                 0,
@@ -170,14 +170,14 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 		TvalSent:             0,
 		TvalReceived:         1,
 		ChickenRuns:          2,
-		ContractInfo:         getContractEstimateString(contractID),
+		contractInfo:         getContractEstimateString(contractID),
 	}
 
 	playStyleValues := []float64{1.0, 1.0, 1.20, 2.0}
 	scoreCalcParams.PlayStyleValues = append(scoreCalcParams.PlayStyleValues, playStyleValues...)
 	// Calculate CR Values
 	crValues := []int{c.ChickenRuns, c.MaxCoopSize, c.MaxCoopSize - 1, 0}
-	scoreCalcParams.ChickenRunValues = append(scoreCalcParams.ChickenRunValues, crValues...)
+	scoreCalcParams.chickenRunValues = append(scoreCalcParams.chickenRunValues, crValues...)
 
 	siabTimes := []int{30, 45, -1, -1}
 	scoreCalcParams.SiabTimes = append(scoreCalcParams.SiabTimes, siabTimes...)
@@ -186,11 +186,11 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 	legQty := c.MaxCoopSize - 1
 	if c.ChickenRuns >= legQty {
 		runLegs++
-		remainingRuns := c.ChickenRunCooldownMinutes - legQty
-		runLegs += int(math.Ceil(float64(remainingRuns) / float64(legQty-1)))
+		remainingRuns := c.ChickenRuns - legQty
+		runLegs += int(math.Floor(float64(remainingRuns) / float64(legQty-1)))
 	}
 	deflTimes := []int{0, runLegs * 7, 20}
-	scoreCalcParams.DeflTimes = append(scoreCalcParams.DeflTimes, deflTimes...)
+	scoreCalcParams.deflTimes = append(scoreCalcParams.deflTimes, deflTimes...)
 
 	scoreCalcMap[xid] = scoreCalcParams
 
@@ -201,7 +201,7 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content:    scoreCalcParams.ContractInfo,
+			Content:    scoreCalcParams.contractInfo,
 			Flags:      flags,
 			Components: components,
 			Embeds:     []*discordgo.MessageEmbed{embed},
@@ -220,7 +220,7 @@ func getScoreExplorerCalculations(params ScoreCalcParams) (string, *discordgo.Me
 	var builder strings.Builder
 	grade := params.Grade
 
-	c := params.Contract
+	c := params.contract
 
 	if c.ID == "" {
 		str := "No contract found in this channel, use the command parameters to pick one."
@@ -243,13 +243,13 @@ func getScoreExplorerCalculations(params ScoreCalcParams) (string, *discordgo.Me
 	params.SiabTimes[len(params.SiabTimes)-2] = int(contractDur.Minutes() / 2)
 
 	params.SiabMinutes = params.SiabTimes[params.SiabIndex]
-	params.DeflectorDownMinutes = params.DeflTimes[params.DeflIndex]
+	params.DeflectorDownMinutes = params.deflTimes[params.DeflIndex]
 
 	scoreLower := getContractScoreEstimate(c, grade,
 		durationSpeed, params.PlayStyleValues[params.Style], ratio,
 		params.Siab, params.SiabMinutes,
 		params.Deflector, params.DeflectorDownMinutes,
-		params.ChickenRunValues[params.ChickenRuns],
+		params.chickenRunValues[params.ChickenRuns],
 		tokenSentValue[params.TvalSent],
 		tokenRecvValue[params.TvalReceived])
 	fmt.Fprintf(&builder, "**%d**", scoreLower)
@@ -268,7 +268,7 @@ func getScoreExplorerCalculations(params ScoreCalcParams) (string, *discordgo.Me
 	fmt.Fprintf(&builder, "Fair Share: %2.1fx\n", ratio)
 	fmt.Fprintf(&builder, "TVal Sent: %s\n", tokenSentValueStr[params.TvalSent])
 	fmt.Fprintf(&builder, "TVal Recv: %s\n", tokenRecvValueStr[params.TvalReceived])
-	fmt.Fprintf(&builder, "Chicken Runs: %d\n", params.ChickenRunValues[params.ChickenRuns])
+	fmt.Fprintf(&builder, "Chicken Runs: %d\n", params.chickenRunValues[params.ChickenRuns])
 
 	embed := &discordgo.MessageEmbed{}
 	embed.Title = "Score Explorer"
@@ -288,62 +288,62 @@ func getScoreExplorerComponents(param ScoreCalcParams) []discordgo.MessageCompon
 		discordgo.Button{
 			Label:    playStyles[param.Style],
 			Style:    discordgo.SecondaryButton,
-			CustomID: fmt.Sprintf("fd_playground#%s#style", param.Xid),
+			CustomID: fmt.Sprintf("fd_playground#%s#style", param.xid),
 		})
 
 	buttons = append(buttons,
 		discordgo.Button{
 			Label:    fmt.Sprintf("Fair Share: %2.1fx", fairShare[param.FairShare]),
 			Style:    discordgo.SecondaryButton,
-			CustomID: fmt.Sprintf("fd_playground#%s#fair", param.Xid),
+			CustomID: fmt.Sprintf("fd_playground#%s#fair", param.xid),
 		})
 
 	buttons = append(buttons,
 		discordgo.Button{
 			Label:    fmt.Sprintf("TVal Sent: %s", tokenSentValueStr[param.TvalSent]),
 			Style:    discordgo.SecondaryButton,
-			CustomID: fmt.Sprintf("fd_playground#%s#tvals", param.Xid),
+			CustomID: fmt.Sprintf("fd_playground#%s#tvals", param.xid),
 		})
 	buttons = append(buttons,
 		discordgo.Button{
 			Label:    fmt.Sprintf("TVal Recv: %s", tokenRecvValueStr[param.TvalReceived]),
 			Style:    discordgo.SecondaryButton,
-			CustomID: fmt.Sprintf("fd_playground#%s#tvalr", param.Xid),
+			CustomID: fmt.Sprintf("fd_playground#%s#tvalr", param.xid),
 		})
 
 	buttons = append(buttons,
 		discordgo.Button{
 			Label:    fmt.Sprintf("Chicken Runs: %s", chickenRunsStr[param.ChickenRuns]),
 			Style:    discordgo.SecondaryButton,
-			CustomID: fmt.Sprintf("fd_playground#%s#runs", param.Xid),
+			CustomID: fmt.Sprintf("fd_playground#%s#runs", param.xid),
 		})
 
 	buttons = append(buttons,
 		discordgo.Button{
 			Label:    fmt.Sprintf("Deflector Use: %s", deflectorDurationsStr[param.DeflIndex]),
 			Style:    discordgo.SecondaryButton,
-			CustomID: fmt.Sprintf("fd_playground#%s#defltime", param.Xid),
+			CustomID: fmt.Sprintf("fd_playground#%s#defltime", param.xid),
 		})
 
 	buttons = append(buttons,
 		discordgo.Button{
 			Label:    fmt.Sprintf("SIAB Equp Time: %s", siabDurationStr[param.SiabIndex]),
 			Style:    discordgo.SecondaryButton,
-			CustomID: fmt.Sprintf("fd_playground#%s#siabtime", param.Xid),
+			CustomID: fmt.Sprintf("fd_playground#%s#siabtime", param.xid),
 		})
 
-	if !param.Public {
+	if !param.public {
 		buttons = append(buttons,
 			discordgo.Button{
 				Label:    "Load Settings",
 				Style:    discordgo.PrimaryButton,
-				CustomID: fmt.Sprintf("fd_playground#%s#load", param.Xid),
+				CustomID: fmt.Sprintf("fd_playground#%s#load", param.xid),
 			})
 		buttons = append(buttons,
 			discordgo.Button{
 				Label:    "Save Settings",
 				Style:    discordgo.PrimaryButton,
-				CustomID: fmt.Sprintf("fd_playground#%s#save", param.Xid),
+				CustomID: fmt.Sprintf("fd_playground#%s#save", param.xid),
 			})
 	}
 
@@ -351,13 +351,13 @@ func getScoreExplorerComponents(param ScoreCalcParams) []discordgo.MessageCompon
 		discordgo.Button{
 			Label:    "Close",
 			Style:    discordgo.DangerButton,
-			CustomID: fmt.Sprintf("fd_playground#%s#close", param.Xid),
+			CustomID: fmt.Sprintf("fd_playground#%s#close", param.xid),
 		})
 
 	MinValues := 1
 
 	menu = append(menu, discordgo.SelectMenu{
-		CustomID:    fmt.Sprintf("fd_playground#%s#deflector", param.Xid),
+		CustomID:    fmt.Sprintf("fd_playground#%s#deflector", param.xid),
 		Placeholder: "Deflector Quality",
 		MaxValues:   1,
 		MinValues:   &MinValues,
@@ -419,7 +419,7 @@ func getScoreExplorerComponents(param ScoreCalcParams) []discordgo.MessageCompon
 	})
 
 	menu = append(menu, discordgo.SelectMenu{
-		CustomID:    fmt.Sprintf("fd_playground#%s#siab", param.Xid),
+		CustomID:    fmt.Sprintf("fd_playground#%s#siab", param.xid),
 		Placeholder: "SIAB Quality",
 		MaxValues:   1,
 		MinValues:   &MinValues,
@@ -596,7 +596,20 @@ func HandleScoreExplorerPage(s *discordgo.Session, i *discordgo.InteractionCreat
 			log.Println("Error unmarshalling settings:", err)
 			return
 		}
-		params = loadedParams
+		params.Grade = loadedParams.Grade
+		params.Deflector = loadedParams.Deflector
+		params.DeflectorDownMinutes = loadedParams.DeflectorDownMinutes
+		params.Siab = loadedParams.Siab
+		params.SiabMinutes = loadedParams.SiabMinutes
+		params.Style = loadedParams.Style
+		params.PlayStyleValues = loadedParams.PlayStyleValues
+		params.FairShare = loadedParams.FairShare
+		params.TvalSent = loadedParams.TvalSent
+		params.TvalReceived = loadedParams.TvalReceived
+		params.SiabTimes = loadedParams.SiabTimes
+		params.SiabIndex = loadedParams.SiabIndex
+		params.DeflIndex = loadedParams.DeflIndex
+		params.ChickenRuns = loadedParams.ChickenRuns
 	}
 	if len(reaction) == 3 && reaction[2] == "save" {
 		// Save settings
@@ -615,7 +628,7 @@ func HandleScoreExplorerPage(s *discordgo.Session, i *discordgo.InteractionCreat
 		return
 	}
 
-	scoreCalcMap[params.Xid] = params
+	scoreCalcMap[params.xid] = params
 
 	_, embed := getScoreExplorerCalculations(params)
 
@@ -623,7 +636,7 @@ func HandleScoreExplorerPage(s *discordgo.Session, i *discordgo.InteractionCreat
 	embeds := []*discordgo.MessageEmbed{embed}
 
 	edit := discordgo.WebhookEdit{
-		Content:    &params.ContractInfo,
+		Content:    &params.contractInfo,
 		Components: &components,
 		Embeds:     &embeds,
 	}
