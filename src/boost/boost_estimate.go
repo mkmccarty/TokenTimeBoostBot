@@ -200,7 +200,7 @@ func getContractEstimateString(contractID string) string {
 		false, 1.20, // use slower duration at 1.20 modifier so it's 20% slower
 		1.0,    // just equal fair share
 		60, 45, // T4C SIAB for 45m
-		14, 20, // Slightly less than T4C Deflector with 20m less duration
+		13, 20, // T3R Deflector with 20m less duration
 		c.MaxCoopSize-1, // Chicken Runs
 		0, 0)            // No token sharing
 
