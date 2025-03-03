@@ -326,14 +326,14 @@ func getScoreExplorerComponents(param scoreCalcParams) []discordgo.MessageCompon
 
 	buttons = append(buttons,
 		discordgo.Button{
-			Label:    fmt.Sprintf("Defl Offset: %s", deflectorDurationsStr[param.deflIndex]),
+			Label:    fmt.Sprintf("Deflector Use: %s", deflectorDurationsStr[param.deflIndex]),
 			Style:    discordgo.SecondaryButton,
 			CustomID: fmt.Sprintf("fd_playground#%s#defltime", param.xid),
 		})
 
 	buttons = append(buttons,
 		discordgo.Button{
-			Label:    fmt.Sprintf("SIAB: %s", siabDurationStr[param.siabIndex]),
+			Label:    fmt.Sprintf("SIAB Equp Time: %s", siabDurationStr[param.siabIndex]),
 			Style:    discordgo.SecondaryButton,
 			CustomID: fmt.Sprintf("fd_playground#%s#siabtime", param.xid),
 		})
