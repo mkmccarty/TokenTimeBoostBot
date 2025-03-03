@@ -182,24 +182,27 @@ func getContractEstimateString(contractID string) string {
 	// Two ranges of estimates
 	// Speedrun w/ perfect set through to Sink with decent set
 	// Fair share from 1.05 to 0.92
-	scoreBest := getContractScoreEstimate(c, ei.Contract_GRADE_AAA, true, 1.0,
-		1.05,    // Fair Share
-		100, 20, // SIAB %, minutes
+	scoreBest := getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+		true, 1.0, // Use faster duration at a 1.0 modifier
+		1.05,    // Fair Share, first booster
+		100, 20, // SIAB 100%, 20 minutes
 		20, 10, // Deflector %, minutes reduction
 		100, // Chicken Runs
 		100, 5)
-	scoreBestSink := getContractScoreEstimate(c, ei.Contract_GRADE_AAA, false, 1.0,
-		0.92,
-		60, 45,
-		15, 0,
+	scoreBestSink := getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+		true, 1.0, // Use faster duration at a 1.0 modifier
+		0.92,   // 0.92 Fair Share (Last booster sink)
+		60, 45, // T4C SIAB for 45m
+		15, 0, // T4C Deflector for full duration
 		100, // Chicken Runs
 		3, 100)
-	scoreBestEffort := getContractScoreEstimate(c, ei.Contract_GRADE_AAA, false, 1.20,
-		1.0,
-		60, 45,
-		14, 20,
+	scoreBestEffort := getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+		false, 1.20, // use slower duration at 1.20 modifier so it's 20% slower
+		1.0,    // just equal fair share
+		60, 45, // T4C SIAB for 45m
+		14, 20, // Slighyle less than T4C Deflector with 20m less duration
 		c.MaxCoopSize-1, // Chicken Runs
-		0, 0)
+		0, 0)            // No token sharing
 
 	str += fmt.Sprintf("CS Est: **%d** (SR) - **%d** (Sink) - **%d** (Best Effort)\n", scoreBest, scoreBestSink, scoreBestEffort)
 
