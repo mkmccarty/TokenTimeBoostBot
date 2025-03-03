@@ -681,7 +681,7 @@ var (
 		"fd_teamwork": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleTeamworkPage(s, i)
 		},
-		"fd_Explorer": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		"fd_playground": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleScoreExplorerPage(s, i)
 		},
 		"fd_signupStart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
