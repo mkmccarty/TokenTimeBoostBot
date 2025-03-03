@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -239,6 +240,7 @@ func getScoreExplorerCalculations(params scoreCalcParams) (string, *discordgo.Me
 // getTokenValComponents returns the components for the token value
 func getScoreExplorerComponents(param scoreCalcParams) []discordgo.MessageComponent {
 	var buttons []discordgo.Button
+	var menu []discordgo.SelectMenu
 
 	/*
 		Boost Style: Speedrun, Fastrun, Casual
@@ -282,6 +284,132 @@ func getScoreExplorerComponents(param scoreCalcParams) []discordgo.MessageCompon
 			Style:    discordgo.SecondaryButton,
 			CustomID: fmt.Sprintf("fd_playground#%s#runs", param.xid),
 		})
+	MinValues := 1
+
+	menu = append(menu, discordgo.SelectMenu{
+		CustomID:    fmt.Sprintf("fd_playground#%s#deflector", param.xid),
+		Placeholder: "Deflector Quality",
+		MaxValues:   1,
+		MinValues:   &MinValues,
+		Options: []discordgo.SelectMenuOption{
+			{
+				Label:   "No Deflector Used",
+				Value:   "0",
+				Default: param.deflector == 0,
+			},
+			{
+				Emoji:   ei.GetBotComponentEmoji("defl_T4L"),
+				Label:   "T4L",
+				Value:   "20",
+				Default: param.deflector == 20,
+			},
+			{
+				Emoji:   ei.GetBotComponentEmoji("defl_T4E"),
+				Label:   "T4E",
+				Value:   "19",
+				Default: param.deflector == 19,
+			},
+			{
+				Emoji:   ei.GetBotComponentEmoji("defl_T4R"),
+				Label:   "T4R",
+				Value:   "17",
+				Default: param.deflector == 17,
+			},
+			{
+				Emoji:   ei.GetBotComponentEmoji("defl_T4C"),
+				Label:   "T4C",
+				Value:   "15",
+				Default: param.deflector == 15,
+			},
+			{
+				Emoji:   ei.GetBotComponentEmoji("defl_T3R"),
+				Label:   "T3R",
+				Value:   "13",
+				Default: param.deflector == 13,
+			},
+			{
+				Emoji:   ei.GetBotComponentEmoji("defl_T3C"),
+				Label:   "T3C",
+				Value:   "12",
+				Default: param.deflector == 12,
+			},
+			{
+				Emoji:   ei.GetBotComponentEmoji("defl_T2C"),
+				Label:   "T2C",
+				Value:   "8",
+				Default: param.deflector == 8,
+			},
+			{
+				Emoji:   ei.GetBotComponentEmoji("defl_T1C"),
+				Label:   "T1C",
+				Value:   "5",
+				Default: param.deflector == 5,
+			},
+		},
+	})
+
+	menu = append(menu, discordgo.SelectMenu{
+		CustomID:    fmt.Sprintf("fd_playground#%s#siab", param.xid),
+		Placeholder: "SIAB Quality",
+		MaxValues:   1,
+		MinValues:   &MinValues,
+
+		Options: []discordgo.SelectMenuOption{
+			{
+				Label:   "No SIAB Used",
+				Value:   "0",
+				Default: param.siab == 0,
+			},
+			{
+				Emoji:   ei.GetBotComponentEmoji("siab_T4L"),
+				Label:   "T4L",
+				Value:   "100",
+				Default: param.siab == 100,
+			},
+			{
+				Emoji:   ei.GetBotComponentEmoji("siab_T4E"),
+				Label:   "T4E",
+				Value:   "90",
+				Default: param.siab == 90,
+			},
+			{
+				Emoji:   ei.GetBotComponentEmoji("siab_T4R"),
+				Label:   "T4R",
+				Value:   "80",
+				Default: param.siab == 80,
+			},
+			{
+				Emoji:   ei.GetBotComponentEmoji("siab_T4C"),
+				Label:   "T4C",
+				Value:   "70",
+				Default: param.siab == 70,
+			},
+			{
+				Emoji:   ei.GetBotComponentEmoji("siab_T3R"),
+				Label:   "T3R",
+				Value:   "60",
+				Default: param.siab == 60,
+			},
+			{
+				Emoji:   ei.GetBotComponentEmoji("siab_T3C"),
+				Label:   "T3C",
+				Value:   "50",
+				Default: param.siab == 50,
+			},
+			{
+				Emoji:   ei.GetBotComponentEmoji("siab_T2C"),
+				Label:   "T2C",
+				Value:   "30",
+				Default: param.siab == 30,
+			},
+			{
+				Emoji:   ei.GetBotComponentEmoji("siab_T1C"),
+				Label:   "T1C",
+				Value:   "20",
+				Default: param.siab == 20,
+			},
+		},
+	})
 	/*
 		deflectorQuality := []string{"T4L", "T4E", "T4R", "T4C", "T3R"}
 		buttons = append(buttons,
@@ -307,12 +435,6 @@ func getScoreExplorerComponents(param scoreCalcParams) []discordgo.MessageCompon
 				CustomID: fmt.Sprintf("fd_stones#%s#toggle", name),
 			})
 	*/
-	buttons = append(buttons,
-		discordgo.Button{
-			Label:    "Close",
-			Style:    discordgo.DangerButton,
-			CustomID: fmt.Sprintf("fd_playground#%s#close", param.xid),
-		})
 
 	var components []discordgo.MessageComponent
 
@@ -327,6 +449,22 @@ func getScoreExplorerComponents(param scoreCalcParams) []discordgo.MessageCompon
 		}
 		components = append(components, discordgo.ActionsRow{Components: rowComponents})
 	}
+	components = append(components, discordgo.ActionsRow{Components: []discordgo.MessageComponent{menu[0]}})
+	components = append(components, discordgo.ActionsRow{Components: []discordgo.MessageComponent{menu[1]}})
+	/*
+
+		buttons = append(,
+			discordgo.Button{
+				Label:    "Close",
+				Style:    discordgo.DangerButton,
+				CustomID: fmt.Sprintf("fd_playground#%s#close", param.xid),
+			})
+	*/
+	components = append(components, discordgo.ActionsRow{Components: []discordgo.MessageComponent{discordgo.Button{
+		Label:    "Close",
+		Style:    discordgo.DangerButton,
+		CustomID: fmt.Sprintf("fd_playground#%s#close", param.xid),
+	}}})
 
 	return components
 
@@ -385,6 +523,23 @@ func HandleScoreExplorerPage(s *discordgo.Session, i *discordgo.InteractionCreat
 			params.chickenRuns = 0
 		}
 	}
+	if len(reaction) == 3 && reaction[2] == "deflector" {
+		deflectorValue, err := strconv.Atoi(i.MessageComponentData().Values[0])
+		if err != nil {
+			log.Println("Invalid deflector value:", err)
+			return
+		}
+		params.deflector = deflectorValue
+	}
+	if len(reaction) == 3 && reaction[2] == "siab" {
+		siabValue, err := strconv.Atoi(i.MessageComponentData().Values[0])
+		if err != nil {
+			log.Println("Invalid deflector value:", err)
+			return
+		}
+		params.siab = siabValue
+	}
+
 	if len(reaction) == 3 && reaction[2] == "close" {
 		_ = s.InteractionResponseDelete(i.Interaction)
 		return
