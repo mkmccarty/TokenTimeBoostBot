@@ -189,7 +189,7 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 		remainingRuns := c.ChickenRuns - legQty
 		runLegs += int(math.Floor(float64(remainingRuns) / float64(legQty-1)))
 	}
-	deflTimes := []int{0, runLegs * 7, 20}
+	deflTimes := []int{0, runLegs * 5, 20}
 	scoreCalcParams.deflTimes = append(scoreCalcParams.deflTimes, deflTimes...)
 
 	scoreCalcMap[xid] = scoreCalcParams
