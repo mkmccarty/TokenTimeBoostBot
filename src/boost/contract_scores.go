@@ -89,7 +89,7 @@ func getContractScoreEstimate(c ei.EggIncContract, grade ei.Contract_PlayerGrade
 	if !fastest {
 		contractDuration = c.EstimatedDuration
 	}
-	contractDuration = time.Duration(float64(contractDuration) * durationMod)
+	contractDuration = time.Duration(float64(contractDuration.Seconds()*durationMod)) * time.Second
 
 	siabDuration := (time.Duration(siabMinutes) * time.Minute).Seconds()
 	deflectorDuration := (contractDuration - time.Duration(deflMinutesReduction)*time.Minute).Seconds()
