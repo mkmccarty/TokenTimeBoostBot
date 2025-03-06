@@ -234,9 +234,9 @@ func getScoreExplorerCalculations(params ScoreCalcParams) (string, *discordgo.Me
 
 	ratio := fairShare[params.FairShare]
 
-	contractDur := c.EstimatedDurationLower * time.Duration(params.PlayStyleValues[params.Style])
+	contractDur := c.EstimatedDurationLower
 	if !durationSpeed {
-		contractDur = c.EstimatedDuration * time.Duration(params.PlayStyleValues[params.Style])
+		contractDur = time.Duration((float64(c.EstimatedDuration.Seconds()) * params.PlayStyleValues[params.Style])) * time.Second
 	}
 
 	params.SiabTimes[len(params.SiabTimes)-1] = int(contractDur.Minutes())
