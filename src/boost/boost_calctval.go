@@ -393,6 +393,15 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 		Inline: true,
 	})
 
+	// Show Token Teamwork score vs max.
+	myTeamwork := calculateTokenTeamwork(contract.EstimatedDuration.Seconds(), contract.MinutesPerToken, SentValue, ReceivedValue)
+	maxTeamwork := calculateTokenTeamwork(contract.EstimatedDuration.Seconds(), contract.MinutesPerToken, 1000, 8)
+	field = append(field, &discordgo.MessageEmbedField{
+		Name:   "Teamwork Value",
+		Value:  fmt.Sprintf("%4.3g / %4.3g", myTeamwork, maxTeamwork),
+		Inline: true,
+	})
+
 	footerStr := "For the most accurate values make sure total contract time is accurate."
 
 	embed := &discordgo.MessageSend{
