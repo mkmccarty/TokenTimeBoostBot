@@ -409,7 +409,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		if time.Since(contract.EndTime) > 15*time.Minute {
 			outputStr += "\n## Post Boost Tools\n"
 			outputStr += fmt.Sprintf("> **Boost Bot:** %s %s %s\n", bottools.GetFormattedCommand("stones"), bottools.GetFormattedCommand("calc-contract-tval"), bottools.GetFormattedCommand("coop-tval"))
-			outputStr += "> **Wonky:** </auditcoop:1231383614701174814> </srtracker:1158969351702069328>\n"
+			outputStr += "> **Wonky:** </auditcoop:1231383614701174814> </optimizestones:1235003878886342707> </srtracker:1158969351702069328>\n"
 			outputStr += fmt.Sprintf("> **Web:** \n> * [%s](%s)\n> * [%s](%s)\n",
 				"Staabmia Stone Calc", "https://srsandbox-staabmia.netlify.app/stone-calc",
 				"Kaylier Coop Laying Assistant", "https://ei-coop-assistant.netlify.app/laying-set")
