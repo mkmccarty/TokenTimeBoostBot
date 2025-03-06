@@ -358,41 +358,46 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 
 		outputStr += afterListStr
 	}
+
+	guidanceStr := ""
 	// Add reaction guidance to the bottom of this list
 	switch contract.State {
 	case ContractStateFastrun:
-		outputStr += "\n"
-		outputStr += "> Active Booster: " + boostIcon + " when boosting. \n"
-		outputStr += "> Anyone: " + tokenStr + " when sending tokens "
+		guidanceStr += "\n"
+		guidanceStr += "> Active Booster: " + boostIcon + " when boosting. \n"
+		guidanceStr += "> Anyone: " + tokenStr + " when sending tokens "
 		if len(contract.AltIcons) > 0 {
-			outputStr += ", alts use 🇦-🇿"
+			guidanceStr += ", alts use 🇦-🇿"
 		}
-		outputStr += ". ❓ Help.\n"
+		guidanceStr += ". ❓ Help.\n"
 		if contract.CoopSize != len(contract.Order) {
-			outputStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
+			guidanceStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
 		}
 
 	case ContractStateBanker:
-		outputStr += "\n"
-		outputStr += "> " + tokenStr + " when sending tokens to the sink"
+		guidanceStr += "\n"
+		guidanceStr += "> " + tokenStr + " when sending tokens to the sink"
 		if len(contract.AltIcons) > 0 {
-			outputStr += ", alts use 🇦-🇿"
+			guidanceStr += ", alts use 🇦-🇿"
 		}
 		runReady, _, _ := ei.GetBotEmoji("runready")
 
-		outputStr += ".\n"
-		outputStr += "> " + runReady + " when you're ready for others to run chickens on your farm.\n"
-		outputStr += "> 💰 is used by the Sink to send the requested number of tokens to the booster.\n"
-		outputStr += "> -When active Booster is sent tokens by the sink they are marked as boosted.\n"
-		outputStr += "> -Adjust the number of boost tokens you want by adding a 6️⃣ to 🔟 reaction to the boost list message.\n"
+		guidanceStr += ".\n"
+		guidanceStr += "> " + runReady + " when you're ready for others to run chickens on your farm.\n"
+		guidanceStr += "> 💰 is used by the Sink to send the requested number of tokens to the booster.\n"
+		guidanceStr += "> -When active Booster is sent tokens by the sink they are marked as boosted.\n"
+		guidanceStr += "> -Adjust the number of boost tokens you want by adding a 6️⃣ to 🔟 reaction to the boost list message.\n"
 		if contract.CoopSize != len(contract.Order) {
-			outputStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
+			guidanceStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
+		}
+		if len(outputStr)+len(guidanceStr) < 1900 {
+			outputStr += guidanceStr
 		}
 
 	case ContractStateWaiting:
-		outputStr += "\n"
-		outputStr += "> Waiting for other(s) to join...\n"
-		outputStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
+		guidanceStr += "\n"
+		guidanceStr += "> Waiting for other(s) to join...\n"
+		guidanceStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
 
 	case ContractStateCompleted:
 		if time.Since(contract.EndTime) > 15*time.Minute {
