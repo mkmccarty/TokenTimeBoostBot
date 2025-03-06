@@ -379,6 +379,15 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 			Value:  fmt.Sprintf("%4.3f", targetTval),
 			Inline: true,
 		})
+
+		// Show Token Teamwork score vs max.
+		myTeamwork := calculateTokenTeamwork(td.DurationTime.Seconds(), td.MinutesPerToken, td.SumValueSent, td.SumValueReceived)
+		maxTeamwork := calculateTokenTeamwork(td.DurationTime.Seconds(), td.MinutesPerToken, 1000, 8)
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   "Teamwork Value",
+			Value:  fmt.Sprintf("%4.3g / %4.3g", myTeamwork, maxTeamwork),
+			Inline: true,
+		})
 	}
 
 	footerStr := "For the most accurate values make sure the start time and total contract time is accurate."
@@ -400,8 +409,21 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 		},
 		},
 	}
-
 	return embed
+}
+
+func calculateTokenTeamwork(contractDurationSeconds float64, minutesPerToken int, tokenValueSent float64, tokenValueReceived float64) float64 {
+	BTA := contractDurationSeconds / (float64(minutesPerToken) * 60)
+	T := 0.0
+
+	if BTA <= 42.0 {
+		T = ((2.0 / 3.0) * min(tokenValueSent, 3.0)) + ((8.0 / 3.0) * min(max(tokenValueSent-tokenValueReceived, 0.0), 3.0))
+	} else {
+		T = (200.0/(7.0*BTA))*min(tokenValueSent, 0.07*BTA) + (800.0 / (7.0 * BTA) * min(max(tokenValueSent-tokenValueReceived, 0.0), 0.07*BTA))
+	}
+
+	//T := 2.0 * (min(V, tokenValueSent) + 4*min(V, max(0.0, tokenValueSent-tokenValueReceived))) / V
+	return T
 }
 
 func getTrack(userID string, name string) (*tokenValue, error) {
