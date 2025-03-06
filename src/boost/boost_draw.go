@@ -373,6 +373,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		if contract.CoopSize != len(contract.Order) {
 			guidanceStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
 		}
+		if len(outputStr)+len(guidanceStr) < 1900 {
+			outputStr += guidanceStr
+		}
 
 	case ContractStateBanker:
 		guidanceStr += "\n"
@@ -398,6 +401,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		guidanceStr += "\n"
 		guidanceStr += "> Waiting for other(s) to join...\n"
 		guidanceStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
+		if len(outputStr)+len(guidanceStr) < 1900 {
+			outputStr += guidanceStr
+		}
 
 	case ContractStateCompleted:
 		if time.Since(contract.EndTime) > 15*time.Minute {
