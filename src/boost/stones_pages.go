@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"log"
+	"math"
 	"strings"
 	"time"
 
@@ -151,7 +152,7 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		if cache.page*itemsPerPage >= len(cache.table) {
 			cache.page = 0
 		}
-		cache.pages = len(cache.table) / itemsPerPage
+		cache.pages = int(math.Ceil(float64(len(cache.table)) / float64(itemsPerPage)))
 	}
 
 	var flags discordgo.MessageFlags
