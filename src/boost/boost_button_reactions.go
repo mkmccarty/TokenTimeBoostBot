@@ -82,7 +82,9 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	case "bag":
 		_, redraw = buttonReactionBag(s, i.GuildID, i.ChannelID, contract, userID)
 	case "token":
-		_, redraw = buttonReactionToken(s, i.GuildID, i.ChannelID, contract, userID)
+		_, redraw = buttonReactionToken(s, i.GuildID, i.ChannelID, contract, userID, 1)
+	case "2token":
+		_, redraw = buttonReactionToken(s, i.GuildID, i.ChannelID, contract, userID, 2)
 	case "swap":
 		redraw = buttonReactionSwap(s, i.GuildID, i.ChannelID, contract, userID)
 	case "last":
@@ -152,7 +154,7 @@ func buttonReactionBoost(s *discordgo.Session, GuildID string, ChannelID string,
 	return redraw
 }
 
-func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, fromUserID string) (bool, bool) {
+func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, fromUserID string, count int) (bool, bool) {
 	if !userInContract(contract, fromUserID) {
 		return false, false
 	}
@@ -172,19 +174,19 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 		if fromUserID != b.UserID {
 			// Record the Tokens as received
 			tokenSerial := xid.New().String()
-			track.ContractTokenMessage(s, ChannelID, b.UserID, track.TokenReceived, 1, contract.Boosters[fromUserID].Nick, tokenSerial)
+			track.ContractTokenMessage(s, ChannelID, b.UserID, track.TokenReceived, count, contract.Boosters[fromUserID].Nick, tokenSerial)
 
 			// Record who sent the token
-			track.ContractTokenMessage(s, ChannelID, fromUserID, track.TokenSent, 1, b.Nick, tokenSerial)
+			track.ContractTokenMessage(s, ChannelID, fromUserID, track.TokenSent, count, b.Nick, tokenSerial)
 			contract.mutex.Lock()
-			b.TokensReceived++
-			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: 1, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial})
+			b.TokensReceived += count
+			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: count, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial})
 			contract.mutex.Unlock()
 			if contract.BoostOrder == ContractOrderTVal {
 				tval := getTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
 				contract.mutex.Lock()
-				contract.Boosters[fromUserID].TokenValue += tval
-				contract.Boosters[b.UserID].TokenValue -= tval
+				contract.Boosters[fromUserID].TokenValue += tval * float64(count)
+				contract.Boosters[b.UserID].TokenValue -= tval * float64(count)
 				contract.mutex.Unlock()
 				reorderBoosters(contract)
 			}
@@ -193,10 +195,10 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 				determineDynamicTokens(contract)
 			}
 		} else {
-			track.FarmedToken(s, ChannelID, fromUserID)
+			track.FarmedToken(s, ChannelID, fromUserID, count)
 			contract.mutex.Lock()
-			b.TokensReceived++
-			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: 1, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: fromUserID, ToNick: contract.Boosters[fromUserID].Nick, Serial: xid.New().String()})
+			b.TokensReceived += count
+			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: count, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: fromUserID, ToNick: contract.Boosters[fromUserID].Nick, Serial: xid.New().String()})
 			contract.mutex.Unlock()
 		}
 		if b.TokensReceived == b.TokensWanted {
@@ -397,7 +399,9 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 	if contract.buttonComponents == nil {
 		compVals := make(map[string]CompMap, 14)
 		compVals[boostIconReaction] = CompMap{Emoji: boostIconReaction, Style: discordgo.SecondaryButton, CustomID: "rc_#Boost#"}
-		compVals[contract.TokenStr] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("token"), Style: discordgo.SecondaryButton, CustomID: "rc_#Token#"}
+		compVals[contract.TokenStr] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("token"), Style: discordgo.SecondaryButton, CustomID: "rc_#token#"}
+		compVals["GG"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("std_gg"), Style: discordgo.SecondaryButton, CustomID: "rc_#2token#"}
+		compVals["UG"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("ultra_gg"), Style: discordgo.SecondaryButton, CustomID: "rc_#2token#"}
 		compVals["💰"] = CompMap{Emoji: "💰", Style: discordgo.SecondaryButton, CustomID: "rc_#bag#"}
 		compVals["🚚"] = CompMap{Emoji: "🚚", Style: discordgo.SecondaryButton, CustomID: "rc_#truck#"}
 		compVals["💃"] = CompMap{Emoji: "💃", Style: discordgo.SecondaryButton, CustomID: "rc_#tango#"}
@@ -424,6 +428,10 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 
 	iconsRow := make([][]string, 5)
 	iconsRow[0], iconsRow[1] = addContractReactionsGather(contract, contract.TokenStr)
+	if len(iconsRow[0]) > 5 {
+		iconsRow[1] = append([]string{iconsRow[0][len(iconsRow[0])-1]}, iconsRow[1]...)
+		iconsRow[0] = iconsRow[0][:len(iconsRow[0])-1]
+	}
 	if len(iconsRow[1]) > 5 {
 		iconsRow[2] = iconsRow[1][5:] // Grab overflow icons to new row
 		iconsRow[1] = iconsRow[1][:5] // Limit this row to 5 icons
@@ -563,10 +571,10 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 
 	switch contract.State {
 	case ContractStateCRT:
-		iconsRowA = append(iconsRowA, []string{contract.TokenStr, "✅", "🚚", "🦵"}...)
+		iconsRowA = append(iconsRowA, []string{tokenStr, "✅", "🚚", "🦵"}...)
 		iconsRowB = append(iconsRowB, contract.AltIcons...)
 	case ContractStateBanker:
-		iconsRowA = append(iconsRowA, []string{contract.TokenStr, "🐓", "💰"}...)
+		iconsRowA = append(iconsRowA, []string{tokenStr, "🐓", "💰"}...)
 		iconsRowB = append(iconsRowB, contract.AltIcons...)
 	case ContractStateFastrun:
 		iconsRowA = append(iconsRowA, []string{boostIconReaction, tokenStr, "🔃", "⤵️", "🐓"}...)
@@ -587,6 +595,24 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 		}
 		iconsRowA = append(iconsRowA, "🐓")
 
+	}
+
+	gg, ugg := ei.GetGenerousGiftEvent()
+	if gg > 1.0 {
+		if slices.Contains(iconsRowA, tokenStr) {
+			idx := slices.Index(iconsRowA, tokenStr)
+			iconsRowA = append(iconsRowA[:idx], append([]string{"GG"}, iconsRowA[idx:]...)...)
+		} else {
+			iconsRowA = append(iconsRowA, "GG")
+		}
+	}
+	if ugg > 1.0 {
+		if slices.Contains(iconsRowA, tokenStr) {
+			idx := slices.Index(iconsRowA, tokenStr)
+			iconsRowA = append(iconsRowA[:idx], append([]string{"UG"}, iconsRowA[idx:]...)...)
+		} else {
+			iconsRowA = append(iconsRowA, "UG")
+		}
 	}
 
 	if len(iconsRowA) < 5 {

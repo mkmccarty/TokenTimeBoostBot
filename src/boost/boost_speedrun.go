@@ -530,7 +530,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 		}
 	}
 	if strings.ToLower(r.Emoji.Name) == tokenReactionStr {
-		_, redraw = buttonReactionToken(s, r.GuildID, r.ChannelID, contract, userID)
+		_, redraw = buttonReactionToken(s, r.GuildID, r.ChannelID, contract, userID, 1)
 	}
 
 	if contract.State == ContractStateBanker {

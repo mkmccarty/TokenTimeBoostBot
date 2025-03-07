@@ -238,7 +238,12 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 
 	if len(TokensFarmed) > 0 {
 		var fbuilder strings.Builder
-		fmt.Fprintf(&fbuilder, "%d", len(TokensFarmed))
+		farmedCount := 0
+		for _, t := range TokensFarmed {
+			farmedCount += t.Quantity
+		}
+
+		fmt.Fprintf(&fbuilder, "%d", farmedCount)
 		field = append(field, &discordgo.MessageEmbedField{
 			Name:   "Farmed Tokens",
 			Value:  fbuilder.String(),
