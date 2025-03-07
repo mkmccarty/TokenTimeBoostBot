@@ -166,7 +166,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		}
 
 		if strings.ToLower(r.Emoji.Name) == tokenReactionStr {
-			_, redraw = buttonReactionToken(s, r.GuildID, r.ChannelID, contract, userID)
+			_, redraw = buttonReactionToken(s, r.GuildID, r.ChannelID, contract, userID, 1)
 		}
 	} else {
 		keepReaction = false

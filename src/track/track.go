@@ -500,7 +500,9 @@ func tokenTracking(s *discordgo.Session, channelID string, userID string, name s
 	if pastTokens != nil {
 		for _, t := range *pastTokens {
 			if t.FromUserID == userID && t.ToUserID == userID {
-				td.FarmedTokenTime = append(td.FarmedTokenTime, t.Time)
+				for i := 0; i < t.Quantity; i++ {
+					td.FarmedTokenTime = append(td.FarmedTokenTime, t.Time)
+				}
 				continue
 			}
 
@@ -621,14 +623,16 @@ func UnlinkTokenTracking(s *discordgo.Session, channelID string) {
 }
 
 // FarmedToken will track the token sent from the contract Token reaction
-func FarmedToken(s *discordgo.Session, channelID string, userID string) {
+func FarmedToken(s *discordgo.Session, channelID string, userID string, count int) {
 	if Tokens[userID] == nil {
 		return
 	}
 
 	for _, v := range Tokens[userID].Coop {
 		if v != nil && v.ChannelID == channelID && v.Linked {
-			v.FarmedTokenTime = append(v.FarmedTokenTime, time.Now())
+			for i := 0; i < count; i++ {
+				v.FarmedTokenTime = append(v.FarmedTokenTime, time.Now())
+			}
 			saveData(Tokens)
 			embed := getTokenTrackingEmbed(v, false)
 			comp := getTokenValComponents(v.Name, v.Linked && !v.LinkedCompleted)
