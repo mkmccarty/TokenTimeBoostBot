@@ -327,7 +327,7 @@ func getScoreExplorerComponents(param ScoreCalcParams) []discordgo.MessageCompon
 
 	buttons = append(buttons,
 		discordgo.Button{
-			Label:    fmt.Sprintf("SIAB Equp Time: %s", siabDurationStr[param.SiabIndex]),
+			Label:    fmt.Sprintf("SIAB Equip Time: %s", siabDurationStr[param.SiabIndex]),
 			Style:    discordgo.SecondaryButton,
 			CustomID: fmt.Sprintf("fd_playground#%s#siabtime", param.xid),
 		})
