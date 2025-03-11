@@ -442,7 +442,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 			if lastOrBestSIAB > 0 && coopStatus.GetSecondsSinceAllGoalsAchieved() <= 0 {
 				// Your deflector % + your ship % (divided by 10) needs to average 26.7 over the course of the contract
 				var maxTeamwork strings.Builder
-				if lastOrBestSIAB != 0 {
+				if lastOrBestSIAB != 0 && LastSIAB != 0 {
 					maxTeamwork.WriteString(fmt.Sprintf("Equip current SIAB for %s (<t:%d:t>) in the most recent teamwork segment to max BTV by %6.0f.\n",
 						bottools.FmtDuration(siabTimeEquipped),
 						MostRecentDuration.Add(siabTimeEquipped).Unix(),
