@@ -78,7 +78,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		}
 		if ugg > 1.0 && contract.UltraCount > 0 {
 			// farmers with ultra
-			gg = ugg + (float64(contract.UltraCount) / float64(contract.CoopSize))
+			//gg = ugg + (float64(contract.UltraCount) / float64(contract.CoopSize))
 			ggicon = " " + ei.GetBotEmojiMarkdown("ultra_gg")
 		}
 
