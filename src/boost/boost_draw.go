@@ -2,7 +2,6 @@ package boost
 
 import (
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -83,19 +82,21 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 			ggicon = " " + ei.GetBotEmojiMarkdown("ultra_gg")
 		}
 
-		timerTokensSinceStart := math.Floor(float64(time.Since(contract.StartTime).Minutes()) / float64(float64(contract.MinutesPerToken)))
+		//timerTokensSinceStart := math.Floor(float64(time.Since(contract.StartTime).Minutes()) / float64(float64(contract.MinutesPerToken)))
+		//estTPM := (float64(0.101332)*gg + timerTokensSinceStart/time.Since(contract.StartTime).Minutes()) * float64(contract.CoopSize)
 
-		estTPM := (float64(0.101332)*gg + timerTokensSinceStart/time.Since(contract.StartTime).Minutes()) * float64(contract.CoopSize)
 		// How many single token entries are in the log, excludes banker sent tokens
 		singleTokenEntries := 0
 		for _, logEntry := range contract.TokenLog {
-			if logEntry.Quantity == 1 {
+			if logEntry.Quantity == 1 || logEntry.Quantity == 2 {
 				singleTokenEntries++
 			}
 		}
 		// Save this into the contract
 		contract.TokensPerMinute = float64(singleTokenEntries) / time.Since(contract.StartTime).Minutes()
-		outputStr += fmt.Sprintf("> %s/min: %2.2f   Expected %1.2f%s\n", contract.TokenStr, contract.TokensPerMinute, estTPM, ggicon)
+		// Commented out estimate for now, it's currently confusing and not very useful
+		// outputStr += fmt.Sprintf("> %s/min: %2.2f   Expected %1.2f%s\n", contract.TokenStr, contract.TokensPerMinute, estTPM, ggicon)
+		outputStr += fmt.Sprintf("> %s/min: %2.2f %s\n", contract.TokenStr, contract.TokensPerMinute, ggicon) //   Expected %1.2f%s\n", contract.TokenStr, contract.TokensPerMinute, estTPM, ggicon)
 	}
 
 	// Current tval
