@@ -601,7 +601,7 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 	if gg > 1.0 {
 		if slices.Contains(iconsRowA, tokenStr) {
 			idx := slices.Index(iconsRowA, tokenStr)
-			iconsRowA = append(iconsRowA[:idx], append([]string{"GG"}, iconsRowA[idx:]...)...)
+			iconsRowA = append(iconsRowA[:idx+1], append([]string{"GG"}, iconsRowA[idx+1:]...)...)
 		} else {
 			iconsRowA = append(iconsRowA, "GG")
 		}
@@ -609,7 +609,7 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 	if ugg > 1.0 {
 		if slices.Contains(iconsRowA, tokenStr) {
 			idx := slices.Index(iconsRowA, tokenStr)
-			iconsRowA = append(iconsRowA[:idx], append([]string{"UG"}, iconsRowA[idx:]...)...)
+			iconsRowA = append(iconsRowA[:idx+1], append([]string{"UG"}, iconsRowA[idx+1:]...)...)
 		} else {
 			iconsRowA = append(iconsRowA, "UG")
 		}
