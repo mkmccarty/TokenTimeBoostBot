@@ -231,6 +231,7 @@ type Contract struct {
 	EstimatedDurationValid    bool
 	ThreadName                string
 	ThreadRenameTime          time.Time
+	EstimateUpdateTime        time.Time
 
 	CRMessageIDs []string // Array of message IDs for chicken run messages
 

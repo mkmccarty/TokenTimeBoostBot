@@ -22,10 +22,11 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 	builder.WriteString("**Use the menus to set your contract style. These will work until the contract is started.**\n")
 	builder.WriteString("If this contract isn't an immediate start use `/change-planned-start` to add the time to the sign-up message.\n")
 	if thread {
-		builder.WriteString("React with 🌊 on the boost list to automaticaly update the thread name (`/rename-thread`).")
+		builder.WriteString("React with 🌊 on the boost list to automaticaly update the thread name (`/rename-thread`).\n")
 	} else {
-		builder.WriteString("This contract is in a channel and it cannot be renamed. Create it in a thread to permit renaming.")
+		builder.WriteString("This contract is in a channel and it cannot be renamed. Create it in a thread to permit renaming.\n")
 	}
+	builder.WriteString("React with ⏱️ after the boosting is completed to update the duration from the EI API.")
 
 	contract := Contracts[id]
 

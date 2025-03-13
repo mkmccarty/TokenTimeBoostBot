@@ -10,6 +10,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 	"github.com/moby/moby/pkg/namesgenerator"
 )
 
@@ -138,7 +139,41 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			} else {
 				UpdateThreadName(s, contract)
 			}
+		case "⏱️":
+			if contract.State != ContractStateCompleted {
+				var data discordgo.MessageSend
+				data.Content = "⏱️ can only be used after the contract completes boosting."
+				data.Flags = discordgo.MessageFlagsEphemeral
+				msg, err := s.ChannelMessageSendComplex(r.ChannelID, &data)
+				if err == nil {
+					time.AfterFunc(10*time.Second, func() {
+						err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+						if err != nil {
+							log.Println(err)
+						}
+					})
+				}
 
+			} else {
+				if time.Since(contract.EstimateUpdateTime) < 3*time.Minute {
+					var data discordgo.MessageSend
+					data.Content = fmt.Sprintf("⏱️ duration update on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(3*time.Minute).Unix())
+					data.Flags = discordgo.MessageFlagsEphemeral
+					msg, err := s.ChannelMessageSendComplex(r.ChannelID, &data)
+					if err == nil {
+						time.AfterFunc(10*time.Second, func() {
+							err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+							if err != nil {
+								log.Println(err)
+							}
+						})
+					}
+				} else {
+					log.Print("Updating estimated time")
+					contract.EstimateUpdateTime = time.Now()
+					go updateEstimatedTime(s, contract)
+				}
+			}
 		case "🐓":
 			if userInContract(contract, r.UserID) {
 				redraw, _ = buttonReactionRunChickens(s, contract, r.UserID)
@@ -203,6 +238,16 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	}
 
 	return returnVal
+}
+
+func updateEstimatedTime(s *discordgo.Session, contract *Contract) {
+	startTime, contractDurationSeconds, err := track.DownloadCoopStatusTracker(contract.ContractID, contract.CoopID)
+	if err == nil {
+		contract.StartTime = startTime
+		contract.EstimatedDuration = time.Duration(contractDurationSeconds) * time.Second
+		contract.EstimateUpdateTime = time.Now()
+		refreshBoostListMessage(s, contract)
+	}
 }
 
 // RemoveAddedReaction removes an added reaction from a message so it can be reactivated
