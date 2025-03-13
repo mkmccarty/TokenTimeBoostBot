@@ -1241,7 +1241,8 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 	if contract.State == ContractStateSignup {
 		return errors.New(errorContractNotStarted)
 	}
-
+	contract.mutex.Lock()
+	defer contract.mutex.Unlock()
 	// Edit the boost list in place
 	comp := getContractReactionsComponents(contract)
 	for _, loc := range contract.Location {
@@ -1264,6 +1265,8 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 }
 
 func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
+	contract.mutex.Lock()
+	defer contract.mutex.Unlock()
 	// Edit the boost list in place
 	for _, loc := range contract.Location {
 		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
