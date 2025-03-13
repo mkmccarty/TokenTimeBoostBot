@@ -673,9 +673,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 	builder.WriteString(dataTimestampStr)
 
-	if totalSiabSwapSeconds > 0 && offsetEndTime == 0 && coopStatus.GetSecondsSinceAllGoalsAchieved() == 0 {
-		return DownloadCoopStatusTeamwork(contractID, coopID, totalSiabSwapSeconds)
-	}
+	//if totalSiabSwapSeconds > 0 && offsetEndTime == 0 && coopStatus.GetSecondsSinceAllGoalsAchieved() == 0 {
+	//	return DownloadCoopStatusTeamwork(contractID, coopID, totalSiabSwapSeconds)
+	//}
 
 	return builder.String(), farmerFields
 }
