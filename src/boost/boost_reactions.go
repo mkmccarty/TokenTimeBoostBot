@@ -155,7 +155,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				}
 
 			} else {
-				if time.Since(contract.EstimateUpdateTime) < 3*time.Minute {
+				if time.Since(contract.EstimateUpdateTime) < 2*time.Minute {
 					var data discordgo.MessageSend
 					data.Content = fmt.Sprintf("⏱️ duration update on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(3*time.Minute).Unix())
 					data.Flags = discordgo.MessageFlagsEphemeral
@@ -171,7 +171,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				} else {
 					log.Print("Updating estimated time")
 					contract.EstimateUpdateTime = time.Now()
-					go updateEstimatedTime(s, contract)
+					go updateEstimatedTime(s, r.ChannelID, contract)
 				}
 			}
 		case "🐓":
@@ -240,9 +240,16 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	return returnVal
 }
 
-func updateEstimatedTime(s *discordgo.Session, contract *Contract) {
+func updateEstimatedTime(s *discordgo.Session, channelID string, contract *Contract) {
+	var data discordgo.MessageSend
+	data.Content = "⏱️ reaction received, updating contract duration."
+	data.Flags = discordgo.MessageFlagsEphemeral
+	msg, msgErr := s.ChannelMessageSendComplex(channelID, &data)
 	startTime, contractDurationSeconds, err := track.DownloadCoopStatusTracker(contract.ContractID, contract.CoopID)
 	if err == nil {
+		if msgErr == nil {
+			_ = s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+		}
 		contract.StartTime = startTime
 		contract.EstimatedDuration = time.Duration(contractDurationSeconds) * time.Second
 		contract.EstimateUpdateTime = time.Now()
