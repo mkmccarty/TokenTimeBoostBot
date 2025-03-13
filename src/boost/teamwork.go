@@ -13,6 +13,18 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
+// DeliveryTimeValue is a struct to hold the values for a delivery time
+type DeliveryTimeValue struct {
+	name              string
+	sr                float64
+	elr               float64
+	contributions     float64
+	contributionRate  float64
+	timeEquipped      time.Time
+	duration          time.Duration
+	cumulativeContrib float64
+}
+
 // GetSlashTeamworkEval will return the discord command for calculating token values of a running contract
 func GetSlashTeamworkEval(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
@@ -179,6 +191,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 	siabMsgCount := 0
 	var dataTimestampStr string
 	nowTime := time.Now()
+	totalSiabSwapSeconds := time.Duration(0)
 
 	eiContract := ei.EggIncContractsAll[contractID]
 	if eiContract.ID == "" {
@@ -266,37 +279,55 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 
 	siabMsg.WriteString("Showing those with SIAB equipped and can swap it out before the end of the contract without losing teamwork score.\n")
 
-	/*
-
-		// Want to retrieve this so we can adjust duration for SIAB strategy
-		type Production struct {
-			ELR       float64
-			SR        float64
-			Delivered float64
-			SIAB      bool
-		}
-		farmerProduction := make(map[int]Production)
-
-		for i, c := range coopStatus.GetContributors() {
-			p := c.GetProductionParams()
-			PP := Production{ELR: p.GetElr(), SR: p.GetSr(), Delivered: p.GetDelivered(), SIAB: false}
-			// Determine if SIAB is equipped in last segment
-			bh := c.GetBuffHistory()
-			if len(bh) > 0 {
-				// If the last buff is SIAB, then we need to adjust the duration
-				if bh[len(bh)-1].GetEarnings() != 0.0 {
-					PP.SIAB = true
-				}
-			}
-			// If the last buff is SIAB, then we need to adjust the duration
-			farmerProduction[i] = PP
-		}
-	*/
-
 	// Used to collect the return values for each farmer
 	var farmerFields = make(map[string][]*discordgo.MessageEmbedField)
 
+	var DeliveryTimeValues []DeliveryTimeValue
+
+	deliveryTableMap := make(map[string][]DeliveryTimeValue)
+
+	for _, c := range coopStatus.GetContributors() {
+		pp := c.GetProductionParams()
+		DeliveryTimeValues = nil
+
+		// 	totalContributions += c.GetContributionAmount()
+		//	totalContributions += -(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()) // offline eggs
+		durationPastSeconds := time.Since(startTime) + time.Duration(c.GetFarmInfo().GetTimestamp())*time.Second
+		DeliveryTimeValues = append(DeliveryTimeValues, DeliveryTimeValue{
+			"Past",
+			pp.GetSr(),
+			pp.GetElr(),
+			c.GetContributionAmount(),
+			(c.GetContributionAmount() / durationPastSeconds.Seconds()) * 60 * 60,
+			startTime,
+			durationPastSeconds,
+			c.GetContributionAmount(),
+		})
+		DeliveryTimeValues = append(DeliveryTimeValues, DeliveryTimeValue{
+			"Offline",
+			pp.GetSr(),
+			pp.GetElr(),
+			-(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()),
+			c.GetContributionRate() * 60 * 60,
+			time.Now().Add(time.Duration(c.GetFarmInfo().GetTimestamp()) * time.Second),
+			time.Duration(-c.GetFarmInfo().GetTimestamp()) * time.Second,
+			DeliveryTimeValues[0].contributions + -(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()),
+		})
+		DeliveryTimeValues = append(DeliveryTimeValues, DeliveryTimeValue{
+			"Future",
+			pp.GetSr(),
+			pp.GetElr(),
+			c.GetContributionRate() * float64(calcSecondsRemaining),
+			c.GetContributionRate() * 60 * 60,
+			time.Now(),
+			time.Duration(calcSecondsRemaining) * time.Second,
+			DeliveryTimeValues[1].contributions + c.GetContributionRate()*float64(calcSecondsRemaining),
+		})
+		deliveryTableMap[strings.ToLower(c.GetUserName())] = DeliveryTimeValues
+	}
+
 	for i, c := range coopStatus.GetContributors() {
+
 		var field []*discordgo.MessageEmbedField
 		name := strings.ToLower(c.GetUserName())
 
@@ -447,9 +478,48 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 						bottools.FmtDuration(siabTimeEquipped),
 						MostRecentDuration.Add(siabTimeEquipped).Unix(),
 						shortTeamwork))
+
+					// For testing I want to make siabTimeEquipped to be about an hour from now
+					//siabTimeEquipped = time.Duration(3600/2) * time.Second
+
 					if MostRecentDuration.Add(siabTimeEquipped).Before(endTime) {
 						fmt.Fprintf(&siabMsg, "<t:%d:t> %s\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
 						siabMsgCount++
+
+						future := deliveryTableMap[name][len(deliveryTableMap[name])-1]
+						siab := future
+						oldCumulative := future.cumulativeContrib
+						siab.name = "SIAB"
+						siab.duration = siabTimeEquipped
+						siab.contributions = c.GetContributionRate() * float64(siabTimeEquipped.Seconds())
+						siab.cumulativeContrib = future.cumulativeContrib - future.contributions + siab.contributions
+
+						future.name = "Post-SIAB"
+						future.timeEquipped = time.Now().Add(siabTimeEquipped)
+						future.duration = (time.Duration(calcSecondsRemaining) * time.Second) - siabTimeEquipped
+						// Need to determine the adjusted contribution rate
+						siabStones := 0
+						for _, artifact := range c.GetFarmInfo().GetEquippedArtifacts() {
+							spec := artifact.GetSpec()
+							if spec.GetName() == ei.ArtifactSpec_SHIP_IN_A_BOTTLE {
+								siabStones, _ = ei.GetStones(spec.GetName(), spec.GetLevel(), spec.GetRarity())
+							}
+						}
+						// Assuming being replaced with a 3 slot artifact
+						adjustedContributionRate := determinePostSiabRate(future, 3-siabStones)
+						future.contributionRate = adjustedContributionRate * c.GetContributionRate() * 60 * 60
+						future.contributions = (future.contributionRate / 3600) * future.duration.Seconds()
+						future.cumulativeContrib = siab.cumulativeContrib + future.contributions
+
+						diffContrib := future.cumulativeContrib - oldCumulative
+						diffSeconds := time.Duration(diffContrib/(future.contributionRate/3600)) * time.Second
+
+						totalSiabSwapSeconds += diffSeconds
+						deliveryTableMap[name] = append(deliveryTableMap[name][:2], siab, future)
+
+						// Calculate the saved number of seconds
+
+						maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact and speeding the contract by %v\n", adjustedContributionRate, siabStones, diffSeconds))
 					}
 				} else {
 					if time.Now().Add(siabTimeEquipped).After(endTime) {
@@ -461,6 +531,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 
 						maxTeamwork.WriteString(fmt.Sprintf("Equip your best SIAB through end of contract (<t:%d:t>) in new teamwork segment to improve BTV by %6.0f. ", endTime.Unix(), shortTeamwork*extraPercent))
 						maxTeamwork.WriteString(fmt.Sprintf("The maximum BTV increase of %6.0f would be achieved if the contract finished at <t:%d:f>.", shortTeamwork, time.Now().Add(siabTimeEquipped).Unix()))
+
 						if time.Now().Add(siabTimeEquipped).Before(endTime) {
 							fmt.Fprintf(&siabMsg, "<t:%d:t> %s\n", endTime.Unix(), name)
 							siabMsgCount++
@@ -479,6 +550,35 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 					Inline: false,
 				})
 			}
+
+			var deliv strings.Builder
+			dtable := tablewriter.NewWriter(&deliv)
+			dtable.SetHeader([]string{"Name", "Time", "Duration", "Rate", "Contrib"})
+			dtable.SetBorder(false)
+			dtable.SetAlignment(tablewriter.ALIGN_RIGHT)
+			dtable.SetCenterSeparator("")
+			dtable.SetColumnSeparator("")
+			dtable.SetRowSeparator("")
+			dtable.SetHeaderLine(false)
+			dtable.SetTablePadding(" ") // pad with tabs
+			dtable.SetNoWhiteSpace(true)
+			dtable.SetBorders(tablewriter.Border{Left: false, Top: false, Right: false, Bottom: false})
+			for _, d := range deliveryTableMap[name] {
+				dtable.Append([]string{
+					d.name,
+					d.timeEquipped.Sub(startTime).Round(time.Second).String(),
+					fmt.Sprintf("%v", d.duration.Round(time.Second)),
+					fmt.Sprintf("%2.3fq/hr", d.contributionRate/1e15),
+					fmt.Sprintf("%2.3fq", d.contributions/1e15),
+				})
+			}
+			dtable.Render()
+
+			field = append(field, &discordgo.MessageEmbedField{
+				Name:   "Deliveries",
+				Value:  "```" + deliv.String() + "```",
+				Inline: false,
+			})
 
 			// Chicken Runs
 			// Create a table of Chicken Runs with maximized TVAL
@@ -557,6 +657,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 		siabMsg.WriteString("\nNo SIAB swaps needed.\n")
 	} else {
 		siabMsg.WriteString("\nUsing your best SiaB will result in higher CS.\n")
+		siabMsg.WriteString(fmt.Sprintf("Contract will finish %s earlier at <t:%d:f>.\n",
+			bottools.FmtDuration(totalSiabSwapSeconds),
+			endTime.Add(-totalSiabSwapSeconds).Unix()))
 	}
 	siabMax = append(siabMax, &discordgo.MessageEmbedField{
 		Name:   "SIAB",
@@ -568,4 +671,21 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 	builder.WriteString(dataTimestampStr)
 
 	return builder.String(), farmerFields
+}
+
+func determinePostSiabRate(future DeliveryTimeValue, stoneDelta int) float64 {
+	delivery := min(future.sr, future.elr)
+	maxDelivery := min(future.sr, future.elr)
+
+	for i := 0; i <= stoneDelta; i++ {
+		tach := math.Pow(1.05, float64((stoneDelta - i)))
+		quant := math.Pow(1.05, float64(i))
+		elr := future.elr * tach
+		sr := future.sr * quant
+		calcDelivery := min(sr, elr)
+		if calcDelivery > maxDelivery {
+			maxDelivery = calcDelivery
+		}
+	}
+	return maxDelivery / delivery
 }
