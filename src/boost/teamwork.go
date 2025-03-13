@@ -153,7 +153,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	var str string
-	str, fields := DownloadCoopStatusTeamwork(contractID, coopID)
+	str, fields := DownloadCoopStatusTeamwork(contractID, coopID, 0)
 
 	cache := buildTeamworkCache(str, fields)
 	// Fill in our calling parameters
@@ -186,7 +186,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 }
 
 // DownloadCoopStatusTeamwork will download the coop status for a given contract and coop ID
-func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[string][]*discordgo.MessageEmbedField) {
+func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime time.Duration) (string, map[string][]*discordgo.MessageEmbedField) {
 	var siabMsg strings.Builder
 	siabMsgCount := 0
 	var dataTimestampStr string
@@ -268,7 +268,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
 		startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
 		totalReq := eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1]
-		calcSecondsRemaining = int64((totalReq - totalContributions) / contributionRatePerSecond)
+		calcSecondsRemaining = int64((totalReq-totalContributions)/contributionRatePerSecond) - int64(offsetEndTime)
 		endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
 		builder.WriteString(fmt.Sprintf("In Progress %s %s/[**%s**](%s) on target to complete <t:%d:R>\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID), endTime.Unix()))
@@ -276,6 +276,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 	builder.WriteString(fmt.Sprintf("Start Time: <t:%d:f>\n", startTime.Unix()))
 	builder.WriteString(fmt.Sprintf("%sEnd Time: <t:%d:f>\n", prefix, endTime.Unix()))
 	builder.WriteString(fmt.Sprintf("%sDuration: %v\n", prefix, (endTime.Sub(startTime)).Round(time.Second)))
+	if offsetEndTime > 0 {
+		builder.WriteString(fmt.Sprintf("End Time includes %s for SIAB swaps\n", bottools.FmtDuration(offsetEndTime)))
+	}
 
 	siabMsg.WriteString("Showing those with SIAB equipped and can swap it out before the end of the contract without losing teamwork score.\n")
 
@@ -553,7 +556,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 
 			var deliv strings.Builder
 			dtable := tablewriter.NewWriter(&deliv)
-			dtable.SetHeader([]string{"Name", "Time", "Duration", "Rate", "Contrib"})
+			dtable.SetHeader([]string{"Type", "Time", "Duration", "Rate", "Contrib"})
 			dtable.SetBorder(false)
 			dtable.SetAlignment(tablewriter.ALIGN_RIGHT)
 			dtable.SetCenterSeparator("")
@@ -669,6 +672,10 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 	farmerFields["siab"] = siabMax
 
 	builder.WriteString(dataTimestampStr)
+
+	if totalSiabSwapSeconds > 0 && offsetEndTime == 0 && coopStatus.GetSecondsSinceAllGoalsAchieved() == 0 {
+		return DownloadCoopStatusTeamwork(contractID, coopID, totalSiabSwapSeconds)
+	}
 
 	return builder.String(), farmerFields
 }
