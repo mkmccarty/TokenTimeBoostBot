@@ -20,7 +20,7 @@ import (
 	"google.golang.org/api/option"
 )
 
-const googleModel = "gemini-1.5-flash-8b"
+const googleModel = "gemini-2.0-flash-lite"
 
 var defaultWish = "Show a potato staring into a lightbulb in an unhealthy way."
 
