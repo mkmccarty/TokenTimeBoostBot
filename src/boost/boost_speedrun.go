@@ -3,9 +3,11 @@ package boost
 import (
 	"errors"
 	"fmt"
+	"log"
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -547,7 +549,56 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 	}
 
 	if r.Emoji.Name == "🌊" {
-		UpdateThreadName(s, contract)
+		if time.Since(contract.ThreadRenameTime) < 3*time.Minute {
+			msg, err := s.ChannelMessageSend(r.ChannelID, fmt.Sprintf("🌊 thread renaming is on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(3*time.Minute).Unix()))
+			if err == nil {
+				time.AfterFunc(10*time.Second, func() {
+					err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+					if err != nil {
+						log.Println(err)
+					}
+				})
+			}
+		} else {
+			UpdateThreadName(s, contract)
+		}
+	}
+
+	if r.Emoji.Name == "⏱️" {
+		if contract.State != ContractStateCompleted {
+			var data discordgo.MessageSend
+			data.Content = "⏱️ can only be used after the contract completes boosting."
+			data.Flags = discordgo.MessageFlagsEphemeral
+			msg, err := s.ChannelMessageSendComplex(r.ChannelID, &data)
+			if err == nil {
+				time.AfterFunc(10*time.Second, func() {
+					err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+					if err != nil {
+						log.Println(err)
+					}
+				})
+			}
+
+		} else {
+			if time.Since(contract.EstimateUpdateTime) < 2*time.Minute {
+				var data discordgo.MessageSend
+				data.Content = fmt.Sprintf("⏱️ duration update on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(3*time.Minute).Unix())
+				data.Flags = discordgo.MessageFlagsEphemeral
+				msg, err := s.ChannelMessageSendComplex(r.ChannelID, &data)
+				if err == nil {
+					time.AfterFunc(10*time.Second, func() {
+						err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+						if err != nil {
+							log.Println(err)
+						}
+					})
+				}
+			} else {
+				log.Print("Updating estimated time")
+				contract.EstimateUpdateTime = time.Now()
+				go updateEstimatedTime(s, r.ChannelID, contract)
+			}
+		}
 	}
 
 	// Remove extra added emoji
