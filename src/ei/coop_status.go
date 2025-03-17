@@ -80,6 +80,7 @@ func GetCoopStatus(contractID string, coopID string) (*ContractCoopStatusRespons
 			CoopIdentifier:     &coopID,
 			UserId:             &eggIncID,
 		}
+		timestamp = time.Now()
 		reqBin, err := proto.Marshal(&coopStatusRequest)
 		if err != nil {
 			return nil, timestamp, dataTimestampStr, err
