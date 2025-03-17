@@ -156,6 +156,13 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	var str string
 	str, fields := DownloadCoopStatusTeamwork(contractID, coopID, 0)
 
+	if strings.HasSuffix(str, "no such file or directory") {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: str,
+		})
+		return
+	}
+
 	cache := buildTeamworkCache(str, fields)
 	// Fill in our calling parameters
 	cache.contractID = contractID
@@ -199,7 +206,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		return "Invalid contract ID.", nil
 	}
 
-	coopStatus, _, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID)
+	coopStatus, nowTime, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID)
 	if err != nil {
 		return err.Error(), nil
 	}
@@ -255,7 +262,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		secondsSinceAllGoals := int64(coopStatus.GetSecondsSinceAllGoalsAchieved())
 		endTime = endTime.Add(-time.Duration(secondsSinceAllGoals) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
-		builder.WriteString(fmt.Sprintf("Completed %s contract %s/[**%s**](%s)\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID)))
+		builder.WriteString(fmt.Sprintf("Completed %s contract %s/[**%s**](%s)\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), coopStatus.GetContractIdentifier(), coopStatus.GetCoopIdentifier(), fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID)))
 	} else {
 		prefix = "Est. "
 		var totalContributions float64
@@ -313,7 +320,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			pp.GetElr(),
 			-(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()),
 			c.GetContributionRate() * 60 * 60,
-			time.Now().Add(time.Duration(c.GetFarmInfo().GetTimestamp()) * time.Second),
+			nowTime.Add(time.Duration(c.GetFarmInfo().GetTimestamp()) * time.Second),
 			time.Duration(-c.GetFarmInfo().GetTimestamp()) * time.Second,
 			DeliveryTimeValues[0].contributions + -(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()),
 		})
@@ -323,7 +330,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			pp.GetElr(),
 			c.GetContributionRate() * float64(calcSecondsRemaining),
 			c.GetContributionRate() * 60 * 60,
-			time.Now(),
+			nowTime,
 			time.Duration(calcSecondsRemaining) * time.Second,
 			DeliveryTimeValues[1].contributions + c.GetContributionRate()*float64(calcSecondsRemaining),
 		})
@@ -498,7 +505,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						siab.cumulativeContrib = future.cumulativeContrib - future.contributions + siab.contributions
 
 						future.name = "Post-SIAB"
-						future.timeEquipped = time.Now().Add(siabTimeEquipped)
+						future.timeEquipped = nowTime.Add(siabTimeEquipped)
 						future.duration = (time.Duration(calcSecondsRemaining) * time.Second) - siabTimeEquipped
 						// Need to determine the adjusted contribution rate
 						siabStones := 0
@@ -525,23 +532,23 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact and speeding the contract by %v\n", (adjustedContributionRate-1)*100, siabStones, diffSeconds))
 					}
 				} else {
-					if time.Now().Add(siabTimeEquipped).After(endTime) {
+					if nowTime.Add(siabTimeEquipped).After(endTime) {
 						// How much longer is this siabTimeEquipped than the end of the contract
-						extraTime := time.Now().Add(siabTimeEquipped).Sub(endTime)
+						extraTime := nowTime.Add(siabTimeEquipped).Sub(endTime)
 
 						// Calculate the shortTeamwork reducing the extra time from the siabTimeEquipped
 						extraPercent := (siabTimeEquipped - extraTime).Seconds() / siabTimeEquipped.Seconds()
 
 						maxTeamwork.WriteString(fmt.Sprintf("Equip your best SIAB through end of contract (<t:%d:t>) in new teamwork segment to improve BTV by %6.0f. ", endTime.Unix(), shortTeamwork*extraPercent))
-						maxTeamwork.WriteString(fmt.Sprintf("The maximum BTV increase of %6.0f would be achieved if the contract finished at <t:%d:f>.", shortTeamwork, time.Now().Add(siabTimeEquipped).Unix()))
+						maxTeamwork.WriteString(fmt.Sprintf("The maximum BTV increase of %6.0f would be achieved if the contract finished at <t:%d:f>.", shortTeamwork, nowTime.Add(siabTimeEquipped).Unix()))
 
-						if time.Now().Add(siabTimeEquipped).Before(endTime) {
+						if nowTime.Add(siabTimeEquipped).Before(endTime) {
 							siabSwapMap[MostRecentDuration.Add(siabTimeEquipped).Unix()] = fmt.Sprintf("<t:%d:t> %s\n", endTime.Unix(), name)
 						}
 					} else {
-						maxTeamwork.WriteString(fmt.Sprintf("Equip your best SIAB for %s (<t:%d:t>) in new teamwork segment to max BTV by %6.0f.\n", bottools.FmtDuration(siabTimeEquipped), time.Now().Add(siabTimeEquipped).Unix(), shortTeamwork))
-						//if time.Now().Add(siabTimeEquipped).Before(endTime) {
-						//	fmt.Fprintf(&siabMsg, "<t:%d:t> %s\n", time.Now().Add(siabTimeEquipped).Unix(), name)
+						maxTeamwork.WriteString(fmt.Sprintf("Equip your best SIAB for %s (<t:%d:t>) in new teamwork segment to max BTV by %6.0f.\n", bottools.FmtDuration(siabTimeEquipped), nowTime.Add(siabTimeEquipped).Unix(), shortTeamwork))
+						//if tnowTime.Add(siabTimeEquipped).Before(endTime) {
+						//	fmt.Fprintf(&siabMsg, "<t:%d:t> %s\n", nowTime.Add(siabTimeEquipped).Unix(), name)
 						//}
 					}
 				}
