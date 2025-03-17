@@ -198,7 +198,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	var siabMsg strings.Builder
 	siabSwapMap := make(map[int64]string)
 	var dataTimestampStr string
-	nowTime := time.Now()
+	var nowTime time.Time
 	totalSiabSwapSeconds := time.Duration(0)
 
 	eiContract := ei.EggIncContractsAll[contractID]
@@ -547,7 +547,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						}
 					} else {
 						maxTeamwork.WriteString(fmt.Sprintf("Equip your best SIAB for %s (<t:%d:t>) in new teamwork segment to max BTV by %6.0f.\n", bottools.FmtDuration(siabTimeEquipped), nowTime.Add(siabTimeEquipped).Unix(), shortTeamwork))
-						//if tnowTime.Add(siabTimeEquipped).Before(endTime) {
+						//if time.Now().Add(siabTimeEquipped).Before(endTime) {
 						//	fmt.Fprintf(&siabMsg, "<t:%d:t> %s\n", nowTime.Add(siabTimeEquipped).Unix(), name)
 						//}
 					}
