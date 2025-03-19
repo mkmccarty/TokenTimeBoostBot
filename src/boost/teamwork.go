@@ -487,7 +487,6 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 				// If SIAB is equipped beyond it's teamwork need, then make it it a swap for now
 				if lastOrBestSIAB != 0 && LastSIAB != 0 {
 					if shortTeamwork < 0 {
-						siabSecondsNeeded = 0
 						siabTimeEquipped = time.Duration(0) * time.Second
 						shortTeamwork = 0
 					}
