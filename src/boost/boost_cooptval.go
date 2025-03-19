@@ -98,7 +98,7 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			targetTval = 0.07 * BTA
 		}
 		// Calculate the token value
-		fmt.Fprintf(&builder, "## Coop token value for contract based on contract reactions\n")
+		fmt.Fprintf(&builder, "## Coop token value based on contract reactions\n")
 		fmt.Fprintf(&builder, "Contract started at: <t:%d:f> with a duration of %s\n", contract.StartTime.Unix(), duration.Round(time.Second))
 		fmt.Fprintf(&builder, "Target token value: %6.3f\n", targetTval)
 		table := tablewriter.NewWriter(&builder)
