@@ -484,7 +484,14 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			if lastOrBestSIAB > 0 && coopStatus.GetSecondsSinceAllGoalsAchieved() <= 0 {
 				// Your deflector % + your ship % (divided by 10) needs to average 26.7 over the course of the contract
 				var maxTeamwork strings.Builder
+				// If SIAB is equipped beyond it's teamwork need, then make it it a swap for now
 				if lastOrBestSIAB != 0 && LastSIAB != 0 {
+					if shortTeamwork < 0 {
+						siabSecondsNeeded = 0
+						siabTimeEquipped = time.Duration(0) * time.Second
+						shortTeamwork = 0
+					}
+
 					maxTeamwork.WriteString(fmt.Sprintf("Equip current SIAB for %s (<t:%d:t>) in the most recent teamwork segment to max BTV by %6.0f.\n",
 						bottools.FmtDuration(siabTimeEquipped),
 						MostRecentDuration.Add(siabTimeEquipped).Unix(),
@@ -525,10 +532,13 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						diffSeconds := time.Duration(diffContrib/(future.contributionRate/3600)) * time.Second
 
 						totalSiabSwapSeconds += diffSeconds
-						deliveryTableMap[name] = append(deliveryTableMap[name][:2], siab, future)
+						if shortTeamwork == 0 {
+							deliveryTableMap[name] = append(deliveryTableMap[name][:2], future)
+						} else {
+							deliveryTableMap[name] = append(deliveryTableMap[name][:2], siab, future)
+						}
 
 						// Calculate the saved number of seconds
-
 						maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact and speeding the contract by %v\n", (adjustedContributionRate-1)*100, siabStones, diffSeconds))
 					}
 				} else {
