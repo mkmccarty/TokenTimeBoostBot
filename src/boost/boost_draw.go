@@ -111,6 +111,11 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		outputStr += fmt.Sprintf("> Current TVal: %2.3g\n", tval)
 	}
 
+	if !contract.EstimateUpdateTime.IsZero() {
+		outputStr += fmt.Sprintf("> **Completion Time: <t:%d:f>**\n", contract.StartTime.Add(contract.EstimatedDuration).Unix())
+		outputStr += fmt.Sprintf("> Duration: %v\n", contract.EstimatedDuration)
+	}
+
 	switch contract.State {
 	case ContractStateSignup:
 		outputStr += contract.SRData.StatusStr
