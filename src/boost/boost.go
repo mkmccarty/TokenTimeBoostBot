@@ -275,10 +275,13 @@ type Contract struct {
 
 // SpeedrunData holds the data for a speedrun
 type SpeedrunData struct {
-	ChickenRuns          int      // Number of Chicken Runs for this contract
-	Legs                 int      // Number of legs for this Tango
-	NoSelfRunLegs        int      // Number of legs for the Without Selfrun
-	Tango                [3]int   // The Tango itself (First, Middle, Last)
+	ChickenRuns   int // Number of Chicken Runs for this contract
+	Legs          int // Number of legs for this Tango
+	SelfRunLegs   int // Number of Self Run legs for this Tango
+	NoSelfRunLegs int // Number of Non Self Run legs for thhis Tango
+	//Tango                [3]int   // The Tango itself (First, Middle, Last)
+	NoSelfRunCrt         []int //
+	SelfRunCrt           []int
 	CurrentLeg           int      // Current Leg
 	LegReactionMessageID string   // Message ID for the Leg Reaction Message
 	ChickenRunCheckMsgID string   // Message ID for the Chicken Run Check Message
@@ -1205,6 +1208,14 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 			contract.Boosters[i].TokensWanted = 6
 		} else if contract.Style&ContractFlag8Tokens != 0 {
 			contract.Boosters[i].TokensWanted = 8
+		}
+	}
+
+	// Set the CRT Settings to what contract is
+	if contract.Style&ContractFlagCrt == 0 {
+		contract.SRData.Legs = contract.SRData.NoSelfRunLegs
+		if contract.Style&ContractFlagSelfRuns != 0 {
+			contract.SRData.Legs = contract.SRData.SelfRunLegs
 		}
 	}
 

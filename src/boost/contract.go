@@ -452,14 +452,20 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		values := data.Values
 		switch values[0] {
 		case "no_crt":
-			contract.Style |= ContractFlagNone
-			contract.Speedrun = false
+			if contract.State == ContractStateSignup {
+				contract.Style |= ContractFlagNone
+				contract.Speedrun = false
+			}
 		case "crt":
 			contract.Style |= ContractFlagCrt
 			contract.Speedrun = true
+			contract.SRData.Legs = contract.SRData.NoSelfRunLegs
+
 		case "self_runs":
 			contract.Style |= (ContractFlagCrt + ContractFlagSelfRuns)
 			contract.Speedrun = true
+			// Update the contract to change style
+			contract.SRData.Legs = contract.SRData.SelfRunLegs
 		}
 	}
 
