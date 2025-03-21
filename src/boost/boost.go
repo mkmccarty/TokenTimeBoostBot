@@ -1212,7 +1212,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	}
 
 	// Set the CRT Settings to what contract is
-	if contract.Style&ContractFlagCrt == 0 {
+	if contract.Style&ContractFlagCrt != 0 {
 		contract.SRData.Legs = contract.SRData.NoSelfRunLegs
 		if contract.Style&ContractFlagSelfRuns != 0 {
 			contract.SRData.Legs = contract.SRData.SelfRunLegs
@@ -1221,6 +1221,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 
 	contract.BoostPosition = 0
 	contract.StartTime = time.Now()
+
 	if contract.Style&ContractFlagCrt != 0 && contract.SRData.Legs != 0 && contract.Banker.CrtSinkUserID != "" {
 		changeContractState(contract, ContractStateCRT)
 		// Do not mark the token sink as boosting at this point
