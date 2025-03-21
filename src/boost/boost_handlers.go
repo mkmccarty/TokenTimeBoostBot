@@ -360,7 +360,7 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 			sinkList = append(sinkList, SinkList{"Post Contract Sink", contract.Banker.PostSinkUserID, "postsink"})
 		} else {
 			if contract.State == ContractStateSignup {
-				if contract.Style&ContractFlagCrt != 0 && contract.SRData.Legs > 0 {
+				if contract.Style&ContractFlagCrt != 0 {
 					sinkList = append(sinkList, SinkList{"CRT Sink", contract.Banker.CrtSinkUserID, "crtsink"})
 				}
 				if contract.Style&ContractFlagBanker != 0 {
