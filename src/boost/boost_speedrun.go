@@ -252,7 +252,7 @@ func getSpeedrunStatusStr(contract *Contract) string {
 				if contract.SRData.NoSelfRunLegs == 1 {
 					legPlural = ""
 				}
-				fmt.Fprintf(&b, "> **%d** Chicken Run Leg%s too reach **%d** total chicken runs. ", contract.SRData.NoSelfRunLegs, legPlural, contract.SRData.ChickenRuns)
+				fmt.Fprintf(&b, "> **%d** Chicken Run Leg%s to reach **%d** total chicken runs. ", contract.SRData.NoSelfRunLegs, legPlural, contract.SRData.ChickenRuns)
 				var crtStrings []string
 				for _, num := range contract.SRData.NoSelfRunCrt {
 					crtStrings = append(crtStrings, fmt.Sprintf("%d", num))
@@ -262,7 +262,7 @@ func getSpeedrunStatusStr(contract *Contract) string {
 				if contract.SRData.SelfRunLegs == 1 {
 					legPlural = ""
 				}
-				fmt.Fprintf(&b, "> **%d** Chicken Run Leg%s too reach **%d** total chicken runs. ", contract.SRData.SelfRunLegs, legPlural, contract.SRData.ChickenRuns)
+				fmt.Fprintf(&b, "> **%d** Chicken Run Leg%s to reach **%d** total chicken runs. ", contract.SRData.SelfRunLegs, legPlural, contract.SRData.ChickenRuns)
 				var selfRunCrtStrings []string
 				for _, num := range contract.SRData.SelfRunCrt {
 					selfRunCrtStrings = append(selfRunCrtStrings, fmt.Sprintf("%d", num))
