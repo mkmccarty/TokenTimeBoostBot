@@ -59,22 +59,6 @@ func GetSlashSpeedrunCommand(cmd string) *discordgo.ApplicationCommand {
 				},
 			},
 			{
-				Name:        "style",
-				Description: "Style of speedrun. Default is Banker",
-				Required:    false,
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Choices: []*discordgo.ApplicationCommandOptionChoice{
-					{
-						Name:  "Banker",
-						Value: SpeedrunStyleBanker,
-					},
-					{
-						Name:  "Boost List",
-						Value: SpeedrunStyleFastrun,
-					},
-				},
-			},
-			{
 				Type:        discordgo.ApplicationCommandOptionInteger,
 				Name:        "chicken-runs",
 				Description: "Number of chicken runs for this contract. Optional if contract-id was selected via auto fill.",
@@ -161,7 +145,7 @@ func HandleChangeSpeedrunSinkCommand(s *discordgo.Session, i *discordgo.Interact
 		}
 	}
 
-	str, err := setSpeedrunOptions(s, i.ChannelID, sinkCrt, sinkBoost, sinkPost, -1, -1, -1, false, true)
+	str, err := setSpeedrunOptions(s, i.ChannelID, sinkCrt, sinkBoost, sinkPost, -1, -1, false, true)
 	if err != nil {
 		str = err.Error()
 	}
@@ -195,7 +179,6 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	sinkBoost := ""
 	sinkPost := ""
 	sinkPosition := SinkBoostFirst
-	speedrunStyle := 0
 	selfRuns := false
 
 	options := i.ApplicationCommandData().Options
@@ -224,9 +207,6 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			sinkPost = sinkPost[2 : len(sinkPost)-1]
 		}
 	}
-	if opt, ok := optionMap["style"]; ok {
-		speedrunStyle = int(opt.IntValue())
-	}
 	if opt, ok := optionMap["chicken-runs"]; ok {
 		chickenRuns = int(opt.IntValue())
 	}
@@ -237,7 +217,7 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		sinkPosition = int(opt.IntValue())
 	}
 
-	str, err := setSpeedrunOptions(s, i.ChannelID, sinkCrt, sinkBoost, sinkPost, sinkPosition, chickenRuns, speedrunStyle, selfRuns, false)
+	str, err := setSpeedrunOptions(s, i.ChannelID, sinkCrt, sinkBoost, sinkPost, sinkPosition, chickenRuns, selfRuns, false)
 	if err != nil {
 		str = err.Error()
 	}
@@ -375,7 +355,7 @@ func calculateTangoLegs(contract *Contract, setStatus bool) {
 	}
 }
 
-func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, sinkBoosting string, sinkPost string, sinkPosition int, chickenRuns int, speedrunStyle int, selfRuns bool, changeSinksOnly bool) (string, error) {
+func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, sinkBoosting string, sinkPost string, sinkPosition int, chickenRuns int, selfRuns bool, changeSinksOnly bool) (string, error) {
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return "", errors.New(errorNoContract)
@@ -402,7 +382,7 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 		}
 	}
 
-	if speedrunStyle == SpeedrunStyleBanker && !changeSinksOnly {
+	if contract.Style&SpeedrunStyleBanker != 0 && !changeSinksOnly {
 
 		// Verify that the sink is a snowflake id
 		if _, err := s.User(sinkBoosting); err != nil {
@@ -447,9 +427,6 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 	// This kind of contract is always a CRT
 	contract.Style = ContractStyleSpeedrunBoostList
 
-	if speedrunStyle == SpeedrunStyleBanker {
-		contract.Style = ContractStyleSpeedrunBanker
-	}
 	if selfRuns {
 		contract.Style |= ContractFlagSelfRuns
 	} else {
