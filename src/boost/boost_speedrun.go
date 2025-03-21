@@ -235,7 +235,11 @@ func getSpeedrunStatusStr(contract *Contract) string {
 	var b strings.Builder
 	//fmt.Fprint(&b, "> Speedrun can be started once the contract is full.\n\n")
 	if contract.Style&ContractFlagCrt != 0 {
-		if len(contract.SRData.NoSelfRunCrt) > 1 {
+		runs := contract.SRData.NoSelfRunLegs
+		if contract.Style&ContractFlagSelfRuns != 0 {
+			runs = contract.SRData.SelfRunLegs
+		}
+		if runs > 0 {
 			if contract.Style&ContractFlagSelfRuns != 0 {
 				if contract.SRData.SelfRunLegs == contract.SRData.NoSelfRunLegs {
 					fmt.Fprintf(&b, "> Self-run selected but not needed\n")
@@ -276,7 +280,7 @@ func getSpeedrunStatusStr(contract *Contract) string {
 				farmerPlural = ""
 			}
 
-			fmt.Fprintf(&b, "> It's not possible to reach **%d** total chicken runs with only **%d** farmer%s.\n", contract.SRData.ChickenRuns, len(contract.Order), farmerPlural)
+			fmt.Fprintf(&b, "> It's not possible for all farmers to reach **%d** total chicken runs with only **%d** farmer%s.\n", contract.SRData.ChickenRuns, len(contract.Order), farmerPlural)
 		}
 	}
 	if len(contract.Order) == 0 {
@@ -351,7 +355,9 @@ func calculateTangoLegs(contract *Contract, setStatus bool) {
 	r := len(contract.Order) - 1
 
 	for runs < contract.SRData.ChickenRuns {
-		tango = append(tango, min(r, contract.SRData.ChickenRuns-sumIntSlice(tango)))
+		if r > 0 {
+			tango = append(tango, min(r, contract.SRData.ChickenRuns-sumIntSlice(tango)))
+		}
 		if sumIntSlice(tangoSelfRun) < contract.SRData.ChickenRuns {
 			tangoSelfRun = append(tangoSelfRun, min(r+1, contract.SRData.ChickenRuns-sumIntSlice(tangoSelfRun)))
 		}
