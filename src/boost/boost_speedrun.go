@@ -235,9 +235,9 @@ func getSpeedrunStatusStr(contract *Contract) string {
 	var b strings.Builder
 	//fmt.Fprint(&b, "> Speedrun can be started once the contract is full.\n\n")
 	if contract.Style&ContractFlagCrt != 0 {
-		if contract.SRData.Tango[0] > 1 {
+		if len(contract.SRData.NoSelfRunCrt) > 1 {
 			if contract.Style&ContractFlagSelfRuns != 0 {
-				if contract.SRData.Legs == contract.SRData.NoSelfRunLegs {
+				if contract.SRData.SelfRunLegs == contract.SRData.NoSelfRunLegs {
 					fmt.Fprintf(&b, "> Self-run selected but not needed\n")
 				} else {
 					fmt.Fprintf(&b, "> --> **Self-run of chickens is required** <--\n")
@@ -248,10 +248,27 @@ func getSpeedrunStatusStr(contract *Contract) string {
 			}
 
 			legPlural := "s"
-			if contract.SRData.Legs == 1 {
-				legPlural = ""
+			if contract.Style&ContractFlagSelfRuns == 0 {
+				if contract.SRData.NoSelfRunLegs == 1 {
+					legPlural = ""
+				}
+				fmt.Fprintf(&b, "> **%d** Chicken Run Leg%s too reach **%d** total chicken runs. ", contract.SRData.NoSelfRunLegs, legPlural, contract.SRData.ChickenRuns)
+				var crtStrings []string
+				for _, num := range contract.SRData.NoSelfRunCrt {
+					crtStrings = append(crtStrings, fmt.Sprintf("%d", num))
+				}
+				fmt.Fprintf(&b, "**%s**\n", strings.Join(crtStrings, "🦵"))
+			} else {
+				if contract.SRData.SelfRunLegs == 1 {
+					legPlural = ""
+				}
+				fmt.Fprintf(&b, "> **%d** Chicken Run Leg%s too reach **%d** total chicken runs. ", contract.SRData.SelfRunLegs, legPlural, contract.SRData.ChickenRuns)
+				var selfRunCrtStrings []string
+				for _, num := range contract.SRData.SelfRunCrt {
+					selfRunCrtStrings = append(selfRunCrtStrings, fmt.Sprintf("%d", num))
+				}
+				fmt.Fprintf(&b, "**%s**\n", strings.Join(selfRunCrtStrings, "🦵"))
 			}
-			fmt.Fprintf(&b, "> **%d** Chicken Run Leg%s to reach **%d** total chicken runs.\n", contract.SRData.Legs, legPlural, contract.SRData.ChickenRuns)
 
 		} else {
 			farmerPlural := "s"
@@ -306,54 +323,112 @@ func getSpeedrunStatusStr(contract *Contract) string {
 	return b.String()
 }
 
-func calculateTangoLegs(contract *Contract, setStatus bool) {
+func sumIntSlice(numbers []int) int {
+	sum := 0
+	for _, number := range numbers {
+		sum += number
+	}
+	return sum
+}
 
+// func calculateTangoLegs(contract *Contract, setStatus bool) ([]int, []int, error) {
+func calculateTangoLegs(contract *Contract, setStatus bool) {
 	if contract.State != ContractStateSignup {
 		// We don't want this changing after the CRT starts
+		//return nil, nil, errors.New("contract must be in the Sign-up state to calculate tango legs")
 		return
 	}
-	selfRunMod := 1
-	contract.SRData.NoSelfRunLegs = 0
-	for selfRunMod >= 0 {
-		// First calculate without speedrun flag
-		contract.SRData.Tango[0] = max(0, len(contract.Order)-selfRunMod) // First Leg
-		contract.SRData.Tango[1] = max(0, contract.SRData.Tango[0]-1)     // Middle Legs
-		contract.SRData.Tango[2] = 0                                      // Last Leg
+	var tango []int
+	var tangoSelfRun []int
 
-		runs := contract.SRData.ChickenRuns
-		contract.SRData.Legs = 0
-		for runs > 0 {
-			if contract.SRData.Legs == 0 {
-				runs -= contract.SRData.Tango[0]
-				if runs <= 0 {
-					break
-				}
-			} else if contract.SRData.Tango[1] == 0 {
-				// Not possible to do any CRT
-				contract.SRData.Legs = 0 // Reset the legs here
+	runs := 0
+	if len(contract.Order) == 1 {
+		//return tango, tangoSelfRun, nil
+		return
+	}
+
+	//	r := contract.CoopSize
+	r := len(contract.Order) - 1
+
+	for runs < contract.SRData.ChickenRuns {
+		tango = append(tango, min(r, contract.SRData.ChickenRuns-sumIntSlice(tango)))
+		if sumIntSlice(tangoSelfRun) < contract.SRData.ChickenRuns {
+			tangoSelfRun = append(tangoSelfRun, min(r+1, contract.SRData.ChickenRuns-sumIntSlice(tangoSelfRun)))
+		}
+		runs += r
+		r = len(contract.Order) - 2
+		if r <= 0 {
+			// main loop won't finish, but self-runs can succeed
+			if sumIntSlice(tangoSelfRun) >= contract.SRData.ChickenRuns {
 				break
-			} else if runs > contract.SRData.Tango[1] {
-				runs -= contract.SRData.Tango[1]
-			} else {
-				contract.SRData.Tango[2] = runs
-				break // No more runs to do, skips the Legs++ below
 			}
-			contract.SRData.Legs++
-		}
-		if selfRunMod == 1 {
-			contract.SRData.NoSelfRunLegs = contract.SRData.Legs
-		}
-		selfRunMod--
-		// If not self runs, then we don't need to do this again
-		if contract.Style&ContractFlagSelfRuns == 0 {
-			break
 		}
 	}
+
+	contract.SRData.NoSelfRunLegs = len(tango) - 1
+	contract.SRData.NoSelfRunCrt = tango
+	contract.SRData.SelfRunLegs = len(tangoSelfRun) - 1
+	contract.SRData.SelfRunCrt = tangoSelfRun
 
 	if setStatus {
 		contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
 	}
+
+	log.Printf("Tango: Legs=%d  - %v, Extra Runs=%d\n", len(tango)-1, tango, (len(contract.Order)-2)-tango[len(tango)-1])
+	log.Printf("Self-Run Tango: Legs=%d - %v, Extra Runs=%d\n", len(tangoSelfRun)-1, tangoSelfRun, (len(contract.Order)-1)-tango[len(tango)-1])
+	//return tango, tangoSelfRun, nil
 }
+
+/*
+func calculateTangoLegs(contract *Contract, setStatus bool) {
+
+		if contract.State != ContractStateSignup {
+			// We don't want this changing after the CRT starts
+			return
+		}
+		selfRunMod := 1
+		contract.SRData.NoSelfRunLegs = 0
+		for selfRunMod >= 0 {
+			// First calculate without speedrun flag
+			contract.SRData.Tango[0] = max(0, len(contract.Order)-selfRunMod) // First Leg
+			contract.SRData.Tango[1] = max(0, contract.SRData.Tango[0]-1)     // Middle Legs
+			contract.SRData.Tango[2] = 0                                      // Last Leg
+
+			runs := contract.SRData.ChickenRuns
+			contract.SRData.Legs = 0
+			for runs > 0 {
+				if contract.SRData.Legs == 0 {
+					runs -= contract.SRData.Tango[0]
+					if runs <= 0 {
+						break
+					}
+				} else if contract.SRData.Tango[1] == 0 {
+					// Not possible to do any CRT
+					contract.SRData.Legs = 0 // Reset the legs here
+					break
+				} else if runs > contract.SRData.Tango[1] {
+					runs -= contract.SRData.Tango[1]
+				} else {
+					contract.SRData.Tango[2] = runs
+					break // No more runs to do, skips the Legs++ below
+				}
+				contract.SRData.Legs++
+			}
+			if selfRunMod == 1 {
+				contract.SRData.NoSelfRunLegs = contract.SRData.Legs
+			}
+			selfRunMod--
+			// If not self runs, then we don't need to do this again
+			if contract.Style&ContractFlagSelfRuns == 0 {
+				break
+			}
+		}
+
+		if setStatus {
+			contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
+		}
+	}
+*/
 
 func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, sinkBoosting string, sinkPost string, sinkPosition int, chickenRuns int, selfRuns bool, changeSinksOnly bool) (string, error) {
 	var contract = FindContract(channelID)

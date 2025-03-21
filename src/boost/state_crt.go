@@ -106,9 +106,9 @@ func buttonReactionTruck(s *discordgo.Session, contract *Contract, cUserID strin
 func buttonReactionLeg(s *discordgo.Session, contract *Contract, cUserID string) bool {
 	if (cUserID == contract.Banker.CurrentBanker || creatorOfContract(s, contract, cUserID)) && contract.SRData.LegReactionMessageID == "" {
 		// Indicate that the Sink is starting to kick users
-		runners := contract.SRData.Tango[0] - 1
-		if contract.Style&ContractFlagSelfRuns == 0 {
-			runners++
+		runners := contract.SRData.NoSelfRunCrt[contract.SRData.CurrentLeg+1]
+		if contract.Style&ContractFlagSelfRuns != 0 {
+			runners = contract.SRData.SelfRunCrt[contract.SRData.CurrentLeg+1]
 		}
 
 		str := fmt.Sprintf("**Starting to kick %d farmers.** Swap shiny artifacts if you need to force a server sync.\n", runners)
@@ -221,6 +221,23 @@ func drawSpeedrunCRT(contract *Contract) string {
 	var builder strings.Builder
 	if contract.State == ContractStateCRT {
 		fmt.Fprintf(&builder, "# Chicken Run Tango - Leg %d of %d\n", contract.SRData.CurrentLeg+1, contract.SRData.Legs)
+
+		legArray := contract.SRData.NoSelfRunCrt
+		if contract.Style&ContractFlagSelfRuns != 0 {
+			legArray = contract.SRData.SelfRunCrt
+		}
+		var crtStrings []string
+		for i, num := range legArray {
+			if i == contract.SRData.CurrentLeg {
+				crtStrings = append(crtStrings, fmt.Sprintf("➡️ %d", num))
+			} else if i < contract.SRData.CurrentLeg {
+				crtStrings = append(crtStrings, fmt.Sprintf("~~%d~~", num))
+			} else {
+				crtStrings = append(crtStrings, fmt.Sprintf("%d", num))
+			}
+		}
+		fmt.Fprintf(&builder, "**%s**\n", strings.Join(crtStrings, "🦵"))
+
 		fmt.Fprintf(&builder, "### Tips\n")
 		fmt.Fprintf(&builder, "- Don't use any boosts\n")
 		//fmt.Fprintf(&builder, "- Equip coop artifacts: Deflector and SIAB\n")
