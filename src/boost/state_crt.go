@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 func buttonReactionCheck(s *discordgo.Session, ChannelID string, contract *Contract, cUserID string) bool {
@@ -236,7 +237,7 @@ func drawSpeedrunCRT(contract *Contract) string {
 				crtStrings = append(crtStrings, fmt.Sprintf("%d", num))
 			}
 		}
-		fmt.Fprintf(&builder, "**%s**\n", strings.Join(crtStrings, "🦵"))
+		fmt.Fprintf(&builder, "**%s%s**\n", strings.Join(crtStrings, ei.GetBotEmojiMarkdown("icon_chicken_run")+"🦵"), ei.GetBotEmojiMarkdown("icon_chicken_run"))
 
 		fmt.Fprintf(&builder, "### Tips\n")
 		fmt.Fprintf(&builder, "- Don't use any boosts\n")
