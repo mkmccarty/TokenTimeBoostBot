@@ -34,7 +34,7 @@ func init() {
 func Notok(s *discordgo.Session, i *discordgo.InteractionCreate, cmd int64, text string) error {
 	var name = i.Member.Nick
 	if name == "" {
-		name = i.Member.User.Username
+		name = i.Member.User.GlobalName
 	}
 	var g, err = s.GuildMember(i.GuildID, i.Member.User.ID)
 	if err == nil && g.Nick != "" {
