@@ -199,7 +199,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	siabSwapMap := make(map[int64]string)
 	var dataTimestampStr string
 	var nowTime time.Time
-	totalSiabSwapSeconds := time.Duration(0)
+	//totalSiabSwapSeconds := time.Duration(0)
 
 	eiContract := ei.EggIncContractsAll[contractID]
 	if eiContract.ID == "" {
@@ -700,9 +700,11 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			siabMsg.WriteString(siabSwapMap[k])
 		}
 		siabMsg.WriteString("\nUsing your best SiaB will result in higher CS.\n")
-		siabMsg.WriteString(fmt.Sprintf("Contract will finish %s earlier at <t:%d:f>.\n",
-			bottools.FmtDuration(totalSiabSwapSeconds),
-			endTime.Add(-totalSiabSwapSeconds).Unix()))
+		/*
+			siabMsg.WriteString(fmt.Sprintf("Contract will finish %s earlier at <t:%d:f>.\n",
+				bottools.FmtDuration(totalSiabSwapSeconds),
+				endTime.Add(-totalSiabSwapSeconds).Unix()))
+		*/
 	}
 	siabMax = append(siabMax, &discordgo.MessageEmbedField{
 		Name:   "SIAB",
