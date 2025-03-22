@@ -544,7 +544,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						// A positive value means the contract will finish sooner.
 						// A negative value means the contract will take longer.
 						diffSeconds := time.Duration(xSecondsRemaining-adjustedSecondsRemaining) * time.Second
-						siabSwapMap[MostRecentDuration.Add(siabTimeEquipped).Unix()] = fmt.Sprintf("<t:%d:t> **%s**\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
+						siabSwapMap[MostRecentDuration.Add(siabTimeEquipped).Unix()] = fmt.Sprintf("<t:%d:t> %s\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
 
 						if shortTeamwork == 0 {
 							deliveryTableMap[name] = append(deliveryTableMap[name][:2], future)
