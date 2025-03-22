@@ -16,14 +16,14 @@ import (
 
 // DeliveryTimeValue is a struct to hold the values for a delivery time
 type DeliveryTimeValue struct {
-	name              string
-	sr                float64
-	elr               float64
-	contributions     float64
-	contributionRate  float64
-	timeEquipped      time.Time
-	duration          time.Duration
-	cumulativeContrib float64
+	name                   string
+	sr                     float64
+	elr                    float64
+	contributions          float64
+	HourlyContributionRate float64
+	timeEquipped           time.Time
+	duration               time.Duration
+	cumulativeContrib      float64
 }
 
 // GetSlashTeamworkEval will return the discord command for calculating token values of a running contract
@@ -221,8 +221,8 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		earningsCalc    float64
 		eggRate         int
 		eggRateCalc     float64
-		timeEquiped     int64
-		durationEquiped int64
+		timeEquiped     float64
+		durationEquiped float64
 		buffTimeValue   float64
 		tb              int64
 		totalValue      float64
@@ -230,7 +230,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 	var BuffTimeValues []BuffTimeValue
 	var contractDurationSeconds float64
-	var calcSecondsRemaining int64
+	var calcSecondsRemaining float64
 
 	//prevServerTimestamp = int64(decodeCoopStatus.GetSecondsRemaining()) + BuffTimeValues[0].timeEquiped
 	// If the coop completed, the secondsSinceAllGoalsAchieved (towards the end) is present.
@@ -252,31 +252,33 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	contribution := make([]float64, len(coopStatus.GetContributors()))
 	contractDurationInDays := int(float64(eiContract.Grade[grade].LengthInSeconds) / 86400.0)
 
+	var totalContributions float64
+	var contributionRatePerSecond float64
+	// Need to figure out how much longer this contract will run
+	for _, c := range coopStatus.GetContributors() {
+		totalContributions += c.GetContributionAmount()
+		totalContributions += -(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()) // offline eggs
+		contributionRatePerSecond += c.GetContributionRate()
+	}
+
+	totalRequired := eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1]
+
 	prefix := ""
 	startTime := nowTime
-	secondsRemaining := int64(coopStatus.GetSecondsRemaining())
+	secondsRemaining := coopStatus.GetSecondsRemaining()
 	endTime := nowTime
 	if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
 		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
 		startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
-		secondsSinceAllGoals := int64(coopStatus.GetSecondsSinceAllGoalsAchieved())
+		secondsSinceAllGoals := coopStatus.GetSecondsSinceAllGoalsAchieved()
 		endTime = endTime.Add(-time.Duration(secondsSinceAllGoals) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
 		builder.WriteString(fmt.Sprintf("Completed %s contract %s/[**%s**](%s)\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), coopStatus.GetContractIdentifier(), coopStatus.GetCoopIdentifier(), fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID)))
 	} else {
 		prefix = "Est. "
-		var totalContributions float64
-		var contributionRatePerSecond float64
-		// Need to figure out how much longer this contract will run
-		for _, c := range coopStatus.GetContributors() {
-			totalContributions += c.GetContributionAmount()
-			totalContributions += -(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()) // offline eggs
-			contributionRatePerSecond += c.GetContributionRate()
-		}
 		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
 		startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
-		totalReq := eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1]
-		calcSecondsRemaining = int64((totalReq-totalContributions)/contributionRatePerSecond) - int64(offsetEndTime)
+		calcSecondsRemaining = (totalRequired-totalContributions)/contributionRatePerSecond - offsetEndTime.Seconds()
 		endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
 		builder.WriteString(fmt.Sprintf("In Progress %s %s/[**%s**](%s) on target to complete <t:%d:R>\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID), endTime.Unix()))
@@ -361,13 +363,13 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		for _, a := range c.GetBuffHistory() {
 			earnings := int(math.Round(a.GetEarnings()*100 - 100))
 			eggRate := int(math.Round(a.GetEggLayingRate()*100 - 100))
-			serverTimestamp := int64(a.GetServerTimestamp()) // When it was equipped
+			serverTimestamp := a.GetServerTimestamp() // When it was equipped
 			if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
-				serverTimestamp -= int64(coopStatus.GetSecondsSinceAllGoalsAchieved())
+				serverTimestamp -= coopStatus.GetSecondsSinceAllGoalsAchieved()
 			} else {
 				serverTimestamp += calcSecondsRemaining
 			}
-			serverTimestamp = int64(contractDurationSeconds) - serverTimestamp
+			serverTimestamp = contractDurationSeconds - serverTimestamp
 			BuffTimeValues = append(BuffTimeValues, BuffTimeValue{name, earnings, 0.0075 * float64(earnings), eggRate, 0.0075 * float64(eggRate) * 10.0, serverTimestamp, 0, 0, 0, 0})
 		}
 
@@ -375,7 +377,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		remainingTime := contractDurationSeconds
 		for i, b := range BuffTimeValues {
 			if i == len(BuffTimeValues)-1 {
-				BuffTimeValues[i].durationEquiped = int64(contractDurationSeconds) - b.timeEquiped
+				BuffTimeValues[i].durationEquiped = contractDurationSeconds - b.timeEquiped
 			} else {
 				BuffTimeValues[i].durationEquiped = BuffTimeValues[i+1].timeEquiped - b.timeEquiped
 			}
@@ -504,15 +506,16 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 						future := deliveryTableMap[name][len(deliveryTableMap[name])-1]
 						siab := future
-						oldCumulative := future.cumulativeContrib
+						//oldCumulative := future.cumulativeContrib
 						siab.name = "SIAB"
-						siab.duration = siabTimeEquipped
-						siab.contributions = c.GetContributionRate() * float64(siabTimeEquipped.Seconds())
+						siab.timeEquipped = nowTime
+						siab.duration = siabTimeEquipped - nowTime.Sub(MostRecentDuration)
+						siab.contributions = c.GetContributionRate() * siab.duration.Seconds()
 						siab.cumulativeContrib = future.cumulativeContrib - future.contributions + siab.contributions
 
 						future.name = "Post-SIAB"
-						future.timeEquipped = nowTime.Add(siabTimeEquipped)
-						future.duration = (time.Duration(calcSecondsRemaining) * time.Second) - siabTimeEquipped
+						future.timeEquipped = nowTime.Add(siab.duration)
+						future.duration = endTime.Sub(future.timeEquipped)
 						// Need to determine the adjusted contribution rate
 						siabStones := 0
 						for _, artifact := range c.GetFarmInfo().GetEquippedArtifacts() {
@@ -521,16 +524,23 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 								siabStones, _ = ei.GetStones(spec.GetName(), spec.GetLevel(), spec.GetRarity())
 							}
 						}
+
 						// Assuming being replaced with a 3 slot artifact
 						adjustedContributionRate := determinePostSiabRate(future, 3-siabStones)
-						future.contributionRate = adjustedContributionRate * c.GetContributionRate() * 60 * 60
-						future.contributions = (future.contributionRate / 3600) * future.duration.Seconds()
+						future.HourlyContributionRate = adjustedContributionRate * siab.HourlyContributionRate
+						future.contributions = (future.HourlyContributionRate * future.duration.Seconds()) / 3600.0
 						future.cumulativeContrib = siab.cumulativeContrib + future.contributions
 
-						diffContrib := future.cumulativeContrib - oldCumulative
-						diffSeconds := time.Duration(diffContrib/(future.contributionRate/3600)) * time.Second
+						newTotalContributionRate := contributionRatePerSecond - (siab.HourlyContributionRate / 3600.0)
+						newTotalContributionRate += (future.HourlyContributionRate / 3600.0)
 
-						totalSiabSwapSeconds += diffSeconds
+						xSecondsRemaining := (totalRequired - totalContributions) / contributionRatePerSecond
+						adjustedSecondsRemaining := (totalRequired - totalContributions) / newTotalContributionRate
+
+						diffSeconds := time.Duration(xSecondsRemaining-adjustedSecondsRemaining) * time.Second
+
+						siabSwapMap[MostRecentDuration.Add(siabTimeEquipped).Unix()] = fmt.Sprintf("<t:%d:t> **%s**  ∆ %v\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name, diffSeconds)
+
 						if shortTeamwork == 0 {
 							deliveryTableMap[name] = append(deliveryTableMap[name][:2], future)
 						} else {
@@ -538,7 +548,8 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						}
 
 						// Calculate the saved number of seconds
-						maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact and speeding the contract by %v\n", (adjustedContributionRate-1)*100, siabStones, diffSeconds))
+						//maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact and speeding the contract by %v\n", (adjustedContributionRate-1)*100, siabStones, diffSeconds))
+						maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact.\n", (adjustedContributionRate-1)*100, siabStones))
 					}
 				} else {
 					if nowTime.Add(siabTimeEquipped).After(endTime) {
@@ -586,7 +597,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 					d.name,
 					d.timeEquipped.Sub(startTime).Round(time.Second).String(),
 					fmt.Sprintf("%v", d.duration.Round(time.Second)),
-					fmt.Sprintf("%2.3fq/hr", d.contributionRate/1e15),
+					fmt.Sprintf("%2.3fq/hr", d.HourlyContributionRate/1e15),
 					fmt.Sprintf("%2.3fq", d.contributions/1e15),
 				})
 			}
