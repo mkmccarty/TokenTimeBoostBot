@@ -16,14 +16,14 @@ import (
 
 // DeliveryTimeValue is a struct to hold the values for a delivery time
 type DeliveryTimeValue struct {
-	name                   string
-	sr                     float64
-	elr                    float64
-	contributions          float64
-	HourlyContributionRate float64
-	timeEquipped           time.Time
-	duration               time.Duration
-	cumulativeContrib      float64
+	name                      string
+	sr                        float64
+	elr                       float64
+	contributions             float64
+	contributionRateInSeconds float64
+	timeEquipped              time.Time
+	duration                  time.Duration
+	cumulativeContrib         float64
 }
 
 // GetSlashTeamworkEval will return the discord command for calculating token values of a running contract
@@ -530,12 +530,12 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 						// Assuming being replaced with a 3 slot artifact
 						adjustedContributionRate := determinePostSiabRate(future, 3-siabStones)
-						future.HourlyContributionRate = adjustedContributionRate * siab.HourlyContributionRate
-						future.contributions = (future.HourlyContributionRate * future.duration.Seconds()) / 3600.0
+						future.contributionRateInSeconds = adjustedContributionRate * siab.contributionRateInSeconds
+						future.contributions = (future.contributionRateInSeconds * future.duration.Seconds())
 						future.cumulativeContrib = siab.cumulativeContrib + future.contributions
 
-						newTotalContributionRate := contributionRatePerSecond - (siab.HourlyContributionRate / 3600.0)
-						newTotalContributionRate += (future.HourlyContributionRate / 3600.0)
+						newTotalContributionRate := contributionRatePerSecond - (siab.contributionRateInSeconds)
+						newTotalContributionRate += future.contributionRateInSeconds
 
 						xSecondsRemaining := (totalRequired - totalContributions) / contributionRatePerSecond
 						adjustedSecondsRemaining := (totalRequired - totalContributions) / newTotalContributionRate
@@ -544,8 +544,11 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						// A positive value means the contract will finish sooner.
 						// A negative value means the contract will take longer.
 						diffSeconds := time.Duration(xSecondsRemaining-adjustedSecondsRemaining) * time.Second
-
-						siabSwapMap[MostRecentDuration.Add(siabTimeEquipped).Unix()] = fmt.Sprintf("<t:%d:t> **%s**  ∆ %v\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name, diffSeconds)
+						if diffSeconds < 0 {
+							siabSwapMap[MostRecentDuration.Add(siabTimeEquipped).Unix()] = fmt.Sprintf("<t:%d:t> **%s**\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
+						} else {
+							siabSwapMap[MostRecentDuration.Add(siabTimeEquipped).Unix()] = fmt.Sprintf("<t:%d:t> **%s**\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
+						}
 
 						if shortTeamwork == 0 {
 							deliveryTableMap[name] = append(deliveryTableMap[name][:2], future)
@@ -603,7 +606,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 					d.name,
 					d.timeEquipped.Sub(startTime).Round(time.Second).String(),
 					fmt.Sprintf("%v", d.duration.Round(time.Second)),
-					fmt.Sprintf("%2.3fq/hr", d.HourlyContributionRate/1e15),
+					fmt.Sprintf("%2.3fq/hr", (d.contributionRateInSeconds)/1e15),
 					fmt.Sprintf("%2.3fq", d.contributions/1e15),
 				})
 			}
