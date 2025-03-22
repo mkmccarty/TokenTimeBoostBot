@@ -156,7 +156,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	var str string
 	str, fields := DownloadCoopStatusTeamwork(contractID, coopID, 0)
 
-	if strings.HasSuffix(str, "no such file or directory") {
+	if strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: str,
 		})
@@ -213,6 +213,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 	if coopStatus.GetResponseStatus() != ei.ContractCoopStatusResponse_NO_ERROR {
 		return ei.ContractCoopStatusResponse_ResponseStatus_name[int32(coopStatus.GetResponseStatus())], nil
+	}
+	if coopStatus.GetGrade() == ei.Contract_GRADE_UNSET {
+		return fmt.Sprintf("No grade found for contract %s/%s", contractID, coopID), nil
 	}
 
 	type BuffTimeValue struct {
@@ -537,6 +540,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						xSecondsRemaining := (totalRequired - totalContributions) / contributionRatePerSecond
 						adjustedSecondsRemaining := (totalRequired - totalContributions) / newTotalContributionRate
 
+						// diffSeconds is the difference in time remaining.
+						// A positive value means the contract will finish sooner.
+						// A negative value means the contract will take longer.
 						diffSeconds := time.Duration(xSecondsRemaining-adjustedSecondsRemaining) * time.Second
 
 						siabSwapMap[MostRecentDuration.Add(siabTimeEquipped).Unix()] = fmt.Sprintf("<t:%d:t> **%s**  ∆ %v\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name, diffSeconds)
