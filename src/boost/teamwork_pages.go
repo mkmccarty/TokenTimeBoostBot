@@ -18,7 +18,9 @@ type teamworkCache struct {
 	header              string
 	footer              string
 	showScores          bool
+	showingSIAB         bool
 	page                int
+	previousPage        int
 	pages               int
 	expirationTimestamp time.Time
 	contractID          string
@@ -87,8 +89,9 @@ func buildTeamworkCache(s string, fields map[string][]*discordgo.MessageEmbedFie
 		header:              s,
 		footer:              "",
 		page:                0,
+		previousPage:        0,
 		pages:               len(fields),
-		expirationTimestamp: time.Now().Add(15 * time.Minute),
+		expirationTimestamp: time.Now().Add(24 * time.Hour),
 		names:               keys,
 		fields:              fields,
 		scorefields:         scoreFields,
@@ -107,11 +110,17 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 		newCache := buildTeamworkCache(s1, fields)
 
 		newCache.public = cache.public
+		newCache.previousPage = cache.previousPage
 		newCache.xid = cache.xid
 		newCache.contractID = cache.contractID
 		newCache.coopID = cache.coopID
 		newCache.page = cache.page
 		newCache.showScores = cache.showScores
+		newCache.showingSIAB = cache.showingSIAB
+		siabDisplay = newCache.showingSIAB
+		if refresh {
+			newCache.page = newCache.previousPage
+		}
 		cache = newCache
 		teamworkCacheMap[cache.xid] = newCache
 	}
@@ -142,13 +151,14 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 		cache.showScores = !cache.showScores
 		teamworkCacheMap[cache.xid] = cache
 	}
+	if siabDisplay != cache.showingSIAB {
+		cache.showingSIAB = siabDisplay
+		teamworkCacheMap[cache.xid] = cache
+	}
 
 	// if Refresh this should be the previous page
-	if refresh || toggle || siabDisplay {
-		cache.page = cache.page - 1
-		if cache.page < 0 {
-			cache.page = 0
-		}
+	if siabDisplay {
+		cache.page = cache.previousPage
 	}
 
 	flags := discordgo.MessageFlagsEphemeral
@@ -217,6 +227,7 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 	}
 
 	// Don't advance the page if we're on the siabDisplay
+	cache.previousPage = cache.page
 	if !siabDisplay {
 		cache.page = cache.page + 1
 		if cache.page >= cache.pages {
@@ -254,6 +265,9 @@ func HandleTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if len(reaction) == 3 && reaction[2] == "siab" {
 		siabSelection = true
 	}
+	if len(reaction) == 3 && reaction[2] == "close" {
+		delete(teamworkCacheMap, reaction[1])
+	}
 	sendTeamworkPage(s, i, false, reaction[1], refresh, toggle, siabSelection)
 }
 
@@ -287,6 +301,12 @@ func getTeamworkComponents(name string, page int, pageEnd int) []discordgo.Messa
 			Label:    "SIAB Swap Times",
 			Style:    discordgo.SecondaryButton,
 			CustomID: fmt.Sprintf("fd_teamwork#%s#siab", name),
+		})
+	buttons = append(buttons,
+		discordgo.Button{
+			Label:    "Close",
+			Style:    discordgo.DangerButton,
+			CustomID: fmt.Sprintf("fd_teamwork#%s#close", name),
 		})
 
 	var components []discordgo.MessageComponent

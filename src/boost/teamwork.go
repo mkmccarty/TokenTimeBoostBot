@@ -156,7 +156,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	var str string
 	str, fields := DownloadCoopStatusTeamwork(contractID, coopID, 0)
 
-	if strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {
+	if fields == nil || strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: str,
 		})
