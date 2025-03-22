@@ -36,7 +36,30 @@ var teamworkCacheMap = make(map[string]teamworkCache)
 func buildTeamworkCache(s string, fields map[string][]*discordgo.MessageEmbedField) teamworkCache {
 
 	// Extract SIAB Fields from the fields map
-	siabFields := fields["siab"]
+	var siabFields []*discordgo.MessageEmbedField
+	if field, ok := fields["siab"]; ok {
+		// Check if the Value of the first field is greater than 900 bytes
+		if len(field[0].Value) > 700 {
+			// Split the Value by line breaks
+			lines := strings.Split(field[0].Value, "\n")
+			var currentField strings.Builder
+			var fieldCount int
+			for _, line := range lines {
+				if currentField.Len()+len(line)+1 > 700 {
+					siabFields = append(siabFields, &discordgo.MessageEmbedField{Name: "", Value: currentField.String(), Inline: false})
+					currentField.Reset()
+					fieldCount++
+				}
+				currentField.WriteString(line + "\n")
+			}
+			// Add the last field if it's not empty
+			if currentField.Len() > 0 {
+				siabFields = append(siabFields, &discordgo.MessageEmbedField{Name: "", Value: currentField.String(), Inline: false})
+			}
+		} else {
+			siabFields = field
+		}
+	}
 	delete(fields, "siab")
 
 	// Extract and sort the keys from the fields map
@@ -150,6 +173,7 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 			}},
 		}
 	} else {
+
 		embed = &discordgo.MessageSend{
 			Embeds: []*discordgo.MessageEmbed{{
 				Type:        discordgo.EmbedTypeRich,
