@@ -57,6 +57,7 @@ func buildTeamworkCache(s string, fields map[string][]*discordgo.MessageEmbedFie
 				siabFields = append(siabFields, &discordgo.MessageEmbedField{Name: "", Value: currentField.String(), Inline: false})
 			}
 		} else {
+			field[0].Name = ""
 			siabFields = field
 		}
 	}
