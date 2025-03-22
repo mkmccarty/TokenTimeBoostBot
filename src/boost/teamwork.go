@@ -314,7 +314,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			pp.GetSr(),
 			pp.GetElr(),
 			c.GetContributionAmount(),
-			(c.GetContributionAmount() / durationPastSeconds.Seconds()) * 60 * 60,
+			(c.GetContributionAmount() / durationPastSeconds.Seconds()),
 			startTime,
 			durationPastSeconds,
 			c.GetContributionAmount(),
@@ -324,7 +324,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			pp.GetSr(),
 			pp.GetElr(),
 			-(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()),
-			c.GetContributionRate() * 60 * 60,
+			c.GetContributionRate(),
 			nowTime.Add(time.Duration(c.GetFarmInfo().GetTimestamp()) * time.Second),
 			time.Duration(-c.GetFarmInfo().GetTimestamp()) * time.Second,
 			DeliveryTimeValues[0].contributions + -(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()),
@@ -334,7 +334,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			pp.GetSr(),
 			pp.GetElr(),
 			c.GetContributionRate() * float64(calcSecondsRemaining),
-			c.GetContributionRate() * 60 * 60,
+			c.GetContributionRate(),
 			nowTime,
 			time.Duration(calcSecondsRemaining) * time.Second,
 			DeliveryTimeValues[1].contributions + c.GetContributionRate()*float64(calcSecondsRemaining),
@@ -544,11 +544,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						// A positive value means the contract will finish sooner.
 						// A negative value means the contract will take longer.
 						diffSeconds := time.Duration(xSecondsRemaining-adjustedSecondsRemaining) * time.Second
-						if diffSeconds < 0 {
-							siabSwapMap[MostRecentDuration.Add(siabTimeEquipped).Unix()] = fmt.Sprintf("<t:%d:t> **%s**\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
-						} else {
-							siabSwapMap[MostRecentDuration.Add(siabTimeEquipped).Unix()] = fmt.Sprintf("<t:%d:t> **%s**\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
-						}
+						siabSwapMap[MostRecentDuration.Add(siabTimeEquipped).Unix()] = fmt.Sprintf("<t:%d:t> **%s**\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
 
 						if shortTeamwork == 0 {
 							deliveryTableMap[name] = append(deliveryTableMap[name][:2], future)
@@ -558,7 +554,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 						// Calculate the saved number of seconds
 						//maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact and speeding the contract by %v\n", (adjustedContributionRate-1)*100, siabStones, diffSeconds))
-						maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact.\n", (adjustedContributionRate-1)*100, siabStones))
+						maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact. Time improvement < %v.\n", (adjustedContributionRate-1)*100, siabStones, diffSeconds))
 					}
 				} else {
 					if nowTime.Add(siabTimeEquipped).After(endTime) {
@@ -606,7 +602,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 					d.name,
 					d.timeEquipped.Sub(startTime).Round(time.Second).String(),
 					fmt.Sprintf("%v", d.duration.Round(time.Second)),
-					fmt.Sprintf("%2.3fq/hr", (d.contributionRateInSeconds)/1e15),
+					fmt.Sprintf("%2.3fq/hr", (d.contributionRateInSeconds*3600)/1e15),
 					fmt.Sprintf("%2.3fq", d.contributions/1e15),
 				})
 			}
