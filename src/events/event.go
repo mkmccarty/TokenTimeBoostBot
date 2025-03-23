@@ -31,6 +31,12 @@ func SlashEventHelperCommand(cmd string) *discordgo.ApplicationCommand {
 				Description: "Show ultra event info. Default is false. [Sticky]",
 				Required:    false,
 			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "private",
+				Description: "Private reply, default is false. [Sticky]",
+				Required:    false,
+			},
 		},
 	}
 }
@@ -41,20 +47,13 @@ func HandleEventHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	userID := getInteractionUserID(i)
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   0, //discordgo.MessageFlagsEphemeral,
-		},
-	})
-
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 	for _, opt := range options {
 		optionMap[opt.Name] = opt
 	}
+	privateReply := false
 
 	ultra := false
 	if opt, ok := optionMap["ultra"]; ok {
@@ -63,6 +62,25 @@ func HandleEventHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	} else {
 		ultra = farmerstate.GetMiscSettingFlag(userID, "ultra")
 	}
+	if opt, ok := optionMap["private"]; ok {
+		privateReply = opt.BoolValue()
+		farmerstate.SetMiscSettingFlag(userID, "event-private", privateReply)
+	} else {
+		privateReply = farmerstate.GetMiscSettingFlag(userID, "event-private")
+	}
+
+	flags := discordgo.MessageFlagsEphemeral
+	if !privateReply {
+		flags = 0
+	}
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing request...",
+			Flags:   flags, //discordgo.MessageFlagsEphemeral,
+		},
+	})
 
 	var field []*discordgo.MessageEmbedField
 	var events strings.Builder
