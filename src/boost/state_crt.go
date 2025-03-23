@@ -107,9 +107,11 @@ func buttonReactionTruck(s *discordgo.Session, contract *Contract, cUserID strin
 func buttonReactionLeg(s *discordgo.Session, contract *Contract, cUserID string) bool {
 	if (cUserID == contract.Banker.CurrentBanker || creatorOfContract(s, contract, cUserID)) && contract.SRData.LegReactionMessageID == "" {
 		// Indicate that the Sink is starting to kick users
-		runners := contract.SRData.NoSelfRunCrt[contract.SRData.CurrentLeg+1]
+		var runners int
 		if contract.Style&ContractFlagSelfRuns != 0 {
 			runners = contract.SRData.SelfRunCrt[contract.SRData.CurrentLeg+1]
+		} else {
+			runners = contract.SRData.NoSelfRunCrt[contract.SRData.CurrentLeg+1]
 		}
 
 		str := fmt.Sprintf("**Starting to kick %d farmers.** Swap shiny artifacts if you need to force a server sync.\n", runners)
