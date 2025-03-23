@@ -9,25 +9,25 @@ require (
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/google/generative-ai-go v0.19.0
 	github.com/jasonlvhit/gocron v0.0.1
-	github.com/moby/moby v28.0.1+incompatible
+	github.com/moby/moby v28.0.2+incompatible
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/pkg/errors v0.9.1
 	github.com/rs/xid v1.6.0
-	github.com/sashabaranov/go-openai v1.38.0
+	github.com/sashabaranov/go-openai v1.38.1
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	golang.org/x/image v0.25.0
 	golang.org/x/text v0.23.0
-	google.golang.org/api v0.226.0
+	google.golang.org/api v0.227.0
 	google.golang.org/protobuf v1.36.5
 
 )
 
 require (
-	cloud.google.com/go v0.119.0 // indirect
+	cloud.google.com/go v0.120.0 // indirect
 	cloud.google.com/go/ai v0.10.1 // indirect
 	cloud.google.com/go/auth v0.15.0 // indirect
-	cloud.google.com/go/auth/oauth2adapt v0.2.7 // indirect
+	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.6.0 // indirect
 	cloud.google.com/go/longrunning v0.6.6 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
