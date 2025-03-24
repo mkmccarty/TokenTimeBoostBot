@@ -19,7 +19,7 @@ require (
 	golang.org/x/image v0.25.0
 	golang.org/x/text v0.23.0
 	google.golang.org/api v0.227.0
-	google.golang.org/protobuf v1.36.5
+	google.golang.org/protobuf v1.36.6
 
 )
 
