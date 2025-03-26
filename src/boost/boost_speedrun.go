@@ -279,8 +279,12 @@ func getSpeedrunStatusStr(contract *Contract) string {
 			if len(contract.Order) == 1 {
 				farmerPlural = ""
 			}
+			if contract.SRData.ChickenRuns > len(contract.Order) {
+				fmt.Fprintf(&b, "> It's not possible for all farmers to reach **%d** total chicken runs with only **%d** farmer%s.\n", contract.SRData.ChickenRuns, len(contract.Order), farmerPlural)
+			} else {
+				fmt.Fprintf(&b, "> **%d** farmer%s don't need CRT to achieve **%d** total chicken runs.\n", len(contract.Order), farmerPlural, contract.SRData.ChickenRuns)
 
-			fmt.Fprintf(&b, "> It's not possible for all farmers to reach **%d** total chicken runs with only **%d** farmer%s.\n", contract.SRData.ChickenRuns, len(contract.Order), farmerPlural)
+			}
 		}
 	}
 	if len(contract.Order) == 0 {
