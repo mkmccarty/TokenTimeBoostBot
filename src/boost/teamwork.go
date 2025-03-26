@@ -253,7 +253,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 	// Want estimated contribution ratio for entire contract
 	contribution := make([]float64, len(coopStatus.GetContributors()))
-	contractDurationInDays := int(float64(eiContract.Grade[grade].LengthInSeconds) / 86400.0)
+	contractDurationInDays := int(math.Ceil(float64(eiContract.Grade[grade].LengthInSeconds) / 86400.0))
 
 	var totalContributions float64
 	var contributionRatePerSecond float64
