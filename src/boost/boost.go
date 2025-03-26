@@ -1701,17 +1701,18 @@ func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
 		if contract.Boosters[i].Ping {
 			u, _ := s.UserChannelCreate(b.UserID)
 			var str string
-			if contract.State == ContractStateCompleted || contract.State == ContractStateArchive {
+			switch contract.State {
+			case ContractStateCompleted, ContractStateArchive:
 				t1 := contract.EndTime
 				t2 := contract.StartTime
 				duration := t1.Sub(t2)
 				str = fmt.Sprintf("%s: Contract Boosting Completed in %s ", b.ChannelName, duration.Round(time.Second))
-			} else if contract.State == ContractStateWaiting {
+			case ContractStateWaiting:
 				t1 := time.Now()
 				t2 := contract.StartTime
 				duration := t1.Sub(t2)
 				str = fmt.Sprintf("%s: Boosting Completed in %s. Still %d spots in the contract. ", b.ChannelName, duration.Round(time.Second), contract.CoopSize-len(contract.Boosters))
-			} else {
+			default:
 				str = fmt.Sprintf("%s: Send Boost Tokens to %s", b.ChannelName, contract.Boosters[contract.Order[contract.BoostPosition]].Name)
 			}
 			_, err := s.ChannelMessageSend(u.ID, str)

@@ -222,14 +222,15 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 
 func buttonReactionLast(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, cUserID string) (bool, bool) {
 	var uid = cUserID
-	if contract.Boosters[uid].BoostState == BoostStateTokenTime {
+	switch contract.Boosters[uid].BoostState {
+	case BoostStateTokenTime:
 		currentBoosterPosition := findNextBooster(contract)
 		err := MoveBooster(s, GuildID, ChannelID, contract.CreatorID[0], uid, len(contract.Order), currentBoosterPosition == -1)
 		if err == nil && currentBoosterPosition != -1 {
 			_ = ChangeCurrentBooster(s, GuildID, ChannelID, contract.CreatorID[0], contract.Order[currentBoosterPosition], true)
 			return true, false
 		}
-	} else if contract.Boosters[uid].BoostState == BoostStateUnboosted {
+	case BoostStateUnboosted:
 		_ = MoveBooster(s, GuildID, ChannelID, contract.CreatorID[0], uid, len(contract.Order), true)
 	}
 

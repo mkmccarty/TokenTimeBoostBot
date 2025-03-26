@@ -308,15 +308,15 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 		// 	totalContributions += c.GetContributionAmount()
 		//	totalContributions += -(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()) // offline eggs
-		durationPastSeconds := time.Since(startTime) + time.Duration(c.GetFarmInfo().GetTimestamp())*time.Second
+		durationPast := time.Since(startTime) + time.Duration(c.GetFarmInfo().GetTimestamp())*time.Second
 		DeliveryTimeValues = append(DeliveryTimeValues, DeliveryTimeValue{
 			"Past",
 			pp.GetSr(),
 			pp.GetElr(),
 			c.GetContributionAmount(),
-			(c.GetContributionAmount() / durationPastSeconds.Seconds()),
+			(c.GetContributionAmount() / durationPast.Seconds()),
 			startTime,
-			durationPastSeconds,
+			durationPast,
 			c.GetContributionAmount(),
 		})
 		DeliveryTimeValues = append(DeliveryTimeValues, DeliveryTimeValue{
@@ -543,7 +543,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						// diffSeconds is the difference in time remaining.
 						// A positive value means the contract will finish sooner.
 						// A negative value means the contract will take longer.
-						diffSeconds := time.Duration(xSecondsRemaining-adjustedSecondsRemaining) * time.Second
+						diffTime := time.Duration(xSecondsRemaining-adjustedSecondsRemaining) * time.Second
 						siabSwapMap[MostRecentDuration.Add(siabTimeEquipped).Unix()] = fmt.Sprintf("<t:%d:t> %s\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
 
 						if shortTeamwork == 0 {
@@ -554,7 +554,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 						// Calculate the saved number of seconds
 						//maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact and speeding the contract by %v\n", (adjustedContributionRate-1)*100, siabStones, diffSeconds))
-						maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact. Time improvement < %v.\n", (adjustedContributionRate-1)*100, siabStones, diffSeconds))
+						maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact. Time improvement < %v.\n", (adjustedContributionRate-1)*100, siabStones, diffTime))
 					}
 				} else {
 					if nowTime.Add(siabTimeEquipped).After(endTime) {
