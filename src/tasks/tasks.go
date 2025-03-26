@@ -284,15 +284,16 @@ func downloadEggIncData(url string, filename string) bool {
 	}
 
 	// Notify bot of out new data
-	if filename == eggIncContractsFile {
+	switch filename {
+	case eggIncContractsFile:
 		boost.LoadContractData(filename)
 		lastContractUpdate = time.Now()
 		log.Printf("EI-Contracts. New data loaded, length: %d\n", int64(len(body)))
-	} else if filename == eggIncEventsFile {
+	case eggIncEventsFile:
 		events.LoadEventData(filename)
 		lastEventUpdate = time.Now()
 		log.Printf("EI-Events. New data loaded, length: %d\n", int64(len(body)))
-	} else if filename == eggIncEiAfxDataFile {
+	case eggIncEiAfxDataFile:
 		err := ei.LoadData(filename)
 		if err != nil {
 			log.Print(err)

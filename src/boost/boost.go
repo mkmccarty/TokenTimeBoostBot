@@ -1192,7 +1192,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	}
 
 	if !creatorOfContract(s, contract, userID) && contract.CreatorID[0] != config.DiscordAppID {
-		if !(contract.Style&ContractFlagCrt != 0 && contract.Banker.CrtSinkUserID == userID) {
+		if contract.Style&ContractFlagCrt == 0 || contract.Banker.CrtSinkUserID != userID {
 			return errors.New(errorNotContractCreator)
 		}
 	}

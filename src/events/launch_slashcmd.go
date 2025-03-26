@@ -405,9 +405,10 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				sName = "" // Clear this out for single missions
 				sArt = ""
 			} else if shipIndex == 1 {
-				if selectedShipSecondary == -2 {
+				switch selectedShipSecondary {
+				case -2:
 					builder.WriteString("__All Stars Club__:\n")
-				} else if selectedShipSecondary == -3 {
+				case -3:
 					builder.WriteString("__Starfleet Commander__:\n")
 				}
 			}

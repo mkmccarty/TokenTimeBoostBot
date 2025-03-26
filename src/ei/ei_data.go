@@ -440,7 +440,7 @@ func LoadConfig(configFile string) error {
 	if err != nil {
 		return errors.Wrap(err, "error reading configFile")
 	}
-	_eiafxConfigJSON := []byte(strings.Replace(string(fileContent), "./data.schema.json", "./ttbb-data/data.schema.json", -1))
+	_eiafxConfigJSON := []byte(strings.ReplaceAll(string(fileContent), "./data.schema.json", "./ttbb-data/data.schema.json"))
 
 	artifactConfig = &ArtifactsConfigurationResponse{}
 	err = protojson.Unmarshal(_eiafxConfigJSON, artifactConfig)
@@ -457,7 +457,7 @@ func LoadData(dataFile string) error {
 	if err != nil {
 		return errors.Wrap(err, "error reading dataFile")
 	}
-	_eiafxDataJSON := []byte(strings.Replace(string(fileContent), "./data.schema.json", "./ttbb-data/data.schema.json", -1))
+	_eiafxDataJSON := []byte(strings.ReplaceAll(string(fileContent), "./data.schema.json", "./ttbb-data/data.schema.json"))
 
 	data = &Store{}
 	err = json.Unmarshal(_eiafxDataJSON, data)

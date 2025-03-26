@@ -145,16 +145,12 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	changed := true
 	c := cases.Title(language.Und)
 
-	notifyDiscordOfNewEgg := true
-
-	if len(ei.CustomEggMap) == 0 {
-		notifyDiscordOfNewEgg = false
-	}
+	notifyDiscordOfNewEgg := len(ei.CustomEggMap) != 0
 
 	// Look for new Custom Eggs
 	for _, customEgg := range periodicalsResponse.GetContracts().GetCustomEggs() {
 		var egg ei.EggIncCustomEgg
-		egg.ID = strings.Replace(customEgg.GetIdentifier(), " ", "", -1)
+		egg.ID = strings.ReplaceAll(customEgg.GetIdentifier(), " ", "")
 		egg.Name = c.String(customEgg.GetName())
 		egg.Value = customEgg.GetValue()
 		egg.IconName = customEgg.GetIcon().GetName()

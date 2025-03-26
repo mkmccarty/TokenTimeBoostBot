@@ -64,7 +64,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 
 		// Need to perform a conversion on what's in coll.
 		// CarbonFiber,Chocolate,Easter,Firework,Pumpkin,Waterballoon,Lithium
-		coll = strings.Replace(coll, "CarbonFiber", "Carbon Fiber", -1)
+		coll = strings.ReplaceAll(coll, "CarbonFiber", "Carbon Fiber")
 	}
 	// Remove the extra closing brace
 

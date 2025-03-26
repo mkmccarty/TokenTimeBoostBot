@@ -155,12 +155,12 @@ func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	if opt, ok := optionMap["contract-id"]; ok {
 		contractID = opt.StringValue()
-		contractID = strings.Replace(contractID, " ", "", -1)
+		contractID = strings.ReplaceAll(contractID, " ", "")
 		str += "Contract ID changed to " + contractID
 	}
 	if opt, ok := optionMap["coop-id"]; ok {
 		coopID = opt.StringValue()
-		coopID = strings.Replace(coopID, " ", "", -1)
+		coopID = strings.ReplaceAll(coopID, " ", "")
 		str += "Coop ID changed to " + coopID
 	}
 	if opt, ok := optionMap["coordinator"]; ok {
