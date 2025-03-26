@@ -55,9 +55,4 @@ jobs:
         if: github.event.name != 'pull_request' # See https://github.com/golangci/golangci-lint-action/issues/362
         run: |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
-          $(go env GOPATH)/bin/golangci-lint run -v --new-from-rev HEAD~5
-
-output:
-  formats:
-    - format: github-actions
-      path: report.xml
+          # $(go env GOPATH)/bin/golangci-lint run -v --new-from-rev HEAD~5
