@@ -261,7 +261,7 @@ func getSpeedrunStatusStr(contract *Contract) string {
 				for _, num := range contract.SRData.NoSelfRunCrt {
 					crtStrings = append(crtStrings, fmt.Sprintf("%d", num))
 				}
-				fmt.Fprintf(&b, "> **%s**  +%d\n", strings.Join(crtStrings, "🦵"), (len(contract.Order)-1)-contract.SRData.NoSelfRunCrt[len(contract.SRData.NoSelfRunCrt)-1])
+				fmt.Fprintf(&b, "> **%s**  +%d\n", strings.Join(crtStrings, "🦵"), (len(contract.Order)-2)-contract.SRData.NoSelfRunCrt[len(contract.SRData.NoSelfRunCrt)-1])
 			} else {
 				if contract.SRData.SelfRunLegs == 1 {
 					legPlural = ""
