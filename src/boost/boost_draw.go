@@ -13,7 +13,7 @@ import (
 func getSinkIcon(contract *Contract, b *Booster) string {
 	var sinkIcon = ""
 	if contract.Banker.CurrentBanker == b.UserID {
-		sinkIcon = fmt.Sprintf("%s[%d] %s", contract.TokenStr, b.TokensReceived, "🫂")
+		sinkIcon = fmt.Sprintf("%s[%d] %s", contract.TokenStr, b.TokensReceived, ei.GetBotEmojiMarkdown("tvalrip"))
 	}
 
 	return sinkIcon
