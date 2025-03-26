@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
@@ -31,8 +32,12 @@ func GetGistData(filename string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to make HTTP request: %w", err)
 	}
-	defer resp.Body.Close()
-
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Handle the error appropriately, e.g., logging or taking corrective actions
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("received non-200 response code: %d", resp.StatusCode)
 	}
@@ -95,8 +100,12 @@ func PutGistData(filename string, data string) error {
 	if err != nil {
 		return fmt.Errorf("failed to make HTTP request: %w", err)
 	}
-	defer resp.Body.Close()
-
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Handle the error appropriately, e.g., logging or taking corrective actions
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("received non-200 response code: %d", resp.StatusCode)
 	}

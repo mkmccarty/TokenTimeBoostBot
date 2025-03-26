@@ -47,7 +47,12 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 		return
 	}
 
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			// Handle the error appropriately, e.g., logging or taking corrective actions
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
 
 	// Read the response body
 	body, err := io.ReadAll(response.Body)

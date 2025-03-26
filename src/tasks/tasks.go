@@ -156,7 +156,12 @@ func isNewEggIncDataAvailable(url string, filename string) bool {
 				}
 			}
 		*/
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				// Handle the error appropriately, e.g., logging or taking corrective actions
+				log.Printf("Failed to close: %v", err)
+			}
+		}()
 
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -173,7 +178,12 @@ func isNewEggIncDataAvailable(url string, filename string) bool {
 				log.Print(err)
 				return false
 			}
-			defer file.Close()
+			defer func() {
+				if err := file.Close(); err != nil {
+					// Handle the error appropriately, e.g., logging or taking corrective actions
+					log.Printf("Failed to close: %v", err)
+				}
+			}()
 			// Read the last 1024 bytes from the file
 			_, err = file.Seek(-EvalWidth, io.SeekEnd)
 			if err != nil {
@@ -250,7 +260,12 @@ func downloadEggIncData(url string, filename string) bool {
 	if err != nil {
 		log.Print(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Handle the error appropriately, e.g., logging or taking corrective actions
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
 
 	// Check if the file already exists
 	_, err = os.Stat(filename)

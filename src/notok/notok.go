@@ -195,8 +195,12 @@ func getStringFromGoogleGemini(text string) (string, error) {
 		log.Print(err)
 		return "", err
 	}
-	defer client.Close()
-
+	defer func() {
+		if err := client.Close(); err != nil {
+			// Handle the error appropriately, e.g., logging or taking corrective actions
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
 	model := client.GenerativeModel(googleModel)
 	model.SafetySettings = []*genai.SafetySetting{
 		{
@@ -342,7 +346,13 @@ func downloadFile(filepath string, url string, prompt string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Handle the error appropriately, e.g., logging or taking corrective actions
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
 
 	err = os.MkdirAll(filepath, os.ModePerm)
 	if err != nil {
@@ -362,8 +372,12 @@ func downloadFile(filepath string, url string, prompt string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
-
+	defer func() {
+		if err := out.Close(); err != nil {
+			// Handle the error appropriately, e.g., logging or taking corrective actions
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
 	// Write the body to file
 	_, err = io.Copy(out, resp.Body)
 	return err

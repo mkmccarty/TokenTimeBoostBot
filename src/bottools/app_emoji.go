@@ -80,7 +80,14 @@ func saveEmotesToFile(emoteFilePath string, emotes map[string]ei.Emotes) {
 		log.Print(err)
 		return
 	}
-	defer file.Close()
+
+	defer func() {
+		if err := file.Close(); err != nil {
+			// Handle the error appropriately, e.g., logging or taking corrective actions
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
+
 	encoder := json.NewEncoder(file)
 	err = encoder.Encode(emotes)
 	if err != nil {
@@ -95,7 +102,12 @@ func loadEmotesFromFile(emoteFilePath string) (map[string]ei.Emotes, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			// Handle the error appropriately, e.g., logging or taking corrective actions
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
 	var emotes map[string]ei.Emotes
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&emotes)
@@ -113,7 +125,12 @@ func ImportEggImage(s *discordgo.Session, eggID, IconURL string) (string, error)
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Handle the error appropriately, e.g., logging or taking corrective actions
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
 
 	iconData, err := io.ReadAll(resp.Body)
 	if err != nil {
