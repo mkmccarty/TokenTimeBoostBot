@@ -129,8 +129,8 @@ func generateThreadName(c *Contract) string {
 		if c.Style&ContractFlagCrt != 0 {
 			styleStr += "+CRT"
 		}
-		threadName = strings.Replace(threadName, "$STYLE", styleStr, -1)
-		threadName = strings.Replace(threadName, "$S", styleStr, -1)
+		threadName = strings.ReplaceAll(threadName, "$STYLE", styleStr)
+		threadName = strings.ReplaceAll(threadName, "$S", styleStr)
 
 	}
 
@@ -144,16 +144,16 @@ func generateThreadName(c *Contract) string {
 				formattedTime := currentTime.Format("3:04pm MST")
 
 				// Append the formatted time to the thread name
-				threadName = strings.Replace(threadName, "$TIME", formattedTime, -1)
-				threadName = strings.Replace(threadName, "$T", formattedTime, -1)
+				threadName = strings.ReplaceAll(threadName, "$TIME", formattedTime)
+				threadName = strings.ReplaceAll(threadName, "$T", formattedTime)
 			}
 		} else if c.State == ContractStateSignup {
-			threadName = strings.Replace(threadName, "$TIME", "TBD", -1)
-			threadName = strings.Replace(threadName, "$T", "TBD", -1)
+			threadName = strings.ReplaceAll(threadName, "$TIME", "TBD")
+			threadName = strings.ReplaceAll(threadName, "$T", "TBD")
 		}
 	}
-	threadName = strings.Replace(threadName, "$NAME", c.CoopID, -1)
-	threadName = strings.Replace(threadName, "$N", c.CoopID, -1)
+	threadName = strings.ReplaceAll(threadName, "$NAME", c.CoopID)
+	threadName = strings.ReplaceAll(threadName, "$N", c.CoopID)
 
 	if strings.Contains(threadName, "$COUNT") || strings.Contains(threadName, "$C") {
 		var statusStr string
@@ -162,8 +162,8 @@ func generateThreadName(c *Contract) string {
 		} else {
 			statusStr = "(FULL)"
 		}
-		threadName = strings.Replace(threadName, "$COUNT", statusStr, -1)
-		threadName = strings.Replace(threadName, "$C", statusStr, -1)
+		threadName = strings.ReplaceAll(threadName, "$COUNT", statusStr)
+		threadName = strings.ReplaceAll(threadName, "$C", statusStr)
 	}
 	return threadName
 }

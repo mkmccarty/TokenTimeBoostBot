@@ -97,11 +97,11 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	if opt, ok := optionMap["contract-id"]; ok {
 		contractID = strings.ToLower(opt.StringValue())
-		contractID = strings.Replace(contractID, " ", "", -1)
+		contractID = strings.ReplaceAll(contractID, " ", "")
 	}
 	if opt, ok := optionMap["coop-id"]; ok {
 		coopID = strings.ToLower(opt.StringValue())
-		coopID = strings.Replace(coopID, " ", "", -1)
+		coopID = strings.ReplaceAll(coopID, " ", "")
 	}
 	if opt, ok := optionMap["solo-report-name"]; ok {
 		soloName = strings.ToLower(opt.StringValue())
@@ -719,10 +719,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
 				//farmerstate.SetMiscSettingString(as.name, "coll-elr", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
 				val := fmt.Sprintf("%2.2f🛖", (collegHab-1.0)*100.0)
-				val = strings.Replace(val, ".00", "", -1)
-				val = strings.Replace(val, ".25", "¼", -1)
-				val = strings.Replace(val, ".5", "½", -1)
-				val = strings.Replace(val, ".75", "¾", -1)
+				val = strings.ReplaceAll(val, ".00", "")
+				val = strings.ReplaceAll(val, ".25", "¼")
+				val = strings.ReplaceAll(val, ".5", "½")
+				val = strings.ReplaceAll(val, ".75", "¾")
 				as.collegg = append(as.collegg, val)
 				//anyColleggtiblesToShow = true
 			} else if collegHab <= 1.0 {
@@ -757,10 +757,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
 				//farmerstate.SetMiscSettingString(as.name, "coll-elr", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
 				val := fmt.Sprintf("%2.2f📦", (collegELR-1.0)*100.0)
-				val = strings.Replace(val, ".00", "", -1)
-				val = strings.Replace(val, ".25", "¼", -1)
-				val = strings.Replace(val, ".5", "½", -1)
-				val = strings.Replace(val, ".75", "¾", -1)
+				val = strings.ReplaceAll(val, ".00", "")
+				val = strings.ReplaceAll(val, ".25", "¼")
+				val = strings.ReplaceAll(val, ".5", "½")
+				val = strings.ReplaceAll(val, ".75", "¾")
 				as.collegg = append(as.collegg, val)
 				//anyColleggtiblesToShow = true
 			} else if collegELR <= 1.0 {
@@ -786,10 +786,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if maxColllectibleShip > 1.0 {
 			if collegShip > 1.000 && collegShip < maxColllectibleShip {
 				val := fmt.Sprintf("%2.2f🚚", (collegShip-1.0)*100.0)
-				val = strings.Replace(val, ".00", "", -1)
-				val = strings.Replace(val, ".25", "¼", -1)
-				val = strings.Replace(val, ".5", "½", -1)
-				val = strings.Replace(val, ".75", "¾", -1)
+				val = strings.ReplaceAll(val, ".00", "")
+				val = strings.ReplaceAll(val, ".25", "¼")
+				val = strings.ReplaceAll(val, ".5", "½")
+				val = strings.ReplaceAll(val, ".75", "¾")
 				as.collegg = append(as.collegg, val)
 
 				//anyColleggtiblesToShow = true

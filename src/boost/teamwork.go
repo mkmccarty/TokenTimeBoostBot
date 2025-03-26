@@ -110,11 +110,11 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 	if opt, ok := optionMap["contract-id"]; ok {
 		contractID = strings.ToLower(opt.StringValue())
-		contractID = strings.Replace(contractID, " ", "", -1)
+		contractID = strings.ReplaceAll(contractID, " ", "")
 	}
 	if opt, ok := optionMap["coop-id"]; ok {
 		coopID = strings.ToLower(opt.StringValue())
-		coopID = strings.Replace(coopID, " ", "", -1)
+		coopID = strings.ReplaceAll(coopID, " ", "")
 	}
 	if opt, ok := optionMap["public-reply"]; ok {
 		publicReply = !opt.BoolValue()

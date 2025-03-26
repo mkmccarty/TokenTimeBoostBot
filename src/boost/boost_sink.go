@@ -60,7 +60,7 @@ func HandleSlashVolunteerSinkCommand(s *discordgo.Session, i *discordgo.Interact
 	}
 
 	// Find the contract
-	var contract = FindContract(i.Interaction.ChannelID)
+	var contract = FindContract(i.ChannelID)
 	if contract == nil {
 		str = "No contract found in this channel"
 	} else {
@@ -73,7 +73,7 @@ func HandleSlashVolunteerSinkCommand(s *discordgo.Session, i *discordgo.Interact
 		}
 
 		isAdmin := false
-		perms, err := s.UserChannelPermissions(userID, i.Interaction.ChannelID)
+		perms, err := s.UserChannelPermissions(userID, i.ChannelID)
 		if err == nil {
 			if perms&discordgo.PermissionAdministrator != 0 {
 				isAdmin = true
@@ -86,8 +86,8 @@ func HandleSlashVolunteerSinkCommand(s *discordgo.Session, i *discordgo.Interact
 			str = "Token sink is already set"
 		} else {
 			// Check if user is already in contract
-			if userInContract(contract, i.Interaction.Member.User.ID) {
-				contract.Banker.PostSinkUserID = i.Interaction.Member.User.ID
+			if userInContract(contract, i.Member.User.ID) {
+				contract.Banker.PostSinkUserID = i.Member.User.ID
 				changeContractState(contract, contract.State) // Update the changed sink
 				if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {
 					_ = RedrawBoostList(s, i.GuildID, i.ChannelID)
@@ -131,7 +131,7 @@ func HandleSlashVoluntellSinkCommand(s *discordgo.Session, i *discordgo.Interact
 	}
 
 	// Find the contract
-	var contract = FindContract(i.Interaction.ChannelID)
+	var contract = FindContract(i.ChannelID)
 	if contract == nil {
 		str = "No contract found in this channel"
 	} else {
@@ -144,7 +144,7 @@ func HandleSlashVoluntellSinkCommand(s *discordgo.Session, i *discordgo.Interact
 		}
 
 		isAdmin := false
-		perms, err := s.UserChannelPermissions(userID, i.Interaction.ChannelID)
+		perms, err := s.UserChannelPermissions(userID, i.ChannelID)
 		if err == nil {
 			if perms&discordgo.PermissionAdministrator != 0 {
 				isAdmin = true

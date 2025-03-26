@@ -193,7 +193,7 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 			Title:       "Stones Report",
 			Description: cache.header,
 			Fields:      field,
-			Footer:      &discordgo.MessageEmbedFooter{Text: strings.Replace(cache.footer, "√", "⭐️", -1)},
+			Footer:      &discordgo.MessageEmbedFooter{Text: strings.ReplaceAll(cache.footer, "√", "⭐️")},
 		}}
 
 	}
