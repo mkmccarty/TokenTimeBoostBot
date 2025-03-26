@@ -20,7 +20,12 @@ func LoadContractData(filename string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			// Handle the error appropriately, e.g., logging or taking corrective actions
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
 
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&EggIncContractsLoaded)

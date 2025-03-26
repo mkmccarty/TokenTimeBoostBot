@@ -958,14 +958,25 @@ func main() {
 
 	syncCommands(s, config.DiscordGuildID, commandSet)
 
-	defer s.Close()
+	defer func() {
+		if err := s.Close(); err != nil {
+			// Handle the error appropriately, e.g., logging or taking corrective actions
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
 
 	// Add a config file watcher to pick up changes to the config file
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer watcher.Close()
+
+	defer func() {
+		if err := watcher.Close(); err != nil {
+			// Handle the error appropriately, e.g., logging or taking corrective actions
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
 
 	go func() {
 		for {
