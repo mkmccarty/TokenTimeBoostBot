@@ -227,10 +227,7 @@ func getScoreExplorerCalculations(params ScoreCalcParams) (string, *discordgo.Me
 		return str, nil
 	}
 
-	durationSpeed := false
-	if params.Style == 0 {
-		durationSpeed = true
-	}
+	durationSpeed := params.Style == 0
 
 	ratio := fairShare[params.FairShare]
 

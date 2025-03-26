@@ -825,7 +825,7 @@ func init() {
 
 	// Components are part of interactions, so we register InteractionCreate handler
 	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
-		if m.MessageReaction.UserID != s.State.User.ID {
+		if m.UserID != s.State.User.ID {
 			if m.GuildID != "" {
 				var str = boost.ReactionAdd(s, m.MessageReaction)
 				if str == "!gonow" {
@@ -837,7 +837,7 @@ func init() {
 		}
 	})
 	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageReactionRemove) {
-		if m.MessageReaction.UserID != s.State.User.ID {
+		if m.UserID != s.State.User.ID {
 			go boost.ReactionRemove(s, m.MessageReaction)
 		}
 	})

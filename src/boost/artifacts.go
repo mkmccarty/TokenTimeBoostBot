@@ -385,10 +385,7 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 
 	data := i.MessageComponentData()
 
-	setValue := true
-	if len(data.Values) == 0 {
-		setValue = false
-	}
+	setValue := len(data.Values) != 0
 
 	//if override == "PERM" {
 	switch cmd {
