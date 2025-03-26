@@ -22,7 +22,7 @@ func FmtDuration(d time.Duration) string {
 	} else {
 		str = fmt.Sprintf("%dh%dm", h, m)
 	}
-	return strings.Replace(str, "0h0m", "", -1)
+	return strings.ReplaceAll(str, "0h0m", "")
 }
 
 // SanitizeStringDuration takes an hms string and returns a sanitized version of it
@@ -33,10 +33,10 @@ func SanitizeStringDuration(s string) string {
 	}
 
 	s = strings.ToLower(s)
-	s = strings.Replace(s, "day", "d", -1)
-	s = strings.Replace(s, "min", "m", -1)
-	s = strings.Replace(s, "hr", "h", -1)
-	s = strings.Replace(s, "sec", "s", -1)
+	s = strings.ReplaceAll(s, "day", "d")
+	s = strings.ReplaceAll(s, "min", "m")
+	s = strings.ReplaceAll(s, "hr", "h")
+	s = strings.ReplaceAll(s, "sec", "s")
 	s = strings.ReplaceAll(s, " ", "")
 	var days, hours, minutes, seconds string
 

@@ -152,7 +152,7 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 	var guestNames = ""
-	var orderValue int = ContractOrderTimeBased // Default to Time Based
+	var orderValue = ContractOrderTimeBased // Default to Time Based
 	var mention = ""
 	var str = "Joining Member"
 	var tokenWant = 0
