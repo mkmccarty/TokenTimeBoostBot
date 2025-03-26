@@ -130,7 +130,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 			}
 		}
 		if contract.Banker.CurrentBanker != "" {
-			afterListStr += fmt.Sprintf("\n**Send all tokens to %s**\n", contract.Boosters[contract.Banker.CurrentBanker].Mention)
+			afterListStr += fmt.Sprintf("\n## Send all tokens to %s\n", contract.Boosters[contract.Banker.CurrentBanker].Mention)
 		}
 
 	default:
