@@ -19,10 +19,16 @@ var currentUltraGGEvent = 1.0
 var colleggtibleELR = 1.0
 var colleggtibleShip = 1.0
 var colleggtibleHab = 1.0
+var colleggtiblesIHR = 1.0
 
 // GetColleggtibleValues will return the current values of the 3 collectibles
 func GetColleggtibleValues() (float64, float64, float64) {
 	return colleggtibleELR, colleggtibleShip, colleggtibleHab
+}
+
+// GetColleggtibleELR will return the current value of the ELR collectible
+func GetColleggtibleIHR() float64 {
+	return colleggtiblesIHR
 }
 
 // SetColleggtibleValues will set the values of the 3 collectibles based on CustomEggMap
@@ -30,6 +36,7 @@ func SetColleggtibleValues() {
 	colELR := 1.0
 	colShip := 1.0
 	colHab := 1.0
+	colIHR := 1.0
 
 	for _, eggValue := range CustomEggMap {
 		switch eggValue.Dimension {
@@ -39,6 +46,8 @@ func SetColleggtibleValues() {
 			colShip *= eggValue.DimensionValue[len(eggValue.DimensionValue)-1]
 		case GameModifier_HAB_CAPACITY:
 			colHab *= eggValue.DimensionValue[len(eggValue.DimensionValue)-1]
+		case GameModifier_INTERNAL_HATCHERY_RATE:
+			colIHR *= eggValue.DimensionValue[len(eggValue.DimensionValue)-1]
 		}
 	}
 

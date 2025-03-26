@@ -4,6 +4,8 @@ import (
 	"log"
 	"math"
 	"time"
+
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 // DynamicTokenData is a struct that holds the data needed to calculate dynamic tokens
@@ -74,8 +76,8 @@ func createDynamicTokenData() *DynamicTokenData {
 
 	// Chickens per minute
 	// Assumption is that the player has completed Epic and Common Research
-	dt.IhrBase = 7440                                           // chickens/min/hab
-	dt.IhrBase = int64(float64(dt.IhrBase) * math.Pow(1.05, 1)) // 5% from Easter Colleggtibles
+	dt.IhrBase = 7440                                                 // chickens/min/hab
+	dt.IhrBase = int64(float64(dt.IhrBase) * ei.GetColleggtibleIHR()) // 5% from Easter Colleggtibles
 	dt.FourHabsOffline = dt.IhrBase * dt.HabNumber * dt.OfflineIHR
 
 	// 1000x + number of 10x free boosts * multiplier
