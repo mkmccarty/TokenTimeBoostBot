@@ -119,7 +119,7 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 		newCache.showingSIAB = cache.showingSIAB
 		siabDisplay = newCache.showingSIAB
 		if refresh {
-			newCache.page = newCache.previousPage
+			newCache.page = cache.previousPage
 		}
 		cache = newCache
 		teamworkCacheMap[cache.xid] = newCache
@@ -138,12 +138,14 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 			log.Println(err)
 		}
 
-		time.AfterFunc(10*time.Second, func() {
-			err := s.FollowupMessageDelete(i.Interaction, i.Message.ID)
-			if err != nil {
-				log.Println(err)
-			}
-		})
+		/*
+			time.AfterFunc(10*time.Second, func() {
+				err := s.FollowupMessageDelete(i.Interaction, i.Message.ID)
+				if err != nil {
+					log.Println(err)
+				}
+			})
+		*/
 		return
 	}
 

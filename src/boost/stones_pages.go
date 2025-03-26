@@ -104,7 +104,9 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 	}
 
 	if !exists {
-		str := fmt.Sprintf("The stones data has expired. Please re-run the %s command.", bottools.GetFormattedCommand("stones"))
+
+		str := fmt.Sprintf("The stones data has expired. Please re-run the %s command.\n", bottools.GetFormattedCommand("stones"))
+		str += (*(*(*i).Interaction).Message).Content
 		comp := []discordgo.MessageComponent{}
 		d2 := discordgo.WebhookEdit{
 			Content:    &str,
@@ -115,13 +117,14 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		if err != nil {
 			log.Println(err)
 		}
-
-		time.AfterFunc(10*time.Second, func() {
-			err := s.FollowupMessageDelete(i.Interaction, i.Message.ID)
-			if err != nil {
-				log.Println(err)
-			}
-		})
+		/*
+			time.AfterFunc(10*time.Second, func() {
+				err := s.FollowupMessageDelete(i.Interaction, i.Message.ID)
+				if err != nil {
+					log.Println(err)
+				}
+			})
+		*/
 		return
 	}
 
@@ -256,6 +259,10 @@ func HandleStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if len(reaction) == 3 && reaction[2] == "toggle" {
 		toggle = true
 	}
+	if len(reaction) == 3 && reaction[2] == "close" {
+		delete(stonesCacheMap, reaction[1])
+	}
+
 	sendStonesPage(s, i, false, reaction[1], refresh, links, toggle)
 }
 
@@ -289,6 +296,13 @@ func getStonesComponents(name string, page int, pageEnd int) []discordgo.Message
 			Label:    "staabmia links",
 			Style:    discordgo.SecondaryButton,
 			CustomID: fmt.Sprintf("fd_stones#%s#links", name),
+		})
+
+	buttons = append(buttons,
+		discordgo.Button{
+			Label:    "Close",
+			Style:    discordgo.DangerButton,
+			CustomID: fmt.Sprintf("fd_stones#%s#close", name),
 		})
 
 	var components []discordgo.MessageComponent
