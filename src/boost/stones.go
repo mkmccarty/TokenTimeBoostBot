@@ -1110,14 +1110,16 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 	}
 
-	// Want the BuffTimeValueCRT to be sorted low to high
-	sort.SliceStable(BuffTimeValueCRT, func(i, j int) bool {
-		return BuffTimeValueCRT[i] < BuffTimeValueCRT[j]
-	})
-	// What's the difference between the first second values
-	crtTime := time.Duration(BuffTimeValueCRT[1]-BuffTimeValueCRT[0]) * time.Second
-	if crtTime > time.Duration(60)*time.Second {
-		builder.WriteString(fmt.Sprintf("CRT Duration: %v\n", crtTime.Round(time.Second)))
+	if len(BuffTimeValueCRT) > 1 {
+		// Want the BuffTimeValueCRT to be sorted low to high
+		sort.SliceStable(BuffTimeValueCRT, func(i, j int) bool {
+			return BuffTimeValueCRT[i] < BuffTimeValueCRT[j]
+		})
+		// What's the difference between the first second values
+		crtTime := time.Duration(math.Abs(BuffTimeValueCRT[1]-BuffTimeValueCRT[0])) * time.Second
+		if crtTime > time.Duration(60)*time.Second {
+			builder.WriteString(fmt.Sprintf("CRT Duration: %v\n", crtTime.Round(time.Second)))
+		}
 	}
 
 	fmt.Fprintf(&builder, "Coop Deflector Bonus: %2.0f%%\n", everyoneDeflectorPercent)
