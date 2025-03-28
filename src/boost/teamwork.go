@@ -363,7 +363,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		})
 		// What's the difference between the first second values
 		crtTime := time.Duration(math.Abs(BuffTimeValueCRT[1])) * time.Second
-		if crtTime > time.Duration(60)*time.Second && math.Abs(BuffTimeValueCRT[0]) < 60 {
+		if crtTime > time.Duration(90)*time.Second && math.Abs(BuffTimeValueCRT[0]) < 60 {
 			builder.WriteString(fmt.Sprintf("CRT Duration: %v\n", crtTime.Round(time.Second)))
 		}
 	}
