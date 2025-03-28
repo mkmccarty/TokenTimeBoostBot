@@ -666,7 +666,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				}
 			}
 			if bestDeflectorPercent == 0.0 {
-				as.note = append(as.note, "Missing Deflector")
+				if as.name != "[departed]" {
+					as.note = append(as.note, "Missing Deflector")
+				}
 			} else if useBuffHistory {
 				as.note = append(as.note, fmt.Sprintf("DEFL from BuffHist %2.0f%%", bestDeflectorPercent))
 				as.deflector.abbrev = fmt.Sprintf("%d%%", int(bestDeflectorPercent))
@@ -679,14 +681,13 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	table := tablewriter.NewWriter(&builder)
 
-	table.SetCenterSeparator("")
-	table.SetColumnSeparator("")
-	table.SetRowSeparator("")
-	table.SetHeaderLine(false)
-	table.SetTablePadding(" ") // pad with tabs
-	table.SetNoWhiteSpace(true)
+	//table.SetCenterSeparator("")
+	//table.SetColumnSeparator("")
+	//table.SetRowSeparator("")
+	//table.SetHeaderLine(false)
+	//table.SetTablePadding(" ") // pad with tabs
+	//table.SetNoWhiteSpace(true)
 	//table.SetAlignment(tablewriter.ALIGN_LEFT)
-
 	needLegend := false
 	showGlitch := false
 
@@ -960,7 +961,11 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				}
 			}
 
-			statsLine := []string{as.name,
+			//url := bottools.GetStaabmiaLink(true, dimension, rate, int(everyoneDeflectorPercent), as.staabArtifacts, as.colleggSR)
+			//link := fmt.Sprintf("[%s](%s)", ei.GetBotEmojiMarkdown("staab"), url)
+			//link := fmt.Sprintf("[%s](%s)", "🌌", url)
+
+			statsLine := []string{truncateString(as.name, 12),
 				displayT, displayQ}
 
 			if details {
@@ -985,7 +990,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			if as.name != "[departed]" {
 				url := bottools.GetStaabmiaLink(true, dimension, rate, int(everyoneDeflectorPercent), as.staabArtifacts, as.colleggSR)
 				builderURL.WriteString(fmt.Sprintf("🔗[%s](%s)\n", as.nameRaw, url))
-				fmt.Fprintf(&tileBuilder, "🔗[Stone Calc](%s)", url)
+				fmt.Fprintf(&tileBuilder, "[%sCalc](%s)", ei.GetBotEmojiMarkdown("staab"), url)
 			}
 
 			safeName := as.nameRaw
@@ -1049,7 +1054,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		table.SetHeader(headerStr)
 		table.SetColumnAlignment(alignment)
-
 	}
 
 	fmt.Fprintf(&builder, "Stones Report for %s %s/[**%s**](%s)\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID))
@@ -1126,4 +1130,11 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	builder.WriteString(fmt.Sprintf("Colleggtibles show when less than %s\n", strings.Join(colleggtibleStr, ", ")))
 
 	return builder.String(), builderURL.String(), field
+}
+
+func truncateString(s string, length int) string {
+	if len(s) > length {
+		return s[:length]
+	}
+	return s
 }
