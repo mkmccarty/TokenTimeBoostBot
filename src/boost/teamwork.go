@@ -343,9 +343,16 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		})
 		deliveryTableMap[strings.ToLower(c.GetUserName())] = DeliveryTimeValues
 
-		for _, a := range c.GetBuffHistory() {
-			BuffTimeValueCRT = append(BuffTimeValueCRT, contractDurationSeconds-a.GetServerTimestamp())
-			break
+		if len(c.GetBuffHistory()) > 0 {
+			a := c.GetBuffHistory()[0]
+			serverTimestamp := a.GetServerTimestamp() // When it was equipped
+			if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
+				serverTimestamp -= coopStatus.GetSecondsSinceAllGoalsAchieved()
+			} else {
+				serverTimestamp += calcSecondsRemaining
+			}
+
+			BuffTimeValueCRT = append(BuffTimeValueCRT, contractDurationSeconds-serverTimestamp)
 		}
 	}
 
@@ -355,11 +362,12 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			return BuffTimeValueCRT[i] < BuffTimeValueCRT[j]
 		})
 		// What's the difference between the first second values
-		crtTime := time.Duration(math.Abs(BuffTimeValueCRT[1]-BuffTimeValueCRT[0])) * time.Second
+		crtTime := time.Duration(math.Abs(BuffTimeValueCRT[1])) * time.Second
 		if crtTime > time.Duration(60)*time.Second {
 			builder.WriteString(fmt.Sprintf("CRT Duration: %v\n", crtTime.Round(time.Second)))
 		}
 	}
+
 	for i, c := range coopStatus.GetContributors() {
 
 		var field []*discordgo.MessageEmbedField
