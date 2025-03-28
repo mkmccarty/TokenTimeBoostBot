@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -19,6 +20,11 @@ func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCr
 		}
 		choices = append(choices, &choice)
 	}
+
+	sort.Slice(choices, func(i, j int) bool {
+		return choices[i].Name < choices[j].Name
+	})
+
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
 		Data: &discordgo.InteractionResponseData{
@@ -52,6 +58,11 @@ func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.Interacti
 			}
 			choices = append(choices, &choice)
 		}
+
+		sort.Slice(choices, func(i, j int) bool {
+			return choices[i].Name < choices[j].Name
+		})
+
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionApplicationCommandAutocompleteResult,
 			Data: &discordgo.InteractionResponseData{
@@ -75,6 +86,11 @@ func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.Interacti
 			}
 		}
 	}
+
+	sort.Slice(choices, func(i, j int) bool {
+		return choices[i].Name < choices[j].Name
+	})
+
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
 		Data: &discordgo.InteractionResponseData{
