@@ -1056,6 +1056,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		table.SetColumnAlignment(alignment)
 	}
 
+	var contractDurationSeconds float64
+
 	fmt.Fprintf(&builder, "Stones Report for %s %s/[**%s**](%s)\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID))
 	if eiContract.ID != "" {
 		nowTime := time.Now()
@@ -1068,7 +1070,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
 			secondsSinceAllGoals := int64(coopStatus.GetSecondsSinceAllGoalsAchieved())
 			endTime = endTime.Add(-time.Duration(secondsSinceAllGoals) * time.Second)
-			//contractDurationSeconds = endTime.Sub(startTime).Seconds()
+			contractDurationSeconds = endTime.Sub(startTime).Seconds()
 		} else {
 			startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
 			startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
@@ -1076,7 +1078,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			calcSecondsRemaining := int64((totalReq - totalContributions) / contributionRatePerSecond)
 			endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 			endStr = "Est End:"
-			//contractDurationSeconds := endTime.Sub(startTime).Seconds()
+			contractDurationSeconds = endTime.Sub(startTime).Seconds()
 			if setContractEstimate {
 				c := FindContract(contractID)
 				if c != nil {
@@ -1097,6 +1099,25 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if eiContract.ModifierHabCap != 1.0 {
 			fmt.Fprintf(&builder, "Hab Capacity Modifier: %2.1fx\n", eiContract.ModifierHabCap)
 		}
+	}
+
+	// Determine CRT time
+	var BuffTimeValueCRT []float64
+	for _, c := range coopStatus.GetContributors() {
+		for _, a := range c.GetBuffHistory() {
+			BuffTimeValueCRT = append(BuffTimeValueCRT, contractDurationSeconds-a.GetServerTimestamp())
+			break
+		}
+	}
+
+	// Want the BuffTimeValueCRT to be sorted low to high
+	sort.SliceStable(BuffTimeValueCRT, func(i, j int) bool {
+		return BuffTimeValueCRT[i] < BuffTimeValueCRT[j]
+	})
+	// What's the difference between the first second values
+	crtTime := time.Duration(BuffTimeValueCRT[1]-BuffTimeValueCRT[0]) * time.Second
+	if crtTime > time.Duration(60)*time.Second {
+		builder.WriteString(fmt.Sprintf("CRT Duration: %v\n", crtTime.Round(time.Second)))
 	}
 
 	fmt.Fprintf(&builder, "Coop Deflector Bonus: %2.0f%%\n", everyoneDeflectorPercent)

@@ -231,6 +231,8 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		totalValue      float64
 	}
 
+	var BuffTimeValueCRT []float64
+
 	var BuffTimeValues []BuffTimeValue
 	var contractDurationSeconds float64
 	var calcSecondsRemaining float64
@@ -340,6 +342,21 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			DeliveryTimeValues[1].contributions + c.GetContributionRate()*float64(calcSecondsRemaining),
 		})
 		deliveryTableMap[strings.ToLower(c.GetUserName())] = DeliveryTimeValues
+
+		for _, a := range c.GetBuffHistory() {
+			BuffTimeValueCRT = append(BuffTimeValueCRT, contractDurationSeconds-a.GetServerTimestamp())
+			break
+		}
+	}
+
+	// Want the BuffTimeValueCRT to be sorted low to high
+	sort.SliceStable(BuffTimeValueCRT, func(i, j int) bool {
+		return BuffTimeValueCRT[i] < BuffTimeValueCRT[j]
+	})
+	// What's the difference between the first second values
+	crtTime := time.Duration(BuffTimeValueCRT[1]-BuffTimeValueCRT[0]) * time.Second
+	if crtTime > time.Duration(60)*time.Second {
+		builder.WriteString(fmt.Sprintf("CRT Duration: %v\n", crtTime.Round(time.Second)))
 	}
 
 	for i, c := range coopStatus.GetContributors() {
