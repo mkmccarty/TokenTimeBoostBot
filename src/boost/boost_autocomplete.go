@@ -62,7 +62,8 @@ func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.Interacti
 	}
 
 	for _, c := range ei.EggIncContractsAll {
-		if strings.Contains(c.ID, searchString) {
+		if strings.Contains(strings.ToLower(c.ID), strings.ToLower(searchString)) ||
+			strings.Contains(strings.ToLower(c.Name), strings.ToLower(searchString)) {
 
 			choice := discordgo.ApplicationCommandOptionChoice{
 				Name:  fmt.Sprintf("%s (%s)", c.Name, c.ID),
