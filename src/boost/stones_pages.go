@@ -17,10 +17,18 @@ func buildStonesCache(s string, url string, tiles []*discordgo.MessageEmbedField
 	// Split string by "```" characters into a header, body and footer
 	split := strings.Split(s, "```")
 
+	// Split by lines
 	table := strings.Split(split[1], "\n")
 	var trimmedTable []string
 	for _, line := range table {
-		if strings.TrimSpace(line) != "" {
+		if strings.TrimSpace(line) != "" && !strings.HasPrefix(line, "+") {
+			// This line has a single divider character of "~", I want to split this line into 2 parts.
+			// The first part is the left side of the divider, the second part is the right side of the divider.
+			// The second part of the line needs to be wrapped with single backticks.
+			line = line[1 : len(line)-1]
+			line = strings.ReplaceAll(line, " | ", "|")
+			parts := strings.Split(line, "|")
+			line = fmt.Sprintf("`%s %s`", strings.Join(parts[0:3], "  "), strings.Join(parts[3:], " "))
 			trimmedTable = append(trimmedTable, line)
 		}
 	}
@@ -48,7 +56,7 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 			var pageBuilder strings.Builder
 			var currentPageSize int
 
-			for _, line := range strings.Split(cache.url, "\n") {
+			for line := range strings.SplitSeq(cache.url, "\n") {
 				lineSize := len(line) + 1 // +1 for the newline character
 				if currentPageSize+lineSize > 1800 {
 					cache.urlPages = append(cache.urlPages, pageBuilder.String())
@@ -151,7 +159,7 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		cache.pages = int(math.Ceil(float64(len(cache.table)) / float64(itemsPerPage)))
 
 	} else {
-		itemsPerPage = 10
+		itemsPerPage = 60
 		if cache.page*itemsPerPage >= len(cache.table) {
 			cache.page = 0
 		}
@@ -173,17 +181,39 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 	}
 
 	if !cache.displayTiles {
-		flags |= discordgo.MessageFlagsSuppressEmbeds
+		//flags |= discordgo.MessageFlagsSuppressEmbeds
 		builder.WriteString(cache.header)
-		builder.WriteString("```")
-		builder.WriteString(cache.tableHeader)
+		//builder.WriteString("```")
+		//builder.WriteString(cache.tableHeader)
 
+		var currentField strings.Builder
+		currentField.WriteString(cache.tableHeader)
 		for _, line := range cache.table[start:end] {
-			builder.WriteString(line + "\n")
+			if currentField.Len()+len(line)+1 > 950 { // +1 for the newline character
+				field = append(field, &discordgo.MessageEmbedField{
+					Name:  "",
+					Value: currentField.String(),
+				})
+				currentField.Reset()
+			}
+			currentField.WriteString(line + "\n")
 		}
+		if currentField.Len() > 0 {
+			field = append(field, &discordgo.MessageEmbedField{
+				Name:  "",
+				Value: currentField.String(),
+			})
+		}
+		embed = []*discordgo.MessageEmbed{{
+			Type:        discordgo.EmbedTypeRich,
+			Title:       "Stones Report",
+			Description: cache.header,
+			Fields:      field,
+			Footer:      &discordgo.MessageEmbedFooter{Text: strings.ReplaceAll(cache.footer, "√", "⭐️")},
+		}}
 
-		builder.WriteString("```")
-		builder.WriteString(cache.footer)
+		//builder.WriteString("```")
+		//builder.WriteString(cache.footer)
 	} else {
 
 		field = append(field, cache.tiles[start:end]...)
@@ -210,8 +240,9 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 			})
 		if err != nil {
 			log.Println(err)
+		} else {
+			cache.msgID = msg.ID
 		}
-		cache.msgID = msg.ID
 
 	} else {
 		comp := getStonesComponents(cache.xid, page, cache.pages)
@@ -283,21 +314,21 @@ func getStonesComponents(name string, page int, pageEnd int) []discordgo.Message
 			Style:    discordgo.SecondaryButton,
 			CustomID: fmt.Sprintf("fd_stones#%s#refresh", name),
 		})
+
+	buttons = append(buttons,
+		discordgo.Button{
+			Label:    "Tile/Table",
+			Style:    discordgo.SecondaryButton,
+			CustomID: fmt.Sprintf("fd_stones#%s#toggle", name),
+		})
 	/*
 		buttons = append(buttons,
 			discordgo.Button{
-				Label:    "Tile/Table",
+				Label:    "staabmia links",
 				Style:    discordgo.SecondaryButton,
-				CustomID: fmt.Sprintf("fd_stones#%s#toggle", name),
+				CustomID: fmt.Sprintf("fd_stones#%s#links", name),
 			})
 	*/
-	buttons = append(buttons,
-		discordgo.Button{
-			Label:    "staabmia links",
-			Style:    discordgo.SecondaryButton,
-			CustomID: fmt.Sprintf("fd_stones#%s#links", name),
-		})
-
 	buttons = append(buttons,
 		discordgo.Button{
 			Label:    "Close",
