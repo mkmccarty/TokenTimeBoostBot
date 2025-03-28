@@ -1057,6 +1057,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	}
 
 	var contractDurationSeconds float64
+	var calcSecondsRemaining float64
 
 	fmt.Fprintf(&builder, "Stones Report for %s %s/[**%s**](%s)\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID))
 	if eiContract.ID != "" {
@@ -1075,7 +1076,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
 			startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
 			totalReq := eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1]
-			calcSecondsRemaining := int64((totalReq - totalContributions) / contributionRatePerSecond)
+			calcSecondsRemaining = (totalReq - totalContributions) / contributionRatePerSecond
 			endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 			endStr = "Est End:"
 			contractDurationSeconds = endTime.Sub(startTime).Seconds()
@@ -1104,19 +1105,24 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	// Determine CRT time
 	var BuffTimeValueCRT []float64
 	for _, c := range coopStatus.GetContributors() {
-		for _, a := range c.GetBuffHistory() {
-			BuffTimeValueCRT = append(BuffTimeValueCRT, contractDurationSeconds-a.GetServerTimestamp())
-			break
+		if len(c.GetBuffHistory()) > 0 {
+			a := c.GetBuffHistory()[0]
+			serverTimestamp := a.GetServerTimestamp() // When it was equipped
+			if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
+				serverTimestamp -= coopStatus.GetSecondsSinceAllGoalsAchieved()
+			} else {
+				serverTimestamp += calcSecondsRemaining
+			}
+			BuffTimeValueCRT = append(BuffTimeValueCRT, contractDurationSeconds-serverTimestamp)
 		}
 	}
-
 	if len(BuffTimeValueCRT) > 1 {
 		// Want the BuffTimeValueCRT to be sorted low to high
 		sort.SliceStable(BuffTimeValueCRT, func(i, j int) bool {
 			return BuffTimeValueCRT[i] < BuffTimeValueCRT[j]
 		})
 		// What's the difference between the first second values
-		crtTime := time.Duration(math.Abs(BuffTimeValueCRT[1]-BuffTimeValueCRT[0])) * time.Second
+		crtTime := time.Duration(math.Abs(BuffTimeValueCRT[1])) * time.Second
 		if crtTime > time.Duration(60)*time.Second {
 			builder.WriteString(fmt.Sprintf("CRT Duration: %v\n", crtTime.Round(time.Second)))
 		}
