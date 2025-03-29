@@ -36,7 +36,7 @@ func GetSlashTokenCommand(cmd string) *discordgo.ApplicationCommand {
 			{
 				Type:         discordgo.ApplicationCommandOptionString,
 				Name:         "contract-id",
-				Description:  "Contract ID",
+				Description:  "Contract ID (ie. spring-2025)",
 				Required:     false,
 				Autocomplete: true,
 			},
@@ -260,6 +260,12 @@ func HandleTrackerEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	data := i.ModalSubmitData()
 	for _, comp := range data.Components {
 		input := comp.(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput)
+		if input.CustomID == "contract-id" && input.Value != "" {
+			contractID := strings.TrimSpace(input.Value)
+			t.ContractID = contractID
+			t.TimeFromCoopStatus = time.Time{}
+			str = fmt.Sprintf("Coontract ID updated to %s.", contractID)
+		}
 		if input.CustomID == "coop-id" && input.Value != "" {
 			coopID := strings.TrimSpace(input.Value)
 			t.CoopID = coopID

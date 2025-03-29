@@ -1,7 +1,6 @@
 package track
 
 import (
-	"fmt"
 	"log"
 	"slices"
 	"strconv"
@@ -89,14 +88,12 @@ func getTokenValComponents(name string, linked bool) []discordgo.MessageComponen
 
 // HandleTokenEdit will handle the token edit button
 func HandleTokenEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
-
 	var userID string
 	if i.GuildID != "" {
 		userID = i.Member.User.ID
 	} else {
 		userID = i.User.ID
 	}
-
 	name := extractTokenName(i.MessageComponentData().CustomID)
 	if name == "" {
 		name = extractTokenNameOriginal(i.Message.Components[0])
@@ -122,8 +119,19 @@ func HandleTokenEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				discordgo.ActionsRow{
 					Components: []discordgo.MessageComponent{
 						discordgo.TextInput{
+							CustomID:    "contract-id",
+							Label:       "Change Contract ID",
+							Style:       discordgo.TextInputShort,
+							Placeholder: t.ContractID,
+							MaxLength:   30,
+							Required:    false,
+						},
+					}},
+				discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.TextInput{
 							CustomID:    "coop-id",
-							Label:       "Coop ID",
+							Label:       "Change Coop ID",
 							Style:       discordgo.TextInputShort,
 							Placeholder: t.CoopID,
 							MaxLength:   30,
@@ -144,32 +152,34 @@ func HandleTokenEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 						},
 					},
 				},
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.TextInput{
-							CustomID:    "since-start",
-							Label:       "How long ago did this start?",
-							Style:       discordgo.TextInputShort,
-							Placeholder: fmt.Sprintf("%s (ago), or use timestamp", strings.ReplaceAll(time.Since(t.StartTime).Round(time.Minute).String(), "0s", "")),
-							Required:    false,
-							MaxLength:   30,
-							MinLength:   2,
+				/*
+					discordgo.ActionsRow{
+						Components: []discordgo.MessageComponent{
+							discordgo.TextInput{
+								CustomID:    "since-start",
+								Label:       "How long ago did this start?",
+								Style:       discordgo.TextInputShort,
+								Placeholder: fmt.Sprintf("%s (ago), or use timestamp", strings.ReplaceAll(time.Since(t.StartTime).Round(time.Minute).String(), "0s", "")),
+								Required:    false,
+								MaxLength:   30,
+								MinLength:   2,
+							},
 						},
 					},
-				},
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.TextInput{
-							CustomID:    "start-timestamp",
-							Label:       "Start Timestamp",
-							Style:       discordgo.TextInputShort,
-							Placeholder: fmt.Sprintf("<t:%d:t> or %d.  Discord timestamp", t.StartTime.Unix(), t.StartTime.Unix()),
-							Required:    false,
-							MaxLength:   30,
-							MinLength:   2,
+					discordgo.ActionsRow{
+						Components: []discordgo.MessageComponent{
+							discordgo.TextInput{
+								CustomID:    "start-timestamp",
+								Label:       "Start Timestamp",
+								Style:       discordgo.TextInputShort,
+								Placeholder: fmt.Sprintf("<t:%d:t> or %d.  Discord timestamp", t.StartTime.Unix(), t.StartTime.Unix()),
+								Required:    false,
+								MaxLength:   30,
+								MinLength:   2,
+							},
 						},
 					},
-				},
+				*/
 			}}})
 	if err != nil {
 		log.Println(err)
