@@ -100,23 +100,32 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		// Calculate the token value
 		fmt.Fprintf(&builder, "## Coop token value based on contract reactions\n")
 		fmt.Fprintf(&builder, "Contract started at: <t:%d:f> with a duration of %s\n", contract.StartTime.Unix(), duration.Round(time.Second))
-		fmt.Fprintf(&builder, "Target token value: %6.3f\n", targetTval)
-		table := tablewriter.NewWriter(&builder)
-		table.SetHeader([]string{"", "∆", "Val ∆"})
+		fmt.Fprintf(&builder, "Target token value: %6.3f\n\n", targetTval)
+		var tbuilder strings.Builder
+		table := tablewriter.NewWriter(&tbuilder)
+		table.SetHeader([]string{"Name", "∆", "Val ∆"})
 		table.SetBorder(false)
 		table.SetCenterSeparator("")
 		table.SetColumnSeparator("")
 		table.SetRowSeparator("")
 		table.SetHeaderLine(false)
-		table.SetTablePadding("\t") // pad with tabs
+		table.SetTablePadding(" ") // pad with tabs
 		table.SetNoWhiteSpace(true)
-		fmt.Fprint(&builder, "```")
 
 		calculateTokenValueCoopLog(contract, duration, table)
 
 		table.Render()
-		fmt.Fprint(&builder, "```")
-		fmt.Fprintf(&builder, "Updated <t:%d:R>, refresh with %s\n", time.Now().Unix(), bottools.GetFormattedCommand("coop-tval"))
+
+		// For the tbuilder.String() want to copy it into builder but wrap every line with a backtick
+		lines := strings.SplitSeq(tbuilder.String(), "\n")
+		for line := range lines {
+			if strings.TrimSpace(line) != "" {
+				fmt.Fprintf(&builder, "`%s`\n", line)
+			}
+		}
+
+		fmt.Fprintf(&builder, "\nUpdated <t:%d:R>, refresh with %s\n", time.Now().Unix(), bottools.GetFormattedCommand("coop-tval"))
+
 	}
 	if invalidDuration {
 		if invalidDuration {
