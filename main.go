@@ -935,6 +935,8 @@ func main() {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
 	bottools.LoadEmotes(s, false)
+	// ImportNewEmojis is intended to import new emojis to the Discord API
+	bottools.ImportNewEmojis(s)
 	boost.LaunchIndependentTimers(s)
 
 	_ = s.UpdateStatusComplex(discordgo.UpdateStatusData{

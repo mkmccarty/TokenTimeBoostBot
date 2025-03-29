@@ -1,6 +1,7 @@
 package bottools
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
@@ -12,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -178,18 +180,17 @@ func ImportEggImage(s *discordgo.Session, eggID, IconURL string) (string, error)
 		Name: newID.Name,
 		ID:   newID.ID,
 	}
-	ei.EmoteMap[strings.ToLower(eggID)] = emojiData
+	ei.EmoteMap[eggID] = emojiData
 	saveEmotesToFile(emoteFilePath, ei.EmoteMap)
 	return fmt.Sprintf(":%s:%s:", newID.Name, newID.ID), nil
 }
 
-/*
 // ImportNewEmojis will import new emojis from the emoji directory into the discord app
 func ImportNewEmojis(s *discordgo.Session) {
 	// Get a list of all files in the emoji directory
 	files, err := os.ReadDir("emoji")
 	if err != nil {
-		log.Println("Error reading emoji directory:", err)
+		// Likely just running in production
 		return
 	}
 
@@ -205,12 +206,12 @@ func ImportNewEmojis(s *discordgo.Session) {
 	// Loop through all files in the emoji directory
 	for _, file := range files {
 		// Check if the file is a PNG image
-		if !strings.HasSuffix(file.Name(), ".png") {
+		if !strings.HasSuffix(file.Name(), ".png") && !strings.HasSuffix(file.Name(), ".gif") {
 			continue
 		}
 
-		// Extract the emoji name from the file name
-		emojiName := strings.TrimSuffix(file.Name(), ".png")
+		fileType := strings.ToLower(file.Name()[len(file.Name())-3:]) // Extract the emoji name from the file name
+		emojiName := strings.ToLower(strings.TrimSuffix(strings.TrimSuffix(file.Name(), ".png"), ".gif"))
 
 		// Check if the emoji already exists
 		if existingEmojis[emojiName] {
@@ -225,7 +226,7 @@ func ImportNewEmojis(s *discordgo.Session) {
 			defer wg.Done()
 
 			// Open the emoji file
-			emojiFile, err := os.Open("emoji/" + emojiName + ".png")
+			emojiFile, err := os.Open("emoji/" + emojiName + "." + fileType)
 			if err != nil {
 				log.Println("Error opening emoji file:", err)
 				return
@@ -245,33 +246,14 @@ func ImportNewEmojis(s *discordgo.Session) {
 				log.Println("Error reading emoji file:", err)
 				return
 			}
-
-			// Decode the emoji image
-			src, _, err := image.Decode(&buf)
-			if err != nil {
-				log.Println("Error decoding emoji image:", err)
-				return
-			}
-
-			// Resize the emoji image - Removed scaling
-			//destinationImage := image.NewRGBA(image.Rect(0, 0, src.Bounds().Max.X/4, src.Bounds().Max.Y/4))
-			//draw.NearestNeighbor.Scale(destinationImage, destinationImage.Rect, src, src.Bounds(), draw.Over, nil)
-			destinationImage := src
-			// Encode the emoji image to PNG
-			var pngBuf bytes.Buffer
-			err = png.Encode(&pngBuf, destinationImage)
-			if err != nil {
-				log.Println("Error encoding emoji image:", err)
-				return
-			}
-
-			// Encode the emoji image to base64
-			base64Image := base64.StdEncoding.EncodeToString(pngBuf.Bytes())
+			// Encode the emoji image
+			fileSuffix := strings.ToLower(file.Name()[len(file.Name())-3:])
+			base64Image := fmt.Sprintf("data:image/%s;base64,%s", fileSuffix, base64.StdEncoding.EncodeToString(buf.Bytes()))
 
 			// Create the emoji in Discord
 			data := discordgo.EmojiParams{
-				Name:  fmt.Sprintf("egg_%s", emojiName),
-				Image: "data:image/png;base64," + base64Image,
+				Name:  emojiName,
+				Image: base64Image,
 			}
 			newID, err := s.ApplicationEmojiCreate(config.DiscordAppID, &data)
 			if err != nil {
@@ -286,4 +268,3 @@ func ImportNewEmojis(s *discordgo.Session) {
 	wg.Wait()
 	saveEmotesToFile(emoteFilePath, ei.EmoteMap)
 }
-*/
