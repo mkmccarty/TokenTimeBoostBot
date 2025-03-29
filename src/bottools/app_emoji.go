@@ -260,7 +260,7 @@ func ImportNewEmojis(s *discordgo.Session) {
 				log.Println("Error creating emoji in Discord:", err)
 				return
 			}
-			ei.EmoteMap[emojiName] = ei.Emotes{Name: newID.Name, ID: newID.ID}
+			ei.EmoteMap[emojiName] = ei.Emotes{Name: newID.Name, ID: newID.ID, Animated: newID.Animated}
 		}(emojiName)
 	}
 
