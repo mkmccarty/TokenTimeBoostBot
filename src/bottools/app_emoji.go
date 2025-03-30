@@ -24,8 +24,8 @@ import (
 
 const emoteFilePath = "ttbb-data/Emotes.json"
 
-// fetchEmojis fetches emojis from the discord API
-func fetchEmojis(s *discordgo.Session) map[string]ei.Emotes {
+// fetchEmojisFromDiscord fetches emojis from the discord API
+func fetchEmojisFromDiscord(s *discordgo.Session) map[string]ei.Emotes {
 	emotes := make(map[string]ei.Emotes)
 	appEmoji, err := s.ApplicationEmojis(config.DiscordAppID)
 	if err != nil {
@@ -45,15 +45,17 @@ func fetchEmojis(s *discordgo.Session) map[string]ei.Emotes {
 func LoadEmotes(s *discordgo.Session, force bool) {
 	EmoteMapNew := make(map[string]ei.Emotes)
 
-	// Attempt to load the file
+	// Attempt to load the cached file
 	fileInfo, err := os.Stat(emoteFilePath)
 	if force || err != nil {
 		if force || os.IsNotExist(err) {
 			// File didn't eist load fresh data
-			EmoteMapNew = fetchEmojis(s)
+			EmoteMapNew = fetchEmojisFromDiscord(s)
 			ei.EmoteMap = EmoteMapNew
 			saveEmotesToFile(emoteFilePath, EmoteMapNew)
 			ei.EmoteMap = EmoteMapNew
+			// ImportNewEmojis is intended to import new emojis to the Discord API
+			ImportNewEmojis(s)
 			return
 		}
 	} else {
@@ -67,7 +69,7 @@ func LoadEmotes(s *discordgo.Session, force bool) {
 
 	// If data is empty or the file is older than 1 day, fetch new data
 	if len(EmoteMapNew) == 0 || time.Since(fileInfo.ModTime()) > 24*time.Hour {
-		EmoteMapNew = fetchEmojis(s)
+		EmoteMapNew = fetchEmojisFromDiscord(s)
 		if len(EmoteMapNew) != len(ei.EmoteMap) {
 			ei.EmoteMap = EmoteMapNew
 			saveEmotesToFile(emoteFilePath, EmoteMapNew)
@@ -150,9 +152,6 @@ func ImportEggImage(s *discordgo.Session, eggID, IconURL string) (string, error)
 	// Do something with iconData if needed
 	destinationImage := image.NewRGBA(image.Rect(0, 0, src.Bounds().Max.X/4, src.Bounds().Max.Y/4))
 	draw.NearestNeighbor.Scale(destinationImage, destinationImage.Rect, src, src.Bounds(), draw.Over, nil)
-	//output, _ := os.Create(fmt.Sprintf("egg_%s.png", cleanEggID))
-	//defer output.Close()
-	//png.Encode(output, destinationImage)
 
 	var buf bytes.Buffer
 	err = png.Encode(&buf, destinationImage)
@@ -161,14 +160,9 @@ func ImportEggImage(s *discordgo.Session, eggID, IconURL string) (string, error)
 	}
 	base64Image := base64.StdEncoding.EncodeToString(buf.Bytes())
 
-	//
-	const DiscordURIPng = "data:image/png;base64,"
-	//const DiscordURIJpg = "data:image/jpeg;base64,"
-	//const DiscordURIGif = "data:image/gif;base64,"
-
 	data := discordgo.EmojiParams{
 		Name:  fmt.Sprintf("egg_%s", cleanEggID),
-		Image: DiscordURIPng + base64Image,
+		Image: "data:image/png;base64," + base64Image,
 	}
 
 	newID, err := s.ApplicationEmojiCreate(config.DiscordAppID, &data)
