@@ -193,7 +193,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 			}
 
 			description := strings.Join(egg.DimensionValueString, ",") + " " + egg.DimensionName
-			description += fmt.Sprintf("\n%s Value: %g)", ei.GetBotEmojiMarkdown(egg.ID), egg.Value)
+			description += fmt.Sprintf("\n%s Value: %g", ei.GetBotEmojiMarkdown(egg.ID), egg.Value)
 			// Send a message about a new egg
 			u, _ := s.UserChannelCreate(config.AdminUserID)
 			var data discordgo.MessageSend
