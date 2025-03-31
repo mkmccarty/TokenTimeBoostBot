@@ -173,6 +173,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 
 		if len(egg.DimensionValueString) > 0 {
 			egg.Description = "Up to " + egg.DimensionValueString[len(egg.DimensionValueString)-1] + " " + egg.DimensionName
+			egg.Description += fmt.Sprintf("\nValue: %g)", egg.Value)
 		}
 
 		eggProtoBin, _ := proto.Marshal(customEgg)
@@ -192,6 +193,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 			}
 
 			description := strings.Join(egg.DimensionValueString, ",") + " " + egg.DimensionName
+			description += fmt.Sprintf("\n%s Value: %g)", ei.GetBotEmojiMarkdown(egg.ID), egg.Value)
 			// Send a message about a new egg
 			u, _ := s.UserChannelCreate(config.AdminUserID)
 			var data discordgo.MessageSend
