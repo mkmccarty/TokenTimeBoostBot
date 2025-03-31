@@ -171,10 +171,12 @@ func ImportEggImage(s *discordgo.Session, eggID, IconURL string) (string, error)
 		return "", err
 	}
 	emojiData := ei.Emotes{
-		Name: newID.Name,
-		ID:   newID.ID,
+		Name:     newID.Name,
+		ID:       newID.ID,
+		Animated: newID.Animated,
 	}
 	ei.EmoteMap[eggID] = emojiData
+
 	saveEmotesToFile(emoteFilePath, ei.EmoteMap)
 	return fmt.Sprintf(":%s:%s:", newID.Name, newID.ID), nil
 }
