@@ -178,7 +178,6 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 
 		eggProtoBin, _ := proto.Marshal(customEgg)
 		egg.Proto = base64.StdEncoding.EncodeToString(eggProtoBin)
-		delete(ei.CustomEggMap, "flame-retardant")
 
 		if _, exists := ei.CustomEggMap[egg.ID]; exists {
 			if ei.CustomEggMap[egg.ID].Proto == egg.Proto {
