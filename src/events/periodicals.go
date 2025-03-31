@@ -173,7 +173,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 
 		if len(egg.DimensionValueString) > 0 {
 			egg.Description = "Up to " + egg.DimensionValueString[len(egg.DimensionValueString)-1] + " " + egg.DimensionName
-			egg.Description += fmt.Sprintf("\nValue: %g)", egg.Value)
+			egg.Description += fmt.Sprintf("\nValue: %g", egg.Value)
 		}
 
 		eggProtoBin, _ := proto.Marshal(customEgg)
