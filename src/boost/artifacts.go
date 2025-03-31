@@ -319,7 +319,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 					CustomID:    "as_#COLLEGG#" + userID + "#" + temp,
 					Placeholder: "Select your Colleggtibles",
 					MinValues:   &minV,
-					MaxValues:   7,
+					MaxValues:   len(ei.CustomEggMap),
 					Options:     eggOptions,
 				},
 			},
