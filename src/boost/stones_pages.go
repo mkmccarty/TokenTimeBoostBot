@@ -233,7 +233,7 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 	if newMessage {
 		msg, err := s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
-				Content:    builder.String(),
+				Content:    "", //builder.String(),
 				Flags:      flags,
 				Components: getStonesComponents(cache.xid, page, cache.pages),
 				Embeds:     embed,
@@ -247,7 +247,7 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 	} else {
 		comp := getStonesComponents(cache.xid, page, cache.pages)
 
-		str := builder.String()
+		str := "" //builder.String()
 		d2 := discordgo.WebhookEdit{
 			Content:    &str,
 			Components: &comp,
