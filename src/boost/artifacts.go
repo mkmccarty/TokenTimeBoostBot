@@ -116,7 +116,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 							Description: "Common",
 							Value:       "T3C",
 							Default:     deflector == "T3C",
-							Emoji:       ei.GetBotComponentEmoji("defl_3C"),
+							Emoji:       ei.GetBotComponentEmoji("defl_T3C"),
 						},
 					},
 				},
