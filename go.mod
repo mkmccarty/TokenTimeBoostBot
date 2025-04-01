@@ -1,6 +1,6 @@
 module github.com/mkmccarty/TokenTimeBoostBot
 
-go 1.24.1
+go 1.24.2
 
 require (
 	github.com/bwmarrin/discordgo v0.28.2-0.20241208071600-33ffff21d31a
@@ -55,5 +55,5 @@ require (
 	golang.org/x/time v0.11.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250324211829-b45e905df463 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250324211829-b45e905df463 // indirect
-	google.golang.org/grpc v1.71.0 // indirect
+	google.golang.org/grpc v1.71.1 // indirect
 )
