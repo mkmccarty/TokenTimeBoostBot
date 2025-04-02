@@ -710,7 +710,6 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			gm, errGM := s.GuildMember(guildID, userID)
 			if errGM == nil {
 				if gm.Nick != "" {
-					b.Nick = gm.Nick
 					b.Name = gm.Nick
 				}
 				b.Unique = gm.User.String()
@@ -722,7 +721,11 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			}
 
 			if b.Nick == "" {
-				b.Nick = b.GlobalName
+				if b.GlobalName != "" {
+					b.Nick = b.GlobalName
+				} else {
+					b.Nick = b.UserName
+				}
 			}
 		}
 
