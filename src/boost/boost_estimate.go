@@ -179,7 +179,7 @@ func getContractEstimateString(contractID string) string {
 		str += fmt.Sprintf("**%v** - **%v** for a fastrun needing to ship **%.dq** eggs\n", estStrLower, estStr, int(c.TargetAmountq[len(c.TargetAmountq)-1]))
 	}
 
-	if len(c.TargetAmountq) != 3 {
+	if c.ContractVersion == 2 {
 		// Two ranges of estimates
 		// Speedrun w/ perfect set through to Sink with decent set
 		// Fair share from 1.05 to 0.92
