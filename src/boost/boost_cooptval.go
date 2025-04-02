@@ -103,7 +103,7 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		fmt.Fprintf(&builder, "Target token value: %6.3f\n\n", targetTval)
 		var tbuilder strings.Builder
 		table := tablewriter.NewWriter(&tbuilder)
-		table.SetHeader([]string{"Name", "∆", "Val ∆"})
+		table.SetHeader([]string{"Name", "S", "R", "Val ∆"})
 		table.SetBorder(false)
 		table.SetCenterSeparator("")
 		table.SetColumnSeparator("")
@@ -167,6 +167,8 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, table *tablewriter.Table) {
 	tokenCount := make(map[string]int)
+	tokenSent := make(map[string]int)
+	tokensReceived := make(map[string]int)
 	tokenValue := make(map[string]float64)
 
 	//	table.Append([]string{name, fmt.Sprintf("%d", tcount), fmt.Sprintf("%6.3f", tval)})
@@ -176,11 +178,13 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tabl
 			continue
 		}
 		t.Value = getTokenValue(t.Time.Sub(contract.StartTime).Seconds(), duration.Seconds())
-		// Sent tokens
+		// Received tokens
+		tokensReceived[t.ToNick] += t.Quantity
 		tokenCount[t.ToNick] -= t.Quantity
 		tokenValue[t.ToNick] -= t.Value * float64(t.Quantity)
-		// Received tokens
-		tokenCount[t.FromNick] += t.Quantity
+		// Sent tokens
+		tokenSent[t.FromNick] += t.Quantity
+		tokenCount[t.ToNick] += t.Quantity
 		tokenValue[t.FromNick] += t.Value * float64(t.Quantity)
 	}
 
@@ -199,6 +203,6 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tabl
 		if len(name) > 12 {
 			name = name[:12]
 		}
-		table.Append([]string{name, fmt.Sprintf("%d", tokenCount[key]), fmt.Sprintf("%6.3f", tokenValue[key])})
+		table.Append([]string{name, fmt.Sprintf("%d", tokenSent[key]), fmt.Sprintf("%d", tokensReceived[key]), fmt.Sprintf("%6.3f", tokenValue[key])})
 	}
 }
