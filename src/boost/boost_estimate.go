@@ -179,38 +179,40 @@ func getContractEstimateString(contractID string) string {
 		str += fmt.Sprintf("**%v** - **%v** for a fastrun needing to ship **%.dq** eggs\n", estStrLower, estStr, int(c.TargetAmountq[len(c.TargetAmountq)-1]))
 	}
 
-	// Two ranges of estimates
-	// Speedrun w/ perfect set through to Sink with decent set
-	// Fair share from 1.05 to 0.92
-	scoreBest := getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
-		true, 1.0, // Use faster duration at a 1.0 modifier
-		1.05,    // Fair Share, first booster
-		100, 20, // SIAB 100%, 20 minutes
-		20, 10, // Deflector %, minutes reduction
-		c.ChickenRuns, // All Chicken Runs
-		100, 5)        // Tokens Sent a lot and received a little.
-	scoreBestSink := getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
-		true, 1.0, // Use faster duration at a 1.0 modifier
-		0.92,   // 0.92 Fair Share (Last booster sink)
-		60, 45, // T4C SIAB for 45m
-		15, 0, // T4C Deflector for full duration
-		c.ChickenRuns, // All Chicken Runs
-		3, 100)        // Sink token use, sent at least 3 (max) and received a lot
-	scoreBestEffort := getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
-		false, 1.20, // use slower duration at 1.20 modifier so it's 20% slower
-		1.0,    // just equal fair share
-		60, 45, // T4C SIAB for 45m
-		13, 20, // T3R Deflector with 20m less duration
-		c.MaxCoopSize-1, // Chicken Runs
-		0, 0)            // No token sharing
+	if len(c.TargetAmountq) != 3 {
+		// Two ranges of estimates
+		// Speedrun w/ perfect set through to Sink with decent set
+		// Fair share from 1.05 to 0.92
+		scoreBest := getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+			true, 1.0, // Use faster duration at a 1.0 modifier
+			1.05,    // Fair Share, first booster
+			100, 20, // SIAB 100%, 20 minutes
+			20, 10, // Deflector %, minutes reduction
+			c.ChickenRuns, // All Chicken Runs
+			100, 5)        // Tokens Sent a lot and received a little.
+		scoreBestSink := getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+			true, 1.0, // Use faster duration at a 1.0 modifier
+			0.92,   // 0.92 Fair Share (Last booster sink)
+			60, 45, // T4C SIAB for 45m
+			15, 0, // T4C Deflector for full duration
+			c.ChickenRuns, // All Chicken Runs
+			3, 100)        // Sink token use, sent at least 3 (max) and received a lot
+		scoreBestEffort := getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+			false, 1.20, // use slower duration at 1.20 modifier so it's 20% slower
+			1.0,    // just equal fair share
+			60, 45, // T4C SIAB for 45m
+			13, 20, // T3R Deflector with 20m less duration
+			c.MaxCoopSize-1, // Chicken Runs
+			0, 0)            // No token sharing
 
-	str += fmt.Sprintf("CS Est: **%d** (SR) - **%d** (Sink) - **%d** (Best Effort)\n", scoreBest, scoreBestSink, scoreBestEffort)
+		str += fmt.Sprintf("CS Est: **%d** (SR) - **%d** (Sink) - **%d** (Best Effort)\n", scoreBest, scoreBestSink, scoreBestEffort)
 
-	if math.Round(c.TargetTval*100)/100 == math.Round(c.TargetTvalLower*100)/100 {
-		str += fmt.Sprintf("Target TVal: **%.2f**\n", c.TargetTval)
-	} else {
-		str += fmt.Sprintf("Target TVal: **%.2f** for lower estimate\n", c.TargetTvalLower)
-		str += fmt.Sprintf("Target TVal: **%.2f** for upper estimate\n", c.TargetTval)
+		if math.Round(c.TargetTval*100)/100 == math.Round(c.TargetTvalLower*100)/100 {
+			str += fmt.Sprintf("Target TVal: **%.2f**\n", c.TargetTval)
+		} else {
+			str += fmt.Sprintf("Target TVal: **%.2f** for lower estimate\n", c.TargetTvalLower)
+			str += fmt.Sprintf("Target TVal: **%.2f** for upper estimate\n", c.TargetTval)
+		}
 	}
 
 	noteStr := ""
