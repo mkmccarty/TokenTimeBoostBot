@@ -6,7 +6,7 @@ require (
 	github.com/bwmarrin/discordgo v0.28.2-0.20241208071600-33ffff21d31a
 	github.com/divan/num2words v1.0.1
 	github.com/ewohltman/discordgo-mock v0.0.11
-	github.com/fsnotify/fsnotify v1.8.0
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/google/generative-ai-go v0.19.0
 	github.com/jasonlvhit/gocron v0.0.1
 	github.com/moby/moby v28.0.4+incompatible
