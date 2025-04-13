@@ -187,12 +187,16 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			c.Grade[grade].BasePoints = 187.5 * float64(gradeMult) * goalsCompleted
 		}
 
-		BTA := c.EstimatedDuration.Minutes() / float64(c.MinutesPerToken)
+		if c.ID == "housing-boom" && grade == 5 {
+			log.Printf("Contract ID is empty for contract %s", c.Name)
+		}
+
+		BTA := c.Grade[grade].EstimatedDuration.Minutes() / float64(c.MinutesPerToken)
 		c.Grade[grade].TargetTval = 3.0
 		if BTA > 42.0 {
 			c.Grade[grade].TargetTval = 0.07 * BTA
 		}
-		BTALower := c.EstimatedDurationLower.Minutes() / float64(c.MinutesPerToken)
+		BTALower := c.Grade[grade].EstimatedDurationLower.Minutes() / float64(c.MinutesPerToken)
 		c.Grade[grade].TargetTvalLower = 3.0
 		if BTALower > 42.0 {
 			c.Grade[grade].TargetTvalLower = 0.07 * BTALower
