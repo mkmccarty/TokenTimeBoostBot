@@ -210,6 +210,7 @@ func HandleCoopAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate
 	}
 
 	contractID := ""
+	coopID := ""
 	if opt, ok := optionMap["contract-id"]; ok {
 		if opt.Focused {
 			HandleContractAutoComplete(s, i)
@@ -217,16 +218,22 @@ func HandleCoopAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 		contractID = opt.StringValue()
 	}
+	if opt, ok := optionMap["coop-id"]; ok {
+		coopID = opt.StringValue()
+	}
 
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
 
 	for _, c := range Contracts {
 		if c.ContractID == contractID {
-			choice := discordgo.ApplicationCommandOptionChoice{
-				Name:  fmt.Sprintf("%s", c.CoopID),
-				Value: c.CoopID,
+			// if coopID is empty, or contains the search string
+			if coopID == "" || strings.Contains(c.CoopID, coopID) {
+				choice := discordgo.ApplicationCommandOptionChoice{
+					Name:  fmt.Sprintf("%s", c.CoopID),
+					Value: c.CoopID,
+				}
+				choices = append(choices, &choice)
 			}
-			choices = append(choices, &choice)
 		}
 	}
 
