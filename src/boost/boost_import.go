@@ -205,6 +205,8 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		c.TargetTvalLower = c.Grade[grade].TargetTvalLower
 	}
 	if c.TargetAmount == nil {
+		c.TargetAmount = nil
+		c.TargetAmountq = nil
 		for _, g := range contractProtoBuf.GetGoals() {
 			c.ContractVersion = 1
 			c.TargetAmount = append(c.TargetAmount, g.GetTargetAmount())
