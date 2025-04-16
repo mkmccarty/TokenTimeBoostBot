@@ -723,13 +723,13 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			if errGM == nil {
 				if gm.Nick != "" {
 					b.Name = gm.Nick
+					b.Nick = gm.Nick
 				}
 				b.Unique = gm.User.String()
 				// See if we can find a color
 				if s.State.MemberAdd(gm) == nil {
 					b.Color = s.State.UserColor(userID, channelID)
 				}
-
 			}
 
 			if b.Nick == "" {
