@@ -566,6 +566,18 @@ func FindContractByMessageID(channelID string, messageID string) *Contract {
 	return nil
 }
 
+// findContractByIDs will find the contract by the contractID and coopID
+func findContractByIDs(contractID string, coopID string) *Contract {
+	// Look for the contract
+	for key, element := range Contracts {
+		if element.ContractID == contractID && element.CoopID == coopID {
+			// Found the contract matching the given ContractID and CoopID
+			return Contracts[key]
+		}
+	}
+	return nil
+}
+
 // AddContractMember adds a member to a contract
 func AddContractMember(s *discordgo.Session, guildID string, channelID string, operator string, mention string, guest string, order int) error {
 	var contract = FindContract(channelID)
