@@ -1,15 +1,44 @@
 package boost
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"math/rand/v2"
+	"sort"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
+
+// SlashAdminGetContractData is the slash to get contract JSON data
+func SlashAdminGetContractData(cmd string) *discordgo.ApplicationCommand {
+	var adminPermission = int64(0)
+	return &discordgo.ApplicationCommand{
+		Name:                     cmd,
+		Description:              "Retrieve contract JSON data",
+		DefaultMemberPermissions: &adminPermission,
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "contract-id",
+				Description:  "Select a contract-id",
+				Required:     true,
+				Autocomplete: true,
+			},
+			{
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "coop-id",
+				Description:  "Your coop-id",
+				Required:     true,
+				Autocomplete: true,
+			},
+		},
+	}
+}
 
 // HandleAdminContractFinish is called when the contract is complete
 func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -169,4 +198,109 @@ func finishContractByHash(contractHash string) error {
 	saveData(Contracts)
 
 	return nil
+}
+
+// HandleCoopAutoComplete will handle the contract auto complete of contract-id's
+func HandleCoopAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// User interacting with bot, is this first time ?
+	options := i.ApplicationCommandData().Options
+	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+	for _, opt := range options {
+		optionMap[opt.Name] = opt
+	}
+
+	contractID := ""
+	if opt, ok := optionMap["contract-id"]; ok {
+		if opt.Focused {
+			HandleContractAutoComplete(s, i)
+			return
+		}
+		contractID = opt.StringValue()
+	}
+
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+
+	for _, c := range Contracts {
+		if c.ContractID == contractID {
+			choice := discordgo.ApplicationCommandOptionChoice{
+				Name:  fmt.Sprintf("%s", c.CoopID),
+				Value: c.CoopID,
+			}
+			choices = append(choices, &choice)
+		}
+	}
+
+	sort.Slice(choices, func(i, j int) bool {
+		return choices[i].Name < choices[j].Name
+	})
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Coop ID",
+			Choices: choices,
+		}})
+}
+
+// HandleAdminGetContractData get JSON data about a contract given the contract and coop id
+func HandleAdminGetContractData(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	options := i.ApplicationCommandData().Options
+	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+	for _, opt := range options {
+		optionMap[opt.Name] = opt
+	}
+	var contractID string
+	var coopID string
+
+	if opt, ok := optionMap["contract-id"]; ok {
+		contractID = strings.TrimSpace(opt.StringValue())
+	}
+	if opt, ok := optionMap["coop-id"]; ok {
+		coopID = strings.TrimSpace(opt.StringValue())
+	}
+
+	// Find a contract by contract ID and coop ID
+	contract := findContractByIDs(contractID, coopID)
+
+	// Create combined contract and coopid with only alphanumberic characters
+	// This is used to create a unique filename
+	sanitizedID := strings.ToLower(strings.Join(strings.Fields(fmt.Sprintf("%s-%s", contractID, coopID)), "-"))
+	// Remove spaces and slashes from name
+	sanitizedID = strings.ReplaceAll(sanitizedID, " ", "-")
+	sanitizedID = strings.ReplaceAll(sanitizedID, "/", "-")
+
+	var reader *bytes.Reader
+	var builder strings.Builder
+
+	filename := "boostbot-data-" + sanitizedID + ".json"
+	// Check to see if this is a valid filename
+	buf := &bytes.Buffer{}
+	jsonData, err := json.Marshal(contract)
+	if err != nil {
+		log.Println(err.Error())
+		builder.WriteString("Error formatting JSON data. " + err.Error())
+	} else {
+		err = json.Indent(buf, jsonData, "", "  ")
+		if err != nil {
+			builder.WriteString("Error formatting JSON data. " + err.Error())
+		} else {
+			// Create io.Reader from JSON string
+			reader = bytes.NewReader(buf.Bytes())
+		}
+	}
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("Here is the JSON data for contract %s/%s", contractID, coopID),
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Files: []*discordgo.File{
+				{
+					Name:        filename,
+					ContentType: "application/json",
+					Reader:      reader,
+				},
+			},
+		},
+	})
 }

@@ -36,6 +36,7 @@ const slashAdminContractFinish string = "admin-contract-finish"
 
 // const slashAdminBotSettings string = "admin-bot-settings"
 const slashReloadContracts string = "admin-reload-contracts"
+const slashAdminGetContractData string = "admin-get-contract-data"
 
 // Slash Command Constants
 const slashContract string = "contract"
@@ -163,6 +164,7 @@ var (
 			Description:              "Manual check for new Egg Inc contract data.",
 			DefaultMemberPermissions: &adminPermission,
 		},
+		boost.SlashAdminGetContractData(slashAdminGetContractData),
 	}
 
 	globalCommands = []*discordgo.ApplicationCommand{
@@ -315,6 +317,9 @@ var (
 		slashChange: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractAutoComplete(s, i)
 		},
+		slashAdminGetContractData: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleCoopAutoComplete(s, i)
+		},
 		slashToken: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractAutoComplete(s, i)
 		},
@@ -437,6 +442,10 @@ var (
 		slashReloadContracts: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			tasks.HandleReloadContractsCommand(s, i)
 		},
+		slashAdminGetContractData: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleAdminGetContractData(s, i)
+		},
+		// Slash Commands
 		slashArtifact: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleArtifactCommand(s, i)
 		},
