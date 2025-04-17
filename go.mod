@@ -9,12 +9,12 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/google/generative-ai-go v0.19.0
 	github.com/jasonlvhit/gocron v0.0.1
-	github.com/moby/moby v28.0.4+incompatible
+	github.com/moby/moby v28.1.0+incompatible
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/pkg/errors v0.9.1
 	github.com/rs/xid v1.6.0
-	github.com/sashabaranov/go-openai v1.38.1
+	github.com/sashabaranov/go-openai v1.38.2
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	golang.org/x/image v0.26.0
 	golang.org/x/text v0.24.0
