@@ -229,7 +229,7 @@ func HandleCoopAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate
 			// if coopID is empty, or contains the search string
 			if coopID == "" || strings.Contains(c.CoopID, coopID) {
 				choice := discordgo.ApplicationCommandOptionChoice{
-					Name:  fmt.Sprintf("%s", c.CoopID),
+					Name:  c.CoopID,
 					Value: c.CoopID,
 				}
 				choices = append(choices, &choice)
