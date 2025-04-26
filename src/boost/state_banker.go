@@ -33,6 +33,10 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 		// If this is the CRT then the Bag indicates the sink is boosting
 		if contract.State == ContractStateCRT {
 			b = sink
+			// If sink is already boosted, then just return
+			if b.BoostState == BoostStateBoosted {
+				return false, false
+			}
 		}
 
 		if cUserID == b.UserID {
