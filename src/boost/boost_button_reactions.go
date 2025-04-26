@@ -574,7 +574,7 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 
 	switch contract.State {
 	case ContractStateCRT:
-		iconsRowA = append(iconsRowA, []string{tokenStr, "✅", "🚚", "🦵"}...)
+		iconsRowA = append(iconsRowA, []string{tokenStr, "✅", "🚚", "🦵", "💰"}...)
 		iconsRowB = append(iconsRowB, contract.AltIcons...)
 	case ContractStateBanker:
 		iconsRowA = append(iconsRowA, []string{tokenStr, "🐓", "💰"}...)

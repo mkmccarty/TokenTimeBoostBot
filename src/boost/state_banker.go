@@ -30,6 +30,11 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 		// Sink could be CRT Sink or Boosting Sink
 		sink = contract.Boosters[cUserID]
 
+		// If this is the CRT then the Bag indicates the sink is boosting
+		if contract.State == ContractStateCRT {
+			b = sink
+		}
+
 		if cUserID == b.UserID {
 			// Current booster subtract number of tokens wanted
 			log.Printf("Sink indicating they are boosting with %d tokens.\n", b.TokensWanted)
