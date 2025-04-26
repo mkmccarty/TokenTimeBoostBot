@@ -243,7 +243,17 @@ func drawSpeedrunCRT(contract *Contract) string {
 				crtStrings = append(crtStrings, fmt.Sprintf("%d", num))
 			}
 		}
-		fmt.Fprintf(&builder, "**%s%s**  +%d\n", strings.Join(crtStrings, ei.GetBotEmojiMarkdown("icon_chicken_run")+"🦵"), ei.GetBotEmojiMarkdown("icon_chicken_run"), (len(contract.Order)-2)-contract.SRData.NoSelfRunCrt[len(contract.SRData.NoSelfRunCrt)-1])
+		if contract.Style&ContractFlagSelfRuns == 0 {
+			fmt.Fprintf(&builder, "**%s%s**  +%d\n",
+				strings.Join(crtStrings, ei.GetBotEmojiMarkdown("icon_chicken_run")+"🦵"),
+				ei.GetBotEmojiMarkdown("icon_chicken_run"),
+				(len(contract.Order)-2)-contract.SRData.NoSelfRunCrt[len(contract.SRData.NoSelfRunCrt)-1])
+		} else {
+			fmt.Fprintf(&builder, "**%s%s**  +%d\n",
+				strings.Join(crtStrings, ei.GetBotEmojiMarkdown("icon_chicken_run")+"🦵"),
+				ei.GetBotEmojiMarkdown("icon_chicken_run"),
+				(len(contract.Order)-1)-contract.SRData.SelfRunCrt[len(contract.SRData.SelfRunCrt)-1])
+		}
 
 		fmt.Fprintf(&builder, "### Tips\n")
 		fmt.Fprintf(&builder, "- Don't use any boosts\n")
