@@ -448,6 +448,53 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 	// Alt icons can go on a second action row
 	//icons = append(icons, contract.AltIcons...)
 	out := []discordgo.MessageComponent{}
+
+	menuOptions := []discordgo.SelectMenuOption{}
+	menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+		Label:       "Coop Tools",
+		Description: "Receive reply with tools",
+		Value:       "tools",
+		Emoji:       &discordgo.ComponentEmoji{Name: "🧰"},
+	})
+	menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+		Label:       "X-Post",
+		Description: "X-Post Template",
+		Value:       "xpost",
+		Emoji:       &discordgo.ComponentEmoji{Name: "🖇️"},
+	})
+	/*
+		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+			Label:       "Lousy Breaks Thing",
+			Description: "I didn't do it",
+			Value:       "lousyt",
+			Emoji:       &discordgo.ComponentEmoji{Name: "🔨"},
+		})
+		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+			Label:       "Tbone something something",
+			Description: "Confusion and Delay",
+			Value:       "tbone",
+			Emoji:       &discordgo.ComponentEmoji{Name: "🥔"},
+		})
+		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+			Label:       "Send Sara's Tokens to the Void",
+			Description: "Not never gonna show up",
+			Value:       "sara",
+			Emoji:       &discordgo.ComponentEmoji{Name: "🕳️"},
+		})
+	*/
+	minValues := 0
+	out = append(out, discordgo.ActionsRow{
+		Components: []discordgo.MessageComponent{
+			discordgo.SelectMenu{
+				CustomID:    "menu#" + contract.ContractHash,
+				Placeholder: "Additional Options",
+				MinValues:   &minValues,
+				MaxValues:   1,
+				Options:     menuOptions,
+			},
+		},
+	})
+
 	for _, row := range iconsRow {
 		var mComp []discordgo.MessageComponent
 		for _, el := range row {

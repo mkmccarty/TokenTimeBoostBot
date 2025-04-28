@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -412,15 +411,6 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		}
 
 	case ContractStateCompleted:
-		if time.Since(contract.EndTime) > 15*time.Minute {
-			outputStr += "\n## Post Boost Tools\n"
-			outputStr += fmt.Sprintf("> **Boost Bot:** %s %s %s\n", bottools.GetFormattedCommand("stones"), bottools.GetFormattedCommand("calc-contract-tval"), bottools.GetFormattedCommand("coop-tval"))
-			outputStr += "> **Wonky:** </auditcoop:1231383614701174814> </optimizestones:1235003878886342707> </srtracker:1158969351702069328>\n"
-			outputStr += fmt.Sprintf("> **Web:** \n> * [%s](%s)\n> * [%s](%s)\n",
-				"Staabmia Stone Calc", "https://srsandbox-staabmia.netlify.app/stone-calc",
-				"Kaylier Coop Laying Assistant", "https://ei-coop-assistant.netlify.app/laying-set")
-		}
-
 		t1 := contract.EndTime
 		t2 := contract.StartTime
 		duration := t1.Sub(t2)
