@@ -170,6 +170,7 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tabl
 	tokenSent := make(map[string]int)
 	tokensReceived := make(map[string]int)
 	tokenValue := make(map[string]float64)
+	tokenUser := make(map[string]bool)
 
 	//	table.Append([]string{name, fmt.Sprintf("%d", tcount), fmt.Sprintf("%6.3f", tval)})
 	for _, t := range contract.TokenLog {
@@ -186,11 +187,14 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tabl
 		tokenSent[t.FromNick] += t.Quantity
 		tokenCount[t.ToNick] += t.Quantity
 		tokenValue[t.FromNick] += t.Value * float64(t.Quantity)
+
+		tokenUser[t.ToNick] = true
+		tokenUser[t.FromNick] = true
 	}
 
 	// Create a sorted list of keys from tokenCount
-	keys := make([]string, 0, len(tokenCount))
-	for key := range tokenCount {
+	keys := make([]string, 0, len(tokenUser))
+	for key := range tokenUser {
 		keys = append(keys, key)
 	}
 	sort.Slice(keys, func(i, j int) bool {
