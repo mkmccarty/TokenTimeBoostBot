@@ -678,6 +678,9 @@ var (
 		"rc_": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractReactions(s, i)
 		},
+		"menu": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleMenuReactions(s, i)
+		},
 		"cs_": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractSettingsReactions(s, i)
 		},
