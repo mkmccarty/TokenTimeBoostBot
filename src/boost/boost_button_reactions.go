@@ -450,6 +450,14 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 	out := []discordgo.MessageComponent{}
 
 	menuOptions := []discordgo.SelectMenuOption{}
+	if contract.State == ContractStateCompleted {
+		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+			Label:       "Sync w/EI",
+			Description: "Add completion timestamp.",
+			Value:       "time",
+			Emoji:       &discordgo.ComponentEmoji{Name: "⏱️"},
+		})
+	}
 	menuOptions = append(menuOptions, discordgo.SelectMenuOption{
 		Label:       "Coop Tools",
 		Description: "Receive reply with tools",
@@ -461,6 +469,12 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 		Description: "X-Post Template",
 		Value:       "xpost",
 		Emoji:       &discordgo.ComponentEmoji{Name: "🖇️"},
+	})
+	menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+		Label:       "Token Log",
+		Description: "Show token log",
+		Value:       "tlog",
+		Emoji:       ei.GetBotComponentEmoji("token"),
 	})
 	/*
 		menuOptions = append(menuOptions, discordgo.SelectMenuOption{

@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
@@ -73,7 +74,62 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				Flags: discordgo.MessageFlagsEphemeral,
 			},
 		})
+	case "tlog":
+		field := []*discordgo.MessageEmbedField{}
+		var embed []*discordgo.MessageEmbed
 
+		var logs []string
+		for _, line := range contract.TokenLog {
+			logs = append(logs, fmt.Sprintf("`%v %s %d-> %s`", line.Time.Sub(contract.StartTime).Round(time.Second), line.FromNick, line.Quantity, line.ToNick))
+		}
+
+		// Trin logs to the last 30 lines
+		if len(logs) > 30 {
+			logs = logs[len(logs)-30:]
+		}
+
+		var currentField strings.Builder
+		for _, line := range logs {
+			if currentField.Len()+len(line)+1 > 950 { // +1 for the newline character
+				field = append(field, &discordgo.MessageEmbedField{
+					Name:  "",
+					Value: currentField.String(),
+				})
+				currentField.Reset()
+			}
+			currentField.WriteString(line + "\n")
+		}
+		if currentField.Len() > 0 {
+			field = append(field, &discordgo.MessageEmbedField{
+				Name:  "",
+				Value: currentField.String(),
+			})
+		}
+		embed = []*discordgo.MessageEmbed{{
+			Type:        discordgo.EmbedTypeRich,
+			Title:       "Token Log",
+			Description: "",
+			Fields:      field,
+		}}
+
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "",
+				Embeds:  embed,
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+
+	case "time":
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Updating boost list with estimated time...",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		contract.EstimateUpdateTime = time.Now()
+		go updateEstimatedTime(s, i.ChannelID, contract, false)
 	}
-
 }
