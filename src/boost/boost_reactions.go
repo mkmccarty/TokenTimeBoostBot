@@ -171,7 +171,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				} else {
 					log.Print("Updating estimated time")
 					contract.EstimateUpdateTime = time.Now()
-					go updateEstimatedTime(s, r.ChannelID, contract)
+					go updateEstimatedTime(s, r.ChannelID, contract, true)
 				}
 			}
 		case "🐓":
@@ -240,7 +240,17 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	return returnVal
 }
 
-func updateEstimatedTime(s *discordgo.Session, channelID string, contract *Contract) {
+func updateEstimatedTime(s *discordgo.Session, channelID string, contract *Contract, displayMsg bool) {
+	if !displayMsg {
+		startTime, contractDurationSeconds, err := track.DownloadCoopStatusTracker(contract.ContractID, contract.CoopID)
+		if err == nil {
+			contract.StartTime = startTime
+			contract.EstimatedDuration = time.Duration(contractDurationSeconds) * time.Second
+			contract.EstimateUpdateTime = time.Now()
+			refreshBoostListMessage(s, contract)
+		}
+		return
+	}
 	var data discordgo.MessageSend
 	data.Content = "⏱️ reaction received, updating contract duration."
 	data.Flags = discordgo.MessageFlagsEphemeral
