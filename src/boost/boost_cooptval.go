@@ -254,6 +254,7 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 	for _, key := range keys {
 		name := key
 		var valueLog []float64
+		var valueTime []time.Time
 		// test if ultraUser[key] exists
 		ultra := false
 		if _, ok := ultraUser[key]; ok {
@@ -261,8 +262,10 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 		}
 		if isGG && ((ultra && ugg > ggThreshold) || (gg > ggThreshold)) {
 			valueLog = futureTokenLogGG
+			valueTime = futureTokenLogGGTimes
 		} else {
 			valueLog = futureTokenLog
+			valueTime = futureTokenLogTimes
 		}
 
 		if len(name) > 12 {
@@ -277,7 +280,7 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 				uTval += v
 				if uTval >= tval {
 					tcount = fmt.Sprintf("%d", i+1)
-					ttime = fmt.Sprintf("<t:%d:R>", futureTokenLogTimes[i].Unix())
+					ttime = fmt.Sprintf("<t:%d:R>", valueTime[i].Unix())
 					break
 				}
 			}
