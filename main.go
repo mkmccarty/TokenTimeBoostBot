@@ -210,10 +210,12 @@ var (
 							Name:  "Sign-up Ordering",
 							Value: boost.ContractOrderSignup,
 						},
-						{
-							Name:  "Fair Ordering",
-							Value: boost.ContractOrderFair,
-						},
+						/*
+							{
+								Name:  "Fair Ordering",
+								Value: boost.ContractOrderFair,
+							},
+						*/
 						{
 							Name:  "Time Based Ordering",
 							Value: boost.ContractOrderTimeBased,
