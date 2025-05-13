@@ -9,7 +9,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"github.com/olekukonko/tablewriter"
 	"github.com/xhit/go-str2duration/v2"
 )
 
@@ -101,28 +100,7 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		fmt.Fprintf(&builder, "## Coop token value based on contract reactions\n")
 		fmt.Fprintf(&builder, "Contract started at: <t:%d:f> with a duration of %s\n", contract.StartTime.Unix(), duration.Round(time.Second))
 		fmt.Fprintf(&builder, "Target token value: %6.3f\n\n", targetTval)
-		var tbuilder strings.Builder
-		table := tablewriter.NewWriter(&tbuilder)
-		table.SetHeader([]string{"Name", "S", "R", "Val ∆"})
-		table.SetBorder(false)
-		table.SetCenterSeparator("")
-		table.SetColumnSeparator("")
-		table.SetRowSeparator("")
-		table.SetHeaderLine(false)
-		table.SetTablePadding(" ") // pad with tabs
-		table.SetNoWhiteSpace(true)
-
-		calculateTokenValueCoopLog(contract, duration, table)
-
-		table.Render()
-
-		// For the tbuilder.String() want to copy it into builder but wrap every line with a backtick
-		lines := strings.SplitSeq(tbuilder.String(), "\n")
-		for line := range lines {
-			if strings.TrimSpace(line) != "" {
-				fmt.Fprintf(&builder, "`%s`\n", line)
-			}
-		}
+		builder.WriteString(calculateTokenValueCoopLog(contract, duration, targetTval))
 
 		fmt.Fprintf(&builder, "\nUpdated <t:%d:R>, refresh with %s\n", time.Now().Unix(), bottools.GetFormattedCommand("coop-tval"))
 
@@ -165,14 +143,63 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 }
 
-func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, table *tablewriter.Table) {
+func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval float64) string {
 	tokenCount := make(map[string]int)
 	tokenSent := make(map[string]int)
 	tokensReceived := make(map[string]int)
 	tokenValue := make(map[string]float64)
 	tokenUser := make(map[string]bool)
+	ultraUser := make(map[string]bool)
 
-	//	table.Append([]string{name, fmt.Sprintf("%d", tcount), fmt.Sprintf("%6.3f", tval)})
+	gg, ugg := ei.GetGenerousGiftEvent()
+	// Define thresholds for determining if a Generous Gift (GG) event is active
+	const ggThreshold = 1.0
+
+	// Check if either GG or Ultra GG exceeds their respective thresholds
+	isGG := gg > ggThreshold || ugg > ggThreshold
+
+	estimatedCapacity := int(200)
+	var futureTokenLog = make([]float64, 0, estimatedCapacity)
+	var futureTokenLogGG = make([]float64, 0, estimatedCapacity)
+
+	// 1 token = 9.86 minutes
+	// 1 token = 591.6 seconds
+
+	endTime := contract.StartTime.Add(duration)
+	tokenTime := time.Now()
+	for tokenTime.Before(endTime) {
+		val := getTokenValue(tokenTime.Sub(contract.StartTime).Seconds(), duration.Seconds())
+		futureTokenLog = append(futureTokenLog, val)
+		if isGG {
+			futureTokenLogGG = append(futureTokenLogGG, val)
+		}
+		tokenTime = tokenTime.Add(time.Duration(592) * time.Second)
+		if len(futureTokenLog) > 100 {
+			break
+		}
+	}
+	// Now for the timer tokens, start with next timer
+	tokenTime = contract.StartTime.Add(time.Duration(contract.MinutesPerToken) * time.Minute)
+	for tokenTime.Before(time.Now()) {
+		tokenTime = tokenTime.Add(time.Duration(contract.MinutesPerToken) * time.Minute)
+	}
+	for tokenTime.Before(endTime) {
+		val := getTokenValue(tokenTime.Sub(contract.StartTime).Seconds(), duration.Seconds())
+		futureTokenLog = append(futureTokenLog, val)
+		tokenTime = tokenTime.Add(time.Duration(contract.MinutesPerToken) * time.Minute)
+	}
+
+	sort.Slice(futureTokenLog, func(i, j int) bool {
+		return futureTokenLog[i] > futureTokenLog[j]
+	})
+	if isGG {
+		futureTokenLogGG = append(futureTokenLogGG, futureTokenLog...)
+		sort.Slice(futureTokenLogGG, func(i, j int) bool {
+			return futureTokenLogGG[i] > futureTokenLogGG[j]
+		})
+	}
+
+	// Now we have a sorted list of future token logs
 	for _, t := range contract.TokenLog {
 		if t.FromUserID == t.ToUserID {
 			// Farmed token, ignore
@@ -187,6 +214,10 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tabl
 		tokenSent[t.FromNick] += t.Quantity
 		tokenCount[t.ToNick] += t.Quantity
 		tokenValue[t.FromNick] += t.Value * float64(t.Quantity)
+		if t.Quantity == 2 && ugg > ggThreshold {
+			// Assuming this is a GG token
+			ultraUser[t.FromNick] = true
+		}
 
 		tokenUser[t.ToNick] = true
 		tokenUser[t.FromNick] = true
@@ -201,12 +232,43 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tabl
 		return strings.ToLower(keys[i]) < strings.ToLower(keys[j])
 	})
 
+	headerStr := "`%-12s %3s %3s %6s %3s`\n"
+	formatStr := "`%-12s %3d %3d %6.2f %3s`\n"
+	var builder strings.Builder
+	fmt.Fprintf(&builder, headerStr, "Name", "Snd", "Rcv", "TVal-∆", "🪙#")
+
 	// Iterate through the sorted keys
 	for _, key := range keys {
 		name := key
+		var valueLog []float64
+		// test if ultraUser[key] exists
+		ultra := false
+		if _, ok := ultraUser[key]; ok {
+			ultra = true
+		}
+		if isGG && ((ultra && ugg > ggThreshold) || (gg > ggThreshold)) {
+			valueLog = futureTokenLogGG
+		} else {
+			valueLog = futureTokenLog
+		}
+
 		if len(name) > 12 {
 			name = name[:12]
 		}
-		table.Append([]string{name, fmt.Sprintf("%d", tokenSent[key]), fmt.Sprintf("%d", tokensReceived[key]), fmt.Sprintf("%6.3f", tokenValue[key])})
+		tcount := "√"
+		uTval := tokenValue[key]
+		if uTval < tval {
+			tcount = "∞"
+			for i, v := range valueLog {
+				uTval += v
+				if uTval >= tval {
+					tcount = fmt.Sprintf("%d", i+1)
+					break
+				}
+			}
+		}
+
+		fmt.Fprintf(&builder, formatStr, name, tokenSent[key], tokensReceived[key], tokenValue[key], tcount)
 	}
+	return builder.String()
 }
