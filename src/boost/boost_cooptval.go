@@ -162,6 +162,8 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 	var futureTokenLog = make([]float64, 0, estimatedCapacity)
 	var futureTokenLogGG = make([]float64, 0, estimatedCapacity)
 
+	var futureTokenLogTimes = make([]time.Time, 0, estimatedCapacity)
+	var futureTokenLogGGTimes = make([]time.Time, 0, estimatedCapacity)
 	// 1 token = 9.86 minutes
 	// 1 token = 591.6 seconds
 
@@ -170,8 +172,10 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 	for tokenTime.Before(endTime) {
 		val := getTokenValue(tokenTime.Sub(contract.StartTime).Seconds(), duration.Seconds())
 		futureTokenLog = append(futureTokenLog, val)
+		futureTokenLogTimes = append(futureTokenLogTimes, tokenTime)
 		if isGG {
 			futureTokenLogGG = append(futureTokenLogGG, val)
+			futureTokenLogGGTimes = append(futureTokenLogTimes, tokenTime)
 		}
 		tokenTime = tokenTime.Add(time.Duration(592) * time.Second)
 		if len(futureTokenLog) > 100 {
@@ -186,17 +190,26 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 	for tokenTime.Before(endTime) {
 		val := getTokenValue(tokenTime.Sub(contract.StartTime).Seconds(), duration.Seconds())
 		futureTokenLog = append(futureTokenLog, val)
+		futureTokenLogTimes = append(futureTokenLogTimes, tokenTime)
 		tokenTime = tokenTime.Add(time.Duration(contract.MinutesPerToken) * time.Minute)
 	}
 
 	sort.Slice(futureTokenLog, func(i, j int) bool {
 		return futureTokenLog[i] > futureTokenLog[j]
 	})
+	sort.Slice(futureTokenLogTimes, func(i, j int) bool {
+		return futureTokenLogTimes[i].Before(futureTokenLogTimes[j])
+	})
 	if isGG {
 		futureTokenLogGG = append(futureTokenLogGG, futureTokenLog...)
+		futureTokenLogGGTimes = append(futureTokenLogGGTimes, futureTokenLogTimes...)
 		sort.Slice(futureTokenLogGG, func(i, j int) bool {
 			return futureTokenLogGG[i] > futureTokenLogGG[j]
 		})
+		sort.Slice(futureTokenLogGGTimes, func(i, j int) bool {
+			return futureTokenLogGGTimes[i].Before(futureTokenLogGGTimes[j])
+		})
+
 	}
 
 	// Now we have a sorted list of future token logs
@@ -233,7 +246,7 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 	})
 
 	headerStr := "`%-12s %3s %3s %6s %3s`\n"
-	formatStr := "`%-12s %3d %3d %6.2f %3s`\n"
+	formatStr := "`%-12s %3d %3d %6.2f %3s`%s\n"
 	var builder strings.Builder
 	fmt.Fprintf(&builder, headerStr, "Name", "Snd", "Rcv", "TVal-∆", "🪙#")
 
@@ -256,6 +269,7 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 			name = name[:12]
 		}
 		tcount := "√"
+		ttime := ""
 		uTval := tokenValue[key]
 		if uTval < tval {
 			tcount = "∞"
@@ -263,12 +277,13 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 				uTval += v
 				if uTval >= tval {
 					tcount = fmt.Sprintf("%d", i+1)
+					ttime = fmt.Sprintf("<t:%d:R>", futureTokenLogTimes[i].Unix())
 					break
 				}
 			}
 		}
 
-		fmt.Fprintf(&builder, formatStr, name, tokenSent[key], tokensReceived[key], tokenValue[key], tcount)
+		fmt.Fprintf(&builder, formatStr, name, tokenSent[key], tokensReceived[key], tokenValue[key], tcount, ttime)
 	}
 	return builder.String()
 }
