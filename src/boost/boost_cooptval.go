@@ -144,7 +144,6 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 }
 
 func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval float64) string {
-	tokenCount := make(map[string]int)
 	tokenSent := make(map[string]int)
 	tokensReceived := make(map[string]int)
 	tokenValue := make(map[string]float64)
@@ -167,6 +166,8 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 	// 1 token = 9.86 minutes
 	// 1 token = 591.6 seconds
 
+	const maxFutureTokenLogEntries = 100 // Maximum number of future token log entries to process
+
 	endTime := contract.StartTime.Add(duration)
 	tokenTime := time.Now()
 	for tokenTime.Before(endTime) {
@@ -178,7 +179,7 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 			futureTokenLogGGTimes = append(futureTokenLogTimes, tokenTime)
 		}
 		tokenTime = tokenTime.Add(time.Duration(592) * time.Second)
-		if len(futureTokenLog) > 100 {
+		if len(futureTokenLog) > maxFutureTokenLogEntries {
 			break
 		}
 	}
@@ -221,11 +222,9 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 		t.Value = getTokenValue(t.Time.Sub(contract.StartTime).Seconds(), duration.Seconds())
 		// Received tokens
 		tokensReceived[t.ToNick] += t.Quantity
-		tokenCount[t.ToNick] -= t.Quantity
 		tokenValue[t.ToNick] -= t.Value * float64(t.Quantity)
 		// Sent tokens
 		tokenSent[t.FromNick] += t.Quantity
-		tokenCount[t.ToNick] += t.Quantity
 		tokenValue[t.FromNick] += t.Value * float64(t.Quantity)
 		if t.Quantity == 2 && ugg > ggThreshold {
 			// Assuming this is a GG token
@@ -280,7 +279,9 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 				uTval += v
 				if uTval >= tval {
 					tcount = fmt.Sprintf("%d", i+1)
-					ttime = fmt.Sprintf("<t:%d:R>", valueTime[i].Unix())
+					if i < len(valueTime) { // Ensure index is within bounds
+						ttime = fmt.Sprintf("<t:%d:R>", valueTime[i].Unix())
+					}
 					break
 				}
 			}
