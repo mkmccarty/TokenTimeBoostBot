@@ -30,7 +30,7 @@ func CalculateFutureTokenLogs(maxEntries int, startTime time.Time, minutesPerTok
 		futureTokenLog = append(futureTokenLog, val)
 		futureTokenLogTimes = append(futureTokenLogTimes, tokenTime)
 		futureTokenLogGG = append(futureTokenLogGG, val)
-		futureTokenLogGGTimes = append(futureTokenLogTimes, tokenTime)
+		futureTokenLogGGTimes = append(futureTokenLogGGTimes, tokenTime)
 		tokenTime = tokenTime.Add(time.Duration(rateSecondPerTokens) * time.Second)
 		if len(futureTokenLog) > maxEntries {
 			break

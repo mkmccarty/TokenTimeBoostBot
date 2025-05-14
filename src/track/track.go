@@ -402,24 +402,36 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 		}
 		tcount, ttime, count := bottools.CalculateTcountTtime(td.TokenDelta, targetTval, valueLog, valueTime)
 
-		// I have an array of floats in valueLog, want to convert the first tcount to a string
-		// separating values with a comma
 		var valueLogStr []string
 		for i := 0; i < int(count); i++ {
 			if i < len(valueLog) {
-				valueLogStr = append(valueLogStr, fmt.Sprintf("%4.3f", valueLog[i]))
+				valueLogStr = append(valueLogStr, fmt.Sprintf("%4.2f", valueLog[i]))
 			}
 		}
 
 		field = append(field, &discordgo.MessageEmbedField{
 			Name:   "Future Tokens",
-			Value:  fmt.Sprintf("Seconds/Token: %d/min\nRemaining: %s %s\nValues: %s", rateSecondPerTokens, tcount, ttime, strings.Join(valueLogStr, " ,")),
+			Value:  fmt.Sprintf("Seconds/Token: %d\nRemaining: %s %s\nValues: %s", rateSecondPerTokens, tcount, ttime, strings.Join(valueLogStr, ", ")),
 			Inline: false,
 		})
 
+		/*
+			var valueTimeStr []string
+			for i := 0; i < int(count); i++ {
+				if i < len(valueTime) {
+					// Convert time.Time to seconds since td.StartTime
+					secondsSinceStart := valueTime[i].Sub(td.StartTime).Minutes()
+					valueTimeStr = append(valueTimeStr, fmt.Sprintf("%d", int(secondsSinceStart)))
+				}
+			}
+
+			field = append(field, &discordgo.MessageEmbedField{
+				Name:   "Future Token Times",
+				Value:  fmt.Sprintf("Times: %s", strings.Join(valueTimeStr, ", ")),
+				Inline: false,
+			})
+		*/
 		if td.SentCount >= 3 {
-			// What is the current tokens per second from start time to now when sent count is td.Sent
-			// and received count is td.Received
 			// This is the current rate of tokens per second
 			dynamic := float64(time.Since(td.StartTime).Seconds()) / float64(td.SentCount)
 
@@ -441,13 +453,13 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 			valueLogStr = make([]string, 0, count)
 			for i := 0; i < int(count); i++ {
 				if i < len(valueLog) {
-					valueLogStr = append(valueLogStr, fmt.Sprintf("%4.3f", valueLog[i]))
+					valueLogStr = append(valueLogStr, fmt.Sprintf("%4.2f", valueLog[i]))
 				}
 			}
 
 			field = append(field, &discordgo.MessageEmbedField{
 				Name:   "Future Tokens (Dynamic)",
-				Value:  fmt.Sprintf("Seconds/Token: %d\nRemaining: %s %s\nValues: %s", int(rateSecondPerTokensDynamic), tcount, ttime, strings.Join(valueLogStr, " ,")),
+				Value:  fmt.Sprintf("Seconds/Token: %d\nRemaining: %s %s\nValues: %s", int(rateSecondPerTokensDynamic), tcount, ttime, strings.Join(valueLogStr, ", ")),
 				Inline: false,
 			})
 		}
@@ -778,7 +790,7 @@ func ContractTokenUpdate(s *discordgo.Session, channelID string, modifyToken *ei
 }
 
 // ContractTokenMessage will track the token sent from the contract Token reaction
-func ContractTokenMessage(s *discordgo.Session, channelID string, userID string, kind int, count int, actorUserID string, serialID string) {
+func ContractTokenMessage(s *discordgo.Session, channelID string, userID string, kind int, count int, actorUserID string, serialID string, tokenTime time.Time) {
 	if Tokens[userID] == nil {
 		return
 	}
@@ -786,7 +798,7 @@ func ContractTokenMessage(s *discordgo.Session, channelID string, userID string,
 	redraw := false
 	for _, v := range Tokens[userID].Coop {
 		if v != nil && v.ChannelID == channelID && v.Linked {
-			now := time.Now()
+			now := tokenTime
 			offsetTime := now.Sub(v.StartTime).Seconds()
 			tokenValue := getTokenValue(offsetTime, v.DurationTime.Seconds())
 			tokenValue *= float64(count)
