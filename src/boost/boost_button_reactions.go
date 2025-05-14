@@ -175,13 +175,15 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 		if fromUserID != b.UserID {
 			// Record the Tokens as received
 			tokenSerial := xid.New().String()
-			track.ContractTokenMessage(s, ChannelID, b.UserID, track.TokenReceived, count, contract.Boosters[fromUserID].Nick, tokenSerial)
+			now := time.Now()
+
+			track.ContractTokenMessage(s, ChannelID, b.UserID, track.TokenReceived, count, contract.Boosters[fromUserID].Nick, tokenSerial, now)
 
 			// Record who sent the token
-			track.ContractTokenMessage(s, ChannelID, fromUserID, track.TokenSent, count, b.Nick, tokenSerial)
+			track.ContractTokenMessage(s, ChannelID, fromUserID, track.TokenSent, count, b.Nick, tokenSerial, now)
 			contract.mutex.Lock()
 			b.TokensReceived += count
-			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: count, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial})
+			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: now, Quantity: count, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial})
 			contract.mutex.Unlock()
 			if contract.BoostOrder == ContractOrderTVal {
 				tval := bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
