@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
@@ -390,7 +391,7 @@ func HandleTokenIDAutoComplete(s *discordgo.Session, i *discordgo.InteractionCre
 	var myTokes []ei.TokenUnitLog
 	for _, t := range c.TokenLog {
 		if t.FromUserID == i.Member.User.ID && t.ToUserID != i.Member.User.ID {
-			t.Value = getTokenValue(t.Time.Sub(c.StartTime).Seconds(), c.EstimatedDuration.Seconds()) * float64(t.Quantity)
+			t.Value = bottools.GetTokenValue(t.Time.Sub(c.StartTime).Seconds(), c.EstimatedDuration.Seconds()) * float64(t.Quantity)
 			myTokes = append(myTokes, t)
 		}
 	}
@@ -536,7 +537,7 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			xid, _ := xid.FromString(t.Serial)
 			if xid.Counter() == tokenIndex {
 				c.TokenLog[i].Quantity = int(tokenCount)
-				c.TokenLog[i].Value = getTokenValue(c.TokenLog[i].Time.Sub(c.StartTime).Seconds(), c.EstimatedDuration.Seconds()) * float64(c.TokenLog[i].Quantity)
+				c.TokenLog[i].Value = bottools.GetTokenValue(c.TokenLog[i].Time.Sub(c.StartTime).Seconds(), c.EstimatedDuration.Seconds()) * float64(c.TokenLog[i].Quantity)
 				modifiedTokenLog = c.TokenLog[i]
 				str = "Token count modified"
 				break

@@ -2,7 +2,6 @@ package boost
 
 import (
 	"fmt"
-	"math"
 	"sort"
 	"strings"
 	"time"
@@ -191,7 +190,7 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 		if tokens.FromUserID == userID && tokens.ToUserID == userID {
 			TokensFarmed = append(TokensFarmed, tokens)
 		} else if tokens.FromUserID == userID {
-			tokens.Value = getTokenValue(tokens.Time.Sub(contract.StartTime).Seconds(), duration.Seconds())
+			tokens.Value = bottools.GetTokenValue(tokens.Time.Sub(contract.StartTime).Seconds(), duration.Seconds())
 			tokens.Value *= float64(tokens.Quantity)
 			TokensSent = append(TokensSent, tokens)
 			SentValue += tokens.Value
@@ -199,7 +198,7 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 			tokenCountTo[tokens.ToNick] += tokens.Quantity
 			tokenValueTo[tokens.ToNick] += tokens.Value
 		} else if tokens.ToUserID == userID {
-			tokens.Value = getTokenValue(tokens.Time.Sub(contract.StartTime).Seconds(), duration.Seconds())
+			tokens.Value = bottools.GetTokenValue(tokens.Time.Sub(contract.StartTime).Seconds(), duration.Seconds())
 			tokens.Value *= float64(tokens.Quantity)
 			TokensReceived = append(TokensReceived, tokens)
 			ReceivedValue += tokens.Value
@@ -222,17 +221,17 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 
 	field = append(field, &discordgo.MessageEmbedField{
 		Name:   fmt.Sprintf("Value <t:%d:R>", time.Now().Unix()),
-		Value:  fmt.Sprintf("%1.3f\n", getTokenValue(offsetTime, duration.Seconds())),
+		Value:  fmt.Sprintf("%1.3f\n", bottools.GetTokenValue(offsetTime, duration.Seconds())),
 		Inline: true,
 	})
 	field = append(field, &discordgo.MessageEmbedField{
 		Name:   fmt.Sprintf("<t:%d:R>", time.Now().Add(30*time.Minute).Unix()),
-		Value:  fmt.Sprintf("%1.3f\n", getTokenValue(offsetTime+(30*60), duration.Seconds())),
+		Value:  fmt.Sprintf("%1.3f\n", bottools.GetTokenValue(offsetTime+(30*60), duration.Seconds())),
 		Inline: true,
 	})
 	field = append(field, &discordgo.MessageEmbedField{
 		Name:   fmt.Sprintf("<t:%d:R>", time.Now().Add(60*time.Minute).Unix()),
-		Value:  fmt.Sprintf("%1.3f\n", getTokenValue(offsetTime+(60*60), duration.Seconds())),
+		Value:  fmt.Sprintf("%1.3f\n", bottools.GetTokenValue(offsetTime+(60*60), duration.Seconds())),
 		Inline: true,
 	})
 
@@ -424,10 +423,4 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 	}
 
 	return embed
-}
-
-func getTokenValue(seconds float64, durationSeconds float64) float64 {
-	currentval := max(0.03, math.Pow(1-0.9*(min(seconds, durationSeconds)/durationSeconds), 4))
-
-	return math.Round(currentval*1000) / 1000
 }

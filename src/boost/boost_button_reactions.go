@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
@@ -183,7 +184,7 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: count, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial})
 			contract.mutex.Unlock()
 			if contract.BoostOrder == ContractOrderTVal {
-				tval := getTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
+				tval := bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
 				contract.mutex.Lock()
 				contract.Boosters[fromUserID].TokenValue += tval * float64(count)
 				contract.Boosters[b.UserID].TokenValue -= tval * float64(count)

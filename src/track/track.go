@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/peterbourgon/diskv/v3"
 	"github.com/rs/xid"
@@ -179,6 +180,7 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 
 	var totalHeader string
 	var finalTotal string
+	var duration time.Duration
 
 	var field []*discordgo.MessageEmbedField
 
@@ -192,8 +194,10 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 	}
 	fmt.Fprintf(&description, "Start time: <t:%d:t>\n", td.StartTime.Unix())
 	if td.TimeFromCoopStatus.IsZero() {
+		duration = td.DurationTime
 		fmt.Fprintf(&description, "Duration (Estimate): **%s** \n", ts[:len(ts)-2])
 	} else {
+		duration = td.TimeFromCoopStatus.Sub(td.StartTime)
 		fmt.Fprintf(&description, "Duration (<t:%d:R>): **%s**\n", td.TimeFromCoopStatus.Unix(), ts[:len(ts)-2])
 	}
 
@@ -378,6 +382,70 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 			Name:   "Target TVal",
 			Value:  fmt.Sprintf("%4.3f", targetTval),
 			Inline: true,
+		})
+
+		// Future Token Values based on game averages
+		const maxFutureTokenLogEntries = 100 // Maximum number of future token log entries to process
+		const rateSecondPerTokens = 592      // Rate at which tokens are generated
+		// 1 token = 591.6 seconds / 9.86 minutes
+		futureTokenLog, futureTokenLogTimes, futureTokenLogGG, futureTokenLogGGTimes :=
+			bottools.CalculateFutureTokenLogs(maxFutureTokenLogEntries, td.StartTime, td.MinutesPerToken, duration, rateSecondPerTokens)
+		gg, ugg := ei.GetGenerousGiftEvent()
+		var valueLog []float64
+		var valueTime []time.Time
+		if ugg > 1.0 || gg > 1.0 {
+			valueLog = futureTokenLogGG
+			valueTime = futureTokenLogGGTimes
+		} else {
+			valueLog = futureTokenLog
+			valueTime = futureTokenLogTimes
+		}
+		tcount, ttime, count := bottools.CalculateTcountTtime(td.TokenDelta, targetTval, valueLog, valueTime)
+
+		// I have an array of floats in valueLog, want to convert the first tcount to a string
+		// separating values with a comma
+		var valueLogStr []string
+		for i := 0; i < int(count); i++ {
+			if i < len(valueLog) {
+				valueLogStr = append(valueLogStr, fmt.Sprintf("%4.3f", valueLog[i]))
+			}
+		}
+
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   "Future Tokens",
+			Value:  fmt.Sprintf("Seconds/Token: %d/min\nRemaining: %s %s\nValues: %s", rateSecondPerTokens, tcount, ttime, strings.Join(valueLogStr, " ,")),
+			Inline: false,
+		})
+
+		// What is the current tokens per second from start time to now when sent count is td.Sent
+		// and received count is td.Received
+		// This is the current rate of tokens per second
+		rateSecondPerTokensDynamic := float64(time.Since(td.StartTime).Seconds()) / float64(td.SentCount)
+
+		futureTokenLog, futureTokenLogTimes, futureTokenLogGG, futureTokenLogGGTimes =
+			bottools.CalculateFutureTokenLogs(maxFutureTokenLogEntries, td.StartTime, td.MinutesPerToken, duration, rateSecondPerTokensDynamic)
+		if ugg > 1.0 || gg > 1.0 {
+			valueLog = futureTokenLogGG
+			valueTime = futureTokenLogGGTimes
+		} else {
+			valueLog = futureTokenLog
+			valueTime = futureTokenLogTimes
+		}
+		tcount, ttime, count = bottools.CalculateTcountTtime(td.TokenDelta, targetTval, valueLog, valueTime)
+
+		// I have an array of floats in valueLog, want to convert the first tcount to a string
+		// separating values with a comma
+		valueLogStr = make([]string, 0, count)
+		for i := 0; i < int(count); i++ {
+			if i < len(valueLog) {
+				valueLogStr = append(valueLogStr, fmt.Sprintf("%4.3f", valueLog[i]))
+			}
+		}
+
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   "Future Tokens (Dynamic)",
+			Value:  fmt.Sprintf("Seconds/Token: %d\nRemaining: %s %s\nValues: %s", int(rateSecondPerTokensDynamic), tcount, ttime, strings.Join(valueLogStr, " ,")),
+			Inline: false,
 		})
 
 		// Show Token Teamwork score vs max.
