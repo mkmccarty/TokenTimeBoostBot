@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 	"github.com/rs/xid"
@@ -61,7 +62,7 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: tokensToSend, FromUserID: cUserID, FromNick: contract.Boosters[cUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial})
 			contract.mutex.Unlock()
 			if contract.BoostOrder == ContractOrderTVal {
-				tval := getTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
+				tval := bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
 				contract.Boosters[cUserID].TokenValue += tval * float64(tokensToSend)
 				contract.Boosters[b.UserID].TokenValue -= tval * float64(tokensToSend)
 				// Don't reorder on the bag send as we need a tiny amount of stability for the send to get to the correct person

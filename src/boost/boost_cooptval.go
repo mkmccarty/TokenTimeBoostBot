@@ -157,61 +157,12 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 	// Check if either GG or Ultra GG exceeds their respective thresholds
 	isGG := gg > ggThreshold || ugg > ggThreshold
 
-	estimatedCapacity := int(200)
-	var futureTokenLog = make([]float64, 0, estimatedCapacity)
-	var futureTokenLogGG = make([]float64, 0, estimatedCapacity)
-
-	var futureTokenLogTimes = make([]time.Time, 0, estimatedCapacity)
-	var futureTokenLogGGTimes = make([]time.Time, 0, estimatedCapacity)
-	// 1 token = 9.86 minutes
-	// 1 token = 591.6 seconds
-
 	const maxFutureTokenLogEntries = 100 // Maximum number of future token log entries to process
+	const rateSecondPerTokens = 592      // Rate at which tokens are generated
+	// 1 token = 591.6 seconds / 9.86 minutes
 
-	endTime := contract.StartTime.Add(duration)
-	tokenTime := time.Now()
-	for tokenTime.Before(endTime) {
-		val := getTokenValue(tokenTime.Sub(contract.StartTime).Seconds(), duration.Seconds())
-		futureTokenLog = append(futureTokenLog, val)
-		futureTokenLogTimes = append(futureTokenLogTimes, tokenTime)
-		if isGG {
-			futureTokenLogGG = append(futureTokenLogGG, val)
-			futureTokenLogGGTimes = append(futureTokenLogTimes, tokenTime)
-		}
-		tokenTime = tokenTime.Add(time.Duration(592) * time.Second)
-		if len(futureTokenLog) > maxFutureTokenLogEntries {
-			break
-		}
-	}
-	// Now for the timer tokens, start with next timer
-	tokenTime = contract.StartTime.Add(time.Duration(contract.MinutesPerToken) * time.Minute)
-	for tokenTime.Before(time.Now()) {
-		tokenTime = tokenTime.Add(time.Duration(contract.MinutesPerToken) * time.Minute)
-	}
-	for tokenTime.Before(endTime) {
-		val := getTokenValue(tokenTime.Sub(contract.StartTime).Seconds(), duration.Seconds())
-		futureTokenLog = append(futureTokenLog, val)
-		futureTokenLogTimes = append(futureTokenLogTimes, tokenTime)
-		tokenTime = tokenTime.Add(time.Duration(contract.MinutesPerToken) * time.Minute)
-	}
-
-	sort.Slice(futureTokenLog, func(i, j int) bool {
-		return futureTokenLog[i] > futureTokenLog[j]
-	})
-	sort.Slice(futureTokenLogTimes, func(i, j int) bool {
-		return futureTokenLogTimes[i].Before(futureTokenLogTimes[j])
-	})
-	if isGG {
-		futureTokenLogGG = append(futureTokenLogGG, futureTokenLog...)
-		futureTokenLogGGTimes = append(futureTokenLogGGTimes, futureTokenLogTimes...)
-		sort.Slice(futureTokenLogGG, func(i, j int) bool {
-			return futureTokenLogGG[i] > futureTokenLogGG[j]
-		})
-		sort.Slice(futureTokenLogGGTimes, func(i, j int) bool {
-			return futureTokenLogGGTimes[i].Before(futureTokenLogGGTimes[j])
-		})
-
-	}
+	futureTokenLog, futureTokenLogTimes, futureTokenLogGG, futureTokenLogGGTimes :=
+		bottools.CalculateFutureTokenLogs(maxFutureTokenLogEntries, contract.StartTime, contract.MinutesPerToken, duration, rateSecondPerTokens)
 
 	// Now we have a sorted list of future token logs
 	for _, t := range contract.TokenLog {
@@ -219,7 +170,7 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 			// Farmed token, ignore
 			continue
 		}
-		t.Value = getTokenValue(t.Time.Sub(contract.StartTime).Seconds(), duration.Seconds())
+		t.Value = bottools.GetTokenValue(t.Time.Sub(contract.StartTime).Seconds(), duration.Seconds())
 		// Received tokens
 		tokensReceived[t.ToNick] += t.Quantity
 		tokenValue[t.ToNick] -= t.Value * float64(t.Quantity)
@@ -270,22 +221,7 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 		if len(name) > 12 {
 			name = name[:12]
 		}
-		tcount := "√"
-		ttime := ""
-		uTval := tokenValue[key]
-		if uTval < tval {
-			tcount = "∞"
-			for i, v := range valueLog {
-				uTval += v
-				if uTval >= tval {
-					tcount = fmt.Sprintf("%d", i+1)
-					if i < len(valueTime) { // Ensure index is within bounds
-						ttime = fmt.Sprintf("<t:%d:R>", valueTime[i].Unix())
-					}
-					break
-				}
-			}
-		}
+		tcount, ttime, _ := bottools.CalculateTcountTtime(tokenValue[key], tval, valueLog, valueTime)
 
 		fmt.Fprintf(&builder, formatStr, name, tokenSent[key], tokensReceived[key], tokenValue[key], tcount, ttime)
 	}

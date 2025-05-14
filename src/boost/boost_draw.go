@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -106,7 +107,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 				contract.EstimatedDuration = c.EstimatedDuration
 			}
 		}
-		tval := getTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
+		tval := bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
 		outputStr += fmt.Sprintf("> Current TVal: %2.3g\n", tval)
 	}
 
