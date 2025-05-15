@@ -317,7 +317,7 @@ func changeContractState(contract *Contract, newstate int) {
 		contract.TimeCRT = time.Now()
 		contract.Banker.CurrentBanker = contract.Banker.CrtSinkUserID
 	case ContractStateBanker:
-		if contract.TimeBoosting.IsZero() {
+		if contract.TimeCRT.IsZero() {
 			contract.TimeBoosting = time.Now()
 		}
 		contract.Banker.CurrentBanker = contract.Banker.BoostingSinkUserID

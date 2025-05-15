@@ -102,6 +102,7 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		fmt.Fprintf(&builder, "Target token value: %6.3f\n\n", targetTval)
 		builder.WriteString(calculateTokenValueCoopLog(contract, duration, targetTval))
 
+		fmt.Fprintf(&builder, "\nTokens remaining are based on average of 6 tokens per hour plus timer token.")
 		fmt.Fprintf(&builder, "\nUpdated <t:%d:R>, refresh with %s\n", time.Now().Unix(), bottools.GetFormattedCommand("coop-tval"))
 
 	}
@@ -166,7 +167,7 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 		crtTime = contract.TimeBoosting.Sub(contract.TimeCRT)
 	}
 
-	futureTokenLog, futureTokenLogTimes, futureTokenLogGG, futureTokenLogGGTimes :=
+	futureTokenLog, futureTokenLogGG :=
 		bottools.CalculateFutureTokenLogs(maxFutureTokenLogEntries, contract.StartTime, crtTime, contract.MinutesPerToken, duration, rateSecondPerTokens)
 
 	// Now we have a sorted list of future token logs
@@ -208,8 +209,7 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 	// Iterate through the sorted keys
 	for _, key := range keys {
 		name := key
-		var valueLog []float64
-		var valueTime []time.Time
+		var valueLog []bottools.FutureToken
 		// test if ultraUser[key] exists
 		ultra := false
 		if _, ok := ultraUser[key]; ok {
@@ -217,16 +217,14 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 		}
 		if isGG && ((ultra && ugg > ggThreshold) || (gg > ggThreshold)) {
 			valueLog = futureTokenLogGG
-			valueTime = futureTokenLogGGTimes
 		} else {
 			valueLog = futureTokenLog
-			valueTime = futureTokenLogTimes
 		}
 
 		if len(name) > 12 {
 			name = name[:12]
 		}
-		tcount, ttime, _ := bottools.CalculateTcountTtime(tokenValue[key], tval, valueLog, valueTime)
+		tcount, ttime, _ := bottools.CalculateTcountTtime(tokenValue[key], tval, valueLog)
 
 		fmt.Fprintf(&builder, formatStr, name, tokenSent[key], tokensReceived[key], tokenValue[key], tcount, ttime)
 	}
