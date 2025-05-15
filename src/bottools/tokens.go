@@ -25,6 +25,7 @@ func CalculateFutureTokenLogs(maxEntries int, startTime time.Time, minutesPerTok
 
 	endTime := startTime.Add(duration)
 	tokenTime := time.Now()
+	tokenTime = tokenTime.Add(time.Duration(rateSecondPerTokens) * time.Second)
 	for tokenTime.Before(endTime) {
 		val := GetTokenValue(tokenTime.Sub(startTime).Seconds(), duration.Seconds())
 		futureTokenLog = append(futureTokenLog, val)
@@ -81,7 +82,7 @@ func CalculateTcountTtime(tokenValue float64, tval float64, valueLog []float64, 
 				tcount = fmt.Sprintf("%d", i+1)
 				count = i + 1
 				if i < len(valueTime) { // Ensure index is within bounds
-					ttime = fmt.Sprintf("<t:%d:R>", valueTime[i].Unix())
+					ttime = fmt.Sprintf("~ <t:%d:t>", valueTime[i].Unix())
 				}
 				break
 			}
