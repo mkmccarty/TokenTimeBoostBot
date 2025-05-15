@@ -384,61 +384,17 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 			Inline: true,
 		})
 
-		// Future Token Values based on game averages
-		const maxFutureTokenLogEntries = 100 // Maximum number of future token log entries to process
-		const rateSecondPerTokens = 592      // Rate at which tokens are generated
-		// 1 token = 591.6 seconds / 9.86 minutes
-		futureTokenLog, futureTokenLogTimes, futureTokenLogGG, futureTokenLogGGTimes :=
-			bottools.CalculateFutureTokenLogs(maxFutureTokenLogEntries, td.StartTime, td.MinutesPerToken, duration, rateSecondPerTokens)
-		gg, ugg := ei.GetGenerousGiftEvent()
-		var valueLog []float64
-		var valueTime []time.Time
-		if ugg > 1.0 || gg > 1.0 {
-			valueLog = futureTokenLogGG
-			valueTime = futureTokenLogGGTimes
-		} else {
-			valueLog = futureTokenLog
-			valueTime = futureTokenLogTimes
-		}
-		tcount, ttime, count := bottools.CalculateTcountTtime(td.TokenDelta, targetTval, valueLog, valueTime)
+		if td.TokenDelta <= targetTval {
 
-		var valueLogStr []string
-		for i := 0; i < int(count); i++ {
-			if i < len(valueLog) {
-				valueLogStr = append(valueLogStr, fmt.Sprintf("%4.2f", valueLog[i]))
-			}
-		}
-
-		field = append(field, &discordgo.MessageEmbedField{
-			Name:   "Future Tokens",
-			Value:  fmt.Sprintf("Seconds/Token: %d\nRemaining: %s %s\nValues: %s", rateSecondPerTokens, tcount, ttime, strings.Join(valueLogStr, ", ")),
-			Inline: false,
-		})
-
-		/*
-			var valueTimeStr []string
-			for i := 0; i < int(count); i++ {
-				if i < len(valueTime) {
-					// Convert time.Time to seconds since td.StartTime
-					secondsSinceStart := valueTime[i].Sub(td.StartTime).Minutes()
-					valueTimeStr = append(valueTimeStr, fmt.Sprintf("%d", int(secondsSinceStart)))
-				}
-			}
-
-			field = append(field, &discordgo.MessageEmbedField{
-				Name:   "Future Token Times",
-				Value:  fmt.Sprintf("Times: %s", strings.Join(valueTimeStr, ", ")),
-				Inline: false,
-			})
-		*/
-		if td.SentCount >= 3 {
-			// This is the current rate of tokens per second
-			dynamic := float64(time.Since(td.StartTime).Seconds()) / float64(td.SentCount)
-
-			rateSecondPerTokensDynamic := (dynamic + rateSecondPerTokens) / 2.0
-			//((actual tokens/min) + 0.101332 )/2
-			futureTokenLog, futureTokenLogTimes, futureTokenLogGG, futureTokenLogGGTimes =
-				bottools.CalculateFutureTokenLogs(maxFutureTokenLogEntries, td.StartTime, td.MinutesPerToken, duration, rateSecondPerTokensDynamic)
+			// Future Token Values based on game averages
+			const maxFutureTokenLogEntries = 100 // Maximum number of future token log entries to process
+			const rateSecondPerTokens = 592      // Rate at which tokens are generated
+			// 1 token = 591.6 seconds / 9.86 minutes
+			futureTokenLog, futureTokenLogTimes, futureTokenLogGG, futureTokenLogGGTimes :=
+				bottools.CalculateFutureTokenLogs(maxFutureTokenLogEntries, td.StartTime, td.MinutesPerToken, duration, rateSecondPerTokens)
+			gg, ugg := ei.GetGenerousGiftEvent()
+			var valueLog []float64
+			var valueTime []time.Time
 			if ugg > 1.0 || gg > 1.0 {
 				valueLog = futureTokenLogGG
 				valueTime = futureTokenLogGGTimes
@@ -446,11 +402,9 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 				valueLog = futureTokenLog
 				valueTime = futureTokenLogTimes
 			}
-			tcount, ttime, count = bottools.CalculateTcountTtime(td.TokenDelta, targetTval, valueLog, valueTime)
+			tcount, ttime, count := bottools.CalculateTcountTtime(td.TokenDelta, targetTval, valueLog, valueTime)
 
-			// I have an array of floats in valueLog, want to convert the first tcount to a string
-			// separating values with a comma
-			valueLogStr = make([]string, 0, count)
+			var valueLogStr []string
 			for i := 0; i < int(count); i++ {
 				if i < len(valueLog) {
 					valueLogStr = append(valueLogStr, fmt.Sprintf("%4.2f", valueLog[i]))
@@ -458,10 +412,61 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 			}
 
 			field = append(field, &discordgo.MessageEmbedField{
-				Name:   "Future Tokens (Dynamic)",
-				Value:  fmt.Sprintf("Seconds/Token: %d\nRemaining: %s %s\nValues: %s", int(rateSecondPerTokensDynamic), tcount, ttime, strings.Join(valueLogStr, ", ")),
+				Name:   "Future Tokens",
+				Value:  fmt.Sprintf("Seconds/Token: %d\nRemaining: %s %s\nValues: %s", rateSecondPerTokens, tcount, ttime, strings.Join(valueLogStr, ", ")),
 				Inline: false,
 			})
+
+			if tcount != "∞" {
+
+				var valueTimeStr []string
+				for i := 0; i < int(count); i++ {
+					if i < len(valueTime) {
+						// Convert time.Time to seconds since td.StartTime
+						secondsSinceStart := valueTime[i].Sub(td.StartTime).Minutes()
+						valueTimeStr = append(valueTimeStr, fmt.Sprintf("%d", int(secondsSinceStart)))
+					}
+				}
+
+				field = append(field, &discordgo.MessageEmbedField{
+					Name:   "Future Token Times",
+					Value:  fmt.Sprintf("Times: %s", strings.Join(valueTimeStr, ", ")),
+					Inline: false,
+				})
+			}
+
+			if td.SentCount >= 3 {
+				// This is the current rate of tokens per second
+				dynamic := float64(time.Since(td.StartTime).Seconds()) / float64(td.SentCount)
+
+				rateSecondPerTokensDynamic := (dynamic + rateSecondPerTokens) / 2.0
+				//((actual tokens/min) + 0.101332 )/2
+				futureTokenLog, futureTokenLogTimes, futureTokenLogGG, futureTokenLogGGTimes =
+					bottools.CalculateFutureTokenLogs(maxFutureTokenLogEntries, td.StartTime, td.MinutesPerToken, duration, rateSecondPerTokensDynamic)
+				if ugg > 1.0 || gg > 1.0 {
+					valueLog = futureTokenLogGG
+					valueTime = futureTokenLogGGTimes
+				} else {
+					valueLog = futureTokenLog
+					valueTime = futureTokenLogTimes
+				}
+				tcount, ttime, count = bottools.CalculateTcountTtime(td.TokenDelta, targetTval, valueLog, valueTime)
+
+				// I have an array of floats in valueLog, want to convert the first tcount to a string
+				// separating values with a comma
+				valueLogStr = make([]string, 0, count)
+				for i := 0; i < int(count); i++ {
+					if i < len(valueLog) {
+						valueLogStr = append(valueLogStr, fmt.Sprintf("%4.2f", valueLog[i]))
+					}
+				}
+
+				field = append(field, &discordgo.MessageEmbedField{
+					Name:   "Future Tokens (Dynamic)",
+					Value:  fmt.Sprintf("Seconds/Token: %d\nRemaining: %s %s\nValues: %s", int(rateSecondPerTokensDynamic), tcount, ttime, strings.Join(valueLogStr, ", ")),
+					Inline: false,
+				})
+			}
 		}
 
 		// Show Token Teamwork score vs max.
