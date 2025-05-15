@@ -390,24 +390,21 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 			const maxFutureTokenLogEntries = 100 // Maximum number of future token log entries to process
 			const rateSecondPerTokens = 592      // Rate at which tokens are generated
 			// 1 token = 591.6 seconds / 9.86 minutes
-			futureTokenLog, futureTokenLogTimes, futureTokenLogGG, futureTokenLogGGTimes :=
+			futureTokenLog, futureTokenLogGG :=
 				bottools.CalculateFutureTokenLogs(maxFutureTokenLogEntries, td.StartTime, 0, td.MinutesPerToken, duration, rateSecondPerTokens)
 			gg, ugg := ei.GetGenerousGiftEvent()
-			var valueLog []float64
-			var valueTime []time.Time
+			var valueLog []bottools.FutureToken
 			if ugg > 1.0 || gg > 1.0 {
 				valueLog = futureTokenLogGG
-				valueTime = futureTokenLogGGTimes
 			} else {
 				valueLog = futureTokenLog
-				valueTime = futureTokenLogTimes
 			}
-			tcount, ttime, count := bottools.CalculateTcountTtime(td.TokenDelta, targetTval, valueLog, valueTime)
+			tcount, ttime, count := bottools.CalculateTcountTtime(td.TokenDelta, targetTval, valueLog)
 
 			var valueLogStr []string
 			for i := 0; i < int(count); i++ {
 				if i < len(valueLog) {
-					valueLogStr = append(valueLogStr, fmt.Sprintf("%4.2f", valueLog[i]))
+					valueLogStr = append(valueLogStr, fmt.Sprintf("%4.2f", valueLog[i].Value))
 				}
 			}
 
@@ -421,9 +418,9 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 
 				var valueTimeStr []string
 				for i := 0; i < int(count); i++ {
-					if i < len(valueTime) {
+					if i < len(valueLog) {
 						// Convert time.Time to seconds since td.StartTime
-						secondsSinceStart := valueTime[i].Sub(td.StartTime).Minutes()
+						secondsSinceStart := valueLog[i].Time.Sub(td.StartTime).Minutes()
 						valueTimeStr = append(valueTimeStr, fmt.Sprintf("%d", int(secondsSinceStart)))
 					}
 				}
@@ -441,23 +438,21 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 
 				rateSecondPerTokensDynamic := (dynamic + rateSecondPerTokens) / 2.0
 				//((actual tokens/min) + 0.101332 )/2
-				futureTokenLog, futureTokenLogTimes, futureTokenLogGG, futureTokenLogGGTimes =
+				futureTokenLog, futureTokenLogGG =
 					bottools.CalculateFutureTokenLogs(maxFutureTokenLogEntries, td.StartTime, 0, td.MinutesPerToken, duration, rateSecondPerTokensDynamic)
 				if ugg > 1.0 || gg > 1.0 {
 					valueLog = futureTokenLogGG
-					valueTime = futureTokenLogGGTimes
 				} else {
 					valueLog = futureTokenLog
-					valueTime = futureTokenLogTimes
 				}
-				tcount, ttime, count = bottools.CalculateTcountTtime(td.TokenDelta, targetTval, valueLog, valueTime)
+				tcount, ttime, count = bottools.CalculateTcountTtime(td.TokenDelta, targetTval, valueLog)
 
 				// I have an array of floats in valueLog, want to convert the first tcount to a string
 				// separating values with a comma
 				valueLogStr = make([]string, 0, count)
 				for i := 0; i < int(count); i++ {
 					if i < len(valueLog) {
-						valueLogStr = append(valueLogStr, fmt.Sprintf("%4.2f", valueLog[i]))
+						valueLogStr = append(valueLogStr, fmt.Sprintf("%4.2f", valueLog[i].Value))
 					}
 				}
 
@@ -483,7 +478,8 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 	if td.Linked {
 		footerStr += " Linked contracts will automatically track tokens sent and received through discord message reactions. "
 	}
-	footerStr += " After 4 days any tracker not marked as finished will be purged."
+	footerStr += " After 4 days any troacker not marked as finished will be purged.\n"
+	footerStr += "Future Tokens are calculated based on average of 6 tokens per hour plus token timers. "
 
 	embed := &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{{
