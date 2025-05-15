@@ -232,6 +232,8 @@ type Contract struct {
 	ThreadName                string
 	ThreadRenameTime          time.Time
 	EstimateUpdateTime        time.Time
+	TimeCRT                   time.Time // When the contract was created
+	TimeBoosting              time.Time // When the contract boost started
 
 	CRMessageIDs []string // Array of message IDs for chicken run messages
 
@@ -312,8 +314,12 @@ func changeContractState(contract *Contract, newstate int) {
 	// This will avoid adding this logic in multiple places
 	switch contract.State {
 	case ContractStateCRT:
+		contract.TimeCRT = time.Now()
 		contract.Banker.CurrentBanker = contract.Banker.CrtSinkUserID
 	case ContractStateBanker:
+		if contract.TimeBoosting.IsZero() {
+			contract.TimeBoosting = time.Now()
+		}
 		contract.Banker.CurrentBanker = contract.Banker.BoostingSinkUserID
 	case ContractStateWaiting:
 		if contract.Style&ContractFlagBanker != 0 {
