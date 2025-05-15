@@ -197,7 +197,7 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 		duration = td.DurationTime
 		fmt.Fprintf(&description, "Duration (Estimate): **%s** \n", ts[:len(ts)-2])
 	} else {
-		duration = td.TimeFromCoopStatus.Sub(td.StartTime)
+		duration = td.DurationTime
 		fmt.Fprintf(&description, "Duration (<t:%d:R>): **%s**\n", td.TimeFromCoopStatus.Unix(), ts[:len(ts)-2])
 	}
 
