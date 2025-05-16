@@ -1568,6 +1568,9 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 		if contract.Order[contract.BoostPosition] == contract.Banker.BoostingSinkUserID {
 			contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived = 0 // reset these
 		}
+		if contract.BoostOrder == ContractOrderTVal {
+			reorderBoosters(contract)
+		}
 	}
 
 	sendNextNotification(s, contract, true)
@@ -1805,8 +1808,9 @@ func reorderBoosters(contract *Contract) {
 		contract.BoostOrder = ContractOrderSignup
 	case ContractOrderTVal:
 		type TValPair struct {
-			name string
-			val  float64
+			name     string
+			position int
+			val      float64
 		}
 		var orderedNames []string
 		var lastOrderNames []string
@@ -1820,37 +1824,8 @@ func reorderBoosters(contract *Contract) {
 		}
 		lastBoostTime := time.Now()
 		contract.mutex.Lock()
-		for i, el := range contract.Order {
-			if contract.Banker.SinkBoostPosition == SinkBoostFirst {
-				// Sink boosting last or in order will end up with negative tval
-				// and drop lowest in the list anyway
-				if el == contract.Banker.BoostingSinkUserID {
-					// Put the banker at the front of orderedNames
-					orderedNames = append([]string{el}, orderedNames...)
-					if contract.Boosters[el].BoostState == BoostStateBoosted {
-						lastBoostTime = contract.Boosters[el].EndTime
-					}
-					continue
-				}
-			} else if contract.Banker.SinkBoostPosition == SinkBoostLast {
-				if el == contract.Banker.BoostingSinkUserID {
-					// Hold the banker until the end
-					lastOrderNames = append(lastOrderNames, el)
-					if i == contract.BoostPosition && contract.Boosters[el].BoostState == BoostStateTokenTime {
-						// If this is the current booster, reset it to unboosed
-						contract.Boosters[el].BoostState = BoostStateUnboosted
-					}
-					continue
-				}
-			} else if contract.Banker.SinkBoostPosition == SinkBoostFollowOrder {
-				if el == contract.Banker.BoostingSinkUserID {
-					if i == contract.BoostPosition && contract.Boosters[el].BoostState == BoostStateTokenTime {
-						// If this is the current booster, reset it to unboosed
-						contract.Boosters[el].BoostState = BoostStateUnboosted
-					}
-				}
-			}
 
+		for _, el := range contract.Order {
 			if contract.Boosters[el].BoostState == BoostStateBoosted {
 				orderedNames = append(orderedNames, el)
 				lastBoostTime = contract.Boosters[el].EndTime
@@ -1858,22 +1833,35 @@ func reorderBoosters(contract *Contract) {
 				// Fastrun style keeps current booster in place
 				orderedNames = append(orderedNames, el)
 			} else {
+				pos := SinkBoostFollowOrder
+				if el == contract.Banker.BoostingSinkUserID {
+					pos = contract.Banker.SinkBoostPosition
+				}
 				tvalPairs = append(tvalPairs, TValPair{
-					name: el,
-					val:  contract.Boosters[el].TokenValue,
+					name:     el,
+					position: pos,
+					val:      contract.Boosters[el].TokenValue,
 				})
 			}
 		}
+		sort.SliceStable(tvalPairs, func(i, j int) bool {
+			// Keep Sink First Boost at the front of the list
+			if tvalPairs[i].position == SinkBoostFirst {
+				return true
+			} else if tvalPairs[j].position == SinkBoostFirst {
+				return false
+			}
+			// Keep Sink Last Boost at the end of the list
+			if tvalPairs[i].position == SinkBoostLast {
+				return false
+			} else if tvalPairs[j].position == SinkBoostLast {
+				return true
+			}
 
-		sort.Slice(tvalPairs, func(i, j int) bool {
 			return tvalPairs[i].val > tvalPairs[j].val
 		})
 
 		newBoostPosition := len(orderedNames)
-		if contract.Banker.SinkBoostPosition == SinkBoostFirst && contract.BoostPosition == 0 ||
-			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState == BoostStateTokenTime {
-			newBoostPosition = contract.BoostPosition
-		}
 
 		// These boosters are all dymanic, any of them could be the next booster
 		for _, pair := range tvalPairs {
@@ -1892,8 +1880,10 @@ func reorderBoosters(contract *Contract) {
 
 	}
 	//
-	if contract.Style&ContractFlagBanker != 0 && contract.Banker.BoostingSinkUserID != "" {
-		repositionSinkBoostPosition(contract)
+	if contract.BoostOrder != ContractOrderTVal {
+		if contract.Style&ContractFlagBanker != 0 && contract.Banker.BoostingSinkUserID != "" {
+			repositionSinkBoostPosition(contract)
+		}
 	}
 }
 
