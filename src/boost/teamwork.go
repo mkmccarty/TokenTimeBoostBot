@@ -416,9 +416,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		if len(BuffTimeValues) == 0 {
 			teamwork.WriteString("**No buffs found for this contract.**\n")
 		} else {
-			teamworkFmtHdr := "`%10s %10s %3s %4s %6s %-8s`\n"
-			teamworkFm := "`%10s %10s %3s %4s %6s %8s`\n"
-			fmt.Fprintf(&teamwork, teamworkFmtHdr, "  Time  ", "Duration", "Def", "SIAB", "BTV", "TeamWork")
+			teamworkFmtHdr := "%10s %10s %3s %4s %6s %-8s\n"
+			teamworkFm := "%10s %10s %3s %4s %6s %8s\n"
+			fmt.Fprintf(&teamwork, teamworkFmtHdr, "  TIME  ", "DURATION", "DEF", "SIAB", "BTV", "TEAMWORK")
 
 			BestSIAB := 0.0
 			LastSIAB := 0.0
@@ -493,7 +493,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			} else {
 				field = append(field, &discordgo.MessageEmbedField{
 					Name:   "Teamwork",
-					Value:  teamworkStr,
+					Value:  "```" + teamworkStr + "```",
 					Inline: false,
 				})
 			}
@@ -611,9 +611,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			}
 
 			var deliv strings.Builder
-			deliveryFmtHdr := "`%7s %10s %10s %7s %8s`\n"
-			deliveryFmt := "`%7s %10s %10s %7s %8s`\n"
-			fmt.Fprintf(&deliv, deliveryFmtHdr, "Type", "  Time   ", "Duration", "Rate/HR", "Contrib")
+			deliveryFmtHdr := "%7s %10s %10s %7s %8s\n"
+			deliveryFmt := "%7s %10s %10s %7s %8s\n"
+			fmt.Fprintf(&deliv, deliveryFmtHdr, "TYPE", "  TIME   ", "DURATION", "RATE/HR", "CONTRIB")
 			for _, d := range deliveryTableMap[name] {
 				fmt.Fprintf(&deliv, deliveryFmt,
 					d.name,
@@ -626,7 +626,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 			field = append(field, &discordgo.MessageEmbedField{
 				Name:   "Deliveries",
-				Value:  deliv.String(),
+				Value:  "```" + deliv.String() + "```",
 				Inline: false,
 			})
 
