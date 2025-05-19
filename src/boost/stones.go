@@ -681,13 +681,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	table := tablewriter.NewWriter(&builder)
 
-	//table.SetCenterSeparator("")
-	//table.SetColumnSeparator("")
-	//table.SetRowSeparator("")
-	//table.SetHeaderLine(false)
-	//table.SetTablePadding(" ") // pad with tabs
-	//table.SetNoWhiteSpace(true)
-	//table.SetAlignment(tablewriter.ALIGN_LEFT)
 	needLegend := false
 	showGlitch := false
 
