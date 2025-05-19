@@ -11,7 +11,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-	"github.com/olekukonko/tablewriter"
 )
 
 // DeliveryTimeValue is a struct to hold the values for a delivery time
@@ -417,17 +416,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		if len(BuffTimeValues) == 0 {
 			teamwork.WriteString("**No buffs found for this contract.**\n")
 		} else {
-			table := tablewriter.NewWriter(&teamwork)
-			table.SetHeader([]string{"Time", "Duration", "Defl", "SIAB", "BTV", "TeamWork"})
-			table.SetBorder(false)
-			table.SetAlignment(tablewriter.ALIGN_RIGHT)
-			table.SetCenterSeparator("")
-			table.SetColumnSeparator("")
-			table.SetRowSeparator("")
-			table.SetHeaderLine(false)
-			table.SetTablePadding(" ") // pad with tabs
-			table.SetNoWhiteSpace(true)
-			table.SetBorders(tablewriter.Border{Left: false, Top: false, Right: false, Bottom: false})
+			teamworkFmtHdr := "`%10s %10s %3s %4s %6s %-8s`\n"
+			teamworkFm := "`%10s %10s %3s %4s %6s %8s`\n"
+			fmt.Fprintf(&teamwork, teamworkFmtHdr, "  Time  ", "Duration", "Def", "SIAB", "BTV", "TeamWork")
 
 			BestSIAB := 0.0
 			LastSIAB := 0.0
@@ -458,7 +449,13 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 				LastSIAB = b.earningsCalc
 				LastSIABCalc = float64(b.durationEquiped) * b.earningsCalc
 
-				table.Append([]string{fmt.Sprintf("%v", when.Round(time.Second)), fmt.Sprintf("%v", dur.Round(time.Second)), fmt.Sprintf("%d%%", b.eggRate), fmt.Sprintf("%d%%", b.earnings), fmt.Sprintf("%6.0f", b.buffTimeValue), fmt.Sprintf("%1.6f", segmentTeamworkScore)})
+				fmt.Fprintf(&teamwork, teamworkFm,
+					fmt.Sprintf("%v", when.Round(time.Second)),
+					fmt.Sprintf("%v", dur.Round(time.Second)),
+					fmt.Sprintf("%d%%", b.eggRate),
+					fmt.Sprintf("%d%%", b.earnings),
+					fmt.Sprintf("%6.0f", b.buffTimeValue),
+					fmt.Sprintf("%1.6f", segmentTeamworkScore))
 				buffTimeValue += b.buffTimeValue
 			}
 
@@ -466,8 +463,10 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			uncappedBuffTimeValue := buffTimeValue / contractDurationSeconds
 			B := min(uncappedBuffTimeValue, 2.0)
 			TeamworkScore := getPredictedTeamwork(B, 0.0, 0.0)
-			table.Append([]string{"", "", "", "", fmt.Sprintf("%6.0f", buffTimeValue), fmt.Sprintf("%1.6f", TeamworkScore)})
-			table.Render()
+			fmt.Fprintf(&teamwork, teamworkFm,
+				"", "", "", "",
+				fmt.Sprintf("%6.0f", buffTimeValue),
+				fmt.Sprintf("%1.6f", TeamworkScore))
 
 			// If the teamwork segment
 			teamworkStr := teamwork.String()
@@ -494,7 +493,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			} else {
 				field = append(field, &discordgo.MessageEmbedField{
 					Name:   "Teamwork",
-					Value:  "```" + teamworkStr + "```",
+					Value:  teamworkStr,
 					Inline: false,
 				})
 			}
@@ -612,31 +611,22 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			}
 
 			var deliv strings.Builder
-			dtable := tablewriter.NewWriter(&deliv)
-			dtable.SetHeader([]string{"Type", "Time", "Duration", "Rate", "Contrib"})
-			dtable.SetBorder(false)
-			dtable.SetAlignment(tablewriter.ALIGN_RIGHT)
-			dtable.SetCenterSeparator("")
-			dtable.SetColumnSeparator("")
-			dtable.SetRowSeparator("")
-			dtable.SetHeaderLine(false)
-			dtable.SetTablePadding(" ") // pad with tabs
-			dtable.SetNoWhiteSpace(true)
-			dtable.SetBorders(tablewriter.Border{Left: false, Top: false, Right: false, Bottom: false})
+			deliveryFmtHdr := "`%7s %10s %10s %7s %8s`\n"
+			deliveryFmt := "`%7s %10s %10s %7s %8s`\n"
+			fmt.Fprintf(&deliv, deliveryFmtHdr, "Type", "  Time   ", "Duration", "Rate/HR", "Contrib")
 			for _, d := range deliveryTableMap[name] {
-				dtable.Append([]string{
+				fmt.Fprintf(&deliv, deliveryFmt,
 					d.name,
 					d.timeEquipped.Sub(startTime).Round(time.Second).String(),
 					fmt.Sprintf("%v", d.duration.Round(time.Second)),
-					fmt.Sprintf("%2.3fq/hr", (d.contributionRateInSeconds*3600)/1e15),
+					fmt.Sprintf("%2.3fq", (d.contributionRateInSeconds*3600)/1e15),
 					fmt.Sprintf("%2.3fq", d.contributions/1e15),
-				})
+				)
 			}
-			dtable.Render()
 
 			field = append(field, &discordgo.MessageEmbedField{
 				Name:   "Deliveries",
-				Value:  "```" + deliv.String() + "```",
+				Value:  deliv.String(),
 				Inline: false,
 			})
 
