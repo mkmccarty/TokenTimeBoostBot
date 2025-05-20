@@ -50,16 +50,18 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 		if cUserID == b.UserID {
 			// Current booster subtract number of tokens wanted
 			log.Printf("Sink indicating they are boosting with %d tokens.\n", b.TokensWanted)
-			sink.TokensReceived -= b.TokensWanted
-			sink.TokensReceived = max(0, sink.TokensReceived) // Avoid missing self farmed tokens
+			//	sink.TokensReceived -= b.TokensWanted
+			//	sink.TokensReceived = max(0, sink.TokensReceived) // Avoid missing self farmed tokens
+			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: b.TokensWanted, FromUserID: cUserID, FromNick: contract.Boosters[cUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: xid.New().String()})
+			sink.TokensReceived = getTokensReceivedFromLog(contract, sink.UserID) - getTokensSentFromLog(contract, sink.UserID)
 		} else {
 			log.Printf("Sink sent %d tokens to booster\n", b.TokensWanted)
 			// Current booster number of tokens wanted
 			// How many tokens does booster want?  Check to see if sink has that many
 			tokensToSend := b.TokensWanted // If Sink is pressing 💰 they are assumed to be sending that many
 			b.TokensReceived += tokensToSend
-			sink.TokensReceived -= tokensToSend
-			sink.TokensReceived = max(0, sink.TokensReceived) // Avoid missing self farmed tokens
+			sink.TokensReceived = getTokensReceivedFromLog(contract, sink.UserID) - getTokensSentFromLog(contract, sink.UserID)
+			//sink.TokensReceived = max(0, sink.TokensReceived) // Avoid missing self farmed tokens
 			// Record the Tokens as received
 			tokenSerial := xid.New().String()
 			now := time.Now()

@@ -10,9 +10,35 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
+// Return the number of tokens received by the user from the token log
+// This includes farmed tokens
+func getTokensReceivedFromLog(contract *Contract, userID string) int {
+	var tokensReceived = 0
+	for _, logEntry := range contract.TokenLog {
+		if logEntry.ToUserID == userID {
+			tokensReceived += logEntry.Quantity
+		}
+	}
+	return tokensReceived
+}
+
+func getTokensSentFromLog(contract *Contract, userID string) int {
+	var tokensSent = 0
+	for _, logEntry := range contract.TokenLog {
+		if logEntry.FromUserID == userID && logEntry.FromUserID != logEntry.ToUserID {
+			tokensSent += logEntry.Quantity
+		}
+	}
+	return tokensSent
+}
+
 func getSinkIcon(contract *Contract, b *Booster) string {
 	var sinkIcon = ""
 	if contract.Banker.CurrentBanker == b.UserID {
+		b.TokensReceived = getTokensReceivedFromLog(contract, b.UserID) - getTokensSentFromLog(contract, b.UserID)
+		if b.BoostState == BoostStateBoosted {
+			b.TokensReceived -= b.TokensWanted
+		}
 		sinkIcon = fmt.Sprintf("%s[%d] %s", contract.TokenStr, b.TokensReceived, ei.GetBotEmojiMarkdown("tvalrip"))
 	}
 
@@ -295,9 +321,14 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 					chickenStr = fmt.Sprintf(" - <t:%d:R>%s", b.RunChickensTime.Unix(), ei.GetBotEmojiMarkdown("icon_chicken_run"))
 				}
 
+				b.TokensReceived = getTokensReceivedFromLog(contract, b.UserID) // - getTokensSentFromLog(contract, b.UserID)
+
 				countStr, signupCountStr := getTokenCountString(tokenStr, b.TokensWanted, b.TokensReceived)
-				if b.UserID == contract.Banker.CurrentBanker && b.BoostState == BoostStateUnboosted {
-					countStr, signupCountStr = getTokenCountString(tokenStr, b.TokensWanted, 0)
+				if b.UserID == contract.Banker.CurrentBanker {
+					b.TokensReceived = getTokensReceivedFromLog(contract, b.UserID) - getTokensSentFromLog(contract, b.UserID)
+					if b.BoostState != BoostStateBoosted {
+						countStr, signupCountStr = getTokenCountString(tokenStr, b.TokensWanted, 0)
+					}
 				}
 
 				// Additions for contract state value display
