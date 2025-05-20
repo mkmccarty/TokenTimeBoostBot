@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"log"
+	"slices"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -38,6 +39,12 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 			if b.BoostState == BoostStateBoosted {
 				return false, false
 			}
+			// Going to be boosting the sink so make sure they
+			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateUnboosted
+			contract.Boosters[cUserID].StartTime = contract.StartTime
+			contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Time{}
+			contract.BoostPosition = slices.Index(contract.Order, cUserID)
+			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 		}
 
 		if cUserID == b.UserID {
