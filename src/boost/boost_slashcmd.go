@@ -548,7 +548,7 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 	c.mutex.Unlock()
 	track.ContractTokenUpdate(s, i.ChannelID, &modifiedTokenLog)
 	saveData(Contracts)
-	RedrawBoostList(s, i.GuildID, i.ChannelID)
+	_ = RedrawBoostList(s, i.GuildID, i.ChannelID)
 	return str
 }
 
