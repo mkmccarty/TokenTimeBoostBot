@@ -226,6 +226,11 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 
 func buttonReactionLast(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, cUserID string) (bool, bool) {
 	var uid = cUserID
+	// make sure uid is in the contract
+	if !userInContract(contract, uid) {
+		return false, false
+	}
+
 	switch contract.Boosters[uid].BoostState {
 	case BoostStateTokenTime:
 		currentBoosterPosition := findNextBooster(contract)
