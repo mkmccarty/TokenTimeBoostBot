@@ -320,28 +320,29 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			durationPast,
 			c.GetContributionAmount(),
 		})
-		DeliveryTimeValues = append(DeliveryTimeValues, DeliveryTimeValue{
-			"Offline",
-			pp.GetSr(),
-			pp.GetElr(),
-			-(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()),
-			c.GetContributionRate(),
-			nowTime.Add(time.Duration(c.GetFarmInfo().GetTimestamp()) * time.Second),
-			time.Duration(-c.GetFarmInfo().GetTimestamp()) * time.Second,
-			DeliveryTimeValues[0].contributions + -(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()),
-		})
-		DeliveryTimeValues = append(DeliveryTimeValues, DeliveryTimeValue{
-			"Future",
-			pp.GetSr(),
-			pp.GetElr(),
-			c.GetContributionRate() * float64(calcSecondsRemaining),
-			c.GetContributionRate(),
-			nowTime,
-			time.Duration(calcSecondsRemaining) * time.Second,
-			DeliveryTimeValues[1].contributions + c.GetContributionRate()*float64(calcSecondsRemaining),
-		})
+		if calcSecondsRemaining > 0 {
+			DeliveryTimeValues = append(DeliveryTimeValues, DeliveryTimeValue{
+				"Offline",
+				pp.GetSr(),
+				pp.GetElr(),
+				-(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()),
+				c.GetContributionRate(),
+				nowTime.Add(time.Duration(c.GetFarmInfo().GetTimestamp()) * time.Second),
+				time.Duration(-c.GetFarmInfo().GetTimestamp()) * time.Second,
+				DeliveryTimeValues[0].contributions + -(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()),
+			})
+			DeliveryTimeValues = append(DeliveryTimeValues, DeliveryTimeValue{
+				"Future",
+				pp.GetSr(),
+				pp.GetElr(),
+				c.GetContributionRate() * float64(calcSecondsRemaining),
+				c.GetContributionRate(),
+				nowTime,
+				time.Duration(calcSecondsRemaining) * time.Second,
+				DeliveryTimeValues[1].contributions + c.GetContributionRate()*float64(calcSecondsRemaining),
+			})
+		}
 		deliveryTableMap[strings.ToLower(c.GetUserName())] = DeliveryTimeValues
-
 		if len(c.GetBuffHistory()) > 0 {
 			a := c.GetBuffHistory()[0]
 			serverTimestamp := a.GetServerTimestamp() // When it was equipped
