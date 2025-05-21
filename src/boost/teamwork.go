@@ -391,14 +391,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		for _, a := range c.GetBuffHistory() {
 			earnings := int(math.Round(a.GetEarnings()*100 - 100))
 			eggRate := int(math.Round(a.GetEggLayingRate()*100 - 100))
-			serverTimestamp := a.GetServerTimestamp() // When it was equipped
-			if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
-				serverTimestamp -= coopStatus.GetSecondsSinceAllGoalsAchieved()
-			} else {
-				serverTimestamp += calcSecondsRemaining
-			}
-			serverTimestamp = contractDurationSeconds - serverTimestamp
-			BuffTimeValues = append(BuffTimeValues, BuffTimeValue{name, earnings, 0.0075 * float64(earnings), eggRate, 0.0075 * float64(eggRate) * 10.0, serverTimestamp, 0, 0, 0, 0})
+			// Equiptime is relative to the estimated end of the contract
+			equipTimestamp := contractDurationSeconds - (a.GetServerTimestamp() - coopStatus.GetSecondsSinceAllGoalsAchieved() + calcSecondsRemaining)
+			BuffTimeValues = append(BuffTimeValues, BuffTimeValue{name, earnings, 0.0075 * float64(earnings), eggRate, 0.0075 * float64(eggRate) * 10.0, equipTimestamp, 0, 0, 0, 0})
 		}
 
 		// From the last equipped buff, calculate the time until the end of the contract
@@ -611,8 +606,8 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			}
 
 			var deliv strings.Builder
-			deliveryFmtHdr := "%7s %10s %10s %7s %8s\n"
-			deliveryFmt := "%7s %10s %10s %7s %8s\n"
+			deliveryFmtHdr := "%9s %10s %10s %7s %8s\n"
+			deliveryFmt := "%9s %10s %10s %7s %8s\n"
 			fmt.Fprintf(&deliv, deliveryFmtHdr, "TYPE", "  TIME   ", "DURATION", "RATE/HR", "CONTRIB")
 			for _, d := range deliveryTableMap[name] {
 				fmt.Fprintf(&deliv, deliveryFmt,
