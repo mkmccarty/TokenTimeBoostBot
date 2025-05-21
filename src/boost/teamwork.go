@@ -274,8 +274,8 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
 		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
 		startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
-		secondsSinceAllGoals := coopStatus.GetSecondsSinceAllGoalsAchieved()
-		endTime = endTime.Add(-time.Duration(secondsSinceAllGoals) * time.Second)
+		calcSecondsRemaining = -coopStatus.GetSecondsSinceAllGoalsAchieved()
+		endTime = endTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
 		builder.WriteString(fmt.Sprintf("Completed %s contract %s/[**%s**](%s)\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), coopStatus.GetContractIdentifier(), coopStatus.GetCoopIdentifier(), fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID)))
 	} else {
@@ -345,12 +345,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		if len(c.GetBuffHistory()) > 0 {
 			a := c.GetBuffHistory()[0]
 			serverTimestamp := a.GetServerTimestamp() // When it was equipped
-			if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
-				serverTimestamp -= coopStatus.GetSecondsSinceAllGoalsAchieved()
-			} else {
-				serverTimestamp += calcSecondsRemaining
-			}
-
+			serverTimestamp += calcSecondsRemaining
 			BuffTimeValueCRT = append(BuffTimeValueCRT, contractDurationSeconds-serverTimestamp)
 		}
 	}
@@ -392,7 +387,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			earnings := int(math.Round(a.GetEarnings()*100 - 100))
 			eggRate := int(math.Round(a.GetEggLayingRate()*100 - 100))
 			// Equiptime is relative to the estimated end of the contract
-			equipTimestamp := contractDurationSeconds - (a.GetServerTimestamp() - coopStatus.GetSecondsSinceAllGoalsAchieved() + calcSecondsRemaining)
+			equipTimestamp := contractDurationSeconds - (a.GetServerTimestamp() + calcSecondsRemaining)
 			BuffTimeValues = append(BuffTimeValues, BuffTimeValue{name, earnings, 0.0075 * float64(earnings), eggRate, 0.0075 * float64(eggRate) * 10.0, equipTimestamp, 0, 0, 0, 0})
 		}
 
