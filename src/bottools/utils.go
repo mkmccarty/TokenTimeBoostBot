@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // FmtDuration formats a time.Duration into a human readable string
@@ -82,7 +83,8 @@ const (
 // AlignString aligns a string to the left, center, or right within a given width
 func AlignString(str string, width int, alignment StringAlign) string {
 	// Calculate the padding needed
-	padding := width - len(str)
+
+	padding := width - utf8.RuneCountInString(str)
 	if padding <= 0 {
 		return str
 	}
