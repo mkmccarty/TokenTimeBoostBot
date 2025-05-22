@@ -344,16 +344,17 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		as.name = c.GetUserName()
 		as.nameRaw = as.name
 		// Strip any multibyte characters from as.name and replace with ~
-		cleanName := make([]rune, len(as.name))
-		for i, r := range as.name {
-			if r > 127 {
-				cleanName[i] = '?'
-			} else {
-				cleanName[i] = r
+		/*
+			cleanName := make([]rune, len(as.name))
+			for i, r := range as.name {
+				if r > 127 {
+					cleanName[i] = '?'
+				} else {
+					cleanName[i] = r
+				}
 			}
-		}
-		as.name = strings.ReplaceAll(string(cleanName), "\x00", "")
-
+			as.name = strings.ReplaceAll(string(cleanName), "\x00", "")
+		*/
 		p := c.GetProductionParams()
 		as.farmCapacity = p.GetFarmCapacity()
 		as.farmPopulation = p.GetFarmPopulation()
