@@ -1041,7 +1041,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		tableHeader = strings.Join(headerStr, " ")
 	} else {
 		headerStr := []string{
-			bottools.AlignString("Name", 12, bottools.StringAlignRight),
+			bottools.AlignString("Name", 12, bottools.StringAlignCenter),
 			bottools.AlignString("T", 3, bottools.StringAlignCenter),
 			bottools.AlignString("Q", 3, bottools.StringAlignCenter)}
 
