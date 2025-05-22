@@ -20,9 +20,7 @@ func buildStonesCache(s string, url string, tiles []*discordgo.MessageEmbedField
 	// Split by lines
 	table := strings.Split(split[1], "\n")
 	var trimmedTable []string
-	for _, line := range table {
-		trimmedTable = append(trimmedTable, line)
-	}
+	trimmedTable = append(trimmedTable, table...)
 	table = trimmedTable
 	tableHeader := table[0] + "\n"
 	table = table[1:]
