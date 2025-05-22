@@ -158,12 +158,13 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	contract := findContractByIDs(contractID, coopID)
 	if contract != nil {
-		// Only refresh if EstimateUpdateTime is within 10 seconds of now
-		if math.Abs(time.Since(contract.EstimateUpdateTime).Seconds()) <= 10 {
-			refreshBoostListMessage(s, contract)
+		if contract.State == ContractStateCompleted {
+			// Only refresh if EstimateUpdateTime is within 10 seconds of now
+			if math.Abs(time.Since(contract.EstimateUpdateTime).Seconds()) <= 10 {
+				refreshBoostListMessage(s, contract)
+			}
 		}
 	}
-
 	if tiles != nil {
 		cache := buildStonesCache(s1, urls, tiles)
 		// Fill in our calling parameters
