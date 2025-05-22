@@ -21,16 +21,7 @@ func buildStonesCache(s string, url string, tiles []*discordgo.MessageEmbedField
 	table := strings.Split(split[1], "\n")
 	var trimmedTable []string
 	for _, line := range table {
-		if strings.TrimSpace(line) != "" && !strings.HasPrefix(line, "+") {
-			// This line has a single divider character of "~", I want to split this line into 2 parts.
-			// The first part is the left side of the divider, the second part is the right side of the divider.
-			// The second part of the line needs to be wrapped with single backticks.
-			line = line[1 : len(line)-1]
-			line = strings.ReplaceAll(line, " | ", "|")
-			parts := strings.Split(line, "|")
-			line = fmt.Sprintf("`%s %s`", strings.Join(parts[0:3], "  "), strings.Join(parts[3:], " "))
-			trimmedTable = append(trimmedTable, line)
-		}
+		trimmedTable = append(trimmedTable, line)
 	}
 	table = trimmedTable
 	tableHeader := table[0] + "\n"
@@ -216,7 +207,13 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		//builder.WriteString(cache.footer)
 	} else {
 
-		field = append(field, cache.tiles[start:end]...)
+		for i := start; i < end && i < len(cache.tiles); i++ {
+			if cache.tiles[i] != nil {
+				field = append(field, cache.tiles[i])
+			}
+		}
+
+		// remove any null
 
 		embed = []*discordgo.MessageEmbed{{
 			Type:        discordgo.EmbedTypeRich,

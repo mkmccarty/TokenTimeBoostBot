@@ -12,7 +12,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-	"github.com/olekukonko/tablewriter"
 )
 
 // GetSlashStones will return the discord command for calculating ideal stone set
@@ -61,13 +60,14 @@ func GetSlashStones(cmd string) *discordgo.ApplicationCommand {
 				Description: "Respond privately. Default is false.",
 				Required:    false,
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "solo-report-name",
-				Description: "egg-inc game name for solo report",
-				Required:    false,
-			},
-
+			/*
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "solo-report-name",
+					Description: "egg-inc game name for solo report",
+					Required:    false,
+				},
+			*/
 			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "use-buffhistory",
@@ -301,7 +301,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	// Find maximum Colleggtibles
 	maxCollectibleELR, maxColllectibleShip, maxColleggtibleHab := ei.GetColleggtibleValues()
-	anyColleggtiblesToShow := false
 	colleggtibleStr := []string{}
 	if maxColllectibleShip > 1.0 {
 		colleggtibleStr = append(colleggtibleStr, fmt.Sprintf("🚚%2.4g%%", (maxColllectibleShip-1.0)*100))
@@ -679,7 +678,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		artifactSets = append(artifactSets, as)
 	}
 
-	table := tablewriter.NewWriter(&builder)
+	var tableHeader string
+	var tableData []string
 
 	needLegend := false
 	showGlitch := false
@@ -855,15 +855,22 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 			stoneShipRate := shippingRate * math.Pow(1.05, float64((as.stones-i))) * collegShip
 
-			soloData := []string{as.name,
-				fmt.Sprintf("%d%s", i, ""), fmt.Sprintf("%d%s", as.stones-i, ""),
-				fmt.Sprintf("%2.3f", stoneLayRate), fmt.Sprintf("%2.3f", stoneShipRate),
-				as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev}
+			soloData := []string{
+				bottools.AlignString(as.name, 12, bottools.StringAlignCenter),
+				bottools.AlignString(fmt.Sprintf("%d", i), 3, bottools.StringAlignCenter),
+				bottools.AlignString(fmt.Sprintf("%d", as.stones-i), 3, bottools.StringAlignCenter),
+				bottools.AlignString(fmt.Sprintf("%2.3f", stoneLayRate), 6, bottools.StringAlignCenter),
+				bottools.AlignString(fmt.Sprintf("%2.3f", stoneShipRate), 6, bottools.StringAlignCenter),
+				bottools.AlignString(as.deflector.abbrev, 3, bottools.StringAlignRight),
+				bottools.AlignString(as.metronome.abbrev, 3, bottools.StringAlignRight),
+				bottools.AlignString(as.compass.abbrev, 3, bottools.StringAlignRight),
+				bottools.AlignString(as.gusset.abbrev, 3, bottools.StringAlignRight),
+			}
 			if len(as.collegg) > 0 {
 				combined := append(as.collegg, as.note...)
 				as.note = combined
 			}
-			soloData = append(soloData, strings.Join(as.note, ","))
+			soloData = append(soloData, bottools.AlignString(strings.Join(as.note, ","), 3, bottools.StringAlignLeft))
 			as.soloData = append(as.soloData, soloData)
 
 		}
@@ -897,13 +904,17 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 
 		displayQ := fmt.Sprintf("%d", as.quantWant)
+		paddingQ := bottools.StringAlignCenter
 		if as.quantWant == qStones {
 			displayQ += "√"
+			paddingQ = bottools.StringAlignRight
 		}
 
 		displayT := fmt.Sprintf("%d", as.tachWant)
+		paddingT := bottools.StringAlignCenter
 		if as.tachWant == tStones {
 			displayT += "√"
+			paddingT = bottools.StringAlignRight
 		}
 		if stoneBonusIncrease != 1.05 {
 			if notes != "" {
@@ -919,7 +930,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		if soloName != "" {
 			for _, d := range as.soloData {
-				table.Append(d)
+				//log.Print(d)
+				tableData = append(tableData, strings.Join(d, " "))
 			}
 		} else {
 
@@ -958,27 +970,36 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			//link := fmt.Sprintf("[%s](%s)", ei.GetBotEmojiMarkdown("staab"), url)
 			//link := fmt.Sprintf("[%s](%s)", "🌌", url)
 
-			statsLine := []string{truncateString(as.name, 12),
-				displayT, displayQ}
+			statsLine := []string{
+				bottools.AlignString(truncateString(as.name, 12), 12, bottools.StringAlignRight),
+				bottools.AlignString(displayT, 3, paddingT),
+				bottools.AlignString(displayQ, 3, paddingQ),
+			}
 
 			if details {
 				// Details
-				statsLine = append(statsLine, lBestELR, lBestSR)
+				statsLine = append(statsLine,
+					bottools.AlignString(lBestELR, 6, bottools.StringAlignCenter),
+					bottools.AlignString(lBestSR, 6, bottools.StringAlignCenter),
+				)
 
 				if !skipArtifact {
-					statsLine = append(statsLine, as.deflector.abbrev, as.metronome.abbrev, as.compass.abbrev, as.gusset.abbrev)
+					statsLine = append(statsLine,
+						bottools.AlignString(as.deflector.abbrev, 3, bottools.StringAlignRight),
+						bottools.AlignString(as.metronome.abbrev, 3, bottools.StringAlignRight),
+						bottools.AlignString(as.compass.abbrev, 3, bottools.StringAlignRight),
+						bottools.AlignString(as.gusset.abbrev, 3, bottools.StringAlignRight),
+					)
 				}
+			}
 
-				//if anyColleggtiblesToShow {
-				//					statsLine = append(statsLine, strings.Join(as.collegg, ","))
-				//		}
-			}
 			if len(as.collegg) > 0 {
-				statsLine = append(statsLine, strings.Join(as.collegg, ",")+","+notes)
+				statsLine = append(statsLine, bottools.AlignString(strings.Join(as.collegg, ",")+","+notes, 3, bottools.StringAlignLeft))
 			} else {
-				statsLine = append(statsLine, notes)
+				statsLine = append(statsLine, bottools.AlignString(notes, 3, bottools.StringAlignLeft))
 			}
-			table.Append(statsLine)
+
+			tableData = append(tableData, strings.Join(statsLine, " "))
 
 			if as.name != "[departed]" {
 				url := bottools.GetStaabmiaLink(true, dimension, rate, int(everyoneDeflectorPercent), as.staabArtifacts, as.colleggSR)
@@ -998,55 +1019,55 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			})
 		}
 	}
-
 	// Now add headers since we know if we have all the columns
 	if soloName != "" {
-		headerStr := []string{"Name",
-			"T", "Q",
-			"ELR", "SR",
-			"Dfl", "Met", "Com", "Gus"}
-		alignment := []int{
-			tablewriter.ALIGN_RIGHT,
-			tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
-			tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER,
-			tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT}
-
-		if anyColleggtiblesToShow {
-			headerStr = append(headerStr, "🥚")
-			alignment = append(alignment, tablewriter.ALIGN_RIGHT)
+		headerStr := []string{
+			bottools.AlignString("Name", 12, bottools.StringAlignCenter),
+			bottools.AlignString("T", 3, bottools.StringAlignCenter),
+			bottools.AlignString("Q", 3, bottools.StringAlignCenter),
+			bottools.AlignString("ELR", 6, bottools.StringAlignCenter),
+			bottools.AlignString("SR", 6, bottools.StringAlignCenter),
+			bottools.AlignString("Dfl", 3, bottools.StringAlignRight),
+			bottools.AlignString("Met", 3, bottools.StringAlignRight),
+			bottools.AlignString("Com", 3, bottools.StringAlignRight),
+			bottools.AlignString("Gus", 3, bottools.StringAlignRight),
 		}
-		headerStr = append(headerStr, "📓")
-		alignment = append(alignment, tablewriter.ALIGN_LEFT)
 
-		table.SetHeader(headerStr)
-		table.SetColumnAlignment(alignment)
+		headerStr = append(headerStr, bottools.AlignString("📓", 3, bottools.StringAlignLeft))
+
+		for i, h := range headerStr {
+			headerStr[i] = strings.ToUpper(h)
+		}
+		tableHeader = strings.Join(headerStr, " ")
 	} else {
-		headerStr := []string{"Name", "T", "Q"}
-		alignment := []int{
-			tablewriter.ALIGN_RIGHT,
-			tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER}
+		headerStr := []string{
+			bottools.AlignString("Name", 12, bottools.StringAlignRight),
+			bottools.AlignString("T", 3, bottools.StringAlignCenter),
+			bottools.AlignString("Q", 3, bottools.StringAlignCenter)}
 
 		if details {
-			headerStr = append(headerStr, "ELR", "SR")
-			alignment = append(alignment, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER)
+			headerStr = append(headerStr,
+				bottools.AlignString("ELR", 6, bottools.StringAlignCenter),
+				bottools.AlignString("SR", 6, bottools.StringAlignCenter))
 
 			// Skip Artifacts
 			if !skipArtifact {
-				headerStr = append(headerStr, "Dfl", "Met", "Com", "Gus")
-				alignment = append(alignment, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT)
+				headerStr = append(headerStr,
+					bottools.AlignString("Dfl", 3, bottools.StringAlignRight),
+					bottools.AlignString("Met", 3, bottools.StringAlignRight),
+					bottools.AlignString("Com", 3, bottools.StringAlignRight),
+					bottools.AlignString("Gus", 3, bottools.StringAlignRight),
+				)
 			}
 
 			// Show Colleggtibles only if there are anyone not at max
-			if anyColleggtiblesToShow {
-				headerStr = append(headerStr, "🥚")
-				alignment = append(alignment, tablewriter.ALIGN_CENTER)
-			}
 		}
-		headerStr = append(headerStr, "📓")
-		alignment = append(alignment, tablewriter.ALIGN_LEFT)
+		headerStr = append(headerStr, bottools.AlignString("📓", 3, bottools.StringAlignCenter))
 
-		table.SetHeader(headerStr)
-		table.SetColumnAlignment(alignment)
+		for i, h := range headerStr {
+			headerStr[i] = strings.ToUpper(h)
+		}
+		tableHeader = strings.Join(headerStr, " ")
 	}
 
 	var contractDurationSeconds float64
@@ -1126,8 +1147,12 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		builder.WriteString(dataTimestampStr)
 	}
 
+	// Write out the table Header and Data
 	builder.WriteString("```")
-	table.Render()
+	builder.WriteString(fmt.Sprintf("`%s`\n", tableHeader))
+	for _, d := range tableData {
+		builder.WriteString(fmt.Sprintf("`%v`\n", d))
+	}
 	builder.WriteString("```")
 
 	for _, as := range artifactSets {
