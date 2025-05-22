@@ -96,6 +96,10 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		cache = newCache
 		stonesCacheMap[cache.xid] = newCache
 
+		contract := FindContract(i.ChannelID)
+		if contract != nil {
+			go updateEstimatedTime(s, i.ChannelID, contract, false)
+		}
 		//delete(stonesCacheMap, xid)
 		//exists = false
 	}
