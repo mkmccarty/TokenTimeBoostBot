@@ -189,7 +189,6 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			delete(teamworkCacheMap, key)
 		}
 	}
-
 }
 
 // DownloadCoopStatusTeamwork will download the coop status for a given contract and coop ID
@@ -409,7 +408,14 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		} else {
 			teamworkFmtHdr := "%10s %10s %3s %4s %6s %-8s\n"
 			teamworkFm := "%10s %10s %3s %4s %6s %8s\n"
-			fmt.Fprintf(&teamwork, teamworkFmtHdr, "  TIME  ", "DURATION", "DEF", "SIAB", "BTV", "TEAMWORK")
+			fmt.Fprintf(&teamwork, teamworkFmtHdr,
+				bottools.AlignString("TIME", 10, bottools.StringAlignCenter),
+				bottools.AlignString("DURATION", 10, bottools.StringAlignCenter),
+				bottools.AlignString("DEF", 3, bottools.StringAlignCenter),
+				bottools.AlignString("SIAB", 4, bottools.StringAlignCenter),
+				bottools.AlignString("BTV", 6, bottools.StringAlignRight),
+				bottools.AlignString("TEAMWORK", 8, bottools.StringAlignRight),
+			)
 
 			BestSIAB := 0.0
 			LastSIAB := 0.0
@@ -441,12 +447,13 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 				LastSIABCalc = float64(b.durationEquiped) * b.earningsCalc
 
 				fmt.Fprintf(&teamwork, teamworkFm,
-					fmt.Sprintf("%v", when.Round(time.Second)),
-					fmt.Sprintf("%v", dur.Round(time.Second)),
-					fmt.Sprintf("%d%%", b.eggRate),
-					fmt.Sprintf("%d%%", b.earnings),
-					fmt.Sprintf("%6.0f", b.buffTimeValue),
-					fmt.Sprintf("%1.6f", segmentTeamworkScore))
+					bottools.AlignString(fmt.Sprintf("%v", when.Round(time.Second)), 10, bottools.StringAlignCenter),
+					bottools.AlignString(fmt.Sprintf("%v", dur.Round(time.Second)), 10, bottools.StringAlignCenter),
+					bottools.AlignString(fmt.Sprintf("%d%%", b.eggRate), 3, bottools.StringAlignRight),
+					bottools.AlignString(fmt.Sprintf("%d%%", b.earnings), 4, bottools.StringAlignRight),
+					bottools.AlignString(fmt.Sprintf("%6.0f", b.buffTimeValue), 6, bottools.StringAlignRight),
+					bottools.AlignString(fmt.Sprintf("%1.6f", segmentTeamworkScore), 8, bottools.StringAlignRight),
+				)
 				buffTimeValue += b.buffTimeValue
 			}
 
@@ -456,8 +463,8 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			TeamworkScore := getPredictedTeamwork(B, 0.0, 0.0)
 			fmt.Fprintf(&teamwork, teamworkFm,
 				"", "", "", "",
-				fmt.Sprintf("%6.0f", buffTimeValue),
-				fmt.Sprintf("%1.6f", TeamworkScore))
+				bottools.AlignString(fmt.Sprintf("%6.0f", buffTimeValue), 6, bottools.StringAlignRight),
+				bottools.AlignString(fmt.Sprintf("%1.6f", TeamworkScore), 8, bottools.StringAlignRight))
 
 			// If the teamwork segment
 			teamworkStr := teamwork.String()
@@ -604,14 +611,20 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			var deliv strings.Builder
 			deliveryFmtHdr := "%9s %10s %10s %7s %8s\n"
 			deliveryFmt := "%9s %10s %10s %7s %8s\n"
-			fmt.Fprintf(&deliv, deliveryFmtHdr, "TYPE", "  TIME   ", "DURATION", "RATE/HR", "CONTRIB")
+			fmt.Fprintf(&deliv, deliveryFmtHdr,
+				bottools.AlignString("TYPE", 9, bottools.StringAlignCenter),
+				bottools.AlignString("TIME", 10, bottools.StringAlignCenter),
+				bottools.AlignString("DURATION", 10, bottools.StringAlignCenter),
+				bottools.AlignString("RATE/HR", 7, bottools.StringAlignCenter),
+				bottools.AlignString("CONTRIB", 8, bottools.StringAlignCenter),
+			)
 			for _, d := range deliveryTableMap[name] {
 				fmt.Fprintf(&deliv, deliveryFmt,
-					d.name,
-					d.timeEquipped.Sub(startTime).Round(time.Second).String(),
-					fmt.Sprintf("%v", d.duration.Round(time.Second)),
-					fmt.Sprintf("%2.3fq", (d.contributionRateInSeconds*3600)/1e15),
-					fmt.Sprintf("%2.3fq", d.contributions/1e15),
+					bottools.AlignString(d.name, 9, bottools.StringAlignCenter),
+					bottools.AlignString(d.timeEquipped.Sub(startTime).Round(time.Second).String(), 10, bottools.StringAlignCenter),
+					bottools.AlignString(fmt.Sprintf("%v", d.duration.Round(time.Second)), 10, bottools.StringAlignCenter),
+					bottools.AlignString(fmt.Sprintf("%2.3fq", (d.contributionRateInSeconds*3600)/1e15), 7, bottools.StringAlignCenter),
+					bottools.AlignString(fmt.Sprintf("%2.3fq", d.contributions/1e15), 8, bottools.StringAlignCenter),
 				)
 			}
 

@@ -1062,8 +1062,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
 			startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
 			startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
-			secondsSinceAllGoals := int64(coopStatus.GetSecondsSinceAllGoalsAchieved())
-			endTime = endTime.Add(-time.Duration(secondsSinceAllGoals) * time.Second)
+			calcSecondsRemaining = -coopStatus.GetSecondsSinceAllGoalsAchieved()
+			endTime = endTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 			contractDurationSeconds = endTime.Sub(startTime).Seconds()
 		} else {
 			startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
@@ -1100,13 +1100,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	for _, c := range coopStatus.GetContributors() {
 		if len(c.GetBuffHistory()) > 0 {
 			a := c.GetBuffHistory()[0]
-			serverTimestamp := a.GetServerTimestamp() // When it was equipped
-			if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
-				serverTimestamp -= coopStatus.GetSecondsSinceAllGoalsAchieved()
-			} else {
-				serverTimestamp += calcSecondsRemaining
-			}
-			BuffTimeValueCRT = append(BuffTimeValueCRT, contractDurationSeconds-serverTimestamp)
+			equipTimestamp := a.GetServerTimestamp() + calcSecondsRemaining // When it was equipped
+			BuffTimeValueCRT = append(BuffTimeValueCRT, contractDurationSeconds-equipTimestamp)
 		}
 	}
 	if len(BuffTimeValueCRT) > 1 {

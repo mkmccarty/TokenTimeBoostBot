@@ -66,3 +66,39 @@ func SanitizeStringDuration(s string) string {
 
 	return days + hours + minutes + seconds
 }
+
+// StringAlign is an enum for string alignment
+type StringAlign int
+
+const (
+	// StringAlignLeft aligns the string to the left
+	StringAlignLeft StringAlign = iota
+	// StringAlignCenter aligns the string to the center
+	StringAlignCenter
+	// StringAlignRight aligns the string to the right
+	StringAlignRight
+)
+
+// AlignString aligns a string to the left, center, or right within a given width
+func AlignString(str string, width int, alignment StringAlign) string {
+	// Calculate the padding needed
+	padding := width - len(str)
+	if padding <= 0 {
+		return str
+	}
+
+	var leftPadding, rightPadding string
+	switch alignment {
+	case StringAlignLeft:
+		leftPadding = ""
+		rightPadding = strings.Repeat(" ", padding)
+	case StringAlignCenter:
+		leftPadding = strings.Repeat(" ", padding/2)
+		rightPadding = strings.Repeat(" ", padding-padding/2)
+	case StringAlignRight:
+		leftPadding = strings.Repeat(" ", padding)
+		rightPadding = ""
+	}
+
+	return leftPadding + str + rightPadding
+}
