@@ -156,6 +156,14 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	s1, urls, tiles := DownloadCoopStatusStones(contractID, coopID, details, soloName, useBuffHistory)
 
+	contract := findContractByIDs(contractID, coopID)
+	if contract != nil {
+		// Only refresh if EstimateUpdateTime is within 10 seconds of now
+		if math.Abs(time.Since(contract.EstimateUpdateTime).Seconds()) <= 10 {
+			refreshBoostListMessage(s, contract)
+		}
+	}
+
 	if tiles != nil {
 		cache := buildStonesCache(s1, urls, tiles)
 		// Fill in our calling parameters
@@ -1105,6 +1113,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				}
 			}
 		}
+
+		UpdateContractTime(coopStatus.GetContractIdentifier(), coopStatus.GetCoopIdentifier(), startTime, contractDurationSeconds)
+
 		builder.WriteString(fmt.Sprintf("Start: **<t:%d:t>**   %s: **<t:%d:t>** for **%v**\n", startTime.Unix(), endStr, endTime.Unix(), endTime.Sub(startTime).Round(time.Second)))
 		if eiContract.ModifierELR != 1.0 {
 			fmt.Fprintf(&builder, "ELR Modifier: %2.1fx\n", eiContract.ModifierELR)
