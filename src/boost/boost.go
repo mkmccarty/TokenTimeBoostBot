@@ -1924,9 +1924,10 @@ func ArchiveContracts(s *discordgo.Session) {
 func UpdateContractTime(contractID string, coopID string, startTime time.Time, contractDurationSeconds float64) {
 	// Update the contract start time and estimated duration
 	contract := findContractByIDs(contractID, coopID)
-	if contract == nil {
+	if contract == nil || contract.State != ContractStateCompleted {
 		return
 	}
+
 	// Only update if startTime or EstimatedDuration are different
 	newDuration := time.Duration(contractDurationSeconds) * time.Second
 	if !contract.StartTime.Equal(startTime) || contract.EstimatedDuration != newDuration {
