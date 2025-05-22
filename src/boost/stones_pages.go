@@ -98,9 +98,11 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 
 		contract := findContractByIDs(cache.contractID, cache.coopID)
 		if contract != nil {
-			// Only refresh if EstimateUpdateTime is within 10 seconds of now
-			if math.Abs(time.Since(contract.EstimateUpdateTime).Seconds()) <= 10 {
-				refreshBoostListMessage(s, contract)
+			if contract.State == ContractStateCompleted {
+				// Only refresh if EstimateUpdateTime is within 10 seconds of now
+				if math.Abs(time.Since(contract.EstimateUpdateTime).Seconds()) <= 10 {
+					refreshBoostListMessage(s, contract)
+				}
 			}
 		}
 
