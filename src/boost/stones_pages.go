@@ -96,13 +96,14 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		cache = newCache
 		stonesCacheMap[cache.xid] = newCache
 
-		/*contract := FindContract(i.ChannelID)
+		contract := findContractByIDs(cache.contractID, cache.coopID)
 		if contract != nil {
-			go updateEstimatedTime(s, i.ChannelID, contract, false)
+			// Only refresh if EstimateUpdateTime is within 10 seconds of now
+			if math.Abs(time.Since(contract.EstimateUpdateTime).Seconds()) <= 10 {
+				refreshBoostListMessage(s, contract)
+			}
 		}
-		*/
-		//delete(stonesCacheMap, xid)
-		//exists = false
+
 	}
 
 	if !exists {

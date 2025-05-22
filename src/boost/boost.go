@@ -1919,3 +1919,19 @@ func ArchiveContracts(s *discordgo.Session) {
 
 	track.ArchiveTrackerData(s)
 }
+
+// UpdateContractTime will update the contract start time and estimated duration
+func UpdateContractTime(contractID string, coopID string, startTime time.Time, contractDurationSeconds float64) {
+	// Update the contract start time and estimated duration
+	contract := findContractByIDs(contractID, coopID)
+	if contract == nil {
+		return
+	}
+	// Only update if startTime or EstimatedDuration are different
+	newDuration := time.Duration(contractDurationSeconds) * time.Second
+	if !contract.StartTime.Equal(startTime) || contract.EstimatedDuration != newDuration {
+		contract.StartTime = startTime
+		contract.EstimatedDuration = newDuration
+		contract.EstimateUpdateTime = time.Now()
+	}
+}
