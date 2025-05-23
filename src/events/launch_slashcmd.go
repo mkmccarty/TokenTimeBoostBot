@@ -180,7 +180,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	})
 
-	var field []*discordgo.MessageEmbedField
+	var components []discordgo.MessageComponent
 
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
@@ -345,22 +345,20 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	//var header strings.Builder
 	shipDurationName := [...]string{"SH", "ST", "EX"}
 	var header strings.Builder
-	var normal strings.Builder
 
 	// Split array, trim to 3 elements
 	durationList := strings.Split(arrivalTimespan, ",")
 	if len(durationList) > 3 {
 		durationList = durationList[:3]
 	}
-
-	if len(missionShips) > 4 {
-		// If more than 4 ships, limit to one duration
-		durationList = durationList[:1]
-	}
-
+	/*
+		if len(missionShips) > 4 {
+			// If more than 4 ships, limit to one duration
+			durationList = durationList[:1]
+		}
+	*/
 	displayDubcapInstructions := false
 	displaySunInstructions := false
-	displaySizeWarning := false
 
 	if showDubCap {
 		events.WriteString(doubleCapacityStr)
@@ -372,7 +370,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		events.WriteString(durationStr)
 	}
 
-	for i, missionTimespanRaw := range durationList {
+	for _, missionTimespanRaw := range durationList {
 
 		missionTimespan := strings.TrimSpace(missionTimespanRaw)
 		dur, err := str2duration.ParseDuration(missionTimespan)
@@ -381,18 +379,13 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			continue
 		}
 
-		if i != 0 {
-			normal.WriteString("\n")
-		}
-
 		arrivalTime := t.Add(dur)
 
 		// loop through missionData
 		// for each ship, calculate the arrival time
 		// if arrival time is less than endTime, then add to the message
 
-		normal.WriteString(fmt.Sprintf("**Mission arriving on <t:%d:f> (FTL:%d)**\n", arrivalTime.Unix(), ftlLevel))
-		header.WriteString(fmt.Sprintf("Mission arriving on <t:%d:f> (FTL:%d)\n", arrivalTime.Unix(), ftlLevel))
+		header.WriteString(fmt.Sprintf("## Mission arriving on <t:%d:f> (FTL:%d)\n", arrivalTime.Unix(), ftlLevel))
 
 		for shipIndex, ship := range missionShips {
 			var sName = " " + ship.Name
@@ -444,10 +437,6 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				if sunBubble != "" {
 					displaySunInstructions = true
 				}
-				if chainExtended && normal.Len() > 1500 {
-					displaySizeWarning = true
-					//chainExtended = false
-				}
 
 				var chainString = ""
 				if chainExtended {
@@ -485,136 +474,80 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			}
 		}
 
-		field = append(field, &discordgo.MessageEmbedField{
-			Name:   header.String(),
-			Value:  builder.String(),
-			Inline: false,
+		components = append(components, &discordgo.TextDisplay{
+			Content: header.String() + "\n" + builder.String(),
+		})
+		divider := true
+		spacing := discordgo.SeparatorSpacingSizeLarge
+
+		components = append(components, &discordgo.Separator{
+			Divider: &divider,
+			Spacing: &spacing,
 		})
 		header.Reset()
-		if normal.Len()+builder.Len() > 1700 {
-			displaySizeWarning = true
-			break
-		}
-		normal.WriteString(builder.String())
 		builder.Reset()
 	}
+
 	var instr strings.Builder
 	var prevEvents strings.Builder
 
 	if displaySunInstructions {
-		instr.WriteString("⚠️ Launch before Sunday event will arrive after event begins\n")
+		instr.WriteString("-# ⚠️ Launch before Sunday event will arrive after event begins\n")
 	}
 	if displayDubcapInstructions {
 		//instr.WriteString(dupcapIcon + " Arrives during dubcap\n")
-		instr.WriteString("🟡 Arrives with less than 5 minutes of dubcap end\n")
+		instr.WriteString("-# 🟡 Arrives with less than 5 minutes of dubcap end\n")
 		//instr.WriteString("🔴 After Dubcap ends\n")
 	}
 	if chainExtended {
-		instr.WriteString("Chained EX launches are Henliner/Henerprise extended missions\n")
+		instr.WriteString("-# Chained EX launches are Henliner/Henerprise extended missions\n")
 	}
-	if displaySizeWarning {
-		instr.WriteString("📈 Display size limit reached. Please reduce the number of missions or disable the chain option.")
-	} else {
 
-		for _, e := range LastMissionEvent {
-			eventIconStr := ""
+	for _, e := range LastMissionEvent {
+		eventIconStr := ""
+		switch e.EventType {
+		case "mission-duration":
+			eventIconStr = ei.GetBotEmojiMarkdown("std_fast")
+		case "mission-capacity":
+			eventIconStr = ei.GetBotEmojiMarkdown("std_dubcap")
+		case "mission-fuel":
+			eventIconStr = ei.GetBotEmojiMarkdown("std_fuel")
+		}
+
+		if e.Ultra {
+			if !ultra {
+				continue
+			}
 			switch e.EventType {
 			case "mission-duration":
-				eventIconStr = ei.GetBotEmojiMarkdown("std_fast")
+				eventIconStr = ei.GetBotEmojiMarkdown("ultra_fast")
 			case "mission-capacity":
-				eventIconStr = ei.GetBotEmojiMarkdown("std_dubcap")
+				eventIconStr = ei.GetBotEmojiMarkdown("ultra_dubcap")
 			case "mission-fuel":
-				eventIconStr = ei.GetBotEmojiMarkdown("std_fuel")
+				eventIconStr = ei.GetBotEmojiMarkdown("ultra_fuel")
 			}
-
-			if e.Ultra {
-				if !ultra {
-					continue
-				}
-				switch e.EventType {
-				case "mission-duration":
-					eventIconStr = ei.GetBotEmojiMarkdown("ultra_fast")
-				case "mission-capacity":
-					eventIconStr = ei.GetBotEmojiMarkdown("ultra_dubcap")
-				case "mission-fuel":
-					eventIconStr = ei.GetBotEmojiMarkdown("ultra_fuel")
-				}
-			}
-			hours := e.EndTime.Sub(e.StartTime).Hours()
-			prevEvents.WriteString(fmt.Sprintf("%s%s for %.2dh on <t:%d:R>\n", eventIconStr, e.Message, int(hours), e.StartTime.Unix()))
-			//prevEvents.WriteString(fmt.Sprintf("%s on <t:%d:d>\n", e.Message, e.StartTime.Unix()))
 		}
-		field = append(field, &discordgo.MessageEmbedField{
-			Name:   "Event History",
-			Value:  prevEvents.String(),
-			Inline: false,
+		hours := e.EndTime.Sub(e.StartTime).Hours()
+		prevEvents.WriteString(fmt.Sprintf("%s%s for %.2dh on <t:%d:R>\n", eventIconStr, e.Message, int(hours), e.StartTime.Unix()))
+		//prevEvents.WriteString(fmt.Sprintf("%s on <t:%d:d>\n", e.Message, e.StartTime.Unix()))
+	}
+	components = append(components, &discordgo.TextDisplay{
+		Content: "## Event History\n" + prevEvents.String(),
+	})
+	divider := false
+	spacing := discordgo.SeparatorSpacingSizeSmall
+
+	components = append(components, &discordgo.Separator{
+		Divider: &divider,
+		Spacing: &spacing,
+	})
+	components = append(components, &discordgo.TextDisplay{
+		Content: instr.String(),
+	})
+
+	_, _ = s.FollowupMessageCreate(i.Interaction, true,
+		&discordgo.WebhookParams{
+			Flags:      discordgo.MessageFlagsIsComponentsV2,
+			Components: components,
 		})
-
-	}
-
-	if displaySizeWarning {
-		_, err := s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: events.String(),
-				Embeds: []*discordgo.MessageEmbed{{
-					Type: discordgo.EmbedTypeRich,
-					//Title:       "Mission Arrival Times",
-					//Description: "",
-					Color:  0x555500,
-					Fields: field,
-					Footer: &discordgo.MessageEmbedFooter{
-						Text: instr.String(),
-					},
-				}},
-			})
-		if err != nil {
-			fmt.Println("Error sending message: ", err)
-		}
-
-	} else {
-
-		if instr.Len() > 0 {
-			field = nil
-			field = append(field, &discordgo.MessageEmbedField{
-				Name:   "Event History",
-				Value:  prevEvents.String(),
-				Inline: false,
-			})
-
-			_, _ = s.FollowupMessageCreate(i.Interaction, true,
-				&discordgo.WebhookParams{
-					Content: events.String() + normal.String() + "\n",
-					Embeds: []*discordgo.MessageEmbed{{
-						Type: discordgo.EmbedTypeRich,
-						//Title: "Mission Arrival Times",
-						//Description: "",
-						Color:  0xff5500,
-						Fields: field,
-						Footer: &discordgo.MessageEmbedFooter{
-							Text: instr.String(),
-						},
-					}},
-				})
-		} else {
-			field = nil
-			field = append(field, &discordgo.MessageEmbedField{
-				Name:   "Event History",
-				Value:  prevEvents.String(),
-				Inline: false,
-			})
-
-			_, _ = s.FollowupMessageCreate(i.Interaction, true,
-				&discordgo.WebhookParams{
-					Content: events.String() + normal.String() + "\n\n",
-					Embeds: []*discordgo.MessageEmbed{{
-						Type: discordgo.EmbedTypeRich,
-						//Title: "Mission Arrival Times",
-						//Description: "",
-						Color:  0x555500,
-						Fields: field,
-					}},
-				})
-		}
-	}
-
 }
