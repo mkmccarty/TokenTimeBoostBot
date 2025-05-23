@@ -528,7 +528,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			}
 		}
 		hours := e.EndTime.Sub(e.StartTime).Hours()
-		prevEvents.WriteString(fmt.Sprintf("%s%s for %.2dh on <t:%d:R>\n", eventIconStr, e.Message, int(hours), e.StartTime.Unix()))
+		prevEvents.WriteString(fmt.Sprintf("%s %s for %.2dh on <t:%d:R>\n", eventIconStr, e.Message, int(hours), e.StartTime.Unix()))
 		//prevEvents.WriteString(fmt.Sprintf("%s on <t:%d:d>\n", e.Message, e.StartTime.Unix()))
 	}
 	components = append(components, &discordgo.TextDisplay{
