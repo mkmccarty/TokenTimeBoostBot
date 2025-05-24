@@ -11,7 +11,7 @@ func GetSlashCsEstimates(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name: cmd,
 
-		Description: "Provide an estimate of the scores for a running contract",
+		Description: "Provide a Contract Score estimates for a running contract",
 		Contexts: &[]discordgo.InteractionContextType{
 			discordgo.InteractionContextGuild,
 			discordgo.InteractionContextBotDM,
