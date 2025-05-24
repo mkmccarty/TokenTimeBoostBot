@@ -669,17 +669,23 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if as.deflector.percent == 0.0 {
 
 			bestDeflectorPercent := 0.0
+			lastDeflectorPercent := 0.0
 			for _, b := range c.BuffHistory {
 				if b.GetEggLayingRate() > 1.0 {
 					buffElr := (b.GetEggLayingRate() - 1.0) * 100.0
 					if buffElr > bestDeflectorPercent {
 						bestDeflectorPercent = buffElr
 					}
+					lastDeflectorPercent = buffElr
 				}
 			}
 			if bestDeflectorPercent == 0.0 {
 				if as.name != "[departed]" {
 					as.note = append(as.note, "Missing Deflector")
+				}
+			} else if !useBuffHistory {
+				if as.baseLayingRate == 0 && as.baseShippingRate == 0 {
+					everyoneDeflectorPercent += lastDeflectorPercent
 				}
 			} else if useBuffHistory {
 				as.note = append(as.note, fmt.Sprintf("DEFL from BuffHist %2.0f%%", bestDeflectorPercent))
