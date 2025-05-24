@@ -37,8 +37,8 @@ func GetSlashCsEstimates(cmd string) *discordgo.ApplicationCommand {
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "public-reply",
-				Description: "Response visibility, default is true (ephemeral)",
+				Name:        "private-reply",
+				Description: "Response visibility, default is public",
 				Required:    false,
 			},
 		},
@@ -48,7 +48,7 @@ func GetSlashCsEstimates(cmd string) *discordgo.ApplicationCommand {
 // HandleCsEstimatesCommand handles the estimate scores command
 func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
-	flags := discordgo.MessageFlagsEphemeral
+	flags := discordgo.MessageFlagsIsComponentsV2
 
 	var contractID string
 	var coopID string
@@ -67,9 +67,9 @@ func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 		coopID = strings.ToLower(opt.StringValue())
 		coopID = strings.ReplaceAll(coopID, " ", "")
 	}
-	if opt, ok := optionMap["public-reply"]; ok {
+	if opt, ok := optionMap["private-reply"]; ok {
 		if opt.BoolValue() {
-			flags &= ^discordgo.MessageFlagsEphemeral
+			flags |= discordgo.MessageFlagsEphemeral
 		}
 	}
 
@@ -100,7 +100,7 @@ func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 	str, fields, scores := DownloadCoopStatusTeamwork(contractID, coopID, 0)
 	if fields == nil || strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Flags:   flags | discordgo.MessageFlagsIsComponentsV2,
+			Flags:   flags,
 			Content: str,
 		})
 		return
