@@ -232,6 +232,7 @@ type artifactSet struct {
 	sr             float64
 	farmCapacity   float64
 	farmPopulation float64
+	elr2           float64 // ELR after colleggtibles
 
 	tachWant       int
 	quantWant      int
@@ -371,6 +372,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		as.ihr = p.GetIhr()
 		as.sr = p.GetSr() // This is per second, convert to hour
 		as.sr *= 3600.0
+
+		as.elr2 = as.elr * as.farmPopulation * 3600.0
 
 		// To simulate colleggtibles we can multiply these Production Params by a percentage.
 		//as.farmCapacity *= 1.05
@@ -1150,7 +1153,12 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 	}
 
+	dropDeflector := getDeflectorDropPerc(artifactSets, everyoneDeflectorPercent)
+
 	fmt.Fprintf(&builder, "Coop Deflector Bonus: %2.0f%%\n", everyoneDeflectorPercent)
+	if dropDeflector > 0 {
+		fmt.Fprintf(&builder, "Unused Deflector: %2.0f%%\n", dropDeflector)
+	}
 	if soloName == "" {
 		fmt.Fprintf(&builder, "%s & %s show optimal quantity.\n", ei.GetBotEmojiMarkdown("afx_tachyon_stone_4"), ei.GetBotEmojiMarkdown("afx_quantum_stone_4"))
 	} else {
@@ -1192,4 +1200,29 @@ func truncateString(s string, length int) string {
 		return s[:length]
 	}
 	return s
+}
+
+// getDeflectorDropPerc will calculate the deflector drop percentage based on the players' ELR/SR ratio
+// From staabmia https://srsandbox-staabmia.netlify.app/scripts.js
+func getDeflectorDropPerc(players []artifactSet, totDeflector float64) float64 {
+	if len(players) < 2 {
+		return totDeflector
+	}
+	elrDivSrMin := players[0].elr2 / players[0].sr
+	def := (totDeflector-players[0].deflector.percent)/100 + 1
+
+	for _, p := range players {
+		currentPlayer := p.elr2 / p.sr
+		if currentPlayer < elrDivSrMin {
+			elrDivSrMin = currentPlayer
+			def = (totDeflector-p.deflector.percent)/100 + 1
+		}
+	}
+
+	if elrDivSrMin < 1 {
+		return 0
+	}
+
+	val1 := (def-1)*100 - (def/elrDivSrMin-1)*100
+	return math.Min(math.Floor(val1), math.Round(totDeflector))
 }
