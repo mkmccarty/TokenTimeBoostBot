@@ -70,6 +70,7 @@ const slashVoluntellSink string = "voluntell-sink"
 const slashLinkAlternate string = "link-alternate"
 const slashTeamworkEval string = "teamwork"
 const slashEstimateTime string = "estimate-contract-time"
+const slashCsEstimate string = "cs-estimate"
 const slashRenameThread string = "rename-thread"
 const slashFun string = "fun"
 const slashStones string = "stones"
@@ -289,6 +290,7 @@ var (
 		boost.GetSlashStones(slashStones),
 		boost.GetSlashTimer(slashTimer),
 		boost.GetSlashEstimateTime(slashEstimateTime),
+		boost.GetSlashCsEstimates(slashCsEstimate),
 		boost.GetSlashChangeCommand(slashChange),
 		boost.GetSlashChangeOneBoosterCommand(slashChangeOneBooster),
 		boost.GetSlashChangePingRoleCommand(slashChangePingRole),
@@ -326,6 +328,9 @@ var (
 			boost.HandleContractAutoComplete(s, i)
 		},
 		slashEstimateTime: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleAllContractsAutoComplete(s, i)
+		},
+		slashCsEstimate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAllContractsAutoComplete(s, i)
 		},
 		slashLinkAlternate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -511,6 +516,9 @@ var (
 		},
 		slashEstimateTime: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleEstimateTimeCommand(s, i)
+		},
+		slashCsEstimate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleCsEstimatesCommand(s, i)
 		},
 		slashSpeedrun: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleSpeedrunCommand(s, i)

@@ -59,12 +59,14 @@ func GetSlashTeamworkEval(cmd string) *discordgo.ApplicationCommand {
 				Description: "Egg Inc, in game name to evaluate.",
 				Required:    false,
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "show-scores",
-				Description: "Show Contract Scores only. Default is false. (sticky)",
-				Required:    false,
-			},
+			/*
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "show-scores",
+					Description: "Show Contract Scores only. Default is false. (sticky)",
+					Required:    false,
+				},
+			*/
 			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "public-reply",
