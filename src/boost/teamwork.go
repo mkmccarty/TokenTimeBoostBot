@@ -761,7 +761,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 				Inline: false,
 			})
 			farmerFields[name] = field
-			trimmedName := name
+			trimmedName := c.GetUserName()
 			if len(trimmedName) > 12 {
 				trimmedName = trimmedName[:12]
 			}
