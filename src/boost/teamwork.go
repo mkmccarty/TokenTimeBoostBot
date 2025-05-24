@@ -377,7 +377,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		})
 
 		// Determine the contribution rate for the user
-		futureDeliveries := c.GetContributionRate() * float64(calcSecondsRemaining)
+		futureDeliveries := c.GetContributionRate() * math.Max(0, float64(calcSecondsRemaining))
 		contributionPast := c.GetContributionAmount()
 		offlineDeliveries := -c.GetFarmInfo().GetTimestamp() * c.GetContributionRate()
 		if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
