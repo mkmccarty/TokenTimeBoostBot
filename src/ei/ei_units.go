@@ -89,7 +89,7 @@ func ParseValueWithUnit(s string, unitRequired bool) (float64, error) {
 	return value * math.Pow10(oom), nil
 }
 
-func FormatEIValue(x float64, options map[string]interface{}) string {
+func FormatEIValue(x float64, options map[string]any) string {
 	trim := options["trim"] == true
 	decimals := 3
 	if d, ok := options["decimals"].(int); ok {

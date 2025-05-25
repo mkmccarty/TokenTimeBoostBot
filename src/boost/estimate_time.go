@@ -173,11 +173,14 @@ func getContractEstimateString(contractID string) string {
 			ei.GetBotEmojiMarkdown("egg_pumpkin"))
 	*/
 	// A speedrun or fastrun of $CONTRACT with $NUMBER farmer(s) needing to ship $GOAL eggs is estimated to take about $TIME
-	if c.TargetAmountq[len(c.TargetAmountq)-1] < 1.0 {
-		str += fmt.Sprintf("**%v** - **%v** for a fastrun needing to ship **%.3fq** eggs\n", estStrLower, estStr, float64(c.TargetAmountq[len(c.TargetAmountq)-1]))
-	} else {
-		str += fmt.Sprintf("**%v** - **%v** for a fastrun needing to ship **%.dq** eggs\n", estStrLower, estStr, int(c.TargetAmountq[len(c.TargetAmountq)-1]))
+	options := map[string]any{
+		"decimals": 2,
+		"trim":     true,
 	}
+	str += fmt.Sprintf("**%v** - **%v** for a fastrun needing to ship **%s** eggs\n",
+		estStrLower,
+		estStr,
+		ei.FormatEIValue(c.TargetAmount[len(c.TargetAmount)-1], options))
 
 	if c.ContractVersion == 2 {
 		// Two ranges of estimates
@@ -226,7 +229,7 @@ func getContractEstimateString(contractID string) string {
 }
 
 // getContractDurationEstimate returns two estimated durations of a contract based for great and well equiped artifact sets
-func getContractDurationEstimate(contractEggsInSmallQ float64, numFarmers float64, contractLengthInSeconds int, modifierSR float64, modifierELR float64, modifierHabCap float64) (time.Duration, time.Duration) {
+func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, contractLengthInSeconds int, modifierSR float64, modifierELR float64, modifierHabCap float64) (time.Duration, time.Duration) {
 
 	contractDuration := time.Duration(contractLengthInSeconds) * time.Second
 
@@ -278,7 +281,7 @@ func getContractDurationEstimate(contractEggsInSmallQ float64, numFarmers float6
 		tachMultiplier := math.Pow(1.05, tachBounded)
 		contractELR := contractBaseELR * deflectorMultiplier * tachMultiplier
 		boundedELR := min(contractShipCap, contractELR)
-		estimate := 0.75 + contractEggsInSmallQ/(numFarmers*boundedELR)
+		estimate := 0.75 + (contractEggsTotal/1e15)/(numFarmers*boundedELR)
 
 		if est.slots == 8.0 {
 			estimateDurationUpper = time.Duration(estimate * float64(time.Hour))
