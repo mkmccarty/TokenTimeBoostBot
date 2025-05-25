@@ -281,7 +281,15 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		tachMultiplier := math.Pow(1.05, tachBounded)
 		contractELR := contractBaseELR * deflectorMultiplier * tachMultiplier
 		boundedELR := min(contractShipCap, contractELR)
-		estimate := 0.75 + (contractEggsTotal/1e15)/(numFarmers*boundedELR)
+
+		eggsTotal := contractEggsTotal / 1e15
+		estimate := eggsTotal / (numFarmers * boundedELR)
+		if float64(contractLengthInSeconds) < 45*60 {
+			// For small contracts, add less time padding for boosts
+			estimate += 0.30
+		} else {
+			estimate += 0.75
+		}
 
 		if est.slots == 8.0 {
 			estimateDurationUpper = time.Duration(estimate * float64(time.Hour))
