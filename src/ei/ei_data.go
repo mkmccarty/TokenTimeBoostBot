@@ -123,7 +123,6 @@ var GradeMultiplier = map[string]float64{
 // ContractGrade is a raw contract data for a Grade in Egg Inc
 type ContractGrade struct {
 	TargetAmount           []float64
-	TargetAmountq          []float64
 	LengthInSeconds        int
 	EstimatedDuration      time.Duration
 	EstimatedDurationLower time.Duration
@@ -155,7 +154,6 @@ type EggIncContract struct {
 	SeasonID                  string
 	MaxCoopSize               int
 	TargetAmount              []float64
-	TargetAmountq             []float64
 	ChickenRuns               int
 	LengthInSeconds           int
 	ChickenRunCooldownMinutes int

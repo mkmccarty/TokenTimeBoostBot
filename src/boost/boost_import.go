@@ -128,7 +128,6 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		//		if grade == ei.Contract_GRADE_AAA {
 		for _, g := range s.GetGoals() {
 			c.TargetAmount = append(c.TargetAmount, g.GetTargetAmount())
-			c.TargetAmountq = append(c.TargetAmountq, g.GetTargetAmount()/1e15)
 			c.LengthInSeconds = int(s.GetLengthSeconds())
 		}
 		c.ModifierIHR = 1.0
@@ -165,7 +164,6 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		}
 		//		}
 		c.Grade[grade].TargetAmount = c.TargetAmount
-		c.Grade[grade].TargetAmountq = c.TargetAmountq
 		c.Grade[grade].ModifierIHR = c.ModifierIHR
 		c.Grade[grade].ModifierELR = c.ModifierELR
 		c.Grade[grade].ModifierSR = c.ModifierSR
@@ -177,7 +175,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		c.Grade[grade].ModifierResearchCost = c.ModifierResearchCost
 		c.Grade[grade].LengthInSeconds = c.LengthInSeconds
 
-		c.Grade[grade].EstimatedDuration, c.Grade[grade].EstimatedDurationLower = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
+		c.Grade[grade].EstimatedDuration, c.Grade[grade].EstimatedDurationLower = getContractDurationEstimate(c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
 			c.ModifierSR, c.ModifierELR, c.ModifierHabCap)
 
 		gradeKey := ei.Contract_PlayerGrade_name[int32(grade)]
@@ -206,11 +204,9 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	}
 	if c.TargetAmount == nil {
 		c.TargetAmount = nil
-		c.TargetAmountq = nil
 		for _, g := range contractProtoBuf.GetGoals() {
 			c.ContractVersion = 1
 			c.TargetAmount = append(c.TargetAmount, g.GetTargetAmount())
-			c.TargetAmountq = append(c.TargetAmountq, g.GetTargetAmount()/1e15)
 		}
 		//log.Print("No target amount found for contract ", c.ID)
 	}
@@ -227,7 +223,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 				fmt.Printf("Coop Name: %s, ID: %s, Modifiers: IHR: %f, ELR: %f, SR: %f, HabCap: %f\n",
 					c.Name, c.ID, c.ModifierIHR, c.ModifierELR, c.ModifierSR, c.ModifierHabCap)
 			}*/
-		c.EstimatedDuration, c.EstimatedDurationLower = getContractDurationEstimate(c.TargetAmountq[len(c.TargetAmountq)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
+		c.EstimatedDuration, c.EstimatedDurationLower = getContractDurationEstimate(c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
 			c.ModifierSR, c.ModifierELR, c.ModifierHabCap)
 	}
 	return c
@@ -244,7 +240,6 @@ func updateContractWithEggIncData(contract *Contract) {
 			contract.Description = cc.Description
 			contract.EggName = cc.EggName
 			contract.TargetAmount = cc.TargetAmount
-			contract.QTargetAmount = cc.TargetAmountq
 			contract.ChickenRunCooldownMinutes = cc.ChickenRunCooldownMinutes
 			contract.MinutesPerToken = cc.MinutesPerToken
 			contract.Ultra = cc.Ultra
