@@ -166,6 +166,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	if scoresFirst {
 		var footer strings.Builder
 		footer.WriteString("-# MAX : Max Chicken Runs & ∆T-Val\n")
+		footer.WriteString("-# TVAL: Coop Size-1 Chicken Runs & ∆T-Val\n")
 		footer.WriteString("-# SINK: Max Chicken Runs & Token Sink\n")
 		footer.WriteString("-# RUNS: Coop Size-1 Chicken Runs, No token sharing\n")
 		footer.WriteString("-# BASE: No Chicken Runs & No token sharing\n")
@@ -341,8 +342,8 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	fmt.Fprintf(&scoresTable, "`%12s %6s %6s %6s %6s %6s`\n",
 		bottools.AlignString("NAME", 12, bottools.StringAlignCenter),
 		bottools.AlignString("MAX", 6, bottools.StringAlignCenter),
-		bottools.AlignString("SINK", 6, bottools.StringAlignCenter),
 		bottools.AlignString("TVAL", 6, bottools.StringAlignCenter),
+		bottools.AlignString("SINK", 6, bottools.StringAlignCenter),
 		bottools.AlignString("RUNS", 6, bottools.StringAlignCenter),
 		bottools.AlignString("BASE", 6, bottools.StringAlignCenter),
 	)
@@ -804,7 +805,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	for _, cs := range contractScoreArr {
 		fmt.Fprintf(&scoresTable, "`%12s %6d %6d %6d %6d %6d`\n",
 			bottools.AlignString(cs.name, 12, bottools.StringAlignLeft),
-			cs.max, cs.sink, cs.tval, cs.runs, cs.base)
+			cs.max, cs.tval, cs.sink, cs.runs, cs.base)
 	}
 
 	var siabMax []*discordgo.MessageEmbedField
