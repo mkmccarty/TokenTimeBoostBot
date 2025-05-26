@@ -332,15 +332,17 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		name string
 		max  int64
 		sink int64
+		tval int64
 		runs int64
 		base int64
 	}
 	var contractScoreArr []contractScores
 	var scoresTable strings.Builder
-	fmt.Fprintf(&scoresTable, "`%12s %6s %6s %6s %6s`\n",
+	fmt.Fprintf(&scoresTable, "`%12s %6s %6s %6s %6s %6s`\n",
 		bottools.AlignString("NAME", 12, bottools.StringAlignCenter),
 		bottools.AlignString("MAX", 6, bottools.StringAlignCenter),
 		bottools.AlignString("SINK", 6, bottools.StringAlignCenter),
+		bottools.AlignString("TVAL", 6, bottools.StringAlignCenter),
 		bottools.AlignString("RUNS", 6, bottools.StringAlignCenter),
 		bottools.AlignString("BASE", 6, bottools.StringAlignCenter),
 	)
@@ -733,6 +735,17 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 				B, CR, T)
 			fmt.Fprintf(&csBuilder, "Sink: %d (CR=%d)\n", scoreMid, capCR)
 
+			// TVAL Met, with CR to coop size -1
+			T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 5.0)
+			CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, eiContract.MaxCoopSize-1)
+			scoreTval := calculateContractScore(grade,
+				eiContract.MaxCoopSize,
+				eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+				contribution[i],
+				eiContract.Grade[grade].LengthInSeconds,
+				contractDurationSeconds,
+				B, CR, T)
+
 			// No token sharing, with CR to coop size -1
 			T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 0.0, 11.0)
 			CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, eiContract.MaxCoopSize-1)
@@ -771,6 +784,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 				trimmedName,
 				scoreMax,
 				scoreMid,
+				scoreTval,
 				scoreChill,
 				scoreMin,
 			})
@@ -788,9 +802,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		return contractScoreArr[i].max > contractScoreArr[j].max
 	})
 	for _, cs := range contractScoreArr {
-		fmt.Fprintf(&scoresTable, "`%12s %6d %6d %6d %6d`\n",
+		fmt.Fprintf(&scoresTable, "`%12s %6d %6d %6d %6d %6d`\n",
 			bottools.AlignString(cs.name, 12, bottools.StringAlignLeft),
-			cs.max, cs.sink, cs.runs, cs.base)
+			cs.max, cs.sink, cs.tval, cs.runs, cs.base)
 	}
 
 	var siabMax []*discordgo.MessageEmbedField
