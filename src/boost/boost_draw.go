@@ -50,12 +50,17 @@ func getSinkIcon(contract *Contract, b *Booster) string {
 func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.MessageComponent {
 	var components []discordgo.MessageComponent
 	var builder strings.Builder
-	var targetTval float64
+	var currentTval float64
 	//var outputStr string
 	var afterListStr strings.Builder
 	tokenStr := contract.TokenStr
 	divider := true
 	spacing := discordgo.SeparatorSpacingSizeSmall
+	targetTval := 3.0
+	BTA := contract.EstimatedDuration.Minutes() / float64(contract.MinutesPerToken)
+	if BTA > 42.0 {
+		targetTval = 0.07 * BTA
+	}
 
 	/*
 		components = append(components, &discordgo.TextDisplay{
@@ -150,8 +155,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				contract.EstimatedDuration = c.EstimatedDuration
 			}
 		}
-		targetTval = bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
-		builder.WriteString(fmt.Sprintf("> Current TVal: %2.3g\n", targetTval))
+		currentTval = bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
+		builder.WriteString(fmt.Sprintf("> Current TVal: %2.3g\n", currentTval))
 	}
 
 	if !contract.EstimateUpdateTime.IsZero() {
