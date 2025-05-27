@@ -73,12 +73,12 @@ func CalculateTcountTtime(tokenValue float64, tval float64, valueLog []FutureTok
 	ttime := ""
 	count := 0
 
-	uTval := tokenValue
-	if uTval < tval {
+	userTokenValue := tokenValue
+	if userTokenValue < tval {
 		tcount = "∞"
 		for i, v := range valueLog {
-			uTval += v.Value
-			if uTval >= tval {
+			userTokenValue += v.Value
+			if userTokenValue >= tval {
 				tcount = fmt.Sprintf("%d", i+1)
 				count = i + 1
 				if i < len(valueLog) { // Ensure index is within bounds
@@ -87,6 +87,7 @@ func CalculateTcountTtime(tokenValue float64, tval float64, valueLog []FutureTok
 				break
 			}
 		}
+	} else {
 	}
 	return tcount, ttime, count
 }
