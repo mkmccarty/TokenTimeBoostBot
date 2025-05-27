@@ -156,7 +156,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 			}
 		}
 		currentTval = bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
-		builder.WriteString(fmt.Sprintf("> Current TVal: %2.3g\n", currentTval))
+		builder.WriteString(fmt.Sprintf("> TVal: 🎯%2.2f  📉%2.2f\n", targetTval, currentTval))
 	}
 
 	if !contract.EstimateUpdateTime.IsZero() {
