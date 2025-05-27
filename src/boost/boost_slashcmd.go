@@ -390,7 +390,7 @@ func HandleTokenIDAutoComplete(s *discordgo.Session, i *discordgo.InteractionCre
 
 	var myTokes []ei.TokenUnitLog
 	for _, t := range c.TokenLog {
-		if t.FromUserID == i.Member.User.ID && t.ToUserID != i.Member.User.ID {
+		if t.FromUserID == i.Member.User.ID {
 			t.Value = bottools.GetTokenValue(t.Time.Sub(c.StartTime).Seconds(), c.EstimatedDuration.Seconds()) * float64(t.Quantity)
 			myTokes = append(myTokes, t)
 		}

@@ -1166,9 +1166,9 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 				calculateTangoLegs(contract, true)
 			}
 			msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
-			contentStr := DrawBoostList(s, contract)
-			msgedit.SetContent(contentStr)
-			msgedit.Flags = discordgo.MessageFlagsSuppressEmbeds
+			components := DrawBoostList(s, contract)
+			msgedit.Components = &components
+			msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
 			msg, err := s.ChannelMessageEditComplex(msgedit)
 			if err == nil {
 				loc.ListMsgID = msg.ID
@@ -1179,12 +1179,16 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 				if len(contract.Order) == 0 {
 					enableButton = true
 				}
+				var components []discordgo.MessageComponent
 				msgID := loc.ReactionID
 				msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
 				// Full contract for speedrun
 				contentStr, comp := GetSignupComponents(enableButton, contract) // True to get a disabled start button
-				msg.SetContent(contentStr)
-				msg.Flags = discordgo.MessageFlagsSuppressEmbeds
+				components = append(components, &discordgo.TextDisplay{
+					Content: contentStr,
+				})
+				components = append(components, comp...)
+				msg.Flags = discordgo.MessageFlagsIsComponentsV2
 				msg.Components = &comp
 				_, _ = s.ChannelMessageEditComplex(msg)
 			}
@@ -1283,10 +1287,13 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 			_ = s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
 			var data discordgo.MessageSend
 			var am discordgo.MessageAllowedMentions
-			data.Content = DrawBoostList(s, contract)
+			var components []discordgo.MessageComponent
+			listComp := DrawBoostList(s, contract)
+			components = append(components, listComp...)
+			components = append(components, comp...)
 			data.AllowedMentions = &am
-			data.Flags = discordgo.MessageFlagsSuppressEmbeds
-			data.Components = comp
+			data.Flags = discordgo.MessageFlagsIsComponentsV2
+			data.Components = components
 			msg, err := s.ChannelMessageSendComplex(loc.ChannelID, &data)
 			if err == nil {
 				SetListMessageID(contract, loc.ChannelID, msg.ID)
@@ -1302,21 +1309,17 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 	//defer contract.mutex.Unlock()
 	// Edit the boost list in place
 	for _, loc := range contract.Location {
+		var components []discordgo.MessageComponent
 		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
 
-		if contract.buttonComponents == nil {
-			comp := getContractReactionsComponents(contract)
-			if contract.State != ContractStateSignup {
-				msgedit.Components = &comp
-			}
-			//addContractReactionsButtons(s, contract, loc.ChannelID, loc.ListMsgID)
-		}
+		listComponents := DrawBoostList(s, contract)
+		components = append(components, listComponents...)
+		comp := getContractReactionsComponents(contract)
+		components = append(components, comp...)
+		msgedit.Components = &components
 
 		// Full contract for speedrun
-		contentStr := DrawBoostList(s, contract)
-		msgedit.SetContent(contentStr)
-
-		msgedit.Flags = discordgo.MessageFlagsSuppressEmbeds
+		msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
 		msg, err := s.ChannelMessageEditComplex(msgedit)
 		if err == nil {
 			// This is an edit, it should be the same
@@ -1344,16 +1347,20 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		var err error
 
 		if contract.State == ContractStateSignup {
+			var components []discordgo.MessageComponent
 			msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
 			// Full contract for speedrun
-			contentStr := DrawBoostList(s, contract)
-			msgedit.SetContent(contentStr)
-			msgedit.Flags = discordgo.MessageFlagsSuppressEmbeds
+			listComp := DrawBoostList(s, contract)
+			components = append(components, listComp...)
+			msgedit.Components = &components
+			msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
 			_, err := s.ChannelMessageEditComplex(msgedit)
 			if err != nil {
 				fmt.Println("Unable to send this message." + err.Error())
 			}
 		} else {
+			var components []discordgo.MessageComponent
+
 			// Unpin message once the contract is completed
 			if contract.State == ContractStateArchive {
 				_ = s.ChannelMessageUnpin(loc.ChannelID, loc.ReactionID)
@@ -1363,11 +1370,13 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			// Compose the message without a Ping
 			var data discordgo.MessageSend
 			var am discordgo.MessageAllowedMentions
-			data.Content = DrawBoostList(s, contract)
+			listComp := DrawBoostList(s, contract)
+			components = append(components, listComp...)
 			data.AllowedMentions = &am
-			data.Flags = discordgo.MessageFlagsSuppressEmbeds
+			data.Flags = discordgo.MessageFlagsIsComponentsV2
 			comp := getContractReactionsComponents(contract)
-			data.Components = comp
+			components = append(components, comp...)
+			data.Components = components
 			msg, err = s.ChannelMessageSendComplex(loc.ChannelID, &data)
 			if err == nil {
 				SetListMessageID(contract, loc.ChannelID, msg.ID)

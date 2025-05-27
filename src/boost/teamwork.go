@@ -123,13 +123,15 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			flags &= ^discordgo.MessageFlagsEphemeral
 		}
 	}
-	if opt, ok := optionMap["show-scores"]; ok {
-		// If show-scores is true, then we want to show the scores only
-		scoresFirst = opt.BoolValue()
-		farmerstate.SetMiscSettingFlag(userID, "teamwork-scores", scoresFirst)
-	} else {
-		scoresFirst = farmerstate.GetMiscSettingFlag(userID, "teamwork-scores")
-	}
+	/*
+		if opt, ok := optionMap["show-scores"]; ok {
+			// If show-scores is true, then we want to show the scores only
+			scoresFirst = opt.BoolValue()
+			farmerstate.SetMiscSettingFlag(userID, "teamwork-scores", scoresFirst)
+		} else {
+			scoresFirst = farmerstate.GetMiscSettingFlag(userID, "teamwork-scores")
+		}
+	*/
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -155,7 +157,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	var str string
-	str, fields, scores := DownloadCoopStatusTeamwork(contractID, coopID, 0)
+	str, fields, _ := DownloadCoopStatusTeamwork(contractID, coopID, 0)
 	if fields == nil || strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: str,
@@ -163,33 +165,35 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		return
 	}
 
-	if scoresFirst {
-		var footer strings.Builder
-		footer.WriteString("-# MAX : Max Chicken Runs & ∆T-Val\n")
-		footer.WriteString("-# TVAL: Coop Size-1 Chicken Runs & ∆T-Val\n")
-		footer.WriteString("-# SINK: Max Chicken Runs & Token Sink\n")
-		footer.WriteString("-# RUNS: Coop Size-1 Chicken Runs, No token sharing\n")
-		footer.WriteString("-# BASE: No Chicken Runs & No token sharing\n")
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Flags: discordgo.MessageFlagsIsComponentsV2,
-			Components: []discordgo.MessageComponent{
-				discordgo.TextDisplay{
-					Content: str,
-				},
-				discordgo.TextDisplay{
-					Content: "## Projected Contract Scores",
-				},
-				discordgo.TextDisplay{
-					Content: scores,
-				},
-				discordgo.TextDisplay{
-					Content: footer.String(),
-				},
-			},
-		})
-		return
-	}
+	/*
 
+		if scoresFirst {
+			var footer strings.Builder
+			footer.WriteString("-# MAX : Max Chicken Runs & ∆T-Val\n")
+			footer.WriteString("-# TVAL: Coop Size-1 Chicken Runs & ∆T-Val\n")
+			footer.WriteString("-# SINK: Max Chicken Runs & Token Sink\n")
+			footer.WriteString("-# RUNS: Coop Size-1 Chicken Runs, No token sharing\n")
+			footer.WriteString("-# BASE: No Chicken Runs & No token sharing\n")
+			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+				Flags: discordgo.MessageFlagsIsComponentsV2,
+				Components: []discordgo.MessageComponent{
+					discordgo.TextDisplay{
+						Content: str,
+					},
+					discordgo.TextDisplay{
+						Content: "## Projected Contract Scores",
+					},
+					discordgo.TextDisplay{
+						Content: scores,
+					},
+					discordgo.TextDisplay{
+						Content: footer.String(),
+					},
+				},
+			})
+			return
+		}
+	*/
 	cache := buildTeamworkCache(str, fields)
 	// Fill in our calling parameters
 	cache.contractID = contractID

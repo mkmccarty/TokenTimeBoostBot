@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -46,10 +47,25 @@ func getSinkIcon(contract *Contract, b *Booster) string {
 }
 
 // DrawBoostList will draw the boost list for the contract
-func DrawBoostList(s *discordgo.Session, contract *Contract) string {
-	var outputStr string
-	var afterListStr = ""
+func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.MessageComponent {
+	var components []discordgo.MessageComponent
+	var builder strings.Builder
+	//var outputStr string
+	var afterListStr strings.Builder
 	tokenStr := contract.TokenStr
+	divider := true
+	spacing := discordgo.SeparatorSpacingSizeSmall
+
+	/*
+		components = append(components, &discordgo.TextDisplay{
+			Content: header.String() + "\n" + builder.String(),
+		})
+
+		components = append(components, &discordgo.Separator{
+			Divider: &divider,
+			Spacing: &spacing,
+		})
+	*/
 
 	contract.LastInteractionTime = time.Now()
 
@@ -58,32 +74,32 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		contract.EggEmoji = FindEggEmoji(contract.EggName)
 	}
 
-	outputStr = fmt.Sprintf("## %s %s : [%s](%s/%s/%s)", contract.EggEmoji, contract.Name, contract.CoopID, "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID)
+	builder.WriteString(fmt.Sprintf("## %s %s : [%s](%s/%s/%s)", contract.EggEmoji, contract.Name, contract.CoopID, "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID))
 	if len(contract.Boosters) != contract.CoopSize {
-		outputStr += fmt.Sprintf(" - %d/%d\n", len(contract.Boosters), contract.CoopSize)
+		builder.WriteString(fmt.Sprintf(" - %d/%d\n", len(contract.Boosters), contract.CoopSize))
 	}
-	outputStr += "\n"
+	builder.WriteString("\n")
 
 	if contract.State == ContractStateSignup && contract.PlannedStartTime.After(time.Now()) && contract.PlannedStartTime.Before(time.Now().Add(7*24*time.Hour)) {
-		outputStr += fmt.Sprintf("## Planned Start Time: <t:%d:f>\n", contract.PlannedStartTime.Unix())
+		builder.WriteString(fmt.Sprintf("## Planned Start Time: <t:%d:f>\n", contract.PlannedStartTime.Unix()))
 	}
 
 	if len(contract.Boosters) != contract.CoopSize || contract.State == ContractStateSignup {
-		outputStr += fmt.Sprintf("### Boost ordering is %s\n", getBoostOrderString(contract))
+		builder.WriteString(fmt.Sprintf("### Boost ordering is %s\n", getBoostOrderString(contract)))
 
 		if contract.Style&ContractFlag6Tokens != 0 {
-			outputStr += fmt.Sprintf(">  6️⃣%s boosting for everyone!\n", contract.TokenStr)
+			builder.WriteString(fmt.Sprintf(">  6️⃣%s boosting for everyone!\n", contract.TokenStr))
 		} else if contract.Style&ContractFlag8Tokens != 0 {
-			outputStr += fmt.Sprintf(">  8️⃣%s boosting for everyone!\n", contract.TokenStr)
+			builder.WriteString(fmt.Sprintf(">  8️⃣%s boosting for everyone!\n", contract.TokenStr))
 		} else if contract.Style&ContractFlagDynamicTokens != 0 {
-			outputStr += "> 🤖 Dynamic tokens (coming soon)\n"
+			builder.WriteString("> 🤖 Dynamic tokens (coming soon)\n")
 		}
 	}
 
-	outputStr += fmt.Sprintf("> Coordinator: <@%s>\n", contract.CreatorID[0])
+	builder.WriteString(fmt.Sprintf("> Coordinator: <@%s>\n", contract.CreatorID[0]))
 	if contract.Style&ContractStyleFastrun != 0 && contract.Banker.PostSinkUserID != "" {
 		if contract.State != ContractStateSignup && contract.Boosters[contract.Banker.PostSinkUserID] != nil {
-			outputStr += fmt.Sprintf("> Post Contract Sink: **%s**\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention)
+			builder.WriteString(fmt.Sprintf("> Post Contract Sink: **%s**\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention))
 		}
 	}
 
@@ -121,8 +137,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 		// Save this into the contract
 		contract.TokensPerMinute = float64(singleTokenEntries) / time.Since(contract.StartTime).Minutes()
 		// Commented out estimate for now, it's currently confusing and not very useful
-		// outputStr += fmt.Sprintf("> %s/min: %2.2f   Expected %1.2f%s\n", contract.TokenStr, contract.TokensPerMinute, estTPM, ggicon)
-		outputStr += fmt.Sprintf("> %s/min: %2.2f %s\n", contract.TokenStr, contract.TokensPerMinute, ggicon) //   Expected %1.2f%s\n", contract.TokenStr, contract.TokensPerMinute, estTPM, ggicon)
+		// builder.WriteString(fmt.Sprintf("> %s/min: %2.2f   Expected %1.2f%s\n", contract.TokenStr, contract.TokensPerMinute, estTPM, ggicon))
+		builder.WriteString(fmt.Sprintf("> %s/min: %2.2f %s\n", contract.TokenStr, contract.TokensPerMinute, ggicon)) //   Expected %1.2f%s\n", contract.TokenStr, contract.TokensPerMinute, estTPM, ggicon)
 	}
 
 	// Current tval
@@ -134,20 +150,25 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 			}
 		}
 		tval := bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
-		outputStr += fmt.Sprintf("> Current TVal: %2.3g\n", tval)
+		builder.WriteString(fmt.Sprintf("> Current TVal: %2.3g\n", tval))
 	}
 
 	if !contract.EstimateUpdateTime.IsZero() {
-		outputStr += fmt.Sprintf("> **Completion Time: <t:%d:f>**\n", contract.StartTime.Add(contract.EstimatedDuration).Unix())
-		outputStr += fmt.Sprintf("> Duration: %v\n", contract.EstimatedDuration)
+		builder.WriteString(fmt.Sprintf("> **Completion Time: <t:%d:f>**\n", contract.StartTime.Add(contract.EstimatedDuration).Unix()))
+		builder.WriteString(fmt.Sprintf("> Duration: %v\n", contract.EstimatedDuration))
 	}
+
+	components = append(components, &discordgo.TextDisplay{
+		Content: builder.String(),
+	})
+	builder.Reset()
 
 	switch contract.State {
 	case ContractStateSignup:
-		outputStr += contract.SRData.StatusStr
+		builder.WriteString(contract.SRData.StatusStr)
 
 	case ContractStateCRT:
-		//outputStr += fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SpeedrunStarterUserID)
+		//builder.WriteString(fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SpeedrunStarterUserID))
 
 	case ContractStateBanker:
 		if contract.Banker.CurrentBanker == "" {
@@ -156,7 +177,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 			}
 		}
 		if contract.Banker.CurrentBanker != "" {
-			afterListStr += fmt.Sprintf("\n## Send all tokens to %s\n", contract.Boosters[contract.Banker.CurrentBanker].Mention)
+			afterListStr.WriteString(fmt.Sprintf("\n## Send all tokens to %s\n", contract.Boosters[contract.Banker.CurrentBanker].Mention))
 		}
 
 	default:
@@ -164,22 +185,31 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 
 	if contract.State == ContractStateCRT {
 		// Handle Speedrun CRT
-		outputStr += drawSpeedrunCRT(contract)
+		builder.WriteString(drawSpeedrunCRT(contract))
 
-		return outputStr
+		components = append(components, &discordgo.TextDisplay{
+			Content: builder.String(),
+		})
+
+		components = append(components, &discordgo.Separator{
+			Divider: &divider,
+			Spacing: &spacing,
+		})
+
+		return components
 	}
 
 	/*
 		if contract.State == ContractStateSignup {
-			outputStr += "## Sign-up List\n"
+			builder.WriteString("## Sign-up List\n")
 		} else {
-			outputStr += "## Boost List\n"
+			builder.WriteString("## Boost List\n")
 		}
 	*/
 	var prefix = " - "
 
-	earlyList := ""
-	lateList := ""
+	var earlyList strings.Builder
+	var lateList strings.Builder
 
 	offset := 1
 
@@ -209,9 +239,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 
 	// If the contract has been completed for 15 minutes then just show the sink without the entire list
 	if contract.State == ContractStateCompleted && time.Since(contract.EndTime) > 15*time.Minute {
-		//outputStr += "## Boost\n"
+		//builder.WriteString("## Boost\n")
 		if contract.Banker.CurrentBanker == "" {
-			outputStr += "\nNo volunteer sink for this contract, hold your tokens.\n"
+			builder.WriteString("\nNo volunteer sink for this contract, hold your tokens.\n")
 		} else {
 			b := contract.Boosters[contract.Banker.CurrentBanker]
 			var name = b.Mention
@@ -221,13 +251,13 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 			}
 
 			sinkIcon := getSinkIcon(contract, b)
-			outputStr += fmt.Sprintf("\n%s  %s\n", name, sinkIcon)
+			builder.WriteString(fmt.Sprintf("\n%s  %s\n", name, sinkIcon))
 		}
 	} else {
 		if contract.State == ContractStateSignup {
-			outputStr += "## Sign-up List\n"
+			builder.WriteString("## Sign-up List\n")
 		} else {
-			outputStr += "## Boost List\n"
+			builder.WriteString("## Boost List\n")
 		}
 
 		orderSubset := contract.Order
@@ -252,20 +282,23 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 					sinkIcon := getSinkIcon(contract, b)
 
 					if b.BoostState == BoostStateBoosted {
-						earlyList += fmt.Sprintf("~~%s~~%s ", b.Mention, sinkIcon)
+						earlyList.WriteString(fmt.Sprintf("~~%s~~%s ", b.Mention, sinkIcon))
 					} else {
-						earlyList += fmt.Sprintf("%s(%d)%s ", b.Mention, b.TokensWanted, sinkIcon)
+						earlyList.WriteString(fmt.Sprintf("%s(%d)%s ", b.Mention, b.TokensWanted, sinkIcon))
 					}
 					if i < start-1 {
-						earlyList += ", "
+						earlyList.WriteString(", ")
 					}
 				}
 			}
-			if earlyList != "" {
+			if earlyList.Len() > 0 {
 				if start == 1 {
-					earlyList = fmt.Sprintf("1: %s\n", earlyList)
+					earlyList.Reset()
+					earlyList.WriteString(fmt.Sprintf("1: %s\n", earlyList.String()))
 				} else {
-					earlyList = fmt.Sprintf("1-%d: %s\n", start, earlyList)
+					temp := earlyList.String()
+					earlyList.Reset()
+					earlyList.WriteString(fmt.Sprintf("1-%d: %s\n", start, temp))
 				}
 			}
 
@@ -275,20 +308,24 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 					sinkIcon := getSinkIcon(contract, b)
 
 					if b.BoostState == BoostStateBoosted {
-						lateList += fmt.Sprintf("~~%s~~%s ", b.Mention, sinkIcon)
+						lateList.WriteString(fmt.Sprintf("~~%s~~%s ", b.Mention, sinkIcon))
 					} else {
-						lateList += fmt.Sprintf("%s(%d)%s ", b.Mention, b.TokensWanted, sinkIcon)
+						lateList.WriteString(fmt.Sprintf("%s(%d)%s ", b.Mention, b.TokensWanted, sinkIcon))
 					}
 					if (end + i + 1) < len(contract.Boosters) {
-						lateList += ", "
+						lateList.WriteString(", ")
 					}
 				}
 			}
-			if lateList != "" {
+			if lateList.Len() > 0 {
 				if (end + 1) == len(contract.Order) {
-					lateList = fmt.Sprintf("%d: %s", end+1, lateList)
+					temp := lateList.String()
+					lateList.Reset()
+					lateList.WriteString(fmt.Sprintf("%d: %s", end+1, temp))
 				} else {
-					lateList = fmt.Sprintf("%d-%d: %s", end+1, len(contract.Order), lateList)
+					temp := lateList.String()
+					lateList.Reset()
+					lateList.WriteString(fmt.Sprintf("%d-%d: %s", end+1, len(contract.Order), temp))
 				}
 			}
 
@@ -296,7 +333,11 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 			offset = start + 1
 		}
 
-		outputStr += earlyList
+		if earlyList.Len() > 0 {
+			components = append(components, &discordgo.TextDisplay{
+				Content: earlyList.String(),
+			})
+		}
 
 		for i, element := range orderSubset {
 
@@ -345,9 +386,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 
 					switch b.BoostState {
 					case BoostStateUnboosted:
-						outputStr += fmt.Sprintf("%s %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, sinkIcon, server)
+						builder.WriteString(fmt.Sprintf("%s %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, sinkIcon, server))
 					case BoostStateTokenTime:
-						outputStr += fmt.Sprintf("%s ➡️ **%s** %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, currentStartTime, sinkIcon, server)
+						builder.WriteString(fmt.Sprintf("%s ➡️ **%s** %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, currentStartTime, sinkIcon, server))
 					case BoostStateBoosted:
 						boostingString := ""
 						if time.Now().Before(b.EstEndOfBoost) {
@@ -358,23 +399,23 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 							}
 							boostingString += fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
 						}
-						outputStr += fmt.Sprintf("%s ~~%s~~  %s %s%s%s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server)
+						builder.WriteString(fmt.Sprintf("%s ~~%s~~  %s %s%s%s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server))
 					}
 
 				} else {
 
 					switch b.BoostState {
 					case BoostStateUnboosted:
-						outputStr += fmt.Sprintf("%s %s%s%s%s\n", prefix, name, signupCountStr, sortRate, server)
+						builder.WriteString(fmt.Sprintf("%s %s%s%s%s\n", prefix, name, signupCountStr, sortRate, server))
 					case BoostStateTokenTime:
 						if b.UserID == b.Name && b.AltController == "" && contract.State != ContractStateBanker {
 							// Add a rocket for auto boosting
-							outputStr += fmt.Sprintf("%s ➡️ **%s** 🚀%s%s%s%s\n", prefix, name, countStr, sortRate, currentStartTime, server)
+							builder.WriteString(fmt.Sprintf("%s ➡️ **%s** 🚀%s%s%s%s\n", prefix, name, countStr, sortRate, currentStartTime, server))
 						} else {
 							if !b.BoostingTokenTimestamp.IsZero() {
 								currentStartTime = fmt.Sprintf(" <t:%d:R> since ️T-0️⃣ / votes:%d", b.BoostingTokenTimestamp.Unix(), len(b.VotingList))
 							}
-							outputStr += fmt.Sprintf("%s ➡️ **%s** %s%s%s%s\n", prefix, name, countStr, sortRate, currentStartTime, server)
+							builder.WriteString(fmt.Sprintf("%s ➡️ **%s** %s%s%s%s\n", prefix, name, countStr, sortRate, currentStartTime, server))
 						}
 					case BoostStateBoosted:
 						boostingString := ""
@@ -386,74 +427,125 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) string {
 							}
 							boostingString += fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
 						}
-						outputStr += fmt.Sprintf("%s ~~%s~~  %s %s%s%s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server)
+						builder.WriteString(fmt.Sprintf("%s ~~%s~~  %s %s%s%s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server))
 					}
 				}
 			}
 		}
-		outputStr += lateList
+		//		builder.WriteString(lateList.String())
+		if builder.Len() != 0 {
+			components = append(components, &discordgo.TextDisplay{
+				Content: builder.String(),
+			})
+			builder.Reset()
+		}
+		if lateList.Len() > 0 {
+			components = append(components, &discordgo.TextDisplay{
+				Content: lateList.String(),
+			})
+		}
+		components = append(components, &discordgo.Separator{
+			Divider: &divider,
+			Spacing: &spacing,
+		})
 
-		outputStr += afterListStr
+		if afterListStr.Len() != 0 {
+			components = append(components, &discordgo.TextDisplay{
+				Content: afterListStr.String(),
+			})
+			components = append(components, &discordgo.Separator{
+				Divider: &divider,
+				Spacing: &spacing,
+			})
+		}
 	}
 
-	guidanceStr := ""
+	var guidanceStr strings.Builder
 	// Add reaction guidance to the bottom of this list
 	switch contract.State {
 	case ContractStateFastrun:
-		guidanceStr += "\n"
-		guidanceStr += "> Active Booster: " + boostIcon + " when boosting. \n"
-		guidanceStr += "> Anyone: " + tokenStr + " when sending tokens "
+		guidanceStr.WriteString("\n")
+		guidanceStr.WriteString("> Active Booster: " + boostIcon + " when boosting. \n")
+		guidanceStr.WriteString("> Anyone: " + tokenStr + " when sending tokens ")
 		if len(contract.AltIcons) > 0 {
-			guidanceStr += ", alts use 🇦-🇿"
+			guidanceStr.WriteString(", alts use 🇦-🇿")
 		}
-		guidanceStr += ". ❓ Help.\n"
+		guidanceStr.WriteString(". ❓ Help.\n")
 		if contract.CoopSize != len(contract.Order) {
-			guidanceStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
+			guidanceStr.WriteString("> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n")
 		}
-		if len(outputStr)+len(guidanceStr) < 1900 {
-			outputStr += guidanceStr
+		totalContentLength := guidanceStr.Len()
+		for _, component := range components {
+			if textDisplay, ok := component.(*discordgo.TextDisplay); ok {
+				totalContentLength += len(textDisplay.Content)
+			}
+		}
+		if totalContentLength < 3000 {
+			builder.WriteString(guidanceStr.String())
 		}
 
 	case ContractStateBanker:
-		guidanceStr += "\n"
-		guidanceStr += "> " + tokenStr + " when sending tokens to the sink"
+		guidanceStr.WriteString("\n")
+		guidanceStr.WriteString("> " + tokenStr + " when sending tokens to the sink")
 		if len(contract.AltIcons) > 0 {
-			guidanceStr += ", alts use 🇦-🇿"
+			guidanceStr.WriteString(", alts use 🇦-🇿")
 		}
 		runReady, _, _ := ei.GetBotEmoji("runready")
 
-		guidanceStr += ".\n"
-		guidanceStr += "> " + runReady + " when you're ready for others to run chickens on your farm.\n"
-		guidanceStr += "> 💰 is used by the Sink to send the requested number of tokens to the booster.\n"
-		guidanceStr += "> -When active Booster is sent tokens by the sink they are marked as boosted.\n"
-		guidanceStr += "> -Adjust the number of boost tokens you want by adding a 6️⃣ to 🔟 reaction to the boost list message.\n"
+		guidanceStr.WriteString(".\n")
+		guidanceStr.WriteString("> " + runReady + " when you're ready for others to run chickens on your farm.\n")
+		guidanceStr.WriteString("> 💰 is used by the Sink to send the requested number of tokens to the booster.\n")
+		guidanceStr.WriteString("> -When active Booster is sent tokens by the sink they are marked as boosted.\n")
+		guidanceStr.WriteString("> -Adjust the number of boost tokens you want by adding a 6️⃣ to 🔟 reaction to the boost list message.\n")
 		if contract.CoopSize != len(contract.Order) {
-			guidanceStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
+			guidanceStr.WriteString("> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n")
 		}
-		if len(outputStr)+len(guidanceStr) < 1900 {
-			outputStr += guidanceStr
+		// Sum the Content lenghts of the components for this length test
+		// If the length of the builder is less than 1900 characters, add the guidanceStr
+		// to the builder
+		totalContentLength := guidanceStr.Len()
+		for _, component := range components {
+			if textDisplay, ok := component.(*discordgo.TextDisplay); ok {
+				totalContentLength += len(textDisplay.Content)
+			}
+		}
+		if totalContentLength < 3000 {
+			builder.WriteString(guidanceStr.String())
 		}
 
 	case ContractStateWaiting:
-		guidanceStr += "\n"
-		guidanceStr += "> Waiting for other(s) to join...\n"
-		guidanceStr += "> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n"
-		if len(outputStr)+len(guidanceStr) < 1900 {
-			outputStr += guidanceStr
+		guidanceStr.WriteString("\n")
+		guidanceStr.WriteString("> Waiting for other(s) to join...\n")
+		guidanceStr.WriteString("> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n")
+		totalContentLength := guidanceStr.Len()
+		for _, component := range components {
+			if textDisplay, ok := component.(*discordgo.TextDisplay); ok {
+				totalContentLength += len(textDisplay.Content)
+			}
+		}
+		if totalContentLength < 3000 {
+			builder.WriteString(guidanceStr.String())
 		}
 
 	case ContractStateCompleted:
 		t1 := contract.EndTime
 		t2 := contract.StartTime
 		duration := t1.Sub(t2)
-		outputStr += "\n"
-		outputStr += fmt.Sprintf("Contract boosting complete in %s with a rate of %2.3g %s/min\n", duration.Round(time.Second), contract.TokensPerMinute, contract.TokenStr)
+		builder.WriteString("\n")
+		builder.WriteString(fmt.Sprintf("Contract boosting complete in %s with a rate of %2.3g %s/min\n", duration.Round(time.Second), contract.TokensPerMinute, contract.TokenStr))
 
 		sinkID := contract.Banker.CurrentBanker
 		if sinkID != "" {
-			outputStr += "> Send every " + tokenStr + " to our sink " + contract.Boosters[sinkID].Mention + "\n"
+			builder.WriteString("##  Send every " + tokenStr + " to our sink " + contract.Boosters[sinkID].Mention + "\n")
 		}
 	}
 
-	return outputStr
+	if builder.Len() != 0 {
+		components = append(components, &discordgo.TextDisplay{
+			Content: builder.String(),
+		})
+		builder.Reset()
+	}
+
+	return components
 }
