@@ -87,7 +87,6 @@ func CalculateTcountTtime(tokenValue float64, tval float64, valueLog []FutureTok
 				break
 			}
 		}
-	} else {
 	}
 	return tcount, ttime, count
 }
