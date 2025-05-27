@@ -536,7 +536,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 		sinkID := contract.Banker.CurrentBanker
 		if sinkID != "" {
-			builder.WriteString("> Send every " + tokenStr + " to our sink " + contract.Boosters[sinkID].Mention + "\n")
+			builder.WriteString("##  Send every " + tokenStr + " to our sink " + contract.Boosters[sinkID].Mention + "\n")
 		}
 	}
 
