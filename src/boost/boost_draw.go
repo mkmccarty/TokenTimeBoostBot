@@ -50,6 +50,7 @@ func getSinkIcon(contract *Contract, b *Booster) string {
 func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.MessageComponent {
 	var components []discordgo.MessageComponent
 	var builder strings.Builder
+	var targetTval float64
 	//var outputStr string
 	var afterListStr strings.Builder
 	tokenStr := contract.TokenStr
@@ -149,8 +150,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				contract.EstimatedDuration = c.EstimatedDuration
 			}
 		}
-		tval := bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
-		builder.WriteString(fmt.Sprintf("> Current TVal: %2.3g\n", tval))
+		targetTval = bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
+		builder.WriteString(fmt.Sprintf("> Current TVal: %2.3g\n", targetTval))
 	}
 
 	if !contract.EstimateUpdateTime.IsZero() {
@@ -528,6 +529,14 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		}
 
 	case ContractStateCompleted:
+		coopTvalStr := calculateTokenValueCoopLog(contract, contract.EstimatedDuration, targetTval)
+		components = append(components, &discordgo.TextDisplay{
+			Content: coopTvalStr,
+		})
+		components = append(components, &discordgo.Separator{
+			Divider: &divider,
+			Spacing: &spacing,
+		})
 		t1 := contract.EndTime
 		t2 := contract.StartTime
 		duration := t1.Sub(t2)
