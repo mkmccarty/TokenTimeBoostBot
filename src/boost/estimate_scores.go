@@ -107,7 +107,7 @@ func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 	}
 
 	var footer strings.Builder
-	footer.WriteString("-# MAX : Max Chicken Runs & \n")
+	footer.WriteString("-# MAX : Max Chicken Runs & ∆T-Val\n")
 	footer.WriteString("-# TVAL: Coop Size-1 Chicken Runs & ∆T-Val\n")
 	footer.WriteString("-# SINK: Max Chicken Runs & Token Sink\n")
 	footer.WriteString("-# RUNS: Coop Size-1 Chicken Runs, No token sharing\n")
