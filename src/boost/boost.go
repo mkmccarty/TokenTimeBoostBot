@@ -1189,7 +1189,7 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 				})
 				components = append(components, comp...)
 				msg.Flags = discordgo.MessageFlagsIsComponentsV2
-				msg.Components = &comp
+				msg.Components = &components
 				_, _ = s.ChannelMessageEditComplex(msg)
 			}
 		}

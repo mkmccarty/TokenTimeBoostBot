@@ -558,7 +558,7 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 				Content: contentStr,
 			})
 			components = append(components, comp...)
-			msg.Components = &comp
+			msg.Components = &components
 			_, _ = s.ChannelMessageEditComplex(msg)
 		}
 	}
