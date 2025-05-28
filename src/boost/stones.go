@@ -688,8 +688,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 					everyoneDeflectorPercent += lastDeflectorPercent
 				}
 			} else if useBuffHistory {
-				as.note = append(as.note, fmt.Sprintf("DEFL from BuffHist %2.0f%%", bestDeflectorPercent))
-				as.deflector.abbrev = fmt.Sprintf("%d%%", int(bestDeflectorPercent))
+				as.note = append(as.note, fmt.Sprintf("DEFL from BuffHist %2.0f%%", math.Ceil(bestDeflectorPercent)))
+				as.deflector.abbrev = fmt.Sprintf("%2.0f%%", math.Ceil(bestDeflectorPercent))
 				as.deflector.percent = bestDeflectorPercent
 				everyoneDeflectorPercent += as.deflector.percent
 			}
