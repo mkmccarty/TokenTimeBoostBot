@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -427,25 +428,32 @@ func HandleTokenReceiverAutoComplete(s *discordgo.Session, i *discordgo.Interact
 	}
 	searchString := ""
 
-	/*
-		if opt, ok := optionMap["new-receiver"]; ok {
-			searchString = opt.IntValue()()
-		}
-	*/
-	if searchString == "" {
-		for i, o := range c.Order {
-			b := c.Boosters[o]
+	if opt, ok := optionMap["new-receiver"]; ok {
+		searchString = opt.StringValue()
+	}
 
-			choice := discordgo.ApplicationCommandOptionChoice{
-				Name:  b.Nick,
-				Value: i,
-			}
-			choices = append(choices, &choice)
-			if len(choices) > 15 {
-				break
-			}
+	// Want a set of sorted keys from c.Boosters
+	// Sort by Nick
+	keys := make([]string, 0, len(c.Boosters))
+	for k := range c.Boosters {
+
+		if searchString == "" || strings.Contains(strings.ToLower(c.Boosters[k].Nick), strings.ToLower(searchString)) {
+			keys = append(keys, k)
 		}
-	} /* else {
+	}
+	sort.Strings(keys)
+
+	for _, b := range keys {
+		choice := discordgo.ApplicationCommandOptionChoice{
+			Name:  c.Boosters[b].Nick,
+			Value: b,
+		}
+		choices = append(choices, &choice)
+		if len(choices) > 15 {
+			break
+		}
+	}
+	/* else {
 		for i, o := range c.Order {
 			b := c.Boosters[o]
 
@@ -484,7 +492,7 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 	var action int // 0:Move, 1: Delete, 2 Modify Count
 	//var tokenCoop string
 	var tokenIndex int32
-	var boostIndex int64
+	var boosterIndex string
 	var tokenCount int64
 	if opt, ok := optionMap["action"]; ok {
 		action = int(opt.IntValue())
@@ -498,7 +506,7 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		tokenIndex = int32(opt.IntValue())
 	}
 	if opt, ok := optionMap["new-receiver"]; ok {
-		boostIndex = opt.IntValue()
+		boosterIndex = opt.StringValue()
 	}
 	if opt, ok := optionMap["new-quantity"]; ok {
 		tokenCount = opt.IntValue()
@@ -512,8 +520,8 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		for i, t := range c.TokenLog {
 			xid, _ := xid.FromString(t.Serial)
 			if xid.Counter() == tokenIndex {
-				c.TokenLog[i].ToUserID = c.Order[boostIndex]
-				c.TokenLog[i].ToNick = c.Boosters[c.Order[boostIndex]].Nick
+				c.TokenLog[i].ToUserID = c.Boosters[boosterIndex].UserID
+				c.TokenLog[i].ToNick = c.Boosters[boosterIndex].Nick
 				modifiedTokenLog = c.TokenLog[i]
 				str = fmt.Sprintf("Token moved to %s", c.TokenLog[i].ToNick)
 				break
@@ -526,7 +534,9 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 				modifiedTokenLog = c.TokenLog[i]
 				modifiedTokenLog.Quantity = 0
 				modifiedTokenLog.ToNick = "Deleted"
+				modifiedTokenLog.ToUserID = "Deleted"
 				modifiedTokenLog.FromNick = "Deleted"
+				modifiedTokenLog.FromUserID = "Deleted"
 				c.TokenLog = append(c.TokenLog[:i], c.TokenLog[i+1:]...)
 				str = "Token deleted"
 				break
