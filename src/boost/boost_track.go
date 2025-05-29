@@ -55,7 +55,7 @@ func GetSlashTokenEditCommand(cmd string) *discordgo.ApplicationCommand {
 				Autocomplete: true,
 			},
 			{
-				Type:         discordgo.ApplicationCommandOptionInteger,
+				Type:         discordgo.ApplicationCommandOptionString,
 				Name:         "new-receiver",
 				Description:  "Who received the token",
 				Autocomplete: true,
