@@ -388,7 +388,6 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
 	cmd := strings.ToLower(reaction[1])
 	contractHash := reaction[len(reaction)-1]
-	refreshBoostListComponents := false
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredMessageUpdate,
@@ -562,7 +561,6 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		}
 		if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {
 			contract.Banker.CurrentBanker = contract.Banker.PostSinkUserID
-			refreshBoostListComponents = true
 		}
 	case "sinkorder":
 		// toggle the sink order
@@ -585,19 +583,15 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		components = append(components, boostListComp...)
 
 		msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
-		if refreshBoostListComponents {
-			comp := getContractReactionsComponents(contract)
-			components = append(components, comp...)
-		}
+		comp := getContractReactionsComponents(contract)
+		components = append(components, comp...)
 		msgedit.Components = &components
 
 		msg, err := s.ChannelMessageEditComplex(msgedit)
 		if err == nil {
 			loc.ListMsgID = msg.ID
 		}
-		//if refreshBoostListComponents {
-		//	addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
-		//}
+
 		if redrawSignup {
 			// Rebuild the signup message to disable the start button
 			var components []discordgo.MessageComponent
