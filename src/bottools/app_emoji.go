@@ -158,6 +158,25 @@ func ImportEggImage(s *discordgo.Session, eggID, IconURL string) (string, error)
 	if err != nil {
 		return "", err
 	}
+
+	// Save the image to a file
+	filePath := fmt.Sprintf("%s/egg_%s.png", config.BannerPath, cleanEggID)
+	file, err := os.Create(filePath)
+	if err != nil {
+		log.Print(err)
+		return "", err
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			// Handle the error appropriately, e.g., logging or taking corrective actions
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
+	_, err = file.Write(buf.Bytes())
+	if err != nil {
+		log.Print(err)
+		return "", err
+	}
 	base64Image := base64.StdEncoding.EncodeToString(buf.Bytes())
 
 	data := discordgo.EmojiParams{

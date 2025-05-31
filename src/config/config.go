@@ -39,26 +39,36 @@ var (
 	GistToken string
 	// GistID is the ID of the gist used for storage.
 	GistID string
+	// BannerPath is the path to the banner image and font files.
+	BannerPath string
+	// BannerOutputPath is the path where the compsited banner image will be saved.
+	BannerOutputPath string
+	// BannerURL is the URL to the banner image.
+	BannerURL string
+
 	config *configStruct
 )
 
 type configStruct struct {
-	DiscordToken   string   `json:"DiscordToken"`
-	DiscordAppID   string   `json:"DiscordAppID"`
-	DiscordGuildID string   `json:"DiscordGuildID"`
-	OpenAIKey      string   `json:"OpenAIKey"`
-	GoogleAPIKey   string   `json:"GoogleAPIKey"`
-	AdminUserID    string   `json:"AdminUserId"`
-	EIUserIDBasic  string   `json:"EIUserIDBasic"`
-	EIUserID       string   `json:"EIUserId"`
-	AdminUsers     []string `json:"AdminUsers"`
-	TestMode       bool     `json:"TestMode"`
-	DevBotAppID    string   `json:"DevBotAppID"`
-	FeatureFlags   []string `json:"FeatureFlags"`
-	RocketsURL     string   `json:"RocketsURL"`
-	EventsURL      string   `json:"EventsURL"`
-	GistToken      string   `json:"GistToken"`
-	GistID         string   `json:"GistID"`
+	DiscordToken     string   `json:"DiscordToken"`
+	DiscordAppID     string   `json:"DiscordAppID"`
+	DiscordGuildID   string   `json:"DiscordGuildID"`
+	OpenAIKey        string   `json:"OpenAIKey"`
+	GoogleAPIKey     string   `json:"GoogleAPIKey"`
+	AdminUserID      string   `json:"AdminUserId"`
+	EIUserIDBasic    string   `json:"EIUserIDBasic"`
+	EIUserID         string   `json:"EIUserId"`
+	AdminUsers       []string `json:"AdminUsers"`
+	TestMode         bool     `json:"TestMode"`
+	DevBotAppID      string   `json:"DevBotAppID"`
+	FeatureFlags     []string `json:"FeatureFlags"`
+	RocketsURL       string   `json:"RocketsURL"`
+	EventsURL        string   `json:"EventsURL"`
+	GistToken        string   `json:"GistToken"`
+	GistID           string   `json:"GistID"`
+	BannerPath       string   `json:"BannerPath"`
+	BannerOutputPath string   `json:"BannerOutputPath"`
+	BannerURL        string   `json:"BannerURL"`
 }
 
 // ReadConfig will load the configuration files for API tokens.
@@ -95,6 +105,9 @@ func ReadConfig(cfgFile string) error {
 	RocketsURL = config.RocketsURL
 	GistToken = config.GistToken
 	GistID = config.GistID
+	BannerPath = config.BannerPath
+	BannerOutputPath = config.BannerOutputPath
+	BannerURL = config.BannerURL
 
 	return nil
 }

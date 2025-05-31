@@ -459,6 +459,13 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 	out := []discordgo.MessageComponent{}
 
 	menuOptions := []discordgo.SelectMenuOption{}
+	/*
+		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+			Label:       "Send 2 Tokens",
+			Description: "Sent 2 tokens to the current booster.",
+			Value:       "send2",
+			Emoji:       ei.GetBotComponentEmoji("token"),
+		})*/
 	if contract.State == ContractStateCompleted {
 		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
 			Label:       "Sync w/EI",
@@ -467,6 +474,22 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 			Emoji:       &discordgo.ComponentEmoji{Name: "⏱️"},
 		})
 	}
+
+	// Get list of at most 3 boosters, previous 2 and next 1
+	/*
+		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+			Label:       "Send Token to %s",
+			Description: "Show token log",
+			Value:       "tlog",
+			Emoji:       ei.GetBotComponentEmoji("token"),
+		})
+	*/
+	menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+		Label:       "Token Log",
+		Description: "Show token log",
+		Value:       "tlog",
+		Emoji:       ei.GetBotComponentEmoji("token"),
+	})
 	menuOptions = append(menuOptions, discordgo.SelectMenuOption{
 		Label:       "Coop Tools",
 		Description: "Receive reply with tools",
@@ -479,12 +502,7 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 		Value:       "xpost",
 		Emoji:       &discordgo.ComponentEmoji{Name: "🖇️"},
 	})
-	menuOptions = append(menuOptions, discordgo.SelectMenuOption{
-		Label:       "Token Log",
-		Description: "Show token log",
-		Value:       "tlog",
-		Emoji:       ei.GetBotComponentEmoji("token"),
-	})
+
 	/*
 		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
 			Label:       "Lousy Breaks Thing",

@@ -1281,18 +1281,18 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 	//contract.mutex.Lock()
 	//defer contract.mutex.Unlock()
 	// Edit the boost list in place
-	comp := getContractReactionsComponents(contract)
+	buttonComponents := getContractReactionsComponents(contract)
 	for _, loc := range contract.Location {
 		if loc.GuildID == guildID && loc.ChannelID == channelID {
 			_ = s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
 			var data discordgo.MessageSend
 			var am discordgo.MessageAllowedMentions
 			var components []discordgo.MessageComponent
+			data.Flags = discordgo.MessageFlagsIsComponentsV2
+			data.AllowedMentions = &am
 			listComp := DrawBoostList(s, contract)
 			components = append(components, listComp...)
-			components = append(components, comp...)
-			data.AllowedMentions = &am
-			data.Flags = discordgo.MessageFlagsIsComponentsV2
+			components = append(components, buttonComponents...)
 			data.Components = components
 			msg, err := s.ChannelMessageSendComplex(loc.ChannelID, &data)
 			if err == nil {
@@ -1311,15 +1311,14 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 	for _, loc := range contract.Location {
 		var components []discordgo.MessageComponent
 		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
-
+		msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
 		listComponents := DrawBoostList(s, contract)
+		buttonComponents := getContractReactionsComponents(contract)
 		components = append(components, listComponents...)
-		comp := getContractReactionsComponents(contract)
-		components = append(components, comp...)
+		components = append(components, buttonComponents...)
 		msgedit.Components = &components
 
 		// Full contract for speedrun
-		msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
 		msg, err := s.ChannelMessageEditComplex(msgedit)
 		if err == nil {
 			// This is an edit, it should be the same
@@ -1370,12 +1369,12 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			// Compose the message without a Ping
 			var data discordgo.MessageSend
 			var am discordgo.MessageAllowedMentions
-			listComp := DrawBoostList(s, contract)
-			components = append(components, listComp...)
-			data.AllowedMentions = &am
 			data.Flags = discordgo.MessageFlagsIsComponentsV2
-			comp := getContractReactionsComponents(contract)
-			components = append(components, comp...)
+			data.AllowedMentions = &am
+			listComp := DrawBoostList(s, contract)
+			buttonComponents := getContractReactionsComponents(contract)
+			components = append(components, listComp...)
+			components = append(components, buttonComponents...)
 			data.Components = components
 			msg, err = s.ChannelMessageSendComplex(loc.ChannelID, &data)
 			if err == nil {
