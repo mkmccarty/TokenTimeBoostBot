@@ -18,7 +18,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/db"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
@@ -942,8 +941,10 @@ func main() {
 		}()
 	*/
 	// Init Mongodb
-	db.Open()
-	defer db.Close()
+	//db.Open()
+	//defer db.Close()
+	//bottools.GenerateBanner("EDIBLE", "Race Fuel")
+	// Load the config file
 
 	// Start our CRON job to grab Egg Inc contract data from the Carpet github repository
 	go tasks.ExecuteCronJob(s)

@@ -9,6 +9,7 @@
 *.dylib
 output
 build
+banners
 ttbb-data
 # Test binary, built with `go test -c`
 *.test

@@ -246,6 +246,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 		} else {
 			log.Print("New Original contract: ", c.ID)
 		}
+		bottools.GenerateBanner(c.ID, c.EggName, c.Name)
 		ei.EggIncContractsAll[c.ID] = c
 		newContract = append(newContract, c)
 	}

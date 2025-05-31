@@ -7,6 +7,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -62,6 +63,16 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		targetTval = 0.07 * BTA
 	}
 
+	var bannerItem discordgo.MediaGalleryItem
+
+	bannerItem.Media.URL = fmt.Sprintf("%sb-%s.png", config.BannerURL, contract.ContractID)
+	components = append(components, &discordgo.MediaGallery{
+		Items: []discordgo.MediaGalleryItem{
+			bannerItem,
+		},
+	},
+	)
+
 	/*
 		components = append(components, &discordgo.TextDisplay{
 			Content: header.String() + "\n" + builder.String(),
@@ -80,7 +91,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		contract.EggEmoji = FindEggEmoji(contract.EggName)
 	}
 
-	builder.WriteString(fmt.Sprintf("## %s %s : [%s](%s/%s/%s)", contract.EggEmoji, contract.Name, contract.CoopID, "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID))
+	builder.WriteString(fmt.Sprintf("## CoopID: [%s](%s/%s/%s)", contract.CoopID, "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID))
+	//builder.WriteString(fmt.Sprintf("## %s %s : [%s](%s/%s/%s)", contract.EggEmoji, contract.Name, contract.CoopID, "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID))
 	if len(contract.Boosters) != contract.CoopSize {
 		builder.WriteString(fmt.Sprintf(" - %d/%d\n", len(contract.Boosters), contract.CoopSize))
 	}

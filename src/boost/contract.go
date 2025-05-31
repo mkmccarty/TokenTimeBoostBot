@@ -579,12 +579,11 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 	for _, loc := range contract.Location {
 		var components []discordgo.MessageComponent
 		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
-		boostListComp := DrawBoostList(s, contract)
-		components = append(components, boostListComp...)
-
 		msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
-		comp := getContractReactionsComponents(contract)
-		components = append(components, comp...)
+		boostListComp := DrawBoostList(s, contract)
+		buttonComponents := getContractReactionsComponents(contract)
+		components = append(components, boostListComp...)
+		components = append(components, buttonComponents...)
 		msgedit.Components = &components
 
 		msg, err := s.ChannelMessageEditComplex(msgedit)
@@ -595,16 +594,16 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		if redrawSignup {
 			// Rebuild the signup message to disable the start button
 			var components []discordgo.MessageComponent
+			msg.Flags = discordgo.MessageFlagsIsComponentsV2
 			msgID := loc.ReactionID
 			msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
 
-			contentStr, comp := GetSignupComponents(contract.State != ContractStateSignup, contract) // True to get a disabled start button
+			contentStr, signUpComponents := GetSignupComponents(contract.State != ContractStateSignup, contract) // True to get a disabled start button
 			components = append(components, &discordgo.TextDisplay{
 				Content: contentStr,
 			})
-			components = append(components, comp...)
+			components = append(components, signUpComponents...)
 			msg.Components = &components
-			msg.Flags = discordgo.MessageFlagsIsComponentsV2
 			_, _ = s.ChannelMessageEditComplex(msg)
 		}
 	}
