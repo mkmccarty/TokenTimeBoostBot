@@ -48,12 +48,13 @@ func GenerateBanner(ID string, eggName string, text string) {
 	outputImagePath := fmt.Sprintf("%s/b-%s.png", config.BannerOutputPath, ID)
 	// if the image already exists, return
 	if _, err := os.Stat(outputImagePath); err == nil {
-		fmt.Println("Image already exists:", outputImagePath)
+		//fmt.Println("Image already exists:", outputImagePath)
 		return
 	} else if !os.IsNotExist(err) {
 		fmt.Println("Error checking output image:", err)
 		return
 	}
+	log.Printf("Creating banner in %s", outputImagePath)
 	bgImagePath := config.BannerPath + "/banner.png"
 	cleanEggID := strings.ReplaceAll(strings.ReplaceAll(strings.ToLower(eggName), " ", ""), "-", "")
 	cleanEggID = strings.ReplaceAll(cleanEggID, "_", "")
