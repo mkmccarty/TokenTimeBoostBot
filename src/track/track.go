@@ -392,7 +392,7 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 			// 1 token = 591.6 seconds / 9.86 minutes
 			futureTokenLog, futureTokenLogGG :=
 				bottools.CalculateFutureTokenLogs(maxFutureTokenLogEntries, td.StartTime, 0, td.MinutesPerToken, duration, rateSecondPerTokens)
-			gg, ugg := ei.GetGenerousGiftEvent()
+			gg, ugg, _ := ei.GetGenerousGiftEvent()
 			var valueLog []bottools.FutureToken
 			if ugg > 1.0 || gg > 1.0 {
 				valueLog = futureTokenLogGG

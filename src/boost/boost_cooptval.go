@@ -151,7 +151,7 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 	tokenUser := make(map[string]bool)
 	ultraUser := make(map[string]bool)
 
-	gg, ugg := ei.GetGenerousGiftEvent()
+	gg, ugg, _ := ei.GetGenerousGiftEvent()
 	// Define thresholds for determining if a Generous Gift (GG) event is active
 	const ggThreshold = 1.0
 
