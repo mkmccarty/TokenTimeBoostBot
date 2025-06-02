@@ -9,7 +9,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/google/generative-ai-go v0.20.1
 	github.com/jasonlvhit/gocron v0.0.1
-	github.com/moby/moby v28.1.1+incompatible
+	github.com/moby/moby v28.2.2+incompatible
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/pkg/errors v0.9.1
 	github.com/rs/xid v1.6.0
