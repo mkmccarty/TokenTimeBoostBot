@@ -89,6 +89,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 
 	newGG := 1.0
 	newUltraGG := 1.0
+	var newEventEndGG time.Time
 
 	for _, event := range periodicalsResponse.GetEvents().GetEvents() {
 		var e ei.EggEvent
@@ -113,6 +114,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 			} else {
 				newGG = e.Multiplier
 			}
+			newEventEndGG = e.EndTime
 		}
 
 		if e.Ultra {
@@ -133,7 +135,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	}
 
 	// Set our current Event variables
-	ei.SetGenerousGiftEvent(newGG, newUltraGG)
+	ei.SetGenerousGiftEvent(newGG, newUltraGG, newEventEndGG)
 
 	/*
 		// Look for new Custom Eggs

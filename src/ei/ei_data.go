@@ -15,6 +15,7 @@ import (
 
 var currentGGEvent = 1.0
 var currentUltraGGEvent = 1.0
+var currentEventEndsGG time.Time
 
 var colleggtibleELR = 1.0
 var colleggtibleShip = 1.0
@@ -57,14 +58,15 @@ func SetColleggtibleValues() {
 }
 
 // GetGenerousGiftEvent will return the current Generous Gift event multiplier
-func GetGenerousGiftEvent() (float64, float64) {
-	return currentGGEvent, currentUltraGGEvent
+func GetGenerousGiftEvent() (float64, float64, time.Time) {
+	return currentGGEvent, currentUltraGGEvent, currentEventEndsGG
 }
 
 // SetGenerousGiftEvent will return the current Generous Gift event multiplier
-func SetGenerousGiftEvent(gg float64, ugg float64) {
+func SetGenerousGiftEvent(gg float64, ugg float64, endtime time.Time) {
 	currentGGEvent = gg
 	currentUltraGGEvent = ugg
+	currentEventEndsGG = endtime
 }
 
 // TokenUnitLog is a full log of all passed tokens

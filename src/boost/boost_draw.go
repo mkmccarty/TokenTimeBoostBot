@@ -131,7 +131,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 			0.144803 is rate with epic rainstick and habs full
 		*/
-		gg, ugg := ei.GetGenerousGiftEvent()
+		gg, ugg, _ := ei.GetGenerousGiftEvent()
 		ggicon := ""
 		if gg > 1.0 {
 			ggicon = " " + ei.GetBotEmojiMarkdown("std_gg")

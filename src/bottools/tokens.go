@@ -5,6 +5,8 @@ import (
 	"math"
 	"sort"
 	"time"
+
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 // GetTokenValue calculates the token value based on the given parameters
@@ -29,6 +31,8 @@ func CalculateFutureTokenLogs(maxEntries int, startTime time.Time, crtTime time.
 	//futureTokenLogTimes := make([]time.Time, 0, estimatedCapacity)
 	//futureTokenLogGGTimes := make([]time.Time, 0, estimatedCapacity)
 
+	_, _, endGG := ei.GetGenerousGiftEvent()
+
 	endTime := startTime.Add(duration)
 	endTime = endTime.Add(120 * time.Hour) // Give estimates for up to 2 hours beyond contract end
 	tokenTime := time.Now()
@@ -37,7 +41,9 @@ func CalculateFutureTokenLogs(maxEntries int, startTime time.Time, crtTime time.
 		val := GetTokenValue(tokenTime.Sub(startTime).Seconds(), duration.Seconds())
 		futureTokenLog = append(futureTokenLog, FutureToken{Value: val, Time: tokenTime})
 		//futureTokenLogTimes = append(futureTokenLogTimes, tokenTime)
-		futureTokenLogGG = append(futureTokenLogGG, FutureToken{Value: val, Time: tokenTime})
+		if tokenTime.Before(endGG) {
+			futureTokenLogGG = append(futureTokenLogGG, FutureToken{Value: val, Time: tokenTime})
+		}
 		//futureTokenLogGGTimes = append(futureTokenLogGGTimes, tokenTime)
 		tokenTime = tokenTime.Add(time.Duration(rateSecondPerTokens) * time.Second)
 		if len(futureTokenLog) > maxEntries {

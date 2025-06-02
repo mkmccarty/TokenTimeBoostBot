@@ -688,7 +688,7 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 
 	}
 
-	gg, ugg := ei.GetGenerousGiftEvent()
+	gg, ugg, _ := ei.GetGenerousGiftEvent()
 	if gg > 1.0 {
 		if slices.Contains(iconsRowA, tokenStr) {
 			idx := slices.Index(iconsRowA, tokenStr)
