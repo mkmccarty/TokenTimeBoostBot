@@ -212,12 +212,21 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 
 			// Also send this for ACO
 			if !config.IsDevBot() {
-				_, err = s.ChannelMessageSendComplex("1257340301438222401", &data)
+				acoChannel := "1103074428352471050" // ACO #contracts-version-2-chat
+				permissions, err := s.UserChannelPermissions(config.DiscordAppID, acoChannel)
 				if err != nil {
-					log.Print(err)
+					log.Printf("Error getting permissions for channel %s: %v", acoChannel, err)
+				} else {
+					if permissions&discordgo.PermissionSendMessages == 0 {
+						log.Printf("Bot does not have permission to send messages in channel %s", acoChannel)
+					} else {
+						_, err = s.ChannelMessageSendComplex(acoChannel, &data)
+						if err != nil {
+							log.Print(err)
+						}
+					}
 				}
 			}
-
 		}
 
 		ei.CustomEggMap[egg.ID] = &egg
