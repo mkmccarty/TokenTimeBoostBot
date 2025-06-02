@@ -408,7 +408,8 @@ func buttonReactionHelp(s *discordgo.Session, i *discordgo.InteractionCreate, co
 }
 
 func getContractReactionsComponents(contract *Contract) []discordgo.MessageComponent {
-	if contract.buttonComponents == nil {
+	compVals := contract.buttonComponents
+	if compVals == nil {
 		compVals := make(map[string]CompMap, 14)
 		compVals[boostIconReaction] = CompMap{Emoji: boostIconReaction, Style: discordgo.SecondaryButton, CustomID: "rc_#Boost#"}
 		compVals[contract.TokenStr] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("token"), Style: discordgo.SecondaryButton, CustomID: "rc_#token#"}
@@ -435,8 +436,6 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 		}
 		contract.buttonComponents = compVals
 	}
-
-	compVals := contract.buttonComponents
 
 	iconsRow := make([][]string, 5)
 	iconsRow[0], iconsRow[1] = addContractReactionsGather(contract, contract.TokenStr)
@@ -539,6 +538,11 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 	for _, row := range iconsRow {
 		var mComp []discordgo.MessageComponent
 		for _, el := range row {
+			// if compVals[el] is not found, it will panic
+			if _, ok := compVals[el]; !ok {
+				log.Printf("Warning: Missing component for %s in contract %s", el, contract.ContractHash)
+				continue
+			}
 			if compVals[el].Emoji == "" {
 				mComp = append(mComp, discordgo.Button{
 					//Label: "Send a Token",
