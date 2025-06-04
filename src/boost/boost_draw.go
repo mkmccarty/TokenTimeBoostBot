@@ -19,6 +19,10 @@ func getTokensReceivedFromLog(contract *Contract, userID string) int {
 	for _, logEntry := range contract.TokenLog {
 		if logEntry.ToUserID == userID {
 			tokensReceived += logEntry.Quantity
+			if logEntry.FromUserID == logEntry.ToUserID && logEntry.Boost {
+				// Banker boosted tokens are not counted as received
+				tokensReceived -= logEntry.Quantity
+			}
 		}
 	}
 	return tokensReceived
