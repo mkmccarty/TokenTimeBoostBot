@@ -183,7 +183,7 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 			track.ContractTokenMessage(s, ChannelID, fromUserID, track.TokenSent, count, b.Nick, tokenSerial, now)
 			contract.mutex.Lock()
 			b.TokensReceived += count
-			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: now, Quantity: count, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial})
+			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: now, Quantity: count, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial, Boost: false})
 			contract.mutex.Unlock()
 			if contract.BoostOrder == ContractOrderTVal {
 				tval := bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
@@ -201,7 +201,7 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 			track.FarmedToken(s, ChannelID, fromUserID, count)
 			contract.mutex.Lock()
 			b.TokensReceived += count
-			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: count, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: fromUserID, ToNick: contract.Boosters[fromUserID].Nick, Serial: xid.New().String()})
+			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: count, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: fromUserID, ToNick: contract.Boosters[fromUserID].Nick, Serial: xid.New().String(), Boost: false})
 			contract.mutex.Unlock()
 			reorderBoosters(contract)
 		}

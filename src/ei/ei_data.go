@@ -79,6 +79,7 @@ type TokenUnitLog struct {
 	ToUserID   string    // Who received the token
 	ToNick     string    // Who received the token
 	Serial     string    // Serial number of the token
+	Boost      bool      // Whether the token part of a boost
 }
 
 // EggEvent is a raw event data for Egg Inc

@@ -39,9 +39,12 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 			if b.BoostState == BoostStateBoosted {
 				return false, false
 			}
+
 			// Going to be boosting the sink so make sure they
 			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateUnboosted
 			contract.Boosters[cUserID].StartTime = contract.StartTime
+			contract.Boosters[cUserID].EndTime = time.Now()
+			contract.Boosters[cUserID].Duration = time.Since(contract.Boosters[cUserID].StartTime)
 			contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Time{}
 			contract.BoostPosition = slices.Index(contract.Order, cUserID)
 			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
@@ -52,7 +55,7 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 			log.Printf("Sink indicating they are boosting with %d tokens.\n", b.TokensWanted)
 			//	sink.TokensReceived -= b.TokensWanted
 			//	sink.TokensReceived = max(0, sink.TokensReceived) // Avoid missing self farmed tokens
-			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: b.TokensWanted, FromUserID: cUserID, FromNick: contract.Boosters[cUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: xid.New().String()})
+			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: b.TokensWanted, FromUserID: cUserID, FromNick: contract.Boosters[cUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: xid.New().String(), Boost: true})
 			sink.TokensReceived = getTokensReceivedFromLog(contract, sink.UserID) - getTokensSentFromLog(contract, sink.UserID)
 		} else {
 			log.Printf("Sink sent %d tokens to booster\n", b.TokensWanted)
@@ -69,7 +72,7 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 			track.ContractTokenMessage(s, ChannelID, cUserID, track.TokenSent, b.TokensReceived, contract.Boosters[b.UserID].Nick, tokenSerial, now)
 			contract.mutex.Lock()
 
-			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: tokensToSend, FromUserID: cUserID, FromNick: contract.Boosters[cUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial})
+			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: tokensToSend, FromUserID: cUserID, FromNick: contract.Boosters[cUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial, Boost: true})
 			contract.mutex.Unlock()
 			if contract.BoostOrder == ContractOrderTVal {
 				tval := bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
