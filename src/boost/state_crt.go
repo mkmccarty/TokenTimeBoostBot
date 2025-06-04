@@ -287,6 +287,11 @@ func drawSpeedrunCRT(contract *Contract) string {
 		}
 
 	}
+	contract.Boosters[contract.Banker.CurrentBanker].TokensReceived = getTokensReceivedFromLog(contract, contract.Boosters[contract.Banker.CurrentBanker].UserID) - getTokensSentFromLog(contract, contract.Boosters[contract.Banker.CurrentBanker].UserID)
+	if contract.Boosters[contract.Banker.CurrentBanker].BoostState == BoostStateBoosted {
+		contract.Boosters[contract.Banker.CurrentBanker].TokensReceived -= contract.Boosters[contract.Banker.CurrentBanker].TokensWanted
+	}
+
 	fmt.Fprintf(&builder, "\n**Send %s to %s** [%d]\n", contract.TokenStr, contract.Boosters[contract.Banker.CurrentBanker].Mention, contract.Boosters[contract.Banker.CurrentBanker].TokensReceived)
 
 	return builder.String()

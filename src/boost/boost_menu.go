@@ -80,7 +80,11 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 		var logs []string
 		for _, line := range contract.TokenLog {
-			logs = append(logs, fmt.Sprintf("`%v %s %d-> %s`", line.Time.Sub(contract.StartTime).Round(time.Second), line.FromNick, line.Quantity, line.ToNick))
+			boostStr := ""
+			if line.Boost {
+				boostStr = " 🚀"
+			}
+			logs = append(logs, fmt.Sprintf("`%v %s %d->%s %s`", line.Time.Sub(contract.StartTime).Round(time.Second), line.FromNick, line.Quantity, boostStr, line.ToNick))
 		}
 
 		// Trin logs to the last 30 lines
