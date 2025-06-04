@@ -102,12 +102,22 @@ func GenerateBanner(ID string, eggName string, text string) {
 	}()
 
 	// 6. Draw Text
-	addLabel(compositeImage, 140, 70, text, face, color.RGBA{0, 0, 0, 255})
-	addLabel(compositeImage, 140, 66, text, face, color.RGBA{0, 0, 0, 255})
-	addLabel(compositeImage, 136, 66, text, face, color.RGBA{0, 0, 0, 255})
-	addLabel(compositeImage, 136, 70, text, face, color.RGBA{0, 0, 0, 255})
+	// Create text outline effect
+	textColor := color.RGBA{255, 255, 255, 255} // White text
+	outlineColor := color.RGBA{0, 0, 0, 255}    // Black outline
+	outlineWidth := 2
 
-	addLabel(compositeImage, 138, 68, text, face, color.RGBA{255, 255, 255, 255})
+	// Draw outline by rendering text at multiple offset positions
+	for dx := -outlineWidth; dx <= outlineWidth; dx++ {
+		for dy := -outlineWidth; dy <= outlineWidth; dy++ {
+			if dx != 0 || dy != 0 { // Skip center position
+				addLabel(compositeImage, 138+dx, 68+dy, text, face, outlineColor)
+			}
+		}
+	}
+
+	// Draw the main text on top
+	addLabel(compositeImage, 138, 68, text, face, textColor)
 
 	// 7. Encode and Save
 	err = saveImage(outputImagePath, compositeImage)
