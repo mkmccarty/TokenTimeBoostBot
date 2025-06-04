@@ -90,6 +90,9 @@ func CalculateTcountTtime(tokenValue float64, tval float64, valueLog []FutureTok
 				if i < len(valueLog) { // Ensure index is within bounds
 					ttime = fmt.Sprintf("~ <t:%d:t>", valueLog[i].Time.Unix())
 				}
+				if count >= 99 {
+					tcount = "≥99"
+				}
 				break
 			}
 		}
