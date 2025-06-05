@@ -150,7 +150,19 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
-		return
+	case "next":
+		nextUser := cmd[1]
+		_, redraw := buttonReactionToken(s, i.GuildID, i.ChannelID, contract, i.Member.User.ID, 1, nextUser)
+		if redraw {
+			refreshBoostListMessage(s, contract)
+		}
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: fmt.Sprintf("Token sent to %s", contract.Boosters[nextUser].Nick),
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
 
 	}
 }
