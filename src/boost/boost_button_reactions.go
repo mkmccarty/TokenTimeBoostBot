@@ -481,12 +481,21 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 	if contract.State == ContractStateBanker || contract.State == ContractStateFastrun {
 		if contract.BoostPosition > 0 {
 			menuOptions = append(menuOptions, discordgo.SelectMenuOption{
-				Label:       fmt.Sprintf("Sent %s a token", contract.Boosters[contract.Order[contract.BoostPosition-1]].Nick),
+				Label:       fmt.Sprintf("Send %s a token", contract.Boosters[contract.Order[contract.BoostPosition-1]].Nick),
 				Description: "Previous booster wants another token.",
 				Value:       fmt.Sprintf("prev:%s", contract.Order[contract.BoostPosition-1]),
 				Emoji:       ei.GetBotComponentEmoji("token"),
 			})
 		}
+		if contract.State == ContractStateFastrun && contract.BoostPosition < len(contract.Order)-1 {
+			menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+				Label:       fmt.Sprintf("Send %s a token", contract.Boosters[contract.Order[contract.BoostPosition+1]].Nick),
+				Description: fmt.Sprintf("Waiting on %s 🚀.", contract.Boosters[contract.Order[contract.BoostPosition]].Nick),
+				Value:       fmt.Sprintf("next:%s", contract.Order[contract.BoostPosition+1]),
+				Emoji:       ei.GetBotComponentEmoji("token"),
+			})
+		}
+
 	}
 
 	// Get list of at most 3 boosters, previous 2 and next 1
