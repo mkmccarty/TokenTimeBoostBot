@@ -32,7 +32,9 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	switch values[0] {
+	cmd := strings.Split(values[0], ":")
+
+	switch cmd[0] {
 	case "tools":
 		var outputStrBuilder strings.Builder
 		outputStrBuilder.WriteString("## Boost Tools\n")
@@ -135,5 +137,20 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		})
 		contract.EstimateUpdateTime = time.Now()
 		go updateEstimatedTime(s, i.ChannelID, contract, false)
+	case "prev":
+		prevUser := cmd[1]
+		_, redraw := buttonReactionToken(s, i.GuildID, i.ChannelID, contract, i.Member.User.ID, 1, prevUser)
+		if redraw {
+			refreshBoostListMessage(s, contract)
+		}
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: fmt.Sprintf("Token sent to %s", contract.Boosters[prevUser].Nick),
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+
 	}
 }

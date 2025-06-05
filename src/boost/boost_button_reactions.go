@@ -83,9 +83,9 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	case "bag":
 		_, redraw = buttonReactionBag(s, i.GuildID, i.ChannelID, contract, userID)
 	case "token":
-		_, redraw = buttonReactionToken(s, i.GuildID, i.ChannelID, contract, userID, 1)
+		_, redraw = buttonReactionToken(s, i.GuildID, i.ChannelID, contract, userID, 1, "")
 	case "2token":
-		_, redraw = buttonReactionToken(s, i.GuildID, i.ChannelID, contract, userID, 2)
+		_, redraw = buttonReactionToken(s, i.GuildID, i.ChannelID, contract, userID, 2, "")
 	case "swap":
 		redraw = buttonReactionSwap(s, i.GuildID, i.ChannelID, contract, userID)
 	case "last":
@@ -155,7 +155,7 @@ func buttonReactionBoost(s *discordgo.Session, GuildID string, ChannelID string,
 	return redraw
 }
 
-func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, fromUserID string, count int) (bool, bool) {
+func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, fromUserID string, count int, alternateBooster string) (bool, bool) {
 	if !userInContract(contract, fromUserID) {
 		return false, false
 	}
@@ -171,6 +171,10 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 		b = contract.Boosters[contract.Order[contract.BoostPosition]]
 		// When not using a banker, adjust the boost countdown variable
 	}
+	if alternateBooster != "" {
+		b = contract.Boosters[alternateBooster]
+	}
+
 	if b != nil {
 		if fromUserID != b.UserID {
 			// Record the Tokens as received
@@ -472,6 +476,17 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 			Value:       "time",
 			Emoji:       &discordgo.ComponentEmoji{Name: "⏱️"},
 		})
+	}
+
+	if contract.State == ContractStateBanker || contract.State == ContractStateFastrun {
+		if contract.BoostPosition > 0 {
+			menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+				Label:       fmt.Sprintf("Sent %s a token", contract.Boosters[contract.Order[contract.BoostPosition-1]].Nick),
+				Description: "Previous booster wants another token.",
+				Value:       fmt.Sprintf("prev:%s", contract.Order[contract.BoostPosition-1]),
+				Emoji:       ei.GetBotComponentEmoji("token"),
+			})
+		}
 	}
 
 	// Get list of at most 3 boosters, previous 2 and next 1
