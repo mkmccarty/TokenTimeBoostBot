@@ -551,7 +551,7 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 		Components: []discordgo.MessageComponent{
 			discordgo.SelectMenu{
 				CustomID:    "menu#" + contract.ContractHash,
-				Placeholder: "Additional Options",
+				Placeholder: "Boost Menu",
 				MinValues:   &minValues,
 				MaxValues:   1,
 				Options:     menuOptions,
