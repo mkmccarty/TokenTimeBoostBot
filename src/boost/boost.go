@@ -167,6 +167,7 @@ type Booster struct {
 	TokensReceived         int           // indicate number of boost tokens
 	TokensWanted           int           // indicate number of boost tokens
 	TokenValue             float64       // Current Token Value
+	TokenRequestFlag       bool          // Flag to indicate if the token request is active
 	StartTime              time.Time     // Time Farmer started boost turn
 	EndTime                time.Time     // Time Farmer ended boost turn
 	Duration               time.Duration // Duration of boost

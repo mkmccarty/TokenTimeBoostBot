@@ -40,9 +40,10 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		outputStrBuilder.WriteString("## Boost Tools\n")
 		outputStrBuilder.WriteString(fmt.Sprintf("> **Boost Bot:** %s %s %s\n", bottools.GetFormattedCommand("stones"), bottools.GetFormattedCommand("calc-contract-tval"), bottools.GetFormattedCommand("coop-tval")))
 		outputStrBuilder.WriteString("> **Wonky:** </auditcoop:1231383614701174814> </optimizestones:1235003878886342707> </srtracker:1158969351702069328>\n")
-		outputStrBuilder.WriteString(fmt.Sprintf("> **Web:** \n> * [%s](%s)\n> * [%s](%s)\n",
-			"Staabmia Stone Calc", "https://srsandbox-staabmia.netlify.app/stone-calc",
-			"Kaylier Coop Laying Assistant", "https://ei-coop-assistant.netlify.app/laying-set"))
+		outputStrBuilder.WriteString("> **Web:** \n")
+		outputStrBuilder.WriteString(fmt.Sprintf("> * [%s](%s)\n", "Staabmia Stone Calc", "https://srsandbox-staabmia.netlify.app/stone-calc"))
+		outputStrBuilder.WriteString(fmt.Sprintf("> * [%s](%s)\n", "Kaylier Coop Laying Assistant", "https://ei-coop-assistant.netlify.app/laying-set"))
+		outputStrBuilder.WriteString(fmt.Sprintf("> * [%s](%s)\n", "Token Farmer", "http://t-farmer.gigalixirapp.com/"))
 		outputStr := outputStrBuilder.String()
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -137,16 +138,30 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		})
 		contract.EstimateUpdateTime = time.Now()
 		go updateEstimatedTime(s, i.ChannelID, contract, false)
-	case "prev":
-		prevUser := cmd[1]
-		_, redraw := buttonReactionToken(s, i.GuildID, i.ChannelID, contract, i.Member.User.ID, 1, prevUser)
+	case "want":
+		message := "**%s** wants at least 1 more token."
+		contract.Boosters[i.Member.User.ID].TokenRequestFlag = !contract.Boosters[i.Member.User.ID].TokenRequestFlag
+		if !contract.Boosters[i.Member.User.ID].TokenRequestFlag {
+			message = "**%s** now has the tokens they need."
+		}
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: fmt.Sprintf(message, contract.Boosters[i.Member.User.ID].Nick),
+				//Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		refreshBoostListMessage(s, contract)
+	case "send":
+		wantUser := cmd[1]
+		_, redraw := buttonReactionToken(s, i.GuildID, i.ChannelID, contract, i.Member.User.ID, 1, wantUser)
 		if redraw {
 			refreshBoostListMessage(s, contract)
 		}
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: fmt.Sprintf("Token sent to %s", contract.Boosters[prevUser].Nick),
+				Content: fmt.Sprintf("Token sent to %s", contract.Boosters[wantUser].Nick),
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})

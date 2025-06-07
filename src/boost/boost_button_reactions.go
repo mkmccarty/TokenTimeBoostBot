@@ -414,7 +414,7 @@ func buttonReactionHelp(s *discordgo.Session, i *discordgo.InteractionCreate, co
 func getContractReactionsComponents(contract *Contract) []discordgo.MessageComponent {
 	compVals := contract.buttonComponents
 	if compVals == nil {
-		compVals := make(map[string]CompMap, 14)
+		compVals = make(map[string]CompMap, 14)
 		compVals[boostIconReaction] = CompMap{Emoji: boostIconReaction, Style: discordgo.SecondaryButton, CustomID: "rc_#Boost#"}
 		compVals[contract.TokenStr] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("token"), Style: discordgo.SecondaryButton, CustomID: "rc_#token#"}
 		compVals["GG"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("std_gg"), Style: discordgo.SecondaryButton, CustomID: "rc_#2token#"}
@@ -479,17 +479,38 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 	}
 
 	if contract.State == ContractStateBanker || contract.State == ContractStateFastrun {
-		if contract.BoostPosition > 0 {
+		requestors := make([]string, 0, len(contract.Boosters))
+		for _, booster := range contract.Boosters {
+			if booster.TokenRequestFlag {
+				requestors = append(requestors, booster.Nick)
+				menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+					Label: fmt.Sprintf("Send %s a token", booster.Nick),
+					Value: fmt.Sprintf("send:%s", booster.UserID),
+					Emoji: ei.GetBotComponentEmoji("token"),
+				})
+			}
+		}
+
+		if len(requestors) == 0 {
 			menuOptions = append(menuOptions, discordgo.SelectMenuOption{
-				Label:       fmt.Sprintf("Send %s a token", contract.Boosters[contract.Order[contract.BoostPosition-1]].Nick),
-				Description: "Previous booster wants another token.",
-				Value:       fmt.Sprintf("prev:%s", contract.Order[contract.BoostPosition-1]),
+				Label: "Request a token",
+				Value: "want:",
+				Emoji: ei.GetBotComponentEmoji("token"),
+			})
+
+		} else {
+			menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+				Label:       "Request a token",
+				Description: fmt.Sprintf("%s can use to cancel request.", strings.Join(requestors, ", ")),
+				Value:       "want:",
 				Emoji:       ei.GetBotComponentEmoji("token"),
 			})
+
 		}
+
 		if contract.State == ContractStateFastrun && contract.BoostPosition < len(contract.Order)-1 {
 			b := contract.Boosters[contract.Order[contract.BoostPosition]]
-			if b.TokensWanted >= b.TokensReceived {
+			if b.TokensWanted <= b.TokensReceived {
 				menuOptions = append(menuOptions, discordgo.SelectMenuOption{
 					Label:       fmt.Sprintf("Send %s a token", contract.Boosters[contract.Order[contract.BoostPosition+1]].Nick),
 					Description: fmt.Sprintf("Waiting on %s 🚀.", b.Nick),
@@ -501,32 +522,20 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 
 	}
 
-	// Get list of at most 3 boosters, previous 2 and next 1
-	/*
-		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
-			Label:       "Send Token to %s",
-			Description: "Show token log",
-			Value:       "tlog",
-			Emoji:       ei.GetBotComponentEmoji("token"),
-		})
-	*/
 	menuOptions = append(menuOptions, discordgo.SelectMenuOption{
-		Label:       "Token Log",
-		Description: "Show token log",
-		Value:       "tlog",
-		Emoji:       ei.GetBotComponentEmoji("token"),
+		Label: "Token Log",
+		Value: "tlog",
+		Emoji: ei.GetBotComponentEmoji("token"),
 	})
 	menuOptions = append(menuOptions, discordgo.SelectMenuOption{
-		Label:       "Coop Tools",
-		Description: "Receive reply with tools",
-		Value:       "tools",
-		Emoji:       &discordgo.ComponentEmoji{Name: "🧰"},
+		Label: "Coop Tools",
+		Value: "tools",
+		Emoji: &discordgo.ComponentEmoji{Name: "🧰"},
 	})
 	menuOptions = append(menuOptions, discordgo.SelectMenuOption{
-		Label:       "X-Post",
-		Description: "X-Post Template",
-		Value:       "xpost",
-		Emoji:       &discordgo.ComponentEmoji{Name: "🖇️"},
+		Label: "X-Post Template",
+		Value: "xpost",
+		Emoji: &discordgo.ComponentEmoji{Name: "🖇️"},
 	})
 
 	/*
