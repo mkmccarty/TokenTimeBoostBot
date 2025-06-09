@@ -478,7 +478,7 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 		})
 	}
 
-	if contract.State == ContractStateBanker || contract.State == ContractStateFastrun {
+	if contract.State != ContractStateSignup {
 		requestors := make([]string, 0, len(contract.Boosters))
 		for _, booster := range contract.Boosters {
 			if booster.TokenRequestFlag {
