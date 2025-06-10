@@ -192,6 +192,8 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 			_, err := bottools.ImportEggImage(s, egg.ID, egg.IconURL)
 			if err != nil {
 				log.Print(err)
+				// Can't continue here on error, so skip this egg
+				continue
 			}
 
 			description := strings.Join(egg.DimensionValueString, ",") + " " + egg.DimensionName
