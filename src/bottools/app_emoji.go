@@ -127,7 +127,27 @@ func ImportEggImage(s *discordgo.Session, eggID, IconURL string) (string, error)
 	// Read the icon URL into memory
 	resp, err := http.Get(IconURL)
 	if err != nil {
-		return "", err
+		// Check if the URL is missing a protocol scheme and try to fix it
+		if !strings.HasPrefix(IconURL, "https://") && !strings.HasPrefix(IconURL, "http://") {
+			// Try fixing the URL by adding https:// prefix
+			// Extract the part starting from www.auxbrain.com
+			var urlToTry string
+			if idx := strings.Index(IconURL, "www.auxbrain.com"); idx != -1 {
+				urlToTry = IconURL[idx:]
+			} else {
+				urlToTry = IconURL
+			}
+			fixedURL := "https://" + urlToTry
+			log.Printf("Attempting to fix URL from %s to %s", IconURL, fixedURL)
+			resp, err = http.Get(fixedURL)
+			if err != nil {
+				log.Printf("Failed to fetch icon from fixed URL %s: %v", fixedURL, err)
+				return "", fmt.Errorf("invalid URL: %s", IconURL)
+			}
+		} else {
+			log.Printf("Failed to fetch icon from URL %s: %v", IconURL, err)
+			return "", err
+		}
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
