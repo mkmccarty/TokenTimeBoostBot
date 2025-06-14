@@ -44,6 +44,7 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		outputStrBuilder.WriteString(fmt.Sprintf("> * [%s](%s)\n", "Staabmia Stone Calc", "https://srsandbox-staabmia.netlify.app/stone-calc"))
 		outputStrBuilder.WriteString(fmt.Sprintf("> * [%s](%s)\n", "Kaylier Coop Laying Assistant", "https://ei-coop-assistant.netlify.app/laying-set"))
 		outputStrBuilder.WriteString(fmt.Sprintf("> * [%s](%s)\n", "Token Farmer", "http://t-farmer.gigalixirapp.com/"))
+		outputStrBuilder.WriteString(fmt.Sprintf("> * [%s](%s)\n", "TTokification: Android App for Speedrunners!", "https://github.com/ItsJustSomeDude/tokification-android/releases"))
 		outputStr := outputStrBuilder.String()
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
