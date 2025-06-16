@@ -473,6 +473,9 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				}
 			}
 		}
+		components = append(components, &discordgo.TextDisplay{
+			Content: events.String(),
+		})
 
 		components = append(components, &discordgo.TextDisplay{
 			Content: header.String() + "\n" + builder.String(),
