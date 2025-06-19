@@ -52,6 +52,14 @@ var contractStateNames = []string{
 	"ContractStateBanker",
 }
 
+var contractPlaystyleNames = []string{
+	"Unset",
+	"Chill",
+	"ACO Cooperative",
+	"Fastrun",
+	"Leaderboard",
+}
+
 // Constnts for the contract
 const (
 	ContractOrderSignup    = 0 // Signup order
@@ -61,6 +69,7 @@ const (
 	ContractOrderTimeBased = 4 // Time based order
 	ContractOrderELR       = 5 // ELR based order
 	ContractOrderTVal      = 6 // Token Value based order
+	ContractOrderTokenAsk  = 7 // Token Ask order, less tokens boosts earlier
 
 	ContractStateSignup    = 0 // Contract is in signup phase
 	ContractStateFastrun   = 1 // Contract in Boosting as fastrun
@@ -98,6 +107,12 @@ const (
 	ContractStyleFastrunBanker     = ContractFlagBanker
 	ContractStyleSpeedrunBoostList = ContractFlagCrt | ContractFlagFastrun
 	ContractStyleSpeedrunBanker    = ContractFlagCrt | ContractFlagBanker
+
+	ContractPlaystyleUnset          = 0 // Unset
+	ContractPlaystyleChill          = 1 // Chill
+	ContractPlaystyleACOCooperative = 2 // ACO Cooperative
+	ContractPlaystyleFastrun        = 3 // Fastrun
+	ContractPlaystyleLeaderboard    = 4 // Leaderboard
 )
 
 const defaultFamerTokens = 6
@@ -242,6 +257,8 @@ type Contract struct {
 	Ultra               bool
 	UltraCount          int
 	Style               int64 // Mask for the Contract Style
+	PlayStyle           int   // Playstyle of the contract
+	NewToPlayStyle      bool  // Someone in the contract is new to this playstyle
 	LengthInSeconds     int
 	BoostOrder          int // How the contract is sorted
 	BoostVoting         int
@@ -417,6 +434,8 @@ func getBoostOrderString(contract *Contract) string {
 		return fmt.Sprintf("Egg Lay Rate order (%s)", bottools.GetFormattedCommand("artifact"))
 	case ContractOrderTVal:
 		return "Token Value order"
+	case ContractOrderTokenAsk:
+		return "Token Ask order."
 	}
 	return "Unknown"
 }
@@ -1820,6 +1839,7 @@ func reorderBoosters(contract *Contract) {
 			name     string
 			position int
 			val      float64
+			tokenAsk int
 		}
 		var orderedNames []string
 		var lastOrderNames []string
@@ -1850,6 +1870,7 @@ func reorderBoosters(contract *Contract) {
 					name:     el,
 					position: pos,
 					val:      contract.Boosters[el].TokenValue,
+					tokenAsk: contract.Boosters[el].TokensWanted,
 				})
 			}
 		}
@@ -1866,6 +1887,10 @@ func reorderBoosters(contract *Contract) {
 			} else if tvalPairs[j].position == SinkBoostLast {
 				return true
 			}
+
+			//if tvalPairs[i].tokenWant != tvalPairs[j].tokenWant {
+			//	return tvalPairs[i].tokenWant > tvalPairs[j].tokenWant
+			//}
 
 			return tvalPairs[i].val > tvalPairs[j].val
 		})

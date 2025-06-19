@@ -93,6 +93,40 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 		contract.Style &^= ContractFlagSelfRuns
 	}
 
+	playstyleOptions := []discordgo.SelectMenuOption{}
+
+	if !contract.Speedrun {
+		playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
+			Label:       "Chill play style",
+			Description: "Everyone fills habs and uses correct artifacts",
+			Value:       "chill",
+			Default:     (contract.PlayStyle == ContractPlaystyleChill),
+			Emoji:       ei.GetBotComponentEmoji("chill"),
+		})
+		playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
+			Label:       "ACO Cooperative play style",
+			Description: "Chill + Everyone checks in on time",
+			Value:       "aco",
+			Default:     (contract.PlayStyle == ContractPlaystyleACOCooperative),
+			Emoji:       ei.GetBotComponentEmoji("aco"),
+		})
+		playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
+			Label:       "Fastrun",
+			Description: "ACO + Get TVal and CR from your coop size or act as sink",
+			Value:       "fastrun",
+			Default:     (contract.PlayStyle == ContractPlaystyleFastrun),
+			Emoji:       ei.GetBotComponentEmoji("fastrun"),
+		})
+	} else {
+		playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
+			Label:       "Leaderboard",
+			Description: "Fastrun + Get max CR",
+			Value:       "leaderboard",
+			Default:     (contract.PlayStyle == ContractPlaystyleLeaderboard),
+			Emoji:       ei.GetBotComponentEmoji("leaderboard"),
+		})
+	}
+
 	return builder.String(), []discordgo.MessageComponent{
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
@@ -131,15 +165,6 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 							Emoji:       ei.GetBotComponentEmoji("signup"),
 							Default:     contract.BoostOrder == ContractOrderSignup,
 						},
-						/*
-							{
-								Label:       "Fair Order",
-								Description: "Boost order is based order history in last 5 contracts",
-								Value:       "fair",
-								Emoji:       ei.GetBotComponentEmoji("fair"),
-								Default:     contract.BoostOrder == ContractOrderFair,
-							},
-						*/
 						{
 							Label:       "Token Value Order",
 							Description: "Highest token value boosts earlier",
@@ -154,6 +179,15 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 							Emoji:       ei.GetBotComponentEmoji("elr"),
 							Default:     contract.BoostOrder == ContractOrderELR,
 						},
+						/*
+							{
+								Label:       "Token Ask Order",
+								Description: "Those asking for less tokens boost earlier",
+								Value:       "ask",
+								Emoji:       ei.GetBotComponentEmoji("ask"),
+								Default:     contract.BoostOrder == ContractOrderTokenAsk,
+							},
+						*/
 						{
 							Label:       "Random Order",
 							Description: "Boost order is random",
@@ -169,6 +203,17 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 							Default:     contract.BoostOrder == ContractOrderReverse,
 						},
 					},
+				},
+			},
+		},
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.SelectMenu{
+					CustomID:    "cs_#play#" + id,
+					Placeholder: "Choose your play style",
+					MinValues:   &minValues,
+					MaxValues:   1,
+					Options:     playstyleOptions,
 				},
 			},
 		},

@@ -157,8 +157,12 @@ func generateThreadName(c *Contract) string {
 
 	if strings.Contains(threadName, "$COUNT") || strings.Contains(threadName, "$C") {
 		var statusStr string
+		playStyleStr := ""
+		if c.PlayStyle != ContractPlaystyleUnset && c.PlayStyle < len(contractPlaystyleNames) {
+			playStyleStr = fmt.Sprintf("%s ", contractPlaystyleNames[c.PlayStyle])
+		}
 		if len(c.Order) != c.CoopSize {
-			statusStr = fmt.Sprintf("(%d/%d)", len(c.Order), c.CoopSize)
+			statusStr = fmt.Sprintf("(%s%d/%d)", playStyleStr, len(c.Order), c.CoopSize)
 		} else {
 			statusStr = "(FULL)"
 		}

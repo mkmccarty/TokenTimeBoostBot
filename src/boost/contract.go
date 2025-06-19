@@ -46,6 +46,30 @@ func GetSlashContractCommand(cmd string) *discordgo.ApplicationCommand {
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "play-style",
+				Description: "Contract Play Style, default is ACO Cooperative",
+				Choices: []*discordgo.ApplicationCommandOptionChoice{
+					{
+						Name:  "Chill",
+						Value: ContractPlaystyleChill,
+					},
+					{
+						Name:  "ACO Cooperative",
+						Value: ContractPlaystyleACOCooperative,
+					},
+					{
+						Name:  "Fastrun",
+						Value: ContractPlaystyleFastrun,
+					},
+					{
+						Name:  "Leaderboard",
+						Value: ContractPlaystyleLeaderboard,
+					},
+				},
+				Required: false,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
 				Name:        "coop-size",
 				Description: "Co-op Size. This will be pulled from EI Contract data if unset.",
 				Required:    false,
@@ -107,6 +131,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	var coopSize = 0
 	var ChannelID = i.ChannelID
 	var pingRole = "@here"
+	var playStyle = ContractPlaystyleACOCooperative
 	makeThread := true // Default is to always make a thread
 
 	// User interacting with bot, is this first time ?
@@ -115,7 +140,9 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	for _, opt := range options {
 		optionMap[opt.Name] = opt
 	}
-
+	if opt, ok := optionMap["play-style"]; ok {
+		playStyle = int(opt.IntValue())
+	}
 	if opt, ok := optionMap["coop-size"]; ok {
 		coopSize = int(opt.IntValue())
 	}
@@ -207,7 +234,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 
 	mutex.Lock()
-	contract, err := CreateContract(s, contractID, coopID, coopSize, boostOrder, i.GuildID, ChannelID, getInteractionUserID(i), pingRole)
+	contract, err := CreateContract(s, contractID, coopID, playStyle, coopSize, boostOrder, i.GuildID, ChannelID, getInteractionUserID(i), pingRole)
 	mutex.Unlock()
 
 	if err != nil {
@@ -227,12 +254,19 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		if ChannelID != i.ChannelID {
 			str += "\nThis message can be moved into the contract thread via `/contract-settings` command in that thread."
 		}
+		// Take the str and make it a TextDisplay component and add it as the fist entry on the components
+		var components []discordgo.MessageComponent
+		components = append(components, &discordgo.TextDisplay{
+			Content: str,
+		})
+		// Add the contract settings component
+		components = append(components, comp...)
 
 		_, _ = s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
-				Content:    str,
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: comp,
+				//Content:    str,
+				Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
+				Components: components,
 			},
 		)
 	} else {
@@ -280,7 +314,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 }
 
 // CreateContract creates a new contract or joins an existing contract if run from a different location
-func CreateContract(s *discordgo.Session, contractID string, coopID string, coopSize int, BoostOrder int, guildID string, channelID string, userID string, pingRole string) (*Contract, error) {
+func CreateContract(s *discordgo.Session, contractID string, coopID string, playStyle int, coopSize int, BoostOrder int, guildID string, channelID string, userID string, pingRole string) (*Contract, error) {
 	// When creating contracts, we can make sure to clean up and archived ones
 	// Just in case a contract was immediately recreated
 	for _, c := range Contracts {
@@ -290,13 +324,6 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 			}
 		}
 	}
-	/*
-		if boostIcon == "🚀" {
-			boostIconName = "chickenboost"
-			boostIconReaction = findBoostBotGuildEmoji(s, boostIconName, true)
-			boostIcon = boostIconReaction + ">"
-		}
-	*/
 
 	// Make sure this channel doesn't already have a contract
 	existingContract := FindContract(channelID)
@@ -348,6 +375,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, coop
 	contract.Boosters = make(map[string]*Booster)
 	contract.ContractID = contractID
 	contract.CoopID = coopID
+	contract.PlayStyle = playStyle
 	contract.BoostOrder = BoostOrder
 	contract.BoostVoting = 0
 	contract.OrderRevision = 0
@@ -505,6 +533,8 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			}
 		case "tval":
 			contract.BoostOrder = ContractOrderTVal
+		case "ask":
+			contract.BoostOrder = ContractOrderTokenAsk
 		}
 	}
 
@@ -574,6 +604,62 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		}
 	}
 
+	// Handle the play style flair
+	if cmd == "play" {
+		values := data.Values
+		switch values[0] {
+		case "chill":
+			contract.PlayStyle = ContractPlaystyleChill
+		case "aco":
+			contract.PlayStyle = ContractPlaystyleACOCooperative
+		case "fastrun":
+			contract.PlayStyle = ContractPlaystyleFastrun
+		case "leaderboard":
+			contract.PlayStyle = ContractPlaystyleLeaderboard
+		default:
+			contract.PlayStyle = ContractPlaystyleUnset
+		}
+	}
+
+	redrawSettings := false
+
+	// A contract that's a CRT is by definition al leaderboard play style
+	if contract.Speedrun {
+		contract.PlayStyle = ContractPlaystyleLeaderboard
+		redrawSignup = true
+		redrawSettings = true
+	}
+	if !contract.Speedrun && contract.PlayStyle == ContractPlaystyleLeaderboard {
+		contract.PlayStyle = ContractPlaystyleFastrun
+		redrawSignup = true
+		redrawSettings = true
+	}
+
+	// With the changed settings values, we need to redraw the current Interaction message
+	if redrawSettings {
+
+		inThread := false
+		ch, err := s.Channel(i.ChannelID)
+		if err == nil && ch.IsThread() {
+			inThread = true
+		}
+		str, comp := getSignupContractSettings(contract.Location[0].ChannelID, contract.ContractHash, inThread)
+		// Take the str and make it a TextDisplay component and add it as the fist entry on the components
+		var components []discordgo.MessageComponent
+		components = append(components, &discordgo.TextDisplay{
+			Content: str,
+		})
+		// Add the contract settings component
+		components = append(components, comp...)
+
+		edit := discordgo.WebhookEdit{
+			Components: &components,
+		}
+
+		_, _ = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit)
+
+	}
+
 	calculateTangoLegs(contract, true)
 
 	for _, loc := range contract.Location {
@@ -631,13 +717,22 @@ func HandleContractSettingsCommand(s *discordgo.Session, i *discordgo.Interactio
 			inThread = true
 		}
 		str, comp := getSignupContractSettings(contract.Location[0].ChannelID, contract.ContractHash, inThread)
-		_, _ = s.FollowupMessageCreate(i.Interaction, true,
+		// Take the str and make it a TextDisplay component and add it as the fist entry on the components
+		var components []discordgo.MessageComponent
+		components = append(components, &discordgo.TextDisplay{
+			Content: str,
+		})
+		// Add the contract settings component
+		components = append(components, comp...)
+		_, err = s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
-				Content:    str,
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: comp,
+				Flags:      discordgo.MessageFlagsIsComponentsV2,
+				Components: components,
 			},
 		)
+		if err != nil {
+			log.Println("Error sending contract settings:", err)
+		}
 		return
 
 	}

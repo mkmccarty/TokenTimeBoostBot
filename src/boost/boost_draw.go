@@ -69,7 +69,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 	var bannerItem discordgo.MediaGalleryItem
 
-	bannerItem.Media.URL = fmt.Sprintf("%sb-%s.png", config.BannerURL, contract.ContractID)
+	styleArray := []string{"", "c", "a", "f", "l"}
+
+	bannerItem.Media.URL = fmt.Sprintf("%sb%s-%s.png", config.BannerURL, styleArray[contract.PlayStyle], contract.ContractID)
 	components = append(components, &discordgo.MediaGallery{
 		Items: []discordgo.MediaGalleryItem{
 			bannerItem,
