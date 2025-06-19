@@ -604,6 +604,7 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		}
 	}
 
+	originalPlayStyle := contract.PlayStyle
 	// Handle the play style flair
 	if cmd == "play" {
 		values := data.Values
@@ -633,6 +634,11 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		contract.PlayStyle = ContractPlaystyleFastrun
 		redrawSignup = true
 		redrawSettings = true
+	}
+
+	if originalPlayStyle != contract.PlayStyle {
+		// Need to rename the thread if it exists
+		UpdateThreadName(s, contract)
 	}
 
 	// With the changed settings values, we need to redraw the current Interaction message
