@@ -43,6 +43,7 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 			// Going to be boosting the sink so make sure they
 			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateUnboosted
 			contract.Boosters[cUserID].StartTime = contract.StartTime
+			contract.Boosters[cUserID].BoostTriggerTime = time.Now()
 			contract.Boosters[cUserID].EndTime = time.Now()
 			contract.Boosters[cUserID].Duration = time.Since(contract.Boosters[cUserID].StartTime)
 			contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Time{}
