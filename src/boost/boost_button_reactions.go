@@ -497,7 +497,16 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 				Value: "want:",
 				Emoji: ei.GetBotComponentEmoji("token"),
 			})
-
+			/*
+				if contract.AltIcons != nil && len(contract.AltIcons) > 0 {
+					menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+						Label:       "Request a token from an alternate",
+						Description: "Select an alternate to request a token from.",
+						Value:       "want-alt",
+						Emoji:       ei.GetBotComponentEmoji("token"),
+					})
+				}
+			*/
 		} else {
 			menuOptions = append(menuOptions, discordgo.SelectMenuOption{
 				Label:       "Request a token",
