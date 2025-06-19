@@ -42,16 +42,34 @@ func loadFontFile(name string, size, dpi float64) (font.Face, error) {
 	return face, nil
 }
 
+type styleData struct {
+	name  string
+	id    string
+	image image.Image
+}
+
 // GenerateBanner creates a banner image with a background, overlay image, and text
 func GenerateBanner(ID string, eggName string, text string) {
 	// 1. Load Images
+	styleArray := []string{"", "c", "a", "f", "l"}
+	// Check if any of the style images already exist
+
 	outputImagePath := fmt.Sprintf("%s/b-%s.png", config.BannerOutputPath, ID)
-	// if the image already exists, return
-	if _, err := os.Stat(outputImagePath); err == nil {
-		//fmt.Println("Image already exists:", outputImagePath)
-		return
-	} else if !os.IsNotExist(err) {
-		fmt.Println("Error checking output image:", err)
+	allExist := true
+	for _, style := range styleArray {
+		testImagePath := fmt.Sprintf("%s/b%s-%s.png", config.BannerOutputPath, style, ID)
+		if _, err := os.Stat(testImagePath); os.IsNotExist(err) {
+			allExist = false
+			break
+		} else if err != nil {
+			fmt.Println("Error checking output image:", err)
+			return
+		}
+	}
+
+	// if all images already exist, return
+	if allExist {
+		//fmt.Println("All images already exist")
 		return
 	}
 	log.Printf("Creating banner in %s", outputImagePath)
@@ -60,6 +78,37 @@ func GenerateBanner(ID string, eggName string, text string) {
 	cleanEggID = strings.ReplaceAll(cleanEggID, "_", "")
 
 	overlayImagePath := fmt.Sprintf("egg_%s.png", cleanEggID)
+
+	chillImg, err := loadImage(config.BannerPath + "/chill.png")
+	if err != nil {
+		fmt.Println("Error loading chill image:", err)
+		return
+	}
+
+	acoImg, err := loadImage(config.BannerPath + "/aco.png")
+	if err != nil {
+		fmt.Println("Error loading aco image:", err)
+		return
+	}
+
+	fastrunImg, err := loadImage(config.BannerPath + "/fastrun.png")
+	if err != nil {
+		fmt.Println("Error loading fastrun image:", err)
+		return
+	}
+
+	leaderboardImg, err := loadImage(config.BannerPath + "/leaderboard.png")
+	if err != nil {
+		fmt.Println("Error loading leaderboard image:", err)
+		return
+	}
+
+	sData := []styleData{
+		{"chill", "c", chillImg},
+		{"aco", "a", acoImg},
+		{"fastrun", "f", fastrunImg},
+		{"leaderboard", "l", leaderboardImg},
+	}
 
 	bgImage, err := loadImage(bgImagePath)
 	if err != nil {
@@ -119,14 +168,29 @@ func GenerateBanner(ID string, eggName string, text string) {
 	// Draw the main text on top
 	addLabel(compositeImage, 138, 68, text, face, textColor)
 
-	// 7. Encode and Save
+	// For each style create an image in the lower left corner and save it
+	for _, style := range sData {
+		// Create a copy of the composite image for this style
+		styleImage := image.NewRGBA(compositeImage.Bounds())
+		draw.Draw(styleImage, compositeImage.Bounds(), compositeImage, image.Point{}, draw.Src)
+		styleRect := image.Rect(0, bounds.Max.Y-style.image.Bounds().Dy(), style.image.Bounds().Dx(), bounds.Max.Y)
+		draw.Draw(styleImage, styleRect, style.image, image.Point{}, draw.Over)
+		styleImagePath := fmt.Sprintf("%s/b%s-%s.png", config.BannerOutputPath, style.id, ID)
+		err = saveImage(styleImagePath, styleImage)
+		if err != nil {
+			fmt.Println("Error saving output image:", err)
+			return
+		}
+	}
+
+	// 7. Encode and Save the image without the style overlay
 	err = saveImage(outputImagePath, compositeImage)
 
 	if err != nil {
 		fmt.Println("Error saving output image:", err)
 		return
 	}
-	fmt.Println("Image created successfully:", outputImagePath)
+	fmt.Println("Images created successfully:", outputImagePath)
 }
 
 // Helper function to load an image from a file
