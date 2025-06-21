@@ -264,7 +264,7 @@ func HandleTrackerEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			contractID := strings.TrimSpace(input.Value)
 			t.ContractID = contractID
 			t.TimeFromCoopStatus = time.Time{}
-			str = fmt.Sprintf("Coontract ID updated to %s.", contractID)
+			str = fmt.Sprintf("Contract ID updated to %s.", contractID)
 		}
 		if input.CustomID == "coop-id" && input.Value != "" {
 			coopID := strings.TrimSpace(input.Value)
