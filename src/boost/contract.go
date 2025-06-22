@@ -160,6 +160,11 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	if opt, ok := optionMap["coop-id"]; ok {
 		coopID = opt.StringValue()
 		coopID = strings.ReplaceAll(coopID, " ", "")
+
+		// if the coop-id contains the word "chill" at the start or end of the string, then we set the play style to chill
+		if strings.HasPrefix(strings.ToLower(coopID), "chill") || strings.HasSuffix(strings.ToLower(coopID), "chill") {
+			playStyle = ContractPlaystyleChill
+		}
 	} else {
 		var c, err = s.Channel(ChannelID)
 		if err != nil {
