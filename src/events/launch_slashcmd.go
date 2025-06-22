@@ -2,6 +2,7 @@ package events
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -546,9 +547,11 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Divider: &divider,
 		Spacing: &spacing,
 	})
-	components = append(components, &discordgo.TextDisplay{
-		Content: instr.String(),
-	})
+	if instr.Len() > 0 {
+		components = append(components, &discordgo.TextDisplay{
+			Content: instr.String(),
+		})
+	}
 
 	_, err := s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
@@ -556,7 +559,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Components: components,
 		})
 	if err != nil {
-		fmt.Println("Error sending followup message:", err)
+		log.Println("Error sending followup message:", err)
 		return
 	}
 }
