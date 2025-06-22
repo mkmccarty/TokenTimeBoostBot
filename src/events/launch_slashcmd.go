@@ -473,9 +473,11 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				}
 			}
 		}
-		components = append(components, &discordgo.TextDisplay{
-			Content: events.String(),
-		})
+		if events.Len() > 0 {
+			components = append(components, &discordgo.TextDisplay{
+				Content: events.String(),
+			})
+		}
 
 		components = append(components, &discordgo.TextDisplay{
 			Content: header.String() + "\n" + builder.String(),
@@ -548,9 +550,13 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Content: instr.String(),
 	})
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true,
+	_, err := s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
 			Flags:      discordgo.MessageFlagsIsComponentsV2,
 			Components: components,
 		})
+	if err != nil {
+		fmt.Println("Error sending followup message:", err)
+		return
+	}
 }
