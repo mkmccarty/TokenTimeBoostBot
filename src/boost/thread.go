@@ -113,12 +113,14 @@ func generateThreadName(c *Contract) string {
 	//For example I tell BB that I want to name the thread
 	//"CRT rerun with GG". Can I then later do 🌊 and have BB update the name to "CRT rerun with GG $NAME [$TIME] ($STATUS)"?
 
+	threadStyleIcons := []string{"", "🟦 ", "🟩 ", "🟧 ", "🟥 "}
 	if threadName == "" {
 		threadName = "$N $C"
 		if !c.PlannedStartTime.IsZero() && c.State == ContractStateSignup {
 			threadName += " $T"
 		}
 	}
+	threadColor := threadStyleIcons[c.PlayStyle]
 	if strings.Contains(threadName, "$STYLE") || strings.Contains(threadName, "$S") {
 		var styleStr string
 		if c.Style&ContractFlagBanker != 0 {
@@ -169,5 +171,5 @@ func generateThreadName(c *Contract) string {
 		threadName = strings.ReplaceAll(threadName, "$COUNT", statusStr)
 		threadName = strings.ReplaceAll(threadName, "$C", statusStr)
 	}
-	return threadName
+	return threadColor + threadName
 }
