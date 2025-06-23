@@ -162,7 +162,8 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		coopID = strings.ReplaceAll(coopID, " ", "")
 
 		// if the coop-id contains the word "chill" at the start or end of the string, then we set the play style to chill
-		if strings.HasPrefix(strings.ToLower(coopID), "chill") || strings.HasSuffix(strings.ToLower(coopID), "chill") {
+		coopLower := strings.ToLower(coopID)
+		if strings.HasPrefix(coopLower, "chill") || strings.Contains(coopLower, "-chill") {
 			playStyle = ContractPlaystyleChill
 		}
 	} else {
