@@ -157,7 +157,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			} else {
 				if time.Since(contract.EstimateUpdateTime) < 2*time.Minute {
 					var data discordgo.MessageSend
-					data.Content = fmt.Sprintf("⏱️ duration update on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(3*time.Minute).Unix())
+					data.Content = fmt.Sprintf("⏱️ duration update on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(10*time.Second).Unix())
 					data.Flags = discordgo.MessageFlagsEphemeral
 					msg, err := s.ChannelMessageSendComplex(r.ChannelID, &data)
 					if err == nil {

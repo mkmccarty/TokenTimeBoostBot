@@ -385,25 +385,40 @@ func remove(s []string, i int) []string {
 }
 
 func buttonReactionHelp(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract) {
-
 	chickMention, _, _ := ei.GetBotEmoji("runready")
-	outputStr := "## Boost Bot Icon Meanings\n\n"
-	outputStr += "See 📌 message to join the contract.\nSet your number of boost tokens there or "
-	outputStr += "add a 4️⃣ to 🔟 reaction to the boost list message.\n"
-	outputStr += "Active booster reaction of " + boostIcon + " to when spending tokens to boost. Multiple " + boostIcon + " votes by others in the contract will also indicate a boost.\n"
-	outputStr += "Use " + contract.TokenStr + " when sending tokens. "
-	outputStr += "During GG use " + ei.GetBotEmojiMarkdown("std_gg") + "/" + ei.GetBotEmojiMarkdown("ultra_gg") + " to send 2 tokens.\n"
-	outputStr += fmt.Sprintf("Farmer status line, %s:Requested Run, %s:10B Est, %s: Full Hab Est.\n", ei.GetBotEmojiMarkdown("icon_chicken_run"), ei.GetBotEmojiMarkdown("trophy_diamond"), ei.GetBotEmojiMarkdown("fullhab"))
-	//outputStr += "Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n"
-	outputStr += "Active booster reaction of 🔃 to exchange position with the next booster.\n"
-	outputStr += "Reaction of ⤵️ to move yourself to last in the current boost order.\n"
-	outputStr += "Reaction of " + chickMention + " when you're ready for others to run chickens on your farm.\n"
-	outputStr += "Anyone can add a 🚽 reaction to express your urgency to boost next.\n"
-	outputStr += "Additional help through the **/help** command.\n"
+	var outputStr strings.Builder
+	// Each of the contract play styles has a link that descibes them, Lets print that
+	//	if i.GuildID == "485162044652388384" {
+	switch contract.PlayStyle {
+	case ContractPlaystyleChill:
+		outputStr.WriteString("## [Chill Playstyle](https://discord.com/channels/485162044652388384/1386391295869849681/1386598237380804661)\n")
+	case ContractPlaystyleACOCooperative:
+		outputStr.WriteString("## [ACO Cooperative Playstyle](https://discord.com/channels/485162044652388384/1386391295869849681/1386598298907050067)\n")
+	case ContractPlaystyleFastrun:
+		outputStr.WriteString("## [Fastrun Playstyle](https://discord.com/channels/485162044652388384/1386391295869849681/1386598380855365784)\n")
+	case ContractPlaystyleLeaderboard:
+		outputStr.WriteString("## [Leaderboard Playstyle](https://discord.com/channels/485162044652388384/1386391295869849681/1386598461184544818)\n")
+	case ContractPlaystyleUnset:
+		// No playstyle set, so no link
+	}
+	//	}
+	outputStr.WriteString("## Boost Bot Icon Meanings\n\n")
+	outputStr.WriteString("See 📌 message to join the contract.\nSet your number of boost tokens there or ")
+	outputStr.WriteString("add a 4️⃣ to 🔟 reaction to the boost list message.\n")
+	outputStr.WriteString("Active booster reaction of " + boostIcon + " to when spending tokens to boost. Multiple " + boostIcon + " votes by others in the contract will also indicate a boost.\n")
+	outputStr.WriteString("Use " + contract.TokenStr + " when sending tokens. ")
+	outputStr.WriteString("During GG use " + ei.GetBotEmojiMarkdown("std_gg") + "/" + ei.GetBotEmojiMarkdown("ultra_gg") + " to send 2 tokens.\n")
+	outputStr.WriteString(fmt.Sprintf("Farmer status line, %s:Requested Run, %s:10B Est, %s: Full Hab Est.\n", ei.GetBotEmojiMarkdown("icon_chicken_run"), ei.GetBotEmojiMarkdown("trophy_diamond"), ei.GetBotEmojiMarkdown("fullhab")))
+	//outputStr.WriteString("Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n")
+	outputStr.WriteString("Active booster reaction of 🔃 to exchange position with the next booster.\n")
+	outputStr.WriteString("Reaction of ⤵️ to move yourself to last in the current boost order.\n")
+	outputStr.WriteString("Reaction of " + chickMention + " when you're ready for others to run chickens on your farm.\n")
+	outputStr.WriteString("Anyone can add a 🚽 reaction to express your urgency to boost next.\n")
+	outputStr.WriteString("Additional help through the **/help** command.\n")
 
 	_, err := s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
-			Content: outputStr,
+			Content: outputStr.String(),
 			Flags:   discordgo.MessageFlagsEphemeral,
 		})
 	if err != nil {
