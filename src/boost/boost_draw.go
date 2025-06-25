@@ -538,7 +538,14 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		}
 
 	case ContractStateWaiting:
-		guidanceStr.WriteString("\n")
+		coopTvalStr := calculateTokenValueCoopLog(contract, contract.EstimatedDuration, targetTval)
+		components = append(components, &discordgo.TextDisplay{
+			Content: coopTvalStr,
+		})
+		components = append(components, &discordgo.Separator{
+			Divider: &divider,
+			Spacing: &spacing,
+		})
 		guidanceStr.WriteString("> Waiting for other(s) to join...\n")
 		guidanceStr.WriteString("> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n")
 		totalContentLength := guidanceStr.Len()
