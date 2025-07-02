@@ -385,6 +385,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	contract.BoostOrder = BoostOrder
 	contract.BoostVoting = 0
 	contract.OrderRevision = 0
+
 	changeContractState(contract, ContractStateSignup)
 	contract.CreatorID = append(contract.CreatorID, userID)               // starting userid
 	contract.CreatorID = append(contract.CreatorID, config.AdminUsers...) // Admins
@@ -401,6 +402,11 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	contract.DynamicData = createDynamicTokenData()
 	Contracts[ContractHash] = contract
 
+	// Override the contract style based on the play style, only for leaderboard play style
+	if contract.PlayStyle == ContractPlaystyleLeaderboard {
+		contract.Style = ContractFlagBanker | ContractFlagCrt
+		contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
+	}
 	/*
 		} else { //if !creatorOfContract(contract, userID) {
 			contract.CreatorID = append(contract.CreatorID, userID) // starting userid
