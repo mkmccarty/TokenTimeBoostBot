@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
@@ -14,13 +15,13 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 	minValues := 1
 	minZeroValues := 0
 
-	// is this channelID a thread
-
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "Contract created in <#%s>\n", channelID)
 	builder.WriteString("Use the Contract button if you have to recycle it.\n")
 	builder.WriteString("**Use the menus to set your contract style. These will work until the contract is started.**\n")
-	builder.WriteString("If this contract isn't an immediate start use `/change-planned-start` to add the time to the sign-up message.\n")
+	fmt.Fprintf(&builder, "If this contract isn't an immediate start use %s or %s to add the time to the sign-up message.\n",
+		bottools.GetFormattedCommand("change-start offset"),
+		bottools.GetFormattedCommand("change-start timestamp"))
 	if thread {
 		builder.WriteString("React with 🌊 on the boost list to automaticaly update the thread name (`/rename-thread`).\n")
 	} else {
