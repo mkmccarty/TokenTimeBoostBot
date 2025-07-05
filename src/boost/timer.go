@@ -10,6 +10,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/rs/xid"
 	"github.com/xhit/go-str2duration/v2"
 )
@@ -109,8 +110,8 @@ func GetSlashTimer(cmd string) *discordgo.ApplicationCommand {
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "duration",
-				Description: "When do you want the timer to remind you? Example: 4m or 1h30m5s",
-				Required:    true,
+				Description: "When do you want the timer to remind you? Example: 4m or 1h30m5s. [Sticky]",
+				Required:    false,
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
@@ -125,6 +126,7 @@ func GetSlashTimer(cmd string) *discordgo.ApplicationCommand {
 // HandleTimerCommand will handle the /stones command
 func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	setTimer := false
+	userID := getInteractionUserID(i)
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -150,6 +152,21 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		message = fmt.Sprintf("activity reminder in <#%s>", i.ChannelID)
 	}
 
+	duration = time.Duration(3*time.Minute + 30*time.Second) // Default to 3m30s
+	setTimer = true
+
+	stickyTimer := farmerstate.GetMiscSettingString(userID, "timer")
+	if stickyTimer != "" {
+		timespan := bottools.SanitizeStringDuration(stickyTimer)
+		dur, err := str2duration.ParseDuration(timespan)
+		if err == nil {
+			// Error during parsing means skip this duration
+			duration = dur
+			setTimer = true
+			message = fmt.Sprintf("Sticky timer set to %s", stickyTimer)
+		}
+	}
+
 	if opt, ok := optionMap["duration"]; ok {
 		timespan := bottools.SanitizeStringDuration(opt.StringValue())
 		dur, err := str2duration.ParseDuration(timespan)
@@ -157,10 +174,7 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Error during parsing means skip this duration
 			duration = dur
 			setTimer = true
-		} else {
-			duration = time.Duration(4 * time.Minute)
-			setTimer = true
-			message = fmt.Sprintf("Error parsing duration: %s, set to 4 minutes", err.Error())
+			farmerstate.SetMiscSettingString(userID, "timer", opt.StringValue())
 		}
 	}
 
@@ -171,9 +185,6 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			})
 		return
 	}
-
-	//contract := FindContract(i.ChannelID)
-	userID := getInteractionUserID(i)
 
 	t := BotTimer{
 		ID:       xid.New().String(),
