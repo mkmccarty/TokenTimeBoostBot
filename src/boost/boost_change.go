@@ -494,16 +494,17 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 				offsetDuration := time.Duration(offset * float64(time.Hour))
 
 				resultTime := todayBaseTime.Add(offsetDuration)
+
+				// If the resulting time is in the past, add 24 hours to make it tomorrow
+				if resultTime.Before(now) {
+					resultTime = resultTime.Add(24 * time.Hour)
+				}
+
 				startTime = resultTime.Unix()
 
 				contract.PlannedStartTime = time.Unix(startTime, 0)
-				if contract.PlannedStartTime.After(time.Now()) && contract.PlannedStartTime.Before(time.Now().AddDate(0, 0, 7)) {
-					str = "Planned start time changed to " + "<t:" + strconv.FormatInt(startTime, 10) + ":f>"
-					refreshBoostListMessage(s, contract)
-				} else {
-					str = "Planned start time must be within the next 7 days"
-					contract.PlannedStartTime = time.Unix(0, 0)
-				}
+				str = "Planned start time changed to " + "<t:" + strconv.FormatInt(startTime, 10) + ":f>"
+				refreshBoostListMessage(s, contract)
 			}
 		}
 
