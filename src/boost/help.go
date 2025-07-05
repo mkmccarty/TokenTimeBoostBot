@@ -68,10 +68,12 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 			// Speedrun info
 			speedRunStr := fmt.Sprintf(`
 			> * Use %s to bring up the contract settings.
-			> * Use %s to set the planned start time for the contract.
+			> * Use %s or %s to set the planned start time for the contract.
 			`,
 				bottools.GetFormattedCommand("contract-settings"),
-				bottools.GetFormattedCommand("change-planned-start"))
+				bottools.GetFormattedCommand("change-start offset"),
+				bottools.GetFormattedCommand("change-start timestamp"),
+			)
 
 			field = append(field, &discordgo.MessageEmbedField{
 				Name:   "Basic Contract Info",
