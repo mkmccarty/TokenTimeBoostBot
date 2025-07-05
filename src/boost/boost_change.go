@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
@@ -103,10 +104,30 @@ func GetSlashChangePlannedStartCommand(cmd string) *discordgo.ApplicationCommand
 		Description: "Change the planned start time of the contract",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "start-time",
-				Description: "Start time in Discord Timestamp format. Example: <t:1716822000:f>",
-				Required:    true,
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "offset",
+				Description: "Relative offset",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:        discordgo.ApplicationCommandOptionString,
+						Name:        "relative-time",
+						Description: "Relative time offset from 9:00 AM. Example: +2.5 or -1.5",
+						Required:    true,
+					},
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "timestamp",
+				Description: "Discord Timestamp",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:        discordgo.ApplicationCommandOptionString,
+						Name:        "start-time",
+						Description: "Discord Timestamp format. Example: <t:1716822000:f>",
+						Required:    true,
+					},
+				},
 			},
 		},
 	}
@@ -447,13 +468,50 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 		options := i.ApplicationCommandData().Options
 		optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 		for _, opt := range options {
-			optionMap[opt.Name] = opt
+			if opt.Type == discordgo.ApplicationCommandOptionSubCommand {
+				optionMap[opt.Options[0].Name] = opt.Options[0] // Get the first option of the subcommand
+			}
+		}
+		if opt, ok := optionMap["relative-time"]; ok {
+			var startTime int64
+			var err error
+			offsetStr := opt.StringValue()
+			offset, err := strconv.ParseFloat(offsetStr, 64)
+			if err != nil {
+				str = "Invalid offset format. Use a number like +2.5 or -1.5"
+			} else {
+				c := ei.EggIncContractsAll[contract.ContractID]
+				// Calculate time as 9:00 AM + offset hours using today's date
+				now := time.Now()
+				baseTime := c.StartTime
+
+				// Create today's version of the base time (same hour/minute, but today's date)
+				todayBaseTime := time.Date(now.Year(), now.Month(), now.Day(),
+					baseTime.Hour(), baseTime.Minute(), baseTime.Second(),
+					baseTime.Nanosecond(), now.Location())
+
+				// Apply offset
+				offsetDuration := time.Duration(offset * float64(time.Hour))
+
+				resultTime := todayBaseTime.Add(offsetDuration)
+				startTime = resultTime.Unix()
+
+				contract.PlannedStartTime = time.Unix(startTime, 0)
+				if contract.PlannedStartTime.After(time.Now()) && contract.PlannedStartTime.Before(time.Now().AddDate(0, 0, 7)) {
+					str = "Planned start time changed to " + "<t:" + strconv.FormatInt(startTime, 10) + ":f>"
+					refreshBoostListMessage(s, contract)
+				} else {
+					str = "Planned start time must be within the next 7 days"
+					contract.PlannedStartTime = time.Unix(0, 0)
+				}
+			}
 		}
 
 		if opt, ok := optionMap["start-time"]; ok {
 			var startTime int64
 			var err error
 			startTimeStr := opt.StringValue()
+
 			// Split string by colons to get the timestamp
 			startTimeArry := strings.Split(startTimeStr, ":")
 			if len(startTimeArry) == 1 {
