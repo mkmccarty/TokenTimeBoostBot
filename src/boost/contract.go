@@ -222,9 +222,10 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	// Create a new thread for this contract
 	if makeThread {
+		threadStyleIcons := []string{"", "🟦 ", "🟩 ", "🟧 ", "🟥 "}
 		// Default to 1 day timeout
 		var builder strings.Builder
-		builder.WriteString(coopID)
+		fmt.Fprintf(&builder, "%s %s", threadStyleIcons[playStyle], coopID)
 		info := ei.EggIncContractsAll[contractID]
 		if info.ID != "" {
 			fmt.Fprintf(&builder, " (0/%d)", info.MaxCoopSize)
