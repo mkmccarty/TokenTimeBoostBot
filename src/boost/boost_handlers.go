@@ -96,7 +96,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 
 	playstyleOptions := []discordgo.SelectMenuOption{}
 
-	if !contract.Speedrun {
+	if (contract.Style & ContractFlagCrt) == 0 {
 		playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
 			Label:       "Chill play style",
 			Description: "Everyone fills habs and uses correct artifacts",
