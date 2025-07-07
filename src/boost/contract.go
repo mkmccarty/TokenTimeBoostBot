@@ -638,12 +638,11 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 	redrawSettings := false
 
 	// A contract that's a CRT is by definition al leaderboard play style
-	if contract.Speedrun {
+	if (contract.Style & ContractFlagCrt) != 0 {
 		contract.PlayStyle = ContractPlaystyleLeaderboard
 		redrawSignup = true
 		redrawSettings = true
-	}
-	if !contract.Speedrun && contract.PlayStyle == ContractPlaystyleLeaderboard {
+	} else if (contract.Style&ContractFlagCrt) == 0 && contract.PlayStyle == ContractPlaystyleLeaderboard {
 		contract.PlayStyle = ContractPlaystyleFastrun
 		redrawSignup = true
 		redrawSettings = true
