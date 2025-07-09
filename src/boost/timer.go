@@ -136,7 +136,6 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	})
 
-	duration := time.Duration(1 * time.Minute)
 	var message string
 
 	// User interacting with bot, is this first time ?
@@ -152,7 +151,7 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		message = fmt.Sprintf("activity reminder in <#%s>", i.ChannelID)
 	}
 
-	duration = time.Duration(3*time.Minute + 30*time.Second) // Default to 3m30s
+	duration := time.Duration(3*time.Minute + 30*time.Second) // Default to 3m30s
 	setTimer = true
 
 	stickyTimer := farmerstate.GetMiscSettingString(userID, "timer")
