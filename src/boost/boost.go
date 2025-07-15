@@ -55,7 +55,7 @@ var contractStateNames = []string{
 var contractPlaystyleNames = []string{
 	"Unset",
 	"Chill",
-	"ACO Cooperative",
+	"ACO Coop",
 	"Fastrun",
 	"Leaderboard",
 }
