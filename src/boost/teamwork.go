@@ -630,7 +630,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						// Assuming being replaced with a 3 slot artifact
 						p := c.GetProductionParams()
 						farmCapacity := p.GetFarmCapacity() * eiContract.Grade[grade].ModifierHabCap
-						maxFarm := 14125000000.0 * eiContract.Grade[grade].ModifierHabCap
+						maxFarm := 14175000000.0 * eiContract.Grade[grade].ModifierHabCap
 						swapArtifactName := "artifact"
 						if maxFarm != farmCapacity {
 							swapArtifactName = "gusset"
