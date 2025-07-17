@@ -9,6 +9,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -18,6 +19,7 @@ type DeliveryTimeValue struct {
 	name                      string
 	sr                        float64
 	elr                       float64
+	originalDelivery          float64
 	contributions             float64
 	contributionRateInSeconds float64
 	timeEquipped              time.Time
@@ -265,6 +267,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 	var BuffTimeValues []BuffTimeValue
 	var contractDurationSeconds float64
+	var elapsedSeconds float64
 	var calcSecondsRemaining float64
 
 	//prevServerTimestamp = int64(decodeCoopStatus.GetSecondsRemaining()) + BuffTimeValues[0].timeEquiped
@@ -302,6 +305,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	startTime := nowTime
 	secondsRemaining := coopStatus.GetSecondsRemaining()
 	endTime := nowTime
+
 	if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
 		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
 		startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
@@ -316,6 +320,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		calcSecondsRemaining = (totalRequired-totalContributions)/contributionRatePerSecond - offsetEndTime.Seconds()
 		endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
+		elapsedSeconds = nowTime.Sub(startTime).Seconds()
 		builder.WriteString(fmt.Sprintf("In Progress %s %s/[**%s**](%s) on target to complete <t:%d:R>\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID), endTime.Unix()))
 	}
 
@@ -365,8 +370,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		durationPast := time.Since(startTime) + time.Duration(c.GetFarmInfo().GetTimestamp())*time.Second
 		DeliveryTimeValues = append(DeliveryTimeValues, DeliveryTimeValue{
 			"Past",
-			pp.GetSr(),
-			pp.GetElr(),
+			pp.GetSr() * 3600,
+			pp.GetElr() * 3600,
+			0,
 			c.GetContributionAmount(),
 			(c.GetContributionAmount() / durationPast.Seconds()),
 			startTime,
@@ -376,8 +382,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		if calcSecondsRemaining > 0 {
 			DeliveryTimeValues = append(DeliveryTimeValues, DeliveryTimeValue{
 				"Offline",
-				pp.GetSr(),
-				pp.GetElr(),
+				pp.GetSr() * 3600,
+				pp.GetElr() * 3600,
+				0,
 				-(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()),
 				c.GetContributionRate(),
 				nowTime.Add(time.Duration(c.GetFarmInfo().GetTimestamp()) * time.Second),
@@ -386,8 +393,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			})
 			DeliveryTimeValues = append(DeliveryTimeValues, DeliveryTimeValue{
 				"Future",
-				pp.GetSr(),
-				pp.GetElr(),
+				pp.GetSr() * 3600,
+				pp.GetElr() * 3600,
+				0,
 				c.GetContributionRate() * float64(calcSecondsRemaining),
 				c.GetContributionRate(),
 				nowTime,
@@ -597,17 +605,43 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						future.timeEquipped = nowTime.Add(siab.duration)
 						future.duration = endTime.Sub(future.timeEquipped)
 						// Need to determine the adjusted contribution rate
+						artifactPercentLevels := []float64{1.02, 1.04, 1.05}
 						siabStones := 0
+						stoneSlots := 0
+						elrMult := 1.0
+						srMult := 1.0
 						for _, artifact := range c.GetFarmInfo().GetEquippedArtifacts() {
 							spec := artifact.GetSpec()
 							if spec.GetName() == ei.ArtifactSpec_SHIP_IN_A_BOTTLE {
 								siabStones, _ = ei.GetStones(spec.GetName(), spec.GetLevel(), spec.GetRarity())
 							}
+							for _, stone := range artifact.GetStones() {
+								stoneSlots++
+								if stone.GetName() == ei.ArtifactSpec_TACHYON_STONE {
+									value := artifactPercentLevels[stone.GetLevel()]
+									elrMult *= value
+								}
+								if stone.GetName() == ei.ArtifactSpec_QUANTUM_STONE {
+									value := artifactPercentLevels[stone.GetLevel()]
+									srMult *= value
+								}
+							}
 						}
-
 						// Assuming being replaced with a 3 slot artifact
-						adjustedContributionRate := determinePostSiabRate(future, 3-siabStones)
-						future.contributionRateInSeconds = adjustedContributionRate * siab.contributionRateInSeconds
+						p := c.GetProductionParams()
+						farmCapacity := p.GetFarmCapacity() * eiContract.Grade[grade].ModifierHabCap
+						maxFarm := 14125000000.0 * eiContract.Grade[grade].ModifierHabCap
+						swapArtifactName := "artifact"
+						if maxFarm != farmCapacity {
+							swapArtifactName = "gusset"
+						}
+						future.originalDelivery = min(future.sr, future.elr*farmCapacity)
+						future.sr /= float64(srMult)
+						future.elr /= float64(elrMult)
+
+						adjustedContributionRate, newRate, rateIncrease := determinePostSiabRate(future, stoneSlots+(3-siabStones), farmCapacity, maxFarm)
+						//future.contributionRateInSeconds = adjustedContributionRate * siab.contributionRateInSeconds
+						future.contributionRateInSeconds = newRate / 3600.0
 						future.contributions = (future.contributionRateInSeconds * future.duration.Seconds())
 						future.cumulativeContrib = siab.cumulativeContrib + future.contributions
 
@@ -631,7 +665,19 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 						// Calculate the saved number of seconds
 						//maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact and speeding the contract by %v\n", (adjustedContributionRate-1)*100, siabStones, diffSeconds))
-						maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact. Time improvement < %v.\n", (adjustedContributionRate-1)*100, siabStones, diffTime))
+						maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot %s. Time improvement < %v.\n", (adjustedContributionRate-1)*100, siabStones, swapArtifactName, diffTime))
+
+						// James WST formula
+
+						//func calculateSiab1p(goal, producedQ, r1, t0, deltaR, alpha float64) (float64, error) {
+						calcSecondsRemaining, err := calculateSiab1p(totalRequired, totalContributions, contributionRatePerSecond, elapsedSeconds, rateIncrease, future.timeEquipped.Sub(startTime).Seconds()/contractDurationSeconds)
+
+						if err == nil && config.IsDevBot() {
+							maxTeamwork.WriteString(fmt.Sprintf("Using calculateSiab1p(g=%0.1f, p=%.2f, r1=%.2f, t0=%.2f, dR=%.2f, alpha=%.2f) = %.2f earlier completion. <t:%d:t>\n",
+								totalRequired/1e15, totalContributions/1e15, (contributionRatePerSecond*3600)/1e15, elapsedSeconds, rateIncrease/1e15, future.timeEquipped.Sub(startTime).Seconds()/contractDurationSeconds, calcSecondsRemaining, endTime.Add(time.Duration(-calcSecondsRemaining)*time.Second).Unix()))
+							//maxTeamwork.WriteString(fmt.Sprintf("Using calculateSiab1p(g=%0.1f, p=%.2f, r1=%.2f, t0=%.2f, dR=%.2f, alpha=%.2f) = %.2f earlier completion. <t:%d:t>\n",
+							//	totalRequired, totalContributions, contributionRatePerSecond, elapsedSeconds, rateIncrease, future.timeEquipped.Sub(startTime).Seconds()/contractDurationSeconds, calcSecondsRemaining, endTime.Add(time.Duration(-calcSecondsRemaining)*time.Second).Unix()))
+						}
 					}
 				} else {
 					if nowTime.Add(siabTimeEquipped).After(endTime) {
@@ -848,19 +894,59 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	return builder.String(), farmerFields, scoresTable.String()
 }
 
-func determinePostSiabRate(future DeliveryTimeValue, stoneDelta int) float64 {
-	delivery := min(future.sr, future.elr)
-	maxDelivery := min(future.sr, future.elr)
+func determinePostSiabRate(future DeliveryTimeValue, stoneDelta int, farmCapacity float64, maxFarmCapacity float64) (float64, float64, float64) {
+	futureELR := future.elr
+	if farmCapacity != maxFarmCapacity {
+		futureELR *= maxFarmCapacity
+	} else {
+		futureELR *= farmCapacity
+	}
+
+	delivery := min(future.sr, future.elr*farmCapacity)
+	maxDelivery := min(future.sr, futureELR)
 
 	for i := 0; i <= stoneDelta; i++ {
 		tach := math.Pow(1.05, float64((stoneDelta - i)))
 		quant := math.Pow(1.05, float64(i))
-		elr := future.elr * tach
+		elr := futureELR * tach
 		sr := future.sr * quant
 		calcDelivery := min(sr, elr)
+		if config.IsDevBot() {
+			fmt.Printf("T/Q: %d/%d ELR: %2.5g  SR: %2.5g  del:%2.5g,  maxDeliv: %2.5g\n", stoneDelta-i, i, elr/1e15, sr/1e15, calcDelivery/1e15, maxDelivery/1e15)
+		}
 		if calcDelivery > maxDelivery {
 			maxDelivery = calcDelivery
 		}
 	}
-	return maxDelivery / delivery
+	return maxDelivery / delivery, maxDelivery, maxDelivery - future.originalDelivery
+}
+
+// James WST Calc
+// CalculateT solves for T based on the given parameters.
+// It returns the calculated value of T and an error if the denominator is zero.
+func calculateSiab1p(goal, producedQ, r1, t0, deltaR, alpha float64) (float64, error) {
+	// Calculate the numerator
+	numerator := goal - producedQ + r1*t0
+
+	// Calculate the denominator
+	denominator := deltaR - alpha*deltaR + r1
+
+	// Check for division by zero
+	if denominator == 0 {
+		return 0, fmt.Errorf("cannot calculate T: denominator is zero (deltaR - alpha*delta_R + r1 = 0)")
+	}
+
+	// Calculate Total Production Time (T)
+	// T = (goal - producedQ + r_1 * t_0) / (delta_R - alpha * delta_R + r_1)
+	// where:
+	// goal = total production goal
+	// producedQ = quantity already produced
+	// r_1 = production rate at time t_0
+	// t_0 = time at which r_1 is measured
+	// delta_R = change in production rate
+	// alpha = efficiency factor (0 <= alpha <= 1)
+	// T = numerator / denominator
+	T := numerator / denominator
+
+	return T, nil
 }
