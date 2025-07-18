@@ -925,18 +925,6 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	return builder.String(), farmerFields, scoresTable.String()
 }
 
-func calculateTimeImprovement(totalRequired, totalContributions float64, originalRate, newRate float64) time.Duration {
-	// Ensure rates are not zero to avoid division by zero
-	if originalRate == 0 || newRate == 0 {
-		// Handle this error case appropriately, e.g., return an error or a special duration
-		return 0 // Or some other indicator of an invalid calculation
-	}
-
-	xSecondsRemaining := (totalRequired - totalContributions) / originalRate
-	adjustedSecondsRemaining := (totalRequired - totalContributions) / newRate
-	return time.Duration(xSecondsRemaining-adjustedSecondsRemaining) * time.Second
-}
-
 func determinePostSiabRate(future DeliveryTimeValue, stoneDelta int, farmCapacity float64, maxFarmCapacity float64) (float64, float64, float64) {
 	futureELR := future.elr
 	if farmCapacity != maxFarmCapacity {
