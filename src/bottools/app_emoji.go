@@ -170,7 +170,8 @@ func ImportEggImage(s *discordgo.Session, eggID, IconURL string) (string, error)
 	// Create a new variable for egg.ID, but remove spaces and hyphens from its name and make it lowercase
 	cleanEggID := strings.ReplaceAll(strings.ReplaceAll(strings.ToLower(eggID), " ", ""), "-", "")
 	// Do something with iconData if needed
-	destinationImage := image.NewRGBA(image.Rect(0, 0, src.Bounds().Max.X/4, src.Bounds().Max.Y/4))
+	// The image should be resized to 128x128 pixels
+	destinationImage := image.NewRGBA(image.Rect(0, 0, 128, 128))
 	draw.NearestNeighbor.Scale(destinationImage, destinationImage.Rect, src, src.Bounds(), draw.Over, nil)
 
 	var buf bytes.Buffer
