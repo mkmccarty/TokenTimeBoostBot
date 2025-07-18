@@ -639,6 +639,10 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 
 	// A contract that's a CRT is by definition al leaderboard play style
 	if (contract.Style & ContractFlagCrt) != 0 {
+		// strip the Boost list style and set it to banker style
+		contract.Style &= ^ContractFlagFastrun
+		contract.Style |= ContractFlagBanker
+
 		contract.PlayStyle = ContractPlaystyleLeaderboard
 		redrawSignup = true
 		redrawSettings = true
