@@ -628,9 +628,10 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 							}
 						}
 						// Assuming being replaced with a 3 slot artifact
+						_, _, colleggtibleHab := ei.GetColleggtibleValues()
 						p := c.GetProductionParams()
 						farmCapacity := p.GetFarmCapacity() * eiContract.Grade[grade].ModifierHabCap
-						maxFarm := 14175000000.0 * eiContract.Grade[grade].ModifierHabCap
+						maxFarm := 14175000000.0 * eiContract.Grade[grade].ModifierHabCap * colleggtibleHab
 						swapArtifactName := "artifact"
 						if maxFarm != farmCapacity {
 							swapArtifactName = "gusset"
