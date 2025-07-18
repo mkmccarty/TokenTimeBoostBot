@@ -639,22 +639,24 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						future.sr /= float64(srMult)
 						future.elr /= float64(elrMult)
 
-						adjustedContributionRate, newRate, rateIncrease := determinePostSiabRate(future, stoneSlots+(3-siabStones), farmCapacity, maxFarm)
-						//future.contributionRateInSeconds = adjustedContributionRate * siab.contributionRateInSeconds
-						future.contributionRateInSeconds = newRate / 3600.0
+						//adjustedContributionRate, newRate, rateIncrease := determinePostSiabRate(future, stoneSlots+(3-siabStones), farmCapacity, maxFarm)
+						_, newRate, rateIncrease := determinePostSiabRate(future, stoneSlots+(3-siabStones), farmCapacity, maxFarm)
+						future.contributionRateInSeconds = newRate / 3600.0 // Assuming newRate is per hour
 						future.contributions = (future.contributionRateInSeconds * future.duration.Seconds())
 						future.cumulativeContrib = siab.cumulativeContrib + future.contributions
 
-						newTotalContributionRate := contributionRatePerSecond - (siab.contributionRateInSeconds)
-						newTotalContributionRate += future.contributionRateInSeconds
+						// Calculate the total contribution rate *after* the swap
+						// Assuming contributionRatePerSecond is the original *team* rate per second
+						// And siab.contributionRateInSeconds is the individual's SIAB rate per second (to be removed)
+						// And future.contributionRateInSeconds is the individual's new artifact rate per second (to be added)
+						newTotalContributionRate := contributionRatePerSecond - siab.contributionRateInSeconds + future.contributionRateInSeconds
 
-						xSecondsRemaining := (totalRequired - totalContributions) / contributionRatePerSecond
-						adjustedSecondsRemaining := (totalRequired - totalContributions) / newTotalContributionRate
+						diffTime := calculateTimeImprovement(totalRequired, totalContributions, contributionRatePerSecond, newTotalContributionRate)
 
-						// diffSeconds is the difference in time remaining.
-						// A positive value means the contract will finish sooner.
-						// A negative value means the contract will take longer.
-						diffTime := time.Duration(xSecondsRemaining-adjustedSecondsRemaining) * time.Second
+						// Calculate the saved number of seconds
+						//maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact and speeding the contract by %v\n", (adjustedContributionRate-1)*100, siabStones, diffSeconds))
+						maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot %s. Time improvement < %v.\n",
+							(future.contributionRateInSeconds/siab.contributionRateInSeconds-1)*100, siabStones, swapArtifactName, diffTime))
 						siabSwapMap[MostRecentDuration.Add(siabTimeEquipped).Unix()] = fmt.Sprintf("<t:%d:t> %s\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
 
 						if shortTeamwork == 0 {
@@ -663,21 +665,29 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 							deliveryTableMap[name] = append(deliveryTableMap[name][:2], siab, future)
 						}
 
-						// Calculate the saved number of seconds
-						//maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact and speeding the contract by %v\n", (adjustedContributionRate-1)*100, siabStones, diffSeconds))
-						maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot %s. Time improvement < %v.\n", (adjustedContributionRate-1)*100, siabStones, swapArtifactName, diffTime))
-
 						// James WST formula
-
 						//func calculateSiab1p(goal, producedQ, r1, t0, deltaR, alpha float64) (float64, error) {
 						calcSecondsRemaining, err := calculateSiab1p(totalRequired, totalContributions, contributionRatePerSecond, elapsedSeconds, rateIncrease, future.timeEquipped.Sub(startTime).Seconds()/contractDurationSeconds)
-
 						if err == nil && config.IsDevBot() {
-							maxTeamwork.WriteString(fmt.Sprintf("Using calculateSiab1p(g=%0.1f, p=%.2f, r1=%.2f, t0=%.2f, dR=%.2f, alpha=%.2f) = %.2f earlier completion. <t:%d:t>\n",
+							maxTeamwork.WriteString(fmt.Sprintf("Using calculateSiab1p(g=%0.1f, p=%.5f, r1=%.5f, t0=%.5f, dR=%.5f, alpha=%.5f) = %.5f earlier completion. <t:%d:t>\n",
 								totalRequired/1e15, totalContributions/1e15, (contributionRatePerSecond*3600)/1e15, elapsedSeconds, rateIncrease/1e15, future.timeEquipped.Sub(startTime).Seconds()/contractDurationSeconds, calcSecondsRemaining, endTime.Add(time.Duration(-calcSecondsRemaining)*time.Second).Unix()))
 							//maxTeamwork.WriteString(fmt.Sprintf("Using calculateSiab1p(g=%0.1f, p=%.2f, r1=%.2f, t0=%.2f, dR=%.2f, alpha=%.2f) = %.2f earlier completion. <t:%d:t>\n",
 							//	totalRequired, totalContributions, contributionRatePerSecond, elapsedSeconds, rateIncrease, future.timeEquipped.Sub(startTime).Seconds()/contractDurationSeconds, calcSecondsRemaining, endTime.Add(time.Duration(-calcSecondsRemaining)*time.Second).Unix()))
 						}
+
+						/*
+							calcSecondsRemaining2, err2 := calculateSiab1p(450*1e15, 14.153*1e15, 37.125*1e12, 70*60, 1.973*1e15, 0.67)
+							fmt.Print("calcSecondsRemaining2: ", calcSecondsRemaining2, " err2: ", err2)
+
+							goal_q      = 450000000000000000,
+							r1   = 37.125,
+							deltaR  = 1.973,
+							alpha       = 0.67,
+							t_0 = 70,
+							p  = 14.158,
+
+						*/
+
 					}
 				} else {
 					if nowTime.Add(siabTimeEquipped).After(endTime) {
@@ -894,6 +904,18 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	return builder.String(), farmerFields, scoresTable.String()
 }
 
+func calculateTimeImprovement(totalRequired, totalContributions float64, originalRate, newRate float64) time.Duration {
+	// Ensure rates are not zero to avoid division by zero
+	if originalRate == 0 || newRate == 0 {
+		// Handle this error case appropriately, e.g., return an error or a special duration
+		return 0 // Or some other indicator of an invalid calculation
+	}
+
+	xSecondsRemaining := (totalRequired - totalContributions) / originalRate
+	adjustedSecondsRemaining := (totalRequired - totalContributions) / newRate
+	return time.Duration(xSecondsRemaining-adjustedSecondsRemaining) * time.Second
+}
+
 func determinePostSiabRate(future DeliveryTimeValue, stoneDelta int, farmCapacity float64, maxFarmCapacity float64) (float64, float64, float64) {
 	futureELR := future.elr
 	if farmCapacity != maxFarmCapacity {
@@ -911,9 +933,9 @@ func determinePostSiabRate(future DeliveryTimeValue, stoneDelta int, farmCapacit
 		elr := futureELR * tach
 		sr := future.sr * quant
 		calcDelivery := min(sr, elr)
-		if config.IsDevBot() {
-			fmt.Printf("T/Q: %d/%d ELR: %2.5g  SR: %2.5g  del:%2.5g,  maxDeliv: %2.5g\n", stoneDelta-i, i, elr/1e15, sr/1e15, calcDelivery/1e15, maxDelivery/1e15)
-		}
+		//if config.IsDevBot() {
+		//	fmt.Printf("T/Q: %d/%d ELR: %f  SR: %f  del:%f,  maxDeliv: %f\n", stoneDelta-i, i, elr/1e15, sr/1e15, calcDelivery/1e15, maxDelivery/1e15)
+		//}
 		if calcDelivery > maxDelivery {
 			maxDelivery = calcDelivery
 		}
@@ -926,10 +948,15 @@ func determinePostSiabRate(future DeliveryTimeValue, stoneDelta int, farmCapacit
 // It returns the calculated value of T and an error if the denominator is zero.
 func calculateSiab1p(goal, producedQ, r1, t0, deltaR, alpha float64) (float64, error) {
 	// Calculate the numerator
+	// print the parameters for debugging
+	if config.IsDevBot() {
+		fmt.Printf("calculateSiab1p(goal=%.2f, producedQ=%.2f, r1=%.2f, t0=%.2f, deltaR=%.2f, alpha=%.2f)\n",
+			goal, producedQ, r1, t0, deltaR, alpha)
+	}
 	numerator := goal - producedQ + r1*t0
 
 	// Calculate the denominator
-	denominator := deltaR - alpha*deltaR + r1
+	denominator := (1-alpha)*deltaR + r1
 
 	// Check for division by zero
 	if denominator == 0 {
