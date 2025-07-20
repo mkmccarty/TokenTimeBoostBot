@@ -269,6 +269,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	var contractDurationSeconds float64
 	var elapsedSeconds float64
 	var calcSecondsRemaining float64
+	var siabEndtimes []int64
 
 	//prevServerTimestamp = int64(decodeCoopStatus.GetSecondsRemaining()) + BuffTimeValues[0].timeEquiped
 	// If the coop completed, the secondsSinceAllGoalsAchieved (towards the end) is present.
@@ -288,7 +289,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 	// Want estimated contribution ratio for entire contract
 	contribution := make([]float64, len(coopStatus.GetContributors()))
-	contractDurationInDays := int(math.Ceil(float64(eiContract.Grade[grade].LengthInSeconds) / 86400.0))
+	//contractDurationInDays := int(math.Ceil(float64(eiContract.Grade[grade].LengthInSeconds) / 86400.0))
 
 	var totalContributions float64
 	var contributionRatePerSecond float64
@@ -423,6 +424,20 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			builder.WriteString(fmt.Sprintf("CRT Duration: %v\n", crtTime.Round(time.Second)))
 		}
 	}
+
+	// Used to determine the entire coop swap time
+	type ProductionScheduleParams struct {
+		targetEggAmount float64
+		initialElr      float64
+		deltaElr        float64
+		alpha           float64
+		elapsedTimeSec  float64
+		eggsShipped     float64
+		startTime       time.Time
+		timezone        string
+		futureSwapTime  time.Time
+	}
+	var productionScheduleParamsArray []ProductionScheduleParams
 
 	for i, c := range coopStatus.GetContributors() {
 
@@ -610,9 +625,13 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						stoneSlots := 0
 						elrMult := 1.0
 						srMult := 1.0
+						// I want an array of artifact names ei.ArtifactSpec_Name
+						var artifactIDs []int32
 						for _, artifact := range c.GetFarmInfo().GetEquippedArtifacts() {
 							spec := artifact.GetSpec()
-							if spec.GetName() == ei.ArtifactSpec_SHIP_IN_A_BOTTLE {
+							artifactName := spec.GetName()
+							artifactIDs = append(artifactIDs, int32(artifactName))
+							if artifactName == ei.ArtifactSpec_SHIP_IN_A_BOTTLE {
 								siabStones, _ = ei.GetStones(spec.GetName(), spec.GetLevel(), spec.GetRarity())
 							}
 							for _, stone := range artifact.GetStones() {
@@ -628,20 +647,14 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 							}
 						}
 						// Assuming being replaced with a 3 slot artifact
-						_, _, colleggtibleHab := ei.GetColleggtibleValues()
 						p := c.GetProductionParams()
 						farmCapacity := p.GetFarmCapacity() * eiContract.Grade[grade].ModifierHabCap
-						maxFarm := 14175000000.0 * eiContract.Grade[grade].ModifierHabCap * colleggtibleHab
-						swapArtifactName := "artifact"
-						if maxFarm != farmCapacity {
-							swapArtifactName = "gusset"
-						}
 						future.originalDelivery = min(future.sr, future.elr*farmCapacity)
 						future.sr /= float64(srMult)
 						future.elr /= float64(elrMult)
 
 						//adjustedContributionRate, newRate, rateIncrease := determinePostSiabRate(future, stoneSlots+(3-siabStones), farmCapacity, maxFarm)
-						_, newRate, rateIncrease := determinePostSiabRate(future, stoneSlots+(3-siabStones), farmCapacity, maxFarm)
+						_, newRate, rateIncrease, swapArtifactName := determinePostSiabRate(future, stoneSlots, farmCapacity, artifactIDs)
 						future.contributionRateInSeconds = newRate / 3600.0 // Assuming newRate is per hour
 						future.contributions = (future.contributionRateInSeconds * future.duration.Seconds())
 						future.cumulativeContrib = siab.cumulativeContrib + future.contributions
@@ -666,7 +679,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						eggsShipped := totalContributions / 1e15
 						// Print these 6 values for debugging with a linefeed between each
 						if config.IsDevBot() {
-							fmt.Printf("Target Egg Amount: %f\nInitial ELR: %f\nDelta ELR: %f\nAlpha: %f\nElapsed Time Sec: %f\nEggs Shipped: %f\n",
+							fmt.Printf("Target Egg Amount: %g\nInitial ELR: %g\nDelta ELR: %g\nAlpha: %g\nElapsed Time Sec: %g\nEggs Shipped: %g\n",
 								targetEggAmount, initialElr, deltaElr, alpha, elapsedTimeSec, eggsShipped)
 						}
 
@@ -680,7 +693,24 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 							startTime,
 							"America/Los_Angeles",
 						)
+
+						params := ProductionScheduleParams{
+							targetEggAmount: targetEggAmount,
+							initialElr:      initialElr,
+							deltaElr:        deltaElr,
+							alpha:           alpha,
+							elapsedTimeSec:  elapsedTimeSec,
+							eggsShipped:     eggsShipped,
+							startTime:       startTime,
+							timezone:        "America/Los_Angeles",
+							futureSwapTime:  future.timeEquipped,
+						}
+
+						productionScheduleParamsArray = append(productionScheduleParamsArray, params)
+
 						if err == nil && config.IsDevBot() {
+							siabEndtimes = append(siabEndtimes, finishTimestampWithSwitch)
+
 							labels := []string{"Switch time", "Finish time with switch", "Finish time without switch"}
 							results := []struct {
 								dt time.Time
@@ -694,6 +724,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 							for i, lbl := range labels {
 								maxTeamwork.WriteString(fmt.Sprintf("%s: <t:%d:f>\n", lbl, results[i].ts))
 							}
+							maxTeamwork.WriteString("\n-#Completion formulas from @James.WST")
 						}
 
 						/*
@@ -765,111 +796,146 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 				Inline: false,
 			})
 
-			// Chicken Runs
-			// Create a table of Chicken Runs with maximized TVAL
-			capCR := min((eiContract.MaxCoopSize*contractDurationInDays)/2, 20)
+			/*
 
-			// Maximize Token Value for this
-			T := calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 0)
+					// Chicken Runs
+					// Create a table of Chicken Runs with maximized TVAL
+					capCR := min((eiContract.MaxCoopSize*contractDurationInDays)/2, 20)
 
-			var crBuilder strings.Builder
-			for maxCR := capCR; maxCR >= 0; maxCR-- {
-				CR := calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, maxCR)
-				score := calculateContractScore(grade,
+					// Maximize Token Value for this
+					T := calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 0)
+
+					var crBuilder strings.Builder
+					for maxCR := capCR; maxCR >= 0; maxCR-- {
+						CR := calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, maxCR)
+						score := calculateContractScore(grade,
+							eiContract.MaxCoopSize,
+							eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+							contribution[i],
+							eiContract.Grade[grade].LengthInSeconds,
+							contractDurationSeconds,
+							B, CR, T)
+						crBuilder.WriteString(fmt.Sprintf("%d:%d ", maxCR, score))
+					}
+					field = append(field, &discordgo.MessageEmbedField{
+						Name:   "Chicken Runs w/Tval 🎯",
+						Value:  "```" + crBuilder.String() + "```",
+						Inline: false,
+					})
+				// Create a table of Contract Scores for this user
+				var csBuilder strings.Builder
+
+				// Maximum Contract Score with current buffs and max CR & TVAL
+				CR := calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, capCR)
+				T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 5.0)
+				scoreMax := calculateContractScore(grade,
 					eiContract.MaxCoopSize,
 					eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
 					contribution[i],
 					eiContract.Grade[grade].LengthInSeconds,
 					contractDurationSeconds,
 					B, CR, T)
-				crBuilder.WriteString(fmt.Sprintf("%d:%d ", maxCR, score))
-			}
-			field = append(field, &discordgo.MessageEmbedField{
-				Name:   "Chicken Runs w/Tval 🎯",
-				Value:  "```" + crBuilder.String() + "```",
-				Inline: false,
-			})
+				fmt.Fprintf(&csBuilder, "Max: %d\n", scoreMax)
 
-			// Create a table of Contract Scores for this user
-			var csBuilder strings.Builder
+				// Sink Contract Score with current buffs and max CR & negative TVAL
+				T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 3.0, 11.0)
+				CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, capCR)
+				scoreMid := calculateContractScore(grade,
+					eiContract.MaxCoopSize,
+					eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+					contribution[i],
+					eiContract.Grade[grade].LengthInSeconds,
+					contractDurationSeconds,
+					B, CR, T)
+				fmt.Fprintf(&csBuilder, "Sink: %d (CR=%d)\n", scoreMid, capCR)
 
-			// Maximum Contract Score with current buffs and max CR & TVAL
-			CR := calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, capCR)
-			T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 5.0)
-			scoreMax := calculateContractScore(grade,
-				eiContract.MaxCoopSize,
-				eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
-				contribution[i],
-				eiContract.Grade[grade].LengthInSeconds,
-				contractDurationSeconds,
-				B, CR, T)
-			fmt.Fprintf(&csBuilder, "Max: %d\n", scoreMax)
+				// TVAL Met, with CR to coop size -1
+				T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 5.0)
+				CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, eiContract.MaxCoopSize-1)
+				scoreTval := calculateContractScore(grade,
+					eiContract.MaxCoopSize,
+					eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+					contribution[i],
+					eiContract.Grade[grade].LengthInSeconds,
+					contractDurationSeconds,
+					B, CR, T)
 
-			// Sink Contract Score with current buffs and max CR & negative TVAL
-			T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 3.0, 11.0)
-			CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, capCR)
-			scoreMid := calculateContractScore(grade,
-				eiContract.MaxCoopSize,
-				eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
-				contribution[i],
-				eiContract.Grade[grade].LengthInSeconds,
-				contractDurationSeconds,
-				B, CR, T)
-			fmt.Fprintf(&csBuilder, "Sink: %d (CR=%d)\n", scoreMid, capCR)
+				// No token sharing, with CR to coop size -1
+				T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 0.0, 11.0)
+				CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, eiContract.MaxCoopSize-1)
+				scoreChill := calculateContractScore(grade,
+					eiContract.MaxCoopSize,
+					eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+					contribution[i],
+					eiContract.Grade[grade].LengthInSeconds,
+					contractDurationSeconds,
+					B, CR, T)
+				//fmt.Fprintf(&csBuilder, "Min: %d (CR/TV=0)\n", scoreChill)
 
-			// TVAL Met, with CR to coop size -1
-			T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 5.0)
-			CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, eiContract.MaxCoopSize-1)
-			scoreTval := calculateContractScore(grade,
-				eiContract.MaxCoopSize,
-				eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
-				contribution[i],
-				eiContract.Grade[grade].LengthInSeconds,
-				contractDurationSeconds,
-				B, CR, T)
+				// Minimum Contract Score with current buffs and 0 CR & 0 TVAL
+				T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 0.0, 11.0)
+				CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, 0)
+				scoreMin := calculateContractScore(grade,
+					eiContract.MaxCoopSize,
+					eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+					contribution[i],
+					eiContract.Grade[grade].LengthInSeconds,
+					contractDurationSeconds,
+					B, CR, T)
+				fmt.Fprintf(&csBuilder, "Min: %d (CR/TV=0)\n", scoreMin)
 
-			// No token sharing, with CR to coop size -1
-			T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 0.0, 11.0)
-			CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, eiContract.MaxCoopSize-1)
-			scoreChill := calculateContractScore(grade,
-				eiContract.MaxCoopSize,
-				eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
-				contribution[i],
-				eiContract.Grade[grade].LengthInSeconds,
-				contractDurationSeconds,
-				B, CR, T)
-			//fmt.Fprintf(&csBuilder, "Min: %d (CR/TV=0)\n", scoreChill)
-
-			// Minimum Contract Score with current buffs and 0 CR & 0 TVAL
-			T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 0.0, 11.0)
-			CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, 0)
-			scoreMin := calculateContractScore(grade,
-				eiContract.MaxCoopSize,
-				eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
-				contribution[i],
-				eiContract.Grade[grade].LengthInSeconds,
-				contractDurationSeconds,
-				B, CR, T)
-			fmt.Fprintf(&csBuilder, "Min: %d (CR/TV=0)\n", scoreMin)
-
-			field = append(field, &discordgo.MessageEmbedField{
-				Name:   "Contract Score",
-				Value:  csBuilder.String(),
-				Inline: false,
-			})
+				field = append(field, &discordgo.MessageEmbedField{
+					Name:   "Contract Score",
+					Value:  csBuilder.String(),
+					Inline: false,
+				})
+			*/
 			farmerFields[name] = field
 			trimmedName := c.GetUserName()
 			if len(trimmedName) > 12 {
 				trimmedName = trimmedName[:12]
 			}
-			contractScoreArr = append(contractScoreArr, contractScores{
-				trimmedName,
-				scoreMax,
-				scoreMid,
-				scoreTval,
-				scoreChill,
-				scoreMin,
-			})
+			/*
+				contractScoreArr = append(contractScoreArr, contractScores{
+					trimmedName,
+					scoreMax,
+					scoreMid,
+					scoreTval,
+					scoreChill,
+					scoreMin,
+				})
+			*/
+		}
+	}
+
+	// Determine entire coop swap time for SIAB Swap
+	// Sort this array by futureSwapTime
+	sort.Slice(productionScheduleParamsArray, func(i, j int) bool {
+		return productionScheduleParamsArray[i].futureSwapTime.Before(productionScheduleParamsArray[j].futureSwapTime)
+	})
+
+	// Interate the array and call ProductionSchedule for each
+	for _, params := range productionScheduleParamsArray {
+
+		switchTime, switchTimestamp, finishTimeWithSwitch, finishTimestampWithSwitch, finishTimeWithoutSwitch, finishTimestampWithoutSwitch, err := ProductionSchedule(
+			params.targetEggAmount,
+			params.initialElr,
+			params.deltaElr,
+			params.alpha,
+			params.elapsedTimeSec,
+			params.eggsShipped,
+			params.startTime,
+			params.timezone,
+		)
+		if err != nil {
+			fmt.Printf("Error in ProductionSchedule: %v\n", err)
+			continue
+		}
+		if config.IsDevBot() {
+			fmt.Printf("Switch Time: %s (%d), Finish Time with Switch: %s (%d), Finish Time without Switch: %s (%d)\n",
+				switchTime, switchTimestamp,
+				finishTimeWithSwitch, finishTimestampWithSwitch,
+				finishTimeWithoutSwitch, finishTimestampWithoutSwitch)
 		}
 	}
 
@@ -903,12 +969,30 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			siabMsg.WriteString(siabSwapMap[k])
 		}
 		siabMsg.WriteString("\nUsing your best SiaB will result in higher CS.\n")
-		/*
-			siabMsg.WriteString(fmt.Sprintf("Contract will finish %s earlier at <t:%d:f>.\n",
-				bottools.FmtDuration(totalSiabSwapSeconds),
-				endTime.Add(-totalSiabSwapSeconds).Unix()))
-		*/
+		if config.IsDevBot() && len(siabEndtimes) > 0 {
+			// Want to print a message with an average of the siab endtimes
+			var totalSiabEndTimes time.Duration
+			for _, t := range siabEndtimes {
+				totalSiabEndTimes += time.Duration(t) * time.Second
+			}
+
+			/*
+				avgSiabSwapEndTime := time.Unix(int64(totalSiabEndTimes.Seconds()/float64(len(siabEndtimes))), 0)
+				timeSaved := endTime.Sub(avgSiabSwapEndTime)
+				swapText := "swap"
+				if len(siabEndtimes) > 1 {
+					swapText = "swaps"
+				}
+				siabMsg.WriteString(fmt.Sprintf("\nWith %d timely %s, the contract can finish %s earlier at <t:%d:t>.\n",
+					len(siabEndtimes),
+					swapText,
+					bottools.FmtDuration(timeSaved),
+					avgSiabSwapEndTime.Unix()))
+			*/
+
+		}
 	}
+
 	siabMax = append(siabMax, &discordgo.MessageEmbedField{
 		Name:   "SIAB",
 		Value:  siabMsg.String(),
@@ -925,31 +1009,61 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	return builder.String(), farmerFields, scoresTable.String()
 }
 
-func determinePostSiabRate(future DeliveryTimeValue, stoneDelta int, farmCapacity float64, maxFarmCapacity float64) (float64, float64, float64) {
+func determinePostSiabRate(future DeliveryTimeValue, stoneSlots int, farmCapacity float64, artifactIDs []int32) (float64, float64, float64, string) {
 	futureELR := future.elr
-	if farmCapacity != maxFarmCapacity {
-		futureELR *= maxFarmCapacity
-	} else {
-		futureELR *= farmCapacity
+	futureELR *= farmCapacity
+	futureSR := future.sr
+	swapArtifactName := "artifact"
+	// find which artifact is missing from ei.ArtifactSpec_Gusset, ei.ArtifactSpec_Ship_In_A_Bottle, and ei.ArtifactSpec_Compass ei.ArtifactSpec_Metronome
+	// Make an array of the ArtifactSpecs below
+	var allArtifacts = []int32{
+		int32(ei.ArtifactSpec_ORNATE_GUSSET),
+		int32(ei.ArtifactSpec_SHIP_IN_A_BOTTLE),
+		int32(ei.ArtifactSpec_INTERSTELLAR_COMPASS),
+		int32(ei.ArtifactSpec_QUANTUM_METRONOME),
+		int32(ei.ArtifactSpec_TACHYON_DEFLECTOR),
+	}
+	// Using the incoming artifactIDs, determine which artifacts are missing
+	artifactSet := make(map[int32]struct{})
+	for _, id := range artifactIDs {
+		artifactSet[id] = struct{}{}
+	}
+	stoneSlots++ // Typically one extra stone slot for swapping SIAB
+	// Create a slice to hold the missing artifacts
+	for _, artifactID := range allArtifacts {
+		if _, exists := artifactSet[artifactID]; !exists {
+			switch ei.ArtifactSpec_Name(artifactID) {
+			case ei.ArtifactSpec_ORNATE_GUSSET:
+				futureELR *= 1.25 // 25% increase for Gusset
+				swapArtifactName = "Gusset"
+			case ei.ArtifactSpec_INTERSTELLAR_COMPASS:
+				futureSR *= 1.50 // 50% increase for Compass
+				swapArtifactName = "Compass"
+				stoneSlots--
+			case ei.ArtifactSpec_QUANTUM_METRONOME:
+				futureELR *= 1.35 // 35% increase for Metronome
+				swapArtifactName = "Metronome"
+			}
+		}
 	}
 
 	delivery := min(future.sr, future.elr*farmCapacity)
-	maxDelivery := min(future.sr, futureELR)
+	maxDelivery := min(futureSR, futureELR)
 
-	for i := 0; i <= stoneDelta; i++ {
-		tach := math.Pow(1.05, float64((stoneDelta - i)))
+	for i := 0; i <= stoneSlots; i++ {
+		tach := math.Pow(1.05, float64((stoneSlots - i)))
 		quant := math.Pow(1.05, float64(i))
 		elr := futureELR * tach
-		sr := future.sr * quant
+		sr := futureSR * quant
 		calcDelivery := min(sr, elr)
-		//if config.IsDevBot() {
-		//	fmt.Printf("T/Q: %d/%d ELR: %f  SR: %f  del:%f,  maxDeliv: %f\n", stoneDelta-i, i, elr/1e15, sr/1e15, calcDelivery/1e15, maxDelivery/1e15)
-		//}
+		if config.IsDevBot() {
+			fmt.Printf("T/Q: %d/%d ELR: %f  SR: %f  DLV:%f,  maxDeliv: %f\n", stoneSlots-i, i, elr/1e15, sr/1e15, calcDelivery/1e15, maxDelivery/1e15)
+		}
 		if calcDelivery > maxDelivery {
 			maxDelivery = calcDelivery
 		}
 	}
-	return maxDelivery / delivery, maxDelivery, maxDelivery - future.originalDelivery
+	return maxDelivery / delivery, maxDelivery, maxDelivery - future.originalDelivery, swapArtifactName
 }
 
 // ProductionSchedule calculates key timestamps for a production schedule based on egg production.

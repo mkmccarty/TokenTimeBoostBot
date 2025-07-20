@@ -115,7 +115,7 @@ func GetCoopStatus(contractID string, coopID string) (*ContractCoopStatusRespons
 		eiDatas[cacheID] = &data
 
 		// Save protoData into a file
-		fileName := fmt.Sprintf("ttbb-data/%s-%s.pb", contractID, coopID)
+		fileName := fmt.Sprintf("ttbb-data/%s-%s-%s.pb", contractID, coopID, timestamp.Format("20060102150405"))
 		err = os.WriteFile(fileName, []byte(protoData), 0644)
 		if err != nil {
 			log.Print(err)
