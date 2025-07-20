@@ -891,19 +891,19 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 				})
 			*/
 			farmerFields[name] = field
-			trimmedName := c.GetUserName()
-			if len(trimmedName) > 12 {
-				trimmedName = trimmedName[:12]
-			}
 			/*
-				contractScoreArr = append(contractScoreArr, contractScores{
-					trimmedName,
-					scoreMax,
-					scoreMid,
-					scoreTval,
-					scoreChill,
-					scoreMin,
-				})
+				trimmedName := c.GetUserName()
+				if len(trimmedName) > 12 {
+					trimmedName = trimmedName[:12]
+				}
+					contractScoreArr = append(contractScoreArr, contractScores{
+						trimmedName,
+						scoreMax,
+						scoreMid,
+						scoreTval,
+						scoreChill,
+						scoreMin,
+					})
 			*/
 		}
 	}
