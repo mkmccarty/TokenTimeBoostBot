@@ -10,20 +10,25 @@ import (
 
 // FmtDuration formats a time.Duration into a human readable string
 func FmtDuration(d time.Duration) string {
-	str := ""
 	d = d.Round(time.Minute)
 	h := d / time.Hour
 	d -= h * time.Hour
 	m := d / time.Minute
-	d = h / 24
-	h -= d * 24
+	days := h / 24
+	h -= days * 24
 
-	if d > 0 {
-		str = fmt.Sprintf("%dd%dh%dm", d, h, m)
-	} else {
-		str = fmt.Sprintf("%dh%dm", h, m)
+	var parts []string
+	if days > 0 {
+		parts = append(parts, fmt.Sprintf("%dd", days))
 	}
-	return strings.ReplaceAll(str, "0h0m", "")
+	if h > 0 {
+		parts = append(parts, fmt.Sprintf("%dh", h))
+	}
+	if m > 0 {
+		parts = append(parts, fmt.Sprintf("%dm", m))
+	}
+
+	return strings.Join(parts, "")
 }
 
 // SanitizeStringDuration takes an hms string and returns a sanitized version of it
