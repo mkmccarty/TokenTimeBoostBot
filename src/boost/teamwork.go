@@ -238,6 +238,13 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		return "Invalid contract ID.", nil, ""
 	}
 
+	// extraInfo is true if coopID starts with '?'
+	extraInfo := false
+	if strings.HasPrefix(coopID, "?") {
+		coopID = strings.TrimPrefix(coopID, "?")
+		extraInfo = true
+	}
+
 	coopStatus, nowTime, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID)
 	if err != nil {
 		return err.Error(), nil, ""
@@ -678,9 +685,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						elapsedTimeSec := elapsedSeconds // in seconds
 						eggsShipped := totalContributions / 1e15
 						// Print these 6 values for debugging with a linefeed between each
-						if config.IsDevBot() {
-							fmt.Printf("Target Egg Amount: %g\nInitial ELR: %g\nDelta ELR: %g\nAlpha: %g\nElapsed Time Sec: %g\nEggs Shipped: %g\n",
-								targetEggAmount, initialElr, deltaElr, alpha, elapsedTimeSec, eggsShipped)
+						if extraInfo {
+							maxTeamwork.WriteString(fmt.Sprintf("\nTarget Egg Amount: %g\nInitial ELR: %g\nDelta ELR: %g\nAlpha: %g\nElapsed Time Sec: %g\nEggs Shipped: %g\n",
+								targetEggAmount, initialElr, deltaElr, alpha, elapsedTimeSec, eggsShipped))
 						}
 
 						switchTime, switchTimestamp, finishTimeWithSwitch, finishTimestampWithSwitch, finishTimeWithoutSwitch, finishTimestampWithoutSwitch, err := ProductionSchedule(
@@ -708,7 +715,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 						productionScheduleParamsArray = append(productionScheduleParamsArray, params)
 
-						if err == nil && config.IsDevBot() {
+						if err == nil && extraInfo {
 							siabEndtimes = append(siabEndtimes, finishTimestampWithSwitch)
 
 							labels := []string{"Switch time", "Finish time with switch", "Finish time without switch"}
@@ -724,21 +731,8 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 							for i, lbl := range labels {
 								maxTeamwork.WriteString(fmt.Sprintf("%s: <t:%d:f>\n", lbl, results[i].ts))
 							}
-							maxTeamwork.WriteString("\n-#Completion formulas from @James.WST")
+							maxTeamwork.WriteString("\nCompletion formulas from @James.WST")
 						}
-
-						/*
-							calcSecondsRemaining2, err2 := calculateSiab1p(450*1e15, 14.153*1e15, 37.125*1e12, 70*60, 1.973*1e15, 0.67)
-							fmt.Print("calcSecondsRemaining2: ", calcSecondsRemaining2, " err2: ", err2)
-
-							goal_q      = 450000000000000000,
-							r1   = 37.125,
-							deltaR  = 1.973,
-							alpha       = 0.67,
-							t_0 = 70,
-							p  = 14.158,
-
-						*/
 
 					}
 				} else {
@@ -931,7 +925,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			fmt.Printf("Error in ProductionSchedule: %v\n", err)
 			continue
 		}
-		if config.IsDevBot() {
+		if extraInfo {
 			fmt.Printf("Switch Time: %s (%d), Finish Time with Switch: %s (%d), Finish Time without Switch: %s (%d)\n",
 				switchTime, switchTimestamp,
 				finishTimeWithSwitch, finishTimestampWithSwitch,
@@ -969,7 +963,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			siabMsg.WriteString(siabSwapMap[k])
 		}
 		siabMsg.WriteString("\nUsing your best SiaB will result in higher CS.\n")
-		if config.IsDevBot() && len(siabEndtimes) > 0 {
+		if extraInfo && len(siabEndtimes) > 0 {
 			// Want to print a message with an average of the siab endtimes
 			var totalSiabEndTimes time.Duration
 			for _, t := range siabEndtimes {
