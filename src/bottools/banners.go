@@ -53,6 +53,14 @@ func GenerateBanner(ID string, eggName string, text string) {
 	// 1. Load Images
 	styleArray := []string{"", "c", "a", "f", "l"}
 	// Check if any of the style images already exist
+	// make sure the output path exists, and create it if it doesn't
+	if _, err := os.Stat(config.BannerOutputPath); os.IsNotExist(err) {
+		err = os.MkdirAll(config.BannerOutputPath, 0755)
+		if err != nil {
+			fmt.Println("Error creating output directory:", err)
+			return
+		}
+	}
 
 	outputImagePath := fmt.Sprintf("%s/b-%s.png", config.BannerOutputPath, ID)
 	allExist := true
