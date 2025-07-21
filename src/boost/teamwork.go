@@ -799,7 +799,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			capCR := min((eiContract.MaxCoopSize*contractDurationInDays)/2, 20)
 
 			// Maximize Token Value for this
-			T := calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 0)
+			//T := calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 0)
 
 			/*
 				var crBuilder strings.Builder
@@ -825,7 +825,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 			// Maximum Contract Score with current buffs and max CR & TVAL
 			CR := calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, capCR)
-			T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 5.0)
+			T := calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 5.0)
 			scoreMax := calculateContractScore(grade,
 				eiContract.MaxCoopSize,
 				eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
