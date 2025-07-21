@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -118,6 +119,10 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	if opt, ok := optionMap["coop-id"]; ok {
 		coopID = strings.ToLower(opt.StringValue())
 		coopID = strings.ReplaceAll(coopID, " ", "")
+		// Only Development Staff can use a coop-id that starts with '?'
+		if !slices.Contains(config.DevelopmentStaff, userID) && strings.HasPrefix(coopID, "?") {
+			coopID = strings.TrimPrefix(coopID, "?")
+		}
 	}
 	if opt, ok := optionMap["public-reply"]; ok {
 		publicReply = !opt.BoolValue()
