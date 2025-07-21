@@ -45,6 +45,8 @@ var (
 	BannerOutputPath string
 	// BannerURL is the URL to the banner image.
 	BannerURL string
+	// DevelopmentStaff is a list of user IDs for development staff.
+	DevelopmentStaff []string
 
 	config *configStruct
 )
@@ -69,6 +71,7 @@ type configStruct struct {
 	BannerPath       string   `json:"BannerPath"`
 	BannerOutputPath string   `json:"BannerOutputPath"`
 	BannerURL        string   `json:"BannerURL"`
+	DevelopmentStaff []string `json:"DevelopmentStaff"`
 }
 
 // ReadConfig will load the configuration files for API tokens.
@@ -108,6 +111,7 @@ func ReadConfig(cfgFile string) error {
 	BannerPath = config.BannerPath
 	BannerOutputPath = config.BannerOutputPath
 	BannerURL = config.BannerURL
+	DevelopmentStaff = config.DevelopmentStaff
 
 	return nil
 }
