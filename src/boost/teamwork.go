@@ -688,7 +688,6 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						alpha := future.timeEquipped.Sub(startTime).Seconds() / contractDurationSeconds
 						elapsedTimeSec := elapsedSeconds // in seconds
 						eggsShipped := totalContributions / 1e15
-						// Print these 6 values for debugging with a linefeed between each
 						if extraInfo {
 							maxTeamwork.WriteString(fmt.Sprintf("\nTarget Egg Amount: %g\nInitial ELR: %g\nDelta ELR: %g\nAlpha: %g\nElapsed Time Sec: %g\nEggs Shipped: %g\n",
 								targetEggAmount, initialElr, deltaElr, alpha, elapsedTimeSec, eggsShipped))
@@ -719,21 +718,24 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 						productionScheduleParamsArray = append(productionScheduleParamsArray, params)
 
-						if err == nil && extraInfo {
-							siabEndtimes = append(siabEndtimes, finishTimestampWithSwitch)
+						if err == nil {
+							maxTeamwork.WriteString(fmt.Sprintf("%s: <t:%d:f>\n", "Finish time with 1 player switch", finishTimestampWithSwitch))
+							if extraInfo {
+								siabEndtimes = append(siabEndtimes, finishTimestampWithSwitch)
 
-							labels := []string{"Switch time", "Finish time with switch", "Finish time without switch"}
-							results := []struct {
-								dt time.Time
-								ts int64
-							}{
-								{switchTime, switchTimestamp},
-								{finishTimeWithSwitch, finishTimestampWithSwitch},
-								{finishTimeWithoutSwitch, finishTimestampWithoutSwitch},
-							}
+								labels := []string{"Switch time", "Finish time with switch", "Finish time without switch"}
+								results := []struct {
+									dt time.Time
+									ts int64
+								}{
+									{switchTime, switchTimestamp},
+									{finishTimeWithSwitch, finishTimestampWithSwitch},
+									{finishTimeWithoutSwitch, finishTimestampWithoutSwitch},
+								}
 
-							for i, lbl := range labels {
-								maxTeamwork.WriteString(fmt.Sprintf("%s: <t:%d:f>\n", lbl, results[i].ts))
+								for i, lbl := range labels {
+									maxTeamwork.WriteString(fmt.Sprintf("%s: <t:%d:f>\n", lbl, results[i].ts))
+								}
 							}
 							maxTeamwork.WriteString("\nCompletion formulas from @James.WST")
 						}
