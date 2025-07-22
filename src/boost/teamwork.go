@@ -491,6 +491,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		}
 		var teamwork strings.Builder
 
+		B := 0.0
 		if len(BuffTimeValues) == 0 {
 			teamwork.WriteString("**No buffs found for this contract.**\n")
 		} else {
@@ -547,7 +548,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 			// Calculate the Teamwork Score for all the time segments
 			uncappedBuffTimeValue := buffTimeValue / contractDurationSeconds
-			B := min(uncappedBuffTimeValue, 2.0)
+			B = min(uncappedBuffTimeValue, 2.0)
 			TeamworkScore := getPredictedTeamwork(B, 0.0, 0.0)
 			fmt.Fprintf(&teamwork, teamworkFm,
 				"", "", "", "",
@@ -798,7 +799,6 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 			// Chicken Runs
 			// Create a table of Chicken Runs with maximized TVAL
-			capCR := min((eiContract.MaxCoopSize*contractDurationInDays)/2, 20)
 
 			// Maximize Token Value for this
 			//T := calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 0)
@@ -822,89 +822,91 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 					Inline: false,
 				})
 			*/
-			// Create a table of Contract Scores for this user
-			var csBuilder strings.Builder
-
-			// Maximum Contract Score with current buffs and max CR & TVAL
-			CR := calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, capCR)
-			T := calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 5.0)
-			scoreMax := calculateContractScore(grade,
-				eiContract.MaxCoopSize,
-				eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
-				contribution[i],
-				eiContract.Grade[grade].LengthInSeconds,
-				contractDurationSeconds,
-				B, CR, T)
-			fmt.Fprintf(&csBuilder, "Max: %d\n", scoreMax)
-
-			// Sink Contract Score with current buffs and max CR & negative TVAL
-			T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 3.0, 11.0)
-			CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, capCR)
-			scoreMid := calculateContractScore(grade,
-				eiContract.MaxCoopSize,
-				eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
-				contribution[i],
-				eiContract.Grade[grade].LengthInSeconds,
-				contractDurationSeconds,
-				B, CR, T)
-			fmt.Fprintf(&csBuilder, "Sink: %d (CR=%d)\n", scoreMid, capCR)
-
-			// TVAL Met, with CR to coop size -1
-			T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 5.0)
-			CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, eiContract.MaxCoopSize-1)
-			scoreTval := calculateContractScore(grade,
-				eiContract.MaxCoopSize,
-				eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
-				contribution[i],
-				eiContract.Grade[grade].LengthInSeconds,
-				contractDurationSeconds,
-				B, CR, T)
-
-			// No token sharing, with CR to coop size -1
-			T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 0.0, 11.0)
-			CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, eiContract.MaxCoopSize-1)
-			scoreChill := calculateContractScore(grade,
-				eiContract.MaxCoopSize,
-				eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
-				contribution[i],
-				eiContract.Grade[grade].LengthInSeconds,
-				contractDurationSeconds,
-				B, CR, T)
-			//fmt.Fprintf(&csBuilder, "Min: %d (CR/TV=0)\n", scoreChill)
-
-			// Minimum Contract Score with current buffs and 0 CR & 0 TVAL
-			T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 0.0, 11.0)
-			CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, 0)
-			scoreMin := calculateContractScore(grade,
-				eiContract.MaxCoopSize,
-				eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
-				contribution[i],
-				eiContract.Grade[grade].LengthInSeconds,
-				contractDurationSeconds,
-				B, CR, T)
-			fmt.Fprintf(&csBuilder, "Min: %d (CR/TV=0)\n", scoreMin)
-
-			/*
-				field = append(field, &discordgo.MessageEmbedField{
-					Name:   "Contract Score",
-					Value:  csBuilder.String(),
-					Inline: false,
-				})
-			*/
-			farmerFields[name] = field
-			trimmedName := c.GetUserName()
-			if len(trimmedName) > 12 {
-				trimmedName = trimmedName[:12]
-			}
-			contractScoreArr = append(contractScoreArr, contractScores{
-				trimmedName,
-				scoreMax,
-				scoreMid,
-				scoreTval,
-				scoreChill,
-				scoreMin,
-			})
 		}
+		capCR := min((eiContract.MaxCoopSize*contractDurationInDays)/2, 20)
+		// Create a table of Contract Scores for this user
+		var csBuilder strings.Builder
+
+		// Maximum Contract Score with current buffs and max CR & TVAL
+		CR := calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, capCR)
+		T := calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 5.0)
+		scoreMax := calculateContractScore(grade,
+			eiContract.MaxCoopSize,
+			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+			contribution[i],
+			eiContract.Grade[grade].LengthInSeconds,
+			contractDurationSeconds,
+			B, CR, T)
+		fmt.Fprintf(&csBuilder, "Max: %d\n", scoreMax)
+
+		// Sink Contract Score with current buffs and max CR & negative TVAL
+		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 3.0, 11.0)
+		CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, capCR)
+		scoreMid := calculateContractScore(grade,
+			eiContract.MaxCoopSize,
+			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+			contribution[i],
+			eiContract.Grade[grade].LengthInSeconds,
+			contractDurationSeconds,
+			B, CR, T)
+		fmt.Fprintf(&csBuilder, "Sink: %d (CR=%d)\n", scoreMid, capCR)
+
+		// TVAL Met, with CR to coop size -1
+		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 5.0)
+		CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, eiContract.MaxCoopSize-1)
+		scoreTval := calculateContractScore(grade,
+			eiContract.MaxCoopSize,
+			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+			contribution[i],
+			eiContract.Grade[grade].LengthInSeconds,
+			contractDurationSeconds,
+			B, CR, T)
+
+		// No token sharing, with CR to coop size -1
+		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 0.0, 11.0)
+		CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, eiContract.MaxCoopSize-1)
+		scoreChill := calculateContractScore(grade,
+			eiContract.MaxCoopSize,
+			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+			contribution[i],
+			eiContract.Grade[grade].LengthInSeconds,
+			contractDurationSeconds,
+			B, CR, T)
+		//fmt.Fprintf(&csBuilder, "Min: %d (CR/TV=0)\n", scoreChill)
+
+		// Minimum Contract Score with current buffs and 0 CR & 0 TVAL
+		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 0.0, 11.0)
+		CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, 0)
+		scoreMin := calculateContractScore(grade,
+			eiContract.MaxCoopSize,
+			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+			contribution[i],
+			eiContract.Grade[grade].LengthInSeconds,
+			contractDurationSeconds,
+			B, CR, T)
+		fmt.Fprintf(&csBuilder, "Min: %d (CR/TV=0)\n", scoreMin)
+
+		/*
+			field = append(field, &discordgo.MessageEmbedField{
+				Name:   "Contract Score",
+				Value:  csBuilder.String(),
+				Inline: false,
+			})
+		*/
+		farmerFields[name] = field
+		trimmedName := c.GetUserName()
+		if len(trimmedName) > 12 {
+			trimmedName = trimmedName[:12]
+		}
+		contractScoreArr = append(contractScoreArr, contractScores{
+			trimmedName,
+			scoreMax,
+			scoreMid,
+			scoreTval,
+			scoreChill,
+			scoreMin,
+		})
+
 	}
 
 	// Determine entire coop swap time for SIAB Swap
