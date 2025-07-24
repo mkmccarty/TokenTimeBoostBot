@@ -27,7 +27,7 @@ func GetColleggtibleValues() (float64, float64, float64) {
 	return colleggtibleELR, colleggtibleShip, colleggtibleHab
 }
 
-// GetColleggtibleELR will return the current value of the ELR collectible
+// GetColleggtibleIHR will return the current value of the ELR collectible
 func GetColleggtibleIHR() float64 {
 	return colleggtiblesIHR
 }
