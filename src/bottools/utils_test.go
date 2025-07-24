@@ -9,8 +9,8 @@ func TestFmtDuration(t *testing.T) {
 	now := time.Now()
 
 	later := now.Add(1 * time.Hour)
-	if FmtDuration(later.Sub(now)) != "1h0m" {
-		t.Errorf("FmtDuration() = %v, want %v", FmtDuration(later.Sub(now)), "1h0m")
+	if FmtDuration(later.Sub(now)) != "1h" {
+		t.Errorf("FmtDuration() = %v, want %v", FmtDuration(later.Sub(now)), "1h")
 	}
 
 	later = now.Add(1 * time.Hour).Add(15 * time.Minute)
