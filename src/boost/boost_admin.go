@@ -87,7 +87,7 @@ func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCre
 
 // HandleAdminContractList will list all contracts
 func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	str, embed, err := getContractList()
+	str, embed, err := getContractList(i.GuildID)
 	if err != nil {
 		str = err.Error()
 	}
@@ -125,8 +125,8 @@ func getRandomColor() int {
 	return rand.IntN(16777216) // 16777216 is the maximum value for a 24-bit color
 }
 
-// getContractList returns a list of all contracts
-func getContractList() (string, *discordgo.MessageSend, error) {
+// getContractList returns a list of all contracts within the specified guild
+func getContractList(guildID string) (string, *discordgo.MessageSend, error) {
 	var field []*discordgo.MessageEmbedField
 
 	str := ""
@@ -146,6 +146,9 @@ func getContractList() (string, *discordgo.MessageSend, error) {
 
 	i := 1
 	for _, c := range Contracts {
+		if guildID != "" && c.Location[0].GuildID != guildID {
+			continue
+		}
 		str := fmt.Sprintf("> Coordinator: <@%s>  [%s](%s/%s/%s)\n", c.CreatorID[0], c.CoopID, "https://eicoop-carpet.netlify.app", c.ContractID, c.CoopID)
 		for _, loc := range c.Location {
 			str += fmt.Sprintf("> *%s*\t%s\n", loc.GuildName, loc.ChannelMention)
