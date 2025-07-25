@@ -168,6 +168,10 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 		flags = 0
 	}
 
+	if cache.page < 0 || cache.page >= cache.pages {
+		cache.page = 0
+	}
+
 	key := cache.names[cache.page]
 
 	field := cache.fields[key]
