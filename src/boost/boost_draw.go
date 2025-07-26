@@ -469,7 +469,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 							}
 							boostingString += fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
 						}
-						builder.WriteString(fmt.Sprintf("%s ~~%s~~  %s %s%s%s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server))
+						builder.WriteString(fmt.Sprintf("%s ~~%s~~  %s %s%s%s%s%s\n", prefix, name, sortRate, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server))
 					}
 				}
 			}
