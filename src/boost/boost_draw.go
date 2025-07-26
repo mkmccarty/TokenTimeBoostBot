@@ -303,12 +303,21 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 			for i, element := range contract.Order[0:start] {
 				var b, ok = contract.Boosters[element]
 				if ok {
+					// Additions for contract state value display
+					sortRate := ""
+					if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderELR {
+						sortRate = fmt.Sprintf(" **ELR:%2.3f** ", min(b.ArtifactSet.LayRate, b.ArtifactSet.ShipRate))
+					}
+					if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.BoostOrder == ContractOrderTVal {
+						sortRate = fmt.Sprintf(" *∆:%2.3f* ", b.TokenValue)
+					}
+
 					sinkIcon := getSinkIcon(contract, b)
 
 					if b.BoostState == BoostStateBoosted {
-						earlyList.WriteString(fmt.Sprintf("~~%s~~%s ", b.Mention, sinkIcon))
+						earlyList.WriteString(fmt.Sprintf("~~%s~~%s%s ", b.Mention, sortRate, sinkIcon))
 					} else {
-						earlyList.WriteString(fmt.Sprintf("%s(%d)%s ", b.Mention, b.TokensWanted, sinkIcon))
+						earlyList.WriteString(fmt.Sprintf("%s(%d)%s%s ", b.Mention, b.TokensWanted, sortRate, sinkIcon))
 					}
 					if i < start-1 {
 						earlyList.WriteString(", ")
@@ -329,12 +338,21 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 			for i, element := range contract.Order[end:len(contract.Order)] {
 				var b, ok = contract.Boosters[element]
 				if ok {
+					// Additions for contract state value display
+					sortRate := ""
+					if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderELR {
+						sortRate = fmt.Sprintf(" **ELR:%2.3f** ", min(b.ArtifactSet.LayRate, b.ArtifactSet.ShipRate))
+					}
+					if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.BoostOrder == ContractOrderTVal {
+						sortRate = fmt.Sprintf(" *∆:%2.3f* ", b.TokenValue)
+					}
+
 					sinkIcon := getSinkIcon(contract, b)
 
 					if b.BoostState == BoostStateBoosted {
-						lateList.WriteString(fmt.Sprintf("~~%s~~%s ", b.Mention, sinkIcon))
+						lateList.WriteString(fmt.Sprintf("~~%s~~%s%s ", b.Mention, sortRate, sinkIcon))
 					} else {
-						lateList.WriteString(fmt.Sprintf("%s(%d)%s ", b.Mention, b.TokensWanted, sinkIcon))
+						lateList.WriteString(fmt.Sprintf("%s(%d)%s%s ", b.Mention, b.TokensWanted, sortRate, sinkIcon))
 					}
 					if (end + i + 1) < len(contract.Boosters) {
 						lateList.WriteString(", ")
@@ -423,7 +441,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 							}
 							boostingString += fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
 						}
-						builder.WriteString(fmt.Sprintf("%s ~~%s~~  %s %s%s%s%s\n", prefix, name, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server))
+						builder.WriteString(fmt.Sprintf("%s ~~%s~~  %s %s%s%s%s%s\n", prefix, name, sortRate, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server))
 					}
 
 				} else {
