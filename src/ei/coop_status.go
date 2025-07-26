@@ -67,7 +67,7 @@ func GetCoopStatus(contractID string, coopID string) (*ContractCoopStatusRespons
 
 		timestamp = fileTimestamp
 		dataTimestampStr = fmt.Sprintf("\nUsing cached data from file %s", fname)
-		dataTimestampStr += fmt.Sprintf(", timestamp: %s", fileTimestamp.Format("2006-01-02 15:04:05"))
+		dataTimestampStr += fmt.Sprintf("\n%s <t:%d:f>", fileTimestamp.Format("2006-01-02 15:04:05"), fileTimestamp.Unix())
 
 	} else if cachedData != nil && time.Now().Before(cachedData.expirationTimestamp) {
 		protoData = cachedData.protoData

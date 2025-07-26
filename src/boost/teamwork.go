@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"math"
+	"os"
 	"slices"
 	"sort"
 	"strings"
@@ -247,6 +248,28 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	if strings.HasPrefix(coopID, "?") {
 		coopID = strings.TrimPrefix(coopID, "?")
 		extraInfo = true
+	}
+
+	if strings.HasPrefix(coopID, "**") {
+		coopID = strings.TrimPrefix(coopID, "**")
+		// Want to get a list of the filenames within the ttbb-data directory
+		files, err := os.ReadDir("ttbb-data")
+		if err != nil {
+			return "Failed to read ttbb-data directory.", nil, ""
+		}
+		var fileNames []string
+		for _, file := range files {
+			if file.IsDir() {
+				continue
+			}
+			fileName := file.Name()
+			// Check if filename contains the coopID pattern
+			if strings.Contains(fileName, contractID+"-"+coopID+"-") {
+				fileNames = append(fileNames, fileName)
+			}
+		}
+		// Return the list of matching filenames
+		return fmt.Sprintf("Filenames:\n%s", strings.Join(fileNames, "\n")), nil, ""
 	}
 
 	coopStatus, nowTime, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID)
@@ -952,7 +975,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		fmt.Printf("Total Delta ELR Sum: %f\n", deltaELRSum)
 		builder.WriteString(fmt.Sprintf("Total Delta ELR Sum: %f\n", deltaELRSum))
 		fmt.Printf("Min Alpha: %f\n", alpha)
-		builder.WriteString(fmt.Sprintf("Alpha: %f\n", alpha))
+		builder.WriteString(fmt.Sprintf("Min Alpha: %f\n", alpha))
 	}
 
 	// Create a table of Contract Scores for this user
