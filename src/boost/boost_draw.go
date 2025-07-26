@@ -438,8 +438,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 							habFull, _, _ := ei.GetBotEmoji("hab_full")
 							if b.RunChickensTime.IsZero() {
 								boostingString = fmt.Sprintf(" %s<t:%d:R> / ", diamond, b.EstRequestChickenRuns.Unix())
+							} else {
+								boostingString = fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
 							}
-							boostingString += fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
 						}
 						builder.WriteString(fmt.Sprintf("%s ~~%s~~  %s %s%s%s%s%s\n", prefix, name, sortRate, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server))
 					}
@@ -466,8 +467,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 							habFull, _, _ := ei.GetBotEmoji("hab_full")
 							if b.RunChickensTime.IsZero() {
 								boostingString = fmt.Sprintf(" %s<t:%d:R> / ", diamond, b.EstRequestChickenRuns.Unix())
+							} else {
+								boostingString = fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
 							}
-							boostingString += fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
 						}
 						builder.WriteString(fmt.Sprintf("%s ~~%s~~  %s %s%s%s%s%s\n", prefix, name, sortRate, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server))
 					}
