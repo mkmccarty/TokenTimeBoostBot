@@ -205,7 +205,8 @@ type LocationData struct {
 	GuildName         string
 	ChannelID         string // Contract Discord Channel
 	ChannelMention    string
-	ChannelPing       string
+	GuildContractRole discordgo.Role
+	RoleMention       string
 	ListMsgID         string   // Message ID for the Last Boost Order message
 	ReactionID        string   // Message ID for the reaction Order String
 	MessageIDs        []string // Array of message IDs for any contract message
@@ -375,6 +376,10 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 		if s != nil {
 			_ = s.ChannelMessageDelete(el.ChannelID, el.ListMsgID)
 			_ = s.ChannelMessageDelete(el.ChannelID, el.ReactionID)
+			err := s.GuildRoleDelete(el.GuildID, el.GuildContractRole.ID)
+			if err != nil {
+				log.Printf("Failed to delete role %s: %v", el.GuildContractRole.Name, err)
+			}
 		}
 	}
 	delete(Contracts, coopHash)
@@ -845,6 +850,12 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 				}
 				contract.Order = insert(contract.Order, index, b.UserID)
 			}
+			for _, el := range contract.Location {
+				if el.GuildID == guildID && b.UserID != b.Name && el.GuildContractRole.ID != "" {
+					_ = s.GuildMemberRoleAdd(guildID, b.UserID, el.GuildContractRole.ID)
+				}
+			}
+
 			contract.Order = removeDuplicates(contract.Order)
 			contract.OrderRevision++
 		}
@@ -1075,6 +1086,13 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 	if contract.BoostPosition != -1 {
 		if contract.State != ContractStateWaiting && contract.BoostPosition != len(contract.Order) && userID != contract.Order[contract.BoostPosition] {
 			currentBooster = contract.Order[contract.BoostPosition]
+		}
+	}
+
+	// Remove the user from the role
+	for _, el := range contract.Location {
+		if el.GuildID == guildID && el.GuildContractRole.ID != "" && contract.Boosters[userID].Name != userID {
+			_ = s.GuildMemberRoleRemove(guildID, userID, el.GuildContractRole.ID)
 		}
 	}
 
@@ -1428,10 +1446,10 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 						name = einame + contract.Boosters[contract.Order[contract.BoostPosition]].Mention
 					}
 
-					str = fmt.Sprintf(loc.ChannelPing+" send tokens to %s", name)
+					str = fmt.Sprintf(loc.RoleMention+" send tokens to %s", name)
 				} else {
 					if contract.Banker.CurrentBanker == "" {
-						str = loc.ChannelPing + " contract boosting complete. Hold your tokens for late joining farmers."
+						str = loc.RoleMention + " contract boosting complete. Hold your tokens for late joining farmers."
 					} else {
 						str = "Contract boosting complete. There may late joining farmers. "
 						if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {
@@ -1440,7 +1458,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 								einame += " " // Add a space to this
 							}
 							name := einame + contract.Boosters[contract.Banker.CurrentBanker].Mention
-							str = fmt.Sprintf(loc.ChannelPing+" send tokens to our volunteer sink **%s**", name)
+							str = fmt.Sprintf(loc.RoleMention+" send tokens to our volunteer sink **%s**", name)
 						}
 					}
 				}
@@ -1450,7 +1468,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			t1 := contract.EndTime
 			t2 := contract.StartTime
 			duration := t1.Sub(t2)
-			str = fmt.Sprintf(loc.ChannelPing+" contract boosting complete in %s ", duration.Round(time.Second))
+			str = fmt.Sprintf(loc.RoleMention+" contract boosting complete in %s ", duration.Round(time.Second))
 			if contract.Banker.CurrentBanker != "" {
 				var einame = farmerstate.GetEggIncName(contract.Banker.CurrentBanker)
 				if einame != "" {

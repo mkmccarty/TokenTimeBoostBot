@@ -51,6 +51,7 @@ const slashPrune string = "prune"
 const slashJoin string = "join-contract"
 const slashSetEggIncName string = "seteggincname"
 const slashBump string = "bump"
+const slashToggleContractPings string = "toggle-contract-pings"
 const slashContractSettings string = "contract-settings"
 const slashHelp string = "help"
 const slashSpeedrun string = "speedrun"
@@ -303,6 +304,10 @@ var (
 			Description: "Redraw the boost list to the timeline.",
 		},
 		{
+			Name:        slashToggleContractPings,
+			Description: "Toggle Boost Bot contract pings [sticky]",
+		},
+		{
 			Name:        slashHelp,
 			Description: "Help with Boost Bot commands.",
 		},
@@ -548,6 +553,9 @@ var (
 		},
 		slashBump: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleBumpCommand(s, i)
+		},
+		slashToggleContractPings: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleToggleContractPingsCommand(s, i)
 		},
 		slashContractSettings: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractSettingsCommand(s, i)

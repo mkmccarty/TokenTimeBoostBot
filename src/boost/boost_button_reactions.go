@@ -303,7 +303,7 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 		}
 		go func() {
 			for _, location := range contract.Location {
-				str := fmt.Sprintf("%s **%s** is ready for chicken runs, check for incoming trucks before visiting.", location.ChannelPing, contract.Boosters[userID].Mention)
+				str := fmt.Sprintf("%s **%s** is ready for chicken runs, check for incoming trucks before visiting.", location.RoleMention, contract.Boosters[userID].Mention)
 				var data discordgo.MessageSend
 				data.Content = str
 				data.Embeds = []*discordgo.MessageEmbed{

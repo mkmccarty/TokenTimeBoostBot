@@ -395,7 +395,7 @@ func HandleChangePingRoleCommand(s *discordgo.Session, i *discordgo.InteractionC
 	// No error string means we are good to go
 	if str == "" {
 		// Default to @here when there is no parameter
-		newRole := "@here"
+		//newRole := "@here"
 
 		options := i.ApplicationCommandData().Options
 		optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -403,23 +403,25 @@ func HandleChangePingRoleCommand(s *discordgo.Session, i *discordgo.InteractionC
 			optionMap[opt.Name] = opt
 		}
 
-		if opt, ok := optionMap["ping-role"]; ok {
-			role := opt.RoleValue(nil, "")
-			newRole = role.Mention()
-		}
-
-		for _, loc := range contract.Location {
-			if loc.ChannelID == i.ChannelID {
-				if loc.ChannelPing == newRole {
-					str = "Ping role already set to " + newRole
-					break
-				}
-				loc.ChannelPing = newRole
-				str = "Ping role changed to " + newRole
-				_, _ = s.ChannelMessageSend(i.ChannelID, str)
-				break
+		/*
+			if opt, ok := optionMap["ping-role"]; ok {
+				role := opt.RoleValue(nil, "")
+				newRole = role.Mention()
 			}
-		}
+
+				for _, loc := range contract.Location {
+					if loc.ChannelID == i.ChannelID {
+						if loc.ChannelPing == newRole {
+							str = "Ping role already set to " + newRole
+							break
+						}
+						loc.ChannelPing = newRole
+						str = "Ping role changed to " + newRole
+						_, _ = s.ChannelMessageSend(i.ChannelID, str)
+						break
+					}
+				}
+		*/
 	}
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,

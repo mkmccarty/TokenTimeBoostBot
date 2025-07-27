@@ -353,6 +353,47 @@ func HandleBumpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 }
 
+// HandleToggleContractPingsCommand will handle the /toggle-contract-pings command
+func HandleToggleContractPingsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	str := "Contract not found"
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing request...",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+	userID := getInteractionUserID(i)
+	contract := FindContract(i.ChannelID)
+
+	userInContract := userInContract(contract, userID)
+	if contract != nil && userInContract {
+		value := farmerstate.GetMiscSettingFlag(userID, "SuppressContractPings")
+		value = !value
+		farmerstate.SetMiscSettingFlag(userID, "SuppressContractPings", value)
+		for _, loc := range contract.Location {
+			if loc.GuildID == i.GuildID {
+				if value {
+					str = fmt.Sprintf("Suppressing contract pings.\nRemoving you from this contract's %s role.", loc.GuildContractRole.Name)
+					_ = s.GuildMemberRoleRemove(i.GuildID, userID, loc.GuildContractRole.ID)
+				} else {
+					str = fmt.Sprintf("Enabling contract pings.\nAdding you to this contract's %s role.", loc.GuildContractRole.Name)
+					_ = s.GuildMemberRoleAdd(i.GuildID, userID, loc.GuildContractRole.ID)
+				}
+			}
+		}
+	} else {
+		str = "You are not in this contract."
+	}
+
+	_, _ = s.FollowupMessageCreate(i.Interaction, true,
+		&discordgo.WebhookParams{
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Content: str,
+		})
+
+}
+
 // HandleTokenListAutoComplete will handle the /token-remove autocomplete
 func HandleTokenListAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) (string, []*discordgo.ApplicationCommandOptionChoice) {
 	// User interacting with bot, is this first time ?
