@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -13,6 +15,50 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/moby/moby/pkg/namesgenerator"
 )
+
+var randomThingNames []string = []string{
+	// Farm Animals (50 names)
+	"Cow", "Pig", "Chicken", "Sheep", "Goat", "Duck", "Horse", "Donkey", "Turkey", "Goose",
+	"Rabbit", "Llama", "Alpaca", "Guinea Pig", "Yak", "Mule", "Calf", "Lamb", "Ewe", "Ram",
+	"Rooster", "Hen", "Drakes", "Gander", "Hog", "Bison", "Mare", "Stallion", "Foal", "Kid",
+	"Shoat", "Piglet", "Cygnet", "Gosling", "Duckling", "Poult", "Pullet", "Capon", "Gelding", "Filly",
+	"Colt", "Wether", "Boar", "Sow", "Gilt", "Barrow", "Steer", "Heifer", "Bull", "Dairy Cow",
+
+	// Farm Crops (50 names)
+	"Corn", "Wheat", "Rice", "Barley", "Oats", "Soybean", "Potato", "Tomato", "Carrot", "Onion",
+	"Lettuce", "Cabbage", "Broccoli", "Spinach", "Pea", "Bean", "Cucumber", "Pumpkin", "Squash", "Zucchini",
+	"Strawberry", "Blueberry", "Raspberry", "Apple", "Orange", "Grape", "Peach", "Pear", "Cherry", "Almond",
+	"Walnut", "Sunflower", "Canola", "Rye", "Sorghum", "Millet", "Lentil", "Chickpea", "Flax", "Quinoa",
+	"Asparagus", "Beet", "Celery", "Kale", "Radish", "Sweet Potato", "Turnip", "Artichoke", "Bell Pepper", "Eggplant",
+
+	// Flowers (50 names)
+	"Rose", "Tulip", "Sunflower", "Lily", "Daisy", "Orchid", "Carnation", "Chrysanthemum", "Daffodil", "Iris",
+	"Peony", "Lavender", "Poppy", "Violet", "Begonia", "Geranium", "Petunia", "Zinnia", "Marigold", "Snapdragon",
+	"Hydrangea", "Freesia", "Gladiolus", "Hibiscus", "Jasmine", "Lotus", "Magnolia", "Pansy", "Primrose", "Ranunculus",
+	"Sweet Pea", "Thistle", "Water Lily", "Amaryllis", "Anemone", "Aster", "Crocus", "Dahlia", "Delphinium", "Foxglove",
+	"Gardenia", "Honeysuckle", "Impatiens", "Lilac", "Morning Glory", "Nasturtium", "Oleander", "Periwinkle", "Phlox", "Rhododendron",
+
+	// Mushroom Plants (50 names)
+	"Portobello", "Shiitake", "Button Mushroom", "Cremini", "Oyster Mushroom", "Chanterelle", "Morel", "Truffle", "Enoki", "Maitake",
+	"Lion's Mane", "Reishi", "Turkey Tail", "Puffball", "Boletus", "King Trumpet", "Shiro", "Porcini", "Amanita", "Psilocybe",
+	"Tinder Fungus", "Wood Ear", "Artist's Conk", "Cinnabar Polypore", "Coral Fungi", "Earthstar", "Fairy Ring", "Fly Agaric", "Ink Cap", "Jack-o'-lantern",
+	"Lawyer's Wig", "Parasol", "Shaggy Mane", "Death Cap", "Destroying Angel", "Indigo Milk Cap", "Veiled Lady", "Stinkhorn", "Paddy Straw", "Blewit",
+	"Bay Bolete", "Chicken of the Woods", "Giant Puffball", "Honey Fungus", "Jelly Fungus", "Velvet Shank", "Winter Fungus", "Bear's Head Tooth", "Scaly Hedgehog", "Elm Oyster",
+
+	// Trees (50 names)
+	"Oak", "Maple", "Pine", "Birch", "Willow", "Elm", "Aspen", "Cedar", "Spruce", "Fir",
+	"Redwood", "Sequoia", "Cypress", "Cherry Blossom", "Dogwood", "Hawthorn", "Juniper", "Larch", "Poplar", "Sycamore",
+	"Ash", "Beech", "Chestnut", "Ginkgo", "Linden", "Magnolia Tree", "Palm", "Pecan", "Sassafras", "Sweetgum",
+	"Walnut Tree", "White Pine", "Red Maple", "Silver Maple", "Sugar Maple", "Eastern White Pine", "Scots Pine", "Norway Spruce", "Blue Spruce", "Bald Cypress",
+	"Weeping Willow", "Paper Birch", "River Birch", "American Elm", "Leyland Cypress", "Dawn Redwood", "Bristlecone Pine", "Quaking Aspen", "Black Willow", "Box Elder",
+
+	// Zoo Animals (50 names)
+	"Lion", "Tiger", "Elephant", "Giraffe", "Zebra", "Monkey", "Bear", "Kangaroo", "Panda", "Penguin",
+	"Rhino", "Hippo", "Wolf", "Fox", "Gorilla", "Chimpanzee", "Leopard", "Cheetah", "Crocodile", "Alligator",
+	"Snake", "Eagle", "Owl", "Flamingo", "Ostrich", "Camel", "Koala", "Sloth", "Meerkat", "Fennec Fox",
+	"Red Panda", "Tapir", "Lemur", "Puma", "Jaguar", "Cougar", "Bison", "Warthog", "Orangutan", "Gibbon",
+	"Baboon", "Mandrill", "Anteater", "Armadillo", "Okapi", "Platypus", "Komodo Dragon", "Gila Monster", "Kookaburra", "Toucan",
+}
 
 // GetSlashContractCommand returns the slash command for creating a contract
 func GetSlashContractCommand(cmd string) *discordgo.ApplicationCommand {
@@ -75,12 +121,6 @@ func GetSlashContractCommand(cmd string) *discordgo.ApplicationCommand {
 				Required:    false,
 			},
 			{
-				Type:        discordgo.ApplicationCommandOptionRole,
-				Name:        "ping-role",
-				Description: "Role to use to ping for this contract. Default is @here.",
-				Required:    false,
-			},
-			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "make-thread",
 				Description: "Create a thread for this contract? (default: true)",
@@ -130,7 +170,6 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	var boostOrder = ContractOrderSignup
 	var coopSize = 0
 	var ChannelID = i.ChannelID
-	var pingRole = "@here"
 	var playStyle = ContractPlaystyleACOCooperative
 	makeThread := true // Default is to always make a thread
 
@@ -145,10 +184,6 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 	if opt, ok := optionMap["coop-size"]; ok {
 		coopSize = int(opt.IntValue())
-	}
-	if opt, ok := optionMap["ping-role"]; ok {
-		role := opt.RoleValue(nil, "")
-		pingRole = role.Mention()
 	}
 	if opt, ok := optionMap["boost-order"]; ok {
 		boostOrder = int(opt.IntValue())
@@ -241,7 +276,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 
 	mutex.Lock()
-	contract, err := CreateContract(s, contractID, coopID, playStyle, coopSize, boostOrder, i.GuildID, ChannelID, getInteractionUserID(i), pingRole)
+	contract, err := CreateContract(s, contractID, coopID, playStyle, coopSize, boostOrder, i.GuildID, ChannelID, getInteractionUserID(i))
 	mutex.Unlock()
 
 	if err != nil {
@@ -320,8 +355,73 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 }
 
+var nameMutex sync.Mutex
+
+// Return a new contract role for the given guild
+func getContractRole(s *discordgo.Session, guildID string, contract *Contract) error {
+	var role *discordgo.Role
+	var err error
+	var teamName string
+	nameMutex.Lock()
+	defer nameMutex.Unlock()
+
+	roles, err := s.GuildRoles(guildID)
+	if err != nil {
+		return err
+	}
+	// remove anything from roles where the name does not start with "Team"
+	var teamRoles []*discordgo.Role
+	for _, role := range roles {
+		if strings.HasPrefix(role.Name, "Team") {
+			if strings.HasPrefix(role.Name, "Team") {
+				teamRoles = append(teamRoles, role)
+			}
+		}
+	}
+
+	// create a slice of existing role names without "Team" prefix
+	teamRoleNames := make(map[string]bool)
+	for _, role := range teamRoles {
+		name := strings.TrimPrefix(role.Name, "Team")
+		name = strings.Replace(name, " ", "", 1)
+		teamRoleNames[name] = true
+	}
+
+	// Lets find a team role that matches the contract name, use a random hunt
+	// want a while look that finds a name from randomThingNames which doesn't exist in teamRoleNames
+	// want a huge random number mod len(randomThingNames) to get a random index and try that name
+	// If we find an unused name, we will create a new role
+	for {
+		name := randomThingNames[rand.Intn(len(randomThingNames))]
+		if !teamRoleNames[name] {
+			// Found an unused name
+			teamName = name
+			break
+		}
+	}
+
+	mentionable := true
+	role, err = s.GuildRoleCreate(guildID, &discordgo.RoleParams{
+		Name:        fmt.Sprintf("Team %s", teamName),
+		Mentionable: &mentionable,
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, loc := range contract.Location {
+		if loc.GuildID == guildID {
+
+			loc.GuildContractRole = *role
+			return nil
+		}
+	}
+
+	return errors.New("no contract role found")
+}
+
 // CreateContract creates a new contract or joins an existing contract if run from a different location
-func CreateContract(s *discordgo.Session, contractID string, coopID string, playStyle int, coopSize int, BoostOrder int, guildID string, channelID string, userID string, pingRole string) (*Contract, error) {
+func CreateContract(s *discordgo.Session, contractID string, coopID string, playStyle int, coopSize int, BoostOrder int, guildID string, channelID string, userID string) (*Contract, error) {
 	// When creating contracts, we can make sure to clean up and archived ones
 	// Just in case a contract was immediately recreated
 	for _, c := range Contracts {
@@ -348,18 +448,19 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 		}
 	}
 
+	// Lets find a ping role to use
+
 	loc := new(LocationData)
 	loc.GuildID = guildID
 	loc.ChannelID = channelID
 	var g, gerr = s.Guild(guildID)
 	if gerr == nil {
 		loc.GuildName = g.Name
-
 	}
+
 	var c, cerr = s.Channel(channelID)
 	if cerr == nil {
 		loc.ChannelMention = c.Mention()
-		loc.ChannelPing = pingRole
 	}
 	loc.ListMsgID = ""
 	loc.ReactionID = ""
@@ -375,6 +476,16 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	contract.Location = append(contract.Location, loc)
 	contract.ContractHash = ContractHash
 	//	contract.UseInteractionButtons = config.GetTestMode() // Feature under test
+	err := getContractRole(s, guildID, contract)
+	for _, loc := range contract.Location {
+		if loc.GuildID == guildID {
+			if err == nil {
+				loc.RoleMention = loc.GuildContractRole.Mention()
+			} else {
+				loc.RoleMention = "@here"
+			}
+		}
+	}
 
 	contract.Style = ContractStyleFastrun
 
