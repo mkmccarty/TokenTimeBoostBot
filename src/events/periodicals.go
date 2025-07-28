@@ -16,6 +16,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"google.golang.org/protobuf/proto"
@@ -90,6 +91,16 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	newGG := 1.0
 	newUltraGG := 1.0
 	var newEventEndGG time.Time
+
+	// I'm retrieving c.TeamNames but want to cache those results in a separate map that I can save to disk
+	teamRoleMap := make(map[string][]string)
+	currentTeamRoleMap := make(map[string][]string)
+
+	// read this from disk if it exists
+	loadedRoles, err := loadRoleNames()
+	if err == nil {
+		teamRoleMap = loadedRoles
+	}
 
 	for _, event := range periodicalsResponse.GetEvents().GetEvents() {
 		var e ei.EggEvent
@@ -260,9 +271,19 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 			log.Print("New Original contract: ", c.ID)
 		}
 		bottools.GenerateBanner(c.ID, c.EggName, c.Name)
+		if len(teamRoleMap[c.ID]) == 0 {
+			c.TeamNames = notok.GetContractTeamNames(c.Description, 30)
+			currentTeamRoleMap[c.ID] = c.TeamNames
+		} else {
+			c.TeamNames = teamRoleMap[c.ID]
+			currentTeamRoleMap[c.ID] = teamRoleMap[c.ID]
+		}
 		ei.EggIncContractsAll[c.ID] = c
 		newContract = append(newContract, c)
 	}
+
+	// Replace what we have with only a current list of names
+	saveRoleNames(currentTeamRoleMap)
 
 	// Replace all new contracts
 	if len(newContract) > 0 {

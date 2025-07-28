@@ -227,6 +227,28 @@ func getStringFromGoogleGemini(text string) (string, error) {
 	return printResponse(resp, false), nil
 }
 
+// GetContractTeamNames returns a list of team names for a given contract prompt.
+func GetContractTeamNames(prompt string, quantity int) []string {
+	if config.GoogleAPIKey == "" {
+		return nil
+	}
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "My Egg Inc contract today wants \"%s\". Return a list of %d team names in a comma separated list with no other context.", prompt, quantity)
+
+	str, err := getStringFromGoogleGemini(builder.String())
+	if err != nil {
+		return nil
+	}
+
+	// Want to split the string result, trim whitespace for each split string, and remove any empty strings
+	strArray := strings.Split(str, ",")
+	for i, s := range strArray {
+		strArray[i] = strings.TrimSpace(s)
+	}
+	return strArray
+
+}
+
 func wishGemini(mention string, text string, desc string) (string, error) {
 	var builder strings.Builder
 	if !strings.HasPrefix(text, "!!") {

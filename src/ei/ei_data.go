@@ -179,6 +179,7 @@ type EggIncContract struct {
 	ExpirationTime            time.Time
 	ContractVersion           int // 1 = old, 2 = new
 	Grade                     []ContractGrade
+	TeamNames                 []string // Names of the teams in the contract
 }
 
 // EggIncContracts holds a list of all contracts, newest is last

@@ -31,26 +31,28 @@ var randomThingNames []string = []string{
 	"Walnut", "Sunflower", "Canola", "Rye", "Sorghum", "Millet", "Lentil", "Chickpea", "Flax", "Quinoa",
 	"Asparagus", "Beet", "Celery", "Kale", "Radish", "Sweet Potato", "Turnip", "Artichoke", "Bell Pepper", "Eggplant",
 
-	// Flowers (50 names)
+	// Flowers (51 names)
 	"Rose", "Tulip", "Sunflower", "Lily", "Daisy", "Orchid", "Carnation", "Chrysanthemum", "Daffodil", "Iris",
 	"Peony", "Lavender", "Poppy", "Violet", "Begonia", "Geranium", "Petunia", "Zinnia", "Marigold", "Snapdragon",
 	"Hydrangea", "Freesia", "Gladiolus", "Hibiscus", "Jasmine", "Lotus", "Magnolia", "Pansy", "Primrose", "Ranunculus",
 	"Sweet Pea", "Thistle", "Water Lily", "Amaryllis", "Anemone", "Aster", "Crocus", "Dahlia", "Delphinium", "Foxglove",
 	"Gardenia", "Honeysuckle", "Impatiens", "Lilac", "Morning Glory", "Nasturtium", "Oleander", "Periwinkle", "Phlox", "Rhododendron",
+	"Bluebonnet",
 
-	// Mushroom Plants (50 names)
+	// Mushroom Plants (49 names)
 	"Portobello", "Shiitake", "Button Mushroom", "Cremini", "Oyster Mushroom", "Chanterelle", "Morel", "Truffle", "Enoki", "Maitake",
 	"Lion's Mane", "Reishi", "Turkey Tail", "Puffball", "Boletus", "King Trumpet", "Shiro", "Porcini", "Amanita", "Psilocybe",
 	"Tinder Fungus", "Wood Ear", "Artist's Conk", "Cinnabar Polypore", "Coral Fungi", "Earthstar", "Fairy Ring", "Fly Agaric", "Ink Cap", "Jack-o'-lantern",
-	"Lawyer's Wig", "Parasol", "Shaggy Mane", "Death Cap", "Destroying Angel", "Indigo Milk Cap", "Veiled Lady", "Stinkhorn", "Paddy Straw", "Blewit",
+	"Lawyer's Wig", "Parasol", "Shaggy Mane", "Death Cap", "Destroying Angel", "Indigo Milk Cap", "Veiled Lady", "Paddy Straw", "Blewit",
 	"Bay Bolete", "Chicken of the Woods", "Giant Puffball", "Honey Fungus", "Jelly Fungus", "Velvet Shank", "Winter Fungus", "Bear's Head Tooth", "Scaly Hedgehog", "Elm Oyster",
 
-	// Trees (50 names)
+	// Trees (60 names)
 	"Oak", "Maple", "Pine", "Birch", "Willow", "Elm", "Aspen", "Cedar", "Spruce", "Fir",
 	"Redwood", "Sequoia", "Cypress", "Cherry Blossom", "Dogwood", "Hawthorn", "Juniper", "Larch", "Poplar", "Sycamore",
 	"Ash", "Beech", "Chestnut", "Ginkgo", "Linden", "Magnolia Tree", "Palm", "Pecan", "Sassafras", "Sweetgum",
 	"Walnut Tree", "White Pine", "Red Maple", "Silver Maple", "Sugar Maple", "Eastern White Pine", "Scots Pine", "Norway Spruce", "Blue Spruce", "Bald Cypress",
 	"Weeping Willow", "Paper Birch", "River Birch", "American Elm", "Leyland Cypress", "Dawn Redwood", "Bristlecone Pine", "Quaking Aspen", "Black Willow", "Box Elder",
+	"Noble Fir", "Douglas Fir", "Western Red Cedar", "Eastern Hemlock", "Black Cherry", "Black Locust", "Honey Locust", "Catalpa", "Tulip Tree", "Redbud",
 
 	// Zoo Animals (50 names)
 	"Lion", "Tiger", "Elephant", "Giraffe", "Zebra", "Monkey", "Bear", "Kangaroo", "Panda", "Penguin",
@@ -66,8 +68,11 @@ var randomThingNames []string = []string{
 	"Cyclops", "Medusa", "Gorgon", "Harpy", "Siren", "Dullahan", "Kelpie", "Selkie", "Roc", "Thunderbird",
 	"Quetzalcoatl", "Jormungandr", "Fenrir", "Sleipnir", "Djinn", "Ifrit", "Salamander", "Undine", "Sylph", "Gnome",
 
-	// Admin Choice Names (1 name)
+	// Admin Choice Names (6 names)
 	"TBone Alt",
+	"Rumpus Mugwumpus", "Giga What?", "bussin fr fr no cap",
+	"Aliens among us", "Polo Locos",
+	"Toe Socks", "Meme Stock",
 }
 
 // GetSlashContractCommand returns the slash command for creating a contract
@@ -379,40 +384,52 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 	if err != nil {
 		return err
 	}
-	// remove anything from roles where the name does not start with "Team"
-	var teamRoles []*discordgo.Role
-	for _, role := range roles {
-		if strings.HasPrefix(role.Name, "Team") {
-			if strings.HasPrefix(role.Name, "Team") {
-				teamRoles = append(teamRoles, role)
+
+	roleNames := randomThingNames
+
+	for _, c := range ei.EggIncContracts {
+		if c.ID == contract.ContractID {
+			if len(c.TeamNames) > 0 {
+				roleNames = c.TeamNames
 			}
+			break
 		}
 	}
 
-	// create a slice of existing role names without "Team" prefix
-	teamRoleNames := make(map[string]bool)
-	for _, role := range teamRoles {
-		name := strings.TrimPrefix(role.Name, "Team")
-		name = strings.Replace(name, " ", "", 1)
-		teamRoleNames[name] = true
+	// remove anything from roles where the name does not start with "Team"
+	var existingRoles []string
+	for _, role := range roles {
+		//if strings.HasPrefix(role.Name, "Team") {
+		//if strings.HasPrefix(role.Name, "Team") {
+		existingRoles = append(existingRoles, role.Name)
+		//}
+		//}
 	}
 
 	// Lets find a team role that matches the contract name, use a random hunt
 	// want a while look that finds a name from randomThingNames which doesn't exist in teamRoleNames
 	// want a huge random number mod len(randomThingNames) to get a random index and try that name
 	// If we find an unused name, we will create a new role
+	tryCount := 0
+	prefix := ""
+
 	for {
-		name := randomThingNames[rand.Intn(len(randomThingNames))]
-		if !teamRoleNames[name] {
+		name := roleNames[rand.Intn(len(roleNames))]
+		if !slices.Contains(existingRoles, name) {
 			// Found an unused name
 			teamName = name
 			break
+		}
+		tryCount++
+		if tryCount == 18 && len(roleNames) == 30 {
+			roleNames = randomThingNames // Reset the names to the fallback list
+			prefix = "Team "
 		}
 	}
 
 	mentionable := true
 	role, err = s.GuildRoleCreate(guildID, &discordgo.RoleParams{
-		Name:        fmt.Sprintf("Team %s", teamName),
+		Name:        fmt.Sprintf("%s%s", prefix, teamName),
 		Mentionable: &mentionable,
 	})
 	if err != nil {
@@ -485,6 +502,8 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	contract = new(Contract)
 	contract.Location = append(contract.Location, loc)
 	contract.ContractHash = ContractHash
+	contract.ContractID = contractID
+	contract.CoopID = coopID
 	//	contract.UseInteractionButtons = config.GetTestMode() // Feature under test
 	err := getContractRole(s, guildID, contract)
 	for _, loc := range contract.Location {
