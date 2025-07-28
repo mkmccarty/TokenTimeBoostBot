@@ -59,3 +59,22 @@ func LoadCustomEggData() (map[string]*ei.EggIncCustomEgg, error) {
 
 	return c, nil
 }
+
+func saveRoleNames(data map[string][]string) {
+	b, _ := json.Marshal(data)
+	_ = dataStore.Write("ei-roles", b)
+}
+
+func loadRoleNames() (map[string][]string, error) {
+	var data map[string][]string
+	input, err := dataStore.Read("ei-roles")
+	if err != nil {
+		return data, err
+	}
+	err = json.Unmarshal(input, &data)
+	if err != nil {
+		return data, err
+	}
+
+	return data, nil
+}
