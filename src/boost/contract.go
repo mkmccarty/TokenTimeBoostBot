@@ -65,6 +65,9 @@ var randomThingNames []string = []string{
 	"Banshee", "Wendigo", "Valkyrie", "Leviathan", "Behemoth", "Manticore", "Cockatrice", "Wyvern", "Pegasus", "Unicorn",
 	"Cyclops", "Medusa", "Gorgon", "Harpy", "Siren", "Dullahan", "Kelpie", "Selkie", "Roc", "Thunderbird",
 	"Quetzalcoatl", "Jormungandr", "Fenrir", "Sleipnir", "Djinn", "Ifrit", "Salamander", "Undine", "Sylph", "Gnome",
+
+	// Admin Choice Names (1 name)
+	"TBone Alt",
 }
 
 // GetSlashContractCommand returns the slash command for creating a contract
