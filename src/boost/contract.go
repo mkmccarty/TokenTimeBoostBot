@@ -58,6 +58,13 @@ var randomThingNames []string = []string{
 	"Snake", "Eagle", "Owl", "Flamingo", "Ostrich", "Camel", "Koala", "Sloth", "Meerkat", "Fennec Fox",
 	"Red Panda", "Tapir", "Lemur", "Puma", "Jaguar", "Cougar", "Bison", "Warthog", "Orangutan", "Gibbon",
 	"Baboon", "Mandrill", "Anteater", "Armadillo", "Okapi", "Platypus", "Komodo Dragon", "Gila Monster", "Kookaburra", "Toucan",
+
+	// Mythical Monsters & Legendary Creatures (50 names)
+	"Dragon", "Hydra", "Phoenix", "Griffin", "Kraken", "Chimera", "Basilisk", "Sphinx", "Minotaur", "Cerberus",
+	"Loch Ness Monster", "Sasquatch", "Bigfoot", "Godzilla", "King Kong", "Mothman", "Chupacabra", "Jersey Devil", "Yeti", "Abominable Snowman",
+	"Banshee", "Wendigo", "Valkyrie", "Leviathan", "Behemoth", "Manticore", "Cockatrice", "Wyvern", "Pegasus", "Unicorn",
+	"Cyclops", "Medusa", "Gorgon", "Harpy", "Siren", "Dullahan", "Kelpie", "Selkie", "Roc", "Thunderbird",
+	"Quetzalcoatl", "Jormungandr", "Fenrir", "Sleipnir", "Djinn", "Ifrit", "Salamander", "Undine", "Sylph", "Gnome",
 }
 
 // GetSlashContractCommand returns the slash command for creating a contract
