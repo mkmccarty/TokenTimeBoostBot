@@ -743,6 +743,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						productionScheduleParamsArray = append(productionScheduleParamsArray, params)
 
 						if err == nil {
+							maxTeamwork.WriteString(fmt.Sprintf("\n%s: <t:%d:f>\n", "Switch time ", switchTimestamp))
 							maxTeamwork.WriteString(fmt.Sprintf("%s: <t:%d:f>\n", "Finish time with 1 player switch", finishTimestampWithSwitch))
 							if extraInfo {
 								siabEndtimes = append(siabEndtimes, finishTimestampWithSwitch)
