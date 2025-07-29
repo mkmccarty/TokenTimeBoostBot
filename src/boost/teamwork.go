@@ -253,7 +253,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	if strings.HasPrefix(coopID, "**") {
 		coopID = strings.TrimPrefix(coopID, "**")
 		// Want to get a list of the filenames within the ttbb-data directory
-		files, err := os.ReadDir("ttbb-data")
+		files, err := os.ReadDir("ttbb-data/pb")
 		if err != nil {
 			return "Failed to read ttbb-data directory.", nil, ""
 		}

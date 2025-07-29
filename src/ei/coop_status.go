@@ -50,7 +50,7 @@ func GetCoopStatus(contractID string, coopID string) (*ContractCoopStatusRespons
 	if strings.HasPrefix(coopID, "!!") {
 		basename := coopID[2:]
 		coopID = coopID[2:]
-		fname := fmt.Sprintf("ttbb-data/%s-%s.pb", contractID, basename)
+		fname := fmt.Sprintf("ttbb-data/pb/%s-%s.pb", contractID, basename)
 
 		// read the contents of filename into protoData
 		fileInfo, err := os.Stat(fname)
@@ -115,7 +115,12 @@ func GetCoopStatus(contractID string, coopID string) (*ContractCoopStatusRespons
 		eiDatas[cacheID] = &data
 
 		// Save protoData into a file
-		fileName := fmt.Sprintf("ttbb-data/%s-%s-%s.pb", contractID, coopID, timestamp.Format("20060102150405"))
+		fileName := fmt.Sprintf("ttbb-data/pb/%s-%s-%s.pb", contractID, coopID, timestamp.Format("20060102150405"))
+		// make sure the directory exists
+		if err := os.MkdirAll("ttbb-data/pb", 0755); err != nil {
+			log.Print(err)
+			return nil, timestamp, dataTimestampStr, err
+		}
 		err = os.WriteFile(fileName, []byte(protoData), 0644)
 		if err != nil {
 			log.Print(err)
