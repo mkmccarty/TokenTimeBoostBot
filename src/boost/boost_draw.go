@@ -121,6 +121,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	}
 
 	builder.WriteString(fmt.Sprintf("> Coordinator: <@%s>\n", contract.CreatorID[0]))
+	if contract.Location[0].GuildContractRole.ID != "" {
+		builder.WriteString(fmt.Sprintf("> Team Role: %s\n", contract.Location[0].RoleMention))
+	}
 	if contract.Style&ContractStyleFastrun != 0 && contract.Banker.PostSinkUserID != "" {
 		if contract.State != ContractStateSignup && contract.Boosters[contract.Banker.PostSinkUserID] != nil {
 			builder.WriteString(fmt.Sprintf("> Post Contract Sink: **%s**\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention))
