@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
@@ -38,6 +39,91 @@ func SlashAdminGetContractData(cmd string) *discordgo.ApplicationCommand {
 			},
 		},
 	}
+}
+
+// SlashAdminListRoles is the slash to info about bot roles
+func SlashAdminListRoles(cmd string) *discordgo.ApplicationCommand {
+	var adminPermission = int64(0)
+	return &discordgo.ApplicationCommand{
+		Name:                     cmd,
+		Description:              "Display contract role usage",
+		DefaultMemberPermissions: &adminPermission,
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "contract-id",
+				Description:  "Select a contract-id",
+				Required:     true,
+				Autocomplete: true,
+			},
+		},
+	}
+}
+
+// HandleAdminListRoles is the handler for the list roles command
+func HandleAdminListRoles(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	var contractID string
+	var builder strings.Builder
+	options := i.ApplicationCommandData().Options
+	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+	for _, opt := range options {
+		optionMap[opt.Name] = opt
+	}
+	if opt, ok := optionMap["contract-id"]; ok {
+		contractID = strings.TrimSpace(opt.StringValue())
+	}
+
+	var components []discordgo.MessageComponent
+
+	guildRoles, err := s.GuildRoles(i.GuildID)
+	if err != nil {
+		builder.WriteString("Error retrieving guild roles: " + err.Error())
+	} else {
+
+		for _, c := range ei.EggIncContracts {
+			if c.ID == contractID {
+				sortedContractRoles := make([]string, 0)
+				for _, role := range c.TeamNames {
+					sortedContractRoles = append(sortedContractRoles, role)
+				}
+				sort.Slice(sortedContractRoles, func(i, j int) bool {
+					return sortedContractRoles[i] < sortedContractRoles[j]
+				})
+				for _, role := range sortedContractRoles {
+					// if this role is in the guild roles, display it
+					name := role
+					for _, guildRole := range guildRoles {
+						if guildRole.Name == role {
+							name = guildRole.Mention()
+
+							// Lets find the running contract with this role
+							for _, c := range Contracts {
+								for _, loc := range c.Location {
+									if loc.RoleMention == guildRole.Mention() {
+										name += fmt.Sprintf(" in %s", loc.ChannelMention)
+									}
+								}
+							}
+							break
+						}
+					}
+					builder.WriteString(fmt.Sprintf("%s\n", name))
+				}
+			}
+		}
+	}
+
+	components = append(components, &discordgo.TextDisplay{
+		Content: builder.String(),
+	})
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
+			Components: components,
+		},
+	})
 }
 
 // HandleAdminContractFinish is called when the contract is complete
