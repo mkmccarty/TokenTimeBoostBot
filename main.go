@@ -36,6 +36,7 @@ const slashAdminContractFinish string = "admin-contract-finish"
 // const slashAdminBotSettings string = "admin-bot-settings"
 const slashReloadContracts string = "admin-reload-contracts"
 const slashAdminGetContractData string = "admin-get-contract-data"
+const slashAdminListRoles string = "list-roles"
 
 // Slash Command Constants
 const slashContract string = "contract"
@@ -166,6 +167,7 @@ var (
 			DefaultMemberPermissions: &adminPermission,
 		},
 		boost.SlashAdminGetContractData(slashAdminGetContractData),
+		boost.SlashAdminListRoles(slashAdminListRoles),
 	}
 
 	globalCommands = []*discordgo.ApplicationCommand{
@@ -328,6 +330,9 @@ var (
 		slashAdminGetContractData: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleCoopAutoComplete(s, i)
 		},
+		slashAdminListRoles: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleContractAutoComplete(s, i)
+		},
 		slashToken: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractAutoComplete(s, i)
 		},
@@ -455,6 +460,9 @@ var (
 		},
 		slashAdminGetContractData: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAdminGetContractData(s, i)
+		},
+		slashAdminListRoles: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleAdminListRoles(s, i)
 		},
 		// Slash Commands
 		slashArtifact: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
