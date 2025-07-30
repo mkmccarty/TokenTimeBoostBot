@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand/v2"
+	"slices"
 	"sort"
 	"strings"
 
@@ -84,9 +85,7 @@ func HandleAdminListRoles(s *discordgo.Session, i *discordgo.InteractionCreate) 
 			if c.ID == contractID {
 				sortedContractRoles := make([]string, 0)
 				sortedContractRoles = append(sortedContractRoles, c.TeamNames...)
-				sort.Slice(sortedContractRoles, func(i, j int) bool {
-					return sortedContractRoles[i] < sortedContractRoles[j]
-				})
+				slices.Sort(sortedContractRoles)
 				for _, role := range sortedContractRoles {
 					// if this role is in the guild roles, display it
 					name := role
