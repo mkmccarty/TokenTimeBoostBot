@@ -83,9 +83,7 @@ func HandleAdminListRoles(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		for _, c := range ei.EggIncContracts {
 			if c.ID == contractID {
 				sortedContractRoles := make([]string, 0)
-				for _, role := range c.TeamNames {
-					sortedContractRoles = append(sortedContractRoles, role)
-				}
+				sortedContractRoles = append(sortedContractRoles, c.TeamNames...)
 				sort.Slice(sortedContractRoles, func(i, j int) bool {
 					return sortedContractRoles[i] < sortedContractRoles[j]
 				})
