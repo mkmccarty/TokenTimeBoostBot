@@ -14,8 +14,12 @@ func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCr
 	// User interacting with bot, is this first time ?
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
 	for _, c := range ei.EggIncContracts {
+		ultra := ""
+		if c.Ultra {
+			ultra = " -ultra"
+		}
 		choice := discordgo.ApplicationCommandOptionChoice{
-			Name:  fmt.Sprintf("%s (%s)", c.Name, c.ID),
+			Name:  fmt.Sprintf("%s (%s)%s", c.Name, c.ID, ultra),
 			Value: c.ID,
 		}
 		choices = append(choices, &choice)
