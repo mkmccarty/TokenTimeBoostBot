@@ -189,12 +189,12 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 			b.TokensReceived += count
 			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: now, Quantity: count, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial, Boost: false})
 			contract.mutex.Unlock()
+			tval := bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
+			contract.mutex.Lock()
+			contract.Boosters[fromUserID].TokenValue += tval * float64(count)
+			contract.Boosters[b.UserID].TokenValue -= tval * float64(count)
+			contract.mutex.Unlock()
 			if contract.BoostOrder == ContractOrderTVal {
-				tval := bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
-				contract.mutex.Lock()
-				contract.Boosters[fromUserID].TokenValue += tval * float64(count)
-				contract.Boosters[b.UserID].TokenValue -= tval * float64(count)
-				contract.mutex.Unlock()
 				reorderBoosters(contract)
 			}
 			if contract.Style&ContractFlagDynamicTokens != 0 {
