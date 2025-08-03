@@ -399,17 +399,9 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 	// remove anything from roles where the name does not start with "Team"
 	var existingRoles []string
 	for _, role := range roles {
-		//if strings.HasPrefix(role.Name, "Team") {
-		//if strings.HasPrefix(role.Name, "Team") {
 		existingRoles = append(existingRoles, role.Name)
-		//}
-		//}
 	}
 
-	// Lets find a team role that matches the contract name, use a random hunt
-	// want a while look that finds a name from randomThingNames which doesn't exist in teamRoleNames
-	// want a huge random number mod len(randomThingNames) to get a random index and try that name
-	// If we find an unused name, we will create a new role
 	tryCount := 0
 	prefix := ""
 
@@ -785,11 +777,11 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 
 		contract.PlayStyle = ContractPlaystyleLeaderboard
 		redrawSignup = true
-		redrawSettings = true
+		//redrawSettings = true
 	} else if (contract.Style&ContractFlagCrt) == 0 && contract.PlayStyle == ContractPlaystyleLeaderboard {
 		contract.PlayStyle = ContractPlaystyleFastrun
 		redrawSignup = true
-		redrawSettings = true
+		//redrawSettings = true
 	}
 
 	if originalPlayStyle != contract.PlayStyle {
