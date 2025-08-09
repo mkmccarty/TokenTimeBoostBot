@@ -204,29 +204,33 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 	headerStr := "`%-12s %3s %3s %6s %3s`\n"
 	formatStr := "`%-12s %3d %3d %6.2f %3s`%s\n"
 	var builder strings.Builder
-	fmt.Fprintf(&builder, headerStr, "Name", "Snd", "Rcv", "TVal-∆", "🪙#")
+	if len(keys) == 0 {
+		fmt.Fprintf(&builder, "No tokens sent or received in this contract.\n")
+	} else {
+		fmt.Fprintf(&builder, headerStr, "Name", "Snd", "Rcv", "TVal-∆", "🪙#")
 
-	// Iterate through the sorted keys
-	for _, key := range keys {
-		name := key
-		var valueLog []bottools.FutureToken
-		// test if ultraUser[key] exists
-		ultra := false
-		if _, ok := ultraUser[key]; ok {
-			ultra = true
-		}
-		if isGG && ((ultra && ugg > ggThreshold) || (gg > ggThreshold)) {
-			valueLog = futureTokenLogGG
-		} else {
-			valueLog = futureTokenLog
-		}
+		// Iterate through the sorted keys
+		for _, key := range keys {
+			name := key
+			var valueLog []bottools.FutureToken
+			// test if ultraUser[key] exists
+			ultra := false
+			if _, ok := ultraUser[key]; ok {
+				ultra = true
+			}
+			if isGG && ((ultra && ugg > ggThreshold) || (gg > ggThreshold)) {
+				valueLog = futureTokenLogGG
+			} else {
+				valueLog = futureTokenLog
+			}
 
-		if len(name) > 12 {
-			name = name[:12]
-		}
-		tcount, ttime, _ := bottools.CalculateTcountTtime(tokenValue[key], tval, valueLog)
+			if len(name) > 12 {
+				name = name[:12]
+			}
+			tcount, ttime, _ := bottools.CalculateTcountTtime(tokenValue[key], tval, valueLog)
 
-		fmt.Fprintf(&builder, formatStr, name, tokenSent[key], tokensReceived[key], tokenValue[key], tcount, ttime)
+			fmt.Fprintf(&builder, formatStr, name, tokenSent[key], tokensReceived[key], tokenValue[key], tcount, ttime)
+		}
 	}
 	return builder.String()
 }
