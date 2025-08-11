@@ -154,7 +154,7 @@ func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	str := "Marking contract " + contractHash + " as finished."
-	err = finishContractByHash(contractHash)
+	err = finishContractByHash(s, contractHash)
 	if err != nil {
 		str = err.Error()
 	}
@@ -261,7 +261,7 @@ func getContractList(guildID string) (string, *discordgo.MessageSend, error) {
 }
 
 // finishContractByHash is called only when the contract is complete
-func finishContractByHash(contractHash string) error {
+func finishContractByHash(s *discordgo.Session, contractHash string) error {
 	var contract *Contract
 	for _, c := range Contracts {
 		if c.ContractHash == contractHash {
@@ -271,6 +271,14 @@ func finishContractByHash(contractHash string) error {
 	}
 	if contract == nil {
 		return errors.New(errorNoContract)
+	}
+
+	// Get rid of any roles
+	for _, loc := range contract.Location {
+		err := s.GuildRoleDelete(loc.GuildID, loc.GuildContractRole.ID)
+		if err != nil {
+			log.Println(err)
+		}
 	}
 
 	// Don't delete the final boost message
