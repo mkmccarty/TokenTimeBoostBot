@@ -413,7 +413,7 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 			break
 		}
 		tryCount++
-		if tryCount == 18 && len(roleNames) == 30 {
+		if tryCount == 28 && len(roleNames) == 30 {
 			roleNames = randomThingNames // Reset the names to the fallback list
 			prefix = "Team "
 		}

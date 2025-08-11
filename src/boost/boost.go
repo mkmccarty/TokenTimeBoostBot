@@ -1963,7 +1963,7 @@ func ArchiveContracts(s *discordgo.Session) {
 		}
 	}
 	for _, hash := range finishHash {
-		_ = finishContractByHash(hash)
+		_ = finishContractByHash(s, hash)
 	}
 
 	// clear finishHash
