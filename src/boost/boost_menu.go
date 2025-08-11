@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -179,6 +180,39 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
+	case "grange":
+		// Create a list of the grange members from contract.BoostList, with each line formatted as "MemberName (UserID)" and the join timestamp
+		var grangeMembers []string
+		// Create a slice of booster entries to sort
+		type boosterEntry struct {
+			userID  string
+			booster *Booster
+		}
 
+		var entries []boosterEntry
+		for userID, booster := range contract.Boosters {
+			entries = append(entries, boosterEntry{userID: userID, booster: booster})
+		}
+
+		// Sort by Register time
+		sort.Slice(entries, func(i, j int) bool {
+			return entries[i].booster.Register.Before(entries[j].booster.Register)
+		})
+
+		// Build the sorted list
+		for _, entry := range entries {
+			grangeMembers = append(grangeMembers, fmt.Sprintf("`%s` joined: <t:%d:T>", entry.booster.Nick, entry.booster.Register.Unix()))
+		}
+		var components []discordgo.MessageComponent
+		components = append(components, &discordgo.TextDisplay{
+			Content: fmt.Sprintf("# %s Grange Members\n%s", contract.Location[0].GuildContractRole.Name, strings.Join(grangeMembers, "\n")),
+		})
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
+				Components: components,
+			},
+		})
 	}
 }

@@ -561,6 +561,11 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 		Value: "xpost",
 		Emoji: &discordgo.ComponentEmoji{Name: "🖇️"},
 	})
+	menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+		Label: fmt.Sprintf("%s Grange", contract.Location[0].GuildContractRole.Name),
+		Value: "grange",
+		Emoji: &discordgo.ComponentEmoji{Name: "🧑‍🧑‍🧒‍🧒"},
+	})
 
 	/*
 		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
