@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
@@ -105,14 +106,15 @@ func getContractEstimateString(contractID string) string {
 		seasonalStr = fmt.Sprintf("Seasonal: %s %s\n", seasonEmote[seasonIcon], seasonYear)
 	}
 
-	str = fmt.Sprintf("%s%s **%s** [%s](%s)\n%s%d%s - %s/%dm - %s%d/%dm",
+	str = fmt.Sprintf("%s%s **%s** [%s](%s)\n%s%d%s - %s/%dm - %s%d/%dm - 📏%s",
 		ei.GetBotEmojiMarkdown("contract_grade_aaa"),
 		eggStr, c.Name, c.ID,
 		fmt.Sprintf("https://eicoop-carpet.netlify.app/?q=%s", c.ID),
 		seasonalStr,
 		c.MaxCoopSize, ei.GetBotEmojiMarkdown("icon_coop"),
 		tokenStr, c.MinutesPerToken,
-		runStr, c.ChickenRuns, c.ChickenRunCooldownMinutes)
+		runStr, c.ChickenRuns, c.ChickenRunCooldownMinutes,
+		bottools.FmtDuration(time.Duration(c.LengthInSeconds)*time.Second))
 	if c.ModifierSR != 1.0 && c.ModifierSR > 0.0 {
 		str += fmt.Sprintf(" / 🛻 %1.3gx", c.ModifierSR)
 	}
