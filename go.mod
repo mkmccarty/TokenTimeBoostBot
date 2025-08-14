@@ -1,6 +1,6 @@
 module github.com/mkmccarty/TokenTimeBoostBot
 
-go 1.24.6
+go 1.25
 
 require (
 	github.com/bwmarrin/discordgo v0.29.0
@@ -13,16 +13,16 @@ require (
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/pkg/errors v0.9.1
 	github.com/rs/xid v1.6.0
-	github.com/sashabaranov/go-openai v1.41.0
+	github.com/sashabaranov/go-openai v1.41.1
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	golang.org/x/image v0.30.0
 	golang.org/x/text v0.28.0
-	google.golang.org/api v0.246.0
+	google.golang.org/api v0.247.0
 	google.golang.org/protobuf v1.36.7
 )
 
 require (
-	cloud.google.com/go v0.121.4 // indirect
+	cloud.google.com/go v0.121.5 // indirect
 	cloud.google.com/go/ai v0.12.1 // indirect
 	cloud.google.com/go/auth v0.16.4 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
@@ -50,7 +50,7 @@ require (
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250811160224-6b04f9b4fc78 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250811160224-6b04f9b4fc78 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250811230008-5f3141c8851a // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250811230008-5f3141c8851a // indirect
 	google.golang.org/grpc v1.74.2 // indirect
 )
