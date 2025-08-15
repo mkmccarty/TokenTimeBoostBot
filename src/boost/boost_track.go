@@ -3,9 +3,10 @@ package boost
 import (
 	"time"
 
+	"ei"
+	"track"
+
 	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 )
 
 // GetSlashTokenEditCommand returns the slash command for token tracking removal

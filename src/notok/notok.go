@@ -11,10 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"boost"
+
+	"config"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/google/generative-ai-go/genai"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/rs/xid"
 	"github.com/sashabaranov/go-openai"
 	"google.golang.org/api/option"

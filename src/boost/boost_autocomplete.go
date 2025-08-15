@@ -5,8 +5,9 @@ import (
 	"sort"
 	"strings"
 
+	"ei"
+
 	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 // HandleContractAutoComplete will handle the contract auto complete of contract-id's

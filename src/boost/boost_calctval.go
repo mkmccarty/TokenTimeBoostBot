@@ -6,10 +6,11 @@ import (
 	"strings"
 	"time"
 
+	"bottools"
+	"ei"
+	"farmerstate"
+
 	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/xhit/go-str2duration/v2"
 )
 

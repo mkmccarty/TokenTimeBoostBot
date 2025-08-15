@@ -11,7 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"config"
+
 	"google.golang.org/protobuf/proto"
 )
 
