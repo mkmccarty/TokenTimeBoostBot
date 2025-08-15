@@ -6,9 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
-
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 )
 
 // HandleMenuReactions handles the menu reactions for the contract

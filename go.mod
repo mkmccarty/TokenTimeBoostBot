@@ -1,6 +1,6 @@
 module github.com/mkmccarty/TokenTimeBoostBot
 
-go 1.25.0
+go 1.25
 
 require (
 	github.com/bwmarrin/discordgo v0.29.0
@@ -9,7 +9,6 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/google/generative-ai-go v0.20.1
 	github.com/jasonlvhit/gocron v0.0.1
-	github.com/lazybytez/discordgo-mock v0.0.7
 	github.com/moby/moby v28.3.3+incompatible
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/pkg/errors v0.9.1
@@ -55,21 +54,3 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250811230008-5f3141c8851a // indirect
 	google.golang.org/grpc v1.74.2 // indirect
 )
-
-replace github.com/mkmccarty/TokenTimeBoostBot/src/boost => ./src/boost
-
-replace github.com/mkmccarty/TokenTimeBoostBot/src/bottools => ./src/bottools
-
-replace github.com/mkmccarty/TokenTimeBoostBot/src/config => ./src/config
-
-replace github.com/mkmccarty/TokenTimeBoostBot/src/events => ./src/events
-
-replace github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate => ./src/farmerstate
-
-replace github.com/mkmccarty/TokenTimeBoostBot/src/notok => ./src/notok
-
-replace github.com/mkmccarty/TokenTimeBoostBot/src/tasks => ./src/tasks
-
-replace github.com/mkmccarty/TokenTimeBoostBot/src/track => ./src/track
-
-replace github.com/mkmccarty/TokenTimeBoostBot/src/version => ./src/version

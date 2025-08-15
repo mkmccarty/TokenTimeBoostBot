@@ -10,10 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-
-	"github.com/bwmarrin/discordgo"
 )
 
 var integerOneMinValue float64 = 1.0
