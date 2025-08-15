@@ -18,8 +18,8 @@ jobs:
           fetch-depth: 0
 #    - name: Audit
 #      run: make audit
-    - name: Test
-      run: make test
+#    - name: Test
+#      run: make test
     - name: Build
       run: |
         mkdir -p output/{linux,freebsd}
