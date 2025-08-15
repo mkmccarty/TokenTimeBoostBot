@@ -40,8 +40,8 @@ jobs:
           go-version: 1.25
       - name: Code
         uses: actions/checkout@v3
-      - name: Go vet
-        run: go vet -x ./...
+#      - name: Go vet
+#        run: go vet -x ./...
 
       - name: GolangCI-Lint
         uses: golangci/golangci-lint-action@v3

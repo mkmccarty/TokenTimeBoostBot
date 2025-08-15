@@ -13,17 +13,16 @@ import (
 	"strings"
 	"syscall"
 
-	"boost"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/version"
 
-	"bottools"
-
-	"config"
-	"events"
 	"farmerstate"
 	"notok"
 	"tasks"
 	"track"
-	"version"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/fsnotify/fsnotify"
