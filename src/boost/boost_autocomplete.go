@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 
 	"github.com/bwmarrin/discordgo"
 )

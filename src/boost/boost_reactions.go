@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"ei"
-	"farmerstate"
-	"track"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/moby/moby/pkg/namesgenerator"

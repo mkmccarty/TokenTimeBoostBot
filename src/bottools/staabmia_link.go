@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 // Taken from https://srsandbox-staabmia.netlify.app/scriptsStoneCalc.js

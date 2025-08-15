@@ -5,9 +5,8 @@ import (
 	"log"
 	"time"
 
-	"ei"
-
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 // HandleTrackerRefresh will call the API and update the start time and duration

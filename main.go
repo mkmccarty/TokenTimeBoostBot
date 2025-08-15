@@ -13,19 +13,17 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/bwmarrin/discordgo"
+	"github.com/fsnotify/fsnotify"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/tasks"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/version"
-
-	"farmerstate"
-	"notok"
-	"tasks"
-	"track"
-
-	"github.com/bwmarrin/discordgo"
-	"github.com/fsnotify/fsnotify"
 )
 
 const configFileName = "./.config.json"

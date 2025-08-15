@@ -7,9 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"bottools"
-
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/rs/xid"
 )
 

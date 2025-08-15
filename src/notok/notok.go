@@ -11,9 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"boost"
-
-	"config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/google/generative-ai-go/genai"

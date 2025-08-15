@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"config"
-	"ei"
-	"farmerstate"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 
 	"github.com/bwmarrin/discordgo"
 )

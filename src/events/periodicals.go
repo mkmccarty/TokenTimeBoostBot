@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"boost"
-	"bottools"
-	"config"
-	"ei"
-	"notok"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
 
 	"github.com/bwmarrin/discordgo"
 	"golang.org/x/text/cases"

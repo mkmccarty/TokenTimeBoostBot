@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 
 	"github.com/bwmarrin/discordgo"
 )

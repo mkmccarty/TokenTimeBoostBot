@@ -3,8 +3,8 @@ package boost
 import (
 	"time"
 
-	"ei"
-	"track"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 
 	"github.com/bwmarrin/discordgo"
 )

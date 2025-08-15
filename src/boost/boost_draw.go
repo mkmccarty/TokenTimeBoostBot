@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"bottools"
-	"config"
-	"ei"
-	"farmerstate"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 
 	"github.com/bwmarrin/discordgo"
 )

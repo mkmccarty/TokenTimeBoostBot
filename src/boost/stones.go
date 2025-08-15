@@ -8,11 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"bottools"
-	"ei"
-	"farmerstate"
-
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // GetSlashStones will return the discord command for calculating ideal stone set

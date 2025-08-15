@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"

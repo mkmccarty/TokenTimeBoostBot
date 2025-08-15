@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"ei"
-	"farmerstate"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 
 	"github.com/bwmarrin/discordgo"
 )

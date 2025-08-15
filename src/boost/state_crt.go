@@ -6,9 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"ei"
-
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 func buttonReactionCheck(s *discordgo.Session, ChannelID string, contract *Contract, cUserID string) bool {

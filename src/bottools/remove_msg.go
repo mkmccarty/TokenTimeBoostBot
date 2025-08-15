@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 
 	"github.com/bwmarrin/discordgo"
 )

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 // Make sure to use the testing package

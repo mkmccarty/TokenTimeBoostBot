@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 
 	"github.com/bwmarrin/discordgo"
 )

@@ -8,7 +8,7 @@ import (
 	"log"
 	"net/http"
 
-	"config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 )
 
 /*

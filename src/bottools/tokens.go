@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 // GetTokenValue calculates the token value based on the given parameters

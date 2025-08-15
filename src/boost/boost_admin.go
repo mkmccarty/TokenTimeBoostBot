@@ -11,10 +11,9 @@ import (
 	"sort"
 	"strings"
 
-	"ei"
-	"farmerstate"
-
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // SlashAdminGetContractData is the slash to get contract JSON data

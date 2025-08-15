@@ -5,9 +5,9 @@ import (
 	"slices"
 	"strings"
 
-	"bottools"
-	"config"
-	"ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 
 	"github.com/bwmarrin/discordgo"
 )

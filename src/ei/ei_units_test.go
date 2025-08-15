@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"ei" // Adjust import path as needed
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 func TestFormatEIValue(t *testing.T) {

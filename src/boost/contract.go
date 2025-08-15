@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"config"
-	"ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/moby/moby/pkg/namesgenerator"

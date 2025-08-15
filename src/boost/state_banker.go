@@ -6,11 +6,10 @@ import (
 	"slices"
 	"time"
 
-	"bottools"
-	"ei"
-	"track"
-
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 	"github.com/rs/xid"
 )
 

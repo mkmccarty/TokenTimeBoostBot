@@ -6,14 +6,14 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/ewohltman/discordgo-mock/mockchannel"
-	"github.com/ewohltman/discordgo-mock/mockconstants"
 	"github.com/ewohltman/discordgo-mock/mockguild"
 	"github.com/ewohltman/discordgo-mock/mockmember"
 	"github.com/ewohltman/discordgo-mock/mockrest"
-	"github.com/ewohltman/discordgo-mock/mockrole"
 	"github.com/ewohltman/discordgo-mock/mocksession"
 	"github.com/ewohltman/discordgo-mock/mockstate"
 	"github.com/ewohltman/discordgo-mock/mockuser"
+	"github.com/lazybytez/discordgo-mock/mockconstants"
+	"github.com/lazybytez/discordgo-mock/mockrole"
 )
 
 func TestNew(t *testing.T) {

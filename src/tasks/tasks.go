@@ -9,15 +9,14 @@ import (
 	"os"
 	"time"
 
-	"boost"
-	"bottools"
-	"config"
-	"ei"
-	"events"
-	"version"
-
 	"github.com/bwmarrin/discordgo"
 	"github.com/jasonlvhit/gocron"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/version"
 )
 
 const eggIncContractsURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json"

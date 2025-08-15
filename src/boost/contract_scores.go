@@ -4,7 +4,7 @@ import (
 	"math"
 	"time"
 
-	"ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 /*

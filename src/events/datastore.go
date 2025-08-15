@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 
 	"github.com/peterbourgon/diskv/v3"
 )
