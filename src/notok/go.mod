@@ -5,7 +5,6 @@ go 1.25.0
 require (
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/google/generative-ai-go v0.20.1
-	github.com/mkmccarty/TokenTimeBoostBot v0.0.0-20250814005232-476445f6f18c
 	github.com/rs/xid v1.6.0
 	github.com/sashabaranov/go-openai v1.41.1
 	google.golang.org/api v0.247.0
