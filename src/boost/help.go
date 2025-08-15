@@ -5,8 +5,9 @@ import (
 	"log"
 	"strings"
 
+	"bottools"
+
 	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 )
 
 // HandleHelpCommand will handle the help command

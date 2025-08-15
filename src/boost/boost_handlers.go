@@ -5,10 +5,11 @@ import (
 	"slices"
 	"strings"
 
+	"bottools"
+	"config"
+	"ei"
+
 	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 func getSignupContractSettings(channelID string, id string, thread bool) (string, []discordgo.MessageComponent) {

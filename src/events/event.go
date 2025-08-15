@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"strings"
 
+	"config"
+	"ei"
+	"farmerstate"
+
 	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // SlashEventHelperCommand returns the command for the /launch-helper command

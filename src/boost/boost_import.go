@@ -8,7 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"ei"
+
 	"google.golang.org/protobuf/proto"
 )
 

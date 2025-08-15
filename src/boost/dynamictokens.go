@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"ei"
 )
 
 // DynamicTokenData is a struct that holds the data needed to calculate dynamic tokens
