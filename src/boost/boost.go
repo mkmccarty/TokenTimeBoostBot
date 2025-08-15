@@ -13,13 +13,14 @@ import (
 	"sync"
 	"time"
 
+	"bottools"
+	"config"
+	"ei"
+	"farmerstate"
+	"track"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/divan/num2words"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 )
 
 var mutex sync.Mutex

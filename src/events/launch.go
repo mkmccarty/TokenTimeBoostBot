@@ -10,8 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"ei"
+
 	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 var integerZeroMinValue float64 = 0.0

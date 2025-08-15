@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"config"
+
 	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 )
 
 // GetSlashRemoveMessage returns the slash command for removing a bot message from a DM channel.

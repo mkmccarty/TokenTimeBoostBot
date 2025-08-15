@@ -16,9 +16,10 @@ import (
 	"sync"
 	"time"
 
+	"config"
+	"ei"
+
 	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"golang.org/x/image/draw"
 )
 

@@ -5,11 +5,12 @@ import (
 	"strings"
 	"time"
 
+	"bottools"
+	"config"
+	"ei"
+	"farmerstate"
+
 	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // Return the number of tokens received by the user from the token log
