@@ -1784,7 +1784,7 @@ func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
 				duration := t1.Sub(t2)
 				str = fmt.Sprintf("%s: Boosting Completed in %s. Still %d spots in the contract. ", b.ChannelName, duration.Round(time.Second), contract.CoopSize-len(contract.Boosters))
 			default:
-				str = fmt.Sprintf("%s: Send Boost Tokens to %s", b.ChannelName, contract.Boosters[contract.Order[contract.BoostPosition]].Name)
+				str = fmt.Sprintf("%s: Send Boost Tokens to %s", b.ChannelName, contract.Boosters[contract.Order[contract.BoostPosition]].Nick)
 			}
 			_, err := s.ChannelMessageSend(u.ID, str)
 			if err != nil {
