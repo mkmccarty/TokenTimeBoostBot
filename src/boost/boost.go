@@ -1097,9 +1097,22 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 		}
 	}
 
+	sinkChanged := false
+
 	// Remove the booster from the contract
+	if userID == contract.Banker.CrtSinkUserID {
+		sinkChanged = true
+		contract.Banker.CrtSinkUserID = ""
+	}
+	if userID == contract.Banker.BoostingSinkUserID {
+		sinkChanged = true
+		contract.Banker.BoostingSinkUserID = ""
+	}
 	if userID == contract.Banker.PostSinkUserID {
+		sinkChanged = true
 		contract.Banker.PostSinkUserID = ""
+	}
+	if sinkChanged {
 		changeContractState(contract, contract.State)
 	}
 
