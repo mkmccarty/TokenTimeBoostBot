@@ -524,7 +524,6 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	contract.CreatorID = append(contract.CreatorID, userID)               // starting userid
 	contract.CreatorID = append(contract.CreatorID, config.AdminUsers...) // Admins
 	contract.Speedrun = false
-	contract.Banker.SinkBoostPosition = SinkBoostFollowOrder
 	contract.StartTime = time.Now()
 
 	contract.NewFeature = 1
@@ -532,6 +531,13 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	contract.CoopSize = coopSize
 	contract.Name = contractID
 	updateContractWithEggIncData(contract)
+
+	// Long contracts default the sink to boosting last
+	// Short contracts default the sink to boosting first
+	contract.Banker.SinkBoostPosition = SinkBoostLast
+	if contract.EstimatedDuration < 10*time.Hour {
+		contract.Banker.SinkBoostPosition = SinkBoostFirst
+	}
 
 	contract.DynamicData = createDynamicTokenData()
 	Contracts[ContractHash] = contract
