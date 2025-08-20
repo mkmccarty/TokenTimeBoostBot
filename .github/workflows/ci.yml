@@ -3,6 +3,8 @@ on:
   pull_request:
 
 name: CI
+permissions:
+  contents: read
 
 jobs:
   format:
