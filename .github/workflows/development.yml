@@ -2,6 +2,8 @@ name: Development
 on: [push, pull_request]
 jobs:
   test-build-upload:
+    permissions:
+      contents: read
     strategy:
       matrix:
         go-version: [1.25]
