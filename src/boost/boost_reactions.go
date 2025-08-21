@@ -223,7 +223,11 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			outputStr := "## Boost Bot Icon Meanings\n\n"
 			outputStr += "See 📌 message to join the contract.\nSet your number of boost tokens there or "
 			outputStr += "add a 4️⃣ to 🔟 reaction to the boost list message.\n"
-			outputStr += "Active booster reaction of " + boostIcon + " to when spending tokens to boost. Multiple " + boostIcon + " votes by others in the contract will also indicate a boost.\n"
+			if contract.Style&ContractFlagBanker == 0 {
+				outputStr += "Active booster can advance the list with a reaction of " + boostIcon + " to when spending tokens to boost . Multiple " + boostIcon + " votes by others in the contract will also indicate a boost.\n"
+			} else {
+				outputStr += "The banker will indicate sending tokens with 💰 which will advance the list.\n"
+			}
 			outputStr += "Farmers react with " + contract.TokenStr + " when sending tokens.\n"
 			//outputStr += "Active Booster can react with ➕ or ➖ to adjust number of tokens needed.\n"
 			outputStr += "Active booster reaction of 🔃 to exchange position with the next booster.\n"
