@@ -289,7 +289,7 @@ func ImportNewEmojis(s *discordgo.Session) {
 
 			// Create the emoji in Discord
 			data := discordgo.EmojiParams{
-				Name:  strings.ToLower(emojiName),
+				Name:  emojiName,
 				Image: base64Image,
 			}
 			newID, err := s.ApplicationEmojiCreate(config.DiscordAppID, &data)
