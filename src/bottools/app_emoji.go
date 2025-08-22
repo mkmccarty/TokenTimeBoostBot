@@ -248,10 +248,10 @@ func ImportNewEmojis(s *discordgo.Session) {
 		}
 
 		fileType := strings.ToLower(file.Name()[len(file.Name())-3:]) // Extract the emoji name from the file name
-		emojiName := strings.ToLower(strings.TrimSuffix(strings.TrimSuffix(file.Name(), ".png"), ".gif"))
+		emojiName := strings.TrimSuffix(strings.TrimSuffix(file.Name(), ".png"), ".gif")
 
 		// Check if the emoji already exists
-		if existingEmojis[emojiName] {
+		if existingEmojis[strings.ToLower(emojiName)] {
 			continue
 		}
 
@@ -297,7 +297,7 @@ func ImportNewEmojis(s *discordgo.Session) {
 				log.Println("Error creating emoji in Discord:", err)
 				return
 			}
-			ei.EmoteMap[emojiName] = ei.Emotes{Name: newID.Name, ID: newID.ID, Animated: newID.Animated}
+			ei.EmoteMap[strings.ToLower(emojiName)] = ei.Emotes{Name: newID.Name, ID: newID.ID, Animated: newID.Animated}
 		}(emojiName)
 	}
 
