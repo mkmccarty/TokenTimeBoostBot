@@ -555,6 +555,10 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	contract.OrderRevision = 0
 
 	changeContractState(contract, ContractStateSignup)
+	// When the calling userID isn't in the progenitors list, make the first a coordinator
+	if !slices.Contains(progenitors, userID) {
+		contract.CreatorID = append(contract.CreatorID, progenitors[0])
+	}
 	contract.CreatorID = append(contract.CreatorID, userID)               // starting userid
 	contract.CreatorID = append(contract.CreatorID, config.AdminUsers...) // Admins
 	contract.Speedrun = false
