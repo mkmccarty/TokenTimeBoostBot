@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -131,6 +132,12 @@ func GetSlashContractCommand(cmd string) *discordgo.ApplicationCommand {
 				Required: false,
 			},
 			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "progenitors",
+				Description: "List of mentions to seed farmers for this contract.",
+				Required:    false,
+			},
+			{
 				Type:        discordgo.ApplicationCommandOptionInteger,
 				Name:        "coop-size",
 				Description: "Co-op Size. This will be pulled from EI Contract data if unset.",
@@ -188,6 +195,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	var ChannelID = i.ChannelID
 	var playStyle = ContractPlaystyleACOCooperative
 	makeThread := true // Default is to always make a thread
+	progenitors := []string{i.Member.User.ID}
 
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
@@ -203,6 +211,24 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 	if opt, ok := optionMap["boost-order"]; ok {
 		boostOrder = int(opt.IntValue())
+	}
+	if opt, ok := optionMap["progenitors"]; ok {
+		farmerList := opt.StringValue()
+		re := regexp.MustCompile(`\d+`)
+		userIDs := re.FindAllString(farmerList, -1)
+		if len(userIDs) > 0 {
+			var validProgenitors []string
+			for _, userID := range userIDs {
+				// Verify the user exists in the guild
+				_, err := s.GuildMember(i.GuildID, userID)
+				if err == nil {
+					validProgenitors = append(validProgenitors, userID)
+				}
+			}
+			if len(validProgenitors) > 0 {
+				progenitors = validProgenitors
+			}
+		}
 	}
 	if opt, ok := optionMap["contract-id"]; ok {
 		contractID = opt.StringValue()
@@ -271,15 +297,23 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		}
 	}
 
+	contractInfo := ei.EggIncContractsAll[contractID]
+	if contractInfo.ID != "" {
+		// Trim the progenitor list to the max coop size
+		if len(progenitors) > contractInfo.MaxCoopSize {
+			progenitors = progenitors[:contractInfo.MaxCoopSize]
+		}
+	}
+
 	// Create a new thread for this contract
 	if makeThread {
 		threadStyleIcons := []string{"", "🟦 ", "🟩 ", "🟧 ", "🟥 "}
 		// Default to 1 day timeout
 		var builder strings.Builder
 		fmt.Fprintf(&builder, "%s %s", threadStyleIcons[playStyle], coopID)
-		info := ei.EggIncContractsAll[contractID]
-		if info.ID != "" {
-			fmt.Fprintf(&builder, " (0/%d)", info.MaxCoopSize)
+		if contractInfo.ID != "" {
+			playStyleStr := fmt.Sprintf("%s ", contractPlaystyleNames[playStyle])
+			fmt.Fprintf(&builder, " (%s%d/%d)", playStyleStr, len(progenitors), contractInfo.MaxCoopSize)
 		}
 
 		thread, err := s.ThreadStart(ChannelID, builder.String(), discordgo.ChannelTypeGuildPublicThread, 60*24)
@@ -292,7 +326,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 
 	mutex.Lock()
-	contract, err := CreateContract(s, contractID, coopID, playStyle, coopSize, boostOrder, i.GuildID, ChannelID, getInteractionUserID(i))
+	contract, err := CreateContract(s, contractID, coopID, playStyle, coopSize, boostOrder, i.GuildID, ChannelID, progenitors, getInteractionUserID(i))
 	mutex.Unlock()
 
 	if err != nil {
@@ -364,7 +398,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		}
 		// Auto join the caller into this contract
 		// TODO: This will end up causing a double draw of the contract list
-		_ = JoinContract(s, i.GuildID, ChannelID, getInteractionUserID(i), false)
+		//_ = JoinContract(s, i.GuildID, ChannelID, getInteractionUserID(i), false)
 
 	} else {
 		log.Print(err)
@@ -441,7 +475,7 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 }
 
 // CreateContract creates a new contract or joins an existing contract if run from a different location
-func CreateContract(s *discordgo.Session, contractID string, coopID string, playStyle int, coopSize int, BoostOrder int, guildID string, channelID string, userID string) (*Contract, error) {
+func CreateContract(s *discordgo.Session, contractID string, coopID string, playStyle int, coopSize int, BoostOrder int, guildID string, channelID string, progenitors []string, userID string) (*Contract, error) {
 	// When creating contracts, we can make sure to clean up and archived ones
 	// Just in case a contract was immediately recreated
 	for _, c := range Contracts {
@@ -555,6 +589,14 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 
 	// Find our Token emoji
 	contract.TokenStr, _, _ = ei.GetBotEmoji("token")
+
+	// Add users into the contract
+	for _, pid := range progenitors {
+		_, err = AddFarmerToContract(s, contract, guildID, channelID, pid, contract.BoostOrder, true)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return contract, nil
 }

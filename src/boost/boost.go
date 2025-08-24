@@ -632,7 +632,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 		if u.Bot {
 			return errors.New(errorBot)
 		}
-		_, err = AddFarmerToContract(s, contract, guildID, channelID, u.ID, order)
+		_, err = AddFarmerToContract(s, contract, guildID, channelID, u.ID, order, false)
 		if err != nil {
 			return err
 		}
@@ -659,7 +659,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 			return errors.New(errorUserInContract)
 		}
 
-		_, err := AddFarmerToContract(s, contract, guildID, channelID, guest, order)
+		_, err := AddFarmerToContract(s, contract, guildID, channelID, guest, order, false)
 		if err != nil {
 			return err
 		}
@@ -725,7 +725,7 @@ func getUserArtifacts(userID string, inSet *ArtifactSet) ArtifactSet {
 }
 
 // AddFarmerToContract adds a farmer to a contract
-func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string, order int) (*Booster, error) {
+func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string, order int, progenitor bool) (*Booster, error) {
 	log.Println("AddFarmerToContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", order)
 
 	if contract.CoopSize == min(len(contract.Order), len(contract.Boosters)) {
@@ -904,28 +904,32 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			calculateTangoLegs(contract, true)
 		}
 
-		if contract.State == ContractStateWaiting {
-			// Reactivate the contract
-			// Set the newly added booster as boosting
-			if contract.Style&ContractFlagBanker != 0 {
-				changeContractState(contract, ContractStateBanker)
-			} else if contract.Style&ContractFlagFastrun != 0 {
-				changeContractState(contract, ContractStateFastrun)
-			} else {
-				panic("Invalid contract style")
+		if !progenitor {
+			if contract.State == ContractStateWaiting {
+				// Reactivate the contract
+				// Set the newly added booster as boosting
+				if contract.Style&ContractFlagBanker != 0 {
+					changeContractState(contract, ContractStateBanker)
+				} else if contract.Style&ContractFlagFastrun != 0 {
+					changeContractState(contract, ContractStateFastrun)
+				} else {
+					panic("Invalid contract style")
+				}
+				b.StartTime = time.Now()
+				b.BoostState = BoostStateTokenTime
+				contract.BoostPosition = len(contract.Order) - 1
+				// for all locations delete the signup list message and send the boost list message
+				//for _, loc := range contract.Location {
+				//	s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
+				//}
+				sendNextNotification(s, contract, true)
+				return b, nil
 			}
-			b.StartTime = time.Now()
-			b.BoostState = BoostStateTokenTime
-			contract.BoostPosition = len(contract.Order) - 1
-			// for all locations delete the signup list message and send the boost list message
-			//for _, loc := range contract.Location {
-			//	s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
-			//}
-			sendNextNotification(s, contract, true)
-			return b, nil
 		}
 	}
-	refreshBoostListMessage(s, contract)
+	if !progenitor {
+		refreshBoostListMessage(s, contract)
+	}
 	return b, nil
 }
 
@@ -1018,7 +1022,7 @@ func JoinContract(s *discordgo.Session, guildID string, channelID string, userID
 
 		// Wait here until we get our lock
 		contract.mutex.Lock()
-		_, err = AddFarmerToContract(s, contract, guildID, channelID, userID, contract.BoostOrder)
+		_, err = AddFarmerToContract(s, contract, guildID, channelID, userID, contract.BoostOrder, false)
 
 		contract.mutex.Unlock()
 		if err != nil {
