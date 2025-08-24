@@ -1,0 +1,21 @@
+services:
+  bot:
+    # Build from your local Dockerfile and auto-use the Go version in go.mod
+    build:
+      context: .
+      args:
+        GO_VERSION: "${GO_VERSION:-1.25}"
+    image: boost-bot:latest
+    container_name: boost-bot
+    # Mount the bot config (read-only)
+    volumes:
+      - ./.config.json:/app/.config.json:ro   # config (read-only)
+      - ./banners:/app/banners:rw             # writable banners folder
+      - ./ttbb-data:/app/ttbb-data:rw         # writable data folder
+    read_only: true
+    cap_drop: [ "ALL" ]
+    pids_limit: 200
+    mem_limit: 128m
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=16m
+    restart: unless-stopped
