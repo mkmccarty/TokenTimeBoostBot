@@ -2,6 +2,7 @@
 
 UNAME_A = `uname -m`
 UNAME_S = `uname -s`
+GO_VERSION = 1.25
 
 #// Get machine architecture into ARCH variable
 #ifeq ($(UNAME_A),aarch64)
@@ -157,3 +158,6 @@ clean:
 	go clean
 	rm -r $(BUILD_OUTPUT)/*
 
+.PHONY: docker
+docker:
+	docker compose build --build-arg GO_VERSION=$(GO_VERSION)
