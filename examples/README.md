@@ -38,7 +38,7 @@ development bot.
 
 ## DiscordGuildID
 
-This is the server ID for the server you want to restrict the bot to. This is optional.
+This is the server ID for the server you want to restrict the bot to.  When this is set to something then the commands will only be available on that server. To use commands via DM you need to leave this empty. This is an optional setting.
 
 ## OpenAIKey
 
