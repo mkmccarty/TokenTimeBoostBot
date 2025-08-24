@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -222,6 +223,16 @@ func ImportEggImage(s *discordgo.Session, eggID, IconURL string) (string, error)
 	return fmt.Sprintf(":%s:%s:", newID.Name, newID.ID), nil
 }
 
+func isAllowedSuffix(fileName string) bool {
+	allowedSuffixes := []string{".png", ".gif"}
+	for _, suffix := range allowedSuffixes {
+		if strings.HasSuffix(strings.ToLower(fileName), suffix) {
+			return true
+		}
+	}
+	return false
+}
+
 // ImportNewEmojis will import new emojis from the emoji directory into the discord app
 func ImportNewEmojis(s *discordgo.Session) {
 	// Get a list of all files in the emoji directory
@@ -243,65 +254,60 @@ func ImportNewEmojis(s *discordgo.Session) {
 	// Loop through all files in the emoji directory
 	for _, file := range files {
 		// Check if the file is a PNG image
-		if !strings.HasSuffix(file.Name(), ".png") && !strings.HasSuffix(file.Name(), ".gif") {
+		if !isAllowedSuffix(file.Name()) {
 			continue
 		}
 
-		fileType := strings.ToLower(file.Name()[len(file.Name())-3:]) // Extract the emoji name from the file name
-		emojiName := strings.TrimSuffix(strings.TrimSuffix(file.Name(), ".png"), ".gif")
-
+		emojiName := strings.TrimSuffix(file.Name(), filepath.Ext(file.Name()))
 		// Check if the emoji already exists
 		if existingEmojis[strings.ToLower(emojiName)] {
 			continue
 		}
-
-		// Add to the wait group
-		wg.Add(1)
-
-		// Launch a goroutine to import the emoji
-		go func(emojiName string) {
-			defer wg.Done()
-
-			// Open the emoji file
-			emojiFile, err := os.Open("emoji/" + emojiName + "." + fileType)
-			if err != nil {
-				log.Println("Error opening emoji file:", err)
-				return
-			}
-			defer func() {
-				if err := emojiFile.Close(); err != nil {
-					// Handle the error appropriately, e.g., logging or taking corrective actions
-					log.Printf("Failed to close: %v", err)
-				}
-			}()
-
-			// Read the emoji file into memory
-			reader := bufio.NewReader(emojiFile)
-			var buf bytes.Buffer
-			_, err = io.Copy(&buf, reader)
-			if err != nil {
-				log.Println("Error reading emoji file:", err)
-				return
-			}
-			// Encode the emoji image
-			fileSuffix := strings.ToLower(file.Name()[len(file.Name())-3:])
-			base64Image := fmt.Sprintf("data:image/%s;base64,%s", fileSuffix, base64.StdEncoding.EncodeToString(buf.Bytes()))
-
-			// Create the emoji in Discord
-			data := discordgo.EmojiParams{
-				Name:  emojiName,
-				Image: base64Image,
-			}
-			newID, err := s.ApplicationEmojiCreate(config.DiscordAppID, &data)
-			if err != nil {
-				log.Println("Error creating emoji in Discord:", err)
-				return
-			}
-			ei.EmoteMap[strings.ToLower(emojiName)] = ei.Emotes{Name: newID.Name, ID: newID.ID, Animated: newID.Animated}
-		}(emojiName)
+		f := file
+		wg.Go(func() { importSingleEmoji(s, emojiName, f) })
 	}
 
 	// Wait for all goroutines to finish
 	wg.Wait()
-	saveEmotesToFile(emoteFilePath, ei.EmoteMap)
+	//LoadEmotes(s, true)
+}
+
+func importSingleEmoji(s *discordgo.Session, emojiName string, file os.DirEntry) {
+
+	// Open the emoji file
+	emojiFile, err := os.Open("emoji/" + file.Name())
+	if err != nil {
+		log.Println("Error opening emoji file:", err)
+		return
+	}
+	defer func() {
+		if err := emojiFile.Close(); err != nil {
+			// Handle the error appropriately, e.g., logging or taking corrective actions
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
+
+	// Read the emoji file into memory
+	reader := bufio.NewReader(emojiFile)
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, reader)
+	if err != nil {
+		log.Println("Error reading emoji file:", err)
+		return
+	}
+	// Encode the emoji image
+	fileSuffix := strings.TrimPrefix(filepath.Ext(file.Name()), ".")
+	base64Image := fmt.Sprintf("data:image/%s;base64,%s", fileSuffix, base64.StdEncoding.EncodeToString(buf.Bytes()))
+
+	// Create the emoji in Discord
+	data := discordgo.EmojiParams{
+		Name:  emojiName,
+		Image: base64Image,
+	}
+	newID, err := s.ApplicationEmojiCreate(config.DiscordAppID, &data)
+	if err != nil {
+		log.Println("Error creating emoji in Discord:", err)
+		return
+	}
+	ei.EmoteMap[strings.ToLower(emojiName)] = ei.Emotes{Name: newID.Name, ID: newID.ID, Animated: newID.Animated}
 }
