@@ -11,5 +11,6 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/bot .
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /app
 COPY --from=build /out/bot /app/bot
+COPY emoji /app/emoji
 USER nonroot:nonroot
 ENTRYPOINT ["/app/bot"]
