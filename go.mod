@@ -8,6 +8,7 @@ require (
 	github.com/ewohltman/discordgo-mock v0.0.11
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/google/generative-ai-go v0.20.1
+	github.com/google/go-github/v33 v33.0.0
 	github.com/jasonlvhit/gocron v0.0.1
 	github.com/moby/moby v28.3.3+incompatible
 	github.com/peterbourgon/diskv/v3 v3.0.1
@@ -32,6 +33,7 @@ require (
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/btree v1.1.3 // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.6 // indirect
