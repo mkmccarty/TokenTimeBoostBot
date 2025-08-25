@@ -1465,7 +1465,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 					}
 
 					str = fmt.Sprintf(loc.RoleMention+" send tokens to %s", name)
-				} else {
+				} else if contract.State != ContractStateCRT {
 					if contract.Banker.CurrentBanker == "" {
 						str = loc.RoleMention + " contract boosting complete. Hold your tokens for late joining farmers."
 					} else {

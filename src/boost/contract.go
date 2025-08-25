@@ -303,6 +303,9 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		if len(progenitors) > contractInfo.MaxCoopSize {
 			progenitors = progenitors[:contractInfo.MaxCoopSize]
 		}
+		if !slices.Contains(progenitors, getInteractionUserID(i)) && len(progenitors) < contractInfo.MaxCoopSize {
+			progenitors = append([]string{getInteractionUserID(i)}, progenitors...)
+		}
 	}
 
 	// Create a new thread for this contract
@@ -396,10 +399,6 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			SetReactionID(contract, msg.ChannelID, reactionMsg.ID)
 			_ = s.ChannelMessagePin(msg.ChannelID, reactionMsg.ID)
 		}
-		// Auto join the caller into this contract
-		// TODO: This will end up causing a double draw of the contract list
-		//_ = JoinContract(s, i.GuildID, ChannelID, getInteractionUserID(i), false)
-
 	} else {
 		log.Print(err)
 	}
