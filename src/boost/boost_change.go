@@ -100,7 +100,13 @@ func GetSlashChangePingRoleCommand(cmd string) *discordgo.ApplicationCommand {
 // GetSlashChangePlannedStartCommand adjust aspects of a running contract
 func GetSlashChangePlannedStartCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
-		Name:        cmd,
+		Name: cmd,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 		Description: "Change the planned start time of the contract",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
