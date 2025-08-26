@@ -200,13 +200,13 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 		} else if notifyDiscordOfNewEgg {
 			var builder strings.Builder
 			// Do we have an icon for this egg?
-			builder.WriteString(fmt.Sprintf("New Custom Egg Detected: %s", egg.Name))
 			_, err := bottools.ImportEggImage(s, egg.ID, egg.IconURL)
 			if err != nil {
 				log.Print(err)
 				// Can't continue here on error, so skip this egg
 				continue
 			}
+			builder.WriteString(fmt.Sprintf("New Custom Egg Detected: %s", egg.Name))
 
 			description := strings.Join(egg.DimensionValueString, ",") + " " + egg.DimensionName
 			description += fmt.Sprintf("\n%s Value: %g", ei.GetBotEmojiMarkdown(egg.ID), egg.Value)

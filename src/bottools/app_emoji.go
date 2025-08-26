@@ -182,6 +182,11 @@ func ImportEggImage(s *discordgo.Session, eggID, IconURL string) (string, error)
 		return "", err
 	}
 
+	// Write this image to the config.BannerPath directory for banner creation
+	if _, err := os.Stat(config.BannerPath); os.IsNotExist(err) {
+		_ = os.MkdirAll(config.BannerPath, 0755)
+	}
+
 	// Save the image to a file
 	filePath := fmt.Sprintf("%s/egg_%s.png", config.BannerPath, cleanEggID)
 	file, err := os.Create(filePath)
@@ -195,6 +200,7 @@ func ImportEggImage(s *discordgo.Session, eggID, IconURL string) (string, error)
 			log.Printf("Failed to close: %v", err)
 		}
 	}()
+
 	_, err = file.Write(buf.Bytes())
 	if err != nil {
 		log.Print(err)
