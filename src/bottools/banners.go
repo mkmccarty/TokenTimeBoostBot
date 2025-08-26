@@ -1,19 +1,23 @@
 package bottools
 
 import (
+	"context"
 	"fmt"
 	"image"
 	"image/color"
-	"image/draw"
 	"image/jpeg"
 	"image/png"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/google/go-github/v33/github"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 
+	"golang.org/x/image/draw"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/font/sfnt"
@@ -88,6 +92,14 @@ func GenerateBanner(ID string, eggName string, text string) {
 
 	overlayImagePath := fmt.Sprintf("egg_%s.png", cleanEggID)
 
+	// Test if the overlay image exists
+	if _, err := os.Stat(config.BannerPath + "/" + overlayImagePath); os.IsNotExist(err) {
+		err := DownloadLatestEggImages(config.BannerPath)
+		if err != nil {
+			fmt.Println("Error downloading latest egg images:", err)
+		}
+	}
+
 	chillImg, err := loadImage(config.BannerPath + "/chill.png")
 	if err != nil {
 		fmt.Println("Error loading chill image:", err)
@@ -125,11 +137,15 @@ func GenerateBanner(ID string, eggName string, text string) {
 		return
 	}
 
-	overlayImage, err := loadImage(config.BannerPath + "/" + overlayImagePath)
+	haveEggImg := true
+	overlayImageOrig, err := loadImage(config.BannerPath + "/" + overlayImagePath)
 	if err != nil {
 		fmt.Println("Error loading overlay image:", err)
-		return
+		haveEggImg = false
 	}
+	// I want to make overlayImage a 128 by 128 image
+	overlayImage := image.NewRGBA(image.Rect(0, 0, 128, 128))
+	draw.NearestNeighbor.Scale(overlayImage, overlayImage.Rect, overlayImageOrig, overlayImageOrig.Bounds(), draw.Over, nil)
 
 	// 2. Create Canvas (same size as background)
 	bounds := bgImage.Bounds()
@@ -139,11 +155,12 @@ func GenerateBanner(ID string, eggName string, text string) {
 	draw.Draw(compositeImage, bounds, bgImage, image.Point{}, draw.Src)
 
 	// 4. Draw Overlay (example position, adjust as needed)
-	overlayRect := image.Rect(0, 0, 48+overlayImage.Bounds().Dx(), 48+overlayImage.Bounds().Dy()) // Example position
-	draw.Draw(compositeImage, overlayRect, overlayImage, image.Point{}, draw.Over)                // Use draw.Over for overlay
+	if haveEggImg {
+		overlayRect := image.Rect(0, 0, 48+overlayImage.Bounds().Dx(), 48+overlayImage.Bounds().Dy()) // Example position
+		draw.Draw(compositeImage, overlayRect, overlayImage, image.Point{}, draw.Over)                // Use draw.Over for overlay
+	}
 
 	// 5. Load Font
-
 	fontFile := config.BannerPath + "/Always Together.otf"
 	fontSize := 64.0
 	dpi := 72.0
@@ -165,17 +182,42 @@ func GenerateBanner(ID string, eggName string, text string) {
 	outlineColor := color.RGBA{0, 0, 0, 255}    // Black outline
 	outlineWidth := 2
 
+	// Calculate text width and adjust font size if necessary
+	textWidth := font.MeasureString(face, text).Ceil()
+	maxWidth := bounds.Dx() - 138 - 20 // Available width minus x position and some padding
+
+	adjustedFace := face
+
+	if textWidth > maxWidth {
+		// Calculate scale factor and reduce font size
+		scaleFactor := float64(maxWidth) / float64(textWidth)
+		adjustedFontSize := fontSize * scaleFactor
+
+		var err error
+		adjustedFace, err = loadFontFile(fontFile, adjustedFontSize, dpi)
+		if err != nil {
+			log.Printf("Error loading adjusted font: %v", err)
+			adjustedFace = face // Fallback to original
+		} else {
+			defer func() {
+				if err := adjustedFace.Close(); err != nil {
+					log.Printf("Failed to close adjusted font face: %v", err)
+				}
+			}()
+		}
+	}
+
 	// Draw outline by rendering text at multiple offset positions
 	for dx := -outlineWidth; dx <= outlineWidth; dx++ {
 		for dy := -outlineWidth; dy <= outlineWidth; dy++ {
 			if dx != 0 || dy != 0 { // Skip center position
-				addLabel(compositeImage, 138+dx, 68+dy, text, face, outlineColor)
+				addLabel(compositeImage, 138+dx, 68+dy, text, adjustedFace, outlineColor)
 			}
 		}
 	}
 
 	// Draw the main text on top
-	addLabel(compositeImage, 138, 68, text, face, textColor)
+	addLabel(compositeImage, 138, 68, text, adjustedFace, textColor)
 
 	// For each style create an image in the lower left corner and save it
 	for _, style := range sData {
@@ -255,4 +297,90 @@ func addLabel(img *image.RGBA, x, y int, label string, face font.Face, textColor
 		Dot:  point,
 	}
 	d.DrawString(label)
+}
+
+// DownloadLatestEggImages downloads the latest image files from a specific GitHub repository directory.
+func DownloadLatestEggImages(localDownloadDir string) error {
+	owner := "mkmccarty"
+	repo := "TokenTimeBoostBot"
+	repoPath := "emoji"
+	client := github.NewClient(nil)
+	ctx := context.Background()
+
+	// Ensure the local download directory exists.
+	if err := os.MkdirAll(localDownloadDir, 0755); err != nil {
+		return fmt.Errorf("failed to create local directory %s: %w", localDownloadDir, err)
+	}
+
+	// Get the contents of the specified repository directory.
+	_, directoryContents, _, err := client.Repositories.GetContents(ctx, owner, repo, repoPath, &github.RepositoryContentGetOptions{
+		Ref: "main", // Always use the main branch for the latest content
+	})
+	if err != nil {
+		return fmt.Errorf("error getting repository contents: %w", err)
+	}
+
+	for _, content := range directoryContents {
+		// Only process files.
+		if content.GetType() == "file" {
+			downloadURL := content.GetDownloadURL()
+			if downloadURL == "" {
+				continue // Skip if there's no download URL.
+			}
+			// Only want banner related assets
+			stringsToCheck := []string{"egg_", "banner", "Always Together", "aco", "chill", "fastrun", "leaderboard"}
+			found := false
+			for _, str := range stringsToCheck {
+				if strings.Contains(content.GetName(), str) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				continue
+			}
+
+			// If the file already exists, don't need to download it
+			localFilePath := filepath.Join(localDownloadDir, content.GetName())
+			if _, err := os.Stat(localFilePath); err == nil {
+				//fmt.Printf("File %s already exists, skipping download.\n", localFilePath)
+				continue
+			}
+
+			fmt.Printf("Downloading %s...\n", content.GetName())
+
+			// Make an HTTP request to download the file.
+			resp, err := http.Get(downloadURL)
+			if err != nil {
+				fmt.Printf("Error downloading file %s: %v\n", content.GetName(), err)
+				continue
+			}
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					// Handle the error appropriately, e.g., logging or taking corrective actions
+					log.Printf("Failed to close: %v", err)
+				}
+			}()
+
+			outFile, err := os.Create(localFilePath)
+			if err != nil {
+				fmt.Printf("Error creating local file %s: %v\n", localFilePath, err)
+				continue
+			}
+			defer func() {
+				if err := outFile.Close(); err != nil {
+					// Handle the error appropriately, e.g., logging or taking corrective actions
+					log.Printf("Failed to close: %v", err)
+				}
+			}()
+
+			// Copy the downloaded content to the local file.
+			if _, err := io.Copy(outFile, resp.Body); err != nil {
+				fmt.Printf("Error writing to file %s: %v\n", localFilePath, err)
+				continue
+			}
+			fmt.Printf("Successfully downloaded %s.\n", content.GetName())
+		}
+	}
+	return nil
 }
