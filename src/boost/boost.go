@@ -240,7 +240,6 @@ type Contract struct {
 	EggEmoji                  string
 	TokenStr                  string // Emoji for Token
 	TargetAmount              []float64
-	QTargetAmount             []float64
 	ChickenRunCooldownMinutes int
 	MinutesPerToken           int
 	EstimatedDuration         time.Duration
