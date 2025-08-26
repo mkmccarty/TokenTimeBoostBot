@@ -149,13 +149,6 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	// Set our current Event variables
 	ei.SetGenerousGiftEvent(newGG, newUltraGG, newEventEndGG)
 
-	/*
-		// Look for new Custom Eggs
-		ei.CustomEggMap, err = LoadCustomEggData()
-		if err != nil {
-			ei.CustomEggMap = make(map[string]*ei.EggIncCustomEgg)
-		}
-	*/
 	changed := true
 	c := cases.Title(language.Und)
 
