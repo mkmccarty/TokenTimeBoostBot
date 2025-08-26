@@ -1803,8 +1803,8 @@ func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
 			default:
 				var name = contract.Boosters[contract.Order[contract.BoostPosition]].Nick
 				var einame = farmerstate.GetEggIncName(contract.Order[contract.BoostPosition])
-				if einame != "" {
-					name += " " + einame
+				if einame != "" && einame != name {
+					name += " (" + einame + ")"
 				}
 				str = fmt.Sprintf("%s: Send Boost Tokens to %s", b.ChannelName, name)
 			}
