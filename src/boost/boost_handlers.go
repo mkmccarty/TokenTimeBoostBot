@@ -271,7 +271,10 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 	startLabel := "Start Boost List"
 	if contract != nil && contract.Style&ContractFlagCrt != 0 {
 		startLabel = "Start CRT"
-	} else if disableStartContract {
+		if len(contract.Boosters) != contract.CoopSize {
+			disableStartContract = true
+		}
+	} else if contract.State != ContractStateSignup {
 		startLabel = "Started"
 	}
 
@@ -287,7 +290,8 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 			disableStartContract = false
 		}
 		// If Banker style then we need to have at least a banker sink
-		if contract.Style&ContractFlagBanker != 0 && contract.Banker.BoostingSinkUserID == "" {
+		bankerStyle := (contract.Style & ContractFlagBanker) != 0
+		if bankerStyle && contract.Banker.BoostingSinkUserID == "" {
 			disableStartContract = true
 		}
 		if contract.State != ContractStateSignup {
