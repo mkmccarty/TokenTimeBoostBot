@@ -672,24 +672,22 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 			_, _ = s.ChannelMessageSend(loc.ChannelID, str)
 
 			if contract.State == ContractStateSignup {
-				enableButton := false
-				if len(contract.Order) == 0 {
-					enableButton = true
-				}
-				var components []discordgo.MessageComponent
-				msgID := loc.ReactionID
-				msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
-				// Full contract for speedrun
-				contentStr, comp := GetSignupComponents(enableButton, contract) // True to get a disabled start button
-				components = append(components, &discordgo.TextDisplay{
-					Content: contentStr,
-				})
-				components = append(components, comp...)
-				msg.Flags = discordgo.MessageFlagsIsComponentsV2
-				msg.Components = &components
-				_, err = s.ChannelMessageEditComplex(msg)
-				if err != nil {
-					fmt.Println("Unable to send this message." + err.Error())
+				if len(contract.Order) == contract.CoopSize || len(contract.Order) == (contract.CoopSize-1) {
+					var components []discordgo.MessageComponent
+					msgID := loc.ReactionID
+					msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
+					// Full contract for speedrun
+					contentStr, comp := GetSignupComponents(false, contract) // True to get a disabled start button
+					components = append(components, &discordgo.TextDisplay{
+						Content: contentStr,
+					})
+					components = append(components, comp...)
+					msg.Flags = discordgo.MessageFlagsIsComponentsV2
+					msg.Components = &components
+					_, err = s.ChannelMessageEditComplex(msg)
+					if err != nil {
+						fmt.Println("Unable to send this message." + err.Error())
+					}
 				}
 			}
 		}
@@ -1279,24 +1277,23 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 		// Need to disable the speedrun start button if the contract is no longer full
 		//if contract.Style&ContractFlagCrt != 0 && contract.State == ContractStateSignup {
 		if contract.State == ContractStateSignup {
-			enableButton := false
-			if len(contract.Order) == 0 {
-				enableButton = true
-			}
-			var components []discordgo.MessageComponent
-			msgID := loc.ReactionID
-			msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
-			// Full contract for speedrun
-			contentStr, comp := GetSignupComponents(enableButton, contract) // True to get a disabled start button
-			components = append(components, &discordgo.TextDisplay{
-				Content: contentStr,
-			})
-			components = append(components, comp...)
-			msg.Flags = discordgo.MessageFlagsIsComponentsV2
-			msg.Components = &components
-			_, err = s.ChannelMessageEditComplex(msg)
-			if err != nil {
-				fmt.Println("Unable to send this message." + err.Error())
+			if len(contract.Order) == contract.CoopSize || len(contract.Order) == (contract.CoopSize-1) {
+
+				var components []discordgo.MessageComponent
+				msgID := loc.ReactionID
+				msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
+				// Full contract for speedrun
+				contentStr, comp := GetSignupComponents(true, contract) // True to get a disabled start button
+				components = append(components, &discordgo.TextDisplay{
+					Content: contentStr,
+				})
+				components = append(components, comp...)
+				msg.Flags = discordgo.MessageFlagsIsComponentsV2
+				msg.Components = &components
+				_, err = s.ChannelMessageEditComplex(msg)
+				if err != nil {
+					fmt.Println("Unable to send this message." + err.Error())
+				}
 			}
 		}
 	}
@@ -1432,20 +1429,22 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 			loc.ListMsgID = msg.ID
 		}
 		if contract.State == ContractStateSignup {
-			var components []discordgo.MessageComponent
-			msgID := loc.ReactionID
-			msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
-			// Full contract for speedrun
-			contentStr, comp := GetSignupComponents(len(contract.Order) < 1, contract) // True to get a disabled start button
-			components = append(components, &discordgo.TextDisplay{
-				Content: contentStr,
-			})
-			components = append(components, comp...)
-			msg.Flags = discordgo.MessageFlagsIsComponentsV2
-			msg.Components = &components
-			_, err = s.ChannelMessageEditComplex(msg)
-			if err != nil {
-				fmt.Println("Unable to send this message." + err.Error())
+			if len(contract.Order) == contract.CoopSize || len(contract.Order) == (contract.CoopSize-1) {
+				var components []discordgo.MessageComponent
+				msgID := loc.ReactionID
+				msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
+				// Full contract for speedrun
+				contentStr, comp := GetSignupComponents(false, contract) // True to get a disabled start button
+				components = append(components, &discordgo.TextDisplay{
+					Content: contentStr,
+				})
+				components = append(components, comp...)
+				msg.Flags = discordgo.MessageFlagsIsComponentsV2
+				msg.Components = &components
+				_, err = s.ChannelMessageEditComplex(msg)
+				if err != nil {
+					fmt.Println("Unable to send this message." + err.Error())
+				}
 			}
 		}
 
@@ -1472,18 +1471,20 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 				fmt.Println("Unable to send this message." + err.Error())
 			}
 			msgID := loc.ReactionID
-			msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
-			// Full contract for speedrun
-			contentStr, comp := GetSignupComponents(len(contract.Order) < 1, contract) // True to get a disabled start button
-			components = append(components, &discordgo.TextDisplay{
-				Content: contentStr,
-			})
-			components = append(components, comp...)
-			msg.Flags = discordgo.MessageFlagsIsComponentsV2
-			msg.Components = &components
-			_, err = s.ChannelMessageEditComplex(msg)
-			if err != nil {
-				fmt.Println("Unable to send this message." + err.Error())
+			if len(contract.Order) == contract.CoopSize || len(contract.Order) == (contract.CoopSize-1) {
+				msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
+				// Full contract for speedrun
+				contentStr, comp := GetSignupComponents(true, contract) // True to get a disabled start button
+				components = append(components, &discordgo.TextDisplay{
+					Content: contentStr,
+				})
+				components = append(components, comp...)
+				msg.Flags = discordgo.MessageFlagsIsComponentsV2
+				msg.Components = &components
+				_, err = s.ChannelMessageEditComplex(msg)
+				if err != nil {
+					fmt.Println("Unable to send this message." + err.Error())
+				}
 			}
 
 		} else {
