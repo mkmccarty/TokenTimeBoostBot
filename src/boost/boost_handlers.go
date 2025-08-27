@@ -303,6 +303,10 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 		*/
 
 	}
+	joinMsg := "Join"
+	if contract != nil && len(contract.Boosters) == contract.CoopSize {
+		joinMsg = "Join (Backup)"
+	}
 
 	// Build the return message
 	var buttons []discordgo.MessageComponent
@@ -313,7 +317,7 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 				Emoji: &discordgo.ComponentEmoji{
 					Name: "🧑‍🌾",
 				},
-				Label:    "Join",
+				Label:    joinMsg,
 				Style:    discordgo.PrimaryButton,
 				CustomID: "fd_signupFarmer",
 			},

@@ -771,6 +771,7 @@ var (
 
 			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 				Content: str,
+				Flags:   discordgo.MessageFlagsEphemeral,
 			})
 
 		},
