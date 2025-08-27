@@ -271,6 +271,7 @@ type Contract struct {
 	ActualStartTime     time.Time // Actual start time for token tracking
 	RegisteredNum       int
 	Boosters            map[string]*Booster // Boosters Registered
+	WaitlistBoosters    []string            // Waitlist of UserID's
 	AltIcons            []string            // Array of alternate icons for the Boosters
 	Order               []string
 	BoostedOrder        []string // Actual order of boosting
@@ -669,6 +670,28 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 			}
 			var str = fmt.Sprintf("%s was added to the %s List by %s", guest, listStr, operator)
 			_, _ = s.ChannelMessageSend(loc.ChannelID, str)
+
+			if contract.State == ContractStateSignup {
+				enableButton := false
+				if len(contract.Order) == 0 {
+					enableButton = true
+				}
+				var components []discordgo.MessageComponent
+				msgID := loc.ReactionID
+				msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
+				// Full contract for speedrun
+				contentStr, comp := GetSignupComponents(enableButton, contract) // True to get a disabled start button
+				components = append(components, &discordgo.TextDisplay{
+					Content: contentStr,
+				})
+				components = append(components, comp...)
+				msg.Flags = discordgo.MessageFlagsIsComponentsV2
+				msg.Components = &components
+				_, err = s.ChannelMessageEditComplex(msg)
+				if err != nil {
+					fmt.Println("Unable to send this message." + err.Error())
+				}
+			}
 		}
 	}
 
@@ -728,7 +751,14 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 	log.Println("AddFarmerToContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", order)
 
 	if contract.CoopSize == min(len(contract.Order), len(contract.Boosters)) {
-		return nil, errors.New(errorContractFull)
+		// Only add to waitlist if user isn't already in it
+		if !slices.Contains(contract.WaitlistBoosters, userID) {
+			contract.WaitlistBoosters = append(contract.WaitlistBoosters, userID)
+			refreshBoostListMessage(s, contract)
+
+			return nil, nil
+		}
+		return nil, errors.New("contract is full")
 	}
 
 	var b = contract.Boosters[userID]
@@ -1016,7 +1046,11 @@ func JoinContract(s *discordgo.Session, guildID string, channelID string, userID
 
 	if contract.Boosters[userID] == nil {
 		if contract.CoopSize == min(len(contract.Order), len(contract.Boosters)) {
-			return errors.New(errorContractFull)
+			if contract.State != ContractStateSignup {
+				return errors.New(errorContractFull)
+				// Only add to waitlist if user isn't already in it
+			}
+
 		}
 
 		// Wait here until we get our lock
@@ -1040,7 +1074,7 @@ func JoinContract(s *discordgo.Session, guildID string, channelID string, userID
 		var str = fmt.Sprintf("Boost notifications will be sent for %s/%s.", contract.ContractID, contract.CoopID)
 		_, err := s.ChannelMessageSend(u.ID, str)
 		if err != nil {
-			panic(err)
+			log.Println("Error sending DM to user: ", err)
 		}
 
 	}
@@ -1080,175 +1114,193 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 		userID = mention[offset : len(mention)-1]
 	}
 
-	removalIndex := slices.Index(contract.Order, userID)
-	if removalIndex == -1 {
-		return errors.New(errorUserNotInContract)
-	}
-	currentBooster := ""
-
-	// Save current booster name
-	if contract.BoostPosition != -1 {
-		if contract.State != ContractStateWaiting && contract.BoostPosition != len(contract.Order) && userID != contract.Order[contract.BoostPosition] {
-			currentBooster = contract.Order[contract.BoostPosition]
-		}
-	}
-
-	// Remove the user from the role
-	for _, el := range contract.Location {
-		if el.GuildID == guildID && el.GuildContractRole.ID != "" && contract.Boosters[userID].Name != userID {
-			_ = s.GuildMemberRoleRemove(guildID, userID, el.GuildContractRole.ID)
-		}
-	}
-
-	sinkChanged := false
-
-	// Remove the booster from the contract
-	if userID == contract.Banker.CrtSinkUserID {
-		sinkChanged = true
-		contract.Banker.CrtSinkUserID = ""
-	}
-	if userID == contract.Banker.BoostingSinkUserID {
-		sinkChanged = true
-		contract.Banker.BoostingSinkUserID = ""
-	}
-	if userID == contract.Banker.PostSinkUserID {
-		sinkChanged = true
-		contract.Banker.PostSinkUserID = ""
-	}
-	if sinkChanged {
-		changeContractState(contract, contract.State)
-	}
-
-	// If this is an alt, remove its entries from main
-	if contract.Boosters[userID].AltController != "" {
-		mainUserID := contract.Boosters[userID].AltController
-		if contract.Banker.CrtSinkUserID == userID {
-			contract.Banker.CrtSinkUserID = mainUserID
-		}
-		if contract.Banker.BoostingSinkUserID == userID {
-			contract.Banker.BoostingSinkUserID = mainUserID
-		}
-		if contract.Banker.PostSinkUserID == userID {
-			contract.Banker.PostSinkUserID = mainUserID
-		}
-		contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
-
-		altIdx := slices.Index(contract.Boosters[mainUserID].Alts, userID)
-		contract.Boosters[mainUserID].Alts = removeIndex(contract.Boosters[mainUserID].Alts, altIdx)
-		contract.Boosters[mainUserID].AltsIcons = removeIndex(contract.Boosters[mainUserID].AltsIcons, altIdx)
-		rebuildAltList(contract)
-		contract.buttonComponents = nil // reset button components
-		redraw = true
-	} else if len(contract.Boosters[userID].Alts) > 0 {
-		// If this is a main with alts, clear the alts
-		for _, alt := range contract.Boosters[userID].Alts {
-			contract.Boosters[alt].AltController = ""
-		}
-		contract.Boosters[userID].Alts = nil
-		contract.Boosters[userID].AltsIcons = nil
-
-		rebuildAltList(contract)
-		contract.buttonComponents = nil
-		redraw = true
-	}
-	contract.Order = removeIndex(contract.Order, removalIndex)
-	contract.OrderRevision++
-	delete(contract.Boosters, userID)
-	contract.RegisteredNum = len(contract.Boosters)
-	if contract.Ultra {
-		contract.UltraCount--
+	// If the farmer is on the waitlist, remove them from it
+	removalIndex := slices.Index(contract.WaitlistBoosters, userID)
+	if removalIndex != -1 {
+		contract.mutex.Lock()
+		contract.WaitlistBoosters = removeIndex(contract.WaitlistBoosters, removalIndex)
+		contract.mutex.Unlock()
 	} else {
-		if farmerstate.IsUltra(userID) {
-			contract.UltraCount--
-		}
-	}
 
-	if userID == contract.CreatorID[0] {
-		// Reassign CreatorID to the Bot, then if there's a non-guest, make them the coordinator
-		contract.CreatorID[0] = config.DiscordAppID
-		for _, el := range contract.Order {
-			if contract.Boosters[el] != nil {
-				if contract.Boosters[el].UserID != contract.Boosters[el].Mention {
-					contract.CreatorID[0] = contract.Boosters[el].UserID
-					break
+		removalIndex = slices.Index(contract.Order, userID)
+		if removalIndex == -1 {
+			return errors.New(errorUserNotInContract)
+		}
+		currentBooster := ""
+
+		// Save current booster name
+		if contract.BoostPosition != -1 {
+			if contract.State != ContractStateWaiting && contract.BoostPosition != len(contract.Order) && userID != contract.Order[contract.BoostPosition] {
+				currentBooster = contract.Order[contract.BoostPosition]
+			}
+		}
+
+		// Remove the user from the role
+		for _, el := range contract.Location {
+			if el.GuildID == guildID && el.GuildContractRole.ID != "" && contract.Boosters[userID].Name != userID {
+				_ = s.GuildMemberRoleRemove(guildID, userID, el.GuildContractRole.ID)
+			}
+		}
+
+		sinkChanged := false
+
+		// Remove the booster from the contract
+		if userID == contract.Banker.CrtSinkUserID {
+			sinkChanged = true
+			contract.Banker.CrtSinkUserID = ""
+		}
+		if userID == contract.Banker.BoostingSinkUserID {
+			sinkChanged = true
+			contract.Banker.BoostingSinkUserID = ""
+		}
+		if userID == contract.Banker.PostSinkUserID {
+			sinkChanged = true
+			contract.Banker.PostSinkUserID = ""
+		}
+		if sinkChanged {
+			changeContractState(contract, contract.State)
+		}
+
+		// If this is an alt, remove its entries from main
+		if contract.Boosters[userID].AltController != "" {
+			mainUserID := contract.Boosters[userID].AltController
+			if contract.Banker.CrtSinkUserID == userID {
+				contract.Banker.CrtSinkUserID = mainUserID
+			}
+			if contract.Banker.BoostingSinkUserID == userID {
+				contract.Banker.BoostingSinkUserID = mainUserID
+			}
+			if contract.Banker.PostSinkUserID == userID {
+				contract.Banker.PostSinkUserID = mainUserID
+			}
+			contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
+
+			altIdx := slices.Index(contract.Boosters[mainUserID].Alts, userID)
+			contract.Boosters[mainUserID].Alts = removeIndex(contract.Boosters[mainUserID].Alts, altIdx)
+			contract.Boosters[mainUserID].AltsIcons = removeIndex(contract.Boosters[mainUserID].AltsIcons, altIdx)
+			rebuildAltList(contract)
+			contract.buttonComponents = nil // reset button components
+			redraw = true
+		} else if len(contract.Boosters[userID].Alts) > 0 {
+			// If this is a main with alts, clear the alts
+			for _, alt := range contract.Boosters[userID].Alts {
+				contract.Boosters[alt].AltController = ""
+			}
+			contract.Boosters[userID].Alts = nil
+			contract.Boosters[userID].AltsIcons = nil
+
+			rebuildAltList(contract)
+			contract.buttonComponents = nil
+			redraw = true
+		}
+		contract.Order = removeIndex(contract.Order, removalIndex)
+		contract.OrderRevision++
+		delete(contract.Boosters, userID)
+		contract.RegisteredNum = len(contract.Boosters)
+		if contract.Ultra {
+			contract.UltraCount--
+		} else {
+			if farmerstate.IsUltra(userID) {
+				contract.UltraCount--
+			}
+		}
+
+		if userID == contract.CreatorID[0] {
+			// Reassign CreatorID to the Bot, then if there's a non-guest, make them the coordinator
+			contract.CreatorID[0] = config.DiscordAppID
+			for _, el := range contract.Order {
+				if contract.Boosters[el] != nil {
+					if contract.Boosters[el].UserID != contract.Boosters[el].Mention {
+						contract.CreatorID[0] = contract.Boosters[el].UserID
+						break
+					}
 				}
 			}
 		}
-	}
 
-	if contract.State != ContractStateSignup {
-		if currentBooster != "" {
-			contract.BoostPosition = slices.Index(contract.Order, currentBooster)
-		} else {
-			// Active Booster is leaving contract.
-			if contract.State == ContractStateCompleted || contract.State == ContractStateArchive || contract.State == ContractStateWaiting {
-				changeContractState(contract, ContractStateWaiting)
-				contract.BoostPosition = len(contract.Order)
-				sendNextNotification(s, contract, true)
-			} else if (contract.State == ContractStateFastrun || contract.State == ContractStateBanker) && contract.BoostPosition == len(contract.Order) {
-				// set contract to waiting
-				changeContractState(contract, ContractStateWaiting)
-				sendNextNotification(s, contract, true)
+		if contract.State != ContractStateSignup {
+			if currentBooster != "" {
+				contract.BoostPosition = slices.Index(contract.Order, currentBooster)
 			} else {
-				contract.BoostPosition = findNextBooster(contract)
-				if contract.BoostPosition != -1 {
-					contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
-					contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+				// Active Booster is leaving contract.
+				if contract.State == ContractStateCompleted || contract.State == ContractStateArchive || contract.State == ContractStateWaiting {
+					changeContractState(contract, ContractStateWaiting)
+					contract.BoostPosition = len(contract.Order)
 					sendNextNotification(s, contract, true)
-					// Returning here since we're actively boosting and will send a new message
-					return nil
+				} else if (contract.State == ContractStateFastrun || contract.State == ContractStateBanker) && contract.BoostPosition == len(contract.Order) {
+					// set contract to waiting
+					changeContractState(contract, ContractStateWaiting)
+					sendNextNotification(s, contract, true)
+				} else {
+					contract.BoostPosition = findNextBooster(contract)
+					if contract.BoostPosition != -1 {
+						contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
+						contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+						sendNextNotification(s, contract, true)
+						// Returning here since we're actively boosting and will send a new message
+						return nil
+					}
 				}
+			}
+		} else {
+			if len(contract.WaitlistBoosters) > 0 {
+				// Remove the first person from the want list
+				firstWaitlistUser := contract.WaitlistBoosters[0]
+				contract.WaitlistBoosters = contract.WaitlistBoosters[1:]
+				_, _ = AddFarmerToContract(s, contract, guildID, channelID, firstWaitlistUser, contract.BoostOrder, false)
 			}
 		}
 	}
 
 	// Edit the boost List in place
-	if contract.BoostPosition != len(contract.Order) {
-		for _, loc := range contract.Location {
-			if redraw {
-				refreshBoostListMessage(s, contract)
-
-				//				_ = RedrawBoostList(s, loc.GuildID, loc.ChannelID)
-				continue
+	//if contract.BoostPosition != len(contract.Order) {
+	for _, loc := range contract.Location {
+		if redraw {
+			refreshBoostListMessage(s, contract)
+			continue
+		}
+		if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
+			if len(contract.Order) == 0 {
+				// Need to clear all the contract sinks
+				contract.Banker.CrtSinkUserID = ""
+				contract.Banker.BoostingSinkUserID = ""
+				contract.Banker.PostSinkUserID = ""
 			}
-			if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
-				if len(contract.Order) == 0 {
-					// Need to clear all the contract sinks
-					contract.Banker.CrtSinkUserID = ""
-					contract.Banker.BoostingSinkUserID = ""
-					contract.Banker.PostSinkUserID = ""
-				}
-				calculateTangoLegs(contract, true)
+			calculateTangoLegs(contract, true)
+		}
+		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
+		components := DrawBoostList(s, contract)
+		msgedit.Components = &components
+		msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
+		msg, err := s.ChannelMessageEditComplex(msgedit)
+		if err == nil {
+			loc.ListMsgID = msg.ID
+		}
+		// Need to disable the speedrun start button if the contract is no longer full
+		//if contract.Style&ContractFlagCrt != 0 && contract.State == ContractStateSignup {
+		if contract.State == ContractStateSignup {
+			enableButton := false
+			if len(contract.Order) == 0 {
+				enableButton = true
 			}
-			msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
-			components := DrawBoostList(s, contract)
-			msgedit.Components = &components
-			msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
-			msg, err := s.ChannelMessageEditComplex(msgedit)
-			if err == nil {
-				loc.ListMsgID = msg.ID
-			}
-			// Need to disable the speedrun start button if the contract is no longer full
-			if contract.Style&ContractFlagCrt != 0 && contract.State == ContractStateSignup {
-				enableButton := false
-				if len(contract.Order) == 0 {
-					enableButton = true
-				}
-				var components []discordgo.MessageComponent
-				msgID := loc.ReactionID
-				msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
-				// Full contract for speedrun
-				contentStr, comp := GetSignupComponents(enableButton, contract) // True to get a disabled start button
-				components = append(components, &discordgo.TextDisplay{
-					Content: contentStr,
-				})
-				components = append(components, comp...)
-				msg.Flags = discordgo.MessageFlagsIsComponentsV2
-				msg.Components = &components
-				_, _ = s.ChannelMessageEditComplex(msg)
+			var components []discordgo.MessageComponent
+			msgID := loc.ReactionID
+			msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
+			// Full contract for speedrun
+			contentStr, comp := GetSignupComponents(enableButton, contract) // True to get a disabled start button
+			components = append(components, &discordgo.TextDisplay{
+				Content: contentStr,
+			})
+			components = append(components, comp...)
+			msg.Flags = discordgo.MessageFlagsIsComponentsV2
+			msg.Components = &components
+			_, err = s.ChannelMessageEditComplex(msg)
+			if err != nil {
+				fmt.Println("Unable to send this message." + err.Error())
 			}
 		}
 	}
+	//}
 
 	return nil
 }
@@ -1379,15 +1431,22 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 			// This is an edit, it should be the same
 			loc.ListMsgID = msg.ID
 		}
-		if contract.Style&ContractFlagCrt != 0 && contract.State == ContractStateSignup {
+		if contract.State == ContractStateSignup {
+			var components []discordgo.MessageComponent
 			msgID := loc.ReactionID
 			msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
-
 			// Full contract for speedrun
 			contentStr, comp := GetSignupComponents(len(contract.Order) < 1, contract) // True to get a disabled start button
-			msg.SetContent(contentStr)
-			msg.Components = &comp
-			_, _ = s.ChannelMessageEditComplex(msg)
+			components = append(components, &discordgo.TextDisplay{
+				Content: contentStr,
+			})
+			components = append(components, comp...)
+			msg.Flags = discordgo.MessageFlagsIsComponentsV2
+			msg.Components = &components
+			_, err = s.ChannelMessageEditComplex(msg)
+			if err != nil {
+				fmt.Println("Unable to send this message." + err.Error())
+			}
 		}
 
 	}
@@ -1412,6 +1471,21 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			if err != nil {
 				fmt.Println("Unable to send this message." + err.Error())
 			}
+			msgID := loc.ReactionID
+			msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
+			// Full contract for speedrun
+			contentStr, comp := GetSignupComponents(len(contract.Order) < 1, contract) // True to get a disabled start button
+			components = append(components, &discordgo.TextDisplay{
+				Content: contentStr,
+			})
+			components = append(components, comp...)
+			msg.Flags = discordgo.MessageFlagsIsComponentsV2
+			msg.Components = &components
+			_, err = s.ChannelMessageEditComplex(msg)
+			if err != nil {
+				fmt.Println("Unable to send this message." + err.Error())
+			}
+
 		} else {
 			var components []discordgo.MessageComponent
 
