@@ -227,13 +227,6 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		return components
 	}
 
-	/*
-		if contract.State == ContractStateSignup {
-			builder.WriteString("## Sign-up List\n")
-		} else {
-			builder.WriteString("## Boost List\n")
-		}
-	*/
 	var prefix = " - "
 
 	var earlyList strings.Builder
@@ -483,7 +476,26 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				}
 			}
 		}
-		//		builder.WriteString(lateList.String())
+
+		if contract.State == ContractStateSignup && len(contract.WaitlistBoosters) > 0 {
+			// Loop through the waitlist and list waitlist folks
+			builder.WriteString("\n### Backups\n")
+			for _, userID := range contract.WaitlistBoosters {
+				userName := "<@" + userID + "> "
+				builder.WriteString(userName)
+			}
+			components = append(components, &discordgo.TextDisplay{
+				Content: builder.String(),
+			})
+			builder.Reset()
+
+			components = append(components, &discordgo.Separator{
+				Divider: &divider,
+				Spacing: &spacing,
+			})
+
+		}
+
 		if builder.Len() != 0 {
 			components = append(components, &discordgo.TextDisplay{
 				Content: builder.String(),
