@@ -1756,6 +1756,9 @@ func reorderBoosters(contract *Contract) {
 		})
 
 		newBoostPosition := len(orderedNames)
+		if contract.Style&ContractFlagFastrun != 0 {
+			newBoostPosition = contract.BoostPosition
+		}
 
 		// These boosters are all dymanic, any of them could be the next booster
 		for _, pair := range tvalPairs {
