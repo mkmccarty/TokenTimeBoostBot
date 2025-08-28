@@ -546,21 +546,7 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 		if err == nil {
 			loc.ListMsgID = msg.ID
 		}
-		if contract.State == ContractStateSignup {
-			var components []discordgo.MessageComponent
-
-			msgID := loc.ReactionID
-			msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
-			msg.Flags = discordgo.MessageFlagsIsComponentsV2
-
-			contentStr, comp := GetSignupComponents(contract.State != ContractStateSignup, contract) // True to get a disabled start button
-			components = append(components, &discordgo.TextDisplay{
-				Content: contentStr,
-			})
-			components = append(components, comp...)
-			msg.Components = &components
-			_, _ = s.ChannelMessageEditComplex(msg)
-		}
+		updateSignupReactionMessage(s, contract, loc)
 	}
 	return builder.String(), nil
 }

@@ -884,19 +884,7 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		}
 
 		if redrawSignup {
-			// Rebuild the signup message to disable the start button
-			var components []discordgo.MessageComponent
-			msg.Flags = discordgo.MessageFlagsIsComponentsV2
-			msgID := loc.ReactionID
-			msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
-
-			contentStr, signUpComponents := GetSignupComponents(contract.State != ContractStateSignup, contract) // True to get a disabled start button
-			components = append(components, &discordgo.TextDisplay{
-				Content: contentStr,
-			})
-			components = append(components, signUpComponents...)
-			msg.Components = &components
-			_, _ = s.ChannelMessageEditComplex(msg)
+			updateSignupReactionMessage(s, contract, loc)
 		}
 	}
 
