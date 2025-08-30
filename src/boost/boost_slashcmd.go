@@ -596,6 +596,13 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			}
 		}
 	}
+	// Recalculate token values after the change
+	targetTval := 3.0
+	BTA := c.EstimatedDuration.Minutes() / float64(c.MinutesPerToken)
+	if BTA > 42.0 {
+		targetTval = 0.07 * BTA
+	}
+	calculateTokenValueCoopLog(c, c.EstimatedDuration, targetTval)
 
 	c.mutex.Unlock()
 	track.ContractTokenUpdate(s, i.ChannelID, &modifiedTokenLog)
