@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math/rand"
+	"math/rand/v2"
 	"regexp"
 	"slices"
 	"strings"
@@ -439,16 +439,30 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 	tryCount := 0
 	prefix := ""
 
+	// Create a list of unused role names
+	var unusedRoleNames []string
+	for _, name := range roleNames {
+		if !slices.Contains(existingRoles, fmt.Sprintf("%s%s", prefix, name)) {
+			unusedRoleNames = append(unusedRoleNames, name)
+		}
+	}
+	rand.Shuffle(len(unusedRoleNames), func(i, j int) {
+		unusedRoleNames[i], unusedRoleNames[j] = unusedRoleNames[j], unusedRoleNames[i]
+	})
+
 	for {
-		name := roleNames[rand.Intn(len(roleNames))]
+		name := unusedRoleNames[tryCount]
 		if !slices.Contains(existingRoles, name) {
 			// Found an unused name
 			teamName = name
 			break
 		}
 		tryCount++
-		if tryCount == 28 && len(roleNames) == 30 {
-			roleNames = randomThingNames // Reset the names to the fallback list
+		if tryCount == len(unusedRoleNames) {
+			unusedRoleNames = randomThingNames // Reset the names to the fallback list
+			rand.Shuffle(len(unusedRoleNames), func(i, j int) {
+				unusedRoleNames[i], unusedRoleNames[j] = unusedRoleNames[j], unusedRoleNames[i]
+			})
 			prefix = "Team "
 		}
 	}
