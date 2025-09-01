@@ -221,7 +221,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 
 			// Also send this for ACO
 			if !config.IsDevBot() {
-				acoChannel := "1103074428352471050" // ACO #contracts-version-2-chat
+				acoChannel := "1257340301438222401" // ACO #colleggtibles-chat
 				permissions, err := s.UserChannelPermissions(config.DiscordAppID, acoChannel)
 				if err != nil {
 					log.Printf("Error getting permissions for channel %s: %v", acoChannel, err)
