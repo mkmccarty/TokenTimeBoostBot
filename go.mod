@@ -4,7 +4,7 @@ go 1.25
 
 require (
 	github.com/bwmarrin/discordgo v0.29.0
-	github.com/divan/num2words v1.0.1
+	github.com/divan/num2words v1.0.3
 	github.com/ewohltman/discordgo-mock v0.0.11
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/google/generative-ai-go v0.20.1
