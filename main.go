@@ -70,6 +70,7 @@ const slashVolunteerSink string = "volunteer-sink"
 const slashVoluntellSink string = "voluntell-sink"
 const slashLinkAlternate string = "link-alternate"
 const slashTeamworkEval string = "teamwork"
+const slashSiabEval string = "siab"
 const slashEstimateTime string = "estimate-contract-time"
 const slashCsEstimate string = "cs-estimate"
 const slashRenameThread string = "rename-thread"
@@ -289,6 +290,7 @@ var (
 		boost.GetSlashCalcContractTval(slashCalcContractTval),
 		boost.GetSlashCoopTval(slashCoopTval),
 		boost.GetSlashTeamworkEval(slashTeamworkEval),
+		//boost.GetSlashSiabEval(slashSiabEval),
 		boost.GetSlashStones(slashStones),
 		boost.GetSlashTimer(slashTimer),
 		boost.GetSlashEstimateTime(slashEstimateTime),
@@ -352,6 +354,9 @@ var (
 			boost.HandleAllContractsAutoComplete(s, i)
 		},
 		slashTeamworkEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleAllContractsAutoComplete(s, i)
+		},
+		slashSiabEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAllContractsAutoComplete(s, i)
 		},
 		slashScoreExplorer: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -519,6 +524,9 @@ var (
 		},
 		slashTeamworkEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleTeamworkEvalCommand(s, i)
+		},
+		slashSiabEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleSiabEvalCommand(s, i)
 		},
 		slashStones: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleStonesCommand(s, i)
