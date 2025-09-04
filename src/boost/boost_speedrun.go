@@ -147,7 +147,7 @@ func HandleChangeSpeedrunSinkCommand(s *discordgo.Session, i *discordgo.Interact
 		}
 	}
 
-	str, err := setSpeedrunOptions(s, i.ChannelID, sinkCrt, sinkBoost, sinkPost, -1, -1, false, true)
+	str, err := setSpeedrunOptions(s, i.ChannelID, sinkCrt, sinkBoost, sinkPost, -1, -1, true)
 	if err != nil {
 		str = err.Error()
 	}
@@ -181,7 +181,6 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	sinkBoost := ""
 	sinkPost := ""
 	sinkPosition := SinkBoostFirst
-	selfRuns := false
 
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -221,7 +220,7 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		sinkPosition = int(opt.IntValue())
 	}
 
-	str, err := setSpeedrunOptions(s, i.ChannelID, sinkCrt, sinkBoost, sinkPost, sinkPosition, chickenRuns, selfRuns, false)
+	str, err := setSpeedrunOptions(s, i.ChannelID, sinkCrt, sinkBoost, sinkPost, sinkPosition, chickenRuns, false)
 	if err != nil {
 		str = err.Error()
 	}
@@ -446,7 +445,7 @@ func calculateTangoLegs(contract *Contract, setStatus bool) {
 	}
 */
 
-func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, sinkBoosting string, sinkPost string, sinkPosition int, chickenRuns int, selfRuns bool, changeSinksOnly bool) (string, error) {
+func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, sinkBoosting string, sinkPost string, sinkPosition int, chickenRuns int, changeSinksOnly bool) (string, error) {
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return "", errors.New(errorNoContract)
