@@ -59,67 +59,67 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 			Name: "💰",
 		},
 	})
-
-	crtOptions := []discordgo.SelectMenuOption{}
-	crtOptions = append(crtOptions, discordgo.SelectMenuOption{
-		Label:       "No-CRT",
-		Description: "Standard vanilla option for this contract",
-		Value:       "no_crt",
-		Default:     (contract.Style & ContractFlagCrt) == 0,
-		Emoji: &discordgo.ComponentEmoji{
-			Name: "🍦",
-		},
-	})
-	crtOptions = append(crtOptions, discordgo.SelectMenuOption{
-		Label:       "CRT",
-		Description: "Chicken Run Tango",
-		Value:       "crt",
-		Default:     (contract.Style&ContractFlagCrt) != 0 && (contract.Style&ContractFlagSelfRuns) == 0,
-		Emoji: &discordgo.ComponentEmoji{
-			Name: "🔁",
-		},
-	})
-
-	if !slices.Contains(config.FeatureFlags, "DISABLE_SELFRUN") {
+	/*
+		crtOptions := []discordgo.SelectMenuOption{}
 		crtOptions = append(crtOptions, discordgo.SelectMenuOption{
-			Label:       "CRT+selfrun",
-			Description: "Less Tango Legs ",
-			Value:       "self_runs",
-			Default:     (contract.Style&ContractFlagCrt) != 0 && (contract.Style&ContractFlagSelfRuns) != 0,
+			Label:       "No-CRT",
+			Description: "Standard vanilla option for this contract",
+			Value:       "no_crt",
+			Default:     (contract.Style & ContractFlagCrt) == 0,
 			Emoji: &discordgo.ComponentEmoji{
-				Name: "🔂",
+				Name: "🍦",
 			},
 		})
-	} else {
-		// Make sure this flag is cleared if the feature is disabled
-		contract.Style &^= ContractFlagSelfRuns
-	}
+		crtOptions = append(crtOptions, discordgo.SelectMenuOption{
+			Label:       "CRT",
+			Description: "Chicken Run Tango",
+			Value:       "crt",
+			Default:     (contract.Style&ContractFlagCrt) != 0 && (contract.Style&ContractFlagSelfRuns) == 0,
+			Emoji: &discordgo.ComponentEmoji{
+				Name: "🔁",
+			},
+		})
 
+		if !slices.Contains(config.FeatureFlags, "DISABLE_SELFRUN") {
+			crtOptions = append(crtOptions, discordgo.SelectMenuOption{
+				Label:       "CRT+selfrun",
+				Description: "Less Tango Legs ",
+				Value:       "self_runs",
+				Default:     (contract.Style&ContractFlagCrt) != 0 && (contract.Style&ContractFlagSelfRuns) != 0,
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "🔂",
+				},
+			})
+		} else {
+			// Make sure this flag is cleared if the feature is disabled
+			contract.Style &^= ContractFlagSelfRuns
+		}
+	*/
 	playstyleOptions := []discordgo.SelectMenuOption{}
 
-	if (contract.Style & ContractFlagCrt) == 0 {
-		playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
-			Label:       "Chill play style",
-			Description: "Everyone fills habs and uses correct artifacts",
-			Value:       "chill",
-			Default:     (contract.PlayStyle == ContractPlaystyleChill),
-			Emoji:       ei.GetBotComponentEmoji("chill"),
-		})
-		playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
-			Label:       "ACO Cooperative play style",
-			Description: "Chill + Everyone checks in on time",
-			Value:       "aco",
-			Default:     (contract.PlayStyle == ContractPlaystyleACOCooperative),
-			Emoji:       ei.GetBotComponentEmoji("aco"),
-		})
-		playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
-			Label:       "Fastrun",
-			Description: "ACO + Get TVal and CR from your coop size or act as sink",
-			Value:       "fastrun",
-			Default:     (contract.PlayStyle == ContractPlaystyleFastrun),
-			Emoji:       ei.GetBotComponentEmoji("fastrun"),
-		})
-	} else {
+	//if (contract.Style & ContractFlagCrt) == 0 {
+	playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
+		Label:       "Chill play style",
+		Description: "Everyone fills habs and uses correct artifacts",
+		Value:       "chill",
+		Default:     (contract.PlayStyle == ContractPlaystyleChill),
+		Emoji:       ei.GetBotComponentEmoji("chill"),
+	})
+	playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
+		Label:       "ACO Cooperative play style",
+		Description: "Chill + Everyone checks in on time",
+		Value:       "aco",
+		Default:     (contract.PlayStyle == ContractPlaystyleACOCooperative),
+		Emoji:       ei.GetBotComponentEmoji("aco"),
+	})
+	playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
+		Label:       "Fastrun",
+		Description: "ACO + Get TVal and CR from your coop size or act as sink",
+		Value:       "fastrun",
+		Default:     (contract.PlayStyle == ContractPlaystyleFastrun),
+		Emoji:       ei.GetBotComponentEmoji("fastrun"),
+	})
+	/*} else {
 		playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
 			Label:       "Leaderboard",
 			Description: "Fastrun + Get max CR",
@@ -127,7 +127,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 			Default:     (contract.PlayStyle == ContractPlaystyleLeaderboard),
 			Emoji:       ei.GetBotComponentEmoji("leaderboard"),
 		})
-	}
+	}*/
 
 	return builder.String(), []discordgo.MessageComponent{
 		discordgo.ActionsRow{
@@ -141,17 +141,19 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 				},
 			},
 		},
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.SelectMenu{
-					CustomID:    "cs_#crt#" + id,
-					Placeholder: "Choose your options for CRT",
-					MinValues:   &minValues,
-					MaxValues:   1,
-					Options:     crtOptions,
+		/*
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.SelectMenu{
+						CustomID:    "cs_#crt#" + id,
+						Placeholder: "Choose your options for CRT",
+						MinValues:   &minValues,
+						MaxValues:   1,
+						Options:     crtOptions,
+					},
 				},
 			},
-		},
+		*/
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.SelectMenu{
@@ -417,9 +419,9 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 			sinkList = append(sinkList, SinkList{"Post Contract Sink", contract.Banker.PostSinkUserID, "postsink"})
 		} else {
 			if contract.State == ContractStateSignup {
-				if contract.Style&ContractFlagCrt != 0 {
+				/*if contract.Style&ContractFlagCrt != 0 {
 					sinkList = append(sinkList, SinkList{"CRT Sink", contract.Banker.CrtSinkUserID, "crtsink"})
-				}
+				}*/
 				if contract.Style&ContractFlagBanker != 0 {
 					sinkList = append(sinkList, SinkList{"Boost Sink", contract.Banker.BoostingSinkUserID, "boostsink"})
 				}

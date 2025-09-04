@@ -128,9 +128,11 @@ func generateThreadName(c *Contract) string {
 		} else {
 			styleStr += "Fastrun"
 		}
-		if c.Style&ContractFlagCrt != 0 {
-			styleStr += "+CRT"
-		}
+		/*
+			if c.Style&ContractFlagCrt != 0 {
+				styleStr += "+CRT"
+			}
+		*/
 		threadName = strings.ReplaceAll(threadName, "$STYLE", styleStr)
 		threadName = strings.ReplaceAll(threadName, "$S", styleStr)
 

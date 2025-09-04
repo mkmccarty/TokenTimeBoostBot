@@ -582,9 +582,9 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 		contract.ContractID = contractID
 		updateContractWithEggIncData(contract)
 		contract.EggEmoji = FindEggEmoji(contract.EggName)
-		if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
-			calculateTangoLegs(contract, true)
-		}
+		//if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
+		//	calculateTangoLegs(contract, true)
+		//}
 		refreshBoostListMessage(s, contract)
 	}
 	if coopID != "" {

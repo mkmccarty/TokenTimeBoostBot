@@ -397,8 +397,8 @@ func buttonReactionHelp(s *discordgo.Session, i *discordgo.InteractionCreate, co
 		outputStr.WriteString("## [ACO Cooperative Playstyle](https://discord.com/channels/485162044652388384/1386391295869849681/1386598298907050067)\n")
 	case ContractPlaystyleFastrun:
 		outputStr.WriteString("## [Fastrun Playstyle](https://discord.com/channels/485162044652388384/1386391295869849681/1386598380855365784)\n")
-	case ContractPlaystyleLeaderboard:
-		outputStr.WriteString("## [Leaderboard Playstyle](https://discord.com/channels/485162044652388384/1386391295869849681/1386598461184544818)\n")
+	//case ContractPlaystyleLeaderboard:
+	//	outputStr.WriteString("## [Leaderboard Playstyle](https://discord.com/channels/485162044652388384/1386391295869849681/1386598461184544818)\n")
 	case ContractPlaystyleUnset:
 		// No playstyle set, so no link
 	}
