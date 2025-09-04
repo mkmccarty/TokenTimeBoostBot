@@ -823,32 +823,41 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 			// Chicken Runs
 			// Create a table of Chicken Runs with maximized TVAL
+			scoreBase := calculateContractScore(grade,
+				eiContract.MaxCoopSize,
+				eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+				contribution[i],
+				eiContract.Grade[grade].LengthInSeconds,
+				contractDurationSeconds,
+				0, 0, 0)
+			capCR := min((eiContract.MaxCoopSize*contractDurationInDays)/2, 20)
+			diffCR := (float64(scoreBase) * 0.06) / float64(capCR)
 
-			// Maximize Token Value for this
-			//T := calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 0)
+			var crBuilder strings.Builder
+			minScore := calculateContractScore(grade,
+				eiContract.MaxCoopSize,
+				eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+				contribution[i],
+				eiContract.Grade[grade].LengthInSeconds,
+				contractDurationSeconds,
+				B, 0, 0)
 
-			/*
-				var crBuilder strings.Builder
-				for maxCR := capCR; maxCR >= 0; maxCR-- {
-					CR := calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, maxCR)
-					score := calculateContractScore(grade,
-						eiContract.MaxCoopSize,
-						eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
-						contribution[i],
-						eiContract.Grade[grade].LengthInSeconds,
-						contractDurationSeconds,
-						B, CR, T)
-					crBuilder.WriteString(fmt.Sprintf("%d:%d ", maxCR, score))
-				}
-				field = append(field, &discordgo.MessageEmbedField{
-					Name:   "Chicken Runs w/Tval 🎯",
-					Value:  "```" + crBuilder.String() + "```",
-					Inline: false,
-				})
-			*/
+			for maxCR := capCR; maxCR >= 0; maxCR-- {
+				// Each CR is worth 6% of base score divided by maxCR
+				crBuilder.WriteString(fmt.Sprintf("%d:%d ", maxCR, minScore+int64(math.Ceil(float64(maxCR)*diffCR))))
+			}
+			if diffCR > 0 {
+				crBuilder.WriteString(fmt.Sprintf("\nEach Chicken Run adds %6.3f to Contract Score with current buffs and TVAL=0", diffCR))
+			}
+			field = append(field, &discordgo.MessageEmbedField{
+				Name:   "Chicken Runs w/No Token Sharing",
+				Value:  "```" + crBuilder.String() + "```",
+				Inline: false,
+			})
+
 		}
-		capCR := min((eiContract.MaxCoopSize*contractDurationInDays)/2, 20)
 		// Create a table of Contract Scores for this user
+		capCR := min((eiContract.MaxCoopSize*contractDurationInDays)/2, 20)
 		var csBuilder strings.Builder
 
 		// Maximum Contract Score with current buffs and max CR & TVAL
@@ -863,6 +872,18 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			B, CR, T)
 		fmt.Fprintf(&csBuilder, "Max: %d\n", scoreMax)
 
+		// TVAL Met, with CR to coop size -1
+		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 5.0)
+		CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, eiContract.MaxCoopSize-1)
+		scoreTval := calculateContractScore(grade,
+			eiContract.MaxCoopSize,
+			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+			contribution[i],
+			eiContract.Grade[grade].LengthInSeconds,
+			contractDurationSeconds,
+			B, CR, T)
+		fmt.Fprintf(&csBuilder, "TVal: %d (CR=%d)\n", scoreTval, min(eiContract.MaxCoopSize-1, capCR))
+
 		// Sink Contract Score with current buffs and max CR & negative TVAL
 		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 3.0, 11.0)
 		CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, capCR)
@@ -875,28 +896,17 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			B, CR, T)
 		fmt.Fprintf(&csBuilder, "Sink: %d (CR=%d)\n", scoreMid, capCR)
 
-		// TVAL Met, with CR to coop size -1
-		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 5.0)
-		CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, eiContract.MaxCoopSize-1)
-		scoreTval := calculateContractScore(grade,
-			eiContract.MaxCoopSize,
-			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
-			contribution[i],
-			eiContract.Grade[grade].LengthInSeconds,
-			contractDurationSeconds,
-			B, CR, T)
-
 		// No token sharing, with CR to coop size -1
 		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 0.0, 11.0)
-		CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, eiContract.MaxCoopSize-1)
-		scoreChill := calculateContractScore(grade,
+		CR = calculateChickenRunTeamwork(eiContract.MaxCoopSize, contractDurationInDays, min(eiContract.MaxCoopSize-1, capCR))
+		scoreRuns := calculateContractScore(grade,
 			eiContract.MaxCoopSize,
 			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
 			contribution[i],
 			eiContract.Grade[grade].LengthInSeconds,
 			contractDurationSeconds,
 			B, CR, T)
-		//fmt.Fprintf(&csBuilder, "Min: %d (CR/TV=0)\n", scoreChill)
+		fmt.Fprintf(&csBuilder, "Runs: %d (TV=0, CR=%d)\n", scoreRuns, min(eiContract.MaxCoopSize-1, capCR))
 
 		// Minimum Contract Score with current buffs and 0 CR & 0 TVAL
 		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 0.0, 11.0)
@@ -910,13 +920,21 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			B, CR, T)
 		fmt.Fprintf(&csBuilder, "Min: %d (CR/TV=0)\n", scoreMin)
 
-		/*
-			field = append(field, &discordgo.MessageEmbedField{
-				Name:   "Contract Score",
-				Value:  csBuilder.String(),
-				Inline: false,
-			})
-		*/
+		scoreBase := calculateContractScore(grade,
+			eiContract.MaxCoopSize,
+			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+			contribution[i],
+			eiContract.Grade[grade].LengthInSeconds,
+			contractDurationSeconds,
+			0, 0, 0)
+		fmt.Fprintf(&csBuilder, "Base: %d (B/CR/TV=0)\n", scoreBase)
+
+		field = append(field, &discordgo.MessageEmbedField{
+			Name:   "Contract Score",
+			Value:  csBuilder.String(),
+			Inline: false,
+		})
+
 		farmerFields[name] = field
 		trimmedName := c.GetUserName()
 		if len(trimmedName) > 12 {
@@ -927,7 +945,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			scoreMax,
 			scoreMid,
 			scoreTval,
-			scoreChill,
+			scoreRuns,
 			scoreMin,
 		})
 
