@@ -20,12 +20,13 @@ func GetSlashSpeedrunCommand(cmd string) *discordgo.ApplicationCommand {
 		Name:        cmd,
 		Description: "Add speedrun features to a contract.",
 		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionUser,
-				Name:        "sink-crt",
-				Description: "The user to sink during CRT. Used for other sink parameters if those are missing.",
-				Required:    true,
-			},
+			/*
+				{
+					Type:        discordgo.ApplicationCommandOptionUser,
+					Name:        "sink-crt",
+					Description: "The user to sink during CRT. Used for other sink parameters if those are missing.",
+					Required:    true,
+				},*/
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "sink-boosting",
@@ -66,12 +67,13 @@ func GetSlashSpeedrunCommand(cmd string) *discordgo.ApplicationCommand {
 				MaxValue:    20,
 				Required:    false,
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "self-runs",
-				Description: "Self Runs during CRT",
-				Required:    false,
-			},
+			/*
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "self-runs",
+					Description: "Self Runs during CRT",
+					Required:    false,
+				},*/
 		},
 	}
 }
@@ -187,12 +189,14 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		optionMap[opt.Name] = opt
 	}
 
-	if opt, ok := optionMap["sink-crt"]; ok {
-		sinkCrt = opt.UserValue(s).Mention()
-		sinkCrt = sinkCrt[2 : len(sinkCrt)-1]
-		sinkBoost = sinkCrt
-		sinkPost = sinkCrt
-	}
+	/*
+		if opt, ok := optionMap["sink-crt"]; ok {
+			sinkCrt = opt.UserValue(s).Mention()
+			sinkCrt = sinkCrt[2 : len(sinkCrt)-1]
+			sinkBoost = sinkCrt
+			sinkPost = sinkCrt
+		}
+	*/
 	if opt, ok := optionMap["sink-boosting"]; ok {
 		sinkPost = strings.TrimSpace(opt.StringValue())
 		reMention := regexp.MustCompile(`<@!?(\d+)>`)
@@ -210,9 +214,9 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	if opt, ok := optionMap["chicken-runs"]; ok {
 		chickenRuns = int(opt.IntValue())
 	}
-	if opt, ok := optionMap["self-runs"]; ok {
-		selfRuns = opt.BoolValue()
-	}
+	//if opt, ok := optionMap["self-runs"]; ok {
+	//	selfRuns = opt.BoolValue()
+	//}
 	if opt, ok := optionMap["sink-position"]; ok {
 		sinkPosition = int(opt.IntValue())
 	}
@@ -300,13 +304,15 @@ func getSpeedrunStatusStr(contract *Contract) string {
 	}
 
 	// CRT Sink
-	if contract.Style&ContractFlagCrt != 0 {
-		if contract.Banker.CrtSinkUserID != "" {
-			fmt.Fprintf(&b, "> * Send CRT tokens to **%s**\n", contract.Boosters[contract.Banker.CrtSinkUserID].Mention)
-		} else if contract.SRData.Legs > 0 {
-			fmt.Fprintf(&b, "> * Currently there are no farmers assigned for CRT Banker. **CRT will be skipped**.\n")
+	/*
+		if contract.Style&ContractFlagCrt != 0 {
+			if contract.Banker.CrtSinkUserID != "" {
+				fmt.Fprintf(&b, "> * Send CRT tokens to **%s**\n", contract.Boosters[contract.Banker.CrtSinkUserID].Mention)
+			} else if contract.SRData.Legs > 0 {
+				fmt.Fprintf(&b, "> * Currently there are no farmers assigned for CRT Banker. **CRT will be skipped**.\n")
+			}
 		}
-	}
+	*/
 	// Boosting Sink
 	if contract.Style&ContractFlagBanker != 0 {
 		if contract.Banker.BoostingSinkUserID != "" {
@@ -510,13 +516,15 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 	contract.BoostOrder = ContractOrderFair
 
 	// This kind of contract is always a CRT
-	contract.Style = ContractStyleSpeedrunBoostList
+	contract.Style = ContractStyleFastrunBanker
 
-	if selfRuns {
-		contract.Style |= ContractFlagSelfRuns
-	} else {
-		contract.Style &= ^ContractFlagSelfRuns
-	}
+	/*
+		if selfRuns {
+			contract.Style |= ContractFlagSelfRuns
+		} else {
+			contract.Style &= ^ContractFlagSelfRuns
+		}*/
+	contract.Style &= ^ContractFlagSelfRuns
 
 	contract.Speedrun = contract.Style&ContractFlagBanker != 0
 	contract.Speedrun = true // TODO: this will be removed in favor of flags

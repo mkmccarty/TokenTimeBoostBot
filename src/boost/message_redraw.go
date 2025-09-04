@@ -200,25 +200,25 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 }
 
 func updateSignupReactionMessage(s *discordgo.Session, contract *Contract, loc *LocationData) {
-	if contract.State != ContractStateSignup {
-		return
-	}
+	//if contract.State != ContractStateSignup {
+	//	return
+	//	}
 	// Only want to update this when we have to change the Join button
-	if len(contract.Order) == contract.CoopSize || len(contract.Order) == (contract.CoopSize-1) {
-		var components []discordgo.MessageComponent
-		msgID := loc.ReactionID
-		msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
-		// Full contract for speedrun
-		contentStr, comp := GetSignupComponents(false, contract)
-		components = append(components, &discordgo.TextDisplay{
-			Content: contentStr,
-		})
-		components = append(components, comp...)
-		msg.Flags = discordgo.MessageFlagsIsComponentsV2
-		msg.Components = &components
-		_, err := s.ChannelMessageEditComplex(msg)
-		if err != nil {
-			log.Printf("unable to send this message: %v", err)
-		}
+	//if len(contract.Order) == contract.CoopSize || len(contract.Order) == (contract.CoopSize-1) {
+	var components []discordgo.MessageComponent
+	msgID := loc.ReactionID
+	msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
+	// Full contract for speedrun
+	contentStr, comp := GetSignupComponents(false, contract)
+	components = append(components, &discordgo.TextDisplay{
+		Content: contentStr,
+	})
+	components = append(components, comp...)
+	msg.Flags = discordgo.MessageFlagsIsComponentsV2
+	msg.Components = &components
+	_, err := s.ChannelMessageEditComplex(msg)
+	if err != nil {
+		log.Printf("unable to send this message: %v", err)
 	}
+	//}
 }

@@ -124,10 +124,12 @@ func GetSlashContractCommand(cmd string) *discordgo.ApplicationCommand {
 						Name:  "Fastrun",
 						Value: ContractPlaystyleFastrun,
 					},
-					{
-						Name:  "Leaderboard",
-						Value: ContractPlaystyleLeaderboard,
-					},
+					/*
+						{
+							Name:  "Leaderboard",
+							Value: ContractPlaystyleLeaderboard,
+						},
+					*/
 				},
 				Required: false,
 			},
@@ -593,11 +595,16 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	contract.DynamicData = createDynamicTokenData()
 	Contracts[ContractHash] = contract
 
+	// want to string ContractFlagCrt and ContractFlagSelfRun from Style
+	contract.Style &^= (ContractFlagCrt + ContractFlagSelfRuns)
+
 	// Override the contract style based on the play style, only for leaderboard play style
-	if contract.PlayStyle == ContractPlaystyleLeaderboard {
-		contract.Style = ContractFlagBanker | ContractFlagCrt
-		contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
-	}
+	/*
+		if contract.PlayStyle == ContractPlaystyleLeaderboard {
+			contract.Style = ContractFlagBanker | ContractFlagCrt
+			contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
+		}
+	*/
 	/*
 		} else { //if !creatorOfContract(contract, userID) {
 			contract.CreatorID = append(contract.CreatorID, userID) // starting userid
@@ -621,6 +628,8 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 // HandleContractSettingsReactions handles all the button reactions for a contract settings
 func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	redrawSignup := true
+	redrawSettings := false
+
 	// This is only coming from the caller of the contract
 
 	// cs_#Name # cs_#ID # HASH
@@ -656,6 +665,8 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		case "banker":
 			contract.Style |= ContractFlagBanker
 		}
+		redrawSignup = true
+		redrawSettings = true
 	}
 
 	if cmd == "features" {
@@ -694,28 +705,29 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		}
 	}
 
-	if cmd == "crt" {
-		contract.Style &= ^(ContractFlagCrt + ContractFlagSelfRuns)
-		values := data.Values
-		switch values[0] {
-		case "no_crt":
-			if contract.State == ContractStateSignup {
-				contract.Style |= ContractFlagNone
-				contract.Speedrun = false
+	/*
+		if cmd == "crt" {
+			contract.Style &= ^(ContractFlagCrt + ContractFlagSelfRuns)
+			values := data.Values
+			switch values[0] {
+			case "no_crt":
+				if contract.State == ContractStateSignup {
+					contract.Style |= ContractFlagNone
+					contract.Speedrun = false
+				}
+			case "crt":
+				contract.Style |= ContractFlagCrt
+				contract.Speedrun = true
+				contract.SRData.Legs = contract.SRData.NoSelfRunLegs
+
+			case "self_runs":
+				contract.Style |= (ContractFlagCrt + ContractFlagSelfRuns)
+				contract.Speedrun = true
+				// Update the contract to change style
+				contract.SRData.Legs = contract.SRData.SelfRunLegs
 			}
-		case "crt":
-			contract.Style |= ContractFlagCrt
-			contract.Speedrun = true
-			contract.SRData.Legs = contract.SRData.NoSelfRunLegs
-
-		case "self_runs":
-			contract.Style |= (ContractFlagCrt + ContractFlagSelfRuns)
-			contract.Speedrun = true
-			// Update the contract to change style
-			contract.SRData.Legs = contract.SRData.SelfRunLegs
 		}
-	}
-
+	*/
 	if cmd == "order" {
 		if contract.State != ContractStateSignup && data.Values[0] != "signup" {
 			_, _ = s.FollowupMessageCreate(i.Interaction, true,
@@ -826,30 +838,29 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			contract.PlayStyle = ContractPlaystyleACOCooperative
 		case "fastrun":
 			contract.PlayStyle = ContractPlaystyleFastrun
-		case "leaderboard":
-			contract.PlayStyle = ContractPlaystyleLeaderboard
+		//case "leaderboard":
+		//	contract.PlayStyle = ContractPlaystyleLeaderboard
 		default:
 			contract.PlayStyle = ContractPlaystyleUnset
 		}
 	}
 
-	redrawSettings := false
+	/*
+		// A contract that's a CRT is by definition al leaderboard play style
+		if (contract.Style & ContractFlagCrt) != 0 {
+			// strip the Boost list style and set it to banker style
+			contract.Style &= ^ContractFlagFastrun
+			contract.Style |= ContractFlagBanker
 
-	// A contract that's a CRT is by definition al leaderboard play style
-	if (contract.Style & ContractFlagCrt) != 0 {
-		// strip the Boost list style and set it to banker style
-		contract.Style &= ^ContractFlagFastrun
-		contract.Style |= ContractFlagBanker
-
-		contract.PlayStyle = ContractPlaystyleLeaderboard
-		redrawSignup = true
-		//redrawSettings = true
-	} else if (contract.Style&ContractFlagCrt) == 0 && contract.PlayStyle == ContractPlaystyleLeaderboard {
-		contract.PlayStyle = ContractPlaystyleFastrun
-		redrawSignup = true
-		//redrawSettings = true
-	}
-
+			contract.PlayStyle = ContractPlaystyleLeaderboard
+			redrawSignup = true
+			//redrawSettings = true
+		} else if (contract.Style&ContractFlagCrt) == 0 && contract.PlayStyle == ContractPlaystyleLeaderboard {
+			contract.PlayStyle = ContractPlaystyleFastrun
+			redrawSignup = true
+			//redrawSettings = true
+		}
+	*/
 	if originalPlayStyle != contract.PlayStyle {
 		// Need to rename the thread if it exists
 		UpdateThreadName(s, contract)

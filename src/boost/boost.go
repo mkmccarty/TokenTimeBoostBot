@@ -104,16 +104,16 @@ const (
 	ContractFlagFastrun       = 0x4000
 	ContractFlagBanker        = 0x8000
 
-	ContractStyleFastrun           = ContractFlagFastrun
-	ContractStyleFastrunBanker     = ContractFlagBanker
-	ContractStyleSpeedrunBoostList = ContractFlagCrt | ContractFlagFastrun
-	ContractStyleSpeedrunBanker    = ContractFlagCrt | ContractFlagBanker
+	ContractStyleFastrun       = ContractFlagFastrun
+	ContractStyleFastrunBanker = ContractFlagBanker
+	//ContractStyleSpeedrunBoostList = ContractFlagCrt | ContractFlagFastrun
+	//ContractStyleSpeedrunBanker    = ContractFlagCrt | ContractFlagBanker
 
 	ContractPlaystyleUnset          = 0 // Unset
 	ContractPlaystyleChill          = 1 // Chill
 	ContractPlaystyleACOCooperative = 2 // ACO Cooperative
 	ContractPlaystyleFastrun        = 3 // Fastrun
-	ContractPlaystyleLeaderboard    = 4 // Leaderboard
+	//ContractPlaystyleLeaderboard    = 4 // Leaderboard
 )
 
 const defaultFamerTokens = 6
@@ -1289,9 +1289,9 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	}
 
 	if !creatorOfContract(s, contract, userID) && contract.CreatorID[0] != config.DiscordAppID {
-		if contract.Style&ContractFlagCrt == 0 || contract.Banker.CrtSinkUserID != userID {
-			return errors.New(errorNotContractCreator)
-		}
+		//if contract.Style&ContractFlagCrt == 0 || contract.Banker.CrtSinkUserID != userID {
+		return errors.New(errorNotContractCreator)
+		//}
 	}
 
 	reorderBoosters(contract)
@@ -1309,12 +1309,14 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	}
 
 	// Set the CRT Settings to what contract is
-	if contract.Style&ContractFlagCrt != 0 {
-		contract.SRData.Legs = contract.SRData.NoSelfRunLegs
-		if contract.Style&ContractFlagSelfRuns != 0 {
-			contract.SRData.Legs = contract.SRData.SelfRunLegs
+	/*
+		if contract.Style&ContractFlagCrt != 0 {
+			contract.SRData.Legs = contract.SRData.NoSelfRunLegs
+			if contract.Style&ContractFlagSelfRuns != 0 {
+				contract.SRData.Legs = contract.SRData.SelfRunLegs
+			}
 		}
-	}
+	*/
 
 	contract.BoostPosition = 0
 	contract.StartTime = time.Now()
