@@ -101,14 +101,6 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 		})
 	case "ranchicken":
 		buttonReactionRanChicken(s, i, contract, userID)
-	case "truck":
-		redraw = buttonReactionTruck(s, contract, userID)
-	case "leg":
-		redraw = buttonReactionLeg(s, contract, userID)
-	case "tango":
-		redraw = buttonReactionTango(s, contract, userID)
-	case "check":
-		redraw = buttonReactionCheck(s, i.ChannelID, contract, userID)
 	}
 
 	if redraw {
@@ -378,11 +370,6 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 		msgedit.Flags = discordgo.MessageFlagsSuppressNotifications
 		_, _ = s.ChannelMessageEditComplex(msgedit)
 	}
-}
-
-func remove(s []string, i int) []string {
-	s[i] = s[len(s)-1]
-	return s[:len(s)-1]
 }
 
 func buttonReactionHelp(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract) {

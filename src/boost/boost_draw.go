@@ -228,22 +228,6 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	default:
 	}
 
-	if contract.State == ContractStateCRT {
-		// Handle Speedrun CRT
-		builder.WriteString(drawSpeedrunCRT(contract))
-
-		components = append(components, &discordgo.TextDisplay{
-			Content: builder.String(),
-		})
-
-		components = append(components, &discordgo.Separator{
-			Divider: &divider,
-			Spacing: &spacing,
-		})
-
-		return components
-	}
-
 	var prefix = " - "
 
 	var earlyList strings.Builder
