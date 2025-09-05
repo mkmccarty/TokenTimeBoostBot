@@ -379,16 +379,18 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		sink int64
 		tval int64
 		runs int64
+		min  int64
 		base int64
 	}
 	var contractScoreArr []contractScores
 	var scoresTable strings.Builder
-	fmt.Fprintf(&scoresTable, "`%12s %6s %6s %6s %6s %6s`\n",
+	fmt.Fprintf(&scoresTable, "`%12s %6s %6s %6s %6s %6s %6s`\n",
 		bottools.AlignString("NAME", 12, bottools.StringAlignCenter),
 		bottools.AlignString("MAX", 6, bottools.StringAlignCenter),
 		bottools.AlignString("TVAL", 6, bottools.StringAlignCenter),
 		bottools.AlignString("SINK", 6, bottools.StringAlignCenter),
 		bottools.AlignString("RUNS", 6, bottools.StringAlignCenter),
+		bottools.AlignString("MIN", 6, bottools.StringAlignCenter),
 		bottools.AlignString("BASE", 6, bottools.StringAlignCenter),
 	)
 
@@ -947,6 +949,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			scoreTval,
 			scoreRuns,
 			scoreMin,
+			scoreBase,
 		})
 
 	}
@@ -1010,9 +1013,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		return contractScoreArr[i].max > contractScoreArr[j].max
 	})
 	for _, cs := range contractScoreArr {
-		fmt.Fprintf(&scoresTable, "`%12s %6d %6d %6d %6d %6d`\n",
+		fmt.Fprintf(&scoresTable, "`%12s %6d %6d %6d %6d %6d %6d`\n",
 			bottools.AlignString(cs.name, 12, bottools.StringAlignLeft),
-			cs.max, cs.tval, cs.sink, cs.runs, cs.base)
+			cs.max, cs.tval, cs.sink, cs.runs, cs.min, cs.base)
 	}
 
 	var siabMax []*discordgo.MessageEmbedField

@@ -111,7 +111,8 @@ func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 	footer.WriteString("-# TVAL: Coop Size-1 Chicken Runs & ∆T-Val\n")
 	footer.WriteString("-# SINK: Max Chicken Runs & Token Sink\n")
 	footer.WriteString("-# RUNS: Coop Size-1 Chicken Runs, No token sharing\n")
-	footer.WriteString("-# BASE: No Chicken Runs & No token sharing\n")
+	footer.WriteString("-# MIN:  No Chicken Runs,No token sharing\n")
+	footer.WriteString("-# BASE: No BTV, No Chicken Runs, No token sharing\n")
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Flags: flags | discordgo.MessageFlagsIsComponentsV2,
 		Components: []discordgo.MessageComponent{
