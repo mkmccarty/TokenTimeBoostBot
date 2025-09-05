@@ -259,7 +259,7 @@ func getSpeedrunStatusStr(contract *Contract) string {
 				if contract.SRData.NoSelfRunLegs == 1 {
 					legPlural = ""
 				}
-				fmt.Fprintf(&b, "> **%d** Chicken Run Leg%s to reach **%d** total chicken runs.\n", contract.SRData.NoSelfRunLegs, legPlural, contract.SRData.ChickenRuns)
+				fmt.Fprintf(&b, "> **%d** Chicken Run Leg%s to reach **%d** total chicken runs.\n", contract.SRData.NoSelfRunLegs, legPlural, contract.ChickenRuns)
 				var crtStrings []string
 				for _, num := range contract.SRData.NoSelfRunCrt {
 					crtStrings = append(crtStrings, fmt.Sprintf("%d", num))
@@ -269,7 +269,7 @@ func getSpeedrunStatusStr(contract *Contract) string {
 				if contract.SRData.SelfRunLegs == 1 {
 					legPlural = ""
 				}
-				fmt.Fprintf(&b, "> **%d** Chicken Run Leg%s to reach **%d** total chicken runs.\n", contract.SRData.SelfRunLegs, legPlural, contract.SRData.ChickenRuns)
+				fmt.Fprintf(&b, "> **%d** Chicken Run Leg%s to reach **%d** total chicken runs.\n", contract.SRData.SelfRunLegs, legPlural, contract.ChickenRuns)
 				var selfRunCrtStrings []string
 				for _, num := range contract.SRData.SelfRunCrt {
 					selfRunCrtStrings = append(selfRunCrtStrings, fmt.Sprintf("%d", num))
@@ -282,10 +282,10 @@ func getSpeedrunStatusStr(contract *Contract) string {
 			if len(contract.Order) == 1 {
 				farmerPlural = ""
 			}
-			if contract.SRData.ChickenRuns > len(contract.Order) {
-				fmt.Fprintf(&b, "> It's not possible for all farmers to reach **%d** total chicken runs with only **%d** farmer%s.\n", contract.SRData.ChickenRuns, len(contract.Order), farmerPlural)
+			if contract.ChickenRuns > len(contract.Order) {
+				fmt.Fprintf(&b, "> It's not possible for all farmers to reach **%d** total chicken runs with only **%d** farmer%s.\n", contract.ChickenRuns, len(contract.Order), farmerPlural)
 			} else {
-				fmt.Fprintf(&b, "> **%d** farmer%s don't need CRT to achieve **%d** total chicken runs.\n", len(contract.Order), farmerPlural, contract.SRData.ChickenRuns)
+				fmt.Fprintf(&b, "> **%d** farmer%s don't need CRT to achieve **%d** total chicken runs.\n", len(contract.Order), farmerPlural, contract.ChickenRuns)
 
 			}
 		}
@@ -363,18 +363,18 @@ func calculateTangoLegs(contract *Contract, setStatus bool) {
 	//	r := contract.CoopSize
 	r := len(contract.Order) - 1
 
-	for runs < contract.SRData.ChickenRuns {
+	for runs < contract.ChickenRuns {
 		if r > 0 {
-			tango = append(tango, min(r, contract.SRData.ChickenRuns-sumIntSlice(tango)))
+			tango = append(tango, min(r, contract.ChickenRuns-sumIntSlice(tango)))
 		}
-		if sumIntSlice(tangoSelfRun) < contract.SRData.ChickenRuns {
-			tangoSelfRun = append(tangoSelfRun, min(r+1, contract.SRData.ChickenRuns-sumIntSlice(tangoSelfRun)))
+		if sumIntSlice(tangoSelfRun) < contract.ChickenRuns {
+			tangoSelfRun = append(tangoSelfRun, min(r+1, contract.ChickenRuns-sumIntSlice(tangoSelfRun)))
 		}
 		runs += r
 		r = len(contract.Order) - 2
 		if r <= 0 {
 			// main loop won't finish, but self-runs can succeed
-			if sumIntSlice(tangoSelfRun) >= contract.SRData.ChickenRuns {
+			if sumIntSlice(tangoSelfRun) >= contract.ChickenRuns {
 				break
 			}
 		}
@@ -409,7 +409,7 @@ func calculateTangoLegs(contract *Contract, setStatus bool) {
 			contract.SRData.Tango[1] = max(0, contract.SRData.Tango[0]-1)     // Middle Legs
 			contract.SRData.Tango[2] = 0                                      // Last Leg
 
-			runs := contract.SRData.ChickenRuns
+			runs := contract.ChickenRuns
 			contract.SRData.Legs = 0
 			for runs > 0 {
 				if contract.SRData.Legs == 0 {
@@ -531,7 +531,7 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 	// Chicken Runs Calc
 	// Info from https://egg-inc.fandom.com/wiki/Contracts
 	if chickenRuns != 0 {
-		contract.SRData.ChickenRuns = chickenRuns
+		contract.ChickenRuns = chickenRuns
 	}
 
 	calculateTangoLegs(contract, true)

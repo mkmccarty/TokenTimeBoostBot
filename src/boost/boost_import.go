@@ -231,7 +231,7 @@ func updateContractWithEggIncData(contract *Contract) {
 		if cc.ID == contract.ContractID {
 			contract.CoopSize = cc.MaxCoopSize
 			contract.LengthInSeconds = cc.LengthInSeconds
-			contract.SRData.ChickenRuns = cc.ChickenRuns
+			contract.ChickenRuns = cc.ChickenRuns
 			contract.EstimatedDuration = cc.EstimatedDuration
 			contract.Name = cc.Name
 			contract.Description = cc.Description

@@ -240,6 +240,7 @@ type Contract struct {
 	EggEmoji                  string
 	TokenStr                  string // Emoji for Token
 	TargetAmount              []float64
+	ChickenRuns               int // Number of Chicken Runs for this contract
 	ChickenRunCooldownMinutes int
 	MinutesPerToken           int
 	EstimatedDuration         time.Duration
@@ -297,7 +298,6 @@ type Contract struct {
 
 // SpeedrunData holds the data for a speedrun
 type SpeedrunData struct {
-	ChickenRuns   int // Number of Chicken Runs for this contract
 	Legs          int // Number of legs for this Tango
 	SelfRunLegs   int // Number of Self Run legs for this Tango
 	NoSelfRunLegs int // Number of Non Self Run legs for thhis Tango
