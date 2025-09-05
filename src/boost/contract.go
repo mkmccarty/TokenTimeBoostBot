@@ -884,8 +884,6 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 
 	}
 
-	calculateTangoLegs(contract, true)
-
 	for _, loc := range contract.Location {
 		var components []discordgo.MessageComponent
 		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)

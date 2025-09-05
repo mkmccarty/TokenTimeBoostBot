@@ -898,20 +898,6 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			contract.CreatorID[0] = userID
 		}
 
-		// Disabling this for now, leave the signup open
-		if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
-			/*
-				if len(contract.Order) == 1 {
-					// Reset contract sink to the first booster to signup
-					contract.Banker.CrtSinkUserID = contract.Order[0]
-					contract.Banker.BoostingSinkUserID = contract.Order[0]
-					contract.Banker.PostSinkUserID = contract.Order[0]
-				}
-			*/
-
-			calculateTangoLegs(contract, true)
-		}
-
 		if !progenitor {
 			if contract.State == ContractStateWaiting {
 				// Reactivate the contract
@@ -1237,7 +1223,6 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 				contract.Banker.BoostingSinkUserID = ""
 				contract.Banker.PostSinkUserID = ""
 			}
-			calculateTangoLegs(contract, true)
 		}
 		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
 		components := DrawBoostList(s, contract)
@@ -1283,9 +1268,6 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	}
 
 	reorderBoosters(contract)
-	if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
-		calculateTangoLegs(contract, true)
-	}
 
 	// Set tokens...
 	for i := range contract.Boosters {
