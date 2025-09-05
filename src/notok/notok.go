@@ -15,13 +15,12 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/google/generative-ai-go/genai"
 	"github.com/rs/xid"
 	"github.com/sashabaranov/go-openai"
-	"google.golang.org/api/option"
+	"google.golang.org/genai"
 )
 
-const googleModel = "gemini-2.0-flash-lite"
+const googleModel = "gemini-2.5-flash-lite"
 
 var defaultWish = "Show a potato staring into a lightbulb in an unhealthy way."
 
@@ -191,30 +190,21 @@ func letter(mention string, text string, desc string) (string, error) {
 */
 func getStringFromGoogleGemini(text string) (string, error) {
 	ctx := context.Background()
-	client, err := genai.NewClient(ctx, option.WithAPIKey(config.GoogleAPIKey))
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		APIKey:  config.GoogleAPIKey,
+		Backend: genai.BackendGeminiAPI,
+	})
 	if err != nil {
 		log.Print(err)
 		return "", err
 	}
-	defer func() {
-		if err := client.Close(); err != nil {
-			// Handle the error appropriately, e.g., logging or taking corrective actions
-			log.Printf("Failed to close: %v", err)
-		}
-	}()
-	model := client.GenerativeModel(googleModel)
-	model.SafetySettings = []*genai.SafetySetting{
-		{
-			Category:  genai.HarmCategorySexuallyExplicit,
-			Threshold: genai.HarmBlockOnlyHigh},
-		{
-			Category:  genai.HarmCategoryDangerousContent,
-			Threshold: genai.HarmBlockOnlyHigh},
-		{
-			Category:  genai.HarmCategoryHarassment,
-			Threshold: genai.HarmBlockOnlyHigh},
-	}
-	resp, err := model.GenerateContent(ctx, genai.Text(text))
+	resp, err := client.Models.GenerateContent(
+		ctx,
+		googleModel,
+		genai.Text(text),
+		nil,
+	)
+
 	if err != nil {
 		log.Print(err)
 		return "", err
@@ -225,7 +215,7 @@ func getStringFromGoogleGemini(text string) (string, error) {
 		return "", errors.New(respStr)
 	}
 
-	return printResponse(resp, false), nil
+	return respStr, nil
 }
 
 // GetContractTeamNames returns a list of team names for a given contract prompt.
@@ -281,9 +271,9 @@ func printResponse(resp *genai.GenerateContentResponse, logit bool) string {
 		if cand.Content != nil {
 			for _, part := range cand.Content.Parts {
 				if logit {
-					log.Println(part)
+					log.Println(part.Text)
 				}
-				str += fmt.Sprint(part)
+				str += fmt.Sprint(part.Text)
 			}
 		}
 	}
