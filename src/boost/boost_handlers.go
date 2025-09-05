@@ -97,7 +97,6 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 	*/
 	playstyleOptions := []discordgo.SelectMenuOption{}
 
-	//if (contract.Style & ContractFlagCrt) == 0 {
 	playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
 		Label:       "Chill play style",
 		Description: "Everyone fills habs and uses correct artifacts",
@@ -119,15 +118,13 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 		Default:     (contract.PlayStyle == ContractPlaystyleFastrun),
 		Emoji:       ei.GetBotComponentEmoji("fastrun"),
 	})
-	/*} else {
-		playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
-			Label:       "Leaderboard",
-			Description: "Fastrun + Get max CR",
-			Value:       "leaderboard",
-			Default:     (contract.PlayStyle == ContractPlaystyleLeaderboard),
-			Emoji:       ei.GetBotComponentEmoji("leaderboard"),
-		})
-	}*/
+	playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
+		Label:       "Leaderboard",
+		Description: "Banker Run + TBD",
+		Value:       "leaderboard",
+		Default:     (contract.PlayStyle == ContractPlaystyleLeaderboard),
+		Emoji:       ei.GetBotComponentEmoji("leaderboard"),
+	})
 
 	return builder.String(), []discordgo.MessageComponent{
 		discordgo.ActionsRow{

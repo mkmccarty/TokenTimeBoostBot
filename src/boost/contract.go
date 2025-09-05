@@ -124,12 +124,10 @@ func GetSlashContractCommand(cmd string) *discordgo.ApplicationCommand {
 						Name:  "Fastrun",
 						Value: ContractPlaystyleFastrun,
 					},
-					/*
-						{
-							Name:  "Leaderboard",
-							Value: ContractPlaystyleLeaderboard,
-						},
-					*/
+					{
+						Name:  "Leaderboard",
+						Value: ContractPlaystyleLeaderboard,
+					},
 				},
 				Required: false,
 			},
@@ -599,12 +597,9 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	contract.Style &^= (ContractFlagCrt + ContractFlagSelfRuns)
 
 	// Override the contract style based on the play style, only for leaderboard play style
-	/*
-		if contract.PlayStyle == ContractPlaystyleLeaderboard {
-			contract.Style = ContractFlagBanker | ContractFlagCrt
-			contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
-		}
-	*/
+	if contract.PlayStyle == ContractPlaystyleLeaderboard {
+		contract.Style = ContractFlagBanker
+	}
 	/*
 		} else { //if !creatorOfContract(contract, userID) {
 			contract.CreatorID = append(contract.CreatorID, userID) // starting userid
@@ -838,8 +833,8 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			contract.PlayStyle = ContractPlaystyleACOCooperative
 		case "fastrun":
 			contract.PlayStyle = ContractPlaystyleFastrun
-		//case "leaderboard":
-		//	contract.PlayStyle = ContractPlaystyleLeaderboard
+		case "leaderboard":
+			contract.PlayStyle = ContractPlaystyleLeaderboard
 		default:
 			contract.PlayStyle = ContractPlaystyleUnset
 		}
@@ -861,6 +856,21 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			//redrawSettings = true
 		}
 	*/
+
+	// If the play style changed to leaderboard, then change to use Banker style
+	if contract.PlayStyle == ContractPlaystyleLeaderboard && originalPlayStyle != ContractPlaystyleLeaderboard {
+		contract.Style &= ^ContractFlagFastrun
+		contract.Style |= ContractFlagBanker
+		redrawSignup = true
+		redrawSettings = true
+	} else if originalPlayStyle == ContractPlaystyleLeaderboard && contract.PlayStyle != ContractPlaystyleLeaderboard {
+		// If the play style changed from leaderboard to something else, then change to use Boost list style
+		contract.Style &= ^ContractFlagBanker
+		contract.Style |= ContractFlagFastrun
+		redrawSignup = true
+		redrawSettings = true
+	}
+
 	if originalPlayStyle != contract.PlayStyle {
 		// Need to rename the thread if it exists
 		UpdateThreadName(s, contract)

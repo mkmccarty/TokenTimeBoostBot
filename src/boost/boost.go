@@ -113,7 +113,7 @@ const (
 	ContractPlaystyleChill          = 1 // Chill
 	ContractPlaystyleACOCooperative = 2 // ACO Cooperative
 	ContractPlaystyleFastrun        = 3 // Fastrun
-	//ContractPlaystyleLeaderboard    = 4 // Leaderboard
+	ContractPlaystyleLeaderboard    = 4 // Leaderboard
 )
 
 const defaultFamerTokens = 6
