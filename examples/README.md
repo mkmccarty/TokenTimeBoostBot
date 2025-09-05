@@ -75,14 +75,6 @@ If want to allow other Discord users to have admin permissions you can add their
 
 This list of strings are flags that can be used to enable or disable features in the bot.
 
-### DISABLE_SELFRUN
-
-Adding this will remove the CRT Self run option from the contract settings
-
-### BANKER_ONLY
-
-This will restrict the /contract to always be a banker contract.
-
 ### NO_FUN
 
 This will remove the fun commands from the bot.
