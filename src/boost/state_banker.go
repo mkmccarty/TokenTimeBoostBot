@@ -26,7 +26,7 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 		}
 	}
 
-	if cUserID == contract.Banker.BoostingSinkUserID || cUserID == contract.Banker.CrtSinkUserID {
+	if cUserID == contract.Banker.BoostingSinkUserID {
 		var b, sink *Booster
 		b = contract.Boosters[contract.Order[contract.BoostPosition]]
 		// Sink could be CRT Sink or Boosting Sink

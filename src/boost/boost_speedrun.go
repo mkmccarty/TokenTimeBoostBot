@@ -119,7 +119,6 @@ func HandleChangeSpeedrunSinkCommand(s *discordgo.Session, i *discordgo.Interact
 		return
 	}
 
-	sinkCrt := ""
 	sinkBoost := ""
 	sinkPost := ""
 	options := i.ApplicationCommandData().Options
@@ -128,10 +127,6 @@ func HandleChangeSpeedrunSinkCommand(s *discordgo.Session, i *discordgo.Interact
 		optionMap[opt.Name] = opt
 	}
 
-	if opt, ok := optionMap["sink-crt"]; ok {
-		sinkCrt = opt.UserValue(s).Mention()
-		sinkCrt = sinkCrt[2 : len(sinkCrt)-1]
-	}
 	if opt, ok := optionMap["sink-boosting"]; ok {
 		sinkBoost = strings.TrimSpace(opt.StringValue())
 		reMention := regexp.MustCompile(`<@!?(\d+)>`)
@@ -147,7 +142,7 @@ func HandleChangeSpeedrunSinkCommand(s *discordgo.Session, i *discordgo.Interact
 		}
 	}
 
-	str, err := setSpeedrunOptions(s, i.ChannelID, sinkCrt, sinkBoost, sinkPost, -1, -1, true)
+	str, err := setSpeedrunOptions(s, i.ChannelID, sinkBoost, sinkPost, -1, -1, true)
 	if err != nil {
 		str = err.Error()
 	}
@@ -177,7 +172,6 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 
 	chickenRuns := 0
-	sinkCrt := ""
 	sinkBoost := ""
 	sinkPost := ""
 	sinkPosition := SinkBoostFirst
@@ -188,14 +182,6 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		optionMap[opt.Name] = opt
 	}
 
-	/*
-		if opt, ok := optionMap["sink-crt"]; ok {
-			sinkCrt = opt.UserValue(s).Mention()
-			sinkCrt = sinkCrt[2 : len(sinkCrt)-1]
-			sinkBoost = sinkCrt
-			sinkPost = sinkCrt
-		}
-	*/
 	if opt, ok := optionMap["sink-boosting"]; ok {
 		sinkPost = strings.TrimSpace(opt.StringValue())
 		reMention := regexp.MustCompile(`<@!?(\d+)>`)
@@ -220,7 +206,7 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		sinkPosition = int(opt.IntValue())
 	}
 
-	str, err := setSpeedrunOptions(s, i.ChannelID, sinkCrt, sinkBoost, sinkPost, sinkPosition, chickenRuns, false)
+	str, err := setSpeedrunOptions(s, i.ChannelID, sinkBoost, sinkPost, sinkPosition, chickenRuns, false)
 	if err != nil {
 		str = err.Error()
 	}
@@ -445,7 +431,7 @@ func calculateTangoLegs(contract *Contract, setStatus bool) {
 	}
 */
 
-func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, sinkBoosting string, sinkPost string, sinkPosition int, chickenRuns int, changeSinksOnly bool) (string, error) {
+func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkBoosting string, sinkPost string, sinkPosition int, chickenRuns int, changeSinksOnly bool) (string, error) {
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return "", errors.New(errorNoContract)
@@ -455,12 +441,6 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 		return "", errors.New("contract must be in the Sign-up state to set speedrun options")
 	}
 
-	if sinkCrt != "" {
-		// is contractStarter and sink in the contract
-		if _, ok := contract.Boosters[sinkCrt]; !ok {
-			return "", errors.New("crt sink not in the contract")
-		}
-	}
 	if sinkBoosting != "" {
 		if _, ok := contract.Boosters[sinkBoosting]; !ok {
 			return "", errors.New("boosting sink not in the contract")
@@ -490,10 +470,6 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 
 	if changeSinksOnly && contract.Speedrun {
 		var builder strings.Builder
-		if sinkCrt != "" {
-			contract.Banker.CrtSinkUserID = sinkCrt
-			fmt.Fprintf(&builder, "CRT Sink set to %s\n", contract.Boosters[contract.Banker.CrtSinkUserID].Mention)
-		}
 		if sinkBoosting != "" {
 			contract.Banker.BoostingSinkUserID = sinkBoosting
 			if contract.State == ContractStateBanker {
@@ -508,7 +484,6 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 		return builder.String(), nil
 	}
 
-	contract.Banker.CrtSinkUserID = sinkCrt
 	contract.Banker.BoostingSinkUserID = sinkBoosting
 	contract.Banker.PostSinkUserID = sinkPost
 	contract.Banker.SinkBoostPosition = sinkPosition
@@ -538,7 +513,6 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkCrt string, 
 
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "Speedrun options set for %s/%s\n", contract.ContractID, contract.CoopID)
-	fmt.Fprintf(&builder, "CRT Sink: %s\n", contract.Boosters[contract.Banker.CrtSinkUserID].Mention)
 	fmt.Fprintf(&builder, "Boosting Sink: %s\n", contract.Boosters[contract.Banker.BoostingSinkUserID].Mention)
 	fmt.Fprintf(&builder, "Post Sink: %s\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention)
 
