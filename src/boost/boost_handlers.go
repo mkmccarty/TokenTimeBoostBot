@@ -2,7 +2,6 @@ package boost
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
@@ -34,21 +33,15 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 
 	// Dynamic Boost List Styles
 	runStyleOptions := []discordgo.SelectMenuOption{}
-	if !slices.Contains(config.FeatureFlags, "BANKER_ONLY") {
-		runStyleOptions = append(runStyleOptions, discordgo.SelectMenuOption{
-			Label:       "Boost List Style",
-			Description: "Everyone sends tokens to the current booster",
-			Value:       "boostlist",
-			Default:     (contract.Style & ContractFlagFastrun) != 0,
-			Emoji: &discordgo.ComponentEmoji{
-				Name: "📜",
-			},
-		})
-	} else {
-		// Need to clear the defaults of these flags so it's set correctly
-		contract.Style &^= ContractFlagFastrun
-		contract.Style |= ContractFlagBanker
-	}
+	runStyleOptions = append(runStyleOptions, discordgo.SelectMenuOption{
+		Label:       "Boost List Style",
+		Description: "Everyone sends tokens to the current booster",
+		Value:       "boostlist",
+		Default:     (contract.Style & ContractFlagFastrun) != 0,
+		Emoji: &discordgo.ComponentEmoji{
+			Name: "📜",
+		},
+	})
 
 	runStyleOptions = append(runStyleOptions, discordgo.SelectMenuOption{
 		Label:       "Banker Style",
