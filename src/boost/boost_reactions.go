@@ -66,8 +66,6 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		contract.LastInteractionTime = time.Now()
 
 		switch contract.State {
-		case ContractStateCRT:
-			reactionCRT(s, r, contract)
 		case ContractStateBanker:
 			return speedrunReactions(s, r, contract)
 		case ContractStateCompleted:

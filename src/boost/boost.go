@@ -274,39 +274,23 @@ type Contract struct {
 	WaitlistBoosters    []string            // Waitlist of UserID's
 	AltIcons            []string            // Array of alternate icons for the Boosters
 	Order               []string
-	BoostedOrder        []string // Actual order of boosting
-	OrderRevision       int      // Incremented when Order is changed
-	Speedrun            bool     // Speedrun mode
-	SRData              SpeedrunData
+	BoostedOrder        []string   // Actual order of boosting
+	OrderRevision       int        // Incremented when Order is changed
+	Speedrun            bool       // Speedrun mode
 	Banker              BankerInfo // Banker for the contract
 	TokenLog            []ei.TokenUnitLog
 	TokensPerMinute     float64
 	CalcOperations      int
 	CalcOperationTime   time.Time
 	CoopTokenValueMsgID string
-	LastWishPrompt      string    // saved prompt for this contract
-	LastInteractionTime time.Time // last time the contract was drawn
-	//UseInteractionButtons bool               // Use buttons for interaction
-	buttonComponents map[string]CompMap // Cached components for this contract
-	SavedStats       bool               // Saved stats for this contract
-	NewFeature       int                // Used to slide in new features
-	DynamicData      *DynamicTokenData
+	LastWishPrompt      string             // saved prompt for this contract
+	LastInteractionTime time.Time          // last time the contract was drawn
+	buttonComponents    map[string]CompMap // Cached components for this contract
+	SavedStats          bool               // Saved stats for this contract
+	NewFeature          int                // Used to slide in new features
+	DynamicData         *DynamicTokenData
 
 	mutex sync.Mutex // Keep this contract thread safe
-}
-
-// SpeedrunData holds the data for a speedrun
-type SpeedrunData struct {
-	Legs          int // Number of legs for this Tango
-	SelfRunLegs   int // Number of Self Run legs for this Tango
-	NoSelfRunLegs int // Number of Non Self Run legs for thhis Tango
-	//Tango                [3]int   // The Tango itself (First, Middle, Last)
-	NoSelfRunCrt         []int //
-	SelfRunCrt           []int
-	CurrentLeg           int      // Current Leg
-	LegReactionMessageID string   // Message ID for the Leg Reaction Message
-	ChickenRunCheckMsgID string   // Message ID for the Chicken Run Check Message
-	NeedToRunChickens    []string // Array of users that the farmer ran chickens on
 }
 
 var (
