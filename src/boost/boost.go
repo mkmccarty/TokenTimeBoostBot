@@ -218,7 +218,6 @@ type LocationData struct {
 // BankerInfo holds information about contract Banker
 type BankerInfo struct {
 	CurrentBanker      string // Current Banker
-	CrtSinkUserID      string // Sink CRT User ID
 	BoostingSinkUserID string // Sink CRT User ID
 	PostSinkUserID     string // Sink End of Contract User ID
 	SinkBoostPosition  int    // Sink Boost Position
@@ -333,9 +332,6 @@ func changeContractState(contract *Contract, newstate int) {
 	// Set the banker to a common sink variable
 	// This will avoid adding this logic in multiple places
 	switch contract.State {
-	case ContractStateCRT:
-		contract.TimeCRT = time.Now()
-		contract.Banker.CurrentBanker = contract.Banker.CrtSinkUserID
 	case ContractStateBanker:
 		if contract.TimeCRT.IsZero() {
 			contract.TimeBoosting = time.Now()
@@ -1128,10 +1124,6 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 		sinkChanged := false
 
 		// Remove the booster from the contract
-		if userID == contract.Banker.CrtSinkUserID {
-			sinkChanged = true
-			contract.Banker.CrtSinkUserID = ""
-		}
 		if userID == contract.Banker.BoostingSinkUserID {
 			sinkChanged = true
 			contract.Banker.BoostingSinkUserID = ""
@@ -1147,9 +1139,6 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 		// If this is an alt, remove its entries from main
 		if contract.Boosters[userID].AltController != "" {
 			mainUserID := contract.Boosters[userID].AltController
-			if contract.Banker.CrtSinkUserID == userID {
-				contract.Banker.CrtSinkUserID = mainUserID
-			}
 			if contract.Banker.BoostingSinkUserID == userID {
 				contract.Banker.BoostingSinkUserID = mainUserID
 			}
@@ -1245,7 +1234,6 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 		if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
 			if len(contract.Order) == 0 {
 				// Need to clear all the contract sinks
-				contract.Banker.CrtSinkUserID = ""
 				contract.Banker.BoostingSinkUserID = ""
 				contract.Banker.PostSinkUserID = ""
 			}
@@ -1321,11 +1309,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	contract.BoostPosition = 0
 	contract.StartTime = time.Now()
 
-	if contract.Style&ContractFlagCrt != 0 && contract.SRData.Legs != 0 && contract.Banker.CrtSinkUserID != "" {
-		changeContractState(contract, ContractStateCRT)
-		// Do not mark the token sink as boosting at this point
-		// This will happen when the CRT completes
-	} else if contract.Style&ContractFlagBanker != 0 {
+	if contract.Style&ContractFlagBanker != 0 {
 		changeContractState(contract, ContractStateBanker)
 		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 		contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()

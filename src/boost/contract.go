@@ -757,23 +757,6 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 	}
 
 	switch cmd {
-	case "crtsink":
-		sid := getInteractionUserID(i)
-		alts := append([]string{sid}, contract.Boosters[sid].Alts...)
-		altIdx := slices.Index(alts, contract.Banker.CrtSinkUserID)
-		if altIdx != -1 {
-			if altIdx != len(alts)-1 {
-				sid = alts[altIdx+1]
-			} else {
-				sid = alts[altIdx] // Allow for the state to reset
-			}
-		}
-
-		if contract.Banker.CrtSinkUserID == sid {
-			contract.Banker.CrtSinkUserID = ""
-		} else if userInContract(contract, sid) {
-			contract.Banker.CrtSinkUserID = sid
-		}
 	case "boostsink":
 		sid := getInteractionUserID(i)
 		alts := append([]string{sid}, contract.Boosters[sid].Alts...)

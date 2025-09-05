@@ -59,42 +59,6 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 			Name: "💰",
 		},
 	})
-	/*
-		crtOptions := []discordgo.SelectMenuOption{}
-		crtOptions = append(crtOptions, discordgo.SelectMenuOption{
-			Label:       "No-CRT",
-			Description: "Standard vanilla option for this contract",
-			Value:       "no_crt",
-			Default:     (contract.Style & ContractFlagCrt) == 0,
-			Emoji: &discordgo.ComponentEmoji{
-				Name: "🍦",
-			},
-		})
-		crtOptions = append(crtOptions, discordgo.SelectMenuOption{
-			Label:       "CRT",
-			Description: "Chicken Run Tango",
-			Value:       "crt",
-			Default:     (contract.Style&ContractFlagCrt) != 0 && (contract.Style&ContractFlagSelfRuns) == 0,
-			Emoji: &discordgo.ComponentEmoji{
-				Name: "🔁",
-			},
-		})
-
-		if !slices.Contains(config.FeatureFlags, "DISABLE_SELFRUN") {
-			crtOptions = append(crtOptions, discordgo.SelectMenuOption{
-				Label:       "CRT+selfrun",
-				Description: "Less Tango Legs ",
-				Value:       "self_runs",
-				Default:     (contract.Style&ContractFlagCrt) != 0 && (contract.Style&ContractFlagSelfRuns) != 0,
-				Emoji: &discordgo.ComponentEmoji{
-					Name: "🔂",
-				},
-			})
-		} else {
-			// Make sure this flag is cleared if the feature is disabled
-			contract.Style &^= ContractFlagSelfRuns
-		}
-	*/
 	playstyleOptions := []discordgo.SelectMenuOption{}
 
 	playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
@@ -138,19 +102,6 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 				},
 			},
 		},
-		/*
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.SelectMenu{
-						CustomID:    "cs_#crt#" + id,
-						Placeholder: "Choose your options for CRT",
-						MinValues:   &minValues,
-						MaxValues:   1,
-						Options:     crtOptions,
-					},
-				},
-			},
-		*/
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.SelectMenu{
@@ -296,14 +247,6 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 		if contract.State != ContractStateSignup {
 			disableStartContract = true
 		}
-		/*
-			// If the contract is both Banker and CRT it needs crt, boost and post sink
-			if contract.Style&ContractFlagBanker != 0 && contract.Style&ContractFlagCrt != 0 {
-				if contract.Banker.CrtSinkUserID == "" || contract.Banker.BoostingSinkUserID == "" || contract.Banker.PostSinkUserID == "" {
-					disableStartContract = true
-				}
-			}
-		*/
 
 	}
 	joinMsg := "Join"
@@ -416,9 +359,6 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 			sinkList = append(sinkList, SinkList{"Post Contract Sink", contract.Banker.PostSinkUserID, "postsink"})
 		} else {
 			if contract.State == ContractStateSignup {
-				/*if contract.Style&ContractFlagCrt != 0 {
-					sinkList = append(sinkList, SinkList{"CRT Sink", contract.Banker.CrtSinkUserID, "crtsink"})
-				}*/
 				if contract.Style&ContractFlagBanker != 0 {
 					sinkList = append(sinkList, SinkList{"Boost Sink", contract.Banker.BoostingSinkUserID, "boostsink"})
 				}
