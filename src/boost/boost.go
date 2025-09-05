@@ -307,7 +307,6 @@ type SpeedrunData struct {
 	LegReactionMessageID string   // Message ID for the Leg Reaction Message
 	ChickenRunCheckMsgID string   // Message ID for the Chicken Run Check Message
 	NeedToRunChickens    []string // Array of users that the farmer ran chickens on
-	StatusStr            string   // Status string for the speedrun
 }
 
 var (
@@ -1131,7 +1130,6 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 			if contract.Banker.PostSinkUserID == userID {
 				contract.Banker.PostSinkUserID = mainUserID
 			}
-			contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
 
 			altIdx := slices.Index(contract.Boosters[mainUserID].Alts, userID)
 			contract.Boosters[mainUserID].Alts = removeIndex(contract.Boosters[mainUserID].Alts, altIdx)

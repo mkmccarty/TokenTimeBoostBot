@@ -211,8 +211,6 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	builder.Reset()
 
 	switch contract.State {
-	case ContractStateSignup:
-		builder.WriteString(contract.SRData.StatusStr)
 
 	case ContractStateCRT:
 		//builder.WriteString(fmt.Sprintf("> Send Tokens to <@%s>\n", contract.SRData.SpeedrunStarterUserID))
