@@ -20,13 +20,6 @@ func GetSlashSpeedrunCommand(cmd string) *discordgo.ApplicationCommand {
 		Name:        cmd,
 		Description: "Add speedrun features to a contract.",
 		Options: []*discordgo.ApplicationCommandOption{
-			/*
-				{
-					Type:        discordgo.ApplicationCommandOptionUser,
-					Name:        "sink-crt",
-					Description: "The user to sink during CRT. Used for other sink parameters if those are missing.",
-					Required:    true,
-				},*/
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "sink-boosting",
@@ -84,12 +77,6 @@ func GetSlashChangeSpeedRunSinkCommand(cmd string) *discordgo.ApplicationCommand
 		Name:        cmd,
 		Description: "Change speedrun sink assignements of a running contract",
 		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionUser,
-				Name:        "sink-crt",
-				Description: "The user to sink during CRT.",
-				Required:    false,
-			},
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "sink-boosting",
@@ -322,115 +309,6 @@ func getSpeedrunStatusStr(contract *Contract) string {
 	return b.String()
 }
 
-func sumIntSlice(numbers []int) int {
-	sum := 0
-	for _, number := range numbers {
-		sum += number
-	}
-	return sum
-}
-
-// func calculateTangoLegs(contract *Contract, setStatus bool) ([]int, []int, error) {
-func calculateTangoLegs(contract *Contract, setStatus bool) {
-	if contract.State != ContractStateSignup {
-		// We don't want this changing after the CRT starts
-		//return nil, nil, errors.New("contract must be in the Sign-up state to calculate tango legs")
-		return
-	}
-	var tango []int
-	var tangoSelfRun []int
-
-	runs := 0
-	if len(contract.Order) == 1 {
-		//return tango, tangoSelfRun, nil
-		return
-	}
-
-	//	r := contract.CoopSize
-	r := len(contract.Order) - 1
-
-	for runs < contract.ChickenRuns {
-		if r > 0 {
-			tango = append(tango, min(r, contract.ChickenRuns-sumIntSlice(tango)))
-		}
-		if sumIntSlice(tangoSelfRun) < contract.ChickenRuns {
-			tangoSelfRun = append(tangoSelfRun, min(r+1, contract.ChickenRuns-sumIntSlice(tangoSelfRun)))
-		}
-		runs += r
-		r = len(contract.Order) - 2
-		if r <= 0 {
-			// main loop won't finish, but self-runs can succeed
-			if sumIntSlice(tangoSelfRun) >= contract.ChickenRuns {
-				break
-			}
-		}
-	}
-
-	contract.SRData.NoSelfRunLegs = len(tango) - 1
-	contract.SRData.NoSelfRunCrt = tango
-	contract.SRData.SelfRunLegs = len(tangoSelfRun) - 1
-	contract.SRData.SelfRunCrt = tangoSelfRun
-
-	if setStatus {
-		contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
-	}
-
-	log.Printf("Tango: Legs=%d  - %v, Extra Runs=%d\n", len(tango)-1, tango, (len(contract.Order)-2)-tango[len(tango)-1])
-	log.Printf("Self-Run Tango: Legs=%d - %v, Extra Runs=%d\n", len(tangoSelfRun)-1, tangoSelfRun, (len(contract.Order)-1)-tango[len(tango)-1])
-	//return tango, tangoSelfRun, nil
-}
-
-/*
-func calculateTangoLegs(contract *Contract, setStatus bool) {
-
-		if contract.State != ContractStateSignup {
-			// We don't want this changing after the CRT starts
-			return
-		}
-		selfRunMod := 1
-		contract.SRData.NoSelfRunLegs = 0
-		for selfRunMod >= 0 {
-			// First calculate without speedrun flag
-			contract.SRData.Tango[0] = max(0, len(contract.Order)-selfRunMod) // First Leg
-			contract.SRData.Tango[1] = max(0, contract.SRData.Tango[0]-1)     // Middle Legs
-			contract.SRData.Tango[2] = 0                                      // Last Leg
-
-			runs := contract.ChickenRuns
-			contract.SRData.Legs = 0
-			for runs > 0 {
-				if contract.SRData.Legs == 0 {
-					runs -= contract.SRData.Tango[0]
-					if runs <= 0 {
-						break
-					}
-				} else if contract.SRData.Tango[1] == 0 {
-					// Not possible to do any CRT
-					contract.SRData.Legs = 0 // Reset the legs here
-					break
-				} else if runs > contract.SRData.Tango[1] {
-					runs -= contract.SRData.Tango[1]
-				} else {
-					contract.SRData.Tango[2] = runs
-					break // No more runs to do, skips the Legs++ below
-				}
-				contract.SRData.Legs++
-			}
-			if selfRunMod == 1 {
-				contract.SRData.NoSelfRunLegs = contract.SRData.Legs
-			}
-			selfRunMod--
-			// If not self runs, then we don't need to do this again
-			if contract.Style&ContractFlagSelfRuns == 0 {
-				break
-			}
-		}
-
-		if setStatus {
-			contract.SRData.StatusStr = getSpeedrunStatusStr(contract)
-		}
-	}
-*/
-
 func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkBoosting string, sinkPost string, sinkPosition int, chickenRuns int, changeSinksOnly bool) (string, error) {
 	var contract = FindContract(channelID)
 	if contract == nil {
@@ -508,8 +386,6 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkBoosting str
 	if chickenRuns != 0 {
 		contract.ChickenRuns = chickenRuns
 	}
-
-	calculateTangoLegs(contract, true)
 
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "Speedrun options set for %s/%s\n", contract.ContractID, contract.CoopID)
