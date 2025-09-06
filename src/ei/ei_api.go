@@ -91,26 +91,6 @@ func GetFirstContactFromAPI(s *discordgo.Session) {
 	printArchivedContracts(archive)
 }
 
-func printArchivedContracts(archive []*LocalContract) {
-	if archive == nil {
-		log.Print("No archived contracts found in Egg Inc API response")
-		return
-	}
-	log.Printf("Downloaded %d archived contracts from Egg Inc API\n", len(archive))
-	for _, c := range archive {
-		contractID := c.GetContract().GetIdentifier()
-		coopID := c.GetCoopIdentifier()
-		evaluation := c.GetEvaluation()
-		cxp := evaluation.GetCxp()
-		// Print the values of contractID, coopID, and cxp
-		log.Printf("Archived Contract ID: %s, Coop ID: %s, CXP: %f\n", contractID, coopID, cxp)
-		// You can also store these values in a data structure if needed
-		// For example, you could create a struct to hold this information
-		// and append it to a slice for later use.
-
-	}
-}
-
 // GetContractArchiveFromAPI will download the events from the Egg Inc API
 func GetContractArchiveFromAPI(s *discordgo.Session) {
 	userID := config.EIUserIDBasic
@@ -174,4 +154,24 @@ func GetContractArchiveFromAPI(s *discordgo.Session) {
 		return
 	}
 	printArchivedContracts(archive)
+}
+
+func printArchivedContracts(archive []*LocalContract) {
+	if archive == nil {
+		log.Print("No archived contracts found in Egg Inc API response")
+		return
+	}
+	log.Printf("Downloaded %d archived contracts from Egg Inc API\n", len(archive))
+	for _, c := range archive {
+		contractID := c.GetContract().GetIdentifier()
+		coopID := c.GetCoopIdentifier()
+		evaluation := c.GetEvaluation()
+		cxp := evaluation.GetCxp()
+		// Print the values of contractID, coopID, and cxp
+		log.Printf("Archived Contract ID: %s, Coop ID: %s, CXP: %f\n", contractID, coopID, cxp)
+		// You can also store these values in a data structure if needed
+		// For example, you could create a struct to hold this information
+		// and append it to a slice for later use.
+
+	}
 }
