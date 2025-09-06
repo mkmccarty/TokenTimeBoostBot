@@ -162,13 +162,8 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 	const rateSecondPerTokens = 592      // Rate at which tokens are generated
 	// 1 token = 591.6 seconds / 9.86 minutes
 
-	var crtTime time.Duration
-	if !contract.TimeCRT.IsZero() {
-		crtTime = contract.TimeBoosting.Sub(contract.TimeCRT)
-	}
-
 	futureTokenLog, futureTokenLogGG :=
-		bottools.CalculateFutureTokenLogs(maxFutureTokenLogEntries, contract.StartTime, crtTime, contract.MinutesPerToken, duration, rateSecondPerTokens)
+		bottools.CalculateFutureTokenLogs(maxFutureTokenLogEntries, contract.StartTime, contract.MinutesPerToken, duration, rateSecondPerTokens)
 
 	// Now we have a sorted list of future token logs
 	for _, t := range contract.TokenLog {
