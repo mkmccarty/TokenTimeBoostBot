@@ -598,6 +598,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	// Override the contract style based on the play style, only for leaderboard play style
 	if contract.PlayStyle == ContractPlaystyleLeaderboard {
 		contract.Style = ContractFlagBanker
+		contract.BoostOrder = ContractOrderTVal
 	}
 	/*
 		} else { //if !creatorOfContract(contract, userID) {
@@ -822,27 +823,11 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		}
 	}
 
-	/*
-		// A contract that's a CRT is by definition al leaderboard play style
-		if (contract.Style & ContractFlagCrt) != 0 {
-			// strip the Boost list style and set it to banker style
-			contract.Style &= ^ContractFlagFastrun
-			contract.Style |= ContractFlagBanker
-
-			contract.PlayStyle = ContractPlaystyleLeaderboard
-			redrawSignup = true
-			//redrawSettings = true
-		} else if (contract.Style&ContractFlagCrt) == 0 && contract.PlayStyle == ContractPlaystyleLeaderboard {
-			contract.PlayStyle = ContractPlaystyleFastrun
-			redrawSignup = true
-			//redrawSettings = true
-		}
-	*/
-
 	// If the play style changed to leaderboard, then change to use Banker style
 	if contract.PlayStyle == ContractPlaystyleLeaderboard && originalPlayStyle != ContractPlaystyleLeaderboard {
 		contract.Style &= ^ContractFlagFastrun
 		contract.Style |= ContractFlagBanker
+		contract.BoostOrder = ContractOrderTVal
 		redrawSignup = true
 		redrawSettings = true
 	} else if originalPlayStyle == ContractPlaystyleLeaderboard && contract.PlayStyle != ContractPlaystyleLeaderboard {
