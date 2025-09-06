@@ -126,7 +126,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		}
 
 		switch contract.State {
-		case ContractStateWaiting, ContractStateCRT, ContractStateBanker, ContractStateFastrun:
+		case ContractStateWaiting, ContractStateBanker, ContractStateFastrun:
 			//addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
 			if pingUsers {
 				if contract.State == ContractStateFastrun || contract.State == ContractStateBanker {
@@ -143,7 +143,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 					}
 
 					str = fmt.Sprintf(loc.RoleMention+" send tokens to %s", name)
-				} else if contract.State != ContractStateCRT {
+				} else {
 					if contract.Banker.CurrentBanker == "" {
 						str = loc.RoleMention + " contract boosting complete. Hold your tokens for late joining farmers."
 					} else {
