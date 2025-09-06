@@ -77,8 +77,8 @@ const (
 	ContractStateWaiting   = 2 // Waiting for other(s) to join
 	ContractStateCompleted = 3 // Contract is completed
 	ContractStateArchive   = 4 // Contract is ready to archive
-	ContractStateCRT       = 5 // Contract is doing CRT
-	ContractStateBanker    = 6 // Contract is Boosting with Banker
+	//ContractStateCRT       = 5 // Contract is doing CRT [removed]
+	ContractStateBanker = 6 // Contract is Boosting with Banker
 
 	BoostStateUnboosted = 0 // Unboosted
 	BoostStateTokenTime = 1 // TokenTime or turn to receive tokens

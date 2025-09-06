@@ -3,7 +3,6 @@ package boost
 import (
 	"fmt"
 	"log"
-	"slices"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -31,25 +30,6 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 		b = contract.Boosters[contract.Order[contract.BoostPosition]]
 		// Sink could be CRT Sink or Boosting Sink
 		sink = contract.Boosters[cUserID]
-
-		// If this is the CRT then the Bag indicates the sink is boosting
-		if contract.State == ContractStateCRT {
-			b = sink
-			// If sink is already boosted, then just return
-			if b.BoostState == BoostStateBoosted {
-				return false, false
-			}
-
-			// Going to be boosting the sink so make sure they
-			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateUnboosted
-			contract.Boosters[cUserID].StartTime = contract.StartTime
-			contract.Boosters[cUserID].BoostTriggerTime = time.Now()
-			contract.Boosters[cUserID].EndTime = time.Now()
-			contract.Boosters[cUserID].Duration = time.Since(contract.Boosters[cUserID].StartTime)
-			contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Time{}
-			contract.BoostPosition = slices.Index(contract.Order, cUserID)
-			contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
-		}
 
 		if cUserID == b.UserID {
 			// Current booster subtract number of tokens wanted
