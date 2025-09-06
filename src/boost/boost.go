@@ -218,7 +218,7 @@ type LocationData struct {
 // BankerInfo holds information about contract Banker
 type BankerInfo struct {
 	CurrentBanker      string // Current Banker
-	BoostingSinkUserID string // Sink CRT User ID
+	BoostingSinkUserID string // Boosting Sink User ID
 	PostSinkUserID     string // Sink End of Contract User ID
 	SinkBoostPosition  int    // Sink Boost Position
 }
@@ -249,7 +249,6 @@ type Contract struct {
 	ThreadName                string
 	ThreadRenameTime          time.Time
 	EstimateUpdateTime        time.Time
-	TimeCRT                   time.Time // When the contract was created
 	TimeBoosting              time.Time // When the contract boost started
 
 	CRMessageIDs []string // Array of message IDs for chicken run messages
@@ -316,9 +315,7 @@ func changeContractState(contract *Contract, newstate int) {
 	// This will avoid adding this logic in multiple places
 	switch contract.State {
 	case ContractStateBanker:
-		if contract.TimeCRT.IsZero() {
-			contract.TimeBoosting = time.Now()
-		}
+		contract.TimeBoosting = time.Now()
 		contract.Banker.CurrentBanker = contract.Banker.BoostingSinkUserID
 	case ContractStateWaiting:
 		if contract.Style&ContractFlagBanker != 0 {

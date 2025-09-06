@@ -23,7 +23,7 @@ type FutureToken struct {
 }
 
 // CalculateFutureTokenLogs calculates the future token logs based on the given parameters
-func CalculateFutureTokenLogs(maxEntries int, startTime time.Time, crtTime time.Duration, minutesPerToken int, duration time.Duration, rateSecondPerTokens float64) ([]FutureToken, []FutureToken) {
+func CalculateFutureTokenLogs(maxEntries int, startTime time.Time, minutesPerToken int, duration time.Duration, rateSecondPerTokens float64) ([]FutureToken, []FutureToken) {
 	estimatedCapacity := int(maxEntries * 2)
 
 	futureTokenLog := make([]FutureToken, 0, estimatedCapacity)
@@ -52,7 +52,6 @@ func CalculateFutureTokenLogs(maxEntries int, startTime time.Time, crtTime time.
 	}
 	// Now for the timer tokens, start with next timer
 	tokenTime = startTime.Add(time.Duration(minutesPerToken) * time.Minute)
-	tokenTime = tokenTime.Add(crtTime) // Add in CRT Offset
 	for tokenTime.Before(time.Now()) {
 		tokenTime = tokenTime.Add(time.Duration(minutesPerToken) * time.Minute)
 	}

@@ -391,7 +391,7 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 			const rateSecondPerTokens = 592      // Rate at which tokens are generated
 			// 1 token = 591.6 seconds / 9.86 minutes
 			futureTokenLog, futureTokenLogGG :=
-				bottools.CalculateFutureTokenLogs(maxFutureTokenLogEntries, td.StartTime, 0, td.MinutesPerToken, duration, rateSecondPerTokens)
+				bottools.CalculateFutureTokenLogs(maxFutureTokenLogEntries, td.StartTime, td.MinutesPerToken, duration, rateSecondPerTokens)
 			gg, ugg, _ := ei.GetGenerousGiftEvent()
 			var valueLog []bottools.FutureToken
 			if ugg > 1.0 || gg > 1.0 {
@@ -439,7 +439,7 @@ func getTokenTrackingEmbed(td *tokenValue, finalDisplay bool) *discordgo.Message
 				rateSecondPerTokensDynamic := (dynamic + rateSecondPerTokens) / 2.0
 				//((actual tokens/min) + 0.101332 )/2
 				futureTokenLog, futureTokenLogGG =
-					bottools.CalculateFutureTokenLogs(maxFutureTokenLogEntries, td.StartTime, 0, td.MinutesPerToken, duration, rateSecondPerTokensDynamic)
+					bottools.CalculateFutureTokenLogs(maxFutureTokenLogEntries, td.StartTime, td.MinutesPerToken, duration, rateSecondPerTokensDynamic)
 				if ugg > 1.0 || gg > 1.0 {
 					valueLog = futureTokenLogGG
 				} else {
