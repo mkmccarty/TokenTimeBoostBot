@@ -275,7 +275,6 @@ type Contract struct {
 	Order               []string
 	BoostedOrder        []string   // Actual order of boosting
 	OrderRevision       int        // Incremented when Order is changed
-	Speedrun            bool       // Speedrun mode
 	Banker              BankerInfo // Banker for the contract
 	TokenLog            []ei.TokenUnitLog
 	TokensPerMinute     float64
@@ -1256,16 +1255,6 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 			contract.Boosters[i].TokensWanted = 8
 		}
 	}
-
-	// Set the CRT Settings to what contract is
-	/*
-		if contract.Style&ContractFlagCrt != 0 {
-			contract.SRData.Legs = contract.SRData.NoSelfRunLegs
-			if contract.Style&ContractFlagSelfRuns != 0 {
-				contract.SRData.Legs = contract.SRData.SelfRunLegs
-			}
-		}
-	*/
 
 	contract.BoostPosition = 0
 	contract.StartTime = time.Now()

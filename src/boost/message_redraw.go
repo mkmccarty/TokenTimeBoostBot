@@ -179,8 +179,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 		}
 
 		// Sending the update message
-		// TODO: Need to figure out just what message to send for banker/fastrun/crt
-		if !contract.Speedrun {
+		if contract.Style&ContractFlagBanker == 0 {
 			_, _ = s.ChannelMessageSend(loc.ChannelID, str)
 		} else if !drawn {
 			_ = RedrawBoostList(s, loc.GuildID, loc.ChannelID)

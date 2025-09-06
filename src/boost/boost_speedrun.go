@@ -240,11 +240,7 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkBoosting str
 		}
 	}
 
-	if changeSinksOnly && !contract.Speedrun {
-		return "", errors.New("sinks can only be changed for an existing speedrun contract")
-	}
-
-	if changeSinksOnly && contract.Speedrun {
+	if changeSinksOnly {
 		var builder strings.Builder
 		if sinkBoosting != "" {
 			contract.Banker.BoostingSinkUserID = sinkBoosting
@@ -275,9 +271,6 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkBoosting str
 			contract.Style &= ^ContractFlagSelfRuns
 		}*/
 	contract.Style &= ^ContractFlagSelfRuns
-
-	contract.Speedrun = contract.Style&ContractFlagBanker != 0
-	contract.Speedrun = true // TODO: this will be removed in favor of flags
 
 	// Chicken Runs Calc
 	// Info from https://egg-inc.fandom.com/wiki/Contracts
