@@ -142,9 +142,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				fmt.Fprintf(&builder, "> * **Contract cannot start**. Banker required for boosting phase.\n")
 			}
 		}
-	}
-	if contract.Banker.PostSinkUserID != "" {
-		fmt.Fprintf(&builder, "> * After contract boosting send all tokens to **%s**\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention)
+		if contract.Banker.PostSinkUserID != "" {
+			fmt.Fprintf(&builder, "> * After contract boosting send all tokens to **%s**\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention)
+		}
 	}
 	if contract.Style&ContractStyleFastrun != 0 && contract.Banker.PostSinkUserID != "" {
 		if contract.State != ContractStateSignup && contract.Boosters[contract.Banker.PostSinkUserID] != nil {
