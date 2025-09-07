@@ -260,14 +260,16 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 				Style:    discordgo.PrimaryButton,
 				CustomID: "fd_signupFarmer",
 			},
-			discordgo.Button{
-				Emoji: &discordgo.ComponentEmoji{
-					Name: "🔔",
+			/*
+				discordgo.Button{
+					Emoji: &discordgo.ComponentEmoji{
+						Name: "🔔",
+					},
+					Label:    "Join w/Ping",
+					Style:    discordgo.PrimaryButton,
+					CustomID: "fd_signupBell",
 				},
-				Label:    "Join w/Ping",
-				Style:    discordgo.PrimaryButton,
-				CustomID: "fd_signupBell",
-			},
+			*/
 			discordgo.Button{
 				Emoji: &discordgo.ComponentEmoji{
 					Name: "❌",
