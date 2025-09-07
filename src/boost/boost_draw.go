@@ -125,20 +125,22 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	if contract.Location[0].GuildContractRole.ID != "" {
 		builder.WriteString(fmt.Sprintf("> Team Role: %s\n", contract.Location[0].RoleMention))
 	}
-	if contract.Style&ContractFlagBanker != 0 {
-		if contract.Banker.BoostingSinkUserID != "" {
-			fmt.Fprintf(&builder, "> * During boosting send all tokens to **%s**\n", contract.Boosters[contract.Banker.BoostingSinkUserID].Mention)
-			switch contract.Banker.SinkBoostPosition {
-			case SinkBoostFirst:
-				fmt.Fprint(&builder, ">  * Banker boosts **First**\n")
-			case SinkBoostLast:
-				fmt.Fprint(&builder, ">  * Banker boosts **Last**\n")
-			default:
-				fmt.Fprint(&builder, ">  * Banker folows normal boost order\n")
-			}
+	if contract.State == ContractStateSignup {
+		if contract.Style&ContractFlagBanker != 0 {
+			if contract.Banker.BoostingSinkUserID != "" {
+				fmt.Fprintf(&builder, "> * During boosting send all tokens to **%s**\n", contract.Boosters[contract.Banker.BoostingSinkUserID].Mention)
+				switch contract.Banker.SinkBoostPosition {
+				case SinkBoostFirst:
+					fmt.Fprint(&builder, ">  * Banker boosts **First**\n")
+				case SinkBoostLast:
+					fmt.Fprint(&builder, ">  * Banker boosts **Last**\n")
+				default:
+					fmt.Fprint(&builder, ">  * Banker folows normal boost order\n")
+				}
 
-		} else {
-			fmt.Fprintf(&builder, "> * **Contract cannot start**. Banker required for boosting phase.\n")
+			} else {
+				fmt.Fprintf(&builder, "> * **Contract cannot start**. Banker required for boosting phase.\n")
+			}
 		}
 	}
 	if contract.Banker.PostSinkUserID != "" {
