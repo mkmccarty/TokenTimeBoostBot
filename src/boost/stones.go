@@ -765,11 +765,12 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		//as.colleggELR = collegELR
 
 		if maxCollectibleELR > 1.0 {
-			if collegELR > 1.000 && collegELR < maxCollectibleELR {
+			roundedCollegELR := math.Round(collegELR*1000) / 1000
+			if roundedCollegELR > 1.000 && roundedCollegELR < maxCollectibleELR {
 				//fmt.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
 				//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
 				//farmerstate.SetMiscSettingString(as.name, "coll-elr", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
-				val := fmt.Sprintf("%2.2f📦", (collegELR-1.0)*100.0)
+				val := fmt.Sprintf("%2.2f📦", (roundedCollegELR-1.0)*100.0)
 				val = strings.ReplaceAll(val, ".00", "")
 				val = strings.ReplaceAll(val, ".25", "¼")
 				val = strings.ReplaceAll(val, ".5", "½")
@@ -797,8 +798,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		as.colleggSR = collegShip
 
 		if maxColllectibleShip > 1.0 {
-			if collegShip > 1.000 && collegShip < maxColllectibleShip {
-				val := fmt.Sprintf("%2.2f🚚", (collegShip-1.0)*100.0)
+			roundedCollegShip := math.Round(collegShip*1000) / 1000
+			if roundedCollegShip > 1.000 && roundedCollegShip < maxColllectibleShip {
+				val := fmt.Sprintf("%2.2f🚚", (roundedCollegShip-1.0)*100.0)
 				val = strings.ReplaceAll(val, ".00", "")
 				val = strings.ReplaceAll(val, ".25", "¼")
 				val = strings.ReplaceAll(val, ".5", "½")
