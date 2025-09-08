@@ -714,9 +714,11 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						alpha := future.timeEquipped.Sub(startTime).Seconds() / contractDurationSeconds
 						elapsedTimeSec := elapsedSeconds // in seconds
 						eggsShipped := totalContributions / 1e15
+						maxTeamwork.WriteString(fmt.Sprintf("\nTarget Egg Amount: %g\nInitial ELR: %g\nElapsed Time Sec: %g\nEggs Shipped: %g\n",
+							targetEggAmount, initialElr, elapsedTimeSec, eggsShipped))
 						if extraInfo {
-							maxTeamwork.WriteString(fmt.Sprintf("\nTarget Egg Amount: %g\nInitial ELR: %g\nDelta ELR: %g\nAlpha: %g\nElapsed Time Sec: %g\nEggs Shipped: %g\n",
-								targetEggAmount, initialElr, deltaElr, alpha, elapsedTimeSec, eggsShipped))
+							maxTeamwork.WriteString(fmt.Sprintf("\nDelta ELR: %g\nAlpha: %g\n",
+								deltaElr, alpha))
 						}
 
 						switchTime, switchTimestamp, finishTimeWithSwitch, finishTimestampWithSwitch, finishTimeWithoutSwitch, finishTimestampWithoutSwitch, err := ProductionSchedule(
