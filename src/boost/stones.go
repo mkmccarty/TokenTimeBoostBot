@@ -759,9 +759,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		collegELR := chickELR / stoneLayRateNow
 		//fmt.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
 		// No IHR Egg yet, this will need to be revisited
-		if collegELR < 1.00 {
-			collegELR = 1.00
-		}
 		//as.colleggELR = collegELR
 
 		if maxCollectibleELR > 1.0 {
@@ -777,7 +774,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				val = strings.ReplaceAll(val, ".75", "¾")
 				as.collegg = append(as.collegg, val)
 				//anyColleggtiblesToShow = true
-			} else if collegELR <= 1.0 {
+			} else if collegELR == 1.0 {
 				as.collegg = append(as.collegg, "📦")
 				//anyColleggtiblesToShow = true
 			}
@@ -808,7 +805,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				as.collegg = append(as.collegg, val)
 
 				//anyColleggtiblesToShow = true
-			} else if collegShip <= 1.0 {
+			} else if collegShip == 1.0 {
 				as.collegg = append(as.collegg, "🚚")
 				//anyColleggtiblesToShow = true
 			}
