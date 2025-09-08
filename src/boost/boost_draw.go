@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -63,7 +64,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	divider := true
 	spacing := discordgo.SeparatorSpacingSizeSmall
 	targetTval := 3.0
-	BTA := contract.EstimatedDuration.Minutes() / float64(contract.MinutesPerToken)
+	BTA := math.Floor(float64(contract.EstimatedDuration.Minutes()) / float64(contract.MinutesPerToken))
 	if BTA > 42.0 {
 		targetTval = 0.07 * BTA
 	}

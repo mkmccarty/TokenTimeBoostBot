@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -144,7 +145,7 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 	} else if !userInContract(contract, userID) {
 		str = "You are not part of this contract"
 	} else {
-		BTA := duration.Minutes() / float64(contract.MinutesPerToken)
+		BTA := math.Floor(duration.Minutes() / float64(contract.MinutesPerToken))
 		targetTval := 3.0
 		if BTA > 42.0 {
 			targetTval = 0.07 * BTA

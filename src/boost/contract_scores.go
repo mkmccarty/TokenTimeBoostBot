@@ -31,7 +31,7 @@ func calculateChickenRunTeamwork(coopSize int, durationInDays int, runs int) flo
 }
 
 func calculateTokenTeamwork(contractDurationSeconds float64, minutesPerToken int, tokenValueSent float64, tokenValueReceived float64) float64 {
-	BTA := contractDurationSeconds / (float64(minutesPerToken) * 60)
+	BTA := math.Floor(contractDurationSeconds / (float64(minutesPerToken) * 60))
 	T := 0.0
 
 	if BTA <= 42.0 {
