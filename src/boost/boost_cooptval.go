@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -91,7 +92,7 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 				},
 			})
 		}
-		BTA := duration.Minutes() / float64(contract.MinutesPerToken)
+		BTA := math.Floor(duration.Minutes() / float64(contract.MinutesPerToken))
 		targetTval := 3.0
 		if BTA > 42.0 {
 			targetTval = 0.07 * BTA
