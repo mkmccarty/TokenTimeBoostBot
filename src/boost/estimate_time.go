@@ -92,7 +92,7 @@ func getContractEstimateString(contractID string) string {
 	c := ei.EggIncContractsAll[contractID]
 
 	if c.ID == "" {
-		str = "No contract found in this channel, use the command parameters to pick one."
+		str = "No contract found  use the command parameters to pick one."
 		return str
 	}
 	eggStr := FindEggEmoji(c.EggName)
@@ -272,7 +272,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		colELR := est.colELR
 		colShip := est.colShip
 
-		baseELR := 3.772 * 1.35 * 1.25
+		baseELR := 3.772 * 1.35 * 1.25 * colELR
 		baseShipping := 7.148 * 1.5 * colShip
 		maxShipping := baseShipping * math.Pow(1.05, slots)
 		contractBaseELR := baseELR * modELR
