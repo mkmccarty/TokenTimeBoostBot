@@ -344,8 +344,7 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 
 	var sinkList []SinkList
 
-	// Volunteer Sink is only for fastrun contracts without a CRT
-	if contract.Style&ContractFlagFastrun != 0 && contract.Style&ContractFlagCrt == 0 {
+	if contract.Style&ContractFlagFastrun != 0 {
 		sinkList = append(sinkList, SinkList{"Post Contract Sink", contract.Banker.PostSinkUserID, "postsink"})
 	} else {
 		if contract.State == ContractStateSignup {
