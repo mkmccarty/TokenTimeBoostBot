@@ -206,44 +206,41 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 }
 
 // GetSignupComponents returns the signup components for a contract
-func GetSignupComponents(disableStartContract bool, contract *Contract) (string, []discordgo.MessageComponent) {
+func GetSignupComponents(contract *Contract) (string, []discordgo.MessageComponent) {
+	if contract == nil {
+		return "", []discordgo.MessageComponent{}
+	}
+
+	disableStartContract := false
 	var str = "Join the contract and indicate the number boost tokens you'd like."
 	if contract.State == ContractStateSignup && contract.Style&ContractFlagBanker != 0 {
 		str += "\nThe Sink boost position button cycles from First->Last->Follow Order."
 	}
 	startLabel := "Start Boost List"
-	if contract != nil && contract.Style&ContractFlagCrt != 0 {
-		startLabel = "Start CRT"
-		if len(contract.Boosters) != contract.CoopSize {
-			disableStartContract = true
-		}
-	} else if contract.State != ContractStateSignup {
+	if contract.State != ContractStateSignup {
 		startLabel = "Started"
 	}
 
-	if contract != nil {
-
-		// There needs to be at least one booster to start the contract
-		if len(contract.Boosters) == 0 {
-			disableStartContract = false
-		} else if contract.CreatorID[0] == config.DiscordAppID {
-			// If the Bot is the creator, then don't allow the contract to be started
-			disableStartContract = true
-		} else {
-			disableStartContract = false
-		}
-		// If Banker style then we need to have at least a banker sink
-		bankerStyle := (contract.Style & ContractFlagBanker) != 0
-		if bankerStyle && contract.Banker.BoostingSinkUserID == "" {
-			disableStartContract = true
-		}
-		if contract.State != ContractStateSignup {
-			disableStartContract = true
-		}
-
+	// There needs to be at least one booster to start the contract
+	if len(contract.Boosters) == 0 {
+		disableStartContract = false
+	} else if contract.CreatorID[0] == config.DiscordAppID {
+		// If the Bot is the creator, then don't allow the contract to be started
+		disableStartContract = true
+	} else {
+		disableStartContract = false
 	}
+	// If Banker style then we need to have at least a banker sink
+	bankerStyle := (contract.Style & ContractFlagBanker) != 0
+	if bankerStyle && contract.Banker.BoostingSinkUserID == "" {
+		disableStartContract = true
+	}
+	if contract.State != ContractStateSignup {
+		disableStartContract = true
+	}
+
 	joinMsg := "Join"
-	if contract != nil && len(contract.Boosters) == contract.CoopSize {
+	if len(contract.Boosters) == contract.CoopSize {
 		joinMsg = "Join (Backup)"
 	}
 
@@ -339,62 +336,58 @@ func GetSignupComponents(disableStartContract bool, contract *Contract) (string,
 		},
 	})
 
-	if contract != nil {
+	type SinkList struct {
+		name   string
+		userID string
+		id     string
+	}
 
-		type SinkList struct {
-			name   string
-			userID string
-			id     string
-		}
+	var sinkList []SinkList
 
-		var sinkList []SinkList
-
-		// Volunteer Sink is only for fastrun contracts without a CRT
-		if contract.Style&ContractFlagFastrun != 0 && contract.Style&ContractFlagCrt == 0 {
-			sinkList = append(sinkList, SinkList{"Post Contract Sink", contract.Banker.PostSinkUserID, "postsink"})
-		} else {
-			if contract.State == ContractStateSignup {
-				if contract.Style&ContractFlagBanker != 0 {
-					sinkList = append(sinkList, SinkList{"Boost Sink", contract.Banker.BoostingSinkUserID, "boostsink"})
-				}
+	// Volunteer Sink is only for fastrun contracts without a CRT
+	if contract.Style&ContractFlagFastrun != 0 && contract.Style&ContractFlagCrt == 0 {
+		sinkList = append(sinkList, SinkList{"Post Contract Sink", contract.Banker.PostSinkUserID, "postsink"})
+	} else {
+		if contract.State == ContractStateSignup {
+			if contract.Style&ContractFlagBanker != 0 {
+				sinkList = append(sinkList, SinkList{"Boost Sink", contract.Banker.BoostingSinkUserID, "boostsink"})
 			}
-			sinkList = append(sinkList, SinkList{"Post Contract Sink", contract.Banker.PostSinkUserID, "postsink"})
+		}
+		sinkList = append(sinkList, SinkList{"Post Contract Sink", contract.Banker.PostSinkUserID, "postsink"})
+	}
+
+	var mComp []discordgo.MessageComponent
+	for _, sink := range sinkList {
+		buttonStyle := discordgo.SecondaryButton
+		if sink.userID == "" {
+			buttonStyle = discordgo.PrimaryButton
+		}
+		mComp = append(mComp, discordgo.Button{
+			Emoji: &discordgo.ComponentEmoji{
+				Name: "🫂",
+			},
+			Label:    sink.name,
+			Style:    buttonStyle,
+			CustomID: "cs_#" + sink.id + "#" + contract.ContractHash,
+		})
+	}
+
+	if contract.State == ContractStateSignup && contract.Style&ContractFlagBanker != 0 {
+		name := ""
+		switch contract.Banker.SinkBoostPosition {
+		case SinkBoostFirst:
+			name = "Sink is FIRST"
+		case SinkBoostLast:
+			name = "Sink is LAST"
+		case SinkBoostFollowOrder:
+			name = "Sink will follow order"
 		}
 
-		var mComp []discordgo.MessageComponent
-		for _, sink := range sinkList {
-			buttonStyle := discordgo.SecondaryButton
-			if sink.userID == "" {
-				buttonStyle = discordgo.PrimaryButton
-			}
-			mComp = append(mComp, discordgo.Button{
-				Emoji: &discordgo.ComponentEmoji{
-					Name: "🫂",
-				},
-				Label:    sink.name,
-				Style:    buttonStyle,
-				CustomID: "cs_#" + sink.id + "#" + contract.ContractHash,
-			})
-		}
-
-		if contract.State == ContractStateSignup && contract.Style&ContractFlagBanker != 0 {
-			name := ""
-			switch contract.Banker.SinkBoostPosition {
-			case SinkBoostFirst:
-				name = "Sink is FIRST"
-			case SinkBoostLast:
-				name = "Sink is LAST"
-			case SinkBoostFollowOrder:
-				name = "Sink will follow order"
-			}
-
-			mComp = append(mComp, discordgo.Button{
-				Label:    name,
-				Style:    discordgo.SecondaryButton,
-				CustomID: "cs_#sinkorder#" + contract.ContractHash,
-			})
-
-		}
+		mComp = append(mComp, discordgo.Button{
+			Label:    name,
+			Style:    discordgo.SecondaryButton,
+			CustomID: "cs_#sinkorder#" + contract.ContractHash,
+		})
 
 		buttons = append(buttons, discordgo.ActionsRow{Components: mComp})
 	}

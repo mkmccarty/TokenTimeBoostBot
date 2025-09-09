@@ -110,9 +110,6 @@ func HandleRenameThreadCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 func generateThreadName(c *Contract) string {
 	var threadName = c.ThreadName
-	//For example I tell BB that I want to name the thread
-	//"CRT rerun with GG". Can I then later do 🌊 and have BB update the name to "CRT rerun with GG $NAME [$TIME] ($STATUS)"?
-
 	threadStyleIcons := []string{"", "🟦 ", "🟩 ", "🟧 ", "🟥 "}
 	if threadName == "" {
 		threadName = "$N $C"
@@ -128,14 +125,8 @@ func generateThreadName(c *Contract) string {
 		} else {
 			styleStr += "Fastrun"
 		}
-		/*
-			if c.Style&ContractFlagCrt != 0 {
-				styleStr += "+CRT"
-			}
-		*/
 		threadName = strings.ReplaceAll(threadName, "$STYLE", styleStr)
 		threadName = strings.ReplaceAll(threadName, "$S", styleStr)
-
 	}
 
 	if strings.Contains(threadName, "$TIME") || strings.Contains(threadName, "$T") {

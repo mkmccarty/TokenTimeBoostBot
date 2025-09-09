@@ -384,7 +384,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		var data discordgo.MessageSend
 		data.Flags = discordgo.MessageFlagsIsComponentsV2
 
-		contentStr, comp := GetSignupComponents(false, contract)
+		contentStr, comp := GetSignupComponents(contract)
 		components = append(components, &discordgo.TextDisplay{
 			Content: contentStr,
 		})

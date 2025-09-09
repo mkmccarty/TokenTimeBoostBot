@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -23,7 +22,7 @@ var tokenRecvValueStr = []string{"8", "6", "1", "0", "Sink"}
 var tokenRecvValue = []float64{8, 6, 1, 0, 1000}
 var chickenRunsStr = []string{"Max", "CoopSize", "CoopSize -1", "None"}
 var siabDurationStr = []string{"30m", "45m", "Half Duration", "Full Duration"}
-var deflectorDurationsStr = []string{"Full Duration", "CRT Offset", "Boost Time"}
+var deflectorDurationsStr = []string{"Full Duration", "Boost Time"}
 
 // ScoreCalcParams is the parameters for the score calculator
 type ScoreCalcParams struct {
@@ -182,14 +181,7 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 	siabTimes := []int{30, 45, -1, -1}
 	scoreCalcParams.SiabTimes = append(scoreCalcParams.SiabTimes, siabTimes...)
 
-	runLegs := 0
-	legQty := c.MaxCoopSize - 1
-	if c.ChickenRuns >= legQty {
-		runLegs++
-		remainingRuns := c.ChickenRuns - legQty
-		runLegs += int(math.Floor(float64(remainingRuns) / float64(legQty-1)))
-	}
-	deflTimes := []int{0, runLegs * 5, 20}
+	deflTimes := []int{0, 20}
 	scoreCalcParams.deflTimes = append(scoreCalcParams.deflTimes, deflTimes...)
 
 	scoreCalcMap[xid] = scoreCalcParams

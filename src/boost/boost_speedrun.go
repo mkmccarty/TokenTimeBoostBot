@@ -254,15 +254,8 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkBoosting str
 	contract.Banker.SinkBoostPosition = sinkPosition
 	contract.BoostOrder = ContractOrderFair
 
-	// This kind of contract is always a CRT
 	contract.Style = ContractStyleFastrunBanker
 
-	/*
-		if selfRuns {
-			contract.Style |= ContractFlagSelfRuns
-		} else {
-			contract.Style &= ^ContractFlagSelfRuns
-		}*/
 	contract.Style &= ^ContractFlagSelfRuns
 
 	// Chicken Runs Calc
