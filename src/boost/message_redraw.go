@@ -208,7 +208,7 @@ func updateSignupReactionMessage(s *discordgo.Session, contract *Contract, loc *
 	msgID := loc.ReactionID
 	msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
 	// Full contract for speedrun
-	contentStr, comp := GetSignupComponents(false, contract)
+	contentStr, comp := GetSignupComponents(contract)
 	components = append(components, &discordgo.TextDisplay{
 		Content: contentStr,
 	})

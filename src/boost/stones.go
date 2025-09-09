@@ -1137,27 +1137,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 	}
 
-	// Determine CRT time
-	var BuffTimeValueCRT []float64
-	for _, c := range coopStatus.GetContributors() {
-		if len(c.GetBuffHistory()) > 0 {
-			a := c.GetBuffHistory()[0]
-			equipTimestamp := a.GetServerTimestamp() + calcSecondsRemaining // When it was equipped
-			BuffTimeValueCRT = append(BuffTimeValueCRT, contractDurationSeconds-equipTimestamp)
-		}
-	}
-	if len(BuffTimeValueCRT) > 1 {
-		// Want the BuffTimeValueCRT to be sorted low to high
-		sort.SliceStable(BuffTimeValueCRT, func(i, j int) bool {
-			return BuffTimeValueCRT[i] < BuffTimeValueCRT[j]
-		})
-		// What's the difference between the first second values
-		crtTime := time.Duration(math.Abs(BuffTimeValueCRT[1])) * time.Second
-		if crtTime > time.Duration(90)*time.Second && math.Abs(BuffTimeValueCRT[0]) < 100 {
-			builder.WriteString(fmt.Sprintf("CRT Duration: %v\n", crtTime.Round(time.Second)))
-		}
-	}
-
 	dropDeflector := getDeflectorDropPerc(artifactSets, everyoneDeflectorPercent)
 
 	fmt.Fprintf(&builder, "Coop Deflector Bonus: %2.0f%%\n", everyoneDeflectorPercent)

@@ -297,8 +297,6 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		totalValue      float64
 	}
 
-	var BuffTimeValueCRT []float64
-
 	var BuffTimeValues []BuffTimeValue
 	var contractDurationSeconds float64
 	var elapsedSeconds float64
@@ -441,24 +439,6 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			})
 		}
 		deliveryTableMap[strings.ToLower(c.GetUserName())] = DeliveryTimeValues
-		if len(c.GetBuffHistory()) > 0 {
-			a := c.GetBuffHistory()[0]
-			serverTimestamp := a.GetServerTimestamp() // When it was equipped
-			serverTimestamp += calcSecondsRemaining
-			BuffTimeValueCRT = append(BuffTimeValueCRT, contractDurationSeconds-serverTimestamp)
-		}
-	}
-
-	if len(BuffTimeValueCRT) > 1 {
-		// Want the BuffTimeValueCRT to be sorted low to high
-		sort.SliceStable(BuffTimeValueCRT, func(i, j int) bool {
-			return BuffTimeValueCRT[i] < BuffTimeValueCRT[j]
-		})
-		// What's the difference between the first second values
-		crtTime := time.Duration(math.Abs(BuffTimeValueCRT[1])) * time.Second
-		if crtTime > time.Duration(90)*time.Second && math.Abs(BuffTimeValueCRT[0]) < 100 {
-			builder.WriteString(fmt.Sprintf("CRT Duration: %v\n", crtTime.Round(time.Second)))
-		}
 	}
 
 	// Used to determine the entire coop swap time

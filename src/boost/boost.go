@@ -49,7 +49,7 @@ var contractStateNames = []string{
 	"ContractStateWaiting",
 	"ContractStateCompleted",
 	"ContractStateArchive",
-	"ContractStateCRT",
+	"ContractStateDeprecated",
 	"ContractStateBanker",
 }
 
@@ -77,7 +77,7 @@ const (
 	ContractStateWaiting   = 2 // Waiting for other(s) to join
 	ContractStateCompleted = 3 // Contract is completed
 	ContractStateArchive   = 4 // Contract is ready to archive
-	//ContractStateCRT       = 5 // Contract is doing CRT [removed]
+	//ContractStateDeprecated       = 5 // Deprecated
 	ContractStateBanker = 6 // Contract is Boosting with Banker
 
 	BoostStateUnboosted = 0 // Unboosted
