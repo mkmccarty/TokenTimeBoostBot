@@ -667,9 +667,12 @@ func DownloadCoopStatusSiab(contractID string, coopID string, offsetEndTime time
 						future.cumulativeContrib = siab.cumulativeContrib + future.contributions
 
 						// Calculate the saved number of seconds
-						//maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact and speeding the contract by %v\n", (adjustedContributionRate-1)*100, siabStones, diffSeconds))
-						maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot %s.\n",
-							(future.contributionRateInSeconds/siab.contributionRateInSeconds-1)*100, siabStones, swapArtifactName))
+						newSlots := 3
+						if swapArtifactName == "Compass" {
+							newSlots = 2
+						}
+						maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a %d slot %s.\n",
+							(future.contributionRateInSeconds/siab.contributionRateInSeconds-1)*100, siabStones, newSlots, swapArtifactName))
 						siabSwapMap[MostRecentDuration.Add(siabTimeEquipped).Unix()] = fmt.Sprintf("<t:%d:t> %s\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
 
 						if shortTeamwork == 0 {
