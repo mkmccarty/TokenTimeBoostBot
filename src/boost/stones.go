@@ -242,6 +242,7 @@ type artifactSet struct {
 	soloData       [][]string
 	staabArtifacts []string
 	colleggSR      float64
+	colleggELR     float64
 	artifactSlots  []string // Name of artifacts in each slot
 	//colleggELR     float64
 	//colleggHab     float64
@@ -759,7 +760,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		collegELR := chickELR / stoneLayRateNow
 		//fmt.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
 		// No IHR Egg yet, this will need to be revisited
-		//as.colleggELR = collegELR
+		as.colleggELR = math.Round(collegELR*1000) / 1000
 
 		if maxCollectibleELR > 1.0 {
 			roundedCollegELR := math.Round(collegELR*1000) / 1000
@@ -792,10 +793,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 		//fmt.Printf("Calc SR: %2.3f  param.Sr: %2.3f   Diff:%2.2f\n", stoneShipRateNow, as.sr/1e15, (as.sr/1e15)/stoneShipRateNow)
 		collegShip := (as.sr / 1e15) / stoneShipRateNow
-		as.colleggSR = collegShip
+		as.colleggSR = math.Round(collegShip*10000) / 10000
 
 		if maxColllectibleShip > 1.0 {
-			roundedCollegShip := math.Round(collegShip*1000) / 1000
+			roundedCollegShip := math.Round(collegShip*10000) / 10000
 			if roundedCollegShip > 1.000 && roundedCollegShip < maxColllectibleShip {
 				val := fmt.Sprintf("%2.2f🚚", (roundedCollegShip-1.0)*100.0)
 				val = strings.ReplaceAll(val, ".00", "")
@@ -1020,7 +1021,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			tableData = append(tableData, strings.Join(statsLine, " "))
 
 			if as.name != "[departed]" {
-				url := bottools.GetStaabmiaLink(true, dimension, rate, int(everyoneDeflectorPercent), as.staabArtifacts, as.colleggSR)
+				url := bottools.GetStaabmiaLink(true, dimension, rate, int(everyoneDeflectorPercent), as.staabArtifacts, as.colleggSR, as.colleggELR)
 				builderURL.WriteString(fmt.Sprintf("🔗[%s](%s)\n", as.nameRaw, url))
 				fmt.Fprintf(&tileBuilder, "[%sCalc](%s)", ei.GetBotEmojiMarkdown("staab"), url)
 			}
