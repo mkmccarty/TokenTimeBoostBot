@@ -23,7 +23,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 		bottools.GetFormattedCommand("change-start offset"),
 		bottools.GetFormattedCommand("change-start timestamp"))
 	if thread {
-		builder.WriteString("React with 🌊 on the boost list to automaticaly update the thread name (`/rename-thread`).\n")
+		builder.WriteString("React with 🌊 on the bost list to automaticaly update the thread name (`/rename-thread`).\n")
 	} else {
 		builder.WriteString("This contract is in a channel and it cannot be renamed. Create it in a thread to permit renaming.\n")
 	}
@@ -338,21 +338,28 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 
 	type SinkList struct {
 		name   string
+		emote  string
 		userID string
 		id     string
 	}
 
 	var sinkList []SinkList
-
+	if contract.PlayStyle == ContractPlaystyleLeaderboard {
+		sinkList = append(sinkList, SinkList{"Parade Sink", "🎪", contract.Banker.ParadeSinkUserID, "paradesink"})
+	}
 	if contract.Style&ContractFlagFastrun != 0 {
-		sinkList = append(sinkList, SinkList{"Post Contract Sink", contract.Banker.PostSinkUserID, "postsink"})
+		sinkList = append(sinkList, SinkList{"Post Contract Sink", "🏁", contract.Banker.PostSinkUserID, "postsink"})
 	} else {
 		if contract.State == ContractStateSignup {
 			if contract.Style&ContractFlagBanker != 0 {
-				sinkList = append(sinkList, SinkList{"Boost Sink", contract.Banker.BoostingSinkUserID, "boostsink"})
+				sinkList = append(sinkList, SinkList{"Boost Sink", "🚀", contract.Banker.BoostingSinkUserID, "boostsink"})
 			}
 		}
-		sinkList = append(sinkList, SinkList{"Post Contract Sink", contract.Banker.PostSinkUserID, "postsink"})
+		sinkList = append(sinkList, SinkList{"Post Contract Sink", "🏁", contract.Banker.PostSinkUserID, "postsink"})
+	}
+	if contract.PlayStyle == ContractPlaystyleLeaderboard {
+		// A host is a non-sink who wants to volunteer their slot for parade use.
+		sinkList = append(sinkList, SinkList{"Parade Host", "🤹", "", "paradehost"})
 	}
 
 	var mComp []discordgo.MessageComponent
@@ -363,13 +370,15 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 		}
 		mComp = append(mComp, discordgo.Button{
 			Emoji: &discordgo.ComponentEmoji{
-				Name: "🫂",
+				Name: sink.emote,
 			},
 			Label:    sink.name,
 			Style:    buttonStyle,
 			CustomID: "cs_#" + sink.id + "#" + contract.ContractHash,
 		})
 	}
+
+	//
 
 	if contract.State == ContractStateSignup && contract.Style&ContractFlagBanker != 0 {
 		name := ""
@@ -387,6 +396,21 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 			Style:    discordgo.SecondaryButton,
 			CustomID: "cs_#sinkorder#" + contract.ContractHash,
 		})
+
+		if contract.PlayStyle == ContractPlaystyleLeaderboard {
+			runsNeeded := contract.ChickenRuns - (contract.CoopSize - 1)
+			// If any of the contract Boosters are Parade Kind then show the parade join button
+			if contract.Banker.ParadeSinkUserID != "" {
+				mComp = append(mComp, discordgo.Button{
+					Emoji: &discordgo.ComponentEmoji{
+						Name: "🤡",
+					},
+					Label:    fmt.Sprintf("Need %d Parade Alts", runsNeeded),
+					Style:    discordgo.SecondaryButton,
+					CustomID: "fd_paradeJoin",
+				})
+			}
+		}
 
 		buttons = append(buttons, discordgo.ActionsRow{Components: mComp})
 	}
