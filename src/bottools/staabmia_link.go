@@ -146,10 +146,16 @@ func parseInt(s string) uint64 {
 }
 
 // GetStaabmiaLink returns a link to the Staabia calculator.
-func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, modifierMult float64, coopDeflectorBonus int, artifacts []string, shippingRate float64) string {
+/*
+I posted the new version of stone calculator (v-5). It should be backwards compatible, so absolutely no rush on the changes, it'll just assume 5% for the ELR colleggtible with v-4 inputs. I believe you just need to:
+change to v-5
+apply the colleggtible to the correct position, see the order here in the gatherData() function, variable itemsToSweep
+I removed the 4% option, so you'll have to map 5% to index 0, 3% to index 1, 2% to index 2, etc.*/
+
+func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, modifierMult float64, coopDeflectorBonus int, artifacts []string, shippingRate float64, elrRate float64) string {
 	link := "https://srsandbox-staabmia.netlify.app/stone-calc?data="
-	version := "v-4"
-	itemsToSweep := []string{"Padding", "DarkMode", "Metro", "Comp", "Gusset", "Defl", "ShipColleggtibles", "ShipColleggtibles2", "Modifiers", "DeflectorSelect"}
+	version := "v-5"
+	itemsToSweep := []string{"Padding", "DarkMode", "Metro", "Comp", "Gusset", "Defl", "ShipColleggtibles", "ShipColleggtibles2", "ELRColleggtibles", "Modifiers", "DeflectorSelect"}
 	itemsData := make([]string, len(itemsToSweep))
 
 	// Build Base64 data
@@ -235,10 +241,10 @@ func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, 
 	// Determine the combination of multipliers for shippingRate
 	multipliers := []float64{1.0, 1.01, 1.02, 1.03, 1.05}
 	multiplierMap := map[float64]string{
-		1.0:  "05",
-		1.01: "04",
-		1.02: "03",
-		1.03: "02",
+		1.0:  "04",
+		1.01: "03",
+		1.02: "02",
+		1.03: "01",
 		1.05: "00",
 	}
 
@@ -255,8 +261,9 @@ func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, 
 			}
 		}
 	}
+	itemsData[8] = multiplierMap[elrRate]
 
-	itemsData[8] = "00" // Default this to unset
+	itemsData[9] = "00" // Default this to unset
 	switch modifierType {
 	case ei.GameModifier_EGG_LAYING_RATE:
 		itemsData[8] = "01"
