@@ -733,13 +733,13 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 		iconsRowA = append(iconsRowA, "🐓")
 
 	case ContractStateCompleted:
+		contract.Banker.CurrentBanker = contract.Banker.PostSinkUserID
 		sinkID := contract.Banker.CurrentBanker
 		if sinkID != "" {
 			iconsRowA = append(iconsRowA, tokenStr)
 			iconsRowB = append(iconsRowB, contract.AltIcons...)
 		}
 		iconsRowA = append(iconsRowA, "🐓")
-
 	}
 
 	gg, ugg, _ := ei.GetGenerousGiftEvent()
