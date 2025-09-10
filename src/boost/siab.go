@@ -1142,7 +1142,7 @@ func ProductionSchedule(
 		return time.Time{}, 0, time.Time{}, 0, time.Time{}, 0, fmt.Errorf("cannot calculate total contract duration: denominator is zero (initialElr + deltaElr*(1 - alpha) = 0)")
 	}
 	totalContractDuration := (remainingEggAmount + initialElr*elapsedTimeHours) / denominatorDuration // in hours
-	fmt.Printf("Total contract duration: %.2f hours\n", totalContractDuration)
+	//fmt.Printf("Total contract duration: %.2f hours\n", totalContractDuration)
 
 	// Calculate elapsed time at which the switch occurs
 	elapsedTimeAtSwitch := alpha * totalContractDuration // in hours
