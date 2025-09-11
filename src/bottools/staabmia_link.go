@@ -266,11 +266,11 @@ func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, 
 	itemsData[9] = "00" // Default this to unset
 	switch modifierType {
 	case ei.GameModifier_EGG_LAYING_RATE:
-		itemsData[8] = "01"
+		itemsData[9] = "01"
 	case ei.GameModifier_SHIPPING_CAPACITY:
-		itemsData[8] = "02"
+		itemsData[9] = "02"
 	case ei.GameModifier_HAB_CAPACITY:
-		itemsData[8] = "00"
+		itemsData[9] = "00"
 	}
 	itemsData[10] = "01" // DeflectorSelect for All Deflectors
 	base62encoded := chunk16(strings.Join(itemsData, ""))
