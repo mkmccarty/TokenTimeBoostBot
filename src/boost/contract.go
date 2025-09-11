@@ -757,6 +757,34 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 	}
 
 	switch cmd {
+	case "paradehost":
+		sid := getInteractionUserID(i)
+		switch contract.Boosters[sid].Kind {
+		case Normal:
+			contract.Boosters[sid].Kind = Parade
+		case Parade:
+			contract.Boosters[sid].Kind = Normal
+		}
+	case "paradesink":
+		sid := getInteractionUserID(i)
+		alts := append([]string{sid}, contract.Boosters[sid].Alts...)
+		altIdx := slices.Index(alts, contract.Banker.ParadeSinkUserID)
+		if altIdx != -1 {
+			if altIdx != len(alts)-1 {
+				sid = alts[altIdx+1]
+			} else {
+				sid = alts[altIdx] // Allow for the state to reset
+			}
+		}
+
+		if contract.Banker.ParadeSinkUserID == sid {
+			contract.Boosters[sid].Kind = Normal
+			contract.Banker.ParadeSinkUserID = ""
+		} else if userInContract(contract, sid) {
+			contract.Banker.ParadeSinkUserID = sid
+			contract.Boosters[sid].Kind = Parade
+		}
+
 	case "boostsink":
 		sid := getInteractionUserID(i)
 		alts := append([]string{sid}, contract.Boosters[sid].Alts...)

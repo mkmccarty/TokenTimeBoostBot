@@ -272,7 +272,7 @@ func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, 
 	case ei.GameModifier_HAB_CAPACITY:
 		itemsData[8] = "00"
 	}
-	itemsData[9] = "01" // DeflectorSelect for All Deflectors
+	itemsData[10] = "01" // DeflectorSelect for All Deflectors
 	base62encoded := chunk16(strings.Join(itemsData, ""))
 
 	return link + version + base64encoded + "=" + base62encoded
