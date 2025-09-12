@@ -114,7 +114,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	if opt, ok := optionMap["contract-id"]; ok {
-		contractID = strings.ToLower(opt.StringValue())
+		contractID = opt.StringValue()
 		contractID = strings.ReplaceAll(contractID, " ", "")
 	}
 	if opt, ok := optionMap["coop-id"]; ok {
@@ -160,7 +160,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 			return
 		}
-		contractID = strings.ToLower(contract.ContractID)
+		contractID = contract.ContractID
 		coopID = strings.ToLower(contract.CoopID)
 	}
 
