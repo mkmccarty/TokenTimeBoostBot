@@ -348,7 +348,7 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 		sinkList = append(sinkList, SinkList{"Parade Banker", "🎪", contract.Banker.ParadeSinkUserID, "paradesink"})
 		sinkList = append(sinkList, SinkList{"Parade Host", "🤹", "", "paradehost"})
 	}
-	if contract.Style&ContractFlagBanker != 0 {
+	if (contract.State == ContractStateSignup || contract.State == ContractStateBanker) && contract.Style&ContractFlagBanker != 0 {
 		sinkList = append(sinkList, SinkList{"Banker", "🏦", contract.Banker.BoostingSinkUserID, "boostsink"})
 	}
 	sinkList = append(sinkList, SinkList{"Post Contract Sink", "🏁", contract.Banker.PostSinkUserID, "postsink"})
@@ -369,7 +369,7 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 		})
 	}
 
-	if contract.Style&ContractFlagBanker != 0 {
+	if (contract.State == ContractStateSignup || contract.State == ContractStateBanker) && contract.Style&ContractFlagBanker != 0 {
 		name := ""
 		switch contract.Banker.SinkBoostPosition {
 		case SinkBoostFirst:
