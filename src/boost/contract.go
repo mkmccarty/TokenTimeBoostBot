@@ -802,6 +802,9 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		} else if userInContract(contract, sid) {
 			contract.Banker.BoostingSinkUserID = sid
 		}
+		if contract.State == ContractStateBanker {
+			contract.Banker.CurrentBanker = contract.Banker.BoostingSinkUserID
+		}
 	case "postsink":
 		sid := getInteractionUserID(i)
 		alts := append([]string{sid}, contract.Boosters[sid].Alts...)
