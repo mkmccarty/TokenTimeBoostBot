@@ -169,6 +169,18 @@ const (
 	Parade
 )
 
+// Parader holds the data for each parader within a Contract
+type Parader struct {
+	UserID        string // Egg Farmer
+	Name          string
+	Unique        string
+	Nick          string
+	Mention       string // String which mentions user
+	GlobalName    string
+	UserName      string
+	RanChickensOn []string
+}
+
 // Booster holds the data for each booster within a Contract
 type Booster struct {
 	UserID      string // Egg Farmer
@@ -209,7 +221,8 @@ type Booster struct {
 	EstRequestChickenRuns  time.Time     // Estimated time to request chicken runs
 	Ultra                  bool          // Does this player have Ultra
 	// Alt Parade
-	Kind Kind
+	Kind           Kind
+	ParaderMention Parader
 }
 
 // LocationData holds server specific Data for a contract
@@ -282,6 +295,7 @@ type Contract struct {
 	ActualStartTime     time.Time // Actual start time for token tracking
 	RegisteredNum       int
 	Boosters            map[string]*Booster // Boosters Registered
+	ParadeList          []*Parader          // List of Paraders
 	WaitlistBoosters    []string            // Waitlist of UserID's
 	AltIcons            []string            // Array of alternate icons for the Boosters
 	Order               []string

@@ -344,23 +344,14 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 	}
 
 	var sinkList []SinkList
-	if contract.PlayStyle == ContractPlaystyleLeaderboard {
-		sinkList = append(sinkList, SinkList{"Parade Sink", "🎪", contract.Banker.ParadeSinkUserID, "paradesink"})
-	}
-	if contract.Style&ContractFlagFastrun != 0 {
-		sinkList = append(sinkList, SinkList{"Post Contract Sink", "🏁", contract.Banker.PostSinkUserID, "postsink"})
-	} else {
-		if contract.State == ContractStateSignup {
-			if contract.Style&ContractFlagBanker != 0 {
-				sinkList = append(sinkList, SinkList{"Boost Sink", "🚀", contract.Banker.BoostingSinkUserID, "boostsink"})
-			}
-		}
-		sinkList = append(sinkList, SinkList{"Post Contract Sink", "🏁", contract.Banker.PostSinkUserID, "postsink"})
-	}
-	if contract.PlayStyle == ContractPlaystyleLeaderboard {
-		// A host is a non-sink who wants to volunteer their slot for parade use.
+	if config.IsDevBot() && contract.PlayStyle == ContractPlaystyleLeaderboard {
+		sinkList = append(sinkList, SinkList{"Parade Banker", "🎪", contract.Banker.ParadeSinkUserID, "paradesink"})
 		sinkList = append(sinkList, SinkList{"Parade Host", "🤹", "", "paradehost"})
 	}
+	if contract.State == ContractStateSignup && contract.Style&ContractFlagBanker != 0 {
+		sinkList = append(sinkList, SinkList{"Banker", "🏦", contract.Banker.BoostingSinkUserID, "boostsink"})
+	}
+	sinkList = append(sinkList, SinkList{"Post Contract Sink", "🏁", contract.Banker.PostSinkUserID, "postsink"})
 
 	var mComp []discordgo.MessageComponent
 	for _, sink := range sinkList {
@@ -377,8 +368,6 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 			CustomID: "cs_#" + sink.id + "#" + contract.ContractHash,
 		})
 	}
-
-	//
 
 	if contract.State == ContractStateSignup && contract.Style&ContractFlagBanker != 0 {
 		name := ""
@@ -397,7 +386,7 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 			CustomID: "cs_#sinkorder#" + contract.ContractHash,
 		})
 
-		if contract.PlayStyle == ContractPlaystyleLeaderboard {
+		if config.IsDevBot() && contract.PlayStyle == ContractPlaystyleLeaderboard {
 			runsNeeded := contract.ChickenRuns - (contract.CoopSize - 1)
 			// If any of the contract Boosters are Parade Kind then show the parade join button
 			if contract.Banker.ParadeSinkUserID != "" {
