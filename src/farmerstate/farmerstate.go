@@ -340,10 +340,15 @@ func SetMiscSettingString(userID string, key string, value string) {
 	}
 
 	if !farmerstate[userID].DataPrivacy {
-		farmerstate[userID].LastUpdated = time.Now()
-		if farmerstate[userID].MiscSettingsString[key] != value {
-			farmerstate[userID].MiscSettingsString[key] = value
+		if value == "" {
+			delete(farmerstate[userID].MiscSettingsString, key)
 			saveData(farmerstate)
+		} else {
+			farmerstate[userID].LastUpdated = time.Now()
+			if farmerstate[userID].MiscSettingsString[key] != value {
+				farmerstate[userID].MiscSettingsString[key] = value
+				saveData(farmerstate)
+			}
 		}
 	}
 }

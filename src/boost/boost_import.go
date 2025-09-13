@@ -223,6 +223,18 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		c.EstimatedDuration, c.EstimatedDurationLower = getContractDurationEstimate(c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
 			c.ModifierSR, c.ModifierELR, c.ModifierHabCap)
 	}
+
+	if c.ContractVersion == 2 {
+		score := getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+			true, 1.0, // Use faster duration at a 1.0 modifier
+			1.05,    // Fair Share, first booster
+			100, 20, // SIAB 100%, 20 minutes
+			20, 10, // Deflector %, minutes reduction
+			c.ChickenRuns, // All Chicken Runs
+			100, 5)        // Tokens Sent a lot and received a little.
+		c.Cxp = float64(score)
+	}
+
 	return c
 }
 

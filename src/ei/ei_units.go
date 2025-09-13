@@ -89,6 +89,7 @@ func ParseValueWithUnit(s string, unitRequired bool) (float64, error) {
 	return value * math.Pow10(oom), nil
 }
 
+// FormatEIValue formats a number in scientific notation with the given options.
 func FormatEIValue(x float64, options map[string]any) string {
 	trim := options["trim"] == true
 	decimals := 3
