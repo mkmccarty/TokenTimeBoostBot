@@ -47,6 +47,8 @@ var (
 	BannerURL string
 	// DevelopmentStaff is a list of user IDs for development staff.
 	DevelopmentStaff []string
+	// Key is the encryption key used for encrypting sensitive data.
+	Key string
 
 	config *configStruct
 )
@@ -72,6 +74,7 @@ type configStruct struct {
 	BannerOutputPath string   `json:"BannerOutputPath"`
 	BannerURL        string   `json:"BannerURL"`
 	DevelopmentStaff []string `json:"DevelopmentStaff"`
+	Key              string   `json:"Key"`
 }
 
 // ReadConfig will load the configuration files for API tokens.
@@ -112,6 +115,7 @@ func ReadConfig(cfgFile string) error {
 	BannerOutputPath = config.BannerOutputPath
 	BannerURL = config.BannerURL
 	DevelopmentStaff = config.DevelopmentStaff
+	Key = config.Key
 
 	return nil
 }

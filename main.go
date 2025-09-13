@@ -81,6 +81,7 @@ const slashArtifact string = "artifact"
 const slashScoreExplorer string = "score-explorer"
 const slashRemoveDMMessage string = "remove-dm-message"
 const slashPrivacy string = "privacy"
+const slashRerunEval string = "rerun-eval"
 
 var integerZeroMinValue float64 = 0.0
 
@@ -176,6 +177,7 @@ var (
 		events.SlashEventHelperCommand(slashEventHelper),
 		track.GetSlashTokenCommand(slashToken),
 		track.GetSlashTokenEditTrackCommand(slashTokenEditTrack),
+		boost.GetSlashReplayEvalCommand(slashRerunEval),
 	}
 
 	commands = []*discordgo.ApplicationCommand{
@@ -489,6 +491,9 @@ var (
 		slashEventHelper: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			events.HandleEventHelper(s, i)
 		},
+		slashRerunEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleReplayEval(s, i)
+		},
 		slashToken: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleTokenCommand(s, i)
 		},
@@ -761,6 +766,9 @@ var (
 		},
 		"fd_signupBell": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			joinContract(s, i, true)
+		},
+		"m_replay": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleReplayModalSubmit(s, i)
 		},
 		"fd_signupLeave": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			str := "Removed from Contract"
