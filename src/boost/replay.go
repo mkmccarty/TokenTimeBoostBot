@@ -191,12 +191,9 @@ func printArchivedContracts(archive []*ei.LocalContract, percent int) string {
 		bottools.AlignString("%", 4, bottools.StringAlignCenter),
 	)
 
-	for _, c := range archive {
+	count := 0
 
-		if builder.Len() > 3500 {
-			builder.WriteString("...output truncated...\n")
-			break
-		}
+	for _, c := range archive {
 
 		contractID := c.GetContract().GetIdentifier()
 		//coopID := c.GetCoopIdentifier()
@@ -207,25 +204,41 @@ func printArchivedContracts(archive []*ei.LocalContract, percent int) string {
 		//if c.ContractVersion == 2 {
 		if percent != -1 {
 			if cxp < c.Cxp*(1-float64(percent)/100) || c.Cxp == 0 {
-				fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`\n",
-					bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
-					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(cxp))), 6, bottools.StringAlignRight),
-					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp))), 6, bottools.StringAlignRight),
-					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp-cxp))), 6, bottools.StringAlignRight),
-					bottools.AlignString(fmt.Sprintf("%.1f", (cxp/c.Cxp)*100), 4, bottools.StringAlignCenter))
+				if builder.Len() < 3500 {
+					fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`\n",
+						bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
+						bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(cxp))), 6, bottools.StringAlignRight),
+						bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp))), 6, bottools.StringAlignRight),
+						bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp-cxp))), 6, bottools.StringAlignRight),
+						bottools.AlignString(fmt.Sprintf("%.1f", (cxp/c.Cxp)*100), 4, bottools.StringAlignCenter))
+				}
+				count++
 			}
 		} else {
 			if c.ContractVersion == 2 && c.ExpirationTime.Unix() > time.Now().Unix() {
-				fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s` <t:%d:R>\n",
-					bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
-					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(cxp))), 6, bottools.StringAlignRight),
-					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp))), 6, bottools.StringAlignRight),
-					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp-cxp))), 6, bottools.StringAlignRight),
-					bottools.AlignString(fmt.Sprintf("%.1f", (cxp/c.Cxp)*100), 4, bottools.StringAlignCenter),
-					c.ExpirationTime.Unix())
+				if builder.Len() < 3500 {
+					fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s` <t:%d:R>\n",
+						bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
+						bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(cxp))), 6, bottools.StringAlignRight),
+						bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp))), 6, bottools.StringAlignRight),
+						bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp-cxp))), 6, bottools.StringAlignRight),
+						bottools.AlignString(fmt.Sprintf("%.1f", (cxp/c.Cxp)*100), 4, bottools.StringAlignCenter),
+						c.ExpirationTime.Unix())
+				}
+				count++
 			}
 		}
 		//}
+	}
+	if builder.Len() > 3500 {
+		builder.WriteString("...output truncated...\n")
+	}
+	if percent != -1 {
+		builder.WriteString(fmt.Sprintf("%d of %d contracts met this condition.\n", count, len(archive)))
+	}
+	if count == 0 {
+		builder.Reset()
+		builder.WriteString("No contracts met this condition.\n")
 	}
 	return builder.String()
 }
