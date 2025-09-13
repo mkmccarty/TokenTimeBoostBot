@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
@@ -21,6 +23,7 @@ import (
 
 // GetSlashReplayEvalCommand returns the command for the /launch-helper command
 func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
+	minValue := 0.0
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Evaluate contract history and provide replay guidance.",
@@ -35,9 +38,17 @@ func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
 		},
 		Options: []*discordgo.ApplicationCommandOption{
 			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "threshold",
+				Description: "Below % of speedrun score",
+				MinValue:    &minValue,
+				MaxValue:    50,
+				Required:    false,
+			},
+			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "reset",
-				Description: "Reset stored data and start fresh",
+				Description: "Reset stored EI number",
 				Required:    false,
 			},
 		},
@@ -47,6 +58,7 @@ func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
 // HandleReplayEval handles the /replay-eval command
 func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	userID := bottools.GetInteractionUserID(i)
+	percent := -1
 
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -58,6 +70,9 @@ func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if opt.BoolValue() {
 			farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
 		}
+	}
+	if opt, ok := optionMap["threshold"]; ok {
+		percent = int(opt.UintValue())
 	}
 
 	eggIncID := ""
@@ -108,7 +123,11 @@ func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	})
 
-	str := ei.GetContractArchiveFromAPI(s, eggIncID)
+	archive := ei.GetContractArchiveFromAPI(s, eggIncID)
+	str := printArchivedContracts(archive, percent)
+	if str == "" {
+		str = "No archived contracts found in Egg Inc API response"
+	}
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Flags: flags,
 		Components: []discordgo.MessageComponent{
@@ -120,7 +139,6 @@ func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 // HandleReplayModalSubmit handles the modal submission for the /replay-eval command
 func HandleReplayModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	eggIncID := ""
 	str := "That's not a valid Egg Inc ID. It should start with EI followed by 16 numbers."
 	userID := bottools.GetInteractionUserID(i)
 	modalData := i.ModalSubmitData()
@@ -136,25 +154,12 @@ func HandleReplayModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreat
 				combinedData, err := encryptAndCombine(encryptionKey, []byte(eggIncID))
 				if err == nil {
 					farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", base64.StdEncoding.EncodeToString(combinedData))
-					str = "Egg Inc ID saved."
+					str = "Egg Inc ID saved.\nRerun the command to evaluate your contract history."
 				}
 			}
 		}
 	}
 
-	flags := discordgo.MessageFlagsIsComponentsV2
-	if eggIncID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: str,
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
-		return
-	}
-
-	// Do the work
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
@@ -162,14 +167,67 @@ func HandleReplayModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreat
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	})
+}
 
-	str = ei.GetContractArchiveFromAPI(s, eggIncID)
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Flags: flags,
-		Components: []discordgo.MessageComponent{
-			discordgo.TextDisplay{Content: str},
-		},
-	})
+func printArchivedContracts(archive []*ei.LocalContract, percent int) string {
+	builder := strings.Builder{}
+	if archive == nil {
+		log.Print("No archived contracts found in Egg Inc API response")
+		return builder.String()
+	}
+	log.Printf("Downloaded %d archived contracts from Egg Inc API\n", len(archive))
+
+	// Want a preamble string for builder for what we're displaying
+	if percent == -1 {
+		builder.WriteString("## Contract CS eval of active contracts\n")
+	} else {
+		builder.WriteString(fmt.Sprintf("## Displaying contract scores less than %d%% of speedrun potential:\n", percent))
+	}
+	fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`\n",
+		bottools.AlignString("CONTRACT-ID", 30, bottools.StringAlignCenter),
+		bottools.AlignString("CS", 6, bottools.StringAlignCenter),
+		bottools.AlignString("HIGH", 6, bottools.StringAlignCenter),
+		bottools.AlignString("GAP", 6, bottools.StringAlignRight),
+		bottools.AlignString("%", 4, bottools.StringAlignCenter),
+	)
+
+	for _, c := range archive {
+
+		if builder.Len() > 3500 {
+			builder.WriteString("...output truncated...\n")
+			break
+		}
+
+		contractID := c.GetContract().GetIdentifier()
+		//coopID := c.GetCoopIdentifier()
+		evaluation := c.GetEvaluation()
+		cxp := evaluation.GetCxp()
+
+		c := ei.EggIncContractsAll[contractID]
+		//if c.ContractVersion == 2 {
+		if percent != -1 {
+			if cxp < c.Cxp*(1-float64(percent)/100) || c.Cxp == 0 {
+				fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`\n",
+					bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
+					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(cxp))), 6, bottools.StringAlignRight),
+					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp))), 6, bottools.StringAlignRight),
+					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp-cxp))), 6, bottools.StringAlignRight),
+					bottools.AlignString(fmt.Sprintf("%.1f", (cxp/c.Cxp)*100), 4, bottools.StringAlignCenter))
+			}
+		} else {
+			if c.ContractVersion == 2 && c.ExpirationTime.Unix() > time.Now().Unix() {
+				fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s` <t:%d:R>\n",
+					bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
+					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(cxp))), 6, bottools.StringAlignRight),
+					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp))), 6, bottools.StringAlignRight),
+					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp-cxp))), 6, bottools.StringAlignRight),
+					bottools.AlignString(fmt.Sprintf("%.1f", (cxp/c.Cxp)*100), 4, bottools.StringAlignCenter),
+					c.ExpirationTime.Unix())
+			}
+		}
+		//}
+	}
+	return builder.String()
 }
 
 /*
