@@ -767,8 +767,8 @@ var (
 		"fd_signupBell": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			joinContract(s, i, true)
 		},
-		"m_replay": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleReplayModalSubmit(s, i)
+		"m_m_eggid": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleEggIDModalSubmit(s, i)
 		},
 		"fd_signupLeave": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			str := "Removed from Contract"
