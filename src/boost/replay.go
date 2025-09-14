@@ -150,6 +150,10 @@ func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	discordID := userID
 	fileName := fmt.Sprintf("ttbb-data/eiuserdata/archive-%s-%s.json", discordID, cxpVersion)
+	// Replace eggIncID with userID in the JSON data
+	jsonString := string(jsonData)
+	jsonString = strings.ReplaceAll(jsonString, eggIncID, userID)
+	jsonData = []byte(jsonString)
 	err = os.WriteFile(fileName, jsonData, 0644)
 	if err != nil {
 		log.Println("Error saving contract archive to file:", err)
