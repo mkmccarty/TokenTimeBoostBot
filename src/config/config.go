@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -117,6 +118,37 @@ func ReadConfig(cfgFile string) error {
 	DevelopmentStaff = config.DevelopmentStaff
 	Key = config.Key
 
+	if Key == "" {
+		// We need a encryption key for a few things, if it's missing
+		// We'll create one and update the config file.
+
+		key, err := GenerateKey()
+		if err != nil {
+			return err
+		}
+		Key = base64.StdEncoding.EncodeToString(key)
+
+		// Want to read in the config file and update it with the new key
+		config.Key = Key
+		// Read the original file as a map to preserve unmapped fields
+		var configMap map[string]interface{}
+		err = json.Unmarshal(file, &configMap)
+		if err != nil {
+			return err
+		}
+
+		// Update only the Key field in the map
+		configMap["Key"] = Key
+
+		newFile, err := json.MarshalIndent(configMap, "", "  ")
+		if err != nil {
+			return err
+		}
+		err = os.WriteFile(cfgFile, newFile, 0644)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

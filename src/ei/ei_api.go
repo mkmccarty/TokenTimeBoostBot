@@ -14,15 +14,16 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// GetFirstContactFromAPI will download the events from the Egg Inc API
-func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID string) []*LocalContract {
+// GetFirstContactFromAPI will download the player data from the Egg Inc API
+func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID string) (*Backup, bool) {
 	reqURL := "https://www.auxbrain.com//ei/bot_first_contact"
 	enc := base64.StdEncoding
+	cachedData := false
 
 	protoData := ""
 	if fileInfo, err := os.Stat("ttbb-data/eiuserdata/firstcontact-" + discordID + ".pb"); err == nil {
 		// File exists, check if it's within 10 minutes
-		if time.Since(fileInfo.ModTime()) <= 10*time.Minute {
+		if time.Since(fileInfo.ModTime()) <= 2*time.Minute {
 			// File is recent, load it
 			data, err := os.ReadFile("ttbb-data/eiuserdata/firstcontact-" + discordID + ".pb")
 			if err == nil {
@@ -31,6 +32,7 @@ func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID str
 					decryptedData, err := config.DecryptCombined(encryptionKey, []byte(data))
 					if err == nil {
 						protoData = string(decryptedData)
+						cachedData = true
 						// Successfully decrypted, use protoData
 					}
 				}
@@ -63,7 +65,7 @@ func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID str
 		reqBin, err := proto.Marshal(&firstContactRequest)
 		if err != nil {
 			log.Print(err)
-			return nil
+			return nil, cachedData
 		}
 		values := url.Values{}
 		reqDataEncoded := enc.EncodeToString(reqBin)
@@ -72,7 +74,7 @@ func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID str
 		response, err := http.PostForm(reqURL, values)
 		if err != nil {
 			log.Print(err)
-			return nil
+			return nil, cachedData
 		}
 
 		defer func() {
@@ -86,7 +88,7 @@ func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID str
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
 			log.Print(err)
-			return nil
+			return nil, cachedData
 		}
 		protoData = string(body)
 
@@ -108,31 +110,28 @@ func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID str
 	err := proto.Unmarshal(rawDecodedText, firstContactResponse)
 	if err != nil {
 		log.Print(err)
-		return nil
+		return nil, cachedData
 	}
 
 	backup := firstContactResponse.GetBackup()
 	if backup == nil {
 		log.Print("No backup found in Egg Inc API response")
-		return nil
+		return nil, cachedData
 	}
 	PE := backup.GetGame().GetEggsOfProphecy()
 	SE := backup.GetGame().GetSoulEggsD()
 	log.Printf("%s  \nPE:%v \nSE:%s\n", backup.GetUserName(), PE, FormatEIValue(SE, map[string]any{"decimals": 3, "trim": true}))
 
-	archive := backup.GetContracts().GetArchive()
-
-	// Want a function which will take an the archive parameter and print out the contractID, coopID, and cxp for each archived contract
-	//printArchivedContracts(archive, 20)
-	return archive
+	return backup, cachedData
 }
 
 // GetContractArchiveFromAPI will download the events from the Egg Inc API
-func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID string) []*LocalContract {
+func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID string) ([]*LocalContract, bool) {
 	reqURL := "https://www.auxbrain.com/ei_ctx/get_contracts_archive"
 	enc := base64.StdEncoding
 	clientVersion := uint32(99)
 	protoData := ""
+	cachedData := false
 
 	if fileInfo, err := os.Stat("ttbb-data/eiuserdata/archive-" + discordID + ".pb"); err == nil {
 		// File exists, check if it's within 10 minutes
@@ -145,6 +144,7 @@ func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID 
 					decryptedData, err := config.DecryptCombined(encryptionKey, []byte(data))
 					if err == nil {
 						protoData = string(decryptedData)
+						cachedData = true
 						// Successfully decrypted, use protoData
 					}
 				}
@@ -161,7 +161,7 @@ func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID 
 		reqBin, err := proto.Marshal(&contractArchiveRequest)
 		if err != nil {
 			log.Print(err)
-			return nil
+			return nil, cachedData
 		}
 		values := url.Values{}
 		reqDataEncoded := enc.EncodeToString(reqBin)
@@ -170,7 +170,7 @@ func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID 
 		response, err := http.PostForm(reqURL, values)
 		if err != nil {
 			log.Print(err)
-			return nil
+			return nil, cachedData
 		}
 
 		defer func() {
@@ -184,7 +184,7 @@ func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID 
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
 			log.Print(err)
-			return nil
+			return nil, cachedData
 		}
 
 		protoData = string(body)
@@ -208,20 +208,20 @@ func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID 
 	err := proto.Unmarshal(rawDecodedText, decodedAuthBuf)
 	if err != nil {
 		log.Print(err)
-		return nil
+		return nil, cachedData
 	}
 
 	contractsArchiveResponse := &ContractsArchive{}
 	err = proto.Unmarshal(decodedAuthBuf.Message, contractsArchiveResponse)
 	if err != nil {
 		log.Print(err)
-		return nil
+		return nil, cachedData
 	}
 
 	archive := contractsArchiveResponse.GetArchive()
 	if archive == nil {
 		log.Print("No archived contracts found in Egg Inc API response")
-		return nil
+		return nil, cachedData
 	}
-	return archive
+	return archive, cachedData
 }
