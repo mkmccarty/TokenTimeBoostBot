@@ -121,7 +121,7 @@ func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	})
 
-	archive := ei.GetContractArchiveFromAPI(s, eggIncID, userID)
+	archive, cached := ei.GetContractArchiveFromAPI(s, eggIncID, userID)
 
 	cxpVersion := ""
 	for _, c := range archive {
@@ -148,18 +148,6 @@ func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	discordID := userID
-	fileName := fmt.Sprintf("ttbb-data/eiuserdata/archive-%s-%s.json", discordID, cxpVersion)
-	// Replace eggIncID with userID in the JSON data
-	jsonString := string(jsonData)
-	jsonString = strings.ReplaceAll(jsonString, eggIncID, userID)
-	jsonData = []byte(jsonString)
-	err = os.WriteFile(fileName, jsonData, 0644)
-	if err != nil {
-		log.Println("Error saving contract archive to file:", err)
-		return
-	}
-
 	str := printArchivedContracts(archive, percent)
 	if str == "" {
 		str = "No archived contracts found in Egg Inc API response"
@@ -170,6 +158,19 @@ func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			discordgo.TextDisplay{Content: str},
 		},
 	})
+
+	if !cached {
+		discordID := userID
+		fileName := fmt.Sprintf("ttbb-data/eiuserdata/archive-%s-%s.json", discordID, cxpVersion)
+		// Replace eggIncID with userID in the JSON data
+		jsonString := string(jsonData)
+		jsonString = strings.ReplaceAll(jsonString, eggIncID, userID)
+		jsonData = []byte(jsonString)
+		err = os.WriteFile(fileName, jsonData, 0644)
+		if err != nil {
+			log.Println("Error saving contract archive to file:", err)
+		}
+	}
 
 }
 
