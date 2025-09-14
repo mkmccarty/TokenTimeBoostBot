@@ -120,31 +120,46 @@ func ReadConfig(cfgFile string) error {
 
 	if Key == "" {
 		// We need a encryption key for a few things, if it's missing
-		// We'll create one and update the config file.
+		// Try to read existing key from ttbb-data/.key.json first
+		keyFile := "ttbb-data/.key.json"
+		keyData, err := os.ReadFile(keyFile)
+		if err == nil {
+			// File exists, try to parse it
+			var keyStruct struct {
+				Key string `json:"Key"`
+			}
+			if json.Unmarshal(keyData, &keyStruct) == nil && keyStruct.Key != "" {
+				Key = keyStruct.Key
+				config.Key = Key
+				return nil
+			}
+		}
 
+		// Key file doesn't exist or is invalid, generate new key
 		key, err := GenerateKey()
 		if err != nil {
 			return err
 		}
 		Key = base64.StdEncoding.EncodeToString(key)
-
-		// Want to read in the config file and update it with the new key
 		config.Key = Key
-		// Read the original file as a map to preserve unmapped fields
-		var configMap map[string]interface{}
-		err = json.Unmarshal(file, &configMap)
+
+		// Save the new key to ttbb-data/key.json
+		keyStruct := struct {
+			Key string `json:"Key"`
+		}{
+			Key: Key,
+		}
+		keyJSON, err := json.MarshalIndent(keyStruct, "", "  ")
 		if err != nil {
 			return err
 		}
 
-		// Update only the Key field in the map
-		configMap["Key"] = Key
-
-		newFile, err := json.MarshalIndent(configMap, "", "  ")
-		if err != nil {
+		// Ensure directory exists
+		if err := os.MkdirAll("ttbb-data", 0755); err != nil {
 			return err
 		}
-		err = os.WriteFile(cfgFile, newFile, 0644)
+
+		err = os.WriteFile(keyFile, keyJSON, 0644)
 		if err != nil {
 			return err
 		}
