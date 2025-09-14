@@ -1,14 +1,12 @@
 package boost
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"math"
+	"os"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -81,7 +79,7 @@ func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if err == nil {
 		decodedData, err := base64.StdEncoding.DecodeString(eiID)
 		if err == nil {
-			decryptedData, err := decryptCombined(encryptionKey, decodedData)
+			decryptedData, err := config.DecryptCombined(encryptionKey, decodedData)
 			if err == nil {
 				eggIncID = string(decryptedData)
 			}
@@ -123,7 +121,41 @@ func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	})
 
-	archive := ei.GetContractArchiveFromAPI(s, eggIncID)
+	archive := ei.GetContractArchiveFromAPI(s, eggIncID, userID)
+
+	cxpVersion := ""
+	for _, c := range archive {
+		eval := c.GetEvaluation()
+		if eval != nil {
+			cxpVersion = eval.GetVersion()
+			// Replace all non-numeric characters in cxpVersion with underscores
+			cxpVersion = strings.Map(func(r rune) rune {
+				if (r >= '0' && r <= '9') || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+					return r
+				}
+				return '_'
+			}, cxpVersion)
+			break
+		}
+	}
+
+	// I want to convert this archive to a JSON string, replace the eggIncID with the discord ID and save the file to
+	// a local file named contract-archive-<discordID>.json for debugging purposes.
+
+	jsonData, err := json.Marshal(archive)
+	if err != nil {
+		log.Println("Error marshalling archive to JSON:", err)
+		return
+	}
+
+	discordID := userID
+	fileName := fmt.Sprintf("ttbb-data/eiuserdata/archive-%s-%s.json", discordID, cxpVersion)
+	err = os.WriteFile(fileName, jsonData, 0644)
+	if err != nil {
+		log.Println("Error saving contract archive to file:", err)
+		return
+	}
+
 	str := printArchivedContracts(archive, percent)
 	if str == "" {
 		str = "No archived contracts found in Egg Inc API response"
@@ -151,7 +183,7 @@ func HandleReplayModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreat
 			}
 			encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
 			if err == nil {
-				combinedData, err := encryptAndCombine(encryptionKey, []byte(eggIncID))
+				combinedData, err := config.EncryptAndCombine(encryptionKey, []byte(eggIncID))
 				if err == nil {
 					farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", base64.StdEncoding.EncodeToString(combinedData))
 					str = "Egg Inc ID saved.\nRerun the command to evaluate your contract history."
@@ -241,76 +273,4 @@ func printArchivedContracts(archive []*ei.LocalContract, percent int) string {
 		builder.WriteString("No contracts met this condition.\n")
 	}
 	return builder.String()
-}
-
-/*
-// The size of the AES key. 32 bytes for AES-256.
-const keySize = 32
-// generateKey creates a new, random 32-byte key for AES-256.
-func generateKey() ([]byte, error) {
-	key := make([]byte, keySize)
-	if _, err := io.ReadFull(rand.Reader, key); err != nil {
-		return nil, fmt.Errorf("failed to generate key: %w", err)
-	}
-	return key, nil
-}
-*/
-
-// encryptAndCombine performs AES-GCM encryption and returns the
-// nonce and ciphertext combined into a single byte slice.
-func encryptAndCombine(key []byte, plaintext []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
-	}
-
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create GCM instance: %w", err)
-	}
-
-	// Create a new, unique nonce.
-	nonce := make([]byte, aesgcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return nil, fmt.Errorf("failed to generate nonce: %w", err)
-	}
-
-	// Seal the plaintext, which returns the ciphertext.
-	ciphertext := aesgcm.Seal(nil, nonce, plaintext, nil)
-
-	// Prepend the nonce to the ciphertext.
-	combined := append(nonce, ciphertext...)
-
-	return combined, nil
-}
-
-// decryptCombined performs AES-GCM decryption on a combined byte slice.
-// It splits the nonce from the ciphertext and then decrypts the data.
-func decryptCombined(key []byte, combined []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
-	}
-
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create GCM instance: %w", err)
-	}
-
-	nonceSize := aesgcm.NonceSize()
-	if len(combined) < nonceSize {
-		return nil, fmt.Errorf("invalid combined data: too short to contain nonce")
-	}
-
-	// Split the combined data into nonce and ciphertext.
-	nonce := combined[:nonceSize]
-	ciphertext := combined[nonceSize:]
-
-	// Open the data.
-	plaintext, err := aesgcm.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt or authenticate data: %w", err)
-	}
-
-	return plaintext, nil
 }
