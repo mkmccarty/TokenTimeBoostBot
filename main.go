@@ -767,7 +767,7 @@ var (
 		"fd_signupBell": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			joinContract(s, i, true)
 		},
-		"m_m_eggid": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		"m_eggid": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleEggIDModalSubmit(s, i)
 		},
 		"fd_signupLeave": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
