@@ -17,7 +17,7 @@ require (
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	golang.org/x/image v0.31.0
 	golang.org/x/text v0.29.0
-	google.golang.org/genai v1.23.0
+	google.golang.org/genai v1.24.0
 	google.golang.org/protobuf v1.36.8
 )
 
