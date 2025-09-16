@@ -2,6 +2,7 @@ package ei
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"io"
 	"log"
 	"net/http"
@@ -41,7 +42,7 @@ func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID str
 	}
 
 	if protoData == "" {
-		clientVersion := uint32(68)
+		clientVersion := uint32(99)
 
 		platform := Platform_IOS
 		platformString := "IOS"
@@ -118,6 +119,18 @@ func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID str
 		log.Print("No backup found in Egg Inc API response")
 		return nil, cachedData
 	}
+	// Write the backup as a JSON file for debugging purposes
+	jsonData, err := json.MarshalIndent(backup, "", "  ")
+	if err != nil {
+		log.Println("Error marshalling backup to JSON:", err)
+	} else {
+		_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
+		err = os.WriteFile("ttbb-data/eiuserdata/firstcontact-"+discordID+".json", []byte(jsonData), 0644)
+		if err != nil {
+			log.Print(err)
+		}
+	}
+
 	PE := backup.GetGame().GetEggsOfProphecy()
 	SE := backup.GetGame().GetSoulEggsD()
 	log.Printf("%s  \nPE:%v \nSE:%s\n", backup.GetUserName(), PE, FormatEIValue(SE, map[string]any{"decimals": 3, "trim": true}))
