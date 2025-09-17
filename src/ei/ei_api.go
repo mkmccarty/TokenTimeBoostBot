@@ -16,7 +16,7 @@ import (
 )
 
 // GetFirstContactFromAPI will download the player data from the Egg Inc API
-func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID string) (*Backup, bool) {
+func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID string, okayToSave bool) (*Backup, bool) {
 	reqURL := "https://www.auxbrain.com//ei/bot_first_contact"
 	enc := base64.StdEncoding
 	cachedData := false
@@ -93,14 +93,16 @@ func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID str
 		}
 		protoData = string(body)
 
-		encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
-		if err == nil {
-			combinedData, err := config.EncryptAndCombine(encryptionKey, []byte(protoData))
+		if okayToSave {
+			encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
 			if err == nil {
-				_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
-				err = os.WriteFile("ttbb-data/eiuserdata/firstcontact-"+discordID+".pb", []byte(combinedData), 0644)
-				if err != nil {
-					log.Print(err)
+				combinedData, err := config.EncryptAndCombine(encryptionKey, []byte(protoData))
+				if err == nil {
+					_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
+					err = os.WriteFile("ttbb-data/eiuserdata/firstcontact-"+discordID+".pb", []byte(combinedData), 0644)
+					if err != nil {
+						log.Print(err)
+					}
 				}
 			}
 		}
@@ -139,7 +141,7 @@ func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID str
 }
 
 // GetContractArchiveFromAPI will download the events from the Egg Inc API
-func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID string) ([]*LocalContract, bool) {
+func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID string, okayToSave bool) ([]*LocalContract, bool) {
 	reqURL := "https://www.auxbrain.com/ei_ctx/get_contracts_archive"
 	enc := base64.StdEncoding
 	clientVersion := uint32(99)
@@ -203,14 +205,16 @@ func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID 
 		protoData = string(body)
 
 		// Encrypt this to save to disk
-		encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
-		if err == nil {
-			combinedData, err := config.EncryptAndCombine(encryptionKey, []byte(protoData))
+		if okayToSave {
+			encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
 			if err == nil {
-				_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
-				err = os.WriteFile("ttbb-data/eiuserdata/archive-"+discordID+".pb", []byte(combinedData), 0644)
-				if err != nil {
-					log.Print(err)
+				combinedData, err := config.EncryptAndCombine(encryptionKey, []byte(protoData))
+				if err == nil {
+					_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
+					err = os.WriteFile("ttbb-data/eiuserdata/archive-"+discordID+".pb", []byte(combinedData), 0644)
+					if err != nil {
+						log.Print(err)
+					}
 				}
 			}
 		}

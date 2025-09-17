@@ -72,8 +72,15 @@ func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		percent = int(opt.UintValue())
 	}
 
-	eggIncID := ""
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+
+	ReplayEval(s, i, percent, eiID, true)
+}
+
+// ReplayEval evaluates the contract history and provides replay guidance
+func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent int, eiID string, okayToSave bool) {
+	// Get the Egg Inc ID from the stored settings
+	eggIncID := ""
 	encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
 	if err == nil {
 		decodedData, err := base64.StdEncoding.DecodeString(eiID)
@@ -84,13 +91,12 @@ func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			}
 		}
 	}
-
 	if eggIncID == "" || len(eggIncID) != 18 || eggIncID[:2] != "EI" {
-		RequestEggIncIDModal(s, i)
+		RequestEggIncIDModal(s, i, fmt.Sprintf("replay#%d", percent))
 		return
 	}
 
-	// Do the work
+	// Quick reply to buy us some time
 	flags := discordgo.MessageFlagsIsComponentsV2
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -100,7 +106,9 @@ func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	})
 
-	archive, cached := ei.GetContractArchiveFromAPI(s, eggIncID, userID)
+	userID := bottools.GetInteractionUserID(i)
+
+	archive, cached := ei.GetContractArchiveFromAPI(s, eggIncID, userID, okayToSave)
 
 	cxpVersion := ""
 	for _, c := range archive {
@@ -150,7 +158,6 @@ func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			log.Println("Error saving contract archive to file:", err)
 		}
 	}
-
 }
 
 func printArchivedContracts(archive []*ei.LocalContract, percent int) string {
