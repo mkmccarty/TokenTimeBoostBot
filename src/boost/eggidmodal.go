@@ -3,6 +3,7 @@ package boost
 import (
 	"encoding/base64"
 	"log"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -14,26 +15,37 @@ import (
 )
 
 // RequestEggIncIDModal sends a modal to the user requesting their Egg Inc ID
-func RequestEggIncIDModal(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	userID := bottools.GetInteractionUserID(i)
-
+func RequestEggIncIDModal(s *discordgo.Session, i *discordgo.InteractionCreate, action string) {
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseModal,
 		Data: &discordgo.InteractionResponseData{
-			CustomID: "m_eggid#" + userID,
+			CustomID: "m_eggid#" + action,
 			Title:    "BoostBot needs your Egg Inc ID",
 			Components: []discordgo.MessageComponent{
 				discordgo.ActionsRow{
 					Components: []discordgo.MessageComponent{
 						discordgo.TextInput{
 							CustomID:    "egginc-id",
-							Label:       "Egg Inc game ID (El+16 numbers) *",
+							Label:       "Egg Inc ID (EI+16 digits)",
 							Style:       discordgo.TextInputShort,
 							Placeholder: "EI0000000000000000",
 							MaxLength:   18,
 							Required:    true,
 						},
 					}},
+				discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.TextInput{
+							CustomID:    "confirm",
+							Label:       "Save or Forget this ID after this session?",
+							Style:       discordgo.TextInputShort,
+							Placeholder: "forget or save",
+							Value:       "forget",
+							MaxLength:   6,
+							Required:    true,
+						},
+					},
+				},
 			}}})
 	if err != nil {
 		log.Println(err.Error())
@@ -43,6 +55,8 @@ func RequestEggIncIDModal(s *discordgo.Session, i *discordgo.InteractionCreate) 
 // HandleEggIDModalSubmit handles the modal submission for an egginc ID
 func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	str := "That's not a valid Egg Inc ID. It should start with EI followed by 16 numbers."
+	encryptedID := ""
+	okayToSave := false
 	userID := bottools.GetInteractionUserID(i)
 	modalData := i.ModalSubmitData()
 	for _, comp := range modalData.Components {
@@ -56,11 +70,39 @@ func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate
 			if err == nil {
 				combinedData, err := config.EncryptAndCombine(encryptionKey, []byte(eggIncID))
 				if err == nil {
-					farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", base64.StdEncoding.EncodeToString(combinedData))
+					encryptedID = base64.StdEncoding.EncodeToString(combinedData)
 					str = "Egg Inc ID saved.\nRerun the command to evaluate your contract history."
 				}
 			}
 		}
+		if input.CustomID == "confirm" && input.Value != "" {
+			confirm := strings.ToLower(strings.TrimSpace(input.Value))
+			if confirm == "save" {
+				farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", encryptedID)
+				str += "\nI will remember your Egg Inc ID for future sessions."
+				okayToSave = true
+			} else {
+				str += "\nI will forget your Egg Inc ID after this session."
+			}
+		}
+	}
+
+	parts := strings.Split(modalData.CustomID, "#")
+	switch parts[1] {
+	case "replay":
+		if encryptedID == "" {
+			str = "You must provide a valid Egg Inc ID to proceed."
+			break
+		}
+
+		percent, err := strconv.Atoi(parts[2])
+		if err != nil {
+			str = "Invalid ID provided."
+			break
+		}
+		ReplayEval(s, i, percent, encryptedID, okayToSave)
+		return
+	default:
 	}
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
