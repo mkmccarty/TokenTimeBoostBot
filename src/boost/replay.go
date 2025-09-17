@@ -146,7 +146,7 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent in
 		},
 	})
 
-	if !cached {
+	if !cached && okayToSave {
 		discordID := userID
 		fileName := fmt.Sprintf("ttbb-data/eiuserdata/archive-%s-%s.json", discordID, cxpVersion)
 		// Replace eggIncID with userID in the JSON data
