@@ -233,3 +233,37 @@ func printArchivedContracts(archive []*ei.LocalContract, percent int) string {
 	}
 	return builder.String()
 }
+
+/*
+{
+	"evaluation": {
+		"contract_identifier": "birthday-cake-2023",
+		"coop_identifier": "happy-token",
+		"cxp": 24702,
+		"old_league": 0,
+		"grade": 0,
+		"contribution_ratio": 5.815095492301126,
+		"completion_percent": 1,
+		"original_length": 432000,
+		"coop_size": 10,
+		"solo": false,
+		"soul_power": 30.02439174202951,
+		"last_contribution_time": 1680055626.437586,
+		"completion_time": 91932.26965808868,
+		"chicken_runs_sent": 5,
+		"gift_tokens_sent": 7,
+		"gift_tokens_received": 0,
+		"gift_token_value_sent": 0.7000000000000001,
+		"gift_token_value_received": 0,
+		"boost_token_allotment": 25,
+		"buff_time_value": 38309.730632150175,
+		"teamwork_score": 0.31141672867206993,
+		"counted_in_season": false,
+		"season_id": "",
+		"time_cheats": 0,
+		"version": "cxp-v0.2.0",
+		"evaluation_start_time": 1696778185.855627,
+		"status": 3
+	}
+}
+*/

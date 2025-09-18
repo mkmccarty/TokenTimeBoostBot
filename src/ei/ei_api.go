@@ -133,10 +133,6 @@ func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID str
 		}
 	}
 
-	PE := backup.GetGame().GetEggsOfProphecy()
-	SE := backup.GetGame().GetSoulEggsD()
-	log.Printf("%s  \nPE:%v \nSE:%s\n", backup.GetUserName(), PE, FormatEIValue(SE, map[string]any{"decimals": 3, "trim": true}))
-
 	return backup, cachedData
 }
 

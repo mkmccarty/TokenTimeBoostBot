@@ -286,3 +286,119 @@ func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, 
 
 	return link + version + base64encoded + "=" + base62encoded
 }
+
+type PlayerData struct {
+	Name                 string
+	Tokens               string
+	PlayerMirror         bool
+	ShippingColleggtible bool
+	Sink                 bool
+	Creator              bool
+	Items                []int // Assuming items are represented as indices
+}
+
+type InputData struct {
+	CrtToggle       bool
+	TokenToggle     bool
+	GGToggle        bool
+	EggUnitIndex    int
+	DurUnitIndex    int
+	ModNameIndex    int
+	CrtTime         string
+	Mpft            string
+	Duration        string
+	TargetEggAmount string
+	TokenTimer      string
+	Modifiers       string
+	NumPlayers      int
+	BtvTarget       string
+	Players         []PlayerData
+}
+
+func gatherData(input InputData) (string, string) {
+	separator := "-" // Unique separator character
+	data := []string{}
+	singleStr := []string{}
+	data2 := []string{}
+
+	singleStr = append(singleStr, boolToString(input.CrtToggle))
+	singleStr = append(singleStr, boolToString(input.TokenToggle))
+	singleStr = append(singleStr, boolToString(input.GGToggle))
+	singleStr = append(singleStr, strconv.Itoa(input.EggUnitIndex))
+	singleStr = append(singleStr, strconv.Itoa(input.DurUnitIndex))
+	singleStr = append(singleStr, strconv.Itoa(input.ModNameIndex))
+	data = append(data, strings.Join(singleStr, ""))
+
+	data = append(data, convertString(input.CrtTime))
+	data = append(data, convertString(input.Mpft))
+	data = append(data, convertString(input.Duration))
+	data = append(data, convertString(input.TargetEggAmount))
+	data = append(data, convertString(input.TokenTimer))
+	data = append(data, convertString(input.Modifiers))
+	data = append(data, strconv.Itoa(input.NumPlayers))
+	data = append(data, convertString(input.BtvTarget))
+
+	singleStr2 := []string{"1"} // Start with leading 1 to avoid losing leading 0's
+
+	for _, player := range input.Players {
+		singleStr2 = append(singleStr2, remDash(player.Name))
+		singleStr2 = append(singleStr2, remDash(player.Tokens))
+		singleStr2 = append(singleStr2, boolToString(player.PlayerMirror))
+		singleStr2 = append(singleStr2, boolToString(player.ShippingColleggtible))
+		singleStr2 = append(singleStr2, boolToString(player.Sink))
+		singleStr2 = append(singleStr2, boolToString(player.Creator))
+
+		for _, item := range player.Items {
+			singleStr2 = append(singleStr2, fmt.Sprintf("%02d", item))
+		}
+	}
+
+	// Break into chunks of 16
+	data2 = append(data2, chunk16(strings.Join(singleStr2, "")))
+
+	//y = x.toString(36);
+	//data2.push(y);
+
+	// Join all data into a single string separated by the unique separator
+	return strings.Join(data, separator), strings.Join(data2, separator)
+}
+
+func boolToString(b bool) string {
+	if b {
+		return "1"
+	}
+	return "0"
+}
+
+func convertString(data string) string {
+	return strings.ReplaceAll(data, ".", "p")
+}
+
+func remDash(data string) string {
+	return strings.ReplaceAll(data, "-", "axJEFi")
+}
+
+/*
+
+Do you mean the data= field? The source code is here for sandbox .
+You can try to figure out the loadDataFromUrl(), gatherdata() and populatedata()
+functions if you want. Alternatively, you could fork it
+(You should be able to grab the html and css files from inspect) and do what you please,
+or recommend code changes.
+
+https://srsandbox-staabmia.netlify.app/scripts.js
+
+
+v-3
+MTEwMDAwLTUtMTMtNy01MDAtNjAtMS0xLTItUGxheWVyJTIwMC02=B6mEavjeExzag
+
+
+MTEwMDAwLTUtMTMtNy01MDAtNjAtMS0xLTItUGxheWVyJTIwMC02=
+B6mEavjeExzag
+
+datap = 110000-5-13-7-500-60-1-1-2-Player%200-6
+data2p = B6mEavjeExzag
+
+
+
+*/
