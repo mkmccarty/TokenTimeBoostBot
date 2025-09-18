@@ -125,8 +125,42 @@ func printVirtue(virtue *ei.Backup_Virtue) string {
 	for i, egg := range virtueEggs {
 		eov := virtue.GetEovEarned()[i] // Assuming Eggs is the correct field for accessing egg virtues
 		delivered := virtue.GetEggsDelivered()[i]
-		fmt.Fprintf(&builder, "%s %d: %.0f\n", ei.GetBotEmojiMarkdown("egg_"+strings.ToLower(egg)), eov, delivered)
+		nextTier, eovPending, _ := getNextTierAndIndex(delivered)
+
+		fmt.Fprintf(&builder, "%s %d (%d)  |  delivered: %s  |  next eov: %s\n", ei.GetBotEmojiMarkdown("egg_"+strings.ToLower(egg)), eov, eovPending-int(eov), ei.FormatEIValue(delivered, map[string]interface{}{"decimals": 0}), ei.FormatEIValue(nextTier, map[string]interface{}{"decimals": 0}))
 	}
 
 	return builder.String()
+}
+
+// tierValues is a slice containing all known tiers in ascending order.
+var tierValues = []float64{
+	50_000_000,
+	1_000_000_000,
+	10_000_000_000,
+	70_000_000_000,
+	500_000_000_000,
+	2_000_000_000_000,
+}
+
+// getNextTierAndIndex finds the next tier for a given value.
+// It returns the next tier's value, the index of the tier just passed, and an error.
+func getNextTierAndIndex(currentValue float64) (float64, int, error) {
+	// If the value is less than the first tier, the first tier is the next one.
+	if currentValue < tierValues[0] {
+		return tierValues[0], 0, nil // -1 indicates no tier has been passed yet.
+	}
+
+	// Iterate through the ordered tiers to find the correct position for the currentValue.
+	for i, tier := range tierValues {
+		if currentValue < tier {
+			// The current value is less than this tier, so this is the next tier.
+			// The previous index (i-1) is the one the user has reached.
+			return tier, i, nil
+		}
+	}
+
+	// If the loop completes, it means the currentValue is greater than or equal to the last tier.
+	// We return 0, the last known index, and an error.
+	return 0, len(tierValues), fmt.Errorf("current value is beyond the last known tier")
 }
