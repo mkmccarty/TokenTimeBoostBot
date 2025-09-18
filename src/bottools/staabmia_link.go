@@ -287,6 +287,7 @@ func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, 
 	return link + version + base64encoded + "=" + base62encoded
 }
 
+/*
 type PlayerData struct {
 	Name                 string
 	Tokens               string
@@ -377,7 +378,7 @@ func convertString(data string) string {
 func remDash(data string) string {
 	return strings.ReplaceAll(data, "-", "axJEFi")
 }
-
+*/
 /*
 
 Do you mean the data= field? The source code is here for sandbox .
