@@ -97,10 +97,23 @@ func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate
 
 		percent, err := strconv.Atoi(parts[2])
 		if err != nil {
-			str = "Invalid ID provided."
+			str = "Invalid percent provided."
 			break
 		}
 		ReplayEval(s, i, percent, encryptedID, okayToSave)
+		return
+	case "virtue":
+		if encryptedID == "" {
+			str = "You must provide a valid Egg Inc ID to proceed."
+			break
+		}
+
+		percent, err := strconv.Atoi(parts[2])
+		if err != nil {
+			str = "Invalid ID provided."
+			break
+		}
+		Virtue(s, i, percent, encryptedID, okayToSave)
 		return
 	default:
 	}

@@ -18,7 +18,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
@@ -83,6 +82,7 @@ const slashScoreExplorer string = "score-explorer"
 const slashRemoveDMMessage string = "remove-dm-message"
 const slashPrivacy string = "privacy"
 const slashRerunEval string = "rerun-eval"
+const slashVirtue string = "virtue"
 
 var integerZeroMinValue float64 = 0.0
 
@@ -179,6 +179,7 @@ var (
 		track.GetSlashTokenCommand(slashToken),
 		track.GetSlashTokenEditTrackCommand(slashTokenEditTrack),
 		boost.GetSlashReplayEvalCommand(slashRerunEval),
+		boost.GetSlashVirtueCommand(slashVirtue),
 	}
 
 	commands = []*discordgo.ApplicationCommand{
@@ -494,6 +495,9 @@ var (
 		},
 		slashRerunEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleReplayEval(s, i)
+		},
+		slashVirtue: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleVirtue(s, i)
 		},
 		slashToken: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleTokenCommand(s, i)
