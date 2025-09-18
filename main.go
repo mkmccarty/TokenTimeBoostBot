@@ -964,7 +964,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
-	ei.GetFirstContactFromAPI(s, "EI6472813258342400", "1320412590861713408", true)
 
 	bottools.LoadEmotes(s, false)
 	boost.LaunchIndependentTimers(s)
