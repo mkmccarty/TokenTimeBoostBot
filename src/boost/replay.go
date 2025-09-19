@@ -122,6 +122,10 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent in
 				}
 				return '_'
 			}, cxpVersion)
+
+			if cxpVersion != "cxp_v0_2_0" {
+				log.Printf("CXP version is %s, not 0.2.0, cannot evaluate contracts\n", cxpVersion)
+			}
 			break
 		}
 	}

@@ -117,6 +117,11 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, percent int, e
 
 	// Quick reply to buy us some time
 	flags := discordgo.MessageFlagsIsComponentsV2
+
+	if i.ChannelID == "571836573243539476" { // ACO- #bot-commands
+		flags += discordgo.MessageFlagsEphemeral
+	}
+
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
@@ -128,19 +133,14 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, percent int, e
 	userID := bottools.GetInteractionUserID(i)
 
 	backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, okayToSave)
-	str := ""
 	farm := backup.GetFarms()[0]
 	if farm != nil {
 		farmType := farm.GetFarmType()
 		if farmType == ei.FarmType_HOME {
-			eggType := farm.GetEggType()
-			if eggType >= ei.Egg_CURIOSITY && eggType <= ei.Egg_KINDNESS {
-				components = printVirtue(backup)
-				//str += fmt.Sprintf("\n-# Updated `<t:%d:f>`", bottools.NowUnix())
-			}
+			components = printVirtue(backup)
 		}
 	}
-	if str == "" {
+	if len(components) == 0 {
 		components = append(components, &discordgo.TextDisplay{
 			Content: "Your home farm isn't currently producing Eggs of Virtue. Switch to an Egg of Virtue on your home farm to see this information.",
 		})
@@ -169,18 +169,15 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		})
 		return components
 	}
-	N := virtue.GetShiftCount()
-	E := se
 
-	X := float64(E) * (0.02*math.Pow(float64(N)/120, 3) + 0.0001)
-	C := math.Pow(10, 11) + 0.6*X + math.Pow(0.4*X, 0.9)
+	shiftCost := getShiftCost(virtue.GetShiftCount(), se)
 
-	fmt.Fprintf(&builder, "# Virtue Helper\n")
+	fmt.Fprintf(&builder, "# Eggs of Virtue Helper\n")
 	fmt.Fprintf(&builder, "**Resets**: %d  **Shifts**: %d  %s%s\n",
 		virtue.GetResets(),
 		virtue.GetShiftCount(),
 		ei.GetBotEmojiMarkdown("egg_soul"),
-		ei.FormatEIValue(C, map[string]interface{}{"decimals": 3, "trim": true}))
+		ei.FormatEIValue(shiftCost, map[string]interface{}{"decimals": 3, "trim": true}))
 	//fmt.Fprintf(&builder, "Inventory Score %.0f\n", virtue.GetAfx().GetInventoryScore())
 	virtueEggs := []string{"CURIOSITY", "INTEGRITY", "HUMILITY", "RESILIENCE", "KINDNESS"}
 	eggEffects := []string{"🔬", ei.GetBotEmojiMarkdown("hab"), ei.GetBotEmojiMarkdown("chickenheavy"), ei.GetBotEmojiMarkdown("silo"), "🚚"}
@@ -200,13 +197,13 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		}
 
 		allEov += eov
-		futureEov += uint32(eovPending) - uint32(eov)
+		futureEov += max(uint32(eovPending)-uint32(eov), 0)
 
 		fmt.Fprintf(&vebuilder, "%s%s %d (%d)  |  🥚: %s |  %s at %s%s\n",
 			ei.GetBotEmojiMarkdown("egg_"+strings.ToLower(egg)),
 			eggEffects[i],
 			eov,
-			eovPending-int(eov),
+			max(eovPending-int(eov), 0),
 			ei.FormatEIValue(delivered, map[string]interface{}{"decimals": 1, "trim": true}),
 			ei.GetBotEmojiMarkdown("egg_truth"),
 			ei.FormatEIValue(nextTier, map[string]interface{}{"decimals": 1, "trim": true}),
@@ -288,6 +285,13 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	return components
 }
 
+func getShiftCost(shiftCount uint32, soulEggs float64) float64 {
+	X := float64(soulEggs) * (0.02*math.Pow(float64(shiftCount)/120, 3) + 0.0001)
+	C := math.Pow(10, 11) + 0.6*X + math.Pow(0.4*X, 0.9)
+
+	return C
+}
+
 // tierValues is a slice containing all known tiers in ascending order.
 var tierValues = []float64{
 	5e7,  // 50M
@@ -334,11 +338,12 @@ func getNextTierAndIndex(currentValue float64) (float64, int, error) {
 
 	// If we reach here loop, adding 200_000_000_000_000_000 to the last tier until we find a tier greater than currentValue.
 	lastTier := tierValues[len(tierValues)-1]
-	increment := 200_000_000_000_000_000.0
+	increment := 2e17
 	for {
 		lastTier += increment
 		if currentValue < lastTier {
-			return lastTier, len(tierValues) - 1, nil // Return the last known index.
+			// Also may be not have reached achieved tier on this rerun
+			return lastTier, max(0, len(tierValues)-1), nil // Return the last known index.
 		}
 	}
 
