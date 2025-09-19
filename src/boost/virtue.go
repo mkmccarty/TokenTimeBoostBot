@@ -177,6 +177,7 @@ func printVirtue(backup *ei.Backup) string {
 		ei.FormatEIValue(C, map[string]interface{}{"decimals": 3, "trim": true}))
 	//fmt.Fprintf(&builder, "Inventory Score %.0f\n", virtue.GetAfx().GetInventoryScore())
 	virtueEggs := []string{"CURIOSITY", "INTEGRITY", "HUMILITY", "RESILIENCE", "KINDNESS"}
+	eggEffects := []string{"🔬", ei.GetBotEmojiMarkdown("hab"), ei.GetBotEmojiMarkdown("chickenheavy"), ei.GetBotEmojiMarkdown("silo"), "🚚"}
 
 	var allEov uint32 = 0
 	var futureEov uint32 = 0
@@ -195,8 +196,9 @@ func printVirtue(backup *ei.Backup) string {
 		allEov += eov
 		futureEov += uint32(eovPending) - uint32(eov)
 
-		fmt.Fprintf(&vebuilder, "%s %d (%d)  |  🚚: %s |  %s at %s%s\n",
+		fmt.Fprintf(&vebuilder, "%s%s %d (%d)  |  🥚: %s |  %s at %s%s\n",
 			ei.GetBotEmojiMarkdown("egg_"+strings.ToLower(egg)),
+			eggEffects[i],
 			eov,
 			eovPending-int(eov),
 			ei.FormatEIValue(delivered, map[string]interface{}{"decimals": 1, "trim": true}),
@@ -253,29 +255,29 @@ func printVirtue(backup *ei.Backup) string {
 
 // tierValues is a slice containing all known tiers in ascending order.
 var tierValues = []float64{
-	50_000_000,
-	1_000_000_000,
-	10_000_000_000,
-	70_000_000_000,
-	500_000_000_000,
-	2_000_000_000_000,
+	5e7,  // 50M
+	1e9,  // 1B
+	1e10, // 10B
+	7e10, // 70B
+	5e11, // 500B
+	2e12, // 2T
+	7e12, // 7T
 	// Needs verification below this point
-	7_000_000_000_000,
-	20_000_000_000_000,
-	60_000_000_000_000,
-	150_000_000_000_000,
-	500_000_000_000_000,
-	1_500_000_000_000_000,
-	4_000_000_000_000_000,
-	10_000_000_000_000_000,
-	25_000_000_000_000_000,
-	50_000_000_000_000_000,
-	100_000_000_000_000_000,
-	200_000_000_000_000_000,
-	400_000_000_000_000_000,
-	600_000_000_000_000_000,
-	800_000_000_000_000_000,
-	1_000_000_000_000_000_000,
+	2e13,   // 20T
+	6e13,   // 60T
+	1.5e14, // 150T
+	5e14,   // 500T
+	1.5e15, // 1.5Q
+	4e15,   // 4Q
+	1e16,   // 10Q
+	2.5e16, // 25Q
+	5e16,   // 50Q
+	1e17,   // 100Q
+	2e17,   // 200Q
+	4e17,   // 400Q
+	6e17,   // 600Q
+	8e17,   // 800Q
+	1e18,   // 1Q
 }
 
 // getNextTierAndIndex finds the next tier for a given value.
