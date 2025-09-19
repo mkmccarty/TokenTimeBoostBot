@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math"
 	"strings"
 	"time"
@@ -97,6 +96,8 @@ func HandleVirtue(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 // Virtue processes the virtue command
 func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, percent int, eiID string, okayToSave bool) {
+	var components []discordgo.MessageComponent
+
 	// Get the Egg Inc ID from the stored settings
 	eggIncID := ""
 	encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
@@ -134,34 +135,39 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, percent int, e
 		if farmType == ei.FarmType_HOME {
 			eggType := farm.GetEggType()
 			if eggType >= ei.Egg_CURIOSITY && eggType <= ei.Egg_KINDNESS {
-				str = printVirtue(backup)
+				components = printVirtue(backup)
 				//str += fmt.Sprintf("\n-# Updated `<t:%d:f>`", bottools.NowUnix())
 			}
 		}
 	}
 	if str == "" {
-		str = "Your home farm isn't currently producing Eggs of Virtue. Switch to an Egg of Virtue on your home farm to see this information."
+		components = append(components, &discordgo.TextDisplay{
+			Content: "Your home farm isn't currently producing Eggs of Virtue. Switch to an Egg of Virtue on your home farm to see this information.",
+		})
 	}
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Flags: flags,
-		Components: []discordgo.MessageComponent{
-			discordgo.TextDisplay{Content: str},
-		},
+		Flags:      flags,
+		Components: components,
 	})
 
 }
 
-func printVirtue(backup *ei.Backup) string {
+func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
+	var components []discordgo.MessageComponent
+	divider := true
+	spacing := discordgo.SeparatorSpacingSizeSmall
+
 	farm := backup.GetFarms()[0]
 	eggType := farm.GetEggType()
 	virtue := backup.GetVirtue()
 	//pe := backup.GetGame().GetEggsOfProphecy()
 	se := backup.GetGame().GetSoulEggsD()
-
 	builder := strings.Builder{}
 	if virtue == nil {
-		log.Print("No virtue backup data found in Egg Inc API response")
-		return builder.String()
+		components = append(components, &discordgo.TextDisplay{
+			Content: "No virtue backup data found in Egg Inc API response",
+		})
+		return components
 	}
 	N := virtue.GetShiftCount()
 	E := se
@@ -169,7 +175,7 @@ func printVirtue(backup *ei.Backup) string {
 	X := float64(E) * (0.02*math.Pow(float64(N)/120, 3) + 0.0001)
 	C := math.Pow(10, 11) + 0.6*X + math.Pow(0.4*X, 0.9)
 
-	fmt.Fprintf(&builder, "# Eggs Of Virtue\n")
+	fmt.Fprintf(&builder, "# Virtue Helper\n")
 	fmt.Fprintf(&builder, "**Resets**: %d  **Shifts**: %d  %s%s\n",
 		virtue.GetResets(),
 		virtue.GetShiftCount(),
@@ -221,9 +227,39 @@ func printVirtue(backup *ei.Backup) string {
 		ei.FormatEIValue(ebFuture, map[string]interface{}{"decimals": 3, "trim": true}),
 	)
 
-	builder.WriteString(vebuilder.String())
+	components = append(components, &discordgo.Section{
+		Components: []discordgo.MessageComponent{
+			&discordgo.TextDisplay{
+				Content: builder.String(),
+			},
+		},
+		Accessory: &discordgo.Thumbnail{
+			Media: discordgo.UnfurledMediaItem{
+				URL: "https://cdn.discordapp.com/emojis/1418022084205875210.webp?size=128",
+			},
+		},
+	})
+	components = append(components, &discordgo.Separator{
+		Divider: &divider,
+		Spacing: &spacing,
+	})
+	components = append(components, &discordgo.TextDisplay{
+		Content: vebuilder.String(),
+	})
+	//builder.WriteString(vebuilder.String())
+	builder.Reset()
 
-	fmt.Fprintf(&builder, "### Missions on %s\n", ei.GetBotEmojiMarkdown("egg_humility"))
+	// Line for fuel
+	fuels := virtue.GetAfx().GetTankFuels()
+	fuels = fuels[len(fuels)-5:]
+	builder.WriteString("\n⛽️ ")
+	for i, fuel := range fuels {
+		fmt.Fprintf(&builder, " %s:%s",
+			ei.GetBotEmojiMarkdown("egg_"+strings.ToLower(virtueEggs[i])),
+			ei.FormatEIValue(fuel, map[string]interface{}{"decimals": 1, "trim": true}))
+	}
+	builder.WriteString("\n")
+	//fmt.Fprintf(&builder, "### Missions on %s\n", ei.GetBotEmojiMarkdown("egg_humility"))
 	artifacts := backup.GetArtifactsDb()
 	missions := artifacts.GetMissionInfos()
 	for _, mission := range missions {
@@ -240,17 +276,16 @@ func printVirtue(backup *ei.Backup) string {
 			fmt.Fprintf(&builder, "%s <t:%d:R> \n", art, time.Now().Unix()+int64(timeRemaining))
 		}
 	}
-	// Line for fuel
-	fuels := virtue.GetAfx().GetTankFuels()
-	fuels = fuels[len(fuels)-5:]
-	builder.WriteString("\n⛽️ ")
-	for i, fuel := range fuels {
-		fmt.Fprintf(&builder, " %s:%s",
-			ei.GetBotEmojiMarkdown("egg_"+strings.ToLower(virtueEggs[i])),
-			ei.FormatEIValue(fuel, map[string]interface{}{"decimals": 1, "trim": true}))
-	}
 
-	return builder.String()
+	components = append(components, &discordgo.Separator{
+		Divider: &divider,
+		Spacing: &spacing,
+	})
+	components = append(components, &discordgo.TextDisplay{
+		Content: builder.String(),
+	})
+
+	return components
 }
 
 // tierValues is a slice containing all known tiers in ascending order.
