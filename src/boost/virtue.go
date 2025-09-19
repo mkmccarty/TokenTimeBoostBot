@@ -333,5 +333,5 @@ func getEarningsBonus(backup *ei.Backup, eov float64) float64 {
 	}
 	eb := soulEggsCount * soulBonus * math.Pow(1+prophecyBonus, float64(prophecyEggsCount))
 
-	return eb * (math.Pow(1.01, eov))
+	return eb * (math.Pow(1.01, eov)) * 100
 }
