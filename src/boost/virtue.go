@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"strings"
 	"time"
 
@@ -155,19 +156,32 @@ func printVirtue(backup *ei.Backup) string {
 	eggType := farm.GetEggType()
 	virtue := backup.GetVirtue()
 	//pe := backup.GetGame().GetEggsOfProphecy()
-	//se := backup.GetGame().GetSoulEggs()
+	se := backup.GetGame().GetSoulEggsD()
 
 	builder := strings.Builder{}
 	if virtue == nil {
 		log.Print("No virtue backup data found in Egg Inc API response")
 		return builder.String()
 	}
-	fmt.Fprintf(&builder, "# Eggs Of Virtue\n")
-	fmt.Fprintf(&builder, "Shift Count: %d\n", virtue.GetShiftCount())
-	fmt.Fprintf(&builder, "Resets: %d\n", virtue.GetResets())
-	fmt.Fprintf(&builder, "Inventory Score %.0f\n", virtue.GetAfx().GetInventoryScore())
+	N := virtue.GetShiftCount()
+	E := se
 
+	X := float64(E) * (0.02*math.Pow(float64(N)/120, 3) + 0.0001)
+	C := math.Pow(10, 11) + 0.6*X + math.Pow(0.4*X, 0.9)
+
+	fmt.Fprintf(&builder, "# Eggs Of Virtue\n")
+	fmt.Fprintf(&builder, "**Resets**: %d  **Shifts**: %d  %s%s\n",
+		virtue.GetResets(),
+		virtue.GetShiftCount(),
+		ei.GetBotEmojiMarkdown("egg_soul"),
+		ei.FormatEIValue(C, map[string]interface{}{"decimals": 3, "trim": true}))
+	//fmt.Fprintf(&builder, "Inventory Score %.0f\n", virtue.GetAfx().GetInventoryScore())
 	virtueEggs := []string{"CURIOSITY", "INTEGRITY", "HUMILITY", "RESILIENCE", "KINDNESS"}
+
+	var allEov uint32 = 0
+	var futureEov uint32 = 0
+
+	vebuilder := strings.Builder{}
 
 	for i, egg := range virtueEggs {
 		eov := virtue.GetEovEarned()[i] // Assuming Eggs is the correct field for accessing egg virtues
@@ -178,7 +192,10 @@ func printVirtue(backup *ei.Backup) string {
 			selected = " (selected)"
 		}
 
-		fmt.Fprintf(&builder, "%s %d (%d)  |  🚚: %s |  %s at %s%s\n",
+		allEov += eov
+		futureEov += uint32(eovPending) - uint32(eov)
+
+		fmt.Fprintf(&vebuilder, "%s %d (%d)  |  🚚: %s |  %s at %s%s\n",
 			ei.GetBotEmojiMarkdown("egg_"+strings.ToLower(egg)),
 			eov,
 			eovPending-int(eov),
@@ -188,11 +205,28 @@ func printVirtue(backup *ei.Backup) string {
 			selected)
 	}
 
+	eb := getEarningsBonus(backup, float64(allEov))
+	ebFuture := getEarningsBonus(backup, float64(allEov+futureEov))
+	fmt.Fprintf(&builder, "**PE**: %d  **SE**: %s  **TE**: %d  (+%d)\n",
+		backup.GetGame().GetEggsOfProphecy(),
+		ei.FormatEIValue(backup.GetGame().GetSoulEggsD(), map[string]interface{}{"decimals": 3, "trim": true}),
+		allEov,
+		futureEov)
+
+	fmt.Fprintf(&builder, "**EB**: %s%%  (+%s%%) ->  **%s%%**\n\n",
+		ei.FormatEIValue(eb, map[string]interface{}{"decimals": 3, "trim": true}),
+		ei.FormatEIValue(ebFuture-eb, map[string]interface{}{"decimals": 2, "trim": true}),
+		ei.FormatEIValue(ebFuture, map[string]interface{}{"decimals": 3, "trim": true}),
+	)
+
+	builder.WriteString(vebuilder.String())
+
 	fmt.Fprintf(&builder, "### Missions on %s\n", ei.GetBotEmojiMarkdown("egg_humility"))
 	artifacts := backup.GetArtifactsDb()
 	missions := artifacts.GetMissionInfos()
 	for _, mission := range missions {
 		missionType := mission.GetType()
+		//missionStatus := mission.GetStatus()
 		if missionType == ei.MissionInfo_VIRTUE {
 			shipType := mission.GetShip()
 			craft := missionArt.Ships[shipType]
@@ -276,99 +310,26 @@ func getNextTierAndIndex(currentValue float64) (float64, int, error) {
 	//return 0, len(tierValues), fmt.Errorf("current value is beyond the last known tier")
 }
 
-/*
-
-
-type Research struct {
-	ID       string
-	Name     string
-	MaxLevel int
-	PerLevel float64
-}
-
-type ResearchInstance struct {
-	Research
-	Level int
-}
-
-type Farm interface {
-	Researches([]Research) []ResearchInstance
-}
-
 const baseSoulEggBonus = 0.1
-
-var soulEggBonusRelevantResearches = []Research{
-	{
-		ID:       "soul_eggs",
-		Name:     "Soul Food",
-		MaxLevel: 140,
-		PerLevel: 0.01,
-	},
-}
-
 const baseProphecyEggBonus = 0.05
 
-var prophecyEggBonusRelevantResearches = []Research{
-	{
-		ID:       "prophecy_bonus",
-		Name:     "Prophecy Bonus",
-		MaxLevel: 5,
-		PerLevel: 0.01,
-	},
+func getEarningsBonus(backup *ei.Backup, eov float64) float64 {
+	prophecyEggsCount := backup.GetGame().GetEggsOfProphecy()
+	soulEggsCount := backup.GetGame().GetSoulEggsD()
+	soulBonus := baseSoulEggBonus
+	prophecyBonus := baseProphecyEggBonus
+
+	for _, er := range backup.GetGame().GetEpicResearch() {
+		switch er.GetId() {
+		case "soul_eggs": // 20
+			level := min(er.GetLevel(), 140)
+			soulBonus += float64(level) * 0.01
+		case "prophecy_bonus": // 30
+			level := min(er.GetLevel(), 5)
+			prophecyBonus += float64(level) * 0.01
+		}
+	}
+	eb := soulEggsCount * soulBonus * math.Pow(1+prophecyBonus, float64(prophecyEggsCount))
+
+	return eb * (math.Pow(1.01, eov))
 }
-
-func soulEggBonusResearches(farm Farm) []ResearchInstance {
-	return farm.Researches(soulEggBonusRelevantResearches)
-};
-}
-
-export function prophecyEggBonusResearches(farm: Farm): ResearchInstance[] {
-  return farm.researches(prophecyEggBonusRelevantResearches);
-}
-
-export function bareSoulEggBonus(farm: Farm, researches: ResearchInstance[]): number {
-  return baseSoulEggBonus + researches.reduce((effect, r) => effect + r.perLevel * r.level, 0);
-}
-
-function soulEggBonus(farm: Farm, researches: ResearchInstance[]): number {
-  return (
-    baseSoulEggBonus +
-    researches.reduce((effect, r) => effect + r.perLevel * r.level, 0) +
-    farm.artifactSet.soulEggBonus
-  );
-}
-
-export function bareProphecyEggBonus(farm: Farm, researches: ResearchInstance[]): number {
-  return baseProphecyEggBonus + researches.reduce((effect, r) => effect + r.perLevel * r.level, 0);
-}
-
-function prophecyEggBonus(farm: Farm, researches: ResearchInstance[]): number {
-  return (
-    baseProphecyEggBonus +
-    researches.reduce((effect, r) => effect + r.perLevel * r.level, 0) +
-    farm.artifactSet.prophecyEggBonus
-  );
-}
-
-func getEarningsBonus(*ei.Backup_Farm farm, soulEggBonusRelevantResearches: ResearchInstance[], prophecyEggBonusRelevantResearches: ResearchInstance[]): float64 {
-
-  const soulEggsCount = farm.progress.soulEggsD || 0;
-  const prophecyEggsCount = getNumProphecyEggs(farm.backup);
-
-
-
-}
-
-
-  farm: Farm,
-  soulEggBonusResearches: ResearchInstance[],
-  prophecyEggBonusResearches: ResearchInstance[]
-): number {
-  const soulEggsCount = farm.progress.soulEggsD || 0;
-  const prophecyEggsCount = getNumProphecyEggs(farm.backup);
-  return (
-    soulEggsCount *
-    soulEggBonus(farm, soulEggBonusResearches) *
-    (1 + prophecyEggBonus(farm, prophecyEggBonusResearches)) ** prophecyEggsCount
-  );
-}*/
