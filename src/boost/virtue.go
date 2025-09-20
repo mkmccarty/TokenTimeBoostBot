@@ -197,7 +197,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		}
 
 		allEov += eov
-		futureEov += max(uint32(eovPending)-uint32(eov), 0)
+		futureEov += uint32(eovPending) - max(uint32(eov), 0)
 
 		fmt.Fprintf(&vebuilder, "%s%s %d (%d)  |  🥚: %s |  %s at %s%s\n",
 			ei.GetBotEmojiMarkdown("egg_"+strings.ToLower(egg)),
