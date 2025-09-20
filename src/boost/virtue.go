@@ -190,20 +190,24 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	for i, egg := range virtueEggs {
 		eov := virtue.GetEovEarned()[i] // Assuming Eggs is the correct field for accessing egg virtues
 		delivered := virtue.GetEggsDelivered()[i]
-		nextTier, eovPending, _ := getNextTierAndIndex(delivered)
+
+		eovEarned := countTETiersPassed(delivered)
+		// pendingTruthEggs calculates the number of pending Truth Eggs based on delivered and earnedTE.
+		eovPending := pendingTruthEggs(delivered, eov)
+		nextTier := nextTruthEggThreshold(delivered)
 		selected := ""
 		if eggType == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
 			selected = " (selected)"
 		}
 
-		allEov += eov
-		futureEov += uint32(eovPending) - max(uint32(eov), 0)
+		allEov += eovEarned - eovPending
+		futureEov += eovPending
 
 		fmt.Fprintf(&vebuilder, "%s%s %d (%d)  |  🥚: %s |  %s at %s%s\n",
 			ei.GetBotEmojiMarkdown("egg_"+strings.ToLower(egg)),
 			eggEffects[i],
-			eov,
-			max(eovPending-int(eov), 0),
+			eovEarned-eovPending,
+			eovPending,
 			ei.FormatEIValue(delivered, map[string]interface{}{"decimals": 1, "trim": true}),
 			ei.GetBotEmojiMarkdown("egg_truth"),
 			ei.FormatEIValue(nextTier, map[string]interface{}{"decimals": 1, "trim": true}),
@@ -292,8 +296,8 @@ func getShiftCost(shiftCount uint32, soulEggs float64) float64 {
 	return C
 }
 
-// tierValues is a slice containing all known tiers in ascending order.
-var tierValues = []float64{
+// TruthEggBreakpoints is a slice containing all known tiers in ascending order.
+var TruthEggBreakpoints = []float64{
 	5e7,  // 50M
 	1e9,  // 1B
 	1e10, // 10B
@@ -319,37 +323,29 @@ var tierValues = []float64{
 	1e18,   // 1Q
 }
 
-// getNextTierAndIndex finds the next tier for a given value.
-// It returns the next tier's value, the index of the tier just passed, and an error.
-func getNextTierAndIndex(currentValue float64) (float64, int, error) {
-	// If the value is less than the first tier, the first tier is the next one.
-	if currentValue < tierValues[0] {
-		return tierValues[0], 0, nil // -1 indicates no tier has been passed yet.
+// countTETiersPassed returns the number of TE tiers passed for a given delivered value.
+func countTETiersPassed(delivered float64) uint32 {
+	i := 0
+	for i < len(TruthEggBreakpoints) && delivered >= TruthEggBreakpoints[i] {
+		i++
 	}
+	return uint32(i)
+}
 
-	// Iterate through the ordered tiers to find the correct position for the currentValue.
-	for i, tier := range tierValues {
-		if currentValue < tier {
-			// The current value is less than this tier, so this is the next tier.
-			// The previous index (i-1) is the one the user has reached.
-			return tier, i, nil
-		}
+// pendingTruthEggs calculates the number of pending Truth Eggs for a given delivered value and earned Truth Eggs.
+func pendingTruthEggs(delivered float64, earnedTE uint32) uint32 {
+	tiersPassed := countTETiersPassed(delivered)
+	return max(0, tiersPassed-earnedTE)
+}
+
+// nextTruthEggThreshold returns the next Truth Egg threshold for a given delivered value.
+// If all tiers are passed, it returns math.Inf(1).
+func nextTruthEggThreshold(delivered float64) float64 {
+	tiersPassed := countTETiersPassed(delivered)
+	if int(tiersPassed) >= len(TruthEggBreakpoints) {
+		return math.Inf(1)
 	}
-
-	// If we reach here loop, adding 200_000_000_000_000_000 to the last tier until we find a tier greater than currentValue.
-	lastTier := tierValues[len(tierValues)-1]
-	increment := 2e17
-	for {
-		lastTier += increment
-		if currentValue < lastTier {
-			// Also may be not have reached achieved tier on this rerun
-			return lastTier, max(0, len(tierValues)-1), nil // Return the last known index.
-		}
-	}
-
-	// If the loop completes, it means the currentValue is greater than or equal to the last tier.
-	// We return 0, the last known index, and an error.
-	//return 0, len(tierValues), fmt.Errorf("current value is beyond the last known tier")
+	return TruthEggBreakpoints[tiersPassed]
 }
 
 const baseSoulEggBonus = 0.1
