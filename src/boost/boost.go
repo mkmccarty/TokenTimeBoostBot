@@ -257,6 +257,7 @@ type Contract struct {
 	//SignupMsgID    map[string]string // Message ID for the Signup Message
 	ContractID                string // Contract ID
 	CoopID                    string // CoopID
+	CxpVersion                int    // 1 = new scoring
 	Name                      string
 	Description               string
 	Egg                       int32
