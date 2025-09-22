@@ -811,6 +811,10 @@ func DownloadCoopStatusSiab(contractID string, coopID string, offsetEndTime time
 				contractDurationSeconds,
 				0, 0, 0)
 			capCR := min((eiContract.MaxCoopSize*contractDurationInDays)/2, 20)
+			if eiContract.CxpVersion == 1 {
+				capCR = eiContract.MaxCoopSize - 1
+			}
+
 			diffCR := (float64(scoreBase) * 0.06) / float64(capCR)
 
 			var crBuilder strings.Builder
@@ -838,6 +842,10 @@ func DownloadCoopStatusSiab(contractID string, coopID string, offsetEndTime time
 		}
 		// Create a table of Contract Scores for this user
 		capCR := min((eiContract.MaxCoopSize*contractDurationInDays)/2, 20)
+		if eiContract.CxpVersion == 1 {
+			capCR = eiContract.MaxCoopSize - 1
+		}
+
 		var csBuilder strings.Builder
 
 		// Maximum Contract Score with current buffs and max CR & TVAL
