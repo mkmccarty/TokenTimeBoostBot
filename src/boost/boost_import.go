@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
@@ -100,6 +101,10 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	c.ContractVersion = 2
 	c.Ultra = contractProtoBuf.GetCcOnly()
 	c.SeasonID = contractProtoBuf.GetSeasonId()
+
+	if c.SeasonID == "fall_2025" || c.SeasonID == "winter_2025" || strings.Contains(c.SeasonID, "2026") {
+		c.CxpVersion = 1
+	}
 
 	if contractProtoBuf.GetStartTime() == 0 {
 
@@ -252,6 +257,7 @@ func updateContractWithEggIncData(contract *Contract) {
 			contract.ChickenRunCooldownMinutes = cc.ChickenRunCooldownMinutes
 			contract.MinutesPerToken = cc.MinutesPerToken
 			contract.Ultra = cc.Ultra
+			contract.CxpVersion = cc.CxpVersion
 			break
 		}
 	}
