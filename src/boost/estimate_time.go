@@ -212,11 +212,13 @@ func getContractEstimateString(contractID string) string {
 
 		str += fmt.Sprintf("CS Est: **%d** (SR) - **%d** (Sink) - **%d** (Best Effort)\n", scoreBest, scoreBestSink, scoreBestEffort)
 
-		if math.Round(c.TargetTval*100)/100 == math.Round(c.TargetTvalLower*100)/100 {
-			str += fmt.Sprintf("Target TVal: **%.2f**\n", c.TargetTval)
-		} else {
-			str += fmt.Sprintf("Target TVal: **%.2f** for lower estimate\n", c.TargetTvalLower)
-			str += fmt.Sprintf("Target TVal: **%.2f** for upper estimate\n", c.TargetTval)
+		if c.CxpVersion != 1 {
+			if math.Round(c.TargetTval*100)/100 == math.Round(c.TargetTvalLower*100)/100 {
+				str += fmt.Sprintf("Target TVal: **%.2f**\n", c.TargetTval)
+			} else {
+				str += fmt.Sprintf("Target TVal: **%.2f** for lower estimate\n", c.TargetTvalLower)
+				str += fmt.Sprintf("Target TVal: **%.2f** for upper estimate\n", c.TargetTval)
+			}
 		}
 	}
 
