@@ -102,7 +102,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	c.Ultra = contractProtoBuf.GetCcOnly()
 	c.SeasonID = contractProtoBuf.GetSeasonId()
 
-	if c.SeasonID == "fall_2025" || c.SeasonID == "winter_2025" || strings.Contains(c.SeasonID, "2026") {
+	if c.SeasonID == "fall_2025" || strings.Contains(c.SeasonID, "2026") {
 		c.CxpVersion = 1
 	}
 
@@ -217,6 +217,9 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		days := d.Hours() / 24.0 // 2 days
 		c.ContractDurationInDays = int(days)
 		c.ChickenRuns = int(min(20.0, math.Ceil((days*float64(c.MaxCoopSize))/2.0)))
+		if c.CxpVersion == 1 {
+			c.ChickenRuns = c.MaxCoopSize - 1
+		}
 	}
 	// Duration estimate
 	if len(c.TargetAmount) != 0 {
