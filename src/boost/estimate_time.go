@@ -290,7 +290,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			// For small contracts, add less time padding for boosts
 			estimate += 0.30
 		} else {
-			estimate += 0.75
+			estimate += 0.50
 		}
 
 		if est.slots == 8.0 {
