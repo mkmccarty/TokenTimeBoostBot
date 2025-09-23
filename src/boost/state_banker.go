@@ -58,9 +58,6 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 			tval := bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
 			contract.Boosters[cUserID].TokenValue += tval * float64(tokensToSend)
 			contract.Boosters[b.UserID].TokenValue -= tval * float64(tokensToSend)
-			// Don't reorder on the bag send as we need a tiny amount of stability for the send to get to the correct person
-			//reorderBoosters(contract)
-			//}
 			if contract.Style&ContractFlagDynamicTokens != 0 {
 				// Determine the dynamic tokens
 				determineDynamicTokens(contract)
