@@ -296,6 +296,10 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		bottools.AlignString("Delivery Rate:", 20, bottools.StringAlignLeft),
 		bottools.AlignString(fmt.Sprintf("%s/hr", ei.FormatEIValue(deliveryRate, map[string]interface{}{"decimals": 3, "trim": true})), 10, bottools.StringAlignCenter),
 	)
+	siloMinutes := ei.GetSiloMinutes(farm, backup.GetGame().GetEpicResearch())
+	fmt.Fprintf(&builder, tblFmt,
+		bottools.AlignString("Silo Minutes:", 20, bottools.StringAlignLeft),
+		bottools.AlignString(fmt.Sprintf("%s", bottools.FmtDuration(time.Duration(siloMinutes)*time.Minute)), 10, bottools.StringAlignCenter))
 
 	habPercent := 0.0
 	if habCap > 0 {

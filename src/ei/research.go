@@ -494,9 +494,9 @@ func GetResearchInternalHatchery(commonResearch []*Backup_ResearchItem) (float64
 		case "neural_linking":
 			internalHatcheryAdditive += (50 * float64(cr.GetLevel())) // Neural Linking 50%
 		case "epic_internal_incubators":
-			internalHatcheryOnline += (1.0 + 0.05*float64(cr.GetLevel())) // Epic Internal Incubators 5%
+			internalHatcheryOnline *= (1.0 + 0.05*float64(cr.GetLevel())) // Epic Internal Incubators 5%
 		case "int_hatch_calm":
-			internalHatcheryOffline += (1.0 + 0.1*float64(cr.GetLevel())) // Epic Internal Incubators 10%
+			internalHatcheryOffline *= (1.0 + 0.1*float64(cr.GetLevel())) // Epic Internal Incubators 10%
 		}
 	}
 	return internalHatcheryOnline, internalHatcheryOffline, internalHatcheryAdditive
@@ -507,6 +507,7 @@ func GetInternalHatcheryFromBackup(commonResearch []*Backup_ResearchItem, game *
 
 	baseRate := 0.0
 	artifactsMultiplier := 1.0
+	collIHR := 1.05
 
 	_, _, hatcheryAdditive := GetResearchInternalHatchery(commonResearch)
 	onlineMultiplier, offlineMultiplier, _ := GetResearchInternalHatchery(game.GetEpicResearch())
@@ -519,10 +520,24 @@ func GetInternalHatcheryFromBackup(commonResearch []*Backup_ResearchItem, game *
 
 	// With max internal hatchery sharing, four internal hatcheries are constantly
 	// at work even if not all habs are bought;
-	onlineRatePerHab := baseRate * onlineMultiplier * artifactsMultiplier * modifier * truthEggBonus * colleggtiblesIHR
+	onlineRatePerHab := baseRate * onlineMultiplier * artifactsMultiplier * modifier * truthEggBonus * collIHR
 	onlineRate := 4 * onlineRatePerHab
-	offlineRatePerHab := onlineRatePerHab * offlineMultiplier * colleggtiblesIHR
+	offlineRatePerHab := onlineRatePerHab * offlineMultiplier
 	offlineRate := onlineRate * offlineMultiplier
 
 	return onlineRatePerHab, onlineRate, offlineRatePerHab, offlineRate
+}
+
+// GetSiloMinutes calculates the total silo minutes from epic research and silos owned
+func GetSiloMinutes(farmInfo *Backup_Simulation, epicResearch []*Backup_ResearchItem) uint32 {
+	baseSiloMinutes := 60.0
+
+	for _, cr := range epicResearch {
+		if cr.GetId() == "silo_capacity" {
+			baseSiloMinutes += 6 * float64(cr.GetLevel())
+		}
+	}
+	silosOwned := farmInfo.GetSilosOwned()
+
+	return uint32(baseSiloMinutes * float64(silosOwned))
 }
