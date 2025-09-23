@@ -404,7 +404,10 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 			}
 		}
 	}
-	buttons = append(buttons, discordgo.ActionsRow{Components: mComp})
+
+	if len(mComp) > 0 {
+		buttons = append(buttons, discordgo.ActionsRow{Components: mComp})
+	}
 
 	return str, buttons
 }
