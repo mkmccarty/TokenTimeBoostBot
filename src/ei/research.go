@@ -410,7 +410,7 @@ func GetEggLayingRate(farmInfo *PlayerFarmInfo) float64 {
 }
 
 // GetEggLayingRateFromBackup calculates the egg laying rate multiplier
-func GetEggLayingRateFromBackup(farmInfo *Backup_Simulation, game *Backup_Game) float64 {
+func GetEggLayingRateFromBackup(farmInfo *Backup_Simulation, game *Backup_Game) (float64, float64, float64) {
 	userLayRate := 1 / 30.0 // 1 chicken per 30 seconds
 
 	userLayRate *= GetCommonResearchLayRate(farmInfo.GetCommonResearch())
@@ -419,13 +419,12 @@ func GetEggLayingRateFromBackup(farmInfo *Backup_Simulation, game *Backup_Game) 
 	universalHabCapacity := GetCommonResearchHabCapacity(farmInfo.GetCommonResearch())
 	portalHabCapacity := GetCommonResearchPortalHabCapacity(farmInfo.GetCommonResearch())
 
-	//userLayRate *= 3600 // convert to hr rate
 	habPopulation := 0.0
 	for _, hab := range farmInfo.GetHabPopulation() {
 		habPopulation += float64(hab)
 	}
 
-	baseHab := 0.0
+	habCapacity := 0.0
 	for _, hab := range farmInfo.GetHabs() {
 		// Values 1->18 for each of these
 		value := 0.0
@@ -436,14 +435,14 @@ func GetEggLayingRateFromBackup(farmInfo *Backup_Simulation, game *Backup_Game) 
 			}
 			value *= universalHabCapacity
 		}
-		baseHab += value
+		habCapacity += value * colleggtibleHab
 	}
 
 	//userLayRate *= 3600 // convert to hr rate
-	baseLayingRate := userLayRate * baseHab * 3600.0
+	baseLayingRate := userLayRate * habPopulation * 3600.0
 	//as.baseLayingRate = userLayRate * min(habPopulation, as.baseHab) * 3600.0 / 1e15
 
-	return baseLayingRate * colleggtibleELR * colleggtibleHab
+	return baseLayingRate * colleggtibleELR, habPopulation, habCapacity
 }
 
 // GetShippingRate calculates the shipping rate multiplier

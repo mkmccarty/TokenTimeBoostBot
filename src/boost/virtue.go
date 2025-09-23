@@ -201,7 +201,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		nextTier := nextTruthEggThreshold(delivered)
 		selected := ""
 		if eggType == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
-			selected = " (selected)"
+			selected = " (farm)"
 			selectedTarget = nextTier
 			selectedDelivered = delivered
 		}
@@ -209,15 +209,26 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		allEov += eovEarned - eovPending
 		futureEov += eovPending
 
-		fmt.Fprintf(&vebuilder, "%s%s %d (%d)  |  🥚: %s |  %s at %s%s\n",
-			ei.GetBotEmojiMarkdown("egg_"+strings.ToLower(egg)),
-			eggEffects[i],
-			eovEarned-eovPending,
-			eovPending,
-			ei.FormatEIValue(delivered, map[string]interface{}{"decimals": 1, "trim": true}),
-			ei.GetBotEmojiMarkdown("egg_truth"),
-			ei.FormatEIValue(nextTier, map[string]interface{}{"decimals": 1, "trim": true}),
-			selected)
+		/*
+					fmt.Fprintf(&teamwork, teamworkFm,
+				bottools.AlignString(fmt.Sprintf("%v", when.Round(time.Second)), 10, bottools.StringAlignCenter),
+				bottools.AlignString(fmt.Sprintf("%v", dur.Round(time.Second)), 10, bottools.StringAlignCenter),
+				bottools.AlignString(fmt.Sprintf("%d%%", b.eggRate), 3, bottools.StringAlignRight),
+				bottools.AlignString(fmt.Sprintf("%d%%", b.earnings), 4, bottools.StringAlignRight),
+				bottools.AlignString(fmt.Sprintf("%6.0f", b.buffTimeValue), 6, bottools.StringAlignRight),
+				bottools.AlignString(fmt.Sprintf("%1.6f", segmentTeamworkScore), 8, bottools.StringAlignRight),
+			)
+		*/
+
+		fmt.Fprintf(&vebuilder, "%s%s`%3s %5s %9s `%s%s\n",
+			bottools.AlignString(ei.GetBotEmojiMarkdown("egg_"+strings.ToLower(egg)), 1, bottools.StringAlignCenter),
+			bottools.AlignString(eggEffects[i], 1, bottools.StringAlignCenter),
+			bottools.AlignString(fmt.Sprintf("%d", eovEarned-eovPending), 3, bottools.StringAlignRight),
+			bottools.AlignString(fmt.Sprintf("(%d)", eovPending), 5, bottools.StringAlignLeft),
+			bottools.AlignString(fmt.Sprintf("🥚 %s", ei.FormatEIValue(delivered, map[string]interface{}{"decimals": 1, "trim": true})), 9, bottools.StringAlignLeft),
+			bottools.AlignString(fmt.Sprintf("%s%s", ei.GetBotEmojiMarkdown("egg_truth"), ei.FormatEIValue(nextTier, map[string]interface{}{"decimals": 1, "trim": true})), 1, bottools.StringAlignLeft),
+			bottools.AlignString(selected, 1, bottools.StringAlignLeft),
+		)
 	}
 
 	eb := getEarningsBonus(backup, float64(allEov))
@@ -256,60 +267,70 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	//builder.WriteString(vebuilder.String())
 	builder.Reset()
 
+	// What are my artifacts.
+	virtueArtifactDB := backup.ArtifactsDb.GetVirtueAfxDb()
+	virtueArtifacts := virtueArtifactDB.GetInventoryItems()
+	activeAfx := virtueArtifactDB.GetActiveArtifacts()
+	virtueSlots := activeAfx.GetSlots()
+	inUseArtifacts := []uint64{}
+	for _, slot := range virtueSlots {
+		if slot.GetOccupied() {
+			artifactID := slot.GetItemId()
+			inUseArtifacts = append(inUseArtifacts, artifactID)
+		}
+	}
+	artifactSetInUse := []*ei.ArtifactInventoryItem{}
+
+	for _, artifact := range virtueArtifacts {
+		artifactID := artifact.GetItemId()
+		if slices.Contains(inUseArtifacts, artifactID) {
+			artifactSetInUse = append(artifactSetInUse, artifact)
+		}
+	}
+
+	shippingRate := ei.GetShippingRateFromBackup(farm, backup.GetGame())
+	eggLayingRate, habPop, habCap := ei.GetEggLayingRateFromBackup(farm, backup.GetGame())
+	deliveryRate := math.Min(eggLayingRate, shippingRate)
+	_, onlineRate, _, offlineRate := ei.GetInternalHatcheryFromBackup(farm.GetCommonResearch(), backup.GetGame(), artifactSetInUse, 1.0, allEov)
+	// Want time from now when those minutes elapse
+
+	fmt.Fprintf(&builder, "Shipping Capacity: %s/hr\n", ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 3, "trim": true}))
+	fmt.Fprintf(&builder, "Egg Laying Rate: %s/hr\n", ei.FormatEIValue(eggLayingRate, map[string]interface{}{"decimals": 3, "trim": true}))
+	fmt.Fprintf(&builder, "**Delivery Rate:** %s/hr\n", ei.FormatEIValue(deliveryRate, map[string]interface{}{"decimals": 3, "trim": true}))
+	habPercent := 0.0
+	if habCap > 0 {
+		habPercent = (habPop / habCap) * 100
+	}
+	fmt.Fprintf(&builder, "Hab Pop: %.0f%% (%s / %s)\n",
+		habPercent,
+		ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 0, "trim": true}),
+		ei.FormatEIValue(habCap, map[string]interface{}{"decimals": 0, "trim": true}))
 	if config.IsDevBot() {
-		// What are my artifacts.
-		virtueArtifactDB := backup.ArtifactsDb.GetVirtueAfxDb()
-		virtueArtifacts := virtueArtifactDB.GetInventoryItems()
-		activeAfx := virtueArtifactDB.GetActiveArtifacts()
-		virtueSlots := activeAfx.GetSlots()
-		inUseArtifacts := []uint64{}
-		for _, slot := range virtueSlots {
-			if slot.GetOccupied() {
-				artifactID := slot.GetItemId()
-				inUseArtifacts = append(inUseArtifacts, artifactID)
-			}
-		}
-		artifactSetInUse := []*ei.ArtifactInventoryItem{}
-
-		for _, artifact := range virtueArtifacts {
-			artifactID := artifact.GetItemId()
-			if slices.Contains(inUseArtifacts, artifactID) {
-				artifactSetInUse = append(artifactSetInUse, artifact)
-			}
-		}
-
-		shippingRate := ei.GetShippingRateFromBackup(farm, backup.GetGame())
-		eggLayingRate := ei.GetEggLayingRateFromBackup(farm, backup.GetGame())
-		deliveryRate := math.Min(eggLayingRate, shippingRate)
-		_, onlineRate, _, offlineRate := ei.GetInternalHatcheryFromBackup(farm.GetCommonResearch(), backup.GetGame(), artifactSetInUse, 1.0, allEov)
-		// Want time from now when those minutes elapse
-
-		fmt.Fprintf(&builder, "Egg Laying Rate: %s/hr\n", ei.FormatEIValue(eggLayingRate, map[string]interface{}{"decimals": 3, "trim": true}))
-		fmt.Fprintf(&builder, "Shipping Rate: %s/hr\n", ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 3, "trim": true}))
-		fmt.Fprintf(&builder, "Delivery Rate: %s/hr\n", ei.FormatEIValue(deliveryRate, map[string]interface{}{"decimals": 3, "trim": true}))
 		// Deliver this many more eggs in this many minutes
 		fmt.Fprintf(&builder, "Active IHR: %s/hr\n",
 			ei.FormatEIValue(onlineRate, map[string]interface{}{"decimals": 3, "trim": true}))
 		fmt.Fprintf(&builder, "Offline IHR: %s/hr\n",
 			ei.FormatEIValue(offlineRate, map[string]interface{}{"decimals": 3, "trim": true}))
+	}
 
-		// If we have a selected egg type, show time to next TE
+	// If we have a selected egg type, show time to next TE
 
-		if selectedTarget != 0 {
-			// How much time at current delivery rate to
-			remainingEggs := selectedTarget - selectedDelivered
-			var minutes float64 = 0
-			if deliveryRate > 0 {
-				minutes = remainingEggs / (deliveryRate / 60.0)
-			}
+	if selectedTarget != 0 {
+		// How much time at current delivery rate to
+		remainingEggs := selectedTarget - selectedDelivered
+		var minutes float64 = 0
+		if deliveryRate > 0 {
+			minutes = remainingEggs / (deliveryRate / 60.0)
+		}
 
+		if config.IsDevBot() {
 			if minutes > 0 {
 				fmt.Fprintf(&builder, "TE with %s more eggs <t:%d:R>.\n",
 					ei.FormatEIValue(remainingEggs, map[string]interface{}{"decimals": 1, "trim": true}),
 					time.Now().Add(time.Duration(int64(minutes))*time.Minute).Unix())
-				fmt.Fprintf(&builder, "-# Haven't added IHR calculations yet\n")
 			}
 		}
+		fmt.Fprintf(&builder, "-# Artifacts aren't included in these calculations\n")
 
 		// Fuel rate if tank fueling is enabled
 		// Commented out until we can verify it works correctly
