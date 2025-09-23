@@ -299,7 +299,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	siloMinutes := ei.GetSiloMinutes(farm, backup.GetGame().GetEpicResearch())
 	fmt.Fprintf(&builder, tblFmt,
 		bottools.AlignString("Silo Minutes:", 20, bottools.StringAlignLeft),
-		bottools.AlignString(fmt.Sprintf("%s", bottools.FmtDuration(time.Duration(siloMinutes)*time.Minute)), 10, bottools.StringAlignCenter))
+		bottools.AlignString(bottools.FmtDuration(time.Duration(siloMinutes)*time.Minute), 10, bottools.StringAlignCenter))
 
 	habPercent := 0.0
 	if habCap > 0 {
@@ -404,6 +404,9 @@ func getShiftCost(shiftCount uint32, soulEggs float64) float64 {
 	return C
 }
 
+// Used for calculating required eggs laid for TE above 16.
+// a_m = 1e17 + (m-17)*5e16 + ((m-17)*(m-18)/2)*1e16
+
 // TruthEggBreakpoints is a slice containing all known tiers in ascending order.
 var TruthEggBreakpoints = []float64{
 	5e7,  // 50M
@@ -413,21 +416,21 @@ var TruthEggBreakpoints = []float64{
 	5e11, // 500B
 	2e12, // 2T
 	7e12, // 7T
+	2e13, // 20T
 	// Needs verification below this point
-	2e13,   // 20T
 	6e13,   // 60T
 	1.5e14, // 150T
 	5e14,   // 500T
-	1.5e15, // 1.5Q
-	4e15,   // 4Q
-	1e16,   // 10Q
-	2.5e16, // 25Q
-	5e16,   // 50Q
-	1e17,   // 100Q
-	2e17,   // 200Q
-	4e17,   // 400Q
-	6e17,   // 600Q
-	8e17,   // 800Q
+	1.5e15, // 1.5q
+	4e15,   // 4q
+	1e16,   // 10q
+	2.5e16, // 25q
+	5e16,   // 50q
+	1e17,   // 100q
+	2e17,   // 200q
+	4e17,   // 400q
+	6e17,   // 600q
+	8e17,   // 800q
 	1e18,   // 1Q
 }
 
