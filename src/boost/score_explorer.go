@@ -20,7 +20,7 @@ var tokenSentValueStr = []string{"Tval Met", "3", "1", "0", "Sink"}
 var tokenSentValue = []float64{50, 3, 1, 0, 20}
 var tokenRecvValueStr = []string{"8", "6", "1", "0", "Sink"}
 var tokenRecvValue = []float64{8, 6, 1, 0, 1000}
-var chickenRunsStr = []string{"Max", "CoopSize", "CoopSize -1", "None"}
+var chickenRunsStr = []string{"Max", "None"}
 var siabDurationStr = []string{"30m", "45m", "Half Duration", "Full Duration"}
 var deflectorDurationsStr = []string{"Full Duration", "Boost Time"}
 
@@ -168,14 +168,14 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 		FairShare:            2,
 		TvalSent:             0,
 		TvalReceived:         1,
-		ChickenRuns:          2,
+		ChickenRuns:          0,
 		contractInfo:         getContractEstimateString(contractID),
 	}
 
 	playStyleValues := []float64{1.0, 1.0, 1.20, 2.0}
 	scoreCalcParams.PlayStyleValues = append(scoreCalcParams.PlayStyleValues, playStyleValues...)
 	// Calculate CR Values
-	crValues := []int{c.ChickenRuns, c.MaxCoopSize, c.MaxCoopSize - 1, 0}
+	crValues := []int{c.ChickenRuns, 0}
 	scoreCalcParams.chickenRunValues = append(scoreCalcParams.chickenRunValues, crValues...)
 
 	siabTimes := []int{30, 45, -1, -1}

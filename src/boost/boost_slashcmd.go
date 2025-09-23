@@ -3,7 +3,6 @@ package boost
 import (
 	"fmt"
 	"log"
-	"math"
 	"sort"
 	"strings"
 	"time"
@@ -595,11 +594,7 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	}
 	// Recalculate token values after the change
-	targetTval := 3.0
-	BTA := math.Floor(c.EstimatedDuration.Minutes() / float64(c.MinutesPerToken))
-	if BTA > 42.0 {
-		targetTval = 0.07 * BTA
-	}
+	targetTval := GetTargetTval(c.CxpVersion, c.EstimatedDuration.Minutes(), float64(c.MinutesPerToken))
 	calculateTokenValueCoopLog(c, c.EstimatedDuration, targetTval)
 
 	c.mutex.Unlock()

@@ -143,18 +143,6 @@ func getContractEstimateString(contractID string) string {
 		str += fmt.Sprintf(" / 🏠💲 %1.3gx", c.ModifierHabCost)
 	}
 	str += "\n"
-	/*
-		BTA := c.EstimatedDuration.Minutes() / float64(c.MinutesPerToken)
-		targetTval := 3.0
-		if BTA > 42.0 {
-			targetTval = 0.07 * BTA
-		}
-		BTALower := c.EstimatedDurationLower.Minutes() / float64(c.MinutesPerToken)
-		targetTvalLower := 3.0
-		if BTALower > 42.0 {
-			targetTvalLower = 0.07 * BTALower
-		}
-	*/
 	estStr := c.EstimatedDuration.Round(time.Minute).String()
 	estStr = strings.TrimRight(estStr, "0s")
 	estStrLower := c.EstimatedDurationLower.Round(time.Minute).String()

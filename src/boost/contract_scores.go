@@ -24,6 +24,22 @@ import (
 		return buffTimeValue, B
 	}
 */
+
+// GetTargetTval will return the target tval for the contract based on the contract duration and minutes per token
+func GetTargetTval(cxpVersion int, contractMinutes float64, minutesPerToken float64) float64 {
+	if cxpVersion == 1 {
+		// Sept 22, 2025 and newer contracts don't have token value requirements
+		return 0.0
+	}
+	BTA := math.Floor(contractMinutes / minutesPerToken)
+	targetTval := 3.0
+	if BTA > 42.0 {
+		targetTval = 0.07 * BTA
+	}
+
+	return targetTval
+}
+
 func calculateChickenRunTeamwork(coopSize int, durationInDays int, runs int) float64 {
 	fCR := max(12.0/(float64(coopSize*durationInDays)), 0.3)
 	CR := min(fCR*float64(runs), 6.0)
