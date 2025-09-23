@@ -2,7 +2,6 @@ package boost
 
 import (
 	"fmt"
-	"math"
 	"sort"
 	"strings"
 	"time"
@@ -145,13 +144,13 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 	} else if !userInContract(contract, userID) {
 		str = "You are not part of this contract"
 	} else {
-		BTA := math.Floor(duration.Minutes() / float64(contract.MinutesPerToken))
-		targetTval := 3.0
-		if BTA > 42.0 {
-			targetTval = 0.07 * BTA
-		}
+		targetTval := GetTargetTval(contract.CxpVersion, duration.Minutes(), float64(contract.MinutesPerToken))
 		// Calculate the token value
-		embed = calculateTokenValueFromLog(contract, duration, details, targetTval, userID)
+		if targetTval == 0.0 {
+			str += "This contract does not have a target token value requirement.\n"
+		} else {
+			embed = calculateTokenValueFromLog(contract, duration, details, targetTval, userID)
+		}
 
 	}
 	if invalidDuration {

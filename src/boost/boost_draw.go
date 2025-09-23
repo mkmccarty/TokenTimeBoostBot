@@ -2,7 +2,6 @@ package boost
 
 import (
 	"fmt"
-	"math"
 	"strings"
 	"time"
 
@@ -63,11 +62,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	tokenStr := contract.TokenStr
 	divider := true
 	spacing := discordgo.SeparatorSpacingSizeSmall
-	targetTval := 3.0
-	BTA := math.Floor(float64(contract.EstimatedDuration.Minutes()) / float64(contract.MinutesPerToken))
-	if BTA > 42.0 {
-		targetTval = 0.07 * BTA
-	}
+
+	targetTval := GetTargetTval(contract.CxpVersion, contract.EstimatedDuration.Minutes(), float64(contract.MinutesPerToken))
 
 	var bannerItem discordgo.MediaGalleryItem
 
@@ -199,8 +195,10 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				contract.EstimatedDuration = c.EstimatedDuration
 			}
 		}
-		currentTval = bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
-		builder.WriteString(fmt.Sprintf("> TVal: 🎯%2.2f 📉%2.2f\n", targetTval, currentTval))
+		if targetTval != 0.0 {
+			currentTval = bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
+			builder.WriteString(fmt.Sprintf("> TVal: 🎯%2.2f 📉%2.2f\n", targetTval, currentTval))
+		}
 	}
 
 	if !contract.EstimateUpdateTime.IsZero() {
