@@ -209,24 +209,13 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		allEov += eovEarned - eovPending
 		futureEov += eovPending
 
-		/*
-					fmt.Fprintf(&teamwork, teamworkFm,
-				bottools.AlignString(fmt.Sprintf("%v", when.Round(time.Second)), 10, bottools.StringAlignCenter),
-				bottools.AlignString(fmt.Sprintf("%v", dur.Round(time.Second)), 10, bottools.StringAlignCenter),
-				bottools.AlignString(fmt.Sprintf("%d%%", b.eggRate), 3, bottools.StringAlignRight),
-				bottools.AlignString(fmt.Sprintf("%d%%", b.earnings), 4, bottools.StringAlignRight),
-				bottools.AlignString(fmt.Sprintf("%6.0f", b.buffTimeValue), 6, bottools.StringAlignRight),
-				bottools.AlignString(fmt.Sprintf("%1.6f", segmentTeamworkScore), 8, bottools.StringAlignRight),
-			)
-		*/
-
 		fmt.Fprintf(&vebuilder, "%s%s`%3s %5s %9s `%s%s\n",
 			bottools.AlignString(ei.GetBotEmojiMarkdown("egg_"+strings.ToLower(egg)), 1, bottools.StringAlignCenter),
 			bottools.AlignString(eggEffects[i], 1, bottools.StringAlignCenter),
 			bottools.AlignString(fmt.Sprintf("%d", eovEarned-eovPending), 3, bottools.StringAlignRight),
 			bottools.AlignString(fmt.Sprintf("(%d)", eovPending), 5, bottools.StringAlignLeft),
-			bottools.AlignString(fmt.Sprintf("🥚 %s", ei.FormatEIValue(delivered, map[string]interface{}{"decimals": 1, "trim": true})), 9, bottools.StringAlignLeft),
-			bottools.AlignString(fmt.Sprintf("%s%s", ei.GetBotEmojiMarkdown("egg_truth"), ei.FormatEIValue(nextTier, map[string]interface{}{"decimals": 1, "trim": true})), 1, bottools.StringAlignLeft),
+			bottools.AlignString(fmt.Sprintf("🥚 %s", ei.FormatEIValue(delivered, map[string]interface{}{"decimals": 1, "trim": false})), 9, bottools.StringAlignLeft),
+			bottools.AlignString(fmt.Sprintf("%s%s", ei.GetBotEmojiMarkdown("egg_truth"), ei.FormatEIValue(nextTier, map[string]interface{}{"decimals": 1, "trim": false})), 1, bottools.StringAlignLeft),
 			bottools.AlignString(selected, 1, bottools.StringAlignLeft),
 		)
 	}
@@ -294,17 +283,33 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	_, onlineRate, _, offlineRate := ei.GetInternalHatcheryFromBackup(farm.GetCommonResearch(), backup.GetGame(), artifactSetInUse, 1.0, allEov)
 	// Want time from now when those minutes elapse
 
-	fmt.Fprintf(&builder, "Shipping Capacity: %s/hr\n", ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 3, "trim": true}))
-	fmt.Fprintf(&builder, "Egg Laying Rate: %s/hr\n", ei.FormatEIValue(eggLayingRate, map[string]interface{}{"decimals": 3, "trim": true}))
-	fmt.Fprintf(&builder, "**Delivery Rate:** %s/hr\n", ei.FormatEIValue(deliveryRate, map[string]interface{}{"decimals": 3, "trim": true}))
+	tblFmt := "`%20s %10s`\n"
+	fmt.Fprintf(&builder, tblFmt,
+		bottools.AlignString("Shipping Capacity:", 20, bottools.StringAlignLeft),
+		bottools.AlignString(fmt.Sprintf("%s/hr", ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 3, "trim": true})), 10, bottools.StringAlignCenter),
+	)
+	fmt.Fprintf(&builder, tblFmt,
+		bottools.AlignString("Egg Laying Rate:", 20, bottools.StringAlignLeft),
+		bottools.AlignString(fmt.Sprintf("%s/hr", ei.FormatEIValue(eggLayingRate, map[string]interface{}{"decimals": 3, "trim": true})), 10, bottools.StringAlignCenter),
+	)
+	fmt.Fprintf(&builder, tblFmt,
+		bottools.AlignString("Delivery Rate:", 20, bottools.StringAlignLeft),
+		bottools.AlignString(fmt.Sprintf("%s/hr", ei.FormatEIValue(deliveryRate, map[string]interface{}{"decimals": 3, "trim": true})), 10, bottools.StringAlignCenter),
+	)
+
 	habPercent := 0.0
 	if habCap > 0 {
 		habPercent = (habPop / habCap) * 100
 	}
-	fmt.Fprintf(&builder, "Hab Pop: %.0f%% (%s / %s)\n",
-		habPercent,
-		ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 0, "trim": true}),
-		ei.FormatEIValue(habCap, map[string]interface{}{"decimals": 0, "trim": true}))
+	fmt.Fprintf(&builder, "`%15s %10s`\n",
+		bottools.AlignString("Hab Pop:", 15, bottools.StringAlignLeft),
+		bottools.AlignString(
+			fmt.Sprintf("%.0f%% (%s / %s)",
+				habPercent,
+				ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 0, "trim": true}),
+				ei.FormatEIValue(habCap, map[string]interface{}{"decimals": 0, "trim": true})),
+			10, bottools.StringAlignCenter),
+	)
 	if config.IsDevBot() {
 		// Deliver this many more eggs in this many minutes
 		fmt.Fprintf(&builder, "Active IHR: %s/hr\n",
