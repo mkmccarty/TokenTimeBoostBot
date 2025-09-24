@@ -633,14 +633,14 @@ func TimeToDeliverEggs(initialPop, maxPop, growthRatePerMinute, layingRatePerHou
 			}
 			// want % of pop increase so we can increase the delivery rate
 			popIncrease := currentPop - oldPop
-			deliveryRate *= (1 + popIncrease/oldPop)
+			layingRatePerStep *= (1 + popIncrease/oldPop)
 		}
 
 		// Increment time
 		totalTimeMinutes += timeStepMinutes
 
 		// Safety break to prevent infinite loops if the target is unreachable.
-		if totalTimeMinutes > 1_051_200 { // A large number of minutes as a safety limit
+		if totalTimeMinutes > 525_600 { // 1 year in minutes
 			return -1.0
 		}
 	}
