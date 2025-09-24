@@ -266,6 +266,18 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	_, onlineRate, _, offlineRate := ei.GetInternalHatcheryFromBackup(farm.GetCommonResearch(), backup.GetGame(), artifactSetInUse, 1.0, allEov)
 	siloMinutes := ei.GetSiloMinutes(farm, backup.GetGame().GetEpicResearch())
 
+	habPercent := 0.0
+	if habCap > 0 {
+		habPercent = (habPop / habCap) * 100
+	}
+	onlineFillTime := ei.TimeForLinearGrowth(habPop, habCap, onlineRate/60)
+	offlineFillTime := ei.TimeForLinearGrowth(habPop, habCap, offlineRate/60)
+	syncTime := time.Unix(int64(backup.GetApproxTime()), 0)
+	remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate, deliveryRate, selectedTarget-selectedDelivered)
+	elapsed := time.Since(syncTime).Hours()
+	adjustedRemainingTime := remainingTime - elapsed
+	offlineEggs := min(eggLayingRate, shippingRate) * elapsed
+
 	// Want time from now when those minutes elapse
 	if shippingRate > eggLayingRate {
 		fmt.Fprintf(&stats, "🚚 %s/hr  %s **%s/hr**  %s %s\n",
@@ -287,32 +299,20 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		ei.FormatEIValue(offlineRate, map[string]interface{}{"decimals": 3, "trim": true}),
 	)
 
-	habPercent := 0.0
-	if habCap > 0 {
-		habPercent = (habPop / habCap) * 100
-	}
-	onlineFillTime := ei.TimeForLinearGrowth(habPop, habCap, onlineRate/60)
-	offlineFillTime := ei.TimeForLinearGrowth(habPop, habCap, offlineRate/60)
-
-	if habPop == habCap {
-		fmt.Fprintf(&stats, "%s %d%% ⚠️🔒 at %s pop\n",
+	if habPop >= habCap || habPercent >= 99.9 {
+		fmt.Fprintf(&stats, "%s %d%% %s ⚠️🔒\n",
 			ei.GetBotEmojiMarkdown("hab"),
 			int(habPercent),
 			ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 3, "trim": true}))
 	} else {
-		fmt.Fprintf(&stats, "%s %d%% 🔒<t:%d:R> or 💤<t:%d:R>\n",
-			ei.GetBotEmojiMarkdown("hab"), int(habPercent),
+		fmt.Fprintf(&stats, "%s %s %d%% 🔒<t:%d:R> or 💤<t:%d:R>\n",
+			ei.GetBotEmojiMarkdown("hab"),
+			ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 3, "trim": true}),
+			int(habPercent),
 			time.Now().Add(time.Duration(int64(onlineFillTime))*time.Second).Unix(),
 			time.Now().Add(time.Duration(int64(offlineFillTime))*time.Second).Unix())
 	}
 
-	syncTime := time.Unix(int64(backup.GetApproxTime()), 0)
-	remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate, deliveryRate, selectedTarget-selectedDelivered)
-	elapsed := time.Since(syncTime).Hours()
-	adjustedRemainingTime := remainingTime - elapsed
-	if adjustedRemainingTime < 0 {
-		adjustedRemainingTime = 0
-	}
 	if adjustedRemainingTime == -1 {
 		fmt.Fprintf(&header, "**Deliver %s%s in more than 2 years**",
 			ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
@@ -327,8 +327,8 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 			ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
 			selectedEggEmote,
 			time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Hour).Unix())
-
 	}
+	fmt.Fprintf(&header, "\n-# includes %s offline eggs", ei.FormatEIValue(offlineEggs, map[string]interface{}{"decimals": 1, "trim": true}))
 
 	// If we have a selected egg type, show time to next TE
 
