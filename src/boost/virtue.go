@@ -348,7 +348,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	}
 
 	if adjustedRemainingTime == -1 {
-		fmt.Fprintf(&header, "**Deliver %s%s in more than 2 years**",
+		fmt.Fprintf(&header, "**Deliver %s%s in more than a year**",
 			ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
 			selectedEggEmote)
 	} else if adjustedRemainingTime < 24.0 {
