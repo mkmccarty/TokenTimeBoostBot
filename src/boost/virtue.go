@@ -279,9 +279,16 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 	shippingRate := ei.GetShippingRateFromBackup(farm, backup.GetGame())
 	eggLayingRate, habPop, habCap := ei.GetEggLayingRateFromBackup(farm, backup.GetGame())
-	deliveryRate := math.Min(eggLayingRate, shippingRate)
+	//deliveryRate := math.Min(eggLayingRate, shippingRate)
 	_, onlineRate, _, offlineRate := ei.GetInternalHatcheryFromBackup(farm.GetCommonResearch(), backup.GetGame(), artifactSetInUse, 1.0, allEov)
 	siloMinutes := ei.GetSiloMinutes(farm, backup.GetGame().GetEpicResearch())
+
+	fuelingEnabled := virtue.GetAfx().GetTankFillingEnabled()
+	fuelRate := 0.0
+	if fuelingEnabled {
+		fuelPercentage := virtue.GetAfx().GetFlowPercentageArtifacts()
+		fuelRate = eggLayingRate * fuelPercentage
+	}
 
 	habPercent := 0.0
 	if habCap > 0 {
@@ -290,30 +297,40 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	onlineFillTime := ei.TimeForLinearGrowth(habPop, habCap, onlineRate/60)
 	offlineFillTime := ei.TimeForLinearGrowth(habPop, habCap, offlineRate/60)
 	syncTime := time.Unix(int64(backup.GetApproxTime()), 0)
-	remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate, deliveryRate, selectedTarget-selectedDelivered)
+	remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, selectedTarget-selectedDelivered)
 	elapsed := time.Since(syncTime).Hours()
 	adjustedRemainingTime := remainingTime - elapsed
 	offlineEggs := min(eggLayingRate, shippingRate) * elapsed
 
 	// Want time from now when those minutes elapse
 	if shippingRate > eggLayingRate {
-		fmt.Fprintf(&stats, "🚚 %s/hr  %s **%s/hr**  %s %s\n",
+		fmt.Fprintf(&stats, "🚚 %s/hr  %s **%s/hr**",
 			ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 3, "trim": true}),
 			selectedEggEmote,
-			ei.FormatEIValue(eggLayingRate, map[string]interface{}{"decimals": 3, "trim": true}),
-			ei.GetBotEmojiMarkdown("silo"),
-			bottools.FmtDuration(time.Duration(siloMinutes)*time.Minute))
+			ei.FormatEIValue(eggLayingRate-fuelRate, map[string]interface{}{"decimals": 3, "trim": true}))
 	} else {
-		fmt.Fprintf(&stats, "🚚 **%s/hr**  %s %s/hr\n  %s %s",
+		fmt.Fprintf(&stats, "🚚 **%s/hr**  %s %s/hr",
 			ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 3, "trim": true}),
 			selectedEggEmote,
-			ei.FormatEIValue(eggLayingRate, map[string]interface{}{"decimals": 3, "trim": true}),
-			ei.GetBotEmojiMarkdown("silo"),
-			bottools.FmtDuration(time.Duration(siloMinutes)*time.Minute))
+			ei.FormatEIValue(eggLayingRate-fuelRate, map[string]interface{}{"decimals": 3, "trim": true}))
 	}
-	fmt.Fprintf(&stats, "**IHR** %s/min  💤 %s/min\n",
+	if fuelingEnabled {
+		if shippingRate > eggLayingRate {
+			fmt.Fprintf(&stats, " ⛽️ **%s**/hr\n",
+				ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 3, "trim": true}))
+		} else {
+			fmt.Fprintf(&stats, " ⛽️ %s/hr\n",
+				ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 3, "trim": true}))
+		}
+	} else {
+		fmt.Fprint(&stats, "\n")
+	}
+
+	fmt.Fprintf(&stats, "**IHR** %s/min  💤 %s/min  %s %s\n",
 		ei.FormatEIValue(onlineRate, map[string]interface{}{"decimals": 3, "trim": true}),
 		ei.FormatEIValue(offlineRate, map[string]interface{}{"decimals": 3, "trim": true}),
+		ei.GetBotEmojiMarkdown("silo"),
+		bottools.FmtDuration(time.Duration(siloMinutes)*time.Minute),
 	)
 
 	if habPop >= habCap || habPercent >= 99.9 {
@@ -355,13 +372,6 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		// Fuel rate if tank fueling is enabled
 		// Commented out until we can verify it works correctly
 		// 2024-06-10: Verified that this works correctly
-		/*
-			fuelingEnabled := virtue.GetAfx().GetTankFillingEnabled()
-			if fuelingEnabled {
-				fuelPercentage := virtue.GetAfx().GetFlowPercentageArtifacts()
-				fuelRate := eggLayingRate * fuelPercentage
-				fmt.Fprintf(&builder, "Fuel Rate: %s/hr\n", ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 3, "trim": true}))
-			}*/
 
 	}
 	fmt.Fprintf(&footer, "-# Report run <t:%d:t>, last sync <t:%d:t>\n", time.Now().Unix(), syncTime.Unix())
