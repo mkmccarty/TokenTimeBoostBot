@@ -601,7 +601,7 @@ func TimeToDeliverEggs(initialPop, maxPop, growthRatePerMinute, layingRatePerHou
 	timeStepMinutes := 5.0
 	layingRatePerStep := (layingRatePerHour / 60) * timeStepMinutes
 	shippingRatePerStep := (shippingRatePerHour / 60) * timeStepMinutes
-	//growthRatePerStep := growthRatePerMinute * timeStepMinutes
+	growthRatePerStep := growthRatePerMinute * timeStepMinutes
 
 	// Check if the shipping rate is sustainable
 	if layingRatePerHour*maxPop < shippingRatePerHour {
@@ -610,7 +610,7 @@ func TimeToDeliverEggs(initialPop, maxPop, growthRatePerMinute, layingRatePerHou
 
 	totalTimeMinutes := 0.0
 	totalEggsDelivered := 0.0
-	//currentPop := initialPop
+	currentPop := initialPop
 
 	// Loop until the target number of eggs is delivered
 	for totalEggsDelivered < targetEggs {
@@ -625,8 +625,16 @@ func TimeToDeliverEggs(initialPop, maxPop, growthRatePerMinute, layingRatePerHou
 		totalEggsDelivered += eggsToDeliverThisStep
 
 		// Update the population for the next time step using the logistical growth formula.
-		//term := math.Pow(math.E, -growthRatePerStep*(totalTimeMinutes/timeStepMinutes))
-		//currentPop = maxPop / (1 + ((maxPop/initialPop)-1)*term)
+		if currentPop <= maxPop {
+			oldPop := currentPop
+			currentPop += growthRatePerStep
+			if currentPop > maxPop {
+				currentPop = maxPop
+			}
+			// want % of pop increase so we can increase the delivery rate
+			popIncrease := currentPop - oldPop
+			deliveryRate *= (1 + popIncrease/oldPop)
+		}
 
 		// Increment time
 		totalTimeMinutes += timeStepMinutes
