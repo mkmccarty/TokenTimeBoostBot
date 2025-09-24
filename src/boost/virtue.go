@@ -305,30 +305,30 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	// Want time from now when those minutes elapse
 	if shippingRate > eggLayingRate {
 		fmt.Fprintf(&stats, "🚚 %s/hr  %s **%s/hr**",
-			ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 3, "trim": true}),
+			ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 2, "trim": true}),
 			selectedEggEmote,
-			ei.FormatEIValue(eggLayingRate-fuelRate, map[string]interface{}{"decimals": 3, "trim": true}))
+			ei.FormatEIValue(eggLayingRate-fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
 	} else {
 		fmt.Fprintf(&stats, "🚚 **%s/hr**  %s %s/hr",
-			ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 3, "trim": true}),
+			ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 2, "trim": true}),
 			selectedEggEmote,
-			ei.FormatEIValue(eggLayingRate-fuelRate, map[string]interface{}{"decimals": 3, "trim": true}))
+			ei.FormatEIValue(eggLayingRate-fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
 	}
 	if fuelingEnabled {
 		if shippingRate > eggLayingRate {
 			fmt.Fprintf(&stats, " ⛽️ **%s**/hr\n",
-				ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 3, "trim": true}))
+				ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
 		} else {
 			fmt.Fprintf(&stats, " ⛽️ %s/hr\n",
-				ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 3, "trim": true}))
+				ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
 		}
 	} else {
 		fmt.Fprint(&stats, "\n")
 	}
 
 	fmt.Fprintf(&stats, "**IHR** %s/min  💤 %s/min  %s %s\n",
-		ei.FormatEIValue(onlineRate, map[string]interface{}{"decimals": 3, "trim": true}),
-		ei.FormatEIValue(offlineRate, map[string]interface{}{"decimals": 3, "trim": true}),
+		ei.FormatEIValue(onlineRate, map[string]interface{}{"decimals": 2, "trim": true}),
+		ei.FormatEIValue(offlineRate, map[string]interface{}{"decimals": 2, "trim": true}),
 		ei.GetBotEmojiMarkdown("silo"),
 		bottools.FmtDuration(time.Duration(siloMinutes)*time.Minute),
 	)
@@ -337,11 +337,11 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		fmt.Fprintf(&stats, "%s %d%% %s ⚠️🔒\n",
 			habArt,
 			int(habPercent),
-			ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 3, "trim": true}))
+			ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 2, "trim": true}))
 	} else {
 		fmt.Fprintf(&stats, "%s %s %d%% 🔒<t:%d:R> or 💤<t:%d:R>\n",
 			habArt,
-			ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 3, "trim": true}),
+			ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 2, "trim": true}),
 			int(habPercent),
 			time.Now().Add(time.Duration(int64(onlineFillTime))*time.Second).Unix(),
 			time.Now().Add(time.Duration(int64(offlineFillTime))*time.Second).Unix())
@@ -357,7 +357,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 			selectedEggEmote,
 			time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Hour).Unix())
 	} else {
-		fmt.Fprintf(&header, "**Deliver %s%s <t:%d:f>**",
+		fmt.Fprintf(&header, "**Deliver %s%s <t:%d:f>**💤",
 			ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
 			selectedEggEmote,
 			time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Hour).Unix())
