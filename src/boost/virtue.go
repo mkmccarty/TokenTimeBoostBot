@@ -134,6 +134,7 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, percent int, e
 	userID := bottools.GetInteractionUserID(i)
 
 	backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, okayToSave)
+
 	farm := backup.GetFarms()[0]
 	if farm != nil {
 		farmType := farm.GetFarmType()
@@ -267,14 +268,16 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 	// Want time from now when those minutes elapse
 	if shippingRate > eggLayingRate {
-		fmt.Fprintf(&stats, "🚚 %s/hr  🥚 **%s/hr**  %s %s\n",
+		fmt.Fprintf(&stats, "🚚 %s/hr  %s **%s/hr**  %s %s\n",
 			ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 3, "trim": true}),
+			selectedEggEmote,
 			ei.FormatEIValue(eggLayingRate, map[string]interface{}{"decimals": 3, "trim": true}),
 			ei.GetBotEmojiMarkdown("silo"),
 			bottools.FmtDuration(time.Duration(siloMinutes)*time.Minute))
 	} else {
-		fmt.Fprintf(&stats, "🚚 **%s/hr**  🥚 %s/hr\n  %s %s",
+		fmt.Fprintf(&stats, "🚚 **%s/hr**  %s %s/hr\n  %s %s",
 			ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 3, "trim": true}),
+			selectedEggEmote,
 			ei.FormatEIValue(eggLayingRate, map[string]interface{}{"decimals": 3, "trim": true}),
 			ei.GetBotEmojiMarkdown("silo"),
 			bottools.FmtDuration(time.Duration(siloMinutes)*time.Minute))
@@ -303,7 +306,11 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	if adjustedRemainingTime < 0 {
 		adjustedRemainingTime = 0
 	}
-	if adjustedRemainingTime < 24.0 {
+	if adjustedRemainingTime == -1 {
+		fmt.Fprintf(&header, "**Deliver %s%s in more than 2 years**",
+			ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
+			selectedEggEmote)
+	} else if adjustedRemainingTime < 24.0 {
 		fmt.Fprintf(&header, "**Deliver %s%s <t:%d:R>**",
 			ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
 			selectedEggEmote,
@@ -333,6 +340,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 			}*/
 
 	}
+	fmt.Fprintf(&footer, "-# Report run <t:%d:t>, last sync <t:%d:t>\n", time.Now().Unix(), syncTime.Unix())
 
 	// Line for fuel
 	fuels := virtue.GetAfx().GetTankFuels()

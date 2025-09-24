@@ -55,6 +55,7 @@ func SetColleggtibleValues() {
 	colleggtibleELR = colELR
 	colleggtibleShip = colShip
 	colleggtibleHab = colHab
+	colleggtiblesIHR = colIHR
 }
 
 // GetGenerousGiftEvent will return the current Generous Gift event multiplier

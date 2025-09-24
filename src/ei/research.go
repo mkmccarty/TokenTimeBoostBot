@@ -463,6 +463,7 @@ func GetShippingRate(farmInfo *PlayerFarmInfo) float64 {
 	return userShippingRate * colleggtibleShip * 60
 }
 
+// GetShippingRateFromBackup calculates the shipping rate multiplier
 func GetShippingRateFromBackup(farmInfo *Backup_Simulation, game *Backup_Game) float64 {
 	universalShippingMultiplier := 1.0
 
@@ -510,7 +511,6 @@ func GetInternalHatcheryFromBackup(commonResearch []*Backup_ResearchItem, game *
 
 	baseRate := 0.0
 	artifactsMultiplier := 1.0
-	collIHR := 1.05
 
 	_, _, hatcheryAdditive := GetResearchInternalHatchery(commonResearch)
 	onlineMultiplier, offlineMultiplier, _ := GetResearchInternalHatchery(game.GetEpicResearch())
@@ -523,7 +523,7 @@ func GetInternalHatcheryFromBackup(commonResearch []*Backup_ResearchItem, game *
 
 	// With max internal hatchery sharing, four internal hatcheries are constantly
 	// at work even if not all habs are bought;
-	onlineRatePerHab := baseRate * onlineMultiplier * artifactsMultiplier * modifier * truthEggBonus * collIHR
+	onlineRatePerHab := baseRate * onlineMultiplier * artifactsMultiplier * modifier * truthEggBonus * colleggtiblesIHR
 	onlineRate := 4 * onlineRatePerHab
 	offlineRatePerHab := onlineRatePerHab * offlineMultiplier
 	offlineRate := onlineRate * offlineMultiplier
@@ -631,7 +631,7 @@ func TimeToDeliverEggs(initialPop, maxPop, growthRatePerMinute, layingRatePerHou
 		totalTimeMinutes += timeStepMinutes
 
 		// Safety break to prevent infinite loops if the target is unreachable.
-		if totalTimeMinutes > 10000000 { // A large number of minutes as a safety limit
+		if totalTimeMinutes > 1_051_200 { // A large number of minutes as a safety limit
 			return -1.0
 		}
 	}
