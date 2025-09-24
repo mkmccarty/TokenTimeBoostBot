@@ -163,18 +163,22 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	virtue := backup.GetVirtue()
 	//pe := backup.GetGame().GetEggsOfProphecy()
 	se := backup.GetGame().GetSoulEggsD()
-	builder := strings.Builder{}
 	if virtue == nil {
 		components = append(components, &discordgo.TextDisplay{
 			Content: "No virtue backup data found in Egg Inc API response",
 		})
 		return components
 	}
+	header := strings.Builder{}
+	eggs := strings.Builder{}
+	stats := strings.Builder{}
+	rockets := strings.Builder{}
+	footer := strings.Builder{}
 
 	shiftCost := getShiftCost(virtue.GetShiftCount(), se)
 
-	fmt.Fprintf(&builder, "# Eggs of Virtue Helper\n")
-	fmt.Fprintf(&builder, "**Resets**: %d  **Shifts**: %d  %s%s\n",
+	fmt.Fprintf(&header, "# Eggs of Virtue Helper\n")
+	fmt.Fprintf(&header, "**Resets**: %d  **Shifts**: %d  %s%s\n",
 		virtue.GetResets(),
 		virtue.GetShiftCount(),
 		ei.GetBotEmojiMarkdown("egg_soul"),
@@ -186,10 +190,9 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	var allEov uint32 = 0
 	var futureEov uint32 = 0
 
-	vebuilder := strings.Builder{}
-
 	selectedTarget := 0.0
 	selectedDelivered := 0.0
+	selectedEggEmote := ""
 
 	for i, egg := range virtueEggs {
 		eov := virtue.GetEovEarned()[i] // Assuming Eggs is the correct field for accessing egg virtues
@@ -204,12 +207,13 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 			selected = " (farm)"
 			selectedTarget = nextTier
 			selectedDelivered = delivered
+			selectedEggEmote = ei.GetBotEmojiMarkdown("egg_" + strings.ToLower(egg))
 		}
 
 		allEov += eovEarned - eovPending
 		futureEov += eovPending
 
-		fmt.Fprintf(&vebuilder, "%s%s`%3s %5s %9s `%s%s\n",
+		fmt.Fprintf(&eggs, "%s%s`%3s %5s %9s `%s%s\n",
 			bottools.AlignString(ei.GetBotEmojiMarkdown("egg_"+strings.ToLower(egg)), 1, bottools.StringAlignCenter),
 			bottools.AlignString(eggEffects[i], 1, bottools.StringAlignCenter),
 			bottools.AlignString(fmt.Sprintf("%d", eovEarned-eovPending), 3, bottools.StringAlignRight),
@@ -222,39 +226,17 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 	eb := getEarningsBonus(backup, float64(allEov))
 	ebFuture := getEarningsBonus(backup, float64(allEov+futureEov))
-	fmt.Fprintf(&builder, "**PE**: %d  **SE**: %s  **TE**: %d  (+%d)\n",
+	fmt.Fprintf(&header, "**PE**: %d  **SE**: %s  **TE**: %d  (+%d)\n",
 		backup.GetGame().GetEggsOfProphecy(),
 		ei.FormatEIValue(backup.GetGame().GetSoulEggsD(), map[string]interface{}{"decimals": 3, "trim": true}),
 		allEov,
 		futureEov)
 
-	fmt.Fprintf(&builder, "**EB**: %s%%  (+%s%%) ->  **%s%%**\n\n",
+	fmt.Fprintf(&header, "**EB**: %s%%  (+%s%%) ->  **%s%%**\n",
 		ei.FormatEIValue(eb, map[string]interface{}{"decimals": 3, "trim": true}),
 		ei.FormatEIValue(ebFuture-eb, map[string]interface{}{"decimals": 2, "trim": true}),
 		ei.FormatEIValue(ebFuture, map[string]interface{}{"decimals": 3, "trim": true}),
 	)
-
-	components = append(components, &discordgo.Section{
-		Components: []discordgo.MessageComponent{
-			&discordgo.TextDisplay{
-				Content: builder.String(),
-			},
-		},
-		Accessory: &discordgo.Thumbnail{
-			Media: discordgo.UnfurledMediaItem{
-				URL: "https://cdn.discordapp.com/emojis/1418022084205875210.webp?size=128",
-			},
-		},
-	})
-	components = append(components, &discordgo.Separator{
-		Divider: &divider,
-		Spacing: &spacing,
-	})
-	components = append(components, &discordgo.TextDisplay{
-		Content: vebuilder.String(),
-	})
-	//builder.WriteString(vebuilder.String())
-	builder.Reset()
 
 	// What are my artifacts.
 	virtueArtifactDB := backup.ArtifactsDb.GetVirtueAfxDb()
@@ -281,65 +263,63 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	eggLayingRate, habPop, habCap := ei.GetEggLayingRateFromBackup(farm, backup.GetGame())
 	deliveryRate := math.Min(eggLayingRate, shippingRate)
 	_, onlineRate, _, offlineRate := ei.GetInternalHatcheryFromBackup(farm.GetCommonResearch(), backup.GetGame(), artifactSetInUse, 1.0, allEov)
-	// Want time from now when those minutes elapse
-
-	tblFmt := "`%20s %10s`\n"
-	fmt.Fprintf(&builder, tblFmt,
-		bottools.AlignString("Shipping Capacity:", 20, bottools.StringAlignLeft),
-		bottools.AlignString(fmt.Sprintf("%s/hr", ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 3, "trim": true})), 10, bottools.StringAlignCenter),
-	)
-	fmt.Fprintf(&builder, tblFmt,
-		bottools.AlignString("Egg Laying Rate:", 20, bottools.StringAlignLeft),
-		bottools.AlignString(fmt.Sprintf("%s/hr", ei.FormatEIValue(eggLayingRate, map[string]interface{}{"decimals": 3, "trim": true})), 10, bottools.StringAlignCenter),
-	)
-	fmt.Fprintf(&builder, tblFmt,
-		bottools.AlignString("Delivery Rate:", 20, bottools.StringAlignLeft),
-		bottools.AlignString(fmt.Sprintf("%s/hr", ei.FormatEIValue(deliveryRate, map[string]interface{}{"decimals": 3, "trim": true})), 10, bottools.StringAlignCenter),
-	)
 	siloMinutes := ei.GetSiloMinutes(farm, backup.GetGame().GetEpicResearch())
-	fmt.Fprintf(&builder, tblFmt,
-		bottools.AlignString("Silo Minutes:", 20, bottools.StringAlignLeft),
-		bottools.AlignString(bottools.FmtDuration(time.Duration(siloMinutes)*time.Minute), 10, bottools.StringAlignCenter))
+
+	// Want time from now when those minutes elapse
+	if shippingRate > eggLayingRate {
+		fmt.Fprintf(&stats, "🚚 %s/hr  🥚 **%s/hr**  %s %s\n",
+			ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 3, "trim": true}),
+			ei.FormatEIValue(eggLayingRate, map[string]interface{}{"decimals": 3, "trim": true}),
+			ei.GetBotEmojiMarkdown("silo"),
+			bottools.FmtDuration(time.Duration(siloMinutes)*time.Minute))
+	} else {
+		fmt.Fprintf(&stats, "🚚 **%s/hr**  🥚 %s/hr\n  %s %s",
+			ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 3, "trim": true}),
+			ei.FormatEIValue(eggLayingRate, map[string]interface{}{"decimals": 3, "trim": true}),
+			ei.GetBotEmojiMarkdown("silo"),
+			bottools.FmtDuration(time.Duration(siloMinutes)*time.Minute))
+	}
+	fmt.Fprintf(&stats, "**IHR** %s/min  💤 %s/min\n",
+		ei.FormatEIValue(onlineRate, map[string]interface{}{"decimals": 3, "trim": true}),
+		ei.FormatEIValue(offlineRate, map[string]interface{}{"decimals": 3, "trim": true}),
+	)
 
 	habPercent := 0.0
 	if habCap > 0 {
 		habPercent = (habPop / habCap) * 100
 	}
-	fmt.Fprintf(&builder, "`%15s %10s`\n",
-		bottools.AlignString("Hab Pop:", 15, bottools.StringAlignLeft),
-		bottools.AlignString(
-			fmt.Sprintf("%.0f%% (%s / %s)",
-				habPercent,
-				ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 0, "trim": true}),
-				ei.FormatEIValue(habCap, map[string]interface{}{"decimals": 0, "trim": true})),
-			10, bottools.StringAlignCenter),
-	)
-	if config.IsDevBot() {
-		// Deliver this many more eggs in this many minutes
-		fmt.Fprintf(&builder, "Active IHR: %s/hr\n",
-			ei.FormatEIValue(onlineRate, map[string]interface{}{"decimals": 3, "trim": true}))
-		fmt.Fprintf(&builder, "Offline IHR: %s/hr\n",
-			ei.FormatEIValue(offlineRate, map[string]interface{}{"decimals": 3, "trim": true}))
+	onlineFillTime := ei.TimeForLinearGrowth(habPop, habCap, onlineRate/60)
+	offlineFillTime := ei.TimeForLinearGrowth(habPop, habCap, offlineRate/60)
+
+	fmt.Fprintf(&stats, "%s %d%% 🔒<t:%d:R> or 💤<t:%d:R>\n",
+		ei.GetBotEmojiMarkdown("hab"), int(habPercent),
+		time.Now().Add(time.Duration(int64(onlineFillTime))*time.Second).Unix(),
+		time.Now().Add(time.Duration(int64(offlineFillTime))*time.Second).Unix())
+
+	syncTime := time.Unix(int64(backup.GetApproxTime()), 0)
+	remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate, deliveryRate, selectedTarget-selectedDelivered)
+	elapsed := time.Since(syncTime).Hours()
+	adjustedRemainingTime := remainingTime - elapsed
+	if adjustedRemainingTime < 0 {
+		adjustedRemainingTime = 0
+	}
+	if adjustedRemainingTime < 24.0 {
+		fmt.Fprintf(&header, "**Deliver %s%s <t:%d:R>**",
+			ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
+			selectedEggEmote,
+			time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Hour).Unix())
+	} else {
+		fmt.Fprintf(&header, "**Deliver %s%s <t:%d:f>**",
+			ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
+			selectedEggEmote,
+			time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Hour).Unix())
+
 	}
 
 	// If we have a selected egg type, show time to next TE
 
 	if selectedTarget != 0 {
-		// How much time at current delivery rate to
-		remainingEggs := selectedTarget - selectedDelivered
-		var minutes float64 = 0
-		if deliveryRate > 0 {
-			minutes = remainingEggs / (deliveryRate / 60.0)
-		}
-
-		if config.IsDevBot() {
-			if minutes > 0 {
-				fmt.Fprintf(&builder, "TE with %s more eggs <t:%d:R>.\n",
-					ei.FormatEIValue(remainingEggs, map[string]interface{}{"decimals": 1, "trim": true}),
-					time.Now().Add(time.Duration(int64(minutes))*time.Minute).Unix())
-			}
-		}
-		fmt.Fprintf(&builder, "-# Artifacts aren't included in these calculations\n")
+		fmt.Fprintf(&footer, "-# Artifacts aren't included in these calculations\n")
 
 		// Fuel rate if tank fueling is enabled
 		// Commented out until we can verify it works correctly
@@ -352,22 +332,18 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 				fmt.Fprintf(&builder, "Fuel Rate: %s/hr\n", ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 3, "trim": true}))
 			}*/
 
-		components = append(components, &discordgo.TextDisplay{
-			Content: builder.String(),
-		})
-		builder.Reset()
 	}
 
 	// Line for fuel
 	fuels := virtue.GetAfx().GetTankFuels()
 	fuels = fuels[len(fuels)-5:]
-	builder.WriteString("\n⛽️ ")
+	rockets.WriteString("\n⛽️ ")
 	for i, fuel := range fuels {
-		fmt.Fprintf(&builder, " %s:%s",
+		fmt.Fprintf(&rockets, " %s:%s",
 			ei.GetBotEmojiMarkdown("egg_"+strings.ToLower(virtueEggs[i])),
 			ei.FormatEIValue(fuel, map[string]interface{}{"decimals": 1, "trim": true}))
 	}
-	builder.WriteString("\n")
+	rockets.WriteString("\n")
 	//fmt.Fprintf(&builder, "### Missions on %s\n", ei.GetBotEmojiMarkdown("egg_humility"))
 	artifacts := backup.GetArtifactsDb()
 	missions := artifacts.GetMissionInfos()
@@ -382,16 +358,43 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 				art = craft.ArtDev
 			}
 			timeRemaining := mission.GetSecondsRemaining()
-			fmt.Fprintf(&builder, "%s <t:%d:R> \n", art, time.Now().Unix()+int64(timeRemaining))
+			fmt.Fprintf(&rockets, "%s <t:%d:R> \n", art, time.Now().Unix()+int64(timeRemaining))
 		}
 	}
 
+	components = append(components, &discordgo.Section{
+		Components: []discordgo.MessageComponent{
+			&discordgo.TextDisplay{
+				Content: header.String(),
+			},
+		},
+		Accessory: &discordgo.Thumbnail{
+			Media: discordgo.UnfurledMediaItem{
+				URL: "https://cdn.discordapp.com/emojis/1418022084205875210.webp?size=128",
+			},
+		},
+	})
 	components = append(components, &discordgo.Separator{
 		Divider: &divider,
 		Spacing: &spacing,
 	})
 	components = append(components, &discordgo.TextDisplay{
-		Content: builder.String(),
+		Content: eggs.String(),
+	})
+
+	components = append(components, &discordgo.TextDisplay{
+		Content: stats.String(),
+	})
+	components = append(components, &discordgo.Separator{
+		Divider: &divider,
+		Spacing: &spacing,
+	})
+
+	components = append(components, &discordgo.TextDisplay{
+		Content: rockets.String(),
+	})
+	components = append(components, &discordgo.TextDisplay{
+		Content: footer.String(),
 	})
 
 	return components

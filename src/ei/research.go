@@ -1,6 +1,9 @@
 package ei
 
-import "math"
+import (
+	"fmt"
+	"math"
+)
 
 // Vehicles
 
@@ -540,4 +543,98 @@ func GetSiloMinutes(farmInfo *Backup_Simulation, epicResearch []*Backup_Research
 	silosOwned := farmInfo.GetSilosOwned()
 
 	return uint32(baseSiloMinutes * float64(silosOwned))
+}
+
+// TimeForLinearGrowth calculates the time required to reach a target population
+// with a constant, absolute growth rate.
+//
+// Arguments:
+//
+//	initialPopulation: The starting population.
+//	targetPopulation: The desired population.
+//	growthRate: The fixed number of people added per unit of time.
+//
+// Returns:
+//
+//	The time in units consistent with the growth rate (e.g., minutes).
+func TimeForLinearGrowth(initialPopulation, targetPopulation, growthRate float64) float64 {
+	// Panic if inputs are invalid to prevent non-sensical calculations.
+	if growthRate <= 0 {
+		panic("Growth rate must be a positive number.")
+	}
+
+	// If the target is not larger than the initial population, no time has passed.
+	if targetPopulation <= initialPopulation {
+		return 0
+	}
+
+	// Calculate the difference between the target and initial populations.
+	populationDifference := targetPopulation - initialPopulation
+
+	// Divide the difference by the growth rate to get the time.
+	time := populationDifference / growthRate
+	return time
+}
+
+// TimeToDeliverEggs simulates population growth and egg production to find the time
+// required to deliver a certain number of eggs.
+//
+// Arguments:
+//
+//	initialPop: The starting chicken population.
+//	maxPop: The maximum carrying capacity of the population.
+//	growthRatePerMinute: The growth rate of the population per minute.
+//	layingRatePerHour: The number of eggs laid per chicken per hour.
+//	shippingRatePerHour: The constant number of eggs shipped per hour.
+//	targetEggs: The total number of eggs to deliver.
+//
+// Returns:
+//
+//	The time in hours, or -1 if the target is unreachable.
+func TimeToDeliverEggs(initialPop, maxPop, growthRatePerMinute, layingRatePerHour, shippingRatePerHour, targetEggs float64) float64 {
+	// Validate inputs
+	if initialPop <= 0 || maxPop <= 0 || growthRatePerMinute <= 0 || layingRatePerHour <= 0 || targetEggs <= 0 {
+		return -1.0 // Return -1 for invalid inputs
+	}
+
+	// Convert rates to be consistent with the 5-minute time step
+	timeStepMinutes := 5.0
+	layingRatePerStep := (layingRatePerHour / 60) * timeStepMinutes
+	shippingRatePerStep := (shippingRatePerHour / 60) * timeStepMinutes
+	growthRatePerStep := growthRatePerMinute * timeStepMinutes
+
+	// Check if the shipping rate is sustainable
+	if layingRatePerHour*maxPop < shippingRatePerHour {
+		fmt.Println("Warning: Shipping rate is higher than the maximum possible laying rate. The target may never be reached.")
+	}
+
+	totalTimeMinutes := 0.0
+	totalEggsDelivered := 0.0
+	currentPop := initialPop
+
+	// Loop until the target number of eggs is delivered
+	for totalEggsDelivered < targetEggs {
+		// Calculate the number of eggs laid in this time step
+		eggsLaidInStep := layingRatePerStep * currentPop
+
+		// Calculate the eggs delivered in this time step (limited by the eggs available)
+		eggsToDeliverThisStep := math.Min(eggsLaidInStep, shippingRatePerStep)
+
+		// Update total eggs delivered
+		totalEggsDelivered += eggsToDeliverThisStep
+
+		// Update the population for the next time step using the logistical growth formula.
+		term := math.Pow(math.E, -growthRatePerStep*(totalTimeMinutes/timeStepMinutes))
+		currentPop = maxPop / (1 + ((maxPop/initialPop)-1)*term)
+
+		// Increment time
+		totalTimeMinutes += timeStepMinutes
+
+		// Safety break to prevent infinite loops if the target is unreachable.
+		if totalTimeMinutes > 10000000 { // A large number of minutes as a safety limit
+			return -1.0
+		}
+	}
+
+	return totalTimeMinutes / 60.0
 }
