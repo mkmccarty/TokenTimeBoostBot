@@ -187,6 +187,12 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	//fmt.Fprintf(&builder, "Inventory Score %.0f\n", virtue.GetAfx().GetInventoryScore())
 	virtueEggs := []string{"CURIOSITY", "INTEGRITY", "HUMILITY", "RESILIENCE", "KINDNESS"}
 	eggEffects := []string{"🔬", ei.GetBotEmojiMarkdown("hab"), ei.GetBotEmojiMarkdown("chickenheavy"), ei.GetBotEmojiMarkdown("silo"), "🚚"}
+	lastFueled := virtue.GetAfx().GetLastFueledShip()
+	craft := missionArt.Ships[lastFueled]
+	eggEffects[2] = craft.Art
+	if config.IsDevBot() {
+		eggEffects[2] = craft.ArtDev
+	}
 
 	var allEov uint32 = 0
 	var futureEov uint32 = 0
