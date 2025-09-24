@@ -32,9 +32,9 @@ type ScoreCalcParams struct {
 	contractInfo         string
 	Grade                ei.Contract_PlayerGrade `json:"grade"`
 	public               bool
-	Deflector            int       `json:"deflector"`
+	Deflector            float64   `json:"deflector"`
 	DeflectorDownMinutes int       `json:"deflector_down_minutes"`
-	Siab                 int       `json:"siab"`
+	Siab                 float64   `json:"siab"`
 	SiabMinutes          int       `json:"siab_minutes"`
 	Style                int       `json:"style"`
 	PlayStyleValues      []float64 `json:"play_style_values"`
@@ -252,8 +252,8 @@ func getScoreExplorerCalculations(params ScoreCalcParams) (string, *discordgo.Me
 	// Explain the settings
 	builder.Reset()
 	fmt.Fprintf(&builder, "Playstyle: %s - duration %v\n", playStyles[params.Style], contractDur.Round(time.Minute).String())
-	fmt.Fprintf(&builder, "Deflector: %d%% unequipped for %dm\n", params.Deflector, params.DeflectorDownMinutes)
-	fmt.Fprintf(&builder, "SIAB: %d%% equipped for %dm\n", params.Siab, params.SiabMinutes)
+	fmt.Fprintf(&builder, "Deflector: %.1f%% unequipped for %dm\n", params.Deflector, params.DeflectorDownMinutes)
+	fmt.Fprintf(&builder, "SIAB: %.1f%% equipped for %dm\n", params.Siab, params.SiabMinutes)
 	fmt.Fprintf(&builder, "Fair Share: %2.1fx\n", ratio)
 	fmt.Fprintf(&builder, "TVal Sent: %s\n", tokenSentValueStr[params.TvalSent])
 	fmt.Fprintf(&builder, "TVal Recv: %s\n", tokenRecvValueStr[params.TvalReceived])
@@ -561,7 +561,7 @@ func HandleScoreExplorerPage(s *discordgo.Session, i *discordgo.InteractionCreat
 			log.Println("Invalid deflector value:", err)
 			return
 		}
-		params.Deflector = deflectorValue
+		params.Deflector = float64(deflectorValue)
 	}
 	if len(reaction) == 3 && reaction[2] == "siab" {
 		siabValue, err := strconv.Atoi(i.MessageComponentData().Values[0])
@@ -569,7 +569,7 @@ func HandleScoreExplorerPage(s *discordgo.Session, i *discordgo.InteractionCreat
 			log.Println("Invalid deflector value:", err)
 			return
 		}
-		params.Siab = siabValue
+		params.Siab = float64(siabValue)
 	}
 	if len(reaction) == 3 && reaction[2] == "load" {
 		// Load settings

@@ -97,7 +97,12 @@ func getPredictedTeamwork(B float64, CR float64, T float64) float64 {
 
 // getContractScoreEstimate will return the estimated score for the contract
 // based on the given parameters
-func getContractScoreEstimate(c ei.EggIncContract, grade ei.Contract_PlayerGrade, fastest bool, durationMod float64, fairShare float64, siabPercent int, siabMinutes int, deflPercent int, deflMinutesReduction int, chickenRuns int, sentTokens float64, receivedTokens float64) int64 {
+func getContractScoreEstimate(c ei.EggIncContract, grade ei.Contract_PlayerGrade, fastest bool, durationMod float64, fairShare float64, siabPercent float64, siabMinutes int, deflPercent float64, deflMinutesReduction int, chickenRuns int, sentTokens float64, receivedTokens float64) int64 {
+	if c.CxpVersion == 1 {
+		// Sept 22, 2025 and newer contracts don't have buffs
+		siabPercent = min(siabPercent, 50)   //cap at T3C
+		deflPercent = min(deflPercent, 37.5) // cap at T3C
+	}
 	earnings := float64(siabPercent) * 0.0075
 	eggRate := float64(deflPercent) * 0.075
 
