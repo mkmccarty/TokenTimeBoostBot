@@ -184,15 +184,26 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		virtue.GetShiftCount(),
 		ei.GetBotEmojiMarkdown("egg_soul"),
 		ei.FormatEIValue(shiftCost, map[string]interface{}{"decimals": 3, "trim": true}))
+	// Ship icon uses last fueled ship art
+	lastFueled := virtue.GetAfx().GetLastFueledShip()
+	craftArt := missionArt.Ships[lastFueled].Art
+	if config.IsDevBot() {
+		craftArt = missionArt.Ships[lastFueled].ArtDev
+	}
+	// Hab
+	highestHab := 1
+	for _, h := range farm.GetHabs() {
+		id := h // h is already a uint32 representing the habitat ID
+		if int(id) > highestHab {
+			highestHab = int(id)
+		}
+	}
+	habArt := ei.GetBotEmojiMarkdown(fmt.Sprintf("hab%d", highestHab))
+
 	//fmt.Fprintf(&builder, "Inventory Score %.0f\n", virtue.GetAfx().GetInventoryScore())
 	virtueEggs := []string{"CURIOSITY", "INTEGRITY", "HUMILITY", "RESILIENCE", "KINDNESS"}
-	eggEffects := []string{"🔬", ei.GetBotEmojiMarkdown("hab"), ei.GetBotEmojiMarkdown("chickenheavy"), ei.GetBotEmojiMarkdown("silo"), "🚚"}
-	lastFueled := virtue.GetAfx().GetLastFueledShip()
-	craft := missionArt.Ships[lastFueled]
-	eggEffects[2] = craft.Art
-	if config.IsDevBot() {
-		eggEffects[2] = craft.ArtDev
-	}
+	eggEffects := []string{"🔬", habArt, craftArt, ei.GetBotEmojiMarkdown("silo"), "🚚"}
+	// Use highest Hab for Hab emoji
 
 	var allEov uint32 = 0
 	var futureEov uint32 = 0
@@ -307,12 +318,12 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 	if habPop >= habCap || habPercent >= 99.9 {
 		fmt.Fprintf(&stats, "%s %d%% %s ⚠️🔒\n",
-			ei.GetBotEmojiMarkdown("hab"),
+			habArt,
 			int(habPercent),
 			ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 3, "trim": true}))
 	} else {
 		fmt.Fprintf(&stats, "%s %s %d%% 🔒<t:%d:R> or 💤<t:%d:R>\n",
-			ei.GetBotEmojiMarkdown("hab"),
+			habArt,
 			ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 3, "trim": true}),
 			int(habPercent),
 			time.Now().Add(time.Duration(int64(onlineFillTime))*time.Second).Unix(),
