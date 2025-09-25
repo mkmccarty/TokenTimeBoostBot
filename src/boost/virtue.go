@@ -371,11 +371,12 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 	// If we have a selected egg type, show time to next TE
 
-	fmt.Fprintf(&footer, "-# Artifacts  SR:%v%%  ELR:%v%%  IHR:%v%%  Hab:%v%%. Max Colleggtibles Assumed.\n",
+	fmt.Fprintf(&stats, "**Artifacts**  SR:%v%%  ELR:%v%%  IHR:%v%%  Hab:%v%%.\n",
 		math.Round((artifactSR-1)*100),
 		math.Round((artifactELR-1)*100),
 		math.Round((artifactIHR-1)*100),
 		math.Round((artifactHab-1)*100))
+	fmt.Fprint(&footer, "-# Max Colleggtibles Assumed.\n")
 	fmt.Fprintf(&footer, "-# Report run <t:%d:t>, last sync <t:%d:t>\n", time.Now().Unix(), syncTime.Unix())
 
 	// Line for fuel
