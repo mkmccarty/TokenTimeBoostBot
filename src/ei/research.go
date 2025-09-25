@@ -507,7 +507,7 @@ func GetResearchInternalHatchery(commonResearch []*Backup_ResearchItem) (float64
 }
 
 // GetInternalHatcheryFromBackup calculates the internal hatchery rate multiplier
-func GetInternalHatcheryFromBackup(commonResearch []*Backup_ResearchItem, game *Backup_Game, artifacts []*ArtifactInventoryItem, modifier float64, truthEggs uint32) (float64, float64, float64, float64) {
+func GetInternalHatcheryFromBackup(commonResearch []*Backup_ResearchItem, game *Backup_Game, modifier float64, truthEggs uint32) (float64, float64, float64, float64) {
 
 	baseRate := 0.0
 	artifactsMultiplier := 1.0
@@ -518,8 +518,6 @@ func GetInternalHatcheryFromBackup(commonResearch []*Backup_ResearchItem, game *
 	baseRate += hatcheryAdditive
 
 	truthEggBonus := math.Pow(1.1, float64(truthEggs)) // 10% per truth egg
-
-	// artifactsMultiplier = internalHatcheryRateMultiplier(artifacts);
 
 	// With max internal hatchery sharing, four internal hatcheries are constantly
 	// at work even if not all habs are bought;
@@ -647,3 +645,74 @@ func TimeToDeliverEggs(initialPop, maxPop, growthRatePerMinute, layingRatePerHou
 
 	return totalTimeMinutes / 60.0
 }
+
+func GetArtifactBuffs(artifacts []*CompleteArtifact) (float64, float64, float64, float64) {
+	artifactELR := 1.0
+	artifactSR := 1.0
+	artifactIHR := 1.0
+	artifactHab := 1.0
+
+	levels := []string{"T1", "T2", "T3", "T4", "T5"}
+	rarity := []string{"C", "R", "E", "L"}
+	chalice := map[string]float64{
+		"T1C": 5.0,
+		"T2C": 10.0, "T2E": 15.0,
+		"T3C": 20.0, "T3R": 23.0, "T3E": 25.0,
+		"T4C": 30.0, "T4E": 35.0, "T4L": 40.0,
+	}
+	metronome := map[string]float64{
+		"T1C": 5.0,
+		"T2C": 10.0, "T2R": 12.0,
+		"T3C": 15.0, "T3R": 17.0, "T3E": 20.0,
+		"T4C": 25.0, "T4R": 27.0, "T4E": 30.0, "T4L": 35.0,
+	}
+	compass := map[string]float64{
+		"T1C": 5.0,
+		"T2C": 10.0,
+		"T3C": 20.0, "T3R": 22.0,
+		"T4C": 30.0, "T4R": 35.0, "T4E": 40.0, "T4L": 50.0,
+	}
+	gussett := map[string]float64{
+		"T1C": 5.0,
+		"T2C": 10.0, "T2E": 12.0,
+		"T3C": 15.0, "T3R": 16.0,
+		"T4C": 20.0, "T4E": 22.0, "T4L": 25.0,
+	}
+
+	artifactPercentLevels := []float64{1.02, 1.04, 1.05}
+
+	for _, artifact := range artifacts {
+		spec := artifact.GetSpec()
+		strType := levels[spec.GetLevel()] + rarity[spec.GetRarity()]
+		switch spec.GetName() {
+		case ArtifactSpec_QUANTUM_METRONOME:
+			artifactELR *= metronome[strType]
+		case ArtifactSpec_INTERSTELLAR_COMPASS:
+			artifactSR *= compass[strType]
+		case ArtifactSpec_ORNATE_GUSSET:
+			artifactHab *= gussett[strType]
+		case ArtifactSpec_THE_CHALICE:
+			artifactIHR *= chalice[strType]
+		default:
+		}
+
+		for _, stone := range artifact.GetStones() {
+			switch stone.GetName() {
+			case ArtifactSpec_TACHYON_STONE:
+				artifactELR *= artifactPercentLevels[stone.GetLevel()]
+			case ArtifactSpec_QUANTUM_STONE:
+				artifactSR *= artifactPercentLevels[stone.GetLevel()]
+			case ArtifactSpec_LIFE_STONE:
+				artifactIHR *= artifactPercentLevels[stone.GetLevel()]
+			default:
+
+			}
+		}
+	}
+	return artifactELR, artifactSR, artifactIHR, artifactHab
+}
+
+/*
+	switch spec.GetName() {
+
+*/

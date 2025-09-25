@@ -268,19 +268,24 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 			inUseArtifacts = append(inUseArtifacts, artifactID)
 		}
 	}
-	artifactSetInUse := []*ei.ArtifactInventoryItem{}
+	artifactSetInUse := []*ei.CompleteArtifact{}
 
 	for _, artifact := range virtueArtifacts {
 		artifactID := artifact.GetItemId()
 		if slices.Contains(inUseArtifacts, artifactID) {
-			artifactSetInUse = append(artifactSetInUse, artifact)
+			artifactSetInUse = append(artifactSetInUse, artifact.GetArtifact())
 		}
 	}
+
+	artifactELR, artifactSR, artifactIHR, artifactHab := ei.GetArtifactBuffs(artifactSetInUse)
 
 	shippingRate := ei.GetShippingRateFromBackup(farm, backup.GetGame())
 	eggLayingRate, habPop, habCap := ei.GetEggLayingRateFromBackup(farm, backup.GetGame())
 	//deliveryRate := math.Min(eggLayingRate, shippingRate)
-	_, onlineRate, _, offlineRate := ei.GetInternalHatcheryFromBackup(farm.GetCommonResearch(), backup.GetGame(), artifactSetInUse, 1.0, allEov)
+	eggLayingRate *= artifactELR * artifactHab
+	shippingRate *= artifactSR
+	habCap *= artifactHab
+	_, onlineRate, _, offlineRate := ei.GetInternalHatcheryFromBackup(farm.GetCommonResearch(), backup.GetGame(), artifactIHR, allEov)
 	siloMinutes := ei.GetSiloMinutes(farm, backup.GetGame().GetEpicResearch())
 
 	fuelingEnabled := virtue.GetAfx().GetTankFillingEnabled()
@@ -366,14 +371,11 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 	// If we have a selected egg type, show time to next TE
 
-	if selectedTarget != 0 {
-		fmt.Fprintf(&footer, "-# Artifacts aren't included in these calculations\n")
-
-		// Fuel rate if tank fueling is enabled
-		// Commented out until we can verify it works correctly
-		// 2024-06-10: Verified that this works correctly
-
-	}
+	fmt.Fprintf(&footer, "-# Artifacts  SR:%v%%  ELR:%v%%  IHR:%v%%  Hab:%v%%\n",
+		math.Round((artifactSR-1)*100),
+		math.Round((artifactELR-1)*100),
+		math.Round((artifactIHR-1)*100),
+		math.Round((artifactHab-1)*100))
 	fmt.Fprintf(&footer, "-# Report run <t:%d:t>, last sync <t:%d:t>\n", time.Now().Unix(), syncTime.Unix())
 
 	// Line for fuel
