@@ -200,9 +200,18 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	}
 	habArt := ei.GetBotEmojiMarkdown(fmt.Sprintf("hab%d", highestHab))
 
+	highestVehicle := 1
+	for _, v := range farm.GetVehicles() {
+		id := v // v is already a uint32 representing the vehicle ID
+		if int(id) > highestVehicle {
+			highestVehicle = int(id)
+		}
+	}
+	VehicleArt := ei.GetBotEmojiMarkdown(fmt.Sprintf("veh%d", highestVehicle))
+
 	//fmt.Fprintf(&builder, "Inventory Score %.0f\n", virtue.GetAfx().GetInventoryScore())
 	virtueEggs := []string{"CURIOSITY", "INTEGRITY", "HUMILITY", "RESILIENCE", "KINDNESS"}
-	eggEffects := []string{"🔬", habArt, craftArt, ei.GetBotEmojiMarkdown("silo"), "🚚"}
+	eggEffects := []string{"🔬", habArt, craftArt, ei.GetBotEmojiMarkdown("silo"), VehicleArt}
 	// Use highest Hab for Hab emoji
 
 	var allEov uint32 = 0
@@ -309,12 +318,14 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 	// Want time from now when those minutes elapse
 	if shippingRate > eggLayingRate {
-		fmt.Fprintf(&stats, "🚚 %s/hr  %s **%s/hr**",
+		fmt.Fprintf(&stats, "%s %s/hr  %s **%s/hr**",
+			VehicleArt,
 			ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 2, "trim": true}),
 			selectedEggEmote,
 			ei.FormatEIValue(eggLayingRate-fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
 	} else {
-		fmt.Fprintf(&stats, "🚚 **%s/hr**  %s %s/hr",
+		fmt.Fprintf(&stats, "%s **%s/hr**  %s %s/hr",
+			VehicleArt,
 			ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 2, "trim": true}),
 			selectedEggEmote,
 			ei.FormatEIValue(eggLayingRate-fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
