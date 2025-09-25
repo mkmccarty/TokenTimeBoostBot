@@ -463,6 +463,14 @@ func getShiftCost(shiftCount uint32, soulEggs float64) float64 {
 	return C
 }
 
+func init() {
+	// Build a Breakpoint table for Truth Eggs
+	for m := 17; m <= 94; m++ {
+		am := 1e17 + float64(m-17)*5e16 + float64((m-17)*(m-18)/2)*1e16
+		TruthEggBreakpoints = append(TruthEggBreakpoints, am)
+	}
+}
+
 // Used for calculating required eggs laid for TE above 16.
 // a_m = 1e17 + (m-17)*5e16 + ((m-17)*(m-18)/2)*1e16
 
@@ -485,12 +493,6 @@ var TruthEggBreakpoints = []float64{
 	1e16,   // 10q
 	2.5e16, // 25q
 	5e16,   // 50q
-	1e17,   // 100q
-	2e17,   // 200q
-	4e17,   // 400q
-	6e17,   // 600q
-	8e17,   // 800q
-	1e18,   // 1Q
 }
 
 // countTETiersPassed returns the number of TE tiers passed for a given delivered value.
