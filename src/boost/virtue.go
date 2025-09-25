@@ -358,7 +358,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 	if habPop >= habCap || habPercent >= 99.9 {
 		fmt.Fprintf(&stats, "%s %d%% %s ⚠️🔒\n",
-			strings.Join(habArray, ""),
+			habArt,
 			int(habPercent),
 			ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 2, "trim": true}))
 	} else {
