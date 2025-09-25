@@ -655,31 +655,38 @@ func GetArtifactBuffs(artifacts []*CompleteArtifact) (float64, float64, float64,
 	levels := []string{"T1", "T2", "T3", "T4", "T5"}
 	rarity := []string{"C", "R", "E", "L"}
 	chalice := map[string]float64{
-		"T1C": 5.0,
-		"T2C": 10.0, "T2E": 15.0,
-		"T3C": 20.0, "T3R": 23.0, "T3E": 25.0,
-		"T4C": 30.0, "T4E": 35.0, "T4L": 40.0,
+		"T1C": 1.05,
+		"T2C": 1.10, "T2E": 1.15,
+		"T3C": 1.20, "T3R": 1.23, "T3E": 1.25,
+		"T4C": 1.30, "T4E": 1.35, "T4L": 1.40,
 	}
 	metronome := map[string]float64{
-		"T1C": 5.0,
-		"T2C": 10.0, "T2R": 12.0,
-		"T3C": 15.0, "T3R": 17.0, "T3E": 20.0,
-		"T4C": 25.0, "T4R": 27.0, "T4E": 30.0, "T4L": 35.0,
+		"T1C": 1.05,
+		"T2C": 1.10, "T2R": 1.12,
+		"T3C": 1.15, "T3R": 1.17, "T3E": 1.20,
+		"T4C": 1.25, "T4R": 1.27, "T4E": 1.30, "T4L": 1.35,
 	}
 	compass := map[string]float64{
-		"T1C": 5.0,
-		"T2C": 10.0,
-		"T3C": 20.0, "T3R": 22.0,
-		"T4C": 30.0, "T4R": 35.0, "T4E": 40.0, "T4L": 50.0,
+		"T1C": 1.05,
+		"T2C": 1.10,
+		"T3C": 1.20, "T3R": 1.22,
+		"T4C": 1.30, "T4R": 1.35, "T4E": 1.40, "T4L": 1.50,
 	}
 	gussett := map[string]float64{
-		"T1C": 5.0,
-		"T2C": 10.0, "T2E": 12.0,
-		"T3C": 15.0, "T3R": 16.0,
-		"T4C": 20.0, "T4E": 22.0, "T4L": 25.0,
+		"T1C": 1.05,
+		"T2C": 1.10, "T2E": 1.12,
+		"T3C": 1.15, "T3R": 1.16,
+		"T4C": 1.20, "T4E": 1.22, "T4L": 1.25,
 	}
 
 	artifactPercentLevels := []float64{1.02, 1.04, 1.05}
+
+	// Log the artifact strucure in JSON for debugging
+	//artifactJSON, _ := json.MarshalIndent(artifacts, "", "  ")
+
+	//log.Println("******")
+	//	log.Println(string(artifactJSON))
+	//log.Println("******")
 
 	for _, artifact := range artifacts {
 		spec := artifact.GetSpec()
