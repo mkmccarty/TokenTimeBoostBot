@@ -737,7 +737,11 @@ func GetColleggtibleBuffs(contracts *MyContracts) (float64, float64, float64, fl
 		}
 		maxSize := c.GetMaxFarmSizeReached()
 		// Only set eggCounts for this egg if the max farm size reached is greater than 0 or if the entry doesn't exist in the map
-		if maxSize > 0 || eggCounts[egg] == 0 {
+		// does egg exist in map?
+		_, exists := eggCounts[egg]
+		if !exists {
+			eggCounts[egg] = maxSize
+		} else if maxSize > eggCounts[egg] {
 			eggCounts[egg] = maxSize
 		}
 	}
