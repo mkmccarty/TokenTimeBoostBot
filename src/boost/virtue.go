@@ -195,7 +195,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	for _, h := range farm.GetHabs() {
 		id := h // h is already a uint32 representing the habitat ID
 		if int(id) > highestHab {
-			highestHab = int(id)
+			highestHab = int(id + 1)
 		}
 	}
 	habArt := ei.GetBotEmojiMarkdown(fmt.Sprintf("hab%d", highestHab))
