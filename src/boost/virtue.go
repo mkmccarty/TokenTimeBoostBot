@@ -192,11 +192,13 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	}
 	// Hab
 	highestHab := 1
+	var habArray []string
 	for _, h := range farm.GetHabs() {
 		id := h // h is already a uint32 representing the habitat ID
 		if int(id) > highestHab {
 			highestHab = int(id + 1)
 		}
+		habArray = append(habArray, ei.GetBotEmojiMarkdown(fmt.Sprintf("hab%d", id+1)))
 	}
 	habArt := ei.GetBotEmojiMarkdown(fmt.Sprintf("hab%d", highestHab))
 
@@ -288,13 +290,18 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 	artifactELR, artifactSR, artifactIHR, artifactHab := ei.GetArtifactBuffs(artifactSetInUse)
 
+	// Get Colleggtible Buffs
+	contracts := backup.GetContracts()
+	colELR, colSR, colIHR, colHab := ei.GetColleggtibleBuffs(contracts)
+
 	shippingRate := ei.GetShippingRateFromBackup(farm, backup.GetGame())
 	eggLayingRate, habPop, habCap := ei.GetEggLayingRateFromBackup(farm, backup.GetGame())
 	//deliveryRate := math.Min(eggLayingRate, shippingRate)
-	eggLayingRate *= artifactELR * artifactHab
-	shippingRate *= artifactSR
-	habCap *= artifactHab
-	_, onlineRate, _, offlineRate := ei.GetInternalHatcheryFromBackup(farm.GetCommonResearch(), backup.GetGame(), artifactIHR, allEov)
+	eggLayingRate *= artifactELR * artifactHab * colELR * colHab
+	shippingRate *= artifactSR * colSR
+	habCap *= artifactHab * colHab
+
+	_, onlineRate, _, offlineRate := ei.GetInternalHatcheryFromBackup(farm.GetCommonResearch(), backup.GetGame(), artifactIHR*colIHR, allEov)
 	siloMinutes := ei.GetSiloMinutes(farm, backup.GetGame().GetEpicResearch())
 
 	fuelingEnabled := virtue.GetAfx().GetTankFillingEnabled()
@@ -351,12 +358,12 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 	if habPop >= habCap || habPercent >= 99.9 {
 		fmt.Fprintf(&stats, "%s %d%% %s ⚠️🔒\n",
-			habArt,
+			strings.Join(habArray, ""),
 			int(habPercent),
 			ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 2, "trim": true}))
 	} else {
 		fmt.Fprintf(&stats, "%s %s %d%% 🔒<t:%d:R> or 💤<t:%d:R>\n",
-			habArt,
+			strings.Join(habArray, ""),
 			ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 2, "trim": true}),
 			int(habPercent),
 			time.Now().Add(time.Duration(int64(onlineFillTime))*time.Second).Unix(),
@@ -387,7 +394,11 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		math.Round((artifactELR-1)*100),
 		math.Round((artifactIHR-1)*100),
 		math.Round((artifactHab-1)*100))
-	fmt.Fprint(&footer, "-# Max Colleggtibles Assumed.\n")
+	fmt.Fprintf(&stats, "**Colleggtibles**  SR:%v%%  ELR:%v%%  IHR:%v%%  Hab:%v%%.\n",
+		math.Round((colSR-1)*100),
+		math.Round((colELR-1)*100),
+		math.Round((colIHR-1)*100),
+		math.Round((colHab-1)*100))
 	fmt.Fprintf(&footer, "-# Report run <t:%d:t>, last sync <t:%d:t>\n", time.Now().Unix(), syncTime.Unix())
 
 	// Line for fuel

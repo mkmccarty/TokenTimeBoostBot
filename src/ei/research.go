@@ -409,7 +409,7 @@ func GetEggLayingRate(farmInfo *PlayerFarmInfo) float64 {
 	baseLayingRate := userLayRate * baseHab * 3600.0
 	//as.baseLayingRate = userLayRate * min(habPopulation, as.baseHab) * 3600.0 / 1e15
 
-	return baseLayingRate * colleggtibleELR * colleggtibleHab
+	return baseLayingRate
 }
 
 // GetEggLayingRateFromBackup calculates the egg laying rate multiplier
@@ -438,14 +438,14 @@ func GetEggLayingRateFromBackup(farmInfo *Backup_Simulation, game *Backup_Game) 
 			}
 			value *= universalHabCapacity
 		}
-		habCapacity += value * colleggtibleHab
+		habCapacity += value
 	}
 
 	//userLayRate *= 3600 // convert to hr rate
 	baseLayingRate := userLayRate * habPopulation * 3600.0
 	//as.baseLayingRate = userLayRate * min(habPopulation, as.baseHab) * 3600.0 / 1e15
 
-	return baseLayingRate * colleggtibleELR, habPopulation, habCapacity
+	return baseLayingRate, habPopulation, habCapacity
 }
 
 // GetShippingRate calculates the shipping rate multiplier
@@ -460,7 +460,7 @@ func GetShippingRate(farmInfo *PlayerFarmInfo) float64 {
 
 	userShippingRate, _ := GetVehiclesShippingCapacity(farmInfo.GetVehicles(), farmInfo.GetTrainLength(), universalShippingMultiplier, hoverOnlyMultiplier, hyperloopOnlyMultiplier)
 
-	return userShippingRate * colleggtibleShip * 60
+	return userShippingRate * 60
 }
 
 // GetShippingRateFromBackup calculates the shipping rate multiplier
@@ -475,7 +475,7 @@ func GetShippingRateFromBackup(farmInfo *Backup_Simulation, game *Backup_Game) f
 
 	userShippingRate, _ := GetVehiclesShippingCapacity(farmInfo.GetVehicles(), farmInfo.GetTrainLength(), universalShippingMultiplier, hoverOnlyMultiplier, hyperloopOnlyMultiplier)
 
-	return userShippingRate * colleggtibleShip * 60
+	return userShippingRate * 60
 }
 
 // GetResearchInternalHatchery calculates the internal hatchery rate multiplier from common research
@@ -510,7 +510,6 @@ func GetResearchInternalHatchery(commonResearch []*Backup_ResearchItem) (float64
 func GetInternalHatcheryFromBackup(commonResearch []*Backup_ResearchItem, game *Backup_Game, modifier float64, truthEggs uint32) (float64, float64, float64, float64) {
 
 	baseRate := 0.0
-	artifactsMultiplier := 1.0
 
 	_, _, hatcheryAdditive := GetResearchInternalHatchery(commonResearch)
 	onlineMultiplier, offlineMultiplier, _ := GetResearchInternalHatchery(game.GetEpicResearch())
@@ -521,7 +520,7 @@ func GetInternalHatcheryFromBackup(commonResearch []*Backup_ResearchItem, game *
 
 	// With max internal hatchery sharing, four internal hatcheries are constantly
 	// at work even if not all habs are bought;
-	onlineRatePerHab := baseRate * onlineMultiplier * artifactsMultiplier * modifier * truthEggBonus * colleggtiblesIHR
+	onlineRatePerHab := baseRate * onlineMultiplier * modifier * truthEggBonus
 	onlineRate := 4 * onlineRatePerHab
 	offlineRatePerHab := onlineRatePerHab * offlineMultiplier
 	offlineRate := onlineRate * offlineMultiplier
@@ -646,6 +645,7 @@ func TimeToDeliverEggs(initialPop, maxPop, growthRatePerMinute, layingRatePerHou
 	return totalTimeMinutes / 60.0
 }
 
+// GetArtifactBuffs calculates the total buffs from artifacts
 func GetArtifactBuffs(artifacts []*CompleteArtifact) (float64, float64, float64, float64) {
 	artifactELR := 1.0
 	artifactSR := 1.0
@@ -719,7 +719,62 @@ func GetArtifactBuffs(artifacts []*CompleteArtifact) (float64, float64, float64,
 	return artifactELR, artifactSR, artifactIHR, artifactHab
 }
 
-/*
-	switch spec.GetName() {
+// GetColleggtibleBuffs calculates the total buffs from colleggtibles
+func GetColleggtibleBuffs(contracts *MyContracts) (float64, float64, float64, float64) {
+	colELR := 1.0
+	colSR := 1.0
+	colIHR := 1.0
+	colHab := 1.0
 
-*/
+	// want a map of string to uint32
+	eggCounts := make(map[string]float64)
+
+	for _, c := range contracts.GetArchive() {
+		// If this is a cutom egg..
+		egg := c.GetContract().GetCustomEggId()
+		if egg == "" {
+			continue
+		}
+		maxSize := c.GetMaxFarmSizeReached()
+		// Only set eggCounts for this egg if the max farm size reached is greater than 0 or if the entry doesn't exist in the map
+		if maxSize > 0 || eggCounts[egg] == 0 {
+			eggCounts[egg] = maxSize
+		}
+	}
+
+	//ei.CustomEggMap = eggCounts
+	for eggName, eggValue := range eggCounts {
+		if eggValue == 0 {
+			continue
+		}
+		customEgg := CustomEggMap[eggName]
+		//log.Printf("Egg: %s, Value: %f\n", eggName, eggValue)
+		// My value falls into tiers of 10M, 100M, 1B, and 10B. If under 10m, next, if over 10M then tier is 0, etc.
+		tier := 0
+		if eggValue >= 1e10 {
+			tier = 3
+		} else if eggValue >= 1e9 {
+			tier = 2
+		} else if eggValue >= 1e8 {
+			tier = 1
+		} else if eggValue >= 1e7 {
+			tier = 0
+		} else {
+			continue
+		}
+
+		switch customEgg.Dimension {
+		case GameModifier_EGG_LAYING_RATE:
+			colELR *= customEgg.DimensionValue[tier]
+		case GameModifier_SHIPPING_CAPACITY:
+			colSR *= customEgg.DimensionValue[tier]
+		case GameModifier_HAB_CAPACITY:
+			colHab *= customEgg.DimensionValue[tier]
+		case GameModifier_INTERNAL_HATCHERY_RATE:
+			colIHR *= customEgg.DimensionValue[tier]
+		}
+	}
+
+	return colELR, colSR, colIHR, colHab
+
+}
