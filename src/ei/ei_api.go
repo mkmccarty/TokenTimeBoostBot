@@ -95,17 +95,19 @@ func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID str
 		protoData = string(body)
 
 		if okayToSave {
-			encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
-			if err == nil {
-				combinedData, err := config.EncryptAndCombine(encryptionKey, []byte(protoData))
+			go func() {
+				encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
 				if err == nil {
-					_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
-					err = os.WriteFile("ttbb-data/eiuserdata/firstcontact-"+discordID+".pb", []byte(combinedData), 0644)
-					if err != nil {
-						log.Print(err)
+					combinedData, err := config.EncryptAndCombine(encryptionKey, []byte(protoData))
+					if err == nil {
+						_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
+						err = os.WriteFile("ttbb-data/eiuserdata/firstcontact-"+discordID+".pb", []byte(combinedData), 0644)
+						if err != nil {
+							log.Print(err)
+						}
 					}
 				}
-			}
+			}()
 		}
 	}
 
@@ -223,17 +225,19 @@ func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID 
 
 		// Encrypt this to save to disk
 		if okayToSave {
-			encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
-			if err == nil {
-				combinedData, err := config.EncryptAndCombine(encryptionKey, []byte(protoData))
+			go func() {
+				encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
 				if err == nil {
-					_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
-					err = os.WriteFile("ttbb-data/eiuserdata/archive-"+discordID+".pb", []byte(combinedData), 0644)
-					if err != nil {
-						log.Print(err)
+					combinedData, err := config.EncryptAndCombine(encryptionKey, []byte(protoData))
+					if err == nil {
+						_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
+						err = os.WriteFile("ttbb-data/eiuserdata/archive-"+discordID+".pb", []byte(combinedData), 0644)
+						if err != nil {
+							log.Print(err)
+						}
 					}
 				}
-			}
+			}()
 		}
 	}
 
