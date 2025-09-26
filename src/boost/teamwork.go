@@ -841,8 +841,12 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 				}
 				crBuilder.WriteString(fmt.Sprintf("\nEach Chicken Run adds %6.3f to Contract Score with current buffs%s", diffCR, tvalString))
 			}
+			str := "Chicken Runs w/No Token Sharing"
+			if eiContract.CxpVersion == 1 {
+				str = "Chicken Runs"
+			}
 			field = append(field, &discordgo.MessageEmbedField{
-				Name:   "Chicken Runs w/No Token Sharing",
+				Name:   str,
 				Value:  "```" + crBuilder.String() + "```",
 				Inline: false,
 			})
