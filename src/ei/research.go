@@ -91,9 +91,6 @@ func GetVehiclesShippingCapacity(vehicles []uint32, trainLength []uint32, univMu
 	fullyUpgraded := true
 
 	for i, v := range vehicles {
-		if v == 0 {
-			continue
-		}
 		vehicleType := vehicleTypes[v]
 		capacity := vehicleType.BaseCapacity
 		if vehicleType.ID != 11 && trainLength[i] != 10 {
@@ -587,7 +584,7 @@ func TimeForLinearGrowth(initialPopulation, targetPopulation, growthRate float64
 //
 // Returns:
 //
-//	The time in hours, or -1 if the target is unreachable.
+//	The time in seconds, or -1 if the target is unreachable.
 func TimeToDeliverEggs(initialPop, maxPop, growthRatePerMinute, layingRatePerHour, shippingRatePerHour, targetEggs float64) float64 {
 	// Validate inputs
 	if initialPop <= 0 || maxPop <= 0 || growthRatePerMinute <= 0 || layingRatePerHour <= 0 || targetEggs <= 0 {
@@ -642,7 +639,7 @@ func TimeToDeliverEggs(initialPop, maxPop, growthRatePerMinute, layingRatePerHou
 		}
 	}
 
-	return totalTimeMinutes / 60.0
+	return totalTimeMinutes * 60.0
 }
 
 // GetArtifactBuffs calculates the total buffs from artifacts

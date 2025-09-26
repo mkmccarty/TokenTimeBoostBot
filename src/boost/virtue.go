@@ -195,10 +195,12 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	var habArray []string
 	for _, h := range farm.GetHabs() {
 		id := h // h is already a uint32 representing the habitat ID
-		if int(id) > highestHab {
+		if int(id) > highestHab && int(id) < 19 {
 			highestHab = int(id + 1)
 		}
-		habArray = append(habArray, ei.GetBotEmojiMarkdown(fmt.Sprintf("hab%d", id+1)))
+		if int(id) < 19 {
+			habArray = append(habArray, ei.GetBotEmojiMarkdown(fmt.Sprintf("hab%d", id+1)))
+		}
 	}
 	habArt := ei.GetBotEmojiMarkdown(fmt.Sprintf("hab%d", highestHab))
 
@@ -319,7 +321,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	offlineFillTime := ei.TimeForLinearGrowth(habPop, habCap, offlineRate/60)
 	syncTime := time.Unix(int64(backup.GetApproxTime()), 0)
 	remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, selectedTarget-selectedDelivered)
-	elapsed := time.Since(syncTime).Hours()
+	elapsed := time.Since(syncTime).Seconds()
 	adjustedRemainingTime := remainingTime - elapsed
 	offlineEggs := min(eggLayingRate, shippingRate) * elapsed
 
@@ -370,20 +372,20 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 			time.Now().Add(time.Duration(int64(offlineFillTime))*time.Second).Unix())
 	}
 
-	if adjustedRemainingTime == -1 {
+	if remainingTime == -1.0 {
 		fmt.Fprintf(&header, "**Deliver %s%s in more than a year**",
 			ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
 			selectedEggEmote)
-	} else if adjustedRemainingTime < 24.0 {
+	} else if adjustedRemainingTime < 86400.0 { // 1 day
 		fmt.Fprintf(&header, "**Deliver %s%s <t:%d:R>**",
 			ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
 			selectedEggEmote,
-			time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Hour).Unix())
+			time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Second).Unix())
 	} else {
 		fmt.Fprintf(&header, "**Deliver %s%s <t:%d:f>**💤",
 			ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
 			selectedEggEmote,
-			time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Hour).Unix())
+			time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Second).Unix())
 	}
 	fmt.Fprintf(&header, "\n-# includes %s offline eggs", ei.FormatEIValue(offlineEggs, map[string]interface{}{"decimals": 1, "trim": true}))
 
