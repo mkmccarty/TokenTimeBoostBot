@@ -122,14 +122,16 @@ func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID str
 		return nil, cachedData
 	}
 	// Write the backup as a JSON file for debugging purposes
-	jsonData, err := json.MarshalIndent(backup, "", "  ")
-	if err != nil {
-		log.Println("Error marshalling backup to JSON:", err)
-	} else {
-		_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
-		err = os.WriteFile("ttbb-data/eiuserdata/firstcontact-"+discordID+".json", []byte(jsonData), 0644)
+	if config.IsDevBot() {
+		jsonData, err := json.MarshalIndent(backup, "", "  ")
 		if err != nil {
-			log.Print(err)
+			log.Println("Error marshalling backup to JSON:", err)
+		} else {
+			_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
+			err = os.WriteFile("ttbb-data/eiuserdata/firstcontact-"+discordID+".json", []byte(jsonData), 0644)
+			if err != nil {
+				log.Print(err)
+			}
 		}
 	}
 
