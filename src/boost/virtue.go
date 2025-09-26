@@ -323,7 +323,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, selectedTarget-selectedDelivered)
 	elapsed := time.Since(syncTime).Seconds()
 	adjustedRemainingTime := remainingTime - elapsed
-	offlineEggs := min(eggLayingRate, shippingRate) * (elapsed * 60 * 60)
+	offlineEggs := min(eggLayingRate, shippingRate) * (elapsed / 3600)
 
 	// Want time from now when those minutes elapse
 	if shippingRate > eggLayingRate {
