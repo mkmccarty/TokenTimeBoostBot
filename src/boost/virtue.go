@@ -230,7 +230,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		eovEarned := countTETiersPassed(delivered)
 		// pendingTruthEggs calculates the number of pending Truth Eggs based on delivered and earnedTE.
 		eovPending := pendingTruthEggs(delivered, eov)
-		nextTier := nextTruthEggThreshold(delivered)
+		nextTier := nextTruthEggThreshold(delivered, eov)
 		selected := ""
 		if eggType == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
 			selected = " (farm)"
@@ -239,7 +239,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 			selectedEggEmote = ei.GetBotEmojiMarkdown("egg_" + strings.ToLower(egg))
 		}
 
-		allEov += eovEarned - eovPending
+		allEov += max(eovEarned-eovPending, 0)
 		futureEov += eovPending
 
 		fmt.Fprintf(&eggs, "%s%s`%3s %5s %9s `%s%s\n",
@@ -517,13 +517,19 @@ func countTETiersPassed(delivered float64) uint32 {
 // pendingTruthEggs calculates the number of pending Truth Eggs for a given delivered value and earned Truth Eggs.
 func pendingTruthEggs(delivered float64, earnedTE uint32) uint32 {
 	tiersPassed := countTETiersPassed(delivered)
-	return max(0, tiersPassed-earnedTE)
+	if tiersPassed <= earnedTE {
+		return 0
+	}
+	return tiersPassed - earnedTE
 }
 
 // nextTruthEggThreshold returns the next Truth Egg threshold for a given delivered value.
 // If all tiers are passed, it returns math.Inf(1).
-func nextTruthEggThreshold(delivered float64) float64 {
+func nextTruthEggThreshold(delivered float64, eov uint32) float64 {
 	tiersPassed := countTETiersPassed(delivered)
+	if tiersPassed != 0 && tiersPassed < eov {
+		tiersPassed = eov
+	}
 	if int(tiersPassed) >= len(TruthEggBreakpoints) {
 		return math.Inf(1)
 	}
