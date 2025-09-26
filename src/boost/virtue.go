@@ -204,7 +204,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	}
 	habArt := ei.GetBotEmojiMarkdown(fmt.Sprintf("hab%d", highestHab))
 
-	highestVehicle := 1
+	highestVehicle := 0
 	for _, v := range farm.GetVehicles() {
 		id := v // v is already a uint32 representing the vehicle ID
 		if int(id) > highestVehicle {
