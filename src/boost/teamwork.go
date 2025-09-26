@@ -525,7 +525,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 				segmentBuffTimeValue := calculateBuffTimeValue(int(eiContract.CxpVersion), b.durationEquiped, b.eggRate, b.earnings)
 				b.buffTimeValue = segmentBuffTimeValue
 				// We'll calculate this for the segment but it seems suspect
-				B := calculateTeamworkB(eiContract.CxpVersion, segmentBuffTimeValue, b.durationEquiped)
+				B := calculateTeamworkB(segmentBuffTimeValue, b.durationEquiped)
 				segmentTeamworkScore := getPredictedTeamwork(eiContract.CxpVersion, B, 0.0, 0.0)
 
 				dur := time.Duration(b.durationEquiped) * time.Second
@@ -551,7 +551,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			}
 
 			// Calculate the Teamwork Score for all the time segments
-			B = calculateTeamworkB(eiContract.CxpVersion, buffTimeValue, contractDurationSeconds)
+			B = calculateTeamworkB(buffTimeValue, contractDurationSeconds)
 			fmt.Fprintf(&teamwork, teamworkFm,
 				"", "", "", "",
 				bottools.AlignString(fmt.Sprintf("%6.0f", buffTimeValue), 6, bottools.StringAlignRight),
@@ -835,7 +835,11 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 				crBuilder.WriteString(fmt.Sprintf("%d:%d ", maxCR, minScore+int64(math.Ceil(float64(maxCR)*diffCR))))
 			}
 			if diffCR > 0 {
-				crBuilder.WriteString(fmt.Sprintf("\nEach Chicken Run adds %6.3f to Contract Score with current buffs and TVAL=0", diffCR))
+				tvalString := " and TVAL=0"
+				if eiContract.CxpVersion == 1 {
+					tvalString = ""
+				}
+				crBuilder.WriteString(fmt.Sprintf("\nEach Chicken Run adds %6.3f to Contract Score with current buffs%s", diffCR, tvalString))
 			}
 			field = append(field, &discordgo.MessageEmbedField{
 				Name:   "Chicken Runs w/No Token Sharing",

@@ -82,7 +82,7 @@ func calculateBuffTimeValue(cxpVersion int, segmentDurationSeconds float64, defl
 	return buffTimeValue
 }
 
-func calculateTeamworkB(cxpVersion int, buffTimeValue float64, contractDurationSeconds float64) float64 {
+func calculateTeamworkB(buffTimeValue float64, contractDurationSeconds float64) float64 {
 	return min(2, buffTimeValue/contractDurationSeconds)
 }
 
@@ -160,11 +160,13 @@ func getContractScoreEstimate(c ei.EggIncContract, grade ei.Contract_PlayerGrade
 	}
 	contractDuration = time.Duration(float64(contractDuration.Seconds()*durationMod)) * time.Second
 
-	//siabDuration := (time.Duration(siabMinutes) * time.Minute).Seconds()
-	//deflectorDuration := (contractDuration - time.Duration(deflMinutesReduction)*time.Minute).Seconds()
+	siabDuration := (time.Duration(siabMinutes) * time.Minute).Seconds()
+	deflectorDuration := (contractDuration - time.Duration(deflMinutesReduction)*time.Minute).Seconds()
+	buffTimeValue := calculateBuffTimeValue(c.CxpVersion, siabDuration, 0, int(siabPercent))
+	buffTimeValue += calculateBuffTimeValue(c.CxpVersion, deflectorDuration, int(deflPercent), 0)
 
-	buffTimeValue := calculateBuffTimeValue(c.CxpVersion, contractDuration.Seconds(), int(siabPercent), int(deflPercent))
-	B := calculateTeamworkB(c.CxpVersion, buffTimeValue, contractDuration.Seconds())
+	//buffTimeValue := calculateBuffTimeValue(c.CxpVersion, contractDuration.Seconds(), int(siabPercent), int(deflPercent))
+	B := calculateTeamworkB(buffTimeValue, contractDuration.Seconds())
 
 	CR := calculateChickenRunTeamwork(c.CxpVersion, c.MaxCoopSize, c.ContractDurationInDays, chickenRuns)
 	T := calculateTokenTeamwork(contractDuration.Seconds(), c.MinutesPerToken, sentTokens, receivedTokens)
