@@ -40,9 +40,58 @@ func GetTargetTval(cxpVersion int, contractMinutes float64, minutesPerToken floa
 	return targetTval
 }
 
-func calculateChickenRunTeamwork(coopSize int, durationInDays int, runs int) float64 {
+func calculateBuffTimeValue(cxpVersion int, segmentDurationSeconds float64, deflPercent int, siabPercent int) float64 {
+	earnings := float64(siabPercent) * 0.0075
+	eggRate := float64(deflPercent) * 0.075
+	if cxpVersion == 1 {
+		/*
+			Sept 22, 2025 and newer contracts don't have buff time value requirements
+			T1C (SIAB, Defl.): 0.150*, 0.625*
+			T2C (SIAB, Defl.): 0.225*, 1.000*
+			T3C (SIAB, Defl.): 0.375*, 1.500*
+			T3R (SIAB, Defl.): 0.375*, 1.500*
+			T4C (SIAB, Defl.): 0.375 , 1.500*
+			T4R (SIAB, Defl.): 0.375 , 1.500*
+			T4E (SIAB, Defl.): 0.375*, 1.500*
+			T4L (SIAB, Defl.): 0.375 , 1.500*
+		*/
+		switch siabPercent {
+		case 0:
+			earnings = 0.0
+		case 20: // T1C
+			earnings = 0.150
+		case 30: // T2C
+			earnings = 0.225
+		default: // T3C, T3R, T4C, T4R, T4E, T4L
+			earnings = 0.375
+		}
+
+		switch deflPercent {
+		case 0: // No Deflector
+			eggRate = 0.0
+		case 5: // T1C
+			eggRate = 0.625
+		case 8: // T2C
+			eggRate = 1.000
+		default: // T3C, T3R, T4C, T4R, T4E, T4L
+			eggRate = 1.500
+		}
+	}
+
+	buffTimeValue := (segmentDurationSeconds * earnings) + (segmentDurationSeconds * eggRate)
+	return buffTimeValue
+}
+
+func calculateTeamworkB(cxpVersion int, buffTimeValue float64, contractDurationSeconds float64) float64 {
+	return min(2, buffTimeValue/contractDurationSeconds)
+}
+
+func calculateChickenRunTeamwork(cxpVersion int, coopSize int, durationInDays int, runs int) float64 {
 	fCR := max(12.0/(float64(coopSize*durationInDays)), 0.3)
 	CR := min(fCR*float64(runs), 6.0)
+	if cxpVersion == 1 {
+		CR = min(float64(runs)/min(float64(coopSize-1), 20.0), 1.0)
+	}
 	return CR
 }
 
@@ -60,7 +109,7 @@ func calculateTokenTeamwork(contractDurationSeconds float64, minutesPerToken int
 	return T
 }
 
-func calculateContractScore(grade int, coopSize int, targetGoal float64, contribution float64, contractLength int, contractDurationSeconds float64, B float64, CR float64, T float64) int64 {
+func calculateContractScore(cxpversion int, grade int, coopSize int, targetGoal float64, contribution float64, contractLength int, contractDurationSeconds float64, B float64, CR float64, T float64) int64 {
 	basePoints := 1.0
 	durationPoints := 1.0 / 259200.0
 	score := basePoints + durationPoints*float64(contractLength)
@@ -83,28 +132,27 @@ func calculateContractScore(grade int, coopSize int, targetGoal float64, contrib
 	completionTimeBonus := 1.0 + 4.0*math.Pow((1.0-float64(contractDurationSeconds)/float64(contractLength)), 3)
 	score *= completionTimeBonus
 
-	teamworkScore := (5.0*B + CR + T) / 19.0
+	teamworkScore := getPredictedTeamwork(cxpversion, B, CR, T)
 	teamworkBonus := 1.0 + 0.19*teamworkScore
+
 	score *= teamworkBonus
 	score *= float64(187.5)
 
 	return int64(math.Ceil(score))
 }
 
-func getPredictedTeamwork(B float64, CR float64, T float64) float64 {
+func getPredictedTeamwork(cxpVersion int, B float64, CR float64, T float64) float64 {
+	if cxpVersion == 1 {
+		// Sept 22, 2025 and newer contracts don't have teamwork
+		return (5.0 / 19.0 * (B + CR))
+	}
 	return (5.0*B + CR + T) / 19.0
 }
 
 // getContractScoreEstimate will return the estimated score for the contract
 // based on the given parameters
 func getContractScoreEstimate(c ei.EggIncContract, grade ei.Contract_PlayerGrade, fastest bool, durationMod float64, fairShare float64, siabPercent float64, siabMinutes int, deflPercent float64, deflMinutesReduction int, chickenRuns int, sentTokens float64, receivedTokens float64) int64 {
-	if c.CxpVersion == 1 {
-		// Sept 22, 2025 and newer contracts don't have buffs
-		siabPercent = min(siabPercent, 50)   //cap at T3C
-		deflPercent = min(deflPercent, 37.5) // cap at T3C
-	}
-	earnings := float64(siabPercent) * 0.0075
-	eggRate := float64(deflPercent) * 0.075
+	// Sept 22, 2025 and newer contracts don't have buffs
 
 	contractDuration := c.EstimatedDurationLower
 	if !fastest {
@@ -112,16 +160,15 @@ func getContractScoreEstimate(c ei.EggIncContract, grade ei.Contract_PlayerGrade
 	}
 	contractDuration = time.Duration(float64(contractDuration.Seconds()*durationMod)) * time.Second
 
-	siabDuration := (time.Duration(siabMinutes) * time.Minute).Seconds()
-	deflectorDuration := (contractDuration - time.Duration(deflMinutesReduction)*time.Minute).Seconds()
+	//siabDuration := (time.Duration(siabMinutes) * time.Minute).Seconds()
+	//deflectorDuration := (contractDuration - time.Duration(deflMinutesReduction)*time.Minute).Seconds()
 
-	BTV := siabDuration*earnings + deflectorDuration*eggRate
-	BuffTimeValue := BTV / contractDuration.Seconds()
-	B := min(BuffTimeValue, 2.0)
+	buffTimeValue := calculateBuffTimeValue(c.CxpVersion, contractDuration.Seconds(), int(siabPercent), int(deflPercent))
+	B := calculateTeamworkB(c.CxpVersion, buffTimeValue, contractDuration.Seconds())
 
-	CR := calculateChickenRunTeamwork(c.MaxCoopSize, c.ContractDurationInDays, chickenRuns)
+	CR := calculateChickenRunTeamwork(c.CxpVersion, c.MaxCoopSize, c.ContractDurationInDays, chickenRuns)
 	T := calculateTokenTeamwork(contractDuration.Seconds(), c.MinutesPerToken, sentTokens, receivedTokens)
-	score := calculateContractScore(int(ei.Contract_GRADE_AAA),
+	score := calculateContractScore(c.CxpVersion, int(ei.Contract_GRADE_AAA),
 		c.MaxCoopSize,
 		c.Grade[grade].TargetAmount[len(c.Grade[grade].TargetAmount)-1],
 		c.TargetAmount[len(c.TargetAmount)-1]/float64(c.MaxCoopSize)*fairShare,
