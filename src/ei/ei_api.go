@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -122,20 +123,36 @@ func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID str
 		return nil, cachedData
 	}
 	// Write the backup as a JSON file for debugging purposes
-	if config.IsDevBot() {
-		jsonData, err := json.MarshalIndent(backup, "", "  ")
+	jsonData, err := json.MarshalIndent(backup, "", "  ")
+	// Swap all instances of eiUserID with "REDACTED"
+	jsonData = []byte(string(jsonData))
+	jsonData = []byte(RedactUserInfo(string(jsonData), eiUserID))
+	if err != nil {
+		log.Println("Error marshalling backup to JSON:", err)
+	} else {
+		_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
+		err = os.WriteFile("ttbb-data/eiuserdata/firstcontact-"+discordID+".json", []byte(jsonData), 0644)
 		if err != nil {
-			log.Println("Error marshalling backup to JSON:", err)
-		} else {
-			_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
-			err = os.WriteFile("ttbb-data/eiuserdata/firstcontact-"+discordID+".json", []byte(jsonData), 0644)
-			if err != nil {
-				log.Print(err)
-			}
+			log.Print(err)
 		}
 	}
 
 	return backup, cachedData
+}
+
+// RedactUserInfo will replace all instances of the given eiUserID in the string s with "REDACTED"
+func RedactUserInfo(s, eiUserID string) string {
+	// redact additional info
+	// Delete any lines containing "game_services_id", "push_user_id", or "device_id"
+	lines := strings.Split(s, "\n")
+	var filteredLines []string
+	for _, line := range lines {
+		if !strings.Contains(line, "game_services_id") && !strings.Contains(line, "push_user_id") && !strings.Contains(line, "device_id") && !strings.Contains(line, "user_name") {
+			filteredLines = append(filteredLines, line)
+		}
+	}
+	s = strings.Join(filteredLines, "\n")
+	return strings.ReplaceAll(s, eiUserID, "REDACTED")
 }
 
 // GetContractArchiveFromAPI will download the events from the Egg Inc API
