@@ -250,9 +250,7 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 	buttons = append(buttons, discordgo.ActionsRow{
 		Components: []discordgo.MessageComponent{
 			discordgo.Button{
-				Emoji: &discordgo.ComponentEmoji{
-					Name: "🧑‍🌾",
-				},
+				Emoji:    ei.GetBotComponentEmoji("clucker"),
 				Label:    joinMsg,
 				Style:    discordgo.PrimaryButton,
 				CustomID: "fd_signupFarmer",
