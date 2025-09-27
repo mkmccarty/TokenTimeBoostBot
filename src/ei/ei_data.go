@@ -181,8 +181,11 @@ type EggIncContract struct {
 	ContractVersion           int // 1 = old, 2 = new
 	Grade                     []ContractGrade
 	TeamNames                 []string // Names of the teams in the contract
-	Cxp                       float64  // CXP value for the contract
-	CxpVersion                int      // 0 = old (0.2.0), true = 1 (0.3.0+ sesonals & AA+AAA)
+	// Contract Scoring Values
+	CxpBuffOnly float64 // Minimum score with only CR/TVal
+	CxpRunDelta float64 // Individual chicken run addition
+	Cxp         float64 // CXP value for the contract
+	CxpVersion  int     // 0 = old (0.2.0), true = 1 (0.3.0+ sesonals & AA+AAA)
 }
 
 // EggIncContracts holds a list of all contracts, newest is last
