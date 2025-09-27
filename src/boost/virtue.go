@@ -392,7 +392,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		}
 		fmt.Fprintf(&header, "\n-# includes %s offline eggs", ei.FormatEIValue(offlineEggs, map[string]interface{}{"decimals": 1, "trim": true}))
 	} else {
-		fmt.Fprint(&header, "**Ascend to visit your Egg of Virtue farm.**")
+		fmt.Fprint(&header, "**Ascend to visit your Eggs of Virtue farm.**")
 	}
 
 	// If we have a selected egg type, show time to next TE
