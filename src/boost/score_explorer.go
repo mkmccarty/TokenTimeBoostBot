@@ -15,7 +15,8 @@ import (
 )
 
 var playStyles = []string{"Speedrun", "Fastrun", "Casual", "Public"}
-var fairShare = []float64{1.5, 1.1, 1, 0.9, 0.5, 0.1}
+
+// var fairShare = []float64{1.5, 1.1, 1, 0.9, 0.5, 0.1}
 var tokenSentValueStr = []string{"Tval Met", "3", "1", "0", "Sink"}
 var tokenSentValue = []float64{50, 3, 1, 0, 20}
 var tokenRecvValueStr = []string{"8", "6", "1", "0", "Sink"}
@@ -38,7 +39,7 @@ type ScoreCalcParams struct {
 	SiabMinutes          int       `json:"siab_minutes"`
 	Style                int       `json:"style"`
 	PlayStyleValues      []float64 `json:"play_style_values"`
-	FairShare            int       `json:"fair_share"`
+	FairShare            float64   `json:"fair_share"`
 	TvalSent             int       `json:"tval_sent"`
 	TvalReceived         int       `json:"tval_received"`
 	ChickenRuns          int
@@ -153,6 +154,13 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 		)
 		return
 	}
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing request...",
+			Flags:   flags,
+		},
+	})
 
 	xid := xid.New().String()
 	scoreCalcParams := ScoreCalcParams{
@@ -165,7 +173,7 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 		DeflectorDownMinutes: 0,
 		Siab:                 0,
 		SiabMinutes:          45,
-		FairShare:            2,
+		FairShare:            1.0,
 		TvalSent:             0,
 		TvalReceived:         1,
 		ChickenRuns:          0,
@@ -190,18 +198,26 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 
 	components := getScoreExplorerComponents(scoreCalcParams)
 
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:    scoreCalcParams.contractInfo,
-			Flags:      flags,
-			Components: components,
-			Embeds:     []*discordgo.MessageEmbed{embed},
-			CustomID:   "maybe-store-data",
-			Title:      "Contract Score Explorer",
+	_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content:    scoreCalcParams.contractInfo,
+		Flags:      flags,
+		Components: components,
+		Embeds:     []*discordgo.MessageEmbed{embed},
+		//CustomID:   "maybe-store-data",
+	})
+	/*
+		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    scoreCalcParams.contractInfo,
+				Flags:      flags,
+				Components: components,
+				Embeds:     []*discordgo.MessageEmbed{embed},
+				//CustomID:   "maybe-store-data",
+				Title: "Contract Score Explorer",
+			},
 		},
-	},
-	)
+		)*/
 	if err != nil {
 		log.Println(err)
 	}
@@ -221,7 +237,7 @@ func getScoreExplorerCalculations(params ScoreCalcParams) (string, *discordgo.Me
 
 	durationSpeed := params.Style == 0
 
-	ratio := fairShare[params.FairShare]
+	ratio := params.FairShare
 
 	contractDur := c.EstimatedDurationLower
 	if !durationSpeed {
@@ -254,7 +270,7 @@ func getScoreExplorerCalculations(params ScoreCalcParams) (string, *discordgo.Me
 	fmt.Fprintf(&builder, "Playstyle: %s - duration %v\n", playStyles[params.Style], contractDur.Round(time.Minute).String())
 	fmt.Fprintf(&builder, "Deflector: %.1f%% unequipped for %dm\n", params.Deflector, params.DeflectorDownMinutes)
 	fmt.Fprintf(&builder, "SIAB: %.1f%% equipped for %dm\n", params.Siab, params.SiabMinutes)
-	fmt.Fprintf(&builder, "Fair Share: %2.1fx\n", ratio)
+	fmt.Fprintf(&builder, "Fair Share: %2.3g\n", ratio)
 	fmt.Fprintf(&builder, "TVal Sent: %s\n", tokenSentValueStr[params.TvalSent])
 	fmt.Fprintf(&builder, "TVal Recv: %s\n", tokenRecvValueStr[params.TvalReceived])
 	fmt.Fprintf(&builder, "Chicken Runs: %d\n", params.chickenRunValues[params.ChickenRuns])
@@ -278,13 +294,6 @@ func getScoreExplorerComponents(param ScoreCalcParams) []discordgo.MessageCompon
 			Label:    playStyles[param.Style],
 			Style:    discordgo.SecondaryButton,
 			CustomID: fmt.Sprintf("fd_playground#%s#style", param.xid),
-		})
-
-	buttons = append(buttons,
-		discordgo.Button{
-			Label:    fmt.Sprintf("Fair Share: %2.1fx", fairShare[param.FairShare]),
-			Style:    discordgo.SecondaryButton,
-			CustomID: fmt.Sprintf("fd_playground#%s#fair", param.xid),
 		})
 
 	buttons = append(buttons,
@@ -344,6 +353,33 @@ func getScoreExplorerComponents(param ScoreCalcParams) []discordgo.MessageCompon
 		})
 
 	MinValues := 1
+
+	fairShareOptions := []discordgo.SelectMenuOption{}
+	// I want to create a float64 array with several values
+	var fairShare = []float64{1.5, 1.2, 1.1}
+	for ratio := 1.07; ratio >= 0.95; ratio -= 0.01 {
+		fairShare = append(fairShare, ratio)
+	}
+	fairShare = append(fairShare, 0.9, 0.8, 0.5, 0.1, 0.0)
+	for _, ratio := range fairShare {
+		str := ""
+		if ratio == 1.0 {
+			str = "Fair Share "
+		}
+		fairShareOptions = append(fairShareOptions, discordgo.SelectMenuOption{
+			Label:   fmt.Sprintf("%s%2.2f", str, ratio),
+			Value:   fmt.Sprintf("%1.2f", ratio),
+			Default: param.FairShare == ratio,
+		})
+	}
+
+	menu = append(menu, discordgo.SelectMenu{
+		CustomID:    fmt.Sprintf("fd_playground#%s#fair", param.xid),
+		Placeholder: "Fair Share",
+		MaxValues:   1,
+		MinValues:   &MinValues,
+		Options:     fairShareOptions,
+	})
 
 	menu = append(menu, discordgo.SelectMenu{
 		CustomID:    fmt.Sprintf("fd_playground#%s#deflector", param.xid),
@@ -474,6 +510,7 @@ func getScoreExplorerComponents(param ScoreCalcParams) []discordgo.MessageCompon
 
 	components = append(components, discordgo.ActionsRow{Components: []discordgo.MessageComponent{menu[0]}})
 	components = append(components, discordgo.ActionsRow{Components: []discordgo.MessageComponent{menu[1]}})
+	components = append(components, discordgo.ActionsRow{Components: []discordgo.MessageComponent{menu[2]}})
 
 	for i := 0; i < len(buttons); i += 5 {
 		end := i + 5
@@ -520,9 +557,13 @@ func HandleScoreExplorerPage(s *discordgo.Session, i *discordgo.InteractionCreat
 		}
 	}
 	if len(reaction) == 3 && reaction[2] == "fair" {
-		params.FairShare++
-		if params.FairShare >= len(fairShare) {
-			params.FairShare = 0
+		data := i.MessageComponentData()
+		values := data.Values
+		fairShareValue, err := strconv.ParseFloat(values[0], 64)
+		if err != nil {
+			log.Println("Invalid fair share value:", err)
+		} else {
+			params.FairShare = fairShareValue
 		}
 	}
 	if len(reaction) == 3 && reaction[2] == "tvals" {
