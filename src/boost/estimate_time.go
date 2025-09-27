@@ -172,33 +172,45 @@ func getContractEstimateString(contractID string) string {
 		estStr,
 		ei.FormatEIValue(c.TargetAmount[len(c.TargetAmount)-1], options))
 
+	footerAboutCR := false
+
 	if c.ContractVersion == 2 {
 		// Two ranges of estimates
 		// Speedrun w/ perfect set through to Sink with decent set
 		// Fair share from 1.05 to 0.92
-		scoreBest := getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
-			true, 1.0, // Use faster duration at a 1.0 modifier
-			1.05,    // Fair Share, first booster
-			100, 20, // SIAB 100%, 20 minutes
-			20, 10, // Deflector %, minutes reduction
-			c.ChickenRuns, // All Chicken Runs
-			100, 5)        // Tokens Sent a lot and received a little.
-		scoreBestSink := getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+		scoreSink := getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
 			true, 1.0, // Use faster duration at a 1.0 modifier
 			0.92,   // 0.92 Fair Share (Last booster sink)
 			60, 45, // T4C SIAB for 45m
 			15, 0, // T4C Deflector for full duration
-			c.ChickenRuns, // All Chicken Runs
-			3, 100)        // Sink token use, sent at least 3 (max) and received a lot
-		scoreBestEffort := getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
-			false, 1.20, // use slower duration at 1.20 modifier so it's 20% slower
-			1.0,    // just equal fair share
-			60, 45, // T4C SIAB for 45m
-			13, 20, // T3R Deflector with 20m less duration
-			c.MaxCoopSize-1, // Chicken Runs
-			0, 0)            // No token sharing
+			c.MaxCoopSize-1, // All Chicken Runs
+			3, 100)          // Sink token use, sent at least 3 (max) and received a lot
 
-		str += fmt.Sprintf("CS Est: **%d** (SR) - **%d** (Sink) - **%d** (Best Effort)\n", scoreBest, scoreBestSink, scoreBestEffort)
+		if c.CxpVersion != 1 { // Leggacies originally released before Sept 22, 2025
+			var cs strings.Builder
+			fmt.Fprintf(&cs, "CS Est: **%d** ", int64(c.Cxp))
+			if c.ChickenRuns > c.MaxCoopSize-1 {
+				footerAboutCR = true
+				//fmt.Fprintf(&cs, "*+%.0f/%s* ", c.CxpRunDelta, ei.GetBotEmojiMarkdown("icon_chicken_run"))
+			}
+			cs.WriteString("(SR)")
+			fmt.Fprintf(&cs, " - **%d** (Sink) - **%.0f** ", scoreSink, c.Cxp*0.70)
+			if c.SeasonID == "" {
+				cs.WriteString(("(Low Target)\n"))
+			} else {
+				cs.WriteString(("(Seasonal Target)\n"))
+			}
+			str += cs.String()
+		} else { // Seasonal contracts released starting Sept 22, 2025
+			str += fmt.Sprintf("CS Est: **%d** (SR) - **%.0f** (Seasonal Target)\n",
+				int64(c.Cxp),
+				c.Cxp*0.70)
+		}
+		if footerAboutCR {
+			str += fmt.Sprintf("-# CoopSize-1 used for CR, extras **+%.0f**/%s \n",
+				c.CxpRunDelta,
+				ei.GetBotEmojiMarkdown("icon_chicken_run"))
+		}
 
 		if c.CxpVersion != 1 {
 			if math.Round(c.TargetTval*100)/100 == math.Round(c.TargetTvalLower*100)/100 {

@@ -231,16 +231,71 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		c.EstimatedDuration, c.EstimatedDurationLower = getContractDurationEstimate(c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
 			c.ModifierSR, c.ModifierELR, c.ModifierHabCap)
 	}
+	/*
+
+
+		// Create a Base score with no teamwork multipliers
+		scoreBase := calculateContractScore(eiContract.CxpVersion, grade,
+			eiContract.MaxCoopSize,
+			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+			contribution[i],
+			eiContract.Grade[grade].LengthInSeconds,
+			contractDurationSeconds,
+			0, 0, 0)
+		diffCR := (float64(scoreBase) * 0.06) / float64(eiContract.ChickenRuns)
+		if eiContract.CxpVersion == 1 {
+			diffCR = (float64(scoreBase) * 0.05) / float64(eiContract.ChickenRuns)
+		}
+
+		// Calculate a score with only the Buffs included
+		var crBuilder strings.Builder
+		minScore := calculateContractScore(eiContract.CxpVersion, grade,
+			eiContract.MaxCoopSize,
+			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+			contribution[i],
+			eiContract.Grade[grade].LengthInSeconds,
+			contractDurationSeconds,
+			B, 0, 0)
+
+		for maxCR := eiContract.ChickenRuns; maxCR >= 0; maxCR-- {
+			// Each CR is worth 6% of base score divided by maxCR
+			crBuilder.WriteString(fmt.Sprintf("%d:%d ", maxCR, minScore+int64(math.Ceil(float64(maxCR)*diffCR))))
+		}
+	*/
 
 	if c.ContractVersion == 2 {
-		score := getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+		fairShare := 1.05
+		if c.CxpVersion == 1 {
+			fairShare = 1.02
+		}
+
+		c.Cxp = float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
 			true, 1.0, // Use faster duration at a 1.0 modifier
-			1.05,    // Fair Share, first booster
-			100, 20, // SIAB 100%, 20 minutes
-			20, 10, // Deflector %, minutes reduction
-			c.ChickenRuns, // All Chicken Runs
-			100, 5)        // Tokens Sent a lot and received a little.
-		c.Cxp = float64(score)
+			fairShare, // Fair Share, first booster
+			100, 20,   // SIAB 100%, 20 minutes
+			20, 0, // Deflector %, minutes reduction
+			c.MaxCoopSize-1, // All Chicken Runs - Post CRT
+			100, 5))         // Tokens Sent a lot and received a little.
+
+		baseScore := float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+			true, 1.0, // Use faster duration at a 1.0 modifier
+			fairShare, // Fair Share, first booster
+			100, 20,   // SIAB 100%, 20 minutes
+			20, 0, // Deflector %, minutes reduction
+			0,     // All Chicken Runs - used for diff Calc
+			0, 0)) // Tokens Sent a lot and received a little.
+
+		c.CxpRunDelta = (float64(baseScore) * 0.06) / float64(c.ChickenRuns)
+		if c.CxpVersion == 1 {
+			c.CxpRunDelta = (float64(baseScore) * 0.05) / float64(c.ChickenRuns)
+		}
+		c.CxpBuffOnly = float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+			true, 1.0, // Use faster duration at a 1.0 modifier
+			fairShare, // Fair Share, first booster
+			100, 20,   // SIAB 100%, 20 minutes
+			20, 0, // Deflector %, minutes reduction
+			0,       // All Chicken Runs - Post CRT
+			100, 5)) // Tokens Sent a lot and received a little.
 	}
 
 	return c
