@@ -220,6 +220,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 	var allEov uint32 = 0
 	var futureEov uint32 = 0
+	var onVirtueFarm bool = false
 
 	selectedTarget := 0.0
 	selectedDelivered := 0.0
@@ -235,6 +236,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		nextTier := nextTruthEggThreshold(delivered, eov)
 		selected := ""
 		if eggType == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
+			onVirtueFarm = true
 			selected = " (farm)"
 			selectedTarget = nextTier
 			selectedDelivered = delivered
@@ -325,69 +327,73 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	adjustedRemainingTime := remainingTime - elapsed
 	offlineEggs := min(eggLayingRate, shippingRate) * (elapsed / 3600)
 
-	// Want time from now when those minutes elapse
-	if shippingRate > eggLayingRate {
-		fmt.Fprintf(&stats, "%s %s/hr  %s **%s/hr**",
-			VehicleArt,
-			ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 2, "trim": true}),
-			selectedEggEmote,
-			ei.FormatEIValue(eggLayingRate-fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
-	} else {
-		fmt.Fprintf(&stats, "%s **%s/hr**  %s %s/hr",
-			VehicleArt,
-			ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 2, "trim": true}),
-			selectedEggEmote,
-			ei.FormatEIValue(eggLayingRate-fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
-	}
-	if fuelingEnabled {
+	if onVirtueFarm {
+		// Want time from now when those minutes elapse
 		if shippingRate > eggLayingRate {
-			fmt.Fprintf(&stats, " ⛽️ **%s**/hr\n",
-				ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
+			fmt.Fprintf(&stats, "%s %s/hr  %s **%s/hr**",
+				VehicleArt,
+				ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 2, "trim": true}),
+				selectedEggEmote,
+				ei.FormatEIValue(eggLayingRate-fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
 		} else {
-			fmt.Fprintf(&stats, " ⛽️ %s/hr\n",
-				ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
+			fmt.Fprintf(&stats, "%s **%s/hr**  %s %s/hr",
+				VehicleArt,
+				ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 2, "trim": true}),
+				selectedEggEmote,
+				ei.FormatEIValue(eggLayingRate-fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
 		}
-	} else {
-		fmt.Fprint(&stats, "\n")
-	}
+		if fuelingEnabled {
+			if shippingRate > eggLayingRate {
+				fmt.Fprintf(&stats, " ⛽️ **%s**/hr\n",
+					ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
+			} else {
+				fmt.Fprintf(&stats, " ⛽️ %s/hr\n",
+					ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
+			}
+		} else {
+			fmt.Fprint(&stats, "\n")
+		}
 
-	fmt.Fprintf(&stats, "**IHR** %s/min  💤 %s/min  %s %s\n",
-		ei.FormatEIValue(onlineRate, map[string]interface{}{"decimals": 2, "trim": true}),
-		ei.FormatEIValue(offlineRate, map[string]interface{}{"decimals": 2, "trim": true}),
-		ei.GetBotEmojiMarkdown("silo"),
-		bottools.FmtDuration(time.Duration(siloMinutes)*time.Minute),
-	)
+		fmt.Fprintf(&stats, "**IHR** %s/min  💤 %s/min  %s %s\n",
+			ei.FormatEIValue(onlineRate, map[string]interface{}{"decimals": 2, "trim": true}),
+			ei.FormatEIValue(offlineRate, map[string]interface{}{"decimals": 2, "trim": true}),
+			ei.GetBotEmojiMarkdown("silo"),
+			bottools.FmtDuration(time.Duration(siloMinutes)*time.Minute),
+		)
 
-	if habPop >= habCap || habPercent >= 99.9 {
-		fmt.Fprintf(&stats, "%s %d%% %s ⚠️🔒\n",
-			strings.Join(habArray, ""),
-			int(habPercent),
-			ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 2, "trim": true}))
-	} else {
-		fmt.Fprintf(&stats, "%s %s %d%% 🔒<t:%d:R> or 💤<t:%d:R>\n",
-			habArt,
-			ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 2, "trim": true}),
-			int(habPercent),
-			time.Now().Add(time.Duration(int64(onlineFillTime))*time.Second).Unix(),
-			time.Now().Add(time.Duration(int64(offlineFillTime))*time.Second).Unix())
-	}
+		if habPop >= habCap || habPercent >= 99.9 {
+			fmt.Fprintf(&stats, "%s %d%% %s ⚠️🔒\n",
+				strings.Join(habArray, ""),
+				int(habPercent),
+				ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 2, "trim": true}))
+		} else {
+			fmt.Fprintf(&stats, "%s %s %d%% 🔒<t:%d:R> or 💤<t:%d:R>\n",
+				habArt,
+				ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 2, "trim": true}),
+				int(habPercent),
+				time.Now().Add(time.Duration(int64(onlineFillTime))*time.Second).Unix(),
+				time.Now().Add(time.Duration(int64(offlineFillTime))*time.Second).Unix())
+		}
 
-	if remainingTime == -1.0 {
-		fmt.Fprintf(&header, "**Deliver %s%s in more than a year**",
-			ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
-			selectedEggEmote)
-	} else if adjustedRemainingTime < 86400.0 { // 1 day
-		fmt.Fprintf(&header, "**Deliver %s%s <t:%d:R>**",
-			ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
-			selectedEggEmote,
-			time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Second).Unix())
+		if remainingTime == -1.0 {
+			fmt.Fprintf(&header, "**Deliver %s%s in more than a year 💤**",
+				ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
+				selectedEggEmote)
+		} else if adjustedRemainingTime < 86400.0 { // 1 day
+			fmt.Fprintf(&header, "**Deliver %s%s <t:%d:R>**💤",
+				ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
+				selectedEggEmote,
+				time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Second).Unix())
+		} else {
+			fmt.Fprintf(&header, "**Deliver %s%s <t:%d:f>**💤",
+				ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
+				selectedEggEmote,
+				time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Second).Unix())
+		}
+		fmt.Fprintf(&header, "\n-# includes %s offline eggs", ei.FormatEIValue(offlineEggs, map[string]interface{}{"decimals": 1, "trim": true}))
 	} else {
-		fmt.Fprintf(&header, "**Deliver %s%s <t:%d:f>**💤",
-			ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
-			selectedEggEmote,
-			time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Second).Unix())
+		fmt.Fprint(&header, "**Ascend to visit your Egg of Virtue farm.**")
 	}
-	fmt.Fprintf(&header, "\n-# includes %s offline eggs", ei.FormatEIValue(offlineEggs, map[string]interface{}{"decimals": 1, "trim": true}))
 
 	// If we have a selected egg type, show time to next TE
 
