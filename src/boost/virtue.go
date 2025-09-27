@@ -176,6 +176,11 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	rockets := strings.Builder{}
 	footer := strings.Builder{}
 
+	var onVirtueFarm = false
+	if eggType >= ei.Egg(int(ei.Egg_CURIOSITY)) && eggType <= ei.Egg(int(ei.Egg_KINDNESS)) {
+		onVirtueFarm = true
+	}
+
 	shiftCost := getShiftCost(virtue.GetShiftCount(), se)
 
 	fmt.Fprintf(&header, "# Eggs of Virtue Helper\n")
@@ -193,22 +198,26 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	// Hab
 	highestHab := 1
 	var habArray []string
-	for _, h := range farm.GetHabs() {
-		id := h // h is already a uint32 representing the habitat ID
-		if int(id) > highestHab && int(id) < 19 {
-			highestHab = int(id + 1)
-		}
-		if int(id) < 19 {
-			habArray = append(habArray, ei.GetBotEmojiMarkdown(fmt.Sprintf("hab%d", id+1)))
+	if onVirtueFarm {
+		for _, h := range farm.GetHabs() {
+			id := h // h is already a uint32 representing the habitat ID
+			if int(id) > highestHab && int(id) < 19 {
+				highestHab = int(id + 1)
+			}
+			if int(id) < 19 {
+				habArray = append(habArray, ei.GetBotEmojiMarkdown(fmt.Sprintf("hab%d", id+1)))
+			}
 		}
 	}
 	habArt := ei.GetBotEmojiMarkdown(fmt.Sprintf("hab%d", highestHab))
 
 	highestVehicle := 0
-	for _, v := range farm.GetVehicles() {
-		id := v // v is already a uint32 representing the vehicle ID
-		if int(id) > highestVehicle {
-			highestVehicle = int(id)
+	if onVirtueFarm {
+		for _, v := range farm.GetVehicles() {
+			id := v // v is already a uint32 representing the vehicle ID
+			if int(id) > highestVehicle {
+				highestVehicle = int(id)
+			}
 		}
 	}
 	VehicleArt := ei.GetBotEmojiMarkdown(fmt.Sprintf("veh%d", highestVehicle))
@@ -220,7 +229,6 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 	var allEov uint32 = 0
 	var futureEov uint32 = 0
-	var onVirtueFarm = false
 
 	selectedTarget := 0.0
 	selectedDelivered := 0.0
@@ -236,7 +244,6 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		nextTier := nextTruthEggThreshold(delivered, eov)
 		selected := ""
 		if eggType == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
-			onVirtueFarm = true
 			selected = " (farm)"
 			selectedTarget = nextTier
 			selectedDelivered = delivered
