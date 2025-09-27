@@ -24,8 +24,8 @@ func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID str
 
 	protoData := ""
 	if fileInfo, err := os.Stat("ttbb-data/eiuserdata/firstcontact-" + discordID + ".pb"); err == nil {
-		// File exists, check if it's within 10 minutes
-		if time.Since(fileInfo.ModTime()) <= 2*time.Minute {
+		// File exists, check if it's within 30 seconds
+		if time.Since(fileInfo.ModTime()) <= 30*time.Second {
 			// File is recent, load it
 			data, err := os.ReadFile("ttbb-data/eiuserdata/firstcontact-" + discordID + ".pb")
 			if err == nil {
