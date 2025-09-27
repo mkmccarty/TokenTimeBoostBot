@@ -220,7 +220,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 	var allEov uint32 = 0
 	var futureEov uint32 = 0
-	var onVirtueFarm bool = false
+	var onVirtueFarm = false
 
 	selectedTarget := 0.0
 	selectedDelivered := 0.0
