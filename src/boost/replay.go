@@ -35,18 +35,24 @@ func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
 		},
 		Options: []*discordgo.ApplicationCommandOption{
 			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "threshold",
-				Description: "Below % of speedrun score",
-				MinValue:    &minValue,
-				MaxValue:    50,
-				Required:    false,
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "active",
+				Description: "Evaluate Active Contract Details",
 			},
 			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "reset",
-				Description: "Reset stored EI number",
-				Required:    false,
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "threshold",
+				Description: "Summarize contracts below a certain % of speedrun score",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:        discordgo.ApplicationCommandOptionInteger,
+						Name:        "percent",
+						Description: "Below % of speedrun score",
+						MinValue:    &minValue,
+						MaxValue:    50,
+						Required:    true,
+					},
+				},
 			},
 		},
 	}
@@ -55,26 +61,36 @@ func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
 // HandleReplayEval handles the /replay-eval command
 func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	userID := bottools.GetInteractionUserID(i)
+	onlyActiveContracts := false
 	percent := -1
 
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
-
-	if opt, ok := optionMap["reset"]; ok {
-		if opt.BoolValue() {
-			farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
+		if opt.Type == discordgo.ApplicationCommandOptionSubCommand {
+			for _, subOpt := range opt.Options {
+				optionMap[opt.Name+"-"+subOpt.Name] = subOpt
+			}
+			optionMap[opt.Name] = opt
 		}
 	}
-	if opt, ok := optionMap["threshold"]; ok {
+
+	if _, ok := optionMap["active"]; ok {
+		// No parameters on this
+		onlyActiveContracts = true
+	}
+	if opt, ok := optionMap["threshold-percent"]; ok {
+
 		percent = int(opt.UintValue())
 	}
 
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 
-	ReplayEval(s, i, percent, eiID, true)
+	if onlyActiveContracts {
+		ReplayEval(s, i, -1, eiID, false)
+	} else {
+		ReplayEval(s, i, percent, eiID, true)
+	}
 }
 
 // ReplayEval evaluates the contract history and provides replay guidance
@@ -139,15 +155,15 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent in
 		return
 	}
 
-	str := printArchivedContracts(archive, percent)
-	if str == "" {
-		str = "No archived contracts found in Egg Inc API response"
+	components := printArchivedContracts(archive, percent)
+	if len(components) == 0 {
+		components = []discordgo.MessageComponent{
+			&discordgo.TextDisplay{Content: "No archived contracts found in Egg Inc API response"},
+		}
 	}
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Flags: flags,
-		Components: []discordgo.MessageComponent{
-			discordgo.TextDisplay{Content: str},
-		},
+		Flags:      flags,
+		Components: components,
 	})
 
 	if !cached && okayToSave {
@@ -164,11 +180,16 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent in
 	}
 }
 
-func printArchivedContracts(archive []*ei.LocalContract, percent int) string {
+func printArchivedContracts(archive []*ei.LocalContract, percent int) []discordgo.MessageComponent {
+	var components []discordgo.MessageComponent
+
 	builder := strings.Builder{}
 	if archive == nil {
 		log.Print("No archived contracts found in Egg Inc API response")
-		return builder.String()
+		components = append(components, &discordgo.TextDisplay{
+			Content: builder.String(),
+		})
+		return components
 	}
 	log.Printf("Downloaded %d archived contracts from Egg Inc API\n", len(archive))
 
@@ -235,7 +256,10 @@ func printArchivedContracts(archive []*ei.LocalContract, percent int) string {
 		builder.Reset()
 		builder.WriteString("No contracts met this condition.\n")
 	}
-	return builder.String()
+	components = append(components, &discordgo.TextDisplay{
+		Content: builder.String(),
+	})
+	return components
 }
 
 /*
