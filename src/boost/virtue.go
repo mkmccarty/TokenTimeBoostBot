@@ -317,9 +317,9 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 	fuelingEnabled := virtue.GetAfx().GetTankFillingEnabled()
 	fuelRate := 0.0
+	fuelPercentage := virtue.GetAfx().GetFlowPercentageArtifacts()
 	recommendedFuelRate := 0.0
 	if fuelingEnabled {
-		fuelPercentage := virtue.GetAfx().GetFlowPercentageArtifacts()
 		fuelRate = eggLayingRate * fuelPercentage
 	} else {
 		fuelingTiers := []float64{0.1, 0.5, 0.9}
@@ -359,11 +359,16 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 				ei.FormatEIValue(eggLayingRate-fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
 		}
 		if fuelingEnabled {
-			if shippingRate > eggLayingRate {
-				fmt.Fprintf(&stats, " ⛽️ **%s**/hr\n",
+			warningLamp := ""
+			if fuelPercentage == 1.0 {
+				warningLamp = "⚠🚨"
+			} else if shippingRate > eggLayingRate {
+				fmt.Fprintf(&stats, " ⛽️%s **%s**/hr\n",
+					warningLamp,
 					ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
 			} else {
-				fmt.Fprintf(&stats, " ⛽️ %s/hr\n",
+				fmt.Fprintf(&stats, " ⛽️%s %s/hr\n",
+					warningLamp,
 					ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
 			}
 		} else if recommendedFuelRate > 0.0 {
