@@ -364,7 +364,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 				warningLamp = "⚠🚨"
 			}
 			if shippingRate > eggLayingRate {
-				fmt.Fprintf(&stats, " ⛽️%s **%s**/hr\n",
+				fmt.Fprintf(&stats, " ⛽️%s **%s/hr**\n",
 					warningLamp,
 					ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
 			} else {
@@ -456,8 +456,10 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 			if config.IsDevBot() {
 				art = craft.ArtDev
 			}
-			timeRemaining := mission.GetSecondsRemaining()
-			fmt.Fprintf(&rockets, "%s <t:%d:R> \n", art, time.Now().Unix()+int64(timeRemaining))
+			missionEnd := uint32(mission.GetStartTimeDerived()) + mission.GetCapacity()
+			//timeRemaining := mission.GetSecondsRemaining()
+			//fmt.Fprintf(&rockets, "%s <t:%d:R> \n", art, time.Now().Unix()+int64(missionEnd))
+			fmt.Fprintf(&rockets, "%s <t:%d:R> \n", art, missionEnd)
 		}
 	}
 
