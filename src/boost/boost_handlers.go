@@ -349,7 +349,7 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 	if (contract.State == ContractStateSignup || contract.State == ContractStateBanker) && contract.Style&ContractFlagBanker != 0 {
 		sinkList = append(sinkList, SinkList{"Banker", "🏦", contract.Banker.BoostingSinkUserID, "boostsink"})
 	}
-	if contract.CxpVersion != 1 {
+	if contract.SeasonalScoring != 1 {
 		// New contracts fom 9/22/2025 on don't have token value requirements
 		sinkList = append(sinkList, SinkList{"Post Contract Sink", "🏁", contract.Banker.PostSinkUserID, "postsink"})
 	}

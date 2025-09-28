@@ -185,7 +185,7 @@ type EggIncContract struct {
 	CxpBuffOnly float64 // Minimum score with only CR/TVal
 	CxpRunDelta float64 // Individual chicken run addition
 	Cxp         float64 // CXP value for the contract
-	CxpVersion  int     // 0 = old (0.2.0), true = 1 (0.3.0+ sesonals & AA+AAA)
+	SeasonalScoring  int     // 0 = old (0.2.0), true = 1 (0.3.0+ sesonals & AA+AAA)
 }
 
 // EggIncContracts holds a list of all contracts, newest is last

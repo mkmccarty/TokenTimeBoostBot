@@ -103,7 +103,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	c.SeasonID = contractProtoBuf.GetSeasonId()
 
 	if c.SeasonID == "fall_2025" || strings.Contains(c.SeasonID, "2026") {
-		c.CxpVersion = 1
+		c.SeasonalScoring = 1
 	}
 
 	if contractProtoBuf.GetStartTime() == 0 {
@@ -217,7 +217,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		days := d.Hours() / 24.0 // 2 days
 		c.ContractDurationInDays = int(days)
 		c.ChickenRuns = int(min(20.0, math.Ceil((days*float64(c.MaxCoopSize))/2.0)))
-		if c.CxpVersion == 1 {
+		if c.SeasonalScoring == 1 {
 			c.ChickenRuns = c.MaxCoopSize - 1
 		}
 	}
@@ -235,7 +235,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 
 
 		// Create a Base score with no teamwork multipliers
-		scoreBase := calculateContractScore(eiContract.CxpVersion, grade,
+		scoreBase := calculateContractScore(eiContract.SeasonalScoring, grade,
 			eiContract.MaxCoopSize,
 			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
 			contribution[i],
@@ -243,13 +243,13 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			contractDurationSeconds,
 			0, 0, 0)
 		diffCR := (float64(scoreBase) * 0.06) / float64(eiContract.ChickenRuns)
-		if eiContract.CxpVersion == 1 {
+		if eiContract.SeasonalScoring == 1 {
 			diffCR = (float64(scoreBase) * 0.05) / float64(eiContract.ChickenRuns)
 		}
 
 		// Calculate a score with only the Buffs included
 		var crBuilder strings.Builder
-		minScore := calculateContractScore(eiContract.CxpVersion, grade,
+		minScore := calculateContractScore(eiContract.SeasonalScoring, grade,
 			eiContract.MaxCoopSize,
 			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
 			contribution[i],
@@ -265,7 +265,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 
 	if c.ContractVersion == 2 {
 		fairShare := 1.05
-		if c.CxpVersion == 1 {
+		if c.SeasonalScoring == 1 {
 			fairShare = 1.02
 		}
 
@@ -286,7 +286,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			0, 0)) // Tokens Sent a lot and received a little.
 
 		c.CxpRunDelta = (float64(baseScore) * 0.06) / float64(c.ChickenRuns)
-		if c.CxpVersion == 1 {
+		if c.SeasonalScoring == 1 {
 			c.CxpRunDelta = (float64(baseScore) * 0.05) / float64(c.ChickenRuns)
 		}
 		c.CxpBuffOnly = float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
@@ -315,7 +315,7 @@ func updateContractWithEggIncData(contract *Contract) {
 			contract.ChickenRunCooldownMinutes = cc.ChickenRunCooldownMinutes
 			contract.MinutesPerToken = cc.MinutesPerToken
 			contract.Ultra = cc.Ultra
-			contract.CxpVersion = cc.CxpVersion
+			contract.SeasonalScoring = cc.SeasonalScoring
 			break
 		}
 	}

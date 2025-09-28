@@ -63,7 +63,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	divider := true
 	spacing := discordgo.SeparatorSpacingSizeSmall
 
-	targetTval := GetTargetTval(contract.CxpVersion, contract.EstimatedDuration.Minutes(), float64(contract.MinutesPerToken))
+	targetTval := GetTargetTval(contract.SeasonalScoring, contract.EstimatedDuration.Minutes(), float64(contract.MinutesPerToken))
 
 	var bannerItem discordgo.MediaGalleryItem
 

@@ -144,7 +144,7 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 	} else if !userInContract(contract, userID) {
 		str = "You are not part of this contract"
 	} else {
-		targetTval := GetTargetTval(contract.CxpVersion, duration.Minutes(), float64(contract.MinutesPerToken))
+		targetTval := GetTargetTval(contract.SeasonalScoring, duration.Minutes(), float64(contract.MinutesPerToken))
 		// Calculate the token value
 		if targetTval == 0.0 {
 			str += "This contract does not have a target token value requirement.\n"
