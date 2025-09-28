@@ -247,9 +247,6 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	var newContract []ei.EggIncContract
 	for _, contract := range periodicalsResponse.GetContracts().GetContracts() {
 		c := boost.PopulateContractFromProto(contract)
-		if c.ID == "first-contract" {
-			continue
-		}
 		//log.Print("contract details: ", c.ID, " ", contract.GetCcOnly())
 		// Time this record was imported from the periodicals API
 		c.PeriodicalAPI = true
@@ -273,7 +270,9 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 			currentTeamRoleMap[c.ID] = teamRoleMap[c.ID]
 		}
 		ei.EggIncContractsAll[c.ID] = c
-		newContract = append(newContract, c)
+		if c.ID != "first-contract" {
+			newContract = append(newContract, c)
+		}
 	}
 
 	// Replace what we have with only a current list of names
