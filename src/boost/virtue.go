@@ -362,7 +362,8 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 			warningLamp := ""
 			if fuelPercentage == 1.0 {
 				warningLamp = "⚠🚨"
-			} else if shippingRate > eggLayingRate {
+			}
+			if shippingRate > eggLayingRate {
 				fmt.Fprintf(&stats, " ⛽️%s **%s**/hr\n",
 					warningLamp,
 					ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
