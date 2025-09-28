@@ -186,7 +186,7 @@ func getContractEstimateString(contractID string) string {
 			c.MaxCoopSize-1, // All Chicken Runs
 			3, 100)          // Sink token use, sent at least 3 (max) and received a lot
 
-		if c.CxpVersion != 1 { // Leggacies originally released before Sept 22, 2025
+		if c.SeasonalScoring != 1 { // Leggacies originally released before Sept 22, 2025
 			var cs strings.Builder
 			fmt.Fprintf(&cs, "CS Est: **%d** ", int64(c.Cxp))
 			if c.ChickenRuns > c.MaxCoopSize-1 {
@@ -212,7 +212,7 @@ func getContractEstimateString(contractID string) string {
 				ei.GetBotEmojiMarkdown("icon_chicken_run"))
 		}
 
-		if c.CxpVersion != 1 {
+		if c.SeasonalScoring != 1 {
 			if math.Round(c.TargetTval*100)/100 == math.Round(c.TargetTvalLower*100)/100 {
 				str += fmt.Sprintf("Target TVal: **%.2f**\n", c.TargetTval)
 			} else {

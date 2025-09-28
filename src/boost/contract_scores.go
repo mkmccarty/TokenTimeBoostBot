@@ -162,15 +162,15 @@ func getContractScoreEstimate(c ei.EggIncContract, grade ei.Contract_PlayerGrade
 
 	siabDuration := (time.Duration(siabMinutes) * time.Minute).Seconds()
 	deflectorDuration := (contractDuration - time.Duration(deflMinutesReduction)*time.Minute).Seconds()
-	buffTimeValue := calculateBuffTimeValue(c.CxpVersion, siabDuration, 0, int(siabPercent))
-	buffTimeValue += calculateBuffTimeValue(c.CxpVersion, deflectorDuration, int(deflPercent), 0)
+	buffTimeValue := calculateBuffTimeValue(c.SeasonalScoring, siabDuration, 0, int(siabPercent))
+	buffTimeValue += calculateBuffTimeValue(c.SeasonalScoring, deflectorDuration, int(deflPercent), 0)
 
-	//buffTimeValue := calculateBuffTimeValue(c.CxpVersion, contractDuration.Seconds(), int(siabPercent), int(deflPercent))
+	//buffTimeValue := calculateBuffTimeValue(c.SeasonalScoring, contractDuration.Seconds(), int(siabPercent), int(deflPercent))
 	B := calculateTeamworkB(buffTimeValue, contractDuration.Seconds())
 
-	CR := calculateChickenRunTeamwork(c.CxpVersion, c.MaxCoopSize, c.ContractDurationInDays, chickenRuns)
+	CR := calculateChickenRunTeamwork(c.SeasonalScoring, c.MaxCoopSize, c.ContractDurationInDays, chickenRuns)
 	T := calculateTokenTeamwork(contractDuration.Seconds(), c.MinutesPerToken, sentTokens, receivedTokens)
-	score := calculateContractScore(c.CxpVersion, int(ei.Contract_GRADE_AAA),
+	score := calculateContractScore(c.SeasonalScoring, int(ei.Contract_GRADE_AAA),
 		c.MaxCoopSize,
 		c.Grade[grade].TargetAmount[len(c.Grade[grade].TargetAmount)-1],
 		c.TargetAmount[len(c.TargetAmount)-1]/float64(c.MaxCoopSize)*fairShare,
