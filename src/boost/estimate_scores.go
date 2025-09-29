@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 // GetSlashCsEstimates returns the slash command for estimating scores
@@ -106,13 +107,21 @@ func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 		return
 	}
 
+	eiContract := ei.EggIncContractsAll[contractID]
 	var footer strings.Builder
-	footer.WriteString("-# MAX : Max Chicken Runs & ∆T-Val\n")
-	footer.WriteString("-# TVAL: Coop Size-1 Chicken Runs & ∆T-Val\n")
-	footer.WriteString("-# SINK: Max Chicken Runs & Token Sink\n")
-	footer.WriteString("-# RUNS: Coop Size-1 Chicken Runs, No token sharing\n")
-	footer.WriteString("-# MIN:  No Chicken Runs,No token sharing\n")
-	footer.WriteString("-# BASE: No BTV, No Chicken Runs, No token sharing\n")
+	if eiContract.SeasonalScoring != 1 {
+		footer.WriteString("-# MAX : BTV & Max Chicken Runs & ∆T-Val\n")
+		footer.WriteString("-# TVAL: BTV, Coop Size-1 Chicken Runs & ∆T-Val\n")
+		footer.WriteString("-# SINK: BTV, Max Chicken Runs & Token Sink\n")
+		footer.WriteString("-# RUNS: BTV, Coop Size-1 Chicken Runs, No token sharing\n")
+		footer.WriteString("-# MIN:  BTV, No Chicken Runs,No token sharing\n")
+		footer.WriteString("-# BASE: No BTV, No Chicken Runs, No token sharing\n")
+	} else {
+		footer.WriteString("-# MAX : BTV & Max Chicken Runs\n")
+		footer.WriteString("-# MIN:  BTV & No Chicken Runs\n")
+		footer.WriteString("-# BASE: No BTV, No Chicken Runs\n")
+
+	}
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Flags: flags | discordgo.MessageFlagsIsComponentsV2,
 		Components: []discordgo.MessageComponent{

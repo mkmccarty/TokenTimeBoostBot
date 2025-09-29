@@ -18,6 +18,23 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+// SavedOptionsMap stores the options from a slash command for later retrieval
+var SavedOptionsMap = make(map[string]map[string]*discordgo.ApplicationCommandInteractionDataOption)
+
+// SaveOptions saves the options from a slash command into a map for later retrieval
+func SaveOptions(options []*discordgo.ApplicationCommandInteractionDataOption) map[string]*discordgo.ApplicationCommandInteractionDataOption {
+	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+	for _, opt := range options {
+		if opt.Type == discordgo.ApplicationCommandOptionSubCommand {
+			for _, subOpt := range opt.Options {
+				optionMap[opt.Name+"-"+subOpt.Name] = subOpt
+			}
+			optionMap[opt.Name] = opt
+		}
+	}
+	return optionMap
+}
+
 // GetSlashReplayEvalCommand returns the command for the /launch-helper command
 func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
 	minValue := 0.0
@@ -123,7 +140,6 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent in
 	})
 
 	userID := bottools.GetInteractionUserID(i)
-
 	archive, cached := ei.GetContractArchiveFromAPI(s, eggIncID, userID, okayToSave)
 
 	cxpVersion := ""
@@ -146,15 +162,6 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent in
 		}
 	}
 
-	// I want to convert this archive to a JSON string, replace the eggIncID with the discord ID and save the file to
-	// a local file named contract-archive-<discordID>.json for debugging purposes.
-
-	jsonData, err := json.Marshal(archive)
-	if err != nil {
-		log.Println("Error marshalling archive to JSON:", err)
-		return
-	}
-
 	components := printArchivedContracts(archive, percent)
 	if len(components) == 0 {
 		components = []discordgo.MessageComponent{
@@ -167,6 +174,15 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent in
 	})
 
 	if !cached && okayToSave {
+		jsonData, err := json.Marshal(archive)
+		// I want to convert this archive to a JSON string, replace the eggIncID with the discord ID and save the file to
+		// a local file named contract-archive-<discordID>.json for debugging purposes.
+
+		if err != nil {
+			log.Println("Error marshalling archive to JSON:", err)
+			return
+		}
+
 		discordID := userID
 		fileName := fmt.Sprintf("ttbb-data/eiuserdata/archive-%s-%s.json", discordID, cxpVersion)
 		// Replace eggIncID with userID in the JSON data
@@ -209,17 +225,25 @@ func printArchivedContracts(archive []*ei.LocalContract, percent int) []discordg
 
 	count := 0
 
-	for _, c := range archive {
+	for _, a := range archive {
+		// Completed
+		// What is the current tval
+		// CR Total
+		// Contribution Ratio
+		// BuffTimeValue
+		// Duration
 
-		contractID := c.GetContract().GetIdentifier()
-		//coopID := c.GetCoopIdentifier()
-		evaluation := c.GetEvaluation()
+		contractID := a.GetContract().GetIdentifier()
+		//coopID := a.GetCoopIdentifier()
+		evaluation := a.GetEvaluation()
 		cxp := evaluation.GetCxp()
+		//url := fmt.Sprintf("[%s](%s/%s/%s)", coopID, "https://eicoop-carpet.netlify.app", contractID, coopID)
 
 		c := ei.EggIncContractsAll[contractID]
 		//if c.ContractVersion == 2 {
 		if percent != -1 {
 			if cxp < c.Cxp*(1-float64(percent)/100) || c.Cxp == 0 {
+
 				if builder.Len() < 3500 {
 					fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`\n",
 						bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
