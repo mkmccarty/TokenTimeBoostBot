@@ -173,34 +173,6 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		return
 	}
 
-	/*
-		if scoresFirst {
-			var footer strings.Builder
-			footer.WriteString("-# MAX : Max Chicken Runs & ∆T-Val\n")
-			footer.WriteString("-# TVAL: Coop Size-1 Chicken Runs & ∆T-Val\n")
-			footer.WriteString("-# SINK: Max Chicken Runs & Token Sink\n")
-			footer.WriteString("-# RUNS: Coop Size-1 Chicken Runs, No token sharing\n")
-			footer.WriteString("-# BASE: No Chicken Runs & No token sharing\n")
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Flags: discordgo.MessageFlagsIsComponentsV2,
-				Components: []discordgo.MessageComponent{
-					discordgo.TextDisplay{
-						Content: str,
-					},
-					discordgo.TextDisplay{
-						Content: "## Projected Contract Scores",
-					},
-					discordgo.TextDisplay{
-						Content: scores,
-					},
-					discordgo.TextDisplay{
-						Content: footer.String(),
-					},
-				},
-			})
-			return
-		}
-	*/
 	cache := buildTeamworkCache(str, fields)
 	// Fill in our calling parameters
 	cache.contractID = contractID
@@ -382,16 +354,24 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	}
 	var contractScoreArr []contractScores
 	var scoresTable strings.Builder
-	fmt.Fprintf(&scoresTable, "`%12s %6s %6s %6s %6s %6s %6s`\n",
-		bottools.AlignString("NAME", 12, bottools.StringAlignCenter),
-		bottools.AlignString("MAX", 6, bottools.StringAlignCenter),
-		bottools.AlignString("TVAL", 6, bottools.StringAlignCenter),
-		bottools.AlignString("SINK", 6, bottools.StringAlignCenter),
-		bottools.AlignString("RUNS", 6, bottools.StringAlignCenter),
-		bottools.AlignString("MIN", 6, bottools.StringAlignCenter),
-		bottools.AlignString("BASE", 6, bottools.StringAlignCenter),
-	)
-
+	if eiContract.SeasonalScoring == 1 {
+		fmt.Fprintf(&scoresTable, "`%12s %6s %6s %6s`\n",
+			bottools.AlignString("NAME", 12, bottools.StringAlignCenter),
+			bottools.AlignString("MAX", 6, bottools.StringAlignCenter),
+			bottools.AlignString("MIN", 6, bottools.StringAlignCenter),
+			bottools.AlignString("BASE", 6, bottools.StringAlignCenter),
+		)
+	} else {
+		fmt.Fprintf(&scoresTable, "`%12s %6s %6s %6s %6s %6s %6s`\n",
+			bottools.AlignString("NAME", 12, bottools.StringAlignCenter),
+			bottools.AlignString("MAX", 6, bottools.StringAlignCenter),
+			bottools.AlignString("TVAL", 6, bottools.StringAlignCenter),
+			bottools.AlignString("SINK", 6, bottools.StringAlignCenter),
+			bottools.AlignString("RUNS", 6, bottools.StringAlignCenter),
+			bottools.AlignString("MIN", 6, bottools.StringAlignCenter),
+			bottools.AlignString("BASE", 6, bottools.StringAlignCenter),
+		)
+	}
 	var DeliveryTimeValues []DeliveryTimeValue
 
 	deliveryTableMap := make(map[string][]DeliveryTimeValue)
@@ -1006,9 +986,17 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		return contractScoreArr[i].max > contractScoreArr[j].max
 	})
 	for _, cs := range contractScoreArr {
-		fmt.Fprintf(&scoresTable, "`%12s %6d %6d %6d %6d %6d %6d`\n",
-			bottools.AlignString(cs.name, 12, bottools.StringAlignLeft),
-			cs.max, cs.tval, cs.sink, cs.runs, cs.min, cs.base)
+		if eiContract.SeasonalScoring == 1 {
+			fmt.Fprintf(&scoresTable, "`%12s %6d %6d %6d`\n",
+				bottools.AlignString(cs.name, 12, bottools.StringAlignLeft),
+				cs.max, cs.min, cs.base)
+
+		} else {
+			fmt.Fprintf(&scoresTable, "`%12s %6d %6d %6d %6d %6d %6d`\n",
+				bottools.AlignString(cs.name, 12, bottools.StringAlignLeft),
+				cs.max, cs.tval, cs.sink, cs.runs, cs.min, cs.base)
+
+		}
 	}
 
 	var siabMax []*discordgo.MessageEmbedField

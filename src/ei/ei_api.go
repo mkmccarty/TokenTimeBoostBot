@@ -168,8 +168,8 @@ func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID 
 	cachedData := false
 
 	if fileInfo, err := os.Stat("ttbb-data/eiuserdata/archive-" + discordID + ".pb"); err == nil {
-		// File exists, check if it's within 10 minutes
-		if time.Since(fileInfo.ModTime()) <= 10*time.Minute {
+		// File exists, check if it's within 24 hours
+		if time.Since(fileInfo.ModTime()) <= 24*time.Hour {
 			// File is recent, load it
 			data, err := os.ReadFile("ttbb-data/eiuserdata/archive-" + discordID + ".pb")
 			if err == nil {
