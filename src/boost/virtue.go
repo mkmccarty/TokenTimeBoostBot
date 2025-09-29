@@ -321,13 +321,12 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	recommendedFuelRate := 0.0
 	if fuelingEnabled {
 		fuelRate = eggLayingRate * fuelPercentage
-	} else {
-		fuelingTiers := []float64{0.1, 0.5, 0.9}
-		// Check if IHR is high enough over Shipping Rate to enable fueling
-		for _, tier := range fuelingTiers {
-			if eggLayingRate*(1.0-tier) > shippingRate {
-				recommendedFuelRate = tier
-			}
+	}
+	fuelingTiers := []float64{0.1, 0.5, 0.9}
+	// Check if IHR is high enough over Shipping Rate to enable fueling
+	for _, tier := range fuelingTiers {
+		if eggLayingRate*(1.0-tier) > shippingRate {
+			recommendedFuelRate = tier
 		}
 	}
 
@@ -359,17 +358,20 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 				ei.FormatEIValue(eggLayingRate-fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
 		}
 		if fuelingEnabled {
-			warningLamp := ""
+			fuelLamp := ""
 			if fuelPercentage == 1.0 {
-				warningLamp = "⚠🚨"
+				fuelLamp = "🚨"
+			}
+			if recommendedFuelRate > fuelPercentage {
+				fuelLamp = "🎚️"
 			}
 			if shippingRate > eggLayingRate {
 				fmt.Fprintf(&stats, " ⛽️%s **%s/hr**\n",
-					warningLamp,
+					fuelLamp,
 					ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
 			} else {
 				fmt.Fprintf(&stats, " ⛽️%s %s/hr\n",
-					warningLamp,
+					fuelLamp,
 					ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
 			}
 		} else if recommendedFuelRate > 0.0 {
