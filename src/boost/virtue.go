@@ -353,6 +353,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 			if fuelQuantity >= maxFill {
 				fuelingEnabled = false
 				recommendedFuelRate = 0.0
+				fuelRate = 0.0
 			}
 		}
 
