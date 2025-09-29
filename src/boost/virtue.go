@@ -221,7 +221,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		}
 	}
 	VehicleArt := ei.GetBotEmojiMarkdown(fmt.Sprintf("veh%d", highestVehicle))
-
+	DepotArt := ei.GetBotEmojiMarkdown("depot")
 	//fmt.Fprintf(&builder, "Inventory Score %.0f\n", virtue.GetAfx().GetInventoryScore())
 	virtueEggs := []string{"CURIOSITY", "INTEGRITY", "HUMILITY", "RESILIENCE", "KINDNESS"}
 	eggEffects := []string{"🔬", habArt, craftArt, ei.GetBotEmojiMarkdown("silo"), VehicleArt}
@@ -366,16 +366,18 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 				fuelLamp = "🎚️"
 			}
 			if shippingRate > eggLayingRate {
-				fmt.Fprintf(&stats, " ⛽️%s **%s/hr**\n",
+				fmt.Fprintf(&stats, " %s%s **%s/hr**\n",
+					DepotArt,
 					fuelLamp,
 					ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
 			} else {
-				fmt.Fprintf(&stats, " ⛽️%s %s/hr\n",
+				fmt.Fprintf(&stats, " %s%s %s/hr\n",
+					DepotArt,
 					fuelLamp,
 					ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
 			}
 		} else if recommendedFuelRate > 0.0 {
-			fmt.Fprintf(&stats, " ⛽️🎚️ %.0f%%\n", recommendedFuelRate*100)
+			fmt.Fprintf(&stats, " %s🎚️ %.0f%%\n", DepotArt, recommendedFuelRate*100)
 		} else {
 			fmt.Fprint(&stats, "\n")
 		}
@@ -438,7 +440,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	// Line for fuel
 	fuels := virtue.GetAfx().GetTankFuels()
 	fuels = fuels[len(fuels)-5:]
-	rockets.WriteString("\n⛽️ ")
+	fmt.Fprintf(&rockets, "\n%s", DepotArt)
 	for i, fuel := range fuels {
 		fmt.Fprintf(&rockets, " %s:%s",
 			ei.GetBotEmojiMarkdown("egg_"+strings.ToLower(virtueEggs[i])),
