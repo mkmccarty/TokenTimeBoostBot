@@ -232,6 +232,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 	selectedTarget := 0.0
 	selectedDelivered := 0.0
+	selectedEggIndex := -1
 	selectedEggEmote := ""
 
 	for i, egg := range virtueEggs {
@@ -245,6 +246,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		selected := ""
 		if eggType == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
 			selected = " (farm)"
+			selectedEggIndex = i
 			selectedTarget = nextTier
 			selectedDelivered = delivered
 			selectedEggEmote = ei.GetBotEmojiMarkdown("egg_" + strings.ToLower(egg))
@@ -328,6 +330,32 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		if eggLayingRate*(1.0-tier) > shippingRate {
 			recommendedFuelRate = tier
 		}
+	}
+
+	// Handle tank limits if on virtue farm and fueling
+	if selectedEggIndex != -1 {
+		tankLevels := []float64{2e9, 200e9, 10e12, 100e12, 200e12, 300e12, 400e12, 500e12}
+		fuelingTankLevel := backup.GetArtifacts().GetTankLevel()
+		fuelLimits := virtue.GetAfx().GetTankLimits()
+		tankLimit := tankLevels[fuelingTankLevel]
+		// Only use the last 5 elements of fuelLimits and tankLevels
+		if len(fuelLimits) > 5 {
+			fuelLimits = fuelLimits[len(fuelLimits)-5:]
+		}
+		fuels := virtue.GetAfx().GetTankFuels()
+		if len(fuels) > 5 {
+			fuels = fuels[len(fuels)-5:]
+		}
+		maxFill := tankLimit * fuelLimits[selectedEggIndex]
+
+		if selectedEggIndex >= 0 && selectedEggIndex < len(fuels) {
+			fuelQuantity := fuels[selectedEggIndex]
+			if fuelQuantity >= maxFill {
+				fuelingEnabled = false
+				recommendedFuelRate = 0.0
+			}
+		}
+
 	}
 
 	habPercent := 0.0
