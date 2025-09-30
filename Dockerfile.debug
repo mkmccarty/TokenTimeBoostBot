@@ -1,0 +1,19 @@
+ARG GO_VERSION=1.25.1
+FROM golang:${GO_VERSION}-alpine AS build
+WORKDIR /src
+RUN apk add --no-cache ca-certificates
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN go version
+RUN CGO_ENABLED=0 go install -ldflags "-s -w -extldflags '-static'" github.com/go-delve/delve/cmd/dlv@latest
+RUN CGO_ENABLED=0 GOOS=linux go build -gcflags "all=-N -l" -o /out/bot .
+
+FROM gcr.io/distroless/static:nonroot
+WORKDIR /app
+COPY --from=build /out/bot /app/bot
+COPY emoji /app/emoji
+COPY --from=build /go/bin/dlv /app/dlv
+USER nonroot:nonroot
+#ENTRYPOINT ["/app/bot"]
+CMD [ "/app/dlv", "--listen=:4000", "--headless=true", "--log=true", "--accept-multiclient", "--api-version=2", "exec", "/app/bot" ]
