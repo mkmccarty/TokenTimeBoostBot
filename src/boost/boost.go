@@ -1630,9 +1630,11 @@ func reorderBoosters(contract *Contract) {
 		rand.Shuffle(len(contract.Order), func(i, j int) {
 			contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i]
 		})
-	case ContractOrderFair:
-		newOrder := farmerstate.GetOrderHistory(contract.Order, 5)
-		contract.Order = removeDuplicates(newOrder)
+		/*
+			case ContractOrderFair:
+				newOrder := farmerstate.GetOrderHistory(contract.Order, 5)
+				contract.Order = removeDuplicates(newOrder)
+		*/
 	case ContractOrderELR:
 		type ELRPair struct {
 			Name string
@@ -1658,6 +1660,32 @@ func reorderBoosters(contract *Contract) {
 		contract.Order = orderedNames
 		// Reset this to Signup after the initial ELR sort
 		contract.BoostOrder = ContractOrderSignup
+	case ContractOrderTokenAsk:
+		type TokenPair struct {
+			Name string
+			Ask  int
+		}
+
+		var tokenPairs []TokenPair
+		for _, el := range contract.Order {
+			tokenPairs = append(tokenPairs, TokenPair{
+				Name: el,
+				Ask:  contract.Boosters[el].TokensWanted,
+			})
+		}
+
+		sort.Slice(tokenPairs, func(i, j int) bool {
+			return tokenPairs[i].Ask < tokenPairs[j].Ask
+		})
+
+		var orderedNames []string
+		for _, pair := range tokenPairs {
+			orderedNames = append(orderedNames, pair.Name)
+		}
+		contract.Order = orderedNames
+		// Reset this to Signup after the initial Ask sort
+		// contract.BoostOrder = ContractOrderSignup
+
 	case ContractOrderTVal:
 		type TValPair struct {
 			name     string

@@ -124,15 +124,13 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 							Emoji:       ei.GetBotComponentEmoji("elr"),
 							Default:     contract.BoostOrder == ContractOrderELR,
 						},
-						/*
-							{
-								Label:       "Token Ask Order",
-								Description: "Those asking for less tokens boost earlier",
-								Value:       "ask",
-								Emoji:       ei.GetBotComponentEmoji("ask"),
-								Default:     contract.BoostOrder == ContractOrderTokenAsk,
-							},
-						*/
+						{
+							Label:       "Token Ask Order",
+							Description: "Those asking for less tokens boost earlier",
+							Value:       "ask",
+							Emoji:       ei.GetBotComponentEmoji("ask"),
+							Default:     contract.BoostOrder == ContractOrderTokenAsk,
+						},
 						{
 							Label:       "Random Order",
 							Description: "Boost order is random",
