@@ -550,8 +550,6 @@ func init() {
 		am := 1e17 + float64(m-17)*5e16 + float64((m-17)*(m-18)/2)*1e16
 		TruthEggBreakpoints = append(TruthEggBreakpoints, am)
 	}
-	// Add a backstop way out at 1T times the last value
-	TruthEggBreakpoints = append(TruthEggBreakpoints, TruthEggBreakpoints[len(TruthEggBreakpoints)-1]*1e12)
 }
 
 // TruthEggBreakpoints is a slice containing all known tiers to 16 TE
