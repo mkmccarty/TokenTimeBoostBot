@@ -161,3 +161,13 @@ clean:
 .PHONY: docker
 docker:
 	docker compose build --build-arg GO_VERSION=$(GO_VERSION)
+
+.PHONY: docker-debug
+docker-debug:
+	docker rm -f debug-server
+	docker build . --tag debug-image --file Dockerfile.debug
+	docker run \
+	--mount type=bind,source="$$(pwd)"/.config.json,target=/app/.config.json,readonly \
+	--publish 80:80 \
+	--publish 4000:4000 \
+	--name debug-server debug-image
