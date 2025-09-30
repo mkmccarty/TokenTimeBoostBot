@@ -303,6 +303,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 					if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderELR {
 						sortRate = fmt.Sprintf(" **ELR:%2.3f** ", min(b.ArtifactSet.LayRate, b.ArtifactSet.ShipRate))
 					}
+					if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderTokenAsk {
+						sortRate = fmt.Sprintf(" **Ask:%d** ", b.TokensWanted)
+					}
 					if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.PlayStyle != ContractPlaystyleChill {
 						//if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.BoostOrder == ContractOrderTVal {
 						sortRate = fmt.Sprintf(" *∆:%2.3f* ", b.TokenValue)
