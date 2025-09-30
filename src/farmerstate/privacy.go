@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"log"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -125,7 +127,21 @@ func HandlePrivacyCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		builder.WriteString("Your settings data have been removed from the Boost Bot database.")
 		builder.WriteString("A default set of settings is now used along with your preference not to store data.")
 
+		// Want to remove all files from within ttbb-data/eiuserdata/ which contain this userID in the filename
+		userFilesPattern := "ttbb-data/eiuserdata/*" + userID + ".*"
+		matches, err := filepath.Glob(userFilesPattern)
+		if err != nil {
+			log.Printf("Error finding user data files for deletion: %v", err)
+		} else {
+			for _, file := range matches {
+				if err := os.Remove(file); err != nil {
+					log.Printf("Error deleting file %s: %v", file, err)
+				}
+			}
+		}
+
 		DeleteFarmer(userID)
+
 		setDataPrivacy(userID, userPrivacy)
 	}
 
