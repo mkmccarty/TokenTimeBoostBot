@@ -294,10 +294,18 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	}
 	artifactSetInUse := []*ei.CompleteArtifact{}
 
+	artifactIcons := ""
+
+	levels := []string{"T1", "T2", "T3", "T4", "T5"}
+	rarity := []string{"C", "R", "E", "L"}
 	for _, artifact := range virtueArtifacts {
 		artifactID := artifact.GetItemId()
 		if slices.Contains(inUseArtifacts, artifactID) {
 			artifactSetInUse = append(artifactSetInUse, artifact.GetArtifact())
+
+			spec := artifact.GetArtifact().GetSpec()
+			strType := levels[spec.GetLevel()] + rarity[spec.GetRarity()]
+			artifactIcons += ei.GetBotEmojiMarkdown(fmt.Sprintf("%s%s", ei.ShortArtifactName[int32(spec.GetName())], strType))
 		}
 	}
 
@@ -453,8 +461,12 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	}
 
 	// If we have a selected egg type, show time to next TE
+	if artifactIcons == "" {
+		artifactIcons = "**Artifacts**"
+	}
 
-	fmt.Fprintf(&stats, "**Artifacts**  SR:%v%%  ELR:%v%%  IHR:%v%%  Hab:%v%%.\n",
+	fmt.Fprintf(&stats, "%s  SR:%v%%  ELR:%v%%  IHR:%v%%  Hab:%v%%.\n",
+		artifactIcons,
 		math.Round((artifactSR-1)*100),
 		math.Round((artifactELR-1)*100),
 		math.Round((artifactIHR-1)*100),
