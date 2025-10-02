@@ -3,6 +3,7 @@ package ei
 import (
 	"fmt"
 	"math"
+	"time"
 )
 
 // Vehicles
@@ -642,12 +643,26 @@ func TimeToDeliverEggs(initialPop, maxPop, growthRatePerMinute, layingRatePerHou
 	return totalTimeMinutes * 60.0
 }
 
+// DimensionBuffs holds the various dimension buffs
+type DimensionBuffs struct {
+	ELR          float64
+	SR           float64
+	IHR          float64
+	Hab          float64
+	Earnings     float64
+	AwayEarnings float64
+}
+
 // GetArtifactBuffs calculates the total buffs from artifacts
-func GetArtifactBuffs(artifacts []*CompleteArtifact) (float64, float64, float64, float64) {
-	artifactELR := 1.0
-	artifactSR := 1.0
-	artifactIHR := 1.0
-	artifactHab := 1.0
+func GetArtifactBuffs(artifacts []*CompleteArtifact) DimensionBuffs {
+	artifactBuffs := DimensionBuffs{
+		ELR:          1.0,
+		SR:           1.0,
+		IHR:          1.0,
+		Hab:          1.0,
+		Earnings:     1.0,
+		AwayEarnings: 1.0,
+	}
 
 	levels := []string{"T1", "T2", "T3", "T4", "T5"}
 	rarity := []string{"C", "R", "E", "L"}
@@ -675,66 +690,88 @@ func GetArtifactBuffs(artifacts []*CompleteArtifact) (float64, float64, float64,
 		"T3C": 1.15, "T3R": 1.16,
 		"T4C": 1.20, "T4E": 1.22, "T4L": 1.25,
 	}
+	totem := map[string]float64{
+		"T1C": 2.0,
+		"T2C": 3.0, "T2R": 8.0,
+		"T3C": 20.0, "T3R": 40.0,
+		"T4C": 50.0, "T4R": 100.0, "T4E": 150.0, "T4L": 200.0,
+	}
+	necklace := map[string]float64{
+		"T1C": 1.1,
+		"T2C": 1.25, "T2R": 1.35,
+		"T3C": 1.5, "T3R": 1.6, "T3E": 1.75,
+		"T4C": 2.0, "T4R": 2.25, "T4E": 2.5, "T4L": 3.0,
+	}
+	ankh := map[string]float64{
+		"T1C": 1.1,
+		"T2C": 1.25, "T2R": 1.28,
+		"T3C": 1.5, "T3R": 1.75, "T3L": 2.0,
+		"T4C": 2.0, "T4R": 2.25, "T4L": 2.5,
+	}
 
-	artifactPercentLevels := []float64{1.02, 1.04, 1.05}
-
-	// Log the artifact strucure in JSON for debugging
-	//artifactJSON, _ := json.MarshalIndent(artifacts, "", "  ")
-
-	//log.Println("******")
-	//	log.Println(string(artifactJSON))
-	//log.Println("******")
+	artifactStonePercentLevels := []float64{1.02, 1.04, 1.05}
+	artifactShellStonePercentLevels := []float64{1.05, 1.08, 1.1}
+	artifactLunarStonePercentLevels := []float64{1.2, 1.3, 1.4}
 
 	for _, artifact := range artifacts {
 		spec := artifact.GetSpec()
 		strType := levels[spec.GetLevel()] + rarity[spec.GetRarity()]
 		switch spec.GetName() {
 		case ArtifactSpec_QUANTUM_METRONOME:
-			artifactELR *= metronome[strType]
+			artifactBuffs.ELR *= metronome[strType]
 		case ArtifactSpec_INTERSTELLAR_COMPASS:
-			artifactSR *= compass[strType]
+			artifactBuffs.SR *= compass[strType]
 		case ArtifactSpec_ORNATE_GUSSET:
-			artifactHab *= gussett[strType]
+			artifactBuffs.Hab *= gussett[strType]
 		case ArtifactSpec_THE_CHALICE:
-			artifactIHR *= chalice[strType]
+			artifactBuffs.IHR *= chalice[strType]
+		case ArtifactSpec_LUNAR_TOTEM:
+			artifactBuffs.AwayEarnings *= totem[strType]
+		case ArtifactSpec_TUNGSTEN_ANKH:
+			artifactBuffs.Earnings *= ankh[strType]
+		case ArtifactSpec_DEMETERS_NECKLACE:
+			artifactBuffs.Earnings *= necklace[strType]
+
 		default:
 		}
 
 		for _, stone := range artifact.GetStones() {
 			switch stone.GetName() {
 			case ArtifactSpec_TACHYON_STONE:
-				artifactELR *= artifactPercentLevels[stone.GetLevel()]
+				artifactBuffs.ELR *= artifactStonePercentLevels[stone.GetLevel()]
 			case ArtifactSpec_QUANTUM_STONE:
-				artifactSR *= artifactPercentLevels[stone.GetLevel()]
+				artifactBuffs.SR *= artifactStonePercentLevels[stone.GetLevel()]
 			case ArtifactSpec_LIFE_STONE:
-				artifactIHR *= artifactPercentLevels[stone.GetLevel()]
+				artifactBuffs.IHR *= artifactStonePercentLevels[stone.GetLevel()]
+			case ArtifactSpec_LUNAR_STONE:
+				artifactBuffs.AwayEarnings *= artifactLunarStonePercentLevels[stone.GetLevel()]
+			case ArtifactSpec_SHELL_STONE:
+				artifactBuffs.Earnings *= artifactShellStonePercentLevels[stone.GetLevel()]
 			default:
 
 			}
 		}
 	}
-	return artifactELR, artifactSR, artifactIHR, artifactHab
+	return artifactBuffs
 }
 
 // GetColleggtibleBuffs calculates the total buffs from colleggtibles
-func GetColleggtibleBuffs(contracts *MyContracts) (float64, float64, float64, float64) {
+func GetColleggtibleBuffs(contracts *MyContracts) DimensionBuffs {
 	colELR := 1.0
 	colSR := 1.0
 	colIHR := 1.0
 	colHab := 1.0
+	colEarnings := 1.0
+	colAway := 1.0
 
-	// want a map of string to uint32
 	eggCounts := make(map[string]float64)
 
 	for _, c := range contracts.GetArchive() {
-		// If this is a cutom egg..
 		egg := c.GetContract().GetCustomEggId()
 		if egg == "" {
 			continue
 		}
 		maxSize := c.GetMaxFarmSizeReached()
-		// Only set eggCounts for this egg if the max farm size reached is greater than 0 or if the entry doesn't exist in the map
-		// does egg exist in map?
 		_, exists := eggCounts[egg]
 		if !exists {
 			eggCounts[egg] = maxSize
@@ -743,14 +780,11 @@ func GetColleggtibleBuffs(contracts *MyContracts) (float64, float64, float64, fl
 		}
 	}
 
-	//ei.CustomEggMap = eggCounts
 	for eggName, eggValue := range eggCounts {
 		if eggValue == 0 {
 			continue
 		}
 		customEgg := CustomEggMap[eggName]
-		//log.Printf("Egg: %s, Value: %f\n", eggName, eggValue)
-		// My value falls into tiers of 10M, 100M, 1B, and 10B. If under 10m, next, if over 10M then tier is 0, etc.
 		tier := 0
 		if eggValue >= 1e10 {
 			tier = 3
@@ -773,9 +807,96 @@ func GetColleggtibleBuffs(contracts *MyContracts) (float64, float64, float64, fl
 			colHab *= customEgg.DimensionValue[tier]
 		case GameModifier_INTERNAL_HATCHERY_RATE:
 			colIHR *= customEgg.DimensionValue[tier]
+		case GameModifier_EARNINGS:
+			colEarnings *= customEgg.DimensionValue[tier]
+		case GameModifier_AWAY_EARNINGS:
+			colAway *= customEgg.DimensionValue[tier]
+		default:
 		}
 	}
 
-	return colELR, colSR, colIHR, colHab
+	return DimensionBuffs{
+		ELR:          colELR,
+		SR:           colSR,
+		IHR:          colIHR,
+		Hab:          colHab,
+		Earnings:     colEarnings,
+		AwayEarnings: colAway,
+	}
+}
 
+// GetFarmEggValue returns the current egg value for the farm
+func GetFarmEggValue(commonResearch []*Backup_ResearchItem) float64 {
+	baseEggValue := 1.0
+	eggValue := baseEggValue
+
+	for _, cr := range commonResearch {
+		switch cr.GetId() {
+		case "nutritional_sup":
+			eggValue *= 1 + (0.25 * float64(cr.GetLevel()))
+		case "padded_packaging":
+			eggValue *= 1 + (0.25 * float64(cr.GetLevel()))
+		case "bigger_eggs":
+			eggValue *= math.Pow(2.0, float64(cr.GetLevel()))
+		case "usde_prime":
+			eggValue *= math.Pow(3.0, float64(cr.GetLevel()))
+		case "superfeed":
+			eggValue *= 1 + (0.25 * float64(cr.GetLevel()))
+		case "improved_genetics":
+			eggValue *= 1 + (0.15 * float64(cr.GetLevel()))
+		case "shell_fortification":
+			eggValue *= 1 + (0.15 * float64(cr.GetLevel()))
+		case "even_bigger_eggs":
+			eggValue *= math.Pow(2.0, float64(cr.GetLevel()))
+		case "genetic_purification":
+			eggValue *= 1 + (0.1 * float64(cr.GetLevel()))
+		case "graviton_coating":
+			eggValue *= math.Pow(2.0, float64(cr.GetLevel()))
+		case "chrystal_shells":
+			eggValue *= 1 + (0.25 * float64(cr.GetLevel()))
+		case "telepathic_will":
+			eggValue *= 1 + (0.25 * float64(cr.GetLevel()))
+		case "atomic_purification":
+			eggValue *= 1 + (0.1 * float64(cr.GetLevel()))
+		case "multi_layering":
+			eggValue *= math.Pow(10.0, float64(cr.GetLevel()))
+		case "eggsistor":
+			eggValue *= 1 + (0.05 * float64(cr.GetLevel()))
+		case "matter_reconfig":
+			eggValue *= 1 + (0.01 * float64(cr.GetLevel()))
+		case "timeline_splicing":
+			eggValue *= math.Pow(10.0, float64(cr.GetLevel()))
+		}
+	}
+
+	// 19771781
+	// 138,384
+	return eggValue
+}
+
+// GetFarmEarningRates calculates the farm earning rates
+func GetFarmEarningRates(backup *Backup, deliveryRate float64, artBuffs DimensionBuffs, colBuffs DimensionBuffs, eov uint32) (float64, float64) {
+	eggValue := GetFarmEggValue(backup.GetFarms()[0].GetCommonResearch())
+	earningBonus := math.Pow(1.1, float64(eov)) // 10% per egg of virtue
+	currentMultiplier := backup.GetGame().GetCurrentMultiplier()
+	expiration := time.Unix(int64(backup.GetGame().GetCurrentMultiplierExpiration()), 0)
+	eventMultipler := currentEarningsEvent
+	// Maybe Ultra Check
+	if currentMultiplier != 1.0 && expiration.Before(time.Now()) {
+		eventMultipler *= currentEarningsEventUltra
+	}
+
+	onlineBaseline := eggValue * deliveryRate * earningBonus * artBuffs.Earnings * colBuffs.Earnings * currentMultiplier * eventMultipler
+
+	permitLevel := backup.Game.GetPermitLevel()
+	permitMultiplier := 1.0
+	if permitLevel != 1 {
+		permitMultiplier = 0.5
+	}
+	offline := onlineBaseline *
+		permitMultiplier *
+		artBuffs.AwayEarnings *
+		colBuffs.AwayEarnings
+
+	return onlineBaseline, offline
 }
