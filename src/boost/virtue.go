@@ -135,6 +135,14 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, percent int, e
 
 	backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, okayToSave)
 
+	if backup != nil {
+		farmerName := farmerstate.GetMiscSettingString(userID, "ei_ign")
+		if farmerName != backup.GetUserName() {
+			farmerName = backup.GetUserName()
+			farmerstate.SetMiscSettingString(userID, "ei_ign", farmerName)
+		}
+	}
+
 	farm := backup.GetFarms()[0]
 	if farm != nil {
 		farmType := farm.GetFarmType()
