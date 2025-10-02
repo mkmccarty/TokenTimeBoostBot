@@ -383,6 +383,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	offlineEggs := min(eggLayingRate, shippingRate) * (elapsed / 3600)
 
 	if onVirtueFarm {
+
 		// Want time from now when those minutes elapse
 		if shippingRate > eggLayingRate {
 			fmt.Fprintf(&stats, "%s %s/hr  %s **%s/hr**",
@@ -463,12 +464,18 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		fmt.Fprint(&header, "**Ascend to visit your Eggs of Virtue farm.**")
 	}
 
+	fmt.Fprintf(&stats, "**Offline** %s: %s/hr  %s/s\n",
+		ei.GetBotEmojiMarkdown("gem"),
+		ei.FormatEIValue(offlineRateHr, map[string]interface{}{"decimals": 3, "trim": true}),
+		ei.FormatEIValue(offlineRateHr/3600, map[string]interface{}{"decimals": 3, "trim": true}),
+	)
+
 	// If we have a selected egg type, show time to next TE
 	if artifactIcons == "" {
 		artifactIcons = "**Artifacts**"
 	}
 
-	fmt.Fprintf(&stats, "%s SR:%v%%  ELR:%v%%  IHR:%v%%  H:%v%% %s:%v%% 💤%v%%\n",
+	fmt.Fprintf(&stats, "%s SR:%v%%  ELR:%v%%  IHR:%v%%  H:%v%% %s%v%% 💤%v%%\n",
 		artifactIcons,
 		math.Round((artifactBuffs.SR-1)*100),
 		math.Round((artifactBuffs.ELR-1)*100),
@@ -478,7 +485,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		math.Round((artifactBuffs.Earnings-1)*100),
 		math.Round((artifactBuffs.AwayEarnings-1)*100),
 	)
-	fmt.Fprintf(&stats, "**Colegg**  SR:%v%%  ELR:%v%%  IHR:%v%%  H:%v%% %s:%v%% 💤%v%%\n",
+	fmt.Fprintf(&stats, "**Colegg**  SR:%v%%  ELR:%v%%  IHR:%v%%  H:%v%% %s%v%% 💤%v%%\n",
 		math.Round((colBuffs.SR-1)*100),
 		math.Round((colBuffs.ELR-1)*100),
 		math.Round((colBuffs.IHR-1)*100),
@@ -488,13 +495,6 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		math.Round((colBuffs.AwayEarnings-1)*100),
 	)
 
-	if true {
-		fmt.Fprintf(&stats, "**Offline** %s: %s/hr %s/s\n",
-			ei.GetBotEmojiMarkdown("gem"),
-			ei.FormatEIValue(offlineRateHr, map[string]interface{}{"decimals": 3, "trim": true}),
-			ei.FormatEIValue(offlineRateHr/3600, map[string]interface{}{"decimals": 3, "trim": true}),
-		)
-	}
 	fmt.Fprintf(&footer, "-# Report run <t:%d:t>, last sync <t:%d:t>\n", time.Now().Unix(), syncTime.Unix())
 
 	// Line for fuel
