@@ -171,3 +171,18 @@ docker-debug:
 	--publish 80:80 \
 	--publish 4000:4000 \
 	--name debug-server debug-image
+
+.PHONY: eggcycle
+eggcycle:
+	magick convert -delay 100 -loop 0 -dispose Background \
+	egg_carbonfiber.png \
+	egg_chocolate.png \
+	egg_easter.png \
+	egg_firework.png \
+	egg_flameretardant.png \
+	egg_lithium.png \
+	egg_pumpkin.png \
+	egg_silicon.png \
+	egg_waterballoon.png \
+	egg_wood.png \
+	collegg.gif
