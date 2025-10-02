@@ -489,7 +489,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	)
 
 	if true {
-		fmt.Fprintf(&stats, "Offline %s: %s/hr %s/s\n",
+		fmt.Fprintf(&stats, "**Offline** %s: %s/hr %s/s\n",
 			ei.GetBotEmojiMarkdown("gem"),
 			ei.FormatEIValue(offlineRateHr, map[string]interface{}{"decimals": 3, "trim": true}),
 			ei.FormatEIValue(offlineRateHr/3600, map[string]interface{}{"decimals": 3, "trim": true}),
