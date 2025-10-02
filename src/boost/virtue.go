@@ -309,20 +309,20 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		}
 	}
 
-	artifactELR, artifactSR, artifactIHR, artifactHab := ei.GetArtifactBuffs(artifactSetInUse)
+	artifactBuffs := ei.GetArtifactBuffs(artifactSetInUse)
 
 	// Get Colleggtible Buffs
 	contracts := backup.GetContracts()
-	colELR, colSR, colIHR, colHab := ei.GetColleggtibleBuffs(contracts)
+	colBuffs := ei.GetColleggtibleBuffs(contracts)
 
 	shippingRate := ei.GetShippingRateFromBackup(farm, backup.GetGame())
 	eggLayingRate, habPop, habCap := ei.GetEggLayingRateFromBackup(farm, backup.GetGame())
 	//deliveryRate := math.Min(eggLayingRate, shippingRate)
-	eggLayingRate *= artifactELR * artifactHab * colELR * colHab
-	shippingRate *= artifactSR * colSR
-	habCap *= artifactHab * colHab
+	eggLayingRate *= artifactBuffs.ELR * artifactBuffs.Hab * colBuffs.ELR * colBuffs.Hab
+	shippingRate *= artifactBuffs.SR * colBuffs.SR
+	habCap *= artifactBuffs.Hab * colBuffs.Hab
 
-	_, onlineRate, _, offlineRate := ei.GetInternalHatcheryFromBackup(farm.GetCommonResearch(), backup.GetGame(), artifactIHR*colIHR, allEov)
+	_, onlineRate, _, offlineRate := ei.GetInternalHatcheryFromBackup(farm.GetCommonResearch(), backup.GetGame(), artifactBuffs.IHR*colBuffs.IHR, allEov)
 	siloMinutes := ei.GetSiloMinutes(farm, backup.GetGame().GetEpicResearch())
 
 	fuelingEnabled := virtue.GetAfx().GetTankFillingEnabled()
@@ -339,6 +339,9 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 			recommendedFuelRate = tier
 		}
 	}
+
+	// Now with our rates we can figure out earnings numbers
+	_, offlineRateHr := ei.GetFarmEarningRates(backup, math.Min(shippingRate, eggLayingRate-fuelRate), artifactBuffs, colBuffs, allEov)
 
 	// Handle tank limits if on virtue farm and fueling
 	if selectedEggIndex != -1 {
@@ -455,7 +458,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 				selectedEggEmote,
 				time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Second).Unix())
 		}
-		fmt.Fprintf(&header, "\n-# includes %s offline eggs", ei.FormatEIValue(offlineEggs, map[string]interface{}{"decimals": 1, "trim": true}))
+		fmt.Fprintf(&header, "\n-# includes %s offline eggs", ei.FormatEIValue(offlineEggs, map[string]interface{}{"decimals": 3, "trim": true}))
 	} else {
 		fmt.Fprint(&header, "**Ascend to visit your Eggs of Virtue farm.**")
 	}
@@ -465,17 +468,33 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		artifactIcons = "**Artifacts**"
 	}
 
-	fmt.Fprintf(&stats, "%s  SR:%v%%  ELR:%v%%  IHR:%v%%  Hab:%v%%.\n",
+	fmt.Fprintf(&stats, "%s SR:%v%%  ELR:%v%%  IHR:%v%%  H:%v%% %s:%v%% 💤%v%%\n",
 		artifactIcons,
-		math.Round((artifactSR-1)*100),
-		math.Round((artifactELR-1)*100),
-		math.Round((artifactIHR-1)*100),
-		math.Round((artifactHab-1)*100))
-	fmt.Fprintf(&stats, "**Colleggtibles**  SR:%v%%  ELR:%v%%  IHR:%v%%  Hab:%v%%.\n",
-		math.Round((colSR-1)*100),
-		math.Round((colELR-1)*100),
-		math.Round((colIHR-1)*100),
-		math.Round((colHab-1)*100))
+		math.Round((artifactBuffs.SR-1)*100),
+		math.Round((artifactBuffs.ELR-1)*100),
+		math.Round((artifactBuffs.IHR-1)*100),
+		math.Round((artifactBuffs.Hab-1)*100),
+		ei.GetBotEmojiMarkdown("gem"),
+		math.Round((artifactBuffs.Earnings-1)*100),
+		math.Round((artifactBuffs.AwayEarnings-1)*100),
+	)
+	fmt.Fprintf(&stats, "**Colegg**  SR:%v%%  ELR:%v%%  IHR:%v%%  H:%v%% %s:%v%% 💤%v%%\n",
+		math.Round((colBuffs.SR-1)*100),
+		math.Round((colBuffs.ELR-1)*100),
+		math.Round((colBuffs.IHR-1)*100),
+		math.Round((colBuffs.Hab-1)*100),
+		ei.GetBotEmojiMarkdown("gem"),
+		math.Round((colBuffs.Earnings-1)*100),
+		math.Round((colBuffs.AwayEarnings-1)*100),
+	)
+
+	if true {
+		fmt.Fprintf(&stats, "Offline %s: %s/hr %s/s\n",
+			ei.GetBotEmojiMarkdown("gem"),
+			ei.FormatEIValue(offlineRateHr, map[string]interface{}{"decimals": 3, "trim": true}),
+			ei.FormatEIValue(offlineRateHr/3600, map[string]interface{}{"decimals": 3, "trim": true}),
+		)
+	}
 	fmt.Fprintf(&footer, "-# Report run <t:%d:t>, last sync <t:%d:t>\n", time.Now().Unix(), syncTime.Unix())
 
 	// Line for fuel
@@ -488,7 +507,6 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 			ei.FormatEIValue(fuel, map[string]interface{}{"decimals": 1, "trim": true}))
 	}
 	rockets.WriteString("\n")
-	//fmt.Fprintf(&builder, "### Missions on %s\n", ei.GetBotEmojiMarkdown("egg_humility"))
 	artifacts := backup.GetArtifactsDb()
 	missions := artifacts.GetMissionInfos()
 	for _, mission := range missions {
@@ -501,9 +519,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 			if config.IsDevBot() {
 				art = craft.ArtDev
 			}
-			missionEnd := uint32(mission.GetStartTimeDerived()) + mission.GetCapacity()
-			//timeRemaining := mission.GetSecondsRemaining()
-			//fmt.Fprintf(&rockets, "%s <t:%d:R> \n", art, time.Now().Unix()+int64(missionEnd))
+			missionEnd := uint32(mission.GetStartTimeDerived()) + uint32(mission.GetDurationSeconds())
 			fmt.Fprintf(&rockets, "%s <t:%d:R> \n", art, missionEnd)
 		}
 	}

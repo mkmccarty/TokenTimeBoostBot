@@ -91,6 +91,8 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 
 	newGG := 1.0
 	newUltraGG := 1.0
+	earningsEvent := 1.0
+	earningsEventUltra := 1.0
 	var newEventEndGG time.Time
 
 	// I'm retrieving c.TeamNames but want to cache those results in a separate map that I can save to disk
@@ -128,6 +130,13 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 			}
 			newEventEndGG = e.EndTime
 		}
+		if e.EventType == "earnings-boost" {
+			if e.Ultra {
+				earningsEventUltra = e.Multiplier
+			} else {
+				earningsEvent = e.Multiplier
+			}
+		}
 
 		if e.Ultra {
 			name += "-ultra"
@@ -148,6 +157,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 
 	// Set our current Event variables
 	ei.SetGenerousGiftEvent(newGG, newUltraGG, newEventEndGG)
+	ei.SetEarningsEvent(earningsEvent, earningsEventUltra)
 
 	changed := true
 	c := cases.Title(language.Und)
