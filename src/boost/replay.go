@@ -232,6 +232,7 @@ func printArchivedContracts(archive []*ei.LocalContract, percent int) []discordg
 		// Contribution Ratio
 		// BuffTimeValue
 		// Duration
+		// Artifact use
 
 		contractID := a.GetContract().GetIdentifier()
 		//coopID := a.GetCoopIdentifier()
