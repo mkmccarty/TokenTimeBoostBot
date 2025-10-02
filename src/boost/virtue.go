@@ -52,7 +52,7 @@ func init() {
 func GetSlashVirtueCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
-		Description: "Evaluate contract history and provide replay guidance.",
+		Description: "Evaluate virtue farm and provide detiled EoV overview.",
 		Contexts: &[]discordgo.InteractionContextType{
 			discordgo.InteractionContextGuild,
 			discordgo.InteractionContextBotDM,
