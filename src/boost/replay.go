@@ -55,6 +55,15 @@ func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        "active",
 				Description: "Evaluate Active Contract Details",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         "contract-id",
+						Description:  "Contract ID",
+						Required:     true,
+						Autocomplete: true,
+					},
+				},
 			},
 			/*
 				{
@@ -82,6 +91,7 @@ func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	userID := bottools.GetInteractionUserID(i)
 	onlyActiveContracts := false
 	percent := -1
+	contractID := ""
 
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -102,18 +112,21 @@ func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 		percent = int(opt.UintValue())
 	}
+	if opt, ok := optionMap["active-contract-id"]; ok {
+		contractID = opt.StringValue()
+	}
 
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 
 	if onlyActiveContracts {
-		ReplayEval(s, i, -1, eiID, false)
+		ReplayEval(s, i, -1, eiID, contractID, false)
 	} else {
-		ReplayEval(s, i, percent, eiID, true)
+		ReplayEval(s, i, percent, eiID, contractID, true)
 	}
 }
 
 // ReplayEval evaluates the contract history and provides replay guidance
-func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent int, eiID string, okayToSave bool) {
+func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent int, eiID string, contractID string, okayToSave bool) {
 	// Get the Egg Inc ID from the stored settings
 	eggIncID := ""
 	encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
@@ -127,7 +140,7 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent in
 		}
 	}
 	if eggIncID == "" || len(eggIncID) != 18 || eggIncID[:2] != "EI" {
-		RequestEggIncIDModal(s, i, fmt.Sprintf("replay#%d", percent))
+		RequestEggIncIDModal(s, i, fmt.Sprintf("replay#%d#%s", percent, contractID))
 		return
 	}
 
@@ -173,7 +186,7 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent in
 		}
 	}
 
-	components := printArchivedContracts(userID, archive, percent)
+	components := printArchivedContracts(userID, archive, percent, contractID)
 	if len(components) == 0 {
 		components = []discordgo.MessageComponent{
 			&discordgo.TextDisplay{Content: "No archived contracts found in Egg Inc API response"},
@@ -208,7 +221,7 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent in
 	}
 }
 
-func printArchivedContracts(userID string, archive []*ei.LocalContract, percent int) []discordgo.MessageComponent {
+func printArchivedContracts(userID string, archive []*ei.LocalContract, percent int, contractIDParam string) []discordgo.MessageComponent {
 	var components []discordgo.MessageComponent
 	eiUserName := farmerstate.GetMiscSettingString(userID, "ei_ign")
 	divider := true
@@ -302,6 +315,9 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 					count++
 				}*/
 		} else {
+			if contractID != contractIDParam {
+				continue
+			}
 			if c.ContractVersion == 2 && c.ExpirationTime.Unix() > time.Now().Unix() {
 				artifactIcons := ""
 				teamworkIcons := []string{}
