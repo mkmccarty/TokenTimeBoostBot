@@ -321,12 +321,12 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 			if c.ContractVersion == 2 && c.ExpirationTime.Unix() > time.Now().Unix() {
 				artifactIcons := ""
 				teamworkIcons := []string{}
+				log.Printf("Evaluating contract %s coop %s for user %s\n", contractID, coopID, eiUserName)
 				coopStatus, _, _, err := ei.GetCoopStatusForRerun(contractID, a.GetCoopIdentifier())
 				if err == nil {
 					builder.Reset()
 					for _, c := range coopStatus.GetContributors() {
 						// Check to see if the name matches the farmer name in the evaluation
-						log.Print(c.GetUserName(), " vs ", eiUserName)
 						if c.GetUserName() == eiUserName {
 							for _, artifact := range c.GetFarmInfo().GetEquippedArtifacts() {
 								spec := artifact.GetSpec()
@@ -357,6 +357,8 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 							break
 						}
 					}
+				} else {
+					log.Println("Error getting coop status for contract:", err)
 				}
 
 				eggImg := FindEggEmoji(c.EggName)

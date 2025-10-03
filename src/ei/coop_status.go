@@ -244,6 +244,9 @@ func GetCoopStatusForRerun(contractID string, coopID string) (*ContractCoopStatu
 			log.Print(err)
 			return nil, timestamp, dataTimestampStr, err
 		}
+
+		protoData = string(body)
+
 		//dataTimestampStr = ""
 		// Compress the response body before saving
 		var compressedBody bytes.Buffer
@@ -256,7 +259,7 @@ func GetCoopStatusForRerun(contractID string, coopID string) (*ContractCoopStatu
 			log.Print(err)
 			return nil, timestamp, dataTimestampStr, err
 		}
-		protoData = compressedBody.String()
+		protoDataCompressed := compressedBody.String()
 		// Save compressedprotoData into a file
 		fileName := fmt.Sprintf("ttbb-data/pb-completed/%s-%s.pb", contractID, coopID)
 		// make sure the directory exists
@@ -264,7 +267,7 @@ func GetCoopStatusForRerun(contractID string, coopID string) (*ContractCoopStatu
 			log.Print(err)
 			return nil, timestamp, dataTimestampStr, err
 		}
-		err = os.WriteFile(fileName, []byte(protoData), 0644)
+		err = os.WriteFile(fileName, []byte(protoDataCompressed), 0644)
 		if err != nil {
 			log.Print(err)
 			return nil, timestamp, dataTimestampStr, err
