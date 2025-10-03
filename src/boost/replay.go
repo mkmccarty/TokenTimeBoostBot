@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -326,7 +327,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 									teamworkIcons = append(teamworkIcons, ei.GetBotEmojiMarkdown(fmt.Sprintf("DEFL_%s", deflmap[defl])))
 								}
 							}
-							// make teamworkIcons unique
+							// make teamworkIcons unique and sort them in alpha order
 							uniqueIcons := make(map[string]struct{})
 							for _, icon := range teamworkIcons {
 								uniqueIcons[icon] = struct{}{}
@@ -335,6 +336,8 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 							for icon := range uniqueIcons {
 								teamworkIcons = append(teamworkIcons, icon)
 							}
+							// sort in alpha order
+							sort.Strings(teamworkIcons)
 							break
 						}
 					}
@@ -402,8 +405,9 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 		builder.Reset()
 		builder.WriteString("No contracts met this condition.\n")
 	} else {
-		builder.WriteString("-# Token Teamwork shows score out of 10.\n")
-		builder.WriteString("-🤡 indicates alt-parade needed to hit CR target.\n")
+		builder.WriteString("-# [brackets] indicate area for improvement.\n")
+		builder.WriteString("-# 🤡 indicates alt-parade needed to hit CR target.\n")
+		builder.WriteString("-# Teamwork scoring artifacts shown after the value..\n")
 	}
 
 	if builder.Len() > 0 {
