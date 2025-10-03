@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math"
 	"os"
 	"strings"
 	"time"
@@ -37,7 +36,7 @@ func SaveOptions(options []*discordgo.ApplicationCommandInteractionDataOption) m
 
 // GetSlashReplayEvalCommand returns the command for the /launch-helper command
 func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
-	minValue := 0.0
+	//minValue := 0.0
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Evaluate contract history and provide replay guidance.",
@@ -56,21 +55,23 @@ func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
 				Name:        "active",
 				Description: "Evaluate Active Contract Details",
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "threshold",
-				Description: "Summarize contracts below a certain % of speedrun score",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionInteger,
-						Name:        "percent",
-						Description: "Below % of speedrun score",
-						MinValue:    &minValue,
-						MaxValue:    50,
-						Required:    true,
+			/*
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "threshold",
+					Description: "Summarize contracts below a certain % of speedrun score",
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionInteger,
+							Name:        "percent",
+							Description: "Below % of speedrun score",
+							MinValue:    &minValue,
+							MaxValue:    50,
+							Required:    true,
+						},
 					},
 				},
-			},
+			*/
 		},
 	}
 }
@@ -140,6 +141,15 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent in
 	})
 
 	userID := bottools.GetInteractionUserID(i)
+	// Do I know the user's IGN?
+	farmerName := farmerstate.GetMiscSettingString(userID, "ei_ign")
+	if farmerName == "" {
+		backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, okayToSave)
+		if backup != nil {
+			farmerName = backup.GetUserName()
+			farmerstate.SetMiscSettingString(userID, "ei_ign", farmerName)
+		}
+	}
 	archive, cached := ei.GetContractArchiveFromAPI(s, eggIncID, userID, okayToSave)
 
 	cxpVersion := ""
@@ -162,21 +172,22 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent in
 		}
 	}
 
-	components := printArchivedContracts(archive, percent)
+	components := printArchivedContracts(userID, archive, percent)
 	if len(components) == 0 {
 		components = []discordgo.MessageComponent{
 			&discordgo.TextDisplay{Content: "No archived contracts found in Egg Inc API response"},
 		}
 	}
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+	_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Flags:      flags,
 		Components: components,
 	})
+	if err != nil {
+		log.Println("Error sending follow-up message:", err)
+	}
 
 	if !cached && okayToSave {
 		jsonData, err := json.Marshal(archive)
-		// I want to convert this archive to a JSON string, replace the eggIncID with the discord ID and save the file to
-		// a local file named contract-archive-<discordID>.json for debugging purposes.
 
 		if err != nil {
 			log.Println("Error marshalling archive to JSON:", err)
@@ -196,9 +207,11 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent in
 	}
 }
 
-func printArchivedContracts(archive []*ei.LocalContract, percent int) []discordgo.MessageComponent {
+func printArchivedContracts(userID string, archive []*ei.LocalContract, percent int) []discordgo.MessageComponent {
 	var components []discordgo.MessageComponent
-
+	eiUserName := farmerstate.GetMiscSettingString(userID, "ei_ign")
+	divider := true
+	spacing := discordgo.SeparatorSpacingSizeSmall
 	builder := strings.Builder{}
 	if archive == nil {
 		log.Print("No archived contracts found in Egg Inc API response")
@@ -215,16 +228,26 @@ func printArchivedContracts(archive []*ei.LocalContract, percent int) []discordg
 	} else {
 		builder.WriteString(fmt.Sprintf("## Displaying contract scores less than %d%% of speedrun potential:\n", percent))
 	}
-	fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`\n",
-		bottools.AlignString("CONTRACT-ID", 30, bottools.StringAlignCenter),
-		bottools.AlignString("CS", 6, bottools.StringAlignCenter),
-		bottools.AlignString("HIGH", 6, bottools.StringAlignCenter),
-		bottools.AlignString("GAP", 6, bottools.StringAlignRight),
-		bottools.AlignString("%", 4, bottools.StringAlignCenter),
-	)
+	components = append(components, &discordgo.TextDisplay{
+		Content: builder.String(),
+	})
+	components = append(components, &discordgo.Separator{
+		Divider: &divider,
+		Spacing: &spacing,
+	})
+	builder.Reset()
+
+	/*
+		fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`\n",
+			bottools.AlignString("CONTRACT-ID", 30, bottools.StringAlignCenter),
+			bottools.AlignString("CS", 6, bottools.StringAlignCenter),
+			bottools.AlignString("HIGH", 6, bottools.StringAlignCenter),
+			bottools.AlignString("GAP", 6, bottools.StringAlignRight),
+			bottools.AlignString("%", 4, bottools.StringAlignCenter),
+		)
+	*/
 
 	count := 0
-
 	for _, a := range archive {
 		// Completed
 		// What is the current tval
@@ -233,57 +256,161 @@ func printArchivedContracts(archive []*ei.LocalContract, percent int) []discordg
 		// BuffTimeValue
 		// Duration
 		// Artifact use
+		levels := []string{"T1", "T2", "T3", "T4", "T5"}
+		rarity := []string{"C", "R", "E", "L"}
+
+		siabmap := map[float64]string{
+			1.2: "T1C",
+			1.3: "T2C",
+			1.5: "T3C", 1.6: "T3R",
+			1.7: "T4C", 1.8: "T4R", 1.9: "T4E", 2.0: "T4L",
+		}
+		deflmap := map[float64]string{
+			1.05: "T1C",
+			1.08: "T2C",
+			1.12: "T3C", 1.13: "T3R",
+			1.15: "T4C", 1.17: "T4R", 1.19: "T4E", 1.20: "T4L",
+		}
 
 		contractID := a.GetContract().GetIdentifier()
-		//coopID := a.GetCoopIdentifier()
-		evaluation := a.GetEvaluation()
-		cxp := evaluation.GetCxp()
-		//url := fmt.Sprintf("[%s](%s/%s/%s)", coopID, "https://eicoop-carpet.netlify.app", contractID, coopID)
+		if contractID == "first-contract" {
+			continue
+		}
 
+		coopID := a.GetCoopIdentifier()
+		evaluation := a.GetEvaluation()
+		evaluationCxp := evaluation.GetCxp()
 		c := ei.EggIncContractsAll[contractID]
 		//if c.ContractVersion == 2 {
 		if percent != -1 {
-			if cxp < c.Cxp*(1-float64(percent)/100) || c.Cxp == 0 {
-
-				if builder.Len() < 3500 {
-					fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`\n",
-						bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
-						bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(cxp))), 6, bottools.StringAlignRight),
-						bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp))), 6, bottools.StringAlignRight),
-						bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp-cxp))), 6, bottools.StringAlignRight),
-						bottools.AlignString(fmt.Sprintf("%.1f", (cxp/c.Cxp)*100), 4, bottools.StringAlignCenter))
-				}
-				count++
-			}
+			/*
+				if cxp < c.Cxp*(1-float64(percent)/100) || c.Cxp == 0 {
+					// Need to download the coop_status for more details
+					aResp, , _, err := ei.GetCoopStatusForRerun(contractID, a.GetCoopIdentifier())
+					if err == nil {
+						// if aResp.GetStatus() == 3 {
+					}
+					if builder.Len() < 3500 {
+						fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`\n",
+							bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
+							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(cxp))), 6, bottools.StringAlignRight),
+							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp))), 6, bottools.StringAlignRight),
+							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp-cxp))), 6, bottools.StringAlignRight),
+							bottools.AlignString(fmt.Sprintf("%.1f", (cxp/c.Cxp)*100), 4, bottools.StringAlignCenter))
+					}
+					count++
+				}*/
 		} else {
 			if c.ContractVersion == 2 && c.ExpirationTime.Unix() > time.Now().Unix() {
-				if builder.Len() < 3500 {
-					fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s` <t:%d:R>\n",
-						bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
-						bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(cxp))), 6, bottools.StringAlignRight),
-						bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp))), 6, bottools.StringAlignRight),
-						bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp-cxp))), 6, bottools.StringAlignRight),
-						bottools.AlignString(fmt.Sprintf("%.1f", (cxp/c.Cxp)*100), 4, bottools.StringAlignCenter),
-						c.ExpirationTime.Unix())
+				artifactIcons := ""
+				teamworkIcons := []string{}
+				coopStatus, _, _, err := ei.GetCoopStatusForRerun(contractID, a.GetCoopIdentifier())
+				if err == nil {
+					builder.Reset()
+					for _, c := range coopStatus.GetContributors() {
+						// Check to see if the name matches the farmer name in the evaluation
+						log.Print(c.GetUserName(), " vs ", eiUserName)
+						if c.GetUserName() == eiUserName {
+							for _, artifact := range c.GetFarmInfo().GetEquippedArtifacts() {
+								spec := artifact.GetSpec()
+								strType := levels[spec.GetLevel()] + rarity[spec.GetRarity()]
+								artifactIcons += ei.GetBotEmojiMarkdown(fmt.Sprintf("%s%s", ei.ShortArtifactName[int32(spec.GetName())], strType))
+							}
+							for _, buff := range c.GetBuffHistory() {
+								siab := buff.GetEarnings()
+								defl := buff.GetEggLayingRate()
+								if siab > 1.0 {
+									teamworkIcons = append(teamworkIcons, ei.GetBotEmojiMarkdown(fmt.Sprintf("SIAB_%s", siabmap[siab])))
+								}
+								if defl > 1.0 {
+									teamworkIcons = append(teamworkIcons, ei.GetBotEmojiMarkdown(fmt.Sprintf("DEFL_%s", deflmap[defl])))
+								}
+							}
+							// make teamworkIcons unique
+							uniqueIcons := make(map[string]struct{})
+							for _, icon := range teamworkIcons {
+								uniqueIcons[icon] = struct{}{}
+							}
+							teamworkIcons = teamworkIcons[:0]
+							for icon := range uniqueIcons {
+								teamworkIcons = append(teamworkIcons, icon)
+							}
+							break
+						}
+					}
 				}
+
+				eggImg := FindEggEmoji(c.EggName)
+				fmt.Fprintf(&builder, "## %s %dp [%s](%s/%s/%s)\n", eggImg, c.MaxCoopSize, contractID, "https://eicoop-carpet.netlify.app", contractID, coopID)
+				// Check marks Contribution near 1 & CR & TVal
+				contribCheck := "✅"
+				if evaluation.GetContributionRatio() < 0.90 {
+					contribCheck = fmt.Sprintf("[%.3g]", evaluation.GetContributionRatio())
+				}
+				// Chicken Runs
+				crCheck := "✅"
+				if evaluation.GetChickenRunsSent() < uint32(c.ChickenRuns) {
+					crCheck = fmt.Sprintf("[%d/%d]", evaluation.GetChickenRunsSent(), c.ChickenRuns)
+					if c.ChickenRuns > c.MaxCoopSize-1 {
+						crCheck += "🤡"
+					}
+				}
+				// Token Evaluation
+				tvalTarget := GetTargetTval(c.SeasonalScoring, evaluation.GetCompletionTime()/60, float64(c.MinutesPerToken))
+				evalTval := evaluation.GetGiftTokenValueSent() - evaluation.GetGiftTokenValueReceived()
+				tokCheck := "✅"
+				if evalTval < tvalTarget {
+					// Show Token Teamwork score vs max.
+					myTeamwork := calculateTokenTeamwork(evaluation.GetCompletionTime(), c.MinutesPerToken, evaluation.GetGiftTokenValueSent(), evaluation.GetGiftTokenValueReceived())
+					maxTeamwork := calculateTokenTeamwork(evaluation.GetCompletionTime(), c.MinutesPerToken, 1000, 8)
+
+					tokCheck = fmt.Sprintf("[%.3g/%.3g]", myTeamwork, maxTeamwork)
+				}
+				// Duration Check
+				//if evaluation.GetCompletionTime() > c.EstimatedDuration.Seconds()*1.10 {
+				fmt.Fprintf(&builder, "**Completed:** <t:%d:f>\n", int64(evaluation.GetLastContributionTime()))
+				fmt.Fprintf(&builder, "**Duration:** %s  **Est. Duration:** %s\n", bottools.FmtDuration(time.Duration(evaluation.GetCompletionTime()*float64(time.Second))), bottools.FmtDuration(c.EstimatedDuration))
+				fmt.Fprintf(&builder, "**CS:** %d  **Est Max CS:** %.0f\n", uint32(evaluationCxp), c.Cxp)
+				if c.SeasonalScoring == 1 {
+					fmt.Fprintf(&builder, "**Contrib:** %s  **CR:** %s\n", contribCheck, crCheck)
+				} else {
+					fmt.Fprintf(&builder, "**Contrib:** %s **Tval**: %s  **CR:** %s\n", contribCheck, tokCheck, crCheck)
+				}
+				fmt.Fprintf(&builder, "%s  **Teamwork:** %.3f  %s\n", artifactIcons, evaluation.GetTeamworkScore(), strings.Join(teamworkIcons, ""))
+
+				builder.WriteString("\n\n")
+				components = append(components, &discordgo.TextDisplay{
+					Content: builder.String(),
+				})
+				builder.Reset()
+
+				/*
+					components = append(components, &discordgo.Separator{
+						Divider: &divider,
+						Spacing: &spacing,
+					})
+				*/
 				count++
 			}
 		}
-		//}
 	}
-	if builder.Len() > 3500 {
-		builder.WriteString("...output truncated...\n")
-	}
+
 	if percent != -1 {
 		builder.WriteString(fmt.Sprintf("%d of %d contracts met this condition.\n", count, len(archive)))
 	}
 	if count == 0 {
 		builder.Reset()
 		builder.WriteString("No contracts met this condition.\n")
+	} else {
+		builder.WriteString("-# Token Teamwork shows score out of 10.\n")
+		builder.WriteString("-🤡 indicates alt-parade needed to hit CR target.\n")
 	}
-	components = append(components, &discordgo.TextDisplay{
-		Content: builder.String(),
-	})
+
+	if builder.Len() > 0 {
+		components = append(components, &discordgo.TextDisplay{
+			Content: builder.String(),
+		})
+	}
 	return components
 }
 
