@@ -373,9 +373,9 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 				crCheck := "✅"
 				if evaluation.GetChickenRunsSent() < uint32(c.ChickenRuns) {
 					crCheck = fmt.Sprintf("[%d/%d]", evaluation.GetChickenRunsSent(), c.ChickenRuns)
-					if c.ChickenRuns > c.MaxCoopSize-1 {
-						crCheck += "🤡"
-					}
+				}
+				if c.ChickenRuns > c.MaxCoopSize-1 {
+					crCheck += "🤡"
 				}
 				// Token Evaluation
 				tvalTarget := GetTargetTval(c.SeasonalScoring, evaluation.GetCompletionTime()/60, float64(c.MinutesPerToken))
