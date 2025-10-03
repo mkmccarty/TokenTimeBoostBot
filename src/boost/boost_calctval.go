@@ -159,11 +159,18 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 		str += "Format should be entered like `19h35m` or `1d 2h 3m` or `1d2h3m` or `1d 2h"
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Content: str,
-			Embeds:  embed.Embeds,
-		})
+	if embed != nil {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true,
+			&discordgo.WebhookParams{
+				Content: str,
+				Embeds:  embed.Embeds,
+			})
+	} else {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true,
+			&discordgo.WebhookParams{
+				Content: str,
+			})
+	}
 }
 
 func calculateTokenValueFromLog(contract *Contract, duration time.Duration, details bool, targetTval float64, userID string) *discordgo.MessageSend {
