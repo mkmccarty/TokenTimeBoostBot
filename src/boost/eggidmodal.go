@@ -100,7 +100,7 @@ func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate
 			str = "Invalid percent provided."
 			break
 		}
-		ReplayEval(s, i, percent, encryptedID, okayToSave)
+		ReplayEval(s, i, percent, encryptedID, parts[3], okayToSave)
 		return
 	case "virtue":
 		if encryptedID == "" {
