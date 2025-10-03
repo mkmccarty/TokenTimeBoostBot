@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"sort"
 	"strings"
@@ -40,7 +41,7 @@ func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
 	//minValue := 0.0
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
-		Description: "Evaluate contract history and provide replay guidance.",
+		Description: "Evaluate a contract's history and provide replay guidance.",
 		Contexts: &[]discordgo.InteractionContextType{
 			discordgo.InteractionContextGuild,
 			discordgo.InteractionContextBotDM,
@@ -64,6 +65,11 @@ func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
 						Autocomplete: true,
 					},
 				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "chart",
+				Description: "Summary chart of active contracts evaluations",
 			},
 			/*
 				{
@@ -104,7 +110,7 @@ func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
-	if _, ok := optionMap["active"]; ok {
+	if _, ok := optionMap["chart"]; ok {
 		// No parameters on this
 		onlyActiveContracts = true
 	}
@@ -251,7 +257,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 	})
 	builder.Reset()
 
-	/*
+	if contractIDParam == "" {
 		fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`\n",
 			bottools.AlignString("CONTRACT-ID", 30, bottools.StringAlignCenter),
 			bottools.AlignString("CS", 6, bottools.StringAlignCenter),
@@ -259,7 +265,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 			bottools.AlignString("GAP", 6, bottools.StringAlignRight),
 			bottools.AlignString("%", 4, bottools.StringAlignCenter),
 		)
-	*/
+	}
 
 	count := 0
 	for _, a := range archive {
@@ -296,24 +302,19 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 		evaluationCxp := evaluation.GetCxp()
 		c := ei.EggIncContractsAll[contractID]
 		//if c.ContractVersion == 2 {
-		if percent != -1 {
-			/*
-				if cxp < c.Cxp*(1-float64(percent)/100) || c.Cxp == 0 {
-					// Need to download the coop_status for more details
-					aResp, , _, err := ei.GetCoopStatusForRerun(contractID, a.GetCoopIdentifier())
-					if err == nil {
-						// if aResp.GetStatus() == 3 {
-					}
-					if builder.Len() < 3500 {
-						fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`\n",
-							bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
-							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(cxp))), 6, bottools.StringAlignRight),
-							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp))), 6, bottools.StringAlignRight),
-							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp-cxp))), 6, bottools.StringAlignRight),
-							bottools.AlignString(fmt.Sprintf("%.1f", (cxp/c.Cxp)*100), 4, bottools.StringAlignCenter))
-					}
-					count++
-				}*/
+		if contractIDParam == "" {
+
+			if c.ContractVersion == 2 && c.ExpirationTime.Unix() > time.Now().Unix() {
+				// Need to download the coop_status for more details
+				fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s` <t:%d:R>\n",
+					bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
+					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(evaluationCxp))), 6, bottools.StringAlignRight),
+					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp))), 6, bottools.StringAlignRight),
+					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp-evaluationCxp))), 6, bottools.StringAlignRight),
+					bottools.AlignString(fmt.Sprintf("%.1f", (evaluationCxp/c.Cxp)*100), 4, bottools.StringAlignCenter),
+					c.ExpirationTime.Unix())
+				count++
+			}
 		} else {
 			if contractID != contractIDParam {
 				continue
@@ -422,7 +423,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 	if count == 0 {
 		builder.Reset()
 		builder.WriteString("No contracts met this condition.\n")
-	} else {
+	} else if contractIDParam != "" {
 		builder.WriteString("-# [brackets] indicate area for improvement.\n")
 		builder.WriteString("-# 🤡 indicates alt-parade needed to hit CR target.\n")
 		builder.WriteString("-# Teamwork scoring artifacts shown after the value..\n")
