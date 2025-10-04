@@ -445,7 +445,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 				ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 2, "trim": true}))
 		} else {
 			fmt.Fprintf(&stats, "%s %s %d%% 🔒<t:%d:R> or 💤<t:%d:R>\n",
-				habArt,
+				strings.Join(habArray, ""),
 				ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 2, "trim": true}),
 				int(habPercent),
 				time.Now().Add(time.Duration(int64(onlineFillTime))*time.Second).Unix(),
