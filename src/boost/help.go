@@ -9,6 +9,23 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 )
 
+// GetSlashHelpCommand returns the command for the /help command
+func GetSlashHelpCommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "Help with Boost Bot commands.",
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+			discordgo.InteractionContextBotDM,
+			discordgo.InteractionContextPrivateChannel,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+			discordgo.ApplicationIntegrationUserInstall,
+		},
+	}
+}
+
 // HandleHelpCommand will handle the help command
 func HandleHelpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	userID := ""

@@ -315,10 +315,7 @@ var (
 			Name:        slashToggleContractPings,
 			Description: "Toggle Boost Bot contract pings [sticky]",
 		},
-		{
-			Name:        slashHelp,
-			Description: "Help with Boost Bot commands.",
-		},
+		boost.GetSlashHelpCommand(slashHelp),
 		{
 			Name:        slashContractSettings,
 			Description: "Coordinator of contract can use this to show initial settings",
