@@ -229,6 +229,7 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent in
 
 func printArchivedContracts(userID string, archive []*ei.LocalContract, percent int, contractIDParam string) []discordgo.MessageComponent {
 	var components []discordgo.MessageComponent
+	tvalFooterMessage := false
 	eiUserName := farmerstate.GetMiscSettingString(userID, "ei_ign")
 	divider := true
 	spacing := discordgo.SeparatorSpacingSizeSmall
@@ -394,6 +395,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 					}
 
 					tokCheck = fmt.Sprintf("⚠️%s[%.3g/%.3g]", tokenSink, myTeamwork, maxTeamwork)
+					tvalFooterMessage = true
 				}
 				// Duration Check
 				//if evaluation.GetCompletionTime() > c.EstimatedDuration.Seconds()*1.10 {
@@ -434,6 +436,9 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 		builder.WriteString("-# [brackets] indicate area for improvement.\n")
 		builder.WriteString("-# 🤡 indicates alt-parade needed to hit CR target.\n")
 		builder.WriteString("-# Teamwork scoring artifacts shown after the value..\n")
+		if tvalFooterMessage {
+			builder.WriteString("-# TVal scores are 2/10 value sent and 8/10 ∆-value.\n")
+		}
 	}
 
 	if builder.Len() > 0 {
