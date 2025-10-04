@@ -405,7 +405,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 				if c.SeasonalScoring == 1 {
 					fmt.Fprintf(&builder, "**Contrib:** %s  **CR:** %s\n", contribCheck, crCheck)
 				} else {
-					fmt.Fprintf(&builder, "**Contrib:** %s **Tval**: %s  **CR:** %s\n", contribCheck, tokCheck, crCheck)
+					fmt.Fprintf(&builder, "**Contrib:** %s **TVal**: %s  **CR:** %s\n", contribCheck, tokCheck, crCheck)
 				}
 				fmt.Fprintf(&builder, "%s  **Teamwork:** %.3f  %s\n", artifactIcons, evaluation.GetTeamworkScore(), strings.Join(teamworkIcons, ""))
 
