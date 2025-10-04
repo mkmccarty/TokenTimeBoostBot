@@ -305,7 +305,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 		//if c.ContractVersion == 2 {
 		if contractIDParam == "" {
 
-			if c.ContractVersion == 2 && c.ExpirationTime.Unix() > time.Now().Unix() {
+			if c.ContractVersion == 2 && c.ValidUntil.Unix() > time.Now().Unix() {
 				// Need to download the coop_status for more details
 				fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s` <t:%d:R>\n",
 					bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
@@ -313,14 +313,14 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp))), 6, bottools.StringAlignRight),
 					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp-evaluationCxp))), 6, bottools.StringAlignRight),
 					bottools.AlignString(fmt.Sprintf("%.1f", (evaluationCxp/c.Cxp)*100), 4, bottools.StringAlignCenter),
-					c.ExpirationTime.Unix())
+					c.ValidUntil.Unix())
 				count++
 			}
 		} else {
 			if contractID != contractIDParam {
 				continue
 			}
-			if c.ContractVersion == 2 && c.ExpirationTime.Unix() > time.Now().Unix() {
+			if c.ContractVersion == 2 && c.ValidUntil.Unix() > time.Now().Unix() {
 				artifactIcons := ""
 				teamworkIcons := []string{}
 				log.Printf("Evaluating contract %s coop %s for user %s\n", contractID, coopID, eiUserName)

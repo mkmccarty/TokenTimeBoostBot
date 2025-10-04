@@ -265,7 +265,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 		// Check if the contract already exists and is the same
 		existingContract, exists := ei.EggIncContractsAll[c.ID]
 		if exists {
-			if existingContract.ExpirationTime != c.ExpirationTime {
+			if existingContract.ValidUntil != c.ValidUntil {
 				log.Print("New Leggacy contract: ", c.ID)
 			}
 		} else {

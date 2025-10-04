@@ -55,7 +55,7 @@ func LoadContractData(filename string) {
 		}
 
 		// Only add completely new contracts to this list
-		if existingContract, exists := ei.EggIncContractsAll[c.ID]; !exists || contract.StartTime.After(existingContract.StartTime) {
+		if existingContract, exists := ei.EggIncContractsAll[c.ID]; !exists || contract.ValidFrom.After(existingContract.ValidFrom) {
 			ei.EggIncContractsAll[c.ID] = contract
 		}
 
@@ -109,15 +109,15 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	if contractProtoBuf.GetStartTime() == 0 {
 
 		if contractProtoBuf.Leggacy == nil || contractProtoBuf.GetLeggacy() {
-			c.StartTime = contractTime.Add(-time.Duration(c.LengthInSeconds-legacyContractValidDuration) * time.Second)
+			c.ValidFrom = contractTime.Add(-time.Duration(c.LengthInSeconds-legacyContractValidDuration) * time.Second)
 		} else {
-			c.StartTime = contractTime.Add(-time.Duration(c.LengthInSeconds-originalContractValidDuration) * time.Second)
+			c.ValidFrom = contractTime.Add(-time.Duration(c.LengthInSeconds-originalContractValidDuration) * time.Second)
 		}
 
 	} else {
-		c.StartTime = time.Unix(int64(contractProtoBuf.GetStartTime()), 0)
+		c.ValidFrom = time.Unix(int64(contractProtoBuf.GetStartTime()), 0)
 	}
-	c.ExpirationTime = contractTime
+	c.ValidUntil = contractTime
 	c.CoopAllowed = contractProtoBuf.GetCoopAllowed()
 
 	if c.Egg == int32(ei.Egg_CUSTOM_EGG) {
@@ -215,7 +215,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	if c.LengthInSeconds > 0 {
 		d := time.Duration(c.LengthInSeconds) * time.Second
 		days := d.Hours() / 24.0 // 2 days
-		c.ContractDurationInDays = int(days)
+		c.LengthInDays = int(days)
 		c.ChickenRuns = int(min(20.0, math.Ceil((days*float64(c.MaxCoopSize))/2.0)))
 		if c.SeasonalScoring == 1 {
 			c.ChickenRuns = c.MaxCoopSize - 1
