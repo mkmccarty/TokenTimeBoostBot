@@ -385,8 +385,15 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 					// Show Token Teamwork score vs max.
 					myTeamwork := calculateTokenTeamwork(evaluation.GetCompletionTime(), c.MinutesPerToken, evaluation.GetGiftTokenValueSent(), evaluation.GetGiftTokenValueReceived())
 					maxTeamwork := calculateTokenTeamwork(evaluation.GetCompletionTime(), c.MinutesPerToken, 1000, 8)
+					// Maybe a stoken sync.
+					tokenSink := ""
+					if myTeamwork <= 2.0 &&
+						(evaluation.GetGiftTokensSent() > uint32(4*(c.MaxCoopSize-1)) ||
+							evaluation.GetGiftTokensReceived() > 12.0) {
+						tokenSink = ei.GetBotEmojiMarkdown("tvalrip")
+					}
 
-					tokCheck = fmt.Sprintf("[%.3g/%.3g]", myTeamwork, maxTeamwork)
+					tokCheck = fmt.Sprintf("⚠️%s[%.3g/%.3g]", tokenSink, myTeamwork, maxTeamwork)
 				}
 				// Duration Check
 				//if evaluation.GetCompletionTime() > c.EstimatedDuration.Seconds()*1.10 {
