@@ -168,7 +168,7 @@ func getContractScoreEstimate(c ei.EggIncContract, grade ei.Contract_PlayerGrade
 	//buffTimeValue := calculateBuffTimeValue(c.SeasonalScoring, contractDuration.Seconds(), int(siabPercent), int(deflPercent))
 	B := calculateTeamworkB(buffTimeValue, contractDuration.Seconds())
 
-	CR := calculateChickenRunTeamwork(c.SeasonalScoring, c.MaxCoopSize, c.ContractDurationInDays, chickenRuns)
+	CR := calculateChickenRunTeamwork(c.SeasonalScoring, c.MaxCoopSize, c.LengthInDays, chickenRuns)
 	T := calculateTokenTeamwork(contractDuration.Seconds(), c.MinutesPerToken, sentTokens, receivedTokens)
 	score := calculateContractScore(c.SeasonalScoring, int(ei.Contract_GRADE_AAA),
 		c.MaxCoopSize,

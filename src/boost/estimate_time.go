@@ -224,9 +224,9 @@ func getContractEstimateString(contractID string) string {
 
 	noteStr := ""
 	if c.ContractVersion == 1 {
-		noteStr = fmt.Sprintf("**This is a ELITE Version 1 contract last seen <t:%d:F>.**\n", c.StartTime.Unix())
-	} else if c.ExpirationTime.Before(time.Now().UTC()) {
-		noteStr = fmt.Sprintf("**This is an unavailable V2 contract last seen <t:%d:F>.**\n", c.StartTime.Unix())
+		noteStr = fmt.Sprintf("**This is a ELITE Version 1 contract last seen <t:%d:F>.**\n", c.ValidFrom.Unix())
+	} else if c.ValidUntil.Before(time.Now().UTC()) {
+		noteStr = fmt.Sprintf("**This is an unavailable V2 contract last seen <t:%d:F>.**\n", c.ValidFrom.Unix())
 	}
 
 	return noteStr + str

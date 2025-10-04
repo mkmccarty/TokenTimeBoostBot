@@ -167,9 +167,9 @@ type EggIncContract struct {
 	TargetAmount              []float64
 	ChickenRuns               int
 	LengthInSeconds           int
+	LengthInDays              int
 	ChickenRunCooldownMinutes int
 	MinutesPerToken           int
-	ContractDurationInDays    int
 	EstimatedDuration         time.Duration
 	EstimatedDurationLower    time.Duration
 	TargetTval                float64
@@ -183,8 +183,8 @@ type EggIncContract struct {
 	ModifierVehicleCost       float64
 	ModifierResearchCost      float64
 	ModifierHabCost           float64
-	StartTime                 time.Time
-	ExpirationTime            time.Time
+	ValidFrom                 time.Time
+	ValidUntil                time.Time
 	ContractVersion           int // 1 = old, 2 = new
 	Grade                     []ContractGrade
 	TeamNames                 []string // Names of the teams in the contract

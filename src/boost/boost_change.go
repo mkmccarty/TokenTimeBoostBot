@@ -491,7 +491,7 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 				c := ei.EggIncContractsAll[contract.ContractID]
 				// Calculate time as 9:00 AM + offset hours using today's date
 				now := time.Now()
-				baseTime := c.StartTime
+				baseTime := c.ValidFrom
 
 				// Create today's version of the base time (same hour/minute, but today's date)
 				todayBaseTime := time.Date(now.Year(), now.Month(), now.Day(),

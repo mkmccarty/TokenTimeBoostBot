@@ -1785,7 +1785,7 @@ func ArchiveContracts(s *discordgo.Session) {
 		contractInfo, ok := ei.EggIncContractsAll[contract.ContractID]
 		if ok {
 			// If the contract is still in the signup phase and hasn't expired, don't archive it
-			if contract.State == ContractStateSignup && !currentTime.After(contractInfo.ExpirationTime) {
+			if contract.State == ContractStateSignup && !currentTime.After(contractInfo.ValidUntil) {
 				continue
 			}
 		}
