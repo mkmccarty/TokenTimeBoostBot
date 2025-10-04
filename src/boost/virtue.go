@@ -326,7 +326,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	shippingRate := ei.GetShippingRateFromBackup(farm, backup.GetGame())
 	eggLayingRate, habPop, habCap := ei.GetEggLayingRateFromBackup(farm, backup.GetGame())
 	//deliveryRate := math.Min(eggLayingRate, shippingRate)
-	eggLayingRate *= artifactBuffs.ELR * artifactBuffs.Hab * colBuffs.ELR * colBuffs.Hab
+	eggLayingRate *= artifactBuffs.ELR * colBuffs.ELR
 	shippingRate *= artifactBuffs.SR * colBuffs.SR
 	habCap *= artifactBuffs.Hab * colBuffs.Hab
 
