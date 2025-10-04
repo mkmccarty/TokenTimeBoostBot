@@ -437,7 +437,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 		builder.WriteString("-# 🤡 indicates alt-parade needed to hit CR target.\n")
 		builder.WriteString("-# Teamwork scoring artifacts shown after the value..\n")
 		if tvalFooterMessage {
-			builder.WriteString("-# TVal scores are 2/10 value sent and 8/10 ∆-value.\n")
+			builder.WriteString("-# Token Teamwork scores are 2/10 value sent and 8/10 ∆-value.\n")
 		}
 	}
 
