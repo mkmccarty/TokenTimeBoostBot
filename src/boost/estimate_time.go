@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -106,10 +107,23 @@ func getContractEstimateString(contractID string) string {
 		seasonalStr = fmt.Sprintf("Seasonal: %s %s\n", seasonEmote[seasonIcon], seasonYear)
 	}
 
-	str = fmt.Sprintf("%s%s **%s** [%s](%s)\n%s%d%s - %s/%dm - %s%d/%dm - 📏%s",
+	// SR sandbox calls
+	cxpToggle := false
+	if c.ContractVersion == 2 {
+		if c.SeasonalScoring == 1 {
+			cxpToggle = true
+		}
+	}
+	staab_data, staab_error := EncodeData(cxpToggle, strconv.Itoa(c.LengthInDays), strconv.Itoa(int(c.TargetAmount[len(c.TargetAmount)-1]/1e15)), strconv.Itoa(c.MinutesPerToken), "1", c.MaxCoopSize)
+	if staab_error != nil {
+		return "Errored"
+	}
+
+	str = fmt.Sprintf("%s%s **%s** [%s](%s), [SR Sandbox](%s)\n%s%d%s - %s/%dm - %s%d/%dm - 📏%s",
 		ei.GetBotEmojiMarkdown("contract_grade_aaa"),
 		eggStr, c.Name, c.ID,
 		fmt.Sprintf("https://eicoop-carpet.netlify.app/?q=%s", c.ID),
+		fmt.Sprintf("https://srsandbox-staabmia.netlify.app/?data=%s", staab_data),
 		seasonalStr,
 		c.MaxCoopSize, ei.GetBotEmojiMarkdown("icon_coop"),
 		tokenStr, c.MinutesPerToken,
