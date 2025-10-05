@@ -238,11 +238,6 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			return "Failed to read ttbb-data directory.", nil, ""
 		}
 
-		// Clean inputs
-		contractID = strings.TrimSpace(contractID)
-		coopID = strings.TrimSpace(coopID)
-		coopID = strings.TrimSuffix(coopID, "-") // remove any trailing dash
-
 		// Build search pattern
 		var pattern string
 		if coopID == "" {
