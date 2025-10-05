@@ -304,15 +304,13 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 	artifactIcons := ""
 
-	levels := []string{"T1", "T2", "T3", "T4", "T5"}
-	rarity := []string{"C", "R", "E", "L"}
 	for _, artifact := range virtueArtifacts {
 		artifactID := artifact.GetItemId()
 		if slices.Contains(inUseArtifacts, artifactID) {
 			artifactSetInUse = append(artifactSetInUse, artifact.GetArtifact())
 
 			spec := artifact.GetArtifact().GetSpec()
-			strType := levels[spec.GetLevel()] + rarity[spec.GetRarity()]
+			strType := ei.ArtifactLevels[spec.GetLevel()] + ei.ArtifactRarity[spec.GetRarity()]
 			artifactIcons += ei.GetBotEmojiMarkdown(fmt.Sprintf("%s%s", ei.ShortArtifactName[int32(spec.GetName())], strType))
 		}
 	}

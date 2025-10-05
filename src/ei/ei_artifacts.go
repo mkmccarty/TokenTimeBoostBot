@@ -19,6 +19,12 @@ type DimensionBuffs struct {
 	AwayEarnings float64
 }
 
+// ArtifactLevels are used to map the level enums to strings
+var ArtifactLevels = []string{"T1", "T2", "T3", "T4", "T5"}
+
+// ArtifactRarity are used to map the level and rarity enums to strings
+var ArtifactRarity = []string{"C", "R", "E", "L"}
+
 // GetArtifactBuffs calculates the total buffs from artifacts
 func GetArtifactBuffs(artifacts []*CompleteArtifact) DimensionBuffs {
 	artifactBuffs := DimensionBuffs{
@@ -30,8 +36,6 @@ func GetArtifactBuffs(artifacts []*CompleteArtifact) DimensionBuffs {
 		AwayEarnings: 1.0,
 	}
 
-	levels := []string{"T1", "T2", "T3", "T4", "T5"}
-	rarity := []string{"C", "R", "E", "L"}
 	chalice := map[string]float64{
 		"T1C": 1.05,
 		"T2C": 1.10, "T2E": 1.15,
@@ -81,7 +85,7 @@ func GetArtifactBuffs(artifacts []*CompleteArtifact) DimensionBuffs {
 
 	for _, artifact := range artifacts {
 		spec := artifact.GetSpec()
-		strType := levels[spec.GetLevel()] + rarity[spec.GetRarity()]
+		strType := ArtifactLevels[spec.GetLevel()] + ArtifactRarity[spec.GetRarity()]
 		switch spec.GetName() {
 		case ArtifactSpec_QUANTUM_METRONOME:
 			artifactBuffs.ELR *= metronome[strType]
