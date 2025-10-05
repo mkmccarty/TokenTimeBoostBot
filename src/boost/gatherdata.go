@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-// Data structures used for SR Sandbox
-type PlayerData struct {
+// playerData stores player-related data.
+type playerData struct {
 	Name         string // Player name
 	Tokens       string // Player tokens used
 	TE           string // Truth Egg (TE) count
@@ -28,7 +28,8 @@ type PlayerData struct {
 	Item8        string // Item slot 8
 }
 
-type InputData struct {
+// inputData stores full coop info
+type inputData struct {
 	CrtToggle   bool         // Chicken Runs Maxed?*
 	TokenToggle bool         // Token Value Maxed?*
 	GGToggle    bool         // Generous Gifts?
@@ -44,7 +45,7 @@ type InputData struct {
 	Modifiers   string       // Modifier Multiplier
 	NumPlayers  int          // CoopSize:
 	BtvTarget   string       // BTV/complTime Target
-	Players     []PlayerData // Player list for results
+	Players     []playerData // Player list for results
 }
 
 func convertBool(b bool) string {
@@ -98,7 +99,7 @@ func chunk16(x string) string {
 	return y
 }
 
-func gatherData(input InputData) (string, string, error) {
+func gatherData(input inputData) (string, string, error) {
 	if input.NumPlayers != len(input.Players) {
 		return "", "", errors.New("numPlayers does not match player array length")
 	}
@@ -162,7 +163,7 @@ func gatherData(input InputData) (string, string, error) {
 //   - (string): version-tagged encoded SR Sandbox data.
 //   - (error): returned if encoding fails.
 func EncodeData(CxpToggle bool, Duration, TargetEgg, TokenTimer, Modifiers string, NumPlayers int) (string, error) {
-	input := InputData{
+	input := inputData{
 		CrtToggle:   true,
 		TokenToggle: true,
 		GGToggle:    false,
@@ -189,9 +190,9 @@ func EncodeData(CxpToggle bool, Duration, TargetEgg, TokenTimer, Modifiers strin
 	}
 
 	// Full leggy assumption
-	input.Players = make([]PlayerData, input.NumPlayers)
+	input.Players = make([]playerData, input.NumPlayers)
 	for i := 0; i < input.NumPlayers; i++ {
-		input.Players[i] = PlayerData{
+		input.Players[i] = playerData{
 			Name:         fmt.Sprintf("BBPlayer%d", i+1),
 			Tokens:       tokensArr[i],
 			TE:           teArr[i],
