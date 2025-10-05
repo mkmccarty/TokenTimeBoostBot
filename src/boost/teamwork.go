@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -217,30 +218,50 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 	// extraInfo is true if coopID starts with '?'
 	extraInfo := false
-	if strings.HasPrefix(coopID, "?") {
-		coopID = strings.TrimPrefix(coopID, "?")
+	if after, hasPrefix := strings.CutPrefix(coopID, "?"); hasPrefix {
+		coopID = after
 		extraInfo = true
 	}
 
-	if strings.HasPrefix(coopID, "**") {
-		coopID = strings.TrimPrefix(coopID, "**")
-		// Want to get a list of the filenames within the ttbb-data directory
+	if after, hasPrefix := strings.CutPrefix(coopID, "**"); hasPrefix {
+		coopID = after
+
+		// Print working directory and directory being read
+		cwd, _ := os.Getwd()
+		fmt.Println("Current working dir:", cwd)
+		fmt.Println("Reading directory:", filepath.Join(cwd, "ttbb-data/pb"))
+
+		// Read directory
 		files, err := os.ReadDir("ttbb-data/pb")
 		if err != nil {
+			fmt.Println("❌ Error reading directory:", err)
 			return "Failed to read ttbb-data directory.", nil, ""
 		}
+
+		// Build search pattern
+		var pattern string
+		if coopID == "" {
+			pattern = contractID + "-"
+		} else {
+			pattern = contractID + "-" + coopID
+		}
+		fmt.Println("Searching for pattern:", pattern)
+
 		var fileNames []string
 		for _, file := range files {
 			if file.IsDir() {
 				continue
 			}
 			fileName := file.Name()
-			// Check if filename contains the coopID pattern
-			if strings.Contains(fileName, contractID+"-"+coopID+"-") {
+			// Check if filename contains the pattern
+			if strings.Contains(fileName, pattern) {
 				fileNames = append(fileNames, fileName)
 			}
 		}
 		// Return the list of matching filenames
+		if len(fileNames) == 0 {
+			return fmt.Sprintf("No matching files found in %s.", filepath.Join(cwd, "ttbb-data/pb")), nil, ""
+		}
 		return fmt.Sprintf("Filenames:\n%s", strings.Join(fileNames, "\n")), nil, ""
 	}
 
@@ -682,7 +703,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 								deltaElr, alpha))
 						}
 
-						switchTime, switchTimestamp, finishTimeWithSwitch, finishTimestampWithSwitch, finishTimeWithoutSwitch, finishTimestampWithoutSwitch, err := ProductionSchedule(
+						_, switchTimestamp, _, finishTimestampWithSwitch, _, finishTimestampWithoutSwitch, err := ProductionSchedule(
 							targetEggAmount,
 							initialElr,
 							deltaElr,
@@ -707,25 +728,12 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 						productionScheduleParamsArray = append(productionScheduleParamsArray, params)
 
+						// Print 1p SiaB switch times
 						if err == nil {
 							maxTeamwork.WriteString(fmt.Sprintf("\n%s: <t:%d:f>\n", "Switch time ", switchTimestamp))
 							maxTeamwork.WriteString(fmt.Sprintf("%s: <t:%d:f>\n", "Finish time with 1 player switch", finishTimestampWithSwitch))
 							if extraInfo {
-								siabEndtimes = append(siabEndtimes, finishTimestampWithSwitch)
-
-								labels := []string{"Switch time", "Finish time with switch", "Finish time without switch"}
-								results := []struct {
-									dt time.Time
-									ts int64
-								}{
-									{switchTime, switchTimestamp},
-									{finishTimeWithSwitch, finishTimestampWithSwitch},
-									{finishTimeWithoutSwitch, finishTimestampWithoutSwitch},
-								}
-
-								for i, lbl := range labels {
-									maxTeamwork.WriteString(fmt.Sprintf("%s: <t:%d:f>\n", lbl, results[i].ts))
-								}
+								maxTeamwork.WriteString(fmt.Sprintf("%s: <t:%d:f>\n", "Finish time without switch", finishTimestampWithoutSwitch))
 							}
 							maxTeamwork.WriteString("\nCompletion formulas from @James.WST")
 						}
