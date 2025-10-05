@@ -20,6 +20,7 @@ func SetGenerousGiftEvent(gg float64, ugg float64, endtime time.Time) {
 	currentEventEndsGG = endtime
 }
 
+// SetEarningsEvent will set the current earnings event multipliers
 func SetEarningsEvent(earnings float64, ultraEarnings float64) {
 	currentEarningsEvent = earnings
 	currentEarningsEventUltra = ultraEarnings
