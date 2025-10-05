@@ -96,7 +96,6 @@ func GetResearchGeneric(research []*Backup_ResearchItem, ids []string, baseValue
 // GetFarmEggValue returns the current egg value for the farm
 func GetFarmEggValue(commonResearch []*Backup_ResearchItem) float64 {
 	baseEggValue := 1.0
-	eggValue := baseEggValue
 
 	ids := []string{
 		"nutritional_sup",
@@ -117,7 +116,7 @@ func GetFarmEggValue(commonResearch []*Backup_ResearchItem) float64 {
 		"matter_reconfig",
 		"timeline_splicing",
 	}
-	return GetResearchGeneric(commonResearch, ids, eggValue)
+	return GetResearchGeneric(commonResearch, ids, baseEggValue)
 }
 
 // GetSiloMinutes calculates the total silo minutes from epic research and silos owned
