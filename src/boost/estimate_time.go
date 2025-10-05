@@ -114,17 +114,17 @@ func getContractEstimateString(contractID string) string {
 			cxpToggle = true
 		}
 	}
-	staab_data, staab_error := EncodeData(cxpToggle, strconv.Itoa(c.LengthInDays), strconv.Itoa(int(c.TargetAmount[len(c.TargetAmount)-1]/1e15)), strconv.Itoa(c.MinutesPerToken), "1", c.MaxCoopSize)
-	if staab_error != nil {
+	staabData, staabError := EncodeData(cxpToggle, strconv.Itoa(c.LengthInDays), strconv.Itoa(int(c.TargetAmount[len(c.TargetAmount)-1]/1e15)), strconv.Itoa(c.MinutesPerToken), "1", c.MaxCoopSize)
+	if staabError != nil {
 		// Fallback to the default SR Sandbox configuration if encoding fails
-		staab_data = "v-5MTEwMDAwMC0wLTEzLTctNTAwLTYwLTEtMS0yLVBsYXllciUyMDAtNi0xMA=B6mEavjeExzag"
+		staabData = "v-5MTEwMDAwMC0wLTEzLTctNTAwLTYwLTEtMS0yLVBsYXllciUyMDAtNi0xMA=B6mEavjeExzag"
 	}
 
 	str = fmt.Sprintf("%s%s **%s** [%s](%s), [SR Sandbox](%s)\n%s%d%s - %s/%dm - %s%d/%dm - 📏%s",
 		ei.GetBotEmojiMarkdown("contract_grade_aaa"),
 		eggStr, c.Name, c.ID,
 		fmt.Sprintf("https://eicoop-carpet.netlify.app/?q=%s", c.ID),
-		fmt.Sprintf("https://srsandbox-staabmia.netlify.app/?data=%s", staab_data),
+		fmt.Sprintf("https://srsandbox-staabmia.netlify.app/?data=%s", staabData),
 		seasonalStr,
 		c.MaxCoopSize, ei.GetBotEmojiMarkdown("icon_coop"),
 		tokenStr, c.MinutesPerToken,
