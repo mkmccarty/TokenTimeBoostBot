@@ -34,6 +34,9 @@ const eggIncDataSchemaFile string = "ttbb-data/ei-data.schema.json"
 const eggIncEiAfxDataURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/wasmegg/_common/eiafx/eiafx-data.json"
 const eggIncEiAfxDataFile string = "ttbb-data/ei-afx-data.json"
 
+const eggIncEiResearchesURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/wasmegg/researches/src/researches.json"
+const eggIncEiResearchesFile string = "ttbb-data/ei-researches.json"
+
 //const eggIncEiAfxConfigURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/wasmegg/_common/eiafx/eiafx-config.json"
 //const eggIncEiAfxConfigFile string = "ttbb-data/eiafx-config.json"
 
@@ -294,12 +297,14 @@ func downloadEggIncData(url string, filename string) bool {
 		lastEventUpdate = time.Now()
 		log.Printf("EI-Events. New data loaded, length: %d\n", int64(len(body)))
 	case eggIncEiAfxDataFile:
-		err := ei.LoadData(filename)
+		err := ei.LoadArtifactsData(filename)
 		if err != nil {
 			log.Print(err)
 		} else {
 			log.Printf("EI-AFX-Data. New data loaded, length: %d\n", int64(len(body)))
 		}
+	case eggIncEiResearchesFile:
+		ei.LoadResearchData(filename)
 	}
 	/*else if filename == eggIncEiAfxConfigFile {
 		ei.LoadConfig(filename)
@@ -329,10 +334,14 @@ func ExecuteCronJob(s *discordgo.Session) {
 	downloadEggIncData(eggIncDataSchemaURL, eggIncDataSchemaFile)
 
 	if !downloadEggIncData(eggIncEiAfxDataURL, eggIncEiAfxDataFile) {
-		err := ei.LoadData(eggIncEiAfxDataFile)
+		err := ei.LoadArtifactsData(eggIncEiAfxDataFile)
 		if err != nil {
 			log.Print(err)
 		}
+	}
+
+	if !downloadEggIncData(eggIncEiResearchesURL, eggIncEiResearchesFile) {
+		ei.LoadResearchData(eggIncEiResearchesFile)
 	}
 
 	events.GetPeriodicalsFromAPI(s)
