@@ -175,11 +175,13 @@ var ArtifactMap = map[string]*Artifact{
 var data *Store
 var artifactConfig *ArtifactsConfigurationResponse
 
+// Store holds the entire artifacts data
 type Store struct {
 	Schema           string    `json:"$schema"`
 	ArtifactFamilies []*Family `json:"artifact_families"`
 }
 
+// Family holds the data for each artifact family
 type Family struct {
 	CoreFamily
 
@@ -188,6 +190,7 @@ type Family struct {
 	Tiers        []*Tier `json:"tiers"`
 }
 
+// CoreFamily holds the core data for each artifact family
 type CoreFamily struct {
 	ID          string              `json:"id"`
 	AfxID       ArtifactSpec_Name   `json:"afx_id"`
@@ -198,6 +201,7 @@ type CoreFamily struct {
 	ChildAfxIds []ArtifactSpec_Name `json:"child_afx_ids"`
 }
 
+// Tier holds the data for each artifact tier
 type Tier struct {
 	Family *CoreFamily `json:"family"`
 
@@ -219,6 +223,7 @@ type Tier struct {
 	OddsMultiplier                   float64      `json:"odds_multiplier"`
 }
 
+// CoreTier holds the core data for each artifact tier
 type CoreTier struct {
 	ItemIdentifiers
 	TierNumber   int               `json:"tier_number"`
@@ -228,6 +233,7 @@ type CoreTier struct {
 	IconFilename string            `json:"icon_filename"`
 }
 
+// ItemIdentifiers holds the identifiers for each artifact item
 type ItemIdentifiers struct {
 	ID       string             `json:"id"`
 	AfxID    ArtifactSpec_Name  `json:"afx_id"`
@@ -235,6 +241,7 @@ type ItemIdentifiers struct {
 	Name     string             `json:"name"`
 }
 
+// Effect holds the data for each artifact effect
 type Effect struct {
 	AfxRarity    ArtifactSpec_Rarity `json:"afx_rarity"`
 	Rarity       string              `json:"rarity"`
@@ -248,16 +255,19 @@ type Effect struct {
 	OddsMultiplier float64 `json:"odds_multiplier"`
 }
 
+// Recipe holds the crafting recipe for each artifact
 type Recipe struct {
 	Ingredients   []Ingredient  `json:"ingredients"`
 	CraftingPrice CraftingPrice `json:"crafting_price"`
 }
 
+// Ingredient holds the data for each crafting ingredient
 type Ingredient struct {
 	CoreTier
 	Count uint32 `json:"count"`
 }
 
+// CraftingPrice holds the crafting price data
 type CraftingPrice struct {
 	Base    float64 `json:"base"`
 	Low     float64 `json:"low"`
@@ -267,6 +277,7 @@ type CraftingPrice struct {
 	Minimum uint32  `json:"minimum"`
 }
 
+// LoadArtifactsConfig loads artifact data from a JSON file
 func LoadArtifactsConfig(configFile string) error {
 
 	// Read the dataFile from disk into _eiafxConfigJSON
@@ -284,6 +295,7 @@ func LoadArtifactsConfig(configFile string) error {
 	return nil
 }
 
+// LoadArtifactsData loads artifact data from a JSON file
 func LoadArtifactsData(dataFile string) error {
 
 	// Read the dataFile from disk into _eiafxConfigJSON

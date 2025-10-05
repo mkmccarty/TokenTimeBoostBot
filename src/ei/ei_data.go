@@ -83,6 +83,8 @@ type ContractGrade struct {
 	ModifierHabCost      float64
 	BasePoints           float64
 }
+
+// EggIncContract is a raw contract data for Egg Inc
 type EggIncContract struct {
 	ID                        string `json:"id"`
 	Proto                     string `json:"proto"`
@@ -132,6 +134,7 @@ var EggIncContracts []EggIncContract
 // EggIncContractsAll holds a list of all contracts, newest is last
 var EggIncContractsAll map[string]EggIncContract
 
+// CustomEggMap maps custom egg ID to EggIncCustomEgg
 var CustomEggMap map[string]*EggIncCustomEgg
 
 func init() {
