@@ -62,9 +62,8 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 		userCmd = true
 	}
 
-	builder.WriteString("Context aware useful commands for Boost Bot.")
-
 	if !userCmd {
+		builder.WriteString("Context aware useful commands for Boost Bot.")
 		footer.WriteString("Bold parameters are required. Italic parameters are optional.")
 		var contract = FindContract(channelID)
 		if contract == nil {
@@ -169,8 +168,11 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 
 	if true {
 		var builder strings.Builder
-		fmt.Fprintf(&builder, ">>>%s : Contract completion estimate.\n", bottools.GetFormattedCommand("estimate-contract-time"))
+		fmt.Fprintf(&builder, "%s : Contract completion estimate.\n", bottools.GetFormattedCommand("estimate-contract-time"))
 		fmt.Fprintf(&builder, "%s : Launch planning helper.\n", bottools.GetFormattedCommand("launch-helper"))
+		fmt.Fprintf(&builder, "%s : Contract stones use\n", bottools.GetFormattedCommand("stones"))
+		fmt.Fprintf(&builder, "%s : Contract teamwork evaluation\n", bottools.GetFormattedCommand("teamwork"))
+		fmt.Fprintf(&builder, "%s : Contract score estimates\n", bottools.GetFormattedCommand("cs-estimate"))
 		fmt.Fprintf(&builder, "%s : Eggs of Virtue Helper\n", bottools.GetFormattedCommand("virtue"))
 		fmt.Fprintf(&builder, "%s : Rerun evaluation\n", bottools.GetFormattedCommand("rerun-eval active"))
 		fmt.Fprintf(&builder, "%s : General purpose Token Tracker via DM.\n", bottools.GetFormattedCommand("token"))
