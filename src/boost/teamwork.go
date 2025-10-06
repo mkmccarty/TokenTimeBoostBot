@@ -610,11 +610,6 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						shortTeamwork = 0
 					}
 
-					// maxTeamwork.WriteString(fmt.Sprintf("Equip current SIAB for %s (<t:%d:t>) in the most recent teamwork segment to max BTV by %6.0f.\n",
-					// 	bottools.FmtDuration(siabTimeEquipped),
-					// 	MostRecentDuration.Add(siabTimeEquipped).Unix(),
-					// 	shortTeamwork))
-
 					// For testing I want to make siabTimeEquipped to be about an hour from now
 					//siabTimeEquipped = time.Duration(3600/2) * time.Second
 					// Add timestamp and name to the map for SIAB swaps
