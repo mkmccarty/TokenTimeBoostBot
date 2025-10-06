@@ -7,6 +7,7 @@ import (
 	"math/rand/v2"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -138,6 +139,12 @@ func GetSlashContractCommand(cmd string) *discordgo.ApplicationCommand {
 				Required:    false,
 			},
 			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "start-offset",
+				Description: "Start offset in hours relative to contract drop.",
+				Required:    false,
+			},
+			{
 				Type:        discordgo.ApplicationCommandOptionInteger,
 				Name:        "coop-size",
 				Description: "Co-op Size. This will be pulled from EI Contract data if unset.",
@@ -196,6 +203,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	var playStyle = ContractPlaystyleACOCooperative
 	makeThread := true // Default is to always make a thread
 	progenitors := []string{i.Member.User.ID}
+	plannedStartTime := time.Time{}
 
 	// User interacting with bot, is this first time ?
 	options := i.ApplicationCommandData().Options
@@ -247,6 +255,34 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		var c, err = s.Channel(ChannelID)
 		if err != nil {
 			coopID = c.Name
+		}
+	}
+	if opt, ok := optionMap["start-offset"]; ok {
+		var err error
+		offsetStr := opt.StringValue()
+		offset, err := strconv.ParseFloat(offsetStr, 64)
+		if err == nil {
+			c := ei.EggIncContractsAll[contractID]
+			// Calculate time as 9:00 AM + offset hours using today's date
+			now := time.Now()
+			baseTime := c.ValidFrom
+
+			// Create today's version of the base time (same hour/minute, but today's date)
+			todayBaseTime := time.Date(now.Year(), now.Month(), now.Day(),
+				baseTime.Hour(), baseTime.Minute(), baseTime.Second(),
+				baseTime.Nanosecond(), now.Location())
+
+			// Apply offset
+			offsetDuration := time.Duration(offset * float64(time.Hour))
+			resultTime := todayBaseTime.Add(offsetDuration)
+
+			// If the resulting time is in the past, add 24 hours to make it tomorrow
+			if resultTime.Before(now) {
+				resultTime = resultTime.Add(24 * time.Hour)
+			}
+
+			startTime := resultTime.Unix()
+			plannedStartTime = time.Unix(startTime, 0)
 		}
 	}
 
@@ -318,6 +354,14 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			playStyleStr := fmt.Sprintf("%s ", contractPlaystyleNames[playStyle])
 			fmt.Fprintf(&builder, " (%s%d/%d)", playStyleStr, len(progenitors), contractInfo.MaxCoopSize)
 		}
+		if !plannedStartTime.IsZero() {
+			nyTime, err := time.LoadLocation("America/New_York")
+			if err == nil {
+				currentTime := plannedStartTime.In(nyTime)
+				formattedTime := currentTime.Format("3:04pm MST")
+				fmt.Fprint(&builder, " "+formattedTime)
+			}
+		}
 
 		thread, err := s.ThreadStart(ChannelID, builder.String(), discordgo.ChannelTypeGuildPublicThread, 60*24)
 		if err == nil {
@@ -329,7 +373,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 
 	mutex.Lock()
-	contract, err := CreateContract(s, contractID, coopID, playStyle, coopSize, boostOrder, i.GuildID, ChannelID, progenitors, getInteractionUserID(i))
+	contract, err := CreateContract(s, contractID, coopID, playStyle, coopSize, boostOrder, i.GuildID, ChannelID, progenitors, getInteractionUserID(i), plannedStartTime)
 	mutex.Unlock()
 
 	if err != nil {
@@ -488,7 +532,7 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 }
 
 // CreateContract creates a new contract or joins an existing contract if run from a different location
-func CreateContract(s *discordgo.Session, contractID string, coopID string, playStyle int, coopSize int, BoostOrder int, guildID string, channelID string, progenitors []string, userID string) (*Contract, error) {
+func CreateContract(s *discordgo.Session, contractID string, coopID string, playStyle int, coopSize int, BoostOrder int, guildID string, channelID string, progenitors []string, userID string, plannedStartTime time.Time) (*Contract, error) {
 	// When creating contracts, we can make sure to clean up and archived ones
 	// Just in case a contract was immediately recreated
 	for _, c := range Contracts {
@@ -544,6 +588,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	contract.ContractHash = ContractHash
 	contract.ContractID = contractID
 	contract.CoopID = coopID
+	contract.PlannedStartTime = plannedStartTime
 	//	contract.UseInteractionButtons = config.GetTestMode() // Feature under test
 	err := getContractRole(s, guildID, contract)
 	for _, loc := range contract.Location {
