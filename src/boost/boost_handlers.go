@@ -23,7 +23,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 		bottools.GetFormattedCommand("change-start offset"),
 		bottools.GetFormattedCommand("change-start timestamp"))
 	if thread {
-		builder.WriteString("React with 🌊 on the bost list to automaticaly update the thread name (`/rename-thread`).\n")
+		builder.WriteString("React with 🌊 on the boost list to automaticaly update the thread name (`/rename-thread`).\n")
 	} else {
 		builder.WriteString("This contract is in a channel and it cannot be renamed. Create it in a thread to permit renaming.\n")
 	}
