@@ -294,7 +294,6 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	var contractDurationSeconds float64
 	var elapsedSeconds float64
 	var calcSecondsRemaining float64
-	var siabEndtimes []int64
 
 	//prevServerTimestamp = int64(decodeCoopStatus.GetSecondsRemaining()) + BuffTimeValues[0].timeEquiped
 	// If the coop completed, the secondsSinceAllGoalsAchieved (towards the end) is present.
@@ -611,16 +610,10 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						shortTeamwork = 0
 					}
 
-					maxTeamwork.WriteString(fmt.Sprintf("Equip current SIAB for %s (<t:%d:t>) in the most recent teamwork segment to max BTV by %6.0f.\n",
-						bottools.FmtDuration(siabTimeEquipped),
-						MostRecentDuration.Add(siabTimeEquipped).Unix(),
-						shortTeamwork))
-
 					// For testing I want to make siabTimeEquipped to be about an hour from now
 					//siabTimeEquipped = time.Duration(3600/2) * time.Second
 					// Add timestamp and name to the map for SIAB swaps
 					if MostRecentDuration.Add(siabTimeEquipped).Before(endTime) {
-						siabSwapMap[MostRecentDuration.Add(siabTimeEquipped).Unix()] = fmt.Sprintf("<t:%d:t> %s\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
 
 						future := deliveryTableMap[name][len(deliveryTableMap[name])-1]
 						siab := future
@@ -680,9 +673,8 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						if swapArtifactName == "Compass" {
 							newSlots = 2
 						}
-						maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a %d slot %s.\n",
+						maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SiaB with a %d slot %s.\n",
 							(future.contributionRateInSeconds/siab.contributionRateInSeconds-1)*100, siabStones, newSlots, swapArtifactName))
-						siabSwapMap[MostRecentDuration.Add(siabTimeEquipped).Unix()] = fmt.Sprintf("<t:%d:t> %s\n", MostRecentDuration.Add(siabTimeEquipped).Unix(), name)
 
 						if shortTeamwork == 0 {
 							deliveryTableMap[name] = append(deliveryTableMap[name][:2], future)
@@ -696,12 +688,6 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						alpha := future.timeEquipped.Sub(startTime).Seconds() / contractDurationSeconds
 						elapsedTimeSec := elapsedSeconds // in seconds
 						eggsShipped := totalContributions / 1e15
-						maxTeamwork.WriteString(fmt.Sprintf("\nTarget Egg Amount: %g\nInitial ELR: %g\nElapsed Time Sec: %g\nEggs Shipped: %g\n",
-							targetEggAmount, initialElr, elapsedTimeSec, eggsShipped))
-						if extraInfo {
-							maxTeamwork.WriteString(fmt.Sprintf("\nDelta ELR: %g\nAlpha: %g\n",
-								deltaElr, alpha))
-						}
 
 						_, switchTimestamp, _, finishTimestampWithSwitch, _, finishTimestampWithoutSwitch, err := ProductionSchedule(
 							targetEggAmount,
@@ -730,14 +716,32 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 						// Print 1p SiaB switch times
 						if err == nil {
-							maxTeamwork.WriteString(fmt.Sprintf("\n%s: <t:%d:f>\n", "Switch time ", switchTimestamp))
-							maxTeamwork.WriteString(fmt.Sprintf("%s: <t:%d:f>\n", "Finish time with 1 player switch", finishTimestampWithSwitch))
 							if extraInfo {
-								maxTeamwork.WriteString(fmt.Sprintf("%s: <t:%d:f>\n", "Finish time without switch", finishTimestampWithoutSwitch))
+								maxTeamwork.WriteString(fmt.Sprintf(
+									"\nTarget Egg Amount: %g\nEggs Shipped: %f\nInitial ELR: %f\nDelta ELR: %f\nElapsed Time Sec: %g\nAlpha: %f\n",
+									targetEggAmount, eggsShipped, initialElr, deltaElr, elapsedTimeSec, alpha,
+								))
 							}
-							maxTeamwork.WriteString("\nCompletion formulas from @James.WST")
-						}
 
+							maxTeamwork.WriteString(fmt.Sprintf(
+								"Teamwork BTV maxes at <t:%[1]d:t>, SiaB can be unequipped after this time.\n\n"+
+									"**Switch time:** <t:%[1]d:f>\n"+
+									"**Adjusted finish time with switch:** <t:%[2]d:f>\n",
+								switchTimestamp,
+								finishTimestampWithSwitch,
+							))
+
+							if extraInfo {
+								maxTeamwork.WriteString(fmt.Sprintf(
+									"**Finish time without switch:** <t:%d:f>\n",
+									finishTimestampWithoutSwitch,
+								))
+							}
+
+							maxTeamwork.WriteString("\nCompletion formulas from @James.WST")
+
+							siabSwapMap[switchTimestamp] = fmt.Sprintf("<t:%d:t> %s\n", switchTimestamp, name)
+						}
 					}
 				} else {
 					if nowTime.Add(siabTimeEquipped).After(endTime) {
@@ -1021,28 +1025,6 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			siabMsg.WriteString(siabSwapMap[k])
 		}
 		siabMsg.WriteString("\nUsing your best SiaB will result in higher CS.\n")
-		if extraInfo && len(siabEndtimes) > 0 {
-			// Want to print a message with an average of the siab endtimes
-			var totalSiabEndTimes time.Duration
-			for _, t := range siabEndtimes {
-				totalSiabEndTimes += time.Duration(t) * time.Second
-			}
-
-			/*
-				avgSiabSwapEndTime := time.Unix(int64(totalSiabEndTimes.Seconds()/float64(len(siabEndtimes))), 0)
-				timeSaved := endTime.Sub(avgSiabSwapEndTime)
-				swapText := "swap"
-				if len(siabEndtimes) > 1 {
-					swapText = "swaps"
-				}
-				siabMsg.WriteString(fmt.Sprintf("\nWith %d timely %s, the contract can finish %s earlier at <t:%d:t>.\n",
-					len(siabEndtimes),
-					swapText,
-					bottools.FmtDuration(timeSaved),
-					avgSiabSwapEndTime.Unix()))
-			*/
-
-		}
 	}
 
 	siabMax = append(siabMax, &discordgo.MessageEmbedField{
