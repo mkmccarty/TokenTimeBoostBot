@@ -1,6 +1,6 @@
 module github.com/mkmccarty/TokenTimeBoostBot
 
-go 1.25.1
+go 1.25.2
 
 require (
 	github.com/bwmarrin/discordgo v0.29.1-0.20250831103706-30fe1930ba2c
@@ -42,8 +42,8 @@ require (
 	go.opentelemetry.io/otel/metric v1.38.0 // indirect
 	go.opentelemetry.io/otel/trace v1.38.0 // indirect
 	golang.org/x/crypto v0.42.0 // indirect
-	golang.org/x/net v0.44.0 // indirect
+	golang.org/x/net v0.45.0 // indirect
 	golang.org/x/sys v0.36.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251002232023-7c0ddcbb5797 // indirect
-	google.golang.org/grpc v1.75.1 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251007200510-49b9836ed3ff // indirect
+	google.golang.org/grpc v1.76.0 // indirect
 )
