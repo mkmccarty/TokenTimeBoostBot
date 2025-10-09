@@ -858,6 +858,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 			// Calculate a score with only the Buffs included
 			var crBuilder strings.Builder
+			crBuilder.WriteString("```")
 			minScore := calculateContractScore(eiContract.SeasonalScoring, grade,
 				eiContract.MaxCoopSize,
 				eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
@@ -870,6 +871,8 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 				// Each CR is worth 6% of base score divided by maxCR
 				crBuilder.WriteString(fmt.Sprintf("%d:%d ", maxCR, minScore+int64(math.Ceil(float64(maxCR)*diffCR))))
 			}
+			crBuilder.WriteString("```")
+
 			if diffCR > 0 {
 				tvalString := " and TVAL=0"
 				if eiContract.SeasonalScoring == 1 {
@@ -881,7 +884,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			if eiContract.SeasonalScoring == 1 {
 				str = "Chicken Runs"
 			}
-			field = append(field, TeamworkOutputData{str, "```" + crBuilder.String() + "```"})
+			field = append(field, TeamworkOutputData{str, crBuilder.String()})
 
 		}
 		// Create a table of Contract Scores for this user
