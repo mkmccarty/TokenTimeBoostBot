@@ -252,8 +252,8 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		)
 	}
 
-	eb := getEarningsBonus(backup, float64(allEov))
-	ebFuture := getEarningsBonus(backup, float64(allEov+futureEov))
+	eb := ei.GetEarningsBonus(backup, float64(allEov))
+	ebFuture := ei.GetEarningsBonus(backup, float64(allEov+futureEov))
 	fmt.Fprintf(&header, "**PE**: %d  **SE**: %s  **TE**: %d  (+%d)\n",
 		backup.GetGame().GetEggsOfProphecy(),
 		ei.FormatEIValue(backup.GetGame().GetSoulEggsD(), map[string]interface{}{"decimals": 3, "trim": true}),
@@ -617,30 +617,6 @@ func nextTruthEggThreshold(delivered float64, eov uint32) float64 {
 		return math.Inf(1)
 	}
 	return TruthEggBreakpoints[tiersPassed]
-}
-
-const baseSoulEggBonus = 0.1
-const baseProphecyEggBonus = 0.05
-
-func getEarningsBonus(backup *ei.Backup, eov float64) float64 {
-	prophecyEggsCount := backup.GetGame().GetEggsOfProphecy()
-	soulEggsCount := backup.GetGame().GetSoulEggsD()
-	soulBonus := baseSoulEggBonus
-	prophecyBonus := baseProphecyEggBonus
-
-	for _, er := range backup.GetGame().GetEpicResearch() {
-		switch er.GetId() {
-		case "soul_eggs": // 20
-			level := min(er.GetLevel(), 140)
-			soulBonus += float64(level) * 0.01
-		case "prophecy_bonus": // 30
-			level := min(er.GetLevel(), 5)
-			prophecyBonus += float64(level) * 0.01
-		}
-	}
-	eb := soulEggsCount * soulBonus * math.Pow(1+prophecyBonus, float64(prophecyEggsCount))
-
-	return eb * (math.Pow(1.01, eov)) * 100
 }
 
 // Return highest hab icon and array of hab icons
