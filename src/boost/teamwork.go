@@ -203,13 +203,84 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 }
 
+func computeRateIncrease(
+	c *ei.ContractCoopStatusResponse_ContributionInfo,
+	future DeliveryTimeValue,
+	grade int,
+	eiContract ei.EggIncContract,
+	siabTimeEquipped time.Duration,
+	nowTime, MostRecentDuration, endTime time.Time,
+) (DeliveryTimeValue, DeliveryTimeValue, float64, string, int) {
+
+	artifactPercentLevels := []float64{1.02, 1.04, 1.05}
+	siabStones := 0
+	stoneSlots := 0
+	elrMult := 1.0
+	srMult := 1.0
+	var artifactIDs []int32
+
+	// Clone and modify for SIAB
+	siab := future
+	siab.name = "SIAB"
+	siab.timeEquipped = nowTime
+	siab.duration = siabTimeEquipped - nowTime.Sub(MostRecentDuration)
+	siab.contributions = c.GetContributionRate() * siab.duration.Seconds()
+	siab.cumulativeContrib = future.cumulativeContrib - future.contributions + siab.contributions
+
+	// Modify future for post-SIAB
+	future.name = "Post-SIAB"
+	future.timeEquipped = nowTime.Add(siab.duration)
+	future.duration = endTime.Sub(future.timeEquipped)
+
+	// Artifact and stone processing
+	for _, artifact := range c.GetFarmInfo().GetEquippedArtifacts() {
+		spec := artifact.GetSpec()
+		artifactName := spec.GetName()
+		artifactIDs = append(artifactIDs, int32(artifactName))
+		if artifactName == ei.ArtifactSpec_SHIP_IN_A_BOTTLE {
+			siabStones, _ = ei.GetStones(spec.GetName(), spec.GetLevel(), spec.GetRarity())
+		}
+		for _, stone := range artifact.GetStones() {
+			stoneSlots++
+			if stone.GetName() == ei.ArtifactSpec_TACHYON_STONE {
+				elrMult *= artifactPercentLevels[stone.GetLevel()]
+			}
+			if stone.GetName() == ei.ArtifactSpec_QUANTUM_STONE {
+				srMult *= artifactPercentLevels[stone.GetLevel()]
+			}
+		}
+	}
+
+	p := c.GetProductionParams()
+	farmCapacity := p.GetFarmCapacity() * eiContract.Grade[grade].ModifierHabCap
+
+	future.originalDelivery = min(future.sr, future.elr*farmCapacity)
+	future.sr /= srMult
+	future.elr /= elrMult
+
+	_, newRate, rateIncrease, swapArtifactName :=
+		determinePostSiabRateOrig(future, stoneSlots, farmCapacity, artifactIDs)
+
+	future.contributionRateInSeconds = newRate / 3600.0
+	future.contributions = future.contributionRateInSeconds * future.duration.Seconds()
+	future.cumulativeContrib = siab.cumulativeContrib + future.contributions
+
+	return future, siab, rateIncrease, swapArtifactName, siabStones
+}
+
 // DownloadCoopStatusTeamwork will download the coop status for a given contract and coop ID
 func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime time.Duration) (string, map[string][]*discordgo.MessageEmbedField, string) {
 	var siabMsg strings.Builder
-	siabSwapMap := make(map[int64]string)
 	var dataTimestampStr string
 	var nowTime time.Time
 	//totalSiabSwapSeconds := time.Duration(0)
+
+	type siabEntry struct {
+		Name       string
+		DeltaELR   float64
+		SwitchTime int64
+	}
+	var siabEntries []siabEntry
 
 	eiContract := ei.EggIncContractsAll[contractID]
 	if eiContract.ID == "" {
@@ -443,6 +514,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 	// Used to determine the entire coop swap time
 	type ProductionScheduleParams struct {
+		name            string
 		targetEggAmount float64
 		initialElr      float64
 		deltaElr        float64
@@ -603,8 +675,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			if lastOrBestSIAB > 0 && coopStatus.GetSecondsSinceAllGoalsAchieved() <= 0 {
 				// Your deflector % + your ship % (divided by 10) needs to average 26.7 over the course of the contract
 				var maxTeamwork strings.Builder
-				// If SIAB is equipped beyond it's teamwork need, then make it it a swap for now
+				//  if the player is using a SiaB make switch time predictions
 				if lastOrBestSIAB != 0 && LastSIAB != 0 {
+
 					if shortTeamwork < 0 {
 						siabTimeEquipped = time.Duration(0) * time.Second
 						shortTeamwork = 0
@@ -613,136 +686,103 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 					// For testing I want to make siabTimeEquipped to be about an hour from now
 					//siabTimeEquipped = time.Duration(3600/2) * time.Second
 					// Add timestamp and name to the map for SIAB swaps
-					if MostRecentDuration.Add(siabTimeEquipped).Before(endTime) {
+					//if MostRecentDuration.Add(siabTimeEquipped).Before(endTime) {
 
-						future := deliveryTableMap[name][len(deliveryTableMap[name])-1]
-						siab := future
-						//oldCumulative := future.cumulativeContrib
-						siab.name = "SIAB"
-						siab.timeEquipped = nowTime
-						siab.duration = siabTimeEquipped - nowTime.Sub(MostRecentDuration)
-						siab.contributions = c.GetContributionRate() * siab.duration.Seconds()
-						siab.cumulativeContrib = future.cumulativeContrib - future.contributions + siab.contributions
-
-						future.name = "Post-SIAB"
-						future.timeEquipped = nowTime.Add(siab.duration)
-						future.duration = endTime.Sub(future.timeEquipped)
-						// Need to determine the adjusted contribution rate
-						artifactPercentLevels := []float64{1.02, 1.04, 1.05}
-						siabStones := 0
-						stoneSlots := 0
-						elrMult := 1.0
-						srMult := 1.0
-						// I want an array of artifact names ei.ArtifactSpec_Name
-						var artifactIDs []int32
-						for _, artifact := range c.GetFarmInfo().GetEquippedArtifacts() {
-							spec := artifact.GetSpec()
-							artifactName := spec.GetName()
-							artifactIDs = append(artifactIDs, int32(artifactName))
-							if artifactName == ei.ArtifactSpec_SHIP_IN_A_BOTTLE {
-								siabStones, _ = ei.GetStones(spec.GetName(), spec.GetLevel(), spec.GetRarity())
-							}
-							for _, stone := range artifact.GetStones() {
-								stoneSlots++
-								if stone.GetName() == ei.ArtifactSpec_TACHYON_STONE {
-									value := artifactPercentLevels[stone.GetLevel()]
-									elrMult *= value
-								}
-								if stone.GetName() == ei.ArtifactSpec_QUANTUM_STONE {
-									value := artifactPercentLevels[stone.GetLevel()]
-									srMult *= value
-								}
-							}
-						}
-						// Assuming being replaced with a 3 slot artifact
-						p := c.GetProductionParams()
-						farmCapacity := p.GetFarmCapacity() * eiContract.Grade[grade].ModifierHabCap
-						future.originalDelivery = min(future.sr, future.elr*farmCapacity)
-						future.sr /= float64(srMult)
-						future.elr /= float64(elrMult)
-
-						//adjustedContributionRate, newRate, rateIncrease := determinePostSiabRate(future, stoneSlots+(3-siabStones), farmCapacity, maxFarm)
-						_, newRate, rateIncrease, swapArtifactName := determinePostSiabRateOrig(future, stoneSlots, farmCapacity, artifactIDs)
-						future.contributionRateInSeconds = newRate / 3600.0 // Assuming newRate is per hour
-						future.contributions = (future.contributionRateInSeconds * future.duration.Seconds())
-						future.cumulativeContrib = siab.cumulativeContrib + future.contributions
-
-						// Calculate the saved number of seconds
-						//maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact and speeding the contract by %v\n", (adjustedContributionRate-1)*100, siabStones, diffSeconds))
-						newSlots := 3
-						if swapArtifactName == "Compass" {
-							newSlots = 2
-						}
-						maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SiaB with a %d slot %s.\n",
-							(future.contributionRateInSeconds/siab.contributionRateInSeconds-1)*100, siabStones, newSlots, swapArtifactName))
-
-						if shortTeamwork == 0 {
-							deliveryTableMap[name] = append(deliveryTableMap[name][:2], future)
-						} else {
-							deliveryTableMap[name] = append(deliveryTableMap[name][:2], siab, future)
-						}
-
-						targetEggAmount := totalRequired / 1e15
-						initialElr := (contributionRatePerSecond * 3600) / 1e15
-						deltaElr := rateIncrease / 1e15
-						alpha := future.timeEquipped.Sub(startTime).Seconds() / contractDurationSeconds
-						elapsedTimeSec := elapsedSeconds // in seconds
-						eggsShipped := totalContributions / 1e15
-
-						_, switchTimestamp, _, finishTimestampWithSwitch, _, finishTimestampWithoutSwitch, err := ProductionSchedule(
-							targetEggAmount,
-							initialElr,
-							deltaElr,
-							alpha,
-							elapsedTimeSec,
-							eggsShipped,
-							startTime,
-							"America/Los_Angeles",
+					future := deliveryTableMap[name][len(deliveryTableMap[name])-1]
+					future, siab, rateIncrease, swapArtifactName, siabStones :=
+						computeRateIncrease(
+							c,                  // *ei.ContractCoopStatusResponse_ContributionInfo
+							future,             // DeliveryTimeValue
+							grade,              // int
+							eiContract,         // ei.EggIncContract
+							siabTimeEquipped,   // time.Duration
+							nowTime,            // time.Time
+							MostRecentDuration, // time.Time
+							endTime,            // time.Time
 						)
 
-						params := ProductionScheduleParams{
-							targetEggAmount: targetEggAmount,
-							initialElr:      initialElr,
-							deltaElr:        deltaElr,
-							alpha:           alpha,
-							elapsedTimeSec:  elapsedTimeSec,
-							eggsShipped:     eggsShipped,
-							startTime:       startTime,
-							timezone:        "America/Los_Angeles",
-							futureSwapTime:  future.timeEquipped,
-						}
-
-						productionScheduleParamsArray = append(productionScheduleParamsArray, params)
-
-						// Print 1p SiaB switch times
-						if err == nil {
-							if extraInfo {
-								maxTeamwork.WriteString(fmt.Sprintf(
-									"\nTarget Egg Amount: %g\nEggs Shipped: %f\nInitial ELR: %f\nDelta ELR: %f\nElapsed Time Sec: %g\nAlpha: %f\n",
-									targetEggAmount, eggsShipped, initialElr, deltaElr, elapsedTimeSec, alpha,
-								))
-							}
-
-							maxTeamwork.WriteString(fmt.Sprintf(
-								"Teamwork BTV maxes at <t:%[1]d:t>, SiaB can be unequipped after this time.\n\n"+
-									"**Switch time:** <t:%[1]d:f>\n"+
-									"**Adjusted finish time with switch:** <t:%[2]d:f>\n",
-								switchTimestamp,
-								finishTimestampWithSwitch,
-							))
-
-							if extraInfo {
-								maxTeamwork.WriteString(fmt.Sprintf(
-									"**Finish time without switch:** <t:%d:f>\n",
-									finishTimestampWithoutSwitch,
-								))
-							}
-
-							maxTeamwork.WriteString("\nCompletion formulas from @James.WST")
-
-							siabSwapMap[switchTimestamp] = fmt.Sprintf("<t:%d:t> %s\n", switchTimestamp, name)
-						}
+					// Calculate the saved number of seconds
+					//maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SIAB with a 3 slot artifact and speeding the contract by %v\n", (adjustedContributionRate-1)*100, siabStones, diffSeconds))
+					newSlots := 3
+					if swapArtifactName == "Compass" {
+						newSlots = 2
 					}
+					maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SiaB with a %d slot %s.\n",
+						(future.contributionRateInSeconds/siab.contributionRateInSeconds-1)*100, siabStones, newSlots, swapArtifactName))
+
+					if shortTeamwork == 0 {
+						deliveryTableMap[name] = append(deliveryTableMap[name][:2], future)
+					} else {
+						deliveryTableMap[name] = append(deliveryTableMap[name][:2], siab, future)
+					}
+
+					targetEggAmount := totalRequired / 1e15
+					initialElr := (contributionRatePerSecond * 3600) / 1e15
+					deltaElr := rateIncrease / 1e15
+					alpha := future.timeEquipped.Sub(startTime).Seconds() / contractDurationSeconds
+					elapsedTimeSec := elapsedSeconds // in seconds
+					eggsShipped := totalContributions / 1e15
+
+					_, switchTimestamp, _, finishTimestampWithSwitch, _, finishTimestampWithoutSwitch, err := ProductionSchedule(
+						targetEggAmount,
+						initialElr,
+						deltaElr,
+						alpha,
+						elapsedTimeSec,
+						eggsShipped,
+						startTime,
+						"America/Los_Angeles",
+					)
+
+					params := ProductionScheduleParams{
+						name:            name,
+						targetEggAmount: targetEggAmount,
+						initialElr:      initialElr,
+						deltaElr:        deltaElr,
+						alpha:           alpha,
+						elapsedTimeSec:  elapsedTimeSec,
+						eggsShipped:     eggsShipped,
+						startTime:       startTime,
+						timezone:        "America/Los_Angeles",
+						futureSwapTime:  future.timeEquipped,
+					}
+
+					productionScheduleParamsArray = append(productionScheduleParamsArray, params)
+
+					// Print 1p SiaB switch times
+					if err == nil {
+						if extraInfo {
+							maxTeamwork.WriteString(fmt.Sprintf(
+								"\nTarget Egg Amount: %g\nEggs Shipped: %f\nInitial ELR: %f\nDelta ELR: %f\nElapsed Time Sec: %g\nAlpha: %f\n",
+								targetEggAmount, eggsShipped, initialElr, deltaElr, elapsedTimeSec, alpha,
+							))
+						}
+
+						maxTeamwork.WriteString(fmt.Sprintf(
+							"Teamwork BTV maxes at <t:%[1]d:t>, SiaB can be unequipped after this time.\n\n"+
+								"**Switch time:** <t:%[1]d:f>\n"+
+								"**Adjusted finish time with switch:** <t:%[2]d:f>\n",
+							switchTimestamp,
+							finishTimestampWithSwitch,
+						))
+
+						if extraInfo {
+							maxTeamwork.WriteString(fmt.Sprintf(
+								"**Finish time without switch:** <t:%d:f>\n",
+								finishTimestampWithoutSwitch,
+							))
+						}
+
+						maxTeamwork.WriteString("\nCompletion formulas from @James.WST")
+
+						siabEntries = append(siabEntries, siabEntry{
+							Name:       name,
+							DeltaELR:   deltaElr,
+							SwitchTime: switchTimestamp,
+						})
+
+					}
+
 				} else {
 					if nowTime.Add(siabTimeEquipped).After(endTime) {
 						// How much longer is this siabTimeEquipped than the end of the contract
@@ -754,14 +794,16 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						maxTeamwork.WriteString(fmt.Sprintf("Equip your best SIAB through end of contract (<t:%d:t>) in new teamwork segment to improve BTV by %6.0f. ", endTime.Unix(), shortTeamwork*extraPercent))
 						maxTeamwork.WriteString(fmt.Sprintf("The maximum BTV increase of %6.0f would be achieved if the contract finished at <t:%d:f>.", shortTeamwork, nowTime.Add(siabTimeEquipped).Unix()))
 
+						// We might not be able to reach here anymore
 						if nowTime.Add(siabTimeEquipped).Before(endTime) {
-							siabSwapMap[MostRecentDuration.Add(siabTimeEquipped).Unix()] = fmt.Sprintf("<t:%d:t> %s\n", endTime.Unix(), name)
+							siabEntries = append(siabEntries, siabEntry{
+								Name:       name,
+								DeltaELR:   0.00000000,
+								SwitchTime: endTime.Unix(),
+							})
 						}
 					} else {
 						maxTeamwork.WriteString(fmt.Sprintf("Equip your best SIAB for %s (<t:%d:t>) in new teamwork segment to max BTV by %6.0f.\n", bottools.FmtDuration(siabTimeEquipped), nowTime.Add(siabTimeEquipped).Unix(), shortTeamwork))
-						//if time.Now().Add(siabTimeEquipped).Before(endTime) {
-						//	fmt.Fprintf(&siabMsg, "<t:%d:t> %s\n", nowTime.Add(siabTimeEquipped).Unix(), name)
-						//}
 					}
 				}
 
@@ -940,23 +982,26 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	}
 
 	// Determine entire coop swap time for SIAB Swap
-	// Sort this array by futureSwapTime
+	// Sort by futureSwapTime
 	sort.Slice(productionScheduleParamsArray, func(i, j int) bool {
 		return productionScheduleParamsArray[i].futureSwapTime.Before(productionScheduleParamsArray[j].futureSwapTime)
 	})
 
-	// Interate the array and call ProductionSchedule for each
 	deltaELRSum := 0.0
 	alpha := 1.0
+	// Iterate the array and call ProductionSchedule for each
 	for i, params := range productionScheduleParamsArray {
+		// Sum deltaELR and take min alpha
 		deltaELRSum += params.deltaElr
 		alpha = min(alpha, params.alpha)
-		// If this isn't the last params item, then go to the next iteration
+
+		// Skip all but the last entry for output
 		if i < len(productionScheduleParamsArray)-1 {
 			continue
 		}
 
-		switchTime, switchTimestamp, finishTimeWithSwitch, finishTimestampWithSwitch, finishTimeWithoutSwitch, finishTimestampWithoutSwitch, err := ProductionSchedule(
+		switchTime, switchTimestamp, finishTimeWithSwitch, finishTimestampWithSwitch,
+			finishTimeWithoutSwitch, finishTimestampWithoutSwitch, err := ProductionSchedule(
 			params.targetEggAmount,
 			params.initialElr,
 			deltaELRSum,
@@ -971,16 +1016,14 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			continue
 		}
 		if extraInfo {
-			builder.WriteString(fmt.Sprintf("Switch Time: %s <t:%d:f>\nFinish Time with Switch: %s <t:%d:f>\nFinish Time without Switch: %s <t:%d:f>\n",
-				switchTime, switchTimestamp,
-				finishTimeWithSwitch, finishTimestampWithSwitch,
-				finishTimeWithoutSwitch, finishTimestampWithoutSwitch))
+			builder.WriteString(fmt.Sprintf("Switch Time: %d <t:%s:f>\nFinish Time with Switch: %d <t:%s:f>\nFinish Time without Switch: %d <t:%s:f>\n",
+				switchTimestamp, switchTime,
+				finishTimestampWithSwitch, finishTimeWithSwitch,
+				finishTimestampWithoutSwitch, finishTimeWithoutSwitch))
 		}
 	}
 
 	if extraInfo {
-		fmt.Printf("Total Delta ELR Sum: %f\n", deltaELRSum)
-		builder.WriteString(fmt.Sprintf("Total Delta ELR Sum: %f\n", deltaELRSum))
 		fmt.Printf("Min Alpha: %f\n", alpha)
 		builder.WriteString(fmt.Sprintf("Min Alpha: %f\n", alpha))
 	}
@@ -1012,17 +1055,28 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	}
 
 	var siabMax []*discordgo.MessageEmbedField
-	if len(siabSwapMap) == 0 {
+	if len(siabEntries) == 0 {
 		siabMsg.WriteString("\nNo SIAB swaps needed.\n")
 	} else {
-		var sortedKeys []int64
-		for k := range siabSwapMap {
-			sortedKeys = append(sortedKeys, k)
-		}
-		sort.Slice(sortedKeys, func(i, j int) bool { return sortedKeys[i] < sortedKeys[j] })
+		// Sort by time, then by name (for duplicate timestamps)
+		sort.Slice(siabEntries, func(i, j int) bool {
+			if siabEntries[i].SwitchTime == siabEntries[j].SwitchTime {
+				return siabEntries[i].Name < siabEntries[j].Name
+			}
+			return siabEntries[i].SwitchTime < siabEntries[j].SwitchTime
+		})
 
-		for _, k := range sortedKeys {
-			siabMsg.WriteString(siabSwapMap[k])
+		// Print header once
+		siabMsg.WriteString(fmt.Sprintf("`%-20s` `%-10s` `%s`\n", "PLAYER", "ΔELR", "TIME"))
+
+		// Print each row
+		for _, e := range siabEntries {
+			siabMsg.WriteString(fmt.Sprintf(
+				"`%-20s` `%10.6f` <t:%d:t>\n",
+				e.Name,
+				e.DeltaELR,
+				e.SwitchTime,
+			))
 		}
 		siabMsg.WriteString("\nUsing your best SiaB will result in higher CS.\n")
 	}
