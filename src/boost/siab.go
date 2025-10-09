@@ -193,7 +193,8 @@ func HandleSiabEvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			return
 		}
 	*/
-	cache := buildTeamworkCache(str, fields)
+	//cache := buildTeamworkCache(str, fields)
+	cache := buildTeamworkCache(str, nil)
 	// Fill in our calling parameters
 	cache.contractID = contractID
 	cache.coopID = coopID

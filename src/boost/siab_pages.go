@@ -106,8 +106,9 @@ func sendSiabPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMessa
 
 	if exists && (refresh || cache.expirationTimestamp.Before(time.Now())) {
 
-		s1, fields, _ := DownloadCoopStatusTeamwork(cache.contractID, cache.coopID, 0)
-		newCache := buildSiabCache(s1, fields)
+		s1, _, _ := DownloadCoopStatusTeamwork(cache.contractID, cache.coopID, 0)
+		//newCache := buildSiabCache(s1, fields)
+		newCache := buildSiabCache(s1, nil)
 
 		newCache.public = cache.public
 		newCache.previousPage = cache.previousPage

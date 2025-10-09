@@ -27,40 +27,30 @@ type teamworkCache struct {
 	coopID              string
 	public              bool
 	names               []string
-	fields              map[string][]*discordgo.MessageEmbedField
-	scorefields         map[string]*discordgo.MessageEmbedField
-	siabField           []*discordgo.MessageEmbedField
+	fields              map[string][]TeamworkOutputData
+	scorefields         map[string]discordgo.MessageComponent
+	siabField           []discordgo.MessageComponent
 }
 
 var teamworkCacheMap = make(map[string]teamworkCache)
 
 // buildTeamworkCache will build a cache of the teamwork data
-func buildTeamworkCache(s string, fields map[string][]*discordgo.MessageEmbedField) teamworkCache {
+func buildTeamworkCache(s string, fields map[string][]TeamworkOutputData) teamworkCache {
 
 	// Extract SIAB Fields from the fields map
-	var siabFields []*discordgo.MessageEmbedField
+	var siabFields []discordgo.MessageComponent
 	if field, ok := fields["siab"]; ok {
-		// Check if the Value of the first field is greater than 900 bytes
-		if len(field[0].Value) > 700 {
-			// Split the Value by line breaks
-			lines := strings.Split(field[0].Value, "\n")
-			var currentField strings.Builder
-			var fieldCount int
-			for _, line := range lines {
-				if currentField.Len()+len(line)+1 > 700 {
-					siabFields = append(siabFields, &discordgo.MessageEmbedField{Name: "", Value: currentField.String(), Inline: false})
-					currentField.Reset()
-					fieldCount++
-				}
-				currentField.WriteString(line + "\n")
-			}
-			// Add the last field if it's not empty
-			if currentField.Len() > 0 {
-				siabFields = append(siabFields, &discordgo.MessageEmbedField{Name: "", Value: currentField.String(), Inline: false})
-			}
-		} else {
-			field[0].Name = ""
-			siabFields = field
+		siabFields = []discordgo.MessageComponent{
+			discordgo.Section{
+				Components: []discordgo.MessageComponent{
+					discordgo.TextDisplay{
+						Content: field[0].Title,
+					},
+					discordgo.TextDisplay{
+						Content: field[0].Content,
+					},
+				},
+			},
 		}
 	}
 	delete(fields, "siab")
@@ -73,13 +63,29 @@ func buildTeamworkCache(s string, fields map[string][]*discordgo.MessageEmbedFie
 	sort.Strings(keys)
 
 	// Initialize the scorefields map
-	scoreFields := make(map[string]*discordgo.MessageEmbedField)
+	scoreFields := make(map[string]discordgo.MessageComponent)
 
 	// Traverse the fields map and look for the field with Name "Contract Score"
 	for key, fieldList := range fields {
 		for _, field := range fieldList {
-			if field.Name == "Contract Score" {
-				scoreFields[key] = field
+			// Check if the field is a TextDisplay or a container with components
+			// MessageComponent
+			//   Container
+			//     TextDisplay
+			//     TextDisplay
+			mycolor := 0xffaa00
+			if field.Title == "Contract Score" {
+				scoreFields[key] = discordgo.Container{
+					AccentColor: &mycolor,
+					Components: []discordgo.MessageComponent{
+						discordgo.TextDisplay{
+							Content: field.Title,
+						},
+						discordgo.TextDisplay{
+							Content: field.Content,
+						},
+					},
+				}
 			}
 		}
 	}
@@ -176,54 +182,54 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 
 	field := cache.fields[key]
 
-	var embed *discordgo.MessageSend
+	var comp []discordgo.MessageComponent
 
+	comp = append(comp, discordgo.TextDisplay{
+		Content: cache.header,
+	})
 	if !siabDisplay {
-		embed = &discordgo.MessageSend{
-			Embeds: []*discordgo.MessageEmbed{{
-				Type:        discordgo.EmbedTypeRich,
-				Title:       fmt.Sprintf("%s Teamwork Evaluation", field[0].Value),
-				Description: "",
-				Color:       0xffaa00,
-				Fields:      field[1:],
-				Timestamp:   time.Now().Format(time.RFC3339),
-			}},
+		var container discordgo.Container
+		// Need to make a component list of the field data.
+		// First element of this is th player name
+		var bodyText []discordgo.MessageComponent
+		bodyText = append(bodyText, discordgo.TextDisplay{
+			Content: "## " + field[0].Content,
+		})
+		for _, f := range field[1:] {
+			bodyText = append(bodyText, discordgo.TextDisplay{
+				Content: f.Content,
+			})
 		}
-	} else {
 
-		embed = &discordgo.MessageSend{
-			Embeds: []*discordgo.MessageEmbed{{
-				Type:        discordgo.EmbedTypeRich,
-				Title:       "Equip SIAB Until...",
-				Description: "",
-				Color:       0xffaa00,
-				Fields:      cache.siabField,
-				Timestamp:   time.Now().Format(time.RFC3339),
-			}},
+		myColor := 0xffaa00
+		container = discordgo.Container{
+			Components:  bodyText,
+			AccentColor: &myColor,
 		}
+		comp = append(comp, container)
+
 	}
-
 	if newMessage {
+
+		comp = append(comp, getTeamworkComponents(cache.xid, cache.page, cache.pages)...)
+
 		msg, err := s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
-				Content:    cache.header,
-				Flags:      flags,
-				Components: getTeamworkComponents(cache.xid, cache.page, cache.pages),
-				Embeds:     embed.Embeds,
+				Flags:      flags | discordgo.MessageFlagsIsComponentsV2,
+				Components: comp,
 			})
 		if err != nil {
 			log.Println(err)
+		} else {
+			cache.msgID = msg.ID
 		}
-		cache.msgID = msg.ID
 
 	} else {
-		comp := getTeamworkComponents(cache.xid, cache.page, cache.pages)
+		comp = append(comp, getTeamworkComponents(cache.xid, cache.page, cache.pages)...)
 
-		str := cache.header
 		d2 := discordgo.WebhookEdit{
-			Content:    &str,
+			Flags:      flags | discordgo.MessageFlagsIsComponentsV2,
 			Components: &comp,
-			Embeds:     &embed.Embeds,
 		}
 
 		_, err := s.FollowupMessageEdit(i.Interaction, i.Message.ID, &d2)

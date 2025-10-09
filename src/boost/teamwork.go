@@ -17,6 +17,12 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
+// TeamworkOutputData is a struct to hold the output data for teamwork fields
+type TeamworkOutputData struct {
+	Title   string
+	Content string
+}
+
 // DeliveryTimeValue is a struct to hold the values for a delivery time
 type DeliveryTimeValue struct {
 	name                      string
@@ -156,7 +162,12 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		if contract == nil {
 			_, _ = s.FollowupMessageCreate(i.Interaction, true,
 				&discordgo.WebhookParams{
-					Content: "No contract found in this channel. Please provide a contract-id and coop-id.",
+					Flags: flags | discordgo.MessageFlagsIsComponentsV2,
+					Components: []discordgo.MessageComponent{
+						discordgo.TextDisplay{
+							Content: "No contract found in this channel. Please provide a contract-id and coop-id.",
+						},
+					},
 				})
 
 			return
@@ -282,7 +293,7 @@ func computeRateIncrease(
 }
 
 // DownloadCoopStatusTeamwork will download the coop status for a given contract and coop ID
-func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime time.Duration) (string, map[string][]*discordgo.MessageEmbedField, string) {
+func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime time.Duration) (string, map[string][]TeamworkOutputData, string) {
 	var siabMsg strings.Builder
 	var dataTimestampStr string
 	var nowTime time.Time
@@ -445,7 +456,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	siabMsg.WriteString("Showing those with SIAB equipped and can swap it out before the end of the contract without losing teamwork score.\n")
 
 	// Used to collect the return values for each farmer
-	var farmerFields = make(map[string][]*discordgo.MessageEmbedField)
+	var farmerFields = make(map[string][]TeamworkOutputData)
 
 	type contractScores struct {
 		name string
@@ -542,15 +553,10 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 	for i, c := range coopStatus.GetContributors() {
 
-		var field []*discordgo.MessageEmbedField
+		var field []TeamworkOutputData
 		name := strings.ToLower(c.GetUserName())
 
-		field = append(field, &discordgo.MessageEmbedField{
-			Name:   "Name",
-			Value:  c.GetUserName(),
-			Inline: false,
-		})
-
+		field = append(field, TeamworkOutputData{"Name", c.GetUserName()})
 		// Determine the contribution rate for the user
 		futureDeliveries := c.GetContributionRate() * math.Max(0, float64(calcSecondsRemaining))
 		contributionPast := c.GetContributionAmount()
@@ -657,19 +663,12 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 							chunkSize = splitIndex
 						}
 					}
-					field = append(field, &discordgo.MessageEmbedField{
-						Name:   fmt.Sprintf("Teamwork-%d", i),
-						Value:  "```" + teamworkStr[:chunkSize] + "```",
-						Inline: false,
-					})
+
+					field = append(field, TeamworkOutputData{fmt.Sprintf("Teamwork-%d", i), "```" + teamworkStr[:chunkSize] + "```"})
 					teamworkStr = teamworkStr[chunkSize:]
 				}
 			} else {
-				field = append(field, &discordgo.MessageEmbedField{
-					Name:   "Teamwork",
-					Value:  "```" + teamworkStr + "```",
-					Inline: false,
-				})
+				field = append(field, TeamworkOutputData{"Teamwork", "```" + teamworkStr + "```"})
 			}
 
 			// Compensate for someone having a lesser SIAB equipped
@@ -819,12 +818,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						maxTeamwork.WriteString(fmt.Sprintf("Equip your best SIAB for %s (<t:%d:t>) in new teamwork segment to max BTV by %6.0f.\n", bottools.FmtDuration(siabTimeEquipped), nowTime.Add(siabTimeEquipped).Unix(), shortTeamwork))
 					}
 				}
-
-				field = append(field, &discordgo.MessageEmbedField{
-					Name:   "Maximize Teamwork",
-					Value:  maxTeamwork.String(),
-					Inline: false,
-				})
+				field = append(field, TeamworkOutputData{"Maximize Teamwork", maxTeamwork.String()})
 			}
 
 			var deliv strings.Builder
@@ -846,12 +840,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 					bottools.AlignString(fmt.Sprintf("%2.3fq", d.contributions/1e15), 8, bottools.StringAlignCenter),
 				)
 			}
-
-			field = append(field, &discordgo.MessageEmbedField{
-				Name:   "Deliveries",
-				Value:  "```" + deliv.String() + "```",
-				Inline: false,
-			})
+			field = append(field, TeamworkOutputData{"Deliveries", "```" + deliv.String() + "```"})
 
 			// Chicken Runs
 			// Create a Base score with no teamwork multipliers
@@ -892,11 +881,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			if eiContract.SeasonalScoring == 1 {
 				str = "Chicken Runs"
 			}
-			field = append(field, &discordgo.MessageEmbedField{
-				Name:   str,
-				Value:  "```" + crBuilder.String() + "```",
-				Inline: false,
-			})
+			field = append(field, TeamworkOutputData{str, "```" + crBuilder.String() + "```"})
 
 		}
 		// Create a table of Contract Scores for this user
@@ -971,11 +956,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			0, 0, 0)
 		fmt.Fprintf(&csBuilder, "Base: %d (B/CR/TV=0)\n", scoreBase)
 
-		field = append(field, &discordgo.MessageEmbedField{
-			Name:   "Contract Score",
-			Value:  csBuilder.String(),
-			Inline: false,
-		})
+		field = append(field, TeamworkOutputData{"Contract Score", csBuilder.String()})
 
 		farmerFields[name] = field
 		trimmedName := c.GetUserName()
@@ -1067,7 +1048,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		}
 	}
 
-	var siabMax []*discordgo.MessageEmbedField
+	var siabMax []TeamworkOutputData
 	if len(siabEntries) == 0 {
 		siabMsg.WriteString("\nNo SIAB swaps needed.\n")
 	} else {
@@ -1094,11 +1075,8 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		siabMsg.WriteString("\nUsing your best SiaB will result in higher CS.\n")
 	}
 
-	siabMax = append(siabMax, &discordgo.MessageEmbedField{
-		Name:   "SIAB",
-		Value:  siabMsg.String(),
-		Inline: false,
-	})
+	siabMax = append(siabMax, TeamworkOutputData{"SIAB", siabMsg.String()})
+
 	farmerFields["siab"] = siabMax
 
 	builder.WriteString(dataTimestampStr)
