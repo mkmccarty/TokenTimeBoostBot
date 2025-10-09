@@ -168,8 +168,21 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	var str string
 	str, fields, _ := DownloadCoopStatusTeamwork(contractID, coopID, 0)
 	if fields == nil || strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {
+		// Trim output to 3500 characters if needed
+		trimmedStr := str
+		trimNotice := ""
+		const maxLen = 3500
+		if len(str) > maxLen {
+			trimmedStr = str[:maxLen]
+			trimNotice = "\n\n*Output trimmed to 3500 characters.*"
+		}
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: str,
+			Flags: discordgo.MessageFlagsIsComponentsV2,
+			Components: []discordgo.MessageComponent{
+				discordgo.TextDisplay{
+					Content: trimmedStr + trimNotice,
+				},
+			},
 		})
 		return
 	}
