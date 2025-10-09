@@ -203,32 +203,10 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	if config.IsDevBot() {
 		craftArt = missionArt.Ships[lastFueled].ArtDev
 	}
-	// Hab
-	highestHab := 1
-	var habArray []string
-	if onVirtueFarm {
-		for _, h := range farm.GetHabs() {
-			id := h // h is already a uint32 representing the habitat ID
-			if int(id) > highestHab && int(id) < 19 {
-				highestHab = int(id + 1)
-			}
-			if int(id) < 19 {
-				habArray = append(habArray, ei.GetBotEmojiMarkdown(fmt.Sprintf("hab%d", id+1)))
-			}
-		}
-	}
-	habArt := ei.GetBotEmojiMarkdown(fmt.Sprintf("hab%d", highestHab))
 
-	highestVehicle := 0
-	if onVirtueFarm {
-		for _, v := range farm.GetVehicles() {
-			id := v // v is already a uint32 representing the vehicle ID
-			if int(id) > highestVehicle {
-				highestVehicle = int(id)
-			}
-		}
-	}
-	VehicleArt := ei.GetBotEmojiMarkdown(fmt.Sprintf("veh%d", highestVehicle))
+	habArt, habArray := getHabIconStrings(farm.GetHabs(), ei.GetBotEmojiMarkdown)
+	VehicleArt, VehicleArray := getVehicleIconStrings(farm.GetVehicles(), farm.GetTrainLength(), ei.GetBotEmojiMarkdown)
+
 	DepotArt := ei.GetBotEmojiMarkdown("depot")
 	//fmt.Fprintf(&builder, "Inventory Score %.0f\n", virtue.GetAfx().GetInventoryScore())
 	virtueEggs := []string{"CURIOSITY", "INTEGRITY", "HUMILITY", "RESILIENCE", "KINDNESS"}
@@ -389,6 +367,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	offlineEggs := min(eggLayingRate, shippingRate) * (elapsed / 3600)
 
 	if onVirtueFarm {
+		fmt.Fprintf(&stats, "%s %s\n", VehicleArray, strings.Join(habArray, ""))
 
 		// Want time from now when those minutes elapse
 		if shippingRate > eggLayingRate {
@@ -438,12 +417,14 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 		if habPop >= habCap || habPercent >= 99.9 {
 			fmt.Fprintf(&stats, "%s %d%% %s ⚠️🔒\n",
-				strings.Join(habArray, ""),
+				//strings.Join(habArray, ""),
+				habArt,
 				int(habPercent),
 				ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 2, "trim": true}))
 		} else {
 			fmt.Fprintf(&stats, "%s %s %d%% 🔒<t:%d:R> or 💤<t:%d:R>\n",
-				strings.Join(habArray, ""),
+				//strings.Join(habArray, ""),
+				habArt,
 				ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 2, "trim": true}),
 				int(habPercent),
 				time.Now().Add(time.Duration(int64(onlineFillTime))*time.Second).Unix(),
@@ -660,4 +641,68 @@ func getEarningsBonus(backup *ei.Backup, eov float64) float64 {
 	eb := soulEggsCount * soulBonus * math.Pow(1+prophecyBonus, float64(prophecyEggsCount))
 
 	return eb * (math.Pow(1.01, eov)) * 100
+}
+
+// Return highest hab icon and array of hab icons
+func getHabIconStrings(habs []uint32, getBotEmojiMarkdown func(string) string) (string, []string) {
+	highestHab := 1
+	var habArray []string
+	for _, h := range habs {
+		id := h // h is already a uint32 representing the habitat ID
+		if int(id) > highestHab && int(id) < 19 {
+			highestHab = int(id + 1)
+		}
+		if int(id) < 19 {
+			habArray = append(habArray, getBotEmojiMarkdown(fmt.Sprintf("hab%d", id+1)))
+		}
+	}
+	habArt := getBotEmojiMarkdown(fmt.Sprintf("hab%d", highestHab))
+	return habArt, habArray
+}
+
+// Return highest vehicle icon and array of vehicle icons
+func getVehicleIconStrings(vehicles []uint32, trainLength []uint32, getBotEmojiMarkdown func(string) string) (string, string) {
+	highestVehicle := 0
+	for _, v := range vehicles {
+		id := v // v is already a uint32 representing the vehicle ID
+		if int(id) > highestVehicle {
+			highestVehicle = int(id)
+		}
+	}
+	VehicleArt := getBotEmojiMarkdown(fmt.Sprintf("veh%d", highestVehicle))
+	vehicleCounts := make(map[int]int)
+	for i, v := range vehicles {
+		id := int(v) // v is already a uint32 representing the vehicle ID
+		if id == 11 {
+			// need to check the train cars
+			trainCarCount := int(trainLength[i])
+			vehicleCounts[id*100+trainCarCount]++
+		} else {
+			vehicleCounts[id*100]++
+		}
+	}
+	// Sort vehicle IDs
+	var vehicleIDs []int
+	for id := range vehicleCounts {
+		vehicleIDs = append(vehicleIDs, id)
+	}
+	slices.Sort(vehicleIDs)
+	var vehicleArtParts []string
+	for _, id := range vehicleIDs {
+		count := vehicleCounts[id]
+		trainCount := id % 100
+		part := getBotEmojiMarkdown(fmt.Sprintf("veh%d", id/100))
+		if count > 1 {
+			if id/100 == 11 && trainCount > 1 {
+				part += fmt.Sprintf("%dx%d", trainCount, count)
+			} else {
+				part += fmt.Sprintf("x%d", count)
+			}
+		} else if trainCount > 1 {
+			part += fmt.Sprintf("%d", trainCount)
+		}
+		vehicleArtParts = append(vehicleArtParts, part)
+	}
+	VehicleArray := strings.Join(vehicleArtParts, "")
+	return VehicleArt, VehicleArray
 }
