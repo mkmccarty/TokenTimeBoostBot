@@ -536,19 +536,6 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		deliveryTableMap[strings.ToLower(c.GetUserName())] = DeliveryTimeValues
 	}
 
-	// Used to determine the entire coop swap time
-	type ProductionScheduleParams struct {
-		name            string
-		targetEggAmount float64
-		initialElr      float64
-		deltaElr        float64
-		alpha           float64
-		elapsedTimeSec  float64
-		eggsShipped     float64
-		startTime       time.Time
-		timezone        string
-		futureSwapTime  time.Time
-	}
 	var productionScheduleParamsArray []ProductionScheduleParams
 
 	for i, c := range coopStatus.GetContributors() {
