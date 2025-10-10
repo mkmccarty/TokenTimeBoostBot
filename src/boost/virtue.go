@@ -664,6 +664,7 @@ func getVehicleIconStrings(vehicles []uint32, trainLength []uint32, getBotEmojiM
 	}
 	slices.Sort(vehicleIDs)
 	var vehicleArtParts []string
+	trainCar := getBotEmojiMarkdown("tl")
 	for _, id := range vehicleIDs {
 		count := vehicleCounts[id]
 		trainCount := id % 100
@@ -675,7 +676,7 @@ func getVehicleIconStrings(vehicles []uint32, trainLength []uint32, getBotEmojiM
 				part += fmt.Sprintf("x%d", count)
 			}
 		} else if trainCount > 1 {
-			part += fmt.Sprintf("%d", trainCount)
+			part += strings.Repeat(trainCar, trainCount)
 		}
 		vehicleArtParts = append(vehicleArtParts, part)
 	}
