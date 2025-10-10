@@ -71,9 +71,12 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content:    str,
-				Flags:      discordgo.MessageFlagsSuppressEmbeds,
-				Components: []discordgo.MessageComponent{}},
+				Flags: discordgo.MessageFlagsSuppressEmbeds | discordgo.MessageFlagsIsComponentsV2,
+				Components: []discordgo.MessageComponent{
+					discordgo.TextDisplay{
+						Content: str,
+					},
+				}},
 		})
 	} else {
 		// Error messages only go back to the caller
