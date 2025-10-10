@@ -250,8 +250,8 @@ func TestGetVehicleIconStrings(t *testing.T) {
 		{"Single vehicle", []uint32{0}, []uint32{0}, "<:veh0:>", "<:veh0:>"},
 		{"Multiple unique vehicles", []uint32{0, 5, 11}, []uint32{1, 1, 1}, "<:veh11:>", "<:veh0:><:veh5:><:veh11:>"},
 		{"Multiple same vehicles", []uint32{5, 5, 5}, []uint32{1, 1, 1}, "<:veh5:>", "<:veh5:>x3"},
-		{"Mixed unique and multiple", []uint32{0, 5, 5, 11, 11, 11}, []uint32{1, 1, 1, 2, 3, 4}, "<:veh11:>", "<:veh0:><:veh5:>x2<:veh11:>2<:veh11:>3<:veh11:>4"},
-		{"Maximum Vehicles", []uint32{11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11}, []uint32{10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10}, "<:veh11:>", "<:veh11:>10x17"},
+		{"Mixed unique and multiple", []uint32{0, 5, 5, 11, 11, 11}, []uint32{1, 1, 1, 2, 3, 4}, "<:veh11:>", "<:veh0:><:veh5:>x2<:veh11:><:tl:><:tl:><:veh11:><:tl:><:tl:><:tl:><:veh11:><:tl:><:tl:><:tl:><:tl:>"},
+		{"Maximum Vehicles", []uint32{11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11}, []uint32{10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10}, "<:veh11:>", "<:veh11:><:tl:><:tl:><:tl:><:tl:><:tl:><:tl:><:tl:><:tl:><:tl:><:tl:>x17"},
 	}
 
 	for _, tc := range testCases {
