@@ -217,7 +217,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
 
-	sendTeamworkPage(s, i, true, cache.xid, false, false, false)
+	sendTeamworkPage(s, i, true, cache.xid, false, false, false, true)
 
 	// Traverse stonesCacheMap and delete expired entries
 	for key, cache := range teamworkCacheMap {
