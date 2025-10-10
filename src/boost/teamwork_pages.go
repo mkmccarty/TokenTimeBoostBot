@@ -29,7 +29,7 @@ type teamworkCache struct {
 	names               []string
 	fields              map[string][]TeamworkOutputData
 	scorefields         map[string]discordgo.MessageComponent
-	siabField           []discordgo.MessageComponent
+	siabField           []TeamworkOutputData
 }
 
 var teamworkCacheMap = make(map[string]teamworkCache)
@@ -38,20 +38,9 @@ var teamworkCacheMap = make(map[string]teamworkCache)
 func buildTeamworkCache(s string, fields map[string][]TeamworkOutputData) teamworkCache {
 
 	// Extract SIAB Fields from the fields map
-	var siabFields []discordgo.MessageComponent
+	var siabFields []TeamworkOutputData
 	if field, ok := fields["siab"]; ok {
-		siabFields = []discordgo.MessageComponent{
-			discordgo.Section{
-				Components: []discordgo.MessageComponent{
-					discordgo.TextDisplay{
-						Content: field[0].Title,
-					},
-					discordgo.TextDisplay{
-						Content: field[0].Content,
-					},
-				},
-			},
-		}
+		siabFields = field
 	}
 	delete(fields, "siab")
 
@@ -105,7 +94,7 @@ func buildTeamworkCache(s string, fields map[string][]TeamworkOutputData) teamwo
 	}
 }
 
-func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMessage bool, xid string, refresh bool, toggle bool, siabDisplay bool) {
+func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMessage bool, xid string, refresh bool, toggle bool, siabDisplay bool, drawButtons bool) {
 	cache, exists := teamworkCacheMap[xid]
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
@@ -216,11 +205,38 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 			}
 			comp = append(comp, container)
 
+		} else {
+			var container discordgo.Container
+			// Need to make a component list of the field data.
+			// First element of this is th player name
+			var bodyText []discordgo.MessageComponent
+			bodyText = append(bodyText, discordgo.TextDisplay{
+				Content: "## " + cache.siabField[0].Content,
+			})
+			for _, f := range cache.siabField[1:] {
+				// Section header - should be a Label but that's not in the library yet.
+				bodyText = append(bodyText, discordgo.TextDisplay{
+					Content: "### " + f.Title,
+				})
+				// Section data.
+				bodyText = append(bodyText, discordgo.TextDisplay{
+					Content: f.Content,
+				})
+			}
+
+			myColor := 0xffaa00
+			container = discordgo.Container{
+				Components:  bodyText,
+				AccentColor: &myColor,
+			}
+			comp = append(comp, container)
 		}
 	}
 	if newMessage {
 
-		comp = append(comp, getTeamworkComponents(cache.xid, cache.page, cache.pages)...)
+		if drawButtons {
+			comp = append(comp, getTeamworkComponents(cache.xid, cache.page, cache.pages)...)
+		}
 
 		msg, err := s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
@@ -234,7 +250,9 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 		}
 
 	} else {
-		comp = append(comp, getTeamworkComponents(cache.xid, cache.page, cache.pages)...)
+		if drawButtons {
+			comp = append(comp, getTeamworkComponents(cache.xid, cache.page, cache.pages)...)
+		}
 
 		d2 := discordgo.WebhookEdit{
 			Flags:      flags | discordgo.MessageFlagsIsComponentsV2,
@@ -274,6 +292,8 @@ func HandleTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Flags:      discordgo.MessageFlagsEphemeral,
 			Components: []discordgo.MessageComponent{}},
 	})
+
+	drawButtons := true
 	if err != nil {
 		log.Println(err)
 	}
@@ -287,9 +307,14 @@ func HandleTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		siabSelection = true
 	}
 	if len(reaction) == 3 && reaction[2] == "close" {
+		drawButtons = false
 		delete(teamworkCacheMap, reaction[1])
 	}
-	sendTeamworkPage(s, i, false, reaction[1], refresh, toggle, siabSelection)
+	sendTeamworkPage(s, i, false, reaction[1], refresh, toggle, siabSelection, drawButtons)
+
+	if drawButtons == false {
+		delete(teamworkCacheMap, reaction[1])
+	}
 }
 
 // getTokenValComponents returns the components for the token value
