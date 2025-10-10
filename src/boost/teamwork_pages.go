@@ -134,8 +134,11 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 	if !exists {
 		str := fmt.Sprintf("The teamwork data has expired. Please re-run the %s command.", bottools.GetFormattedCommand("teamwork"))
 		comp := []discordgo.MessageComponent{}
+		comp = append(comp, discordgo.TextDisplay{
+			Content: str,
+		})
+
 		d2 := discordgo.WebhookEdit{
-			Content:    &str,
 			Components: &comp,
 		}
 
