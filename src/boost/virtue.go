@@ -333,6 +333,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		fuelingTankLevel := backup.GetArtifacts().GetTankLevel()
 		fuelLimits := virtue.GetAfx().GetTankLimits()
 		tankLimit := tankLevels[fuelingTankLevel]
+
 		// Only use the last 5 elements of fuelLimits and tankLevels
 		if len(fuelLimits) > 5 {
 			fuelLimits = fuelLimits[len(fuelLimits)-5:]
@@ -341,11 +342,15 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		if len(fuels) > 5 {
 			fuels = fuels[len(fuels)-5:]
 		}
+		totalFuel := 0.0
+		for _, fuel := range fuels {
+			totalFuel += fuel
+		}
 		maxFill := tankLimit * fuelLimits[selectedEggIndex]
 
 		if selectedEggIndex >= 0 && selectedEggIndex < len(fuels) {
 			fuelQuantity := fuels[selectedEggIndex]
-			if fuelQuantity >= maxFill {
+			if fuelQuantity >= maxFill || totalFuel >= tankLimit {
 				fuelingEnabled = false
 				recommendedFuelRate = 0.0
 				fuelRate = 0.0
