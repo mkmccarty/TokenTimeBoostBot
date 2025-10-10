@@ -1051,17 +1051,43 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		})
 
 		// Print header once
-		siabMsg.WriteString(fmt.Sprintf("`%-20s` `%-10s` `%s`\n", "PLAYER", "ΔELR", "TIME"))
+		siabMsg.WriteString(fmt.Sprintf("`%-15s` `%-10s` `%s`\n", "PLAYER", "ΔELR", "TIME"))
 
 		// Print each row
+		cantSwitch := false
 		for _, e := range siabEntries {
+			// shorten name to max 15 chars
+			name := e.Name
+			if len(name) > 15 {
+				name = name[:15]
+			}
+
+			// When we encounter the first entry whose SwitchTime is after endTime
+			if time.Unix(e.SwitchTime, 0).After(endTime) {
+				if !cantSwitch {
+					cantSwitch = true
+					siabMsg.WriteString("Other SiaB users\n")
+				}
+
+				// For these users, print using endTime instead of their SwitchTime
+				siabMsg.WriteString(fmt.Sprintf(
+					"`%-15s` `%10.6f` <t:%d:t>\n",
+					name,
+					e.DeltaELR,
+					endTime.Unix(),
+				))
+				continue
+			}
+
+			// Players that can switch
 			siabMsg.WriteString(fmt.Sprintf(
-				"`%-20s` `%10.6f` <t:%d:t>\n",
-				e.Name,
+				"`%-15s` `%10.6f` <t:%d:t>\n",
+				name,
 				e.DeltaELR,
 				e.SwitchTime,
 			))
 		}
+
 		siabMsg.WriteString("\nUsing your best SiaB will result in higher CS.\n")
 	}
 
