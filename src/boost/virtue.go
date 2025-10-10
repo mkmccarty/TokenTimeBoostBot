@@ -671,7 +671,7 @@ func getVehicleIconStrings(vehicles []uint32, trainLength []uint32, getBotEmojiM
 		part := getBotEmojiMarkdown(fmt.Sprintf("veh%d", id/100))
 		if count > 1 {
 			if id/100 == 11 && trainCount > 1 {
-				part += fmt.Sprintf("%dx%d", trainCount, count)
+				part += fmt.Sprintf("%sx%d", strings.Repeat(trainCar, trainCount), count)
 			} else {
 				part += fmt.Sprintf("x%d", count)
 			}
