@@ -181,41 +181,42 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 		cache.page = 0
 	}
 
-	key := cache.names[cache.page]
-
-	field := cache.fields[key]
-
 	var comp []discordgo.MessageComponent
-
 	comp = append(comp, discordgo.TextDisplay{
 		Content: cache.header,
 	})
-	if !siabDisplay {
-		var container discordgo.Container
-		// Need to make a component list of the field data.
-		// First element of this is th player name
-		var bodyText []discordgo.MessageComponent
-		bodyText = append(bodyText, discordgo.TextDisplay{
-			Content: "## " + field[0].Content,
-		})
-		for _, f := range field[1:] {
-			// Section header - should be a Label but that's not in the library yet.
-			bodyText = append(bodyText, discordgo.TextDisplay{
-				Content: "### " + f.Title,
-			})
-			// Section data.
-			bodyText = append(bodyText, discordgo.TextDisplay{
-				Content: f.Content,
-			})
-		}
 
-		myColor := 0xffaa00
-		container = discordgo.Container{
-			Components:  bodyText,
-			AccentColor: &myColor,
-		}
-		comp = append(comp, container)
+	if len(cache.names) != 0 {
+		key := cache.names[cache.page]
+		field := cache.fields[key]
 
+		if !siabDisplay {
+			var container discordgo.Container
+			// Need to make a component list of the field data.
+			// First element of this is th player name
+			var bodyText []discordgo.MessageComponent
+			bodyText = append(bodyText, discordgo.TextDisplay{
+				Content: "## " + field[0].Content,
+			})
+			for _, f := range field[1:] {
+				// Section header - should be a Label but that's not in the library yet.
+				bodyText = append(bodyText, discordgo.TextDisplay{
+					Content: "### " + f.Title,
+				})
+				// Section data.
+				bodyText = append(bodyText, discordgo.TextDisplay{
+					Content: f.Content,
+				})
+			}
+
+			myColor := 0xffaa00
+			container = discordgo.Container{
+				Components:  bodyText,
+				AccentColor: &myColor,
+			}
+			comp = append(comp, container)
+
+		}
 	}
 	if newMessage {
 
