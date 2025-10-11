@@ -542,7 +542,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 				art = craft.ArtDev
 			}
 			missionEnd := uint32(mission.GetStartTimeDerived()) + uint32(mission.GetDurationSeconds())
-			fmt.Fprintf(&rockets, "%s <t:%d:R> \n", art, missionEnd)
+			fmt.Fprintf(&rockets, "%s<t:%d:R> ", art, missionEnd)
 		}
 	}
 
