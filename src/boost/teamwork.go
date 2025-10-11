@@ -297,7 +297,6 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	var siabMsg strings.Builder
 	var dataTimestampStr string
 	var nowTime time.Time
-	//totalSiabSwapSeconds := time.Duration(0)
 
 	type siabEntry struct {
 		Name       string
@@ -453,7 +452,8 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		builder.WriteString(fmt.Sprintf("End Time includes %s for SIAB swaps\n", bottools.FmtDuration(offsetEndTime)))
 	}
 
-	siabMsg.WriteString("Showing those with SIAB equipped and can swap it out before the end of the contract without losing teamwork score.\n")
+	siabMsg.WriteString("SiaB Swap Times\n")
+	siabMsg.WriteString("Showing those with SiaB equipped and can swap it out before the end of the contract without losing teamwork score.\n")
 
 	// Used to collect the return values for each farmer
 	var farmerFields = make(map[string][]TeamworkOutputData)
@@ -1040,7 +1040,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 	var siabMax []TeamworkOutputData
 	if len(siabEntries) == 0 {
-		siabMsg.WriteString("\nNo SIAB swaps needed.\n")
+		siabMsg.WriteString("\nNo SiaB swaps needed.\n")
 	} else {
 		// Sort by time, then by name (for duplicate timestamps)
 		sort.Slice(siabEntries, func(i, j int) bool {
@@ -1050,45 +1050,35 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			return siabEntries[i].SwitchTime < siabEntries[j].SwitchTime
 		})
 
-		// Print header once
+		// Header
 		siabMsg.WriteString(fmt.Sprintf("`%-15s` `%-10s` `%s`\n", "PLAYER", "ΔELR", "TIME"))
 
 		// Print each row
 		cantSwitch := false
 		for _, e := range siabEntries {
-			// shorten name to max 15 chars
 			name := e.Name
 			if len(name) > 15 {
 				name = name[:15]
 			}
 
-			// When we encounter the first entry whose SwitchTime is after endTime
-			if time.Unix(e.SwitchTime, 0).After(endTime) {
+			ts := e.SwitchTime
+			if time.Unix(ts, 0).After(endTime) {
 				if !cantSwitch {
 					cantSwitch = true
-					siabMsg.WriteString("Other SiaB users\n")
+					siabMsg.WriteString("**Other SiaB users**\n")
 				}
-
-				// For these users, print using endTime instead of their SwitchTime
-				siabMsg.WriteString(fmt.Sprintf(
-					"`%-15s` `%10.6f` <t:%d:t>\n",
-					name,
-					e.DeltaELR,
-					endTime.Unix(),
-				))
-				continue
+				ts = endTime.Unix()
 			}
 
-			// Players that can switch
 			siabMsg.WriteString(fmt.Sprintf(
 				"`%-15s` `%10.6f` <t:%d:t>\n",
 				name,
 				e.DeltaELR,
-				e.SwitchTime,
+				ts,
 			))
 		}
 
-		siabMsg.WriteString("\nUsing your best SiaB will result in higher CS.\n")
+		siabMsg.WriteString("\n*Using your best SiaB will result in higher CS.*\n")
 	}
 
 	siabMax = append(siabMax, TeamworkOutputData{"SIAB", siabMsg.String()})
