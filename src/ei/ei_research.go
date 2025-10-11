@@ -258,9 +258,8 @@ func GetCommonResearchPortalHabCapacity(commonResearch []*Backup_ResearchItem) f
 }
 
 // GetFleetSize calculates the vehicle fleet size from common research
-func GetFleetSize(commonResearch []*Backup_ResearchItem) (uint32, uint32) {
+func GetFleetSize(commonResearch []*Backup_ResearchItem) uint32 {
 	fleetSize := 1.0
-	trainLength := 1.0
 
 	ids := []string{
 		"vehicle_reliablity",
@@ -269,13 +268,17 @@ func GetFleetSize(commonResearch []*Backup_ResearchItem) (uint32, uint32) {
 		"egg_loading_bots",
 		"autonomous_vehicles",
 	}
-	fleetSize = GetResearchGeneric(commonResearch, ids, fleetSize)
+	return uint32(GetResearchGeneric(commonResearch, ids, fleetSize))
 
-	ids = []string{
+}
+
+// GetTrainLength calculates the hyperloop train length from common research
+func GetTrainLength(commonResearch []*Backup_ResearchItem) uint32 {
+	trainLength := 1.0
+
+	ids := []string{
 		"micro_coupling",
 	}
 
-	trainLength = GetResearchGeneric(commonResearch, ids, trainLength)
-
-	return uint32(fleetSize), uint32(trainLength)
+	return uint32(GetResearchGeneric(commonResearch, ids, trainLength))
 }
