@@ -204,6 +204,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		craftArt = missionArt.Ships[lastFueled].ArtDev
 	}
 
+	//fleetSize, trainLength := ei.GetFleetSize(farm.GetCommonResearch())
 	habArt, habArray := getHabIconStrings(farm.GetHabs(), ei.GetBotEmojiMarkdown)
 	VehicleArt, VehicleArray := getVehicleIconStrings(farm.GetVehicles(), farm.GetTrainLength(), ei.GetBotEmojiMarkdown)
 
