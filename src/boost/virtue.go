@@ -367,8 +367,8 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	onlineFillTime := ei.TimeForLinearGrowth(habPop, habCap, onlineRate/60)
 	offlineFillTime := ei.TimeForLinearGrowth(habPop, habCap, offlineRate/60)
 	syncTime := time.Unix(int64(backup.GetApproxTime()), 0)
-	remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, selectedTarget-selectedDelivered)
 	elapsed := time.Since(syncTime).Seconds()
+	remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, selectedTarget-selectedDelivered)
 	adjustedRemainingTime := remainingTime - elapsed
 	offlineEggs := min(eggLayingRate, shippingRate) * (elapsed / 3600)
 
@@ -436,22 +436,46 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 				time.Now().Add(time.Duration(int64(onlineFillTime))*time.Second).Unix(),
 				time.Now().Add(time.Duration(int64(offlineFillTime))*time.Second).Unix())
 		}
+		// Loop to show time to next several Truth Egg thresholds
+		loopCount := 0
+		currentSelectedTarget := selectedTarget
+		bold := "**"
+		for {
+			header.WriteString(bold)
+			if remainingTime == -1.0 {
+				fmt.Fprintf(&header, "Deliver %s%s in more than a year 💤",
+					ei.FormatEIValue(currentSelectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
+					selectedEggEmote)
+			} else if adjustedRemainingTime < 86400.0 { // 1 day
+				fmt.Fprintf(&header, "Deliver %s%s <t:%d:R>💤",
+					ei.FormatEIValue(currentSelectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
+					selectedEggEmote,
+					time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Second).Unix())
+			} else {
+				fmt.Fprintf(&header, "Deliver %s%s <t:%d:f>💤",
+					ei.FormatEIValue(currentSelectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
+					selectedEggEmote,
+					time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Second).Unix())
+			}
+			header.WriteString(bold)
 
-		if remainingTime == -1.0 {
-			fmt.Fprintf(&header, "**Deliver %s%s in more than a year 💤**",
-				ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
-				selectedEggEmote)
-		} else if adjustedRemainingTime < 86400.0 { // 1 day
-			fmt.Fprintf(&header, "**Deliver %s%s <t:%d:R>**💤",
-				ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
-				selectedEggEmote,
-				time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Second).Unix())
-		} else {
-			fmt.Fprintf(&header, "**Deliver %s%s <t:%d:f>**💤",
-				ei.FormatEIValue(selectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
-				selectedEggEmote,
-				time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Second).Unix())
+			// Prepare for next threshold
+			currentSelectedTarget = nextTruthEggThreshold(currentSelectedTarget, 0)
+			if currentSelectedTarget == math.Inf(1) {
+				break
+			}
+			remainingTime = ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, currentSelectedTarget-selectedDelivered)
+			adjustedRemainingTime = remainingTime - elapsed
+
+			loopCount++
+			// Stop if remainingTime is -1 or adjustedRemainingTime is more than 2 weeks (1209600 seconds), or after 5 iterations to avoid infinite loop
+			if remainingTime == -1.0 || adjustedRemainingTime > 1209600 || loopCount >= 8 {
+				break
+			}
+			header.WriteString("\n")
+			bold = ""
 		}
+
 		fmt.Fprintf(&header, "\n-# includes %s offline eggs", ei.FormatEIValue(offlineEggs, map[string]interface{}{"decimals": 3, "trim": true}))
 	} else {
 		fmt.Fprint(&header, "**Ascend to visit your Eggs of Virtue farm.**")
