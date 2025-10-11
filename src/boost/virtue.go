@@ -192,7 +192,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	shiftCost := getShiftCost(virtue.GetShiftCount(), se)
 
 	fmt.Fprint(&header, "# Eggs of Virtue Helper\n")
-	fmt.Fprintf(&header, "**%s the Ascender**\n", backup.GetUserName())
+	fmt.Fprintf(&header, "**__%s the Ascender__**\n", backup.GetUserName())
 	fmt.Fprintf(&header, "**Resets**: %d  **Shifts**: %d  %s%s\n",
 		virtue.GetResets(),
 		virtue.GetShiftCount(),
