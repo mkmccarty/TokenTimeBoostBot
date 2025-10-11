@@ -190,11 +190,7 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 			for _, f := range field[1:] {
 				// Section header - should be a Label but that's not in the library yet.
 				bodyText = append(bodyText, discordgo.TextDisplay{
-					Content: "### " + f.Title,
-				})
-				// Section data.
-				bodyText = append(bodyText, discordgo.TextDisplay{
-					Content: f.Content,
+					Content: fmt.Sprintf("### %s\n%s\n", f.Title, f.Content),
 				})
 			}
 

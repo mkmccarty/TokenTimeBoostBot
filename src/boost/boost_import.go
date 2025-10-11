@@ -280,8 +280,8 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		baseScore := float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
 			true, 1.0, // Use faster duration at a 1.0 modifier
 			fairShare, // Fair Share, first booster
-			100, 20,   // SIAB 100%, 20 minutes
-			20, 0, // Deflector %, minutes reduction
+			0, 20,     // SIAB 100%, 20 minutes
+			0, 0, // Deflector %, minutes reduction
 			0,     // All Chicken Runs - used for diff Calc
 			0, 0)) // Tokens Sent a lot and received a little.
 
