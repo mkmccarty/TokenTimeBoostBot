@@ -21,6 +21,7 @@ import (
 type TeamworkOutputData struct {
 	Title   string
 	Content string
+	//Component []discordgo.MessageComponent
 }
 
 // DeliveryTimeValue is a struct to hold the values for a delivery time
