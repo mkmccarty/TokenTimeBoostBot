@@ -469,7 +469,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 			loopCount++
 			// Stop if remainingTime is -1 or adjustedRemainingTime is more than 2 weeks (1209600 seconds), or after 5 iterations to avoid infinite loop
-			if remainingTime == -1.0 || adjustedRemainingTime > 1209600 || loopCount >= 8 {
+			if remainingTime == -1.0 || (adjustedRemainingTime > 1209600 && loopCount > 1) || loopCount >= 8 {
 				break
 			}
 			header.WriteString("\n")
