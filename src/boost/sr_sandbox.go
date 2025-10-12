@@ -168,7 +168,7 @@ func gatherData(input inputData) (string, string, error) {
 //   - (error): returned if encoding fails.
 func EncodeData(cxpToggle bool, targetEgg, tokenTimer, modifiers string, contractLengthInSeconds, numPlayers int) (string, error) {
 
-	// Duiration formatting
+	// Duration formatting
 	contractDuration := time.Duration(contractLengthInSeconds) * time.Second
 	durStr, durUnit := bottools.FmtDurationSingleUnit(contractDuration)
 
