@@ -125,21 +125,23 @@ func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID str
 		return nil, cachedData
 	}
 	// Write the backup as a JSON file for debugging purposes
-	go func() {
-		jsonData, err := json.MarshalIndent(backup, "", "  ")
-		// Swap all instances of eiUserID with "REDACTED"
-		jsonData = []byte(string(jsonData))
-		jsonData = []byte(RedactUserInfo(string(jsonData), eiUserID))
-		if err != nil {
-			log.Println("Error marshalling backup to JSON:", err)
-		} else {
-			_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
-			err = os.WriteFile("ttbb-data/eiuserdata/firstcontact-"+discordID+".json", []byte(jsonData), 0644)
+	if config.IsDevBot() {
+		go func() {
+			jsonData, err := json.MarshalIndent(backup, "", "  ")
+			// Swap all instances of eiUserID with "REDACTED"
+			jsonData = []byte(string(jsonData))
+			jsonData = []byte(RedactUserInfo(string(jsonData), eiUserID))
 			if err != nil {
-				log.Print(err)
+				log.Println("Error marshalling backup to JSON:", err)
+			} else {
+				_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
+				err = os.WriteFile("ttbb-data/eiuserdata/firstcontact-"+discordID+".json", []byte(jsonData), 0644)
+				if err != nil {
+					log.Print(err)
+				}
 			}
-		}
-	}()
+		}()
+	}
 
 	return backup, cachedData
 }
