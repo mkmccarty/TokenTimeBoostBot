@@ -278,8 +278,6 @@ func generateSnapshotStruct(obj any) string {
 // ---- Snapshot Writer ----
 
 // GenerateSnapshots writes snapshot structs to outputPath for the listed protobuf types.
-// NOTE: requires: import "go/format"
-//
 // Run this manually with:
 //
 //	go run ./src/bottools/cmd/run_snapshots.go
