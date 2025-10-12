@@ -84,6 +84,12 @@ type ContractGrade struct {
 	BasePoints           float64
 }
 
+// Want an enum const for the SeasonalScoring field
+const (
+	SeasonalScoringStandard = 0
+	SeasonalScoringNerfed   = 1
+)
+
 // EggIncContract is a raw contract data for Egg Inc
 type EggIncContract struct {
 	ID                        string `json:"id"`
@@ -125,7 +131,7 @@ type EggIncContract struct {
 	CxpBuffOnly     float64 // Minimum score with only CR/TVal
 	CxpRunDelta     float64 // Individual chicken run addition
 	Cxp             float64 // CXP value for the contract
-	SeasonalScoring int     // 0 = old (0.2.0), true = 1 (0.3.0+ sesonals & AA+AAA)
+	SeasonalScoring int     // 0 = old (0.2.0), true = 1 (0.2.0+ seasonal change for AA+AAA)
 }
 
 // EggIncContracts holds a list of all contracts, newest is last

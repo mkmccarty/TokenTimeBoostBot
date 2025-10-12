@@ -470,7 +470,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	}
 	var contractScoreArr []contractScores
 	var scoresTable strings.Builder
-	if eiContract.SeasonalScoring == 1 {
+	if eiContract.SeasonalScoring == ei.SeasonalScoringNerfed {
 		fmt.Fprintf(&scoresTable, "`%12s %6s %6s %6s`\n",
 			bottools.AlignString("NAME", 12, bottools.StringAlignCenter),
 			bottools.AlignString("MAX", 6, bottools.StringAlignCenter),
@@ -840,14 +840,14 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			)
 			// Calculate the Chicken Run threshold LengthinDays * MaxCoopSize / 2
 			crThreshold := math.Min(20., float64(eiContract.MaxCoopSize)*(float64(eiContract.LengthInSeconds)/86400.0)/2.0)
-			if eiContract.SeasonalScoring == 1 {
+			if eiContract.SeasonalScoring == ei.SeasonalScoringNerfed {
 				crThreshold = float64(eiContract.MaxCoopSize - 1)
 			}
 
 			var diffCR float64 // difference in CS per Chicken Run
 			var scoreCRdiff int64
 			switch eiContract.SeasonalScoring {
-			case 1:
+			case ei.SeasonalScoringNerfed:
 				diffCR = (float64(scoreBase) * 0.19) * ((5.0 / 19.0) * (1.0 / crThreshold))
 				scoreCRdiff = calculateContractScore(eiContract.SeasonalScoring, grade,
 					eiContract.MaxCoopSize,
@@ -1047,7 +1047,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		return contractScoreArr[i].max > contractScoreArr[j].max
 	})
 	for _, cs := range contractScoreArr {
-		if eiContract.SeasonalScoring == 1 {
+		if eiContract.SeasonalScoring == ei.SeasonalScoringNerfed {
 			fmt.Fprintf(&scoresTable, "`%12s %6d %6d %6d`\n",
 				bottools.AlignString(cs.name, 12, bottools.StringAlignLeft),
 				cs.max, cs.min, cs.base)
