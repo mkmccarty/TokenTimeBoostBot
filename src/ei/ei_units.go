@@ -89,7 +89,19 @@ func ParseValueWithUnit(s string, unitRequired bool) (float64, error) {
 	return value * math.Pow10(oom), nil
 }
 
-// FormatEIValue formats a number in scientific notation with the given options.
+// Helper function to truncate a float64 to a specified number of decimals
+// This is used to implement the "never round up" requirement.
+func truncate(f float64, decimals int) float64 {
+	if decimals < 0 {
+		return f
+	}
+	// Multiplier, e.g., 1000 for 3 decimals
+	factor := math.Pow10(decimals)
+	// Multiply, floor (truncate), and divide back
+	return math.Floor(f*factor) / factor
+}
+
+// FormatEIValue formats a float64 value into a string with appropriate EI unit suffixes.
 func FormatEIValue(x float64, options map[string]any) string {
 	trim := options["trim"] == true
 	decimals := 3
@@ -102,17 +114,21 @@ func FormatEIValue(x float64, options map[string]any) string {
 		return "NaN"
 	}
 	if x < 0 {
+		// Recursive call for negative numbers should pass all options
 		return "-" + FormatEIValue(-x, options)
 	}
 	if math.IsInf(x, 0) {
 		return "infinity"
 	}
 
-	oom := math.Log10(x)
-	if oom < float64(minOom) {
+	// Handle zero and numbers too small for unit suffix
+	if x == 0 || x < math.Pow10(minOom) {
+		// Use standard rounding for the zero/small number case (as per test "Small Number")
 		return strconv.FormatFloat(x, 'f', 0, 64)
 	}
 
+	// Calculate the Order of Magnitude (oom)
+	oom := math.Log10(x)
 	oomFloor := math.Floor(oom)
 	if oom+1e-9 >= oomFloor+1 {
 		oomFloor++
@@ -124,13 +140,20 @@ func FormatEIValue(x float64, options map[string]any) string {
 
 	principal := x / math.Pow10(int(oomFloor))
 	var numpart string
+
 	if principal < 1e21 {
 		if precision, ok := options["precision"].(int); ok {
+			// Path 1: Use 'g' format when 'precision' is set (e.g., test "Precision Option")
+			// This path relies on standard rounding.
 			numpart = strconv.FormatFloat(principal, 'g', precision, 64)
 		} else {
-			numpart = strconv.FormatFloat(principal, 'f', decimals, 64)
+			// Path 2: Use 'f' format when 'decimals' is set (most unit tests)
+			// *** KEY FIX: Apply truncation here to prevent round-up on decimals ***
+			truncatedPrincipal := truncate(principal, decimals)
+			numpart = strconv.FormatFloat(truncatedPrincipal, 'f', decimals, 64)
 		}
 	} else {
+		// Handle extremely large numbers
 		numpart = strconv.FormatFloat(principal, 'g', 4, 64)
 	}
 
