@@ -11,23 +11,21 @@ import (
 // FmtDuration formats a time.Duration into a human readable string
 func FmtDuration(d time.Duration) string {
 	d = d.Round(time.Minute)
-	h := d / time.Hour
-	d -= h * time.Hour
-	m := d / time.Minute
-	days := h / 24
-	h -= days * 24
+
+	days := d / (24 * time.Hour)
+	hours := (d % (24 * time.Hour)) / time.Hour
+	mins := (d % time.Hour) / time.Minute
 
 	var parts []string
 	if days > 0 {
 		parts = append(parts, fmt.Sprintf("%dd", days))
 	}
-	if h > 0 {
-		parts = append(parts, fmt.Sprintf("%dh", h))
+	if hours > 0 {
+		parts = append(parts, fmt.Sprintf("%dh", hours))
 	}
-	if m > 0 {
-		parts = append(parts, fmt.Sprintf("%dm", m))
+	if mins > 0 {
+		parts = append(parts, fmt.Sprintf("%dm", mins))
 	}
-
 	return strings.Join(parts, "")
 }
 
