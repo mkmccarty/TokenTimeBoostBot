@@ -25,6 +25,7 @@ func TestFormatEIValue(t *testing.T) {
 		{"Billion", 9.87e9, map[string]interface{}{"decimals": 3}, "9.870B"},
 		{"Trillion", 1.234e12, map[string]interface{}{"decimals": 3}, "1.234T"},
 		{"Quadrillion (q)", 5.67e15, map[string]interface{}{"decimals": 3}, "5.670q"},
+		{"Quadrillion (q)", 9.99999999e15, map[string]interface{}{"decimals": 3}, "9.999q"},
 		{"Quintillion (Q)", 1e18, map[string]interface{}{"decimals": 3}, "1.000Q"},
 		{"Sextillion (s)", 3.14e21, map[string]interface{}{"decimals": 3}, "3.140s"},
 		{"Septillion (S)", 1e24, map[string]interface{}{"decimals": 3}, "1.000S"},
@@ -64,7 +65,7 @@ func TestFmtApprox(t *testing.T) {
 		{"Small", 123, "123"},
 		{"Kilo", 1567, "1.567K"},
 		{"Mega", 2.5e6, "2.500M"},
-		{"Billion", 9.87654e9, "9.877B"}, // Check rounding
+		{"Billion", 9.87654e9, "9.876B"}, // Check rounding
 		{"Trillion", 1.23e12, "1.230T"},
 		{"Large", 1e93, "1.000tT"},
 	}

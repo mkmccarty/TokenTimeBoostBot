@@ -109,7 +109,7 @@ func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 
 	eiContract := ei.EggIncContractsAll[contractID]
 	var footer strings.Builder
-	if eiContract.SeasonalScoring != 1 {
+	if eiContract.SeasonalScoring == ei.SeasonalScoringStandard {
 		footer.WriteString("-# MAX : BTV & Max Chicken Runs & ∆T-Val\n")
 		footer.WriteString("-# TVAL: BTV, Coop Size-1 Chicken Runs & ∆T-Val\n")
 		footer.WriteString("-# SINK: BTV, Max Chicken Runs & Token Sink\n")

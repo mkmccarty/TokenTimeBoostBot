@@ -402,7 +402,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 				fmt.Fprintf(&builder, "**Completed:** <t:%d:f>\n", int64(evaluation.GetLastContributionTime()))
 				fmt.Fprintf(&builder, "**Duration:** %s  **Est. Duration:** %s\n", bottools.FmtDuration(time.Duration(evaluation.GetCompletionTime()*float64(time.Second))), bottools.FmtDuration(c.EstimatedDuration))
 				fmt.Fprintf(&builder, "**CS:** %d  **Est Max CS:** %.0f\n", uint32(evaluationCxp), c.Cxp)
-				if c.SeasonalScoring == 1 {
+				if c.SeasonalScoring == ei.SeasonalScoringNerfed {
 					fmt.Fprintf(&builder, "**Contrib:** %s  **CR:** %s\n", contribCheck, crCheck)
 				} else {
 					fmt.Fprintf(&builder, "**Contrib:** %s **TVal**: %s  **CR:** %s\n", contribCheck, tokCheck, crCheck)
