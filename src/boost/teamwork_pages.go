@@ -304,7 +304,6 @@ func HandleTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 	if len(reaction) == 3 && reaction[2] == "close" {
 		drawButtons = false
-		delete(teamworkCacheMap, reaction[1])
 	}
 	sendTeamworkPage(s, i, false, reaction[1], refresh, toggle, siabSelection, drawButtons)
 
