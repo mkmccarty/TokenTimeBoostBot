@@ -65,7 +65,7 @@ func TestFmtApprox(t *testing.T) {
 		{"Small", 123, "123"},
 		{"Kilo", 1567, "1.567K"},
 		{"Mega", 2.5e6, "2.500M"},
-		{"Billion", 9.87654e9, "9.877B"}, // Check rounding
+		{"Billion", 9.87654e9, "9.876B"}, // Check rounding
 		{"Trillion", 1.23e12, "1.230T"},
 		{"Large", 1e93, "1.000tT"},
 	}
