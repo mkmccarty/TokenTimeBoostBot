@@ -7,45 +7,48 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 )
 
 // playerData stores player-related data.
 type playerData struct {
-	Name         string // Player name
-	Tokens       string // Player tokens used
-	TE           string // Truth Egg (TE) count
-	Mirror       bool   // True if mirror (+1 token)
-	Colleggtible bool   // True if player has all collectibles
-	Sink         bool   // True if sink (no tval)
-	Creator      bool   // True if creator (no join delay)
-	Item1        string // Item slot 1
-	Item2        string // Item slot 2
-	Item3        string // Item slot 3
-	Item4        string // Item slot 4
-	Item5        string // Item slot 5
-	Item6        string // Item slot 6
-	Item7        string // Item slot 7
-	Item8        string // Item slot 8
+	name         string // Player name
+	tokens       string // Player tokens used
+	te           string // Truth Egg (TE) count
+	mirror       bool   // True if mirror (+1 token)
+	colleggtible bool   // True if player has all collectibles
+	sink         bool   // True if sink (no tval)
+	creator      bool   // True if creator (no join delay)
+	item1        string // Item slot 1
+	item2        string // Item slot 2
+	item3        string // Item slot 3
+	item4        string // Item slot 4
+	item5        string // Item slot 5
+	item6        string // Item slot 6
+	item7        string // Item slot 7
+	item8        string // Item slot 8
 }
 
-// inputData stores full coop info
+// inputData stores full coop info.
 type inputData struct {
-	CrtToggle   bool         // Chicken Runs Maxed?*
-	TokenToggle bool         // Token Value Maxed?*
-	GGToggle    bool         // Generous Gifts?
-	EggUnit     int          // egg unit index (default: q)
-	DurUnit     int          // duration unit index (default: days)
-	ModName     int          // contract modifier type index
-	CxpToggle   bool         // False = Legacy, True = Seasonal Run
-	CrtTime     string       // Join Delay (seconds)
-	Mpft        string       // Minutes/TokenGift/Player*
-	Duration    string       // Duration (days)
-	TargetEgg   string       // Target Egg Amount (q)
-	TokenTimer  string       // Token Timer (minutes)
-	Modifiers   string       // Modifier Multiplier
-	NumPlayers  int          // CoopSize:
-	BtvTarget   string       // BTV/complTime Target
-	Players     []playerData // Player list for results
+	crtToggle   bool         // Chicken Runs Maxed?*
+	tokenToggle bool         // Token Value Maxed?*
+	ggToggle    bool         // Generous Gifts?
+	eggUnit     int          // egg unit index (default: q)
+	durUnit     int          // duration unit index (default: days)
+	modName     int          // contract modifier type index
+	cxpToggle   bool         // False = Legacy, True = Seasonal Run
+	crtTime     string       // Join Delay (seconds)
+	mpft        string       // Minutes/TokenGift/Player*
+	duration    string       // Duration (days)
+	targetEgg   string       // Target Egg Amount (q)
+	tokenTimer  string       // Token Timer (minutes)
+	modifiers   string       // Modifier Multiplier
+	numPlayers  int          // CoopSize:
+	btvTarget   string       // BTV/complTime Target
+	players     []playerData // Player list for results
 }
 
 func convertBool(b bool) string {
@@ -100,7 +103,7 @@ func chunk16(x string) string {
 }
 
 func gatherData(input inputData) (string, string, error) {
-	if input.NumPlayers != len(input.Players) {
+	if input.numPlayers != len(input.players) {
 		return "", "", errors.New("numPlayers does not match player array length")
 	}
 
@@ -109,39 +112,39 @@ func gatherData(input inputData) (string, string, error) {
 	singleStr := []string{}
 
 	singleStr = append(singleStr,
-		convertBool(input.CrtToggle),
-		convertBool(input.TokenToggle),
-		convertBool(input.GGToggle),
-		strconv.Itoa(input.EggUnit),
-		strconv.Itoa(input.DurUnit),
-		strconv.Itoa(input.ModName),
-		convertBool(input.CxpToggle),
+		convertBool(input.crtToggle),
+		convertBool(input.tokenToggle),
+		convertBool(input.ggToggle),
+		strconv.Itoa(input.eggUnit),
+		strconv.Itoa(input.durUnit),
+		strconv.Itoa(input.modName),
+		convertBool(input.cxpToggle),
 	)
 	data = append(data, strings.Join(singleStr, ""))
 
 	data = append(data,
-		input.CrtTime,
-		input.Mpft,
-		input.Duration,
-		input.TargetEgg,
-		input.TokenTimer,
-		input.Modifiers,
-		strconv.Itoa(input.NumPlayers),
-		input.BtvTarget,
+		input.crtTime,
+		input.mpft,
+		input.duration,
+		input.targetEgg,
+		input.tokenTimer,
+		input.modifiers,
+		strconv.Itoa(input.numPlayers),
+		input.btvTarget,
 	)
 
 	singleStr2 := []string{"1"} // Start with leading 1
 
-	for _, p := range input.Players {
-		data = append(data, p.Name, p.Tokens, p.TE)
+	for _, p := range input.players {
+		data = append(data, p.name, p.tokens, p.te)
 
 		singleStr2 = append(singleStr2,
-			convertBool(p.Mirror),
-			convertBool(p.Colleggtible),
-			convertBool(p.Sink),
-			convertBool(p.Creator),
-			p.Item1, p.Item2, p.Item3, p.Item4,
-			p.Item5, p.Item6, p.Item7, p.Item8,
+			convertBool(p.mirror),
+			convertBool(p.colleggtible),
+			convertBool(p.sink),
+			convertBool(p.creator),
+			p.item1, p.item2, p.item3, p.item4,
+			p.item5, p.item6, p.item7, p.item8,
 		)
 	}
 
@@ -150,64 +153,70 @@ func gatherData(input inputData) (string, string, error) {
 	return strings.Join(data, SEPARATOR), strings.Join(data2, SEPARATOR), nil
 }
 
-// EncodeData generates and encodes configuration data for the SR Sandbox v-5
+// EncodeData generates and encodes configuration data for the SR Sandbox v-5.
+//
 // Parameters:
 //   - CxpToggle (bool): enables or disables CXP calculations.
-//   - Duration (string): total duration in days.
 //   - TargetEgg (string): target egg count.
 //   - TokenTimer (string): token timer interval in minutes.
-//   - Modifiers (string): TODO contract modifiers
+//   - Modifiers (string): contract modifiers (TODO: implement support).
+//   - contractLengthInSeconds (int): total contract duration in seconds.
 //   - NumPlayers (int): number of players.
 //
 // Returns:
 //   - (string): version-tagged encoded SR Sandbox data.
 //   - (error): returned if encoding fails.
-func EncodeData(CxpToggle bool, Duration, TargetEgg, TokenTimer, Modifiers string, NumPlayers int) (string, error) {
+func EncodeData(cxpToggle bool, targetEgg, tokenTimer, modifiers string, contractLengthInSeconds, numPlayers int) (string, error) {
+
+	// Duiration formatting
+	contractDuration := time.Duration(contractLengthInSeconds) * time.Second
+	durStr, durUnit := bottools.FmtDurationSingleUnit(contractDuration)
+
 	input := inputData{
-		CrtToggle:   true,
-		TokenToggle: true,
-		GGToggle:    false,
-		EggUnit:     0,
-		DurUnit:     0,
-		ModName:     0, // TODO implement support
-		CxpToggle:   CxpToggle,
-		CrtTime:     "20",     // seconds
-		Mpft:        "10",     // minutes
-		Duration:    Duration, // days
-		TargetEgg:   TargetEgg,
-		TokenTimer:  TokenTimer, // minutes
-		Modifiers:   Modifiers,  // TODO implement support
-		NumPlayers:  NumPlayers,
-		BtvTarget:   "2", // old max buff
+		crtToggle:   true,
+		tokenToggle: true,
+		ggToggle:    false,
+		eggUnit:     2,       // in order q, Q, T
+		durUnit:     durUnit, // in order days, hours, minutes, seconds
+		modName:     0,       // TODO implement support
+		cxpToggle:   cxpToggle,
+		crtTime:     "20", // seconds
+		mpft:        "10", // minutes
+		duration:    durStr,
+		targetEgg:   targetEgg,
+		tokenTimer:  tokenTimer, // minutes
+		modifiers:   modifiers,  // TODO implement support
+		numPlayers:  numPlayers,
+		btvTarget:   "2", // old max buff
 	}
 
-	tokensArr := make([]string, input.NumPlayers)
-	teArr := make([]string, input.NumPlayers)
+	tokensArr := make([]string, input.numPlayers)
+	teArr := make([]string, input.numPlayers)
 
-	for i := 0; i < input.NumPlayers; i++ {
+	for i := 0; i < input.numPlayers; i++ {
 		tokensArr[i] = "6"
 		teArr[i] = "10"
 	}
 
 	// Full leggy assumption
-	input.Players = make([]playerData, input.NumPlayers)
-	for i := 0; i < input.NumPlayers; i++ {
-		input.Players[i] = playerData{
-			Name:         fmt.Sprintf("BBPlayer%d", i+1),
-			Tokens:       tokensArr[i],
-			TE:           teArr[i],
-			Mirror:       false,
-			Colleggtible: true,
-			Sink:         false,
-			Creator:      false,
-			Item1:        "00",
-			Item2:        "00",
-			Item3:        "00",
-			Item4:        "00",
-			Item5:        "00",
-			Item6:        "00",
-			Item7:        "00",
-			Item8:        "00",
+	input.players = make([]playerData, input.numPlayers)
+	for i := 0; i < input.numPlayers; i++ {
+		input.players[i] = playerData{
+			name:         fmt.Sprintf("BBPlayer%d", i+1),
+			tokens:       tokensArr[i],
+			te:           teArr[i],
+			mirror:       false,
+			colleggtible: true,
+			sink:         false,
+			creator:      false,
+			item1:        "00",
+			item2:        "00",
+			item3:        "00",
+			item4:        "00",
+			item5:        "00",
+			item6:        "00",
+			item7:        "00",
+			item8:        "00",
 		}
 	}
 
