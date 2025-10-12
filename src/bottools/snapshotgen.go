@@ -165,7 +165,7 @@ func isScalarLike(t reflect.Type) bool {
 // renderSnapshotType renders the snapshot type: drop pointers for scalar-like/enums; keep for complex; recurse for containers.
 func renderSnapshotType(t reflect.Type) string {
 	switch t.Kind() {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		e := t.Elem()
 		if isScalarLike(e) { // drop pointer for scalar-like (incl. enums)
 			return renderSnapshotType(e)
@@ -225,7 +225,7 @@ func generateSnapshotStruct(obj any) string {
 	}
 
 	// Pointer, handle nil and then dereference
-	if rv.Kind() == reflect.Ptr {
+	if rv.Kind() == reflect.Pointer {
 		if rv.IsNil() {
 			return "// GenerateSnapshotStruct: nil pointer"
 		}
