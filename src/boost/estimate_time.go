@@ -117,8 +117,8 @@ func getContractEstimateString(contractID string) string {
 			cxpToggle = true
 		}
 	}
-	staabData, staabError := EncodeData(cxpToggle, strconv.Itoa(int(c.TargetAmount[len(c.TargetAmount)-1]/1e12)),
-		strconv.Itoa(c.MinutesPerToken), "1", c.LengthInSeconds, c.MaxCoopSize)
+	staabData, staabError := EncodeData(cxpToggle, c.TargetAmount[len(c.TargetAmount)-1],
+		strconv.Itoa(c.MinutesPerToken), c.LengthInSeconds, c.MaxCoopSize, &c)
 	if staabError != nil {
 		// Fallback to the default SR Sandbox configuration if encoding fails
 		staabData = "v-5MTEwMDAwMC0wLTEzLTctNTAwLTYwLTEtMS0yLVBsYXllciUyMDAtNi0xMA=B6mEavjeExzag"
