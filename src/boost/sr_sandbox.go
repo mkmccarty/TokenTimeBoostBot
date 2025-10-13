@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 // playerData stores player-related data.
@@ -49,6 +50,75 @@ type inputData struct {
 	numPlayers  int          // CoopSize:
 	btvTarget   string       // BTV/complTime Target
 	players     []playerData // Player list for results
+}
+
+// FmtNumberSingleUnit converts a float64 to a string with the correct unit scale.
+// Parameters:
+//   - v (float64): numeric value
+//   - srSandboxOrdering (bool): optional flag to use SR sandbox ordering.
+//
+// Returns:
+//   - string: formatted number as a string
+//   - int: unit index
+//     Normal:     0=Quintillion, 1=quadrillion, 2=Trillion
+//     SR Sandbox: 0=quadrillion, 1=Quintillion, 2=Trillion
+//     -1=none
+func FmtNumberSingleUnit(v float64, srSandboxOrdering bool) (string, int) {
+	var str string
+	var unit int
+
+	switch {
+	case v >= 1e18:
+		str, unit = fmt.Sprintf("%g", v/1e18), 0 // Quintillion
+	case v >= 1e15:
+		str, unit = fmt.Sprintf("%g", v/1e15), 1 // quadrillion
+	case v >= 1e12:
+		str, unit = fmt.Sprintf("%g", v/1e12), 2 // Trillion
+	default:
+		str, unit = fmt.Sprintf("%g", v), -1
+	}
+
+	// Apply SR sandbox ordering: 0=quadrillion, 1=Quintillion, 2=Trillion
+	if srSandboxOrdering {
+		switch unit {
+		case 0: // Quintillion -> 1
+			unit = 1
+		case 1: // quadrillion -> 0
+			unit = 0
+		case 2: // Trillion <-> 2
+			unit = 2
+		}
+	}
+
+	return str, unit
+}
+
+// FmtActiveModifier checks the contract modifiers in order and returns the first active one.
+//
+// Parameters:
+//   - c (*ei.EggIncContract): pointer to the contract data
+//
+// Returns:
+//   - string: formatted active modifier value (e.g., "1.05").
+//   - int: index of the active modifier (0: HabCap, 1: IHR, 2: SR, 3: ELR).
+func FmtActiveModifier(c *ei.EggIncContract) (string, int) {
+	switch {
+	// HabCap (🏠)
+	case c.ModifierHabCap != 1.0 && c.ModifierHabCap > 0.0:
+		return fmt.Sprintf("%1.3g", c.ModifierHabCap), 0
+	// IHR (🐣)
+	case c.ModifierIHR != 1.0 && c.ModifierIHR > 0.0:
+		return fmt.Sprintf("%1.3g", c.ModifierIHR), 1
+	// SR (🛻)
+	case c.ModifierSR != 1.0 && c.ModifierSR > 0.0:
+		return fmt.Sprintf("%1.3g", c.ModifierSR), 2
+	// ELR (🥚)
+	case c.ModifierELR != 1.0 && c.ModifierELR > 0.0:
+		return fmt.Sprintf("%1.3g", c.ModifierELR), 3
+	// 1x HabCap (🏠)
+	default:
+		return "1.0", 0
+	}
 }
 
 func convertBool(b bool) string {
@@ -159,33 +229,46 @@ func gatherData(input inputData) (string, string, error) {
 //   - CxpToggle (bool): enables or disables CXP calculations.
 //   - TargetEgg (string): target egg count.
 //   - TokenTimer (string): token timer interval in minutes.
-//   - Modifiers (string): contract modifiers (TODO: implement support).
 //   - contractLengthInSeconds (int): total contract duration in seconds.
 //   - NumPlayers (int): number of players.
+//   - c (*ei.EggIncContract): pointer to the contract data.
 //
 // Returns:
 //   - (string): version-tagged encoded SR Sandbox data.
 //   - (error): returned if encoding fails.
-func EncodeData(cxpToggle bool, targetEgg, tokenTimer, modifiers string, contractLengthInSeconds, numPlayers int) (string, error) {
+func EncodeData(cxpToggle bool, targetEgg float64, tokenTimer string, contractLengthInSeconds, numPlayers int, c *ei.EggIncContract) (string, error) {
 
 	// Duration formatting
 	contractDuration := time.Duration(contractLengthInSeconds) * time.Second
 	durStr, durUnit := bottools.FmtDurationSingleUnit(contractDuration)
 
+	// Egg target formatting
+	eggStr, eggUnit := FmtNumberSingleUnit(targetEgg, true)
+	if eggUnit == -1 {
+		return "", errors.New("targetEgg must be at least 1 trillion (1e12)")
+	}
+
+	// Check if Generous Gifts is enabled based on multiplier
+	_, ultraGGMultiplier, _ := ei.GetGenerousGiftEvent()
+	ggToggle := ultraGGMultiplier > 1.0
+
+	// Get modifiers
+	modifiers, modName := FmtActiveModifier(c)
+
 	input := inputData{
 		crtToggle:   true,
 		tokenToggle: true,
-		ggToggle:    false,
-		eggUnit:     2,       // in order q, Q, T
+		ggToggle:    ggToggle,
+		eggUnit:     eggUnit, // in order q, Q, T
 		durUnit:     durUnit, // in order days, hours, minutes, seconds
-		modName:     0,       // TODO implement support
+		modName:     modName,
 		cxpToggle:   cxpToggle,
 		crtTime:     "20", // seconds
-		mpft:        "10", // minutes
+		mpft:        "11", // minutes
 		duration:    durStr,
-		targetEgg:   targetEgg,
+		targetEgg:   eggStr,
 		tokenTimer:  tokenTimer, // minutes
-		modifiers:   modifiers,  // TODO implement support
+		modifiers:   modifiers,
 		numPlayers:  numPlayers,
 		btvTarget:   "2", // old max buff
 	}

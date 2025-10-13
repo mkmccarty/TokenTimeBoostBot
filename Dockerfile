@@ -6,8 +6,7 @@ FROM golang:${GO_VERSION}-alpine AS dlv
 RUN apk add --no-cache ca-certificates
 # Build Delve as a static binary
 ENV CGO_ENABLED=0
-RUN go install github.com/go-delve/delve/cmd/dlv@v1.22.1 
-# or latest release
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
 # --------------------------------------------------
 # Stage 2: build app
