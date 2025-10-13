@@ -72,10 +72,8 @@ func FmtNumberSingleUnit(v float64, srSandboxOrdering bool) (string, int) {
 		str, unit = fmt.Sprintf("%g", v/1e18), 0 // Quintillion
 	case v >= 1e15:
 		str, unit = fmt.Sprintf("%g", v/1e15), 1 // quadrillion
-	case v >= 1e12:
-		str, unit = fmt.Sprintf("%g", v/1e12), 2 // Trillion
 	default:
-		str, unit = fmt.Sprintf("%g", v), -1
+		str, unit = fmt.Sprintf("%g", v/1e12), 2 // Trillion
 	}
 
 	// Apply SR sandbox ordering: 0=quadrillion, 1=Quintillion, 2=Trillion
@@ -244,9 +242,6 @@ func EncodeData(cxpToggle bool, targetEgg float64, tokenTimer string, contractLe
 
 	// Egg target formatting
 	eggStr, eggUnit := FmtNumberSingleUnit(targetEgg, true)
-	if eggUnit == -1 {
-		return "", errors.New("targetEgg must be at least 1 trillion (1e12)")
-	}
 
 	// Check if Generous Gifts is enabled based on multiplier
 	_, ultraGGMultiplier, _ := ei.GetGenerousGiftEvent()
