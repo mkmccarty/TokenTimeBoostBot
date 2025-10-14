@@ -953,7 +953,7 @@ func main() {
 	go func() {
 		for {
 			<-c
-			l.Rotate()
+			_ = l.Rotate()
 		}
 	}()
 
