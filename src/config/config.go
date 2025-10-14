@@ -80,8 +80,6 @@ type configStruct struct {
 
 // ReadConfig will load the configuration files for API tokens.
 func ReadConfig(cfgFile string) error {
-	fmt.Println("Reading from config file...")
-
 	file, err := os.ReadFile(cfgFile)
 
 	if err != nil {
