@@ -1,6 +1,6 @@
 module github.com/mkmccarty/TokenTimeBoostBot
 
-go 1.25.2
+go 1.25.3
 
 require (
 	github.com/bwmarrin/discordgo v0.29.1-0.20250831103706-30fe1930ba2c
