@@ -340,10 +340,6 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 	}
 
 	var sinkList []SinkList
-	if config.IsDevBot() && contract.PlayStyle == ContractPlaystyleLeaderboard {
-		sinkList = append(sinkList, SinkList{"Parade Banker", "🎪", contract.Banker.ParadeSinkUserID, "paradesink"})
-		sinkList = append(sinkList, SinkList{"Parade Host", "🤹", "", "paradehost"})
-	}
 	if (contract.State == ContractStateSignup || contract.State == ContractStateBanker) && contract.Style&ContractFlagBanker != 0 {
 		sinkList = append(sinkList, SinkList{"Banker", "🏦", contract.Banker.BoostingSinkUserID, "boostsink"})
 	}
@@ -368,32 +364,35 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 		})
 	}
 
-	if (contract.State == ContractStateSignup || contract.State == ContractStateBanker) && contract.Style&ContractFlagBanker != 0 {
-		name := ""
-		switch contract.Banker.SinkBoostPosition {
-		case SinkBoostFirst:
-			name = "Sink is FIRST"
-		case SinkBoostLast:
-			name = "Sink is LAST"
-		case SinkBoostFollowOrder:
-			name = "Sink will follow order"
+	if contract.ParadeChickenRuns == 0 {
+		if (contract.State == ContractStateSignup || contract.State == ContractStateBanker) && contract.Style&ContractFlagBanker != 0 {
+			name := ""
+			switch contract.Banker.SinkBoostPosition {
+			case SinkBoostFirst:
+				name = "Sink is FIRST"
+			case SinkBoostLast:
+				name = "Sink is LAST"
+			case SinkBoostFollowOrder:
+				name = "Sink will follow order"
+			}
+
+			mComp = append(mComp, discordgo.Button{
+				Label:    name,
+				Style:    discordgo.SecondaryButton,
+				CustomID: "cs_#sinkorder#" + contract.ContractHash,
+			})
 		}
-
-		mComp = append(mComp, discordgo.Button{
-			Label:    name,
-			Style:    discordgo.SecondaryButton,
-			CustomID: "cs_#sinkorder#" + contract.ContractHash,
-		})
-
+	} else {
 		if config.IsDevBot() && contract.PlayStyle == ContractPlaystyleLeaderboard {
-			runsNeeded := contract.ChickenRuns - (contract.CoopSize - 1)
+			//sinkList = append(sinkList, SinkList{"Parade Banker", "🎪", contract.Banker.ParadeSinkUserID, "paradesink"})
+			//sinkList = append(sinkList, SinkList{"Parade Host", "🤹", "", "paradehost"})
 			// If any of the contract Boosters are Parade Kind then show the parade join button
 			if contract.Banker.ParadeSinkUserID != "" {
 				mComp = append(mComp, discordgo.Button{
 					Emoji: &discordgo.ComponentEmoji{
 						Name: "🤡",
 					},
-					Label:    fmt.Sprintf("Need %d Parade Alts", runsNeeded),
+					Label:    fmt.Sprintf("Need %d Parade Alts", contract.ParadeChickenRuns-len(contract.ParadeList)),
 					Style:    discordgo.SecondaryButton,
 					CustomID: "fd_paradeJoin",
 				})
