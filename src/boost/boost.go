@@ -266,6 +266,7 @@ type Contract struct {
 	TokenStr                  string // Emoji for Token
 	TargetAmount              []float64
 	ChickenRuns               int // Number of Chicken Runs for this contract
+	ParadeChickenRuns         int // Number of Alternate Paraders
 	ChickenRunCooldownMinutes int
 	MinutesPerToken           int
 	EstimatedDuration         time.Duration
