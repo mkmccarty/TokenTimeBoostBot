@@ -96,8 +96,27 @@ var Version = "development"
 var debugLogging = true
 
 func init() {
+
+	l, _ := lumberjack.NewRoller(fmt.Sprintf("%s/BoostBot.log", "ttbb-data"),
+		1*1024*1024, // 1 megabyte
+		&lumberjack.Options{
+			MaxBackups: 12,
+			MaxAge:     28 * time.Hour * 24, // 28 days
+			Compress:   false,
+		})
+	log.SetOutput(l)
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGHUP)
+
+	go func() {
+		for {
+			<-c
+			_ = l.Rotate()
+		}
+	}()
+
 	version.Version = Version
-	log.Printf("Starting Discord Bot: %s (%s)\n", version.Release, Version)
+	log.Printf("\n\nStarting Discord Bot: %s (%s)\n", version.Release, Version)
 
 	// Read application parameters
 	flag.Parse()
@@ -937,25 +956,6 @@ func syncCommands(s *discordgo.Session, guildID string, desiredCommandList []*di
 }
 
 func main() {
-
-	l, _ := lumberjack.NewRoller(
-		"ttbb-data/BoostBot.log",
-		1*1024*1024, // 1 megabyte
-		&lumberjack.Options{
-			MaxBackups: 12,
-			MaxAge:     28 * time.Hour * 24, // 28 days
-			Compress:   false,
-		})
-	log.SetOutput(l)
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGHUP)
-
-	go func() {
-		for {
-			<-c
-			_ = l.Rotate()
-		}
-	}()
 
 	/*
 		go func() {
