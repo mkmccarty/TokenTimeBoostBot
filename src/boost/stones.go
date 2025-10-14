@@ -729,7 +729,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		if maxColleggtibleHab > 1.0 {
 			if collegHab > 1.000 && collegHab < maxColleggtibleHab {
-				//fmt.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
+				//log.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
 				//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
 				//farmerstate.SetMiscSettingString(as.name, "coll-elr", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
 				val := fmt.Sprintf("%2.2f🛖", (collegHab-1.0)*100.0)
@@ -758,14 +758,14 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			layingRate = stoneLayRateNow
 		}
 		collegELR := chickELR / stoneLayRateNow
-		//fmt.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
+		//log.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
 		// No IHR Egg yet, this will need to be revisited
 		as.colleggELR = math.Round(collegELR*1000) / 1000
 
 		if maxCollectibleELR > 1.0 {
 			roundedCollegELR := math.Round(collegELR*1000) / 1000
 			if roundedCollegELR > 1.000 && roundedCollegELR < maxCollectibleELR {
-				//fmt.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
+				//log.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
 				//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
 				//farmerstate.SetMiscSettingString(as.name, "coll-elr", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
 				val := fmt.Sprintf("%2.2f📦", (roundedCollegELR-1.0)*100.0)
@@ -791,7 +791,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			as.bestSR = stoneShipRateNow
 			shippingRate = stoneShipRateNow
 		}
-		//fmt.Printf("Calc SR: %2.3f  param.Sr: %2.3f   Diff:%2.2f\n", stoneShipRateNow, as.sr/1e15, (as.sr/1e15)/stoneShipRateNow)
+		//log.Printf("Calc SR: %2.3f  param.Sr: %2.3f   Diff:%2.2f\n", stoneShipRateNow, as.sr/1e15, (as.sr/1e15)/stoneShipRateNow)
 		collegShip := (as.sr / 1e15) / stoneShipRateNow
 		as.colleggSR = math.Round(collegShip*10000) / 10000
 
@@ -865,7 +865,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				as.bestSR = stoneShipRate
 				//bestString = fmt.Sprintf("T-%d Q-%d %2.3f %2.3f  min:%2.3f\n", i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
 			}
-			//fmt.Printf("Stone %d/%d: %2.3f %2.3f  min:%2.3f\n", i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
+			//log.Printf("Stone %d/%d: %2.3f %2.3f  min:%2.3f\n", i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
 		}
 
 		for i := 0; i <= as.stones; i++ {

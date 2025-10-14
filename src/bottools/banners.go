@@ -343,16 +343,16 @@ func DownloadLatestEggImages(localDownloadDir string) error {
 			// If the file already exists, don't need to download it
 			localFilePath := filepath.Join(localDownloadDir, content.GetName())
 			if _, err := os.Stat(localFilePath); err == nil {
-				//fmt.Printf("File %s already exists, skipping download.\n", localFilePath)
+				//log.Printf("File %s already exists, skipping download.\n", localFilePath)
 				continue
 			}
 
-			fmt.Printf("Downloading %s...\n", content.GetName())
+			log.Printf("Downloading %s...\n", content.GetName())
 
 			// Make an HTTP request to download the file.
 			resp, err := http.Get(downloadURL)
 			if err != nil {
-				fmt.Printf("Error downloading file %s: %v\n", content.GetName(), err)
+				log.Printf("Error downloading file %s: %v\n", content.GetName(), err)
 				continue
 			}
 			defer func() {
@@ -364,7 +364,7 @@ func DownloadLatestEggImages(localDownloadDir string) error {
 
 			outFile, err := os.Create(localFilePath)
 			if err != nil {
-				fmt.Printf("Error creating local file %s: %v\n", localFilePath, err)
+				log.Printf("Error creating local file %s: %v\n", localFilePath, err)
 				continue
 			}
 			defer func() {
@@ -376,10 +376,10 @@ func DownloadLatestEggImages(localDownloadDir string) error {
 
 			// Copy the downloaded content to the local file.
 			if _, err := io.Copy(outFile, resp.Body); err != nil {
-				fmt.Printf("Error writing to file %s: %v\n", localFilePath, err)
+				log.Printf("Error writing to file %s: %v\n", localFilePath, err)
 				continue
 			}
-			fmt.Printf("Successfully downloaded %s.\n", content.GetName())
+			log.Printf("Successfully downloaded %s.\n", content.GetName())
 		}
 	}
 	return nil

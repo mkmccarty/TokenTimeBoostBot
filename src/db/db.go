@@ -53,7 +53,7 @@ func StoreRecord(database string, collection string, key string, document interf
 			log.Print(err)
 		}
 
-		fmt.Printf("Document inserted with ID: %s\n", result.UpsertedID)
+		log.Printf("Document inserted with ID: %s\n", result.UpsertedID)
 	*/
 }
 

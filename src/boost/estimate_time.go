@@ -322,28 +322,28 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 
 		/*
 			if modShip == 1.25 {
-				fmt.Printf("slots: %v\n", slots)
-				fmt.Printf("modELR: %v\n", modELR)
-				fmt.Printf("modShip: %v\n", modShip)
-				fmt.Printf("colELR: %v\n", colELR)
-				fmt.Printf("colShip: %v\n", colShip)
-				fmt.Printf("baseELR: %v\n", baseELR)
-				fmt.Printf("baseShipping: %v\n", baseShipping)
-				fmt.Printf("maxShipping: %v\n", maxShipping)
+				log.Printf("slots: %v\n", slots)
+				log.Printf("modELR: %v\n", modELR)
+				log.Printf("modShip: %v\n", modShip)
+				log.Printf("colELR: %v\n", colELR)
+				log.Printf("colShip: %v\n", colShip)
+				log.Printf("baseELR: %v\n", baseELR)
+				log.Printf("baseShipping: %v\n", baseShipping)
+				log.Printf("maxShipping: %v\n", maxShipping)
 
-				fmt.Printf("contractBaseELR: %v\n", contractBaseELR)
-				fmt.Printf("contractShipCap: %v\n", contractShipCap)
-				fmt.Printf("deflectorMultiplier: %v\n", deflectorMultiplier)
-				fmt.Printf("tachStones: %v\n", tachStones)
-				fmt.Printf("tachBounded: %v\n", tachBounded)
-				fmt.Printf("tachMultiplier: %v\n", tachMultiplier)
-				fmt.Printf("contractELR: %v\n", contractELR)
-				fmt.Printf("boundedELR: %v\n", boundedELR)
+				log.Printf("contractBaseELR: %v\n", contractBaseELR)
+				log.Printf("contractShipCap: %v\n", contractShipCap)
+				log.Printf("deflectorMultiplier: %v\n", deflectorMultiplier)
+				log.Printf("tachStones: %v\n", tachStones)
+				log.Printf("tachBounded: %v\n", tachBounded)
+				log.Printf("tachMultiplier: %v\n", tachMultiplier)
+				log.Printf("contractELR: %v\n", contractELR)
+				log.Printf("boundedELR: %v\n", boundedELR)
 				if est.slots == 8.0 {
-					fmt.Printf("estimateUpper: %v\n", estimateDurationUpper)
+					log.Printf("estimateUpper: %v\n", estimateDurationUpper)
 					fmt.Print("--------------------\n")
 				} else {
-					fmt.Printf("estimateUpper: %v\n", estimateDurationLower)
+					log.Printf("estimateUpper: %v\n", estimateDurationLower)
 				}
 			}
 		*/
