@@ -262,7 +262,7 @@ func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, 
 			break
 		}
 		for j := 0; j < len(multipliers); j++ {
-			//fmt.Printf("%f %f %f %f\n", multipliers[i], multipliers[j], (multipliers[i] * multipliers[j]), shippingRate)
+			//log.Printf("%f %f %f %f\n", multipliers[i], multipliers[j], (multipliers[i] * multipliers[j]), shippingRate)
 			if math.Abs(multipliers[i]*multipliers[j]-shippingRate) < 1e-9 {
 				itemsData[ShipColleggtiblesIndex] = multiplierMap[multipliers[i]]  // ShipColleggtibles
 				itemsData[ShipColleggtibles2Index] = multiplierMap[multipliers[j]] // ShipColleggtibles2

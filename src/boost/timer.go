@@ -33,12 +33,12 @@ func startTimer(s *discordgo.Session, t *BotTimer) {
 		<-t.timer.C
 		u, err := s.UserChannelCreate(t.UserID)
 		if err != nil {
-			fmt.Printf("Error creating user channel: %v\n", err)
+			log.Printf("Error creating user channel: %v\n", err)
 			return
 		}
 		msg, err := s.ChannelMessageSend(u.ID, fmt.Sprintf("%s\nReminder deleting <t:%d:R>", t.Message, time.Now().Add(deleteDuration).Unix()))
 		if err != nil {
-			fmt.Printf("Error sending message: %v\n", err)
+			log.Printf("Error sending message: %v\n", err)
 			return
 		}
 

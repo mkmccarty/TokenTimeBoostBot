@@ -2,6 +2,7 @@ package ei
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"time"
 )
@@ -284,6 +285,13 @@ func GetFarmEarningRates(backup *Backup, deliveryRate float64, artBuffs Dimensio
 		eventMultipler *= currentEarningsEventUltra
 	}
 
+	log.Printf("eggValue: %v\n", eggValue)
+	log.Printf("deliveryRate: %v\n", deliveryRate)
+	log.Printf("earningBonus: %v\n", earningBonus)
+	log.Printf("artBuffs.Earnings: %v\n", artBuffs.Earnings)
+	log.Printf("colBuffs.Earnings: %v\n", colBuffs.Earnings)
+	log.Printf("currentMultiplier: %v\n", currentMultiplier)
+	log.Printf("eventMultipler: %v\n", eventMultipler)
 	onlineBaseline := eggValue * deliveryRate * earningBonus * artBuffs.Earnings * colBuffs.Earnings * currentMultiplier * eventMultipler
 
 	permitLevel := backup.Game.GetPermitLevel()
@@ -291,10 +299,15 @@ func GetFarmEarningRates(backup *Backup, deliveryRate float64, artBuffs Dimensio
 	if permitLevel != 1 {
 		permitMultiplier = 0.5
 	}
+	log.Printf("onlineBaseline: %v\n", onlineBaseline)
+	log.Printf("permitMultiplier: %v\n", permitMultiplier)
+	log.Printf("artBuffs.AwayEarnings: %v\n", artBuffs.AwayEarnings)
+	log.Printf("colBuffs.AwayEarnings: %v\n", colBuffs.AwayEarnings)
 	offline := onlineBaseline *
 		permitMultiplier *
 		artBuffs.AwayEarnings *
 		colBuffs.AwayEarnings
+	log.Printf("offline: %v\n", offline)
 
 	return onlineBaseline, offline
 }

@@ -3,6 +3,7 @@ package bottools
 import (
 	"fmt"
 	"go/format"
+	"log"
 	"os"
 	"reflect"
 	"slices"
@@ -322,6 +323,6 @@ package %s
 		return fmt.Errorf("failed to write snapshot file: %w", err)
 	}
 
-	fmt.Printf("✅ Snapshot file created: %s\n", outputPath)
+	log.Printf("✅ Snapshot file created: %s\n", outputPath)
 	return nil
 }
