@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/fsnotify/fsnotify"
@@ -24,6 +25,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/tasks"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/version"
+	"github.com/natefinch/lumberjack/v3"
 )
 
 const configFileName = "./.config.json"
@@ -935,6 +937,26 @@ func syncCommands(s *discordgo.Session, guildID string, desiredCommandList []*di
 }
 
 func main() {
+
+	l, _ := lumberjack.NewRoller(
+		"ttbb-data/BoostBot.log",
+		1*1024*1024, // 1 megabyte
+		&lumberjack.Options{
+			MaxBackups: 12,
+			MaxAge:     28 * time.Hour * 24, // 28 days
+			Compress:   false,
+		})
+	log.SetOutput(l)
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGHUP)
+
+	go func() {
+		for {
+			<-c
+			l.Rotate()
+		}
+	}()
+
 	/*
 		go func() {
 			log.Println(http.ListenAndServe("localhost:6060", nil))

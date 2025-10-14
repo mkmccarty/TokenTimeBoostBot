@@ -10,6 +10,7 @@ require (
 	github.com/google/go-github/v33 v33.0.0
 	github.com/jasonlvhit/gocron v0.0.1
 	github.com/moby/moby v28.5.1+incompatible
+	github.com/natefinch/lumberjack/v3 v3.0.0-alpha
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/pkg/errors v0.9.1
 	github.com/rs/xid v1.6.0
