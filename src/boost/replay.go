@@ -320,7 +320,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 			if contractID != contractIDParam {
 				continue
 			}
-			if c.ContractVersion == 2 && c.ValidUntil.Unix() > time.Now().Unix() {
+			if c.ContractVersion == 2 { //&& c.ValidUntil.Unix() > time.Now().Unix() {
 				artifactIcons := ""
 				teamworkIcons := []string{}
 				log.Printf("Evaluating contract %s coop %s for user %s\n", contractID, coopID, eiUserName)

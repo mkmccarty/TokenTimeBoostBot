@@ -353,7 +353,7 @@ var (
 			boost.HandleContractAutoComplete(s, i)
 		},
 		slashRerunEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleContractAutoComplete(s, i)
+			boost.HandleAllContractsAutoComplete(s, i)
 		},
 		slashAdminGetContractData: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleCoopAutoComplete(s, i)
