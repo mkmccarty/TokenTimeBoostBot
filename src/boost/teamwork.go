@@ -1166,9 +1166,9 @@ func determinePostSiabRateOrig(future DeliveryTimeValue, stoneSlots int, farmCap
 		elr := futureELR * tach
 		sr := futureSR * quant
 		calcDelivery := min(sr, elr)
-		if config.IsDevBot() {
-			fmt.Printf("T/Q: %d/%d ELR: %f  SR: %f  DLV:%f,  maxDeliv: %f\n", stoneSlots-i, i, elr/1e15, sr/1e15, calcDelivery/1e15, maxDelivery/1e15)
-		}
+		//if config.IsDevBot() {
+		//	fmt.Printf("T/Q: %d/%d ELR: %f  SR: %f  DLV:%f,  maxDeliv: %f\n", stoneSlots-i, i, elr/1e15, sr/1e15, calcDelivery/1e15, maxDelivery/1e15)
+		//}
 		if calcDelivery > maxDelivery {
 			maxDelivery = calcDelivery
 		}

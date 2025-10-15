@@ -1,7 +1,6 @@
 package ei
 
 import (
-	"fmt"
 	"log"
 	"math"
 	"time"
@@ -229,9 +228,9 @@ func TimeToDeliverEggs(initialPop, maxPop, growthRatePerMinute, layingRatePerHou
 	growthRatePerStep := growthRatePerMinute * timeStepMinutes
 
 	// Check if the shipping rate is sustainable
-	if layingRatePerHour*maxPop < shippingRatePerHour {
-		fmt.Println("Warning: Shipping rate is higher than the maximum possible laying rate. The target may never be reached.")
-	}
+	//if layingRatePerHour*maxPop < shippingRatePerHour {
+	//	fmt.Println("Warning: Shipping rate is higher than the maximum possible laying rate. The target may never be reached.")
+	//}
 
 	totalTimeMinutes := 0.0
 	totalEggsDelivered := 0.0
