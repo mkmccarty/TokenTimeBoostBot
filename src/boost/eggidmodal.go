@@ -113,7 +113,7 @@ func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate
 			str = "Invalid ID provided."
 			break
 		}
-		Virtue(s, i, percent, encryptedID, okayToSave)
+		Virtue(s, i, percent, -1, encryptedID, okayToSave)
 		return
 	default:
 	}
