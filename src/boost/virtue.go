@@ -64,6 +64,34 @@ func GetSlashVirtueCommand(cmd string) *discordgo.ApplicationCommand {
 		},
 		Options: []*discordgo.ApplicationCommandOption{
 			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "simulate-shift",
+				Description: "What does a 0 pop shift look like for this egg?",
+				Choices: []*discordgo.ApplicationCommandOptionChoice{
+					{
+						Name:  "Curiosity",
+						Value: 50,
+					},
+					{
+						Name:  "Integrity",
+						Value: 51,
+					},
+					{
+						Name:  "Humility",
+						Value: 52,
+					},
+					{
+						Name:  "Resilience",
+						Value: 53,
+					},
+					{
+						Name:  "Kindness",
+						Value: 54,
+					},
+				},
+				Required: false,
+			},
+			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "reset",
 				Description: "Reset stored EI number",
@@ -77,6 +105,7 @@ func GetSlashVirtueCommand(cmd string) *discordgo.ApplicationCommand {
 func HandleVirtue(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	userID := bottools.GetInteractionUserID(i)
 	percent := -1
+	alternateEgg := ei.Egg(-1)
 
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
@@ -89,14 +118,17 @@ func HandleVirtue(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
 		}
 	}
+	if opt, ok := optionMap["simulate-shift"]; ok {
+		alternateEgg = ei.Egg(opt.IntValue())
+	}
 
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 
-	Virtue(s, i, percent, eiID, true)
+	Virtue(s, i, percent, alternateEgg, eiID, true)
 }
 
 // Virtue processes the virtue command
-func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, percent int, eiID string, okayToSave bool) {
+func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, percent int, alternateEgg ei.Egg, eiID string, okayToSave bool) {
 	var components []discordgo.MessageComponent
 
 	// Get the Egg Inc ID from the stored settings
@@ -147,7 +179,7 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, percent int, e
 	if farm != nil {
 		farmType := farm.GetFarmType()
 		if farmType == ei.FarmType_HOME {
-			components = printVirtue(backup)
+			components = printVirtue(backup, alternateEgg)
 		}
 	}
 	if len(components) == 0 {
@@ -162,10 +194,11 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, percent int, e
 
 }
 
-func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
+func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComponent {
 	var components []discordgo.MessageComponent
 	divider := true
 	spacing := discordgo.SeparatorSpacingSizeSmall
+	virtueEggs := []string{"CURIOSITY", "INTEGRITY", "HUMILITY", "RESILIENCE", "KINDNESS"}
 
 	farm := backup.GetFarms()[0]
 	eggType := farm.GetEggType()
@@ -192,6 +225,9 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	shiftCost := getShiftCost(virtue.GetShiftCount(), se)
 
 	fmt.Fprint(&header, "# Eggs of Virtue Helper\n")
+	if alternateEgg != -1 {
+		fmt.Fprintf(&header, "## Simulating a shift to %s\n", strings.Title(strings.ToLower(virtueEggs[alternateEgg-50])))
+	}
 	fmt.Fprintf(&header, "**__%s the Ascender__**\n", backup.GetUserName())
 	fmt.Fprintf(&header, "**Resets**: %d  **Shifts**: %d  %s%s\n",
 		virtue.GetResets(),
@@ -211,7 +247,6 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 	DepotArt := ei.GetBotEmojiMarkdown("depot")
 	//fmt.Fprintf(&builder, "Inventory Score %.0f\n", virtue.GetAfx().GetInventoryScore())
-	virtueEggs := []string{"CURIOSITY", "INTEGRITY", "HUMILITY", "RESILIENCE", "KINDNESS"}
 	eggEffects := []string{"🔬", habArt, craftArt, ei.GetBotEmojiMarkdown("silo"), VehicleArt}
 	// Use highest Hab for Hab emoji
 
@@ -232,12 +267,22 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 		eovPending := pendingTruthEggs(delivered, eov)
 		nextTier := nextTruthEggThreshold(delivered, eov)
 		selected := ""
-		if eggType == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
-			selected = " (farm)"
-			selectedEggIndex = i
-			selectedTarget = nextTier
-			selectedDelivered = delivered
-			selectedEggEmote = ei.GetBotEmojiMarkdown("egg_" + strings.ToLower(egg))
+		if alternateEgg != -1 {
+			if alternateEgg == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
+				selected = " (simulated)"
+				selectedEggIndex = i
+				selectedTarget = nextTier
+				selectedDelivered = delivered
+				selectedEggEmote = ei.GetBotEmojiMarkdown("egg_" + strings.ToLower(egg))
+			}
+		} else {
+			if eggType == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
+				selected = " (farm)"
+				selectedEggIndex = i
+				selectedTarget = nextTier
+				selectedDelivered = delivered
+				selectedEggEmote = ei.GetBotEmojiMarkdown("egg_" + strings.ToLower(egg))
+			}
 		}
 
 		allEov += max(eovEarned-eovPending, 0)
@@ -303,6 +348,11 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 	shippingRate := ei.GetShippingRateFromBackup(farm, backup.GetGame())
 	eggLayingRate, habPop, habCap := ei.GetEggLayingRateFromBackup(farm, backup.GetGame())
+	if alternateEgg != -1 {
+		eggLayingRate /= habPop // Remove population from the ELR
+		habPop = 1000
+		eggLayingRate *= habPop // Reset to 0 for new egg
+	}
 	//deliveryRate := math.Min(eggLayingRate, shippingRate)
 	eggLayingRate *= artifactBuffs.ELR * colBuffs.ELR
 	shippingRate *= artifactBuffs.SR * colBuffs.SR
@@ -372,6 +422,9 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 	remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, selectedTarget-selectedDelivered)
 	adjustedRemainingTime := remainingTime - elapsed
 	offlineEggs := min(eggLayingRate, shippingRate) * (elapsed / 3600)
+	if alternateEgg != -1 {
+		offlineEggs = 0
+	}
 
 	if onVirtueFarm {
 		fmt.Fprintf(&stats, "%s %s\n", VehicleArray, strings.Join(habArray, ""))
@@ -472,7 +525,7 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 
 			loopCount++
 			// Stop if remainingTime is -1 or adjustedRemainingTime is more than 2 weeks (1209600 seconds), or after 5 iterations to avoid infinite loop
-			if remainingTime == -1.0 || (adjustedRemainingTime > 1209600 && loopCount > 1) || loopCount >= 8 {
+			if remainingTime == -1.0 || (adjustedRemainingTime > 1209600 && loopCount > 1) || loopCount >= 9 {
 				break
 			}
 			header.WriteString("\n")
@@ -480,7 +533,9 @@ func printVirtue(backup *ei.Backup) []discordgo.MessageComponent {
 			prefix = "-# "
 		}
 
-		fmt.Fprintf(&header, "\n-# includes %s offline eggs", ei.FormatEIValue(offlineEggs, map[string]interface{}{"decimals": 3, "trim": true}))
+		if offlineEggs > 0 {
+			fmt.Fprintf(&header, "\n-# includes %s offline eggs", ei.FormatEIValue(offlineEggs, map[string]interface{}{"decimals": 3, "trim": true}))
+		}
 	} else {
 		fmt.Fprint(&header, "**Ascend to visit your Eggs of Virtue farm.**")
 	}
