@@ -45,12 +45,20 @@ func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.Interacti
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 	for _, opt := range options {
-		optionMap[opt.Name] = opt
+		if opt.Type == discordgo.ApplicationCommandOptionSubCommand {
+			for _, subOpt := range opt.Options {
+				optionMap[opt.Name+"-"+subOpt.Name] = subOpt
+			}
+			optionMap[opt.Name] = opt
+		}
 	}
 
 	searchString := ""
 
 	if opt, ok := optionMap["contract-id"]; ok {
+		searchString = opt.StringValue()
+	}
+	if opt, ok := optionMap["active-contract-id"]; ok {
 		searchString = opt.StringValue()
 	}
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
