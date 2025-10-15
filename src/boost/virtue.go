@@ -353,7 +353,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 	eggLayingRate, habPop, habCap := ei.GetEggLayingRateFromBackup(farm, backup.GetGame())
 	if alternateEgg != -1 {
 		eggLayingRate /= habPop // Remove population from the ELR
-		habPop = 1000
+		habPop = math.Min(1, habCap)
 		eggLayingRate *= habPop // Reset to 0 for new egg
 	}
 	//deliveryRate := math.Min(eggLayingRate, shippingRate)
