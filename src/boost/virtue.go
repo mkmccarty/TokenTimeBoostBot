@@ -13,6 +13,8 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -226,7 +228,8 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 
 	fmt.Fprint(&header, "# Eggs of Virtue Helper\n")
 	if alternateEgg != -1 {
-		fmt.Fprintf(&header, "## Simulating a shift to %s\n", strings.Title(strings.ToLower(virtueEggs[alternateEgg-50])))
+		c := cases.Title(language.Und)
+		fmt.Fprintf(&header, "## Simulating a shift to %s\n", c.String(strings.ToLower(virtueEggs[alternateEgg-50])))
 	}
 	fmt.Fprintf(&header, "**__%s the Ascender__**\n", backup.GetUserName())
 	fmt.Fprintf(&header, "**Resets**: %d  **Shifts**: %d  %s%s\n",
