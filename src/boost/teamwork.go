@@ -157,7 +157,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		},
 	})
 
-	// Unser contractID and coopID means we want the Boost Bot contract
+	// Unset contractID and coopID means we want the Boost Bot contract
 	if contractID == "" || coopID == "" {
 		contract := FindContract(i.ChannelID)
 		if contract == nil {

@@ -162,7 +162,7 @@ func RedactUserInfo(s, eiUserID string) string {
 }
 
 // GetContractArchiveFromAPI will download the events from the Egg Inc API
-func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID string, okayToSave bool) ([]*LocalContract, bool) {
+func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID string, forceRefresh bool, okayToSave bool) ([]*LocalContract, bool) {
 	reqURL := "https://www.auxbrain.com/ei_ctx/get_contracts_archive"
 	enc := base64.StdEncoding
 	clientVersion := uint32(99)
@@ -171,7 +171,7 @@ func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID 
 
 	if fileInfo, err := os.Stat("ttbb-data/eiuserdata/archive-" + discordID + ".pb"); err == nil {
 		// File exists, check if it's within 1 hour
-		if time.Since(fileInfo.ModTime()) <= 1*time.Hour {
+		if !forceRefresh && time.Since(fileInfo.ModTime()) <= 1*time.Hour {
 			// File is recent, load it
 			data, err := os.ReadFile("ttbb-data/eiuserdata/archive-" + discordID + ".pb")
 			if err == nil {

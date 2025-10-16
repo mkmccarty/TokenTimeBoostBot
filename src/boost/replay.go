@@ -47,12 +47,26 @@ func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
 						Required:     true,
 						Autocomplete: true,
 					},
+					{
+						Type:        discordgo.ApplicationCommandOptionBoolean,
+						Name:        "refresh",
+						Description: "If you want to force a refresh due a recent change to your contracts.",
+						Required:    false,
+					},
 				},
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        "chart",
 				Description: "Summary chart of active contracts evaluations",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:        discordgo.ApplicationCommandOptionBoolean,
+						Name:        "refresh",
+						Description: "If you want to force a refresh due a recent change to your contracts.",
+						Required:    false,
+					},
+				},
 			},
 			/*
 				{
@@ -110,12 +124,19 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap 
 
 	percent := -1
 	contractID := ""
+	forceRefresh := false
 
 	if opt, ok := optionMap["threshold-percent"]; ok {
 		percent = int(opt.UintValue())
 	}
 	if opt, ok := optionMap["active-contract-id"]; ok {
 		contractID = opt.StringValue()
+	}
+	if opt, ok := optionMap["chart-refresh"]; ok {
+		forceRefresh = opt.BoolValue()
+	}
+	if opt, ok := optionMap["active-refresh"]; ok {
+		forceRefresh = opt.BoolValue()
 	}
 
 	// Quick reply to buy us some time
@@ -138,7 +159,7 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap 
 			farmerstate.SetMiscSettingString(userID, "ei_ign", farmerName)
 		}
 	}
-	archive, cached := ei.GetContractArchiveFromAPI(s, eggIncID, userID, okayToSave)
+	archive, cached := ei.GetContractArchiveFromAPI(s, eggIncID, userID, forceRefresh, okayToSave)
 
 	cxpVersion := ""
 	for _, c := range archive {
