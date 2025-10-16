@@ -111,13 +111,13 @@ func GetCommandOptionsMap(options []*discordgo.ApplicationCommandInteractionData
 // HandleReplayEval handles the /replay-eval command
 func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	userID := bottools.GetInteractionUserID(i)
-	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 	optionMap := bottools.GetCommandOptionsMap(i)
 	if opt, ok := optionMap["reset"]; ok {
 		if opt.BoolValue() {
 			farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
 		}
 	}
+	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 	ReplayEval(s, i, optionMap, eiID, true)
 }
 
