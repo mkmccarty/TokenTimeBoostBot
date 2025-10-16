@@ -37,14 +37,10 @@ func GetSlashCoopTval(cmd string) *discordgo.ApplicationCommand {
 
 // HandleCoopTvalCommand will handle the /contract-token-tval command
 func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	// User interacting with bot, is this first time ?
 	command := i.ApplicationCommandData().Name
 
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
+
 	invalidDuration := false
 	channelID := i.ChannelID
 	contract := FindContract(channelID)

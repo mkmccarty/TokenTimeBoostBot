@@ -137,12 +137,11 @@ func GetCommandOptionsMap(i *discordgo.InteractionCreate) map[string]*discordgo.
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 	for _, opt := range options {
+		optionMap[opt.Name] = opt
 		if opt.Type == discordgo.ApplicationCommandOptionSubCommand {
 			for _, subOpt := range opt.Options {
 				optionMap[opt.Name+"-"+subOpt.Name] = subOpt
 			}
-		} else {
-			optionMap[opt.Name] = opt
 		}
 	}
 	return optionMap

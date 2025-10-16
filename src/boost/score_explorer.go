@@ -117,7 +117,7 @@ func GetSlashScoreExplorerCommand(cmd string) *discordgo.ApplicationCommand {
 }
 
 // HandleScoreExplorerCommand will handle the /playground command
-func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) { // User interacting with bot, is this first time ?
+func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	optionMap := bottools.GetCommandOptionsMap(i)
 
 	flags := discordgo.MessageFlagsEphemeral

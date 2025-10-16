@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 
 	"github.com/bwmarrin/discordgo"
@@ -12,7 +13,6 @@ import (
 
 // HandleContractAutoComplete will handle the contract auto complete of contract-id's
 func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	// User interacting with bot, is this first time ?
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
 	for _, c := range ei.EggIncContracts {
 		ultra := ""
@@ -42,16 +42,7 @@ func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCr
 // default to new contracts but allow searching all contracts
 func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		if opt.Type == discordgo.ApplicationCommandOptionSubCommand {
-			for _, subOpt := range opt.Options {
-				optionMap[opt.Name+"-"+subOpt.Name] = subOpt
-			}
-			optionMap[opt.Name] = opt
-		}
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 
 	searchString := ""
 

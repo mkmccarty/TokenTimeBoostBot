@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 )
 
 // GetSlashVolunteerSink is used to volunteer as token sink for a contract
@@ -46,15 +47,10 @@ func GetSlashVoluntellSink(cmd string) *discordgo.ApplicationCommand {
 
 // HandleSlashVolunteerSinkCommand is used to volunteer as token sink for a contract
 func HandleSlashVolunteerSinkCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	// User interacting with bot, is this first time ?
 	str := "Volunteering as token sink for this contract. It will show up on the next boost list refresh."
 	confirm := false
 
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 	if opt, ok := optionMap["confirm"]; ok {
 		confirm = opt.BoolValue()
 	}
@@ -110,14 +106,9 @@ func HandleSlashVolunteerSinkCommand(s *discordgo.Session, i *discordgo.Interact
 
 // HandleSlashVoluntellSinkCommand is used to volunteer as token sink for a contract
 func HandleSlashVoluntellSinkCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	// User interacting with bot, is this first time ?
 	str := "Voluntell as token sink for this contract. It will show up on the next boost list refresh."
 
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 
 	var VoluntellName string
 	confirm := false

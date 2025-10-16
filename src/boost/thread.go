@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 )
 
 // GetSlashRenameThread is the definition of the slash command
@@ -37,12 +38,7 @@ func GetSlashRenameThread(cmd string) *discordgo.ApplicationCommand {
 // HandleRenameThreadCommand will handle the thread rename command
 func HandleRenameThreadCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	//var builder strings.Builder
-	// User interacting with bot, is this first time ?
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 
 	var threadName string
 	var builder strings.Builder
