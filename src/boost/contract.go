@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 
@@ -205,12 +206,8 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	progenitors := []string{i.Member.User.ID}
 	plannedStartTime := time.Time{}
 
-	// User interacting with bot, is this first time ?
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
+
 	if opt, ok := optionMap["play-style"]; ok {
 		playStyle = int(opt.IntValue())
 	}

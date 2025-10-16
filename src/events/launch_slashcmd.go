@@ -184,13 +184,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	var components []discordgo.MessageComponent
 
-	// User interacting with bot, is this first time ?
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
-
+	optionMap := bottools.GetCommandOptionsMap(i)
 	if opt, ok := optionMap["primary-ship"]; ok {
 		selectedShipPrimary = int(opt.IntValue())
 		farmerstate.SetMissionShipPrimary(userID, selectedShipPrimary)

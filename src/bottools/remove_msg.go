@@ -35,12 +35,7 @@ func GetSlashRemoveMessage(cmd string) *discordgo.ApplicationCommand {
 
 // HandleRemoveMessageCommand handles the remove message command.
 func HandleRemoveMessageCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	// User interacting with bot, is this first time ?
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := GetCommandOptionsMap(i)
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
