@@ -138,12 +138,7 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	var message string
 
-	// User interacting with bot, is this first time ?
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 
 	if opt, ok := optionMap["message"]; ok {
 		message = fmt.Sprintf("%s <#%s>", opt.StringValue(), i.ChannelID)

@@ -43,12 +43,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	//var builder strings.Builder
 	var contractID = ""
 	var str = ""
-	// User interacting with bot, is this first time ?
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 
 	if opt, ok := optionMap["contract-id"]; ok {
 		contractID = opt.StringValue()

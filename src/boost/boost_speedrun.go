@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 )
 
 var integerZeroMinValue float64 = 0.0
@@ -101,11 +102,7 @@ func HandleChangeSpeedrunSinkCommand(s *discordgo.Session, i *discordgo.Interact
 
 	sinkBoost := ""
 	sinkPost := ""
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 
 	if opt, ok := optionMap["sink-boosting"]; ok {
 		sinkBoost = strings.TrimSpace(opt.StringValue())
@@ -156,11 +153,7 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	sinkPost := ""
 	sinkPosition := SinkBoostFirst
 
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 
 	if opt, ok := optionMap["sink-boosting"]; ok {
 		sinkPost = strings.TrimSpace(opt.StringValue())

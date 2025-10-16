@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/rs/xid"
@@ -117,11 +118,7 @@ func GetSlashScoreExplorerCommand(cmd string) *discordgo.ApplicationCommand {
 
 // HandleScoreExplorerCommand will handle the /playground command
 func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) { // User interacting with bot, is this first time ?
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 
 	flags := discordgo.MessageFlagsEphemeral
 	grade := ei.Contract_PlayerGrade(ei.Contract_GRADE_AAA)

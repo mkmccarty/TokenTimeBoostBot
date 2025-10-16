@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -173,12 +174,7 @@ func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var contractID = ""
 	var coopID = ""
 	var coordinatorID = ""
-	// User interacting with bot, is this first time ?
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 
 	if opt, ok := optionMap["contract-id"]; ok {
 		contractID = opt.StringValue()
@@ -270,11 +266,7 @@ func HandleChangeOneBoosterCommand(s *discordgo.Session, i *discordgo.Interactio
 	}
 
 	var str = ""
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 
 	var err error
 	contract := FindContract(i.ChannelID)
@@ -403,12 +395,7 @@ func HandleChangePingRoleCommand(s *discordgo.Session, i *discordgo.InteractionC
 		// Default to @here when there is no parameter
 		//newRole := "@here"
 
-		options := i.ApplicationCommandData().Options
-		optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-		for _, opt := range options {
-			optionMap[opt.Name] = opt
-		}
-
+		//optionMap := bottools.GetCommandOptionsMap(i)
 		/*
 			if opt, ok := optionMap["ping-role"]; ok {
 				role := opt.RoleValue(nil, "")
@@ -473,13 +460,8 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 	if str == "" {
 		// Default to @here when there is no parameter
 
-		options := i.ApplicationCommandData().Options
-		optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-		for _, opt := range options {
-			if opt.Type == discordgo.ApplicationCommandOptionSubCommand {
-				optionMap[opt.Options[0].Name] = opt.Options[0] // Get the first option of the subcommand
-			}
-		}
+		optionMap := bottools.GetCommandOptionsMap(i)
+
 		if opt, ok := optionMap["relative-time"]; ok {
 			var startTime int64
 			var err error
@@ -875,11 +857,7 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 		// Default to @here when there is no parameter
 		newAlt := ""
 
-		options := i.ApplicationCommandData().Options
-		optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-		for _, opt := range options {
-			optionMap[opt.Name] = opt
-		}
+		optionMap := bottools.GetCommandOptionsMap(i)
 
 		if opt, ok := optionMap["farmer-name"]; ok {
 			newAlt = strings.TrimSpace(opt.StringValue())

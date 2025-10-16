@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
@@ -53,12 +54,7 @@ func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 
 	var contractID string
 	var coopID string
-	// User interacting with bot, is this first time ?
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 
 	if opt, ok := optionMap["contract-id"]; ok {
 		contractID = strings.ToLower(opt.StringValue())
