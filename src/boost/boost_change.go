@@ -391,31 +391,31 @@ func HandleChangePingRoleCommand(s *discordgo.Session, i *discordgo.InteractionC
 	}
 
 	// No error string means we are good to go
-	if str == "" {
-		// Default to @here when there is no parameter
-		//newRole := "@here"
+	//if str == "" {
+	// Default to @here when there is no parameter
+	//newRole := "@here"
 
-		//optionMap := bottools.GetCommandOptionsMap(i)
-		/*
-			if opt, ok := optionMap["ping-role"]; ok {
-				role := opt.RoleValue(nil, "")
-				newRole = role.Mention()
-			}
+	//optionMap := bottools.GetCommandOptionsMap(i)
+	/*
+		if opt, ok := optionMap["ping-role"]; ok {
+			role := opt.RoleValue(nil, "")
+			newRole = role.Mention()
+		}
 
-				for _, loc := range contract.Location {
-					if loc.ChannelID == i.ChannelID {
-						if loc.ChannelPing == newRole {
-							str = "Ping role already set to " + newRole
-							break
-						}
-						loc.ChannelPing = newRole
-						str = "Ping role changed to " + newRole
-						_, _ = s.ChannelMessageSend(i.ChannelID, str)
+			for _, loc := range contract.Location {
+				if loc.ChannelID == i.ChannelID {
+					if loc.ChannelPing == newRole {
+						str = "Ping role already set to " + newRole
 						break
 					}
+					loc.ChannelPing = newRole
+					str = "Ping role changed to " + newRole
+					_, _ = s.ChannelMessageSend(i.ChannelID, str)
+					break
 				}
-		*/
-	}
+			}
+	*/
+	//}
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
