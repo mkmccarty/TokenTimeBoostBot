@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -65,11 +66,7 @@ func SlashAdminListRoles(cmd string) *discordgo.ApplicationCommand {
 func HandleAdminListRoles(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var contractID string
 	var builder strings.Builder
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 	if opt, ok := optionMap["contract-id"]; ok {
 		contractID = strings.TrimSpace(opt.StringValue())
 	}
@@ -126,11 +123,7 @@ func HandleAdminListRoles(s *discordgo.Session, i *discordgo.InteractionCreate) 
 // HandleAdminContractFinish is called when the contract is complete
 func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	contractHash := ""
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 
 	if opt, ok := optionMap["contract-hash"]; ok {
 		contractHash = strings.TrimSpace(opt.StringValue())
@@ -296,12 +289,7 @@ func finishContractByHash(s *discordgo.Session, contractHash string) error {
 
 // HandleCoopAutoComplete will handle the contract auto complete of contract-id's
 func HandleCoopAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	// User interacting with bot, is this first time ?
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 
 	contractID := ""
 	coopID := ""
@@ -345,11 +333,7 @@ func HandleCoopAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate
 
 // HandleAdminGetContractData get JSON data about a contract given the contract and coop id
 func HandleAdminGetContractData(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 	var contractID string
 	var coopID string
 
