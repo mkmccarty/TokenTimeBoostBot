@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 // FmtDuration formats a time.Duration into a human readable string
@@ -126,4 +128,22 @@ func AlignString(str string, width int, alignment StringAlign) string {
 	}
 
 	return leftPadding + str + rightPadding
+}
+
+// GetCommandOptionsMap returns a map of command options
+// subcommand options are stored as "subcommand-option"
+func GetCommandOptionsMap(i *discordgo.InteractionCreate) map[string]*discordgo.ApplicationCommandInteractionDataOption {
+
+	options := i.ApplicationCommandData().Options
+	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+	for _, opt := range options {
+		if opt.Type == discordgo.ApplicationCommandOptionSubCommand {
+			for _, subOpt := range opt.Options {
+				optionMap[opt.Name+"-"+subOpt.Name] = subOpt
+			}
+		} else {
+			optionMap[opt.Name] = opt
+		}
+	}
+	return optionMap
 }

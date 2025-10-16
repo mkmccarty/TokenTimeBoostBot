@@ -3,7 +3,6 @@ package boost
 import (
 	"encoding/base64"
 	"log"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -14,8 +13,16 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+var optionMapCache = make(map[string]map[string]*discordgo.ApplicationCommandInteractionDataOption)
+
+// I want a map from a string to map[string]*discordgo.ApplicationCommandInteractionDataOption
+//optionMapCache := make(map[string]map[string]*discordgo.ApplicationCommandInteractionDataOption)
+
 // RequestEggIncIDModal sends a modal to the user requesting their Egg Inc ID
-func RequestEggIncIDModal(s *discordgo.Session, i *discordgo.InteractionCreate, action string) {
+func RequestEggIncIDModal(s *discordgo.Session, i *discordgo.InteractionCreate, action string, optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption) {
+	userID := bottools.GetInteractionUserID(i)
+	optionMapCache[userID] = optionMap
+
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseModal,
 		Data: &discordgo.InteractionResponseData{
@@ -87,6 +94,9 @@ func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	}
 
+	optionMap := optionMapCache[userID]
+	delete(optionMapCache, userID)
+
 	parts := strings.Split(modalData.CustomID, "#")
 	switch parts[1] {
 	case "replay":
@@ -94,26 +104,14 @@ func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate
 			str = "You must provide a valid Egg Inc ID to proceed."
 			break
 		}
-
-		percent, err := strconv.Atoi(parts[2])
-		if err != nil {
-			str = "Invalid percent provided."
-			break
-		}
-		ReplayEval(s, i, percent, encryptedID, parts[3], okayToSave)
+		ReplayEval(s, i, optionMap, encryptedID, okayToSave)
 		return
 	case "virtue":
 		if encryptedID == "" {
 			str = "You must provide a valid Egg Inc ID to proceed."
 			break
 		}
-
-		percent, err := strconv.Atoi(parts[2])
-		if err != nil {
-			str = "Invalid ID provided."
-			break
-		}
-		Virtue(s, i, percent, -1, encryptedID, okayToSave)
+		Virtue(s, i, optionMap, encryptedID, okayToSave)
 		return
 	default:
 	}

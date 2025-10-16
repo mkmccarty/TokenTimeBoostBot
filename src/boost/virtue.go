@@ -106,32 +106,28 @@ func GetSlashVirtueCommand(cmd string) *discordgo.ApplicationCommand {
 // HandleVirtue handles the /virtue command
 func HandleVirtue(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	userID := bottools.GetInteractionUserID(i)
-	percent := -1
-	alternateEgg := ei.Egg(-1)
 
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
-
+	optionMap := bottools.GetCommandOptionsMap(i)
 	if opt, ok := optionMap["reset"]; ok {
 		if opt.BoolValue() {
 			farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
 		}
 	}
-	if opt, ok := optionMap["simulate-shift"]; ok {
-		alternateEgg = ei.Egg(opt.IntValue())
-	}
 
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 
-	Virtue(s, i, percent, alternateEgg, eiID, true)
+	Virtue(s, i, optionMap, eiID, true)
 }
 
 // Virtue processes the virtue command
-func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, percent int, alternateEgg ei.Egg, eiID string, okayToSave bool) {
+func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption, eiID string, okayToSave bool) {
+	userID := bottools.GetInteractionUserID(i)
+	alternateEgg := ei.Egg(-1)
 	var components []discordgo.MessageComponent
+
+	if opt, ok := optionMap["simulate-shift"]; ok {
+		alternateEgg = ei.Egg(opt.IntValue())
+	}
 
 	// Get the Egg Inc ID from the stored settings
 	eggIncID := ""
@@ -146,7 +142,7 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, percent int, a
 		}
 	}
 	if eggIncID == "" || len(eggIncID) != 18 || eggIncID[:2] != "EI" {
-		RequestEggIncIDModal(s, i, fmt.Sprintf("virtue#%d", 0))
+		RequestEggIncIDModal(s, i, "virtue", optionMap)
 		return
 	}
 
@@ -164,8 +160,6 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, percent int, a
 			Flags:   flags,
 		},
 	})
-
-	userID := bottools.GetInteractionUserID(i)
 
 	backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, okayToSave)
 
