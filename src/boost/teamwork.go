@@ -105,12 +105,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	var coopID string
 	var eggign string
 	scoresFirst := false
-	// User interacting with bot, is this first time ?
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 
 	if opt, ok := optionMap["egginc-ign"]; ok {
 		eggign = strings.ToLower(opt.StringValue())

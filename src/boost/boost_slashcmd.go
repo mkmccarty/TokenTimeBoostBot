@@ -87,11 +87,7 @@ func HandleUnboostCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	}
 	var str string
 	var farmer = ""
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 
 	if opt, ok := optionMap["farmer"]; ok {
 		farmer = opt.StringValue()
@@ -160,12 +156,7 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var str = "Joining Member"
 	var tokenWant = 0
 
-	// User interacting with bot, is this first time ?
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 
 	if opt, ok := optionMap["farmer"]; ok {
 		farmerName := opt.StringValue()
@@ -241,11 +232,7 @@ func HandlePruneCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var str = "Prune Booster"
 	var farmer = ""
 
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 
 	if opt, ok := optionMap["farmer"]; ok {
 		farmer = opt.StringValue()
@@ -287,13 +274,7 @@ func HandleCoopETACommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	var t = time.Now()
 	var timespan = ""
 
-	// User interacting with bot, is this first time ?
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
-
+	optionMap := bottools.GetCommandOptionsMap(i)
 	if opt, ok := optionMap["rate"]; ok {
 		rate = opt.StringValue()
 	}
@@ -394,7 +375,6 @@ func HandleToggleContractPingsCommand(s *discordgo.Session, i *discordgo.Interac
 
 // HandleTokenListAutoComplete will handle the /token-remove autocomplete
 func HandleTokenListAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) (string, []*discordgo.ApplicationCommandOptionChoice) {
-	// User interacting with bot, is this first time ?
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
 
 	c := FindContract(i.ChannelID)
@@ -414,14 +394,9 @@ func HandleTokenListAutoComplete(s *discordgo.Session, i *discordgo.InteractionC
 
 // HandleTokenIDAutoComplete will handle the /token-edit token-id autocomplete
 func HandleTokenIDAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) (string, []*discordgo.ApplicationCommandOptionChoice) {
-	// User interacting with bot, is this first time ?
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
 
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	//optionMap := bottools.GetCommandOptionsMap(i)
 	c := FindContract(i.ChannelID)
 
 	if c == nil {
@@ -456,11 +431,8 @@ func HandleTokenIDAutoComplete(s *discordgo.Session, i *discordgo.InteractionCre
 func HandleTokenReceiverAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) (string, []*discordgo.ApplicationCommandOptionChoice) {
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
 
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
+
 	c := FindContract(i.ChannelID)
 	if c == nil {
 		return "Contract not found.", choices
@@ -514,12 +486,8 @@ func HandleTokenReceiverAutoComplete(s *discordgo.Session, i *discordgo.Interact
 
 // HandleTokenEditCommand will handle the /token-edit command
 func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate) string {
-	// User interacting with bot, is this first time ?
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
+
 	userID := getInteractionUserID(i)
 	c := FindContract(i.ChannelID)
 	if c == nil {

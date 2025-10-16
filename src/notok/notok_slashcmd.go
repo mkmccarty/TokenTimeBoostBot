@@ -2,6 +2,7 @@ package notok
 
 import (
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 )
 
 var integerFunMinValue float64 = 20.0
@@ -77,12 +78,7 @@ func FunHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var gptOption = int64(0)
 	var gptText = ""
 
-	// User interacting with bot, is this first time ?
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
+	optionMap := bottools.GetCommandOptionsMap(i)
 
 	if opt, ok := optionMap["action"]; ok {
 		gptOption = opt.IntValue()
