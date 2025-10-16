@@ -92,14 +92,10 @@ func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
 	}
 }
 
-// HandleReplayEval handles the /replay-eval command
-func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	userID := bottools.GetInteractionUserID(i)
-	onlyActiveContracts := false
-	percent := -1
-	contractID := ""
+// GetCommandOptionsMap returns a map of command options
+// subcommand options are stored as "subcommand-option"
+func GetCommandOptionsMap(options []*discordgo.ApplicationCommandInteractionDataOption) map[string]*discordgo.ApplicationCommandInteractionDataOption {
 
-	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 	for _, opt := range options {
 		if opt.Type == discordgo.ApplicationCommandOptionSubCommand {
@@ -109,30 +105,24 @@ func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			optionMap[opt.Name] = opt
 		}
 	}
+	return optionMap
+}
 
-	if _, ok := optionMap["chart"]; ok {
-		// No parameters on this
-		onlyActiveContracts = true
-	}
-	if opt, ok := optionMap["threshold-percent"]; ok {
-
-		percent = int(opt.UintValue())
-	}
-	if opt, ok := optionMap["active-contract-id"]; ok {
-		contractID = opt.StringValue()
-	}
-
+// HandleReplayEval handles the /replay-eval command
+func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	userID := bottools.GetInteractionUserID(i)
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
-
-	if onlyActiveContracts {
-		ReplayEval(s, i, -1, eiID, contractID, false)
-	} else {
-		ReplayEval(s, i, percent, eiID, contractID, true)
+	optionMap := bottools.GetCommandOptionsMap(i)
+	if opt, ok := optionMap["reset"]; ok {
+		if opt.BoolValue() {
+			farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
+		}
 	}
+	ReplayEval(s, i, optionMap, eiID, true)
 }
 
 // ReplayEval evaluates the contract history and provides replay guidance
-func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent int, eiID string, contractID string, okayToSave bool) {
+func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption, eiID string, okayToSave bool) {
 	// Get the Egg Inc ID from the stored settings
 	eggIncID := ""
 	encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
@@ -146,8 +136,18 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, percent in
 		}
 	}
 	if eggIncID == "" || len(eggIncID) != 18 || eggIncID[:2] != "EI" {
-		RequestEggIncIDModal(s, i, fmt.Sprintf("replay#%d#%s", percent, contractID))
+		RequestEggIncIDModal(s, i, "replay", optionMap)
 		return
+	}
+
+	percent := -1
+	contractID := ""
+
+	if opt, ok := optionMap["threshold-percent"]; ok {
+		percent = int(opt.UintValue())
+	}
+	if opt, ok := optionMap["active-contract-id"]; ok {
+		contractID = opt.StringValue()
 	}
 
 	// Quick reply to buy us some time
