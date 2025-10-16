@@ -19,23 +19,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// SavedOptionsMap stores the options from a slash command for later retrieval
-var SavedOptionsMap = make(map[string]map[string]*discordgo.ApplicationCommandInteractionDataOption)
-
-// SaveOptions saves the options from a slash command into a map for later retrieval
-func SaveOptions(options []*discordgo.ApplicationCommandInteractionDataOption) map[string]*discordgo.ApplicationCommandInteractionDataOption {
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		if opt.Type == discordgo.ApplicationCommandOptionSubCommand {
-			for _, subOpt := range opt.Options {
-				optionMap[opt.Name+"-"+subOpt.Name] = subOpt
-			}
-			optionMap[opt.Name] = opt
-		}
-	}
-	return optionMap
-}
-
 // GetSlashReplayEvalCommand returns the command for the /launch-helper command
 func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
 	//minValue := 0.0
@@ -92,25 +75,10 @@ func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
 	}
 }
 
-// GetCommandOptionsMap returns a map of command options
-// subcommand options are stored as "subcommand-option"
-func GetCommandOptionsMap(options []*discordgo.ApplicationCommandInteractionDataOption) map[string]*discordgo.ApplicationCommandInteractionDataOption {
-
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		if opt.Type == discordgo.ApplicationCommandOptionSubCommand {
-			for _, subOpt := range opt.Options {
-				optionMap[opt.Name+"-"+subOpt.Name] = subOpt
-			}
-			optionMap[opt.Name] = opt
-		}
-	}
-	return optionMap
-}
-
 // HandleReplayEval handles the /replay-eval command
 func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	userID := bottools.GetInteractionUserID(i)
+
 	optionMap := bottools.GetCommandOptionsMap(i)
 	if opt, ok := optionMap["reset"]; ok {
 		if opt.BoolValue() {
