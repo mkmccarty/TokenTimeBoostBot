@@ -273,6 +273,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 	}
 
 	count := 0
+	pagecount := 0
 	for _, a := range archive {
 		// Completed
 		// What is the current tval
@@ -313,12 +314,13 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 				// Need to download the coop_status for more details
 				evalPercent := evaluationCxp / c.Cxp * 100.0
 				if percent == -1 || (evalPercent < float64(100-percent)) {
-					if builder.Len() > 3800 && page > 0 {
+					if builder.Len() > 3600 && page > 0 {
 						builder.Reset()
+						pagecount = 0
 						page--
 					}
 
-					if builder.Len() < 3800 {
+					if builder.Len() < 3600 {
 						fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s` <t:%d:R>\n",
 							bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
 							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(evaluationCxp))), 6, bottools.StringAlignRight),
@@ -328,6 +330,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 							c.ValidUntil.Unix())
 					}
 					count++
+					pagecount++
 				}
 			}
 		} else {
@@ -440,12 +443,12 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 		}
 	}
 
-	if percent != -1 && builder.Len() > 3800 {
+	if percent != -1 && builder.Len() > 3600 {
 		builder.WriteString("Response truncated, too many contracts met this condition, use the page parameter to see the other pages.\n")
 	}
 
 	if percent != -1 {
-		builder.WriteString(fmt.Sprintf("%d of %d contracts met this condition.\n", count, len(archive)))
+		builder.WriteString(fmt.Sprintf("Showing %d of your %d contracts met this condition.\n", pagecount, count))
 	}
 	if count == 0 {
 		builder.Reset()
