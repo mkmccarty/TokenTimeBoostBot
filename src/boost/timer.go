@@ -157,7 +157,7 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Error during parsing means skip this duration
 			duration = dur
 			setTimer = true
-			message = fmt.Sprintf("Sticky timer set to %s", stickyTimer)
+			message = fmt.Sprintf("Using saved %s timer", duration)
 		}
 	}
 
@@ -169,6 +169,7 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			duration = dur
 			setTimer = true
 			farmerstate.SetMiscSettingString(userID, "timer", opt.StringValue())
+			message = fmt.Sprintf("Sticky timer set to %s", duration)
 		}
 	}
 
