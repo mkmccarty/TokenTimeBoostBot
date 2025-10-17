@@ -21,7 +21,7 @@ import (
 
 // GetSlashReplayEvalCommand returns the command for the /launch-helper command
 func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
-	//minValue := 0.0
+	minValue := 0.0
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Evaluate a contract's history and provide replay guidance.",
@@ -68,23 +68,21 @@ func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
 					},
 				},
 			},
-			/*
-				{
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Name:        "threshold",
-					Description: "Summarize contracts below a certain % of speedrun score",
-					Options: []*discordgo.ApplicationCommandOption{
-						{
-							Type:        discordgo.ApplicationCommandOptionInteger,
-							Name:        "percent",
-							Description: "Below % of speedrun score",
-							MinValue:    &minValue,
-							MaxValue:    50,
-							Required:    true,
-						},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "threshold",
+				Description: "Summarize contracts below a certain % of speedrun score",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:        discordgo.ApplicationCommandOptionInteger,
+						Name:        "percent",
+						Description: "Below % of speedrun score",
+						MinValue:    &minValue,
+						MaxValue:    50,
+						Required:    true,
 					},
 				},
-			*/
+			},
 		},
 	}
 }
@@ -294,16 +292,21 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 		//if c.ContractVersion == 2 {
 		if contractIDParam == "" {
 
-			if c.ContractVersion == 2 && c.ValidUntil.Unix() > time.Now().Unix() {
+			if c.ContractVersion == 2 && (percent != -1 || (c.ValidUntil.Unix() > time.Now().Unix())) {
 				// Need to download the coop_status for more details
-				fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s` <t:%d:R>\n",
-					bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
-					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(evaluationCxp))), 6, bottools.StringAlignRight),
-					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp))), 6, bottools.StringAlignRight),
-					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp-evaluationCxp))), 6, bottools.StringAlignRight),
-					bottools.AlignString(fmt.Sprintf("%.1f", (evaluationCxp/c.Cxp)*100), 4, bottools.StringAlignCenter),
-					c.ValidUntil.Unix())
-				count++
+				evalPercent := evaluationCxp / c.Cxp * 100.0
+				if percent == -1 || (evalPercent < float64(100-percent)) {
+					if builder.Len() < 3500 {
+						fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s` <t:%d:R>\n",
+							bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
+							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(evaluationCxp))), 6, bottools.StringAlignRight),
+							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp))), 6, bottools.StringAlignRight),
+							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp-evaluationCxp))), 6, bottools.StringAlignRight),
+							bottools.AlignString(fmt.Sprintf("%.1f", (evaluationCxp/c.Cxp)*100), 4, bottools.StringAlignCenter),
+							c.ValidUntil.Unix())
+					}
+					count++
+				}
 			}
 		} else {
 			if contractID != contractIDParam {
@@ -413,6 +416,10 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 				count++
 			}
 		}
+	}
+
+	if percent != -1 && builder.Len() > 3500 {
+		builder.WriteString("Response truncated, too many contracts met this condition.\n")
 	}
 
 	if percent != -1 {
