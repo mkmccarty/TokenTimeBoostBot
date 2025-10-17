@@ -22,6 +22,7 @@ import (
 // GetSlashReplayEvalCommand returns the command for the /launch-helper command
 func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
 	minValue := 0.0
+	minValueTwo := 2.0
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Evaluate a contract's history and provide replay guidance.",
@@ -81,6 +82,14 @@ func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
 						MaxValue:    50,
 						Required:    true,
 					},
+					{
+						Type:        discordgo.ApplicationCommandOptionInteger,
+						Name:        "page",
+						Description: "Provide a page number to see additional results",
+						MinValue:    &minValueTwo,
+						MaxValue:    10,
+						Required:    false,
+					},
 				},
 			},
 		},
@@ -121,11 +130,19 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap 
 	}
 
 	percent := -1
+	page := 1
 	contractID := ""
 	forceRefresh := false
 
 	if opt, ok := optionMap["threshold-percent"]; ok {
 		percent = int(opt.UintValue())
+	}
+	if opt, ok := optionMap["threshold-page"]; ok {
+		v := int(opt.UintValue())
+		if v < 1 {
+			v = 1
+		}
+		page = v
 	}
 	if opt, ok := optionMap["active-contract-id"]; ok {
 		contractID = opt.StringValue()
@@ -179,7 +196,7 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap 
 		}
 	}
 
-	components := printArchivedContracts(userID, archive, percent, contractID)
+	components := printArchivedContracts(userID, archive, percent, page, contractID)
 	if len(components) == 0 {
 		components = []discordgo.MessageComponent{
 			&discordgo.TextDisplay{Content: "No archived contracts found in Egg Inc API response"},
@@ -214,7 +231,7 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap 
 	}
 }
 
-func printArchivedContracts(userID string, archive []*ei.LocalContract, percent int, contractIDParam string) []discordgo.MessageComponent {
+func printArchivedContracts(userID string, archive []*ei.LocalContract, percent int, page int, contractIDParam string) []discordgo.MessageComponent {
 	var components []discordgo.MessageComponent
 	tvalFooterMessage := false
 	eiUserName := farmerstate.GetMiscSettingString(userID, "ei_ign")
@@ -296,7 +313,12 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 				// Need to download the coop_status for more details
 				evalPercent := evaluationCxp / c.Cxp * 100.0
 				if percent == -1 || (evalPercent < float64(100-percent)) {
-					if builder.Len() < 3500 {
+					if builder.Len() > 3800 && page > 0 {
+						builder.Reset()
+						page--
+					}
+
+					if builder.Len() < 3800 {
 						fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s` <t:%d:R>\n",
 							bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
 							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(evaluationCxp))), 6, bottools.StringAlignRight),
@@ -418,7 +440,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 		}
 	}
 
-	if percent != -1 && builder.Len() > 3500 {
+	if percent != -1 && builder.Len() > 3800 {
 		builder.WriteString("Response truncated, too many contracts met this condition.\n")
 	}
 
