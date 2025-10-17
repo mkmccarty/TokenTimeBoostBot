@@ -152,7 +152,7 @@ func GetCommonResearchHyperloopOnlyMultiplier(commonResearch []*Backup_ResearchI
 func GetResearchInternalHatchery(commonResearch []*Backup_ResearchItem) (float64, float64, float64) {
 	internalHatcheryOnline := 1.0
 	internalHatcheryOffline := 1.0
-	internalHatcheryAdditive := 1.0
+	internalHatcheryAdditive := 0.0
 
 	idsIHR := []string{
 		"internal_hatchery1",
