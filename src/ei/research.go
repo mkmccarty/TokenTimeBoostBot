@@ -184,7 +184,8 @@ func GetInternalHatcheryFromBackup(commonResearch []*Backup_ResearchItem, game *
 func TimeForLinearGrowth(initialPopulation, targetPopulation, growthRate float64) float64 {
 	// Panic if inputs are invalid to prevent non-sensical calculations.
 	if growthRate <= 0 {
-		panic("Growth rate must be a positive number.")
+		//panic("Growth rate must be a positive number.")
+		return 0
 	}
 
 	// If the target is not larger than the initial population, no time has passed.
