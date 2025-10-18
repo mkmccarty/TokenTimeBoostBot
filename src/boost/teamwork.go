@@ -706,9 +706,17 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 						(future.contributionRateInSeconds/siab.contributionRateInSeconds-1)*100, siabStones, newSlots, swapArtifactName))
 
 					if shortTeamwork == 0 {
-						deliveryTableMap[name] = append(deliveryTableMap[name][:2], future)
+						if len(deliveryTableMap[name]) >= 2 {
+							deliveryTableMap[name] = append(deliveryTableMap[name][:2], future)
+						} else {
+							deliveryTableMap[name] = append(deliveryTableMap[name], future)
+						}
 					} else {
-						deliveryTableMap[name] = append(deliveryTableMap[name][:2], siab, future)
+						if len(deliveryTableMap[name]) >= 2 {
+							deliveryTableMap[name] = append(deliveryTableMap[name][:2], siab, future)
+						} else {
+							deliveryTableMap[name] = append(deliveryTableMap[name], siab, future)
+						}
 					}
 
 					targetEggAmount := totalRequired / 1e15
