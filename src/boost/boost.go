@@ -709,7 +709,7 @@ func getUserArtifacts(userID string, inSet *ArtifactSet) ArtifactSet {
 				if art != "" {
 					a := ei.ArtifactMap[prefix[i]+art]
 					if a != nil {
-						fmt.Print(prefix[i]+art, a)
+						//fmt.Print(prefix[i]+art, a)
 						mySet.Artifacts = append(mySet.Artifacts, *a)
 					}
 				}
