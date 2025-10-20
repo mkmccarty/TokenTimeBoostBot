@@ -111,6 +111,7 @@ func init() {
 // saveSqliteData saves farmer data to SQLite (for legacy support)
 func saveSqliteData(userID string, farmer *Farmer) {
 	// Save the farmer data to SQLite
+	farmer.LastUpdated = time.Now()
 	farmerJSON, err := json.Marshal(farmer)
 	if err != nil {
 		log.Printf("Error marshaling farmer data: %v", err)
@@ -185,7 +186,6 @@ func SetEggIncName(userID string, eggIncName string) {
 		newFarmer(userID)
 	}
 	if !farmerstate[userID].DataPrivacy {
-		farmerstate[userID].LastUpdated = time.Now()
 		farmerstate[userID].EggIncName = eggIncName
 		SetMiscSettingString(userID, "EggIncRawName", eggIncName)
 		saveSqliteData(userID, farmerstate[userID])
@@ -206,7 +206,6 @@ func SetLaunchHistory(userID string, setting bool) {
 		newFarmer(userID)
 	}
 	if !farmerstate[userID].DataPrivacy {
-		farmerstate[userID].LastUpdated = time.Now()
 		farmerstate[userID].LaunchChain = setting
 		saveSqliteData(userID, farmerstate[userID])
 	}
@@ -226,7 +225,6 @@ func SetMissionShipPrimary(userID string, setting int) {
 		newFarmer(userID)
 	}
 	if !farmerstate[userID].DataPrivacy {
-		farmerstate[userID].LastUpdated = time.Now()
 		farmerstate[userID].MissionShipPrimary = setting
 		saveSqliteData(userID, farmerstate[userID])
 	}
@@ -247,7 +245,6 @@ func SetMissionShipSecondary(userID string, setting int) {
 		newFarmer(userID)
 	}
 	if !farmerstate[userID].DataPrivacy {
-		farmerstate[userID].LastUpdated = time.Now()
 		farmerstate[userID].MissionShipSecondary = setting
 		saveSqliteData(userID, farmerstate[userID])
 	}
@@ -267,7 +264,6 @@ func SetTokens(userID string, tokens int) {
 		newFarmer(userID)
 	}
 	if !farmerstate[userID].DataPrivacy {
-		farmerstate[userID].LastUpdated = time.Now()
 		farmerstate[userID].Tokens = tokens
 		saveSqliteData(userID, farmerstate[userID])
 	}
@@ -280,7 +276,6 @@ func SetPing(userID string, ping bool) {
 	}
 
 	if !farmerstate[userID].DataPrivacy {
-		farmerstate[userID].LastUpdated = time.Now()
 		farmerstate[userID].Ping = ping
 		saveSqliteData(userID, farmerstate[userID])
 	}
@@ -308,7 +303,6 @@ func SetMiscSettingFlag(userID string, key string, value bool) {
 		farmerstate[userID].MiscSettingsFlag = make(map[string]bool)
 	}
 	if !farmerstate[userID].DataPrivacy {
-		farmerstate[userID].LastUpdated = time.Now()
 		farmerstate[userID].MiscSettingsFlag[key] = value
 		saveSqliteData(userID, farmerstate[userID])
 	}
@@ -344,7 +338,6 @@ func SetMiscSettingString(userID string, key string, value string) {
 			delete(farmerstate[userID].MiscSettingsString, key)
 			saveSqliteData(userID, farmerstate[userID])
 		} else {
-			farmerstate[userID].LastUpdated = time.Now()
 			if farmerstate[userID].MiscSettingsString[key] != value {
 				farmerstate[userID].MiscSettingsString[key] = value
 				saveSqliteData(userID, farmerstate[userID])
@@ -392,7 +385,6 @@ func SetLink(userID string, description string, guildID string, channelID string
 		newFarmer(userID)
 	}
 	if !farmerstate[userID].DataPrivacy {
-		farmerstate[userID].LastUpdated = time.Now()
 		var link Link
 		var strURL string
 		link.Timestamp = time.Now()
