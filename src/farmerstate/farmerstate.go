@@ -87,6 +87,7 @@ func init() {
 		InverseTransform:  InverseTransform,
 		CacheSizeMax:      512 * 512,
 	})
+
 	var f, err = loadData()
 	if err == nil {
 		farmerstate = f
@@ -117,15 +118,15 @@ func saveSqliteData(userID string, farmer *Farmer) {
 		log.Printf("Error marshaling farmer data: %v", err)
 		return
 	}
-	_, err = queries.InsertLegacyFarmerstate(ctx, InsertLegacyFarmerstateParams{
-		ID:    userID,
+	_, err = queries.UpdateLegacyFarmerstate(ctx, UpdateLegacyFarmerstateParams{
 		Value: sql.NullString{String: string(farmerJSON), Valid: true},
+		ID:    userID,
 	})
 	if err != nil {
 		// Record exists, update instead
-		_, err = queries.UpdateLegacyFarmerstate(ctx, UpdateLegacyFarmerstateParams{
-			Value: sql.NullString{String: string(farmerJSON), Valid: true},
+		_, err = queries.InsertLegacyFarmerstate(ctx, InsertLegacyFarmerstateParams{
 			ID:    userID,
+			Value: sql.NullString{String: string(farmerJSON), Valid: true},
 		})
 		if err != nil {
 			log.Printf("Error saving farmer data to SQLite: %v", err)
@@ -156,6 +157,17 @@ func loadAllSqliteData() (map[string]Farmer, error) {
 
 // NewFarmer creates a new Farmer
 func newFarmer(userID string) {
+	// Check if farmer already exists in SQLite
+	sqliteFarmer, err := queries.GetLegacyFarmerstate(ctx, userID)
+	if err == nil && sqliteFarmer.Value.Valid {
+		var farmer Farmer
+		err = json.Unmarshal([]byte(sqliteFarmer.Value.String), &farmer)
+		if err == nil {
+			farmerstate[userID] = &farmer
+			return
+		}
+	}
+
 	farmerstate[userID] = &Farmer{
 		UserID:               userID,
 		Ping:                 false,
