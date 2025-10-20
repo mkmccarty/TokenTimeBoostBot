@@ -1,0 +1,9 @@
+version: "2"
+sql:
+  - engine: "sqlite"
+    queries: "src/farmerstate/query.sql"
+    schema: "src/farmerstate/schema.sql"
+    gen:
+      go:
+        package: "farmerstate"
+        out: "src/farmerstate"

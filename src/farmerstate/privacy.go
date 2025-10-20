@@ -196,5 +196,5 @@ func setDataPrivacy(userID string, dataPrivacy bool) {
 
 	farmerstate[userID].DataPrivacy = dataPrivacy
 	farmerstate[userID].LastUpdated = time.Now()
-	saveData(farmerstate)
+	saveSqliteData(userID, farmerstate[userID])
 }
