@@ -1,5 +1,5 @@
 CREATE TABLE farmer_state (
-    id   text PRIMARY KEY,
+    id   text NOT NULL,
     key text    NOT NULL,
     value  text -- Store JSON data as TEXT
 );
