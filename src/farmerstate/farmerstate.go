@@ -453,6 +453,15 @@ func AdvancedTransform(key string) *diskv.PathKey {
 	}
 }
 
+// GetDiscordUserIDFromEiIgn retrieves the Discord user ID based on the provided ei_ign
+func GetDiscordUserIDFromEiIgn(eiIgn string) (string, error) {
+	id, err := queries.GetUserIdFromEiIgn(ctx, sql.NullString{String: eiIgn, Valid: true})
+	if err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
 // InverseTransform for storing KV pairs
 func InverseTransform(pathKey *diskv.PathKey) (key string) {
 	txt := pathKey.FileName[len(pathKey.FileName)-4:]

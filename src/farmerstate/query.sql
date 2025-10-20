@@ -34,4 +34,4 @@ FROM
     farmer_state
 WHERE
     -- Exclude records where the extracted value is NULL
-    json_extract(value, '$.MiscSettingsString.ei_ign') = ?;
+    json_extract(value, '$.MiscSettingsString.ei_ign') = ? LIMIT 1;
