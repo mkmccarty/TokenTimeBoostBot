@@ -356,7 +356,6 @@ func changeContractState(contract *Contract, newstate int) {
 			if len(contract.BoostedOrder) != len(contract.Order) {
 				contract.BoostedOrder = contract.Order
 			}
-			farmerstate.SetOrderPercentileAll(contract.BoostedOrder, len(contract.Order))
 			contract.SavedStats = true
 		}
 	default:
@@ -854,18 +853,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 					contract.BoostPosition = len(contract.Order) - 1
 				}
 			} else {
-				copyOrder := make([]string, len(contract.Order))
-				copy(copyOrder, contract.Order)
-				copyOrder = append(copyOrder, b.UserID)
-
-				newOrder := farmerstate.GetOrderHistory(copyOrder, 5)
-
-				// find index of farmer.UserID in newOrder
-				var index = slices.Index(newOrder, b.UserID)
-				if contract.BoostPosition >= index {
-					index = contract.BoostPosition + 1
-				}
-				contract.Order = insert(contract.Order, index, b.UserID)
+				contract.Order = append(contract.Order, b.UserID)
 			}
 			for _, el := range contract.Location {
 				if el.GuildID == guildID && b.UserID != b.Name && el.GuildContractRole.ID != "" {
@@ -1612,7 +1600,6 @@ func FinishContract(s *discordgo.Session, contract *Contract) {
 		if len(contract.BoostedOrder) != len(contract.Order) {
 			contract.BoostedOrder = contract.Order
 		}
-		farmerstate.SetOrderPercentileAll(contract.BoostedOrder, len(contract.Order))
 		contract.SavedStats = true
 	}
 	_, _ = DeleteContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID)

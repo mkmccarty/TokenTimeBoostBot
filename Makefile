@@ -16,7 +16,7 @@ BINARY_NAME=TokenTimeBoostBot
 BUILD_OUTPUT=build
 
 WINDOWS=$(BINARY_NAME)_windows_amd64.exe
-LINUX=$(BINARY_NAME)_linux_amd64
+LINUX=$(BINARY_NAME)_linux_amd64 
 DARWIN=$(BINARY_NAME)_darwin_amd64
 PI=$(BINARY_NAME)_linux_arm6
 PI64=$(BINARY_NAME)_linux_arm64
@@ -98,6 +98,10 @@ protobuf:
 	protoc -I=src/ei --go_out=src/ei src/ei/ei.proto
 	@cp src/ei/github.com/elgranjero/EggUtils/ei/ei.pb.go src/ei/ei.pb.go
 	@rm -rf src/ei/github.com
+
+.PHONY: sqlc
+sqlc:
+	@sqlc generate
 	
 
 
@@ -121,7 +125,7 @@ pi: $(PI) ## Build for Raspberry Pi 4
 
 pi64: $(PI64) ## Build for 64-bit Raspberry Pi
 
-freebsd: $(BSD) ## Build for FreeBSD
+freebsd: sqlc $(BSD) ## Build for FreeBSD
 
 
 $(WINDOWS):

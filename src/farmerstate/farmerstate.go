@@ -1,6 +1,9 @@
 package farmerstate
 
 import (
+	"context"
+	"database/sql"
+	_ "embed" // This is used to embed the schema.sql file
 	"encoding/json"
 	"fmt"
 	"log"
@@ -8,6 +11,8 @@ import (
 	"time"
 
 	"github.com/peterbourgon/diskv/v3"
+
+	_ "modernc.org/sqlite" // Want this here
 )
 
 // Link will hold bookmark links
@@ -44,7 +49,28 @@ var (
 	dataStore   *diskv.Diskv
 )
 
+var ctx = context.Background()
+
+//go:embed schema.sql
+var ddl string
+var queries *Queries
+
+func sqliteInit() {
+	//db, _ := sql.Open("sqlite", ":memory:")
+	db, _ := sql.Open("sqlite", "ttbb-data/Farmers.sqlite")
+
+	result, err := db.ExecContext(ctx, ddl)
+	if err != nil {
+		log.Printf("We have an error: %v", err)
+	} else {
+		fmt.Print(result)
+	}
+	queries = New(db)
+}
+
 func init() {
+	sqliteInit()
+
 	/*
 		if flag.Lookup("test.v") == nil {
 			fmt.Println("normal run")
@@ -61,18 +87,70 @@ func init() {
 		InverseTransform:  InverseTransform,
 		CacheSizeMax:      512 * 512,
 	})
-
 	var f, err = loadData()
 	if err == nil {
 		farmerstate = f
+		// Conversion to SQLite
+		for _, farmer := range farmerstate {
+			saveSqliteData(farmer.UserID, farmer)
+		}
+		// Delete the file ttbb-data/Farmers.json after conversion
+		_ = dataStore.Erase("Farmers")
 	}
 
-	// Keep only the last 10 order percentiles
-	for _, farmer := range farmerstate {
-		if len(farmerstate[farmer.UserID].OrderHistory) > 10 {
-			farmerstate[farmer.UserID].OrderHistory = farmerstate[farmer.UserID].OrderHistory[len(farmerstate[farmer.UserID].OrderHistory)-10:]
+	sqliteFarmers, err := loadAllSqliteData()
+	if err == nil {
+		for k, v := range sqliteFarmers {
+			farmerstate[k] = &v
 		}
 	}
+
+	// Conversion is done, we can delete the old file
+}
+
+// saveSqliteData saves farmer data to SQLite (for legacy support)
+func saveSqliteData(userID string, farmer *Farmer) {
+	// Save the farmer data to SQLite
+	farmerJSON, err := json.Marshal(farmer)
+	if err != nil {
+		log.Printf("Error marshaling farmer data: %v", err)
+		return
+	}
+	_, err = queries.InsertLegacyFarmerstate(ctx, InsertLegacyFarmerstateParams{
+		ID:    userID,
+		Value: sql.NullString{String: string(farmerJSON), Valid: true},
+	})
+	if err != nil {
+		// Record exists, update instead
+		_, err = queries.UpdateLegacyFarmerstate(ctx, UpdateLegacyFarmerstateParams{
+			Value: sql.NullString{String: string(farmerJSON), Valid: true},
+			ID:    userID,
+		})
+		if err != nil {
+			log.Printf("Error saving farmer data to SQLite: %v", err)
+		}
+	}
+}
+
+func loadAllSqliteData() (map[string]Farmer, error) {
+	farmers := make(map[string]Farmer)
+	rows, err := queries.GetAllLegacyFarmerstate(ctx)
+	if err != nil {
+		return farmers, err
+	}
+	for _, row := range rows {
+		var farmer Farmer
+		if row.Value.Valid {
+			err = json.Unmarshal([]byte(row.Value.String), &farmer)
+			if err != nil {
+				log.Printf("Error unmarshaling farmer data for user %s: %v", row.ID, err)
+				continue
+			}
+			farmers[row.ID] = farmer
+		}
+	}
+
+	return farmers, nil
 }
 
 // NewFarmer creates a new Farmer
@@ -110,7 +188,7 @@ func SetEggIncName(userID string, eggIncName string) {
 		farmerstate[userID].LastUpdated = time.Now()
 		farmerstate[userID].EggIncName = eggIncName
 		SetMiscSettingString(userID, "EggIncRawName", eggIncName)
-		saveData(farmerstate)
+		saveSqliteData(userID, farmerstate[userID])
 	}
 }
 
@@ -130,7 +208,7 @@ func SetLaunchHistory(userID string, setting bool) {
 	if !farmerstate[userID].DataPrivacy {
 		farmerstate[userID].LastUpdated = time.Now()
 		farmerstate[userID].LaunchChain = setting
-		saveData(farmerstate)
+		saveSqliteData(userID, farmerstate[userID])
 	}
 }
 
@@ -150,7 +228,7 @@ func SetMissionShipPrimary(userID string, setting int) {
 	if !farmerstate[userID].DataPrivacy {
 		farmerstate[userID].LastUpdated = time.Now()
 		farmerstate[userID].MissionShipPrimary = setting
-		saveData(farmerstate)
+		saveSqliteData(userID, farmerstate[userID])
 	}
 }
 
@@ -159,7 +237,8 @@ func GetMissionShipSecondary(userID string) int {
 	if farmerstate[userID] == nil {
 		newFarmer(userID)
 	}
-	return farmerstate[userID].MissionShipSecondary
+	f := farmerstate[userID]
+	return f.MissionShipSecondary
 }
 
 // SetMissionShipSecondary sets a Farmer Mission Ship Secondary
@@ -170,7 +249,7 @@ func SetMissionShipSecondary(userID string, setting int) {
 	if !farmerstate[userID].DataPrivacy {
 		farmerstate[userID].LastUpdated = time.Now()
 		farmerstate[userID].MissionShipSecondary = setting
-		saveData(farmerstate)
+		saveSqliteData(userID, farmerstate[userID])
 	}
 }
 
@@ -190,7 +269,7 @@ func SetTokens(userID string, tokens int) {
 	if !farmerstate[userID].DataPrivacy {
 		farmerstate[userID].LastUpdated = time.Now()
 		farmerstate[userID].Tokens = tokens
-		saveData(farmerstate)
+		saveSqliteData(userID, farmerstate[userID])
 	}
 }
 
@@ -203,7 +282,7 @@ func SetPing(userID string, ping bool) {
 	if !farmerstate[userID].DataPrivacy {
 		farmerstate[userID].LastUpdated = time.Now()
 		farmerstate[userID].Ping = ping
-		saveData(farmerstate)
+		saveSqliteData(userID, farmerstate[userID])
 	}
 }
 
@@ -219,85 +298,6 @@ func GetPing(userID string) bool {
 	return false
 }
 
-// SetOrderPercentileOne sets a Farmer's order percentile
-func SetOrderPercentileOne(userID string, boostNumber int, coopSize int) {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
-	if !farmerstate[userID].DataPrivacy {
-		farmerstate[userID].LastUpdated = time.Now()
-		var percentile = boostNumber * 100 / coopSize
-
-		farmerstate[userID].OrderHistory = append(farmerstate[userID].OrderHistory, percentile)
-		if len(farmerstate[userID].OrderHistory) > 10 {
-			farmerstate[userID].OrderHistory = farmerstate[userID].OrderHistory[len(farmerstate[userID].OrderHistory)-10:]
-		}
-		saveData(farmerstate)
-	}
-}
-
-// SetOrderPercentileAll sets a Farmer's order percentiles from a slice
-func SetOrderPercentileAll(userIDs []string, coopSize int) {
-	for i, userID := range userIDs {
-		if farmerstate[userID] == nil {
-			newFarmer(userID)
-		}
-		if !farmerstate[userID].DataPrivacy {
-			farmerstate[userID].LastUpdated = time.Now()
-			farmerstate[userID].OrderHistory = append(farmerstate[userID].OrderHistory, (i+1)*100/coopSize)
-			if len(farmerstate[userID].OrderHistory) > 10 {
-				farmerstate[userID].OrderHistory = farmerstate[userID].OrderHistory[len(farmerstate[userID].OrderHistory)-10:]
-			}
-		}
-	}
-	saveData(farmerstate)
-}
-
-// GetOrderHistory returns a Farmer's order history
-func GetOrderHistory(userIDs []string, number int) []string {
-	var orderHistory = make(map[string]int)
-
-	for _, userID := range userIDs {
-
-		if farmerstate[userID] == nil {
-			newFarmer(userID)
-			farmerstate[userID].OrderHistory = append(farmerstate[userID].OrderHistory, 50)
-		} else {
-			count := len(farmerstate[userID].OrderHistory)
-			if count > 0 {
-				if count > number {
-					count = number
-				}
-
-				// get an average of the last count percentiles for this user
-				var sum int
-				for i := 0; i < count; i++ {
-					sum += farmerstate[userID].OrderHistory[len(farmerstate[userID].OrderHistory)-i-1]
-				}
-				orderHistory[userID] = sum / count
-			} else {
-				orderHistory[userID] = 50
-			}
-		}
-	}
-	// iterate over orderHistory and return a slice of userIDs sorted by percentile
-	var sortedOrderHistory []string
-	for i := 0; i < len(userIDs); i++ {
-		var max int
-		var maxUserID string
-		for userID, percentile := range orderHistory {
-			if percentile > max {
-				max = percentile
-				maxUserID = userID
-			}
-		}
-		sortedOrderHistory = append(sortedOrderHistory, maxUserID)
-		delete(orderHistory, maxUserID)
-	}
-	log.Println("getOrderHistory", sortedOrderHistory)
-	return sortedOrderHistory
-}
-
 // SetMiscSettingFlag sets a key-value sticky setting
 func SetMiscSettingFlag(userID string, key string, value bool) {
 	if farmerstate[userID] == nil {
@@ -310,7 +310,7 @@ func SetMiscSettingFlag(userID string, key string, value bool) {
 	if !farmerstate[userID].DataPrivacy {
 		farmerstate[userID].LastUpdated = time.Now()
 		farmerstate[userID].MiscSettingsFlag[key] = value
-		saveData(farmerstate)
+		saveSqliteData(userID, farmerstate[userID])
 	}
 }
 
@@ -342,12 +342,12 @@ func SetMiscSettingString(userID string, key string, value string) {
 	if !farmerstate[userID].DataPrivacy {
 		if value == "" {
 			delete(farmerstate[userID].MiscSettingsString, key)
-			saveData(farmerstate)
+			saveSqliteData(userID, farmerstate[userID])
 		} else {
 			farmerstate[userID].LastUpdated = time.Now()
 			if farmerstate[userID].MiscSettingsString[key] != value {
 				farmerstate[userID].MiscSettingsString[key] = value
-				saveData(farmerstate)
+				saveSqliteData(userID, farmerstate[userID])
 			}
 		}
 	}
@@ -415,7 +415,7 @@ func SetLink(userID string, description string, guildID string, channelID string
 				farmerstate[userID].Links = append(farmerstate[userID].Links, el)
 			}
 		}
-		saveData(farmerstate)
+		saveSqliteData(userID, farmerstate[userID])
 	}
 }
 
@@ -435,7 +435,7 @@ func SetUltra(userID string) {
 	}
 	if !farmerstate[userID].DataPrivacy {
 		farmerstate[userID].UltraContract = time.Now()
-		saveData(farmerstate)
+		saveSqliteData(userID, farmerstate[userID])
 	}
 }
 
@@ -458,14 +458,13 @@ func InverseTransform(pathKey *diskv.PathKey) (key string) {
 	return strings.Join(pathKey.Path, "/") + pathKey.FileName[:len(pathKey.FileName)-4]
 }
 
-func saveData(c map[string]*Farmer) {
-	//diskmutex.Lock()
-	b, _ := json.Marshal(c)
-	_ = dataStore.Write("Farmers", b)
-}
-
+/*
+	func saveData(c map[string]*Farmer) {
+		b, _ := json.Marshal(c)
+		_ = dataStore.Write("Farmers", b)
+	}
+*/
 func loadData() (map[string]*Farmer, error) {
-
 	var c map[string]*Farmer
 	b, err := dataStore.Read("Farmers")
 	if err != nil {

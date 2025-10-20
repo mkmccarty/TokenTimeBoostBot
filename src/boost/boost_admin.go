@@ -14,7 +14,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // SlashAdminGetContractData is the slash to get contract JSON data
@@ -278,7 +277,6 @@ func finishContractByHash(s *discordgo.Session, contractHash string) error {
 	if len(contract.BoostedOrder) != len(contract.Order) {
 		contract.BoostedOrder = contract.Order
 	}
-	farmerstate.SetOrderPercentileAll(contract.BoostedOrder, len(contract.Order))
 
 	_ = saveEndData(contract) // Save for historical purposes
 	delete(Contracts, contract.ContractHash)
