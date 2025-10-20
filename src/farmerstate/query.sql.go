@@ -70,6 +70,24 @@ func (q *Queries) GetLegacyFarmerstate(ctx context.Context, id string) (FarmerSt
 	return i, err
 }
 
+const getUserIdFromEiIgn = `-- name: GetUserIdFromEiIgn :one
+SELECT
+    id
+    --json_extract(value, '$.MiscSettingsString.ei_ign') AS ei_ign
+FROM
+    farmer_state
+WHERE
+    -- Exclude records where the extracted value is NULL
+    json_extract(value, '$.MiscSettingsString.ei_ign') IS NOT NULL LIMIT 1
+`
+
+func (q *Queries) GetUserIdFromEiIgn(ctx context.Context) (string, error) {
+	row := q.db.QueryRowContext(ctx, getUserIdFromEiIgn)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
 const insertLegacyFarmerstate = `-- name: InsertLegacyFarmerstate :one
 INSERT INTO farmer_state (id, key, value)
 VALUES (?, 'legacy', ?)
