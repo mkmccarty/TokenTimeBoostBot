@@ -58,7 +58,7 @@ func GetColleggtibleBuffs(contracts *MyContracts) DimensionBuffs {
 			continue
 		}
 		farmSize := c.GetMaxFarmSizeReached()
-		value, _ := eggCounts[egg]
+		value := eggCounts[egg]
 		if farmSize > value {
 			eggCounts[egg] = farmSize
 		}
