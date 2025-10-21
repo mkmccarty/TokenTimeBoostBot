@@ -87,7 +87,6 @@ func userMessage(err error) string {
 type contractReportParameters struct {
 	contractID         string
 	coopID             string
-	userEI             string
 	startTime          time.Time
 	endTime            time.Time
 	contractDur        time.Duration
