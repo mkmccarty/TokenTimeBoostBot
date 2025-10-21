@@ -126,7 +126,7 @@ func GetSlashContractReportCommand(cmd string) *discordgo.ApplicationCommand {
 	//minValue := 0.0
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
-		Description: "Generate coontract report from player EIs.",
+		Description: "Generate contract report from player EIs.",
 		Contexts: &[]discordgo.InteractionContextType{
 			discordgo.InteractionContextGuild,
 			discordgo.InteractionContextBotDM,
