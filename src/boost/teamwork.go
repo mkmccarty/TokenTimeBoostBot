@@ -1078,7 +1078,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		// Header
 		siabMsg.WriteString(fmt.Sprintf("`%-15s` `%-10s` `%s`\n",
 			"PLAYER",
-			bottools.AlignString("ΔELR", 10, bottools.StringAlignCenter),
+			bottools.AlignString("ΔELR q/hr", 10, bottools.StringAlignCenter),
 			"TIME"))
 
 		// Print each row

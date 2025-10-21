@@ -99,10 +99,12 @@ type StringAlign int
 const (
 	// StringAlignLeft aligns the string to the left
 	StringAlignLeft StringAlign = iota
-	// StringAlignCenter aligns the string to the center
+	// StringAlignCenter aligns the string to the center (left biased)
 	StringAlignCenter
 	// StringAlignRight aligns the string to the right
 	StringAlignRight
+	// StringAlignCenterRight aligns the string to the center (right biased)
+	StringAlignCenterRight
 )
 
 // AlignString aligns a string to the left, center, or right within a given width
@@ -125,6 +127,9 @@ func AlignString(str string, width int, alignment StringAlign) string {
 	case StringAlignRight:
 		leftPadding = strings.Repeat(" ", padding)
 		rightPadding = ""
+	case StringAlignCenterRight:
+		leftPadding = strings.Repeat(" ", padding-padding/2)
+		rightPadding = strings.Repeat(" ", padding/2)
 	}
 
 	return leftPadding + str + rightPadding
@@ -145,4 +150,48 @@ func GetCommandOptionsMap(i *discordgo.InteractionCreate) map[string]*discordgo.
 		}
 	}
 	return optionMap
+}
+
+// ===== Ansi Formatting =====
+
+const (
+	ansiReset = "\x1b[0;0m"
+	ansiRed   = "\x1b[31m"
+	ansiGreen = "\x1b[32m"
+	ansiBlue  = "\x1b[34m"
+)
+
+// ANSI escape codes.
+var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+// WrapANSI wraps s with an ANSI color by name ("red", "green", "blue").
+// Unknown color returns s unchanged.
+func WrapANSI(s, color string) string {
+	switch strings.ToLower(color) {
+	case "red":
+		return ansiRed + s + ansiReset
+	case "green":
+		return ansiGreen + s + ansiReset
+	case "blue":
+		return ansiBlue + s + ansiReset
+	default:
+		return s
+	}
+}
+
+// VisibleLenANSI returns the rune length of s excluding ANSI escape codes.
+func VisibleLenANSI(s string) int {
+	return utf8.RuneCountInString(ansiRe.ReplaceAllString(s, ""))
+}
+
+// CellANSI pads s to width with spaces and applies color to the content only.
+// If right: the content is right-aligned.
+func CellANSI(s, color string, width int, right bool) string {
+	colored := WrapANSI(s, color)
+	pad := max(width-VisibleLenANSI(s), 0)
+	space := strings.Repeat(" ", pad)
+	if right {
+		return space + colored
+	}
+	return colored + space
 }
