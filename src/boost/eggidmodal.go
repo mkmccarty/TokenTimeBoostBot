@@ -113,6 +113,13 @@ func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 		Virtue(s, i, optionMap, encryptedID, okayToSave)
 		return
+	case "contract-report":
+		if encryptedID == "" {
+			str = "You must provide a valid Egg Inc ID to proceed."
+			break
+		}
+		ContractReport(s, i, optionMap, encryptedID, okayToSave)
+		return
 	default:
 	}
 

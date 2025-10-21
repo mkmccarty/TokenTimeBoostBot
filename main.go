@@ -84,6 +84,7 @@ const slashScoreExplorer string = "score-explorer"
 const slashRemoveDMMessage string = "remove-dm-message"
 const slashPrivacy string = "privacy"
 const slashRerunEval string = "rerun-eval"
+const slashContractReport string = "contract-report"
 const slashVirtue string = "virtue"
 
 var integerZeroMinValue float64 = 0.0
@@ -317,6 +318,7 @@ var (
 		boost.GetSlashCalcContractTval(slashCalcContractTval),
 		boost.GetSlashCoopTval(slashCoopTval),
 		boost.GetSlashTeamworkEval(slashTeamworkEval),
+		boost.GetSlashContractReportCommand(slashContractReport),
 		//boost.GetSlashSiabEval(slashSiabEval),
 		boost.GetSlashStones(slashStones),
 		boost.GetSlashTimer(slashTimer),
@@ -381,6 +383,9 @@ var (
 			boost.HandleAllContractsAutoComplete(s, i)
 		},
 		slashTeamworkEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleAllContractsAutoComplete(s, i)
+		},
+		slashContractReport: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAllContractsAutoComplete(s, i)
 		},
 		slashScoreExplorer: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -512,6 +517,9 @@ var (
 		},
 		slashEventHelper: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			events.HandleEventHelper(s, i)
+		},
+		slashContractReport: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleContractReport(s, i)
 		},
 		slashRerunEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleReplayEval(s, i)
