@@ -164,9 +164,9 @@ func ClearCoopStatusCachedData() {
 	}
 }
 
-// GetCoopStatusForRerun retrieves the coop status for a given contract and coop, but is intended for re-running analysis
+// GetCoopStatusForCompletedContracts retrieves the coop status for a given contract and coop, but is intended for completed contracts
 // This saves the data in compressed form without a timestamp in the filename
-func GetCoopStatusForRerun(contractID string, coopID string) (*ContractCoopStatusResponse, time.Time, string, error) {
+func GetCoopStatusForCompletedContracts(contractID string, coopID string) (*ContractCoopStatusResponse, time.Time, string, error) {
 	eggIncID := config.EIUserIDBasic
 	reqURL := "https://www.auxbrain.com/ei/coop_status"
 	enc := base64.StdEncoding

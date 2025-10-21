@@ -341,7 +341,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 				artifactIcons := ""
 				teamworkIcons := []string{}
 				log.Printf("Evaluating contract %s coop %s for user %s\n", contractID, coopID, eiUserName)
-				coopStatus, _, _, err := ei.GetCoopStatusForRerun(contractID, a.GetCoopIdentifier())
+				coopStatus, _, _, err := ei.GetCoopStatusForCompletedContracts(contractID, a.GetCoopIdentifier())
 				if err == nil {
 					builder.Reset()
 					for _, c := range coopStatus.GetContributors() {
