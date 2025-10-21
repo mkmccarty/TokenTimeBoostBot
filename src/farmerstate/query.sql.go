@@ -78,11 +78,11 @@ FROM
     farmer_state
 WHERE
     -- Exclude records where the extracted value is NULL
-    json_extract(value, '$.MiscSettingsString.ei_ign') IS NOT NULL LIMIT 1
+    json_extract(value, '$.MiscSettingsString.ei_ign') = ? LIMIT 1
 `
 
-func (q *Queries) GetUserIdFromEiIgn(ctx context.Context) (string, error) {
-	row := q.db.QueryRowContext(ctx, getUserIdFromEiIgn)
+func (q *Queries) GetUserIdFromEiIgn(ctx context.Context, value sql.NullString) (string, error) {
+	row := q.db.QueryRowContext(ctx, getUserIdFromEiIgn, value)
 	var id string
 	err := row.Scan(&id)
 	return id, err
