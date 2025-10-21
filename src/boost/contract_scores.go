@@ -27,11 +27,11 @@ import (
 
 // GetTargetBuffTimeValue returns the target buff time value for a contract.
 // Rules:
-//   - If cxpVersion == 1: target = durationSec * 1.875.
+//   - If cxpVersion == ei.SeasonalScoringNerfed: target = durationSec * 1.875.
 //   - Else: target = durationSec * 2.0.
 func GetTargetBuffTimeValue(cxpVersion int, durationSec float64) float64 {
 	coef := 2.0
-	if cxpVersion == 1 {
+	if cxpVersion == ei.SeasonalScoringNerfed {
 		// Sept 22, 2025 and newer contracts don't have buff time value requirements
 		coef = 1.875
 	}
@@ -40,10 +40,10 @@ func GetTargetBuffTimeValue(cxpVersion int, durationSec float64) float64 {
 
 // GetTargetChickenRun returns the target chicken runs for a contract.
 // Rules:
-//   - If cxpVersion == 1: target = N - 1.
+//   - If cxpVersion == ei.SeasonalScoringNerfed: target = N - 1.
 //   - Else: target = min(20, N * (lengthSec/86400) / 2).
 func GetTargetChickenRun(cxpVersion, coopSize int, lengthSec float64) float64 {
-	if cxpVersion == 1 {
+	if cxpVersion == ei.SeasonalScoringNerfed {
 		// Sept 22, 2025 and newer contracts have N-1 CR requirements
 		return float64(coopSize - 1)
 	}
@@ -53,7 +53,7 @@ func GetTargetChickenRun(cxpVersion, coopSize int, lengthSec float64) float64 {
 
 // GetTargetTval will return the target tval for the contract based on the contract duration and minutes per token
 func GetTargetTval(cxpVersion int, contractMinutes float64, minutesPerToken float64) float64 {
-	if cxpVersion == 1 {
+	if cxpVersion == ei.SeasonalScoringNerfed {
 		// Sept 22, 2025 and newer contracts don't have token value requirements
 		return 0.0
 	}
@@ -69,7 +69,7 @@ func GetTargetTval(cxpVersion int, contractMinutes float64, minutesPerToken floa
 func calculateBuffTimeValue(cxpVersion int, segmentDurationSeconds float64, deflPercent int, siabPercent int) float64 {
 	earnings := float64(siabPercent) * 0.0075
 	eggRate := float64(deflPercent) * 0.075
-	if cxpVersion == 1 {
+	if cxpVersion == ei.SeasonalScoringNerfed {
 		/*
 			Sept 22, 2025 and newer contracts don't have buff time value requirements
 			T1C (SIAB, Defl.): 0.150*, 0.625*
@@ -115,7 +115,7 @@ func calculateTeamworkB(buffTimeValue float64, contractDurationSeconds float64) 
 func calculateChickenRunTeamwork(cxpVersion int, coopSize int, durationInDays int, runs int) float64 {
 	fCR := max(12.0/(float64(coopSize*durationInDays)), 0.3)
 	CR := min(fCR*float64(runs), 6.0)
-	if cxpVersion == 1 {
+	if cxpVersion == ei.SeasonalScoringNerfed {
 		CR = min(float64(runs)/min(float64(coopSize-1), 20.0), 1.0)
 	}
 	return CR
@@ -168,7 +168,7 @@ func calculateContractScore(cxpversion int, grade int, coopSize int, targetGoal 
 }
 
 func getPredictedTeamwork(cxpVersion int, B float64, CR float64, T float64) float64 {
-	if cxpVersion == 1 {
+	if cxpVersion == ei.SeasonalScoringNerfed {
 		// Sept 22, 2025 and newer contracts don't have teamwork
 		return (5.0 / 19.0 * (B + CR))
 	}
