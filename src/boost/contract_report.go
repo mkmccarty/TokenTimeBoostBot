@@ -420,8 +420,8 @@ func ContractReport(
 	}
 
 	// Get coop status; validate response
-	// Using GetCoopStatusForRerun to ensure we cache completed contract data locally
-	coopStatus, nowTime, _, err := ei.GetCoopStatusForRerun(contractID, coopID)
+	// Using GetCoopStatusForCompletedContracts to ensure we cache completed contract data locally
+	coopStatus, nowTime, _, err := ei.GetCoopStatusForCompletedContracts(contractID, coopID)
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrCoopStatusFetch, err)
 	}
