@@ -7,10 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strings"
 	"time"
-
-	"github.com/peterbourgon/diskv/v3"
 
 	_ "modernc.org/sqlite" // Want this here
 )
@@ -46,7 +43,6 @@ type OrderHistory struct {
 
 var (
 	farmerstate map[string]*Farmer
-	dataStore   *diskv.Diskv
 )
 
 var ctx = context.Background()
@@ -71,45 +67,11 @@ func sqliteInit() {
 func init() {
 	sqliteInit()
 
-	/*
-		if flag.Lookup("test.v") == nil {
-			fmt.Println("normal run")
-		} else {
-			fmt.Println("run under go test")
-		}
-	*/
+	// Initialized farmerstate map, will be populated on demand
 	farmerstate = make(map[string]*Farmer)
-	//Glob
-	// DataStore to initialize a new diskv store, rooted at "my-data-dir", with a 1MB cache.
-	dataStore = diskv.New(diskv.Options{
-		BasePath:          "ttbb-data",
-		AdvancedTransform: AdvancedTransform,
-		InverseTransform:  InverseTransform,
-		CacheSizeMax:      512 * 512,
-	})
-
-	var f, err = loadData()
-	if err == nil {
-		farmerstate = f
-		// Conversion to SQLite
-		for _, farmer := range farmerstate {
-			saveSqliteData(farmer.UserID, farmer)
-		}
-		// Delete the file ttbb-data/Farmers.json after conversion
-		_ = dataStore.Erase("Farmers")
-	}
-
-	sqliteFarmers, err := loadAllSqliteData()
-	if err == nil {
-		for k, v := range sqliteFarmers {
-			farmerstate[k] = &v
-		}
-	}
-
-	// Conversion is done, we can delete the old file
 }
 
-// saveSqliteData saves farmer data to SQLite (for legacy support)
+// saveSqliteData saves a single piece of farmer data to SQLite (for legacy support)
 func saveSqliteData(userID string, farmer *Farmer) {
 	// Save the farmer data to SQLite
 	farmer.LastUpdated = time.Now()
@@ -134,6 +96,7 @@ func saveSqliteData(userID string, farmer *Farmer) {
 	}
 }
 
+/*
 func loadAllSqliteData() (map[string]Farmer, error) {
 	farmers := make(map[string]Farmer)
 	rows, err := queries.GetAllLegacyFarmerstate(ctx)
@@ -154,6 +117,7 @@ func loadAllSqliteData() (map[string]Farmer, error) {
 
 	return farmers, nil
 }
+*/
 
 // NewFarmer creates a new Farmer
 func newFarmer(userID string) {
@@ -443,16 +407,6 @@ func SetUltra(userID string) {
 	}
 }
 
-// AdvancedTransform for storing KV pairs
-func AdvancedTransform(key string) *diskv.PathKey {
-	path := strings.Split(key, "/")
-	last := len(path) - 1
-	return &diskv.PathKey{
-		Path:     path[:last],
-		FileName: path[last] + ".json",
-	}
-}
-
 // GetDiscordUserIDFromEiIgn retrieves the Discord user ID based on the provided ei_ign
 func GetDiscordUserIDFromEiIgn(eiIgn string) (string, error) {
 	id, err := queries.GetUserIdFromEiIgn(ctx, sql.NullString{String: eiIgn, Valid: true})
@@ -460,33 +414,4 @@ func GetDiscordUserIDFromEiIgn(eiIgn string) (string, error) {
 		return "", err
 	}
 	return id, nil
-}
-
-// InverseTransform for storing KV pairs
-func InverseTransform(pathKey *diskv.PathKey) (key string) {
-	txt := pathKey.FileName[len(pathKey.FileName)-4:]
-	if txt != ".json" {
-		panic("Invalid file found in storage folder!")
-	}
-	return strings.Join(pathKey.Path, "/") + pathKey.FileName[:len(pathKey.FileName)-4]
-}
-
-/*
-	func saveData(c map[string]*Farmer) {
-		b, _ := json.Marshal(c)
-		_ = dataStore.Write("Farmers", b)
-	}
-*/
-func loadData() (map[string]*Farmer, error) {
-	var c map[string]*Farmer
-	b, err := dataStore.Read("Farmers")
-	if err != nil {
-		return c, err
-	}
-	err = json.Unmarshal(b, &c)
-	if err != nil {
-		return c, err
-	}
-
-	return c, nil
 }
