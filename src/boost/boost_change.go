@@ -462,7 +462,7 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 
 		optionMap := bottools.GetCommandOptionsMap(i)
 
-		if opt, ok := optionMap["relative-time"]; ok {
+		if opt, ok := optionMap["offset-relative-time"]; ok {
 			var startTime int64
 			var err error
 			offsetStr := opt.StringValue()
@@ -498,7 +498,7 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 			}
 		}
 
-		if opt, ok := optionMap["start-time"]; ok {
+		if opt, ok := optionMap["timestamp-start-time"]; ok {
 			var startTime int64
 			var err error
 			startTimeStr := opt.StringValue()
