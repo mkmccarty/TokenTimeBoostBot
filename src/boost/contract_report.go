@@ -56,7 +56,7 @@ func userMessage(err error) string {
 	case errors.Is(err, ErrNoChannelContract):
 		return "No contract found in this channel. Please provide a contract-id."
 	case errors.Is(err, ErrEvaluationNotFound):
-		return "Evaluation not found for this contract."
+		return "Evaluation not found. If you think this is an error, use the `refresh` option."
 	case errors.Is(err, ErrCoopIDMissing):
 		return "No coop ID found for this contract evaluation."
 	case errors.Is(err, ErrUnsupportedCXPVersion):
@@ -447,9 +447,9 @@ func ContractReport(
 	if perr != nil {
 		return fmt.Errorf("%w: %v", ErrContribProcess, perr)
 	}
-	if len(missing) > 0 {
-		log.Println("Contributors missing Discord/EI:", strings.Join(missing, ", "))
-	}
+	// if len(missing) > 0 {
+	// 	log.Println("Contributors missing Discord/EI:", strings.Join(missing, ", "))
+	// }
 	evByName := evalsForContractParallel(evalsByName, contractID)
 
 	// contract lookup
@@ -509,7 +509,7 @@ func ContractReport(
 		return fmt.Errorf("%w: %v", ErrReportSendFailed, err)
 	}
 
-	// cache (best-effort; non-fatal)
+	// cache caller's archive
 	if !callerCached && okayToSave {
 		jsonData, merr := json.Marshal(callerArchive)
 		if merr != nil {
@@ -597,6 +597,31 @@ func printContractReport(
 
 		components = append(components, &discordgo.TextDisplay{Content: b.String()})
 	}
+	if len(p.missingPlayers) > 0 {
+		// Group missing players into chunks of 3-4 depending on nerfed
+		playersPerLine := 4
+		if nerfed {
+			playersPerLine = 3
+		}
+		var lines []string
+		chunk := make([]string, 0, playersPerLine)
+		for _, player := range p.missingPlayers {
+			chunk = append(chunk, "`"+player+"`")
+			if len(chunk) == playersPerLine {
+				lines = append(lines, strings.Join(chunk, ", "))
+				chunk = chunk[:0]
+			}
+		}
+		// Add remaining players if any
+		if len(chunk) > 0 {
+			lines = append(lines, strings.Join(chunk, ", "))
+		}
+
+		components = append(components, &discordgo.TextDisplay{
+			Content: fmt.Sprintf("Boost Bot couldn't find these players:\n%s",
+				strings.Join(lines, "\n")),
+		})
+	}
 
 	return components
 }
@@ -612,14 +637,10 @@ func evalMetricsHeader(nerfed bool) string {
 		bottools.AlignString("Contr", contrW, bottools.StringAlignCenterRight),
 		bottools.AlignString("TmWk", teamW, bottools.StringAlignCenterRight),
 		bottools.AlignString("CR", crW, bottools.StringAlignCenterRight),
+		bottools.AlignString("BTV", btvW, bottools.StringAlignCenterRight),
 	}
-	if nerfed {
-		cells = append(cells, bottools.AlignString("BTV", btvW, bottools.StringAlignRight))
-	} else {
-		cells = append(cells,
-			bottools.AlignString("BTV", btvW, bottools.StringAlignCenterRight),
-			bottools.AlignString("ΔTVal", deltaW, bottools.StringAlignRight),
-		)
+	if !nerfed {
+		cells = append(cells, bottools.AlignString("ΔTVal", deltaW, bottools.StringAlignRight))
 	}
 	return strings.Join(cells, "|")
 }
@@ -649,7 +670,7 @@ func formatEvalMetricsRowANSI(
 	cxpColor := peakColor(cxp, peaks.cxp, cxpBase, true)
 	teamColor := peakColor(teamwork, peaks.teamwork, teamBase, false)
 	contrColor := peakColor(contr, peaks.contributionRatio, contrBase, true)
-	btvColor := peakColor(btv, peaks.buffTimeValue, btvBase, false)
+	btvColor := peakColor(btv, peaks.buffTimeValue, btvBase, true)
 
 	cells := []string{
 		fitName(player, nameW),
