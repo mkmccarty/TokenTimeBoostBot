@@ -69,7 +69,10 @@ func GetColleggtibleBuffs(contracts *MyContracts) DimensionBuffs {
 		if eggValue == 0 {
 			continue
 		}
-		customEgg := CustomEggMap[eggName]
+		customEgg, ok := CustomEggMap[eggName]
+		if !ok {
+			continue
+		}
 		tier := 0
 		if eggValue >= 1e10 {
 			tier = 3
