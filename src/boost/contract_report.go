@@ -32,7 +32,7 @@ const (
 	btvW   = 6
 	deltaW = 7
 
-	maxParallel = 6 // max concurrent EI API fetches
+	maxParallel = 20 // max concurrent EI API fetches
 )
 
 var (
