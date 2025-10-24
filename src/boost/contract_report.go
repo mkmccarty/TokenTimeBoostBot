@@ -653,14 +653,10 @@ func evalMetricsHeader(nerfed bool) string {
 		bottools.AlignString("Contr", contrW, bottools.StringAlignCenterRight),
 		bottools.AlignString("TmWk", teamW, bottools.StringAlignCenterRight),
 		bottools.AlignString("CR", crW, bottools.StringAlignCenterRight),
+		bottools.AlignString("BTV", btvW, bottools.StringAlignCenterRight),
 	}
-	if nerfed {
-		cells = append(cells, bottools.AlignString("BTV", btvW, bottools.StringAlignRight))
-	} else {
-		cells = append(cells,
-			bottools.AlignString("BTV", btvW, bottools.StringAlignCenterRight),
-			bottools.AlignString("ΔTVal", deltaW, bottools.StringAlignRight),
-		)
+	if !nerfed {
+		cells = append(cells, bottools.AlignString("ΔTVal", deltaW, bottools.StringAlignRight))
 	}
 	return strings.Join(cells, "|")
 }
@@ -690,7 +686,7 @@ func formatEvalMetricsRowANSI(
 	cxpColor := peakColor(cxp, peaks.cxp, cxpBase, true)
 	teamColor := peakColor(teamwork, peaks.teamwork, teamBase, false)
 	contrColor := peakColor(contr, peaks.contributionRatio, contrBase, true)
-	btvColor := peakColor(btv, peaks.buffTimeValue, btvBase, false)
+	btvColor := peakColor(btv, peaks.buffTimeValue, btvBase, true)
 
 	cells := []string{
 		fitName(player, nameW),
