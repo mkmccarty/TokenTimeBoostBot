@@ -341,43 +341,45 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 				artifactIcons := ""
 				teamworkIcons := []string{}
 				log.Printf("Evaluating contract %s coop %s for user %s\n", contractID, coopID, eiUserName)
-				coopStatus, _, _, err := ei.GetCoopStatusForCompletedContracts(contractID, a.GetCoopIdentifier())
-				if err == nil {
-					builder.Reset()
-					for _, c := range coopStatus.GetContributors() {
-						// Check to see if the name matches the farmer name in the evaluation
-						if c.GetUserName() == eiUserName {
-							for _, artifact := range c.GetFarmInfo().GetEquippedArtifacts() {
-								spec := artifact.GetSpec()
-								strType := levels[spec.GetLevel()] + rarity[spec.GetRarity()]
-								artifactIcons += ei.GetBotEmojiMarkdown(fmt.Sprintf("%s%s", ei.ShortArtifactName[int32(spec.GetName())], strType))
-							}
-							for _, buff := range c.GetBuffHistory() {
-								siab := buff.GetEarnings()
-								defl := buff.GetEggLayingRate()
-								if siab > 1.0 {
-									teamworkIcons = append(teamworkIcons, ei.GetBotEmojiMarkdown(fmt.Sprintf("SIAB_%s", siabmap[siab])))
+				if coopID != "[solo]" {
+					coopStatus, _, _, err := ei.GetCoopStatusForCompletedContracts(contractID, a.GetCoopIdentifier())
+					if err == nil {
+						builder.Reset()
+						for _, c := range coopStatus.GetContributors() {
+							// Check to see if the name matches the farmer name in the evaluation
+							if c.GetUserName() == eiUserName {
+								for _, artifact := range c.GetFarmInfo().GetEquippedArtifacts() {
+									spec := artifact.GetSpec()
+									strType := levels[spec.GetLevel()] + rarity[spec.GetRarity()]
+									artifactIcons += ei.GetBotEmojiMarkdown(fmt.Sprintf("%s%s", ei.ShortArtifactName[int32(spec.GetName())], strType))
 								}
-								if defl > 1.0 {
-									teamworkIcons = append(teamworkIcons, ei.GetBotEmojiMarkdown(fmt.Sprintf("DEFL_%s", deflmap[defl])))
+								for _, buff := range c.GetBuffHistory() {
+									siab := buff.GetEarnings()
+									defl := buff.GetEggLayingRate()
+									if siab > 1.0 {
+										teamworkIcons = append(teamworkIcons, ei.GetBotEmojiMarkdown(fmt.Sprintf("SIAB_%s", siabmap[siab])))
+									}
+									if defl > 1.0 {
+										teamworkIcons = append(teamworkIcons, ei.GetBotEmojiMarkdown(fmt.Sprintf("DEFL_%s", deflmap[defl])))
+									}
 								}
+								// make teamworkIcons unique and sort them in alpha order
+								uniqueIcons := make(map[string]struct{})
+								for _, icon := range teamworkIcons {
+									uniqueIcons[icon] = struct{}{}
+								}
+								teamworkIcons = teamworkIcons[:0]
+								for icon := range uniqueIcons {
+									teamworkIcons = append(teamworkIcons, icon)
+								}
+								// sort in alpha order
+								sort.Strings(teamworkIcons)
+								break
 							}
-							// make teamworkIcons unique and sort them in alpha order
-							uniqueIcons := make(map[string]struct{})
-							for _, icon := range teamworkIcons {
-								uniqueIcons[icon] = struct{}{}
-							}
-							teamworkIcons = teamworkIcons[:0]
-							for icon := range uniqueIcons {
-								teamworkIcons = append(teamworkIcons, icon)
-							}
-							// sort in alpha order
-							sort.Strings(teamworkIcons)
-							break
 						}
+					} else {
+						log.Println("Error getting coop status for contract:", err)
 					}
-				} else {
-					log.Println("Error getting coop status for contract:", err)
 				}
 
 				eggImg := FindEggEmoji(c.EggName)
