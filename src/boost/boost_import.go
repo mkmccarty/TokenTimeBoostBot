@@ -270,34 +270,64 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		if c.SeasonalScoring == ei.SeasonalScoringNerfed {
 			fairShare = 1.02
 		}
+		if c.MaxCoopSize == 1 {
+			fairShare = 1.0
+			c.Cxp = float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+				true, 1.0, // Use faster duration at a 1.0 modifier
+				fairShare, // Fair Share, first booster
+				100, 20,   // SIAB 100%, 20 minutes
+				20, 0, // Deflector %, minutes reduction
+				0,     // All Chicken Runs - Post CRT
+				0, 0)) // Tokens Sent a lot and received a little.
 
-		c.Cxp = float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
-			true, 1.0, // Use faster duration at a 1.0 modifier
-			fairShare, // Fair Share, first booster
-			100, 20,   // SIAB 100%, 20 minutes
-			20, 0, // Deflector %, minutes reduction
-			c.MaxCoopSize-1, // All Chicken Runs - Post CRT
-			100, 5))         // Tokens Sent a lot and received a little.
+			baseScore := float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+				true, 1.0, // Use faster duration at a 1.0 modifier
+				fairShare, // Fair Share, first booster
+				0, 20,     // SIAB 100%, 20 minutes
+				0, 0, // Deflector %, minutes reduction
+				0,     // All Chicken Runs - used for diff Calc
+				0, 0)) // Tokens Sent a lot and received a little.
 
-		baseScore := float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
-			true, 1.0, // Use faster duration at a 1.0 modifier
-			fairShare, // Fair Share, first booster
-			0, 20,     // SIAB 100%, 20 minutes
-			0, 0, // Deflector %, minutes reduction
-			0,     // All Chicken Runs - used for diff Calc
-			0, 0)) // Tokens Sent a lot and received a little.
+			c.CxpRunDelta = (float64(baseScore) * 0.06) / float64(c.ChickenRuns)
+			if c.SeasonalScoring == ei.SeasonalScoringNerfed {
+				c.CxpRunDelta = (float64(baseScore) * 0.05) / float64(c.ChickenRuns)
+			}
+			c.CxpBuffOnly = float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+				true, 1.0, // Use faster duration at a 1.0 modifier
+				fairShare, // Fair Share, first booster
+				100, 20,   // SIAB 100%, 20 minutes
+				20, 0, // Deflector %, minutes reduction
+				0,     // All Chicken Runs - Post CRT
+				0, 0)) // Tokens Sent a lot and received a little.
+		} else {
+			c.Cxp = float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+				true, 1.0, // Use faster duration at a 1.0 modifier
+				fairShare, // Fair Share, first booster
+				100, 20,   // SIAB 100%, 20 minutes
+				20, 0, // Deflector %, minutes reduction
+				c.MaxCoopSize-1, // All Chicken Runs - Post CRT
+				100, 5))         // Tokens Sent a lot and received a little.
 
-		c.CxpRunDelta = (float64(baseScore) * 0.06) / float64(c.ChickenRuns)
-		if c.SeasonalScoring == ei.SeasonalScoringNerfed {
-			c.CxpRunDelta = (float64(baseScore) * 0.05) / float64(c.ChickenRuns)
+			baseScore := float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+				true, 1.0, // Use faster duration at a 1.0 modifier
+				fairShare, // Fair Share, first booster
+				0, 20,     // SIAB 100%, 20 minutes
+				0, 0, // Deflector %, minutes reduction
+				0,     // All Chicken Runs - used for diff Calc
+				0, 0)) // Tokens Sent a lot and received a little.
+
+			c.CxpRunDelta = (float64(baseScore) * 0.06) / float64(c.ChickenRuns)
+			if c.SeasonalScoring == ei.SeasonalScoringNerfed {
+				c.CxpRunDelta = (float64(baseScore) * 0.05) / float64(c.ChickenRuns)
+			}
+			c.CxpBuffOnly = float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+				true, 1.0, // Use faster duration at a 1.0 modifier
+				fairShare, // Fair Share, first booster
+				100, 20,   // SIAB 100%, 20 minutes
+				20, 0, // Deflector %, minutes reduction
+				0,       // All Chicken Runs - Post CRT
+				100, 5)) // Tokens Sent a lot and received a little.
 		}
-		c.CxpBuffOnly = float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
-			true, 1.0, // Use faster duration at a 1.0 modifier
-			fairShare, // Fair Share, first booster
-			100, 20,   // SIAB 100%, 20 minutes
-			20, 0, // Deflector %, minutes reduction
-			0,       // All Chicken Runs - Post CRT
-			100, 5)) // Tokens Sent a lot and received a little.
 	}
 
 	return c
