@@ -208,7 +208,10 @@ func getContractEstimateString(contractID string) string {
 				//fmt.Fprintf(&cs, "*+%.0f/%s* ", c.CxpRunDelta, ei.GetBotEmojiMarkdown("icon_chicken_run"))
 			}
 			cs.WriteString("(SR)")
-			fmt.Fprintf(&cs, " - **%d** (Sink) - **%.0f** ", scoreSink, c.Cxp*0.70)
+			if c.MaxCoopSize > 1 {
+				fmt.Fprintf(&cs, " - **%d** (Sink) ", scoreSink)
+			}
+			fmt.Fprintf(&cs, " - **%.0f** ", c.Cxp*0.70)
 			if c.SeasonID == "" {
 				cs.WriteString(("(Low Target)\n"))
 			} else {
@@ -220,13 +223,13 @@ func getContractEstimateString(contractID string) string {
 				int64(c.Cxp),
 				c.Cxp*0.70)
 		}
-		if footerAboutCR {
+		if footerAboutCR && c.MaxCoopSize > 1 {
 			str += fmt.Sprintf("-# CoopSize-1 used for CR, extras **+%.0f**/%s \n",
 				c.CxpRunDelta,
 				ei.GetBotEmojiMarkdown("icon_chicken_run"))
 		}
 
-		if c.SeasonalScoring != ei.SeasonalScoringNerfed {
+		if c.SeasonalScoring != ei.SeasonalScoringNerfed && c.MaxCoopSize > 1 {
 			if math.Round(c.TargetTval*100)/100 == math.Round(c.TargetTvalLower*100)/100 {
 				str += fmt.Sprintf("Target TVal: **%.2f**\n", c.TargetTval)
 			} else {
