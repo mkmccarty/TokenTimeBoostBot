@@ -416,7 +416,11 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 				}
 				// Duration Check
 				//if evaluation.GetCompletionTime() > c.EstimatedDuration.Seconds()*1.10 {
-				fmt.Fprintf(&builder, "**Completed:** <t:%d:f>\n", int64(evaluation.GetLastContributionTime()))
+				completionTime := int64(evaluation.GetLastContributionTime())
+				if completionTime == 0 {
+					completionTime = int64(evaluation.GetEvaluationStartTime())
+				}
+				fmt.Fprintf(&builder, "**Completed:** <t:%d:f>\n", completionTime)
 				fmt.Fprintf(&builder, "**Duration:** %s  **Est. Duration:** %s\n", bottools.FmtDuration(time.Duration(evaluation.GetCompletionTime()*float64(time.Second))), bottools.FmtDuration(c.EstimatedDuration))
 				fmt.Fprintf(&builder, "**CS:** %d  **Est Max CS:** %.0f\n", uint32(evaluationCxp), c.Cxp)
 				if c.SeasonalScoring == ei.SeasonalScoringNerfed {
