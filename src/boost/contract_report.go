@@ -33,7 +33,7 @@ const (
 	btvW   = 6
 	deltaW = 7
 
-	maxParallel = 6 // max concurrent EI API fetches
+	maxParallel = 20 // max concurrent EI API fetches
 )
 
 var (
@@ -57,7 +57,7 @@ func userMessage(err error) string {
 	case errors.Is(err, ErrNoChannelContract):
 		return "No contract found in this channel. Please provide a contract-id."
 	case errors.Is(err, ErrEvaluationNotFound):
-		return "Evaluation not found for this contract."
+		return "Evaluation not found, if you just completed the contract please wait a few minutes and try again with refresh=true."
 	case errors.Is(err, ErrCoopIDMissing):
 		return "No coop ID found for this contract evaluation."
 	case errors.Is(err, ErrUnsupportedCXPVersion):
@@ -653,14 +653,10 @@ func evalMetricsHeader(nerfed bool) string {
 		bottools.AlignString("Contr", contrW, bottools.StringAlignCenterRight),
 		bottools.AlignString("TmWk", teamW, bottools.StringAlignCenterRight),
 		bottools.AlignString("CR", crW, bottools.StringAlignCenterRight),
+		bottools.AlignString("BTV", btvW, bottools.StringAlignCenterRight),
 	}
-	if nerfed {
-		cells = append(cells, bottools.AlignString("BTV", btvW, bottools.StringAlignRight))
-	} else {
-		cells = append(cells,
-			bottools.AlignString("BTV", btvW, bottools.StringAlignCenterRight),
-			bottools.AlignString("ΔTVal", deltaW, bottools.StringAlignRight),
-		)
+	if !nerfed {
+		cells = append(cells, bottools.AlignString("ΔTVal", deltaW, bottools.StringAlignRight))
 	}
 	return strings.Join(cells, "|")
 }
@@ -690,7 +686,7 @@ func formatEvalMetricsRowANSI(
 	cxpColor := peakColor(cxp, peaks.cxp, cxpBase, true)
 	teamColor := peakColor(teamwork, peaks.teamwork, teamBase, false)
 	contrColor := peakColor(contr, peaks.contributionRatio, contrBase, true)
-	btvColor := peakColor(btv, peaks.buffTimeValue, btvBase, false)
+	btvColor := peakColor(btv, peaks.buffTimeValue, btvBase, true)
 
 	cells := []string{
 		fitName(player, nameW),
