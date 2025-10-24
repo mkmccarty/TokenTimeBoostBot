@@ -10,6 +10,7 @@ import (
 	"math"
 	"os"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -148,6 +149,12 @@ func GetSlashContractReportCommand(cmd string) *discordgo.ApplicationCommand {
 				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "refresh",
 				Description: "If you want to force a refresh due a recent change to your contracts.",
+				Required:    false,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "missing-players",
+				Description: "Show missing players in the report. Default is false.",
 				Required:    false,
 			},
 		},
@@ -329,6 +336,10 @@ func ContractReport(
 	if opt, ok := optionMap["refresh"]; ok {
 		forceRefresh = opt.BoolValue()
 	}
+	showMissingPlayers := false
+	if opt, ok := optionMap["missing-players"]; ok {
+		showMissingPlayers = opt.BoolValue()
+	}
 
 	// resolve contractID, prefer the slash option.
 	var contractID string
@@ -496,7 +507,7 @@ func ContractReport(
 	p.playerEvalsMetrics, p.metricPeaks = buildAndSortEvals(callerFarmerName, callerEval, evByName)
 
 	// render components
-	components := printContractReport(&p)
+	components := printContractReport(&p, showMissingPlayers)
 	if len(components) == 0 {
 		components = []discordgo.MessageComponent{
 			&discordgo.TextDisplay{Content: "No archived contracts found in Egg Inc API response"},
@@ -531,6 +542,7 @@ func ContractReport(
 //     If the contract is seasonal-nerfed, the ΔTVal column **and** its threshold are omitted.
 func printContractReport(
 	p *contractReportParameters,
+	showMissingPlayers bool,
 ) []discordgo.MessageComponent {
 	var components []discordgo.MessageComponent
 
@@ -570,7 +582,11 @@ func printContractReport(
 		h.WriteString(fmt.Sprintf("🎯 Thresholds: `%s` BTV, `%s` CRs, `%s` ΔTVal\n\n", btvStr, crStr, dtvStr))
 	}
 
-	h.WriteString(fmt.Sprintf("__Members__ (%d players)\n", len(p.playerEvalsMetrics)))
+	if len(p.missingPlayers) > 0 {
+		h.WriteString(fmt.Sprintf("__Members__ (%d out of %d players matched)\n", len(p.playerEvalsMetrics), currentContract.MaxCoopSize))
+	} else {
+		h.WriteString(fmt.Sprintf("__Members__ (%d players)\n", len(p.playerEvalsMetrics)))
+	}
 	components = append(components, &discordgo.TextDisplay{Content: h.String()})
 
 	// --- ANSI Table ---
@@ -596,6 +612,31 @@ func printContractReport(
 		b.WriteString("```")
 
 		components = append(components, &discordgo.TextDisplay{Content: b.String()})
+	}
+	if showMissingPlayers && len(p.missingPlayers) > 0 {
+		// sort missing player names
+		names := append([]string(nil), p.missingPlayers...)
+		slices.SortFunc(names, func(a, b string) int {
+			if c := strings.Compare(strings.ToLower(a), strings.ToLower(b)); c != 0 {
+				return c
+			}
+			return strings.Compare(a, b)
+		})
+
+		// build missing players list, account for `-` in names (thx -wittysquid-)
+		var b strings.Builder
+		for i, s := range names {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteByte('`')
+			b.WriteString(strings.ReplaceAll(s, "-", "\u2011"))
+			b.WriteByte('`')
+		}
+
+		components = append(components, &discordgo.TextDisplay{
+			Content: "Boost Bot doesn't know these players:\n" + b.String(),
+		})
 	}
 
 	return components
