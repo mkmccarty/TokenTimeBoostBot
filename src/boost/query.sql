@@ -21,7 +21,7 @@ SELECT * FROM contract_data
 WHERE channelID = ?;
 
 -- name: GetActiveContracts :many
-SELECT * FROM contract_data WHERE value->>'State' != 4;
+SELECT value->>'ContractHash' AS ContractHash,value FROM contract_data WHERE value->>'State' != 4;
 
 -- name: UpdateContractState :exec
 UPDATE contract_data

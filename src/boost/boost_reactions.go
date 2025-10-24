@@ -28,7 +28,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		return returnVal
 	}
 
-	defer saveData(Contracts)
+	defer saveData(contract.ContractHash)
 
 	// If the user is not in the contract then they can join with a farmer reaction
 	if !userInContract(contract, r.UserID) {

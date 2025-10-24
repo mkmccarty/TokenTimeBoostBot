@@ -27,24 +27,24 @@ func (q *Queries) DeleteContract(ctx context.Context, arg DeleteContractParams) 
 }
 
 const getActiveContracts = `-- name: GetActiveContracts :many
-SELECT channelid, contractid, coopid, value FROM contract_data WHERE value->>'State' != 4
+SELECT value->>'ContractHash' AS ContractHash,value FROM contract_data WHERE value->>'State' != 4
 `
 
-func (q *Queries) GetActiveContracts(ctx context.Context) ([]ContractDatum, error) {
+type GetActiveContractsRow struct {
+	Contracthash interface{}
+	Value        sql.NullString
+}
+
+func (q *Queries) GetActiveContracts(ctx context.Context) ([]GetActiveContractsRow, error) {
 	rows, err := q.db.QueryContext(ctx, getActiveContracts)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ContractDatum
+	var items []GetActiveContractsRow
 	for rows.Next() {
-		var i ContractDatum
-		if err := rows.Scan(
-			&i.Channelid,
-			&i.Contractid,
-			&i.Coopid,
-			&i.Value,
-		); err != nil {
+		var i GetActiveContractsRow
+		if err := rows.Scan(&i.Contracthash, &i.Value); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

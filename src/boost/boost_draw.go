@@ -90,7 +90,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 	contract.LastInteractionTime = time.Now()
 
-	saveData(Contracts)
+	saveData(contract.ContractHash)
 	if contract.EggEmoji == "" {
 		contract.EggEmoji = FindEggEmoji(contract.EggName)
 	}
