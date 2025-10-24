@@ -386,7 +386,7 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 		}
 	}
 	delete(Contracts, coopHash)
-	saveData(Contracts)
+	saveData(contract.ContractHash)
 
 	return coopName, nil
 }
@@ -519,7 +519,7 @@ func SetListMessageID(contract *Contract, channelID string, messageID string) {
 			}
 		}
 	}
-	saveData(Contracts)
+	saveData(contract.ContractHash)
 }
 
 // SetReactionID will save the reactionID for the contract
@@ -532,7 +532,7 @@ func SetReactionID(contract *Contract, channelID string, reactionID string) {
 			}
 		}
 	}
-	saveData(Contracts)
+	saveData(contract.ContractHash)
 }
 
 func setChickenRunMessageID(contract *Contract, messageID string) {

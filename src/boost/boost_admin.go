@@ -279,8 +279,8 @@ func finishContractByHash(s *discordgo.Session, contractHash string) error {
 	}
 
 	_ = saveEndData(contract) // Save for historical purposes
+	saveData(contract.ContractHash)
 	delete(Contracts, contract.ContractHash)
-	saveData(Contracts)
 
 	return nil
 }

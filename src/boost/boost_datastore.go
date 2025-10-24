@@ -32,10 +32,10 @@ func sqliteInit() {
 	queries = New(db)
 }
 
-// SaveAllData will remove a token from the Contracts
+// SaveAllData will save all contract data to disk
 func SaveAllData() {
-	log.Print("Saving contact data")
-	saveData(Contracts)
+	log.Print("Saving contract data")
+	saveData("")
 }
 
 func initDataStore() {
@@ -68,9 +68,18 @@ func InverseTransform(pathKey *diskv.PathKey) (key string) {
 	return strings.Join(pathKey.Path, "/") + pathKey.FileName[:len(pathKey.FileName)-4]
 }
 
-func saveData(c map[string]*Contract) {
-	b, _ := json.Marshal(c)
-	_ = dataStore.Write("EggsBackup", b)
+func saveData(contractHash string) {
+	if contractHash != "" {
+		saveSqliteData(Contracts[contractHash])
+	}
+
+	for _, c := range Contracts {
+		saveSqliteData(c)
+	}
+
+	// Legacy disk store backup
+	//b, _ := json.Marshal(Contracts)
+	//_ = dataStore.Write("EggsBackup", b)
 }
 
 func saveEndData(c *Contract) error {
@@ -83,21 +92,56 @@ func saveEndData(c *Contract) error {
 }
 
 func loadData() (map[string]*Contract, error) {
-	var c map[string]*Contract
-	b, err := dataStore.Read("EggsBackup")
-	if err != nil {
-		return c, err
-	}
-	err = json.Unmarshal(b, &c)
-	if err != nil {
-		return c, err
-	}
+	// Ensure SQLite is initialized before use
 	if queries == nil {
 		sqliteInit()
 	}
+	c := make(map[string]*Contract)
 
-	for _, v := range c {
-		saveSqliteData(v)
+	//if the file ttbb-data/EggsBackup.json exists
+	if dataStore.Has("EggsBackup") {
+
+		b, err := dataStore.Read("EggsBackup")
+		if err != nil {
+			return c, err
+		}
+		if err := json.Unmarshal(b, &c); err != nil {
+			return c, err
+		}
+
+		for _, v := range c {
+			saveSqliteData(v)
+		}
+
+		_ = dataStore.Erase("EggsBackup")
+	}
+
+	// Try to load from SQLite first
+	rows, err := queries.GetActiveContracts(ctx)
+	if err == nil {
+		for _, r := range rows {
+			if r.Value.Valid {
+				var contract Contract
+				if err := json.Unmarshal([]byte(r.Value.String), &contract); err != nil {
+					log.Printf("Error unmarshaling contract data from SQLite: %v", err)
+					continue
+				}
+				switch v := r.Contracthash.(type) {
+				case string:
+					c[v] = &contract
+				case []byte:
+					c[string(v)] = &contract
+				default:
+					log.Printf("Unsupported type for Contracthash: %T", v)
+					continue
+				}
+			}
+		}
+		if len(c) > 0 {
+			return c, nil
+		}
+	} else {
+		log.Printf("Error reading active contracts from SQLite: %v", err)
 	}
 
 	return c, nil
@@ -124,6 +168,7 @@ func readSqliteData(channelID string) (*Contract, error) {
 	return nil, nil
 }
 */
+
 // saveSqliteData saves a single piece of contract data to SQLite (for legacy support)
 func saveSqliteData(contract *Contract) {
 	// Save the contract data to SQLite
