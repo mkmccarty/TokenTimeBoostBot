@@ -57,7 +57,7 @@ func userMessage(err error) string {
 	case errors.Is(err, ErrNoChannelContract):
 		return "No contract found in this channel. Please provide a contract-id."
 	case errors.Is(err, ErrEvaluationNotFound):
-		return "Evaluation not found for this contract."
+		return "Evaluation not found, if you just completed the contract please wait a few minutes and try again with refresh=true."
 	case errors.Is(err, ErrCoopIDMissing):
 		return "No coop ID found for this contract evaluation."
 	case errors.Is(err, ErrUnsupportedCXPVersion):
