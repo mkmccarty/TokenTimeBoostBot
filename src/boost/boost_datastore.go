@@ -82,6 +82,7 @@ func saveData(contractHash string) {
 	//_ = dataStore.Write("EggsBackup", b)
 }
 
+/*
 func saveEndData(c *Contract) error {
 	//diskmutex.Lock()
 	var saveName = fmt.Sprintf("%s/%s", c.ContractID, c.CoopID)
@@ -90,6 +91,7 @@ func saveEndData(c *Contract) error {
 	//diskmutex.Unlock()
 	return nil
 }
+*/
 
 func loadData() (map[string]*Contract, error) {
 	// Ensure SQLite is initialized before use
