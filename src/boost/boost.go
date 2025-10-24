@@ -373,7 +373,7 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 
 	var coopHash = contract.ContractHash
 	var coopName = contract.ContractID + "/" + contract.CoopID
-	_ = saveEndData(contract) // Save for historical purposes
+	//_ = saveEndData(contract) // Save for historical purposes
 
 	for _, el := range contract.Location {
 		if s != nil {
@@ -385,8 +385,9 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 			}
 		}
 	}
-	delete(Contracts, coopHash)
+	contract.State = ContractStateArchive
 	saveData(contract.ContractHash)
+	delete(Contracts, coopHash)
 
 	return coopName, nil
 }

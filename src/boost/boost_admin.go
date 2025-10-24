@@ -278,7 +278,8 @@ func finishContractByHash(s *discordgo.Session, contractHash string) error {
 		contract.BoostedOrder = contract.Order
 	}
 
-	_ = saveEndData(contract) // Save for historical purposes
+	contract.State = ContractStateArchive
+	//_ = saveEndData(contract) // Save for historical purposes
 	saveData(contract.ContractHash)
 	delete(Contracts, contract.ContractHash)
 
