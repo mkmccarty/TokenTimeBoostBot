@@ -106,11 +106,10 @@ func (q *Queries) InsertLegacyFarmerstate(ctx context.Context, arg InsertLegacyF
 	return i, err
 }
 
-const updateLegacyFarmerstate = `-- name: UpdateLegacyFarmerstate :one
+const updateLegacyFarmerstate = `-- name: UpdateLegacyFarmerstate :execrows
 UPDATE farmer_state
 SET value = ?
 WHERE id = ? AND key = 'legacy'
-RETURNING id, "key", value
 `
 
 type UpdateLegacyFarmerstateParams struct {
@@ -118,9 +117,10 @@ type UpdateLegacyFarmerstateParams struct {
 	ID    string
 }
 
-func (q *Queries) UpdateLegacyFarmerstate(ctx context.Context, arg UpdateLegacyFarmerstateParams) (FarmerState, error) {
-	row := q.db.QueryRowContext(ctx, updateLegacyFarmerstate, arg.Value, arg.ID)
-	var i FarmerState
-	err := row.Scan(&i.ID, &i.Key, &i.Value)
-	return i, err
+func (q *Queries) UpdateLegacyFarmerstate(ctx context.Context, arg UpdateLegacyFarmerstateParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateLegacyFarmerstate, arg.Value, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }

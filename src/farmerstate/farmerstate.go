@@ -55,12 +55,7 @@ func sqliteInit() {
 	//db, _ := sql.Open("sqlite", ":memory:")
 	db, _ := sql.Open("sqlite", "ttbb-data/Farmers.sqlite")
 
-	result, err := db.ExecContext(ctx, ddl)
-	if err != nil {
-		log.Printf("We have an error: %v", err)
-	} else {
-		fmt.Print(result)
-	}
+	_, _ = db.ExecContext(ctx, ddl)
 	queries = New(db)
 }
 
@@ -80,11 +75,11 @@ func saveSqliteData(userID string, farmer *Farmer) {
 		log.Printf("Error marshaling farmer data: %v", err)
 		return
 	}
-	_, err = queries.UpdateLegacyFarmerstate(ctx, UpdateLegacyFarmerstateParams{
+	rows, _ := queries.UpdateLegacyFarmerstate(ctx, UpdateLegacyFarmerstateParams{
 		Value: sql.NullString{String: string(farmerJSON), Valid: true},
 		ID:    userID,
 	})
-	if err != nil {
+	if rows != 1 {
 		// Record exists, update instead
 		_, err = queries.InsertLegacyFarmerstate(ctx, InsertLegacyFarmerstateParams{
 			ID:    userID,

@@ -7,3 +7,10 @@ sql:
       go:
         package: "farmerstate"
         out: "src/farmerstate"
+  - engine: "sqlite"
+    queries: "src/boost/query.sql"
+    schema: "src/boost/schema.sql"
+    gen:
+      go:
+        package: "boost"
+        out: "src/boost"
