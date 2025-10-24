@@ -7,11 +7,10 @@ INSERT INTO farmer_state (id, key, value)
 VALUES (?, 'legacy', ?)
 RETURNING *;
 
--- name: UpdateLegacyFarmerstate :one
+-- name: UpdateLegacyFarmerstate :execrows
 UPDATE farmer_state
 SET value = ?
-WHERE id = ? AND key = 'legacy'
-RETURNING *;
+WHERE id = ? AND key = 'legacy';
 
 -- name: GetAllLegacyFarmerstate :many
 SELECT * FROM farmer_state
