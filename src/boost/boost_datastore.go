@@ -181,6 +181,9 @@ func saveSqliteData(contract *Contract) {
 	}
 	var rows int64
 	var updateErr error
+	if queries == nil {
+		sqliteInit()
+	}
 	rows, updateErr = queries.UpdateContract(ctx, UpdateContractParams{
 		Channelid:  contract.Location[0].ChannelID,
 		Contractid: contract.ContractID,
