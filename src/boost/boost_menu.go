@@ -18,7 +18,8 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	data := i.MessageComponentData()
 	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
 	contractHash := reaction[len(reaction)-1]
-	contract := Contracts[contractHash]
+	contract := FindContractByHash(contractHash)
+
 	// menu # HASH
 	values := data.Values
 	if len(values) == 0 || contract == nil {

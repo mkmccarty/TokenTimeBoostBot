@@ -11,7 +11,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func getSignupContractSettings(channelID string, id string, thread bool) (string, []discordgo.MessageComponent) {
+func getSignupContractSettings(channelID string, hashID string, thread bool) (string, []discordgo.MessageComponent) {
 	minValues := 1
 	minZeroValues := 0
 
@@ -29,7 +29,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 	}
 	builder.WriteString("React with ⏱️ after the boosting is completed to update the duration from the EI API.")
 
-	contract := Contracts[id]
+	contract := FindContractByHash(hashID)
 
 	// Dynamic Boost List Styles
 	runStyleOptions := []discordgo.SelectMenuOption{}
@@ -87,7 +87,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.SelectMenu{
-					CustomID:    "cs_#style#" + id,
+					CustomID:    "cs_#style#" + hashID,
 					Placeholder: "Select contract styles",
 					MinValues:   &minValues,
 					MaxValues:   1,
@@ -98,7 +98,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.SelectMenu{
-					CustomID:    "cs_#order#" + id,
+					CustomID:    "cs_#order#" + hashID,
 					Placeholder: "Select the boosting order for this contract",
 					MinValues:   &minValues,
 					MaxValues:   1,
@@ -152,7 +152,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.SelectMenu{
-					CustomID:    "cs_#play#" + id,
+					CustomID:    "cs_#play#" + hashID,
 					Placeholder: "Choose your play style",
 					MinValues:   &minValues,
 					MaxValues:   1,
@@ -163,7 +163,7 @@ func getSignupContractSettings(channelID string, id string, thread bool) (string
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.SelectMenu{
-					CustomID:    "cs_#features#" + id,
+					CustomID:    "cs_#features#" + hashID,
 					Placeholder: "Optional Features",
 					MinValues:   &minZeroValues,
 					MaxValues:   1,

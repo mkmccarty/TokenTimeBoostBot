@@ -151,7 +151,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	s1, urls, tiles := DownloadCoopStatusStones(contractID, coopID, details, soloName, useBuffHistory)
 
-	contract := findContractByIDs(contractID, coopID)
+	contract := FindContractByIDs(contractID, coopID)
 	if contract != nil {
 		if contract.State == ContractStateCompleted {
 			// Only refresh if EstimateUpdateTime is within 10 seconds of now

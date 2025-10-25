@@ -574,9 +574,31 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	loc.ReactionID = ""
 
 	//if contract == nil {
-	var ContractHash = namesgenerator.GetRandomName(0)
-	for Contracts[ContractHash] != nil {
-		ContractHash = namesgenerator.GetRandomName(0)
+	var ContractHash string
+
+	// Try a number of random docker-style names first
+	for attempt := 0; attempt < 64; attempt++ {
+		cand := namesgenerator.GetRandomName(0)
+		if Contracts[cand] == nil {
+			ContractHash = cand
+			break
+		}
+	}
+
+	// Fallback: append a short random suffix to guarantee uniqueness
+	if ContractHash == "" {
+		base := namesgenerator.GetRandomName(0)
+		for {
+			suffix := strconv.FormatUint(rand.Uint64(), 36)
+			if len(suffix) > 6 {
+				suffix = suffix[:6]
+			}
+			cand := fmt.Sprintf("%s-%s", base, suffix)
+			if Contracts[cand] == nil {
+				ContractHash = cand
+				break
+			}
+		}
 	}
 
 	// We don't have this contract on this channel, it could exist in another channel
@@ -681,7 +703,7 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		},
 	})
 
-	contract := Contracts[contractHash]
+	contract := FindContractByHash(contractHash)
 	if contract == nil {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
