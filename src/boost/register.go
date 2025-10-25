@@ -8,7 +8,7 @@ import (
 )
 
 // GetSlashRegisterCommand returns the /register command
-func GetRegisterCommand(cmd string) *discordgo.ApplicationCommand {
+func GetSlashRegisterCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Register your Egg Inc ID with Boost Bot.",

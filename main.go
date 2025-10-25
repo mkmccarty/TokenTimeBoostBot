@@ -205,7 +205,7 @@ var (
 		track.GetSlashTokenEditTrackCommand(slashTokenEditTrack),
 		boost.GetSlashReplayEvalCommand(slashRerunEval),
 		boost.GetSlashVirtueCommand(slashVirtue),
-		boost.GetRegisterCommand(slashRegister),
+		boost.GetSlashRegisterCommand(slashRegister),
 	}
 
 	commands = []*discordgo.ApplicationCommand{
