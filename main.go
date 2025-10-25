@@ -86,6 +86,7 @@ const slashPrivacy string = "privacy"
 const slashRerunEval string = "rerun-eval"
 const slashContractReport string = "contract-report"
 const slashVirtue string = "virtue"
+const slashRegister string = "register"
 
 var integerZeroMinValue float64 = 0.0
 
@@ -204,6 +205,7 @@ var (
 		track.GetSlashTokenEditTrackCommand(slashTokenEditTrack),
 		boost.GetSlashReplayEvalCommand(slashRerunEval),
 		boost.GetSlashVirtueCommand(slashVirtue),
+		boost.GetRegisterCommand(slashRegister),
 	}
 
 	commands = []*discordgo.ApplicationCommand{
@@ -517,6 +519,9 @@ var (
 		},
 		slashEventHelper: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			events.HandleEventHelper(s, i)
+		},
+		slashRegister: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleRegister(s, i)
 		},
 		slashContractReport: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractReport(s, i)

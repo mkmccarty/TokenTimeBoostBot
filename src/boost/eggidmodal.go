@@ -46,8 +46,8 @@ func RequestEggIncIDModal(s *discordgo.Session, i *discordgo.InteractionCreate, 
 							CustomID:    "confirm",
 							Label:       "Save or Forget this ID after this session?",
 							Style:       discordgo.TextInputShort,
-							Placeholder: "forget or save",
-							Value:       "forget",
+							Placeholder: "save or forget",
+							Value:       "save",
 							MaxLength:   6,
 							Required:    true,
 						},
@@ -99,6 +99,12 @@ func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate
 
 	parts := strings.Split(modalData.CustomID, "#")
 	switch parts[1] {
+	case "register":
+		if encryptedID == "" {
+			str = "You must provide a valid Egg Inc ID to register."
+			break
+		}
+		str = "Your Egg Inc ID has been registered."
 	case "replay":
 		if encryptedID == "" {
 			str = "You must provide a valid Egg Inc ID to proceed."
