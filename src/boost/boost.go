@@ -587,6 +587,15 @@ func FindContract(channelID string) *Contract {
 	return nil
 }
 
+// FindContractByHash will find a contract by its hash
+func FindContractByHash(hash string) *Contract {
+	contract, exists := Contracts[hash]
+	if exists {
+		return contract
+	}
+	return nil
+}
+
 // FindContractByMessageID will find the contract by the messageID
 func FindContractByMessageID(channelID string, messageID string) *Contract {
 	// Given a
@@ -601,8 +610,8 @@ func FindContractByMessageID(channelID string, messageID string) *Contract {
 	return nil
 }
 
-// findContractByIDs will find the contract by the contractID and coopID
-func findContractByIDs(contractID string, coopID string) *Contract {
+// FindContractByIDs will find the contract by the contractID and coopID
+func FindContractByIDs(contractID string, coopID string) *Contract {
 	// Look for the contract
 	for key, element := range Contracts {
 		if element.ContractID == contractID && element.CoopID == coopID {
@@ -1801,7 +1810,7 @@ func ArchiveContracts(s *discordgo.Session) {
 // UpdateContractTime will update the contract start time and estimated duration
 func UpdateContractTime(contractID string, coopID string, startTime time.Time, contractDurationSeconds float64) {
 	// Update the contract start time and estimated duration
-	contract := findContractByIDs(contractID, coopID)
+	contract := FindContractByIDs(contractID, coopID)
 	if contract == nil || contract.State != ContractStateCompleted {
 		return
 	}

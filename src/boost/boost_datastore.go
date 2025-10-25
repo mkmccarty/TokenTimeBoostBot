@@ -70,7 +70,7 @@ func InverseTransform(pathKey *diskv.PathKey) (key string) {
 
 func saveData(contractHash string) {
 	if contractHash != "" {
-		saveSqliteData(Contracts[contractHash])
+		saveSqliteData(FindContractByHash(contractHash))
 	}
 
 	for _, c := range Contracts {

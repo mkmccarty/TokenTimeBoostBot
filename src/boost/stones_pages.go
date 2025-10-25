@@ -96,7 +96,7 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		cache = newCache
 		stonesCacheMap[cache.xid] = newCache
 
-		contract := findContractByIDs(cache.contractID, cache.coopID)
+		contract := FindContractByIDs(cache.contractID, cache.coopID)
 		if contract != nil {
 			if contract.State == ContractStateCompleted {
 				// Only refresh if EstimateUpdateTime is within 10 seconds of now
