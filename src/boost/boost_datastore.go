@@ -24,9 +24,7 @@ func sqliteInit() {
 	db, _ := sql.Open("sqlite", "ttbb-data/ContractData.sqlite")
 
 	result, err := db.ExecContext(ctx, ddl)
-	if err != nil {
-		log.Printf("We have an error: %v", err)
-	} else {
+	if err == nil {
 		fmt.Print(result)
 	}
 	queries = New(db)
