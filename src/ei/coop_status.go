@@ -66,6 +66,25 @@ func GetCoopStatus(contractID string, coopID string) (*ContractCoopStatusRespons
 		if err != nil {
 			return nil, timestamp, dataTimestampStr, err
 		}
+
+		// Try to detect if the data is gzip compressed
+		if len(protoDataBytes) > 2 && protoDataBytes[0] == 0x1f && protoDataBytes[1] == 0x8b {
+			// Data is gzip compressed, decompress it
+			gzReader, err := gzip.NewReader(bytes.NewReader(protoDataBytes))
+			if err != nil {
+				return nil, timestamp, dataTimestampStr, err
+			}
+			defer func() {
+				if err := gzReader.Close(); err != nil {
+					log.Printf("Failed to close: %v", err)
+				}
+			}()
+
+			protoDataBytes, err = io.ReadAll(gzReader)
+			if err != nil {
+				return nil, timestamp, dataTimestampStr, err
+			}
+		}
 		protoData = string(protoDataBytes)
 
 		timestamp = fileTimestamp
@@ -124,7 +143,14 @@ func GetCoopStatus(contractID string, coopID string) (*ContractCoopStatusRespons
 			log.Print(err)
 			return nil, timestamp, dataTimestampStr, err
 		}
-		err = os.WriteFile(fileName, []byte(protoData), 0644)
+		var compressedBody bytes.Buffer
+		gz := gzip.NewWriter(&compressedBody)
+		if _, err = gz.Write([]byte(protoData)); err == nil {
+			err = gz.Close()
+		}
+		if err == nil {
+			err = os.WriteFile(fileName, compressedBody.Bytes(), 0644)
+		}
 		if err != nil {
 			log.Print(err)
 			return nil, timestamp, dataTimestampStr, err
