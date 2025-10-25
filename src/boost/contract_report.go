@@ -535,15 +535,19 @@ func ContractReport(
 
 	// cache (best-effort; non-fatal)
 	if !callerCached && okayToSave {
-		jsonData, merr := json.Marshal(callerArchive)
-		if merr != nil {
-			log.Println("Error marshalling archive to JSON:", merr)
-		} else {
-			fileName := fmt.Sprintf("ttbb-data/eiuserdata/archive-%s-%s.json", callerUserID, cxpVersion)
-			jsonData = bytes.ReplaceAll(jsonData, []byte(callerEI), []byte(callerUserID))
-			if werr := os.WriteFile(fileName, jsonData, 0o644); werr != nil {
-				log.Println("Error saving contract archive to file:", werr)
-			}
+		if config.IsDevBot() {
+			go func() {
+				jsonData, merr := json.Marshal(callerArchive)
+				if merr != nil {
+					log.Println("Error marshalling archive to JSON:", merr)
+				} else {
+					fileName := fmt.Sprintf("ttbb-data/eiuserdata/archive-%s-%s.json", callerUserID, cxpVersion)
+					jsonData = bytes.ReplaceAll(jsonData, []byte(callerEI), []byte(callerUserID))
+					if werr := os.WriteFile(fileName, jsonData, 0o644); werr != nil {
+						log.Println("Error saving contract archive to file:", werr)
+					}
+				}
+			}()
 		}
 	}
 	return nil
