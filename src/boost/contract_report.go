@@ -36,6 +36,19 @@ const (
 	maxParallel = 20 // max concurrent EI API fetches
 )
 
+// ErrNoChannelContract is returned when no contract can be found for the specified channel.
+// ErrEvaluationNotFound is returned when an expected evaluation for a contract cannot be found.
+// ErrCoopIDMissing indicates that a required coop identifier was not provided.
+// ErrUnsupportedCXPVersion indicates that the provided CXP protocol or API version is not supported.
+// ErrCoopStatusFetch is returned when fetching the coop status from an external source fails.
+// ErrCoopStatusResponse indicates that the coop status endpoint returned an error or invalid response.
+// ErrCoopNoGrade is returned when no grade is available for the coop.
+// ErrCoopNotFinished indicates that the coop has not yet reached a finished state.
+// ErrContribProcess is returned when processing contributor information fails.
+// ErrInvalidContractID indicates that the provided contract identifier is invalid or malformed.
+// ErrCoopGradeInvalid is returned when the coop grade index is out of range or otherwise invalid.
+// ErrReportSendFailed indicates that sending or publishing the report failed.
+// ErrContractDurationMismatch is returned when the actual contract duration does not match the expected duration.
 var (
 	ErrNoChannelContract        = errors.New("no contract found for channel")
 	ErrEvaluationNotFound       = errors.New("evaluation not found for contract")
