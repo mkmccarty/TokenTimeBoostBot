@@ -667,7 +667,7 @@ func printContractReport(
 // ===== header & row formatting =====
 
 // Player | Cxp | Contr | Tmwk | CR | BTV | [ΔTVal*]
-// If nerfed==true, omit ΔTVal and right-align BTV.
+// If nerfed==true, omit ΔTVal.
 func evalMetricsHeader(nerfed bool) string {
 	cells := []string{
 		bottools.AlignString("Player", nameW, bottools.StringAlignLeft),
