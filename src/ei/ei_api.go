@@ -208,7 +208,7 @@ func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID 
 							if gr, zerr := gzip.NewReader(bytes.NewReader(decryptedData)); zerr == nil {
 								var buf bytes.Buffer
 								if _, zerr = io.Copy(&buf, gr); zerr == nil {
-									protoData = string(buf.Bytes())
+									protoData = buf.String()
 								}
 								_ = gr.Close()
 							}
