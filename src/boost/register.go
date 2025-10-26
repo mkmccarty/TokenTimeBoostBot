@@ -21,14 +21,6 @@ func GetSlashRegisterCommand(cmd string) *discordgo.ApplicationCommand {
 			discordgo.ApplicationIntegrationGuildInstall,
 			discordgo.ApplicationIntegrationUserInstall,
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "reset",
-				Description: "Reset your registered Egg Inc ID.",
-				Required:    false,
-			},
-		},
 	}
 }
 
