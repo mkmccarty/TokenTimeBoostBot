@@ -23,37 +23,46 @@ func RequestEggIncIDModal(s *discordgo.Session, i *discordgo.InteractionCreate, 
 	userID := bottools.GetInteractionUserID(i)
 	optionMapCache[userID] = optionMap
 
+	// I want the MessageComponent to be more dynamic.  Create a
+	var components []discordgo.MessageComponent
+
+	components = append(components, discordgo.ActionsRow{
+		Components: []discordgo.MessageComponent{
+			discordgo.TextInput{
+				CustomID:    "egginc-id",
+				Label:       "Egg Inc ID (EI+16 digits)",
+				Style:       discordgo.TextInputShort,
+				Placeholder: "EI0000000000000000",
+				MaxLength:   18,
+				Required:    true,
+			},
+		},
+	})
+
+	if action != "register" {
+		components = append(components, discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.TextInput{
+					CustomID:    "confirm",
+					Label:       "Save or Forget this ID after this session?",
+					Style:       discordgo.TextInputShort,
+					Placeholder: "save or forget",
+					Value:       "save",
+					MaxLength:   6,
+					Required:    true,
+				},
+			},
+		})
+	}
+
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseModal,
 		Data: &discordgo.InteractionResponseData{
-			CustomID: "m_eggid#" + action,
-			Title:    "BoostBot needs your Egg Inc ID",
-			Components: []discordgo.MessageComponent{
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.TextInput{
-							CustomID:    "egginc-id",
-							Label:       "Egg Inc ID (EI+16 digits)",
-							Style:       discordgo.TextInputShort,
-							Placeholder: "EI0000000000000000",
-							MaxLength:   18,
-							Required:    true,
-						},
-					}},
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.TextInput{
-							CustomID:    "confirm",
-							Label:       "Save or Forget this ID after this session?",
-							Style:       discordgo.TextInputShort,
-							Placeholder: "save or forget",
-							Value:       "save",
-							MaxLength:   6,
-							Required:    true,
-						},
-					},
-				},
-			}}})
+			CustomID:   "m_eggid#" + action,
+			Title:      "BoostBot needs your Egg Inc ID",
+			Components: components,
+		},
+	})
 	if err != nil {
 		log.Println(err.Error())
 	}
@@ -82,16 +91,24 @@ func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate
 				}
 			}
 		}
-		if input.CustomID == "confirm" && input.Value != "" {
-			confirm := strings.ToLower(strings.TrimSpace(input.Value))
-			if confirm == "save" {
-				farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", encryptedID)
-				str += "\nI will remember your Egg Inc ID for future sessions."
-				okayToSave = true
-			} else {
-				str += "\nI will forget your Egg Inc ID after this session."
+		parts := strings.Split(modalData.CustomID, "#")
+		if parts[1] == "register" {
+			farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", encryptedID)
+			str += "\nI will remember your Egg Inc ID for future sessions."
+			okayToSave = true
+		} else {
+			// Need to check if there's a second input for save/forget for other dialogs
+			for _, comp := range modalData.Components {
+				input := comp.(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput)
+				if input.CustomID == "confirm" && strings.ToLower(strings.TrimSpace(input.Value)) == "save" {
+					okayToSave = true
+					break
+				}
 			}
+			str += "\nI will forget your Egg Inc ID after this session."
+
 		}
+
 	}
 
 	optionMap := optionMapCache[userID]
