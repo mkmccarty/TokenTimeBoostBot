@@ -15,15 +15,11 @@ import (
 
 var optionMapCache = make(map[string]map[string]*discordgo.ApplicationCommandInteractionDataOption)
 
-// I want a map from a string to map[string]*discordgo.ApplicationCommandInteractionDataOption
-//optionMapCache := make(map[string]map[string]*discordgo.ApplicationCommandInteractionDataOption)
-
 // RequestEggIncIDModal sends a modal to the user requesting their Egg Inc ID
 func RequestEggIncIDModal(s *discordgo.Session, i *discordgo.InteractionCreate, action string, optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption) {
 	userID := bottools.GetInteractionUserID(i)
 	optionMapCache[userID] = optionMap
 
-	// I want the MessageComponent to be more dynamic.  Create a
 	var components []discordgo.MessageComponent
 
 	components = append(components, discordgo.ActionsRow{
