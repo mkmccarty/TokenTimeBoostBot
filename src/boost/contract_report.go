@@ -630,39 +630,44 @@ func printContractReport(
 
 		components = append(components, &discordgo.TextDisplay{Content: b.String()})
 	}
-	if showMissingPlayers && len(p.missingPlayers) > 0 {
-		// sort missing player names
-		names := append([]string(nil), p.missingPlayers...)
-		slices.SortFunc(names, func(a, b string) int {
-			if c := strings.Compare(strings.ToLower(a), strings.ToLower(b)); c != 0 {
-				return c
-			}
-			return strings.Compare(a, b)
-		})
-
-		// build missing players list, account for `-` in names (thx -wittysquid-)
+	if len(p.missingPlayers) > 0 {
 		var b strings.Builder
-		for i, s := range names {
-			if i > 0 {
-				b.WriteString(", ")
-			}
-			b.WriteByte('`')
-			b.WriteString(strings.ReplaceAll(s, "-", "\u2011"))
-			b.WriteByte('`')
-		}
+		// message about registration
+		registerMessage := fmt.Sprintf("Missing from the report? Register your Egg Inc ID with %s.\n", bottools.GetFormattedCommand("register"))
+		if showMissingPlayers {
+			b.WriteString("Boost Bot doesn't know these players:\n")
+			// sort missing player names
+			names := append([]string(nil), p.missingPlayers...)
+			slices.SortFunc(names, func(a, b string) int {
+				if c := strings.Compare(strings.ToLower(a), strings.ToLower(b)); c != 0 {
+					return c
+				}
+				return strings.Compare(a, b)
+			})
 
+			// build missing players list, account for `-` in names (thx -wittysquid-)
+
+			for i, s := range names {
+				if i > 0 {
+					b.WriteString(", ")
+				}
+				b.WriteByte('`')
+				b.WriteString(strings.ReplaceAll(s, "-", "\u2011"))
+				b.WriteByte('`')
+			}
+
+		}
 		components = append(components, &discordgo.TextDisplay{
-			Content: "Boost Bot doesn't know these players:\n" + b.String(),
+			Content: registerMessage + b.String(),
 		})
 	}
-
 	return components
 }
 
 // ===== header & row formatting =====
 
 // Player | Cxp | Contr | Tmwk | CR | BTV | [ΔTVal*]
-// If nerfed==true, omit ΔTVal and right-align BTV.
+// If nerfed==true, omit ΔTVal.
 func evalMetricsHeader(nerfed bool) string {
 	cells := []string{
 		bottools.AlignString("Player", nameW, bottools.StringAlignLeft),
