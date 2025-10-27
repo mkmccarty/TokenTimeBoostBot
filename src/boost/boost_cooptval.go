@@ -219,7 +219,11 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 			if len(name) > 12 {
 				name = name[:12]
 			}
-			tcount, ttime, _ := bottools.CalculateTcountTtime(tokenValue[key], tval, valueLog)
+			tcount := "√"
+			ttime := ""
+			if contract.SeasonalScoring == ei.SeasonalScoringStandard {
+				tcount, ttime, _ = bottools.CalculateTcountTtime(tokenValue[key], tval, valueLog)
+			}
 
 			fmt.Fprintf(&builder, formatStr, name, tokenSent[key], tokensReceived[key], tokenValue[key], tcount, ttime)
 		}
