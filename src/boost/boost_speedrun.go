@@ -318,10 +318,9 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 	}
 
 	if contract.State == ContractStateBanker {
-		idx := -1
 		// make sure Boosters[r.UserID] exists
 		if _, ok := contract.Boosters[r.UserID]; ok {
-			idx = slices.Index(contract.Boosters[r.UserID].Alts, contract.Banker.BoostingSinkUserID)
+			idx := slices.Index(contract.Boosters[r.UserID].Alts, contract.Banker.BoostingSinkUserID)
 			if idx != -1 {
 				// This is an alternate
 				userID = contract.Boosters[r.UserID].Alts[idx]
