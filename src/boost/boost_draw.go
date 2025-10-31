@@ -562,7 +562,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 	case ContractStateBanker:
 		guidanceStr.WriteString("\n")
-		guidanceStr.WriteString("> " + tokenStr + " when sending tokens to the sink")
+		guidanceStr.WriteString("> " + tokenStr + " when sending tokens to the Banker")
 		if len(contract.AltIcons) > 0 {
 			guidanceStr.WriteString(", alts use 🇦-🇿")
 		}
