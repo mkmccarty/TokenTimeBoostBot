@@ -416,12 +416,12 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 	offlineFillTime := ei.TimeForLinearGrowth(habPop, habCap, offlineRate/60)
 	syncTime := time.Unix(int64(backup.GetApproxTime()), 0)
 	elapsed := time.Since(syncTime).Seconds()
-	remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, selectedTarget-selectedDelivered)
-	adjustedRemainingTime := remainingTime - elapsed
 	offlineEggs := min(eggLayingRate, shippingRate) * (elapsed / 3600)
 	if alternateEgg != -1 {
 		offlineEggs = 0
 	}
+	remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, selectedTarget-selectedDelivered-offlineEggs)
+	adjustedRemainingTime := remainingTime - elapsed
 
 	if onVirtueFarm {
 		fmt.Fprintf(&stats, "%s %s\n", VehicleArray, strings.Join(habArray, ""))
