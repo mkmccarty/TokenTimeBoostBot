@@ -345,7 +345,7 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 	}
 	if contract.SeasonalScoring == ei.SeasonalScoringStandard {
 		// New contracts fom 9/22/2025 on don't have token value requirements
-		sinkList = append(sinkList, SinkList{"Post Contract Sink", "🏁", contract.Banker.PostSinkUserID, "postsink"})
+		sinkList = append(sinkList, SinkList{"Sink", "🏁", contract.Banker.PostSinkUserID, "postsink"})
 	}
 
 	var mComp []discordgo.MessageComponent
@@ -383,18 +383,35 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 	}
 
 	if config.IsDevBot() && contract.PlayStyle == ContractPlaystyleLeaderboard {
-		//sinkList = append(sinkList, SinkList{"Parade Banker", "🎪", contract.Banker.ParadeSinkUserID, "paradesink"})
-		//sinkList = append(sinkList, SinkList{"Parade Host", "🤹", "", "paradehost"})
-		// If any of the contract Boosters are Parade Kind then show the parade join button
-		if contract.Banker.ParadeSinkUserID != "" {
+		if contract.ParadeChickenRuns != 0 {
+			//sinkList = append(sinkList, SinkList{"Parade Banker", "🎪", contract.Banker.ParadeSinkUserID, "paradesink"})
+			//sinkList = append(sinkList, SinkList{"Parade Host", "🤹", "", "paradehost"})
 			mComp = append(mComp, discordgo.Button{
 				Emoji: &discordgo.ComponentEmoji{
-					Name: "🤡",
+					Name: "🤹",
 				},
-				Label:    fmt.Sprintf("Need %d Parade Alts", contract.ParadeChickenRuns-len(contract.ParadeList)),
+				Label:    "Parade Host",
 				Style:    discordgo.SecondaryButton,
-				CustomID: "fd_paradeJoin",
-			})
+				CustomID: "cs_#paradehost#" + contract.ContractHash,
+			}) // If any of the contract Boosters are Parade Kind then show the parade join button
+
+			// If any of the contract.Boosters are Parade Kind then show the parade join button
+			if len(contract.ParadeList) < contract.ParadeChickenRuns {
+				for _, b := range contract.Boosters {
+					if b.Kind == Parade {
+
+						mComp = append(mComp, discordgo.Button{
+							Emoji: &discordgo.ComponentEmoji{
+								Name: "🤡",
+							},
+							Label:    fmt.Sprintf("Need %d Parade Alts", contract.ParadeChickenRuns-len(contract.ParadeList)),
+							Style:    discordgo.SecondaryButton,
+							CustomID: "cs_#paradejoin#" + contract.ContractHash,
+						})
+						break
+					}
+				}
+			}
 		}
 	}
 

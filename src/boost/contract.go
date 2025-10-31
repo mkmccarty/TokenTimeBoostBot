@@ -825,31 +825,42 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 	switch cmd {
 	case "paradehost":
 		sid := getInteractionUserID(i)
+		// Make sure the user is in the contract
+		if !userInContract(contract, sid) {
+			return
+		}
 		switch contract.Boosters[sid].Kind {
 		case Normal:
 			contract.Boosters[sid].Kind = Parade
 		case Parade:
 			contract.Boosters[sid].Kind = Normal
 		}
-	case "paradesink":
-		sid := getInteractionUserID(i)
-		alts := append([]string{sid}, contract.Boosters[sid].Alts...)
-		altIdx := slices.Index(alts, contract.Banker.ParadeSinkUserID)
-		if altIdx != -1 {
-			if altIdx != len(alts)-1 {
-				sid = alts[altIdx+1]
-			} else {
-				sid = alts[altIdx] // Allow for the state to reset
-			}
-		}
+	case "paradejoin":
+		parader := getParaderFromInteraction(s, i, namesgenerator.GetRandomName(0))
+		//sid := getInteractionUserID(i)
+		contract.ParadeList = append(contract.ParadeList, &parader)
 
-		if contract.Banker.ParadeSinkUserID == sid {
-			contract.Boosters[sid].Kind = Normal
-			contract.Banker.ParadeSinkUserID = ""
-		} else if userInContract(contract, sid) {
-			contract.Banker.ParadeSinkUserID = sid
-			contract.Boosters[sid].Kind = Parade
-		}
+		/*
+			case "paradesink":
+				sid := getInteractionUserID(i)
+				alts := append([]string{sid}, contract.Boosters[sid].Alts...)
+				altIdx := slices.Index(alts, contract.Banker.ParadeSinkUserID)
+				if altIdx != -1 {
+					if altIdx != len(alts)-1 {
+						sid = alts[altIdx+1]
+					} else {
+						sid = alts[altIdx] // Allow for the state to reset
+					}
+				}
+
+				if contract.Banker.ParadeSinkUserID == sid {
+					contract.Boosters[sid].Kind = Normal
+					contract.Banker.ParadeSinkUserID = ""
+				} else if userInContract(contract, sid) {
+					contract.Banker.ParadeSinkUserID = sid
+					contract.Boosters[sid].Kind = Parade
+				}
+		*/
 
 	case "boostsink":
 		sid := getInteractionUserID(i)
@@ -988,6 +999,42 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{})
 
+}
+
+func getParaderFromInteraction(s *discordgo.Session, i *discordgo.InteractionCreate, userOverride string) Parader {
+	var p = Parader{}
+	userID := userOverride
+	if userOverride == "" {
+		userID = getInteractionUserID(i)
+	}
+
+	p.UserID = userID
+	var user, err = s.User(userID)
+	if err != nil {
+		p.GlobalName = userID
+		p.Name = userID
+		p.Nick = userID
+		p.Unique = userID
+		p.Mention = userID
+	} else {
+		p.GlobalName = user.GlobalName
+		p.UserName = user.Username
+		p.Mention = user.Mention()
+		gm, errGM := s.GuildMember(i.GuildID, userID)
+		if errGM == nil {
+			if gm.Nick != "" {
+				p.Name = gm.Nick
+				p.Nick = gm.Nick
+			}
+			p.Unique = gm.User.String()
+		} else { // For now I want to create a Parade Booster variation of this user
+			p.Name = user.Username
+			p.Nick = user.Username
+			p.Unique = user.String()
+			p.Mention = user.Mention()
+		}
+	}
+	return p
 }
 
 // HandleContractSettingsCommand will handle the /contract-settings command
