@@ -183,7 +183,8 @@ func HandleContractReport(s *discordgo.Session, i *discordgo.InteractionCreate) 
 			farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
 		}
 	}
-	if err := ContractReport(s, i, optionMap, userID, true); err != nil {
+	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+	if err := ContractReport(s, i, optionMap, eiID, true); err != nil {
 		log.Printf("ContractReport failed: %v", err)
 
 		_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
@@ -337,9 +338,11 @@ func ContractReport(
 	s *discordgo.Session,
 	i *discordgo.InteractionCreate,
 	optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption,
-	userID string,
+	eiID string,
 	okayToSave bool,
 ) error {
+
+	callerUserID := bottools.GetInteractionUserID(i)
 
 	// define parameter struct
 	p := contractReportParameters{}
@@ -372,11 +375,10 @@ func ContractReport(
 	}
 
 	// decrypt user's EI
-	callerEncryptedEI := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 	callerEI := ""
 	encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
 	if err == nil {
-		callerDecodedData, err := base64.StdEncoding.DecodeString(callerEncryptedEI)
+		callerDecodedData, err := base64.StdEncoding.DecodeString(eiID)
 		if err == nil {
 			callerDecryptedData, err := config.DecryptCombined(encryptionKey, callerDecodedData)
 			if err == nil {
@@ -400,7 +402,6 @@ func ContractReport(
 		},
 	})
 
-	callerUserID := bottools.GetInteractionUserID(i)
 	// Do I know the user's IGN?
 	callerFarmerName := farmerstate.GetMiscSettingString(callerUserID, "ei_ign")
 	if callerFarmerName == "" {
