@@ -178,19 +178,17 @@ func saveSqliteData(contract *Contract) {
 		return
 	}
 	var rows int64
-	var updateErr error
 	if queries == nil {
 		sqliteInit()
 	}
-	rows, updateErr = queries.UpdateContract(ctx, UpdateContractParams{
+	rows, _ = queries.UpdateContract(ctx, UpdateContractParams{
 		Channelid:  contract.Location[0].ChannelID,
 		Contractid: contract.ContractID,
 		Coopid:     contract.CoopID,
 		Value:      sql.NullString{String: string(contractJSON), Valid: true},
 	})
 	if rows != 1 {
-		log.Printf("Error updating contract data: %v", updateErr)
-		// Record exists, update instead
+		// Record doesn't exist, insert it
 		err = queries.InsertContract(ctx, InsertContractParams{
 			Channelid:  contract.Location[0].ChannelID,
 			Contractid: contract.ContractID,
