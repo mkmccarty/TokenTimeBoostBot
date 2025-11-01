@@ -87,11 +87,11 @@ func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate
 				}
 			}
 		}
+
 		parts := strings.Split(modalData.CustomID, "#")
 		if parts[1] == "register" {
-			farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", encryptedID)
-			str += "\nI will remember your Egg Inc ID for future sessions."
 			okayToSave = true
+			break
 		} else {
 			// Need to check if there's a second input for save/forget for other dialogs
 			for _, comp := range modalData.Components {
@@ -104,7 +104,10 @@ func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate
 			str += "\nI will forget your Egg Inc ID after this session."
 
 		}
-
+	}
+	if okayToSave {
+		farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", encryptedID)
+		str += "\nI will remember your Egg Inc ID for future sessions."
 	}
 
 	optionMap := optionMapCache[userID]
