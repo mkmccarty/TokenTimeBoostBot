@@ -1049,10 +1049,10 @@ func addParaderFromInteraction(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 	word := first
 	if parts := strings.Fields(first); len(parts) > 0 {
-		word = parts[0]
+		word = strings.ToLower(parts[0])
 	}
 	if p.Index > 1 {
-		p.ParadeName = fmt.Sprintf("%s Alt %d", word, p.Index)
+		p.ParadeName = fmt.Sprintf("%s Alt%d", word, p.Index)
 	} else {
 		p.ParadeName = fmt.Sprintf("%s Alt", word)
 	}
