@@ -836,10 +836,9 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			contract.Boosters[sid].Kind = Normal
 		}
 	case "paradejoin":
-		parader := getParaderFromInteraction(s, i, namesgenerator.GetRandomName(0))
-		//sid := getInteractionUserID(i)
-		contract.ParadeList = append(contract.ParadeList, &parader)
-
+		addParaderFromInteraction(s, i, contract)
+	case "paraderemove":
+		removeParaderFromInteraction(i, contract)
 		/*
 			case "paradesink":
 				sid := getInteractionUserID(i)
@@ -1001,14 +1000,23 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 
 }
 
-func getParaderFromInteraction(s *discordgo.Session, i *discordgo.InteractionCreate, userOverride string) Parader {
+func addParaderFromInteraction(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract) {
 	var p = Parader{}
-	userID := userOverride
-	if userOverride == "" {
-		userID = getInteractionUserID(i)
-	}
+	userID := getInteractionUserID(i)
 
 	p.UserID = userID
+	// Assign an index if this user already has paraders in the list
+	existingCount := 0
+	for _, ex := range contract.ParadeList {
+		if ex != nil && ex.UserID == userID {
+			existingCount++
+		}
+	}
+	if existingCount > 0 {
+		p.Index = existingCount + 1
+	}
+
+	p.ParadeName = namesgenerator.GetRandomName(0)
 	var user, err = s.User(userID)
 	if err != nil {
 		p.GlobalName = userID
@@ -1034,7 +1042,24 @@ func getParaderFromInteraction(s *discordgo.Session, i *discordgo.InteractionCre
 			p.Mention = user.Mention()
 		}
 	}
-	return p
+	if len(contract.ParadeList) < contract.ParadeChickenRuns {
+		contract.ParadeList = append(contract.ParadeList, &p)
+	}
+}
+
+func removeParaderFromInteraction(i *discordgo.InteractionCreate, contract *Contract) {
+	userID := getInteractionUserID(i)
+	var indexToRemove int = -1
+
+	for idx, p := range contract.ParadeList {
+		if p != nil && p.UserID == userID {
+			indexToRemove = idx // Update to the latest index found
+		}
+	}
+
+	if indexToRemove != -1 {
+		contract.ParadeList = append(contract.ParadeList[:indexToRemove], contract.ParadeList[indexToRemove+1:]...)
+	}
 }
 
 // HandleContractSettingsCommand will handle the /contract-settings command

@@ -154,9 +154,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		builder.WriteString("### Parade List\n")
 		mentions := make([]string, 0, len(contract.ParadeList))
 		for _, parader := range contract.ParadeList {
-			mentions = append(mentions, parader.Mention)
+			mentions = append(mentions, parader.ParadeName)
 		}
-		builder.WriteString(strings.Join(mentions, ", ") + "\n")
+		builder.WriteString(strings.Join(mentions, ", "))
 	}
 
 	if contract.State != ContractStateSignup && contract.State != ContractStateCompleted {
