@@ -1033,6 +1033,9 @@ func addParaderFromInteraction(s *discordgo.Session, i *discordgo.InteractionCre
 			if gm.Nick != "" {
 				p.Name = gm.Nick
 				p.Nick = gm.Nick
+			} else {
+				p.Name = user.GlobalName
+				p.Nick = user.GlobalName
 			}
 			p.Unique = gm.User.String()
 		} else { // For now I want to create a Parade Booster variation of this user
