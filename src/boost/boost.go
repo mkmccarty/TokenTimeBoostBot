@@ -178,7 +178,9 @@ type Parader struct {
 	Mention       string // String which mentions user
 	GlobalName    string
 	UserName      string
+	ParadeName    string
 	RanChickensOn []string
+	Index         int
 }
 
 // Booster holds the data for each booster within a Contract
