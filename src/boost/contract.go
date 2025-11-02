@@ -1049,7 +1049,7 @@ func addParaderFromInteraction(s *discordgo.Session, i *discordgo.InteractionCre
 
 func removeParaderFromInteraction(i *discordgo.InteractionCreate, contract *Contract) {
 	userID := getInteractionUserID(i)
-	var indexToRemove int = -1
+	var indexToRemove = -1
 
 	for idx, p := range contract.ParadeList {
 		if p != nil && p.UserID == userID {
