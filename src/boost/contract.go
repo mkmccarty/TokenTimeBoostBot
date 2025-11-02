@@ -1005,6 +1005,7 @@ func addParaderFromInteraction(s *discordgo.Session, i *discordgo.InteractionCre
 	userID := getInteractionUserID(i)
 
 	p.UserID = userID
+
 	// Assign an index if this user already has paraders in the list
 	existingCount := 0
 	for _, ex := range contract.ParadeList {
@@ -1016,7 +1017,6 @@ func addParaderFromInteraction(s *discordgo.Session, i *discordgo.InteractionCre
 		p.Index = existingCount + 1
 	}
 
-	p.ParadeName = namesgenerator.GetRandomName(0)
 	var user, err = s.User(userID)
 	if err != nil {
 		p.GlobalName = userID
@@ -1042,6 +1042,21 @@ func addParaderFromInteraction(s *discordgo.Session, i *discordgo.InteractionCre
 			p.Mention = user.Mention()
 		}
 	}
+
+	first := p.Nick
+	if first == "" {
+		first = p.Name
+	}
+	word := first
+	if parts := strings.Fields(first); len(parts) > 0 {
+		word = parts[0]
+	}
+	if p.Index > 1 {
+		p.ParadeName = fmt.Sprintf("%s Alt %d", word, p.Index)
+	} else {
+		p.ParadeName = fmt.Sprintf("%s Alt", word)
+	}
+
 	if len(contract.ParadeList) < contract.ParadeChickenRuns {
 		contract.ParadeList = append(contract.ParadeList, &p)
 	}
