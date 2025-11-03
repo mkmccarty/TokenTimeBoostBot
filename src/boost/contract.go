@@ -764,29 +764,6 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		}
 	}
 
-	/*
-		if cmd == "crt" {
-			contract.Style &= ^(ContractFlagCrt + ContractFlagSelfRuns)
-			values := data.Values
-			switch values[0] {
-			case "no_crt":
-				if contract.State == ContractStateSignup {
-					contract.Style |= ContractFlagNone
-					contract.Speedrun = false
-				}
-			case "crt":
-				contract.Style |= ContractFlagCrt
-				contract.Speedrun = true
-				contract.SRData.Legs = contract.SRData.NoSelfRunLegs
-
-			case "self_runs":
-				contract.Style |= (ContractFlagCrt + ContractFlagSelfRuns)
-				contract.Speedrun = true
-				// Update the contract to change style
-				contract.SRData.Legs = contract.SRData.SelfRunLegs
-			}
-		}
-	*/
 	if cmd == "order" {
 		/*
 			if contract.State != ContractStateSignup && data.Values[0] != "signup" {
@@ -839,27 +816,6 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		addParaderFromInteraction(s, i, contract)
 	case "paraderemove":
 		removeParaderFromInteraction(i, contract)
-		/*
-			case "paradesink":
-				sid := getInteractionUserID(i)
-				alts := append([]string{sid}, contract.Boosters[sid].Alts...)
-				altIdx := slices.Index(alts, contract.Banker.ParadeSinkUserID)
-				if altIdx != -1 {
-					if altIdx != len(alts)-1 {
-						sid = alts[altIdx+1]
-					} else {
-						sid = alts[altIdx] // Allow for the state to reset
-					}
-				}
-
-				if contract.Banker.ParadeSinkUserID == sid {
-					contract.Boosters[sid].Kind = Normal
-					contract.Banker.ParadeSinkUserID = ""
-				} else if userInContract(contract, sid) {
-					contract.Banker.ParadeSinkUserID = sid
-					contract.Boosters[sid].Kind = Parade
-				}
-		*/
 
 	case "boostsink":
 		sid := getInteractionUserID(i)
