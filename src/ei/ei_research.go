@@ -497,7 +497,7 @@ func GatherCommonResearchCosts(epicResearch []*Backup_ResearchItem, commonResear
 
 	for _, category := range researchCategories {
 		if len(category.research) > 0 {
-			builder.WriteString("**" + category.name + ":** ")
+			builder.WriteString("-# **" + category.name + ":** ")
 			if len(category.research) == 1 {
 				research := category.research[0]
 				fmt.Fprintf(&builder, "%s: %s\n", research.Name, FormatEIValue(research.Price, map[string]interface{}{"decimals": 3, "trim": true}))
@@ -516,6 +516,11 @@ func GatherCommonResearchCosts(epicResearch []*Backup_ResearchItem, commonResear
 			}
 		}
 	}
+	header := ""
+	if builder.Len() > 0 {
+		// If we have any research info I want to add a string to the beginning of this string
+		header = "-# **Next Common Research to Purchase:**\n"
+	}
 
-	return builder.String()
+	return header + builder.String()
 }
