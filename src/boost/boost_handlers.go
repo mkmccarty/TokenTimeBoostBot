@@ -145,6 +145,13 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 							Emoji:       ei.GetBotComponentEmoji("reverse"),
 							Default:     contract.BoostOrder == ContractOrderReverse,
 						},
+						{
+							Label:       "TE Order",
+							Description: "Highest Truth Egg count first",
+							Value:       "te",
+							Emoji:       ei.GetBotComponentEmoji("egg_truth"),
+							Default:     contract.BoostOrder == ContractOrderTE,
+						},
 					},
 				},
 			},

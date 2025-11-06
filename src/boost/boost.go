@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
@@ -71,6 +72,7 @@ const (
 	ContractOrderELR       = 5 // ELR based order
 	ContractOrderTVal      = 6 // Token Value based order
 	ContractOrderTokenAsk  = 7 // Token Ask order, less tokens boosts earlier
+	ContractOrderTE        = 8 // Truth Egg based order
 
 	ContractStateSignup    = 0 // Contract is in signup phase
 	ContractStateFastrun   = 1 // Contract in Boosting as fastrun
@@ -222,6 +224,7 @@ type Booster struct {
 	EstEndOfBoost          time.Time     // Estimated end of the boost
 	EstRequestChickenRuns  time.Time     // Estimated time to request chicken runs
 	Ultra                  bool          // Does this player have Ultra
+	TECount                int           // Truth Egg Count
 	// Alt Parade
 	Kind           Kind
 	ParaderMention Parader
@@ -447,6 +450,8 @@ func getBoostOrderString(contract *Contract) string {
 		return "Token Value order"
 	case ContractOrderTokenAsk:
 		return "Token Ask order."
+	case ContractOrderTE:
+		return "TE order"
 	}
 	return "Unknown"
 }
@@ -839,6 +844,43 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 
 		if farmerstate.IsUltra(userID) {
 			contract.UltraCount++
+		}
+
+		// Get user EI from the db and set any relevant fields
+		eggIncID := ""
+		eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+		encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
+		if err == nil {
+			decodedData, err := base64.StdEncoding.DecodeString(eiID)
+			if err == nil {
+				decryptedData, err := config.DecryptCombined(encryptionKey, decodedData)
+				if err == nil {
+					eggIncID = string(decryptedData)
+				}
+			}
+		}
+		if eggIncID == "" || len(eggIncID) != 18 || eggIncID[:2] != "EI" {
+			b.TECount = 0
+		} else {
+
+			backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, true)
+			virtue := backup.GetVirtue()
+
+			var allEov uint32 = 0
+
+			// virtueEggs := []string{"CURIOSITY", "INTEGRITY", "HUMILITY", "RESILIENCE", "KINDNESS"}
+			for i := range 5 {
+				eov := virtue.GetEovEarned()[i] // Assuming Eggs is the correct field for accessing egg virtues
+				delivered := virtue.GetEggsDelivered()[i]
+
+				eovEarned := countTETiersPassed(delivered)
+				// pendingTruthEggs calculates the number of pending Truth Eggs based on delivered and earnedTE.
+				eovPending := pendingTruthEggs(delivered, eov)
+
+				allEov += max(eovEarned-eovPending, 0)
+			}
+
+			b.TECount = int(allEov)
 		}
 
 		// Check if within the start period of a contract
@@ -1770,6 +1812,29 @@ func reorderBoosters(contract *Contract) {
 		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 		contract.mutex.Unlock()
 
+	case ContractOrderTE:
+		type TEPair struct {
+			Name string
+			TE   int
+		}
+
+		var tePairs []TEPair
+		for _, el := range contract.Order {
+			tePairs = append(tePairs, TEPair{
+				Name: el,
+				TE:   contract.Boosters[el].TECount,
+			})
+		}
+
+		sort.Slice(tePairs, func(i, j int) bool {
+			return tePairs[i].TE > tePairs[j].TE
+		})
+
+		var orderedNames []string
+		for _, pair := range tePairs {
+			orderedNames = append(orderedNames, pair.Name)
+		}
+		contract.Order = orderedNames
 	}
 	//
 	if contract.BoostOrder != ContractOrderTVal {
