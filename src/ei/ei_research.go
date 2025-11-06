@@ -391,50 +391,67 @@ func GatherCommonResearchCosts(epicResearch []*Backup_ResearchItem, commonResear
 
 	discounts := epicResearchDiscount * collDiscount * afxDiscount * currentResearchDiscountEvent
 
+	var researchTierThreadholds = []uint32{0, 0, 30, 80, 160, 280, 400, 520, 650, 800, 980, 1185, 1390, 1655}
+
+	totalResearchsCompleted := uint32(0)
+	effectTypeFactor := 1.0
 	for i, item := range commonResearch {
 		research := EggIncResearches[i]
 		levels := uint32(research.Levels)
-		for level := item.GetLevel(); level < levels; level++ {
+		totalResearchsCompleted += item.GetLevel()
+		if totalResearchsCompleted >= researchTierThreadholds[research.Tier] {
+			for level := item.GetLevel(); level < levels; level++ {
 
-			gemprice := research.Gems[level]
-			researchItem := EggCostResearch{
-				ID:        research.ID,
-				Name:      research.Name,
-				Level:     int(level + 1),
-				Price:     gemprice * discounts,
-				BestValue: (gemprice * discounts) / float64(research.PerLevel),
-			}
+				gemprice := research.Gems[level]
+				researchItem := EggCostResearch{
+					ID:        research.ID,
+					Name:      research.Name,
+					Level:     int(level + 1),
+					Price:     gemprice * discounts,
+					BestValue: (float64(research.PerLevel) * effectTypeFactor) / (gemprice * discounts),
+				}
 
-			if isVehicleResearch(research.ID) {
-				vehicleResearchs = append(vehicleResearchs, &researchItem)
-			} else if isEggValue(research.ID) {
-				eggValueResearchs = append(eggValueResearchs, &researchItem)
-			} else if isShippingRate(research.ID) {
-				shippingRateResearchs = append(shippingRateResearchs, &researchItem)
-			} else if isLayRate(research.ID) {
-				layRateResearchs = append(layRateResearchs, &researchItem)
-			} else if isHabCapacity(research.ID) {
-				habCapacityResearchs = append(habCapacityResearchs, &researchItem)
-			} else {
-				eggCostResearchs = append(eggCostResearchs, &researchItem)
+				if isVehicleResearch(research.ID) {
+					vehicleResearchs = append(vehicleResearchs, &researchItem)
+				} else if isEggValue(research.ID) {
+					eggValueResearchs = append(eggValueResearchs, &researchItem)
+				} else if isShippingRate(research.ID) {
+					shippingRateResearchs = append(shippingRateResearchs, &researchItem)
+				} else if isLayRate(research.ID) {
+					layRateResearchs = append(layRateResearchs, &researchItem)
+				} else if isHabCapacity(research.ID) {
+					habCapacityResearchs = append(habCapacityResearchs, &researchItem)
+				} else {
+					eggCostResearchs = append(eggCostResearchs, &researchItem)
+				}
 			}
 		}
 	}
 
-	sortByBestValue := func(researches []*EggCostResearch) {
-		slices.SortFunc(researches, func(a, b *EggCostResearch) int {
-			if a.BestValue < b.BestValue {
-				return -1
-			} else if a.BestValue > b.BestValue {
-				return 1
-			}
-			return 0
-		})
-	}
+	sortChoice := "bestvalue"
 
-	// Sort all research lists by price
-	/*
-		// Helper function to sort research by price ascending
+	switch sortChoice {
+	case "bestvalue":
+		// Sort all research lists by best value
+		sortByBestValue := func(researches []*EggCostResearch) {
+			slices.SortFunc(researches, func(a, b *EggCostResearch) int {
+				if a.BestValue > b.BestValue {
+					return -1
+				} else if a.BestValue < b.BestValue {
+					return 1
+				}
+				return 0
+			})
+		}
+
+		sortByBestValue(eggCostResearchs)
+		sortByBestValue(vehicleResearchs)
+		sortByBestValue(eggValueResearchs)
+		sortByBestValue(layRateResearchs)
+		sortByBestValue(shippingRateResearchs)
+		sortByBestValue(habCapacityResearchs)
+	case "price":
+		// Sort all research lists by price
 		sortByPrice := func(researches []*EggCostResearch) {
 			slices.SortFunc(researches, func(a, b *EggCostResearch) int {
 				if a.Price < b.Price {
@@ -446,21 +463,23 @@ func GatherCommonResearchCosts(epicResearch []*Backup_ResearchItem, commonResear
 			})
 		}
 
+		sortByPrice(eggCostResearchs)
+		sortByPrice(vehicleResearchs)
+		sortByPrice(eggValueResearchs)
+		sortByPrice(layRateResearchs)
+		sortByPrice(shippingRateResearchs)
+		sortByPrice(habCapacityResearchs)
+	}
 
-			sortByPrice(eggCostResearchs)
-			sortByPrice(vehicleResearchs)
-			sortByPrice(eggValueResearchs)
-			sortByPrice(layRateResearchs)
-			sortByPrice(shippingRateResearchs)
-			sortByPrice(habCapacityResearchs)
+	// Loop through first 10 of eggValueResearchs so I can print debug info
+	/*
+		for i := 0; i < 10; i++ {
+			if i < len(eggValueResearchs) {
+				research := eggValueResearchs[i]
+				fmt.Printf("Debug: Egg Value Research %d: %+v\n", i+1, research)
+			}
+		}
 	*/
-
-	sortByBestValue(eggCostResearchs)
-	sortByBestValue(vehicleResearchs)
-	sortByBestValue(eggValueResearchs)
-	sortByBestValue(layRateResearchs)
-	sortByBestValue(shippingRateResearchs)
-	sortByBestValue(habCapacityResearchs)
 
 	var builder strings.Builder
 	// Print the next 10 researches to do
