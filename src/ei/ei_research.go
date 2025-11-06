@@ -8,6 +8,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 )
 
 // EggCostResearch holds the cost data for a research item
@@ -17,6 +18,7 @@ type EggCostResearch struct {
 	Level     int
 	Price     float64
 	BestValue float64
+	TimeToBuy time.Duration
 }
 
 // EggResearches holds the egg researches data
@@ -380,7 +382,7 @@ func GetResearchDiscount(commonResearch []*Backup_ResearchItem) float64 {
 }
 
 // GatherCommonResearchCosts gathers the next 10 common research items to be purchased based on their gem costs
-func GatherCommonResearchCosts(epicResearch []*Backup_ResearchItem, commonResearch []*Backup_ResearchItem, collDiscount float64, afxDiscount float64) string {
+func GatherCommonResearchCosts(gemsOnHand float64, offlineRateHr float64, epicResearch []*Backup_ResearchItem, commonResearch []*Backup_ResearchItem, collDiscount float64, afxDiscount float64) string {
 	epicResearchDiscount := GetResearchDiscount(epicResearch)
 	var eggCostResearchs []*EggCostResearch
 	var eggValueResearchs []*EggCostResearch
@@ -394,7 +396,7 @@ func GatherCommonResearchCosts(epicResearch []*Backup_ResearchItem, commonResear
 	var researchTierThreadholds = []uint32{0, 0, 30, 80, 160, 280, 400, 520, 650, 800, 980, 1185, 1390, 1655}
 
 	totalResearchsCompleted := uint32(0)
-	effectTypeFactor := 1.0
+	//effectTypeFactor := 1.0
 	for i, item := range commonResearch {
 		research := EggIncResearches[i]
 		levels := uint32(research.Levels)
@@ -403,12 +405,20 @@ func GatherCommonResearchCosts(epicResearch []*Backup_ResearchItem, commonResear
 			for level := item.GetLevel(); level < levels; level++ {
 
 				gemprice := research.Gems[level]
+				remainingCost := math.Max(0, (gemprice*discounts)-gemsOnHand)
+				duration := remainingCost / offlineRateHr
+
+				if duration > 96 {
+					// If the duration is more than 4 days, skip this research item
+					continue
+				}
 				researchItem := EggCostResearch{
 					ID:        research.ID,
 					Name:      research.Name,
 					Level:     int(level + 1),
 					Price:     gemprice * discounts,
-					BestValue: (float64(research.PerLevel) * effectTypeFactor) / (gemprice * discounts),
+					BestValue: (float64(level+1) * research.PerLevel) / (float64(level) * research.PerLevel),
+					TimeToBuy: time.Duration(duration * float64(time.Hour)),
 				}
 
 				if isVehicleResearch(research.ID) {
@@ -428,48 +438,36 @@ func GatherCommonResearchCosts(epicResearch []*Backup_ResearchItem, commonResear
 		}
 	}
 
-	sortChoice := "bestvalue"
-
-	switch sortChoice {
-	case "bestvalue":
-		// Sort all research lists by best value
-		sortByBestValue := func(researches []*EggCostResearch) {
-			slices.SortFunc(researches, func(a, b *EggCostResearch) int {
-				if a.BestValue > b.BestValue {
-					return -1
-				} else if a.BestValue < b.BestValue {
-					return 1
-				}
-				return 0
-			})
-		}
-
-		sortByBestValue(eggCostResearchs)
-		sortByBestValue(vehicleResearchs)
-		sortByBestValue(eggValueResearchs)
-		sortByBestValue(layRateResearchs)
-		sortByBestValue(shippingRateResearchs)
-		sortByBestValue(habCapacityResearchs)
-	case "price":
-		// Sort all research lists by price
-		sortByPrice := func(researches []*EggCostResearch) {
-			slices.SortFunc(researches, func(a, b *EggCostResearch) int {
-				if a.Price < b.Price {
-					return -1
-				} else if a.Price > b.Price {
-					return 1
-				}
-				return 0
-			})
-		}
-
-		sortByPrice(eggCostResearchs)
-		sortByPrice(vehicleResearchs)
-		sortByPrice(eggValueResearchs)
-		sortByPrice(layRateResearchs)
-		sortByPrice(shippingRateResearchs)
-		sortByPrice(habCapacityResearchs)
+	sortByBestValue := func(researches []*EggCostResearch) {
+		slices.SortFunc(researches, func(a, b *EggCostResearch) int {
+			if a.BestValue > b.BestValue {
+				return -1
+			} else if a.BestValue < b.BestValue {
+				return 1
+			}
+			return 0
+		})
 	}
+
+	sortByPrice := func(researches []*EggCostResearch) {
+		slices.SortFunc(researches, func(a, b *EggCostResearch) int {
+			if a.Price < b.Price {
+				return -1
+			} else if a.Price > b.Price {
+				return 1
+			}
+			return 0
+		})
+	}
+
+	sortByBestValue(vehicleResearchs)
+	sortByBestValue(eggValueResearchs)
+	sortByBestValue(layRateResearchs)
+	sortByBestValue(shippingRateResearchs)
+	sortByBestValue(habCapacityResearchs)
+
+	// Sort this one by price for just cheap stuff
+	sortByPrice(eggCostResearchs)
 
 	// Loop through first 10 of eggValueResearchs so I can print debug info
 	/*
@@ -492,7 +490,7 @@ func GatherCommonResearchCosts(epicResearch []*Backup_ResearchItem, commonResear
 		{"ELR", layRateResearchs},
 		{"SR", shippingRateResearchs},
 		{"Hab", habCapacityResearchs},
-		{"Misc", eggCostResearchs},
+		{"Cheap", eggCostResearchs},
 	}
 
 	for _, category := range researchCategories {
