@@ -322,7 +322,7 @@ func GatherCommonResearchCosts(epicResearch []*Backup_ResearchItem, commonResear
 	var eggCostResearchs []EggCostResearch
 	var vehicleResearchs []EggCostResearch
 
-	discounts := epicResearchDiscount * collDiscount * afxDiscount
+	discounts := epicResearchDiscount * collDiscount * afxDiscount * currentResearchDiscountEvent
 
 	for i, item := range commonResearch {
 		research := EggIncResearches[i]
