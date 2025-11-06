@@ -34,7 +34,7 @@ const eggIncDataSchemaFile string = "ttbb-data/ei-data.schema.json"
 const eggIncEiAfxDataURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/wasmegg/_common/eiafx/eiafx-data.json"
 const eggIncEiAfxDataFile string = "ttbb-data/ei-afx-data.json"
 
-const eggIncEiResearchesURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/wasmegg/researches/src/researches.json"
+const eggIncEiResearchesURL string = "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/refs/heads/main/data/ei-researches.json"
 const eggIncEiResearchesFile string = "ttbb-data/ei-researches.json"
 
 //const eggIncEiAfxConfigURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/wasmegg/_common/eiafx/eiafx-config.json"
