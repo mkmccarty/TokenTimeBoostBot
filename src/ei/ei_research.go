@@ -12,10 +12,11 @@ import (
 
 // EggCostResearch holds the cost data for a research item
 type EggCostResearch struct {
-	ID    string
-	Name  string
-	Level int
-	Price float64
+	ID        string
+	Name      string
+	Level     int
+	Price     float64
+	BestValue float64
 }
 
 // EggResearches holds the egg researches data
@@ -397,10 +398,11 @@ func GatherCommonResearchCosts(epicResearch []*Backup_ResearchItem, commonResear
 
 			gemprice := research.Gems[level]
 			researchItem := EggCostResearch{
-				ID:    research.ID,
-				Name:  research.Name,
-				Level: int(level + 1),
-				Price: gemprice * discounts,
+				ID:        research.ID,
+				Name:      research.Name,
+				Level:     int(level + 1),
+				Price:     gemprice * discounts,
+				BestValue: (gemprice * discounts) / float64(research.PerLevel),
 			}
 
 			if isVehicleResearch(research.ID) {
@@ -419,12 +421,11 @@ func GatherCommonResearchCosts(epicResearch []*Backup_ResearchItem, commonResear
 		}
 	}
 
-	// Helper function to sort research by price ascending
-	sortByPrice := func(researches []*EggCostResearch) {
+	sortByBestValue := func(researches []*EggCostResearch) {
 		slices.SortFunc(researches, func(a, b *EggCostResearch) int {
-			if a.Price < b.Price {
+			if a.BestValue < b.BestValue {
 				return -1
-			} else if a.Price > b.Price {
+			} else if a.BestValue > b.BestValue {
 				return 1
 			}
 			return 0
@@ -432,12 +433,34 @@ func GatherCommonResearchCosts(epicResearch []*Backup_ResearchItem, commonResear
 	}
 
 	// Sort all research lists by price
-	sortByPrice(eggCostResearchs)
-	sortByPrice(vehicleResearchs)
-	sortByPrice(eggValueResearchs)
-	sortByPrice(layRateResearchs)
-	sortByPrice(shippingRateResearchs)
-	sortByPrice(habCapacityResearchs)
+	/*
+		// Helper function to sort research by price ascending
+		sortByPrice := func(researches []*EggCostResearch) {
+			slices.SortFunc(researches, func(a, b *EggCostResearch) int {
+				if a.Price < b.Price {
+					return -1
+				} else if a.Price > b.Price {
+					return 1
+				}
+				return 0
+			})
+		}
+
+
+			sortByPrice(eggCostResearchs)
+			sortByPrice(vehicleResearchs)
+			sortByPrice(eggValueResearchs)
+			sortByPrice(layRateResearchs)
+			sortByPrice(shippingRateResearchs)
+			sortByPrice(habCapacityResearchs)
+	*/
+
+	sortByBestValue(eggCostResearchs)
+	sortByBestValue(vehicleResearchs)
+	sortByBestValue(eggValueResearchs)
+	sortByBestValue(layRateResearchs)
+	sortByBestValue(shippingRateResearchs)
+	sortByBestValue(habCapacityResearchs)
 
 	var builder strings.Builder
 	// Print the next 10 researches to do
