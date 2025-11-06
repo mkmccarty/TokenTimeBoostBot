@@ -49,6 +49,7 @@ func GetColleggtibleBuffs(contracts *MyContracts) DimensionBuffs {
 	colHab := 1.0
 	colEarnings := 1.0
 	colAway := 1.0
+	colResearchDiscount := 1.0
 
 	eggCounts := make(map[string]float64)
 
@@ -99,16 +100,19 @@ func GetColleggtibleBuffs(contracts *MyContracts) DimensionBuffs {
 			colEarnings *= customEgg.DimensionValue[tier]
 		case GameModifier_AWAY_EARNINGS:
 			colAway *= customEgg.DimensionValue[tier]
+		case GameModifier_RESEARCH_COST:
+			colResearchDiscount *= customEgg.DimensionValue[tier]
 		default:
 		}
 	}
 
 	return DimensionBuffs{
-		ELR:          colELR,
-		SR:           colSR,
-		IHR:          colIHR,
-		Hab:          colHab,
-		Earnings:     colEarnings,
-		AwayEarnings: colAway,
+		ELR:              colELR,
+		SR:               colSR,
+		IHR:              colIHR,
+		Hab:              colHab,
+		Earnings:         colEarnings,
+		AwayEarnings:     colAway,
+		ResearchDiscount: colResearchDiscount,
 	}
 }

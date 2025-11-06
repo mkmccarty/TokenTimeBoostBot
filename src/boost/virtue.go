@@ -598,6 +598,15 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 		}
 	}
 
+	// Determine the costs of the next research items
+	// Only for Curisoty egg
+	if config.IsDevBot() && selectedEggIndex == 0 {
+		researchStr := ei.GatherCommonResearchCosts(backup.GetGame().GetEpicResearch(), backup.GetFarms()[0].GetCommonResearch(), colBuffs.ResearchDiscount, artifactBuffs.ResearchDiscount)
+		if researchStr != "" {
+			fmt.Fprint(&stats, researchStr)
+		}
+	}
+
 	components = append(components, &discordgo.Section{
 		Components: []discordgo.MessageComponent{
 			&discordgo.TextDisplay{

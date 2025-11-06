@@ -11,12 +11,13 @@ import (
 
 // DimensionBuffs holds the various dimension buffs
 type DimensionBuffs struct {
-	ELR          float64
-	SR           float64
-	IHR          float64
-	Hab          float64
-	Earnings     float64
-	AwayEarnings float64
+	ELR              float64
+	SR               float64
+	IHR              float64
+	Hab              float64
+	Earnings         float64
+	AwayEarnings     float64
+	ResearchDiscount float64
 }
 
 // ArtifactLevels are used to map the level enums to strings
@@ -28,12 +29,13 @@ var ArtifactRarity = []string{"C", "R", "E", "L"}
 // GetArtifactBuffs calculates the total buffs from artifacts
 func GetArtifactBuffs(artifacts []*CompleteArtifact) DimensionBuffs {
 	artifactBuffs := DimensionBuffs{
-		ELR:          1.0,
-		SR:           1.0,
-		IHR:          1.0,
-		Hab:          1.0,
-		Earnings:     1.0,
-		AwayEarnings: 1.0,
+		ELR:              1.0,
+		SR:               1.0,
+		IHR:              1.0,
+		Hab:              1.0,
+		Earnings:         1.0,
+		AwayEarnings:     1.0,
+		ResearchDiscount: 1.0,
 	}
 
 	chalice := map[string]float64{
@@ -78,7 +80,12 @@ func GetArtifactBuffs(artifacts []*CompleteArtifact) DimensionBuffs {
 		"T3C": 1.5, "T3R": 1.75, "T3L": 2.0,
 		"T4C": 2.0, "T4R": 2.25, "T4L": 2.5,
 	}
-
+	cube := map[string]float64{
+		"T1C": 0.95,
+		"T2C": 0.90, "T2E": 0.85,
+		"T3C": 0.80, "T3R": 0.78,
+		"T4C": 0.50, "T4R": 0.47, "T4E": 0.45, "T4L": 0.40,
+	}
 	artifactStonePercentLevels := []float64{1.02, 1.04, 1.05}
 	artifactShellStonePercentLevels := []float64{1.05, 1.08, 1.1}
 	artifactLunarStonePercentLevels := []float64{1.2, 1.3, 1.4}
@@ -101,6 +108,8 @@ func GetArtifactBuffs(artifacts []*CompleteArtifact) DimensionBuffs {
 			artifactBuffs.Earnings *= ankh[strType]
 		case ArtifactSpec_DEMETERS_NECKLACE:
 			artifactBuffs.Earnings *= necklace[strType]
+		case ArtifactSpec_PUZZLE_CUBE:
+			artifactBuffs.ResearchDiscount *= cube[strType]
 
 		default:
 		}
