@@ -289,6 +289,68 @@ func isVehicleResearch(researchID string) bool {
 		"traffic_management",
 		"egg_loading_bots",
 		"autonomous_vehicles",
+	}
+
+	return slices.Contains(ids, researchID)
+}
+
+func isEggValue(researchID string) bool {
+	ids := []string{
+		"nutritional_sup",
+		"padded_packaging",
+		"bigger_eggs",
+		"usde_prime",
+		"superfeed",
+		"improved_genetics",
+		"shell_fortification",
+		"even_bigger_eggs",
+		"genetic_purification",
+		"graviton_coating",
+		"chrystal_shells",
+		"telepathic_will",
+		"atomic_purification",
+		"multi_layering",
+		"eggsistor",
+		"matter_reconfig",
+		"timeline_splicing",
+	}
+	return slices.Contains(ids, researchID)
+}
+
+func isShippingRate(researchID string) bool {
+	ids := []string{
+		"hover_upgrades",
+		"hyper_portalling",
+		"leafsprings",
+		"lightweight_boxes",
+		"driver_training",
+		"super_alloy",
+		"quantum_storage",
+		"dark_containment",
+		"neural_net_refine",
+	}
+
+	return slices.Contains(ids, researchID)
+}
+
+func isLayRate(researchID string) bool {
+	ids := []string{
+		"comfy_nests",
+		"hen_house_ac",
+		"improved_genetics",
+		"time_compress",
+		"timeline_diversion",
+		"relativity_optimization",
+	}
+
+	return slices.Contains(ids, researchID)
+}
+
+func isHabCapacity(researchID string) bool {
+	ids := []string{
+		"hab_capacity1",
+		"microlux",
+		"grav_plating",
 		"wormhole_dampening",
 	}
 
@@ -319,8 +381,12 @@ func GetResearchDiscount(commonResearch []*Backup_ResearchItem) float64 {
 // GatherCommonResearchCosts gathers the next 10 common research items to be purchased based on their gem costs
 func GatherCommonResearchCosts(epicResearch []*Backup_ResearchItem, commonResearch []*Backup_ResearchItem, collDiscount float64, afxDiscount float64) string {
 	epicResearchDiscount := GetResearchDiscount(epicResearch)
-	var eggCostResearchs []EggCostResearch
-	var vehicleResearchs []EggCostResearch
+	var eggCostResearchs []*EggCostResearch
+	var eggValueResearchs []*EggCostResearch
+	var vehicleResearchs []*EggCostResearch
+	var shippingRateResearchs []*EggCostResearch
+	var layRateResearchs []*EggCostResearch
+	var habCapacityResearchs []*EggCostResearch
 
 	discounts := epicResearchDiscount * collDiscount * afxDiscount * currentResearchDiscountEvent
 
@@ -338,59 +404,75 @@ func GatherCommonResearchCosts(epicResearch []*Backup_ResearchItem, commonResear
 			}
 
 			if isVehicleResearch(research.ID) {
-				vehicleResearchs = append(vehicleResearchs, researchItem)
+				vehicleResearchs = append(vehicleResearchs, &researchItem)
+			} else if isEggValue(research.ID) {
+				eggValueResearchs = append(eggValueResearchs, &researchItem)
+			} else if isShippingRate(research.ID) {
+				shippingRateResearchs = append(shippingRateResearchs, &researchItem)
+			} else if isLayRate(research.ID) {
+				layRateResearchs = append(layRateResearchs, &researchItem)
+			} else if isHabCapacity(research.ID) {
+				habCapacityResearchs = append(habCapacityResearchs, &researchItem)
 			} else {
-				eggCostResearchs = append(eggCostResearchs, researchItem)
+				eggCostResearchs = append(eggCostResearchs, &researchItem)
 			}
 		}
 	}
 
-	// Sort this list by Price ascending
-	slices.SortFunc(eggCostResearchs, func(a, b EggCostResearch) int {
-		if a.Price < b.Price {
-			return -1
-		} else if a.Price > b.Price {
-			return 1
-		}
-		return 0
-	})
+	// Helper function to sort research by price ascending
+	sortByPrice := func(researches []*EggCostResearch) {
+		slices.SortFunc(researches, func(a, b *EggCostResearch) int {
+			if a.Price < b.Price {
+				return -1
+			} else if a.Price > b.Price {
+				return 1
+			}
+			return 0
+		})
+	}
 
-	// Sort this list by Price ascending
-	slices.SortFunc(vehicleResearchs, func(a, b EggCostResearch) int {
-		if a.Price < b.Price {
-			return -1
-		} else if a.Price > b.Price {
-			return 1
-		}
-		return 0
-	})
+	// Sort all research lists by price
+	sortByPrice(eggCostResearchs)
+	sortByPrice(vehicleResearchs)
+	sortByPrice(eggValueResearchs)
+	sortByPrice(layRateResearchs)
+	sortByPrice(shippingRateResearchs)
+	sortByPrice(habCapacityResearchs)
 
 	var builder strings.Builder
 	// Print the next 10 researches to do
-	if len(vehicleResearchs) > 0 {
-		builder.WriteString("Vehicle: ")
-		if len(vehicleResearchs) == 1 {
-			research := vehicleResearchs[0]
-			fmt.Fprintf(&builder, "%s: %s\n", research.Name, FormatEIValue(research.Price, map[string]interface{}{"decimals": 3, "trim": true}))
-		} else if len(vehicleResearchs) >= 2 {
-			r1 := vehicleResearchs[0]
-			r2 := vehicleResearchs[1]
-			if r1.Name == r2.Name {
-				fmt.Fprintf(&builder, "%s: %s, %s\n", r1.Name,
-					FormatEIValue(r1.Price, map[string]interface{}{"decimals": 3, "trim": true}),
-					FormatEIValue(r2.Price, map[string]interface{}{"decimals": 3, "trim": true}))
-			} else {
-				fmt.Fprintf(&builder, "%s: %s, %s: %s\n",
-					r1.Name, FormatEIValue(r1.Price, map[string]interface{}{"decimals": 3, "trim": true}),
-					r2.Name, FormatEIValue(r2.Price, map[string]interface{}{"decimals": 3, "trim": true}))
-			}
-		}
+	researchCategories := []struct {
+		name     string
+		research []*EggCostResearch
+	}{
+		{"Value", eggValueResearchs},
+		{"Vehicle", vehicleResearchs},
+		{"ELR", layRateResearchs},
+		{"SR", shippingRateResearchs},
+		{"Hab", habCapacityResearchs},
+		{"Misc", eggCostResearchs},
 	}
 
-	for i := 0; i < 5; i++ {
-		research := eggCostResearchs[i]
-		// Print or process the research item as needed
-		fmt.Fprintf(&builder, "%s: %s\n", research.Name, FormatEIValue(research.Price, map[string]interface{}{"decimals": 3, "trim": true}))
+	for _, category := range researchCategories {
+		if len(category.research) > 0 {
+			builder.WriteString("**" + category.name + ":** ")
+			if len(category.research) == 1 {
+				research := category.research[0]
+				fmt.Fprintf(&builder, "%s: %s\n", research.Name, FormatEIValue(research.Price, map[string]interface{}{"decimals": 3, "trim": true}))
+			} else if len(category.research) >= 2 {
+				r1 := category.research[0]
+				r2 := category.research[1]
+				if r1.Name == r2.Name {
+					fmt.Fprintf(&builder, "%s: %s, %s\n", r1.Name,
+						FormatEIValue(r1.Price, map[string]interface{}{"decimals": 2, "trim": true}),
+						FormatEIValue(r2.Price, map[string]interface{}{"decimals": 2, "trim": true}))
+				} else {
+					fmt.Fprintf(&builder, "%s: %s, %s: %s\n",
+						r1.Name, FormatEIValue(r1.Price, map[string]interface{}{"decimals": 2, "trim": true}),
+						r2.Name, FormatEIValue(r2.Price, map[string]interface{}{"decimals": 2, "trim": true}))
+				}
+			}
+		}
 	}
 
 	return builder.String()
