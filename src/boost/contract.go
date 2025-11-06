@@ -796,6 +796,9 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			contract.BoostOrder = ContractOrderTVal
 		case "ask":
 			contract.BoostOrder = ContractOrderTokenAsk
+		case "te":
+			contract.BoostOrder = ContractOrderTE
+			// TODO - Refresh the user's egg inc data. Not implementing just yet because of possible rate limits
 		}
 	}
 
