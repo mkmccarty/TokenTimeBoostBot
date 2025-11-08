@@ -537,8 +537,8 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 	} else {
 		fmt.Fprint(&header, "**Ascend to visit your Eggs of Virtue farm.**")
 	}
-	// want offline earnings
 
+	// Try and have an accurate gem total including offline earnings
 	offlineGems := 0.0
 	if elapsed > 60.0 {
 		offlineGems = (offlineRateHr / 3600) * math.Floor(elapsed-60)
