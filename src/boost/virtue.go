@@ -355,6 +355,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 	shippingRate *= artifactBuffs.SR * colBuffs.SR
 	habCap *= artifactBuffs.Hab * colBuffs.Hab
 
+	gemsOnHand := backup.GetFarms()[0].GetCashEarned() - backup.GetFarms()[0].GetCashSpent()
 	_, onlineRate, _, offlineRate := ei.GetInternalHatcheryFromBackup(farm.GetCommonResearch(), backup.GetGame(), artifactBuffs.IHR*colBuffs.IHR, allEov)
 	siloMinutes := ei.GetSiloMinutes(farm, backup.GetGame().GetEpicResearch())
 
@@ -536,8 +537,16 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 	} else {
 		fmt.Fprint(&header, "**Ascend to visit your Eggs of Virtue farm.**")
 	}
+	// want offline earnings
 
-	fmt.Fprintf(&stats, "%s **Offline** %s/hr  %s/s\n",
+	offlineGems := 0.0
+	if elapsed > 60.0 {
+		offlineGems = (offlineRateHr / 3600) * math.Floor(elapsed-60)
+	}
+
+	fmt.Fprintf(&stats, "%s ~%s **%sOffline** %s/hr  %s/s\n",
+		ei.GetBotEmojiMarkdown("gem"),
+		ei.FormatEIValue(gemsOnHand+offlineGems, map[string]interface{}{"decimals": 3, "trim": true}),
 		ei.GetBotEmojiMarkdown("gem"),
 		ei.FormatEIValue(offlineRateHr, map[string]interface{}{"decimals": 3, "trim": true}),
 		ei.FormatEIValue(offlineRateHr/3600, map[string]interface{}{"decimals": 3, "trim": true}),
@@ -601,7 +610,6 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 	// Determine the costs of the next research items
 	// Only for Curisoty egg
 	if selectedEggIndex == 0 {
-		gemsOnHand := backup.GetFarms()[0].GetCashEarned() - backup.GetFarms()[0].GetCashSpent()
 		researchStr := ei.GatherCommonResearchCosts(gemsOnHand, offlineRateHr, backup.GetGame().GetEpicResearch(), backup.GetFarms()[0].GetCommonResearch(), colBuffs.ResearchDiscount, artifactBuffs.ResearchDiscount)
 		if researchStr != "" {
 			fmt.Fprint(&stats, researchStr)
