@@ -427,19 +427,22 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 	if onVirtueFarm {
 		fmt.Fprintf(&stats, "%s %s\n", VehicleArray, strings.Join(habArray, ""))
 
+		shipFmt := ei.FormatEIValue(shippingRate, map[string]any{"decimals": 2, "trim": true})
+		elrFmt := ei.FormatEIValue(eggLayingRate-fuelRate, map[string]any{"decimals": 2, "trim": true})
+
 		// Want time from now when those minutes elapse
 		if shippingRate > eggLayingRate {
 			fmt.Fprintf(&stats, "%s %s/hr  %s **%s/hr**",
 				VehicleArt,
-				ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 2, "trim": true}),
+				shipFmt,
 				selectedEggEmote,
-				ei.FormatEIValue(eggLayingRate-fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
+				elrFmt)
 		} else {
 			fmt.Fprintf(&stats, "%s **%s/hr**  %s %s/hr",
 				VehicleArt,
-				ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 2, "trim": true}),
+				shipFmt,
 				selectedEggEmote,
-				ei.FormatEIValue(eggLayingRate-fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
+				elrFmt)
 		}
 		if fuelingEnabled {
 			fuelLamp := ""
