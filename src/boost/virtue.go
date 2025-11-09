@@ -210,6 +210,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 	header := strings.Builder{}
 	eggs := strings.Builder{}
 	stats := strings.Builder{}
+	notes := strings.Builder{}
 	rockets := strings.Builder{}
 	footer := strings.Builder{}
 
@@ -444,32 +445,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 				selectedEggEmote,
 				elrFmt)
 		}
-		if config.IsDevBot() {
-			// Calculate offline hab time until SR/ELR capacity
-			if habPop < habCap && habPercent < 99.9 {
-				var (
-					label    string
-					limitPop float64
-				)
 
-				if shippingRate > eggLayingRate {
-					label = "SR"
-					limitPop = habPop * (shippingRate / eggLayingRate)
-				} else {
-					label = "ELR"
-					limitPop = habPop * (eggLayingRate / shippingRate)
-				}
-
-				if habCap > limitPop {
-					offlineCapTime := ei.TimeForLinearGrowth(habPop, limitPop, offlineRate/60)
-					fmt.Fprintf(&stats, " %s cap: %s 💤<t:%d:R>",
-						label,
-						ei.FormatEIValue(limitPop, map[string]any{"decimals": 2, "trim": true}),
-						time.Now().Add(time.Duration(int64(offlineCapTime))*time.Second).Unix(),
-					)
-				}
-			}
-		}
 		if fuelingEnabled {
 			fuelLamp := ""
 			if fuelPercentage == 1.0 {
@@ -493,6 +469,30 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 			fmt.Fprintf(&stats, " %s🎚️ %.0f%%\n", DepotArt, recommendedFuelRate*100)
 		} else {
 			fmt.Fprint(&stats, "\n")
+		}
+		// Calculate offline hab time until SR/ELR capacity
+		if habPop < habCap && habPercent < 99.9 {
+			var (
+				label    string
+				limitPop float64
+			)
+
+			if shippingRate > eggLayingRate {
+				label = "SR"
+				limitPop = habPop * (shippingRate / eggLayingRate)
+			} else {
+				label = "ELR"
+				limitPop = habPop * (eggLayingRate / shippingRate)
+			}
+
+			if habCap > limitPop {
+				offlineCapTime := ei.TimeForLinearGrowth(habPop, limitPop, offlineRate/60)
+				fmt.Fprintf(&stats, "**%s cap:** %s 💤<t:%d:R>\n",
+					label,
+					ei.FormatEIValue(limitPop, map[string]any{"decimals": 2, "trim": true}),
+					time.Now().Add(time.Duration(int64(offlineCapTime))*time.Second).Unix(),
+				)
+			}
 		}
 
 		fmt.Fprintf(&stats, "**IHR** %s/min  💤 %s/min  %s %s\n",
@@ -573,7 +573,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 		offlineGems = (offlineRateHr / 3600) * math.Floor(elapsed-60)
 	}
 
-	fmt.Fprintf(&stats, "%s ~%s **%sOffline** %s/hr  %s/s\n",
+	fmt.Fprintf(&stats, "%s %s est. **%sOffline** %s/hr  %s/s\n",
 		ei.GetBotEmojiMarkdown("gem"),
 		ei.FormatEIValue(gemsOnHand+offlineGems, map[string]interface{}{"decimals": 3, "trim": true}),
 		ei.GetBotEmojiMarkdown("gem"),
@@ -636,12 +636,13 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 		}
 	}
 
+	// Notes section
 	// Determine the costs of the next research items
 	// Only for Curisoty egg
 	if selectedEggIndex == 0 {
 		researchStr := ei.GatherCommonResearchCosts(gemsOnHand, offlineRateHr, backup.GetGame().GetEpicResearch(), backup.GetFarms()[0].GetCommonResearch(), colBuffs.ResearchDiscount, artifactBuffs.ResearchDiscount)
 		if researchStr != "" {
-			fmt.Fprint(&stats, researchStr)
+			fmt.Fprint(&notes, researchStr)
 		}
 	}
 
@@ -672,7 +673,15 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 		Divider: &divider,
 		Spacing: &spacing,
 	})
-
+	if notes.Len() > 0 {
+		components = append(components, &discordgo.TextDisplay{
+			Content: notes.String(),
+		})
+		components = append(components, &discordgo.Separator{
+			Divider: &divider,
+			Spacing: &spacing,
+		})
+	}
 	components = append(components, &discordgo.TextDisplay{
 		Content: rockets.String(),
 	})
