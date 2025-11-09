@@ -375,9 +375,6 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 		}
 	}
 
-	// Now with our rates we can figure out earnings numbers
-	_, offlineRateHr := ei.GetFarmEarningRates(backup, math.Min(shippingRate, eggLayingRate-fuelRate), artifactBuffs, colBuffs, allEov)
-
 	// Handle tank limits if on virtue farm and fueling
 	if selectedEggIndex != -1 {
 		tankLevels := []float64{2e9, 200e9, 10e12, 100e12, 200e12, 300e12, 400e12, 500e12}
@@ -409,6 +406,9 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 		}
 
 	}
+
+	// Now with our rates we can figure out earnings numbers
+	_, offlineRateHr := ei.GetFarmEarningRates(backup, math.Min(shippingRate, eggLayingRate-fuelRate), artifactBuffs, colBuffs, allEov)
 
 	habPercent := 0.0
 	if habCap > 0 {
