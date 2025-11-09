@@ -487,8 +487,9 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 
 			if habCap > limitPop {
 				offlineCapTime := ei.TimeForLinearGrowth(habPop, limitPop, offlineRate/60)
-				fmt.Fprintf(&stats, "**%s cap:** %s 💤<t:%d:R>\n",
+				fmt.Fprintf(&stats, "**%s cap:** %s %s 💤<t:%d:R>\n",
 					label,
+					habArt,
 					ei.FormatEIValue(limitPop, map[string]any{"decimals": 2, "trim": true}),
 					time.Now().Add(time.Duration(int64(offlineCapTime))*time.Second).Unix(),
 				)
