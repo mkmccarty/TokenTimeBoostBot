@@ -444,6 +444,32 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 				selectedEggEmote,
 				elrFmt)
 		}
+		if config.IsDevBot() {
+			// Calculate offline hab time until SR/ELR capacity
+			if habPop < habCap && habPercent < 99.9 {
+				var (
+					label    string
+					limitPop float64
+				)
+
+				if shippingRate > eggLayingRate {
+					label = "SR"
+					limitPop = habPop * (shippingRate / eggLayingRate)
+				} else {
+					label = "ELR"
+					limitPop = habPop * (eggLayingRate / shippingRate)
+				}
+
+				if habCap > limitPop {
+					offlineCapTime := ei.TimeForLinearGrowth(habPop, limitPop, offlineRate/60)
+					fmt.Fprintf(&stats, " %s cap: %s 💤<t:%d:R>",
+						label,
+						ei.FormatEIValue(limitPop, map[string]any{"decimals": 2, "trim": true}),
+						time.Now().Add(time.Duration(int64(offlineCapTime))*time.Second).Unix(),
+					)
+				}
+			}
+		}
 		if fuelingEnabled {
 			fuelLamp := ""
 			if fuelPercentage == 1.0 {
