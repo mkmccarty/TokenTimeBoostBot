@@ -427,19 +427,48 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 	if onVirtueFarm {
 		fmt.Fprintf(&stats, "%s %s\n", VehicleArray, strings.Join(habArray, ""))
 
+		shipFmt := ei.FormatEIValue(shippingRate, map[string]any{"decimals": 2, "trim": true})
+		elrFmt := ei.FormatEIValue(eggLayingRate-fuelRate, map[string]any{"decimals": 2, "trim": true})
+
 		// Want time from now when those minutes elapse
 		if shippingRate > eggLayingRate {
 			fmt.Fprintf(&stats, "%s %s/hr  %s **%s/hr**",
 				VehicleArt,
-				ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 2, "trim": true}),
+				shipFmt,
 				selectedEggEmote,
-				ei.FormatEIValue(eggLayingRate-fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
+				elrFmt)
 		} else {
 			fmt.Fprintf(&stats, "%s **%s/hr**  %s %s/hr",
 				VehicleArt,
-				ei.FormatEIValue(shippingRate, map[string]interface{}{"decimals": 2, "trim": true}),
+				shipFmt,
 				selectedEggEmote,
-				ei.FormatEIValue(eggLayingRate-fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
+				elrFmt)
+		}
+		if config.IsDevBot() {
+			// Calculate offline hab time until SR/ELR capacity
+			if habPop < habCap && habPercent < 99.9 {
+				var (
+					label    string
+					limitPop float64
+				)
+
+				if shippingRate > eggLayingRate {
+					label = "SR"
+					limitPop = habPop * (shippingRate / eggLayingRate)
+				} else {
+					label = "ELR"
+					limitPop = habPop * (eggLayingRate / shippingRate)
+				}
+
+				if habCap > limitPop {
+					offlineCapTime := ei.TimeForLinearGrowth(habPop, limitPop, offlineRate/60)
+					fmt.Fprintf(&stats, " %s cap: %s 💤<t:%d:R>",
+						label,
+						ei.FormatEIValue(limitPop, map[string]any{"decimals": 2, "trim": true}),
+						time.Now().Add(time.Duration(int64(offlineCapTime))*time.Second).Unix(),
+					)
+				}
+			}
 		}
 		if fuelingEnabled {
 			fuelLamp := ""
