@@ -470,7 +470,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 		} else {
 			fmt.Fprint(&stats, "\n")
 		}
-		// Calculate offline hab time until SR/ELR capacity
+		// Calculate offline hab time until SR capacity
 		if habPop < habCap && habPercent < 99.9 && shippingRate > eggLayingRate {
 			limitPop := habPop * (shippingRate / eggLayingRate)
 
