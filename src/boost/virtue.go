@@ -525,14 +525,16 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 		for {
 			header.WriteString(bold)
 			header.WriteString(prefix)
-			if selectedTarget-selectedDelivered-offlineEggs <= 0.0 {
-				fmt.Fprintf(&header, "Offline deliveries complete %s%s",
-					ei.FormatEIValue(currentSelectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
-					selectedEggEmote)
-			} else if remainingTime == -1.0 {
-				fmt.Fprintf(&header, "Deliver %s%s in more than a year 💤",
-					ei.FormatEIValue(currentSelectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
-					selectedEggEmote)
+			if remainingTime == -1.0 {
+				if selectedTarget-selectedDelivered-offlineEggs <= 0.0 {
+					fmt.Fprintf(&header, "Offline deliveries complete %s%s",
+						ei.FormatEIValue(currentSelectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
+						selectedEggEmote)
+				} else {
+					fmt.Fprintf(&header, "Deliver %s%s in more than a year 💤",
+						ei.FormatEIValue(currentSelectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
+						selectedEggEmote)
+				}
 			} else if adjustedRemainingTime < 43200.0 { // 12 hours
 				fmt.Fprintf(&header, "Deliver %s%s <t:%d:t>💤",
 					ei.FormatEIValue(currentSelectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
