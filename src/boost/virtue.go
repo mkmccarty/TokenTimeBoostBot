@@ -329,12 +329,21 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 
 	for _, artifact := range virtueArtifacts {
 		artifactID := artifact.GetItemId()
-		if slices.Contains(inUseArtifacts, artifactID) {
-			artifactSetInUse = append(artifactSetInUse, artifact.GetArtifact())
-
-			spec := artifact.GetArtifact().GetSpec()
-			strType := ei.ArtifactLevels[spec.GetLevel()] + ei.ArtifactRarity[spec.GetRarity()]
-			artifactIcons += ei.GetBotEmojiMarkdown(fmt.Sprintf("%s%s", ei.ShortArtifactName[int32(spec.GetName())], strType))
+		// Ensure artifactIcons follow the order in inUseArtifacts
+		_ = artifactID
+		if len(artifactSetInUse) == 0 && len(inUseArtifacts) > 0 {
+			itemsByID := make(map[uint64]*ei.CompleteArtifact, len(virtueArtifacts))
+			for _, it := range virtueArtifacts {
+				itemsByID[it.GetItemId()] = it.GetArtifact()
+			}
+			for _, id := range inUseArtifacts {
+				if a := itemsByID[id]; a != nil {
+					artifactSetInUse = append(artifactSetInUse, a)
+					spec := a.GetSpec()
+					strType := ei.ArtifactLevels[spec.GetLevel()] + ei.ArtifactRarity[spec.GetRarity()]
+					artifactIcons += ei.GetBotEmojiMarkdown(fmt.Sprintf("%s%s", ei.ShortArtifactName[int32(spec.GetName())], strType))
+				}
+			}
 		}
 	}
 
