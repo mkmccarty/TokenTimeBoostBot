@@ -470,25 +470,13 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 		} else {
 			fmt.Fprint(&stats, "\n")
 		}
-		// Calculate offline hab time until SR/ELR capacity
-		if habPop < habCap && habPercent < 99.9 {
-			var (
-				label    string
-				limitPop float64
-			)
-
-			if shippingRate > eggLayingRate {
-				label = "SR"
-				limitPop = habPop * (shippingRate / eggLayingRate)
-			} else {
-				label = "ELR"
-				limitPop = habPop * (eggLayingRate / shippingRate)
-			}
+		// Calculate offline hab time until SR capacity
+		if habPop < habCap && habPercent < 99.9 && shippingRate > eggLayingRate {
+			limitPop := habPop * (shippingRate / eggLayingRate)
 
 			if habCap > limitPop {
 				offlineCapTime := ei.TimeForLinearGrowth(habPop, limitPop, offlineRate/60)
-				fmt.Fprintf(&stats, "**%s cap:** %s %s 💤<t:%d:R>\n",
-					label,
+				fmt.Fprintf(&stats, "**SR cap:** %s %s 💤<t:%d:R>\n",
 					habArt,
 					ei.FormatEIValue(limitPop, map[string]any{"decimals": 2, "trim": true}),
 					time.Now().Add(time.Duration(int64(offlineCapTime))*time.Second).Unix(),
