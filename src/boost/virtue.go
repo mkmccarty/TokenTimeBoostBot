@@ -592,26 +592,53 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 		artifactIcons = "**Artifacts**"
 	}
 
-	fmt.Fprintf(&stats, "%s SR:%v%%  ELR:%v%%  IHR:%v%%  H:%v%% %s%v%% 💤%v%%\n",
-		artifactIcons,
-		math.Round((artifactBuffs.SR-1)*100),
-		math.Round((artifactBuffs.ELR-1)*100),
-		math.Round((artifactBuffs.IHR-1)*100),
-		math.Round((artifactBuffs.Hab-1)*100),
-		ei.GetBotEmojiMarkdown("gem"),
-		math.Round((artifactBuffs.Earnings-1)*100),
-		math.Round((artifactBuffs.AwayEarnings-1)*100),
-	)
-	fmt.Fprintf(&stats, "%s  SR:%v%%  ELR:%v%%  IHR:%v%%  H:%v%% %s%v%% 💤%v%%\n",
-		ei.GetBotEmojiMarkdown("collegg"),
-		math.Round((colBuffs.SR-1)*100),
-		math.Round((colBuffs.ELR-1)*100),
-		math.Round((colBuffs.IHR-1)*100),
-		math.Round((colBuffs.Hab-1)*100),
-		ei.GetBotEmojiMarkdown("gem"),
-		math.Round((colBuffs.Earnings-1)*100),
-		math.Round((colBuffs.AwayEarnings-1)*100),
-	)
+	fmt.Fprintf(&stats, "%s", artifactIcons)
+
+	if artifactBuffs.SR != 1 {
+		fmt.Fprintf(&stats, " SR:%s", ei.FormatModifierValue(artifactBuffs.SR))
+	}
+	if artifactBuffs.ELR != 1 {
+		fmt.Fprintf(&stats, " ELR:%s", ei.FormatModifierValue(artifactBuffs.ELR))
+	}
+	if artifactBuffs.IHR != 1 {
+		fmt.Fprintf(&stats, " IHR:%s", ei.FormatModifierValue(artifactBuffs.IHR))
+	}
+	if artifactBuffs.Hab != 1 {
+		fmt.Fprintf(&stats, " H:%s", ei.FormatModifierValue(artifactBuffs.Hab))
+	}
+	if artifactBuffs.Earnings != 1 || artifactBuffs.AwayEarnings != 1 {
+		fmt.Fprintf(&stats, " %s", ei.GetBotEmojiMarkdown("gem"))
+		if artifactBuffs.Earnings != 1 {
+			fmt.Fprintf(&stats, "%s", ei.FormatModifierValue(artifactBuffs.Earnings))
+		}
+		if artifactBuffs.AwayEarnings != 1 {
+			fmt.Fprintf(&stats, " 💤%s", ei.FormatModifierValue(artifactBuffs.AwayEarnings))
+		}
+	}
+	fmt.Fprint(&stats, "\n")
+	fmt.Fprintf(&stats, "%s", ei.GetBotEmojiMarkdown("collegg"))
+	if colBuffs.SR != 1 {
+		fmt.Fprintf(&stats, " SR:%s", ei.FormatModifierValue(colBuffs.SR))
+	}
+	if colBuffs.ELR != 1 {
+		fmt.Fprintf(&stats, " ELR:%s", ei.FormatModifierValue(colBuffs.ELR))
+	}
+	if colBuffs.IHR != 1 {
+		fmt.Fprintf(&stats, " IHR:%s", ei.FormatModifierValue(colBuffs.IHR))
+	}
+	if colBuffs.Hab != 1 {
+		fmt.Fprintf(&stats, " H:%s", ei.FormatModifierValue(colBuffs.Hab))
+	}
+	if colBuffs.Earnings != 1 || colBuffs.AwayEarnings != 1 {
+		fmt.Fprintf(&stats, " %s", ei.GetBotEmojiMarkdown("gem"))
+		if colBuffs.Earnings != 1 {
+			fmt.Fprintf(&stats, "%s", ei.FormatModifierValue(colBuffs.Earnings))
+		}
+		if colBuffs.AwayEarnings != 1 {
+			fmt.Fprintf(&stats, " 💤%s", ei.FormatModifierValue(colBuffs.AwayEarnings))
+		}
+	}
+	fmt.Fprint(&stats, "\n")
 
 	fmt.Fprintf(&footer, "-# Report run <t:%d:t>, last sync <t:%d:t>\n", time.Now().Unix(), syncTime.Unix())
 

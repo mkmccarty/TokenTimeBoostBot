@@ -101,6 +101,18 @@ func truncate(f float64, decimals int) float64 {
 	return math.Floor(f*factor) / factor
 }
 
+// FormatModifierValue formats a float64 into a % for values under 500% or a multiplier string for larger values.
+func FormatModifierValue(x float64) string {
+	if x < 2.0 {
+		// Format as percentage with 1 decimal place
+		return fmt.Sprintf("%v%%", math.Round((x-1)*100))
+	}
+	// Format as multiplier with 2 decimal places
+	s := strconv.FormatFloat(x, 'f', 2, 64)
+	s = strings.TrimRight(strings.TrimRight(s, "0"), ".")
+	return s + "x"
+}
+
 // FormatEIValue formats a float64 value into a string with appropriate EI unit suffixes.
 func FormatEIValue(x float64, options map[string]any) string {
 	trim := options["trim"] == true
