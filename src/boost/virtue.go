@@ -592,7 +592,10 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 		artifactIcons = "**Artifacts**"
 	}
 
-	fmt.Fprintf(&stats, "%s", artifactIcons)
+	hasArtifactBuffs := artifactBuffs.SR != 1 || artifactBuffs.ELR != 1 || artifactBuffs.IHR != 1 || artifactBuffs.Hab != 1 || artifactBuffs.Earnings != 1 || artifactBuffs.AwayEarnings != 1
+	if hasArtifactBuffs {
+		fmt.Fprintf(&stats, "%s", artifactIcons)
+	}
 
 	if artifactBuffs.SR != 1 {
 		fmt.Fprintf(&stats, " SR:%s", ei.FormatModifierValue(artifactBuffs.SR))
