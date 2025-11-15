@@ -53,7 +53,7 @@ var queries *Queries
 
 func sqliteInit() {
 	//db, _ := sql.Open("sqlite", ":memory:")
-	db, _ := sql.Open("sqlite", "ttbb-data/Farmers.sqlite")
+	db, _ := sql.Open("sqlite", "ttbb-data/Farmers.sqlite?_busy_timeout=5000")
 
 	_, _ = db.ExecContext(ctx, ddl)
 	queries = New(db)
