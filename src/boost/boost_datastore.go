@@ -21,7 +21,7 @@ var ddl string
 var queries *Queries
 
 func sqliteInit() {
-	db, _ := sql.Open("sqlite", "ttbb-data/ContractData.sqlite")
+	db, _ := sql.Open("sqlite", "ttbb-data/ContractData.sqlite?_busy_timeout=5000")
 
 	result, err := db.ExecContext(ctx, ddl)
 	if err == nil {
