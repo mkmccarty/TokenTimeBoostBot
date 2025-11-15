@@ -62,7 +62,7 @@ func GenerateBanner(ID string, eggName string, text string) {
 	if _, err := os.Stat(config.BannerOutputPath); os.IsNotExist(err) {
 		err = os.MkdirAll(config.BannerOutputPath, 0755)
 		if err != nil {
-			fmt.Println("Error creating output directory:", err)
+			log.Println("Error creating output directory:", err)
 			return
 		}
 	}
@@ -75,14 +75,14 @@ func GenerateBanner(ID string, eggName string, text string) {
 			allExist = false
 			break
 		} else if err != nil {
-			fmt.Println("Error checking output image:", err)
+			log.Println("Error checking output image:", err)
 			return
 		}
 	}
 
 	// if all images already exist, return
 	if allExist {
-		//fmt.Println("All images already exist")
+		//log.Println("All images already exist")
 		return
 	}
 	log.Printf("Creating banner in %s", outputImagePath)
@@ -96,31 +96,31 @@ func GenerateBanner(ID string, eggName string, text string) {
 	if _, err := os.Stat(config.BannerPath + "/" + overlayImagePath); os.IsNotExist(err) {
 		err := DownloadLatestEggImages(config.BannerPath)
 		if err != nil {
-			fmt.Println("Error downloading latest egg images:", err)
+			log.Println("Error downloading latest egg images:", err)
 		}
 	}
 
 	chillImg, err := loadImage(config.BannerPath + "/chill.png")
 	if err != nil {
-		fmt.Println("Error loading chill image:", err)
+		log.Println("Error loading chill image:", err)
 		return
 	}
 
 	acoImg, err := loadImage(config.BannerPath + "/aco.png")
 	if err != nil {
-		fmt.Println("Error loading aco image:", err)
+		log.Println("Error loading aco image:", err)
 		return
 	}
 
 	fastrunImg, err := loadImage(config.BannerPath + "/fastrun.png")
 	if err != nil {
-		fmt.Println("Error loading fastrun image:", err)
+		log.Println("Error loading fastrun image:", err)
 		return
 	}
 
 	leaderboardImg, err := loadImage(config.BannerPath + "/leaderboard.png")
 	if err != nil {
-		fmt.Println("Error loading leaderboard image:", err)
+		log.Println("Error loading leaderboard image:", err)
 		return
 	}
 
@@ -133,14 +133,14 @@ func GenerateBanner(ID string, eggName string, text string) {
 
 	bgImage, err := loadImage(bgImagePath)
 	if err != nil {
-		fmt.Println("Error loading background image:", err)
+		log.Println("Error loading background image:", err)
 		return
 	}
 
 	haveEggImg := true
 	overlayImageOrig, err := loadImage(config.BannerPath + "/" + overlayImagePath)
 	if err != nil {
-		fmt.Println("Error loading overlay image:", err)
+		log.Println("Error loading overlay image:", err)
 		haveEggImg = false
 	}
 	// I want to make overlayImage a 128 by 128 image
@@ -229,7 +229,7 @@ func GenerateBanner(ID string, eggName string, text string) {
 		styleImagePath := fmt.Sprintf("%s/b%s-%s.png", config.BannerOutputPath, style.id, ID)
 		err = saveImage(styleImagePath, styleImage)
 		if err != nil {
-			fmt.Println("Error saving output image:", err)
+			log.Println("Error saving output image:", err)
 			return
 		}
 	}
@@ -238,10 +238,10 @@ func GenerateBanner(ID string, eggName string, text string) {
 	err = saveImage(outputImagePath, compositeImage)
 
 	if err != nil {
-		fmt.Println("Error saving output image:", err)
+		log.Println("Error saving output image:", err)
 		return
 	}
-	fmt.Println("Images created successfully:", outputImagePath)
+	log.Println("Images created successfully:", outputImagePath)
 }
 
 // Helper function to load an image from a file

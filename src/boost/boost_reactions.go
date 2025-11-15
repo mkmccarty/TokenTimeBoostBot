@@ -280,7 +280,7 @@ func RemoveAddedReaction(s *discordgo.Session, r *discordgo.MessageReaction) {
 
 	err := s.MessageReactionRemove(r.ChannelID, r.MessageID, emojiName, r.UserID)
 	if err != nil {
-		fmt.Println(err, emojiName)
+		log.Println(err, emojiName)
 		_ = s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
 	}
 

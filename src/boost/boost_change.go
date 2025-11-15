@@ -558,7 +558,7 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 		return errors.New("only the contract creator can change the contract")
 	}
 
-	fmt.Println("ChangeContractIDs", "ContractID: ", contractID, "CoopID: ", coopID, "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", "")
+	log.Println("ChangeContractIDs", "ContractID: ", contractID, "CoopID: ", coopID, "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", "")
 
 	if contractID != "" {
 		contract.ContractID = contractID
@@ -599,7 +599,7 @@ func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string
 		return errors.New("only the contract creator can change the contract")
 	}
 
-	fmt.Println("ChangeCurrentBooster", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "NewBooster: ", newBooster)
+	log.Println("ChangeCurrentBooster", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "NewBooster: ", newBooster)
 
 	re := regexp.MustCompile(`[\\<>@#&!]`)
 	var newBoosterUserID = re.ReplaceAllString(newBooster, "")
@@ -768,7 +768,7 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 		return errors.New("invalid position")
 	}
 
-	fmt.Println("MoveBooster", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "BoosterName: ", boosterName, "BoosterPosition: ", boosterPosition)
+	log.Println("MoveBooster", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "BoosterName: ", boosterName, "BoosterPosition: ", boosterPosition)
 
 	var boosterIndex = slices.Index(contract.Order, boosterName)
 	if boosterIndex == -1 {
