@@ -1106,7 +1106,7 @@ func removeIndex(s []string, index int) []string {
 
 // RemoveFarmerByMention will remove a booster from the contract by mention
 func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID string, operator string, mention string) error {
-	fmt.Println("RemoveContractBoosterByMention", "GuildID: ", guildID, "ChannelID: ", channelID, "Operator: ", operator, "Mention: ", mention)
+	log.Println("RemoveContractBoosterByMention", "GuildID: ", guildID, "ChannelID: ", channelID, "Operator: ", operator, "Mention: ", mention)
 	var contract = FindContract(channelID)
 	redraw := false
 	if contract == nil {

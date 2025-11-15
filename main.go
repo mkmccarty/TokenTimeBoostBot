@@ -99,24 +99,34 @@ var Version = "development"
 var debugLogging = true
 
 func init() {
+	// Read values from .env file
+	err := config.ReadConfig(configFileName)
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
 
-	l, _ := lumberjack.NewRoller(fmt.Sprintf("%s/BoostBot.log", "ttbb-data"),
-		1*1024*1024, // 1 megabyte
-		&lumberjack.Options{
-			MaxBackups: 12,
-			MaxAge:     28 * time.Hour * 24, // 28 days
-			Compress:   false,
-		})
-	log.SetOutput(l)
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGHUP)
+	// Only logg to a file when not using the dev bot
+	if !config.IsDevBot() {
 
-	go func() {
-		for {
-			<-c
-			_ = l.Rotate()
-		}
-	}()
+		l, _ := lumberjack.NewRoller(fmt.Sprintf("%s/BoostBot.log", "ttbb-data"),
+			1*1024*1024, // 1 megabyte
+			&lumberjack.Options{
+				MaxBackups: 12,
+				MaxAge:     28 * time.Hour * 24, // 28 days
+				Compress:   false,
+			})
+		log.SetOutput(l)
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGHUP)
+
+		go func() {
+			for {
+				<-c
+				_ = l.Rotate()
+			}
+		}()
+	}
 
 	version.Version = Version
 	log.Printf("Starting Discord Bot: %s (%s)\n", version.Release, Version)
@@ -125,13 +135,6 @@ func init() {
 
 	// Read application parameters
 	flag.Parse()
-
-	// Read values from .env file
-	err := config.ReadConfig(configFileName)
-	if err != nil {
-		log.Println(err.Error())
-		return
-	}
 
 	if *BotToken == "" {
 		BotToken = &config.DiscordToken

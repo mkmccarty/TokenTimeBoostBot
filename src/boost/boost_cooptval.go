@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"sort"
 	"strings"
@@ -129,13 +130,13 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 				Content: builder.String(),
 			})
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		}
 		if err == nil {
 			contract.CoopTokenValueMsgID = msg.ID
 			err = s.ChannelMessagePin(i.ChannelID, msg.ID)
 			if err != nil {
-				fmt.Println(err)
+				log.Println(err)
 			}
 		}
 	}

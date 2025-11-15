@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 
@@ -398,7 +399,7 @@ func HandleArtifactCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	},
 	)
 	if err != nil {
-		fmt.Println("InteractionRespond: ", err)
+		log.Println("InteractionRespond: ", err)
 	}
 
 }
@@ -442,7 +443,7 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 		Components: &comp,
 	})
 	if err != nil {
-		fmt.Println("InteractionResponseEdit: ", err)
+		log.Println("InteractionResponseEdit: ", err)
 	}
 
 	//} else {

@@ -87,7 +87,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
 			_, err := s.ChannelMessageEditComplex(msgedit)
 			if err != nil {
-				fmt.Println("Unable to send this message." + err.Error())
+				log.Println("Unable to send this message." + err.Error())
 			}
 			updateSignupReactionMessage(s, contract, loc)
 
@@ -117,7 +117,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			drawn = true
 		}
 		if err != nil {
-			fmt.Println("Unable to resend message." + err.Error())
+			log.Println("Unable to resend message." + err.Error())
 		}
 		var str = ""
 		if msg == nil {

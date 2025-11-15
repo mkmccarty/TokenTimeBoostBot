@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -318,13 +319,13 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 
 		// Print working directory and directory being read
 		cwd, _ := os.Getwd()
-		fmt.Println("Current working dir:", cwd)
-		fmt.Println("Reading directory:", filepath.Join(cwd, "ttbb-data/pb"))
+		log.Println("Current working dir:", cwd)
+		log.Println("Reading directory:", filepath.Join(cwd, "ttbb-data/pb"))
 
 		// Read directory
 		files, err := os.ReadDir("ttbb-data/pb")
 		if err != nil {
-			fmt.Println("❌ Error reading directory:", err)
+			log.Println("❌ Error reading directory:", err)
 			return "Failed to read ttbb-data directory.", nil, ""
 		}
 
@@ -335,7 +336,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		} else {
 			pattern = contractID + "-" + coopID
 		}
-		fmt.Println("Searching for pattern:", pattern)
+		log.Println("Searching for pattern:", pattern)
 
 		var fileNames []string
 		for _, file := range files {
