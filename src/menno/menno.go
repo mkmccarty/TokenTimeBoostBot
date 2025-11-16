@@ -6,12 +6,14 @@ import (
 	_ "embed" // This is used to embed the schema.sql file
 	"encoding/csv"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
@@ -51,8 +53,8 @@ func Startup() {
 	if err != nil {
 		populateData(true)
 	} else {
-		if timestamp.AddDate(0, 1, 0).Before(time.Now()) {
-			//if timestamp.AddDate(0, 0, 0).Before(time.Now()) {
+		//if timestamp.AddDate(0, 1, 0).Before(time.Now()) {
+		if timestamp.AddDate(0, 0, 0).Before(time.Now()) {
 			populateData(false)
 		}
 	}
@@ -199,40 +201,92 @@ func populateData(newData bool) {
 		rowCount++
 	}
 
-	err = tx.Commit()
-	if err != nil {
-		log.Printf("commit error: %v", err)
-	}
-
 	if newData {
 		_ = queries.CreateTimestamp(ctx)
 	} else {
 		_ = queries.UpdateTimestamp(ctx)
 	}
 	// Remove the CSV file after processing.
-	_ = os.Remove(csvPath)
+	//_ = os.Remove(csvPath)
 
-	/*
+	ship := ei.MissionInfo_VOYEGGER
+	duration := ei.MissionInfo_SHORT
+	stars := 2
+	target := ei.ArtifactSpec_MERCURYS_LENS
 
-		rows := GetShipDropData(ei.MissionInfo_CHICKFIANT, ei.MissionInfo_SHORT, 2, ei.ArtifactSpec_GOLD_METEORITE)
+	//rows := GetShipDropData(ei.MissionInfo_HENERPRISE, ei.MissionInfo_SHORT, 8, ei.ArtifactSpec_GOLD_METEORITE)
+	rows := GetShipDropData(ship, duration, stars, target)
 
-		for _, row := range rows {
-			allDropsValue := row.AllDropsValue.(int64)
-			ratio := float64(row.TotalDrops.Int64) / float64(allDropsValue)
+	var tier1 strings.Builder
+	var tier2 strings.Builder
+	var tier3 strings.Builder
+	var tier4 strings.Builder
+	tierRarityCounts := make(map[string]int) // key: tier|rarityID
 
-			targetArtifact := ei.ArtifactSpec_Name_name[int32(row.TargetArtifactID.Int64)]
+	for _, row := range rows {
+		allDropsValue := row.AllDropsValue.(int64)
+		ratio := float64(row.TotalDrops.Int64) / float64(allDropsValue)
 
-			returnArtifact := ei.ArtifactSpec_Name_name[int32(row.ArtifactTypeID.Int64)]
-			rf := ei.ArtifactSpec_Rarity_name[int32(row.ArtifactRarityID.Int64)]
-			rarity := ""
-			if len(rf) > 0 {
-				rarity = rf[:1]
-			}
+		targetArtifact := ei.ArtifactSpec_Name_name[int32(row.TargetArtifactID.Int64)]
+		returnArtifact := ei.ArtifactSpec_Name_name[int32(row.ArtifactTypeID.Int64)]
+		rf := ei.ArtifactSpec_Rarity_name[int32(row.ArtifactRarityID.Int64)]
 
-			log.Printf("Target: %s: %f - T%d%s %s \n", targetArtifact, ratio, row.ArtifactTier.Int64+1, rarity, returnArtifact)
+		rarity := ""
+		if len(rf) > 0 {
+			rarity = rf[:1]
 		}
-	*/
-	log.Printf("populateData: %d rows loaded", rowCount)
+
+		tier := row.ArtifactTier.Int64 + 1
+		rarityID := row.ArtifactRarityID.Int64
+		key := fmt.Sprintf("%d|%d", tier, rarityID)
+
+		// Limit to 4 entries per (tier, rarity)
+		if tierRarityCounts[key] >= 4 {
+			continue
+		}
+		tierRarityCounts[key]++
+
+		var output *strings.Builder
+		switch tier {
+		case 1:
+			output = &tier1
+		case 2:
+			output = &tier2
+		case 3:
+			output = &tier3
+		case 4:
+			output = &tier4
+		default:
+			continue
+		}
+
+		fmt.Fprintf(output, "Target: %s: %f - T%d%s %s \n", targetArtifact, ratio, tier, rarity, returnArtifact)
+	}
+
+	// Print a header for the search I'm perfoming
+	// For example:  Short Henerprise 8 stars for Quantum Metronome
+	var MissionInfo_DurationType_name_alt = map[int32]string{
+		0: "Short",
+		1: "Standard",
+		2: "Extended",
+		3: "Tutorial",
+	}
+
+	fmt.Printf("%s %s %d stars for %s\n", MissionInfo_DurationType_name_alt[int32(duration)], ei.MissionInfo_Spaceship_name[int32(ship)], stars, ei.ArtifactSpec_Name_name[int32(target)])
+
+	if len(tier4.String()) != 0 {
+		fmt.Printf("=== Tier 4 ===\n%s\n", tier4.String())
+	}
+	if len(tier3.String()) != 0 {
+		fmt.Printf("=== Tier 3 ===\n%s\n", tier3.String())
+	}
+	if len(tier2.String()) != 0 {
+		fmt.Printf("=== Tier 2 ===\n%s\n", tier2.String())
+	}
+	if len(tier1.String()) != 0 {
+		fmt.Printf("=== Tier 1 ===\n%s\n", tier1.String())
+	}
+	fmt.Printf("populateData: %d rows loaded", rowCount)
 }
 
 // GetShipDropData retrieves and logs drop data for a specific ship configuration.
@@ -260,7 +314,17 @@ func GetShipDropData(shipType ei.MissionInfo_Spaceship, duration ei.MissionInfo_
 		for _, row := range rows {
 			allDropsValue := row.AllDropsValue.(int64)
 			ratio := float64(row.TotalDrops.Int64) / float64(allDropsValue)
-			log.Printf("drops: %+v, ratio: %f", row, ratio)
+
+			targetArtifact := ei.ArtifactSpec_Name_name[int32(row.TargetArtifactID.Int64)]
+
+			returnArtifact := ei.ArtifactSpec_Name_name[int32(row.ArtifactTypeID.Int64)]
+			rf := ei.ArtifactSpec_Rarity_name[int32(row.ArtifactRarityID.Int64)]
+			rarity := ""
+			if len(rf) > 0 {
+				rarity = rf[:1]
+			}
+
+			log.Printf("Target: %s: %f - T%d%s %s \n", targetArtifact, ratio, row.ArtifactTier.Int64+1, rarity, returnArtifact)
 		}
 	*/
 	return rows
