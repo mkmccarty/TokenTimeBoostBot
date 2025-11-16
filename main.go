@@ -22,6 +22,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/menno"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/tasks"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
@@ -1001,6 +1002,9 @@ func main() {
 
 	bottools.LoadEmotes(s, false)
 	boost.LaunchIndependentTimers(s)
+	if config.IsDevBot() {
+		go menno.Startup()
+	}
 
 	_ = s.UpdateStatusComplex(discordgo.UpdateStatusData{
 		AFK: false,
