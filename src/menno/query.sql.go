@@ -61,6 +61,89 @@ func (q *Queries) DeleteData(ctx context.Context, arg DeleteDataParams) (int64, 
 	return result.RowsAffected()
 }
 
+const getDrops = `-- name: GetDrops :many
+SELECT
+    d.total_drops AS total_drops,
+    (
+        SELECT COALESCE(SUM(d2.total_drops), 0)
+        FROM data d2
+        WHERE
+            d2.ship_type_id = d.ship_type_id AND
+            d2.ship_duration_type_id = d.ship_duration_type_id AND
+            d2.ship_level = d.ship_level AND
+            d2.target_artifact_id = d.target_artifact_id
+    ) AS all_drops_value,
+    d.ship_type_id, d.ship_duration_type_id, d.ship_level, d.target_artifact_id, d.artifact_type_id, d.artifact_rarity_id, d.artifact_tier, d.total_drops, d.mission_type
+FROM data d
+WHERE
+    d.ship_type_id = ? AND
+    d.ship_duration_type_id = ? AND
+    d.ship_level = ? AND
+    d.artifact_type_id = ?
+ORDER BY total_drops DESC
+`
+
+type GetDropsParams struct {
+	ShipTypeID         sql.NullInt64
+	ShipDurationTypeID sql.NullInt64
+	ShipLevel          sql.NullInt64
+	ArtifactTypeID     sql.NullInt64
+}
+
+type GetDropsRow struct {
+	TotalDrops         sql.NullInt64
+	AllDropsValue      interface{}
+	ShipTypeID         sql.NullInt64
+	ShipDurationTypeID sql.NullInt64
+	ShipLevel          sql.NullInt64
+	TargetArtifactID   sql.NullInt64
+	ArtifactTypeID     sql.NullInt64
+	ArtifactRarityID   sql.NullInt64
+	ArtifactTier       sql.NullInt64
+	TotalDrops_2       sql.NullInt64
+	MissionType        sql.NullInt64
+}
+
+func (q *Queries) GetDrops(ctx context.Context, arg GetDropsParams) ([]GetDropsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getDrops,
+		arg.ShipTypeID,
+		arg.ShipDurationTypeID,
+		arg.ShipLevel,
+		arg.ArtifactTypeID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetDropsRow
+	for rows.Next() {
+		var i GetDropsRow
+		if err := rows.Scan(
+			&i.TotalDrops,
+			&i.AllDropsValue,
+			&i.ShipTypeID,
+			&i.ShipDurationTypeID,
+			&i.ShipLevel,
+			&i.TargetArtifactID,
+			&i.ArtifactTypeID,
+			&i.ArtifactRarityID,
+			&i.ArtifactTier,
+			&i.TotalDrops_2,
+			&i.MissionType,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getTimestamp = `-- name: GetTimestamp :one
 SELECT timestamp FROM data_timestamp
 WHERE key = 'menno' LIMIT 1
@@ -73,7 +156,7 @@ func (q *Queries) GetTimestamp(ctx context.Context) (time.Time, error) {
 	return timestamp, err
 }
 
-const insertData = `-- name: InsertData :execrows
+const insertData = `-- name: InsertData :exec
 INSERT INTO data (
     ship_type_id,
     ship_duration_type_id,
@@ -99,8 +182,8 @@ type InsertDataParams struct {
 	MissionType        sql.NullInt64
 }
 
-func (q *Queries) InsertData(ctx context.Context, arg InsertDataParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, insertData,
+func (q *Queries) InsertData(ctx context.Context, arg InsertDataParams) error {
+	_, err := q.db.ExecContext(ctx, insertData,
 		arg.ShipTypeID,
 		arg.ShipDurationTypeID,
 		arg.ShipLevel,
@@ -111,13 +194,10 @@ func (q *Queries) InsertData(ctx context.Context, arg InsertDataParams) (int64, 
 		arg.TotalDrops,
 		arg.MissionType,
 	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
+	return err
 }
 
-const updateData = `-- name: UpdateData :execrows
+const updateData = `-- name: UpdateData :exec
 UPDATE data
 SET total_drops = ?
 WHERE
@@ -143,8 +223,8 @@ type UpdateDataParams struct {
 	MissionType        sql.NullInt64
 }
 
-func (q *Queries) UpdateData(ctx context.Context, arg UpdateDataParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, updateData,
+func (q *Queries) UpdateData(ctx context.Context, arg UpdateDataParams) error {
+	_, err := q.db.ExecContext(ctx, updateData,
 		arg.TotalDrops,
 		arg.ShipTypeID,
 		arg.ShipDurationTypeID,
@@ -155,10 +235,7 @@ func (q *Queries) UpdateData(ctx context.Context, arg UpdateDataParams) (int64, 
 		arg.ArtifactTier,
 		arg.MissionType,
 	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
+	return err
 }
 
 const updateTimestamp = `-- name: UpdateTimestamp :exec
