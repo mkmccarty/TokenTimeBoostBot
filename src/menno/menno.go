@@ -69,7 +69,13 @@ func retrieveMennoData(csvPath, url string) (*os.File, error) {
 			log.Printf("download error: %v", err)
 			return nil, err
 		}
-		defer resp.Body.Close()
+
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				// Handle the error appropriately, e.g., logging or taking corrective actions
+				log.Printf("Failed to close: %v", err)
+			}
+		}()
 		if resp.StatusCode != http.StatusOK {
 			return nil, err
 		}
@@ -78,10 +84,14 @@ func retrieveMennoData(csvPath, url string) (*os.File, error) {
 			return nil, err
 		}
 		if _, err = io.Copy(out, resp.Body); err != nil {
-			out.Close()
+			if err := out.Close(); err != nil {
+				log.Printf("close error: %v", err)
+			}
 			return nil, err
 		}
-		out.Close()
+		if err := out.Close(); err != nil {
+			log.Printf("close error: %v", err)
+		}
 	}
 
 	// Open CSV.
@@ -103,7 +113,13 @@ func populateData(newData bool) {
 		log.Printf("retrieveMennoData error: %v", err)
 		return
 	}
-	defer f.Close()
+
+	defer func() {
+		if err := f.Close(); err != nil {
+			// Handle the error appropriately, e.g., logging or taking corrective actions
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
 
 	r := csv.NewReader(f)
 	header, err := r.Read()
@@ -163,9 +179,9 @@ func populateData(newData bool) {
 	}
 
 	if newData {
-		queries.CreateTimestamp(ctx)
+		_ = queries.CreateTimestamp(ctx)
 	} else {
-		queries.UpdateTimestamp(ctx)
+		_ = queries.UpdateTimestamp(ctx)
 	}
 	// Remove the CSV file after processing.
 	_ = os.Remove(csvPath)

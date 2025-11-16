@@ -11,16 +11,13 @@ import (
 	"time"
 )
 
-const createTimestamp = `-- name: CreateTimestamp :execrows
+const createTimestamp = `-- name: CreateTimestamp :exec
 INSERT INTO data_timestamp (key, timestamp) VALUES ('menno', CURRENT_TIMESTAMP)
 `
 
-func (q *Queries) CreateTimestamp(ctx context.Context) (int64, error) {
-	result, err := q.db.ExecContext(ctx, createTimestamp)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
+func (q *Queries) CreateTimestamp(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, createTimestamp)
+	return err
 }
 
 const deleteData = `-- name: DeleteData :execrows
@@ -164,16 +161,13 @@ func (q *Queries) UpdateData(ctx context.Context, arg UpdateDataParams) (int64, 
 	return result.RowsAffected()
 }
 
-const updateTimestamp = `-- name: UpdateTimestamp :execrows
+const updateTimestamp = `-- name: UpdateTimestamp :exec
 UPDATE data_timestamp
 SET timestamp = CURRENT_TIMESTAMP
 WHERE key = 'menno'
 `
 
-func (q *Queries) UpdateTimestamp(ctx context.Context) (int64, error) {
-	result, err := q.db.ExecContext(ctx, updateTimestamp)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
+func (q *Queries) UpdateTimestamp(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, updateTimestamp)
+	return err
 }
