@@ -265,14 +265,14 @@ func populateData(newData bool) {
 
 	// Print a header for the search I'm perfoming
 	// For example:  Short Henerprise 8 stars for Quantum Metronome
-	var MissionInfo_DurationType_name_alt = map[int32]string{
+	var DurationTypeName = map[int32]string{
 		0: "Short",
 		1: "Standard",
 		2: "Extended",
 		3: "Tutorial",
 	}
 
-	fmt.Printf("%s %s %d stars for %s\n", MissionInfo_DurationType_name_alt[int32(duration)], ei.MissionInfo_Spaceship_name[int32(ship)], stars, ei.ArtifactSpec_Name_name[int32(target)])
+	fmt.Printf("%s %s %d stars for %s\n", DurationTypeName[int32(duration)], ei.MissionInfo_Spaceship_name[int32(ship)], stars, ei.ArtifactSpec_Name_name[int32(target)])
 
 	if len(tier4.String()) != 0 {
 		fmt.Printf("=== Tier 4 ===\n%s\n", tier4.String())
