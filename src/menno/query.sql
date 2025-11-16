@@ -1,7 +1,7 @@
--- name: CreateTimestamp :execrows
+-- name: CreateTimestamp :exec
 INSERT INTO data_timestamp (key, timestamp) VALUES ('menno', CURRENT_TIMESTAMP);
 
--- name: UpdateTimestamp :execrows
+-- name: UpdateTimestamp :exec
 UPDATE data_timestamp
 SET timestamp = CURRENT_TIMESTAMP
 WHERE key = 'menno';
