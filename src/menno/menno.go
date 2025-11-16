@@ -10,9 +10,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	_ "modernc.org/sqlite" // Want this here
 )
 
@@ -49,8 +51,8 @@ func Startup() {
 	if err != nil {
 		populateData(true)
 	} else {
-		//if timestamp.AddDate(0, 1, 0).Before(time.Now()) {
-		if timestamp.AddDate(0, 0, 0).Before(time.Now()) {
+		if timestamp.AddDate(0, 1, 0).Before(time.Now()) {
+			//if timestamp.AddDate(0, 0, 0).Before(time.Now()) {
 			populateData(false)
 		}
 	}
@@ -131,6 +133,25 @@ func populateData(newData bool) {
 		log.Printf("empty header")
 		return
 	}
+
+	tx, err := queries.db.(*sql.DB).BeginTx(ctx, nil)
+	if err != nil {
+		log.Printf("begin tx error: %v", err)
+		return
+	}
+	qtx := queries.WithTx(tx)
+	defer func() {
+		if err != nil {
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.Printf("tx rollback error: %v", rbErr)
+			}
+			return
+		}
+		if cmErr := tx.Commit(); cmErr != nil {
+			log.Printf("tx commit error: %v", cmErr)
+		}
+	}()
+
 	for {
 		rec, err := r.Read()
 		if err == io.EOF {
@@ -142,7 +163,7 @@ func populateData(newData bool) {
 		}
 
 		if newData {
-			_, err = queries.InsertData(ctx, InsertDataParams{
+			err = qtx.InsertData(ctx, InsertDataParams{
 				ShipTypeID:         parseNullInt64(rec[0]),
 				ShipDurationTypeID: parseNullInt64(rec[1]),
 				ShipLevel:          parseNullInt64(rec[2]),
@@ -158,7 +179,7 @@ func populateData(newData bool) {
 				//return
 			}
 		} else {
-			_, err = queries.UpdateData(ctx, UpdateDataParams{
+			err = qtx.UpdateData(ctx, UpdateDataParams{
 				ShipTypeID:         parseNullInt64(rec[0]),
 				ShipDurationTypeID: parseNullInt64(rec[1]),
 				ShipLevel:          parseNullInt64(rec[2]),
@@ -178,6 +199,11 @@ func populateData(newData bool) {
 		rowCount++
 	}
 
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("commit error: %v", err)
+	}
+
 	if newData {
 		_ = queries.CreateTimestamp(ctx)
 	} else {
@@ -186,5 +212,56 @@ func populateData(newData bool) {
 	// Remove the CSV file after processing.
 	_ = os.Remove(csvPath)
 
+	/*
+
+		rows := GetShipDropData(ei.MissionInfo_CHICKFIANT, ei.MissionInfo_SHORT, 2, ei.ArtifactSpec_GOLD_METEORITE)
+
+		for _, row := range rows {
+			allDropsValue := row.AllDropsValue.(int64)
+			ratio := float64(row.TotalDrops.Int64) / float64(allDropsValue)
+
+			targetArtifact := ei.ArtifactSpec_Name_name[int32(row.TargetArtifactID.Int64)]
+
+			returnArtifact := ei.ArtifactSpec_Name_name[int32(row.ArtifactTypeID.Int64)]
+			rf := ei.ArtifactSpec_Rarity_name[int32(row.ArtifactRarityID.Int64)]
+			rarity := ""
+			if len(rf) > 0 {
+				rarity = rf[:1]
+			}
+
+			log.Printf("Target: %s: %f - T%d%s %s \n", targetArtifact, ratio, row.ArtifactTier.Int64+1, rarity, returnArtifact)
+		}
+	*/
 	log.Printf("populateData: %d rows loaded", rowCount)
+}
+
+// GetShipDropData retrieves and logs drop data for a specific ship configuration.
+func GetShipDropData(shipType ei.MissionInfo_Spaceship, duration ei.MissionInfo_DurationType, level int, artifactType ei.ArtifactSpec_Name) []GetDropsRow {
+	rows, err := queries.GetDrops(ctx, GetDropsParams{
+		ShipTypeID:         sql.NullInt64{Int64: int64(shipType), Valid: true},
+		ShipDurationTypeID: sql.NullInt64{Int64: int64(duration), Valid: true},
+		ShipLevel:          sql.NullInt64{Int64: int64(level), Valid: true},
+		ArtifactTypeID:     sql.NullInt64{Int64: int64(artifactType), Valid: true},
+	})
+	if err != nil {
+		log.Printf("GetShipDropData GetDrops error: %v", err)
+		return nil
+	}
+
+	// Sort rows by ratio from high to low
+	sort.Slice(rows, func(i, j int) bool {
+		ratioI := float64(rows[i].TotalDrops.Int64) / float64(rows[i].AllDropsValue.(int64))
+		ratioJ := float64(rows[j].TotalDrops.Int64) / float64(rows[j].AllDropsValue.(int64))
+		return ratioI > ratioJ
+	})
+
+	/*
+
+		for _, row := range rows {
+			allDropsValue := row.AllDropsValue.(int64)
+			ratio := float64(row.TotalDrops.Int64) / float64(allDropsValue)
+			log.Printf("drops: %+v, ratio: %f", row, ratio)
+		}
+	*/
+	return rows
 }
