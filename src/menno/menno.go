@@ -118,7 +118,7 @@ func populateData(newData bool, timestamp time.Time) {
 	const url = "https://eggincdatacollection.azurewebsites.net/api/GetAllDataCsvCompact"
 
 	// Construct the csvPath so it includes the current date (YYYYMMDD).
-	currentDate := time.Now().Format("20060102")
+	currentDate := timestamp.Format("20060102")
 	csvPath := fmt.Sprintf(csvPathTemplate, currentDate)
 
 	rowCount := 0
