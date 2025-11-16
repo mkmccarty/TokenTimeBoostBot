@@ -14,3 +14,10 @@ sql:
       go:
         package: "boost"
         out: "src/boost"
+  - engine: "sqlite"
+    queries: "src/menno/query.sql"
+    schema: "src/menno/schema.sql"
+    gen:
+      go:
+        package: "menno"
+        out: "src/menno"
