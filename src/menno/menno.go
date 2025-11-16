@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	_ "modernc.org/sqlite" // Want this here
 )
 
@@ -305,15 +307,16 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 		3: "Tutorial",
 	}
 
+	c := cases.Title(language.Und)
 	shipName := ei.MissionInfo_Spaceship_name[int32(ship)]
 	if len(shipName) > 0 {
 		shipName = strings.ReplaceAll(shipName, "_", " ")
-		shipName = strings.Title(strings.ToLower(shipName))
+		shipName = c.String(strings.ToLower(shipName))
 	}
 	targetName := ei.ArtifactSpec_Name_name[int32(target)]
 	if len(targetName) > 0 {
 		targetName = strings.ReplaceAll(targetName, "_", " ")
-		targetName = strings.Title(strings.ToLower(targetName))
+		targetName = c.String(strings.ToLower(targetName))
 	}
 
 	starsStr := strings.Repeat("⭐️", stars)
