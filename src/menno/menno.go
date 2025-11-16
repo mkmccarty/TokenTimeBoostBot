@@ -263,8 +263,6 @@ func populateData(newData bool) {
 		fmt.Fprintf(output, "Target: %s: %f - T%d%s %s \n", targetArtifact, ratio, tier, rarity, returnArtifact)
 	}
 
-	// Print a header for the search I'm perfoming
-	// For example:  Short Henerprise 8 stars for Quantum Metronome
 	var DurationTypeName = map[int32]string{
 		0: "Short",
 		1: "Standard",
@@ -272,7 +270,19 @@ func populateData(newData bool) {
 		3: "Tutorial",
 	}
 
-	fmt.Printf("%s %s %d stars for %s\n", DurationTypeName[int32(duration)], ei.MissionInfo_Spaceship_name[int32(ship)], stars, ei.ArtifactSpec_Name_name[int32(target)])
+	shipName := ei.MissionInfo_Spaceship_name[int32(ship)]
+	if len(shipName) > 0 {
+		shipName = strings.ReplaceAll(shipName, "_", " ")
+		shipName = strings.Title(strings.ToLower(shipName))
+	}
+	targetName := ei.ArtifactSpec_Name_name[int32(target)]
+	if len(targetName) > 0 {
+		targetName = strings.ReplaceAll(targetName, "_", " ")
+		targetName = strings.Title(strings.ToLower(targetName))
+	}
+
+	starsStr := strings.Repeat("⭐️", stars)
+	fmt.Printf("%s %s %s for %s\n\n", DurationTypeName[int32(duration)], shipName, starsStr, targetName)
 
 	if len(tier4.String()) != 0 {
 		fmt.Printf("=== Tier 4 ===\n%s\n", tier4.String())
@@ -309,23 +319,5 @@ func GetShipDropData(shipType ei.MissionInfo_Spaceship, duration ei.MissionInfo_
 		return ratioI > ratioJ
 	})
 
-	/*
-
-		for _, row := range rows {
-			allDropsValue := row.AllDropsValue.(int64)
-			ratio := float64(row.TotalDrops.Int64) / float64(allDropsValue)
-
-			targetArtifact := ei.ArtifactSpec_Name_name[int32(row.TargetArtifactID.Int64)]
-
-			returnArtifact := ei.ArtifactSpec_Name_name[int32(row.ArtifactTypeID.Int64)]
-			rf := ei.ArtifactSpec_Rarity_name[int32(row.ArtifactRarityID.Int64)]
-			rarity := ""
-			if len(rf) > 0 {
-				rarity = rf[:1]
-			}
-
-			log.Printf("Target: %s: %f - T%d%s %s \n", targetArtifact, ratio, row.ArtifactTier.Int64+1, rarity, returnArtifact)
-		}
-	*/
 	return rows
 }
