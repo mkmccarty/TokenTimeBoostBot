@@ -51,11 +51,17 @@ func Startup() {
 	// first time?
 	timestamp, err := queries.GetTimestamp(ctx)
 	if err != nil {
-		populateData(true)
+		populateData(true, time.Now())
 	} else {
-		//if timestamp.AddDate(0, 1, 0).Before(time.Now()) {
+		/*
+			if timestamp.AddDate(0, 1, 0).Before(time.Now()) {
+				populateData(false, time.Now())
+			}
+		*/
+
+		// This is a temporary measure to force an update until the data source is more reliable.
 		if timestamp.AddDate(0, 0, 0).Before(time.Now()) {
-			populateData(false)
+			populateData(false, timestamp)
 		}
 	}
 }
@@ -107,9 +113,13 @@ func retrieveMennoData(csvPath, url string) (*os.File, error) {
 }
 
 // populateData loads menno.csv into the data table, downloading if missing.
-func populateData(newData bool) {
-	const csvPath = "ttbb-data/menno.csv"
+func populateData(newData bool, timestamp time.Time) {
+	const csvPathTemplate = "ttbb-data/menno-%s.csv"
 	const url = "https://eggincdatacollection.azurewebsites.net/api/GetAllDataCsvCompact"
+
+	// Construct the csvPath so it includes the current date (YYYYMMDD).
+	currentDate := time.Now().Format("20060102")
+	csvPath := fmt.Sprintf(csvPathTemplate, currentDate)
 
 	rowCount := 0
 	f, err := retrieveMennoData(csvPath, url)
@@ -209,12 +219,37 @@ func populateData(newData bool) {
 	// Remove the CSV file after processing.
 	//_ = os.Remove(csvPath)
 
-	ship := ei.MissionInfo_VOYEGGER
-	duration := ei.MissionInfo_SHORT
-	stars := 2
-	target := ei.ArtifactSpec_MERCURYS_LENS
+	PrintDropData(ei.MissionInfo_VOYEGGER, ei.MissionInfo_SHORT, 2, ei.ArtifactSpec_INTERSTELLAR_COMPASS)
 
-	//rows := GetShipDropData(ei.MissionInfo_HENERPRISE, ei.MissionInfo_SHORT, 8, ei.ArtifactSpec_GOLD_METEORITE)
+	fmt.Printf("populateData: %d rows loaded", rowCount)
+}
+
+// GetShipDropData retrieves and logs drop data for a specific ship configuration.
+func GetShipDropData(shipType ei.MissionInfo_Spaceship, duration ei.MissionInfo_DurationType, level int, artifactType ei.ArtifactSpec_Name) []GetDropsRow {
+	rows, err := queries.GetDrops(ctx, GetDropsParams{
+		ShipTypeID:         sql.NullInt64{Int64: int64(shipType), Valid: true},
+		ShipDurationTypeID: sql.NullInt64{Int64: int64(duration), Valid: true},
+		ShipLevel:          sql.NullInt64{Int64: int64(level), Valid: true},
+		ArtifactTypeID:     sql.NullInt64{Int64: int64(artifactType), Valid: true},
+	})
+	if err != nil {
+		log.Printf("GetShipDropData GetDrops error: %v", err)
+		return nil
+	}
+
+	// Sort rows by ratio from high to low
+	sort.Slice(rows, func(i, j int) bool {
+		ratioI := float64(rows[i].TotalDrops.Int64) / float64(rows[i].AllDropsValue.(int64))
+		ratioJ := float64(rows[j].TotalDrops.Int64) / float64(rows[j].AllDropsValue.(int64))
+		return ratioI > ratioJ
+	})
+
+	return rows
+}
+
+// PrintDropData retrieves and logs drop data for a specific ship configuration.
+func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_DurationType, stars int, target ei.ArtifactSpec_Name) {
+
 	rows := GetShipDropData(ship, duration, stars, target)
 
 	var tier1 strings.Builder
@@ -228,7 +263,7 @@ func populateData(newData bool) {
 		ratio := float64(row.TotalDrops.Int64) / float64(allDropsValue)
 
 		targetArtifact := ei.ArtifactSpec_Name_name[int32(row.TargetArtifactID.Int64)]
-		returnArtifact := ei.ArtifactSpec_Name_name[int32(row.ArtifactTypeID.Int64)]
+		//returnArtifact := ei.ArtifactSpec_Name_name[int32(row.ArtifactTypeID.Int64)]
 		rf := ei.ArtifactSpec_Rarity_name[int32(row.ArtifactRarityID.Int64)]
 
 		rarity := ""
@@ -260,7 +295,7 @@ func populateData(newData bool) {
 			continue
 		}
 
-		fmt.Fprintf(output, "Target: %s: %f - T%d%s %s \n", targetArtifact, ratio, tier, rarity, returnArtifact)
+		fmt.Fprintf(output, "Target: %s: %f - T%d%s\n", targetArtifact, ratio, tier, rarity)
 	}
 
 	var DurationTypeName = map[int32]string{
@@ -296,28 +331,5 @@ func populateData(newData bool) {
 	if len(tier1.String()) != 0 {
 		fmt.Printf("=== Tier 1 ===\n%s\n", tier1.String())
 	}
-	fmt.Printf("populateData: %d rows loaded", rowCount)
-}
 
-// GetShipDropData retrieves and logs drop data for a specific ship configuration.
-func GetShipDropData(shipType ei.MissionInfo_Spaceship, duration ei.MissionInfo_DurationType, level int, artifactType ei.ArtifactSpec_Name) []GetDropsRow {
-	rows, err := queries.GetDrops(ctx, GetDropsParams{
-		ShipTypeID:         sql.NullInt64{Int64: int64(shipType), Valid: true},
-		ShipDurationTypeID: sql.NullInt64{Int64: int64(duration), Valid: true},
-		ShipLevel:          sql.NullInt64{Int64: int64(level), Valid: true},
-		ArtifactTypeID:     sql.NullInt64{Int64: int64(artifactType), Valid: true},
-	})
-	if err != nil {
-		log.Printf("GetShipDropData GetDrops error: %v", err)
-		return nil
-	}
-
-	// Sort rows by ratio from high to low
-	sort.Slice(rows, func(i, j int) bool {
-		ratioI := float64(rows[i].TotalDrops.Int64) / float64(rows[i].AllDropsValue.(int64))
-		ratioJ := float64(rows[j].TotalDrops.Int64) / float64(rows[j].AllDropsValue.(int64))
-		return ratioI > ratioJ
-	})
-
-	return rows
 }
