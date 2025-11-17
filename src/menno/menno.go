@@ -53,15 +53,15 @@ func Startup() {
 	if err != nil {
 		populateData(true, time.Now())
 	} else {
-		/*
-			if timestamp.AddDate(0, 1, 0).Before(time.Now()) {
+		if true {
+			if timestamp.AddDate(0, 0, 14).Before(time.Now()) {
 				populateData(false, time.Now())
 			}
-		*/
-
-		// This is a temporary measure to force an update until the data source is more reliable.
-		if timestamp.AddDate(0, 0, 0).Before(time.Now()) {
-			populateData(false, timestamp)
+		} else {
+			// This is a temporary measure to force an update until the data source is more reliable.
+			if timestamp.AddDate(0, 0, 0).Before(time.Now()) {
+				populateData(false, timestamp)
+			}
 		}
 	}
 }
