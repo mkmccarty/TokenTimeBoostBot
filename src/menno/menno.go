@@ -17,8 +17,6 @@ import (
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	_ "modernc.org/sqlite" // Want this here
 )
 
@@ -300,28 +298,11 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 		fmt.Fprintf(output, "Target: %s: %f - T%d%s\n", targetArtifact, ratio, tier, rarity)
 	}
 
-	var DurationTypeName = map[int32]string{
-		0: "Short",
-		1: "Standard",
-		2: "Extended",
-		3: "Tutorial",
-	}
-
-	c := cases.Title(language.Und)
-	shipName := ei.MissionInfo_Spaceship_name[int32(ship)]
-	if len(shipName) > 0 {
-		shipName = strings.ReplaceAll(shipName, "_", " ")
-		shipName = c.String(strings.ToLower(shipName))
-	}
-	targetName := ei.ArtifactSpec_Name_name[int32(target)]
-	if len(targetName) > 0 {
-		targetName = strings.ReplaceAll(targetName, "_", " ")
-		targetName = c.String(strings.ToLower(targetName))
-	}
+	shipName := ei.ShipTypeName[int32(ship)]
+	targetName := ei.ArtifactTypeName[int32(target)]
 
 	starsStr := strings.Repeat("⭐️", stars)
-	fmt.Printf("%s %s %s for %s\n\n", DurationTypeName[int32(duration)], shipName, starsStr, targetName)
-
+	fmt.Printf("%s %s %s for %s\n\n", ei.DurationTypeName[int32(duration)], shipName, starsStr, targetName)
 	if len(tier4.String()) != 0 {
 		fmt.Printf("=== Tier 4 ===\n%s\n", tier4.String())
 	}
