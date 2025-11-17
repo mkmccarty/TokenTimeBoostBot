@@ -223,7 +223,7 @@ func populateData(newData bool, timestamp time.Time) {
 		_ = os.Remove(csvPath)
 	}
 
-	PrintDropData(ei.MissionInfo_VOYEGGER, ei.MissionInfo_SHORT, 2, ei.ArtifactSpec_INTERSTELLAR_COMPASS)
+	//PrintDropData(ei.MissionInfo_VOYEGGER, ei.MissionInfo_SHORT, 2, ei.ArtifactSpec_INTERSTELLAR_COMPASS)
 
 	fmt.Printf("populateData: %d rows loaded", rowCount)
 }

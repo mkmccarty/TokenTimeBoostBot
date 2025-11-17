@@ -37,8 +37,7 @@ var ArtifactTypeName = map[int32]string{
 	9:     "The Chalice",
 	10:    "Book of Basan",
 	11:    "Phoenix feather",
-	12:    "Eggniter",
-	13:    "Tungsten Ankh",
+	12:    "Tungsten Ankh",
 	17:    "Gold meteorite",
 	18:    "Tau ceti geode",
 	21:    "Aurelian brooch",
@@ -71,4 +70,22 @@ var ArtifactTypeName = map[int32]string{
 	51:    "Life stone fragment",
 	52:    "Clarity stone fragment",
 	10000: "No target",
+}
+
+// ArtifactTypeNameVirtue maps artifact type IDs to their names for virtue artifacts
+var ArtifactTypeNameVirtue = map[int32]string{
+	0:  "Lunar totem",
+	1:  "Tachyon stone",
+	2:  "Tachyon stone fragment",
+	3:  "Neodymium medallion",
+	6:  "Demeters necklace",
+	8:  "Gusset",
+	12: "Tungsten Ankh",
+	17: "Gold meteorite",
+	18: "Tau ceti geode",
+	23: "Puzzle cube",
+	27: "Interstellar compass",
+	33: "Lunar stone",
+	36: "Quantum stone",
+	43: "Solar titanium",
 }
