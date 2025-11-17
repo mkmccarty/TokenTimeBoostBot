@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	_ "modernc.org/sqlite" // Want this here
 )
@@ -216,8 +217,11 @@ func populateData(newData bool, timestamp time.Time) {
 	} else {
 		_ = queries.UpdateTimestamp(ctx)
 	}
-	// Remove the CSV file after processing.
-	//_ = os.Remove(csvPath)
+
+	if !config.IsDevBot() {
+		// Remove the CSV file after processing.
+		_ = os.Remove(csvPath)
+	}
 
 	PrintDropData(ei.MissionInfo_VOYEGGER, ei.MissionInfo_SHORT, 2, ei.ArtifactSpec_INTERSTELLAR_COMPASS)
 
