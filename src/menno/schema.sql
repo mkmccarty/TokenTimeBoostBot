@@ -17,4 +17,3 @@ CREATE TABLE data (
     mission_type INTEGER
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_data_unique ON data(ship_type_id, ship_duration_type_id, ship_level, target_artifact_id, artifact_type_id, artifact_rarity_id, artifact_tier, mission_type);

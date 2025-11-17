@@ -88,6 +88,7 @@ const slashRerunEval string = "rerun-eval"
 const slashContractReport string = "contract-report"
 const slashVirtue string = "virtue"
 const slashRegister string = "register"
+const slashHunt string = "hunt"
 
 var integerZeroMinValue float64 = 0.0
 
@@ -210,6 +211,7 @@ var (
 		boost.GetSlashReplayEvalCommand(slashRerunEval),
 		boost.GetSlashVirtueCommand(slashVirtue),
 		boost.GetSlashRegisterCommand(slashRegister),
+		//menno.SlashHuntCommand(slashHunt),
 	}
 
 	commands = []*discordgo.ApplicationCommand{
@@ -396,6 +398,9 @@ var (
 		},
 		slashScoreExplorer: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAllContractsAutoComplete(s, i)
+		},
+		slashHunt: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			menno.HandleHuntAutoComplete(s, i)
 		},
 		slashTokenEditTrack: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			data := i.ApplicationCommandData()
