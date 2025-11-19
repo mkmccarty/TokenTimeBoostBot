@@ -54,10 +54,10 @@ func SlashHuntCommand(cmd string) *discordgo.ApplicationCommand {
 			{
 				Type:        discordgo.ApplicationCommandOptionInteger,
 				Name:        "stars",
-				Description: "Ship star level",
+				Description: "Ship star level, default max",
 				MinValue:    &integerZeroMinValue,
 				MaxValue:    8,
-				Required:    true,
+				Required:    false,
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionInteger,
@@ -69,7 +69,7 @@ func SlashHuntCommand(cmd string) *discordgo.ApplicationCommand {
 			{
 				Type:         discordgo.ApplicationCommandOptionString,
 				Name:         "artifact",
-				Description:  "What artifact or ingredient to hunt",
+				Description:  "What artifact or ingredient to hunt, searchable",
 				Required:     true,
 				Autocomplete: true,
 			},
@@ -149,11 +149,14 @@ func HandleHuntCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	optionMap := bottools.GetCommandOptionsMap(i)
 
 	shipID := int(optionMap["ship"].IntValue())
-	shipStars := int(optionMap["stars"].IntValue())
+	shipStars := 8
 	durationTypeID := int(optionMap["duration-type"].IntValue())
 	artifactID := 10000 // No Target
 	if opt, ok := optionMap["artifact"]; ok {
 		artifactID, _ = strconv.Atoi(opt.StringValue())
+	}
+	if opt, ok := optionMap["stars"]; ok {
+		shipStars = int(opt.IntValue())
 	}
 
 	response := PrintDropData(ei.MissionInfo_Spaceship(shipID), ei.MissionInfo_DurationType(durationTypeID), shipStars, ei.ArtifactSpec_Name(artifactID))
