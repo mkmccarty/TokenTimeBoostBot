@@ -36,17 +36,8 @@ WHERE
     artifact_tier = ? AND
     mission_type = ?;
 
--- name: DeleteData :execrows
-DELETE FROM data
-WHERE   
-    ship_type_id = ? AND
-    ship_duration_type_id = ? AND
-    ship_level = ? AND
-    target_artifact_id = ? AND
-    artifact_type_id = ? AND
-    artifact_rarity_id = ? AND
-    artifact_tier = ? AND
-    mission_type = ?;
+-- name: DeleteData :exec
+DELETE FROM data;
 
 -- name: GetDrops :many
 SELECT

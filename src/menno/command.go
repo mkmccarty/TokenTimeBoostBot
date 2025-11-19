@@ -3,6 +3,7 @@ package menno
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -15,22 +16,21 @@ func SlashHuntCommand(cmd string) *discordgo.ApplicationCommand {
 	integerZeroMinValue := float64(0)
 	var shipChoices []*discordgo.ApplicationCommandOptionChoice
 
-	// Populate shipChoices here if needed
-	for shipID, shipName := range ei.ShipTypeName {
+	for i := 0; i < len(ei.ShipTypeName); i++ {
 		shipChoices = append(shipChoices, &discordgo.ApplicationCommandOptionChoice{
-			Name:  shipName,
-			Value: shipID,
+			Name:  ei.ShipTypeName[int32(i)],
+			Value: fmt.Sprintf("%d", i),
 		})
 	}
 	// Create a duration type choice list
 	var durationTypeChoices []*discordgo.ApplicationCommandOptionChoice
-	for durationTypeID, durationTypeName := range ei.DurationTypeName {
+	// Collect, sort, and build choices in ascending key order
+	for i := 0; i < len(ei.DurationTypeName); i++ {
 		durationTypeChoices = append(durationTypeChoices, &discordgo.ApplicationCommandOptionChoice{
-			Name:  durationTypeName,
-			Value: durationTypeID,
+			Name:  ei.DurationTypeName[int32(i)],
+			Value: fmt.Sprintf("%d", i),
 		})
 	}
-
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Find artifact drop probabilities",
@@ -88,24 +88,31 @@ func HandleHuntAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
 
 	if searchString == "" {
+		// No search string, start with a list of popular artifacts
 		for id, name := range ei.ArtifactTypeNameVirtue {
 			choice := discordgo.ApplicationCommandOptionChoice{
 				Name:  name,
-				Value: id,
+				Value: fmt.Sprintf("%d", id),
 			}
 			choices = append(choices, &choice)
+			if len(choices) >= 10 {
+				break
+			}
 		}
 
 		sort.Slice(choices, func(i, j int) bool {
 			return choices[i].Name < choices[j].Name
 		})
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionApplicationCommandAutocompleteResult,
 			Data: &discordgo.InteractionResponseData{
 				Content: "Artifact",
 				Choices: choices,
 			}})
+		if err != nil {
+			fmt.Printf("HandleHuntAutoComplete InteractionRespond error: %v\n", err)
+		}
 		return
 	}
 
@@ -115,7 +122,7 @@ func HandleHuntAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate
 
 			choice := discordgo.ApplicationCommandOptionChoice{
 				Name:  name,
-				Value: id,
+				Value: fmt.Sprintf("%d", id),
 			}
 			choices = append(choices, &choice)
 			if len(choices) >= 10 {
@@ -135,4 +142,30 @@ func HandleHuntAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate
 			Choices: choices,
 		}})
 
+}
+
+// HandleHuntCommand handles the /hunt command
+func HandleHuntCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	optionMap := bottools.GetCommandOptionsMap(i)
+
+	shipID := int(optionMap["ship"].IntValue())
+	shipStars := int(optionMap["stars"].IntValue())
+	durationTypeID := int(optionMap["duration-type"].IntValue())
+	artifactID := -1
+	if opt, ok := optionMap["artifact"]; ok {
+		artifactID, _ = strconv.Atoi(opt.StringValue())
+	}
+
+	response := PrintDropData(ei.MissionInfo_Spaceship(shipID), ei.MissionInfo_DurationType(durationTypeID), shipStars, ei.ArtifactSpec_Name(artifactID))
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsIsComponentsV2,
+			Components: []discordgo.MessageComponent{
+				discordgo.TextDisplay{
+					Content: response,
+				},
+			}},
+	})
 }

@@ -20,45 +20,13 @@ func (q *Queries) CreateTimestamp(ctx context.Context) error {
 	return err
 }
 
-const deleteData = `-- name: DeleteData :execrows
+const deleteData = `-- name: DeleteData :exec
 DELETE FROM data
-WHERE   
-    ship_type_id = ? AND
-    ship_duration_type_id = ? AND
-    ship_level = ? AND
-    target_artifact_id = ? AND
-    artifact_type_id = ? AND
-    artifact_rarity_id = ? AND
-    artifact_tier = ? AND
-    mission_type = ?
 `
 
-type DeleteDataParams struct {
-	ShipTypeID         sql.NullInt64
-	ShipDurationTypeID sql.NullInt64
-	ShipLevel          sql.NullInt64
-	TargetArtifactID   sql.NullInt64
-	ArtifactTypeID     sql.NullInt64
-	ArtifactRarityID   sql.NullInt64
-	ArtifactTier       sql.NullInt64
-	MissionType        sql.NullInt64
-}
-
-func (q *Queries) DeleteData(ctx context.Context, arg DeleteDataParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteData,
-		arg.ShipTypeID,
-		arg.ShipDurationTypeID,
-		arg.ShipLevel,
-		arg.TargetArtifactID,
-		arg.ArtifactTypeID,
-		arg.ArtifactRarityID,
-		arg.ArtifactTier,
-		arg.MissionType,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
+func (q *Queries) DeleteData(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteData)
+	return err
 }
 
 const getDrops = `-- name: GetDrops :many

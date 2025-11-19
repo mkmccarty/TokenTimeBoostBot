@@ -5,7 +5,6 @@ var DurationTypeName = map[int32]string{
 	0: "Short",
 	1: "Standard",
 	2: "Extended",
-	3: "Tutorial",
 }
 
 // ShipTypeName maps ship type IDs to their names

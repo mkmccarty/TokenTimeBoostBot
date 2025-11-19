@@ -118,6 +118,10 @@ func populateData(newData bool, timestamp time.Time) {
 	const csvPathTemplate = "ttbb-data/menno-%s.csv"
 	const url = "https://eggincdatacollection.azurewebsites.net/api/GetAllDataCsvCompact"
 
+	if newData {
+		// Clear out existing data.
+		_ = queries.DeleteData(ctx)
+	}
 	// Construct the csvPath so it includes the current date (YYYYMMDD).
 	currentDate := timestamp.Format("20060102")
 	csvPath := fmt.Sprintf(csvPathTemplate, currentDate)
@@ -252,8 +256,8 @@ func GetShipDropData(shipType ei.MissionInfo_Spaceship, duration ei.MissionInfo_
 }
 
 // PrintDropData retrieves and logs drop data for a specific ship configuration.
-func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_DurationType, stars int, target ei.ArtifactSpec_Name) {
-
+func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_DurationType, stars int, target ei.ArtifactSpec_Name) string {
+	var output strings.Builder
 	rows := GetShipDropData(ship, duration, stars, target)
 
 	var tier1 strings.Builder
@@ -285,39 +289,39 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 		}
 		tierRarityCounts[key]++
 
-		var output *strings.Builder
+		var tierOutput *strings.Builder
 		switch tier {
 		case 1:
-			output = &tier1
+			tierOutput = &tier1
 		case 2:
-			output = &tier2
+			tierOutput = &tier2
 		case 3:
-			output = &tier3
+			tierOutput = &tier3
 		case 4:
-			output = &tier4
+			tierOutput = &tier4
 		default:
 			continue
 		}
 
-		fmt.Fprintf(output, "Target: %s: %f - T%d%s\n", targetArtifact, ratio, tier, rarity)
+		fmt.Fprintf(tierOutput, "Target: %s: %f - T%d%s\n", targetArtifact, ratio, tier, rarity)
 	}
 
 	shipName := ei.ShipTypeName[int32(ship)]
 	targetName := ei.ArtifactTypeName[int32(target)]
 
 	starsStr := strings.Repeat("⭐️", stars)
-	fmt.Printf("%s %s %s for %s\n\n", ei.DurationTypeName[int32(duration)], shipName, starsStr, targetName)
+	fmt.Fprintf(&output, "%s %s %s hunting for %s\n\n", ei.DurationTypeName[int32(duration)], shipName, starsStr, targetName)
 	if len(tier4.String()) != 0 {
-		fmt.Printf("=== Tier 4 ===\n%s\n", tier4.String())
+		fmt.Fprintf(&output, "=== Tier 4 ===\n%s\n", tier4.String())
 	}
 	if len(tier3.String()) != 0 {
-		fmt.Printf("=== Tier 3 ===\n%s\n", tier3.String())
+		fmt.Fprintf(&output, "=== Tier 3 ===\n%s\n", tier3.String())
 	}
 	if len(tier2.String()) != 0 {
-		fmt.Printf("=== Tier 2 ===\n%s\n", tier2.String())
+		fmt.Fprintf(&output, "=== Tier 2 ===\n%s\n", tier2.String())
 	}
 	if len(tier1.String()) != 0 {
-		fmt.Printf("=== Tier 1 ===\n%s\n", tier1.String())
+		fmt.Fprintf(&output, "=== Tier 1 ===\n%s\n", tier1.String())
 	}
-
+	return output.String()
 }
