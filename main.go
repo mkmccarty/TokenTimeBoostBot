@@ -211,7 +211,8 @@ var (
 		boost.GetSlashReplayEvalCommand(slashRerunEval),
 		boost.GetSlashVirtueCommand(slashVirtue),
 		boost.GetSlashRegisterCommand(slashRegister),
-		//menno.SlashHuntCommand(slashHunt),
+		// This isn't ready yet
+		menno.SlashHuntCommand(slashHunt),
 	}
 
 	commands = []*discordgo.ApplicationCommand{
@@ -582,6 +583,9 @@ var (
 		},
 		slashTimer: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleTimerCommand(s, i)
+		},
+		slashHunt: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			menno.HandleHuntCommand(s, i)
 		},
 		slashEstimateTime: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleEstimateTimeCommand(s, i)
@@ -1007,9 +1011,7 @@ func main() {
 
 	bottools.LoadEmotes(s, false)
 	boost.LaunchIndependentTimers(s)
-	if config.IsDevBot() {
-		go menno.Startup()
-	}
+	go menno.Startup()
 
 	_ = s.UpdateStatusComplex(discordgo.UpdateStatusData{
 		AFK: false,

@@ -21,6 +21,8 @@ import (
 	_ "modernc.org/sqlite" // Want this here
 )
 
+// From https://github.com/menno-egginc/eggincdatacollection-docs/blob/main/DataEndpoints.md
+
 var ctx = context.Background()
 
 //go:embed schema.sql
@@ -118,6 +120,10 @@ func populateData(newData bool, timestamp time.Time) {
 	const csvPathTemplate = "ttbb-data/menno-%s.csv"
 	const url = "https://eggincdatacollection.azurewebsites.net/api/GetAllDataCsvCompact"
 
+	if newData {
+		// Clear out existing data.
+		_ = queries.DeleteData(ctx)
+	}
 	// Construct the csvPath so it includes the current date (YYYYMMDD).
 	currentDate := timestamp.Format("20060102")
 	csvPath := fmt.Sprintf(csvPathTemplate, currentDate)
@@ -241,20 +247,79 @@ func GetShipDropData(shipType ei.MissionInfo_Spaceship, duration ei.MissionInfo_
 		return nil
 	}
 
-	// Sort rows by ratio from high to low
-	sort.Slice(rows, func(i, j int) bool {
-		ratioI := float64(rows[i].TotalDrops.Int64) / float64(rows[i].AllDropsValue.(int64))
-		ratioJ := float64(rows[j].TotalDrops.Int64) / float64(rows[j].AllDropsValue.(int64))
-		return ratioI > ratioJ
-	})
-
 	return rows
 }
 
-// PrintDropData retrieves and logs drop data for a specific ship configuration.
-func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_DurationType, stars int, target ei.ArtifactSpec_Name) {
+func asFloat64(v interface{}) float64 {
+	switch t := v.(type) {
+	case float64:
+		return t
+	case float32:
+		return float64(t)
+	case int64:
+		return float64(t)
+	case int32:
+		return float64(t)
+	case int:
+		return float64(t)
+	case uint64:
+		return float64(t)
+	case uint32:
+		return float64(t)
+	case uint:
+		return float64(t)
+	case []byte:
+		f, _ := strconv.ParseFloat(string(t), 64)
+		return f
+	case string:
+		f, _ := strconv.ParseFloat(t, 64)
+		return f
+	case sql.NullFloat64:
+		if t.Valid {
+			return t.Float64
+		}
+	case sql.NullInt64:
+		if t.Valid {
+			return float64(t.Int64)
+		}
+	}
+	return 0
+}
 
-	rows := GetShipDropData(ship, duration, stars, target)
+// PrintDropData retrieves and logs drop data for a specific ship configuration.
+func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_DurationType, stars int, target ei.ArtifactSpec_Name) string {
+	var output strings.Builder
+	var rows []GetDropsRow
+	// Cap the ship stars to the max for the ship
+	stars = min(stars, int(ei.ShipMaxStars[int32(ship)]))
+
+	artifactName := ei.ArtifactTypeName[int32(target)]
+	// If this contains Stone then I want the ID's for both Stone and Fragment
+	if strings.Contains(artifactName, " Stone") {
+		stoneID := int32(-1)
+		fragmentID := int32(-1)
+		for id, name := range ei.ArtifactTypeName {
+			if name == artifactName {
+				stoneID = id
+			}
+			if name == artifactName+" Fragment" {
+				fragmentID = id
+			}
+		}
+		rows = append(rows, GetShipDropData(ship, duration, stars, ei.ArtifactSpec_Name(stoneID))...)
+		rows = append(rows, GetShipDropData(ship, duration, stars, ei.ArtifactSpec_Name(fragmentID))...)
+		sort.Slice(rows, func(i, j int) bool {
+			return asFloat64(rows[i].DropRate) > asFloat64(rows[j].DropRate)
+		})
+
+	} else {
+		rows = GetShipDropData(ship, duration, stars, target)
+	}
+
+	// Does the  contain " Stone"?
+	// If so then I want the Stone and Fragment ID's
+
+	// if ei.ArtifactTypeName[int32(target)]
 
 	var tier1 strings.Builder
 	var tier2 strings.Builder
@@ -263,10 +328,11 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 	tierRarityCounts := make(map[string]int) // key: tier|rarityID
 
 	for _, row := range rows {
+		artifactDrops := row.TotalDrops.Int64
 		allDropsValue := row.AllDropsValue.(int64)
-		ratio := float64(row.TotalDrops.Int64) / float64(allDropsValue)
+		dropRate := row.DropRate.(float64)
 
-		targetArtifact := ei.ArtifactSpec_Name_name[int32(row.TargetArtifactID.Int64)]
+		targetArtifact := ei.ArtifactTypeName[int32(row.TargetArtifactID.Int64)]
 		//returnArtifact := ei.ArtifactSpec_Name_name[int32(row.ArtifactTypeID.Int64)]
 		rf := ei.ArtifactSpec_Rarity_name[int32(row.ArtifactRarityID.Int64)]
 
@@ -279,45 +345,52 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 		rarityID := row.ArtifactRarityID.Int64
 		key := fmt.Sprintf("%d|%d", tier, rarityID)
 
+		if artifactDrops == 0 {
+			continue
+		}
+
 		// Limit to 4 entries per (tier, rarity)
 		if tierRarityCounts[key] >= 4 {
 			continue
 		}
 		tierRarityCounts[key]++
 
-		var output *strings.Builder
+		var tierOutput *strings.Builder
 		switch tier {
 		case 1:
-			output = &tier1
+			tierOutput = &tier1
 		case 2:
-			output = &tier2
+			tierOutput = &tier2
 		case 3:
-			output = &tier3
+			tierOutput = &tier3
 		case 4:
-			output = &tier4
+			tierOutput = &tier4
 		default:
 			continue
 		}
 
-		fmt.Fprintf(output, "Target: %s: %f - T%d%s\n", targetArtifact, ratio, tier, rarity)
+		fmt.Fprintf(tierOutput, "**%s** target returned T%d%s at a ratio of %0.5f (%d/%d drops)\n", targetArtifact, tier, rarity, dropRate, artifactDrops, allDropsValue)
 	}
 
 	shipName := ei.ShipTypeName[int32(ship)]
 	targetName := ei.ArtifactTypeName[int32(target)]
 
 	starsStr := strings.Repeat("⭐️", stars)
-	fmt.Printf("%s %s %s for %s\n\n", ei.DurationTypeName[int32(duration)], shipName, starsStr, targetName)
+	fmt.Fprintf(&output, "## %s %s %s hunting for **%s**\n\n", ei.DurationTypeName[int32(duration)], shipName, starsStr, targetName)
 	if len(tier4.String()) != 0 {
-		fmt.Printf("=== Tier 4 ===\n%s\n", tier4.String())
+		fmt.Fprintf(&output, "=== Tier 4 ===\n%s\n", tier4.String())
 	}
 	if len(tier3.String()) != 0 {
-		fmt.Printf("=== Tier 3 ===\n%s\n", tier3.String())
+		fmt.Fprintf(&output, "=== Tier 3 ===\n%s\n", tier3.String())
 	}
 	if len(tier2.String()) != 0 {
-		fmt.Printf("=== Tier 2 ===\n%s\n", tier2.String())
+		fmt.Fprintf(&output, "=== Tier 2 ===\n%s\n", tier2.String())
 	}
 	if len(tier1.String()) != 0 {
-		fmt.Printf("=== Tier 1 ===\n%s\n", tier1.String())
+		fmt.Fprintf(&output, "=== Tier 1 ===\n%s\n", tier1.String())
 	}
 
+	fmt.Fprintf(&output, "-# Drop rates are based on user contributions to Menno's drop data tool.\n")
+	fmt.Fprintf(&output, "-# This tool is made for RAIYC and is still under development. Data presentation may not be pretty.\n")
+	return output.String()
 }

@@ -20,49 +20,24 @@ func (q *Queries) CreateTimestamp(ctx context.Context) error {
 	return err
 }
 
-const deleteData = `-- name: DeleteData :execrows
+const deleteData = `-- name: DeleteData :exec
 DELETE FROM data
-WHERE   
-    ship_type_id = ? AND
-    ship_duration_type_id = ? AND
-    ship_level = ? AND
-    target_artifact_id = ? AND
-    artifact_type_id = ? AND
-    artifact_rarity_id = ? AND
-    artifact_tier = ? AND
-    mission_type = ?
 `
 
-type DeleteDataParams struct {
-	ShipTypeID         sql.NullInt64
-	ShipDurationTypeID sql.NullInt64
-	ShipLevel          sql.NullInt64
-	TargetArtifactID   sql.NullInt64
-	ArtifactTypeID     sql.NullInt64
-	ArtifactRarityID   sql.NullInt64
-	ArtifactTier       sql.NullInt64
-	MissionType        sql.NullInt64
-}
-
-func (q *Queries) DeleteData(ctx context.Context, arg DeleteDataParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteData,
-		arg.ShipTypeID,
-		arg.ShipDurationTypeID,
-		arg.ShipLevel,
-		arg.TargetArtifactID,
-		arg.ArtifactTypeID,
-		arg.ArtifactRarityID,
-		arg.ArtifactTier,
-		arg.MissionType,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
+func (q *Queries) DeleteData(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteData)
+	return err
 }
 
 const getDrops = `-- name: GetDrops :many
 SELECT
+    d.ship_type_id,
+    d.ship_duration_type_id,
+    d.ship_level,
+    d.target_artifact_id,
+    d.artifact_type_id,
+    d.artifact_rarity_id,
+    d.artifact_tier,
     d.total_drops AS total_drops,
     (
         SELECT COALESCE(SUM(d2.total_drops), 0)
@@ -73,14 +48,26 @@ SELECT
             d2.ship_level = d.ship_level AND
             d2.target_artifact_id = d.target_artifact_id
     ) AS all_drops_value,
-    d.ship_type_id, d.ship_duration_type_id, d.ship_level, d.target_artifact_id, d.artifact_type_id, d.artifact_rarity_id, d.artifact_tier, d.total_drops, d.mission_type
+    COALESCE(
+        CAST(d.total_drops AS REAL) /
+        NULLIF((
+            SELECT SUM(d2.total_drops)
+            FROM data d2
+            WHERE
+                d2.ship_type_id = d.ship_type_id AND
+                d2.ship_duration_type_id = d.ship_duration_type_id AND
+                d2.ship_level = d.ship_level AND
+                d2.target_artifact_id = d.target_artifact_id
+        ), 0),
+        0.0
+    ) AS drop_rate
 FROM data d
 WHERE
     d.ship_type_id = ? AND
     d.ship_duration_type_id = ? AND
     d.ship_level = ? AND
     d.artifact_type_id = ?
-ORDER BY total_drops DESC
+ORDER BY drop_rate DESC
 `
 
 type GetDropsParams struct {
@@ -91,8 +78,6 @@ type GetDropsParams struct {
 }
 
 type GetDropsRow struct {
-	TotalDrops         sql.NullInt64
-	AllDropsValue      interface{}
 	ShipTypeID         sql.NullInt64
 	ShipDurationTypeID sql.NullInt64
 	ShipLevel          sql.NullInt64
@@ -100,8 +85,9 @@ type GetDropsRow struct {
 	ArtifactTypeID     sql.NullInt64
 	ArtifactRarityID   sql.NullInt64
 	ArtifactTier       sql.NullInt64
-	TotalDrops_2       sql.NullInt64
-	MissionType        sql.NullInt64
+	TotalDrops         sql.NullInt64
+	AllDropsValue      interface{}
+	DropRate           interface{}
 }
 
 func (q *Queries) GetDrops(ctx context.Context, arg GetDropsParams) ([]GetDropsRow, error) {
@@ -119,8 +105,6 @@ func (q *Queries) GetDrops(ctx context.Context, arg GetDropsParams) ([]GetDropsR
 	for rows.Next() {
 		var i GetDropsRow
 		if err := rows.Scan(
-			&i.TotalDrops,
-			&i.AllDropsValue,
 			&i.ShipTypeID,
 			&i.ShipDurationTypeID,
 			&i.ShipLevel,
@@ -128,8 +112,9 @@ func (q *Queries) GetDrops(ctx context.Context, arg GetDropsParams) ([]GetDropsR
 			&i.ArtifactTypeID,
 			&i.ArtifactRarityID,
 			&i.ArtifactTier,
-			&i.TotalDrops_2,
-			&i.MissionType,
+			&i.TotalDrops,
+			&i.AllDropsValue,
+			&i.DropRate,
 		); err != nil {
 			return nil, err
 		}
