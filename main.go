@@ -211,7 +211,8 @@ var (
 		boost.GetSlashReplayEvalCommand(slashRerunEval),
 		boost.GetSlashVirtueCommand(slashVirtue),
 		boost.GetSlashRegisterCommand(slashRegister),
-		menno.SlashHuntCommand(slashHunt),
+		// This isn't ready yet
+		//menno.SlashHuntCommand(slashHunt),
 	}
 
 	commands = []*discordgo.ApplicationCommand{

@@ -151,7 +151,7 @@ func HandleHuntCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	shipID := int(optionMap["ship"].IntValue())
 	shipStars := int(optionMap["stars"].IntValue())
 	durationTypeID := int(optionMap["duration-type"].IntValue())
-	artifactID := -1
+	artifactID := 10000 // No Target
 	if opt, ok := optionMap["artifact"]; ok {
 		artifactID, _ = strconv.Atoi(opt.StringValue())
 	}
