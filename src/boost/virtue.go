@@ -290,7 +290,6 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64) []disc
 			}
 			if targetTE != 0 && eggType == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
 				currentEggIndex = i
-				currentEggTarget = nextTier
 				currentDelievered = delivered
 				currentEggEmote = ei.GetBotEmojiMarkdown("egg_" + strings.ToLower(egg))
 			}
