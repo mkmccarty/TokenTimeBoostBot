@@ -53,14 +53,6 @@ func SlashHuntCommand(cmd string) *discordgo.ApplicationCommand {
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "stars",
-				Description: "Ship star level, default max",
-				MinValue:    &integerZeroMinValue,
-				MaxValue:    8,
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
 				Name:        "duration-type",
 				Description: "Select the duration type",
 				Required:    true,
@@ -72,6 +64,14 @@ func SlashHuntCommand(cmd string) *discordgo.ApplicationCommand {
 				Description:  "What artifact or ingredient to hunt, searchable",
 				Required:     true,
 				Autocomplete: true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "stars",
+				Description: "Ship star level, default max",
+				MinValue:    &integerZeroMinValue,
+				MaxValue:    8,
+				Required:    false,
 			},
 		},
 	}

@@ -328,8 +328,9 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 	tierRarityCounts := make(map[string]int) // key: tier|rarityID
 
 	for _, row := range rows {
+		artifactDrops := row.TotalDrops.Int64
 		allDropsValue := row.AllDropsValue.(int64)
-		ratio := float64(row.TotalDrops.Int64) / float64(allDropsValue)
+		dropRate := row.DropRate.(float64)
 
 		targetArtifact := ei.ArtifactTypeName[int32(row.TargetArtifactID.Int64)]
 		//returnArtifact := ei.ArtifactSpec_Name_name[int32(row.ArtifactTypeID.Int64)]
@@ -343,6 +344,10 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 		tier := row.ArtifactTier.Int64 + 1
 		rarityID := row.ArtifactRarityID.Int64
 		key := fmt.Sprintf("%d|%d", tier, rarityID)
+
+		if artifactDrops == 0 {
+			continue
+		}
 
 		// Limit to 4 entries per (tier, rarity)
 		if tierRarityCounts[key] >= 4 {
@@ -364,14 +369,14 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 			continue
 		}
 
-		fmt.Fprintf(tierOutput, "Target: %s: %f - T%d%s\n", targetArtifact, ratio, tier, rarity)
+		fmt.Fprintf(tierOutput, "**%s** target returned T%d%s at a ratio of %0.5f (%d/%d drops)\n", targetArtifact, tier, rarity, dropRate, artifactDrops, allDropsValue)
 	}
 
 	shipName := ei.ShipTypeName[int32(ship)]
 	targetName := ei.ArtifactTypeName[int32(target)]
 
 	starsStr := strings.Repeat("⭐️", stars)
-	fmt.Fprintf(&output, "%s %s %s hunting for %s\n\n", ei.DurationTypeName[int32(duration)], shipName, starsStr, targetName)
+	fmt.Fprintf(&output, "## %s %s %s hunting for **%s**\n\n", ei.DurationTypeName[int32(duration)], shipName, starsStr, targetName)
 	if len(tier4.String()) != 0 {
 		fmt.Fprintf(&output, "=== Tier 4 ===\n%s\n", tier4.String())
 	}
@@ -385,6 +390,7 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 		fmt.Fprintf(&output, "=== Tier 1 ===\n%s\n", tier1.String())
 	}
 
-	fmt.Fprintf(&output, "-# This tool is made for RAIYC and is still under development. Data may be incomplete or inaccurate.\n")
+	fmt.Fprintf(&output, "-# Drop rates are based on user contributions to Menno's drop data tool.\n")
+	fmt.Fprintf(&output, "-# This tool is made for RAIYC and is still under development. Data presentation may not be pretty.\n")
 	return output.String()
 }
