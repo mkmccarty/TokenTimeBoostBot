@@ -70,7 +70,7 @@ func SlashHuntCommand(cmd string) *discordgo.ApplicationCommand {
 				Type:         discordgo.ApplicationCommandOptionString,
 				Name:         "artifact",
 				Description:  "What artifact or ingredient to hunt",
-				Required:     false,
+				Required:     true,
 				Autocomplete: true,
 			},
 		},

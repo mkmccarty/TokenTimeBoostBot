@@ -247,14 +247,43 @@ func GetShipDropData(shipType ei.MissionInfo_Spaceship, duration ei.MissionInfo_
 		return nil
 	}
 
-	// Sort rows by ratio from high to low
-	sort.Slice(rows, func(i, j int) bool {
-		ratioI := float64(rows[i].TotalDrops.Int64) / float64(rows[i].AllDropsValue.(int64))
-		ratioJ := float64(rows[j].TotalDrops.Int64) / float64(rows[j].AllDropsValue.(int64))
-		return ratioI > ratioJ
-	})
-
 	return rows
+}
+
+func asFloat64(v interface{}) float64 {
+	switch t := v.(type) {
+	case float64:
+		return t
+	case float32:
+		return float64(t)
+	case int64:
+		return float64(t)
+	case int32:
+		return float64(t)
+	case int:
+		return float64(t)
+	case uint64:
+		return float64(t)
+	case uint32:
+		return float64(t)
+	case uint:
+		return float64(t)
+	case []byte:
+		f, _ := strconv.ParseFloat(string(t), 64)
+		return f
+	case string:
+		f, _ := strconv.ParseFloat(t, 64)
+		return f
+	case sql.NullFloat64:
+		if t.Valid {
+			return t.Float64
+		}
+	case sql.NullInt64:
+		if t.Valid {
+			return float64(t.Int64)
+		}
+	}
+	return 0
 }
 
 // PrintDropData retrieves and logs drop data for a specific ship configuration.
@@ -280,9 +309,7 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 		rows = append(rows, GetShipDropData(ship, duration, stars, ei.ArtifactSpec_Name(stoneID))...)
 		rows = append(rows, GetShipDropData(ship, duration, stars, ei.ArtifactSpec_Name(fragmentID))...)
 		sort.Slice(rows, func(i, j int) bool {
-			ratioI := float64(rows[i].TotalDrops.Int64) / float64(rows[i].AllDropsValue.(int64))
-			ratioJ := float64(rows[j].TotalDrops.Int64) / float64(rows[j].AllDropsValue.(int64))
-			return ratioI > ratioJ
+			return asFloat64(rows[i].DropRate) > asFloat64(rows[j].DropRate)
 		})
 
 	} else {

@@ -212,7 +212,7 @@ var (
 		boost.GetSlashVirtueCommand(slashVirtue),
 		boost.GetSlashRegisterCommand(slashRegister),
 		// This isn't ready yet
-		//menno.SlashHuntCommand(slashHunt),
+		menno.SlashHuntCommand(slashHunt),
 	}
 
 	commands = []*discordgo.ApplicationCommand{
