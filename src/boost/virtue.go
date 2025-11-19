@@ -54,7 +54,7 @@ func init() {
 func GetSlashVirtueCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
-		Description: "Evaluate virtue farm and provide detiled EoV overview.",
+		Description: "Evaluate virtue farm and provide detailed EoV overview.",
 		Contexts: &[]discordgo.InteractionContextType{
 			discordgo.InteractionContextGuild,
 			discordgo.InteractionContextBotDM,
@@ -94,6 +94,14 @@ func GetSlashVirtueCommand(cmd string) *discordgo.ApplicationCommand {
 				Required: false,
 			},
 			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "simulate-shift-target-te",
+				Description: "Target Truth Eggs for simulated shift (requires simulate-shift).",
+				MinValue:    func() *float64 { v := 1.0; return &v }(), // Why a pointer??
+				MaxValue:    98.0,
+				Required:    false,
+			},
+			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "reset",
 				Description: "Reset stored EI number",
@@ -125,8 +133,12 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[
 	alternateEgg := ei.Egg(-1)
 	var components []discordgo.MessageComponent
 
+	var targetTE uint64 = 0
 	if opt, ok := optionMap["simulate-shift"]; ok {
 		alternateEgg = ei.Egg(opt.IntValue())
+		if opt2, ok2 := optionMap["simulate-shift-target-te"]; ok2 {
+			targetTE = opt2.UintValue()
+		}
 	}
 
 	// Get the Egg Inc ID from the stored settings
@@ -175,7 +187,7 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[
 	if farm != nil {
 		farmType := farm.GetFarmType()
 		if farmType == ei.FarmType_HOME {
-			components = printVirtue(backup, alternateEgg)
+			components = printVirtue(backup, alternateEgg, targetTE)
 		}
 	}
 	if len(components) == 0 {
@@ -190,7 +202,7 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[
 
 }
 
-func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComponent {
+func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64) []discordgo.MessageComponent {
 	var components []discordgo.MessageComponent
 	divider := true
 	spacing := discordgo.SeparatorSpacingSizeSmall
@@ -222,10 +234,6 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 	shiftCost := getShiftCost(virtue.GetShiftCount(), se)
 
 	fmt.Fprint(&header, "# Eggs of Virtue Helper\n")
-	if alternateEgg != -1 {
-		c := cases.Title(language.Und)
-		fmt.Fprintf(&header, "## Simulating a shift to %s\n", c.String(strings.ToLower(virtueEggs[alternateEgg-50])))
-	}
 	fmt.Fprintf(&header, "**__%s the Ascender__**\n", backup.GetUserName())
 	fmt.Fprintf(&header, "**Resets**: %d  **Shifts**: %d  %s%s\n",
 		virtue.GetResets(),
@@ -256,6 +264,13 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 	selectedEggIndex := -1
 	selectedEggEmote := ""
 
+	// Names could use a rework but current egg means the current EoV egg on the farm
+	currentEggTarget := 0.0
+	currentDelievered := 0.0
+	currentEggIndex := -1
+	currentEggEmote := ""
+	currentOfflineEggs := 0.0
+
 	for i, egg := range virtueEggs {
 		eov := virtue.GetEovEarned()[i] // Assuming Eggs is the correct field for accessing egg virtues
 		delivered := virtue.GetEggsDelivered()[i]
@@ -272,6 +287,12 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 				selectedTarget = nextTier
 				selectedDelivered = delivered
 				selectedEggEmote = ei.GetBotEmojiMarkdown("egg_" + strings.ToLower(egg))
+			}
+			if targetTE != 0 && eggType == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
+				currentEggIndex = i
+				currentEggTarget = nextTier
+				currentDelievered = delivered
+				currentEggEmote = ei.GetBotEmojiMarkdown("egg_" + strings.ToLower(egg))
 			}
 		} else {
 			if eggType == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
@@ -429,6 +450,9 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 	elapsed := time.Since(syncTime).Seconds()
 	offlineEggs := min(eggLayingRate, shippingRate) * (elapsed / 3600)
 	if alternateEgg != -1 {
+		if targetTE != 0 {
+			currentOfflineEggs = min(eggLayingRate, shippingRate) * (elapsed / 3600)
+		}
 		offlineEggs = 0
 	}
 
@@ -514,6 +538,41 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 				time.Now().Add(time.Duration(int64(offlineFillTime))*time.Second).Unix())
 		}
 
+		//  If targetTE is set, calculate offset for current egg to reach that TE
+		offsetRemainingTime := -1.0
+		if currentEggIndex != -1 && targetTE != 0 {
+
+			currentEggTarget = TruthEggBreakpoints[targetTE-1]
+
+			remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, currentEggTarget-currentDelievered-currentOfflineEggs)
+			adjustedRemainingTime := remainingTime - elapsed
+
+			if remainingTime != -1.0 {
+				offsetRemainingTime = adjustedRemainingTime
+			}
+
+			// if we have a target TE and an offsetted remaining time, show that in the header
+			if offsetRemainingTime == -1.0 {
+				fmt.Fprintf(&header,
+					"## Skipping simulation for %[1]d%[2]s\n**Too far away or already delivered.**\n",
+					targetTE,
+					currentEggEmote,
+				)
+			} else {
+				fmt.Fprintf(&header,
+					"## Simulating shift after TE %[1]d%[2]s\n**Deliver %[3]s%[2]s <t:%[4]d:f>💤**\n",
+					targetTE,
+					currentEggEmote,
+					ei.FormatEIValue(currentEggTarget, map[string]any{"decimals": 1, "trim": true}),
+					time.Now().Add(time.Duration(int64(offsetRemainingTime))*time.Second).Unix(),
+				)
+			}
+
+		} else if alternateEgg != -1 && targetTE == 0 {
+			c := cases.Title(language.Und)
+			fmt.Fprintf(&header, "## Simulating a shift to %s\n", c.String(strings.ToLower(virtueEggs[alternateEgg-50])))
+		}
+
 		// Loop to show time to next several Truth Egg thresholds
 		remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, selectedTarget-selectedDelivered-offlineEggs)
 		adjustedRemainingTime := remainingTime - elapsed
@@ -528,21 +587,26 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg) []discordgo.MessageComp
 			if remainingTime == -1.0 {
 				if selectedTarget-selectedDelivered-offlineEggs <= 0.0 {
 					fmt.Fprintf(&header, "Offline deliveries complete %s%s",
-						ei.FormatEIValue(currentSelectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
+						ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 1, "trim": true}),
 						selectedEggEmote)
 				} else {
 					fmt.Fprintf(&header, "Deliver %s%s in more than a year 💤",
-						ei.FormatEIValue(currentSelectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
+						ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 1, "trim": true}),
 						selectedEggEmote)
 				}
-			} else if adjustedRemainingTime < 43200.0 { // 12 hours
+			} else if adjustedRemainingTime < 43200.0 && targetTE == 0 { // 12 hours
 				fmt.Fprintf(&header, "Deliver %s%s <t:%d:t>💤",
-					ei.FormatEIValue(currentSelectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
+					ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 1, "trim": true}),
 					selectedEggEmote,
 					time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Second).Unix())
+			} else if targetTE != 0 && offsetRemainingTime != -1.0 { // Show the estimated time with offset from TE target on the current egg
+				fmt.Fprintf(&header, "Deliver %s%s <t:%d:f>💤",
+					ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 1, "trim": true}),
+					selectedEggEmote,
+					time.Now().Add(time.Duration(int64(adjustedRemainingTime+offsetRemainingTime))*time.Second).Unix())
 			} else {
 				fmt.Fprintf(&header, "Deliver %s%s <t:%d:f>💤",
-					ei.FormatEIValue(currentSelectedTarget, map[string]interface{}{"decimals": 1, "trim": true}),
+					ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 1, "trim": true}),
 					selectedEggEmote,
 					time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Second).Unix())
 			}
