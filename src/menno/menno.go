@@ -21,6 +21,8 @@ import (
 	_ "modernc.org/sqlite" // Want this here
 )
 
+// From https://github.com/menno-egginc/eggincdatacollection-docs/blob/main/DataEndpoints.md
+
 var ctx = context.Background()
 
 //go:embed schema.sql
@@ -258,7 +260,39 @@ func GetShipDropData(shipType ei.MissionInfo_Spaceship, duration ei.MissionInfo_
 // PrintDropData retrieves and logs drop data for a specific ship configuration.
 func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_DurationType, stars int, target ei.ArtifactSpec_Name) string {
 	var output strings.Builder
-	rows := GetShipDropData(ship, duration, stars, target)
+	var rows []GetDropsRow
+	// Cap the ship stars to the max for the ship
+	stars = min(stars, int(ei.ShipMaxStars[int32(ship)]))
+
+	artifactName := ei.ArtifactTypeName[int32(target)]
+	// If this contains Stone then I want the ID's for both Stone and Fragment
+	if strings.Contains(artifactName, " Stone") {
+		stoneID := int32(-1)
+		fragmentID := int32(-1)
+		for id, name := range ei.ArtifactTypeName {
+			if name == artifactName {
+				stoneID = id
+			}
+			if name == artifactName+" Fragment" {
+				fragmentID = id
+			}
+		}
+		rows = append(rows, GetShipDropData(ship, duration, stars, ei.ArtifactSpec_Name(stoneID))...)
+		rows = append(rows, GetShipDropData(ship, duration, stars, ei.ArtifactSpec_Name(fragmentID))...)
+		sort.Slice(rows, func(i, j int) bool {
+			ratioI := float64(rows[i].TotalDrops.Int64) / float64(rows[i].AllDropsValue.(int64))
+			ratioJ := float64(rows[j].TotalDrops.Int64) / float64(rows[j].AllDropsValue.(int64))
+			return ratioI > ratioJ
+		})
+
+	} else {
+		rows = GetShipDropData(ship, duration, stars, target)
+	}
+
+	// Does the  contain " Stone"?
+	// If so then I want the Stone and Fragment ID's
+
+	// if ei.ArtifactTypeName[int32(target)]
 
 	var tier1 strings.Builder
 	var tier2 strings.Builder
@@ -270,7 +304,7 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 		allDropsValue := row.AllDropsValue.(int64)
 		ratio := float64(row.TotalDrops.Int64) / float64(allDropsValue)
 
-		targetArtifact := ei.ArtifactSpec_Name_name[int32(row.TargetArtifactID.Int64)]
+		targetArtifact := ei.ArtifactTypeName[int32(row.TargetArtifactID.Int64)]
 		//returnArtifact := ei.ArtifactSpec_Name_name[int32(row.ArtifactTypeID.Int64)]
 		rf := ei.ArtifactSpec_Rarity_name[int32(row.ArtifactRarityID.Int64)]
 
@@ -323,5 +357,7 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 	if len(tier1.String()) != 0 {
 		fmt.Fprintf(&output, "=== Tier 1 ===\n%s\n", tier1.String())
 	}
+
+	fmt.Fprintf(&output, "-# This tool is made for RAIYC and is still under development. Data may be incomplete or inaccurate.\n")
 	return output.String()
 }
