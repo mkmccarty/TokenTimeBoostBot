@@ -7,6 +7,7 @@ var DurationTypeName = map[int32]string{
 	2: "Extended",
 }
 
+// ShipMaxStars maps ship type IDs to their maximum star levels
 var ShipMaxStars = map[int32]int32{
 	0:  0,
 	1:  2,
