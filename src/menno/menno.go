@@ -316,10 +316,13 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 		rows = GetShipDropData(ship, duration, stars, target)
 	}
 
-	// Does the  contain " Stone"?
-	// If so then I want the Stone and Fragment ID's
-
-	// if ei.ArtifactTypeName[int32(target)]
+	// Sanitize results. For every row, if the ship type is <= 2 and the target isn't 10000, remove it
+	for i := 0; i < len(rows); i++ {
+		if rows[i].ShipTypeID.Int64 <= 2 && rows[i].TargetArtifactID.Int64 != 10000 {
+			rows = append(rows[:i], rows[i+1:]...)
+			i--
+		}
+	}
 
 	var tier1 strings.Builder
 	var tier2 strings.Builder
@@ -378,19 +381,173 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 	starsStr := strings.Repeat("⭐️", stars)
 	fmt.Fprintf(&output, "## %s %s %s hunting for **%s**\n\n", ei.DurationTypeName[int32(duration)], shipName, starsStr, targetName)
 	if len(tier4.String()) != 0 {
-		fmt.Fprintf(&output, "=== Tier 4 ===\n%s\n", tier4.String())
+		fmt.Fprintf(&output, "### Tier 4\n%s\n", tier4.String())
 	}
 	if len(tier3.String()) != 0 {
-		fmt.Fprintf(&output, "=== Tier 3 ===\n%s\n", tier3.String())
+		fmt.Fprintf(&output, "### Tier 3\n%s\n", tier3.String())
 	}
 	if len(tier2.String()) != 0 {
-		fmt.Fprintf(&output, "=== Tier 2 ===\n%s\n", tier2.String())
+		fmt.Fprintf(&output, "### Tier 2\n%s\n", tier2.String())
 	}
 	if len(tier1.String()) != 0 {
-		fmt.Fprintf(&output, "=== Tier 1 ===\n%s\n", tier1.String())
+		fmt.Fprintf(&output, "### Tier 1\n%s\n", tier1.String())
 	}
 
 	fmt.Fprintf(&output, "-# Drop rates are based on user contributions to Menno's drop data tool.\n")
 	fmt.Fprintf(&output, "-# This tool is made for RAIYC and is still under development. Data presentation may not be pretty.\n")
 	return output.String()
+}
+
+// PrintUserDropData retrieves and logs drop data for all ships the user has access to.
+func PrintUserDropData(backup *ei.Backup, duration ei.MissionInfo_DurationType, target ei.ArtifactSpec_Name) string {
+	var output strings.Builder
+	var rows []GetDropsRow
+
+	afx := backup.GetArtifactsDb()
+	missionInfo := afx.GetMissionInfos()
+	missionArchive := afx.GetMissionArchive()
+	// for each mission info, find matching ship/duration/target
+
+	shipLevels := make([]int, len(ei.ShipTypeName))
+
+	//
+
+	for _, mi := range append(missionInfo, missionArchive...) {
+		ship := mi.GetShip()
+		level := mi.GetLevel()
+		if int(level) > shipLevels[int(ship)] {
+			shipLevels[int(ship)] = int(level)
+		}
+	}
+
+	// Write the ship levels to output string with ship name and stars
+	for shipID, level := range shipLevels {
+		targetArtifact := target
+		if shipID <= 2 {
+			targetArtifact = ei.ArtifactSpec_Name(10000)
+		}
+		shipRows := GetShipDropData(ei.MissionInfo_Spaceship(shipID), duration, level, targetArtifact)
+
+		shipRows = mergeRarities(shipRows)
+
+		if len(shipRows) != 0 {
+			// Trim shipRow to at most 3 results
+			//shipRows = shipRows[:min(3, len(shipRows))]
+			rows = append(rows, shipRows...)
+		}
+	}
+
+	sort.Slice(rows, func(i, j int) bool {
+		return asFloat64(rows[i].DropRate) > asFloat64(rows[j].DropRate)
+	})
+
+	var tier1 strings.Builder
+	var tier2 strings.Builder
+	var tier3 strings.Builder
+	var tier4 strings.Builder
+	tierRarityCounts := make(map[string]int) // key: tier|rarityID
+
+	for _, row := range rows {
+		artifactDrops := row.TotalDrops.Int64
+		allDropsValue := row.AllDropsValue.(int64)
+		dropRate := row.DropRate.(float64)
+		ship := row.ShipTypeID.Int64
+		shipLevel := row.ShipLevel.Int64
+		shipDuration := row.ShipDurationTypeID.Int64
+
+		targetArtifact := ei.ArtifactTypeName[int32(row.TargetArtifactID.Int64)]
+
+		tier := row.ArtifactTier.Int64 + 1
+		key := fmt.Sprintf("%d", tier)
+
+		if artifactDrops == 0 {
+			continue
+		}
+
+		// Limit to 4 entries per tier
+		if tierRarityCounts[key] >= 4 {
+			continue
+		}
+		tierRarityCounts[key]++
+
+		var tierOutput *strings.Builder
+		switch tier {
+		case 1:
+			tierOutput = &tier1
+		case 2:
+			tierOutput = &tier2
+		case 3:
+			tierOutput = &tier3
+		case 4:
+			tierOutput = &tier4
+		default:
+			continue
+		}
+
+		craftArt := ei.MissionArt.Ships[ship].Art
+		if config.IsDevBot() {
+			craftArt = ei.MissionArt.Ships[ship].ArtDev
+		}
+
+		durationName := ei.DurationTypeName[int32(shipDuration)]
+		if len(durationName) >= 2 {
+			durationName = strings.ToUpper(durationName[:2])
+		}
+
+		fmt.Fprintf(tierOutput, "%s %s (%d⭐️) **%s**  ratio of %0.5f (%d/%d drops)\n", durationName, craftArt, shipLevel, targetArtifact, dropRate, artifactDrops, allDropsValue)
+	}
+
+	//	shipName := ei.ShipTypeName[int32(ship)]
+	targetName := ei.ArtifactTypeName[int32(target)]
+
+	//	starsStr := strings.Repeat("⭐️", stars)
+	fmt.Fprintf(&output, "## Hunting for **%s**\n\n", targetName)
+	if len(tier4.String()) != 0 {
+		fmt.Fprintf(&output, "### Tier 4\n%s", tier4.String())
+	}
+	if len(tier3.String()) != 0 {
+		fmt.Fprintf(&output, "### Tier 3\n%s", tier3.String())
+	}
+	if len(tier2.String()) != 0 {
+		fmt.Fprintf(&output, "### Tier 2\n%s", tier2.String())
+	}
+	if len(tier1.String()) != 0 {
+		fmt.Fprintf(&output, "### Tier 1\n%s", tier1.String())
+	}
+
+	fmt.Fprintf(&output, "\n-# Drop rates are based on user contributions to Menno's drop data tool.\n")
+	fmt.Fprintf(&output, "-# This tool is made for RAIYC and is still under development. Data presentation may not be pretty.\n")
+	return output.String()
+}
+
+func mergeRarities(rows []GetDropsRow) []GetDropsRow {
+	// Merge rows with the same tier but different rarities, summing their drops and recalculating drop rate.
+	merged := make(map[string]GetDropsRow)
+	for _, row := range rows {
+		key := fmt.Sprintf("%d|%d|%d|%d|%d|%d|",
+			row.ShipTypeID.Int64,
+			row.ShipDurationTypeID.Int64,
+			row.ShipLevel.Int64,
+			row.ArtifactTier.Int64,
+			row.ArtifactTypeID.Int64,
+			row.TargetArtifactID.Int64)
+		if existing, found := merged[key]; found {
+			existing.TotalDrops.Int64 += row.TotalDrops.Int64
+			dropRate := float64(existing.TotalDrops.Int64) / float64(existing.AllDropsValue.(int64))
+			existing.DropRate = dropRate
+			existing.ArtifactRarityID.Int64 = max(existing.ArtifactRarityID.Int64, row.ArtifactRarityID.Int64)
+			merged[key] = existing
+		} else {
+			merged[key] = row
+		}
+	}
+	var result []GetDropsRow
+	for _, row := range merged {
+		result = append(result, row)
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return asFloat64(result[i].DropRate) > asFloat64(result[j].DropRate)
+	})
+	return result
 }
