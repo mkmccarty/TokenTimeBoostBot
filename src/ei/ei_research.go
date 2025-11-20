@@ -273,7 +273,7 @@ func GetCommonResearchPortalHabCapacity(commonResearch []*Backup_ResearchItem) f
 
 // GetFleetSize calculates the vehicle fleet size from common research
 func GetFleetSize(commonResearch []*Backup_ResearchItem) uint32 {
-	fleetSize := 1.0
+	fleetSize := 4.0
 
 	ids := []string{
 		"vehicle_reliablity",
