@@ -322,6 +322,11 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 			rows = append(rows[:i], rows[i+1:]...)
 			i--
 		}
+		// if the ship level is less than max for ship, remove it
+		if asFloat64(rows[i].AllDropsValue) < 1000 {
+			rows = append(rows[:i], rows[i+1:]...)
+			i--
+		}
 	}
 
 	rows = mergeRarities(rows)
