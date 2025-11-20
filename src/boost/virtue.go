@@ -247,10 +247,11 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64) []disc
 		craftArt = missionArt.Ships[lastFueled].ArtDev
 	}
 
-	//fleetSize := ei.GetFleetSize(farm.GetCommonResearch())
 	// print the fleet size and train length
+	availableFleetSize := ei.GetFleetSize(farm.GetCommonResearch())
+	availableTrainLength := ei.GetTrainLength(farm.GetCommonResearch())
 	habArt, habArray := getHabIconStrings(farm.GetHabs(), ei.GetBotEmojiMarkdown)
-	VehicleArt, VehicleArray := getVehicleIconStrings(farm.GetVehicles(), farm.GetTrainLength(), ei.GetBotEmojiMarkdown)
+	VehicleArt, VehicleArray := getVehicleIconStrings(farm.GetVehicles(), farm.GetTrainLength(), ei.GetBotEmojiMarkdown, availableFleetSize, availableTrainLength)
 
 	DepotArt := ei.GetBotEmojiMarkdown("depot")
 	//fmt.Fprintf(&builder, "Inventory Score %.0f\n", virtue.GetAfx().GetInventoryScore())
@@ -879,7 +880,14 @@ func getHabIconStrings(habs []uint32, getBotEmojiMarkdown func(string) string) (
 }
 
 // Return highest vehicle icon and array of vehicle icons
-func getVehicleIconStrings(vehicles []uint32, trainLength []uint32, getBotEmojiMarkdown func(string) string) (string, string) {
+func getVehicleIconStrings(
+	vehicles []uint32,
+	trainLength []uint32,
+	getBotEmojiMarkdown func(string) string,
+	availableFleetSize uint32,
+	availableTrainLength uint32) (
+	string, string) {
+
 	highestVehicle := 0
 	for _, v := range vehicles {
 		id := v // v is already a uint32 representing the vehicle ID
@@ -923,5 +931,19 @@ func getVehicleIconStrings(vehicles []uint32, trainLength []uint32, getBotEmojiM
 		vehicleArtParts = append(vehicleArtParts, part)
 	}
 	VehicleArray := strings.Join(vehicleArtParts, "")
+
+	if config.IsDevBot() {
+		// Add max available info
+		if availableFleetSize < 17 || availableTrainLength < 10 {
+			VehicleArray += " Available: "
+			if availableFleetSize < 17 {
+				VehicleArray += fmt.Sprintf("%d/17%s", availableFleetSize, VehicleArt)
+			}
+			if availableTrainLength < 10 {
+				VehicleArray += fmt.Sprintf(" %d/10%s\n", availableTrainLength, trainCar)
+			}
+		}
+	}
+
 	return VehicleArt, VehicleArray
 }
