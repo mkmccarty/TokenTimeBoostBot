@@ -324,6 +324,8 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 		}
 	}
 
+	rows = mergeRarities(rows)
+
 	var tier1 strings.Builder
 	var tier2 strings.Builder
 	var tier3 strings.Builder
@@ -336,17 +338,9 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 		dropRate := row.DropRate.(float64)
 
 		targetArtifact := ei.ArtifactTypeName[int32(row.TargetArtifactID.Int64)]
-		//returnArtifact := ei.ArtifactSpec_Name_name[int32(row.ArtifactTypeID.Int64)]
-		rf := ei.ArtifactSpec_Rarity_name[int32(row.ArtifactRarityID.Int64)]
-
-		rarity := ""
-		if len(rf) > 0 {
-			rarity = rf[:1]
-		}
 
 		tier := row.ArtifactTier.Int64 + 1
-		rarityID := row.ArtifactRarityID.Int64
-		key := fmt.Sprintf("%d|%d", tier, rarityID)
+		key := fmt.Sprintf("%d", tier)
 
 		if artifactDrops == 0 {
 			continue
@@ -372,7 +366,7 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 			continue
 		}
 
-		fmt.Fprintf(tierOutput, "**%s** target returned T%d%s at a ratio of %0.5f (%d/%d drops)\n", targetArtifact, tier, rarity, dropRate, artifactDrops, allDropsValue)
+		fmt.Fprintf(tierOutput, "**%s** target w/ratio of %0.5f (%d/%d drops)\n", targetArtifact, dropRate, artifactDrops, allDropsValue)
 	}
 
 	shipName := ei.ShipTypeName[int32(ship)]
