@@ -247,7 +247,8 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64) []disc
 		craftArt = missionArt.Ships[lastFueled].ArtDev
 	}
 
-	//fleetSize, trainLength := ei.GetFleetSize(farm.GetCommonResearch())
+	//fleetSize := ei.GetFleetSize(farm.GetCommonResearch())
+	// print the fleet size and train length
 	habArt, habArray := getHabIconStrings(farm.GetHabs(), ei.GetBotEmojiMarkdown)
 	VehicleArt, VehicleArray := getVehicleIconStrings(farm.GetVehicles(), farm.GetTrainLength(), ei.GetBotEmojiMarkdown)
 
