@@ -399,7 +399,7 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 }
 
 // PrintUserDropData retrieves and logs drop data for all ships the user has access to.
-func PrintUserDropData(backup *ei.Backup, duration ei.MissionInfo_DurationType, target ei.ArtifactSpec_Name) string {
+func PrintUserDropData(backup *ei.Backup, duration ei.MissionInfo_DurationType, target ei.ArtifactSpec_Name, minimumDrops int32) string {
 	var output strings.Builder
 	var rows []GetDropsRow
 
@@ -409,8 +409,6 @@ func PrintUserDropData(backup *ei.Backup, duration ei.MissionInfo_DurationType, 
 	// for each mission info, find matching ship/duration/target
 
 	shipLevels := make([]int, len(ei.ShipTypeName))
-
-	//
 
 	for _, mi := range append(missionInfo, missionArchive...) {
 		ship := mi.GetShip()
@@ -427,6 +425,14 @@ func PrintUserDropData(backup *ei.Backup, duration ei.MissionInfo_DurationType, 
 			targetArtifact = ei.ArtifactSpec_Name(10000)
 		}
 		shipRows := GetShipDropData(ei.MissionInfo_Spaceship(shipID), duration, level, targetArtifact)
+		// Filter shipRows to only include those with AllDropsValue >= minimumDrops
+		for i := 0; i < len(shipRows); i++ {
+			allDropsValue := shipRows[i].AllDropsValue.(int64)
+			if allDropsValue < int64(minimumDrops) {
+				shipRows = append(shipRows[:i], shipRows[i+1:]...)
+				i--
+			}
+		}
 
 		shipRows = mergeRarities(shipRows)
 
@@ -494,7 +500,7 @@ func PrintUserDropData(backup *ei.Backup, duration ei.MissionInfo_DurationType, 
 			durationName = strings.ToUpper(durationName[:2])
 		}
 
-		fmt.Fprintf(tierOutput, "%s %s (%d⭐️) **%s**  ratio of %0.5f (%d/%d drops)\n", durationName, craftArt, shipLevel, targetArtifact, dropRate, artifactDrops, allDropsValue)
+		fmt.Fprintf(tierOutput, "%s %s (%d⭐️) **%s** ratio of %0.5f (%d/%d drops)\n", durationName, craftArt, shipLevel, targetArtifact, dropRate, artifactDrops, allDropsValue)
 	}
 
 	//	shipName := ei.ShipTypeName[int32(ship)]
