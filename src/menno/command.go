@@ -1,6 +1,7 @@
 package menno
 
 import (
+	"encoding/base64"
 	"fmt"
 	"sort"
 	"strconv"
@@ -8,7 +9,9 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // SlashHuntCommand returns the command for the /hunt command
@@ -31,6 +34,55 @@ func SlashHuntCommand(cmd string) *discordgo.ApplicationCommand {
 			Value: fmt.Sprintf("%d", i),
 		})
 	}
+	commandOne := []*discordgo.ApplicationCommandOption{
+		{
+			Type:        discordgo.ApplicationCommandOptionInteger,
+			Name:        "ship",
+			Description: "Select the ship to search",
+			Required:    true,
+			Choices:     shipChoices,
+		},
+		{
+			Type:        discordgo.ApplicationCommandOptionInteger,
+			Name:        "duration-type",
+			Description: "Select the duration type",
+			Required:    true,
+			Choices:     durationTypeChoices,
+		},
+		{
+			Type:         discordgo.ApplicationCommandOptionString,
+			Name:         "artifact",
+			Description:  "What artifact or ingredient to hunt, searchable",
+			Required:     true,
+			Autocomplete: true,
+		},
+		{
+			Type:        discordgo.ApplicationCommandOptionInteger,
+			Name:        "stars",
+			Description: "Ship star level, default max",
+			MinValue:    &integerZeroMinValue,
+			MaxValue:    8,
+			Required:    false,
+		},
+	}
+
+	commandTwo := []*discordgo.ApplicationCommandOption{
+		{
+			Type:         discordgo.ApplicationCommandOptionString,
+			Name:         "artifact",
+			Description:  "What artifact or ingredient to hunt, searchable",
+			Required:     true,
+			Autocomplete: true,
+		},
+		{
+			Type:        discordgo.ApplicationCommandOptionInteger,
+			Name:        "duration-type",
+			Description: "Select the duration type (Sticky)",
+			Required:    false,
+			Choices:     durationTypeChoices,
+		},
+	}
+
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Find artifact drop probabilities",
@@ -45,33 +97,16 @@ func SlashHuntCommand(cmd string) *discordgo.ApplicationCommand {
 		},
 		Options: []*discordgo.ApplicationCommandOption{
 			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        "ship",
-				Description: "Select the ship to search",
-				Required:    true,
-				Choices:     shipChoices,
+				Description: "Custom single ship hunt of the Menno drop data",
+				Options:     commandOne,
 			},
 			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "duration-type",
-				Description: "Select the duration type",
-				Required:    true,
-				Choices:     durationTypeChoices,
-			},
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "artifact",
-				Description:  "What artifact or ingredient to hunt, searchable",
-				Required:     true,
-				Autocomplete: true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "stars",
-				Description: "Ship star level, default max",
-				MinValue:    &integerZeroMinValue,
-				MaxValue:    8,
-				Required:    false,
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "item",
+				Description: "Hunt Menno drop data across multiple ships",
+				Options:     commandTwo,
 			},
 		},
 	}
@@ -82,8 +117,15 @@ func HandleHuntAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate
 	optionMap := bottools.GetCommandOptionsMap(i)
 	searchString := ""
 
-	if opt, ok := optionMap["artifact"]; ok {
-		searchString = opt.StringValue()
+	if opt, ok := optionMap["ship-artifact"]; ok {
+		if opt.Focused {
+			searchString = opt.StringValue()
+		}
+	}
+	if opt, ok := optionMap["item-artifact"]; ok {
+		if opt.Focused {
+			searchString = opt.StringValue()
+		}
 	}
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
 
@@ -147,28 +189,103 @@ func HandleHuntAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate
 // HandleHuntCommand handles the /hunt command
 func HandleHuntCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	optionMap := bottools.GetCommandOptionsMap(i)
-
-	shipID := int(optionMap["ship"].IntValue())
-	shipStars := 8
-	durationTypeID := int(optionMap["duration-type"].IntValue())
+	var response string
 	artifactID := 10000 // No Target
-	if opt, ok := optionMap["artifact"]; ok {
-		artifactID, _ = strconv.Atoi(opt.StringValue())
-	}
-	if opt, ok := optionMap["stars"]; ok {
-		shipStars = int(opt.IntValue())
+
+	// Quick reply to buy us some time
+	flags := discordgo.MessageFlagsIsComponentsV2
+
+	if _, ok := optionMap["ship"]; ok {
+		shipID := int(optionMap["ship-ship"].IntValue())
+		shipStars := 8
+		durationTypeID := int(optionMap["ship-duration-type"].IntValue())
+		if opt, ok := optionMap["ship-artifact"]; ok {
+			artifactID, _ = strconv.Atoi(opt.StringValue())
+		}
+		if opt, ok := optionMap["ship-stars"]; ok {
+			shipStars = int(opt.IntValue())
+		}
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Processing request...",
+				Flags:   flags,
+			},
+		})
+
+		response = PrintDropData(ei.MissionInfo_Spaceship(shipID), ei.MissionInfo_DurationType(durationTypeID), shipStars, ei.ArtifactSpec_Name(artifactID))
 	}
 
-	response := PrintDropData(ei.MissionInfo_Spaceship(shipID), ei.MissionInfo_DurationType(durationTypeID), shipStars, ei.ArtifactSpec_Name(artifactID))
+	if _, ok := optionMap["item"]; ok {
+		userID := bottools.GetInteractionUserID(i)
+		// This command requires the user to be registered
+		eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+		if eiID != "" {
+			durationTypeID := 0
+			if opt, ok := optionMap["item-artifact"]; ok {
+				artifactID, _ = strconv.Atoi(opt.StringValue())
+			}
+			if opt, ok := optionMap["item-duration-type"]; ok {
+				durationTypeID = int(opt.IntValue())
+				farmerstate.SetMiscSettingString(userID, "huntItemDuration", fmt.Sprintf("%d','", durationTypeID))
+			} else {
+				durationTypeStr := farmerstate.GetMiscSettingString(userID, "huntItemDuration")
+				if durationTypeStr != "" {
+					durationTypeID, _ = strconv.Atoi(durationTypeStr)
+				}
+			}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsIsComponentsV2,
-			Components: []discordgo.MessageComponent{
-				discordgo.TextDisplay{
-					Content: response,
+			eggIncID := ""
+			encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
+			if err == nil {
+				decodedData, err := base64.StdEncoding.DecodeString(eiID)
+				if err == nil {
+					decryptedData, err := config.DecryptCombined(encryptionKey, decodedData)
+					if err == nil {
+						eggIncID = string(decryptedData)
+					}
+				}
+			}
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Processing request...",
+					Flags:   flags,
 				},
-			}},
-	})
+			})
+
+			backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, true)
+
+			response = PrintUserDropData(backup, ei.MissionInfo_DurationType(durationTypeID), ei.ArtifactSpec_Name(artifactID))
+		} else {
+			flags += discordgo.MessageFlagsEphemeral
+			response = fmt.Sprintf("You must register your EI ID with the bot to use this command. Use the %s command.", bottools.GetFormattedCommand("register"))
+
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Flags: flags,
+					Components: []discordgo.MessageComponent{
+						discordgo.TextDisplay{
+							Content: response,
+						},
+					},
+				},
+			})
+			return
+		}
+	}
+
+	_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Flags: flags,
+		Components: []discordgo.MessageComponent{
+			discordgo.TextDisplay{
+				Content: response,
+			},
+		}},
+	)
+	if err != nil {
+		fmt.Printf("HandleHuntCommand error: %v\n", err)
+	}
+
 }
