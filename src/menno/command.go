@@ -64,6 +64,16 @@ func SlashHuntCommand(cmd string) *discordgo.ApplicationCommand {
 			MaxValue:    8,
 			Required:    false,
 		},
+		/*
+			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "minimum-drops",
+				Description: "Select the minimum number of drops (Sticky)",
+				MinValue:    &integerZeroMinValue,
+				MaxValue:    8,
+				Required:    false,
+			},
+		*/
 	}
 
 	commandTwo := []*discordgo.ApplicationCommandOption{
@@ -80,6 +90,13 @@ func SlashHuntCommand(cmd string) *discordgo.ApplicationCommand {
 			Description: "Select the duration type (Sticky)",
 			Required:    false,
 			Choices:     durationTypeChoices,
+		},
+		{
+			Type:        discordgo.ApplicationCommandOptionInteger,
+			Name:        "minimum-drops",
+			Description: "Select the minimum number of drops (Sticky)",
+			MinValue:    &integerZeroMinValue,
+			Required:    false,
 		},
 	}
 
@@ -191,6 +208,7 @@ func HandleHuntCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	optionMap := bottools.GetCommandOptionsMap(i)
 	var response string
 	artifactID := 10000 // No Target
+	minimumDrops := 1000
 
 	// Quick reply to buy us some time
 	flags := discordgo.MessageFlagsIsComponentsV2
@@ -227,11 +245,20 @@ func HandleHuntCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			}
 			if opt, ok := optionMap["item-duration-type"]; ok {
 				durationTypeID = int(opt.IntValue())
-				farmerstate.SetMiscSettingString(userID, "huntItemDuration", fmt.Sprintf("%d','", durationTypeID))
+				farmerstate.SetMiscSettingString(userID, "huntItemDuration", fmt.Sprintf("%d", durationTypeID))
 			} else {
 				durationTypeStr := farmerstate.GetMiscSettingString(userID, "huntItemDuration")
 				if durationTypeStr != "" {
 					durationTypeID, _ = strconv.Atoi(durationTypeStr)
+				}
+			}
+			if opt, ok := optionMap["item-minimum-drops"]; ok {
+				minimumDrops = int(opt.IntValue())
+				farmerstate.SetMiscSettingString(userID, "huntMinimumDrops", fmt.Sprintf("%d", minimumDrops))
+			} else {
+				savedMinDrops := farmerstate.GetMiscSettingString(userID, "huntMinimumDrops")
+				if savedMinDrops != "" {
+					minimumDrops, _ = strconv.Atoi(savedMinDrops)
 				}
 			}
 
@@ -256,7 +283,7 @@ func HandleHuntCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 			backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, true)
 
-			response = PrintUserDropData(backup, ei.MissionInfo_DurationType(durationTypeID), ei.ArtifactSpec_Name(artifactID))
+			response = PrintUserDropData(backup, ei.MissionInfo_DurationType(durationTypeID), ei.ArtifactSpec_Name(artifactID), int32(minimumDrops))
 		} else {
 			flags += discordgo.MessageFlagsEphemeral
 			response = fmt.Sprintf("You must register your EI ID with the bot to use this command. Use the %s command.", bottools.GetFormattedCommand("register"))
