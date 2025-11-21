@@ -256,7 +256,7 @@ func TestGetVehicleIconStrings(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			vehicleArt, vehicleArray := getVehicleIconStrings(tc.vehicles, tc.trainLength, getBotEmojiMarkdown, 17, 10)
+			vehicleArt, vehicleArray := getVehicleIconStrings(tc.vehicles, tc.trainLength, getBotEmojiMarkdown)
 			if vehicleArt != tc.expectedVehicleArt {
 				t.Errorf("getVehicleIconStrings() vehicleArt = %v, want %v", vehicleArt, tc.expectedVehicleArt)
 			}
