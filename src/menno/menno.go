@@ -484,10 +484,7 @@ func PrintUserDropData(backup *ei.Backup, duration ei.MissionInfo_DurationType, 
 			continue
 		}
 
-		craftArt := ei.MissionArt.Ships[ship].Art
-		if config.IsDevBot() {
-			craftArt = ei.MissionArt.Ships[ship].ArtDev
-		}
+		craftArt := ei.GetBotEmojiMarkdown(ei.MissionArt.Ships[ship].Art)
 
 		durationName := ei.DurationTypeName[int32(shipDuration)]
 		if len(durationName) >= 2 {

@@ -210,10 +210,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64) []disc
 		ei.FormatEIValue(shiftCost, map[string]interface{}{"decimals": 3, "trim": true}))
 	// Ship icon uses last fueled ship art
 	lastFueled := virtue.GetAfx().GetLastFueledShip()
-	craftArt := ei.MissionArt.Ships[lastFueled].Art
-	if config.IsDevBot() {
-		craftArt = ei.MissionArt.Ships[lastFueled].ArtDev
-	}
+	craftArt := ei.GetBotEmojiMarkdown(ei.MissionArt.Ships[lastFueled].Art)
 
 	// print the fleet size and train length
 	habArt, habArray := getHabIconStrings(farm.GetHabs(), ei.GetBotEmojiMarkdown)
@@ -694,10 +691,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64) []disc
 		if missionType == ei.MissionInfo_VIRTUE {
 			shipType := mission.GetShip()
 			craft := ei.MissionArt.Ships[shipType]
-			art := craft.Art
-			if config.IsDevBot() {
-				art = craft.ArtDev
-			}
+			art := ei.GetBotEmojiMarkdown(craft.Art)
 			missionEnd := uint32(mission.GetStartTimeDerived()) + uint32(mission.GetDurationSeconds())
 			fmt.Fprintf(&rockets, "%s<t:%d:R> ", art, missionEnd)
 		}
