@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 
@@ -204,22 +203,23 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
-	var missionShips []shipData
-	missionShips = append(missionShips, mis.Ships[selectedShipPrimary])
+	var missionShips []ei.ShipData
+	missionShips = append(missionShips, ei.MissionArt.Ships[len(ei.MissionArt.Ships)-selectedShipPrimary-1])
 	if selectedShipSecondary != -1 && selectedShipPrimary != selectedShipSecondary {
 		// append secondary mission
 		switch selectedShipSecondary {
 		case -2: // All Stars Club
-			missionShips = append(missionShips, mis.Ships[1])
-			missionShips = append(missionShips, mis.Ships[2])
-			missionShips = append(missionShips, mis.Ships[3])
-			missionShips = append(missionShips, mis.Ships[4])
-			missionShips = append(missionShips, mis.Ships[5])
-			missionShips = append(missionShips, mis.Ships[6])
+			missionShips = append(missionShips, ei.MissionArt.Ships[len(ei.MissionArt.Ships)-1])
+			missionShips = append(missionShips, ei.MissionArt.Ships[len(ei.MissionArt.Ships)-2])
+			missionShips = append(missionShips, ei.MissionArt.Ships[len(ei.MissionArt.Ships)-3])
+			missionShips = append(missionShips, ei.MissionArt.Ships[len(ei.MissionArt.Ships)-4])
+			missionShips = append(missionShips, ei.MissionArt.Ships[len(ei.MissionArt.Ships)-5])
+			missionShips = append(missionShips, ei.MissionArt.Ships[len(ei.MissionArt.Ships)-6])
+			missionShips = append(missionShips, ei.MissionArt.Ships[len(ei.MissionArt.Ships)-7])
 		case -3: // Starfleet Commander
-			missionShips = append(missionShips, mis.Ships[1], mis.Ships[2], mis.Ships[3])
+			missionShips = append(missionShips, ei.MissionArt.Ships[len(ei.MissionArt.Ships)-8], ei.MissionArt.Ships[len(ei.MissionArt.Ships)-9], ei.MissionArt.Ships[len(ei.MissionArt.Ships)-10])
 		default:
-			missionShips = append(missionShips, mis.Ships[selectedShipSecondary])
+			missionShips = append(missionShips, ei.MissionArt.Ships[len(ei.MissionArt.Ships)-selectedShipSecondary-1])
 		}
 	}
 
@@ -385,10 +385,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 		for shipIndex, ship := range missionShips {
 			var sName = " " + ship.Name
-			var sArt = ship.Art
-			if config.IsDevBot() {
-				sArt = ship.ArtDev
-			}
+			var sArt = ei.GetBotEmojiMarkdown(ship.Art)
 			if shipIndex == 0 || len(missionShips) <= 2 {
 				builder.WriteString(sArt + " __" + ship.Name + "__:\n")
 				sName = "" // Clear this out for single missions
