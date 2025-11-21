@@ -18,12 +18,16 @@ const missionJSON = `{"ships":[
 	{"name": "Atreggies Henliner","art":"atreggies","duration":["2d","3d","4d"]}
 	]}`
 
+// ShipData holds data for each mission ship
+type ShipData struct {
+	Name     string   `json:"Name"`
+	Art      string   `json:"Art"`
+	ArtDev   string   `json:"ArtDev"`
+	Duration []string `json:"Duration"`
+}
+
 type missionData struct {
-	Ships []struct {
-		Name     string   `json:"name"`
-		Art      string   `json:"art"`
-		Duration []string `json:"duration"`
-	} `json:"ships"`
+	Ships []ShipData `json:"ships"`
 }
 
 // MissionArt holds the mission art and durations loaded from JSON
