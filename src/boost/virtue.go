@@ -751,7 +751,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64) []disc
 	if availableFleetSize < 17 {
 		fmt.Fprintf(&notes, "-# Available Fleet Size: %d/17 %s\n", availableFleetSize, VehicleArt)
 	} else if availableFleetSize == 17 && availableTrainLength < 10 {
-		fmt.Fprintf(&notes, "-# All 17 vehicles available %s\nAvailable Train Length: %d/10 %s\n", VehicleArt, availableTrainLength, ei.GetBotEmojiMarkdown("tl"))
+		fmt.Fprintf(&notes, "-# All 17 vehicles available %s\n-# Available Train Length: %d/10 %s\n", VehicleArt, availableTrainLength, ei.GetBotEmojiMarkdown("tl"))
 	}
 
 	components = append(components, &discordgo.Section{
