@@ -248,10 +248,8 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64) []disc
 	}
 
 	// print the fleet size and train length
-	availableFleetSize := ei.GetFleetSize(farm.GetCommonResearch())
-	availableTrainLength := ei.GetTrainLength(farm.GetCommonResearch())
 	habArt, habArray := getHabIconStrings(farm.GetHabs(), ei.GetBotEmojiMarkdown)
-	VehicleArt, VehicleArray := getVehicleIconStrings(farm.GetVehicles(), farm.GetTrainLength(), ei.GetBotEmojiMarkdown, availableFleetSize, availableTrainLength)
+	VehicleArt, VehicleArray := getVehicleIconStrings(farm.GetVehicles(), farm.GetTrainLength(), ei.GetBotEmojiMarkdown)
 
 	DepotArt := ei.GetBotEmojiMarkdown("depot")
 	//fmt.Fprintf(&builder, "Inventory Score %.0f\n", virtue.GetAfx().GetInventoryScore())
@@ -746,6 +744,15 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64) []disc
 			fmt.Fprint(&notes, researchStr)
 		}
 	}
+	// Available Vehicles and Trains from research
+	availableFleetSize := ei.GetFleetSize(farm.GetCommonResearch())
+	availableTrainLength := ei.GetTrainLength(farm.GetCommonResearch())
+	// Add max available info to notes
+	if availableFleetSize < 17 {
+		fmt.Fprintf(&notes, "-# Available Fleet Size: %d/17 %s\n", availableFleetSize, VehicleArt)
+	} else if availableFleetSize == 17 && availableTrainLength < 10 {
+		fmt.Fprintf(&notes, "-# All 17 vehicles available %s\nAvailable Train Length: %d/10 %s\n", VehicleArt, availableTrainLength, ei.GetBotEmojiMarkdown("tl"))
+	}
 
 	components = append(components, &discordgo.Section{
 		Components: []discordgo.MessageComponent{
@@ -883,9 +890,7 @@ func getHabIconStrings(habs []uint32, getBotEmojiMarkdown func(string) string) (
 func getVehicleIconStrings(
 	vehicles []uint32,
 	trainLength []uint32,
-	getBotEmojiMarkdown func(string) string,
-	availableFleetSize uint32,
-	availableTrainLength uint32) (
+	getBotEmojiMarkdown func(string) string) (
 	string, string) {
 
 	highestVehicle := 0
@@ -931,19 +936,6 @@ func getVehicleIconStrings(
 		vehicleArtParts = append(vehicleArtParts, part)
 	}
 	VehicleArray := strings.Join(vehicleArtParts, "")
-
-	if config.IsDevBot() {
-		// Add max available info
-		if availableFleetSize < 17 || availableTrainLength < 10 {
-			VehicleArray += " Available: "
-			if availableFleetSize < 17 {
-				VehicleArray += fmt.Sprintf("%d/17%s", availableFleetSize, VehicleArt)
-			}
-			if availableTrainLength < 10 {
-				VehicleArray += fmt.Sprintf(" %d/10%s\n", availableTrainLength, trainCar)
-			}
-		}
-	}
 
 	return VehicleArt, VehicleArray
 }
