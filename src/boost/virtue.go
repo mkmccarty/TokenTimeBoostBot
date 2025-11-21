@@ -932,17 +932,13 @@ func getVehicleIconStrings(
 	}
 	VehicleArray := strings.Join(vehicleArtParts, "")
 
-	if config.IsDevBot() {
-		// Add max available info
-		if availableFleetSize < 17 || availableTrainLength < 10 {
-			VehicleArray += " Available: "
-			if availableFleetSize < 17 {
-				VehicleArray += fmt.Sprintf("%d/17%s", availableFleetSize, VehicleArt)
-			}
-			if availableTrainLength < 10 {
-				VehicleArray += fmt.Sprintf(" %d/10%s\n", availableTrainLength, trainCar)
-			}
-		}
+	// Add max available info
+	if availableFleetSize < 17 {
+		VehicleArray += " Available: "
+		VehicleArray += fmt.Sprintf("%d/17%s", availableFleetSize, VehicleArt)
+	} else if availableFleetSize == 17 && availableTrainLength < 10 {
+		VehicleArray += " Available: "
+		VehicleArray += fmt.Sprintf("%d/10%s\n", availableTrainLength, trainCar)
 	}
 
 	return VehicleArt, VehicleArray
