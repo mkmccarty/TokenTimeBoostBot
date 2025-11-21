@@ -362,7 +362,7 @@ func isHabCapacity(researchID string) bool {
 
 // GetTrainLength calculates the hyperloop train length from common research
 func GetTrainLength(commonResearch []*Backup_ResearchItem) uint32 {
-	trainLength := 1.0
+	trainLength := 5.0
 
 	ids := []string{
 		"micro_coupling",
