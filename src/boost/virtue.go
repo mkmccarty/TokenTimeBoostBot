@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -75,6 +76,12 @@ func GetSlashVirtueCommand(cmd string) *discordgo.ApplicationCommand {
 				Description: "Reset stored EI number",
 				Required:    false,
 			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "compact",
+				Description: "Compact display (sticky)",
+				Required:    false,
+			},
 		},
 	}
 }
@@ -106,6 +113,16 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[
 		alternateEgg = ei.Egg(opt.IntValue())
 		if opt2, ok2 := optionMap["simulate-shift-target-te"]; ok2 {
 			targetTE = opt2.UintValue()
+		}
+	}
+	compact := false
+	if opt, ok := optionMap["compact"]; ok {
+		compact = opt.BoolValue()
+		farmerstate.SetMiscSettingString(userID, "virtueCompactMode", fmt.Sprintf("%t", compact))
+	} else {
+		savedCompact := farmerstate.GetMiscSettingString(userID, "virtueCompactMode")
+		if savedCompact != "" {
+			compact, _ = strconv.ParseBool(savedCompact)
 		}
 	}
 
@@ -155,7 +172,7 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[
 	if farm != nil {
 		farmType := farm.GetFarmType()
 		if farmType == ei.FarmType_HOME {
-			components = printVirtue(backup, alternateEgg, targetTE)
+			components = printVirtue(backup, alternateEgg, targetTE, compact)
 		}
 	}
 	if len(components) == 0 {
@@ -170,7 +187,7 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[
 
 }
 
-func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64) []discordgo.MessageComponent {
+func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compact bool) []discordgo.MessageComponent {
 	var components []discordgo.MessageComponent
 	divider := true
 	spacing := discordgo.SeparatorSpacingSizeSmall
@@ -531,7 +548,6 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64) []disc
 					time.Now().Add(time.Duration(int64(offsetRemainingTime))*time.Second).Unix(),
 				)
 			}
-
 		} else if alternateEgg != -1 && targetTE == 0 {
 			c := cases.Title(language.Und)
 			fmt.Fprintf(&header, "## Simulating a shift to %s\n", c.String(strings.ToLower(virtueEggs[alternateEgg-50])))
@@ -563,11 +579,19 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64) []disc
 					ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 1, "trim": true}),
 					selectedEggEmote,
 					time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Second).Unix())
-			} else if targetTE != 0 && offsetRemainingTime != -1.0 { // Show the estimated time with offset from TE target on the current egg
-				fmt.Fprintf(&header, "Deliver %s%s <t:%d:f>💤",
-					ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 1, "trim": true}),
-					selectedEggEmote,
-					time.Now().Add(time.Duration(int64(adjustedRemainingTime+offsetRemainingTime))*time.Second).Unix())
+			} else if targetTE != 0 && offsetRemainingTime != -1.0 { // Show the estimated time/duration with offset from TE target on the current egg
+				if !compact {
+					fmt.Fprintf(&header, "Sim %s%s <t:%d:f>💤 %s",
+						ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 1, "trim": true}),
+						selectedEggEmote,
+						time.Now().Add(time.Duration(int64(adjustedRemainingTime+offsetRemainingTime))*time.Second).Unix(),
+						bottools.FmtDuration(time.Duration(int64(adjustedRemainingTime+offsetRemainingTime))*time.Second))
+				} else { // Remove duration in compact mode
+					fmt.Fprintf(&header, "Sim %s%s <t:%d:f>💤",
+						ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 1, "trim": true}),
+						selectedEggEmote,
+						time.Now().Add(time.Duration(int64(adjustedRemainingTime+offsetRemainingTime))*time.Second).Unix())
+				}
 			} else {
 				fmt.Fprintf(&header, "Deliver %s%s <t:%d:f>💤",
 					ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 1, "trim": true}),
@@ -698,25 +722,49 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64) []disc
 	}
 
 	// Notes section
-	// Determine the costs of the next research items
-	// Only for Curisoty egg
-	prefixLinefeed := ""
-	if selectedEggIndex == 0 {
-		researchStr := ei.GatherCommonResearchCosts(gemsOnHand, offlineRateHr, backup.GetGame().GetEpicResearch(), backup.GetFarms()[0].GetCommonResearch(), colBuffs.ResearchDiscount, artifactBuffs.ResearchDiscount)
-		if researchStr != "" {
-			fmt.Fprint(&notes, researchStr)
-			prefixLinefeed = "\n"
+	// Add notes only if not compact, default is false
+	if !compact {
+		// Determine the costs of the next research items
+		// Only for Curisoty egg
+		prefixLinefeed := ""
+		if selectedEggIndex == 0 {
+			researchStr := ei.GatherCommonResearchCosts(gemsOnHand, offlineRateHr, backup.GetGame().GetEpicResearch(), backup.GetFarms()[0].GetCommonResearch(), colBuffs.ResearchDiscount, artifactBuffs.ResearchDiscount)
+			if researchStr != "" {
+				fmt.Fprint(&notes, researchStr)
+				prefixLinefeed = "\n"
 
+			}
 		}
-	}
-	// Available Vehicles and Trains from research
-	availableFleetSize := ei.GetFleetSize(farm.GetCommonResearch())
-	availableTrainLength := ei.GetTrainLength(farm.GetCommonResearch())
-	// Add max available info to notes
-	if availableFleetSize < 17 {
-		fmt.Fprintf(&notes, "%s-# Available Fleet Size: %d/17 %s\n", prefixLinefeed, availableFleetSize, VehicleArt)
-	} else if availableFleetSize == 17 && availableTrainLength < 10 {
-		fmt.Fprintf(&notes, "%s-# All 17 vehicles available %s\n-# Available Train Length: %d/10 %s\n", prefixLinefeed, VehicleArt, availableTrainLength, ei.GetBotEmojiMarkdown("tl"))
+		// Available Vehicles and Trains from research
+		availableFleetSize := ei.GetFleetSize(farm.GetCommonResearch())
+		availableTrainLength := ei.GetTrainLength(farm.GetCommonResearch())
+		vehicleCount := uint32(len(farm.GetVehicles()))
+		trainLengths := farm.GetTrainLength()
+		maxTrainLength := uint32(5)
+		for _, length := range trainLengths {
+			if length > maxTrainLength {
+				maxTrainLength = length
+			}
+		}
+
+		// Add max available vehicles and train length info
+		if selectedEggIndex == 0 {
+			// If on Curiosity always show details
+			if availableFleetSize < 17 {
+				fmt.Fprintf(&notes, "%s-# Max Available Vehicles: %d/17 %s\n", prefixLinefeed, availableFleetSize, VehicleArt)
+			} else if availableFleetSize == 17 && maxTrainLength < 10 {
+				fmt.Fprintf(&notes, "%s-# All 17 vehicles available %s\n-# Max Available Train Length: %d/10 %s\n", prefixLinefeed, VehicleArt, maxTrainLength, ei.GetBotEmojiMarkdown("tl"))
+			} else if availableFleetSize == 17 && maxTrainLength == 10 {
+				fmt.Fprintf(&notes, "%s-# All 17 vehicles and max 10 train length available %s %s\n", prefixLinefeed, VehicleArt, ei.GetBotEmojiMarkdown("tl"))
+			}
+		} else {
+			//  On other eggs show only if < currently available
+			if vehicleCount < availableFleetSize {
+				fmt.Fprintf(&notes, "%s-# Available Fleet Size: %d/17 %s\n", prefixLinefeed, availableFleetSize, VehicleArt)
+			} else if availableFleetSize == 17 && maxTrainLength < availableTrainLength {
+				fmt.Fprintf(&notes, "%s-# All 17 vehicles available %s\n-# Available Train Length: %d/10 %s\n", prefixLinefeed, VehicleArt, availableTrainLength, ei.GetBotEmojiMarkdown("tl"))
+			}
+		}
 	}
 
 	components = append(components, &discordgo.Section{
