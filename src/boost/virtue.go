@@ -647,30 +647,32 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 	hasArtifactBuffs := artifactBuffs.SR != 1 || artifactBuffs.ELR != 1 || artifactBuffs.IHR != 1 || artifactBuffs.Hab != 1 || artifactBuffs.Earnings != 1 || artifactBuffs.AwayEarnings != 1
 	if hasArtifactBuffs {
 		fmt.Fprintf(&stats, "%s", artifactIcons)
+
+		if artifactBuffs.SR != 1 {
+			fmt.Fprintf(&stats, " SR:%s", ei.FormatModifierValue(artifactBuffs.SR))
+		}
+		if artifactBuffs.ELR != 1 {
+			fmt.Fprintf(&stats, " ELR:%s", ei.FormatModifierValue(artifactBuffs.ELR))
+		}
+		if artifactBuffs.IHR != 1 {
+			fmt.Fprintf(&stats, " IHR:%s", ei.FormatModifierValue(artifactBuffs.IHR))
+		}
+		if artifactBuffs.Hab != 1 {
+			fmt.Fprintf(&stats, " H:%s", ei.FormatModifierValue(artifactBuffs.Hab))
+		}
+		if artifactBuffs.Earnings != 1 || artifactBuffs.AwayEarnings != 1 {
+			fmt.Fprintf(&stats, " %s", ei.GetBotEmojiMarkdown("gem"))
+			if artifactBuffs.Earnings != 1 {
+				fmt.Fprintf(&stats, "%s", ei.FormatModifierValue(artifactBuffs.Earnings))
+			}
+			if artifactBuffs.AwayEarnings != 1 {
+				fmt.Fprintf(&stats, " 💤%s", ei.FormatModifierValue(artifactBuffs.AwayEarnings))
+			}
+		}
+
+		fmt.Fprint(&stats, "\n")
 	}
 
-	if artifactBuffs.SR != 1 {
-		fmt.Fprintf(&stats, " SR:%s", ei.FormatModifierValue(artifactBuffs.SR))
-	}
-	if artifactBuffs.ELR != 1 {
-		fmt.Fprintf(&stats, " ELR:%s", ei.FormatModifierValue(artifactBuffs.ELR))
-	}
-	if artifactBuffs.IHR != 1 {
-		fmt.Fprintf(&stats, " IHR:%s", ei.FormatModifierValue(artifactBuffs.IHR))
-	}
-	if artifactBuffs.Hab != 1 {
-		fmt.Fprintf(&stats, " H:%s", ei.FormatModifierValue(artifactBuffs.Hab))
-	}
-	if artifactBuffs.Earnings != 1 || artifactBuffs.AwayEarnings != 1 {
-		fmt.Fprintf(&stats, " %s", ei.GetBotEmojiMarkdown("gem"))
-		if artifactBuffs.Earnings != 1 {
-			fmt.Fprintf(&stats, "%s", ei.FormatModifierValue(artifactBuffs.Earnings))
-		}
-		if artifactBuffs.AwayEarnings != 1 {
-			fmt.Fprintf(&stats, " 💤%s", ei.FormatModifierValue(artifactBuffs.AwayEarnings))
-		}
-	}
-	fmt.Fprint(&stats, "\n")
 	fmt.Fprintf(&stats, "%s", ei.GetBotEmojiMarkdown("collegg"))
 	if colBuffs.SR != 1 {
 		fmt.Fprintf(&stats, " SR:%s", ei.FormatModifierValue(colBuffs.SR))
