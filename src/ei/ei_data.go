@@ -125,6 +125,7 @@ type EggIncContract struct {
 	ModifierHabCost           float64
 	ValidFrom                 time.Time
 	ValidUntil                time.Time
+	HasPE                     bool
 	ContractVersion           int // 1 = old, 2 = new
 	Grade                     []ContractGrade
 	TeamNames                 []string // Names of the teams in the contract

@@ -101,6 +101,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	c.ContractVersion = 2
 	c.Ultra = contractProtoBuf.GetCcOnly()
 	c.SeasonID = contractProtoBuf.GetSeasonId()
+	c.HasPE = false
 
 	if c.SeasonID == "fall_2025" || strings.Contains(c.SeasonID, "2026") {
 		c.SeasonalScoring = ei.SeasonalScoringNerfed
@@ -135,6 +136,9 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		for _, g := range s.GetGoals() {
 			c.TargetAmount = append(c.TargetAmount, g.GetTargetAmount())
 			c.LengthInSeconds = int(s.GetLengthSeconds())
+			if g.GetRewardType() == ei.RewardType_EGGS_OF_PROPHECY {
+				c.HasPE = true
+			}
 		}
 		c.ModifierIHR = 1.0
 		c.ModifierELR = 1.0
