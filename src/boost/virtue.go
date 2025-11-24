@@ -639,11 +639,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 		ei.FormatEIValue(offlineRateHr/3600, map[string]interface{}{"decimals": 3, "trim": true}),
 	)
 
-	// If we have a selected egg type, show time to next TE
-	if artifactIcons == "" {
-		artifactIcons = "**Artifacts**"
-	}
-
+	// Display Artifact buffs if any
 	hasArtifactBuffs := artifactBuffs.SR != 1 || artifactBuffs.ELR != 1 || artifactBuffs.IHR != 1 || artifactBuffs.Hab != 1 || artifactBuffs.Earnings != 1 || artifactBuffs.AwayEarnings != 1
 	if hasArtifactBuffs {
 		fmt.Fprintf(&stats, "%s", artifactIcons)
