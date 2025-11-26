@@ -195,3 +195,32 @@ func CellANSI(s, color string, width int, right bool) string {
 	}
 	return colored + space
 }
+
+// ==== Timestamp Formatting ====
+
+type DiscordTimestampFormat string
+
+const (
+	TimestampDefault       DiscordTimestampFormat = ""  // Default        <t:1543392060>      November 28, 2018 9:01 AM            || 28 November 2018 09:01
+	TimestampShortTime     DiscordTimestampFormat = "t" // Short Time     <t:1543392060:t>    9:01 AM                              || 09:01
+	TimestampLongTime      DiscordTimestampFormat = "T" // Long Time      <t:1543392060:T>    9:01:00 AM                           || 09:01:00
+	TimestampShortDate     DiscordTimestampFormat = "d" // Short Date     <t:1543392060:d>    11/28/2018                           || 28/11/2018
+	TimestampLongDate      DiscordTimestampFormat = "D" // Long Date      <t:1543392060:D>    November 28, 2018                    || 28 November 2018
+	TimestampShortDateTime DiscordTimestampFormat = "f" // Short Date/Time<t:1543392060:f>    November 28, 2018 9:01 AM            || 28 November 2018 09:01
+	TimestampLongDateTime  DiscordTimestampFormat = "F" // Long Date/Time <t:1543392060:F>    Wednesday, November 28, 2018 9:01 AM || Wednesday, 28 November 2018 09:01
+	TimestampRelativeTime  DiscordTimestampFormat = "R" // Relative Time  <t:1543392060:R>    3 years ago                          || 3 years ago
+)
+
+// WrapTimestamp builds a Discord timestamp like <t:1234567890:F>.
+// Parameters:
+//   - ts (int64): The Unix timestamp in seconds.
+//   - format (DiscordTimestampFormat): The desired format.
+//
+// Returns:
+//   - (string): The formatted Discord timestamp.
+func WrapTimestamp(ts int64, format DiscordTimestampFormat) string {
+	if format == TimestampDefault {
+		return fmt.Sprintf("<t:%d>", ts)
+	}
+	return fmt.Sprintf("<t:%d:%s>", ts, format)
+}

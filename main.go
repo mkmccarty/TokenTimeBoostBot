@@ -89,6 +89,7 @@ const slashContractReport string = "contract-report"
 const slashVirtue string = "virtue"
 const slashRegister string = "register"
 const slashHunt string = "hunt"
+const slashSignups string = "signups"
 
 var integerZeroMinValue float64 = 0.0
 
@@ -328,6 +329,7 @@ var (
 		boost.GetSlashCoopTval(slashCoopTval),
 		boost.GetSlashTeamworkEval(slashTeamworkEval),
 		boost.GetSlashContractReportCommand(slashContractReport),
+		boost.GetSignupsCommand(slashSignups),
 		//boost.GetSlashSiabEval(slashSiabEval),
 		boost.GetSlashStones(slashStones),
 		boost.GetSlashTimer(slashTimer),
@@ -586,6 +588,9 @@ var (
 		},
 		slashHunt: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			menno.HandleHuntCommand(s, i)
+		},
+		slashSignups: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleSignups(s, i)
 		},
 		slashEstimateTime: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleEstimateTimeCommand(s, i)
