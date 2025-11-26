@@ -159,7 +159,7 @@ var EggIncContractsAll map[string]EggIncContract
 // CustomEggMap maps custom egg ID to EggIncCustomEgg
 var CustomEggMap map[string]*EggIncCustomEgg
 
-// EggIncContractCurrentSeason holds the current season contract, init with unknown values
+// EggIncCurrentSeason holds the current season contract, init with unknown values
 var EggIncCurrentSeason = EggIncSeason{
 	Id:   SeasonUnknownID,
 	Name: SeasonUnknown,
