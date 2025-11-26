@@ -630,7 +630,7 @@ func contractTimes9amPacific(week int) (monday, wednesday, friday time.Time, ok 
 	} else {
 		// Week-based
 		season := ei.EggIncCurrentSeason
-		if season.StartTime == 0 || season.Id == ei.SeasonUnknownID {
+		if season.StartTime == 0 || season.ID == ei.SeasonUnknownID {
 			return time.Time{}, time.Time{}, time.Time{}, false
 		}
 
