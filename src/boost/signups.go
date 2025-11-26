@@ -625,8 +625,9 @@ func contractTimes9amPacific(week int) (monday, wednesday, friday time.Time, ok 
 	// Current-date-based
 	if week <= 0 {
 		now := time.Now().In(KevinLoc)
-		baseLocal = findNextContractDropTime(now, time.Monday, KevinLoc)
-		week = 1
+		wednesday = findNextContractDropTime(now, time.Wednesday, KevinLoc)
+		friday = findNextContractDropTime(now, time.Friday, KevinLoc)
+		return time.Time{}, wednesday, friday, true
 	} else {
 		// Week-based
 		season := ei.EggIncCurrentSeason
