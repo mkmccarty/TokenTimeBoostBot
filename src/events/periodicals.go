@@ -293,6 +293,12 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 		}
 	}
 
+	// Set current season
+	seasonInfo := periodicalsResponse.GetContracts().GetCurrentSeason()
+	if seasonInfo != nil {
+		ei.SetEggIncCurrentSeason(seasonInfo.GetId(), seasonInfo.GetName(), seasonInfo.GetStartTime())
+	}
+
 	// Replace what we have with only a current list of names
 	saveRoleNames(currentTeamRoleMap)
 

@@ -2,6 +2,7 @@ package ei
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -84,6 +85,19 @@ type ContractGrade struct {
 	BasePoints           float64
 }
 
+const (
+	SeasonUnknownID = "season_unknown"
+	SeasonUnknown   = "Unknown Season"
+)
+
+// EggIncSeason is a raw contract season data for Egg Inc
+type EggIncSeason struct {
+	Id        string  `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Name      string  `protobuf:"bytes,3,opt,name=name" json:"name,omitempty"`
+	StartTime float64 `protobuf:"fixed64,4,opt,name=start_time,json=startTime" json:"start_time,omitempty"`
+	//GradeGoals []*ContractSeasonInfo_GoalSet `protobuf:"bytes,2,rep,name=grade_goals,json=gradeGoals" json:"grade_goals,omitempty"`
+}
+
 // Want an enum const for the SeasonalScoring field
 const (
 	SeasonalScoringStandard = 0
@@ -144,6 +158,12 @@ var EggIncContractsAll map[string]EggIncContract
 
 // CustomEggMap maps custom egg ID to EggIncCustomEgg
 var CustomEggMap map[string]*EggIncCustomEgg
+
+// EggIncContractCurrentSeason holds the current season contract, init with unknown values
+var EggIncCurrentSeason = EggIncSeason{
+	Id:   SeasonUnknownID,
+	Name: SeasonUnknown,
+}
 
 func init() {
 	EggIncContractsAll = make(map[string]EggIncContract)
@@ -261,4 +281,44 @@ func GetContractGradeString(grade int) string {
 		return parts[1]
 	}
 	return str
+}
+
+// SetEggIncCurrentSeason sets the current season
+func SetEggIncCurrentSeason(seasonID, seasonName string, seasonStartTime float64) {
+	EggIncCurrentSeason.Id = seasonID
+	EggIncCurrentSeason.Name = seasonName
+	EggIncCurrentSeason.StartTime = seasonStartTime
+}
+
+// GetEggIncCurrentSeason returns the current season name and year
+// returns (name, year, seasonStartTime)
+func GetEggIncCurrentSeason() (string, int, float64) {
+	// Id like fall_2025, split by "_"
+	parts := strings.Split(EggIncCurrentSeason.Id, "_")
+	if len(parts) == 2 {
+		y, err := strconv.Atoi(parts[1])
+		if err == nil {
+			return parts[0], y, EggIncCurrentSeason.StartTime
+		}
+	}
+	return "", 0, 0.0
+}
+
+// GetCurrentWeekNumber computes the current week number in the current season.
+// returns 1 on failure
+func GetCurrentWeekNumber(locationTZ *time.Location) int {
+	season := EggIncCurrentSeason
+	if season.StartTime == 0 || season.Id == SeasonUnknownID {
+		return 1
+	}
+
+	now := time.Now().In(locationTZ)
+	seasonStart := time.Unix(int64(season.StartTime), 0).In(locationTZ)
+
+	if now.Before(seasonStart) {
+		return 1
+	}
+
+	days := int(now.Sub(seasonStart).Hours() / 24)
+	return days/7 + 1
 }
