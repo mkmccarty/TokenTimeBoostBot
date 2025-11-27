@@ -617,7 +617,18 @@ func findNextContractDropTime(
 }
 
 // contractTimes9amPacific returns the contract drop times for Monday, Wednesday, and Friday at 9:00 AM Pacific Time
-// If season is not configured in week>0 mode, ok == false.
+// It has two modes:
+//
+//   - week > 0:
+//     Uses ei.EggIncCurrentSeason.StartTime (week 1 Monday +0) to compute
+//     Monday, Wednesday, Friday at 9:00 AM America/Los_Angeles for that week.
+//     Returns (monday, wednesday, friday, ok=true) if season is configured.
+//     If season is not configured (_, _, _, ok=false).
+//
+//   - week <= 0:
+//     Uses time.Now() to compute next Wednesday and Friday at 9:00 AM
+//     America/Los_Angeles. Monday is returned as zero-value.
+//     Returns (_, wednesday, friday, ok=true).
 func contractTimes9amPacific(week int) (monday, wednesday, friday time.Time, ok bool) {
 
 	var baseLocal time.Time
@@ -625,8 +636,9 @@ func contractTimes9amPacific(week int) (monday, wednesday, friday time.Time, ok 
 	// Current-date-based
 	if week <= 0 {
 		now := time.Now().In(KevinLoc)
-		baseLocal = findNextContractDropTime(now, time.Monday, KevinLoc)
-		week = 1
+		wednesday = findNextContractDropTime(now, time.Wednesday, KevinLoc)
+		friday = findNextContractDropTime(now, time.Friday, KevinLoc)
+		return time.Time{}, wednesday, friday, true
 	} else {
 		// Week-based
 		season := ei.EggIncCurrentSeason
