@@ -639,22 +639,22 @@ func contractTimes9amPacific(week int) (monday, wednesday, friday time.Time, ok 
 		wednesday = findNextContractDropTime(now, time.Wednesday, KevinLoc)
 		friday = findNextContractDropTime(now, time.Friday, KevinLoc)
 		return time.Time{}, wednesday, friday, true
-	} else {
-		// Week-based
-		season := ei.EggIncCurrentSeason
-		if season.StartTime == 0 || season.ID == ei.SeasonUnknownID {
-			return time.Time{}, time.Time{}, time.Time{}, false
-		}
-
-		baseLocal = time.Unix(int64(season.StartTime), 0).In(KevinLoc)
-		baseLocal = time.Date(
-			baseLocal.Year(),
-			baseLocal.Month(),
-			baseLocal.Day(),
-			9, 0, 0, 0,
-			KevinLoc,
-		)
 	}
+
+	// Week-based
+	season := ei.EggIncCurrentSeason
+	if season.StartTime == 0 || season.ID == ei.SeasonUnknownID {
+		return time.Time{}, time.Time{}, time.Time{}, false
+	}
+
+	baseLocal = time.Unix(int64(season.StartTime), 0).In(KevinLoc)
+	baseLocal = time.Date(
+		baseLocal.Year(),
+		baseLocal.Month(),
+		baseLocal.Day(),
+		9, 0, 0, 0,
+		KevinLoc,
+	)
 
 	// Calculate Monday/Wed/Fri of the target week
 	daysOffset := 7 * (week - 1)
