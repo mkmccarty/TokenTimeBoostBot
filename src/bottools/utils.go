@@ -2,6 +2,7 @@ package bottools
 
 import (
 	"fmt"
+	"maps"
 	"regexp"
 	"strings"
 	"time"
@@ -223,4 +224,11 @@ func WrapTimestamp(ts int64, format DiscordTimestampFormat) string {
 		return fmt.Sprintf("<t:%d>", ts)
 	}
 	return fmt.Sprintf("<t:%d:%s>", ts, format)
+}
+
+// RefreshMap creates and returns a shallow copy of the given map
+func RefreshMap[K comparable, V any](m map[K]V) map[K]V {
+	newMap := make(map[K]V, len(m))
+	maps.Copy(newMap, m)
+	return newMap
 }
