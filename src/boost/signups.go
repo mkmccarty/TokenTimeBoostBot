@@ -379,7 +379,7 @@ func predictions(
 	components := make([]discordgo.MessageComponent, 0, 3)
 	components = append(components, first)
 	if !copyPaste {
-		components = append(components, bottools.NewSmallSeparatorComponent(false))
+		components = append(components, bottools.NewSmallSeparatorComponent(true))
 	}
 	components = append(components, second)
 
