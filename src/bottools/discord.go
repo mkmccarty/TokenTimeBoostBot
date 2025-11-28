@@ -9,3 +9,15 @@ func GetInteractionUserID(i *discordgo.InteractionCreate) string {
 	}
 	return i.Member.User.ID
 }
+
+// NewSmallSeparatorComponent returns a Discord separator component configured with
+// small spacing and optional visibility.
+func NewSmallSeparatorComponent(visible bool) *discordgo.Separator {
+	divider := visible
+	spacing := discordgo.SeparatorSpacingSizeSmall
+
+	return &discordgo.Separator{
+		Divider: &divider,
+		Spacing: &spacing,
+	}
+}

@@ -182,7 +182,7 @@ func signups(
 	capacity := len(signupComponents)
 	if isNextWeek {
 		// add space for Leggacy predictions
-		capacity += 2
+		capacity += 3
 	}
 	components := make([]discordgo.MessageComponent, 0, capacity)
 	components = append(components, signupComponents...)
@@ -194,6 +194,7 @@ func signups(
 				Value: copyPaste,
 			}
 		}
+		components = append(components, bottools.NewSmallSeparatorComponent(!copyPaste))
 		components = append(components, predictions(optionMap)...)
 	}
 
@@ -210,11 +211,30 @@ func reactionSignupComponents(
 	seasonalTime, wedLeggacyTime, friPETime time.Time,
 	copyPaste bool,
 ) []discordgo.MessageComponent {
-	return []discordgo.MessageComponent{
-		writeSeasonalSignupDisplay(week, seasonIndex, seasonYear, seasonalTime, copyPaste),
-		writeLegacySignupDisplay(wedLeggacyTime, copyPaste),
-		writePELegacySignupDisplay(friPETime, copyPaste),
+	capHint := 3
+	if !copyPaste {
+		capHint = 5
 	}
+	components := make([]discordgo.MessageComponent, 0, capHint)
+
+	seasonal := writeSeasonalSignupDisplay(week, seasonIndex, seasonYear, seasonalTime, copyPaste)
+	legacy := writeLegacySignupDisplay(wedLeggacyTime, copyPaste)
+	peLegacy := writePELegacySignupDisplay(friPETime, copyPaste)
+
+	components = append(components, seasonal)
+	if !copyPaste {
+		components = append(
+			components,
+			bottools.NewSmallSeparatorComponent(true),
+			legacy,
+			bottools.NewSmallSeparatorComponent(true),
+			peLegacy,
+		)
+	} else {
+		components = append(components, legacy, peLegacy)
+	}
+
+	return components
 }
 
 func writeSeasonalSignupDisplay(
@@ -329,7 +349,8 @@ func writePELegacySignupDisplay(
 
 // predictions prints predictions for the following weeks contracts.
 func predictions(
-	optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption) []discordgo.MessageComponent {
+	optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption,
+) []discordgo.MessageComponent {
 	var contractCount int64 = 3
 	if opt, ok := optionMap["predictions-contract-count"]; ok {
 		contractCount = opt.IntValue()
@@ -342,15 +363,25 @@ func predictions(
 
 	fridayNonUltra, fridayUltra, wednesday := predictJeli(contractCount)
 
-	// Get the next Wednesday and Friday times and 0 means current week
+	// Get the next Wednesday and Friday times; 0 means current week
 	_, wedTime, friTime, _ := contractTimes9amPacific(0)
 
-	wednesdayComponent := writeWednesdayPredictions(wedTime, wednesday, copyPaste)
-	fridayComponent := writeFridayPredictions(friTime, fridayNonUltra, fridayUltra, copyPaste)
+	// Decide first/second block based on which comes first
+	var first, second discordgo.MessageComponent
+	if wedTime.Before(friTime) {
+		first = writeWednesdayPredictions(wedTime, wednesday, copyPaste, true)
+		second = writeFridayPredictions(friTime, fridayNonUltra, fridayUltra, copyPaste, false)
+	} else {
+		first = writeFridayPredictions(friTime, fridayNonUltra, fridayUltra, copyPaste, true)
+		second = writeWednesdayPredictions(wedTime, wednesday, copyPaste, false)
+	}
 
-	components := make([]discordgo.MessageComponent, 0, 2)
-	components = append(components, wednesdayComponent)
-	components = append(components, fridayComponent)
+	components := make([]discordgo.MessageComponent, 0, 3)
+	components = append(components, first)
+	if !copyPaste {
+		components = append(components, bottools.NewSmallSeparatorComponent(false))
+	}
+	components = append(components, second)
 
 	return components
 }
@@ -359,7 +390,7 @@ func predictions(
 func writeWednesdayPredictions(
 	dropTime time.Time, // when the post is created
 	contracts []ei.EggIncContract,
-	copyPaste bool,
+	copyPaste, printFirst bool,
 ) *discordgo.TextDisplay {
 	var b strings.Builder
 
@@ -374,18 +405,21 @@ func writeWednesdayPredictions(
 
 	// Header
 	b.WriteString("**📜 Leggacy Prediction 🔮**\n-# ")
-	b.WriteString(dropTime.Format("Jan 02, 2006"))
+	b.WriteString(bottools.WrapTimestamp(dropTime.Unix(), bottools.TimestampLongDate))
 	b.WriteByte('\n')
 
 	// Body
 	writeContracts(&b, contracts, copyPaste, iconCoop, iconCR)
 
-	// Footer
-	b.WriteString("\n-# ")
-	b.WriteString(iconCoop)
-	b.WriteString(" coop size | 🎏 parade alts | ")
-	b.WriteString(iconCR)
-	b.WriteString(" target CRs | 🌼Seasonal LB\n")
+	// Footer: show for copy-paste mode or when not first
+	if copyPaste || !printFirst {
+		b.WriteString("\n-# ")
+		b.WriteString(iconCoop)
+		b.WriteString(" coop size | 🎏 parade alts | ")
+		b.WriteString(iconCR)
+		b.WriteString(" target CRs | 🌼Seasonal LB\n")
+		b.WriteString("-# Prediction formula by @jelibean84\n")
+	}
 
 	if copyPaste {
 		b.WriteString("```")
@@ -401,7 +435,7 @@ func writeFridayPredictions(
 	dropTime time.Time,
 	peContracts []ei.EggIncContract, // non-Ultra PE
 	ultraContracts []ei.EggIncContract, // Ultra PE
-	copyPaste bool,
+	copyPaste, printFirst bool,
 ) *discordgo.TextDisplay {
 	var b strings.Builder
 
@@ -416,7 +450,7 @@ func writeFridayPredictions(
 
 	// Header
 	b.WriteString("**PE Leggacies Predictions 🔮**\n-# ")
-	b.WriteString(dropTime.Format("Jan 02, 2006"))
+	b.WriteString(bottools.WrapTimestamp(dropTime.Unix(), bottools.TimestampLongDate))
 	b.WriteByte('\n')
 
 	// Non-ultra section
@@ -434,11 +468,14 @@ func writeFridayPredictions(
 	}
 
 	// Footer
-	b.WriteString("-# ")
-	b.WriteString(iconCoop)
-	b.WriteString(" coop size | 🎏 parade alts | ")
-	b.WriteString(iconCR)
-	b.WriteString(" target CRs | 🌼Seasonal LB\n")
+	if copyPaste || !printFirst {
+		b.WriteString("-# ")
+		b.WriteString(iconCoop)
+		b.WriteString(" coop size | 🎏 parade alts | ")
+		b.WriteString(iconCR)
+		b.WriteString(" target CRs | 🌼Seasonal LB\n")
+		b.WriteString("-# Prediction formula by @jelibean84\n")
+	}
 
 	if copyPaste {
 		b.WriteString("```")
@@ -499,7 +536,7 @@ func writeContracts(
 		// Second line
 		fmt.Fprintf(
 			b,
-			"_      _%s `%2d`  🎏 `%3d`  %s `%2d`\n",
+			"_      _%s `%2d`  🎏 `%2d`  %s `%2d`\n",
 			iconCoop,
 			c.MaxCoopSize,
 			paradeAlts,
