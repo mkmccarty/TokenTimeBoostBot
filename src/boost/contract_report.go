@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mattn/go-runewidth"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
@@ -634,7 +635,7 @@ func printContractReport(
 	if len(p.missingPlayers) > 0 {
 		var b strings.Builder
 		// message about registration
-		registerMessage := fmt.Sprintf("Missing from the report? Register your Egg Inc ID with %s.\n", bottools.GetFormattedCommand("register"))
+		registerMessage := fmt.Sprintf("Missing from the report? %s.\n", bottools.GetFormattedCommand("register"))
 		if showMissingPlayers {
 			b.WriteString("Boost Bot doesn't know these players:\n")
 			// sort missing player names
@@ -729,11 +730,9 @@ func formatEvalMetricsRowANSI(
 
 // pad/truncate a plain name to width
 func fitName(name string, width int) string {
-	rs := []rune(name)
-	if len(rs) > width {
-		rs = rs[:width]
-	}
-	return fmt.Sprintf("%-*s", width, string(rs))
+	// truncate if needed and pad right
+	trimmed := runewidth.Truncate(name, width, "")
+	return runewidth.FillRight(trimmed, width)
 }
 
 // ===== color rules =====
