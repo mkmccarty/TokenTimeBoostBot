@@ -199,27 +199,40 @@ func CellANSI(s, color string, width int, right bool) string {
 
 // ==== Timestamp Formatting ====
 
+// TimestampNumber is a set of integer types that can be used as Unix timestamps.
+type TimestampNumber interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64 |
+		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
+}
+
+// DiscordTimestampFormat holds the style postfixes for Discord timestamp formatting.
 type DiscordTimestampFormat string
 
 const (
-	TimestampDefault       DiscordTimestampFormat = ""  // Default        <t:1543392060>      November 28, 2018 9:01 AM            || 28 November 2018 09:01
-	TimestampShortTime     DiscordTimestampFormat = "t" // Short Time     <t:1543392060:t>    9:01 AM                              || 09:01
-	TimestampLongTime      DiscordTimestampFormat = "T" // Long Time      <t:1543392060:T>    9:01:00 AM                           || 09:01:00
-	TimestampShortDate     DiscordTimestampFormat = "d" // Short Date     <t:1543392060:d>    11/28/2018                           || 28/11/2018
-	TimestampLongDate      DiscordTimestampFormat = "D" // Long Date      <t:1543392060:D>    November 28, 2018                    || 28 November 2018
-	TimestampShortDateTime DiscordTimestampFormat = "f" // Short Date/Time<t:1543392060:f>    November 28, 2018 9:01 AM            || 28 November 2018 09:01
-	TimestampLongDateTime  DiscordTimestampFormat = "F" // Long Date/Time <t:1543392060:F>    Wednesday, November 28, 2018 9:01 AM || Wednesday, 28 November 2018 09:01
-	TimestampRelativeTime  DiscordTimestampFormat = "R" // Relative Time  <t:1543392060:R>    3 years ago                          || 3 years ago
+	// Default        <t:1543392060>      November 28, 2018 9:01 AM            || 28 November 2018 09:01
+	TimestampDefault DiscordTimestampFormat = ""
+	// Short Time     <t:1543392060:t>    9:01 AM                              || 09:01
+	TimestampShortTime DiscordTimestampFormat = "t"
+	// Long Time      <t:1543392060:T>    9:01:00 AM                           || 09:01:00
+	TimestampLongTime DiscordTimestampFormat = "T"
+	// Short Date     <t:1543392060:d>    11/28/2018                           || 28/11/2018
+	TimestampShortDate DiscordTimestampFormat = "d"
+	// Long Date      <t:1543392060:D>    November 28, 2018                    || 28 November 2018
+	TimestampLongDate DiscordTimestampFormat = "D"
+	// Short Date/Time<t:1543392060:f>    November 28, 2018 9:01 AM            || 28 November 2018 09:01
+	TimestampShortDateTime DiscordTimestampFormat = "f"
+	// Long Date/Time <t:1543392060:F>    Wednesday, November 28, 2018 9:01 AM || Wednesday, 28 November 2018 09:01
+	TimestampLongDateTime DiscordTimestampFormat = "F"
+	// Relative Time  <t:1543392060:R>    3 years ago                          || 3 years ago
+	TimestampRelativeTime DiscordTimestampFormat = "R"
 )
 
-// WrapTimestamp builds a Discord timestamp like <t:1234567890:F>.
-// Parameters:
-//   - ts (int64): The Unix timestamp in seconds.
-//   - format (DiscordTimestampFormat): The desired format.
+// WrapTimestamp returns ts formatted as a Discord timestamp string.
 //
-// Returns:
-//   - (string): The formatted Discord timestamp.
-func WrapTimestamp(ts int64, format DiscordTimestampFormat) string {
+// ts can be any integer type assumed to be a Unix timestamp in seconds.
+// format is one of the DiscordTimestampFormat constants.
+// If format is TimestampDefault, it returns "<t:ts>". Otherwise it returns "<t:ts:format>".
+func WrapTimestamp[N TimestampNumber](ts N, format DiscordTimestampFormat) string {
 	if format == TimestampDefault {
 		return fmt.Sprintf("<t:%d>", ts)
 	}
