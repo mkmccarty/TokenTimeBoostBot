@@ -251,7 +251,6 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 	currentDelievered := 0.0
 	currentEggIndex := -1
 	currentEggEmote := ""
-	currentOfflineEggs := 0.0
 
 	for i, egg := range virtueEggs {
 		eov := virtue.GetEovEarned()[i] // Assuming Eggs is the correct field for accessing egg virtues
@@ -431,9 +430,6 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 	elapsed := time.Since(syncTime).Seconds()
 	offlineEggs := min(eggLayingRate, shippingRate) * (elapsed / 3600)
 	if alternateEgg != -1 {
-		if targetTE != 0 {
-			currentOfflineEggs = min(eggLayingRate, shippingRate) * (elapsed / 3600)
-		}
 		offlineEggs = 0
 	}
 
@@ -525,7 +521,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 
 			currentEggTarget = TruthEggBreakpoints[targetTE-1]
 
-			remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, currentEggTarget-currentDelievered-currentOfflineEggs)
+			remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, currentEggTarget-currentDelievered)
 			adjustedRemainingTime := remainingTime - elapsed
 
 			if remainingTime != -1.0 {
@@ -554,7 +550,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 		}
 
 		// Loop to show time to next several Truth Egg thresholds
-		remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, selectedTarget-selectedDelivered-offlineEggs)
+		remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, selectedTarget-selectedDelivered)
 		adjustedRemainingTime := remainingTime - elapsed
 
 		loopCount := 0
