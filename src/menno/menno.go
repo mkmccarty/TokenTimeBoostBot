@@ -389,7 +389,6 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 	}
 
 	fmt.Fprintf(&output, "-# Drop rates are based on user contributions to Menno's drop data tool.\n")
-	fmt.Fprintf(&output, "-# This tool is made for RAIYC and is still under development. Data presentation may not be pretty.\n")
 	return output.String()
 }
 
