@@ -428,7 +428,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 	offlineFillTime := ei.TimeForLinearGrowth(habPop, habCap, offlineRate/60)
 	syncTime := time.Unix(int64(backup.GetApproxTime()), 0)
 	elapsed := time.Since(syncTime).Seconds()
-	offlineEggs := min(eggLayingRate, shippingRate) * (elapsed / 3600)
+	offlineEggs := min(eggLayingRate-fuelRate, shippingRate) * (elapsed / 3600)
 	if alternateEgg != -1 {
 		offlineEggs = 0
 	}
