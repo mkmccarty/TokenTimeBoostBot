@@ -287,7 +287,7 @@ func asFloat64(v interface{}) float64 {
 }
 
 // PrintDropData retrieves and logs drop data for a specific ship configuration.
-func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_DurationType, stars int, target ei.ArtifactSpec_Name) string {
+func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_DurationType, stars int, target ei.ArtifactSpec_Name, minimumDrops int32) string {
 	var output strings.Builder
 	var rows []GetDropsRow
 	// Cap the ship stars to the max for the ship
@@ -318,7 +318,8 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 
 	// Sanitize results. For every row, if the ship type is <= 2 and the target isn't 10000, remove it
 	for i := 0; i < len(rows); i++ {
-		if rows[i].ShipTypeID.Int64 <= 2 && rows[i].TargetArtifactID.Int64 != 10000 {
+		allDropsValue := rows[i].AllDropsValue.(int64)
+		if allDropsValue < int64(minimumDrops) || (rows[i].ShipTypeID.Int64 <= 2 && rows[i].TargetArtifactID.Int64 != 10000) {
 			rows = append(rows[:i], rows[i+1:]...)
 			i--
 		}

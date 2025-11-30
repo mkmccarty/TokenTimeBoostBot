@@ -64,16 +64,13 @@ func SlashHuntCommand(cmd string) *discordgo.ApplicationCommand {
 			MaxValue:    8,
 			Required:    false,
 		},
-		/*
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "minimum-drops",
-				Description: "Select the minimum number of drops (Sticky)",
-				MinValue:    &integerZeroMinValue,
-				MaxValue:    8,
-				Required:    false,
-			},
-		*/
+		{
+			Type:        discordgo.ApplicationCommandOptionInteger,
+			Name:        "minimum-drops",
+			Description: "Select the minimum number of drops (Sticky)",
+			MinValue:    &integerZeroMinValue,
+			Required:    false,
+		},
 	}
 
 	commandTwo := []*discordgo.ApplicationCommandOption{
@@ -209,6 +206,7 @@ func HandleHuntCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var response string
 	artifactID := 10000 // No Target
 	minimumDrops := 1000
+	userID := bottools.GetInteractionUserID(i)
 
 	// Quick reply to buy us some time
 	flags := discordgo.MessageFlagsIsComponentsV2
@@ -223,6 +221,15 @@ func HandleHuntCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if opt, ok := optionMap["ship-stars"]; ok {
 			shipStars = int(opt.IntValue())
 		}
+		if opt, ok := optionMap["ship-minimum-drops"]; ok {
+			minimumDrops = int(opt.IntValue())
+			farmerstate.SetMiscSettingString(userID, "huntMinimumDrops", fmt.Sprintf("%d", minimumDrops))
+		} else {
+			savedMinDrops := farmerstate.GetMiscSettingString(userID, "huntMinimumDrops")
+			if savedMinDrops != "" {
+				minimumDrops, _ = strconv.Atoi(savedMinDrops)
+			}
+		}
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
@@ -231,11 +238,10 @@ func HandleHuntCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			},
 		})
 
-		response = PrintDropData(ei.MissionInfo_Spaceship(shipID), ei.MissionInfo_DurationType(durationTypeID), shipStars, ei.ArtifactSpec_Name(artifactID))
+		response = PrintDropData(ei.MissionInfo_Spaceship(shipID), ei.MissionInfo_DurationType(durationTypeID), shipStars, ei.ArtifactSpec_Name(artifactID), int32(minimumDrops))
 	}
 
 	if _, ok := optionMap["item"]; ok {
-		userID := bottools.GetInteractionUserID(i)
 		// This command requires the user to be registered
 		eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 		if eiID != "" {
