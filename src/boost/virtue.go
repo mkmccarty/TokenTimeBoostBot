@@ -742,8 +742,8 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 		}
 
 		// Add max available vehicles and train length info
-		if selectedEggIndex == 0 {
-			// If on Curiosity always show details
+		switch selectedEggIndex {
+		case 0: // Curiosity
 			if availableFleetSize < 17 {
 				fmt.Fprintf(&notes, "%s-# Max Available Vehicles: %d/17 %s\n", prefixLinefeed, availableFleetSize, VehicleArt)
 			} else if availableFleetSize == 17 && maxTrainLength < 10 {
@@ -751,8 +751,11 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 			} else if availableFleetSize == 17 && maxTrainLength == 10 {
 				fmt.Fprintf(&notes, "%s-# All 17 vehicles and max 10 train length available %s %s\n", prefixLinefeed, VehicleArt, ei.GetBotEmojiMarkdown("tl"))
 			}
-		} else {
-			//  On other eggs show only if < currently available
+		case 2: // Humility
+			// Calculate the launched ships
+			fmt.Fprintf(&notes, "%s", getVirtueLaunchedShips(backup))
+
+		default: //  On other eggs show only if < currently available
 			if vehicleCount < availableFleetSize {
 				fmt.Fprintf(&notes, "%s-# Available Fleet Size: %d/17 %s\n", prefixLinefeed, availableFleetSize, VehicleArt)
 			} else if availableFleetSize == 17 && maxTrainLength < availableTrainLength {
@@ -805,6 +808,154 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 	})
 
 	return components
+}
+
+func getVirtueLaunchedShips(backup *ei.Backup) string {
+	var output strings.Builder
+
+	afx := backup.GetArtifactsDb()
+	missionInfo := afx.GetMissionInfos()
+	missionArchive := afx.GetMissionArchive()
+
+	virtue := backup.GetVirtue()
+
+	tankLevels := []float64{2e9, 200e9, 10e12, 100e12, 200e12, 300e12, 400e12, 500e12}
+	fuelingTankLevel := backup.GetArtifacts().GetTankLevel()
+	fuelLimits := virtue.GetAfx().GetTankLimits()
+	tankLimit := tankLevels[fuelingTankLevel]
+
+	// Only use the last 5 elements of fuelLimits and tankLevels
+	if len(fuelLimits) > 5 {
+		fuelLimits = fuelLimits[len(fuelLimits)-5:]
+	}
+	fuels := virtue.GetAfx().GetTankFuels()
+	if len(fuels) > 5 {
+		fuels = fuels[len(fuels)-5:]
+	}
+	totalFuel := 0.0
+	for _, fuel := range fuels {
+		totalFuel += fuel
+	}
+
+	maxFill := make([]float64, len(fuels))
+	for i := range fuels {
+		maxFill[i] = tankLimit * fuelLimits[i]
+	}
+	mymissions := append(missionInfo, missionArchive...)
+	slices.SortFunc(mymissions, func(a, b *ei.MissionInfo) int {
+		sa := a.GetStartTimeDerived()
+		sb := b.GetStartTimeDerived()
+		if sa > sb {
+			return -1 // a before b (descending)
+		}
+		if sa < sb {
+			return 1 // a after b
+		}
+		return 0
+	})
+
+	tankLimitReached := false
+
+	// I want a map from a string to an int for ship counts
+	shipCounts := make(map[string]int32)
+
+	var firstMissionStart, lastMissionStart float64 = -1, -1
+
+	for i, mi := range mymissions {
+		if mi.GetType() != ei.MissionInfo_VIRTUE {
+			continue
+		}
+
+		missionStart := mi.GetStartTimeDerived()
+		missionEnd := uint32(missionStart) + uint32(mi.GetDurationSeconds())
+		// is the missionStart within the last month?
+		if uint32(missionStart) < uint32(time.Now().AddDate(0, -1, 0).Unix()) {
+			continue
+		}
+
+		// Track first and last missionStart times
+		if firstMissionStart == -1 || float64(missionStart) < firstMissionStart {
+			firstMissionStart = missionStart
+		}
+		if lastMissionStart == -1 || missionStart > lastMissionStart {
+			lastMissionStart = missionStart
+		}
+
+		for _, f := range mi.GetFuel() {
+			fuelEgg := f.GetEgg() - ei.Egg_CURIOSITY
+			if fuelEgg == 2 {
+				continue // Skip Humility fuel as it isn't previously banked
+			}
+			fuelAmount := f.GetAmount()
+			// Add this amount to the fuels and if over maxFill, mark as overfilled
+			if int(fuelEgg) >= 0 && int(fuelEgg) < len(fuels) {
+				fuels[fuelEgg] += fuelAmount
+				if fuels[fuelEgg] >= maxFill[fuelEgg] {
+					tankLimitReached = true
+				}
+			}
+		}
+
+		// This is a virtue mission if the fuel type is one of the virtue eggs
+		ship := mi.GetShip()
+		durationType := mi.GetDurationType()
+		key := fmt.Sprintf("%d/%d", ship, durationType)
+		shipCounts[key]++
+
+		fmt.Printf("%d: <t:%d:R> ", i, missionEnd)
+		// I want a structure to track the ship and duration type
+		if tankLimitReached {
+			// Break out of this loop and now print our tally of missions
+			break
+		}
+	}
+
+	if len(shipCounts) == 0 {
+		return ""
+	}
+
+	// Print the mission start time range
+	if firstMissionStart != -1 && lastMissionStart != -1 {
+		fmt.Fprintf(&output, "Missions launched between %s - %s\n", bottools.WrapTimestamp(int64(firstMissionStart), bottools.TimestampRelativeTime), bottools.WrapTimestamp(int64(lastMissionStart), bottools.TimestampRelativeTime))
+	}
+
+	var keys []string
+	for k := range shipCounts {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	// Group by ship ID
+	shipGroups := make(map[int][]string)
+	for _, key := range keys {
+		parts := strings.Split(key, "/")
+		if len(parts) != 2 {
+			continue
+		}
+		shipID, err1 := strconv.Atoi(parts[0])
+		durationType, err2 := strconv.Atoi(parts[1])
+		if err1 != nil || err2 != nil {
+			continue
+		}
+		count := shipCounts[key]
+		durationStr := ei.DurationTypeNameAbbr[int32(durationType)]
+		shipGroups[shipID] = append(shipGroups[shipID], fmt.Sprintf("%sx%d", durationStr, count))
+	}
+
+	// Sort ship IDs and output
+	var shipIDs []int
+	for shipID := range shipGroups {
+		shipIDs = append(shipIDs, shipID)
+	}
+	slices.Sort(shipIDs)
+
+	for _, shipID := range shipIDs {
+		craft := ei.MissionArt.Ships[shipID]
+		art := ei.GetBotEmojiMarkdown(craft.Art)
+		durations := strings.Join(shipGroups[shipID], " / ")
+		output.WriteString(fmt.Sprintf("%s%s\n", art, durations))
+	}
+
+	return output.String()
 }
 
 func getShiftCost(shiftCount uint32, soulEggs float64) float64 {
