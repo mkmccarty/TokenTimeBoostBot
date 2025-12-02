@@ -814,8 +814,8 @@ func getVirtueLaunchedShips(backup *ei.Backup) string {
 	var output strings.Builder
 
 	afx := backup.GetArtifactsDb()
-	missionInfo := afx.GetMissionInfos()
-	missionArchive := afx.GetMissionArchive()
+	missionInfo := afx.GetMissionInfos()      // in progress missions
+	missionArchive := afx.GetMissionArchive() // completed missions
 
 	virtue := backup.GetVirtue()
 
@@ -841,6 +841,8 @@ func getVirtueLaunchedShips(backup *ei.Backup) string {
 	for i := range fuels {
 		maxFill[i] = tankLimit * fuelLimits[i]
 	}
+
+	// Create ordered list of missions by start time descending
 	mymissions := append(missionInfo, missionArchive...)
 	slices.SortFunc(mymissions, func(a, b *ei.MissionInfo) int {
 		sa := a.GetStartTimeDerived()
@@ -854,9 +856,9 @@ func getVirtueLaunchedShips(backup *ei.Backup) string {
 		return 0
 	})
 
+	// Track fuel fills to determine if tank limit reached
+	// If so, we stop processing further missions
 	tankLimitReached := false
-
-	// I want a map from a string to an int for ship counts
 	shipCounts := make(map[string]int32)
 
 	var firstMissionStart, lastMissionStart float64 = -1, -1
@@ -868,7 +870,7 @@ func getVirtueLaunchedShips(backup *ei.Backup) string {
 
 		missionStart := mi.GetStartTimeDerived()
 		missionEnd := uint32(missionStart) + uint32(mi.GetDurationSeconds())
-		// is the missionStart within the last month?
+		// Only want missions in the last month
 		if uint32(missionStart) < uint32(time.Now().AddDate(0, -1, 0).Unix()) {
 			continue
 		}
@@ -887,7 +889,7 @@ func getVirtueLaunchedShips(backup *ei.Backup) string {
 				continue // Skip Humility fuel as it isn't previously banked
 			}
 			fuelAmount := f.GetAmount()
-			// Add this amount to the fuels and if over maxFill, mark as overfilled
+			// Add this amount to the fuels and if over maxFill, mark as tankLimitReached
 			if int(fuelEgg) >= 0 && int(fuelEgg) < len(fuels) {
 				fuels[fuelEgg] += fuelAmount
 				if fuels[fuelEgg] >= maxFill[fuelEgg] {
@@ -896,16 +898,14 @@ func getVirtueLaunchedShips(backup *ei.Backup) string {
 			}
 		}
 
-		// This is a virtue mission if the fuel type is one of the virtue eggs
 		ship := mi.GetShip()
 		durationType := mi.GetDurationType()
 		key := fmt.Sprintf("%d/%d", ship, durationType)
 		shipCounts[key]++
 
 		fmt.Printf("%d: <t:%d:R> ", i, missionEnd)
-		// I want a structure to track the ship and duration type
 		if tankLimitReached {
-			// Break out of this loop and now print our tally of missions
+			// We've reached tank limit, stop processing further missions
 			break
 		}
 	}
@@ -919,6 +919,7 @@ func getVirtueLaunchedShips(backup *ei.Backup) string {
 		fmt.Fprintf(&output, "Missions launched between %s - %s\n", bottools.WrapTimestamp(int64(firstMissionStart), bottools.TimestampRelativeTime), bottools.WrapTimestamp(int64(lastMissionStart), bottools.TimestampRelativeTime))
 	}
 
+	// Want to sort keys for consistent output, shipID & durationTypes
 	var keys []string
 	for k := range shipCounts {
 		keys = append(keys, k)
