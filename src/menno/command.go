@@ -3,10 +3,10 @@ package menno
 import (
 	"encoding/base64"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
-	"math"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
