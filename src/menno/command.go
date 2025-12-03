@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"math"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
@@ -13,6 +14,8 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
+
+const DefaultMinimumDrops = 1
 
 // SlashHuntCommand returns the command for the /hunt command
 func SlashHuntCommand(cmd string) *discordgo.ApplicationCommand {
@@ -227,7 +230,13 @@ func HandleHuntCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		} else {
 			savedMinDrops := farmerstate.GetMiscSettingString(userID, "huntMinimumDrops")
 			if savedMinDrops != "" {
-				minimumDrops, _ = strconv.Atoi(savedMinDrops)
+				parsedMinDrops, err := strconv.Atoi(savedMinDrops)
+				// GOOD: Check bounds before assigning to minimumDrops
+				if err == nil && parsedMinDrops >= 0 && parsedMinDrops <= math.MaxInt32 {
+					minimumDrops = parsedMinDrops
+				} else {
+					minimumDrops = DefaultMinimumDrops
+				}
 			}
 		}
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
