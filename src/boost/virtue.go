@@ -938,6 +938,9 @@ func getVirtueLaunchedShips(backup *ei.Backup) string {
 			continue
 		}
 		count := shipCounts[key]
+		if durationType < 0 || durationType > math.MaxInt32 {
+			continue
+		}
 		durationStr := ei.DurationTypeNameAbbr[int32(durationType)]
 		shipGroups[shipID] = append(shipGroups[shipID], fmt.Sprintf("%sx%d", durationStr, count))
 	}
