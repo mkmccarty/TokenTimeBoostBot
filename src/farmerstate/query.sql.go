@@ -10,6 +10,30 @@ import (
 	"database/sql"
 )
 
+const clearExtraLegacyRecords = `-- name: ClearExtraLegacyRecords :exec
+	DELETE FROM farmer_state
+	WHERE rowid NOT IN (
+	    SELECT MIN(rowid)
+	    FROM farmer_state
+	    GROUP BY id, key
+    )
+`
+
+func (q *Queries) ClearExtraLegacyRecords(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, clearExtraLegacyRecords)
+	return err
+}
+
+const deleteFarmerLegacyRecords = `-- name: DeleteFarmerLegacyRecords :exec
+DELETE FROM farmer_state
+WHERE id = ? AND key = 'legacy'
+`
+
+func (q *Queries) DeleteFarmerLegacyRecords(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteFarmerLegacyRecords, id)
+	return err
+}
+
 const deleteFarmerRecord = `-- name: DeleteFarmerRecord :exec
 DELETE FROM farmer_state
 WHERE id = ?
