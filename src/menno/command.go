@@ -209,7 +209,7 @@ func HandleHuntCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	optionMap := bottools.GetCommandOptionsMap(i)
 	var response string
 	artifactID := 10000 // No Target
-	minimumDrops := 1000
+	minimumDrops := DefaultMinimumDrops
 	userID := bottools.GetInteractionUserID(i)
 
 	// Quick reply to buy us some time
