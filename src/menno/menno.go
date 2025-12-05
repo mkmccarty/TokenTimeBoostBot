@@ -228,10 +228,7 @@ func populateData(newData bool, timestamp time.Time) {
 		// Remove the CSV file after processing.
 		_ = os.Remove(csvPath)
 	}
-
-	//PrintDropData(ei.MissionInfo_VOYEGGER, ei.MissionInfo_SHORT, 2, ei.ArtifactSpec_INTERSTELLAR_COMPASS)
-
-	fmt.Printf("populateData: %d rows loaded", rowCount)
+	//fmt.Printf("populateData: %d rows loaded", rowCount)
 }
 
 // GetShipDropData retrieves and logs drop data for a specific ship configuration.

@@ -15,7 +15,8 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
-const DefaultMinimumDrops = 1
+// DefaultMinimumDrops is the default minimum drops to use if none is set
+const DefaultMinimumDrops = 1000
 
 // SlashHuntCommand returns the command for the /hunt command
 func SlashHuntCommand(cmd string) *discordgo.ApplicationCommand {
