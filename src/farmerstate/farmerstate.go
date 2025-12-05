@@ -75,11 +75,15 @@ func saveSqliteData(userID string, farmer *Farmer) {
 		log.Printf("Error marshaling farmer data: %v", err)
 		return
 	}
+
+	// TODO: Remove this after a few revisions to clear out old duplicate records
+	_ = queries.ClearExtraLegacyRecords(ctx)
+
 	rows, _ := queries.UpdateLegacyFarmerstate(ctx, UpdateLegacyFarmerstateParams{
 		Value: sql.NullString{String: string(farmerJSON), Valid: true},
 		ID:    userID,
 	})
-	if rows != 1 {
+	if rows == 0 {
 		// Record exists, update instead
 		_, err = queries.InsertLegacyFarmerstate(ctx, InsertLegacyFarmerstateParams{
 			ID:    userID,
@@ -159,7 +163,6 @@ func SetEggIncName(userID string, eggIncName string) {
 	if !farmerstate[userID].DataPrivacy {
 		farmerstate[userID].EggIncName = eggIncName
 		SetMiscSettingString(userID, "EggIncRawName", eggIncName)
-		saveSqliteData(userID, farmerstate[userID])
 	}
 }
 

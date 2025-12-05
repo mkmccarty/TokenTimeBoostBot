@@ -25,6 +25,10 @@ WHERE id = ? AND key = 'legacy';
 DELETE FROM farmer_state
 WHERE id = ?;
 
+-- name: DeleteFarmerLegacyRecords :exec
+DELETE FROM farmer_state
+WHERE id = ? AND key = 'legacy';
+
 -- name: GetUserIdFromEiIgn :one
 SELECT
     id
@@ -34,3 +38,12 @@ FROM
 WHERE
     -- Exclude records where the extracted value is NULL
     json_extract(value, '$.MiscSettingsString.ei_ign') = ? LIMIT 1;
+
+
+-- name: ClearExtraLegacyRecords :exec
+	DELETE FROM farmer_state
+	WHERE rowid NOT IN (
+	    SELECT MIN(rowid)
+	    FROM farmer_state
+	    GROUP BY id, key
+    );

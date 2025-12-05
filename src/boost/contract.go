@@ -1056,6 +1056,12 @@ func HandleContractSettingsCommand(s *discordgo.Session, i *discordgo.Interactio
 		if err == nil && ch.IsThread() {
 			inThread = true
 		}
+		if ch.ParentID != "" {
+			parentCh, _ := s.Channel(ch.ParentID)
+			if parentCh.Type == discordgo.ChannelTypeGuildCategory {
+				log.Printf("Parent is a category, not a channel. Name = %s", parentCh.Name)
+			}
+		}
 		str, comp := getSignupContractSettings(contract.Location[0].ChannelID, contract.ContractHash, inThread)
 		// Take the str and make it a TextDisplay component and add it as the fist entry on the components
 		var components []discordgo.MessageComponent
