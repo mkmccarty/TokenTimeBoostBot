@@ -863,13 +863,13 @@ func getVirtueLaunchedShips(backup *ei.Backup) string {
 
 	var firstMissionStart, lastMissionStart float64 = -1, -1
 
-	for i, mi := range mymissions {
+	for _, mi := range mymissions {
 		if mi.GetType() != ei.MissionInfo_VIRTUE {
 			continue
 		}
 
 		missionStart := mi.GetStartTimeDerived()
-		missionEnd := uint32(missionStart) + uint32(mi.GetDurationSeconds())
+		//missionEnd := uint32(missionStart) + uint32(mi.GetDurationSeconds())
 		// Only want missions in the last month
 		if uint32(missionStart) < uint32(time.Now().AddDate(0, -1, 0).Unix()) {
 			continue
