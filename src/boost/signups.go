@@ -474,7 +474,7 @@ func writeFridayPredictions(
 		b.WriteString(" coop size | 🎏 parade alts | ")
 		b.WriteString(iconCR)
 		b.WriteString(" target CRs | 🌼Seasonal LB\n")
-		b.WriteString("-# Prediction formula by @jelibean84\n")
+		b.WriteString("-# Prediction formula by jelibean84\n")
 	}
 
 	if copyPaste {
