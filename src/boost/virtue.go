@@ -903,7 +903,6 @@ func getVirtueLaunchedShips(backup *ei.Backup) string {
 		key := fmt.Sprintf("%d/%d", ship, durationType)
 		shipCounts[key]++
 
-		fmt.Printf("%d: <t:%d:R> ", i, missionEnd)
 		if tankLimitReached {
 			// We've reached tank limit, stop processing further missions
 			break
