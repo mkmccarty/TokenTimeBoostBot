@@ -491,27 +491,45 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 		unusedRoleNames[i], unusedRoleNames[j] = unusedRoleNames[j], unusedRoleNames[i]
 	})
 
-	lastChance := false
-	for {
-		name := unusedRoleNames[tryCount]
-		if !slices.Contains(existingRoles, name) {
-			// Found an unused name
-			teamName = name
-			break
-		}
-		tryCount++
-		if tryCount == len(unusedRoleNames) {
-			if lastChance {
-				teamName = prefix + namesgenerator.GetRandomName(0)
+	if len(unusedRoleNames) == 0 {
+		// All names are taken; fall back to a generated team name
+		teamName = namesgenerator.GetRandomName(0)
+		prefix = "Team "
+	} else {
+		lastChance := false
+		for {
+			name := unusedRoleNames[tryCount]
+			if !slices.Contains(existingRoles, prefix+name) {
+				// Found an unused name
+				teamName = name
 				break
 			}
-			unusedRoleNames = randomThingNames // Reset the names to the fallback list
-			rand.Shuffle(len(unusedRoleNames), func(i, j int) {
-				unusedRoleNames[i], unusedRoleNames[j] = unusedRoleNames[j], unusedRoleNames[i]
-			})
-			prefix = "Team "
-			tryCount = 0
-			lastChance = true
+			tryCount++
+			if tryCount == len(unusedRoleNames) {
+				if lastChance {
+					break
+				}
+				prefix = "Team "
+				// Filter out names that are already taken with the new prefix
+				filteredNames := make([]string, 0, len(unusedRoleNames))
+				for _, name := range unusedRoleNames {
+					if !slices.Contains(existingRoles, prefix+name) {
+						filteredNames = append(filteredNames, name)
+					}
+				}
+				unusedRoleNames = filteredNames
+				rand.Shuffle(len(unusedRoleNames), func(i, j int) {
+					unusedRoleNames[i], unusedRoleNames[j] = unusedRoleNames[j], unusedRoleNames[i]
+				})
+				if len(unusedRoleNames) == 0 {
+					break
+				}
+				tryCount = 0
+				lastChance = true
+			}
+		}
+		if teamName == "" {
+			teamName = prefix + namesgenerator.GetRandomName(0)
 		}
 	}
 
