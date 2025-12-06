@@ -224,7 +224,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 		virtue.GetResets(),
 		virtue.GetShiftCount(),
 		ei.GetBotEmojiMarkdown("egg_soul"),
-		ei.FormatEIValue(shiftCost, map[string]interface{}{"decimals": 3, "trim": true}))
+		ei.FormatEIValue(shiftCost, map[string]any{"decimals": 3, "trim": true}))
 	// Ship icon uses last fueled ship art
 	lastFueled := virtue.GetAfx().GetLastFueledShip()
 	craftArt := ei.GetBotEmojiMarkdown(ei.MissionArt.Ships[lastFueled].Art)
@@ -292,8 +292,8 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 			bottools.AlignString(eggEffects[i], 1, bottools.StringAlignCenter),
 			bottools.AlignString(fmt.Sprintf("%d", eovEarned-eovPending), 3, bottools.StringAlignRight),
 			bottools.AlignString(fmt.Sprintf("(%d)", eovPending), 5, bottools.StringAlignLeft),
-			bottools.AlignString(fmt.Sprintf("🥚 %s", ei.FormatEIValue(delivered, map[string]interface{}{"decimals": 1, "trim": false})), 9, bottools.StringAlignLeft),
-			bottools.AlignString(fmt.Sprintf("%s%s", ei.GetBotEmojiMarkdown("egg_truth"), ei.FormatEIValue(nextTier, map[string]interface{}{"decimals": 1, "trim": false})), 1, bottools.StringAlignLeft),
+			bottools.AlignString(fmt.Sprintf("🥚 %s", ei.FormatEIValue(delivered, map[string]any{"decimals": 1, "trim": false})), 9, bottools.StringAlignLeft),
+			bottools.AlignString(fmt.Sprintf("%s%s", ei.GetBotEmojiMarkdown("egg_truth"), ei.FormatEIValue(nextTier, map[string]any{"decimals": 1, "trim": false})), 1, bottools.StringAlignLeft),
 			bottools.AlignString(selected, 1, bottools.StringAlignLeft),
 		)
 	}
@@ -302,14 +302,14 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 	ebFuture := ei.GetEarningsBonus(backup, float64(allEov+futureEov))
 	fmt.Fprintf(&header, "**PE**: %d  **SE**: %s  **TE**: %d  (+%d)\n",
 		backup.GetGame().GetEggsOfProphecy(),
-		ei.FormatEIValue(backup.GetGame().GetSoulEggsD(), map[string]interface{}{"decimals": 3, "trim": true}),
+		ei.FormatEIValue(backup.GetGame().GetSoulEggsD(), map[string]any{"decimals": 3, "trim": true}),
 		allEov,
 		futureEov)
 
 	fmt.Fprintf(&header, "**EB**: %s%%  (+%s%%) ->  **%s%%**\n",
-		ei.FormatEIValue(eb, map[string]interface{}{"decimals": 3, "trim": true}),
-		ei.FormatEIValue(ebFuture-eb, map[string]interface{}{"decimals": 2, "trim": true}),
-		ei.FormatEIValue(ebFuture, map[string]interface{}{"decimals": 3, "trim": true}),
+		ei.FormatEIValue(eb, map[string]any{"decimals": 3, "trim": true}),
+		ei.FormatEIValue(ebFuture-eb, map[string]any{"decimals": 2, "trim": true}),
+		ei.FormatEIValue(ebFuture, map[string]any{"decimals": 3, "trim": true}),
 	)
 
 	// What are my artifacts.
@@ -466,12 +466,12 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 				fmt.Fprintf(&stats, " %s%s **%s/hr**\n",
 					DepotArt,
 					fuelLamp,
-					ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
+					ei.FormatEIValue(fuelRate, map[string]any{"decimals": 2, "trim": true}))
 			} else {
 				fmt.Fprintf(&stats, " %s%s %s/hr\n",
 					DepotArt,
 					fuelLamp,
-					ei.FormatEIValue(fuelRate, map[string]interface{}{"decimals": 2, "trim": true}))
+					ei.FormatEIValue(fuelRate, map[string]any{"decimals": 2, "trim": true}))
 			}
 		} else if recommendedFuelRate > 0.0 {
 			fmt.Fprintf(&stats, " %s🎚️ %.0f%%\n", DepotArt, recommendedFuelRate*100)
@@ -493,8 +493,8 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 		}
 
 		fmt.Fprintf(&stats, "**IHR** %s/min  💤 %s/min  %s %s\n",
-			ei.FormatEIValue(onlineRate, map[string]interface{}{"decimals": 2, "trim": true}),
-			ei.FormatEIValue(offlineRate, map[string]interface{}{"decimals": 2, "trim": true}),
+			ei.FormatEIValue(onlineRate, map[string]any{"decimals": 2, "trim": true}),
+			ei.FormatEIValue(offlineRate, map[string]any{"decimals": 2, "trim": true}),
 			ei.GetBotEmojiMarkdown("silo"),
 			bottools.FmtDuration(time.Duration(siloMinutes)*time.Minute),
 		)
@@ -504,12 +504,12 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 				//strings.Join(habArray, ""),
 				habArt,
 				int(habPercent),
-				ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 2, "trim": true}))
+				ei.FormatEIValue(habPop, map[string]any{"decimals": 2, "trim": true}))
 		} else {
 			fmt.Fprintf(&stats, "%s %s %d%% 🔒<t:%d:R> or 💤<t:%d:R>\n",
 				//strings.Join(habArray, ""),
 				habArt,
-				ei.FormatEIValue(habPop, map[string]interface{}{"decimals": 2, "trim": true}),
+				ei.FormatEIValue(habPop, map[string]any{"decimals": 2, "trim": true}),
 				int(habPercent),
 				time.Now().Add(time.Duration(int64(onlineFillTime))*time.Second).Unix(),
 				time.Now().Add(time.Duration(int64(offlineFillTime))*time.Second).Unix())
@@ -615,7 +615,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 		}
 
 		if offlineEggs > 0 {
-			fmt.Fprintf(&header, "\n-# includes %s offline eggs", ei.FormatEIValue(offlineEggs, map[string]interface{}{"decimals": 3, "trim": true}))
+			fmt.Fprintf(&header, "\n-# includes %s offline eggs", ei.FormatEIValue(offlineEggs, map[string]any{"decimals": 3, "trim": true}))
 		}
 	} else {
 		fmt.Fprint(&header, "**Ascend to visit your Eggs of Virtue farm.**")
@@ -629,10 +629,10 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 
 	fmt.Fprintf(&stats, "%s %s est. **%sOffline** %s/hr  %s/s\n",
 		ei.GetBotEmojiMarkdown("gem"),
-		ei.FormatEIValue(gemsOnHand+offlineGems, map[string]interface{}{"decimals": 3, "trim": true}),
+		ei.FormatEIValue(gemsOnHand+offlineGems, map[string]any{"decimals": 3, "trim": true}),
 		ei.GetBotEmojiMarkdown("gem"),
-		ei.FormatEIValue(offlineRateHr, map[string]interface{}{"decimals": 3, "trim": true}),
-		ei.FormatEIValue(offlineRateHr/3600, map[string]interface{}{"decimals": 3, "trim": true}),
+		ei.FormatEIValue(offlineRateHr, map[string]any{"decimals": 3, "trim": true}),
+		ei.FormatEIValue(offlineRateHr/3600, map[string]any{"decimals": 3, "trim": true}),
 	)
 
 	// Display Artifact buffs if any
@@ -698,7 +698,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 	for i, fuel := range fuels {
 		fmt.Fprintf(&rockets, " %s:%s",
 			ei.GetBotEmojiMarkdown("egg_"+strings.ToLower(virtueEggs[i])),
-			ei.FormatEIValue(fuel, map[string]interface{}{"decimals": 1, "trim": true}))
+			ei.FormatEIValue(fuel, map[string]any{"decimals": 1, "trim": true}))
 	}
 	rockets.WriteString("\n")
 	artifacts := backup.GetArtifactsDb()
