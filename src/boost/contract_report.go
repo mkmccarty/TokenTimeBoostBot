@@ -223,7 +223,7 @@ func processContributors(
 		return make(map[string][]*ei.LocalContract), nil, nil
 	}
 
-	maxParallel := max(min(n, maxParallel), 1)
+	maxParallelJobs := max(min(n, maxParallel), 1)
 
 	namesCh := make(chan string, n)
 	var wg sync.WaitGroup
@@ -310,8 +310,8 @@ func processContributors(
 		}
 	}
 
-	wg.Add(maxParallel)
-	for range maxParallel {
+	wg.Add(maxParallelJobs)
+	for range maxParallelJobs {
 		go worker()
 	}
 	// enqueue contributors
