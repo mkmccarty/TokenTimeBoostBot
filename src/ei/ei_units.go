@@ -184,5 +184,5 @@ func FmtApprox(n float64) string {
 	if n == 0 {
 		return "0"
 	}
-	return FormatEIValue(n, map[string]interface{}{"decimals": 3})
+	return FormatEIValue(n, map[string]any{"decimals": 3})
 }

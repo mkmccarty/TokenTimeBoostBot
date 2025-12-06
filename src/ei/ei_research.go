@@ -498,18 +498,18 @@ func GatherCommonResearchCosts(gemsOnHand float64, offlineRateHr float64, epicRe
 			builder.WriteString("-# **" + category.name + ":** ")
 			if len(category.research) == 1 {
 				research := category.research[0]
-				fmt.Fprintf(&builder, "%s: %s\n", research.Name, FormatEIValue(research.Price, map[string]interface{}{"decimals": 3, "trim": true}))
+				fmt.Fprintf(&builder, "%s: %s\n", research.Name, FormatEIValue(research.Price, map[string]any{"decimals": 3, "trim": true}))
 			} else if len(category.research) >= 2 {
 				r1 := category.research[0]
 				r2 := category.research[1]
 				if r1.Name == r2.Name {
 					fmt.Fprintf(&builder, "%s: %s, %s\n", r1.Name,
-						FormatEIValue(r1.Price, map[string]interface{}{"decimals": 2, "trim": true}),
-						FormatEIValue(r2.Price, map[string]interface{}{"decimals": 2, "trim": true}))
+						FormatEIValue(r1.Price, map[string]any{"decimals": 2, "trim": true}),
+						FormatEIValue(r2.Price, map[string]any{"decimals": 2, "trim": true}))
 				} else {
 					fmt.Fprintf(&builder, "%s: %s, %s: %s\n",
-						r1.Name, FormatEIValue(r1.Price, map[string]interface{}{"decimals": 2, "trim": true}),
-						r2.Name, FormatEIValue(r2.Price, map[string]interface{}{"decimals": 2, "trim": true}))
+						r1.Name, FormatEIValue(r1.Price, map[string]any{"decimals": 2, "trim": true}),
+						r2.Name, FormatEIValue(r2.Price, map[string]any{"decimals": 2, "trim": true}))
 				}
 			}
 		}
