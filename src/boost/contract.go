@@ -491,11 +491,8 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 		unusedRoleNames[i], unusedRoleNames[j] = unusedRoleNames[j], unusedRoleNames[i]
 	})
 
+	lastChance := false
 	for {
-		if tryCount >= len(unusedRoleNames) {
-			teamName = namesgenerator.GetRandomName(0)
-			break
-		}
 		name := unusedRoleNames[tryCount]
 		if !slices.Contains(existingRoles, name) {
 			// Found an unused name
@@ -504,11 +501,17 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 		}
 		tryCount++
 		if tryCount == len(unusedRoleNames) {
+			if lastChance {
+				teamName = prefix + namesgenerator.GetRandomName(0)
+				break
+			}
 			unusedRoleNames = randomThingNames // Reset the names to the fallback list
 			rand.Shuffle(len(unusedRoleNames), func(i, j int) {
 				unusedRoleNames[i], unusedRoleNames[j] = unusedRoleNames[j], unusedRoleNames[i]
 			})
 			prefix = "Team "
+			tryCount = 0
+			lastChance = true
 		}
 	}
 
@@ -832,7 +835,7 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			if altIdx != len(alts)-1 {
 				sid = alts[altIdx+1]
 			} else {
-				sid = alts[altIdx] // Allow for the state to reset
+				sid = alts[0] // Allow for the state to reset
 			}
 		}
 
@@ -852,7 +855,7 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			if altIdx != len(alts)-1 {
 				sid = alts[altIdx+1]
 			} else {
-				sid = alts[altIdx] // Allow for the state to reset
+				sid = alts[0] // Allow for the state to reset
 			}
 		}
 		if contract.Banker.PostSinkUserID == sid {
