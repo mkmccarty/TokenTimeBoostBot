@@ -785,7 +785,7 @@ func deriveThresholds(p *contractReportParameters) thresholds {
 	contract := p.contract
 	seasonalScoring := contract.SeasonalScoring
 
-	// teamwork fixed for now since theoratical theamwork max can't be achieved in practice
+	// teamwork fixed for now since theoretical teamwork max can't be achieved in practice
 	th := thresholds{
 		teamwork: 26.0 / 19.0,
 	}
