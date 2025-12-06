@@ -529,7 +529,7 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 			}
 		}
 		if teamName == "" {
-			teamName = prefix + namesgenerator.GetRandomName(0)
+			teamName = namesgenerator.GetRandomName(0)
 		}
 	}
 
