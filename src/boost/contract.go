@@ -255,7 +255,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		}
 	}
 	if opt, ok := optionMap["start-offset"]; ok {
-		var err error
+
 		offsetStr := opt.StringValue()
 		offset, err := strconv.ParseFloat(offsetStr, 64)
 		if err == nil {
@@ -492,6 +492,10 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 	})
 
 	for {
+		if tryCount >= len(unusedRoleNames) {
+			teamName = namesgenerator.GetRandomName(0)
+			break
+		}
 		name := unusedRoleNames[tryCount]
 		if !slices.Contains(existingRoles, name) {
 			// Found an unused name
