@@ -14,35 +14,35 @@ func TestFormatEIValue(t *testing.T) {
 	testCases := []struct {
 		name     string
 		value    float64
-		options  map[string]interface{}
+		options  map[string]any
 		expected string
 	}{
-		{"Zero", 0, map[string]interface{}{"decimals": 3}, "0"},
-		{"Small Number", 123, map[string]interface{}{"decimals": 3}, "123"},
-		{"Negative Small Number", -456, map[string]interface{}{"decimals": 3}, "-456"},
-		{"Kilo", 1500, map[string]interface{}{"decimals": 3}, "1.500K"},
-		{"Mega", 2.5e6, map[string]interface{}{"decimals": 3}, "2.500M"},
-		{"Billion", 9.87e9, map[string]interface{}{"decimals": 3}, "9.870B"},
-		{"Trillion", 1.234e12, map[string]interface{}{"decimals": 3}, "1.234T"},
-		{"Quadrillion (q)", 5.67e15, map[string]interface{}{"decimals": 3}, "5.670q"},
-		{"Quadrillion (q)", 9.99999999e15, map[string]interface{}{"decimals": 3}, "9.999q"},
-		{"Quintillion (Q)", 1e18, map[string]interface{}{"decimals": 3}, "1.000Q"},
-		{"Sextillion (s)", 3.14e21, map[string]interface{}{"decimals": 3}, "3.140s"},
-		{"Septillion (S)", 1e24, map[string]interface{}{"decimals": 3}, "1.000S"},
-		{"Octillion (o)", 2.718e27, map[string]interface{}{"decimals": 3}, "2.718o"},
-		{"Nonillion (N)", 1e30, map[string]interface{}{"decimals": 3}, "1.000N"},
-		{"Decillion (d)", 4.5e33, map[string]interface{}{"decimals": 3}, "4.500d"},
-		{"Vigintillion (V)", 1e63, map[string]interface{}{"decimals": 3}, "1.000V"},
-		{"Tre-trigintillion (tT)", 1e93, map[string]interface{}{"decimals": 3}, "1.000tT"},
-		{"Max OOM", 1e95, map[string]interface{}{"decimals": 3}, "100.000tT"},
-		{"Trimmed", 12345, map[string]interface{}{"decimals": 3, "trim": true}, "12.345K"},
-		{"Trimmed Zero Decimal", 5e6, map[string]interface{}{"decimals": 3, "trim": true}, "5M"},
-		{"Trimmed Some Decimal", 5.6e6, map[string]interface{}{"decimals": 3, "trim": true}, "5.6M"},
-		{"Scientific", 1.23e10, map[string]interface{}{"decimals": 3, "scientific": true}, "12.300×10^9"}, // Note: oomFloor logic
-		{"NaN", math.NaN(), map[string]interface{}{"decimals": 3}, "NaN"},
-		{"Infinity", math.Inf(1), map[string]interface{}{"decimals": 3}, "infinity"},
-		{"Negative Infinity", math.Inf(-1), map[string]interface{}{"decimals": 3}, "-infinity"},
-		{"Precision Option", 1.23456e12, map[string]interface{}{"precision": 5}, "1.2346T"},
+		{"Zero", 0, map[string]any{"decimals": 3}, "0"},
+		{"Small Number", 123, map[string]any{"decimals": 3}, "123"},
+		{"Negative Small Number", -456, map[string]any{"decimals": 3}, "-456"},
+		{"Kilo", 1500, map[string]any{"decimals": 3}, "1.500K"},
+		{"Mega", 2.5e6, map[string]any{"decimals": 3}, "2.500M"},
+		{"Billion", 9.87e9, map[string]any{"decimals": 3}, "9.870B"},
+		{"Trillion", 1.234e12, map[string]any{"decimals": 3}, "1.234T"},
+		{"Quadrillion (q)", 5.67e15, map[string]any{"decimals": 3}, "5.670q"},
+		{"Quadrillion (q)", 9.99999999e15, map[string]any{"decimals": 3}, "9.999q"},
+		{"Quintillion (Q)", 1e18, map[string]any{"decimals": 3}, "1.000Q"},
+		{"Sextillion (s)", 3.14e21, map[string]any{"decimals": 3}, "3.140s"},
+		{"Septillion (S)", 1e24, map[string]any{"decimals": 3}, "1.000S"},
+		{"Octillion (o)", 2.718e27, map[string]any{"decimals": 3}, "2.718o"},
+		{"Nonillion (N)", 1e30, map[string]any{"decimals": 3}, "1.000N"},
+		{"Decillion (d)", 4.5e33, map[string]any{"decimals": 3}, "4.500d"},
+		{"Vigintillion (V)", 1e63, map[string]any{"decimals": 3}, "1.000V"},
+		{"Tre-trigintillion (tT)", 1e93, map[string]any{"decimals": 3}, "1.000tT"},
+		{"Max OOM", 1e95, map[string]any{"decimals": 3}, "100.000tT"},
+		{"Trimmed", 12345, map[string]any{"decimals": 3, "trim": true}, "12.345K"},
+		{"Trimmed Zero Decimal", 5e6, map[string]any{"decimals": 3, "trim": true}, "5M"},
+		{"Trimmed Some Decimal", 5.6e6, map[string]any{"decimals": 3, "trim": true}, "5.6M"},
+		{"Scientific", 1.23e10, map[string]any{"decimals": 3, "scientific": true}, "12.300×10^9"}, // Note: oomFloor logic
+		{"NaN", math.NaN(), map[string]any{"decimals": 3}, "NaN"},
+		{"Infinity", math.Inf(1), map[string]any{"decimals": 3}, "infinity"},
+		{"Negative Infinity", math.Inf(-1), map[string]any{"decimals": 3}, "-infinity"},
+		{"Precision Option", 1.23456e12, map[string]any{"precision": 5}, "1.2346T"},
 	}
 
 	for _, tc := range testCases {
