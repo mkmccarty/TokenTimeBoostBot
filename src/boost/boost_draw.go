@@ -132,7 +132,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				case SinkBoostLast:
 					fmt.Fprint(&builder, ">  * Banker boosts **Last**\n")
 				default:
-					fmt.Fprint(&builder, ">  * Banker folows normal boost order\n")
+					fmt.Fprint(&builder, ">  * Banker follows normal boost order\n")
 				}
 
 			} else {
@@ -296,7 +296,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 			var end = contract.BoostPosition + (windowSize - showBoostedNums)
 
 			if start < 0 {
-				// add the aboslute value of start to end
+				// add the absolute value of start to end
 				end += -start
 				start = 0
 			}
@@ -595,7 +595,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		if contract.CoopSize != len(contract.Order) {
 			guidanceStr.WriteString("> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n")
 		}
-		// Sum the Content lenghts of the components for this length test
+		// Sum the Content lengths of the components for this length test
 		// If the length of the builder is less than 1900 characters, add the guidanceStr
 		// to the builder
 		totalContentLength := guidanceStr.Len()
