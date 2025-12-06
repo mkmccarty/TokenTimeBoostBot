@@ -86,8 +86,10 @@ type ContractGrade struct {
 }
 
 const (
+	// SeasonUnknownID is the ID for an unknown season
 	SeasonUnknownID = "season_unknown"
-	SeasonUnknown   = "Unknown Season"
+	// SeasonUnknown is the name for an unknown season
+	SeasonUnknown = "Unknown Season"
 )
 
 // EggIncSeason is a raw contract season data for Egg Inc

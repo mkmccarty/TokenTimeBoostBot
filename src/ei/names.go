@@ -7,6 +7,7 @@ var DurationTypeName = map[int32]string{
 	2: "Extended",
 }
 
+// DurationTypeNameAbbr maps duration type IDs to their abbreviated names
 var DurationTypeNameAbbr = map[int32]string{
 	0: "SH",
 	1: "ST",
