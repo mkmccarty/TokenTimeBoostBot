@@ -248,7 +248,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 
 	// Names could use a rework but current egg means the current EoV egg on the farm
 	currentEggTarget := 0.0
-	currentDelievered := 0.0
+	currentDelivered := 0.0
 	currentEggIndex := -1
 	currentEggEmote := ""
 
@@ -271,7 +271,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 			}
 			if targetTE != 0 && eggType == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
 				currentEggIndex = i
-				currentDelievered = delivered
+				currentDelivered = delivered
 				currentEggEmote = ei.GetBotEmojiMarkdown("egg_" + strings.ToLower(egg))
 			}
 		} else {
@@ -521,7 +521,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 
 			currentEggTarget = TruthEggBreakpoints[targetTE-1]
 
-			remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, currentEggTarget-currentDelievered)
+			remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, currentEggTarget-currentDelivered)
 			adjustedRemainingTime := remainingTime - elapsed
 
 			if remainingTime != -1.0 {
@@ -719,7 +719,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 	// Add notes only if not compact, default is false
 	if !compact {
 		// Determine the costs of the next research items
-		// Only for Curisoty egg
+		// Only for Curiosity egg
 		prefixLinefeed := ""
 		if selectedEggIndex == 0 {
 			researchStr := ei.GatherCommonResearchCosts(gemsOnHand, offlineRateHr, backup.GetGame().GetEpicResearch(), backup.GetFarms()[0].GetCommonResearch(), colBuffs.ResearchDiscount, artifactBuffs.ResearchDiscount)
