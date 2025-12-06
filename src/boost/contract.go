@@ -509,14 +509,21 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 				if lastChance {
 					break
 				}
-				unusedRoleNames = randomThingNames // Reset the names to the fallback list
+				prefix = "Team "
+				// Filter out names that are already taken with the new prefix
+				filteredNames := make([]string, 0, len(unusedRoleNames))
+				for _, name := range unusedRoleNames {
+					if !slices.Contains(existingRoles, prefix+name) {
+						filteredNames = append(filteredNames, name)
+					}
+				}
+				unusedRoleNames = filteredNames
 				rand.Shuffle(len(unusedRoleNames), func(i, j int) {
 					unusedRoleNames[i], unusedRoleNames[j] = unusedRoleNames[j], unusedRoleNames[i]
 				})
 				if len(unusedRoleNames) == 0 {
 					break
 				}
-				prefix = "Team "
 				tryCount = 0
 				lastChance = true
 			}
