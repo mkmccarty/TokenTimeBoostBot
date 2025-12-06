@@ -514,7 +514,6 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 					unusedRoleNames[i], unusedRoleNames[j] = unusedRoleNames[j], unusedRoleNames[i]
 				})
 				if len(unusedRoleNames) == 0 {
-					prefix = "Team "
 					break
 				}
 				prefix = "Team "
