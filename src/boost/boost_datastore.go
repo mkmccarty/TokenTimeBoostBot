@@ -73,7 +73,7 @@ func saveData(contractHash string) {
 		if contract == nil {
 			return
 		}
-		if contract.LastSaveTime.Before(time.Now().Add(-15 * time.Second)) {
+		if time.Since(contract.LastSaveTime) >= 15*time.Second {
 			contract.LastSaveTime = time.Now()
 			saveSqliteData(contract)
 		}
