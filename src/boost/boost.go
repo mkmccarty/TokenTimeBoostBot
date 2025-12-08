@@ -320,6 +320,7 @@ type Contract struct {
 	SavedStats          bool               // Saved stats for this contract
 	NewFeature          int                // Used to slide in new features
 	DynamicData         *DynamicTokenData
+	LastSaveTime        time.Time // The Last time the contract was saved
 
 	mutex sync.Mutex // Keep this contract thread safe
 }
