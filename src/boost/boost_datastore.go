@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/peterbourgon/diskv/v3"
 )
@@ -68,7 +69,15 @@ func InverseTransform(pathKey *diskv.PathKey) (key string) {
 
 func saveData(contractHash string) {
 	if contractHash != "" {
-		saveSqliteData(FindContractByHash(contractHash))
+		contract := FindContractByHash(contractHash)
+		if contract == nil {
+			return
+		}
+		if time.Since(contract.LastSaveTime) >= 15*time.Second {
+			contract.LastSaveTime = time.Now()
+			saveSqliteData(contract)
+		}
+		return
 	}
 
 	for _, c := range Contracts {
