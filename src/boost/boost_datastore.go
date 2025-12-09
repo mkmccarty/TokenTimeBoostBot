@@ -190,13 +190,21 @@ func saveSqliteData(contract *Contract) {
 	if queries == nil {
 		sqliteInit()
 	}
+
+	/*
+		_ = queries.DeleteContract(ctx, DeleteContractParams{
+			Channelid:  contract.Location[0].ChannelID,
+			Contractid: contract.ContractID,
+			Coopid:     contract.CoopID,
+		})
+	*/
 	rows, _ = queries.UpdateContract(ctx, UpdateContractParams{
 		Channelid:  contract.Location[0].ChannelID,
 		Contractid: contract.ContractID,
 		Coopid:     contract.CoopID,
 		Value:      sql.NullString{String: string(contractJSON), Valid: true},
 	})
-	if rows != 1 {
+	if rows == 0 {
 		// Record doesn't exist, insert it
 		err = queries.InsertContract(ctx, InsertContractParams{
 			Channelid:  contract.Location[0].ChannelID,
@@ -209,3 +217,47 @@ func saveSqliteData(contract *Contract) {
 		}
 	}
 }
+
+/*
+DELETE FROM contract_data
+WHERE ROWID IN (
+    -- 1. Use a CTE to rank the duplicate rows
+    WITH RankedContracts AS (
+        SELECT
+            -- Select the implicit ROWID, which is unique for every row and indicates insertion order
+            ROWID as row_id,
+            channelID,
+            contractID,
+            coopID,
+            -- Assign a rank to each entry within its unique group
+            ROW_NUMBER() OVER (
+                PARTITION BY
+                    channelID,
+                    contractID,
+                    coopID
+                -- Ordering by ROWID DESC ensures the most recently inserted row gets rank 1
+                ORDER BY
+                    ROWID DESC
+            ) as row_rank
+        FROM
+            contract_data
+    )
+    -- 2. Select the ROWIDs of the rows to delete (those that are not the "last copy," i.e., rank > 1)
+    SELECT row_id
+    FROM RankedContracts
+    WHERE row_rank > 1
+);
+
+*/
+
+/*
+-- Select to view the current state values for all contracts
+SELECT
+    channelID,
+    contractID,
+    coopID,
+    json_extract(value, '$.State') AS state_value
+FROM
+    contract_data;
+
+*/
