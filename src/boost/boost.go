@@ -975,11 +975,7 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 	b.TECount = 0
 	if len(eggIncID) == 18 && strings.HasPrefix(eggIncID, "EI") {
 		go func(eggIncID, userID string, b *Booster) {
-			backup, err := ei.GetFirstContactFromAPI(s, eggIncID, userID, true)
-			if err != nil {
-				log.Printf("Failed to fetch EI data for user %s: %v", userID, err)
-				return
-			}
+			backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, true)
 			if backup == nil {
 				log.Printf("Received nil backup for user %s", userID)
 				return
