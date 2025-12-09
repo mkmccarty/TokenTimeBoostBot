@@ -826,13 +826,13 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			// Refresh the user's egg inc data, if they have 0 TE count
 			// Collect userIDs and boosters with TECount == 0
 			var usersToRefresh []struct {
-				userID string
+				userID  string
 				booster *Booster
 			}
 			for userID, b := range contract.Boosters {
 				if b.TECount == 0 {
 					usersToRefresh = append(usersToRefresh, struct {
-						userID string
+						userID  string
 						booster *Booster
 					}{userID, b})
 				}
