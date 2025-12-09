@@ -980,10 +980,6 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 				log.Printf("Received nil backup for user %s", userID)
 				return
 			}
-			if backup == nil {
-				log.Printf("Received nil backup for user %s", userID)
-				return
-			}
 			virtue := backup.GetVirtue()
 			if virtue == nil {
 				log.Printf("Received nil virtue for user %s", userID)
