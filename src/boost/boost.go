@@ -977,6 +977,10 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 		go func(eggIncID, userID string, b *Booster) {
 			backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, true)
 			virtue := backup.GetVirtue()
+			if virtue == nil {
+				log.Printf("Received nil virtue for user %s", userID)
+				return
+			}
 
 			var allEov uint32
 
