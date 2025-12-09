@@ -86,12 +86,12 @@ jobs:
           CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/freebsd/boostbot-$VERSION-freebsd-amd64
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/linux/boostbot-$VERSION-linux-amd64
       - name: Upload linux
-        uses: actions/upload-artifact@main
+        uses: actions/upload-artifact@v4
         with:
           name: boostbot-linux
           path: output/linux
       - name: Upload freebsd
-        uses: actions/upload-artifact@main
+        uses: actions/upload-artifact@v4
         with:
           name: boostbot-freebsd
           path: output/freebsd
