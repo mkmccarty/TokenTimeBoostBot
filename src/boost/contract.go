@@ -824,10 +824,22 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		case "te":
 			contract.BoostOrder = ContractOrderTE
 			// Refresh the user's egg inc data, if they have 0 TE count
+			// Collect userIDs and boosters with TECount == 0
+			var usersToRefresh []struct {
+				userID string
+				booster *Booster
+			}
 			for userID, b := range contract.Boosters {
 				if b.TECount == 0 {
-					updateContractFarmerTE(s, userID, b, contract)
+					usersToRefresh = append(usersToRefresh, struct {
+						userID string
+						booster *Booster
+					}{userID, b})
 				}
+			}
+			// Call updateContractFarmerTE for each collected user
+			for _, item := range usersToRefresh {
+				updateContractFarmerTE(s, item.userID, item.booster, contract)
 			}
 		}
 	}
