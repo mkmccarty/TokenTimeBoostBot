@@ -847,41 +847,8 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			contract.UltraCount++
 		}
 
-		// Get user EI from the db and set any relevant fields
-		eggIncID := ""
-		eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
-		encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
-		if err == nil {
-			decodedData, err := base64.StdEncoding.DecodeString(eiID)
-			if err == nil {
-				decryptedData, err := config.DecryptCombined(encryptionKey, decodedData)
-				if err == nil {
-					eggIncID = string(decryptedData)
-				}
-			}
-		}
-		if eggIncID == "" || len(eggIncID) != 18 || eggIncID[:2] != "EI" {
-			b.TECount = 0
-		} else {
-
-			backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, true)
-			virtue := backup.GetVirtue()
-
-			var allEov uint32 = 0
-
-			// virtueEggs := []string{"CURIOSITY", "INTEGRITY", "HUMILITY", "RESILIENCE", "KINDNESS"}
-			for i := range 5 {
-				eov := virtue.GetEovEarned()[i] // Assuming Eggs is the correct field for accessing egg virtues
-				delivered := virtue.GetEggsDelivered()[i]
-
-				eovEarned := countTETiersPassed(delivered)
-				// pendingTruthEggs calculates the number of pending Truth Eggs based on delivered and earnedTE.
-				eovPending := pendingTruthEggs(delivered, eov)
-
-				allEov += max(eovEarned-eovPending, 0)
-			}
-
-			b.TECount = int(allEov)
+		if contract.BoostOrder == ContractOrderTE {
+			updateContractFarmerTE(s, userID, b, contract)
 		}
 
 		// Check if within the start period of a contract
@@ -989,6 +956,60 @@ func IsUserCreatorOfAnyContract(s *discordgo.Session, userID string) bool {
 		}
 	}
 	return false
+}
+
+func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, contract *Contract) {
+	// Get user EI from the db and set any relevant fields
+	eggIncID := ""
+	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+	encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
+	if err == nil {
+		decodedData, err := base64.StdEncoding.DecodeString(eiID)
+		if err == nil {
+			decryptedData, err := config.DecryptCombined(encryptionKey, decodedData)
+			if err == nil {
+				eggIncID = string(decryptedData)
+			}
+		}
+	}
+	b.TECount = 0
+	if len(eggIncID) == 18 && strings.HasPrefix(eggIncID, "EI") {
+		go func(eggIncID, userID string, b *Booster) {
+			backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, true)
+			if backup == nil {
+				log.Printf("Received nil backup for user %s", userID)
+				return
+			}
+			if backup == nil {
+				log.Printf("Received nil backup for user %s", userID)
+				return
+			}
+			virtue := backup.GetVirtue()
+			if virtue == nil {
+				log.Printf("Received nil virtue for user %s", userID)
+				return
+			}
+
+			var allEov uint32
+
+			// virtueEggs := []string{"CURIOSITY", "INTEGRITY", "HUMILITY", "RESILIENCE", "KINDNESS"}
+			for i := range 5 {
+				eov := virtue.GetEovEarned()[i]
+				delivered := virtue.GetEggsDelivered()[i]
+
+				eovEarned := countTETiersPassed(delivered)
+				eovPending := pendingTruthEggs(delivered, eov)
+
+				allEov += max(eovEarned-eovPending, 0)
+			}
+
+			contract.mutex.Lock()
+			b.TECount = int(allEov)
+			contract.mutex.Unlock()
+			refreshBoostListMessage(s, contract)
+
+		}(eggIncID, userID, b)
+	}
 }
 
 func creatorOfContract(s *discordgo.Session, c *Contract, u string) bool {
