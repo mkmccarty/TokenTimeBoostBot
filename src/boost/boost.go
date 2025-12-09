@@ -976,7 +976,7 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 	if len(eggIncID) != 18 || !strings.HasPrefix(eggIncID, "EI") {
 		// skip fetching EI data
 	} else {
-		go func(eggIncID, userID string, b *Booster) {
+		go func(eggIncID, userID string, b *Booster, contract *Contract) {
 			backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, true)
 			virtue := backup.GetVirtue()
 
@@ -993,10 +993,13 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 				allEov += max(eovEarned-eovPending, 0)
 			}
 
+			contract.mutex.Lock()
 			b.TECount = int(allEov)
+			contract.mutex.Unlock()
+
 			refreshBoostListMessage(s, contract)
 
-		}(eggIncID, userID, b)
+		}(eggIncID, userID, b, contract)
 	}
 }
 
