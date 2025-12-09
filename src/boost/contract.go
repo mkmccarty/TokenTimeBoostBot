@@ -823,7 +823,12 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			contract.BoostOrder = ContractOrderTokenAsk
 		case "te":
 			contract.BoostOrder = ContractOrderTE
-			// TODO - Refresh the user's egg inc data. Not implementing just yet because of possible rate limits
+			// Refresh the user's egg inc data, if they have 0 TE count
+			for userID, b := range contract.Boosters {
+				if b.TECount == 0 {
+					updateContractFarmerTE(s, userID, b, contract)
+				}
+			}
 		}
 	}
 
