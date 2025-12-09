@@ -978,7 +978,13 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 	} else {
 		go func(eggIncID, userID string, b *Booster, contract *Contract) {
 			backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, true)
+			if backup == nil {
+				return
+			}
 			virtue := backup.GetVirtue()
+			if virtue == nil {
+				return
+			}
 
 			var allEov uint32
 
