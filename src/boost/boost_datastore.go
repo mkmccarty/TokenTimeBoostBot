@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/peterbourgon/diskv/v3"
 )
@@ -73,10 +72,7 @@ func saveData(contractHash string) {
 		if contract == nil {
 			return
 		}
-		if time.Since(contract.LastSaveTime) >= 15*time.Second {
-			contract.LastSaveTime = time.Now()
-			saveSqliteData(contract)
-		}
+		saveSqliteData(contract)
 		return
 	}
 
