@@ -324,6 +324,13 @@ func PrintDropData(ship ei.MissionInfo_Spaceship, duration ei.MissionInfo_Durati
 
 	rows = mergeRarities(rows)
 
+	/*
+		p_hat = desired_item / total_items
+		SE = sqrt(p_hat * (1 - p_hat) / total_items)
+		CI_low = p_hat - 1.96 * SE
+		CI_high = p_hat + 1.96 * SE
+	*/
+
 	var tier1 strings.Builder
 	var tier2 strings.Builder
 	var tier3 strings.Builder
