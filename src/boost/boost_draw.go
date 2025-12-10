@@ -306,7 +306,11 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 						sortRate = fmt.Sprintf(" **Ask:%d** ", b.TokensWanted)
 					}
 					if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderTE {
-						sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
+						if b.TECount == -1 {
+							sortRate = fmt.Sprint(" **TE:🛜** ")
+						} else {
+							sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
+						}
 					}
 					if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.PlayStyle != ContractPlaystyleChill {
 						//if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.BoostOrder == ContractOrderTVal {
@@ -349,7 +353,11 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 						sortRate = fmt.Sprintf(" **ELR:%2.3f** ", min(b.ArtifactSet.LayRate, b.ArtifactSet.ShipRate))
 					}
 					if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderTE {
-						sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
+						if b.TECount == -1 {
+							sortRate = fmt.Sprint(" **TE:🛜** ")
+						} else {
+							sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
+						}
 					}
 					if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.PlayStyle != ContractPlaystyleChill {
 						//if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.BoostOrder == ContractOrderTVal {
@@ -429,7 +437,11 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 					sortRate = fmt.Sprintf(" **ELR:%2.3f** ", min(b.ArtifactSet.LayRate, b.ArtifactSet.ShipRate))
 				}
 				if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderTE {
-					sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
+					if b.TECount == -1 {
+						sortRate = fmt.Sprint(" **TE:🛜** ")
+					} else {
+						sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
+					}
 				}
 				if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.PlayStyle != ContractPlaystyleChill {
 					//if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.BoostOrder == ContractOrderTVal {
