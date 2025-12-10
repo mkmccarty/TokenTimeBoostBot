@@ -307,7 +307,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 					}
 					if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderTE {
 						if b.TECount == -1 {
-							sortRate = fmt.Sprint(" **TE:🛜** ")
+							sortRate = " **TE:🛜** "
 						} else {
 							sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
 						}
@@ -354,7 +354,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 					}
 					if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderTE {
 						if b.TECount == -1 {
-							sortRate = fmt.Sprint(" **TE:🛜** ")
+							sortRate = " **TE:🛜** "
 						} else {
 							sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
 						}
@@ -438,7 +438,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				}
 				if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderTE {
 					if b.TECount == -1 {
-						sortRate = fmt.Sprint(" **TE:🛜** ")
+						sortRate = " **TE:🛜** "
 					} else {
 						sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
 					}
