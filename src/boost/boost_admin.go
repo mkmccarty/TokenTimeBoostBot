@@ -278,6 +278,21 @@ func getContractList(guildID string) (string, *discordgo.MessageSend, error) {
 		i++
 	}
 
+	if len(field) == 0 {
+		if len(Contracts) == 0 {
+			embed := &discordgo.MessageSend{
+				Embeds: []*discordgo.MessageEmbed{{
+					Type:        discordgo.EmbedTypeRich,
+					Title:       "Contract List",
+					Description: "No contracts available",
+					Color:       getRandomColor(),
+					Fields:      field,
+				}},
+			}
+			return "", embed, nil
+		}
+	}
+
 	embed := &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{{
 			Type:        discordgo.EmbedTypeRich,
