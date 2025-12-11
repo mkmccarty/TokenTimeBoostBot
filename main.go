@@ -590,7 +590,7 @@ var (
 			menno.HandleHuntCommand(s, i)
 		},
 		slashSignups: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleSignups(s, i)
+			boost.HandleSignupsCommand(s, i)
 		},
 		slashEstimateTime: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleEstimateTimeCommand(s, i)
@@ -786,6 +786,9 @@ var (
 		},
 		"fd_playground": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleScoreExplorerPage(s, i)
+		},
+		"fd_signups": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleSignupsPage(s, i)
 		},
 		"fd_signupStart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

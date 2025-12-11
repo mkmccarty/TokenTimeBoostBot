@@ -12,9 +12,45 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
+// ACO's contract channels
+const (
+	acoGuild        string = "485162044652388384"
+	leggacyCategory string = "1148948250381004840"
+	ultraCategory   string = "1131573572284973086"
+)
+
+type predictionType string
+
+const (
+	predictionAll             predictionType = "all"
+	predictionWedLegacy       predictionType = "wed_legacy"
+	predictionFriPeLegacyBoth predictionType = "fri_pe_legacy_both"
+	predictionFriUltraLegacy  predictionType = "fri_ultra_legacy"
+	predictionFriNonUltra     predictionType = "fri_non_ultra_legacy"
+)
+
+// flags returns which Leggacy prediction types to show based on the predictionType
+func (p predictionType) flags() (showWednesday, showFridayNonUltra, showFridayUltra bool) {
+	showWednesday, showFridayNonUltra, showFridayUltra = true, true, true
+	switch p {
+	case predictionWedLegacy:
+		showFridayNonUltra = false
+		showFridayUltra = false
+	case predictionFriPeLegacyBoth:
+		showWednesday = false
+	case predictionFriUltraLegacy:
+		showWednesday = false
+		showFridayNonUltra = false
+	case predictionFriNonUltra:
+		showWednesday = false
+		showFridayUltra = false
+	}
+	return
+}
+
 // GetSignupsCommand returns the command for the /signups command
 func GetSignupsCommand(cmd string) *discordgo.ApplicationCommand {
-
+	minValue := 1.0
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Get sign-up templates and contract predictions.",
@@ -34,17 +70,11 @@ func GetSignupsCommand(cmd string) *discordgo.ApplicationCommand {
 				Description: "Print predictions for the following weeks contracts.",
 				Options: []*discordgo.ApplicationCommandOption{
 					{
-						Type:        discordgo.ApplicationCommandOptionBoolean,
-						Name:        "copy-paste",
-						Description: "Format for easy copy-paste into Discord (default false).",
-						Required:    false,
-					},
-					{
 						Type:        discordgo.ApplicationCommandOptionInteger,
 						Name:        "contract-count",
 						Description: "Contract count per category (default 3).",
 						Required:    false,
-						MinValue:    func() *float64 { v := 1.0; return &v }(),
+						MinValue:    &minValue,
 						MaxValue:    5.0,
 					},
 				},
@@ -82,8 +112,8 @@ func GetSignupsCommand(cmd string) *discordgo.ApplicationCommand {
 	}
 }
 
-// HandleSignups will handle the /signups command
-func HandleSignups(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleSignupsCommand will handle the /signups command
+func HandleSignupsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	flags := discordgo.MessageFlagsIsComponentsV2
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -97,7 +127,30 @@ func HandleSignups(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	optionMap := bottools.GetCommandOptionsMap(i)
 	var components []discordgo.MessageComponent
 	if _, ok := optionMap["predictions"]; ok {
-		components = predictions(optionMap)
+
+		pt := predictionAll
+		// Check for ACO guild's categories
+		if i.GuildID == acoGuild {
+			categoryID, err := bottools.FindCategoryID(s, i.ChannelID)
+			if err == nil {
+				switch categoryID {
+				case ultraCategory:
+					pt = predictionFriUltraLegacy
+				case leggacyCategory:
+					now := time.Now()
+					if isNextWedSoonerThanNextFri(now, KevinLoc) {
+						pt = predictionWedLegacy
+					} else {
+						pt = predictionFriNonUltra
+					}
+				}
+			}
+		}
+		components = predictions(optionMap, predictionCallParameters{
+			copyPaste:  false,
+			buttonCall: true,
+			pt:         pt,
+		})
 	} else if _, ok := optionMap["xfs"]; ok {
 		components = signups(optionMap)
 	}
@@ -115,6 +168,66 @@ func HandleSignups(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	})
 	if err != nil {
 		log.Println("Error sending follow-up message:", err)
+	}
+}
+
+func HandleSignupsPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
+
+	// check if the original message is older than 5 minutes
+	const ttl = 5 * time.Minute
+	expired := false
+	if i.Message != nil {
+		createdAt, err := discordgo.SnowflakeTimestamp(i.Message.ID)
+		if err != nil {
+			log.Println("Error parsing message timestamp:", err)
+			return
+		}
+		expired = time.Since(createdAt) > ttl
+	}
+
+	flags := discordgo.MessageFlagsIsComponentsV2 | discordgo.MessageFlagsEphemeral
+	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
+
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		Data: &discordgo.InteractionResponseData{
+			Content:    "",
+			Flags:      flags,
+			Components: []discordgo.MessageComponent{},
+		},
+	})
+	if err != nil {
+		log.Println(err)
+	}
+
+	predParams := predictionCallParameters{
+		copyPaste:  false,
+		buttonCall: true,
+	}
+
+	// Determine the new prediction type based on the interaction
+	if len(reaction) == 4 {
+		switch {
+		case reaction[1] == "predclose" || (reaction[1] == "predtype" && expired):
+			predParams.pt = predictionType(reaction[2])
+			predParams.buttonCall = false
+		case reaction[1] == "predtype":
+			predParams.pt = predictionType(i.MessageComponentData().Values[0])
+		}
+		if count, err := strconv.Atoi(reaction[3]); err == nil {
+			predParams.contractCount = int64(count)
+		}
+	}
+
+	components := predictions(nil, predParams)
+
+	edit := discordgo.WebhookEdit{
+		Components: &components,
+	}
+
+	_, err = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit)
+	if err != nil {
+		log.Println(err)
 	}
 }
 
@@ -195,7 +308,12 @@ func signups(
 			}
 		}
 		components = append(components, bottools.NewSmallSeparatorComponent(!copyPaste))
-		components = append(components, predictions(optionMap)...)
+		components = append(components, predictions(optionMap, predictionCallParameters{
+			copyPaste:     copyPaste,
+			buttonCall:    false,
+			contractCount: 3,
+			pt:            predictionAll,
+		})...)
 	}
 
 	return components
@@ -243,7 +361,7 @@ func writeSeasonalSignupDisplay(
 	dropTime time.Time,
 	copyPaste bool,
 ) *discordgo.TextDisplay {
-	deadlineTime := dropTime.Add(5 * time.Minute)
+	deadlineTime := dropTime // .Add(5 * time.Minute)
 	season := seasonsOrdered[seasonIndex]
 
 	content := fmt.Sprintf(
@@ -260,8 +378,8 @@ func writeSeasonalSignupDisplay(
 
 **What __Start Time__ works for you? (required)** 
 0️⃣ — **+0**
-1️⃣ — **+1**
-🔀 — **+0 or +1**`,
+1️⃣ — **+3**
+🔀 — **+0 or +3**`,
 		season.Emoji,
 		season.Name,
 		seasonYear,
@@ -286,7 +404,7 @@ func writeLegacySignupDisplay(
 	dropTime time.Time,
 	copyPaste bool,
 ) *discordgo.TextDisplay {
-	deadlineTime := dropTime.Add(5 * time.Minute)
+	deadlineTime := dropTime // .Add(5 * time.Minute)
 
 	content := fmt.Sprintf(
 		`## 📜 Leggacy Sign-up: %s 📜 ##
@@ -301,8 +419,8 @@ func writeLegacySignupDisplay(
 
 **What __Start Time__ works for you? (required)** 
 0️⃣ — **+0**
-1️⃣ — **+1**
-🔀 — **+0 or +1**`,
+1️⃣ — **+3**
+🔀 — **+0 or +3**`,
 		bottools.WrapTimestamp(dropTime.Unix(), bottools.TimestampLongDateTime),
 		bottools.WrapTimestamp(deadlineTime.Unix(), bottools.TimestampShortTime),
 	)
@@ -318,7 +436,7 @@ func writePELegacySignupDisplay(
 	dropTime time.Time,
 	copyPaste bool,
 ) *discordgo.TextDisplay {
-	deadlineTime := dropTime.Add(5 * time.Minute)
+	deadlineTime := dropTime //.Add(5 * time.Minute)
 
 	content := fmt.Sprintf(
 		`## 🟢🟪  PE Leggacies Sign-up: %s 🟢🟪 ##
@@ -347,50 +465,149 @@ func writePELegacySignupDisplay(
 
 // ==== Prediction Subcommand ====
 
+type predictionCallParameters struct {
+	copyPaste     bool           // Whether to wrap content in code blocks
+	buttonCall    bool           // Whether to display buttons
+	contractCount int64          // How many contracts to show per type
+	pt            predictionType // Which prediction type to show
+}
+
 // predictions prints predictions for the following weeks contracts.
 func predictions(
 	optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption,
+	params predictionCallParameters,
 ) []discordgo.MessageComponent {
 	var contractCount int64 = 3
-	if opt, ok := optionMap["predictions-contract-count"]; ok {
-		contractCount = opt.IntValue()
+	if optionMap != nil && optionMap["predictions-contract-count"] != nil {
+		contractCount = optionMap["predictions-contract-count"].IntValue()
+	} else if params.contractCount > 0 {
+		contractCount = params.contractCount
 	}
 
-	copyPaste := false
-	if opt, ok := optionMap["predictions-copy-paste"]; ok {
-		copyPaste = opt.BoolValue()
-	}
+	copyPaste := params.copyPaste
+	buttonCall := params.buttonCall
+	// Determine which predictions to show
+	showWednesday, showFridayNonUltra, showFridayUltra := params.pt.flags()
+	hasFriday := showFridayNonUltra || showFridayUltra
 
+	// Get predictions
 	fridayNonUltra, fridayUltra, wednesday := predictJeli(contractCount)
 
 	// Get the next Wednesday and Friday times; 0 means current week
 	_, wedTime, friTime, _ := contractTimes9amPacific(0)
 
-	// Decide first/second block based on which comes first
 	var first, second discordgo.MessageComponent
-	if wedTime.Before(friTime) {
-		first = writeWednesdayPredictions(wedTime, wednesday, copyPaste, true)
-		second = writeFridayPredictions(friTime, fridayNonUltra, fridayUltra, copyPaste, false)
+	if showWednesday {
+		if hasFriday {
+			// both Wednesday and Friday
+			if wedTime.Before(friTime) {
+				first = writeWednesdayPredictions(wedTime, wednesday, copyPaste, false)
+				second = writeFridayPredictions(friTime, fridayNonUltra, fridayUltra, copyPaste, false, showFridayNonUltra, showFridayUltra)
+			} else {
+				first = writeFridayPredictions(friTime, fridayNonUltra, fridayUltra, copyPaste, false, showFridayNonUltra, showFridayUltra)
+				second = writeWednesdayPredictions(wedTime, wednesday, copyPaste, true)
+			}
+		} else {
+			// only Wednesday
+			first = writeWednesdayPredictions(wedTime, wednesday, copyPaste, true)
+		}
 	} else {
-		first = writeFridayPredictions(friTime, fridayNonUltra, fridayUltra, copyPaste, true)
-		second = writeWednesdayPredictions(wedTime, wednesday, copyPaste, false)
+		// only Friday
+		first = writeFridayPredictions(friTime, fridayNonUltra, fridayUltra, copyPaste, true, showFridayNonUltra, showFridayUltra)
 	}
 
-	components := make([]discordgo.MessageComponent, 0, 3)
-	components = append(components, first)
+	// Build components slice
+	cap := 1
 	if !copyPaste {
-		components = append(components, bottools.NewSmallSeparatorComponent(true))
+		cap++
 	}
-	components = append(components, second)
+	if second != nil {
+		cap++
+	}
+	if buttonCall {
+		cap += 2
+	}
+
+	components := make([]discordgo.MessageComponent, 0, cap)
+	components = append(components, first)
+	if second != nil {
+		if !copyPaste {
+			components = append(components, bottools.NewSmallSeparatorComponent(true))
+		}
+		components = append(components, second)
+	}
+
+	// Add select menu if not a button call
+	if buttonCall {
+		components = append(components, getPredictionsButtonsComponents(params.pt, contractCount)...)
+	}
 
 	return components
+}
+
+func getPredictionsButtonsComponents(predType predictionType, contractCount int64) []discordgo.MessageComponent {
+	min := 1
+	selectMenu := discordgo.SelectMenu{
+		MenuType:    discordgo.StringSelectMenu,
+		CustomID:    fmt.Sprintf("fd_signups#predtype#%s#%d", predType, contractCount),
+		Placeholder: "Prediction Type",
+		MinValues:   &min,
+		MaxValues:   1,
+		Options: []discordgo.SelectMenuOption{
+			{
+				Label:       "All Leggacies",
+				Description: "Show all Leggacy contracts",
+				Value:       string(predictionAll),
+				Default:     predType == predictionAll,
+			},
+			{
+				Label:       "Wednesday Leggacy",
+				Description: "Show only Wednesday Leggacy contracts",
+				Value:       string(predictionWedLegacy),
+				Default:     predType == predictionWedLegacy,
+			},
+			{
+				Label:       "Friday PE Leggacies",
+				Description: "Show both Friday PE Leggacy contracts",
+				Value:       string(predictionFriPeLegacyBoth),
+				Default:     predType == predictionFriPeLegacyBoth,
+			},
+			{
+				Label:       "Friday Leggacy",
+				Description: "Show Friday non-Ultra Leggacy contracts",
+				Value:       string(predictionFriNonUltra),
+				Default:     predType == predictionFriNonUltra,
+			},
+			{
+				Label:       "Friday Ultra Leggacy",
+				Description: "Show Friday Ultra Leggacy contracts",
+				Value:       string(predictionFriUltraLegacy),
+				Default:     predType == predictionFriUltraLegacy,
+			},
+		},
+	}
+
+	closeButton := discordgo.Button{
+		Label:    "💾 Save",
+		Style:    discordgo.SuccessButton,
+		CustomID: fmt.Sprintf("fd_signups#predclose#%s#%d", predType, contractCount),
+	}
+
+	return []discordgo.MessageComponent{
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{selectMenu},
+		},
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{closeButton},
+		},
+	}
 }
 
 // Wednesday Predictions
 func writeWednesdayPredictions(
 	dropTime time.Time, // when the post is created
 	contracts []ei.EggIncContract,
-	copyPaste, printFirst bool,
+	copyPaste, footer bool,
 ) *discordgo.TextDisplay {
 	var b strings.Builder
 
@@ -412,7 +629,7 @@ func writeWednesdayPredictions(
 	writeContracts(&b, contracts, copyPaste, iconCoop, iconCR)
 
 	// Footer: show for copy-paste mode or when not first
-	if copyPaste || !printFirst {
+	if copyPaste || footer {
 		b.WriteString("\n-# ")
 		b.WriteString(iconCoop)
 		b.WriteString(" coop size | 🎏 parade alts | ")
@@ -435,7 +652,7 @@ func writeFridayPredictions(
 	dropTime time.Time,
 	peContracts []ei.EggIncContract, // non-Ultra PE
 	ultraContracts []ei.EggIncContract, // Ultra PE
-	copyPaste, printFirst bool,
+	copyPaste, footer, showNonUltra, showUltra bool,
 ) *discordgo.TextDisplay {
 	var b strings.Builder
 
@@ -454,21 +671,21 @@ func writeFridayPredictions(
 	b.WriteByte('\n')
 
 	// Non-ultra section
-	if len(peContracts) > 0 {
+	if showNonUltra && len(peContracts) > 0 {
 		b.WriteString("**🟢 PE Leggacy**\n")
 		writeContracts(&b, peContracts, copyPaste, iconCoop, iconCR)
 		b.WriteByte('\n')
 	}
 
 	// Ultra section
-	if len(ultraContracts) > 0 {
+	if showUltra && len(ultraContracts) > 0 {
 		b.WriteString("**🟪 Ultra PE Leggacy **\n")
 		writeContracts(&b, ultraContracts, copyPaste, iconCoop, iconCR)
 		b.WriteByte('\n')
 	}
 
 	// Footer
-	if copyPaste || !printFirst {
+	if copyPaste || footer {
 		b.WriteString("-# ")
 		b.WriteString(iconCoop)
 		b.WriteString(" coop size | 🎏 parade alts | ")
@@ -626,16 +843,42 @@ var KevinLoc = func() *time.Location {
 	return loc
 }()
 
+// isNextWedSoonerThanNextFri returns true if the next Wednesday 09:00
+// occurs before the next Friday 09:00 based on the given time and location
+func isNextWedSoonerThanNextFri(
+	now time.Time,
+	loc *time.Location,
+) bool {
+	local := now.In(loc)
+
+	wd := local.Weekday()
+	after9 := local.Hour() > 9 ||
+		(local.Hour() == 9 && (local.Minute() > 0 || local.Second() > 0 || local.Nanosecond() > 0))
+
+	switch wd {
+	case time.Monday, time.Tuesday, time.Saturday, time.Sunday:
+		return true
+	case time.Wednesday:
+		return !after9
+	case time.Thursday:
+		return false
+	case time.Friday:
+		return after9
+	default:
+		return false
+	}
+}
+
 // findNextContractDropTime returns the next specified date based on given time at 9:00 AM in the given location
 func findNextContractDropTime(
-	from time.Time,
+	now time.Time,
 	target time.Weekday,
 	loc *time.Location,
 ) time.Time {
-	fromLocal := from.In(loc)
+	local := now.In(loc)
 
-	daysAhead := (int(target) - int(fromLocal.Weekday()) + 7) % 7
-	candidateDate := fromLocal.AddDate(0, 0, daysAhead)
+	daysAhead := (int(target) - int(local.Weekday()) + 7) % 7
+	candidateDate := local.AddDate(0, 0, daysAhead)
 
 	dropTime := time.Date(
 		candidateDate.Year(),
@@ -646,7 +889,7 @@ func findNextContractDropTime(
 	)
 
 	// If the candidate dropTime alreday passed, move to next week
-	if dropTime.Before(fromLocal) {
+	if dropTime.Before(local) {
 		dropTime = dropTime.AddDate(0, 0, 7)
 	}
 
@@ -672,9 +915,8 @@ func contractTimes9amPacific(week int) (monday, wednesday, friday time.Time, ok 
 
 	// Current-date-based
 	if week <= 0 {
-		now := time.Now().In(KevinLoc)
-		wednesday = findNextContractDropTime(now, time.Wednesday, KevinLoc)
-		friday = findNextContractDropTime(now, time.Friday, KevinLoc)
+		wednesday = findNextContractDropTime(time.Now(), time.Wednesday, KevinLoc)
+		friday = findNextContractDropTime(time.Now(), time.Friday, KevinLoc)
 		return time.Time{}, wednesday, friday, true
 	}
 
