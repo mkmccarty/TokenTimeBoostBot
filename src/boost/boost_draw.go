@@ -334,12 +334,11 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				}
 			}
 			if earlyList.Len() > 0 {
+				temp := earlyList.String()
+				earlyList.Reset()
 				if start == 1 {
-					earlyList.Reset()
-					earlyList.WriteString(fmt.Sprintf("1: %s\n", earlyList.String()))
+					earlyList.WriteString(fmt.Sprintf("1: %s\n", temp))
 				} else {
-					temp := earlyList.String()
-					earlyList.Reset()
 					earlyList.WriteString(fmt.Sprintf("1-%d: %s\n", start, temp))
 				}
 			}
