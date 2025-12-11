@@ -10,6 +10,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
@@ -200,6 +201,9 @@ func getRandomColor() int {
 	return rand.IntN(16777216) // 16777216 is the maximum value for a 24-bit color
 }
 
+var lastContractListTime time.Time
+var lastContractListIndex int
+
 // getContractList returns a list of all contracts within the specified guild
 func getContractList(guildID string) (string, *discordgo.MessageSend, error) {
 	var field []*discordgo.MessageEmbedField
@@ -219,10 +223,45 @@ func getContractList(guildID string) (string, *discordgo.MessageSend, error) {
 		return "", embed, nil
 	}
 
-	i := 1
+	if time.Since(lastContractListTime) > 1*time.Minute {
+		lastContractListIndex = 0
+		lastContractListTime = time.Now()
+	}
+
+	// Calculate window start and end
+	windowSize := 10
+	startIdx := lastContractListIndex
+	endIdx := startIdx + windowSize
+
+	// Reset if we've reached the end
+	if startIdx >= len(Contracts) {
+		lastContractListIndex = 0
+		startIdx = 0
+		endIdx = windowSize
+	}
+
+	if endIdx > len(Contracts) {
+		endIdx = len(Contracts)
+	}
+
+	contractList := make([]*Contract, 0)
+	idx := 0
 	for _, c := range Contracts {
-		if guildID != "" && c.Location[0].GuildID != guildID {
-			continue
+		if idx >= startIdx && idx < endIdx {
+			contractList = append(contractList, c)
+		}
+		idx++
+	}
+
+	// Update index for next call
+	lastContractListIndex = endIdx
+
+	i := 1 + startIdx
+	for _, c := range contractList {
+		if guildID != "766330702689992720" {
+			if guildID != "" && c.Location[0].GuildID != guildID {
+				continue
+			}
 		}
 		str := fmt.Sprintf("> Coordinator: <@%s>  [%s](%s/%s/%s)\n", c.CreatorID[0], c.CoopID, "https://eicoop-carpet.netlify.app", c.ContractID, c.CoopID)
 		for _, loc := range c.Location {
