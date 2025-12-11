@@ -378,7 +378,7 @@ func writeSeasonalSignupDisplay(
 
 **What __Start Time__ works for you? (required)** 
 0️⃣ — **+0**
-1️⃣ — **+3**
+3️⃣ — **+3**
 🔀 — **+0 or +3**`,
 		season.Emoji,
 		season.Name,
@@ -419,7 +419,7 @@ func writeLegacySignupDisplay(
 
 **What __Start Time__ works for you? (required)** 
 0️⃣ — **+0**
-1️⃣ — **+3**
+3️⃣ — **+3**
 🔀 — **+0 or +3**`,
 		bottools.WrapTimestamp(dropTime.Unix(), bottools.TimestampLongDateTime),
 		bottools.WrapTimestamp(deadlineTime.Unix(), bottools.TimestampShortTime),
