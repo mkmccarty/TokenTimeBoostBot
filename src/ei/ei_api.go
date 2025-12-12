@@ -377,9 +377,9 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 									Content: fmt.Sprintf("```diff\n%s\n```", string(b)),
 								},
 							}
-							_, err = s.ChannelMessageSendComplex(u.ID, &data)
-							if err != nil {
-								log.Print(err)
+							_, sendErr := s.ChannelMessageSendComplex(u.ID, &data)
+							if sendErr != nil {
+								log.Print(sendErr)
 							}
 						}
 					} else {
