@@ -99,6 +99,7 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 		str += fmt.Sprintf("> Events: %s\n", lastEventUpdate.Format(time.RFC1123))
 		str += fmt.Sprintf("> Collegeggtibles: %d\n", len(ei.CustomEggMap))
 	}
+	ei.GetConfigFromAPI(s)
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{

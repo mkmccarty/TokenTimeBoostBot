@@ -16,6 +16,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/wI2L/jsondiff"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -311,88 +312,28 @@ func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID 
 // GetConfigFromAPI will download the config data from the Egg Inc API and write it to ei-config.json
 func GetConfigFromAPI(s *discordgo.Session) bool {
 	reqURL := "https://www.auxbrain.com/ei/get_config"
-	enc := base64.StdEncoding
 
-	protoData := ""
+	clientVersion := uint32(99)
+	platformString := "IOS"
+	version := "1.35.2"
+	build := "111300"
 
-	if protoData == "" {
-		clientVersion := uint32(99)
-		platformString := "IOS"
-		version := "1.35.2"
-		build := "111300"
-
-		getConfigRequest := ConfigRequest{
-			Rinfo: &BasicRequestInfo{
-				EiUserId:      &config.EIUserIDBasic,
-				ClientVersion: &clientVersion,
-				Version:       &version,
-				Build:         &build,
-				Platform:      &platformString,
-			},
-		}
-
-		reqBin, err := proto.Marshal(&getConfigRequest)
-		if err != nil {
-			log.Print(err)
-			return false
-		}
-		values := url.Values{}
-		reqDataEncoded := enc.EncodeToString(reqBin)
-		values.Set("data", string(reqDataEncoded))
-
-		response, err := http.PostForm(reqURL, values)
-		if err != nil {
-			log.Print(err)
-			return false
-		}
-
-		defer func() {
-			if err := response.Body.Close(); err != nil {
-				// Handle the error appropriately, e.g., logging or taking corrective actions
-				log.Printf("Failed to close: %v", err)
-			}
-		}()
-
-		// Read the response body
-		body, err := io.ReadAll(response.Body)
-		if err != nil {
-			log.Print(err)
-			return false
-		}
-		protoData = string(body)
+	getConfigRequest := ConfigRequest{
+		Rinfo: &BasicRequestInfo{
+			EiUserId:      &config.EIUserIDBasic,
+			ClientVersion: &clientVersion,
+			Version:       &version,
+			Build:         &build,
+			Platform:      &platformString,
+		},
 	}
-
-	decodedAuthBuf := &AuthenticatedMessage{}
-	rawDecodedText, _ := enc.DecodeString(protoData)
-	err := proto.Unmarshal(rawDecodedText, decodedAuthBuf)
-	if err != nil {
-		log.Print(err)
-		return false
-	}
-
-	// detect if auth_msg.message is compressed
-	if decodedAuthBuf.GetCompressed() {
-		gr, zerr := zlib.NewReader(bytes.NewReader(decodedAuthBuf.Message))
-		if zerr != nil {
-			log.Print(zerr)
-			return false
-		}
-		var buf bytes.Buffer
-		_, zerr = io.Copy(&buf, gr)
-		if zerr != nil {
-			log.Print(zerr)
-			_ = gr.Close()
-			return false
-		}
-		_ = gr.Close()
-		decodedAuthBuf.Message = buf.Bytes()
-	}
+	response := APICall(reqURL, &getConfigRequest)
 
 	configResponse := &ConfigResponse{}
 	opts := proto.UnmarshalOptions{
 		DiscardUnknown: true,
 	}
-	err = opts.Unmarshal(decodedAuthBuf.Message, configResponse)
+	err := opts.Unmarshal(response, configResponse)
 	if err != nil {
 		log.Print(err)
 		return false
@@ -401,21 +342,99 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 	// Write the config as a JSON file in ttbb-data/ei-config.json for debugging purposes
 	if config.IsDevBot() {
 		go func() {
-			jsonData, err := json.MarshalIndent(configResponse, "", "  ")
-			// Swap all instances of eiUserID with "REDACTED"
-			jsonData = []byte(string(jsonData))
-			jsonData = []byte(RedactUserInfo(string(jsonData), config.EIUserIDBasic))
-			if err != nil {
-				log.Println("Error marshalling config to JSON:", err)
-			} else {
-				_ = os.MkdirAll("ttbb-data", os.ModePerm)
-				err = os.WriteFile("ttbb-data/ei-config.json", []byte(jsonData), 0644)
-				if err != nil {
-					log.Print(err)
+			jsonData, _ := json.MarshalIndent(configResponse, "", "  ")
+			// If the file exists, compare it to the new one to avoid unnecessary writes
+			if existingData, err := os.ReadFile("ttbb-data/ei-config.json"); err == nil {
+				if bytes.Equal(existingData, jsonData) {
+					// No changes, skip writing
+					return
 				}
+			}
+			// Files are different, if we have an existing file, I want a diff
+			pod := existingData
+			if len(pod) > 0 {
+				if patch, perr := jsondiff.Compare(pod, jsonData); perr == nil {
+					if b, merr := json.MarshalIndent(patch, "", "    "); merr == nil {
+						_, _ = os.Stdout.Write(b)
+					} else {
+						log.Printf("Failed to marshal config diff; proceeding to write file: %v", merr)
+					}
+				} else {
+					log.Printf("Config diff failed; proceeding to write file: %v", perr)
+				}
+			}
+
+			_ = os.MkdirAll("ttbb-data", os.ModePerm)
+			if err = os.WriteFile("ttbb-data/ei-config.json", []byte(jsonData), 0644); err != nil {
+				log.Print(err)
 			}
 		}()
 	}
 
 	return true
+}
+
+// APICall will make a generic Egg Inc API call with the given request and return the AuthenticatedMessage response
+func APICall(reqURL string, request proto.Message) []byte {
+	enc := base64.StdEncoding
+
+	reqBin, err := proto.Marshal(request)
+	if err != nil {
+		log.Print(err)
+		return nil
+	}
+
+	values := url.Values{}
+	reqDataEncoded := enc.EncodeToString(reqBin)
+	values.Set("data", reqDataEncoded)
+
+	response, err := http.PostForm(reqURL, values)
+	if err != nil {
+		log.Print(err)
+		return nil
+	}
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Print(err)
+		return nil
+	}
+	protoData := string(body)
+
+	decodedAuthBuf := &AuthenticatedMessage{}
+	rawDecodedText, err := enc.DecodeString(protoData)
+	if err != nil {
+		log.Print(err)
+		return nil
+	}
+	err = proto.Unmarshal(rawDecodedText, decodedAuthBuf)
+	if err != nil {
+		log.Print(err)
+		return rawDecodedText
+	}
+
+	// detect if auth_msg.message is compressed
+	if decodedAuthBuf.GetCompressed() {
+		gr, zerr := zlib.NewReader(bytes.NewReader(decodedAuthBuf.Message))
+		if zerr != nil {
+			log.Print(zerr)
+			return nil
+		}
+		var buf bytes.Buffer
+		_, zerr = io.Copy(&buf, gr)
+		if zerr != nil {
+			log.Print(zerr)
+			_ = gr.Close()
+			return nil
+		}
+		_ = gr.Close()
+		decodedAuthBuf.Message = buf.Bytes()
+	}
+
+	return decodedAuthBuf.Message
 }
