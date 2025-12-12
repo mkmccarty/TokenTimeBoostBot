@@ -3,6 +3,7 @@ package ei
 import (
 	"bytes"
 	"compress/gzip"
+	"compress/zlib"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -305,4 +306,116 @@ func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID 
 		return nil, cachedData
 	}
 	return archive, cachedData
+}
+
+// GetConfigFromAPI will download the config data from the Egg Inc API and write it to ei-config.json
+func GetConfigFromAPI(s *discordgo.Session) bool {
+	reqURL := "https://www.auxbrain.com/ei/get_config"
+	enc := base64.StdEncoding
+
+	protoData := ""
+
+	if protoData == "" {
+		clientVersion := uint32(99)
+		platformString := "IOS"
+		version := "1.35.2"
+		build := "111300"
+
+		getConfigRequest := ConfigRequest{
+			Rinfo: &BasicRequestInfo{
+				EiUserId:      &config.EIUserIDBasic,
+				ClientVersion: &clientVersion,
+				Version:       &version,
+				Build:         &build,
+				Platform:      &platformString,
+			},
+		}
+
+		reqBin, err := proto.Marshal(&getConfigRequest)
+		if err != nil {
+			log.Print(err)
+			return false
+		}
+		values := url.Values{}
+		reqDataEncoded := enc.EncodeToString(reqBin)
+		values.Set("data", string(reqDataEncoded))
+
+		response, err := http.PostForm(reqURL, values)
+		if err != nil {
+			log.Print(err)
+			return false
+		}
+
+		defer func() {
+			if err := response.Body.Close(); err != nil {
+				// Handle the error appropriately, e.g., logging or taking corrective actions
+				log.Printf("Failed to close: %v", err)
+			}
+		}()
+
+		// Read the response body
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			log.Print(err)
+			return false
+		}
+		protoData = string(body)
+	}
+
+	decodedAuthBuf := &AuthenticatedMessage{}
+	rawDecodedText, _ := enc.DecodeString(protoData)
+	err := proto.Unmarshal(rawDecodedText, decodedAuthBuf)
+	if err != nil {
+		log.Print(err)
+		return false
+	}
+
+	// detect if auth_msg.message is compressed
+	if decodedAuthBuf.GetCompressed() {
+		gr, zerr := zlib.NewReader(bytes.NewReader(decodedAuthBuf.Message))
+		if zerr != nil {
+			log.Print(zerr)
+			return false
+		}
+		var buf bytes.Buffer
+		_, zerr = io.Copy(&buf, gr)
+		if zerr != nil {
+			log.Print(zerr)
+			_ = gr.Close()
+			return false
+		}
+		_ = gr.Close()
+		decodedAuthBuf.Message = buf.Bytes()
+	}
+
+	configResponse := &ConfigResponse{}
+	opts := proto.UnmarshalOptions{
+		DiscardUnknown: true,
+	}
+	err = opts.Unmarshal(decodedAuthBuf.Message, configResponse)
+	if err != nil {
+		log.Print(err)
+		return false
+	}
+
+	// Write the config as a JSON file in ttbb-data/ei-config.json for debugging purposes
+	if config.IsDevBot() {
+		go func() {
+			jsonData, err := json.MarshalIndent(configResponse, "", "  ")
+			// Swap all instances of eiUserID with "REDACTED"
+			jsonData = []byte(string(jsonData))
+			jsonData = []byte(RedactUserInfo(string(jsonData), config.EIUserIDBasic))
+			if err != nil {
+				log.Println("Error marshalling config to JSON:", err)
+			} else {
+				_ = os.MkdirAll("ttbb-data", os.ModePerm)
+				err = os.WriteFile("ttbb-data/ei-config.json", []byte(jsonData), 0644)
+				if err != nil {
+					log.Print(err)
+				}
+			}
+		}()
+	}
+
+	return true
 }
