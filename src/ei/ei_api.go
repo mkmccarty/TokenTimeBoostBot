@@ -6,6 +6,7 @@ import (
 	"compress/zlib"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -363,7 +364,24 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 			if len(existingData) > 0 {
 				if patch, perr := jsondiff.Compare(existingData, jsonData); perr == nil {
 					if b, merr := json.MarshalIndent(patch, "", "    "); merr == nil {
-						_, _ = os.Stdout.Write(b)
+						if strings.Contains(string(b), "ei_hatchery_custom") {
+							// If the diff contains the string "ei_hatchery_custom"
+							u, err := s.UserChannelCreate(config.AdminUserID)
+							if err != nil {
+								log.Printf("Failed to create user channel for admin: %v", err)
+								return
+							}
+							var data discordgo.MessageSend
+							data.Components = []discordgo.MessageComponent{
+								discordgo.TextDisplay{
+									Content: fmt.Sprintf("```diff\n%s\n```", string(b)),
+								},
+							}
+							_, sendErr := s.ChannelMessageSendComplex(u.ID, &data)
+							if sendErr != nil {
+								log.Print(sendErr)
+							}
+						}
 					} else {
 						log.Printf("Failed to marshal config diff; proceeding to write file: %v", merr)
 					}
