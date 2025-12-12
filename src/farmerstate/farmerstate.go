@@ -226,6 +226,9 @@ func SetMissionShipSecondary(userID string, setting int) {
 
 // GetTokens returns a Farmer's tokens
 func GetTokens(userID string) int {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
 	if farmerstate, ok := farmerstate[userID]; ok {
 		return farmerstate.Tokens
 	}
