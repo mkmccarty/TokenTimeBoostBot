@@ -366,9 +366,12 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 					if b, merr := json.MarshalIndent(patch, "", "    "); merr == nil {
 						if strings.Contains(string(b), "ei_hatchery_custom") {
 							// If the diff contains the string "ei_hatchery_custom"
-							u, _ := s.UserChannelCreate(config.AdminUserID)
+							u, err := s.UserChannelCreate(config.AdminUserID)
+							if err != nil {
+								log.Printf("Failed to create user channel for admin: %v", err)
+								return
+							}
 							var data discordgo.MessageSend
-							data.Flags = discordgo.MessageFlagsIsComponentsV2
 							data.Components = []discordgo.MessageComponent{
 								discordgo.TextDisplay{
 									Content: fmt.Sprintf("```diff\n%s\n```", string(b)),
