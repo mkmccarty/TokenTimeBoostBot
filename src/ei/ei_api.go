@@ -346,20 +346,22 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 	// Write the config as a JSON file in ttbb-data/ei-config.json for debugging purposes
 	if config.IsDevBot() {
 		go func() {
-			jsonData, _ := json.MarshalIndent(configResponse, "", "  ")
+			jsonData, err := json.MarshalIndent(configResponse, "", "  ")
+			if err != nil {
+				log.Printf("Failed to marshal config response: %v", err)
+				return
+			}
 			// If the file exists, compare it to the new one to avoid unnecessary writes
-			var existingData []byte
-			if data, err := os.ReadFile("ttbb-data/ei-config.json"); err == nil {
-				existingData = data
+			existingData, err := os.ReadFile("ttbb-data/ei-config.json")
+			if err == nil {
 				if bytes.Equal(existingData, jsonData) {
 					// No changes, skip writing
 					return
 				}
 			}
 			// Files are different, if we have an existing file, I want a diff
-			pod := existingData
-			if len(pod) > 0 {
-				if patch, perr := jsondiff.Compare(pod, jsonData); perr == nil {
+			if len(existingData) > 0 {
+				if patch, perr := jsondiff.Compare(existingData, jsonData); perr == nil {
 					if b, merr := json.MarshalIndent(patch, "", "    "); merr == nil {
 						_, _ = os.Stdout.Write(b)
 					} else {
@@ -371,8 +373,9 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 			}
 
 			_ = os.MkdirAll("ttbb-data", os.ModePerm)
-			if err = os.WriteFile("ttbb-data/ei-config.json", []byte(jsonData), 0644); err != nil {
-				log.Print(err)
+			err = os.WriteFile("ttbb-data/ei-config.json", jsonData, 0644)
+			if err != nil {
+				log.Printf("Failed to write config file: %v", err)
 			}
 		}()
 	}
