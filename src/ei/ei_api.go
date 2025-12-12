@@ -355,35 +355,43 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 						if existingMD5 == newMD5 {
 							// No changes, skip writing
 							return
+			// Read the existing file once, if it exists
+			existingData := []byte{}
+			if statErr := func() error {
+				if _, err := os.Stat("ttbb-data/ei-config.json"); err == nil {
+					data, err := os.ReadFile("ttbb-data/ei-config.json")
+					if err == nil {
+						existingData = data
+						existingMD5 := md5.Sum(existingData)
+						newJSONData, err := json.MarshalIndent(configResponse, "", "  ")
+						if err == nil {
+							newMD5 := md5.Sum(newJSONData)
+							if existingMD5 == newMD5 {
+								// No changes, skip writing
+								return nil
+							}
 						}
 					}
 				}
+				return nil
+			}(); statErr != nil {
+				// If there was an error other than file not existing, log it
+				log.Printf("Error checking existing config file: %v", statErr)
 			}
-			jsonData, _ := json.MarshalIndent(configResponse, "", "  ")
+
+			jsonData, err := json.MarshalIndent(configResponse, "", "  ")
 			// Files are different, if we have an existing file, I want a diff
-			existingJSONData := []byte{}
-			if existingData, readErr := os.ReadFile("ttbb-data/ei-config.json"); readErr == nil {
-				existingJSONData = existingData
-			}
-			if patch, perr := jsondiff.Compare(existingJSONData, jsonData); perr == nil {
-				if b, merr := json.MarshalIndent(patch, "", "    "); merr == nil {
-					u, _ := s.UserChannelCreate(config.AdminUserID)
-					var data discordgo.MessageSend
-					data.Flags = discordgo.MessageFlagsIsComponentsV2
-					data.Components = []discordgo.MessageComponent{
-						discordgo.TextDisplay{
-							Content: fmt.Sprintf("```diff\n%s\n```", string(b)),
-						},
-					}
-					_, err = s.ChannelMessageSendComplex(u.ID, &data)
-					if err != nil {
-						log.Print(err)
+			pod := existingData
+			if len(pod) > 0 {
+				if patch, perr := jsondiff.Compare(pod, jsonData); perr == nil {
+					if b, merr := json.MarshalIndent(patch, "", "    "); merr == nil {
+						_, _ = os.Stdout.Write(b)
+					} else {
+						log.Printf("Failed to marshal config diff; proceeding to write file: %v", merr)
 					}
 				} else {
-					log.Printf("Failed to marshal config diff; proceeding to write file: %v", merr)
+					log.Printf("Config diff failed; proceeding to write file: %v", perr)
 				}
-			} else {
-				log.Printf("Config diff failed; proceeding to write file: %v", perr)
 			}
 
 			_ = os.MkdirAll("ttbb-data", os.ModePerm)
