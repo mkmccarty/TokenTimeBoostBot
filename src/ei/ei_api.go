@@ -369,7 +369,7 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 			}
 
 			_ = os.MkdirAll("ttbb-data", os.ModePerm)
-			err = os.WriteFile("ttbb-data/ei-config.json", []byte(jsonData), 0644)
+			err = os.WriteFile("ttbb-data/ei-config.json", jsonData, 0644)
 			if err != nil {
 				log.Printf("Failed to write config file: %v", err)
 			}
