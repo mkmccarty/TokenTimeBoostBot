@@ -361,11 +361,11 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 			}
 			jsonData, _ := json.MarshalIndent(configResponse, "", "  ")
 			// Files are different, if we have an existing file, I want a diff
-			pod := []byte{}
+			existingJSONData := []byte{}
 			if existingData, readErr := os.ReadFile("ttbb-data/ei-config.json"); readErr == nil {
-				pod = existingData
+				existingJSONData = existingData
 			}
-			if patch, perr := jsondiff.Compare(pod, jsonData); perr == nil {
+			if patch, perr := jsondiff.Compare(existingJSONData, jsonData); perr == nil {
 				if b, merr := json.MarshalIndent(patch, "", "    "); merr == nil {
 					u, _ := s.UserChannelCreate(config.AdminUserID)
 					var data discordgo.MessageSend
