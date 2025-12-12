@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"compress/zlib"
-	"crypto/md5"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -344,42 +342,14 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 	// Write the config as a JSON file in ttbb-data/ei-config.json for debugging purposes
 	if config.IsDevBot() {
 		go func() {
-			// If the file exists, get an md5sum of it and compare to the new one to avoid unnecessary writes
-			if _, err := os.Stat("ttbb-data/ei-config.json"); err == nil {
-				existingData, err := os.ReadFile("ttbb-data/ei-config.json")
-				if err == nil {
-					existingMD5 := md5.Sum(existingData)
-					newJSONData, err := json.MarshalIndent(configResponse, "", "  ")
-					if err == nil {
-						newMD5 := md5.Sum(newJSONData)
-						if existingMD5 == newMD5 {
-							// No changes, skip writing
-							return
-			// Read the existing file once, if it exists
-			existingData := []byte{}
-			if statErr := func() error {
-				if _, err := os.Stat("ttbb-data/ei-config.json"); err == nil {
-					data, err := os.ReadFile("ttbb-data/ei-config.json")
-					if err == nil {
-						existingData = data
-						existingMD5 := md5.Sum(existingData)
-						newJSONData, err := json.MarshalIndent(configResponse, "", "  ")
-						if err == nil {
-							newMD5 := md5.Sum(newJSONData)
-							if existingMD5 == newMD5 {
-								// No changes, skip writing
-								return nil
-							}
-						}
-					}
+			jsonData, _ := json.MarshalIndent(configResponse, "", "  ")
+			// If the file exists, compare it to the new one to avoid unnecessary writes
+			if existingData, err := os.ReadFile("ttbb-data/ei-config.json"); err == nil {
+				if bytes.Equal(existingData, jsonData) {
+					// No changes, skip writing
+					return
 				}
-				return nil
-			}(); statErr != nil {
-				// If there was an error other than file not existing, log it
-				log.Printf("Error checking existing config file: %v", statErr)
 			}
-
-			jsonData, err := json.MarshalIndent(configResponse, "", "  ")
 			// Files are different, if we have an existing file, I want a diff
 			pod := existingData
 			if len(pod) > 0 {
