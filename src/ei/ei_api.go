@@ -7,6 +7,7 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -358,7 +359,7 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 					}
 				}
 			}
-			jsonData, err := json.MarshalIndent(configResponse, "", "  ")
+			jsonData, _ := json.MarshalIndent(configResponse, "", "  ")
 			// Files are different, if we have an existing file, I want a diff
 			pod := []byte{}
 			if existingData, readErr := os.ReadFile("ttbb-data/ei-config.json"); readErr == nil {
@@ -366,7 +367,18 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 			}
 			if patch, perr := jsondiff.Compare(pod, jsonData); perr == nil {
 				if b, merr := json.MarshalIndent(patch, "", "    "); merr == nil {
-					_, _ = os.Stdout.Write(b)
+					u, _ := s.UserChannelCreate(config.AdminUserID)
+					var data discordgo.MessageSend
+					data.Flags = discordgo.MessageFlagsIsComponentsV2
+					data.Components = []discordgo.MessageComponent{
+						discordgo.TextDisplay{
+							Content: fmt.Sprintf("```diff\n%s\n```", string(b)),
+						},
+					}
+					_, err = s.ChannelMessageSendComplex(u.ID, &data)
+					if err != nil {
+						log.Print(err)
+					}
 				} else {
 					log.Printf("Failed to marshal config diff; proceeding to write file: %v", merr)
 				}
