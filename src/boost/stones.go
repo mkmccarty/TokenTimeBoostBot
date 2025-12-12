@@ -1123,13 +1123,13 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		builder.WriteString(fmt.Sprintf("Start: **<t:%d:t>**   %s: **<t:%d:t>** for **%v**\n", startTime.Unix(), endStr, endTime.Unix(), endTime.Sub(startTime).Round(time.Second)))
 		if eiContract.ModifierELR != 1.0 {
-			fmt.Fprintf(&builder, "ELR Modifier: %2.1fx\n", eiContract.ModifierELR)
+			fmt.Fprintf(&builder, "ELR Modifier: %2.2fx\n", eiContract.ModifierELR)
 		}
 		if eiContract.ModifierSR != 1.0 {
-			fmt.Fprintf(&builder, "SR Modifier: %2.1fx\n", eiContract.ModifierSR)
+			fmt.Fprintf(&builder, "SR Modifier: %2.2fx\n", eiContract.ModifierSR)
 		}
 		if eiContract.ModifierHabCap != 1.0 {
-			fmt.Fprintf(&builder, "Hab Capacity Modifier: %2.1fx\n", eiContract.ModifierHabCap)
+			fmt.Fprintf(&builder, "Hab Capacity Modifier: %2.2fx\n", eiContract.ModifierHabCap)
 		}
 	}
 
