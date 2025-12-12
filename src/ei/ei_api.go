@@ -328,6 +328,10 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 		},
 	}
 	response := APICall(reqURL, &getConfigRequest)
+	if response == nil {
+		log.Print("APICall returned nil response")
+		return false
+	}
 
 	configResponse := &ConfigResponse{}
 	opts := proto.UnmarshalOptions{
