@@ -171,6 +171,7 @@ func HandleSignupsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	}
 }
 
+// HandleSignupsPage handles interaction for signup pages
 func HandleSignupsPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	// check if the original message is older than 5 minutes
