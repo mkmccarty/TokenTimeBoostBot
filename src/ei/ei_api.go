@@ -429,7 +429,11 @@ func APICall(reqURL string, request proto.Message) []byte {
 	protoData := string(body)
 
 	decodedAuthBuf := &AuthenticatedMessage{}
-	rawDecodedText, _ := enc.DecodeString(protoData)
+	rawDecodedText, err := enc.DecodeString(protoData)
+	if err != nil {
+		log.Print(err)
+		return nil
+	}
 	err = proto.Unmarshal(rawDecodedText, decodedAuthBuf)
 	if err != nil {
 		log.Print(err)
