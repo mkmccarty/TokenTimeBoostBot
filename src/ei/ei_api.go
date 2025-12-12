@@ -344,7 +344,9 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 		go func() {
 			jsonData, _ := json.MarshalIndent(configResponse, "", "  ")
 			// If the file exists, compare it to the new one to avoid unnecessary writes
-			if existingData, err := os.ReadFile("ttbb-data/ei-config.json"); err == nil {
+			var existingData []byte
+			if data, err := os.ReadFile("ttbb-data/ei-config.json"); err == nil {
+				existingData = data
 				if bytes.Equal(existingData, jsonData) {
 					// No changes, skip writing
 					return
