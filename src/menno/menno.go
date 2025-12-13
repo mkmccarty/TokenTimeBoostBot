@@ -135,6 +135,16 @@ func populateData(newData bool, timestamp time.Time) {
 		return
 	}
 
+	// Remove all older menno CSV files in the ttbb-data directory.
+	files, err := os.ReadDir("ttbb-data")
+	if err == nil {
+		for _, file := range files {
+			if strings.HasPrefix(file.Name(), "menno-") && file.Name() != fmt.Sprintf("menno-%s.csv", currentDate) {
+				_ = os.Remove(fmt.Sprintf("ttbb-data/%s", file.Name()))
+			}
+		}
+	}
+
 	defer func() {
 		if err := f.Close(); err != nil {
 			// Handle the error appropriately, e.g., logging or taking corrective actions
