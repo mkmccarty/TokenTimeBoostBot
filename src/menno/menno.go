@@ -120,13 +120,20 @@ func populateData(newData bool, timestamp time.Time) {
 	const csvPathTemplate = "ttbb-data/menno-%s.csv"
 	const url = "https://eggincdatacollection.azurewebsites.net/api/GetAllDataCsvCompact"
 
+	// Construct the csvPath so it includes the current date (YYYYMMDD).
+	currentDate := timestamp.Format("20060102")
+	csvPath := fmt.Sprintf(csvPathTemplate, currentDate)
+
+	// Check if the CSV file already exists
+	if _, err := os.Stat(csvPath); err == nil {
+		log.Printf("CSV file already exists, skipping download: %s", csvPath)
+		return // Skip download if the file exists
+	}
+
 	if newData {
 		// Clear out existing data.
 		_ = queries.DeleteData(ctx)
 	}
-	// Construct the csvPath so it includes the current date (YYYYMMDD).
-	currentDate := timestamp.Format("20060102")
-	csvPath := fmt.Sprintf(csvPathTemplate, currentDate)
 
 	rowCount := 0
 	f, err := retrieveMennoData(csvPath, url)
@@ -147,7 +154,6 @@ func populateData(newData bool, timestamp time.Time) {
 
 	defer func() {
 		if err := f.Close(); err != nil {
-			// Handle the error appropriately, e.g., logging or taking corrective actions
 			log.Printf("Failed to close: %v", err)
 		}
 	}()
@@ -205,7 +211,6 @@ func populateData(newData bool, timestamp time.Time) {
 			})
 			if err != nil {
 				log.Printf("insert error: %v", err)
-				//return
 			}
 		} else {
 			err = qtx.UpdateData(ctx, UpdateDataParams{
@@ -221,7 +226,6 @@ func populateData(newData bool, timestamp time.Time) {
 			})
 			if err != nil {
 				log.Printf("update error: %v", err)
-				//return
 			}
 		}
 
@@ -238,7 +242,6 @@ func populateData(newData bool, timestamp time.Time) {
 		// Remove the CSV file after processing.
 		_ = os.Remove(csvPath)
 	}
-	//fmt.Printf("populateData: %d rows loaded", rowCount)
 }
 
 // GetShipDropData retrieves and logs drop data for a specific ship configuration.
