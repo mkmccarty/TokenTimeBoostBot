@@ -345,58 +345,56 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 	}
 
 	// Write the config as a JSON file in ttbb-data/ei-config.json for debugging purposes
-	if config.IsDevBot() {
-		go func() {
-			jsonData, err := json.MarshalIndent(configResponse, "", "  ")
-			if err != nil {
-				log.Printf("Failed to marshal config response: %v", err)
+	go func() {
+		jsonData, err := json.MarshalIndent(configResponse, "", "  ")
+		if err != nil {
+			log.Printf("Failed to marshal config response: %v", err)
+			return
+		}
+		// If the file exists, compare it to the new one to avoid unnecessary writes
+		existingData, err := os.ReadFile("ttbb-data/ei-config.json")
+		if err == nil {
+			if bytes.Equal(existingData, jsonData) {
+				// No changes, skip writing
 				return
 			}
-			// If the file exists, compare it to the new one to avoid unnecessary writes
-			existingData, err := os.ReadFile("ttbb-data/ei-config.json")
-			if err == nil {
-				if bytes.Equal(existingData, jsonData) {
-					// No changes, skip writing
-					return
-				}
-			}
-			// Files are different, if we have an existing file, I want a diff
-			if len(existingData) > 0 {
-				if patch, perr := jsondiff.Compare(existingData, jsonData); perr == nil {
-					if b, merr := json.MarshalIndent(patch, "", "    "); merr == nil {
-						if strings.Contains(string(b), "ei_hatchery_custom") {
-							// If the diff contains the string "ei_hatchery_custom"
-							u, err := s.UserChannelCreate(config.AdminUserID)
-							if err != nil {
-								log.Printf("Failed to create user channel for admin: %v", err)
-								return
-							}
-							var data discordgo.MessageSend
-							data.Components = []discordgo.MessageComponent{
-								discordgo.TextDisplay{
-									Content: fmt.Sprintf("```diff\n%s\n```", string(b)),
-								},
-							}
-							_, sendErr := s.ChannelMessageSendComplex(u.ID, &data)
-							if sendErr != nil {
-								log.Print(sendErr)
-							}
+		}
+		// Files are different, if we have an existing file, I want a diff
+		if len(existingData) > 0 {
+			if patch, perr := jsondiff.Compare(existingData, jsonData); perr == nil {
+				if b, merr := json.MarshalIndent(patch, "", "    "); merr == nil {
+					if strings.Contains(string(b), "ei_hatchery_custom") {
+						// If the diff contains the string "ei_hatchery_custom"
+						u, err := s.UserChannelCreate(config.AdminUserID)
+						if err != nil {
+							log.Printf("Failed to create user channel for admin: %v", err)
+							return
 						}
-					} else {
-						log.Printf("Failed to marshal config diff; proceeding to write file: %v", merr)
+						var data discordgo.MessageSend
+						data.Components = []discordgo.MessageComponent{
+							discordgo.TextDisplay{
+								Content: fmt.Sprintf("```diff\n%s\n```", string(b)),
+							},
+						}
+						_, sendErr := s.ChannelMessageSendComplex(u.ID, &data)
+						if sendErr != nil {
+							log.Print(sendErr)
+						}
 					}
 				} else {
-					log.Printf("Config diff failed; proceeding to write file: %v", perr)
+					log.Printf("Failed to marshal config diff; proceeding to write file: %v", merr)
 				}
+			} else {
+				log.Printf("Config diff failed; proceeding to write file: %v", perr)
 			}
+		}
 
-			_ = os.MkdirAll("ttbb-data", os.ModePerm)
-			err = os.WriteFile("ttbb-data/ei-config.json", jsonData, 0644)
-			if err != nil {
-				log.Printf("Failed to write config file: %v", err)
-			}
-		}()
-	}
+		_ = os.MkdirAll("ttbb-data", os.ModePerm)
+		err = os.WriteFile("ttbb-data/ei-config.json", jsonData, 0644)
+		if err != nil {
+			log.Printf("Failed to write config file: %v", err)
+		}
+	}()
 
 	return true
 }
