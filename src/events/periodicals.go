@@ -18,8 +18,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
 
 	"github.com/bwmarrin/discordgo"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -168,7 +166,6 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	ei.SetResearchDiscountEvent(researchDiscountEvent)
 
 	changed := true
-	c := cases.Title(language.Und)
 
 	notifyDiscordOfNewEgg := len(ei.CustomEggMap) != 0
 
@@ -176,7 +173,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	for _, customEgg := range periodicalsResponse.GetContracts().GetCustomEggs() {
 		var egg ei.EggIncCustomEgg
 		egg.ID = strings.ReplaceAll(customEgg.GetIdentifier(), " ", "")
-		egg.Name = c.String(customEgg.GetName())
+		egg.Name = customEgg.GetName()
 		egg.Value = customEgg.GetValue()
 		egg.IconName = customEgg.GetIcon().GetName()
 		egg.IconURL = customEgg.GetIcon().GetUrl()
