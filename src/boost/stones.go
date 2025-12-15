@@ -721,9 +721,13 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			collegHab = 1.00
 		}
 		//as.colleggHab = collegHab
+		if as.name == "DirectInactivity23" {
+			log.Printf("Calc HAB: Param.FarmCap: %2.3f  BaseHab: %2.3f   Diff:%2.2f\n", as.farmCapacity, as.baseHab*(1+as.gusset.percent/100.0), collegHab)
+		}
 
 		if maxColleggtibleHab > 1.0 {
-			if collegHab > 1.000 && collegHab < maxColleggtibleHab {
+			roundedCollegHab := math.Round(collegHab*1000) / 1000
+			if roundedCollegHab > 1.000 && roundedCollegHab < maxColleggtibleHab {
 				//log.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
 				//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
 				//farmerstate.SetMiscSettingString(as.name, "coll-elr", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
