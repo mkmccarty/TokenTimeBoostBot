@@ -715,8 +715,12 @@ func getUserArtifacts(userID string, inSet *ArtifactSet) ArtifactSet {
 			if i == 0 {
 				// Colleggtible
 				for _, a := range strings.Split(art, ",") {
+					art = strings.ToUpper(a)
+					art = strings.ReplaceAll(art, "CARBONFIBER", "CARBON FIBER")
+					art = strings.ReplaceAll(art, "FLAMERETARDANT", "FLAME RETARDANT")
+
 					if a != "" {
-						colleg := ei.ArtifactMap[a]
+						colleg := ei.ArtifactMap[art]
 						if colleg != nil {
 							mySet.Artifacts = append(mySet.Artifacts, *colleg)
 						}
