@@ -372,7 +372,7 @@ func GetGameDimensionString(d GameModifier_GameDimension) string {
 	case GameModifier_SHIPPING_CAPACITY:
 		return "Shipping Capacity"
 	case GameModifier_HAB_CAPACITY:
-		return "HAB_CAPACITY"
+		return "Hab Capacity"
 	case GameModifier_VEHICLE_COST:
 		return "Vehicle Cost"
 	case GameModifier_HAB_COST:
