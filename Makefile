@@ -178,15 +178,16 @@ docker-debug:
 
 .PHONY: eggcycle
 eggcycle:
-	magick convert -delay 100 -loop 0 -dispose Background \
-	egg_carbonfiber.png \
-	egg_chocolate.png \
-	egg_easter.png \
-	egg_firework.png \
-	egg_flameretardant.png \
-	egg_lithium.png \
-	egg_pumpkin.png \
-	egg_silicon.png \
-	egg_waterballoon.png \
-	egg_wood.png \
+	magick -delay 100 -loop 0 -dispose Background \
+	emoji/egg_carbonfiber.png \
+	emoji/egg_chocolate.png \
+	emoji/egg_easter.png \
+	emoji/egg_firework.png \
+	emoji/egg_flameretardant.png \
+	emoji/egg_lithium.png \
+	emoji/egg_pegg.png \
+	emoji/egg_pumpkin.png \
+	emoji/egg_silicon.png \
+	emoji/egg_waterballoon.png \
+	emoji/egg_wood.png \
 	collegg.gif
