@@ -303,8 +303,8 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 			continue
 		}
 
-		coopID := a.GetCoopIdentifier()
 		evaluation := a.GetEvaluation()
+		coopID := evaluation.GetCoopIdentifier()
 		evaluationCxp := evaluation.GetCxp()
 		c := ei.EggIncContractsAll[contractID]
 		//if c.ContractVersion == 2 {
