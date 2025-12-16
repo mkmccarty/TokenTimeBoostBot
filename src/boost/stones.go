@@ -849,7 +849,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			if !privateFarm {
 				stoneLayRate *= (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
 			}
-			stoneLayRate *= math.Pow(stoneBonusIncrease, float64(i)) * collegELR
+			stoneLayRate *= math.Pow(stoneBonusIncrease, float64(i)) * collegELR * collegHab
 
 			stoneShipRate := shippingRate * math.Pow(stoneBonusIncrease, float64((as.stones-i))) * collegShip
 
@@ -860,9 +860,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				as.quantWant = as.stones - i
 				as.bestELR = stoneLayRate
 				as.bestSR = stoneShipRate
-				//bestString = fmt.Sprintf("T-%d Q-%d %2.3f %2.3f  min:%2.3f\n", i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
+				//log.Printf("T-%d Q-%d %2.3f %2.3f  min:%2.3f\n", i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
 			}
-			//log.Printf("Stone %d/%d: %2.3f %2.3f  min:%2.3f\n", i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
+			//log.Printf("%s Stone %d/%d: %2.3f %2.3f  min:%2.3f\n", as.name, i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
 		}
 
 		for i := 0; i <= as.stones; i++ {
