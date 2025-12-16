@@ -238,9 +238,9 @@ type artifactSet struct {
 	staabArtifacts []string
 	colleggSR      float64
 	colleggELR     float64
+	colleggHab     float64
 	artifactSlots  []string // Name of artifacts in each slot
 	//colleggELR     float64
-	//colleggHab     float64
 }
 
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
@@ -720,6 +720,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if collegHab < 1.00 {
 			collegHab = 1.00
 		}
+		as.colleggHab = math.Round(collegHab*10000) / 10000
 
 		if maxColleggtibleHab > 1.0 {
 			roundedCollegHab := math.Round(collegHab*1000) / 1000
@@ -752,13 +753,13 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			as.bestELR = stoneLayRateNow
 			layingRate = stoneLayRateNow
 		}
-		collegELR := chickELR / stoneLayRateNow
+		collegELR := chickELR / (stoneLayRateNow * collegHab)
 		//log.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
 		// No IHR Egg yet, this will need to be revisited
-		as.colleggELR = math.Round(collegELR*1000) / 1000
+		as.colleggELR = math.Round(collegELR*10000) / 10000
 
 		if maxCollectibleELR > 1.0 {
-			roundedCollegELR := math.Round(collegELR*1000) / 1000
+			roundedCollegELR := math.Round(collegELR*10000) / 10000
 			if roundedCollegELR > 1.000 && roundedCollegELR < maxCollectibleELR {
 				//log.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
 				//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
@@ -1016,7 +1017,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			tableData = append(tableData, strings.Join(statsLine, " "))
 
 			if as.name != "[departed]" {
-				url := bottools.GetStaabmiaLink(true, dimension, rate, int(everyoneDeflectorPercent), as.staabArtifacts, as.colleggSR, as.colleggELR)
+				url := bottools.GetStaabmiaLink(true, dimension, rate, int(everyoneDeflectorPercent), as.staabArtifacts, as.colleggSR, as.colleggELR, as.colleggHab)
 				builderURL.WriteString(fmt.Sprintf("🔗[%s](%s)\n", as.nameRaw, url))
 				fmt.Fprintf(&tileBuilder, "[%sCalc](%s)", ei.GetBotEmojiMarkdown("staab"), url)
 			}
