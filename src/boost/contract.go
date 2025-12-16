@@ -201,7 +201,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	var boostOrder = ContractOrderSignup
 	var coopSize = 0
 	var ChannelID = i.ChannelID
-	var playStyle = ContractPlaystyleACOCooperative
+	var playStyle = ContractPlaystyleChill
 	makeThread := true // Default is to always make a thread
 	progenitors := []string{i.Member.User.ID}
 	plannedStartTime := time.Time{}
