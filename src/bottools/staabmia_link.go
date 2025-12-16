@@ -146,10 +146,10 @@ func parseInt(s string) uint64 {
 }
 
 // GetStaabmiaLink returns a link to the Staabia calculator.
-func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, modifierMult float64, coopDeflectorBonus int, artifacts []string, shippingRate float64, elrRate float64) string {
+func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, modifierMult float64, coopDeflectorBonus int, artifacts []string, shippingRate, elrRate, habCap float64) string {
 	link := "https://srsandbox-staabmia.netlify.app/stone-calc?data="
-	version := "v-5"
-	itemsToSweep := []string{"Padding", "DarkMode", "Metro", "Comp", "Gusset", "Defl", "ShipColleggtibles", "ShipColleggtibles2", "ELRColleggtibles", "Modifiers", "DeflectorSelect"}
+	version := "v-6"
+	itemsToSweep := []string{"Padding", "DarkMode", "Metro", "Comp", "Gusset", "Defl", "ShipColleggtibles", "ShipColleggtibles2", "ELRColleggtibles", "HabColleggtibles", "Modifiers", "DeflectorSelect"}
 	itemsData := make([]string, len(itemsToSweep))
 
 	// Build Base64 data
@@ -167,6 +167,7 @@ func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, 
 		ShipColleggtiblesIndex
 		ShipColleggtibles2Index
 		ELRColleggtiblesIndex
+		HabColleggtiblesIndex
 		ModifiersIndex
 		DeflectorSelectIndex
 	)
@@ -271,6 +272,7 @@ func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, 
 		}
 	}
 	itemsData[ELRColleggtiblesIndex] = multiplierMap[elrRate]
+	itemsData[HabColleggtiblesIndex] = multiplierMap[habCap]
 
 	itemsData[ModifiersIndex] = "00" // Default this to unset
 	switch modifierType {
