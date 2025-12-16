@@ -346,7 +346,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			log.Printf("boundedELR: %v\n", boundedELR)
 			if est.slots == 8.0 {
 				log.Printf("estimateUpper: %v\n", estimateDurationUpper)
-				fmt.Print("--------------------\n")
+				log.Print("--------------------\n")
 			} else {
 				log.Printf("estimateLower: %v\n", estimateDurationLower)
 			}
