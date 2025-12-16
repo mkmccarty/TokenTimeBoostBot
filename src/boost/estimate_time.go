@@ -332,7 +332,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			log.Printf("modHab: %v\n", modHab)
 			log.Printf("colELR: %v\n", colELR)
 			log.Printf("colShip: %v\n", colShip)
-			log.Printf("colHab: %v\n", est.colHab)
+			log.Printf("colHab: %v\n", colHab)
 			log.Printf("baseELR: %v\n", baseELR)
 			log.Printf("baseShipping: %v\n", baseShipping)
 			log.Printf("maxShipping: %v\n", maxShipping)
