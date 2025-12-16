@@ -698,6 +698,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	needLegend := false
 	showGlitch := false
+	const precisionConst float64 = 1e4
 
 	// 1e15
 	for _, as := range artifactSets {
@@ -720,10 +721,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if collegHab < 1.00 {
 			collegHab = 1.00
 		}
-		as.colleggHab = math.Round(collegHab*10000) / 10000
+		as.colleggHab = math.Round(collegHab*precisionConst) / precisionConst
 
 		if maxColleggtibleHab > 1.0 {
-			roundedCollegHab := math.Round(collegHab*1000) / 1000
+			roundedCollegHab := math.Round(collegHab*precisionConst) / precisionConst
 			if roundedCollegHab > 1.000 && roundedCollegHab < maxColleggtibleHab {
 				//log.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
 				//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
@@ -756,10 +757,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		collegELR := chickELR / (stoneLayRateNow * collegHab)
 		//log.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
 		// No IHR Egg yet, this will need to be revisited
-		as.colleggELR = math.Round(collegELR*10000) / 10000
+		as.colleggELR = math.Round(collegELR*precisionConst) / precisionConst
 
 		if maxCollectibleELR > 1.0 {
-			roundedCollegELR := math.Round(collegELR*10000) / 10000
+			roundedCollegELR := math.Round(collegELR*precisionConst) / precisionConst
 			if roundedCollegELR > 1.000 && roundedCollegELR < maxCollectibleELR {
 				//log.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
 				//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
@@ -789,10 +790,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 		//log.Printf("Calc SR: %2.3f  param.Sr: %2.3f   Diff:%2.2f\n", stoneShipRateNow, as.sr/1e15, (as.sr/1e15)/stoneShipRateNow)
 		collegShip := (as.sr / 1e15) / stoneShipRateNow
-		as.colleggSR = math.Round(collegShip*10000) / 10000
+		as.colleggSR = math.Round(collegShip*precisionConst) / precisionConst
 
 		if maxColllectibleShip > 1.0 {
-			roundedCollegShip := math.Round(collegShip*10000) / 10000
+			roundedCollegShip := math.Round(collegShip*precisionConst) / precisionConst
 			if roundedCollegShip > 1.000 && roundedCollegShip < maxColllectibleShip {
 				val := fmt.Sprintf("%2.2f🚚", (roundedCollegShip-1.0)*100.0)
 				val = strings.ReplaceAll(val, ".00", "")
