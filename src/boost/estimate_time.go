@@ -348,7 +348,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 				log.Printf("estimateUpper: %v\n", estimateDurationUpper)
 				fmt.Print("--------------------\n")
 			} else {
-				log.Printf("estimateUpper: %v\n", estimateDurationLower)
+				log.Printf("estimateLower: %v\n", estimateDurationLower)
 			}
 		}
 	}
