@@ -186,7 +186,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		c.Grade[grade].LengthInSeconds = c.LengthInSeconds
 
 		c.Grade[grade].EstimatedDuration, c.Grade[grade].EstimatedDurationLower = getContractDurationEstimate(c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
-			c.ModifierSR, c.ModifierELR, c.ModifierHabCap)
+			c.ModifierSR, c.ModifierELR, c.ModifierHabCap, false)
 
 		gradeKey := ei.Contract_PlayerGrade_name[int32(grade)]
 		if gradeMult, ok := ei.GradeMultiplier[gradeKey]; ok {
@@ -234,8 +234,14 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 				log.Printf("Coop Name: %s, ID: %s, Modifiers: IHR: %f, ELR: %f, SR: %f, HabCap: %f\n",
 					c.Name, c.ID, c.ModifierIHR, c.ModifierELR, c.ModifierSR, c.ModifierHabCap)
 			}*/
+		debug := false
+		/*
+			if c.ID == "quantum-slopes" {
+				debug = true
+			}
+		*/
 		c.EstimatedDuration, c.EstimatedDurationLower = getContractDurationEstimate(c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
-			c.ModifierSR, c.ModifierELR, c.ModifierHabCap)
+			c.ModifierSR, c.ModifierELR, c.ModifierHabCap, debug)
 	}
 	/*
 

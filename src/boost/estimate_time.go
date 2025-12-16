@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"strconv"
 	"strings"
@@ -250,15 +251,15 @@ func getContractEstimateString(contractID string) string {
 }
 
 // getContractDurationEstimate returns two estimated durations of a contract based for great and well equiped artifact sets
-func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, contractLengthInSeconds int, modifierSR float64, modifierELR float64, modifierHabCap float64) (time.Duration, time.Duration) {
+func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, contractLengthInSeconds int, modifierSR float64, modifierELR float64, modifierHabCap float64, debug bool) (time.Duration, time.Duration) {
 
 	contractDuration := time.Duration(contractLengthInSeconds) * time.Second
 
-	modELR := modifierELR * modifierHabCap
+	modHab := modifierHabCap
+	modELR := modifierELR
 	modShip := modifierSR
 
 	collectibleELR, colllectibleShip, colleggtibleHab := ei.GetColleggtibleValues()
-	collectibleELR *= colleggtibleHab
 
 	deflectorsOnFarmer := numFarmers - 1.0
 
@@ -267,18 +268,21 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		deflectorBonus float64
 		colELR         float64
 		colShip        float64
+		colHab         float64
 	}{
 		{
 			slots:          8.0,
 			deflectorBonus: 0.15,
 			colELR:         1.0,
 			colShip:        1.0,
+			colHab:         1.0,
 		},
 		{
 			slots:          9.0,
 			deflectorBonus: 0.17,
 			colELR:         collectibleELR,
 			colShip:        colllectibleShip,
+			colHab:         colleggtibleHab,
 		},
 	}
 
@@ -290,14 +294,17 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		deflectorBonus := est.deflectorBonus
 		colELR := est.colELR
 		colShip := est.colShip
+		colHab := est.colHab
 
-		baseELR := 3.772 * 1.35 * 1.25 * colELR
-		baseShipping := 7.148 * 1.5 * colShip
-		maxShipping := baseShipping * math.Pow(1.05, slots)
-		contractBaseELR := baseELR * modELR
+		baseELR := 3.772 * 1.35 * 1.25
+		baseShipping := 7.148 * 1.5
+		maxShipping := baseShipping * math.Pow(1.05, slots) * colShip
+		contractBaseELR := baseELR * modELR * modHab
 		contractShipCap := maxShipping * modShip
 		deflectorMultiplier := 1.0 + deflectorBonus*deflectorsOnFarmer
-		tachStones := slots + ((modShip * colShip) / (modELR * colELR)) - deflectorsOnFarmer*slots/(slots+(modShip*colShip)/(modELR*colELR))
+		tachStones := slots +
+			((modShip * colShip) / (modELR * colELR * modHab * colHab)) -
+			deflectorsOnFarmer*slots/(slots+(modShip*colShip)/(modELR*colELR*modHab*colHab))
 		tachBounded := max(0.0, min(slots, tachStones))
 		tachMultiplier := math.Pow(1.05, tachBounded)
 		contractELR := contractBaseELR * deflectorMultiplier * tachMultiplier
@@ -318,33 +325,32 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			estimateDurationLower = time.Duration(estimate * float64(time.Hour))
 		}
 
-		/*
-			if modShip == 1.25 {
-				log.Printf("slots: %v\n", slots)
-				log.Printf("modELR: %v\n", modELR)
-				log.Printf("modShip: %v\n", modShip)
-				log.Printf("colELR: %v\n", colELR)
-				log.Printf("colShip: %v\n", colShip)
-				log.Printf("baseELR: %v\n", baseELR)
-				log.Printf("baseShipping: %v\n", baseShipping)
-				log.Printf("maxShipping: %v\n", maxShipping)
-
-				log.Printf("contractBaseELR: %v\n", contractBaseELR)
-				log.Printf("contractShipCap: %v\n", contractShipCap)
-				log.Printf("deflectorMultiplier: %v\n", deflectorMultiplier)
-				log.Printf("tachStones: %v\n", tachStones)
-				log.Printf("tachBounded: %v\n", tachBounded)
-				log.Printf("tachMultiplier: %v\n", tachMultiplier)
-				log.Printf("contractELR: %v\n", contractELR)
-				log.Printf("boundedELR: %v\n", boundedELR)
-				if est.slots == 8.0 {
-					log.Printf("estimateUpper: %v\n", estimateDurationUpper)
-					fmt.Print("--------------------\n")
-				} else {
-					log.Printf("estimateUpper: %v\n", estimateDurationLower)
-				}
+		if debug {
+			log.Printf("slots: %v\n", slots)
+			log.Printf("modELR: %v\n", modELR)
+			log.Printf("modShip: %v\n", modShip)
+			log.Printf("modHab: %v\n", modHab)
+			log.Printf("colELR: %v\n", colELR)
+			log.Printf("colShip: %v\n", colShip)
+			log.Printf("colHab: %v\n", est.colHab)
+			log.Printf("baseELR: %v\n", baseELR)
+			log.Printf("baseShipping: %v\n", baseShipping)
+			log.Printf("maxShipping: %v\n", maxShipping)
+			log.Printf("contractBaseELR: %v\n", contractBaseELR)
+			log.Printf("contractShipCap: %v\n", contractShipCap)
+			log.Printf("deflectorMultiplier: %v\n", deflectorMultiplier)
+			log.Printf("tachStones: %v\n", tachStones)
+			log.Printf("tachBounded: %v\n", tachBounded)
+			log.Printf("tachMultiplier: %v\n", tachMultiplier)
+			log.Printf("contractELR: %v\n", contractELR)
+			log.Printf("boundedELR: %v\n", boundedELR)
+			if est.slots == 8.0 {
+				log.Printf("estimateUpper: %v\n", estimateDurationUpper)
+				fmt.Print("--------------------\n")
+			} else {
+				log.Printf("estimateUpper: %v\n", estimateDurationLower)
 			}
-		*/
+		}
 	}
 
 	if estimateDurationUpper > contractDuration {
