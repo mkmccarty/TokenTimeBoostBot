@@ -867,7 +867,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		for i := 0; i <= as.stones; i++ {
 			stoneLayRate := layingRate * (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
-			stoneLayRate = stoneLayRate * math.Pow(1.05, float64(i)) * collegELR
+			stoneLayRate = stoneLayRate * math.Pow(1.05, float64(i)) * collegELR * collegHab
 
 			stoneShipRate := shippingRate * math.Pow(1.05, float64((as.stones-i))) * collegShip
 
