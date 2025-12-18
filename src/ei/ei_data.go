@@ -128,6 +128,7 @@ type EggIncContract struct {
 	MinutesPerToken           int
 	EstimatedDuration         time.Duration
 	EstimatedDurationLower    time.Duration
+	EstimatedDurationMax      time.Duration
 	TargetTval                float64
 	TargetTvalLower           float64
 	ModifierEarnings          float64
@@ -149,6 +150,7 @@ type EggIncContract struct {
 	CxpBuffOnly     float64 // Minimum score with only CR/TVal
 	CxpRunDelta     float64 // Individual chicken run addition
 	Cxp             float64 // CXP value for the contract
+	CxpMax          float64 // Maximum CXP value based on EstimatedDurationMax
 	SeasonalScoring int     // 0 = old (0.2.0), true = 1 (0.2.0+ seasonal change for AA+AAA)
 }
 

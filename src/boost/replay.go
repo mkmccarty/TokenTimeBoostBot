@@ -312,7 +312,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 
 			if c.ContractVersion == 2 && (percent != -1 || (c.ValidUntil.Unix() > time.Now().Unix())) {
 				// Need to download the coop_status for more details
-				evalPercent := evaluationCxp / c.Cxp * 100.0
+				evalPercent := evaluationCxp / c.CxpMax * 100.0
 				if percent == -1 || (evalPercent < float64(100-percent)) {
 					if builder.Len() > 3600 && page > 0 {
 						builder.Reset()
@@ -324,9 +324,9 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 						fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s` <t:%d:R>\n",
 							bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
 							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(evaluationCxp))), 6, bottools.StringAlignRight),
-							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp))), 6, bottools.StringAlignRight),
-							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.Cxp-evaluationCxp))), 6, bottools.StringAlignRight),
-							bottools.AlignString(fmt.Sprintf("%.1f", (evaluationCxp/c.Cxp)*100), 4, bottools.StringAlignCenter),
+							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.CxpMax))), 6, bottools.StringAlignRight),
+							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.CxpMax-evaluationCxp))), 6, bottools.StringAlignRight),
+							bottools.AlignString(fmt.Sprintf("%.1f", (evaluationCxp/c.CxpMax)*100), 4, bottools.StringAlignCenter),
 							c.ValidUntil.Unix())
 					}
 					count++
@@ -423,8 +423,8 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 					completionTime = int64(evaluation.GetEvaluationStartTime())
 				}
 				fmt.Fprintf(&builder, "**Completed:** <t:%d:f>\n", completionTime)
-				fmt.Fprintf(&builder, "**Duration:** %s  **Est. Duration:** %s\n", bottools.FmtDuration(time.Duration(evaluation.GetCompletionTime()*float64(time.Second))), bottools.FmtDuration(c.EstimatedDuration))
-				fmt.Fprintf(&builder, "**CS:** %d  **Est Max CS:** %.0f\n", uint32(evaluationCxp), c.Cxp)
+				fmt.Fprintf(&builder, "**Duration:** %s  **Est. Duration:** %s\n", bottools.FmtDuration(time.Duration(evaluation.GetCompletionTime()*float64(time.Second))), bottools.FmtDuration(c.EstimatedDurationMax))
+				fmt.Fprintf(&builder, "**CS:** %d  **Est Max CS:** %.0f\n", uint32(evaluationCxp), c.CxpMax)
 				if c.SeasonalScoring == ei.SeasonalScoringNerfed {
 					fmt.Fprintf(&builder, "**Contrib:** %s  **CR:** %s\n", contribCheck, crCheck)
 				} else {
@@ -467,6 +467,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 			builder.WriteString("-# Token Teamwork scores are 2/10 value sent and 8/10 ∆-value.\n")
 		}
 	}
+	fmt.Fprintf(&builder, "-# Est duration/CS based on 5%s boosts (w/%sIHR), 6%s/hr rate and leggacy artifacts.\n", ei.GetBotEmojiMarkdown("token"), ei.GetBotEmojiMarkdown("egg_truth"), ei.GetBotEmojiMarkdown("token"))
 
 	if builder.Len() > 0 {
 		components = append(components, &discordgo.TextDisplay{

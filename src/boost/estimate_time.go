@@ -251,7 +251,7 @@ func getContractEstimateString(contractID string) string {
 }
 
 // getContractDurationEstimate returns two estimated durations of a contract based on great and well equipped artifact sets
-func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, contractLengthInSeconds int, modifierSR float64, modifierELR float64, modifierHabCap float64, debug bool) (time.Duration, time.Duration) {
+func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, contractLengthInSeconds int, modifierSR float64, modifierELR float64, modifierHabCap float64, debug bool) (time.Duration, time.Duration, time.Duration) {
 
 	contractDuration := time.Duration(contractLengthInSeconds) * time.Second
 
@@ -266,6 +266,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 	estimates := []struct {
 		slots          float64
 		deflectorBonus float64
+		boostTokens    float64
 		colELR         float64
 		colShip        float64
 		colHab         float64
@@ -273,6 +274,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		{
 			slots:          8.0,
 			deflectorBonus: 0.15,
+			boostTokens:    7.0,
 			colELR:         1.0,
 			colShip:        1.0,
 			colHab:         1.0,
@@ -280,6 +282,16 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		{
 			slots:          9.0,
 			deflectorBonus: 0.17,
+			boostTokens:    6.0,
+			colELR:         collectibleELR,
+			colShip:        colllectibleShip,
+			colHab:         colleggtibleHab,
+		},
+		{
+			// This is for a full leggacy set with TE boosts of 5 tokens
+			slots:          10.0,
+			deflectorBonus: 0.20,
+			boostTokens:    5.0,
 			colELR:         collectibleELR,
 			colShip:        colllectibleShip,
 			colHab:         colleggtibleHab,
@@ -288,6 +300,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 
 	var estimateDurationUpper time.Duration
 	var estimateDurationLower time.Duration
+	var estimateDurationMax time.Duration
 
 	for _, est := range estimates {
 		slots := est.slots
@@ -302,28 +315,12 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		contractBaseELR := baseELR * modELR * modHab
 		contractShipCap := maxShipping * modShip
 		deflectorMultiplier := 1.0 + deflectorBonus*deflectorsOnFarmer
-		tachStones := slots +
-			((modShip * colShip) / (modELR * colELR * modHab * colHab)) -
-			deflectorsOnFarmer*slots/(slots+(modShip*colShip)/(modELR*colELR*modHab*colHab))
-		tachBounded := max(0.0, min(slots, tachStones))
-		tachMultiplier := math.Pow(1.05, tachBounded)
-		contractELR := contractBaseELR * deflectorMultiplier * tachMultiplier
-		boundedELR := min(contractShipCap, contractELR)
-
-		eggsTotal := contractEggsTotal / 1e15
-		estimate := eggsTotal / (numFarmers * boundedELR)
-		if float64(contractLengthInSeconds) < 45*60 {
-			// For small contracts, add less time padding for boosts
-			estimate += 0.30
-		} else {
-			estimate += 0.50
-		}
-
-		if est.slots == 8.0 {
-			estimateDurationUpper = time.Duration(estimate * float64(time.Hour))
-		} else {
-			estimateDurationLower = time.Duration(estimate * float64(time.Hour))
-		}
+		bestTotal := 0.0
+		intSlots := int(slots)
+		tachStones := 0
+		quantStonts := 0
+		bestELR := 0.0
+		bestSR := 0.0
 
 		if debug {
 			log.Printf("slots: %v\n", slots)
@@ -339,25 +336,93 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			log.Printf("contractBaseELR: %v\n", contractBaseELR)
 			log.Printf("contractShipCap: %v\n", contractShipCap)
 			log.Printf("deflectorMultiplier: %v\n", deflectorMultiplier)
-			log.Printf("tachStones: %v\n", tachStones)
-			log.Printf("tachBounded: %v\n", tachBounded)
-			log.Printf("tachMultiplier: %v\n", tachMultiplier)
-			log.Printf("contractELR: %v\n", contractELR)
-			log.Printf("boundedELR: %v\n", boundedELR)
-			if est.slots == 8.0 {
-				log.Printf("estimateUpper: %v\n", estimateDurationUpper)
+		}
+
+		if slots == 10.0 {
+			for i := 0; i <= intSlots; i++ {
+				stoneLayRate := contractBaseELR
+				stoneLayRate *= deflectorMultiplier
+				stoneLayRate *= math.Pow(1.05, float64(i)) * colELR * colHab
+
+				stoneShipRate := baseShipping * math.Pow(1.05, float64((intSlots-i))) * colShip
+
+				bestMin := min(stoneLayRate, stoneShipRate)
+				if bestMin > bestTotal {
+					bestTotal = bestMin
+					tachStones = i
+					quantStonts = intSlots - i
+					bestELR = stoneLayRate
+					bestSR = stoneShipRate
+				}
+			}
+			if debug {
+				log.Printf("tachStones: %v\n", tachStones)
+				log.Printf("quantStonts: %v\n", quantStonts)
+				log.Printf("bestELR: %v\n", bestELR)
+				log.Printf("bestSR: %v\n", bestSR)
+				log.Printf("boundedELR: %v\n", bestTotal)
+			}
+		} else {
+			tachStones := slots +
+				((modShip * colShip) / (modELR * colELR * modHab * colHab)) -
+				deflectorsOnFarmer*slots/(slots+(modShip*colShip)/(modELR*colELR*modHab*colHab))
+			tachBounded := max(0.0, min(slots, tachStones))
+			tachMultiplier := math.Pow(1.05, tachBounded)
+			contractELR := contractBaseELR * deflectorMultiplier * tachMultiplier
+			bestTotal = min(contractShipCap, contractELR)
+			if debug {
+				log.Printf("tachStones: %v\n", tachStones)
+				log.Printf("tachBounded: %v\n", tachBounded)
+				log.Printf("tachMultiplier: %v\n", tachMultiplier)
+				log.Printf("contractELR: %v\n", contractELR)
+				log.Printf("boundedELR: %v\n", bestTotal)
+			}
+		}
+		boundedELR := bestTotal
+		eggsTotal := contractEggsTotal / 1e15
+		estimate := eggsTotal / (numFarmers * boundedELR)
+
+		if float64(contractLengthInSeconds) < 45*60 {
+			// For small contracts, add less time padding for boosts
+			// as possibly only 1 boost will be needed
+			estimate += 0.30
+			// 4 tokens to boost at a rate of 6 tokens per hour, 10 minutes to boost
+			//estimate += (((numFarmers * 4) / (numFarmers * 6) * 60) + 10) / 60
+		} else if slots != 10.0 {
+			estimate += 0.50
+		} else {
+			// 5 tokens to boost at a rate of 6 tokens per hour, 10 minutes to boost
+			estimate += (est.boostTokens / 6.0) + (10.0 / 60.0)
+		}
+
+		switch est.slots {
+		case 8.0:
+			estimateDurationUpper = time.Duration(estimate * float64(time.Hour))
+		case 9.0:
+			estimateDurationLower = time.Duration(estimate * float64(time.Hour))
+		default:
+			estimateDurationMax = time.Duration(estimate * float64(time.Hour))
+		}
+
+		if debug {
+
+			switch est.slots {
+			case 8.0:
+				log.Printf("estimateDurationUpper: %v\n", estimateDurationUpper)
 				log.Print("--------------------\n")
-			} else {
-				log.Printf("estimateLower: %v\n", estimateDurationLower)
+			case 9.0:
+				log.Printf("estimateDurationLower: %v\n", estimateDurationLower)
+			default:
+				log.Printf("estimateDurationMax: %v\n", estimateDurationMax)
 			}
 		}
 	}
 
 	if estimateDurationUpper > contractDuration {
-		return contractDuration, contractDuration
+		return contractDuration, contractDuration, estimateDurationMax
 	}
 
-	return estimateDurationUpper, estimateDurationLower
+	return estimateDurationUpper, estimateDurationLower, estimateDurationMax
 }
 
 /*
