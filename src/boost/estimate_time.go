@@ -309,7 +309,9 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		colShip := est.colShip
 		colHab := est.colHab
 
+		// Base rate with T4L Metronome +35% and T4L Gusset +25%
 		baseELR := 3.772 * 1.35 * 1.25
+		// Base rate with T4L Compass +50%
 		baseShipping := 7.148 * 1.5
 		maxShipping := baseShipping * math.Pow(1.05, slots) * colShip
 		contractBaseELR := baseELR * modELR * modHab
