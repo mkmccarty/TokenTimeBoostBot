@@ -185,7 +185,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		c.Grade[grade].ModifierResearchCost = c.ModifierResearchCost
 		c.Grade[grade].LengthInSeconds = c.LengthInSeconds
 
-		c.Grade[grade].EstimatedDuration, c.Grade[grade].EstimatedDurationLower = getContractDurationEstimate(c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
+		c.Grade[grade].EstimatedDuration, c.Grade[grade].EstimatedDurationLower, c.Grade[grade].EstimatedDurationMax = getContractDurationEstimate(c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
 			c.ModifierSR, c.ModifierELR, c.ModifierHabCap, false)
 
 		gradeKey := ei.Contract_PlayerGrade_name[int32(grade)]
@@ -240,7 +240,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 				debug = true
 			}
 		*/
-		c.EstimatedDuration, c.EstimatedDurationLower = getContractDurationEstimate(c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
+		c.EstimatedDuration, c.EstimatedDurationLower, c.EstimatedDurationMax = getContractDurationEstimate(c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
 			c.ModifierSR, c.ModifierELR, c.ModifierHabCap, debug)
 	}
 	/*
@@ -280,8 +280,17 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		if c.SeasonalScoring == ei.SeasonalScoringNerfed {
 			fairShare = 1.02
 		}
+		durationMod := float64(c.EstimatedDurationMax.Seconds()) / float64(c.EstimatedDurationLower.Seconds())
 		if c.MaxCoopSize == 1 {
 			fairShare = 1.0
+			c.CxpMax = float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+				true, durationMod, // Use faster duration at a 1.0 modifier
+				fairShare, // Fair Share, first booster
+				100, 20,   // SIAB 100%, 20 minutes
+				20, 0, // Deflector %, minutes reduction
+				0,     // All Chicken Runs - Post CRT
+				0, 0)) // Tokens Sent a lot and received a little.
+
 			c.Cxp = float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
 				true, 1.0, // Use faster duration at a 1.0 modifier
 				fairShare, // Fair Share, first booster
@@ -310,6 +319,13 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 				0,     // All Chicken Runs - Post CRT
 				0, 0)) // Tokens Sent a lot and received a little.
 		} else {
+			c.CxpMax = float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
+				true, durationMod, // Use faster duration at a 1.0 modifier
+				fairShare, // Fair Share, first booster
+				100, 20,   // SIAB 100%, 20 minutes
+				20, 0, // Deflector %, minutes reduction
+				c.ChickenRuns, // All Chicken Runs - Post CRT
+				100, 5))       // Tokens Sent a lot and received a little.
 			c.Cxp = float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
 				true, 1.0, // Use faster duration at a 1.0 modifier
 				fairShare, // Fair Share, first booster
