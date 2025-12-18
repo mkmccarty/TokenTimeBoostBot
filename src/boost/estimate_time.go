@@ -250,7 +250,7 @@ func getContractEstimateString(contractID string) string {
 	return noteStr + str
 }
 
-// getContractDurationEstimate returns two estimated durations of a contract based on great and well equipped artifact sets
+// getContractDurationEstimate returns three estimated durations (upper, lower, and max) of a contract based on great and well equipped artifact sets
 func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, contractLengthInSeconds int, modifierSR float64, modifierELR float64, modifierHabCap float64, debug bool) (time.Duration, time.Duration, time.Duration) {
 
 	contractDuration := time.Duration(contractLengthInSeconds) * time.Second
