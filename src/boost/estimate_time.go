@@ -317,8 +317,6 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		deflectorMultiplier := 1.0 + deflectorBonus*deflectorsOnFarmer
 		bestTotal := 0.0
 		intSlots := int(slots)
-		tachStones := 0
-		quantStones := 0
 		bestELR := 0.0
 		bestSR := 0.0
 
@@ -339,6 +337,8 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		}
 
 		if slots == 10.0 {
+			tachStones := 0
+			quantStones := 0
 			for i := 0; i <= intSlots; i++ {
 				stoneLayRate := contractBaseELR
 				stoneLayRate *= deflectorMultiplier
@@ -350,14 +350,14 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 				if bestMin > bestTotal {
 					bestTotal = bestMin
 					tachStones = i
-					quantStonts = intSlots - i
+					quantStones = intSlots - i
 					bestELR = stoneLayRate
 					bestSR = stoneShipRate
 				}
 			}
 			if debug {
 				log.Printf("tachStones: %v\n", tachStones)
-				log.Printf("quantStonts: %v\n", quantStonts)
+				log.Printf("quantStones: %v\n", quantStones)
 				log.Printf("bestELR: %v\n", bestELR)
 				log.Printf("bestSR: %v\n", bestSR)
 				log.Printf("boundedELR: %v\n", bestTotal)
