@@ -318,7 +318,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		bestTotal := 0.0
 		intSlots := int(slots)
 		tachStones := 0
-		quantStonts := 0
+		quantStones := 0
 		bestELR := 0.0
 		bestSR := 0.0
 
