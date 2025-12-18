@@ -263,6 +263,9 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 
 	deflectorsOnFarmer := numFarmers - 1.0
 
+	const modeOriginalFormula = 1
+	const modeStoneHuntMethod = 2
+
 	estimates := []struct {
 		slots          float64
 		deflectorBonus float64
@@ -270,6 +273,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		colELR         float64
 		colShip        float64
 		colHab         float64
+		calcMode       int
 	}{
 		{
 			slots:          8.0,
@@ -278,6 +282,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			colELR:         1.0,
 			colShip:        1.0,
 			colHab:         1.0,
+			calcMode:       modeOriginalFormula,
 		},
 		{
 			slots:          9.0,
@@ -286,6 +291,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			colELR:         collectibleELR,
 			colShip:        colllectibleShip,
 			colHab:         colleggtibleHab,
+			calcMode:       modeOriginalFormula,
 		},
 		{
 			// This is for a full leggacy set with TE boosts of 5 tokens
@@ -295,6 +301,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			colELR:         collectibleELR,
 			colShip:        colllectibleShip,
 			colHab:         colleggtibleHab,
+			calcMode:       modeStoneHuntMethod,
 		},
 	}
 
@@ -338,7 +345,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			log.Printf("deflectorMultiplier: %v\n", deflectorMultiplier)
 		}
 
-		if slots == 10.0 {
+		if est.calcMode == modeStoneHuntMethod {
 			tachStones := 0
 			quantStones := 0
 			for i := 0; i <= intSlots; i++ {
@@ -390,7 +397,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			estimate += 0.30
 			// 4 tokens to boost at a rate of 6 tokens per hour, 10 minutes to boost
 			//estimate += (((numFarmers * 4) / (numFarmers * 6) * 60) + 10) / 60
-		} else if slots != 10.0 {
+		} else if est.calcMode == modeOriginalFormula {
 			estimate += 0.50
 		} else {
 			// 5 tokens to boost at a rate of 6 tokens per hour, 10 minutes to boost
