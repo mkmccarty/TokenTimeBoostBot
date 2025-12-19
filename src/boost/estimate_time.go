@@ -282,7 +282,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			colELR:         1.0,
 			colShip:        1.0,
 			colHab:         1.0,
-			calcMode:       modeStoneHuntMethod,
+			calcMode:       modeOriginalFormula,
 		},
 		{
 			slots:          9.0,
@@ -291,7 +291,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			colELR:         collectibleELR,
 			colShip:        colllectibleShip,
 			colHab:         colleggtibleHab,
-			calcMode:       modeStoneHuntMethod,
+			calcMode:       modeOriginalFormula,
 		},
 		{
 			// This is for a full leggacy set with TE boosts of 5 tokens
