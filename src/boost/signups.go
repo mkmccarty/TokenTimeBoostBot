@@ -274,6 +274,9 @@ func signups(
 		displayWeek = 1
 		// advance season index
 		seasonIndex = (seasonIndex + 1) % len(seasonsOrdered)
+		if seasonIndex == 0 {
+			currentSeasonYear++
+		}
 	}
 
 	// Mon/Wed/Fri 9am PT (Kevin time)
@@ -372,7 +375,6 @@ func writeSeasonalSignupDisplay(
 **Sign-up Deadline:** %s
 
 **Which __Co-Op Role__ applies to your account? (required)**
-:icon_token: — Want to **bank**
 :chickenrun: — Want to **just play**
 🐣 — Is an **alt/mini** that needs this contract
 :care: — Is just **filling a spot** if needed
@@ -503,7 +505,7 @@ func predictions(
 			// both Wednesday and Friday
 			if wedTime.Before(friTime) {
 				first = writeWednesdayPredictions(wedTime, wednesday, copyPaste, false)
-				second = writeFridayPredictions(friTime, fridayNonUltra, fridayUltra, copyPaste, false, showFridayNonUltra, showFridayUltra)
+				second = writeFridayPredictions(friTime, fridayNonUltra, fridayUltra, copyPaste, true, showFridayNonUltra, showFridayUltra)
 			} else {
 				first = writeFridayPredictions(friTime, fridayNonUltra, fridayUltra, copyPaste, false, showFridayNonUltra, showFridayUltra)
 				second = writeWednesdayPredictions(wedTime, wednesday, copyPaste, true)
