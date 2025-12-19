@@ -282,7 +282,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			colELR:         1.0,
 			colShip:        1.0,
 			colHab:         1.0,
-			calcMode:       modeOriginalFormula,
+			calcMode:       modeStoneHuntMethod,
 		},
 		{
 			slots:          9.0,
@@ -291,7 +291,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			colELR:         collectibleELR,
 			colShip:        colllectibleShip,
 			colHab:         colleggtibleHab,
-			calcMode:       modeOriginalFormula,
+			calcMode:       modeStoneHuntMethod,
 		},
 		{
 			// This is for a full leggacy set with TE boosts of 5 tokens
@@ -362,6 +362,9 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 					quantStones = intSlots - i
 					bestELR = stoneLayRate
 					bestSR = stoneShipRate
+				} else if bestTotal > 0 {
+					// We've passed the peak, no point continuing
+					break
 				}
 			}
 			if debug {
@@ -400,8 +403,9 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		} else if est.calcMode == modeOriginalFormula {
 			estimate += 0.50
 		} else {
-			// 5 tokens to boost at a rate of 6 tokens per hour, 10 minutes to boost
-			estimate += (est.boostTokens / 6.0) + (10.0 / 60.0)
+			// 5 tokens to boost at a rate of 6 tokens per hour
+			// Boost time is 13.5 minutes to boost
+			estimate += (est.boostTokens / 6.0) + (13.5 / 60.0)
 		}
 
 		switch est.slots {
