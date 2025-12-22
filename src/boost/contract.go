@@ -845,22 +845,6 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 	}
 
 	switch cmd {
-	case "paradehost":
-		sid := getInteractionUserID(i)
-		// Make sure the user is in the contract
-		if !userInContract(contract, sid) {
-			return
-		}
-		switch contract.Boosters[sid].Kind {
-		case Normal:
-			contract.Boosters[sid].Kind = Parade
-		case Parade:
-			contract.Boosters[sid].Kind = Normal
-		}
-	case "paradejoin":
-		addParaderFromInteraction(s, i, contract)
-	case "paraderemove":
-		removeParaderFromInteraction(i, contract)
 
 	case "boostsink":
 		sid := getInteractionUserID(i)
@@ -999,86 +983,6 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{})
 
-}
-
-func addParaderFromInteraction(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract) {
-	var p = Parader{}
-	userID := getInteractionUserID(i)
-
-	p.UserID = userID
-
-	// Assign an index if this user already has paraders in the list
-	existingCount := 0
-	for _, ex := range contract.ParadeList {
-		if ex != nil && ex.UserID == userID {
-			existingCount++
-		}
-	}
-	if existingCount > 0 {
-		p.Index = existingCount + 1
-	}
-
-	var user, err = s.User(userID)
-	if err != nil {
-		p.GlobalName = userID
-		p.Name = userID
-		p.Nick = userID
-		p.Unique = userID
-		p.Mention = userID
-	} else {
-		p.GlobalName = user.GlobalName
-		p.UserName = user.Username
-		p.Mention = user.Mention()
-		gm, errGM := s.GuildMember(i.GuildID, userID)
-		if errGM == nil {
-			if gm.Nick != "" {
-				p.Name = gm.Nick
-				p.Nick = gm.Nick
-			} else {
-				p.Name = user.GlobalName
-				p.Nick = user.GlobalName
-			}
-			p.Unique = gm.User.String()
-		} else { // For now I want to create a Parade Booster variation of this user
-			p.Name = user.Username
-			p.Nick = user.Username
-			p.Unique = user.String()
-			p.Mention = user.Mention()
-		}
-	}
-
-	first := p.Nick
-	if first == "" {
-		first = p.Name
-	}
-	word := first
-	if parts := strings.Fields(first); len(parts) > 0 {
-		word = strings.ToLower(parts[0])
-	}
-	if p.Index > 1 {
-		p.ParadeName = fmt.Sprintf("%s Alt%d", word, p.Index)
-	} else {
-		p.ParadeName = fmt.Sprintf("%s Alt", word)
-	}
-
-	if len(contract.ParadeList) < contract.ParadeChickenRuns {
-		contract.ParadeList = append(contract.ParadeList, &p)
-	}
-}
-
-func removeParaderFromInteraction(i *discordgo.InteractionCreate, contract *Contract) {
-	userID := getInteractionUserID(i)
-	var indexToRemove = -1
-
-	for idx, p := range contract.ParadeList {
-		if p != nil && p.UserID == userID {
-			indexToRemove = idx // Update to the latest index found
-		}
-	}
-
-	if indexToRemove != -1 {
-		contract.ParadeList = append(contract.ParadeList[:indexToRemove], contract.ParadeList[indexToRemove+1:]...)
-	}
 }
 
 // HandleContractSettingsCommand will handle the /contract-settings command
