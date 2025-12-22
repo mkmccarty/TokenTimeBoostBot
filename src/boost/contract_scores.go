@@ -163,6 +163,9 @@ func calculateContractScore(cxpversion int, grade int, coopSize int, targetGoal 
 
 	score *= teamworkBonus
 	score *= float64(187.5)
+	if cxpversion == ei.SeasonalScoringNerfed {
+		score *= 1.05 // 5% bonus for whatever
+	}
 
 	return int64(math.Ceil(score))
 }
