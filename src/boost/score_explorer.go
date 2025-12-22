@@ -174,7 +174,7 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 		TvalSent:             0,
 		TvalReceived:         1,
 		ChickenRuns:          0,
-		contractInfo:         getContractEstimateString(contractID),
+		contractInfo:         getContractEstimateString(contractID, false),
 	}
 
 	playStyleValues := []float64{1.0, 1.0, 1.20, 2.0}

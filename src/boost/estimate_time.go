@@ -35,6 +35,12 @@ func GetSlashEstimateTime(cmd string) *discordgo.ApplicationCommand {
 				Required:     false,
 				Autocomplete: true,
 			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "include-leggacy",
+				Description: "Include estimate for full leggacy set.",
+				Required:    false,
+			},
 		},
 	}
 }
@@ -44,6 +50,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	//var builder strings.Builder
 	var contractID = ""
 	var str = ""
+	includeLeggacy := false
 	optionMap := bottools.GetCommandOptionsMap(i)
 
 	if opt, ok := optionMap["contract-id"]; ok {
@@ -55,6 +62,9 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			contractID = runningContract.ContractID
 		}
 	}
+	if opt, ok := optionMap["include-leggacy"]; ok {
+		includeLeggacy = opt.BoolValue()
+	}
 	c := ei.EggIncContractsAll[contractID]
 
 	if c.ID == "" {
@@ -62,7 +72,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 	}
 	if str == "" {
-		str := getContractEstimateString(contractID)
+		str := getContractEstimateString(contractID, includeLeggacy)
 
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -86,7 +96,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 }
 
-func getContractEstimateString(contractID string) string {
+func getContractEstimateString(contractID string, includeMaximum bool) string {
 
 	str := ""
 	c := ei.EggIncContractsAll[contractID]
@@ -224,8 +234,13 @@ func getContractEstimateString(contractID string) string {
 				int64(c.Cxp),
 				c.Cxp*0.70)
 		}
+		if includeMaximum {
+			estStrMax := c.EstimatedDurationMax.Round(time.Minute).String()
+			estStrMax = strings.TrimRight(estStrMax, "0s")
+			str += fmt.Sprintf("Leggacy Set: **%s** w/CS **%d**\n", estStrMax, int64(c.CxpMax))
+		}
 		if footerAboutCR && c.MaxCoopSize > 1 {
-			str += fmt.Sprintf("-# CoopSize-1 used for CR, extras **+%.0f**/%s \n",
+			str += fmt.Sprintf("-# CoopSize-1 used for CR, extras **+%.0f**/%s\n",
 				c.CxpRunDelta,
 				ei.GetBotEmojiMarkdown("icon_chicken_run"))
 		}
