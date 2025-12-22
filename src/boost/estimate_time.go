@@ -37,8 +37,8 @@ func GetSlashEstimateTime(cmd string) *discordgo.ApplicationCommand {
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "include-leggacy",
-				Description: "Include estimate for full leggacy set.",
+				Name:        "include-legendary",
+				Description: "Include estimate for full legendary set.",
 				Required:    false,
 			},
 		},
@@ -50,7 +50,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	//var builder strings.Builder
 	var contractID = ""
 	var str = ""
-	includeLeggacy := false
+	includeLegendary := false
 	optionMap := bottools.GetCommandOptionsMap(i)
 
 	if opt, ok := optionMap["contract-id"]; ok {
@@ -62,8 +62,8 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			contractID = runningContract.ContractID
 		}
 	}
-	if opt, ok := optionMap["include-leggacy"]; ok {
-		includeLeggacy = opt.BoolValue()
+	if opt, ok := optionMap["include-legendary"]; ok {
+		includeLegendary = opt.BoolValue()
 	}
 	c := ei.EggIncContractsAll[contractID]
 
@@ -72,7 +72,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 	}
 	if str == "" {
-		str := getContractEstimateString(contractID, includeLeggacy)
+		str := getContractEstimateString(contractID, includeLegendary)
 
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -237,7 +237,7 @@ func getContractEstimateString(contractID string, includeMaximum bool) string {
 		if includeMaximum {
 			estStrMax := c.EstimatedDurationMax.Round(time.Minute).String()
 			estStrMax = strings.TrimRight(estStrMax, "0s")
-			str += fmt.Sprintf("Leggacy Set: **%s** w/CS **%d**\n", estStrMax, int64(c.CxpMax))
+			str += fmt.Sprintf("Leggy Set: **%s** w/CS **%d**\n", estStrMax, int64(c.CxpMax))
 		}
 		if footerAboutCR && c.MaxCoopSize > 1 {
 			str += fmt.Sprintf("-# CoopSize-1 used for CR, extras **+%.0f**/%s\n",
