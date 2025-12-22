@@ -161,30 +161,6 @@ type ArtifactSet struct {
 	ShipRate  float64
 }
 
-// Kind represents the type of booster
-type Kind int
-
-const (
-	// Normal Booster Farmer
-	Normal Kind = iota
-	// Parade Farmer Slot
-	Parade
-)
-
-// Parader holds the data for each parader within a Contract
-type Parader struct {
-	UserID        string // Egg Farmer
-	Name          string
-	Unique        string
-	Nick          string
-	Mention       string // String which mentions user
-	GlobalName    string
-	UserName      string
-	ParadeName    string
-	RanChickensOn []string
-	Index         int
-}
-
 // Booster holds the data for each booster within a Contract
 type Booster struct {
 	UserID      string // Egg Farmer
@@ -225,9 +201,6 @@ type Booster struct {
 	EstRequestChickenRuns  time.Time     // Estimated time to request chicken runs
 	Ultra                  bool          // Does this player have Ultra
 	TECount                int           // Truth Egg Count
-	// Alt Parade
-	Kind           Kind
-	ParaderMention Parader
 }
 
 // LocationData holds server specific Data for a contract
@@ -302,7 +275,6 @@ type Contract struct {
 	ActualStartTime     time.Time // Actual start time for token tracking
 	RegisteredNum       int
 	Boosters            map[string]*Booster // Boosters Registered
-	ParadeList          []*Parader          // List of Paraders
 	WaitlistBoosters    []string            // Waitlist of UserID's
 	AltIcons            []string            // Array of alternate icons for the Boosters
 	Order               []string
@@ -772,7 +744,6 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 	if b == nil {
 		// New Booster - add them to boost list
 		var b = new(Booster)
-		b.Kind = Normal
 		b.Register = time.Now()
 		b.UserID = userID
 		b.Color = 0x00cc00

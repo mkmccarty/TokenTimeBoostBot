@@ -389,66 +389,8 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 		})
 	}
 
-	var paradeComp []discordgo.MessageComponent
-	if config.IsDevBot() && contract.PlayStyle == ContractPlaystyleLeaderboard {
-
-		if contract.ParadeChickenRuns != 0 {
-			//sinkList = append(sinkList, SinkList{"Parade Banker", "🎪", contract.Banker.ParadeSinkUserID, "paradesink"})
-			//sinkList = append(sinkList, SinkList{"Parade Host", "🤹", "", "paradehost"})
-			paradeComp = append(paradeComp, discordgo.Button{
-				Emoji: &discordgo.ComponentEmoji{
-					Name: "🤹",
-				},
-				Label:    "Parade Host",
-				Style:    discordgo.SecondaryButton,
-				CustomID: "cs_#paradehost#" + contract.ContractHash,
-			}) // If any of the contract Boosters are Parade Kind then show the parade join button
-
-			// If any of the contract.Boosters are Parade Kind then show the parade join button
-			if len(contract.ParadeList) < contract.ParadeChickenRuns {
-				for _, b := range contract.Boosters {
-					if b.Kind == Parade {
-
-						paradeComp = append(paradeComp, discordgo.Button{
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "🤡",
-							},
-							Label:    fmt.Sprintf("Need %d Parade Alts", contract.ParadeChickenRuns-len(contract.ParadeList)),
-							Style:    discordgo.SecondaryButton,
-							CustomID: "cs_#paradejoin#" + contract.ContractHash,
-						})
-						break
-					}
-				}
-			} else {
-				paradeComp = append(paradeComp, discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "🤡",
-					},
-					Label:    "Parade Full",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "cs_#paradejoin#" + contract.ContractHash,
-				})
-
-			}
-			if len(contract.ParadeList) > 0 {
-				paradeComp = append(paradeComp, discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
-						Name: "🚷",
-					},
-					Label:    "Remove Alt",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "cs_#paraderemove#" + contract.ContractHash,
-				})
-			}
-		}
-	}
-
 	if len(mComp) > 0 {
 		buttons = append(buttons, discordgo.ActionsRow{Components: mComp})
-	}
-	if len(paradeComp) > 0 {
-		buttons = append(buttons, discordgo.ActionsRow{Components: paradeComp})
 	}
 
 	return str, buttons

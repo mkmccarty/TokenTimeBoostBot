@@ -137,16 +137,6 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		}
 	}
 
-	// Parade List
-	if len(contract.ParadeList) > 0 {
-		header.WriteString("### Parade List\n")
-		mentions := make([]string, 0, len(contract.ParadeList))
-		for _, parader := range contract.ParadeList {
-			mentions = append(mentions, parader.ParadeName)
-		}
-		header.WriteString(strings.Join(mentions, ", "))
-	}
-
 	if contract.State != ContractStateSignup && contract.State != ContractStateCompleted {
 		/*
 			(0.101332 * GG + 1/TokenTimer) * AllPlayers
@@ -322,11 +312,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 					if b.BoostState == BoostStateBoosted {
 						earlyList.WriteString(fmt.Sprintf("~~%s~~%s%s ", b.Mention, sortRate, sinkIcon))
 					} else {
-						if b.Kind == Normal {
-							earlyList.WriteString(fmt.Sprintf("%s(%d)%s%s ", b.Mention, b.TokensWanted, sortRate, sinkIcon))
-						} else {
-							earlyList.WriteString(fmt.Sprintf("🤹 %s(%d)%s%s ", b.Mention, b.TokensWanted, sortRate, sinkIcon))
-						}
+						earlyList.WriteString(fmt.Sprintf("%s(%d)%s%s ", b.Mention, b.TokensWanted, sortRate, sinkIcon))
 					}
 					if i < start-1 {
 						earlyList.WriteString(", ")
@@ -452,11 +438,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 					switch b.BoostState {
 					case BoostStateUnboosted:
-						if b.Kind == Normal {
-							builder.WriteString(fmt.Sprintf("%s %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, sinkIcon, server))
-						} else {
-							builder.WriteString(fmt.Sprintf("🤹%s %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, sinkIcon, server))
-						}
+						builder.WriteString(fmt.Sprintf("%s %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, sinkIcon, server))
 					case BoostStateTokenTime:
 						builder.WriteString(fmt.Sprintf("%s ➡️ **%s** %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, currentStartTime, sinkIcon, server))
 					case BoostStateBoosted:
@@ -477,11 +459,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 					switch b.BoostState {
 					case BoostStateUnboosted:
-						if b.Kind == Normal {
-							builder.WriteString(fmt.Sprintf("%s %s%s%s%s\n", prefix, name, signupCountStr, sortRate, server))
-						} else {
-							builder.WriteString(fmt.Sprintf("🤹%s %s%s%s%s\n", prefix, name, signupCountStr, sortRate, server))
-						}
+						builder.WriteString(fmt.Sprintf("%s %s%s%s%s\n", prefix, name, signupCountStr, sortRate, server))
 					case BoostStateTokenTime:
 						if b.UserID == b.Name && b.AltController == "" && contract.State != ContractStateBanker {
 							// Add a rocket for auto boosting
