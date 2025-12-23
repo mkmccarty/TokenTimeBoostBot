@@ -374,13 +374,16 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	mutex.Unlock()
 
 	if err != nil {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true,
+		_, err = s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
 				Content:    err.Error(),
 				Flags:      discordgo.MessageFlagsEphemeral,
 				Components: []discordgo.MessageComponent{},
 			},
 		)
+		if err != nil {
+			log.Print(err)
+		}
 		return
 	}
 
@@ -398,20 +401,26 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		// Add the contract settings component
 		components = append(components, comp...)
 
-		_, _ = s.FollowupMessageCreate(i.Interaction, true,
+		_, err = s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
 				//Content:    str,
 				Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
 				Components: components,
 			},
 		)
+		if err != nil {
+			log.Print(err)
+		}
 	} else {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true,
+		_, err = s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
 				Content: "This contract was initiated in <#" + contract.Location[0].ChannelID + ">. The coordinator will take care of the options.",
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		)
+		if err != nil {
+			log.Print(err)
+		}
 	}
 
 	var createMsg = DrawBoostList(s, contract)
@@ -973,6 +982,8 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		msg, err := s.ChannelMessageEditComplex(msgedit)
 		if err == nil {
 			loc.ListMsgID = msg.ID
+		} else {
+			log.Print(err)
 		}
 
 		if redrawSignup {
