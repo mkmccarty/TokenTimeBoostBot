@@ -81,7 +81,7 @@ func saveData(contractHash string) {
 			}
 		} else {
 			if time.Since(contract.LastSaveTime) < 15*time.Second {
-				// Only save non-signup contracts every 15 seconds during signup
+				// Only save non-signup contracts every 15 seconds
 				return
 			}
 		}
