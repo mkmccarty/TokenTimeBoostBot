@@ -492,7 +492,7 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 
 			contract.Boosters[userID].ArtifactSet = getUserArtifacts(userID, &currentSet)
 
-			refreshBoostListMessage(s, contract)
+			refreshBoostListMessage(s, contract, false)
 
 		}
 	}

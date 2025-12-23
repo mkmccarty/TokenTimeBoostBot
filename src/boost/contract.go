@@ -974,9 +974,11 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
 		msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
 		boostListComp := DrawBoostList(s, contract)
-		buttonComponents := getContractReactionsComponents(contract)
 		components = append(components, boostListComp...)
-		components = append(components, buttonComponents...)
+		buttonComponents := getContractReactionsComponents(contract)
+		if len(buttonComponents) > 0 {
+			components = append(components, buttonComponents...)
+		}
 		msgedit.Components = &components
 
 		msg, err := s.ChannelMessageEditComplex(msgedit)

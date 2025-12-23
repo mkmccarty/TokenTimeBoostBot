@@ -494,7 +494,7 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 
 				contract.PlannedStartTime = time.Unix(startTime, 0)
 				str = "Planned start time changed to " + "<t:" + strconv.FormatInt(startTime, 10) + ":f>"
-				refreshBoostListMessage(s, contract)
+				refreshBoostListMessage(s, contract, false)
 			}
 		}
 
@@ -517,10 +517,10 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 				contract.PlannedStartTime = time.Unix(startTime, 0)
 				if startTime == 0 {
 					str = "Planned start time cleared"
-					refreshBoostListMessage(s, contract)
+					refreshBoostListMessage(s, contract, false)
 				} else if contract.PlannedStartTime.After(time.Now()) && contract.PlannedStartTime.Before(time.Now().AddDate(0, 0, 7)) {
 					str = "Planned start time changed to " + "<t:" + strconv.FormatInt(startTime, 10) + ":f>"
-					refreshBoostListMessage(s, contract)
+					refreshBoostListMessage(s, contract, false)
 				} else {
 					str = "Planned start time must be within the next 7 days. Use timestamps from [Discord Timestamp](https://discordtimestamp.com)"
 					contract.PlannedStartTime = time.Unix(0, 0)
@@ -564,10 +564,7 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 		contract.ContractID = contractID
 		updateContractWithEggIncData(contract)
 		contract.EggEmoji = FindEggEmoji(contract.EggName)
-		//if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
-		//	calculateTangoLegs(contract, true)
-		//}
-		refreshBoostListMessage(s, contract)
+		refreshBoostListMessage(s, contract, false)
 	}
 	if coopID != "" {
 		contract.CoopID = coopID
@@ -736,7 +733,7 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 
 	//sendNextNotification(s, contract, true)
 	if redraw {
-		refreshBoostListMessage(s, contract)
+		refreshBoostListMessage(s, contract, false)
 	}
 
 	summaryStr := fmt.Sprintf("Boost order changed to %s.", boostOrder)
@@ -812,7 +809,7 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 		}
 	}
 	if redraw {
-		refreshBoostListMessage(s, contract)
+		refreshBoostListMessage(s, contract, false)
 	}
 
 	return nil
@@ -885,7 +882,7 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 				contract.buttonComponents = nil // reset button components
 				defer saveData(contract.ContractHash)
 				//if contract.State == ContractStateSignup {
-				refreshBoostListMessage(s, contract)
+				refreshBoostListMessage(s, contract, false)
 				//} else {
 				//	_ = RedrawBoostList(s, i.GuildID, i.ChannelID)
 				//}

@@ -485,7 +485,7 @@ func AddBoostTokens(s *discordgo.Session, i *discordgo.InteractionCreate, setCou
 		farmerstate.SetTokens(b.UserID, b.TokensWanted)
 	}
 
-	refreshBoostListMessage(s, contract)
+	refreshBoostListMessage(s, contract, false)
 
 	return b.TokensWanted, b.TokensReceived, nil
 }
@@ -651,6 +651,8 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 			return errors.New(errorUserInContract)
 		}
 
+		previousBoosters := len(contract.Boosters)
+
 		_, err := AddFarmerToContract(s, contract, guildID, channelID, guest, order, false)
 		if err != nil {
 			return err
@@ -664,8 +666,9 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 			_, _ = s.ChannelMessageSend(loc.ChannelID, str)
 
 			if contract.State == ContractStateSignup {
-				updateSignupReactionMessage(s, contract, loc)
-				// updateSignupReactionMessage updates the reaction message for signup contracts
+				if previousBoosters != len(contract.Boosters) && previousBoosters == contract.CoopSize {
+					updateSignupReactionMessage(s, contract, loc)
+				}
 			}
 		}
 	}
@@ -733,7 +736,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		// Only add to waitlist if user isn't already in it
 		if !slices.Contains(contract.WaitlistBoosters, userID) {
 			contract.WaitlistBoosters = append(contract.WaitlistBoosters, userID)
-			refreshBoostListMessage(s, contract)
+			refreshBoostListMessage(s, contract, false)
 
 			return nil, nil
 		}
@@ -918,7 +921,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		}
 	}
 	if !progenitor {
-		refreshBoostListMessage(s, contract)
+		refreshBoostListMessage(s, contract, contract.RegisteredNum == contract.CoopSize)
 	}
 	return b, nil
 }
@@ -977,7 +980,7 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 			contract.mutex.Lock()
 			b.TECount = int(allEov)
 			contract.mutex.Unlock()
-			refreshBoostListMessage(s, contract)
+			refreshBoostListMessage(s, contract, false)
 
 		}(eggIncID, userID, b)
 	}
@@ -1102,9 +1105,12 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 	log.Println("RemoveContractBoosterByMention", "GuildID: ", guildID, "ChannelID: ", channelID, "Operator: ", operator, "Mention: ", mention)
 	var contract = FindContract(channelID)
 	redraw := false
+	redrawSignup := false
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
+
+	previousBoosters := len(contract.Boosters)
 
 	if len(contract.Boosters) == 0 {
 		return errors.New(errorContractEmpty)
@@ -1259,7 +1265,10 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 	//if contract.BoostPosition != len(contract.Order) {
 	for _, loc := range contract.Location {
 		if redraw {
-			refreshBoostListMessage(s, contract)
+			if contract.State == ContractStateSignup && previousBoosters == contract.CoopSize {
+				redrawSignup = true
+			}
+			refreshBoostListMessage(s, contract, redrawSignup)
 			continue
 		}
 		if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
@@ -1278,9 +1287,10 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 			loc.ListMsgID = msg.ID
 		}
 		// Need to disable the speedrun start button if the contract is no longer full
-		//if contract.Style&ContractFlagCrt != 0 && contract.State == ContractStateSignup {
-		if contract.State == ContractStateSignup {
-			updateSignupReactionMessage(s, contract, loc)
+		if previousBoosters != len(contract.Boosters) && previousBoosters == contract.CoopSize {
+			if contract.State == ContractStateSignup {
+				updateSignupReactionMessage(s, contract, loc)
+			}
 		}
 	}
 	//}
@@ -1519,7 +1529,7 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 	} else {
 		contract.Boosters[userID].BoostState = BoostStateUnboosted
 		contract.BoostedOrder = removeIndex(contract.BoostedOrder, slices.Index(contract.BoostedOrder, userID))
-		refreshBoostListMessage(s, contract)
+		refreshBoostListMessage(s, contract, false)
 	}
 	return nil
 }
