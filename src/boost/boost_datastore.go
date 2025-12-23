@@ -75,7 +75,7 @@ func saveData(contractHash string) {
 		}
 
 		if contract.State == ContractStateSignup {
-			if time.Since(contract.LastSaveTime) < 2*time.Minute && contract.CoopSize < len(contract.Boosters) {
+			if time.Since(contract.LastSaveTime) < 2*time.Minute && len(contract.Boosters) < contract.CoopSize {
 				// Only save signup contracts every 2 minutes during signup
 				return
 			}
