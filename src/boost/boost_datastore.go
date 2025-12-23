@@ -87,11 +87,17 @@ func saveData(contractHash string) {
 		}
 
 		saveSqliteData(contract)
+		contract.mutex.Lock()
+		contract.LastSaveTime = time.Now()
+		contract.mutex.Unlock()
 		return
 	}
 
 	for _, c := range Contracts {
 		saveSqliteData(c)
+		c.mutex.Lock()
+		c.LastSaveTime = time.Now()
+		c.mutex.Unlock()
 	}
 
 	// Legacy disk store backup
