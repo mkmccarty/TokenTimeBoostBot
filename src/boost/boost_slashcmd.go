@@ -568,7 +568,7 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 	c.mutex.Unlock()
 	track.ContractTokenUpdate(s, i.ChannelID, &modifiedTokenLog)
 	saveData(c.ContractHash)
-	refreshBoostListMessage(s, c)
+	refreshBoostListMessage(s, c, false)
 	return str
 }
 

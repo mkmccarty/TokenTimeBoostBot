@@ -212,7 +212,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	}
 
 	if redraw {
-		refreshBoostListMessage(s, contract)
+		refreshBoostListMessage(s, contract, false)
 	}
 
 	if r.Emoji.Name == "❓" {
@@ -250,7 +250,7 @@ func updateEstimatedTime(s *discordgo.Session, channelID string, contract *Contr
 			contract.StartTime = startTime
 			contract.EstimatedDuration = time.Duration(contractDurationSeconds) * time.Second
 			contract.EstimateUpdateTime = time.Now()
-			refreshBoostListMessage(s, contract)
+			refreshBoostListMessage(s, contract, false)
 		}
 		return
 	}
@@ -266,7 +266,7 @@ func updateEstimatedTime(s *discordgo.Session, channelID string, contract *Contr
 		contract.StartTime = startTime
 		contract.EstimatedDuration = time.Duration(contractDurationSeconds) * time.Second
 		contract.EstimateUpdateTime = time.Now()
-		refreshBoostListMessage(s, contract)
+		refreshBoostListMessage(s, contract, false)
 	}
 }
 

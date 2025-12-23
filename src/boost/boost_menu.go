@@ -154,12 +154,12 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				//Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
-		refreshBoostListMessage(s, contract)
+		refreshBoostListMessage(s, contract, false)
 	case "send":
 		wantUser := cmd[1]
 		_, redraw := buttonReactionToken(s, i.GuildID, i.ChannelID, contract, i.Member.User.ID, 1, wantUser)
 		if redraw {
-			refreshBoostListMessage(s, contract)
+			refreshBoostListMessage(s, contract, false)
 		}
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -172,7 +172,7 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		nextUser := cmd[1]
 		_, redraw := buttonReactionToken(s, i.GuildID, i.ChannelID, contract, i.Member.User.ID, 1, nextUser)
 		if redraw {
-			refreshBoostListMessage(s, contract)
+			refreshBoostListMessage(s, contract, false)
 		}
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,

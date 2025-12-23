@@ -393,7 +393,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 	}
 
 	if redraw {
-		refreshBoostListMessage(s, contract)
+		refreshBoostListMessage(s, contract, false)
 	}
 
 	return returnVal

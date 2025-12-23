@@ -46,7 +46,7 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 	return nil
 }
 
-func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
+func refreshBoostListMessage(s *discordgo.Session, contract *Contract, updateSignupMessage bool) {
 	//contract.mutex.Lock()
 	//defer contract.mutex.Unlock()
 	// Edit the boost list in place
@@ -55,9 +55,11 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
 		msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
 		listComponents := DrawBoostList(s, contract)
-		buttonComponents := getContractReactionsComponents(contract)
 		components = append(components, listComponents...)
-		components = append(components, buttonComponents...)
+		buttonComponents := getContractReactionsComponents(contract)
+		if len(buttonComponents) > 0 {
+			components = append(components, buttonComponents...)
+		}
 		msgedit.Components = &components
 
 		// Full contract for speedrun
@@ -66,7 +68,9 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract) {
 			// This is an edit, it should be the same
 			loc.ListMsgID = msg.ID
 		}
-		updateSignupReactionMessage(s, contract, loc)
+		if updateSignupMessage {
+			updateSignupReactionMessage(s, contract, loc)
+		}
 	}
 }
 
@@ -106,9 +110,11 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			data.Flags = discordgo.MessageFlagsIsComponentsV2
 			data.AllowedMentions = &am
 			listComp := DrawBoostList(s, contract)
-			buttonComponents := getContractReactionsComponents(contract)
 			components = append(components, listComp...)
-			components = append(components, buttonComponents...)
+			buttonComponents := getContractReactionsComponents(contract)
+			if len(buttonComponents) > 0 {
+				components = append(components, buttonComponents...)
+			}
 			data.Components = components
 			msg, err = s.ChannelMessageSendComplex(loc.ChannelID, &data)
 			if err == nil {
