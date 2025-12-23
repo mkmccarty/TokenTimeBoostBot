@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/peterbourgon/diskv/v3"
 )
@@ -72,6 +73,19 @@ func saveData(contractHash string) {
 		if contract == nil {
 			return
 		}
+
+		if contract.State == ContractStateSignup {
+			if time.Since(contract.LastSaveTime) < 2*time.Minute && len(contract.Boosters) < contract.CoopSize {
+				// Only save signup contracts every 2 minutes during signup
+				return
+			}
+		} else {
+			if time.Since(contract.LastSaveTime) < 15*time.Second {
+				// Only save non-signup contracts every 15 seconds
+				return
+			}
+		}
+
 		saveSqliteData(contract)
 		return
 	}
