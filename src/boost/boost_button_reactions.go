@@ -577,18 +577,21 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 			Emoji:       &discordgo.ComponentEmoji{Name: "🕳️"},
 		})
 	*/
-	minValues := 0
-	out = append(out, discordgo.ActionsRow{
-		Components: []discordgo.MessageComponent{
-			discordgo.SelectMenu{
-				CustomID:    "menu#" + contract.ContractHash,
-				Placeholder: "Boost Menu",
-				MinValues:   &minValues,
-				MaxValues:   1,
-				Options:     menuOptions,
+	if contract.State != ContractStateSignup {
+
+		minValues := 0
+		out = append(out, discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.SelectMenu{
+					CustomID:    "menu#" + contract.ContractHash,
+					Placeholder: "Boost Menu",
+					MinValues:   &minValues,
+					MaxValues:   1,
+					Options:     menuOptions,
+				},
 			},
-		},
-	})
+		})
+	}
 
 	for _, row := range iconsRow {
 		var mComp []discordgo.MessageComponent
