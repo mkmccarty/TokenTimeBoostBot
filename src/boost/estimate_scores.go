@@ -94,7 +94,7 @@ func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 	}
 
 	var str string
-	str, fields, scores := DownloadCoopStatusTeamwork(contractID, coopID, 0)
+	str, fields, scores := DownloadCoopStatusTeamwork(contractID, coopID)
 	if fields == nil || strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Flags:   flags,

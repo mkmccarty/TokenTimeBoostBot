@@ -16,7 +16,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mattn/go-runewidth"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
@@ -713,7 +712,7 @@ func formatEvalMetricsRowANSI(
 	btvColor := peakColor(btv, peaks.buffTimeValue, btvBase, true)
 
 	cells := []string{
-		fitName(player, nameW),
+		bottools.FitString(player, nameW),
 		bottools.CellANSI(fmt.Sprintf("%d", int(cxp)), cxpColor, cxpW, true),
 		bottools.CellANSI(fmt.Sprintf("%.3f", contr), contrColor, contrW, true),
 		bottools.CellANSI(fmt.Sprintf("%.3f", teamwork), teamColor, teamW, true),
@@ -726,13 +725,6 @@ func formatEvalMetricsRowANSI(
 		)
 	}
 	return strings.Join(cells, "|")
-}
-
-// pad/truncate a plain name to width
-func fitName(name string, width int) string {
-	// truncate if needed and pad right
-	trimmed := runewidth.Truncate(name, width, "")
-	return runewidth.FillRight(trimmed, width)
 }
 
 // ===== color rules =====
