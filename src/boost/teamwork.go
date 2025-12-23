@@ -174,7 +174,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	var str string
-	str, fields, _ := DownloadCoopStatusTeamwork(contractID, coopID, 0)
+	str, fields, _ := DownloadCoopStatusTeamwork(contractID, coopID)
 	if fields == nil || strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {
 		// Trim output to 3500 characters if needed
 		trimmedStr := str
@@ -290,7 +290,7 @@ func computeRateIncrease(
 }
 
 // DownloadCoopStatusTeamwork will download the coop status for a given contract and coop ID
-func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime time.Duration) (string, map[string][]TeamworkOutputData, string) {
+func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[string][]TeamworkOutputData, string) {
 	var siabMsg strings.Builder
 	var dataTimestampStr string
 	var nowTime time.Time
@@ -428,30 +428,29 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		calcSecondsRemaining = -coopStatus.GetSecondsSinceAllGoalsAchieved()
 		endTime = endTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
-		builder.WriteString(fmt.Sprintf("Completed %s contract %s/[**%s**](%s)\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), coopStatus.GetContractIdentifier(), coopStatus.GetCoopIdentifier(), fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID)))
+		fmt.Fprintf(&builder, "Completed %s contract %s/[**%s**](%s)\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), coopStatus.GetContractIdentifier(), coopStatus.GetCoopIdentifier(), fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID))
 	} else {
 		prefix = "Est. "
 		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
 		startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
-		calcSecondsRemaining = (totalRequired-totalContributions)/contributionRatePerSecond - offsetEndTime.Seconds()
+		calcSecondsRemaining = (totalRequired - totalContributions) / contributionRatePerSecond
 		endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
 		elapsedSeconds = nowTime.Sub(startTime).Seconds()
-		builder.WriteString(fmt.Sprintf("In Progress %s %s/[**%s**](%s) on target to complete <t:%d:R>\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), coopStatus.GetContractIdentifier(), coopStatus.GetCoopIdentifier(), fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID), endTime.Unix()))
+		fmt.Fprintf(&builder, "In Progress %s %s/[**%s**](%s) on target to complete %s\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), coopStatus.GetContractIdentifier(), coopStatus.GetCoopIdentifier(), fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID), bottools.WrapTimestamp(endTime.Unix(), bottools.TimestampRelativeTime))
 	}
 
 	UpdateContractTime(coopStatus.GetContractIdentifier(), coopStatus.GetCoopIdentifier(), startTime, contractDurationSeconds)
 
-	builder.WriteString(fmt.Sprintf("Start Time: <t:%d:f>\n", startTime.Unix()))
-	builder.WriteString(fmt.Sprintf("%sEnd Time: <t:%d:f>\n", prefix, endTime.Unix()))
-	builder.WriteString(fmt.Sprintf("%sDuration: %v\n", prefix, (endTime.Sub(startTime)).Round(time.Second)))
-	if offsetEndTime > 0 {
-		builder.WriteString(fmt.Sprintf("End Time includes %s for SIAB swaps\n", bottools.FmtDuration(offsetEndTime)))
-	}
-
+	fmt.Fprintf(&builder, "Start Time: %s at %s\n", bottools.WrapTimestamp(startTime.Unix(), bottools.TimestampLongDate), bottools.WrapTimestamp(startTime.Unix(), bottools.TimestampLongTime))
+	fmt.Fprintf(&builder, "%sEnd Time: %s at %s\n", prefix, bottools.WrapTimestamp(endTime.Unix(), bottools.TimestampLongDate), bottools.WrapTimestamp(endTime.Unix(), bottools.TimestampLongTime))
+	fmt.Fprintf(&builder, "%sDuration: %v\n", prefix, (endTime.Sub(startTime)).Round(time.Second))
 	siabMsg.WriteString("SiaB Swap Times\n")
-	siabMsg.WriteString("Showing those with SiaB equipped and can swap it out before the end of the contract without losing teamwork score.\n")
-
+	if eiContract.SeasonalScoring == ei.SeasonalScoringNerfed {
+		siabMsg.WriteString("Under the new scoring system SiaB swapping isn't possible.\n")
+	} else {
+		siabMsg.WriteString("Showing those with SiaB equipped and can swap it out before the end of the contract without losing teamwork score.\n")
+	}
 	// Used to collect the return values for each farmer
 	var farmerFields = make(map[string][]TeamworkOutputData)
 
@@ -703,9 +702,8 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 					if swapArtifactName == "Compass" {
 						newSlots = 2
 					}
-					maxTeamwork.WriteString(fmt.Sprintf("Increased contribution rate of %2.3g%% swapping %d slot SiaB with a %d slot %s.\n",
-						(future.contributionRateInSeconds/siab.contributionRateInSeconds-1)*100, siabStones, newSlots, swapArtifactName))
-
+					fmt.Fprintf(&maxTeamwork, "Increased contribution rate of %2.3g%% swapping %d slot SiaB with a %d slot %s.\n",
+						(future.contributionRateInSeconds/siab.contributionRateInSeconds-1)*100, siabStones, newSlots, swapArtifactName)
 					if shortTeamwork == 0 {
 						if len(deliveryTableMap[name]) >= 2 {
 							deliveryTableMap[name] = append(deliveryTableMap[name][:2], future)
@@ -756,25 +754,19 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 					// Print 1p SiaB switch times
 					if err == nil {
 						if extraInfo {
-							maxTeamwork.WriteString(fmt.Sprintf(
-								"\nTarget Egg Amount: %g\nEggs Shipped: %f\nInitial ELR: %f\nDelta ELR: %f\nElapsed Time Sec: %g\nAlpha: %f\n",
-								targetEggAmount, eggsShipped, initialElr, deltaElr, elapsedTimeSec, alpha,
-							))
+							fmt.Fprintf(&maxTeamwork, "\nTarget Egg Amount: %g\nEggs Shipped: %f\nInitial ELR: %f\nDelta ELR: %f\nElapsed Time Sec: %g\nAlpha: %f\n",
+								targetEggAmount, eggsShipped, initialElr, deltaElr, elapsedTimeSec, alpha)
 						}
 
-						maxTeamwork.WriteString(fmt.Sprintf(
-							"Teamwork BTV maxes at <t:%[1]d:t>, SiaB can be unequipped after this time.\n\n"+
-								"**Switch time:** <t:%[1]d:f>\n"+
-								"**Adjusted finish time with switch:** <t:%[2]d:f>\n",
+						fmt.Fprintf(&maxTeamwork, "Teamwork BTV maxes at <t:%[1]d:t>, SiaB can be unequipped after this time.\n\n"+
+							"**Switch time:** <t:%[1]d:f>\n"+
+							"**Adjusted finish time with switch:** <t:%[2]d:f>\n",
 							switchTimestamp,
-							finishTimestampWithSwitch,
-						))
+							finishTimestampWithSwitch)
 
 						if extraInfo {
-							maxTeamwork.WriteString(fmt.Sprintf(
-								"**Finish time without switch:** <t:%d:f>\n",
-								finishTimestampWithoutSwitch,
-							))
+							fmt.Fprintf(&maxTeamwork, "**Finish time without switch:** <t:%d:f>\n",
+								finishTimestampWithoutSwitch)
 						}
 
 						siabEntries = append(siabEntries, siabEntry{
@@ -782,33 +774,11 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 							DeltaELR:   deltaElr,
 							SwitchTime: switchTimestamp,
 						})
-
-					}
-
-				} else {
-					if nowTime.Add(siabTimeEquipped).After(endTime) {
-						// How much longer is this siabTimeEquipped than the end of the contract
-						extraTime := nowTime.Add(siabTimeEquipped).Sub(endTime)
-
-						// Calculate the shortTeamwork reducing the extra time from the siabTimeEquipped
-						extraPercent := (siabTimeEquipped - extraTime).Seconds() / siabTimeEquipped.Seconds()
-
-						maxTeamwork.WriteString(fmt.Sprintf("Equip your best SIAB through end of contract (<t:%d:t>) in new teamwork segment to improve BTV by %6.0f. ", endTime.Unix(), shortTeamwork*extraPercent))
-						maxTeamwork.WriteString(fmt.Sprintf("The maximum BTV increase of %6.0f would be achieved if the contract finished at <t:%d:f>.", shortTeamwork, nowTime.Add(siabTimeEquipped).Unix()))
-
-						// We might not be able to reach here anymore
-						if nowTime.Add(siabTimeEquipped).Before(endTime) {
-							siabEntries = append(siabEntries, siabEntry{
-								Name:       name,
-								DeltaELR:   0.00000000,
-								SwitchTime: endTime.Unix(),
-							})
-						}
-					} else {
-						maxTeamwork.WriteString(fmt.Sprintf("Equip your best SIAB for %s (<t:%d:t>) in new teamwork segment to max BTV by %6.0f.\n", bottools.FmtDuration(siabTimeEquipped), nowTime.Add(siabTimeEquipped).Unix(), shortTeamwork))
 					}
 				}
-				field = append(field, TeamworkOutputData{"Maximize Teamwork", maxTeamwork.String()})
+				if maxTeamwork.Len() > 0 {
+					field = append(field, TeamworkOutputData{"Maximize Teamwork", maxTeamwork.String()})
+				}
 			}
 
 			var deliv strings.Builder
@@ -881,19 +851,16 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 				if float64(maxCR) > crThreshold {
 					added = float64(scoreBase) * 0.19 * (6.0 / 19.0)
 				}
-				crBuilder.WriteString(fmt.Sprintf("%d:%d ", maxCR, scoreCRdiff+int64(math.Ceil(added))))
+				fmt.Fprintf(&crBuilder, "%d:%d ", maxCR, scoreCRdiff+int64(math.Ceil(added)))
 			}
 			crBuilder.WriteString("```")
 
 			if diffCR > 0 {
-
-				crBuilder.WriteString(fmt.Sprintf(
-					"\nEach Chicken Run adds `%3.1f` to Contract Score.",
-					diffCR,
-				))
+				fmt.Fprintf(&crBuilder, "\nEach Chicken Run adds `%3.1f` to Contract Score.",
+					diffCR)
 				if math.Mod(crThreshold, 1.0) == 0.5 {
 					// print the half val
-					crBuilder.WriteString(fmt.Sprintf("\nNote: CR Threshold is `%3.1f` The final run gives only half credit `%3.1f` (+0.5 CR threshold).", crThreshold, diffCR/2.0))
+					fmt.Fprintf(&crBuilder, "\nNote: CR Threshold is `%3.1f` The final run gives only half credit `%3.1f` (+0.5 CR threshold).", crThreshold, diffCR/2.0)
 				}
 			}
 			str := "Chicken Runs (CR)"
@@ -913,7 +880,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			eiContract.Grade[grade].LengthInSeconds,
 			contractDurationSeconds,
 			B, CR, T)
-		fmt.Fprintf(&csBuilder, "Max: %d\n", scoreMax)
+		// fmt.Fprintf(&csBuilder, "Max: %d\n", scoreMax)
 
 		// TVAL Met, with CR to coop size -1
 		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 5.0)
@@ -925,7 +892,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			eiContract.Grade[grade].LengthInSeconds,
 			contractDurationSeconds,
 			B, CR, T)
-		fmt.Fprintf(&csBuilder, "TVal: %d (CR=%d)\n", scoreTval, min(eiContract.MaxCoopSize-1, eiContract.ChickenRuns))
+		// fmt.Fprintf(&csBuilder, "TVal: %d (CR=%d)\n", scoreTval, min(eiContract.MaxCoopSize-1, eiContract.ChickenRuns))
 
 		// Sink Contract Score with current buffs and max CR & negative TVAL
 		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 3.0, 11.0)
@@ -937,7 +904,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			eiContract.Grade[grade].LengthInSeconds,
 			contractDurationSeconds,
 			B, CR, T)
-		fmt.Fprintf(&csBuilder, "Sink: %d (CR=%d)\n", scoreMid, eiContract.ChickenRuns)
+		// fmt.Fprintf(&csBuilder, "Sink: %d (CR=%d)\n", scoreMid, eiContract.ChickenRuns)
 
 		// No token sharing, with CR to coop size -1
 		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 0.0, 11.0)
@@ -949,7 +916,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			eiContract.Grade[grade].LengthInSeconds,
 			contractDurationSeconds,
 			B, CR, T)
-		fmt.Fprintf(&csBuilder, "Runs: %d (TV=0, CR=%d)\n", scoreRuns, min(eiContract.MaxCoopSize-1, eiContract.ChickenRuns))
+		fmt.Fprintf(&csBuilder, "Max: %d (CR=%d)\n", scoreRuns, min(eiContract.MaxCoopSize-1, eiContract.ChickenRuns))
 
 		// Minimum Contract Score with current buffs and 0 CR & 0 TVAL
 		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 0.0, 11.0)
@@ -961,7 +928,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			eiContract.Grade[grade].LengthInSeconds,
 			contractDurationSeconds,
 			B, CR, T)
-		fmt.Fprintf(&csBuilder, "Min: %d (CR/TV=0)\n", scoreMin)
+		fmt.Fprintf(&csBuilder, "Min: %d (CR=0)\n", scoreMin)
 
 		scoreBase := calculateContractScore(eiContract.SeasonalScoring, grade,
 			eiContract.MaxCoopSize,
@@ -970,7 +937,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			eiContract.Grade[grade].LengthInSeconds,
 			contractDurationSeconds,
 			0, 0, 0)
-		fmt.Fprintf(&csBuilder, "Base: %d (B/CR/TV=0)\n", scoreBase)
+		fmt.Fprintf(&csBuilder, "Base: %d (Buff/CR=0)\n", scoreBase)
 
 		field = append(field, TeamworkOutputData{"Contract Score", csBuilder.String()})
 
@@ -1026,16 +993,16 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 			continue
 		}
 		if extraInfo {
-			builder.WriteString(fmt.Sprintf("Switch Time: %d <t:%s:f>\nFinish Time with Switch: %d <t:%s:f>\nFinish Time without Switch: %d <t:%s:f>\n",
+			fmt.Fprintf(&builder, "Switch Time: %d <t:%s:f>\nFinish Time with Switch: %d <t:%s:f>\nFinish Time without Switch: %d <t:%s:f>\n",
 				switchTimestamp, switchTime,
 				finishTimestampWithSwitch, finishTimeWithSwitch,
-				finishTimestampWithoutSwitch, finishTimeWithoutSwitch))
+				finishTimestampWithoutSwitch, finishTimeWithoutSwitch)
 		}
 	}
 
 	if extraInfo {
 		fmt.Printf("Min Alpha: %f\n", alpha)
-		builder.WriteString(fmt.Sprintf("Min Alpha: %f\n", alpha))
+		fmt.Fprintf(&builder, "Min Alpha: %f\n", alpha)
 	}
 
 	// Create a table of Contract Scores for this user
@@ -1052,13 +1019,13 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	})
 	for _, cs := range contractScoreArr {
 		if eiContract.SeasonalScoring == ei.SeasonalScoringNerfed {
-			fmt.Fprintf(&scoresTable, "`%12s %6d %6d %6d`\n",
-				bottools.AlignString(cs.name, 12, bottools.StringAlignLeft),
+			fmt.Fprintf(&scoresTable, "`%s %6d %6d %6d`\n",
+				bottools.FitString(cs.name, 12),
 				cs.max, cs.min, cs.base)
 
 		} else {
-			fmt.Fprintf(&scoresTable, "`%12s %6d %6d %6d %6d %6d %6d`\n",
-				bottools.AlignString(cs.name, 12, bottools.StringAlignLeft),
+			fmt.Fprintf(&scoresTable, "`%s %6d %6d %6d %6d %6d %6d`\n",
+				bottools.FitString(cs.name, 12),
 				cs.max, cs.tval, cs.sink, cs.runs, cs.min, cs.base)
 
 		}
@@ -1077,10 +1044,10 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 		})
 
 		// Header
-		siabMsg.WriteString(fmt.Sprintf("`%-15s` `%-10s` `%s`\n",
+		fmt.Fprintf(&siabMsg, "`%-15s` `%-10s` `%s`\n",
 			"PLAYER",
 			bottools.AlignString("ΔELR q/hr", 10, bottools.StringAlignCenter),
-			"TIME"))
+			"TIME")
 
 		// Print each row
 		cantSwitch := false
@@ -1099,12 +1066,10 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 				ts = endTime.Unix()
 			}
 
-			siabMsg.WriteString(fmt.Sprintf(
-				"`%-15s` `%10.6f` <t:%d:t>\n",
+			fmt.Fprintf(&siabMsg, "`%-15s` `%10.6f` <t:%d:t>\n",
 				name,
 				e.DeltaELR,
-				ts,
-			))
+				ts)
 		}
 
 		siabMsg.WriteString("\n*Using your best SiaB will result in higher CS.*\n")
@@ -1115,10 +1080,6 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, offsetEndTime 
 	farmerFields["siab"] = siabMax
 
 	builder.WriteString(dataTimestampStr)
-
-	//if totalSiabSwapSeconds > 0 && offsetEndTime == 0 && coopStatus.GetSecondsSinceAllGoalsAchieved() == 0 {
-	//	return DownloadCoopStatusTeamwork(contractID, coopID, totalSiabSwapSeconds)
-	//}
 
 	return builder.String(), farmerFields, scoresTable.String()
 }

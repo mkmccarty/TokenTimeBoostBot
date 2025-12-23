@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mattn/go-runewidth"
 )
 
 // FmtDuration formats a time.Duration into a human readable string
@@ -134,6 +135,13 @@ func AlignString(str string, width int, alignment StringAlign) string {
 	}
 
 	return leftPadding + str + rightPadding
+}
+
+// FitString pad/truncate a plain name to width
+func FitString(name string, width int) string {
+	// truncate if needed and pad right
+	trimmed := runewidth.Truncate(name, width, "")
+	return runewidth.FillRight(trimmed, width)
 }
 
 // GetCommandOptionsMap returns a map of command options
