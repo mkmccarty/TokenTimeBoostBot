@@ -442,14 +442,14 @@ func writePELegacySignupDisplay(
 	deadlineTime := dropTime //.Add(5 * time.Minute)
 
 	content := fmt.Sprintf(
-		`## 🟢🟪  PE Leggacies Sign-up: %s 🟢🟪 ##
+		`## :egg_prophecy:  PE Leggacies Sign-up: %s :Ultra: ##
 -# PE Leggacy (Ultra or non-Ultra) that is harder to fill will be prioritized.
 **Contract Drop (+0):** Time listed in title
 **Sign-up Deadline:** %s
 
-**Does this account have an active __Ultra Subscription__? (required)**
-🟪 — yes
-🟢 — no
+**Which contract(s) would you like to run? (required)**
+:Ultra: — Ultra
+📜 — Leggacy
 
 **Any additional __Co-Op Roles__ for this account? (optional) **
 :icon_token: — Want to **bank/sink**
@@ -631,13 +631,13 @@ func writeWednesdayPredictions(
 	// Body
 	writeContracts(&b, contracts, copyPaste, iconCoop, iconCR)
 
-	// Footer: show for copy-paste mode or when not first
+	// Footer
 	if copyPaste || footer {
-		b.WriteString("\n-# ")
+		b.WriteString("-# ")
 		b.WriteString(iconCoop)
-		b.WriteString(" coop size | 🎏 parade alts | ")
+		b.WriteString(" Coop size | ")
 		b.WriteString(iconCR)
-		b.WriteString(" target CRs | 🌼Seasonal LB\n")
+		b.WriteString(" Target CRs | 🌼Seasonal LB\n")
 		b.WriteString("-# Prediction formula by jelibean84\n")
 	}
 
@@ -650,21 +650,24 @@ func writeWednesdayPredictions(
 	}
 }
 
-// Friday Predictions
 func writeFridayPredictions(
 	dropTime time.Time,
-	peContracts []ei.EggIncContract, // non-Ultra PE
-	ultraContracts []ei.EggIncContract, // Ultra PE
+	peContracts []ei.EggIncContract,
+	ultraContracts []ei.EggIncContract,
 	copyPaste, footer, showNonUltra, showUltra bool,
 ) *discordgo.TextDisplay {
 	var b strings.Builder
 
-	// Icons
+	// Icons BB vs Egg Server
 	iconCoop := ei.GetBotEmojiMarkdown("icon_coop")
 	iconCR := ei.GetBotEmojiMarkdown("icon_chicken_run")
+	iconUltra := ei.GetBotEmojiMarkdown("ultra")
+	iconPE := ei.GetBotEmojiMarkdown("egg_prophecy")
 	if copyPaste {
 		iconCoop = "👪"
 		iconCR = ":chickenrun:"
+		iconUltra = ":Ultra:"
+		iconPE = ":egg_prophecy:"
 		b.WriteString("```\n")
 	}
 
@@ -673,16 +676,20 @@ func writeFridayPredictions(
 	b.WriteString(bottools.WrapTimestamp(dropTime.Unix(), bottools.TimestampLongDate))
 	b.WriteByte('\n')
 
-	// Non-ultra section
-	if showNonUltra && len(peContracts) > 0 {
-		b.WriteString("**🟢 PE Leggacy**\n")
+	// Non-Ultra
+	if showNonUltra && len(peContracts) != 0 {
+		b.WriteString("**")
+		b.WriteString(iconPE)
+		b.WriteString(" PE Leggacy**\n")
 		writeContracts(&b, peContracts, copyPaste, iconCoop, iconCR)
 		b.WriteByte('\n')
 	}
 
-	// Ultra section
-	if showUltra && len(ultraContracts) > 0 {
-		b.WriteString("**🟪 Ultra PE Leggacy **\n")
+	// Ultra
+	if showUltra && len(ultraContracts) != 0 {
+		b.WriteString("**")
+		b.WriteString(iconUltra)
+		b.WriteString(" Ultra PE Leggacy **\n")
 		writeContracts(&b, ultraContracts, copyPaste, iconCoop, iconCR)
 		b.WriteByte('\n')
 	}
@@ -691,9 +698,9 @@ func writeFridayPredictions(
 	if copyPaste || footer {
 		b.WriteString("-# ")
 		b.WriteString(iconCoop)
-		b.WriteString(" coop size | 🎏 parade alts | ")
+		b.WriteString(" Coop size | ")
 		b.WriteString(iconCR)
-		b.WriteString(" target CRs | 🌼Seasonal LB\n")
+		b.WriteString(" Target CRs | 🌼Seasonal LB\n")
 		b.WriteString("-# Prediction formula by jelibean84\n")
 	}
 
@@ -714,7 +721,6 @@ func writeContracts(
 	iconCoop, iconCR string,
 ) {
 	for _, c := range contracts {
-		paradeAlts := max(0, c.ChickenRuns-c.MaxCoopSize+1)
 
 		// Season label "🍂 25FL", "☀️ 23SU", "🌼 23SP", "❄️ 24WI"
 		seasonLabel := ""
@@ -756,10 +762,9 @@ func writeContracts(
 		// Second line
 		fmt.Fprintf(
 			b,
-			"_      _%s `%2d`  🎏 `%2d`  %s `%2d`\n",
+			"_      _%s `%2d`  %s `%2d`\n",
 			iconCoop,
 			c.MaxCoopSize,
-			paradeAlts,
 			iconCR,
 			c.ChickenRuns,
 		)
