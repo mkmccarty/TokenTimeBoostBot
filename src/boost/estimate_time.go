@@ -35,12 +35,14 @@ func GetSlashEstimateTime(cmd string) *discordgo.ApplicationCommand {
 				Required:     false,
 				Autocomplete: true,
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "include-leggy",
-				Description: "Include estimate for full leggy set.",
-				Required:    false,
-			},
+			/*
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "include-leggy",
+					Description: "Include estimate for full leggy set.",
+					Required:    false,
+				},
+			*/
 		},
 	}
 }
