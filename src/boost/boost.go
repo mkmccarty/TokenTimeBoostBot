@@ -221,7 +221,6 @@ type LocationData struct {
 // BankerInfo holds information about contract Banker
 type BankerInfo struct {
 	CurrentBanker      string // Current Banker
-	ParadeSinkUserID   string // Alt Parade Sink User ID
 	BoostingSinkUserID string // Boosting Sink User ID
 	PostSinkUserID     string // Sink End of Contract User ID
 	SinkBoostPosition  int    // Sink Boost Position
@@ -244,7 +243,6 @@ type Contract struct {
 	TokenStr                  string // Emoji for Token
 	TargetAmount              []float64
 	ChickenRuns               int // Number of Chicken Runs for this contract
-	ParadeChickenRuns         int // Number of Alternate Paraders
 	ChickenRunCooldownMinutes int
 	MinutesPerToken           int
 	EstimatedDuration         time.Duration
