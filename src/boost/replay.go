@@ -474,7 +474,6 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 		builder.WriteString("No contracts met this condition.\n")
 	} else if contractIDParam != "" {
 		builder.WriteString("-# [brackets] indicate area for improvement.\n")
-		builder.WriteString("-# 🤡 indicates alt-parade needed to hit CR target.\n")
 		builder.WriteString("-# Teamwork scoring artifacts shown after the value..\n")
 		if tvalFooterMessage {
 			builder.WriteString("-# Token Teamwork scores are 2/10 value sent and 8/10 ∆-value.\n")
