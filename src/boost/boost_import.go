@@ -224,9 +224,8 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		c.LengthInDays = int(days)
 		c.ChickenRuns = int(min(20.0, math.Ceil((days*float64(c.MaxCoopSize))/2.0)))
 		if c.SeasonalScoring == ei.SeasonalScoringNerfed {
-			c.ChickenRuns = min(20, c.MaxCoopSize-1)
+			c.ChickenRuns = min(c.ChickenRuns, c.MaxCoopSize-1)
 		}
-		c.ParadeChickenRuns = c.ChickenRuns - (c.MaxCoopSize - 1)
 
 	}
 	// Duration estimate
@@ -367,7 +366,6 @@ func updateContractWithEggIncData(contract *Contract) {
 			contract.CoopSize = cc.MaxCoopSize
 			contract.LengthInSeconds = cc.LengthInSeconds
 			contract.ChickenRuns = cc.ChickenRuns
-			contract.ParadeChickenRuns = cc.ParadeChickenRuns
 			contract.EstimatedDuration = cc.EstimatedDuration
 			contract.Name = cc.Name
 			contract.Description = cc.Description

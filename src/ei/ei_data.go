@@ -121,7 +121,6 @@ type EggIncContract struct {
 	MaxCoopSize               int
 	TargetAmount              []float64
 	ChickenRuns               int
-	ParadeChickenRuns         int
 	LengthInSeconds           int
 	LengthInDays              int
 	ChickenRunCooldownMinutes int
