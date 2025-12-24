@@ -382,6 +382,18 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 					}
 				}
 
+				duration := time.Duration(evaluation.GetCompletionTime() * float64(time.Second))
+				startTime := time.Unix(int64(evaluation.GetEvaluationStartTime())-int64(duration.Seconds()), 0)
+				ggIcon := ""
+				ggEvent := ei.FindGiftEvent(startTime)
+				if ggEvent.EventType != "" {
+					if ggEvent.Ultra {
+						ggIcon = ei.GetBotEmojiMarkdown("ultra_gg")
+					} else {
+						ggIcon = ei.GetBotEmojiMarkdown("std_gg")
+					}
+				}
+
 				eggImg := FindEggEmoji(c.EggName)
 				fmt.Fprintf(&builder, "## %s %dp [%s](%s/%s/%s)\n", eggImg, c.MaxCoopSize, contractID, "https://eicoop-carpet.netlify.app", contractID, coopID)
 				// Check marks Contribution near 1 & CR & TVal
@@ -422,6 +434,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 				if completionTime == 0 {
 					completionTime = int64(evaluation.GetEvaluationStartTime())
 				}
+				fmt.Fprintf(&builder, "**Started:** <t:%d:f> %s\n", startTime.Unix(), ggIcon)
 				fmt.Fprintf(&builder, "**Completed:** <t:%d:f>\n", completionTime)
 				fmt.Fprintf(&builder, "**Duration:** %s  **Est. Duration:** %s\n", bottools.FmtDuration(time.Duration(evaluation.GetCompletionTime()*float64(time.Second))), bottools.FmtDuration(c.EstimatedDurationMax))
 				fmt.Fprintf(&builder, "**CS:** %d  **Est Max CS:** %.0f\n", uint32(evaluationCxp), c.CxpMax)

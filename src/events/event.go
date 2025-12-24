@@ -82,13 +82,13 @@ func HandleEventHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var field []*discordgo.MessageEmbedField
 	var events strings.Builder
 
-	eventMutex.Lock()
-	localLastEvent := make([]ei.EggEvent, len(LastEvent))
-	copy(localLastEvent, LastEvent)
+	ei.EventMutex.Lock()
+	localLastEvent := make([]ei.EggEvent, len(ei.LastEvent))
+	copy(localLastEvent, ei.LastEvent)
 
-	localEggIncEvents := make([]ei.EggEvent, len(EggIncEvents))
-	copy(localEggIncEvents, EggIncEvents)
-	eventMutex.Unlock()
+	localEggIncEvents := make([]ei.EggEvent, len(ei.EggIncEvents))
+	copy(localEggIncEvents, ei.EggIncEvents)
+	ei.EventMutex.Unlock()
 
 	events.WriteString("## Current Events:\n")
 	// Build list of current Events
