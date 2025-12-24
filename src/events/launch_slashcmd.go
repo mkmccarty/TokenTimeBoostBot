@@ -501,7 +501,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		instr.WriteString("-# Chained EX launches are Henliner/Henerprise extended missions\n")
 	}
 
-	for _, e := range LastMissionEvent {
+	for _, e := range ei.LastMissionEvent {
 		eventIconStr := ""
 		switch e.EventType {
 		case "mission-duration":

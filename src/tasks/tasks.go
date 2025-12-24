@@ -296,7 +296,7 @@ func downloadEggIncData(url string, filename string) bool {
 		lastContractUpdate = time.Now()
 		log.Printf("EI-Contracts. New data loaded, length: %d\n", int64(len(body)))
 	case eggIncEventsFile:
-		events.LoadEventData(filename)
+		ei.LoadEventData(filename)
 		lastEventUpdate = time.Now()
 		log.Printf("EI-Events. New data loaded, length: %d\n", int64(len(body)))
 	case eggIncEiAfxDataFile:
@@ -332,7 +332,7 @@ func ExecuteCronJob(s *discordgo.Session) {
 		boost.LoadContractData(eggIncContractsFile)
 	}
 	if !downloadEggIncData(eggIncEventsURL, eggIncEventsFile) {
-		events.LoadEventData(eggIncEventsFile)
+		ei.LoadEventData(eggIncEventsFile)
 	}
 	downloadEggIncData(eggIncDataSchemaURL, eggIncDataSchemaFile)
 

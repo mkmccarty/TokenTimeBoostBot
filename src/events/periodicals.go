@@ -80,7 +80,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 
 	// Look for new events
 	localEventMap := make(map[string]ei.EggEvent)
-	for k, v := range AllEventMap {
+	for k, v := range ei.AllEventMap {
 		localEventMap[k] = v
 	}
 
@@ -157,7 +157,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	}
 
 	if newEvents {
-		sortAndSwapEvents(localEventMap, currentEggIncEvents)
+		ei.SortAndSwapEvents(localEventMap, currentEggIncEvents)
 	}
 
 	// Set our current Event variables
