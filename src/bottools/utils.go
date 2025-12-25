@@ -111,37 +111,46 @@ const (
 
 // AlignString aligns a string to the left, center, or right within a given width
 func AlignString(str string, width int, alignment StringAlign) string {
-	// Calculate the padding needed
+	return formatString(str, width, alignment, false)
+}
 
-	padding := width - utf8.RuneCountInString(str)
-	if padding <= 0 {
+// FitString truncates and pads left or right
+func FitString(str string, width int, alignment StringAlign) string {
+	switch alignment {
+	case StringAlignLeft, StringAlignRight:
+		return formatString(str, width, alignment, true)
+	default:
+		return formatString(str, width, StringAlignLeft, true)
+	}
+}
+
+// formatString formats a string to a given width with alignment and optional truncation
+func formatString(str string, width int, alignment StringAlign, truncate bool) string {
+	if truncate {
+		str = runewidth.Truncate(str, width, "")
+	}
+
+	w := runewidth.StringWidth(str)
+	if w >= width {
 		return str
 	}
 
-	var leftPadding, rightPadding string
+	// Calculate the padding needed
+	pad := width - w
+	var left int
 	switch alignment {
 	case StringAlignLeft:
-		leftPadding = ""
-		rightPadding = strings.Repeat(" ", padding)
+		left = 0
 	case StringAlignCenter:
-		leftPadding = strings.Repeat(" ", padding/2)
-		rightPadding = strings.Repeat(" ", padding-padding/2)
+		left = pad / 2
 	case StringAlignRight:
-		leftPadding = strings.Repeat(" ", padding)
-		rightPadding = ""
+		left = pad
 	case StringAlignCenterRight:
-		leftPadding = strings.Repeat(" ", padding-padding/2)
-		rightPadding = strings.Repeat(" ", padding/2)
+		left = pad - pad/2
 	}
 
-	return leftPadding + str + rightPadding
-}
-
-// FitString pad/truncate a plain name to width
-func FitString(name string, width int) string {
-	// truncate if needed and pad right
-	trimmed := runewidth.Truncate(name, width, "")
-	return runewidth.FillRight(trimmed, width)
+	return strings.Repeat(" ", left) + str +
+		strings.Repeat(" ", width-left-w)
 }
 
 // GetCommandOptionsMap returns a map of command options
