@@ -667,7 +667,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 			siabSecondsNeeded := shortTeamwork / lastOrBestSIAB
 			siabTimeEquipped := time.Duration(siabSecondsNeeded) * time.Second
 
-			if lastOrBestSIAB > 0 && coopStatus.GetSecondsSinceAllGoalsAchieved() <= 0 {
+			if eiContract.SeasonalScoring != ei.SeasonalScoringNerfed && lastOrBestSIAB > 0 && coopStatus.GetSecondsSinceAllGoalsAchieved() <= 0 {
 				// Your deflector % + your ship % (divided by 10) needs to average 26.7 over the course of the contract
 				var maxTeamwork strings.Builder
 				//  if the player is using a SiaB make switch time predictions
@@ -1020,12 +1020,12 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 	for _, cs := range contractScoreArr {
 		if eiContract.SeasonalScoring == ei.SeasonalScoringNerfed {
 			fmt.Fprintf(&scoresTable, "`%s %6d %6d %6d`\n",
-				bottools.FitString(cs.name, 12),
+				bottools.FitString(cs.name, 12, bottools.StringAlignLeft),
 				cs.max, cs.min, cs.base)
 
 		} else {
 			fmt.Fprintf(&scoresTable, "`%s %6d %6d %6d %6d %6d %6d`\n",
-				bottools.FitString(cs.name, 12),
+				bottools.FitString(cs.name, 12, bottools.StringAlignLeft),
 				cs.max, cs.tval, cs.sink, cs.runs, cs.min, cs.base)
 
 		}
