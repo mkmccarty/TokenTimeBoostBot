@@ -436,8 +436,13 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 				}
 				fmt.Fprintf(&builder, "**Started:** <t:%d:f> %s\n", startTime.Unix(), ggIcon)
 				fmt.Fprintf(&builder, "**Completed:** <t:%d:f>\n", completionTime)
-				fmt.Fprintf(&builder, "**Duration:** %s  **Est. Duration:** %s\n", bottools.FmtDuration(time.Duration(evaluation.GetCompletionTime()*float64(time.Second))), bottools.FmtDuration(c.EstimatedDurationMax))
-				fmt.Fprintf(&builder, "**CS:** %d  **Est CS:** %.0f (SR estimation)\n", uint32(evaluationCxp), c.Cxp)
+				if config.IsDevBot() {
+					fmt.Fprintf(&builder, "**Duration:** %s  **Est. Duration:** %s\n", bottools.FmtDuration(time.Duration(evaluation.GetCompletionTime()*float64(time.Second))), bottools.FmtDuration(c.EstimatedDurationMax))
+					fmt.Fprintf(&builder, "**CS:** %d  **Est CS:** %.0f (SR estimation)\n", uint32(evaluationCxp), c.CxpMax)
+				} else {
+					fmt.Fprintf(&builder, "**Duration:** %s  **Est. Duration:** %s\n", bottools.FmtDuration(time.Duration(evaluation.GetCompletionTime()*float64(time.Second))), bottools.FmtDuration(c.EstimatedDuration))
+					fmt.Fprintf(&builder, "**CS:** %d  **Est CS:** %.0f (SR estimation)\n", uint32(evaluationCxp), c.Cxp)
+				}
 				if c.SeasonalScoring == ei.SeasonalScoringNerfed {
 					fmt.Fprintf(&builder, "**Contrib:** %s  **CR:** %s\n", contribCheck, crCheck)
 				} else {
