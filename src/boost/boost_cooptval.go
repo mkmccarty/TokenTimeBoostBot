@@ -195,7 +195,7 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 	})
 
 	headerStr := "`%-12s %3s %3s %6s %3s`\n"
-	formatStr := "`%-12s %3d %3d %6.2f %3s`%s\n"
+	formatStr := "`%s %3d %3d %6.2f %3s`%s\n"
 	var builder strings.Builder
 	if len(keys) == 0 {
 		fmt.Fprintf(&builder, "No tokens sent or received in this contract.\n")
@@ -217,16 +217,13 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 				valueLog = futureTokenLog
 			}
 
-			if len(name) > 12 {
-				name = name[:12]
-			}
 			tcount := "√"
 			ttime := ""
 			if contract.SeasonalScoring == ei.SeasonalScoringStandard {
 				tcount, ttime, _ = bottools.CalculateTcountTtime(tokenValue[key], tval, valueLog)
 			}
 
-			fmt.Fprintf(&builder, formatStr, name, tokenSent[key], tokensReceived[key], tokenValue[key], tcount, ttime)
+			fmt.Fprintf(&builder, formatStr, bottools.FitString(name, 12, bottools.StringAlignLeft), tokenSent[key], tokensReceived[key], tokenValue[key], tcount, ttime)
 		}
 	}
 	return builder.String()
