@@ -872,7 +872,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			stoneShipRate := shippingRate * math.Pow(1.05, float64((as.stones-i))) * collegShip
 
 			soloData := []string{
-				bottools.AlignString(as.name, 12, bottools.StringAlignCenter),
+				bottools.FitString(as.name, 12, bottools.StringAlignRight),
 				bottools.AlignString(fmt.Sprintf("%d", i), 3, bottools.StringAlignCenter),
 				bottools.AlignString(fmt.Sprintf("%d", as.stones-i), 3, bottools.StringAlignCenter),
 				bottools.AlignString(fmt.Sprintf("%2.3f", stoneLayRate), 6, bottools.StringAlignCenter),

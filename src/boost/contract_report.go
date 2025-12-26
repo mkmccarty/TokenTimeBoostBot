@@ -472,10 +472,10 @@ func ContractReport(
 	if perr != nil {
 		return fmt.Errorf("%w: %v", ErrContribProcess, perr)
 	}
-	if len(missing) > 0 {
+	if config.IsDevBot() && len(missing) > 0 {
 		log.Println("Contributors missing Discord/EI:", strings.Join(missing, ", "))
 	}
-	evByName := evalsForContractParallel(evalsByName, contractID)
+	evByName := evalsForContractParallel(evalsByName, contractID, coopID)
 
 	// contract lookup
 	c := ei.EggIncContractsAll[contractID]
@@ -712,7 +712,7 @@ func formatEvalMetricsRowANSI(
 	btvColor := peakColor(btv, peaks.buffTimeValue, btvBase, true)
 
 	cells := []string{
-		bottools.FitString(player, nameW),
+		bottools.FitString(player, nameW, bottools.StringAlignLeft),
 		bottools.CellANSI(fmt.Sprintf("%d", int(cxp)), cxpColor, cxpW, true),
 		bottools.CellANSI(fmt.Sprintf("%.3f", contr), contrColor, contrW, true),
 		bottools.CellANSI(fmt.Sprintf("%.3f", teamwork), teamColor, teamW, true),
@@ -789,9 +789,9 @@ func deriveThresholds(p *contractReportParameters) thresholds {
 }
 
 // pick the evaluation for a specific contractID from an archive
-func evalForContract(archive []*ei.LocalContract, contractID string) *ei.ContractEvaluation {
+func evalForContract(archive []*ei.LocalContract, contractID, coopID string) *ei.ContractEvaluation {
 	for _, lc := range archive {
-		if c := lc.GetContract(); c != nil && c.GetIdentifier() == contractID {
+		if c := lc.GetContract(); c != nil && c.GetIdentifier() == contractID && lc.GetEvaluation().GetCoopIdentifier() == coopID {
 			return lc.GetEvaluation()
 		}
 	}
@@ -801,7 +801,7 @@ func evalForContract(archive []*ei.LocalContract, contractID string) *ei.Contrac
 // Scan each player's archive concurrently, return only the matching evaluation.
 func evalsForContractParallel(
 	evalsByName map[string][]*ei.LocalContract,
-	contractID string,
+	contractID, coopID string,
 ) map[string]*ei.ContractEvaluation {
 	type job struct {
 		name string
@@ -819,7 +819,7 @@ func evalsForContractParallel(
 	worker := func() {
 		defer wg.Done()
 		for j := range jobs {
-			if ev := evalForContract(j.arch, contractID); ev != nil {
+			if ev := evalForContract(j.arch, contractID, coopID); ev != nil {
 				mu.Lock()
 				out[j.name] = ev
 				mu.Unlock()
