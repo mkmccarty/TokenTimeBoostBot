@@ -35,14 +35,12 @@ func GetSlashEstimateTime(cmd string) *discordgo.ApplicationCommand {
 				Required:     false,
 				Autocomplete: true,
 			},
-			/*
-				{
-					Type:        discordgo.ApplicationCommandOptionBoolean,
-					Name:        "include-leggy",
-					Description: "Include estimate for full leggy set.",
-					Required:    false,
-				},
-			*/
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "include-leggy",
+				Description: "Include estimate for full leggy set.",
+				Required:    false,
+			},
 		},
 	}
 }
@@ -407,23 +405,50 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 				log.Printf("boundedELR: %v\n", bestTotal)
 			}
 		}
+
 		boundedELR := bestTotal
 		eggsTotal := contractEggsTotal / 1e15
-		estimate := eggsTotal / (numFarmers * boundedELR)
+
+		// 1. Define the ramp-up time before we have any boosting started
+		rampUpHours := 0.0
 
 		if float64(contractLengthInSeconds) < 45*60 {
 			// For small contracts, add less time padding for boosts
 			// as possibly only 1 boost will be needed
-			estimate += 0.30
+			rampUpHours += 0.30
 			// 4 tokens to boost at a rate of 6 tokens per hour, 10 minutes to boost
 			//estimate += (((numFarmers * 4) / (numFarmers * 6) * 60) + 10) / 60
 		} else if est.calcMode == modeOriginalFormula {
-			estimate += 0.50
+			//rampUpHours += 0.50
+			rampUpHours += (est.boostTokens / 6.0) + (10.0 / 60.0)
 		} else {
 			// 5 tokens to boost at a rate of 6 tokens per hour
 			// Boost time is 13.5 minutes to boost
-			estimate += (est.boostTokens / 6.0) + (13.5 / 60.0)
+			rampUpHours += (est.boostTokens / 6.0) + (13.5 / 60.0)
 		}
+
+		// 2. Calculate deliveries made DURING the ramp-up period
+		// Formula: Area of a triangle (1/2 * base * height)
+		rampUpDeliveries := 0.5 * (numFarmers * boundedELR) * rampUpHours
+
+		// 3. Subtract ramp-up deliveries from the total eggs to find what's left
+		// for the "steady state" period
+		remainingEggs := eggsTotal - rampUpDeliveries
+
+		// 4. Calculate time spent at full speed
+		steadyStateTime := remainingEggs / (numFarmers * boundedELR)
+
+		// 5. Total Estimate = Ramp-up time + Steady-state time + Boost overhead
+		estimate := rampUpHours + steadyStateTime + (est.boostTokens / 6.0) + (13.5 / 60.0)
+
+		if debug {
+			log.Printf("rampUpHours: %v\n", rampUpHours)
+			log.Printf("rampUpDeliveries: %v\n", rampUpDeliveries)
+			log.Printf("remainingEggs: %v\n", remainingEggs)
+			log.Printf("steadyStateTime: %v\n", steadyStateTime)
+			log.Printf("estimate (hours): %v\n", estimate)
+		}
+		//estimate := eggsTotal / (numFarmers * boundedELR)
 
 		switch est.slots {
 		case 8.0:
@@ -435,7 +460,6 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		}
 
 		if debug {
-
 			switch est.slots {
 			case 8.0:
 				log.Printf("estimateDurationUpper: %v\n", estimateDurationUpper)

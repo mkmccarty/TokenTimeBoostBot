@@ -236,11 +236,11 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 					c.Name, c.ID, c.ModifierIHR, c.ModifierELR, c.ModifierSR, c.ModifierHabCap)
 			}*/
 		debug := false
-		/*
-			if c.ID == "quantum-slopes" {
-				debug = true
-			}
-		*/
+
+		if c.ID == "quantum-slopes" {
+			debug = true
+		}
+
 		c.EstimatedDuration, c.EstimatedDurationLower, c.EstimatedDurationMax = getContractDurationEstimate(c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
 			c.ModifierSR, c.ModifierELR, c.ModifierHabCap, debug)
 	}
