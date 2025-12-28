@@ -272,8 +272,8 @@ func EncodeData(cxpToggle bool, targetEgg float64, tokenTimer string, contractLe
 	teArr := make([]string, input.numPlayers)
 
 	for i := 0; i < input.numPlayers; i++ {
-		tokensArr[i] = "6"
-		teArr[i] = "10"
+		tokensArr[i] = "5"
+		teArr[i] = "50"
 	}
 
 	// Full leggy assumption
