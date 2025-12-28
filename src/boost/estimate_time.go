@@ -283,7 +283,7 @@ type estimatePlayer struct {
 }
 
 // getContractDurationEstimate returns three estimated durations (upper, lower, and max) of a contract based on great and well equipped artifact sets
-func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, contractLengthInSeconds int, modifierSR float64, modifierELR float64, modifierHabCap float64, debug bool) (time.Duration, time.Duration, time.Duration) {
+func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64, numFarmers float64, contractLengthInSeconds int, modifierSR float64, modifierELR float64, modifierHabCap float64, debug bool) (time.Duration, time.Duration, time.Duration) {
 
 	contractDuration := time.Duration(contractLengthInSeconds) * time.Second
 
@@ -432,9 +432,11 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 
 		est.boundedELR = bestTotal
 		eggsTotal := contractEggsTotal / 1e15
+		timerTokens := float64(c.MinutesPerToken) / 60.0
+		tokenRate := 6.0 + timerTokens
 
 		// 1. Define the ramp-up time before we have any boosting started
-		tokensInHourAllPlayers := 5.0 / 6.0 * numFarmers * 60.0 // tokens per hour all players
+		tokensInHourAllPlayers := 5.0 / tokenRate * numFarmers * 60.0 // tokens per hour all players
 		hoursPerTokenAllPlayers := 60 / tokensInHourAllPlayers
 
 		// Need to seed this with initial wait time for first boost tokens
@@ -469,11 +471,11 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			//estimate += (((numFarmers * 4) / (numFarmers * 6) * 60) + 10) / 60
 		} else if est.calcMode == modeOriginalFormula {
 			//rampUpHours += 0.50
-			rampUpHours += (est.boostTokens / 6.0) + (10.0 / 60.0)
+			rampUpHours += (est.boostTokens / tokenRate) + (10.0 / 60.0)
 		} else {
 			// 5 tokens to boost at a rate of 6 tokens per hour
 			// Boost time is 13.5 minutes to boost
-			rampUpHours += (est.boostTokens / 6.0) + boostTime
+			rampUpHours += (est.boostTokens / tokenRate) + boostTime
 		}
 
 		// 2. Calculate deliveries made DURING the ramp-up period
