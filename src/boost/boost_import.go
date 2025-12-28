@@ -237,7 +237,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			}*/
 		debug := false
 
-		if c.ID == "quantum-slopes" {
+		if c.ID == "time-tourism" {
 			debug = true
 		}
 
@@ -277,9 +277,9 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	*/
 
 	if c.ContractVersion == 2 {
-		fairShare := 1.05
+		fairShare := 1.00
 		if c.SeasonalScoring == ei.SeasonalScoringNerfed {
-			fairShare = 1.02
+			fairShare = 1.00
 		}
 		durationMod := float64(c.EstimatedDurationMax.Seconds()) / float64(c.EstimatedDurationLower.Seconds())
 		if c.MaxCoopSize == 1 {
@@ -287,7 +287,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			c.CxpMax = float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
 				true, durationMod, // Use faster duration at a 1.0 modifier
 				fairShare, // Fair Share, first booster
-				100, 20,   // SIAB 100%, 20 minutes
+				100, 30,   // SIAB 100%, 30 minutes
 				20, 0, // Deflector %, minutes reduction
 				0,     // All Chicken Runs - Post CRT
 				0, 0)) // Tokens Sent a lot and received a little.
@@ -295,7 +295,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			c.Cxp = float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
 				true, 1.0, // Use faster duration at a 1.0 modifier
 				fairShare, // Fair Share, first booster
-				100, 20,   // SIAB 100%, 20 minutes
+				100, 30,   // SIAB 100%, 30 minutes
 				20, 0, // Deflector %, minutes reduction
 				0,     // All Chicken Runs - Post CRT
 				0, 0)) // Tokens Sent a lot and received a little.
@@ -303,7 +303,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			baseScore := float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
 				true, 1.0, // Use faster duration at a 1.0 modifier
 				fairShare, // Fair Share, first booster
-				0, 20,     // SIAB 100%, 20 minutes
+				0, 0,      // SIAB 0%, 0 minutes
 				0, 0, // Deflector %, minutes reduction
 				0,     // All Chicken Runs - used for diff Calc
 				0, 0)) // Tokens Sent a lot and received a little.
@@ -315,7 +315,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			c.CxpBuffOnly = float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
 				true, 1.0, // Use faster duration at a 1.0 modifier
 				fairShare, // Fair Share, first booster
-				100, 20,   // SIAB 100%, 20 minutes
+				100, 30,   // SIAB 100%, 30 minutes
 				20, 0, // Deflector %, minutes reduction
 				0,     // All Chicken Runs - Post CRT
 				0, 0)) // Tokens Sent a lot and received a little.
@@ -323,14 +323,14 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			c.CxpMax = float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
 				true, durationMod, // Use faster duration at a 1.0 modifier
 				fairShare, // Fair Share, first booster
-				100, 20,   // SIAB 100%, 20 minutes
+				100, 30,   // SIAB 100%, 30 minutes
 				20, 0, // Deflector %, minutes reduction
 				c.ChickenRuns, // All Chicken Runs - Post CRT
 				100, 5))       // Tokens Sent a lot and received a little.
 			c.Cxp = float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
 				true, 1.0, // Use faster duration at a 1.0 modifier
 				fairShare, // Fair Share, first booster
-				100, 20,   // SIAB 100%, 20 minutes
+				100, 30,   // SIAB 100%, 30 minutes
 				20, 0, // Deflector %, minutes reduction
 				c.MaxCoopSize-1, // All Chicken Runs - Post CRT
 				100, 5))         // Tokens Sent a lot and received a little.
@@ -338,7 +338,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			baseScore := float64(getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
 				true, 1.0, // Use faster duration at a 1.0 modifier
 				fairShare, // Fair Share, first booster
-				0, 20,     // SIAB 100%, 20 minutes
+				0, 0,      // SIAB 0%, 0 minutes
 				0, 0, // Deflector %, minutes reduction
 				0,     // All Chicken Runs - used for diff Calc
 				0, 0)) // Tokens Sent a lot and received a little.

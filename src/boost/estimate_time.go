@@ -434,13 +434,14 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		eggsTotal := contractEggsTotal / 1e15
 
 		// 1. Define the ramp-up time before we have any boosting started
-		rampUpHours := 0.0
+		tokensInHourAllPlayers := 5.0 / 6.0 * numFarmers * 60.0 // tokens per hour all players
+		hoursPerTokenAllPlayers := 60 / tokensInHourAllPlayers
+
+		// Need to seed this with initial wait time for first boost tokens
+		rampUpHours := est.boostTokens * hoursPerTokenAllPlayers
 
 		// In this bit of code I want to consider only the amount of population we
 		// really need to hit the boundedELR. We'll consider CR and excess ELR
-
-		ihr := est.ihr * est.colIHR * math.Pow(1.01, est.te)
-
 		unusedRatioELR := max(1.0, est.contractELR/bestTotal)
 		population := (14_175_000_000 * est.colHab) / unusedRatioELR
 		populationForCR := population * 0.70
@@ -448,6 +449,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		crPopulation := populationForCR * 0.05 * (numFarmers - 1.0)
 		adjustedPop := max(populationForCR, population-crPopulation)
 
+		ihr := est.ihr * est.colIHR * math.Pow(1.01, est.te)
 		boostTime := adjustedPop / (ihr * 12 * est.boostMultiplier) / 60
 
 		if debug {
@@ -528,119 +530,6 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 
 	return estimateDurationUpper, estimateDurationLower, estimateDurationMax
 }
-
-/*
-
-// WriteEstimatedDurationsToCSV writes the estimatedDuration values to a CSV file
-func WriteEstimatedDurationsToCSV(filename string) error {
-	file, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-
-	// Write header
-	err = writer.Write([]string{"Contract ID", "Eggs", "Farmers", "Estimated Duration"})
-	if err != nil {
-		return err
-	}
-
-	// Write data
-	for _, contract := range EggIncContractsAll {
-		if len(contract.qTargetAmount) > 0 {
-			err = writer.Write([]string{contract.ID, fmt.Sprintf("%d", int(contract.qTargetAmount[len(contract.qTargetAmount)-1])), fmt.Sprintf("%d", contract.MaxCoopSize), contract.estimatedDuration.Round(time.Second).String()})
-			if err != nil {
-				return err
-			}
-
-		}
-	}
-
-	return nil
-}
-
-*/
-/*
-func integrateRate(player any, tTok float64, totTime float64) float64 {
-	delivered := 0.0
-
-	pB, r, c := preBoost(player, tTok)
-	delivered += pB
-	B, t := boosting(player, r, c)
-	delivered += B
-	//delivered += postBoost(players, index, t+tTok, totTime)
-	return delivered
-}
-
-func preBoost(player Player, t float64) (float64, float64, float64) {
-	ihr := player.ihr
-	boostMulti := player.boostMultiplier
-	baseShip := player["baseShip"].(float64)
-	otherDefl := player["otherDefl"].(float64)
-
-	chickens := ihr * 12 * boostMulti / 60 * t
-	rate := math.Min(chickens*332640*(1+otherDefl/100), baseShip) / 60 / 60
-	return (t) * (rate) / 2, rate, chickens
-}
-
-func boosting(player Player, r float64, c float64) (float64, float64) {
-	maxChickens := player["maxChickens"].(float64)
-	baseShip := player["baseShip"].(float64)
-	otherDefl := player["otherDefl"].(float64)
-	ihr := player["ihr"].(float64)
-	tokens := player["tokens"].(float64)
-
-	x := maxChickens * 332640 * (1 + otherDefl/100)
-	rate := math.Min(x, baseShip) / 60 / 60
-	needsMirror := 0.0
-	if player["needsMirror"].(bool) {
-		needsMirror = 1.0
-	}
-	boostTokens := tokens - needsMirror
-	t := (maxChickens - c) / ihr / 12 / calcBoostMulti(boostTokens) * 60
-	return (t)*(rate-r)/2 + r*t, t
-}
-*/
-/*
-func postBoost(players []map[string]interface{}, index int, t float64, totTime float64) float64 {
-	player := players[index]
-	maxChickens := player["maxChickens"].(float64)
-	elr, sr := calcRateNoPopCheck(index, maxChickens, players)
-	rate := math.Min(elr, sr) / 60 / 60
-	return rate * (totTime - t)
-}
-
-func calcRateNoPopCheck(playerIndex int, chickens float64, players []map[string]interface{}) (float64, float64) {
-	elr := chickens * players[playerIndex]["baseELR"].(float64) // eggs/hr
-	sr := players[playerIndex]["baseShip"].(float64)
-	totDeflector := 0.0
-	totSlotsAvailable := 0.0
-
-	for i := 1; i <= 4; i++ {
-		name := players[playerIndex][fmt.Sprintf("item%d", i)].(string)
-		x := itemLists[i].Find(func(item map[string]interface{}) bool {
-			return item["name"] == name
-		})
-		elr *= x["elrmult"].(float64)
-		sr *= x["srmult"].(float64)
-		totSlotsAvailable += x["slots"].(float64)
-	}
-
-	// Get everyone's deflectors
-	for i := 0; i < len(players); i++ {
-		if i != playerIndex {
-			totDeflector += players[i]["deflPerc"].(float64)
-		}
-	}
-	elr *= (1 + totDeflector/100)
-	elr, sr = optimizeStones(elr, sr, totSlotsAvailable)
-
-	return elr, sr // eggs/hr
-}
-*/
 
 func calcBoostMulti(tokens float64) float64 {
 	var mult float64
