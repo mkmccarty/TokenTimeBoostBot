@@ -237,9 +237,11 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			}*/
 		debug := false
 
-		if c.ID == "time-tourism" {
-			debug = true
-		}
+		/*
+			if c.ID == "time-tourism" {
+				debug = true
+			}
+		*/
 
 		c.EstimatedDuration, c.EstimatedDurationLower, c.EstimatedDurationMax = getContractDurationEstimate(c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
 			c.ModifierSR, c.ModifierELR, c.ModifierHabCap, debug)
