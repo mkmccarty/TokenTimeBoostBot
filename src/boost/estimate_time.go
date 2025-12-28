@@ -322,7 +322,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			colHab:          colleggtibleHab,
 			colIHR:          1.0,
 			calcMode:        modeStoneHuntMethod,
-			ihr:             7440.0 * 1.4 * 1.3 * math.Pow(1.05, 10), // leggacy set
+			ihr:             7440.0 * 1.4 * 1.3 * math.Pow(1.05, 8), // leggacy set, Deflector w/o IHR stones
 			te:              0,
 		},
 		{
