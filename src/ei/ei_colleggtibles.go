@@ -6,8 +6,8 @@ var colleggtibleHab = 1.0
 var colleggtiblesIHR = 1.0
 
 // GetColleggtibleValues will return the current values of the 3 collectibles
-func GetColleggtibleValues() (float64, float64, float64) {
-	return colleggtibleELR, colleggtibleShip, colleggtibleHab
+func GetColleggtibleValues() (float64, float64, float64, float64) {
+	return colleggtibleELR, colleggtibleShip, colleggtibleHab, colleggtiblesIHR
 }
 
 // GetColleggtibleIHR will return the current value of the ELR collectible

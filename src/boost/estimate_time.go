@@ -265,6 +265,23 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 	return noteStr + str
 }
 
+type estimatePlayer struct {
+	slots           float64
+	deflectorBonus  float64
+	boostTokens     float64
+	boostMultiplier float64
+	colELR          float64
+	colShip         float64
+	colHab          float64
+	colIHR          float64
+	calcMode        int
+	ihr             float64
+	te              float64
+	baseShip        float64
+	boundedELR      float64
+	contractELR     float64
+}
+
 // getContractDurationEstimate returns three estimated durations (upper, lower, and max) of a contract based on great and well equipped artifact sets
 func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, contractLengthInSeconds int, modifierSR float64, modifierELR float64, modifierHabCap float64, debug bool) (time.Duration, time.Duration, time.Duration) {
 
@@ -274,49 +291,53 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 	modELR := modifierELR
 	modShip := modifierSR
 
-	collectibleELR, colllectibleShip, colleggtibleHab := ei.GetColleggtibleValues()
+	collectibleELR, colllectibleShip, colleggtibleHab, colleggtiblesIHR := ei.GetColleggtibleValues()
 
 	deflectorsOnFarmer := numFarmers - 1.0
 
 	const modeOriginalFormula = 1
 	const modeStoneHuntMethod = 2
 
-	estimates := []struct {
-		slots          float64
-		deflectorBonus float64
-		boostTokens    float64
-		colELR         float64
-		colShip        float64
-		colHab         float64
-		calcMode       int
-	}{
+	estimates := []estimatePlayer{
 		{
-			slots:          8.0,
-			deflectorBonus: 0.15,
-			boostTokens:    7.0,
-			colELR:         1.0,
-			colShip:        1.0,
-			colHab:         1.0,
-			calcMode:       modeOriginalFormula,
+			slots:           8.0,
+			deflectorBonus:  0.15,
+			boostTokens:     8.0,
+			boostMultiplier: calcBoostMulti(8.0),
+			colELR:          1.0,
+			colShip:         1.0,
+			colHab:          1.0,
+			colIHR:          1.0,
+			calcMode:        modeStoneHuntMethod,
+			ihr:             7440.0 * 1.3 * 1.2 * math.Pow(1.05, 6), // improved set
+			te:              0,
 		},
 		{
-			slots:          9.0,
-			deflectorBonus: 0.17,
-			boostTokens:    6.0,
-			colELR:         collectibleELR,
-			colShip:        colllectibleShip,
-			colHab:         colleggtibleHab,
-			calcMode:       modeOriginalFormula,
+			slots:           9.0,
+			deflectorBonus:  0.17,
+			boostTokens:     6.0,
+			boostMultiplier: calcBoostMulti(6.0),
+			colELR:          collectibleELR,
+			colShip:         colllectibleShip,
+			colHab:          colleggtibleHab,
+			colIHR:          1.0,
+			calcMode:        modeStoneHuntMethod,
+			ihr:             7440.0 * 1.4 * 1.3 * math.Pow(1.05, 10), // leggacy set
+			te:              0,
 		},
 		{
 			// This is for a full leggacy set with TE boosts of 5 tokens
-			slots:          10.0,
-			deflectorBonus: 0.20,
-			boostTokens:    5.0,
-			colELR:         collectibleELR,
-			colShip:        colllectibleShip,
-			colHab:         colleggtibleHab,
-			calcMode:       modeStoneHuntMethod,
+			slots:           10.0,
+			deflectorBonus:  0.20,
+			boostTokens:     5.0,
+			boostMultiplier: calcBoostMulti(5.0),
+			colELR:          collectibleELR,
+			colShip:         colllectibleShip,
+			colHab:          colleggtibleHab,
+			colIHR:          colleggtiblesIHR,
+			calcMode:        modeStoneHuntMethod,
+			ihr:             7440.0 * 1.4 * 1.3 * math.Pow(1.05, 10), // leggacy set
+			te:              50,
 		},
 	}
 
@@ -377,6 +398,8 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 					quantStones = intSlots - i
 					bestELR = stoneLayRate
 					bestSR = stoneShipRate
+					est.contractELR = stoneLayRate
+
 				} else if bestTotal > 0 {
 					// We've passed the peak, no point continuing
 					break
@@ -396,6 +419,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			tachBounded := max(0.0, min(slots, tachStones))
 			tachMultiplier := math.Pow(1.05, tachBounded)
 			contractELR := contractBaseELR * deflectorMultiplier * tachMultiplier
+			est.contractELR = contractELR
 			bestTotal = min(contractShipCap, contractELR)
 			if debug {
 				log.Printf("tachStones: %v\n", tachStones)
@@ -406,12 +430,30 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			}
 		}
 
-		boundedELR := bestTotal
+		est.boundedELR = bestTotal
+		if debug {
+			log.Printf("unusedELR: %v\n", max(0, est.contractELR-bestTotal))
+		}
 		eggsTotal := contractEggsTotal / 1e15
 
 		// 1. Define the ramp-up time before we have any boosting started
 		rampUpHours := 0.0
 
+		// In this bit of code I want to consider only the amount of population we
+		// really need to hit the boundedELR. We'll consider CR and excess ELR
+
+		ihr := est.ihr * est.colIHR * math.Pow(1.01, est.te)
+		population := (14_175_000_000 * est.colHab)
+		// with chicken giving 5% of population runs starting around 10B
+		crPopulation := population * 0.05 * (numFarmers - 1.0)
+		adjustedPop := max(10_000_000_000, population-crPopulation)
+
+		boostTime := adjustedPop / (ihr * 12 * est.boostMultiplier) / 60
+
+		if debug {
+			log.Print("boostTime (h): ", boostTime)
+			log.Printf("ihr: %v\n", ihr)
+		}
 		if float64(contractLengthInSeconds) < 45*60 {
 			// For small contracts, add less time padding for boosts
 			// as possibly only 1 boost will be needed
@@ -424,22 +466,25 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		} else {
 			// 5 tokens to boost at a rate of 6 tokens per hour
 			// Boost time is 13.5 minutes to boost
-			rampUpHours += (est.boostTokens / 6.0) + (13.5 / 60.0)
+			rampUpHours += (est.boostTokens / 6.0) + boostTime
 		}
 
 		// 2. Calculate deliveries made DURING the ramp-up period
 		// Formula: Area of a triangle (1/2 * base * height)
-		rampUpDeliveries := 0.5 * (numFarmers * boundedELR) * rampUpHours
+		rampUpDeliveries := 0.5 * (numFarmers * est.boundedELR) * rampUpHours
 
 		// 3. Subtract ramp-up deliveries from the total eggs to find what's left
 		// for the "steady state" period
 		remainingEggs := eggsTotal - rampUpDeliveries
 
 		// 4. Calculate time spent at full speed
-		steadyStateTime := remainingEggs / (numFarmers * boundedELR)
+		steadyStateTime := remainingEggs / (numFarmers * est.boundedELR)
 
-		// 5. Total Estimate = Ramp-up time + Steady-state time + Boost overhead
-		estimate := rampUpHours + steadyStateTime + (est.boostTokens / 6.0) + (13.5 / 60.0)
+		// 5. Total Estimate = Ramp-up time + Steady-state time
+		// Note: Boost overhead is already included in rampUpHours for modeStoneHuntMethod
+		estimate := rampUpHours + steadyStateTime
+
+		//estimate *= 0.90
 
 		if debug {
 			log.Printf("rampUpHours: %v\n", rampUpHours)
@@ -513,3 +558,117 @@ func WriteEstimatedDurationsToCSV(filename string) error {
 }
 
 */
+/*
+func integrateRate(player any, tTok float64, totTime float64) float64 {
+	delivered := 0.0
+
+	pB, r, c := preBoost(player, tTok)
+	delivered += pB
+	B, t := boosting(player, r, c)
+	delivered += B
+	//delivered += postBoost(players, index, t+tTok, totTime)
+	return delivered
+}
+
+func preBoost(player Player, t float64) (float64, float64, float64) {
+	ihr := player.ihr
+	boostMulti := player.boostMultiplier
+	baseShip := player["baseShip"].(float64)
+	otherDefl := player["otherDefl"].(float64)
+
+	chickens := ihr * 12 * boostMulti / 60 * t
+	rate := math.Min(chickens*332640*(1+otherDefl/100), baseShip) / 60 / 60
+	return (t) * (rate) / 2, rate, chickens
+}
+
+func boosting(player Player, r float64, c float64) (float64, float64) {
+	maxChickens := player["maxChickens"].(float64)
+	baseShip := player["baseShip"].(float64)
+	otherDefl := player["otherDefl"].(float64)
+	ihr := player["ihr"].(float64)
+	tokens := player["tokens"].(float64)
+
+	x := maxChickens * 332640 * (1 + otherDefl/100)
+	rate := math.Min(x, baseShip) / 60 / 60
+	needsMirror := 0.0
+	if player["needsMirror"].(bool) {
+		needsMirror = 1.0
+	}
+	boostTokens := tokens - needsMirror
+	t := (maxChickens - c) / ihr / 12 / calcBoostMulti(boostTokens) * 60
+	return (t)*(rate-r)/2 + r*t, t
+}
+*/
+/*
+func postBoost(players []map[string]interface{}, index int, t float64, totTime float64) float64 {
+	player := players[index]
+	maxChickens := player["maxChickens"].(float64)
+	elr, sr := calcRateNoPopCheck(index, maxChickens, players)
+	rate := math.Min(elr, sr) / 60 / 60
+	return rate * (totTime - t)
+}
+
+func calcRateNoPopCheck(playerIndex int, chickens float64, players []map[string]interface{}) (float64, float64) {
+	elr := chickens * players[playerIndex]["baseELR"].(float64) // eggs/hr
+	sr := players[playerIndex]["baseShip"].(float64)
+	totDeflector := 0.0
+	totSlotsAvailable := 0.0
+
+	for i := 1; i <= 4; i++ {
+		name := players[playerIndex][fmt.Sprintf("item%d", i)].(string)
+		x := itemLists[i].Find(func(item map[string]interface{}) bool {
+			return item["name"] == name
+		})
+		elr *= x["elrmult"].(float64)
+		sr *= x["srmult"].(float64)
+		totSlotsAvailable += x["slots"].(float64)
+	}
+
+	// Get everyone's deflectors
+	for i := 0; i < len(players); i++ {
+		if i != playerIndex {
+			totDeflector += players[i]["deflPerc"].(float64)
+		}
+	}
+	elr *= (1 + totDeflector/100)
+	elr, sr = optimizeStones(elr, sr, totSlotsAvailable)
+
+	return elr, sr // eggs/hr
+}
+*/
+
+func calcBoostMulti(tokens float64) float64 {
+	var mult float64
+	tokenInt := int(tokens)
+
+	switch tokenInt {
+	case 1:
+		mult = (4 * 10) * 2
+	case 2:
+		mult = 100 + 4*10
+	case 3:
+		mult = (100 + 3*10) * 2
+	case 4:
+		mult = 1000 + 4*10
+	case 5:
+		mult = (1000 + 3*10) * 2
+	case 6:
+		mult = (1000 + 2*10) * (2 + 2)
+	case 7:
+		mult = (1000 + 10) * (2 + 2 + 2)
+	case 8:
+		mult = (1000 + 3*10) * 10
+	case 9:
+		mult = (1000 + 2*10) * (10 + 2)
+	case 10:
+		mult = (1000 + 10) * (10 + 2 + 2)
+	case 11:
+		mult = 1000 * (10 + 2 + 2 + 2)
+	case 12:
+		mult = (1000 + 3*10) * 50
+	default:
+		mult = 50
+	}
+
+	return mult
+}
