@@ -531,6 +531,16 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 	return estimateDurationUpper, estimateDurationLower, estimateDurationMax
 }
 
+// calcBoostMulti converts a number of active boost tokens into an overall
+// production multiplier used when estimating contract completion time.
+//
+// tokens represents the count of boost tokens applied to the farm. It is
+// truncated to an integer and mapped to a pre-defined multiplier schedule
+// that approximates the combined effect of different boost levels.
+//
+// The returned value is the aggregate multiplier that should be applied to
+// the baseline production/earning rate when calculating how quickly a
+// contract can be completed under the current boost configuration.
 func calcBoostMulti(tokens float64) float64 {
 	var mult float64
 	tokenInt := int(tokens)
