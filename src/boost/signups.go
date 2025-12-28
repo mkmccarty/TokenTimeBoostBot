@@ -662,7 +662,7 @@ func writeFridayPredictions(
 	iconCoop := ei.GetBotEmojiMarkdown("icon_coop")
 	iconCR := ei.GetBotEmojiMarkdown("icon_chicken_run")
 	iconUltra := ei.GetBotEmojiMarkdown("ultra")
-	iconPE := ei.GetBotEmojiMarkdown("egg_prophecy")  
+	iconPE := ei.GetBotEmojiMarkdown("egg_prophecy")
 	if copyPaste {
 		iconCoop = "👪"
 		iconCR = ":chickenrun:"
