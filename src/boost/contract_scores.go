@@ -38,19 +38,6 @@ func GetTargetBuffTimeValue(cxpVersion int, durationSec float64) float64 {
 	return durationSec * coef
 }
 
-// GetTargetChickenRun returns the target chicken runs for a contract.
-// Rules:
-//   - If cxpVersion == ei.SeasonalScoringNerfed: target = N - 1.
-//   - Else: target = min(20, N * (lengthSec/86400) / 2).
-func GetTargetChickenRun(cxpVersion, coopSize int, lengthSec float64) float64 {
-	if cxpVersion == ei.SeasonalScoringNerfed {
-		// Sept 22, 2025 and newer contracts have N-1 CR requirements
-		return float64(coopSize - 1)
-	}
-	lengthDays := lengthSec / 86400.0
-	return math.Min(20.0, float64(coopSize)*(lengthDays)/2.0)
-}
-
 // GetTargetTval will return the target tval for the contract based on the contract duration and minutes per token
 func GetTargetTval(cxpVersion int, contractMinutes float64, minutesPerToken float64) float64 {
 	if cxpVersion == ei.SeasonalScoringNerfed {
