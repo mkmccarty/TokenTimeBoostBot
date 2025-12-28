@@ -641,6 +641,11 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	contract.ContractHash = ContractHash
 	contract.ContractID = contractID
 	contract.CoopID = coopID
+	// create contract.ChickenRunStrings map[string][]string
+	if contract.ChickenRunStrings == nil {
+		contract.ChickenRunStrings = make(map[string][]string)
+	}
+
 	contract.PlannedStartTime = plannedStartTime
 	//	contract.UseInteractionButtons = config.GetTestMode() // Feature under test
 	err := getContractRole(s, guildID, contract)

@@ -273,8 +273,9 @@ type Contract struct {
 	ActualStartTime     time.Time // Actual start time for token tracking
 	RegisteredNum       int
 	Boosters            map[string]*Booster // Boosters Registered
-	WaitlistBoosters    []string            // Waitlist of UserID's
-	AltIcons            []string            // Array of alternate icons for the Boosters
+	ChickenRunStrings   map[string][]string
+	WaitlistBoosters    []string // Waitlist of UserID's
+	AltIcons            []string // Array of alternate icons for the Boosters
 	Order               []string
 	BoostedOrder        []string   // Actual order of boosting
 	OrderRevision       int        // Incremented when Order is changed
