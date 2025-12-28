@@ -431,9 +431,6 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		}
 
 		est.boundedELR = bestTotal
-		if debug {
-			log.Printf("unusedELR: %v\n", max(0, est.contractELR-bestTotal))
-		}
 		eggsTotal := contractEggsTotal / 1e15
 
 		// 1. Define the ramp-up time before we have any boosting started
@@ -443,16 +440,24 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 		// really need to hit the boundedELR. We'll consider CR and excess ELR
 
 		ihr := est.ihr * est.colIHR * math.Pow(1.01, est.te)
-		population := (14_175_000_000 * est.colHab)
-		// with chicken giving 5% of population runs starting around 10B
-		crPopulation := population * 0.05 * (numFarmers - 1.0)
-		adjustedPop := max(10_000_000_000, population-crPopulation)
+
+		unusedRatioELR := max(1.0, est.contractELR/bestTotal)
+		population := (14_175_000_000 * est.colHab) / unusedRatioELR
+		populationForCR := population * 0.70
+		// At 70% of used population, with chicken giving 5% of population
+		crPopulation := populationForCR * 0.05 * (numFarmers - 1.0)
+		adjustedPop := max(populationForCR, population-crPopulation)
 
 		boostTime := adjustedPop / (ihr * 12 * est.boostMultiplier) / 60
 
 		if debug {
-			log.Print("boostTime (h): ", boostTime)
 			log.Printf("ihr: %v\n", ihr)
+			log.Printf("unusedRatioELR: %v\n", unusedRatioELR)
+			log.Printf("Useful population: %v\n", population)
+			log.Printf("populationForCR: %v\n", populationForCR)
+			log.Printf("crPopulation: %v\n", crPopulation)
+			log.Printf("adjustedPop: %v\n", adjustedPop)
+			log.Print("boostTime (h): ", boostTime)
 		}
 		if float64(contractLengthInSeconds) < 45*60 {
 			// For small contracts, add less time padding for boosts
