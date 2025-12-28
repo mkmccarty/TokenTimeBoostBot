@@ -238,6 +238,7 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 			estStrMax := c.EstimatedDurationMax.Round(time.Minute).String()
 			estStrMax = strings.TrimRight(estStrMax, "0s")
 			str += fmt.Sprintf("Leggy Set: **%s** CS:**%d**\n", estStrMax, int64(c.CxpMax))
+			str += fmt.Sprintf("-# Leggy set 50 TE, 8 IHR & 10 delivery stones sets, 5%s boost.\n", ei.GetBotEmojiMarkdown("token"))
 		}
 		if footerAboutCR && c.MaxCoopSize > 1 {
 			str += fmt.Sprintf("-# CoopSize-1 used for CR, extras **+%.0f**/%s\n",
@@ -335,7 +336,7 @@ func getContractDurationEstimate(contractEggsTotal float64, numFarmers float64, 
 			colHab:          colleggtibleHab,
 			colIHR:          colleggtiblesIHR,
 			calcMode:        modeStoneHuntMethod,
-			ihr:             7440.0 * 1.4 * 1.3 * math.Pow(1.05, 10), // leggacy set
+			ihr:             7440.0 * 1.4 * 1.3 * math.Pow(1.05, 8), // leggacy set, Deflector w/o IHR stones
 			te:              50,
 		},
 	}
