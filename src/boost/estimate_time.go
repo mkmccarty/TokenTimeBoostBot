@@ -352,6 +352,12 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 		colShip := est.colShip
 		colHab := est.colHab
 
+		if float64(contractLengthInSeconds) < 45*60 {
+			est.boostTokens = math.Min(est.boostTokens, 4.0)
+			est.boostMultiplier = calcBoostMulti(est.boostTokens)
+			// Will want to use all Tachyeon stones for this case
+		}
+
 		// Base rate with T4L Metronome +35% and T4L Gusset +25%
 		baseELR := 3.772 * 1.35 * 1.25
 		// Base rate with T4L Compass +50%
@@ -436,8 +442,8 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 		tokenRate := 6.0 + timerTokens
 
 		// 1. Define the ramp-up time before we have any boosting started
-		tokensInHourAllPlayers := 5.0 / tokenRate * numFarmers * 60.0 // tokens per hour all players
-		hoursPerTokenAllPlayers := 60 / tokensInHourAllPlayers
+		tokensPerHourAllPlayers := tokenRate * numFarmers // tokens per hour all players
+		hoursPerTokenAllPlayers := 1.0 / tokensPerHourAllPlayers
 
 		// Need to seed this with initial wait time for first boost tokens
 		rampUpHours := est.boostTokens * hoursPerTokenAllPlayers
@@ -462,19 +468,15 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			log.Printf("crPopulation: %v\n", crPopulation)
 			log.Printf("adjustedPop: %v\n", adjustedPop)
 			log.Print("boostTime (h): ", boostTime)
+			log.Printf("rampUpHours (before boost): %v\n", rampUpHours)
 		}
-		if float64(contractLengthInSeconds) < 45*60 {
-			// For small contracts, add less time padding for boosts
-			// as possibly only 1 boost will be needed
-			rampUpHours += 0.30
-			// 4 tokens to boost at a rate of 6 tokens per hour, 10 minutes to boost
-			//estimate += (((numFarmers * 4) / (numFarmers * 6) * 60) + 10) / 60
-		} else if est.calcMode == modeOriginalFormula {
+
+		if est.calcMode == modeOriginalFormula {
 			//rampUpHours += 0.50
 			rampUpHours += (est.boostTokens / tokenRate) + (10.0 / 60.0)
 		} else {
-			// 5 tokens to boost at a rate of 6 tokens per hour
-			// Boost time is 13.5 minutes to boost
+			// Use contract-specific boost tokens and token accrual rate
+			// Additional boost time is dynamically calculated in boostTime
 			rampUpHours += (est.boostTokens / tokenRate) + boostTime
 		}
 
@@ -484,18 +486,19 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 
 		// 3. Subtract ramp-up deliveries from the total eggs to find what's left
 		// for the "steady state" period
-		remainingEggs := eggsTotal - rampUpDeliveries
+		remainingEggs := max(0, eggsTotal-rampUpDeliveries)
 
 		// 4. Calculate time spent at full speed
 		steadyStateTime := remainingEggs / (numFarmers * est.boundedELR)
 
 		// 5. Total Estimate = Ramp-up time + Steady-state time
 		// Note: Boost overhead is already included in rampUpHours for modeStoneHuntMethod
-		estimate := rampUpHours + steadyStateTime
+		estimate := min(float64(c.LengthInSeconds)/3600.0, rampUpHours+steadyStateTime)
 
 		//estimate *= 0.90
 
 		if debug {
+			log.Printf("tokenRate: %v\n", tokenRate)
 			log.Printf("rampUpHours: %v\n", rampUpHours)
 			log.Printf("rampUpDeliveries: %v\n", rampUpDeliveries)
 			log.Printf("remainingEggs: %v\n", remainingEggs)
