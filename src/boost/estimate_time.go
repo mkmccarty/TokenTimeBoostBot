@@ -277,7 +277,6 @@ type estimatePlayer struct {
 	calcMode        int
 	ihr             float64
 	te              float64
-	baseShip        float64
 	boundedELR      float64
 	contractELR     float64
 }
