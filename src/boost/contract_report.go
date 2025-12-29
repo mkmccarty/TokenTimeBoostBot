@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mattn/go-runewidth"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
@@ -24,17 +25,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-const (
-	nameW  = 7
-	cxpW   = 6
-	contrW = 5
-	teamW  = 5
-	crW    = 2
-	btvW   = 6
-	deltaW = 7
-
-	maxParallel = 20 // max concurrent EI API fetches
-)
+const maxParallel = 20 // max concurrent EI API fetches
 
 // ErrNoChannelContract is returned when no contract can be found for the specified channel.
 // ErrEvaluationNotFound is returned when an expected evaluation for a contract cannot be found.
@@ -112,10 +103,9 @@ type contractReportParameters struct {
 }
 
 type thresholds struct {
-	chickenRuns   float64 // e.g. 20
+	chickenRuns   int     // e.g. 20
 	buffTimeValue float64 // e.g. dur * 2.0
 	teamwork      float64 // e.g. 26.0 / 19.0
-	deltaTVal     float64 // e.g. 3.0
 }
 
 type evalMetrics struct {
@@ -125,6 +115,8 @@ type evalMetrics struct {
 	teamwork          float64
 	chickenRunsSent   uint32
 	buffTimeValue     float64
+	plusTS            uint32
+	minusTS           uint32
 	deltaTVal         float64 // sent - received
 }
 
@@ -162,6 +154,12 @@ func GetSlashContractReportCommand(cmd string) *discordgo.ApplicationCommand {
 				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "refresh",
 				Description: "If you want to force a refresh due a recent change to your contracts.",
+				Required:    false,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "token-details",
+				Description: "Show token details in the report. Default is false.",
 				Required:    false,
 			},
 			{
@@ -352,6 +350,10 @@ func ContractReport(
 	if opt, ok := optionMap["refresh"]; ok {
 		forceRefresh = opt.BoolValue()
 	}
+	showTokenDetails := false
+	if opt, ok := optionMap["token-details"]; ok {
+		showTokenDetails = opt.BoolValue()
+	}
 	showMissingPlayers := false
 	if opt, ok := optionMap["missing-players"]; ok {
 		showMissingPlayers = opt.BoolValue()
@@ -467,7 +469,8 @@ func ContractReport(
 		coopStatus, // *ei.ContractCoopStatusResponse
 		callerUserID,
 		cxpVersion,
-		forceRefresh, okayToSave,
+		forceRefresh,
+		okayToSave,
 	)
 	if perr != nil {
 		return fmt.Errorf("%w: %v", ErrContribProcess, perr)
@@ -513,6 +516,7 @@ func ContractReport(
 	p.contractDur = contractDur
 	p.contract = &c
 	p.thresholds = deriveThresholds(&p) // MUST be after p.contract and p.contractDur are set
+	p.thresholds.chickenRuns = c.ChickenRuns
 	p.contractID = contractID
 	p.coopID = coopID
 	p.startTime = startTime
@@ -521,7 +525,7 @@ func ContractReport(
 	p.playerEvalsMetrics, p.metricPeaks = buildAndSortEvals(callerFarmerName, callerEval, evByName)
 
 	// render components
-	components := printContractReport(&p, showMissingPlayers)
+	components := printContractReport(&p, showTokenDetails, showMissingPlayers)
 	if len(components) == 0 {
 		components = []discordgo.MessageComponent{
 			&discordgo.TextDisplay{Content: "No archived contracts found in Egg Inc API response"},
@@ -556,23 +560,17 @@ func ContractReport(
 
 // printContractReport returns two components:
 //  1. markdown header with thresholds
-//  2. the ANSI table (with an em-dash rule between header and rows)
-//     If the contract is seasonal-nerfed, the ΔTVal column **and** its threshold are omitted.
-func printContractReport(
-	p *contractReportParameters,
-	showMissingPlayers bool,
-) []discordgo.MessageComponent {
+//  2. the ANSI table with colors
+func printContractReport(p *contractReportParameters, showTokenDetails, showMissingPlayers bool) []discordgo.MessageComponent {
 	var components []discordgo.MessageComponent
 
 	currentContract := p.contract
-	nerfed := currentContract != nil && currentContract.SeasonalScoring == ei.SeasonalScoringNerfed
 
 	// --- Header (markdown) ---
 	var h strings.Builder
 	// Round/format thresholds for display
-	btvStr := fmt.Sprintf("%d", int(math.Round(p.thresholds.buffTimeValue)))
-	crStr := fmt.Sprintf("%g", p.thresholds.chickenRuns)
-	dtvStr := fmt.Sprintf("%.2f", p.thresholds.deltaTVal)
+	btvStr := bottools.FormatIntWithCommas(int(math.Round(p.thresholds.buffTimeValue)))
+	crStr := fmt.Sprintf("%d", p.thresholds.chickenRuns)
 
 	// Build contract info strings
 	seasonalStr := ""
@@ -585,25 +583,26 @@ func printContractReport(
 		}
 	}
 
-	h.WriteString(fmt.Sprintf("%s **%s** `%s` %s\n%sCode: [%s](%s) - %s %d - 📏 %s **/** %s\n",
+	fmt.Fprintf(&h, "%s **%s** `%s` %s\n%sCode: [%s](%s) - %s %d - 📏 %s **/** %s\n",
 		FindEggEmoji(currentContract.EggName), currentContract.Name, currentContract.ID, ei.GetBotEmojiMarkdown("contract_grade_aaa"), seasonalStr,
 		p.coopID, fmt.Sprintf("https://eicoop-carpet.netlify.app/%s/%s", p.contractID, p.coopID),
 		ei.GetBotEmojiMarkdown("icon_coop"), currentContract.MaxCoopSize,
 		bottools.FmtDuration(p.contractDur), bottools.FmtDuration(time.Duration(currentContract.LengthInSeconds)*time.Second),
-	))
-	h.WriteString(fmt.Sprintf("Start Time: <t:%d:f>\nEnd Time:   <t:%d:f>\n", p.startTime.Unix(), p.endTime.Unix()))
-
-	// Threshold line (omit ΔTVal when nerfed)
-	if nerfed {
-		h.WriteString(fmt.Sprintf("🎯 Thresholds: `%s` BTV, `%s` CRs\n\n", btvStr, crStr))
-	} else {
-		h.WriteString(fmt.Sprintf("🎯 Thresholds: `%s` BTV, `%s` CRs, `%s` ΔTVal\n\n", btvStr, crStr, dtvStr))
-	}
+	)
+	fmt.Fprintf(&h, "Start Time: %s at %s\n",
+		bottools.WrapTimestamp(p.startTime.Unix(), bottools.TimestampLongDate),
+		bottools.WrapTimestamp(p.startTime.Unix(), bottools.TimestampLongTime),
+	)
+	fmt.Fprintf(&h, "End Time:   %s at %s\n",
+		bottools.WrapTimestamp(p.endTime.Unix(), bottools.TimestampLongDate),
+		bottools.WrapTimestamp(p.endTime.Unix(), bottools.TimestampLongTime),
+	)
+	fmt.Fprintf(&h, "🎯 Thresholds: `%s` BTV, `%s` CRs\n\n", btvStr, crStr)
 
 	if len(p.missingPlayers) > 0 {
-		h.WriteString(fmt.Sprintf("__Members__ (%d out of %d players matched)\n", len(p.playerEvalsMetrics), currentContract.MaxCoopSize))
+		fmt.Fprintf(&h, "__Members__ (%d out of %d players matched)\n", len(p.playerEvalsMetrics), currentContract.MaxCoopSize)
 	} else {
-		h.WriteString(fmt.Sprintf("__Members__ (%d players)\n", len(p.playerEvalsMetrics)))
+		fmt.Fprintf(&h, "__Members__ (%d players)\n", len(p.playerEvalsMetrics))
 	}
 	components = append(components, &discordgo.TextDisplay{Content: h.String()})
 
@@ -612,7 +611,7 @@ func printContractReport(
 		var b strings.Builder
 		b.WriteString("```ansi\n")
 
-		header := evalMetricsHeader(nerfed)
+		header := evalMetricsHeader(showTokenDetails)
 		b.WriteString(header)
 		b.WriteByte('\n')
 
@@ -622,11 +621,14 @@ func printContractReport(
 
 		for _, e := range p.playerEvalsMetrics {
 			b.WriteString(formatEvalMetricsRowANSI(
-				e.player, e.cxp, e.contributionRatio, e.teamwork, e.chickenRunsSent, e.buffTimeValue, e.deltaTVal,
-				p.thresholds, p.metricPeaks, nerfed,
+				e,                // pass the whole evalMetrics struct
+				p.thresholds,     // thresholds
+				p.metricPeaks,    // peak metrics
+				showTokenDetails, // whether to include +TS, ΔTVal, -TS
 			))
 			b.WriteByte('\n')
 		}
+
 		b.WriteString("```")
 
 		components = append(components, &discordgo.TextDisplay{Content: b.String()})
@@ -667,70 +669,135 @@ func printContractReport(
 
 // ===== header & row formatting =====
 
-// Player | Cxp | Contr | Tmwk | CR | BTV | [ΔTVal*]
-// If nerfed==true, omit ΔTVal.
-func evalMetricsHeader(nerfed bool) string {
-	cells := []string{
-		bottools.AlignString("Player", nameW, bottools.StringAlignLeft),
-		bottools.AlignString("Cxp", cxpW, bottools.StringAlignCenterRight),
-		bottools.AlignString("Contr", contrW, bottools.StringAlignCenterRight),
-		bottools.AlignString("TmWk", teamW, bottools.StringAlignCenterRight),
-		bottools.AlignString("CR", crW, bottools.StringAlignCenterRight),
-		bottools.AlignString("BTV", btvW, bottools.StringAlignCenterRight),
+const (
+	nameW   = 7
+	cxpW    = 6
+	contrW  = 5
+	teamW   = 4
+	crW     = 2
+	btvW    = 7
+	tsW     = 3
+	deltaTW = 5
+)
+
+// Player | Cxp | Contr | TmWk | CR | BTV | [+TS | ΔTVal | -TS]*
+func evalMetricsHeader(tokenDetails bool) string {
+	type col struct {
+		label string
+		width int
+		align bottools.StringAlign
 	}
-	if !nerfed {
-		cells = append(cells, bottools.AlignString("ΔTVal", deltaW, bottools.StringAlignRight))
+
+	cols := []col{
+		{"Player", nameW, bottools.StringAlignLeft},
+		{"Cxp", cxpW, bottools.StringAlignCenterRight},
+		{"Contr", contrW, bottools.StringAlignCenterRight},
+		{"TmWk", teamW, bottools.StringAlignCenterRight},
+		{"CR", crW, bottools.StringAlignCenterRight},
+		{"BTV", btvW, bottools.StringAlignCenter},
+	}
+
+	if tokenDetails {
+		cols = append(cols,
+			col{"+TS", tsW, bottools.StringAlignRight},
+			col{"ΔTVal", deltaTW, bottools.StringAlignRight},
+			col{"-TS", tsW, bottools.StringAlignCenterRight},
+		)
+	}
+
+	cells := make([]string, len(cols))
+	for i, c := range cols {
+		cells[i] = bottools.AlignString(c.label, c.width, c.align)
 	}
 	return strings.Join(cells, "|")
 }
 
-// If nerfed==true, omits the ΔTVal cell.
+// formatEvalMetricsRowANSI returns a formatted ANSI table row for the given evalMetrics
+// if showTokenDetails is true, includes +TS, ΔTVal, -TS columns
 func formatEvalMetricsRowANSI(
-	player string,
-	cxp float64,
-	contr float64,
-	teamwork float64,
-	cr uint32,
-	btv float64,
-	dtval float64,
+	e evalMetrics,
 	th thresholds,
 	peaks metricPeaks,
-	nerfed bool,
+	showTokenDetails bool,
 ) string {
+
+	// Function to format teamwork and ΔTval length
+	formatFloat := func(f float64, prec int, trimLeadingZero bool) string {
+		s := fmt.Sprintf("%.*f", prec, f)
+		if trimLeadingZero {
+			// for teamwork scores 0.754 -> .754
+			if f >= 0 && strings.HasPrefix(s, "0") {
+				return s[1:]
+			}
+			if f < 0 && strings.HasPrefix(s, "-0") {
+				return "-" + s[2:]
+			}
+		} else if f < 0 {
+			// for negative ΔTVal -24.75 -> -24.7
+			s = fmt.Sprintf("%.*f", prec-1, f)
+		}
+		return s
+	}
+
 	// base colors
 	cxpBase := ""
-	teamBase := colorIfGE(teamwork, th.teamwork, "green")
+	teamBase := colorIfGE(e.teamwork, th.teamwork, "green")
 	contrBase := ""
-	crBase := colorIfGE(float64(cr), th.chickenRuns, "green")
-	btvBase := colorIfGE(btv, th.buffTimeValue, "green")
-	dtColor := dtvalColor(dtval, th.deltaTVal)
+	crBase := colorIfGE(int(e.chickenRunsSent), th.chickenRuns, "green")
+	btvBase := colorIfGE(e.buffTimeValue, th.buffTimeValue, "green")
 
-	// peak override -> blue
-	cxpColor := peakColor(cxp, peaks.cxp, cxpBase, true)
-	teamColor := peakColor(teamwork, peaks.teamwork, teamBase, false)
-	contrColor := peakColor(contr, peaks.contributionRatio, contrBase, true)
-	btvColor := peakColor(btv, peaks.buffTimeValue, btvBase, true)
+	plusTSBase := ""
+	if e.plusTS != 0 {
+		plusTSBase = "green"
+	}
+	minusTSBase := ""
+	if e.minusTS != 0 {
+		minusTSBase = "red"
+	}
+	// Old ΔTVal color rules with 3.0 threshold for coloring
+	dtColor := dtvalColor(e.deltaTVal, 3.0)
 
+	// peak override -> blue if peak
+	cxpColor := peakColor(e.cxp, peaks.cxp, cxpBase, true)
+	teamColor := peakColor(e.teamwork, peaks.teamwork, teamBase, false)
+	contrColor := peakColor(e.contributionRatio, peaks.contributionRatio, contrBase, true)
+	btvColor := peakColor(e.buffTimeValue, peaks.buffTimeValue, btvBase, true)
+
+	// Handle varying BTV length for mobile display
+	btvValStr := fmt.Sprintf("%.0f", e.buffTimeValue)
+	btvUsedW := max(btvW-1, runewidth.StringWidth(fmt.Sprintf("%.0f", peaks.buffTimeValue)))
+	btvStr := bottools.FitString(btvValStr, btvUsedW, bottools.StringAlignRight)
+	if btvUsedW < btvW {
+		btvStr += strings.Repeat(" ", btvW-btvUsedW)
+	}
+
+	// base row cells
 	cells := []string{
-		bottools.FitString(player, nameW, bottools.StringAlignLeft),
-		bottools.CellANSI(fmt.Sprintf("%d", int(cxp)), cxpColor, cxpW, true),
-		bottools.CellANSI(fmt.Sprintf("%.3f", contr), contrColor, contrW, true),
-		bottools.CellANSI(fmt.Sprintf("%.3f", teamwork), teamColor, teamW, true),
-		bottools.CellANSI(fmt.Sprintf("%d", cr), crBase, crW, true),
-		bottools.CellANSI(fmt.Sprintf("%.0f", btv), btvColor, btvW, true),
+		bottools.FitString(e.player, nameW, bottools.StringAlignLeft),
+		bottools.CellANSI(fmt.Sprintf("%d", int(e.cxp)), cxpColor, cxpW, true),
+		bottools.CellANSI(fmt.Sprintf("%.3f", e.contributionRatio), contrColor, contrW, true),
+		bottools.CellANSI(formatFloat(e.teamwork, 3, true), teamColor, teamW, true),
+		bottools.CellANSI(fmt.Sprintf("%d", e.chickenRunsSent), crBase, crW, true),
+		bottools.CellANSI(btvStr, btvColor, btvW, true),
 	}
-	if !nerfed {
-		cells = append(cells,
-			bottools.CellANSI(fmt.Sprintf("%.3f", dtval), dtColor, deltaW, true),
-		)
+
+	// optional token detail columns
+	if showTokenDetails {
+		tokenCells := []string{
+			bottools.CellANSI(fmt.Sprintf("%d", e.plusTS), plusTSBase, tsW, true),
+			bottools.CellANSI(formatFloat(e.deltaTVal, 3, false), dtColor, deltaTW, true),
+			bottools.CellANSI(fmt.Sprintf("%d", e.minusTS), minusTSBase, tsW, true),
+		}
+		cells = append(cells, tokenCells...)
 	}
+
 	return strings.Join(cells, "|")
 }
 
 // ===== color rules =====
 
 // return color if v >= th, else ""
-func colorIfGE(v, th float64, color string) string {
+func colorIfGE[T ~int | ~float64](v, th T, color string) string {
 	if v >= th {
 		return color
 	}
@@ -772,20 +839,23 @@ func peakColor(v, peak float64, baseColor string, exact bool) string {
 // ===== data & selection =====
 
 func deriveThresholds(p *contractReportParameters) thresholds {
+	btv := GetTargetBuffTimeValue(
+		p.contract.SeasonalScoring,
+		p.contractDur.Seconds(),
+	)
 
-	durationSec := p.contractDur.Seconds()
-	contract := p.contract
-	seasonalScoring := contract.SeasonalScoring
-
-	// teamwork fixed for now since theoretical teamwork max can't be achieved in practice
-	th := thresholds{
-		teamwork: 26.0 / 19.0,
+	var teamwork float64
+	if p.contract.SeasonalScoring == ei.SeasonalScoringNerfed {
+		teamwork = 5*btv + 5 // 5*BTV + 5(CR)
+	} else {
+		teamwork = 5*btv + 16 // 5*BTV + 6(CR) + 8(tval) + 2(+TS)
 	}
-	th.chickenRuns = GetTargetChickenRun(seasonalScoring, contract.MaxCoopSize, float64(contract.LengthInSeconds))
-	th.buffTimeValue = GetTargetBuffTimeValue(seasonalScoring, durationSec)
-	th.deltaTVal = GetTargetTval(seasonalScoring, durationSec/60., float64(contract.MinutesPerToken))
 
-	return th
+	return thresholds{
+		chickenRuns:   p.contract.ChickenRuns,
+		teamwork:      teamwork,
+		buffTimeValue: btv,
+	}
 }
 
 // pick the evaluation for a specific contractID from an archive
@@ -811,7 +881,7 @@ func evalsForContractParallel(
 	// determine number of workers
 	N := max(min(len(evalsByName), runtime.NumCPU()), 1)
 
-	jobs := make(chan job)
+	jobs := make(chan job, N)
 	var wg sync.WaitGroup
 	out := make(map[string]*ei.ContractEvaluation, len(evalsByName))
 	var mu sync.Mutex
@@ -848,6 +918,8 @@ func metricsFromEval(name string, ev *ei.ContractEvaluation) evalMetrics {
 		teamwork:          ev.GetTeamworkScore(),
 		chickenRunsSent:   ev.GetChickenRunsSent(),
 		buffTimeValue:     ev.GetBuffTimeValue(),
+		plusTS:            ev.GetGiftTokensSent(),
+		minusTS:           ev.GetGiftTokensReceived(),
 		deltaTVal:         ev.GetGiftTokenValueSent() - ev.GetGiftTokenValueReceived(),
 	}
 }

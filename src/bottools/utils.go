@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -12,13 +13,14 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-// FmtDuration formats a time.Duration into a human readable string
+// FmtDuration formats a time.Duration into a human-readable string with seconds precision.
 func FmtDuration(d time.Duration) string {
-	d = d.Round(time.Minute)
+	d = d.Round(time.Second)
 
 	days := d / (24 * time.Hour)
 	hours := (d % (24 * time.Hour)) / time.Hour
 	mins := (d % time.Hour) / time.Minute
+	secs := (d % time.Minute) / time.Second
 
 	var parts []string
 	if days > 0 {
@@ -30,6 +32,10 @@ func FmtDuration(d time.Duration) string {
 	if mins > 0 {
 		parts = append(parts, fmt.Sprintf("%dm", mins))
 	}
+	if secs > 0 || len(parts) == 0 {
+		parts = append(parts, fmt.Sprintf("%ds", secs))
+	}
+
 	return strings.Join(parts, "")
 }
 
@@ -151,6 +157,33 @@ func formatString(str string, width int, alignment StringAlign, truncate bool) s
 
 	return strings.Repeat(" ", left) + str +
 		strings.Repeat(" ", width-left-w)
+}
+
+// FormatIntWithCommas formats any integer value with commas as thousands separators
+func FormatIntWithCommas[T ~int | ~int64 | ~uint | ~uint32 | ~uint64](v T) string {
+	s := strconv.FormatInt(int64(v), 10)
+	n := len(s)
+	if n <= 3 {
+		return s
+	}
+
+	start := 0
+	if s[0] == '-' {
+		start = 1
+	}
+
+	var buf []byte
+	for i := start; i < n; i++ {
+		if (n-i)%3 == 0 && i != start {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, s[i])
+	}
+
+	if start == 1 {
+		return "-" + string(buf)
+	}
+	return string(buf)
 }
 
 // GetCommandOptionsMap returns a map of command options
