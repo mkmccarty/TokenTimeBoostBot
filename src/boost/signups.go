@@ -79,35 +79,37 @@ func GetSignupsCommand(cmd string) *discordgo.ApplicationCommand {
 					},
 				},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "xfs",
-				Description: "Print all signup templates for XFSweaty.",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionBoolean,
-						Name:        "copy-paste",
-						Description: "Format for easy copy-paste into Discord (default false).",
-						Required:    false,
-					},
-					{
-						Type:        discordgo.ApplicationCommandOptionInteger,
-						Name:        "week",
-						Description: "The week to get the signup templates for.",
-						Choices: func() []*discordgo.ApplicationCommandOptionChoice {
-							choices := make([]*discordgo.ApplicationCommandOptionChoice, 13)
-							for i := 1; i <= 13; i++ {
-								choices[i-1] = &discordgo.ApplicationCommandOptionChoice{
-									Name:  "Week " + strconv.Itoa(i),
-									Value: strconv.Itoa(i),
+			/*
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "xfs",
+					Description: "Print all signup templates for XFSweaty.",
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionBoolean,
+							Name:        "copy-paste",
+							Description: "Format for easy copy-paste into Discord (default false).",
+							Required:    false,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionInteger,
+							Name:        "week",
+							Description: "The week to get the signup templates for.",
+							Choices: func() []*discordgo.ApplicationCommandOptionChoice {
+								choices := make([]*discordgo.ApplicationCommandOptionChoice, 13)
+								for i := 1; i <= 13; i++ {
+									choices[i-1] = &discordgo.ApplicationCommandOptionChoice{
+										Name:  "Week " + strconv.Itoa(i),
+										Value: strconv.Itoa(i),
+									}
 								}
-							}
-							return choices
-						}(),
-						Required: false,
+								return choices
+							}(),
+							Required: false,
+						},
 					},
 				},
-			},
+			*/
 		},
 	}
 }
