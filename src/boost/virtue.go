@@ -358,7 +358,9 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 	eggLayingRate, habPop, habCap := ei.GetEggLayingRateFromBackup(farm, backup.GetGame())
 	if alternateEgg != -1 {
 		eggLayingRate /= habPop // Remove population from the ELR
-		habPop = math.Min(1, habCap)
+		if targetTE == 0 {
+			habPop = math.Min(1, habCap)
+		}
 		eggLayingRate *= habPop // Reset to 0 for new egg
 	}
 	//deliveryRate := math.Min(eggLayingRate, shippingRate)
@@ -429,7 +431,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 	syncTime := time.Unix(int64(backup.GetApproxTime()), 0)
 	elapsed := time.Since(syncTime).Seconds()
 	offlineEggs := min(eggLayingRate-fuelRate, shippingRate) * (elapsed / 3600)
-	if alternateEgg != -1 {
+	if alternateEgg != -1 && targetTE == 0 {
 		offlineEggs = 0
 	}
 
@@ -544,6 +546,8 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 					time.Now().Add(time.Duration(int64(offsetRemainingTime))*time.Second).Unix(),
 				)
 			}
+			// Empty the habs after the shift to simulate
+			habPop = 1
 		} else if alternateEgg != -1 && targetTE == 0 {
 			c := cases.Title(language.Und)
 			fmt.Fprintf(&header, "## Simulating a shift to %s\n", c.String(strings.ToLower(virtueEggs[alternateEgg-50])))
