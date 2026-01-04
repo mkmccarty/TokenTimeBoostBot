@@ -267,7 +267,6 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 }
 
 type estimatePlayer struct {
-	slots           float64
 	deflectorBonus  float64
 	boostTokens     float64
 	boostMultiplier float64
@@ -276,10 +275,17 @@ type estimatePlayer struct {
 	colHab          float64
 	colIHR          float64
 	calcMode        int
-	ihr             float64
-	te              float64
 	boundedELR      float64
 	contractELR     float64
+	metronome       float64 // Delivery artifacts
+	gusset          float64
+	compass         float64
+	deliverySlots   float64
+	ihr             float64 // IHR artifacts
+	te              float64
+	chalice         float64
+	monocle         float64
+	ihrSlots        float64
 }
 
 // getContractDurationEstimate returns three estimated durations (upper, lower, and max) of a contract based on great and well equipped artifact sets
@@ -300,7 +306,6 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 
 	estimates := []estimatePlayer{
 		{
-			slots:           8.0,
 			deflectorBonus:  0.15,
 			boostTokens:     8.0,
 			boostMultiplier: calcBoostMulti(8.0),
@@ -309,11 +314,17 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			colHab:          1.0,
 			colIHR:          1.0,
 			calcMode:        modeStoneHuntMethod,
-			ihr:             7440.0 * 1.3 * 1.2 * math.Pow(1.04, 6), // improved set
+			metronome:       1.35,
+			compass:         1.5,
+			gusset:          1.25,
+			deliverySlots:   8.0,
+			ihr:             7440.0,
 			te:              0,
+			chalice:         1.3, // T4C
+			monocle:         1.2, // T4C
+			ihrSlots:        6.0, // improved set
 		},
 		{
-			slots:           9.0,
 			deflectorBonus:  0.17,
 			boostTokens:     6.0,
 			boostMultiplier: calcBoostMulti(6.0),
@@ -322,12 +333,18 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			colHab:          colleggtibleHab,
 			colIHR:          1.0,
 			calcMode:        modeStoneHuntMethod,
-			ihr:             7440.0 * 1.4 * 1.3 * math.Pow(1.04, 8), // leggacy set, Deflector w/o IHR stones
+			metronome:       1.35,
+			compass:         1.5,
+			gusset:          1.25,
+			deliverySlots:   9.0,
+			ihr:             7440.0,
 			te:              0,
+			chalice:         1.4, // T4L
+			monocle:         1.3, // T4L
+			ihrSlots:        8.0, // leggacy set, Deflector w/o IHR stones
 		},
 		{
 			// This is for a full leggacy set with TE boosts of 5 tokens
-			slots:           10.0,
 			deflectorBonus:  0.20,
 			boostTokens:     5.0,
 			boostMultiplier: calcBoostMulti(5.0),
@@ -336,8 +353,15 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			colHab:          colleggtibleHab,
 			colIHR:          colleggtiblesIHR,
 			calcMode:        modeStoneHuntMethod,
-			ihr:             7440.0 * 1.4 * 1.3 * math.Pow(1.04, 8), // leggacy set, Deflector w/o IHR stones
+			metronome:       1.35,
+			compass:         1.5,
+			gusset:          1.25,
+			deliverySlots:   10.0,
+			ihr:             7440.0, // leggacy set, Deflector w/o IHR stones
 			te:              50,
+			chalice:         1.4, // T4L
+			monocle:         1.3, // T4L
+			ihrSlots:        8.0, // leggacy set, Deflector w/o IHR stones
 		},
 	}
 
@@ -346,7 +370,7 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 	var estimateDurationMax time.Duration
 
 	for _, est := range estimates {
-		slots := est.slots
+		slots := est.deliverySlots
 		deflectorBonus := est.deflectorBonus
 		colELR := est.colELR
 		colShip := est.colShip
@@ -359,9 +383,9 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 		}
 
 		// Base rate with T4L Metronome +35% and T4L Gusset +25%
-		baseELR := 3.772 * 1.35 * 1.25
+		baseELR := 3.772 * est.metronome * est.gusset
 		// Base rate with T4L Compass +50%
-		baseShipping := 7.148 * 1.5
+		baseShipping := 7.148 * est.compass
 		maxShipping := baseShipping * math.Pow(1.05, slots) * colShip
 		contractBaseELR := baseELR * modELR * modHab
 		contractShipCap := maxShipping * modShip
@@ -419,6 +443,7 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 				log.Printf("boundedELR: %v\n", bestTotal)
 			}
 		} else {
+			// Original formula method from Halcyon
 			tachStones := slots +
 				((modShip * colShip) / (modELR * colELR * modHab * colHab)) -
 				deflectorsOnFarmer*slots/(slots+(modShip*colShip)/(modELR*colELR*modHab*colHab))
@@ -457,7 +482,8 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 		crPopulation := populationForCR * 0.05 * (numFarmers - 1.0)
 		adjustedPop := max(populationForCR, population-crPopulation)
 
-		ihr := est.ihr * est.colIHR * math.Pow(1.01, est.te)
+		ihr := est.ihr * est.chalice * est.monocle * math.Pow(1.04, est.ihrSlots) * est.colIHR
+		ihr *= math.Pow(1.01, est.te)
 		boostTime := adjustedPop / (ihr * 12 * est.boostMultiplier) / 60
 
 		if debug {
@@ -472,7 +498,6 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 		}
 
 		if est.calcMode == modeOriginalFormula {
-			//rampUpHours += 0.50
 			rampUpHours += (est.boostTokens / tokenRate) + (10.0 / 60.0)
 		} else {
 			// Use contract-specific boost tokens and token accrual rate
@@ -495,8 +520,6 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 		// Note: Boost overhead is already included in rampUpHours for modeStoneHuntMethod
 		estimate := min(float64(c.LengthInSeconds)/3600.0, rampUpHours+steadyStateTime)
 
-		//estimate *= 0.90
-
 		if debug {
 			log.Printf("tokenRate: %v\n", tokenRate)
 			log.Printf("rampUpHours: %v\n", rampUpHours)
@@ -505,9 +528,8 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			log.Printf("steadyStateTime: %v\n", steadyStateTime)
 			log.Printf("estimate (hours): %v\n", estimate)
 		}
-		//estimate := eggsTotal / (numFarmers * boundedELR)
 
-		switch est.slots {
+		switch est.deliverySlots {
 		case 8.0:
 			estimateDurationUpper = time.Duration(estimate * float64(time.Hour))
 		case 9.0:
@@ -517,7 +539,7 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 		}
 
 		if debug {
-			switch est.slots {
+			switch est.deliverySlots {
 			case 8.0:
 				log.Printf("estimateDurationUpper: %v\n", estimateDurationUpper)
 				log.Print("--------------------\n")
