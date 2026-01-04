@@ -105,12 +105,12 @@ func HandleVirtue(s *discordgo.Session, i *discordgo.InteractionCreate) {
 // Virtue processes the virtue command
 func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption, eiID string, okayToSave bool) {
 	userID := bottools.GetInteractionUserID(i)
-	alternateEgg := ei.Egg(-1)
+	simulatedEgg := ei.Egg(-1)
 	var components []discordgo.MessageComponent
 
 	var targetTE uint64 = 0
 	if opt, ok := optionMap["simulate-shift"]; ok {
-		alternateEgg = ei.Egg(opt.IntValue())
+		simulatedEgg = ei.Egg(opt.IntValue())
 		if opt2, ok2 := optionMap["simulate-shift-target-te"]; ok2 {
 			targetTE = opt2.UintValue()
 		}
@@ -172,7 +172,7 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[
 	if farm != nil {
 		farmType := farm.GetFarmType()
 		if farmType == ei.FarmType_HOME {
-			components = printVirtue(backup, alternateEgg, targetTE, compact)
+			components = printVirtue(backup, simulatedEgg, targetTE, compact)
 		}
 	}
 	if len(components) == 0 {
@@ -187,7 +187,7 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[
 
 }
 
-func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compact bool) []discordgo.MessageComponent {
+func printVirtue(backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compact bool) []discordgo.MessageComponent {
 	var components []discordgo.MessageComponent
 	divider := true
 	spacing := discordgo.SeparatorSpacingSizeSmall
@@ -261,8 +261,8 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 		eovPending := pendingTruthEggs(delivered, eov)
 		nextTier := nextTruthEggThreshold(delivered, eov)
 		selected := ""
-		if alternateEgg != -1 {
-			if alternateEgg == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
+		if simulatedEgg != -1 {
+			if simulatedEgg == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
 				selected = " (simulated)"
 				selectedEggIndex = i
 				selectedTarget = nextTier
@@ -356,9 +356,11 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 
 	shippingRate := ei.GetShippingRateFromBackup(farm, backup.GetGame())
 	eggLayingRate, habPop, habCap := ei.GetEggLayingRateFromBackup(farm, backup.GetGame())
-	if alternateEgg != -1 {
+	if simulatedEgg != -1 {
 		eggLayingRate /= habPop // Remove population from the ELR
-		habPop = math.Min(1, habCap)
+		if targetTE == 0 {
+			habPop = math.Min(1, habCap)
+		}
 		eggLayingRate *= habPop // Reset to 0 for new egg
 	}
 	//deliveryRate := math.Min(eggLayingRate, shippingRate)
@@ -429,7 +431,7 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 	syncTime := time.Unix(int64(backup.GetApproxTime()), 0)
 	elapsed := time.Since(syncTime).Seconds()
 	offlineEggs := min(eggLayingRate-fuelRate, shippingRate) * (elapsed / 3600)
-	if alternateEgg != -1 {
+	if simulatedEgg != -1 && targetTE == 0 {
 		offlineEggs = 0
 	}
 
@@ -544,9 +546,11 @@ func printVirtue(backup *ei.Backup, alternateEgg ei.Egg, targetTE uint64, compac
 					time.Now().Add(time.Duration(int64(offsetRemainingTime))*time.Second).Unix(),
 				)
 			}
-		} else if alternateEgg != -1 && targetTE == 0 {
+			// Empty the habs after the shift to simulate
+			habPop = 1
+		} else if simulatedEgg != -1 && targetTE == 0 {
 			c := cases.Title(language.Und)
-			fmt.Fprintf(&header, "## Simulating a shift to %s\n", c.String(strings.ToLower(virtueEggs[alternateEgg-50])))
+			fmt.Fprintf(&header, "## Simulating a shift to %s\n", c.String(strings.ToLower(virtueEggs[simulatedEgg-50])))
 		}
 
 		// Loop to show time to next several Truth Egg thresholds
