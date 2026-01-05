@@ -306,23 +306,23 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 
 	estimates := []estimatePlayer{
 		{
-			deflectorBonus:  0.15,
-			boostTokens:     8.0,
-			boostMultiplier: calcBoostMulti(8.0),
+			deflectorBonus:  0.13,
+			boostTokens:     6.0,
+			boostMultiplier: calcBoostMulti(6.0),
 			colELR:          1.0,
 			colShip:         1.0,
 			colHab:          1.0,
 			colIHR:          1.0,
 			calcMode:        modeStoneHuntMethod,
-			metronome:       1.35,
-			compass:         1.5,
-			gusset:          1.25,
-			deliverySlots:   8.0,
+			metronome:       1.2,  // T3E
+			compass:         1.35, // T4R
+			gusset:          1.25, // T4L
+			deliverySlots:   8.0,  // defl(2), metr(2), comp(1), gusset(3)
 			ihr:             7440.0,
 			te:              0,
 			chalice:         1.3, // T4C
 			monocle:         1.2, // T4C
-			ihrSlots:        6.0, // improved set
+			ihrSlots:        6.0, // any(3),chalice(0),monocle(0),any(3)
 		},
 		{
 			deflectorBonus:  0.17,
@@ -333,10 +333,10 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			colHab:          colleggtibleHab,
 			colIHR:          colleggtiblesIHR,
 			calcMode:        modeStoneHuntMethod,
-			metronome:       1.35,
-			compass:         1.5,
-			gusset:          1.25,
-			deliverySlots:   9.0,
+			metronome:       1.35, // T4L
+			compass:         1.5,  // T4L
+			gusset:          1.25, // T4L
+			deliverySlots:   9.0,  // defl(1), metr(3), comp(2), gusset(3)
 			ihr:             7440.0,
 			te:              0,
 			chalice:         1.4, // T4L
@@ -353,10 +353,10 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			colHab:          colleggtibleHab,
 			colIHR:          colleggtiblesIHR,
 			calcMode:        modeStoneHuntMethod,
-			metronome:       1.35,
-			compass:         1.5,
-			gusset:          1.25,
-			deliverySlots:   10.0,
+			metronome:       1.35,   // T4L
+			compass:         1.5,    // T4L
+			gusset:          1.25,   // T4L
+			deliverySlots:   10.0,   // defl(2), metr(3), comp(2), gusset(3)
 			ihr:             7440.0, // leggacy set, Deflector w/o IHR stones
 			te:              50,
 			chalice:         1.4, // T4L
