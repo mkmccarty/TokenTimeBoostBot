@@ -10,6 +10,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
@@ -203,10 +204,10 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 		// Two ranges of estimates
 		// Speedrun w/ perfect set through to Sink with decent set
 		// Fair share from 1.05 to 0.92
-		scoreSink := getContractScoreEstimate(c, ei.Contract_GRADE_AAA,
-			true, 1.0, // Use faster duration at a 1.0 modifier
-			0.92,   // 0.92 Fair Share (Last booster sink)
-			60, 45, // T4C SIAB for 45m
+		scoreSink := getContractScoreEstimateWithDuration(c, ei.Contract_GRADE_AAA,
+			c.EstimatedDurationLower, // Use faster duration at a 1.0 modifier
+			0.92,                     // 0.92 Fair Share (Last booster sink)
+			60, 45,                   // T4C SIAB for 45m
 			15, 0, // T4C Deflector for full duration
 			c.MaxCoopSize-1, // All Chicken Runs
 			3, 100)          // Sink token use, sent at least 3 (max) and received a lot
@@ -238,6 +239,11 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 			estStrMax := c.EstimatedDurationMax.Round(time.Minute).String()
 			estStrMax = strings.TrimRight(estStrMax, "0s")
 			str += fmt.Sprintf("Leggy Set: **%s** CS:**%d**\n", estStrMax, int64(c.CxpMax))
+			if c.CxpMaxSiab > c.CxpMax {
+				estStrMaxSiab := c.EstimateDurationSIAB.Round(time.Minute).String()
+				estStrMaxSiab = strings.TrimRight(estStrMaxSiab, "0s")
+				str += fmt.Sprintf("SIAB Set: **%s** CS:**%d**\n", estStrMaxSiab, int64(c.CxpMaxSiab))
+			}
 			str += fmt.Sprintf("-# Leggy set 50 TE, 8 IHR & 10 delivery stone sets, 1.0 fair share, 5%s boost.\n", ei.GetBotEmojiMarkdown("token"))
 		}
 		if footerAboutCR && c.MaxCoopSize > 1 {
@@ -267,6 +273,7 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 }
 
 type estimatePlayer struct {
+	id              string
 	deflectorBonus  float64
 	boostTokens     float64
 	boostMultiplier float64
@@ -289,7 +296,7 @@ type estimatePlayer struct {
 }
 
 // getContractDurationEstimate returns three estimated durations (upper, lower, and max) of a contract based on great and well equipped artifact sets
-func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64, numFarmers float64, contractLengthInSeconds int, modifierSR float64, modifierELR float64, modifierHabCap float64, debug bool) (time.Duration, time.Duration, time.Duration) {
+func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64, numFarmers float64, contractLengthInSeconds int, modifierSR float64, modifierELR float64, modifierHabCap float64, debug bool) (time.Duration, time.Duration, time.Duration, time.Duration) {
 
 	contractDuration := time.Duration(contractLengthInSeconds) * time.Second
 
@@ -306,6 +313,7 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 
 	estimates := []estimatePlayer{
 		{
+			id:              "basic_set",
 			deflectorBonus:  0.15,
 			boostTokens:     6.0,
 			boostMultiplier: calcBoostMulti(6.0),
@@ -325,6 +333,7 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			ihrSlots:        7.0, // any(3),chalice(0),monocle(0),any(3)
 		},
 		{
+			id:              "solid_set",
 			deflectorBonus:  0.17,
 			boostTokens:     6.0,
 			boostMultiplier: calcBoostMulti(6.0),
@@ -344,7 +353,7 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			ihrSlots:        8.0, // leggacy set, Deflector w/o IHR stones
 		},
 		{
-			// This is for a full leggacy set with TE boosts of 5 tokens
+			id:              "leggy_set",
 			deflectorBonus:  0.20,
 			boostTokens:     5.0,
 			boostMultiplier: calcBoostMulti(5.0),
@@ -363,11 +372,33 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			monocle:         1.3, // T4L
 			ihrSlots:        8.0, // leggacy set, Deflector w/o IHR stones
 		},
+		{
+			// This is for a full leggacy set with TE boosts of 5 tokens
+			id:              "leggy_siab",
+			deflectorBonus:  0.20,
+			boostTokens:     5.0,
+			boostMultiplier: calcBoostMulti(5.0),
+			colELR:          collectibleELR,
+			colShip:         colllectibleShip,
+			colHab:          colleggtibleHab,
+			colIHR:          colleggtiblesIHR,
+			calcMode:        modeStoneHuntMethod,
+			metronome:       1.35,   // T4L
+			compass:         1.5,    // T4L
+			gusset:          1.0,    // T4L
+			deliverySlots:   9.0,    // defl(2), metr(3), comp(2), siab(2)
+			ihr:             7440.0, // leggacy set, Deflector w/o IHR stones
+			te:              50,
+			chalice:         1.4, // T4L
+			monocle:         1.3, // T4L
+			ihrSlots:        8.0, // leggacy set, Deflector w/o IHR stones
+		},
 	}
 
 	var estimateDurationUpper time.Duration
 	var estimateDurationLower time.Duration
 	var estimateDurationMax time.Duration
+	var estimateDurationSIAB time.Duration
 
 	for _, est := range estimates {
 		slots := est.deliverySlots
@@ -396,6 +427,7 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 		bestSR := 0.0
 
 		if debug {
+			log.Printf("id: %v\n", est.id)
 			log.Printf("slots: %v\n", slots)
 			log.Printf("modELR: %v\n", modELR)
 			log.Printf("modShip: %v\n", modShip)
@@ -497,6 +529,24 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			log.Printf("rampUpHours (before boost): %v\n", rampUpHours)
 		}
 
+		// Short contract experiment work
+		if debug && config.IsDevBot() {
+			ihr2 := est.ihr * est.chalice * est.monocle * math.Pow(1.04, est.ihrSlots) * est.colIHR
+			ihr2 *= math.Pow(1.01, est.te)
+			ihr2 *= 12 * calcBoostMulti(6.0)
+
+			myELR := 252720.0 * est.colELR * modELR * est.metronome * math.Pow(1.05, slots) * deflectorMultiplier / 60.0
+
+			//	initialPop: The starting chicken population.
+			//	maxPop: The maximum carrying capacity of the population.
+			//	growthRatePerMinute: The growth rate of the population per minute.
+			//	layingRatePerHour: The number of eggs laid per chicken per hour.
+			//	shippingRatePerHour: The constant number of eggs shipped per hour.
+			//
+			remainingTime := ei.TimeToDeliverEggsInSeconds(10_000_000, adjustedPop, ihr2/60, myELR*10_000_000, contractEggsTotal)
+			log.Print("Remaining time check (s): ", remainingTime)
+		}
+
 		if est.calcMode == modeOriginalFormula {
 			rampUpHours += (est.boostTokens / tokenRate) + (10.0 / 60.0)
 		} else {
@@ -529,33 +579,37 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			log.Printf("estimate (hours): %v\n", estimate)
 		}
 
-		switch est.deliverySlots {
-		case 8.0:
+		switch est.id {
+		case "basic_set":
 			estimateDurationUpper = time.Duration(estimate * float64(time.Hour))
-		case 9.0:
+		case "solid_set":
 			estimateDurationLower = time.Duration(estimate * float64(time.Hour))
-		default:
+		case "leggy_set":
 			estimateDurationMax = time.Duration(estimate * float64(time.Hour))
+		case "leggy_siab":
+			estimateDurationSIAB = time.Duration(estimate * float64(time.Hour))
 		}
 
 		if debug {
-			switch est.deliverySlots {
-			case 8.0:
+			switch est.id {
+			case "basic_set":
 				log.Printf("estimateDurationUpper: %v\n", estimateDurationUpper)
 				log.Print("--------------------\n")
-			case 9.0:
+			case "solid_set":
 				log.Printf("estimateDurationLower: %v\n", estimateDurationLower)
-			default:
+			case "leggy_set":
 				log.Printf("estimateDurationMax: %v\n", estimateDurationMax)
+			case "leggy_siab":
+				log.Printf("estimateDurationSIAB: %v\n", estimateDurationSIAB)
 			}
 		}
 	}
 
 	if estimateDurationUpper > contractDuration {
-		return contractDuration, contractDuration, estimateDurationMax
+		return contractDuration, contractDuration, estimateDurationMax, estimateDurationSIAB
 	}
 
-	return estimateDurationUpper, estimateDurationLower, estimateDurationMax
+	return estimateDurationUpper, estimateDurationLower, estimateDurationMax, estimateDurationSIAB
 }
 
 // calcBoostMulti converts a number of active boost tokens into an overall
