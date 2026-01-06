@@ -306,7 +306,7 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 
 	estimates := []estimatePlayer{
 		{
-			deflectorBonus:  0.13,
+			deflectorBonus:  0.15,
 			boostTokens:     6.0,
 			boostMultiplier: calcBoostMulti(6.0),
 			colELR:          1.0,
@@ -314,15 +314,15 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			colHab:          1.0,
 			colIHR:          1.0,
 			calcMode:        modeStoneHuntMethod,
-			metronome:       1.2,  // T3E
-			compass:         1.35, // T4R
-			gusset:          1.25, // T4L
-			deliverySlots:   8.0,  // defl(2), metr(2), comp(1), gusset(3)
+			metronome:       1.32, // T3E
+			compass:         1.45, // average
+			gusset:          1.24, // T4L
+			deliverySlots:   8.0,  // general average of stones
 			ihr:             7440.0,
 			te:              0,
 			chalice:         1.3, // T4C
 			monocle:         1.2, // T4C
-			ihrSlots:        6.0, // any(3),chalice(0),monocle(0),any(3)
+			ihrSlots:        7.0, // any(3),chalice(0),monocle(0),any(3)
 		},
 		{
 			deflectorBonus:  0.17,
