@@ -7,6 +7,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -60,6 +61,19 @@ func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        "chart",
 				Description: "Summary chart of active contracts evaluations",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:        discordgo.ApplicationCommandOptionBoolean,
+						Name:        "refresh",
+						Description: "If you want to force a refresh due a recent change to your contracts.",
+						Required:    false,
+					},
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "predictions",
+				Description: "Summary chart of predicted contracts evaluations",
 				Options: []*discordgo.ApplicationCommandOption{
 					{
 						Type:        discordgo.ApplicationCommandOptionBoolean,
@@ -133,6 +147,7 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap 
 	page := 1
 	contractID := ""
 	forceRefresh := false
+	contractIDList := []string{}
 
 	if opt, ok := optionMap["threshold-percent"]; ok {
 		percent = int(opt.UintValue())
@@ -146,8 +161,23 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap 
 	}
 	if opt, ok := optionMap["active-contract-id"]; ok {
 		contractID = opt.StringValue()
+		contractIDList = append(contractIDList, contractID)
+	}
+	if _, ok := optionMap["predictions"]; ok {
+		fridayNonUltra, fridayUltra, wednesdayNonUltra := predictJeli(3)
+		// for each of these 3 I want to collect the contract IDs
+		for _, c := range append(append(fridayNonUltra, fridayUltra...), wednesdayNonUltra...) {
+			if slices.Contains(contractIDList, c.ID) {
+				continue
+			}
+			contractIDList = append(contractIDList, c.ID)
+		}
+		percent = -200
 	}
 	if opt, ok := optionMap["chart-refresh"]; ok {
+		forceRefresh = opt.BoolValue()
+	}
+	if opt, ok := optionMap["predictions-refresh"]; ok {
 		forceRefresh = opt.BoolValue()
 	}
 	if opt, ok := optionMap["active-refresh"]; ok {
@@ -196,7 +226,7 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap 
 		}
 	}
 
-	components := printArchivedContracts(userID, archive, percent, page, contractID)
+	components := printArchivedContracts(userID, archive, percent, page, contractIDList)
 	if len(components) == 0 {
 		components = []discordgo.MessageComponent{
 			&discordgo.TextDisplay{Content: "No archived contracts found in Egg Inc API response"},
@@ -231,7 +261,7 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap 
 	}
 }
 
-func printArchivedContracts(userID string, archive []*ei.LocalContract, percent int, page int, contractIDParam string) []discordgo.MessageComponent {
+func printArchivedContracts(userID string, archive []*ei.LocalContract, percent int, page int, contractIDList []string) []discordgo.MessageComponent {
 	var components []discordgo.MessageComponent
 	tvalFooterMessage := false
 	eiUserName := farmerstate.GetMiscSettingString(userID, "ei_ign")
@@ -250,6 +280,8 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 	// Want a preamble string for builder for what we're displaying
 	if percent == -1 {
 		builder.WriteString("## Contract CS eval of active contracts\n")
+	} else if len(contractIDList) > 1 {
+		builder.WriteString("## Displaying contract scores for future predictions:\n")
 	} else {
 		builder.WriteString(fmt.Sprintf("## Displaying contract scores less than %d%% of speedrun potential:\n", percent))
 	}
@@ -262,7 +294,12 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 	})
 	builder.Reset()
 
-	if contractIDParam == "" {
+	contractIDParam := ""
+	if len(contractIDList) == 1 {
+		contractIDParam = contractIDList[0]
+	}
+
+	if len(contractIDList) != 1 {
 		fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`\n",
 			bottools.AlignString("CONTRACT-ID", 30, bottools.StringAlignCenter),
 			bottools.AlignString("CS", 6, bottools.StringAlignCenter),
@@ -309,6 +346,11 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 		c := ei.EggIncContractsAll[contractID]
 		//if c.ContractVersion == 2 {
 		if contractIDParam == "" {
+			if len(contractIDList) > 0 {
+				if !slices.Contains(contractIDList, contractID) {
+					continue
+				}
+			}
 
 			if c.ContractVersion == 2 && (percent != -1 || (c.ValidUntil.Unix() > time.Now().Unix())) {
 				// Need to download the coop_status for more details
