@@ -342,11 +342,6 @@ func TimeToDeliverEggsInSeconds(initialPop, maxPop, growthRatePerMinute, layingR
 	layingRatePerStep := (layingRatePerHour / 3600) * timeStepSeconds
 	growthRatePerStep := (growthRatePerMinute / 60.0) * timeStepSeconds
 
-	// Check if the shipping rate is sustainable
-	//if layingRatePerHour*maxPop < shippingRatePerHour {
-	//	fmt.Println("Warning: Shipping rate is higher than the maximum possible laying rate. The target may never be reached.")
-	//}
-
 	totalTimeSeconds := 0.0
 	totalEggsDelivered := 0.0
 	currentPop := initialPop
