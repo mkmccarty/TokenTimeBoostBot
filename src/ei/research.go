@@ -352,7 +352,6 @@ func TimeToDeliverEggsInSeconds(initialPop, maxPop, growthRatePerMinute, layingR
 		eggsToDeliverThisStep := deliveryRate //* currentPop
 
 		// Calculate the eggs delivered in this time step (limited by the eggs available)
-		//eggsToDeliverThisStep := math.Min(eggsLaidInStep)
 
 		// Update total eggs delivered
 		totalEggsDelivered += eggsToDeliverThisStep
