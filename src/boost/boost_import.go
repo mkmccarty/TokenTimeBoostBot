@@ -243,7 +243,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			}
 		*/
 
-		c.EstimatedDuration, c.EstimatedDurationLower, c.EstimatedDurationMax, c.EstimateDurationSIAB = getContractDurationEstimate(c, c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
+		c.EstimatedDuration, c.EstimatedDurationLower, c.EstimatedDurationMax, c.EstimatedDurationSIAB = getContractDurationEstimate(c, c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
 			c.ModifierSR, c.ModifierELR, c.ModifierHabCap, debug)
 	}
 	/*
