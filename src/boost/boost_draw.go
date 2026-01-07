@@ -169,10 +169,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 			}
 		}
 		// Save this into the contract
-		contract.TokensPerMinute = float64(singleTokenEntries) / time.Since(contract.StartTime).Minutes()
-		// Commented out estimate for now, it's currently confusing and not very useful
-		// header.WriteString(fmt.Sprintf("> %s/min: %2.2f   Expected %1.2f%s\n", contract.TokenStr, contract.TokensPerMinute, estTPM, ggicon))
-		header.WriteString(fmt.Sprintf("> %s/min: %2.2f %s\n", contract.TokenStr, contract.TokensPerMinute, ggicon)) //   Expected %1.2f%s\n", contract.TokenStr, contract.TokensPerMinute, estTPM, ggicon)
+		contract.TokensPerMinute = float64(singleTokenEntries) / max(1.0, time.Since(contract.StartTime).Minutes()) / float64(max(1, len(contract.Boosters)))
+		header.WriteString(fmt.Sprintf("> %s/min/player: %2.3f %s\n", contract.TokenStr, contract.TokensPerMinute, ggicon))
 	}
 
 	// Current tval
