@@ -294,9 +294,9 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 				0, 0)) // Tokens Sent a lot and received a little.
 
 			c.Cxp = float64(getContractScoreEstimateWithDuration(c, ei.Contract_GRADE_AAA,
-				c.EstimateDurationSIAB, // Use faster duration at a 1.0 modifier
-				fairShare,              // Fair Share, first booster
-				100, 30,                // SIAB 100%, 30 minutes
+				c.EstimatedDurationSIAB, // Use faster duration at a 1.0 modifier
+				fairShare,               // Fair Share, first booster
+				100, 30,                 // SIAB 100%, 30 minutes
 				20, 0, // Deflector %, minutes reduction
 				0,     // All Chicken Runs - Post CRT
 				0, 0)) // Tokens Sent a lot and received a little.
@@ -330,9 +330,9 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 				100, 5))       // Tokens Sent a lot and received a little.
 
 			c.CxpMaxSiab = float64(getContractScoreEstimateWithDuration(c, ei.Contract_GRADE_AAA,
-				c.EstimateDurationSIAB,                     // Use faster duration at a 1.0 modifier
-				fairShare,                                  // Fair Share, first booster
-				100, int(c.EstimateDurationSIAB.Minutes()), // SIAB 100%, full duration
+				c.EstimatedDurationSIAB,                     // Use faster duration at a 1.0 modifier
+				fairShare,                                   // Fair Share, first booster
+				100, int(c.EstimatedDurationSIAB.Minutes()), // SIAB 100%, full duration
 				20, 0, // Deflector %, minutes reduction
 				c.ChickenRuns, // All Chicken Runs - Post CRT
 				100, 5))       // Tokens Sent a lot and received a little.
