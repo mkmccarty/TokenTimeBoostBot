@@ -537,12 +537,6 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 
 			myELR := 252720.0 * est.colELR * modELR * est.metronome * math.Pow(1.05, slots) * deflectorMultiplier / 60.0
 
-			//	initialPop: The starting chicken population.
-			//	maxPop: The maximum carrying capacity of the population.
-			//	growthRatePerMinute: The growth rate of the population per minute.
-			//	layingRatePerHour: The number of eggs laid per chicken per hour.
-			//	shippingRatePerHour: The constant number of eggs shipped per hour.
-			//
 			remainingTime := ei.TimeToDeliverEggsInSeconds(10_000_000, adjustedPop, ihr2/60, myELR*10_000_000, contractEggsTotal)
 			log.Print("Remaining time check (s): ", remainingTime)
 		}
