@@ -242,7 +242,7 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 			if c.CxpMaxSiab > c.CxpMax {
 				estStrMaxSiab := c.EstimatedDurationSIAB.Round(time.Minute).String()
 				estStrMaxSiab = strings.TrimRight(estStrMaxSiab, "0s")
-				str += fmt.Sprintf("SIAB Set: **%s** CS:**%d**\n", estStrMaxSiab, int64(c.CxpMaxSiab))
+				str += fmt.Sprintf("SIAB Set: **%s** CS:**%d** (no gusset, 9 stone slots)\n", estStrMaxSiab, int64(c.CxpMaxSiab))
 			}
 			str += fmt.Sprintf("-# Leggy set 50 TE, 8 IHR & 10 delivery stone sets, 1.0 fair share, 5%s boost.\n", ei.GetBotEmojiMarkdown("token"))
 		}
