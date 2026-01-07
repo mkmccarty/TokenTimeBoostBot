@@ -211,7 +211,6 @@ func getContractScoreEstimateWithDuration(c ei.EggIncContract, grade ei.Contract
 	}
 	buffTimeValue += deflTeamwork
 
-	//buffTimeValue := calculateBuffTimeValue(c.SeasonalScoring, contractDuration.Seconds(), int(siabPercent), int(deflPercent))
 	B := calculateTeamworkB(buffTimeValue, contractDuration.Seconds())
 
 	CR := calculateChickenRunTeamwork(c.SeasonalScoring, c.MaxCoopSize, c.LengthInDays, chickenRuns)
