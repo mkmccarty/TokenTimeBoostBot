@@ -374,7 +374,6 @@ func TimeToDeliverEggsInSeconds(initialPop, maxPop, growthRatePerMinute, layingR
 
 		// Safety break to prevent infinite loops if the target is unreachable.
 		if totalTimeSeconds > 3600 { // 1 hour in seconds
-
 			return -1.0
 		}
 	}
