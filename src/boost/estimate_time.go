@@ -572,28 +572,26 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			log.Printf("steadyStateTime: %v\n", steadyStateTime)
 			log.Printf("estimate (hours): %v\n", estimate)
 		}
-
 		switch est.id {
 		case "basic_set":
 			estimateDurationUpper = time.Duration(estimate * float64(time.Hour))
-		case "solid_set":
-			estimateDurationLower = time.Duration(estimate * float64(time.Hour))
-		case "leggy_set":
-			estimateDurationMax = time.Duration(estimate * float64(time.Hour))
-		case "leggy_siab":
-			estimateDurationSIAB = time.Duration(estimate * float64(time.Hour))
-		}
-
-		if debug {
-			switch est.id {
-			case "basic_set":
+			if debug {
 				log.Printf("estimateDurationUpper: %v\n", estimateDurationUpper)
 				log.Print("--------------------\n")
-			case "solid_set":
+			}
+		case "solid_set":
+			estimateDurationLower = time.Duration(estimate * float64(time.Hour))
+			if debug {
 				log.Printf("estimateDurationLower: %v\n", estimateDurationLower)
-			case "leggy_set":
+			}
+		case "leggy_set":
+			estimateDurationMax = time.Duration(estimate * float64(time.Hour))
+			if debug {
 				log.Printf("estimateDurationMax: %v\n", estimateDurationMax)
-			case "leggy_siab":
+			}
+		case "leggy_siab":
+			estimateDurationSIAB = time.Duration(estimate * float64(time.Hour))
+			if debug {
 				log.Printf("estimateDurationSIAB: %v\n", estimateDurationSIAB)
 			}
 		}
