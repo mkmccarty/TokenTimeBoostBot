@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"fmt"
 	"math"
 	"time"
 
@@ -182,6 +183,34 @@ func getContractScoreEstimate(c ei.EggIncContract, grade ei.Contract_PlayerGrade
 	buffTimeValue += calculateBuffTimeValue(c.SeasonalScoring, deflectorDuration, int(deflPercent), 0)
 
 	//buffTimeValue := calculateBuffTimeValue(c.SeasonalScoring, contractDuration.Seconds(), int(siabPercent), int(deflPercent))
+	B := calculateTeamworkB(buffTimeValue, contractDuration.Seconds())
+
+	CR := calculateChickenRunTeamwork(c.SeasonalScoring, c.MaxCoopSize, c.LengthInDays, chickenRuns)
+	T := calculateTokenTeamwork(contractDuration.Seconds(), c.MinutesPerToken, sentTokens, receivedTokens)
+	score := calculateContractScore(c.SeasonalScoring, int(ei.Contract_GRADE_AAA),
+		c.MaxCoopSize,
+		c.Grade[grade].TargetAmount[len(c.Grade[grade].TargetAmount)-1],
+		c.TargetAmount[len(c.TargetAmount)-1]/float64(c.MaxCoopSize)*fairShare,
+		c.Grade[grade].LengthInSeconds,
+		contractDuration.Seconds(),
+		B, CR, T)
+
+	return score
+}
+
+func getContractScoreEstimateWithDuration(c ei.EggIncContract, grade ei.Contract_PlayerGrade, contractDuration time.Duration, fairShare float64, siabPercent float64, siabMinutes int, deflPercent float64, deflMinutesReduction int, chickenRuns int, sentTokens float64, receivedTokens float64) int64 {
+	siabDuration := (time.Duration(siabMinutes) * time.Minute).Seconds()
+	deflectorDuration := (contractDuration - time.Duration(deflMinutesReduction)*time.Minute).Seconds()
+	buffTimeValue := calculateBuffTimeValue(c.SeasonalScoring, siabDuration, 0, int(siabPercent))
+	if c.ID == "prime-directive" {
+		fmt.Printf("ID: %s, SIAB-TimeValue: %f\n", c.ID, buffTimeValue)
+	}
+	deflTeamwork := calculateBuffTimeValue(c.SeasonalScoring, deflectorDuration, int(deflPercent), 0)
+	if c.ID == "prime-directive" {
+		fmt.Printf("ID: %s, DEFL-TimeValue: %f\n", c.ID, deflTeamwork)
+	}
+	buffTimeValue += deflTeamwork
+
 	B := calculateTeamworkB(buffTimeValue, contractDuration.Seconds())
 
 	CR := calculateChickenRunTeamwork(c.SeasonalScoring, c.MaxCoopSize, c.LengthInDays, chickenRuns)

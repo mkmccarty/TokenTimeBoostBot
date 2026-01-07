@@ -221,7 +221,7 @@ func TimeToDeliverEggs(initialPop, maxPop, growthRatePerMinute, layingRatePerHou
 		return -1.0 // Return -1 for invalid inputs
 	}
 
-	// Convert rates to be consistent with the 5-minute time step
+	// Convert rates to be consistent with the 1-minute time step
 	timeStepMinutes := 1.0
 	layingRatePerStep := (layingRatePerHour / 60) * timeStepMinutes
 	shippingRatePerStep := (shippingRatePerHour / 60) * timeStepMinutes
@@ -314,4 +314,68 @@ func GetFarmEarningRates(backup *Backup, deliveryRate float64, artBuffs Dimensio
 	*/
 
 	return onlineBaseline, offline
+}
+
+// TimeToDeliverEggsInSeconds simulates population growth and egg production to find the time
+// required to deliver a certain number of eggs.
+//
+// Arguments:
+//
+//	initialPop: The starting chicken population.
+//	maxPop: The maximum carrying capacity of the population.
+//	growthRatePerMinute: The growth rate of the population per minute.
+//	layingRatePerHour: The number of eggs laid per chicken per hour.
+//	targetEggs: The total number of eggs to deliver.
+//
+// Returns:
+//
+//	The time in seconds, or -1 if the target is unreachable.
+func TimeToDeliverEggsInSeconds(initialPop, maxPop, growthRatePerMinute, layingRatePerHour, targetEggs float64) float64 {
+	// Validate inputs
+	if initialPop <= 0 || maxPop <= 0 || growthRatePerMinute <= 0 || layingRatePerHour <= 0 || targetEggs <= 0 {
+		return -1.0 // Return -1 for invalid inputs
+	}
+
+	// Convert rates to be consistent with the 5-second time step
+	timeStepSeconds := 5.0
+	layingRatePerStep := (layingRatePerHour / 3600) * timeStepSeconds
+	growthRatePerStep := (growthRatePerMinute / 60.0) * timeStepSeconds
+
+	totalTimeSeconds := 0.0
+	totalEggsDelivered := 0.0
+	currentPop := initialPop
+
+	// Loop until the target number of eggs is delivered
+	for totalEggsDelivered < targetEggs {
+		// Calculate the number of eggs laid in this time step
+		deliveryRate := layingRatePerStep
+		eggsToDeliverThisStep := deliveryRate //* currentPop
+
+		// Calculate the eggs delivered in this time step (limited by the eggs available)
+
+		// Update total eggs delivered
+		totalEggsDelivered += eggsToDeliverThisStep
+
+		// Update the population for the next time step using the logistical growth formula.
+		if currentPop <= maxPop {
+			oldPop := currentPop
+			currentPop += growthRatePerStep
+			if currentPop > maxPop {
+				currentPop = maxPop
+			}
+			// want % of pop increase so we can increase the delivery rate
+			popIncrease := currentPop - oldPop
+			layingRatePerStep *= (1 + popIncrease/oldPop)
+		}
+
+		// Increment time
+		totalTimeSeconds += timeStepSeconds
+
+		// Safety break to prevent infinite loops if the target is unreachable.
+		if totalTimeSeconds > 3600 { // 1 hour in seconds
+			return -1.0
+		}
+	}
+
+	return totalTimeSeconds
 }
