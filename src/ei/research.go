@@ -325,7 +325,6 @@ func GetFarmEarningRates(backup *Backup, deliveryRate float64, artBuffs Dimensio
 //	maxPop: The maximum carrying capacity of the population.
 //	growthRatePerMinute: The growth rate of the population per minute.
 //	layingRatePerHour: The number of eggs laid per chicken per hour.
-//	shippingRatePerHour: The constant number of eggs shipped per hour.
 //	targetEggs: The total number of eggs to deliver.
 //
 // Returns:
