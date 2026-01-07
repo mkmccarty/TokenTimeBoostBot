@@ -337,7 +337,7 @@ func TimeToDeliverEggsInSeconds(initialPop, maxPop, growthRatePerMinute, layingR
 		return -1.0 // Return -1 for invalid inputs
 	}
 
-	// Convert rates to be consistent with the 1-minute time step
+	// Convert rates to be consistent with the 5-second time step
 	timeStepSeconds := 5.0
 	layingRatePerStep := (layingRatePerHour / 3600) * timeStepSeconds
 	growthRatePerStep := growthRatePerMinute * timeStepSeconds
