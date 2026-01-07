@@ -128,7 +128,7 @@ type EggIncContract struct {
 	EstimatedDuration         time.Duration
 	EstimatedDurationLower    time.Duration
 	EstimatedDurationMax      time.Duration
-	EstimateDurationSIAB      time.Duration
+	EstimatedDurationSIAB     time.Duration
 	TargetTval                float64
 	TargetTvalLower           float64
 	ModifierEarnings          float64
