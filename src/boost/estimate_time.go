@@ -373,7 +373,7 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			ihrSlots:        8.0, // leggacy set, Deflector w/o IHR stones
 		},
 		{
-			// This is for a full leggacy set with TE boosts of 5 tokens
+			// Full leggacy set with TE boosts of 5 tokens, using SIAB instead of gusset (9 delivery slots)
 			id:              "leggy_siab",
 			deflectorBonus:  0.20,
 			boostTokens:     5.0,
