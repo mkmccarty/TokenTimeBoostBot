@@ -385,7 +385,7 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			calcMode:        modeStoneHuntMethod,
 			metronome:       1.35,   // T4L
 			compass:         1.5,    // T4L
-			gusset:          1.0,    // T4L
+			gusset:          1.0,    // N/A - using SIAB instead of gusset
 			deliverySlots:   9.0,    // defl(2), metr(3), comp(2), siab(2)
 			ihr:             7440.0, // leggacy set, Deflector w/o IHR stones
 			te:              50,
