@@ -240,7 +240,7 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 			estStrMax = strings.TrimRight(estStrMax, "0s")
 			str += fmt.Sprintf("Leggy Set: **%s** CS:**%d**\n", estStrMax, int64(c.CxpMax))
 			if c.CxpMaxSiab > c.CxpMax {
-				estStrMaxSiab := c.EstimateDurationSIAB.Round(time.Minute).String()
+				estStrMaxSiab := c.EstimatedDurationSIAB.Round(time.Minute).String()
 				estStrMaxSiab = strings.TrimRight(estStrMaxSiab, "0s")
 				str += fmt.Sprintf("SIAB Set: **%s** CS:**%d**\n", estStrMaxSiab, int64(c.CxpMaxSiab))
 			}
