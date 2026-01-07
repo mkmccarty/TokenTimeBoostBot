@@ -382,6 +382,8 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 			if c.ContractVersion == 2 { //&& c.ValidUntil.Unix() > time.Now().Unix() {
 				artifactIcons := ""
 				teamworkIcons := []string{}
+				deliveryTarget := c.TargetAmount[len(c.TargetAmount)-1] / float64(c.MaxCoopSize)
+
 				log.Printf("Evaluating contract %s coop %s for user %s\n", contractID, coopID, eiUserName)
 				if coopID != "[solo]" {
 					coopStatus, _, _, err := ei.GetCoopStatusForCompletedContracts(contractID, a.GetCoopIdentifier())
@@ -389,7 +391,11 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 						builder.Reset()
 						for _, c := range coopStatus.GetContributors() {
 							// Check to see if the name matches the farmer name in the evaluation
-							if c.GetUserName() == eiUserName {
+							pp := float64(c.GetProductionParams().GetDelivered())
+							myRatio := pp / deliveryTarget
+
+							// If the player has changed their game name, then we may need to match on contribution ratio too
+							if c.GetUserName() == eiUserName || myRatio == evaluation.GetContributionRatio() {
 								for _, artifact := range c.GetFarmInfo().GetEquippedArtifacts() {
 									spec := artifact.GetSpec()
 									strType := levels[spec.GetLevel()] + rarity[spec.GetRarity()]
