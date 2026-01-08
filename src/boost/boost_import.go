@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 
 	"google.golang.org/protobuf/proto"
@@ -133,6 +134,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	c.Grade = make([]ei.ContractGrade, 6)
 	for _, s := range contractProtoBuf.GetGradeSpecs() {
 		grade := int(s.GetGrade())
+		c.TargetAmount = nil
 
 		//		if grade == ei.Contract_GRADE_AAA {
 		for _, g := range s.GetGoals() {
@@ -237,11 +239,9 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			}*/
 		debug := false
 
-		/*
-			if c.ID == "quant-blitz" {
-				debug = true
-			}
-		*/
+		if config.IsDevBot() && c.ID == "quant-blitz" {
+			debug = true
+		}
 
 		c.EstimatedDuration, c.EstimatedDurationLower, c.EstimatedDurationMax, c.EstimatedDurationSIAB = getContractDurationEstimate(c, c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
 			c.ModifierSR, c.ModifierELR, c.ModifierHabCap, debug)
