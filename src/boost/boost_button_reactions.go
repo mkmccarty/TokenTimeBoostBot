@@ -393,7 +393,7 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 			if len(missing) >= 6 {
 				b.WriteString(bottools.NumberToEmoji(len(missing)))
 			} else {
-				b.WriteString(strconv.Itoa(len(alreadyRun)))
+				b.WriteString(strconv.Itoa(len(missing)))
 				b.WriteByte('\n')
 				b.WriteString(strings.Join(missing, " "))
 			}
