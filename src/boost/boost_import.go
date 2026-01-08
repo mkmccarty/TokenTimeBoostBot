@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 
 	"google.golang.org/protobuf/proto"
@@ -239,9 +238,11 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			}*/
 		debug := false
 
-		if config.IsDevBot() && c.ID == "quant-blitz" {
-			debug = true
-		}
+		/*
+			if config.IsDevBot() && c.ID == "quant-blitz" {
+				debug = true
+			}
+		*/
 
 		c.EstimatedDuration, c.EstimatedDurationLower, c.EstimatedDurationMax, c.EstimatedDurationSIAB = getContractDurationEstimate(c, c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
 			c.ModifierSR, c.ModifierELR, c.ModifierHabCap, debug)
