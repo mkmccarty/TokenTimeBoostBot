@@ -641,10 +641,6 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	contract.ContractHash = ContractHash
 	contract.ContractID = contractID
 	contract.CoopID = coopID
-	// create contract.ChickenRunStrings map[string][]string
-	if contract.ChickenRunStrings == nil {
-		contract.ChickenRunStrings = make(map[string][]string)
-	}
 
 	contract.PlannedStartTime = plannedStartTime
 	//	contract.UseInteractionButtons = config.GetTestMode() // Feature under test
@@ -663,6 +659,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 
 	//GlobalContracts[ContractHash] = append(GlobalContracts[ContractHash], loc)
 	contract.Boosters = make(map[string]*Booster)
+	contract.CRMessageIDs = make(map[string]string)
 	contract.ContractID = contractID
 	contract.CoopID = coopID
 	contract.PlayStyle = playStyle
