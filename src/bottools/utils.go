@@ -40,12 +40,6 @@ func FmtDuration(d time.Duration) string {
 }
 
 // FmtDurationSingleUnit formats a time.Duration into a single unit string and its corresponding unit integer
-// Parameters:
-//   - d (time.Duration)
-//
-// Returns:
-//   - (string): the duration value as a string.
-//   - (int): the duration unit as an integer (0: days, 1: hours, 2: minutes, 3: seconds).
 func FmtDurationSingleUnit(d time.Duration) (string, int) {
 	switch {
 	case d%(24*time.Hour) == 0:
@@ -184,6 +178,29 @@ func FormatIntWithCommas[T ~int | ~int64 | ~uint | ~uint32 | ~uint64](v T) strin
 		return "-" + string(buf)
 	}
 	return string(buf)
+}
+
+var numberEmoji = []string{
+	"0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣",
+	"5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣",
+}
+
+// NumberToEmoji converts any non-negative integer to a string of emoji digits
+func NumberToEmoji(n int) string {
+	if n <= 0 {
+		return numberEmoji[0]
+	}
+
+	var b strings.Builder
+	for _, digitRune := range strconv.Itoa(n) {
+		digit := digitRune - '0'
+		if digit >= 0 && digit <= 9 {
+			b.WriteString(numberEmoji[digit])
+		} else {
+			b.WriteRune(digitRune)
+		}
+	}
+	return b.String()
 }
 
 // GetCommandOptionsMap returns a map of command options

@@ -321,7 +321,7 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 				}
 				msg, err := s.ChannelMessageSendComplex(location.ChannelID, &data)
 				if err == nil {
-					setChickenRunMessageID(contract, msg.ID)
+					setChickenRunMessageID(contract, msg.ID, userID)
 				}
 			}
 		}()
@@ -336,42 +336,83 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 		// Ignore if the user isn't in the contract
 		return
 	}
+
+	requesterUserID := contract.CRMessageIDs[i.Message.ID]
+
 	contract.mutex.Lock()
 	defer contract.mutex.Unlock()
 
-	//log.Print("Ran Chicken")
-	msgedit := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
+	userBooster := contract.Boosters[cUserID]
 
-	str := i.Message.Embeds[0].Description
+	// Current user already ran?
+	if slices.Contains(userBooster.RanChickensOn, requesterUserID) {
+		return
+	}
 
-	userMention := contract.Boosters[cUserID].Mention
-	repost := false
+	// Mark the run for the current user and all their alts
+	for _, id := range append([]string{cUserID}, userBooster.Alts...) {
+		if id != requesterUserID {
+			contract.Boosters[id].RanChickensOn =
+				append(contract.Boosters[id].RanChickensOn, requesterUserID)
+		}
+	}
 
-	if !strings.Contains(str, userMention) {
-		str += " " + contract.Boosters[cUserID].Mention
-		repost = true
-	} else if len(contract.Boosters[cUserID].Alts) > 0 {
-		for _, altID := range contract.Boosters[cUserID].Alts {
-			if !strings.Contains(str, contract.Boosters[altID].Mention) {
-				str += " " + contract.Boosters[altID].Mention
-				repost = true
-				break
+	// Build Already run / Missing lists for all boosters
+	var alreadyRun, missing []string
+
+	add := func(b *Booster) {
+		if b.UserID == requesterUserID {
+			return
+		}
+		if slices.Contains(b.RanChickensOn, requesterUserID) {
+			alreadyRun = append(alreadyRun, b.Mention)
+		} else {
+			missing = append(missing, b.Mention)
+		}
+	}
+
+	for _, booster := range contract.Boosters {
+		if booster.UserID != requesterUserID {
+			add(booster)
+		}
+	}
+
+	// Rebuild message
+	var b strings.Builder
+	if len(alreadyRun) > 0 {
+		b.WriteString("**Completed:** ")
+		b.WriteString(strconv.Itoa(len(alreadyRun)))
+		b.WriteByte('\n')
+		b.WriteString(strings.Join(alreadyRun, " "))
+	}
+	// Print the missing players for LB and FR
+	if contract.PlayStyle == ContractPlaystyleLeaderboard ||
+		contract.PlayStyle == ContractPlaystyleFastrun {
+		if len(missing) > 0 {
+			b.WriteString("\n**Remaining:** ")
+			if len(missing) >= 6 {
+				b.WriteString(bottools.NumberToEmoji(len(missing)))
+			} else {
+				b.WriteByte('\n')
+				b.WriteString(strings.Join(missing, " "))
 			}
 		}
 	}
-	if repost {
-		//msgedit.SetContent(str)
-		embeds := []*discordgo.MessageEmbed{
-			{
-				Title:       i.Message.Embeds[0].Title,
-				Description: str,
-				Color:       i.Message.Embeds[0].Color,
-			},
-		}
-		msgedit.SetEmbeds(embeds)
-		msgedit.Flags = discordgo.MessageFlagsSuppressNotifications
-		_, _ = s.ChannelMessageEditComplex(msgedit)
-	}
+	str := b.String()
+
+	//log.Print("Ran Chicken")
+	msgedit := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
+	//msgedit.SetContent(str)
+	msgedit.SetEmbeds([]*discordgo.MessageEmbed{
+		{
+			Title:       i.Message.Embeds[0].Title,
+			Description: str,
+			Color:       i.Message.Embeds[0].Color,
+		},
+	})
+	msgedit.Flags = discordgo.MessageFlagsSuppressNotifications
+	_, _ = s.ChannelMessageEditComplex(msgedit)
+
 }
 
 func buttonReactionHelp(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract) {
