@@ -337,7 +337,7 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 		return
 	}
 
-	requesterUserID := contract.CRMessageIDs[i.Interaction.Message.ID]
+	requesterUserID := contract.CRMessageIDs[i.Message.ID]
 
 	contract.mutex.Lock()
 	defer contract.mutex.Unlock()
