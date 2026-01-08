@@ -273,26 +273,27 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 }
 
 type estimatePlayer struct {
-	id              string
-	deflectorBonus  float64
-	boostTokens     float64
-	boostMultiplier float64
-	colELR          float64
-	colShip         float64
-	colHab          float64
-	colIHR          float64
-	calcMode        int
-	boundedELR      float64
-	contractELR     float64
-	metronome       float64 // Delivery artifacts
-	gusset          float64
-	compass         float64
-	deliverySlots   float64
-	ihr             float64 // IHR artifacts
-	te              float64
-	chalice         float64
-	monocle         float64
-	ihrSlots        float64
+	id                string
+	deflectorBonus    float64
+	boostTokens       float64
+	boostMultiplier   float64
+	colELR            float64
+	colShip           float64
+	colHab            float64
+	colIHR            float64
+	calcMode          int
+	boundedELR        float64
+	contractELR       float64
+	metronome         float64 // Delivery artifacts
+	gusset            float64
+	compass           float64
+	deliverySlots     float64
+	ihr               float64 // IHR artifacts
+	te                float64
+	chalice           float64
+	monocle           float64
+	ihrSlots          float64
+	chickenRunPercent float64
 }
 
 // getContractDurationEstimate returns three estimated durations (upper, lower, and max) of a contract based on great and well equipped artifact sets
@@ -313,85 +314,89 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 
 	estimates := []estimatePlayer{
 		{
-			id:              "basic_set",
-			deflectorBonus:  0.15,
-			boostTokens:     6.0,
-			boostMultiplier: calcBoostMulti(6.0),
-			colELR:          1.0,
-			colShip:         1.0,
-			colHab:          1.0,
-			colIHR:          1.0,
-			calcMode:        modeStoneHuntMethod,
-			metronome:       1.32, // T3E
-			compass:         1.45, // average
-			gusset:          1.24, // T4L
-			deliverySlots:   8.0,  // general average of stones
-			ihr:             7440.0,
-			te:              0,
-			chalice:         1.3, // T4C
-			monocle:         1.2, // T4C
-			ihrSlots:        7.0, // any(3),chalice(0),monocle(0),any(3)
+			id:                "basic_set",
+			deflectorBonus:    0.15,
+			boostTokens:       6.0,
+			boostMultiplier:   calcBoostMulti(6.0),
+			colELR:            1.0,
+			colShip:           1.0,
+			colHab:            1.0,
+			colIHR:            1.0,
+			calcMode:          modeStoneHuntMethod,
+			metronome:         1.32, // T3E
+			compass:           1.45, // average
+			gusset:            1.24, // T4L
+			deliverySlots:     8.0,  // general average of stones
+			ihr:               7440.0,
+			te:                0,
+			chalice:           1.3, // T4C
+			monocle:           1.2, // T4C
+			ihrSlots:          7.0, // any(3),chalice(0),monocle(0),any(3)
+			chickenRunPercent: 70.0,
 		},
 		{
-			id:              "solid_set",
-			deflectorBonus:  0.17,
-			boostTokens:     6.0,
-			boostMultiplier: calcBoostMulti(6.0),
-			colELR:          collectibleELR,
-			colShip:         colllectibleShip,
-			colHab:          colleggtibleHab,
-			colIHR:          colleggtiblesIHR,
-			calcMode:        modeStoneHuntMethod,
-			metronome:       1.35, // T4L
-			compass:         1.5,  // T4L
-			gusset:          1.25, // T4L
-			deliverySlots:   9.0,  // defl(1), metr(3), comp(2), gusset(3)
-			ihr:             7440.0,
-			te:              0,
-			chalice:         1.4, // T4L
-			monocle:         1.3, // T4L
-			ihrSlots:        8.0, // leggacy set, Deflector w/o IHR stones
+			id:                "solid_set",
+			deflectorBonus:    0.17,
+			boostTokens:       6.0,
+			boostMultiplier:   calcBoostMulti(6.0),
+			colELR:            collectibleELR,
+			colShip:           colllectibleShip,
+			colHab:            colleggtibleHab,
+			colIHR:            colleggtiblesIHR,
+			calcMode:          modeStoneHuntMethod,
+			metronome:         1.35, // T4L
+			compass:           1.5,  // T4L
+			gusset:            1.25, // T4L
+			deliverySlots:     9.0,  // defl(1), metr(3), comp(2), gusset(3)
+			ihr:               7440.0,
+			te:                0,
+			chalice:           1.4, // T4L
+			monocle:           1.3, // T4L
+			ihrSlots:          8.0, // leggacy set, Deflector w/o IHR stones
+			chickenRunPercent: 70.0,
 		},
 		{
-			id:              "leggy_set",
-			deflectorBonus:  0.20,
-			boostTokens:     5.0,
-			boostMultiplier: calcBoostMulti(5.0),
-			colELR:          collectibleELR,
-			colShip:         colllectibleShip,
-			colHab:          colleggtibleHab,
-			colIHR:          colleggtiblesIHR,
-			calcMode:        modeStoneHuntMethod,
-			metronome:       1.35,   // T4L
-			compass:         1.5,    // T4L
-			gusset:          1.25,   // T4L
-			deliverySlots:   10.0,   // defl(2), metr(3), comp(2), gusset(3)
-			ihr:             7440.0, // leggacy set, Deflector w/o IHR stones
-			te:              50,
-			chalice:         1.4, // T4L
-			monocle:         1.3, // T4L
-			ihrSlots:        8.0, // leggacy set, Deflector w/o IHR stones
+			id:                "leggy_set",
+			deflectorBonus:    0.20,
+			boostTokens:       5.0,
+			boostMultiplier:   calcBoostMulti(5.0),
+			colELR:            collectibleELR,
+			colShip:           colllectibleShip,
+			colHab:            colleggtibleHab,
+			colIHR:            colleggtiblesIHR,
+			calcMode:          modeStoneHuntMethod,
+			metronome:         1.35,   // T4L
+			compass:           1.5,    // T4L
+			gusset:            1.25,   // T4L
+			deliverySlots:     10.0,   // defl(2), metr(3), comp(2), gusset(3)
+			ihr:               7440.0, // leggacy set, Deflector w/o IHR stones
+			te:                50,
+			chalice:           1.4, // T4L
+			monocle:           1.3, // T4L
+			ihrSlots:          8.0, // leggacy set, Deflector w/o IHR stones
+			chickenRunPercent: 70.0,
 		},
 		{
 			// Full leggacy set with TE boosts of 5 tokens, using SIAB instead of gusset (9 delivery slots)
-			id:              "leggy_siab",
-			deflectorBonus:  0.20,
-			boostTokens:     5.0,
-			boostMultiplier: calcBoostMulti(5.0),
-			colELR:          collectibleELR,
-			colShip:         colllectibleShip,
-			colHab:          colleggtibleHab,
-			colIHR:          colleggtiblesIHR,
-			calcMode:        modeStoneHuntMethod,
-			metronome:       1.35,   // T4L
-			compass:         1.5,    // T4L
-			gusset:          1.0,    // N/A - using SIAB instead of gusset
-			deliverySlots:   9.0,    // defl(2), metr(3), comp(2), siab(2)
-			ihr:             7440.0, // leggacy set, Deflector w/o IHR stones
-			te:              50,
-			chalice:         1.4, // T4L
-			monocle:         1.3, // T4L
-			ihrSlots:        8.0, // leggacy set, Deflector w/o IHR stones
+			id:                "leggy_siab",
+			deflectorBonus:    0.20,
+			boostTokens:       5.0,
+			boostMultiplier:   calcBoostMulti(5.0),
+			colELR:            collectibleELR,
+			colShip:           colllectibleShip,
+			colHab:            colleggtibleHab,
+			colIHR:            colleggtiblesIHR,
+			calcMode:          modeStoneHuntMethod,
+			metronome:         1.35,   // T4L
+			compass:           1.5,    // T4L
+			gusset:            1.0,    // N/A - using SIAB instead of gusset
+			deliverySlots:     9.0,    // defl(2), metr(3), comp(2), siab(2)
+			ihr:               7440.0, // leggacy set, Deflector w/o IHR stones
+			te:                50,
+			chalice:           1.4, // T4L
+			monocle:           1.3, // T4L
+			ihrSlots:          8.0, // leggacy set, Deflector w/o IHR stones
+			chickenRunPercent: 70.0,
 		},
 	}
 
@@ -509,8 +514,8 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 		// really need to hit the boundedELR. We'll consider CR and excess ELR
 		unusedRatioELR := max(1.0, est.contractELR/bestTotal)
 		population := (14_175_000_000 * est.colHab) / unusedRatioELR
-		populationForCR := population * 0.70
-		// At 70% of used population, with chicken giving 5% of population
+		// At 70% (est.chickenRunPercent) of used population, with chicken giving 5% of population
+		populationForCR := population * est.chickenRunPercent
 		crPopulation := populationForCR * 0.05 * (numFarmers - 1.0)
 		adjustedPop := max(populationForCR, population-crPopulation)
 
@@ -529,19 +534,21 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			log.Printf("rampUpHours (before boost): %v\n", rampUpHours)
 		}
 
-		// Short contract experiment work
+		// Short contract experiment work - DISABLED: parameters were incorrectly dimensioned
 		if debug && config.IsDevBot() {
+			// These short contracts will finish before boosting completes
 			ihr2 := est.ihr * est.chalice * est.monocle * math.Pow(1.04, est.ihrSlots) * est.colIHR
 			ihr2 *= math.Pow(1.01, est.te)
-			ihr2 *= 12 * calcBoostMulti(6.0)
+			ihr2 *= 12 * calcBoostMulti(5.0)
 
-			myELR := 252720.0 * est.colELR * modELR * est.metronome * math.Pow(1.05, slots) * deflectorMultiplier / 60.0
+			// This is focused on building up the farm population quickly
+			myELR := 252720.0 * est.colELR * modELR * deflectorMultiplier / 60.0
 
 			remainingTime := ei.TimeToDeliverEggsInSeconds(10_000_000, adjustedPop, ihr2/60, myELR*10_000_000, contractEggsTotal)
 			log.Print("Remaining time check (s): ", remainingTime)
-		}
-
-		if est.calcMode == modeOriginalFormula {
+			rampUpHours = est.boostTokens * hoursPerTokenAllPlayers
+			rampUpHours += remainingTime / 3600.0
+		} else if est.calcMode == modeOriginalFormula {
 			rampUpHours += (est.boostTokens / tokenRate) + (10.0 / 60.0)
 		} else {
 			// Use contract-specific boost tokens and token accrual rate

@@ -240,7 +240,7 @@ func TimeToDeliverEggs(initialPop, maxPop, growthRatePerMinute, layingRatePerHou
 	for totalEggsDelivered < targetEggs {
 		// Calculate the number of eggs laid in this time step
 		deliveryRate := math.Min(layingRatePerStep, shippingRatePerStep)
-		eggsToDeliverThisStep := deliveryRate //* currentPop
+		eggsToDeliverThisStep := deliveryRate
 
 		// Calculate the eggs delivered in this time step (limited by the eggs available)
 		//eggsToDeliverThisStep := math.Min(eggsLaidInStep, shippingRatePerStep)
@@ -337,7 +337,7 @@ func TimeToDeliverEggsInSeconds(initialPop, maxPop, growthRatePerMinute, layingR
 	}
 
 	// Convert rates to be consistent with the 5-second time step
-	timeStepSeconds := 5.0
+	timeStepSeconds := 1.0
 	layingRatePerStep := (layingRatePerHour / 3600) * timeStepSeconds
 	growthRatePerStep := (growthRatePerMinute / 60.0) * timeStepSeconds
 
@@ -348,8 +348,7 @@ func TimeToDeliverEggsInSeconds(initialPop, maxPop, growthRatePerMinute, layingR
 	// Loop until the target number of eggs is delivered
 	for totalEggsDelivered < targetEggs {
 		// Calculate the number of eggs laid in this time step
-		deliveryRate := layingRatePerStep
-		eggsToDeliverThisStep := deliveryRate //* currentPop
+		eggsToDeliverThisStep := layingRatePerStep
 
 		// Calculate the eggs delivered in this time step (limited by the eggs available)
 
