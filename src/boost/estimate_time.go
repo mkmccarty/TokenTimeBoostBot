@@ -410,7 +410,7 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 		if float64(contractLengthInSeconds) < 45*60 {
 			est.boostTokens = math.Min(est.boostTokens, 4.0)
 			est.boostMultiplier = calcBoostMulti(est.boostTokens)
-			// Will want to use all Tachyeon stones for this case
+			// Will want to use all Tachyon stones for this case
 		}
 
 		// Base rate with T4L Metronome +35% and T4L Gusset +25%
