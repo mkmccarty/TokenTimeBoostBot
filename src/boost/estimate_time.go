@@ -236,14 +236,41 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 				c.Cxp*0.70)
 		}
 		if includeLeggySet {
+			gg, ugg, _ := ei.GetGenerousGiftEvent()
+			ggicon := ""
+			if gg > 1.0 {
+				ggicon = " " + ei.GetBotEmojiMarkdown("std_gg")
+			}
+			if ugg > 1.0 {
+				// farmers with ultra
+				//gg = ugg + (float64(contract.UltraCount) / float64(contract.CoopSize))
+				ggicon = " " + ei.GetBotEmojiMarkdown("ultra_gg")
+			}
+
 			estStrMax := c.EstimatedDurationMax.Round(time.Minute).String()
 			estStrMax = strings.TrimRight(estStrMax, "0s")
-			str += fmt.Sprintf("Leggy Set: **%s** CS:**%d**\n", estStrMax, int64(c.CxpMax))
+			str += fmt.Sprintf("Leggy Set: **%s** CS:**%d**", estStrMax, int64(c.CxpMax))
+
 			if c.CxpMaxSiab > c.CxpMax {
 				estStrMaxSiab := c.EstimatedDurationSIAB.Round(time.Minute).String()
 				estStrMaxSiab = strings.TrimRight(estStrMaxSiab, "0s")
-				str += fmt.Sprintf("SIAB Set: **%s** CS:**%d** (no gusset, 9 stone slots)\n", estStrMaxSiab, int64(c.CxpMaxSiab))
+				str += fmt.Sprintf(" / %s **%s** CS:**%d** (no gusset, 9 stones)\n", ei.GetBotEmojiMarkdown("SIAB_T4L"), estStrMaxSiab, int64(c.CxpMaxSiab))
+			} else {
+				str += "\n"
 			}
+
+			if ggicon != "" {
+				estStrGG := c.EstimatedDurationMaxGG.Round(time.Minute).String()
+				estStrGG = strings.TrimRight(estStrGG, "0s")
+				str += fmt.Sprintf("%s **%s** CS:**%d**", ggicon, estStrGG, int64(c.CxpMaxGG))
+				if c.CxpMaxSiab > c.CxpMax {
+					estStrGG := c.EstimatedDurationSIABGG.Round(time.Minute).String()
+					estStrGG = strings.TrimRight(estStrGG, "0s")
+					str += fmt.Sprintf(" / %s **%s** CS:**%d**", ei.GetBotEmojiMarkdown("SIAB_T4L"), estStrGG, int64(c.CxpMaxSiabGG))
+				}
+				str += fmt.Sprintf(" (6%s)\n", ei.GetBotEmojiMarkdown("token"))
+			}
+
 			str += fmt.Sprintf("-# Leggy set 50 TE, 8 IHR & 10 delivery stone sets, 1.0 fair share, 5%s boost.\n", ei.GetBotEmojiMarkdown("token"))
 		}
 		if footerAboutCR && c.MaxCoopSize > 1 {
@@ -294,10 +321,22 @@ type estimatePlayer struct {
 	monocle           float64
 	ihrSlots          float64
 	chickenRunPercent float64
+	generousGifts     float64
+}
+
+// ContractDurationEstimate groups the various duration estimates
+// produced by getContractDurationEstimate.
+type ContractDurationEstimate struct {
+	Upper  time.Duration
+	Lower  time.Duration
+	Max    time.Duration
+	SIAB   time.Duration
+	MaxGG  time.Duration
+	SIABGG time.Duration
 }
 
 // getContractDurationEstimate returns three estimated durations (upper, lower, and max) of a contract based on great and well equipped artifact sets
-func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64, numFarmers float64, contractLengthInSeconds int, modifierSR float64, modifierELR float64, modifierHabCap float64, debug bool) (time.Duration, time.Duration, time.Duration, time.Duration) {
+func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64, numFarmers float64, contractLengthInSeconds int, modifierSR float64, modifierELR float64, modifierHabCap float64, debug bool) ContractDurationEstimate {
 
 	contractDuration := time.Duration(contractLengthInSeconds) * time.Second
 
@@ -333,6 +372,7 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			monocle:           1.2, // T4C
 			ihrSlots:          7.0, // any(3),chalice(0),monocle(0),any(3)
 			chickenRunPercent: 70.0,
+			generousGifts:     1.0,
 		},
 		{
 			id:                "solid_set",
@@ -354,6 +394,7 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			monocle:           1.3, // T4L
 			ihrSlots:          8.0, // leggacy set, Deflector w/o IHR stones
 			chickenRunPercent: 70.0,
+			generousGifts:     1.0,
 		},
 		{
 			id:                "leggy_set",
@@ -375,6 +416,7 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			monocle:           1.3, // T4L
 			ihrSlots:          8.0, // leggacy set, Deflector w/o IHR stones
 			chickenRunPercent: 70.0,
+			generousGifts:     1.0,
 		},
 		{
 			// Full leggacy set with TE boosts of 5 tokens, using SIAB instead of gusset (9 delivery slots)
@@ -397,6 +439,52 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			monocle:           1.3, // T4L
 			ihrSlots:          8.0, // leggacy set, Deflector w/o IHR stones
 			chickenRunPercent: 70.0,
+			generousGifts:     1.0,
+		},
+		{
+			id:                "leggy_set_gg",
+			deflectorBonus:    0.20,
+			boostTokens:       6.0,
+			boostMultiplier:   calcBoostMulti(6.0),
+			colELR:            collectibleELR,
+			colShip:           colllectibleShip,
+			colHab:            colleggtibleHab,
+			colIHR:            colleggtiblesIHR,
+			calcMode:          modeStoneHuntMethod,
+			metronome:         1.35,   // T4L
+			compass:           1.5,    // T4L
+			gusset:            1.25,   // T4L
+			deliverySlots:     10.0,   // defl(2), metr(3), comp(2), gusset(3)
+			ihr:               7440.0, // leggacy set, Deflector w/o IHR stones
+			te:                50,
+			chalice:           1.4, // T4L
+			monocle:           1.3, // T4L
+			ihrSlots:          8.0, // leggacy set, Deflector w/o IHR stones
+			chickenRunPercent: 70.0,
+			generousGifts:     2.0,
+		},
+		{
+			// Full leggacy set with TE boosts of 5 tokens, using SIAB instead of gusset (9 delivery slots)
+			id:                "leggy_siab_gg",
+			deflectorBonus:    0.20,
+			boostTokens:       6.0,
+			boostMultiplier:   calcBoostMulti(6.0),
+			colELR:            collectibleELR,
+			colShip:           colllectibleShip,
+			colHab:            colleggtibleHab,
+			colIHR:            colleggtiblesIHR,
+			calcMode:          modeStoneHuntMethod,
+			metronome:         1.35,   // T4L
+			compass:           1.5,    // T4L
+			gusset:            1.0,    // N/A - using SIAB instead of gusset
+			deliverySlots:     9.0,    // defl(2), metr(3), comp(2), siab(2)
+			ihr:               7440.0, // leggacy set, Deflector w/o IHR stones
+			te:                50,
+			chalice:           1.4, // T4L
+			monocle:           1.3, // T4L
+			ihrSlots:          8.0, // leggacy set, Deflector w/o IHR stones
+			chickenRunPercent: 70.0,
+			generousGifts:     2.0,
 		},
 	}
 
@@ -404,6 +492,8 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 	var estimateDurationLower time.Duration
 	var estimateDurationMax time.Duration
 	var estimateDurationSIAB time.Duration
+	var estimateDurationMaxGG time.Duration
+	var estimateDurationSIABGG time.Duration
 
 	for _, est := range estimates {
 		slots := est.deliverySlots
@@ -501,7 +591,7 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 		est.boundedELR = bestTotal
 		eggsTotal := contractEggsTotal / 1e15
 		timerTokens := float64(c.MinutesPerToken) / 60.0
-		tokenRate := 6.0 + timerTokens
+		tokenRate := (6.0 * est.generousGifts) + timerTokens
 
 		// 1. Define the ramp-up time before we have any boosting started
 		tokensPerHourAllPlayers := tokenRate * numFarmers // tokens per hour all players
@@ -601,14 +691,39 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			if debug {
 				log.Printf("estimateDurationSIAB: %v\n", estimateDurationSIAB)
 			}
+		case "leggy_set_gg":
+			estimateDurationMaxGG = time.Duration(estimate * float64(time.Hour))
+			if debug {
+				log.Printf("estimateDurationMaxGG: %v\n", estimateDurationMaxGG)
+			}
+		case "leggy_siab_gg":
+			estimateDurationSIABGG = time.Duration(estimate * float64(time.Hour))
+			if debug {
+				log.Printf("estimateDurationSIABGG: %v\n", estimateDurationSIABGG)
+			}
 		}
+
 	}
 
 	if estimateDurationUpper > contractDuration {
-		return contractDuration, contractDuration, estimateDurationMax, estimateDurationSIAB
+		return ContractDurationEstimate{
+			Upper:  contractDuration,
+			Lower:  contractDuration,
+			Max:    estimateDurationMax,
+			SIAB:   estimateDurationSIAB,
+			MaxGG:  estimateDurationMaxGG,
+			SIABGG: estimateDurationSIABGG,
+		}
 	}
 
-	return estimateDurationUpper, estimateDurationLower, estimateDurationMax, estimateDurationSIAB
+	return ContractDurationEstimate{
+		Upper:  estimateDurationUpper,
+		Lower:  estimateDurationLower,
+		Max:    estimateDurationMax,
+		SIAB:   estimateDurationSIAB,
+		MaxGG:  estimateDurationMaxGG,
+		SIABGG: estimateDurationSIABGG,
+	}
 }
 
 // calcBoostMulti converts a number of active boost tokens into an overall
