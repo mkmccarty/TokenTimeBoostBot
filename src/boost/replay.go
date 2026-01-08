@@ -485,7 +485,23 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 				fmt.Fprintf(&builder, "**Started:** <t:%d:f> %s\n", startTime.Unix(), ggIcon)
 				fmt.Fprintf(&builder, "**Completed:** <t:%d:f>\n", completionTime)
 				fmt.Fprintf(&builder, "**Duration:** %s  **Est. Duration:** %s\n", bottools.FmtDuration(time.Duration(evaluation.GetCompletionTime()*float64(time.Second))), bottools.FmtDuration(c.EstimatedDurationMax))
-				fmt.Fprintf(&builder, "**CS:** %d  **Est CS:** %.0f (SR estimation)\n", uint32(evaluationCxp), c.CxpMax)
+				ggString := ""
+				ggicon := ""
+				gg, ugg, _ := ei.GetGenerousGiftEvent()
+				if gg > 1.0 {
+					ggicon = " " + ei.GetBotEmojiMarkdown("std_gg")
+				}
+				if ugg > 1.0 {
+					// farmers with ultra
+					//gg = ugg + (float64(contract.UltraCount) / float64(contract.CoopSize))
+					ggicon = " " + ei.GetBotEmojiMarkdown("ultra_gg")
+				}
+				if ggicon != "" {
+					ggString = fmt.Sprintf(" / %s %.0f ", ggicon, c.CxpMaxGG)
+				}
+
+				fmt.Fprintf(&builder, "**CS:** %d  **Est CS:** %.0f %s(SR estimation)\n", uint32(evaluationCxp), c.CxpMax, ggString)
+
 				if c.SeasonalScoring == ei.SeasonalScoringNerfed {
 					fmt.Fprintf(&builder, "**Contrib:** %s  **CR:** %s\n", contribCheck, crCheck)
 				} else {
