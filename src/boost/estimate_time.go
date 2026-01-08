@@ -515,7 +515,7 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 		unusedRatioELR := max(1.0, est.contractELR/bestTotal)
 		population := (14_175_000_000 * est.colHab) / unusedRatioELR
 		// At 70% (est.chickenRunPercent) of used population, with chicken giving 5% of population
-		populationForCR := population * est.chickenRunPercent
+		populationForCR := population * (est.chickenRunPercent / 100.0)
 		crPopulation := populationForCR * 0.05 * (numFarmers - 1.0)
 		adjustedPop := max(populationForCR, population-crPopulation)
 
