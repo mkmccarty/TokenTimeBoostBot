@@ -253,8 +253,6 @@ type Contract struct {
 	EstimateUpdateTime        time.Time
 	TimeBoosting              time.Time // When the contract boost started
 
-	CRMessageIDs []string // Array of message IDs for chicken run messages
-
 	CoopSize            int
 	Ultra               bool
 	UltraCount          int
@@ -272,9 +270,9 @@ type Contract struct {
 	ActualStartTime     time.Time // Actual start time for token tracking
 	RegisteredNum       int
 	Boosters            map[string]*Booster // Boosters Registered
-	ChickenRunStrings   map[string][]string
-	WaitlistBoosters    []string // Waitlist of UserID's
-	AltIcons            []string // Array of alternate icons for the Boosters
+	CRMessageIDs        map[string]string   // CR reqest messageIDs
+	WaitlistBoosters    []string            // Waitlist of UserID's
+	AltIcons            []string            // Array of alternate icons for the Boosters
 	Order               []string
 	BoostedOrder        []string   // Actual order of boosting
 	OrderRevision       int        // Incremented when Order is changed
@@ -514,10 +512,11 @@ func SetReactionID(contract *Contract, channelID string, reactionID string) {
 	saveData(contract.ContractHash)
 }
 
-func setChickenRunMessageID(contract *Contract, messageID string) {
-	if slices.Index(contract.CRMessageIDs, messageID) == -1 {
-		contract.CRMessageIDs = append(contract.CRMessageIDs, messageID)
+func setChickenRunMessageID(contract *Contract, messageID, userID string) {
+	if contract.CRMessageIDs == nil {
+		contract.CRMessageIDs = make(map[string]string)
 	}
+	contract.CRMessageIDs[messageID] = userID
 }
 
 func getTokenCountString(tokenStr string, tokensWanted int, tokensReceived int) (string, string) {
