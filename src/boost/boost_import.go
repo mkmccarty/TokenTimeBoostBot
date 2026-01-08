@@ -188,8 +188,10 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		c.Grade[grade].ModifierResearchCost = c.ModifierResearchCost
 		c.Grade[grade].LengthInSeconds = c.LengthInSeconds
 
-		c.Grade[grade].EstimatedDuration, c.Grade[grade].EstimatedDurationLower, _, _ = getContractDurationEstimate(c, c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
+		est := getContractDurationEstimate(c, c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
 			c.ModifierSR, c.ModifierELR, c.ModifierHabCap, false)
+		c.Grade[grade].EstimatedDuration = est.Upper
+		c.Grade[grade].EstimatedDurationLower = est.Lower
 
 		gradeKey := ei.Contract_PlayerGrade_name[int32(grade)]
 		if gradeMult, ok := ei.GradeMultiplier[gradeKey]; ok {
@@ -244,8 +246,14 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			}
 		*/
 
-		c.EstimatedDuration, c.EstimatedDurationLower, c.EstimatedDurationMax, c.EstimatedDurationSIAB = getContractDurationEstimate(c, c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
+		estAll := getContractDurationEstimate(c, c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
 			c.ModifierSR, c.ModifierELR, c.ModifierHabCap, debug)
+		c.EstimatedDuration = estAll.Upper
+		c.EstimatedDurationLower = estAll.Lower
+		c.EstimatedDurationMax = estAll.Max
+		c.EstimatedDurationSIAB = estAll.SIAB
+		c.EstimatedDurationMaxGG = estAll.MaxGG
+		c.EstimatedDurationSIABGG = estAll.SIABGG
 	}
 	/*
 
@@ -334,6 +342,22 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 				c.EstimatedDurationSIAB,                     // Use faster duration at a 1.0 modifier
 				fairShare,                                   // Fair Share, first booster
 				100, int(c.EstimatedDurationSIAB.Minutes()), // SIAB 100%, full duration
+				20, 0, // Deflector %, minutes reduction
+				c.ChickenRuns, // All Chicken Runs - Post CRT
+				100, 5))       // Tokens Sent a lot and received a little.
+
+			c.CxpMaxGG = float64(getContractScoreEstimateWithDuration(c, ei.Contract_GRADE_AAA,
+				c.EstimatedDurationMaxGG, // Use faster duration at a 1.0 modifier
+				fairShare,                // Fair Share, first booster
+				100, 30,                  // SIAB 100%, 30 minutes
+				20, 0, // Deflector %, minutes reduction
+				c.ChickenRuns, // All Chicken Runs - Post CRT
+				100, 5))       // Tokens Sent a lot and received a little.
+
+			c.CxpMaxSiabGG = float64(getContractScoreEstimateWithDuration(c, ei.Contract_GRADE_AAA,
+				c.EstimatedDurationSIABGG,                     // Use faster duration at a 1.0 modifier
+				fairShare,                                     // Fair Share, first booster
+				100, int(c.EstimatedDurationSIABGG.Minutes()), // SIAB 100%, full duration
 				20, 0, // Deflector %, minutes reduction
 				c.ChickenRuns, // All Chicken Runs - Post CRT
 				100, 5))       // Tokens Sent a lot and received a little.

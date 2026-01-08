@@ -129,6 +129,8 @@ type EggIncContract struct {
 	EstimatedDurationLower    time.Duration
 	EstimatedDurationMax      time.Duration
 	EstimatedDurationSIAB     time.Duration
+	EstimatedDurationMaxGG    time.Duration
+	EstimatedDurationSIABGG   time.Duration
 	TargetTval                float64
 	TargetTvalLower           float64
 	ModifierEarnings          float64
@@ -151,7 +153,9 @@ type EggIncContract struct {
 	CxpRunDelta     float64 // Individual chicken run addition
 	Cxp             float64 // CXP value for the contract
 	CxpMax          float64 // Maximum CXP value based on EstimatedDurationMax
+	CxpMaxGG        float64 // Maximum CXP value based on EstimatedDurationMaxGG
 	CxpMaxSiab      float64 // Maximum CXP value based on SIAB usage
+	CxpMaxSiabGG    float64 // CXP value for the contract based on SIAB usage
 	SeasonalScoring int     // 0 = old (0.2.0), true = 1 (0.2.0+ seasonal change for AA+AAA)
 }
 
