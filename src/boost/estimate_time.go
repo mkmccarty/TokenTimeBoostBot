@@ -299,6 +299,181 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 	return noteStr + str
 }
 
+// calculateSingleEstimate computes the completion duration for a contract
+// using the provided artifact and player configuration.
+// Returns the estimated duration in hours.
+func calculateSingleEstimate(
+	est estimatePlayer,
+	c ei.EggIncContract,
+	contractEggsTotal float64,
+	numFarmers float64,
+	contractLengthInSeconds int,
+	modifierSR float64,
+	modifierELR float64,
+	modifierHabCap float64,
+	deflectorsOnFarmer float64,
+	debug bool,
+) float64 {
+	const modeOriginalFormula = 1
+	const modeStoneHuntMethod = 2
+
+	modHab := modifierHabCap
+	modELR := modifierELR
+	modShip := modifierSR
+
+	slots := est.deliverySlots
+	deflectorBonus := est.deflectorBonus
+	colELR := est.colELR
+	colShip := est.colShip
+	colHab := est.colHab
+
+	if float64(contractLengthInSeconds) < 45*60 {
+		est.boostTokens = math.Min(est.boostTokens, 4.0)
+		est.boostMultiplier = calcBoostMulti(est.boostTokens)
+	}
+
+	// Base rate with T4L Metronome +35% and T4L Gusset +25%
+	baseELR := 3.772 * est.metronome * est.gusset
+	// Base rate with T4L Compass +50%
+	baseShipping := 7.148 * est.compass
+	maxShipping := baseShipping * math.Pow(1.05, slots) * colShip
+	contractBaseELR := baseELR * modELR * modHab
+	contractShipCap := maxShipping * modShip
+	deflectorMultiplier := 1.0 + deflectorBonus*deflectorsOnFarmer
+	bestTotal := 0.0
+	intSlots := int(slots)
+
+	if debug {
+		log.Printf("id: %v\n", est.id)
+		log.Printf("slots: %v\n", slots)
+		log.Printf("modELR: %v\n", modELR)
+		log.Printf("modShip: %v\n", modShip)
+		log.Printf("modHab: %v\n", modHab)
+		log.Printf("colELR: %v\n", colELR)
+		log.Printf("colShip: %v\n", colShip)
+		log.Printf("colHab: %v\n", colHab)
+		log.Printf("baseELR: %v\n", baseELR)
+		log.Printf("baseShipping: %v\n", baseShipping)
+		log.Printf("maxShipping: %v\n", maxShipping)
+		log.Printf("contractBaseELR: %v\n", contractBaseELR)
+		log.Printf("contractShipCap: %v\n", contractShipCap)
+		log.Printf("deflectorMultiplier: %v\n", deflectorMultiplier)
+	}
+
+	if est.calcMode == modeStoneHuntMethod {
+		tachStones := 0
+		quantStones := 0
+		bestELR := 0.0
+		bestSR := 0.0
+		for i := 0; i <= intSlots; i++ {
+			stoneLayRate := contractBaseELR
+			stoneLayRate *= deflectorMultiplier
+			stoneLayRate *= math.Pow(1.05, float64(i)) * colELR * colHab
+
+			stoneShipRate := baseShipping * math.Pow(1.05, float64((intSlots-i))) * colShip
+
+			bestMin := min(stoneLayRate, stoneShipRate)
+			if bestMin > bestTotal {
+				bestTotal = bestMin
+				tachStones = i
+				quantStones = intSlots - i
+				bestELR = stoneLayRate
+				bestSR = stoneShipRate
+				est.contractELR = stoneLayRate
+			} else if bestTotal > 0 {
+				break
+			}
+		}
+		if debug {
+			log.Printf("tachStones: %v\n", tachStones)
+			log.Printf("quantStones: %v\n", quantStones)
+			log.Printf("bestELR: %v\n", bestELR)
+			log.Printf("bestSR: %v\n", bestSR)
+			log.Printf("boundedELR: %v\n", bestTotal)
+		}
+	} else {
+		// Original formula method from Halcyon
+		tachStones := slots +
+			((modShip * colShip) / (modELR * colELR * modHab * colHab)) -
+			deflectorsOnFarmer*slots/(slots+(modShip*colShip)/(modELR*colELR*modHab*colHab))
+		tachBounded := max(0.0, min(slots, tachStones))
+		tachMultiplier := math.Pow(1.05, tachBounded)
+		contractELR := contractBaseELR * deflectorMultiplier * tachMultiplier
+		est.contractELR = contractELR
+		bestTotal = min(contractShipCap, contractELR)
+		if debug {
+			log.Printf("tachStones: %v\n", tachStones)
+			log.Printf("tachBounded: %v\n", tachBounded)
+			log.Printf("tachMultiplier: %v\n", tachMultiplier)
+			log.Printf("contractELR: %v\n", contractELR)
+			log.Printf("boundedELR: %v\n", bestTotal)
+		}
+	}
+
+	est.boundedELR = bestTotal
+	eggsTotal := contractEggsTotal / 1e15
+	timerTokens := float64(c.MinutesPerToken) / 60.0
+	tokenRate := (6.0 * est.generousGifts) + timerTokens
+
+	tokensPerHourAllPlayers := tokenRate * numFarmers
+	hoursPerTokenAllPlayers := 1.0 / tokensPerHourAllPlayers
+	rampUpHours := est.boostTokens * hoursPerTokenAllPlayers
+
+	unusedRatioELR := max(1.0, est.contractELR/bestTotal)
+	population := (14_175_000_000 * est.colHab) / unusedRatioELR
+	populationForCR := population * (est.chickenRunPercent / 100.0)
+	crPopulation := populationForCR * 0.05 * (numFarmers - 1.0)
+	adjustedPop := max(populationForCR, population-crPopulation)
+
+	ihr := est.ihr * est.chalice * est.monocle * math.Pow(1.04, est.ihrSlots) * est.colIHR
+	ihr *= math.Pow(1.01, est.te)
+	boostTime := adjustedPop / (ihr * 12 * est.boostMultiplier) / 60
+
+	if debug {
+		log.Printf("ihr: %v\n", ihr)
+		log.Printf("unusedRatioELR: %v\n", unusedRatioELR)
+		log.Printf("Useful population: %v\n", population)
+		log.Printf("populationForCR: %v\n", populationForCR)
+		log.Printf("crPopulation: %v\n", crPopulation)
+		log.Printf("adjustedPop: %v\n", adjustedPop)
+		log.Print("boostTime (h): ", boostTime)
+		log.Printf("rampUpHours (before boost): %v\n", rampUpHours)
+	}
+
+	if debug && config.IsDevBot() {
+		ihr2 := est.ihr * est.chalice * est.monocle * math.Pow(1.04, est.ihrSlots) * est.colIHR
+		ihr2 *= math.Pow(1.01, est.te)
+		ihr2 *= 12 * calcBoostMulti(5.0)
+
+		myELR := 252720.0 * est.colELR * modELR * deflectorMultiplier / 60.0
+
+		remainingTime := ei.TimeToDeliverEggsInSeconds(10_000_000, adjustedPop, ihr2/60, myELR*10_000_000, contractEggsTotal)
+		log.Print("Remaining time check (s): ", remainingTime)
+		rampUpHours = est.boostTokens * hoursPerTokenAllPlayers
+		rampUpHours += remainingTime / 3600.0
+	} else if est.calcMode == modeOriginalFormula {
+		rampUpHours += (est.boostTokens / tokenRate) + (10.0 / 60.0)
+	} else {
+		rampUpHours += (est.boostTokens / tokenRate) + boostTime
+	}
+
+	rampUpDeliveries := 0.5 * (numFarmers * est.boundedELR) * rampUpHours
+	remainingEggs := max(0, eggsTotal-rampUpDeliveries)
+	steadyStateTime := remainingEggs / (numFarmers * est.boundedELR)
+	estimate := min(float64(c.LengthInSeconds)/3600.0, rampUpHours+steadyStateTime)
+
+	if debug {
+		log.Printf("tokenRate: %v\n", tokenRate)
+		log.Printf("rampUpHours: %v\n", rampUpHours)
+		log.Printf("rampUpDeliveries: %v\n", rampUpDeliveries)
+		log.Printf("remainingEggs: %v\n", remainingEggs)
+		log.Printf("steadyStateTime: %v\n", steadyStateTime)
+		log.Printf("estimate (hours): %v\n", estimate)
+	}
+
+	return estimate
+}
+
 type estimatePlayer struct {
 	id                string
 	deflectorBonus    float64
@@ -496,179 +671,9 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 	var estimateDurationSIABGG time.Duration
 
 	for _, est := range estimates {
-		slots := est.deliverySlots
-		deflectorBonus := est.deflectorBonus
-		colELR := est.colELR
-		colShip := est.colShip
-		colHab := est.colHab
+		estimate := calculateSingleEstimate(est, c, contractEggsTotal, numFarmers,
+			contractLengthInSeconds, modShip, modELR, modHab, deflectorsOnFarmer, debug)
 
-		if float64(contractLengthInSeconds) < 45*60 {
-			est.boostTokens = math.Min(est.boostTokens, 4.0)
-			est.boostMultiplier = calcBoostMulti(est.boostTokens)
-			// Will want to use all Tachyon stones for this case
-		}
-
-		// Base rate with T4L Metronome +35% and T4L Gusset +25%
-		baseELR := 3.772 * est.metronome * est.gusset
-		// Base rate with T4L Compass +50%
-		baseShipping := 7.148 * est.compass
-		maxShipping := baseShipping * math.Pow(1.05, slots) * colShip
-		contractBaseELR := baseELR * modELR * modHab
-		contractShipCap := maxShipping * modShip
-		deflectorMultiplier := 1.0 + deflectorBonus*deflectorsOnFarmer
-		bestTotal := 0.0
-		intSlots := int(slots)
-		bestELR := 0.0
-		bestSR := 0.0
-
-		if debug {
-			log.Printf("id: %v\n", est.id)
-			log.Printf("slots: %v\n", slots)
-			log.Printf("modELR: %v\n", modELR)
-			log.Printf("modShip: %v\n", modShip)
-			log.Printf("modHab: %v\n", modHab)
-			log.Printf("colELR: %v\n", colELR)
-			log.Printf("colShip: %v\n", colShip)
-			log.Printf("colHab: %v\n", colHab)
-			log.Printf("baseELR: %v\n", baseELR)
-			log.Printf("baseShipping: %v\n", baseShipping)
-			log.Printf("maxShipping: %v\n", maxShipping)
-			log.Printf("contractBaseELR: %v\n", contractBaseELR)
-			log.Printf("contractShipCap: %v\n", contractShipCap)
-			log.Printf("deflectorMultiplier: %v\n", deflectorMultiplier)
-		}
-
-		if est.calcMode == modeStoneHuntMethod {
-			tachStones := 0
-			quantStones := 0
-			for i := 0; i <= intSlots; i++ {
-				stoneLayRate := contractBaseELR
-				stoneLayRate *= deflectorMultiplier
-				stoneLayRate *= math.Pow(1.05, float64(i)) * colELR * colHab
-
-				stoneShipRate := baseShipping * math.Pow(1.05, float64((intSlots-i))) * colShip
-
-				bestMin := min(stoneLayRate, stoneShipRate)
-				if bestMin > bestTotal {
-					bestTotal = bestMin
-					tachStones = i
-					quantStones = intSlots - i
-					bestELR = stoneLayRate
-					bestSR = stoneShipRate
-					est.contractELR = stoneLayRate
-
-				} else if bestTotal > 0 {
-					// We've passed the peak, no point continuing
-					break
-				}
-			}
-			if debug {
-				log.Printf("tachStones: %v\n", tachStones)
-				log.Printf("quantStones: %v\n", quantStones)
-				log.Printf("bestELR: %v\n", bestELR)
-				log.Printf("bestSR: %v\n", bestSR)
-				log.Printf("boundedELR: %v\n", bestTotal)
-			}
-		} else {
-			// Original formula method from Halcyon
-			tachStones := slots +
-				((modShip * colShip) / (modELR * colELR * modHab * colHab)) -
-				deflectorsOnFarmer*slots/(slots+(modShip*colShip)/(modELR*colELR*modHab*colHab))
-			tachBounded := max(0.0, min(slots, tachStones))
-			tachMultiplier := math.Pow(1.05, tachBounded)
-			contractELR := contractBaseELR * deflectorMultiplier * tachMultiplier
-			est.contractELR = contractELR
-			bestTotal = min(contractShipCap, contractELR)
-			if debug {
-				log.Printf("tachStones: %v\n", tachStones)
-				log.Printf("tachBounded: %v\n", tachBounded)
-				log.Printf("tachMultiplier: %v\n", tachMultiplier)
-				log.Printf("contractELR: %v\n", contractELR)
-				log.Printf("boundedELR: %v\n", bestTotal)
-			}
-		}
-
-		est.boundedELR = bestTotal
-		eggsTotal := contractEggsTotal / 1e15
-		timerTokens := float64(c.MinutesPerToken) / 60.0
-		tokenRate := (6.0 * est.generousGifts) + timerTokens
-
-		// 1. Define the ramp-up time before we have any boosting started
-		tokensPerHourAllPlayers := tokenRate * numFarmers // tokens per hour all players
-		hoursPerTokenAllPlayers := 1.0 / tokensPerHourAllPlayers
-
-		// Need to seed this with initial wait time for first boost tokens
-		rampUpHours := est.boostTokens * hoursPerTokenAllPlayers
-
-		// In this bit of code I want to consider only the amount of population we
-		// really need to hit the boundedELR. We'll consider CR and excess ELR
-		unusedRatioELR := max(1.0, est.contractELR/bestTotal)
-		population := (14_175_000_000 * est.colHab) / unusedRatioELR
-		// At 70% (est.chickenRunPercent) of used population, with chicken giving 5% of population
-		populationForCR := population * (est.chickenRunPercent / 100.0)
-		crPopulation := populationForCR * 0.05 * (numFarmers - 1.0)
-		adjustedPop := max(populationForCR, population-crPopulation)
-
-		ihr := est.ihr * est.chalice * est.monocle * math.Pow(1.04, est.ihrSlots) * est.colIHR
-		ihr *= math.Pow(1.01, est.te)
-		boostTime := adjustedPop / (ihr * 12 * est.boostMultiplier) / 60
-
-		if debug {
-			log.Printf("ihr: %v\n", ihr)
-			log.Printf("unusedRatioELR: %v\n", unusedRatioELR)
-			log.Printf("Useful population: %v\n", population)
-			log.Printf("populationForCR: %v\n", populationForCR)
-			log.Printf("crPopulation: %v\n", crPopulation)
-			log.Printf("adjustedPop: %v\n", adjustedPop)
-			log.Print("boostTime (h): ", boostTime)
-			log.Printf("rampUpHours (before boost): %v\n", rampUpHours)
-		}
-
-		// Short contract experiment work - DISABLED: parameters were incorrectly dimensioned
-		if debug && config.IsDevBot() {
-			// These short contracts will finish before boosting completes
-			ihr2 := est.ihr * est.chalice * est.monocle * math.Pow(1.04, est.ihrSlots) * est.colIHR
-			ihr2 *= math.Pow(1.01, est.te)
-			ihr2 *= 12 * calcBoostMulti(5.0)
-
-			// This is focused on building up the farm population quickly
-			myELR := 252720.0 * est.colELR * modELR * deflectorMultiplier / 60.0
-
-			remainingTime := ei.TimeToDeliverEggsInSeconds(10_000_000, adjustedPop, ihr2/60, myELR*10_000_000, contractEggsTotal)
-			log.Print("Remaining time check (s): ", remainingTime)
-			rampUpHours = est.boostTokens * hoursPerTokenAllPlayers
-			rampUpHours += remainingTime / 3600.0
-		} else if est.calcMode == modeOriginalFormula {
-			rampUpHours += (est.boostTokens / tokenRate) + (10.0 / 60.0)
-		} else {
-			// Use contract-specific boost tokens and token accrual rate
-			// Additional boost time is dynamically calculated in boostTime
-			rampUpHours += (est.boostTokens / tokenRate) + boostTime
-		}
-
-		// 2. Calculate deliveries made DURING the ramp-up period
-		// Formula: Area of a triangle (1/2 * base * height)
-		rampUpDeliveries := 0.5 * (numFarmers * est.boundedELR) * rampUpHours
-
-		// 3. Subtract ramp-up deliveries from the total eggs to find what's left
-		// for the "steady state" period
-		remainingEggs := max(0, eggsTotal-rampUpDeliveries)
-
-		// 4. Calculate time spent at full speed
-		steadyStateTime := remainingEggs / (numFarmers * est.boundedELR)
-
-		// 5. Total Estimate = Ramp-up time + Steady-state time
-		// Note: Boost overhead is already included in rampUpHours for modeStoneHuntMethod
-		estimate := min(float64(c.LengthInSeconds)/3600.0, rampUpHours+steadyStateTime)
-
-		if debug {
-			log.Printf("tokenRate: %v\n", tokenRate)
-			log.Printf("rampUpHours: %v\n", rampUpHours)
-			log.Printf("rampUpDeliveries: %v\n", rampUpDeliveries)
-			log.Printf("remainingEggs: %v\n", remainingEggs)
-			log.Printf("steadyStateTime: %v\n", steadyStateTime)
-			log.Printf("estimate (hours): %v\n", estimate)
-		}
 		switch est.id {
 		case "basic_set":
 			estimateDurationUpper = time.Duration(estimate * float64(time.Hour))
@@ -702,7 +707,6 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 				log.Printf("estimateDurationSIABGG: %v\n", estimateDurationSIABGG)
 			}
 		}
-
 	}
 
 	if estimateDurationUpper > contractDuration {
