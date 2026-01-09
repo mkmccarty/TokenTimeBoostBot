@@ -63,21 +63,6 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 
 	redraw := false
 
-	/*
-		// Handle the alt icons and mapping to the correct alt user
-		if strings.Contains(cmd, "alt-") {
-			// Special handling for alt icons representing token reactions
-			idx, _ := strconv.Atoi(strings.Split(cmd, "-")[1])
-			if idx < len(contract.AltIcons) {
-				idx := slices.Index(contract.Boosters[userID].AltsIcons, contract.AltIcons[idx])
-				if idx != -1 {
-					userID = contract.Boosters[userID].Alts[idx]
-					cmd = "token"
-				}
-			}
-		}
-	*/
-
 	switch cmd {
 	case "boost":
 		if i.Message.ID == contract.Location[0].ListMsgID {
@@ -477,18 +462,6 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 		compVals["🐓"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("runready"), Style: discordgo.SecondaryButton, CustomID: "rc_#cr#"}
 		compVals["✅"] = CompMap{Emoji: "✅", Style: discordgo.SecondaryButton, CustomID: "rc_#check#"}
 		compVals["❓"] = CompMap{Emoji: "❓", Style: discordgo.SecondaryButton, CustomID: "rc_#help#"}
-		/* Removed AltIcons as with removed TVal, they tokens don't need to tracked separately
-		for i, el := range contract.AltIcons {
-			name := ""
-			for _, booster := range contract.Boosters {
-				idx := slices.Index(booster.AltsIcons, el)
-				if idx != -1 {
-					name = booster.Alts[idx]
-				}
-			}
-			compVals[el] = CompMap{Emoji: el, Name: name, Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("rc_#alt-%d#", i)}
-		}
-		*/
 		contract.buttonComponents = compVals
 	}
 
@@ -509,7 +482,6 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 	}
 
 	// Alt icons can go on a second action row
-	//icons = append(icons, contract.AltIcons...)
 	out := []discordgo.MessageComponent{}
 
 	if contract.State != ContractStateSignup {
@@ -550,16 +522,7 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 					Value: "want:",
 					Emoji: ei.GetBotComponentEmoji("token"),
 				})
-				/*
-					if contract.AltIcons != nil && len(contract.AltIcons) > 0 {
-						menuOptions = append(menuOptions, discordgo.SelectMenuOption{
-							Label:       "Request a token from an alternate",
-							Description: "Select an alternate to request a token from.",
-							Value:       "want-alt",
-							Emoji:       ei.GetBotComponentEmoji("token"),
-						})
-					}
-				*/
+
 			} else {
 				menuOptions = append(menuOptions, discordgo.SelectMenuOption{
 					Label:       "Request a token",
@@ -678,92 +641,6 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 	return out
 }
 
-/*
-func addContractReactionsButtons(s *discordgo.Session, contract *Contract, channelID string, messageID string) {
-	if contract.buttonComponents == nil {
-		compVals := make(map[string]CompMap, 14)
-		compVals[boostIconReaction] = CompMap{Emoji: boostIconReaction, Style: discordgo.SecondaryButton, CustomID: "rc_#Boost#"}
-		compVals[contract.TokenStr] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("token"), Style: discordgo.SecondaryButton, CustomID: "rc_#Token#"}
-		compVals["💰"] = CompMap{Emoji: "💰", Style: discordgo.SecondaryButton, CustomID: "rc_#bag#"}
-		compVals["🚚"] = CompMap{Emoji: "🚚", Style: discordgo.SecondaryButton, CustomID: "rc_#truck#"}
-		compVals["💃"] = CompMap{Emoji: "💃", Style: discordgo.SecondaryButton, CustomID: "rc_#tango#"}
-		compVals["🦵"] = CompMap{Emoji: "🦵", Style: discordgo.SecondaryButton, CustomID: "rc_#leg#"}
-		compVals["🔃"] = CompMap{Emoji: "🔃", Style: discordgo.SecondaryButton, CustomID: "rc_#swap#"}
-		compVals["⤵️"] = CompMap{Emoji: "⤵️", Style: discordgo.SecondaryButton, CustomID: "rc_#last#"}
-		compVals["🐓"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("runready"), Style: discordgo.SecondaryButton, CustomID: "rc_#cr#"}
-		compVals["✅"] = CompMap{Emoji: "✅", Style: discordgo.SecondaryButton, CustomID: "rc_#check#"}
-		compVals["❓"] = CompMap{Emoji: "❓", Style: discordgo.SecondaryButton, CustomID: "rc_#help#"}
-		for i, el := range contract.AltIcons {
-			name := ""
-			for _, booster := range contract.Boosters {
-				idx := slices.Index(booster.AltsIcons, el)
-				if idx != -1 {
-					name = booster.Alts[idx]
-				}
-			}
-			compVals[el] = CompMap{Emoji: el, Name: name, Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("rc_#alt-%d#", i)}
-		}
-		contract.buttonComponents = compVals
-	}
-
-	compVals := contract.buttonComponents
-
-	iconsRow := make([][]string, 5)
-	iconsRow[0], iconsRow[1] = addContractReactionsGather(contract, contract.TokenStr)
-	if len(iconsRow[1]) > 5 {
-		iconsRow[2] = iconsRow[1][5:] // Grab overflow icons to new row
-		iconsRow[1] = iconsRow[1][:5] // Limit this row to 5 icons
-		if len(iconsRow[2]) > 5 {
-			iconsRow[3] = iconsRow[2][5:] // Grab overflow icons to new row
-			iconsRow[2] = iconsRow[2][:5] // Limit the number of alt icons to 5
-			iconsRow[3] = iconsRow[3][:5] // Limit the number of alt icons to 5
-		}
-	}
-
-	// Alt icons can go on a second action row
-	//icons = append(icons, contract.AltIcons...)
-	out := []discordgo.MessageComponent{}
-	for _, row := range iconsRow {
-		var mComp []discordgo.MessageComponent
-		for _, el := range row {
-			if compVals[el].Emoji == "" {
-				mComp = append(mComp, discordgo.Button{
-					//Label: "Send a Token",
-					Emoji:    compVals[el].ComponentEmoji,
-					Style:    compVals[el].Style,
-					CustomID: compVals[el].CustomID + contract.ContractHash,
-				})
-
-			} else {
-				mComp = append(mComp, discordgo.Button{
-					Label: compVals[el].Name,
-					Emoji: &discordgo.ComponentEmoji{
-						Name: compVals[el].Emoji,
-						ID:   compVals[el].ID,
-					},
-					Style:    compVals[el].Style,
-					CustomID: compVals[el].CustomID + contract.ContractHash,
-				})
-			}
-		}
-
-		actionRow := discordgo.ActionsRow{Components: mComp}
-		if len(actionRow.Components) > 0 {
-			out = append(out, actionRow)
-		}
-	}
-
-	msgedit := discordgo.NewMessageEdit(channelID, messageID)
-	msgedit.Components = &out
-
-	_, err := s.ChannelMessageEditComplex(msgedit)
-
-	if err != nil {
-		log.Println(err)
-	}
-}
-*/
-
 func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, []string) {
 
 	iconsRowA := []string{}
@@ -772,15 +649,12 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 	switch contract.State {
 	case ContractStateBanker:
 		iconsRowA = append(iconsRowA, []string{tokenStr, "🐓", "💰"}...)
-		//iconsRowB = append(iconsRowB, contract.AltIcons...)
 	case ContractStateFastrun:
 		iconsRowA = append(iconsRowA, []string{boostIconReaction, tokenStr, "🔃", "⤵️", "🐓"}...)
-		//iconsRowB = append(iconsRowB, contract.AltIcons...)
 	case ContractStateWaiting:
 		sinkID := contract.Banker.CurrentBanker
 		if sinkID != "" {
 			iconsRowA = append(iconsRowA, tokenStr)
-			//iconsRowB = append(iconsRowB, contract.AltIcons...)
 		}
 		iconsRowA = append(iconsRowA, "🐓")
 
@@ -789,7 +663,6 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 		sinkID := contract.Banker.CurrentBanker
 		if sinkID != "" {
 			iconsRowA = append(iconsRowA, tokenStr)
-			//iconsRowB = append(iconsRowB, contract.AltIcons...)
 		}
 		iconsRowA = append(iconsRowA, "🐓")
 	}
@@ -799,17 +672,13 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 		if slices.Contains(iconsRowA, tokenStr) {
 			idx := slices.Index(iconsRowA, tokenStr)
 			iconsRowA = append(iconsRowA[:idx+1], append([]string{"GG"}, iconsRowA[idx+1:]...)...)
-		} //else {
-		//	iconsRowA = append(iconsRowA, "GG")
-		//}
+		}
 	}
 	if ugg > 1.0 {
 		if slices.Contains(iconsRowA, tokenStr) {
 			idx := slices.Index(iconsRowA, tokenStr)
 			iconsRowA = append(iconsRowA[:idx+1], append([]string{"UG"}, iconsRowA[idx+1:]...)...)
-		} //else {
-		//	iconsRowA = append(iconsRowA, "UG")
-		//}
+		}
 	}
 
 	if len(iconsRowA) < 5 {
