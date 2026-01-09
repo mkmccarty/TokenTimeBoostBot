@@ -428,7 +428,7 @@ func printVirtue(backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compac
 	}
 	onlineFillTime := ei.TimeForLinearGrowth(habPop, habCap, onlineRate/60)
 	offlineFillTime := ei.TimeForLinearGrowth(habPop, habCap, offlineRate/60)
-	syncTime := time.Unix(int64(backup.GetApproxTime()), 0)
+	syncTime := time.Unix(int64(farm.GetLastStepTime()), 0)
 	elapsed := time.Since(syncTime).Seconds()
 	offlineEggs := min(eggLayingRate-fuelRate, shippingRate) * (elapsed / 3600)
 	if simulatedEgg != -1 && targetTE == 0 {
