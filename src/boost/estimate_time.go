@@ -14,6 +14,11 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
+const (
+	modeOriginalFormula = 1
+	modeStoneHuntMethod = 2
+)
+
 // GetSlashEstimateTime is the definition of the slash command
 func GetSlashEstimateTime(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
@@ -314,9 +319,6 @@ func calculateSingleEstimate(
 	deflectorsOnFarmer float64,
 	debug bool,
 ) float64 {
-	const modeOriginalFormula = 1
-	const modeStoneHuntMethod = 2
-
 	modHab := modifierHabCap
 	modELR := modifierELR
 	modShip := modifierSR
@@ -522,9 +524,6 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 	collectibleELR, colllectibleShip, colleggtibleHab, colleggtiblesIHR := ei.GetColleggtibleValues()
 
 	deflectorsOnFarmer := numFarmers - 1.0
-
-	const modeOriginalFormula = 1
-	const modeStoneHuntMethod = 2
 
 	estimates := []estimatePlayer{
 		{
