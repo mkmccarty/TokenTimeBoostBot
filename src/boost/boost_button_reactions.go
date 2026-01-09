@@ -485,6 +485,7 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 			}
 			compVals[el] = CompMap{Emoji: el, Name: name, Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("rc_#alt-%d#", i)}
 		}
+		*/
 		contract.buttonComponents = compVals
 	}
 
