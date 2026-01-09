@@ -63,18 +63,20 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 
 	redraw := false
 
-	// Handle the alt icons and mapping to the correct alt user
-	if strings.Contains(cmd, "alt-") {
-		// Special handling for alt icons representing token reactions
-		idx, _ := strconv.Atoi(strings.Split(cmd, "-")[1])
-		if idx < len(contract.AltIcons) {
-			idx := slices.Index(contract.Boosters[userID].AltsIcons, contract.AltIcons[idx])
-			if idx != -1 {
-				userID = contract.Boosters[userID].Alts[idx]
-				cmd = "token"
+	/*
+		// Handle the alt icons and mapping to the correct alt user
+		if strings.Contains(cmd, "alt-") {
+			// Special handling for alt icons representing token reactions
+			idx, _ := strconv.Atoi(strings.Split(cmd, "-")[1])
+			if idx < len(contract.AltIcons) {
+				idx := slices.Index(contract.Boosters[userID].AltsIcons, contract.AltIcons[idx])
+				if idx != -1 {
+					userID = contract.Boosters[userID].Alts[idx]
+					cmd = "token"
+				}
 			}
 		}
-	}
+	*/
 
 	switch cmd {
 	case "boost":
