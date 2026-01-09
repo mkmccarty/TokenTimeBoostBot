@@ -878,7 +878,7 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 				str = "Associated your `" + newAlt + "` alt with " + i.Member.User.Mention() + "\n"
 				str += "> Use the Signup sink buttons to select your alt for sinks, these cycle through alts so you may need to press them multiple times.\n"
 				str += "> Use the " + boostIcon + " reaction to indicate when your main or alt(s) boost.\n"
-				str += "> Use the " + newAltIcon + " reaction to indicate when `" + newAlt + "` sends tokens."
+				str += "> Use the normal token buttons to indicate when `" + newAlt + "` sends tokens."
 				contract.buttonComponents = nil // reset button components
 				defer saveData(contract.ContractHash)
 				//if contract.State == ContractStateSignup {

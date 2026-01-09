@@ -475,6 +475,7 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 		compVals["🐓"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("runready"), Style: discordgo.SecondaryButton, CustomID: "rc_#cr#"}
 		compVals["✅"] = CompMap{Emoji: "✅", Style: discordgo.SecondaryButton, CustomID: "rc_#check#"}
 		compVals["❓"] = CompMap{Emoji: "❓", Style: discordgo.SecondaryButton, CustomID: "rc_#help#"}
+		/* Removed AltIcons as with removed TVal, they tokens don't need to tracked separately
 		for i, el := range contract.AltIcons {
 			name := ""
 			for _, booster := range contract.Boosters {
