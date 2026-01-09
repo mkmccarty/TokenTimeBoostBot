@@ -770,15 +770,15 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 	switch contract.State {
 	case ContractStateBanker:
 		iconsRowA = append(iconsRowA, []string{tokenStr, "🐓", "💰"}...)
-		iconsRowB = append(iconsRowB, contract.AltIcons...)
+		//iconsRowB = append(iconsRowB, contract.AltIcons...)
 	case ContractStateFastrun:
 		iconsRowA = append(iconsRowA, []string{boostIconReaction, tokenStr, "🔃", "⤵️", "🐓"}...)
-		iconsRowB = append(iconsRowB, contract.AltIcons...)
+		//iconsRowB = append(iconsRowB, contract.AltIcons...)
 	case ContractStateWaiting:
 		sinkID := contract.Banker.CurrentBanker
 		if sinkID != "" {
 			iconsRowA = append(iconsRowA, tokenStr)
-			iconsRowB = append(iconsRowB, contract.AltIcons...)
+			//iconsRowB = append(iconsRowB, contract.AltIcons...)
 		}
 		iconsRowA = append(iconsRowA, "🐓")
 
@@ -787,7 +787,7 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 		sinkID := contract.Banker.CurrentBanker
 		if sinkID != "" {
 			iconsRowA = append(iconsRowA, tokenStr)
-			iconsRowB = append(iconsRowB, contract.AltIcons...)
+			//iconsRowB = append(iconsRowB, contract.AltIcons...)
 		}
 		iconsRowA = append(iconsRowA, "🐓")
 	}
