@@ -279,10 +279,8 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 		if einame != "" {
 			name += " " + einame
 		}
-		color := contract.Boosters[userID].Color
-		if color == 0 {
-			color = 0x00cc00
-		}
+		//color := contract.Boosters[userID].Color
+		color := 0xff0000
 		go func() {
 			for _, location := range contract.Location {
 				str := fmt.Sprintf("%s **%s** is ready for chicken runs, check for incoming trucks before visiting.", location.RoleMention, contract.Boosters[userID].Mention)
@@ -391,11 +389,21 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 	//log.Print("Ran Chicken")
 	msgedit := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 	//msgedit.SetContent(str)
+	color := 0x00ff00 // green
+	totalBoosters := len(alreadyRun) + len(missing)
+	if totalBoosters > 0 {
+		missingPercent := float64(len(missing)) / float64(totalBoosters) * 100
+		if missingPercent > 75 {
+			color = 0xff0000 // red
+		} else if missingPercent > 0 {
+			color = 0xffff00 // yellow
+		}
+	}
 	msgedit.SetEmbeds([]*discordgo.MessageEmbed{
 		{
 			Title:       i.Message.Embeds[0].Title,
 			Description: str,
-			Color:       i.Message.Embeds[0].Color,
+			Color:       color,
 		},
 	})
 	msgedit.Flags = discordgo.MessageFlagsSuppressNotifications
