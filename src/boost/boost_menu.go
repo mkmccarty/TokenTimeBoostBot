@@ -215,5 +215,48 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				Components: components,
 			},
 		})
+	case "mychickens":
+		userID := i.Member.User.ID
+		booster := contract.Boosters[userID]
+		if booster == nil {
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "You are not part of this contract.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+			return
+		}
+
+		var chickenRunList strings.Builder
+		chickenRunList.WriteString("# My Chicken Runs\n")
+		
+		if len(booster.RanChickensOn) == 0 {
+			chickenRunList.WriteString("You haven't run chickens for anyone yet.")
+		} else {
+			chickenRunList.WriteString(fmt.Sprintf("You have run chickens for %d farmer(s):\n\n", len(booster.RanChickensOn)))
+			for _, requesterID := range booster.RanChickensOn {
+				if requester := contract.Boosters[requesterID]; requester != nil {
+					// Find the position in the boost order
+					var position int
+					for idx, orderUserID := range contract.Order {
+						if orderUserID == requesterID {
+							position = idx + 1
+							break
+						}
+					}
+					chickenRunList.WriteString(fmt.Sprintf("* #%d - %s\n", position, requester.Mention))
+				}
+			}
+		}
+
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: chickenRunList.String(),
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
 	}
 }
