@@ -253,12 +253,12 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 					// Red status
 					requesterIndex := slices.Index(contract.Order, requesterUserID) + 1
 					requesterName := contract.Boosters[requesterUserID].Nick
-					redLinks = append(redLinks, fmt.Sprintf("[#%d](%s) %s", requesterIndex, messageLink, requesterName))
+					redLinks = append(redLinks, fmt.Sprintf("[**#%d**](%s) %s", requesterIndex, messageLink, requesterName))
 				} else if missingPercent > 0 {
 					// Yellow status
 					requesterIndex := slices.Index(contract.Order, requesterUserID) + 1
 					requesterName := contract.Boosters[requesterUserID].Nick
-					yellowLinks = append(yellowLinks, fmt.Sprintf("[#%d](%s) %s", requesterIndex, messageLink, requesterName))
+					yellowLinks = append(yellowLinks, fmt.Sprintf("[**#%d**](%s) %s", requesterIndex, messageLink, requesterName))
 				}
 			}
 		}
