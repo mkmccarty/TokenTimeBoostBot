@@ -252,11 +252,13 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				if missingPercent > 25 {
 					// Red status
 					requesterIndex := slices.Index(contract.Order, requesterUserID) + 1
-					redLinks = append(redLinks, fmt.Sprintf("[#%d](%s)", requesterIndex, messageLink))
+					requesterName := contract.Boosters[requesterUserID].Nick
+					redLinks = append(redLinks, fmt.Sprintf("[#%d](%s) %s", requesterIndex, messageLink, requesterName))
 				} else if missingPercent > 0 {
 					// Yellow status
 					requesterIndex := slices.Index(contract.Order, requesterUserID) + 1
-					yellowLinks = append(yellowLinks, fmt.Sprintf("[#%d](%s)", requesterIndex, messageLink))
+					requesterName := contract.Boosters[requesterUserID].Nick
+					yellowLinks = append(yellowLinks, fmt.Sprintf("[#%d](%s) %s", requesterIndex, messageLink, requesterName))
 				}
 			}
 		}
@@ -265,14 +267,14 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 			afterListStr.WriteString(fmt.Sprintf("\n%s Chicken Runs: ", ei.GetBotEmojiMarkdown("icon_chicken_run")))
 			if len(yellowLinks) > 0 {
 				afterListStr.WriteString("🟨 ")
-				afterListStr.WriteString(strings.Join(yellowLinks, " "))
+				afterListStr.WriteString(strings.Join(yellowLinks, ", "))
 				if len(redLinks) > 0 {
 					afterListStr.WriteString(" ")
 				}
 			}
 			if len(redLinks) > 0 {
 				afterListStr.WriteString("🟥 ")
-				afterListStr.WriteString(strings.Join(redLinks, " "))
+				afterListStr.WriteString(strings.Join(redLinks, ", "))
 			}
 			afterListStr.WriteString("\n")
 		}
