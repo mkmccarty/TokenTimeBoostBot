@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -210,6 +211,59 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		}
 
 	default:
+	}
+
+	// Add chicken run status links for red and yellow messages
+	if len(contract.CRMessageIDs) > 0 {
+		var redLinks []string
+		var yellowLinks []string
+
+		for messageID, requesterUserID := range contract.CRMessageIDs {
+			var alreadyRun, missing []string
+
+			// Count completed and missing runs
+			for _, booster := range contract.Boosters {
+				if booster.UserID == requesterUserID {
+					continue
+				}
+				if slices.Contains(booster.RanChickensOn, requesterUserID) {
+					alreadyRun = append(alreadyRun, booster.Mention)
+				} else {
+					missing = append(missing, booster.Mention)
+				}
+			}
+
+			totalBoosters := len(alreadyRun) + len(missing)
+			if totalBoosters > 0 {
+				missingPercent := float64(len(missing)) / float64(totalBoosters) * 100
+				channelID := contract.Location[0].ChannelID
+				messageLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", contract.Location[0].GuildID, channelID, messageID)
+
+				if missingPercent > 25 {
+					// Red status
+					requesterIndex := slices.Index(contract.Order, requesterUserID) + 1
+					redLinks = append(redLinks, fmt.Sprintf("🟥[#%d](%s)", requesterIndex, messageLink))
+				} else if missingPercent > 0 {
+					// Yellow status
+					requesterIndex := slices.Index(contract.Order, requesterUserID) + 1
+					yellowLinks = append(yellowLinks, fmt.Sprintf("🟨[#%d](%s)", requesterIndex, messageLink))
+				}
+			}
+		}
+
+		if len(redLinks) > 0 || len(yellowLinks) > 0 {
+			afterListStr.WriteString("\n🐓 Chicken Runs: ")
+			if len(yellowLinks) > 0 {
+				afterListStr.WriteString(strings.Join(yellowLinks, " "))
+				if len(redLinks) > 0 {
+					afterListStr.WriteString(" ")
+				}
+			}
+			if len(redLinks) > 0 {
+				afterListStr.WriteString(strings.Join(redLinks, " "))
+			}
+			afterListStr.WriteString("\n")
+		}
 	}
 
 	var prefix = " - "
