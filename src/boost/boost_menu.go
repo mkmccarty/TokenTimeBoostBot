@@ -8,6 +8,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 // HandleMenuReactions handles the menu reactions for the contract
@@ -230,8 +231,8 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 
 		var chickenRunList strings.Builder
-		chickenRunList.WriteString("# My Chicken Runs\n")
-		
+		chickenRunList.WriteString(fmt.Sprintf("# %s My Chicken Runs\n", ei.GetBotEmojiMarkdown("icon_chicken_run")))
+
 		if len(booster.RanChickensOn) == 0 {
 			chickenRunList.WriteString("You haven't run chickens for anyone yet.")
 		} else {

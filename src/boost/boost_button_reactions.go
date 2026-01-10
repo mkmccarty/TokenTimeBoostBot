@@ -563,7 +563,7 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
 			Label: "My Chicken Runs",
 			Value: "mychickens",
-			Emoji: &discordgo.ComponentEmoji{Name: "🐓"},
+			Emoji: ei.GetBotComponentEmoji("icon_chicken_run"),
 		})
 		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
 			Label: "Coop Tools",
