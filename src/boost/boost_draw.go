@@ -606,9 +606,6 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		guidanceStr.WriteString("\n")
 		guidanceStr.WriteString("> Active Booster: " + boostIcon + " when boosting. \n")
 		guidanceStr.WriteString("> Anyone: " + tokenStr + " when sending tokens ")
-		if len(contract.AltIcons) > 0 {
-			guidanceStr.WriteString(", alts use 🇦-🇿")
-		}
 		guidanceStr.WriteString(". ❓ Help.\n")
 		if contract.CoopSize != len(contract.Order) {
 			guidanceStr.WriteString("> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n")
