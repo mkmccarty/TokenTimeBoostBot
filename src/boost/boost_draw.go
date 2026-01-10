@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -219,6 +220,15 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		var yellowLinks []string
 
 		for messageID, requesterUserID := range contract.CRMessageIDs {
+			// Check if the chicken run request is within the last 5 minutes
+			msgIDInt, _ := strconv.ParseInt(messageID, 10, 64)
+			// Discord snowflake ID: timestamp is in the top 42 bits, milliseconds since epoch
+			msgTimestamp := time.UnixMilli((msgIDInt >> 22) + 1420070400000)
+			if time.Since(msgTimestamp) > 5*time.Minute {
+				// Skip requests older than 5 minutes
+				continue
+			}
+
 			var alreadyRun, missing []string
 
 			// Count completed and missing runs
