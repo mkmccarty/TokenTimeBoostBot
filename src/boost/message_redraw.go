@@ -62,6 +62,12 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract, updateSig
 		}
 		msgedit.Components = &components
 
+		// Disable ALL pings
+		msgedit.AllowedMentions = &discordgo.MessageAllowedMentions{
+			Parse:       []discordgo.AllowedMentionType{},
+			RepliedUser: false,
+		}
+
 		// Full contract for speedrun
 		msg, err := s.ChannelMessageEditComplex(msgedit)
 		if err == nil {
