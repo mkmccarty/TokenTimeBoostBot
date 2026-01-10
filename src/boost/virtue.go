@@ -428,6 +428,7 @@ func printVirtue(backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compac
 	}
 	onlineFillTime := ei.TimeForLinearGrowth(habPop, habCap, onlineRate/60)
 	offlineFillTime := ei.TimeForLinearGrowth(habPop, habCap, offlineRate/60)
+	activeDuration := time.Duration(farm.GetTotalStepTime()) * time.Second
 	syncTime := time.Unix(int64(farm.GetLastStepTime()), 0)
 	elapsed := time.Since(syncTime).Seconds()
 	offlineEggs := min(eggLayingRate-fuelRate, shippingRate) * (elapsed / 3600)
@@ -693,7 +694,9 @@ func printVirtue(backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compac
 	}
 	fmt.Fprint(&stats, "\n")
 
-	fmt.Fprintf(&footer, "-# Report run <t:%d:t>, last sync <t:%d:t>\n", time.Now().Unix(), syncTime.Unix())
+	fmt.Fprintf(&footer, "-# Active Ascension 🗓️:%s   Sync:%s\n",
+		bottools.FmtDuration(activeDuration),
+		bottools.WrapTimestamp(syncTime.Unix(), bottools.TimestampShortTime))
 
 	// Line for fuel
 	fuels := virtue.GetAfx().GetTankFuels()
