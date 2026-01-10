@@ -694,9 +694,11 @@ func printVirtue(backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compac
 	}
 	fmt.Fprint(&stats, "\n")
 
-	fmt.Fprintf(&footer, "-# Active Ascension 🗓️:%s   Sync:%s\n",
-		bottools.FmtDuration(activeDuration),
-		bottools.WrapTimestamp(syncTime.Unix(), bottools.TimestampShortTime))
+	fmt.Fprintf(&footer, "-# Report:%s  Sync:%s  🗓️%s:%s\n",
+		bottools.WrapTimestamp(time.Now().Unix(), bottools.TimestampShortTime),
+		bottools.WrapTimestamp(syncTime.Unix(), bottools.TimestampShortTime),
+		ei.GetBotEmojiMarkdown("silo"),
+		bottools.FmtDuration(activeDuration.Round(time.Hour)))
 
 	// Line for fuel
 	fuels := virtue.GetAfx().GetTankFuels()
