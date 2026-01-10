@@ -561,6 +561,11 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 			Emoji: ei.GetBotComponentEmoji("token"),
 		})
 		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+			Label: "My Chicken Runs",
+			Value: "mychickens",
+			Emoji: &discordgo.ComponentEmoji{Name: "🐓"},
+		})
+		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
 			Label: "Coop Tools",
 			Value: "tools",
 			Emoji: &discordgo.ComponentEmoji{Name: "🧰"},
@@ -575,27 +580,6 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 			Value: "grange",
 			Emoji: &discordgo.ComponentEmoji{Name: "🧑‍🧑‍🧒‍🧒"},
 		})
-
-		/*
-			menuOptions = append(menuOptions, discordgo.SelectMenuOption{
-				Label:       "Lousy Breaks Thing",
-				Description: "I didn't do it",
-				Value:       "lousyt",
-				Emoji:       &discordgo.ComponentEmoji{Name: "🔨"},
-			})
-			menuOptions = append(menuOptions, discordgo.SelectMenuOption{
-				Label:       "Tbone something something",
-				Description: "Confusion and Delay",
-				Value:       "tbone",
-				Emoji:       &discordgo.ComponentEmoji{Name: "🥔"},
-			})
-			menuOptions = append(menuOptions, discordgo.SelectMenuOption{
-				Label:       "Send Sara's Tokens to the Void",
-				Description: "Not never gonna show up",
-				Value:       "sara",
-				Emoji:       &discordgo.ComponentEmoji{Name: "🕳️"},
-			})
-		*/
 
 		minValues := 0
 		out = append(out, discordgo.ActionsRow{
