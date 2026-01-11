@@ -19,7 +19,7 @@ var playStyles = []string{"Speedrun", "Fastrun", "Casual", "Public"}
 
 // var fairShare = []float64{1.5, 1.1, 1, 0.9, 0.5, 0.1}
 var chickenRunsStr = []string{"Max", "None"}
-var siabDurationStr = []string{"30m", "45m", "Half Duration", "Full Duration"}
+var siabDurationStr = []string{"30m", "Half Duration", "Full Duration"}
 var deflectorDurationsStr = []string{"Full Duration", "Boost Time"}
 
 // ScoreCalcParams is the parameters for the score calculator
@@ -175,7 +175,7 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 	crValues := []int{c.ChickenRuns, 0}
 	scoreCalcParams.chickenRunValues = append(scoreCalcParams.chickenRunValues, crValues...)
 
-	siabTimes := []int{30, 45, -1, -1}
+	siabTimes := []int{30, -1, -1}
 	scoreCalcParams.SiabTimes = append(scoreCalcParams.SiabTimes, siabTimes...)
 
 	deflTimes := []int{0, 20}
@@ -224,13 +224,18 @@ func getScoreExplorerCalculations(params ScoreCalcParams) (string, *discordgo.Me
 		return str, nil
 	}
 
-	durationSpeed := params.Style == 0
-
 	ratio := params.FairShare
 
 	contractDur := c.EstimatedDurationLower
-	if !durationSpeed {
-		contractDur = time.Duration((float64(c.EstimatedDuration.Seconds()) * params.PlayStyleValues[params.Style])) * time.Second
+	switch params.Style {
+	case 0: // Speedrun
+		contractDur = c.EstimatedDurationMax
+	case 1: // Fastrun
+		contractDur = c.EstimatedDurationLower
+	case 2: // Casual
+		contractDur = c.EstimatedDuration
+	case 3: // Public
+		contractDur = time.Duration(float64(c.EstimatedDuration) * 1.1)
 	}
 
 	params.SiabTimes[len(params.SiabTimes)-1] = int(contractDur.Minutes())
@@ -239,8 +244,8 @@ func getScoreExplorerCalculations(params ScoreCalcParams) (string, *discordgo.Me
 	params.SiabMinutes = params.SiabTimes[params.SiabIndex]
 	params.DeflectorDownMinutes = params.deflTimes[params.DeflIndex]
 
-	scoreLower := getContractScoreEstimate(c, grade,
-		durationSpeed, params.PlayStyleValues[params.Style], ratio,
+	scoreLower := getContractScoreEstimateWithDuration(c, grade,
+		contractDur, ratio,
 		params.Siab, params.SiabMinutes,
 		params.Deflector, params.DeflectorDownMinutes,
 		params.chickenRunValues[params.ChickenRuns],
@@ -256,9 +261,9 @@ func getScoreExplorerCalculations(params ScoreCalcParams) (string, *discordgo.Me
 
 	// Explain the settings
 	builder.Reset()
-	fmt.Fprintf(&builder, "Playstyle: %s - duration %v\n", playStyles[params.Style], contractDur.Round(time.Minute).String())
-	fmt.Fprintf(&builder, "Deflector: %.1f%% unequipped for %dm\n", params.Deflector, params.DeflectorDownMinutes)
-	fmt.Fprintf(&builder, "SIAB: %.1f%% equipped for %dm\n", params.Siab, params.SiabMinutes)
+	fmt.Fprintf(&builder, "Playstyle: %s - duration %s\n", playStyles[params.Style], bottools.FmtDuration(contractDur))
+	fmt.Fprintf(&builder, "Deflector: %.1f%% unequipped for %s\n", params.Deflector, bottools.FmtDuration(time.Duration(params.DeflectorDownMinutes)*time.Minute))
+	fmt.Fprintf(&builder, "SIAB: %.1f%% equipped for %s\n", params.Siab, bottools.FmtDuration(time.Duration(params.SiabMinutes)*time.Minute))
 	fmt.Fprintf(&builder, "Fair Share: %2.3g\n", ratio)
 	fmt.Fprintf(&builder, "Chicken Runs: %d\n", params.chickenRunValues[params.ChickenRuns])
 
