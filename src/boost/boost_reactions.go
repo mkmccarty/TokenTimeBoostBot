@@ -125,8 +125,8 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		// Anyone can use these reactions
 		switch r.Emoji.Name {
 		case "🌊":
-			if time.Since(contract.ThreadRenameTime) < 3*time.Minute {
-				msg, err := s.ChannelMessageSend(r.ChannelID, fmt.Sprintf("🌊 thread renaming is on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(3*time.Minute).Unix()))
+			if time.Since(contract.ThreadRenameTime) < 30*time.Second {
+				msg, err := s.ChannelMessageSend(r.ChannelID, fmt.Sprintf("🌊 thread renaming is on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(30*time.Second).Unix()))
 				if err == nil {
 					time.AfterFunc(10*time.Second, func() {
 						err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
