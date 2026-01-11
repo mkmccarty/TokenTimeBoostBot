@@ -1,7 +1,6 @@
 package boost
 
 import (
-	"fmt"
 	"math"
 	"time"
 
@@ -202,13 +201,7 @@ func getContractScoreEstimateWithDuration(c ei.EggIncContract, grade ei.Contract
 	siabDuration := (time.Duration(siabMinutes) * time.Minute).Seconds()
 	deflectorDuration := (contractDuration - time.Duration(deflMinutesReduction)*time.Minute).Seconds()
 	buffTimeValue := calculateBuffTimeValue(c.SeasonalScoring, siabDuration, 0, int(siabPercent))
-	if c.ID == "prime-directive" {
-		fmt.Printf("ID: %s, SIAB-TimeValue: %f\n", c.ID, buffTimeValue)
-	}
 	deflTeamwork := calculateBuffTimeValue(c.SeasonalScoring, deflectorDuration, int(deflPercent), 0)
-	if c.ID == "prime-directive" {
-		fmt.Printf("ID: %s, DEFL-TimeValue: %f\n", c.ID, deflTeamwork)
-	}
 	buffTimeValue += deflTeamwork
 
 	B := calculateTeamworkB(buffTimeValue, contractDuration.Seconds())
