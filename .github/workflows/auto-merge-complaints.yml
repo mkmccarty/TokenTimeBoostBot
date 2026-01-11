@@ -1,4 +1,4 @@
-name: Auto-merge RenegadeEgg Complaints
+name: Auto-merge JSON Updates
 on:
   pull_request_target:
     types: [opened, synchronize, reopened]
@@ -8,8 +8,10 @@ on:
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
-    # Check if the contributor is exactly 'renegadeEgg'
-    if: github.actor == 'renegadeEgg'
+    # Added logic to check for both renegadeEgg AND mutilis
+    if: |
+      github.actor == 'renegadeEgg' || 
+      github.actor == 'mutilis'
     
     permissions:
       contents: write
@@ -24,15 +26,18 @@ jobs:
       - name: Verify only the specific file was changed
         id: check_files
         run: |
-          # Get list of changed files
-          CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
+          # Get list of changed files between the base and the PR head
+          # We use origin/main as the reference point for the diff
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD)
+          
           echo "Files changed: $CHANGED_FILES"
           
-          # If the output is exactly our target file, proceed
+          # Check if the list of changed files is exactly our target file
           if [ "$CHANGED_FILES" = "data/token-complaints.json" ]; then
             echo "MATCH=true" >> $GITHUB_OUTPUT
           else
-            echo "Other files were modified. Blocking auto-merge."
+            echo "Security Check: PR contains changes to files other than the allowed JSON. Skipping auto-merge."
             exit 1
           fi
 
@@ -42,4 +47,4 @@ jobs:
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
           MERGE_METHOD: "merge"
-          MERGE_LABELS: "" # No specific labels required
+          MERGE_FILTER_AUTHOR: "" # We handle author filtering in the 'if' condition above
