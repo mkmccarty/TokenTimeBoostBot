@@ -438,7 +438,7 @@ func calculateSingleEstimate(
 
 	// For short contracts, use a two-phase boost: 4 tokens for 2 minutes, then 8 tokens
 	if float64(contractLengthInSeconds) < 45*60 {
-		twoPhaseDuration := calculateTwoPhaseBoostedEstimate(est, c, contractEggsTotal, contractLengthInSeconds, modShip, modELR, modHab, deflectorsOnFarmer, debug)
+		twoPhaseDuration := calculateTwoPhaseBoostedEstimate(est, contractEggsTotal, contractLengthInSeconds, modELR, deflectorsOnFarmer, debug)
 		rampUpHours += twoPhaseDuration
 		if debug {
 			log.Print("Two-phase boost (4tok for 2min, then 8tok): ", time.Duration(twoPhaseDuration*float64(time.Hour)))
@@ -472,12 +472,9 @@ func calculateSingleEstimate(
 // Returns the estimated duration in hours.
 func calculateTwoPhaseBoostedEstimate(
 	est estimatePlayer,
-	c ei.EggIncContract,
 	contractEggsTotal float64,
 	contractLengthInSeconds int,
-	modifierSR float64,
 	modifierELR float64,
-	modifierHabCap float64,
 	deflectorsOnFarmer float64,
 	debug bool,
 ) float64 {
