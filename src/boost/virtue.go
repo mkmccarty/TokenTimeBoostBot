@@ -701,8 +701,10 @@ func printVirtue(backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compac
 			ei.GetBotEmojiMarkdown("silo"),
 			bottools.FmtDuration(activeDuration.Round(time.Hour)))
 	} else {
-		fmt.Fprintf(&footer, "-# Report:%s\n",
-			bottools.WrapTimestamp(time.Now().Unix(), bottools.TimestampShortTime))
+		syncTime := time.Unix(int64(backup.GetApproxTime()), 0)
+		fmt.Fprintf(&footer, "-# Report:%s  Backup Sync:%s\n",
+			bottools.WrapTimestamp(time.Now().Unix(), bottools.TimestampShortTime),
+			bottools.WrapTimestamp(syncTime.Unix(), bottools.TimestampShortTime))
 	}
 
 	// Line for fuel
