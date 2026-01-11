@@ -18,11 +18,7 @@ import (
 var playStyles = []string{"Speedrun", "Fastrun", "Casual", "Public"}
 
 // var fairShare = []float64{1.5, 1.1, 1, 0.9, 0.5, 0.1}
-var tokenSentValueStr = []string{"Tval Met", "3", "1", "0", "Sink"}
-var tokenSentValue = []float64{50, 3, 1, 0, 20}
-var tokenRecvValueStr = []string{"8", "6", "1", "0", "Sink"}
-var tokenRecvValue = []float64{8, 6, 1, 0, 1000}
-var chickenRunsStr = []string{"Max", "CoopSize-1", "None"}
+var chickenRunsStr = []string{"Max", "None"}
 var siabDurationStr = []string{"30m", "45m", "Half Duration", "Full Duration"}
 var deflectorDurationsStr = []string{"Full Duration", "Boost Time"}
 
@@ -41,8 +37,6 @@ type ScoreCalcParams struct {
 	Style                int       `json:"style"`
 	PlayStyleValues      []float64 `json:"play_style_values"`
 	FairShare            float64   `json:"fair_share"`
-	TvalSent             int       `json:"tval_sent"`
-	TvalReceived         int       `json:"tval_received"`
 	ChickenRuns          int
 	chickenRunValues     []int
 	SiabTimes            []int `json:"siab_times"`
@@ -171,8 +165,6 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 		Siab:                 0,
 		SiabMinutes:          45,
 		FairShare:            1.0,
-		TvalSent:             0,
-		TvalReceived:         1,
 		ChickenRuns:          0,
 		contractInfo:         getContractEstimateString(contractID, false),
 	}
@@ -180,7 +172,7 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 	playStyleValues := []float64{1.0, 1.0, 1.20, 2.0}
 	scoreCalcParams.PlayStyleValues = append(scoreCalcParams.PlayStyleValues, playStyleValues...)
 	// Calculate CR Values
-	crValues := []int{c.ChickenRuns, c.MaxCoopSize - 1, 0}
+	crValues := []int{c.ChickenRuns, 0}
 	scoreCalcParams.chickenRunValues = append(scoreCalcParams.chickenRunValues, crValues...)
 
 	siabTimes := []int{30, 45, -1, -1}
@@ -252,8 +244,8 @@ func getScoreExplorerCalculations(params ScoreCalcParams) (string, *discordgo.Me
 		params.Siab, params.SiabMinutes,
 		params.Deflector, params.DeflectorDownMinutes,
 		params.chickenRunValues[params.ChickenRuns],
-		tokenSentValue[params.TvalSent],
-		tokenRecvValue[params.TvalReceived])
+		0,
+		0)
 	fmt.Fprintf(&builder, "**%d**", scoreLower)
 
 	field = append(field, &discordgo.MessageEmbedField{
@@ -268,8 +260,6 @@ func getScoreExplorerCalculations(params ScoreCalcParams) (string, *discordgo.Me
 	fmt.Fprintf(&builder, "Deflector: %.1f%% unequipped for %dm\n", params.Deflector, params.DeflectorDownMinutes)
 	fmt.Fprintf(&builder, "SIAB: %.1f%% equipped for %dm\n", params.Siab, params.SiabMinutes)
 	fmt.Fprintf(&builder, "Fair Share: %2.3g\n", ratio)
-	fmt.Fprintf(&builder, "TVal Sent: %s\n", tokenSentValueStr[params.TvalSent])
-	fmt.Fprintf(&builder, "TVal Recv: %s\n", tokenRecvValueStr[params.TvalReceived])
 	fmt.Fprintf(&builder, "Chicken Runs: %d\n", params.chickenRunValues[params.ChickenRuns])
 
 	embed := &discordgo.MessageEmbed{}
@@ -291,19 +281,6 @@ func getScoreExplorerComponents(param ScoreCalcParams) []discordgo.MessageCompon
 			Label:    playStyles[param.Style],
 			Style:    discordgo.SecondaryButton,
 			CustomID: fmt.Sprintf("fd_playground#%s#style", param.xid),
-		})
-
-	buttons = append(buttons,
-		discordgo.Button{
-			Label:    fmt.Sprintf("TVal Sent: %s", tokenSentValueStr[param.TvalSent]),
-			Style:    discordgo.SecondaryButton,
-			CustomID: fmt.Sprintf("fd_playground#%s#tvals", param.xid),
-		})
-	buttons = append(buttons,
-		discordgo.Button{
-			Label:    fmt.Sprintf("TVal Recv: %s", tokenRecvValueStr[param.TvalReceived]),
-			Style:    discordgo.SecondaryButton,
-			CustomID: fmt.Sprintf("fd_playground#%s#tvalr", param.xid),
 		})
 
 	buttons = append(buttons,
@@ -563,18 +540,6 @@ func HandleScoreExplorerPage(s *discordgo.Session, i *discordgo.InteractionCreat
 			params.FairShare = fairShareValue
 		}
 	}
-	if len(reaction) == 3 && reaction[2] == "tvals" {
-		params.TvalSent++
-		if params.TvalSent >= len(tokenSentValue) {
-			params.TvalSent = 0
-		}
-	}
-	if len(reaction) == 3 && reaction[2] == "tvalr" {
-		params.TvalReceived++
-		if params.TvalReceived >= len(tokenRecvValue) {
-			params.TvalReceived = 0
-		}
-	}
 	if len(reaction) == 3 && reaction[2] == "runs" {
 		params.ChickenRuns++
 		if params.ChickenRuns >= len(chickenRunsStr) {
@@ -631,8 +596,6 @@ func HandleScoreExplorerPage(s *discordgo.Session, i *discordgo.InteractionCreat
 		params.Style = loadedParams.Style
 		params.PlayStyleValues = loadedParams.PlayStyleValues
 		params.FairShare = loadedParams.FairShare
-		params.TvalSent = loadedParams.TvalSent
-		params.TvalReceived = loadedParams.TvalReceived
 		params.SiabTimes = loadedParams.SiabTimes
 		params.SiabIndex = loadedParams.SiabIndex
 		params.DeflIndex = loadedParams.DeflIndex
