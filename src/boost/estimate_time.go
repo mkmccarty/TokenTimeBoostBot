@@ -10,7 +10,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
@@ -329,11 +328,6 @@ func calculateSingleEstimate(
 	colShip := est.colShip
 	colHab := est.colHab
 
-	if float64(contractLengthInSeconds) < 45*60 {
-		est.boostTokens = math.Min(est.boostTokens, 4.0)
-		est.boostMultiplier = calcBoostMulti(est.boostTokens)
-	}
-
 	// Base rate with T4L Metronome +35% and T4L Gusset +25%
 	baseELR := 3.772 * est.metronome * est.gusset
 	// Base rate with T4L Compass +50%
@@ -442,17 +436,13 @@ func calculateSingleEstimate(
 		log.Printf("rampUpHours (before boost): %v\n", rampUpHours)
 	}
 
-	if debug && config.IsDevBot() {
-		ihr2 := est.ihr * est.chalice * est.monocle * math.Pow(1.04, est.ihrSlots) * est.colIHR
-		ihr2 *= math.Pow(1.01, est.te)
-		ihr2 *= 12 * calcBoostMulti(5.0)
-
-		myELR := 252720.0 * est.colELR * modELR * deflectorMultiplier / 60.0
-
-		remainingTime := ei.TimeToDeliverEggsInSeconds(10_000_000, adjustedPop, ihr2/60, myELR*10_000_000, contractEggsTotal)
-		log.Print("Remaining time check (s): ", remainingTime)
-		rampUpHours = est.boostTokens * hoursPerTokenAllPlayers
-		rampUpHours += remainingTime / 3600.0
+	// For short contracts, use a two-phase boost: 4 tokens for 2 minutes, then 8 tokens
+	if float64(contractLengthInSeconds) < 45*60 {
+		twoPhaseDuration := calculateTwoPhaseBoostedEstimate(est, c, contractEggsTotal, contractLengthInSeconds, modShip, modELR, modHab, deflectorsOnFarmer, debug)
+		rampUpHours += twoPhaseDuration
+		if debug {
+			log.Print("Two-phase boost (4tok for 2min, then 8tok): ", time.Duration(twoPhaseDuration*float64(time.Hour)))
+		}
 	} else if est.calcMode == modeOriginalFormula {
 		rampUpHours += (est.boostTokens / tokenRate) + (10.0 / 60.0)
 	} else {
@@ -474,6 +464,128 @@ func calculateSingleEstimate(
 	}
 
 	return estimate
+}
+
+// calculateTwoPhaseBoostedEstimate computes the completion duration for a short contract
+// where a single booster starts with 4 tokens for 2 minutes, then switches to 8 tokens.
+// This is optimized for short contracts with one active booster using IHR artifacts.
+// Returns the estimated duration in hours.
+func calculateTwoPhaseBoostedEstimate(
+	est estimatePlayer,
+	c ei.EggIncContract,
+	contractEggsTotal float64,
+	contractLengthInSeconds int,
+	modifierSR float64,
+	modifierELR float64,
+	modifierHabCap float64,
+	deflectorsOnFarmer float64,
+	debug bool,
+) float64 {
+	// Phase 1: 4 tokens for 2 minutes (120 seconds)
+	phase1Seconds := 120.0
+	phase1Est := est
+	phase1Est.boostTokens = 4.0
+	phase1Est.boostMultiplier = calcBoostMulti(phase1Est.boostTokens)
+
+	// Phase 2: 8 tokens for remaining time
+	phase2Est := est
+	phase2Est.boostTokens = 8.0
+	phase2Est.boostMultiplier = calcBoostMulti(phase2Est.boostTokens)
+
+	// Compute IHR (per hour) for both phases using artifact set and boost multiplier
+	ihrPhase1 := est.ihr * est.chalice * est.monocle * math.Pow(1.04, est.ihrSlots) * est.colIHR
+	ihrPhase1 *= math.Pow(1.01, est.te)
+	ihrPhase1 *= 12 * phase1Est.boostMultiplier
+
+	ihrPhase2 := est.ihr * est.chalice * est.monocle * math.Pow(1.04, est.ihrSlots) * est.colIHR
+	ihrPhase2 *= math.Pow(1.01, est.te)
+	ihrPhase2 *= 12 * phase2Est.boostMultiplier
+
+	// ELR baseline (per hour) scaled similarly to the debug approach
+	deflectorMultiplier := 1.0 + est.deflectorBonus*deflectorsOnFarmer
+	myELRPerHour := 252720.0 * est.colELR * modifierELR * deflectorMultiplier / 60.0
+
+	// Population carrying capacity approximation based on bounded ELR
+	unusedRatioELR := max(1.0, est.contractELR/est.boundedELR)
+	habCapacity := (14_175_000_000 * est.colHab) / unusedRatioELR
+	maxPop := habCapacity
+
+	// Initial (seed) population; follow prior debug convention
+	initialPop := 10_000_000.0
+
+	// Lay baseline per hour scaled (debug used 10M factor)
+	layingRatePerHourBaseline := myELRPerHour * 10_000_000.0
+
+	// Phase 1 simulation: eggs delivered and end-state using EI simulator logic over fixed time
+	phase1EggsDelivered, popAfterPhase1, layingStepAfterPhase1 := simulateEggsDeliveredForSeconds(
+		initialPop,
+		maxPop,
+		ihrPhase1/60.0,            // growth per minute
+		layingRatePerHourBaseline, // baseline laying per hour
+		int(phase1Seconds),
+	)
+
+	// Remaining eggs for phase 2 (use raw contract eggs; simulator expects raw units)
+	remainingEggs := max(0.0, contractEggsTotal-phase1EggsDelivered)
+
+	// Start phase 2 from the end-of-phase-1 state
+	// Convert end-of-phase-1 laying step back to per hour baseline
+	layingRatePerHourPhase2Start := layingStepAfterPhase1 * 3600.0
+
+	// Use EI simulator to get time (seconds) to deliver remaining eggs in phase 2
+	phase2Seconds := ei.TimeToDeliverEggsInSeconds(
+		popAfterPhase1,
+		maxPop,
+		ihrPhase2/60.0,
+		layingRatePerHourPhase2Start,
+		remainingEggs,
+	)
+
+	totalSeconds := phase1Seconds + phase2Seconds
+	totalHours := totalSeconds / 3600.0
+	estimate := min(float64(contractLengthInSeconds)/3600.0, totalHours)
+
+	if debug {
+		log.Printf("Phase 1 (4tok, 2min): IHR=%.0f, eggs=%.3f, endPop=%.0f\n", ihrPhase1, phase1EggsDelivered, popAfterPhase1)
+		log.Printf("Phase 2 (8tok): IHR=%.0f, remaining eggs=%.3f, duration=%.3f hours\n", ihrPhase2, remainingEggs, phase2Seconds/3600.0)
+		log.Printf("Two-phase total: %.3f hours\n", estimate)
+	}
+
+	return estimate
+}
+
+// simulateEggsDeliveredForSeconds mirrors the EI simulator step logic to compute eggs delivered
+// over a fixed number of seconds, returning eggs delivered, final population, and final laying
+// rate per step (seconds). This allows chaining phases with changing boost setups.
+func simulateEggsDeliveredForSeconds(initialPop, maxPop, growthRatePerMinute, layingRatePerHour float64, seconds int) (eggsDelivered float64, finalPop float64, finalLayingRatePerStep float64) {
+	if initialPop <= 0 || maxPop <= 0 || growthRatePerMinute <= 0 || layingRatePerHour <= 0 || seconds <= 0 {
+		return 0, initialPop, layingRatePerHour / 3600.0
+	}
+
+	timeStepSeconds := 1.0
+	layingRatePerStep := (layingRatePerHour / 3600.0) * timeStepSeconds
+	growthRatePerStep := (growthRatePerMinute / 60.0) * timeStepSeconds
+
+	currentPop := initialPop
+	totalEggs := 0.0
+
+	for i := 0; i < seconds; i++ {
+		// Eggs delivered in this step
+		totalEggs += layingRatePerStep
+
+		// Population growth and rate adjustment
+		if currentPop <= maxPop {
+			oldPop := currentPop
+			currentPop += growthRatePerStep
+			if currentPop > maxPop {
+				currentPop = maxPop
+			}
+			popIncrease := currentPop - oldPop
+			layingRatePerStep *= (1 + popIncrease/oldPop)
+		}
+	}
+
+	return totalEggs, currentPop, layingRatePerStep
 }
 
 type estimatePlayer struct {
