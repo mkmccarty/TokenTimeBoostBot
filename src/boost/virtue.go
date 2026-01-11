@@ -694,11 +694,16 @@ func printVirtue(backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compac
 	}
 	fmt.Fprint(&stats, "\n")
 
-	fmt.Fprintf(&footer, "-# Report:%s  Sync:%s  🗓️%s:%s\n",
-		bottools.WrapTimestamp(time.Now().Unix(), bottools.TimestampShortTime),
-		bottools.WrapTimestamp(syncTime.Unix(), bottools.TimestampShortTime),
-		ei.GetBotEmojiMarkdown("silo"),
-		bottools.FmtDuration(activeDuration.Round(time.Hour)))
+	if onVirtueFarm {
+		fmt.Fprintf(&footer, "-# Report:%s  Sync:%s  🗓️%s:%s\n",
+			bottools.WrapTimestamp(time.Now().Unix(), bottools.TimestampShortTime),
+			bottools.WrapTimestamp(syncTime.Unix(), bottools.TimestampShortTime),
+			ei.GetBotEmojiMarkdown("silo"),
+			bottools.FmtDuration(activeDuration.Round(time.Hour)))
+	} else {
+		fmt.Fprintf(&footer, "-# Report:%s\n",
+			bottools.WrapTimestamp(time.Now().Unix(), bottools.TimestampShortTime))
+	}
 
 	// Line for fuel
 	fuels := virtue.GetAfx().GetTankFuels()
