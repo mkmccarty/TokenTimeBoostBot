@@ -496,7 +496,7 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 		compVals["🐓"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("runready"), Style: discordgo.SecondaryButton, CustomID: "rc_#cr#"}
 		compVals["✅"] = CompMap{Emoji: "✅", Style: discordgo.SecondaryButton, CustomID: "rc_#check#"}
 		compVals["❓"] = CompMap{Emoji: "❓", Style: discordgo.SecondaryButton, CustomID: "rc_#help#"}
-		compVals["📣"] = CompMap{Emoji: "📣", Style: discordgo.SecondaryButton, CustomID: "rc_#complain#"}
+		compVals["📢"] = CompMap{Emoji: "📢", Style: discordgo.SecondaryButton, CustomID: "rc_#complain#"}
 		contract.buttonComponents = compVals
 	}
 
@@ -667,15 +667,15 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 
 	switch contract.State {
 	case ContractStateBanker:
-		iconsRowA = append(iconsRowA, []string{tokenStr, "🐓", "💰", "📣"}...)
+		iconsRowA = append(iconsRowA, []string{tokenStr, "🐓", "💰", "📢"}...)
 	case ContractStateFastrun:
-		iconsRowA = append(iconsRowA, []string{boostIconReaction, tokenStr, "🔃", "⤵️", "🐓", "📣"}...)
+		iconsRowA = append(iconsRowA, []string{boostIconReaction, tokenStr, "🔃", "⤵️", "🐓", "📢"}...)
 	case ContractStateWaiting:
 		sinkID := contract.Banker.CurrentBanker
 		if sinkID != "" {
-			iconsRowA = append(iconsRowA, tokenStr, "📣")
+			iconsRowA = append(iconsRowA, tokenStr, "📢")
 		}
-		iconsRowA = append(iconsRowA, "🐓", "📣")
+		iconsRowA = append(iconsRowA, "🐓", "📢")
 
 	case ContractStateCompleted:
 		contract.Banker.CurrentBanker = contract.Banker.PostSinkUserID
