@@ -62,10 +62,12 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract, updateSig
 		}
 		msgedit.Components = &components
 
-		// Disable ALL pings
-		msgedit.AllowedMentions = &discordgo.MessageAllowedMentions{
-			Parse:       []discordgo.AllowedMentionType{},
-			RepliedUser: false,
+		// Disable ALL pings during the run
+		if contract.State != ContractStateSignup {
+			msgedit.AllowedMentions = &discordgo.MessageAllowedMentions{
+				Parse:       []discordgo.AllowedMentionType{},
+				RepliedUser: false,
+			}
 		}
 
 		// Full contract for speedrun

@@ -88,6 +88,8 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 		})
 	case "ranchicken":
 		buttonReactionRanChicken(s, i, contract, userID)
+	case "complain":
+		buttonReactionComplain(s, contract, userID)
 	}
 
 	if redraw {
@@ -367,7 +369,7 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 	if len(alreadyRun) > 0 {
 		b.WriteString("**Completed:** ")
 		b.WriteString(strconv.Itoa(len(alreadyRun)))
-		b.WriteByte('\n')
+		b.WriteString("\n-# ")
 		b.WriteString(strings.Join(alreadyRun, " "))
 	}
 	// Print the missing players for LB and FR
@@ -453,6 +455,30 @@ func buttonReactionHelp(s *discordgo.Session, i *discordgo.InteractionCreate, co
 	}
 }
 
+func buttonReactionComplain(s *discordgo.Session, contract *Contract, cUserID string) {
+	if !userInContract(contract, cUserID) {
+		return
+	}
+
+	complaint, err := ei.GetTokenComplaint(contract.Boosters[cUserID].Mention)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+
+	_, err = s.ChannelMessageSendComplex(contract.Location[0].ChannelID, &discordgo.MessageSend{
+		Content: complaint,
+		AllowedMentions: &discordgo.MessageAllowedMentions{
+			Parse: []discordgo.AllowedMentionType{
+				discordgo.AllowedMentionTypeUsers,
+			},
+		},
+	})
+	if err != nil {
+		log.Print(err)
+	}
+}
+
 func getContractReactionsComponents(contract *Contract) []discordgo.MessageComponent {
 	compVals := contract.buttonComponents
 	if compVals == nil {
@@ -470,6 +496,7 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 		compVals["🐓"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("runready"), Style: discordgo.SecondaryButton, CustomID: "rc_#cr#"}
 		compVals["✅"] = CompMap{Emoji: "✅", Style: discordgo.SecondaryButton, CustomID: "rc_#check#"}
 		compVals["❓"] = CompMap{Emoji: "❓", Style: discordgo.SecondaryButton, CustomID: "rc_#help#"}
+		compVals["📣"] = CompMap{Emoji: "📣", Style: discordgo.SecondaryButton, CustomID: "rc_#complain#"}
 		contract.buttonComponents = compVals
 	}
 
@@ -640,15 +667,15 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 
 	switch contract.State {
 	case ContractStateBanker:
-		iconsRowA = append(iconsRowA, []string{tokenStr, "🐓", "💰"}...)
+		iconsRowA = append(iconsRowA, []string{tokenStr, "🐓", "💰", "📣"}...)
 	case ContractStateFastrun:
-		iconsRowA = append(iconsRowA, []string{boostIconReaction, tokenStr, "🔃", "⤵️", "🐓"}...)
+		iconsRowA = append(iconsRowA, []string{boostIconReaction, tokenStr, "🔃", "⤵️", "🐓", "📣"}...)
 	case ContractStateWaiting:
 		sinkID := contract.Banker.CurrentBanker
 		if sinkID != "" {
-			iconsRowA = append(iconsRowA, tokenStr)
+			iconsRowA = append(iconsRowA, tokenStr, "📣")
 		}
-		iconsRowA = append(iconsRowA, "🐓")
+		iconsRowA = append(iconsRowA, "🐓", "📣")
 
 	case ContractStateCompleted:
 		contract.Banker.CurrentBanker = contract.Banker.PostSinkUserID
