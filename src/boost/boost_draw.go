@@ -104,20 +104,21 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		header.WriteString(fmt.Sprintf("## Planned Start Time: <t:%d:f>\n", contract.PlannedStartTime.Unix()))
 	}
 
-	if len(contract.Boosters) != contract.CoopSize || contract.State == ContractStateSignup {
-		header.WriteString(fmt.Sprintf("### Boost ordering is %s\n", getBoostOrderString(contract)))
-		if contract.Style&ContractFlag6Tokens != 0 {
-			header.WriteString(fmt.Sprintf(">  6️⃣%s boosting for everyone!\n", contract.TokenStr))
-		} else if contract.Style&ContractFlag8Tokens != 0 {
-			header.WriteString(fmt.Sprintf(">  8️⃣%s boosting for everyone!\n", contract.TokenStr))
-		} else if contract.Style&ContractFlagDynamicTokens != 0 {
-			header.WriteString("> 🤖 Dynamic tokens (coming soon)\n")
+	if contract.Description != "" {
+		if len(contract.Boosters) != contract.CoopSize || contract.State == ContractStateSignup {
+			header.WriteString(fmt.Sprintf("### Boost ordering is %s\n", getBoostOrderString(contract)))
+			if contract.Style&ContractFlag6Tokens != 0 {
+				header.WriteString(fmt.Sprintf(">  6️⃣%s boosting for everyone!\n", contract.TokenStr))
+			} else if contract.Style&ContractFlag8Tokens != 0 {
+				header.WriteString(fmt.Sprintf(">  8️⃣%s boosting for everyone!\n", contract.TokenStr))
+			}
 		}
 	}
-
 	header.WriteString(fmt.Sprintf("> Coordinator: <@%s>\n", contract.CreatorID[0]))
-	if contract.Location[0].GuildContractRole.ID != "" {
-		header.WriteString(fmt.Sprintf("> Team Role: %s\n", contract.Location[0].RoleMention))
+	if contract.Description != "" {
+		if contract.Location[0].GuildContractRole.ID != "" {
+			header.WriteString(fmt.Sprintf("> Team Role: %s\n", contract.Location[0].RoleMention))
+		}
 	}
 	if contract.State == ContractStateSignup {
 		if contract.Style&ContractFlagBanker != 0 {
