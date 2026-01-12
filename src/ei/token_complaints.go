@@ -51,5 +51,5 @@ func GetTokenComplaint(userName string) (string, error) {
 		}
 	*/
 	template := TokenComplaints[rand.Intn(len(TokenComplaints))]
-	return strings.ReplaceAll(template, playerToken, userName), nil
+	return fmt.Sprintf(":loudspeaker: %s", strings.ReplaceAll(template, playerToken, userName)), nil
 }
