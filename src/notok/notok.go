@@ -226,9 +226,18 @@ func GetContractTeamNames(prompt string, quantity int) []string {
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "My Egg Inc contract today wants \"%s\". Return a list of %d team names in a comma separated list with no other context.", prompt, quantity)
 
-	str, err := getStringFromGoogleGemini(builder.String())
-	if err != nil {
-		return nil
+	const maxAttempts = 5
+	var str string
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		var err error
+		str, err = getStringFromGoogleGemini(builder.String())
+		if err == nil {
+			break
+		}
+		if !isRetryableModelError(err) || attempt == maxAttempts {
+			return nil
+		}
+		time.Sleep(time.Duration(attempt) * 5 * time.Second)
 	}
 
 	// Want to split the string result, trim whitespace for each split string, and remove any empty strings
@@ -281,6 +290,15 @@ func printResponse(resp *genai.GenerateContentResponse, logit bool) string {
 	str = strings.ReplaceAll(str, "widget", "token")
 
 	return str
+}
+
+// isRetryableModelError returns true for transient model overload errors that warrant a retry.
+func isRetryableModelError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "503") || strings.Contains(msg, "overloaded") || strings.Contains(msg, "overload") || strings.Contains(msg, "please try again later")
 }
 
 func getLetMeOutString(text string, desc string) (string, error) {
