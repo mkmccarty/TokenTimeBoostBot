@@ -26,6 +26,8 @@ var (
 	EIUserIDBasic string
 	// AdminUsers holds a list of DiscordIDs for other admins
 	AdminUsers []string
+	// GuildAdminUsers holds a map of GuildID -> list of DiscordIDs for guild-specific admins
+	GuildAdminUsers map[string][]string
 	// TestMode is true if the bot is running in test mode.
 	TestMode bool
 	// DevBotAppID is the application ID for the development bot.
@@ -55,27 +57,28 @@ var (
 )
 
 type configStruct struct {
-	DiscordToken     string   `json:"DiscordToken"`
-	DiscordAppID     string   `json:"DiscordAppID"`
-	DiscordGuildID   string   `json:"DiscordGuildID"`
-	OpenAIKey        string   `json:"OpenAIKey"`
-	GoogleAPIKey     string   `json:"GoogleAPIKey"`
-	AdminUserID      string   `json:"AdminUserId"`
-	EIUserIDBasic    string   `json:"EIUserIDBasic"`
-	EIUserID         string   `json:"EIUserId"`
-	AdminUsers       []string `json:"AdminUsers"`
-	TestMode         bool     `json:"TestMode"`
-	DevBotAppID      string   `json:"DevBotAppID"`
-	FeatureFlags     []string `json:"FeatureFlags"`
-	RocketsURL       string   `json:"RocketsURL"`
-	EventsURL        string   `json:"EventsURL"`
-	GistToken        string   `json:"GistToken"`
-	GistID           string   `json:"GistID"`
-	BannerPath       string   `json:"BannerPath"`
-	BannerOutputPath string   `json:"BannerOutputPath"`
-	BannerURL        string   `json:"BannerURL"`
-	DevelopmentStaff []string `json:"DevelopmentStaff"`
-	Key              string   `json:"Key"`
+	DiscordToken     string              `json:"DiscordToken"`
+	DiscordAppID     string              `json:"DiscordAppID"`
+	DiscordGuildID   string              `json:"DiscordGuildID"`
+	OpenAIKey        string              `json:"OpenAIKey"`
+	GoogleAPIKey     string              `json:"GoogleAPIKey"`
+	AdminUserID      string              `json:"AdminUserId"`
+	EIUserIDBasic    string              `json:"EIUserIDBasic"`
+	EIUserID         string              `json:"EIUserId"`
+	AdminUsers       []string            `json:"AdminUsers"`
+	GuildAdminUsers  map[string][]string `json:"GuildAdminUsers"`
+	TestMode         bool                `json:"TestMode"`
+	DevBotAppID      string              `json:"DevBotAppID"`
+	FeatureFlags     []string            `json:"FeatureFlags"`
+	RocketsURL       string              `json:"RocketsURL"`
+	EventsURL        string              `json:"EventsURL"`
+	GistToken        string              `json:"GistToken"`
+	GistID           string              `json:"GistID"`
+	BannerPath       string              `json:"BannerPath"`
+	BannerOutputPath string              `json:"BannerOutputPath"`
+	BannerURL        string              `json:"BannerURL"`
+	DevelopmentStaff []string            `json:"DevelopmentStaff"`
+	Key              string              `json:"Key"`
 }
 
 // ReadConfig will load the configuration files for API tokens.
@@ -103,6 +106,7 @@ func ReadConfig(cfgFile string) error {
 	EIUserID = config.EIUserID
 	EIUserIDBasic = config.EIUserIDBasic
 	AdminUsers = config.AdminUsers
+	GuildAdminUsers = config.GuildAdminUsers
 	TestMode = config.TestMode
 	DevBotAppID = config.DevBotAppID
 	FeatureFlags = config.FeatureFlags

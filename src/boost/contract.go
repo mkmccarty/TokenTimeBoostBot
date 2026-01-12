@@ -672,8 +672,27 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	if !slices.Contains(progenitors, userID) {
 		contract.CreatorID = append(contract.CreatorID, progenitors[0])
 	}
-	contract.CreatorID = append(contract.CreatorID, userID)               // starting userid
-	contract.CreatorID = append(contract.CreatorID, config.AdminUsers...) // Admins
+	// Add starting user uniquely
+	if !slices.Contains(contract.CreatorID, userID) {
+		contract.CreatorID = append(contract.CreatorID, userID)
+	}
+	// Add global admins uniquely
+	for _, admin := range config.AdminUsers {
+		if !slices.Contains(contract.CreatorID, admin) {
+			contract.CreatorID = append(contract.CreatorID, admin)
+		}
+	}
+	// Add guild-specific admins uniquely, if any
+	if config.GuildAdminUsers != nil {
+		if guildAdmins, ok := config.GuildAdminUsers[guildID]; ok {
+			for _, admin := range guildAdmins {
+				if !slices.Contains(contract.CreatorID, admin) {
+					contract.CreatorID = append(contract.CreatorID, admin)
+				}
+			}
+		}
+	}
+
 	contract.StartTime = time.Now()
 
 	contract.NewFeature = 1
