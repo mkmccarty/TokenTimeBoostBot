@@ -93,7 +93,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	if contract.Description != "" {
 		header.WriteString(fmt.Sprintf("## CoopID: [%s](%s/%s/%s)", contract.CoopID, "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID))
 	} else {
-		header.WriteString("## Signup ")
+		header.WriteString("## ")
 	}
 	if len(contract.Boosters) != contract.CoopSize {
 		header.WriteString(fmt.Sprintf(" - %d/%d\n", len(contract.Boosters), contract.CoopSize))
