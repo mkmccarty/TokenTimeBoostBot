@@ -82,7 +82,7 @@ jobs:
       - name: Build
         run: |
           mkdir -p output/{linux,freebsd}
-          VERSION=$(git describe --tags)
+          VERSION=$(git describe --tags 2>/dev/null || echo "dev")
           CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/freebsd/boostbot-$VERSION-freebsd-amd64
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -X github.com/mkmccarty/TokenTimeBoostBot/version.GitHash=$(git describe --tags --always --long --dirty)" -o output/linux/boostbot-$VERSION-linux-amd64
       - name: Upload linux
