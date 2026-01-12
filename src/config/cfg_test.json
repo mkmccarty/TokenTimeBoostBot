@@ -1,6 +1,18 @@
 {
     "DiscordToken": "discord_token",
     "DiscordAppID": "discord_app_id",
-    "DiscordGuildID": "discord_guild_id"
+    "DiscordGuildID": "discord_guild_id",
+    "AdminUsers": [
+        "global1",
+        "global2"
+    ],
+    "GuildAdminUsers": {
+        "guild-A": [
+            "adminA1",
+            "adminA2"
+        ],
+        "guild-B": [
+            "adminB"
+        ]
+    }
 }
-
