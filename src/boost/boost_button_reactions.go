@@ -395,7 +395,7 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 	totalBoosters := len(alreadyRun) + len(missing)
 	if totalBoosters > 0 {
 		missingPercent := float64(len(missing)) / float64(totalBoosters) * 100
-		if missingPercent > 25 {
+		if missingPercent > 33.5 {
 			color = 0xff0000 // red
 		} else if missingPercent > 0 {
 			color = 0xffff00 // yellow

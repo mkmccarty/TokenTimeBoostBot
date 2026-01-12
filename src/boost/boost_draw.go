@@ -256,7 +256,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				channelID := contract.Location[0].ChannelID
 				messageLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", contract.Location[0].GuildID, channelID, messageID)
 
-				if missingPercent > 25 {
+				if missingPercent > 33.5 {
 					// Red status
 					requesterIndex := slices.Index(contract.Order, requesterUserID) + 1
 					requesterName := contract.Boosters[requesterUserID].Nick
