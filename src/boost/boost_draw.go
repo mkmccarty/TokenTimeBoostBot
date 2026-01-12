@@ -71,13 +71,17 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 	styleArray := []string{"", "c", "a", "f", "l"}
 
-	bannerItem.Media.URL = fmt.Sprintf("%sb%s-%s.png", config.BannerURL, styleArray[contract.PlayStyle], contract.ContractID)
-	components = append(components, &discordgo.MediaGallery{
-		Items: []discordgo.MediaGalleryItem{
-			bannerItem,
+	if contract.Description == "" {
+		header.WriteString("# Contract Interest List\n")
+	} else {
+		bannerItem.Media.URL = fmt.Sprintf("%sb%s-%s.png", config.BannerURL, styleArray[contract.PlayStyle], contract.ContractID)
+		components = append(components, &discordgo.MediaGallery{
+			Items: []discordgo.MediaGalleryItem{
+				bannerItem,
+			},
 		},
-	},
-	)
+		)
+	}
 
 	contract.LastInteractionTime = time.Now()
 
