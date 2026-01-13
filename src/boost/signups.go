@@ -430,7 +430,7 @@ func writeContracts(
 		// First line
 		fmt.Fprintf(
 			b,
-			"%s **[%s](https://eicoop-carpet.netlify.app/?q=%s)** %s `%2d`",
+			"%s **[%s](https://eicoop-carpet.netlify.app/?q=%s)** %s `%d`",
 			ei.FindEggEmoji(c.EggName),
 			c.Name,
 			c.ID,
