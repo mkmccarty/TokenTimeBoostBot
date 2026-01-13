@@ -1,6 +1,11 @@
 package bottools
 
-import "github.com/bwmarrin/discordgo"
+import (
+	"strconv"
+	"time"
+
+	"github.com/bwmarrin/discordgo"
+)
 
 // GetInteractionUserID returns the user ID from an interaction, whether in a guild or DM
 func GetInteractionUserID(i *discordgo.InteractionCreate) string {
@@ -48,4 +53,29 @@ func getChannel(s *discordgo.Session, id string) (*discordgo.Channel, error) {
 		return ch, nil
 	}
 	return s.Channel(id)
+}
+
+// IsValidDiscordID checks if a string is a valid Discord snowflake ID by validating
+// the embedded timestamp is within Discord's operational range
+func IsValidDiscordID(id string) bool {
+	// Discord IDs are 17-20 digit numbers
+	if len(id) < 17 || len(id) > 20 {
+		return false
+	}
+
+	// Parse as int64
+	snowflake, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		return false
+	}
+
+	// Extract timestamp: top 42 bits, milliseconds since Discord epoch (Jan 1, 2015)
+	const discordEpoch int64 = 1420070400000
+	timestamp := (snowflake >> 22) + discordEpoch
+
+	// Validate timestamp is after Discord's launch and not too far in future
+	now := time.Now().UnixMilli()
+	tenYearsFromNow := now + (10 * 365 * 24 * 60 * 60 * 1000)
+
+	return timestamp >= discordEpoch && timestamp <= tenYearsFromNow
 }

@@ -54,31 +54,6 @@ func getSinkIcon(contract *Contract, b *Booster) string {
 	return sinkIcon
 }
 
-// isValidDiscordID checks if a string is a valid Discord snowflake ID by validating
-// the embedded timestamp is within Discord's operational range
-func isValidDiscordID(id string) bool {
-	// Discord IDs are 17-20 digit numbers
-	if len(id) < 17 || len(id) > 20 {
-		return false
-	}
-
-	// Parse as int64
-	snowflake, err := strconv.ParseInt(id, 10, 64)
-	if err != nil {
-		return false
-	}
-
-	// Extract timestamp: top 42 bits, milliseconds since Discord epoch (Jan 1, 2015)
-	const discordEpoch int64 = 1420070400000
-	timestamp := (snowflake >> 22) + discordEpoch
-
-	// Validate timestamp is after Discord's launch and not too far in future
-	now := time.Now().UnixMilli()
-	tenYearsFromNow := now + (10 * 365 * 24 * 60 * 60 * 1000)
-
-	return timestamp >= discordEpoch && timestamp <= tenYearsFromNow
-}
-
 // DrawBoostList will draw the boost list for the contract
 func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.MessageComponent {
 	var components []discordgo.MessageComponent
@@ -590,7 +565,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 			// Loop through the waitlist and list waitlist folks
 			builder.WriteString("\n### Backups\n")
 			for _, userID := range contract.WaitlistBoosters {
-				if isValidDiscordID(userID) {
+				if bottools.IsValidDiscordID(userID) {
 					builder.WriteString("<@" + userID + "> ")
 				} else {
 					builder.WriteString(userID + " ")
