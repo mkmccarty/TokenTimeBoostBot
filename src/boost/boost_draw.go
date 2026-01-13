@@ -565,8 +565,12 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 			// Loop through the waitlist and list waitlist folks
 			builder.WriteString("\n### Backups\n")
 			for _, userID := range contract.WaitlistBoosters {
-				userName := "<@" + userID + "> "
-				builder.WriteString(userName)
+				var u, err = s.User(userID)
+				if err != nil {
+					builder.WriteString(userID + " ")
+					continue
+				}
+				builder.WriteString(u.Mention() + " ")
 			}
 			components = append(components, &discordgo.TextDisplay{
 				Content: builder.String(),
