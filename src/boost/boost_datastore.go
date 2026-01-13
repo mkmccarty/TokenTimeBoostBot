@@ -119,25 +119,6 @@ func loadData() (map[string]*Contract, error) {
 	}
 	c := make(map[string]*Contract)
 
-	//if the file ttbb-data/EggsBackup.json exists
-	if dataStore.Has("EggsBackup") {
-
-		b, err := dataStore.Read("EggsBackup")
-		if err != nil {
-			return c, err
-		}
-		if err := json.Unmarshal(b, &c); err != nil {
-			return c, err
-		}
-
-		for _, v := range c {
-			saveSqliteData(v)
-		}
-
-		_ = dataStore.Erase("EggsBackup")
-	}
-
-	// Try to load from SQLite first
 	rows, err := queries.GetActiveContracts(ctx)
 	if err == nil {
 		for _, r := range rows {
