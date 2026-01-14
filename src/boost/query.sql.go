@@ -10,19 +10,27 @@ import (
 	"database/sql"
 )
 
-const deleteContract = `-- name: DeleteContract :exec
-DELETE FROM contract_data
-WHERE channelID = ? AND contractID = ? AND coopID = ?
+const countContractsByChannel = `-- name: CountContractsByChannel :one
+;
+
+SELECT COUNT(*) FROM contract_data
+WHERE channelID = ?
 `
 
-type DeleteContractParams struct {
-	Channelid  string
-	Contractid string
-	Coopid     string
+func (q *Queries) CountContractsByChannel(ctx context.Context, channelid string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countContractsByChannel, channelid)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
-func (q *Queries) DeleteContract(ctx context.Context, arg DeleteContractParams) error {
-	_, err := q.db.ExecContext(ctx, deleteContract, arg.Channelid, arg.Contractid, arg.Coopid)
+const deleteContractByChannel = `-- name: DeleteContractByChannel :exec
+DELETE FROM contract_data
+WHERE channelID = ?
+`
+
+func (q *Queries) DeleteContractByChannel(ctx context.Context, channelid string) error {
+	_, err := q.db.ExecContext(ctx, deleteContractByChannel, channelid)
 	return err
 }
 
@@ -124,6 +132,8 @@ func (q *Queries) UpdateContract(ctx context.Context, arg UpdateContractParams) 
 }
 
 const updateContractCoopID = `-- name: UpdateContractCoopID :exec
+;
+
 UPDATE contract_data
 SET coopID = ?
 WHERE channelID = ? AND contractID = ? AND coopID = ?

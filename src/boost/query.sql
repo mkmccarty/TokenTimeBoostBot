@@ -7,9 +7,13 @@ UPDATE contract_data
 SET value = ?
 WHERE channelID = ? AND contractID = ? AND coopID = ?;
 
--- name: DeleteContract :exec
+-- name: DeleteContractByChannel :exec
 DELETE FROM contract_data
-WHERE channelID = ? AND contractID = ? AND coopID = ?;
+WHERE channelID = ? ;
+
+-- name: CountContractsByChannel :one
+SELECT COUNT(*) FROM contract_data
+WHERE channelID = ? ;
 
 -- name: UpdateContractCoopID :exec
 UPDATE contract_data
