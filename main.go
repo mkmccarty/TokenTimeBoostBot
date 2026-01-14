@@ -51,6 +51,7 @@ const slashChangeOneBooster string = "change-one-booster"
 const slashChangePingRole string = "change-ping-role"
 const slashChangePlannedStartCommand string = "change-start"
 const slashChangeSpeedRunSink string = "change-speedrun-sink"
+const slashUpdateCommand string = "update"
 const slashUnboost string = "unboost"
 const slashPrune string = "prune"
 const slashJoin string = "join-contract"
@@ -224,6 +225,7 @@ var (
 		boost.SlashArtifactsCommand(slashArtifact),
 		boost.GetSlashScoreExplorerCommand(slashScoreExplorer),
 		boost.GetSlashChangeSpeedRunSinkCommand(slashChangeSpeedRunSink),
+		boost.GetSlashUpdateCommand(slashUpdateCommand),
 		{
 			Name:        slashJoin,
 			Description: "Add farmer or guest to contract.",
@@ -603,6 +605,9 @@ var (
 		},
 		slashChangeSpeedRunSink: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleChangeSpeedrunSinkCommand(s, i)
+		},
+		slashUpdateCommand: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleUpdateCommand(s, i)
 		},
 		slashVolunteerSink: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleSlashVolunteerSinkCommand(s, i)
