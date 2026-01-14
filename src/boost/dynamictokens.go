@@ -12,6 +12,7 @@ import (
 type DynamicTokenData struct {
 	TokenTimer int
 
+	TE                    int64
 	HabNumber             int64
 	OfflineIHR            int64
 	Name                  string
@@ -24,7 +25,7 @@ type DynamicTokenData struct {
 	MaxHab                float64
 	ChickenRunHab         float64
 	IHRMultiplier         float64
-	ColleggtibleEaster    float64
+	ColleggtibleIHR       float64
 }
 
 // Returns an slice of integers for all contract players with needed token counts
@@ -71,32 +72,34 @@ func getBoostTimeSeconds(dt *DynamicTokenData, tokens int) (time.Duration, time.
 func createDynamicTokenData() *DynamicTokenData {
 	dt := new(DynamicTokenData)
 
+	_, _, colleggtibleHab, colleggtiblesIHR := ei.GetColleggtibleValues()
+	dt.ColleggtibleIHR = colleggtiblesIHR
 	dt.HabNumber = 4
 	dt.OfflineIHR = 3
+	dt.TE = 50 // Assuming 50 TE
 
 	// Chickens per minute
 	// Assumption is that the player has completed Epic and Common Research
-	dt.IhrBase = 7440                                                 // chickens/min/hab
-	dt.IhrBase = int64(float64(dt.IhrBase) * ei.GetColleggtibleIHR()) // 5% from Easter Colleggtibles
+	dt.IhrBase = 7440                                            // chickens/min/hab
+	dt.IhrBase = int64(float64(dt.IhrBase) * dt.ColleggtibleIHR) // 5% from Easter Colleggtibles
 	dt.FourHabsOffline = dt.IhrBase * dt.HabNumber * dt.OfflineIHR
 
 	// 1000x + number of 10x free boosts * multiplier
-	dt.TokenBoost[0] = dt.FourHabsOffline * (1000 + 4*10)
-	dt.TokenBoost[1] = dt.FourHabsOffline * (1000 + 3*10) * 2
-	dt.TokenBoost[2] = dt.FourHabsOffline * (1000 + 2*10) * 4
-	dt.TokenBoost[3] = dt.FourHabsOffline * (1000 + 1*10) * 6
-	dt.TokenBoost[4] = dt.FourHabsOffline * (1000 + 0*10) * 10
+	dt.TokenBoost[0] = dt.FourHabsOffline * int64(calcBoostMulti(4))
+	dt.TokenBoost[1] = dt.FourHabsOffline * int64(calcBoostMulti(5))
+	dt.TokenBoost[2] = dt.FourHabsOffline * int64(calcBoostMulti(6))
+	dt.TokenBoost[3] = dt.FourHabsOffline * int64(calcBoostMulti(7))
+	dt.TokenBoost[4] = dt.FourHabsOffline * int64(calcBoostMulti(8))
 
 	// Assume: T4L Chalice, T4L mono, 6 Life stones
-
-	dt.ColleggtibleEaster = 1.05
-	dt.IHRMultiplier = 1.4 * 1.25 * math.Pow(1.04, 11.0) * dt.ColleggtibleEaster
-	dt.MaxHab = 14175000000.0
-	dt.ChickenRunHab = 9000000000.0
+	chickenRunPercent := 0.70 // Chicken run is 70.0% of normal boost time
+	dt.IHRMultiplier = 1.4 * 1.25 * math.Pow(1.04, 11.0) * dt.ColleggtibleIHR * math.Pow(1.01, float64(dt.TE))
+	dt.MaxHab = 14175000000.0 * colleggtibleHab
+	dt.ChickenRunHab = dt.MaxHab * chickenRunPercent
 	// Create boost times for 4 through 9 tokens
 	for i := 0; i < len(dt.TokenBoost); i++ {
-		dt.BoostTimeSeconds[i] = time.Duration(dt.MaxHab / (float64(dt.TokenBoost[i]) * dt.IHRMultiplier) * 60.0 * float64(time.Second))
-		dt.ChickenRunTimeSeconds[i] = time.Duration(dt.ChickenRunHab / (float64(dt.TokenBoost[i]) * dt.IHRMultiplier) * 60.0 * float64(time.Second))
+		dt.BoostTimeSeconds[i] = time.Duration(dt.MaxHab / (float64(dt.TokenBoost[i]) * dt.IHRMultiplier) * chickenRunPercent * float64(time.Second))
+		dt.ChickenRunTimeSeconds[i] = time.Duration(dt.ChickenRunHab / (float64(dt.TokenBoost[i]) * dt.IHRMultiplier) * chickenRunPercent * float64(time.Second))
 	}
 	return dt
 }
