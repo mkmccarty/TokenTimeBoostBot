@@ -191,10 +191,10 @@ func saveSqliteData(contract *Contract) {
 		Value:      sql.NullString{String: string(contractJSON), Valid: true},
 	})
 	if rows == 0 {
-		count, _ := queries.CountContractsByChannel(ctx, contract.Location[0].ChannelID)
-		if count > 0 {
-			_ = queries.DeleteContractByChannel(ctx, contract.Location[0].ChannelID)
-		}
+		//		count, _ := queries.CountContractsByChannel(ctx, contract.Location[0].ChannelID)
+		//		if count > 0 {
+		//			_ = queries.DeleteContractByChannel(ctx, contract.Location[0].ChannelID)
+		//	}
 		// Record doesn't exist, insert it
 		err = queries.InsertContract(ctx, InsertContractParams{
 			Channelid:  contract.Location[0].ChannelID,

@@ -511,12 +511,15 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 		iconsRow[1] = iconsRow[1][:5] // Limit this row to 5 icons
 		if len(iconsRow[2]) > 5 {
 			iconsRow[3] = iconsRow[2][5:] // Grab overflow icons to new row
-			iconsRow[2] = iconsRow[2][:5] // Limit the number of alt icons to 5
-			iconsRow[3] = iconsRow[3][:5] // Limit the number of alt icons to 5
+			iconsRow[2] = iconsRow[2][:5] // Limit the number of icons to 5
+			if len(iconsRow[3]) > 5 {
+				iconsRow[4] = iconsRow[3][5:] // Grab overflow icons to new row
+				iconsRow[3] = iconsRow[3][:5] // Limit the number of icons to 5
+				iconsRow[4] = iconsRow[4][:5] // Limit the number of icons to 5
+			}
 		}
 	}
 
-	// Alt icons can go on a second action row
 	out := []discordgo.MessageComponent{}
 
 	if contract.State != ContractStateSignup {
@@ -698,6 +701,12 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 			idx := slices.Index(iconsRowA, tokenStr)
 			iconsRowA = append(iconsRowA[:idx+1], append([]string{"UG"}, iconsRowA[idx+1:]...)...)
 		}
+	}
+
+	// Move any icons beyond 5 from iconsRowA to iconsRowB
+	if len(iconsRowA) > 5 {
+		iconsRowB = append(iconsRowA[5:], iconsRowB...)
+		iconsRowA = iconsRowA[:5]
 	}
 
 	if len(iconsRowA) < 5 {
