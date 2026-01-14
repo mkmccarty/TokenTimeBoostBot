@@ -192,7 +192,7 @@ func saveSqliteData(contract *Contract) {
 	})
 	if rows == 0 {
 		count, _ := queries.CountContractsByChannel(ctx, contract.Location[0].ChannelID)
-		if count > 1 {
+		if count > 0 {
 			_ = queries.DeleteContractByChannel(ctx, contract.Location[0].ChannelID)
 		}
 		// Record doesn't exist, insert it
