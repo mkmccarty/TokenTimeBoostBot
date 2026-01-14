@@ -2,6 +2,7 @@ package boost
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,7 +15,9 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"google.golang.org/genai"
 )
 
 // SlashAdminGetContractData is the slash to get contract JSON data
@@ -72,6 +75,7 @@ func HandleAdminListRoles(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	}
 
 	var components []discordgo.MessageComponent
+	//
 
 	guildRoles, err := s.GuildRoles(i.GuildID)
 	if err != nil {
@@ -81,6 +85,12 @@ func HandleAdminListRoles(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		for _, c := range ei.EggIncContracts {
 			if c.ID == contractID {
 				sortedContractRoles := make([]string, 0)
+				if len(c.TeamNames) == 0 {
+					if names := fetchContractTeamNames(c.Description, 30); len(names) > 0 {
+						c.TeamNames = names
+						ei.EggIncContractsAll[c.ID] = c
+					}
+				}
 				sortedContractRoles = append(sortedContractRoles, c.TeamNames...)
 				slices.Sort(sortedContractRoles)
 				for _, role := range sortedContractRoles {
@@ -203,6 +213,56 @@ func getRandomColor() int {
 
 var lastContractListTime time.Time
 var lastContractListIndex int
+
+const googleModel = "gemini-2.5-flash-lite"
+
+func fetchContractTeamNames(prompt string, quantity int) []string {
+	if config.GoogleAPIKey == "" {
+		return nil
+	}
+
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "My Egg Inc contract today wants \"%s\". Return a list of %d team names in a comma separated list with no other context.", prompt, quantity)
+
+	ctx := context.Background()
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		APIKey:  config.GoogleAPIKey,
+		Backend: genai.BackendGeminiAPI,
+	})
+	if err != nil {
+		log.Print(err)
+		return nil
+	}
+
+	resp, err := client.Models.GenerateContent(ctx, googleModel, genai.Text(builder.String()), nil)
+	if err != nil {
+		log.Print(err)
+		return nil
+	}
+
+	var respStr strings.Builder
+	for _, cand := range resp.Candidates {
+		if cand.Content == nil {
+			continue
+		}
+		for _, part := range cand.Content.Parts {
+			respStr.WriteString(fmt.Sprint(part.Text))
+		}
+	}
+
+	text := strings.ReplaceAll(respStr.String(), "widget", "token")
+
+	parts := strings.Split(text, ",")
+	var names []string
+	for _, p := range parts {
+		name := strings.TrimSpace(p)
+		if name != "" {
+			names = append(names, name)
+		}
+	}
+
+	return names
+}
 
 // getContractList returns a list of all contracts within the specified guild
 func getContractList(guildID string) (string, *discordgo.MessageSend, error) {
