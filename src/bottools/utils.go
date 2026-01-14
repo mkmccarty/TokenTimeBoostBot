@@ -205,18 +205,29 @@ func NumberToEmoji(n int) string {
 
 // GetCommandOptionsMap returns a map of command options
 // subcommand options are stored as "subcommand-option"
+// nested subcommands are stored as "group-subcommand-option"
 func GetCommandOptionsMap(i *discordgo.InteractionCreate) map[string]*discordgo.ApplicationCommandInteractionDataOption {
-
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-		if opt.Type == discordgo.ApplicationCommandOptionSubCommand {
-			for _, subOpt := range opt.Options {
-				optionMap[opt.Name+"-"+subOpt.Name] = subOpt
+	
+	var traverse func(opts []*discordgo.ApplicationCommandInteractionDataOption, prefix string)
+	traverse = func(opts []*discordgo.ApplicationCommandInteractionDataOption, prefix string) {
+		for _, opt := range opts {
+			key := opt.Name
+			if prefix != "" {
+				key = prefix + "-" + opt.Name
+			}
+			optionMap[key] = opt
+			
+			// Recursively traverse subcommand groups and subcommands
+			if opt.Type == discordgo.ApplicationCommandOptionSubCommand || 
+			   opt.Type == discordgo.ApplicationCommandOptionSubCommandGroup {
+				traverse(opt.Options, key)
 			}
 		}
 	}
+	
+	traverse(options, "")
 	return optionMap
 }
 

@@ -368,6 +368,9 @@ var (
 		slashChange: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractAutoComplete(s, i)
 		},
+		slashUpdateCommand: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleContractAutoComplete(s, i)
+		},
 		slashRerunEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAllContractsAutoComplete(s, i)
 		},

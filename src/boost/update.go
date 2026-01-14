@@ -9,7 +9,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
-// GetSlashUpdateCommand returns the /update slash command with subcommands for boost-tokens and TE
+// GetSlashUpdateCommand returns the /update slash command with main subcommand groups for farmer and contract
 func GetSlashUpdateCommand(cmd string) *discordgo.ApplicationCommand {
 	intMin0 := float64(0)
 	intMax12 := float64(12)
@@ -17,47 +17,101 @@ func GetSlashUpdateCommand(cmd string) *discordgo.ApplicationCommand {
 
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
-		Description: "Update farmer statistics",
+		Description: "Update farmer or contract statistics",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "boost-tokens",
-				Description: "Update boost tokens (0-12)",
+				Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
+				Name:        "farmer",
+				Description: "Update farmer statistics",
 				Options: []*discordgo.ApplicationCommandOption{
 					{
-						Type:        discordgo.ApplicationCommandOptionString,
-						Name:        "farmername",
-						Description: "Farmer name to update",
-						Required:    true,
+						Type:        discordgo.ApplicationCommandOptionSubCommand,
+						Name:        "boost-tokens",
+						Description: "Update boost tokens (0-12)",
+						Options: []*discordgo.ApplicationCommandOption{
+							{
+								Type:        discordgo.ApplicationCommandOptionString,
+								Name:        "farmername",
+								Description: "Farmer name to update",
+								Required:    true,
+							},
+							{
+								Type:        discordgo.ApplicationCommandOptionInteger,
+								Name:        "value",
+								Description: "Number of boost tokens (0-12)",
+								Required:    true,
+								MinValue:    &intMin0,
+								MaxValue:    intMax12,
+							},
+						},
 					},
 					{
-						Type:        discordgo.ApplicationCommandOptionInteger,
-						Name:        "value",
-						Description: "Number of boost tokens (0-12)",
-						Required:    true,
-						MinValue:    &intMin0,
-						MaxValue:    intMax12,
+						Type:        discordgo.ApplicationCommandOptionSubCommand,
+						Name:        "te",
+						Description: "Update TE value (0-490)",
+						Options: []*discordgo.ApplicationCommandOption{
+							{
+								Type:        discordgo.ApplicationCommandOptionString,
+								Name:        "farmername",
+								Description: "Farmer name to update",
+								Required:    true,
+							},
+							{
+								Type:        discordgo.ApplicationCommandOptionInteger,
+								Name:        "value",
+								Description: "TE value (0-490)",
+								Required:    true,
+								MinValue:    &intMin0,
+								MaxValue:    intMax490,
+							},
+						},
 					},
 				},
 			},
 			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "te",
-				Description: "Update TE value (0-490)",
+				Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
+				Name:        "contract",
+				Description: "Update contract settings",
 				Options: []*discordgo.ApplicationCommandOption{
 					{
-						Type:        discordgo.ApplicationCommandOptionString,
-						Name:        "farmername",
-						Description: "Farmer name to update",
-						Required:    true,
+						Type:        discordgo.ApplicationCommandOptionSubCommand,
+						Name:        "coop-id",
+						Description: "Update contract coopID",
+						Options: []*discordgo.ApplicationCommandOption{
+							{
+								Type:        discordgo.ApplicationCommandOptionString,
+								Name:        "coop-id",
+								Description: "New coopID value",
+								Required:    true,
+							},
+						},
 					},
 					{
-						Type:        discordgo.ApplicationCommandOptionInteger,
-						Name:        "value",
-						Description: "TE value (0-490)",
-						Required:    true,
-						MinValue:    &intMin0,
-						MaxValue:    intMax490,
+						Type:        discordgo.ApplicationCommandOptionSubCommand,
+						Name:        "contract-id",
+						Description: "Update contract contractID",
+						Options: []*discordgo.ApplicationCommandOption{
+							{
+								Type:         discordgo.ApplicationCommandOptionString,
+								Name:         "contract-id",
+								Description:  "New contractID value",
+								Required:     true,
+								Autocomplete: true,
+							},
+						},
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionSubCommand,
+						Name:        "coordinator",
+						Description: "Update contract coordinator (must be in contract)",
+						Options: []*discordgo.ApplicationCommandOption{
+							{
+								Type:        discordgo.ApplicationCommandOptionUser,
+								Name:        "user",
+								Description: "New coordinator user",
+								Required:    true,
+							},
+						},
 					},
 				},
 			},
@@ -68,33 +122,54 @@ func GetSlashUpdateCommand(cmd string) *discordgo.ApplicationCommand {
 // HandleUpdateCommand handles the /update slash command
 func HandleUpdateCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	optionMap := bottools.GetCommandOptionsMap(i)
+	subcommandGroup := ""
 	subcommand := ""
 	farmername := ""
 	value := int64(0)
+	coopIDValue := ""
+	contractIDValue := ""
 
-	if opt, ok := optionMap["te-farmername"]; ok {
-		farmername = strings.TrimSpace(opt.StringValue())
-	}
-	if opt, ok := optionMap["te-value"]; ok {
-		value = opt.IntValue()
-	}
-	if opt, ok := optionMap["boost-tokens-farmername"]; ok {
-		farmername = strings.TrimSpace(opt.StringValue())
-	}
-	if opt, ok := optionMap["boost-tokens-value"]; ok {
-		value = opt.IntValue()
-	}
-
-	// Get the subcommand name
+	// Get the subcommand group and subcommand from nested options
 	if len(i.ApplicationCommandData().Options) > 0 {
-		subcommand = i.ApplicationCommandData().Options[0].Name
+		subcommandGroup = i.ApplicationCommandData().Options[0].Name
+		if len(i.ApplicationCommandData().Options[0].Options) > 0 {
+			subcommand = i.ApplicationCommandData().Options[0].Options[0].Name
+		}
+	}
+
+	// Extract values based on subcommand group
+	switch subcommandGroup {
+	case "farmer":
+		if opt, ok := optionMap["farmer-boost-tokens-farmername"]; ok {
+			farmername = strings.TrimSpace(opt.StringValue())
+		}
+		if opt, ok := optionMap["farmer-boost-tokens-value"]; ok {
+			value = opt.IntValue()
+		}
+		if opt, ok := optionMap["farmer-te-farmername"]; ok {
+			farmername = strings.TrimSpace(opt.StringValue())
+		}
+		if opt, ok := optionMap["farmer-te-value"]; ok {
+			value = opt.IntValue()
+		}
+
+	case "contract":
+		if opt, ok := optionMap["contract-coop-id-coop-id"]; ok {
+			coopIDValue = strings.TrimSpace(opt.StringValue())
+		}
+		if opt, ok := optionMap["contract-contract-id-contract-id"]; ok {
+			contractIDValue = strings.TrimSpace(opt.StringValue())
+		}
+		if opt, ok := optionMap["contract-coordinator-user"]; ok {
+			coopIDValue = opt.UserValue(s).ID // Reuse coopIDValue for coordinator
+		}
 	}
 
 	userID := farmername
 	resultMsg := ""
 
 	// Try to find the user by farmername or discord mention
-	if strings.HasPrefix(farmername, "<@") {
+	if farmername != "" && strings.HasPrefix(farmername, "<@") {
 		// Extract user ID from mention
 		mention := farmername[2 : len(farmername)-1]
 		if mention[0] == '!' {
@@ -104,17 +179,67 @@ func HandleUpdateCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	// Handle the specific subcommand
-	switch subcommand {
-	case "boost-tokens":
-		farmerstate.SetTokens(userID, int(value))
-		resultMsg = fmt.Sprintf("✅ Updated %s's boost tokens to %d", farmername, value)
+	switch subcommandGroup {
+	case "farmer":
+		switch subcommand {
+		case "boost-tokens":
+			farmerstate.SetTokens(userID, int(value))
+			resultMsg = fmt.Sprintf("✅ Updated %s's boost tokens to %d", farmername, value)
 
-	case "te":
-		farmerstate.SetMiscSettingString(userID, "TE", fmt.Sprintf("%d", value))
-		resultMsg = fmt.Sprintf("✅ Updated %s's TE to %d", farmername, value)
+		case "te":
+			farmerstate.SetMiscSettingString(userID, "TE", fmt.Sprintf("%d", value))
+			resultMsg = fmt.Sprintf("✅ Updated %s's TE to %d", farmername, value)
+
+		default:
+			resultMsg = "Unknown farmer subcommand"
+		}
+
+		// If this farmer is in any contracts, update their contract.Boosters data with the changed value
+		updateFarmerInContracts(s, userID, subcommand, value)
+
+	case "contract":
+		contract := FindContract(i.ChannelID)
+		if contract == nil {
+			resultMsg = "❌ Contract not found in this channel"
+		} else {
+			defer saveData(contract.ContractHash)
+
+			switch subcommand {
+			case "coop-id":
+				err := ChangeContractIDs(s, i.GuildID, i.ChannelID, i.Member.User.ID, "", coopIDValue, "")
+				if err != nil {
+					resultMsg = fmt.Sprintf("❌ %s", err.Error())
+				} else {
+					resultMsg = fmt.Sprintf("✅ Updated coopID to %s", coopIDValue)
+					refreshBoostListMessage(s, contract, false)
+				}
+
+			case "contract-id":
+				err := ChangeContractIDs(s, i.GuildID, i.ChannelID, i.Member.User.ID, contractIDValue, "", "")
+				if err != nil {
+					resultMsg = fmt.Sprintf("❌ %s", err.Error())
+				} else {
+					resultMsg = fmt.Sprintf("✅ Updated contractID to %s", contractIDValue)
+					refreshBoostListMessage(s, contract, false)
+				}
+
+			case "coordinator":
+				coordinatorID := coopIDValue // Reused variable from above (already extracted as user ID)
+				err := ChangeContractIDs(s, i.GuildID, i.ChannelID, i.Member.User.ID, "", "", coordinatorID)
+				if err != nil {
+					resultMsg = fmt.Sprintf("❌ %s", err.Error())
+				} else {
+					resultMsg = fmt.Sprintf("✅ Updated coordinator to <@%s>", coordinatorID)
+					refreshBoostListMessage(s, contract, false)
+				}
+
+			default:
+				resultMsg = "Unknown contract subcommand"
+			}
+		}
 
 	default:
-		resultMsg = "Unknown subcommand"
+		resultMsg = "Unknown subcommand group"
 	}
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -124,11 +249,6 @@ func HandleUpdateCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	})
-
-	// If this farmer is in any contracts, update their contract.Boosters data with the changed value
-	// only update the value if it was changed by this command, don't overwrite other data
-	updateFarmerInContracts(s, userID, subcommand, value)
-
 }
 
 // updateFarmerInContracts updates a farmer's data in all contracts they're part of
