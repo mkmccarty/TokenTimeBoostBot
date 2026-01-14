@@ -1,6 +1,7 @@
 package bottools
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -79,10 +80,10 @@ func TestIsValidDiscordIDWithRecentTimestamp(t *testing.T) {
 	now := time.Now().UnixMilli()
 	snowflake := (now - discordEpoch) << 22
 
-	id := string(rune(snowflake))
+	id := fmt.Sprintf("%d", snowflake)
 	result := IsValidDiscordID(id)
 
 	if !result {
-		t.Errorf("IsValidDiscordID with recent timestamp should be valid")
+		t.Errorf("IsValidDiscordID with recent timestamp should be valid, got ID: %s", id)
 	}
 }
