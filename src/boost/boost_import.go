@@ -290,6 +290,9 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		fairShare := 1.00
 		if c.SeasonalScoring == ei.SeasonalScoringNerfed {
 			fairShare = 1.00
+			if c.ID == "quant-blitz" {
+				fairShare = 3.85
+			}
 		}
 		if c.MaxCoopSize == 1 {
 			fairShare = 1.0
