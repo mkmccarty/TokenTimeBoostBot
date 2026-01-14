@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -980,6 +981,11 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 			refreshBoostListMessage(s, contract, false)
 
 		}(eggIncID, userID, b)
+	} else {
+		te := farmerstate.GetMiscSettingString(userID, "TE")
+		if te != "" {
+			b.TECount, _ = strconv.Atoi(te)
+		}
 	}
 }
 
