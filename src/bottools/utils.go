@@ -209,7 +209,7 @@ func NumberToEmoji(n int) string {
 func GetCommandOptionsMap(i *discordgo.InteractionCreate) map[string]*discordgo.ApplicationCommandInteractionDataOption {
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	
+
 	var traverse func(opts []*discordgo.ApplicationCommandInteractionDataOption, prefix string)
 	traverse = func(opts []*discordgo.ApplicationCommandInteractionDataOption, prefix string) {
 		for _, opt := range opts {
@@ -218,15 +218,15 @@ func GetCommandOptionsMap(i *discordgo.InteractionCreate) map[string]*discordgo.
 				key = prefix + "-" + opt.Name
 			}
 			optionMap[key] = opt
-			
+
 			// Recursively traverse subcommand groups and subcommands
-			if opt.Type == discordgo.ApplicationCommandOptionSubCommand || 
-			   opt.Type == discordgo.ApplicationCommandOptionSubCommandGroup {
+			if opt.Type == discordgo.ApplicationCommandOptionSubCommand ||
+				opt.Type == discordgo.ApplicationCommandOptionSubCommandGroup {
 				traverse(opt.Options, key)
 			}
 		}
 	}
-	
+
 	traverse(options, "")
 	return optionMap
 }
