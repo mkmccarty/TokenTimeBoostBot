@@ -98,8 +98,8 @@ func createDynamicTokenData() *DynamicTokenData {
 	dt.ChickenRunHab = dt.MaxHab * chickenRunPercent
 	// Create boost times for 4 through 9 tokens
 	for i := 0; i < len(dt.TokenBoost); i++ {
-		dt.BoostTimeSeconds[i] = time.Duration(dt.MaxHab / (float64(dt.TokenBoost[i]) * dt.IHRMultiplier) * chickenRunPercent * float64(time.Second))
-		dt.ChickenRunTimeSeconds[i] = time.Duration(dt.ChickenRunHab / (float64(dt.TokenBoost[i]) * dt.IHRMultiplier) * chickenRunPercent * float64(time.Second))
+		dt.BoostTimeSeconds[i] = time.Duration(dt.MaxHab / (float64(dt.TokenBoost[i]) * dt.IHRMultiplier) * 60.0 * float64(time.Second))
+		dt.ChickenRunTimeSeconds[i] = time.Duration(dt.ChickenRunHab / (float64(dt.TokenBoost[i]) * dt.IHRMultiplier) * 60.0 * float64(time.Second))
 	}
 	return dt
 }
