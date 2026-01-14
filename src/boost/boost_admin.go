@@ -85,13 +85,33 @@ func HandleAdminListRoles(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		for _, c := range ei.EggIncContracts {
 			if c.ID == contractID {
 				sortedContractRoles := make([]string, 0)
+				usingFallbackRoles := false
 				if len(c.TeamNames) == 0 {
 					if names := fetchContractTeamNames(c.Description, 30); len(names) > 0 {
 						c.TeamNames = names
 						ei.EggIncContractsAll[c.ID] = c
+					} else {
+						// Use fallback roles when API key is undefined
+						c.TeamNames = randomThingNames
+						ei.EggIncContractsAll[c.ID] = c
+						usingFallbackRoles = true
 					}
 				}
-				sortedContractRoles = append(sortedContractRoles, c.TeamNames...)
+
+				// If using fallback roles, only include roles that are actually in use
+				if usingFallbackRoles {
+					// Collect roles that are actually in the guild
+					for _, role := range c.TeamNames {
+						for _, guildRole := range guildRoles {
+							if guildRole.Name == role {
+								sortedContractRoles = append(sortedContractRoles, role)
+								break
+							}
+						}
+					}
+				} else {
+					sortedContractRoles = append(sortedContractRoles, c.TeamNames...)
+				}
 				slices.Sort(sortedContractRoles)
 				for _, role := range sortedContractRoles {
 					// if this role is in the guild roles, display it
