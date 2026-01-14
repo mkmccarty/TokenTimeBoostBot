@@ -95,29 +95,6 @@ func saveSqliteData(userID string, farmer *Farmer) {
 	}
 }
 
-/*
-func loadAllSqliteData() (map[string]Farmer, error) {
-	farmers := make(map[string]Farmer)
-	rows, err := queries.GetAllLegacyFarmerstate(ctx)
-	if err != nil {
-		return farmers, err
-	}
-	for _, row := range rows {
-		var farmer Farmer
-		if row.Value.Valid {
-			err = json.Unmarshal([]byte(row.Value.String), &farmer)
-			if err != nil {
-				log.Printf("Error unmarshaling farmer data for user %s: %v", row.ID, err)
-				continue
-			}
-			farmers[row.ID] = farmer
-		}
-	}
-
-	return farmers, nil
-}
-*/
-
 // NewFarmer creates a new Farmer
 func newFarmer(userID string) {
 	// Check if farmer already exists in SQLite
