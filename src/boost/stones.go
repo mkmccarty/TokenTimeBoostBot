@@ -203,6 +203,7 @@ type artifactSet struct {
 	missingResearch  []string
 	missingStones    bool
 	offline          string
+	siloMinutes      uint32
 	baseLayingRate   float64
 	baseShippingRate float64
 	baseHab          float64
@@ -397,6 +398,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		universalHabCapacity := 1.0
 		portalHabCapacity := 1.0
+
+		as.siloMinutes = ei.GetSiloMinutes(fi.GetSilosOwned(), fi.GetEpicResearch())
 
 		for _, cr := range fi.GetCommonResearch() {
 			switch cr.GetId() {

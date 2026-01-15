@@ -134,14 +134,13 @@ func GetFarmEggValue(commonResearch []*Backup_ResearchItem) float64 {
 }
 
 // GetSiloMinutes calculates the total silo minutes from epic research and silos owned
-func GetSiloMinutes(farmInfo *Backup_Simulation, epicResearch []*Backup_ResearchItem) uint32 {
+func GetSiloMinutes(silosOwned uint32, epicResearch []*Backup_ResearchItem) uint32 {
 	baseSiloMinutes := 60.0
 
 	ids := []string{
 		"silo_capacity",
 	}
 
-	silosOwned := farmInfo.GetSilosOwned()
 	result := uint32(GetResearchGeneric(epicResearch, ids, baseSiloMinutes) * float64(silosOwned))
 	return result
 }
