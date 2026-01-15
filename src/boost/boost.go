@@ -1413,17 +1413,21 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	if contract.State == ContractStateSignup {
 		return errors.New(errorContractNotStarted)
 	}
-	contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateBoosted
-	contract.Boosters[contract.Order[contract.BoostPosition]].EndTime = time.Now()
-	contract.Boosters[contract.Order[contract.BoostPosition]].Duration = time.Since(contract.Boosters[contract.Order[contract.BoostPosition]].StartTime)
 
-	// These fields are for the dynamic token assignment
-	if contract.DynamicData != nil {
-		wiggleRoom := time.Duration(30 * time.Second) // Add 30 seconds to the end of the boost
-		boostDuration, chickenRunDuration := getBoostTimeSeconds(contract.DynamicData, contract.Boosters[contract.Order[contract.BoostPosition]].TokensWanted)
-		contract.Boosters[contract.Order[contract.BoostPosition]].EstDurationOfBoost = boostDuration
-		contract.Boosters[contract.Order[contract.BoostPosition]].EstEndOfBoost = time.Now().Add(boostDuration).Add(wiggleRoom)
-		contract.Boosters[contract.Order[contract.BoostPosition]].EstRequestChickenRuns = time.Now().Add(chickenRunDuration).Add(wiggleRoom)
+	booster := contract.Boosters[contract.Order[contract.BoostPosition]]
+	booster.BoostState = BoostStateBoosted
+	booster.EndTime = time.Now()
+	booster.Duration = time.Since(booster.StartTime)
+
+	// These fields are for the dynamic token assignment, per user based on TE
+	dt := createDynamicTokenData(int64(booster.TECount))
+
+	if dt != nil {
+		wiggleRoom := time.Duration(30 * time.Second) // Add 30 seconds of slop
+		boostDuration, chickenRunDuration := getBoostTimeSeconds(dt, booster.TokensWanted)
+		booster.EstDurationOfBoost = boostDuration
+		booster.EstEndOfBoost = time.Now().Add(boostDuration).Add(wiggleRoom)
+		booster.EstRequestChickenRuns = time.Now().Add(chickenRunDuration).Add(wiggleRoom)
 	}
 
 	contract.BoostedOrder = append(contract.BoostedOrder, contract.Order[contract.BoostPosition])
@@ -1462,10 +1466,11 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	} else if contract.BoostPosition == len(contract.Order) {
 		changeContractState(contract, ContractStateWaiting) // There could be more boosters joining later
 	} else {
-		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
-		contract.Boosters[contract.Order[contract.BoostPosition]].StartTime = time.Now()
+		nextBooster := contract.Boosters[contract.Order[contract.BoostPosition]]
+		nextBooster.BoostState = BoostStateTokenTime
+		nextBooster.StartTime = time.Now()
 		if contract.Order[contract.BoostPosition] == contract.Banker.BoostingSinkUserID {
-			contract.Boosters[contract.Order[contract.BoostPosition]].TokensReceived = 0 // reset these
+			nextBooster.TokensReceived = 0 // reset these
 		}
 		if contract.BoostOrder == ContractOrderTVal {
 			reorderBoosters(contract)
