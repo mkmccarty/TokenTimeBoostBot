@@ -708,7 +708,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 		contract.Banker.SinkBoostPosition = SinkBoostFirst
 	}
 
-	contract.DynamicData = createDynamicTokenData()
+	contract.DynamicData = createDynamicTokenData(50)
 	Contracts[ContractHash] = contract
 
 	// want to string ContractFlagCrt and ContractFlagSelfRun from Style

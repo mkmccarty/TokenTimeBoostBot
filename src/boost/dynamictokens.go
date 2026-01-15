@@ -57,26 +57,25 @@ func calculateDynamicTokens(dt *DynamicTokenData, count int, tpm float64, heldTo
 
 // getBoostTimeSeconds returns the boost time as a time.Duration for a given number of tokens
 func getBoostTimeSeconds(dt *DynamicTokenData, tokens int) (time.Duration, time.Duration) {
-	if tokens < 4 || tokens > 9 {
-		log.Printf("Invalid number of tokens: %d. Must be between 4 and 9.", tokens)
-		return 0, 0
-	}
-	// Check if someone is using a 9th token for a soul mirror boost
-	if tokens == 9 {
+
+	// This protects the parameters of the next function call
+	if tokens < 4 {
+		tokens = 4
+	} else if tokens > 8 {
 		tokens = 8
 	}
 	return dt.BoostTimeSeconds[tokens-4], dt.ChickenRunTimeSeconds[tokens-4]
 }
 
 // createDynamicTokenData creates all the common underlying data for dynamic tokens
-func createDynamicTokenData() *DynamicTokenData {
+func createDynamicTokenData(TE int64) *DynamicTokenData {
 	dt := new(DynamicTokenData)
 
 	_, _, colleggtibleHab, colleggtiblesIHR := ei.GetColleggtibleValues()
 	dt.ColleggtibleIHR = colleggtiblesIHR
 	dt.HabNumber = 4
 	dt.OfflineIHR = 3
-	dt.TE = 50 // Assuming 50 TE
+	dt.TE = TE
 
 	// Chickens per minute
 	// Assumption is that the player has completed Epic and Common Research
@@ -118,7 +117,7 @@ func determineDynamicTokens(c *Contract) {
 	// 1. Determine boosted ELR
 	// 2. Determine start boost time ane end boost time based on tokens IHR
 	// 3. Determine how much fully boosted minutes at ELR (120 - minutes to boost)
-	dt := createDynamicTokenData()
+	dt := createDynamicTokenData(50)
 
 	// Initially assign 6 token boosts to everyone,
 	// In reverse order start calculating using 8 token boosts

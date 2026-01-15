@@ -49,7 +49,7 @@ func TestDetermineDynamicTokens(t *testing.T) {
 
 func TestDynamicTokens(t *testing.T) {
 
-	dt := createDynamicTokenData()
+	dt := createDynamicTokenData(50)
 
 	// Initially assign 6 token boosts to everyone,
 	// In reverse order start calculating using 8 token boosts
