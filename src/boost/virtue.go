@@ -370,7 +370,7 @@ func printVirtue(backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compac
 
 	gemsOnHand := backup.GetFarms()[0].GetCashEarned() - backup.GetFarms()[0].GetCashSpent()
 	_, onlineRate, _, offlineRate := ei.GetInternalHatcheryFromBackup(farm.GetCommonResearch(), backup.GetGame(), artifactBuffs.IHR*colBuffs.IHR, allEov)
-	siloMinutes := ei.GetSiloMinutes(farm, backup.GetGame().GetEpicResearch())
+	siloMinutes := ei.GetSiloMinutes(farm.GetSilosOwned(), backup.GetGame().GetEpicResearch())
 
 	fuelingEnabled := virtue.GetAfx().GetTankFillingEnabled()
 	fuelRate := 0.0
