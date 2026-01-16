@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -204,6 +205,7 @@ type artifactSet struct {
 	missingStones    bool
 	offline          string
 	siloMinutes      uint32
+	numSilos         uint32
 	baseLayingRate   float64
 	baseShippingRate float64
 	baseHab          float64
@@ -391,150 +393,41 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		researchComplete := true
 		var missingResearch []string
 
-		userLayRate := 1 / 30.0 // 1 chicken per 30 seconds
-		hoverOnlyMultiplier := 1.0
-		hyperloopOnlyMultiplier := 1.0
-		universalShippingMultiplier := 1.0
+		userLayRate := (1.0 / 30.0) * ei.GetCommonResearchLayRate(fi.GetCommonResearch()) * ei.GetEpicResearchLayRate(fi.GetEpicResearch())
 
-		universalHabCapacity := 1.0
-		portalHabCapacity := 1.0
+		universalShippingMultiplier := ei.GetCommonResearchShippingRate(fi.GetCommonResearch()) * ei.GetEpicResearchShippingRate(fi.GetEpicResearch())
+		hoverOnlyMultiplier := ei.GetCommonResearchHoverOnlyMultiplier(fi.GetCommonResearch())
+		hyperloopOnlyMultiplier := ei.GetCommonResearchHyperloopOnlyMultiplier(fi.GetCommonResearch())
 
-		as.siloMinutes = ei.GetSiloMinutes(fi.GetSilosOwned(), fi.GetEpicResearch())
+		universalHabCapacity := ei.GetCommonResearchHabCapacity(fi.GetCommonResearch())
+		portalHabCapacity := ei.GetCommonResearchPortalHabCapacity(fi.GetCommonResearch())
 
-		for _, cr := range fi.GetCommonResearch() {
-			switch cr.GetId() {
-			case "comfy_nests": // 50
-				userLayRate *= (1 + 0.1*float64(cr.GetLevel())) // Comfortable Nests 10%
-				if cr.GetLevel() != 50 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("comfy_nests %d/50", cr.GetLevel()))
-				}
-			case "hen_house_ac": // 50
-				userLayRate *= (1 + 0.05*float64(cr.GetLevel())) // Hen House Expansion 10%
-				if cr.GetLevel() != 50 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("hen_house_ac %d/50", cr.GetLevel()))
-				}
-			case "improved_genetics": // 30
-				userLayRate *= (1 + 0.15*float64(cr.GetLevel())) // Internal Hatcheries 15%
-				if cr.GetLevel() != 30 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("improved_genetics %d/30", cr.GetLevel()))
-				}
-			case "time_compress": // 20
-				userLayRate *= (1 + 0.1*float64(cr.GetLevel())) // Time Compression 10%
-				if cr.GetLevel() != 20 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("time_compress %d/20", cr.GetLevel()))
-				}
-			case "timeline_diversion": // 50
-				userLayRate *= (1 + 0.02*float64(cr.GetLevel())) // Timeline Diversion 2%
-				if cr.GetLevel() != 50 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("timeline_diversion %d/50", cr.GetLevel()))
-				}
-			case "relativity_optimization": // 10
-				userLayRate *= (1 + 0.1*float64(cr.GetLevel())) // Relativity Optimization 10%
-				if cr.GetLevel() != 10 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("relativity_optimization %d/10", cr.GetLevel()))
-				}
-			case "leafsprings": // 30
-				universalShippingMultiplier *= (1 + 0.05*float64(cr.GetLevel())) // Leafsprings 5%
-				if cr.GetLevel() != 30 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("leafsprings %d/30", cr.GetLevel()))
-				}
-			case "lightweight_boxes": // 40
-				universalShippingMultiplier *= (1 + 0.1*float64(cr.GetLevel())) // Lightweight Boxes 10%
-				if cr.GetLevel() != 40 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("lightweight_boxes %d/40", cr.GetLevel()))
-				}
-			case "driver_training": // 30
-				universalShippingMultiplier *= (1 + 0.05*float64(cr.GetLevel())) // Driver Training 5%
-				if cr.GetLevel() != 30 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("driver_training %d/30", cr.GetLevel()))
-				}
-			case "super_alloy": // 50
-				universalShippingMultiplier *= (1 + 0.05*float64(cr.GetLevel())) // Super Alloy 5%
-				if cr.GetLevel() != 50 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("super_alloy %d/50", cr.GetLevel()))
-				}
-			case "quantum_storage": // 20
-				universalShippingMultiplier *= (1 + 0.05*float64(cr.GetLevel())) // Quantum Storage 5%
-				if cr.GetLevel() != 20 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("quantum_storage %d/20", cr.GetLevel()))
-				}
-			case "hover_upgrades": // 25
-				// Need to only do this for the vehicles that have hover upgrades
-				hoverOnlyMultiplier = (1 + 0.05*float64(cr.GetLevel())) // Hover Upgrades 5%
-				if cr.GetLevel() != 25 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("hover_upgrades %d/25", cr.GetLevel()))
-				}
-			case "dark_containment": // 25
-				universalShippingMultiplier *= (1 + 0.05*float64(cr.GetLevel())) // Dark Containment 5%
-				if cr.GetLevel() != 25 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("dark_containment %d/25", cr.GetLevel()))
-				}
-			case "neural_net_refine": // 25
-				universalShippingMultiplier *= (1 + 0.05*float64(cr.GetLevel())) // Neural Net Refine 5%
-				if cr.GetLevel() != 25 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("neural_net_refine %d/25", cr.GetLevel()))
-				}
-			case "hyper_portalling": // 25
-				hyperloopOnlyMultiplier = (1 + 0.05*float64(cr.GetLevel())) // Hyper Portalling 5%
-				if cr.GetLevel() != 25 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("hyper_portalling %d/25", cr.GetLevel()))
-				}
-			case "hab_capacity1": // 8
-				universalHabCapacity *= (1.0 + 0.05*float64(cr.GetLevel())) // Hab Capacity 5%
-				if cr.GetLevel() != 8 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("hab_capacity %d/8", cr.GetLevel()))
-				}
-			case "microlux": // 10
-				universalHabCapacity *= (1.0 + 0.05*float64(cr.GetLevel())) // Microlux 5%
-				if cr.GetLevel() != 10 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("microlux %d/10", cr.GetLevel()))
-				}
-			case "grav_plating": // 25
-				universalHabCapacity *= (1.0 + 0.02*float64(cr.GetLevel())) // Grav Plating 2%
-				if cr.GetLevel() != 25 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("grav_plating %d/25", cr.GetLevel()))
-				}
-			case "wormhole_dampening": // 25
-				portalHabCapacity = (1.0 + 0.02*float64(cr.GetLevel())) // Wormhole Dampening 2%
-				if cr.GetLevel() != 25 {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("wormhole_dampening %d/25", cr.GetLevel()))
-				}
-			}
+		as.numSilos = fi.GetSilosOwned()
+		as.siloMinutes = ei.GetSiloMinutes(as.numSilos, fi.GetEpicResearch())
 
+		// Check for incomplete research
+		relevantResearch := []string{
+			"comfy_nests", "hen_house_ac", "improved_genetics", "time_compress",
+			"timeline_diversion", "relativity_optimization", "leafsprings", "lightweight_boxes",
+			"driver_training", "super_alloy", "quantum_storage", "hover_upgrades",
+			"dark_containment", "neural_net_refine", "hyper_portalling", "hab_capacity1",
+			"microlux", "grav_plating", "wormhole_dampening", "epic_egg_laying",
+			"transportation_lobbyist",
 		}
 
-		for _, er := range fi.GetEpicResearch() {
-			switch er.GetId() {
-			case "epic_egg_laying": // 20
-				userLayRate *= (1 + 0.05*float64(er.GetLevel())) // Epic Egg Laying 5%
-				if er.GetLevel() != 20 {
+		for _, cr := range fi.GetCommonResearch() {
+			if researchData, ok := ei.EggIncResearchesMap[cr.GetId()]; ok {
+				if slices.Contains(relevantResearch, cr.GetId()) && cr.GetLevel() != uint32(researchData.Levels) {
 					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("epic_egg_laying %d/20", er.GetLevel()))
+					missingResearch = append(missingResearch, fmt.Sprintf("%s %d/%d", cr.GetId(), cr.GetLevel(), researchData.Levels))
 				}
-			case "transportation_lobbyist": // 30
-				universalShippingMultiplier *= (1 + 0.05*float64(er.GetLevel())) // Transportation Lobbyist 5%
-				if er.GetLevel() != 30 {
+			}
+		}
+		for _, er := range fi.GetEpicResearch() {
+			if researchData, ok := ei.EggIncResearchesMap[er.GetId()]; ok {
+				if slices.Contains(relevantResearch, er.GetId()) && er.GetLevel() != uint32(researchData.Levels) {
 					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("transportation_lobbyist %d/30", er.GetLevel()))
+					missingResearch = append(missingResearch, fmt.Sprintf("%s %d/%d", er.GetId(), er.GetLevel(), researchData.Levels))
 				}
 			}
 		}
@@ -913,6 +806,11 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			needLegend = true
 			showGlitch = true
 			notes += "🤥"
+		}
+
+		if as.numSilos != 10 {
+			needLegend = true
+			notes += fmt.Sprintf("%s", ei.GetBotEmojiMarkdown("silo"))
 		}
 
 		qStones := as.quantStones[ei.ArtifactSpec_INFERIOR] + as.quantStones[ei.ArtifactSpec_LESSER] + as.quantStones[ei.ArtifactSpec_NORMAL]
