@@ -810,7 +810,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		if as.numSilos != 10 {
 			needLegend = true
-			notes += fmt.Sprintf("%s", ei.GetBotEmojiMarkdown("silo"))
+			notes += ei.GetBotEmojiMarkdown("silo")
 		}
 
 		qStones := as.quantStones[ei.ArtifactSpec_INFERIOR] + as.quantStones[ei.ArtifactSpec_LESSER] + as.quantStones[ei.ArtifactSpec_NORMAL]
