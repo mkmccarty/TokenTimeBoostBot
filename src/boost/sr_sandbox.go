@@ -244,8 +244,8 @@ func EncodeData(cxpToggle bool, targetEgg float64, tokenTimer string, contractLe
 	eggStr, eggUnit := FmtNumberSingleUnit(targetEgg, true)
 
 	// Check if Generous Gifts is enabled based on multiplier
-	_, ultraGGMultiplier, _ := ei.GetGenerousGiftEvent()
-	ggToggle := ultraGGMultiplier > 1.0
+	ggMultiplier, ultraGGMultiplier, _ := ei.GetGenerousGiftEvent()
+	ggToggle := ggMultiplier > 1.0 || ultraGGMultiplier > 1.0
 
 	// Get modifiers
 	modifiers, modName := FmtActiveModifier(c)
