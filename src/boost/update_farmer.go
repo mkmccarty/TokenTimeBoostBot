@@ -17,7 +17,7 @@ func GetSlashUpdateCommand(cmd string) *discordgo.ApplicationCommand {
 
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
-		Description: "Update farmer or contract statistics",
+		Description: "Update farmer statistics",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
@@ -68,53 +68,6 @@ func GetSlashUpdateCommand(cmd string) *discordgo.ApplicationCommand {
 					},
 				},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
-				Name:        "contract",
-				Description: "Update contract settings",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionSubCommand,
-						Name:        "coop-id",
-						Description: "Update contract coopID",
-						Options: []*discordgo.ApplicationCommandOption{
-							{
-								Type:        discordgo.ApplicationCommandOptionString,
-								Name:        "coop-id",
-								Description: "New coopID value",
-								Required:    true,
-							},
-						},
-					},
-					{
-						Type:        discordgo.ApplicationCommandOptionSubCommand,
-						Name:        "contract-id",
-						Description: "Update contract contractID",
-						Options: []*discordgo.ApplicationCommandOption{
-							{
-								Type:         discordgo.ApplicationCommandOptionString,
-								Name:         "contract-id",
-								Description:  "New contractID value",
-								Required:     true,
-								Autocomplete: true,
-							},
-						},
-					},
-					{
-						Type:        discordgo.ApplicationCommandOptionSubCommand,
-						Name:        "coordinator",
-						Description: "Update contract coordinator (must be in contract)",
-						Options: []*discordgo.ApplicationCommandOption{
-							{
-								Type:        discordgo.ApplicationCommandOptionUser,
-								Name:        "user",
-								Description: "New coordinator user",
-								Required:    true,
-							},
-						},
-					},
-				},
-			},
 		},
 	}
 }
@@ -126,8 +79,6 @@ func HandleUpdateCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	subcommand := ""
 	farmername := ""
 	value := int64(0)
-	coopIDValue := ""
-	contractIDValue := ""
 
 	// Get the subcommand group and subcommand from nested options
 	if len(i.ApplicationCommandData().Options) > 0 {
@@ -151,17 +102,6 @@ func HandleUpdateCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 		if opt, ok := optionMap["farmer-te-value"]; ok {
 			value = opt.IntValue()
-		}
-
-	case "contract":
-		if opt, ok := optionMap["contract-coop-id-coop-id"]; ok {
-			coopIDValue = strings.TrimSpace(opt.StringValue())
-		}
-		if opt, ok := optionMap["contract-contract-id-contract-id"]; ok {
-			contractIDValue = strings.TrimSpace(opt.StringValue())
-		}
-		if opt, ok := optionMap["contract-coordinator-user"]; ok {
-			coopIDValue = opt.UserValue(s).ID // Reuse coopIDValue for coordinator
 		}
 	}
 
@@ -196,47 +136,6 @@ func HandleUpdateCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 		// If this farmer is in any contracts, update their contract.Boosters data with the changed value
 		updateFarmerInContracts(s, userID, subcommand, value)
-
-	case "contract":
-		contract := FindContract(i.ChannelID)
-		if contract == nil {
-			resultMsg = "❌ Contract not found in this channel"
-		} else {
-			defer saveData(contract.ContractHash)
-
-			switch subcommand {
-			case "coop-id":
-				err := ChangeContractIDs(s, i.GuildID, i.ChannelID, i.Member.User.ID, "", coopIDValue, "")
-				if err != nil {
-					resultMsg = fmt.Sprintf("❌ %s", err.Error())
-				} else {
-					resultMsg = fmt.Sprintf("✅ Updated coopID to %s", coopIDValue)
-					refreshBoostListMessage(s, contract, false)
-				}
-
-			case "contract-id":
-				err := ChangeContractIDs(s, i.GuildID, i.ChannelID, i.Member.User.ID, contractIDValue, "", "")
-				if err != nil {
-					resultMsg = fmt.Sprintf("❌ %s", err.Error())
-				} else {
-					resultMsg = fmt.Sprintf("✅ Updated contractID to %s", contractIDValue)
-					refreshBoostListMessage(s, contract, false)
-				}
-
-			case "coordinator":
-				coordinatorID := coopIDValue // Reused variable from above (already extracted as user ID)
-				err := ChangeContractIDs(s, i.GuildID, i.ChannelID, i.Member.User.ID, "", "", coordinatorID)
-				if err != nil {
-					resultMsg = fmt.Sprintf("❌ %s", err.Error())
-				} else {
-					resultMsg = fmt.Sprintf("✅ Updated coordinator to <@%s>", coordinatorID)
-					refreshBoostListMessage(s, contract, false)
-				}
-
-			default:
-				resultMsg = "Unknown contract subcommand"
-			}
-		}
 
 	default:
 		resultMsg = "Unknown subcommand group"
