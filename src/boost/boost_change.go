@@ -351,6 +351,11 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 				str = "Invalid offset format. Use a number like +2.5 or -1.5"
 			} else {
 				c := ei.EggIncContractsAll[contract.ContractID]
+				if c.ValidFrom.IsZero() {
+					// Get the ValidFrom time from the last contract of ei.EggIncContracts
+					c2 := ei.EggIncContracts[len(ei.EggIncContracts)-1]
+					c.ValidFrom = c2.ValidFrom
+				}
 				// Calculate time as 9:00 AM + offset hours using today's date
 				now := time.Now()
 				baseTime := c.ValidFrom
