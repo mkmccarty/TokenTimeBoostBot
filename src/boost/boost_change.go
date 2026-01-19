@@ -18,47 +18,6 @@ import (
 
 var integerOneMinValue float64 = 1.0
 
-// GetSlashChangeCommand adjust aspects of a running contract
-func GetSlashChangeCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Change aspects of a running contract",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "coop-id",
-				Description: "Change the coop-id",
-				Required:    false,
-			},
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "contract-id",
-				Description:  "Change the contract-id",
-				Required:     false,
-				Autocomplete: true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionUser,
-				Name:        "coordinator",
-				Description: "Change the coordinator",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "boost-order",
-				Description: "Provide new boost order. Example: 1,2,3,6,7,5,8-10",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "current-booster",
-				Description: "Change the current booster. Example: @farmer",
-				Required:    false,
-			},
-		},
-	}
-}
-
 // GetSlashChangeOneBoosterCommand adjust aspects of a running contract
 func GetSlashChangeOneBoosterCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
@@ -155,85 +114,6 @@ func GetSlasLinkAlternateCommand(cmd string) *discordgo.ApplicationCommand {
 			},
 		},
 	}
-}
-
-// HandleChangeCommand will handle the /change command
-func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	// Protection against DM use
-	if i.GuildID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "This command can only be run in a server.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
-		})
-		return
-	}
-	var str = ""
-	var contractID = ""
-	var coopID = ""
-	var coordinatorID = ""
-	optionMap := bottools.GetCommandOptionsMap(i)
-
-	if opt, ok := optionMap["contract-id"]; ok {
-		contractID = opt.StringValue()
-		contractID = strings.ReplaceAll(contractID, " ", "")
-		str += "Contract ID changed to " + contractID
-	}
-	if opt, ok := optionMap["coop-id"]; ok {
-		coopID = opt.StringValue()
-		coopID = strings.ReplaceAll(coopID, " ", "")
-		str += "Coop ID changed to " + coopID
-	}
-	if opt, ok := optionMap["coordinator"]; ok {
-		coordinatorID = opt.UserValue(s).ID
-		str += "Coordinator changed to " + opt.UserValue(s).Username + ". The change will show after the next redraw."
-	}
-
-	if contractID != "" || coopID != "" || coordinatorID != "" {
-		err := ChangeContractIDs(s, i.GuildID, i.ChannelID, i.Member.User.ID, contractID, coopID, coordinatorID)
-		if err != nil {
-			str = err.Error()
-		}
-	}
-
-	currentBooster := ""
-	boostOrder := ""
-	if opt, ok := optionMap["current-booster"]; ok {
-		currentBooster = strings.TrimSpace(opt.StringValue())
-	}
-	if opt, ok := optionMap["boost-order"]; ok {
-		boostOrder = strings.TrimSpace(opt.StringValue())
-	}
-
-	// Either change a single booster or the whole list
-	// Cannot change one booster's position and make them boost
-	if boostOrder != "" {
-		resultStr, err := ChangeBoostOrder(s, i.GuildID, i.ChannelID, i.Member.User.ID, boostOrder, currentBooster == "")
-		if err != nil {
-			str += err.Error()
-		} else {
-			str += resultStr
-		}
-	}
-
-	if currentBooster != "" {
-		err := ChangeCurrentBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID, currentBooster, true)
-		if err != nil {
-			str += err.Error()
-		} else {
-			str += fmt.Sprintf("Current changed to %s.", currentBooster)
-		}
-	}
-
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
-	})
 }
 
 func extractUserID(s *discordgo.Session, boosterName string) (string, error) {

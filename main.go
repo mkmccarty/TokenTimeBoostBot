@@ -46,11 +46,11 @@ const slashAdminListRoles string = "list-roles"
 const slashContract string = "contract"
 const slashSkip string = "skip"
 const slashBoost string = "boost"
-const slashChange string = "change"
 const slashChangeOneBooster string = "change-one-booster"
 const slashChangePingRole string = "change-ping-role"
 const slashChangePlannedStartCommand string = "change-start"
 const slashChangeSpeedRunSink string = "change-speedrun-sink"
+const slashChangeCommand string = "change"
 const slashUpdateCommand string = "update"
 const slashUnboost string = "unboost"
 const slashPrune string = "prune"
@@ -226,6 +226,7 @@ var (
 		boost.GetSlashScoreExplorerCommand(slashScoreExplorer),
 		boost.GetSlashChangeSpeedRunSinkCommand(slashChangeSpeedRunSink),
 		boost.GetSlashUpdateCommand(slashUpdateCommand),
+		boost.GetSlashChangeCommand(slashChangeCommand),
 		{
 			Name:        slashJoin,
 			Description: "Add farmer or guest to contract.",
@@ -337,7 +338,6 @@ var (
 		boost.GetSlashTimer(slashTimer),
 		boost.GetSlashEstimateTime(slashEstimateTime),
 		boost.GetSlashCsEstimates(slashCsEstimate),
-		boost.GetSlashChangeCommand(slashChange),
 		boost.GetSlashChangeOneBoosterCommand(slashChangeOneBooster),
 		boost.GetSlashChangePingRoleCommand(slashChangePingRole),
 		boost.GetSlashChangePlannedStartCommand(slashChangePlannedStartCommand),
@@ -365,10 +365,7 @@ var (
 		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractAutoComplete(s, i)
 		},
-		slashChange: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleContractAutoComplete(s, i)
-		},
-		slashUpdateCommand: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		slashChangeCommand: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractAutoComplete(s, i)
 		},
 		slashRerunEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -612,6 +609,9 @@ var (
 		slashUpdateCommand: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleUpdateCommand(s, i)
 		},
+		slashChangeCommand: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleChangeCommand(s, i)
+		},
 		slashVolunteerSink: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleSlashVolunteerSinkCommand(s, i)
 		},
@@ -641,9 +641,6 @@ var (
 		},
 		slashContractSettings: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractSettingsCommand(s, i)
-		},
-		slashChange: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleChangeCommand(s, i)
 		},
 		slashChangeOneBooster: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleChangeOneBoosterCommand(s, i)
