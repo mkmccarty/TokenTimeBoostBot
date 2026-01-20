@@ -1425,7 +1425,11 @@ func UserBoost(s *discordgo.Session, guildID string, channelID string, userID st
 				contract.BoostedOrder = append(contract.BoostedOrder, contract.Order[i])
 				if contract.Boosters[contract.Order[i]].StartTime.IsZero() {
 					// Keep existing start time if they already boosted
-					contract.Boosters[contract.Order[i]].StartTime = contract.Boosters[contract.Order[contract.BoostPosition-1]].StartTime
+					if contract.BoostPosition > 0 && contract.BoostPosition <= len(contract.Order) {
+						contract.Boosters[contract.Order[i]].StartTime = contract.Boosters[contract.Order[contract.BoostPosition-1]].StartTime
+					} else {
+						contract.Boosters[contract.Order[i]].StartTime = time.Now()
+					}
 				}
 				contract.Boosters[contract.Order[i]].EndTime = time.Now()
 				contract.Boosters[contract.Order[i]].Duration = time.Since(contract.Boosters[contract.Order[i]].StartTime)
