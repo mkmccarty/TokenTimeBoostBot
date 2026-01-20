@@ -471,28 +471,32 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 			} else {
 				newArtifact = ei.ArtifactMap[prefix+data.Values[0]]
 			}
-			// Check if the artifact already exists in the current set
-			exists := false
-			for i, artifact := range currentSet.Artifacts {
-				if artifact.Type == newArtifact.Type {
-					exists = true
-					if setValue {
-						currentSet.Artifacts[i] = *newArtifact
-					} else {
-						// Removing this artifact
-						currentSet.Artifacts = append(currentSet.Artifacts[:i], currentSet.Artifacts[i+1:]...)
+
+			// Check if artifact was found in map
+			if newArtifact != nil {
+				// Check if the artifact already exists in the current set
+				exists := false
+				for i, artifact := range currentSet.Artifacts {
+					if artifact.Type == newArtifact.Type {
+						exists = true
+						if setValue {
+							currentSet.Artifacts[i] = *newArtifact
+						} else {
+							// Removing this artifact
+							currentSet.Artifacts = append(currentSet.Artifacts[:i], currentSet.Artifacts[i+1:]...)
+						}
+						break
 					}
-					break
 				}
-			}
-			// If the artifact doesn't exist, add it to the current set
-			if !exists {
-				currentSet.Artifacts = append(currentSet.Artifacts, *newArtifact)
-			}
+				// If the artifact doesn't exist, add it to the current set
+				if !exists {
+					currentSet.Artifacts = append(currentSet.Artifacts, *newArtifact)
+				}
 
-			contract.Boosters[userID].ArtifactSet = getUserArtifacts(userID, &currentSet)
+				contract.Boosters[userID].ArtifactSet = getUserArtifacts(userID, &currentSet)
 
-			refreshBoostListMessage(s, contract, false)
+				refreshBoostListMessage(s, contract, false)
+			}
 
 		}
 	}
