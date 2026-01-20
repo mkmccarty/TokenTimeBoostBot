@@ -2,6 +2,7 @@ package boost
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -292,6 +293,44 @@ type Contract struct {
 	LastSaveTime        time.Time // The last time the contract was saved
 
 	mutex sync.Mutex // Keep this contract thread safe
+}
+
+// UnmarshalJSON handles backward compatibility for CRMessageIDs
+// which used to be stored as an array but is now a map[string]string
+func (c *Contract) UnmarshalJSON(data []byte) error {
+	type Alias Contract
+	aux := &struct {
+		CRMessageIDs interface{} `json:"CRMessageIDs"`
+		*Alias
+	}{
+		Alias: (*Alias)(c),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	// Handle CRMessageIDs backward compatibility
+	if aux.CRMessageIDs != nil {
+		switch v := aux.CRMessageIDs.(type) {
+		case map[string]interface{}:
+			// Already a map, convert to map[string]string
+			c.CRMessageIDs = make(map[string]string)
+			for k, val := range v {
+				if str, ok := val.(string); ok {
+					c.CRMessageIDs[k] = str
+				}
+			}
+		case []interface{}:
+			// Old array format; leave initialization to the common handler below
+		}
+	}
+
+	// Ensure CRMessageIDs is always initialized
+	if c.CRMessageIDs == nil {
+		c.CRMessageIDs = make(map[string]string)
+	}
+	return nil
 }
 
 var (
