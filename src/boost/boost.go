@@ -322,21 +322,14 @@ func (c *Contract) UnmarshalJSON(data []byte) error {
 				}
 			}
 		case []interface{}:
-			// Old array format, initialize as empty map
-			c.CRMessageIDs = make(map[string]string)
-		default:
-			// Ensure it's initialized
-			if c.CRMessageIDs == nil {
-				c.CRMessageIDs = make(map[string]string)
-			}
-		}
-	} else {
-		// Ensure it's initialized
-		if c.CRMessageIDs == nil {
-			c.CRMessageIDs = make(map[string]string)
+			// Old array format; leave initialization to the common handler below
 		}
 	}
 
+	// Ensure CRMessageIDs is always initialized
+	if c.CRMessageIDs == nil {
+		c.CRMessageIDs = make(map[string]string)
+	}
 	return nil
 }
 
