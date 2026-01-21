@@ -143,11 +143,9 @@ func generateThreadName(c *Contract) string {
 			threadName = strings.ReplaceAll(threadName, "$T", "TBD")
 		}
 	}
-	threadName = strings.ReplaceAll(threadName, "$NAME", c.CoopID)
-	threadName = strings.ReplaceAll(threadName, "$N", c.CoopID)
-
+	// Calculate COUNT replacement first to determine accurate length
+	var statusStr string
 	if strings.Contains(threadName, "$COUNT") || strings.Contains(threadName, "$C") {
-		var statusStr string
 		playStyleStr := ""
 		if c.PlayStyle != ContractPlaystyleUnset && c.PlayStyle < len(contractPlaystyleNames) {
 			playStyleStr = fmt.Sprintf("%s ", contractPlaystyleNames[c.PlayStyle])
@@ -157,8 +155,33 @@ func generateThreadName(c *Contract) string {
 		} else {
 			statusStr = "(FULL)"
 		}
-		threadName = strings.ReplaceAll(threadName, "$COUNT", statusStr)
-		threadName = strings.ReplaceAll(threadName, "$C", statusStr)
 	}
+
+	// Check if we need to trim the CoopID to keep total length under 90
+	const maxLength = 90
+	coopID := c.CoopID
+
+	// Create a temporary version with all replacements to check length
+	tempName := strings.ReplaceAll(threadName, "$NAME", coopID)
+	tempName = strings.ReplaceAll(tempName, "$N", coopID)
+	tempName = strings.ReplaceAll(tempName, "$COUNT", statusStr)
+	tempName = strings.ReplaceAll(tempName, "$C", statusStr)
+
+	fullLength := len(threadColor) + len(tempName)
+	if fullLength >= maxLength {
+		// Need to trim the CoopID
+		excess := fullLength - maxLength + 1 // +1 for safety margin
+		if len(coopID) > excess+3 {          // +3 for ellipsis
+			coopID = coopID[:len(coopID)-excess-3] + "..."
+		} else if len(coopID) > 3 {
+			coopID = "..."
+		}
+	}
+
+	threadName = strings.ReplaceAll(threadName, "$NAME", coopID)
+	threadName = strings.ReplaceAll(threadName, "$N", coopID)
+	threadName = strings.ReplaceAll(threadName, "$COUNT", statusStr)
+	threadName = strings.ReplaceAll(threadName, "$C", statusStr)
+
 	return threadColor + threadName
 }
