@@ -179,10 +179,12 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 			if contract.BoostOrder == ContractOrderTVal {
 				reorderBoosters(contract)
 			}
-			if contract.Style&ContractFlagDynamicTokens != 0 {
-				// Determine the dynamic tokens
-				determineDynamicTokens(contract)
-			}
+			/*
+				if contract.Style&ContractFlagDynamicTokens != 0 {
+					// Determine the dynamic tokens
+					determineDynamicTokens(contract)
+				}
+			*/
 		} else {
 			track.FarmedToken(s, ChannelID, fromUserID, count)
 			contract.mutex.Lock()

@@ -17,9 +17,9 @@ type DynamicTokenData struct {
 	OfflineIHR            int64
 	Name                  string
 	ELR                   float64
-	TokenBoost            [5]int64
-	BoostTimeSeconds      [5]time.Duration
-	ChickenRunTimeSeconds [5]time.Duration
+	TokenBoost            [13]int64
+	BoostTimeSeconds      [13]time.Duration
+	ChickenRunTimeSeconds [13]time.Duration
 	IhrBase               int64
 	FourHabsOffline       int64
 	MaxHab                float64
@@ -59,12 +59,12 @@ func calculateDynamicTokens(dt *DynamicTokenData, count int, tpm float64, heldTo
 func getBoostTimeSeconds(dt *DynamicTokenData, tokens int) (time.Duration, time.Duration) {
 
 	// This protects the parameters of the next function call
-	if tokens < 4 {
-		tokens = 4
-	} else if tokens > 8 {
-		tokens = 8
+	if tokens < 0 {
+		tokens = 0
+	} else if tokens > len(dt.BoostTimeSeconds) {
+		tokens = len(dt.BoostTimeSeconds) - 1
 	}
-	return dt.BoostTimeSeconds[tokens-4], dt.ChickenRunTimeSeconds[tokens-4]
+	return dt.BoostTimeSeconds[tokens], dt.ChickenRunTimeSeconds[tokens]
 }
 
 // createDynamicTokenData creates all the common underlying data for dynamic tokens
@@ -83,13 +83,6 @@ func createDynamicTokenData(TE int64) *DynamicTokenData {
 	dt.IhrBase = int64(float64(dt.IhrBase) * dt.ColleggtibleIHR) // 5% from Easter Colleggtibles
 	dt.FourHabsOffline = dt.IhrBase * dt.HabNumber * dt.OfflineIHR
 
-	// 1000x + number of 10x free boosts * multiplier
-	dt.TokenBoost[0] = dt.FourHabsOffline * int64(calcBoostMulti(4))
-	dt.TokenBoost[1] = dt.FourHabsOffline * int64(calcBoostMulti(5))
-	dt.TokenBoost[2] = dt.FourHabsOffline * int64(calcBoostMulti(6))
-	dt.TokenBoost[3] = dt.FourHabsOffline * int64(calcBoostMulti(7))
-	dt.TokenBoost[4] = dt.FourHabsOffline * int64(calcBoostMulti(8))
-
 	// Assume: T4L Chalice, T4L mono, 6 Life stones
 	chickenRunPercent := 0.70 // Chicken run is 70.0% of normal boost time
 	dt.IHRMultiplier = 1.4 * 1.25 * math.Pow(1.04, 11.0) * dt.ColleggtibleIHR * math.Pow(1.01, float64(dt.TE))
@@ -97,6 +90,7 @@ func createDynamicTokenData(TE int64) *DynamicTokenData {
 	dt.ChickenRunHab = dt.MaxHab * chickenRunPercent
 	// Create boost times for 4 through 9 tokens
 	for i := 0; i < len(dt.TokenBoost); i++ {
+		dt.TokenBoost[i] = dt.FourHabsOffline * int64(calcBoostMulti(float64(i)))
 		dt.BoostTimeSeconds[i] = time.Duration(dt.MaxHab / (float64(dt.TokenBoost[i]) * dt.IHRMultiplier) * 60.0 * float64(time.Second))
 		dt.ChickenRunTimeSeconds[i] = time.Duration(dt.ChickenRunHab / (float64(dt.TokenBoost[i]) * dt.IHRMultiplier) * 60.0 * float64(time.Second))
 	}
