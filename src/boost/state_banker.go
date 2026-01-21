@@ -58,10 +58,25 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 			tval := bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
 			contract.Boosters[cUserID].TokenValue += tval * float64(tokensToSend)
 			contract.Boosters[b.UserID].TokenValue -= tval * float64(tokensToSend)
-			if contract.Style&ContractFlagDynamicTokens != 0 {
-				// Determine the dynamic tokens
-				determineDynamicTokens(contract)
+
+			dt := createDynamicTokenData(int64(b.TECount))
+			if dt != nil {
+				wiggleRoom := time.Duration(30 * time.Second) // Add 30 seconds of slop
+				boostDuration, chickenRunDuration := getBoostTimeSeconds(dt, b.TokensWanted)
+				bonusStep := 220 * time.Second   // 3m40s per step
+				bonusPerStep := 30 * time.Second // add 30s for each step
+				extraBoost := time.Duration(boostDuration/bonusStep) * bonusPerStep
+				totalBoostDuration := boostDuration + extraBoost
+				b.EstDurationOfBoost = totalBoostDuration
+				b.EstEndOfBoost = time.Now().Add(totalBoostDuration).Add(wiggleRoom)
+				b.EstRequestChickenRuns = time.Now().Add(chickenRunDuration).Add(wiggleRoom)
 			}
+			/*
+				if contract.Style&ContractFlagDynamicTokens != 0 {
+					// Determine the dynamic tokens
+					determineDynamicTokens(contract)
+				}
+			*/
 		}
 
 		str := fmt.Sprintf("**%s** ", contract.Boosters[b.UserID].Mention)
