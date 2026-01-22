@@ -62,8 +62,8 @@ func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID str
 
 		platform := Platform_IOS
 		platformString := "IOS"
-		version := "1.35.2"
-		build := "111300"
+		version := "1.35.4"
+		build := "111332"
 
 		firstContactRequest := EggIncFirstContactRequest{
 			Rinfo: &BasicRequestInfo{
