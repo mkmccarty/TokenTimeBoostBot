@@ -209,7 +209,7 @@ type Booster struct {
 type LocationData struct {
 	GuildID           string
 	GuildName         string
-	ChannelID         string // Contract Discord ChannelID
+	ChannelID         string // Contract Discord ThreadID
 	ChannelMention    string // Mention string for the thread
 	GuildContractRole discordgo.Role
 	RoleMention       string
