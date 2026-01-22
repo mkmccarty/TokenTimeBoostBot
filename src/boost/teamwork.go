@@ -440,7 +440,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string) (string, map[s
 		fmt.Fprintf(&builder, "In Progress %s %s/[**%s**](%s) on target to complete %s\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), coopStatus.GetContractIdentifier(), coopStatus.GetCoopIdentifier(), fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID), bottools.WrapTimestamp(endTime.Unix(), bottools.TimestampRelativeTime))
 	}
 
-	UpdateContractTime(coopStatus.GetContractIdentifier(), coopStatus.GetCoopIdentifier(), startTime, contractDurationSeconds)
+	UpdateContractTime(coopStatus.GetContractIdentifier(), coopStatus.GetCoopIdentifier(), startTime, endTime, contractDurationSeconds)
 
 	fmt.Fprintf(&builder, "Start Time: %s at %s\n", bottools.WrapTimestamp(startTime.Unix(), bottools.TimestampLongDate), bottools.WrapTimestamp(startTime.Unix(), bottools.TimestampLongTime))
 	fmt.Fprintf(&builder, "%sEnd Time: %s at %s\n", prefix, bottools.WrapTimestamp(endTime.Unix(), bottools.TimestampLongDate), bottools.WrapTimestamp(endTime.Unix(), bottools.TimestampLongTime))

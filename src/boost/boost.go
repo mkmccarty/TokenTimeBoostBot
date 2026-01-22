@@ -209,8 +209,8 @@ type Booster struct {
 type LocationData struct {
 	GuildID           string
 	GuildName         string
-	ChannelID         string // Contract Discord Channel
-	ChannelMention    string
+	ChannelID         string // Contract Discord ThreadID
+	ChannelMention    string // Mention string for the thread
 	GuildContractRole discordgo.Role
 	RoleMention       string
 	ListMsgID         string   // Message ID for the Last Boost Order message
@@ -1936,10 +1936,10 @@ func ArchiveContracts(s *discordgo.Session) {
 }
 
 // UpdateContractTime will update the contract start time and estimated duration
-func UpdateContractTime(contractID string, coopID string, startTime time.Time, contractDurationSeconds float64) {
+func UpdateContractTime(contractID string, coopID string, startTime, endTime time.Time, contractDurationSeconds float64) {
 	// Update the contract start time and estimated duration
 	contract := FindContractByIDs(contractID, coopID)
-	if contract == nil || contract.State != ContractStateCompleted {
+	if contract == nil || (contract.State != ContractStateCompleted && contract.State != ContractStateWaiting) {
 		return
 	}
 
@@ -1948,6 +1948,7 @@ func UpdateContractTime(contractID string, coopID string, startTime time.Time, c
 	if !contract.StartTime.Equal(startTime) || contract.EstimatedDuration != newDuration {
 		contract.StartTime = startTime
 		contract.EstimatedDuration = newDuration
+		contract.EstimatedEndTime = endTime
 		contract.EstimateUpdateTime = time.Now()
 	}
 }

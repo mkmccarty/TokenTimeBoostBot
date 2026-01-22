@@ -852,6 +852,9 @@ var (
 			})
 
 		},
+		"csestimate": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleCsEstimateButtons(s, i)
+		},
 	}
 )
 
