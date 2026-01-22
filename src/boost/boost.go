@@ -853,6 +853,11 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 				b.TokensWanted = 8
 			}
 		}
+		// Get TE count from Farmerstate
+		te := farmerstate.GetMiscSettingString(userID, "TE")
+		if te != "" {
+			b.TECount, _ = strconv.Atoi(te)
+		}
 		b.ArtifactSet = getUserArtifacts(userID, nil)
 		if contract.Ultra {
 			farmerstate.SetUltra(userID)

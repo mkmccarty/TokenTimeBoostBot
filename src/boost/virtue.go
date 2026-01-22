@@ -172,7 +172,7 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[
 	if farm != nil {
 		farmType := farm.GetFarmType()
 		if farmType == ei.FarmType_HOME {
-			components = printVirtue(backup, simulatedEgg, targetTE, compact)
+			components = printVirtue(userID, backup, simulatedEgg, targetTE, compact)
 		}
 	}
 	if len(components) == 0 {
@@ -187,7 +187,7 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[
 
 }
 
-func printVirtue(backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compact bool) []discordgo.MessageComponent {
+func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compact bool) []discordgo.MessageComponent {
 	var components []discordgo.MessageComponent
 	divider := true
 	spacing := discordgo.SeparatorSpacingSizeSmall
@@ -286,6 +286,7 @@ func printVirtue(backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compac
 
 		allEov += max(eovEarned-eovPending, 0)
 		futureEov += eovPending
+		farmerstate.SetMiscSettingString(userID, "TE", fmt.Sprintf("%d", allEov))
 
 		fmt.Fprintf(&eggs, "%s%s`%3s %5s %9s `%s%s\n",
 			bottools.AlignString(ei.GetBotEmojiMarkdown("egg_"+strings.ToLower(egg)), 1, bottools.StringAlignCenter),
