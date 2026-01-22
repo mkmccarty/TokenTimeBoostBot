@@ -1469,7 +1469,7 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 		wiggleRoom := time.Duration(20 * time.Second) // Add 20 seconds of slop
 		boostDuration, chickenRunDuration := getBoostTimeSeconds(dt, booster.TokensWanted)
 		bonusStep := 220 * time.Second   // 3m40s per step
-		bonusPerStep := 20 * time.Second // add 30s for each step
+		bonusPerStep := 20 * time.Second // add 20s for each step
 		extraBoost := time.Duration(boostDuration/bonusStep) * bonusPerStep
 		totalBoostDuration := boostDuration + extraBoost
 		booster.EstDurationOfBoost = totalBoostDuration

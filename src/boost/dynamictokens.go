@@ -99,8 +99,8 @@ func createDynamicTokenData(TE int64) *DynamicTokenData {
 		dt.TokenBoost[i] = mult * monocleMultiplier
 		ihr := float64(dt.TokenBoost[i]) * dt.IHRMultiplier * float64(dt.FourHabsOffline) // per minute
 		// Minimum time is 1 minute due to away time calculation
-		dt.BoostTimeMinutes[i] = min(1.0, float64(dt.MaxHab)/ihr)
-		dt.ChickenRunTimeMinutes[i] = min(1.0, float64(dt.ChickenRunHab)/ihr)
+		dt.BoostTimeMinutes[i] = max(1.0, float64(dt.MaxHab)/ihr)
+		dt.ChickenRunTimeMinutes[i] = max(1.0, float64(dt.ChickenRunHab)/ihr)
 	}
 	return dt
 }
