@@ -1,7 +1,10 @@
 package boost
 
 import (
+	"fmt"
+	"log"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
@@ -79,6 +82,7 @@ func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 	})
 
 	// Unser contractID and coopID means we want the Boost Bot contract
+	var foundContractHash = ""
 	if contractID == "" || coopID == "" {
 		contract := FindContract(i.ChannelID)
 		if contract == nil {
@@ -89,6 +93,7 @@ func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 
 			return
 		}
+		foundContractHash = contract.ContractHash
 		contractID = strings.ToLower(contract.ContractID)
 		coopID = strings.ToLower(contract.CoopID)
 	}
@@ -118,21 +123,169 @@ func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 		footer.WriteString("-# BASE: No BTV, No Chicken Runs\n")
 
 	}
+
+	var components, buttons []discordgo.MessageComponent
+	components = append(components,
+		discordgo.TextDisplay{
+			Content: str,
+		},
+		discordgo.TextDisplay{
+			Content: "## Projected Contract Scores",
+		},
+		discordgo.TextDisplay{
+			Content: scores,
+		},
+		discordgo.TextDisplay{
+			Content: footer.String(),
+		},
+	)
+
+	// Build buttons if we have a found contract in the current channel
+	if foundContractHash != "" {
+		buttonConfigs := []struct {
+			label  string
+			style  discordgo.ButtonStyle
+			action string
+		}{
+			{"Completion Ping", discordgo.PrimaryButton, "completionping"},
+			//{"Check-in Ping", discordgo.PrimaryButton, "checkinping"},
+			{"Close", discordgo.DangerButton, "close"},
+		}
+
+		for _, config := range buttonConfigs {
+			buttons = append(buttons, discordgo.Button{
+				Label:    config.label,
+				Style:    config.style,
+				CustomID: fmt.Sprintf("csestimate#%s#%s", config.action, foundContractHash),
+			})
+		}
+
+		components = append(components, discordgo.ActionsRow{
+			Components: buttons,
+		})
+	}
+
+	// Send the response
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Flags: flags | discordgo.MessageFlagsIsComponentsV2,
-		Components: []discordgo.MessageComponent{
-			discordgo.TextDisplay{
-				Content: str,
-			},
-			discordgo.TextDisplay{
-				Content: "## Projected Contract Scores",
-			},
-			discordgo.TextDisplay{
-				Content: scores,
-			},
-			discordgo.TextDisplay{
-				Content: footer.String(),
+		Flags:      flags,
+		Components: components,
+	})
+}
+
+// HandleCsEstimateButtons handles button interactions for /cs-estimate
+func HandleCsEstimateButtons(s *discordgo.Session, i *discordgo.InteractionCreate) {
+
+	const ttl = 5 * time.Minute
+	expired := false
+	if i.Message != nil {
+		createdAt, err := discordgo.SnowflakeTimestamp(i.Message.ID)
+		if err != nil {
+			log.Println("Error parsing message timestamp:", err)
+			return
+		}
+		expired = time.Since(createdAt) > ttl
+	}
+
+	flags := discordgo.MessageFlagsIsComponentsV2 | discordgo.MessageFlagsEphemeral
+	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		Data: &discordgo.InteractionResponseData{
+			Content:    "",
+			Flags:      flags,
+			Components: []discordgo.MessageComponent{},
+		},
+	})
+	if err != nil {
+		log.Println(err)
+	}
+
+	if !expired {
+		// Handle the button actions
+		action := reaction[1]
+		contractHash := reaction[2]
+		contract := FindContractByHash(contractHash)
+		if contract == nil {
+			log.Println("Contract not found for hash:", contractHash)
+			return
+		}
+
+		// Is the user in the contract?
+		userID := getInteractionUserID(i)
+		if !userInContract(contract, userID) {
+			// Ignore if the user isn't in the contract
+			return
+		}
+
+		switch action {
+		case "completionping":
+			go sendCompletionPing(s, i, contract, userID)
+		case "checkinping":
+			//go SendCheckinPings(s, i, contract)
+		default:
+			// default to close
+		}
+	}
+
+	// Remove the buttons regardless of expiration
+	var comp []discordgo.MessageComponent
+	if len(i.Message.Components) > 0 {
+		comp = i.Message.Components[:len(i.Message.Components)-1]
+	}
+	// Edit the original message to remove buttons
+	edit := discordgo.WebhookEdit{
+		Components: &comp,
+	}
+	_, _ = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit)
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+// sendCompletionPing sends a ping with the estimated completion time of the contract
+func sendCompletionPing(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, userID string) {
+
+	//Check if the contract is still ongoing
+	if time.Now().After(contract.EstimatedEndTime) {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Content: "The contract has already ended. Ping not sent.",
+		})
+		return
+	}
+
+	// Get the role mention from the active contract
+	roleMention := contract.Location[0].RoleMention
+	if roleMention == "" {
+		roleMention = "@here"
+	}
+
+	message :=
+		fmt.Sprintf("%s, The contract **%s** `%s` will complete on\n## %s at %s!\nPlease set an alarm or leave your devices on!\n-# Ping requested by %s",
+			roleMention,
+			contract.Name,
+			contract.CoopID,
+			bottools.WrapTimestamp(contract.EstimatedEndTime.Unix(), bottools.TimestampLongDate),
+			bottools.WrapTimestamp(contract.EstimatedEndTime.Unix(), bottools.TimestampLongTime),
+			contract.Boosters[userID].Mention,
+		)
+
+	_, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
+		Content: message,
+		AllowedMentions: &discordgo.MessageAllowedMentions{
+			Parse: []discordgo.AllowedMentionType{
+				discordgo.AllowedMentionTypeRoles,
+				discordgo.AllowedMentionTypeUsers,
 			},
 		},
 	})
+
+	if err != nil {
+		log.Println("Error sending completion ping:", err)
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Content: "Error sending completion ping.",
+		})
+		return
+	}
 }
