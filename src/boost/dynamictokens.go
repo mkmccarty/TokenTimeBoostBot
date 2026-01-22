@@ -17,9 +17,9 @@ type DynamicTokenData struct {
 	OfflineIHR            int64
 	Name                  string
 	ELR                   float64
-	TokenBoost            [13]int64
-	BoostTimeSeconds      [13]time.Duration
-	ChickenRunTimeSeconds [13]time.Duration
+	TokenBoost            [13]float64
+	BoostTimeMinutes      [13]float64
+	ChickenRunTimeMinutes [13]float64
 	IhrBase               int64
 	FourHabsOffline       int64
 	MaxHab                float64
@@ -61,10 +61,10 @@ func getBoostTimeSeconds(dt *DynamicTokenData, tokens int) (time.Duration, time.
 	// This protects the parameters of the next function call
 	if tokens < 0 {
 		tokens = 0
-	} else if tokens > len(dt.BoostTimeSeconds) {
-		tokens = len(dt.BoostTimeSeconds) - 1
+	} else if tokens > len(dt.BoostTimeMinutes) {
+		tokens = len(dt.BoostTimeMinutes) - 1
 	}
-	return dt.BoostTimeSeconds[tokens], dt.ChickenRunTimeSeconds[tokens]
+	return time.Duration(dt.BoostTimeMinutes[tokens] * float64(time.Minute)), time.Duration(dt.ChickenRunTimeMinutes[tokens] * float64(time.Minute))
 }
 
 // createDynamicTokenData creates all the common underlying data for dynamic tokens
@@ -79,20 +79,28 @@ func createDynamicTokenData(TE int64) *DynamicTokenData {
 
 	// Chickens per minute
 	// Assumption is that the player has completed Epic and Common Research
-	dt.IhrBase = 7440                                            // chickens/min/hab
-	dt.IhrBase = int64(float64(dt.IhrBase) * dt.ColleggtibleIHR) // 5% from Easter Colleggtibles
+	dt.IhrBase = 7440                                            // chickens/min/hab (without any artifacts)
+	dt.IhrBase = int64(float64(dt.IhrBase) * dt.ColleggtibleIHR) // Apply colleggibles (5% from Easter Colleggtibles)
 	dt.FourHabsOffline = dt.IhrBase * dt.HabNumber * dt.OfflineIHR
 
-	// Assume: T4L Chalice, T4L mono, 6 Life stones
+	// Assume: T4L Chalice (1.4), T4L Monocle (1.3), 9 Life stones (IHR stones = 1.04^9 ≈ 1.432)
+	// IHR multiplier should NOT reapply colleggibles - those are already in IhrBase
 	chickenRunPercent := 0.70 // Chicken run is 70.0% of normal boost time
-	dt.IHRMultiplier = 1.4 * 1.25 * math.Pow(1.04, 11.0) * dt.ColleggtibleIHR * math.Pow(1.01, float64(dt.TE))
-	dt.MaxHab = 14175000000.0 * colleggtibleHab
+	chaliceMultiplier := 1.4  // T4L Chalice
+	monocleMultiplier := 1.3  // T4L Monocle, only for boosts
+	ihrSlots := 9.0           // IHR stone slots
+	dt.IHRMultiplier = chaliceMultiplier * math.Pow(1.04, ihrSlots) * math.Pow(1.01, float64(dt.TE))
+	dt.MaxHab = 14_175_000_000.0 * colleggtibleHab
 	dt.ChickenRunHab = dt.MaxHab * chickenRunPercent
-	// Create boost times for 4 through 9 tokens
+	// Create boost times for 0 through 12 token boosts
+	// 14.825K/min/hab (×1.993)
 	for i := 0; i < len(dt.TokenBoost); i++ {
-		dt.TokenBoost[i] = dt.FourHabsOffline * int64(calcBoostMulti(float64(i)))
-		dt.BoostTimeSeconds[i] = time.Duration(dt.MaxHab / (float64(dt.TokenBoost[i]) * dt.IHRMultiplier) * 60.0 * float64(time.Second))
-		dt.ChickenRunTimeSeconds[i] = time.Duration(dt.ChickenRunHab / (float64(dt.TokenBoost[i]) * dt.IHRMultiplier) * 60.0 * float64(time.Second))
+		mult := calcBoostMulti(float64(i))
+		dt.TokenBoost[i] = mult * monocleMultiplier
+		ihr := float64(dt.TokenBoost[i]) * dt.IHRMultiplier * float64(dt.FourHabsOffline) // per minute
+		// Minimum time is 1 minute due to away time calculation
+		dt.BoostTimeMinutes[i] = min(1.0, float64(dt.MaxHab)/ihr)
+		dt.ChickenRunTimeMinutes[i] = min(1.0, float64(dt.ChickenRunHab)/ihr)
 	}
 	return dt
 }
