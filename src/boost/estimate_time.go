@@ -482,19 +482,19 @@ func calculateTwoPhaseBoostedEstimate(
 	phase1Seconds := 120.0
 	phase1Est := est
 	phase1Est.boostTokens = 4.0
-	phase1Est.boostMultiplier = calcBoostMulti(phase1Est.boostTokens)
+	phase1Est.boostMultiplier = calcBoostMulti(phase1Est.boostTokens) * est.monocle
 
 	// Phase 2: 8 tokens for remaining time
 	phase2Est := est
 	phase2Est.boostTokens = 8.0
-	phase2Est.boostMultiplier = calcBoostMulti(phase2Est.boostTokens)
+	phase2Est.boostMultiplier = calcBoostMulti(phase2Est.boostTokens) * est.monocle
 
 	// Compute IHR (per hour) for both phases using artifact set and boost multiplier
-	ihrPhase1 := est.ihr * est.chalice * est.monocle * math.Pow(1.04, est.ihrSlots) * est.colIHR
+	ihrPhase1 := est.ihr * est.chalice * math.Pow(1.04, est.ihrSlots) * est.colIHR
 	ihrPhase1 *= math.Pow(1.01, est.te)
 	ihrPhase1 *= 12 * phase1Est.boostMultiplier
 
-	ihrPhase2 := est.ihr * est.chalice * est.monocle * math.Pow(1.04, est.ihrSlots) * est.colIHR
+	ihrPhase2 := est.ihr * est.chalice * math.Pow(1.04, est.ihrSlots) * est.colIHR
 	ihrPhase2 *= math.Pow(1.01, est.te)
 	ihrPhase2 *= 12 * phase2Est.boostMultiplier
 
