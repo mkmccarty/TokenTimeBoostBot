@@ -423,7 +423,7 @@ func calculateSingleEstimate(
 
 	ihr := est.ihr * est.chalice * est.monocle * math.Pow(1.04, est.ihrSlots) * est.colIHR
 	ihr *= math.Pow(1.01, est.te)
-	boostTime := adjustedPop / (ihr * 12 * est.boostMultiplier) / 60
+	boostTime := adjustedPop / (ihr * 12 * (est.monocle * est.boostMultiplier)) / 60
 
 	if debug {
 		log.Printf("ihr: %v\n", ihr)
