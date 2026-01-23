@@ -138,6 +138,9 @@ func setEstimatedBoostTimings(booster *Booster) {
 
 	// Estimate the boost timings
 	if dt != nil {
+		// Adjust the pure boost time to compensate for wiggle room for launching
+		// boosts and checking in for truck delivery and chicken runs
+		// Estimating about 20 seconds for each interruption
 		slopTime := 20 * time.Second // Add 20 seconds of slop
 		wiggleRoom := time.Duration(slopTime)
 		boostDuration, chickenRunDuration := getBoostTimeSeconds(dt, booster.TokensWanted)
