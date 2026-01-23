@@ -136,12 +136,13 @@ func setEstimatedBoostTimings(booster *Booster) {
 	// These fields are for the dynamic token assignment, per user based on TE
 	dt := createDynamicTokenData(int64(booster.TECount))
 
+	// Estimate the boost timings
 	if dt != nil {
-		wiggleRoom := time.Duration(20 * time.Second) // Add 20 seconds of slop
+		slopTime := 20 * time.Second // Add 20 seconds of slop
+		wiggleRoom := time.Duration(slopTime)
 		boostDuration, chickenRunDuration := getBoostTimeSeconds(dt, booster.TokensWanted)
-		bonusStep := 220 * time.Second   // 3m40s per step
-		bonusPerStep := 20 * time.Second // add 20s for each step
-		extraBoost := time.Duration(boostDuration/bonusStep) * bonusPerStep
+		bonusStep := 220 * time.Second // 3m40s per step, truck timings
+		extraBoost := time.Duration(boostDuration/bonusStep) * slopTime
 		totalBoostDuration := boostDuration + extraBoost
 		booster.EstDurationOfBoost = totalBoostDuration
 		booster.EstEndOfBoost = time.Now().Add(totalBoostDuration).Add(wiggleRoom)
