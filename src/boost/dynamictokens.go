@@ -130,3 +130,21 @@ func determineDynamicTokens(c *Contract) {
 	calculateDynamicTokens(dt, 4, tpm, 0)
 
 }
+
+// setEstimatedBoostTimings calculates and sets the estimated boost timings on a booster
+func setEstimatedBoostTimings(booster *Booster) {
+	// These fields are for the dynamic token assignment, per user based on TE
+	dt := createDynamicTokenData(int64(booster.TECount))
+
+	if dt != nil {
+		wiggleRoom := time.Duration(20 * time.Second) // Add 20 seconds of slop
+		boostDuration, chickenRunDuration := getBoostTimeSeconds(dt, booster.TokensWanted)
+		bonusStep := 220 * time.Second   // 3m40s per step
+		bonusPerStep := 20 * time.Second // add 20s for each step
+		extraBoost := time.Duration(boostDuration/bonusStep) * bonusPerStep
+		totalBoostDuration := boostDuration + extraBoost
+		booster.EstDurationOfBoost = totalBoostDuration
+		booster.EstEndOfBoost = time.Now().Add(totalBoostDuration).Add(wiggleRoom)
+		booster.EstRequestChickenRuns = time.Now().Add(chickenRunDuration).Add(wiggleRoom)
+	}
+}
