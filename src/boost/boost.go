@@ -1467,20 +1467,8 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	booster.EndTime = time.Now()
 	booster.Duration = time.Since(booster.StartTime)
 
-	// These fields are for the dynamic token assignment, per user based on TE
-	dt := createDynamicTokenData(int64(booster.TECount))
-
-	if dt != nil {
-		wiggleRoom := time.Duration(20 * time.Second) // Add 20 seconds of slop
-		boostDuration, chickenRunDuration := getBoostTimeSeconds(dt, booster.TokensWanted)
-		bonusStep := 220 * time.Second   // 3m40s per step
-		bonusPerStep := 20 * time.Second // add 20s for each step
-		extraBoost := time.Duration(boostDuration/bonusStep) * bonusPerStep
-		totalBoostDuration := boostDuration + extraBoost
-		booster.EstDurationOfBoost = totalBoostDuration
-		booster.EstEndOfBoost = time.Now().Add(totalBoostDuration).Add(wiggleRoom)
-		booster.EstRequestChickenRuns = time.Now().Add(chickenRunDuration).Add(wiggleRoom)
-	}
+	// Estimate timings for remaining boosters
+	setEstimatedBoostTimings(booster)
 
 	contract.BoostedOrder = append(contract.BoostedOrder, contract.Order[contract.BoostPosition])
 
