@@ -41,22 +41,6 @@ func GetSlashChangeOneBoosterCommand(cmd string) *discordgo.ApplicationCommand {
 	}
 }
 
-// GetSlashChangePingRoleCommand adjust aspects of a running contract
-func GetSlashChangePingRoleCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Change contract ping role. Use with no parameters will set ping to @here.",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionRole,
-				Name:        "ping-role",
-				Description: "Select ping role. ACO Example: @TeamA",
-				Required:    false,
-			},
-		},
-	}
-}
-
 // GetSlashChangePlannedStartCommand adjust aspects of a running contract
 func GetSlashChangePlannedStartCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
@@ -235,72 +219,6 @@ func HandleChangeOneBoosterCommand(s *discordgo.Session, i *discordgo.Interactio
 			Content: str},
 	)
 
-}
-
-// HandleChangePingRoleCommand will handle the /change-ping-role command
-func HandleChangePingRoleCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	// Protection against DM use as we need the channel ID to find the contract
-	if i.GuildID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "This command can only be run in a server.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
-		})
-		return
-	}
-
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
-
-	var str = ""
-
-	contract := FindContract(i.ChannelID)
-	if contract == nil {
-		str = errorNoContract
-	} else {
-		if !creatorOfContract(s, contract, i.Member.User.ID) {
-			str = "only the contract creator can change the contract"
-		}
-	}
-
-	// No error string means we are good to go
-	//if str == "" {
-	// Default to @here when there is no parameter
-	//newRole := "@here"
-
-	//optionMap := bottools.GetCommandOptionsMap(i)
-	/*
-		if opt, ok := optionMap["ping-role"]; ok {
-			role := opt.RoleValue(nil, "")
-			newRole = role.Mention()
-		}
-
-			for _, loc := range contract.Location {
-				if loc.ChannelID == i.ChannelID {
-					if loc.ChannelPing == newRole {
-						str = "Ping role already set to " + newRole
-						break
-					}
-					loc.ChannelPing = newRole
-					str = "Ping role changed to " + newRole
-					_, _ = s.ChannelMessageSend(i.ChannelID, str)
-					break
-				}
-			}
-	*/
-	//}
-
-	_, _ = s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Content: str},
-	)
 }
 
 // HandleChangePlannedStartCommand will handle the /change--planned-start command

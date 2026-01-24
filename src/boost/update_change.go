@@ -63,6 +63,19 @@ func GetSlashChangeCommand(cmd string) *discordgo.ApplicationCommand {
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "ping-role",
+				Description: "Change contract ping role. Use with no parameters will set ping to @here.",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:        discordgo.ApplicationCommandOptionRole,
+						Name:        "role",
+						Description: "Select ping role. ACO Example: @TeamA",
+						Required:    false,
+					},
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        "order",
 				Description: "Update contract order",
 				Options: []*discordgo.ApplicationCommandOption{
@@ -92,6 +105,7 @@ func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	contractIDValue := ""
 	currentBooster := ""
 	boostOrder := ""
+	pingRoleValue := ""
 
 	// Get the subcommand group and subcommand from nested options
 	if len(i.ApplicationCommandData().Options) > 0 {
@@ -121,7 +135,11 @@ func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if opt, ok := optionMap["order-boost-order"]; ok {
 			boostOrder = strings.TrimSpace(opt.StringValue())
 		}
-
+	case "ping-role":
+		if opt, ok := optionMap["ping-role-role"]; ok {
+			role := opt.RoleValue(s, i.GuildID)
+			pingRoleValue = role.Mention()
+		}
 	}
 
 	resultMsg := ""
@@ -195,6 +213,36 @@ func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				} else {
 					resultMsg += fmt.Sprintf("✅ Current changed to %s.", currentBooster)
 					refreshBoostListMessage(s, contract, false)
+				}
+			}
+		}
+
+	case "ping-role":
+		contract := FindContract(i.ChannelID)
+		if contract == nil {
+			resultMsg = "❌ Contract not found in this channel"
+		} else {
+			if !creatorOfContract(s, contract, i.Member.User.ID) {
+				resultMsg = "❌ Only the contract creator can change the ping role"
+			} else {
+				defer saveData(contract.ContractHash)
+
+				// Default to @here when there is no parameter
+				newRole := "@here"
+				if pingRoleValue != "" {
+					newRole = pingRoleValue
+				}
+
+				for _, loc := range contract.Location {
+					if loc.ChannelID == i.ChannelID {
+						if loc.RoleMention == newRole {
+							resultMsg = "✅ Ping role already set to " + newRole
+							break
+						}
+						loc.RoleMention = newRole
+						resultMsg = "✅ Ping role changed to " + newRole
+						break
+					}
 				}
 			}
 		}
