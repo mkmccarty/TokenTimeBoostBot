@@ -47,7 +47,6 @@ const slashContract string = "contract"
 const slashSkip string = "skip"
 const slashBoost string = "boost"
 const slashChangeOneBooster string = "change-one-booster"
-const slashChangePingRole string = "change-ping-role"
 const slashChangePlannedStartCommand string = "change-start"
 const slashChangeSpeedRunSink string = "change-speedrun-sink"
 const slashChangeCommand string = "change"
@@ -339,7 +338,6 @@ var (
 		boost.GetSlashEstimateTime(slashEstimateTime),
 		boost.GetSlashCsEstimates(slashCsEstimate),
 		boost.GetSlashChangeOneBoosterCommand(slashChangeOneBooster),
-		boost.GetSlashChangePingRoleCommand(slashChangePingRole),
 		boost.GetSlashChangePlannedStartCommand(slashChangePlannedStartCommand),
 		bottools.GetSlashRemoveMessage(slashRemoveDMMessage),
 		boost.GetSlashTokenEditCommand(slashTokenEdit),
@@ -644,9 +642,6 @@ var (
 		},
 		slashChangeOneBooster: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleChangeOneBoosterCommand(s, i)
-		},
-		slashChangePingRole: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleChangePingRoleCommand(s, i)
 		},
 		slashChangePlannedStartCommand: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleChangePlannedStartCommand(s, i)
