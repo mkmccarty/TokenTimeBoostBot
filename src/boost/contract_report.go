@@ -406,11 +406,13 @@ func ContractReport(
 
 	// Do I know the user's IGN?
 	callerFarmerName := farmerstate.GetMiscSettingString(callerUserID, "ei_ign")
-	if callerFarmerName == "" {
-		backup, _ := ei.GetFirstContactFromAPI(s, callerEI, callerUserID, okayToSave)
-		if backup != nil {
-			// save
-			callerFarmerName = backup.GetUserName()
+	// Update their IGN using the backup
+	backup, _ := ei.GetFirstContactFromAPI(s, callerEI, callerUserID, okayToSave)
+	if backup != nil {
+		newIGN := backup.GetUserName()
+		if newIGN != "" && newIGN != callerFarmerName {
+			// update cached IGN if missing OR changed
+			callerFarmerName = newIGN
 			farmerstate.SetMiscSettingString(callerUserID, "ei_ign", callerFarmerName)
 		}
 	}
