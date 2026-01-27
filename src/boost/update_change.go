@@ -61,19 +61,21 @@ func GetSlashChangeCommand(cmd string) *discordgo.ApplicationCommand {
 					},
 				},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "ping-role",
-				Description: "Change contract ping role. Use with no parameters will set ping to @here.",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionRole,
-						Name:        "role",
-						Description: "Select ping role. ACO Example: @TeamA",
-						Required:    false,
+			/*
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "ping-role",
+					Description: "Change contract ping role. Use with no parameters will set ping to @here.",
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionRole,
+							Name:        "role",
+							Description: "Select ping role. ACO Example: @TeamA",
+							Required:    false,
+						},
 					},
 				},
-			},
+			*/
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        "order",
