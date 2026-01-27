@@ -169,7 +169,7 @@ func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				if err != nil {
 					resultMsg = fmt.Sprintf("❌ %s", err.Error())
 				} else {
-					resultMsg = fmt.Sprintf("✅ Updated contractID to %s", contractIDValue)
+					resultMsg = fmt.Sprintf("✅ Updated contractID to %s and updated the role to %s", contractIDValue, contract.Location[0].RoleMention)
 					refreshBoostListMessage(s, contract, false)
 				}
 

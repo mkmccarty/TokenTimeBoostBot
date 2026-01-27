@@ -461,6 +461,85 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 var nameMutex sync.Mutex
 
+// getContractRoleName generates a thematic role name for the given contract ID
+func getContractRoleName(contractID string) string {
+	roleNames := randomThingNames
+
+	for _, c := range ei.EggIncContracts {
+		if c.ID == contractID {
+			if len(c.TeamNames) > 0 {
+				roleNames = c.TeamNames
+			}
+			break
+		}
+	}
+
+	// Get existing roles in a default guild (since we don't have context here)
+	// For naming purposes, we'll just use the first available name
+	var existingRoles []string
+	// In the context of renaming, we don't need to check all guilds -
+	// we just need a thematic name that's different from the current one
+
+	tryCount := 0
+	prefix := ""
+	var teamName string
+
+	// Create a list of unused role names (just pick from the theme list)
+	var unusedRoleNames []string
+	for _, name := range roleNames {
+		if !slices.Contains(existingRoles, fmt.Sprintf("%s%s", prefix, name)) {
+			unusedRoleNames = append(unusedRoleNames, name)
+		}
+	}
+	rand.Shuffle(len(unusedRoleNames), func(i, j int) {
+		unusedRoleNames[i], unusedRoleNames[j] = unusedRoleNames[j], unusedRoleNames[i]
+	})
+
+	if len(unusedRoleNames) == 0 {
+		// All names are taken; fall back to a generated team name
+		teamName = namesgenerator.GetRandomName(0)
+		prefix = "Team "
+	} else {
+		lastChance := false
+		for {
+			name := unusedRoleNames[tryCount]
+			if !slices.Contains(existingRoles, prefix+name) {
+				// Found an unused name
+				teamName = name
+				break
+			}
+			tryCount++
+			if tryCount == len(unusedRoleNames) {
+				if lastChance {
+					break
+				}
+				prefix = "Team "
+				// Filter out names that are already taken with the new prefix
+				filteredNames := make([]string, 0, len(unusedRoleNames))
+				for _, name := range unusedRoleNames {
+					if !slices.Contains(existingRoles, prefix+name) {
+						filteredNames = append(filteredNames, name)
+					}
+				}
+				unusedRoleNames = filteredNames
+				rand.Shuffle(len(unusedRoleNames), func(i, j int) {
+					unusedRoleNames[i], unusedRoleNames[j] = unusedRoleNames[j], unusedRoleNames[i]
+				})
+				if len(unusedRoleNames) == 0 {
+					break
+				}
+				tryCount = 0
+				lastChance = true
+			}
+		}
+		if teamName == "" {
+			teamName = namesgenerator.GetRandomName(0)
+		}
+	}
+
+	return fmt.Sprintf("%s%s", prefix, teamName)
+}
+
 // Return a new contract role for the given guild
 func getContractRole(s *discordgo.Session, guildID string, contract *Contract) error {
 	var role *discordgo.Role

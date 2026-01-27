@@ -367,6 +367,10 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 		contract.ContractID = contractID
 		updateContractWithEggIncData(contract)
 		contract.EggEmoji = FindEggEmoji(contract.EggName)
+
+		// Rename the contract role to match the new contract
+		renameContractRole(s, contract)
+
 		refreshBoostListMessage(s, contract, false)
 	}
 	if coopID != "" {
@@ -380,6 +384,29 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 		}
 	}
 	return nil
+}
+
+// renameContractRole renames the contract role to match the new contract ID
+func renameContractRole(s *discordgo.Session, contract *Contract) {
+	// Get the new thematic role name for the updated contract
+	newRoleName := getContractRoleName(contract.ContractID)
+
+	// Rename the role in each guild where the contract exists
+	for _, loc := range contract.Location {
+		if loc.GuildContractRole.ID == "" {
+			continue
+		}
+
+		_, err := s.GuildRoleEdit(loc.GuildID, loc.GuildContractRole.ID, &discordgo.RoleParams{
+			Name: newRoleName,
+		})
+
+		if err != nil {
+			log.Println("Error renaming contract role:", err)
+		} else {
+			log.Println("Successfully renamed contract role to:", newRoleName)
+		}
+	}
 }
 
 // ChangeCurrentBooster will change the current booster to the specified userID
