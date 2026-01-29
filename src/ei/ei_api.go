@@ -58,12 +58,12 @@ func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID str
 	}
 
 	if protoData == "" {
-		clientVersion := uint32(99)
+		clientVersion := DefaultClientVersion
 
-		platform := Platform_IOS
-		platformString := "IOS"
-		version := "1.35.4"
-		build := "111332"
+		platform := DefaultPlatform
+		platformString := DefaultPlatformString
+		version := DefaultVersion
+		build := DefaultBuild
 
 		firstContactRequest := EggIncFirstContactRequest{
 			Rinfo: &BasicRequestInfo{
@@ -190,7 +190,7 @@ func RedactUserInfo(s, eiUserID string) string {
 func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID string, forceRefresh bool, okayToSave bool) ([]*LocalContract, bool) {
 	reqURL := "https://www.auxbrain.com/ei_ctx/get_contracts_archive"
 	enc := base64.StdEncoding
-	clientVersion := uint32(99)
+	clientVersion := DefaultClientVersion
 	protoData := ""
 	cachedData := false
 
@@ -314,10 +314,10 @@ func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID 
 func GetConfigFromAPI(s *discordgo.Session) bool {
 	reqURL := "https://www.auxbrain.com/ei/get_config"
 
-	clientVersion := uint32(99)
-	platformString := "IOS"
-	version := "1.35.2"
-	build := "111300"
+	clientVersion := DefaultClientVersion
+	platformString := DefaultPlatformString
+	version := DefaultVersion
+	build := DefaultBuild
 
 	getConfigRequest := ConfigRequest{
 		Rinfo: &BasicRequestInfo{
