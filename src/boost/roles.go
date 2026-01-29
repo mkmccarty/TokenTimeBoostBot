@@ -312,3 +312,38 @@ func fetchContractTeamNames(prompt string, quantity int) []string {
 
 	return names
 }
+
+// IsRoleCreatedByBot checks if a role name was created by the bot by verifying if it matches
+// one of the role names from the bot's source lists (randomThingNames or contract team names)
+func IsRoleCreatedByBot(roleName string) bool {
+	// Check against the default randomThingNames list
+	if slices.Contains(randomThingNames, roleName) {
+		return true
+	}
+
+	// Check against team names from all known contracts
+	for _, contract := range ei.EggIncContracts {
+		if len(contract.TeamNames) > 0 && slices.Contains(contract.TeamNames, roleName) {
+			return true
+		}
+	}
+
+	// Check if the role name is a "Team" prefixed version of any known role name
+	if strings.HasPrefix(roleName, "Team ") {
+		unprefixedName := strings.TrimPrefix(roleName, "Team ")
+
+		// Check against randomThingNames
+		if slices.Contains(randomThingNames, unprefixedName) {
+			return true
+		}
+
+		// Check against contract team names
+		for _, contract := range ei.EggIncContracts {
+			if len(contract.TeamNames) > 0 && slices.Contains(contract.TeamNames, unprefixedName) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
