@@ -132,7 +132,9 @@ func processSingleContractSave(contractHash string) {
 		return
 	}
 
+	contract.mutex.Lock()
 	contract.LastSaveTime = time.Now()
+	contract.mutex.Unlock()
 	saveSqliteData(contract)
 }
 
