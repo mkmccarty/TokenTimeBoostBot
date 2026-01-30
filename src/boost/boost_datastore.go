@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/peterbourgon/diskv/v3"
@@ -21,6 +22,13 @@ var ctx = context.Background()
 var ddl string
 var queries *Queries
 
+// Save queue infrastructure
+var saveQueue = make(chan string, 100) // Buffer up to 100 save requests
+var saveQueueMutex sync.Mutex
+var pendingSaves = make(map[string]bool) // Track contracts pending save
+var saveQueueWg sync.WaitGroup           // Track in-flight save operations
+var saveQueueOpen = true                 // Track if queue is still accepting items
+
 func sqliteInit() {
 	db, _ := sql.Open("sqlite", "ttbb-data/ContractData.sqlite?_busy_timeout=5000")
 
@@ -31,10 +39,42 @@ func sqliteInit() {
 	queries = New(db)
 }
 
-// SaveAllData will save all contract data to disk
+// startSaveQueueWorker initializes the background worker that processes save requests
+// Runs in its own goroutine and blocks efficiently when idle
+func startSaveQueueWorker() {
+	go func() {
+		for contractHash := range saveQueue {
+			// Mark as no longer pending
+			saveQueueMutex.Lock()
+			delete(pendingSaves, contractHash)
+			saveQueueMutex.Unlock()
+
+			// Process the actual save (outside lock)
+			processSingleContractSave(contractHash)
+
+			// Mark this save as complete
+			saveQueueWg.Done()
+		}
+	}()
+}
+
+// SaveAllData will save all contract data to disk and wait for completion
+// This provides graceful shutdown - queues all contracts, closes queue, and waits
 func SaveAllData() {
 	log.Print("Saving contract data")
 	saveData("")
+
+	// Close the queue to signal no more items will be added
+	saveQueueMutex.Lock()
+	if saveQueueOpen {
+		saveQueueOpen = false
+		close(saveQueue)
+	}
+	saveQueueMutex.Unlock()
+
+	// Wait for all queued saves to complete
+	saveQueueWg.Wait()
+	log.Print("All contract data saved")
 }
 
 func initDataStore() {
@@ -69,20 +109,77 @@ func InverseTransform(pathKey *diskv.PathKey) (key string) {
 
 func saveData(contractHash string) {
 	if contractHash != "" {
-		contract := FindContractByHash(contractHash)
-		if contract == nil {
+		// Queue individual contract save with deduplication
+		// Lock only while checking/modifying the map
+		saveQueueMutex.Lock()
+		if !saveQueueOpen {
+			// Queue is closed, save synchronously instead
+			saveQueueMutex.Unlock()
+			contract := FindContractByHash(contractHash)
+			if contract != nil {
+				contract.LastSaveTime = time.Now()
+				saveSqliteData(contract)
+			}
 			return
 		}
-
-		contract.LastSaveTime = time.Now()
-		saveSqliteData(contract)
+		if !pendingSaves[contractHash] {
+			pendingSaves[contractHash] = true
+			saveQueueWg.Add(1) // Track this save operation
+			saveQueueMutex.Unlock()
+			// Send to queue WITHOUT holding the lock to prevent deadlock
+			saveQueue <- contractHash
+		} else {
+			saveQueueMutex.Unlock()
+		}
 		return
 	}
 
+	// Save all contracts - queue each one individually
 	for _, c := range Contracts {
-		c.LastSaveTime = time.Now()
-		saveSqliteData(c)
+		contractHash := c.ContractHash
+
+		// Lock only while checking/modifying the map
+		saveQueueMutex.Lock()
+		if !saveQueueOpen {
+			// Queue is closed, save synchronously instead
+			saveQueueMutex.Unlock()
+			c.LastSaveTime = time.Now()
+			saveSqliteData(c)
+			continue
+		}
+		if !pendingSaves[contractHash] {
+			pendingSaves[contractHash] = true
+			saveQueueWg.Add(1) // Track this save operation
+			saveQueueMutex.Unlock()
+
+			// Send to queue WITHOUT holding the lock to prevent deadlock
+			select {
+			case saveQueue <- contractHash:
+				// Successfully queued
+			default:
+				// Queue is full, remove from pending so it can be retried
+				saveQueueMutex.Lock()
+				delete(pendingSaves, contractHash)
+				saveQueueWg.Done() // Cancel the WaitGroup addition
+				saveQueueMutex.Unlock()
+				log.Printf("Save queue full, skipping contract: %s", contractHash)
+			}
+		} else {
+			saveQueueMutex.Unlock()
+		}
 	}
+
+}
+
+// processSingleContractSave handles the actual database write for a single contract
+func processSingleContractSave(contractHash string) {
+	contract := FindContractByHash(contractHash)
+	if contract == nil {
+		return
+	}
+
+	contract.LastSaveTime = time.Now()
+	saveSqliteData(contract)
 }
 
 func loadData() (map[string]*Contract, error) {
