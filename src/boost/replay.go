@@ -527,11 +527,11 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 	}
 
 	if percent != -1 && builder.Len() > 3600 {
-		builder.WriteString("Response truncated, too many contracts met this condition, use the page parameter to see the other pages.\n")
+		builder.WriteString("Response truncated, too many contracts meet this condition, use the page parameter to see the other pages.\n")
 	}
 
 	if percent != -1 {
-		builder.WriteString(fmt.Sprintf("Showing %d of your %d contracts met this condition.\n", pagecount, count))
+		builder.WriteString(fmt.Sprintf("Showing %d of your %d contracts that met this condition.\n", pagecount, count))
 	}
 	if count == 0 {
 		builder.Reset()
