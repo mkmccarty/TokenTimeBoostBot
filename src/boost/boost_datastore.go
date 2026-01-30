@@ -106,14 +106,14 @@ func saveData(contractHash string) {
 		contractHash := c.ContractHash
 		saveQueueMutex.Lock()
 		if !pendingSaves[contractHash] {
-			pendingSaves[contractHash] = true
 			select {
 			case saveQueue <- contractHash:
 				// Successfully queued
+				pendingSaves[contractHash] = true
 			default:
 				// Queue is full, skip this one (it will be retried in the next save cycle)
 				log.Printf("Save queue full, skipping contract: %s", contractHash)
-				saveQueueMutex.Unlock()
+				// Do not mark as pending so it can be retried in a future save cycle
 				break
 			}
 		}
