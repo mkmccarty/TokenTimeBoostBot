@@ -74,44 +74,16 @@ func saveData(contractHash string) {
 			return
 		}
 
-		/*
-			if contract.State == ContractStateSignup {
-				if time.Since(contract.LastSaveTime) < 30*time.Second && len(contract.Boosters) < contract.CoopSize {
-					// Only save signup contracts every 30 seconds during signup
-					return
-				}
-			} else {
-				if time.Since(contract.LastSaveTime) < 15*time.Second {
-					// Only save non-signup contracts every 15 seconds
-					return
-				}
-			}
-		*/
 		contract.LastSaveTime = time.Now()
 		saveSqliteData(contract)
 		return
 	}
 
 	for _, c := range Contracts {
-		saveSqliteData(c)
 		c.LastSaveTime = time.Now()
+		saveSqliteData(c)
 	}
-
-	// Legacy disk store backup
-	//b, _ := json.Marshal(Contracts)
-	//_ = dataStore.Write("EggsBackup", b)
 }
-
-/*
-func saveEndData(c *Contract) error {
-	//diskmutex.Lock()
-	var saveName = fmt.Sprintf("%s/%s", c.ContractID, c.CoopID)
-	b, _ := json.Marshal(c)
-	_ = dataStore.Write(saveName, b)
-	//diskmutex.Unlock()
-	return nil
-}
-*/
 
 func loadData() (map[string]*Contract, error) {
 	// Ensure SQLite is initialized before use
