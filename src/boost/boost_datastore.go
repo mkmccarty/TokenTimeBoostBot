@@ -41,13 +41,15 @@ func sqliteInit() {
 func startSaveQueueWorker() {
 	go func() {
 		for contractHash := range saveQueue {
-			// Mark as no longer pending
+			// Process the actual save
+			processSingleContractSave(contractHash)
+
+			// Mark as no longer pending after processing completes
+			// This ensures that if the contract is modified during processing,
+			// a new save request will be queued rather than being skipped
 			saveQueueMutex.Lock()
 			delete(pendingSaves, contractHash)
 			saveQueueMutex.Unlock()
-
-			// Process the actual save
-			processSingleContractSave(contractHash)
 		}
 	}()
 }
