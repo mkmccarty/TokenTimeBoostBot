@@ -347,6 +347,9 @@ func init() {
 	if err == nil {
 		Contracts = c
 	}
+
+	// Start the background save queue worker
+	startSaveQueueWorker()
 }
 
 func changeContractState(contract *Contract, newstate int) {

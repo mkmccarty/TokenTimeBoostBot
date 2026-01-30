@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/peterbourgon/diskv/v3"
@@ -21,6 +22,11 @@ var ctx = context.Background()
 var ddl string
 var queries *Queries
 
+// Save queue infrastructure
+var saveQueue = make(chan string, 100) // Buffer up to 100 save requests
+var saveQueueMutex sync.Mutex
+var pendingSaves = make(map[string]bool) // Track contracts pending save
+
 func sqliteInit() {
 	db, _ := sql.Open("sqlite", "ttbb-data/ContractData.sqlite?_busy_timeout=5000")
 
@@ -29,6 +35,21 @@ func sqliteInit() {
 		fmt.Print(result)
 	}
 	queries = New(db)
+}
+
+// startSaveQueueWorker initializes the background worker that processes save requests
+func startSaveQueueWorker() {
+	go func() {
+		for contractHash := range saveQueue {
+			// Mark as no longer pending
+			saveQueueMutex.Lock()
+			delete(pendingSaves, contractHash)
+			saveQueueMutex.Unlock()
+
+			// Process the actual save
+			processSingleContractSave(contractHash)
+		}
+	}()
 }
 
 // SaveAllData will save all contract data to disk
@@ -69,37 +90,50 @@ func InverseTransform(pathKey *diskv.PathKey) (key string) {
 
 func saveData(contractHash string) {
 	if contractHash != "" {
-		contract := FindContractByHash(contractHash)
-		if contract == nil {
-			return
+		// Queue individual contract save with deduplication
+		saveQueueMutex.Lock()
+		// If already pending, no need to add another request
+		if !pendingSaves[contractHash] {
+			pendingSaves[contractHash] = true
+			saveQueue <- contractHash
 		}
-
-		/*
-			if contract.State == ContractStateSignup {
-				if time.Since(contract.LastSaveTime) < 30*time.Second && len(contract.Boosters) < contract.CoopSize {
-					// Only save signup contracts every 30 seconds during signup
-					return
-				}
-			} else {
-				if time.Since(contract.LastSaveTime) < 15*time.Second {
-					// Only save non-signup contracts every 15 seconds
-					return
-				}
-			}
-		*/
-		contract.LastSaveTime = time.Now()
-		saveSqliteData(contract)
+		saveQueueMutex.Unlock()
 		return
 	}
 
+	// Save all contracts - queue each one individually
 	for _, c := range Contracts {
-		saveSqliteData(c)
-		c.LastSaveTime = time.Now()
+		contractHash := c.ContractHash
+		saveQueueMutex.Lock()
+		if !pendingSaves[contractHash] {
+			pendingSaves[contractHash] = true
+			select {
+			case saveQueue <- contractHash:
+				// Successfully queued
+			default:
+				// Queue is full, skip this one (it will be retried in the next save cycle)
+				log.Printf("Save queue full, skipping contract: %s", contractHash)
+				saveQueueMutex.Unlock()
+				break
+			}
+		}
+		saveQueueMutex.Unlock()
 	}
 
 	// Legacy disk store backup
 	//b, _ := json.Marshal(Contracts)
 	//_ = dataStore.Write("EggsBackup", b)
+}
+
+// processSingleContractSave handles the actual database write for a single contract
+func processSingleContractSave(contractHash string) {
+	contract := FindContractByHash(contractHash)
+	if contract == nil {
+		return
+	}
+
+	contract.LastSaveTime = time.Now()
+	saveSqliteData(contract)
 }
 
 /*
