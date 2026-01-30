@@ -134,8 +134,11 @@ func processSingleContractSave(contractHash string) {
 		return
 	}
 
+	// Lock the contract to ensure thread-safe access during save
+	contract.mutex.Lock()
 	contract.LastSaveTime = time.Now()
 	saveSqliteData(contract)
+	contract.mutex.Unlock()
 }
 
 /*
