@@ -115,8 +115,8 @@ func saveData(contractHash string) {
 			default:
 				// Queue is full, skip this one (it will be retried in the next save cycle)
 				log.Printf("Save queue full, skipping contract: %s", contractHash)
-				// Do not mark as pending so it can be retried in a future save cycle
-				break
+				saveQueueMutex.Unlock()
+				continue
 			}
 		}
 		saveQueueMutex.Unlock()
