@@ -94,7 +94,7 @@ func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 			return
 		}
 		foundContractHash = contract.ContractHash
-		contractID = strings.ToLower(contract.ContractID)
+		contractID = contract.ContractID
 		coopID = strings.ToLower(contract.CoopID)
 	}
 
