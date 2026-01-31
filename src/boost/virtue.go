@@ -633,13 +633,15 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 		offlineGems = (offlineRateHr / 3600) * math.Floor(elapsed-60)
 	}
 
-	fmt.Fprintf(&stats, "%s %s est. **%sOffline** %s/hr  %s/s\n",
-		ei.GetBotEmojiMarkdown("gem"),
-		ei.FormatEIValue(gemsOnHand+offlineGems, map[string]any{"decimals": 3, "trim": true}),
-		ei.GetBotEmojiMarkdown("gem"),
-		ei.FormatEIValue(offlineRateHr, map[string]any{"decimals": 3, "trim": true}),
-		ei.FormatEIValue(offlineRateHr/3600, map[string]any{"decimals": 3, "trim": true}),
-	)
+	if onVirtueFarm {
+		fmt.Fprintf(&stats, "%s %s est. **%sOffline** %s/hr  %s/s\n",
+			ei.GetBotEmojiMarkdown("gem"),
+			ei.FormatEIValue(gemsOnHand+offlineGems, map[string]any{"decimals": 3, "trim": true}),
+			ei.GetBotEmojiMarkdown("gem"),
+			ei.FormatEIValue(offlineRateHr, map[string]any{"decimals": 3, "trim": true}),
+			ei.FormatEIValue(offlineRateHr/3600, map[string]any{"decimals": 3, "trim": true}),
+		)
+	}
 
 	// Display Artifact buffs if any
 	hasArtifactBuffs := artifactBuffs.SR != 1 || artifactBuffs.ELR != 1 || artifactBuffs.IHR != 1 || artifactBuffs.Hab != 1 || artifactBuffs.Earnings != 1 || artifactBuffs.AwayEarnings != 1
