@@ -94,7 +94,7 @@ func createDynamicTokenData(TE int64) *DynamicTokenData {
 	dt.ChickenRunHab = dt.MaxHab * chickenRunPercent
 	// Create boost times for 0 through 12 token boosts
 	// 14.825K/min/hab (×1.993)
-	for i := 0; i < len(dt.TokenBoost); i++ {
+	for i := range len(dt.TokenBoost) {
 		mult := calcBoostMulti(float64(i))
 		dt.TokenBoost[i] = mult * monocleMultiplier
 		ihr := float64(dt.TokenBoost[i]) * dt.IHRMultiplier * float64(dt.FourHabsOffline) // per minute
