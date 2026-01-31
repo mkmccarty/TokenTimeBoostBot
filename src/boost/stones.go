@@ -1014,10 +1014,20 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			if setContractEstimate {
 				c := FindContractByIDs(contractID, coopID)
 				if c != nil {
-					c.EstimatedDuration = time.Duration(calcSecondsRemaining) * time.Second
-					c.EstimatedDurationValid = true
-					c.StartTime = startTime
-					c.EstimatedEndTime = endTime
+					c.mutex.Lock()
+					if contributionRatePerSecond > 0 &&
+						!math.IsInf(calcSecondsRemaining, 0) &&
+						!math.IsNaN(calcSecondsRemaining) &&
+						calcSecondsRemaining >= 0 {
+						c.EstimatedDuration = time.Duration(calcSecondsRemaining) * time.Second
+						c.EstimatedDurationValid = true
+						c.StartTime = startTime
+						c.EstimatedEndTime = endTime
+					} else {
+						// Mark estimate as invalid rather than persisting a bad/overflowed duration.
+						c.EstimatedDurationValid = false
+					}
+					c.mutex.Unlock()
 				}
 			}
 		}

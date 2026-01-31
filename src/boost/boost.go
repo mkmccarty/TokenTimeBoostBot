@@ -634,7 +634,7 @@ func FindContractByMessageID(channelID string, messageID string) *Contract {
 func FindContractByIDs(contractID string, coopID string) *Contract {
 	// Look for the contract
 	for key, element := range Contracts {
-		if element.ContractID == contractID && element.CoopID == coopID {
+		if strings.EqualFold(element.ContractID, contractID) && strings.EqualFold(element.CoopID, coopID) {
 			// Found the contract matching the given ContractID and CoopID
 			return Contracts[key]
 		}
