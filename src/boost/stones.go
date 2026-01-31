@@ -1012,7 +1012,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			endStr = "Est End:"
 			contractDurationSeconds = endTime.Sub(startTime).Seconds()
 			if setContractEstimate {
-				c := FindContract(contractID)
+				c := FindContractByIDs(contractID, coopID)
 				if c != nil {
 					c.EstimatedDuration = time.Duration(calcSecondsRemaining) * time.Second
 					c.EstimatedDurationValid = true
