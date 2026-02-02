@@ -75,6 +75,7 @@ const (
 	ContractOrderTVal      = 6 // Token Value based order
 	ContractOrderTokenAsk  = 7 // Token Ask order, less tokens boosts earlier
 	ContractOrderTE        = 8 // Truth Egg based order
+	ContractOrderTEplus    = 9 // Truth Egg + randomization
 
 	ContractStateSignup    = 0 // Contract is in signup phase
 	ContractStateFastrun   = 1 // Contract in Boosting as fastrun
@@ -464,6 +465,8 @@ func getBoostOrderString(contract *Contract) string {
 		return "Token Ask order."
 	case ContractOrderTE:
 		return "TE order"
+	case ContractOrderTEplus:
+		return "TE+ order"
 	}
 	return "Unknown"
 }
@@ -870,7 +873,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			contract.UltraCount++
 		}
 
-		if contract.BoostOrder == ContractOrderTE {
+		if contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEplus {
 			updateContractFarmerTE(s, userID, b, contract)
 		}
 
@@ -1717,6 +1720,12 @@ func FinishContract(s *discordgo.Session, contract *Contract) {
 }
 
 func reorderBoosters(contract *Contract) {
+
+	type teOrderPair struct {
+		name string
+		te   int
+	}
+
 	switch contract.BoostOrder {
 	case ContractOrderSignup:
 		// Join Order
@@ -1866,31 +1875,31 @@ func reorderBoosters(contract *Contract) {
 		contract.Boosters[contract.Order[contract.BoostPosition]].BoostState = BoostStateTokenTime
 		contract.mutex.Unlock()
 
-	case ContractOrderTE:
-		type TEPair struct {
-			Name string
-			TE   int
+	case ContractOrderTE, ContractOrderTEplus:
+		pairs := make([]teOrderPair, len(contract.Order))
+
+		for i, name := range contract.Order {
+			te := contract.Boosters[name].TECount
+
+			if contract.BoostOrder == ContractOrderTEplus {
+				// Add randomization factor of up to 10% of TE count
+				te = max(te, 0)
+				te += rand.IntN(te/10 + 1)
+			}
+
+			pairs[i] = teOrderPair{name: name, te: te}
 		}
 
-		var tePairs []TEPair
-		for _, el := range contract.Order {
-			tePairs = append(tePairs, TEPair{
-				Name: el,
-				TE:   contract.Boosters[el].TECount,
-			})
-		}
-
-		sort.Slice(tePairs, func(i, j int) bool {
-			return tePairs[i].TE > tePairs[j].TE
+		sort.Slice(pairs, func(i, j int) bool {
+			return pairs[i].te > pairs[j].te
 		})
 
-		var orderedNames []string
-		for _, pair := range tePairs {
-			orderedNames = append(orderedNames, pair.Name)
+		for i := range pairs {
+			contract.Order[i] = pairs[i].name
 		}
-		contract.Order = orderedNames
+
 	}
-	//
+
 	if contract.BoostOrder != ContractOrderTVal {
 		if contract.Style&ContractFlagBanker != 0 && contract.Banker.BoostingSinkUserID != "" {
 			repositionSinkBoostPosition(contract)

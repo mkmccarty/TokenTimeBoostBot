@@ -688,20 +688,22 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			contract.BoostOrder = ContractOrderTVal
 		case "ask":
 			contract.BoostOrder = ContractOrderTokenAsk
-		case "te":
-			contract.BoostOrder = ContractOrderTE
-			// Refresh the user's egg inc data, if they have 0 TE count
-			// Collect userIDs and boosters with TECount == 0
-			var usersToRefresh []struct {
+		case "te", "teplus":
+			type userToRefresh struct {
 				userID  string
 				booster *Booster
 			}
+			if values[0] == "teplus" {
+				contract.BoostOrder = ContractOrderTEplus
+			} else {
+				contract.BoostOrder = ContractOrderTE
+			}
+			// Refresh the user's egg inc data, if they have 0 TE count
+			// Collect userIDs and boosters with TECount == 0
+			usersToRefresh := make([]userToRefresh, 0, len(contract.Boosters))
 			for userID, b := range contract.Boosters {
 				if b.TECount == 0 {
-					usersToRefresh = append(usersToRefresh, struct {
-						userID  string
-						booster *Booster
-					}{userID, b})
+					usersToRefresh = append(usersToRefresh, userToRefresh{userID: userID, booster: b})
 				}
 			}
 			// Call updateContractFarmerTE for each collected user
