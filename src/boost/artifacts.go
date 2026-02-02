@@ -1,11 +1,14 @@
 package boost
 
 import (
+	"encoding/base64"
 	"fmt"
 	"log"
 	"sort"
 	"strings"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 
@@ -357,6 +360,76 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 	return builder.String(), component
 }
 
+// SlashArtifactCommand creates the new /artifact slash command with subcommands
+func SlashArtifactCommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "Artifact analysis and explorer.",
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+			discordgo.InteractionContextBotDM,
+			discordgo.InteractionContextPrivateChannel,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+			discordgo.ApplicationIntegrationUserInstall,
+		},
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "dialog",
+				Description: "Indicate best contract artifacts you have.",
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "production",
+				Description: "Analyze artifacts and stones for production boost.",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:        discordgo.ApplicationCommandOptionInteger,
+						Name:        "category",
+						Description: "Select farm category to analyze",
+						Choices: []*discordgo.ApplicationCommandOptionChoice{
+							{
+								Name:  "Home/Contract",
+								Value: 0,
+							},
+							{
+								Name:  "Virtue",
+								Value: 1,
+							},
+						},
+						Required: true,
+					},
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "earnings",
+				Description: "Analyze artifacts and stones for earnings boost.",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:        discordgo.ApplicationCommandOptionInteger,
+						Name:        "category",
+						Description: "Select farm category to analyze",
+						Choices: []*discordgo.ApplicationCommandOptionChoice{
+							{
+								Name:  "Home/Contract",
+								Value: 0,
+							},
+							{
+								Name:  "Virtue",
+								Value: 1,
+							},
+						},
+						Required: true,
+					},
+				},
+			},
+		},
+	}
+}
+
 // SlashArtifactsCommand creates a new slash command for setting Egg, Inc name
 func SlashArtifactsCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
@@ -381,8 +454,8 @@ func getInteractionUserID(i *discordgo.InteractionCreate) string {
 	return i.Member.User.ID
 }
 
-// HandleArtifactCommand handles the /artifacts command
-func HandleArtifactCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleArtifactsCommand handles the /artifacts command (legacy dialog-only command)
+func HandleArtifactsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	userID := getInteractionUserID(i)
 
@@ -507,4 +580,269 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 			//Flags: discordgo.MessageFlagsEphemeral,
 		})
 
+}
+
+// HandleArtifactCommand handles the /artifact command with subcommands
+func HandleArtifactCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	optionMap := bottools.GetCommandOptionsMap(i)
+	subcommand := i.ApplicationCommandData().Options[0].Name
+
+	switch subcommand {
+	case "dialog":
+		handleArtifactDialog(s, i)
+	case "production":
+		handleArtifactProduction(s, i, optionMap)
+	case "earnings":
+		handleArtifactEarnings(s, i, optionMap)
+	}
+}
+
+// handleArtifactDialog handles the /artifact dialog subcommand (existing functionality)
+func handleArtifactDialog(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	userID := bottools.GetInteractionUserID(i)
+
+	contractOnly := false
+
+	str, comp := getArtifactsComponents(userID, i.ChannelID, contractOnly)
+
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content:    str,
+			Components: comp,
+			Flags:      discordgo.MessageFlagsEphemeral,
+		},
+	},
+	)
+	if err != nil {
+		log.Println("InteractionRespond: ", err)
+	}
+}
+
+// handleArtifactProduction handles the /artifact production subcommand
+func handleArtifactProduction(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption) {
+	userID := bottools.GetInteractionUserID(i)
+
+	// Get category from option
+	var category int64 = 0
+	if opt, ok := optionMap["category"]; ok {
+		category = opt.IntValue()
+	}
+
+	// Quick reply
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Analyzing artifacts for production...",
+		},
+	})
+
+	// Get the Egg Inc ID from the stored settings
+	eggIncID := ""
+	encryptedID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+	if encryptedID != "" {
+		encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
+		if err == nil {
+			decodedData, err := base64.StdEncoding.DecodeString(encryptedID)
+			if err == nil {
+				decryptedData, err := config.DecryptCombined(encryptionKey, decodedData)
+				if err == nil {
+					eggIncID = string(decryptedData)
+				}
+			}
+		}
+	}
+	if eggIncID == "" || len(eggIncID) != 18 || eggIncID[:2] != "EI" {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: "Error: Your Egg Inc ID is not configured. Please use `/virtue` command first to set up your ID.",
+		})
+		return
+	}
+
+	backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, true)
+	if backup == nil {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: "Failed to retrieve player data from Egg Inc API",
+		})
+		return
+	}
+
+	// Parse and analyze artifacts
+	result := analyzeArtifactsForProduction(backup, category == 1)
+
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content:    result,
+		Components: []discordgo.MessageComponent{},
+	})
+}
+
+// handleArtifactEarnings handles the /artifact earnings subcommand
+func handleArtifactEarnings(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption) {
+	userID := bottools.GetInteractionUserID(i)
+
+	// Get category from option
+	var category int64 = 0
+	if opt, ok := optionMap["category"]; ok {
+		category = opt.IntValue()
+	}
+
+	// Quick reply
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Analyzing artifacts for earnings...",
+		},
+	})
+
+	// Get the Egg Inc ID from the stored settings
+	eggIncID := ""
+	encryptedID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+	if encryptedID != "" {
+		encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
+		if err == nil {
+			decodedData, err := base64.StdEncoding.DecodeString(encryptedID)
+			if err == nil {
+				decryptedData, err := config.DecryptCombined(encryptionKey, decodedData)
+				if err == nil {
+					eggIncID = string(decryptedData)
+				}
+			}
+		}
+	}
+	if eggIncID == "" || len(eggIncID) != 18 || eggIncID[:2] != "EI" {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: "Error: Your Egg Inc ID is not configured. Please use `/virtue` command first to set up your ID.",
+		})
+		return
+	}
+
+	backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, true)
+	if backup == nil {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: "Failed to retrieve player data from Egg Inc API",
+		})
+		return
+	}
+
+	// Parse and analyze artifacts
+	result := analyzeArtifactsForEarnings(backup, category == 1)
+
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content:    result,
+		Components: []discordgo.MessageComponent{},
+	})
+}
+
+// analyzeArtifactsForProduction analyzes artifacts and stones for production boost
+func analyzeArtifactsForProduction(backup *ei.Backup, isVirtue bool) string {
+	var result strings.Builder
+
+	if isVirtue {
+		// Analyze virtue farm artifacts
+		virtue := backup.GetVirtue()
+		if virtue == nil {
+			result.WriteString("No virtue data found in backup")
+			return result.String()
+		}
+
+		virtueArtifactDB := backup.ArtifactsDb.GetVirtueAfxDb()
+		virtueArtifacts := virtueArtifactDB.GetInventoryItems()
+		activeAfx := virtueArtifactDB.GetActiveArtifacts()
+
+		result.WriteString("# Production Analysis - Virtue Farm\n\n")
+		result.WriteString("**Active Artifacts:**\n")
+
+		virtueTileSet := activeAfx.GetSlots()
+		for _, slot := range virtueTileSet {
+			if slot.GetOccupied() {
+				itemID := slot.GetItemId()
+				for _, artifact := range virtueArtifacts {
+					if artifact.GetItemId() == itemID {
+						spec := artifact.GetArtifact().GetSpec()
+						name := ei.ShortArtifactName[int32(spec.GetName())]
+						level := ei.ArtifactLevels[spec.GetLevel()]
+						rarity := ei.ArtifactRarity[spec.GetRarity()]
+						result.WriteString(fmt.Sprintf("- %s %s%s\n", name, level, rarity))
+						break
+					}
+				}
+			}
+		}
+
+		// List all artifact inventory
+		result.WriteString("\n**Full Inventory:**\n")
+		for _, artifact := range virtueArtifacts {
+			spec := artifact.GetArtifact().GetSpec()
+			name := ei.ShortArtifactName[int32(spec.GetName())]
+			level := ei.ArtifactLevels[spec.GetLevel()]
+			rarity := ei.ArtifactRarity[spec.GetRarity()]
+			count := artifact.GetQuantity()
+			result.WriteString(fmt.Sprintf("- %s %s%s (qty: %f)\n", name, level, rarity, count))
+		}
+
+	} else {
+		// For home/contract farms, we'll show a simplified view
+		result.WriteString("# Production Analysis - Home/Contract Farm\n\n")
+		result.WriteString("Home/Contract farm artifact analysis is not yet available.\n")
+		result.WriteString("Please use the `/artifact dialog` command to configure your artifacts.\n")
+	}
+
+	return result.String()
+}
+
+// analyzeArtifactsForEarnings analyzes artifacts and stones for earnings boost
+func analyzeArtifactsForEarnings(backup *ei.Backup, isVirtue bool) string {
+	var result strings.Builder
+	var inventoryItems []*ei.ArtifactInventoryItem
+
+	if isVirtue {
+		inventoryItems = backup.ArtifactsDb.GetInventoryItems()
+	} else {
+		virtueArtifactDB := backup.ArtifactsDb.GetVirtueAfxDb()
+		inventoryItems = virtueArtifactDB.GetInventoryItems()
+
+	}
+	if len(inventoryItems) == 0 {
+		result.WriteString("No artifacts found in inventory.")
+		return result.String()
+	}
+
+	result.WriteString("# Earnings Analysis - Virtue Farm\n\n")
+	result.WriteString("**Active Artifacts (Earnings Boost):**\n")
+
+	artifactSetInUse := []*ei.CompleteArtifact{}
+	inUseArtifactIDs := []uint64{}
+
+	// Build map for quick lookup
+	itemsByID := make(map[uint64]*ei.CompleteArtifact, len(inventoryItems))
+	for _, it := range inventoryItems {
+		itemsByID[it.GetItemId()] = it.GetArtifact()
+	}
+
+	for _, id := range inUseArtifactIDs {
+		if a := itemsByID[id]; a != nil {
+			artifactSetInUse = append(artifactSetInUse, a)
+			spec := a.GetSpec()
+			name := ei.ShortArtifactName[int32(spec.GetName())]
+			level := ei.ArtifactLevels[spec.GetLevel()]
+			rarity := ei.ArtifactRarity[spec.GetRarity()]
+			result.WriteString(fmt.Sprintf("- %s %s%s\n", name, level, rarity))
+		}
+	}
+
+	// Get earnings buffs from artifacts
+	artifactBuffs := ei.GetArtifactBuffs(artifactSetInUse)
+	result.WriteString(fmt.Sprintf("\n**Earnings Rate Multiplier**: %.3f\n", artifactBuffs.Earnings))
+
+	result.WriteString("\n**Full Inventory:**\n")
+	for _, artifact := range inventoryItems {
+		spec := artifact.GetArtifact().GetSpec()
+		name := ei.ShortArtifactName[int32(spec.GetName())]
+		level := ei.ArtifactLevels[spec.GetLevel()]
+		rarity := ei.ArtifactRarity[spec.GetRarity()]
+		count := artifact.GetQuantity()
+		result.WriteString(fmt.Sprintf("- %s %s%s (qty: %f)\n", name, level, rarity, count))
+	}
+
+	return result.String()
 }

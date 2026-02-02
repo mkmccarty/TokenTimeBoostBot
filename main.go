@@ -87,6 +87,7 @@ const slashFun string = "fun"
 const slashStones string = "stones"
 const slashTimer string = "timer"
 const slashArtifact string = "artifact"
+const slashArtifacts string = "artifacts"
 const slashScoreExplorer string = "score-explorer"
 const slashRemoveDMMessage string = "remove-dm-message"
 const slashPrivacy string = "privacy"
@@ -233,7 +234,8 @@ var (
 		boost.GetSlashContractCommand(slashContract),
 		boost.GetSlashSpeedrunCommand(slashSpeedrun),
 		boost.GetSlashRenameThread(slashRenameThread),
-		boost.SlashArtifactsCommand(slashArtifact),
+		boost.SlashArtifactCommand(slashArtifact),
+		boost.SlashArtifactsCommand(slashArtifacts),
 		boost.GetSlashScoreExplorerCommand(slashScoreExplorer),
 		boost.GetSlashChangeSpeedRunSinkCommand(slashChangeSpeedRunSink),
 		boost.GetSlashUpdateCommand(slashUpdateCommand),
@@ -539,6 +541,9 @@ var (
 		// Slash Commands
 		slashArtifact: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleArtifactCommand(s, i)
+		},
+		slashArtifacts: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleArtifactsCommand(s, i)
 		},
 		slashScoreExplorer: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleScoreExplorerCommand(s, i)
