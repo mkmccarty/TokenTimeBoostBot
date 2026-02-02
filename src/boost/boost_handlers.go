@@ -152,6 +152,13 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 							Emoji:       ei.GetBotComponentEmoji("egg_truth"),
 							Default:     contract.BoostOrder == ContractOrderTE,
 						},
+						{
+							Label:       "TE+ Order",
+							Description: "Highest Truth Egg count first with randomization",
+							Value:       "teplus",
+							Emoji:       ei.GetBotComponentEmoji("egg_truth"),
+							Default:     contract.BoostOrder == ContractOrderTEplus,
+						},
 					},
 				},
 			},
