@@ -37,7 +37,7 @@ func init() {
 // GetCoopStatus retrieves the coop status for a given contract and coop
 func GetCoopStatus(eggIncID string, contractID string, coopID string) (*ContractCoopStatusResponse, time.Time, string, error) {
 
-	// Get the Egg Inc ID from the stored settings
+	// Retrieve coop status using the provided Egg Inc ID
 	reqURL := "https://www.auxbrain.com/ei/coop_status"
 	enc := base64.StdEncoding
 	timestamp := time.Now()
