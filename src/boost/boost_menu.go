@@ -14,7 +14,7 @@ import (
 // HandleMenuReactions handles the menu reactions for the contract
 func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
-	//userID := getInteractionUserID(i)
+	callerUserID := bottools.GetInteractionUserID(i)
 
 	data := i.MessageComponentData()
 	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
@@ -141,7 +141,7 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			},
 		})
 		contract.EstimateUpdateTime = time.Now()
-		go updateEstimatedTime(s, i.ChannelID, contract, false)
+		go updateEstimatedTime(s, callerUserID, i.ChannelID, contract, false)
 	case "want":
 		message := "**%s** wants at least 1 more token."
 		contract.Boosters[i.Member.User.ID].TokenRequestFlag = !contract.Boosters[i.Member.User.ID].TokenRequestFlag

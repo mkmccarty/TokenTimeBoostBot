@@ -2,6 +2,7 @@ package boost
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,7 +15,9 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // SlashAdminGetContractData is the slash to get contract JSON data
@@ -468,4 +471,23 @@ func HandleAdminGetContractData(s *discordgo.Session, i *discordgo.InteractionCr
 			},
 		},
 	})
+}
+
+// GetDecryptedEID decrypts an encrypted Egg Inc ID
+func GetDecryptedEID(eggIncID string) string {
+	eiID := farmerstate.GetMiscSettingString(eggIncID, "encrypted_ei_id")
+
+	encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
+	if err != nil {
+		return ""
+	}
+	decodedData, err := base64.StdEncoding.DecodeString(eiID)
+	if err != nil {
+		return ""
+	}
+	decryptedData, err := config.DecryptCombined(encryptionKey, decodedData)
+	if err != nil {
+		return ""
+	}
+	return string(decryptedData)
 }
