@@ -9,6 +9,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // GetSlashCsEstimates returns the slash command for estimating scores
@@ -81,6 +82,20 @@ func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 			Flags:   flags,
 		},
 	})
+
+	eiID := farmerstate.GetMiscSettingString(callerUserID, "encrypted_ei_id")
+	if eiID == "" {
+		_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Flags: discordgo.MessageFlagsIsComponentsV2,
+			Components: []discordgo.MessageComponent{
+				&discordgo.TextDisplay{Content: fmt.Sprintf("Missing user EID, use %s to use this command.\n", bottools.GetFormattedCommand("register"))},
+			},
+		})
+		if err != nil {
+			log.Println("Error sending error message:", err)
+		}
+		return
+	}
 
 	// Unser contractID and coopID means we want the Boost Bot contract
 	var foundContractHash = ""

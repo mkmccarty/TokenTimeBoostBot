@@ -88,7 +88,6 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	flags := discordgo.MessageFlags(0)
 	details := false
 	useTiles := false
-	callerUserID := bottools.GetInteractionUserID(i)
 
 	optionMap := bottools.GetCommandOptionsMap(i)
 
@@ -104,7 +103,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		soloName = strings.ToLower(opt.StringValue())
 		flags = discordgo.MessageFlagsEphemeral
 	}
-	userID := getInteractionUserID(i)
+	userID := bottools.GetInteractionUserID(i)
 	if opt, ok := optionMap["details"]; ok {
 		details = opt.BoolValue()
 		farmerstate.SetMiscSettingFlag(userID, "stone-details", details)
@@ -136,6 +135,20 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	})
 
+	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+	if eiID == "" {
+		_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Flags: discordgo.MessageFlagsIsComponentsV2,
+			Components: []discordgo.MessageComponent{
+				&discordgo.TextDisplay{Content: fmt.Sprintf("Missing user EID, use %s to use this command.\n", bottools.GetFormattedCommand("register"))},
+			},
+		})
+		if err != nil {
+			log.Println("Error sending error message:", err)
+		}
+		return
+	}
+
 	// Unser contractID and coopID means we want the Boost Bot contract
 	if contractID == "" || coopID == "" {
 		contract := FindContract(i.ChannelID)
@@ -151,7 +164,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		coopID = strings.ToLower(contract.CoopID)
 	}
 
-	s1, urls, tiles := DownloadCoopStatusStones(callerUserID, contractID, coopID, details, soloName, useBuffHistory)
+	s1, urls, tiles := DownloadCoopStatusStones(userID, contractID, coopID, details, soloName, useBuffHistory)
 
 	contract := FindContractByIDs(contractID, coopID)
 	if contract != nil {

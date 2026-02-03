@@ -153,6 +153,20 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		},
 	})
 
+	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+	if eiID == "" {
+		_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Flags: discordgo.MessageFlagsIsComponentsV2,
+			Components: []discordgo.MessageComponent{
+				&discordgo.TextDisplay{Content: fmt.Sprintf("Missing user EID, use %s to use this command.\n", bottools.GetFormattedCommand("register"))},
+			},
+		})
+		if err != nil {
+			log.Println("Error sending error message:", err)
+		}
+		return
+	}
+
 	// Unset contractID and coopID means we want the Boost Bot contract
 	if contractID == "" || coopID == "" {
 		contract := FindContract(i.ChannelID)
