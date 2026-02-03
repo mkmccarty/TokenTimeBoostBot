@@ -30,6 +30,7 @@ func buildStonesCache(s string, url string, tiles []*discordgo.MessageEmbedField
 
 func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMessage bool, xid string, refresh bool, links bool, toggle bool) {
 	cache, exists := stonesCacheMap[xid]
+	callerUserID := bottools.GetInteractionUserID(i)
 
 	if exists && links && cache.url != "" {
 
@@ -81,7 +82,7 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 
 	if exists && (refresh || cache.expirationTimestamp.Before(time.Now())) {
 
-		s1, urls, tiles := DownloadCoopStatusStones(cache.contractID, cache.coopID, cache.details, cache.soloName, cache.useBuffHistory)
+		s1, urls, tiles := DownloadCoopStatusStones(callerUserID, cache.contractID, cache.coopID, cache.details, cache.soloName, cache.useBuffHistory)
 		newCache := buildStonesCache(s1, urls, tiles)
 
 		newCache.private = cache.private

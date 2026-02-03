@@ -13,8 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
-
 	"google.golang.org/protobuf/proto"
 )
 
@@ -37,8 +35,9 @@ func init() {
 }
 
 // GetCoopStatus retrieves the coop status for a given contract and coop
-func GetCoopStatus(contractID string, coopID string) (*ContractCoopStatusResponse, time.Time, string, error) {
-	eggIncID := config.EIUserIDBasic
+func GetCoopStatus(eggIncID string, contractID string, coopID string) (*ContractCoopStatusResponse, time.Time, string, error) {
+
+	// Get the Egg Inc ID from the stored settings
 	reqURL := "https://www.auxbrain.com/ei/coop_status"
 	enc := base64.StdEncoding
 	timestamp := time.Now()
@@ -192,8 +191,7 @@ func ClearCoopStatusCachedData() {
 
 // GetCoopStatusForCompletedContracts retrieves the coop status for a given contract and coop, but is intended for completed contracts
 // This saves the data in compressed form without a timestamp in the filename
-func GetCoopStatusForCompletedContracts(contractID string, coopID string) (*ContractCoopStatusResponse, time.Time, string, error) {
-	eggIncID := config.EIUserIDBasic
+func GetCoopStatusForCompletedContracts(eggIncID string, contractID string, coopID string) (*ContractCoopStatusResponse, time.Time, string, error) {
 	reqURL := "https://www.auxbrain.com/ei/coop_status"
 	enc := base64.StdEncoding
 	timestamp := time.Now()

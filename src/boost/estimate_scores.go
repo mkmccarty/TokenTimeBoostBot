@@ -54,6 +54,7 @@ func GetSlashCsEstimates(cmd string) *discordgo.ApplicationCommand {
 func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	flags := discordgo.MessageFlagsIsComponentsV2
+	callerUserID := bottools.GetInteractionUserID(i)
 
 	var contractID string
 	var coopID string
@@ -99,7 +100,7 @@ func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 	}
 
 	var str string
-	str, fields, scores := DownloadCoopStatusTeamwork(contractID, coopID, true)
+	str, fields, scores := DownloadCoopStatusTeamwork(callerUserID, contractID, coopID, true)
 	if fields == nil || strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Flags:   flags,

@@ -19,7 +19,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	ei "github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 
 	"golang.org/x/image/draw"
 )

@@ -1,13 +1,35 @@
 package track
 
 import (
+	"encoding/base64"
 	"fmt"
 	"log"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
+
+// GetDecryptedEID decrypts an encrypted Egg Inc ID
+func GetDecryptedEID(eggIncID string) string {
+	eiID := farmerstate.GetMiscSettingString(eggIncID, "encrypted_ei_id")
+
+	encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
+	if err != nil {
+		return ""
+	}
+	decodedData, err := base64.StdEncoding.DecodeString(eiID)
+	if err != nil {
+		return ""
+	}
+	decryptedData, err := config.DecryptCombined(encryptionKey, decodedData)
+	if err != nil {
+		return ""
+	}
+	return string(decryptedData)
+}
 
 // HandleTrackerRefresh will call the API and update the start time and duration
 func HandleTrackerRefresh(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -37,7 +59,7 @@ func HandleTrackerRefresh(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	// Update the tracker with new values
 	t, err := getTrack(userID, name)
 	if err == nil {
-		startTime, contractDurationSeconds, err := DownloadCoopStatusTracker(t.ContractID, t.CoopID)
+		startTime, contractDurationSeconds, err := DownloadCoopStatusTracker(userID, t.ContractID, t.CoopID)
 		if err != nil {
 			errorStr := fmt.Sprintf("Error: %s, check your coop-id", err)
 			_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
@@ -60,7 +82,7 @@ func HandleTrackerRefresh(s *discordgo.Session, i *discordgo.InteractionCreate) 
 }
 
 // DownloadCoopStatusTracker will download the coop status for a given contract and coop ID
-func DownloadCoopStatusTracker(contractID string, coopID string) (time.Time, float64, error) {
+func DownloadCoopStatusTracker(userID string, contractID string, coopID string) (time.Time, float64, error) {
 	nowTime := time.Now()
 
 	eiContract := ei.EggIncContractsAll[contractID]
@@ -68,7 +90,7 @@ func DownloadCoopStatusTracker(contractID string, coopID string) (time.Time, flo
 		return time.Time{}, 0, fmt.Errorf("invalid contract ID")
 	}
 
-	coopStatus, _, _, err := ei.GetCoopStatus(contractID, coopID)
+	coopStatus, _, _, err := ei.GetCoopStatus(GetDecryptedEID(userID), contractID, coopID)
 	if err != nil {
 		return time.Time{}, 0, err
 	}
