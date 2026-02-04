@@ -9,6 +9,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/rs/xid"
 )
 
@@ -78,6 +79,7 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		stonesCacheMap[xid] = cache
 		return
 	}
+
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
 
 	if exists && (refresh || cache.expirationTimestamp.Before(time.Now())) {
@@ -287,6 +289,21 @@ func HandleStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 	if len(reaction) == 3 && reaction[2] == "refresh" {
 		refresh = true
+
+		callerUserID := bottools.GetInteractionUserID(i)
+		eiID := farmerstate.GetMiscSettingString(callerUserID, "encrypted_ei_id")
+		if eiID == "" {
+			_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+				Flags: discordgo.MessageFlagsIsComponentsV2 | discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{
+					&discordgo.TextDisplay{Content: fmt.Sprintf("Refresh requires your EID, use %s to use this command.\n", bottools.GetFormattedCommand("register"))},
+				},
+			})
+			if err != nil {
+				log.Println("Error sending error message:", err)
+			}
+			return
+		}
 	}
 	if len(reaction) == 3 && reaction[2] == "links" {
 		links = true
