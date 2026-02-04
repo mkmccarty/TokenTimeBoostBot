@@ -36,12 +36,6 @@ func GetSlashCsEstimates(cmd string) *discordgo.ApplicationCommand {
 				Autocomplete: true,
 			},
 			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "coop-id",
-				Description: "Your coop-id",
-				Required:    false,
-			},
-			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "private-reply",
 				Description: "Response visibility, default is public",
@@ -58,16 +52,12 @@ func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 	callerUserID := bottools.GetInteractionUserID(i)
 
 	var contractID string
-	var coopID string
+	coopID := "default"
 	optionMap := bottools.GetCommandOptionsMap(i)
 
 	if opt, ok := optionMap["contract-id"]; ok {
 		contractID = strings.ToLower(opt.StringValue())
 		contractID = strings.ReplaceAll(contractID, " ", "")
-	}
-	if opt, ok := optionMap["coop-id"]; ok {
-		coopID = strings.ToLower(opt.StringValue())
-		coopID = strings.ReplaceAll(coopID, " ", "")
 	}
 	if opt, ok := optionMap["private-reply"]; ok {
 		if opt.BoolValue() {
@@ -99,19 +89,19 @@ func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 
 	// Unser contractID and coopID means we want the Boost Bot contract
 	var foundContractHash = ""
-	if contractID == "" || coopID == "" {
+	if contractID == "" {
 		contract := FindContract(i.ChannelID)
 		if contract == nil {
 			_, _ = s.FollowupMessageCreate(i.Interaction, true,
 				&discordgo.WebhookParams{
-					Content: "No contract found in this channel. Please provide a contract-id and coop-id.",
+					Content: "No contract found in this channel. Please provide a contract-id.",
 				})
 
 			return
 		}
 		foundContractHash = contract.ContractHash
 		contractID = contract.ContractID
-		coopID = strings.ToLower(contract.CoopID)
+		coopID = contract.CoopID
 	}
 
 	var str string
