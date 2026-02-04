@@ -306,7 +306,7 @@ func computeRateIncrease(
 }
 
 // DownloadCoopStatusTeamwork will download the coop status for a given contract and coop ID
-func DownloadCoopStatusTeamwork(callerUserID string, contractID string, coopID string, setContractEstimate bool) (string, map[string][]TeamworkOutputData, string) {
+func DownloadCoopStatusTeamwork(callerID string, contractID string, coopID string, setContractEstimate bool) (string, map[string][]TeamworkOutputData, string) {
 	var siabMsg strings.Builder
 	var dataTimestampStr string
 	var nowTime time.Time
@@ -372,7 +372,15 @@ func DownloadCoopStatusTeamwork(callerUserID string, contractID string, coopID s
 		return fmt.Sprintf("Filenames:\n%s", strings.Join(fileNames, "\n")), nil, ""
 	}
 
-	coopStatus, nowTime, dataTimestampStr, err := ei.GetCoopStatus(GetDecryptedEID(callerUserID), contractID, coopID)
+	userEI := GetDecryptedEID(callerID)
+	if userEI == "" {
+		userEI = DecryptEncryptedEID(callerID)
+		if userEI == "" {
+			return "failed to decrypt Egg Inc ID (missing/invalid encrypted_ei_id)", nil, ""
+		}
+	}
+
+	coopStatus, nowTime, dataTimestampStr, err := ei.GetCoopStatus(userEI, contractID, coopID)
 	if err != nil {
 		return err.Error(), nil, ""
 	}
