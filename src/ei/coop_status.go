@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -34,8 +35,31 @@ func init() {
 	eiDatas = make(map[string]*eiData)
 }
 
+// DecryptEID decrypts an encrypted Egg Inc ID
+func DecryptEID(encryptedString string) string {
+
+	if encryptedString != "" && len(encryptedString) == 18 && encryptedString[:2] == "EI" {
+		return encryptedString
+	}
+
+	encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
+	if err != nil {
+		return ""
+	}
+	decodedData, err := base64.StdEncoding.DecodeString(encryptedString)
+	if err != nil {
+		return ""
+	}
+	decryptedData, err := config.DecryptCombined(encryptionKey, decodedData)
+	if err != nil {
+		return ""
+	}
+	return string(decryptedData)
+}
+
 // GetCoopStatus retrieves the coop status for a given contract and coop
-func GetCoopStatus(eggIncID string, contractID string, coopID string) (*ContractCoopStatusResponse, time.Time, string, error) {
+func GetCoopStatus(encryptedEggIncID string, contractID string, coopID string) (*ContractCoopStatusResponse, time.Time, string, error) {
+	eggIncID := DecryptEID(encryptedEggIncID)
 
 	// Retrieve coop status using the provided Egg Inc ID
 	reqURL := "https://www.auxbrain.com/ei/coop_status"
@@ -191,7 +215,9 @@ func ClearCoopStatusCachedData() {
 
 // GetCoopStatusForCompletedContracts retrieves the coop status for a given contract and coop, but is intended for completed contracts
 // This saves the data in compressed form without a timestamp in the filename
-func GetCoopStatusForCompletedContracts(eggIncID string, contractID string, coopID string) (*ContractCoopStatusResponse, time.Time, string, error) {
+func GetCoopStatusForCompletedContracts(encryptedEggIncID string, contractID string, coopID string) (*ContractCoopStatusResponse, time.Time, string, error) {
+	eggIncID := DecryptEID(encryptedEggIncID)
+
 	reqURL := "https://www.auxbrain.com/ei/coop_status"
 	enc := base64.StdEncoding
 	timestamp := time.Now()
