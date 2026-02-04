@@ -154,9 +154,9 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		coopID = strings.ToLower(contract.CoopID)
 	}
 
-	s1, urls, tiles := DownloadCoopStatusStones(userID, contractID, coopID, details, soloName, useBuffHistory)
+	s1, urls, tiles, returnedCoopID := DownloadCoopStatusStones(userID, contractID, coopID, details, soloName, useBuffHistory)
 
-	contract := FindContractByIDs(contractID, coopID)
+	contract := FindContractByIDs(contractID, returnedCoopID)
 	if contract != nil {
 		if contract.State == ContractStateCompleted {
 			// Only refresh if EstimateUpdateTime is within 10 seconds of now
@@ -169,7 +169,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		cache := buildStonesCache(s1, urls, tiles)
 		// Fill in our calling parameters
 		cache.contractID = contractID
-		cache.coopID = coopID
+		cache.coopID = returnedCoopID
 		cache.details = details
 		cache.soloName = soloName
 		cache.private = privateReply
@@ -251,13 +251,13 @@ type artifactSet struct {
 }
 
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
-func DownloadCoopStatusStones(callerUserID string, contractID string, coopID string, details bool, soloName string, useBuffHistory bool) (string, string, []*discordgo.MessageEmbedField) {
+func DownloadCoopStatusStones(callerUserID string, contractID string, coopID string, details bool, soloName string, useBuffHistory bool) (string, string, []*discordgo.MessageEmbedField, string) {
 	var builderURL strings.Builder
 	var field []*discordgo.MessageEmbedField
 
 	coopStatus, _, dataTimestampStr, err := ei.GetCoopStatus(GetDecryptedEID(callerUserID), contractID, coopID)
 	if err != nil {
-		return err.Error(), "", field
+		return err.Error(), "", field, ""
 	}
 	var builder strings.Builder
 	eiContract := ei.EggIncContractsAll[contractID]
@@ -278,7 +278,7 @@ func DownloadCoopStatusStones(callerUserID string, contractID string, coopID str
 
 	skipArtifact := false
 	if coopStatus.GetResponseStatus() != ei.ContractCoopStatusResponse_NO_ERROR {
-		return ei.ContractCoopStatusResponse_ResponseStatus_name[int32(coopStatus.GetResponseStatus())], "", nil
+		return ei.ContractCoopStatusResponse_ResponseStatus_name[int32(coopStatus.GetResponseStatus())], "", nil, ""
 	}
 
 	coopID = coopStatus.GetCoopIdentifier()
@@ -1097,7 +1097,7 @@ func DownloadCoopStatusStones(callerUserID string, contractID string, coopID str
 	}
 	builder.WriteString(fmt.Sprintf("Colleggtibles show when less than %s\n", strings.Join(colleggtibleStr, ", ")))
 
-	return builder.String(), builderURL.String(), field
+	return builder.String(), builderURL.String(), field, coopID
 }
 
 func truncateString(s string, length int) string {
