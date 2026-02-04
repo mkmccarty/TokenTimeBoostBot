@@ -534,14 +534,16 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 				Value:       "send2",
 				Emoji:       ei.GetBotComponentEmoji("token"),
 			})*/
-		if contract.State == ContractStateCompleted {
-			menuOptions = append(menuOptions, discordgo.SelectMenuOption{
-				Label:       "Sync w/EI",
-				Description: "Add completion timestamp.",
-				Value:       "time",
-				Emoji:       &discordgo.ComponentEmoji{Name: "⏱️"},
-			})
-		}
+		/*
+			if contract.State == ContractStateCompleted {
+				menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+					Label:       "Sync w/EI",
+					Description: "Add completion timestamp.",
+					Value:       "time",
+					Emoji:       &discordgo.ComponentEmoji{Name: "⏱️"},
+				})
+			}
+		*/
 
 		if contract.State != ContractStateSignup {
 			requestors := make([]string, 0, len(contract.Boosters))
