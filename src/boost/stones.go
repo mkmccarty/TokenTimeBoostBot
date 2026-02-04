@@ -38,12 +38,6 @@ func GetSlashStones(cmd string) *discordgo.ApplicationCommand {
 				Autocomplete: true,
 			},
 			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "coop-id",
-				Description: "Your coop-id",
-				Required:    false,
-			},
-			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "tiled",
 				Description: "Display using embedded tiles. Default is false. (sticky)",
@@ -82,7 +76,7 @@ func GetSlashStones(cmd string) *discordgo.ApplicationCommand {
 // HandleStonesCommand will handle the /stones command
 func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var contractID string
-	var coopID string
+	coopID := "default"
 	var soloName string
 	privateReply := false
 	flags := discordgo.MessageFlags(0)
@@ -94,10 +88,6 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if opt, ok := optionMap["contract-id"]; ok {
 		contractID = opt.StringValue()
 		contractID = strings.ReplaceAll(contractID, " ", "")
-	}
-	if opt, ok := optionMap["coop-id"]; ok {
-		coopID = strings.ToLower(opt.StringValue())
-		coopID = strings.ReplaceAll(coopID, " ", "")
 	}
 	if opt, ok := optionMap["solo-report-name"]; ok {
 		soloName = strings.ToLower(opt.StringValue())
@@ -149,8 +139,8 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	// Unser contractID and coopID means we want the Boost Bot contract
-	if contractID == "" || coopID == "" {
+	// User contractID and coopID means we want the Boost Bot contract
+	if contractID == "" {
 		contract := FindContract(i.ChannelID)
 		if contract == nil {
 			_, _ = s.FollowupMessageCreate(i.Interaction, true,
