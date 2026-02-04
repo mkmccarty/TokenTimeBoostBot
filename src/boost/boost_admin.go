@@ -473,15 +473,13 @@ func HandleAdminGetContractData(s *discordgo.Session, i *discordgo.InteractionCr
 	})
 }
 
-// GetDecryptedEID decrypts an encrypted Egg Inc ID
-func GetDecryptedEID(eggIncID string) string {
-	eiID := farmerstate.GetMiscSettingString(eggIncID, "encrypted_ei_id")
-
+// DecryptEncryptedEID decrypts a base64-encoded encrypted EID string.
+func DecryptEncryptedEID(encryptedEIDB64 string) string {
 	encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
 	if err != nil {
 		return ""
 	}
-	decodedData, err := base64.StdEncoding.DecodeString(eiID)
+	decodedData, err := base64.StdEncoding.DecodeString(encryptedEIDB64)
 	if err != nil {
 		return ""
 	}
@@ -490,4 +488,13 @@ func GetDecryptedEID(eggIncID string) string {
 		return ""
 	}
 	return string(decryptedData)
+}
+
+// GetDecryptedEID decrypts an Egg Inc ID by first reading its encrypted EID from misc settings.
+func GetDecryptedEID(eggIncID string) string {
+	encryptedEIDB64 := farmerstate.GetMiscSettingString(eggIncID, "encrypted_ei_id")
+	if encryptedEIDB64 == "" {
+		return ""
+	}
+	return DecryptEncryptedEID(encryptedEIDB64)
 }

@@ -146,6 +146,13 @@ func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate
 			log.Println("Error in ContractReport after EggID modal:", err)
 		}
 		return
+	case "cs-estimate":
+		if encryptedID == "" {
+			str = "You must provide a valid Egg Inc ID to proceed."
+			break
+		}
+		CsEstimate(s, i, optionMap, encryptedID, okayToSave)
+		return
 	default:
 	}
 

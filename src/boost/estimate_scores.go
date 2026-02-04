@@ -37,6 +37,12 @@ func GetSlashCsEstimates(cmd string) *discordgo.ApplicationCommand {
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "reset",
+				Description: "Reset stored EI number",
+				Required:    false,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "private-reply",
 				Description: "Response visibility, default is public",
 				Required:    false,
@@ -48,134 +54,18 @@ func GetSlashCsEstimates(cmd string) *discordgo.ApplicationCommand {
 // HandleCsEstimatesCommand handles the estimate scores command
 func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
-	flags := discordgo.MessageFlagsIsComponentsV2
 	callerUserID := bottools.GetInteractionUserID(i)
 
-	var contractID string
-	coopID := "default"
 	optionMap := bottools.GetCommandOptionsMap(i)
-
-	if opt, ok := optionMap["contract-id"]; ok {
-		contractID = strings.ToLower(opt.StringValue())
-		contractID = strings.ReplaceAll(contractID, " ", "")
-	}
-	if opt, ok := optionMap["private-reply"]; ok {
+	if opt, ok := optionMap["reset"]; ok {
 		if opt.BoolValue() {
-			flags |= discordgo.MessageFlagsEphemeral
+			farmerstate.SetMiscSettingString(callerUserID, "encrypted_ei_id", "")
 		}
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   flags,
-		},
-	})
+	encryptedEID := farmerstate.GetMiscSettingString(callerUserID, "encrypted_ei_id")
 
-	eiID := farmerstate.GetMiscSettingString(callerUserID, "encrypted_ei_id")
-	if eiID == "" {
-		_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Flags: discordgo.MessageFlagsIsComponentsV2,
-			Components: []discordgo.MessageComponent{
-				&discordgo.TextDisplay{Content: fmt.Sprintf("Missing user EID, use %s to use this command.\n", bottools.GetFormattedCommand("register"))},
-			},
-		})
-		if err != nil {
-			log.Println("Error sending error message:", err)
-		}
-		return
-	}
-
-	// Unser contractID and coopID means we want the Boost Bot contract
-	var foundContractHash = ""
-	if contractID == "" {
-		contract := FindContract(i.ChannelID)
-		if contract == nil {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true,
-				&discordgo.WebhookParams{
-					Content: "No contract found in this channel. Please provide a contract-id.",
-				})
-
-			return
-		}
-		foundContractHash = contract.ContractHash
-		contractID = contract.ContractID
-		coopID = contract.CoopID
-	}
-
-	var str string
-	str, fields, scores := DownloadCoopStatusTeamwork(callerUserID, contractID, coopID, true)
-	if fields == nil || strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Flags:   flags,
-			Content: str,
-		})
-		return
-	}
-
-	eiContract := ei.EggIncContractsAll[contractID]
-	var footer strings.Builder
-	if eiContract.SeasonalScoring == ei.SeasonalScoringStandard {
-		footer.WriteString("-# MAX : BTV & Max Chicken Runs & ∆T-Val\n")
-		footer.WriteString("-# TVAL: BTV, Coop Size-1 Chicken Runs & ∆T-Val\n")
-		footer.WriteString("-# SINK: BTV, Max Chicken Runs & Token Sink\n")
-		footer.WriteString("-# RUNS: BTV, Coop Size-1 Chicken Runs, No token sharing\n")
-		footer.WriteString("-# MIN:  BTV, No Chicken Runs,No token sharing\n")
-		footer.WriteString("-# BASE: No BTV, No Chicken Runs, No token sharing\n")
-	} else {
-		footer.WriteString("-# MAX : BTV & Max Chicken Runs\n")
-		footer.WriteString("-# MIN:  BTV & No Chicken Runs\n")
-		footer.WriteString("-# BASE: No BTV, No Chicken Runs\n")
-
-	}
-
-	var components, buttons []discordgo.MessageComponent
-	components = append(components,
-		discordgo.TextDisplay{
-			Content: str,
-		},
-		discordgo.TextDisplay{
-			Content: "## Projected Contract Scores",
-		},
-		discordgo.TextDisplay{
-			Content: scores,
-		},
-		discordgo.TextDisplay{
-			Content: footer.String(),
-		},
-	)
-
-	// Build buttons if we have a found contract in the current channel
-	if foundContractHash != "" {
-		buttonConfigs := []struct {
-			label  string
-			style  discordgo.ButtonStyle
-			action string
-		}{
-			{"Completion Ping", discordgo.PrimaryButton, "completionping"},
-			//{"Check-in Ping", discordgo.PrimaryButton, "checkinping"},
-			{"Close", discordgo.DangerButton, "close"},
-		}
-
-		for _, config := range buttonConfigs {
-			buttons = append(buttons, discordgo.Button{
-				Label:    config.label,
-				Style:    config.style,
-				CustomID: fmt.Sprintf("csestimate#%s#%s", config.action, foundContractHash),
-			})
-		}
-
-		components = append(components, discordgo.ActionsRow{
-			Components: buttons,
-		})
-	}
-
-	// Send the response
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Flags:      flags,
-		Components: components,
-	})
+	CsEstimate(s, i, optionMap, encryptedEID, true)
 }
 
 // HandleCsEstimateButtons handles button interactions for /cs-estimate
@@ -246,6 +136,140 @@ func HandleCsEstimateButtons(s *discordgo.Session, i *discordgo.InteractionCreat
 	if err != nil {
 		log.Println(err)
 	}
+}
+
+// CsEstimate processes the /cs-estimate command
+func CsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate,
+	optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption,
+	encryptedEID string, okayToSave bool) {
+
+	// Check for missing EID, no validation here
+	if encryptedEID == "" {
+		RequestEggIncIDModal(s, i, "cs-estimate", optionMap)
+		return
+	}
+
+	flags := discordgo.MessageFlagsIsComponentsV2
+	// Ack the request
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing request...",
+			Flags:   flags,
+		},
+	})
+
+	var contractID string
+	if opt, ok := optionMap["contract-id"]; ok {
+		contractID = strings.ToLower(opt.StringValue())
+		contractID = strings.ReplaceAll(contractID, " ", "")
+	}
+	if opt, ok := optionMap["private-reply"]; ok {
+		if opt.BoolValue() {
+			flags |= discordgo.MessageFlagsEphemeral
+		}
+	}
+
+	callerUserID := bottools.GetInteractionUserID(i)
+	coopID := "default"
+
+	// Unset contractID means we want the Boost Bot contract
+	var foundContractHash = ""
+	if contractID == "" {
+		contract := FindContract(i.ChannelID)
+		if contract == nil {
+			_, _ = s.FollowupMessageCreate(i.Interaction, true,
+				&discordgo.WebhookParams{
+					Content: "No contract found in this channel. Please provide a contract-id.",
+				})
+
+			return
+		}
+		foundContractHash = contract.ContractHash
+		contractID = contract.ContractID
+		coopID = contract.CoopID
+	}
+
+	var (
+		str, scores string
+		fields      map[string][]TeamworkOutputData
+	)
+	// Make sure EI was saved otherwise use the temporaryly obtained value
+	if okayToSave {
+		str, fields, scores = DownloadCoopStatusTeamwork(callerUserID, contractID, coopID, true)
+	} else {
+		str, fields, scores = DownloadCoopStatusTeamwork(encryptedEID, contractID, coopID, true)
+	}
+	if fields == nil || strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Flags:   flags,
+			Content: str,
+		})
+		return
+	}
+
+	eiContract := ei.EggIncContractsAll[contractID]
+	var footer strings.Builder
+	if eiContract.SeasonalScoring == ei.SeasonalScoringStandard {
+		footer.WriteString("-# MAX : BTV & Max Chicken Runs & ∆T-Val\n")
+		footer.WriteString("-# TVAL: BTV, Coop Size-1 Chicken Runs & ∆T-Val\n")
+		footer.WriteString("-# SINK: BTV, Max Chicken Runs & Token Sink\n")
+		footer.WriteString("-# RUNS: BTV, Coop Size-1 Chicken Runs, No token sharing\n")
+		footer.WriteString("-# MIN:  BTV, No Chicken Runs,No token sharing\n")
+		footer.WriteString("-# BASE: No BTV, No Chicken Runs, No token sharing\n")
+	} else {
+		footer.WriteString("-# MAX : BTV & Max Chicken Runs\n")
+		footer.WriteString("-# MIN:  BTV & No Chicken Runs\n")
+		footer.WriteString("-# BASE: No BTV, No Chicken Runs\n")
+
+	}
+
+	var components, buttons []discordgo.MessageComponent
+	components = append(components,
+		discordgo.TextDisplay{
+			Content: str,
+		},
+		discordgo.TextDisplay{
+			Content: "## Projected Contract Scores",
+		},
+		discordgo.TextDisplay{
+			Content: scores,
+		},
+		discordgo.TextDisplay{
+			Content: footer.String(),
+		},
+	)
+
+	// Build buttons if we have a found contract in the current channel
+	if foundContractHash != "" {
+		buttonConfigs := []struct {
+			label  string
+			style  discordgo.ButtonStyle
+			action string
+		}{
+			{"Completion Ping", discordgo.PrimaryButton, "completionping"},
+			//{"Check-in Ping", discordgo.PrimaryButton, "checkinping"},
+			{"Close", discordgo.DangerButton, "close"},
+		}
+
+		for _, config := range buttonConfigs {
+			buttons = append(buttons, discordgo.Button{
+				Label:    config.label,
+				Style:    config.style,
+				CustomID: fmt.Sprintf("csestimate#%s#%s", config.action, foundContractHash),
+			})
+		}
+
+		components = append(components, discordgo.ActionsRow{
+			Components: buttons,
+		})
+	}
+
+	// Send the response
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Flags:      flags,
+		Components: components,
+	})
 }
 
 // sendCompletionPing sends a ping with the estimated completion time of the contract
