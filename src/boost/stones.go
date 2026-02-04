@@ -345,6 +345,14 @@ func DownloadCoopStatusStones(callerUserID string, contractID string, coopID str
 		return strings.ToLower(contributors[i].GetUserName()) < strings.ToLower(contributors[j].GetUserName())
 	})
 
+	// Check for Gifts, log them for now
+	gifts := coopStatus.GetGifts()
+	if len(gifts) > 0 {
+		for _, gift := range gifts {
+			log.Printf("Gift Contract:%s Coop:%s UserName:%s UserId:%s Amount:%d Tracking:%s\n", contractID, coopID, gift.GetUserName(), gift.GetUserId(), gift.GetAmount(), gift.GetTracking())
+		}
+	}
+
 	for _, c := range contributors {
 
 		//for _, c := range coopStatus.GetContributors() {

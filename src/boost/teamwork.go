@@ -448,6 +448,14 @@ func DownloadCoopStatusTeamwork(callerID string, contractID string, coopID strin
 	coopID = coopStatus.GetCoopIdentifier()
 	contractID = coopStatus.GetContractIdentifier()
 
+	// Check for Gifts, log them for now
+	gifts := coopStatus.GetGifts()
+	if len(gifts) > 0 {
+		for _, gift := range gifts {
+			log.Printf("Gift Contract:%s Coop:%s UserName:%s UserId:%s Amount:%d Tracking:%s\n", contractID, coopID, gift.GetUserName(), gift.GetUserId(), gift.GetAmount(), gift.GetTracking())
+		}
+	}
+
 	if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
 		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
 		startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
