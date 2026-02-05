@@ -9,7 +9,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // GetSlashCsEstimates returns the slash command for estimating scores
@@ -36,9 +35,9 @@ func GetSlashCsEstimates(cmd string) *discordgo.ApplicationCommand {
 				Autocomplete: true,
 			},
 			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "reset",
-				Description: "Reset stored EI number",
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "coop-id",
+				Description: "Your coop-id",
 				Required:    false,
 			},
 			{
@@ -54,103 +53,26 @@ func GetSlashCsEstimates(cmd string) *discordgo.ApplicationCommand {
 // HandleCsEstimatesCommand handles the estimate scores command
 func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
-	callerUserID := bottools.GetInteractionUserID(i)
-
-	optionMap := bottools.GetCommandOptionsMap(i)
-	if opt, ok := optionMap["reset"]; ok {
-		if opt.BoolValue() {
-			farmerstate.SetMiscSettingString(callerUserID, "encrypted_ei_id", "")
-		}
-	}
-
-	encryptedEID := farmerstate.GetMiscSettingString(callerUserID, "encrypted_ei_id")
-
-	CsEstimate(s, i, optionMap, encryptedEID, true)
-}
-
-// HandleCsEstimateButtons handles button interactions for /cs-estimate
-func HandleCsEstimateButtons(s *discordgo.Session, i *discordgo.InteractionCreate) {
-
-	const ttl = 5 * time.Minute
-	expired := false
-	if i.Message != nil {
-		createdAt, err := discordgo.SnowflakeTimestamp(i.Message.ID)
-		if err != nil {
-			log.Println("Error parsing message timestamp:", err)
-			return
-		}
-		expired = time.Since(createdAt) > ttl
-	}
-
-	flags := discordgo.MessageFlagsIsComponentsV2 | discordgo.MessageFlagsEphemeral
-	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{
-			Content:    "",
-			Flags:      flags,
-			Components: []discordgo.MessageComponent{},
-		},
-	})
-	if err != nil {
-		log.Println(err)
-	}
-
-	if !expired {
-		// Handle the button actions
-		action := reaction[1]
-		contractHash := reaction[2]
-		contract := FindContractByHash(contractHash)
-		if contract == nil {
-			log.Println("Contract not found for hash:", contractHash)
-			return
-		}
-
-		// Is the user in the contract?
-		userID := getInteractionUserID(i)
-		if !userInContract(contract, userID) {
-			// Ignore if the user isn't in the contract
-			return
-		}
-
-		switch action {
-		case "completionping":
-			go sendCompletionPing(s, i, contract, userID)
-		case "checkinping":
-			//go SendCheckinPings(s, i, contract)
-		default:
-			// default to close
-		}
-	}
-
-	// Remove the buttons regardless of expiration
-	var comp []discordgo.MessageComponent
-	if len(i.Message.Components) > 0 {
-		comp = i.Message.Components[:len(i.Message.Components)-1]
-	}
-	// Edit the original message to remove buttons
-	edit := discordgo.WebhookEdit{
-		Components: &comp,
-	}
-	_, _ = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit)
-	if err != nil {
-		log.Println(err)
-	}
-}
-
-// CsEstimate processes the /cs-estimate command
-func CsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate,
-	optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption,
-	encryptedEID string, okayToSave bool) {
-
-	// Check for missing EID, no validation here
-	if encryptedEID == "" {
-		RequestEggIncIDModal(s, i, "cs-estimate", optionMap)
-		return
-	}
-
 	flags := discordgo.MessageFlagsIsComponentsV2
-	// Ack the request
+
+	var contractID string
+	var coopID string
+	optionMap := bottools.GetCommandOptionsMap(i)
+
+	if opt, ok := optionMap["contract-id"]; ok {
+		contractID = strings.ToLower(opt.StringValue())
+		contractID = strings.ReplaceAll(contractID, " ", "")
+	}
+	if opt, ok := optionMap["coop-id"]; ok {
+		coopID = strings.ToLower(opt.StringValue())
+		coopID = strings.ReplaceAll(coopID, " ", "")
+	}
+	if opt, ok := optionMap["private-reply"]; ok {
+		if opt.BoolValue() {
+			flags |= discordgo.MessageFlagsEphemeral
+		}
+	}
+
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
@@ -159,47 +81,25 @@ func CsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate,
 		},
 	})
 
-	var contractID string
-	if opt, ok := optionMap["contract-id"]; ok {
-		contractID = strings.ToLower(opt.StringValue())
-		contractID = strings.ReplaceAll(contractID, " ", "")
-	}
-	if opt, ok := optionMap["private-reply"]; ok {
-		if opt.BoolValue() {
-			flags |= discordgo.MessageFlagsEphemeral
-		}
-	}
-
-	callerUserID := bottools.GetInteractionUserID(i)
-	coopID := "default"
-
-	// Unset contractID means we want the Boost Bot contract
+	// Unser contractID and coopID means we want the Boost Bot contract
 	var foundContractHash = ""
-	if contractID == "" {
+	if contractID == "" || coopID == "" {
 		contract := FindContract(i.ChannelID)
 		if contract == nil {
 			_, _ = s.FollowupMessageCreate(i.Interaction, true,
 				&discordgo.WebhookParams{
-					Content: "No contract found in this channel. Please provide a contract-id.",
+					Content: "No contract found in this channel. Please provide a contract-id and coop-id.",
 				})
 
 			return
 		}
 		foundContractHash = contract.ContractHash
 		contractID = contract.ContractID
-		coopID = contract.CoopID
+		coopID = strings.ToLower(contract.CoopID)
 	}
 
-	var (
-		str, scores string
-		fields      map[string][]TeamworkOutputData
-	)
-	// Make sure EI was saved otherwise use the temporaryly obtained value
-	if okayToSave {
-		str, fields, scores = DownloadCoopStatusTeamwork(callerUserID, contractID, coopID, true)
-	} else {
-		str, fields, scores = DownloadCoopStatusTeamwork(encryptedEID, contractID, coopID, true)
-	}
+	var str string
+	str, fields, scores := DownloadCoopStatusTeamwork(contractID, coopID, true)
 	if fields == nil || strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Flags:   flags,
@@ -270,6 +170,76 @@ func CsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate,
 		Flags:      flags,
 		Components: components,
 	})
+}
+
+// HandleCsEstimateButtons handles button interactions for /cs-estimate
+func HandleCsEstimateButtons(s *discordgo.Session, i *discordgo.InteractionCreate) {
+
+	const ttl = 5 * time.Minute
+	expired := false
+	if i.Message != nil {
+		createdAt, err := discordgo.SnowflakeTimestamp(i.Message.ID)
+		if err != nil {
+			log.Println("Error parsing message timestamp:", err)
+			return
+		}
+		expired = time.Since(createdAt) > ttl
+	}
+
+	flags := discordgo.MessageFlagsIsComponentsV2 | discordgo.MessageFlagsEphemeral
+	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		Data: &discordgo.InteractionResponseData{
+			Content:    "",
+			Flags:      flags,
+			Components: []discordgo.MessageComponent{},
+		},
+	})
+	if err != nil {
+		log.Println(err)
+	}
+
+	if !expired {
+		// Handle the button actions
+		action := reaction[1]
+		contractHash := reaction[2]
+		contract := FindContractByHash(contractHash)
+		if contract == nil {
+			log.Println("Contract not found for hash:", contractHash)
+			return
+		}
+
+		// Is the user in the contract?
+		userID := getInteractionUserID(i)
+		if !userInContract(contract, userID) {
+			// Ignore if the user isn't in the contract
+			return
+		}
+
+		switch action {
+		case "completionping":
+			go sendCompletionPing(s, i, contract, userID)
+		case "checkinping":
+			//go SendCheckinPings(s, i, contract)
+		default:
+			// default to close
+		}
+	}
+
+	// Remove the buttons regardless of expiration
+	var comp []discordgo.MessageComponent
+	if len(i.Message.Components) > 0 {
+		comp = i.Message.Components[:len(i.Message.Components)-1]
+	}
+	// Edit the original message to remove buttons
+	edit := discordgo.WebhookEdit{
+		Components: &comp,
+	}
+	_, _ = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 // sendCompletionPing sends a ping with the estimated completion time of the contract

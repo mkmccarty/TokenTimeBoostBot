@@ -321,7 +321,7 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 
 	getConfigRequest := ConfigRequest{
 		Rinfo: &BasicRequestInfo{
-			EiUserId:      &config.EIUserIDBasic,
+			EiUserId:      &config.EIUserID,
 			ClientVersion: &clientVersion,
 			Version:       &version,
 			Build:         &build,

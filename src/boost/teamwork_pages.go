@@ -96,13 +96,12 @@ func buildTeamworkCache(s string, fields map[string][]TeamworkOutputData) teamwo
 
 func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMessage bool, xid string, refresh bool, toggle bool, siabDisplay bool, drawButtons bool) {
 	cache, exists := teamworkCacheMap[xid]
-	callerUserID := bottools.GetInteractionUserID(i)
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
 
 	if exists && (refresh || cache.expirationTimestamp.Before(time.Now())) {
 
-		s1, fields, _ := DownloadCoopStatusTeamwork(callerUserID, cache.contractID, cache.coopID, true)
+		s1, fields, _ := DownloadCoopStatusTeamwork(cache.contractID, cache.coopID, true)
 		newCache := buildTeamworkCache(s1, fields)
 
 		newCache.public = cache.public

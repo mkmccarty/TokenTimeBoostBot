@@ -38,6 +38,12 @@ func GetSlashStones(cmd string) *discordgo.ApplicationCommand {
 				Autocomplete: true,
 			},
 			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "coop-id",
+				Description: "Your coop-id",
+				Required:    false,
+			},
+			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "tiled",
 				Description: "Display using embedded tiles. Default is false. (sticky)",
@@ -76,7 +82,7 @@ func GetSlashStones(cmd string) *discordgo.ApplicationCommand {
 // HandleStonesCommand will handle the /stones command
 func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var contractID string
-	coopID := "default"
+	var coopID string
 	var soloName string
 	privateReply := false
 	flags := discordgo.MessageFlags(0)
@@ -89,11 +95,15 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		contractID = opt.StringValue()
 		contractID = strings.ReplaceAll(contractID, " ", "")
 	}
+	if opt, ok := optionMap["coop-id"]; ok {
+		coopID = strings.ToLower(opt.StringValue())
+		coopID = strings.ReplaceAll(coopID, " ", "")
+	}
 	if opt, ok := optionMap["solo-report-name"]; ok {
 		soloName = strings.ToLower(opt.StringValue())
 		flags = discordgo.MessageFlagsEphemeral
 	}
-	userID := bottools.GetInteractionUserID(i)
+	userID := getInteractionUserID(i)
 	if opt, ok := optionMap["details"]; ok {
 		details = opt.BoolValue()
 		farmerstate.SetMiscSettingFlag(userID, "stone-details", details)
@@ -125,22 +135,8 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	})
 
-	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
-	if eiID == "" {
-		_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Flags: discordgo.MessageFlagsIsComponentsV2,
-			Components: []discordgo.MessageComponent{
-				&discordgo.TextDisplay{Content: fmt.Sprintf("Missing user EID, use %s to use this command.\n", bottools.GetFormattedCommand("register"))},
-			},
-		})
-		if err != nil {
-			log.Println("Error sending error message:", err)
-		}
-		return
-	}
-
-	// User contractID and coopID means we want the Boost Bot contract
-	if contractID == "" {
+	// Unser contractID and coopID means we want the Boost Bot contract
+	if contractID == "" || coopID == "" {
 		contract := FindContract(i.ChannelID)
 		if contract == nil {
 			_, _ = s.FollowupMessageCreate(i.Interaction, true,
@@ -154,9 +150,9 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		coopID = strings.ToLower(contract.CoopID)
 	}
 
-	s1, urls, tiles, returnedCoopID := DownloadCoopStatusStones(userID, contractID, coopID, details, soloName, useBuffHistory)
+	s1, urls, tiles := DownloadCoopStatusStones(contractID, coopID, details, soloName, useBuffHistory)
 
-	contract := FindContractByIDs(contractID, returnedCoopID)
+	contract := FindContractByIDs(contractID, coopID)
 	if contract != nil {
 		if contract.State == ContractStateCompleted {
 			// Only refresh if EstimateUpdateTime is within 10 seconds of now
@@ -169,7 +165,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		cache := buildStonesCache(s1, urls, tiles)
 		// Fill in our calling parameters
 		cache.contractID = contractID
-		cache.coopID = returnedCoopID
+		cache.coopID = coopID
 		cache.details = details
 		cache.soloName = soloName
 		cache.private = privateReply
@@ -251,13 +247,13 @@ type artifactSet struct {
 }
 
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
-func DownloadCoopStatusStones(callerUserID string, contractID string, coopID string, details bool, soloName string, useBuffHistory bool) (string, string, []*discordgo.MessageEmbedField, string) {
+func DownloadCoopStatusStones(contractID string, coopID string, details bool, soloName string, useBuffHistory bool) (string, string, []*discordgo.MessageEmbedField) {
 	var builderURL strings.Builder
 	var field []*discordgo.MessageEmbedField
 
-	coopStatus, _, dataTimestampStr, err := ei.GetCoopStatus(GetDecryptedEID(callerUserID), contractID, coopID)
+	coopStatus, _, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID)
 	if err != nil {
-		return err.Error(), "", field, ""
+		return err.Error(), "", field
 	}
 	var builder strings.Builder
 	eiContract := ei.EggIncContractsAll[contractID]
@@ -278,7 +274,7 @@ func DownloadCoopStatusStones(callerUserID string, contractID string, coopID str
 
 	skipArtifact := false
 	if coopStatus.GetResponseStatus() != ei.ContractCoopStatusResponse_NO_ERROR {
-		return ei.ContractCoopStatusResponse_ResponseStatus_name[int32(coopStatus.GetResponseStatus())], "", nil, ""
+		return ei.ContractCoopStatusResponse_ResponseStatus_name[int32(coopStatus.GetResponseStatus())], "", nil
 	}
 
 	coopID = coopStatus.GetCoopIdentifier()
@@ -344,14 +340,6 @@ func DownloadCoopStatusStones(callerUserID string, contractID string, coopID str
 	sort.Slice(contributors, func(i, j int) bool {
 		return strings.ToLower(contributors[i].GetUserName()) < strings.ToLower(contributors[j].GetUserName())
 	})
-
-	// Check for Gifts, log them for now
-	gifts := coopStatus.GetGifts()
-	if len(gifts) > 0 {
-		for _, gift := range gifts {
-			log.Printf("Gift Contract:%s Coop:%s UserName:%s UserId:%s Amount:%d Tracking:%s\n", contractID, coopID, gift.GetUserName(), gift.GetUserId(), gift.GetAmount(), gift.GetTracking())
-		}
-	}
 
 	for _, c := range contributors {
 
@@ -822,7 +810,7 @@ func DownloadCoopStatusStones(callerUserID string, contractID string, coopID str
 
 		if as.numSilos != 10 {
 			needLegend = true
-			notes += "`" + ei.GetBotEmojiMarkdown("silo") + "`"
+			notes += "🫙"
 		}
 
 		qStones := as.quantStones[ei.ArtifactSpec_INFERIOR] + as.quantStones[ei.ArtifactSpec_LESSER] + as.quantStones[ei.ArtifactSpec_NORMAL]
@@ -1097,7 +1085,7 @@ func DownloadCoopStatusStones(callerUserID string, contractID string, coopID str
 	}
 	builder.WriteString(fmt.Sprintf("Colleggtibles show when less than %s\n", strings.Join(colleggtibleStr, ", ")))
 
-	return builder.String(), builderURL.String(), field, coopID
+	return builder.String(), builderURL.String(), field
 }
 
 func truncateString(s string, length int) string {

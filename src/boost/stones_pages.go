@@ -9,7 +9,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/rs/xid"
 )
 
@@ -31,7 +30,6 @@ func buildStonesCache(s string, url string, tiles []*discordgo.MessageEmbedField
 
 func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMessage bool, xid string, refresh bool, links bool, toggle bool) {
 	cache, exists := stonesCacheMap[xid]
-	callerUserID := bottools.GetInteractionUserID(i)
 
 	if exists && links && cache.url != "" {
 
@@ -79,18 +77,17 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		stonesCacheMap[xid] = cache
 		return
 	}
-
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
 
 	if exists && (refresh || cache.expirationTimestamp.Before(time.Now())) {
 
-		s1, urls, tiles, returnedCoopID := DownloadCoopStatusStones(callerUserID, cache.contractID, cache.coopID, cache.details, cache.soloName, cache.useBuffHistory)
+		s1, urls, tiles := DownloadCoopStatusStones(cache.contractID, cache.coopID, cache.details, cache.soloName, cache.useBuffHistory)
 		newCache := buildStonesCache(s1, urls, tiles)
 
 		newCache.private = cache.private
 		newCache.xid = cache.xid
 		newCache.contractID = cache.contractID
-		newCache.coopID = returnedCoopID
+		newCache.coopID = cache.coopID
 		newCache.details = cache.details
 		newCache.soloName = cache.soloName
 		newCache.useBuffHistory = cache.useBuffHistory
@@ -99,7 +96,7 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		cache = newCache
 		stonesCacheMap[cache.xid] = newCache
 
-		contract := FindContractByIDs(cache.contractID, returnedCoopID)
+		contract := FindContractByIDs(cache.contractID, cache.coopID)
 		if contract != nil {
 			if contract.State == ContractStateCompleted {
 				// Only refresh if EstimateUpdateTime is within 10 seconds of now
@@ -289,21 +286,6 @@ func HandleStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 	if len(reaction) == 3 && reaction[2] == "refresh" {
 		refresh = true
-
-		callerUserID := bottools.GetInteractionUserID(i)
-		eiID := farmerstate.GetMiscSettingString(callerUserID, "encrypted_ei_id")
-		if eiID == "" {
-			_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Flags: discordgo.MessageFlagsIsComponentsV2 | discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{
-					&discordgo.TextDisplay{Content: fmt.Sprintf("Refresh requires your EID, use %s to use this command.\n", bottools.GetFormattedCommand("register"))},
-				},
-			})
-			if err != nil {
-				log.Println("Error sending error message:", err)
-			}
-			return
-		}
 	}
 	if len(reaction) == 3 && reaction[2] == "links" {
 		links = true
