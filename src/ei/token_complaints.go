@@ -9,12 +9,14 @@ import (
 	"strings"
 )
 
+// TokenComplaintsFile is a struct to hold the token complaints
 type TokenComplaintsFile struct {
 	TokenComplaints []string `json:"token_complaints"`
 }
 
 const playerToken = "[player]"
 
+// TokenComplaints is a list of token complaints
 var TokenComplaints []string
 
 // LoadTokenComplaints loads token complaints from a JSON file
