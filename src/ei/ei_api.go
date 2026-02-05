@@ -21,8 +21,31 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// DecryptEID decrypts an encrypted Egg Inc ID
+func DecryptEID(encryptedString string) string {
+
+	if encryptedString != "" && len(encryptedString) == 18 && encryptedString[:2] == "EI" {
+		return encryptedString
+	}
+
+	encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
+	if err != nil {
+		return ""
+	}
+	decodedData, err := base64.StdEncoding.DecodeString(encryptedString)
+	if err != nil {
+		return ""
+	}
+	decryptedData, err := config.DecryptCombined(encryptionKey, decodedData)
+	if err != nil {
+		return ""
+	}
+	return string(decryptedData)
+}
+
 // GetFirstContactFromAPI will download the player data from the Egg Inc API
-func GetFirstContactFromAPI(s *discordgo.Session, eiUserID string, discordID string, okayToSave bool) (*Backup, bool) {
+func GetFirstContactFromAPI(s *discordgo.Session, eggIncID string, discordID string, okayToSave bool) (*Backup, bool) {
+	eiUserID := DecryptEID(eggIncID)
 	reqURL := "https://www.auxbrain.com//ei/bot_first_contact"
 	enc := base64.StdEncoding
 	cachedData := false
@@ -187,7 +210,8 @@ func RedactUserInfo(s, eiUserID string) string {
 }
 
 // GetContractArchiveFromAPI will download the events from the Egg Inc API
-func GetContractArchiveFromAPI(s *discordgo.Session, eiUserID string, discordID string, forceRefresh bool, okayToSave bool) ([]*LocalContract, bool) {
+func GetContractArchiveFromAPI(s *discordgo.Session, eggIncID string, discordID string, forceRefresh bool, okayToSave bool) ([]*LocalContract, bool) {
+	eiUserID := DecryptEID(eggIncID)
 	reqURL := "https://www.auxbrain.com/ei_ctx/get_contracts_archive"
 	enc := base64.StdEncoding
 	clientVersion := DefaultClientVersion
