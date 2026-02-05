@@ -1,7 +1,7 @@
 # --------------------------------------------------
 # Stage 1: dlv (cached)
 # --------------------------------------------------
-ARG GO_VERSION=1.25.6
+ARG GO_VERSION=1.25.7
 FROM golang:${GO_VERSION}-alpine AS dlv
 RUN apk add --no-cache ca-certificates
 # Build Delve as a static binary
