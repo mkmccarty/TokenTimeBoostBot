@@ -163,14 +163,30 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap 
 		contractID = opt.StringValue()
 		contractIDList = append(contractIDList, contractID)
 	}
+	contractDayMap := make(map[string]string)
 	if _, ok := optionMap["predictions"]; ok {
 		fridayNonUltra, fridayUltra, wednesdayNonUltra := predictJeli(3)
 		// for each of these 3 I want to collect the contract IDs
-		for _, c := range append(append(fridayNonUltra, fridayUltra...), wednesdayNonUltra...) {
+		for _, c := range fridayNonUltra {
 			if slices.Contains(contractIDList, c.ID) {
 				continue
 			}
 			contractIDList = append(contractIDList, c.ID)
+			contractDayMap[c.ID] = "F"
+		}
+		for _, c := range fridayUltra {
+			if slices.Contains(contractIDList, c.ID) {
+				continue
+			}
+			contractIDList = append(contractIDList, c.ID)
+			contractDayMap[c.ID] = "U"
+		}
+		for _, c := range wednesdayNonUltra {
+			if slices.Contains(contractIDList, c.ID) {
+				continue
+			}
+			contractIDList = append(contractIDList, c.ID)
+			contractDayMap[c.ID] = "W"
 		}
 		percent = -200
 	}
@@ -226,7 +242,7 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap 
 		}
 	}
 
-	components := printArchivedContracts(userID, archive, percent, page, contractIDList)
+	components := printArchivedContracts(userID, archive, percent, page, contractIDList, contractDayMap)
 	if len(components) == 0 {
 		components = []discordgo.MessageComponent{
 			&discordgo.TextDisplay{Content: "No archived contracts found in Egg Inc API response"},
@@ -261,7 +277,7 @@ func ReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap 
 	}
 }
 
-func printArchivedContracts(userID string, archive []*ei.LocalContract, percent int, page int, contractIDList []string) []discordgo.MessageComponent {
+func printArchivedContracts(userID string, archive []*ei.LocalContract, percent int, page int, contractIDList []string, contractDayMap map[string]string) []discordgo.MessageComponent {
 	var components []discordgo.MessageComponent
 	tvalFooterMessage := false
 	eiUserName := farmerstate.GetMiscSettingString(userID, "ei_ign")
@@ -300,13 +316,24 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 	}
 
 	if len(contractIDList) != 1 {
-		fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`\n",
-			bottools.AlignString("CONTRACT-ID", 30, bottools.StringAlignCenter),
-			bottools.AlignString("CS", 6, bottools.StringAlignCenter),
-			bottools.AlignString("HIGH", 6, bottools.StringAlignCenter),
-			bottools.AlignString("GAP", 6, bottools.StringAlignRight),
-			bottools.AlignString("%", 4, bottools.StringAlignCenter),
-		)
+		if len(contractDayMap) > 0 {
+			fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s %6s`\n",
+				bottools.AlignString("CONTRACT-ID", 30, bottools.StringAlignCenter),
+				bottools.AlignString("CS", 6, bottools.StringAlignCenter),
+				bottools.AlignString("HIGH", 6, bottools.StringAlignCenter),
+				bottools.AlignString("GAP", 6, bottools.StringAlignRight),
+				bottools.AlignString("%", 4, bottools.StringAlignCenter),
+				bottools.AlignString("Day", 6, bottools.StringAlignCenter),
+			)
+		} else {
+			fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`\n",
+				bottools.AlignString("CONTRACT-ID", 30, bottools.StringAlignCenter),
+				bottools.AlignString("CS", 6, bottools.StringAlignCenter),
+				bottools.AlignString("HIGH", 6, bottools.StringAlignCenter),
+				bottools.AlignString("GAP", 6, bottools.StringAlignRight),
+				bottools.AlignString("%", 4, bottools.StringAlignCenter),
+			)
+		}
 	}
 
 	count := 0
@@ -363,13 +390,24 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 					}
 
 					if builder.Len() < 3600 {
-						fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s` <t:%d:R>\n",
-							bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
-							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(evaluationCxp))), 6, bottools.StringAlignRight),
-							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.CxpMax))), 6, bottools.StringAlignRight),
-							bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.CxpMax-evaluationCxp))), 6, bottools.StringAlignRight),
-							bottools.AlignString(fmt.Sprintf("%.1f", (evaluationCxp/c.CxpMax)*100), 4, bottools.StringAlignCenter),
-							c.ValidUntil.Unix())
+						if len(contractDayMap) > 0 {
+							dayLabel := contractDayMap[contractID]
+							fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s %6s`\n",
+								bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
+								bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(evaluationCxp))), 6, bottools.StringAlignRight),
+								bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.CxpMax))), 6, bottools.StringAlignRight),
+								bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.CxpMax-evaluationCxp))), 6, bottools.StringAlignRight),
+								bottools.AlignString(fmt.Sprintf("%.1f", (evaluationCxp/c.CxpMax)*100), 4, bottools.StringAlignCenter),
+								bottools.AlignString(dayLabel, 6, bottools.StringAlignCenter))
+						} else {
+							fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s` <t:%d:R>\n",
+								bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
+								bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(evaluationCxp))), 6, bottools.StringAlignRight),
+								bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.CxpMax))), 6, bottools.StringAlignRight),
+								bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.CxpMax-evaluationCxp))), 6, bottools.StringAlignRight),
+								bottools.AlignString(fmt.Sprintf("%.1f", (evaluationCxp/c.CxpMax)*100), 4, bottools.StringAlignCenter),
+								c.ValidUntil.Unix())
+						}
 					}
 					count++
 					pagecount++
