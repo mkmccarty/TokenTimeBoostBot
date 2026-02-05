@@ -100,6 +100,9 @@ func calculateTeamworkB(buffTimeValue float64, contractDurationSeconds float64) 
 }
 
 func calculateChickenRunTeamwork(cxpVersion int, coopSize int, durationInDays int, runs int) float64 {
+	if coopSize <= 1 {
+		return 0.0
+	}
 	fCR := max(12.0/(float64(coopSize*durationInDays)), 0.3)
 	CR := min(fCR*float64(runs), 6.0)
 	if cxpVersion == ei.SeasonalScoringNerfed {
