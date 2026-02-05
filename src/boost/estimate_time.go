@@ -418,7 +418,10 @@ func calculateSingleEstimate(
 	unusedRatioELR := max(1.0, est.contractELR/bestTotal)
 	population := (14_175_000_000 * est.colHab) / unusedRatioELR
 	populationForCR := population * (est.chickenRunPercent / 100.0)
-	crPopulation := populationForCR * 0.05 * (numFarmers - 1.0)
+	crPopulation := populationForCR * 0.05 * max(1.0, numFarmers-1.0)
+	if numFarmers == 1 {
+		crPopulation = population
+	}
 	adjustedPop := max(populationForCR, population-crPopulation)
 
 	ihr := est.ihr * est.chalice * est.monocle * math.Pow(1.04, est.ihrSlots) * est.colIHR
