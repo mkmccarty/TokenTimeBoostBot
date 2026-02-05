@@ -317,7 +317,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 
 	if len(contractIDList) != 1 {
 		if len(contractDayMap) > 0 {
-			fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s %6s`\n",
+			fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s %3s`\n",
 				bottools.AlignString("CONTRACT-ID", 30, bottools.StringAlignCenter),
 				bottools.AlignString("CS", 6, bottools.StringAlignCenter),
 				bottools.AlignString("HIGH", 6, bottools.StringAlignCenter),
@@ -338,6 +338,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 
 	count := 0
 	pagecount := 0
+
 	for _, a := range archive {
 		// Completed
 		// What is the current tval
@@ -392,7 +393,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 					if builder.Len() < 3600 {
 						if len(contractDayMap) > 0 {
 							dayLabel := contractDayMap[contractID]
-							fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s %6s`\n",
+							fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s %3s`\n",
 								bottools.AlignString(contractID, 30, bottools.StringAlignLeft),
 								bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(evaluationCxp))), 6, bottools.StringAlignRight),
 								bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(c.CxpMax))), 6, bottools.StringAlignRight),
@@ -570,6 +571,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 
 	if percent != -1 {
 		builder.WriteString(fmt.Sprintf("Showing %d of your %d contracts that met this condition.\n", pagecount, count))
+		builder.WriteString("-# The order is based in your contract archive order.\n")
 	}
 	if count == 0 {
 		builder.Reset()
@@ -580,6 +582,9 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 		if tvalFooterMessage {
 			builder.WriteString("-# Token Teamwork scores are 2/10 value sent and 8/10 ∆-value.\n")
 		}
+	}
+	if len(contractDayMap) > 0 {
+		fmt.Fprintf(&builder, "-# Predicted contract days: W=Wednesday, F=Friday, U=Friday%s\n", ei.GetBotEmojiMarkdown("ultra"))
 	}
 	fmt.Fprintf(&builder, "-# Est duration/CS based on 1.0 fair share, 5%s boosts (w/50%sIHR), 6%s/hr rate and leggy artifacts.\n", ei.GetBotEmojiMarkdown("token"), ei.GetBotEmojiMarkdown("egg_truth"), ei.GetBotEmojiMarkdown("token"))
 
