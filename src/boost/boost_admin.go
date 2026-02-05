@@ -2,7 +2,6 @@ package boost
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,9 +14,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // SlashAdminGetContractData is the slash to get contract JSON data
@@ -471,30 +468,4 @@ func HandleAdminGetContractData(s *discordgo.Session, i *discordgo.InteractionCr
 			},
 		},
 	})
-}
-
-// DecryptEncryptedEID decrypts a base64-encoded encrypted EID string.
-func DecryptEncryptedEID(encryptedEIDB64 string) string {
-	encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
-	if err != nil {
-		return ""
-	}
-	decodedData, err := base64.StdEncoding.DecodeString(encryptedEIDB64)
-	if err != nil {
-		return ""
-	}
-	decryptedData, err := config.DecryptCombined(encryptionKey, decodedData)
-	if err != nil {
-		return ""
-	}
-	return string(decryptedData)
-}
-
-// GetDecryptedEID decrypts an Egg Inc ID by first reading its encrypted EID from misc settings.
-func GetDecryptedEID(eggIncID string) string {
-	encryptedEIDB64 := farmerstate.GetMiscSettingString(eggIncID, "encrypted_ei_id")
-	if encryptedEIDB64 == "" {
-		return ""
-	}
-	return DecryptEncryptedEID(encryptedEIDB64)
 }

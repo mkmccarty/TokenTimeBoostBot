@@ -6,12 +6,14 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -58,14 +60,12 @@ func GetSlashTeamworkEval(cmd string) *discordgo.ApplicationCommand {
 				Required:     true,
 				Autocomplete: true,
 			},
-			/*
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "coop-id",
-					Description: "Your coop-id",
-					Required:    false,
-				},
-			*/
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "coop-id",
+				Description: "Your coop-id",
+				Required:    false,
+			},
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "egginc-ign",
@@ -103,7 +103,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		userID = i.User.ID
 	}
 	var contractID string
-	coopID := "default"
+	var coopID string
 	var eggign string
 	scoresFirst := false
 	optionMap := bottools.GetCommandOptionsMap(i)
@@ -121,16 +121,14 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		contractID = opt.StringValue()
 		contractID = strings.ReplaceAll(contractID, " ", "")
 	}
-	/*
-		if opt, ok := optionMap["coop-id"]; ok {
-			coopID = strings.ToLower(opt.StringValue())
-			coopID = strings.ReplaceAll(coopID, " ", "")
-			// Only Development Staff can use a coop-id that starts with '?'
-			if !slices.Contains(config.DevelopmentStaff, userID) && strings.HasPrefix(coopID, "?") {
-				coopID = strings.TrimPrefix(coopID, "?")
-			}
+	if opt, ok := optionMap["coop-id"]; ok {
+		coopID = strings.ToLower(opt.StringValue())
+		coopID = strings.ReplaceAll(coopID, " ", "")
+		// Only Development Staff can use a coop-id that starts with '?'
+		if !slices.Contains(config.DevelopmentStaff, userID) && strings.HasPrefix(coopID, "?") {
+			coopID = strings.TrimPrefix(coopID, "?")
 		}
-	*/
+	}
 	if opt, ok := optionMap["public-reply"]; ok {
 		publicReply = !opt.BoolValue()
 		if opt.BoolValue() {
@@ -155,22 +153,8 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		},
 	})
 
-	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
-	if eiID == "" {
-		_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Flags: discordgo.MessageFlagsIsComponentsV2,
-			Components: []discordgo.MessageComponent{
-				&discordgo.TextDisplay{Content: fmt.Sprintf("Missing user EID, use %s to use this command.\n", bottools.GetFormattedCommand("register"))},
-			},
-		})
-		if err != nil {
-			log.Println("Error sending error message:", err)
-		}
-		return
-	}
-
 	// Unset contractID and coopID means we want the Boost Bot contract
-	if contractID == "" {
+	if contractID == "" || coopID == "" {
 		contract := FindContract(i.ChannelID)
 		if contract == nil {
 			_, _ = s.FollowupMessageCreate(i.Interaction, true,
@@ -178,7 +162,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 					Flags: flags | discordgo.MessageFlagsIsComponentsV2,
 					Components: []discordgo.MessageComponent{
 						discordgo.TextDisplay{
-							Content: "No contract found in this channel. Please provide a contract-id.",
+							Content: "No contract found in this channel. Please provide a contract-id and coop-id.",
 						},
 					},
 				})
@@ -190,7 +174,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	var str string
-	str, fields, _ := DownloadCoopStatusTeamwork(userID, contractID, coopID, true)
+	str, fields, _ := DownloadCoopStatusTeamwork(contractID, coopID, true)
 	if fields == nil || strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {
 		// Trim output to 3500 characters if needed
 		trimmedStr := str
@@ -306,7 +290,7 @@ func computeRateIncrease(
 }
 
 // DownloadCoopStatusTeamwork will download the coop status for a given contract and coop ID
-func DownloadCoopStatusTeamwork(callerID string, contractID string, coopID string, setContractEstimate bool) (string, map[string][]TeamworkOutputData, string) {
+func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEstimate bool) (string, map[string][]TeamworkOutputData, string) {
 	var siabMsg strings.Builder
 	var dataTimestampStr string
 	var nowTime time.Time
@@ -372,15 +356,7 @@ func DownloadCoopStatusTeamwork(callerID string, contractID string, coopID strin
 		return fmt.Sprintf("Filenames:\n%s", strings.Join(fileNames, "\n")), nil, ""
 	}
 
-	userEI := GetDecryptedEID(callerID)
-	if userEI == "" {
-		userEI = DecryptEncryptedEID(callerID)
-		if userEI == "" {
-			return "failed to decrypt Egg Inc ID (missing/invalid encrypted_ei_id)", nil, ""
-		}
-	}
-
-	coopStatus, nowTime, dataTimestampStr, err := ei.GetCoopStatus(userEI, contractID, coopID)
+	coopStatus, nowTime, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID)
 	if err != nil {
 		return err.Error(), nil, ""
 	}
@@ -445,16 +421,6 @@ func DownloadCoopStatusTeamwork(callerID string, contractID string, coopID strin
 	startTime := nowTime
 	secondsRemaining := coopStatus.GetSecondsRemaining()
 	endTime := nowTime
-	coopID = coopStatus.GetCoopIdentifier()
-	contractID = coopStatus.GetContractIdentifier()
-
-	// Check for Gifts, log them for now
-	gifts := coopStatus.GetGifts()
-	if len(gifts) > 0 {
-		for _, gift := range gifts {
-			log.Printf("Gift Contract:%s Coop:%s UserName:%s UserId:%s Amount:%d Tracking:%s\n", contractID, coopID, gift.GetUserName(), gift.GetUserId(), gift.GetAmount(), gift.GetTracking())
-		}
-	}
 
 	if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
 		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)

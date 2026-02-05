@@ -138,43 +138,41 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			} else {
 				UpdateThreadName(s, contract)
 			}
-			/*
-				case "⏱️":
-					if contract.State != ContractStateCompleted {
-						var data discordgo.MessageSend
-						data.Content = "⏱️ can only be used after the contract completes boosting."
-						data.Flags = discordgo.MessageFlagsEphemeral
-						msg, err := s.ChannelMessageSendComplex(r.ChannelID, &data)
-						if err == nil {
-							time.AfterFunc(10*time.Second, func() {
-								err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
-								if err != nil {
-									log.Println(err)
-								}
-							})
+		case "⏱️":
+			if contract.State != ContractStateCompleted {
+				var data discordgo.MessageSend
+				data.Content = "⏱️ can only be used after the contract completes boosting."
+				data.Flags = discordgo.MessageFlagsEphemeral
+				msg, err := s.ChannelMessageSendComplex(r.ChannelID, &data)
+				if err == nil {
+					time.AfterFunc(10*time.Second, func() {
+						err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+						if err != nil {
+							log.Println(err)
 						}
+					})
+				}
 
-					} else {
-						if time.Since(contract.EstimateUpdateTime) < 2*time.Minute {
-							var data discordgo.MessageSend
-							data.Content = fmt.Sprintf("⏱️ duration update on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(10*time.Second).Unix())
-							data.Flags = discordgo.MessageFlagsEphemeral
-							msg, err := s.ChannelMessageSendComplex(r.ChannelID, &data)
-							if err == nil {
-								time.AfterFunc(10*time.Second, func() {
-									err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
-									if err != nil {
-										log.Println(err)
-									}
-								})
+			} else {
+				if time.Since(contract.EstimateUpdateTime) < 2*time.Minute {
+					var data discordgo.MessageSend
+					data.Content = fmt.Sprintf("⏱️ duration update on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(10*time.Second).Unix())
+					data.Flags = discordgo.MessageFlagsEphemeral
+					msg, err := s.ChannelMessageSendComplex(r.ChannelID, &data)
+					if err == nil {
+						time.AfterFunc(10*time.Second, func() {
+							err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+							if err != nil {
+								log.Println(err)
 							}
-						} else {
-							log.Print("Updating estimated time")
-							contract.EstimateUpdateTime = time.Now()
-							go updateEstimatedTime(s, r.UserID, r.ChannelID, contract, true)
-						}
+						})
 					}
-			*/
+				} else {
+					log.Print("Updating estimated time")
+					contract.EstimateUpdateTime = time.Now()
+					go updateEstimatedTime(s, r.ChannelID, contract, true)
+				}
+			}
 		case "🐓":
 			if userInContract(contract, r.UserID) {
 				redraw, _ = buttonReactionRunChickens(s, contract, r.UserID)
@@ -247,9 +245,9 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	return returnVal
 }
 
-func updateEstimatedTime(s *discordgo.Session, callerUserID string, channelID string, contract *Contract, displayMsg bool) {
+func updateEstimatedTime(s *discordgo.Session, channelID string, contract *Contract, displayMsg bool) {
 	if !displayMsg {
-		startTime, contractDurationSeconds, err := track.DownloadCoopStatusTracker(callerUserID, contract.ContractID, contract.CoopID)
+		startTime, contractDurationSeconds, err := track.DownloadCoopStatusTracker(contract.ContractID, contract.CoopID)
 		if err == nil {
 			contract.StartTime = startTime
 			contract.EstimatedDuration = time.Duration(contractDurationSeconds) * time.Second
@@ -262,7 +260,7 @@ func updateEstimatedTime(s *discordgo.Session, callerUserID string, channelID st
 	data.Content = "⏱️ reaction received, updating contract duration."
 	data.Flags = discordgo.MessageFlagsEphemeral
 	msg, msgErr := s.ChannelMessageSendComplex(channelID, &data)
-	startTime, contractDurationSeconds, err := track.DownloadCoopStatusTracker(callerUserID, contract.ContractID, contract.CoopID)
+	startTime, contractDurationSeconds, err := track.DownloadCoopStatusTracker(contract.ContractID, contract.CoopID)
 	if err == nil {
 		if msgErr == nil {
 			_ = s.ChannelMessageDelete(msg.ChannelID, msg.ID)

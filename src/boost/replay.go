@@ -386,7 +386,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 
 				log.Printf("Evaluating contract %s coop %s for user %s\n", contractID, coopID, eiUserName)
 				if coopID != "[solo]" {
-					coopStatus, _, _, err := ei.GetCoopStatusForCompletedContracts(GetDecryptedEID(userID), contractID, a.GetCoopIdentifier())
+					coopStatus, _, _, err := ei.GetCoopStatusForCompletedContracts(contractID, a.GetCoopIdentifier())
 					if err == nil {
 						builder.Reset()
 						for _, c := range coopStatus.GetContributors() {

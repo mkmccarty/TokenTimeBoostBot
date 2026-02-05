@@ -14,6 +14,8 @@ import (
 // HandleMenuReactions handles the menu reactions for the contract
 func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
+	//userID := getInteractionUserID(i)
+
 	data := i.MessageComponentData()
 	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
 	contractHash := reaction[len(reaction)-1]
@@ -130,18 +132,16 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			},
 		})
 
-		/*
-			case "time":
-				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content: "Updating boost list with estimated time...",
-						Flags:   discordgo.MessageFlagsEphemeral,
-					},
-				})
-				contract.EstimateUpdateTime = time.Now()
-				go updateEstimatedTime(s, callerUserID, i.ChannelID, contract, false)
-		*/
+	case "time":
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Updating boost list with estimated time...",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		contract.EstimateUpdateTime = time.Now()
+		go updateEstimatedTime(s, i.ChannelID, contract, false)
 	case "want":
 		message := "**%s** wants at least 1 more token."
 		contract.Boosters[i.Member.User.ID].TokenRequestFlag = !contract.Boosters[i.Member.User.ID].TokenRequestFlag
