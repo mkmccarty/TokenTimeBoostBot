@@ -331,6 +331,25 @@ func GetContractArchiveFromAPI(s *discordgo.Session, eggIncID string, discordID 
 		log.Print("No archived contracts found in Egg Inc API response")
 		return nil, cachedData
 	}
+
+	// Write the archive as a JSON file for debugging purposes
+	if config.IsDevBot() {
+		go func() {
+			jsonData, err := json.MarshalIndent(archive, "", "  ")
+			// Redact user info
+			jsonData = []byte(RedactUserInfo(string(jsonData), eiUserID))
+			if err != nil {
+				log.Println("Error marshalling archive to JSON:", err)
+			} else {
+				_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
+				err = os.WriteFile("ttbb-data/eiuserdata/archive-"+discordID+".json", []byte(jsonData), 0644)
+				if err != nil {
+					log.Print(err)
+				}
+			}
+		}()
+	}
+
 	return archive, cachedData
 }
 
