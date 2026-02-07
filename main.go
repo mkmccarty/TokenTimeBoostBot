@@ -134,7 +134,7 @@ func init() {
 	version.Version = Version
 	log.Printf("Starting Discord Bot: %s (%s)\n", version.Release, Version)
 	// For the daemon Log
-	fmt.Printf("Starting Discord Bot: %s (%s)\n", version.Release, Version)
+	fmt.Printf("Starting Discord Bot: %s (%s) at %s\n", version.Release, Version, time.Now().Format(time.RFC3339))
 
 	// Read application parameters
 	flag.Parse()
