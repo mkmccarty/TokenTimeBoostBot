@@ -1009,6 +1009,7 @@ func main() {
 	// Load the config file
 
 	// Start our CRON job to grab Egg Inc contract data from the Carpet github repository
+	startHeartbeat("/tmp/tokentimeboost.heartbeat", 1*time.Minute)
 	go tasks.ExecuteCronJob(s)
 
 	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
@@ -1113,4 +1114,28 @@ func getIntentUserID(i *discordgo.InteractionCreate) string {
 		return i.User.ID
 	}
 	return i.Member.User.ID
+}
+
+func startHeartbeat(filepath string, interval time.Duration) {
+	go func() {
+		// Create the file if it doesn't exist
+		if _, err := os.Stat(filepath); os.IsNotExist(err) {
+			f, err := os.Create(filepath)
+			if err != nil {
+				log.Printf("Heartbeat error: Could not create file: %v", err)
+				return
+			}
+			_ = f.Close()
+		}
+
+		ticker := time.NewTicker(interval)
+		for range ticker.C {
+			currentTime := time.Now()
+			// Equivalent to 'touch' - updates modification time
+			err := os.Chtimes(filepath, currentTime, currentTime)
+			if err != nil {
+				log.Printf("Heartbeat error: %v", err)
+			}
+		}
+	}()
 }
