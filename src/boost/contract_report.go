@@ -61,7 +61,7 @@ func userMessage(err error) string {
 	case errors.Is(err, ErrNoChannelContract):
 		return "No contract found in this channel. Please provide a contract-id."
 	case errors.Is(err, ErrEvaluationNotFound):
-		return "Evaluation not found, if you just completed the contract please wait a few minutes and try again with refresh=true."
+		return "Evaluation not found, if you just completed the contract please wait a few minutes and try again."
 	case errors.Is(err, ErrCoopIDMissing):
 		return "No coop ID found for this contract evaluation."
 	case errors.Is(err, ErrUnsupportedCXPVersion):
@@ -149,12 +149,6 @@ func GetSlashContractReportCommand(cmd string) *discordgo.ApplicationCommand {
 				Description:  "Select a contract-id",
 				Required:     true,
 				Autocomplete: true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "refresh",
-				Description: "If you want to force a refresh due a recent change to your contracts.",
-				Required:    false,
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
@@ -326,7 +320,7 @@ func processContributors(
 // Parameters:
 //   - s: active Discord session
 //   - i: the triggering interaction
-//   - optionMap: slash-command options (e.g., "contract-id", "refresh").
+//   - optionMap: slash-command options (e.g., "contract-id").
 //   - userID: Discord user ID of the caller
 //   - okayToSave: whether API fetches may be cached/persisted.
 //
@@ -346,10 +340,11 @@ func ContractReport(
 	p := contractReportParameters{}
 
 	// --- Options ---
-	forceRefresh := false
-	if opt, ok := optionMap["refresh"]; ok {
-		forceRefresh = opt.BoolValue()
-	}
+
+	// Always want forceRefresh true to ensure we have the latest contract evaluations.
+	// This is typically run right after a contract completes and needs the refresh anyway.
+	forceRefresh := true
+
 	showTokenDetails := false
 	if opt, ok := optionMap["token-details"]; ok {
 		showTokenDetails = opt.BoolValue()
