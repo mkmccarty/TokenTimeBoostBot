@@ -1116,7 +1116,12 @@ func getIntentUserID(i *discordgo.InteractionCreate) string {
 	return i.Member.User.ID
 }
 
+// Heartbeat function to update the modification time of a file at regular intervals
 func startHeartbeat(filepath string, interval time.Duration) {
+	if config.IsDevBot() {
+		return
+
+	}
 	go func() {
 		// Create the file if it doesn't exist
 		if _, err := os.Stat(filepath); os.IsNotExist(err) {
