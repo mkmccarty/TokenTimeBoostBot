@@ -706,7 +706,14 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 				listStr = "Sign-up"
 			}
 			var str = fmt.Sprintf("%s was added to the %s List by %s", guest, listStr, operator)
-			_, _ = s.ChannelMessageSend(loc.ChannelID, str)
+			msg, err := s.ChannelMessageSend(loc.ChannelID, str)
+			if err == nil && msg != nil {
+				time.AfterFunc(10*time.Second, func() {
+					if err := s.ChannelMessageDelete(msg.ChannelID, msg.ID); err != nil {
+						log.Println(err)
+					}
+				})
+			}
 
 			if contract.State == ContractStateSignup {
 				if previousBoosters != len(contract.Boosters) && previousBoosters == contract.CoopSize {
