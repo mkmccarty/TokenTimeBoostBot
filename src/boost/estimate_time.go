@@ -424,7 +424,7 @@ func calculateSingleEstimate(
 	}
 	adjustedPop := max(populationForCR, population-crPopulation)
 
-	ihr := est.ihr * est.chalice * est.monocle * math.Pow(1.04, est.ihrSlots) * est.colIHR
+	ihr := est.ihr * est.chalice * math.Pow(1.04, est.ihrSlots) * est.colIHR
 	ihr *= math.Pow(1.01, est.te)
 	boostTime := adjustedPop / (ihr * 12 * (est.monocle * est.boostMultiplier)) / 60
 
