@@ -20,7 +20,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/menno"
@@ -1083,12 +1082,6 @@ func main() {
 							log.Println(err.Error())
 						}
 					}
-					if event.Name == ei.MissionConfigPath {
-						log.Println("modified file:", event.Name)
-						if !ei.ReloadMissionConfig() {
-							log.Println("Failed to reload mission config")
-						}
-					}
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
@@ -1100,10 +1093,6 @@ func main() {
 	}()
 
 	err = watcher.Add(configFileName)
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = watcher.Add(ei.MissionConfigPath)
 	if err != nil {
 		log.Fatal(err)
 	}
