@@ -16,7 +16,13 @@ func GetSlashUpdateCommand(cmd string) *discordgo.ApplicationCommand {
 	intMax490 := float64(490)
 
 	return &discordgo.ApplicationCommand{
-		Name:        cmd,
+		Name: cmd,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 		Description: "Update farmer statistics",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
