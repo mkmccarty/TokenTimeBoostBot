@@ -11,7 +11,13 @@ import (
 // GetSlashChangeCommand returns the /update slash command with main subcommand groups for farmer and contract
 func GetSlashChangeCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
-		Name:        cmd,
+		Name: cmd,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 		Description: "Update contract statistics",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
