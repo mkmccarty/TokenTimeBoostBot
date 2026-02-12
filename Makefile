@@ -2,7 +2,7 @@
 
 UNAME_A = `uname -m`
 UNAME_S = `uname -s`
-GO_VERSION = 1.25.7
+GO_VERSION = 1.26
 
 #// Get machine architecture into ARCH variable
 #ifeq ($(UNAME_A),aarch64)
