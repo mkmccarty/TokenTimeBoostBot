@@ -4,7 +4,7 @@ services:
     build:
       context: .
       args:
-        GO_VERSION: "${GO_VERSION:-1.25}"
+        GO_VERSION: "${GO_VERSION:-1.26}"
     image: boost-bot:latest
     container_name: boost-bot
     # Mount the bot config (read-only)
