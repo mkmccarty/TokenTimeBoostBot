@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -216,7 +217,7 @@ func predictions(
 	hasFriday := showFridayNonUltra || showFridayUltra
 
 	// Get predictions
-	fridayNonUltra, fridayUltra, wednesday := predictJeli(contractCount)
+	fridayNonUltra, fridayUltra, wednesday := predictJeli(int(contractCount))
 
 	// Get the next Wednesday and Friday times; 0 means current week
 	_, wedTime, friTime, _ := contractTimes9amPacific(0)
@@ -453,46 +454,53 @@ func writeContracts(
 	}
 }
 
-// predictJeli returns up to 5 oldest in each leggacy contract type.
+// older returns true if a should be ordered before b.
+// Priority:
+// 1. ValidUntil (older first)
+// 2. ValidFrom  (older first)
+func older(a, b ei.EggIncContract) bool {
+	if a.ValidUntil.Equal(b.ValidUntil) {
+		return a.ValidFrom.Before(b.ValidFrom)
+	}
+	return a.ValidUntil.Before(b.ValidUntil)
+}
+
+// predictJeli returns up to N oldest contracts per legacy contract type.
 // Contributed by jelibean84
-func predictJeli(
-	contractCount int64,
-) (fridayNonUltra, fridayUltra, wednesday []ei.EggIncContract) {
+func predictJeli(contractCount int) (fridayNonUltra, fridayUltra, wednesday []ei.EggIncContract) {
+
 	for _, c := range ei.EggIncContractsAll {
-		if c.HasPE {
-			if !c.Ultra {
-				fridayUltra = findOldestNContracts(fridayUltra, c, contractCount)
-			} else {
-				fridayNonUltra = findOldestNContracts(fridayNonUltra, c, contractCount)
-			}
-		} else {
-			wednesday = findOldestNContracts(wednesday, c, contractCount)
+		switch {
+		case c.HasPE && !c.Ultra:
+			fridayUltra = append(fridayUltra, c)
+		case c.HasPE && c.Ultra:
+			fridayNonUltra = append(fridayNonUltra, c)
+		default:
+			wednesday = append(wednesday, c)
 		}
 	}
 
+	sort.Slice(fridayUltra, func(i, j int) bool {
+		return older(fridayUltra[i], fridayUltra[j])
+	})
+	sort.Slice(fridayNonUltra, func(i, j int) bool {
+		return older(fridayNonUltra[i], fridayNonUltra[j])
+	})
+	sort.Slice(wednesday, func(i, j int) bool {
+		return older(wednesday[i], wednesday[j])
+	})
+
+	if len(fridayUltra) > contractCount {
+		fridayUltra = fridayUltra[:contractCount]
+	}
+	if len(fridayNonUltra) > contractCount {
+		fridayNonUltra = fridayNonUltra[:contractCount]
+	}
+	if len(wednesday) > contractCount {
+		wednesday = wednesday[:contractCount]
+	}
+
 	return
-}
-
-// findOldestNContracts sorts and keeps only the oldest N contracts in the slice.
-func findOldestNContracts(
-	top []ei.EggIncContract,
-	c ei.EggIncContract,
-	contractCount int64,
-) []ei.EggIncContract {
-	top = append(top, c)
-
-	// Sort newly added contract into place
-	i := len(top) - 1
-	for i > 0 && top[i].ValidUntil.Before(top[i-1].ValidUntil) {
-		top[i], top[i-1] = top[i-1], top[i]
-		i--
-	}
-
-	// keep contractCount oldest
-	if len(top) > int(contractCount) {
-		top = top[:contractCount]
-	}
-	return top
 }
 
 // ***** Helpers *****
