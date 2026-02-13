@@ -40,9 +40,6 @@ const eggIncEiAfxConfigFile string = "ttbb-data/ei-afx-config.json"
 const eggIncEiResearchesURL string = "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/refs/heads/main/data/ei-researches.json"
 const eggIncEiResearchesFile string = "ttbb-data/ei-researches.json"
 
-//const eggIncEiAfxConfigURL string = "https://raw.githubusercontent.com/carpetsage/egg/main/wasmegg/_common/eiafx/eiafx-config.json"
-//const eggIncEiAfxConfigFile string = "ttbb-data/eiafx-config.json"
-
 const eggIncTokenComplaintsURL string = "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/refs/heads/main/data/token-complaints.json"
 const eggIncTokenComplaintsFile string = "ttbb-data/token-complaints.json"
 
@@ -343,16 +340,10 @@ func ExecuteCronJob(s *discordgo.Session) {
 		ei.LoadEventData(eggIncEventsFile)
 	}
 	downloadEggIncData(eggIncDataSchemaURL, eggIncDataSchemaFile)
+	downloadEggIncData(eggIncEiAfxConfigURL, eggIncEiAfxConfigFile)
 
 	if !downloadEggIncData(eggIncEiAfxDataURL, eggIncEiAfxDataFile) {
 		err := ei.LoadArtifactsData(eggIncEiAfxDataFile)
-		if err != nil {
-			log.Print(err)
-		}
-	}
-
-	if !downloadEggIncData(eggIncEiAfxConfigURL, eggIncEiAfxConfigFile) {
-		err := ei.LoadArtifactsData(eggIncEiAfxConfigFile)
 		if err != nil {
 			log.Print(err)
 		}
