@@ -1177,6 +1177,7 @@ func startHeartbeat(filepath string, interval time.Duration) {
 					"Causing confusion & delay",
 					"Laying eggs",
 					"Blaming Tbone",
+					"Just another Tbone alt",
 				}
 
 				// Randomly choose between showing contract count or a funny phrase
