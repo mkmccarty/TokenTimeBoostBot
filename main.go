@@ -1173,6 +1173,10 @@ func startHeartbeat(filepath string, interval time.Duration) {
 					"Crafting deflectors",
 					"Organizing contract signups",
 					"Planning my virtue shift",
+					"Complaining about token luck",
+					"Causing confusion & delay",
+					"Laying eggs",
+					"Blaming Tbone",
 				}
 
 				// Randomly choose between showing contract count or a funny phrase
