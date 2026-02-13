@@ -1030,7 +1030,7 @@ func main() {
 		AFK: false,
 		Activities: []*discordgo.Activity{
 			{
-				Name: fmt.Sprintf("Starting: %s (%s)", version.Release, Version),
+				Name: fmt.Sprintf("Starting: %s", Version),
 				Type: discordgo.ActivityTypeGame,
 			},
 		},
@@ -1140,7 +1140,7 @@ func startHeartbeat(filepath string, interval time.Duration) {
 				log.Printf("Heartbeat error: %v", err)
 			}
 			counter++
-			if counter%2 == 0 {
+			if counter%2 == 1 {
 				// Funny phrases related to Egg, Inc.
 				funnyPhrases := []string{
 					"Hatching chickens",
