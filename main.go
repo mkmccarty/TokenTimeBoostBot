@@ -1154,11 +1154,12 @@ func startHeartbeat(filepath string, interval time.Duration) {
 					"Counting chickens",
 					"Running chickens",
 					"Tapping silos",
-					"Researching eggs",
-					"Cracking contracts",
+					"Researching",
+					"Browsing contracts",
 					"Boosting production",
 					"Consuming artifacts",
 					"Petting chickens",
+					"Adjusting Shells",
 					"Waiting on my next TE",
 					"Calculating optimal boosts",
 					"Watching my Egg, Inc. empire grow",
@@ -1167,6 +1168,11 @@ func startHeartbeat(filepath string, interval time.Duration) {
 					"Optimizing my farm layout",
 					"Jiggling artifacts",
 					"Setting completion alarms",
+					"Cuddling my chickens",
+					"Waiting for faster missions",
+					"Crafting deflectors",
+					"Organizing contract signups",
+					"Planning my virtue shift",
 				}
 
 				// Randomly choose between showing contract count or a funny phrase
