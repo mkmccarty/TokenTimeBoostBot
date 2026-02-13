@@ -1030,7 +1030,7 @@ func main() {
 		AFK: false,
 		Activities: []*discordgo.Activity{
 			{
-				Name: "Syncing...",
+				Name: fmt.Sprintf("Starting: %s (%s)", version.Release, Version),
 				Type: discordgo.ActivityTypeGame,
 			},
 		},
