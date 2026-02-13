@@ -43,6 +43,9 @@ const eggIncEiResearchesFile string = "ttbb-data/ei-researches.json"
 const eggIncTokenComplaintsURL string = "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/refs/heads/main/data/token-complaints.json"
 const eggIncTokenComplaintsFile string = "ttbb-data/token-complaints.json"
 
+const eggIncStatusMessagesURL string = "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/refs/heads/main/data/status-messages.json"
+const eggIncStatusMessagesFile string = "ttbb-data/status-messages.json"
+
 var lastContractUpdate time.Time
 var lastEventUpdate time.Time
 
@@ -313,6 +316,8 @@ func downloadEggIncData(url string, filename string) bool {
 		ei.LoadResearchData(filename)
 	case eggIncTokenComplaintsFile:
 		ei.LoadTokenComplaints(filename)
+	case eggIncStatusMessagesFile:
+		ei.LoadStatusMessages(filename)
 	}
 	/*else if filename == eggIncEiAfxConfigFile {
 		ei.LoadConfig(filename)
@@ -355,6 +360,10 @@ func ExecuteCronJob(s *discordgo.Session) {
 
 	if !downloadEggIncData(eggIncTokenComplaintsURL, eggIncTokenComplaintsFile) {
 		ei.LoadTokenComplaints(eggIncTokenComplaintsFile)
+	}
+
+	if !downloadEggIncData(eggIncStatusMessagesURL, eggIncStatusMessagesFile) {
+		ei.LoadStatusMessages(eggIncStatusMessagesFile)
 	}
 
 	events.GetPeriodicalsFromAPI(s)

@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math/rand"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
@@ -21,6 +20,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/menno"
@@ -32,6 +32,7 @@ import (
 )
 
 const configFileName = "./.config.json"
+const statusMessagesFileName = "./ttbb-data/status-messages.json"
 
 // Admin Slash Command Constants
 // const boostBotHomeGuild string = "766330702689992720"
@@ -136,6 +137,9 @@ func init() {
 	log.Printf("Starting Discord Bot: %s (%s)\n", version.Release, Version)
 	// For the daemon Log
 	fmt.Printf("Starting Discord Bot: %s (%s) at %s\n", version.Release, Version, time.Now().Format(time.RFC3339))
+
+	// Load status messages
+	ei.LoadStatusMessages(statusMessagesFileName)
 
 	// Read application parameters
 	flag.Parse()
@@ -1076,12 +1080,16 @@ func main() {
 				}
 				log.Println("event:", event)
 				if event.Has(fsnotify.Write) {
-					if event.Name == configFileName {
+					switch event.Name {
+					case configFileName:
 						log.Println("modified file:", event.Name)
 						err := config.ReadConfig(event.Name)
 						if err != nil {
 							log.Println(err.Error())
 						}
+					case statusMessagesFileName:
+						log.Println("modified file:", event.Name)
+						ei.LoadStatusMessages(event.Name)
 					}
 				}
 			case err, ok := <-watcher.Errors:
@@ -1096,6 +1104,11 @@ func main() {
 	err = watcher.Add(configFileName)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	err = watcher.Add(statusMessagesFileName)
+	if err != nil {
+		log.Printf("Warning: Could not watch status messages file: %v", err)
 	}
 
 	stop := make(chan os.Signal, 1)
@@ -1141,47 +1154,12 @@ func startHeartbeat(filepath string, interval time.Duration) {
 			}
 			counter++
 			if counter%2 == 1 {
-				// Funny phrases related to Egg, Inc.
-				funnyPhrases := []string{
-					"Hatching chickens",
-					"Shipping eggs",
-					"Upgrading silos",
-					"Building habs",
-					"Swiping drones",
-					"Launching rockets",
-					"Counting my Golden Eggs",
-					"Prestiging",
-					"Counting chickens",
-					"Running chickens",
-					"Tapping silos",
-					"Researching",
-					"Browsing contracts",
-					"Boosting production",
-					"Consuming artifacts",
-					"Petting chickens",
-					"Adjusting Shells",
-					"Waiting on my next TE",
-					"Calculating optimal boosts",
-					"Watching my Egg, Inc. empire grow",
-					"Collecting daily rewards",
-					"Checking for new contracts",
-					"Optimizing my farm layout",
-					"Jiggling artifacts",
-					"Setting completion alarms",
-					"Cuddling my chickens",
-					"Waiting for faster missions",
-					"Crafting deflectors",
-					"Organizing contract signups",
-					"Planning my virtue shift",
-					"Complaining about token luck",
-					"Causing confusion & delay",
-					"Laying eggs",
-					"Blaming Tbone",
-					"Just another Tbone alt",
+				// Get a random status message
+				activityName, err := ei.GetRandomStatusMessage()
+				if err != nil {
+					log.Printf("Error getting status message: %v", err)
+					activityName = "Egg, Inc."
 				}
-
-				// Randomly choose between showing contract count or a funny phrase
-				activityName := funnyPhrases[rand.Intn(len(funnyPhrases))]
 
 				err = s.UpdateStatusComplex(discordgo.UpdateStatusData{
 					AFK: false,
