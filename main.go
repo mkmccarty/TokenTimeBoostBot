@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
@@ -1029,7 +1030,7 @@ func main() {
 		AFK: false,
 		Activities: []*discordgo.Activity{
 			{
-				Name: "Egg, Inc.",
+				Name: "Syncing...",
 				Type: discordgo.ActivityTypeGame,
 			},
 		},
@@ -1118,10 +1119,6 @@ func getIntentUserID(i *discordgo.InteractionCreate) string {
 
 // Heartbeat function to update the modification time of a file at regular intervals
 func startHeartbeat(filepath string, interval time.Duration) {
-	if config.IsDevBot() {
-		return
-
-	}
 	go func() {
 		// Create the file if it doesn't exist
 		if _, err := os.Stat(filepath); os.IsNotExist(err) {
@@ -1133,6 +1130,7 @@ func startHeartbeat(filepath string, interval time.Duration) {
 			_ = f.Close()
 		}
 
+		counter := 0
 		ticker := time.NewTicker(interval)
 		for range ticker.C {
 			currentTime := time.Now()
@@ -1140,6 +1138,61 @@ func startHeartbeat(filepath string, interval time.Duration) {
 			err := os.Chtimes(filepath, currentTime, currentTime)
 			if err != nil {
 				log.Printf("Heartbeat error: %v", err)
+			}
+			counter++
+			if counter%2 == 0 {
+				// Funny phrases related to Egg, Inc.
+				funnyPhrases := []string{
+					"Hatching chickens",
+					"Shipping eggs",
+					"Upgrading silos",
+					"Building habs",
+					"Swiping drones",
+					"Launching rockets",
+					"Counting my Golden Eggs",
+					"Prestiging",
+					"Counting chickens",
+					"Running chickens",
+					"Tapping silos",
+					"Researching eggs",
+					"Cracking contracts",
+					"Boosting production",
+					"Consuming artifacts",
+					"Petting chickens",
+					"Waiting on my next TE",
+					"Calculating optimal boosts",
+					"Watching my Egg, Inc. empire grow",
+					"Collecting daily rewards",
+					"Checking for new contracts",
+					"Optimizing my farm layout",
+					"Jiggling artifacts",
+					"Setting completion alarms",
+				}
+
+				// Randomly choose between showing contract count or a funny phrase
+				activityName := funnyPhrases[rand.Intn(len(funnyPhrases))]
+
+				err = s.UpdateStatusComplex(discordgo.UpdateStatusData{
+					AFK: false,
+					Activities: []*discordgo.Activity{
+						{
+							Name: activityName,
+							Type: discordgo.ActivityTypeGame,
+						},
+					},
+					Status: string(discordgo.StatusOnline),
+				})
+				if err != nil {
+					log.Printf("Heartbeat error: %v", err)
+					err := s.Close()
+					if err != nil {
+						log.Fatalf("Cannot close the session: %v", err)
+					}
+					err = s.Open()
+					if err != nil {
+						log.Fatalf("Cannot open the session: %v", err)
+					}
+				}
 			}
 		}
 	}()
