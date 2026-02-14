@@ -31,8 +31,8 @@ import (
 	"github.com/natefinch/lumberjack/v3"
 )
 
-const configFileName = "./.config.json"
-const statusMessagesFileName = "./ttbb-data/status-messages.json"
+const configFileName = ".config.json"
+const statusMessagesFileName = "ttbb-data/status-messages.json"
 
 // Admin Slash Command Constants
 // const boostBotHomeGuild string = "766330702689992720"
@@ -1079,17 +1079,20 @@ func main() {
 					return
 				}
 				log.Println("event:", event)
-				if event.Has(fsnotify.Write) {
+				if event.Has(fsnotify.Write) || event.Has(fsnotify.Rename) {
 					switch event.Name {
 					case configFileName:
 						log.Println("modified file:", event.Name)
-						err := config.ReadConfig(event.Name)
-						if err != nil {
-							log.Println(err.Error())
+						_ = config.ReadConfig(event.Name)
+						if event.Has(fsnotify.Rename) {
+							_ = watcher.Add(event.Name)
 						}
 					case statusMessagesFileName:
 						log.Println("modified file:", event.Name)
 						ei.LoadStatusMessages(event.Name)
+						if event.Has(fsnotify.Rename) {
+							_ = watcher.Add(event.Name)
+						}
 					}
 				}
 			case err, ok := <-watcher.Errors:
