@@ -74,7 +74,8 @@ func HandleRenameThreadCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		if strings.HasPrefix(threadName, "help") {
 			// Provide help on the command
 			fmt.Fprint(&builder, "You can use the following variables in the thread name:\n")
-			fmt.Fprint(&builder, "$NAME, $N - The name of the contract\n")
+			fmt.Fprint(&builder, "$ID - The ContractID of the contract\n")
+			fmt.Fprint(&builder, "$NAME, $N - The CoopID of the contract\n")
 			fmt.Fprint(&builder, "$COUNT, $C  - Signup count of the contract\n")
 			fmt.Fprint(&builder, "$STYLE, $S - The style of the contract\n")
 			fmt.Fprint(&builder, "$TIME, $T - The start time of the contract, If time not set will be TBD\n")
@@ -109,6 +110,10 @@ func generateThreadName(c *Contract) string {
 	threadStyleIcons := []string{"", "🟦 ", "🟩 ", "🟧 ", "🟥 "}
 	if threadName == "" {
 		threadName = "$N $C"
+		// Special case for Eggscape
+		if c.Location[0].GuildID == "1457709786597560515" {
+			threadName = "$ID/$N $C"
+		}
 		if !c.PlannedStartTime.IsZero() && c.State == ContractStateSignup {
 			threadName += " $T"
 		}
@@ -163,6 +168,7 @@ func generateThreadName(c *Contract) string {
 
 	// Create a temporary version with all replacements to check length
 	tempName := strings.ReplaceAll(threadName, "$NAME", coopID)
+	tempName = strings.ReplaceAll(tempName, "$ID", c.ContractID)
 	tempName = strings.ReplaceAll(tempName, "$N", coopID)
 	tempName = strings.ReplaceAll(tempName, "$COUNT", statusStr)
 	tempName = strings.ReplaceAll(tempName, "$C", statusStr)
@@ -180,6 +186,7 @@ func generateThreadName(c *Contract) string {
 
 	threadName = strings.ReplaceAll(threadName, "$NAME", coopID)
 	threadName = strings.ReplaceAll(threadName, "$N", coopID)
+	threadName = strings.ReplaceAll(threadName, "$ID", c.ContractID)
 	threadName = strings.ReplaceAll(threadName, "$COUNT", statusStr)
 	threadName = strings.ReplaceAll(threadName, "$C", statusStr)
 
