@@ -331,7 +331,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 	}
 	artifactSetInUse := []*ei.CompleteArtifact{}
 
-	artifactDb := backup.GetArtifactsDb()
+	artifactDB := backup.GetArtifactsDb()
 
 	/*
 		if config.IsDevBot() {
@@ -736,7 +736,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 			ei.FormatEIValue(fuel, map[string]any{"decimals": 1, "trim": true}))
 	}
 	rockets.WriteString("\n")
-	missions := artifactDb.GetMissionInfos()
+	missions := artifactDB.GetMissionInfos()
 	for _, mission := range missions {
 		missionType := mission.GetType()
 		//missionStatus := mission.GetStatus()
