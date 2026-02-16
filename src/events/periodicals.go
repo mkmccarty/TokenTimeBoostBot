@@ -116,7 +116,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 		e.EndTimestamp = event.GetStartTime() + event.GetDuration()
 		e.StartTime = time.Unix(int64(math.Round(event.GetStartTime())), 0)
 		e.EndTime = e.StartTime.Add(time.Duration(event.GetDuration()) * time.Second)
-		log.Printf("  start time: %s", e.StartTime)
+		// log.Printf("  start time: %s", e.StartTime)
 
 		currentEggIncEvents = append(currentEggIncEvents, e)
 
@@ -273,7 +273,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 			if existingContract.ValidUntil != c.ValidUntil {
 				log.Print("New Leggacy contract: ", c.ID)
 			}
-		} else {
+		} else if c.ID != "first-contract" {
 			log.Print("New Original contract: ", c.ID)
 		}
 		bottools.GenerateBanner(c.ID, c.EggName, c.Name)
