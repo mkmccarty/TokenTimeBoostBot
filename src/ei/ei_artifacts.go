@@ -547,36 +547,36 @@ func ExamineArtifacts(artifacts []*ArtifactInventoryItem) {
 	// IHR Artifacts
 	bestChalice := findBestArtifact(artifacts, ArtifactSpec_THE_CHALICE)
 
-	selected := []*CompleteArtifact{}
-	for _, item := range []*ArtifactInventoryItem{
-		bestDelector,
-		bestShip,
-		bestAhnk,
-		bestNecklace,
-		bestTotem,
-		bestCube,
-		bestChalice,
-		bestMetronome,
-		bestCompass,
-		bestGusset,
-	} {
-		if item != nil && item.GetArtifact() != nil {
-			selected = append(selected, item.GetArtifact())
-		}
-	}
 	/*
-		if len(selected) > 0 {
-			buffs := GetArtifactBuffs(selected)
-			log.Printf("Buffs ELR=%.3f SR=%.3f IHR=%.3f Hab=%.3f Earn=%.3f Away=%.3f Research=%.3f",
-				buffs.ELR,
-				buffs.SR,
-				buffs.IHR,
-				buffs.Hab,
-				buffs.Earnings,
-				buffs.AwayEarnings,
-				buffs.ResearchDiscount,
-			)
+		selected := []*CompleteArtifact{}
+		for _, item := range []*ArtifactInventoryItem{
+			bestDelector,
+			bestShip,
+			bestAhnk,
+			bestNecklace,
+			bestTotem,
+			bestCube,
+			bestChalice,
+			bestMetronome,
+			bestCompass,
+			bestGusset,
+		} {
+			if item != nil && item.GetArtifact() != nil {
+				selected = append(selected, item.GetArtifact())
+			}
 		}
+			if len(selected) > 0 {
+				buffs := GetArtifactBuffs(selected)
+				log.Printf("Buffs ELR=%.3f SR=%.3f IHR=%.3f Hab=%.3f Earn=%.3f Away=%.3f Research=%.3f",
+					buffs.ELR,
+					buffs.SR,
+					buffs.IHR,
+					buffs.Hab,
+					buffs.Earnings,
+					buffs.AwayEarnings,
+					buffs.ResearchDiscount,
+				)
+			}
 	*/
 
 	log.Printf("Deflector: %s", formatArtifactLabel(bestDelector))
