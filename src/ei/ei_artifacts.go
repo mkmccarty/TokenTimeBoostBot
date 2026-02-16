@@ -2,6 +2,8 @@ package ei
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -443,4 +445,153 @@ var ShortArtifactName = map[int32]string{
 	51:    "LIFE_STONE_FRAGMENT_",
 	52:    "CLARITY_STONE_FRAGMENT_",
 	10000: "UNKNOWN_",
+}
+
+func findBestArtifact(artifacts []*ArtifactInventoryItem, target ArtifactSpec_Name) *ArtifactInventoryItem {
+	var bestArtifact *ArtifactInventoryItem
+	for _, artifact := range artifacts {
+		spec := artifact.GetArtifact().GetSpec()
+		if spec.GetName() == target {
+			if bestArtifact == nil || spec.GetLevel() > bestArtifact.GetArtifact().GetSpec().GetLevel() || (spec.GetLevel() == bestArtifact.GetArtifact().GetSpec().GetLevel() && spec.GetRarity() > bestArtifact.GetArtifact().GetSpec().GetRarity()) {
+				bestArtifact = artifact
+			}
+		}
+	}
+	return bestArtifact
+}
+
+// StoneCount tracks stone counts by level for a specific artifact type.
+type StoneCount struct {
+	Artifact ArtifactSpec_Name
+	Levels   [3]int
+}
+
+func findStoneCount(artifacts []*ArtifactInventoryItem, target ArtifactSpec_Name) StoneCount {
+	// Levels is an array of 3 stone levels.
+	stones := [3]int{0, 0, 0}
+	for _, artifact := range artifacts {
+		spec := artifact.GetArtifact().GetSpec()
+		if spec.GetName() == target {
+			// This is an unslotted artifact, so we can count the stones directly from the spec.
+			if spec.GetLevel() >= 0 && spec.GetLevel() < 3 {
+				stones[spec.GetLevel()] += int(artifact.GetQuantity())
+			}
+			continue
+		}
+
+		// Look for slotted stones of these types
+		for _, stone := range artifact.GetArtifact().GetStones() {
+			if stone.GetName() == target {
+				stones[stone.GetLevel()]++
+			}
+		}
+	}
+	return StoneCount{Artifact: target, Levels: stones}
+}
+
+func formatSpecLevelRarity(spec *ArtifactSpec) string {
+	if spec == nil {
+		return "none"
+	}
+	levelStr := "T?"
+	if int(spec.GetLevel()) >= 0 && int(spec.GetLevel()) < len(ArtifactLevels) {
+		levelStr = ArtifactLevels[spec.GetLevel()]
+	}
+	rarityStr := "?"
+	if int(spec.GetRarity()) >= 0 && int(spec.GetRarity()) < len(ArtifactRarity) {
+		rarityStr = ArtifactRarity[spec.GetRarity()]
+	}
+	return fmt.Sprintf("%s %s%s", spec.GetName().String(), levelStr, rarityStr)
+}
+
+func formatArtifactLabel(item *ArtifactInventoryItem) string {
+	if item == nil {
+		return "none"
+	}
+	artifact := item.GetArtifact()
+	if artifact == nil {
+		return "none"
+	}
+	return formatSpecLevelRarity(artifact.GetSpec())
+}
+
+func formatStoneCount(stones StoneCount) string {
+	return fmt.Sprintf("%s T1=%d T2=%d T3=%d", stones.Artifact.String(), stones.Levels[0], stones.Levels[1], stones.Levels[2])
+}
+
+// ExamineArtifacts is a placeholder function to examine artifacts, currently it just retrieves the spec for each artifact
+func ExamineArtifacts(artifacts []*ArtifactInventoryItem) {
+
+	// ELR Artifacts
+	bestMetronome := findBestArtifact(artifacts, ArtifactSpec_QUANTUM_METRONOME)
+	bestCompass := findBestArtifact(artifacts, ArtifactSpec_INTERSTELLAR_COMPASS)
+	bestGusset := findBestArtifact(artifacts, ArtifactSpec_ORNATE_GUSSET)
+	tachStones := findStoneCount(artifacts, ArtifactSpec_TACHYON_STONE)
+	quantStones := findStoneCount(artifacts, ArtifactSpec_QUANTUM_STONE)
+	lifeStones := findStoneCount(artifacts, ArtifactSpec_LIFE_STONE)
+	lunarStones := findStoneCount(artifacts, ArtifactSpec_LUNAR_STONE)
+	shellStones := findStoneCount(artifacts, ArtifactSpec_SHELL_STONE)
+
+	// Coop Artifacts
+	bestDelector := findBestArtifact(artifacts, ArtifactSpec_TACHYON_DEFLECTOR)
+	bestShip := findBestArtifact(artifacts, ArtifactSpec_SHIP_IN_A_BOTTLE)
+
+	// Earnings Artifacts
+	bestAhnk := findBestArtifact(artifacts, ArtifactSpec_TUNGSTEN_ANKH)
+	bestNecklace := findBestArtifact(artifacts, ArtifactSpec_DEMETERS_NECKLACE)
+	bestTotem := findBestArtifact(artifacts, ArtifactSpec_LUNAR_TOTEM)
+
+	// Discount Artifacts
+	bestCube := findBestArtifact(artifacts, ArtifactSpec_PUZZLE_CUBE)
+
+	// IHR Artifacts
+	bestChalice := findBestArtifact(artifacts, ArtifactSpec_THE_CHALICE)
+
+	selected := []*CompleteArtifact{}
+	for _, item := range []*ArtifactInventoryItem{
+		bestDelector,
+		bestShip,
+		bestAhnk,
+		bestNecklace,
+		bestTotem,
+		bestCube,
+		bestChalice,
+		bestMetronome,
+		bestCompass,
+		bestGusset,
+	} {
+		if item != nil && item.GetArtifact() != nil {
+			selected = append(selected, item.GetArtifact())
+		}
+	}
+	/*
+		if len(selected) > 0 {
+			buffs := GetArtifactBuffs(selected)
+			log.Printf("Buffs ELR=%.3f SR=%.3f IHR=%.3f Hab=%.3f Earn=%.3f Away=%.3f Research=%.3f",
+				buffs.ELR,
+				buffs.SR,
+				buffs.IHR,
+				buffs.Hab,
+				buffs.Earnings,
+				buffs.AwayEarnings,
+				buffs.ResearchDiscount,
+			)
+		}
+	*/
+
+	log.Printf("Deflector: %s", formatArtifactLabel(bestDelector))
+	log.Printf("Ship in a Bottle: %s", formatArtifactLabel(bestShip))
+	log.Printf("Ankh: %s", formatArtifactLabel(bestAhnk))
+	log.Printf("Necklace: %s", formatArtifactLabel(bestNecklace))
+	log.Printf("Totem: %s", formatArtifactLabel(bestTotem))
+	log.Printf("Cube: %s", formatArtifactLabel(bestCube))
+	log.Printf("Chalice: %s", formatArtifactLabel(bestChalice))
+	log.Printf("Metronome: %s", formatArtifactLabel(bestMetronome))
+	log.Printf("Compass: %s", formatArtifactLabel(bestCompass))
+	log.Printf("Gusset: %s", formatArtifactLabel(bestGusset))
+	log.Printf("Stones Tachyon: %s", formatStoneCount(tachStones))
+	log.Printf("Stones Quantum: %s", formatStoneCount(quantStones))
+	log.Printf("Stones Life: %s", formatStoneCount(lifeStones))
+	log.Printf("Stones Lunar: %s", formatStoneCount(lunarStones))
+	log.Printf("Stones Shell: %s", formatStoneCount(shellStones))
 }
