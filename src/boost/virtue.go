@@ -1026,7 +1026,7 @@ func getVirtueLaunchedShips(backup *ei.Backup) string {
 		craft := ei.MissionArt.Ships[shipID]
 		art := ei.GetBotEmojiMarkdown(craft.Art)
 		durations := strings.Join(shipGroups[shipID], " / ")
-		output.WriteString(fmt.Sprintf("%s%s\n", art, durations))
+		fmt.Fprintf(&output, "%s%s\n", art, durations)
 	}
 
 	return output.String()

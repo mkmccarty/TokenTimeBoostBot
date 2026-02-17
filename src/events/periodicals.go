@@ -214,7 +214,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 				// Can't continue here on error, so skip this egg
 				continue
 			}
-			builder.WriteString(fmt.Sprintf("New Custom Egg Detected: %s", egg.Name))
+			fmt.Fprintf(&builder, "New Custom Egg Detected: %s", egg.Name)
 
 			description := strings.Join(egg.DimensionValueString, ",") + " " + egg.DimensionName
 			description += fmt.Sprintf("\n%s Value: %g", ei.GetBotEmojiMarkdown(egg.ID), egg.Value)

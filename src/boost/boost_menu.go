@@ -41,13 +41,13 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	case "tools":
 		var outputStrBuilder strings.Builder
 		outputStrBuilder.WriteString("## Boost Tools\n")
-		outputStrBuilder.WriteString(fmt.Sprintf("> **Boost Bot:** %s %s %s\n", bottools.GetFormattedCommand("stones"), bottools.GetFormattedCommand("calc-contract-tval"), bottools.GetFormattedCommand("coop-tval")))
+		fmt.Fprintf(&outputStrBuilder, "> **Boost Bot:** %s %s %s\n", bottools.GetFormattedCommand("stones"), bottools.GetFormattedCommand("calc-contract-tval"), bottools.GetFormattedCommand("coop-tval"))
 		outputStrBuilder.WriteString("> **Wonky:** </auditcoop:1231383614701174814> </optimizestones:1235003878886342707> </srtracker:1158969351702069328>\n")
 		outputStrBuilder.WriteString("> **Web:** \n")
-		outputStrBuilder.WriteString(fmt.Sprintf("> * [%s](%s)\n", "Staabmia Stone Calc", "https://srsandbox-staabmia.netlify.app/stone-calc"))
-		outputStrBuilder.WriteString(fmt.Sprintf("> * [%s](%s)\n", "Kaylier Coop Laying Assistant", "https://ei-coop-assistant.netlify.app/laying-set"))
-		outputStrBuilder.WriteString(fmt.Sprintf("> * [%s](%s)\n", "Token Farmer", "http://t-farmer.gigalixirapp.com/"))
-		outputStrBuilder.WriteString(fmt.Sprintf("> * [%s](%s)\n", "Tokification: Android App for Speedrunners!", "https://github.com/ItsJustSomeDude/tokification-android/releases"))
+		fmt.Fprintf(&outputStrBuilder, "> * [%s](%s)\n", "Staabmia Stone Calc", "https://srsandbox-staabmia.netlify.app/stone-calc")
+		fmt.Fprintf(&outputStrBuilder, "> * [%s](%s)\n", "Kaylier Coop Laying Assistant", "https://ei-coop-assistant.netlify.app/laying-set")
+		fmt.Fprintf(&outputStrBuilder, "> * [%s](%s)\n", "Token Farmer", "http://t-farmer.gigalixirapp.com/")
+		fmt.Fprintf(&outputStrBuilder, "> * [%s](%s)\n", "Tokification: Android App for Speedrunners!", "https://github.com/ItsJustSomeDude/tokification-android/releases")
 		outputStr := outputStrBuilder.String()
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -65,7 +65,7 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		outputStrBuilder.WriteString("\\* Equip Deflector.\n")
 		outputStrBuilder.WriteString("\\* State the number of tokens needed to boost with.\n")
 		outputStrBuilder.WriteString("\\* Boost.\n")
-		outputStrBuilder.WriteString(fmt.Sprintf("\necoopad %s %s\n", contract.ContractID, contract.CoopID))
+		fmt.Fprintf(&outputStrBuilder, "\necoopad %s %s\n", contract.ContractID, contract.CoopID)
 
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -231,12 +231,12 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 
 		var chickenRunList strings.Builder
-		chickenRunList.WriteString(fmt.Sprintf("# %s My Chicken Runs\n", ei.GetBotEmojiMarkdown("icon_chicken_run")))
+		fmt.Fprintf(&chickenRunList, "# %s My Chicken Runs\n", ei.GetBotEmojiMarkdown("icon_chicken_run"))
 
 		if len(booster.RanChickensOn) == 0 {
 			chickenRunList.WriteString("You haven't run chickens for anyone yet.")
 		} else {
-			chickenRunList.WriteString(fmt.Sprintf("You have run chickens for %d farmer(s):\n\n", len(booster.RanChickensOn)))
+			fmt.Fprintf(&chickenRunList, "You have run chickens for %d farmer(s):\n\n", len(booster.RanChickensOn))
 			for _, requesterID := range booster.RanChickensOn {
 				if requester := contract.Boosters[requesterID]; requester != nil {
 					// Find the position in the boost order
@@ -247,7 +247,7 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 							break
 						}
 					}
-					chickenRunList.WriteString(fmt.Sprintf("* #%d - %s\n", position, requester.Mention))
+					fmt.Fprintf(&chickenRunList, "* #%d - %s\n", position, requester.Mention)
 				}
 			}
 		}

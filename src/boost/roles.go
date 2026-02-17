@@ -295,7 +295,7 @@ func fetchContractTeamNames(prompt string, quantity int) []string {
 			continue
 		}
 		for _, part := range cand.Content.Parts {
-			respStr.WriteString(fmt.Sprint(part.Text))
+			fmt.Fprint(&respStr, part.Text)
 		}
 	}
 

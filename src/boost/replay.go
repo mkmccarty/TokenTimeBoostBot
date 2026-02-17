@@ -299,7 +299,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 	} else if len(contractIDList) > 1 {
 		builder.WriteString("## Displaying contract scores for future predictions:\n")
 	} else {
-		builder.WriteString(fmt.Sprintf("## Displaying contract scores less than %d%% of speedrun potential:\n", percent))
+		fmt.Fprintf(&builder, "## Displaying contract scores less than %d%% of speedrun potential:\n", percent)
 	}
 	components = append(components, &discordgo.TextDisplay{
 		Content: builder.String(),
@@ -570,7 +570,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 	}
 
 	if percent != -1 {
-		builder.WriteString(fmt.Sprintf("Showing %d of your %d contracts that met this condition.\n", pagecount, count))
+		fmt.Fprintf(&builder, "Showing %d of your %d contracts that met this condition.\n", pagecount, count)
 		builder.WriteString("-# The order is based in your contract archive order.\n")
 	}
 	if count == 0 {
