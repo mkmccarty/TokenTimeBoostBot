@@ -150,11 +150,11 @@ func TestNextTruthEggThreshold(t *testing.T) {
 			description: "Should return threshold for eov + 1 when tiers passed is == eov.",
 		},
 		{
-			name:        "Tiers passed > eov",
+			name:        "Tiers passed < eov",
 			delivered:   753946034139,
 			eov:         6,
 			expected:    7000000000000,
-			description: "Should return next unpassed threshold when tiers passed is > eov.",
+			description: "Should return next unpassed threshold when tiers passed is < eov.",
 		},
 	}
 
