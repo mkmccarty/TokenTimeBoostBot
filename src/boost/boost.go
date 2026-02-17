@@ -1026,8 +1026,8 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 				eov := virtue.GetEovEarned()[i]
 				delivered := virtue.GetEggsDelivered()[i]
 
-				eovEarned := countTETiersPassed(delivered)
-				eovPending := pendingTruthEggs(delivered, eov)
+				eovEarned := ei.CountTruthEggTiersPassed(delivered)
+				eovPending := ei.PendingTruthEggs(delivered, eov)
 
 				allEov += max(eovEarned-eovPending, 0)
 			}

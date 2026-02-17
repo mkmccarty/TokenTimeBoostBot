@@ -3,6 +3,7 @@ package boost
 import (
 	"encoding/base64"
 	"fmt"
+	"log"
 	"math"
 	"slices"
 	"strconv"
@@ -260,10 +261,10 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 		eov := virtue.GetEovEarned()[i] // Assuming Eggs is the correct field for accessing egg virtues
 		delivered := virtue.GetEggsDelivered()[i]
 
-		eovEarned := countTETiersPassed(delivered)
+		eovEarned := ei.CountTruthEggTiersPassed(delivered)
 		// pendingTruthEggs calculates the number of pending Truth Eggs based on delivered and earnedTE.
-		eovPending := pendingTruthEggs(delivered, eov)
-		nextTier := nextTruthEggThreshold(delivered, eov)
+		eovPending := ei.PendingTruthEggs(delivered, eov)
+		nextTier := ei.NextTruthEggThreshold(delivered, eov)
 		selected := ""
 		if simulatedEgg != -1 {
 			if simulatedEgg == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
@@ -343,7 +344,19 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 		}
 	*/
 
+	cte := ei.CalculateClothedTE(backup)
+	maxCTEResult := ei.CalculateMaxClothedTEWithSlotHint(backup, len(inUseArtifacts))
+	maxCTE := maxCTEResult.ClothedTE
+	cteDelta := maxCTE - cte
+	if config.IsDevBot() {
+		log.Printf("Calculated Clothed TE: %f, Max Clothed TE: %f\n", cte, maxCTE)
+		for _, line := range ei.DescribeArtifactSetWithStones(maxCTEResult.Artifacts) {
+			log.Printf("Max CTE set: %s\n", line)
+		}
+	}
+	fmt.Fprintf(&header, "**CTE**: %.0f  **Max CTE**: %.0f\n", cte, maxCTE)
 	artifactIcons := ""
+	maxArtifactIcons := ""
 
 	for _, artifact := range virtueArtifacts {
 		artifactID := artifact.GetItemId()
@@ -362,6 +375,17 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 					artifactIcons += ei.GetBotEmojiMarkdown(fmt.Sprintf("%s%s", ei.ShortArtifactName[int32(spec.GetName())], strType))
 				}
 			}
+		}
+	}
+
+	if config.IsDevBot() {
+		for _, a := range maxCTEResult.Artifacts {
+			if a == nil || a.GetSpec() == nil {
+				continue
+			}
+			spec := a.GetSpec()
+			strType := ei.ArtifactLevels[spec.GetLevel()] + ei.ArtifactRarity[spec.GetRarity()]
+			maxArtifactIcons += ei.GetBotEmojiMarkdown(fmt.Sprintf("%s%s", ei.ShortArtifactName[int32(spec.GetName())], strType))
 		}
 	}
 
@@ -539,7 +563,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 		offsetRemainingTime := -1.0
 		if currentEggIndex != -1 && targetTE != 0 {
 
-			currentEggTarget = TruthEggBreakpoints[targetTE-1]
+			currentEggTarget = ei.TruthEggThresholdByIndex(uint32(targetTE))
 
 			remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, currentEggTarget-currentDelivered)
 			adjustedRemainingTime := remainingTime - elapsed
@@ -619,7 +643,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 			header.WriteString(bold)
 
 			// Prepare for next threshold
-			currentSelectedTarget = nextTruthEggThreshold(currentSelectedTarget, 0)
+			currentSelectedTarget = ei.NextTruthEggThreshold(currentSelectedTarget, 0)
 			if currentSelectedTarget == math.Inf(1) {
 				break
 			}
@@ -687,6 +711,19 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 		}
 
 		fmt.Fprint(&stats, "\n")
+	}
+
+	if config.IsDevBot() {
+		if maxArtifactIcons != "" {
+			fmt.Fprintf(&stats, "%s **Max CTE** %.0f\n", maxArtifactIcons, maxCTE)
+			for _, line := range ei.DescribeArtifactSetWithStones(maxCTEResult.Artifacts) {
+				fmt.Fprintf(&stats, "-# %s\n", line)
+			}
+		}
+
+		if artifactIcons != "" && maxArtifactIcons != "" && artifactIcons != maxArtifactIcons && cteDelta > 0 {
+			fmt.Fprintf(&stats, "%s ➜ %s  **+%.0f CTE**\n", artifactIcons, maxArtifactIcons, cteDelta)
+		}
 	}
 
 	fmt.Fprintf(&stats, "%s", ei.GetBotEmojiMarkdown("collegg"))
@@ -1000,68 +1037,6 @@ func getShiftCost(shiftCount uint32, soulEggs float64) float64 {
 	C := math.Pow(10, 11) + 0.6*X + math.Pow(0.4*X, 0.9)
 
 	return C
-}
-
-func init() {
-	// Build a Breakpoint table for Truth Eggs
-	// Used for calculating required eggs laid for TE above 16.
-	// a_m = 1e17 + (m-17)*5e16 + ((m-17)*(m-18)/2)*1e16
-
-	for m := 17; m <= 98; m++ {
-		am := 1e17 + float64(m-17)*5e16 + float64((m-17)*(m-18)/2)*1e16
-		TruthEggBreakpoints = append(TruthEggBreakpoints, am)
-	}
-}
-
-// TruthEggBreakpoints is a slice containing all known tiers to 16 TE
-var TruthEggBreakpoints = []float64{
-	5e7,    // 50M
-	1e9,    // 1B
-	1e10,   // 10B
-	7e10,   // 70B
-	5e11,   // 500B
-	2e12,   // 2T
-	7e12,   // 7T
-	2e13,   // 20T
-	6e13,   // 60T
-	1.5e14, // 150T
-	5e14,   // 500T
-	1.5e15, // 1.5q
-	4e15,   // 4q
-	1e16,   // 10q
-	2.5e16, // 25q
-	5e16,   // 50q
-}
-
-// countTETiersPassed returns the number of TE tiers passed for a given delivered value.
-func countTETiersPassed(delivered float64) uint32 {
-	i := 0
-	for i < len(TruthEggBreakpoints) && delivered >= TruthEggBreakpoints[i] {
-		i++
-	}
-	return uint32(i)
-}
-
-// pendingTruthEggs calculates the number of pending Truth Eggs for a given delivered value and earned Truth Eggs.
-func pendingTruthEggs(delivered float64, earnedTE uint32) uint32 {
-	tiersPassed := countTETiersPassed(delivered)
-	if tiersPassed <= earnedTE {
-		return 0
-	}
-	return tiersPassed - earnedTE
-}
-
-// nextTruthEggThreshold returns the next Truth Egg threshold for a given delivered value.
-// If all tiers are passed, it returns math.Inf(1).
-func nextTruthEggThreshold(delivered float64, eov uint32) float64 {
-	tiersPassed := countTETiersPassed(delivered)
-	if tiersPassed != 0 && tiersPassed < eov {
-		tiersPassed = eov
-	}
-	if int(tiersPassed) >= len(TruthEggBreakpoints) {
-		return math.Inf(1)
-	}
-	return TruthEggBreakpoints[tiersPassed]
 }
 
 // Return highest hab icon and array of hab icons
