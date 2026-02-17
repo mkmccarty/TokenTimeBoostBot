@@ -1,8 +1,6 @@
 package boost
 
 import (
-	"strings"
-
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 )
@@ -144,7 +142,7 @@ func HandleSlashVoluntellSinkCommand(s *discordgo.Session, i *discordgo.Interact
 
 		if !confirm {
 			str = "You must confirm you want to be the token sink"
-		} else if strings.HasPrefix(VoluntellName, "<@") {
+		} else if _, isMention := parseMentionUserID(VoluntellName); isMention {
 			str = "This should be a guest farmer within this contract and not a user mention."
 		} else if contract.Banker.PostSinkUserID != "" && !isAdmin {
 			str = "Token sink is already set"

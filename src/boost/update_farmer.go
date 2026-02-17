@@ -115,13 +115,10 @@ func HandleUpdateCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	resultMsg := ""
 
 	// Try to find the user by farmername or discord mention
-	if farmername != "" && strings.HasPrefix(farmername, "<@") {
-		// Extract user ID from mention
-		mention := farmername[2 : len(farmername)-1]
-		if mention[0] == '!' {
-			mention = mention[1:]
+	if farmername != "" {
+		if mentionID, isMention := parseMentionUserID(farmername); isMention {
+			userID = mentionID
 		}
-		userID = mention
 	}
 
 	// Handle the specific subcommand
