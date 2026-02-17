@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -106,16 +105,14 @@ func HandleChangeSpeedrunSinkCommand(s *discordgo.Session, i *discordgo.Interact
 
 	if opt, ok := optionMap["sink-boosting"]; ok {
 		sinkBoost = strings.TrimSpace(opt.StringValue())
-		reMention := regexp.MustCompile(`<@!?(\d+)>`)
-		if reMention.MatchString(sinkBoost) {
-			sinkBoost = sinkBoost[2 : len(sinkBoost)-1]
+		if mentionID, isMention := parseMentionUserID(sinkBoost); isMention {
+			sinkBoost = mentionID
 		}
 	}
 	if opt, ok := optionMap["sink-post"]; ok {
 		sinkPost = strings.TrimSpace(opt.StringValue())
-		reMention := regexp.MustCompile(`<@!?(\d+)>`)
-		if reMention.MatchString(sinkPost) {
-			sinkPost = sinkPost[2 : len(sinkPost)-1]
+		if mentionID, isMention := parseMentionUserID(sinkPost); isMention {
+			sinkPost = mentionID
 		}
 	}
 
@@ -157,16 +154,14 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	if opt, ok := optionMap["sink-boosting"]; ok {
 		sinkPost = strings.TrimSpace(opt.StringValue())
-		reMention := regexp.MustCompile(`<@!?(\d+)>`)
-		if reMention.MatchString(sinkBoost) {
-			sinkBoost = sinkBoost[2 : len(sinkBoost)-1]
+		if mentionID, isMention := parseMentionUserID(sinkBoost); isMention {
+			sinkBoost = mentionID
 		}
 	}
 	if opt, ok := optionMap["sink-post"]; ok {
 		sinkPost = strings.TrimSpace(opt.StringValue())
-		reMention := regexp.MustCompile(`<@!?(\d+)>`)
-		if reMention.MatchString(sinkPost) {
-			sinkPost = sinkPost[2 : len(sinkPost)-1]
+		if mentionID, isMention := parseMentionUserID(sinkPost); isMention {
+			sinkPost = mentionID
 		}
 	}
 	if opt, ok := optionMap["chicken-runs"]; ok {

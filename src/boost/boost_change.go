@@ -101,18 +101,14 @@ func GetSlasLinkAlternateCommand(cmd string) *discordgo.ApplicationCommand {
 }
 
 func extractUserID(s *discordgo.Session, boosterName string) (string, error) {
-	if strings.HasPrefix(boosterName, "<@") {
-		re := regexp.MustCompile(`[<>@!]`)
-		userID := re.ReplaceAllString(boosterName, "")
-
-		// Verify if this is an actual user
-		var u, err = s.User(userID)
+	if userID, isMention := parseMentionUserID(boosterName); isMention {
+		u, err := s.User(userID)
 		if err != nil {
 			return "", err
 		}
 		return u.ID, nil
 	}
-	return boosterName, nil
+	return normalizeUserIDInput(boosterName), nil
 }
 
 // HandleChangeOneBoosterCommand will handle the /change-one-booster command
@@ -428,8 +424,7 @@ func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string
 
 	log.Println("ChangeCurrentBooster", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "NewBooster: ", newBooster)
 
-	re := regexp.MustCompile(`[\\<>@#&!]`)
-	var newBoosterUserID = re.ReplaceAllString(newBooster, "")
+	newBoosterUserID := normalizeUserIDInput(newBooster)
 
 	newBoosterIndex := slices.Index(contract.Order, newBoosterUserID)
 	if newBoosterIndex == -1 {
@@ -495,7 +490,7 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 	// split the boostOrder string into an array by commas
 	re := regexp.MustCompile(`[\\<>@#&!]`)
 	if boostOrder != "" {
-		boostOrderClean = re.ReplaceAllString(boostOrder, "")
+		boostOrderClean = re.ReplaceAllString(normalizeMentionSyntax(boostOrder), "")
 	}
 
 	var boostOrderArray = strings.Split(boostOrderClean, ",")

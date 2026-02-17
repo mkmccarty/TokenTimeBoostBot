@@ -8,7 +8,6 @@ import (
 	"log"
 	"math"
 	"math/rand/v2"
-	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -652,9 +651,8 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 		return errors.New(errorNoContract)
 	}
 
-	re := regexp.MustCompile(`[\\<>@#&!]`)
 	if mention != "" {
-		var userID = re.ReplaceAllString(mention, "")
+		userID := normalizeUserIDInput(mention)
 		idx := slices.Index(contract.Order, userID)
 		if idx != -1 {
 			return errors.New(errorUserInContract)
@@ -1175,20 +1173,13 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 	if len(contract.Boosters) == 0 {
 		return errors.New(errorContractEmpty)
 	}
-	userID := mention
+	userID := normalizeUserIDInput(mention)
 
-	if strings.HasPrefix(userID, "<@") {
-		var u, _ = s.User(userID)
-		if u != nil {
-			if u.Bot {
-				return errors.New(errorBot)
-			}
+	if _, isMention := parseMentionUserID(mention); isMention {
+		u, _ := s.User(userID)
+		if u != nil && u.Bot {
+			return errors.New(errorBot)
 		}
-		offset := 2
-		if strings.HasPrefix(userID, "<@!") {
-			offset = 3
-		}
-		userID = mention[offset : len(mention)-1]
 	}
 
 	// If the farmer is on the waitlist, remove them from it
@@ -1552,9 +1543,7 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 			return errors.New(errorSpeedrunContract)
 		}
 	*/
-	re := regexp.MustCompile(`[\\<>@#&!]`)
-	var userID = re.ReplaceAllString(mention, "")
-	userID = strings.TrimSpace(userID)
+	userID := normalizeUserIDInput(mention)
 
 	var u, _ = s.User(userID)
 	if u != nil {

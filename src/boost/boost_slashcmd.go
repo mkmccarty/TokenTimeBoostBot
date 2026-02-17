@@ -160,7 +160,7 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	if opt, ok := optionMap["farmer"]; ok {
 		farmerName := opt.StringValue()
-		if strings.HasPrefix(farmerName, "<@") {
+		if _, isMention := parseMentionUserID(farmerName); isMention {
 			mention = farmerName
 		} else {
 			guestNames = farmerName
@@ -173,7 +173,7 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		tokenWant = int(opt.IntValue())
 		str += " with " + fmt.Sprintf("%d", tokenWant) + " boost tokens"
 		if guestNames == "" {
-			farmerstate.SetTokens(mention[2:len(mention)-1], tokenWant)
+			farmerstate.SetTokens(normalizeUserIDInput(mention), tokenWant)
 		}
 
 	}
