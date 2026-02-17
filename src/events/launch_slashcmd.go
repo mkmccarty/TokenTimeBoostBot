@@ -381,7 +381,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		// for each ship, calculate the arrival time
 		// if arrival time is less than endTime, then add to the message
 
-		header.WriteString(fmt.Sprintf("## Mission arriving on <t:%d:f> (FTL:%d)\n", arrivalTime.Unix(), ftlLevel))
+		fmt.Fprintf(&header, "## Mission arriving on <t:%d:f> (FTL:%d)\n", arrivalTime.Unix(), ftlLevel)
 
 		for shipIndex, ship := range missionShips {
 			var sName = " " + ship.Name
@@ -460,7 +460,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 					}
 				}
 
-				builder.WriteString(fmt.Sprintf("> %s%s%s%s%s (%s): <t:%d:t>%s\n", dcBubble, sunBubble, sArt, shipDurationName[i], sName, bottools.FmtDuration(ftlDuration), launchTime.Unix(), chainString))
+				fmt.Fprintf(&builder, "> %s%s%s%s%s (%s): <t:%d:t>%s\n", dcBubble, sunBubble, sArt, shipDurationName[i], sName, bottools.FmtDuration(ftlDuration), launchTime.Unix(), chainString)
 				if shipIndex != 0 && len(missionShips) > 2 && selectedShipSecondary < -1 {
 					break
 				}
@@ -526,7 +526,7 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			}
 		}
 		hours := e.EndTime.Sub(e.StartTime).Hours()
-		prevEvents.WriteString(fmt.Sprintf("%s %s for %.2dh on <t:%d:R>\n", eventIconStr, e.Message, int(hours), e.StartTime.Unix()))
+		fmt.Fprintf(&prevEvents, "%s %s for %.2dh on <t:%d:R>\n", eventIconStr, e.Message, int(hours), e.StartTime.Unix())
 		//prevEvents.WriteString(fmt.Sprintf("%s on <t:%d:d>\n", e.Message, e.StartTime.Unix()))
 	}
 	components = append(components, &discordgo.TextDisplay{

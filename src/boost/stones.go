@@ -920,7 +920,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 			if as.name != "[departed]" {
 				url := bottools.GetStaabmiaLink(true, dimension, rate, int(everyoneDeflectorPercent), as.staabArtifacts, as.colleggSR, as.colleggELR, as.colleggHab)
-				builderURL.WriteString(fmt.Sprintf("🔗[%s](%s)\n", as.nameRaw, url))
+				fmt.Fprintf(&builderURL, "🔗[%s](%s)\n", as.nameRaw, url)
 				fmt.Fprintf(&tileBuilder, "[%sCalc](%s)", ei.GetBotEmojiMarkdown("staab"), url)
 			}
 
@@ -1034,7 +1034,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		UpdateContractTime(coopStatus.GetContractIdentifier(), coopStatus.GetCoopIdentifier(), startTime, endTime, contractDurationSeconds)
 
-		builder.WriteString(fmt.Sprintf("Start: **<t:%d:t>**   %s: **<t:%d:t>** for **%v**\n", startTime.Unix(), endStr, endTime.Unix(), endTime.Sub(startTime).Round(time.Second)))
+		fmt.Fprintf(&builder, "Start: **<t:%d:t>**   %s: **<t:%d:t>** for **%v**\n", startTime.Unix(), endStr, endTime.Unix(), endTime.Sub(startTime).Round(time.Second))
 		if eiContract.ModifierELR != 1.0 {
 			fmt.Fprintf(&builder, "ELR Modifier: %2.2fx\n", eiContract.ModifierELR)
 		}
@@ -1063,15 +1063,15 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	// Write out the table Header and Data
 	builder.WriteString("```")
-	builder.WriteString(fmt.Sprintf("`%s`\n", tableHeader))
+	fmt.Fprintf(&builder, "`%s`\n", tableHeader)
 	for _, d := range tableData {
-		builder.WriteString(fmt.Sprintf("`%v`\n", d))
+		fmt.Fprintf(&builder, "`%v`\n", d)
 	}
 	builder.WriteString("```")
 
 	for _, as := range artifactSets {
 		if len(as.note) > 0 {
-			builder.WriteString(fmt.Sprintf("**%s** Notes: %s\n", as.name, strings.Join(as.note, ", ")))
+			fmt.Fprintf(&builder, "**%s** Notes: %s\n", as.name, strings.Join(as.note, ", "))
 		}
 	}
 
@@ -1083,7 +1083,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 		builder.WriteString("√ Match / 🚩Research / 💎Missing / 🏠Filling(🐣CR) / 🧩Slotted / 🎣Away" + habGlitch + "\n")
 	}
-	builder.WriteString(fmt.Sprintf("Colleggtibles show when less than %s\n", strings.Join(colleggtibleStr, ", ")))
+	fmt.Fprintf(&builder, "Colleggtibles show when less than %s\n", strings.Join(colleggtibleStr, ", "))
 
 	return builder.String(), builderURL.String(), field
 }

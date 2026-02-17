@@ -128,7 +128,7 @@ func HandleAdminListRoles(s *discordgo.Session, i *discordgo.InteractionCreate) 
 							break
 						}
 					}
-					builder.WriteString(fmt.Sprintf("%s\n", name))
+					fmt.Fprintf(&builder, "%s\n", name)
 				}
 			}
 		}
