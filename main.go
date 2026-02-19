@@ -1179,11 +1179,21 @@ func startHeartbeat(filepath string, interval time.Duration) {
 					log.Printf("Restarting the bot")
 					fmt.Printf("Restarting the bot due to error: %v", err)
 					// At this point lets just exit the process and let something like systemd restart it, since the bot is likely in a bad state if we can't update the status
+					// At this point, trigger a graceful shutdown so deferred cleanups (including s.Close()) run.
 					boost.SaveAllData()
 					track.SaveAllData()
 					// Sleep 5 seconds to allow any in-flight interactions to complete and for the save functions to finish
 					time.Sleep(5 * time.Second)
-					os.Exit(1)
+					// Signal the current process to initiate the normal shutdown path instead of calling os.Exit directly.
+					proc, perr := os.FindProcess(os.Getpid())
+					if perr != nil {
+						log.Printf("Heartbeat error: could not find process for shutdown signal: %v", perr)
+						return
+					}
+					if serr := proc.Signal(syscall.SIGTERM); serr != nil {
+						log.Printf("Heartbeat error: could not signal shutdown: %v", serr)
+					}
+					return
 				}
 			}
 		}
