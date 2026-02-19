@@ -1186,7 +1186,8 @@ func startHeartbeat(filepath string, interval time.Duration) {
 					time.Sleep(5 * time.Second)
 					// Signal the current process to initiate the normal shutdown path instead of calling os.Exit directly.
 					if serr := syscall.Kill(os.Getpid(), syscall.SIGTERM); serr != nil {
-						log.Printf("Heartbeat error: could not signal shutdown (continuing to run in potentially bad state): %v", serr)
+						log.Printf("Heartbeat error: could not signal shutdown (forcing exit): %v", serr)
+						os.Exit(1)
 					}
 					return
 				}
