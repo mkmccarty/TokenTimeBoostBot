@@ -1185,13 +1185,8 @@ func startHeartbeat(filepath string, interval time.Duration) {
 					// Sleep 5 seconds to allow any in-flight interactions to complete and for the save functions to finish
 					time.Sleep(5 * time.Second)
 					// Signal the current process to initiate the normal shutdown path instead of calling os.Exit directly.
-					proc, perr := os.FindProcess(os.Getpid())
-					if perr != nil {
-						log.Printf("Heartbeat error: could not find process for shutdown signal: %v", perr)
-						return
-					}
-					if serr := proc.Signal(syscall.SIGTERM); serr != nil {
-						log.Printf("Heartbeat error: could not signal shutdown: %v", serr)
+					if serr := syscall.Kill(os.Getpid(), syscall.SIGTERM); serr != nil {
+						log.Printf("Heartbeat error: could not signal shutdown (continuing to run in potentially bad state): %v", serr)
 					}
 					return
 				}
