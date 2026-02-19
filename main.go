@@ -1176,14 +1176,14 @@ func startHeartbeat(filepath string, interval time.Duration) {
 				})
 				if err != nil {
 					log.Printf("Heartbeat error: %v", err)
-					err := s.Close()
-					if err != nil {
-						log.Fatalf("Cannot close the session: %v", err)
-					}
-					err = s.Open()
-					if err != nil {
-						log.Fatalf("Cannot open the session: %v", err)
-					}
+					log.Printf("Restarting the bot")
+					fmt.Printf("Restarting the bot due to error: %v", err)
+					// At this point lets just exit the process and let something like systemd restart it, since the bot is likely in a bad state if we can't update the status
+					boost.SaveAllData()
+					track.SaveAllData()
+					// Sleep 5 seconds to allow any in-flight interactions to complete and for the save functions to finish
+					time.Sleep(5 * time.Second)
+					os.Exit(1)
 				}
 			}
 		}
