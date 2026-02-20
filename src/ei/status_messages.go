@@ -18,6 +18,8 @@ type StatusMessagesFile struct {
 var StatusMessages []string
 var statusMessagesMutex sync.RWMutex
 
+const statusMessageResortFlag = "__TTBB_STATUS_MESSAGES_RESORT__"
+
 // LoadStatusMessages loads status messages from a JSON file
 func LoadStatusMessages(filename string) {
 	file, err := os.Open(filename)
@@ -43,6 +45,9 @@ func LoadStatusMessages(filename string) {
 	rand.Shuffle(len(StatusMessages), func(i, j int) {
 		StatusMessages[i], StatusMessages[j] = StatusMessages[j], StatusMessages[i]
 	})
+	if len(StatusMessages) > 0 {
+		StatusMessages = append(StatusMessages, statusMessageResortFlag)
+	}
 	statusMessagesMutex.Unlock()
 
 	log.Printf("Loaded %d status messages", len(messagesLoaded.StatusMessages))
@@ -51,13 +56,26 @@ func LoadStatusMessages(filename string) {
 // GetRandomStatusMessage returns the next status message from a shuffled queue.
 //
 // Messages are shuffled on load, then rotated in order so each message is used
-// once before repeating.
+// once before repeating. When a resort flag reaches the front of the queue,
+// the queue is reshuffled.
 func GetRandomStatusMessage() (string, error) {
 	statusMessagesMutex.Lock()
 	defer statusMessagesMutex.Unlock()
 
 	if len(StatusMessages) == 0 {
 		return "", fmt.Errorf("StatusMessages is empty")
+	}
+
+	if StatusMessages[0] == statusMessageResortFlag {
+		StatusMessages = StatusMessages[1:]
+		if len(StatusMessages) == 0 {
+			return "", fmt.Errorf("StatusMessages is empty")
+		}
+
+		rand.Shuffle(len(StatusMessages), func(i, j int) {
+			StatusMessages[i], StatusMessages[j] = StatusMessages[j], StatusMessages[i]
+		})
+		StatusMessages = append(StatusMessages, statusMessageResortFlag)
 	}
 
 	activity := StatusMessages[0]
