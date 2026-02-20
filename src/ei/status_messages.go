@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/rand"
+	"math/rand/v2"
 	"os"
 	"sync"
 )
@@ -39,20 +39,29 @@ func LoadStatusMessages(filename string) {
 	}
 
 	statusMessagesMutex.Lock()
-	StatusMessages = messagesLoaded.StatusMessages
+	StatusMessages = append([]string(nil), messagesLoaded.StatusMessages...)
+	rand.Shuffle(len(StatusMessages), func(i, j int) {
+		StatusMessages[i], StatusMessages[j] = StatusMessages[j], StatusMessages[i]
+	})
 	statusMessagesMutex.Unlock()
 
 	log.Printf("Loaded %d status messages", len(messagesLoaded.StatusMessages))
 }
 
-// GetRandomStatusMessage returns a random status message
+// GetRandomStatusMessage returns the next status message from a shuffled queue.
+//
+// Messages are shuffled on load, then rotated in order so each message is used
+// once before repeating.
 func GetRandomStatusMessage() (string, error) {
-	statusMessagesMutex.RLock()
-	defer statusMessagesMutex.RUnlock()
+	statusMessagesMutex.Lock()
+	defer statusMessagesMutex.Unlock()
 
 	if len(StatusMessages) == 0 {
 		return "", fmt.Errorf("StatusMessages is empty")
 	}
 
-	return StatusMessages[rand.Intn(len(StatusMessages))], nil
+	activity := StatusMessages[0]
+	StatusMessages = append(StatusMessages[1:], activity)
+
+	return activity, nil
 }
