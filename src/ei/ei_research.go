@@ -406,6 +406,10 @@ func GatherCommonResearchCosts(gemsOnHand float64, offlineRateHr float64, epicRe
 				gemprice := research.Gems[level]
 				remainingCost := math.Max(0, (gemprice*discounts)-gemsOnHand)
 				duration := remainingCost / offlineRateHr
+				bestValue := research.PerLevel
+				if level != 0 {
+					bestValue = (float64(level+1) * research.PerLevel) / (float64(level) * research.PerLevel)
+				}
 
 				if duration > 96 {
 					// If the duration is more than 4 days, skip this research item
@@ -416,7 +420,7 @@ func GatherCommonResearchCosts(gemsOnHand float64, offlineRateHr float64, epicRe
 					Name:      research.Name,
 					Level:     int(level + 1),
 					Price:     gemprice * discounts,
-					BestValue: (float64(level+1) * research.PerLevel) / (float64(level) * research.PerLevel),
+					BestValue: bestValue,
 					TimeToBuy: time.Duration(duration * float64(time.Hour)),
 				}
 
