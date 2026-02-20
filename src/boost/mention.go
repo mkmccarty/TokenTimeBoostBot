@@ -16,7 +16,7 @@ var mentionEscapeReplacer = strings.NewReplacer(
 	`\u003E`, ">",
 )
 
-var userMentionRegex = regexp.MustCompile(`^<@!?(\d+)>$`)
+var userMentionRegex = regexp.MustCompile(`<@!?(\d+)>`)
 
 func normalizeMentionSyntax(value string) string {
 	return mentionEscapeReplacer.Replace(strings.TrimSpace(value))

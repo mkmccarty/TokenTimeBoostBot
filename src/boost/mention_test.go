@@ -11,6 +11,7 @@ func TestParseMentionUserID(t *testing.T) {
 	}{
 		{name: "standard mention", input: "<@1213628790744420364>", wantID: "1213628790744420364", wantOK: true},
 		{name: "nickname mention", input: "<@!1213628790744420364>", wantID: "1213628790744420364", wantOK: true},
+		{name: "nickname mention with extra text", input: "<@!1213628790744420364> (fill)", wantID: "1213628790744420364", wantOK: true},
 		{name: "escaped mention", input: `\u003c@1213628790744420364\u003e`, wantID: "1213628790744420364", wantOK: true},
 		{name: "escaped nickname mention", input: `\u003c@!1213628790744420364\u003e`, wantID: "1213628790744420364", wantOK: true},
 		{name: "plain user id", input: "1213628790744420364", wantID: "", wantOK: false},
