@@ -328,15 +328,46 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 
 	requesterUserID := contract.CRMessageIDs[i.Message.ID]
 
-	contract.mutex.Lock()
-	defer contract.mutex.Unlock()
+	statusColor := func(totalMissing int, totalBoosters int) int {
+		color := 0x00ff00
+		if totalBoosters > 0 {
+			missingPercent := float64(totalMissing) / float64(totalBoosters) * 100
+			if missingPercent > 33.5 {
+				color = 0xff0000
+			} else if missingPercent > 0 {
+				color = 0xffff00
+			}
+		}
+		return color
+	}
 
+	buildRunLists := func() ([]string, []string) {
+		alreadyRun := make([]string, 0, len(contract.Boosters))
+		missing := make([]string, 0, len(contract.Boosters))
+		for _, booster := range contract.Boosters {
+			if booster.UserID == requesterUserID {
+				continue
+			}
+			if slices.Contains(booster.RanChickensOn, requesterUserID) {
+				alreadyRun = append(alreadyRun, booster.Mention)
+			} else {
+				missing = append(missing, booster.Mention)
+			}
+		}
+		return alreadyRun, missing
+	}
+
+	contract.mutex.Lock()
 	userBooster := contract.Boosters[cUserID]
 
 	// Current user already ran?
 	if slices.Contains(userBooster.RanChickensOn, requesterUserID) {
+		contract.mutex.Unlock()
 		return
 	}
+
+	oldAlreadyRun, oldMissing := buildRunLists()
+	oldColor := statusColor(len(oldMissing), len(oldAlreadyRun)+len(oldMissing))
 
 	// Mark the run for the current user and all their alts
 	for _, id := range append([]string{cUserID}, userBooster.Alts...) {
@@ -346,25 +377,9 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 		}
 	}
 
-	// Build Already run / Missing lists for all boosters
-	var alreadyRun, missing []string
-
-	add := func(b *Booster) {
-		if b.UserID == requesterUserID {
-			return
-		}
-		if slices.Contains(b.RanChickensOn, requesterUserID) {
-			alreadyRun = append(alreadyRun, b.Mention)
-		} else {
-			missing = append(missing, b.Mention)
-		}
-	}
-
-	for _, booster := range contract.Boosters {
-		if booster.UserID != requesterUserID {
-			add(booster)
-		}
-	}
+	alreadyRun, missing := buildRunLists()
+	newColor := statusColor(len(missing), len(alreadyRun)+len(missing))
+	contract.mutex.Unlock()
 
 	// Rebuild message
 	var b strings.Builder
@@ -393,25 +408,23 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 	//log.Print("Ran Chicken")
 	msgedit := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 	//msgedit.SetContent(str)
-	color := 0x00ff00 // green
-	totalBoosters := len(alreadyRun) + len(missing)
-	if totalBoosters > 0 {
-		missingPercent := float64(len(missing)) / float64(totalBoosters) * 100
-		if missingPercent > 33.5 {
-			color = 0xff0000 // red
-		} else if missingPercent > 0 {
-			color = 0xffff00 // yellow
-		}
+	title := "Runners"
+	if len(i.Message.Embeds) > 0 {
+		title = i.Message.Embeds[0].Title
 	}
 	msgedit.SetEmbeds([]*discordgo.MessageEmbed{
 		{
-			Title:       i.Message.Embeds[0].Title,
+			Title:       title,
 			Description: str,
-			Color:       color,
+			Color:       newColor,
 		},
 	})
 	msgedit.Flags = discordgo.MessageFlagsSuppressNotifications
 	_, _ = s.ChannelMessageEditComplex(msgedit)
+
+	if newColor != oldColor {
+		refreshBoostListMessage(s, contract, false)
+	}
 
 }
 
