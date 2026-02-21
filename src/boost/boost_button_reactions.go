@@ -326,7 +326,7 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 		return
 	}
 
-	requesterUserID := contract.CRMessageIDs[i.Message.ID]
+	var requesterUserID string
 
 	statusColor := func(totalMissing int, totalBoosters int) int {
 		color := 0x00ff00
@@ -358,6 +358,7 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 	}
 
 	contract.mutex.Lock()
+	requesterUserID = contract.CRMessageIDs[i.Message.ID]
 	userBooster := contract.Boosters[cUserID]
 
 	// Current user already ran?
