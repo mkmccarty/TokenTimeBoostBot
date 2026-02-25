@@ -370,6 +370,7 @@ func moveOverflowBoostersToWaitlist(contract *Contract) []string {
 
 	movedLabels := make([]string, 0, len(overflowUsers))
 	movedUserIDs := make([]string, 0, len(overflowUsers))
+	altRelationshipsChanged := false
 
 	for _, userID := range overflowUsers {
 		for {
@@ -397,16 +398,19 @@ func moveOverflowBoostersToWaitlist(contract *Contract) []string {
 				if altIdx != -1 {
 					contract.Boosters[mainUserID].Alts = removeIndex(contract.Boosters[mainUserID].Alts, altIdx)
 					contract.Boosters[mainUserID].AltsIcons = removeIndex(contract.Boosters[mainUserID].AltsIcons, altIdx)
+					altRelationshipsChanged = true
 				}
 			}
 		} else if len(booster.Alts) > 0 {
 			for _, altID := range booster.Alts {
 				if contract.Boosters[altID] != nil {
 					contract.Boosters[altID].AltController = ""
+					altRelationshipsChanged = true
 				}
 			}
 			booster.Alts = nil
 			booster.AltsIcons = nil
+			altRelationshipsChanged = true
 		}
 
 		movedUserIDs = append(movedUserIDs, userID)
@@ -430,6 +434,11 @@ func moveOverflowBoostersToWaitlist(contract *Contract) []string {
 	}
 
 	contract.WaitlistBoosters = append(movedUserIDs, filteredExistingWaitlist...)
+
+	if altRelationshipsChanged {
+		rebuildAltList(contract)
+		contract.buttonComponents = nil
+	}
 
 	contract.RegisteredNum = len(contract.Boosters)
 	contract.OrderRevision++

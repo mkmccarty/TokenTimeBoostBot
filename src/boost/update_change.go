@@ -160,7 +160,6 @@ func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 					if movedToWaitlist > 0 {
 						resultMsg += fmt.Sprintf(". Moved %d booster(s) to waitlist.", movedToWaitlist)
 					}
-					refreshBoostListMessage(s, contract, false)
 				}
 
 			case "coordinator":
