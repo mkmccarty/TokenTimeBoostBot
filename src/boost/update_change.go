@@ -143,7 +143,7 @@ func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 			switch subcommand {
 			case "coop-id":
-				err := ChangeContractIDs(s, i.GuildID, i.ChannelID, i.Member.User.ID, "", coopIDValue, "")
+				_, err := ChangeContractIDs(s, i.GuildID, i.ChannelID, i.Member.User.ID, "", coopIDValue, "")
 				if err != nil {
 					resultMsg = fmt.Sprintf("❌ %s", err.Error())
 				} else {
@@ -152,17 +152,20 @@ func HandleChangeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				}
 
 			case "contract-id":
-				err := ChangeContractIDs(s, i.GuildID, i.ChannelID, i.Member.User.ID, contractIDValue, "", "")
+				movedToWaitlist, err := ChangeContractIDs(s, i.GuildID, i.ChannelID, i.Member.User.ID, contractIDValue, "", "")
 				if err != nil {
 					resultMsg = fmt.Sprintf("❌ %s", err.Error())
 				} else {
 					resultMsg = fmt.Sprintf("✅ Updated contractID to %s and updated the role to %s", contractIDValue, contract.Location[0].RoleMention)
+					if movedToWaitlist > 0 {
+						resultMsg += fmt.Sprintf(". Moved %d booster(s) to waitlist.", movedToWaitlist)
+					}
 					refreshBoostListMessage(s, contract, false)
 				}
 
 			case "coordinator":
 				coordinatorID := coopIDValue // Reused variable from above (already extracted as user ID)
-				err := ChangeContractIDs(s, i.GuildID, i.ChannelID, i.Member.User.ID, "", "", coordinatorID)
+				_, err := ChangeContractIDs(s, i.GuildID, i.ChannelID, i.Member.User.ID, "", "", coordinatorID)
 				if err != nil {
 					resultMsg = fmt.Sprintf("❌ %s", err.Error())
 				} else {

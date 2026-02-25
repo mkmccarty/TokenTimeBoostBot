@@ -345,24 +345,131 @@ func removeDuplicates(s []string) []string {
 	return result
 }
 
+func moveOverflowBoostersToWaitlist(contract *Contract) []string {
+	if contract == nil || contract.CoopSize < 0 {
+		return nil
+	}
+
+	if len(contract.Boosters) <= contract.CoopSize || len(contract.Order) <= contract.CoopSize {
+		return nil
+	}
+
+	overflowUsers := make([]string, 0)
+	seen := make(map[string]bool)
+	for _, userID := range contract.Order[contract.CoopSize:] {
+		if contract.Boosters[userID] == nil || seen[userID] {
+			continue
+		}
+		overflowUsers = append(overflowUsers, userID)
+		seen[userID] = true
+	}
+
+	if len(overflowUsers) == 0 {
+		return nil
+	}
+
+	movedLabels := make([]string, 0, len(overflowUsers))
+	movedUserIDs := make([]string, 0, len(overflowUsers))
+
+	for _, userID := range overflowUsers {
+		for {
+			idx := slices.Index(contract.Order, userID)
+			if idx == -1 {
+				break
+			}
+			contract.Order = removeIndex(contract.Order, idx)
+		}
+
+		booster := contract.Boosters[userID]
+		if booster == nil {
+			continue
+		}
+
+		boosterLabel := userID
+		if booster.Mention != "" {
+			boosterLabel = booster.Mention
+		}
+
+		if booster.AltController != "" {
+			mainUserID := booster.AltController
+			if contract.Boosters[mainUserID] != nil {
+				altIdx := slices.Index(contract.Boosters[mainUserID].Alts, userID)
+				if altIdx != -1 {
+					contract.Boosters[mainUserID].Alts = removeIndex(contract.Boosters[mainUserID].Alts, altIdx)
+					contract.Boosters[mainUserID].AltsIcons = removeIndex(contract.Boosters[mainUserID].AltsIcons, altIdx)
+				}
+			}
+		} else if len(booster.Alts) > 0 {
+			for _, altID := range booster.Alts {
+				if contract.Boosters[altID] != nil {
+					contract.Boosters[altID].AltController = ""
+				}
+			}
+			booster.Alts = nil
+			booster.AltsIcons = nil
+		}
+
+		movedUserIDs = append(movedUserIDs, userID)
+		movedLabels = append(movedLabels, boosterLabel)
+
+		if contract.Ultra {
+			contract.UltraCount--
+		} else if farmerstate.IsUltra(userID) {
+			contract.UltraCount--
+		}
+
+		delete(contract.Boosters, userID)
+	}
+
+	// Put moved boosters first in waitlist order, then keep existing waitlist order.
+	filteredExistingWaitlist := make([]string, 0, len(contract.WaitlistBoosters))
+	for _, existingUserID := range contract.WaitlistBoosters {
+		if !slices.Contains(movedUserIDs, existingUserID) {
+			filteredExistingWaitlist = append(filteredExistingWaitlist, existingUserID)
+		}
+	}
+
+	contract.WaitlistBoosters = append(movedUserIDs, filteredExistingWaitlist...)
+
+	contract.RegisteredNum = len(contract.Boosters)
+	contract.OrderRevision++
+	return movedLabels
+}
+
 // ChangeContractIDs will change the contractID and/or coopID
-func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, userID string, contractID string, coopID string, coordinatorID string) error {
+func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, userID string, contractID string, coopID string, coordinatorID string) (int, error) {
 	var contract = FindContract(channelID)
 	if contract == nil {
-		return errors.New(errorNoContract)
+		return 0, errors.New(errorNoContract)
 	}
 
 	// return an error if the userID isn't the contract creator
 	if !creatorOfContract(s, contract, userID) {
-		return errors.New("only the contract creator can change the contract")
+		return 0, errors.New("only the contract creator can change the contract")
 	}
+
+	movedToWaitlist := 0
 
 	log.Println("ChangeContractIDs", "ContractID: ", contractID, "CoopID: ", coopID, "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", "")
 
 	if contractID != "" {
 		contract.ContractID = contractID
 		updateContractWithEggIncData(contract)
+		movedLabels := moveOverflowBoostersToWaitlist(contract)
+		movedToWaitlist = len(movedLabels)
 		contract.EggEmoji = FindEggEmoji(contract.EggName)
+
+		if len(movedLabels) > 0 {
+			channelMsg := fmt.Sprintf("⚠️ Contract changed to %s and coop size is now %d. Moved %d booster(s) to waitlist: %s",
+				contract.ContractID,
+				contract.CoopSize,
+				len(movedLabels),
+				strings.Join(movedLabels, ", "),
+			)
+			if _, err := s.ChannelMessageSend(channelID, channelMsg); err != nil {
+				log.Println("Error sending waitlist movement message:", err)
+			}
+		}
 
 		// Rename the contract role to match the new contract
 		renameContractRole(s, contract)
@@ -376,10 +483,10 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 		if slices.Index(contract.Order, coordinatorID) != -1 {
 			contract.CreatorID[0] = coordinatorID
 		} else {
-			return errors.New("the selected coordinator needs to be in the contract")
+			return 0, errors.New("the selected coordinator needs to be in the contract")
 		}
 	}
-	return nil
+	return movedToWaitlist, nil
 }
 
 // renameContractRole renames the contract role to match the new contract ID
