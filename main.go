@@ -1000,6 +1000,23 @@ func syncCommands(s *discordgo.Session, guildID string, desiredCommandList []*di
 
 }
 
+func connectWithRetry(dg *discordgo.Session) error {
+	var err error
+	backoff := time.Second * 2
+
+	for i := 0; i < 5; i++ {
+		err = dg.Open()
+		if err == nil {
+			return nil
+		}
+
+		log.Printf("Conn failed: %v. Retrying in %v...", err, backoff)
+		time.Sleep(backoff)
+		backoff *= 2 // Exponentially increase wait time
+	}
+	return fmt.Errorf("could not connect after multiple attempts: %w", err)
+}
+
 func main() {
 
 	/*
@@ -1021,7 +1038,8 @@ func main() {
 		log.Printf("Ready message for: %v#%v  SessID:%v", s.State.User.Username, s.State.User.Discriminator, r.SessionID)
 		//log.Printf("Ready Vers:%v  SessId:%v", r.Version, r.SessionID)
 	})
-	err := s.Open()
+
+	err := connectWithRetry(s)
 	if err != nil {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
