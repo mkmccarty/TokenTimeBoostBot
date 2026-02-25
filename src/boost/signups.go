@@ -472,9 +472,9 @@ func predictJeli(contractCount int) (fridayNonUltra, fridayUltra, wednesday []ei
 	for _, c := range ei.EggIncContractsAll {
 		switch {
 		case c.HasPE && !c.Ultra:
-			fridayUltra = append(fridayUltra, c)
-		case c.HasPE && c.Ultra:
 			fridayNonUltra = append(fridayNonUltra, c)
+		case c.HasPE && c.Ultra:
+			fridayUltra = append(fridayUltra, c)
 		default:
 			wednesday = append(wednesday, c)
 		}
