@@ -118,6 +118,12 @@ func GetCoopStatus(contractID string, coopID string) (*ContractCoopStatusRespons
 			return nil, timestamp, dataTimestampStr, err
 		}
 
+		if response.StatusCode != http.StatusOK {
+			err := fmt.Errorf("API Error Code: %d for %s/%s", response.StatusCode, contractID, coopID)
+			log.Printf("Coop Status Result: %s", err)
+			return nil, timestamp, dataTimestampStr, err
+		}
+
 		defer func() {
 			if err := response.Body.Close(); err != nil {
 				// Handle the error appropriately, e.g., logging or taking corrective actions
