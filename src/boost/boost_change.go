@@ -405,7 +405,6 @@ func moveOverflowBoostersToWaitlist(contract *Contract) []string {
 			for _, altID := range booster.Alts {
 				if contract.Boosters[altID] != nil {
 					contract.Boosters[altID].AltController = ""
-					altRelationshipsChanged = true
 				}
 			}
 			booster.Alts = nil
