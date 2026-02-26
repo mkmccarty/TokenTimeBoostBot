@@ -414,6 +414,10 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 	siloMinutes := ei.GetSiloMinutes(farm.GetSilosOwned(), backup.GetGame().GetEpicResearch())
 
 	fuelingEnabled := virtue.GetAfx().GetTankFillingEnabled()
+	if simulatedEgg != -1 {
+		// When simulating a shift, turn off fueling
+		fuelingEnabled = false
+	}
 	fuelRate := 0.0
 	fuelPercentage := virtue.GetAfx().GetFlowPercentageArtifacts()
 	recommendedFuelRate := 0.0
