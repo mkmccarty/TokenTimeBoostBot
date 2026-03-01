@@ -1565,7 +1565,12 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 			panic("Invalid contract style")
 		}
 		// Remove user from contract.BootedOrder
-		contract.BoostedOrder = removeIndex(contract.BoostedOrder, slices.Index(contract.BoostedOrder, userID))
+		boostedIdx := slices.Index(contract.BoostedOrder, userID)
+		if boostedIdx != -1 {
+			contract.BoostedOrder = removeIndex(contract.BoostedOrder, boostedIdx)
+		} else {
+			log.Printf("Unboost warning: user not found in BoostedOrder while in waiting state; contractHash=%s channelID=%s userID=%s", contract.ContractHash, channelID, userID)
+		}
 		contract.Boosters[userID].BoostState = BoostStateTokenTime
 		// set BoostPosition to unboosted user
 		for i := range contract.Order {
@@ -1578,7 +1583,12 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 		sendNextNotification(s, contract, true)
 	} else {
 		contract.Boosters[userID].BoostState = BoostStateUnboosted
-		contract.BoostedOrder = removeIndex(contract.BoostedOrder, slices.Index(contract.BoostedOrder, userID))
+		boostedIdx := slices.Index(contract.BoostedOrder, userID)
+		if boostedIdx != -1 {
+			contract.BoostedOrder = removeIndex(contract.BoostedOrder, boostedIdx)
+		} else {
+			log.Printf("Unboost warning: user not found in BoostedOrder; contractHash=%s channelID=%s userID=%s state=%d", contract.ContractHash, channelID, userID, contract.State)
+		}
 		refreshBoostListMessage(s, contract, false)
 	}
 	return nil
