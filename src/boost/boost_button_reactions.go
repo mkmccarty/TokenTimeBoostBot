@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"log"
+	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
@@ -248,11 +249,43 @@ func buttonReactionSwap(s *discordgo.Session, GuildID string, ChannelID string, 
 }
 
 func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID string) (bool, string) {
+	defer func() {
+		if r := recover(); r != nil {
+			contractHash := ""
+			if contract != nil {
+				contractHash = contract.ContractHash
+			}
+			log.Printf("panic recovered in buttonReactionRunChickens: panic=%v contractHash=%s userID=%s\n%s",
+				r,
+				contractHash,
+				cUserID,
+				string(debug.Stack()),
+			)
+		}
+	}()
+
+	if s == nil || contract == nil {
+		log.Printf("buttonReactionRunChickens invalid input: sessionNil=%t contractNil=%t userID=%s",
+			s == nil,
+			contract == nil,
+			cUserID,
+		)
+		return false, "Unable to process chicken run request right now."
+	}
+
 	userID := cUserID
 	var str string
 
 	if !userInContract(contract, cUserID) {
 		return false, "You are not in this contract."
+	}
+
+	if contract.Boosters[cUserID] == nil {
+		log.Printf("buttonReactionRunChickens missing booster entry for user: contractHash=%s userID=%s",
+			contract.ContractHash,
+			cUserID,
+		)
+		return false, "Unable to process chicken run request right now."
 	}
 
 	// Indicate that a farmer is ready for chicken runs
@@ -261,12 +294,29 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 		for _, id := range contract.Order {
 			if slices.Index(ids, id) != -1 {
 				alt := contract.Boosters[id]
+				if alt == nil {
+					log.Printf("buttonReactionRunChickens missing alt/main booster during selection: contractHash=%s requestUserID=%s targetID=%s",
+						contract.ContractHash,
+						cUserID,
+						id,
+					)
+					continue
+				}
 				userID = id
 				if alt.BoostState == BoostStateBoosted && alt.RunChickensTime.IsZero() {
 					break
 				}
 			}
 		}
+	}
+
+	if contract.Boosters[userID] == nil {
+		log.Printf("buttonReactionRunChickens missing selected booster entry: contractHash=%s requestUserID=%s selectedUserID=%s",
+			contract.ContractHash,
+			cUserID,
+			userID,
+		)
+		return false, "Unable to process chicken run request right now."
 	}
 
 	if contract.Boosters[userID].BoostState == BoostStateBoosted && !contract.Boosters[userID].RunChickensTime.IsZero() {
@@ -321,6 +371,41 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 }
 
 func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, cUserID string) {
+	defer func() {
+		if r := recover(); r != nil {
+			msgID := ""
+			channelID := ""
+			if i != nil {
+				channelID = i.ChannelID
+				if i.Message != nil {
+					msgID = i.Message.ID
+				}
+			}
+			contractHash := ""
+			if contract != nil {
+				contractHash = contract.ContractHash
+			}
+			log.Printf("panic recovered in buttonReactionRanChicken: panic=%v contractHash=%s channelID=%s messageID=%s userID=%s\n%s",
+				r,
+				contractHash,
+				channelID,
+				msgID,
+				cUserID,
+				string(debug.Stack()),
+			)
+		}
+	}()
+
+	if contract == nil || i == nil || i.Message == nil {
+		log.Printf("buttonReactionRanChicken invalid input: contractNil=%t interactionNil=%t messageNil=%t userID=%s",
+			contract == nil,
+			i == nil,
+			i == nil || i.Message == nil,
+			cUserID,
+		)
+		return
+	}
+
 	if !userInContract(contract, cUserID) {
 		// Ignore if the user isn't in the contract
 		return
@@ -345,6 +430,9 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 		alreadyRun := make([]string, 0, len(contract.Boosters))
 		missing := make([]string, 0, len(contract.Boosters))
 		for _, booster := range contract.Boosters {
+			if booster == nil {
+				continue
+			}
 			if booster.UserID == requesterUserID {
 				continue
 			}
@@ -358,12 +446,39 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 	}
 
 	contract.mutex.Lock()
+	defer contract.mutex.Unlock()
+
 	requesterUserID = contract.CRMessageIDs[i.Message.ID]
+	if requesterUserID == "" {
+		log.Printf("buttonReactionRanChicken missing requester mapping: contractHash=%s messageID=%s userID=%s",
+			contract.ContractHash,
+			i.Message.ID,
+			cUserID,
+		)
+		return
+	}
+
 	userBooster := contract.Boosters[cUserID]
+	if userBooster == nil {
+		log.Printf("buttonReactionRanChicken missing booster entry for reacting user: contractHash=%s requesterUserID=%s reactingUserID=%s",
+			contract.ContractHash,
+			requesterUserID,
+			cUserID,
+		)
+		return
+	}
+
+	if contract.Boosters[requesterUserID] == nil {
+		log.Printf("buttonReactionRanChicken missing booster entry for requester: contractHash=%s requesterUserID=%s reactingUserID=%s",
+			contract.ContractHash,
+			requesterUserID,
+			cUserID,
+		)
+		return
+	}
 
 	// Current user already ran?
 	if slices.Contains(userBooster.RanChickensOn, requesterUserID) {
-		contract.mutex.Unlock()
 		return
 	}
 
@@ -372,15 +487,24 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 
 	// Mark the run for the current user and all their alts
 	for _, id := range append([]string{cUserID}, userBooster.Alts...) {
-		if id != requesterUserID {
-			contract.Boosters[id].RanChickensOn =
-				append(contract.Boosters[id].RanChickensOn, requesterUserID)
+		if id == requesterUserID {
+			continue
 		}
+		targetBooster := contract.Boosters[id]
+		if targetBooster == nil {
+			log.Printf("buttonReactionRanChicken missing alt/main booster during update: contractHash=%s requesterUserID=%s reactingUserID=%s targetID=%s",
+				contract.ContractHash,
+				requesterUserID,
+				cUserID,
+				id,
+			)
+			continue
+		}
+		targetBooster.RanChickensOn = append(targetBooster.RanChickensOn, requesterUserID)
 	}
 
 	alreadyRun, missing := buildRunLists()
 	newColor := statusColor(len(missing), len(alreadyRun)+len(missing))
-	contract.mutex.Unlock()
 
 	// Rebuild message
 	var b strings.Builder
