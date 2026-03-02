@@ -160,7 +160,9 @@ func isNewEggIncDataAvailable(url string, filename string) bool {
 		if err != nil {
 			return false
 		}
-		log.Printf("EI-Contracts: Response Status: %s\n", resp.Status)
+		if resp.StatusCode >= http.StatusBadRequest {
+			log.Printf("EI-Contracts: Response Status: %s\n", resp.Status)
+		}
 		/*
 			for key, values := range resp.Header {
 				for _, value := range values {
@@ -248,7 +250,7 @@ func downloadEggIncData(url string, filename string) bool {
 	//	return false
 	//}
 	if !isNewEggIncDataAvailable(url, filename) {
-		log.Println("EI-Data. No new data available for ", filename)
+		//log.Println("EI-Data. No new data available for ", filename)
 		return false
 	}
 	req, err := http.NewRequest("GET", url, nil)
@@ -362,9 +364,7 @@ func ExecuteCronJob(s *discordgo.Session) {
 		ei.LoadTokenComplaints(eggIncTokenComplaintsFile)
 	}
 
-	if !downloadEggIncData(eggIncStatusMessagesURL, eggIncStatusMessagesFile) {
-		ei.LoadStatusMessages(eggIncStatusMessagesFile)
-	}
+	downloadEggIncData(eggIncStatusMessagesURL, eggIncStatusMessagesFile)
 
 	events.GetPeriodicalsFromAPI(s)
 
