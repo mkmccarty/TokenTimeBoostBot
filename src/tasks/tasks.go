@@ -364,7 +364,9 @@ func ExecuteCronJob(s *discordgo.Session) {
 		ei.LoadTokenComplaints(eggIncTokenComplaintsFile)
 	}
 
-	downloadEggIncData(eggIncStatusMessagesURL, eggIncStatusMessagesFile)
+	if !downloadEggIncData(eggIncStatusMessagesURL, eggIncStatusMessagesFile) {
+		ei.LoadStatusMessages(eggIncStatusMessagesFile)
+	}
 
 	events.GetPeriodicalsFromAPI(s)
 

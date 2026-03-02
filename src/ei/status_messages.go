@@ -7,6 +7,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"sync"
+	"time"
 )
 
 // StatusMessagesFile is a struct to hold the status messages
@@ -17,11 +18,29 @@ type StatusMessagesFile struct {
 // StatusMessages is a list of status messages
 var StatusMessages []string
 var statusMessagesMutex sync.RWMutex
+var loadedStatusMessagesPath string
+var loadedStatusMessagesModTime time.Time
+var loadedStatusMessagesSize int64
 
 const statusMessageResortFlag = "__TTBB_STATUS_MESSAGES_RESORT__"
 
 // LoadStatusMessages loads status messages from a JSON file
 func LoadStatusMessages(filename string) {
+	fileInfo, err := os.Stat(filename)
+	if err != nil {
+		log.Printf("Failed to stat status messages file: %v", err)
+		return
+	}
+
+	statusMessagesMutex.Lock()
+	if loadedStatusMessagesPath == filename &&
+		loadedStatusMessagesModTime.Equal(fileInfo.ModTime()) &&
+		loadedStatusMessagesSize == fileInfo.Size() {
+		statusMessagesMutex.Unlock()
+		return
+	}
+	statusMessagesMutex.Unlock()
+
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Printf("Failed to open status messages file: %v", err)
@@ -48,6 +67,9 @@ func LoadStatusMessages(filename string) {
 	if len(StatusMessages) > 0 {
 		StatusMessages = append(StatusMessages, statusMessageResortFlag)
 	}
+	loadedStatusMessagesPath = filename
+	loadedStatusMessagesModTime = fileInfo.ModTime()
+	loadedStatusMessagesSize = fileInfo.Size()
 	statusMessagesMutex.Unlock()
 
 	log.Printf("Loaded %d status messages", len(messagesLoaded.StatusMessages))
