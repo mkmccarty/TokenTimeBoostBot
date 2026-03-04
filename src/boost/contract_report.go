@@ -293,17 +293,18 @@ func processContributors(
 					}
 					jsonData = bytes.ReplaceAll(jsonData, []byte(eiID), []byte(discordID))
 
-					if err := os.MkdirAll("ttbb-data/eiuserdata", 0o755); err != nil {
-						log.Printf("processContributors: ensure cache dir failed (non-fatal) for discordID=%s: %v", discordID, err)
-						continue
-					}
-
 					fileName := fmt.Sprintf("ttbb-data/eiuserdata/archive-%s-%s.json", discordID, cxpVersion)
 					if err := os.WriteFile(fileName, jsonData, 0o644); err != nil {
 						log.Printf("processContributors: write archive file failed (non-fatal) for discordID=%s file=%s: %v", discordID, fileName, err)
 					}
 				}
 			}
+		}
+	}
+
+	if config.IsDevBot() {
+		if err := os.MkdirAll("ttbb-data/eiuserdata", 0o755); err != nil {
+			log.Printf("processContributors: ensure cache dir failed (non-fatal): %v", err)
 		}
 	}
 
