@@ -221,11 +221,9 @@ func processContributors(
 
 	evalsByName := make(map[string][]*ei.LocalContract, n)
 	var (
-		muEval   sync.Mutex
-		muMiss   sync.Mutex
-		missing  = make([]string, 0, n)
-		firstErr error
-		errOnce  sync.Once
+		muEval  sync.Mutex
+		muMiss  sync.Mutex
+		missing = make([]string, 0, n)
 	)
 
 	worker := func() {
@@ -287,20 +285,26 @@ func processContributors(
 			// write per-contributor cache file
 			if !cached && okayToSave {
 				if config.IsDevBot() {
-						
+
 					jsonData, err := json.Marshal(archive)
 					if err != nil {
-						errOnce.Do(func() { firstErr = fmt.Errorf("marshal archive: %w", err) })
+						log.Printf("processContributors: marshal archive failed (non-fatal) for discordID=%s: %v", discordID, err)
 						continue
 					}
 					jsonData = bytes.ReplaceAll(jsonData, []byte(eiID), []byte(discordID))
 
 					fileName := fmt.Sprintf("ttbb-data/eiuserdata/archive-%s-%s.json", discordID, cxpVersion)
 					if err := os.WriteFile(fileName, jsonData, 0o644); err != nil {
-						errOnce.Do(func() { firstErr = fmt.Errorf("write archive file: %w", err) })
+						log.Printf("processContributors: write archive file failed (non-fatal) for discordID=%s file=%s: %v", discordID, fileName, err)
 					}
 				}
 			}
+		}
+	}
+
+	if config.IsDevBot() {
+		if err := os.MkdirAll("ttbb-data/eiuserdata", 0o755); err != nil {
+			log.Printf("processContributors: ensure cache dir failed (non-fatal): %v", err)
 		}
 	}
 
@@ -315,7 +319,7 @@ func processContributors(
 	close(namesCh)
 	wg.Wait()
 
-	return evalsByName, missing, firstErr
+	return evalsByName, missing, nil
 }
 
 // ContractReport generates a contract report for player's contract with the given contract ID
