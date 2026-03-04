@@ -286,16 +286,19 @@ func processContributors(
 
 			// write per-contributor cache file
 			if !cached && okayToSave {
-				jsonData, err := json.Marshal(archive)
-				if err != nil {
-					errOnce.Do(func() { firstErr = fmt.Errorf("marshal archive: %w", err) })
-					continue
-				}
-				jsonData = bytes.ReplaceAll(jsonData, []byte(eiID), []byte(discordID))
+				if config.IsDevBot() {
+						
+					jsonData, err := json.Marshal(archive)
+					if err != nil {
+						errOnce.Do(func() { firstErr = fmt.Errorf("marshal archive: %w", err) })
+						continue
+					}
+					jsonData = bytes.ReplaceAll(jsonData, []byte(eiID), []byte(discordID))
 
-				fileName := fmt.Sprintf("ttbb-data/eiuserdata/archive-%s-%s.json", discordID, cxpVersion)
-				if err := os.WriteFile(fileName, jsonData, 0o644); err != nil {
-					errOnce.Do(func() { firstErr = fmt.Errorf("write archive file: %w", err) })
+					fileName := fmt.Sprintf("ttbb-data/eiuserdata/archive-%s-%s.json", discordID, cxpVersion)
+					if err := os.WriteFile(fileName, jsonData, 0o644); err != nil {
+						errOnce.Do(func() { firstErr = fmt.Errorf("write archive file: %w", err) })
+					}
 				}
 			}
 		}
