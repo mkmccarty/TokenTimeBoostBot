@@ -115,10 +115,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		}
 	}
 	fmt.Fprintf(&header, "> Coordinator: <@%s>\n", contract.CreatorID[0])
-	if contract.Description != "" {
-		if contract.Location[0].GuildContractRole.ID != "" {
-			fmt.Fprintf(&header, "> Team Role: %s\n", contract.Location[0].RoleMention)
-		}
+	if contract.Location[0].GuildContractRole.ID != "" {
+		fmt.Fprintf(&header, "> Team Role: %s\n", contract.Location[0].RoleMention)
 	}
 	if contract.State == ContractStateSignup {
 		if contract.Style&ContractFlagBanker != 0 {
