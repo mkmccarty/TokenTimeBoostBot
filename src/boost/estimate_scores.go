@@ -33,7 +33,7 @@ type ContractScore struct {
 	playerParamters          []PlayerScoreParameters
 }
 
-// PlayeScoreParameters holds player specific parameters for calculating scores
+// PlayerScoreParameters holds player specific parameters for calculating scores
 type PlayerScoreParameters struct {
 	name         string
 	contribution float64
