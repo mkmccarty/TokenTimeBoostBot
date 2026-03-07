@@ -36,7 +36,7 @@ func Notok(s *discordgo.Session, i *discordgo.InteractionCreate, cmd int64, text
 		name = g.Nick
 	}
 
-	wishStr := text
+	wishStr := ""
 
 	// Respond to messages
 	var currentStartTime = time.Now()
