@@ -99,7 +99,6 @@ func parseCsEstimateParams(i *discordgo.InteractionCreate) csEstimateParams {
 	var (
 		contractID string
 		coopID     string
-		srmode     bool = false
 	)
 
 	optionMap := bottools.GetCommandOptionsMap(i)
@@ -113,14 +112,15 @@ func parseCsEstimateParams(i *discordgo.InteractionCreate) csEstimateParams {
 	if opt, ok := optionMap["private-reply"]; ok && opt.BoolValue() {
 		flags |= discordgo.MessageFlagsEphemeral
 	}
+	srMode := false
 	if opt, ok := optionMap["sr-mode"]; ok {
-		srmode = opt.BoolValue()
+		srMode = opt.BoolValue()
 	}
 
 	return csEstimateParams{
 		contractID: contractID,
 		coopID:     coopID,
-		srMode:     srmode,
+		srMode:     srMode,
 		flags:      flags,
 	}
 }
