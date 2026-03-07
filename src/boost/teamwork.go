@@ -290,7 +290,7 @@ func computeRateIncrease(
 }
 
 // DownloadCoopStatusTeamwork will download the coop status for a given contract and coop ID
-func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEstimate bool) (string, map[string][]TeamworkOutputData, string) {
+func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEstimate bool) (string, map[string][]TeamworkOutputData, ContractScore) {
 	var siabMsg strings.Builder
 	var dataTimestampStr string
 	var nowTime time.Time
@@ -304,7 +304,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEst
 
 	eiContract := ei.EggIncContractsAll[contractID]
 	if eiContract.ID == "" {
-		return "Invalid contract ID.", nil, ""
+		return "Invalid contract ID.", nil, ContractScore{}
 	}
 
 	// extraInfo is true if coopID starts with '?'
@@ -326,7 +326,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEst
 		files, err := os.ReadDir("ttbb-data/pb")
 		if err != nil {
 			log.Println("❌ Error reading directory:", err)
-			return "Failed to read ttbb-data directory.", nil, ""
+			return "Failed to read ttbb-data directory.", nil, ContractScore{}
 		}
 
 		// Build search pattern
@@ -351,21 +351,21 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEst
 		}
 		// Return the list of matching filenames
 		if len(fileNames) == 0 {
-			return fmt.Sprintf("No matching files found in %s.", filepath.Join(cwd, "ttbb-data/pb")), nil, ""
+			return fmt.Sprintf("No matching files found in %s.", filepath.Join(cwd, "ttbb-data/pb")), nil, ContractScore{}
 		}
-		return fmt.Sprintf("Filenames:\n%s", strings.Join(fileNames, "\n")), nil, ""
+		return fmt.Sprintf("Filenames:\n%s", strings.Join(fileNames, "\n")), nil, ContractScore{}
 	}
 
 	coopStatus, nowTime, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID)
 	if err != nil {
-		return err.Error(), nil, ""
+		return err.Error(), nil, ContractScore{}
 	}
 
 	if coopStatus.GetResponseStatus() != ei.ContractCoopStatusResponse_NO_ERROR {
-		return ei.ContractCoopStatusResponse_ResponseStatus_name[int32(coopStatus.GetResponseStatus())], nil, ""
+		return ei.ContractCoopStatusResponse_ResponseStatus_name[int32(coopStatus.GetResponseStatus())], nil, ContractScore{}
 	}
 	if coopStatus.GetGrade() == ei.Contract_GRADE_UNSET {
-		return fmt.Sprintf("No grade found for contract %s/%s", contractID, coopID), nil, ""
+		return fmt.Sprintf("No grade found for contract %s/%s", contractID, coopID), nil, ContractScore{}
 	}
 
 	type BuffTimeValue struct {
@@ -385,6 +385,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEst
 	var contractDurationSeconds float64
 	var elapsedSeconds float64
 	var calcSecondsRemaining float64
+	var contractScores ContractScore
 
 	//prevServerTimestamp = int64(decodeCoopStatus.GetSecondsRemaining()) + BuffTimeValues[0].timeEquiped
 	// If the coop completed, the secondsSinceAllGoalsAchieved (towards the end) is present.
@@ -437,7 +438,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEst
 		endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
 		elapsedSeconds = nowTime.Sub(startTime).Seconds()
-		fmt.Fprintf(&builder, "In Progress %s %s/[**%s**](%s) on target to complete %s\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), coopStatus.GetContractIdentifier(), coopStatus.GetCoopIdentifier(), fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID), bottools.WrapTimestamp(endTime.Unix(), bottools.TimestampRelativeTime))
+		fmt.Fprintf(&builder, "In Progress %s %s/[**%s**](%s)\nOn target to complete %s\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), coopStatus.GetContractIdentifier(), coopStatus.GetCoopIdentifier(), fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID), bottools.WrapTimestamp(endTime.Unix(), bottools.TimestampRelativeTime))
 		if setContractEstimate {
 			c := FindContractByIDs(contractID, coopID)
 			if c != nil {
@@ -473,38 +474,37 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEst
 	// Used to collect the return values for each farmer
 	var farmerFields = make(map[string][]TeamworkOutputData)
 
-	type contractScores struct {
-		name string
-		max  int64
-		sink int64
-		tval int64
-		runs int64
-		min  int64
-		base int64
-	}
-	var contractScoreArr []contractScores
-	var scoresTable strings.Builder
-	if eiContract.SeasonalScoring == ei.SeasonalScoringNerfed {
-		fmt.Fprintf(&scoresTable, "`%12s %6s %6s %6s`\n",
-			bottools.AlignString("NAME", 12, bottools.StringAlignCenter),
-			bottools.AlignString("MAX", 6, bottools.StringAlignCenter),
-			bottools.AlignString("MIN", 6, bottools.StringAlignCenter),
-			bottools.AlignString("BASE", 6, bottools.StringAlignCenter),
-		)
-	} else {
-		fmt.Fprintf(&scoresTable, "`%12s %6s %6s %6s %6s %6s %6s`\n",
-			bottools.AlignString("NAME", 12, bottools.StringAlignCenter),
-			bottools.AlignString("MAX", 6, bottools.StringAlignCenter),
-			bottools.AlignString("TVAL", 6, bottools.StringAlignCenter),
-			bottools.AlignString("SINK", 6, bottools.StringAlignCenter),
-			bottools.AlignString("RUNS", 6, bottools.StringAlignCenter),
-			bottools.AlignString("MIN", 6, bottools.StringAlignCenter),
-			bottools.AlignString("BASE", 6, bottools.StringAlignCenter),
-		)
-	}
 	var DeliveryTimeValues []DeliveryTimeValue
 
 	deliveryTableMap := make(map[string][]DeliveryTimeValue)
+
+	/*
+		type ContractScore struct {
+			coopID                   string
+			contractID               string
+			cxpversion               int
+			grade                    int
+			coopSize                 int
+			crRequirement            int
+			contractLengthSeconds    int
+			targetGoal               float64
+			activeContractDurSeconds float64
+			playerParamters          []PlayerScoreParameters
+		}
+	*/
+
+	// Build contractScores for csEstimates
+	contractScores = ContractScore{
+		coopID:                   coopID,
+		contractID:               contractID,
+		cxpversion:               eiContract.SeasonalScoring,
+		grade:                    grade,
+		coopSize:                 eiContract.MaxCoopSize,
+		crRequirement:            eiContract.ChickenRuns,
+		contractLengthSeconds:    eiContract.Grade[grade].LengthInSeconds,
+		targetGoal:               eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+		activeContractDurSeconds: contractDurationSeconds,
+	}
 
 	for _, c := range coopStatus.GetContributors() {
 		pp := c.GetProductionParams()
@@ -888,46 +888,9 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEst
 		}
 		// Create a table of Contract Scores for this user
 		var csBuilder strings.Builder
-
-		// Maximum Contract Score with current buffs and max CR & TVAL
-		CR := calculateChickenRunTeamwork(eiContract.SeasonalScoring, eiContract.MaxCoopSize, contractDurationInDays, eiContract.ChickenRuns)
-		T := calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 5.0)
-		scoreMax := calculateContractScore(eiContract.SeasonalScoring, grade,
-			eiContract.MaxCoopSize,
-			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
-			contribution[i],
-			eiContract.Grade[grade].LengthInSeconds,
-			contractDurationSeconds,
-			B, CR, T)
-		// fmt.Fprintf(&csBuilder, "Max: %d\n", scoreMax)
-
-		// TVAL Met, with CR to coop size -1
-		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 5.0)
-		CR = calculateChickenRunTeamwork(eiContract.SeasonalScoring, eiContract.MaxCoopSize, contractDurationInDays, eiContract.MaxCoopSize-1)
-		scoreTval := calculateContractScore(eiContract.SeasonalScoring, grade,
-			eiContract.MaxCoopSize,
-			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
-			contribution[i],
-			eiContract.Grade[grade].LengthInSeconds,
-			contractDurationSeconds,
-			B, CR, T)
-		// fmt.Fprintf(&csBuilder, "TVal: %d (CR=%d)\n", scoreTval, min(eiContract.MaxCoopSize-1, eiContract.ChickenRuns))
-
-		// Sink Contract Score with current buffs and max CR & negative TVAL
-		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 3.0, 11.0)
-		CR = calculateChickenRunTeamwork(eiContract.SeasonalScoring, eiContract.MaxCoopSize, contractDurationInDays, eiContract.ChickenRuns)
-		scoreMid := calculateContractScore(eiContract.SeasonalScoring, grade,
-			eiContract.MaxCoopSize,
-			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
-			contribution[i],
-			eiContract.Grade[grade].LengthInSeconds,
-			contractDurationSeconds,
-			B, CR, T)
-		// fmt.Fprintf(&csBuilder, "Sink: %d (CR=%d)\n", scoreMid, eiContract.ChickenRuns)
-
 		// No token sharing, with CR to coop size -1
-		T = calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 0.0, 11.0)
-		CR = calculateChickenRunTeamwork(eiContract.SeasonalScoring, eiContract.MaxCoopSize, contractDurationInDays, min(eiContract.MaxCoopSize-1, eiContract.ChickenRuns))
+		T := calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 0.0, 11.0)
+		CR := calculateChickenRunTeamwork(eiContract.SeasonalScoring, eiContract.MaxCoopSize, contractDurationInDays, min(eiContract.MaxCoopSize-1, eiContract.ChickenRuns))
 		scoreRuns := calculateContractScore(eiContract.SeasonalScoring, grade,
 			eiContract.MaxCoopSize,
 			eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
@@ -961,18 +924,20 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEst
 		field = append(field, TeamworkOutputData{"Contract Score", csBuilder.String()})
 
 		farmerFields[name] = field
-		trimmedName := c.GetUserName()
-		if len(trimmedName) > 12 {
-			trimmedName = trimmedName[:12]
-		}
-		contractScoreArr = append(contractScoreArr, contractScores{
-			trimmedName,
-			scoreMax,
-			scoreMid,
-			scoreTval,
-			scoreRuns,
-			scoreMin,
-			scoreBase,
+
+		/*
+			type PlayerScoreParameters struct {
+				name         string
+				contribution float64
+				btv          float64
+			}
+		*/
+
+		// Add player specific parameters to contractScores for csEstimates
+		contractScores.playerParamters = append(contractScores.playerParamters, PlayerScoreParameters{
+			name:         c.GetUserName(),
+			contribution: contribution[i],
+			buff:         B,
 		})
 
 	}
@@ -1022,32 +987,6 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEst
 	if extraInfo {
 		fmt.Printf("Min Alpha: %f\n", alpha)
 		fmt.Fprintf(&builder, "Min Alpha: %f\n", alpha)
-	}
-
-	// Create a table of Contract Scores for this user
-
-	// Want to sort contractScoreArr by max score
-	sort.SliceStable(contractScoreArr, func(i, j int) bool {
-		if contractScoreArr[i].max == contractScoreArr[j].max {
-			// Compare names, ignoring leading spaces
-			nameI := strings.TrimLeft(contractScoreArr[i].name, " ")
-			nameJ := strings.TrimLeft(contractScoreArr[j].name, " ")
-			return nameI < nameJ
-		}
-		return contractScoreArr[i].max > contractScoreArr[j].max
-	})
-	for _, cs := range contractScoreArr {
-		if eiContract.SeasonalScoring == ei.SeasonalScoringNerfed {
-			fmt.Fprintf(&scoresTable, "`%s %6d %6d %6d`\n",
-				bottools.FitString(cs.name, 12, bottools.StringAlignLeft),
-				cs.max, cs.min, cs.base)
-
-		} else {
-			fmt.Fprintf(&scoresTable, "`%s %6d %6d %6d %6d %6d %6d`\n",
-				bottools.FitString(cs.name, 12, bottools.StringAlignLeft),
-				cs.max, cs.tval, cs.sink, cs.runs, cs.min, cs.base)
-
-		}
 	}
 
 	var siabMax []TeamworkOutputData
@@ -1100,7 +1039,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEst
 
 	builder.WriteString(dataTimestampStr)
 
-	return builder.String(), farmerFields, scoresTable.String()
+	return builder.String(), farmerFields, contractScores
 }
 
 func determinePostSiabRateOrig(future DeliveryTimeValue, stoneSlots int, farmCapacity float64, artifactIDs []int32) (float64, float64, float64, string) {
