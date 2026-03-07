@@ -945,10 +945,7 @@ func init() {
 	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 		if m.UserID != s.State.User.ID {
 			if m.GuildID != "" {
-				var str = boost.ReactionAdd(s, m.MessageReaction)
-				if str == "!gonow" {
-					notok.DoGoNow(s, m.ChannelID)
-				}
+				boost.ReactionAdd(s, m.MessageReaction)
 			} else {
 				track.ReactionAdd(s, m.MessageReaction)
 			}
