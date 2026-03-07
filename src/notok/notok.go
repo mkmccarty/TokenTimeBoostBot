@@ -4,10 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -15,8 +12,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/rs/xid"
-	"github.com/sashabaranov/go-openai"
 	"google.golang.org/genai"
 )
 
@@ -41,8 +36,6 @@ func Notok(s *discordgo.Session, i *discordgo.InteractionCreate, cmd int64, text
 		name = g.Nick
 	}
 
-	hidden := true
-	wishURL := ""
 	wishStr := text
 
 	// Respond to messages
@@ -55,24 +48,26 @@ func Notok(s *discordgo.Session, i *discordgo.InteractionCreate, cmd int64, text
 		wishStr, err = wishGemini(name, text, contractDesc)
 	case 5: // Open Letter
 		wishStr, err = letter(name, text, contractDesc)
-	case 2:
-		wishStr, err = getLetMeOutString(text, contractDesc)
-		if err == nil {
-			wishURL, err = wishImage(wishStr, name)
-		}
-		hidden = false
-	case 3:
-		str := gonow(contractDesc)
-		wishURL, err = wishImage(str, name)
-		wishStr = name + " expresses an urgent need to go next up in boost order."
-	case 4:
-		if len(wishStr) == 0 {
-			wishStr = lastWish
-		}
-		if len(wishStr) < 20 {
-			wishStr = defaultWish
-		}
-		wishURL, err = wishImage(wishStr, name)
+		/*
+			case 2:
+				wishStr, err = getLetMeOutString(text, contractDesc)
+				if err == nil {
+					wishURL, err = wishImage(wishStr, name)
+				}
+				hidden = false
+			case 3:
+				str := gonow(contractDesc)
+				wishURL, err = wishImage(str, name)
+				wishStr = name + " expresses an urgent need to go next up in boost order."
+			case 4:
+				if len(wishStr) == 0 {
+					wishStr = lastWish
+				}
+				if len(wishStr) < 20 {
+					wishStr = defaultWish
+				}
+				wishURL, err = wishImage(wishStr, name)
+		*/
 	default:
 		return nil
 	}
@@ -86,14 +81,16 @@ func Notok(s *discordgo.Session, i *discordgo.InteractionCreate, cmd int64, text
 		return err
 	}
 
-	if wishURL != "" {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: fmt.Sprintf("Success\nResponse time: %s", time.Since(currentStartTime).Round(time.Second).String()),
-			},
-		)
-		sendImageReply(s, i.ChannelID, wishURL, wishStr, hidden)
-	} else if wishStr != "" {
+	/*
+		if wishURL != "" {
+			_, _ = s.FollowupMessageCreate(i.Interaction, true,
+				&discordgo.WebhookParams{
+					Content: fmt.Sprintf("Success\nResponse time: %s", time.Since(currentStartTime).Round(time.Second).String()),
+				},
+			)
+			sendImageReply(s, i.ChannelID, wishURL, wishStr, hidden)
+		} else */
+	if wishStr != "" {
 		if strings.HasPrefix(text, "!!") {
 			_, _ = s.FollowupMessageCreate(i.Interaction, true,
 				&discordgo.WebhookParams{
@@ -114,6 +111,7 @@ func Notok(s *discordgo.Session, i *discordgo.InteractionCreate, cmd int64, text
 	return nil
 }
 
+/*
 // DoGoNow gets the AI to draw a chicken in a hurry
 func DoGoNow(s *discordgo.Session, channelID string) {
 	var str = gonow(boost.GetContractDescription(channelID))
@@ -121,7 +119,9 @@ func DoGoNow(s *discordgo.Session, channelID string) {
 	wishURL, _ := wishImage(str, "")
 	sendImageReply(s, channelID, wishURL, "", false)
 }
+*/
 
+/*
 func sendImageReply(s *discordgo.Session, channelID string, wishURL string, wishStr string, hidden bool) {
 	_ = s.ChannelTyping(channelID)
 	response, _ := http.Get(wishURL)
@@ -146,6 +146,7 @@ func sendImageReply(s *discordgo.Session, channelID string, wishURL string, wish
 		_, _ = s.ChannelMessageSend(channelID, "Sorry the AIrtists responsed with \""+wishURL+"\"") //"Sorry, the AIrtists are not available at the moment. Some image prompts ")
 	}
 }
+*/
 
 func letter(mention string, text string, desc string) (string, error) {
 	var builder strings.Builder
@@ -301,37 +302,7 @@ func isRetryableModelError(err error) bool {
 	return strings.Contains(msg, "503") || strings.Contains(msg, "overloaded") || strings.Contains(msg, "overload") || strings.Contains(msg, "please try again later")
 }
 
-func getLetMeOutString(text string, desc string) (string, error) {
-	var builder strings.Builder
-	builder.WriteString("Your role is a farmer of chickens who needs the delivery of widgets to help with the delivery of their chicken eggs for a contract.")
-	if desc != "" {
-		builder.WriteString(desc + ".")
-	}
-
-	builder.WriteString("A group of chickens are locked in their farm held hostage by an unknown force.\n")
-	builder.WriteString("In 150 words or less tell a funny story about this confinement.\n")
-	builder.WriteString(text)
-	str, err := getStringFromGoogleGemini(builder.String())
-	if err != nil {
-		return "", err
-	}
-
-	return str, nil
-}
-
-func gonow(desc string) string {
-	var builder strings.Builder
-	builder.WriteString("Your role is a typical American chicken farmer who is working to deliver their chicken eggs for a contract.")
-	if desc != "" {
-		builder.WriteString(desc + ".")
-	}
-
-	builder.WriteString("Compose a scene where one of those chickens needs to quickly find an outhouse shaped like a rocket ship " +
-		"in a comical cartoonish environment exaggerating the urgency.")
-
-	return builder.String()
-}
-
+/*
 func wishImage(prompt string, user string) (string, error) {
 	var client = openai.NewClient(config.OpenAIKey)
 
@@ -413,3 +384,4 @@ func downloadFile(filepath string, url string, prompt string) error {
 	_, err = io.Copy(out, resp.Body)
 	return err
 }
+*/

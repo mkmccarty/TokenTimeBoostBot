@@ -11,7 +11,7 @@ var integerFunMinValue float64 = 20.0
 func SlashFunCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
-		Description: "OpenAI Fun",
+		Description: "LLM Fun",
 		Contexts: &[]discordgo.InteractionContextType{
 			discordgo.InteractionContextGuild,
 			discordgo.InteractionContextBotDM,
@@ -36,24 +36,26 @@ func SlashFunCommand(cmd string) *discordgo.ApplicationCommand {
 						Name:  "Compose letter asking for a token",
 						Value: 5,
 					},
-					{
-						Name:  "Let Me Out!",
-						Value: 2,
-					},
-					{
-						Name:  "Go Now!",
-						Value: 3,
-					},
-					{
-						Name:  "Generate image. Use prompt.",
-						Value: 4,
-					},
+					/*
+						{
+							Name:  "Let Me Out!",
+							Value: 2,
+						},
+						{
+							Name:  "Go Now!",
+							Value: 3,
+						},
+						{
+							Name:  "Generate image. Use prompt.",
+							Value: 4,
+						},
+					*/
 				},
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "prompt",
-				Description: "Optional prompt to fine tune the original query. For images it is used to describe the image.",
+				Description: "Optional prompt to fine tune the original query.",
 				MinValue:    &integerFunMinValue,
 				MaxValue:    250.0,
 				Required:    false,
