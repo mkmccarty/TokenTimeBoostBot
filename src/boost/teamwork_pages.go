@@ -18,7 +18,6 @@ type teamworkCache struct {
 	header              string
 	footer              string
 	showScores          bool
-	showingSIAB         bool
 	page                int
 	previousPage        int
 	pages               int
@@ -29,20 +28,12 @@ type teamworkCache struct {
 	names               []string
 	fields              map[string][]TeamworkOutputData
 	scorefields         map[string]discordgo.MessageComponent
-	siabField           []TeamworkOutputData
 }
 
 var teamworkCacheMap = make(map[string]teamworkCache)
 
 // buildTeamworkCache will build a cache of the teamwork data
 func buildTeamworkCache(s string, fields map[string][]TeamworkOutputData) teamworkCache {
-
-	// Extract SIAB Fields from the fields map
-	var siabFields []TeamworkOutputData
-	if field, ok := fields["siab"]; ok {
-		siabFields = field
-	}
-	delete(fields, "siab")
 
 	// Extract and sort the keys from the fields map
 	var keys []string
@@ -90,11 +81,10 @@ func buildTeamworkCache(s string, fields map[string][]TeamworkOutputData) teamwo
 		names:               keys,
 		fields:              fields,
 		scorefields:         scoreFields,
-		siabField:           siabFields,
 	}
 }
 
-func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMessage bool, xid string, refresh bool, toggle bool, siabDisplay bool, drawButtons bool) {
+func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMessage bool, xid string, refresh bool, toggle bool, drawButtons bool) {
 	cache, exists := teamworkCacheMap[xid]
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
@@ -111,8 +101,6 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 		newCache.coopID = cache.coopID
 		newCache.page = cache.page
 		newCache.showScores = cache.showScores
-		newCache.showingSIAB = cache.showingSIAB
-		siabDisplay = newCache.showingSIAB
 		if refresh {
 			newCache.page = cache.previousPage
 		}
@@ -151,15 +139,6 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 		cache.showScores = !cache.showScores
 		teamworkCacheMap[cache.xid] = cache
 	}
-	if siabDisplay != cache.showingSIAB {
-		cache.showingSIAB = siabDisplay
-		teamworkCacheMap[cache.xid] = cache
-	}
-
-	// if Refresh this should be the previous page
-	if siabDisplay {
-		cache.page = cache.previousPage
-	}
 
 	flags := discordgo.MessageFlagsEphemeral
 	if cache.public {
@@ -178,56 +157,28 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 	if len(cache.names) != 0 {
 		key := cache.names[cache.page]
 		field := cache.fields[key]
-
-		if !siabDisplay {
-			var container discordgo.Container
-			// Need to make a component list of the field data.
-			// First element of this is th player name
-			var bodyText []discordgo.MessageComponent
+		var container discordgo.Container
+		// Need to make a component list of the field data.
+		// First element of this is th player name
+		var bodyText []discordgo.MessageComponent
+		bodyText = append(bodyText, discordgo.TextDisplay{
+			Content: "## " + field[0].Content,
+		})
+		for _, f := range field[1:] {
+			// Section header - should be a Label but that's not in the library yet.
 			bodyText = append(bodyText, discordgo.TextDisplay{
-				Content: "## " + field[0].Content,
+				Content: fmt.Sprintf("### %s\n%s\n", f.Title, f.Content),
 			})
-			for _, f := range field[1:] {
-				// Section header - should be a Label but that's not in the library yet.
-				bodyText = append(bodyText, discordgo.TextDisplay{
-					Content: fmt.Sprintf("### %s\n%s\n", f.Title, f.Content),
-				})
-			}
-
-			myColor := 0xffaa00
-			container = discordgo.Container{
-				Components:  bodyText,
-				AccentColor: &myColor,
-			}
-			comp = append(comp, container)
-
-		} else {
-			var container discordgo.Container
-			// Need to make a component list of the field data.
-			// First element of this is th player name
-			var bodyText []discordgo.MessageComponent
-			bodyText = append(bodyText, discordgo.TextDisplay{
-				Content: "## " + cache.siabField[0].Content,
-			})
-			for _, f := range cache.siabField[1:] {
-				// Section header - should be a Label but that's not in the library yet.
-				bodyText = append(bodyText, discordgo.TextDisplay{
-					Content: "### " + f.Title,
-				})
-				// Section data.
-				bodyText = append(bodyText, discordgo.TextDisplay{
-					Content: f.Content,
-				})
-			}
-
-			myColor := 0xffaa00
-			container = discordgo.Container{
-				Components:  bodyText,
-				AccentColor: &myColor,
-			}
-			comp = append(comp, container)
 		}
+
+		myColor := 0xffaa00
+		container = discordgo.Container{
+			Components:  bodyText,
+			AccentColor: &myColor,
+		}
+		comp = append(comp, container)
 	}
+
 	if newMessage {
 
 		if drawButtons {
@@ -261,13 +212,10 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 		}
 	}
 
-	// Don't advance the page if we're on the siabDisplay
 	cache.previousPage = cache.page
-	if !siabDisplay {
-		cache.page = cache.page + 1
-		if cache.page >= cache.pages {
-			cache.page = 0
-		}
+	cache.page = cache.page + 1
+	if cache.page >= cache.pages {
+		cache.page = 0
 	}
 
 	teamworkCacheMap[cache.xid] = cache
@@ -277,7 +225,6 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 func HandleTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// cs_#Name # cs_#ID # HASH
 	refresh := false
-	siabSelection := false
 	toggle := false
 	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
 
@@ -299,13 +246,10 @@ func HandleTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if len(reaction) == 3 && reaction[2] == "toggle" {
 		toggle = true
 	}
-	if len(reaction) == 3 && reaction[2] == "siab" {
-		siabSelection = true
-	}
 	if len(reaction) == 3 && reaction[2] == "close" {
 		drawButtons = false
 	}
-	sendTeamworkPage(s, i, false, reaction[1], refresh, toggle, siabSelection, drawButtons)
+	sendTeamworkPage(s, i, false, reaction[1], refresh, toggle, drawButtons)
 
 	if !drawButtons {
 		delete(teamworkCacheMap, reaction[1])
@@ -337,12 +281,6 @@ func getTeamworkComponents(name string, page int, pageEnd int) []discordgo.Messa
 				CustomID: fmt.Sprintf("fd_teamwork#%s#toggle", name),
 			})
 	*/
-	buttons = append(buttons,
-		discordgo.Button{
-			Label:    "SIAB Swap Times",
-			Style:    discordgo.SecondaryButton,
-			CustomID: fmt.Sprintf("fd_teamwork#%s#siab", name),
-		})
 	buttons = append(buttons,
 		discordgo.Button{
 			Label:    "Close",
