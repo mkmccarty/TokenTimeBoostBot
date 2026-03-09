@@ -267,11 +267,8 @@ func runCsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate, p csEst
 	}
 
 	rows := make([]srRow, 0, len(contractScore.playerParamters))
-	names := make([]string, len(contractScore.playerParamters))
 
-	for idx, player := range contractScore.playerParamters {
-		names[idx] = player.name
-
+	for _, player := range contractScore.playerParamters {
 		contrRatio := 0.0
 		if fairContribution > 0 {
 			contrRatio = player.contribution / fairContribution
@@ -338,7 +335,11 @@ func runCsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate, p csEst
 
 	rowsCopy := make([]srRow, len(rows))
 	copy(rowsCopy, rows)
-	namesCopy := append([]string(nil), names...)
+
+	names := make([]string, len(rowsCopy))
+	for i, row := range rowsCopy {
+		names[i] = row.name
+	}
 
 	interaction := i.Interaction
 	msgID := msg.ID
@@ -348,7 +349,7 @@ func runCsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate, p csEst
 	go func() {
 		archives, fetched, missing, err := GetContractArchivesForNames(
 			s,
-			namesCopy,
+			names,
 			"cxp_v0_2_0",
 			false,
 			true,
