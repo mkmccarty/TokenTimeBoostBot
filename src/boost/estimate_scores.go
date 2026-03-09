@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -302,6 +303,11 @@ func runCsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate, p csEst
 			diffOK:     false,
 		})
 	}
+
+	// Sort rows by CXP desc
+	sort.Slice(rows, func(i, j int) bool {
+		return rows[i].cxp > rows[j].cxp
+	})
 
 	// Phase 1: Render table without making archive fetches, send initial response with just estimates
 	title := "## Projected Scores"
