@@ -1729,7 +1729,7 @@ func reorderBoosters(contract *Contract) {
 
 	type teOrderPair struct {
 		name string
-		te   int
+		te   float64
 	}
 
 	switch contract.BoostOrder {
@@ -1885,20 +1885,20 @@ func reorderBoosters(contract *Contract) {
 		pairs := make([]teOrderPair, len(contract.Order))
 
 		for i, name := range contract.Order {
-			te := contract.Boosters[name].TECount
+			baseTE := float64(max(contract.Boosters[name].TECount, 0))
+			sortTE := baseTE
 
 			if contract.BoostOrder == ContractOrderTEplus {
-				te = max(te, 0)
-
-				randomBonusMax := max(
-					te/5, // 20% of TE
-					int(math.Sqrt(float64(te))),
+				randomBonusMax := math.Max(
+					baseTE*0.2,        // 20%
+					math.Sqrt(baseTE), // Sqrt
 				)
-
-				te += rand.IntN(randomBonusMax + 1)
+				// Maximum of 20% or sqrt of the TE count as a random bonus, can be negative or positive
+				randomOffset := (rand.Float64()*2 - 1) * randomBonusMax
+				sortTE = baseTE + randomOffset
 			}
 
-			pairs[i] = teOrderPair{name: name, te: te}
+			pairs[i] = teOrderPair{name: name, te: sortTE}
 		}
 
 		sort.Slice(pairs, func(i, j int) bool {
