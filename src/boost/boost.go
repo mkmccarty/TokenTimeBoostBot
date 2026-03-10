@@ -1888,9 +1888,14 @@ func reorderBoosters(contract *Contract) {
 			te := contract.Boosters[name].TECount
 
 			if contract.BoostOrder == ContractOrderTEplus {
-				// Add randomization factor of up to 10% of TE count
 				te = max(te, 0)
-				te += rand.IntN(te/10 + 1)
+
+				randomBonusMax := max(
+					te/5, // 20% of TE
+					int(math.Sqrt(float64(te))),
+				)
+
+				te += rand.IntN(randomBonusMax + 1)
 			}
 
 			pairs[i] = teOrderPair{name: name, te: te}
