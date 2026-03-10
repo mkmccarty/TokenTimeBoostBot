@@ -203,7 +203,14 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			if c.ValidFrom.IsZero() {
 				// Get the ValidFrom time from the last contract of ei.EggIncContracts
 				c2 := ei.EggIncContracts[len(ei.EggIncContracts)-1]
-				c.ValidFrom = c2.ValidFrom
+				nowInC2Loc := time.Now().In(c2.ValidFrom.Location())
+				// Rebuild using today's date in the source location so current DST
+				// rules are applied, even when fallback data came from an older date.
+				c.ValidFrom = time.Date(
+					nowInC2Loc.Year(), nowInC2Loc.Month(), nowInC2Loc.Day(),
+					c2.ValidFrom.Hour(), c2.ValidFrom.Minute(), c2.ValidFrom.Second(),
+					c2.ValidFrom.Nanosecond(), c2.ValidFrom.Location(),
+				)
 			}
 			// Calculate time as 9:00 AM + offset hours using today's date
 			now := time.Now()
