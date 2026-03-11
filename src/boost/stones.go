@@ -1088,13 +1088,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	return builder.String(), builderURL.String(), field
 }
 
-func truncateString(s string, length int) string {
-	if len(s) > length {
-		return s[:length]
-	}
-	return s
-}
-
 // getDeflectorDropPerc will calculate the deflector drop percentage based on the players' ELR/SR ratio
 // From staabmia https://srsandbox-staabmia.netlify.app/scripts.js
 func getDeflectorDropPerc(players []artifactSet, totDeflector float64) float64 {
