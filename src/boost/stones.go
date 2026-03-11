@@ -888,7 +888,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			//link := fmt.Sprintf("[%s](%s)", "🌌", url)
 
 			statsLine := []string{
-				bottools.AlignString(truncateString(as.name, 12), 12, bottools.StringAlignRight),
+				bottools.FitString(as.name, 12, bottools.StringAlignRight),
 				bottools.AlignString(displayT, 3, paddingT),
 				bottools.AlignString(displayQ, 3, paddingQ),
 			}
@@ -1086,13 +1086,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	fmt.Fprintf(&builder, "Colleggtibles show when less than %s\n", strings.Join(colleggtibleStr, ", "))
 
 	return builder.String(), builderURL.String(), field
-}
-
-func truncateString(s string, length int) string {
-	if len(s) > length {
-		return s[:length]
-	}
-	return s
 }
 
 // getDeflectorDropPerc will calculate the deflector drop percentage based on the players' ELR/SR ratio
