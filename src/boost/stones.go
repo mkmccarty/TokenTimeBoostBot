@@ -888,7 +888,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			//link := fmt.Sprintf("[%s](%s)", "🌌", url)
 
 			statsLine := []string{
-				bottools.AlignString(truncateString(as.name, 12), 12, bottools.StringAlignRight),
+				bottools.FitString(as.name, 12, bottools.StringAlignRight),
 				bottools.AlignString(displayT, 3, paddingT),
 				bottools.AlignString(displayQ, 3, paddingQ),
 			}
