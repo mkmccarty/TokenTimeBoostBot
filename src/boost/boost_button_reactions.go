@@ -544,6 +544,9 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 			Color:       newColor,
 		},
 	})
+	if newColor == 0x00ff00 {
+		msgedit.Components = &[]discordgo.MessageComponent{}
+	}
 	msgedit.Flags = discordgo.MessageFlagsSuppressNotifications
 	_, _ = s.ChannelMessageEditComplex(msgedit)
 
