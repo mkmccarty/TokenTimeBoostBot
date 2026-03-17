@@ -792,8 +792,8 @@ var (
 		"fd_playground": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleScoreExplorerPage(s, i)
 		},
-		"fd_signups": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleSignupsPage(s, i)
+		"predictions": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandlePredictionsPage(s, i)
 		},
 		"fd_signupStart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
