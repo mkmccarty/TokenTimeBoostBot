@@ -49,7 +49,7 @@ func (p predictionType) flags() (showWednesday, showFridayNonUltra, showFridayUl
 	return
 }
 
-// GetPredictionsCommand returns the command for the /signups command
+// GetPredictionsCommand returns the command for the /predictions command
 func GetPredictionsCommand(cmd string) *discordgo.ApplicationCommand {
 	minValue := 1.0
 	return &discordgo.ApplicationCommand{
@@ -77,7 +77,7 @@ func GetPredictionsCommand(cmd string) *discordgo.ApplicationCommand {
 	}
 }
 
-// HandlePredictionsCommand will handle the /signups command
+// HandlePredictionsCommand will handle the /predictions command
 func HandlePredictionsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	flags := discordgo.MessageFlagsIsComponentsV2
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -88,7 +88,6 @@ func HandlePredictionsCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 		},
 	})
 
-	// Find which subcommand was used and call the appropriate handler
 	optionMap := bottools.GetCommandOptionsMap(i)
 	var components []discordgo.MessageComponent
 
@@ -115,24 +114,29 @@ func HandlePredictionsCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 		pt:         pt,
 	})
 
-	content := ""
 	if len(components) == 0 {
-		content = "No templates available."
-		components = nil
+		// A text component
+		components = []discordgo.MessageComponent{
+			&discordgo.TextDisplay{
+				Content: "No predictions available at this time.",
+			},
+		}
 	}
 
 	_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content:    content,
 		Flags:      flags,
 		Components: components,
+		AllowedMentions: &discordgo.MessageAllowedMentions{
+			Parse: []discordgo.AllowedMentionType{},
+		},
 	})
 	if err != nil {
-		log.Println("Error sending follow-up message:", err)
+		log.Println("Error sending follow-up message /predictions:", err)
 	}
 }
 
-// HandleSignupsPage handles interaction for signup pages
-func HandleSignupsPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandlePredictionsPage handles interaction for prediction pages
+func HandlePredictionsPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	// check if the original message is older than 5 minutes
 	const ttl = 5 * time.Minute
@@ -158,7 +162,7 @@ func HandleSignupsPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	})
 	if err != nil {
-		log.Println(err)
+		log.Println("Error responding to interaction /predictions:", err)
 	}
 
 	predParams := predictionCallParameters{
@@ -191,8 +195,6 @@ func HandleSignupsPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 }
 
-// ==== Prediction Subcommand ====
-
 type predictionCallParameters struct {
 	buttonCall    bool           // Whether to display buttons
 	contractCount int64          // How many contracts to show per type
@@ -200,10 +202,7 @@ type predictionCallParameters struct {
 }
 
 // predictions prints predictions for the following weeks contracts.
-func predictions(
-	optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption,
-	params predictionCallParameters,
-) []discordgo.MessageComponent {
+func predictions(optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption, params predictionCallParameters) []discordgo.MessageComponent {
 	var contractCount int64 = 3
 	if optionMap != nil && optionMap["contract-count"] != nil {
 		contractCount = optionMap["contract-count"].IntValue()
@@ -269,7 +268,7 @@ func getPredictionsButtonsComponents(predType predictionType, contractCount int6
 	min := 1
 	selectMenu := discordgo.SelectMenu{
 		MenuType:    discordgo.StringSelectMenu,
-		CustomID:    fmt.Sprintf("fd_signups#predtype#%s#%d", predType, contractCount),
+		CustomID:    fmt.Sprintf("predictions#predtype#%s#%d", predType, contractCount),
 		Placeholder: "Prediction Type",
 		MinValues:   &min,
 		MaxValues:   1,
@@ -306,11 +305,10 @@ func getPredictionsButtonsComponents(predType predictionType, contractCount int6
 			},
 		},
 	}
-	// TODO: Update the command name to predictions
 	closeButton := discordgo.Button{
 		Label:    "💾 Save",
 		Style:    discordgo.SuccessButton,
-		CustomID: fmt.Sprintf("fd_signups#predclose#%s#%d", predType, contractCount),
+		CustomID: fmt.Sprintf("predictions#predclose#%s#%d", predType, contractCount),
 	}
 
 	return []discordgo.MessageComponent{
@@ -324,11 +322,7 @@ func getPredictionsButtonsComponents(predType predictionType, contractCount int6
 }
 
 // Wednesday Predictions
-func writeWednesdayPredictions(
-	dropTime time.Time, // when the post is created
-	contracts []ei.EggIncContract,
-	footer bool,
-) *discordgo.TextDisplay {
+func writeWednesdayPredictions(dropTime time.Time, contracts []ei.EggIncContract, footer bool) *discordgo.TextDisplay {
 	var b strings.Builder
 
 	// Icons
@@ -348,6 +342,7 @@ func writeWednesdayPredictions(
 		b.WriteString("-# ")
 		b.WriteString(iconCoop)
 		b.WriteString(" Coop Size | 🌼Seasonal LB\n")
+		b.WriteString("-# Implemented by @james.wst • Ping for feedback and issues\n")
 	}
 
 	return &discordgo.TextDisplay{
@@ -355,12 +350,7 @@ func writeWednesdayPredictions(
 	}
 }
 
-func writeFridayPredictions(
-	dropTime time.Time,
-	peContracts []ei.EggIncContract,
-	ultraContracts []ei.EggIncContract,
-	footer, showNonUltra, showUltra bool,
-) *discordgo.TextDisplay {
+func writeFridayPredictions(dropTime time.Time, peContracts, ultraContracts []ei.EggIncContract, footer, showNonUltra, showUltra bool) *discordgo.TextDisplay {
 	var b strings.Builder
 
 	// Icons BB vs Egg Server
@@ -396,6 +386,7 @@ func writeFridayPredictions(
 		b.WriteString("-# ")
 		b.WriteString(iconCoop)
 		b.WriteString(" Coop Size | 🌼Seasonal LB\n")
+		b.WriteString("-# Implemented by @james.wst • Ping for feedback and issues\n")
 	}
 
 	return &discordgo.TextDisplay{
@@ -404,11 +395,7 @@ func writeFridayPredictions(
 }
 
 // writeContracts prints only the contract lines, reusing shared season metadata.
-func writeContracts(
-	b *strings.Builder,
-	contracts []ei.EggIncContract,
-	iconCoop string,
-) {
+func writeContracts(b *strings.Builder, contracts []ei.EggIncContract, iconCoop string) {
 	for _, c := range contracts {
 
 		// Season label "🍂 25FL", "☀️ 23SU", "🌼 23SP", "❄️ 24WI"
@@ -544,10 +531,7 @@ var KevinLoc = func() *time.Location {
 
 // isNextWedSoonerThanNextFri returns true if the next Wednesday 09:00
 // occurs before the next Friday 09:00 based on the given time and location
-func isNextWedSoonerThanNextFri(
-	now time.Time,
-	loc *time.Location,
-) bool {
+func isNextWedSoonerThanNextFri(now time.Time, loc *time.Location) bool {
 	local := now.In(loc)
 
 	wd := local.Weekday()
@@ -569,11 +553,7 @@ func isNextWedSoonerThanNextFri(
 }
 
 // findNextContractDropTime returns the next specified date based on given time at 9:00 AM in the given location
-func findNextContractDropTime(
-	now time.Time,
-	target time.Weekday,
-	loc *time.Location,
-) time.Time {
+func findNextContractDropTime(now time.Time, target time.Weekday, loc *time.Location) time.Time {
 	local := now.In(loc)
 
 	daysAhead := (int(target) - int(local.Weekday()) + 7) % 7
