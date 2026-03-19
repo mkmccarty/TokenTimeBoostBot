@@ -208,6 +208,12 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
+	// Refresh the boost list to show updated TE for TE-ordered contracts
+	contract := FindContract(i.ChannelID)
+	if contract != nil {
+		refreshBoostListMessage(s, contract, false)
+	}
+
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
 			Content: str,
