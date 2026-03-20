@@ -822,9 +822,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 			if availableFleetSize < 17 {
 				fmt.Fprintf(&notes, "%s-# Max Available Vehicles: %d/17 %s\n", prefixLinefeed, availableFleetSize, VehicleArt)
 			} else if availableFleetSize == 17 && maxTrainLength < 10 {
-				fmt.Fprintf(&notes, "%s-# All 17 vehicles available %s\n-# Max Available Train Length: %d/10 %s\n", prefixLinefeed, VehicleArt, maxTrainLength, ei.GetBotEmojiMarkdown("tl"))
-			} else if availableFleetSize == 17 && maxTrainLength == 10 {
-				fmt.Fprintf(&notes, "%s-# All 17 vehicles and max 10 train length available %s %s\n", prefixLinefeed, VehicleArt, ei.GetBotEmojiMarkdown("tl"))
+				fmt.Fprintf(&notes, "%s-# All 17 vehicles available %s\n-# Max Available Train Length: %d/10 %s\n", prefixLinefeed, VehicleArt, availableTrainLength, ei.GetBotEmojiMarkdown("tl"))
 			}
 		case 2: // Humility
 			// Calculate the launched ships
