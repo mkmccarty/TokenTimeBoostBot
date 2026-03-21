@@ -24,6 +24,13 @@ func SlashAdminGetContractData(cmd string) *discordgo.ApplicationCommand {
 		Name:                     cmd,
 		Description:              "Retrieve contract JSON data",
 		DefaultMemberPermissions: &adminPermission,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
+
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:         discordgo.ApplicationCommandOptionString,
@@ -45,11 +52,11 @@ func SlashAdminGetContractData(cmd string) *discordgo.ApplicationCommand {
 
 // SlashAdminListRoles is the slash to info about bot roles
 func SlashAdminListRoles(cmd string) *discordgo.ApplicationCommand {
-	//var adminPermission = int64(0)
+	var adminPermission = int64(0)
 	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Display contract role usage",
-		//DefaultMemberPermissions: &adminPermission,
+		Name:                     cmd,
+		Description:              "Display contract role usage",
+		DefaultMemberPermissions: &adminPermission,
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:         discordgo.ApplicationCommandOptionString,
