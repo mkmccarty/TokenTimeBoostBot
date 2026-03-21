@@ -278,12 +278,12 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 		// Fetch target channel from guild settings
 		guildID := contract.Location[0].GuildID
-		targetChannelID := guildstate.GetGuildSettingString(guildID, "admin_logs")
+		targetChannelID := guildstate.GetGuildSettingString(guildID, "admin_logs_channel")
 		if targetChannelID == "" {
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
-					Content: "Admin logs are not configured for this server. Contact an admin to set the `admin_logs` channel.",
+					Content: "Admin logs are not configured for this server. Contact an admin to set the `admin_logs_channel` guildstate.",
 					Flags:   discordgo.MessageFlagsEphemeral,
 				},
 			})
