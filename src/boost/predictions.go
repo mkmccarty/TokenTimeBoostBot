@@ -330,7 +330,7 @@ func writeWednesdayPredictions(dropTime time.Time, contracts []ei.EggIncContract
 
 	// Header
 	b.WriteString("**📜 Leggacy Prediction 🔮**\n-# ")
-	b.WriteString(bottools.WrapTimestamp(dropTime.Unix(), bottools.TimestampLongDate))
+	b.WriteString(bottools.WrapTimestamp(dropTime.Unix(), bottools.TimestampShortDateTime))
 	b.WriteByte('\n')
 
 	// Body
@@ -360,7 +360,7 @@ func writeFridayPredictions(dropTime time.Time, peContracts, ultraContracts []ei
 
 	// Header
 	b.WriteString("**PE Leggacies Predictions 🔮**\n-# ")
-	b.WriteString(bottools.WrapTimestamp(dropTime.Unix(), bottools.TimestampLongDate))
+	b.WriteString(bottools.WrapTimestamp(dropTime.Unix(), bottools.TimestampShortDateTime))
 	b.WriteByte('\n')
 
 	// Non-Ultra
