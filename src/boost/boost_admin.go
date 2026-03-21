@@ -517,7 +517,7 @@ func AdminContractReport(s *discordgo.Session, i *discordgo.InteractionCreate, c
 	}
 
 	// Respond immediately to buy some time for processing and to avoid interaction timeout
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: "Processing Request...",
