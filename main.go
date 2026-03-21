@@ -23,6 +23,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/menno"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/tasks"
@@ -43,6 +44,8 @@ const slashAdminContractFinish string = "admin-contract-finish"
 const slashReloadContracts string = "admin-reload-contracts"
 const slashAdminGetContractData string = "admin-get-contract-data"
 const slashAdminListRoles string = "list-roles"
+const slashAdminSetGuildSetting string = "admin-set-guild-setting"
+const slashAdminGetGuildSettings string = "admin-get-guild-settings"
 
 // Slash Command Constants
 const slashContract string = "contract"
@@ -207,6 +210,8 @@ var (
 		},
 		boost.SlashAdminGetContractData(slashAdminGetContractData),
 		boost.SlashAdminListRoles(slashAdminListRoles),
+		guildstate.SlashSetGuildSettingCommand(slashAdminSetGuildSetting),
+		guildstate.SlashGetGuildSettingsCommand(slashAdminGetGuildSettings),
 	}
 
 	globalCommands = []*discordgo.ApplicationCommand{
@@ -516,6 +521,12 @@ var (
 		},
 		slashAdminListRoles: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAdminListRoles(s, i)
+		},
+		slashAdminSetGuildSetting: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			guildstate.SetGuildSetting(s, i)
+		},
+		slashAdminGetGuildSettings: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			guildstate.GetGuildSettings(s, i)
 		},
 		// Slash Commands
 		slashArtifact: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
