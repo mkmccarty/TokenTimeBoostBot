@@ -753,6 +753,11 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 			Value: "grange",
 			Emoji: &discordgo.ComponentEmoji{Name: "🧑‍🧑‍🧒‍🧒"},
 		})
+		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+			Label: "Admin Logs",
+			Value: "adminlogs",
+			Emoji: &discordgo.ComponentEmoji{Name: "📜"},
+		})
 
 		minValues := 0
 		out = append(out, discordgo.ActionsRow{
