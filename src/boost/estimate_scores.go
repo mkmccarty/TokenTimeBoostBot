@@ -707,6 +707,7 @@ type srPeaks struct {
 	btv        int
 }
 
+// RenderScoreTableANSI renders the score table in an ANSI code block, highlighting the max value in each column. If includeDiff is true, includes the Diff column.
 func RenderScoreTableANSI(rows []srRow, srmode bool, includeDiff bool) string {
 	peaks := computePeaks(rows)
 
