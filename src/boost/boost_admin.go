@@ -297,16 +297,17 @@ func getContractList(guildID string) (string, *discordgo.MessageSend, error) {
 				continue
 			}
 		}
-		str := fmt.Sprintf("> Coordinator: <@%s>  [%s](%s/%s/%s)\n", c.CreatorID[0], c.CoopID, "https://eicoop-carpet.netlify.app", c.ContractID, c.CoopID)
+		var str strings.Builder
+		fmt.Fprintf(&str, "> Coordinator: <@%s>  [%s](%s/%s/%s)\n", c.CreatorID[0], c.CoopID, "https://eicoop-carpet.netlify.app", c.ContractID, c.CoopID)
 		for _, loc := range c.Location {
-			str += fmt.Sprintf("> *%s*\t%s\n", loc.GuildName, loc.ChannelMention)
+			fmt.Fprintf(&str, "> *%s*\t%s\n", loc.GuildName, loc.ChannelMention)
 		}
-		str += fmt.Sprintf("> Started: <t:%d:R>\n", c.StartTime.Unix())
-		str += fmt.Sprintf("> Contract State: *%s*\n", contractStateNames[c.State])
-		str += fmt.Sprintf("> Hash: *%s*\n", c.ContractHash)
+		fmt.Fprintf(&str, "> Started: <t:%d:R>\n", c.StartTime.Unix())
+		fmt.Fprintf(&str, "> Contract State: *%s*\n", contractStateNames[c.State])
+		fmt.Fprintf(&str, "> Hash: *%s*\n", c.ContractHash)
 		field = append(field, &discordgo.MessageEmbedField{
 			Name:   fmt.Sprintf("%d - **%s/%s**\n", i, c.ContractID, c.CoopID),
-			Value:  str,
+			Value:  str.String(),
 			Inline: false,
 		})
 		i++
@@ -475,4 +476,280 @@ func HandleAdminGetContractData(s *discordgo.Session, i *discordgo.InteractionCr
 			},
 		},
 	})
+}
+
+// adminContractReportJSON holds full admin log contract report for admins
+type adminContractReportJSON struct {
+	CoordinatorID  string                      `json:"coordinator_id,omitempty"`
+	GuildName      string                      `json:"guild_name"`
+	GuildID        string                      `json:"guild_id"`
+	ChannelID      string                      `json:"channel_id"`
+	ChannelURL     string                      `json:"channel_url"`
+	ContractHash   string                      `json:"contract_hash"`
+	ContractID     string                      `json:"contract_id"`
+	CoopID         string                      `json:"coop_id"`
+	RunType        string                      `json:"run_type"`
+	GGType         string                      `json:"gg_type"`
+	ContractSize   int64                       `json:"contract_size"`
+	StartTimestamp int64                       `json:"start_timestamp"`
+	RoleName       string                      `json:"role_name"`
+	Members        []adminContractReportMember `json:"members"`
+}
+
+// adminContractReportMember represents a single booster in the contract report.
+type adminContractReportMember struct {
+	UserID     string `json:"user_id"`
+	Nick       string `json:"nick"`
+	JoinedUnix int64  `json:"joined_unix,omitempty"`
+}
+
+// AdminContractReport sends a contract summary plus a JSON attachment containing
+func AdminContractReport(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, targetChannelID string) {
+	if contract == nil {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "No contract found.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
+	// Respond immediately to buy some time for processing and to avoid interaction timeout
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing Request...",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+
+	// Get contract data from the list of all contract
+	eiContract, ok := ei.EggIncContractsAll[contract.ContractID]
+	if !ok { // ContractID not set
+		eiContract.MaxCoopSize = len(contract.Boosters)
+	}
+
+	// Determine run type based on contract valid from date
+	runType := "Unknown"
+	validFrom := eiContract.ValidFrom
+	if !validFrom.IsZero() {
+		switch validFrom.Weekday() {
+		case time.Monday:
+			runType = "Seasonal"
+		case time.Wednesday:
+			runType = "Wednesday Leggacy"
+		case time.Friday:
+			if eiContract.Ultra {
+				runType = "Ultra PE Leggacy"
+			} else {
+				runType = "Non-ultra PE Leggacy"
+			}
+		}
+	}
+
+	coordinatorID := contract.CreatorID[0]
+
+	// Carpet URL for summary view
+	carpetURL := fmt.Sprintf("https://eicoop-carpet.netlify.app/%s/%s", contract.ContractID, contract.CoopID)
+
+	// Set contract Start time
+	startTime := contract.StartTime
+	if !contract.ActualStartTime.IsZero() {
+		startTime = contract.ActualStartTime
+	}
+
+	// Determine whether if GG was active at the start of the contract
+	ggType := "Non-GG"
+	if !startTime.IsZero() {
+		ggEvent := ei.FindGiftEvent(startTime)
+		if ggEvent.EventType != "" {
+			if ggEvent.Ultra {
+				ggType = "Ultra-GG"
+			} else {
+				ggType = "GG"
+			}
+		}
+	}
+
+	// Build the list of members sorted by join date
+	type boosterEntry struct {
+		userID  string
+		booster *Booster
+	}
+
+	entries := make([]boosterEntry, 0, len(contract.Boosters))
+	for userID, booster := range contract.Boosters {
+		if booster != nil {
+			entries = append(entries, boosterEntry{userID, booster})
+		}
+	}
+	// Sort by join date
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].booster.Register.Before(entries[j].booster.Register)
+	})
+
+	reportMembers := make([]adminContractReportMember, 0, len(entries))
+	summaryMemberLines := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		// Use nickname if available, fallback to userID
+		nick := entry.booster.Nick
+		if nick == "" {
+			nick = entry.userID
+		}
+		// Joined timestamp for the current booster
+		joinedUnix := int64(0)
+		if !entry.booster.Register.IsZero() {
+			joinedUnix = entry.booster.Register.Unix()
+		}
+
+		// Build JSON object
+		member := adminContractReportMember{
+			UserID:     entry.userID,
+			Nick:       nick,
+			JoinedUnix: joinedUnix,
+		}
+
+		reportMembers = append(reportMembers, member)
+		summaryMemberLines = append(summaryMemberLines,
+			fmt.Sprintf("%s %s (`%s`) joined: %s",
+				member.Nick,
+				entry.booster.Mention,
+				member.UserID,
+				bottools.WrapTimestamp(member.JoinedUnix, bottools.TimestampShortTime),
+			),
+		)
+	}
+
+	// Guild and channel info for the contract
+	loc := LocationData{
+		GuildName:         "Unknown",
+		GuildID:           "Unknown",
+		ChannelID:         "Unknown",
+		GuildContractRole: discordgo.Role{Name: "Unknown"},
+	}
+	if len(contract.Location) > 0 && contract.Location[0] != nil {
+		loc = *contract.Location[0]
+	}
+
+	// Generate a link to contract thread
+	channelURL := ""
+	if loc.GuildID != "" && loc.ChannelID != "" {
+		channelURL = fmt.Sprintf("https://discord.com/channels/%s/%s", loc.GuildID, loc.ChannelID)
+	}
+
+	reportJSON := adminContractReportJSON{
+		CoordinatorID:  coordinatorID,
+		GuildName:      loc.GuildName,
+		GuildID:        loc.GuildID,
+		ChannelID:      loc.ChannelID,
+		ChannelURL:     channelURL,
+		ContractHash:   contract.ContractHash,
+		ContractID:     contract.ContractID,
+		CoopID:         contract.CoopID,
+		RunType:        runType,
+		GGType:         ggType,
+		ContractSize:   int64(eiContract.MaxCoopSize),
+		StartTimestamp: startTime.Unix(),
+		RoleName:       loc.GuildContractRole.Name,
+		Members:        reportMembers,
+	}
+
+	// Write the summary section of the report
+	var summary strings.Builder
+
+	fmt.Fprintf(&summary, `### Admin Logs
+Coordinator ID: <@%s> (%s)
+Guild Name: *%s*
+Channel URL: %s
+Contract Hash: *%s*
+Contract ID: *%s*
+Coop ID: [**⧉**](%s)*%s* 
+Run Type: *%s*
+GG Type: *%s*
+Contract Size: *%d*
+Start Time: %s
+Role Name: *%s*
+`,
+		reportJSON.CoordinatorID, reportJSON.CoordinatorID,
+		reportJSON.GuildName,
+		reportJSON.ChannelURL,
+		reportJSON.ContractHash,
+		reportJSON.ContractID,
+		carpetURL, reportJSON.CoopID,
+		reportJSON.RunType,
+		reportJSON.GGType,
+		reportJSON.ContractSize,
+		bottools.WrapTimestamp(reportJSON.StartTimestamp, bottools.TimestampShortDateTime),
+		reportJSON.RoleName,
+	)
+
+	memberContent := strings.Join(summaryMemberLines, "\n")
+	if memberContent == "" {
+		memberContent = "No boosters found for this contract.*\n"
+	}
+
+	components := []discordgo.MessageComponent{
+		&discordgo.TextDisplay{
+			Content: summary.String(),
+		},
+		&discordgo.TextDisplay{
+			Content: fmt.Sprintf("## %s\n%s", reportJSON.RoleName, memberContent),
+		},
+	}
+
+	// Shouldn't ever happen but just to be safe sanitize file names
+	sanitizedID := strings.ToLower(fmt.Sprintf("%s-%s", reportJSON.ContractID, reportJSON.CoopID))
+	sanitizedID = strings.NewReplacer(
+		" ", "-",
+		"/", "-",
+		"\\", "-",
+		":", "-",
+		";", "-",
+		"\t", "-",
+		"\n", "-",
+		"\r", "-",
+	).Replace(sanitizedID)
+
+	filename := "contract-report-" + sanitizedID + ".json"
+
+	jsonData, err := json.MarshalIndent(reportJSON, "", "  ")
+	if err != nil {
+		log.Println("Error marshaling contract report JSON:", err)
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Error formatting contract JSON: " + err.Error(),
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
+	_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
+		Components: components,
+	})
+	if err != nil {
+		log.Println("Error sending admin contract summary:", err)
+		return
+	}
+
+	_, err = s.ChannelMessageSendComplex(targetChannelID, &discordgo.MessageSend{
+		Content: summary.String(),
+		Files: []*discordgo.File{
+			{
+				Name:        filename,
+				ContentType: "application/json",
+				Reader:      bytes.NewReader(jsonData),
+			},
+		},
+		Flags: discordgo.MessageFlagsSuppressEmbeds,
+	})
+	if restErr, ok := err.(*discordgo.RESTError); ok && restErr.Message != nil {
+		log.Printf("Failed to send JSON file to channel %s: HTTP %d, Discord message: %s\n",
+			targetChannelID, restErr.Response.StatusCode, restErr.Message.Message)
+		return
+	}
 }

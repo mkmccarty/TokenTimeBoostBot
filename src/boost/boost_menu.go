@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
 
 // HandleMenuReactions handles the menu reactions for the contract
@@ -259,5 +261,36 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
+	case "adminlogs":
+
+		// Check if the user is a coordinator for the contract
+		userID := i.Member.User.ID
+		if !slices.Contains(contract.CreatorID, userID) {
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "You are not a coordinator for this contract.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+			return
+		}
+
+		// Fetch target channel from guild settings
+		guildID := contract.Location[0].GuildID
+		targetChannelID := guildstate.GetGuildSettingString(guildID, "admin_logs_channel")
+		if targetChannelID == "" {
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Admin logs are not configured for this server. Contact an admin to set the `admin_logs_channel` guildstate.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+			return
+		}
+
+		// Pull up the contract data in the target channel
+		AdminContractReport(s, i, contract, targetChannelID)
 	}
 }
