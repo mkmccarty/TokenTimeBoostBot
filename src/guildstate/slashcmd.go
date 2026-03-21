@@ -23,6 +23,12 @@ func SlashSetGuildSettingCommand(cmd string) *discordgo.ApplicationCommand {
 		Name:                     cmd,
 		Description:              "Set or clear a guild setting value",
 		DefaultMemberPermissions: &adminPermission,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
@@ -47,7 +53,13 @@ func SlashGetGuildSettingsCommand(cmd string) *discordgo.ApplicationCommand {
 		Name:                     cmd,
 		Description:              "Get all settings for a guild",
 		DefaultMemberPermissions: &adminPermission,
-		Options:                  []*discordgo.ApplicationCommandOption{},
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
+		Options: []*discordgo.ApplicationCommandOption{},
 	}
 }
 
