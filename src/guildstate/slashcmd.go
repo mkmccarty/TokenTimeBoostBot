@@ -139,8 +139,27 @@ func classifySnowflake(s *discordgo.Session, guildID, id string) string {
 		}
 	}
 
+	if guildID != "" {
+		if member, err := s.GuildMember(guildID, id); err == nil && member != nil {
+			name := strings.TrimSpace(member.Nick)
+			if name == "" && member.User != nil {
+				name = strings.TrimSpace(member.User.GlobalName)
+			}
+			if name == "" && member.User != nil {
+				name = strings.TrimSpace(member.User.Username)
+			}
+			if name == "" {
+				return "user"
+			}
+			return fmt.Sprintf("user (%s)", name)
+		}
+	}
+
 	if usr, err := s.User(id); err == nil && usr != nil {
-		name := strings.TrimSpace(usr.Username)
+		name := strings.TrimSpace(usr.GlobalName)
+		if name == "" {
+			name = strings.TrimSpace(usr.Username)
+		}
 		if name == "" {
 			return "user"
 		}
