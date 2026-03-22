@@ -166,6 +166,14 @@ func classifySnowflake(s *discordgo.Session, guildID, id string) string {
 		return fmt.Sprintf("user (%s)", name)
 	}
 
+	if g, err := s.Guild(id); err == nil && g != nil {
+		name := strings.TrimSpace(g.Name)
+		if name == "" {
+			return "guild"
+		}
+		return fmt.Sprintf("guild (%s)", name)
+	}
+
 	return "unknown snowflake"
 }
 
@@ -199,36 +207,33 @@ func splitCSV(value string) []string {
 	return items
 }
 
-// SetGuildSetting handles the admin slash command for setting or clearing guild settings.
-func SetGuildSetting(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if !isAdminCaller(s, i) {
-		respondEphemeral(s, i, "You are not authorized to use this command.")
-		return
-	}
-
-	optionMap := bottools.GetCommandOptionsMap(i)
-	guildID := i.GuildID
-	setting := ""
-	value := ""
-
-	if opt, ok := optionMap["setting"]; ok {
-		setting = strings.TrimSpace(opt.StringValue())
-	}
-	if opt, ok := optionMap["value"]; ok {
-		value = strings.TrimSpace(opt.StringValue())
-	}
-
-	if guildID == "" {
-		respondEphemeral(s, i, "This command can only be used in a server.")
-		return
-	}
-
+func getGuildDisplayName(s *discordgo.Session, guildID string) string {
 	guildName := guildID
 	if dgGuild, guildErr := s.Guild(guildID); guildErr == nil && dgGuild != nil {
 		if strings.TrimSpace(dgGuild.Name) != "" {
 			guildName = dgGuild.Name
 		}
 	}
+	return guildName
+}
+
+// SetGuildSettingForGuild sets or clears a guild setting for a specific guild ID.
+func SetGuildSettingForGuild(s *discordgo.Session, i *discordgo.InteractionCreate, guildID, setting, value string) {
+	if !isAdminCaller(s, i) {
+		respondEphemeral(s, i, "You are not authorized to use this command.")
+		return
+	}
+
+	guildID = strings.TrimSpace(guildID)
+	setting = strings.TrimSpace(setting)
+	value = strings.TrimSpace(value)
+
+	if guildID == "" {
+		respondEphemeral(s, i, "Guild ID is required.")
+		return
+	}
+
+	guildName := getGuildDisplayName(s, guildID)
 
 	if setting == "" {
 		respondEphemeral(s, i, "setting is required.")
@@ -263,25 +268,20 @@ func SetGuildSetting(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	respondEphemeral(s, i, builder.String())
 }
 
-// GetGuildSettings handles the admin slash command for retrieving all guild settings.
-func GetGuildSettings(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// GetGuildSettingsForGuild retrieves all persisted guild settings for a specific guild ID.
+func GetGuildSettingsForGuild(s *discordgo.Session, i *discordgo.InteractionCreate, guildID string) {
 	if !isAdminCaller(s, i) {
 		respondEphemeral(s, i, "You are not authorized to use this command.")
 		return
 	}
 
-	guildID := i.GuildID
-	guildName := guildID
-	if dgGuild, guildErr := s.Guild(guildID); guildErr == nil && dgGuild != nil {
-		if strings.TrimSpace(dgGuild.Name) != "" {
-			guildName = dgGuild.Name
-		}
-	}
-
+	guildID = strings.TrimSpace(guildID)
 	if guildID == "" {
-		respondEphemeral(s, i, "This command can only be used in a server.")
+		respondEphemeral(s, i, "Guild ID is required.")
 		return
 	}
+
+	guildName := getGuildDisplayName(s, guildID)
 
 	guild, err := GetGuildState(guildID)
 	if err != nil {
@@ -348,4 +348,24 @@ func GetGuildSettings(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	respondEphemeral(s, i, builder.String())
+}
+
+// SetGuildSetting handles the admin slash command for setting or clearing guild settings.
+func SetGuildSetting(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	optionMap := bottools.GetCommandOptionsMap(i)
+	setting := ""
+	value := ""
+
+	if opt, ok := optionMap["setting"]; ok {
+		setting = strings.TrimSpace(opt.StringValue())
+	}
+	if opt, ok := optionMap["value"]; ok {
+		value = strings.TrimSpace(opt.StringValue())
+	}
+	SetGuildSettingForGuild(s, i, i.GuildID, setting, value)
+}
+
+// GetGuildSettings handles the admin slash command for retrieving all guild settings.
+func GetGuildSettings(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	GetGuildSettingsForGuild(s, i, i.GuildID)
 }

@@ -46,6 +46,7 @@ const slashAdminGetContractData string = "admin-get-contract-data"
 const slashAdminListRoles string = "list-roles"
 const slashAdminSetGuildSetting string = "admin-set-guild-setting"
 const slashAdminGetGuildSettings string = "admin-get-guild-settings"
+const slashAdminGuildstate string = "admin-guildstate"
 
 // Slash Command Constants
 const slashContract string = "contract"
@@ -210,6 +211,7 @@ var (
 		},
 		boost.SlashAdminGetContractData(slashAdminGetContractData),
 		boost.SlashAdminListRoles(slashAdminListRoles),
+		boost.SlashAdminGuildStateCommand(slashAdminGuildstate),
 		guildstate.SlashSetGuildSettingCommand(slashAdminSetGuildSetting),
 		guildstate.SlashGetGuildSettingsCommand(slashAdminGetGuildSettings),
 	}
@@ -385,6 +387,9 @@ var (
 		slashAdminListRoles: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractAutoComplete(s, i)
 		},
+		slashAdminGuildstate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleAdminGuildStateAutoComplete(s, i)
+		},
 		slashToken: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractAutoComplete(s, i)
 		},
@@ -521,6 +526,9 @@ var (
 		},
 		slashAdminListRoles: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAdminListRoles(s, i)
+		},
+		slashAdminGuildstate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleAdminGuildStateCommand(s, i)
 		},
 		slashAdminSetGuildSetting: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			guildstate.SetGuildSetting(s, i)
@@ -1075,6 +1083,26 @@ func main() {
 
 	commandSet = append(commandSet, adminCommands...)
 
+	// Restrict some commands to a specific guild if the home_guild setting is set, to allow for faster iteration during development without affecting the global command set that everyone uses
+	homeGuild := guildstate.GetGuildSettingString("DEFAULT", "home_guild")
+	if homeGuild == "" {
+		homeGuild = "DISABLED"
+	}
+
+	var homeGuildCommandSet []*discordgo.ApplicationCommand
+	var filteredCommandSet []*discordgo.ApplicationCommand
+	for _, cmd := range commandSet {
+		if homeGuild != "" && cmd.GuildID == homeGuild {
+			homeGuildCommandSet = append(homeGuildCommandSet, cmd)
+		} else {
+			filteredCommandSet = append(filteredCommandSet, cmd)
+		}
+	}
+	commandSet = filteredCommandSet
+
+	if homeGuild != "DISABLED" {
+		syncCommands(s, homeGuild, homeGuildCommandSet)
+	}
 	syncCommands(s, config.DiscordGuildID, commandSet)
 
 	defer func() {
