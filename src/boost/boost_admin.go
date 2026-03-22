@@ -14,7 +14,14 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
+)
+
+const (
+	adminGuildStateActionSet = "set-guild-setting"
+	adminGuildStateActionGet = "get-guild-settings"
 )
 
 // SlashAdminGetContractData is the slash to get contract JSON data
@@ -66,6 +73,185 @@ func SlashAdminListRoles(cmd string) *discordgo.ApplicationCommand {
 				Autocomplete: true,
 			},
 		},
+	}
+}
+
+// SlashAdminGuildStateCommand provides a generic entrypoint for guildstate admin actions.
+func SlashAdminGuildStateCommand(cmd string) *discordgo.ApplicationCommand {
+	var adminPermission = int64(0)
+
+	guildID := guildstate.GetGuildSettingString("DEFAULT", "home_guild")
+	if guildID == "" {
+		guildID = "DISABLED"
+	}
+
+	return &discordgo.ApplicationCommand{
+		Name:                     cmd,
+		Description:              "Run guildstate admin command with guild override",
+		GuildID:                  guildID,
+		DefaultMemberPermissions: &adminPermission,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "action",
+				Description: "Guildstate command to run",
+				Required:    true,
+				Choices: []*discordgo.ApplicationCommandOptionChoice{
+					{Name: "set-guild-setting", Value: adminGuildStateActionSet},
+					{Name: "get-guild-settings", Value: adminGuildStateActionGet},
+				},
+			},
+			{
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "guild-id",
+				Description:  "Guild ID override (from persisted guildstate)",
+				Required:     true,
+				Autocomplete: true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "setting",
+				Description: "Setting key (used by set-guild-setting)",
+				Required:    false,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "value",
+				Description: "Optional value (used by set-guild-setting; blank clears)",
+				Required:    false,
+			},
+		},
+	}
+}
+
+func isAdminCommandCaller(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
+	userID := getInteractionUserID(i)
+	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
+	if err != nil {
+		log.Println(err)
+	}
+	return perms&discordgo.PermissionAdministrator != 0 || userID == config.AdminUserID
+}
+
+// HandleAdminGuildStateAutoComplete serves guild-id suggestions from persisted guildstate keys.
+func HandleAdminGuildStateAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	optionMap := bottools.GetCommandOptionsMap(i)
+	search := ""
+	if opt, ok := optionMap["guild-id"]; ok {
+		search = strings.TrimSpace(opt.StringValue())
+	}
+
+	ids, err := guildstate.GetAllGuildIDs()
+	if err != nil {
+		log.Println(err)
+		ids = []string{}
+	}
+
+	searchLower := strings.ToLower(search)
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, 25)
+	for _, id := range ids {
+		choiceName := id
+		if guild, guildErr := s.Guild(id); guildErr == nil && guild != nil {
+			guildName := strings.TrimSpace(guild.Name)
+			if guildName != "" {
+				choiceName = fmt.Sprintf("%s (%s)", guildName, id)
+			}
+		}
+
+		if searchLower != "" && !strings.Contains(strings.ToLower(choiceName), searchLower) && !strings.Contains(strings.ToLower(id), searchLower) {
+			continue
+		}
+		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{Name: choiceName, Value: id})
+		if len(choices) >= 25 {
+			break
+		}
+	}
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Guild IDs",
+			Choices: choices,
+		},
+	})
+}
+
+// HandleAdminGuildStateCommand routes to guildstate handlers with explicit guild override.
+func HandleAdminGuildStateCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if !isAdminCommandCaller(s, i) {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "You are not authorized to use this command.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{},
+			},
+		})
+		return
+	}
+
+	optionMap := bottools.GetCommandOptionsMap(i)
+	action := ""
+	guildID := ""
+	setting := ""
+	value := ""
+
+	if opt, ok := optionMap["action"]; ok {
+		action = strings.TrimSpace(opt.StringValue())
+	}
+	if opt, ok := optionMap["guild-id"]; ok {
+		guildID = strings.TrimSpace(opt.StringValue())
+	}
+	if opt, ok := optionMap["setting"]; ok {
+		setting = strings.TrimSpace(opt.StringValue())
+	}
+	if opt, ok := optionMap["value"]; ok {
+		value = strings.TrimSpace(opt.StringValue())
+	}
+
+	if guildID == "" {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "guild-id is required.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{},
+			},
+		})
+		return
+	}
+
+	switch action {
+	case adminGuildStateActionSet:
+		if setting == "" {
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content:    "setting is required when action is set-guild-setting.",
+					Flags:      discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{},
+				},
+			})
+			return
+		}
+		guildstate.SetGuildSettingForGuild(s, i, guildID, setting, value)
+	case adminGuildStateActionGet:
+		guildstate.GetGuildSettingsForGuild(s, i, guildID)
+	default:
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "action must be one of: set-guild-setting, get-guild-settings",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{},
+			},
+		})
 	}
 }
 

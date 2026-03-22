@@ -6,6 +6,7 @@ import (
 	_ "embed" // Required for go:embed.
 	"encoding/json"
 	"log"
+	"sort"
 	"time"
 
 	_ "modernc.org/sqlite" // SQLite driver registration.
@@ -129,6 +130,30 @@ func GetAllGuildState() ([]GuildState, error) {
 		items = append(items, guild)
 	}
 	return items, nil
+}
+
+// GetAllGuildIDs returns all persisted guild IDs sorted ascending.
+func GetAllGuildIDs() ([]string, error) {
+	items, err := GetAllGuildState()
+	if err != nil {
+		return nil, err
+	}
+
+	ids := make([]string, 0, len(items))
+	seen := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		if item.GuildID == "" {
+			continue
+		}
+		if _, ok := seen[item.GuildID]; ok {
+			continue
+		}
+		seen[item.GuildID] = struct{}{}
+		ids = append(ids, item.GuildID)
+	}
+
+	sort.Strings(ids)
+	return ids, nil
 }
 
 // SetGuildSettingFlag sets a boolean guild setting and persists it.
