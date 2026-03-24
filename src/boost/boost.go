@@ -1890,10 +1890,10 @@ func reorderBoosters(contract *Contract) {
 
 			if contract.BoostOrder == ContractOrderTEplus {
 				randomBonusMax := math.Max(
-					baseTE*0.2,        // 20%
+					baseTE*0.1,        // 10%
 					math.Sqrt(baseTE), // Sqrt
 				)
-				// Maximum of 20% or sqrt of the TE count as a random bonus, can be negative or positive
+				// Maximum of 10% or sqrt of the TE count as a random bonus, can be negative or positive
 				randomOffset := (rand.Float64()*2 - 1) * randomBonusMax
 				sortTE = baseTE + randomOffset
 			}
