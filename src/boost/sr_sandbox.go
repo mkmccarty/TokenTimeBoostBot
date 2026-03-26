@@ -2,7 +2,6 @@ package boost
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 )
 
 // playerData stores player-related data.
+/*
 type playerData struct {
 	name         string // Player name
 	tokens       string // Player tokens used
@@ -51,6 +51,7 @@ type inputData struct {
 	btvTarget   string       // BTV/complTime Target
 	players     []playerData // Player list for results
 }
+*/
 
 // FmtNumberSingleUnit converts a float64 to a string with the correct unit scale.
 // Parameters:
@@ -190,6 +191,7 @@ func chunk16(x string) string {
 	return y
 }
 
+/*
 func gatherData(input inputData) (string, string, error) {
 	if input.numPlayers != len(input.players) {
 		return "", "", errors.New("numPlayers does not match player array length")
@@ -240,6 +242,7 @@ func gatherData(input inputData) (string, string, error) {
 
 	return strings.Join(data, SEPARATOR), strings.Join(data2, SEPARATOR), nil
 }
+*/
 
 // EncodeData generates and encodes configuration data for the SR Sandbox v-5.
 //
