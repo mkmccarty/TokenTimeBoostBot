@@ -130,16 +130,16 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 	}
 	staabData, staabError := EncodeData(cxpToggle, c.TargetAmount[len(c.TargetAmount)-1],
 		strconv.Itoa(c.MinutesPerToken), c.LengthInSeconds, c.MaxCoopSize, &c)
-	if staabError != nil {
-		// Fallback to the default SR Sandbox configuration if encoding fails
-		staabData = "v-5MTEwMDAwMC0wLTEzLTctNTAwLTYwLTEtMS0yLVBsYXllciUyMDAtNi0xMA=B6mEavjeExzag"
+	staabURL := "https://srsandbox-staabmia.netlify.app/"
+	if staabError == nil {
+		staabURL = fmt.Sprintf("https://srsandbox-staabmia.netlify.app/?data=%s", staabData)
 	}
 
 	str = fmt.Sprintf("%s%s **%s** [%s](%s), [SR Sandbox](%s)\n%s%d%s - %s/%dm - %s%d/%dm - 📏%s",
 		ei.GetBotEmojiMarkdown("contract_grade_aaa"),
 		eggStr, c.Name, c.ID,
 		fmt.Sprintf("https://eicoop-carpet.netlify.app/?q=%s", c.ID),
-		fmt.Sprintf("https://srsandbox-staabmia.netlify.app/?data=%s", staabData),
+		staabURL,
 		seasonalStr,
 		c.MaxCoopSize, ei.GetBotEmojiMarkdown("icon_coop"),
 		tokenStr, c.MinutesPerToken,
