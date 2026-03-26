@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"net/url"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -143,11 +143,31 @@ func base62Encode(integer int) string {
 }
 
 func dataToBase64(data, data2 string) string {
-	encoded := base64.StdEncoding.EncodeToString([]byte(url.QueryEscape(data)))
-	parts := strings.Split(encoded, "=")
-	dataB64 := parts[0]
-	dataEncoded := dataB64 + "=" + data2
-	return dataEncoded
+	encoded := base64.StdEncoding.EncodeToString([]byte(data))
+	return encoded + "=" + data2
+}
+
+func formatCompactTargetEgg(targetEgg float64) (string, int) {
+	switch {
+	case targetEgg >= 1e18:
+		qVal := targetEgg / 1e18
+		return strings.ReplaceAll(fmt.Sprintf("%.1f", qVal), ".", "p"), 1
+	case targetEgg >= 1e15:
+		qVal := int64(math.Floor(targetEgg / 1e15))
+		return strconv.FormatInt(qVal, 10), 0
+	default:
+		tVal := int64(math.Floor(targetEgg / 1e12))
+		return strconv.FormatInt(tVal, 10), 2
+	}
+}
+
+func fmtActiveModifierCompact(c *ei.EggIncContract) (string, int) {
+	if c == nil {
+		return "1", 0
+	}
+
+	value, idx := FmtActiveModifier(c)
+	return strings.ReplaceAll(value, ".", "p"), idx
 }
 
 func chunk16(x string) string {
@@ -240,70 +260,52 @@ func EncodeData(cxpToggle bool, targetEgg float64, tokenTimer string, contractLe
 	contractDuration := time.Duration(contractLengthInSeconds) * time.Second
 	durStr, durUnit := bottools.FmtDurationSingleUnit(contractDuration)
 
-	// Egg target formatting
-	eggStr, eggUnit := FmtNumberSingleUnit(targetEgg, true)
-
-	// Check if Generous Gifts is enabled based on multiplier
+	// Keep GG behavior aligned with the previous encoder.
 	ggMultiplier, ultraGGMultiplier, _ := ei.GetGenerousGiftEvent()
 	ggToggle := ggMultiplier > 1.0 || ultraGGMultiplier > 1.0
 
-	// Get modifiers
-	modifiers, modName := FmtActiveModifier(c)
+	goalStr, eggUnit := formatCompactTargetEgg(targetEgg)
+	modifierValue, modName := fmtActiveModifierCompact(c)
 
-	input := inputData{
-		crtToggle:   true,
-		tokenToggle: true,
-		ggToggle:    ggToggle,
-		eggUnit:     eggUnit, // in order q, Q, T
-		durUnit:     durUnit, // in order days, hours, minutes, seconds
-		modName:     modName,
-		cxpToggle:   cxpToggle,
-		crtTime:     "20", // seconds
-		mpft:        "11", // minutes
-		duration:    durStr,
-		targetEgg:   eggStr,
-		tokenTimer:  tokenTimer, // minutes
-		modifiers:   modifiers,
-		numPlayers:  numPlayers,
-		btvTarget:   "2", // old max buff
+	globalSettings := fmt.Sprintf("11%s%d%d%d%s", convertBool(ggToggle), eggUnit, durUnit, modName, convertBool(cxpToggle))
+
+	data := []string{
+		"BBPlayer|1",
+		globalSettings,
+		"20", // Join delay in seconds
+		"11", // Minutes per token gift per player
+		durStr,
+		goalStr,
+		tokenTimer,
+		modifierValue,
+		strconv.Itoa(numPlayers),
+		"2",
+		strconv.Itoa(numPlayers), // Group count for non-sink players
+		"5",
+		"50",
 	}
 
-	tokensArr := make([]string, input.numPlayers)
-	teArr := make([]string, input.numPlayers)
-
-	for i := 0; i < input.numPlayers; i++ {
-		tokensArr[i] = "5"
-		teArr[i] = "50"
+	playerPattern := []string{
+		"1",
+		convertBool(false),
+		convertBool(true),
+		convertBool(false),
+		convertBool(false),
+		"00", "00", "00", "00", "00", "00", "00", "00",
 	}
 
-	// Full leggy assumption
-	input.players = make([]playerData, input.numPlayers)
-	for i := 0; i < input.numPlayers; i++ {
-		input.players[i] = playerData{
-			name:         fmt.Sprintf("BBPlayer%d", i+1),
-			tokens:       tokensArr[i],
-			te:           teArr[i],
-			mirror:       false,
-			colleggtible: true,
-			sink:         false,
-			creator:      false,
-			item1:        "00",
-			item2:        "00",
-			item3:        "00",
-			item4:        "00",
-			item5:        "00",
-			item6:        "00",
-			item7:        "00",
-			item8:        "00",
+	hashPart := chunk16(strings.Join(playerPattern, ""))
+	encoded := dataToBase64(strings.Join(data, "-"), hashPart)
+
+	contractName := ""
+	if c != nil {
+		contractName = c.Name
+		if c.ID != "" {
+			contractName = fmt.Sprintf("%s (%s)", c.Name, c.ID)
 		}
 	}
+	contractNameB64 := base64.StdEncoding.EncodeToString([]byte(contractName))
 
-	d1, d2, err := gatherData(input)
-	if err != nil {
-		return "", err
-	}
-
-	encoded := dataToBase64(d1, d2)
-	final := "v-5" + encoded
+	final := "v_5" + encoded + "&c=" + contractNameB64
 	return final, nil
 }
