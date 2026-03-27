@@ -438,18 +438,42 @@ func writeContracts(b *strings.Builder, contracts []ei.EggIncContract, iconCoop 
 			bottools.FmtDuration(c.EstimatedDuration.Round(time.Minute)),
 			c.Cxp,
 		)
+
+		// TODO: implement a debug mode for these
+		/*
+			// Third line
+			fmt.Fprintf(
+				b,
+				"-# _       _ Published: **%s** Expired: **%s**\n",
+				bottools.WrapTimestamp(c.ValidFrom.Unix(), bottools.TimestampShortDate),
+				bottools.WrapTimestamp(c.ValidUntil.Unix(), bottools.TimestampShortDate),
+			)
+		*/
 	}
 }
 
-// older returns true if a should be ordered before b.
-// Priority:
-// 1. ValidUntil (older first)
-// 2. ValidFrom  (older first)
-func older(a, b ei.EggIncContract) bool {
-	if a.ValidUntil.Equal(b.ValidUntil) {
-		return a.ValidFrom.Before(b.ValidFrom)
+/*
+	// sortValidUntil returns true if a should be ordered before b.
+	// Priority:
+	// 1. ValidUntil (older first)
+	// 2. ValidFrom  (older first)
+	func sortValidUntil(a, b ei.EggIncContract) bool {
+		if a.ValidUntil.Equal(b.ValidUntil) {
+			return a.ValidFrom.Before(b.ValidFrom)
+		}
+		return a.ValidUntil.Before(b.ValidUntil)
 	}
-	return a.ValidUntil.Before(b.ValidUntil)
+*/
+
+// sortValidFrom returns true if a should be ordered before b.
+// Priority:
+// 1. ValidFrom  (older first)
+// 2. ValidUntil (older first)
+func sortValidFrom(a, b ei.EggIncContract) bool {
+	if a.ValidFrom.Equal(b.ValidFrom) {
+		return a.ValidUntil.Before(b.ValidUntil)
+	}
+	return a.ValidFrom.Before(b.ValidFrom)
 }
 
 // predictJeli returns up to N oldest contracts per legacy contract type.
@@ -468,13 +492,13 @@ func predictJeli(contractCount int) (fridayNonUltra, fridayUltra, wednesday []ei
 	}
 
 	sort.Slice(fridayUltra, func(i, j int) bool {
-		return older(fridayUltra[i], fridayUltra[j])
+		return sortValidFrom(fridayUltra[i], fridayUltra[j])
 	})
 	sort.Slice(fridayNonUltra, func(i, j int) bool {
-		return older(fridayNonUltra[i], fridayNonUltra[j])
+		return sortValidFrom(fridayNonUltra[i], fridayNonUltra[j])
 	})
 	sort.Slice(wednesday, func(i, j int) bool {
-		return older(wednesday[i], wednesday[j])
+		return sortValidFrom(wednesday[i], wednesday[j])
 	})
 
 	if len(fridayUltra) > contractCount {
