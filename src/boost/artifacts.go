@@ -762,7 +762,7 @@ func analyzeArtifactsForProduction(backup *ei.Backup, isVirtue bool) string {
 						name := ei.ShortArtifactName[int32(spec.GetName())]
 						level := ei.ArtifactLevels[spec.GetLevel()]
 						rarity := ei.ArtifactRarity[spec.GetRarity()]
-						result.WriteString(fmt.Sprintf("- %s %s%s\n", name, level, rarity))
+						fmt.Fprintf(&result, "- %s %s%s\n", name, level, rarity)
 						break
 					}
 				}
@@ -777,7 +777,7 @@ func analyzeArtifactsForProduction(backup *ei.Backup, isVirtue bool) string {
 			level := ei.ArtifactLevels[spec.GetLevel()]
 			rarity := ei.ArtifactRarity[spec.GetRarity()]
 			count := artifact.GetQuantity()
-			result.WriteString(fmt.Sprintf("- %s %s%s (qty: %f)\n", name, level, rarity, count))
+			fmt.Fprintf(&result, "- %s %s%s (qty: %f)\n", name, level, rarity, count)
 		}
 
 	} else {
@@ -826,13 +826,13 @@ func analyzeArtifactsForEarnings(backup *ei.Backup, isVirtue bool) string {
 			name := ei.ShortArtifactName[int32(spec.GetName())]
 			level := ei.ArtifactLevels[spec.GetLevel()]
 			rarity := ei.ArtifactRarity[spec.GetRarity()]
-			result.WriteString(fmt.Sprintf("- %s %s%s\n", name, level, rarity))
+			fmt.Fprintf(&result, "- %s %s%s\n", name, level, rarity)
 		}
 	}
 
 	// Get earnings buffs from artifacts
 	artifactBuffs := ei.GetArtifactBuffs(artifactSetInUse)
-	result.WriteString(fmt.Sprintf("\n**Earnings Rate Multiplier**: %.3f\n", artifactBuffs.Earnings))
+	fmt.Fprintf(&result, "\n**Earnings Rate Multiplier**: %.3f\n", artifactBuffs.Earnings)
 
 	result.WriteString("\n**Full Inventory:**\n")
 	for _, artifact := range inventoryItems {
@@ -841,7 +841,7 @@ func analyzeArtifactsForEarnings(backup *ei.Backup, isVirtue bool) string {
 		level := ei.ArtifactLevels[spec.GetLevel()]
 		rarity := ei.ArtifactRarity[spec.GetRarity()]
 		count := artifact.GetQuantity()
-		result.WriteString(fmt.Sprintf("- %s %s%s (qty: %f)\n", name, level, rarity, count))
+		fmt.Fprintf(&result, "- %s %s%s (qty: %f)\n", name, level, rarity, count)
 	}
 
 	return result.String()
