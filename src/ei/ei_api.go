@@ -506,3 +506,81 @@ func APICall(reqURL string, request proto.Message) []byte {
 
 	return decodedAuthBuf.Message
 }
+
+// APIAuthenticatedCall wraps the request in an AuthenticatedMessage before sending, then decodes the response the same way as APICall.
+func APIAuthenticatedCall(reqURL string, userID string, request proto.Message) []byte {
+	enc := base64.StdEncoding
+
+	innerBin, err := proto.Marshal(request)
+	if err != nil {
+		log.Print(err)
+		return nil
+	}
+
+	authMsg := &AuthenticatedMessage{
+		Message: []byte(enc.EncodeToString(innerBin)),
+		UserId:  &userID,
+	}
+
+	reqBin, err := proto.Marshal(authMsg)
+	if err != nil {
+		log.Print(err)
+		return nil
+	}
+
+	values := url.Values{}
+	values.Set("data", enc.EncodeToString(reqBin))
+
+	response, err := http.PostForm(reqURL, values)
+	if err != nil {
+		log.Print(err)
+		return nil
+	}
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Print(err)
+		return nil
+	}
+	protoData := string(body)
+
+	decodedAuthBuf := &AuthenticatedMessage{}
+	rawDecodedText, err := enc.DecodeString(protoData)
+	if err != nil {
+		log.Print(err)
+		return nil
+	}
+	err = proto.Unmarshal(rawDecodedText, decodedAuthBuf)
+	if err != nil {
+		log.Print(err)
+		return rawDecodedText
+	}
+
+	if decodedAuthBuf.GetCompressed() {
+		gr, zerr := zlib.NewReader(bytes.NewReader(decodedAuthBuf.Message))
+		if zerr != nil {
+			log.Print(zerr)
+			return nil
+		}
+		var buf bytes.Buffer
+		_, zerr = io.Copy(&buf, gr)
+		if zerr != nil {
+			log.Print(zerr)
+			_ = gr.Close()
+			return nil
+		}
+		_ = gr.Close()
+		decodedAuthBuf.Message = buf.Bytes()
+	}
+
+	if decodedAuthBuf.GetMessage() == nil {
+		decodedAuthBuf.Message = []byte(decodedAuthBuf.GetCode())
+	}
+
+	return decodedAuthBuf.Message
+}
