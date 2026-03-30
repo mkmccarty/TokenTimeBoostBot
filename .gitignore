@@ -13,6 +13,7 @@ build
 banners
 ttbb-data
 TokenTimeBoostBot
+secure_hasher
 # Test binary, built with `go test -c`
 *.test
 
