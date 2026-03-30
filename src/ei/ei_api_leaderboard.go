@@ -37,7 +37,7 @@ func GetLeaderboardFromAPI(eggIncID string, scope string, grade Contract_PlayerG
 		Grade: &grade,
 	}
 
-	payload := APIAuthenticatedCall(reqURL, eiUserID, &leaderboardRequest)
+	payload := APIAuthenticatedCall(reqURL, &leaderboardRequest)
 	if payload == nil {
 		log.Print("GetLeaderboardFromAPI: APICall returned nil response")
 		return nil

@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -507,8 +508,36 @@ func APICall(reqURL string, request proto.Message) []byte {
 	return decodedAuthBuf.Message
 }
 
+func getSecureHash(data []byte) (string, error) {
+	binaryPath := "./secure_hasher"
+	info, err := os.Stat(binaryPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("secure hasher binary not found at %s", binaryPath)
+		}
+		return "", fmt.Errorf("failed to stat secure hasher binary: %w", err)
+	}
+	if info.IsDir() {
+		return "", fmt.Errorf("secure hasher path is a directory: %s", binaryPath)
+	}
+
+	cmd := exec.Command(binaryPath)
+
+	// Pipe the raw bytes into the binary's stdin
+	cmd.Stdin = bytes.NewReader(data)
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to execute hasher: %w", err)
+	}
+
+	return strings.TrimSpace(out.String()), nil
+}
+
 // APIAuthenticatedCall wraps the request in an AuthenticatedMessage before sending, then decodes the response the same way as APICall.
-func APIAuthenticatedCall(reqURL string, userID string, request proto.Message) []byte {
+func APIAuthenticatedCall(reqURL string, request proto.Message) []byte {
 	enc := base64.StdEncoding
 
 	innerBin, err := proto.Marshal(request)
@@ -517,9 +546,15 @@ func APIAuthenticatedCall(reqURL string, userID string, request proto.Message) [
 		return nil
 	}
 
+	secureHash, err := getSecureHash(innerBin)
+	if err != nil {
+		log.Print(err)
+		return nil
+	}
+
 	authMsg := &AuthenticatedMessage{
-		Message: []byte(enc.EncodeToString(innerBin)),
-		UserId:  &userID,
+		Message: innerBin,
+		Code:    &secureHash,
 	}
 
 	reqBin, err := proto.Marshal(authMsg)
@@ -576,10 +611,6 @@ func APIAuthenticatedCall(reqURL string, userID string, request proto.Message) [
 		}
 		_ = gr.Close()
 		decodedAuthBuf.Message = buf.Bytes()
-	}
-
-	if decodedAuthBuf.GetMessage() == nil {
-		decodedAuthBuf.Message = []byte(decodedAuthBuf.GetCode())
 	}
 
 	return decodedAuthBuf.Message
