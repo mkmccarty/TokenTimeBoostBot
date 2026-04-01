@@ -212,6 +212,7 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	contract := FindContract(i.ChannelID)
 	if contract != nil {
 		refreshBoostListMessage(s, contract, false)
+		saveData(contract.ContractHash)
 	}
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,

@@ -1151,6 +1151,7 @@ func JoinContract(s *discordgo.Session, guildID string, channelID string, userID
 
 	}
 
+	saveData(contract.ContractHash)
 	return nil
 }
 
