@@ -249,10 +249,13 @@ func GetCoopStatusForCompletedContracts(contractID string, coopID string) (*Cont
 
 	} else {
 
+		clientVersion := DefaultClientVersion
+
 		coopStatusRequest := ContractCoopStatusRequest{
 			ContractIdentifier: &contractID,
 			CoopIdentifier:     &coopID,
 			UserId:             &eggIncID,
+			ClientVersion:      &clientVersion,
 		}
 		timestamp = time.Now()
 		reqBin, err := proto.Marshal(&coopStatusRequest)
