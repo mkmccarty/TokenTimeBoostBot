@@ -1761,7 +1761,6 @@ func reorderBoosters(contract *Contract) {
 			elrPairs = append(elrPairs, ELRPair{
 				Name: el,
 				ELR:  contract.Boosters[el].ArtifactSet.LayRate,
-				//ELR:  max(contract.Boosters[el].ArtifactSet.LayRate, contract.Boosters[el].ArtifactSet.ShipRate),
 			})
 		}
 
