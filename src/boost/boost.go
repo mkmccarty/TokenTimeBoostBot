@@ -1760,7 +1760,7 @@ func reorderBoosters(contract *Contract) {
 		for _, el := range contract.Order {
 			elrPairs = append(elrPairs, ELRPair{
 				Name: el,
-				ELR:  min(contract.Boosters[el].ArtifactSet.LayRate, contract.Boosters[el].ArtifactSet.ShipRate),
+				ELR:  max(contract.Boosters[el].ArtifactSet.LayRate, contract.Boosters[el].ArtifactSet.ShipRate),
 			})
 		}
 
