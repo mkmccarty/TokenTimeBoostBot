@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/moby/moby/pkg/namesgenerator"
 )
 
 // ReactionAdd is called when a reaction is added to a message
@@ -180,7 +180,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		case "🐿️":
 			if creatorOfContract(s, contract, r.UserID) {
 				for i := len(contract.Order); i < contract.CoopSize; i++ {
-					_, err := AddFarmerToContract(s, contract, r.GuildID, r.ChannelID, namesgenerator.GetRandomName(0), contract.BoostOrder, true)
+					_, err := AddFarmerToContract(s, contract, r.GuildID, r.ChannelID, bottools.GetRandomName(0), contract.BoostOrder, true)
 					if err != nil {
 						log.Println(err)
 					}

@@ -16,7 +16,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/moby/moby/pkg/namesgenerator"
 )
 
 // GetSlashContractCommand returns the slash command for creating a contract
@@ -456,7 +455,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 
 	// Try a number of random docker-style names first
 	for attempt := 0; attempt < 64; attempt++ {
-		cand := namesgenerator.GetRandomName(0)
+		cand := bottools.GetRandomName(0)
 		if Contracts[cand] == nil {
 			ContractHash = cand
 			break
@@ -465,7 +464,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 
 	// Fallback: append a short random suffix to guarantee uniqueness
 	if ContractHash == "" {
-		base := namesgenerator.GetRandomName(0)
+		base := bottools.GetRandomName(0)
 		for {
 			suffix := strconv.FormatUint(rand.Uint64(), 36)
 			if len(suffix) > 6 {

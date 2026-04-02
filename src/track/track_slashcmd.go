@@ -11,7 +11,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-	"github.com/moby/moby/pkg/namesgenerator"
 	"github.com/rs/xid"
 	"github.com/xhit/go-str2duration/v2"
 )
@@ -158,8 +157,7 @@ func HandleTokenCommand(s *discordgo.Session, i *discordgo.InteractionCreate, co
 	if opt, ok := optionMap["coop-id"]; ok {
 		trackingName = strings.TrimSpace(opt.StringValue())
 	} else if trackingName == "" {
-
-		trackingName = fmt.Sprintln(namesgenerator.GetRandomName(0))
+		trackingName = bottools.GetRandomName(0)
 
 	}
 	if opt, ok := optionMap["linked"]; ok {
