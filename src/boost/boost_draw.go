@@ -362,7 +362,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 					// Additions for contract state value display
 					sortRate := ""
 					if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderELR {
-						sortRate = fmt.Sprintf(" **ELR:%2.3f** ", min(b.ArtifactSet.LayRate, b.ArtifactSet.ShipRate))
+						sortRate = fmt.Sprintf(" **ELR:%2.3f** ", b.ArtifactSet.LayRate)
 					}
 					if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderTokenAsk {
 						sortRate = fmt.Sprintf(" **Ask:%d** ", b.TokensWanted)
