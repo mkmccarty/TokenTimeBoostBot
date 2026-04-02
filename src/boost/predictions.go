@@ -449,7 +449,7 @@ func writeContracts(b *strings.Builder, contracts []ei.EggIncContract, iconCoop 
 			c.Cxp,
 		)
 
-		// Third line for AVOL contracts
+		// Third line for AWOL contracts
 		if c.ID == timeSaverContractID {
 			if c.ValidFrom.Before(time.Unix(1774454400, 0)) {
 				fmt.Fprintf(b, "-# _       _ Missing since: **%s** (%s)🕯️\n", bottools.WrapTimestamp(1774454400, bottools.TimestampShortDate), bottools.WrapTimestamp(1774454400, bottools.TimestampRelativeTime))
