@@ -172,8 +172,9 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		coopID = strings.ToLower(contract.CoopID)
 	}
 
+	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 	var str string
-	str, fields, _ := DownloadCoopStatusTeamwork(contractID, coopID, true)
+	str, fields, _ := DownloadCoopStatusTeamwork(contractID, coopID, true, eiID)
 	if fields == nil || strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {
 		// Trim output to 3500 characters if needed
 		trimmedStr := str
@@ -198,6 +199,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	// Fill in our calling parameters
 	cache.contractID = contractID
 	cache.coopID = coopID
+	cache.eiID = eiID
 	cache.public = publicReply
 	cache.showScores = scoresFirst
 	if eggign != "" {
@@ -224,7 +226,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 }
 
 // DownloadCoopStatusTeamwork will download the coop status for a given contract and coop ID
-func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEstimate bool) (string, map[string][]TeamworkOutputData, ContractScore) {
+func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEstimate bool, eeidOverride string) (string, map[string][]TeamworkOutputData, ContractScore) {
 	var dataTimestampStr string
 	var nowTime time.Time
 
@@ -275,7 +277,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEst
 		return fmt.Sprintf("Filenames:\n%s", strings.Join(fileNames, "\n")), nil, ContractScore{}
 	}
 
-	coopStatus, nowTime, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID, "")
+	coopStatus, nowTime, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID, eeidOverride)
 	if err != nil {
 		return err.Error(), nil, ContractScore{}
 	}

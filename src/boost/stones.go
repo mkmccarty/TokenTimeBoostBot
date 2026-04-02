@@ -150,7 +150,8 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		coopID = strings.ToLower(contract.CoopID)
 	}
 
-	s1, urls, tiles := DownloadCoopStatusStones(contractID, coopID, details, soloName, useBuffHistory)
+	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+	s1, urls, tiles := DownloadCoopStatusStones(contractID, coopID, details, soloName, useBuffHistory, eiID)
 
 	contract := FindContractByIDs(contractID, coopID)
 	if contract != nil {
@@ -166,6 +167,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		// Fill in our calling parameters
 		cache.contractID = contractID
 		cache.coopID = coopID
+		cache.eiID = eiID
 		cache.details = details
 		cache.soloName = soloName
 		cache.private = privateReply
@@ -247,11 +249,11 @@ type artifactSet struct {
 }
 
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
-func DownloadCoopStatusStones(contractID string, coopID string, details bool, soloName string, useBuffHistory bool) (string, string, []*discordgo.MessageEmbedField) {
+func DownloadCoopStatusStones(contractID string, coopID string, details bool, soloName string, useBuffHistory bool, eeidOverride string) (string, string, []*discordgo.MessageEmbedField) {
 	var builderURL strings.Builder
 	var field []*discordgo.MessageEmbedField
 
-	coopStatus, _, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID, "")
+	coopStatus, _, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID, eeidOverride)
 	if err != nil {
 		return err.Error(), "", field
 	}

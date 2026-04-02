@@ -81,13 +81,14 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 
 	if exists && (refresh || cache.expirationTimestamp.Before(time.Now())) {
 
-		s1, urls, tiles := DownloadCoopStatusStones(cache.contractID, cache.coopID, cache.details, cache.soloName, cache.useBuffHistory)
+		s1, urls, tiles := DownloadCoopStatusStones(cache.contractID, cache.coopID, cache.details, cache.soloName, cache.useBuffHistory, cache.eiID)
 		newCache := buildStonesCache(s1, urls, tiles)
 
 		newCache.private = cache.private
 		newCache.xid = cache.xid
 		newCache.contractID = cache.contractID
 		newCache.coopID = cache.coopID
+		newCache.eiID = cache.eiID
 		newCache.details = cache.details
 		newCache.soloName = cache.soloName
 		newCache.useBuffHistory = cache.useBuffHistory
@@ -359,6 +360,7 @@ type stonesCache struct {
 	expirationTimestamp time.Time
 	contractID          string
 	coopID              string
+	eiID                string
 	details             bool
 	soloName            string
 	useBuffHistory      bool
