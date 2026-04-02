@@ -408,7 +408,7 @@ func writeContracts(b *strings.Builder, contracts []ei.EggIncContract, iconCoop 
 
 	for _, c := range contracts {
 
-		// Season label "🍂 25FL", "☀️ 23SU", "🌼 23SP", "❄️ 24WI"
+		// Season label "🍂 FL25", "☀️ SU23", "🌼 SP23", "❄️ WI24"
 		seasonLabel := ""
 		if c.SeasonID != "" {
 			if idx := strings.IndexByte(c.SeasonID, '_'); idx > 0 && idx < len(c.SeasonID)-1 {
