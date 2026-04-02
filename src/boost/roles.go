@@ -10,9 +10,9 @@ import (
 	"sync"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"github.com/moby/moby/pkg/namesgenerator"
 	"google.golang.org/genai"
 )
 
@@ -115,7 +115,7 @@ func getContractRoleName(contractID string) string {
 
 	if len(unusedRoleNames) == 0 {
 		// All names are taken; fall back to a generated team name
-		teamName = namesgenerator.GetRandomName(0)
+		teamName = bottools.GetRandomName(0)
 		prefix = "Team "
 	} else {
 		lastChance := false
@@ -151,7 +151,7 @@ func getContractRoleName(contractID string) string {
 			}
 		}
 		if teamName == "" {
-			teamName = namesgenerator.GetRandomName(0)
+			teamName = bottools.GetRandomName(0)
 		}
 	}
 
@@ -204,7 +204,7 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 
 	if len(unusedRoleNames) == 0 {
 		// All names are taken; fall back to a generated team name
-		teamName = namesgenerator.GetRandomName(0)
+		teamName = bottools.GetRandomName(0)
 		prefix = "Team "
 	} else {
 		lastChance := false
@@ -240,7 +240,7 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 			}
 		}
 		if teamName == "" {
-			teamName = namesgenerator.GetRandomName(0)
+			teamName = bottools.GetRandomName(0)
 		}
 	}
 
