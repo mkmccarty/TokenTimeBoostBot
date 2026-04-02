@@ -30,6 +30,11 @@ type eiData struct {
 var (
 	// Contracts is a map of contracts and is saved to disk
 	eiDatas map[string]*eiData
+
+	// CoopStatusFixEnabled is a callback set from outside the ei package (to avoid import
+	// cycles) that returns true when the alternate coop_status endpoint and eeid override
+	// should be used. It is wired up in main.
+	CoopStatusFixEnabled func() bool
 )
 
 func init() {
@@ -37,9 +42,13 @@ func init() {
 }
 
 // GetCoopStatus retrieves the coop status for a given contract and coop
-func GetCoopStatus(contractID string, coopID string) (*ContractCoopStatusResponse, time.Time, string, error) {
+func GetCoopStatus(contractID string, coopID string, eeidOverride string) (*ContractCoopStatusResponse, time.Time, string, error) {
 	eggIncID := config.EIUserIDBasic
 	reqURL := "https://www.auxbrain.com/ei/coop_status_bot"
+	if eeidOverride != "" && CoopStatusFixEnabled != nil && CoopStatusFixEnabled() {
+		eggIncID = DecryptEID(eeidOverride)
+		reqURL = "https://www.auxbrain.com/ei/coop_status"
+	}
 	enc := base64.StdEncoding
 	timestamp := time.Now()
 
@@ -205,9 +214,13 @@ func ClearCoopStatusCachedData() {
 
 // GetCoopStatusForCompletedContracts retrieves the coop status for a given contract and coop, but is intended for completed contracts
 // This saves the data in compressed form without a timestamp in the filename
-func GetCoopStatusForCompletedContracts(contractID string, coopID string) (*ContractCoopStatusResponse, time.Time, string, error) {
+func GetCoopStatusForCompletedContracts(contractID string, coopID string, eeidOverride string) (*ContractCoopStatusResponse, time.Time, string, error) {
 	eggIncID := config.EIUserIDBasic
 	reqURL := "https://www.auxbrain.com/ei/coop_status_bot"
+	if eeidOverride != "" && CoopStatusFixEnabled != nil && CoopStatusFixEnabled() {
+		eggIncID = DecryptEID(eeidOverride)
+		reqURL = "https://www.auxbrain.com/ei/coop_status"
+	}
 	enc := base64.StdEncoding
 	timestamp := time.Now()
 

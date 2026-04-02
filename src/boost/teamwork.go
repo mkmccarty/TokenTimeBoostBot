@@ -275,7 +275,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEst
 		return fmt.Sprintf("Filenames:\n%s", strings.Join(fileNames, "\n")), nil, ContractScore{}
 	}
 
-	coopStatus, nowTime, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID)
+	coopStatus, nowTime, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID, "")
 	if err != nil {
 		return err.Error(), nil, ContractScore{}
 	}

@@ -68,7 +68,7 @@ func DownloadCoopStatusTracker(contractID string, coopID string) (time.Time, flo
 		return time.Time{}, 0, fmt.Errorf("invalid contract ID")
 	}
 
-	coopStatus, _, _, err := ei.GetCoopStatus(contractID, coopID)
+	coopStatus, _, _, err := ei.GetCoopStatus(contractID, coopID, "")
 	if err != nil {
 		return time.Time{}, 0, err
 	}

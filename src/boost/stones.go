@@ -251,7 +251,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	var builderURL strings.Builder
 	var field []*discordgo.MessageEmbedField
 
-	coopStatus, _, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID)
+	coopStatus, _, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID, "")
 	if err != nil {
 		return err.Error(), "", field
 	}

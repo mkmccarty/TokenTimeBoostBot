@@ -145,6 +145,11 @@ func init() {
 	// Load status messages
 	ei.LoadStatusMessages(statusMessagesFileName)
 
+	// Wire the coop status fix check to avoid import cycle in ei package
+	ei.CoopStatusFixEnabled = func() bool {
+		return guildstate.GetGuildSettingString("DEFAULT", "coop_status_fix") == "1"
+	}
+
 	// Read application parameters
 	flag.Parse()
 

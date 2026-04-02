@@ -312,21 +312,19 @@ func GetGuildSettingsForGuild(s *discordgo.Session, i *discordgo.InteractionCrea
 		for _, key := range keys {
 			value := guild.MiscSettingsString[key]
 			items := splitCSV(value)
+			fmt.Fprintf(&builder, "- %s = %s\n", key, value)
 			if len(items) > 1 {
-				fmt.Fprintf(&builder, "- %s (%d items)\n", key, len(items))
+				fmt.Fprintf(&builder, "  - parsed items (%d):\n", len(items))
 				for _, item := range items {
-					details := getSnowflakeDetails(s, guildID, item)
-					if len(details) == 1 {
-						fmt.Fprintf(&builder, "  - %s\n", details[0])
-					} else {
-						fmt.Fprintf(&builder, "  - %s\n", item)
+					fmt.Fprintf(&builder, "    - %s\n", item)
+					for _, detail := range getSnowflakeDetails(s, guildID, item) {
+						fmt.Fprintf(&builder, "      - resolved: %s\n", detail)
 					}
 				}
-			} else {
-				fmt.Fprintf(&builder, "- %s = %s\n", key, value)
-				for _, detail := range getSnowflakeDetails(s, guildID, value) {
-					fmt.Fprintf(&builder, "  - resolved: %s\n", detail)
-				}
+				continue
+			}
+			for _, detail := range getSnowflakeDetails(s, guildID, value) {
+				fmt.Fprintf(&builder, "  - resolved: %s\n", detail)
 			}
 		}
 	}
