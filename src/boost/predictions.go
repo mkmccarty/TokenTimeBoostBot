@@ -394,8 +394,18 @@ func writeFridayPredictions(dropTime time.Time, peContracts, ultraContracts []ei
 	}
 }
 
+const timeSaverContractID = "time-saver-2021"
+
 // writeContracts prints only the contract lines, reusing shared season metadata.
 func writeContracts(b *strings.Builder, contracts []ei.EggIncContract, iconCoop string) {
+	// If time-saver-2021 is present, push it back one position.
+	for i, c := range contracts {
+		if c.ID == timeSaverContractID && i+1 < len(contracts) {
+			contracts[i], contracts[i+1] = contracts[i+1], c
+			break
+		}
+	}
+
 	for _, c := range contracts {
 
 		// Season label "🍂 25FL", "☀️ 23SU", "🌼 23SP", "❄️ 24WI"
@@ -410,7 +420,7 @@ func writeContracts(b *strings.Builder, contracts []ei.EggIncContract, iconCoop 
 					if len(yearShort) >= 2 {
 						yearShort = yearShort[len(yearShort)-2:]
 					}
-					seasonLabel = fmt.Sprintf("%s %s%s", info.Emoji, yearShort, info.Code)
+					seasonLabel = fmt.Sprintf("%s %s%s", info.Emoji, info.Code, yearShort)
 				}
 			}
 		}
@@ -438,6 +448,13 @@ func writeContracts(b *strings.Builder, contracts []ei.EggIncContract, iconCoop 
 			bottools.FmtDuration(c.EstimatedDuration.Round(time.Minute)),
 			c.Cxp,
 		)
+
+		// Third line for AVOL contracts
+		if c.ID == timeSaverContractID {
+			if c.ValidFrom.Before(time.Unix(1774454400, 0)) {
+				fmt.Fprintf(b, "-# _       _ Missing since: **%s** (%s)🕯️\n", bottools.WrapTimestamp(1774454400, bottools.TimestampShortDate), bottools.WrapTimestamp(1774454400, bottools.TimestampRelativeTime))
+			}
+		}
 
 		// TODO: implement a debug mode for these
 		/*
