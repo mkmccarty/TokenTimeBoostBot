@@ -281,6 +281,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 	var components []discordgo.MessageComponent
 	tvalFooterMessage := false
 	eiUserName := farmerstate.GetMiscSettingString(userID, "ei_ign")
+	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 	divider := true
 	spacing := discordgo.SeparatorSpacingSizeSmall
 	builder := strings.Builder{}
@@ -425,7 +426,7 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 
 				log.Printf("Evaluating contract %s coop %s for user %s\n", contractID, coopID, eiUserName)
 				if coopID != "[solo]" {
-					coopStatus, _, _, err := ei.GetCoopStatusForCompletedContracts(contractID, a.GetCoopIdentifier())
+					coopStatus, _, _, err := ei.GetCoopStatusForCompletedContracts(contractID, a.GetCoopIdentifier(), eiID)
 					if err == nil {
 						builder.Reset()
 						for _, c := range coopStatus.GetContributors() {
