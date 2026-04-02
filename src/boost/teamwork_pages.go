@@ -24,6 +24,7 @@ type teamworkCache struct {
 	expirationTimestamp time.Time
 	contractID          string
 	coopID              string
+	eiID                string
 	public              bool
 	names               []string
 	fields              map[string][]TeamworkOutputData
@@ -91,7 +92,7 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 
 	if exists && (refresh || cache.expirationTimestamp.Before(time.Now())) {
 
-		s1, fields, _ := DownloadCoopStatusTeamwork(cache.contractID, cache.coopID, true)
+		s1, fields, _ := DownloadCoopStatusTeamwork(cache.contractID, cache.coopID, true, cache.eiID)
 		newCache := buildTeamworkCache(s1, fields)
 
 		newCache.public = cache.public
@@ -99,6 +100,7 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 		newCache.xid = cache.xid
 		newCache.contractID = cache.contractID
 		newCache.coopID = cache.coopID
+		newCache.eiID = cache.eiID
 		newCache.page = cache.page
 		newCache.showScores = cache.showScores
 		if refresh {

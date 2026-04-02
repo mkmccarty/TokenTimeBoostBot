@@ -7,6 +7,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // HandleTrackerRefresh will call the API and update the start time and duration
@@ -37,7 +38,7 @@ func HandleTrackerRefresh(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	// Update the tracker with new values
 	t, err := getTrack(userID, name)
 	if err == nil {
-		startTime, contractDurationSeconds, err := DownloadCoopStatusTracker(t.ContractID, t.CoopID)
+		startTime, contractDurationSeconds, err := DownloadCoopStatusTracker(t.ContractID, t.CoopID, userID)
 		if err != nil {
 			errorStr := fmt.Sprintf("Error: %s, check your coop-id", err)
 			_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
@@ -60,7 +61,7 @@ func HandleTrackerRefresh(s *discordgo.Session, i *discordgo.InteractionCreate) 
 }
 
 // DownloadCoopStatusTracker will download the coop status for a given contract and coop ID
-func DownloadCoopStatusTracker(contractID string, coopID string) (time.Time, float64, error) {
+func DownloadCoopStatusTracker(contractID string, coopID string, userID string) (time.Time, float64, error) {
 	nowTime := time.Now()
 
 	eiContract := ei.EggIncContractsAll[contractID]
@@ -68,7 +69,8 @@ func DownloadCoopStatusTracker(contractID string, coopID string) (time.Time, flo
 		return time.Time{}, 0, fmt.Errorf("invalid contract ID")
 	}
 
-	coopStatus, _, _, err := ei.GetCoopStatus(contractID, coopID, "")
+	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+	coopStatus, _, _, err := ei.GetCoopStatus(contractID, coopID, eiID)
 	if err != nil {
 		return time.Time{}, 0, err
 	}

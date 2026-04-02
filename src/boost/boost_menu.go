@@ -143,7 +143,7 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			},
 		})
 		contract.EstimateUpdateTime = time.Now()
-		go updateEstimatedTime(s, i.ChannelID, contract, false)
+		go updateEstimatedTime(s, i.ChannelID, contract, false, i.Member.User.ID)
 	case "want":
 		message := "**%s** wants at least 1 more token."
 		contract.Boosters[i.Member.User.ID].TokenRequestFlag = !contract.Boosters[i.Member.User.ID].TokenRequestFlag

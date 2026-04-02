@@ -235,7 +235,9 @@ func runCsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate, p csEst
 	}
 
 	// Get coopStatus with the given contractID and coopID
-	str, fields, contractScore := DownloadCoopStatusTeamwork(contractID, coopID, true)
+	userID := bottools.GetInteractionUserID(i)
+	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+	str, fields, contractScore := DownloadCoopStatusTeamwork(contractID, coopID, true, eiID)
 	if fields == nil || strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {
 		_, sendErr := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Flags: p.flags,

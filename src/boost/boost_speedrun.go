@@ -377,7 +377,7 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 			} else {
 				log.Print("Updating estimated time")
 				contract.EstimateUpdateTime = time.Now()
-				go updateEstimatedTime(s, r.ChannelID, contract, true)
+				go updateEstimatedTime(s, r.ChannelID, contract, true, r.UserID)
 			}
 		}
 	}
