@@ -94,7 +94,6 @@ func GetCoopStatus(contractID string, coopID string, eeidOverride string) (*Cont
 	// Check if the file exists
 	if strings.HasPrefix(coopID, "!!") {
 		basename := coopID[2:]
-		coopID = coopID[2:]
 		fname := fmt.Sprintf("ttbb-data/pb/%s-%s.pb", contractID, basename)
 
 		// read the contents of filename into protoData
