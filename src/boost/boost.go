@@ -1933,8 +1933,8 @@ func ArchiveContracts(s *discordgo.Session) {
 			}
 		}
 
-		// It's been 3 days since the contract.StartTime and at least 36 hours since the ListInteractionTime
-		if currentTime.After(contract.StartTime.Add(3 * 24 * time.Hour)) {
+		// It's been 7 days since the contract.StartTime and at least 36 hours since the ListInteractionTime
+		if currentTime.After(contract.StartTime.Add(7 * 24 * time.Hour)) {
 			if currentTime.After(contract.LastInteractionTime.Add(36 * time.Hour)) {
 				log.Println("Archiving contract: ", contract.ContractID, " / ", contract.CoopID)
 				changeContractState(contract, ContractStateArchive)
