@@ -41,14 +41,47 @@ func init() {
 	eiDatas = make(map[string]*eiData)
 }
 
+func requestCoopStatus(contractID string, coopID string, eggIncID string, reqURL string, includeClientVersion bool) ([]byte, int, error) {
+	enc := base64.StdEncoding
+	coopStatusRequest := ContractCoopStatusRequest{
+		ContractIdentifier: &contractID,
+		CoopIdentifier:     &coopID,
+		UserId:             &eggIncID,
+	}
+	if includeClientVersion {
+		clientVersion := DefaultClientVersion
+		coopStatusRequest.ClientVersion = &clientVersion
+	}
+
+	reqBin, err := proto.Marshal(&coopStatusRequest)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	values := url.Values{}
+	reqDataEncoded := enc.EncodeToString(reqBin)
+	values.Set("data", reqDataEncoded)
+
+	response, err := http.PostForm(reqURL, values)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	body, readErr := io.ReadAll(response.Body)
+	if closeErr := response.Body.Close(); closeErr != nil {
+		log.Printf("Failed to close: %v", closeErr)
+	}
+	if readErr != nil {
+		return nil, 0, readErr
+	}
+
+	return body, response.StatusCode, nil
+}
+
 // GetCoopStatus retrieves the coop status for a given contract and coop
 func GetCoopStatus(contractID string, coopID string, eeidOverride string) (*ContractCoopStatusResponse, time.Time, string, error) {
 	eggIncID := config.EIUserIDBasic
 	reqURL := "https://www.auxbrain.com/ei/coop_status_bot"
-	if eeidOverride != "" && CoopStatusFixEnabled != nil && CoopStatusFixEnabled() {
-		eggIncID = DecryptEID(eeidOverride)
-		reqURL = "https://www.auxbrain.com/ei/coop_status"
-	}
 	enc := base64.StdEncoding
 	timestamp := time.Now()
 
@@ -105,45 +138,26 @@ func GetCoopStatus(contractID string, coopID string, eeidOverride string) (*Cont
 		timestamp = cachedData.timestamp
 		dataTimestampStr = fmt.Sprintf("\nUsing cached data retrieved <t:%d:R>, expires <t:%d:R>", cachedData.timestamp.Unix(), cachedData.expirationTimestamp.Unix())
 	} else {
-
-		coopStatusRequest := ContractCoopStatusRequest{
-			ContractIdentifier: &contractID,
-			CoopIdentifier:     &coopID,
-			UserId:             &eggIncID,
-		}
 		timestamp = time.Now()
-		reqBin, err := proto.Marshal(&coopStatusRequest)
-		if err != nil {
-			return nil, timestamp, dataTimestampStr, err
-		}
-
-		values := url.Values{}
-		reqDataEncoded := enc.EncodeToString(reqBin)
-		values.Set("data", string(reqDataEncoded))
-
-		response, err := http.PostForm(reqURL, values)
+		body, statusCode, err := requestCoopStatus(contractID, coopID, eggIncID, reqURL, false)
 		if err != nil {
 			log.Print(err)
 			return nil, timestamp, dataTimestampStr, err
 		}
 
-		if response.StatusCode != http.StatusOK {
-			err := fmt.Errorf("API Error Code: %d for %s/%s", response.StatusCode, contractID, coopID)
-			log.Printf("Coop Status Result: %s", err)
-			return nil, timestamp, dataTimestampStr, err
-		}
-
-		defer func() {
-			if err := response.Body.Close(); err != nil {
-				// Handle the error appropriately, e.g., logging or taking corrective actions
-				log.Printf("Failed to close: %v", err)
+		if statusCode == http.StatusInternalServerError && strings.TrimSpace(string(body)) != "eop" && eeidOverride != "" && CoopStatusFixEnabled != nil && CoopStatusFixEnabled() {
+			eggIncID = DecryptEID(eeidOverride)
+			reqURL = "https://www.auxbrain.com/ei/coop_status"
+			body, statusCode, err = requestCoopStatus(contractID, coopID, eggIncID, reqURL, false)
+			if err != nil {
+				log.Print(err)
+				return nil, timestamp, dataTimestampStr, err
 			}
-		}()
+		}
 
-		// Read the response body
-		body, err := io.ReadAll(response.Body)
-		if err != nil {
-			log.Print(err)
+		if statusCode != http.StatusOK {
+			err := fmt.Errorf("API Error Code: %d for %s/%s", statusCode, contractID, coopID)
+			log.Printf("Coop Status Result: %s", err)
 			return nil, timestamp, dataTimestampStr, err
 		}
 
@@ -217,10 +231,6 @@ func ClearCoopStatusCachedData() {
 func GetCoopStatusForCompletedContracts(contractID string, coopID string, eeidOverride string) (*ContractCoopStatusResponse, time.Time, string, error) {
 	eggIncID := config.EIUserIDBasic
 	reqURL := "https://www.auxbrain.com/ei/coop_status_bot"
-	if eeidOverride != "" && CoopStatusFixEnabled != nil && CoopStatusFixEnabled() {
-		eggIncID = DecryptEID(eeidOverride)
-		reqURL = "https://www.auxbrain.com/ei/coop_status"
-	}
 	enc := base64.StdEncoding
 	timestamp := time.Now()
 
@@ -261,42 +271,26 @@ func GetCoopStatusForCompletedContracts(contractID string, coopID string, eeidOv
 		dataTimestampStr += fmt.Sprintf("\n%s <t:%d:f>", fileTimestamp.Format("2006-01-02 15:04:05"), fileTimestamp.Unix())
 
 	} else {
-
-		clientVersion := DefaultClientVersion
-
-		coopStatusRequest := ContractCoopStatusRequest{
-			ContractIdentifier: &contractID,
-			CoopIdentifier:     &coopID,
-			UserId:             &eggIncID,
-			ClientVersion:      &clientVersion,
-		}
 		timestamp = time.Now()
-		reqBin, err := proto.Marshal(&coopStatusRequest)
-		if err != nil {
-			return nil, timestamp, dataTimestampStr, err
-		}
-
-		values := url.Values{}
-		reqDataEncoded := enc.EncodeToString(reqBin)
-		values.Set("data", string(reqDataEncoded))
-
-		response, err := http.PostForm(reqURL, values)
+		body, statusCode, err := requestCoopStatus(contractID, coopID, eggIncID, reqURL, true)
 		if err != nil {
 			log.Print(err)
 			return nil, timestamp, dataTimestampStr, err
 		}
 
-		defer func() {
-			if err := response.Body.Close(); err != nil {
-				// Handle the error appropriately, e.g., logging or taking corrective actions
-				log.Printf("Failed to close: %v", err)
+		if statusCode == http.StatusInternalServerError && strings.TrimSpace(string(body)) != "eop" && eeidOverride != "" && CoopStatusFixEnabled != nil && CoopStatusFixEnabled() {
+			eggIncID = DecryptEID(eeidOverride)
+			reqURL = "https://www.auxbrain.com/ei/coop_status"
+			body, statusCode, err = requestCoopStatus(contractID, coopID, eggIncID, reqURL, true)
+			if err != nil {
+				log.Print(err)
+				return nil, timestamp, dataTimestampStr, err
 			}
-		}()
+		}
 
-		// Read the response body
-		body, err := io.ReadAll(response.Body)
-		if err != nil {
-			log.Print(err)
+		if statusCode != http.StatusOK {
+			err := fmt.Errorf("API Error Code: %d for %s/%s", statusCode, contractID, coopID)
+			log.Printf("Coop Status Result: %s", err)
 			return nil, timestamp, dataTimestampStr, err
 		}
 
