@@ -112,6 +112,11 @@ func GetSlashReplayEvalCommand(cmd string) *discordgo.ApplicationCommand {
 
 // HandleReplayEval handles the /replay-eval command
 func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// Check if user has permission to use CoopStatus API
+	if !CheckCoopStatusPermission(s, i, ei.CoopStatusFixEnabled != nil && ei.CoopStatusFixEnabled()) {
+		return
+	}
+
 	userID := bottools.GetInteractionUserID(i)
 
 	optionMap := bottools.GetCommandOptionsMap(i)

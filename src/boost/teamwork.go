@@ -92,6 +92,11 @@ func GetSlashTeamworkEval(cmd string) *discordgo.ApplicationCommand {
 // HandleTeamworkEvalCommand will handle the /teamwork command
 func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
+	// Check if user has permission to use CoopStatus API
+	if !CheckCoopStatusPermission(s, i, ei.CoopStatusFixEnabled != nil && ei.CoopStatusFixEnabled()) {
+		return
+	}
+
 	publicReply := false
 	flags := discordgo.MessageFlagsEphemeral
 
