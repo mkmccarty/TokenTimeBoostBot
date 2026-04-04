@@ -12,9 +12,21 @@ import (
 )
 
 const (
-	CoopStatusPermissionKey      = "allow_coop_status"
-	CoopStatusPermissionDuration = 24 * time.Hour
+	CoopStatusPermissionKey     = "allow_coop_status"
+	CoopStatusPermissionSpanKey = "allow_coop_status_span"
+	CoopStatusPermission24h     = 24 * time.Hour
+	CoopStatusPermission7d      = 7 * 24 * time.Hour
 )
+
+func getCoopStatusPermissionDuration(userID string) time.Duration {
+	span := farmerstate.GetMiscSettingString(userID, CoopStatusPermissionSpanKey)
+	switch span {
+	case "7d":
+		return CoopStatusPermission7d
+	default:
+		return CoopStatusPermission24h
+	}
+}
 
 // CheckCoopStatusPermission checks if a user needs permission for CoopStatus API calls
 // Returns true if permission is valid or not needed, false if permission dialog is needed
@@ -43,8 +55,8 @@ func CheckCoopStatusPermission(s *discordgo.Session, i *discordgo.InteractionCre
 		return false
 	}
 
-	// Check if timestamp is older than 24 hours
-	if time.Since(parseTime) > CoopStatusPermissionDuration {
+	// Check if timestamp is older than selected permission window.
+	if time.Since(parseTime) > getCoopStatusPermissionDuration(userID) {
 		// Timestamp is too old, show permission dialog
 		ShowCoopStatusPermissionDialog(s, i)
 		return false
@@ -59,15 +71,20 @@ func ShowCoopStatusPermissionDialog(s *discordgo.Session, i *discordgo.Interacti
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "Due to a game API issue, your saved game ID is needed to make the request. You can allow this for 24 hours or close this dialog.\n\nUsing your EI number when you're in a contract and expecting to receive tokens or chickens can cause those deliveries to be lost.\n\nBecause of this you can only query about the contracts you're participating in.",
+			Content: "Due to a game API issue, your saved game ID is needed to make the request. You can allow this for 24 hours, allow this for 7 days, or close this dialog.\n\nUsing your EI number when you're in a contract and expecting to receive tokens or chickens can cause those deliveries to be lost.\n\nBecause of this you can only query about the contracts you're participating in.",
 			Flags:   discordgo.MessageFlagsEphemeral,
 			Components: []discordgo.MessageComponent{
 				discordgo.ActionsRow{
 					Components: []discordgo.MessageComponent{
 						discordgo.Button{
-							Label:    "Allow",
+							Label:    "Allow 24h",
 							Style:    discordgo.SuccessButton,
-							CustomID: "coop_status#allow",
+							CustomID: "coop_status#allow24h",
+						},
+						discordgo.Button{
+							Label:    "Allow 7d",
+							Style:    discordgo.SuccessButton,
+							CustomID: "coop_status#allow7d",
 						},
 						discordgo.Button{
 							Label:    "Close",
@@ -97,9 +114,10 @@ func HandleCoopStatusPermissionButton(s *discordgo.Session, i *discordgo.Interac
 	action := parts[1]
 
 	switch action {
-	case "allow":
+	case "allow", "allow24h":
 		// Set the timestamp to now
 		farmerstate.SetMiscSettingString(userID, CoopStatusPermissionKey, time.Now().Format(time.RFC3339))
+		farmerstate.SetMiscSettingString(userID, CoopStatusPermissionSpanKey, "24h")
 
 		// Respond with ephemeral message asking to retry
 		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -111,6 +129,23 @@ func HandleCoopStatusPermissionButton(s *discordgo.Session, i *discordgo.Interac
 		})
 		if err != nil {
 			log.Println("Error responding to allow button:", err)
+		}
+
+	case "allow7d":
+		// Set the timestamp to now
+		farmerstate.SetMiscSettingString(userID, CoopStatusPermissionKey, time.Now().Format(time.RFC3339))
+		farmerstate.SetMiscSettingString(userID, CoopStatusPermissionSpanKey, "7d")
+
+		// Respond with ephemeral message asking to retry
+		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Permission granted for 7 days. You can now run your command again.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		if err != nil {
+			log.Println("Error responding to allow 7d button:", err)
 		}
 
 	case "close":
