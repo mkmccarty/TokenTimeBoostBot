@@ -879,6 +879,9 @@ var (
 		"csestimate": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleCsEstimateButtons(s, i)
 		},
+		"coop_status": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleCoopStatusPermissionButton(s, i)
+		},
 	}
 )
 

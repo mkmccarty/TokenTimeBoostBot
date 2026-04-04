@@ -81,6 +81,11 @@ func GetSlashStones(cmd string) *discordgo.ApplicationCommand {
 
 // HandleStonesCommand will handle the /stones command
 func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// Check if user has permission to use CoopStatus API
+	if !CheckCoopStatusPermission(s, i, ei.CoopStatusFixEnabled != nil && ei.CoopStatusFixEnabled()) {
+		return
+	}
+
 	var contractID string
 	var coopID string
 	var soloName string

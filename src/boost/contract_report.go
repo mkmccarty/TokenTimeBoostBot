@@ -168,6 +168,11 @@ func GetSlashContractReportCommand(cmd string) *discordgo.ApplicationCommand {
 
 // HandleContractReport handles the /contract-report command
 func HandleContractReport(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// Check if user has permission to use CoopStatus API
+	if !CheckCoopStatusPermission(s, i, ei.CoopStatusFixEnabled != nil && ei.CoopStatusFixEnabled()) {
+		return
+	}
+
 	userID := bottools.GetInteractionUserID(i)
 	optionMap := bottools.GetCommandOptionsMap(i)
 	if opt, ok := optionMap["reset"]; ok {
