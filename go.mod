@@ -9,7 +9,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/google/go-github/v33 v33.0.0
 	github.com/jasonlvhit/gocron v0.0.1
-	github.com/mattn/go-runewidth v0.0.21
+	github.com/mattn/go-runewidth v0.0.22
 	github.com/natefinch/lumberjack/v3 v3.0.0-alpha
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/pkg/errors v0.9.1
@@ -20,7 +20,7 @@ require (
 	golang.org/x/text v0.35.0
 	google.golang.org/genai v1.52.1
 	google.golang.org/protobuf v1.36.11
-	modernc.org/sqlite v1.48.0
+	modernc.org/sqlite v1.48.1
 )
 
 require (
@@ -51,9 +51,9 @@ require (
 	github.com/tidwall/sjson v1.2.5 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.67.0 // indirect
-	go.opentelemetry.io/otel v1.42.0 // indirect
-	go.opentelemetry.io/otel/metric v1.42.0 // indirect
-	go.opentelemetry.io/otel/trace v1.42.0 // indirect
+	go.opentelemetry.io/otel v1.43.0 // indirect
+	go.opentelemetry.io/otel/metric v1.43.0 // indirect
+	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	golang.org/x/crypto v0.49.0 // indirect
 	golang.org/x/net v0.52.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
