@@ -1919,22 +1919,42 @@ func reorderBoosters(contract *Contract) {
 	}
 }
 
+func contractHasValidThread(s *discordgo.Session, contract *Contract) bool {
+	if s == nil || contract == nil {
+		return false
+	}
+
+	for _, loc := range contract.Location {
+		if loc == nil || loc.ChannelID == "" {
+			continue
+		}
+
+		ch, err := s.Channel(loc.ChannelID)
+		if err != nil || ch == nil {
+			continue
+		}
+
+		if ch.IsThread() {
+			return true
+		}
+	}
+
+	return false
+}
+
 // ArchiveContracts will set a contract state to Archive if it is older than 5 days
 func ArchiveContracts(s *discordgo.Session) {
 
 	var finishHash []string
 	currentTime := time.Now()
 	for _, contract := range Contracts {
-		contractInfo, ok := ei.EggIncContractsAll[contract.ContractID]
-		if ok {
-			// If the contract is still in the signup phase and hasn't expired, don't archive it
-			if contract.State == ContractStateSignup && !currentTime.After(contractInfo.ValidUntil) {
-				continue
-			}
+		// If the contract is still in the signup phase and its channel is still a valid thread, don't archive it
+		if contract.State == ContractStateSignup && contractHasValidThread(s, contract) {
+			continue
 		}
 
-		// It's been 7 days since the contract.StartTime and at least 36 hours since the ListInteractionTime
-		if currentTime.After(contract.StartTime.Add(7 * 24 * time.Hour)) {
+		// It's been 3 days since the contract.StartTime and at least 36 hours since the ListInteractionTime
+		if currentTime.After(contract.StartTime.Add(3 * 24 * time.Hour)) {
 			if currentTime.After(contract.LastInteractionTime.Add(36 * time.Hour)) {
 				log.Println("Archiving contract: ", contract.ContractID, " / ", contract.CoopID)
 				changeContractState(contract, ContractStateArchive)
