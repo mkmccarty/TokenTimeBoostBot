@@ -1948,8 +1948,18 @@ func ArchiveContracts(s *discordgo.Session) {
 	var finishHash []string
 	currentTime := time.Now()
 	for _, contract := range Contracts {
+		hasValidThread := contractHasValidThread(s, contract)
+
+		// If the contract thread is no longer valid, archive immediately.
+		if !hasValidThread {
+			log.Println("Archiving contract (invalid thread): ", contract.ContractID, " / ", contract.CoopID)
+			changeContractState(contract, ContractStateArchive)
+			finishHash = append(finishHash, contract.ContractHash)
+			continue
+		}
+
 		// If the contract is still in the signup phase and its channel is still a valid thread, don't archive it
-		if contract.State == ContractStateSignup && contractHasValidThread(s, contract) {
+		if contract.State == ContractStateSignup {
 			continue
 		}
 
