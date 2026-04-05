@@ -12,10 +12,14 @@ import (
 )
 
 const (
-	CoopStatusPermissionKey     = "allow_coop_status"
+	// CoopStatusPermissionKey is the key used to store the timestamp of when the user allowed CoopStatus permissions
+	CoopStatusPermissionKey = "allow_coop_status"
+	// CoopStatusPermissionSpanKey is the key used to store the selected permission duration (24h or 7d)
 	CoopStatusPermissionSpanKey = "allow_coop_status_span"
-	CoopStatusPermission24h     = 24 * time.Hour
-	CoopStatusPermission7d      = 7 * 24 * time.Hour
+	// CoopStatusPermission24h is the duration for 24 hours permission
+	CoopStatusPermission24h = 24 * time.Hour
+	// CoopStatusPermission7d is the duration for 7 days permission
+	CoopStatusPermission7d = 7 * 24 * time.Hour
 )
 
 func getCoopStatusPermissionDuration(userID string) time.Duration {
