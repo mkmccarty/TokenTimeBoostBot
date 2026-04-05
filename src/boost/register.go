@@ -3,6 +3,7 @@ package boost
 import (
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
@@ -77,10 +78,36 @@ func Register(s *discordgo.Session, i *discordgo.InteractionCreate, encryptedID 
 			farmerstate.SetMiscSettingString(userID, "ei_ign", newName)
 			te := ei.GetCurrentTruthEggs(backup)
 			farmerstate.SetMiscSettingString(userID, "TE", fmt.Sprintf("%d", te))
+			artifacts := ei.GetBestCoopArtifactsFromInventory(backup.GetArtifactsDb().GetInventoryItems())
+			for key, val := range artifacts {
+				farmerstate.SetMiscSettingString(userID, key, val)
+			}
+			// Set all collectibles to "owned" by default
+			if farmerstate.GetMiscSettingString(userID, "collegg") == "" {
+				var eggNames []string
+				for _, egg := range ei.CustomEggMap {
+					eggNames = append(eggNames, egg.Name)
+				}
+				farmerstate.SetMiscSettingString(userID, "collegg", strings.Join(eggNames, ","))
+			}
 			str = "Your Egg Inc ID has been registered as " + newName + fmt.Sprintf(" (TE: %d).", te)
 			if farmerName != "" && farmerName != newName {
 				str += " (Previously: " + farmerName + ")"
 			}
+			// Respond to register command
+			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+				Content: str,
+				Flags:   discordgo.MessageFlagsEphemeral,
+			})
+			// Spawn /artifacts command response
+			artStr, artComponents := getArtifactsComponents(userID, "", false)
+			artStr = "## Check your collectibles\n" + artStr
+			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+				Content:    artStr,
+				Components: artComponents,
+				Flags:      discordgo.MessageFlagsEphemeral,
+			})
+			return
 		}
 	}
 
