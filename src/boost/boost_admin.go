@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand/v2"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
 
@@ -938,4 +940,214 @@ Role Name: *%s*
 			targetChannelID, restErr.Response.StatusCode, restErr.Message.Message)
 		return
 	}
+}
+
+// SlashAdminMembers returns the admin-members slash command definition with set/remove subcommands.
+func SlashAdminMembers(cmd string) *discordgo.ApplicationCommand {
+	var adminPermission = int64(0)
+	farmerOptions := []*discordgo.ApplicationCommandOption{
+		{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "farmers",
+			Description: "List of user mentions or IDs",
+			Required:    false,
+		},
+		{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "names",
+			Description: "Comma-separated list of plain user Names",
+			Required:    false,
+		},
+	}
+	return &discordgo.ApplicationCommand{
+		Name:                     cmd,
+		Description:              "Manage farmers as members of this server.",
+		DefaultMemberPermissions: &adminPermission,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "set",
+				Description: "Add one or more farmers as members of this server.",
+				Options:     farmerOptions,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "remove",
+				Description: "Remove one or more farmers from this server's membership.",
+				Options:     farmerOptions,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "list",
+				Description: "List all farmers registered as members of this server.",
+			},
+		},
+	}
+}
+
+var adminMembersRe = regexp.MustCompile(`\d+`)
+
+// adminMembersListContent builds the member list string for the current guild.
+func adminMembersListContent(s *discordgo.Session, guildID, guildName string) string {
+	members := farmerstate.GetGuildMembers(guildID)
+	var b strings.Builder
+	if len(members) == 0 {
+		b.WriteString("No farmers registered for this server.")
+		return b.String()
+	}
+	fmt.Fprintf(&b, "**Members of guild `%s`** (%d)\n", guildName, len(members))
+	for _, userID := range members {
+		ign := farmerstate.GetMiscSettingString(userID, "ei_ign")
+		_, inGuild := s.GuildMember(guildID, userID)
+		mention := ""
+		if inGuild == nil {
+			mention = fmt.Sprintf(" <@%s>", userID)
+		}
+		if ign != "" {
+			fmt.Fprintf(&b, "`%s`%s `%s`\n", userID, mention, ign)
+		} else {
+			fmt.Fprintf(&b, "`%s`%s\n", userID, mention)
+		}
+	}
+	return b.String()
+}
+
+// adminMembersSetContent adds farmers to the guild and returns a result string.
+func adminMembersSetContent(s *discordgo.Session, optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption, guildID, guildName string) string {
+	var affected, skipped, invalid []string
+
+	if opt, ok := optionMap["set-farmers"]; ok {
+		for _, userID := range adminMembersRe.FindAllString(opt.StringValue(), -1) {
+			if _, err := s.GuildMember(guildID, userID); err != nil {
+				invalid = append(invalid, fmt.Sprintf("<@%s>", userID))
+				continue
+			}
+			if farmerstate.AddGuildMembership(userID, guildID) {
+				affected = append(affected, fmt.Sprintf("<@%s>", userID))
+			} else {
+				skipped = append(skipped, fmt.Sprintf("<@%s>", userID))
+			}
+		}
+	}
+	if opt, ok := optionMap["set-names"]; ok {
+		for name := range strings.SplitSeq(opt.StringValue(), ",") {
+			userID := strings.TrimSpace(name)
+			if userID == "" {
+				continue
+			}
+			if !farmerstate.FarmerExists(userID) {
+				invalid = append(invalid, fmt.Sprintf("`%s` (not found)", userID))
+				continue
+			}
+			if farmerstate.AddGuildMembership(userID, guildID) {
+				affected = append(affected, fmt.Sprintf("`%s`", userID))
+			} else {
+				skipped = append(skipped, fmt.Sprintf("`%s`", userID))
+			}
+		}
+	}
+
+	var b strings.Builder
+	if len(affected) > 0 {
+		fmt.Fprintf(&b, "Added to guild `%s`: %s", guildName, strings.Join(affected, ", "))
+	}
+	if len(skipped) > 0 {
+		if b.Len() > 0 {
+			b.WriteByte('\n')
+		}
+		fmt.Fprintf(&b, "Already a member: %s", strings.Join(skipped, ", "))
+	}
+	if len(invalid) > 0 {
+		if b.Len() > 0 {
+			b.WriteByte('\n')
+		}
+		fmt.Fprintf(&b, "Not found in this server: %s", strings.Join(invalid, ", "))
+	}
+	if b.Len() == 0 {
+		b.WriteString("No valid farmers provided.")
+	}
+	return b.String()
+}
+
+// adminMembersRemoveContent removes farmers from the guild and returns a result string.
+func adminMembersRemoveContent(optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption, guildID, guildName string) string {
+	var affected, invalid []string
+
+	if opt, ok := optionMap["remove-farmers"]; ok {
+		for _, userID := range adminMembersRe.FindAllString(opt.StringValue(), -1) {
+			if !farmerstate.FarmerExists(userID) {
+				invalid = append(invalid, fmt.Sprintf("<@%s>", userID))
+				continue
+			}
+			farmerstate.RemoveGuildMembership(userID, guildID)
+			affected = append(affected, fmt.Sprintf("<@%s>", userID))
+		}
+	}
+	if opt, ok := optionMap["remove-names"]; ok {
+		for name := range strings.SplitSeq(opt.StringValue(), ",") {
+			userID := strings.TrimSpace(name)
+			if userID == "" {
+				continue
+			}
+			if !farmerstate.FarmerExists(userID) {
+				invalid = append(invalid, fmt.Sprintf("`%s` (not found)", userID))
+				continue
+			}
+			farmerstate.RemoveGuildMembership(userID, guildID)
+			affected = append(affected, fmt.Sprintf("`%s`", userID))
+		}
+	}
+
+	var b strings.Builder
+	if len(affected) > 0 {
+		fmt.Fprintf(&b, "Removed from guild `%s`: %s", guildName, strings.Join(affected, ", "))
+	}
+	if len(invalid) > 0 {
+		if b.Len() > 0 {
+			b.WriteByte('\n')
+		}
+		fmt.Fprintf(&b, "Not found: %s", strings.Join(invalid, ", "))
+	}
+	if b.Len() == 0 {
+		b.WriteString("No valid farmers provided.")
+	}
+	return b.String()
+}
+
+// HandleAdminMembers handles the set, remove, and list subcommands for admin-members.
+func HandleAdminMembers(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	flags := discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2
+	bottools.AcknowledgeResponse(s, i, flags)
+
+	guildID := i.GuildID
+	g, _ := s.Guild(guildID)
+	guildName := g.Name
+	subcmd := i.ApplicationCommandData().Options[0].Name
+	optionMap := bottools.GetCommandOptionsMap(i)
+
+	var content string
+	var allowedMentions *discordgo.MessageAllowedMentions
+	switch subcmd {
+	case "list":
+		content = adminMembersListContent(s, guildID, guildName)
+		allowedMentions = &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}}
+	case "set":
+		content = adminMembersSetContent(s, optionMap, guildID, guildName)
+	case "remove":
+		content = adminMembersRemoveContent(optionMap, guildID, guildName)
+	}
+
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Flags:           flags,
+		AllowedMentions: allowedMentions,
+		Components: []discordgo.MessageComponent{
+			&discordgo.TextDisplay{Content: content},
+		},
+	})
 }
