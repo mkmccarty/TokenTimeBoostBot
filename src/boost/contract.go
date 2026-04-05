@@ -543,6 +543,19 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	contract.CoopSize = coopSize
 	contract.Name = contractID
 	updateContractWithEggIncData(contract)
+	if contractInfo, ok := ei.EggIncContractsAll[contract.ContractID]; ok {
+		bannerText := contract.Name
+		if bannerText == "" {
+			bannerText = contractInfo.Name
+		}
+		eggName := contract.EggName
+		if eggName == "" {
+			eggName = contractInfo.EggName
+		}
+		if bannerText != "" && eggName != "" {
+			bottools.GenerateBanner(contract.ContractID, eggName, bannerText)
+		}
+	}
 
 	// Long contracts default the sink to boosting last
 	// Short contracts default the sink to boosting first
