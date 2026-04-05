@@ -272,8 +272,7 @@ func (q *Queries) InsertLegacyFarmerstate(ctx context.Context, arg InsertLegacyF
 
 const removeGuildMembership = `-- name: RemoveGuildMembership :exec
 DELETE FROM farmer_guild_membership 
-WHERE user_id = ? 
-AND guild_id = ?
+WHERE user_id = ? AND guild_id = ?
 `
 
 type RemoveGuildMembershipParams struct {
