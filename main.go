@@ -895,6 +895,9 @@ var (
 		"coop_status": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleCoopStatusPermissionButton(s, i)
 		},
+		"leaderboard_perm": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleLeaderboardPermissionButton(s, i)
+		},
 	}
 )
 
