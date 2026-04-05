@@ -55,6 +55,14 @@ func getChannel(s *discordgo.Session, id string) (*discordgo.Channel, error) {
 	return s.Channel(id)
 }
 
+// AcknowledgeResponse sends a deferred response to acknowledge the interaction with the given flags.
+func AcknowledgeResponse(s *discordgo.Session, i *discordgo.InteractionCreate, flags discordgo.MessageFlags) {
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{Flags: flags},
+	})
+}
+
 // IsValidDiscordID checks if a string is a valid Discord snowflake ID by validating
 // the embedded timestamp is within Discord's operational range
 func IsValidDiscordID(id string) bool {
