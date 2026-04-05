@@ -519,6 +519,30 @@ func formatStoneCount(stones StoneCount) string {
 	return fmt.Sprintf("%s T1=%d T2=%d T3=%d", stones.Artifact.String(), stones.Levels[0], stones.Levels[1], stones.Levels[2])
 }
 
+// GetBestCoopArtifactsFromInventory returns the best coop artifacts from the player's inventory.
+// The returned map has keys "defl", "metr", "comp", "guss" with tier+rarity values like "T4L", "T3R", etc.
+func GetBestCoopArtifactsFromInventory(items []*ArtifactInventoryItem) map[string]string {
+	result := make(map[string]string)
+	targets := []struct {
+		key  string
+		name ArtifactSpec_Name
+	}{
+		{"defl", ArtifactSpec_TACHYON_DEFLECTOR},
+		{"metr", ArtifactSpec_QUANTUM_METRONOME},
+		{"comp", ArtifactSpec_INTERSTELLAR_COMPASS},
+		{"guss", ArtifactSpec_ORNATE_GUSSET},
+	}
+	for _, t := range targets {
+		item := findBestArtifact(items, t.name)
+		if item == nil {
+			continue
+		}
+		spec := item.GetArtifact().GetSpec()
+		result[t.key] = ArtifactLevels[spec.GetLevel()] + ArtifactRarity[spec.GetRarity()]
+	}
+	return result
+}
+
 // ExamineArtifacts is a placeholder function to examine artifacts, currently it just retrieves the spec for each artifact
 func ExamineArtifacts(artifacts []*ArtifactInventoryItem) {
 

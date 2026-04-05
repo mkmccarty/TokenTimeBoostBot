@@ -47,6 +47,7 @@ const slashAdminListRoles string = "list-roles"
 const slashAdminSetGuildSetting string = "admin-set-guild-setting"
 const slashAdminGetGuildSettings string = "admin-get-guild-settings"
 const slashAdminGuildstate string = "admin-guildstate"
+const slashAdminMembers string = "admin-members"
 
 // Slash Command Constants
 const slashContract string = "contract"
@@ -85,6 +86,7 @@ const slashCsEstimate string = "cs-estimate"
 const slashRenameThread string = "rename-thread"
 const slashFun string = "fun"
 const slashStones string = "stones"
+const slashLeaderboard string = "leaderboard"
 const slashTimer string = "timer"
 const slashArtifact string = "artifact"
 const slashScoreExplorer string = "score-explorer"
@@ -217,6 +219,7 @@ var (
 		boost.SlashAdminGetContractData(slashAdminGetContractData),
 		boost.SlashAdminListRoles(slashAdminListRoles),
 		boost.SlashAdminGuildStateCommand(slashAdminGuildstate),
+		boost.SlashAdminMembers(slashAdminMembers),
 		guildstate.SlashSetGuildSettingCommand(slashAdminSetGuildSetting),
 		guildstate.SlashGetGuildSettingsCommand(slashAdminGetGuildSettings),
 	}
@@ -351,6 +354,7 @@ var (
 		boost.GetPredictionsCommand(slashPredictions),
 		//boost.GetSlashSiabEval(slashSiabEval),
 		boost.GetSlashStones(slashStones),
+		boost.GetSlashLeaderboard(slashLeaderboard),
 		boost.GetSlashTimer(slashTimer),
 		boost.GetSlashEstimateTime(slashEstimateTime),
 		boost.GetSlashCsEstimates(slashCsEstimate),
@@ -535,6 +539,9 @@ var (
 		slashAdminGuildstate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAdminGuildStateCommand(s, i)
 		},
+		slashAdminMembers: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleAdminMembers(s, i)
+		},
 		slashAdminSetGuildSetting: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			guildstate.SetGuildSetting(s, i)
 		},
@@ -611,6 +618,9 @@ var (
 		},
 		slashStones: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleStonesCommand(s, i)
+		},
+		slashLeaderboard: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleLeaderboard(s, i)
 		},
 		slashTimer: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleTimerCommand(s, i)
@@ -818,6 +828,9 @@ var (
 		},
 		"predictions": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandlePredictionsPage(s, i)
+		},
+		"leaderboard": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleLeaderboardPage(s, i)
 		},
 		"fd_signupStart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
