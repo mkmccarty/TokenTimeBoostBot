@@ -55,6 +55,12 @@ type styleData struct {
 
 // GenerateBanner creates a banner image with a background, overlay image, and text
 func GenerateBanner(ID string, eggName string, text string) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("GenerateBanner recovered from panic for %s: %v", ID, r)
+		}
+	}()
+
 	// 1. Load Images
 	styleArray := []string{"", "c", "a", "f", "l"}
 	// Check if any of the style images already exist
@@ -144,8 +150,11 @@ func GenerateBanner(ID string, eggName string, text string) {
 		haveEggImg = false
 	}
 	// I want to make overlayImage a 128 by 128 image
-	overlayImage := image.NewRGBA(image.Rect(0, 0, 128, 128))
-	draw.NearestNeighbor.Scale(overlayImage, overlayImage.Rect, overlayImageOrig, overlayImageOrig.Bounds(), draw.Over, nil)
+	var overlayImage *image.RGBA
+	if haveEggImg {
+		overlayImage = image.NewRGBA(image.Rect(0, 0, 128, 128))
+		draw.NearestNeighbor.Scale(overlayImage, overlayImage.Rect, overlayImageOrig, overlayImageOrig.Bounds(), draw.Over, nil)
+	}
 
 	// 2. Create Canvas (same size as background)
 	bounds := bgImage.Bounds()
@@ -167,7 +176,8 @@ func GenerateBanner(ID string, eggName string, text string) {
 
 	face, err := loadFontFile(fontFile, fontSize, dpi)
 	if err != nil {
-		log.Fatalf("Error loading font: %v", err)
+		log.Printf("Error loading font: %v", err)
+		return
 	}
 	defer func() {
 		if err := face.Close(); err != nil {
