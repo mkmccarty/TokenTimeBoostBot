@@ -68,6 +68,10 @@ func GetSlashLeaderboard(cmd string) *discordgo.ApplicationCommand {
 
 // HandleLeaderboard handles the /leaderboard command
 func HandleLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if !CheckLeaderboardPermission(s, i) {
+		return
+	}
+
 	season := "ALL_TIME"
 	optionMap := bottools.GetCommandOptionsMap(i)
 	if opt, ok := optionMap["season"]; ok {

@@ -92,7 +92,7 @@ func ShowCoopStatusPermissionDialog(s *discordgo.Session, i *discordgo.Interacti
 						},
 						discordgo.Button{
 							Label:    "Close",
-							Style:    discordgo.SecondaryButton,
+							Style:    discordgo.DangerButton,
 							CustomID: "coop_status#close",
 						},
 					},
