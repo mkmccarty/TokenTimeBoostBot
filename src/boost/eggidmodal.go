@@ -120,7 +120,8 @@ func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate
 			str = "You must provide a valid Egg Inc ID to register."
 			break
 		}
-		str = "Your Egg Inc ID has been registered."
+		Register(s, i, encryptedID, okayToSave)
+		return
 	case "replay":
 		if encryptedID == "" {
 			str = "You must provide a valid Egg Inc ID to proceed."
