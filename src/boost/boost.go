@@ -121,6 +121,7 @@ const (
 )
 
 const defaultFamerTokens = 6
+const signupThreadBackstopDuration = 7 * 24 * time.Hour
 
 var boostIconName = "🚀"     // For Reaction tests
 var boostIconReaction = "🚀" // For displaying
@@ -1942,6 +1943,38 @@ func contractHasValidThread(s *discordgo.Session, contract *Contract) bool {
 	return false
 }
 
+func getContractThreadCreatedAtFromLastMessageID(s *discordgo.Session, contract *Contract) (time.Time, bool) {
+	if s == nil || contract == nil {
+		return time.Time{}, false
+	}
+
+	var earliest time.Time
+	found := false
+
+	for _, loc := range contract.Location {
+		if loc == nil || loc.ChannelID == "" {
+			continue
+		}
+
+		ch, err := s.Channel(loc.ChannelID)
+		if err != nil || ch == nil || !ch.IsThread() || ch.LastMessageID == "" {
+			continue
+		}
+
+		createdAt, err := discordgo.SnowflakeTimestamp(ch.LastMessageID)
+		if err != nil {
+			continue
+		}
+
+		if !found || createdAt.Before(earliest) {
+			earliest = createdAt
+			found = true
+		}
+	}
+
+	return earliest, found
+}
+
 // ArchiveContracts will set a contract state to Archive if it is older than 5 days
 func ArchiveContracts(s *discordgo.Session) {
 
@@ -1958,8 +1991,29 @@ func ArchiveContracts(s *discordgo.Session) {
 			continue
 		}
 
-		// If the contract is still in the signup phase and its channel is still a valid thread, don't archive it
+		// For signup contracts, archive at contract expiration when available.
+		// If contract metadata is unavailable, fall back to a 1-week thread-age backstop.
 		if contract.State == ContractStateSignup {
+			eiContract, found := ei.EggIncContractsAll[contract.ContractID]
+			if found && !eiContract.ValidUntil.IsZero() {
+				if currentTime.After(eiContract.ValidUntil) {
+					log.Println("Archiving signup contract (contract expiration): ", contract.ContractID, " / ", contract.CoopID)
+					changeContractState(contract, ContractStateArchive)
+					finishHash = append(finishHash, contract.ContractHash)
+					continue
+				}
+			} else {
+				if threadCreatedAt, ok := getContractThreadCreatedAtFromLastMessageID(s, contract); ok {
+					if currentTime.After(threadCreatedAt.Add(signupThreadBackstopDuration)) {
+						log.Println("Archiving signup contract (1-week backstop): ", contract.ContractID, " / ", contract.CoopID)
+						changeContractState(contract, ContractStateArchive)
+						finishHash = append(finishHash, contract.ContractHash)
+						continue
+					}
+				}
+			}
+
+			// Signup contracts with valid durations continue to stay active.
 			continue
 		}
 
