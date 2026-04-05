@@ -23,17 +23,12 @@ func GetSlashContractCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Create a contract boost list.",
-		/*
-			Contexts: &[]discordgo.InteractionContextType{
-				discordgo.InteractionContextGuild,
-				discordgo.InteractionContextBotDM,
-				discordgo.InteractionContextPrivateChannel,
-			},
-			IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-				discordgo.ApplicationIntegrationGuildInstall,
-				discordgo.ApplicationIntegrationUserInstall,
-			},
-		*/
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:         discordgo.ApplicationCommandOptionString,
