@@ -88,6 +88,19 @@ func ShowLeaderboardPermissionDialog(s *discordgo.Session, i *discordgo.Interact
 func HandleLeaderboardPermissionButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	userID := bottools.GetInteractionUserID(i)
 	customID := i.MessageComponentData().CustomID
+	respondAndClose := func(content string) {
+		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseUpdateMessage,
+			Data: &discordgo.InteractionResponseData{
+				Content:    content,
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{},
+			},
+		})
+		if err != nil {
+			log.Println("Error updating leaderboard permission dialog:", err)
+		}
+	}
 
 	parts := strings.Split(customID, "#")
 	if len(parts) < 2 {
@@ -100,42 +113,15 @@ func HandleLeaderboardPermissionButton(s *discordgo.Session, i *discordgo.Intera
 		farmerstate.SetMiscSettingString(userID, LeaderboardPermissionKey, time.Now().Format(time.RFC3339))
 		farmerstate.SetMiscSettingString(userID, LeaderboardPermissionSpanKey, "24h")
 
-		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Permission granted for 24 hours. Please run your command again.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
-		if err != nil {
-			log.Println("Error responding to leaderboard allow24h button:", err)
-		}
+		respondAndClose("Permission granted for 24 hours. Please run your command again.")
 
 	case "allowforever":
 		farmerstate.SetMiscSettingString(userID, LeaderboardPermissionKey, time.Now().Format(time.RFC3339))
 		farmerstate.SetMiscSettingString(userID, LeaderboardPermissionSpanKey, "forever")
 
-		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Permission granted permanently. Please run your command again.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
-		if err != nil {
-			log.Println("Error responding to leaderboard allowforever button:", err)
-		}
+		respondAndClose("Permission granted permanently. Please run your command again.")
 
 	case "close":
-		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Dialog closed.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
-		if err != nil {
-			log.Println("Error responding to leaderboard close button:", err)
-		}
+		respondAndClose("Dialog closed.")
 	}
 }
