@@ -108,19 +108,6 @@ func HandleLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
 func HandleLeaderboardPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	flags := discordgo.MessageFlagsIsComponentsV2
 
-	// Acknowledge the interaction
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{
-			Flags:      flags,
-			Components: []discordgo.MessageComponent{},
-		},
-	})
-	if err != nil {
-		log.Println("Error responding to leaderboard interaction:", err)
-		return
-	}
-
 	parts := strings.Split(i.MessageComponentData().CustomID, "#")
 	if len(parts) < 2 {
 		return
@@ -131,6 +118,19 @@ func HandleLeaderboardPage(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	switch parts[1] {
 	case "close":
+		// Acknowledge update interactions that mutate the existing leaderboard message.
+		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
+			Data: &discordgo.InteractionResponseData{
+				Flags:      flags,
+				Components: []discordgo.MessageComponent{},
+			},
+		})
+		if err != nil {
+			log.Println("Error responding to leaderboard close interaction:", err)
+			return
+		}
+
 		// Keep only the TextDisplay, drop the ActionsRows
 		var kept []discordgo.MessageComponent
 		for _, c := range i.Message.Components {
@@ -145,6 +145,22 @@ func HandleLeaderboardPage(s *discordgo.Session, i *discordgo.InteractionCreate)
 		}
 
 	case "refresh":
+		if !CheckLeaderboardPermission(s, i) {
+			return
+		}
+
+		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
+			Data: &discordgo.InteractionResponseData{
+				Flags:      flags,
+				Components: []discordgo.MessageComponent{},
+			},
+		})
+		if err != nil {
+			log.Println("Error responding to leaderboard refresh interaction:", err)
+			return
+		}
+
 		if eiID == "" {
 			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 				Content: fmt.Sprintf("Your Egg Inc ID is needed to update the leaderboard. Use %s to register.", bottools.GetFormattedCommand("register")),
@@ -161,6 +177,22 @@ func HandleLeaderboardPage(s *discordgo.Session, i *discordgo.InteractionCreate)
 		}
 
 	case "season":
+		if !CheckLeaderboardPermission(s, i) {
+			return
+		}
+
+		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
+			Data: &discordgo.InteractionResponseData{
+				Flags:      flags,
+				Components: []discordgo.MessageComponent{},
+			},
+		})
+		if err != nil {
+			log.Println("Error responding to leaderboard season interaction:", err)
+			return
+		}
+
 		if eiID == "" {
 			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 				Content: fmt.Sprintf("Your Egg Inc ID is needed to update the leaderboard. Use %s to register.", bottools.GetFormattedCommand("register")),
