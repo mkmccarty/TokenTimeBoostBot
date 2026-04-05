@@ -109,6 +109,19 @@ func ShowCoopStatusPermissionDialog(s *discordgo.Session, i *discordgo.Interacti
 func HandleCoopStatusPermissionButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	userID := bottools.GetInteractionUserID(i)
 	customID := i.MessageComponentData().CustomID
+	respondAndClose := func(content string) {
+		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseUpdateMessage,
+			Data: &discordgo.InteractionResponseData{
+				Content:    content,
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{},
+			},
+		})
+		if err != nil {
+			log.Println("Error updating coop status permission dialog:", err)
+		}
+	}
 
 	// Extract the action part after the "#"
 	parts := strings.Split(customID, "#")
@@ -123,46 +136,16 @@ func HandleCoopStatusPermissionButton(s *discordgo.Session, i *discordgo.Interac
 		farmerstate.SetMiscSettingString(userID, CoopStatusPermissionKey, time.Now().Format(time.RFC3339))
 		farmerstate.SetMiscSettingString(userID, CoopStatusPermissionSpanKey, "24h")
 
-		// Respond with ephemeral message asking to retry
-		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Permission granted for 24 hours. You can now run your command again.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
-		if err != nil {
-			log.Println("Error responding to allow button:", err)
-		}
+		respondAndClose("Permission granted for 24 hours. You can now run your command again.")
 
 	case "allow7d":
 		// Set the timestamp to now
 		farmerstate.SetMiscSettingString(userID, CoopStatusPermissionKey, time.Now().Format(time.RFC3339))
 		farmerstate.SetMiscSettingString(userID, CoopStatusPermissionSpanKey, "7d")
 
-		// Respond with ephemeral message asking to retry
-		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Permission granted for 7 days. You can now run your command again.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
-		if err != nil {
-			log.Println("Error responding to allow 7d button:", err)
-		}
+		respondAndClose("Permission granted for 7 days. You can now run your command again.")
 
 	case "close":
-		// Respond with ephemeral close message
-		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Dialog closed. You can enable this permission later when you're ready.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
-		if err != nil {
-			log.Println("Error responding to close button:", err)
-		}
+		respondAndClose("Dialog closed. You can enable this permission later when you're ready.")
 	}
 }
