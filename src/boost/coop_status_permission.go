@@ -111,13 +111,23 @@ func HandleCoopStatusPermissionButton(s *discordgo.Session, i *discordgo.Interac
 	customID := i.MessageComponentData().CustomID
 	respondAndClose := func(content string) {
 		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
 			Data: &discordgo.InteractionResponseData{
-				Content:    content,
 				Flags:      discordgo.MessageFlagsEphemeral,
 				Components: []discordgo.MessageComponent{},
 			},
 		})
+		if err != nil {
+			log.Println("Error acknowledging coop status permission dialog:", err)
+			return
+		}
+
+		emptyComponents := []discordgo.MessageComponent{}
+		edit := discordgo.WebhookEdit{
+			Content:    &content,
+			Components: &emptyComponents,
+		}
+		_, err = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit)
 		if err != nil {
 			log.Println("Error updating coop status permission dialog:", err)
 		}
@@ -146,6 +156,6 @@ func HandleCoopStatusPermissionButton(s *discordgo.Session, i *discordgo.Interac
 		respondAndClose("Permission granted for 7 days. You can now run your command again.")
 
 	case "close":
-		respondAndClose("Dialog closed. You can enable this permission later when you're ready.")
+		respondAndClose("I understand")
 	}
 }

@@ -90,13 +90,23 @@ func HandleLeaderboardPermissionButton(s *discordgo.Session, i *discordgo.Intera
 	customID := i.MessageComponentData().CustomID
 	respondAndClose := func(content string) {
 		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
 			Data: &discordgo.InteractionResponseData{
-				Content:    content,
 				Flags:      discordgo.MessageFlagsEphemeral,
 				Components: []discordgo.MessageComponent{},
 			},
 		})
+		if err != nil {
+			log.Println("Error acknowledging leaderboard permission dialog:", err)
+			return
+		}
+
+		emptyComponents := []discordgo.MessageComponent{}
+		edit := discordgo.WebhookEdit{
+			Content:    &content,
+			Components: &emptyComponents,
+		}
+		_, err = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit)
 		if err != nil {
 			log.Println("Error updating leaderboard permission dialog:", err)
 		}
@@ -122,6 +132,6 @@ func HandleLeaderboardPermissionButton(s *discordgo.Session, i *discordgo.Intera
 		respondAndClose("Permission granted permanently. Please run your command again.")
 
 	case "close":
-		respondAndClose("Dialog closed.")
+		respondAndClose("I understand")
 	}
 }
