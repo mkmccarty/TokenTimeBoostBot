@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite" // Want this here
@@ -55,7 +56,13 @@ func sqliteInit() {
 	//db, _ := sql.Open("sqlite", ":memory:")
 	db, _ := sql.Open("sqlite", "ttbb-data/Farmers.sqlite?_busy_timeout=5000")
 
-	_, _ = db.ExecContext(ctx, ddl)
+	// Execute each statement in the DDL to set up the database schema
+	for stmt := range strings.SplitSeq(ddl, ";") {
+		stmt = strings.TrimSpace(stmt)
+		if stmt != "" {
+			_, _ = db.ExecContext(ctx, stmt)
+		}
+	}
 	queries = New(db)
 }
 
@@ -383,6 +390,84 @@ func SetUltra(userID string) {
 		farmerstate[userID].UltraContract = time.Now()
 		saveSqliteData(userID, farmerstate[userID])
 	}
+}
+
+// GetEiIgnsByMiscString returns all ei_ign values for farmers where MiscSettingsString[key] == value.
+func GetEiIgnsByMiscString(key, value string) []string {
+	results, err := queries.GetEiIgnsByMiscString(ctx, GetEiIgnsByMiscStringParams{
+		Column1: sql.NullString{String: key, Valid: true},
+		Value:   sql.NullString{String: value, Valid: true},
+	})
+	if err != nil {
+		log.Println("GetEiIgnsByMiscString:", err)
+		return nil
+	}
+	eiIgns := make([]string, 0, len(results))
+	for _, r := range results {
+		if s, ok := r.(string); ok && s != "" {
+			eiIgns = append(eiIgns, s)
+		}
+	}
+	return eiIgns
+}
+
+// FarmerExists returns true if a record for the given userID exists in farmer_state.
+func FarmerExists(userID string) bool {
+	_, err := queries.GetLegacyFarmerstate(ctx, userID)
+	return err == nil
+}
+
+// AddGuildMembership adds a user to a guild. Returns true if added, false if already a member.
+func AddGuildMembership(userID, guildID string) bool {
+	n, err := queries.AddGuildMembership(ctx, AddGuildMembershipParams{UserID: userID, GuildID: guildID})
+	if err != nil {
+		log.Println("AddGuildMembership:", err)
+	}
+	return n > 0
+}
+
+// RemoveGuildMembership removes a user from a guild.
+func RemoveGuildMembership(userID, guildID string) {
+	err := queries.RemoveGuildMembership(ctx, RemoveGuildMembershipParams{UserID: userID, GuildID: guildID})
+	if err != nil {
+		log.Println("RemoveGuildMembership:", err)
+	}
+}
+
+// GetGuildMembers returns all user IDs that are members of the given guild.
+func GetGuildMembers(guildID string) []string {
+	members, err := queries.GetGuildMembers(ctx, guildID)
+	if err != nil {
+		log.Println("GetGuildMembers:", err)
+		return nil
+	}
+	return members
+}
+
+// GetUserGuilds returns all guild IDs the user belongs to.
+func GetUserGuilds(userID string) []string {
+	guilds, err := queries.GetUserGuilds(ctx, userID)
+	if err != nil {
+		log.Println("GetUserGuilds:", err)
+		return nil
+	}
+	return guilds
+}
+
+// GetEiIgnsByGuild returns all ei_ign values for farmers who are members of the given guild.
+func GetEiIgnsByGuild(guildID string) []string {
+	results, err := queries.GetEiIgnsByGuild(ctx, guildID)
+	if err != nil {
+		log.Println("GetEiIgnsByGuild:", err)
+		return nil
+	}
+	eiIgns := make([]string, 0, len(results))
+	for _, r := range results {
+		if s, ok := r.(string); ok && s != "" {
+			eiIgns = append(eiIgns, s)
+		}
+	}
+	return eiIgns
 }
 
 // GetDiscordUserIDFromEiIgn retrieves the Discord user ID based on the provided ei_ign

@@ -8,6 +8,11 @@ import (
 	"database/sql"
 )
 
+type FarmerGuildMembership struct {
+	UserID  string
+	GuildID string
+}
+
 type FarmerState struct {
 	ID    string
 	Key   string

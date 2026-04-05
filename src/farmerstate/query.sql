@@ -29,6 +29,12 @@ WHERE id = ?;
 DELETE FROM farmer_state
 WHERE id = ? AND key = 'legacy';
 
+-- name: GetEiIgnsByMiscString :many
+SELECT json_extract(value, '$.MiscSettingsString.ei_ign') AS ei_ign
+FROM farmer_state
+WHERE json_extract(value, '$.MiscSettingsString.' || ?) = ?
+  AND json_extract(value, '$.MiscSettingsString.ei_ign') IS NOT NULL;
+
 -- name: GetUserIdFromEiIgn :one
 SELECT
     id
@@ -47,3 +53,26 @@ WHERE
 	    FROM farmer_state
 	    GROUP BY id, key
     );
+
+-- name: AddGuildMembership :execrows
+INSERT OR IGNORE INTO farmer_guild_membership (user_id, guild_id) 
+VALUES (?, ?);
+
+-- name: RemoveGuildMembership :exec
+DELETE FROM farmer_guild_membership 
+WHERE user_id = ? AND guild_id = ?;
+
+-- name: GetGuildMembers :many
+SELECT user_id FROM farmer_guild_membership 
+WHERE guild_id = ?;
+
+-- name: GetUserGuilds :many
+SELECT guild_id FROM farmer_guild_membership 
+WHERE user_id = ?;
+
+-- name: GetEiIgnsByGuild :many
+SELECT json_extract(fs.value, '$.MiscSettingsString.ei_ign') AS ei_ign
+FROM farmer_guild_membership fgm
+JOIN farmer_state fs ON fs.id = fgm.user_id AND fs.key = 'legacy'
+WHERE fgm.guild_id = ?
+  AND json_extract(fs.value, '$.MiscSettingsString.ei_ign') IS NOT NULL;

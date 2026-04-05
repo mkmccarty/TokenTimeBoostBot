@@ -10,6 +10,24 @@ import (
 	"database/sql"
 )
 
+const addGuildMembership = `-- name: AddGuildMembership :execrows
+INSERT OR IGNORE INTO farmer_guild_membership (user_id, guild_id) 
+VALUES (?, ?)
+`
+
+type AddGuildMembershipParams struct {
+	UserID  string
+	GuildID string
+}
+
+func (q *Queries) AddGuildMembership(ctx context.Context, arg AddGuildMembershipParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, addGuildMembership, arg.UserID, arg.GuildID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const clearExtraLegacyRecords = `-- name: ClearExtraLegacyRecords :exec
 	DELETE FROM farmer_state
 	WHERE rowid NOT IN (
@@ -82,6 +100,100 @@ func (q *Queries) GetAllLegacyFarmerstate(ctx context.Context) ([]FarmerState, e
 	return items, nil
 }
 
+const getEiIgnsByGuild = `-- name: GetEiIgnsByGuild :many
+SELECT json_extract(fs.value, '$.MiscSettingsString.ei_ign') AS ei_ign
+FROM farmer_guild_membership fgm
+JOIN farmer_state fs ON fs.id = fgm.user_id AND fs.key = 'legacy'
+WHERE fgm.guild_id = ?
+  AND json_extract(fs.value, '$.MiscSettingsString.ei_ign') IS NOT NULL
+`
+
+func (q *Queries) GetEiIgnsByGuild(ctx context.Context, guildID string) ([]interface{}, error) {
+	rows, err := q.db.QueryContext(ctx, getEiIgnsByGuild, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []interface{}
+	for rows.Next() {
+		var ei_ign interface{}
+		if err := rows.Scan(&ei_ign); err != nil {
+			return nil, err
+		}
+		items = append(items, ei_ign)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getEiIgnsByMiscString = `-- name: GetEiIgnsByMiscString :many
+SELECT json_extract(value, '$.MiscSettingsString.ei_ign') AS ei_ign
+FROM farmer_state
+WHERE json_extract(value, '$.MiscSettingsString.' || ?) = ?
+  AND json_extract(value, '$.MiscSettingsString.ei_ign') IS NOT NULL
+`
+
+type GetEiIgnsByMiscStringParams struct {
+	Column1 sql.NullString
+	Value   sql.NullString
+}
+
+func (q *Queries) GetEiIgnsByMiscString(ctx context.Context, arg GetEiIgnsByMiscStringParams) ([]interface{}, error) {
+	rows, err := q.db.QueryContext(ctx, getEiIgnsByMiscString, arg.Column1, arg.Value)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []interface{}
+	for rows.Next() {
+		var ei_ign interface{}
+		if err := rows.Scan(&ei_ign); err != nil {
+			return nil, err
+		}
+		items = append(items, ei_ign)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getGuildMembers = `-- name: GetGuildMembers :many
+SELECT user_id FROM farmer_guild_membership 
+WHERE guild_id = ?
+`
+
+func (q *Queries) GetGuildMembers(ctx context.Context, guildID string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getGuildMembers, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var user_id string
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getLegacyFarmerstate = `-- name: GetLegacyFarmerstate :one
 SELECT id, "key", value FROM farmer_state
 WHERE id = ? AND key = 'legacy' LIMIT 1
@@ -92,6 +204,34 @@ func (q *Queries) GetLegacyFarmerstate(ctx context.Context, id string) (FarmerSt
 	var i FarmerState
 	err := row.Scan(&i.ID, &i.Key, &i.Value)
 	return i, err
+}
+
+const getUserGuilds = `-- name: GetUserGuilds :many
+SELECT guild_id FROM farmer_guild_membership 
+WHERE user_id = ?
+`
+
+func (q *Queries) GetUserGuilds(ctx context.Context, userID string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getUserGuilds, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var guild_id string
+		if err := rows.Scan(&guild_id); err != nil {
+			return nil, err
+		}
+		items = append(items, guild_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getUserIdFromEiIgn = `-- name: GetUserIdFromEiIgn :one
@@ -128,6 +268,22 @@ func (q *Queries) InsertLegacyFarmerstate(ctx context.Context, arg InsertLegacyF
 	var i FarmerState
 	err := row.Scan(&i.ID, &i.Key, &i.Value)
 	return i, err
+}
+
+const removeGuildMembership = `-- name: RemoveGuildMembership :exec
+DELETE FROM farmer_guild_membership 
+WHERE user_id = ? 
+AND guild_id = ?
+`
+
+type RemoveGuildMembershipParams struct {
+	UserID  string
+	GuildID string
+}
+
+func (q *Queries) RemoveGuildMembership(ctx context.Context, arg RemoveGuildMembershipParams) error {
+	_, err := q.db.ExecContext(ctx, removeGuildMembership, arg.UserID, arg.GuildID)
+	return err
 }
 
 const updateLegacyFarmerstate = `-- name: UpdateLegacyFarmerstate :execrows
