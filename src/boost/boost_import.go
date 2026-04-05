@@ -376,7 +376,22 @@ func updateContractWithEggIncData(contract *Contract) {
 			contract.MinutesPerToken = cc.MinutesPerToken
 			contract.Ultra = cc.Ultra
 			contract.SeasonalScoring = cc.SeasonalScoring
-			break
+			return
 		}
+	}
+
+	// Fallback to full contract history so future/predicted contracts still get metadata.
+	if cc, ok := ei.EggIncContractsAll[contract.ContractID]; ok {
+		contract.CoopSize = cc.MaxCoopSize
+		contract.LengthInSeconds = cc.LengthInSeconds
+		contract.ChickenRuns = cc.ChickenRuns
+		contract.EstimatedDuration = cc.EstimatedDuration
+		contract.Name = cc.Name
+		contract.Description = cc.Description
+		contract.EggName = cc.EggName
+		contract.ChickenRunCooldownMinutes = cc.ChickenRunCooldownMinutes
+		contract.MinutesPerToken = cc.MinutesPerToken
+		contract.Ultra = cc.Ultra
+		contract.SeasonalScoring = cc.SeasonalScoring
 	}
 }
