@@ -12,9 +12,9 @@ import (
 
 const (
 	// LeaderboardPermissionKey is the key used to store the timestamp of when the user allowed leaderboard API permissions
-	LeaderboardPermissionKey = "allow_leaderboard_api"
+	LeaderboardPermissionKey = "allow_leaderboard_apix"
 	// LeaderboardPermissionSpanKey holds the selected permission duration ("24h" or "forever")
-	LeaderboardPermissionSpanKey = "allow_leaderboard_api_span"
+	LeaderboardPermissionSpanKey = "allow_leaderboard_apix_span"
 	// LeaderboardPermission24h is the duration for 24 hours permission
 	LeaderboardPermission24h = 24 * time.Hour
 )
@@ -106,7 +106,7 @@ func HandleLeaderboardPermissionButton(s *discordgo.Session, i *discordgo.Intera
 			Content:    &content,
 			Components: &emptyComponents,
 		}
-		_, err = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit)
+		_, err = s.InteractionResponseEdit(i.Interaction, &edit)
 		if err != nil {
 			log.Println("Error updating leaderboard permission dialog:", err)
 		}

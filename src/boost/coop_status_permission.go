@@ -127,7 +127,7 @@ func HandleCoopStatusPermissionButton(s *discordgo.Session, i *discordgo.Interac
 			Content:    &content,
 			Components: &emptyComponents,
 		}
-		_, err = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit)
+		_, err = s.InteractionResponseEdit(i.Interaction, &edit)
 		if err != nil {
 			log.Println("Error updating coop status permission dialog:", err)
 		}
