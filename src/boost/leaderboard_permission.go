@@ -12,9 +12,9 @@ import (
 
 const (
 	// LeaderboardPermissionKey is the key used to store the timestamp of when the user allowed leaderboard API permissions
-	LeaderboardPermissionKey = "allow_leaderboard_apix"
+	LeaderboardPermissionKey = "allow_leaderboard_api"
 	// LeaderboardPermissionSpanKey holds the selected permission duration ("24h" or "forever")
-	LeaderboardPermissionSpanKey = "allow_leaderboard_apix_span"
+	LeaderboardPermissionSpanKey = "allow_leaderboard_api_span"
 	// LeaderboardPermission24h is the duration for 24 hours permission
 	LeaderboardPermission24h = 24 * time.Hour
 )
