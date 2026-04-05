@@ -7,6 +7,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -240,6 +241,57 @@ func crondownloadEggIncData() {
 	downloadEggIncData(eggIncCustomEggsURL, eggIncCustomEggsFile)
 }
 
+func cronPruneOldGeneratedBanners() {
+	outputPath := config.BannerOutputPath
+	if outputPath == "" {
+		return
+	}
+
+	entries, err := os.ReadDir(outputPath)
+	if err != nil {
+		log.Printf("Banner prune skipped, unable to read %s: %v", outputPath, err)
+		return
+	}
+
+	cutoff := time.Now().AddDate(0, -1, 0)
+	pruned := 0
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		name := entry.Name()
+		if !strings.HasSuffix(strings.ToLower(name), ".png") {
+			continue
+		}
+		if !strings.HasPrefix(name, "b") || !strings.Contains(name, "-") {
+			continue
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			log.Printf("Banner prune skipped file %s: %v", name, err)
+			continue
+		}
+
+		if info.ModTime().After(cutoff) {
+			continue
+		}
+
+		fullPath := outputPath + "/" + name
+		if err := os.Remove(fullPath); err != nil {
+			log.Printf("Banner prune failed for %s: %v", fullPath, err)
+			continue
+		}
+		pruned++
+	}
+
+	if pruned > 0 {
+		log.Printf("Banner prune removed %d old generated images", pruned)
+	}
+}
+
 func downloadEggIncData(url string, filename string) bool {
 	// Download the latest data from this URL https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json
 	// save it to disk and put it into an array of structs
@@ -415,6 +467,12 @@ func ExecuteCronJob(s *discordgo.Session) {
 
 	// Want to check Egg Inc data once a day day minutes
 	err = gocron.Every(1).Day().At("00:00:05").Do(crondownloadEggIncData)
+	if err != nil {
+		log.Print(err)
+	}
+
+	// Prune generated banner files older than one month.
+	err = gocron.Every(1).Day().At("00:30:05").Do(cronPruneOldGeneratedBanners)
 	if err != nil {
 		log.Print(err)
 	}
