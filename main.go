@@ -48,6 +48,7 @@ const slashAdminSetGuildSetting string = "admin-set-guild-setting"
 const slashAdminGetGuildSettings string = "admin-get-guild-settings"
 const slashAdminGuildstate string = "admin-guildstate"
 const slashAdminMembers string = "admin-members"
+const slashActiveContracts string = "active-contracts"
 
 // Slash Command Constants
 const slashContract string = "contract"
@@ -220,6 +221,7 @@ var (
 		boost.SlashAdminListRoles(slashAdminListRoles),
 		boost.SlashAdminGuildStateCommand(slashAdminGuildstate),
 		boost.SlashAdminMembers(slashAdminMembers),
+		boost.SlashAdminCurrentContracts(slashActiveContracts),
 		guildstate.SlashSetGuildSettingCommand(slashAdminSetGuildSetting),
 		guildstate.SlashGetGuildSettingsCommand(slashAdminGetGuildSettings),
 	}
@@ -542,6 +544,9 @@ var (
 		slashAdminMembers: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAdminMembers(s, i)
 		},
+		slashActiveContracts: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleAdminCurrentContracts(s, i)
+		},
 		slashAdminSetGuildSetting: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			guildstate.SetGuildSetting(s, i)
 		},
@@ -831,6 +836,9 @@ var (
 		},
 		"leaderboard": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleLeaderboardPage(s, i)
+		},
+		"active-contracts": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleActiveContractsPage(s, i)
 		},
 		"fd_signupStart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
