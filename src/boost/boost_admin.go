@@ -141,6 +141,31 @@ func SlashAdminGuildStateCommand(cmd string) *discordgo.ApplicationCommand {
 	}
 }
 
+// SlashAdminStatusMessageCommand sets the next bot status message.
+func SlashAdminStatusMessageCommand(cmd string) *discordgo.ApplicationCommand {
+	var adminPermission = int64(0)
+	return &discordgo.ApplicationCommand{
+		Name:                     cmd,
+		Description:              "Set the next bot status message",
+		DefaultMemberPermissions: &adminPermission,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "message",
+				Description:  "Status message to use on the next update",
+				Required:     true,
+				Autocomplete: true,
+			},
+		},
+	}
+}
+
 func isAdminCommandCaller(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
 	userID := getInteractionUserID(i)
 	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
@@ -264,6 +289,79 @@ func HandleAdminGuildStateCommand(s *discordgo.Session, i *discordgo.Interaction
 			},
 		})
 	}
+}
+
+// HandleAdminStatusMessageAutoComplete provides status message suggestions.
+func HandleAdminStatusMessageAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	optionMap := bottools.GetCommandOptionsMap(i)
+	search := ""
+	if opt, ok := optionMap["message"]; ok {
+		search = strings.TrimSpace(opt.StringValue())
+	}
+
+	messages := ei.GetStatusMessageChoices(search, 25)
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, len(messages))
+	for _, message := range messages {
+		if len(message) > 100 {
+			continue
+		}
+		choiceName := message
+		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+			Name:  choiceName,
+			Value: message,
+		})
+	}
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Status message suggestions",
+			Choices: choices,
+		},
+	})
+}
+
+// HandleAdminStatusMessageCommand sets a one-time status message override.
+func HandleAdminStatusMessageCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if !isAdminCommandCaller(s, i) {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "You are not authorized to use this command.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{},
+			},
+		})
+		return
+	}
+
+	optionMap := bottools.GetCommandOptionsMap(i)
+	message := ""
+	if opt, ok := optionMap["message"]; ok {
+		message = strings.TrimSpace(opt.StringValue())
+	}
+
+	if err := ei.SetNextStatusMessageOverride(message); err != nil {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    err.Error(),
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{},
+			},
+		})
+		return
+	}
+
+	responseMessage := fmt.Sprintf("Next status message set to: %q", message)
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content:    responseMessage,
+			Flags:      discordgo.MessageFlagsEphemeral,
+			Components: []discordgo.MessageComponent{},
+		},
+	})
 }
 
 // HandleAdminListRoles is the handler for the list roles command
