@@ -49,6 +49,7 @@ const slashAdminGetGuildSettings string = "admin-get-guild-settings"
 const slashAdminGuildstate string = "admin-guildstate"
 const slashAdminMembers string = "admin-members"
 const slashActiveContracts string = "active-contracts"
+const slashStatusMessage string = "status-message"
 
 // Slash Command Constants
 const slashContract string = "contract"
@@ -222,6 +223,7 @@ var (
 		boost.SlashAdminGuildStateCommand(slashAdminGuildstate),
 		boost.SlashAdminMembers(slashAdminMembers),
 		boost.SlashAdminCurrentContracts(slashActiveContracts),
+		boost.SlashAdminStatusMessageCommand(slashStatusMessage),
 		guildstate.SlashSetGuildSettingCommand(slashAdminSetGuildSetting),
 		guildstate.SlashGetGuildSettingsCommand(slashAdminGetGuildSettings),
 	}
@@ -401,6 +403,9 @@ var (
 		slashAdminGuildstate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAdminGuildStateAutoComplete(s, i)
 		},
+		slashStatusMessage: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleAdminStatusMessageAutoComplete(s, i)
+		},
 		slashToken: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractAutoComplete(s, i)
 		},
@@ -546,6 +551,9 @@ var (
 		},
 		slashActiveContracts: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAdminCurrentContracts(s, i)
+		},
+		slashStatusMessage: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleAdminStatusMessageCommand(s, i)
 		},
 		slashAdminSetGuildSetting: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			guildstate.SetGuildSetting(s, i)
