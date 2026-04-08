@@ -1,6 +1,7 @@
 package ei
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -19,13 +20,90 @@ type StatusMessagesFile struct {
 
 // StatusMessages is a list of status messages
 var StatusMessages []string
+var statusMessagesSource []string
 var statusMessagesMutex sync.RWMutex
 var loadedStatusMessagesPath string
 var loadedStatusMessagesModTime time.Time
 var loadedStatusMessagesSize int64
 var nextStatusMessageOverride string
+var seenCustomStatusMessages map[string]struct{}
 
 const statusMessageResortFlag = "__TTBB_STATUS_MESSAGES_RESORT__"
+const statusMessageSeenFileName = "ttbb-data/status-message-seen.txt"
+
+func rebuildStatusMessageQueueLocked() {
+	StatusMessages = append([]string(nil), statusMessagesSource...)
+	rand.Shuffle(len(StatusMessages), func(i, j int) {
+		StatusMessages[i], StatusMessages[j] = StatusMessages[j], StatusMessages[i]
+	})
+	if len(StatusMessages) > 0 {
+		StatusMessages = append(StatusMessages, statusMessageResortFlag)
+	}
+}
+
+func loadSeenCustomStatusMessagesLocked() {
+	if seenCustomStatusMessages != nil {
+		return
+	}
+
+	seenCustomStatusMessages = make(map[string]struct{}, len(statusMessagesSource))
+	for _, msg := range statusMessagesSource {
+		if msg != "" {
+			seenCustomStatusMessages[msg] = struct{}{}
+		}
+	}
+
+	file, err := os.Open(statusMessageSeenFileName)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return
+		}
+		log.Printf("Failed to open status message seen file: %v", err)
+		return
+	}
+	defer func() {
+		if cerr := file.Close(); cerr != nil {
+			log.Printf("Failed to close: %v", cerr)
+		}
+	}()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "\t", 3)
+		if len(parts) < 3 {
+			continue
+		}
+		msg := strings.TrimSpace(parts[2])
+		if msg != "" {
+			seenCustomStatusMessages[msg] = struct{}{}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		log.Printf("Failed to read status message seen file: %v", err)
+	}
+}
+
+func appendSeenCustomStatusMessage(discordID string, message string) {
+	record := fmt.Sprintf("%s\t%s\t%s\n", strings.TrimSpace(discordID), time.Now().UTC().Format(time.RFC3339), message)
+	file, err := os.OpenFile(statusMessageSeenFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Printf("Failed to open status message seen file: %v", err)
+		return
+	}
+	defer func() {
+		if cerr := file.Close(); cerr != nil {
+			log.Printf("Failed to close: %v", cerr)
+		}
+	}()
+
+	if _, err = file.WriteString(record); err != nil {
+		log.Printf("Failed to append status message seen record: %v", err)
+	}
+}
 
 func loadStatusMessages(filename string, force bool) error {
 	fileInfo, err := os.Stat(filename)
@@ -59,13 +137,9 @@ func loadStatusMessages(filename string, force bool) error {
 	}
 
 	statusMessagesMutex.Lock()
-	StatusMessages = append([]string(nil), messagesLoaded.StatusMessages...)
-	rand.Shuffle(len(StatusMessages), func(i, j int) {
-		StatusMessages[i], StatusMessages[j] = StatusMessages[j], StatusMessages[i]
-	})
-	if len(StatusMessages) > 0 {
-		StatusMessages = append(StatusMessages, statusMessageResortFlag)
-	}
+	statusMessagesSource = append([]string(nil), messagesLoaded.StatusMessages...)
+	rebuildStatusMessageQueueLocked()
+	seenCustomStatusMessages = nil
 	loadedStatusMessagesPath = filename
 	loadedStatusMessagesModTime = fileInfo.ModTime()
 	loadedStatusMessagesSize = fileInfo.Size()
@@ -103,30 +177,10 @@ func GetRandomStatusMessage() (string, error) {
 	}
 
 	if StatusMessages[0] == statusMessageResortFlag {
-		reloadPath := loadedStatusMessagesPath
-		statusMessagesMutex.Unlock()
-
-		if reloadPath != "" {
-			if err := loadStatusMessages(reloadPath, true); err != nil {
-				log.Printf("%v", err)
-			}
-		}
-
-		statusMessagesMutex.Lock()
+		rebuildStatusMessageQueueLocked()
 		if len(StatusMessages) == 0 {
 			statusMessagesMutex.Unlock()
 			return "", fmt.Errorf("StatusMessages is empty")
-		}
-		if StatusMessages[0] == statusMessageResortFlag {
-			StatusMessages = StatusMessages[1:]
-			if len(StatusMessages) == 0 {
-				statusMessagesMutex.Unlock()
-				return "", fmt.Errorf("StatusMessages is empty")
-			}
-			rand.Shuffle(len(StatusMessages), func(i, j int) {
-				StatusMessages[i], StatusMessages[j] = StatusMessages[j], StatusMessages[i]
-			})
-			StatusMessages = append(StatusMessages, statusMessageResortFlag)
 		}
 	}
 
@@ -139,13 +193,18 @@ func GetRandomStatusMessage() (string, error) {
 
 // SetNextStatusMessageOverride sets a one-time status message that will be used
 // on the next status update tick.
-func SetNextStatusMessageOverride(message string) error {
+func SetNextStatusMessageOverride(discordID string, message string) error {
 	trimmed := strings.TrimSpace(message)
 	if trimmed == "" {
 		return fmt.Errorf("status message cannot be empty")
 	}
 
 	statusMessagesMutex.Lock()
+	loadSeenCustomStatusMessagesLocked()
+	if _, exists := seenCustomStatusMessages[trimmed]; !exists {
+		seenCustomStatusMessages[trimmed] = struct{}{}
+		go appendSeenCustomStatusMessage(discordID, trimmed)
+	}
 	nextStatusMessageOverride = trimmed
 	statusMessagesMutex.Unlock()
 
