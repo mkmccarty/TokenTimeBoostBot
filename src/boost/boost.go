@@ -922,6 +922,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			contract.OrderRevision++
 		}
 		contract.RegisteredNum = len(contract.Boosters)
+		farmerstate.SetLastSeen(userID)
 
 		altController := farmerstate.GetMiscSettingString(userID, "AltController")
 		if altController != "" {
@@ -1746,11 +1747,6 @@ func reorderBoosters(contract *Contract) {
 		rand.Shuffle(len(contract.Order), func(i, j int) {
 			contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i]
 		})
-		/*
-			case ContractOrderFair:
-				newOrder := farmerstate.GetOrderHistory(contract.Order, 5)
-				contract.Order = removeDuplicates(newOrder)
-		*/
 	case ContractOrderELR:
 		type ELRPair struct {
 			Name string

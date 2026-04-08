@@ -25,7 +25,6 @@ type Farmer struct {
 	EggIncName           string    // User's Egg Inc name
 	Ping                 bool      // True/False
 	Tokens               int       // Number of tokens this user wants
-	OrderHistory         []int     // list of contract order percentiles
 	LaunchChain          bool      // Launch History chain option
 	MissionShipPrimary   int       // Launch Helper Ship Selection - Primary
 	MissionShipSecondary int       // Launch Helper Ship Selection - Secondary
@@ -34,12 +33,8 @@ type Farmer struct {
 	MiscSettingsString   map[string]string
 	Links                []Link // Array of Links
 	LastUpdated          time.Time
-	DataPrivacy          bool // User data privacy setting
-}
-
-// OrderHistory struct to store order history data
-type OrderHistory struct {
-	Order [][]string `json:"Order"`
+	LastSeen             time.Time // Last time farmer was added to a contract
+	DataPrivacy          bool      // User data privacy setting
 }
 
 var (
@@ -237,6 +232,23 @@ func SetPing(userID string, ping bool) {
 		farmerstate[userID].Ping = ping
 		saveSqliteData(userID, farmerstate[userID])
 	}
+}
+
+// SetLastSeen updates the timestamp of the last time a farmer was added to a contract
+func SetLastSeen(userID string) {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+	farmerstate[userID].LastSeen = time.Now()
+	saveSqliteData(userID, farmerstate[userID])
+}
+
+// GetLastSeen returns the last time a farmer was added to a contract
+func GetLastSeen(userID string) time.Time {
+	if farmerstate[userID] == nil {
+		newFarmer(userID)
+	}
+	return farmerstate[userID].LastSeen
 }
 
 // GetPing returns a Farmer's ping preference
