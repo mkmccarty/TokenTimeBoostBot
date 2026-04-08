@@ -337,11 +337,12 @@ func HandleAdminStatusMessageCommand(s *discordgo.Session, i *discordgo.Interact
 
 	optionMap := bottools.GetCommandOptionsMap(i)
 	message := ""
+	discordID := getInteractionUserID(i)
 	if opt, ok := optionMap["message"]; ok {
 		message = strings.TrimSpace(opt.StringValue())
 	}
 
-	if err := ei.SetNextStatusMessageOverride(message); err != nil {
+	if err := ei.SetNextStatusMessageOverride(discordID, message); err != nil {
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
