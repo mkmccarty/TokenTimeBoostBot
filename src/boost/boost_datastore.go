@@ -79,10 +79,49 @@ func saveData(contractHash string) {
 		return
 	}
 
+	byChannel := make(map[string]*Contract)
 	for _, c := range Contracts {
-		c.LastSaveTime = time.Now()
+		if c == nil || len(c.Location) == 0 {
+			continue
+		}
+
+		channelID := c.Location[0].ChannelID
+		existing := byChannel[channelID]
+		if shouldReplaceChannelSaveCandidate(existing, c) {
+			byChannel[channelID] = c
+		}
+	}
+
+	now := time.Now()
+	for _, c := range byChannel {
+		c.LastSaveTime = now
 		saveSqliteData(c)
 	}
+}
+
+// shouldReplaceChannelSaveCandidate picks the best contract to persist for a
+// channel when multiple contracts reference the same channel.
+func shouldReplaceChannelSaveCandidate(current *Contract, candidate *Contract) bool {
+	if candidate == nil {
+		return false
+	}
+	if current == nil {
+		return true
+	}
+
+	currentArchived := current.State == ContractStateArchive
+	candidateArchived := candidate.State == ContractStateArchive
+
+	// Prefer active contracts over archived contracts for the same channel.
+	if currentArchived != candidateArchived {
+		return !candidateArchived
+	}
+
+	if candidate.StartTime.After(current.StartTime) {
+		return true
+	}
+
+	return candidate.LastSaveTime.After(current.LastSaveTime)
 }
 
 func loadData() (map[string]*Contract, error) {
@@ -146,38 +185,38 @@ func readSqliteData(channelID string) (*Contract, error) {
 
 // saveSqliteData saves a single piece of contract data to SQLite (for legacy support)
 func saveSqliteData(contract *Contract) {
+	if contract == nil || len(contract.Location) == 0 {
+		return
+	}
+
 	// Save the contract data to SQLite
 	contractJSON, err := json.Marshal(contract)
 	if err != nil {
 		log.Printf("Error marshaling contract data: %v", err)
 		return
 	}
-	var rows int64
 	if queries == nil {
 		sqliteInit()
 	}
 
-	rows, _ = queries.UpdateContract(ctx, UpdateContractParams{
-		Channelid:  contract.Location[0].ChannelID,
+	channelID := contract.Location[0].ChannelID
+
+	// ContractID/CoopID are mutable, so we replace by stable channelID to
+	// guarantee a single record per channel after updates.
+	err = queries.DeleteContractByChannel(ctx, channelID)
+	if err != nil {
+		log.Printf("Error deleting existing contract data from SQLite: %v", err)
+		return
+	}
+
+	err = queries.InsertContract(ctx, InsertContractParams{
+		Channelid:  channelID,
 		Contractid: contract.ContractID,
 		Coopid:     contract.CoopID,
 		Value:      sql.NullString{String: string(contractJSON), Valid: true},
 	})
-	if rows == 0 {
-		//		count, _ := queries.CountContractsByChannel(ctx, contract.Location[0].ChannelID)
-		//		if count > 0 {
-		//			_ = queries.DeleteContractByChannel(ctx, contract.Location[0].ChannelID)
-		//	}
-		// Record doesn't exist, insert it
-		err = queries.InsertContract(ctx, InsertContractParams{
-			Channelid:  contract.Location[0].ChannelID,
-			Contractid: contract.ContractID,
-			Coopid:     contract.CoopID,
-			Value:      sql.NullString{String: string(contractJSON), Valid: true},
-		})
-		if err != nil {
-			log.Printf("Error saving contract data to SQLite: %v", err)
-		}
+	if err != nil {
+		log.Printf("Error saving contract data to SQLite: %v", err)
 	}
 }
 
