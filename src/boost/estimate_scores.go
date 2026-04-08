@@ -224,10 +224,14 @@ func runCsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate, p csEst
 
 	if contractID == "" || coopID == "" {
 		if contract == nil {
+			commandLink := bottools.GetFormattedCommand("cs-estimate")
+			if commandLink == "" {
+				commandLink = "/cs-estimate"
+			}
 			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 				Flags: p.flags | discordgo.MessageFlagsEphemeral,
 				Components: []discordgo.MessageComponent{
-					discordgo.TextDisplay{Content: "No contract found in this channel. Run `/cs-estimate` in a channel with an active contract, or provide a `contract-id` and `coop-id`."},
+					discordgo.TextDisplay{Content: fmt.Sprintf("No contract found in this channel. Run %s in a channel with an active contract, or provide a `contract-id` and `coop-id`.", commandLink)},
 				},
 			})
 			return
