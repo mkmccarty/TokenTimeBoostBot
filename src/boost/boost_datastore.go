@@ -256,8 +256,27 @@ func shouldReplaceChannelSaveCandidate(current *Contract, candidate *Contract) b
 	if candidate.StartTime.After(current.StartTime) {
 		return true
 	}
+	if current.StartTime.After(candidate.StartTime) {
+		return false
+	}
 
-	return candidate.LastSaveTime.After(current.LastSaveTime)
+	if candidate.LastSaveTime.After(current.LastSaveTime) {
+		return true
+	}
+	if current.LastSaveTime.After(candidate.LastSaveTime) {
+		return false
+	}
+
+	// Final stable tie-breaker to avoid map-iteration nondeterminism.
+	if candidate.ContractHash != current.ContractHash {
+		return candidate.ContractHash < current.ContractHash
+	}
+
+	if candidate.ContractID != current.ContractID {
+		return candidate.ContractID < current.ContractID
+	}
+
+	return candidate.CoopID < current.CoopID
 }
 
 func loadData() (map[string]*Contract, error) {
