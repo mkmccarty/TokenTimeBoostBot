@@ -40,6 +40,27 @@ ON CONFLICT(channelID) DO UPDATE SET
 	value = excluded.value;
 `
 
+const contractDataMigrationSQL = `
+CREATE TABLE IF NOT EXISTS contract_data_new (
+	channelID  text PRIMARY KEY NOT NULL,
+	contractID text NOT NULL,
+	coopID     text NOT NULL,
+	value      text
+);
+
+INSERT INTO contract_data_new (channelID, contractID, coopID, value)
+SELECT cd.channelID, cd.contractID, cd.coopID, cd.value
+FROM contract_data cd
+INNER JOIN (
+	SELECT channelID, MAX(rowid) AS max_rowid
+	FROM contract_data
+	GROUP BY channelID
+) dedupe ON dedupe.max_rowid = cd.rowid;
+
+DROP TABLE contract_data;
+ALTER TABLE contract_data_new RENAME TO contract_data;
+`
+
 //go:embed schema.sql
 var ddl string
 var queries *Queries
@@ -54,10 +75,77 @@ func sqliteInit() {
 		fmt.Print(result)
 	}
 
+	if needsMigration, err := contractDataNeedsMigration(db); err != nil {
+		log.Printf("Error checking contract_data schema migration status: %v", err)
+	} else if needsMigration {
+		if err := migrateContractDataSchema(db); err != nil {
+			log.Printf("Error migrating contract_data schema: %v", err)
+		}
+	}
+
 	if err := ensureContractDataUniqueness(db); err != nil {
 		log.Printf("Error enforcing contract_data channel uniqueness: %v", err)
 	}
 	queries = New(db)
+}
+
+func contractDataNeedsMigration(db *sql.DB) (bool, error) {
+	rows, err := db.QueryContext(ctx, "PRAGMA table_info(contract_data)")
+	if err != nil {
+		return false, err
+	}
+	defer func() {
+		if cerr := rows.Close(); cerr != nil {
+			log.Printf("Error closing PRAGMA table_info rows: %v", cerr)
+		}
+	}()
+
+	type pragmaColumn struct {
+		cid       int
+		name      string
+		typeName  string
+		notNull   int
+		defaultV  sql.NullString
+		pkOrdinal int
+	}
+
+	hasRows := false
+	for rows.Next() {
+		hasRows = true
+		var c pragmaColumn
+		if err := rows.Scan(&c.cid, &c.name, &c.typeName, &c.notNull, &c.defaultV, &c.pkOrdinal); err != nil {
+			return false, err
+		}
+		if strings.EqualFold(c.name, "channelID") && c.pkOrdinal > 0 {
+			return false, nil
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return false, err
+	}
+
+	// If the table exists but channelID is not the PK, migration is needed.
+	return hasRows, nil
+}
+
+func migrateContractDataSchema(db *sql.DB) error {
+	// BEGIN IMMEDIATE prevents concurrent writers during table replacement.
+	if _, err := db.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
+		return err
+	}
+
+	if _, err := db.ExecContext(ctx, contractDataMigrationSQL); err != nil {
+		_, _ = db.ExecContext(ctx, "ROLLBACK")
+		return err
+	}
+
+	if _, err := db.ExecContext(ctx, "COMMIT"); err != nil {
+		_, _ = db.ExecContext(ctx, "ROLLBACK")
+		return err
+	}
+
+	return nil
 }
 
 func ensureContractDataUniqueness(db *sql.DB) error {
