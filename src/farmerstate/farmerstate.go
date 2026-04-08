@@ -83,9 +83,6 @@ func saveSqliteData(userID string, farmer *Farmer) {
 		return
 	}
 
-	// TODO: Remove this after a few revisions to clear out old duplicate records
-	_ = queries.ClearExtraLegacyRecords(ctx)
-
 	rows, _ := queries.UpdateLegacyFarmerstate(ctx, UpdateLegacyFarmerstateParams{
 		Value: sql.NullString{String: string(farmerJSON), Valid: true},
 		ID:    userID,
