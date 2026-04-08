@@ -28,97 +28,80 @@ Install your bot into your discord server with this URL:
 
 ## Slash commands
 
-### Create Contract Coop
+### Contract and Boosting
 
-/contract contract-id coop-id coop-size ping-role
+- `/contract` - Create a contract signup/boost workflow in the current channel.
+- `/join-contract` - Add a farmer or guest to an existing contract.
+- `/boost` - Mark the current booster as boosting.
+- `/skip` - Move the current booster to the end of the boost order.
+- `/unboost` - Mark a farmer as unboosted.
+- `/prune` - Remove a farmer from the signup/boost list.
+- `/change` - Update contract settings and boost order options.
+- `/update` - Refresh contract data/status for the current contract.
+- `/change-one-booster` - Change one booster entry in the running contract.
+- `/change-start` - Update planned contract start timing.
+- `/change-speedrun-sink` - Change speedrun sink settings.
+- `/contract-settings` - Show configurable settings for the current contract.
+- `/toggle-contract-pings` - Toggle sticky contract ping behavior.
+- `/bump` - Redraw the boost list timeline.
 
-This will display a Sign-up List and a message with reactions for
-players to sign up.
-When the Sign-up List reaches the coop-size it will automatically
-start the contract
-The reactions are farmer, bell and dice.
-Select farmer and/or bell to sign up on the list
-Select the dice as a vote to randomize the Boost List.  
-Normally the Boost List will will run in Sign-up Order.  
-The vote needs a 2/3 super-majority before electing the random order.
+### Reporting and Analysis
 
-ping-role: The default for this is @here.
+- `/contract-report` - Generate a report for a contract.
+- `/score-explorer` - Open score explorer tools for a contract.
+- `/teamwork` - Run teamwork evaluation.
+- `/speedrun` - Run speedrun-related calculations/tools.
+- `/estimate-contract-time` - Estimate contract completion time.
+- `/cs-estimate` - Run CS estimate tools.
+- `/coopeta` - Estimate coop completion from current rate/time.
+- `/predictions` - Show prediction tools/pages.
+- `/leaderboard` - Show leaderboard pages/data.
+- `/stones` - Show stones tools/pages.
+- `/timer` - Start/manage bot timer tools.
 
-### Change Contract
+### Utility
 
-/change [ping-role] [boost-order]
-Change settings of a running a contract. There are several actions available.
+- `/artifact` - Show artifact helper tools.
+- `/link-alternate` - Link alternate account/player entries.
+- `/calc-contract-tval` - Calculate contract T-value.
+- `/coop-tval` - Calculate coop T-value.
+- `/rename-thread` - Rename the current contract thread.
+- `/seteggincname` - Set or update a player's Egg, Inc. in-game name.
+- `/remove-dm-message` - Remove a DM tracking message.
+- `/help` - Show bot help.
+- `/privacy` - Show privacy information.
 
-## boost-order
+### Sinks and Volunteering
 
-Change the boost order of a running contract.
-Specify a comma separated list of values. Ranges can be specified with hyphenated values.
-Every boost position must be listed in the reordering.
-Examples:
-  Specify individual positions: "2,4,6,3,5"
-  Specify ranges: 5,1-4
-  Specify reverse range: 5-1
+- `/volunteer-sink` - Volunteer as sink for speedrun flow.
+- `/voluntell-sink` - Tell/assign sink volunteers.
 
-## ping-role
+### Global/DM Commands
 
-Use this to update the ping role for the contract. Select a Role on your server. It's not possible
-to select "@here" for the role.
+- `/token` - Token tracking command set.
+- `/token-edit` - Edit tracked token records.
+- `/token-edit-track` - Edit token tracking in DM/global context.
+- `/register` - Register player/profile information.
+- `/virtue` - Virtue command/tools.
+- `/rerun-eval` - Re-run evaluation for a contract.
+- `/hunt` - Menno hunt helper command.
+- `/launch-helper` - Launch helper command for event tooling.
+- `/events` - Event helper commands.
 
-### Start Contract
+### Optional Command
 
-/start
+- `/fun` - Fun command set (only enabled when `NO_FUN` feature flag is not set).
 
-This will change the Sign-up List to the Boost List. If there is a
-order preference it will apply before the Boost List is displayed.
-The first farmer on the list is presented with a boost token indicating
-that they are the current booster.
-The channel receives a message mentioning who's turn it is.
-Farmers that reacted with a 🔔 will receive a DM about this.
+### Admin Commands
 
-### Boost
-
-/boost
-
-The Farmer who's turn it is to receive tokens uses this to indicate that they
-are boosting.  
-Contract Farmers may vote to indicate an AFK player has enough tokens to boost by
-selecting the 🚀 icon.  Two votes will elect a successful boost.
-
-### Skip Current Booster
-
-/skip
-
-Move current booster to last in the Boost List
-
-### Mark Farmer as Unboosted
-
-/unboost [farmer]
-
-Sometimes mistakes happen and someone is marked as boosting too early. 
-Mark someone as unboosted to take care of it. Their position in the boost order stays the same and would boost next if they were earlier in the list than the current booster.
-
-### Prune Farmer
-
-/prune
-
-Remove a Farmer from the Sign-up or Boost List.
-This is useful if a Farmer reacted to the Sign-up message and didn't join
-the contract within the game.
-
-### Join Farmer to Contract
-
-/join farmer-mention
-
-Add a farmer to the contract within that channel. The players are added
-as Farmers without 🔔 DM notifications.
-
-### Swap Current and Next Token Player
-
-/swap
-command to swap yourself when currently boosting to next
-
-### Priority Request
-
-/priority to allow someone to signal they need to go early
-Player has indicated that they wish to boost early for
-Real Life reasons
+- `/admin-contract-list` - List all running contracts.
+- `/admin-contract-finish` - Mark a contract as finished by hash.
+- `/admin-reload-contracts` - Force reload Egg, Inc. contract data.
+- `/admin-get-contract-data` - Retrieve raw contract/co-op JSON data.
+- `/list-roles` - Show role usage for a contract.
+- `/admin-guildstate` - Guildstate admin command with guild override.
+- `/admin-members` - Show admin member details.
+- `/active-contracts` - Show active contracts overview.
+- `/admin-set-guild-setting` - Set a guild setting.
+- `/admin-get-guild-settings` - Get guild settings.
+- `/status-message` - Set the next bot status message.
