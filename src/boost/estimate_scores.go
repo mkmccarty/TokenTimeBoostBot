@@ -225,8 +225,10 @@ func runCsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate, p csEst
 	if contractID == "" || coopID == "" {
 		if contract == nil {
 			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Flags:   p.flags,
-				Content: "No contract found in this channel. Please provide a contract-id and coop-id.",
+				Flags: p.flags,
+				Components: []discordgo.MessageComponent{
+					discordgo.TextDisplay{Content: "No contract found in this channel. Run `/cs-estimate` in a channel with an active contract, or provide a `contract-id` and `coop-id`."},
+				},
 			})
 			return
 		}
