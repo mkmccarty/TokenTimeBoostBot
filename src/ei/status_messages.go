@@ -27,39 +27,35 @@ var nextStatusMessageOverride string
 
 const statusMessageResortFlag = "__TTBB_STATUS_MESSAGES_RESORT__"
 
-// LoadStatusMessages loads status messages from a JSON file
-func LoadStatusMessages(filename string) {
+func loadStatusMessages(filename string, force bool) error {
 	fileInfo, err := os.Stat(filename)
 	if err != nil {
-		log.Printf("Failed to stat status messages file: %v", err)
-		return
+		return fmt.Errorf("failed to stat status messages file: %w", err)
 	}
 
 	statusMessagesMutex.Lock()
-	if loadedStatusMessagesPath == filename &&
+	if !force && loadedStatusMessagesPath == filename &&
 		loadedStatusMessagesModTime.Equal(fileInfo.ModTime()) &&
 		loadedStatusMessagesSize == fileInfo.Size() {
 		statusMessagesMutex.Unlock()
-		return
+		return nil
 	}
 	statusMessagesMutex.Unlock()
 
 	file, err := os.Open(filename)
 	if err != nil {
-		log.Printf("Failed to open status messages file: %v", err)
-		return
+		return fmt.Errorf("failed to open status messages file: %w", err)
 	}
 	defer func() {
-		if err := file.Close(); err != nil {
-			log.Printf("Failed to close: %v", err)
+		if cerr := file.Close(); cerr != nil {
+			log.Printf("Failed to close: %v", cerr)
 		}
 	}()
 
 	var messagesLoaded StatusMessagesFile
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&messagesLoaded); err != nil {
-		log.Printf("Failed to decode status messages: %v", err)
-		return
+		return fmt.Errorf("failed to decode status messages: %w", err)
 	}
 
 	statusMessagesMutex.Lock()
@@ -76,6 +72,14 @@ func LoadStatusMessages(filename string) {
 	statusMessagesMutex.Unlock()
 
 	log.Printf("Loaded %d status messages", len(messagesLoaded.StatusMessages))
+	return nil
+}
+
+// LoadStatusMessages loads status messages from a JSON file
+func LoadStatusMessages(filename string) {
+	if err := loadStatusMessages(filename, false); err != nil {
+		log.Printf("%v", err)
+	}
 }
 
 // GetRandomStatusMessage returns the next status message from a shuffled queue.
@@ -85,32 +89,50 @@ func LoadStatusMessages(filename string) {
 // the queue is reshuffled.
 func GetRandomStatusMessage() (string, error) {
 	statusMessagesMutex.Lock()
-	defer statusMessagesMutex.Unlock()
 
 	if nextStatusMessageOverride != "" {
 		override := nextStatusMessageOverride
 		nextStatusMessageOverride = ""
+		statusMessagesMutex.Unlock()
 		return override, nil
 	}
 
 	if len(StatusMessages) == 0 {
+		statusMessagesMutex.Unlock()
 		return "", fmt.Errorf("StatusMessages is empty")
 	}
 
 	if StatusMessages[0] == statusMessageResortFlag {
-		StatusMessages = StatusMessages[1:]
-		if len(StatusMessages) == 0 {
-			return "", fmt.Errorf("StatusMessages is empty")
+		reloadPath := loadedStatusMessagesPath
+		statusMessagesMutex.Unlock()
+
+		if reloadPath != "" {
+			if err := loadStatusMessages(reloadPath, true); err != nil {
+				log.Printf("%v", err)
+			}
 		}
 
-		rand.Shuffle(len(StatusMessages), func(i, j int) {
-			StatusMessages[i], StatusMessages[j] = StatusMessages[j], StatusMessages[i]
-		})
-		StatusMessages = append(StatusMessages, statusMessageResortFlag)
+		statusMessagesMutex.Lock()
+		if len(StatusMessages) == 0 {
+			statusMessagesMutex.Unlock()
+			return "", fmt.Errorf("StatusMessages is empty")
+		}
+		if StatusMessages[0] == statusMessageResortFlag {
+			StatusMessages = StatusMessages[1:]
+			if len(StatusMessages) == 0 {
+				statusMessagesMutex.Unlock()
+				return "", fmt.Errorf("StatusMessages is empty")
+			}
+			rand.Shuffle(len(StatusMessages), func(i, j int) {
+				StatusMessages[i], StatusMessages[j] = StatusMessages[j], StatusMessages[i]
+			})
+			StatusMessages = append(StatusMessages, statusMessageResortFlag)
+		}
 	}
 
 	activity := StatusMessages[0]
 	StatusMessages = append(StatusMessages[1:], activity)
+	statusMessagesMutex.Unlock()
 
 	return activity, nil
 }
