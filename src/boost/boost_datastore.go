@@ -17,6 +17,29 @@ var dataStore *diskv.Diskv
 
 var ctx = context.Background()
 
+const contractDataDedupeSQL = `
+DELETE FROM contract_data
+WHERE rowid NOT IN (
+	SELECT MAX(rowid)
+	FROM contract_data
+	GROUP BY channelID
+);
+`
+
+const contractDataUniqueIndexSQL = `
+CREATE UNIQUE INDEX IF NOT EXISTS idx_contract_data_channelid
+ON contract_data(channelID);
+`
+
+const contractDataUpsertSQL = `
+INSERT INTO contract_data (channelID, contractID, coopID, value)
+VALUES (?, ?, ?, ?)
+ON CONFLICT(channelID) DO UPDATE SET
+	contractID = excluded.contractID,
+	coopID = excluded.coopID,
+	value = excluded.value;
+`
+
 //go:embed schema.sql
 var ddl string
 var queries *Queries
@@ -25,10 +48,35 @@ func sqliteInit() {
 	db, _ := sql.Open("sqlite", "ttbb-data/ContractData.sqlite?_busy_timeout=5000")
 
 	result, err := db.ExecContext(ctx, ddl)
-	if err == nil {
+	if err != nil {
+		log.Printf("Error initializing SQLite schema: %v", err)
+	} else {
 		fmt.Print(result)
 	}
+
+	if err := ensureContractDataUniqueness(db); err != nil {
+		log.Printf("Error enforcing contract_data channel uniqueness: %v", err)
+	}
 	queries = New(db)
+}
+
+func ensureContractDataUniqueness(db *sql.DB) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	if _, err = tx.ExecContext(ctx, contractDataDedupeSQL); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	if _, err = tx.ExecContext(ctx, contractDataUniqueIndexSQL); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // SaveAllData will save all contract data to disk
@@ -201,20 +249,13 @@ func saveSqliteData(contract *Contract) {
 
 	channelID := contract.Location[0].ChannelID
 
-	// ContractID/CoopID are mutable, so we replace by stable channelID to
-	// guarantee a single record per channel after updates.
-	err = queries.DeleteContractByChannel(ctx, channelID)
-	if err != nil {
-		log.Printf("Error deleting existing contract data from SQLite: %v", err)
-		return
-	}
-
-	err = queries.InsertContract(ctx, InsertContractParams{
-		Channelid:  channelID,
-		Contractid: contract.ContractID,
-		Coopid:     contract.CoopID,
-		Value:      sql.NullString{String: string(contractJSON), Valid: true},
-	})
+	// Write as a single atomic statement keyed by channelID.
+	_, err = queries.db.ExecContext(ctx, contractDataUpsertSQL,
+		channelID,
+		contract.ContractID,
+		contract.CoopID,
+		sql.NullString{String: string(contractJSON), Valid: true},
+	)
 	if err != nil {
 		log.Printf("Error saving contract data to SQLite: %v", err)
 	}
