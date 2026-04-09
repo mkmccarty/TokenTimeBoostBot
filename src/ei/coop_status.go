@@ -239,6 +239,9 @@ func GetCoopStatusStartTimeAndDuration(contractID string, coopID string, eeidOve
 	}
 
 	grade := int(coopStatus.GetGrade())
+	if grade < 0 || grade >= len(eiContract.Grade) {
+		return time.Time{}, 0, fmt.Errorf("grade %d out of range for contract %s", grade, contractID)
+	}
 	startTime := nowTime
 	secondsRemaining := int64(coopStatus.GetSecondsRemaining())
 	endTime := nowTime
@@ -265,6 +268,9 @@ func GetCoopStatusStartTimeAndDuration(contractID string, coopID string, eeidOve
 		calcSecondsRemaining := secondsRemaining
 		if contributionRatePerSecond > 0 {
 			calcSecondsRemaining = int64((totalReq - totalContributions) / contributionRatePerSecond)
+			if calcSecondsRemaining < 0 {
+				calcSecondsRemaining = 0
+			}
 		}
 		endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
