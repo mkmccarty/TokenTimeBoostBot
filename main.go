@@ -27,7 +27,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/menno"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/tasks"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/version"
 	"github.com/natefinch/lumberjack/v3"
 )
@@ -80,11 +79,9 @@ const slashSpeedrun string = "speedrun"
 const slashCoopETA string = "coopeta"
 const slashLaunchHelper string = "launch-helper"
 const slashEventHelper string = "events"
-const slashToken string = "token"
 
 // const slashTokenRemove string = "token-remove"
 const slashTokenEdit string = "token-edit"
-const slashTokenEditTrack string = "token-edit-track"
 const slashCalcContractTval string = "calc-contract-tval"
 const slashCoopTval string = "coop-tval"
 const slashVolunteerSink string = "volunteer-sink"
@@ -240,8 +237,6 @@ var (
 	globalCommands = []*discordgo.ApplicationCommand{
 		events.SlashLaunchHelperCommand(slashLaunchHelper),
 		events.SlashEventHelperCommand(slashEventHelper),
-		track.GetSlashTokenCommand(slashToken),
-		track.GetSlashTokenEditTrackCommand(slashTokenEditTrack),
 		boost.GetSlashReplayEvalCommand(slashRerunEval),
 		boost.GetSlashVirtueCommand(slashVirtue),
 		boost.GetSlashRegisterCommand(slashRegister),
@@ -416,9 +411,6 @@ var (
 		slashStatusMessage: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAdminStatusMessageAutoComplete(s, i)
 		},
-		slashToken: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleContractAutoComplete(s, i)
-		},
 		slashEstimateTime: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAllContractsAutoComplete(s, i)
 		},
@@ -449,90 +441,40 @@ var (
 		slashHunt: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			menno.HandleHuntAutoComplete(s, i)
 		},
-		slashTokenEditTrack: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			data := i.ApplicationCommandData()
-			for _, opt := range data.Options {
-				if opt.Name == "list" && opt.Focused {
-					if i.GuildID == "" {
-						str, choices := track.HandleTokenListAutoComplete(s, i)
-						_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-							Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-							Data: &discordgo.InteractionResponseData{
-								Content: str,
-								Choices: choices,
-							}})
-					}
-				}
-				if opt.Name == "id" && opt.Focused {
-					if i.GuildID == "" {
-						str, choices := track.HandleTokenIDAutoComplete(s, i)
-						_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-							Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-							Data: &discordgo.InteractionResponseData{
-								Content: str,
-								Choices: choices,
-							}})
-					}
-				}
-			}
-		},
 		slashTokenEdit: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			data := i.ApplicationCommandData()
 			for _, opt := range data.Options {
 				if opt.Name == "list" && opt.Focused {
-					if i.GuildID == "" {
-						str, choices := track.HandleTokenListAutoComplete(s, i)
-						_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-							Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-							Data: &discordgo.InteractionResponseData{
-								Content: str,
-								Choices: choices,
-							}})
-					} else {
-						str, choices := boost.HandleTokenListAutoComplete(s, i)
-						_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-							Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-							Data: &discordgo.InteractionResponseData{
-								Content: str,
-								Choices: choices,
-							}})
-					}
+					str, choices := boost.HandleTokenListAutoComplete(s, i)
+					_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+						Data: &discordgo.InteractionResponseData{
+							Content: str,
+							Choices: choices,
+						}})
 				}
 				if opt.Name == "id" && opt.Focused {
-					if i.GuildID == "" {
-						str, choices := track.HandleTokenIDAutoComplete(s, i)
-						_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-							Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-							Data: &discordgo.InteractionResponseData{
-								Content: str,
-								Choices: choices,
-							}})
-					} else {
-						str, choices := boost.HandleTokenIDAutoComplete(s, i)
-						err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-							Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-							Data: &discordgo.InteractionResponseData{
-								Content: str,
-								Choices: choices,
-							}})
-						if err != nil {
-							log.Println(err.Error())
-						}
+					str, choices := boost.HandleTokenIDAutoComplete(s, i)
+					err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+						Data: &discordgo.InteractionResponseData{
+							Content: str,
+							Choices: choices,
+						}})
+					if err != nil {
+						log.Println(err.Error())
 					}
 				}
 				if opt.Name == "new-receiver" && opt.Focused {
-					if i.GuildID != "" {
-						str, choices := boost.HandleTokenReceiverAutoComplete(s, i)
-						err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-							Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-							Data: &discordgo.InteractionResponseData{
-								Content: str,
-								Choices: choices,
-							}})
-						if err != nil {
-							log.Println(err.Error())
-						}
-
+					str, choices := boost.HandleTokenReceiverAutoComplete(s, i)
+					err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+						Data: &discordgo.InteractionResponseData{
+							Content: str,
+							Choices: choices,
+						}})
+					if err != nil {
+						log.Println(err.Error())
 					}
 				}
 			}
@@ -605,21 +547,6 @@ var (
 		},
 		slashVirtue: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleVirtue(s, i)
-		},
-		slashToken: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleTokenCommand(s, i)
-		},
-		slashTokenEditTrack: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			var str string
-			if i.GuildID == "" {
-				str = track.HandleTokenEditTrackCommand(s, i)
-			}
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: str,
-					Flags:   discordgo.MessageFlagsEphemeral,
-				}})
 		},
 		slashTokenEdit: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var str string
@@ -812,27 +739,6 @@ var (
 		},
 		"fd_tokens_sub": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.AddBoostTokensInteraction(s, i, 0, -1)
-		},
-		"fd_tokenEdit": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			track.HandleTokenEdit(s, i)
-		},
-		"fd_trackerEdit": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			track.HandleTrackerEdit(s, i)
-		},
-		"fd_tokenSent": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			track.HandleTokenSend(s, i)
-		},
-		"fd_tokenReceived": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			track.HandleTokenReceived(s, i)
-		},
-		"fd_tokenDetails": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			track.HandleTokenDetails(s, i)
-		},
-		"fd_tokenComplete": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			track.HandleTokenComplete(s, i)
-		},
-		"fd_tokenRefresh": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			track.HandleTrackerRefresh(s, i)
 		},
 		"rc_": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleContractReactions(s, i)
@@ -1055,8 +961,6 @@ func init() {
 		if m.UserID != s.State.User.ID {
 			if m.GuildID != "" {
 				boost.ReactionAdd(s, m.MessageReaction)
-			} else {
-				track.ReactionAdd(s, m.MessageReaction)
 			}
 		}
 	})
@@ -1265,7 +1169,6 @@ func main() {
 	<-stop
 
 	boost.SaveAllData()
-	track.SaveAllData()
 
 	log.Println("Graceful shutdown")
 }
@@ -1325,7 +1228,6 @@ func startHeartbeat(filepath string, interval time.Duration) {
 					// At this point lets just exit the process and let something like systemd restart it, since the bot is likely in a bad state if we can't update the status
 					// At this point, trigger a graceful shutdown so deferred cleanups (including s.Close()) run.
 					boost.SaveAllData()
-					track.SaveAllData()
 					// Sleep 5 seconds to allow any in-flight interactions to complete and for the save functions to finish
 					time.Sleep(5 * time.Second)
 					// Signal the current process to initiate the normal shutdown path instead of calling os.Exit directly.
