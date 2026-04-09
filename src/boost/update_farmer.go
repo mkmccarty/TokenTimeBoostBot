@@ -80,6 +80,13 @@ func GetSlashUpdateCommand(cmd string) *discordgo.ApplicationCommand {
 
 // HandleUpdateCommand handles the /update slash command
 func HandleUpdateCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+		},
+	})
+
 	optionMap := bottools.GetCommandOptionsMap(i)
 	subcommandGroup := ""
 	subcommand := ""
@@ -144,12 +151,9 @@ func HandleUpdateCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		resultMsg = "Unknown subcommand group"
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: resultMsg,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content: resultMsg,
+		Flags:   discordgo.MessageFlagsEphemeral,
 	})
 }
 
