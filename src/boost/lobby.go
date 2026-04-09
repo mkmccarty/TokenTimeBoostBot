@@ -241,12 +241,12 @@ func buildLobbyContent(contractID string, coopID string, userID string, bypassCa
 		return lobbyContent{}, fmt.Errorf("%s", ei.ContractCoopStatusResponse_ResponseStatus_name[int32(coopStatus.GetResponseStatus())])
 	}
 	if coopStatus.GetGrade() == ei.Contract_GRADE_UNSET {
-		return lobbyContent{}, fmt.Errorf("No grade found for contract %s/%s", contractID, coopID)
+		return lobbyContent{}, fmt.Errorf("no grade found for contract %s/%s", contractID, coopID)
 	}
 
 	grade := int(coopStatus.GetGrade())
 	if grade < 0 || grade >= len(eiContract.Grade) {
-		return lobbyContent{}, fmt.Errorf("Invalid grade found for contract %s/%s", contractID, coopID)
+		return lobbyContent{}, fmt.Errorf("invalid grade found for contract %s/%s", contractID, coopID)
 	}
 
 	coopID = coopStatus.GetCoopIdentifier()
