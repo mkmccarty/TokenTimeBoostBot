@@ -262,7 +262,10 @@ func GetCoopStatusStartTimeAndDuration(contractID string, coopID string, eeidOve
 		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
 		startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
 		totalReq := eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1]
-		calcSecondsRemaining := int64((totalReq - totalContributions) / contributionRatePerSecond)
+		calcSecondsRemaining := secondsRemaining
+		if contributionRatePerSecond > 0 {
+			calcSecondsRemaining = int64((totalReq - totalContributions) / contributionRatePerSecond)
+		}
 		endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
 	}
