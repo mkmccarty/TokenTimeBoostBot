@@ -32,8 +32,16 @@ import (
 	"github.com/natefinch/lumberjack/v3"
 )
 
-const configFileName = ".config.json"
-const statusMessagesFileName = "ttbb-data/status-messages.json"
+const (
+	configFileName         = ".config.json"
+	statusMessagesFileName = "ttbb-data/status-messages.json"
+)
+
+const (
+	unknownCommandPathMessage   = "Unknown command path. Please run the command again, or use /help if this persists."
+	unknownModalPathMessage     = "Unknown modal action. Please rerun the related command to open a fresh dialog."
+	unknownComponentPathMessage = "Unknown interaction action. Use the latest message buttons/menus, or rerun the command."
+)
 
 // Admin Slash Command Constants
 // const boostBotHomeGuild string = "766330702689992720"
@@ -955,6 +963,25 @@ func joinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell boo
 	})
 }
 
+func respondUnknownInteractionPath(s *discordgo.Session, i *discordgo.InteractionCreate, content string) {
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: content,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+}
+
+func respondUnknownAutocompletePath(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+		Data: &discordgo.InteractionResponseData{
+			Choices: []*discordgo.ApplicationCommandOptionChoice{},
+		},
+	})
+}
+
 // main init to call other init functions in sequence
 func init() {
 	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -985,10 +1012,16 @@ func init() {
 					}
 				}
 				h(s, i)
+			} else {
+				log.Printf("Unknown command handler: %s", i.ApplicationCommandData().Name)
+				respondUnknownInteractionPath(s, i, unknownCommandPathMessage)
 			}
 		case discordgo.InteractionApplicationCommandAutocomplete:
 			if h, ok := autocompleteHandlers[i.ApplicationCommandData().Name]; ok {
 				h(s, i)
+			} else {
+				log.Printf("Unknown autocomplete handler: %s", i.ApplicationCommandData().Name)
+				respondUnknownAutocompletePath(s, i)
 			}
 
 		case discordgo.InteractionModalSubmit:
@@ -998,6 +1031,9 @@ func init() {
 				userID := getIntentUserID(i)
 				log.Println("Component: ", i.ModalSubmitData().CustomID, userID)
 				h(s, i)
+			} else {
+				log.Printf("Unknown modal handler: %s", i.ModalSubmitData().CustomID)
+				respondUnknownInteractionPath(s, i, unknownModalPathMessage)
 			}
 		case discordgo.InteractionMessageComponent:
 			// Handlers could include a parameter to help identify this uniquly
@@ -1007,6 +1043,9 @@ func init() {
 				userID := getIntentUserID(i)
 				log.Println("Component: ", i.MessageComponentData().CustomID, userID)
 				h(s, i)
+			} else {
+				log.Printf("Unknown component handler: %s", i.MessageComponentData().CustomID)
+				respondUnknownInteractionPath(s, i, unknownComponentPathMessage)
 			}
 		}
 	})

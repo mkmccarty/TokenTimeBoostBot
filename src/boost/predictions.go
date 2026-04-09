@@ -145,6 +145,13 @@ func HandlePredictionsPage(s *discordgo.Session, i *discordgo.InteractionCreate)
 		createdAt, err := discordgo.SnowflakeTimestamp(i.Message.ID)
 		if err != nil {
 			log.Println("Error parsing message timestamp:", err)
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "This prediction interaction is invalid or expired. Run /predictions again to get a fresh panel.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
 			return
 		}
 		expired = time.Since(createdAt) > ttl
