@@ -78,8 +78,7 @@ func requestCoopStatus(contractID string, coopID string, eggIncID string, reqURL
 	return body, response.StatusCode, nil
 }
 
-// GetCoopStatus retrieves the coop status for a given contract and coop
-func GetCoopStatus(contractID string, coopID string, eeidOverride string) (*ContractCoopStatusResponse, time.Time, string, error) {
+func getCoopStatus(contractID string, coopID string, eeidOverride string, bypassCache bool) (*ContractCoopStatusResponse, time.Time, string, error) {
 	eggIncID := config.EIUserIDBasic
 	reqURL := "https://www.auxbrain.com/ei/coop_status_bot"
 	enc := base64.StdEncoding
@@ -132,7 +131,7 @@ func GetCoopStatus(contractID string, coopID string, eeidOverride string) (*Cont
 		dataTimestampStr = fmt.Sprintf("\nUsing cached data from file %s", fname)
 		dataTimestampStr += fmt.Sprintf("\n%s <t:%d:f>", fileTimestamp.Format("2006-01-02 15:04:05"), fileTimestamp.Unix())
 
-	} else if cachedData != nil && time.Now().Before(cachedData.expirationTimestamp) {
+	} else if !bypassCache && cachedData != nil && time.Now().Before(cachedData.expirationTimestamp) {
 		protoData = cachedData.protoData
 		timestamp = cachedData.timestamp
 		dataTimestampStr = fmt.Sprintf("\nUsing cached data retrieved <t:%d:R>, expires <t:%d:R>", cachedData.timestamp.Unix(), cachedData.expirationTimestamp.Unix())
@@ -208,6 +207,16 @@ func GetCoopStatus(contractID string, coopID string, eeidOverride string) (*Cont
 	}
 
 	return decodeCoopStatus, timestamp, dataTimestampStr, nil
+}
+
+// GetCoopStatus retrieves the coop status for a given contract and coop.
+func GetCoopStatus(contractID string, coopID string, eeidOverride string) (*ContractCoopStatusResponse, time.Time, string, error) {
+	return getCoopStatus(contractID, coopID, eeidOverride, false)
+}
+
+// GetCoopStatusUncached retrieves the coop status while bypassing the in-memory cache.
+func GetCoopStatusUncached(contractID string, coopID string, eeidOverride string) (*ContractCoopStatusResponse, time.Time, string, error) {
+	return getCoopStatus(contractID, coopID, eeidOverride, true)
 }
 
 // ClearCoopStatusCachedData clears the cached data for coop status

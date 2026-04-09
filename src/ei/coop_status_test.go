@@ -153,6 +153,37 @@ func TestGetCoopStatus_DoesNotRetryOn500EOP(t *testing.T) {
 	}
 }
 
+func TestGetCoopStatusUncached_BypassesMemoryCache(t *testing.T) {
+	setTestCwd(t)
+	resetCoopStatusCache(t)
+	setCoopStatusFixEnabled(t, true)
+
+	validBody := coopStatusSuccessBody(t)
+	calls := 0
+	setAuxbrainServer(t, func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(validBody)
+	})
+
+	_, _, _, err := GetCoopStatus("contract-cache", "coop-cache", "EI1234567890123456")
+	if err != nil {
+		t.Fatalf("GetCoopStatus returned unexpected error: %v", err)
+	}
+	_, _, _, err = GetCoopStatus("contract-cache", "coop-cache", "EI1234567890123456")
+	if err != nil {
+		t.Fatalf("second GetCoopStatus returned unexpected error: %v", err)
+	}
+	_, _, _, err = GetCoopStatusUncached("contract-cache", "coop-cache", "EI1234567890123456")
+	if err != nil {
+		t.Fatalf("GetCoopStatusUncached returned unexpected error: %v", err)
+	}
+
+	if calls != 2 {
+		t.Fatalf("expected 2 network calls with uncached fetch, got %d", calls)
+	}
+}
+
 func TestGetCoopStatusForCompletedContracts_RetriesOn500NonEOP(t *testing.T) {
 	setTestCwd(t)
 	setCoopStatusFixEnabled(t, true)
