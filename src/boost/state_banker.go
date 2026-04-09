@@ -8,7 +8,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 	"github.com/rs/xid"
 )
 
@@ -47,9 +46,6 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 			//sink.TokensReceived = max(0, sink.TokensReceived) // Avoid missing self farmed tokens
 			// Record the Tokens as received
 			tokenSerial := xid.New().String()
-			now := time.Now()
-			track.ContractTokenMessage(s, ChannelID, b.UserID, track.TokenReceived, b.TokensReceived, contract.Boosters[cUserID].Nick, tokenSerial, now)
-			track.ContractTokenMessage(s, ChannelID, cUserID, track.TokenSent, b.TokensReceived, contract.Boosters[b.UserID].Nick, tokenSerial, now)
 			contract.mutex.Lock()
 
 			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: tokensToSend, FromUserID: cUserID, FromNick: contract.Boosters[cUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial, Boost: true})

@@ -19,7 +19,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/divan/num2words"
@@ -1507,9 +1506,6 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	if contract.BoostPosition == contract.CoopSize {
 		changeContractState(contract, ContractStateCompleted) // Waiting for sink
 		contract.EndTime = time.Now()
-		for _, loc := range contract.Location {
-			track.UnlinkTokenTracking(s, loc.ChannelID)
-		}
 	} else if contract.BoostPosition == len(contract.Order) {
 		changeContractState(contract, ContractStateWaiting) // There could be more boosters joining later
 	} else {
@@ -1654,9 +1650,6 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 		if contract.BoostPosition == contract.CoopSize {
 			changeContractState(contract, ContractStateCompleted) // Finished
 			contract.EndTime = time.Now()
-			for _, loc := range contract.Location {
-				track.UnlinkTokenTracking(s, loc.ChannelID)
-			}
 		} else if contract.BoostPosition == len(contract.Boosters) {
 			changeContractState(contract, ContractStateWaiting)
 		} else {
@@ -2028,8 +2021,6 @@ func ArchiveContracts(s *discordgo.Session) {
 
 	// clear finishHash
 	ei.ClearCoopStatusCachedData()
-
-	track.ArchiveTrackerData(s)
 }
 
 // UpdateContractTime will update the contract start time and estimated duration

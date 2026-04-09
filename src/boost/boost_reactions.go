@@ -10,7 +10,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -247,10 +246,11 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 func updateEstimatedTime(s *discordgo.Session, channelID string, contract *Contract, displayMsg bool, userID string) {
 	if !displayMsg {
-		startTime, contractDurationSeconds, err := track.DownloadCoopStatusTracker(contract.ContractID, contract.CoopID, userID)
+		eeidOverride := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+		coopStartTime, coopDurationSeconds, err := ei.GetCoopStatusStartTimeAndDuration(contract.ContractID, contract.CoopID, eeidOverride)
 		if err == nil {
-			contract.StartTime = startTime
-			contract.EstimatedDuration = time.Duration(contractDurationSeconds) * time.Second
+			contract.StartTime = coopStartTime
+			contract.EstimatedDuration = time.Duration(coopDurationSeconds) * time.Second
 			contract.EstimateUpdateTime = time.Now()
 			refreshBoostListMessage(s, contract, false)
 		}
@@ -260,13 +260,14 @@ func updateEstimatedTime(s *discordgo.Session, channelID string, contract *Contr
 	data.Content = "⏱️ reaction received, updating contract duration."
 	data.Flags = discordgo.MessageFlagsEphemeral
 	msg, msgErr := s.ChannelMessageSendComplex(channelID, &data)
-	startTime, contractDurationSeconds, err := track.DownloadCoopStatusTracker(contract.ContractID, contract.CoopID, userID)
+	eeidOverride := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+	coopStartTime, coopDurationSeconds, err := ei.GetCoopStatusStartTimeAndDuration(contract.ContractID, contract.CoopID, eeidOverride)
 	if err == nil {
 		if msgErr == nil {
 			_ = s.ChannelMessageDelete(msg.ChannelID, msg.ID)
 		}
-		contract.StartTime = startTime
-		contract.EstimatedDuration = time.Duration(contractDurationSeconds) * time.Second
+		contract.StartTime = coopStartTime
+		contract.EstimatedDuration = time.Duration(coopDurationSeconds) * time.Second
 		contract.EstimateUpdateTime = time.Now()
 		refreshBoostListMessage(s, contract, false)
 	}

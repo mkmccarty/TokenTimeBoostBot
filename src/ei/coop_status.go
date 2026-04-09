@@ -219,6 +219,57 @@ func GetCoopStatusUncached(contractID string, coopID string, eeidOverride string
 	return getCoopStatus(contractID, coopID, eeidOverride, true)
 }
 
+// GetCoopStatusStartTimeAndDuration returns the inferred contract start time and duration
+// in seconds for the given contract and coop.
+func GetCoopStatusStartTimeAndDuration(contractID string, coopID string, eeidOverride string) (time.Time, float64, error) {
+	nowTime := time.Now()
+
+	eiContract := EggIncContractsAll[contractID]
+	if eiContract.ID == "" {
+		return time.Time{}, 0, fmt.Errorf("invalid contract ID")
+	}
+
+	coopStatus, _, _, err := GetCoopStatus(contractID, coopID, eeidOverride)
+	if err != nil {
+		return time.Time{}, 0, err
+	}
+
+	if coopStatus.GetResponseStatus() != ContractCoopStatusResponse_NO_ERROR {
+		return time.Time{}, 0, fmt.Errorf("%s", ContractCoopStatusResponse_ResponseStatus_name[int32(coopStatus.GetResponseStatus())])
+	}
+
+	grade := int(coopStatus.GetGrade())
+	startTime := nowTime
+	secondsRemaining := int64(coopStatus.GetSecondsRemaining())
+	endTime := nowTime
+	contractDurationSeconds := 0.0
+
+	if coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 {
+		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
+		startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
+		secondsSinceAllGoals := int64(coopStatus.GetSecondsSinceAllGoalsAchieved())
+		endTime = endTime.Add(-time.Duration(secondsSinceAllGoals) * time.Second)
+		contractDurationSeconds = endTime.Sub(startTime).Seconds()
+	} else {
+		var totalContributions float64
+		var contributionRatePerSecond float64
+		for _, c := range coopStatus.GetContributors() {
+			totalContributions += c.GetContributionAmount()
+			totalContributions += -(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()) // offline eggs
+			contributionRatePerSecond += c.GetContributionRate()
+		}
+
+		startTime = startTime.Add(time.Duration(secondsRemaining) * time.Second)
+		startTime = startTime.Add(-time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second)
+		totalReq := eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1]
+		calcSecondsRemaining := int64((totalReq - totalContributions) / contributionRatePerSecond)
+		endTime = nowTime.Add(time.Duration(calcSecondsRemaining) * time.Second)
+		contractDurationSeconds = endTime.Sub(startTime).Seconds()
+	}
+
+	return startTime, contractDurationSeconds, nil
+}
+
 // ClearCoopStatusCachedData clears the cached data for coop status
 func ClearCoopStatusCachedData() {
 	var finishHash []string

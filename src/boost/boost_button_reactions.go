@@ -12,7 +12,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
@@ -164,10 +163,6 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 			tokenSerial := xid.New().String()
 			now := time.Now()
 
-			track.ContractTokenMessage(s, ChannelID, b.UserID, track.TokenReceived, count, contract.Boosters[fromUserID].Nick, tokenSerial, now)
-
-			// Record who sent the token
-			track.ContractTokenMessage(s, ChannelID, fromUserID, track.TokenSent, count, b.Nick, tokenSerial, now)
 			contract.mutex.Lock()
 			b.TokensReceived += count
 			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: now, Quantity: count, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial, Boost: false})
@@ -187,7 +182,6 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 				}
 			*/
 		} else {
-			track.FarmedToken(s, ChannelID, fromUserID, count)
 			contract.mutex.Lock()
 			b.TokensReceived += count
 			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: count, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: fromUserID, ToNick: contract.Boosters[fromUserID].Nick, Serial: xid.New().String(), Boost: false})

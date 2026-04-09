@@ -10,7 +10,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/track"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
@@ -573,7 +572,6 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 	calculateTokenValueCoopLog(c, c.EstimatedDuration, targetTval)
 
 	c.mutex.Unlock()
-	track.ContractTokenUpdate(s, i.ChannelID, &modifiedTokenLog)
 	saveData(c.ContractHash)
 	refreshBoostListMessage(s, c, false)
 	return str
