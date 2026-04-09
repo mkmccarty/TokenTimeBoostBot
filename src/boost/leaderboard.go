@@ -107,9 +107,19 @@ func HandleLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
 // HandleLeaderboardPage handles the season select menu, refresh, and close button interactions
 func HandleLeaderboardPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	flags := discordgo.MessageFlagsIsComponentsV2
+	respondUsage := func(msg string) {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: msg,
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+	}
 
 	parts := strings.Split(i.MessageComponentData().CustomID, "#")
 	if len(parts) < 2 {
+		respondUsage("Invalid leaderboard action. Use the season selector, Refresh, or Close controls from a /leaderboard response.")
 		return
 	}
 
@@ -145,6 +155,10 @@ func HandleLeaderboardPage(s *discordgo.Session, i *discordgo.InteractionCreate)
 		}
 
 	case "refresh":
+		if len(parts) < 3 {
+			respondUsage("Invalid refresh action. Use the Refresh button from a /leaderboard response.")
+			return
+		}
 		if !CheckLeaderboardPermission(s, i) {
 			return
 		}
@@ -207,6 +221,8 @@ func HandleLeaderboardPage(s *discordgo.Session, i *discordgo.InteractionCreate)
 		if err != nil {
 			log.Println("Error editing leaderboard message:", err)
 		}
+	default:
+		respondUsage("Unknown leaderboard action. Use the season selector, Refresh, or Close controls from a /leaderboard response.")
 	}
 }
 

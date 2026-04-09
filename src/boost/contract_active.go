@@ -71,9 +71,19 @@ func HandleAdminCurrentContracts(s *discordgo.Session, i *discordgo.InteractionC
 // HandleActiveContractsPage handles button interactions for the active-contracts message.
 func HandleActiveContractsPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	flags := discordgo.MessageFlagsIsComponentsV2
+	respondUsage := func(msg string) {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: msg,
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+	}
 
 	parts := strings.Split(i.MessageComponentData().CustomID, "#")
 	if len(parts) < 2 {
+		respondUsage("Invalid active-contracts action. Use the Refresh, Bump, or Close buttons on an active-contracts message.")
 		return
 	}
 
@@ -95,6 +105,7 @@ func HandleActiveContractsPage(s *discordgo.Session, i *discordgo.InteractionCre
 
 	case "refresh":
 		if len(parts) < 3 {
+			respondUsage("Invalid refresh action. Use the Refresh button from the active-contracts panel.")
 			return
 		}
 		channelID := parts[2]
@@ -111,6 +122,7 @@ func HandleActiveContractsPage(s *discordgo.Session, i *discordgo.InteractionCre
 
 	case "bump":
 		if len(parts) < 3 {
+			respondUsage("Invalid bump action. Use the Bump button from the active-contracts panel.")
 			return
 		}
 		channelID := parts[2]
@@ -129,6 +141,9 @@ func HandleActiveContractsPage(s *discordgo.Session, i *discordgo.InteractionCre
 		}); err != nil {
 			log.Println("Error sending bumped active contracts:", err)
 		}
+
+	default:
+		respondUsage("Unknown active-contracts action. Use the Refresh, Bump, or Close buttons on the active-contracts panel.")
 	}
 }
 

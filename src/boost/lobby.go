@@ -123,8 +123,19 @@ func HandleLobbyCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 // HandleLobbyButtons handles refresh and close button interactions for /lobby.
 func HandleLobbyButtons(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	respondUsage := func(msg string) {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: msg,
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+	}
+
 	parts := strings.Split(i.MessageComponentData().CustomID, "#")
 	if len(parts) < 2 {
+		respondUsage("Invalid lobby action. Use the Refresh or Close buttons from a /lobby response.")
 		return
 	}
 
@@ -152,6 +163,7 @@ func HandleLobbyButtons(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	case "refresh":
 		if len(parts) < 4 {
+			respondUsage("Invalid refresh action. Use the Refresh button from a /lobby response.")
 			return
 		}
 		contractID := parts[2]
@@ -168,6 +180,9 @@ func HandleLobbyButtons(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if _, err := s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit); err != nil {
 			log.Println("lobby FollowupMessageEdit:", err)
 		}
+
+	default:
+		respondUsage("Unknown lobby action. Use the Refresh or Close buttons from a /lobby response.")
 	}
 }
 

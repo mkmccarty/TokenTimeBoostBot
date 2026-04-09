@@ -136,6 +136,13 @@ func HandleCoopStatusPermissionButton(s *discordgo.Session, i *discordgo.Interac
 	// Extract the action part after the "#"
 	parts := strings.Split(customID, "#")
 	if len(parts) < 2 {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Invalid permission action. Use Allow 24h, Allow 7d, or Close from the permission dialog.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
 		return
 	}
 	action := parts[1]
@@ -157,5 +164,13 @@ func HandleCoopStatusPermissionButton(s *discordgo.Session, i *discordgo.Interac
 
 	case "close":
 		respondAndClose("I understand")
+	default:
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Unknown permission action. Use Allow 24h, Allow 7d, or Close from the permission dialog.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
 	}
 }

@@ -114,6 +114,13 @@ func HandleLeaderboardPermissionButton(s *discordgo.Session, i *discordgo.Intera
 
 	parts := strings.Split(customID, "#")
 	if len(parts) < 2 {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Invalid permission action. Use Allow for 24 hours, Allow forever, or Close from the permission dialog.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
 		return
 	}
 	action := parts[1]
@@ -133,5 +140,13 @@ func HandleLeaderboardPermissionButton(s *discordgo.Session, i *discordgo.Intera
 
 	case "close":
 		respondAndClose("I understand")
+	default:
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Unknown permission action. Use Allow for 24 hours, Allow forever, or Close from the permission dialog.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
 	}
 }
