@@ -301,10 +301,21 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 
 	// Replace all new contracts
 	if len(newContract) > 0 {
+		if config.IsDevBot() {
+			for _, predicted := range boost.CreatePredictedContract() {
+				newContract = append(newContract, predicted)
+				ei.EggIncContractsAll[predicted.ID] = predicted
+			}
+		}
 		ei.EggIncContracts = newContract
 	}
 
 	if changed {
 		saveCustomEggData(ei.CustomEggMap)
+	}
+
+	updatedPredicted := boost.UpdatePredictedSignupContracts(s, newContract)
+	if updatedPredicted > 0 {
+		log.Printf("Updated %d predicted signup contract(s) to live contract IDs", updatedPredicted)
 	}
 }

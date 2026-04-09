@@ -3,11 +3,14 @@ package boost
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log"
 	"math"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 
 	"google.golang.org/protobuf/proto"
@@ -59,6 +62,12 @@ func LoadContractData(filename string) {
 		}
 
 	}
+
+	for _, predicted := range CreatePredictedContract() {
+		EggIncContractsNew = append(EggIncContractsNew, predicted)
+		ei.EggIncContractsAll[predicted.ID] = predicted
+	}
+
 	ei.EggIncContracts = EggIncContractsNew
 
 	/*
@@ -72,6 +81,138 @@ func LoadContractData(filename string) {
 
 const originalContractValidDuration = 21 * 86400
 const legacyContractValidDuration = 7 * 86400
+
+func nextWeekdayDate(now time.Time, weekday time.Weekday) time.Time {
+	daysAhead := (int(weekday) - int(now.Weekday()) + 7) % 7
+	if daysAhead == 0 {
+		daysAhead = 7
+	}
+
+	nextDate := now.AddDate(0, 0, daysAhead)
+	return time.Date(nextDate.Year(), nextDate.Month(), nextDate.Day(), 0, 0, 0, 0, time.UTC)
+}
+
+// CreatePredictedContract creates one placeholder contract each for Wednesday,
+// Friday, and Friday Ultra based on the next predicted release dates.
+func CreatePredictedContract() []ei.EggIncContract {
+	now := time.Now().UTC()
+	nextWed := nextWeekdayDate(now, time.Wednesday)
+	nextFri := nextWeekdayDate(now, time.Friday)
+
+	create := func(label string, releaseDate time.Time, ultra bool) ei.EggIncContract {
+		id := fmt.Sprintf("%s-%s", strings.ToLower(label), releaseDate.Format("2006-01-02"))
+		name := fmt.Sprintf("Predicted %s", label)
+
+		return ei.EggIncContract{
+			ID:              id,
+			Name:            name,
+			Description:     "Predicted placeholder contract",
+			Predicted:       true,
+			MaxCoopSize:     30,
+			CoopAllowed:     true,
+			Ultra:           ultra,
+			ValidFrom:       releaseDate,
+			ValidUntil:      releaseDate.Add(7 * 24 * time.Hour),
+			ContractVersion: 2,
+		}
+	}
+
+	return []ei.EggIncContract{
+		create("Wednesday", nextWed, false),
+		create("Friday", nextFri, false),
+		create("Ultra", nextFri, true),
+	}
+}
+
+func predictedSlotForContract(c ei.EggIncContract) string {
+	weekday := c.ValidFrom.UTC().Weekday()
+	if weekday == time.Wednesday && !c.Ultra {
+		return "wed"
+	}
+	if weekday == time.Friday && !c.Ultra {
+		return "fri"
+	}
+	if weekday == time.Friday && c.Ultra {
+		return "fri-ultra"
+	}
+	return ""
+}
+
+func sameUTCDate(a, b time.Time) bool {
+	au := a.UTC()
+	bu := b.UTC()
+	return au.Year() == bu.Year() && au.Month() == bu.Month() && au.Day() == bu.Day()
+}
+
+func predictedSlotFromID(contractID string) string {
+	contractID = strings.ToLower(contractID)
+	if strings.HasPrefix(contractID, "wed-") || strings.HasPrefix(contractID, "wednesday-") {
+		return "wed"
+	}
+	if strings.HasPrefix(contractID, "fri-") || strings.HasPrefix(contractID, "friday-") {
+		return "fri"
+	}
+	if strings.HasPrefix(contractID, "ultra-") || strings.HasSuffix(contractID, "-ultra") {
+		return "fri-ultra"
+	}
+	return ""
+}
+
+// UpdatePredictedSignupContracts replaces signup contracts using predicted IDs
+// with real IDs when a matching periodical contract for the same day/ultra slot arrives.
+func UpdatePredictedSignupContracts(s *discordgo.Session, liveContracts []ei.EggIncContract) int {
+	predictedBySlot := make(map[string]ei.EggIncContract, 3)
+	for _, predicted := range CreatePredictedContract() {
+		slot := predictedSlotForContract(predicted)
+		if slot != "" {
+			predictedBySlot[slot] = predicted
+		}
+	}
+
+	realBySlot := make(map[string]ei.EggIncContract, 3)
+	for _, c := range liveContracts {
+		slot := predictedSlotForContract(c)
+		if slot == "" {
+			continue
+		}
+		predicted, ok := predictedBySlot[slot]
+		if !ok {
+			continue
+		}
+		if sameUTCDate(c.ValidFrom, predicted.ValidFrom) {
+			realBySlot[slot] = c
+		}
+	}
+
+	updated := 0
+	for _, contract := range Contracts {
+		if contract == nil || contract.State != ContractStateSignup {
+			continue
+		}
+
+		slot := predictedSlotFromID(contract.ContractID)
+		if slot == "" {
+			continue
+		}
+
+		_, hasPredicted := predictedBySlot[slot]
+		real, hasReal := realBySlot[slot]
+		if !hasPredicted || !hasReal {
+			continue
+		}
+		if contract.ContractID == real.ID {
+			continue
+		}
+
+		contract.ContractID = real.ID
+		updateContractWithEggIncData(contract)
+		refreshBoostListMessage(s, contract, true)
+		saveData(contract.ContractHash)
+		updated++
+	}
+
+	return updated
+}
 
 // PopulateContractFromProto will populate a contract from a protobuf
 func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract {
