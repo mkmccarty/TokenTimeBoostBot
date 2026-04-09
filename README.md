@@ -78,9 +78,7 @@ Install your bot into your discord server with this URL:
 
 ### Global/DM Commands
 
-- `/token` - Token tracking command set.
 - `/token-edit` - Edit tracked token records.
-- `/token-edit-track` - Edit token tracking in DM/global context.
 - `/register` - Register player/profile information.
 - `/virtue` - Virtue command/tools.
 - `/rerun-eval` - Re-run evaluation for a contract.
