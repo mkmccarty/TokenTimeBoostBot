@@ -11,12 +11,49 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+const maxAutocompleteChoices = 25
+
+func sortContractChoices(choices []*discordgo.ApplicationCommandOptionChoice) {
+	sort.Slice(choices, func(i, j int) bool {
+		return choices[i].Name < choices[j].Name
+	})
+}
+
+func limitContractChoices(choices []*discordgo.ApplicationCommandOptionChoice, maxChoices int) []*discordgo.ApplicationCommandOptionChoice {
+	if len(choices) <= maxChoices {
+		return choices
+	}
+	return choices[:maxChoices]
+}
+
 // HandleContractAutoComplete will handle the contract auto complete of contract-id's
 func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	optionMap := bottools.GetCommandOptionsMap(i)
+	searchString := ""
+	if opt, ok := optionMap["contract-id"]; ok {
+		searchString = strings.ToLower(opt.StringValue())
+	}
+	isContractCommand := i.ApplicationCommandData().Name == "contract"
+
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
 	for _, c := range ei.EggIncContracts {
+		isPredicted := c.Predicted
+
+		if isContractCommand {
+			if searchString == "" && isPredicted {
+				continue
+			}
+			if searchString != "" &&
+				!strings.Contains(strings.ToLower(c.ID), searchString) &&
+				!strings.Contains(strings.ToLower(c.Name), searchString) {
+				continue
+			}
+		} else if isPredicted {
+			continue
+		}
+
 		ultra := ""
-		if c.Ultra {
+		if c.Ultra && !c.Predicted {
 			ultra = " -ultra"
 		}
 		choice := discordgo.ApplicationCommandOptionChoice{
@@ -26,9 +63,8 @@ func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCr
 		choices = append(choices, &choice)
 	}
 
-	sort.Slice(choices, func(i, j int) bool {
-		return choices[i].Name < choices[j].Name
-	})
+	sortContractChoices(choices)
+	choices = limitContractChoices(choices, maxAutocompleteChoices)
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
@@ -56,8 +92,11 @@ func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.Interacti
 
 	if searchString == "" {
 		for _, c := range ei.EggIncContracts {
+			if c.Predicted {
+				continue
+			}
 			ultra := ""
-			if c.Ultra {
+			if c.Ultra && !c.Predicted {
 				ultra = " -ultra"
 			}
 			choice := discordgo.ApplicationCommandOptionChoice{
@@ -67,9 +106,8 @@ func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.Interacti
 			choices = append(choices, &choice)
 		}
 
-		sort.Slice(choices, func(i, j int) bool {
-			return choices[i].Name < choices[j].Name
-		})
+		sortContractChoices(choices)
+		choices = limitContractChoices(choices, maxAutocompleteChoices)
 
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionApplicationCommandAutocompleteResult,
@@ -81,6 +119,9 @@ func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.Interacti
 	}
 
 	for _, c := range ei.EggIncContractsAll {
+		if c.Predicted {
+			continue
+		}
 		if strings.Contains(strings.ToLower(c.ID), strings.ToLower(searchString)) ||
 			strings.Contains(strings.ToLower(c.Name), strings.ToLower(searchString)) {
 
@@ -95,9 +136,8 @@ func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.Interacti
 		}
 	}
 
-	sort.Slice(choices, func(i, j int) bool {
-		return choices[i].Name < choices[j].Name
-	})
+	sortContractChoices(choices)
+	choices = limitContractChoices(choices, 10)
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionApplicationCommandAutocompleteResult,

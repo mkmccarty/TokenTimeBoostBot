@@ -111,6 +111,7 @@ type EggIncContract struct {
 	ID                        string `json:"id"`
 	Proto                     string `json:"proto"`
 	PeriodicalAPI             bool
+	Predicted                 bool
 	Name                      string
 	Description               string
 	Egg                       int32
