@@ -9,6 +9,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
 
 // This file is for /active-contracts and related functionality.
@@ -183,10 +184,14 @@ func getCurrentContractsComponents(s *discordgo.Session, channelID string) []dis
 		}
 	}
 
+	guildID := ""
 	activeThreadIDs := make(map[string]bool, len(tl.Threads))
 	for _, th := range tl.Threads {
 		if th != nil {
 			activeThreadIDs[th.ID] = true
+			if guildID == "" {
+				guildID = th.GuildID
+			}
 		}
 	}
 
@@ -223,7 +228,7 @@ func getCurrentContractsComponents(s *discordgo.Session, channelID string) []dis
 			group := matched[i:j]
 			var activeCoops []*Contract
 			for _, c := range group {
-				if c.State != ContractStateCompleted {
+				if c.State != ContractStateCompleted || guildstate.GetGuildSettingFlag(guildID, "active-contracts-show-completed") {
 					activeCoops = append(activeCoops, c)
 				}
 			}
