@@ -375,7 +375,7 @@ func renderBoostOrderInterview(contract *Contract, session *boostOrderSession, s
 		boostOrderSeparatorComponent(),
 	)
 	components = append(components, boostOrderNameButtons(contract, session.xid, visible)...)
-	components = append(components, boostOrderControlButtons(session, len(unselected), pages)...)
+	components = append(components, boostOrderControlButtons(contract, session, len(unselected), pages)...)
 	components = append(components, &discordgo.TextDisplay{Content: footerText})
 	if status != "" {
 		components = append(components, &discordgo.TextDisplay{Content: status})
@@ -401,7 +401,7 @@ func boostOrderNameButtons(contract *Contract, xidValue string, visible []string
 	return components
 }
 
-func boostOrderControlButtons(session *boostOrderSession, unselectedCount int, pages int) []discordgo.MessageComponent {
+func boostOrderControlButtons(contract *Contract, session *boostOrderSession, unselectedCount int, pages int) []discordgo.MessageComponent {
 	controls := make([]discordgo.MessageComponent, 0, 5)
 	if unselectedCount > boostOrderPageSize {
 		controls = append(controls, discordgo.Button{
@@ -416,6 +416,14 @@ func boostOrderControlButtons(session *boostOrderSession, unselectedCount int, p
 			CustomID: fmt.Sprintf("%s#%s#fill", boostOrderHandlerPrefix, session.xid),
 			Disabled: unselectedCount == 0,
 		})
+	}
+
+	// Calculate how many original boosters are still in the contract
+	var actualOriginalCount int
+	for _, userID := range session.original {
+		if contract.Boosters[userID] != nil {
+			actualOriginalCount++
+		}
 	}
 
 	// Add preference buttons when the order is full (order complete)
@@ -461,7 +469,7 @@ func boostOrderControlButtons(session *boostOrderSession, unselectedCount int, p
 			Label:    "Save",
 			Style:    discordgo.SuccessButton,
 			CustomID: fmt.Sprintf("%s#%s#save", boostOrderHandlerPrefix, session.xid),
-			Disabled: len(session.selected) != len(session.original),
+			Disabled: len(session.selected) != actualOriginalCount,
 		},
 		discordgo.Button{
 			Label:    "Exit",

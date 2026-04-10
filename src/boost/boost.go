@@ -336,7 +336,24 @@ func (c *Contract) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// currentBoosterID returns the current booster ID without mutating state.
+// It is a pure accessor safe to call without holding mutex.
+// Call syncCurrentBoosterID() under mutex lock to hydrate CurrentBoosterUserID from BoostPosition if needed.
 func (c *Contract) currentBoosterID() string {
+	if c == nil {
+		return ""
+	}
+	if c.CurrentBoosterUserID != "" {
+		if _, ok := c.Boosters[c.CurrentBoosterUserID]; ok {
+			return c.CurrentBoosterUserID
+		}
+	}
+	return ""
+}
+
+// syncCurrentBoosterID hydrates CurrentBoosterUserID from BoostPosition if CurrentBoosterUserID is invalid.
+// Must be called under mutex lock.
+func (c *Contract) syncCurrentBoosterID() string {
 	if c == nil {
 		return ""
 	}
@@ -1600,7 +1617,7 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 
 	currentBoosterID := contract.currentBoosterID()
 	if currentBoosterID == "" {
-		return errors.New(errorContractNotStarted)
+		return errors.New("no active booster set")
 	}
 	booster := contract.Boosters[currentBoosterID]
 	if booster == nil {
@@ -1784,8 +1801,15 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 		var skipped = contract.Order[currentIdx]
 
 		if boosterSwap {
-			contract.Order[currentIdx] = contract.Order[currentIdx+1]
-			contract.Order[currentIdx+1] = skipped
+			// Bounds check: ensure currentIdx+1 is within range
+			if currentIdx+1 >= len(contract.Order) {
+				// Current booster is last; move to end (no-op) or fallback
+				contract.Order = removeIndex(contract.Order, currentIdx)
+				contract.Order = append(contract.Order, skipped)
+			} else {
+				contract.Order[currentIdx] = contract.Order[currentIdx+1]
+				contract.Order[currentIdx+1] = skipped
+			}
 
 		} else {
 			contract.Order = removeIndex(contract.Order, currentIdx)

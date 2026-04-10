@@ -289,3 +289,72 @@ func TestBoostOrderCommandPath(t *testing.T) {
 		t.Fatalf("expected alias command path '/catalyst', got %q", got)
 	}
 }
+
+func TestApplyBoostOrderSelectionKeepCurrentBooster(t *testing.T) {
+	// Test that when changeCurrentBooster is false, the current booster is kept in new position
+	contract := &Contract{
+		State:                ContractStateFastrun,
+		Order:                []string{"u1", "u2", "u3"},
+		CurrentBoosterUserID: "u2",
+		BoostPosition:        1,
+		Boosters: map[string]*Booster{
+			"u1": {BoostState: BoostStateBoosted},
+			"u2": {BoostState: BoostStateUnboosted},
+			"u3": {BoostState: BoostStateUnboosted},
+		},
+	}
+
+	applyBoostOrderSelection(contract, []string{"u3", "u2", "u1"}, false)
+
+	if contract.CurrentBoosterUserID != "u2" {
+		t.Fatalf("expected current booster to remain u2 when changeCurrentBooster=false, got %q", contract.CurrentBoosterUserID)
+	}
+	if !reflect.DeepEqual(contract.Order, []string{"u3", "u2", "u1"}) {
+		t.Fatalf("expected order [u3 u2 u1], got %v", contract.Order)
+	}
+}
+
+func TestApplyBoostOrderSelectionKeepCurrentBoosterRemovedFallbackToFirstUnboosted(t *testing.T) {
+	// Test that when current booster is removed and changeCurrentBooster=false, fallback to first unboosted
+	contract := &Contract{
+		State:                ContractStateFastrun,
+		Order:                []string{"u1", "u2", "u3"},
+		CurrentBoosterUserID: "u2",
+		BoostPosition:        1,
+		Boosters: map[string]*Booster{
+			"u1": {BoostState: BoostStateBoosted},
+			"u2": {BoostState: BoostStateUnboosted},
+			"u3": {BoostState: BoostStateUnboosted},
+		},
+	}
+
+	// Removed u2 from boosters but it's in the new order for test setup; we'll use u1, u3
+	applyBoostOrderSelection(contract, []string{"u1", "u3"}, false)
+
+	// u2 was removed (not in new order), so should fallback to first unboosted which is u3
+	if contract.CurrentBoosterUserID != "u3" {
+		t.Fatalf("expected current booster to fallback to u3 after u2 removed, got %q", contract.CurrentBoosterUserID)
+	}
+}
+
+func TestApplyBoostOrderSelectionKeepCurrentBoosterRemovedAllBoosted(t *testing.T) {
+	// Test that when current booster is removed and all others are boosted, currentBooster clears
+	contract := &Contract{
+		State:                ContractStateFastrun,
+		Order:                []string{"u1", "u2", "u3"},
+		CurrentBoosterUserID: "u2",
+		BoostPosition:        1,
+		Boosters: map[string]*Booster{
+			"u1": {BoostState: BoostStateBoosted},
+			"u2": {BoostState: BoostStateUnboosted},
+			"u3": {BoostState: BoostStateBoosted},
+		},
+	}
+
+	applyBoostOrderSelection(contract, []string{"u1", "u3"}, false)
+
+	// u2 removed, both u1 and u3 are boosted, so should clear current booster
+	if contract.CurrentBoosterUserID != "" {
+		t.Fatalf("expected current booster to clear when all remaining are boosted, got %q", contract.CurrentBoosterUserID)
+	}
+}

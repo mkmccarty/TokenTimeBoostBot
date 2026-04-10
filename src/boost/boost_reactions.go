@@ -104,11 +104,16 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				}
 			case "🚽":
 				if contract.Boosters[r.UserID].BoostState == BoostStateUnboosted {
-					// Move Booster position is 1 based, so we need to add 2 to the current position
-					err := MoveBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], r.UserID, currentBoosterIdx+2, true)
-					if err == nil {
-						_, _ = s.ChannelMessageSend(r.ChannelID, contract.Boosters[r.UserID].Name+" expressed a desire to go next!")
-						returnVal = "!gonow"
+					// Bounds check: ensure currentBoosterIdx is valid before using it
+					if currentBoosterIdx < 0 {
+						_, _ = s.ChannelMessageSend(r.ChannelID, "Unable to move booster right now because the current booster position could not be determined.")
+					} else {
+						// Move Booster position is 1 based, so we need to add 2 to the current position
+						err := MoveBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], r.UserID, currentBoosterIdx+2, true)
+						if err == nil {
+							_, _ = s.ChannelMessageSend(r.ChannelID, contract.Boosters[r.UserID].Name+" expressed a desire to go next!")
+							returnVal = "!gonow"
+						}
 					}
 				}
 			}
