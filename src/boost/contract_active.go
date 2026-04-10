@@ -214,6 +214,7 @@ func getCurrentContractsComponents(s *discordgo.Session, channelID string) []dis
 			return matched[i].CoopID < matched[j].CoopID
 		})
 
+		// Group by ContractID and display each contract with its active coops.
 		for i := 0; i < len(matched); {
 			j := i + 1
 			for j < len(matched) && matched[j].ContractID == matched[i].ContractID {
@@ -226,6 +227,7 @@ func getCurrentContractsComponents(s *discordgo.Session, channelID string) []dis
 					activeCoops = append(activeCoops, c)
 				}
 			}
+			// Get the contract display component for this contract and its active coops, if any.
 			if len(activeCoops) > 0 {
 				contractComponents = append(contractComponents, getContractDisplay(group[0], activeCoops, activeThreadIDs))
 			}
@@ -246,7 +248,11 @@ func getContractDisplay(header *Contract, coops []*Contract, activeThreadIDs map
 	iconCoop := ei.GetBotEmojiMarkdown("icon_coop")
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "## %s **%s** %s `%d`\n", header.EggEmoji, header.Name, iconCoop, header.CoopSize)
+	coopSizeStr := ""
+	if header.EggName != "" {
+		coopSizeStr = fmt.Sprintf(" %s `%d`", iconCoop, header.CoopSize)
+	}
+	fmt.Fprintf(&b, "## %s **%s**%s\n", header.EggEmoji, header.Name, coopSizeStr)
 
 	for _, c := range coops {
 		if b.Len() > 3500 {
@@ -267,9 +273,13 @@ func getContractDisplay(header *Contract, coops []*Contract, activeThreadIDs map
 		if len(c.Boosters) >= c.CoopSize {
 			count = "FULL"
 		}
-		fmt.Fprintf(&b, "_ _%s `%s` [**⧉ %s**](%s) \n", colorEmoji, count, c.CoopID, threadURL)
+		fmt.Fprintf(&b, "%s%s `%s` [**⧉ %s**](%s) \n",
+			strings.Repeat("_ _ ", 5),
+			colorEmoji, count, c.CoopID, threadURL)
 		if !c.PlannedStartTime.IsZero() {
-			fmt.Fprintf(&b, "-# _    _↳Start: %s\n", bottools.WrapTimestamp(c.PlannedStartTime.Unix(), bottools.TimestampLongDateTime))
+			fmt.Fprintf(&b, "-# %s↳Start: %s\n",
+				strings.Repeat("_ _ ", 7),
+				bottools.WrapTimestamp(c.PlannedStartTime.Unix(), bottools.TimestampLongDateTime))
 		}
 	}
 
