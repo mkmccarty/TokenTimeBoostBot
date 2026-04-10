@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
@@ -534,6 +535,83 @@ func getRandomColor() int {
 var lastContractListTime time.Time
 var lastContractListIndex int
 
+const (
+	discordMessageContentLimit = 2000
+	discordEmbedTitleLimit     = 256
+	discordEmbedDescLimit      = 4096
+	discordEmbedFieldNameLimit = 256
+	discordEmbedFieldValueLimit = 1024
+	discordEmbedFieldCountLimit = 25
+	discordEmbedTotalCharLimit  = 6000
+)
+
+func truncateDiscordText(input string, maxRunes int) string {
+	if maxRunes <= 0 {
+		return ""
+	}
+	if utf8.RuneCountInString(input) <= maxRunes {
+		return input
+	}
+	runes := []rune(input)
+	const ellipsis = "..."
+	if maxRunes <= len(ellipsis) {
+		return string(runes[:maxRunes])
+	}
+	return string(runes[:maxRunes-len(ellipsis)]) + ellipsis
+}
+
+func runeCount(s string) int {
+	return utf8.RuneCountInString(s)
+}
+
+func clampEmbedFieldsToDiscordLimit(title string, description string, fields []*discordgo.MessageEmbedField) ([]*discordgo.MessageEmbedField, int) {
+	if len(fields) == 0 {
+		return fields, 0
+	}
+
+	title = truncateDiscordText(title, discordEmbedTitleLimit)
+	description = truncateDiscordText(description, discordEmbedDescLimit)
+	total := runeCount(title) + runeCount(description)
+
+	limited := make([]*discordgo.MessageEmbedField, 0, min(len(fields), discordEmbedFieldCountLimit))
+	omitted := 0
+
+	for idx, field := range fields {
+		if len(limited) >= discordEmbedFieldCountLimit {
+			omitted += len(fields) - idx
+			break
+		}
+		if field == nil {
+			continue
+		}
+
+		name := truncateDiscordText(field.Name, discordEmbedFieldNameLimit)
+		value := truncateDiscordText(field.Value, discordEmbedFieldValueLimit)
+
+		remaining := discordEmbedTotalCharLimit - total - runeCount(name)
+		if remaining <= 0 {
+			omitted += len(fields) - idx
+			break
+		}
+		if runeCount(value) > remaining {
+			value = truncateDiscordText(value, remaining)
+		}
+		if value == "" {
+			value = "-"
+		}
+
+		limited = append(limited, &discordgo.MessageEmbedField{
+			Name:   name,
+			Value:  value,
+			Inline: field.Inline,
+		})
+
+		total += runeCount(name) + runeCount(value)
+	}
+
+	return limited, omitted
+}
+
 // getContractList returns a list of all contracts within the specified guild
 func getContractList(guildID string) (string, *discordgo.MessageSend, error) {
 	var field []*discordgo.MessageEmbedField
@@ -589,21 +667,45 @@ func getContractList(guildID string) (string, *discordgo.MessageSend, error) {
 	i := 1 + startIdx
 	for _, c := range contractList {
 		if guildID != "766330702689992720" {
-			if guildID != "" && c.Location[0].GuildID != guildID {
-				continue
+			if guildID != "" {
+				inGuild := false
+				for _, loc := range c.Location {
+					if loc != nil && loc.GuildID == guildID {
+						inGuild = true
+						break
+					}
+				}
+				if !inGuild {
+					continue
+				}
 			}
 		}
 		var str strings.Builder
-		fmt.Fprintf(&str, "> Coordinator: <@%s>  [%s](%s/%s/%s)\n", c.CreatorID[0], c.CoopID, "https://eicoop-carpet.netlify.app", c.ContractID, c.CoopID)
+		coordinatorID := "unknown"
+		if len(c.CreatorID) > 0 && c.CreatorID[0] != "" {
+			coordinatorID = c.CreatorID[0]
+		}
+		stateName := "Unknown"
+		if c.State >= 0 && c.State < len(contractStateNames) {
+			stateName = contractStateNames[c.State]
+		}
+
+		fmt.Fprintf(&str, "> Coordinator: <@%s>  [%s](%s/%s/%s)\n", coordinatorID, c.CoopID, "https://eicoop-carpet.netlify.app", c.ContractID, c.CoopID)
 		for _, loc := range c.Location {
+			if loc == nil {
+				continue
+			}
 			fmt.Fprintf(&str, "> *%s*\t%s\n", loc.GuildName, loc.ChannelMention)
 		}
 		fmt.Fprintf(&str, "> Started: <t:%d:R>\n", c.StartTime.Unix())
-		fmt.Fprintf(&str, "> Contract State: *%s*\n", contractStateNames[c.State])
+		fmt.Fprintf(&str, "> Contract State: *%s*\n", stateName)
 		fmt.Fprintf(&str, "> Hash: *%s*\n", c.ContractHash)
+
+		fieldName := truncateDiscordText(fmt.Sprintf("%d - **%s/%s**\n", i, c.ContractID, c.CoopID), discordEmbedFieldNameLimit)
+		fieldValue := truncateDiscordText(str.String(), discordEmbedFieldValueLimit)
 		field = append(field, &discordgo.MessageEmbedField{
-			Name:   fmt.Sprintf("%d - **%s/%s**\n", i, c.ContractID, c.CoopID),
-			Value:  str.String(),
+			Name:   fieldName,
+			Value:  fieldValue,
 			Inline: false,
 		})
 		i++
@@ -624,17 +726,27 @@ func getContractList(guildID string) (string, *discordgo.MessageSend, error) {
 		}
 	}
 
+	title := truncateDiscordText("Contract List", discordEmbedTitleLimit)
+	description := truncateDiscordText(fmt.Sprintf("%d contracts running", len(Contracts)), discordEmbedDescLimit)
+	field, omitted := clampEmbedFieldsToDiscordLimit(title, description, field)
+	if omitted > 0 {
+		description = truncateDiscordText(
+			fmt.Sprintf("%s\nShowing %d contract entries due to Discord message limits.", description, len(field)),
+			discordEmbedDescLimit,
+		)
+	}
+
 	embed := &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{{
 			Type:        discordgo.EmbedTypeRich,
-			Title:       "Contract List",
-			Description: fmt.Sprintf("%d contracts running", len(Contracts)),
+			Title:       title,
+			Description: description,
 			Color:       getRandomColor(),
 			Fields:      field,
 		}},
 	}
 
-	return str, embed, nil
+	return truncateDiscordText(str, discordMessageContentLimit), embed, nil
 }
 
 // finishContractByHash is called only when the contract is complete
