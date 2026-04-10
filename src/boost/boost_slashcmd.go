@@ -525,8 +525,6 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		tokenCount = opt.IntValue()
 	}
 
-	modifiedTokenLog := ei.TokenUnitLog{}
-
 	str := "Token not found"
 	c.mutex.Lock()
 	if action == 0 { // Move
@@ -535,7 +533,6 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			if xid.Counter() == tokenIndex {
 				c.TokenLog[i].ToUserID = c.Boosters[boosterIndex].UserID
 				c.TokenLog[i].ToNick = c.Boosters[boosterIndex].Nick
-				modifiedTokenLog = c.TokenLog[i]
 				str = fmt.Sprintf("Token moved to %s", c.TokenLog[i].ToNick)
 				break
 			}
@@ -544,12 +541,6 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		for i, t := range c.TokenLog {
 			xid, _ := xid.FromString(t.Serial)
 			if xid.Counter() == tokenIndex {
-				modifiedTokenLog = c.TokenLog[i]
-				modifiedTokenLog.Quantity = 0
-				modifiedTokenLog.ToNick = "Deleted"
-				modifiedTokenLog.ToUserID = "Deleted"
-				modifiedTokenLog.FromNick = "Deleted"
-				modifiedTokenLog.FromUserID = "Deleted"
 				c.TokenLog = append(c.TokenLog[:i], c.TokenLog[i+1:]...)
 				str = "Token deleted"
 				break
@@ -561,7 +552,6 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			if xid.Counter() == tokenIndex {
 				c.TokenLog[i].Quantity = int(tokenCount)
 				c.TokenLog[i].Value = bottools.GetTokenValue(c.TokenLog[i].Time.Sub(c.StartTime).Seconds(), c.EstimatedDuration.Seconds()) * float64(c.TokenLog[i].Quantity)
-				modifiedTokenLog = c.TokenLog[i]
 				str = "Token count modified"
 				break
 			}
