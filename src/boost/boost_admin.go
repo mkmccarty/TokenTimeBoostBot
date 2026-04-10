@@ -664,9 +664,10 @@ func getContractList(guildID string) (string, *discordgo.MessageSend, error) {
 	// Update index for next call
 	lastContractListIndex = endIdx
 
+	homeGuild := guildstate.GetGuildSettingString("DEFAULT", "home_guild")
 	i := 1 + startIdx
 	for _, c := range contractList {
-		if guildID != "766330702689992720" {
+		if guildID != homeGuild && homeGuild != "" {
 			if guildID != "" {
 				inGuild := false
 				for _, loc := range c.Location {
