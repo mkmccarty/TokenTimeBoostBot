@@ -18,16 +18,17 @@ const (
 )
 
 type boostOrderSession struct {
-	xid          string
-	contractHash string
-	channelID    string
-	userID       string
-	commandName  string
-	original     []string
-	selected     []string
-	undoSteps    []int
-	page         int
-	expiresAt    time.Time
+	xid                  string
+	contractHash         string
+	channelID            string
+	userID               string
+	commandName          string
+	original             []string
+	selected             []string
+	undoSteps            []int
+	page                 int
+	expiresAt            time.Time
+	changeCurrentBooster bool // Whether to reset current booster to first unboosted when saving
 }
 
 var boostOrderSessions = make(map[string]*boostOrderSession)
@@ -78,16 +79,17 @@ func HandleBoostOrderCommand(s *discordgo.Session, i *discordgo.InteractionCreat
 	clearBoostOrderSessionsForUserContract(userID, contract.ContractHash)
 
 	session := &boostOrderSession{
-		xid:          xid.New().String(),
-		contractHash: contract.ContractHash,
-		channelID:    i.ChannelID,
-		userID:       userID,
-		commandName:  commandName,
-		original:     append([]string(nil), contract.Order...),
-		selected:     boostOrderSeededSelection(contract),
-		undoSteps:    []int{},
-		page:         0,
-		expiresAt:    time.Now().Add(boostOrderSessionTTL),
+		xid:                  xid.New().String(),
+		contractHash:         contract.ContractHash,
+		channelID:            i.ChannelID,
+		userID:               userID,
+		commandName:          commandName,
+		original:             append([]string(nil), contract.Order...),
+		selected:             boostOrderSeededSelection(contract),
+		undoSteps:            []int{},
+		page:                 0,
+		expiresAt:            time.Now().Add(boostOrderSessionTTL),
+		changeCurrentBooster: false, // Default to keeping current booster
 	}
 	boostOrderSessions[session.xid] = session
 
@@ -199,16 +201,57 @@ func HandleBoostOrderReactions(s *discordgo.Session, i *discordgo.InteractionCre
 		session.undoSteps = []int{}
 		session.page = 0
 		status = "Catalyst reset."
+	case "setkeepcurrent":
+		session.changeCurrentBooster = false
+		status = "✓ Current booster position will be preserved."
+	case "setresetfirst":
+		session.changeCurrentBooster = true
+		status = "✓ Current booster will be reset to first unboosted."
 	case "save":
-		if len(session.selected) != len(session.original) {
-			status = fmt.Sprintf("Please select all farmers first (%d/%d selected).", len(session.selected), len(session.original))
+		// Filter selected boosters to only include those still in the contract
+		var validSelected []string
+		for _, userID := range session.selected {
+			if contract.Boosters[userID] != nil {
+				validSelected = append(validSelected, userID)
+			}
+		}
+
+		// Determine which original boosters are still in the contract
+		var actualOriginal []string
+		for _, userID := range session.original {
+			if contract.Boosters[userID] != nil {
+				actualOriginal = append(actualOriginal, userID)
+			}
+		}
+
+		// Check if all current boosters are selected
+		if len(validSelected) != len(actualOriginal) {
+			status = fmt.Sprintf("Please select all farmers first (%d/%d selected).", len(validSelected), len(actualOriginal))
 			break
 		}
-		applyBoostOrderSelection(contract, session.selected)
+
+		previousCurrentBoosterID := contract.currentBoosterID()
+		applyBoostOrderSelection(contract, validSelected, session.changeCurrentBooster)
+		newCurrentBoosterID := contract.currentBoosterID()
+		notifiedCurrentBoosterChange := false
+		if previousCurrentBoosterID != newCurrentBoosterID && newCurrentBoosterID != "" && contract.Style&ContractFlagBanker == 0 {
+			sendNextNotification(s, contract, true)
+			notifiedCurrentBoosterChange = true
+		}
+		currentBoosterText := "none"
+		if newCurrentBoosterID != "" {
+			currentBoosterText = boostOrderMention(contract, newCurrentBoosterID)
+		}
+		changeText := fmt.Sprintf("Current booster remained: %s.", currentBoosterText)
+		if previousCurrentBoosterID != newCurrentBoosterID {
+			changeText = fmt.Sprintf("Current booster changed to: %s.", currentBoosterText)
+		}
 		saveData(contract.ContractHash)
-		refreshBoostListMessage(s, contract, false)
+		if !notifiedCurrentBoosterChange {
+			refreshBoostListMessage(s, contract, false)
+		}
 		delete(boostOrderSessions, session.xid)
-		respondBoostOrderUpdate(s, i, "Boost order saved and contract redrawn.", []discordgo.MessageComponent{})
+		respondBoostOrderUpdate(s, i, fmt.Sprintf("Boost order saved and contract redrawn. %s", changeText), []discordgo.MessageComponent{})
 		return
 	case "exit":
 		delete(boostOrderSessions, session.xid)
@@ -332,7 +375,7 @@ func renderBoostOrderInterview(contract *Contract, session *boostOrderSession, s
 		boostOrderSeparatorComponent(),
 	)
 	components = append(components, boostOrderNameButtons(contract, session.xid, visible)...)
-	components = append(components, boostOrderControlButtons(session, len(unselected), pages)...)
+	components = append(components, boostOrderControlButtons(contract, session, len(unselected), pages)...)
 	components = append(components, &discordgo.TextDisplay{Content: footerText})
 	if status != "" {
 		components = append(components, &discordgo.TextDisplay{Content: status})
@@ -358,7 +401,7 @@ func boostOrderNameButtons(contract *Contract, xidValue string, visible []string
 	return components
 }
 
-func boostOrderControlButtons(session *boostOrderSession, unselectedCount int, pages int) []discordgo.MessageComponent {
+func boostOrderControlButtons(contract *Contract, session *boostOrderSession, unselectedCount int, pages int) []discordgo.MessageComponent {
 	controls := make([]discordgo.MessageComponent, 0, 5)
 	if unselectedCount > boostOrderPageSize {
 		controls = append(controls, discordgo.Button{
@@ -374,6 +417,41 @@ func boostOrderControlButtons(session *boostOrderSession, unselectedCount int, p
 			Disabled: unselectedCount == 0,
 		})
 	}
+
+	// Calculate how many original boosters are still in the contract
+	var actualOriginalCount int
+	for _, userID := range session.original {
+		if contract.Boosters[userID] != nil {
+			actualOriginalCount++
+		}
+	}
+
+	// Add preference buttons when the order is full (order complete)
+	var toggleComponents []discordgo.MessageComponent
+	if unselectedCount == 0 {
+		keepLabel := "Keep current booster"
+		resetLabel := "Reset to first unboosted"
+		if !session.changeCurrentBooster {
+			keepLabel = "✓ Keep current booster"
+		} else {
+			resetLabel = "✓ Reset to first unboosted"
+		}
+		toggleComponents = append(toggleComponents, discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{
+					Label:    keepLabel,
+					Style:    discordgo.SecondaryButton,
+					CustomID: fmt.Sprintf("%s#%s#setkeepcurrent", boostOrderHandlerPrefix, session.xid),
+				},
+				discordgo.Button{
+					Label:    resetLabel,
+					Style:    discordgo.SecondaryButton,
+					CustomID: fmt.Sprintf("%s#%s#setresetfirst", boostOrderHandlerPrefix, session.xid),
+				},
+			},
+		})
+	}
+
 	controls = append(controls,
 		discordgo.Button{
 			Label:    "Undo",
@@ -391,7 +469,7 @@ func boostOrderControlButtons(session *boostOrderSession, unselectedCount int, p
 			Label:    "Save",
 			Style:    discordgo.SuccessButton,
 			CustomID: fmt.Sprintf("%s#%s#save", boostOrderHandlerPrefix, session.xid),
-			Disabled: len(session.selected) != len(session.original),
+			Disabled: len(session.selected) != actualOriginalCount,
 		},
 		discordgo.Button{
 			Label:    "Exit",
@@ -402,10 +480,20 @@ func boostOrderControlButtons(session *boostOrderSession, unselectedCount int, p
 	if pages <= 1 {
 		session.page = 0
 	}
-	if len(controls) == 0 {
+
+	// Build final components: toggle first (if present), then control buttons
+	var result []discordgo.MessageComponent
+	if len(toggleComponents) > 0 {
+		result = append(result, toggleComponents...)
+	}
+	if len(controls) > 0 {
+		result = append(result, discordgo.ActionsRow{Components: controls})
+	}
+
+	if len(result) == 0 {
 		return nil
 	}
-	return []discordgo.MessageComponent{discordgo.ActionsRow{Components: controls}}
+	return result
 }
 
 func buildBoostOrderTextSections(contract *Contract, session *boostOrderSession, unselectedCount int, pages int) (string, string, string, string, string, string) {
@@ -414,6 +502,12 @@ func buildBoostOrderTextSections(contract *Contract, session *boostOrderSession,
 	}
 
 	currentSummary := boostOrderSummary(contract, session.original, 0)
+	// Add rocket emoji to current booster in summary
+	currentBoosterID := contract.currentBoosterID()
+	if currentBoosterID != "" {
+		currentSummary = strings.ReplaceAll(currentSummary, boostOrderMention(contract, currentBoosterID), "🚀 "+boostOrderMention(contract, currentBoosterID))
+	}
+
 	boostedSelection := boostOrderSeededSelection(contract)
 	boostedSummary := boostOrderSummary(contract, boostedSelection, 0)
 	buildingSelection := boostOrderExclude(session.selected, boostedSelection)
@@ -425,11 +519,23 @@ func buildBoostOrderTextSections(contract *Contract, session *boostOrderSession,
 
 	headerText := "# Boost  Catalyst\n-# Precision sequencing for maximum velocity."
 	currentText := fmt.Sprintf("**Current:** %s", currentSummary)
+
+	// Add toggle preference info when order is complete
+	if unselectedCount == 0 {
+		var toggleNote string
+		if session.changeCurrentBooster {
+			toggleNote = " (on completion: reset to first unboosted)"
+		} else {
+			toggleNote = " (on completion: keep current in new position)"
+		}
+		currentText += toggleNote
+	}
+
 	boostedText := ""
 	if boostedSummary != "" {
 		boostedText = fmt.Sprintf("**Boosted:** %s", boostedSummary)
 	}
-	buildingText := fmt.Sprintf("**Building:** %s (%d/%d selected)", selectedSummary, len(buildingSelection), buildingTarget)
+	buildingText := fmt.Sprintf("**Reordered:** %s (%d/%d selected)", selectedSummary, len(buildingSelection), buildingTarget)
 
 	instructionsText := boostOrderButtonsHint(unselectedCount)
 
@@ -623,38 +729,56 @@ func boostOrderPages(count int) int {
 	return (count + boostOrderPageSize - 1) / boostOrderPageSize
 }
 
-func applyBoostOrderSelection(contract *Contract, selected []string) {
+func applyBoostOrderSelection(contract *Contract, selected []string, changeCurrentBooster bool) {
 	newOrder := append([]string(nil), selected...)
 
 	contract.mutex.Lock()
+	previousCurrent := contract.currentBoosterID()
 	contract.Order = newOrder
 	contract.OrderRevision++
 
 	if contract.State != ContractStateSignup {
-		nextIdx := boostOrderFirstNotBoosted(contract)
-		if nextIdx >= 0 {
-			contract.BoostPosition = nextIdx
-		} else if len(contract.Order) > 0 {
-			contract.BoostPosition = min(contract.BoostPosition, len(contract.Order)-1)
-			if contract.BoostPosition < 0 {
-				contract.BoostPosition = 0
+		if changeCurrentBooster {
+			// Reset to first unboosted, or keep previous if still eligible, or clear
+			nextID := boostOrderFirstNotBoostedID(contract)
+			if nextID != "" {
+				contract.setCurrentBoosterByUserIDWithStart(nextID)
+			} else if previousCurrent != "" && slices.Contains(contract.Order, previousCurrent) {
+				contract.setCurrentBoosterByUserIDWithStart(previousCurrent)
+			} else {
+				contract.clearCurrentBooster()
+			}
+		} else {
+			// Keep current booster in their new position (if still in order)
+			if previousCurrent != "" && slices.Contains(contract.Order, previousCurrent) {
+				contract.setCurrentBoosterByUserIDWithStart(previousCurrent)
+			} else {
+				// Current booster was removed, fall back to first unboosted
+				nextID := boostOrderFirstNotBoostedID(contract)
+				if nextID != "" {
+					contract.setCurrentBoosterByUserIDWithStart(nextID)
+				} else {
+					contract.clearCurrentBooster()
+				}
 			}
 		}
+		// Enforce that only current booster has BoostStateTokenTime
+		contract.enforceOnlyOneTokenTimeBooster()
 	}
 	contract.mutex.Unlock()
 }
 
-func boostOrderFirstNotBoosted(contract *Contract) int {
-	for i, userID := range contract.Order {
+func boostOrderFirstNotBoostedID(contract *Contract) string {
+	for _, userID := range contract.Order {
 		booster := contract.Boosters[userID]
 		if booster == nil {
 			continue
 		}
 		if booster.BoostState == BoostStateUnboosted || booster.BoostState == BoostStateTokenTime {
-			return i
+			return userID
 		}
 	}
-	return -1
+	return ""
 }
 
 func boostOrderSeededSelection(contract *Contract) []string {

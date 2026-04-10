@@ -101,6 +101,10 @@ func buttonReactionBoost(s *discordgo.Session, GuildID string, ChannelID string,
 	// If Rocket reaction on Boost List, only that boosting user can apply a reaction
 	redraw := false
 	votingElection := false
+	currentBoosterID := contract.currentBoosterID()
+	if currentBoosterID == "" {
+		return redraw
+	}
 	if contract.State != ContractStateFastrun {
 		panic("The boost option is only available during fastrun contracts")
 	}
@@ -109,15 +113,15 @@ func buttonReactionBoost(s *discordgo.Session, GuildID string, ChannelID string,
 	if contract.Boosters[cUserID] != nil && len(contract.Boosters[cUserID].Alts) > 0 {
 		// Find the most recent boost time among the user and their alts
 		for _, altID := range contract.Boosters[cUserID].Alts {
-			if altID == contract.Order[contract.BoostPosition] {
+			if altID == currentBoosterID {
 				userID = altID
 				break
 			}
 		}
 	}
 
-	if userID != contract.Order[contract.BoostPosition] {
-		b := contract.Boosters[contract.Order[contract.BoostPosition]]
+	if userID != currentBoosterID {
+		b := contract.Boosters[currentBoosterID]
 		// TODO: This is currently not a unique list of userID's, maybe needs to be a unqiue insert,
 		// but it's not a big deal in practice.
 		b.VotingList = append(b.VotingList, userID)
@@ -130,7 +134,7 @@ func buttonReactionBoost(s *discordgo.Session, GuildID string, ChannelID string,
 		log.Printf("Vote for %s to boost from %s - vote count %d or %d\n", b.UserID, userID, len(b.VotingList), votesNeeded)
 	}
 
-	if userID == contract.Order[contract.BoostPosition] || votingElection || creatorOfContract(s, contract, cUserID) {
+	if userID == currentBoosterID || votingElection || creatorOfContract(s, contract, cUserID) {
 		_ = Boosting(s, GuildID, ChannelID)
 		return true
 	}
@@ -149,8 +153,8 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 	var b *Booster
 	if bankerID != "" {
 		b = contract.Boosters[bankerID]
-	} else if contract.BoostPosition < len(contract.Order) {
-		b = contract.Boosters[contract.Order[contract.BoostPosition]]
+	} else if currentBoosterID := contract.currentBoosterID(); currentBoosterID != "" {
+		b = contract.Boosters[currentBoosterID]
 		// When not using a banker, adjust the boost countdown variable
 	}
 	if alternateBooster != "" {
@@ -233,8 +237,13 @@ func buttonReactionLast(s *discordgo.Session, GuildID string, ChannelID string, 
 
 func buttonReactionSwap(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, cUserID string) bool {
 	// Reaction for current booster to change places
-	if cUserID == contract.Order[contract.BoostPosition] || creatorOfContract(s, contract, cUserID) {
-		if (contract.BoostPosition + 1) < len(contract.Order) {
+	currentID := contract.currentBoosterID()
+	currentIdx := contract.currentBoosterOrderIndex()
+	if currentID == "" || currentIdx < 0 {
+		return false
+	}
+	if cUserID == currentID || creatorOfContract(s, contract, cUserID) {
+		if (currentIdx + 1) < len(contract.Order) {
 			_ = SkipBooster(s, GuildID, ChannelID, "")
 			return true
 		}
@@ -708,13 +717,14 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 
 			}
 
-			if contract.State == ContractStateFastrun && contract.BoostPosition < len(contract.Order)-1 {
-				b := contract.Boosters[contract.Order[contract.BoostPosition]]
-				if b.TokensWanted <= b.TokensReceived {
+			currentIdx := contract.currentBoosterOrderIndex()
+			if contract.State == ContractStateFastrun && currentIdx >= 0 && currentIdx < len(contract.Order)-1 {
+				b := contract.currentBooster()
+				if b != nil && b.TokensWanted <= b.TokensReceived {
 					menuOptions = append(menuOptions, discordgo.SelectMenuOption{
-						Label:       fmt.Sprintf("Send %s a token", contract.Boosters[contract.Order[contract.BoostPosition+1]].Nick),
+						Label:       fmt.Sprintf("Send %s a token", contract.Boosters[contract.Order[currentIdx+1]].Nick),
 						Description: fmt.Sprintf("Waiting on %s 🚀.", b.Nick),
-						Value:       fmt.Sprintf("next:%s", contract.Order[contract.BoostPosition+1]),
+						Value:       fmt.Sprintf("next:%s", contract.Order[currentIdx+1]),
 						Emoji:       ei.GetBotComponentEmoji("token"),
 					})
 				}

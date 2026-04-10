@@ -26,8 +26,11 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 
 	if cUserID == contract.Banker.BoostingSinkUserID {
 		var b, sink *Booster
-		b = contract.Boosters[contract.Order[contract.BoostPosition]]
+		b = contract.currentBooster()
 		sink = contract.Boosters[cUserID]
+		if b == nil {
+			return false, redraw
+		}
 
 		if cUserID == b.UserID {
 			// Current booster subtract number of tokens wanted

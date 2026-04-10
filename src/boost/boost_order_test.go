@@ -36,9 +36,10 @@ func TestBoostOrderVisiblePage(t *testing.T) {
 
 func TestApplyBoostOrderSelectionActiveContractSetsNextBooster(t *testing.T) {
 	contract := &Contract{
-		State:         ContractStateFastrun,
-		Order:         []string{"u1", "u2", "u3"},
-		BoostPosition: 2,
+		State:                ContractStateFastrun,
+		Order:                []string{"u1", "u2", "u3"},
+		CurrentBoosterUserID: "u3",
+		BoostPosition:        2,
 		Boosters: map[string]*Booster{
 			"u1": {BoostState: BoostStateBoosted},
 			"u2": {BoostState: BoostStateUnboosted},
@@ -46,13 +47,13 @@ func TestApplyBoostOrderSelectionActiveContractSetsNextBooster(t *testing.T) {
 		},
 	}
 
-	applyBoostOrderSelection(contract, []string{"u3", "u1", "u2"})
+	applyBoostOrderSelection(contract, []string{"u3", "u1", "u2"}, true)
 
 	if !reflect.DeepEqual(contract.Order, []string{"u3", "u1", "u2"}) {
 		t.Fatalf("unexpected order: %v", contract.Order)
 	}
-	if contract.BoostPosition != 2 {
-		t.Fatalf("expected boost position 2, got %d", contract.BoostPosition)
+	if contract.CurrentBoosterUserID != "u2" {
+		t.Fatalf("expected current booster u2, got %q", contract.CurrentBoosterUserID)
 	}
 	if contract.OrderRevision != 1 {
 		t.Fatalf("expected order revision 1, got %d", contract.OrderRevision)
@@ -61,19 +62,20 @@ func TestApplyBoostOrderSelectionActiveContractSetsNextBooster(t *testing.T) {
 
 func TestApplyBoostOrderSelectionSignupDoesNotChangeCurrent(t *testing.T) {
 	contract := &Contract{
-		State:         ContractStateSignup,
-		Order:         []string{"u1", "u2"},
-		BoostPosition: 1,
+		State:                ContractStateSignup,
+		Order:                []string{"u1", "u2"},
+		CurrentBoosterUserID: "u2",
+		BoostPosition:        1,
 		Boosters: map[string]*Booster{
 			"u1": {BoostState: BoostStateUnboosted},
 			"u2": {BoostState: BoostStateUnboosted},
 		},
 	}
 
-	applyBoostOrderSelection(contract, []string{"u2", "u1"})
+	applyBoostOrderSelection(contract, []string{"u2", "u1"}, true)
 
-	if contract.BoostPosition != 1 {
-		t.Fatalf("expected boost position to remain unchanged in signup, got %d", contract.BoostPosition)
+	if contract.CurrentBoosterUserID != "u2" {
+		t.Fatalf("expected current booster to remain unchanged in signup, got %q", contract.CurrentBoosterUserID)
 	}
 }
 
@@ -285,5 +287,120 @@ func TestBoostOrderCommandPath(t *testing.T) {
 	}
 	if got := boostOrderCommandPath("catalyst"); got != "/catalyst" {
 		t.Fatalf("expected alias command path '/catalyst', got %q", got)
+	}
+}
+
+func TestApplyBoostOrderSelectionKeepCurrentBooster(t *testing.T) {
+	// Test that when changeCurrentBooster is false, the current booster is kept in new position
+	contract := &Contract{
+		State:                ContractStateFastrun,
+		Order:                []string{"u1", "u2", "u3"},
+		CurrentBoosterUserID: "u2",
+		BoostPosition:        1,
+		Boosters: map[string]*Booster{
+			"u1": {BoostState: BoostStateBoosted},
+			"u2": {BoostState: BoostStateUnboosted},
+			"u3": {BoostState: BoostStateUnboosted},
+		},
+	}
+
+	applyBoostOrderSelection(contract, []string{"u3", "u2", "u1"}, false)
+
+	if contract.CurrentBoosterUserID != "u2" {
+		t.Fatalf("expected current booster to remain u2 when changeCurrentBooster=false, got %q", contract.CurrentBoosterUserID)
+	}
+	if !reflect.DeepEqual(contract.Order, []string{"u3", "u2", "u1"}) {
+		t.Fatalf("expected order [u3 u2 u1], got %v", contract.Order)
+	}
+}
+
+func TestApplyBoostOrderSelectionKeepCurrentBoosterRemovedFallbackToFirstUnboosted(t *testing.T) {
+	// Test that when current booster is removed and changeCurrentBooster=false, fallback to first unboosted
+	contract := &Contract{
+		State:                ContractStateFastrun,
+		Order:                []string{"u1", "u2", "u3"},
+		CurrentBoosterUserID: "u2",
+		BoostPosition:        1,
+		Boosters: map[string]*Booster{
+			"u1": {BoostState: BoostStateBoosted},
+			"u2": {BoostState: BoostStateUnboosted},
+			"u3": {BoostState: BoostStateUnboosted},
+		},
+	}
+
+	// Removed u2 from boosters but it's in the new order for test setup; we'll use u1, u3
+	applyBoostOrderSelection(contract, []string{"u1", "u3"}, false)
+
+	// u2 was removed (not in new order), so should fallback to first unboosted which is u3
+	if contract.CurrentBoosterUserID != "u3" {
+		t.Fatalf("expected current booster to fallback to u3 after u2 removed, got %q", contract.CurrentBoosterUserID)
+	}
+}
+
+func TestApplyBoostOrderSelectionKeepCurrentBoosterRemovedAllBoosted(t *testing.T) {
+	// Test that when current booster is removed and all others are boosted, currentBooster clears
+	contract := &Contract{
+		State:                ContractStateFastrun,
+		Order:                []string{"u1", "u2", "u3"},
+		CurrentBoosterUserID: "u2",
+		BoostPosition:        1,
+		Boosters: map[string]*Booster{
+			"u1": {BoostState: BoostStateBoosted},
+			"u2": {BoostState: BoostStateUnboosted},
+			"u3": {BoostState: BoostStateBoosted},
+		},
+	}
+
+	applyBoostOrderSelection(contract, []string{"u1", "u3"}, false)
+
+	// u2 removed, both u1 and u3 are boosted, so should clear current booster
+	if contract.CurrentBoosterUserID != "" {
+		t.Fatalf("expected current booster to clear when all remaining are boosted, got %q", contract.CurrentBoosterUserID)
+	}
+}
+
+func TestApplyBoostOrderSelectionUpdatesStartTimeWhenCurrentChanges(t *testing.T) {
+	oldStart := time.Now().Add(-10 * time.Minute)
+	contract := &Contract{
+		State:                ContractStateFastrun,
+		Order:                []string{"u1", "u2"},
+		CurrentBoosterUserID: "u1",
+		BoostPosition:        0,
+		Boosters: map[string]*Booster{
+			"u1": {BoostState: BoostStateTokenTime, StartTime: oldStart},
+			"u2": {BoostState: BoostStateUnboosted, StartTime: oldStart},
+		},
+	}
+
+	applyBoostOrderSelection(contract, []string{"u2", "u1"}, true)
+
+	if contract.CurrentBoosterUserID != "u2" {
+		t.Fatalf("expected current booster to be u2, got %q", contract.CurrentBoosterUserID)
+	}
+	if !contract.Boosters["u2"].StartTime.After(oldStart) {
+		t.Fatalf("expected u2 StartTime to be updated when selected as new current booster")
+	}
+}
+
+func TestApplyBoostOrderSelectionDoesNotUpdateStartTimeWhenCurrentUnchanged(t *testing.T) {
+	oldStart := time.Now().Add(-10 * time.Minute)
+	contract := &Contract{
+		State:                ContractStateFastrun,
+		Order:                []string{"u1", "u2"},
+		CurrentBoosterUserID: "u1",
+		BoostPosition:        0,
+		Boosters: map[string]*Booster{
+			"u1": {BoostState: BoostStateTokenTime, StartTime: oldStart},
+			"u2": {BoostState: BoostStateUnboosted, StartTime: oldStart},
+		},
+	}
+
+	applyBoostOrderSelection(contract, []string{"u1", "u2"}, false)
+
+	if contract.CurrentBoosterUserID != "u1" {
+		t.Fatalf("expected current booster to remain u1, got %q", contract.CurrentBoosterUserID)
+	}
+	if !contract.Boosters["u1"].StartTime.Equal(oldStart) {
+		t.Fatalf("expected u1 StartTime to remain unchanged when current booster does not change")
 	}
 }
