@@ -338,7 +338,6 @@ func (c *Contract) UnmarshalJSON(data []byte) error {
 
 // currentBoosterID returns the current booster ID without mutating state.
 // It is a pure accessor safe to call without holding mutex.
-// Call syncCurrentBoosterID() under mutex lock to hydrate CurrentBoosterUserID from BoostPosition if needed.
 func (c *Contract) currentBoosterID() string {
 	if c == nil {
 		return ""
@@ -346,27 +345,6 @@ func (c *Contract) currentBoosterID() string {
 	if c.CurrentBoosterUserID != "" {
 		if _, ok := c.Boosters[c.CurrentBoosterUserID]; ok {
 			return c.CurrentBoosterUserID
-		}
-	}
-	return ""
-}
-
-// syncCurrentBoosterID hydrates CurrentBoosterUserID from BoostPosition if CurrentBoosterUserID is invalid.
-// Must be called under mutex lock.
-func (c *Contract) syncCurrentBoosterID() string {
-	if c == nil {
-		return ""
-	}
-	if c.CurrentBoosterUserID != "" {
-		if _, ok := c.Boosters[c.CurrentBoosterUserID]; ok {
-			return c.CurrentBoosterUserID
-		}
-	}
-	if c.BoostPosition >= 0 && c.BoostPosition < len(c.Order) {
-		id := c.Order[c.BoostPosition]
-		if _, ok := c.Boosters[id]; ok {
-			c.CurrentBoosterUserID = id
-			return id
 		}
 	}
 	return ""
