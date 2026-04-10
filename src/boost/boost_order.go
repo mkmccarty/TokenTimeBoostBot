@@ -742,21 +742,21 @@ func applyBoostOrderSelection(contract *Contract, selected []string, changeCurre
 			// Reset to first unboosted, or keep previous if still eligible, or clear
 			nextID := boostOrderFirstNotBoostedID(contract)
 			if nextID != "" {
-				contract.setCurrentBoosterByUserID(nextID)
+				contract.setCurrentBoosterByUserIDWithStart(nextID)
 			} else if previousCurrent != "" && slices.Contains(contract.Order, previousCurrent) {
-				contract.setCurrentBoosterByUserID(previousCurrent)
+				contract.setCurrentBoosterByUserIDWithStart(previousCurrent)
 			} else {
 				contract.clearCurrentBooster()
 			}
 		} else {
 			// Keep current booster in their new position (if still in order)
 			if previousCurrent != "" && slices.Contains(contract.Order, previousCurrent) {
-				contract.setCurrentBoosterByUserID(previousCurrent)
+				contract.setCurrentBoosterByUserIDWithStart(previousCurrent)
 			} else {
 				// Current booster was removed, fall back to first unboosted
 				nextID := boostOrderFirstNotBoostedID(contract)
 				if nextID != "" {
-					contract.setCurrentBoosterByUserID(nextID)
+					contract.setCurrentBoosterByUserIDWithStart(nextID)
 				} else {
 					contract.clearCurrentBooster()
 				}

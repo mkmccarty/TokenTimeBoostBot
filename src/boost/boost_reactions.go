@@ -78,7 +78,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			if currentBoosterIdx < 0 && len(contract.Order) > 0 {
 				nextID := findNextBoosterID(contract)
 				if nextID != "" {
-					contract.setCurrentBoosterByUserID(nextID)
+					contract.setCurrentBoosterByUserIDWithStart(nextID)
 					currentBoosterIdx = contract.currentBoosterOrderIndex()
 				}
 			}

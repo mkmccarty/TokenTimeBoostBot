@@ -377,6 +377,20 @@ func (c *Contract) setCurrentBoosterByUserID(userID string) {
 	}
 }
 
+// setCurrentBoosterByUserIDWithStart sets the active booster and updates
+// that booster's StartTime only when the active booster actually changes.
+func (c *Contract) setCurrentBoosterByUserIDWithStart(userID string) {
+	previousID := c.currentBoosterID()
+	c.setCurrentBoosterByUserID(userID)
+	currentID := c.currentBoosterID()
+	if currentID == "" || currentID == previousID {
+		return
+	}
+	if booster := c.Boosters[currentID]; booster != nil {
+		booster.StartTime = time.Now()
+	}
+}
+
 func (c *Contract) setCurrentBoosterByIndex(idx int) {
 	c.BoostPosition = idx
 	if idx >= 0 && idx < len(c.Order) {
@@ -1707,13 +1721,7 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 			log.Printf("Unboost warning: user not found in BoostedOrder while in waiting state; contractHash=%s channelID=%s userID=%s", contract.ContractHash, channelID, userID)
 		}
 		contract.Boosters[userID].BoostState = BoostStateTokenTime
-		// set BoostPosition to unboosted user
-		for i := range contract.Order {
-			if contract.Order[i] == userID {
-				contract.setCurrentBoosterByIndex(i)
-				break
-			}
-		}
+		contract.setCurrentBoosterByUserIDWithStart(userID)
 
 		sendNextNotification(s, contract, true)
 	} else {

@@ -358,3 +358,49 @@ func TestApplyBoostOrderSelectionKeepCurrentBoosterRemovedAllBoosted(t *testing.
 		t.Fatalf("expected current booster to clear when all remaining are boosted, got %q", contract.CurrentBoosterUserID)
 	}
 }
+
+func TestApplyBoostOrderSelectionUpdatesStartTimeWhenCurrentChanges(t *testing.T) {
+	oldStart := time.Now().Add(-10 * time.Minute)
+	contract := &Contract{
+		State:                ContractStateFastrun,
+		Order:                []string{"u1", "u2"},
+		CurrentBoosterUserID: "u1",
+		BoostPosition:        0,
+		Boosters: map[string]*Booster{
+			"u1": {BoostState: BoostStateTokenTime, StartTime: oldStart},
+			"u2": {BoostState: BoostStateUnboosted, StartTime: oldStart},
+		},
+	}
+
+	applyBoostOrderSelection(contract, []string{"u2", "u1"}, true)
+
+	if contract.CurrentBoosterUserID != "u2" {
+		t.Fatalf("expected current booster to be u2, got %q", contract.CurrentBoosterUserID)
+	}
+	if !contract.Boosters["u2"].StartTime.After(oldStart) {
+		t.Fatalf("expected u2 StartTime to be updated when selected as new current booster")
+	}
+}
+
+func TestApplyBoostOrderSelectionDoesNotUpdateStartTimeWhenCurrentUnchanged(t *testing.T) {
+	oldStart := time.Now().Add(-10 * time.Minute)
+	contract := &Contract{
+		State:                ContractStateFastrun,
+		Order:                []string{"u1", "u2"},
+		CurrentBoosterUserID: "u1",
+		BoostPosition:        0,
+		Boosters: map[string]*Booster{
+			"u1": {BoostState: BoostStateTokenTime, StartTime: oldStart},
+			"u2": {BoostState: BoostStateUnboosted, StartTime: oldStart},
+		},
+	}
+
+	applyBoostOrderSelection(contract, []string{"u1", "u2"}, false)
+
+	if contract.CurrentBoosterUserID != "u1" {
+		t.Fatalf("expected current booster to remain u1, got %q", contract.CurrentBoosterUserID)
+	}
+	if !contract.Boosters["u1"].StartTime.Equal(oldStart) {
+		t.Fatalf("expected u1 StartTime to remain unchanged when current booster does not change")
+	}
+}
