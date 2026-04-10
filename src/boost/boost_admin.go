@@ -536,10 +536,10 @@ var lastContractListTime time.Time
 var lastContractListIndex int
 
 const (
-	discordMessageContentLimit = 2000
-	discordEmbedTitleLimit     = 256
-	discordEmbedDescLimit      = 4096
-	discordEmbedFieldNameLimit = 256
+	discordMessageContentLimit  = 2000
+	discordEmbedTitleLimit      = 256
+	discordEmbedDescLimit       = 4096
+	discordEmbedFieldNameLimit  = 256
 	discordEmbedFieldValueLimit = 1024
 	discordEmbedFieldCountLimit = 25
 	discordEmbedTotalCharLimit  = 6000
@@ -637,7 +637,7 @@ func getContractList(guildID string) (string, *discordgo.MessageSend, error) {
 	}
 
 	// Calculate window start and end
-	windowSize := 10
+	windowSize := 8
 	startIdx := lastContractListIndex
 	endIdx := startIdx + windowSize
 
