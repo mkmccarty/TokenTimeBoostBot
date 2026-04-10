@@ -219,37 +219,43 @@ func getCurrentContractsComponents(s *discordgo.Session, channelID string) []dis
 			for j < len(matched) && matched[j].ContractID == matched[i].ContractID {
 				j++
 			}
-			contractComponents = append(contractComponents, getContractDisplay(matched[i:j], activeThreadIDs))
+			group := matched[i:j]
+			var activeCoops []*Contract
+			for _, c := range group {
+				if c.State != ContractStateCompleted {
+					activeCoops = append(activeCoops, c)
+				}
+			}
+			if len(activeCoops) > 0 {
+				contractComponents = append(contractComponents, getContractDisplay(group[0], activeCoops, activeThreadIDs))
+			}
 			i = j
 		}
 	}
 
+	accentColor := 0x5865f2
 	return []discordgo.MessageComponent{
-		discordgo.Container{Components: contractComponents},
+		discordgo.Container{
+			Components:  contractComponents,
+			AccentColor: &accentColor},
 		activeContractsButtons(channelID),
 	}
 }
 
-func getContractDisplay(coops []*Contract, activeThreadIDs map[string]bool) discordgo.TextDisplay {
+func getContractDisplay(header *Contract, coops []*Contract, activeThreadIDs map[string]bool) discordgo.TextDisplay {
 	iconCoop := ei.GetBotEmojiMarkdown("icon_coop")
 
 	var b strings.Builder
-	header := coops[0]
-	fmt.Fprintf(&b, "%s **%s** %s `%d`\n", header.EggEmoji, header.Name, iconCoop, header.CoopSize)
+	fmt.Fprintf(&b, "## %s **%s** %s `%d`\n", header.EggEmoji, header.Name, iconCoop, header.CoopSize)
 
-	completed := 0
 	for _, c := range coops {
 		if b.Len() > 3500 {
 			break
 		}
-		if c.State == ContractStateCompleted {
-			completed++
-			continue
-		}
-		channelID := ""
+		threadURL := ""
 		for _, loc := range c.Location {
 			if loc != nil && activeThreadIDs[loc.ChannelID] {
-				channelID = loc.ChannelID
+				threadURL = fmt.Sprintf("https://discord.com/channels/%s/%s", loc.GuildID, loc.ChannelID)
 				break
 			}
 		}
@@ -261,11 +267,10 @@ func getContractDisplay(coops []*Contract, activeThreadIDs map[string]bool) disc
 		if len(c.Boosters) >= c.CoopSize {
 			count = "FULL"
 		}
-		fmt.Fprintf(&b, "- [%s] **`%s%s`** <#%s>\n", count, colorEmoji, c.CoopID, channelID)
-	}
-
-	if completed > 0 {
-		fmt.Fprintf(&b, "-# Completed contracts: %d\n", completed)
+		fmt.Fprintf(&b, "_ _%s `%s` [**⧉ %s**](%s) \n", colorEmoji, count, c.CoopID, threadURL)
+		if !c.PlannedStartTime.IsZero() {
+			fmt.Fprintf(&b, "-# _    _↳Start: %s\n", bottools.WrapTimestamp(c.PlannedStartTime.Unix(), bottools.TimestampLongDateTime))
+		}
 	}
 
 	return discordgo.TextDisplay{Content: b.String()}
