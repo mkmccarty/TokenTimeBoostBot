@@ -348,6 +348,112 @@ func GetGuildSettingsForGuild(s *discordgo.Session, i *discordgo.InteractionCrea
 	respondEphemeral(s, i, builder.String())
 }
 
+// SlashSetGuildFlagCommand creates an admin slash command to set a guild boolean flag.
+func SlashSetGuildFlagCommand(cmd string) *discordgo.ApplicationCommand {
+	var adminPermission = int64(0)
+	return &discordgo.ApplicationCommand{
+		Name:                     cmd,
+		Description:              "Set a guild boolean flag",
+		DefaultMemberPermissions: &adminPermission,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "flag",
+				Description: "Flag key",
+				Required:    true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "value",
+				Description: "Flag value (true or false)",
+				Required:    true,
+			},
+		},
+	}
+}
+
+// SlashGetGuildFlagCommand creates an admin slash command to get a guild boolean flag.
+func SlashGetGuildFlagCommand(cmd string) *discordgo.ApplicationCommand {
+	var adminPermission = int64(0)
+	return &discordgo.ApplicationCommand{
+		Name:                     cmd,
+		Description:              "Get a guild boolean flag value",
+		DefaultMemberPermissions: &adminPermission,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "flag",
+				Description: "Flag key",
+				Required:    true,
+			},
+		},
+	}
+}
+
+// SetGuildFlag handles the admin slash command for setting a guild boolean flag.
+func SetGuildFlag(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if !isAdminCaller(s, i) {
+		respondEphemeral(s, i, "You are not authorized to use this command.")
+		return
+	}
+
+	optionMap := bottools.GetCommandOptionsMap(i)
+	flag := ""
+	value := false
+
+	if opt, ok := optionMap["flag"]; ok {
+		flag = strings.TrimSpace(opt.StringValue())
+	}
+	if opt, ok := optionMap["value"]; ok {
+		value = opt.BoolValue()
+	}
+
+	if flag == "" {
+		respondEphemeral(s, i, "flag is required.")
+		return
+	}
+
+	guildName := getGuildDisplayName(s, i.GuildID)
+	SetGuildSettingFlag(i.GuildID, flag, value)
+	respondEphemeral(s, i, fmt.Sprintf("Set flag '%s' for guild '%s' to %t.", flag, guildName, value))
+}
+
+// GetGuildFlag handles the admin slash command for getting a guild boolean flag.
+func GetGuildFlag(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if !isAdminCaller(s, i) {
+		respondEphemeral(s, i, "You are not authorized to use this command.")
+		return
+	}
+
+	optionMap := bottools.GetCommandOptionsMap(i)
+	flag := ""
+
+	if opt, ok := optionMap["flag"]; ok {
+		flag = strings.TrimSpace(opt.StringValue())
+	}
+
+	if flag == "" {
+		respondEphemeral(s, i, "flag is required.")
+		return
+	}
+
+	guildName := getGuildDisplayName(s, i.GuildID)
+	value := GetGuildSettingFlag(i.GuildID, flag)
+	respondEphemeral(s, i, fmt.Sprintf("Flag '%s' for guild '%s' is %t.", flag, guildName, value))
+}
+
 // SetGuildSetting handles the admin slash command for setting or clearing guild settings.
 func SetGuildSetting(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	optionMap := bottools.GetCommandOptionsMap(i)
