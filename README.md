@@ -37,6 +37,8 @@ Install your bot into your discord server with this URL:
 - `/unboost` - Mark a farmer as unboosted.
 - `/prune` - Remove a farmer from the signup/boost list.
 - `/change` - Update contract settings and boost order options.
+- `/boost-order` - Interactive interview to reorder boost order.
+- `/catalyst` - Alias for `/boost-order`.
 - `/update` - Refresh contract data/status for the current contract.
 - `/change-one-booster` - Change one booster entry in the running contract.
 - `/change-start` - Update planned contract start timing.
