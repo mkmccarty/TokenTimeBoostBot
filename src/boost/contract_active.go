@@ -220,6 +220,7 @@ func getCurrentContractsComponents(s *discordgo.Session, channelID string) []dis
 		})
 
 		// Group by ContractID and display each contract with its active coops.
+		totalChars := 0
 		for i := 0; i < len(matched); {
 			j := i + 1
 			for j < len(matched) && matched[j].ContractID == matched[i].ContractID {
@@ -234,7 +235,12 @@ func getCurrentContractsComponents(s *discordgo.Session, channelID string) []dis
 			}
 			// Get the contract display component for this contract and its active coops, if any.
 			if len(activeCoops) > 0 {
-				contractComponents = append(contractComponents, getContractDisplay(group[0], activeCoops, activeThreadIDs))
+				display := getContractDisplay(group[0], activeCoops, activeThreadIDs, discordEmbedTotalCharLimit-totalChars)
+				if totalChars+len(display.Content) > discordEmbedTotalCharLimit {
+					break
+				}
+				totalChars += len(display.Content)
+				contractComponents = append(contractComponents, display)
 			}
 			i = j
 		}
@@ -249,7 +255,7 @@ func getCurrentContractsComponents(s *discordgo.Session, channelID string) []dis
 	}
 }
 
-func getContractDisplay(header *Contract, coops []*Contract, activeThreadIDs map[string]bool) discordgo.TextDisplay {
+func getContractDisplay(header *Contract, coops []*Contract, activeThreadIDs map[string]bool, charBudget int) discordgo.TextDisplay {
 	iconCoop := ei.GetBotEmojiMarkdown("icon_coop")
 
 	var b strings.Builder
@@ -260,7 +266,7 @@ func getContractDisplay(header *Contract, coops []*Contract, activeThreadIDs map
 	fmt.Fprintf(&b, "## %s **%s**%s\n", header.EggEmoji, header.Name, coopSizeStr)
 
 	for _, c := range coops {
-		if b.Len() > 3500 {
+		if b.Len() >= min(charBudget, discordEmbedDescLimit) {
 			break
 		}
 		threadURL := ""
