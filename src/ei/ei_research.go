@@ -35,7 +35,7 @@ type EggResearches struct {
 	PerLevel       float64   `json:"per_level"`
 	LevelsCompound string    `json:"levels_compound"`
 	Prices         []float64 `json:"prices"`
-	Gems           []float64 `json:"gems"`
+	VirtuePrices   []float64 `json:"virtue_prices"`
 }
 
 // EggIncResearches holds all the egg researches
@@ -403,7 +403,7 @@ func GatherCommonResearchCosts(gemsOnHand float64, offlineRateHr float64, epicRe
 		if totalResearchsCompleted >= researchTierThreadholds[research.Tier] {
 			for level := item.GetLevel(); level < levels; level++ {
 
-				gemprice := research.Gems[level]
+				gemprice := research.VirtuePrices[level]
 				remainingCost := math.Max(0, (gemprice*discounts)-gemsOnHand)
 				duration := remainingCost / offlineRateHr
 				bestValue := research.PerLevel
