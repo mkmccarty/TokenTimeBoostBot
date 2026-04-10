@@ -62,6 +62,8 @@ const slashStatusMessage string = "status-message"
 const slashContract string = "contract"
 const slashSkip string = "skip"
 const slashBoost string = "boost"
+const slashBoostOrder string = "boost-order"
+const slashCatalyst string = "catalyst"
 const slashChangeOneBooster string = "change-one-booster"
 const slashChangePlannedStartCommand string = "change-start"
 const slashChangeSpeedRunSink string = "change-speedrun-sink"
@@ -305,6 +307,8 @@ var (
 			Description: "Spending tokens to boost!",
 			Options:     []*discordgo.ApplicationCommandOption{},
 		},
+		boost.GetSlashBoostOrderCommand(slashBoostOrder),
+		boost.GetSlashBoostOrderCommand(slashCatalyst),
 		{
 			Name:        slashSkip,
 			Description: "Move current booster to last in boost order.",
@@ -617,6 +621,12 @@ var (
 		slashBoost: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleBoostCommand(s, i)
 		},
+		slashBoostOrder: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleBoostOrderCommand(s, i)
+		},
+		slashCatalyst: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleBoostOrderCommand(s, i)
+		},
 		slashSkip: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleSkipCommand(s, i)
 		},
@@ -760,6 +770,9 @@ var (
 		},
 		"fd_playground": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleScoreExplorerPage(s, i)
+		},
+		"bo_order": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleBoostOrderReactions(s, i)
 		},
 		"predictions": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandlePredictionsPage(s, i)

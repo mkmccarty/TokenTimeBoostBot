@@ -360,7 +360,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	} else {
 		_, err = s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
-				Content: "This contract was initiated in <#" + contract.Location[0].ChannelID + ">. The coordinator will take care of the options.",
+				Content: "This contract was initiated in <#" + contract.Location[0].ChannelID + ">. The coordinator will take care of the options, including `/boost-order`.",
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		)
