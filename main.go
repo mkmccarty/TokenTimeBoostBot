@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "embed"
+	_ "time/tzdata"
 	"flag"
 	"fmt"
 	"log"
@@ -52,6 +53,8 @@ const slashAdminGetContractData string = "admin-get-contract-data"
 const slashAdminListRoles string = "list-roles"
 const slashAdminSetGuildSetting string = "admin-set-guild-setting"
 const slashAdminGetGuildSettings string = "admin-get-guild-settings"
+const slashAdminSetGuildFlag string = "admin-set-guild-flag"
+const slashAdminGetGuildFlag string = "admin-get-guild-flag"
 const slashAdminGuildstate string = "admin-guildstate"
 const slashAdminMembers string = "admin-members"
 const slashActiveContracts string = "active-contracts"
@@ -233,6 +236,8 @@ var (
 		boost.SlashAdminStatusMessageCommand(slashStatusMessage),
 		guildstate.SlashSetGuildSettingCommand(slashAdminSetGuildSetting),
 		guildstate.SlashGetGuildSettingsCommand(slashAdminGetGuildSettings),
+		guildstate.SlashSetGuildFlagCommand(slashAdminSetGuildFlag),
+		guildstate.SlashGetGuildFlagCommand(slashAdminGetGuildFlag),
 	}
 
 	globalCommands = []*discordgo.ApplicationCommand{
@@ -518,6 +523,12 @@ var (
 		},
 		slashAdminGetGuildSettings: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			guildstate.GetGuildSettings(s, i)
+		},
+		slashAdminSetGuildFlag: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			guildstate.SetGuildFlag(s, i)
+		},
+		slashAdminGetGuildFlag: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			guildstate.GetGuildFlag(s, i)
 		},
 		// Slash Commands
 		slashArtifact: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
