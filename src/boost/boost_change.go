@@ -167,7 +167,7 @@ func HandleChangeOneBoosterCommand(s *discordgo.Session, i *discordgo.Interactio
 			// If this booster has alread boosted then we can't move them
 			if contract.Boosters[boosterName].BoostState == BoostStateBoosted {
 				str = "This farmer has already boosted, no need to move them."
-			} else if boosterName == contract.Order[contract.BoostPosition] {
+			} else if boosterName == contract.currentBoosterID() {
 				// If this is current booster, we need to reassign this to the next booster
 				newBoosterIndex := findNextBoosterAfterUser(contract, boosterName)
 				if newBoosterIndex != -1 {
@@ -175,7 +175,7 @@ func HandleChangeOneBoosterCommand(s *discordgo.Session, i *discordgo.Interactio
 				}
 			} else {
 				// Is the new position the current booster?
-				if contract.Order[position-1] == contract.Order[contract.BoostPosition] {
+				if position > 0 && position <= len(contract.Order) && contract.Order[position-1] == contract.currentBoosterID() {
 					newBooster = boosterName
 				}
 			}
@@ -548,21 +548,20 @@ func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string
 
 	newBoosterUserID := normalizeUserIDInput(newBooster)
 
-	newBoosterIndex := slices.Index(contract.Order, newBoosterUserID)
-	if newBoosterIndex == -1 {
+	if slices.Index(contract.Order, newBoosterUserID) == -1 {
 		return errors.New("this booster not in contract")
 	}
 
 	switch contract.Boosters[newBoosterUserID].BoostState {
 	case BoostStateUnboosted:
 		// Clear current booster status
-		currentBooster := contract.Order[contract.BoostPosition]
-		if contract.Boosters[currentBooster].BoostState == BoostStateTokenTime {
+		currentBooster := contract.currentBoosterID()
+		if currentBooster != "" && contract.Boosters[currentBooster].BoostState == BoostStateTokenTime {
 			contract.Boosters[currentBooster].BoostState = BoostStateUnboosted
 		}
 		contract.Boosters[newBoosterUserID].BoostState = BoostStateTokenTime
 		contract.Boosters[newBoosterUserID].StartTime = time.Now()
-		contract.BoostPosition = newBoosterIndex
+		contract.setCurrentBoosterByUserID(newBoosterUserID)
 
 		// Make sure there's only a single booster
 		for _, element := range contract.Order {
@@ -604,7 +603,7 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 	// get current booster boost state
 	var currentBooster = ""
 	if contract.State == ContractStateFastrun || contract.State == ContractStateBanker {
-		currentBooster = contract.Order[contract.BoostPosition]
+		currentBooster = contract.currentBoosterID()
 	}
 
 	log.Println("ChangeBoostOrder", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "BoostOrder: ", boostOrder)
@@ -673,9 +672,12 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 	if contract.State == ContractStateFastrun || contract.State == ContractStateBanker {
 		for i, el := range newOrder {
 			if el == currentBooster {
-				contract.BoostPosition = i
+				contract.setCurrentBoosterByIndex(i)
+				break
 			}
 		}
+		// Enforce that only current booster has BoostStateTokenTime
+		contract.enforceOnlyOneTokenTimeBooster()
 	}
 
 	//sendNextNotification(s, contract, true)
@@ -684,8 +686,8 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 	}
 
 	summaryStr := fmt.Sprintf("Boost order changed to %s.", boostOrder)
-	if contract.BoostPosition < len(contract.Order) {
-		summaryStr += fmt.Sprintf(" Current booster is %s. ", contract.Boosters[contract.Order[contract.BoostPosition]].Mention)
+	if currentID := contract.currentBoosterID(); currentID != "" {
+		summaryStr += fmt.Sprintf(" Current booster is %s. ", contract.Boosters[currentID].Mention)
 	}
 
 	return summaryStr, nil
@@ -723,7 +725,7 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 		return errors.New("booster already in this position")
 	}
 
-	currentBooster := contract.Order[contract.BoostPosition]
+	currentBooster := contract.currentBoosterID()
 
 	var newOrder []string
 	copyOrder := removeIndex(contract.Order, boosterIndex)
@@ -751,9 +753,12 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 	if contract.State == ContractStateFastrun || contract.State == ContractStateBanker {
 		for i, el := range newOrder {
 			if el == currentBooster {
-				contract.BoostPosition = i
+				contract.setCurrentBoosterByIndex(i)
+				break
 			}
 		}
+		// Enforce that only current booster has BoostStateTokenTime
+		contract.enforceOnlyOneTokenTimeBooster()
 	}
 	if redraw {
 		refreshBoostListMessage(s, contract, false)

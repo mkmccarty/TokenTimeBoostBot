@@ -342,9 +342,13 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 		orderSubset := contract.Order
 		if contract.State != ContractStateSignup && len(contract.Order) >= (windowSize+2) {
+			currentIdx := contract.currentBoosterOrderIndex()
+			if currentIdx < 0 {
+				currentIdx = 0
+			}
 			// extract 10 elements around the current booster
-			var start = contract.BoostPosition - showBoostedNums
-			var end = contract.BoostPosition + (windowSize - showBoostedNums)
+			var start = currentIdx - showBoostedNums
+			var end = currentIdx + (windowSize - showBoostedNums)
 
 			if start < 0 {
 				// add the absolute value of start to end

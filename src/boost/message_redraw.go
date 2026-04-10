@@ -147,8 +147,12 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			//addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
 			if pingUsers {
 				if contract.State == ContractStateFastrun || contract.State == ContractStateBanker {
+					currentBoosterID := contract.currentBoosterID()
+					if currentBoosterID == "" {
+						continue
+					}
 					var name string
-					var einame = farmerstate.GetEggIncName(contract.Order[contract.BoostPosition])
+					var einame = farmerstate.GetEggIncName(currentBoosterID)
 					if einame != "" {
 						einame += " " // Add a space to this
 					}
@@ -156,7 +160,7 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 					if contract.Banker.CurrentBanker != "" {
 						name = einame + contract.Boosters[contract.Banker.CurrentBanker].Mention
 					} else {
-						name = einame + contract.Boosters[contract.Order[contract.BoostPosition]].Mention
+						name = einame + contract.Boosters[currentBoosterID].Mention
 					}
 
 					str = fmt.Sprintf(loc.RoleMention+" send tokens to %s", name)

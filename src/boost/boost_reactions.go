@@ -71,22 +71,15 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			return speedrunReactions(s, r, contract)
 		}
 
-		if contract.State != ContractStateSignup && contract.BoostPosition < len(contract.Order) {
+		currentBoosterID := contract.currentBoosterID()
+		if contract.State != ContractStateSignup && currentBoosterID != "" {
 
-			// Catch a condition where BoostPosition got set wrongly
-			if contract.BoostPosition >= len(contract.Order) || contract.BoostPosition < 0 {
-				if len(contract.Order) > 0 {
-					contract.BoostPosition = len(contract.Order) - 1
-				} else {
-					contract.BoostPosition = 0
-				}
-				if contract.State == ContractStateFastrun {
-					for i, el := range contract.Order {
-						if contract.Boosters[el].BoostState == BoostStateTokenTime {
-							contract.BoostPosition = i
-							break
-						}
-					}
+			currentBoosterIdx := contract.currentBoosterOrderIndex()
+			if currentBoosterIdx < 0 && len(contract.Order) > 0 {
+				nextID := findNextBoosterID(contract)
+				if nextID != "" {
+					contract.setCurrentBoosterByUserID(nextID)
+					currentBoosterIdx = contract.currentBoosterOrderIndex()
 				}
 			}
 
@@ -112,7 +105,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			case "🚽":
 				if contract.Boosters[r.UserID].BoostState == BoostStateUnboosted {
 					// Move Booster position is 1 based, so we need to add 2 to the current position
-					err := MoveBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], r.UserID, contract.BoostPosition+2, true)
+					err := MoveBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], r.UserID, currentBoosterIdx+2, true)
 					if err == nil {
 						_, _ = s.ChannelMessageSend(r.ChannelID, contract.Boosters[r.UserID].Name+" expressed a desire to go next!")
 						returnVal = "!gonow"

@@ -36,9 +36,10 @@ func TestBoostOrderVisiblePage(t *testing.T) {
 
 func TestApplyBoostOrderSelectionActiveContractSetsNextBooster(t *testing.T) {
 	contract := &Contract{
-		State:         ContractStateFastrun,
-		Order:         []string{"u1", "u2", "u3"},
-		BoostPosition: 2,
+		State:                ContractStateFastrun,
+		Order:                []string{"u1", "u2", "u3"},
+		CurrentBoosterUserID: "u3",
+		BoostPosition:        2,
 		Boosters: map[string]*Booster{
 			"u1": {BoostState: BoostStateBoosted},
 			"u2": {BoostState: BoostStateUnboosted},
@@ -46,13 +47,13 @@ func TestApplyBoostOrderSelectionActiveContractSetsNextBooster(t *testing.T) {
 		},
 	}
 
-	applyBoostOrderSelection(contract, []string{"u3", "u1", "u2"})
+	applyBoostOrderSelection(contract, []string{"u3", "u1", "u2"}, true)
 
 	if !reflect.DeepEqual(contract.Order, []string{"u3", "u1", "u2"}) {
 		t.Fatalf("unexpected order: %v", contract.Order)
 	}
-	if contract.BoostPosition != 2 {
-		t.Fatalf("expected boost position 2, got %d", contract.BoostPosition)
+	if contract.CurrentBoosterUserID != "u2" {
+		t.Fatalf("expected current booster u2, got %q", contract.CurrentBoosterUserID)
 	}
 	if contract.OrderRevision != 1 {
 		t.Fatalf("expected order revision 1, got %d", contract.OrderRevision)
@@ -61,19 +62,20 @@ func TestApplyBoostOrderSelectionActiveContractSetsNextBooster(t *testing.T) {
 
 func TestApplyBoostOrderSelectionSignupDoesNotChangeCurrent(t *testing.T) {
 	contract := &Contract{
-		State:         ContractStateSignup,
-		Order:         []string{"u1", "u2"},
-		BoostPosition: 1,
+		State:                ContractStateSignup,
+		Order:                []string{"u1", "u2"},
+		CurrentBoosterUserID: "u2",
+		BoostPosition:        1,
 		Boosters: map[string]*Booster{
 			"u1": {BoostState: BoostStateUnboosted},
 			"u2": {BoostState: BoostStateUnboosted},
 		},
 	}
 
-	applyBoostOrderSelection(contract, []string{"u2", "u1"})
+	applyBoostOrderSelection(contract, []string{"u2", "u1"}, true)
 
-	if contract.BoostPosition != 1 {
-		t.Fatalf("expected boost position to remain unchanged in signup, got %d", contract.BoostPosition)
+	if contract.CurrentBoosterUserID != "u2" {
+		t.Fatalf("expected current booster to remain unchanged in signup, got %q", contract.CurrentBoosterUserID)
 	}
 }
 
