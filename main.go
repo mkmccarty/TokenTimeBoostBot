@@ -43,7 +43,6 @@ const (
 )
 
 // Admin Slash Command Constants
-// const boostBotHomeGuild string = "766330702689992720"
 const slashAdminContractsList string = "admin-contract-list"
 const slashAdminContractFinish string = "admin-contract-finish"
 

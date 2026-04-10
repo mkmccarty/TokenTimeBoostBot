@@ -26,8 +26,6 @@ import (
 
 var mutex sync.Mutex
 
-//const boostBotHomeGuild string = "766330702689992720"
-
 const errorNoContract string = "contract doesn't exist"
 const errorNotStarted string = "contract not started"
 const errorContractFull string = "contract is full"
