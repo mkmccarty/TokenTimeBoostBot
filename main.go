@@ -2,7 +2,6 @@ package main
 
 import (
 	_ "embed"
-	_ "time/tzdata"
 	"flag"
 	"fmt"
 	"log"
@@ -15,6 +14,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/fsnotify/fsnotify"
