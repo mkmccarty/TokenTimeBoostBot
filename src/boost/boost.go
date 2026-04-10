@@ -253,43 +253,43 @@ type Contract struct {
 	EstimateUpdateTime        time.Time
 	TimeBoosting              time.Time // When the contract boost started
 
-	CoopSize            int
-	Ultra               bool
-	UltraCount          int
-	Style               int64 // Mask for the Contract Style
-	PlayStyle           int   // Playstyle of the contract
-	NewToPlayStyle      bool  // Someone in the contract is new to this playstyle
-	LengthInSeconds     int
-	BoostOrder          int // How the contract is sorted
-	BoostVoting         int
+	CoopSize             int
+	Ultra                bool
+	UltraCount           int
+	Style                int64 // Mask for the Contract Style
+	PlayStyle            int   // Playstyle of the contract
+	NewToPlayStyle       bool  // Someone in the contract is new to this playstyle
+	LengthInSeconds      int
+	BoostOrder           int // How the contract is sorted
+	BoostVoting          int
 	CurrentBoosterUserID string    // Current booster UserID (source of truth)
-	BoostPosition       int       // Starting Slot
-	State               int       // Boost Completed
-	StartTime           time.Time // When Contract is started
-	EndTime             time.Time // When final booster ends
-	PlannedStartTime    time.Time // Parameter start time
-	ActualStartTime     time.Time // Actual start time for token tracking
-	RegisteredNum       int
-	Boosters            map[string]*Booster // Boosters Registered
-	CRMessageIDs        map[string]string   // CR reqest messageIDs
-	WaitlistBoosters    []string            // Waitlist of UserID's
-	AltIcons            []string            // Array of alternate icons for the Boosters
-	Order               []string
-	BoostedOrder        []string   // Actual order of boosting
-	OrderRevision       int        // Incremented when Order is changed
-	Banker              BankerInfo // Banker for the contract
-	TokenLog            []ei.TokenUnitLog
-	TokensPerMinute     float64
-	CalcOperations      int
-	CalcOperationTime   time.Time
-	CoopTokenValueMsgID string
-	LastWishPrompt      string             // saved prompt for this contract
-	LastInteractionTime time.Time          // last time the contract was drawn
-	buttonComponents    map[string]CompMap // Cached components for this contract
-	SavedStats          bool               // Saved stats for this contract
-	NewFeature          int                // Used to slide in new features
-	DynamicData         *DynamicTokenData
-	LastSaveTime        time.Time // The last time the contract was saved
+	BoostPosition        int       // Starting Slot
+	State                int       // Boost Completed
+	StartTime            time.Time // When Contract is started
+	EndTime              time.Time // When final booster ends
+	PlannedStartTime     time.Time // Parameter start time
+	ActualStartTime      time.Time // Actual start time for token tracking
+	RegisteredNum        int
+	Boosters             map[string]*Booster // Boosters Registered
+	CRMessageIDs         map[string]string   // CR reqest messageIDs
+	WaitlistBoosters     []string            // Waitlist of UserID's
+	AltIcons             []string            // Array of alternate icons for the Boosters
+	Order                []string
+	BoostedOrder         []string   // Actual order of boosting
+	OrderRevision        int        // Incremented when Order is changed
+	Banker               BankerInfo // Banker for the contract
+	TokenLog             []ei.TokenUnitLog
+	TokensPerMinute      float64
+	CalcOperations       int
+	CalcOperationTime    time.Time
+	CoopTokenValueMsgID  string
+	LastWishPrompt       string             // saved prompt for this contract
+	LastInteractionTime  time.Time          // last time the contract was drawn
+	buttonComponents     map[string]CompMap // Cached components for this contract
+	SavedStats           bool               // Saved stats for this contract
+	NewFeature           int                // Used to slide in new features
+	DynamicData          *DynamicTokenData
+	LastSaveTime         time.Time // The last time the contract was saved
 
 	mutex sync.Mutex // Keep this contract thread safe
 }
@@ -299,8 +299,8 @@ type Contract struct {
 func (c *Contract) UnmarshalJSON(data []byte) error {
 	type Alias Contract
 	aux := &struct {
-		CRMessageIDs interface{} `json:"CRMessageIDs"`
-		BoostPosition *int       `json:"BoostPosition"`
+		CRMessageIDs  interface{} `json:"CRMessageIDs"`
+		BoostPosition *int        `json:"BoostPosition"`
 		*Alias
 	}{
 		Alias: (*Alias)(c),
@@ -428,12 +428,12 @@ func (c *Contract) syncCurrentBoosterFromLegacyPosition(legacyPosition *int) {
 // Called after boost order changes to maintain invariant.
 func (c *Contract) enforceOnlyOneTokenTimeBooster() {
 	currentID := c.currentBoosterID()
-	
+
 	for userID, booster := range c.Boosters {
 		if booster == nil {
 			continue
 		}
-		
+
 		if userID == currentID {
 			// Current booster gets priority - ensure it has TokenTime if not already boosted
 			if booster.BoostState != BoostStateBoosted {
@@ -2062,7 +2062,7 @@ func reorderBoosters(contract *Contract) {
 		contract.mutex.Lock()
 		contract.enforceOnlyOneTokenTimeBooster()
 		contract.mutex.Unlock()
-		
+
 		if contract.Style&ContractFlagBanker != 0 && contract.Banker.BoostingSinkUserID != "" {
 			repositionSinkBoostPosition(contract)
 		}
