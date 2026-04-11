@@ -99,7 +99,7 @@ func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreat
 	}
 	adminContractListSessions[session.id] = session
 
-	content, components := renderAdminContractListPanel(session)
+	content, components := renderAdminContractListPanel(session, false)
 	if _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Content:    content,
 		Components: components,
@@ -239,16 +239,40 @@ func HandleAdminContractListComponent(s *discordgo.Session, i *discordgo.Interac
 			session.statusMessage = "Finish armed. Press the same button again to finish this contract."
 			break
 		}
+
+		session.finishArmed = false
+		session.statusMessage = "Deleting selected contract..."
+		loadingContent, loadingComponents := renderAdminContractListPanel(session, true)
+		if err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseUpdateMessage,
+			Data: &discordgo.InteractionResponseData{
+				Content:    loadingContent,
+				Flags:      discordgo.MessageFlagsSuppressEmbeds,
+				Components: loadingComponents,
+			},
+		}); err != nil {
+			log.Println(err)
+			return
+		}
+
 		err = finishContractByHash(s, selected.ContractHash)
 		if err != nil {
 			session.statusMessage = "Unable to finish contract: " + err.Error()
-			session.finishArmed = false
-			break
+		} else {
+			session.statusMessage = fmt.Sprintf("Finished contract **%s/%s**.", selected.ContractID, selected.CoopID)
+			session.selectedIndex = 0
+			ArchiveContracts(s)
 		}
-		session.statusMessage = fmt.Sprintf("Finished contract **%s/%s**.", selected.ContractID, selected.CoopID)
-		session.finishArmed = false
-		session.selectedIndex = 0
-		ArchiveContracts(s)
+
+		updatedContent, updatedComponents := renderAdminContractListPanel(session, false)
+		edit := discordgo.WebhookEdit{
+			Content:    &updatedContent,
+			Components: &updatedComponents,
+		}
+		if _, err = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit); err != nil {
+			log.Println(err)
+		}
+		return
 	default:
 		session.statusMessage = "Unknown contract list action."
 	}
@@ -257,7 +281,8 @@ func HandleAdminContractListComponent(s *discordgo.Session, i *discordgo.Interac
 		session.finishArmed = false
 	}
 
-	content, components := renderAdminContractListPanel(session)
+	content, components := renderAdminContractListPanel(session, false)
+
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseUpdateMessage,
 		Data: &discordgo.InteractionResponseData{
@@ -277,7 +302,7 @@ func cleanupAdminContractListSessions() {
 	}
 }
 
-func renderAdminContractListPanel(session *adminContractListSession) (string, []discordgo.MessageComponent) {
+func renderAdminContractListPanel(session *adminContractListSession, deleting bool) (string, []discordgo.MessageComponent) {
 	guilds := buildAdminContractListGuilds(session.selectedGuildID, session.selectedGuildName)
 
 	if len(guilds) == 0 {
@@ -352,11 +377,11 @@ func renderAdminContractListPanel(session *adminContractListSession) (string, []
 		content.WriteString(session.statusMessage)
 	}
 
-	components := adminContractListComponents(session, guilds, len(contracts) > 0)
+	components := adminContractListComponents(session, guilds, len(contracts) > 0, deleting)
 	return truncateDiscordText(content.String(), discordMessageContentLimit), components
 }
 
-func adminContractListComponents(session *adminContractListSession, guilds []adminContractListGuild, hasContract bool) []discordgo.MessageComponent {
+func adminContractListComponents(session *adminContractListSession, guilds []adminContractListGuild, hasContract bool, deleting bool) []discordgo.MessageComponent {
 	options := make([]discordgo.SelectMenuOption, 0, min(len(guilds), 25))
 	for idx, guild := range guilds {
 		if idx >= 25 {
@@ -381,11 +406,18 @@ func adminContractListComponents(session *adminContractListSession, guilds []adm
 		finishLabel = "Confirm Finish"
 		finishStyle = discordgo.DangerButton
 	}
+	if deleting {
+		finishLabel = "Deleting..."
+		finishStyle = discordgo.SecondaryButton
+	}
+
+	navDisabled := !hasContract || deleting
 
 	secondRowButtons := []discordgo.MessageComponent{discordgo.Button{
 		Label:    "Close",
 		Style:    discordgo.DangerButton,
 		CustomID: fmt.Sprintf("%s#%s#close", adminContractListHandlerPrefix, session.id),
+		Disabled: deleting,
 	}}
 
 	components := make([]discordgo.MessageComponent, 0, 3)
@@ -403,11 +435,11 @@ func adminContractListComponents(session *adminContractListSession, guilds []adm
 
 	components = append(components,
 		discordgo.ActionsRow{Components: []discordgo.MessageComponent{
-			discordgo.Button{Label: "First", Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#first", adminContractListHandlerPrefix, session.id), Disabled: !hasContract},
-			discordgo.Button{Label: "Previous", Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#prev", adminContractListHandlerPrefix, session.id), Disabled: !hasContract},
-			discordgo.Button{Label: finishLabel, Style: finishStyle, CustomID: fmt.Sprintf("%s#%s#finish", adminContractListHandlerPrefix, session.id), Disabled: !hasContract},
-			discordgo.Button{Label: "Next", Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#next", adminContractListHandlerPrefix, session.id), Disabled: !hasContract},
-			discordgo.Button{Label: "Last", Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#last", adminContractListHandlerPrefix, session.id), Disabled: !hasContract},
+			discordgo.Button{Label: "First", Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#first", adminContractListHandlerPrefix, session.id), Disabled: navDisabled},
+			discordgo.Button{Label: "Previous", Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#prev", adminContractListHandlerPrefix, session.id), Disabled: navDisabled},
+			discordgo.Button{Label: finishLabel, Style: finishStyle, CustomID: fmt.Sprintf("%s#%s#finish", adminContractListHandlerPrefix, session.id), Disabled: navDisabled},
+			discordgo.Button{Label: "Next", Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#next", adminContractListHandlerPrefix, session.id), Disabled: navDisabled},
+			discordgo.Button{Label: "Last", Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#last", adminContractListHandlerPrefix, session.id), Disabled: navDisabled},
 		}},
 		discordgo.ActionsRow{Components: secondRowButtons},
 	)
