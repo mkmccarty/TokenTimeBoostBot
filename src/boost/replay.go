@@ -542,19 +542,20 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 					ggicon = " " + ei.GetBotEmojiMarkdown("ultra_gg")
 				}
 				siabIcon := ei.GetBotEmojiMarkdown("SIAB_T4L")
+				ggSiabStr := ""
 				if ggicon != "" {
-					siabSuffix := ""
+					ggString = fmt.Sprintf(" / %s %s %.0f", ggicon, bottools.FmtDuration(c.EstimatedDurationMaxGG), c.CxpMaxGG)
 					if c.CxpMaxSiabGG > c.CxpMaxGG {
-						siabSuffix = fmt.Sprintf(" / %s %.0f", siabIcon, c.CxpMaxSiabGG)
+						ggSiabStr = fmt.Sprintf(" / %s %.0f (SR estimation) %s", siabIcon, c.CxpMaxSiabGG, bottools.FmtDuration(c.EstimatedDurationSIABGG))
 					}
-					ggString = fmt.Sprintf(" / %s %.0f%s ", ggicon, c.CxpMaxGG, siabSuffix)
 				}
 
-				siabEstStr := ""
 				if c.CxpMaxSiab > c.CxpMax {
-					siabEstStr = fmt.Sprintf(" / %s %.0f", siabIcon, c.CxpMaxSiab)
+					fmt.Fprintf(&builder, "**CS:** %d  **Est CS:** %.0f (SR estimation)\n", uint32(evaluationCxp), c.CxpMax)
+					fmt.Fprintf(&builder, "%s %.0f (SR estimation) %s%s%s\n", siabIcon, c.CxpMaxSiab, bottools.FmtDuration(c.EstimatedDurationSIAB), ggSiabStr, ggString)
+				} else {
+					fmt.Fprintf(&builder, "**CS:** %d  **Est CS:** %.0f%s (SR estimation)\n", uint32(evaluationCxp), c.CxpMax, ggString)
 				}
-				fmt.Fprintf(&builder, "**CS:** %d  **Est CS:** %.0f%s %s(SR estimation)\n", uint32(evaluationCxp), c.CxpMax, siabEstStr, ggString)
 
 				if c.SeasonalScoring == ei.SeasonalScoringNerfed {
 					fmt.Fprintf(&builder, "**Contrib:** %s  **CR:** %s\n", contribCheck, crCheck)
