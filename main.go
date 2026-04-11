@@ -45,7 +45,6 @@ const (
 
 // Admin Slash Command Constants
 const slashAdminContractsList string = "admin-contract-list"
-const slashAdminContractFinish string = "admin-contract-finish"
 
 // const slashAdminBotSettings string = "admin-bot-settings"
 const slashReloadContracts string = "admin-reload-contracts"
@@ -209,19 +208,6 @@ var (
 			Name:                     slashAdminContractsList,
 			Description:              "List all running contracts",
 			DefaultMemberPermissions: &adminPermission,
-		},
-		{
-			Name:                     slashAdminContractFinish,
-			Description:              "Mark a contract as finished",
-			DefaultMemberPermissions: &adminPermission,
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "contract-hash",
-					Description: "Hash of the contract to finish",
-					Required:    true,
-				},
-			},
 		},
 		{
 			Name:                     slashReloadContracts,
@@ -493,9 +479,6 @@ var (
 		// Admin Commands
 		slashAdminContractsList: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAdminContractList(s, i)
-		},
-		slashAdminContractFinish: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAdminContractFinish(s, i)
 		},
 		slashReloadContracts: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			tasks.HandleReloadContractsCommand(s, i)
@@ -792,6 +775,9 @@ var (
 		},
 		"active-contracts": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleActiveContractsPage(s, i)
+		},
+		"admin-contract-list": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleAdminContractListComponent(s, i)
 		},
 		"fd_signupStart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

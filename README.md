@@ -95,7 +95,6 @@ Install your bot into your discord server with this URL:
 ### Admin Commands
 
 - `/admin-contract-list` - List all running contracts.
-- `/admin-contract-finish` - Mark a contract as finished by hash.
 - `/admin-reload-contracts` - Force reload Egg, Inc. contract data.
 - `/admin-get-contract-data` - Retrieve raw contract/co-op JSON data.
 - `/list-roles` - Show role usage for a contract.
