@@ -494,13 +494,6 @@ func HandleAdminContractFinish(s *discordgo.Session, i *discordgo.InteractionCre
 
 // HandleAdminContractList will list all contracts
 func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	str, embed, err := getContractList(i.GuildID)
-	if err != nil {
-		str = err.Error()
-	}
-
-	ArchiveContracts(s)
-
 	userID := getInteractionUserID(i)
 
 	// Only allow command if users is in the admin list
@@ -518,14 +511,38 @@ func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreat
 		})
 		return
 	}
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
+
+	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Embeds:     embed.Embeds,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
+			Content: "Gathering contract list...",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
 	})
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	str, embed, listErr := getContractList(i.GuildID)
+	if listErr != nil {
+		str = listErr.Error()
+	}
+	ArchiveContracts(s)
+
+	followupEmbeds := []*discordgo.MessageEmbed{}
+	if embed != nil {
+		followupEmbeds = embed.Embeds
+	}
+
+	_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content: str,
+		Embeds:  followupEmbeds,
+		Flags:   discordgo.MessageFlagsEphemeral,
+	})
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func getRandomColor() int {
