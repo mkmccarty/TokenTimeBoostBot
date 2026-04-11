@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
 
 const (
@@ -24,14 +25,15 @@ const (
 )
 
 type adminContractListSession struct {
-	id              string
-	userID          string
-	selectedGuildID string
+	id                string
+	userID            string
+	selectedGuildID   string
 	selectedGuildName string
-	selectedIndex   int
-	finishArmed     bool
-	statusMessage   string
-	expiresAt       time.Time
+	allowGuildSelect  bool
+	selectedIndex     int
+	finishArmed       bool
+	statusMessage     string
+	expiresAt         time.Time
 }
 
 type adminContractListGuild struct {
@@ -82,15 +84,18 @@ func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreat
 	if guild, guildErr := s.Guild(i.GuildID); guildErr == nil && guild != nil && strings.TrimSpace(guild.Name) != "" {
 		selectedGuildName = strings.TrimSpace(guild.Name)
 	}
+	homeGuildID := guildstate.GetGuildSettingString("DEFAULT", "home_guild")
+	allowGuildSelect := homeGuildID != "" && i.GuildID == homeGuildID
 	session := &adminContractListSession{
-		id:              fmt.Sprintf("%d", time.Now().UnixNano()),
-		userID:          userID,
-		selectedGuildID: i.GuildID,
+		id:                fmt.Sprintf("%d", time.Now().UnixNano()),
+		userID:            userID,
+		selectedGuildID:   i.GuildID,
 		selectedGuildName: selectedGuildName,
-		selectedIndex:   0,
-		finishArmed:     false,
-		statusMessage:   "",
-		expiresAt:       time.Now().Add(adminContractListSessionTTL),
+		allowGuildSelect:  allowGuildSelect,
+		selectedIndex:     0,
+		finishArmed:       false,
+		statusMessage:     "",
+		expiresAt:         time.Now().Add(adminContractListSessionTTL),
 	}
 	adminContractListSessions[session.id] = session
 
@@ -181,6 +186,9 @@ func HandleAdminContractListComponent(s *discordgo.Session, i *discordgo.Interac
 		})
 		return
 	case "guild-select":
+		if !session.allowGuildSelect {
+			break
+		}
 		values := i.MessageComponentData().Values
 		if len(values) > 0 {
 			session.selectedGuildID = values[0]
@@ -380,8 +388,9 @@ func adminContractListComponents(session *adminContractListSession, guilds []adm
 		CustomID: fmt.Sprintf("%s#%s#close", adminContractListHandlerPrefix, session.id),
 	}}
 
-	components := []discordgo.MessageComponent{
-		discordgo.ActionsRow{Components: []discordgo.MessageComponent{
+	components := make([]discordgo.MessageComponent, 0, 3)
+	if session.allowGuildSelect {
+		components = append(components, discordgo.ActionsRow{Components: []discordgo.MessageComponent{
 			discordgo.SelectMenu{
 				CustomID:    fmt.Sprintf("%s#%s#guild-select", adminContractListHandlerPrefix, session.id),
 				Placeholder: "Select guild",
@@ -389,7 +398,10 @@ func adminContractListComponents(session *adminContractListSession, guilds []adm
 				MinValues:   &[]int{1}[0],
 				MaxValues:   1,
 			},
-		}},
+		}})
+	}
+
+	components = append(components,
 		discordgo.ActionsRow{Components: []discordgo.MessageComponent{
 			discordgo.Button{Label: "First", Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#first", adminContractListHandlerPrefix, session.id), Disabled: !hasContract},
 			discordgo.Button{Label: "Previous", Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#prev", adminContractListHandlerPrefix, session.id), Disabled: !hasContract},
@@ -398,7 +410,7 @@ func adminContractListComponents(session *adminContractListSession, guilds []adm
 			discordgo.Button{Label: "Last", Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#last", adminContractListHandlerPrefix, session.id), Disabled: !hasContract},
 		}},
 		discordgo.ActionsRow{Components: secondRowButtons},
-	}
+	)
 
 	return components
 }
