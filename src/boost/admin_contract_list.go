@@ -27,6 +27,7 @@ type adminContractListSession struct {
 	id              string
 	userID          string
 	selectedGuildID string
+	selectedGuildName string
 	selectedIndex   int
 	finishArmed     bool
 	statusMessage   string
@@ -77,10 +78,15 @@ func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreat
 	ArchiveContracts(s)
 
 	cleanupAdminContractListSessions()
+	selectedGuildName := i.GuildID
+	if guild, guildErr := s.Guild(i.GuildID); guildErr == nil && guild != nil && strings.TrimSpace(guild.Name) != "" {
+		selectedGuildName = strings.TrimSpace(guild.Name)
+	}
 	session := &adminContractListSession{
 		id:              fmt.Sprintf("%d", time.Now().UnixNano()),
 		userID:          userID,
 		selectedGuildID: i.GuildID,
+		selectedGuildName: selectedGuildName,
 		selectedIndex:   0,
 		finishArmed:     false,
 		statusMessage:   "",
@@ -158,7 +164,7 @@ func HandleAdminContractListComponent(s *discordgo.Session, i *discordgo.Interac
 	session.expiresAt = time.Now().Add(adminContractListSessionTTL)
 	session.statusMessage = ""
 
-	guilds := buildAdminContractListGuilds(session.selectedGuildID)
+	guilds := buildAdminContractListGuilds(session.selectedGuildID, session.selectedGuildName)
 	currentContracts := adminContractListContractsForGuild(guilds, session.selectedGuildID)
 
 	navigationAction := false
@@ -264,7 +270,7 @@ func cleanupAdminContractListSessions() {
 }
 
 func renderAdminContractListPanel(session *adminContractListSession) (string, []discordgo.MessageComponent) {
-	guilds := buildAdminContractListGuilds(session.selectedGuildID)
+	guilds := buildAdminContractListGuilds(session.selectedGuildID, session.selectedGuildName)
 
 	if len(guilds) == 0 {
 		content := "No contracts are currently tracked."
@@ -397,7 +403,7 @@ func adminContractListComponents(session *adminContractListSession, guilds []adm
 	return components
 }
 
-func buildAdminContractListGuilds(defaultGuildID string) []adminContractListGuild {
+func buildAdminContractListGuilds(defaultGuildID string, defaultGuildName string) []adminContractListGuild {
 	guildMap := make(map[string]*adminContractListGuild)
 
 	for _, contract := range Contracts {
@@ -424,9 +430,13 @@ func buildAdminContractListGuilds(defaultGuildID string) []adminContractListGuil
 
 	if defaultGuildID != "" {
 		if _, ok := guildMap[defaultGuildID]; !ok {
+			name := strings.TrimSpace(defaultGuildName)
+			if name == "" {
+				name = defaultGuildID
+			}
 			guildMap[defaultGuildID] = &adminContractListGuild{
 				ID:        defaultGuildID,
-				Name:      defaultGuildID,
+				Name:      name,
 				Contracts: []*Contract{},
 			}
 		}
