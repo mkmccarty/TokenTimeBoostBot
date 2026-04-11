@@ -541,11 +541,20 @@ func printArchivedContracts(userID string, archive []*ei.LocalContract, percent 
 					//gg = ugg + (float64(contract.UltraCount) / float64(contract.CoopSize))
 					ggicon = " " + ei.GetBotEmojiMarkdown("ultra_gg")
 				}
+				siabIcon := ei.GetBotEmojiMarkdown("SIAB_T4L")
 				if ggicon != "" {
-					ggString = fmt.Sprintf(" / %s %.0f ", ggicon, c.CxpMaxGG)
+					siabSuffix := ""
+					if c.CxpMaxSiabGG > c.CxpMaxGG {
+						siabSuffix = fmt.Sprintf(" / %s %.0f", siabIcon, c.CxpMaxSiabGG)
+					}
+					ggString = fmt.Sprintf(" / %s %.0f%s ", ggicon, c.CxpMaxGG, siabSuffix)
 				}
 
-				fmt.Fprintf(&builder, "**CS:** %d  **Est CS:** %.0f %s(SR estimation)\n", uint32(evaluationCxp), c.CxpMax, ggString)
+				siabEstStr := ""
+				if c.CxpMaxSiab > c.CxpMax {
+					siabEstStr = fmt.Sprintf(" / %s %.0f", siabIcon, c.CxpMaxSiab)
+				}
+				fmt.Fprintf(&builder, "**CS:** %d  **Est CS:** %.0f%s %s(SR estimation)\n", uint32(evaluationCxp), c.CxpMax, siabEstStr, ggString)
 
 				if c.SeasonalScoring == ei.SeasonalScoringNerfed {
 					fmt.Fprintf(&builder, "**Contrib:** %s  **CR:** %s\n", contribCheck, crCheck)
