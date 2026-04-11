@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+
 	_ "modernc.org/sqlite" // Want this here
 )
 
@@ -70,6 +72,10 @@ func init() {
 
 // saveSqliteData saves a single piece of farmer data to SQLite (for legacy support)
 func saveSqliteData(userID string, farmer *Farmer) {
+	if farmer == nil || bottools.IsRandomName(userID) {
+		return
+	}
+
 	// Save the farmer data to SQLite
 	farmer.LastUpdated = time.Now()
 	farmerJSON, err := json.Marshal(farmer)
@@ -115,6 +121,7 @@ func newFarmer(userID string) {
 		LaunchChain:          false,
 		MissionShipPrimary:   0,
 		MissionShipSecondary: 1,
+		LastSeen:             time.Now(),
 	}
 }
 
