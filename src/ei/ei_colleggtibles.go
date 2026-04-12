@@ -1,55 +1,83 @@
 package ei
 
-var colleggtibleELR = 1.0
-var colleggtibleShip = 1.0
-var colleggtibleHab = 1.0
-var colleggtiblesIHR = 1.0
+var colleggtibleBuffs = newDimensionBuffsIdentity()
 
 // GetColleggtibleValues will return the current values of the 3 collectibles
 func GetColleggtibleValues() (float64, float64, float64, float64) {
-	return colleggtibleELR, colleggtibleShip, colleggtibleHab, colleggtiblesIHR
+	return colleggtibleBuffs.ELR, colleggtibleBuffs.SR, colleggtibleBuffs.Hab, colleggtibleBuffs.IHR
 }
 
 // GetColleggtibleIHR will return the current value of the ELR collectible
 func GetColleggtibleIHR() float64 {
-	return colleggtiblesIHR
+	return colleggtibleBuffs.IHR
+}
+
+// GetColleggtibleDimensionBuffs returns all currently saved colleggtible buffs.
+func GetColleggtibleDimensionBuffs() DimensionBuffs {
+	return colleggtibleBuffs
+}
+
+func applyDimensionBuff(buffs *DimensionBuffs, dimension GameModifier_GameDimension, value float64) {
+	switch dimension {
+	case GameModifier_EGG_LAYING_RATE:
+		buffs.ELR *= value
+	case GameModifier_SHIPPING_CAPACITY:
+		buffs.SR *= value
+	case GameModifier_HAB_CAPACITY:
+		buffs.Hab *= value
+	case GameModifier_INTERNAL_HATCHERY_RATE:
+		buffs.IHR *= value
+	case GameModifier_EARNINGS:
+		buffs.Earnings *= value
+	case GameModifier_AWAY_EARNINGS:
+		buffs.AwayEarnings *= value
+	case GameModifier_VEHICLE_COST:
+		buffs.VehicleCost *= value
+	case GameModifier_HAB_COST:
+		buffs.HabCost *= value
+	case GameModifier_RESEARCH_COST:
+		buffs.ResearchDiscount *= value
+	default:
+	}
+}
+
+func getDimensionValueForTier(values []float64, tier int) (float64, bool) {
+	if len(values) == 0 {
+		return 0, false
+	}
+	if tier < 0 {
+		tier = 0
+	}
+	if tier >= len(values) {
+		tier = len(values) - 1
+	}
+	return values[tier], true
 }
 
 // SetColleggtibleValues will set the values of the 3 collectibles based on CustomEggMap
 func SetColleggtibleValues() {
-	colELR := 1.0
-	colShip := 1.0
-	colHab := 1.0
-	colIHR := 1.0
+	buffs := newDimensionBuffsIdentity()
 
 	for _, eggValue := range CustomEggMap {
-		switch eggValue.Dimension {
-		case GameModifier_EGG_LAYING_RATE:
-			colELR *= eggValue.DimensionValue[len(eggValue.DimensionValue)-1]
-		case GameModifier_SHIPPING_CAPACITY:
-			colShip *= eggValue.DimensionValue[len(eggValue.DimensionValue)-1]
-		case GameModifier_HAB_CAPACITY:
-			colHab *= eggValue.DimensionValue[len(eggValue.DimensionValue)-1]
-		case GameModifier_INTERNAL_HATCHERY_RATE:
-			colIHR *= eggValue.DimensionValue[len(eggValue.DimensionValue)-1]
+		if eggValue == nil {
+			continue
 		}
+		value, ok := getDimensionValueForTier(eggValue.DimensionValue, len(eggValue.DimensionValue)-1)
+		if !ok {
+			continue
+		}
+		applyDimensionBuff(&buffs, eggValue.Dimension, value)
 	}
 
-	colleggtibleELR = colELR
-	colleggtibleShip = colShip
-	colleggtibleHab = colHab
-	colleggtiblesIHR = colIHR
+	colleggtibleBuffs = buffs
 }
 
 // GetColleggtibleBuffs calculates the total buffs from colleggtibles
 func GetColleggtibleBuffs(contracts *MyContracts) DimensionBuffs {
-	colELR := 1.0
-	colSR := 1.0
-	colIHR := 1.0
-	colHab := 1.0
-	colEarnings := 1.0
-	colAway := 1.0
-	colResearchDiscount := 1.0
+	buffs := newDimensionBuffsIdentity()
+	if contracts == nil {
+		return buffs
+	}
 
 	eggCounts := make(map[string]float64)
 
@@ -87,32 +115,12 @@ func GetColleggtibleBuffs(contracts *MyContracts) DimensionBuffs {
 			continue
 		}
 
-		switch customEgg.Dimension {
-		case GameModifier_EGG_LAYING_RATE:
-			colELR *= customEgg.DimensionValue[tier]
-		case GameModifier_SHIPPING_CAPACITY:
-			colSR *= customEgg.DimensionValue[tier]
-		case GameModifier_HAB_CAPACITY:
-			colHab *= customEgg.DimensionValue[tier]
-		case GameModifier_INTERNAL_HATCHERY_RATE:
-			colIHR *= customEgg.DimensionValue[tier]
-		case GameModifier_EARNINGS:
-			colEarnings *= customEgg.DimensionValue[tier]
-		case GameModifier_AWAY_EARNINGS:
-			colAway *= customEgg.DimensionValue[tier]
-		case GameModifier_RESEARCH_COST:
-			colResearchDiscount *= customEgg.DimensionValue[tier]
-		default:
+		value, ok := getDimensionValueForTier(customEgg.DimensionValue, tier)
+		if !ok {
+			continue
 		}
+		applyDimensionBuff(&buffs, customEgg.Dimension, value)
 	}
 
-	return DimensionBuffs{
-		ELR:              colELR,
-		SR:               colSR,
-		IHR:              colIHR,
-		Hab:              colHab,
-		Earnings:         colEarnings,
-		AwayEarnings:     colAway,
-		ResearchDiscount: colResearchDiscount,
-	}
+	return buffs
 }
