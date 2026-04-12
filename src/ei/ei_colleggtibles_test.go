@@ -3,38 +3,76 @@ package ei
 import (
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"testing"
 )
 
-func setupCustomEggMap(t *testing.T) {
-	t.Helper()
-
-	paths := []string{
-		filepath.Join("..", "..", "ttbb-data", "ei-customeggs.json"),
-		filepath.Join("ttbb-data", "ei-customeggs.json"),
-	}
-
-	var raw []byte
-	var err error
-	for _, p := range paths {
-		raw, err = os.ReadFile(p)
-		if err == nil {
-			break
-		}
-	}
-	if err != nil {
-		t.Fatalf("failed to read ei-customeggs.json: %v", err)
-	}
-
+func setupCustomEggMap() {
+	// Keep fixtures static for test determinism; list synced from ttbb-data/ei-customeggs.json.
 	CustomEggMap = make(map[string]*EggIncCustomEgg)
-	if err := json.Unmarshal(raw, &CustomEggMap); err != nil {
-		t.Fatalf("failed to unmarshal ei-customeggs.json: %v", err)
+	CustomEggMap["carbon-fiber"] = &EggIncCustomEgg{
+		ID:             "carbon-fiber",
+		Dimension:      GameModifier_SHIPPING_CAPACITY,
+		DimensionValue: []float64{1.01, 1.02, 1.03, 1.05},
+	}
+	CustomEggMap["chocolate"] = &EggIncCustomEgg{
+		ID:             "chocolate",
+		Dimension:      GameModifier_AWAY_EARNINGS,
+		DimensionValue: []float64{1.25, 1.5, 2.0, 3.0},
+	}
+	CustomEggMap["easter"] = &EggIncCustomEgg{
+		ID:             "easter",
+		Dimension:      GameModifier_INTERNAL_HATCHERY_RATE,
+		DimensionValue: []float64{1.01, 1.02, 1.03, 1.05},
+	}
+	CustomEggMap["firework"] = &EggIncCustomEgg{
+		ID:             "firework",
+		Dimension:      GameModifier_EARNINGS,
+		DimensionValue: []float64{1.01, 1.02, 1.03, 1.05},
+	}
+	CustomEggMap["flame-retardant"] = &EggIncCustomEgg{
+		ID:             "flame-retardant",
+		Dimension:      GameModifier_HAB_COST,
+		DimensionValue: []float64{0.99, 0.95, 0.88, 0.75},
+	}
+	CustomEggMap["ice"] = &EggIncCustomEgg{
+		ID:             "ice",
+		Dimension:      GameModifier_RESEARCH_COST,
+		DimensionValue: []float64{0.99, 0.98, 0.965, 0.95},
+	}
+	CustomEggMap["lithium"] = &EggIncCustomEgg{
+		ID:             "lithium",
+		Dimension:      GameModifier_VEHICLE_COST,
+		DimensionValue: []float64{0.98, 0.96, 0.93, 0.9},
+	}
+	CustomEggMap["pegg"] = &EggIncCustomEgg{
+		ID:             "pegg",
+		Dimension:      GameModifier_HAB_CAPACITY,
+		DimensionValue: []float64{1.01, 1.02, 1.03, 1.05},
+	}
+	CustomEggMap["pumpkin"] = &EggIncCustomEgg{
+		ID:             "pumpkin",
+		Dimension:      GameModifier_SHIPPING_CAPACITY,
+		DimensionValue: []float64{1.01, 1.02, 1.03, 1.05},
+	}
+	CustomEggMap["silicon"] = &EggIncCustomEgg{
+		ID:             "silicon",
+		Dimension:      GameModifier_EGG_LAYING_RATE,
+		DimensionValue: []float64{1.01, 1.02, 1.03, 1.05},
+	}
+	CustomEggMap["waterballoon"] = &EggIncCustomEgg{
+		ID:             "waterballoon",
+		Dimension:      GameModifier_RESEARCH_COST,
+		DimensionValue: []float64{0.99, 0.98, 0.97, 0.95},
+	}
+	CustomEggMap["wood"] = &EggIncCustomEgg{
+		ID:             "wood",
+		Dimension:      GameModifier_AWAY_EARNINGS,
+		DimensionValue: []float64{1.1, 1.25, 1.5, 2.0},
 	}
 }
 
 func TestGetColleggtibleBuffs(t *testing.T) {
-	setupCustomEggMap(t)
+	setupCustomEggMap()
 
 	// Print current working directory for debugging
 	cwd, err := os.Getwd()
@@ -142,7 +180,7 @@ func TestGetColleggtibleBuffs(t *testing.T) {
 }
 
 func TestGetColleggtibleBuffsAllDimensions(t *testing.T) {
-	setupCustomEggMap(t)
+	setupCustomEggMap()
 
 	makeContract := func(eggID string) *LocalContract {
 		return &LocalContract{
