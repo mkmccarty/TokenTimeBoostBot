@@ -61,9 +61,10 @@ func HandleAdminCurrentContracts(s *discordgo.Session, i *discordgo.InteractionC
 		}
 	}
 
+	components, _ := getCurrentContractsComponents(s, channelID)
 	if _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Flags:      flags,
-		Components: getCurrentContractsComponents(s, channelID),
+		Components: components,
 	}); err != nil {
 		log.Println("Error sending follow-up message:", err)
 	}
