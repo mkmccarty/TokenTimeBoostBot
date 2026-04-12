@@ -116,7 +116,7 @@ func HandleActiveContractsPage(s *discordgo.Session, i *discordgo.InteractionCre
 			Data: &discordgo.InteractionResponseData{Flags: flags},
 		})
 
-		components := getCurrentContractsComponents(s, channelID)
+		components, _ := getCurrentContractsComponents(s, channelID)
 		edit := discordgo.WebhookEdit{Components: &components}
 		if _, err := s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit); err != nil {
 			log.Println("Error refreshing active contracts:", err)
@@ -137,9 +137,10 @@ func HandleActiveContractsPage(s *discordgo.Session, i *discordgo.InteractionCre
 			log.Println("Error deleting message for bump:", err)
 		}
 
+		components, _ := getCurrentContractsComponents(s, channelID)
 		if _, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
 			Flags:      flags,
-			Components: getCurrentContractsComponents(s, channelID),
+			Components: components,
 		}); err != nil {
 			log.Println("Error sending bumped active contracts:", err)
 		}
@@ -173,7 +174,7 @@ func activeContractsButtons(channelID string) discordgo.ActionsRow {
 	}
 }
 
-func getCurrentContractsComponents(s *discordgo.Session, channelID string) []discordgo.MessageComponent {
+func getCurrentContractsComponents(s *discordgo.Session, channelID string) ([]discordgo.MessageComponent, bool) {
 	tl, err := s.ThreadsActive(channelID)
 	if err != nil {
 		log.Println("Error fetching active threads:", err)
@@ -182,7 +183,7 @@ func getCurrentContractsComponents(s *discordgo.Session, channelID string) []dis
 				discordgo.TextDisplay{Content: "Error retrieving active contracts: " + err.Error()},
 			}},
 			activeContractsButtons(channelID),
-		}
+		}, false
 	}
 
 	guildID := ""
@@ -210,6 +211,7 @@ func getCurrentContractsComponents(s *discordgo.Session, channelID string) []dis
 	}
 
 	var contractComponents []discordgo.MessageComponent
+	shownContracts := 0
 	if len(matched) == 0 {
 		contractComponents = []discordgo.MessageComponent{discordgo.TextDisplay{Content: "No active contracts found in this channel."}}
 	} else {
@@ -242,9 +244,14 @@ func getCurrentContractsComponents(s *discordgo.Session, channelID string) []dis
 				}
 				totalChars += len(display.Content)
 				contractComponents = append(contractComponents, display)
+				shownContracts++
 			}
 			i = j
 		}
+	}
+
+	if len(contractComponents) == 0 {
+		contractComponents = []discordgo.MessageComponent{discordgo.TextDisplay{Content: "No active contracts found in this channel."}}
 	}
 
 	accentColor := 0x5865f2
@@ -253,9 +260,8 @@ func getCurrentContractsComponents(s *discordgo.Session, channelID string) []dis
 			Components:  contractComponents,
 			AccentColor: &accentColor},
 		activeContractsButtons(channelID),
-	}
+	}, shownContracts > 0
 }
-
 func getContractDisplay(header *Contract, coops []*Contract, activeThreadIDs map[string]bool, charBudget int) discordgo.TextDisplay {
 	iconCoop := ei.GetBotEmojiMarkdown("icon_coop")
 
