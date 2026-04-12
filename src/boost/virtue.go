@@ -354,7 +354,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 			log.Printf("Max CTE set: %s\n", line)
 		}
 	}
-	fmt.Fprintf(&header, "**CTE**: %.0f  **Max CTE**: %.0f\n", cte, maxCTE)
+	fmt.Fprintf(&header, "**CTE**: %.0f  **Max CTE**: %.0f **Pending:** %.0f\n", cte, maxCTE, maxCTE+float64(futureEov))
 	artifactIcons := ""
 	maxArtifactIcons := ""
 
