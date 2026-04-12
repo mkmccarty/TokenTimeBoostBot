@@ -19,7 +19,23 @@ type DimensionBuffs struct {
 	Hab              float64
 	Earnings         float64
 	AwayEarnings     float64
+	VehicleCost      float64
+	HabCost          float64
 	ResearchDiscount float64
+}
+
+func newDimensionBuffsIdentity() DimensionBuffs {
+	return DimensionBuffs{
+		ELR:              1.0,
+		SR:               1.0,
+		IHR:              1.0,
+		Hab:              1.0,
+		Earnings:         1.0,
+		AwayEarnings:     1.0,
+		VehicleCost:      1.0,
+		HabCost:          1.0,
+		ResearchDiscount: 1.0,
+	}
 }
 
 // ArtifactLevels are used to map the level enums to strings
@@ -30,15 +46,7 @@ var ArtifactRarity = []string{"C", "R", "E", "L"}
 
 // GetArtifactBuffs calculates the total buffs from artifacts
 func GetArtifactBuffs(artifacts []*CompleteArtifact) DimensionBuffs {
-	artifactBuffs := DimensionBuffs{
-		ELR:              1.0,
-		SR:               1.0,
-		IHR:              1.0,
-		Hab:              1.0,
-		Earnings:         1.0,
-		AwayEarnings:     1.0,
-		ResearchDiscount: 1.0,
-	}
+	artifactBuffs := newDimensionBuffsIdentity()
 
 	chalice := map[string]float64{
 		"T1C": 1.05,

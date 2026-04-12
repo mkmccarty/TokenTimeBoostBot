@@ -40,6 +40,11 @@ func setupCustomEggMap() {
 		Dimension:      GameModifier_VEHICLE_COST,
 		DimensionValue: []float64{0.98, 0.96, 0.93, 0.9},
 	}
+	CustomEggMap["pegg"] = &EggIncCustomEgg{
+		ID:             "pegg",
+		Dimension:      GameModifier_HAB_CAPACITY,
+		DimensionValue: []float64{1.01, 1.02, 1.03, 1.05},
+	}
 	CustomEggMap["pumpkin"] = &EggIncCustomEgg{
 		ID:             "pumpkin",
 		Dimension:      GameModifier_SHIPPING_CAPACITY,
@@ -95,6 +100,9 @@ func TestGetColleggtibleBuffs(t *testing.T) {
 		expectedHab      float64
 		expectedEarnings float64
 		expectedAway     float64
+		expectedVehicle  float64
+		expectedHabCost  float64
+		expectedResearch float64
 	}{
 		{
 			name:             "All buffs from JSON",
@@ -105,6 +113,9 @@ func TestGetColleggtibleBuffs(t *testing.T) {
 			expectedHab:      1.0,  // CarbonFiber with 1e10 farm size (tier 3)
 			expectedEarnings: 1.0,  // Firework with 1e10 farm size (tier 3)
 			expectedAway:     6.0,  // Chocolate with 1e10 farm size (tier 3)
+			expectedVehicle:  1.0,
+			expectedHabCost:  1.0,
+			expectedResearch: 1.0,
 		},
 		/*
 			{
@@ -152,6 +163,72 @@ func TestGetColleggtibleBuffs(t *testing.T) {
 			if buffs.AwayEarnings != tc.expectedAway {
 				t.Errorf("AwayEarnings: got %v, want %v", buffs.AwayEarnings, tc.expectedAway)
 			}
+			if buffs.VehicleCost != tc.expectedVehicle {
+				t.Errorf("VehicleCost: got %v, want %v", buffs.VehicleCost, tc.expectedVehicle)
+			}
+			if buffs.HabCost != tc.expectedHabCost {
+				t.Errorf("HabCost: got %v, want %v", buffs.HabCost, tc.expectedHabCost)
+			}
+			if buffs.ResearchDiscount != tc.expectedResearch {
+				t.Errorf("ResearchDiscount: got %v, want %v", buffs.ResearchDiscount, tc.expectedResearch)
+			}
 		})
+	}
+}
+
+func TestGetColleggtibleBuffsAllDimensions(t *testing.T) {
+	setupCustomEggMap()
+
+	makeContract := func(eggID string) *LocalContract {
+		return &LocalContract{
+			Contract: &Contract{CustomEggId: &eggID},
+			MaxFarmSizeReached: func(v float64) *float64 {
+				return &v
+			}(1e10),
+		}
+	}
+
+	contracts := &MyContracts{
+		Contracts: []*LocalContract{
+			makeContract("silicon"),
+			makeContract("pumpkin"),
+			makeContract("easter"),
+			makeContract("pegg"),
+			makeContract("firework"),
+			makeContract("chocolate"),
+			makeContract("waterballoon"),
+			makeContract("lithium"),
+			makeContract("flame-retardant"),
+		},
+	}
+
+	buffs := GetColleggtibleBuffs(contracts)
+
+	if buffs.ELR != 1.05 {
+		t.Errorf("ELR: got %v, want 1.05", buffs.ELR)
+	}
+	if buffs.SR != 1.05 {
+		t.Errorf("SR: got %v, want 1.05", buffs.SR)
+	}
+	if buffs.IHR != 1.05 {
+		t.Errorf("IHR: got %v, want 1.05", buffs.IHR)
+	}
+	if buffs.Hab != 1.05 {
+		t.Errorf("Hab: got %v, want 1.05", buffs.Hab)
+	}
+	if buffs.Earnings != 1.05 {
+		t.Errorf("Earnings: got %v, want 1.05", buffs.Earnings)
+	}
+	if buffs.AwayEarnings != 3.0 {
+		t.Errorf("AwayEarnings: got %v, want 3", buffs.AwayEarnings)
+	}
+	if buffs.VehicleCost != 0.9 {
+		t.Errorf("VehicleCost: got %v, want 0.9", buffs.VehicleCost)
+	}
+	if buffs.HabCost != 0.75 {
+		t.Errorf("HabCost: got %v, want 0.75", buffs.HabCost)
+	}
+	if buffs.ResearchDiscount != 0.95 {
+		t.Errorf("ResearchDiscount: got %v, want 0.95", buffs.ResearchDiscount)
 	}
 }
