@@ -469,6 +469,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 			})
 		}
 
+		activeBoosterID := contract.currentBoosterID()
+
 		for i, element := range orderSubset {
 
 			if contract.State != ContractStateSignup {
@@ -525,13 +527,18 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				}
 
 				sinkIcon := getSinkIcon(contract, b)
+				isActiveTokenBooster := b.BoostState == BoostStateTokenTime && b.UserID == activeBoosterID
 				if contract.State == ContractStateBanker {
 
 					switch b.BoostState {
 					case BoostStateUnboosted:
 						fmt.Fprintf(&builder, "%s %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, sinkIcon, server)
 					case BoostStateTokenTime:
-						fmt.Fprintf(&builder, "%s ➡️ **%s** %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, currentStartTime, sinkIcon, server)
+						if isActiveTokenBooster {
+							fmt.Fprintf(&builder, "%s ➡️ **%s** %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, currentStartTime, sinkIcon, server)
+						} else {
+							fmt.Fprintf(&builder, "%s **%s** %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, currentStartTime, sinkIcon, server)
+						}
 					case BoostStateBoosted:
 						boostingString := ""
 						if time.Now().Before(b.EstEndOfBoost) {
@@ -552,14 +559,18 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 					case BoostStateUnboosted:
 						fmt.Fprintf(&builder, "%s %s%s%s%s\n", prefix, name, signupCountStr, sortRate, server)
 					case BoostStateTokenTime:
-						if b.UserID == b.Name && b.AltController == "" && contract.State != ContractStateBanker {
+						if isActiveTokenBooster && b.UserID == b.Name && b.AltController == "" && contract.State != ContractStateBanker {
 							// Add a rocket for auto boosting
 							fmt.Fprintf(&builder, "%s ➡️ **%s** 🚀%s%s%s%s\n", prefix, name, countStr, sortRate, currentStartTime, server)
 						} else {
 							if !b.BoostingTokenTimestamp.IsZero() {
 								currentStartTime = fmt.Sprintf(" <t:%d:R> since ️T-0️⃣ / votes:%d", b.BoostingTokenTimestamp.Unix(), len(b.VotingList))
 							}
-							fmt.Fprintf(&builder, "%s ➡️ **%s** %s%s%s%s\n", prefix, name, countStr, sortRate, currentStartTime, server)
+							if isActiveTokenBooster {
+								fmt.Fprintf(&builder, "%s ➡️ **%s** %s%s%s%s\n", prefix, name, countStr, sortRate, currentStartTime, server)
+							} else {
+								fmt.Fprintf(&builder, "%s **%s** %s%s%s%s\n", prefix, name, countStr, sortRate, currentStartTime, server)
+							}
 						}
 					case BoostStateBoosted:
 						boostingString := ""
