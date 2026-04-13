@@ -1992,10 +1992,14 @@ func reorderBoosters(contract *Contract) {
 		}
 
 		for _, el := range contract.Order {
-			if contract.Boosters[el].BoostState == BoostStateBoosted {
+			b := contract.Boosters[el]
+			if b == nil {
+				continue
+			}
+			if b.BoostState == BoostStateBoosted {
 				orderedNames = append(orderedNames, el)
-				lastBoostTime = contract.Boosters[el].EndTime
-			} else if contract.Style&ContractFlagFastrun != 0 && contract.Boosters[el].BoostState == BoostStateTokenTime {
+				lastBoostTime = b.EndTime
+			} else if contract.Style&ContractFlagFastrun != 0 && b.BoostState == BoostStateTokenTime {
 				// Fastrun style keeps current booster in place
 				orderedNames = append(orderedNames, el)
 			} else {
@@ -2006,8 +2010,8 @@ func reorderBoosters(contract *Contract) {
 				tvalPairs = append(tvalPairs, TValPair{
 					name:     el,
 					position: pos,
-					val:      contract.Boosters[el].TokenValue,
-					tokenAsk: contract.Boosters[el].TokensWanted,
+					val:      b.TokenValue,
+					tokenAsk: b.TokensWanted,
 				})
 			}
 		}
