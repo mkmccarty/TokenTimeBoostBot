@@ -167,7 +167,7 @@ func getCoopStatus(contractID string, coopID string, eeidOverride string, bypass
 
 		//dataTimestampStr = ""
 		protoData = string(body)
-		data := eiData{ID: cacheID, timestamp: time.Now(), expirationTimestamp: time.Now().Add(30 * time.Second), contractID: contractID, coopID: coopID, protoData: protoData}
+		data := eiData{ID: cacheID, timestamp: time.Now(), expirationTimestamp: time.Now().Add(10 * time.Second), contractID: contractID, coopID: coopID, protoData: protoData}
 		eiDatas[cacheID] = &data
 
 		// Save protoData into a file
