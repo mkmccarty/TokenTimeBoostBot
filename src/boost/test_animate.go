@@ -31,7 +31,7 @@ const (
 	testAnimateCreateSub = "create"
 	testAnimateHelpSub   = "help"
 	testAnimateTokenPath = "emoji/token_overlay.png"
-	maxAnimateFileBytes  = 20 * 1024 * 1024
+	maxAnimateFileBytes  = 10 * 1024 * 1024
 )
 
 type animationTrackingRow struct {

@@ -362,7 +362,6 @@ var (
 		boost.GetSlashEstimateTime(slashEstimateTime),
 		boost.GetSlashCsEstimates(slashCsEstimate),
 		boost.GetSlashLobbyCommand(slashLobby),
-		boost.GetSlashTestAnimateCommand(slashTestAnimate),
 		boost.GetSlashChangeOneBoosterCommand(slashChangeOneBooster),
 		boost.GetSlashChangePlannedStartCommand(slashChangePlannedStartCommand),
 		bottools.GetSlashRemoveMessage(slashRemoveDMMessage),
@@ -1085,6 +1084,10 @@ func main() {
 
 	if !slices.Contains(config.FeatureFlags, "NO_FUN") {
 		commands = append(commands, notok.SlashFunCommand(slashFun))
+	}
+
+	if config.IsDevBot() {
+		commands = append(commands, boost.GetSlashTestAnimateCommand(slashTestAnimate))
 	}
 
 	commandSet := append(commands, globalCommands...)
