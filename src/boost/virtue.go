@@ -71,6 +71,14 @@ func GetSlashVirtueCommand(cmd string) *discordgo.ApplicationCommand {
 				MaxValue:    98.0,
 				Required:    false,
 			},
+			/*
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "help",
+					Description: "Show help for /virtue output and options",
+					Required:    false,
+				},
+			*/
 			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "reset",
@@ -92,6 +100,17 @@ func HandleVirtue(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	userID := bottools.GetInteractionUserID(i)
 
 	optionMap := bottools.GetCommandOptionsMap(i)
+	if opt, ok := optionMap["help"]; ok && opt.BoolValue() {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: virtueHelpText(),
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
 	if opt, ok := optionMap["reset"]; ok {
 		if opt.BoolValue() {
 			farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
@@ -101,6 +120,35 @@ func HandleVirtue(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 
 	Virtue(s, i, optionMap, eiID, true)
+}
+
+func virtueHelpText() string {
+	return strings.TrimSpace(`
+# /virtue Help
+
+The /virtue command evaluates your Eggs of Virtue home farm and shows shift planning details.
+
+## What the output shows
+- Your virtue title line (Ascender or Prestiged One)
+- Current reset count and shift count
+- Current shift cost in Soul Eggs
+- Egg-by-egg status for Curiosity, Integrity, Humility, Resilience, and Kindness
+- Progress and estimates used to plan your next shift
+- Fleet, habitat, train, and other farm context needed for decision making
+- Notes for current farm state and possible simulated outcomes
+
+## Options
+- help (boolean): Show this explanation instead of running /virtue.
+- simulate-shift (Curiosity/Integrity/Humility/Resilience/Kindness): Simulate a 0-pop shift for the selected egg.
+- simulate-shift-target-te (1-98): Optional target Truth Eggs used with simulate-shift.
+- compact (boolean): Toggle compact output mode. This is sticky and remembered for future runs.
+- reset (boolean): Clear your stored Egg Inc ID so you can set it again.
+
+## Notes
+- /virtue uses your stored Egg Inc ID.
+- If your ID is missing or invalid, the bot asks you to provide it.
+- Best results come from being on an Egg of Virtue home farm.
+`)
 }
 
 // Virtue processes the virtue command
