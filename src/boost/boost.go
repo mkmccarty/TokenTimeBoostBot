@@ -1970,9 +1970,12 @@ func reorderBoosters(contract *Contract) {
 		var orderedNames []string
 		var lastOrderNames []string
 		var tvalPairs []TValPair
+		lastBoostTime := time.Now()
+		contract.mutex.Lock()
 		allBoosted := true
 		for _, id := range contract.Order {
-			if contract.Boosters[id].BoostState != BoostStateBoosted {
+			b := contract.Boosters[id]
+			if b == nil || b.BoostState != BoostStateBoosted {
 				allBoosted = false
 				break
 			}
@@ -1980,13 +1983,13 @@ func reorderBoosters(contract *Contract) {
 		if allBoosted {
 			log.Print("TVal Boosting complete, all boosted, count:", len(contract.Order))
 			contract.BoostOrder = ContractOrderSignup
+			contract.mutex.Unlock()
 			return
 		}
 		if contract.currentBoosterID() == "" {
+			contract.mutex.Unlock()
 			return
 		}
-		lastBoostTime := time.Now()
-		contract.mutex.Lock()
 
 		for _, el := range contract.Order {
 			if contract.Boosters[el].BoostState == BoostStateBoosted {
