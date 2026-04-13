@@ -280,7 +280,9 @@ func probeVideoFrameCount(videoBytes []byte, outExt string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
 
 	inputPath := filepath.Join(tmpDir, "probe-input"+outExt)
 	if err := os.WriteFile(inputPath, videoBytes, 0600); err != nil {
@@ -389,7 +391,9 @@ func downloadAttachmentBytes(att *discordgo.MessageAttachment) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return nil, fmt.Errorf("download failed with status %s", resp.Status)
@@ -551,7 +555,9 @@ func buildTokenOverlayVideo(videoBytes []byte, csvBytes []byte, outExt string) (
 	if err != nil {
 		return nil, fmt.Errorf("failed creating temp directory: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
 
 	inputPath := filepath.Join(tmpDir, "input"+outExt)
 	if err := os.WriteFile(inputPath, videoBytes, 0600); err != nil {
@@ -621,7 +627,9 @@ func loadTokenImage() (*image.NRGBA, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed loading token image %q: %w", filePath, err)
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	img, _, err := image.Decode(file)
 	if err != nil {
@@ -666,7 +674,9 @@ func downloadTokenOverlayFromRepo(localFilePath string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return fmt.Errorf("token image download failed with status %s", resp.Status)
@@ -676,7 +686,9 @@ func downloadTokenOverlayFromRepo(localFilePath string) error {
 	if err != nil {
 		return fmt.Errorf("failed creating token image file: %w", err)
 	}
-	defer outFile.Close()
+	defer func() {
+		_ = outFile.Close()
+	}()
 
 	if _, err := io.Copy(outFile, resp.Body); err != nil {
 		return fmt.Errorf("failed writing token image file: %w", err)
