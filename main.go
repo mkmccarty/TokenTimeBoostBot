@@ -109,6 +109,7 @@ const slashVirtue string = "virtue"
 const slashRegister string = "register"
 const slashHunt string = "hunt"
 const slashPredictions string = "predictions"
+const slashTestAnimate string = "test-animate"
 
 var integerZeroMinValue float64 = 0.0
 
@@ -580,6 +581,9 @@ var (
 		},
 		slashPredictions: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandlePredictionsCommand(s, i)
+		},
+		slashTestAnimate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleTestAnimateCommand(s, i)
 		},
 		slashEstimateTime: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleEstimateTimeCommand(s, i)
@@ -1080,6 +1084,10 @@ func main() {
 
 	if !slices.Contains(config.FeatureFlags, "NO_FUN") {
 		commands = append(commands, notok.SlashFunCommand(slashFun))
+	}
+
+	if config.IsDevBot() {
+		commands = append(commands, boost.GetSlashTestAnimateCommand(slashTestAnimate))
 	}
 
 	commandSet := append(commands, globalCommands...)
