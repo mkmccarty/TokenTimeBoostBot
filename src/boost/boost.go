@@ -1573,10 +1573,9 @@ func UserBoost(s *discordgo.Session, guildID string, channelID string, userID st
 				// Unique insert into contract.BoostedOrder
 				contract.BoostedOrder = append(contract.BoostedOrder, contract.Order[i])
 				if contract.Boosters[contract.Order[i]].StartTime.IsZero() {
-					// Keep existing start time if they already boosted
-					currentIdx := contract.currentBoosterOrderIndex()
-					if currentIdx > 0 && currentIdx <= len(contract.Order) {
-						contract.Boosters[contract.Order[i]].StartTime = contract.Boosters[contract.Order[currentIdx-1]].StartTime
+					// Taking start time from current booster start time
+					if active := contract.currentBooster(); active != nil {
+						contract.Boosters[contract.Order[i]].StartTime = active.StartTime
 					} else {
 						contract.Boosters[contract.Order[i]].StartTime = time.Now()
 					}
@@ -1649,12 +1648,19 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 		contract.setCurrentBoosterByIndex(firstUnboosted)
 	}
 
-	currentIdx := contract.currentBoosterOrderIndex()
-	if currentIdx == contract.CoopSize {
+	allBoosted := true
+	for _, id := range contract.Order {
+		if contract.Boosters[id].BoostState != BoostStateBoosted {
+			allBoosted = false
+			break
+		}
+	}
+
+	if allBoosted && len(contract.Order) == contract.CoopSize {
 		contract.clearCurrentBooster()
 		changeContractState(contract, ContractStateCompleted) // Waiting for sink
 		contract.EndTime = time.Now()
-	} else if currentIdx == len(contract.Order) || currentIdx < 0 {
+	} else if allBoosted {
 		contract.clearCurrentBooster()
 		changeContractState(contract, ContractStateWaiting) // There could be more boosters joining later
 	} else {
@@ -1964,12 +1970,19 @@ func reorderBoosters(contract *Contract) {
 		var orderedNames []string
 		var lastOrderNames []string
 		var tvalPairs []TValPair
-		currentIdx := contract.currentBoosterOrderIndex()
-		if currentIdx == contract.CoopSize {
-			log.Print("TVal Boosting complete", currentIdx, len(contract.Order))
+		allBoosted := true
+		for _, id := range contract.Order {
+			if contract.Boosters[id].BoostState != BoostStateBoosted {
+				allBoosted = false
+				break
+			}
+		}
+		if allBoosted {
+			log.Print("TVal Boosting complete, all boosted, count:", len(contract.Order))
 			contract.BoostOrder = ContractOrderSignup
 			return
-		} else if currentIdx == len(contract.Order) || currentIdx < 0 {
+		}
+		if contract.currentBoosterID() == "" {
 			return
 		}
 		lastBoostTime := time.Now()
@@ -2018,7 +2031,7 @@ func reorderBoosters(contract *Contract) {
 
 		newBoostPosition := len(orderedNames)
 		if contract.Style&ContractFlagFastrun != 0 {
-			newBoostPosition = currentIdx
+			newBoostPosition = contract.currentBoosterOrderIndex()
 		}
 
 		// These boosters are all dymanic, any of them could be the next booster
