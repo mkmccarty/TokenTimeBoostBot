@@ -9,7 +9,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/google/go-github/v33 v33.0.0
 	github.com/jasonlvhit/gocron v0.0.1
-	github.com/mattn/go-runewidth v0.0.22
+	github.com/mattn/go-runewidth v0.0.23
 	github.com/natefinch/lumberjack/v3 v3.0.0-alpha
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/pkg/errors v0.9.1
