@@ -45,8 +45,8 @@ type animationTrackingRow struct {
 	Opacity    float64
 }
 
-// GetSlashTestAnimateCommand creates the /test-animate command.
-func GetSlashTestAnimateCommand(cmd string) *discordgo.ApplicationCommand {
+// GetSlashMintCommand creates the /mint command.
+func GetSlashMintCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Overlay the token image on an animated GIF or MP4/M4P using tracked CSV coordinates.",
@@ -82,20 +82,20 @@ func GetSlashTestAnimateCommand(cmd string) *discordgo.ApplicationCommand {
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        testAnimateHelpSub,
-				Description: "Show usage help for /test-animate",
+				Description: "Show usage help for /mint",
 			},
 		},
 	}
 }
 
-// HandleTestAnimateCommand validates user-uploaded GIF/CSV and returns an overlaid animation.
-func HandleTestAnimateCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleMintCommand validates user-uploaded GIF/CSV and returns an overlaid animation.
+func HandleMintCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	data := i.ApplicationCommandData()
 	if len(data.Options) == 0 {
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: "Please choose a subcommand: /test-animate create or /test-animate help.",
+				Content: "Please choose a subcommand: /mint create or /mint help.",
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
@@ -107,7 +107,7 @@ func HandleTestAnimateCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: "Invalid usage. Use /test-animate create or /test-animate help.",
+				Content: "Invalid usage. Use /mint create or /mint help.",
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
@@ -129,7 +129,7 @@ func HandleTestAnimateCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: "Unknown subcommand. Use /test-animate create or /test-animate help.",
+				Content: "Unknown subcommand. Use /mint create or /mint help.",
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
@@ -215,7 +215,7 @@ func HandleTestAnimateCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 		Content: "Rendering complete. Generated file:\n" + cleanupNote,
 		Files: []*discordgo.File{
 			{
-				Name:        "test-animate-output" + outExt,
+				Name:        "mint-output" + outExt,
 				ContentType: outContentType,
 				Reader:      bytes.NewReader(outputData),
 			},
@@ -236,7 +236,7 @@ func cleanupOldTestAnimateFiles(maxAge time.Duration) (int, error) {
 
 	for _, entry := range entries {
 		name := entry.Name()
-		if !strings.HasPrefix(name, "ttbb-test-animate-") && !strings.HasPrefix(name, "ttbb-test-animate-probe-") {
+		if !strings.HasPrefix(name, "ttbb-mint-") && !strings.HasPrefix(name, "ttbb-mint-probe-") {
 			continue
 		}
 
@@ -267,9 +267,9 @@ func cleanupOldTestAnimateFiles(maxAge time.Duration) (int, error) {
 func buildTestAnimateUsageText() string {
 	limitMiB := maxAnimateFileBytes / (1024 * 1024)
 	return strings.Join([]string{
-		"Usage tips for /test-animate:",
-		"- Use /test-animate create to generate an output file.",
-		"- Use /test-animate help anytime to display this guide.",
+		"Usage tips for /mint:",
+		"- Use /mint create to generate an output file.",
+		"- Use /mint help anytime to display this guide.",
 		"- Input animation file: animated GIF, MP4, or M4P.",
 		"- Output format matches input format (GIF->GIF, MP4/M4P->video).",
 		fmt.Sprintf("- Current attachment size limit is %d MiB per file (subject to change).", limitMiB),
@@ -325,7 +325,7 @@ func probeVideoFrameCount(videoBytes []byte, outExt string) (int, error) {
 		return 0, err
 	}
 
-	tmpDir, err := os.MkdirTemp("", "ttbb-test-animate-probe-*")
+	tmpDir, err := os.MkdirTemp("", "ttbb-mint-probe-*")
 	if err != nil {
 		return 0, err
 	}
@@ -600,7 +600,7 @@ func buildTokenOverlayVideo(videoBytes []byte, csvBytes []byte, outExt string) (
 		return nil, fmt.Errorf("failed preparing token image: %w", err)
 	}
 
-	tmpDir, err := os.MkdirTemp("", "ttbb-test-animate-*")
+	tmpDir, err := os.MkdirTemp("", "ttbb-mint-*")
 	if err != nil {
 		return nil, fmt.Errorf("failed creating temp directory: %w", err)
 	}
