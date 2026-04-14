@@ -293,6 +293,70 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 	offset := 1
 
+	getSortRate := func(b *Booster, includeTokenAsk bool) string {
+		sortRate := ""
+		if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderELR {
+			sortRate = fmt.Sprintf(" **ELR:%2.3f** ", b.ArtifactSet.LayRate)
+		}
+		if includeTokenAsk && contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderTokenAsk {
+			sortRate = fmt.Sprintf(" **Ask:%d** ", b.TokensWanted)
+		}
+		if contract.State == ContractStateSignup &&
+			(contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEplus) {
+			if b.TECount == -1 {
+				if bottools.IsValidDiscordID(b.UserID) {
+					sortRate = " **TE:🛜** "
+				} else {
+					sortRate = " **TE:0** "
+				}
+			} else {
+				sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
+			}
+		}
+		if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.PlayStyle != ContractPlaystyleChill {
+			sortRate = fmt.Sprintf(" *∆:%2.3f* ", b.TokenValue)
+		}
+		return sortRate
+	}
+
+	formatCompactBooster := func(b *Booster, includeTokenAsk bool) string {
+		sortRate := getSortRate(b, includeTokenAsk)
+		sinkIcon := getSinkIcon(contract, b)
+		if b.BoostState == BoostStateBoosted {
+			return fmt.Sprintf("~~%s~~%s%s", b.Mention, sortRate, sinkIcon)
+		}
+		return fmt.Sprintf("%s(%d)%s%s", b.Mention, b.TokensWanted, sortRate, sinkIcon)
+	}
+
+	buildCompactRange := func(order []string, startNum int, endNum int, includeTokenAsk bool, trailingNewline bool) string {
+		if len(order) == 0 {
+			return ""
+		}
+
+		parts := make([]string, 0, len(order))
+		for _, element := range order {
+			b, ok := contract.Boosters[element]
+			if !ok {
+				continue
+			}
+			parts = append(parts, formatCompactBooster(b, includeTokenAsk))
+		}
+		if len(parts) == 0 {
+			return ""
+		}
+
+		rangeLabel := fmt.Sprintf("%d", startNum)
+		if startNum != endNum {
+			rangeLabel = fmt.Sprintf("%d-%d", startNum, endNum)
+		}
+
+		output := fmt.Sprintf("%s: %s", rangeLabel, strings.Join(parts, ", "))
+		if trailingNewline {
+			output += "\n"
+		}
+		return output
+	}
+
 	// Some actions result in an unboosted farmer with the contract state still unset
 
 	if contract.State == ContractStateWaiting {
@@ -359,105 +423,17 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				start -= end - len(contract.Order)
 				end = len(contract.Order)
 			}
-			// populate earlyList with all elements from earlySubset
-			for i, element := range contract.Order[0:start] {
-				var b, ok = contract.Boosters[element]
-				if ok {
-					// Additions for contract state value display
-					sortRate := ""
-					if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderELR {
-						sortRate = fmt.Sprintf(" **ELR:%2.3f** ", b.ArtifactSet.LayRate)
-					}
-					if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderTokenAsk {
-						sortRate = fmt.Sprintf(" **Ask:%d** ", b.TokensWanted)
-					}
-					if contract.State == ContractStateSignup &&
-						(contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEplus) {
-						if b.TECount == -1 {
-							if bottools.IsValidDiscordID(b.UserID) {
-								sortRate = " **TE:🛜** "
-							} else {
-								sortRate = " **TE:0** "
-							}
-						} else {
-							sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
-						}
-					}
-					if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.PlayStyle != ContractPlaystyleChill {
-						//if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.BoostOrder == ContractOrderTVal {
-						sortRate = fmt.Sprintf(" *∆:%2.3f* ", b.TokenValue)
-					}
 
-					sinkIcon := getSinkIcon(contract, b)
-
-					if b.BoostState == BoostStateBoosted {
-						fmt.Fprintf(&earlyList, "~~%s~~%s%s ", b.Mention, sortRate, sinkIcon)
-					} else {
-						fmt.Fprintf(&earlyList, "%s(%d)%s%s ", b.Mention, b.TokensWanted, sortRate, sinkIcon)
-					}
-					if i < start-1 {
-						earlyList.WriteString(", ")
-					}
-				}
+			// If either edge would contain exactly one booster, keep it in the mid list.
+			if start == 1 {
+				start = 0
 			}
-			if earlyList.Len() > 0 {
-				temp := earlyList.String()
-				earlyList.Reset()
-				if start == 1 {
-					fmt.Fprintf(&earlyList, "1: %s\n", temp)
-				} else {
-					fmt.Fprintf(&earlyList, "1-%d: %s\n", start, temp)
-				}
+			if len(contract.Order)-end == 1 {
+				end = len(contract.Order)
 			}
 
-			for i, element := range contract.Order[end:len(contract.Order)] {
-				var b, ok = contract.Boosters[element]
-				if ok {
-					// Additions for contract state value display
-					sortRate := ""
-					if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderELR {
-						sortRate = fmt.Sprintf(" **ELR:%2.3f** ", b.ArtifactSet.LayRate)
-					}
-					if contract.State == ContractStateSignup &&
-						(contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEplus) {
-						if b.TECount == -1 {
-							if bottools.IsValidDiscordID(b.UserID) {
-								sortRate = " **TE:🛜** "
-							} else {
-								sortRate = " **TE:0** "
-							}
-						} else {
-							sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
-						}
-					}
-					if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.PlayStyle != ContractPlaystyleChill {
-						//if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.BoostOrder == ContractOrderTVal {
-						sortRate = fmt.Sprintf(" *∆:%2.3f* ", b.TokenValue)
-					}
-
-					sinkIcon := getSinkIcon(contract, b)
-
-					if b.BoostState == BoostStateBoosted {
-						fmt.Fprintf(&lateList, "~~%s~~%s%s ", b.Mention, sortRate, sinkIcon)
-					} else {
-						fmt.Fprintf(&lateList, "%s(%d)%s%s ", b.Mention, b.TokensWanted, sortRate, sinkIcon)
-					}
-					if (end + i + 1) < len(contract.Boosters) {
-						lateList.WriteString(", ")
-					}
-				}
-			}
-			if lateList.Len() > 0 {
-				if (end + 1) == len(contract.Order) {
-					temp := lateList.String()
-					lateList.Reset()
-					fmt.Fprintf(&lateList, "%d: %s", end+1, temp)
-				} else {
-					temp := lateList.String()
-					lateList.Reset()
-					fmt.Fprintf(&lateList, "%d-%d: %s", end+1, len(contract.Order), temp)
-				}
-			}
+			earlyList.WriteString(buildCompactRange(contract.Order[0:start], 1, start, true, true))
+			lateList.WriteString(buildCompactRange(contract.Order[end:len(contract.Order)], end+1, len(contract.Order), false, false))
 
 			orderSubset = contract.Order[start:end]
 			offset = start + 1
@@ -505,26 +481,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				}
 
 				// Additions for contract state value display
-				sortRate := ""
-				if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderELR {
-					sortRate = fmt.Sprintf(" **ELR:%2.3f** ", b.ArtifactSet.LayRate)
-				}
-				if contract.State == ContractStateSignup &&
-					(contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEplus) {
-					if b.TECount == -1 {
-						if bottools.IsValidDiscordID(b.UserID) {
-							sortRate = " **TE:🛜** "
-						} else {
-							sortRate = " **TE:0** "
-						}
-					} else {
-						sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
-					}
-				}
-				if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.PlayStyle != ContractPlaystyleChill {
-					//if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.BoostOrder == ContractOrderTVal {
-					sortRate = fmt.Sprintf(" *∆:%2.3f* ", b.TokenValue)
-				}
+				sortRate := getSortRate(b, false)
 
 				sinkIcon := getSinkIcon(contract, b)
 				isActiveTokenBooster := b.BoostState == BoostStateTokenTime && b.UserID == activeBoosterID
