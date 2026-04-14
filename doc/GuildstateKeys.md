@@ -3,6 +3,7 @@
 This file documents the currently known guildstate keys used by the bot.
 
 Guildstate supports two key/value stores per guild:
+
 - string settings (`MiscSettingsString`)
 - boolean flags (`MiscSettingsFlag`)
 
@@ -22,6 +23,7 @@ Guildstate supports two key/value stores per guild:
 ## Dynamic Keys
 
 Guildstate also allows arbitrary keys through admin commands and helper methods:
+
 - `SetGuildSettingString(guildID, key, value)`
 - `SetGuildSettingFlag(guildID, key, value)`
 
