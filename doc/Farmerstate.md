@@ -3,6 +3,7 @@
 This file documents the currently known farmerstate keys used by the bot.
 
 Farmerstate stores sticky per-user values in:
+
 - string settings (`MiscSettingsString`)
 - boolean flags (`MiscSettingsFlag`)
 
@@ -44,10 +45,12 @@ Farmerstate stores sticky per-user values in:
 ## Dynamic Keys
 
 Farmerstate supports arbitrary keys through helper methods:
+
 - `SetMiscSettingString(userID, key, value)`
 - `SetMiscSettingFlag(userID, key, value)`
 
 Dynamic writes currently observed:
+
 - Artifact keys are written dynamically from inventory sync (`defl`, `metr`, `comp`, `guss`) in `src/boost/register.go` via `ei.GetBestCoopArtifactsFromInventory`.
 - Artifact UI also writes by dynamic command key (`defl`, `metr`, `comp`, `guss`, `collegg`) in `src/boost/artifacts.go`.
 
