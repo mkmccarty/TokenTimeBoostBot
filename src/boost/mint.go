@@ -274,7 +274,8 @@ func buildTestAnimateUsageText() string {
 		"- Output format matches input format (GIF->GIF, MP4/M4P->video).",
 		fmt.Sprintf("- Current attachment size limit is %d MiB per file (subject to change).", limitMiB),
 		"- CSV header must be exactly: Frame,X,Y,Width,Visibility,Rotation,Opacity",
-		"- Frame: 1-based frame index to apply this overlay row.",
+		"- Frame: 1-based frame index or inclusive range (for example: 12 or 12-20).",
+		"- When a range is used, that row is duplicated and applied to every frame in the range.",
 		"- Coordinate system: (0,0) is the upper-left corner of each frame.",
 		"- X, Y: center position in pixels where the token is placed.",
 		"- Width: token size in pixels (square dimensions).",
@@ -778,15 +779,43 @@ func parseTrackingCSV(raw []byte, expectedFrames int) ([]animationTrackingRow, e
 			return nil, fmt.Errorf("line %d must have %d columns", lineNumber, len(expected))
 		}
 
-		frame, err := strconv.Atoi(strings.TrimSpace(record[0]))
-		if err != nil {
+		frameSpec := strings.TrimSpace(record[0])
+		startFrame := 0
+		endFrame := 0
+		if strings.Count(frameSpec, "-") == 1 {
+			parts := strings.SplitN(frameSpec, "-", 2)
+			left := strings.TrimSpace(parts[0])
+			right := strings.TrimSpace(parts[1])
+			if left == "" || right == "" {
+				return nil, fmt.Errorf("line %d has invalid Frame value", lineNumber)
+			}
+
+			startFrame, err = strconv.Atoi(left)
+			if err != nil {
+				return nil, fmt.Errorf("line %d has invalid Frame value", lineNumber)
+			}
+			endFrame, err = strconv.Atoi(right)
+			if err != nil {
+				return nil, fmt.Errorf("line %d has invalid Frame value", lineNumber)
+			}
+			if startFrame > endFrame {
+				return nil, fmt.Errorf("line %d has invalid Frame range; expected start <= end", lineNumber)
+			}
+		} else if strings.Count(frameSpec, "-") > 1 {
 			return nil, fmt.Errorf("line %d has invalid Frame value", lineNumber)
+		} else {
+			startFrame, err = strconv.Atoi(frameSpec)
+			if err != nil {
+				return nil, fmt.Errorf("line %d has invalid Frame value", lineNumber)
+			}
+			endFrame = startFrame
 		}
-		if frame < 1 {
-			return nil, fmt.Errorf("line %d has frame %d out of range; expected >= 1", lineNumber, frame)
+
+		if startFrame < 1 {
+			return nil, fmt.Errorf("line %d has frame %d out of range; expected >= 1", lineNumber, startFrame)
 		}
-		if expectedFrames > 0 && frame > expectedFrames {
-			return nil, fmt.Errorf("line %d has frame %d out of range; expected 1-%d", lineNumber, frame, expectedFrames)
+		if expectedFrames > 0 && endFrame > expectedFrames {
+			return nil, fmt.Errorf("line %d has frame %d out of range; expected 1-%d", lineNumber, endFrame, expectedFrames)
 		}
 		x, err := strconv.Atoi(strings.TrimSpace(record[1]))
 		if err != nil {
@@ -816,15 +845,17 @@ func parseTrackingCSV(raw []byte, expectedFrames int) ([]animationTrackingRow, e
 			return nil, fmt.Errorf("line %d has invalid Opacity value; expected 0-255", lineNumber)
 		}
 
-		rows = append(rows, animationTrackingRow{
-			Frame:      frame,
-			X:          x,
-			Y:          y,
-			Width:      width,
-			Visibility: visibility,
-			Rotation:   rotation,
-			Opacity:    opacity,
-		})
+		for frame := startFrame; frame <= endFrame; frame++ {
+			rows = append(rows, animationTrackingRow{
+				Frame:      frame,
+				X:          x,
+				Y:          y,
+				Width:      width,
+				Visibility: visibility,
+				Rotation:   rotation,
+				Opacity:    opacity,
+			})
+		}
 	}
 
 	return rows, nil
