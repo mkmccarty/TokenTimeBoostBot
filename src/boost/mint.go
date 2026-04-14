@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"image"
 	"image/color/palette"
@@ -11,13 +12,16 @@ import (
 	"image/gif"
 	_ "image/png"
 	"io"
+	"log"
 	"math"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -26,13 +30,19 @@ import (
 )
 
 const (
-	testAnimateGIFOption  = "gif"
-	testAnimateCSVOption  = "csv"
-	testAnimateCreateSub  = "create"
-	testAnimateHelpSub    = "help"
-	testAnimateTokenPath  = "emoji/token_overlay.png"
-	maxAnimateFileBytes   = 10 * 1024 * 1024
-	testAnimateCleanupAge = 2 * time.Hour
+	testAnimateGIFOption   = "gif"
+	testAnimateCSVOption   = "csv"
+	testAnimateCreateSub   = "create"
+	testAnimateHelpSub     = "help"
+	testAnimateTokenPath   = "emoji/token_overlay.png"
+	mintPreviewPrefix      = "mint_preview"
+	mintPreviewProceed     = "proceed"
+	mintPreviewUpdateCSV   = "updatecsv"
+	mintPreviewClose       = "close"
+	maxAnimateFileBytes    = 10 * 1024 * 1024
+	testAnimateCleanupAge  = 2 * time.Hour
+	mintPreviewMaxAge      = 20 * time.Minute
+	mintEstimateMultiplier = 1.25
 )
 
 type animationTrackingRow struct {
@@ -44,6 +54,35 @@ type animationTrackingRow struct {
 	Rotation   float64
 	Opacity    float64
 }
+
+type mintPreviewSelection struct {
+	InitialFrame int
+	DistantFrame int
+	InitialX     int
+	InitialY     int
+	DistantX     int
+	DistantY     int
+	Distance     float64
+}
+
+type mintPreviewSession struct {
+	SessionID             string
+	UserID                string
+	ChannelID             string
+	InputFormat           string
+	OutExt                string
+	OutContentType        string
+	MediaBytes            []byte
+	CSVBytes              []byte
+	Interaction           *discordgo.Interaction
+	AwaitingCSV           bool
+	PreviewSampleDuration time.Duration
+	PreviewSampleFrames   int
+	UpdatedAt             time.Time
+}
+
+var mintPreviewMu sync.Mutex
+var mintPreviewSessions = make(map[string]*mintPreviewSession)
 
 // GetSlashMintCommand creates the /mint command.
 func GetSlashMintCommand(cmd string) *discordgo.ApplicationCommand {
@@ -186,42 +225,28 @@ func HandleMintCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	frameDetails := getFrameDetailsText(inputFormat, gifBytes, csvBytes, outExt)
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: "Downloaded input files. " + frameDetails + " Rendering has started and may take a little bit of time.",
-		Flags:   discordgo.MessageFlagsEphemeral,
-	})
-
-	var outputData []byte
-	if inputFormat == "gif" {
-		outputData, err = buildTokenOverlayGIF(gifBytes, csvBytes)
-	} else {
-		outputData, err = buildTokenOverlayVideo(gifBytes, csvBytes, outExt)
+	session := &mintPreviewSession{
+		SessionID:      fmt.Sprintf("%d", time.Now().UnixNano()),
+		UserID:         getInteractionUserID(i),
+		ChannelID:      i.ChannelID,
+		InputFormat:    inputFormat,
+		OutExt:         outExt,
+		OutContentType: outContentType,
+		MediaBytes:     gifBytes,
+		CSVBytes:       csvBytes,
+		Interaction:    i.Interaction,
+		UpdatedAt:      time.Now(),
 	}
-	if err != nil {
+
+	mintPreviewMu.Lock()
+	cleanupExpiredMintPreviewSessionsLocked(time.Now())
+	mintPreviewSessions[session.SessionID] = session
+	mintPreviewMu.Unlock()
+
+	if err := sendMintPreviewMessage(s, session); err != nil {
 		sendTestAnimateError(s, i, err.Error())
 		return
 	}
-
-	removedCount, cleanupErr := cleanupOldTestAnimateFiles(testAnimateCleanupAge)
-	cleanupNote := fmt.Sprintf("Reminder: non-token temporary files older than %s are cleaned up after each run.", testAnimateCleanupAge.Round(time.Hour))
-	if cleanupErr != nil {
-		cleanupNote += " (Cleanup hit some errors; it will retry on future runs.)"
-	} else if removedCount > 0 {
-		cleanupNote += fmt.Sprintf(" Removed %d stale file(s)/folder(s) this run.", removedCount)
-	}
-
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: "Rendering complete. Generated file:\n" + cleanupNote,
-		Files: []*discordgo.File{
-			{
-				Name:        "mint-output" + outExt,
-				ContentType: outContentType,
-				Reader:      bytes.NewReader(outputData),
-			},
-		},
-		Flags: discordgo.MessageFlagsEphemeral,
-	})
 }
 
 func cleanupOldTestAnimateFiles(maxAge time.Duration) (int, error) {
@@ -284,6 +309,24 @@ func buildTestAnimateUsageText() string {
 		"- Opacity: alpha 0-255 (0 transparent, 255 fully visible).",
 		"- Multiple rows for the same frame are merged in CSV order.",
 		"- Frames missing from the CSV receive no overlay.",
+		"",
+		"Example CSV for this GIF:",
+		"https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExNW05Z3g3NXh5emJhMm5xdTg5b3E2cjVhcmVxZzIyeDNmNjdvNjh6dyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/26ufbnExH8CwvAN3O/giphy.gif",
+		"```csv",
+		"Frame,X,Y,Width,Visibility,Rotation,Opacity",
+		"1,145,126,57,Visible,0,255",
+		"2-3,145,129,58,Visible,0,255",
+		"4,145,139,62,Visible,0,255",
+		"5,145,141,63,Visible,0,255",
+		"6,145,152,65,Visible,0,255",
+		"7-8,145,155,68,Visible,0,255",
+		"9,145,165,72,Visible,0,255",
+		"10,145,168,73,Visible,0,255",
+		"11,145,177,77,Visible,0,255",
+		"12,145,180,80,Visible,0,255",
+		"13,145,180,81,Visible,0,255",
+		"14,145,190,83,Visible,0,255",
+		"```",
 	}, "\n")
 }
 
@@ -407,6 +450,593 @@ func sendTestAnimateError(s *discordgo.Session, i *discordgo.InteractionCreate, 
 		Content: msg,
 		Flags:   discordgo.MessageFlagsEphemeral,
 	})
+}
+
+// HandleMintPreviewComponent handles button interactions for mint preview flows.
+func HandleMintPreviewComponent(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	parts := strings.Split(i.MessageComponentData().CustomID, "#")
+	if len(parts) != 3 {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Invalid mint preview action.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
+	sessionID := parts[1]
+	action := parts[2]
+	userID := getInteractionUserID(i)
+
+	mintPreviewMu.Lock()
+	cleanupExpiredMintPreviewSessionsLocked(time.Now())
+	session, ok := mintPreviewSessions[sessionID]
+	if ok {
+		session.UpdatedAt = time.Now()
+	}
+	mintPreviewMu.Unlock()
+
+	if !ok {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "This mint preview has expired. Please run /mint create again.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+	if session.UserID != userID {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Only the original requester can use these preview controls.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
+	switch action {
+	case mintPreviewProceed:
+		estimateText := describeMintRenderEstimate(session)
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseUpdateMessage,
+			Data: &discordgo.InteractionResponseData{
+				Content:    estimateText,
+				Components: []discordgo.MessageComponent{},
+				Flags:      discordgo.MessageFlagsEphemeral,
+			},
+		})
+
+		outputData, err := renderMintOutput(session)
+		if err != nil {
+			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+				Content: err.Error(),
+				Flags:   discordgo.MessageFlagsEphemeral,
+			})
+			return
+		}
+
+		removedCount, cleanupErr := cleanupOldTestAnimateFiles(testAnimateCleanupAge)
+		cleanupNote := fmt.Sprintf("Reminder: non-token temporary files older than %s are cleaned up after each run.", testAnimateCleanupAge.Round(time.Hour))
+		if cleanupErr != nil {
+			cleanupNote += " (Cleanup hit some errors; it will retry on future runs.)"
+		} else if removedCount > 0 {
+			cleanupNote += fmt.Sprintf(" Removed %d stale file(s)/folder(s) this run.", removedCount)
+		}
+
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: "Rendering complete. Generated file:\n" + cleanupNote,
+			Files: []*discordgo.File{
+				{
+					Name:        "mint-output" + session.OutExt,
+					ContentType: session.OutContentType,
+					Reader:      bytes.NewReader(outputData),
+				},
+			},
+			Flags: discordgo.MessageFlagsEphemeral,
+		})
+
+		mintPreviewMu.Lock()
+		delete(mintPreviewSessions, session.SessionID)
+		mintPreviewMu.Unlock()
+
+	case mintPreviewUpdateCSV:
+		mintPreviewMu.Lock()
+		session.AwaitingCSV = true
+		session.UpdatedAt = time.Now()
+		mintPreviewMu.Unlock()
+
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		})
+
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: "Upload a new CSV file in this channel (same user) and I will regenerate the preview using the original animation.",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		})
+
+		return
+
+	case mintPreviewClose:
+		mintPreviewMu.Lock()
+		delete(mintPreviewSessions, session.SessionID)
+		mintPreviewMu.Unlock()
+
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseUpdateMessage,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "Mint preview closed.",
+				Components: []discordgo.MessageComponent{},
+				Flags:      discordgo.MessageFlagsEphemeral,
+			},
+		})
+
+	default:
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Unknown mint preview action.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+	}
+}
+
+// HandleMintCSVUploadMessage consumes a replacement CSV attachment for an active preview update request.
+func HandleMintCSVUploadMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
+	if m == nil || m.Author == nil || m.Author.Bot || len(m.Attachments) == 0 {
+		return
+	}
+
+	now := time.Now()
+	var selected *mintPreviewSession
+	var sameUserDifferentChannel *mintPreviewSession
+
+	mintPreviewMu.Lock()
+	cleanupExpiredMintPreviewSessionsLocked(now)
+	for _, session := range mintPreviewSessions {
+		if !session.AwaitingCSV {
+			continue
+		}
+		if session.UserID != m.Author.ID {
+			continue
+		}
+		if session.ChannelID == m.ChannelID {
+			if selected == nil || session.UpdatedAt.After(selected.UpdatedAt) {
+				selected = session
+			}
+			continue
+		}
+		if sameUserDifferentChannel == nil || session.UpdatedAt.After(sameUserDifferentChannel.UpdatedAt) {
+			sameUserDifferentChannel = session
+		}
+	}
+	mintPreviewMu.Unlock()
+
+	if selected == nil {
+		if sameUserDifferentChannel != nil {
+			msg := fmt.Sprintf("I am waiting for your replacement CSV in channel ID %s. Please upload it there, or click 'Update the CSV file' again in the newest preview.", sameUserDifferentChannel.ChannelID)
+			if _, err := s.ChannelMessageSend(m.ChannelID, msg); err != nil {
+				log.Printf("mint csv update notice send failed: %v", err)
+			}
+		}
+		return
+	}
+
+	att := pickCSVAttachment(m.Attachments)
+	if att == nil {
+		if _, err := s.ChannelMessageSend(m.ChannelID, "Please upload a CSV file attachment."); err != nil {
+			log.Printf("mint csv update prompt send failed: %v", err)
+		}
+		return
+	}
+
+	csvBytes, err := downloadAttachmentBytes(att)
+	if err != nil {
+		if _, sendErr := s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Failed downloading CSV: %v", err)); sendErr != nil {
+			log.Printf("mint csv download error send failed: %v", sendErr)
+		}
+		return
+	}
+
+	mintPreviewMu.Lock()
+	selected.CSVBytes = csvBytes
+	selected.AwaitingCSV = false
+	selected.UpdatedAt = time.Now()
+	mintPreviewMu.Unlock()
+
+	if err := sendMintPreviewMessage(s, selected); err != nil {
+		if _, sendErr := s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Could not render updated preview: %v", err)); sendErr != nil {
+			log.Printf("mint csv preview error send failed: %v", sendErr)
+		}
+		return
+	}
+
+	if _, err := s.ChannelMessageSend(m.ChannelID, "Updated CSV received. A new preview was sent."); err != nil {
+		log.Printf("mint csv success send failed: %v", err)
+	}
+}
+
+func sendMintPreviewMessage(s *discordgo.Session, session *mintPreviewSession) error {
+	start := time.Now()
+	initialGIF, distantGIF, detailsText, err := buildMintPreviewAssets(session)
+	if err != nil {
+		return err
+	}
+	previewDuration := time.Since(start)
+
+	mintPreviewMu.Lock()
+	session.PreviewSampleDuration = previewDuration
+	session.PreviewSampleFrames = 2
+	session.UpdatedAt = time.Now()
+	mintPreviewMu.Unlock()
+
+	frameDetails := getFrameDetailsText(session.InputFormat, session.MediaBytes, session.CSVBytes, session.OutExt)
+	buttons := []discordgo.MessageComponent{
+		discordgo.ActionsRow{Components: []discordgo.MessageComponent{
+			discordgo.Button{
+				Label:    "Okay to proceed",
+				Style:    discordgo.SuccessButton,
+				CustomID: fmt.Sprintf("%s#%s#%s", mintPreviewPrefix, session.SessionID, mintPreviewProceed),
+			},
+			discordgo.Button{
+				Label:    "Close",
+				Style:    discordgo.DangerButton,
+				CustomID: fmt.Sprintf("%s#%s#%s", mintPreviewPrefix, session.SessionID, mintPreviewClose),
+			},
+		}},
+	}
+
+	_, err = s.FollowupMessageCreate(session.Interaction, true, &discordgo.WebhookParams{
+		Content: "Preview before full render:\n" + frameDetails + "\n" + detailsText,
+		Files: []*discordgo.File{
+			{
+				Name:        "mint-preview-initial.gif",
+				ContentType: "image/gif",
+				Reader:      bytes.NewReader(initialGIF),
+			},
+			{
+				Name:        "mint-preview-distant.gif",
+				ContentType: "image/gif",
+				Reader:      bytes.NewReader(distantGIF),
+			},
+		},
+		Components: buttons,
+		Flags:      discordgo.MessageFlagsEphemeral,
+	})
+	if err != nil {
+		return fmt.Errorf("failed sending mint preview: %w", err)
+	}
+
+	return nil
+}
+
+func describeMintRenderEstimate(session *mintPreviewSession) string {
+	estimate := estimateMintRenderDuration(session)
+	if estimate <= 0 {
+		return "Preview approved\nRendering full output now..."
+	}
+
+	pretty := estimate.Round(time.Second)
+	if pretty < time.Second {
+		pretty = time.Second
+	}
+	return fmt.Sprintf("Preview approved\nEstimated time: about %s.", pretty)
+}
+
+func estimateMintRenderDuration(session *mintPreviewSession) time.Duration {
+	sampleDuration := session.PreviewSampleDuration
+	sampleFrames := session.PreviewSampleFrames
+	if sampleDuration <= 0 || sampleFrames < 1 {
+		return 0
+	}
+
+	totalFrames := detectMintTotalFramesForEstimate(session)
+	if totalFrames < 1 {
+		totalFrames = sampleFrames
+	}
+
+	est := (sampleDuration * time.Duration(totalFrames)) / time.Duration(sampleFrames)
+	est = time.Duration(float64(est) * mintEstimateMultiplier)
+	if est < sampleDuration {
+		est = sampleDuration
+	}
+	return est
+}
+
+func detectMintTotalFramesForEstimate(session *mintPreviewSession) int {
+	if session.InputFormat == "gif" {
+		if decoded, err := gif.DecodeAll(bytes.NewReader(session.MediaBytes)); err == nil {
+			return len(decoded.Image)
+		}
+		return 0
+	}
+
+	if frameCount, err := probeVideoFrameCount(session.MediaBytes, session.OutExt); err == nil && frameCount > 0 {
+		return frameCount
+	}
+
+	_, maxFrame := csvFrameSummary(session.CSVBytes)
+	return maxFrame
+}
+
+func buildMintPreviewAssets(session *mintPreviewSession) ([]byte, []byte, string, error) {
+	rows, err := parseTrackingCSV(session.CSVBytes, 0)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	if len(rows) == 0 {
+		return nil, nil, "", errors.New("CSV has no tracking rows")
+	}
+
+	selection, err := selectMintPreviewFrames(rows)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	initialFrameImg, err := renderPreviewFrame(session, rows, selection.InitialFrame)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	distantFrameImg, err := renderPreviewFrame(session, rows, selection.DistantFrame)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	initialGIF, err := encodeSingleFrameGIF(initialFrameImg)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	distantGIF, err := encodeSingleFrameGIF(distantFrameImg)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	details := fmt.Sprintf(
+		"Initial frame: %d (x=%d, y=%d). Most distant frame: %d (x=%d, y=%d). Distance: %.2fpx.",
+		selection.InitialFrame,
+		selection.InitialX,
+		selection.InitialY,
+		selection.DistantFrame,
+		selection.DistantX,
+		selection.DistantY,
+		selection.Distance,
+	)
+
+	return initialGIF, distantGIF, details, nil
+}
+
+func selectMintPreviewFrames(rows []animationTrackingRow) (mintPreviewSelection, error) {
+	ordered := make([]animationTrackingRow, 0, len(rows))
+	for _, row := range rows {
+		if strings.EqualFold(row.Visibility, "visible") {
+			ordered = append(ordered, row)
+		}
+	}
+	if len(ordered) == 0 {
+		ordered = append(ordered, rows...)
+	}
+	if len(ordered) == 0 {
+		return mintPreviewSelection{}, errors.New("CSV has no rows")
+	}
+
+	sort.SliceStable(ordered, func(i, j int) bool {
+		return ordered[i].Frame < ordered[j].Frame
+	})
+
+	initial := ordered[0]
+	farthest := ordered[0]
+	maxDist := -1.0
+	for _, row := range ordered {
+		dx := float64(row.X - initial.X)
+		dy := float64(row.Y - initial.Y)
+		d := math.Sqrt((dx * dx) + (dy * dy))
+		if d > maxDist {
+			maxDist = d
+			farthest = row
+		}
+	}
+
+	if maxDist < 0 {
+		maxDist = 0
+	}
+
+	return mintPreviewSelection{
+		InitialFrame: initial.Frame,
+		DistantFrame: farthest.Frame,
+		InitialX:     initial.X,
+		InitialY:     initial.Y,
+		DistantX:     farthest.X,
+		DistantY:     farthest.Y,
+		Distance:     maxDist,
+	}, nil
+}
+
+func renderPreviewFrame(session *mintPreviewSession, rows []animationTrackingRow, targetFrame int) (*image.NRGBA, error) {
+	if targetFrame < 1 {
+		return nil, fmt.Errorf("invalid frame %d", targetFrame)
+	}
+
+	rowsByFrame := make(map[int][]animationTrackingRow)
+	for _, row := range rows {
+		rowsByFrame[row.Frame] = append(rowsByFrame[row.Frame], row)
+	}
+
+	tokenImg, err := loadTokenImage()
+	if err != nil {
+		return nil, err
+	}
+
+	var canvas *image.NRGBA
+	if session.InputFormat == "gif" {
+		decoded, err := gif.DecodeAll(bytes.NewReader(session.MediaBytes))
+		if err != nil {
+			return nil, fmt.Errorf("invalid GIF: %w", err)
+		}
+		if targetFrame > len(decoded.Image) {
+			return nil, fmt.Errorf("frame %d out of range; expected 1-%d", targetFrame, len(decoded.Image))
+		}
+		canvas, err = gifCanvasAtFrame(decoded, targetFrame)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		canvas, err = extractVideoPreviewFrame(session.MediaBytes, session.OutExt, targetFrame)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, row := range rowsByFrame[targetFrame] {
+		if !strings.EqualFold(row.Visibility, "visible") {
+			continue
+		}
+		overlay := rotateNRGBA(tokenImg, row.Rotation)
+		overlay = resizeNRGBA(overlay, row.Width, row.Width)
+		applyOpacity(overlay, row.Opacity/255.0)
+
+		pasteX := row.X - (row.Width / 2)
+		pasteY := row.Y - (row.Width / 2)
+		rect := image.Rect(pasteX, pasteY, pasteX+overlay.Bounds().Dx(), pasteY+overlay.Bounds().Dy())
+		stdDraw.Draw(canvas, rect, overlay, image.Point{}, stdDraw.Over)
+	}
+
+	return canvas, nil
+}
+
+func gifCanvasAtFrame(g *gif.GIF, targetFrame int) (*image.NRGBA, error) {
+	frameRect := gifCanvasBounds(g)
+	composited := image.NewNRGBA(frameRect)
+	var previousCanvas *image.NRGBA
+	var previousFrameBounds image.Rectangle
+	var previousDisposal byte
+
+	for idx, srcFrame := range g.Image {
+		if idx > 0 {
+			switch previousDisposal {
+			case gif.DisposalBackground:
+				stdDraw.Draw(composited, previousFrameBounds, image.Transparent, image.Point{}, stdDraw.Src)
+			case gif.DisposalPrevious:
+				if previousCanvas != nil {
+					copy(composited.Pix, previousCanvas.Pix)
+				}
+			}
+		}
+
+		currentDisposal := byte(0)
+		if idx < len(g.Disposal) {
+			currentDisposal = g.Disposal[idx]
+		}
+		if currentDisposal == gif.DisposalPrevious {
+			previousCanvas = cloneNRGBA(composited)
+		} else {
+			previousCanvas = nil
+		}
+
+		stdDraw.Draw(composited, srcFrame.Bounds(), srcFrame, srcFrame.Bounds().Min, stdDraw.Over)
+		if idx+1 == targetFrame {
+			return cloneNRGBA(composited), nil
+		}
+
+		previousFrameBounds = srcFrame.Bounds()
+		previousDisposal = currentDisposal
+	}
+
+	return nil, fmt.Errorf("frame %d out of range", targetFrame)
+}
+
+func extractVideoPreviewFrame(videoBytes []byte, outExt string, targetFrame int) (*image.NRGBA, error) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		return nil, fmt.Errorf("video input requires ffmpeg to be installed on the bot host")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "ttbb-mint-preview-*")
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
+
+	inputPath := filepath.Join(tmpDir, "input"+outExt)
+	if err := os.WriteFile(inputPath, videoBytes, 0600); err != nil {
+		return nil, err
+	}
+
+	filter := fmt.Sprintf("select='eq(n\\,%d)'", targetFrame-1)
+	cmd := exec.Command(
+		"ffmpeg",
+		"-v", "error",
+		"-i", inputPath,
+		"-vf", filter,
+		"-vframes", "1",
+		"-f", "image2pipe",
+		"-vcodec", "png",
+		"pipe:1",
+	)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("ffmpeg preview frame extraction failed: %w", err)
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("unable to extract frame %d from input video", targetFrame)
+	}
+
+	img, _, err := image.Decode(bytes.NewReader(out))
+	if err != nil {
+		return nil, err
+	}
+	return toNRGBA(img), nil
+}
+
+func encodeSingleFrameGIF(img image.Image) ([]byte, error) {
+	bounds := img.Bounds()
+	paletted := image.NewPaletted(image.Rect(0, 0, bounds.Dx(), bounds.Dy()), palette.Plan9)
+	stdDraw.FloydSteinberg.Draw(paletted, paletted.Rect, img, bounds.Min)
+
+	g := &gif.GIF{
+		Image: []*image.Paletted{paletted},
+		Delay: []int{20},
+	}
+
+	var out bytes.Buffer
+	if err := gif.EncodeAll(&out, g); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
+}
+
+func renderMintOutput(session *mintPreviewSession) ([]byte, error) {
+	if session.InputFormat == "gif" {
+		return buildTokenOverlayGIF(session.MediaBytes, session.CSVBytes)
+	}
+	return buildTokenOverlayVideo(session.MediaBytes, session.CSVBytes, session.OutExt)
+}
+
+func cleanupExpiredMintPreviewSessionsLocked(now time.Time) {
+	for id, session := range mintPreviewSessions {
+		if now.Sub(session.UpdatedAt) > mintPreviewMaxAge {
+			delete(mintPreviewSessions, id)
+		}
+	}
+}
+
+func pickCSVAttachment(attachments []*discordgo.MessageAttachment) *discordgo.MessageAttachment {
+	for _, att := range attachments {
+		name := strings.ToLower(strings.TrimSpace(att.Filename))
+		ct := strings.ToLower(strings.TrimSpace(att.ContentType))
+		if strings.HasSuffix(name, ".csv") || strings.Contains(ct, "csv") {
+			return att
+		}
+	}
+	if len(attachments) > 0 {
+		return attachments[0]
+	}
+	return nil
 }
 
 func getCommandAttachment(i *discordgo.InteractionCreate, opt *discordgo.ApplicationCommandInteractionDataOption) *discordgo.MessageAttachment {
