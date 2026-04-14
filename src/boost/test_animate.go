@@ -797,12 +797,15 @@ func parseTrackingCSV(raw []byte, expectedFrames int) ([]animationTrackingRow, e
 			return nil, fmt.Errorf("line %d has invalid Y value", lineNumber)
 		}
 		width, err := strconv.Atoi(strings.TrimSpace(record[3]))
-		if err != nil || width <= 0 {
+		if err != nil {
 			return nil, fmt.Errorf("line %d has invalid Width value", lineNumber)
 		}
 		visibility := strings.TrimSpace(record[4])
 		if !strings.EqualFold(visibility, "visible") && !strings.EqualFold(visibility, "hidden") {
 			return nil, fmt.Errorf("line %d has invalid Visibility value; use Visible or Hidden", lineNumber)
+		}
+		if width < 0 || (width == 0 && !strings.EqualFold(visibility, "hidden")) {
+			return nil, fmt.Errorf("line %d has invalid Width value", lineNumber)
 		}
 		rotation, err := strconv.ParseFloat(strings.TrimSpace(record[5]), 64)
 		if err != nil {
