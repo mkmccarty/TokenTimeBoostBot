@@ -1098,9 +1098,9 @@ func main() {
 		commands = append(commands, notok.SlashFunCommand(slashFun))
 	}
 
-	if config.IsDevBot() {
-		commands = append(commands, boost.GetSlashMintCommand(slashMint))
-	}
+	//if config.IsDevBot() {
+	commands = append(commands, boost.GetSlashMintCommand(slashMint))
+	//}
 
 	commandSet := append(commands, globalCommands...)
 
