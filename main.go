@@ -187,6 +187,11 @@ func init() {
 	if err != nil {
 		log.Fatalf("Invalid bot parameters: %v", err)
 	}
+	s.Identify.Intents = discordgo.IntentsGuilds |
+		discordgo.IntentsGuildMessages |
+		discordgo.IntentsDirectMessages |
+		discordgo.IntentsGuildMessageReactions |
+		discordgo.IntentsDirectMessageReactions
 	// if ttbb-data directory doesn't exist, create it
 	if _, err := os.Stat("ttbb-data"); os.IsNotExist(err) {
 		err := os.Mkdir("ttbb-data", 0755)
@@ -852,6 +857,9 @@ var (
 		"leaderboard_perm": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleLeaderboardPermissionButton(s, i)
 		},
+		"mint_preview": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleMintPreviewComponent(s, i)
+		},
 	}
 )
 
@@ -970,6 +978,10 @@ func init() {
 	})
 
 	// Components are part of interactions, so we register InteractionCreate handler
+	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
+		boost.HandleMintCSVUploadMessage(s, m)
+	})
+
 	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 		if m.UserID != s.State.User.ID {
 			if m.GuildID != "" {
