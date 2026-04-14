@@ -31,6 +31,7 @@ When the current booster has enough tokens they'll select the 🚀 to advance th
 If you want to move yourself to the bottom of the boost list then ⤵️ is your huckleberry. If you want to boost next then add the 🚽 reaction. For other boost order requests ask the coordinator.
 
 ## Other commands
+
 /boost - Use this if you've boosted out of order.
 /bump - Use to redraw the boost list so it's latest in the timeline.
 /seteggicname - Use this if your Egg, Inc game name isn't your server name. Use without a parameter to clear it. Do not use your EI number.
