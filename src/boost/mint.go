@@ -1098,15 +1098,40 @@ func buildTokenOverlayGIF(gifBytes []byte, csvBytes []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid GIF: %w", err)
 	}
-	if len(sourceGIF.Image) < 2 {
-		return nil, fmt.Errorf("input file must be an animated GIF with at least 2 frames")
+	if len(sourceGIF.Image) < 1 {
+		return nil, fmt.Errorf("input GIF must have at least 1 frame")
 	}
 
-	rows, err := parseTrackingCSV(csvBytes, len(sourceGIF.Image))
+	// Parse CSV without frame count limit first to discover max frame
+	rows, err := parseTrackingCSV(csvBytes, 0)
 	if err != nil {
 		return nil, err
 	}
-	rowsByFrame := make(map[int][]animationTrackingRow, len(sourceGIF.Image))
+
+	// Find the maximum frame number in CSV
+	maxCSVFrame := 0
+	for _, row := range rows {
+		if row.Frame > maxCSVFrame {
+			maxCSVFrame = row.Frame
+		}
+	}
+
+	// If single-frame GIF but CSV has many frames, extend the GIF
+	targetFrameCount := len(sourceGIF.Image)
+	if len(sourceGIF.Image) == 1 && maxCSVFrame > 1 {
+		targetFrameCount = maxCSVFrame
+	}
+
+	// Re-parse CSV with the actual target frame count for validation
+	if len(sourceGIF.Image) > 1 {
+		// For multi-frame GIFs, use actual frame count
+		rows, err = parseTrackingCSV(csvBytes, len(sourceGIF.Image))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	rowsByFrame := make(map[int][]animationTrackingRow, targetFrameCount)
 	for _, row := range rows {
 		rowsByFrame[row.Frame] = append(rowsByFrame[row.Frame], row)
 	}
@@ -1121,16 +1146,31 @@ func buildTokenOverlayGIF(gifBytes []byte, csvBytes []byte) ([]byte, error) {
 	var previousFrameBounds image.Rectangle
 	var previousDisposal byte
 
+	// Create delays array: use 5 FPS (20 centiseconds per frame)
+	delays := make([]int, 0, targetFrameCount)
+	for i := 0; i < targetFrameCount; i++ {
+		delays = append(delays, 20)
+	}
+
 	result := &gif.GIF{
-		Image:           make([]*image.Paletted, 0, len(sourceGIF.Image)),
-		Delay:           append([]int(nil), sourceGIF.Delay...),
-		LoopCount:       sourceGIF.LoopCount,
+		Image:           make([]*image.Paletted, 0, targetFrameCount),
+		Delay:           delays,
+		LoopCount:       0, // 0 means infinite loop
 		Config:          image.Config{Width: frameRect.Dx(), Height: frameRect.Dy()},
 		BackgroundIndex: sourceGIF.BackgroundIndex,
 	}
 
-	for idx, srcFrame := range sourceGIF.Image {
-		if idx > 0 {
+	for frameIdx := 0; frameIdx < targetFrameCount; frameIdx++ {
+		// For single-frame GIFs extended to multiple frames, reuse the single frame
+		var sourceFrameIdx int
+		if len(sourceGIF.Image) == 1 {
+			sourceFrameIdx = 0
+		} else {
+			sourceFrameIdx = frameIdx % len(sourceGIF.Image)
+		}
+
+		srcFrame := sourceGIF.Image[sourceFrameIdx]
+		if frameIdx > 0 {
 			switch previousDisposal {
 			case gif.DisposalBackground:
 				stdDraw.Draw(composited, previousFrameBounds, image.Transparent, image.Point{}, stdDraw.Src)
@@ -1142,8 +1182,8 @@ func buildTokenOverlayGIF(gifBytes []byte, csvBytes []byte) ([]byte, error) {
 		}
 
 		currentDisposal := byte(0)
-		if idx < len(sourceGIF.Disposal) {
-			currentDisposal = sourceGIF.Disposal[idx]
+		if sourceFrameIdx < len(sourceGIF.Disposal) {
+			currentDisposal = sourceGIF.Disposal[sourceFrameIdx]
 		}
 		if currentDisposal == gif.DisposalPrevious {
 			previousCanvas = cloneNRGBA(composited)
@@ -1154,7 +1194,7 @@ func buildTokenOverlayGIF(gifBytes []byte, csvBytes []byte) ([]byte, error) {
 		stdDraw.Draw(composited, srcFrame.Bounds(), srcFrame, srcFrame.Bounds().Min, stdDraw.Over)
 		canvas := cloneNRGBA(composited)
 
-		for _, row := range rowsByFrame[idx+1] {
+		for _, row := range rowsByFrame[frameIdx+1] {
 			if !strings.EqualFold(row.Visibility, "visible") {
 				continue
 			}
