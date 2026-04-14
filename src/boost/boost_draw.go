@@ -41,17 +41,40 @@ func getTokensSentFromLog(contract *Contract, userID string) int {
 	return tokensSent
 }
 
-func getSinkIcon(contract *Contract, b *Booster) string {
-	var sinkIcon = ""
-	if contract.Banker.CurrentBanker == b.UserID {
-		b.TokensReceived = getTokensReceivedFromLog(contract, b.UserID) - getTokensSentFromLog(contract, b.UserID)
-		if b.BoostState == BoostStateBoosted {
-			b.TokensReceived -= b.TokensWanted
+func buildTokenTotalsFromLog(contract *Contract) (map[string]int, map[string]int, int) {
+	receivedByUser := make(map[string]int, len(contract.Boosters))
+	sentByUser := make(map[string]int, len(contract.Boosters))
+	singleTokenEntries := 0
+
+	for _, logEntry := range contract.TokenLog {
+		if logEntry.Quantity == 1 || logEntry.Quantity == 2 {
+			singleTokenEntries++
 		}
-		sinkIcon = fmt.Sprintf("%s[%d] %s", contract.TokenStr, b.TokensReceived, ei.GetBotEmojiMarkdown("tvalrip"))
+
+		receivedByUser[logEntry.ToUserID] += logEntry.Quantity
+		if logEntry.FromUserID == logEntry.ToUserID && logEntry.Boost {
+			// Banker boosted tokens are not counted as received.
+			receivedByUser[logEntry.ToUserID] -= logEntry.Quantity
+		}
+
+		if logEntry.FromUserID != logEntry.ToUserID {
+			sentByUser[logEntry.FromUserID] += logEntry.Quantity
+		}
 	}
 
-	return sinkIcon
+	return receivedByUser, sentByUser, singleTokenEntries
+}
+
+func getSinkIcon(contract *Contract, b *Booster, sinkTokenBalance int) string {
+	if contract.Banker.CurrentBanker != b.UserID {
+		return ""
+	}
+
+	if b.BoostState == BoostStateBoosted {
+		sinkTokenBalance -= b.TokensWanted
+	}
+
+	return fmt.Sprintf("%s[%d] %s", contract.TokenStr, sinkTokenBalance, ei.GetBotEmojiMarkdown("tvalrip"))
 }
 
 // DrawBoostList will draw the boost list for the contract
@@ -61,6 +84,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	var currentTval float64
 	//var outputStr string
 	var afterListStr strings.Builder
+	now := time.Now()
+	receivedByUser, sentByUser, singleTokenEntries := buildTokenTotalsFromLog(contract)
 	tokenStr := contract.TokenStr
 	divider := true
 	spacing := discordgo.SeparatorSpacingSizeSmall
@@ -83,7 +108,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		)
 	}
 
-	contract.LastInteractionTime = time.Now()
+	contract.LastInteractionTime = now
 
 	saveData(contract.ContractHash)
 	if contract.EggEmoji == "" {
@@ -100,7 +125,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	}
 	header.WriteString("\n")
 
-	if contract.State == ContractStateSignup && contract.PlannedStartTime.After(time.Now()) && contract.PlannedStartTime.Before(time.Now().Add(7*24*time.Hour)) {
+	if contract.State == ContractStateSignup && contract.PlannedStartTime.After(now) && contract.PlannedStartTime.Before(now.Add(7*24*time.Hour)) {
 		fmt.Fprintf(&header, "## Planned Start Time: <t:%d:f>\n", contract.PlannedStartTime.Unix())
 	}
 
@@ -169,15 +194,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		//timerTokensSinceStart := math.Floor(float64(time.Since(contract.StartTime).Minutes()) / float64(float64(contract.MinutesPerToken)))
 		//estTPM := (float64(0.101332)*gg + timerTokensSinceStart/time.Since(contract.StartTime).Minutes()) * float64(contract.CoopSize)
 
-		// How many single token entries are in the log, excludes banker sent tokens
-		singleTokenEntries := 0
-		for _, logEntry := range contract.TokenLog {
-			if logEntry.Quantity == 1 || logEntry.Quantity == 2 {
-				singleTokenEntries++
-			}
-		}
-		// Save this into the contract
-		contract.TokensPerMinute = float64(singleTokenEntries) / max(1.0, time.Since(contract.StartTime).Minutes()) / float64(max(1, len(contract.Boosters)))
+		elapsedMinutes := max(1.0, now.Sub(contract.StartTime).Minutes())
+		contract.TokensPerMinute = float64(singleTokenEntries) / elapsedMinutes / float64(max(1, len(contract.Boosters)))
 		fmt.Fprintf(&header, "> %s/min/player: %2.3f %s\n", contract.TokenStr, contract.TokensPerMinute, ggicon)
 	}
 
@@ -190,7 +208,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 			}
 		}
 		if targetTval != 0.0 {
-			currentTval = bottools.GetTokenValue(time.Since(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
+			currentTval = bottools.GetTokenValue(now.Sub(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds())
 			fmt.Fprintf(&header, "> TVal: 🎯%2.2f 📉%2.2f\n", targetTval, currentTval)
 		}
 	}
@@ -230,7 +248,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 			msgIDInt, _ := strconv.ParseInt(messageID, 10, 64)
 			// Discord snowflake ID: timestamp is in the top 42 bits, milliseconds since epoch
 			msgTimestamp := time.UnixMilli((msgIDInt >> 22) + 1420070400000)
-			if time.Since(msgTimestamp) > 5*time.Minute {
+			if now.Sub(msgTimestamp) > 5*time.Minute {
 				// Skip requests older than 5 minutes
 				continue
 			}
@@ -321,7 +339,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 	formatCompactBooster := func(b *Booster, includeTokenAsk bool) string {
 		sortRate := getSortRate(b, includeTokenAsk)
-		sinkIcon := getSinkIcon(contract, b)
+		sinkIcon := getSinkIcon(contract, b, receivedByUser[b.UserID]-sentByUser[b.UserID])
 		if b.BoostState == BoostStateBoosted {
 			return fmt.Sprintf("~~%s~~%s%s", b.Mention, sortRate, sinkIcon)
 		}
@@ -382,7 +400,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	windowSize := 10     // Number lines to show a single booster
 
 	// If the contract has been completed for 15 minutes then just show the sink without the entire list
-	if contract.State == ContractStateCompleted && time.Since(contract.EndTime) > 15*time.Minute {
+	if contract.State == ContractStateCompleted && now.Sub(contract.EndTime) > 15*time.Minute {
 		//builder.WriteString("## Boost\n")
 		if contract.Banker.CurrentBanker == "" {
 			builder.WriteString("\nNo volunteer sink for this contract, hold your tokens.\n")
@@ -394,7 +412,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				name += " " + einame
 			}
 
-			sinkIcon := getSinkIcon(contract, b)
+			sinkIcon := getSinkIcon(contract, b, receivedByUser[b.UserID]-sentByUser[b.UserID])
 			fmt.Fprintf(&builder, "\n%s  %s\n", name, sinkIcon)
 		}
 	} else {
@@ -446,6 +464,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		}
 
 		activeBoosterID := contract.currentBoosterID()
+		diamond, _, _ := ei.GetBotEmoji("trophy_diamond")
+		habFull, _, _ := ei.GetBotEmoji("hab_full")
 
 		for i, element := range orderSubset {
 
@@ -470,11 +490,11 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 					chickenStr = fmt.Sprintf(" - <t:%d:R>%s", b.RunChickensTime.Unix(), ei.GetBotEmojiMarkdown("icon_chicken_run"))
 				}
 
-				b.TokensReceived = getTokensReceivedFromLog(contract, b.UserID) // - getTokensSentFromLog(contract, b.UserID)
+				b.TokensReceived = receivedByUser[b.UserID]
 
 				countStr, signupCountStr := getTokenCountString(tokenStr, b.TokensWanted, b.TokensReceived)
 				if b.UserID == contract.Banker.CurrentBanker {
-					b.TokensReceived = getTokensReceivedFromLog(contract, b.UserID) - getTokensSentFromLog(contract, b.UserID)
+					b.TokensReceived = receivedByUser[b.UserID] - sentByUser[b.UserID]
 					if b.BoostState != BoostStateBoosted {
 						countStr, signupCountStr = getTokenCountString(tokenStr, b.TokensWanted, 0)
 					}
@@ -483,7 +503,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				// Additions for contract state value display
 				sortRate := getSortRate(b, false)
 
-				sinkIcon := getSinkIcon(contract, b)
+				sinkIcon := getSinkIcon(contract, b, receivedByUser[b.UserID]-sentByUser[b.UserID])
 				isActiveTokenBooster := b.BoostState == BoostStateTokenTime && b.UserID == activeBoosterID
 				if contract.State == ContractStateBanker {
 
@@ -498,9 +518,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 						}
 					case BoostStateBoosted:
 						boostingString := ""
-						if time.Now().Before(b.EstEndOfBoost) {
-							diamond, _, _ := ei.GetBotEmoji("trophy_diamond")
-							habFull, _, _ := ei.GetBotEmoji("hab_full")
+						if now.Before(b.EstEndOfBoost) {
 							if b.RunChickensTime.IsZero() {
 								boostingString = fmt.Sprintf(" %s<t:%d:R> / ", diamond, b.EstRequestChickenRuns.Unix())
 							} else {
@@ -531,9 +549,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 						}
 					case BoostStateBoosted:
 						boostingString := ""
-						if time.Now().Before(b.EstEndOfBoost) {
-							diamond, _, _ := ei.GetBotEmoji("trophy_diamond")
-							habFull, _, _ := ei.GetBotEmoji("hab_full")
+						if now.Before(b.EstEndOfBoost) {
 							if b.RunChickensTime.IsZero() {
 								boostingString = fmt.Sprintf(" %s<t:%d:R> / ", diamond, b.EstRequestChickenRuns.Unix())
 							} else {
