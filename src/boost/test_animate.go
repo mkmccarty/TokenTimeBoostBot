@@ -26,12 +26,13 @@ import (
 )
 
 const (
-	testAnimateGIFOption = "gif"
-	testAnimateCSVOption = "csv"
-	testAnimateCreateSub = "create"
-	testAnimateHelpSub   = "help"
-	testAnimateTokenPath = "emoji/token_overlay.png"
-	maxAnimateFileBytes  = 10 * 1024 * 1024
+	testAnimateGIFOption  = "gif"
+	testAnimateCSVOption  = "csv"
+	testAnimateCreateSub  = "create"
+	testAnimateHelpSub    = "help"
+	testAnimateTokenPath  = "emoji/token_overlay.png"
+	maxAnimateFileBytes   = 10 * 1024 * 1024
+	testAnimateCleanupAge = 2 * time.Hour
 )
 
 type animationTrackingRow struct {
@@ -202,8 +203,16 @@ func HandleTestAnimateCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 		return
 	}
 
+	removedCount, cleanupErr := cleanupOldTestAnimateFiles(testAnimateCleanupAge)
+	cleanupNote := fmt.Sprintf("Reminder: non-token temporary files older than %s are cleaned up after each run.", testAnimateCleanupAge.Round(time.Hour))
+	if cleanupErr != nil {
+		cleanupNote += " (Cleanup hit some errors; it will retry on future runs.)"
+	} else if removedCount > 0 {
+		cleanupNote += fmt.Sprintf(" Removed %d stale file(s)/folder(s) this run.", removedCount)
+	}
+
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: "Rendering complete. Generated file:",
+		Content: "Rendering complete. Generated file:\n" + cleanupNote,
 		Files: []*discordgo.File{
 			{
 				Name:        "test-animate-output" + outExt,
@@ -213,6 +222,46 @@ func HandleTestAnimateCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 		},
 		Flags: discordgo.MessageFlagsEphemeral,
 	})
+}
+
+func cleanupOldTestAnimateFiles(maxAge time.Duration) (int, error) {
+	entries, err := os.ReadDir(os.TempDir())
+	if err != nil {
+		return 0, fmt.Errorf("failed reading temp directory: %w", err)
+	}
+
+	cutoff := time.Now().Add(-maxAge)
+	removed := 0
+	var firstErr error
+
+	for _, entry := range entries {
+		name := entry.Name()
+		if !strings.HasPrefix(name, "ttbb-test-animate-") && !strings.HasPrefix(name, "ttbb-test-animate-probe-") {
+			continue
+		}
+
+		fullPath := filepath.Join(os.TempDir(), name)
+		info, statErr := entry.Info()
+		if statErr != nil {
+			if firstErr == nil {
+				firstErr = statErr
+			}
+			continue
+		}
+		if info.ModTime().After(cutoff) {
+			continue
+		}
+
+		if removeErr := os.RemoveAll(fullPath); removeErr != nil {
+			if firstErr == nil {
+				firstErr = removeErr
+			}
+			continue
+		}
+		removed++
+	}
+
+	return removed, firstErr
 }
 
 func buildTestAnimateUsageText() string {
