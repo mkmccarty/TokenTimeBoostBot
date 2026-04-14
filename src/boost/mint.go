@@ -309,6 +309,7 @@ func buildTestAnimateUsageText() string {
 		"- Opacity: alpha 0-255 (0 transparent, 255 fully visible).",
 		"- Multiple rows for the same frame are merged in CSV order.",
 		"- Frames missing from the CSV receive no overlay.",
+		"- A single frame GIF with a multi-frame CSV is supported; the single frame is used for all frames in the CSV.",
 		"",
 		"## Tips for creating tracking CSVs:",
 		"- RAIYC currently uses Acorn for macOS (by Flying Meat) to capture X, Y, and token width for each frame. If you know good web or cross-platform alternatives, please share them so this guide can be updated.",
