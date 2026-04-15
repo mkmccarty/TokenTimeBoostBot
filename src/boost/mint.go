@@ -157,8 +157,12 @@ func HandleMintCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: buildTestAnimateUsageText(),
-				Flags:   discordgo.MessageFlagsEphemeral,
+				Flags: discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
+				Components: []discordgo.MessageComponent{
+					discordgo.TextDisplay{
+						Content: buildTestAnimateUsageText(),
+					},
+				},
 			},
 		})
 		return
