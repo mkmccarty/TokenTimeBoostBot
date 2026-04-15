@@ -534,9 +534,7 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 		fmt.Fprintf(&sb, "%s **%s (%d/%d)**", bottools.NumberToEmoji(len(missing)), name, len(alreadyRun), total)
 		switch contract.PlayStyle {
 		case ContractPlaystyleLeaderboard, ContractPlaystyleFastrun:
-			if len(missing) >= 11 {
-				fmt.Fprintf(&sb, "\n-# _  _↳ Waiting: %s", bottools.NumberToEmoji(len(missing)))
-			} else {
+			if len(missing) < 11 {
 				fmt.Fprintf(&sb, "\n-# _  _↳ Waiting: %s", strings.Join(missing, " "))
 			}
 		case ContractPlaystyleChill, ContractPlaystyleACOCooperative:
