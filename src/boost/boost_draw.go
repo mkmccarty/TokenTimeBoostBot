@@ -2,8 +2,6 @@ package boost
 
 import (
 	"fmt"
-	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -238,69 +236,37 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	default:
 	}
 
-	// Add chicken run status links for red and yellow messages
+	// Add chicken run links if there are active CR messages. Color reflects worst missing percent
+	// across all requesters: red >33.5%, yellow >0%, skipped if all runs complete.
 	if len(contract.CRMessageIDs) > 0 {
-		var redLinks []string
-		var yellowLinks []string
-
-		for messageID, requesterUserID := range contract.CRMessageIDs {
-			// Check if the chicken run request is within the last 5 minutes
-			msgIDInt, _ := strconv.ParseInt(messageID, 10, 64)
-			// Discord snowflake ID: timestamp is in the top 42 bits, milliseconds since epoch
-			msgTimestamp := time.UnixMilli((msgIDInt >> 22) + 1420070400000)
-			if now.Sub(msgTimestamp) > 5*time.Minute {
-				// Skip requests older than 5 minutes
+		worstMissingPct := 0.0
+		for _, id := range contract.Order {
+			b := contract.Boosters[id]
+			if b == nil || b.RunChickensTime.IsZero() {
 				continue
 			}
-
-			var alreadyRun, missing []string
-
-			// Count completed and missing runs
-			for _, booster := range contract.Boosters {
-				if booster.UserID == requesterUserID {
-					continue
-				}
-				if slices.Contains(booster.RanChickensOn, requesterUserID) {
-					alreadyRun = append(alreadyRun, booster.Mention)
-				} else {
-					missing = append(missing, booster.Mention)
-				}
-			}
-
-			totalBoosters := len(alreadyRun) + len(missing)
-			if totalBoosters > 0 {
-				missingPercent := float64(len(missing)) / float64(totalBoosters) * 100
-				channelID := contract.Location[0].ChannelID
-				messageLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", contract.Location[0].GuildID, channelID, messageID)
-
-				if missingPercent > 33.5 {
-					// Red status
-					requesterIndex := slices.Index(contract.Order, requesterUserID) + 1
-					requesterName := contract.Boosters[requesterUserID].Nick
-					redLinks = append(redLinks, fmt.Sprintf("[**#%d**](%s) %s", requesterIndex, messageLink, requesterName))
-				} else if missingPercent > 0 {
-					// Yellow status
-					requesterIndex := slices.Index(contract.Order, requesterUserID) + 1
-					requesterName := contract.Boosters[requesterUserID].Nick
-					yellowLinks = append(yellowLinks, fmt.Sprintf("[**#%d**](%s) %s", requesterIndex, messageLink, requesterName))
-				}
+			if pct := crMissingPct(contract, id); pct > worstMissingPct {
+				worstMissingPct = pct
 			}
 		}
 
-		if len(redLinks) > 0 || len(yellowLinks) > 0 {
-			fmt.Fprintf(&afterListStr, "\n%s Chicken Runs: ", ei.GetBotEmojiMarkdown("icon_chicken_run"))
-			if len(yellowLinks) > 0 {
-				afterListStr.WriteString("🟨 ")
-				afterListStr.WriteString(strings.Join(yellowLinks, ", "))
-				if len(redLinks) > 0 {
-					afterListStr.WriteString(" ")
+		if worstMissingPct > 0 {
+			var links []string
+			for channelID, messageID := range contract.CRMessageIDs {
+				guildID := ""
+				for _, loc := range contract.Location {
+					if loc.ChannelID == channelID {
+						guildID = loc.GuildID
+						break
+					}
 				}
+				links = append(links, fmt.Sprintf("[**CR**](https://discord.com/channels/%s/%s/%s)", guildID, channelID, messageID))
 			}
-			if len(redLinks) > 0 {
-				afterListStr.WriteString("🟥 ")
-				afterListStr.WriteString(strings.Join(redLinks, ", "))
+			emoji := "🟨"
+			if worstMissingPct > 33.5 {
+				emoji = "🟥"
 			}
-			afterListStr.WriteString("\n")
+			fmt.Fprintf(&afterListStr, "\n%s Chicken Runs: %s %s\n", ei.GetBotEmojiMarkdown("icon_chicken_run"), emoji, strings.Join(links, ", "))
 		}
 	}
 

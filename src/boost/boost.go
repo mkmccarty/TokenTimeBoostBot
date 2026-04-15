@@ -679,11 +679,15 @@ func SetReactionID(contract *Contract, channelID string, reactionID string) {
 	saveData(contract.ContractHash)
 }
 
-func setChickenRunMessageID(contract *Contract, messageID, userID string) {
+// setChickenRunMessageID stores the consolidated CR message ID for a channel.
+// Key is channelID, value is the Discord message ID.
+func setChickenRunMessageID(contract *Contract, channelID, messageID string) {
 	if contract.CRMessageIDs == nil {
 		contract.CRMessageIDs = make(map[string]string)
 	}
-	contract.CRMessageIDs[messageID] = userID
+	contract.CRMessageIDs[channelID] = messageID
+	// Save to the disk
+	saveData(contract.ContractHash)
 }
 
 func getTokenCountString(tokenStr string, tokensWanted int, tokensReceived int) (string, string) {
