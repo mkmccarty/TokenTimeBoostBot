@@ -673,7 +673,6 @@ func buttonReactionCRPing(s *discordgo.Session, i *discordgo.InteractionCreate, 
 	if _, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
 		Content:         content,
 		AllowedMentions: &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{discordgo.AllowedMentionTypeUsers}},
-		Reference:       &discordgo.MessageReference{MessageID: i.Message.ID},
 	}); err != nil {
 		log.Printf("buttonReactionCRPing send error: contractHash=%s channelID=%s requesterUserID=%s pingIDs=%v error=%v",
 			contract.ContractHash, i.ChannelID, requesterUserID, pingIDs, err)
