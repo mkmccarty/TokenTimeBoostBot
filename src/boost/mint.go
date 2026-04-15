@@ -1147,10 +1147,21 @@ func buildTokenOverlayGIF(gifBytes []byte, csvBytes []byte) ([]byte, error) {
 	var previousFrameBounds image.Rectangle
 	var previousDisposal byte
 
-	// Create delays array: use 5 FPS (20 centiseconds per frame)
+	// Preserve existing GIF timing except when we synthesize an animation from a single frame.
 	delays := make([]int, 0, targetFrameCount)
-	for i := 0; i < targetFrameCount; i++ {
-		delays = append(delays, 20)
+	syntheticSingleFrameAnimation := len(sourceGIF.Image) == 1 && targetFrameCount > 1
+	for frameIdx := 0; frameIdx < targetFrameCount; frameIdx++ {
+		if syntheticSingleFrameAnimation {
+			delays = append(delays, 20)
+			continue
+		}
+
+		sourceFrameIdx := frameIdx % len(sourceGIF.Image)
+		if sourceFrameIdx < len(sourceGIF.Delay) {
+			delays = append(delays, sourceGIF.Delay[sourceFrameIdx])
+		} else {
+			delays = append(delays, 20)
+		}
 	}
 
 	result := &gif.GIF{
