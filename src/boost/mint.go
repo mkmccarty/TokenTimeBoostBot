@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"image/color/palette"
+	"image/color"
 	stdDraw "image/draw"
 	"image/gif"
 	_ "image/png"
@@ -999,8 +999,50 @@ func extractVideoPreviewFrame(videoBytes []byte, outExt string, targetFrame int)
 
 func encodeSingleFrameGIF(img image.Image) ([]byte, error) {
 	bounds := img.Bounds()
-	paletted := image.NewPaletted(image.Rect(0, 0, bounds.Dx(), bounds.Dy()), palette.Plan9)
-	stdDraw.FloydSteinberg.Draw(paletted, paletted.Rect, img, bounds.Min)
+
+	// Build popularity palette to ensure preview looks close to original frame
+	colorCounts := make(map[color.RGBA]int)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			r, g, b, a := img.At(x, y).RGBA()
+			if a > 0 {
+				r = (r * 65535) / a
+				g = (g * 65535) / a
+				b = (b * 65535) / a
+				c := color.RGBA{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(b >> 8), A: 255}
+				colorCounts[c]++
+			}
+		}
+	}
+
+	type colorFreq struct {
+		c     color.RGBA
+		count int
+	}
+	freqs := make([]colorFreq, 0, len(colorCounts))
+	for c, count := range colorCounts {
+		freqs = append(freqs, colorFreq{c, count})
+	}
+	sort.Slice(freqs, func(i, j int) bool {
+		return freqs[i].count > freqs[j].count
+	})
+
+	customPalette := color.Palette{color.Transparent}
+	essentialColors := getEssentialTokenColors()
+	for _, ec := range essentialColors {
+		customPalette = append(customPalette, ec)
+	}
+
+	for _, f := range freqs {
+		if len(customPalette) < 256 {
+			customPalette = append(customPalette, f.c)
+		} else {
+			break
+		}
+	}
+
+	paletted := image.NewPaletted(image.Rect(0, 0, bounds.Dx(), bounds.Dy()), customPalette)
+	stdDraw.Draw(paletted, paletted.Rect, img, bounds.Min, stdDraw.Src)
 
 	g := &gif.GIF{
 		Image: []*image.Paletted{paletted},
@@ -1220,8 +1262,26 @@ func buildTokenOverlayGIF(gifBytes []byte, csvBytes []byte) ([]byte, error) {
 			stdDraw.Draw(canvas, rect, overlay, image.Point{}, stdDraw.Over)
 		}
 
-		paletted := image.NewPaletted(frameRect, palette.Plan9)
-		stdDraw.FloydSteinberg.Draw(paletted, paletted.Rect, canvas, image.Point{})
+		// Use the original frame's palette to preserve exact colors and transparency.
+		// Add essential token colors to prevent the token from becoming discolored.
+		framePalette := make(color.Palette, 0, 256)
+		framePalette = append(framePalette, color.Transparent)
+
+		for _, ec := range getEssentialTokenColors() {
+			framePalette = append(framePalette, ec)
+		}
+
+		for _, c := range srcFrame.Palette {
+			if _, _, _, a := c.RGBA(); a == 0 {
+				continue
+			}
+			if len(framePalette) < 256 {
+				framePalette = append(framePalette, c)
+			}
+		}
+
+		paletted := image.NewPaletted(frameRect, framePalette)
+		stdDraw.Draw(paletted, paletted.Rect, canvas, image.Point{}, stdDraw.Src)
 		result.Image = append(result.Image, paletted)
 
 		previousFrameBounds = srcFrame.Bounds()
@@ -1630,5 +1690,19 @@ func applyOpacity(img *image.NRGBA, alphaScale float64) {
 	}
 	for idx := 3; idx < len(img.Pix); idx += 4 {
 		img.Pix[idx] = uint8(math.Round(float64(img.Pix[idx]) * alphaScale))
+	}
+}
+
+func getEssentialTokenColors() []color.Color {
+	return []color.Color{
+		color.RGBA{0, 0, 0, 255},       // Black
+		color.RGBA{255, 255, 255, 255}, // White
+		color.RGBA{255, 215, 0, 255},   // Gold
+		color.RGBA{218, 165, 32, 255},  // Goldenrod
+		color.RGBA{184, 134, 11, 255},  // Dark Goldenrod
+		color.RGBA{255, 235, 59, 255},  // Bright Yellow
+		color.RGBA{204, 153, 0, 255},   // Dark Yellow
+		color.RGBA{153, 102, 0, 255},   // Brown/Dark Gold
+		color.RGBA{128, 128, 128, 255}, // Gray
 	}
 }
