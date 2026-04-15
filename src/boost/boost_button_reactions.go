@@ -5,7 +5,6 @@ import (
 	"log"
 	"runtime/debug"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mattn/go-runewidth"
 	"github.com/rs/xid"
 )
 
@@ -87,7 +87,13 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 			Flags:   discordgo.MessageFlagsEphemeral,
 		})
 	case "ranchicken":
-		buttonReactionRanChicken(s, i, contract, userID)
+		targetUserID := ""
+		if len(reaction) >= 4 {
+			targetUserID = reaction[2]
+		}
+		buttonReactionRanChicken(s, i, contract, userID, targetUserID)
+	case "crping":
+		buttonReactionCRPing(s, i, contract, userID)
 	case "complain":
 		buttonReactionComplain(s, contract, userID)
 	}
@@ -259,19 +265,14 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 				contractHash = contract.ContractHash
 			}
 			log.Printf("panic recovered in buttonReactionRunChickens: panic=%v contractHash=%s userID=%s\n%s",
-				r,
-				contractHash,
-				cUserID,
-				string(debug.Stack()),
+				r, contractHash, cUserID, string(debug.Stack()),
 			)
 		}
 	}()
 
 	if s == nil || contract == nil {
 		log.Printf("buttonReactionRunChickens invalid input: sessionNil=%t contractNil=%t userID=%s",
-			s == nil,
-			contract == nil,
-			cUserID,
+			s == nil, contract == nil, cUserID,
 		)
 		return false, "Unable to process chicken run request right now."
 	}
@@ -285,8 +286,7 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 
 	if contract.Boosters[cUserID] == nil {
 		log.Printf("buttonReactionRunChickens missing booster entry for user: contractHash=%s userID=%s",
-			contract.ContractHash,
-			cUserID,
+			contract.ContractHash, cUserID,
 		)
 		return false, "Unable to process chicken run request right now."
 	}
@@ -299,9 +299,7 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 				alt := contract.Boosters[id]
 				if alt == nil {
 					log.Printf("buttonReactionRunChickens missing alt/main booster during selection: contractHash=%s requestUserID=%s targetID=%s",
-						contract.ContractHash,
-						cUserID,
-						id,
+						contract.ContractHash, cUserID, id,
 					)
 					continue
 				}
@@ -315,9 +313,7 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 
 	if contract.Boosters[userID] == nil {
 		log.Printf("buttonReactionRunChickens missing selected booster entry: contractHash=%s requestUserID=%s selectedUserID=%s",
-			contract.ContractHash,
-			cUserID,
-			userID,
+			contract.ContractHash, cUserID, userID,
 		)
 		return false, "Unable to process chicken run request right now."
 	}
@@ -331,49 +327,352 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 
 		contract.Boosters[userID].RunChickensTime = time.Now()
 
-		var name = contract.Boosters[userID].Nick
-		var einame = farmerstate.GetEggIncName(userID)
-		if einame != "" {
-			name += " " + einame
-		}
-		//color := contract.Boosters[userID].Color
-		color := 0xff0000
 		go func() {
 			for _, location := range contract.Location {
-				str := fmt.Sprintf("%s **%s** is ready for chicken runs, check for incoming trucks before visiting.", location.RoleMention, contract.Boosters[userID].Mention)
+				contract.mutex.Lock()
+				components, allowedMentions := buildCRMessageComponents(contract, location.RoleMention)
+				existingMsgID := contract.CRMessageIDs[location.ChannelID]
+				contract.mutex.Unlock()
+
+				if components == nil {
+					continue
+				}
+
+				// Always post a new message to bump the CR requests
 				var data discordgo.MessageSend
-				data.Content = str
-				data.Embeds = []*discordgo.MessageEmbed{
-					{
-						Title:       fmt.Sprintf("%s Runners", name),
-						Description: "",
-						Color:       color,
-					},
+				data.Flags = discordgo.MessageFlagsIsComponentsV2
+				data.Components = components
+				data.AllowedMentions = &discordgo.MessageAllowedMentions{Users: allowedMentions}
+				newMsg, err := s.ChannelMessageSendComplex(location.ChannelID, &data)
+				if err != nil {
+					log.Printf("Error sending CR message: contractHash=%s channelID=%s userID=%s error=%v",
+						contract.ContractHash, location.ChannelID, userID, err)
+					continue
 				}
-				data.Components = []discordgo.MessageComponent{
-					discordgo.ActionsRow{
-						Components: []discordgo.MessageComponent{
-							discordgo.Button{
-								Emoji:    ei.GetBotComponentEmoji("icon_chicken_run"),
-								Style:    discordgo.SecondaryButton,
-								CustomID: fmt.Sprintf("rc_#RanChicken#%s", contract.ContractHash),
-							},
-						},
-					},
-				}
-				msg, err := s.ChannelMessageSendComplex(location.ChannelID, &data)
-				if err == nil {
-					setChickenRunMessageID(contract, msg.ID, userID)
+
+				contract.mutex.Lock()
+				setChickenRunMessageID(contract, location.ChannelID, newMsg.ID)
+				contract.mutex.Unlock()
+
+				if existingMsgID != "" {
+					// Replace old message with a redirect to the new one
+					newMsgLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", location.GuildID, location.ChannelID, newMsg.ID)
+					movedComponents := []discordgo.MessageComponent{
+						discordgo.TextDisplay{Content: fmt.Sprintf("-# Chicken Run request moved: [View updated message](%s)", newMsgLink)},
+					}
+					oldEdit := discordgo.NewMessageEdit(location.ChannelID, existingMsgID)
+					oldEdit.Flags = discordgo.MessageFlagsIsComponentsV2
+					oldEdit.AllowedMentions = &discordgo.MessageAllowedMentions{}
+					oldEdit.Components = &movedComponents
+					if _, err := s.ChannelMessageEditComplex(oldEdit); err != nil {
+						log.Printf("Error editing old CR message: contractHash=%s channelID=%s messageID=%s error=%v",
+							contract.ContractHash, location.ChannelID, existingMsgID, err)
+					}
 				}
 			}
 		}()
-		str = "You've asked for Chicken Runs, now what...\n...\nMaybe.. check on your habs and gusset?  \nI'm sure you've already forced a game sync so no need to remind about that."
+		str = "You've asked for Chicken Runs, now what...\n...\nMaybe.. check on your habs and gusset?\nI'm sure you've already forced a game sync so no need to remind about that."
 		return true, str
 	}
 	return false, fmt.Sprintf("You cannot request chicken runs as **%s** hasen't boosted yet.", contract.Boosters[userID].Nick)
 }
 
-func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, cUserID string) {
+// buildChickenRunLists returns who has/hasn't run chickens for requesterUserID.
+// Also returns the list of allowed mentions for message highlighting (only those who haven't run yet).
+// Iterate Order (not Boosters) to keep button and mention order consistent across all requesters.
+func buildChickenRunLists(contract *Contract, requesterUserID string) (alreadyRun, missing, allowedMentions []string) {
+	alreadyRun = make([]string, 0, len(contract.Boosters))
+	missing = make([]string, 0, len(contract.Boosters))
+	allowedMentions = make([]string, 0, len(contract.Boosters))
+	for _, id := range contract.Order {
+		booster := contract.Boosters[id]
+		if booster == nil || booster.UserID == requesterUserID {
+			continue
+		}
+
+		if slices.Contains(booster.RanChickensOn, requesterUserID) {
+			alreadyRun = append(alreadyRun, booster.Mention)
+			continue
+		}
+		missing = append(missing, booster.Mention)
+		// Only players who still need to run are added to AllowedMentions so their highlight is active
+		notifyID := booster.UserID
+		if booster.AltController != "" {
+			notifyID = booster.AltController
+		}
+		if !slices.Contains(allowedMentions, notifyID) {
+			if nb := contract.Boosters[notifyID]; nb != nil && nb.UserName != "" {
+				allowedMentions = append(allowedMentions, notifyID)
+			}
+		}
+	}
+	return
+}
+
+// crMissingPct returns the percentage of boosters who haven't yet run for requesterUserID.
+func crMissingPct(contract *Contract, requesterUserID string) float64 {
+	ar, m, _ := buildChickenRunLists(contract, requesterUserID)
+	total := len(ar) + len(m)
+	if total == 0 {
+		return 0
+	}
+	return float64(len(m)) / float64(total) * 100
+}
+
+// crColorFromPct converts a missing percentage to an accent color.
+// green (0x00ff00) = no runs missing, yellow (0xffff00) = missing <= 33%, red (0xff0000) = missing > 33%
+func crColorFromPct(pct float64) int {
+	if pct > 33.5 {
+		return 0xff0000
+	}
+	if pct > 0 {
+		return 0xffff00
+	}
+	return 0x00ff00
+}
+
+// getChickenRunAccentColor returns the worst-case color across all active chicken run requesters.
+func getChickenRunAccentColor(contract *Contract) int {
+	worstPct := 0.0
+	for _, b := range contract.Boosters {
+		if b == nil || b.RunChickensTime.IsZero() {
+			continue
+		}
+		if pct := crMissingPct(contract, b.UserID); pct > worstPct {
+			worstPct = pct
+		}
+	}
+	return crColorFromPct(worstPct)
+}
+
+// buildCRMessageComponents builds the components for the chicken run message.
+// Also returns the combined set of user IDs that should receive mention highlights (players still missing runs).
+func buildCRMessageComponents(contract *Contract, roleMention string) ([]discordgo.MessageComponent, []string) {
+	// Collect active requesters; LB/FR use boost order, other styles use reverse order
+	order := contract.Order
+	if contract.PlayStyle != ContractPlaystyleLeaderboard && contract.PlayStyle != ContractPlaystyleFastrun {
+		order = slices.Clone(contract.Order)
+		slices.Reverse(order)
+	}
+	requesters := make([]string, 0, len(order))
+	for _, id := range order {
+		if b := contract.Boosters[id]; b != nil && !b.RunChickensTime.IsZero() {
+			requesters = append(requesters, id)
+		}
+	}
+	if len(requesters) == 0 {
+		return nil, nil
+	}
+
+	// Find the most recent requester by RunChickensTime
+	var latestRequester *Booster
+	for _, id := range requesters {
+		b := contract.Boosters[id]
+		if b == nil {
+			continue
+		}
+		if latestRequester == nil || b.RunChickensTime.After(latestRequester.RunChickensTime) {
+			latestRequester = b
+		}
+	}
+	latestName := ""
+	if latestRequester != nil {
+		latestName = latestRequester.Nick
+		if ign := farmerstate.GetMiscSettingString(latestRequester.UserID, "ei_ign"); ign != "" {
+			latestName = ign
+		}
+	}
+
+	pingHeader := fmt.Sprintf(
+		"%s **%s** is requesting chicken runs!\n-# Check for trucks and incoming tokens before visiting.\n-# I'm sure you've already forced a game sync so no need to remind about that.",
+		roleMention, latestName,
+	)
+
+	worstPct := 0.0
+	containerComps := make([]discordgo.MessageComponent, 0, len(requesters)+1)
+	var buttons []discordgo.MessageComponent
+	var selectOptions []discordgo.SelectMenuOption
+	var allAllowedMentions []string
+
+	// Add a TextDisplay for a header
+	containerComps = append(containerComps, discordgo.TextDisplay{Content: "### Active Chicken Run Requests"})
+
+	buttonLabelCount := make(map[string]int)
+
+	// Build a TextDisplay and button for each requester, up to 10 buttons total.
+	for _, reqID := range requesters {
+		booster := contract.Boosters[reqID]
+		if booster == nil {
+			continue
+		}
+		name := booster.Nick
+		if ign := farmerstate.GetMiscSettingString(reqID, "ei_ign"); ign != "" {
+			name = ign
+		}
+
+		alreadyRun, missing, mentionIDs := buildChickenRunLists(contract, reqID)
+		for _, id := range mentionIDs {
+			if !slices.Contains(allAllowedMentions, id) {
+				allAllowedMentions = append(allAllowedMentions, id)
+			}
+		}
+		total := len(alreadyRun) + len(missing)
+		pct := 0.0
+		if total > 0 {
+			pct = float64(len(missing)) / float64(total) * 100
+		}
+		if pct > worstPct {
+			worstPct = pct
+		}
+
+		// Drop fully-completed requesters from the message
+		if len(missing) == 0 {
+			continue
+		}
+
+		var sb strings.Builder
+		fmt.Fprintf(&sb, "%s **%s (%d/%d)**", bottools.NumberToEmoji(len(missing)), name, len(alreadyRun), total)
+		switch contract.PlayStyle {
+		case ContractPlaystyleLeaderboard, ContractPlaystyleFastrun:
+			if len(missing) < 11 {
+				fmt.Fprintf(&sb, "\n-# _  _↳ Waiting: %s", strings.Join(missing, " "))
+			}
+		case ContractPlaystyleChill, ContractPlaystyleACOCooperative:
+			if len(alreadyRun) >= 11 {
+				fmt.Fprintf(&sb, "\n-# _  _↳ Ran: %s", bottools.NumberToEmoji(len(alreadyRun)))
+			} else {
+				fmt.Fprintf(&sb, "\n-# _  _↳ Ran: %s", strings.Join(alreadyRun, " "))
+			}
+		}
+		containerComps = append(containerComps, discordgo.TextDisplay{Content: sb.String()})
+
+		// One button per incomplete requester, max 10 total
+		if len(buttons) < 10 {
+			label := runewidth.Truncate(name, 4, "")
+			buttonLabelCount[label]++
+			// Truncating to 4 chars can produce duplicate labels, append a number to keep them distinct
+			if buttonLabelCount[label] > 1 {
+				label = fmt.Sprintf("%s%d", label, buttonLabelCount[label])
+			}
+			buttons = append(buttons, discordgo.Button{
+				Emoji:    ei.GetBotComponentEmoji("icon_chicken_run"),
+				Label:    label,
+				Style:    discordgo.SecondaryButton,
+				CustomID: fmt.Sprintf("rc_#RanChicken#%s#%s", reqID, contract.ContractHash),
+			})
+		}
+
+		selectOptions = append(selectOptions, discordgo.SelectMenuOption{
+			Label: name + " Runners",
+			Value: reqID,
+		})
+	}
+
+	// All requesters done, show a completion notice instead of an empty container
+	if len(containerComps) == 1 {
+		containerComps = []discordgo.MessageComponent{
+			discordgo.TextDisplay{Content: "🟩 All chicken runs complete!"},
+		}
+	}
+
+	accentColor := crColorFromPct(worstPct)
+	components := []discordgo.MessageComponent{
+		discordgo.TextDisplay{Content: pingHeader},
+		discordgo.Container{
+			AccentColor: &accentColor,
+			Components:  containerComps,
+		},
+	}
+
+	// Up to 2 rows of 5 buttons
+	for i := 0; i < len(buttons); i += 5 {
+		end := min(i+5, len(buttons))
+		components = append(components, discordgo.ActionsRow{
+			Components: buttons[i:end],
+		})
+	}
+
+	// Select menu to ping remaining players for a specific requester
+	if len(selectOptions) > 0 {
+		components = append(components, discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.SelectMenu{
+					MenuType:    discordgo.StringSelectMenu,
+					CustomID:    fmt.Sprintf("rc_#CRPing#%s", contract.ContractHash),
+					Placeholder: "Ping remaining for...",
+					Options:     selectOptions,
+				},
+			},
+		})
+	}
+
+	return components, allAllowedMentions
+}
+
+func buttonReactionCRPing(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, cUserID string) {
+	if contract == nil || i == nil || i.Message == nil {
+		return
+	}
+
+	values := i.MessageComponentData().Values
+	if len(values) == 0 {
+		return
+	}
+	requesterUserID := values[0]
+
+	contract.mutex.Lock()
+	defer contract.mutex.Unlock()
+
+	if contract.Boosters[requesterUserID] == nil {
+		return
+	}
+
+	_, _, pingIDs := buildChickenRunLists(contract, requesterUserID)
+	if len(pingIDs) == 0 {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: "No players remaining.",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		})
+		return
+	}
+
+	mentions := make([]string, 0, len(pingIDs))
+	for _, id := range pingIDs {
+		if nb := contract.Boosters[id]; nb != nil {
+			mentions = append(mentions, nb.Mention)
+		}
+	}
+
+	// Resolve requester name
+	requesterName := contract.Boosters[requesterUserID].Nick
+	if ign := farmerstate.GetMiscSettingString(requesterUserID, "ei_ign"); ign != "" {
+		requesterName = ign
+	}
+
+	// Resolve presser (alt → controller)
+	presserID := cUserID
+	if pb := contract.Boosters[cUserID]; pb != nil && pb.AltController != "" {
+		presserID = pb.AltController
+	}
+	presserMention := presserID
+	if mb := contract.Boosters[presserID]; mb != nil {
+		presserMention = mb.Mention
+	}
+
+	content := fmt.Sprintf(
+		"Hey %s! **%s** is waiting on you to run chickens. Those chickens aren't going to run themselves! %s\n-# Ping requested by %s",
+		strings.Join(mentions, " "), requesterName, ei.GetBotEmojiMarkdown("icon_chicken_run"), presserMention)
+	if _, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
+		Content:         content,
+		AllowedMentions: &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{discordgo.AllowedMentionTypeUsers}},
+		Reference:       &discordgo.MessageReference{MessageID: i.Message.ID},
+	}); err != nil {
+		log.Printf("buttonReactionCRPing send error: contractHash=%s channelID=%s requesterUserID=%s pingIDs=%v error=%v",
+			contract.ContractHash, i.ChannelID, requesterUserID, pingIDs, err)
+	}
+}
+
+func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, cUserID, requesterUserID string) {
 	defer func() {
 		if r := recover(); r != nil {
 			msgID := ""
@@ -389,104 +688,50 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 				contractHash = contract.ContractHash
 			}
 			log.Printf("panic recovered in buttonReactionRanChicken: panic=%v contractHash=%s channelID=%s messageID=%s userID=%s\n%s",
-				r,
-				contractHash,
-				channelID,
-				msgID,
-				cUserID,
-				string(debug.Stack()),
+				r, contractHash, channelID, msgID, cUserID, string(debug.Stack()),
 			)
 		}
 	}()
 
 	if contract == nil || i == nil || i.Message == nil {
 		log.Printf("buttonReactionRanChicken invalid input: contractNil=%t interactionNil=%t messageNil=%t userID=%s",
-			contract == nil,
-			i == nil,
-			i == nil || i.Message == nil,
-			cUserID,
+			contract == nil, i == nil, i == nil || i.Message == nil, cUserID,
 		)
 		return
 	}
 
-	if !userInContract(contract, cUserID) {
-		// Ignore if the user isn't in the contract
+	if requesterUserID == "" {
+		log.Printf("buttonReactionRanChicken empty requesterUserID: contractHash=%s messageID=%s userID=%s",
+			contract.ContractHash, i.Message.ID, cUserID)
 		return
 	}
 
-	var requesterUserID string
-
-	statusColor := func(totalMissing int, totalBoosters int) int {
-		color := 0x00ff00
-		if totalBoosters > 0 {
-			missingPercent := float64(totalMissing) / float64(totalBoosters) * 100
-			if missingPercent > 33.5 {
-				color = 0xff0000
-			} else if missingPercent > 0 {
-				color = 0xffff00
-			}
-		}
-		return color
-	}
-
-	buildRunLists := func() ([]string, []string) {
-		alreadyRun := make([]string, 0, len(contract.Boosters))
-		missing := make([]string, 0, len(contract.Boosters))
-		for _, booster := range contract.Boosters {
-			if booster == nil {
-				continue
-			}
-			if booster.UserID == requesterUserID {
-				continue
-			}
-			if slices.Contains(booster.RanChickensOn, requesterUserID) {
-				alreadyRun = append(alreadyRun, booster.Mention)
-			} else {
-				missing = append(missing, booster.Mention)
-			}
-		}
-		return alreadyRun, missing
+	if !userInContract(contract, cUserID) {
+		return
 	}
 
 	contract.mutex.Lock()
 	defer contract.mutex.Unlock()
 
-	requesterUserID = contract.CRMessageIDs[i.Message.ID]
-	if requesterUserID == "" {
-		log.Printf("buttonReactionRanChicken missing requester mapping: contractHash=%s messageID=%s userID=%s",
-			contract.ContractHash,
-			i.Message.ID,
-			cUserID,
-		)
-		return
-	}
-
 	userBooster := contract.Boosters[cUserID]
 	if userBooster == nil {
 		log.Printf("buttonReactionRanChicken missing booster entry for reacting user: contractHash=%s requesterUserID=%s reactingUserID=%s",
-			contract.ContractHash,
-			requesterUserID,
-			cUserID,
-		)
+			contract.ContractHash, requesterUserID, cUserID)
 		return
 	}
 
 	if contract.Boosters[requesterUserID] == nil {
 		log.Printf("buttonReactionRanChicken missing booster entry for requester: contractHash=%s requesterUserID=%s reactingUserID=%s",
-			contract.ContractHash,
-			requesterUserID,
-			cUserID,
-		)
+			contract.ContractHash, requesterUserID, cUserID)
 		return
 	}
 
-	// Current user already ran?
+	// Already ran for this requester?
 	if slices.Contains(userBooster.RanChickensOn, requesterUserID) {
 		return
 	}
 
-	oldAlreadyRun, oldMissing := buildRunLists()
-	oldColor := statusColor(len(oldMissing), len(oldAlreadyRun)+len(oldMissing))
+	oldColor := getChickenRunAccentColor(contract)
 
 	// Mark the run for the current user and all their alts
 	for _, id := range append([]string{cUserID}, userBooster.Alts...) {
@@ -496,67 +741,37 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 		targetBooster := contract.Boosters[id]
 		if targetBooster == nil {
 			log.Printf("buttonReactionRanChicken missing alt/main booster during update: contractHash=%s requesterUserID=%s reactingUserID=%s targetID=%s",
-				contract.ContractHash,
-				requesterUserID,
-				cUserID,
-				id,
-			)
+				contract.ContractHash, requesterUserID, cUserID, id)
 			continue
 		}
 		targetBooster.RanChickensOn = append(targetBooster.RanChickensOn, requesterUserID)
 	}
 
-	alreadyRun, missing := buildRunLists()
-	newColor := statusColor(len(missing), len(alreadyRun)+len(missing))
+	newColor := getChickenRunAccentColor(contract)
 
-	// Rebuild message
-	var b strings.Builder
-	if len(alreadyRun) > 0 {
-		b.WriteString("**Completed:** ")
-		b.WriteString(strconv.Itoa(len(alreadyRun)))
-		b.WriteString("\n-# ")
-		b.WriteString(strings.Join(alreadyRun, " "))
-	}
-	// Print the missing players for LB and FR
-	if contract.PlayStyle == ContractPlaystyleLeaderboard ||
-		contract.PlayStyle == ContractPlaystyleFastrun {
-		if len(missing) > 0 {
-			b.WriteString("\n**Remaining:** ")
-			if len(missing) >= 6 {
-				b.WriteString(bottools.NumberToEmoji(len(missing)))
-			} else {
-				b.WriteString(strconv.Itoa(len(missing)))
-				b.WriteByte('\n')
-				b.WriteString(strings.Join(missing, " "))
-			}
+	// Find role mention for this channel to rebuild the header
+	var roleMention string
+	for _, loc := range contract.Location {
+		if loc.ChannelID == i.ChannelID {
+			roleMention = loc.RoleMention
+			break
 		}
 	}
-	str := b.String()
 
-	//log.Print("Ran Chicken")
+	components, allowedMentions := buildCRMessageComponents(contract, roleMention)
 	msgedit := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
-	//msgedit.SetContent(str)
-	title := "Runners"
-	if len(i.Message.Embeds) > 0 {
-		title = i.Message.Embeds[0].Title
+	msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
+	msgedit.AllowedMentions = &discordgo.MessageAllowedMentions{Users: allowedMentions}
+	msgedit.Components = &components
+	if _, err := s.ChannelMessageEditComplex(msgedit); err != nil {
+		log.Printf("ChannelMessageEditComplex error: contractHash=%s messageID=%s error=%v",
+			contract.ContractHash, i.Message.ID, err)
 	}
-	msgedit.SetEmbeds([]*discordgo.MessageEmbed{
-		{
-			Title:       title,
-			Description: str,
-			Color:       newColor,
-		},
-	})
-	if newColor == 0x00ff00 {
-		msgedit.Components = &[]discordgo.MessageComponent{}
-	}
-	msgedit.Flags = discordgo.MessageFlagsSuppressNotifications
-	_, _ = s.ChannelMessageEditComplex(msgedit)
 
 	if newColor != oldColor {
+		saveData(contract.ContractHash)
 		refreshBoostListMessage(s, contract, false)
 	}
-
 }
 
 func buttonReactionHelp(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract) {

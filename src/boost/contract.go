@@ -567,8 +567,8 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 
 	// Override the contract style based on the play style, only for leaderboard play style
 	if contract.PlayStyle == ContractPlaystyleLeaderboard {
-		contract.Style = ContractFlagBanker
-		contract.BoostOrder = ContractOrderTVal
+		contract.Style = ContractFlagFastrun
+		contract.BoostOrder = ContractOrderTEplus
 	}
 	/*
 		} else { //if !creatorOfContract(contract, userID) {
