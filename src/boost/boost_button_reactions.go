@@ -330,7 +330,7 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 		go func() {
 			for _, location := range contract.Location {
 				contract.mutex.Lock()
-				components, allowedMentions := buildCRMessageComponents(contract, location.RoleMention)
+				components, _ := buildCRMessageComponents(contract, location.RoleMention)
 				existingMsgID := contract.CRMessageIDs[location.ChannelID]
 				contract.mutex.Unlock()
 
@@ -342,7 +342,10 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 				var data discordgo.MessageSend
 				data.Flags = discordgo.MessageFlagsIsComponentsV2
 				data.Components = components
-				data.AllowedMentions = &discordgo.MessageAllowedMentions{Users: allowedMentions}
+				// Ping everyone with the first
+				data.AllowedMentions = &discordgo.MessageAllowedMentions{
+					Parse: []discordgo.AllowedMentionType{discordgo.AllowedMentionTypeRoles, discordgo.AllowedMentionTypeUsers},
+				}
 				newMsg, err := s.ChannelMessageSendComplex(location.ChannelID, &data)
 				if err != nil {
 					log.Printf("Error sending CR message: contractHash=%s channelID=%s userID=%s error=%v",
@@ -456,9 +459,14 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 	}
 	requesters := make([]string, 0, len(order))
 	for _, id := range order {
-		if b := contract.Boosters[id]; b != nil && !b.RunChickensTime.IsZero() {
-			requesters = append(requesters, id)
+		b := contract.Boosters[id]
+		if b == nil || b.RunChickensTime.IsZero() {
+			continue
 		}
+		if time.Since(b.RunChickensTime) > 10*time.Minute {
+			continue
+		}
+		requesters = append(requesters, id)
 	}
 	if len(requesters) == 0 {
 		return nil, nil
