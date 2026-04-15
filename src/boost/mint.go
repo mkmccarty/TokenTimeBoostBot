@@ -40,7 +40,6 @@ const (
 	mintPreviewUpdateCSV   = "updatecsv"
 	mintPreviewClose       = "close"
 	maxAnimateFileBytes    = 10 * 1024 * 1024
-	testAnimateCleanupAge  = 2 * time.Hour
 	mintPreviewMaxAge      = 20 * time.Minute
 	mintEstimateMultiplier = 1.25
 )
@@ -69,6 +68,7 @@ type mintPreviewSession struct {
 	SessionID             string
 	UserID                string
 	ChannelID             string
+	OriginalFilename      string
 	InputFormat           string
 	OutExt                string
 	OutContentType        string
@@ -230,11 +230,12 @@ func HandleMintCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	session := &mintPreviewSession{
-		SessionID:      fmt.Sprintf("%d", time.Now().UnixNano()),
-		UserID:         getInteractionUserID(i),
-		ChannelID:      i.ChannelID,
-		InputFormat:    inputFormat,
-		OutExt:         outExt,
+		SessionID:        fmt.Sprintf("%d", time.Now().UnixNano()),
+		UserID:           getInteractionUserID(i),
+		ChannelID:        i.ChannelID,
+		OriginalFilename: gifAttachment.Filename,
+		InputFormat:      inputFormat,
+		OutExt:           outExt,
 		OutContentType: outContentType,
 		MediaBytes:     gifBytes,
 		CSVBytes:       csvBytes,
@@ -253,45 +254,7 @@ func HandleMintCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 }
 
-func cleanupOldTestAnimateFiles(maxAge time.Duration) (int, error) {
-	entries, err := os.ReadDir(os.TempDir())
-	if err != nil {
-		return 0, fmt.Errorf("failed reading temp directory: %w", err)
-	}
 
-	cutoff := time.Now().Add(-maxAge)
-	removed := 0
-	var firstErr error
-
-	for _, entry := range entries {
-		name := entry.Name()
-		if !strings.HasPrefix(name, "ttbb-mint-") && !strings.HasPrefix(name, "ttbb-mint-probe-") {
-			continue
-		}
-
-		fullPath := filepath.Join(os.TempDir(), name)
-		info, statErr := entry.Info()
-		if statErr != nil {
-			if firstErr == nil {
-				firstErr = statErr
-			}
-			continue
-		}
-		if info.ModTime().After(cutoff) {
-			continue
-		}
-
-		if removeErr := os.RemoveAll(fullPath); removeErr != nil {
-			if firstErr == nil {
-				firstErr = removeErr
-			}
-			continue
-		}
-		removed++
-	}
-
-	return removed, firstErr
-}
 
 func buildTestAnimateUsageText() string {
 	limitMiB := maxAnimateFileBytes / (1024 * 1024)
@@ -528,19 +491,27 @@ func HandleMintPreviewComponent(s *discordgo.Session, i *discordgo.InteractionCr
 			return
 		}
 
-		removedCount, cleanupErr := cleanupOldTestAnimateFiles(testAnimateCleanupAge)
-		cleanupNote := fmt.Sprintf("Reminder: non-token temporary files older than %s are cleaned up after each run.", testAnimateCleanupAge.Round(time.Hour))
-		if cleanupErr != nil {
-			cleanupNote += " (Cleanup hit some errors; it will retry on future runs.)"
-		} else if removedCount > 0 {
-			cleanupNote += fmt.Sprintf(" Removed %d stale file(s)/folder(s) this run.", removedCount)
+		saveDir := filepath.Join("ttbb-data", "mint")
+		_ = os.MkdirAll(saveDir, 0755)
+
+		baseName := session.OriginalFilename
+		if baseName == "" {
+			baseName = "mint-output" + session.OutExt
+		}
+		ext := filepath.Ext(baseName)
+		nameWithoutExt := strings.TrimSuffix(baseName, ext)
+		uniqueFilename := fmt.Sprintf("%s-%d%s", nameWithoutExt, time.Now().UnixNano(), session.OutExt)
+		savePath := filepath.Join(saveDir, uniqueFilename)
+
+		if writeErr := os.WriteFile(savePath, outputData, 0644); writeErr != nil {
+			log.Printf("Failed to save mint output to %s: %v", savePath, writeErr)
 		}
 
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: "Rendering complete. Generated file:\n" + cleanupNote,
+			Content: "Rendering complete. Generated file:\n",
 			Files: []*discordgo.File{
 				{
-					Name:        "mint-output" + session.OutExt,
+					Name:        uniqueFilename,
 					ContentType: session.OutContentType,
 					Reader:      bytes.NewReader(outputData),
 				},
