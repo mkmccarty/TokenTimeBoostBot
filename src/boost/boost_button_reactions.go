@@ -667,9 +667,10 @@ func buttonReactionCRPing(s *discordgo.Session, i *discordgo.InteractionCreate, 
 		presserMention = mb.Mention
 	}
 
+	msgLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", i.GuildID, i.ChannelID, i.Message.ID)
 	content := fmt.Sprintf(
-		"Hey %s! **%s** is waiting on you to run chickens. Those chickens aren't going to run themselves! %s\n-# Ping requested by %s",
-		strings.Join(mentions, " "), requesterName, ei.GetBotEmojiMarkdown("icon_chicken_run"), presserMention)
+		"Hey %s! **%s** is waiting on you to run chickens. Those chickens aren't going to run themselves! %s\n Link: %s\n-# Ping requested by %s ",
+		strings.Join(mentions, " "), requesterName, ei.GetBotEmojiMarkdown("icon_chicken_run"), msgLink, presserMention)
 	if _, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
 		Content:         content,
 		AllowedMentions: &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{discordgo.AllowedMentionTypeUsers}},
