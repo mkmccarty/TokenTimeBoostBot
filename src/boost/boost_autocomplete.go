@@ -63,7 +63,7 @@ func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCr
 			//seasonYear := strings.Split(c.SeasonID, "_")[1]
 			seasonIcon := strings.Split(c.SeasonID, "_")[0]
 			seasonEmote := map[string]string{"winter": "❄️", "spring": "🌷", "summer": "☀️", "fall": "🍂"}
-			seasonalStr = fmt.Sprintf("%s", seasonEmote[seasonIcon])
+			seasonalStr = seasonEmote[seasonIcon]
 		}
 
 		ultra := ""
