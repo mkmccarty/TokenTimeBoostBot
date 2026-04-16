@@ -113,8 +113,17 @@ func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.Interacti
 			if c.Ultra && !c.Predicted {
 				ultra = " -ultra"
 			}
+
+			seasonalStr := ""
+			if c.SeasonID != "" {
+				seasonYear := strings.Split(c.SeasonID, "_")[1]
+				seasonIcon := strings.Split(c.SeasonID, "_")[0]
+				seasonEmote := map[string]string{"winter": "❄️", "spring": "🌷", "summer": "☀️", "fall": "🍂"}
+				seasonalStr = fmt.Sprintf("%s%s", seasonEmote[seasonIcon], seasonYear[2:4])
+			}
+
 			choice := discordgo.ApplicationCommandOptionChoice{
-				Name:  fmt.Sprintf("%s (%s)%s", c.Name, c.ID, ultra),
+				Name:  fmt.Sprintf("%s (%s)%s %s", c.Name, c.ID, ultra, seasonalStr),
 				Value: c.ID,
 			}
 			choices = append(choices, &choice)
@@ -137,10 +146,19 @@ func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.Interacti
 			continue
 		}
 		if strings.Contains(strings.ToLower(c.ID), strings.ToLower(searchString)) ||
-			strings.Contains(strings.ToLower(c.Name), strings.ToLower(searchString)) {
+			strings.Contains(strings.ToLower(c.Name), strings.ToLower(searchString)) ||
+			strings.Contains(strings.ToLower(c.SeasonID), strings.ToLower(searchString)) {
+
+			seasonalStr := ""
+			if c.SeasonID != "" {
+				seasonYear := strings.Split(c.SeasonID, "_")[1]
+				seasonIcon := strings.Split(c.SeasonID, "_")[0]
+				seasonEmote := map[string]string{"winter": "❄️", "spring": "🌷", "summer": "☀️", "fall": "🍂"}
+				seasonalStr = fmt.Sprintf("%s%s", seasonEmote[seasonIcon], seasonYear[2:4])
+			}
 
 			choice := discordgo.ApplicationCommandOptionChoice{
-				Name:  fmt.Sprintf("%s (%s)", c.Name, c.ID),
+				Name:  fmt.Sprintf("%s (%s) %s", c.Name, c.ID, seasonalStr),
 				Value: c.ID,
 			}
 			choices = append(choices, &choice)
