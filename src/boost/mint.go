@@ -236,11 +236,11 @@ func HandleMintCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		OriginalFilename: gifAttachment.Filename,
 		InputFormat:      inputFormat,
 		OutExt:           outExt,
-		OutContentType: outContentType,
-		MediaBytes:     gifBytes,
-		CSVBytes:       csvBytes,
-		Interaction:    i.Interaction,
-		UpdatedAt:      time.Now(),
+		OutContentType:   outContentType,
+		MediaBytes:       gifBytes,
+		CSVBytes:         csvBytes,
+		Interaction:      i.Interaction,
+		UpdatedAt:        time.Now(),
 	}
 
 	mintPreviewMu.Lock()
@@ -253,8 +253,6 @@ func HandleMintCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 }
-
-
 
 func buildTestAnimateUsageText() string {
 	limitMiB := maxAnimateFileBytes / (1024 * 1024)
@@ -972,10 +970,8 @@ func extractVideoPreviewFrame(videoBytes []byte, outExt string, targetFrame int)
 	return toNRGBA(img), nil
 }
 
-func encodeSingleFrameGIF(img image.Image) ([]byte, error) {
+func extractPalette(img image.Image, maxColors int) []color.Color {
 	bounds := img.Bounds()
-
-	// Build popularity palette to ensure preview looks close to original frame
 	colorCounts := make(map[color.RGBA]int)
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
@@ -1002,19 +998,22 @@ func encodeSingleFrameGIF(img image.Image) ([]byte, error) {
 		return freqs[i].count > freqs[j].count
 	})
 
-	customPalette := color.Palette{color.Transparent}
-	essentialColors := getEssentialTokenColors()
-	for _, ec := range essentialColors {
-		customPalette = append(customPalette, ec)
-	}
-
+	var customPalette []color.Color
 	for _, f := range freqs {
-		if len(customPalette) < 256 {
+		if len(customPalette) < maxColors {
 			customPalette = append(customPalette, f.c)
 		} else {
 			break
 		}
 	}
+	return customPalette
+}
+
+func encodeSingleFrameGIF(img image.Image) ([]byte, error) {
+	bounds := img.Bounds()
+
+	customPalette := color.Palette{color.Transparent}
+	customPalette = append(customPalette, extractPalette(img, 255)...)
 
 	paletted := image.NewPaletted(image.Rect(0, 0, bounds.Dx(), bounds.Dy()), customPalette)
 	stdDraw.Draw(paletted, paletted.Rect, img, bounds.Min, stdDraw.Src)
@@ -1158,6 +1157,7 @@ func buildTokenOverlayGIF(gifBytes []byte, csvBytes []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	tokenPalette := extractPalette(tokenImg, 64)
 	frameRect := gifCanvasBounds(sourceGIF)
 	composited := image.NewNRGBA(frameRect)
 	var previousCanvas *image.NRGBA
@@ -1242,8 +1242,8 @@ func buildTokenOverlayGIF(gifBytes []byte, csvBytes []byte) ([]byte, error) {
 		framePalette := make(color.Palette, 0, 256)
 		framePalette = append(framePalette, color.Transparent)
 
-		for _, ec := range getEssentialTokenColors() {
-			framePalette = append(framePalette, ec)
+		for _, tc := range tokenPalette {
+			framePalette = append(framePalette, tc)
 		}
 
 		for _, c := range srcFrame.Palette {
@@ -1665,19 +1665,5 @@ func applyOpacity(img *image.NRGBA, alphaScale float64) {
 	}
 	for idx := 3; idx < len(img.Pix); idx += 4 {
 		img.Pix[idx] = uint8(math.Round(float64(img.Pix[idx]) * alphaScale))
-	}
-}
-
-func getEssentialTokenColors() []color.Color {
-	return []color.Color{
-		color.RGBA{0, 0, 0, 255},       // Black
-		color.RGBA{255, 255, 255, 255}, // White
-		color.RGBA{255, 215, 0, 255},   // Gold
-		color.RGBA{218, 165, 32, 255},  // Goldenrod
-		color.RGBA{184, 134, 11, 255},  // Dark Goldenrod
-		color.RGBA{255, 235, 59, 255},  // Bright Yellow
-		color.RGBA{204, 153, 0, 255},   // Dark Yellow
-		color.RGBA{153, 102, 0, 255},   // Brown/Dark Gold
-		color.RGBA{128, 128, 128, 255}, // Gray
 	}
 }
