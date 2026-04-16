@@ -773,8 +773,10 @@ func buildMintPreviewAssets(session *mintPreviewSession) ([]byte, []byte, string
 		return nil, nil, "", err
 	}
 
+	stats := generateTrackingStatistics(rows)
+
 	details := fmt.Sprintf(
-		"Initial frame: %d (x=%d, y=%d). Most distant frame: %d (x=%d, y=%d). Distance: %.2fpx.",
+		"Initial frame: %d (x=%d, y=%d). Most distant frame: %d (x=%d, y=%d). Distance: %.2fpx.\n\n%s",
 		selection.InitialFrame,
 		selection.InitialX,
 		selection.InitialY,
@@ -782,9 +784,73 @@ func buildMintPreviewAssets(session *mintPreviewSession) ([]byte, []byte, string
 		selection.DistantX,
 		selection.DistantY,
 		selection.Distance,
+		stats,
 	)
 
 	return initialGIF, distantGIF, details, nil
+}
+
+func generateTrackingStatistics(rows []animationTrackingRow) string {
+	if len(rows) == 0 {
+		return "No tracking data available."
+	}
+
+	sorted := make([]animationTrackingRow, len(rows))
+	copy(sorted, rows)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		return sorted[i].Frame < sorted[j].Frame
+	})
+
+	visibleFrames := 0
+	var totalDistance float64
+	minWidth := -1
+	maxWidth := -1
+	var lastRow *animationTrackingRow
+
+	for i := range sorted {
+		row := &sorted[i]
+		if !strings.EqualFold(row.Visibility, "visible") {
+			continue
+		}
+
+		visibleFrames++
+
+		if minWidth == -1 || row.Width < minWidth {
+			minWidth = row.Width
+		}
+		if row.Width > maxWidth {
+			maxWidth = row.Width
+		}
+
+		if lastRow != nil && lastRow.Frame != row.Frame {
+			dx := float64(row.X - lastRow.X)
+			dy := float64(row.Y - lastRow.Y)
+			totalDistance += math.Sqrt(dx*dx + dy*dy)
+		}
+		lastRow = row
+	}
+
+	if visibleFrames == 0 {
+		return "No visible frames found in tracking data."
+	}
+
+	avgSpeed := 0.0
+	if visibleFrames > 1 {
+		avgSpeed = totalDistance / float64(visibleFrames)
+	}
+
+	var b strings.Builder
+	b.WriteString("📊 **Tracking Stats:**\n")
+	fmt.Fprintf(&b, "• Visible frames: %d\n", visibleFrames)
+	fmt.Fprintf(&b, "• Total travel: %.1fpx\n", totalDistance)
+	fmt.Fprintf(&b, "• Average speed: %.1fpx/frame\n", avgSpeed)
+	if minWidth == maxWidth {
+		fmt.Fprintf(&b, "• Token scale: %dpx", minWidth)
+	} else {
+		fmt.Fprintf(&b, "• Scale range: %dpx - %dpx", minWidth, maxWidth)
+	}
+
+	return b.String()
 }
 
 func selectMintPreviewFrames(rows []animationTrackingRow) (mintPreviewSelection, error) {
