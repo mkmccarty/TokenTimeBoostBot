@@ -36,7 +36,13 @@ func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCr
 	isContractCommand := i.ApplicationCommandData().Name == "contract"
 
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
-	for _, c := range ei.EggIncContracts {
+	contracts := make([]ei.EggIncContract, len(ei.EggIncContracts))
+	copy(contracts, ei.EggIncContracts)
+	sort.SliceStable(contracts, func(i, j int) bool {
+		return contracts[i].ValidFrom.After(contracts[j].ValidFrom)
+	})
+
+	for _, c := range contracts {
 		isPredicted := c.Predicted
 
 		if isContractCommand {
@@ -52,18 +58,26 @@ func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCr
 			continue
 		}
 
+		seasonalStr := ""
+		if c.SeasonID != "" {
+			//seasonYear := strings.Split(c.SeasonID, "_")[1]
+			seasonIcon := strings.Split(c.SeasonID, "_")[0]
+			seasonEmote := map[string]string{"winter": "❄️", "spring": "🌷", "summer": "☀️", "fall": "🍂"}
+			seasonalStr = fmt.Sprintf("%s", seasonEmote[seasonIcon])
+		}
+
 		ultra := ""
 		if c.Ultra && !c.Predicted {
 			ultra = " -ultra"
 		}
 		choice := discordgo.ApplicationCommandOptionChoice{
-			Name:  fmt.Sprintf("%s (%s)%s", c.Name, c.ID, ultra),
+			Name:  fmt.Sprintf("%s (%s)%s %s", c.Name, c.ID, ultra, seasonalStr),
 			Value: c.ID,
 		}
 		choices = append(choices, &choice)
 	}
 
-	sortContractChoices(choices)
+	//sortContractChoices(choices)
 	choices = limitContractChoices(choices, maxAutocompleteChoices)
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
