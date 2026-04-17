@@ -148,6 +148,7 @@ func generateThreadName(c *Contract) string {
 			threadName = strings.ReplaceAll(threadName, "$T", "TBD")
 		}
 	}
+
 	// Calculate COUNT replacement first to determine accurate length
 	var statusStr string
 	if strings.Contains(threadName, "$COUNT") || strings.Contains(threadName, "$C") {
@@ -162,7 +163,7 @@ func generateThreadName(c *Contract) string {
 				statusStr = "(FULL)"
 			}
 		} else {
-			statusStr = fmt.Sprintf("(%s)", playStyleStr)
+			statusStr = fmt.Sprintf("%s %s %s", playStyleStr, c.Name, "Signup")
 		}
 	}
 
