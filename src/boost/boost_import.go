@@ -108,7 +108,7 @@ func CreatePredictedContract() []ei.EggIncContract {
 			Name:            name,
 			Description:     "Predicted placeholder contract",
 			Predicted:       true,
-			MaxCoopSize:     30,
+			MaxCoopSize:     50,
 			CoopAllowed:     true,
 			Ultra:           ultra,
 			ValidFrom:       releaseDate,
@@ -517,6 +517,10 @@ func updateContractWithEggIncData(contract *Contract) {
 			contract.MinutesPerToken = cc.MinutesPerToken
 			contract.Ultra = cc.Ultra
 			contract.SeasonalScoring = cc.SeasonalScoring
+			if cc.Predicted {
+				// This gets set once and used as a flag during transition
+				contract.PredictionSignup = true
+			}
 			return
 		}
 	}
