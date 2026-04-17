@@ -860,6 +860,9 @@ var (
 		"mint_preview": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleMintPreviewComponent(s, i)
 		},
+		"chart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			boost.HandleChartReactions(s, i)
+		},
 	}
 )
 
