@@ -234,6 +234,7 @@ type Contract struct {
 	//SignupMsgID    map[string]string // Message ID for the Signup Message
 	ContractID                string // Contract ID
 	CoopID                    string // CoopID
+	PredictionSignup          bool   // True if this contract is/was a prediction
 	SeasonalScoring           int    // 1 = new scoring
 	Name                      string
 	Description               string
