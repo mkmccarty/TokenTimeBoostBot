@@ -118,7 +118,7 @@ func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.Interacti
 			if c.SeasonID != "" {
 				seasonYear := strings.Split(c.SeasonID, "_")[1]
 				seasonIcon := strings.Split(c.SeasonID, "_")[0]
-				seasonEmote := map[string]string{"winter": "❄️", "spring": "🌷", "summer": "☀️", "fall": "🍂"}
+				seasonEmote := map[string]string{"winter": "❄️", "spring": "🌷", "summer": "🌞", "fall": "🍂"}
 				seasonalStr = fmt.Sprintf("%s%s", seasonEmote[seasonIcon], seasonYear[2:4])
 			}
 
@@ -162,14 +162,14 @@ func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.Interacti
 				Value: c.ID,
 			}
 			choices = append(choices, &choice)
-			if len(choices) >= 14 {
+			if len(choices) >= 13 {
 				break
 			}
 		}
 	}
 
 	sortContractChoices(choices)
-	choices = limitContractChoices(choices, 14)
+	choices = limitContractChoices(choices, 13)
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
