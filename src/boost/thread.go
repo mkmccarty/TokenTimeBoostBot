@@ -163,7 +163,7 @@ func generateThreadName(c *Contract) string {
 				statusStr = "(FULL)"
 			}
 		} else {
-			statusStr = fmt.Sprintf("%s %s %s", playStyleStr, c.Name, "Signup")
+			statusStr = fmt.Sprintf("(%s%d)", playStyleStr, len(c.Boosters))
 		}
 	}
 
@@ -171,10 +171,21 @@ func generateThreadName(c *Contract) string {
 	const maxLength = 90
 	coopID := c.CoopID
 
+	var nReplacement string
+	var idReplacement string
+
+	if !c.PredictionSignup {
+		nReplacement = coopID
+		idReplacement = c.ContractID
+	} else {
+		nReplacement = fmt.Sprintf("%s %s", c.Name, "Signup")
+		idReplacement = ""
+	}
+
 	// Create a temporary version with all replacements to check length
-	tempName := strings.ReplaceAll(threadName, "$NAME", coopID)
-	tempName = strings.ReplaceAll(tempName, "$ID", c.ContractID)
-	tempName = strings.ReplaceAll(tempName, "$N", coopID)
+	tempName := strings.ReplaceAll(threadName, "$NAME", nReplacement)
+	tempName = strings.ReplaceAll(tempName, "$ID", idReplacement)
+	tempName = strings.ReplaceAll(tempName, "$N", nReplacement)
 	tempName = strings.ReplaceAll(tempName, "$COUNT", statusStr)
 	tempName = strings.ReplaceAll(tempName, "$C", statusStr)
 
@@ -187,11 +198,14 @@ func generateThreadName(c *Contract) string {
 		} else if len(coopID) > 3 {
 			coopID = "..."
 		}
+		if !c.PredictionSignup {
+			nReplacement = coopID
+		}
 	}
 
-	threadName = strings.ReplaceAll(threadName, "$NAME", coopID)
-	threadName = strings.ReplaceAll(threadName, "$N", coopID)
-	threadName = strings.ReplaceAll(threadName, "$ID", c.ContractID)
+	threadName = strings.ReplaceAll(threadName, "$NAME", nReplacement)
+	threadName = strings.ReplaceAll(threadName, "$N", nReplacement)
+	threadName = strings.ReplaceAll(threadName, "$ID", idReplacement)
 	threadName = strings.ReplaceAll(threadName, "$COUNT", statusStr)
 	threadName = strings.ReplaceAll(threadName, "$C", statusStr)
 
