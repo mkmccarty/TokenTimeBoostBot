@@ -377,7 +377,7 @@ func HandleChartReactions(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: "Only the user who requested this chart can interact with it.",
+				Content: "This is restricted to the user that originally ran the command.",
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
