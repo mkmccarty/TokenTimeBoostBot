@@ -113,13 +113,17 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		contract.EggEmoji = FindEggEmoji(contract.EggName)
 	}
 
-	if contract.Description != "" {
+	if contract.Description != "" && !contract.PredictionSignup {
 		fmt.Fprintf(&header, "## CoopID: [%s](%s/%s/%s)", contract.CoopID, "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID)
 	} else {
 		header.WriteString("## ")
 	}
-	if len(contract.Boosters) != contract.CoopSize {
-		fmt.Fprintf(&header, " - %d/%d\n", len(contract.Boosters), contract.CoopSize)
+	if !contract.PredictionSignup {
+		if len(contract.Boosters) != contract.CoopSize {
+			fmt.Fprintf(&header, " - %d/%d\n", len(contract.Boosters), contract.CoopSize)
+		}
+	} else {
+		fmt.Fprintf(&header, " - %d interested\n", len(contract.Boosters))
 	}
 	header.WriteString("\n")
 

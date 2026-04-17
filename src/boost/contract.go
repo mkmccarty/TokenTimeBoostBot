@@ -292,10 +292,18 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		threadStyleIcons := []string{"", "🟦 ", "🟩 ", "🟧 ", "🟥 "}
 		// Default to 1 day timeout
 		var builder strings.Builder
-		fmt.Fprintf(&builder, "%s %s", threadStyleIcons[playStyle], coopID)
+		if !contractInfo.Predicted {
+			fmt.Fprintf(&builder, "%s %s", threadStyleIcons[playStyle], coopID)
+		} else {
+			fmt.Fprintf(&builder, "%s %s %s", threadStyleIcons[playStyle], contractInfo.Name, "Signup")
+		}
 		if contractInfo.ID != "" {
 			playStyleStr := fmt.Sprintf("%s ", contractPlaystyleNames[playStyle])
-			fmt.Fprintf(&builder, " (%s%d/%d)", playStyleStr, len(progenitors), contractInfo.MaxCoopSize)
+			if !contractInfo.Predicted {
+				fmt.Fprintf(&builder, " (%s%d/%d)", playStyleStr, len(progenitors), contractInfo.MaxCoopSize)
+			} else {
+				fmt.Fprintf(&builder, " (%s%d)", playStyleStr, len(progenitors))
+			}
 		}
 		if !plannedStartTime.IsZero() {
 			nyTime, err := time.LoadLocation("America/New_York")
@@ -547,7 +555,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 		if eggName == "" {
 			eggName = contractInfo.EggName
 		}
-		if bannerText != "" && eggName != "" {
+		if bannerText != "" && eggName != "" && !contract.PredictionSignup {
 			bottools.GenerateBanner(contract.ContractID, eggName, bannerText)
 		}
 	}
