@@ -286,7 +286,6 @@ type Contract struct {
 	LastWishPrompt       string             // saved prompt for this contract
 	LastInteractionTime  time.Time          // last time the contract was drawn
 	buttonComponents     map[string]CompMap // Cached components for this contract
-	SavedStats           bool               // Saved stats for this contract
 	NewFeature           int                // Used to slide in new features
 	DynamicData          *DynamicTokenData
 	LastSaveTime         time.Time // The last time the contract was saved
@@ -488,12 +487,6 @@ func changeContractState(contract *Contract, newstate int) {
 		}
 	case ContractStateCompleted:
 		contract.Banker.CurrentBanker = contract.Banker.PostSinkUserID
-		if contract.SavedStats {
-			if len(contract.BoostedOrder) != len(contract.Order) {
-				contract.BoostedOrder = contract.Order
-			}
-			contract.SavedStats = true
-		}
 	default:
 		contract.Banker.CurrentBanker = ""
 	}
@@ -1885,12 +1878,6 @@ func FinishContract(s *discordgo.Session, contract *Contract) {
 		loc.ListMsgID = ""
 	}
 	// Location[0] for this since the original contract is on the first location
-	if !contract.SavedStats {
-		if len(contract.BoostedOrder) != len(contract.Order) {
-			contract.BoostedOrder = contract.Order
-		}
-		contract.SavedStats = true
-	}
 	_, _ = DeleteContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID)
 }
 
