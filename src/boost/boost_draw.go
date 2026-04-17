@@ -94,7 +94,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 	styleArray := []string{"", "c", "a", "f", "l"}
 
-	if contract.Description == "" {
+	if contract.Description == "" || contract.PredictionSignup {
 		header.WriteString("# Contract Interest List\n")
 	} else {
 		bannerItem.Media.URL = fmt.Sprintf("%sb%s-%s.png", config.BannerURL, styleArray[contract.PlayStyle], contract.ContractID)
