@@ -235,7 +235,7 @@ var (
 	globalCommands = []*discordgo.ApplicationCommand{
 		events.SlashLaunchHelperCommand(slashLaunchHelper),
 		events.SlashEventHelperCommand(slashEventHelper),
-		boost.GetSlashReplayEvalCommand(slashRerunEval),
+		boost.GetSlashRerunEvalCommand(slashRerunEval),
 		boost.GetSlashVirtueCommand(slashVirtue),
 		boost.GetSlashRegisterCommand(slashRegister),
 		// This isn't ready yet

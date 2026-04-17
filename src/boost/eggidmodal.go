@@ -127,7 +127,7 @@ func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate
 			str = "You must provide a valid Egg Inc ID to proceed."
 			break
 		}
-		ReplayEval(s, i, optionMap, encryptedID, okayToSave)
+		RerunEval(s, i, optionMap, encryptedID, okayToSave)
 		return
 	case "virtue":
 		if encryptedID == "" {
