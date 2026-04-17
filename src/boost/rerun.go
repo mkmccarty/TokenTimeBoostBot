@@ -21,7 +21,6 @@ import (
 // GetSlashRerunEvalCommand returns the command for the /launch-helper command
 func GetSlashRerunEvalCommand(cmd string) *discordgo.ApplicationCommand {
 	minValue := 0.0
-	minValueTwo := 2.0
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Evaluate a contract's history and provide replay guidance.",
@@ -94,14 +93,6 @@ func GetSlashRerunEvalCommand(cmd string) *discordgo.ApplicationCommand {
 						MaxValue:    50,
 						Required:    true,
 					},
-					{
-						Type:        discordgo.ApplicationCommandOptionInteger,
-						Name:        "page",
-						Description: "Provide a page number to see additional results",
-						MinValue:    &minValueTwo,
-						MaxValue:    10,
-						Required:    false,
-					},
 				},
 			},
 		},
@@ -154,13 +145,6 @@ func RerunEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap m
 
 	if opt, ok := optionMap["threshold-percent"]; ok {
 		percent = int(opt.UintValue())
-	}
-	if opt, ok := optionMap["threshold-page"]; ok {
-		v := int(opt.UintValue())
-		if v < 1 {
-			v = 1
-		}
-		page = v
 	}
 	if opt, ok := optionMap["active-contract-id"]; ok {
 		contractID = opt.StringValue()
