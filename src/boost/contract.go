@@ -49,19 +49,19 @@ func GetSlashContractCommand(cmd string) *discordgo.ApplicationCommand {
 				Description: "Contract Play Style, default is ACO Cooperative",
 				Choices: []*discordgo.ApplicationCommandOptionChoice{
 					{
-						Name:  "Chill",
+						Name:  "🟦 Chill",
 						Value: ContractPlaystyleChill,
 					},
 					{
-						Name:  "ACO Cooperative",
+						Name:  "🟩 ACO Cooperative",
 						Value: ContractPlaystyleACOCooperative,
 					},
 					{
-						Name:  "Fastrun",
+						Name:  "🟧 Fastrun",
 						Value: ContractPlaystyleFastrun,
 					},
 					{
-						Name:  "Leaderboard",
+						Name:  "🟥 Leaderboard",
 						Value: ContractPlaystyleLeaderboard,
 					},
 				},
