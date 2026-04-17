@@ -10,7 +10,6 @@ import (
 	"image/color"
 	stdDraw "image/draw"
 	"image/gif"
-	_ "image/png"
 	"io"
 	"log"
 	"math"
