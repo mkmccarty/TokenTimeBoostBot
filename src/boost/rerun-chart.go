@@ -6,6 +6,7 @@ import (
 	"math"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -78,27 +79,25 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 			}
 		}
 
-		if c.ContractVersion == 2 && (percent != -1 || (c.ValidUntil.Unix() > time.Now().Unix())) {
+		if c.ContractVersion == 2 {
 			evalPercent := 0.0
 			if c.CxpMax > 0 {
 				evalPercent = (evaluationCxp / c.CxpMax) * 100.0
 			}
 
-			if percent == -1 || percent == -200 || evalPercent < float64(100-percent) {
-				dayLabel := ""
-				if len(contractDayMap) > 0 {
-					dayLabel = contractDayMap[contractID]
-				}
-				rows = append(rows, chartRow{
-					contractID: contractID,
-					cxp:        evaluationCxp,
-					maxCxp:     c.CxpMax,
-					gap:        c.CxpMax - evaluationCxp,
-					percent:    evalPercent,
-					validUntil: c.ValidUntil.Unix(),
-					dayLabel:   dayLabel,
-				})
+			dayLabel := ""
+			if len(contractDayMap) > 0 {
+				dayLabel = contractDayMap[contractID]
 			}
+			rows = append(rows, chartRow{
+				contractID: contractID,
+				cxp:        evaluationCxp,
+				maxCxp:     c.CxpMax,
+				gap:        c.CxpMax - evaluationCxp,
+				percent:    evalPercent,
+				validUntil: c.ValidUntil.Unix(),
+				dayLabel:   dayLabel,
+			})
 		}
 	}
 
@@ -107,7 +106,7 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 		userID:    userID,
 		rows:      rows,
 		page:      page - 1, // Store as 0-indexed internally
-		sortBy:    "date",
+		sortBy:    "percent_desc",
 		percent:   percent,
 		expiresAt: time.Now().Add(15 * time.Minute),
 		hasDayMap: len(contractDayMap) > 0,
@@ -125,52 +124,73 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 	divider := true
 	spacing := discordgo.SeparatorSpacingSizeSmall
 	builder := strings.Builder{}
+	now := time.Now().Unix()
+
+	// Filter rows based on session criteria
+	var displayRows []chartRow
+	switch session.percent {
+	case -1: // Active contracts chart
+		for _, r := range session.rows {
+			if r.validUntil > now {
+				displayRows = append(displayRows, r)
+			}
+		}
+	case -200: // Predictions chart
+		// This is pre-filtered by contractIDList when the session was created.
+		displayRows = session.rows
+	default: // Threshold chart
+		for _, r := range session.rows {
+			if r.percent < float64(100-session.percent) {
+				displayRows = append(displayRows, r)
+			}
+		}
+	}
 
 	// Sort rows
-	sort.SliceStable(session.rows, func(i, j int) bool {
+	sort.SliceStable(displayRows, func(i, j int) bool {
 		switch session.sortBy {
 		case "gap":
-			if session.rows[i].gap == session.rows[j].gap {
-				return session.rows[i].validUntil > session.rows[j].validUntil
+			if displayRows[i].gap == displayRows[j].gap {
+				return displayRows[i].validUntil > displayRows[j].validUntil
 			}
-			return session.rows[i].gap > session.rows[j].gap
+			return displayRows[i].gap > displayRows[j].gap
 		case "gap_asc":
-			if session.rows[i].gap == session.rows[j].gap {
-				return session.rows[i].validUntil > session.rows[j].validUntil
+			if displayRows[i].gap == displayRows[j].gap {
+				return displayRows[i].validUntil > displayRows[j].validUntil
 			}
-			return session.rows[i].gap < session.rows[j].gap
+			return displayRows[i].gap < displayRows[j].gap
 		case "percent":
-			if session.rows[i].percent == session.rows[j].percent {
-				return session.rows[i].validUntil > session.rows[j].validUntil
+			if displayRows[i].percent == displayRows[j].percent {
+				return displayRows[i].validUntil > displayRows[j].validUntil
 			}
-			return session.rows[i].percent < session.rows[j].percent
+			return displayRows[i].percent < displayRows[j].percent
 		case "percent_desc":
-			if session.rows[i].percent == session.rows[j].percent {
-				return session.rows[i].validUntil > session.rows[j].validUntil
+			if displayRows[i].percent == displayRows[j].percent {
+				return displayRows[i].validUntil > displayRows[j].validUntil
 			}
-			return session.rows[i].percent > session.rows[j].percent
+			return displayRows[i].percent > displayRows[j].percent
 		case "cs":
-			if session.rows[i].cxp == session.rows[j].cxp {
-				return session.rows[i].validUntil > session.rows[j].validUntil
+			if displayRows[i].cxp == displayRows[j].cxp {
+				return displayRows[i].validUntil > displayRows[j].validUntil
 			}
-			return session.rows[i].cxp > session.rows[j].cxp
+			return displayRows[i].cxp > displayRows[j].cxp
 		case "cs_asc":
-			if session.rows[i].cxp == session.rows[j].cxp {
-				return session.rows[i].validUntil > session.rows[j].validUntil
+			if displayRows[i].cxp == displayRows[j].cxp {
+				return displayRows[i].validUntil > displayRows[j].validUntil
 			}
-			return session.rows[i].cxp < session.rows[j].cxp
+			return displayRows[i].cxp < displayRows[j].cxp
 		case "date_asc":
-			return session.rows[i].validUntil < session.rows[j].validUntil
+			return displayRows[i].validUntil < displayRows[j].validUntil
 		case "date":
 			fallthrough
 		default:
-			return session.rows[i].validUntil > session.rows[j].validUntil
+			return displayRows[i].validUntil > displayRows[j].validUntil
 		}
 	})
 
 	// Pagination bounds
 	pageSize := 15
-	totalPages := int(math.Ceil(float64(len(session.rows)) / float64(pageSize)))
+	totalPages := int(math.Ceil(float64(len(displayRows)) / float64(pageSize)))
 	if totalPages == 0 {
 		totalPages = 1
 	}
@@ -182,8 +202,8 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 	}
 
 	startIdx := session.page * pageSize
-	endIdx := min(startIdx+pageSize, len(session.rows))
-	pageRows := session.rows[startIdx:endIdx]
+	endIdx := min(startIdx+pageSize, len(displayRows))
+	pageRows := displayRows[startIdx:endIdx]
 
 	switch session.percent {
 	case -1:
@@ -242,7 +262,7 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 		}
 	}
 
-	fmt.Fprintf(&builder, "\nShowing page %d of %d (%d total contracts).\n", session.page+1, totalPages, len(session.rows))
+	fmt.Fprintf(&builder, "\nShowing page %d of %d (%d total contracts).\n", session.page+1, totalPages, len(displayRows))
 	if session.hasDayMap {
 		fmt.Fprintf(&builder, "-# Predicted contract days: W=Wednesday, F=Friday, U=Friday%s\n", ei.GetBotEmojiMarkdown("ultra"))
 	}
@@ -256,9 +276,33 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 
 func buildChartControls(session *chartSession, totalPages int) []discordgo.MessageComponent {
 	var rows []discordgo.MessageComponent
+	minValues := 1
+
+	// Threshold menu
+	if session.percent >= 0 && session.percent != -200 {
+		thresholdOptions := []discordgo.SelectMenuOption{}
+		for p := 0; p <= 50; p += 5 {
+			thresholdOptions = append(thresholdOptions, discordgo.SelectMenuOption{
+				Label:   fmt.Sprintf("Below %d%% of max CS", 100-p),
+				Value:   fmt.Sprintf("%d", p),
+				Default: session.percent == p,
+			})
+		}
+		rows = append(rows, discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.SelectMenu{
+					CustomID:    fmt.Sprintf("chart#threshold#%s", session.xid),
+					Placeholder: "Select threshold...",
+					Options:     thresholdOptions,
+					MinValues:   &minValues,
+					MaxValues:   1,
+				},
+			},
+		})
+	}
 
 	sortOptions := []discordgo.SelectMenuOption{
-		{Label: "Sort by Date (Most Recent First)", Value: "date", Default: session.sortBy == "date"},
+		{Label: "Sort by Date (Newest First)", Value: "date", Default: session.sortBy == "date"},
 		{Label: "Sort by Date (Oldest First)", Value: "date_asc", Default: session.sortBy == "date_asc"},
 		{Label: "Sort by CS Gap (Highest First)", Value: "gap", Default: session.sortBy == "gap"},
 		{Label: "Sort by CS Gap (Lowest First)", Value: "gap_asc", Default: session.sortBy == "gap_asc"},
@@ -268,7 +312,6 @@ func buildChartControls(session *chartSession, totalPages int) []discordgo.Messa
 		{Label: "Sort by CS (Lowest First)", Value: "cs_asc", Default: session.sortBy == "cs_asc"},
 	}
 
-	minValues := 1
 	rows = append(rows, discordgo.ActionsRow{
 		Components: []discordgo.MessageComponent{
 			discordgo.SelectMenu{
@@ -282,20 +325,28 @@ func buildChartControls(session *chartSession, totalPages int) []discordgo.Messa
 	})
 
 	var buttons []discordgo.MessageComponent
-	buttons = append(buttons, discordgo.Button{
-		Label:    "Prev",
-		Style:    discordgo.SecondaryButton,
-		CustomID: fmt.Sprintf("chart#prev#%s", session.xid),
-		Disabled: session.page <= 0,
-	})
-	buttons = append(buttons, discordgo.Button{
-		Label:    "Next",
-		Style:    discordgo.SecondaryButton,
-		CustomID: fmt.Sprintf("chart#next#%s", session.xid),
-		Disabled: session.page >= totalPages-1,
-	})
+	if totalPages > 1 {
+		buttons = append(buttons, discordgo.Button{
+			Label:    "Prev",
+			Style:    discordgo.SecondaryButton,
+			CustomID: fmt.Sprintf("chart#prev#%s", session.xid),
+			Disabled: session.page <= 0,
+		})
+		buttons = append(buttons, discordgo.Button{
+			Label:    "Next",
+			Style:    discordgo.SecondaryButton,
+			CustomID: fmt.Sprintf("chart#next#%s", session.xid),
+			Disabled: session.page >= totalPages-1,
+		})
+	}
 
+	buttons = append(buttons, discordgo.Button{
+		Label:    "Finish",
+		Style:    discordgo.DangerButton,
+		CustomID: fmt.Sprintf("chart#finish#%s", session.xid),
+	})
 	rows = append(rows, discordgo.ActionsRow{Components: buttons})
+
 	return rows
 }
 
@@ -346,6 +397,30 @@ func HandleChartReactions(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		session.page--
 	case "next":
 		session.page++
+	case "threshold":
+		values := i.MessageComponentData().Values
+		if len(values) > 0 {
+			newPercent, err := strconv.Atoi(values[0])
+			if err == nil {
+				session.percent = newPercent
+				session.page = 0 // Reset to first page on filter change
+			}
+		}
+	case "finish":
+		// Remove interactive components
+		var finalComponents []discordgo.MessageComponent
+		for _, comp := range i.Message.Components {
+			switch comp.(type) {
+			case *discordgo.TextDisplay, *discordgo.Separator:
+				finalComponents = append(finalComponents, comp)
+			}
+		}
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseUpdateMessage,
+			Data: &discordgo.InteractionResponseData{Components: finalComponents},
+		})
+		delete(chartSessions, xidPart) // Clean up session
+		return
 	}
 
 	components := renderChartSession(session)
