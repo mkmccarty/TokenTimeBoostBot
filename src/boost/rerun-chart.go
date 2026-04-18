@@ -183,6 +183,42 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 			return displayRows[i].cxp < displayRows[j].cxp
 		case "date_asc":
 			return displayRows[i].validUntil < displayRows[j].validUntil
+		case "name":
+			nameI := ei.EggIncContractsAll[displayRows[i].contractID].Name
+			if nameI == "" {
+				nameI = displayRows[i].contractID
+			}
+			nameJ := ei.EggIncContractsAll[displayRows[j].contractID].Name
+			if nameJ == "" {
+				nameJ = displayRows[j].contractID
+			}
+			if nameI == nameJ {
+				return displayRows[i].validUntil > displayRows[j].validUntil
+			}
+			return nameI < nameJ
+		case "name_desc":
+			nameI := ei.EggIncContractsAll[displayRows[i].contractID].Name
+			if nameI == "" {
+				nameI = displayRows[i].contractID
+			}
+			nameJ := ei.EggIncContractsAll[displayRows[j].contractID].Name
+			if nameJ == "" {
+				nameJ = displayRows[j].contractID
+			}
+			if nameI == nameJ {
+				return displayRows[i].validUntil > displayRows[j].validUntil
+			}
+			return nameI > nameJ
+		case "id":
+			if displayRows[i].contractID == displayRows[j].contractID {
+				return displayRows[i].validUntil > displayRows[j].validUntil
+			}
+			return displayRows[i].contractID < displayRows[j].contractID
+		case "id_desc":
+			if displayRows[i].contractID == displayRows[j].contractID {
+				return displayRows[i].validUntil > displayRows[j].validUntil
+			}
+			return displayRows[i].contractID > displayRows[j].contractID
 		case "date":
 			fallthrough
 		default:
@@ -222,6 +258,7 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 
 	if len(pageRows) == 0 {
 		components = append(components, &discordgo.TextDisplay{Content: "No contracts met this condition.\n"})
+		components = append(components, buildChartControls(session, totalPages)...)
 		return components
 	}
 
@@ -269,16 +306,16 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 				}
 			}
 
-			fmt.Fprintf(&builder, "%s **%s**%s\n",
-				eggEmoji, name, dayStr)
-
 			expireStr := ""
 			if !session.hasDayMap && r.validUntil > 0 {
-				expireStr = fmt.Sprintf(" Exp: <t:%d:R>", r.validUntil)
+				expireStr = fmt.Sprintf(" <t:%d:R>", r.validUntil)
 			}
 
-			fmt.Fprintf(&builder, "-# _       _ CS: **%d** / %d (%.1f%%) Gap: **%d**%s\n",
-				int(math.Ceil(r.cxp)), int(math.Ceil(r.maxCxp)), r.percent, int(math.Ceil(r.gap)), expireStr)
+			fmt.Fprintf(&builder, "%s **%s**%s%s\n",
+				eggEmoji, name, dayStr, expireStr)
+
+			fmt.Fprintf(&builder, "-# _       _ CS: **%d** / %d (%.1f%%) Gap: **%d**\n",
+				int(math.Ceil(r.cxp)), int(math.Ceil(r.maxCxp)), r.percent, int(math.Ceil(r.gap)))
 		} else {
 			if session.hasDayMap {
 				fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s %3s`\n",
@@ -348,6 +385,10 @@ func buildChartControls(session *chartSession, totalPages int) []discordgo.Messa
 		{Label: "Sort by % of Max (Highest First)", Value: "percent_desc", Default: session.sortBy == "percent_desc"},
 		{Label: "Sort by CS (Highest First)", Value: "cs", Default: session.sortBy == "cs"},
 		{Label: "Sort by CS (Lowest First)", Value: "cs_asc", Default: session.sortBy == "cs_asc"},
+		{Label: "Sort by Name (A-Z)", Value: "name", Default: session.sortBy == "name"},
+		{Label: "Sort by Name (Z-A)", Value: "name_desc", Default: session.sortBy == "name_desc"},
+		{Label: "Sort by ID (A-Z)", Value: "id", Default: session.sortBy == "id"},
+		{Label: "Sort by ID (Z-A)", Value: "id_desc", Default: session.sortBy == "id_desc"},
 	}
 
 	rows = append(rows, discordgo.ActionsRow{
@@ -364,6 +405,14 @@ func buildChartControls(session *chartSession, totalPages int) []discordgo.Messa
 
 	var buttons []discordgo.MessageComponent
 	if totalPages > 1 {
+		if totalPages > 4 {
+			buttons = append(buttons, discordgo.Button{
+				Label:    "First",
+				Style:    discordgo.SecondaryButton,
+				CustomID: fmt.Sprintf("chart#first#%s", session.xid),
+				Disabled: session.page <= 0,
+			})
+		}
 		buttons = append(buttons, discordgo.Button{
 			Label:    "Prev",
 			Style:    discordgo.SecondaryButton,
@@ -376,6 +425,14 @@ func buildChartControls(session *chartSession, totalPages int) []discordgo.Messa
 			CustomID: fmt.Sprintf("chart#next#%s", session.xid),
 			Disabled: session.page >= totalPages-1,
 		})
+		if totalPages > 4 {
+			buttons = append(buttons, discordgo.Button{
+				Label:    "Last",
+				Style:    discordgo.SecondaryButton,
+				CustomID: fmt.Sprintf("chart#last#%s", session.xid),
+				Disabled: session.page >= totalPages-1,
+			})
+		}
 	}
 
 	buttons = append(buttons, discordgo.Button{
@@ -431,10 +488,14 @@ func HandleChartReactions(s *discordgo.Session, i *discordgo.InteractionCreate) 
 			session.sortBy = values[0]
 			session.page = 0 // Reset to first page on sort
 		}
+	case "first":
+		session.page = 0
 	case "prev":
 		session.page--
 	case "next":
 		session.page++
+	case "last":
+		session.page = 999999 // Let renderChartSession clamp this to the actual last page
 	case "threshold":
 		values := i.MessageComponentData().Values
 		if len(values) > 0 {
