@@ -2,6 +2,8 @@ package boost
 
 import (
 	"fmt"
+	"math"
+	"math/rand/v2"
 	"slices"
 	"sort"
 	"strings"
@@ -14,7 +16,7 @@ import (
 const (
 	boostOrderHandlerPrefix = "bo_order"
 	boostOrderSessionTTL    = 15 * time.Minute
-	boostOrderPageSize      = 20
+	boostOrderPageSize      = 14
 )
 
 type boostOrderSession struct {
@@ -29,6 +31,8 @@ type boostOrderSession struct {
 	page                 int
 	expiresAt            time.Time
 	changeCurrentBooster bool // Whether to reset current booster to first unboosted when saving
+	selectionMode        int  // 0: Names, 1: Reverse, 2: Sort One, 3: Sort Fill
+	bottomCount          int  // Track how many names were added to the bottom
 }
 
 var boostOrderSessions = make(map[string]*boostOrderSession)
@@ -90,6 +94,8 @@ func HandleBoostOrderCommand(s *discordgo.Session, i *discordgo.InteractionCreat
 		page:                 0,
 		expiresAt:            time.Now().Add(boostOrderSessionTTL),
 		changeCurrentBooster: false, // Default to keeping current booster
+		selectionMode:        0,
+		bottomCount:          0,
 	}
 	boostOrderSessions[session.xid] = session
 
@@ -157,8 +163,14 @@ func HandleBoostOrderReactions(s *discordgo.Session, i *discordgo.InteractionCre
 			status = "That farmer is already selected."
 			break
 		}
-		session.selected = append(session.selected, targetID)
-		session.undoSteps = append(session.undoSteps, 1)
+		if session.selectionMode == 1 {
+			session.selected = slices.Insert(session.selected, len(session.selected)-session.bottomCount, targetID)
+			session.bottomCount++
+			session.undoSteps = append(session.undoSteps, -1)
+		} else {
+			session.selected = slices.Insert(session.selected, len(session.selected)-session.bottomCount, targetID)
+			session.undoSteps = append(session.undoSteps, 1)
+		}
 	case "shift":
 		unselected := boostOrderUnselected(session.original, session.selected)
 		pages := boostOrderPages(len(unselected))
@@ -171,26 +183,36 @@ func HandleBoostOrderReactions(s *discordgo.Session, i *discordgo.InteractionCre
 			status = "Nothing left to fill."
 			break
 		}
-		session.selected = boostOrderFillRemaining(session.original, session.selected)
+		session.selected = slices.Insert(session.selected, len(session.selected)-session.bottomCount, remaining...)
 		session.undoSteps = append(session.undoSteps, len(remaining))
 		status = "Filled remaining names in existing order."
-	case "undo":
-		if len(session.undoSteps) == 0 {
-			status = "Nothing to undo."
+	case "mode":
+		session.selectionMode = (session.selectionMode + 1) % 4
+	case "sortone", "sortfill":
+		if len(reaction) < 4 {
+			status = "Invalid sort action."
 			break
 		}
-		step := session.undoSteps[len(session.undoSteps)-1]
-		if step > len(session.selected) {
-			step = len(session.selected)
+		sortType := reaction[3]
+		unselected := boostOrderUnselected(session.original, session.selected)
+		if len(unselected) == 0 {
+			status = "No farmers left to sort."
+			break
 		}
-		removedIDs := []string{}
-		if step > 0 {
-			removedIDs = append(removedIDs, session.selected[len(session.selected)-step:]...)
+		sorted := boostOrderSortRemaining(contract, unselected, sortType)
+		if action == "sortone" {
+			session.selected = slices.Insert(session.selected, len(session.selected)-session.bottomCount, sorted[0])
+			session.undoSteps = append(session.undoSteps, 1)
+			status = fmt.Sprintf("Added %s via %s.", boostOrderButtonLabel(contract, sorted[0]), strings.ToUpper(sortType))
+		} else {
+			session.selected = slices.Insert(session.selected, len(session.selected)-session.bottomCount, sorted...)
+			session.undoSteps = append(session.undoSteps, len(sorted))
+			status = fmt.Sprintf("Filled remaining %d farmers via %s.", len(sorted), strings.ToUpper(sortType))
 		}
-		removedCount := boostOrderUndoLastStep(session)
+	case "undo":
+		removedIDs, removedCount := boostOrderUndoLastStep(session)
 		if removedCount == 1 && len(removedIDs) == 1 {
-			lastID := removedIDs[0]
-			status = fmt.Sprintf("Removed %s from the new order.", boostOrderMention(contract, lastID))
+			status = fmt.Sprintf("Removed %s from the new order.", boostOrderMention(contract, removedIDs[0]))
 		} else if removedCount > 1 {
 			status = fmt.Sprintf("Removed previous fill (%d names).", removedCount)
 		} else {
@@ -200,6 +222,8 @@ func HandleBoostOrderReactions(s *discordgo.Session, i *discordgo.InteractionCre
 		session.selected = []string{}
 		session.undoSteps = []int{}
 		session.page = 0
+		session.selectionMode = 0
+		session.bottomCount = 0
 		status = "Catalyst reset."
 	case "setkeepcurrent":
 		session.changeCurrentBooster = false
@@ -374,7 +398,7 @@ func renderBoostOrderInterview(contract *Contract, session *boostOrderSession, s
 		&discordgo.TextDisplay{Content: instructionsText},
 		boostOrderSeparatorComponent(),
 	)
-	components = append(components, boostOrderNameButtons(contract, session.xid, visible)...)
+	components = append(components, boostOrderNameButtons(contract, session, visible)...)
 	components = append(components, boostOrderControlButtons(contract, session, len(unselected), pages)...)
 	components = append(components, &discordgo.TextDisplay{Content: footerText})
 	if status != "" {
@@ -384,20 +408,77 @@ func renderBoostOrderInterview(contract *Contract, session *boostOrderSession, s
 	return "", components
 }
 
-func boostOrderNameButtons(contract *Contract, xidValue string, visible []string) []discordgo.MessageComponent {
-	components := make([]discordgo.MessageComponent, 0, 4)
-	for i := 0; i < len(visible); i += 5 {
-		end := min(i+5, len(visible))
-		rowButtons := make([]discordgo.MessageComponent, 0, 5)
-		for _, userID := range visible[i:end] {
+func boostOrderNameButtons(contract *Contract, session *boostOrderSession, visible []string) []discordgo.MessageComponent {
+	if len(visible) == 0 {
+		return nil
+	}
+
+	components := make([]discordgo.MessageComponent, 0, 3)
+
+	if session.selectionMode == 0 || session.selectionMode == 1 {
+		var rowButtons []discordgo.MessageComponent
+		for _, userID := range visible {
+			if len(rowButtons) == 5 {
+				components = append(components, discordgo.ActionsRow{Components: rowButtons})
+				rowButtons = make([]discordgo.MessageComponent, 0, 5)
+			}
 			rowButtons = append(rowButtons, discordgo.Button{
 				Label:    boostOrderButtonLabel(contract, userID),
 				Style:    discordgo.PrimaryButton,
-				CustomID: fmt.Sprintf("%s#%s#pick#%s", boostOrderHandlerPrefix, xidValue, userID),
+				CustomID: fmt.Sprintf("%s#%s#pick#%s", boostOrderHandlerPrefix, session.xid, userID),
 			})
 		}
+		if len(rowButtons) == 5 {
+			components = append(components, discordgo.ActionsRow{Components: rowButtons})
+			rowButtons = make([]discordgo.MessageComponent, 0, 5)
+		}
+		modeLabel := "Mode: Forward"
+		if session.selectionMode == 1 {
+			modeLabel = "Mode: Reverse"
+		}
+		rowButtons = append(rowButtons, discordgo.Button{
+			Label:    modeLabel,
+			Style:    discordgo.SecondaryButton,
+			CustomID: fmt.Sprintf("%s#%s#mode", boostOrderHandlerPrefix, session.xid),
+		})
 		components = append(components, discordgo.ActionsRow{Components: rowButtons})
+	} else {
+		limit := min(len(visible), 10)
+		var rowButtons []discordgo.MessageComponent
+		for i := 0; i < limit; i++ {
+			if len(rowButtons) == 5 {
+				components = append(components, discordgo.ActionsRow{Components: rowButtons})
+				rowButtons = make([]discordgo.MessageComponent, 0, 5)
+			}
+			rowButtons = append(rowButtons, discordgo.Button{
+				Label:    boostOrderButtonLabel(contract, visible[i]),
+				Style:    discordgo.PrimaryButton,
+				CustomID: fmt.Sprintf("%s#%s#pick#%s", boostOrderHandlerPrefix, session.xid, visible[i]),
+			})
+		}
+		if len(rowButtons) > 0 {
+			components = append(components, discordgo.ActionsRow{Components: rowButtons})
+		}
+
+		modeLabel := "Mode: Sort One"
+		sortAction := "sortone"
+		if session.selectionMode == 3 {
+			modeLabel = "Mode: Sort Fill"
+			sortAction = "sortfill"
+		}
+
+		sortRow := discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{Label: "Next TE", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#te", boostOrderHandlerPrefix, session.xid, sortAction)},
+				discordgo.Button{Label: "Next TE+", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#teplus", boostOrderHandlerPrefix, session.xid, sortAction)},
+				discordgo.Button{Label: "Next ELR", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#elr", boostOrderHandlerPrefix, session.xid, sortAction)},
+				discordgo.Button{Label: "Random", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#random", boostOrderHandlerPrefix, session.xid, sortAction)},
+				discordgo.Button{Label: modeLabel, Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#mode", boostOrderHandlerPrefix, session.xid)},
+			},
+		}
+		components = append(components, sortRow)
 	}
+
 	return components
 }
 
@@ -511,10 +592,30 @@ func buildBoostOrderTextSections(contract *Contract, session *boostOrderSession,
 	boostedSelection := boostOrderSeededSelection(contract)
 	boostedSummary := boostOrderSummary(contract, boostedSelection, 0)
 	buildingSelection := boostOrderExclude(session.selected, boostedSelection)
-	selectedSummary := boostOrderSummary(contract, buildingSelection, 0)
-	if selectedSummary == "" {
-		selectedSummary = "none"
+
+	var buildingItems []string
+	insertIndex := len(buildingSelection) - session.bottomCount
+	if insertIndex < 0 {
+		insertIndex = 0
 	}
+	insertEmoji := "🔽"
+	if session.selectionMode == 1 {
+		insertEmoji = "🔼"
+	}
+	for idx, userID := range buildingSelection {
+		if idx == insertIndex {
+			buildingItems = append(buildingItems, insertEmoji)
+		}
+		buildingItems = append(buildingItems, fmt.Sprintf("%d:%s", idx+1, boostOrderMention(contract, userID)))
+	}
+	if insertIndex == len(buildingSelection) {
+		buildingItems = append(buildingItems, insertEmoji)
+	}
+	selectedSummary := strings.Join(buildingItems, ", ")
+	if selectedSummary == insertEmoji {
+		selectedSummary = insertEmoji + " none"
+	}
+
 	buildingTarget := max(len(session.original)-len(boostedSelection), 0)
 
 	headerText := "# Boost  Catalyst\n-# Precision sequencing for maximum velocity."
@@ -562,7 +663,7 @@ func boostOrderButtonsHint(unselectedCount int) string {
 	if unselectedCount > boostOrderPageSize {
 		moveHint = "Shift cycles name pages"
 	}
-	return fmt.Sprintf("-# Buttons: select names to build order.\n-# %s.\n-# Undo reverts the last action, Reset clears, Save applies, Exit closes.", moveHint)
+	return fmt.Sprintf("-# Buttons: select names to build order. Toggle Mode for sorting/reverse.\n-# %s.\n-# Undo reverts the last action, Reset clears, Save applies, Exit closes.", moveHint)
 }
 
 func boostOrderSummary(contract *Contract, ordered []string, limit int) string {
@@ -678,26 +779,55 @@ func boostOrderExclude(values []string, excludes []string) []string {
 	return filtered
 }
 
-func boostOrderFillRemaining(original []string, selected []string) []string {
-	filled := append([]string(nil), selected...)
-	filled = append(filled, boostOrderUnselected(original, selected)...)
-	return filled
-}
-
-func boostOrderUndoLastStep(session *boostOrderSession) int {
+func boostOrderUndoLastStep(session *boostOrderSession) ([]string, int) {
 	if session == nil || len(session.undoSteps) == 0 {
-		return 0
+		return nil, 0
 	}
-	removeCount := session.undoSteps[len(session.undoSteps)-1]
+	step := session.undoSteps[len(session.undoSteps)-1]
 	session.undoSteps = session.undoSteps[:len(session.undoSteps)-1]
-	if removeCount <= 0 {
-		return 0
+
+	isBottom := step < 0
+	count := step
+	if isBottom {
+		count = -step
 	}
-	if removeCount >= len(session.selected) {
-		removeCount = len(session.selected)
+
+	if count <= 0 {
+		return nil, 0
 	}
-	session.selected = session.selected[:len(session.selected)-removeCount]
-	return removeCount
+	if count > len(session.selected) {
+		count = len(session.selected)
+	}
+
+	var removedIDs []string
+	if isBottom {
+		startIndex := len(session.selected) - session.bottomCount
+		if startIndex < 0 {
+			startIndex = 0
+		}
+		endIndex := startIndex + count
+		if endIndex > len(session.selected) {
+			endIndex = len(session.selected)
+		}
+		removedIDs = append([]string(nil), session.selected[startIndex:endIndex]...)
+		session.selected = slices.Delete(session.selected, startIndex, endIndex)
+		session.bottomCount -= count
+		if session.bottomCount < 0 {
+			session.bottomCount = 0
+		}
+	} else {
+		endIndex := len(session.selected) - session.bottomCount
+		if endIndex > len(session.selected) {
+			endIndex = len(session.selected)
+		}
+		startIndex := endIndex - count
+		if startIndex < 0 {
+			startIndex = 0
+		}
+		removedIDs = append([]string(nil), session.selected[startIndex:endIndex]...)
+		session.selected = slices.Delete(session.selected, startIndex, endIndex)
+	}
+	return removedIDs, count
 }
 
 func boostOrderVisiblePage(unselected []string, page int) []string {
@@ -764,6 +894,8 @@ func applyBoostOrderSelection(contract *Contract, selected []string, changeCurre
 		}
 		// Enforce that only current booster has BoostStateTokenTime
 		contract.enforceOnlyOneTokenTimeBooster()
+	} else {
+		contract.BoostOrder = ContractManualOrder
 	}
 	contract.mutex.Unlock()
 }
@@ -806,4 +938,51 @@ func boostOrderHasReorderTargets(contract *Contract) bool {
 	seeded := boostOrderSeededSelection(contract)
 	remaining := boostOrderUnselected(contract.Order, seeded)
 	return len(remaining) > 0
+}
+
+func boostOrderSortRemaining(contract *Contract, unselected []string, sortType string) []string {
+	sorted := append([]string(nil), unselected...)
+	switch sortType {
+	case "random":
+		rand.Shuffle(len(sorted), func(i, j int) {
+			sorted[i], sorted[j] = sorted[j], sorted[i]
+		})
+	case "elr":
+		sort.SliceStable(sorted, func(i, j int) bool {
+			elrI, elrJ := 0.0, 0.0
+			if b := contract.Boosters[sorted[i]]; b != nil {
+				elrI = b.ArtifactSet.LayRate
+			}
+			if b := contract.Boosters[sorted[j]]; b != nil {
+				elrJ = b.ArtifactSet.LayRate
+			}
+			return elrI > elrJ
+		})
+	case "te", "teplus":
+		type tePair struct {
+			name string
+			te   float64
+		}
+		pairs := make([]tePair, len(sorted))
+		for i, name := range sorted {
+			baseTE := 0.0
+			if b := contract.Boosters[name]; b != nil {
+				baseTE = float64(max(b.TECount, 0))
+			}
+			sortTE := baseTE
+			if sortType == "teplus" {
+				randomBonusMax := math.Max(baseTE*0.1, math.Sqrt(baseTE))
+				randomOffset := (rand.Float64()*2 - 1) * randomBonusMax
+				sortTE = baseTE + randomOffset
+			}
+			pairs[i] = tePair{name: name, te: sortTE}
+		}
+		sort.SliceStable(pairs, func(i, j int) bool {
+			return pairs[i].te > pairs[j].te
+		})
+		for i, p := range pairs {
+			sorted[i] = p.name
+		}
+	}
+	return sorted
 }
