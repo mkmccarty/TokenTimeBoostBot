@@ -72,7 +72,7 @@ const slashChangeCommand string = "change"
 const slashUpdateCommand string = "update"
 const slashUnboost string = "unboost"
 const slashPrune string = "prune"
-const slashJoin string = "join-contract"
+const slashJoinContract string = "join-contract"
 const slashSetEggIncName string = "seteggincname"
 const slashBump string = "bump"
 const slashToggleContractPings string = "toggle-contract-pings"
@@ -253,7 +253,7 @@ var (
 		boost.GetSlashUpdateCommand(slashUpdateCommand),
 		boost.GetSlashChangeCommand(slashChangeCommand),
 		{
-			Name:        slashJoin,
+			Name:        slashJoinContract,
 			Description: "Add farmer or guest to contract.",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
@@ -295,6 +295,12 @@ var (
 							Value: boost.ContractOrderRandom,
 						},
 					},
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "already-boosted",
+					Description: "Add farmer in an already boosted state.",
+					Required:    false,
 				},
 			},
 		},
@@ -527,7 +533,7 @@ var (
 			boost.HandleScoreExplorerCommand(s, i)
 		},
 		// Normal Commands
-		slashJoin: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		slashJoinContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleJoinCommand(s, i)
 		},
 		slashCoopETA: func(s *discordgo.Session, i *discordgo.InteractionCreate) {

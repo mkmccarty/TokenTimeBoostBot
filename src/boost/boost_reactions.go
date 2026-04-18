@@ -177,7 +177,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		case "🐿️":
 			if creatorOfContract(s, contract, r.UserID) {
 				for i := len(contract.Order); i < contract.CoopSize; i++ {
-					_, err := AddFarmerToContract(s, contract, r.GuildID, r.ChannelID, bottools.GetRandomName(0), contract.BoostOrder, true)
+					_, err := AddFarmerToContract(s, contract, r.GuildID, r.ChannelID, bottools.GetRandomName(0), contract.BoostOrder, true, false)
 					if err != nil {
 						log.Println(err)
 					}
