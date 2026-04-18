@@ -556,9 +556,9 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 
 		// One button per incomplete requester, max 10 total
 		if len(buttons) < 10 {
-			label := runewidth.Truncate(name, 4, "")
+			label := runewidth.Truncate(name, 16, "")
 			buttonLabelCount[label]++
-			// Truncating to 4 chars can produce duplicate labels, append a number to keep them distinct
+			// Truncating to 16 chars can produce duplicate labels, append a number to keep them distinct
 			if buttonLabelCount[label] > 1 {
 				label = fmt.Sprintf("%s%d", label, buttonLabelCount[label])
 			}
