@@ -589,7 +589,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 
 	// Add users into the contract
 	for _, pid := range progenitors {
-		_, err = AddFarmerToContract(s, contract, guildID, channelID, pid, contract.BoostOrder, true)
+		_, err = AddFarmerToContract(s, contract, guildID, channelID, pid, contract.BoostOrder, true, false)
 		if err != nil {
 			return nil, err
 		}

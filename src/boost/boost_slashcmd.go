@@ -154,6 +154,7 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var mention = ""
 	var str = "Joining Member"
 	var tokenWant = 0
+	var alreadyBoosted = false
 
 	optionMap := bottools.GetCommandOptionsMap(i)
 
@@ -179,6 +180,12 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if opt, ok := optionMap["boost-order"]; ok {
 		orderValue = int(opt.IntValue())
 	}
+	if opt, ok := optionMap["already-boosted"]; ok {
+		alreadyBoosted = opt.BoolValue()
+		if alreadyBoosted {
+			str += " (already boosted)"
+		}
+	}
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -195,13 +202,13 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			if tokenWant != 0 {
 				farmerstate.SetTokens(guestName, tokenWant)
 			}
-			var err = AddContractMember(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), "", guestName, orderValue)
+			var err = AddContractMember(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), "", guestName, orderValue, alreadyBoosted)
 			if err != nil {
 				str = err.Error()
 			}
 		}
 	} else {
-		var err = AddContractMember(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), mention, "", orderValue)
+		var err = AddContractMember(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), mention, "", orderValue, alreadyBoosted)
 		if err != nil {
 			str = err.Error()
 		}

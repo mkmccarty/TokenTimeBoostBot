@@ -765,7 +765,7 @@ func FindContractByIDs(contractID string, coopID string) *Contract {
 }
 
 // AddContractMember adds a member to a contract
-func AddContractMember(s *discordgo.Session, guildID string, channelID string, operator string, mention string, guest string, order int) error {
+func AddContractMember(s *discordgo.Session, guildID string, channelID string, operator string, mention string, guest string, order int, alreadyBoosted bool) error {
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -785,7 +785,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 		if u.Bot {
 			return errors.New(errorBot)
 		}
-		_, err = AddFarmerToContract(s, contract, guildID, channelID, u.ID, order, false)
+		_, err = AddFarmerToContract(s, contract, guildID, channelID, u.ID, order, false, alreadyBoosted)
 		if err != nil {
 			return err
 		}
@@ -814,7 +814,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 
 		previousBoosters := len(contract.Boosters)
 
-		_, err := AddFarmerToContract(s, contract, guildID, channelID, guest, order, false)
+		_, err := AddFarmerToContract(s, contract, guildID, channelID, guest, order, false, alreadyBoosted)
 		if err != nil {
 			return err
 		}
@@ -897,7 +897,7 @@ func getUserArtifacts(userID string, inSet *ArtifactSet) ArtifactSet {
 }
 
 // AddFarmerToContract adds a farmer to a contract
-func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string, order int, progenitor bool) (*Booster, error) {
+func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string, order int, progenitor bool, alreadyBoosted bool) (*Booster, error) {
 	log.Println("AddFarmerToContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", order)
 
 	if contract.CoopSize == min(len(contract.Order), len(contract.Boosters)) {
@@ -972,7 +972,14 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		}
 
 		b.Ping = false
-		b.BoostState = BoostStateUnboosted
+		if alreadyBoosted {
+			b.BoostState = BoostStateBoosted
+			b.StartTime = time.Now()
+			b.EndTime = b.StartTime
+			b.Duration = 0
+		} else {
+			b.BoostState = BoostStateUnboosted
+		}
 		b.TokensWanted = farmerstate.GetTokens(b.UserID)
 		if b.TokensWanted <= 0 {
 			b.TokensWanted = defaultFamerTokens // Default to 6
@@ -1025,12 +1032,17 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			// or if contract is on the last booster already
 			if contract.State == ContractStateSignup || contract.State == ContractStateWaiting || order == ContractOrderSignup {
 				contract.Order = append(contract.Order, b.UserID)
-				if contract.State == ContractStateWaiting {
+				if contract.State == ContractStateWaiting && !alreadyBoosted {
 					contract.setCurrentBoosterByIndex(len(contract.Order) - 1)
 				}
 			} else {
 				contract.Order = append(contract.Order, b.UserID)
 			}
+
+			if alreadyBoosted {
+				contract.BoostedOrder = append(contract.BoostedOrder, b.UserID)
+			}
+
 			for _, el := range contract.Location {
 				if el.GuildID == guildID && b.UserID != b.Name && el.GuildContractRole.ID != "" {
 					_ = s.GuildMemberRoleAdd(guildID, b.UserID, el.GuildContractRole.ID)
@@ -1071,7 +1083,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			contract.CreatorID[0] = userID
 		}
 
-		if !progenitor {
+		if !progenitor && !alreadyBoosted {
 			if contract.State == ContractStateWaiting {
 				// Reactivate the contract
 				// Set the newly added booster as boosting
@@ -1261,7 +1273,7 @@ func JoinContract(s *discordgo.Session, guildID string, channelID string, userID
 
 		// Wait here until we get our lock
 		contract.mutex.Lock()
-		_, err = AddFarmerToContract(s, contract, guildID, channelID, userID, contract.BoostOrder, false)
+		_, err = AddFarmerToContract(s, contract, guildID, channelID, userID, contract.BoostOrder, false, false)
 
 		contract.mutex.Unlock()
 		if err != nil {
@@ -1443,7 +1455,7 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 				// Remove the first person from the want list
 				firstWaitlistUser := contract.WaitlistBoosters[0]
 				contract.WaitlistBoosters = contract.WaitlistBoosters[1:]
-				_, _ = AddFarmerToContract(s, contract, guildID, channelID, firstWaitlistUser, contract.BoostOrder, false)
+				_, _ = AddFarmerToContract(s, contract, guildID, channelID, firstWaitlistUser, contract.BoostOrder, false, false)
 			}
 		}
 	}
