@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 
 	"log"
@@ -52,6 +53,12 @@ func GetSlashRerunEvalCommand(cmd string) *discordgo.ApplicationCommand {
 						Description: "If you want to force a refresh due a recent change to your contracts.",
 						Required:    false,
 					},
+					{
+						Type:        discordgo.ApplicationCommandOptionBoolean,
+						Name:        "mobile-friendly",
+						Description: "Format output for mobile devices (sticky)",
+						Required:    false,
+					},
 				},
 			},
 			{
@@ -65,6 +72,12 @@ func GetSlashRerunEvalCommand(cmd string) *discordgo.ApplicationCommand {
 						Description: "If you want to force a refresh due a recent change to your contracts.",
 						Required:    false,
 					},
+					{
+						Type:        discordgo.ApplicationCommandOptionBoolean,
+						Name:        "mobile-friendly",
+						Description: "Format output for mobile devices (sticky)",
+						Required:    false,
+					},
 				},
 			},
 			{
@@ -76,6 +89,12 @@ func GetSlashRerunEvalCommand(cmd string) *discordgo.ApplicationCommand {
 						Type:        discordgo.ApplicationCommandOptionBoolean,
 						Name:        "refresh",
 						Description: "If you want to force a refresh due a recent change to your contracts.",
+						Required:    false,
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionBoolean,
+						Name:        "mobile-friendly",
+						Description: "Format output for mobile devices (sticky)",
 						Required:    false,
 					},
 				},
@@ -92,6 +111,12 @@ func GetSlashRerunEvalCommand(cmd string) *discordgo.ApplicationCommand {
 						MinValue:    &minValue,
 						MaxValue:    50,
 						Required:    true,
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionBoolean,
+						Name:        "mobile-friendly",
+						Description: "Format output for mobile devices (sticky)",
+						Required:    false,
 					},
 				},
 			},
@@ -198,6 +223,21 @@ func RerunEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap m
 	})
 
 	userID := bottools.GetInteractionUserID(i)
+
+	mobileFriendly := farmerstate.GetMiscSettingString(userID, "rerunMobileFriendly") == "true"
+	if opt, ok := optionMap["chart-mobile-friendly"]; ok {
+		mobileFriendly = opt.BoolValue()
+		farmerstate.SetMiscSettingString(userID, "rerunMobileFriendly", strconv.FormatBool(mobileFriendly))
+	} else if opt, ok := optionMap["predictions-mobile-friendly"]; ok {
+		mobileFriendly = opt.BoolValue()
+		farmerstate.SetMiscSettingString(userID, "rerunMobileFriendly", strconv.FormatBool(mobileFriendly))
+	} else if opt, ok := optionMap["threshold-mobile-friendly"]; ok {
+		mobileFriendly = opt.BoolValue()
+		farmerstate.SetMiscSettingString(userID, "rerunMobileFriendly", strconv.FormatBool(mobileFriendly))
+	} else if val := farmerstate.GetMiscSettingString(userID, "rerunMobileFriendly"); val != "" {
+		mobileFriendly, _ = strconv.ParseBool(val)
+	}
+
 	// Do I know the user's IGN?
 	farmerName := farmerstate.GetMiscSettingString(userID, "ei_ign")
 	if farmerName == "" {
@@ -215,7 +255,7 @@ func RerunEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap m
 	if len(contractIDList) == 1 {
 		components = printActiveContractDetails(userID, archive, contractIDList[0])
 	} else {
-		components = printContractChart(userID, archive, percent, page, contractIDList, contractDayMap)
+		components = printContractChart(userID, archive, percent, page, contractIDList, contractDayMap, mobileFriendly)
 	}
 
 	_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{

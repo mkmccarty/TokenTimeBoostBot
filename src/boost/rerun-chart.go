@@ -28,14 +28,15 @@ type chartRow struct {
 }
 
 type chartSession struct {
-	xid       string
-	userID    string
-	rows      []chartRow
-	page      int
-	sortBy    string
-	percent   int
-	expiresAt time.Time
-	hasDayMap bool
+	xid            string
+	userID         string
+	rows           []chartRow
+	page           int
+	sortBy         string
+	percent        int
+	expiresAt      time.Time
+	hasDayMap      bool
+	mobileFriendly bool
 }
 
 var chartSessions = make(map[string]*chartSession)
@@ -49,7 +50,7 @@ func cleanupChartSessions() {
 	}
 }
 
-func printContractChart(userID string, archive []*ei.LocalContract, percent int, page int, contractIDList []string, contractDayMap map[string]string) []discordgo.MessageComponent {
+func printContractChart(userID string, archive []*ei.LocalContract, percent int, page int, contractIDList []string, contractDayMap map[string]string, mobileFriendly bool) []discordgo.MessageComponent {
 	cleanupChartSessions()
 	var rows []chartRow
 
@@ -102,14 +103,15 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 	}
 
 	session := &chartSession{
-		xid:       xid.New().String(),
-		userID:    userID,
-		rows:      rows,
-		page:      page - 1, // Store as 0-indexed internally
-		sortBy:    "percent_desc",
-		percent:   percent,
-		expiresAt: time.Now().Add(15 * time.Minute),
-		hasDayMap: len(contractDayMap) > 0,
+		xid:            xid.New().String(),
+		userID:         userID,
+		rows:           rows,
+		page:           page - 1, // Store as 0-indexed internally
+		sortBy:         "percent_desc",
+		percent:        percent,
+		expiresAt:      time.Now().Add(15 * time.Minute),
+		hasDayMap:      len(contractDayMap) > 0,
+		mobileFriendly: mobileFriendly,
 	}
 	if session.page < 0 {
 		session.page = 0
@@ -223,41 +225,85 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 		return components
 	}
 
-	for _, r := range pageRows {
-		c := ei.EggIncContractsAll[r.contractID]
-		name := c.Name
-		if name == "" {
-			name = r.contractID
+	if !session.mobileFriendly {
+		if session.hasDayMap {
+			fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s %3s`\n",
+				bottools.AlignString("CONTRACT-ID", 30, bottools.StringAlignCenter),
+				bottools.AlignString("CS", 6, bottools.StringAlignCenter),
+				bottools.AlignString("HIGH", 6, bottools.StringAlignCenter),
+				bottools.AlignString("GAP", 6, bottools.StringAlignRight),
+				bottools.AlignString("%", 4, bottools.StringAlignCenter),
+				bottools.AlignString("Day", 6, bottools.StringAlignCenter),
+			)
+		} else {
+			fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`\n",
+				bottools.AlignString("CONTRACT-ID", 30, bottools.StringAlignCenter),
+				bottools.AlignString("CS", 6, bottools.StringAlignCenter),
+				bottools.AlignString("HIGH", 6, bottools.StringAlignCenter),
+				bottools.AlignString("GAP", 6, bottools.StringAlignRight),
+				bottools.AlignString("%", 4, bottools.StringAlignCenter),
+			)
 		}
-		eggEmoji := ei.FindEggEmoji(c.EggName)
+	}
 
-		dayStr := ""
-		if session.hasDayMap && r.dayLabel != "" {
-			switch r.dayLabel {
-			case "W":
-				dayStr = " - **Wed**"
-			case "F":
-				dayStr = " - **Fri**"
-			case "U":
-				dayStr = " - **Fri**" + ei.GetBotEmojiMarkdown("ultra")
-			default:
-				dayStr = " - **" + r.dayLabel + "**"
+	for _, r := range pageRows {
+		if session.mobileFriendly {
+			c := ei.EggIncContractsAll[r.contractID]
+			name := c.Name
+			if name == "" {
+				name = r.contractID
+			}
+			eggEmoji := ei.FindEggEmoji(c.EggName)
+
+			dayStr := ""
+			if session.hasDayMap && r.dayLabel != "" {
+				switch r.dayLabel {
+				case "W":
+					dayStr = " - **Wed**"
+				case "F":
+					dayStr = " - **Fri**"
+				case "U":
+					dayStr = " - **Fri**" + ei.GetBotEmojiMarkdown("ultra")
+				default:
+					dayStr = " - **" + r.dayLabel + "**"
+				}
+			}
+
+			fmt.Fprintf(&builder, "%s **%s**%s\n",
+				eggEmoji, name, dayStr)
+
+			expireStr := ""
+			if !session.hasDayMap && r.validUntil > 0 {
+				expireStr = fmt.Sprintf(" Exp: <t:%d:R>", r.validUntil)
+			}
+
+			fmt.Fprintf(&builder, "-# _       _ CS: **%d** / %d (%.1f%%) Gap: **%d**%s\n",
+				int(math.Ceil(r.cxp)), int(math.Ceil(r.maxCxp)), r.percent, int(math.Ceil(r.gap)), expireStr)
+		} else {
+			if session.hasDayMap {
+				fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s %3s`\n",
+					bottools.AlignString(r.contractID, 30, bottools.StringAlignLeft),
+					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(r.cxp))), 6, bottools.StringAlignRight),
+					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(r.maxCxp))), 6, bottools.StringAlignRight),
+					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(r.gap))), 6, bottools.StringAlignRight),
+					bottools.AlignString(fmt.Sprintf("%.1f", r.percent), 4, bottools.StringAlignCenter),
+					bottools.AlignString(r.dayLabel, 6, bottools.StringAlignCenter))
+			} else {
+				fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s` <t:%d:R>\n",
+					bottools.AlignString(r.contractID, 30, bottools.StringAlignLeft),
+					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(r.cxp))), 6, bottools.StringAlignRight),
+					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(r.maxCxp))), 6, bottools.StringAlignRight),
+					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(r.gap))), 6, bottools.StringAlignRight),
+					bottools.AlignString(fmt.Sprintf("%.1f", r.percent), 4, bottools.StringAlignCenter),
+					r.validUntil)
 			}
 		}
-
-		fmt.Fprintf(&builder, "%s **%s**%s\n",
-			eggEmoji, name, dayStr)
-
-		expireStr := ""
-		if !session.hasDayMap && r.validUntil > 0 {
-			expireStr = fmt.Sprintf(" Exp: <t:%d:R>", r.validUntil)
-		}
-
-		fmt.Fprintf(&builder, "-# _       _ CS: **%d** / %d (%.1f%%) Gap: **%d**%s\n",
-			int(math.Ceil(r.cxp)), int(math.Ceil(r.maxCxp)), r.percent, int(math.Ceil(r.gap)), expireStr)
 	}
 
 	fmt.Fprintf(&builder, "\nShowing page %d of %d (%d total contracts).\n", session.page+1, totalPages, len(displayRows))
+	if !session.mobileFriendly && session.hasDayMap {
+		fmt.Fprintf(&builder, "-# Predicted contract days: W=Wednesday, F=Friday, U=Friday%s\n", ei.GetBotEmojiMarkdown("ultra"))
+	}
 	fmt.Fprintf(&builder, "-# Est duration/CS based on 1.0 fair share, 5%s boosts (w/50%sIHR), 6%s/hr rate and leggy artifacts.\n", ei.GetBotEmojiMarkdown("token"), ei.GetBotEmojiMarkdown("egg_truth"), ei.GetBotEmojiMarkdown("token"))
 
 	components = append(components, &discordgo.TextDisplay{Content: builder.String()})
