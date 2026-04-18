@@ -16,6 +16,7 @@ import (
 
 	"github.com/google/go-github/v33/github"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 
 	"golang.org/x/image/draw"
 	"golang.org/x/image/font"
@@ -143,6 +144,19 @@ func GenerateBanner(ID string, eggName string, text string) {
 		return
 	}
 
+	seasonStr := ""
+	if contract, ok := ei.EggIncContractsAll[ID]; ok {
+		if strings.HasPrefix(contract.SeasonID, "winter") {
+			seasonStr = "winter"
+		} else if strings.HasPrefix(contract.SeasonID, "spring") {
+			seasonStr = "spring"
+		} else if strings.HasPrefix(contract.SeasonID, "summer") {
+			seasonStr = "summer"
+		} else if strings.HasPrefix(contract.SeasonID, "fall") {
+			seasonStr = "fall"
+		}
+	}
+
 	haveEggImg := true
 	overlayImageOrig, err := loadImage(config.BannerPath + "/" + overlayImagePath)
 	if err != nil {
@@ -156,6 +170,28 @@ func GenerateBanner(ID string, eggName string, text string) {
 		draw.NearestNeighbor.Scale(overlayImage, overlayImage.Rect, overlayImageOrig, overlayImageOrig.Bounds(), draw.Over, nil)
 	}
 
+	var seasonImg image.Image
+	if seasonStr != "" {
+		seasonImagePath := fmt.Sprintf("%s.png", seasonStr)
+		if _, err := os.Stat(config.BannerPath + "/" + seasonImagePath); os.IsNotExist(err) {
+			_ = DownloadLatestEggImages(config.BannerPath)
+		}
+		seasonImgOrig, err := loadImage(config.BannerPath + "/" + seasonImagePath)
+		if err != nil {
+			log.Printf("Error loading season image %s: %v", seasonImagePath, err)
+		} else {
+			origBounds := seasonImgOrig.Bounds()
+			targetHeight := bgImage.Bounds().Dy() * 1 / 2
+			targetWidth := origBounds.Dx()
+			if origBounds.Dy() > 0 {
+				targetWidth = (origBounds.Dx() * targetHeight) / origBounds.Dy()
+			}
+			scaledSeasonImg := image.NewRGBA(image.Rect(0, 0, targetWidth, targetHeight))
+			draw.CatmullRom.Scale(scaledSeasonImg, scaledSeasonImg.Rect, seasonImgOrig, origBounds, draw.Over, nil)
+			seasonImg = scaledSeasonImg
+		}
+	}
+
 	// 2. Create Canvas (same size as background)
 	bounds := bgImage.Bounds()
 	compositeImage := image.NewRGBA(bounds)
@@ -167,6 +203,12 @@ func GenerateBanner(ID string, eggName string, text string) {
 	if haveEggImg {
 		overlayRect := image.Rect(0, 0, 48+overlayImage.Bounds().Dx(), 48+overlayImage.Bounds().Dy()) // Example position
 		draw.Draw(compositeImage, overlayRect, overlayImage, image.Point{}, draw.Over)                // Use draw.Over for overlay
+	}
+
+	// 4.5 Draw Season Stamp in the upper right corner
+	if seasonImg != nil {
+		seasonRect := image.Rect(bounds.Max.X-seasonImg.Bounds().Dx()-10, 4, bounds.Max.X-10, 4+seasonImg.Bounds().Dy())
+		draw.Draw(compositeImage, seasonRect, seasonImg, image.Point{}, draw.Over)
 	}
 
 	// 5. Load Font
@@ -338,7 +380,7 @@ func DownloadLatestEggImages(localDownloadDir string) error {
 				continue // Skip if there's no download URL.
 			}
 			// Only want banner related assets
-			stringsToCheck := []string{"egg_", "banner", "Always Together", "aco", "chill", "fastrun", "leaderboard"}
+			stringsToCheck := []string{"egg_", "banner", "Always Together", "aco", "chill", "fastrun", "leaderboard", "winter", "spring", "summer", "fall"}
 			found := false
 			for _, str := range stringsToCheck {
 				if strings.Contains(content.GetName(), str) {
