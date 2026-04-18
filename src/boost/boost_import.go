@@ -124,91 +124,53 @@ func CreatePredictedContract() []ei.EggIncContract {
 	}
 }
 
-func predictedSlotForContract(c ei.EggIncContract) string {
-	weekday := c.ValidFrom.UTC().Weekday()
-	if weekday == time.Wednesday && !c.Ultra {
-		return "wed"
-	}
-	if weekday == time.Friday && !c.Ultra {
-		return "fri"
-	}
-	if weekday == time.Friday && c.Ultra {
-		return "fri-ultra"
-	}
-	return ""
-}
-
-func sameUTCDate(a, b time.Time) bool {
-	au := a.UTC()
-	bu := b.UTC()
-	return au.Year() == bu.Year() && au.Month() == bu.Month() && au.Day() == bu.Day()
-}
-
-func predictedSlotFromID(contractID string) string {
-	contractID = strings.ToLower(contractID)
-	if strings.HasPrefix(contractID, "wed-") || strings.HasPrefix(contractID, "wednesday-") {
-		return "wed"
-	}
-	if strings.HasPrefix(contractID, "fri-") || strings.HasPrefix(contractID, "friday-") {
-		return "fri"
-	}
-	if strings.HasPrefix(contractID, "ultra-") || strings.HasSuffix(contractID, "-ultra") {
-		return "fri-ultra"
-	}
-	return ""
-}
-
 // UpdatePredictedSignupContracts replaces signup contracts using predicted IDs
 // with real IDs when a matching periodical contract for the same day/ultra slot arrives.
 func UpdatePredictedSignupContracts(s *discordgo.Session, liveContracts []ei.EggIncContract) int {
-	predictedBySlot := make(map[string]ei.EggIncContract, 3)
-	for _, predicted := range CreatePredictedContract() {
-		slot := predictedSlotForContract(predicted)
-		if slot != "" {
-			predictedBySlot[slot] = predicted
-		}
-	}
-
-	realBySlot := make(map[string]ei.EggIncContract, 3)
-	for _, c := range liveContracts {
-		slot := predictedSlotForContract(c)
-		if slot == "" {
-			continue
-		}
-		predicted, ok := predictedBySlot[slot]
-		if !ok {
-			continue
-		}
-		if sameUTCDate(c.ValidFrom, predicted.ValidFrom) {
-			realBySlot[slot] = c
-		}
-	}
-
 	updated := 0
 	for _, contract := range Contracts {
-		if contract == nil || contract.State != ContractStateSignup {
+		if contract == nil || contract.State != ContractStateSignup || !contract.PredictionSignup {
 			continue
 		}
 
-		slot := predictedSlotFromID(contract.ContractID)
-		if slot == "" {
+		// Predicted IDs look like "wednesday-2024-05-15" or "ultra-2024-05-17"
+		parts := strings.Split(contract.ContractID, "-")
+		if len(parts) < 4 {
+			continue
+		}
+		// Date is the last 3 parts
+		dateStr := strings.Join(parts[len(parts)-3:], "-")
+		predictedDate, err := time.Parse("2006-01-02", dateStr)
+		if err != nil {
 			continue
 		}
 
-		_, hasPredicted := predictedBySlot[slot]
-		real, hasReal := realBySlot[slot]
-		if !hasPredicted || !hasReal {
-			continue
-		}
-		if contract.ContractID == real.ID {
-			continue
-		}
+		for _, live := range liveContracts {
+			if live.Predicted {
+				continue
+			}
 
-		contract.ContractID = real.ID
-		updateContractWithEggIncData(contract)
-		refreshBoostListMessage(s, contract, true)
-		saveData(contract.ContractHash)
-		updated++
+			// Match Ultra status
+			if live.Ultra != contract.Ultra {
+				continue
+			}
+
+			// Check if the live contract ValidFrom is within +/- 36 hours of the predicted date
+			diff := live.ValidFrom.Sub(predictedDate)
+			if diff < -36*time.Hour || diff > 36*time.Hour {
+				continue
+			}
+
+			if contract.ContractID != live.ID {
+				contract.ContractID = live.ID
+				updateContractWithEggIncData(contract)
+				refreshBoostListMessage(s, contract, true)
+				UpdateThreadName(s, contract)
+				saveData(contract.ContractHash)
+				updated++
+			}
+			break // Found a match, move to the next contract
+		}
 	}
 
 	return updated

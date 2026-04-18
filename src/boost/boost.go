@@ -900,7 +900,9 @@ func getUserArtifacts(userID string, inSet *ArtifactSet) ArtifactSet {
 func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string, order int, progenitor bool, alreadyBoosted bool) (*Booster, error) {
 	log.Println("AddFarmerToContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", order)
 
-	if contract.CoopSize == min(len(contract.Order), len(contract.Boosters)) {
+	// Add farmers to booster list if the coop isn't full, otherwise add to waitlist
+	// If this is a prediction contract, we want to allow unlimited signups but not boosting, so skip the coop size check
+	if contract.CoopSize == min(len(contract.Order), len(contract.Boosters)) && !contract.PredictionSignup {
 		// Only add to waitlist if user isn't already in it
 		if !slices.Contains(contract.WaitlistBoosters, userID) {
 			contract.WaitlistBoosters = append(contract.WaitlistBoosters, userID)
@@ -1519,6 +1521,12 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 		//if contract.Style&ContractFlagCrt == 0 || contract.Banker.CrtSinkUserID != userID {
 		return errors.New(errorNotContractCreator)
 		//}
+	}
+
+	// Trim any excess boosters if we somehow have more than the coop size,
+	// this can happen if the coop size is reduced during Predicted Contract signup
+	if len(contract.Order) > contract.CoopSize {
+		contract.Order = contract.Order[:contract.CoopSize]
 	}
 
 	reorderBoosters(contract)
