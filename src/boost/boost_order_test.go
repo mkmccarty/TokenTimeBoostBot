@@ -250,30 +250,51 @@ func TestBoostOrderHasReorderTargetsTrueWhenAnyUnboosted(t *testing.T) {
 	}
 }
 
-func TestBoostOrderFillRemaining(t *testing.T) {
-	original := []string{"u1", "u2", "u3", "u4", "u5"}
-	selected := []string{"u3", "u1"}
-
-	got := boostOrderFillRemaining(original, selected)
-	want := []string{"u3", "u1", "u2", "u4", "u5"}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("unexpected filled values: got=%v want=%v", got, want)
-	}
-}
-
 func TestBoostOrderUndoRemovesPreviousFillStep(t *testing.T) {
 	session := &boostOrderSession{
 		selected:  []string{"u1", "u4", "u2", "u3", "u5"},
 		undoSteps: []int{1, 3},
 	}
 
-	removed := boostOrderUndoLastStep(session)
+	removedIDs, removed := boostOrderUndoLastStep(session)
 	if removed != 3 {
 		t.Fatalf("expected undo to remove fill step of 3, got %d", removed)
 	}
 	wantSelected := []string{"u1", "u4"}
 	if !reflect.DeepEqual(session.selected, wantSelected) {
 		t.Fatalf("unexpected selected after undo: got=%v want=%v", session.selected, wantSelected)
+	}
+	wantRemovedIDs := []string{"u2", "u3", "u5"}
+	if !reflect.DeepEqual(removedIDs, wantRemovedIDs) {
+		t.Fatalf("unexpected removed IDs: got=%v want=%v", removedIDs, wantRemovedIDs)
+	}
+	wantSteps := []int{1}
+	if !reflect.DeepEqual(session.undoSteps, wantSteps) {
+		t.Fatalf("unexpected undo steps after undo: got=%v want=%v", session.undoSteps, wantSteps)
+	}
+}
+
+func TestBoostOrderUndoReverseMode(t *testing.T) {
+	session := &boostOrderSession{
+		selected:    []string{"u1", "u2", "u3", "u4"},
+		undoSteps:   []int{1, -2},
+		bottomCount: 2,
+	}
+
+	removedIDs, removed := boostOrderUndoLastStep(session)
+	if removed != 2 {
+		t.Fatalf("expected undo to remove 2 items, got %d", removed)
+	}
+	if session.bottomCount != 0 {
+		t.Fatalf("expected bottomCount to be 0, got %d", session.bottomCount)
+	}
+	wantSelected := []string{"u1", "u2"}
+	if !reflect.DeepEqual(session.selected, wantSelected) {
+		t.Fatalf("unexpected selected after undo: got=%v want=%v", session.selected, wantSelected)
+	}
+	wantRemovedIDs := []string{"u3", "u4"}
+	if !reflect.DeepEqual(removedIDs, wantRemovedIDs) {
+		t.Fatalf("unexpected removed IDs: got=%v want=%v", removedIDs, wantRemovedIDs)
 	}
 	wantSteps := []int{1}
 	if !reflect.DeepEqual(session.undoSteps, wantSteps) {
