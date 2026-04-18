@@ -1,16 +1,19 @@
 package tasks
 
 import (
+	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
-	"math/rand/v2"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/google/go-github/v33/github"
 	"github.com/jasonlvhit/gocron"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
@@ -117,122 +120,34 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 
 }
 
-func isNewEggIncDataAvailable(url string, filename string) bool {
-	if _, err := os.Stat(filename); err == nil {
-		// Get the current file size
-		fileInfo, err := os.Stat(filename)
-		if err != nil {
-			log.Print(err)
-			return true
-		}
-
-		switch filename {
-		case eggIncContractsFile:
-			if time.Since(lastContractUpdate) < 2*time.Hour {
-				return false
-			}
-		case eggIncEventsFile:
-			if time.Since(lastEventUpdate) < 2*time.Hour {
-				return false
-			}
-		}
-
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			log.Print(err)
-			return false
-		}
-
-		EvalWidth := int64(256 - rand.IntN(128)/2 + 1)
-
-		fileSize := fileInfo.Size()
-		rangeStart := fileSize - EvalWidth
-		rangeHeader := fmt.Sprintf("bytes=%d-", rangeStart)
-		req.Header.Add("Range", rangeHeader)
-		req.Header.Add("Cache-Control", "no-cache, no-store, must-revalidate")
-		req.Header.Add("Pragma", "no-cache")
-		req.Header.Add("Expires", "0")
-		req.Header.Add("Clear-Site-Data", "*")
-		req.Header.Add("my-secret", fmt.Sprintf("%d", rand.IntN(1000)))
-		//log.Print("EI-Contracts: Requested Range", rangeHeader)
-
-		var client http.Client
-		resp, err := client.Do(req)
-		if err != nil {
-			return false
-		}
-		if resp.StatusCode >= http.StatusBadRequest {
-			log.Printf("EI-Contracts: Response Status: %s\n", resp.Status)
-		}
-		/*
-			for key, values := range resp.Header {
-				for _, value := range values {
-					log.Printf("%s: %s", key, value)
-				}
-			}
-		*/
-		defer func() {
-			if err := resp.Body.Close(); err != nil {
-				// Handle the error appropriately, e.g., logging or taking corrective actions
-				log.Printf("Failed to close: %v", err)
-			}
-		}()
-
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return false
-		}
-		//str := string(body)
-		//log.Print("EI-Data: Downloaded ", len(body), " bytes")
-		//log.Print("EI-Data: Downloaded Bytes:", str)
-
-		if len(body) > 0 {
-			// Test if the end of the the file eggIncContractsFile is the same as the body
-			file, err := os.Open(filename)
-			if err != nil {
-				log.Print(err)
-				return false
-			}
-			defer func() {
-				if err := file.Close(); err != nil {
-					// Handle the error appropriately, e.g., logging or taking corrective actions
-					log.Printf("Failed to close: %v", err)
-				}
-			}()
-			// Read the last 1024 bytes from the file
-			_, err = file.Seek(-EvalWidth, io.SeekEnd)
-			if err != nil {
-				log.Println(err)
-			}
-			fileBytes := make([]byte, EvalWidth)
-			_, err = file.Read(fileBytes)
-			if err != nil {
-				log.Print(err)
-				return false
-			}
-			//log.Print("EI-Contracts: Saved File Bytes:", string(fileBytes))
-			//log.Print("EI-Contracts: Compare ", bytes.Equal(fileBytes, body), " Len:", len(fileBytes), len(body))
-
-			// Compare the last 1024 bytes of the file with the body
-			if string(fileBytes) == string(body) && len(fileBytes) == len(body) {
-				switch filename {
-				case eggIncContractsFile:
-					if lastContractUpdate.IsZero() {
-						lastContractUpdate = time.Now()
-					}
-				case eggIncEventsFile:
-					if lastEventUpdate.IsZero() {
-						lastEventUpdate = time.Now()
-					}
-				}
-				return false
-			}
-
-			return true
-		}
-		return false
+func parseGithubRawURL(urlStr string) (owner, repo, branch, path string, err error) {
+	urlStr = strings.TrimPrefix(urlStr, "https://raw.githubusercontent.com/")
+	parts := strings.Split(urlStr, "/")
+	if len(parts) < 4 {
+		return "", "", "", "", fmt.Errorf("invalid github raw url")
 	}
-	return true
+	owner = parts[0]
+	repo = parts[1]
+
+	if parts[2] == "refs" && len(parts) >= 6 && parts[3] == "heads" {
+		branch = parts[4]
+		path = strings.Join(parts[5:], "/")
+	} else {
+		branch = parts[2]
+		path = strings.Join(parts[3:], "/")
+	}
+	return owner, repo, branch, path, nil
+}
+
+func getGitBlobSHA(filename string) (string, error) {
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		return "", err
+	}
+	hasher := sha1.New()
+	hasher.Write([]byte(fmt.Sprintf("blob %d\x00", len(content))))
+	hasher.Write(content)
+	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 func crondownloadEggIncData() {
@@ -292,53 +207,70 @@ func cronPruneOldGeneratedBanners() {
 	}
 }
 
-func downloadEggIncData(url string, filename string) bool {
-	// Download the latest data from this URL https://raw.githubusercontent.com/carpetsage/egg/main/periodicals/data/contracts.json
-	// save it to disk and put it into an array of structs
-	// If data has been read within the last 70 minutes then skip it.
-	// This wil handle daylight savings time changes
-	//if !force && time.Since(lastContractUpdate) < 10*time.Minute {
-	//	log.Print("EI-Contracts. New data was updated ", lastContractUpdate)
-	//	return false
-	//}
-	if !isNewEggIncDataAvailable(url, filename) {
-		//log.Println("EI-Data. No new data available for ", filename)
+func downloadEggIncData(urlStr string, filename string) bool {
+	owner, repo, branch, path, err := parseGithubRawURL(urlStr)
+	if err != nil {
+		log.Printf("Failed to parse URL %s: %v", urlStr, err)
 		return false
 	}
-	req, err := http.NewRequest("GET", url, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	client := github.NewClient(nil)
+	content, _, _, err := client.Repositories.GetContents(ctx, owner, repo, path, &github.RepositoryContentGetOptions{Ref: branch})
+	if err != nil {
+		log.Printf("Failed to resolve %s in repository: %v", path, err)
+		return false
+	}
+
+	newSHA := content.GetSHA()
+	localSHA, err := getGitBlobSHA(filename)
+	if err == nil && localSHA == newSHA {
+		// The file hasn't changed
+		return false
+	}
+
+	downloadURL := content.GetDownloadURL()
+	if downloadURL == "" {
+		log.Printf("Download URL not found in repository for %s", path)
+		return false
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
 	if err != nil {
 		log.Print(err)
 		return false
 	}
 
-	req.Header.Add("Cache-Control", "no-cache, no-store, must-revalidate")
-	req.Header.Add("Pragma", "no-cache")
-	req.Header.Add("Expires", "0")
-	req.Header.Add("Clear-Site-Data", "*")
-
-	var client http.Client
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
+		log.Print(err)
+		return false
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("Failed to close: %v", err)
+		}
+	}()
+
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		log.Printf("Download failed with status %s", resp.Status)
 		return false
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Print(err)
+		return false
 	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			// Handle the error appropriately, e.g., logging or taking corrective actions
-			log.Printf("Failed to close: %v", err)
-		}
-	}()
 
 	// Check if the file already exists
 	_, err = os.Stat(filename)
 	if err == nil {
 		err = os.Remove(filename)
 		if err != nil {
-			log.Println("Error Deleting EI-Contracts File ", err.Error())
+			log.Println("Error Deleting file ", err.Error())
 		}
 	}
 
@@ -373,10 +305,6 @@ func downloadEggIncData(url string, filename string) bool {
 	case eggIncStatusMessagesFile:
 		ei.LoadStatusMessages(filename)
 	}
-	/*else if filename == eggIncEiAfxConfigFile {
-		ei.LoadConfig(filename)
-		log.Print("EI-AFX-Config. New data loaded, length: ", int64(len(body)))
-	}*/
 	return true
 }
 
