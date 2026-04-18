@@ -451,15 +451,9 @@ func getChickenRunAccentColor(contract *Contract) int {
 // buildCRMessageComponents builds the components for the chicken run message.
 // Also returns the combined set of user IDs that should receive mention highlights (players still missing runs).
 func buildCRMessageComponents(contract *Contract, roleMention string) ([]discordgo.MessageComponent, []string) {
-	// Collect active requesters; LB/FR use boost order, other styles use reverse order
-	order := contract.Order
-	if contract.PlayStyle != ContractPlaystyleLeaderboard && contract.PlayStyle != ContractPlaystyleFastrun {
-		order = slices.Clone(contract.Order)
-		slices.Reverse(order)
-	}
-	requesters := make([]string, 0, len(order))
-	for _, id := range order {
-		b := contract.Boosters[id]
+	// Collect requesters within the last 10 minutes, sorted by RunChickensTime (oldest request first).
+	requesters := make([]string, 0, len(contract.Boosters))
+	for id, b := range contract.Boosters {
 		if b == nil || b.RunChickensTime.IsZero() {
 			continue
 		}
@@ -468,6 +462,9 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 		}
 		requesters = append(requesters, id)
 	}
+	slices.SortFunc(requesters, func(a, b string) int {
+		return contract.Boosters[a].RunChickensTime.Compare(contract.Boosters[b].RunChickensTime)
+	})
 	if len(requesters) == 0 {
 		return nil, nil
 	}
