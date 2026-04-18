@@ -62,16 +62,17 @@ var contractPlaystyleNames = []string{
 
 // Constnts for the contract
 const (
-	ContractOrderSignup    = 0 // Signup order
-	ContractOrderReverse   = 1 // Reverse order
-	ContractOrderRandom    = 2 // Randomized when the contract starts. After 20 minutes the order changes to Sign-up.
-	ContractOrderFair      = 3 // Fair based on position percentile of each farmers last 5 contracts. Those with no history use 50th percentile
-	ContractOrderTimeBased = 4 // Time based order
-	ContractOrderELR       = 5 // ELR based order
-	ContractOrderTVal      = 6 // Token Value based order
-	ContractOrderTokenAsk  = 7 // Token Ask order, less tokens boosts earlier
-	ContractOrderTE        = 8 // Truth Egg based order
-	ContractOrderTEplus    = 9 // Truth Egg + randomization
+	ContractOrderSignup    = 0  // Signup order
+	ContractOrderReverse   = 1  // Reverse order
+	ContractOrderRandom    = 2  // Randomized when the contract starts. After 20 minutes the order changes to Sign-up.
+	ContractOrderFair      = 3  // Fair based on position percentile of each farmers last 5 contracts. Those with no history use 50th percentile
+	ContractOrderTimeBased = 4  // Time based order
+	ContractOrderELR       = 5  // ELR based order
+	ContractOrderTVal      = 6  // Token Value based order
+	ContractOrderTokenAsk  = 7  // Token Ask order, less tokens boosts earlier
+	ContractOrderTE        = 8  // Truth Egg based order
+	ContractOrderTEplus    = 9  // Truth Egg + randomization
+	ContractManualOrder    = 10 // Manual order set by contract creator
 
 	ContractStateSignup    = 0 // Contract is in signup phase
 	ContractStateFastrun   = 1 // Contract in Boosting as fastrun
@@ -582,6 +583,8 @@ func getBoostOrderString(contract *Contract) string {
 		return "TE order"
 	case ContractOrderTEplus:
 		return "TE+ order"
+	case ContractManualOrder:
+		return "Curated order"
 	}
 	return "Unknown"
 }
