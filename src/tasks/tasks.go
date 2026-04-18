@@ -145,8 +145,12 @@ func getGitBlobSHA(filename string) (string, error) {
 		return "", err
 	}
 	hasher := sha1.New()
-	hasher.Write([]byte(fmt.Sprintf("blob %d\x00", len(content))))
-	hasher.Write(content)
+	if _, err := fmt.Fprintf(hasher, "blob %d\x00", len(content)); err != nil {
+		return "", err
+	}
+	if _, err := hasher.Write(content); err != nil {
+		return "", err
+	}
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
