@@ -19,14 +19,14 @@ func TestBoostOrderUnselected(t *testing.T) {
 }
 
 func TestBoostOrderVisiblePage(t *testing.T) {
-	values := make([]string, 0, 24)
-	for i := 1; i <= 24; i++ {
+	values := make([]string, 0, boostOrderPageSize+4)
+	for i := 1; i <= boostOrderPageSize+4; i++ {
 		values = append(values, "u"+strconv.Itoa(i))
 	}
 
 	page0 := boostOrderVisiblePage(values, 0)
-	if len(page0) != 20 {
-		t.Fatalf("expected first page to have 20 items, got %d", len(page0))
+	if len(page0) != boostOrderPageSize {
+		t.Fatalf("expected first page to have %d items, got %d", boostOrderPageSize, len(page0))
 	}
 	page1 := boostOrderVisiblePage(values, 1)
 	if len(page1) != 4 {
