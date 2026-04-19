@@ -195,15 +195,12 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		if err == nil {
 			c := ei.EggIncContractsAll[contractID]
 			if c.ValidFrom.IsZero() {
-				// Get the ValidFrom time from the last contract of ei.EggIncContracts
-				c2 := ei.EggIncContracts[len(ei.EggIncContracts)-1]
-				nowInC2Loc := time.Now().In(c2.ValidFrom.Location())
-				// Rebuild using today's date in the source location so current DST
-				// rules are applied, even when fallback data came from an older date.
+				// Set to today at 9 AM Pacific Time
+				loc, _ := time.LoadLocation("America/Los_Angeles")
+				nowInLoc := time.Now().In(loc)
 				c.ValidFrom = time.Date(
-					nowInC2Loc.Year(), nowInC2Loc.Month(), nowInC2Loc.Day(),
-					c2.ValidFrom.Hour(), c2.ValidFrom.Minute(), c2.ValidFrom.Second(),
-					c2.ValidFrom.Nanosecond(), c2.ValidFrom.Location(),
+					nowInLoc.Year(), nowInLoc.Month(), nowInLoc.Day(),
+					9, 0, 0, 0, loc,
 				)
 			}
 			// Calculate time as 9:00 AM + offset hours using today's date
@@ -211,9 +208,10 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			baseTime := c.ValidFrom
 
 			// Create today's version of the base time (same hour/minute, but today's date)
-			todayBaseTime := time.Date(now.Year(), now.Month(), now.Day(),
+			nowInBaseLoc := now.In(baseTime.Location())
+			todayBaseTime := time.Date(nowInBaseLoc.Year(), nowInBaseLoc.Month(), nowInBaseLoc.Day(),
 				baseTime.Hour(), baseTime.Minute(), baseTime.Second(),
-				baseTime.Nanosecond(), now.Location())
+				baseTime.Nanosecond(), baseTime.Location())
 
 			// Apply offset
 			offsetDuration := time.Duration(offset * float64(time.Hour))
