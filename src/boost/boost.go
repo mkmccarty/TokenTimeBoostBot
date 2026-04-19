@@ -1123,6 +1123,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 				b.StartTime = time.Now()
 				b.BoostState = BoostStateTokenTime
 				contract.setCurrentBoosterByIndex(len(contract.Order) - 1)
+				contract.enforceOnlyOneTokenTimeBooster()
 				// for all locations delete the signup list message and send the boost list message
 				//for _, loc := range contract.Location {
 				//	s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
@@ -1583,6 +1584,8 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 		panic("Invalid contract style")
 	}
 
+	contract.enforceOnlyOneTokenTimeBooster()
+
 	sendNextNotification(s, contract, true)
 
 	return nil
@@ -1718,6 +1721,8 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 		}
 	}
 
+	contract.enforceOnlyOneTokenTimeBooster()
+
 	sendNextNotification(s, contract, true)
 
 	return nil
@@ -1770,6 +1775,7 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 		}
 		contract.Boosters[userID].BoostState = BoostStateTokenTime
 		contract.setCurrentBoosterByUserIDWithStart(userID)
+		contract.enforceOnlyOneTokenTimeBooster()
 
 		sendNextNotification(s, contract, true)
 	} else {
@@ -1873,6 +1879,8 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 	}
 	contract.Order = removeDuplicates(contract.Order)
 	contract.OrderRevision++
+
+	contract.enforceOnlyOneTokenTimeBooster()
 
 	sendNextNotification(s, contract, true)
 
@@ -2125,9 +2133,11 @@ func reorderBoosters(contract *Contract) {
 
 	if contract.BoostOrder != ContractOrderTVal {
 		// Enforce singleton TokenTime invariant after TE/TEplus reordering
-		contract.mutex.Lock()
-		contract.enforceOnlyOneTokenTimeBooster()
-		contract.mutex.Unlock()
+		if contract.State != ContractStateSignup {
+			contract.mutex.Lock()
+			contract.enforceOnlyOneTokenTimeBooster()
+			contract.mutex.Unlock()
+		}
 
 		if contract.Style&ContractFlagBanker != 0 && contract.Banker.BoostingSinkUserID != "" {
 			repositionSinkBoostPosition(contract)
