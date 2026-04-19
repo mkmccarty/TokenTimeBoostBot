@@ -193,6 +193,14 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	nowInLoc := time.Now().In(loc)
 	validFrom := time.Date(nowInLoc.Year(), nowInLoc.Month(), nowInLoc.Day(), 9, 0, 0, 0, loc)
 
+	// If the contract exists, use its actual drop date for the 9 AM PT anchor
+	if contractInfo, ok := ei.EggIncContractsAll[contractID]; ok && !contractInfo.ValidFrom.IsZero() {
+		dropInLoc := contractInfo.ValidFrom.In(loc)
+		if time.Since(dropInLoc) < 14*24*time.Hour {
+			validFrom = time.Date(dropInLoc.Year(), dropInLoc.Month(), dropInLoc.Day(), 9, 0, 0, 0, loc)
+		}
+	}
+
 	if opt, ok := optionMap["start-offset"]; ok {
 
 		offsetStr := opt.StringValue()
@@ -203,8 +211,8 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			offsetDuration := time.Duration(offset * float64(time.Hour))
 			resultTime := validFrom.Add(offsetDuration)
 
-			// If the resulting time is in the past, add 24 hours to make it tomorrow
-			if resultTime.Before(time.Now()) {
+			// If the resulting time is in the past, push it forward day by day until it's in the future
+			for resultTime.Before(time.Now()) {
 				resultTime = resultTime.Add(24 * time.Hour)
 			}
 

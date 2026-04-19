@@ -277,8 +277,8 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 				offsetDuration := time.Duration(offset * float64(time.Hour))
 				resultTime := baseTime.Add(offsetDuration)
 
-				// If the resulting time is in the past, add 24 hours to make it tomorrow
-				if resultTime.Before(time.Now()) {
+				// If the resulting time is in the past, push it forward day by day until it's in the future
+				for resultTime.Before(time.Now()) {
 					resultTime = resultTime.Add(24 * time.Hour)
 				}
 
