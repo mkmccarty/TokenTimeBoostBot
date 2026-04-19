@@ -19,6 +19,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/divan/num2words"
@@ -229,14 +230,14 @@ type BankerInfo struct {
 
 // Contract is the main struct for each contract
 type Contract struct {
-	ContractHash string // ContractID-CoopID
-	Location     []*LocationData
-	CreatorID    []string // Slice of creators
-	//SignupMsgID    map[string]string // Message ID for the Signup Message
-	ContractID                string // Contract ID
-	CoopID                    string // CoopID
-	PredictionSignup          bool   // True if this contract is/was a prediction
-	SeasonalScoring           int    // 1 = new scoring
+	ContractHash              string // ContractID-CoopID
+	Location                  []*LocationData
+	CreatorID                 []string // Slice of creators
+	BannerURL                 string   // URL for the contract banner
+	ContractID                string   // Contract ID
+	CoopID                    string   // CoopID
+	PredictionSignup          bool     // True if this contract is/was a prediction
+	SeasonalScoring           int      // 1 = new scoring
 	Name                      string
 	Description               string
 	Egg                       int32
@@ -539,6 +540,26 @@ func FindEggEmoji(eggOrig string) string {
 
 	e = ei.FindEggEmoji("UNKNOWN")
 	return e
+}
+
+// UpdateBannerURL will construct and set the BannerURL for the contract
+func UpdateBannerURL(contract *Contract) {
+	styleArray := []string{"", "c", "a", "f", "l"}
+	style := ""
+	if contract.PlayStyle >= 0 && contract.PlayStyle < len(styleArray) {
+		style = styleArray[contract.PlayStyle]
+	}
+
+	suffix := ""
+	if len(contract.Location) > 0 {
+		if guildstate.GetGuildSettingString(contract.Location[0].GuildID, "banner_override") == "space" {
+			if style == "f" || style == "l" {
+				suffix = "-space"
+			}
+		}
+	}
+
+	contract.BannerURL = fmt.Sprintf("%sb%s%s-%s.png", config.BannerURL, style, suffix, contract.ContractID)
 }
 
 func getBoostOrderString(contract *Contract) string {

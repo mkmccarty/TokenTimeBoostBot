@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/google/go-github/v33/github"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
@@ -48,6 +49,19 @@ func loadFontFile(name string, size, dpi float64) (font.Face, error) {
 	return face, nil
 }
 
+// getCurrentSeason returns the current season based on the month
+func getCurrentSeason(t time.Time) string {
+	month := t.Month()
+	if month >= 3 && month <= 5 {
+		return "spring"
+	} else if month >= 6 && month <= 8 {
+		return "summer"
+	} else if month >= 9 && month <= 11 {
+		return "fall"
+	}
+	return "winter"
+}
+
 type styleData struct {
 	name  string
 	id    string
@@ -63,7 +77,7 @@ func GenerateBanner(ID string, eggName string, text string) {
 	}()
 
 	// 1. Load Images
-	styleArray := []string{"", "c", "a", "f", "l"}
+	styleArray := []string{"c", "a", "f", "l"}
 	// Check if any of the style images already exist
 	// make sure the output path exists, and create it if it doesn't
 	if _, err := os.Stat(config.BannerOutputPath); os.IsNotExist(err) {
@@ -74,26 +88,31 @@ func GenerateBanner(ID string, eggName string, text string) {
 		}
 	}
 
-	outputImagePath := fmt.Sprintf("%s/b-%s.png", config.BannerOutputPath, ID)
-	allExist := true
+	currentSeason := getCurrentSeason(time.Now())
+	allExistAndFresh := true
 	for _, style := range styleArray {
-		testImagePath := fmt.Sprintf("%s/b%s-%s.png", config.BannerOutputPath, style, ID)
-		if _, err := os.Stat(testImagePath); os.IsNotExist(err) {
-			allExist = false
+		seasonImgPath := fmt.Sprintf("%s/b%s-%s.png", config.BannerOutputPath, style, ID)
+
+		info, err := os.Stat(seasonImgPath)
+		if os.IsNotExist(err) || getCurrentSeason(info.ModTime()) != currentSeason {
+			allExistAndFresh = false
 			break
-		} else if err != nil {
-			log.Println("Error checking output image:", err)
-			return
+		}
+
+		if style == "f" || style == "l" {
+			spaceImgPath := fmt.Sprintf("%s/b%s-space-%s.png", config.BannerOutputPath, style, ID)
+			if _, err := os.Stat(spaceImgPath); os.IsNotExist(err) {
+				allExistAndFresh = false
+				break
+			}
 		}
 	}
 
 	// if all images already exist, return
-	if allExist {
-		//log.Println("All images already exist")
+	if allExistAndFresh {
 		return
 	}
-	log.Printf("Creating banner in %s", outputImagePath)
-	bgImagePath := config.BannerPath + "/banner.png"
+	log.Printf("Creating banners for %s (Season: %s)", ID, currentSeason)
 	cleanEggID := strings.ReplaceAll(strings.ReplaceAll(strings.ToLower(eggName), " ", ""), "-", "")
 	cleanEggID = strings.ReplaceAll(cleanEggID, "_", "")
 
@@ -138,10 +157,14 @@ func GenerateBanner(ID string, eggName string, text string) {
 		{"leaderboard", "l", leaderboardImg},
 	}
 
-	bgImage, err := loadImage(bgImagePath)
-	if err != nil {
-		log.Println("Error loading background image:", err)
-		return
+	bgSeasonPath := fmt.Sprintf("%s/banner_%s_640.png", config.BannerPath, currentSeason)
+	bgSpacePath := config.BannerPath + "/banner_space_640.png"
+
+	if _, err := os.Stat(bgSeasonPath); os.IsNotExist(err) {
+		_ = DownloadLatestEggImages(config.BannerPath)
+	}
+	if _, err := os.Stat(bgSpacePath); os.IsNotExist(err) {
+		_ = DownloadLatestEggImages(config.BannerPath)
 	}
 
 	seasonStr := ""
@@ -170,48 +193,15 @@ func GenerateBanner(ID string, eggName string, text string) {
 		draw.NearestNeighbor.Scale(overlayImage, overlayImage.Rect, overlayImageOrig, overlayImageOrig.Bounds(), draw.Over, nil)
 	}
 
-	var seasonImg image.Image
+	var seasonImgOrig image.Image
 	if seasonStr != "" {
 		seasonImagePath := fmt.Sprintf("%s.png", seasonStr)
 		if _, err := os.Stat(config.BannerPath + "/" + seasonImagePath); os.IsNotExist(err) {
 			_ = DownloadLatestEggImages(config.BannerPath)
 		}
-		seasonImgOrig, err := loadImage(config.BannerPath + "/" + seasonImagePath)
-		if err != nil {
-			log.Printf("Error loading season image %s: %v", seasonImagePath, err)
-		} else {
-			origBounds := seasonImgOrig.Bounds()
-			targetHeight := bgImage.Bounds().Dy() * 1 / 2
-			targetWidth := origBounds.Dx()
-			if origBounds.Dy() > 0 {
-				targetWidth = (origBounds.Dx() * targetHeight) / origBounds.Dy()
-			}
-			scaledSeasonImg := image.NewRGBA(image.Rect(0, 0, targetWidth, targetHeight))
-			draw.CatmullRom.Scale(scaledSeasonImg, scaledSeasonImg.Rect, seasonImgOrig, origBounds, draw.Over, nil)
-			seasonImg = scaledSeasonImg
-		}
+		seasonImgOrig, _ = loadImage(config.BannerPath + "/" + seasonImagePath)
 	}
 
-	// 2. Create Canvas (same size as background)
-	bounds := bgImage.Bounds()
-	compositeImage := image.NewRGBA(bounds)
-
-	// 3. Draw Background
-	draw.Draw(compositeImage, bounds, bgImage, image.Point{}, draw.Src)
-
-	// 4. Draw Overlay (example position, adjust as needed)
-	if haveEggImg {
-		overlayRect := image.Rect(0, 0, 48+overlayImage.Bounds().Dx(), 48+overlayImage.Bounds().Dy()) // Example position
-		draw.Draw(compositeImage, overlayRect, overlayImage, image.Point{}, draw.Over)                // Use draw.Over for overlay
-	}
-
-	// 4.5 Draw Season Stamp in the upper right corner
-	if seasonImg != nil {
-		seasonRect := image.Rect(bounds.Max.X-seasonImg.Bounds().Dx()-10, 4, bounds.Max.X-10, 4+seasonImg.Bounds().Dy())
-		draw.Draw(compositeImage, seasonRect, seasonImg, image.Point{}, draw.Over)
-	}
-
-	// 5. Load Font
 	fontFile := config.BannerPath + "/Always Together.otf"
 	fontSize := 64.0
 	dpi := 72.0
@@ -228,72 +218,89 @@ func GenerateBanner(ID string, eggName string, text string) {
 		}
 	}()
 
-	// 6. Draw Text
-	// Create text outline effect
-	textColor := color.RGBA{255, 255, 255, 255} // White text
-	outlineColor := color.RGBA{0, 0, 0, 255}    // Black outline
-	outlineWidth := 2
-
-	// Calculate text width and adjust font size if necessary
-	textWidth := font.MeasureString(face, text).Ceil()
-	maxWidth := bounds.Dx() - 138 - 20 // Available width minus x position and some padding
-
-	adjustedFace := face
-
-	if textWidth > maxWidth {
-		// Calculate scale factor and reduce font size
-		scaleFactor := float64(maxWidth) / float64(textWidth)
-		adjustedFontSize := fontSize * scaleFactor
-
-		var err error
-		adjustedFace, err = loadFontFile(fontFile, adjustedFontSize, dpi)
-		if err != nil {
-			log.Printf("Error loading adjusted font: %v", err)
-			adjustedFace = face // Fallback to original
-		} else {
-			defer func() {
-				if err := adjustedFace.Close(); err != nil {
-					log.Printf("Failed to close adjusted font face: %v", err)
-				}
-			}()
-		}
+	backgrounds := []struct {
+		path   string
+		suffix string
+	}{
+		{bgSeasonPath, ""},
+		{bgSpacePath, "-space"},
 	}
 
-	// Draw outline by rendering text at multiple offset positions
-	for dx := -outlineWidth; dx <= outlineWidth; dx++ {
-		for dy := -outlineWidth; dy <= outlineWidth; dy++ {
-			if dx != 0 || dy != 0 { // Skip center position
-				addLabel(compositeImage, 138+dx, 68+dy, text, adjustedFace, outlineColor)
+	for _, bgInfo := range backgrounds {
+		bgImage, err := loadImage(bgInfo.path)
+		if err != nil {
+			log.Println("Error loading background image:", err)
+			continue
+		}
+
+		bounds := bgImage.Bounds()
+		compositeImage := image.NewRGBA(bounds)
+
+		draw.Draw(compositeImage, bounds, bgImage, image.Point{}, draw.Src)
+
+		if haveEggImg {
+			overlayRect := image.Rect(0, 0, 48+overlayImage.Bounds().Dx(), 48+overlayImage.Bounds().Dy())
+			draw.Draw(compositeImage, overlayRect, overlayImage, image.Point{}, draw.Over)
+		}
+
+		if seasonImgOrig != nil {
+			origBounds := seasonImgOrig.Bounds()
+			targetHeight := bounds.Dy() * 1 / 2
+			targetWidth := origBounds.Dx()
+			if origBounds.Dy() > 0 {
+				targetWidth = (origBounds.Dx() * targetHeight) / origBounds.Dy()
+			}
+			scaledSeasonImg := image.NewRGBA(image.Rect(0, 0, targetWidth, targetHeight))
+			draw.CatmullRom.Scale(scaledSeasonImg, scaledSeasonImg.Rect, seasonImgOrig, origBounds, draw.Over, nil)
+
+			seasonRect := image.Rect(bounds.Max.X-targetWidth-10, 4, bounds.Max.X-10, 4+targetHeight)
+			draw.Draw(compositeImage, seasonRect, scaledSeasonImg, image.Point{}, draw.Over)
+		}
+
+		textColor := color.RGBA{255, 255, 255, 255}
+		outlineColor := color.RGBA{0, 0, 0, 255}
+		outlineWidth := 2
+
+		textWidth := font.MeasureString(face, text).Ceil()
+		maxWidth := bounds.Dx() - 138 - 20
+
+		adjustedFace := face
+		if textWidth > maxWidth {
+			scaleFactor := float64(maxWidth) / float64(textWidth)
+			adjustedFontSize := fontSize * scaleFactor
+			adjFace, err := loadFontFile(fontFile, adjustedFontSize, dpi)
+			if err == nil {
+				adjustedFace = adjFace
 			}
 		}
-	}
 
-	// Draw the main text on top
-	addLabel(compositeImage, 138, 68, text, adjustedFace, textColor)
+		for dx := -outlineWidth; dx <= outlineWidth; dx++ {
+			for dy := -outlineWidth; dy <= outlineWidth; dy++ {
+				if dx != 0 || dy != 0 {
+					addLabel(compositeImage, 138+dx, 68+dy, text, adjustedFace, outlineColor)
+				}
+			}
+		}
 
-	// For each style create an image in the lower left corner and save it
-	for _, style := range sData {
-		// Create a copy of the composite image for this style
-		styleImage := image.NewRGBA(compositeImage.Bounds())
-		draw.Draw(styleImage, compositeImage.Bounds(), compositeImage, image.Point{}, draw.Src)
-		styleRect := image.Rect(0, bounds.Max.Y-style.image.Bounds().Dy(), style.image.Bounds().Dx(), bounds.Max.Y)
-		draw.Draw(styleImage, styleRect, style.image, image.Point{}, draw.Over)
-		styleImagePath := fmt.Sprintf("%s/b%s-%s.png", config.BannerOutputPath, style.id, ID)
-		err = saveImage(styleImagePath, styleImage)
-		if err != nil {
-			log.Println("Error saving output image:", err)
-			return
+		addLabel(compositeImage, 138, 68, text, adjustedFace, textColor)
+
+		if adjustedFace != face {
+			_ = adjustedFace.Close()
+		}
+
+		for _, style := range sData {
+			if bgInfo.suffix == "-space" && style.id != "f" && style.id != "l" {
+				continue
+			}
+			styleImage := image.NewRGBA(compositeImage.Bounds())
+			draw.Draw(styleImage, compositeImage.Bounds(), compositeImage, image.Point{}, draw.Src)
+			styleRect := image.Rect(0, bounds.Max.Y-style.image.Bounds().Dy(), style.image.Bounds().Dx(), bounds.Max.Y)
+			draw.Draw(styleImage, styleRect, style.image, image.Point{}, draw.Over)
+			styleImagePath := fmt.Sprintf("%s/b%s%s-%s.png", config.BannerOutputPath, style.id, bgInfo.suffix, ID)
+			_ = saveImage(styleImagePath, styleImage)
 		}
 	}
-
-	// 7. Encode and Save the image without the style overlay
-	err = saveImage(outputImagePath, compositeImage)
-
-	if err != nil {
-		log.Println("Error saving output image:", err)
-		return
-	}
-	log.Println("Images created successfully:", outputImagePath)
+	log.Println("Images created successfully for:", ID)
 }
 
 // Helper function to load an image from a file
