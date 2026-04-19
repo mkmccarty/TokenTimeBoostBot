@@ -272,6 +272,7 @@ type Contract struct {
 	EndTime              time.Time // When final booster ends
 	PlannedStartTime     time.Time // Parameter start time
 	ActualStartTime      time.Time // Actual start time for token tracking
+	ValidFrom            time.Time // Base time used for offsets (9 AM PT of creation day)
 	RegisteredNum        int
 	Boosters             map[string]*Booster // Boosters Registered
 	CRMessageIDs         map[string]string   // CR reqest messageIDs
