@@ -12,7 +12,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
@@ -264,35 +263,22 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 			if err != nil {
 				str = "Invalid offset format. Use a number like +2.5 or -1.5"
 			} else {
-				c := ei.EggIncContractsAll[contract.ContractID]
-				if c.ValidFrom.IsZero() {
-					// Get the ValidFrom time from the last contract of ei.EggIncContracts
-					c2 := ei.EggIncContracts[len(ei.EggIncContracts)-1]
-					nowInC2Loc := time.Now().In(c2.ValidFrom.Location())
-					// Rebuild using today's date in the source location so current DST
-					// rules are applied, even when fallback data came from an older date.
-					c.ValidFrom = time.Date(
-						nowInC2Loc.Year(), nowInC2Loc.Month(), nowInC2Loc.Day(),
-						c2.ValidFrom.Hour(), c2.ValidFrom.Minute(), c2.ValidFrom.Second(),
-						c2.ValidFrom.Nanosecond(), c2.ValidFrom.Location(),
-					)
-				}
-				// Calculate time as 9:00 AM + offset hours using today's date
-				now := time.Now()
-				baseTime := c.ValidFrom
+				baseTime := contract.ValidFrom
 
-				// Create today's version of the base time (same hour/minute, but today's date)
-				todayBaseTime := time.Date(now.Year(), now.Month(), now.Day(),
-					baseTime.Hour(), baseTime.Minute(), baseTime.Second(),
-					baseTime.Nanosecond(), now.Location())
+				// Fallback for older contracts created prior to this update
+				if baseTime.IsZero() {
+					loc, _ := time.LoadLocation("America/Los_Angeles")
+					nowInLoc := time.Now().In(loc)
+					baseTime = time.Date(nowInLoc.Year(), nowInLoc.Month(), nowInLoc.Day(), 9, 0, 0, 0, loc)
+					contract.ValidFrom = baseTime
+				}
 
 				// Apply offset
 				offsetDuration := time.Duration(offset * float64(time.Hour))
-
-				resultTime := todayBaseTime.Add(offsetDuration)
+				resultTime := baseTime.Add(offsetDuration)
 
 				// If the resulting time is in the past, add 24 hours to make it tomorrow
-				if resultTime.Before(now) {
+				if resultTime.Before(time.Now()) {
 					resultTime = resultTime.Add(24 * time.Hour)
 				}
 
@@ -556,21 +542,9 @@ func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string
 
 	switch contract.Boosters[newBoosterUserID].BoostState {
 	case BoostStateUnboosted:
-		// Clear current booster status
-		currentBooster := contract.currentBoosterID()
-		if currentBooster != "" && contract.Boosters[currentBooster].BoostState == BoostStateTokenTime {
-			contract.Boosters[currentBooster].BoostState = BoostStateUnboosted
-		}
-		contract.Boosters[newBoosterUserID].BoostState = BoostStateTokenTime
 		contract.Boosters[newBoosterUserID].StartTime = time.Now()
 		contract.setCurrentBoosterByUserID(newBoosterUserID)
-
-		// Make sure there's only a single booster
-		for _, element := range contract.Order {
-			if element != newBoosterUserID && contract.Boosters[element].BoostState == BoostStateTokenTime {
-				contract.Boosters[element].BoostState = BoostStateUnboosted
-			}
-		}
+		contract.enforceOnlyOneTokenTimeBooster()
 	case BoostStateTokenTime:
 		return errors.New("this booster is already currently receiving tokens")
 	case BoostStateBoosted:
