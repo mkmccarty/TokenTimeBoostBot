@@ -82,14 +82,16 @@ func LoadContractData(filename string) {
 const originalContractValidDuration = 21 * 86400
 const legacyContractValidDuration = 7 * 86400
 
+// nextWeekdayDate returns the next date for the specified weekday at 9:00 AM in the America/Los_Angeles timezone.
 func nextWeekdayDate(now time.Time, weekday time.Weekday) time.Time {
 	daysAhead := (int(weekday) - int(now.Weekday()) + 7) % 7
 	if daysAhead == 0 {
 		daysAhead = 7
 	}
 
+	loc, _ := time.LoadLocation("America/Los_Angeles")
 	nextDate := now.AddDate(0, 0, daysAhead)
-	return time.Date(nextDate.Year(), nextDate.Month(), nextDate.Day(), 0, 0, 0, 0, time.UTC)
+	return time.Date(nextDate.Year(), nextDate.Month(), nextDate.Day(), 9, 0, 0, 0, loc)
 }
 
 // CreatePredictedContract creates one placeholder contract each for Wednesday,
