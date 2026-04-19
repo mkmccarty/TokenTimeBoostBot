@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 
@@ -92,12 +91,14 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 	var bannerItem discordgo.MediaGalleryItem
 
-	styleArray := []string{"", "c", "a", "f", "l"}
+	if contract.BannerURL == "" {
+		UpdateBannerURL(contract)
+	}
 
 	if contract.Description == "" || contract.PredictionSignup {
 		header.WriteString("# Contract Interest List\n")
 	} else {
-		bannerItem.Media.URL = fmt.Sprintf("%sb%s-%s.png", config.BannerURL, styleArray[contract.PlayStyle], contract.ContractID)
+		bannerItem.Media.URL = contract.BannerURL
 		components = append(components, &discordgo.MediaGallery{
 			Items: []discordgo.MediaGalleryItem{
 				bannerItem,

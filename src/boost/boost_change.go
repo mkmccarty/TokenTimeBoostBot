@@ -474,6 +474,8 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 		movedToWaitlist = len(movedLabels)
 		contract.EggEmoji = FindEggEmoji(contract.EggName)
 
+		UpdateBannerURL(contract)
+
 		if len(movedLabels) > 0 {
 			channelMsg := fmt.Sprintf("⚠️ Contract changed to %s and coop size is now %d. Moved %d booster(s) to waitlist: %s",
 				contract.ContractID,

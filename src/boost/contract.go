@@ -560,6 +560,8 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 		}
 	}
 
+	UpdateBannerURL(contract)
+
 	// Long contracts default the sink to boosting last
 	// Short contracts default the sink to boosting first
 	contract.Banker.SinkBoostPosition = SinkBoostLast
@@ -824,6 +826,7 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 	if originalPlayStyle != contract.PlayStyle {
 		// Need to rename the thread if it exists
 		UpdateThreadName(s, contract)
+		UpdateBannerURL(contract)
 	}
 
 	// With the changed settings values, we need to redraw the current Interaction message

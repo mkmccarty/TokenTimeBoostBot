@@ -164,6 +164,7 @@ func UpdatePredictedSignupContracts(s *discordgo.Session, liveContracts []ei.Egg
 			if contract.ContractID != live.ID {
 				contract.ContractID = live.ID
 				updateContractWithEggIncData(contract)
+				UpdateBannerURL(contract)
 				refreshBoostListMessage(s, contract, true)
 				UpdateThreadName(s, contract)
 				saveData(contract.ContractHash)
