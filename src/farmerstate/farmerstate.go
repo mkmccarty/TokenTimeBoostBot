@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
@@ -40,7 +41,9 @@ type Farmer struct {
 }
 
 var (
-	farmerstate map[string]*Farmer
+	farmerstate  map[string]*Farmer
+	pendingSaves = make(map[string]string)
+	saveMutex    sync.Mutex
 )
 
 var ctx = context.Background()
@@ -52,6 +55,7 @@ var queries *Queries
 func sqliteInit() {
 	//db, _ := sql.Open("sqlite", ":memory:")
 	db, _ := sql.Open("sqlite", "ttbb-data/Farmers.sqlite?_busy_timeout=5000")
+	db.SetMaxOpenConns(1)
 
 	// Execute each statement in the DDL to set up the database schema
 	for stmt := range strings.SplitSeq(ddl, ";") {
@@ -61,6 +65,7 @@ func sqliteInit() {
 		}
 	}
 	queries = New(db)
+	go dbFlusher()
 }
 
 func init() {
@@ -84,16 +89,44 @@ func saveSqliteData(userID string, farmer *Farmer) {
 		return
 	}
 
-	rows, _ := queries.UpdateLegacyFarmerstate(ctx, UpdateLegacyFarmerstateParams{
-		Value: sql.NullString{String: string(farmerJSON), Valid: true},
-		ID:    userID,
-	})
-	if rows == 0 {
-		// Record exists, update instead
-		_, err = queries.InsertLegacyFarmerstate(ctx, InsertLegacyFarmerstateParams{
+	saveMutex.Lock()
+	pendingSaves[userID] = string(farmerJSON)
+	saveMutex.Unlock()
+}
+
+func dbFlusher() {
+	ticker := time.NewTicker(2 * time.Second)
+	for range ticker.C {
+		FlushPendingSaves()
+	}
+}
+
+// FlushPendingSaves forces an immediate write of all pending database updates.
+func FlushPendingSaves() {
+	saveMutex.Lock()
+	if len(pendingSaves) == 0 {
+		saveMutex.Unlock()
+		return
+	}
+	toSave := pendingSaves
+	pendingSaves = make(map[string]string)
+	saveMutex.Unlock()
+
+	if queries == nil {
+		return
+	}
+
+	for userID, farmerJSON := range toSave {
+		rows, err := queries.UpdateLegacyFarmerstate(ctx, UpdateLegacyFarmerstateParams{
+			Value: sql.NullString{String: farmerJSON, Valid: true},
 			ID:    userID,
-			Value: sql.NullString{String: string(farmerJSON), Valid: true},
 		})
+		if err == nil && rows == 0 {
+			_, err = queries.InsertLegacyFarmerstate(ctx, InsertLegacyFarmerstateParams{
+				ID:    userID,
+				Value: sql.NullString{String: farmerJSON, Valid: true},
+			})
+		}
 		if err != nil {
 			log.Printf("Error saving farmer data to SQLite: %v", err)
 		}
