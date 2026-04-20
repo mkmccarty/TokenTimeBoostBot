@@ -33,7 +33,14 @@ func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCr
 	if opt, ok := optionMap["contract-id"]; ok {
 		searchString = strings.ToLower(opt.StringValue())
 	}
+	if opt, ok := optionMap["contract-contract-id-contract-id"]; ok {
+		searchString = strings.ToLower(opt.StringValue())
+	}
+
 	isContractCommand := i.ApplicationCommandData().Name == "contract"
+
+	contract := FindContract(i.ChannelID)
+	allowPredicted := isContractCommand || (contract != nil && contract.State == ContractStateSignup && contract.PredictionSignup)
 
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
 	contracts := make([]ei.EggIncContract, len(ei.EggIncContracts))
@@ -45,16 +52,13 @@ func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCr
 	for _, c := range contracts {
 		isPredicted := c.Predicted
 
-		if isContractCommand {
-			if searchString == "" && isPredicted {
-				continue
-			}
-			if searchString != "" &&
-				!strings.Contains(strings.ToLower(c.ID), searchString) &&
-				!strings.Contains(strings.ToLower(c.Name), searchString) {
-				continue
-			}
-		} else if isPredicted {
+		if isPredicted && (!allowPredicted || searchString == "") {
+			continue
+		}
+
+		if searchString != "" &&
+			!strings.Contains(strings.ToLower(c.ID), searchString) &&
+			!strings.Contains(strings.ToLower(c.Name), searchString) {
 			continue
 		}
 
@@ -96,11 +100,11 @@ func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.Interacti
 
 	searchString := ""
 
-	if opt, ok := optionMap["contract-id"]; ok {
-		searchString = opt.StringValue()
-	}
-	if opt, ok := optionMap["active-contract-id"]; ok {
-		searchString = opt.StringValue()
+	for k, opt := range optionMap {
+		if strings.HasSuffix(k, "contract-id") {
+			searchString = opt.StringValue()
+			break
+		}
 	}
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
 
