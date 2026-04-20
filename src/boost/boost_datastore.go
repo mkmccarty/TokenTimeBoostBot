@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/peterbourgon/diskv/v3"
 )
 
@@ -186,6 +187,7 @@ func SaveAllData() {
 	log.Print("Saving contract data")
 	saveData("")
 	flushPendingSaves()
+	farmerstate.FlushPendingSaves()
 }
 
 func initDataStore() {
