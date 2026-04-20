@@ -165,6 +165,25 @@ func UpdatePredictedSignupContracts(s *discordgo.Session, liveContracts []ei.Egg
 				continue
 			}
 
+			computedLabel := ""
+			if live.Ultra {
+				computedLabel = "ultra"
+			} else {
+				switch live.ValidFrom.Weekday() {
+				case time.Monday:
+					computedLabel = "monday"
+				case time.Wednesday:
+					computedLabel = "wednesday"
+				case time.Friday:
+					computedLabel = "friday"
+				}
+			}
+
+			whatIfID := fmt.Sprintf("%s-%s", computedLabel, live.ValidFrom.Format("2006-01-02"))
+			if contract.ContractID != whatIfID {
+				continue
+			}
+
 			if contract.ContractID != live.ID {
 				contract.ContractID = live.ID
 				updateContractWithEggIncData(contract)
