@@ -443,6 +443,7 @@ func SetUltra(userID string) {
 
 // GetEiIgnsByMiscString returns all ei_ign values for farmers where MiscSettingsString[key] == value.
 func GetEiIgnsByMiscString(key, value string) []string {
+	FlushPendingSaves()
 	results, err := queries.GetEiIgnsByMiscString(ctx, GetEiIgnsByMiscStringParams{
 		Column1: sql.NullString{String: key, Valid: true},
 		Value:   sql.NullString{String: value, Valid: true},
@@ -462,12 +463,14 @@ func GetEiIgnsByMiscString(key, value string) []string {
 
 // FarmerExists returns true if a record for the given userID exists in farmer_state.
 func FarmerExists(userID string) bool {
+	FlushPendingSaves()
 	_, err := queries.GetLegacyFarmerstate(ctx, userID)
 	return err == nil
 }
 
 // AddGuildMembership adds a user to a guild. Returns true if added, false if already a member.
 func AddGuildMembership(userID, guildID string) bool {
+	FlushPendingSaves()
 	n, err := queries.AddGuildMembership(ctx, AddGuildMembershipParams{UserID: userID, GuildID: guildID})
 	if err != nil {
 		log.Println("AddGuildMembership:", err)
@@ -477,6 +480,7 @@ func AddGuildMembership(userID, guildID string) bool {
 
 // RemoveGuildMembership removes a user from a guild.
 func RemoveGuildMembership(userID, guildID string) {
+	FlushPendingSaves()
 	err := queries.RemoveGuildMembership(ctx, RemoveGuildMembershipParams{UserID: userID, GuildID: guildID})
 	if err != nil {
 		log.Println("RemoveGuildMembership:", err)
@@ -485,6 +489,7 @@ func RemoveGuildMembership(userID, guildID string) {
 
 // GetGuildMembers returns all user IDs that are members of the given guild.
 func GetGuildMembers(guildID string) []string {
+	FlushPendingSaves()
 	members, err := queries.GetGuildMembers(ctx, guildID)
 	if err != nil {
 		log.Println("GetGuildMembers:", err)
@@ -495,6 +500,7 @@ func GetGuildMembers(guildID string) []string {
 
 // GetUserGuilds returns all guild IDs the user belongs to.
 func GetUserGuilds(userID string) []string {
+	FlushPendingSaves()
 	guilds, err := queries.GetUserGuilds(ctx, userID)
 	if err != nil {
 		log.Println("GetUserGuilds:", err)
@@ -505,6 +511,7 @@ func GetUserGuilds(userID string) []string {
 
 // GetEiIgnsByGuild returns all ei_ign values for farmers who are members of the given guild.
 func GetEiIgnsByGuild(guildID string) []string {
+	FlushPendingSaves()
 	results, err := queries.GetEiIgnsByGuild(ctx, guildID)
 	if err != nil {
 		log.Println("GetEiIgnsByGuild:", err)
@@ -521,6 +528,7 @@ func GetEiIgnsByGuild(guildID string) []string {
 
 // GetDiscordUserIDFromEiIgn retrieves the Discord user ID based on the provided ei_ign
 func GetDiscordUserIDFromEiIgn(eiIgn string) (string, error) {
+	FlushPendingSaves()
 	id, err := queries.GetUserIdFromEiIgn(ctx, sql.NullString{String: eiIgn, Valid: true})
 	if err != nil {
 		return "", err
