@@ -413,63 +413,13 @@ var (
 		"admin-contract-list": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleAdminContractListComponent(s, i)
 		},
-		"fd_signupStart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseDeferredMessageUpdate,
-				Data: &discordgo.InteractionResponseData{
-					Content:    "",
-					Flags:      discordgo.MessageFlagsEphemeral,
-					Components: []discordgo.MessageComponent{}},
-			})
-			err := boost.StartContractBoosting(s, i.GuildID, i.ChannelID, getIntentUserID(i))
-			if err != nil {
-				str := fmt.Sprint(err.Error())
-				_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-					Content: str,
-					Flags:   discordgo.MessageFlagsEphemeral,
-				})
-			} else {
-				_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
-
-				contract := boost.FindContract(i.ChannelID)
-				// Rebuild the signup message to disable the start button
-				msg := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
-				contentStr, comp := boost.GetSignupComponents(contract) // True to get a disabled start button
-				msg.SetContent(contentStr)
-				msg.Components = &comp
-				_, _ = s.ChannelMessageEditComplex(msg)
-			}
-		},
-		"fd_signupFarmer": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			joinContract(s, i, false)
-		},
-		"fd_signupBell": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			joinContract(s, i, true)
-		},
+		"fd_signupStart":  handleSignupStart,
+		"fd_signupFarmer": handleSignupFarmer,
+		"fd_signupBell":   handleSignupBell,
 		"m_eggid": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleEggIDModalSubmit(s, i)
 		},
-		"fd_signupLeave": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			str := "Removed from Contract"
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "Processing...",
-					Flags:   discordgo.MessageFlagsEphemeral,
-				},
-			})
-
-			var err = boost.RemoveFarmerByMention(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), i.Member.User.Mention())
-			if err != nil {
-				str = err.Error()
-			}
-
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: str,
-				Flags:   discordgo.MessageFlagsEphemeral,
-			})
-
-		},
+		"fd_signupLeave": handleSignupLeave,
 		"csestimate": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.HandleCsEstimateButtons(s, i)
 		},
