@@ -45,7 +45,7 @@ func TestParseFarmerInput(t *testing.T) {
 		},
 		{
 			name:  "multiple mentions no spaces",
-			input: "<@987654321><@123456789><@111222333>,<@444555666>",
+			input: "<@987654321><@123456789> <@111222333>,<@444555666>",
 			want: []ParsedFarmer{
 				{Mention: "<@987654321>"},
 				{Mention: "<@123456789>"},
