@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"log"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -136,6 +137,39 @@ func HandleSkipCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	})
 }
 
+// ParsedFarmer holds the categorized input for a farmer being added to a contract
+type ParsedFarmer struct {
+	Mention string
+	Guest   string
+}
+
+// ParseFarmerInput splits and categorizes a comma-separated string of farmers
+func ParseFarmerInput(farmerInput string) []ParsedFarmer {
+	var parsed []ParsedFarmer
+	if farmerInput == "" {
+		return parsed
+	}
+	// Insert commas between mentions that are adjacent or only separated by whitespace
+	re := regexp.MustCompile(`>\s*<@`)
+	farmerInput = re.ReplaceAllString(farmerInput, ">, <@")
+
+	farmers := strings.Split(farmerInput, ",")
+	for _, fRaw := range farmers {
+		f := strings.TrimSpace(fRaw)
+		if f == "" {
+			continue
+		}
+		var p ParsedFarmer
+		if _, isMention := parseMentionUserID(f); isMention {
+			p.Mention = f
+		} else {
+			p.Guest = f
+		}
+		parsed = append(parsed, p)
+	}
+	return parsed
+}
+
 // HandleJoinCommand will handle the /join command
 func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
@@ -149,9 +183,8 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		})
 		return
 	}
-	var guestNames = ""
+	var farmerInput = ""
 	var orderValue = ContractOrderTimeBased // Default to Time Based
-	var mention = ""
 	var str = "Joining Member"
 	var tokenWant = 0
 	var alreadyBoosted = false
@@ -159,23 +192,13 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	optionMap := bottools.GetCommandOptionsMap(i)
 
 	if opt, ok := optionMap["farmer"]; ok {
-		farmerName := opt.StringValue()
-		if _, isMention := parseMentionUserID(farmerName); isMention {
-			mention = farmerName
-		} else {
-			guestNames = farmerName
-		}
-		str += " " + farmerName
+		farmerInput = opt.StringValue()
+		str += " " + farmerInput
 	}
 
-	// TODO make this handle multiple farmers with tokens
 	if opt, ok := optionMap["token-count"]; ok {
 		tokenWant = int(opt.IntValue())
 		str += " with " + fmt.Sprintf("%d", tokenWant) + " boost tokens"
-		if guestNames == "" {
-			farmerstate.SetTokens(normalizeUserIDInput(mention), tokenWant)
-		}
-
 	}
 	if opt, ok := optionMap["boost-order"]; ok {
 		orderValue = int(opt.IntValue())
@@ -195,22 +218,20 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	})
 
-	if guestNames != "" {
-		guestNames := strings.Split(guestNames, ",")
-		for _, guestNameRaw := range guestNames {
-			guestName := strings.TrimSpace(guestNameRaw)
+	if farmerInput != "" {
+		parsedFarmers := ParseFarmerInput(farmerInput)
+		for _, p := range parsedFarmers {
 			if tokenWant != 0 {
-				farmerstate.SetTokens(guestName, tokenWant)
+				if p.Guest != "" {
+					farmerstate.SetTokens(p.Guest, tokenWant)
+				} else if p.Mention != "" {
+					farmerstate.SetTokens(normalizeUserIDInput(p.Mention), tokenWant)
+				}
 			}
-			var err = AddContractMember(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), "", guestName, orderValue, alreadyBoosted)
+			var err = AddContractMember(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), p.Mention, p.Guest, orderValue, alreadyBoosted)
 			if err != nil {
 				str = err.Error()
 			}
-		}
-	} else {
-		var err = AddContractMember(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), mention, "", orderValue, alreadyBoosted)
-		if err != nil {
-			str = err.Error()
 		}
 	}
 
