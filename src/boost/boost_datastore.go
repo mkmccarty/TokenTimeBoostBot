@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/peterbourgon/diskv/v3"
@@ -16,6 +17,17 @@ import (
 var dataStore *diskv.Diskv
 
 var ctx = context.Background()
+
+type dbSaveRequest struct {
+	contractID string
+	coopID     string
+	jsonStr    string
+}
+
+var (
+	pendingSaves = make(map[string]dbSaveRequest)
+	saveMutex    sync.Mutex
+)
 
 const contractDataDedupeSQL = `
 DELETE FROM contract_data
@@ -67,6 +79,7 @@ var queries *Queries
 
 func sqliteInit() {
 	db, _ := sql.Open("sqlite", "ttbb-data/ContractData.sqlite?_busy_timeout=5000")
+	db.SetMaxOpenConns(1)
 
 	result, err := db.ExecContext(ctx, ddl)
 	if err != nil {
@@ -87,6 +100,7 @@ func sqliteInit() {
 		log.Printf("Error enforcing contract_data channel uniqueness: %v", err)
 	}
 	queries = New(db)
+	go dbFlusher()
 }
 
 func contractDataNeedsMigration(db *sql.DB) (bool, error) {
@@ -171,6 +185,7 @@ func ensureContractDataUniqueness(db *sql.DB) error {
 func SaveAllData() {
 	log.Print("Saving contract data")
 	saveData("")
+	flushPendingSaves()
 }
 
 func initDataStore() {
@@ -356,15 +371,40 @@ func saveSqliteData(contract *Contract) {
 
 	channelID := contract.Location[0].ChannelID
 
-	// Write as a single atomic statement keyed by channelID.
-	_, err = queries.db.ExecContext(ctx, contractDataUpsertSQL,
-		channelID,
-		contract.ContractID,
-		contract.CoopID,
-		sql.NullString{String: string(contractJSON), Valid: true},
-	)
-	if err != nil {
-		log.Printf("Error saving contract data to SQLite: %v", err)
+	saveMutex.Lock()
+	pendingSaves[channelID] = dbSaveRequest{
+		contractID: contract.ContractID,
+		coopID:     contract.CoopID,
+		jsonStr:    string(contractJSON),
+	}
+	saveMutex.Unlock()
+}
+
+func dbFlusher() {
+	ticker := time.NewTicker(2 * time.Second)
+	for range ticker.C {
+		flushPendingSaves()
+	}
+}
+
+func flushPendingSaves() {
+	saveMutex.Lock()
+	if len(pendingSaves) == 0 {
+		saveMutex.Unlock()
+		return
+	}
+	toSave := pendingSaves
+	pendingSaves = make(map[string]dbSaveRequest)
+	saveMutex.Unlock()
+
+	if queries == nil || queries.db == nil {
+		return
+	}
+
+	for channelID, req := range toSave {
+		if _, err := queries.db.ExecContext(ctx, contractDataUpsertSQL, channelID, req.contractID, req.coopID, sql.NullString{String: req.jsonStr, Valid: true}); err != nil {
+			log.Printf("Error saving contract data to SQLite: %v", err)
+		}
 	}
 }
 
