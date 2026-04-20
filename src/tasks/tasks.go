@@ -312,6 +312,86 @@ func downloadEggIncData(urlStr string, filename string) bool {
 	return true
 }
 
+// schedulePeriodicals natively handles Pacific Time (PST/PDT) and triggers polling
+func schedulePeriodicals(s *discordgo.Session) {
+	loc, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		log.Printf("Error loading timezone America/Los_Angeles: %v", err)
+		return
+	}
+
+	// Check if we missed today's load time upon startup
+	now := time.Now().In(loc)
+	todayLoadTime := time.Date(now.Year(), now.Month(), now.Day(), 9, 0, 5, 0, loc)
+	wd := now.Weekday()
+	isPollDay := wd == time.Monday || wd == time.Wednesday || wd == time.Friday
+
+	if now.After(todayLoadTime) {
+		needsReload := true
+
+		if !lastContractUpdate.IsZero() && lastContractUpdate.After(todayLoadTime) {
+			needsReload = false
+		} else if !lastEventUpdate.IsZero() && lastEventUpdate.After(todayLoadTime) {
+			needsReload = false
+		} else if fileInfo, err := os.Stat(eggIncContractsFile); err == nil && fileInfo.ModTime().In(loc).After(todayLoadTime) {
+			needsReload = false
+		}
+
+		if needsReload {
+			if isPollDay {
+				log.Println("Startup check: Periodicals data hasn't been updated since today's load time. Triggering reload loop.")
+				go pollPeriodicalsUntilUpdated(s)
+			} else {
+				log.Println("Startup check: Periodicals data hasn't been updated since today's load time. Triggering single reload.")
+				go events.GetPeriodicalsFromAPI(s)
+			}
+		}
+	}
+
+	for {
+		now = time.Now().In(loc)
+		// Set target time to 9:00:05 AM PT today
+		next := time.Date(now.Year(), now.Month(), now.Day(), 9, 0, 5, 0, loc)
+
+		// If it's already past 9:00:05 AM PT, schedule for tomorrow
+		if !now.Before(next) {
+			next = next.AddDate(0, 0, 1)
+		}
+
+		// Sleep until the next 9:00:05 AM PT
+		time.Sleep(time.Until(next))
+
+		// Run retry loop on Mon, Wed, Fri; otherwise, run once
+		wd = next.Weekday()
+		if wd == time.Monday || wd == time.Wednesday || wd == time.Friday {
+			go pollPeriodicalsUntilUpdated(s)
+		} else {
+			go events.GetPeriodicalsFromAPI(s)
+		}
+	}
+}
+
+func pollPeriodicalsUntilUpdated(s *discordgo.Session) {
+	log.Println("Starting periodic checks for Egg Inc updates...")
+	// Poll every 5 minutes for up to 2 hours (24 attempts)
+	maxRetries := 24
+	for i := 0; i < maxRetries; i++ {
+		events.GetPeriodicalsFromAPI(s)
+
+		// Check if a manual reload successfully updated the contracts or events
+		recentContract := !lastContractUpdate.IsZero() && time.Since(lastContractUpdate) < 5*time.Minute
+		recentEvent := !lastEventUpdate.IsZero() && time.Since(lastEventUpdate) < 5*time.Minute
+
+		if recentContract || recentEvent {
+			log.Println("Periodicals successfully updated via manual reload.")
+			break
+		}
+
+		log.Println("Update not yet detected, waiting 5 minutes before retrying...")
+		time.Sleep(5 * time.Minute)
+	}
+}
+
 // ExecuteCronJob runs the cron jobs for the bot
 func ExecuteCronJob(s *discordgo.Session) {
 	// Look for new Custom Eggs
@@ -362,36 +442,6 @@ func ExecuteCronJob(s *discordgo.Session) {
 		TLDR yes it checks right at contract release time and also fairly frequently for the next hour or two after contract release time and then every 30 minutes
 	*/
 
-	// Contracts always start at 9:00 AM Pacific Time
-	// 9:00 AM Pacific Time is 16:00 UTC
-	// Get current system timezone
-
-	currentTime := time.Now()
-	currentTimeZone, offset := currentTime.Zone()
-	offset = offset / 3600
-	log.Println("The Current time zone is:", currentTimeZone, " Offset:", offset)
-
-	/*
-		minuteTimes := []string{":00:30", ":00:45", ":01:00", ":01:30", ":02:00", ":03:00", ":05:00", ":10:00"}
-		var checkTimes []string
-
-			// Hit the server so the cache is hit 3 minutes earlier
-			checkTimes = append(checkTimes, fmt.Sprintf("%d:57:00", 15+offset))
-			checkTimes = append(checkTimes, fmt.Sprintf("%d:57:00", 16+offset))
-
-			for _, t := range minuteTimes {
-				checkTimes = append(checkTimes, fmt.Sprintf("%d%s", 16+offset, t)) // Handle daylight savings time
-				checkTimes = append(checkTimes, fmt.Sprintf("%d%s", 17+offset, t)) // Handle standard time
-			}
-
-			for _, t := range checkTimes {
-				err := gocron.Every(1).Day().At(t).Do(crondownloadEggIncData)
-				if err != nil {
-					log.Print(err)
-				}
-			}
-	*/
-
 	err = gocron.Every(8).Hours().Do(boost.ArchiveContracts, s)
 	if err != nil {
 		log.Print(err)
@@ -409,19 +459,8 @@ func ExecuteCronJob(s *discordgo.Session) {
 		log.Print(err)
 	}
 
-	// Check for new periodicals once at 9 PDT
-	err = gocron.Every(1).Day().At(fmt.Sprintf("%d:00:05", 16+offset)).Do(events.GetPeriodicalsFromAPI, s)
-	if err != nil {
-		log.Print(err)
-	}
-
-	// Check for new periodicals once at 9 PST
-	err = gocron.Every(1).Day().At(fmt.Sprintf("%d:00:05", 17+offset)).Do(events.GetPeriodicalsFromAPI, s)
-	if err != nil {
-		log.Print(err)
-	}
-
-	//events.GetPeriodicalsFromAPI(s)
+	// Start timezone-aware loop to poll Periodicals on Mon, Wed, Fri at 9 AM PT
+	go schedulePeriodicals(s)
 
 	<-gocron.Start()
 	log.Print("Exiting cron job")
