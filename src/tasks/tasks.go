@@ -327,6 +327,13 @@ func scheduleDaily(hour, min, sec int, task func()) {
 }
 
 // schedulePeriodicals natively handles Pacific Time (PST/PDT) and triggers polling
+/*
+	Here's the exact cron config for the cloudflare worker that triggers the github action that updates contracts.
+	Normal contract time is either 16 or 17 utc depending on US daylight savings.
+	at utc 16, 17, and 18 it checks on the hour and every minute for the first 9 minutes after and then every 5 minutes the rest of the hour. The rest of the time it checks every 30 minutes. It happens rarely but sometimes contracts get released late.
+
+	TLDR yes it checks right at contract release time and also fairly frequently for the next hour or two after contract release time and then every 30 minutes
+*/
 func schedulePeriodicals(s *discordgo.Session) {
 	loc, err := time.LoadLocation("America/Los_Angeles")
 	if err != nil {
@@ -336,7 +343,7 @@ func schedulePeriodicals(s *discordgo.Session) {
 
 	// Check if we missed today's load time upon startup
 	now := time.Now().In(loc)
-	todayLoadTime := time.Date(now.Year(), now.Month(), now.Day(), 9, 0, 5, 0, loc)
+	todayLoadTime := time.Date(now.Year(), now.Month(), now.Day(), 9, 0, 0, 0, loc)
 	wd := now.Weekday()
 	isPollDay := wd == time.Monday || wd == time.Wednesday || wd == time.Friday
 
@@ -364,15 +371,15 @@ func schedulePeriodicals(s *discordgo.Session) {
 
 	for {
 		now = time.Now().In(loc)
-		// Set target time to 9:00:05 AM PT today
-		next := time.Date(now.Year(), now.Month(), now.Day(), 9, 0, 5, 0, loc)
+		// Set target time to 9:00:00 AM PT today
+		next := time.Date(now.Year(), now.Month(), now.Day(), 9, 0, 0, 0, loc)
 
-		// If it's already past 9:00:05 AM PT, schedule for tomorrow
+		// If it's already past 9:00:00 AM PT, schedule for tomorrow
 		if !now.Before(next) {
 			next = next.AddDate(0, 0, 1)
 		}
 
-		// Sleep until the next 9:00:05 AM PT
+		// Sleep until the next 9:00:00 AM PT
 		time.Sleep(time.Until(next))
 
 		// Run retry loop on Mon, Wed, Fri; otherwise, run once
@@ -387,8 +394,8 @@ func schedulePeriodicals(s *discordgo.Session) {
 
 func pollPeriodicalsUntilUpdated(s *discordgo.Session) {
 	log.Println("Starting periodic checks for Egg Inc updates...")
-	// Poll every 5 minutes for up to 2 hours (24 attempts)
-	maxRetries := 24
+	// Poll every minute for the first 9 minutes, then every 5 minutes for roughly 2 hours
+	maxRetries := 32 // 10 attempts in the first 9 mins + 22 attempts every 5 mins
 	for i := 0; i < maxRetries; i++ {
 		events.GetPeriodicalsFromAPI(s)
 
@@ -401,8 +408,14 @@ func pollPeriodicalsUntilUpdated(s *discordgo.Session) {
 			break
 		}
 
-		log.Println("Update not yet detected, waiting 5 minutes before retrying...")
-		time.Sleep(5 * time.Minute)
+		var waitTime time.Duration
+		if i < 9 {
+			waitTime = 1 * time.Minute
+		} else {
+			waitTime = 5 * time.Minute
+		}
+		log.Printf("Update not yet detected, waiting %v before retrying...", waitTime)
+		time.Sleep(waitTime)
 	}
 }
 
@@ -447,14 +460,6 @@ func ExecuteCronJob(s *discordgo.Session) {
 	}
 
 	events.GetPeriodicalsFromAPI(s)
-
-	/*
-		Here's the exact cron config for the cloudflare worker that triggers the github action that updates contracts.
-		Normal contract time is either 16 or 17 utc depending on US daylight savings.
-		at utc 16, 17, and 18 it checks on the hour and every minute for the first 9 minutes after and then every 5 minutes the rest of the hour. The rest of the time it checks every 30 minutes. It happens rarely but sometimes contracts get released late.
-
-		TLDR yes it checks right at contract release time and also fairly frequently for the next hour or two after contract release time and then every 30 minutes
-	*/
 
 	// Archive contracts every 8 hours
 	go func() {
