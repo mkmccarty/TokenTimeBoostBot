@@ -267,9 +267,7 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 
 				// Fallback for older contracts created prior to this update
 				if baseTime.IsZero() {
-					loc, _ := time.LoadLocation("America/Los_Angeles")
-					nowInLoc := time.Now().In(loc)
-					baseTime = time.Date(nowInLoc.Year(), nowInLoc.Month(), nowInLoc.Day(), 9, 0, 0, 0, loc)
+					baseTime = GetEggStandardTime(time.Now())
 					contract.ValidFrom = baseTime
 				}
 
