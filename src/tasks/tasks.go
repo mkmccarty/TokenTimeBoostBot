@@ -429,6 +429,34 @@ func pollPeriodicalsUntilUpdated(s *discordgo.Session) {
 	}
 }
 
+// scheduleImageDownloads natively handles Pacific Time (PST/PDT) and triggers an image pre-fetch at 8:55 AM.
+func scheduleImageDownloads() {
+	loc, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		log.Printf("Error loading timezone America/Los_Angeles for images: %v", err)
+		return
+	}
+
+	for {
+		now := time.Now().In(loc)
+		// Set target time to 8:55:00 AM PT today
+		next := time.Date(now.Year(), now.Month(), now.Day(), 8, 55, 0, 0, loc)
+
+		// If it's already past 8:55:00 AM PT, schedule for tomorrow
+		if !now.Before(next) {
+			next = next.AddDate(0, 0, 1)
+		}
+
+		// Sleep until the next 8:55:00 AM PT
+		time.Sleep(time.Until(next))
+
+		log.Println("Pre-fetching latest egg/banner images...")
+		if err := bottools.DownloadLatestEggImages(config.BannerPath); err != nil {
+			log.Printf("Error pre-fetching images: %v", err)
+		}
+	}
+}
+
 // ExecuteCronJob runs the cron jobs for the bot
 func ExecuteCronJob(s *discordgo.Session) {
 	// Look for new Custom Eggs
@@ -488,6 +516,9 @@ func ExecuteCronJob(s *discordgo.Session) {
 
 	// Start timezone-aware loop to poll Periodicals on Mon, Wed, Fri at 9 AM PT
 	go schedulePeriodicals(s)
+
+	// Start timezone-aware loop to pre-fetch images at 8:55 AM PT daily
+	go scheduleImageDownloads()
 
 	log.Print("Cron jobs scheduled")
 }
