@@ -84,14 +84,16 @@ const legacyContractValidDuration = 7 * 86400
 
 // nextWeekdayDate returns the next date for the specified weekday at 9:00 AM in the America/Los_Angeles timezone.
 func nextWeekdayDate(now time.Time, weekday time.Weekday) time.Time {
-	daysAhead := (int(weekday) - int(now.Weekday()) + 7) % 7
+	loc, _ := time.LoadLocation("America/Los_Angeles")
+	nowInLoc := now.In(loc)
+
+	daysAhead := (int(weekday) - int(nowInLoc.Weekday()) + 7) % 7
 	if daysAhead == 0 {
 		daysAhead = 7
 	}
 
-	loc, _ := time.LoadLocation("America/Los_Angeles")
-	nextDate := now.AddDate(0, 0, daysAhead)
-	return time.Date(nextDate.Year(), nextDate.Month(), nextDate.Day(), 9, 0, 0, 0, loc)
+	nextDate := nowInLoc.AddDate(0, 0, daysAhead)
+	return GetEggStandardTime(nextDate)
 }
 
 // CreatePredictedContract creates one placeholder contract each for Wednesday,
@@ -218,13 +220,13 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	if contractProtoBuf.GetStartTime() == 0 {
 
 		if contractProtoBuf.Leggacy == nil || contractProtoBuf.GetLeggacy() {
-			c.ValidFrom = contractTime.Add(-time.Duration(c.LengthInSeconds-legacyContractValidDuration) * time.Second)
+			c.ValidFrom = GetEggStandardTime(contractTime.Add(-time.Duration(c.LengthInSeconds-legacyContractValidDuration) * time.Second))
 		} else {
-			c.ValidFrom = contractTime.Add(-time.Duration(c.LengthInSeconds-originalContractValidDuration) * time.Second)
+			c.ValidFrom = GetEggStandardTime(contractTime.Add(-time.Duration(c.LengthInSeconds-originalContractValidDuration) * time.Second))
 		}
 
 	} else {
-		c.ValidFrom = time.Unix(int64(contractProtoBuf.GetStartTime()), 0)
+		c.ValidFrom = GetEggStandardTime(time.Unix(int64(contractProtoBuf.GetStartTime()), 0))
 	}
 	c.ValidUntil = contractTime
 	c.CoopAllowed = contractProtoBuf.GetCoopAllowed()

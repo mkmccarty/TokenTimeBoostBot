@@ -18,6 +18,16 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+// GetEggStandardTime returns 9:00 AM Pacific Time (PT) for the given date, accounting for daylight savings.
+func GetEggStandardTime(t time.Time) time.Time {
+	loc, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		loc = time.FixedZone("PST", -8*60*60) // Fallback if timezone data is missing
+	}
+	tInLoc := t.In(loc)
+	return time.Date(tInLoc.Year(), tInLoc.Month(), tInLoc.Day(), 9, 0, 0, 0, loc)
+}
+
 // GetSlashContractCommand returns the slash command for creating a contract
 func GetSlashContractCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
@@ -189,15 +199,12 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		}
 	}
 
-	loc, _ := time.LoadLocation("America/Los_Angeles")
-	nowInLoc := time.Now().In(loc)
-	validFrom := time.Date(nowInLoc.Year(), nowInLoc.Month(), nowInLoc.Day(), 9, 0, 0, 0, loc)
+	validFrom := GetEggStandardTime(time.Now())
 
 	// If the contract exists, use its actual drop date for the 9 AM PT anchor
 	if contractInfo, ok := ei.EggIncContractsAll[contractID]; ok && !contractInfo.ValidFrom.IsZero() {
-		dropInLoc := contractInfo.ValidFrom.In(loc)
-		if time.Since(dropInLoc) < 14*24*time.Hour {
-			validFrom = time.Date(dropInLoc.Year(), dropInLoc.Month(), dropInLoc.Day(), 9, 0, 0, 0, loc)
+		if time.Since(contractInfo.ValidFrom) < 14*24*time.Hour {
+			validFrom = GetEggStandardTime(contractInfo.ValidFrom)
 		}
 	}
 
