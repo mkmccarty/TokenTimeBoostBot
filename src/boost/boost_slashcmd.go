@@ -519,6 +519,46 @@ func HandleTokenReceiverAutoComplete(s *discordgo.Session, i *discordgo.Interact
 	return "Select new recipient", choices
 }
 
+// HandleTokenEditAutoComplete will handle the /token-edit autocomplete
+func HandleTokenEditAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	data := i.ApplicationCommandData()
+	for _, opt := range data.Options {
+		if opt.Name == "list" && opt.Focused {
+			str, choices := HandleTokenListAutoComplete(s, i)
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+				Data: &discordgo.InteractionResponseData{
+					Content: str,
+					Choices: choices,
+				}})
+		}
+		if opt.Name == "id" && opt.Focused {
+			str, choices := HandleTokenIDAutoComplete(s, i)
+			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+				Data: &discordgo.InteractionResponseData{
+					Content: str,
+					Choices: choices,
+				}})
+			if err != nil {
+				log.Println(err.Error())
+			}
+		}
+		if opt.Name == "new-receiver" && opt.Focused {
+			str, choices := HandleTokenReceiverAutoComplete(s, i)
+			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+				Data: &discordgo.InteractionResponseData{
+					Content: str,
+					Choices: choices,
+				}})
+			if err != nil {
+				log.Println(err.Error())
+			}
+		}
+	}
+}
+
 // HandleTokenEditCommand will handle the /token-edit command
 func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate) string {
 	optionMap := bottools.GetCommandOptionsMap(i)
