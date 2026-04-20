@@ -12,8 +12,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 )
 
-var integerZeroMinValue float64 = 0.0
-
 // GetSlashSpeedrunCommand returns the slash command for speedrun
 func GetSlashSpeedrunCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{

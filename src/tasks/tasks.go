@@ -52,6 +52,16 @@ const eggIncStatusMessagesFile string = "ttbb-data/status-messages.json"
 var lastContractUpdate time.Time
 var lastEventUpdate time.Time
 
+// GetSlashReloadContractsCommand returns the command definition for reloading contracts
+func GetSlashReloadContractsCommand(cmd string) *discordgo.ApplicationCommand {
+	var adminPermission int64 = 0
+	return &discordgo.ApplicationCommand{
+		Name:                     cmd,
+		Description:              "Manual check for new Egg Inc contract data.",
+		DefaultMemberPermissions: &adminPermission,
+	}
+}
+
 // HandleReloadContractsCommand will handle the /reload command
 func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	str := "No updated Egg Inc contract data available.\n"

@@ -16,6 +16,141 @@ import (
 )
 
 var integerOneMinValue float64 = 1.0
+var integerZeroMinValue float64 = 0.0
+
+// GetSlashAdminContractsListCommand returns the command definition for admin contract list
+func GetSlashAdminContractsListCommand(cmd string) *discordgo.ApplicationCommand {
+	var adminPermission int64 = 0
+	return &discordgo.ApplicationCommand{
+		Name:                     cmd,
+		Description:              "List all running contracts",
+		DefaultMemberPermissions: &adminPermission,
+	}
+}
+
+// GetSlashJoinContractCommand returns the command definition for joining a contract
+func GetSlashJoinContractCommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "Add farmer or guest to contract.",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "farmer",
+				Description: "User mention or guest name to add to existing contract",
+				Required:    true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "token-count",
+				Description: "Set the number of boost tokens for this farmer. Default is 8.",
+				MinValue:    &integerZeroMinValue,
+				MaxValue:    14,
+				Required:    false,
+			},
+			{
+				Name:        "boost-order",
+				Description: "Order farmer added to contract. Default is Signup order.",
+				Required:    false,
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Choices: []*discordgo.ApplicationCommandOptionChoice{
+					{
+						Name:  "Sign-up Ordering",
+						Value: ContractOrderSignup,
+					},
+					{
+						Name:  "Time Based Ordering",
+						Value: ContractOrderTimeBased,
+					},
+					{
+						Name:  "Random Ordering",
+						Value: ContractOrderRandom,
+					},
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "already-boosted",
+				Description: "Add farmer in an already boosted state.",
+				Required:    false,
+			},
+		},
+	}
+}
+
+// GetSlashBoostCommand returns the command definition for boosting
+func GetSlashBoostCommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "Spending tokens to boost!",
+		Options:     []*discordgo.ApplicationCommandOption{},
+	}
+}
+
+// GetSlashSkipCommand returns the command definition for skipping a booster
+func GetSlashSkipCommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "Move current booster to last in boost order.",
+		Options:     []*discordgo.ApplicationCommandOption{},
+	}
+}
+
+// GetSlashUnboostCommand returns the command definition for unboosting
+func GetSlashUnboostCommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "Change boost state to unboosted.",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "farmer",
+				Description: "User Mention",
+				Required:    true,
+			},
+		},
+	}
+}
+
+// GetSlashPruneCommand returns the command definition for pruning a booster
+func GetSlashPruneCommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "Prune Booster",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "farmer",
+				Description: "User Mention",
+				Required:    true,
+			},
+		},
+	}
+}
+
+// GetSlashBumpCommand returns the command definition for bumping a contract
+func GetSlashBumpCommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "Redraw the boost list to the timeline.",
+	}
+}
+
+// GetSlashToggleContractPingsCommand returns the command definition for toggling pings
+func GetSlashToggleContractPingsCommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "Toggle Boost Bot contract pings [sticky]",
+	}
+}
+
+// GetSlashContractSettingsCommand returns the command definition for contract settings
+func GetSlashContractSettingsCommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "Coordinator of contract can use this to show initial settings",
+	}
+}
 
 // GetSlashChangeOneBoosterCommand adjust aspects of a running contract
 func GetSlashChangeOneBoosterCommand(cmd string) *discordgo.ApplicationCommand {

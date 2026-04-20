@@ -111,8 +111,6 @@ const slashHunt string = "hunt"
 const slashPredictions string = "predictions"
 const slashMint string = "mint"
 
-var integerZeroMinValue float64 = 0.0
-
 // const slashSignup string = "signup"
 var s *discordgo.Session
 
@@ -203,23 +201,14 @@ func init() {
 
 // Bot parameters to override .config.json parameters
 var (
-	GuildID         = flag.String("guild", "", "Test guild ID")
-	BotToken        = flag.String("token", "", "Bot access token")
-	AppID           = flag.String("app", "", "Application ID")
-	RemoveCommands  = flag.Bool("rmcmd", false, "Remove all commands after shutdowning or not")
-	adminPermission = int64(0)
+	GuildID        = flag.String("guild", "", "Test guild ID")
+	BotToken       = flag.String("token", "", "Bot access token")
+	AppID          = flag.String("app", "", "Application ID")
+	RemoveCommands = flag.Bool("rmcmd", false, "Remove all commands after shutdowning or not")
 
 	adminCommands = []*discordgo.ApplicationCommand{
-		{
-			Name:                     slashAdminContractsList,
-			Description:              "List all running contracts",
-			DefaultMemberPermissions: &adminPermission,
-		},
-		{
-			Name:                     slashReloadContracts,
-			Description:              "Manual check for new Egg Inc contract data.",
-			DefaultMemberPermissions: &adminPermission,
-		},
+		boost.GetSlashAdminContractsListCommand(slashAdminContractsList),
+		tasks.GetSlashReloadContractsCommand(slashReloadContracts),
 		boost.SlashAdminGetContractData(slashAdminGetContractData),
 		boost.SlashAdminListRoles(slashAdminListRoles),
 		boost.SlashAdminGuildStateCommand(slashAdminGuildstate),
@@ -238,7 +227,6 @@ var (
 		boost.GetSlashRerunEvalCommand(slashRerunEval),
 		boost.GetSlashVirtueCommand(slashVirtue),
 		boost.GetSlashRegisterCommand(slashRegister),
-		// This isn't ready yet
 		menno.SlashHuntCommand(slashHunt),
 	}
 
@@ -252,112 +240,14 @@ var (
 		boost.GetSlashChangeSpeedRunSinkCommand(slashChangeSpeedRunSink),
 		boost.GetSlashUpdateCommand(slashUpdateCommand),
 		boost.GetSlashChangeCommand(slashChangeCommand),
-		{
-			Name:        slashJoinContract,
-			Description: "Add farmer or guest to contract.",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "farmer",
-					Description: "User mention or guest name to add to existing contract",
-					Required:    true,
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionInteger,
-					Name:        "token-count",
-					Description: "Set the number of boost tokens for this farmer. Default is 8.",
-					MinValue:    &integerZeroMinValue,
-					MaxValue:    14,
-					Required:    false,
-				},
-				{
-					Name:        "boost-order",
-					Description: "Order farmer added to contract. Default is Signup order.",
-					Required:    false,
-					Type:        discordgo.ApplicationCommandOptionInteger,
-					Choices: []*discordgo.ApplicationCommandOptionChoice{
-						{
-							Name:  "Sign-up Ordering",
-							Value: boost.ContractOrderSignup,
-						},
-						/*
-							{
-								Name:  "Fair Ordering",
-								Value: boost.ContractOrderFair,
-							},
-						*/
-						{
-							Name:  "Time Based Ordering",
-							Value: boost.ContractOrderTimeBased,
-						},
-						{
-							Name:  "Random Ordering",
-							Value: boost.ContractOrderRandom,
-						},
-					},
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionBoolean,
-					Name:        "already-boosted",
-					Description: "Add farmer in an already boosted state.",
-					Required:    false,
-				},
-			},
-		},
-		{
-			Name:        slashBoost,
-			Description: "Spending tokens to boost!",
-			Options:     []*discordgo.ApplicationCommandOption{},
-		},
+		boost.GetSlashJoinContractCommand(slashJoinContract),
+		boost.GetSlashBoostCommand(slashBoost),
 		boost.GetSlashBoostOrderCommand(slashBoostOrder),
 		boost.GetSlashBoostOrderCommand(slashCatalyst),
-		{
-			Name:        slashSkip,
-			Description: "Move current booster to last in boost order.",
-			Options:     []*discordgo.ApplicationCommandOption{},
-		},
-		{
-			Name:        slashUnboost,
-			Description: "Change boost state to unboosted.",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "farmer",
-					Description: "User Mention",
-					Required:    true,
-				},
-			},
-		},
-		{
-			Name:        slashPrune,
-			Description: "Prune Booster",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "farmer",
-					Description: "User Mention",
-					Required:    true,
-				},
-			},
-		},
-		{
-			Name:        slashCoopETA,
-			Description: "Display contract completion estimate.",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "rate",
-					Description: "Hourly production rate (i.e. 15.7q)",
-					Required:    true,
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "timespan",
-					Description: "Time remaining in this contract. Example: 0d7h27m.",
-					Required:    true,
-				},
-			},
-		},
+		boost.GetSlashSkipCommand(slashSkip),
+		boost.GetSlashUnboostCommand(slashUnboost),
+		boost.GetSlashPruneCommand(slashPrune),
+		boost.GetSlashCoopETACommand(slashCoopETA),
 		boost.GetSlashVolunteerSink(slashVolunteerSink),
 		boost.GetSlashVoluntellSink(slashVoluntellSink),
 		boost.GetSlasLinkAlternateCommand(slashLinkAlternate),
@@ -366,7 +256,6 @@ var (
 		boost.GetSlashTeamworkEval(slashTeamworkEval),
 		boost.GetSlashContractReportCommand(slashContractReport),
 		boost.GetPredictionsCommand(slashPredictions),
-		//boost.GetSlashSiabEval(slashSiabEval),
 		boost.GetSlashStones(slashStones),
 		boost.GetSlashLeaderboard(slashLeaderboard),
 		boost.GetSlashTimer(slashTimer),
@@ -379,19 +268,10 @@ var (
 		boost.GetSlashTokenEditCommand(slashTokenEdit),
 		farmerstate.SlashSetEggIncNameCommand(slashSetEggIncName),
 		farmerstate.GetSlashPrivacyCommand(slashPrivacy),
-		{
-			Name:        slashBump,
-			Description: "Redraw the boost list to the timeline.",
-		},
-		{
-			Name:        slashToggleContractPings,
-			Description: "Toggle Boost Bot contract pings [sticky]",
-		},
+		boost.GetSlashBumpCommand(slashBump),
+		boost.GetSlashToggleContractPingsCommand(slashToggleContractPings),
 		boost.GetSlashHelpCommand(slashHelp),
-		{
-			Name:        slashContractSettings,
-			Description: "Coordinator of contract can use this to show initial settings",
-		},
+		boost.GetSlashContractSettingsCommand(slashContractSettings),
 	}
 
 	autocompleteHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
