@@ -14,7 +14,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/google/go-github/v33/github"
-	"github.com/jasonlvhit/gocron"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
@@ -312,6 +311,21 @@ func downloadEggIncData(urlStr string, filename string) bool {
 	return true
 }
 
+// scheduleDaily triggers a task every day at the specified local time
+func scheduleDaily(hour, min, sec int, task func()) {
+	go func() {
+		for {
+			now := time.Now()
+			next := time.Date(now.Year(), now.Month(), now.Day(), hour, min, sec, 0, now.Location())
+			if !now.Before(next) {
+				next = next.AddDate(0, 0, 1)
+			}
+			time.Sleep(time.Until(next))
+			task()
+		}
+	}()
+}
+
 // schedulePeriodicals natively handles Pacific Time (PST/PDT) and triggers polling
 func schedulePeriodicals(s *discordgo.Session) {
 	loc, err := time.LoadLocation("America/Los_Angeles")
@@ -442,26 +456,23 @@ func ExecuteCronJob(s *discordgo.Session) {
 		TLDR yes it checks right at contract release time and also fairly frequently for the next hour or two after contract release time and then every 30 minutes
 	*/
 
-	err = gocron.Every(8).Hours().Do(boost.ArchiveContracts, s)
-	if err != nil {
-		log.Print(err)
-	}
+	// Archive contracts every 8 hours
+	go func() {
+		ticker := time.NewTicker(8 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			boost.ArchiveContracts(s)
+		}
+	}()
 
 	// Want to check Egg Inc data once a day day minutes
-	err = gocron.Every(1).Day().At("00:00:05").Do(crondownloadEggIncData)
-	if err != nil {
-		log.Print(err)
-	}
+	scheduleDaily(0, 0, 5, crondownloadEggIncData)
 
 	// Prune generated banner files older than one month.
-	err = gocron.Every(1).Day().At("00:30:05").Do(cronPruneOldGeneratedBanners)
-	if err != nil {
-		log.Print(err)
-	}
+	scheduleDaily(0, 30, 5, cronPruneOldGeneratedBanners)
 
 	// Start timezone-aware loop to poll Periodicals on Mon, Wed, Fri at 9 AM PT
 	go schedulePeriodicals(s)
 
-	<-gocron.Start()
-	log.Print("Exiting cron job")
+	log.Print("Cron jobs scheduled")
 }
