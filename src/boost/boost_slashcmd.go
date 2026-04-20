@@ -270,6 +270,28 @@ func HandlePruneCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	)
 }
 
+// GetSlashCoopETACommand returns the command definition for the coopeta command
+func GetSlashCoopETACommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "Display contract completion estimate.",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "rate",
+				Description: "Hourly production rate (i.e. 15.7q)",
+				Required:    true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "timespan",
+				Description: "Time remaining in this contract. Example: 0d7h27m.",
+				Required:    true,
+			},
+		},
+	}
+}
+
 // HandleCoopETACommand will handle the /coopeta command
 func HandleCoopETACommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Protection against DM use
