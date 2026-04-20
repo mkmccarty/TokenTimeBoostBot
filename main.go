@@ -275,348 +275,87 @@ var (
 	}
 
 	autocompleteHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		// Admin Commands
-		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleContractAutoComplete(s, i)
-		},
-		slashChangeCommand: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleContractAutoComplete(s, i)
-		},
-		slashRerunEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAllContractsAutoComplete(s, i)
-		},
-		slashAdminGetContractData: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleCoopAutoComplete(s, i)
-		},
-		slashAdminListRoles: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleContractAutoComplete(s, i)
-		},
-		slashAdminGuildstate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAdminGuildStateAutoComplete(s, i)
-		},
-		slashStatusMessage: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAdminStatusMessageAutoComplete(s, i)
-		},
-		slashEstimateTime: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAllContractsAutoComplete(s, i)
-		},
-		slashCsEstimate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAllContractsAutoComplete(s, i)
-		},
-		slashLobby: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAllContractsAutoComplete(s, i)
-		},
-		slashLinkAlternate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleLinkAlternateAutoComplete(s, i)
-		},
-		slashCalcContractTval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAltsAutoComplete(s, i)
-		},
-		slashStones: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAllContractsAutoComplete(s, i)
-		},
-		slashTeamworkEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAllContractsAutoComplete(s, i)
-		},
-		slashContractReport: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAllContractsAutoComplete(s, i)
-		},
-		slashScoreExplorer: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAllContractsAutoComplete(s, i)
-		},
-		slashHunt: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			menno.HandleHuntAutoComplete(s, i)
-		},
-		slashTokenEdit: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			data := i.ApplicationCommandData()
-			for _, opt := range data.Options {
-				if opt.Name == "list" && opt.Focused {
-					str, choices := boost.HandleTokenListAutoComplete(s, i)
-					_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-						Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-						Data: &discordgo.InteractionResponseData{
-							Content: str,
-							Choices: choices,
-						}})
-				}
-				if opt.Name == "id" && opt.Focused {
-					str, choices := boost.HandleTokenIDAutoComplete(s, i)
-					err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-						Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-						Data: &discordgo.InteractionResponseData{
-							Content: str,
-							Choices: choices,
-						}})
-					if err != nil {
-						log.Println(err.Error())
-					}
-				}
-				if opt.Name == "new-receiver" && opt.Focused {
-					str, choices := boost.HandleTokenReceiverAutoComplete(s, i)
-					err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-						Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-						Data: &discordgo.InteractionResponseData{
-							Content: str,
-							Choices: choices,
-						}})
-					if err != nil {
-						log.Println(err.Error())
-					}
-				}
-			}
-		},
+		slashContract:             boost.HandleContractAutoComplete,
+		slashChangeCommand:        boost.HandleContractAutoComplete,
+		slashRerunEval:            boost.HandleAllContractsAutoComplete,
+		slashAdminGetContractData: boost.HandleCoopAutoComplete,
+		slashAdminListRoles:       boost.HandleContractAutoComplete,
+		slashAdminGuildstate:      boost.HandleAdminGuildStateAutoComplete,
+		slashStatusMessage:        boost.HandleAdminStatusMessageAutoComplete,
+		slashEstimateTime:         boost.HandleAllContractsAutoComplete,
+		slashCsEstimate:           boost.HandleAllContractsAutoComplete,
+		slashLobby:                boost.HandleAllContractsAutoComplete,
+		slashLinkAlternate:        boost.HandleLinkAlternateAutoComplete,
+		slashCalcContractTval:     boost.HandleAltsAutoComplete,
+		slashStones:               boost.HandleAllContractsAutoComplete,
+		slashTeamworkEval:         boost.HandleAllContractsAutoComplete,
+		slashContractReport:       boost.HandleAllContractsAutoComplete,
+		slashScoreExplorer:        boost.HandleAllContractsAutoComplete,
+		slashHunt:                 menno.HandleHuntAutoComplete,
+		slashTokenEdit:            boost.HandleTokenEditAutoComplete,
 	}
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		// Admin Commands
-		slashAdminContractsList: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAdminContractList(s, i)
-		},
-		slashReloadContracts: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			tasks.HandleReloadContractsCommand(s, i)
-		},
-		slashAdminGetContractData: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAdminGetContractData(s, i)
-		},
-		slashAdminListRoles: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAdminListRoles(s, i)
-		},
-		slashAdminGuildstate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAdminGuildStateCommand(s, i)
-		},
-		slashAdminMembers: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAdminMembers(s, i)
-		},
-		slashActiveContracts: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAdminCurrentContracts(s, i)
-		},
-		slashStatusMessage: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAdminStatusMessageCommand(s, i)
-		},
-		slashAdminSetGuildSetting: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			guildstate.SetGuildSetting(s, i)
-		},
-		slashAdminGetGuildSettings: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			guildstate.GetGuildSettings(s, i)
-		},
-		slashAdminSetGuildFlag: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			guildstate.SetGuildFlag(s, i)
-		},
-		slashAdminGetGuildFlag: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			guildstate.GetGuildFlag(s, i)
-		},
-		// Slash Commands
-		slashArtifact: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleArtifactCommand(s, i)
-		},
-		slashScoreExplorer: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleScoreExplorerCommand(s, i)
-		},
-		// Normal Commands
-		slashJoinContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleJoinCommand(s, i)
-		},
-		slashCoopETA: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleCoopETACommand(s, i)
-		},
-		slashLaunchHelper: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			events.HandleLaunchHelper(s, i)
-		},
-		slashEventHelper: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			events.HandleEventHelper(s, i)
-		},
-		slashRegister: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleRegister(s, i)
-		},
-		slashContractReport: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleContractReport(s, i)
-		},
-		slashRerunEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleReplayEval(s, i)
-		},
-		slashVirtue: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleVirtue(s, i)
-		},
-		slashTokenEdit: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			var str string
-			if i.GuildID != "" {
-				str = boost.HandleTokenEditCommand(s, i)
-			}
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: str,
-					Flags:   discordgo.MessageFlagsEphemeral,
-				}})
-		},
-		slashCalcContractTval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleContractCalcContractTvalCommand(s, i)
-		},
-		slashCoopTval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleCoopTvalCommand(s, i)
-		},
-		slashTeamworkEval: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleTeamworkEvalCommand(s, i)
-		},
-		slashStones: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleStonesCommand(s, i)
-		},
-		slashLeaderboard: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleLeaderboard(s, i)
-		},
-		slashTimer: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleTimerCommand(s, i)
-		},
-		slashHunt: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			menno.HandleHuntCommand(s, i)
-		},
-		slashPredictions: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandlePredictionsCommand(s, i)
-		},
-		slashMint: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleMintCommand(s, i)
-		},
-		slashEstimateTime: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleEstimateTimeCommand(s, i)
-		},
-		slashCsEstimate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleCsEstimatesCommand(s, i)
-		},
-		slashLobby: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleLobbyCommand(s, i)
-		},
-		slashSpeedrun: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleSpeedrunCommand(s, i)
-		},
-		slashChangeSpeedRunSink: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleChangeSpeedrunSinkCommand(s, i)
-		},
-		slashUpdateCommand: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleUpdateCommand(s, i)
-		},
-		slashChangeCommand: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleChangeCommand(s, i)
-		},
-		slashVolunteerSink: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleSlashVolunteerSinkCommand(s, i)
-		},
-		slashVoluntellSink: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleSlashVoluntellSinkCommand(s, i)
-		},
-		slashContract: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleContractCommand(s, i)
-		},
-		slashBoost: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleBoostCommand(s, i)
-		},
-		slashBoostOrder: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleBoostOrderCommand(s, i)
-		},
-		slashCatalyst: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleBoostOrderCommand(s, i)
-		},
-		slashSkip: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleSkipCommand(s, i)
-		},
-		slashUnboost: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleUnboostCommand(s, i)
-		},
-		slashPrune: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandlePruneCommand(s, i)
-		},
-		slashBump: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleBumpCommand(s, i)
-		},
-		slashToggleContractPings: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleToggleContractPingsCommand(s, i)
-		},
-		slashContractSettings: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleContractSettingsCommand(s, i)
-		},
-		slashChangeOneBooster: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleChangeOneBoosterCommand(s, i)
-		},
-		slashChangePlannedStartCommand: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleChangePlannedStartCommand(s, i)
-		},
-		slashLinkAlternate: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleLinkAlternateCommand(s, i)
-		},
-		slashRenameThread: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleRenameThreadCommand(s, i)
-		},
-		slashRemoveDMMessage: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			bottools.HandleRemoveMessageCommand(s, i)
-		},
-		slashHelp: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleHelpCommand(s, i)
-		},
-		slashFun: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			notok.FunHandler(s, i)
-		},
-		slashPrivacy: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			farmerstate.HandlePrivacyCommand(s, i)
-		},
-		slashSetEggIncName: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			// Protection against DM use
-			if i.GuildID == "" {
-				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content:    "This command can only be run in a server.",
-						Flags:      discordgo.MessageFlagsEphemeral,
-						Components: []discordgo.MessageComponent{}},
-				})
-				return
-			}
-			var eiName string
-			var callerUserID = getIntentUserID(i)
-			var userID = getIntentUserID(i)
-
-			options := i.ApplicationCommandData().Options
-			optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-			for _, opt := range options {
-				optionMap[opt.Name] = opt
-			}
-
-			if opt, ok := optionMap["discord-name"]; ok {
-				farmerMention := opt.UserValue(s).Mention()
-				re := regexp.MustCompile(`[\\<>@#&!]`)
-				userID = re.ReplaceAllString(farmerMention, "")
-			}
-
-			var str = "Setting Egg, IGN for <@" + userID + "> to "
-
-			if opt, ok := optionMap["ei-ign"]; ok {
-				eiName = strings.TrimSpace(opt.StringValue())
-				str += eiName
-			}
-
-			// if eiName matches this regex ^EI[1-9]*$ then it an invalid name
-			re := regexp.MustCompile(`^EI[1-9]*$`)
-			if re.MatchString(eiName) {
-				str = "Don't use your Egg, Inc. EI number."
-			} else {
-				// Is the user issuing the command a coordinator?
-				if userID != callerUserID && !boost.IsUserCreatorOfAnyContract(s, callerUserID) {
-					str = "This form of usage is restricted to contract coordinators and administrators."
-				} else {
-					farmerstate.SetEggIncName(userID, eiName)
-				}
-			}
-
-			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content:    str,
-					Flags:      discordgo.MessageFlagsEphemeral,
-					Components: []discordgo.MessageComponent{}},
-			})
-			if err != nil {
-				log.Println(err.Error())
-			}
-
-		},
+		slashAdminContractsList:        boost.HandleAdminContractList,
+		slashReloadContracts:           tasks.HandleReloadContractsCommand,
+		slashAdminGetContractData:      boost.HandleAdminGetContractData,
+		slashAdminListRoles:            boost.HandleAdminListRoles,
+		slashAdminGuildstate:           boost.HandleAdminGuildStateCommand,
+		slashAdminMembers:              boost.HandleAdminMembers,
+		slashActiveContracts:           boost.HandleAdminCurrentContracts,
+		slashStatusMessage:             boost.HandleAdminStatusMessageCommand,
+		slashAdminSetGuildSetting:      guildstate.SetGuildSetting,
+		slashAdminGetGuildSettings:     guildstate.GetGuildSettings,
+		slashAdminSetGuildFlag:         guildstate.SetGuildFlag,
+		slashAdminGetGuildFlag:         guildstate.GetGuildFlag,
+		slashArtifact:                  boost.HandleArtifactCommand,
+		slashScoreExplorer:             boost.HandleScoreExplorerCommand,
+		slashJoinContract:              boost.HandleJoinCommand,
+		slashCoopETA:                   boost.HandleCoopETACommand,
+		slashLaunchHelper:              events.HandleLaunchHelper,
+		slashEventHelper:               events.HandleEventHelper,
+		slashRegister:                  boost.HandleRegister,
+		slashContractReport:            boost.HandleContractReport,
+		slashRerunEval:                 boost.HandleReplayEval,
+		slashVirtue:                    boost.HandleVirtue,
+		slashTokenEdit:                 handleTokenEditCommand,
+		slashCalcContractTval:          boost.HandleContractCalcContractTvalCommand,
+		slashCoopTval:                  boost.HandleCoopTvalCommand,
+		slashTeamworkEval:              boost.HandleTeamworkEvalCommand,
+		slashStones:                    boost.HandleStonesCommand,
+		slashLeaderboard:               boost.HandleLeaderboard,
+		slashTimer:                     boost.HandleTimerCommand,
+		slashHunt:                      menno.HandleHuntCommand,
+		slashPredictions:               boost.HandlePredictionsCommand,
+		slashMint:                      boost.HandleMintCommand,
+		slashEstimateTime:              boost.HandleEstimateTimeCommand,
+		slashCsEstimate:                boost.HandleCsEstimatesCommand,
+		slashLobby:                     boost.HandleLobbyCommand,
+		slashSpeedrun:                  boost.HandleSpeedrunCommand,
+		slashChangeSpeedRunSink:        boost.HandleChangeSpeedrunSinkCommand,
+		slashUpdateCommand:             boost.HandleUpdateCommand,
+		slashChangeCommand:             boost.HandleChangeCommand,
+		slashVolunteerSink:             boost.HandleSlashVolunteerSinkCommand,
+		slashVoluntellSink:             boost.HandleSlashVoluntellSinkCommand,
+		slashContract:                  boost.HandleContractCommand,
+		slashBoost:                     boost.HandleBoostCommand,
+		slashBoostOrder:                boost.HandleBoostOrderCommand,
+		slashCatalyst:                  boost.HandleBoostOrderCommand,
+		slashSkip:                      boost.HandleSkipCommand,
+		slashUnboost:                   boost.HandleUnboostCommand,
+		slashPrune:                     boost.HandlePruneCommand,
+		slashBump:                      boost.HandleBumpCommand,
+		slashToggleContractPings:       boost.HandleToggleContractPingsCommand,
+		slashContractSettings:          boost.HandleContractSettingsCommand,
+		slashChangeOneBooster:          boost.HandleChangeOneBoosterCommand,
+		slashChangePlannedStartCommand: boost.HandleChangePlannedStartCommand,
+		slashLinkAlternate:             boost.HandleLinkAlternateCommand,
+		slashRenameThread:              boost.HandleRenameThreadCommand,
+		slashRemoveDMMessage:           bottools.HandleRemoveMessageCommand,
+		slashHelp:                      boost.HandleHelpCommand,
+		slashFun:                       notok.FunHandler,
+		slashPrivacy:                   farmerstate.HandlePrivacyCommand,
+		slashSetEggIncName:             handleSetEggIncName,
 	}
 
 	componentHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
@@ -777,6 +516,136 @@ func joinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell boo
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		//		Content: str,
 	})
+}
+
+func handleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	var str string
+	if i.GuildID != "" {
+		str = boost.HandleTokenEditCommand(s, i)
+	}
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: str,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		}})
+}
+
+func handleSignupStart(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		Data: &discordgo.InteractionResponseData{
+			Content:    "",
+			Flags:      discordgo.MessageFlagsEphemeral,
+			Components: []discordgo.MessageComponent{}},
+	})
+	err := boost.StartContractBoosting(s, i.GuildID, i.ChannelID, getIntentUserID(i))
+	if err != nil {
+		str := fmt.Sprint(err.Error())
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: str,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		})
+	} else {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
+
+		contract := boost.FindContract(i.ChannelID)
+		// Rebuild the signup message to disable the start button
+		msg := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
+		contentStr, comp := boost.GetSignupComponents(contract) // True to get a disabled start button
+		msg.SetContent(contentStr)
+		msg.Components = &comp
+		_, _ = s.ChannelMessageEditComplex(msg)
+	}
+}
+
+func handleSignupFarmer(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	joinContract(s, i, false)
+}
+
+func handleSignupBell(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	joinContract(s, i, true)
+}
+
+func handleSignupLeave(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	str := "Removed from Contract"
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing...",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+
+	var err = boost.RemoveFarmerByMention(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), i.Member.User.Mention())
+	if err != nil {
+		str = err.Error()
+	}
+
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content: str,
+		Flags:   discordgo.MessageFlagsEphemeral,
+	})
+}
+
+func handleSetEggIncName(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// Protection against DM use
+	if i.GuildID == "" {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "This command can only be run in a server.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{}},
+		})
+		return
+	}
+	var eiName string
+	var callerUserID = getIntentUserID(i)
+	var userID = getIntentUserID(i)
+
+	options := i.ApplicationCommandData().Options
+	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+	for _, opt := range options {
+		optionMap[opt.Name] = opt
+	}
+
+	if opt, ok := optionMap["discord-name"]; ok {
+		farmerMention := opt.UserValue(s).Mention()
+		re := regexp.MustCompile(`[\\<>@#&!]`)
+		userID = re.ReplaceAllString(farmerMention, "")
+	}
+
+	var str = "Setting Egg, IGN for <@" + userID + "> to "
+
+	if opt, ok := optionMap["ei-ign"]; ok {
+		eiName = strings.TrimSpace(opt.StringValue())
+		str += eiName
+	}
+
+	// if eiName matches this regex ^EI[1-9]*$ then it an invalid name
+	re := regexp.MustCompile(`^EI[1-9]*$`)
+	if re.MatchString(eiName) {
+		str = "Don't use your Egg, Inc. EI number."
+	} else {
+		// Is the user issuing the command a coordinator?
+		if userID != callerUserID && !boost.IsUserCreatorOfAnyContract(s, callerUserID) {
+			str = "This form of usage is restricted to contract coordinators and administrators."
+		} else {
+			farmerstate.SetEggIncName(userID, eiName)
+		}
+	}
+
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content:    str,
+			Flags:      discordgo.MessageFlagsEphemeral,
+			Components: []discordgo.MessageComponent{}},
+	})
+	if err != nil {
+		log.Println(err.Error())
+	}
 }
 
 func respondUnknownInteractionPath(s *discordgo.Session, i *discordgo.InteractionCreate, content string) {
