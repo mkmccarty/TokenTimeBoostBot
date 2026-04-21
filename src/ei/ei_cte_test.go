@@ -68,6 +68,43 @@ func TestPendingTruthEggs(t *testing.T) {
 	}
 }
 
+func TestBackupMaker_CTEValues(t *testing.T) {
+	maker := NewBackupMaker("EI123456", "TestUser")
+
+	// Extracted from firstcontact JSON fixture
+	eovEarned := []uint32{20, 20, 21, 20, 20}
+	eggsDelivered := []float64{671228376732604700, 281084978380496960, 1861466584249923000, 321860104553812600, 766522163167315600}
+
+	maker.SetVirtueData(36, 1, eovEarned, eggsDelivered, 11215366.125829924)
+
+	backup := maker.GetBackup()
+	virtue := backup.GetVirtue()
+
+	if virtue == nil {
+		t.Fatalf("Expected Virtue data to be initialized")
+	}
+
+	// Expected manual calculations based on the JSON fixture
+	expectedTiers := []uint32{24, 20, 31, 20, 24}
+	expectedPending := []uint32{4, 0, 10, 0, 4}
+	expectedNextThresh := []float64{7.8e17, 3.6e17, 1.9e18, 3.6e17, 7.8e17}
+
+	for i := 0; i < len(eovEarned); i++ {
+		delivered := virtue.GetEggsDelivered()[i]
+		earned := virtue.GetEovEarned()[i]
+
+		if got := CountTruthEggTiersPassed(delivered); got != expectedTiers[i] {
+			t.Errorf("Index %d: CountTruthEggTiersPassed(%v) = %d, want %d", i, delivered, got, expectedTiers[i])
+		}
+		if got := PendingTruthEggs(delivered, earned); got != expectedPending[i] {
+			t.Errorf("Index %d: PendingTruthEggs(%v, %d) = %d, want %d", i, delivered, earned, got, expectedPending[i])
+		}
+		if got := NextTruthEggThreshold(delivered, earned); got != expectedNextThresh[i] {
+			t.Errorf("Index %d: NextTruthEggThreshold(%v, %d) = %v, want %v", i, delivered, earned, got, expectedNextThresh[i])
+		}
+	}
+}
+
 func TestNextTruthEggThreshold(t *testing.T) {
 	testCases := []struct {
 		name        string
