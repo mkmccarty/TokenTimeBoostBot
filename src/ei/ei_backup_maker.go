@@ -52,16 +52,122 @@ func NewBackupMaker(eiUserID, userName string) *BackupMaker {
 	backup.Farms = append(backup.Farms, homeFarm)
 	backup.Sim = homeFarm // Sim is the currently active farm
 
-	return &BackupMaker{
+	maker := &BackupMaker{
 		backup:      backup,
 		nextItemID:  1,
 		currentFarm: homeFarm,
 	}
+
+	maker.SetAllHabitatsTo(18) // Chicken Universe
+	maker.SetAllVehiclesTo(11) // Hyperloop Train
+	trains := make([]uint32, 17)
+	for i := range trains {
+		trains[i] = 10 // Max train length
+	}
+	maker.currentFarm.TrainLength = trains
+
+	maker.SetAllResearchThroughTier(100)
+
+	defaultEpicResearch := []struct {
+		id    string
+		level uint32
+	}{
+		{"hold_to_hatch", 15},
+		{"epic_hatchery", 20},
+		{"epic_internal_incubators", 20},
+		{"video_doubler_time", 12},
+		{"epic_clucking", 20},
+		{"epic_multiplier", 100},
+		{"cheaper_contractors", 10},
+		{"bust_unions", 10},
+		{"cheaper_research", 10},
+		{"epic_silo_quality", 40},
+		{"silo_capacity", 20},
+		{"int_hatch_sharing", 10},
+		{"int_hatch_calm", 20},
+		{"accounting_tricks", 20},
+		{"hold_to_research", 20},
+		{"soul_eggs", 140},
+		{"prestige_bonus", 20},
+		{"drone_rewards", 20},
+		{"epic_egg_laying", 20},
+		{"transportation_lobbyist", 30},
+		{"warp_shift", 16},
+		{"prophecy_bonus", 5},
+		{"afx_mission_time", 60},
+		{"afx_mission_capacity", 10},
+	}
+
+	backup.Game.EpicResearch = make([]*Backup_ResearchItem, 0, len(defaultEpicResearch))
+	for _, er := range defaultEpicResearch {
+		idCopy := er.id
+		levelCopy := er.level
+		backup.Game.EpicResearch = append(backup.Game.EpicResearch, &Backup_ResearchItem{
+			Id:    &idCopy,
+			Level: &levelCopy,
+		})
+	}
+
+	var artifacts = []ArtifactSpec_Name{
+		ArtifactSpec_LUNAR_TOTEM, ArtifactSpec_NEODYMIUM_MEDALLION, ArtifactSpec_BEAK_OF_MIDAS,
+		ArtifactSpec_LIGHT_OF_EGGENDIL, ArtifactSpec_DEMETERS_NECKLACE, ArtifactSpec_VIAL_MARTIAN_DUST,
+		ArtifactSpec_ORNATE_GUSSET, ArtifactSpec_THE_CHALICE, ArtifactSpec_BOOK_OF_BASAN,
+		ArtifactSpec_PHOENIX_FEATHER, ArtifactSpec_TUNGSTEN_ANKH, ArtifactSpec_AURELIAN_BROOCH,
+		ArtifactSpec_CARVED_RAINSTICK, ArtifactSpec_PUZZLE_CUBE, ArtifactSpec_QUANTUM_METRONOME,
+		ArtifactSpec_SHIP_IN_A_BOTTLE, ArtifactSpec_TACHYON_DEFLECTOR, ArtifactSpec_INTERSTELLAR_COMPASS,
+		ArtifactSpec_DILITHIUM_MONOCLE, ArtifactSpec_TITANIUM_ACTUATOR, ArtifactSpec_MERCURYS_LENS,
+	}
+	var stones = []ArtifactSpec_Name{
+		ArtifactSpec_TACHYON_STONE, ArtifactSpec_DILITHIUM_STONE, ArtifactSpec_SHELL_STONE,
+		ArtifactSpec_LUNAR_STONE, ArtifactSpec_SOUL_STONE, ArtifactSpec_PROPHECY_STONE,
+		ArtifactSpec_QUANTUM_STONE, ArtifactSpec_TERRA_STONE, ArtifactSpec_LIFE_STONE,
+		ArtifactSpec_CLARITY_STONE,
+	}
+
+	for _, art := range artifacts {
+		maker.AddArtifact(art, ArtifactSpec_GREATER, ArtifactSpec_LEGENDARY, 1, false)
+		maker.AddArtifact(art, ArtifactSpec_GREATER, ArtifactSpec_LEGENDARY, 1, true)
+	}
+	for _, stone := range stones {
+		maker.AddArtifact(stone, ArtifactSpec_GREATER, ArtifactSpec_COMMON, 12, false)
+		maker.AddArtifact(stone, ArtifactSpec_GREATER, ArtifactSpec_COMMON, 12, true)
+	}
+
+	return maker
 }
 
 // GetBackup returns the built Backup object.
 func (b *BackupMaker) GetBackup() *Backup {
 	return b.backup
+}
+
+// SetVirtueData populates the primary Virtue message fields in the backup.
+func (b *BackupMaker) SetVirtueData(shiftCount, resets uint32, eovEarned []uint32, eggsDelivered []float64, pastSimTime float64) {
+	if b.backup.Virtue == nil {
+		b.backup.Virtue = &Backup_Virtue{}
+	}
+	b.backup.Virtue.ShiftCount = &shiftCount
+	b.backup.Virtue.Resets = &resets
+	b.backup.Virtue.EovEarned = eovEarned
+	b.backup.Virtue.EggsDelivered = eggsDelivered
+	b.backup.Virtue.PastSimTime = &pastSimTime
+}
+
+// SetVirtueAFX populates the AFX (ArtifactsDB) subset of the Virtue message in the backup.
+func (b *BackupMaker) SetVirtueAFX(flowPercentage float64, fuelingEnabled, tankFillingEnabled bool, tankFuels, tankLimits []float64, lastFueledShip uint32, inventoryScore float64) {
+	if b.backup.Virtue == nil {
+		b.backup.Virtue = &Backup_Virtue{}
+	}
+	ship := MissionInfo_Spaceship(lastFueledShip)
+	b.backup.Virtue.Afx = &Backup_Artifacts{
+		FlowPercentageArtifacts: &flowPercentage,
+		FuelingEnabled:          &fuelingEnabled,
+		TankFillingEnabled:      &tankFillingEnabled,
+		TankFuels:               tankFuels,
+		TankLimits:              tankLimits,
+		LastFueledShip:          &ship,
+		InventoryScore:          &inventoryScore,
+	}
 }
 
 // --- Farm Setup ---
@@ -271,7 +377,7 @@ func (b *BackupMaker) SetSoulEggsD(count float64) *BackupMaker {
 }
 
 // SetPermitLevel sets the pro permit level (0 for standard, 1 for pro).
-func (b *BackupMaker) SetPermitLevel(level int32) *BackupMaker {
+func (b *BackupMaker) SetPermitLevel(level uint32) *BackupMaker {
 	b.backup.Game.PermitLevel = &level
 	return b
 }
@@ -286,6 +392,7 @@ func (b *BackupMaker) AddColleggtibleContract(customEggID string, farmSize float
 	}
 	b.backup.Contracts.Archive = append(b.backup.Contracts.Archive, &LocalContract{
 		Contract: &Contract{
+			Egg:         Egg_CUSTOM_EGG.Enum(),
 			CustomEggId: stringp(customEggID),
 		},
 		MaxFarmSizeReached: float64p(farmSize),
