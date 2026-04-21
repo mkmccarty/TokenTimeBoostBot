@@ -299,7 +299,11 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		if contractInfo.ID != "" {
 			playStyleStr := fmt.Sprintf("%s ", contractPlaystyleNames[playStyle])
 			if !contractInfo.Predicted {
-				fmt.Fprintf(&builder, " (%s%d/%d)", playStyleStr, len(progenitors), contractInfo.MaxCoopSize)
+				if len(progenitors) != contractInfo.MaxCoopSize {
+					fmt.Fprintf(&builder, "(%s%d/%d)", playStyleStr, len(progenitors), contractInfo.MaxCoopSize)
+				} else {
+					fmt.Fprint(&builder, "(FULL)")
+				}
 			} else {
 				fmt.Fprintf(&builder, " (%s%d)", playStyleStr, len(progenitors))
 			}
