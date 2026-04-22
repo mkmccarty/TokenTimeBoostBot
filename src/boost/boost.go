@@ -2344,7 +2344,7 @@ func HandleUploadBannerCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 	if !isServerBooster && !isServerOwner {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: "You must be a Server Booster or the Server Owner to upload a custom banner.",
+			Content: "You must be a Server Booster upload a custom banner.",
 		})
 		return
 	}
