@@ -476,16 +476,28 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 				sinkIcon := getSinkIcon(contract, b, receivedByUser[b.UserID]-sentByUser[b.UserID])
 				isActiveTokenBooster := b.BoostState == BoostStateTokenTime && b.UserID == activeBoosterID
+
+				deflStr := ""
+				if contract.State == ContractStateSignup &&
+					(contract.PlayStyle == ContractPlaystyleFastrun || contract.PlayStyle == ContractPlaystyleLeaderboard) {
+					for _, a := range b.ArtifactSet.Artifacts {
+						if strings.Contains(a.Type, "Deflector") && a.Quality != "" && a.Quality != "NONE" {
+							deflStr = ei.GetBotEmojiMarkdown("defl_" + a.Quality)
+							break
+						}
+					}
+				}
+
 				if contract.State == ContractStateBanker {
 
 					switch b.BoostState {
 					case BoostStateUnboosted:
-						fmt.Fprintf(&builder, "%s %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, sinkIcon, server)
+						fmt.Fprintf(&builder, "%s %s%s%s%s%s%s\n", prefix, name, deflStr, signupCountStr, sortRate, sinkIcon, server)
 					case BoostStateTokenTime:
 						if isActiveTokenBooster {
-							fmt.Fprintf(&builder, "%s ➡️ **%s** %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, currentStartTime, sinkIcon, server)
+							fmt.Fprintf(&builder, "%s ➡️ **%s**%s %s%s%s%s%s\n", prefix, name, deflStr, signupCountStr, sortRate, currentStartTime, sinkIcon, server)
 						} else {
-							fmt.Fprintf(&builder, "%s **%s** %s%s%s%s%s\n", prefix, name, signupCountStr, sortRate, currentStartTime, sinkIcon, server)
+							fmt.Fprintf(&builder, "%s **%s**%s %s%s%s%s%s\n", prefix, name, deflStr, signupCountStr, sortRate, currentStartTime, sinkIcon, server)
 						}
 					case BoostStateBoosted:
 						boostingString := ""
@@ -496,26 +508,26 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 								boostingString = fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
 							}
 						}
-						fmt.Fprintf(&builder, "%s ~~%s~~  %s %s%s%s%s%s\n", prefix, name, sortRate, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server)
+						fmt.Fprintf(&builder, "%s ~~%s~~%s  %s %s%s%s%s%s\n", prefix, name, deflStr, sortRate, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server)
 					}
 
 				} else {
 
 					switch b.BoostState {
 					case BoostStateUnboosted:
-						fmt.Fprintf(&builder, "%s %s%s%s%s\n", prefix, name, signupCountStr, sortRate, server)
+						fmt.Fprintf(&builder, "%s %s%s%s%s%s\n", prefix, name, deflStr, signupCountStr, sortRate, server)
 					case BoostStateTokenTime:
 						if isActiveTokenBooster && b.UserID == b.Name && b.AltController == "" && contract.State != ContractStateBanker {
 							// Add a rocket for auto boosting
-							fmt.Fprintf(&builder, "%s ➡️ **%s** 🚀%s%s%s%s\n", prefix, name, countStr, sortRate, currentStartTime, server)
+							fmt.Fprintf(&builder, "%s ➡️ **%s**%s 🚀%s%s%s%s\n", prefix, name, deflStr, countStr, sortRate, currentStartTime, server)
 						} else {
 							if !b.BoostingTokenTimestamp.IsZero() {
 								currentStartTime = fmt.Sprintf(" <t:%d:R> since ️T-0️⃣ / votes:%d", b.BoostingTokenTimestamp.Unix(), len(b.VotingList))
 							}
 							if isActiveTokenBooster {
-								fmt.Fprintf(&builder, "%s ➡️ **%s** %s%s%s%s\n", prefix, name, countStr, sortRate, currentStartTime, server)
+								fmt.Fprintf(&builder, "%s ➡️ **%s**%s %s%s%s%s\n", prefix, name, deflStr, countStr, sortRate, currentStartTime, server)
 							} else {
-								fmt.Fprintf(&builder, "%s **%s** %s%s%s%s\n", prefix, name, countStr, sortRate, currentStartTime, server)
+								fmt.Fprintf(&builder, "%s **%s**%s %s%s%s%s\n", prefix, name, deflStr, countStr, sortRate, currentStartTime, server)
 							}
 						}
 					case BoostStateBoosted:
@@ -527,7 +539,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 								boostingString = fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
 							}
 						}
-						fmt.Fprintf(&builder, "%s ~~%s~~  %s %s%s%s%s%s\n", prefix, name, sortRate, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server)
+						fmt.Fprintf(&builder, "%s ~~%s~~%s  %s %s%s%s%s%s\n", prefix, name, deflStr, sortRate, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server)
 					}
 				}
 			}
