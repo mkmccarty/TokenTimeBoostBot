@@ -497,6 +497,7 @@ func updateContractWithEggIncData(contract *Contract) {
 			contract.ChickenRuns = cc.ChickenRuns
 			contract.EstimatedDuration = cc.EstimatedDuration
 			contract.Name = cc.Name
+			contract.Egg = cc.Egg
 			contract.Description = cc.Description
 			contract.EggName = cc.EggName
 			contract.ChickenRunCooldownMinutes = cc.ChickenRunCooldownMinutes
@@ -517,6 +518,7 @@ func updateContractWithEggIncData(contract *Contract) {
 		contract.Name = cc.Name
 		contract.Description = cc.Description
 		contract.EggName = cc.EggName
+		contract.EggEmoji = FindEggEmoji(contract.EggName)
 		contract.ChickenRunCooldownMinutes = cc.ChickenRunCooldownMinutes
 		contract.MinutesPerToken = cc.MinutesPerToken
 		contract.Ultra = cc.Ultra
