@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
@@ -401,4 +402,87 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 	}
 
 	return str, buttons
+}
+
+func joinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell bool) {
+	var str = "Adding to Contract..."
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		Data: &discordgo.InteractionResponseData{
+			Content:    str,
+			Flags:      discordgo.MessageFlagsEphemeral,
+			Components: []discordgo.MessageComponent{}},
+	})
+
+	userID := bottools.GetInteractionUserID(i)
+
+	err := JoinContract(s, i.GuildID, i.ChannelID, userID, bell)
+	if err != nil {
+		str = err.Error()
+		log.Print(str)
+	}
+
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
+}
+
+// HandleSignupStart handles the interaction for starting the signup process
+func HandleSignupStart(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		Data: &discordgo.InteractionResponseData{
+			Content:    "",
+			Flags:      discordgo.MessageFlagsEphemeral,
+			Components: []discordgo.MessageComponent{}},
+	})
+	err := StartContractBoosting(s, i.GuildID, i.ChannelID, bottools.GetInteractionUserID(i))
+	if err != nil {
+		str := fmt.Sprint(err.Error())
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: str,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		})
+	} else {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
+
+		contract := FindContract(i.ChannelID)
+		// Rebuild the signup message to disable the start button
+		msg := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
+		contentStr, comp := GetSignupComponents(contract) // True to get a disabled start button
+		msg.SetContent(contentStr)
+		msg.Components = &comp
+		_, _ = s.ChannelMessageEditComplex(msg)
+	}
+}
+
+// HandleSignupFarmer handles the interaction for joining a contract as a farmer
+func HandleSignupFarmer(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	joinContract(s, i, false)
+}
+
+// HandleSignupBell handles the interaction for joining a contract with a bell
+func HandleSignupBell(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	joinContract(s, i, true)
+}
+
+// HandleSignupLeave handles the interaction for leaving a contract
+func HandleSignupLeave(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	str := "Removed from Contract"
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing...",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+
+	var err = RemoveFarmerByMention(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), i.Member.User.Mention())
+	if err != nil {
+		str = err.Error()
+	}
+
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content: str,
+		Flags:   discordgo.MessageFlagsEphemeral,
+	})
 }

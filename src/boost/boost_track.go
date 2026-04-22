@@ -68,3 +68,17 @@ func GetSlashTokenEditCommand(cmd string) *discordgo.ApplicationCommand {
 		},
 	}
 }
+
+// HandleTokenEditInteraction handles the /token-edit command interaction
+func HandleTokenEditInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	var str string
+	if i.GuildID != "" {
+		str = HandleTokenEditCommand(s, i)
+	}
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: str,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		}})
+}

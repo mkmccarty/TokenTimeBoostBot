@@ -8,7 +8,6 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -206,162 +205,14 @@ var (
 	AppID          = flag.String("app", "", "Application ID")
 	RemoveCommands = flag.Bool("rmcmd", false, "Remove all commands after shutdowning or not")
 
-	adminCommands = []*discordgo.ApplicationCommand{
-		boost.GetSlashAdminContractsListCommand(slashAdminContractsList),
-		tasks.GetSlashReloadContractsCommand(slashReloadContracts),
-		boost.SlashAdminGetContractData(slashAdminGetContractData),
-		boost.SlashAdminListRoles(slashAdminListRoles),
-		boost.SlashAdminGuildStateCommand(slashAdminGuildstate),
-		boost.SlashAdminMembers(slashAdminMembers),
-		boost.SlashAdminCurrentContracts(slashActiveContracts),
-		boost.SlashAdminStatusMessageCommand(slashStatusMessage),
-		guildstate.SlashSetGuildSettingCommand(slashAdminSetGuildSetting),
-		guildstate.SlashGetGuildSettingsCommand(slashAdminGetGuildSettings),
-		guildstate.SlashSetGuildFlagCommand(slashAdminSetGuildFlag),
-		guildstate.SlashGetGuildFlagCommand(slashAdminGetGuildFlag),
-	}
-
-	globalCommands = []*discordgo.ApplicationCommand{
-		events.SlashLaunchHelperCommand(slashLaunchHelper),
-		events.SlashEventHelperCommand(slashEventHelper),
-		boost.GetSlashRerunEvalCommand(slashRerunEval),
-		boost.GetSlashVirtueCommand(slashVirtue),
-		boost.GetSlashRegisterCommand(slashRegister),
-		menno.SlashHuntCommand(slashHunt),
-	}
-
-	commands = []*discordgo.ApplicationCommand{
-
-		boost.GetSlashContractCommand(slashContract),
-		boost.GetSlashSpeedrunCommand(slashSpeedrun),
-		boost.GetSlashRenameThread(slashRenameThread),
-		boost.SlashArtifactsCommand(slashArtifact),
-		boost.GetSlashScoreExplorerCommand(slashScoreExplorer),
-		boost.GetSlashChangeSpeedRunSinkCommand(slashChangeSpeedRunSink),
-		boost.GetSlashUpdateCommand(slashUpdateCommand),
-		boost.GetSlashChangeCommand(slashChangeCommand),
-		boost.GetSlashJoinContractCommand(slashJoinContract),
-		boost.GetSlashBoostCommand(slashBoost),
-		boost.GetSlashBoostOrderCommand(slashBoostOrder),
-		boost.GetSlashBoostOrderCommand(slashCatalyst),
-		boost.GetSlashSkipCommand(slashSkip),
-		boost.GetSlashUnboostCommand(slashUnboost),
-		boost.GetSlashPruneCommand(slashPrune),
-		boost.GetSlashCoopETACommand(slashCoopETA),
-		boost.GetSlashVolunteerSink(slashVolunteerSink),
-		boost.GetSlashVoluntellSink(slashVoluntellSink),
-		boost.GetSlasLinkAlternateCommand(slashLinkAlternate),
-		boost.GetSlashCalcContractTval(slashCalcContractTval),
-		boost.GetSlashCoopTval(slashCoopTval),
-		boost.GetSlashTeamworkEval(slashTeamworkEval),
-		boost.GetSlashContractReportCommand(slashContractReport),
-		boost.GetPredictionsCommand(slashPredictions),
-		boost.GetSlashStones(slashStones),
-		boost.GetSlashLeaderboard(slashLeaderboard),
-		boost.GetSlashTimer(slashTimer),
-		boost.GetSlashEstimateTime(slashEstimateTime),
-		boost.GetSlashCsEstimates(slashCsEstimate),
-		boost.GetSlashLobbyCommand(slashLobby),
-		boost.GetSlashChangeOneBoosterCommand(slashChangeOneBooster),
-		boost.GetSlashChangePlannedStartCommand(slashChangePlannedStartCommand),
-		bottools.GetSlashRemoveMessage(slashRemoveDMMessage),
-		boost.GetSlashTokenEditCommand(slashTokenEdit),
-		farmerstate.SlashSetEggIncNameCommand(slashSetEggIncName),
-		farmerstate.GetSlashPrivacyCommand(slashPrivacy),
-		boost.GetSlashBumpCommand(slashBump),
-		boost.GetSlashToggleContractPingsCommand(slashToggleContractPings),
-		boost.GetSlashHelpCommand(slashHelp),
-		boost.GetSlashContractSettingsCommand(slashContractSettings),
-	}
-
-	autocompleteHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		slashContract:             boost.HandleContractAutoComplete,
-		slashChangeCommand:        boost.HandleContractAutoComplete,
-		slashRerunEval:            boost.HandleAllContractsAutoComplete,
-		slashAdminGetContractData: boost.HandleCoopAutoComplete,
-		slashAdminListRoles:       boost.HandleContractAutoComplete,
-		slashAdminGuildstate:      boost.HandleAdminGuildStateAutoComplete,
-		slashStatusMessage:        boost.HandleAdminStatusMessageAutoComplete,
-		slashEstimateTime:         boost.HandleAllContractsAutoComplete,
-		slashCsEstimate:           boost.HandleAllContractsAutoComplete,
-		slashLobby:                boost.HandleAllContractsAutoComplete,
-		slashLinkAlternate:        boost.HandleLinkAlternateAutoComplete,
-		slashCalcContractTval:     boost.HandleAltsAutoComplete,
-		slashStones:               boost.HandleAllContractsAutoComplete,
-		slashTeamworkEval:         boost.HandleAllContractsAutoComplete,
-		slashContractReport:       boost.HandleAllContractsAutoComplete,
-		slashScoreExplorer:        boost.HandleAllContractsAutoComplete,
-		slashHunt:                 menno.HandleHuntAutoComplete,
-		slashTokenEdit:            boost.HandleTokenEditAutoComplete,
-	}
-
-	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		slashAdminContractsList:        boost.HandleAdminContractList,
-		slashReloadContracts:           tasks.HandleReloadContractsCommand,
-		slashAdminGetContractData:      boost.HandleAdminGetContractData,
-		slashAdminListRoles:            boost.HandleAdminListRoles,
-		slashAdminGuildstate:           boost.HandleAdminGuildStateCommand,
-		slashAdminMembers:              boost.HandleAdminMembers,
-		slashActiveContracts:           boost.HandleAdminCurrentContracts,
-		slashStatusMessage:             boost.HandleAdminStatusMessageCommand,
-		slashAdminSetGuildSetting:      guildstate.SetGuildSetting,
-		slashAdminGetGuildSettings:     guildstate.GetGuildSettings,
-		slashAdminSetGuildFlag:         guildstate.SetGuildFlag,
-		slashAdminGetGuildFlag:         guildstate.GetGuildFlag,
-		slashArtifact:                  boost.HandleArtifactCommand,
-		slashScoreExplorer:             boost.HandleScoreExplorerCommand,
-		slashJoinContract:              boost.HandleJoinCommand,
-		slashCoopETA:                   boost.HandleCoopETACommand,
-		slashLaunchHelper:              events.HandleLaunchHelper,
-		slashEventHelper:               events.HandleEventHelper,
-		slashRegister:                  boost.HandleRegister,
-		slashContractReport:            boost.HandleContractReport,
-		slashRerunEval:                 boost.HandleReplayEval,
-		slashVirtue:                    boost.HandleVirtue,
-		slashTokenEdit:                 handleTokenEditCommand,
-		slashCalcContractTval:          boost.HandleContractCalcContractTvalCommand,
-		slashCoopTval:                  boost.HandleCoopTvalCommand,
-		slashTeamworkEval:              boost.HandleTeamworkEvalCommand,
-		slashStones:                    boost.HandleStonesCommand,
-		slashLeaderboard:               boost.HandleLeaderboard,
-		slashTimer:                     boost.HandleTimerCommand,
-		slashHunt:                      menno.HandleHuntCommand,
-		slashPredictions:               boost.HandlePredictionsCommand,
-		slashMint:                      boost.HandleMintCommand,
-		slashEstimateTime:              boost.HandleEstimateTimeCommand,
-		slashCsEstimate:                boost.HandleCsEstimatesCommand,
-		slashLobby:                     boost.HandleLobbyCommand,
-		slashSpeedrun:                  boost.HandleSpeedrunCommand,
-		slashChangeSpeedRunSink:        boost.HandleChangeSpeedrunSinkCommand,
-		slashUpdateCommand:             boost.HandleUpdateCommand,
-		slashChangeCommand:             boost.HandleChangeCommand,
-		slashVolunteerSink:             boost.HandleSlashVolunteerSinkCommand,
-		slashVoluntellSink:             boost.HandleSlashVoluntellSinkCommand,
-		slashContract:                  boost.HandleContractCommand,
-		slashBoost:                     boost.HandleBoostCommand,
-		slashBoostOrder:                boost.HandleBoostOrderCommand,
-		slashCatalyst:                  boost.HandleBoostOrderCommand,
-		slashSkip:                      boost.HandleSkipCommand,
-		slashUnboost:                   boost.HandleUnboostCommand,
-		slashPrune:                     boost.HandlePruneCommand,
-		slashBump:                      boost.HandleBumpCommand,
-		slashToggleContractPings:       boost.HandleToggleContractPingsCommand,
-		slashContractSettings:          boost.HandleContractSettingsCommand,
-		slashChangeOneBooster:          boost.HandleChangeOneBoosterCommand,
-		slashChangePlannedStartCommand: boost.HandleChangePlannedStartCommand,
-		slashLinkAlternate:             boost.HandleLinkAlternateCommand,
-		slashRenameThread:              boost.HandleRenameThreadCommand,
-		slashRemoveDMMessage:           bottools.HandleRemoveMessageCommand,
-		slashHelp:                      boost.HandleHelpCommand,
-		slashFun:                       notok.FunHandler,
-		slashPrivacy:                   farmerstate.HandlePrivacyCommand,
-		slashSetEggIncName:             handleSetEggIncName,
-	}
+	commandRegistry      []CommandDef
+	adminCommands        []*discordgo.ApplicationCommand
+	globalCommands       []*discordgo.ApplicationCommand
+	commands             []*discordgo.ApplicationCommand
+	commandHandlers      = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
+	autocompleteHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
 
 	componentHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"fd_delete": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleContractDelete(s, i)
-		},
 		"fd_tokens5": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.AddBoostTokensInteraction(s, i, 5, 0)
 		},
@@ -377,224 +228,152 @@ var (
 		"fd_tokens_sub": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.AddBoostTokensInteraction(s, i, 0, -1)
 		},
-		"rc_": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleContractReactions(s, i)
-		},
-		"menu": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleMenuReactions(s, i)
-		},
-		"cs_": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleContractSettingsReactions(s, i)
-		},
-		"as_": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleArtifactReactions(s, i)
-		},
-		"fd_stones": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleStonesPage(s, i)
-		},
-		"fd_teamwork": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleTeamworkPage(s, i)
-		},
-		"fd_playground": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleScoreExplorerPage(s, i)
-		},
-		"bo_order": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleBoostOrderReactions(s, i)
-		},
-		"predictions": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandlePredictionsPage(s, i)
-		},
-		"leaderboard": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleLeaderboardPage(s, i)
-		},
-		"active-contracts": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleActiveContractsPage(s, i)
-		},
-		"admin-contract-list": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleAdminContractListComponent(s, i)
-		},
-		"fd_signupStart":  handleSignupStart,
-		"fd_signupFarmer": handleSignupFarmer,
-		"fd_signupBell":   handleSignupBell,
-		"m_eggid": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleEggIDModalSubmit(s, i)
-		},
-		"fd_signupLeave": handleSignupLeave,
-		"csestimate": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleCsEstimateButtons(s, i)
-		},
-		"lobby": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleLobbyButtons(s, i)
-		},
-		"coop_status": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleCoopStatusPermissionButton(s, i)
-		},
-		"leaderboard_perm": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleLeaderboardPermissionButton(s, i)
-		},
-		"mint_preview": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleMintPreviewComponent(s, i)
-		},
-		"chart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.HandleChartReactions(s, i)
-		},
+		"fd_delete":           boost.HandleContractDelete,
+		"rc_":                 boost.HandleContractReactions,
+		"menu":                boost.HandleMenuReactions,
+		"cs_":                 boost.HandleContractSettingsReactions,
+		"as_":                 boost.HandleArtifactReactions,
+		"fd_stones":           boost.HandleStonesPage,
+		"fd_teamwork":         boost.HandleTeamworkPage,
+		"fd_playground":       boost.HandleScoreExplorerPage,
+		"bo_order":            boost.HandleBoostOrderReactions,
+		"predictions":         boost.HandlePredictionsPage,
+		"leaderboard":         boost.HandleLeaderboardPage,
+		"active-contracts":    boost.HandleActiveContractsPage,
+		"admin-contract-list": boost.HandleAdminContractListComponent,
+		"fd_signupStart":      boost.HandleSignupStart,
+		"fd_signupFarmer":     boost.HandleSignupFarmer,
+		"fd_signupBell":       boost.HandleSignupBell,
+		"m_eggid":             boost.HandleEggIDModalSubmit,
+		"fd_signupLeave":      boost.HandleSignupLeave,
+		"csestimate":          boost.HandleCsEstimateButtons,
+		"lobby":               boost.HandleLobbyButtons,
+		"coop_status":         boost.HandleCoopStatusPermissionButton,
+		"leaderboard_perm":    boost.HandleLeaderboardPermissionButton,
+		"mint_preview":        boost.HandleMintPreviewComponent,
+		"chart":               boost.HandleChartReactions,
 	}
 )
 
-func joinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell bool) {
-	var str = "Adding to Contract..."
+// CommandCategory represents the category of a Discord application command
+type CommandCategory string
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
-	})
+const (
+	// CmdCategoryStandard represents a standard command available to all users
+	CmdCategoryStandard CommandCategory = "standard"
+	// CmdCategoryGlobal represents a global command available to all users
+	CmdCategoryGlobal CommandCategory = "global"
+	// CmdCategoryAdmin represents an admin command available to administrators
+	CmdCategoryAdmin CommandCategory = "admin"
+)
 
-	userID := getIntentUserID(i)
-
-	err := boost.JoinContract(s, i.GuildID, i.ChannelID, userID, bell)
-	if err != nil {
-		str = err.Error()
-		log.Print(str)
-	}
-	//else {
-	//	str = fmt.Sprintf("Added <@%s> to contract", i.Member.User.ID)
-	//}
-
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		//		Content: str,
-	})
+// CommandDef represents a Discord application command definition
+type CommandDef struct {
+	AppCmd       *discordgo.ApplicationCommand
+	Category     CommandCategory
+	Handler      func(s *discordgo.Session, i *discordgo.InteractionCreate)
+	Autocomplete func(s *discordgo.Session, i *discordgo.InteractionCreate)
 }
 
-func handleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	var str string
-	if i.GuildID != "" {
-		str = boost.HandleTokenEditCommand(s, i)
-	}
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: str,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		}})
-}
+func setupCommands() {
+	commandRegistry = []CommandDef{
+		// Admin Commands
+		{AppCmd: boost.GetSlashAdminContractsListCommand(slashAdminContractsList), Category: CmdCategoryAdmin, Handler: boost.HandleAdminContractList},
+		{AppCmd: tasks.GetSlashReloadContractsCommand(slashReloadContracts), Category: CmdCategoryAdmin, Handler: tasks.HandleReloadContractsCommand},
+		{AppCmd: boost.SlashAdminGetContractData(slashAdminGetContractData), Category: CmdCategoryAdmin, Handler: boost.HandleAdminGetContractData, Autocomplete: boost.HandleCoopAutoComplete},
+		{AppCmd: boost.SlashAdminListRoles(slashAdminListRoles), Category: CmdCategoryAdmin, Handler: boost.HandleAdminListRoles, Autocomplete: boost.HandleContractAutoComplete},
+		{AppCmd: boost.SlashAdminGuildStateCommand(slashAdminGuildstate), Category: CmdCategoryAdmin, Handler: boost.HandleAdminGuildStateCommand, Autocomplete: boost.HandleAdminGuildStateAutoComplete},
+		{AppCmd: boost.SlashAdminMembers(slashAdminMembers), Category: CmdCategoryAdmin, Handler: boost.HandleAdminMembers},
+		{AppCmd: boost.SlashAdminCurrentContracts(slashActiveContracts), Category: CmdCategoryAdmin, Handler: boost.HandleAdminCurrentContracts},
+		{AppCmd: boost.SlashAdminStatusMessageCommand(slashStatusMessage), Category: CmdCategoryAdmin, Handler: boost.HandleAdminStatusMessageCommand, Autocomplete: boost.HandleAdminStatusMessageAutoComplete},
+		{AppCmd: guildstate.SlashSetGuildSettingCommand(slashAdminSetGuildSetting), Category: CmdCategoryAdmin, Handler: guildstate.SetGuildSetting},
+		{AppCmd: guildstate.SlashGetGuildSettingsCommand(slashAdminGetGuildSettings), Category: CmdCategoryAdmin, Handler: guildstate.GetGuildSettings},
+		{AppCmd: guildstate.SlashSetGuildFlagCommand(slashAdminSetGuildFlag), Category: CmdCategoryAdmin, Handler: guildstate.SetGuildFlag},
+		{AppCmd: guildstate.SlashGetGuildFlagCommand(slashAdminGetGuildFlag), Category: CmdCategoryAdmin, Handler: guildstate.GetGuildFlag},
 
-func handleSignupStart(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{
-			Content:    "",
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
-	})
-	err := boost.StartContractBoosting(s, i.GuildID, i.ChannelID, getIntentUserID(i))
-	if err != nil {
-		str := fmt.Sprint(err.Error())
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: str,
-			Flags:   discordgo.MessageFlagsEphemeral,
+		// Global Commands
+		{AppCmd: events.SlashLaunchHelperCommand(slashLaunchHelper), Category: CmdCategoryGlobal, Handler: events.HandleLaunchHelper},
+		{AppCmd: events.SlashEventHelperCommand(slashEventHelper), Category: CmdCategoryGlobal, Handler: events.HandleEventHelper},
+		{AppCmd: boost.GetSlashRerunEvalCommand(slashRerunEval), Category: CmdCategoryGlobal, Handler: boost.HandleReplayEval, Autocomplete: boost.HandleAllContractsAutoComplete},
+		{AppCmd: boost.GetSlashVirtueCommand(slashVirtue), Category: CmdCategoryGlobal, Handler: boost.HandleVirtue},
+		{AppCmd: boost.GetSlashRegisterCommand(slashRegister), Category: CmdCategoryGlobal, Handler: boost.HandleRegister},
+		{AppCmd: menno.SlashHuntCommand(slashHunt), Category: CmdCategoryGlobal, Handler: menno.HandleHuntCommand, Autocomplete: menno.HandleHuntAutoComplete},
+
+		// Standard Commands
+		{AppCmd: boost.GetSlashContractCommand(slashContract), Category: CmdCategoryStandard, Handler: boost.HandleContractCommand, Autocomplete: boost.HandleContractAutoComplete},
+		{AppCmd: boost.GetSlashSpeedrunCommand(slashSpeedrun), Category: CmdCategoryStandard, Handler: boost.HandleSpeedrunCommand},
+		{AppCmd: boost.GetSlashRenameThread(slashRenameThread), Category: CmdCategoryStandard, Handler: boost.HandleRenameThreadCommand},
+		{AppCmd: boost.SlashArtifactsCommand(slashArtifact), Category: CmdCategoryStandard, Handler: boost.HandleArtifactCommand},
+		{AppCmd: boost.GetSlashScoreExplorerCommand(slashScoreExplorer), Category: CmdCategoryStandard, Handler: boost.HandleScoreExplorerCommand, Autocomplete: boost.HandleAllContractsAutoComplete},
+		{AppCmd: boost.GetSlashChangeSpeedRunSinkCommand(slashChangeSpeedRunSink), Category: CmdCategoryStandard, Handler: boost.HandleChangeSpeedrunSinkCommand},
+		{AppCmd: boost.GetSlashUpdateCommand(slashUpdateCommand), Category: CmdCategoryStandard, Handler: boost.HandleUpdateCommand},
+		{AppCmd: boost.GetSlashChangeCommand(slashChangeCommand), Category: CmdCategoryStandard, Handler: boost.HandleChangeCommand, Autocomplete: boost.HandleContractAutoComplete},
+		{AppCmd: boost.GetSlashJoinContractCommand(slashJoinContract), Category: CmdCategoryStandard, Handler: boost.HandleJoinCommand},
+		{AppCmd: boost.GetSlashBoostCommand(slashBoost), Category: CmdCategoryStandard, Handler: boost.HandleBoostCommand},
+		{AppCmd: boost.GetSlashBoostOrderCommand(slashBoostOrder), Category: CmdCategoryStandard, Handler: boost.HandleBoostOrderCommand},
+		{AppCmd: boost.GetSlashBoostOrderCommand(slashCatalyst), Category: CmdCategoryStandard, Handler: boost.HandleBoostOrderCommand},
+		{AppCmd: boost.GetSlashSkipCommand(slashSkip), Category: CmdCategoryStandard, Handler: boost.HandleSkipCommand},
+		{AppCmd: boost.GetSlashUnboostCommand(slashUnboost), Category: CmdCategoryStandard, Handler: boost.HandleUnboostCommand},
+		{AppCmd: boost.GetSlashPruneCommand(slashPrune), Category: CmdCategoryStandard, Handler: boost.HandlePruneCommand},
+		{AppCmd: boost.GetSlashCoopETACommand(slashCoopETA), Category: CmdCategoryStandard, Handler: boost.HandleCoopETACommand},
+		{AppCmd: boost.GetSlashVolunteerSink(slashVolunteerSink), Category: CmdCategoryStandard, Handler: boost.HandleSlashVolunteerSinkCommand},
+		{AppCmd: boost.GetSlashVoluntellSink(slashVoluntellSink), Category: CmdCategoryStandard, Handler: boost.HandleSlashVoluntellSinkCommand},
+		{AppCmd: boost.GetSlasLinkAlternateCommand(slashLinkAlternate), Category: CmdCategoryStandard, Handler: boost.HandleLinkAlternateCommand, Autocomplete: boost.HandleLinkAlternateAutoComplete},
+		{AppCmd: boost.GetSlashCalcContractTval(slashCalcContractTval), Category: CmdCategoryStandard, Handler: boost.HandleContractCalcContractTvalCommand, Autocomplete: boost.HandleAltsAutoComplete},
+		{AppCmd: boost.GetSlashCoopTval(slashCoopTval), Category: CmdCategoryStandard, Handler: boost.HandleCoopTvalCommand},
+		{AppCmd: boost.GetSlashTeamworkEval(slashTeamworkEval), Category: CmdCategoryStandard, Handler: boost.HandleTeamworkEvalCommand, Autocomplete: boost.HandleAllContractsAutoComplete},
+		{AppCmd: boost.GetSlashContractReportCommand(slashContractReport), Category: CmdCategoryStandard, Handler: boost.HandleContractReport, Autocomplete: boost.HandleAllContractsAutoComplete},
+		{AppCmd: boost.GetPredictionsCommand(slashPredictions), Category: CmdCategoryStandard, Handler: boost.HandlePredictionsCommand},
+		{AppCmd: boost.GetSlashStones(slashStones), Category: CmdCategoryStandard, Handler: boost.HandleStonesCommand, Autocomplete: boost.HandleAllContractsAutoComplete},
+		{AppCmd: boost.GetSlashLeaderboard(slashLeaderboard), Category: CmdCategoryStandard, Handler: boost.HandleLeaderboard},
+		{AppCmd: boost.GetSlashTimer(slashTimer), Category: CmdCategoryStandard, Handler: boost.HandleTimerCommand},
+		{AppCmd: boost.GetSlashEstimateTime(slashEstimateTime), Category: CmdCategoryStandard, Handler: boost.HandleEstimateTimeCommand, Autocomplete: boost.HandleAllContractsAutoComplete},
+		{AppCmd: boost.GetSlashCsEstimates(slashCsEstimate), Category: CmdCategoryStandard, Handler: boost.HandleCsEstimatesCommand, Autocomplete: boost.HandleAllContractsAutoComplete},
+		{AppCmd: boost.GetSlashLobbyCommand(slashLobby), Category: CmdCategoryStandard, Handler: boost.HandleLobbyCommand, Autocomplete: boost.HandleAllContractsAutoComplete},
+		{AppCmd: boost.GetSlashChangeOneBoosterCommand(slashChangeOneBooster), Category: CmdCategoryStandard, Handler: boost.HandleChangeOneBoosterCommand},
+		{AppCmd: boost.GetSlashChangePlannedStartCommand(slashChangePlannedStartCommand), Category: CmdCategoryStandard, Handler: boost.HandleChangePlannedStartCommand},
+		{AppCmd: bottools.GetSlashRemoveMessage(slashRemoveDMMessage), Category: CmdCategoryStandard, Handler: bottools.HandleRemoveMessageCommand},
+		{AppCmd: boost.GetSlashTokenEditCommand(slashTokenEdit), Category: CmdCategoryStandard, Handler: boost.HandleTokenEditInteraction, Autocomplete: boost.HandleTokenEditAutoComplete},
+		{AppCmd: farmerstate.SlashSetEggIncNameCommand(slashSetEggIncName), Category: CmdCategoryStandard, Handler: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			farmerstate.HandleSetEggIncName(s, i, boost.IsUserCreatorOfAnyContract)
+		}},
+		{AppCmd: farmerstate.GetSlashPrivacyCommand(slashPrivacy), Category: CmdCategoryStandard, Handler: farmerstate.HandlePrivacyCommand},
+		{AppCmd: boost.GetSlashBumpCommand(slashBump), Category: CmdCategoryStandard, Handler: boost.HandleBumpCommand},
+		{AppCmd: boost.GetSlashToggleContractPingsCommand(slashToggleContractPings), Category: CmdCategoryStandard, Handler: boost.HandleToggleContractPingsCommand},
+		{AppCmd: boost.GetSlashHelpCommand(slashHelp), Category: CmdCategoryStandard, Handler: boost.HandleHelpCommand},
+		{AppCmd: boost.GetSlashContractSettingsCommand(slashContractSettings), Category: CmdCategoryStandard, Handler: boost.HandleContractSettingsCommand},
+	}
+
+	if !slices.Contains(config.FeatureFlags, "NO_FUN") {
+		commandRegistry = append(commandRegistry, CommandDef{
+			AppCmd:   notok.SlashFunCommand(slashFun),
+			Category: CmdCategoryStandard,
+			Handler:  notok.FunHandler,
 		})
-	} else {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
-
-		contract := boost.FindContract(i.ChannelID)
-		// Rebuild the signup message to disable the start button
-		msg := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
-		contentStr, comp := boost.GetSignupComponents(contract) // True to get a disabled start button
-		msg.SetContent(contentStr)
-		msg.Components = &comp
-		_, _ = s.ChannelMessageEditComplex(msg)
 	}
-}
 
-func handleSignupFarmer(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	joinContract(s, i, false)
-}
-
-func handleSignupBell(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	joinContract(s, i, true)
-}
-
-func handleSignupLeave(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	str := "Removed from Contract"
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
+	commandRegistry = append(commandRegistry, CommandDef{
+		AppCmd:   boost.GetSlashMintCommand(slashMint),
+		Category: CmdCategoryStandard,
+		Handler:  boost.HandleMintCommand,
 	})
 
-	var err = boost.RemoveFarmerByMention(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), i.Member.User.Mention())
-	if err != nil {
-		str = err.Error()
-	}
-
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: str,
-		Flags:   discordgo.MessageFlagsEphemeral,
-	})
-}
-
-func handleSetEggIncName(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	// Protection against DM use
-	if i.GuildID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "This command can only be run in a server.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
-		})
-		return
-	}
-	var eiName string
-	var callerUserID = getIntentUserID(i)
-	var userID = getIntentUserID(i)
-
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
-
-	if opt, ok := optionMap["discord-name"]; ok {
-		farmerMention := opt.UserValue(s).Mention()
-		re := regexp.MustCompile(`[\\<>@#&!]`)
-		userID = re.ReplaceAllString(farmerMention, "")
-	}
-
-	var str = "Setting Egg, IGN for <@" + userID + "> to "
-
-	if opt, ok := optionMap["ei-ign"]; ok {
-		eiName = strings.TrimSpace(opt.StringValue())
-		str += eiName
-	}
-
-	// if eiName matches this regex ^EI[1-9]*$ then it an invalid name
-	re := regexp.MustCompile(`^EI[1-9]*$`)
-	if re.MatchString(eiName) {
-		str = "Don't use your Egg, Inc. EI number."
-	} else {
-		// Is the user issuing the command a coordinator?
-		if userID != callerUserID && !boost.IsUserCreatorOfAnyContract(s, callerUserID) {
-			str = "This form of usage is restricted to contract coordinators and administrators."
-		} else {
-			farmerstate.SetEggIncName(userID, eiName)
+	for _, def := range commandRegistry {
+		if def.Handler != nil {
+			commandHandlers[def.AppCmd.Name] = def.Handler
 		}
-	}
+		if def.Autocomplete != nil {
+			autocompleteHandlers[def.AppCmd.Name] = def.Autocomplete
+		}
 
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
-	})
-	if err != nil {
-		log.Println(err.Error())
+		switch def.Category {
+		case CmdCategoryAdmin:
+			adminCommands = append(adminCommands, def.AppCmd)
+		case CmdCategoryGlobal:
+			globalCommands = append(globalCommands, def.AppCmd)
+		case CmdCategoryStandard:
+			commands = append(commands, def.AppCmd)
+		}
 	}
 }
 
@@ -663,7 +442,7 @@ func init() {
 			// Handlers could include a parameter to help identify this uniquly
 			handlerID := strings.Split(i.ModalSubmitData().CustomID, "#")[0]
 			if h, ok := componentHandlers[handlerID]; ok {
-				userID := getIntentUserID(i)
+				userID := bottools.GetInteractionUserID(i)
 				log.Println("Component: ", i.ModalSubmitData().CustomID, userID)
 				h(s, i)
 			} else {
@@ -675,7 +454,7 @@ func init() {
 			handlerID := strings.Split(i.MessageComponentData().CustomID, "#")[0]
 
 			if h, ok := componentHandlers[handlerID]; ok {
-				userID := getIntentUserID(i)
+				userID := bottools.GetInteractionUserID(i)
 				log.Println("Component: ", i.MessageComponentData().CustomID, userID)
 				h(s, i)
 			} else {
@@ -761,6 +540,7 @@ func connectWithRetry(dg *discordgo.Session) error {
 }
 
 func main() {
+	setupCommands()
 
 	/*
 		go func() {
@@ -801,14 +581,6 @@ func main() {
 		},
 		Status: string(discordgo.StatusOnline),
 	})
-
-	if !slices.Contains(config.FeatureFlags, "NO_FUN") {
-		commands = append(commands, notok.SlashFunCommand(slashFun))
-	}
-
-	//if config.IsDevBot() {
-	commands = append(commands, boost.GetSlashMintCommand(slashMint))
-	//}
 
 	commandSet := append(commands, globalCommands...)
 
@@ -908,13 +680,6 @@ func main() {
 	boost.SaveAllData()
 
 	log.Println("Graceful shutdown")
-}
-
-func getIntentUserID(i *discordgo.InteractionCreate) string {
-	if i.GuildID == "" {
-		return i.User.ID
-	}
-	return i.Member.User.ID
 }
 
 // Heartbeat function to update the modification time of a file at regular intervals
