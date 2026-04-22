@@ -73,9 +73,6 @@ func TestBackupMaker_CTEValues(t *testing.T) {
 
 	// Extracted from firstcontact JSON fixture
 	eovEarned := []uint32{20, 20, 21, 20, 20}
-	eggsDelivered := []float64{671228376732604700, 281084978380496960, 1861466584249923000, 321860104553812600, 766522163167315600}
-
-	maker.SetVirtueData(36, 1, eovEarned, eggsDelivered, 11215366.125829924)
 
 	backup := maker.GetBackup()
 	virtue := backup.GetVirtue()
