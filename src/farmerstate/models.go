@@ -11,6 +11,7 @@ import (
 
 type CustomBanner struct {
 	UserID    string
+	GuildID   string
 	ImageData []byte
 	UpdatedAt time.Time
 }

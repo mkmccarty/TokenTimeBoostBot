@@ -44,11 +44,16 @@ func (q *Queries) ClearExtraLegacyRecords(ctx context.Context) error {
 }
 
 const deleteCustomBanner = `-- name: DeleteCustomBanner :exec
-DELETE FROM custom_banners WHERE user_id = ?
+DELETE FROM custom_banners WHERE user_id = ? AND guild_id = ?
 `
 
-func (q *Queries) DeleteCustomBanner(ctx context.Context, userID string) error {
-	_, err := q.db.ExecContext(ctx, deleteCustomBanner, userID)
+type DeleteCustomBannerParams struct {
+	UserID  string
+	GuildID string
+}
+
+func (q *Queries) DeleteCustomBanner(ctx context.Context, arg DeleteCustomBannerParams) error {
+	_, err := q.db.ExecContext(ctx, deleteCustomBanner, arg.UserID, arg.GuildID)
 	return err
 }
 
@@ -111,16 +116,21 @@ func (q *Queries) GetAllLegacyFarmerstate(ctx context.Context) ([]FarmerState, e
 }
 
 const getCustomBanner = `-- name: GetCustomBanner :one
-SELECT image_data, updated_at FROM custom_banners WHERE user_id = ?
+SELECT image_data, updated_at FROM custom_banners WHERE user_id = ? AND guild_id = ?
 `
+
+type GetCustomBannerParams struct {
+	UserID  string
+	GuildID string
+}
 
 type GetCustomBannerRow struct {
 	ImageData []byte
 	UpdatedAt time.Time
 }
 
-func (q *Queries) GetCustomBanner(ctx context.Context, userID string) (GetCustomBannerRow, error) {
-	row := q.db.QueryRowContext(ctx, getCustomBanner, userID)
+func (q *Queries) GetCustomBanner(ctx context.Context, arg GetCustomBannerParams) (GetCustomBannerRow, error) {
+	row := q.db.QueryRowContext(ctx, getCustomBanner, arg.UserID, arg.GuildID)
 	var i GetCustomBannerRow
 	err := row.Scan(&i.ImageData, &i.UpdatedAt)
 	return i, err
@@ -331,19 +341,20 @@ func (q *Queries) UpdateLegacyFarmerstate(ctx context.Context, arg UpdateLegacyF
 }
 
 const upsertCustomBanner = `-- name: UpsertCustomBanner :exec
-INSERT INTO custom_banners (user_id, image_data) 
-VALUES (?, ?)
-ON CONFLICT(user_id) DO UPDATE SET 
+INSERT INTO custom_banners (user_id, guild_id, image_data) 
+VALUES (?, ?, ?)
+ON CONFLICT(user_id, guild_id) DO UPDATE SET 
 	image_data = excluded.image_data,
 	updated_at = CURRENT_TIMESTAMP
 `
 
 type UpsertCustomBannerParams struct {
 	UserID    string
+	GuildID   string
 	ImageData []byte
 }
 
 func (q *Queries) UpsertCustomBanner(ctx context.Context, arg UpsertCustomBannerParams) error {
-	_, err := q.db.ExecContext(ctx, upsertCustomBanner, arg.UserID, arg.ImageData)
+	_, err := q.db.ExecContext(ctx, upsertCustomBanner, arg.UserID, arg.GuildID, arg.ImageData)
 	return err
 }

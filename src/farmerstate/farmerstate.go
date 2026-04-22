@@ -538,14 +538,15 @@ func GetDiscordUserIDFromEiIgn(eiIgn string) (string, error) {
 }
 
 // SetCustomBanner saves a user's custom banner PNG bytes into the database.
-func SetCustomBanner(userID string, imageData []byte) error {
+func SetCustomBanner(userID string, guildID string, imageData []byte) error {
 	FlushPendingSaves()
 	err := queries.UpsertCustomBanner(ctx, UpsertCustomBannerParams{
 		UserID:    userID,
+		GuildID:   guildID,
 		ImageData: imageData,
 	})
 	if err != nil {
-		log.Printf("Error saving custom banner for %s: %v", userID, err)
+		log.Printf("Error saving custom banner for %s in guild %s: %v", userID, guildID, err)
 		return err
 	}
 	return nil
@@ -553,9 +554,9 @@ func SetCustomBanner(userID string, imageData []byte) error {
 
 // SyncCustomBanner checks if a custom banner exists in the database and is newer than the file on disk.
 // If it is, it writes the image data from the database to the specified path.
-func SyncCustomBanner(userID string, destPath string) bool {
+func SyncCustomBanner(userID string, guildID string, destPath string) bool {
 	FlushPendingSaves()
-	banner, err := queries.GetCustomBanner(ctx, userID)
+	banner, err := queries.GetCustomBanner(ctx, GetCustomBannerParams{UserID: userID, GuildID: guildID})
 	if err != nil {
 		_ = os.Remove(destPath) // Cleanup any lingering orphaned files
 		return false
@@ -578,11 +579,11 @@ func SyncCustomBanner(userID string, destPath string) bool {
 }
 
 // RemoveCustomBanner deletes a user's custom banner from the database.
-func RemoveCustomBanner(userID string) error {
+func RemoveCustomBanner(userID string, guildID string) error {
 	FlushPendingSaves()
-	err := queries.DeleteCustomBanner(ctx, userID)
+	err := queries.DeleteCustomBanner(ctx, DeleteCustomBannerParams{UserID: userID, GuildID: guildID})
 	if err != nil {
-		log.Printf("Error removing custom banner for %s: %v", userID, err)
+		log.Printf("Error removing custom banner for %s in guild %s: %v", userID, guildID, err)
 		return err
 	}
 	return nil
