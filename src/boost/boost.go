@@ -565,14 +565,14 @@ func UpdateBannerURL(contract *Contract) {
 		} else if len(contract.CreatorID) > 0 {
 			creatorID := contract.CreatorID[0]
 			customBannerPath := fmt.Sprintf("%s/banner_%s.png", config.BannerPath, creatorID)
-			
+
 			hasBanner := false
 			if bottools.SyncCustomBannerCallback != nil {
 				hasBanner = bottools.SyncCustomBannerCallback(creatorID, customBannerPath)
 			} else if _, err := os.Stat(customBannerPath); err == nil {
 				hasBanner = true
 			}
-			
+
 			if hasBanner {
 				suffix = "-" + creatorID
 			}
@@ -2302,7 +2302,7 @@ func UpdateContractTime(contractID string, coopID string, startTime, endTime tim
 func GetSlashUploadBannerCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
-		Description: "Upload a custom contract banner (Nitro users only, exactly 640x85 pixels)",
+		Description: "Upload a custom contract banner (Nitro Boosters only, exactly 640x85 pixels)",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:        discordgo.ApplicationCommandOptionAttachment,
@@ -2329,16 +2329,22 @@ func HandleUploadBannerCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	isServerOwner := false
+	isServerBooster := false
+
 	if i.GuildID != "" {
 		guild, err := s.Guild(i.GuildID)
 		if err == nil && guild.OwnerID == user.ID {
 			isServerOwner = true
 		}
+		if i.Member != nil && i.Member.PremiumSince != nil {
+			isServerBooster = true
+		}
+
 	}
 
-	if user.PremiumType == discordgo.UserPremiumTypeNone && !isServerOwner {
+	if !isServerBooster && !isServerOwner {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: "You must be a Discord Nitro subscriber or the Server Owner to upload a custom banner.",
+			Content: "You must be a Server Booster or the Server Owner to upload a custom banner.",
 		})
 		return
 	}
