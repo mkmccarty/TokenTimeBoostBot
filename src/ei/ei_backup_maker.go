@@ -198,6 +198,14 @@ func NewBackupMaker(eiUserID, userName string) *BackupMaker {
 		currentFarm: homeFarm,
 	}
 
+	eovEarned := []uint32{20, 20, 21, 20, 20}
+	eggsDelivered := []float64{671228376732604700, 281084978380496960, 1861466584249923000, 321860104553812600, 766522163167315600}
+	maker.SetVirtueData(36, 1, eovEarned, eggsDelivered, 11215366.125829924)
+
+	tankFuels := []float64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 77804200160814.05, 247867287321.0276, 1759725104048.5757, 65000000000001.2, 75480247097414}
+	tankLimits := []float64{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.36, 0.02, 0.45, 0.29, 0.35}
+	maker.SetVirtueAFX(1.0, true, true, tankFuels, tankLimits, 9, 48448.569999999956)
+
 	maker.SetAllHabitatsTo(18) // Chicken Universe
 	maker.SetAllVehiclesTo(11) // Hyperloop Train
 	trains := make([]uint32, 17)
@@ -205,8 +213,6 @@ func NewBackupMaker(eiUserID, userName string) *BackupMaker {
 		trains[i] = 10 // Max train length
 	}
 	maker.currentFarm.TrainLength = trains
-
-	maker.SetAllResearchThroughTier(100)
 
 	defaultEpicResearch := []struct {
 		id    string
@@ -314,10 +320,15 @@ func (b *BackupMaker) SetVirtueAFX(flowPercentage float64, fuelingEnabled, tankF
 
 // SetAllResearchThroughTier sets all common research up to a given tier to its max level.
 func (b *BackupMaker) SetAllResearchThroughTier(tier uint32) *BackupMaker {
-	for i, researchData := range EggIncResearches {
+	for _, researchData := range EggIncResearches {
 		if researchData.Tier > 0 && uint32(researchData.Tier) <= tier {
 			maxLevel := uint32(researchData.Levels)
-			b.currentFarm.CommonResearch[i].Level = &maxLevel
+			for _, cr := range b.currentFarm.CommonResearch {
+				if cr.GetId() == researchData.ID {
+					cr.Level = &maxLevel
+					break
+				}
+			}
 		}
 	}
 	return b
@@ -325,11 +336,16 @@ func (b *BackupMaker) SetAllResearchThroughTier(tier uint32) *BackupMaker {
 
 // setResearchTypeToLevel is a helper to set a category of research to a specific level.
 func (b *BackupMaker) setResearchTypeToLevel(level uint32, isType func(string) bool) *BackupMaker {
-	for i, researchData := range EggIncResearches {
+	for _, researchData := range EggIncResearches {
 		if isType(researchData.ID) {
 			maxLevel := uint32(researchData.Levels)
 			actualLevel := uint32(math.Min(float64(level), float64(maxLevel)))
-			b.currentFarm.CommonResearch[i].Level = &actualLevel
+			for _, cr := range b.currentFarm.CommonResearch {
+				if cr.GetId() == researchData.ID {
+					cr.Level = &actualLevel
+					break
+				}
+			}
 		}
 	}
 	return b
@@ -547,6 +563,10 @@ func (b *BackupMaker) AddMaxColleggtibleContract(customEggID string) *BackupMake
 
 // --- Pointer Helpers ---
 
+func platformp(p Platform) *Platform {
+	return &p
+}
+
 func float64p(f float64) *float64 {
 	return &f
 }
@@ -557,4 +577,20 @@ func uint32p(i uint32) *uint32 {
 
 func stringp(s string) *string {
 	return &s
+}
+
+func boolp(b bool) *bool {
+	return &b
+}
+
+func uint64p(i uint64) *uint64 {
+	return &i
+}
+
+func userSubscriptionInfoLevelp(level UserSubscriptionInfo_Level) *UserSubscriptionInfo_Level {
+	return &level
+}
+
+func userSubscriptionInfoStatusp(status UserSubscriptionInfo_Status) *UserSubscriptionInfo_Status {
+	return &status
 }
