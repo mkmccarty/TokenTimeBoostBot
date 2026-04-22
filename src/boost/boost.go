@@ -558,7 +558,7 @@ func UpdateBannerURL(contract *Contract) {
 			if style == "f" || style == "l" {
 				suffix = "-space"
 			}
-		} else if usePNW {
+		} else if usePNW && guildstate.GetGuildSettingString("DEFAULT", "banner_override") == "pnw" {
 			suffix = "-pnw"
 		}
 

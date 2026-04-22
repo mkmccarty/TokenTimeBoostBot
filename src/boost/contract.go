@@ -14,6 +14,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -560,7 +561,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 			eggName = contractInfo.EggName
 		}
 		if bannerText != "" && eggName != "" && !contract.PredictionSignup {
-			usePNW := userID == config.AdminUserID
+			usePNW := userID == config.AdminUserID && guildstate.GetGuildSettingString("DEFAULT", "banner_override") == "pnw"
 			bottools.GenerateBanner(contract.ContractID, eggName, bannerText, usePNW)
 		}
 	}
