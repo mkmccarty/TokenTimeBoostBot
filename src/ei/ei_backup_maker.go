@@ -112,8 +112,29 @@ func NewBackupMaker(eiUserID, userName string) *BackupMaker {
 
 	// Initialize home farm to Virtue Farm
 	homeFarm := &Backup_Simulation{
-		FarmType: FarmType_HOME.Enum(),
-		EggType:  Egg_CURIOSITY.Enum(),
+		FarmType:                    FarmType_HOME.Enum(),
+		EggType:                     Egg_CURIOSITY.Enum(),
+		ContractId:                  stringp(""),
+		CashEarned:                  float64p(2.292897726703627e+37),
+		CashSpent:                   float64p(1.24e+36),
+		UnclaimedCash:               float64p(0),
+		LastStepTime:                float64p(1776634308.0993152),
+		NumChickens:                 uint64p(9684360000),
+		NumChickensUnsettled:        uint64p(0),
+		NumChickensRunning:          uint64p(0),
+		EggsLaid:                    float64p(2420370378219646000),
+		EggsShipped:                 float64p(2419740504446384000),
+		EggsPaidFor:                 float64p(2419740504446384000),
+		SilosOwned:                  uint32p(8),
+		HatcheryPopulation:          float64p(500),
+		LastCashBoostTime:           float64p(0),
+		TimeCheatsDetected:          uint32p(0),
+		BoostTokensReceived:         uint32p(0),
+		BoostTokensSpent:            uint32p(0),
+		BoostTokensGiven:            uint32p(0),
+		UnclaimedBoostTokens:        uint32p(0),
+		GametimeUntilNextBoostToken: float64p(3600),
+		TotalStepTime:               float64p(6352188.731107798),
 	}
 
 	// Initialize common research for the home farm
