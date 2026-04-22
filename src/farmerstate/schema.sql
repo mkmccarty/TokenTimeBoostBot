@@ -22,9 +22,11 @@ CREATE TABLE IF NOT EXISTS farmer_guild_membership (
 );
 
 CREATE TABLE IF NOT EXISTS custom_banners (
-    user_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    guild_id TEXT NOT NULL,
     image_data BLOB NOT NULL,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY (user_id, guild_id)
 );
 
 

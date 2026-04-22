@@ -69,10 +69,10 @@ type styleData struct {
 }
 
 // SyncCustomBannerCallback is a function hook to sync custom banners from the database to disk.
-var SyncCustomBannerCallback func(userID string, destPath string) bool
+var SyncCustomBannerCallback func(userID string, guildID string, destPath string) bool
 
 // GenerateBanner creates a banner image with a background, overlay image, and text
-func GenerateBanner(ID string, eggName string, text string, creatorID string, styleOverride string) {
+func GenerateBanner(ID string, eggName string, text string, creatorID string, guildID string, styleOverride string) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("GenerateBanner recovered from panic for %s: %v", ID, r)
@@ -99,9 +99,9 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, st
 
 	hasCustomBanner := false
 	if creatorID != "" {
-		bgCustomPath := fmt.Sprintf("%s/banner_%s.png", config.BannerPath, creatorID)
+		bgCustomPath := fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, creatorID, guildID)
 		if SyncCustomBannerCallback != nil {
-			hasCustomBanner = SyncCustomBannerCallback(creatorID, bgCustomPath)
+			hasCustomBanner = SyncCustomBannerCallback(creatorID, guildID, bgCustomPath)
 		} else {
 			if _, err := os.Stat(bgCustomPath); err == nil {
 				hasCustomBanner = true
@@ -111,13 +111,13 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, st
 
 	for _, style := range styleArray {
 		if hasCustomBanner {
-			customImgPath := fmt.Sprintf("%s/%s-b%s-%s.png", config.BannerOutputPath, ID, style, creatorID)
+			customImgPath := fmt.Sprintf("%s/%s-b%s-%s_%s.png", config.BannerOutputPath, ID, style, creatorID, guildID)
 			info, err := os.Stat(customImgPath)
 			if os.IsNotExist(err) {
 				allExistAndFresh = false
 				break
 			}
-			bgInfo, _ := os.Stat(fmt.Sprintf("%s/banner_%s.png", config.BannerPath, creatorID))
+			bgInfo, _ := os.Stat(fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, creatorID, guildID))
 			if bgInfo != nil && info.ModTime().Before(bgInfo.ModTime()) {
 				allExistAndFresh = false
 				break
@@ -260,7 +260,7 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, st
 
 	if hasCustomBanner {
 		backgrounds = []bgDef{
-			{path: bgCustomPath, suffix: "-" + creatorID},
+			{path: bgCustomPath, suffix: fmt.Sprintf("-%s_%s", creatorID, guildID)},
 		}
 	} else {
 		backgrounds = []bgDef{

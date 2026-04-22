@@ -78,14 +78,14 @@ WHERE fgm.guild_id = ?
   AND json_extract(fs.value, '$.MiscSettingsString.ei_ign') IS NOT NULL;
 
 -- name: UpsertCustomBanner :exec
-INSERT INTO custom_banners (user_id, image_data) 
-VALUES (?, ?)
-ON CONFLICT(user_id) DO UPDATE SET 
+INSERT INTO custom_banners (user_id, guild_id, image_data) 
+VALUES (?, ?, ?)
+ON CONFLICT(user_id, guild_id) DO UPDATE SET 
 	image_data = excluded.image_data,
 	updated_at = CURRENT_TIMESTAMP;
 
 -- name: DeleteCustomBanner :exec
-DELETE FROM custom_banners WHERE user_id = ?;
+DELETE FROM custom_banners WHERE user_id = ? AND guild_id = ?;
 
 -- name: GetCustomBanner :one
-SELECT image_data, updated_at FROM custom_banners WHERE user_id = ?;
+SELECT image_data, updated_at FROM custom_banners WHERE user_id = ? AND guild_id = ?;

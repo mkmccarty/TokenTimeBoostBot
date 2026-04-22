@@ -565,7 +565,11 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 			if contract.PlayStyle >= 0 && contract.PlayStyle < len(styleArray) {
 				style = styleArray[contract.PlayStyle]
 			}
-			bottools.GenerateBanner(contract.ContractID, eggName, bannerText, userID, style)
+			guildID := ""
+			if len(contract.Location) > 0 {
+				guildID = contract.Location[0].GuildID
+			}
+			bottools.GenerateBanner(contract.ContractID, eggName, bannerText, userID, guildID, style)
 		}
 	}
 
@@ -852,7 +856,11 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 				if contract.PlayStyle >= 0 && contract.PlayStyle < len(styleArray) {
 					style = styleArray[contract.PlayStyle]
 				}
-				bottools.GenerateBanner(contract.ContractID, eggName, bannerText, creator, style)
+				guildID := ""
+				if len(contract.Location) > 0 {
+					guildID = contract.Location[0].GuildID
+				}
+				bottools.GenerateBanner(contract.ContractID, eggName, bannerText, creator, guildID, style)
 			}
 		}
 

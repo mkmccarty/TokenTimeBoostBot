@@ -199,7 +199,11 @@ func UpdatePredictedSignupContracts(s *discordgo.Session, liveContracts []ei.Egg
 					if contract.PlayStyle >= 0 && contract.PlayStyle < len(styleArray) {
 						style = styleArray[contract.PlayStyle]
 					}
-					bottools.GenerateBanner(contract.ContractID, contract.EggName, contract.Name, creator, style)
+					guildID := ""
+					if len(contract.Location) > 0 {
+						guildID = contract.Location[0].GuildID
+					}
+					bottools.GenerateBanner(contract.ContractID, contract.EggName, contract.Name, creator, guildID, style)
 				}
 
 				UpdateBannerURL(contract)

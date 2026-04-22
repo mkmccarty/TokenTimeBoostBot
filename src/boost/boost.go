@@ -564,17 +564,18 @@ func UpdateBannerURL(contract *Contract) {
 			suffix = "-space"
 		} else if len(contract.CreatorID) > 0 {
 			creatorID := contract.CreatorID[0]
-			customBannerPath := fmt.Sprintf("%s/banner_%s.png", config.BannerPath, creatorID)
+			guildID := contract.Location[0].GuildID
+			customBannerPath := fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, creatorID, guildID)
 
 			hasBanner := false
 			if bottools.SyncCustomBannerCallback != nil {
-				hasBanner = bottools.SyncCustomBannerCallback(creatorID, customBannerPath)
+				hasBanner = bottools.SyncCustomBannerCallback(creatorID, guildID, customBannerPath)
 			} else if _, err := os.Stat(customBannerPath); err == nil {
 				hasBanner = true
 			}
 
 			if hasBanner {
-				suffix = "-" + creatorID
+				suffix = fmt.Sprintf("-%s_%s", creatorID, guildID)
 			}
 		}
 
@@ -2302,7 +2303,7 @@ func UpdateContractTime(contractID string, coopID string, startTime, endTime tim
 func GetSlashUploadBannerCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
-		Description: "Upload a custom contract banner (Nitro Boosters only, exactly 640x85 pixels)",
+		Description: "Upload a custom contract banner for this server (Server Boosters only, 640x85 pixels)",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:        discordgo.ApplicationCommandOptionAttachment,
@@ -2344,21 +2345,21 @@ func HandleUploadBannerCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 	if !isServerBooster && !isServerOwner {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: "You must be a Server Booster upload a custom banner.",
+			Content: "You must be a Server Booster in this server or the Server Owner to upload a custom banner.",
 		})
 		return
 	}
 
 	options := i.ApplicationCommandData().Options
 	if len(options) == 0 {
-		outPath := filepath.Join(config.BannerPath, fmt.Sprintf("banner_%s.png", user.ID))
+		outPath := filepath.Join(config.BannerPath, fmt.Sprintf("banner_%s_%s.png", user.ID, i.GuildID))
 		if err := os.Remove(outPath); err != nil && !os.IsNotExist(err) {
 			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 				Content: "Failed to remove your custom banner.",
 			})
 			return
 		}
-		_ = farmerstate.RemoveCustomBanner(user.ID)
+		_ = farmerstate.RemoveCustomBanner(user.ID, i.GuildID)
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: "Custom banner successfully removed. You will now use standard banners.",
 		})
@@ -2411,7 +2412,7 @@ func HandleUploadBannerCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		log.Println("Error creating banner directory:", err)
 	}
 
-	outPath := filepath.Join(config.BannerPath, fmt.Sprintf("banner_%s.png", user.ID))
+	outPath := filepath.Join(config.BannerPath, fmt.Sprintf("banner_%s_%s.png", user.ID, i.GuildID))
 	if err := os.WriteFile(outPath, pngBuffer.Bytes(), 0644); err != nil {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: "Failed to save the image on the server.",
@@ -2419,7 +2420,7 @@ func HandleUploadBannerCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		return
 	}
 
-	_ = farmerstate.SetCustomBanner(user.ID, pngBuffer.Bytes())
+	_ = farmerstate.SetCustomBanner(user.ID, i.GuildID, pngBuffer.Bytes())
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Content: "Custom banner successfully uploaded and saved! It will be used for your next /contract.",
