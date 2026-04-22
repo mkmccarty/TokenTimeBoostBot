@@ -8,6 +8,7 @@ package farmerstate
 import (
 	"context"
 	"database/sql"
+	"time"
 )
 
 const addGuildMembership = `-- name: AddGuildMembership :execrows
@@ -39,6 +40,15 @@ const clearExtraLegacyRecords = `-- name: ClearExtraLegacyRecords :exec
 
 func (q *Queries) ClearExtraLegacyRecords(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, clearExtraLegacyRecords)
+	return err
+}
+
+const deleteCustomBanner = `-- name: DeleteCustomBanner :exec
+DELETE FROM custom_banners WHERE user_id = ?
+`
+
+func (q *Queries) DeleteCustomBanner(ctx context.Context, userID string) error {
+	_, err := q.db.ExecContext(ctx, deleteCustomBanner, userID)
 	return err
 }
 
@@ -98,6 +108,22 @@ func (q *Queries) GetAllLegacyFarmerstate(ctx context.Context) ([]FarmerState, e
 		return nil, err
 	}
 	return items, nil
+}
+
+const getCustomBanner = `-- name: GetCustomBanner :one
+SELECT image_data, updated_at FROM custom_banners WHERE user_id = ?
+`
+
+type GetCustomBannerRow struct {
+	ImageData []byte
+	UpdatedAt time.Time
+}
+
+func (q *Queries) GetCustomBanner(ctx context.Context, userID string) (GetCustomBannerRow, error) {
+	row := q.db.QueryRowContext(ctx, getCustomBanner, userID)
+	var i GetCustomBannerRow
+	err := row.Scan(&i.ImageData, &i.UpdatedAt)
+	return i, err
 }
 
 const getEiIgnsByGuild = `-- name: GetEiIgnsByGuild :many
@@ -302,4 +328,22 @@ func (q *Queries) UpdateLegacyFarmerstate(ctx context.Context, arg UpdateLegacyF
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const upsertCustomBanner = `-- name: UpsertCustomBanner :exec
+INSERT INTO custom_banners (user_id, image_data) 
+VALUES (?, ?)
+ON CONFLICT(user_id) DO UPDATE SET 
+	image_data = excluded.image_data,
+	updated_at = CURRENT_TIMESTAMP
+`
+
+type UpsertCustomBannerParams struct {
+	UserID    string
+	ImageData []byte
+}
+
+func (q *Queries) UpsertCustomBanner(ctx context.Context, arg UpsertCustomBannerParams) error {
+	_, err := q.db.ExecContext(ctx, upsertCustomBanner, arg.UserID, arg.ImageData)
+	return err
 }

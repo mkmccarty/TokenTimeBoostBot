@@ -14,7 +14,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -561,8 +560,12 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 			eggName = contractInfo.EggName
 		}
 		if bannerText != "" && eggName != "" && !contract.PredictionSignup {
-			usePNW := userID == config.AdminUserID && guildstate.GetGuildSettingString("DEFAULT", "banner_override") == "pnw" && !config.IsDevBot()
-			bottools.GenerateBanner(contract.ContractID, eggName, bannerText, usePNW)
+			styleArray := []string{"", "c", "a", "f", "l"}
+			style := ""
+			if contract.PlayStyle >= 0 && contract.PlayStyle < len(styleArray) {
+				style = styleArray[contract.PlayStyle]
+			}
+			bottools.GenerateBanner(contract.ContractID, eggName, bannerText, userID, style)
 		}
 	}
 
@@ -830,6 +833,29 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 	}
 
 	if originalPlayStyle != contract.PlayStyle {
+		if contractInfo, ok := ei.EggIncContractsAll[contract.ContractID]; ok {
+			bannerText := contract.Name
+			if bannerText == "" {
+				bannerText = contractInfo.Name
+			}
+			eggName := contract.EggName
+			if eggName == "" {
+				eggName = contractInfo.EggName
+			}
+			if bannerText != "" && eggName != "" && !contract.PredictionSignup {
+				creator := ""
+				if len(contract.CreatorID) > 0 {
+					creator = contract.CreatorID[0]
+				}
+				styleArray := []string{"", "c", "a", "f", "l"}
+				style := ""
+				if contract.PlayStyle >= 0 && contract.PlayStyle < len(styleArray) {
+					style = styleArray[contract.PlayStyle]
+				}
+				bottools.GenerateBanner(contract.ContractID, eggName, bannerText, creator, style)
+			}
+		}
+
 		// Need to rename the thread if it exists
 		UpdateThreadName(s, contract)
 		UpdateBannerURL(contract)

@@ -593,6 +593,19 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 		movedToWaitlist = len(movedLabels)
 		contract.EggEmoji = FindEggEmoji(contract.EggName)
 
+		if contract.Name != "" && contract.EggName != "" && !contract.PredictionSignup {
+			creator := userID
+			if len(contract.CreatorID) > 0 {
+				creator = contract.CreatorID[0]
+			}
+			styleArray := []string{"", "c", "a", "f", "l"}
+			style := ""
+			if contract.PlayStyle >= 0 && contract.PlayStyle < len(styleArray) {
+				style = styleArray[contract.PlayStyle]
+			}
+			bottools.GenerateBanner(contract.ContractID, contract.EggName, contract.Name, creator, style)
+		}
+
 		UpdateBannerURL(contract)
 
 		if len(movedLabels) > 0 {
