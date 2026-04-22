@@ -2302,8 +2302,13 @@ func UpdateContractTime(contractID string, coopID string, startTime, endTime tim
 // GetSlashUploadBannerCommand returns the command definition for uploading a custom banner
 func GetSlashUploadBannerCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Upload a custom contract banner for this server (Server Boosters only, 640x85 pixels)",
+		Name: cmd,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		}, Description: "Upload a custom contract banner for this server (Server Boosters only, 640x85 pixels)",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:        discordgo.ApplicationCommandOptionAttachment,
