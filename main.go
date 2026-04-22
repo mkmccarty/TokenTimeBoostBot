@@ -212,6 +212,7 @@ var (
 	commandHandlers      = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
 	autocompleteHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
 
+	// Define the handlers for component interactions
 	componentHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		"fd_tokens5": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.AddBoostTokensInteraction(s, i, 5, 0)

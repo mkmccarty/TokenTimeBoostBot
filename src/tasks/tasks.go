@@ -127,6 +127,18 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 			Content: str},
 	)
 
+	// I want to go through all the active contracts and update their EggName and EggEmoji field.
+	// Use the original Contract data for that info
+	for _, contract := range boost.Contracts {
+		if contract == nil || len(contract.Location) == 0 {
+			continue
+		}
+		originalContract := ei.EggIncContractsAll[contract.ContractID]
+		contract.Egg = originalContract.Egg
+		contract.EggName = originalContract.EggName
+		contract.EggEmoji = boost.FindEggEmoji(originalContract.EggName)
+	}
+
 }
 
 func parseGithubRawURL(urlStr string) (owner, repo, branch, path string, err error) {
