@@ -276,7 +276,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 		} else if c.ID != "first-contract" {
 			log.Print("New Original contract: ", c.ID)
 		}
-		bottools.GenerateBanner(c.ID, c.EggName, c.Name)
+		bottools.GenerateBanner(c.ID, c.EggName, c.Name, false)
 		if len(teamRoleMap[c.ID]) == 0 {
 			c.TeamNames = notok.GetContractTeamNames(c.Description, 30)
 			currentTeamRoleMap[c.ID] = c.TeamNames

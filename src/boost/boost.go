@@ -553,11 +553,15 @@ func UpdateBannerURL(contract *Contract) {
 
 	suffix := ""
 	if len(contract.Location) > 0 {
+		usePNW := contract.CreatorID[0] == config.AdminUserID && config.IsDevBot()
 		if guildstate.GetGuildSettingString(contract.Location[0].GuildID, "banner_override") == "space" {
 			if style == "f" || style == "l" {
 				suffix = "-space"
 			}
+		} else if usePNW {
+			suffix = "-pnw"
 		}
+
 	}
 
 	contract.BannerURL = fmt.Sprintf("%sb%s%s-%s.png", config.BannerURL, style, suffix, contract.ContractID)

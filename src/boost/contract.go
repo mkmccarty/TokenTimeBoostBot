@@ -560,7 +560,8 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 			eggName = contractInfo.EggName
 		}
 		if bannerText != "" && eggName != "" && !contract.PredictionSignup {
-			bottools.GenerateBanner(contract.ContractID, eggName, bannerText)
+			usePNW := userID == config.AdminUserID && config.IsDevBot()
+			bottools.GenerateBanner(contract.ContractID, eggName, bannerText, usePNW)
 		}
 	}
 
