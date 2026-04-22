@@ -6,7 +6,14 @@ package farmerstate
 
 import (
 	"database/sql"
+	"time"
 )
+
+type CustomBanner struct {
+	UserID    string
+	ImageData []byte
+	UpdatedAt time.Time
+}
 
 type FarmerGuildMembership struct {
 	UserID  string

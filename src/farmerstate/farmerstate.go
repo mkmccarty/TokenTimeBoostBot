@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -534,4 +535,55 @@ func GetDiscordUserIDFromEiIgn(eiIgn string) (string, error) {
 		return "", err
 	}
 	return id, nil
+}
+
+// SetCustomBanner saves a user's custom banner PNG bytes into the database.
+func SetCustomBanner(userID string, imageData []byte) error {
+	FlushPendingSaves()
+	err := queries.UpsertCustomBanner(ctx, UpsertCustomBannerParams{
+		UserID:    userID,
+		ImageData: imageData,
+	})
+	if err != nil {
+		log.Printf("Error saving custom banner for %s: %v", userID, err)
+		return err
+	}
+	return nil
+}
+
+// SyncCustomBanner checks if a custom banner exists in the database and is newer than the file on disk.
+// If it is, it writes the image data from the database to the specified path.
+func SyncCustomBanner(userID string, destPath string) bool {
+	FlushPendingSaves()
+	banner, err := queries.GetCustomBanner(ctx, userID)
+	if err != nil {
+		_ = os.Remove(destPath) // Cleanup any lingering orphaned files
+		return false
+	}
+
+	info, err := os.Stat(destPath)
+	if err == nil {
+		if !info.ModTime().Before(banner.UpdatedAt) {
+			return true // File is up to date
+		}
+	}
+
+	if err := os.WriteFile(destPath, banner.ImageData, 0644); err != nil {
+		log.Printf("Failed to write custom banner to disk for %s: %v", userID, err)
+		return false
+	}
+
+	_ = os.Chtimes(destPath, time.Now(), banner.UpdatedAt)
+	return true
+}
+
+// RemoveCustomBanner deletes a user's custom banner from the database.
+func RemoveCustomBanner(userID string) error {
+	FlushPendingSaves()
+	err := queries.DeleteCustomBanner(ctx, userID)
+	if err != nil {
+		log.Printf("Error removing custom banner for %s: %v", userID, err)
+		return err
+	}
+	return nil
 }

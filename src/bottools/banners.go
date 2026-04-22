@@ -68,8 +68,11 @@ type styleData struct {
 	image image.Image
 }
 
+// SyncCustomBannerCallback is a function hook to sync custom banners from the database to disk.
+var SyncCustomBannerCallback func(userID string, destPath string) bool
+
 // GenerateBanner creates a banner image with a background, overlay image, and text
-func GenerateBanner(ID string, eggName string, text string, usePNW bool) {
+func GenerateBanner(ID string, eggName string, text string, creatorID string, styleOverride string) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("GenerateBanner recovered from panic for %s: %v", ID, r)
@@ -78,6 +81,9 @@ func GenerateBanner(ID string, eggName string, text string, usePNW bool) {
 
 	// 1. Load Images
 	styleArray := []string{"c", "a", "f", "l"}
+	if styleOverride != "" {
+		styleArray = []string{styleOverride}
+	}
 	// Check if any of the style images already exist
 	// make sure the output path exists, and create it if it doesn't
 	if _, err := os.Stat(config.BannerOutputPath); os.IsNotExist(err) {
@@ -90,15 +96,34 @@ func GenerateBanner(ID string, eggName string, text string, usePNW bool) {
 
 	currentSeason := getCurrentSeason(time.Now())
 	allExistAndFresh := true
+
+	hasCustomBanner := false
+	if creatorID != "" {
+		bgCustomPath := fmt.Sprintf("%s/banner_%s.png", config.BannerPath, creatorID)
+		if SyncCustomBannerCallback != nil {
+			hasCustomBanner = SyncCustomBannerCallback(creatorID, bgCustomPath)
+		} else {
+			if _, err := os.Stat(bgCustomPath); err == nil {
+				hasCustomBanner = true
+			}
+		}
+	}
+
 	for _, style := range styleArray {
-		if usePNW {
-			pnwImgPath := fmt.Sprintf("%s/b%s-pnw-%s.png", config.BannerOutputPath, style, ID)
-			if _, err := os.Stat(pnwImgPath); os.IsNotExist(err) {
+		if hasCustomBanner {
+			customImgPath := fmt.Sprintf("%s/%s-b%s-%s.png", config.BannerOutputPath, ID, style, creatorID)
+			info, err := os.Stat(customImgPath)
+			if os.IsNotExist(err) {
+				allExistAndFresh = false
+				break
+			}
+			bgInfo, _ := os.Stat(fmt.Sprintf("%s/banner_%s.png", config.BannerPath, creatorID))
+			if bgInfo != nil && info.ModTime().Before(bgInfo.ModTime()) {
 				allExistAndFresh = false
 				break
 			}
 		} else {
-			seasonImgPath := fmt.Sprintf("%s/b%s-%s.png", config.BannerOutputPath, style, ID)
+			seasonImgPath := fmt.Sprintf("%s/%s-b%s.png", config.BannerOutputPath, ID, style)
 
 			info, err := os.Stat(seasonImgPath)
 			if os.IsNotExist(err) || getCurrentSeason(info.ModTime()) != currentSeason {
@@ -107,7 +132,7 @@ func GenerateBanner(ID string, eggName string, text string, usePNW bool) {
 			}
 
 			if style == "f" || style == "l" {
-				spaceImgPath := fmt.Sprintf("%s/b%s-space-%s.png", config.BannerOutputPath, style, ID)
+				spaceImgPath := fmt.Sprintf("%s/%s-b%s-space.png", config.BannerOutputPath, ID, style)
 				if _, err := os.Stat(spaceImgPath); os.IsNotExist(err) {
 					allExistAndFresh = false
 					break
@@ -120,7 +145,7 @@ func GenerateBanner(ID string, eggName string, text string, usePNW bool) {
 	if allExistAndFresh {
 		return
 	}
-	log.Printf("Creating banners for %s (Season: %s, PNW: %v)", ID, currentSeason, usePNW)
+	log.Printf("Creating banners for %s (Season: %s)", ID, currentSeason)
 	cleanEggID := strings.ReplaceAll(strings.ReplaceAll(strings.ToLower(eggName), " ", ""), "-", "")
 	cleanEggID = strings.ReplaceAll(cleanEggID, "_", "")
 
@@ -167,19 +192,13 @@ func GenerateBanner(ID string, eggName string, text string, usePNW bool) {
 
 	bgSeasonPath := fmt.Sprintf("%s/banner_%s_640.png", config.BannerPath, currentSeason)
 	bgSpacePath := config.BannerPath + "/banner_space_640.png"
-	bgPNWPath := config.BannerPath + "/banner_pnw.png"
+	bgCustomPath := fmt.Sprintf("%s/banner_%s.png", config.BannerPath, creatorID)
 
-	if usePNW {
-		if _, err := os.Stat(bgPNWPath); os.IsNotExist(err) {
-			_ = DownloadLatestEggImages(config.BannerPath)
-		}
-	} else {
-		if _, err := os.Stat(bgSeasonPath); os.IsNotExist(err) {
-			_ = DownloadLatestEggImages(config.BannerPath)
-		}
-		if _, err := os.Stat(bgSpacePath); os.IsNotExist(err) {
-			_ = DownloadLatestEggImages(config.BannerPath)
-		}
+	if _, err := os.Stat(bgSeasonPath); os.IsNotExist(err) {
+		_ = DownloadLatestEggImages(config.BannerPath)
+	}
+	if _, err := os.Stat(bgSpacePath); os.IsNotExist(err) {
+		_ = DownloadLatestEggImages(config.BannerPath)
 	}
 
 	seasonStr := ""
@@ -239,9 +258,9 @@ func GenerateBanner(ID string, eggName string, text string, usePNW bool) {
 	}
 	var backgrounds []bgDef
 
-	if usePNW {
+	if hasCustomBanner {
 		backgrounds = []bgDef{
-			{path: bgPNWPath, suffix: "-pnw"},
+			{path: bgCustomPath, suffix: "-" + creatorID},
 		}
 	} else {
 		backgrounds = []bgDef{
@@ -313,6 +332,9 @@ func GenerateBanner(ID string, eggName string, text string, usePNW bool) {
 		}
 
 		for _, style := range sData {
+			if styleOverride != "" && style.id != styleOverride {
+				continue
+			}
 			if bgInfo.suffix == "-space" && style.id != "f" && style.id != "l" {
 				continue
 			}
@@ -320,7 +342,7 @@ func GenerateBanner(ID string, eggName string, text string, usePNW bool) {
 			draw.Draw(styleImage, compositeImage.Bounds(), compositeImage, image.Point{}, draw.Src)
 			styleRect := image.Rect(0, bounds.Max.Y-style.image.Bounds().Dy(), style.image.Bounds().Dx(), bounds.Max.Y)
 			draw.Draw(styleImage, styleRect, style.image, image.Point{}, draw.Over)
-			styleImagePath := fmt.Sprintf("%s/b%s%s-%s.png", config.BannerOutputPath, style.id, bgInfo.suffix, ID)
+			styleImagePath := fmt.Sprintf("%s/%s-b%s%s.png", config.BannerOutputPath, ID, style.id, bgInfo.suffix)
 			_ = saveImage(styleImagePath, styleImage)
 		}
 	}

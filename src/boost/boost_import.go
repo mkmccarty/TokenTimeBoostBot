@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 
 	"google.golang.org/protobuf/proto"
@@ -187,6 +188,20 @@ func UpdatePredictedSignupContracts(s *discordgo.Session, liveContracts []ei.Egg
 			if contract.ContractID != live.ID {
 				contract.ContractID = live.ID
 				updateContractWithEggIncData(contract)
+
+				if contract.Name != "" && contract.EggName != "" && !contract.PredictionSignup {
+					creator := ""
+					if len(contract.CreatorID) > 0 {
+						creator = contract.CreatorID[0]
+					}
+					styleArray := []string{"", "c", "a", "f", "l"}
+					style := ""
+					if contract.PlayStyle >= 0 && contract.PlayStyle < len(styleArray) {
+						style = styleArray[contract.PlayStyle]
+					}
+					bottools.GenerateBanner(contract.ContractID, contract.EggName, contract.Name, creator, style)
+				}
+
 				UpdateBannerURL(contract)
 				refreshBoostListMessage(s, contract, true)
 				UpdateThreadName(s, contract)

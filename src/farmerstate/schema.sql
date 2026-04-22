@@ -21,6 +21,13 @@ CREATE TABLE IF NOT EXISTS farmer_guild_membership (
     PRIMARY KEY (user_id, guild_id)
 );
 
+CREATE TABLE IF NOT EXISTS custom_banners (
+    user_id TEXT PRIMARY KEY,
+    image_data BLOB NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
 /*
 -- The following SQL statements are used to identify and delete entries in the `farmer_state` table that have IDs matching the specified patterns.
 

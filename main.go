@@ -109,6 +109,7 @@ const slashRegister string = "register"
 const slashHunt string = "hunt"
 const slashPredictions string = "predictions"
 const slashMint string = "mint"
+const slashUploadBanner string = "upload-banner"
 
 // const slashSignup string = "signup"
 var s *discordgo.Session
@@ -175,6 +176,8 @@ func init() {
 	if *GuildID == "" {
 		GuildID = &config.DiscordGuildID
 	}
+
+	bottools.SyncCustomBannerCallback = farmerstate.SyncCustomBanner
 }
 
 func init() {
@@ -607,6 +610,12 @@ func setupCommands() {
 		AppCmd:   boost.GetSlashMintCommand(slashMint),
 		Category: CmdCategoryStandard,
 		Handler:  boost.HandleMintCommand,
+	})
+
+	commandRegistry = append(commandRegistry, CommandDef{
+		AppCmd:   boost.GetSlashUploadBannerCommand(slashUploadBanner),
+		Category: CmdCategoryStandard,
+		Handler:  boost.HandleUploadBannerCommand,
 	})
 
 	for _, def := range commandRegistry {

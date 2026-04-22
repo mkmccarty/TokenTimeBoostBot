@@ -76,3 +76,16 @@ FROM farmer_guild_membership fgm
 JOIN farmer_state fs ON fs.id = fgm.user_id AND fs.key = 'legacy'
 WHERE fgm.guild_id = ?
   AND json_extract(fs.value, '$.MiscSettingsString.ei_ign') IS NOT NULL;
+
+-- name: UpsertCustomBanner :exec
+INSERT INTO custom_banners (user_id, image_data) 
+VALUES (?, ?)
+ON CONFLICT(user_id) DO UPDATE SET 
+	image_data = excluded.image_data,
+	updated_at = CURRENT_TIMESTAMP;
+
+-- name: DeleteCustomBanner :exec
+DELETE FROM custom_banners WHERE user_id = ?;
+
+-- name: GetCustomBanner :one
+SELECT image_data, updated_at FROM custom_banners WHERE user_id = ?;
