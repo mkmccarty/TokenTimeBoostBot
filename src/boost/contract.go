@@ -561,7 +561,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 			eggName = contractInfo.EggName
 		}
 		if bannerText != "" && eggName != "" && !contract.PredictionSignup {
-			usePNW := userID == config.AdminUserID && guildstate.GetGuildSettingString("DEFAULT", "banner_override") == "pnw"
+			usePNW := userID == config.AdminUserID && guildstate.GetGuildSettingString("DEFAULT", "banner_override") == "pnw" && !config.IsDevBot()
 			bottools.GenerateBanner(contract.ContractID, eggName, bannerText, usePNW)
 		}
 	}
