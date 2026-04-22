@@ -9,11 +9,9 @@ func TestGetEarningsBonus(t *testing.T) {
 	maker := NewBackupMaker("EI1234567890123456", "TestUser")
 	backup := maker.GetBackup()
 
-	// Set the missing fields in our default Backup from the JSON fixture
-	soulEggs := 3.9869557498650254e+23
-	prophecyEggs := uint64(232)
-	backup.Game.SoulEggsD = &soulEggs
-	backup.Game.EggsOfProphecy = &prophecyEggs
+	game := backup.GetGame()
+	soulEggs := game.GetSoulEggsD()
+	prophecyEggs := game.GetEggsOfProphecy()
 
 	// Calculate total EoV earned from JSON: [20, 20, 21, 20, 20]
 	eov := 20.0 + 20.0 + 21.0 + 20.0 + 20.0

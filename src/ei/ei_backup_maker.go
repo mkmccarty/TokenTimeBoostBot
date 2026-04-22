@@ -17,36 +17,176 @@ type BackupMaker struct {
 // NewBackupMaker creates a new BackupMaker with a minimal backup structure.
 func NewBackupMaker(eiUserID, userName string) *BackupMaker {
 	now := float64(time.Now().Unix())
+
+	lastFueledShip := MissionInfo_Spaceship(10)
+	tankFuelsArray := make([]float64, 25)
+	tankLimitsArray := make([]float64, 25)
+	for i := range tankLimitsArray {
+		tankLimitsArray[i] = 1.0
+	}
+
+	periodEnd := float64(time.Now().AddDate(0, 1, 0).Unix())
+	subHistory := make([]*UserSubscriptionInfo_HistoryEntry, 0)
+	subStart := time.Now().AddDate(0, -6, 0)
+
+	subHistory = append(subHistory, &UserSubscriptionInfo_HistoryEntry{
+		Timestamp: float64p(float64(subStart.Unix())),
+		Message:   stringp("Subscription verified and updated at request of client."),
+	})
+	subHistory = append(subHistory, &UserSubscriptionInfo_HistoryEntry{
+		Timestamp: float64p(float64(subStart.Unix()) + 13.0),
+		Message:   stringp("SUBSCRIBED"),
+	})
+
+	for i := 1; i <= 6; i++ {
+		renewTime := subStart.AddDate(0, i, 0)
+		if renewTime.After(time.Now()) {
+			break
+		}
+		subHistory = append(subHistory, &UserSubscriptionInfo_HistoryEntry{
+			Timestamp: float64p(float64(renewTime.Unix())),
+			Message:   stringp("DID_RENEW"),
+		})
+	}
+
 	backup := &Backup{
 		EiUserId:   &eiUserID,
 		UserName:   &userName,
 		ApproxTime: &now,
+		Version:    uint32p(DefaultClientVersion),
 		Game: &Backup_Game{
-			GoldenEggsEarned: new(uint64),
-			EggsOfProphecy:   new(uint64),
+			CurrentFarm:               uint32p(0),
+			MaxEggReached:             Egg_KINDNESS.Enum(),
+			GoldenEggsEarned:          uint64p(1_000_000_000),
+			GoldenEggsSpent:           uint64p(500_000),
+			UncliamedGoldenEggs:       uint64p(0), // Typo inherited directly from Egg Inc. Protobufs
+			SoulEggsD:                 float64p(4.0e+23),
+			UnclaimedSoulEggsD:        float64p(0),
+			EggsOfProphecy:            uint64p(232),
+			UnclaimedEggsOfProphecy:   uint64p(0),
+			ShellScriptsEarned:        uint64p(0),
+			ShellScriptsSpent:         uint64p(0),
+			UnclaimedShellScripts:     uint64p(0),
+			PrestigeCashEarned:        float64p(1.5741864631873203e+66),
+			PrestigeSoulBoostCash:     float64p(0),
+			LifetimeCashEarned:        float64p(6.968358395984488e+93),
+			PiggyBank:                 uint64p(500_000_000),
+			PiggyFullAlertShown:       boolp(true),
+			PermitLevel:               uint32p(1),
+			HyperloopStation:          boolp(true),
+			NextDailyGiftTime:         float64p(1776643200.0005379),
+			LastDailyGiftCollectedDay: uint32p(9605),
+			NumDailyGiftsCollected:    uint32p(2558),
 		},
-		ArtifactsDb: &ArtifactsDB{
-			ItemSequence: new(uint64),
+		Artifacts: &Backup_Artifacts{
+			FlowPercentageArtifacts: float64p(1.0),
+			FuelingEnabled:          boolp(true),
+			TankFillingEnabled:      boolp(false),
+			TankLevel:               uint32p(7),
+			TankFuels:               tankFuelsArray,
+			TankLimits:              tankLimitsArray,
+			LastFueledShip:          &lastFueledShip,
+			InventoryScore:          float64p(285240.2899999999),
+			CraftingXp:              float64p(6659529454),
+			Enabled:                 boolp(true),
+			IntroShown:              boolp(true),
 		},
 		Virtue: &Backup_Virtue{
 			Afx: &Backup_Artifacts{},
 		},
+		ArtifactsDb: &ArtifactsDB{
+			ItemSequence: new(uint64),
+		},
+		SubInfo: &UserSubscriptionInfo{
+			SubscriptionLevel:     userSubscriptionInfoLevelp(UserSubscriptionInfo_PRO),
+			NextSubscriptionLevel: userSubscriptionInfoLevelp(UserSubscriptionInfo_PRO),
+			Platform:              platformp(Platform_IOS),
+			PeriodEnd:             &periodEnd,
+			Status:                userSubscriptionInfoStatusp(UserSubscriptionInfo_ACTIVE),
+			StoreStatus:           stringp("1"),
+			AutoRenew:             boolp(true),
+			Sandbox:               boolp(false),
+			History:               subHistory,
+		},
 	}
 
-	// Initialize home farm
+	// Initialize home farm to Virtue Farm
 	homeFarm := &Backup_Simulation{
 		FarmType: FarmType_HOME.Enum(),
-		EggType:  Egg_EDIBLE.Enum(),
+		EggType:  Egg_CURIOSITY.Enum(),
 	}
 
 	// Initialize common research for the home farm
-	homeFarm.CommonResearch = make([]*Backup_ResearchItem, len(EggIncResearches))
-	for i, researchData := range EggIncResearches {
-		id := researchData.ID
-		homeFarm.CommonResearch[i] = &Backup_ResearchItem{
-			Id:    &id,
-			Level: uint32p(0),
-		}
+	defaultCommonResearch := []struct {
+		id    string
+		level uint32
+	}{
+		{"comfy_nests", 50},
+		{"nutritional_sup", 40},
+		{"better_incubators", 15},
+		{"excitable_chickens", 25},
+		{"hab_capacity1", 8},
+		{"internal_hatchery1", 10},
+		{"padded_packaging", 30},
+		{"hatchery_expansion", 10},
+		{"bigger_eggs", 1},
+		{"internal_hatchery2", 10},
+		{"leafsprings", 30},
+		{"vehicle_reliablity", 2},
+		{"rooster_booster", 25},
+		{"coordinated_clucking", 50},
+		{"hatchery_rebuild1", 1},
+		{"usde_prime", 1},
+		{"hen_house_ac", 50},
+		{"superfeed", 35},
+		{"microlux", 10},
+		{"compact_incubators", 10},
+		{"lightweight_boxes", 40},
+		{"excoskeletons", 2},
+		{"internal_hatchery3", 15},
+		{"improved_genetics", 30},
+		{"traffic_management", 2},
+		{"motivational_clucking", 50},
+		{"driver_training", 30},
+		{"shell_fortification", 60},
+		{"egg_loading_bots", 2},
+		{"super_alloy", 50},
+		{"even_bigger_eggs", 5},
+		{"internal_hatchery4", 30},
+		{"quantum_storage", 20},
+		{"genetic_purification", 100},
+		{"internal_hatchery5", 250},
+		{"time_compress", 20},
+		{"hover_upgrades", 25},
+		{"graviton_coating", 7},
+		{"grav_plating", 25},
+		{"chrystal_shells", 100},
+		{"autonomous_vehicles", 5},
+		{"neural_linking", 30},
+		{"telepathic_will", 50},
+		{"enlightened_chickens", 150},
+		{"dark_containment", 25},
+		{"atomic_purification", 50},
+		{"multi_layering", 3},
+		{"timeline_diversion", 50},
+		{"wormhole_dampening", 25},
+		{"eggsistor", 100},
+		{"micro_coupling", 5},
+		{"neural_net_refine", 25},
+		{"matter_reconfig", 500},
+		{"timeline_splicing", 1},
+		{"hyper_portalling", 25},
+		{"relativity_optimization", 10},
+	}
+
+	homeFarm.CommonResearch = make([]*Backup_ResearchItem, 0, len(defaultCommonResearch))
+	for _, cr := range defaultCommonResearch {
+		idCopy := cr.id
+		levelCopy := cr.level
+		homeFarm.CommonResearch = append(homeFarm.CommonResearch, &Backup_ResearchItem{
+			Id:    &idCopy,
+			Level: &levelCopy,
+		})
 	}
 
 	backup.Farms = append(backup.Farms, homeFarm)

@@ -72,11 +72,6 @@ func TestVirtueData_Integration(t *testing.T) {
 	eovEarned := []uint32{20, 20, 21, 20, 20}
 	eggsDelivered := []float64{671228376732604700, 281084978380496960, 1861466584249923000, 321860104553812600, 766522163167315600}
 	tankFuels := []float64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 77804200160814.05, 247867287321.0276, 1759725104048.5757, 65000000000001.2, 75480247097414}
-	tankLimits := []float64{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.36, 0.02, 0.45, 0.29, 0.35}
-
-	// Create missing data for the backup maker
-	maker.SetVirtueData(36, 1, eovEarned, eggsDelivered, 11215366.125829924)
-	maker.SetVirtueAFX(1.0, true, true, tankFuels, tankLimits, 9, 48448.569999999956)
 
 	backup := maker.GetBackup()
 	virtue := backup.GetVirtue()
