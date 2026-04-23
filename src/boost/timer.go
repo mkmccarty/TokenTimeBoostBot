@@ -23,8 +23,16 @@ const (
 	processingRequestMessage = "Processing request..."
 )
 
-func init() {
-	loadTimerData()
+func timerDelete(id string) {
+	timersMutex.Lock()
+	for i, t := range timers {
+		if t.ID == id {
+			timers = append(timers[:i], timers[i+1:]...)
+			break
+		}
+	}
+	timersMutex.Unlock()
+	farmerstate.DeleteTimer(id)
 }
 
 func startTimer(s *discordgo.Session, t *BotTimer) {
@@ -89,18 +97,16 @@ func startTimer(s *discordgo.Session, t *BotTimer) {
 				if err != nil {
 					log.Println(err)
 				}
-				timerSetMsgID(t.ID, "", "")
-				saveTimerData()
+				timerDelete(t.ID)
 			})
-			saveTimerData()
 		}
 	}(t)
 }
 
 func purgeOldTimers(s *discordgo.Session) {
 	timersMutex.Lock()
-	defer timersMutex.Unlock()
 	var purgeIndexes []int
+	var purgedIDs []string
 	now := time.Now()
 	for i := range timers {
 		if now.After(timers[i].Reminder.Add(5 * time.Minute)) {
@@ -108,16 +114,26 @@ func purgeOldTimers(s *discordgo.Session) {
 				_ = s.ChannelMessageDelete(timers[i].ChannelID, timers[i].MsgID)
 			}
 			purgeIndexes = append(purgeIndexes, i)
+			purgedIDs = append(purgedIDs, timers[i].ID)
 		}
 	}
-	for _, i := range purgeIndexes {
-		timers = append(timers[:i], timers[i+1:]...)
+	for i := len(purgeIndexes) - 1; i >= 0; i-- {
+		idx := purgeIndexes[i]
+		timers = append(timers[:idx], timers[idx+1:]...)
+	}
+	timersMutex.Unlock()
+
+	for _, id := range purgedIDs {
+		farmerstate.DeleteTimer(id)
 	}
 }
 
 // LaunchIndependentTimers will start all the timers that are active
 func LaunchIndependentTimers(s *discordgo.Session) {
+	loadTimerData()
+
 	now := time.Now()
+	timersMutex.Lock()
 	for i := range timers {
 		if now.Before(timers[i].Reminder) {
 			nextTimer := time.Until(timers[i].Reminder)
@@ -127,8 +143,12 @@ func LaunchIndependentTimers(s *discordgo.Session) {
 			}
 		} else {
 			timers[i].Active = false
+			farmerstate.UpdateTimerState(timers[i].ID, false)
 		}
 	}
+	timersMutex.Unlock()
+
+	farmerstate.DeleteInactiveTimers()
 }
 
 // GetSlashTimer will return the discord command for calculating ideal stone set
@@ -233,6 +253,8 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var builder strings.Builder
 	builder.WriteString("Timer set. Existing timers:")
 
+	var purgedIDs []string
+	timersMutex.Lock()
 	timers = append(timers, t)
 	var newTimers []BotTimer
 	now := time.Now()
@@ -252,10 +274,16 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				// Purge old timer messages when a new one is scheduled
 				_ = s.ChannelMessageDelete(timers[i].ChannelID, timers[i].MsgID)
 			}
+			purgedIDs = append(purgedIDs, timers[i].ID)
 		}
 	}
 	timers = newTimers
-	saveTimerData()
+	timersMutex.Unlock()
+
+	farmerstate.AddTimer(t.ID, t.UserID, t.ChannelID, t.MsgID, t.Reminder, t.Message, int64(t.Duration), t.OriginalChannelID, t.OriginalMsgID, t.Active)
+	for _, id := range purgedIDs {
+		farmerstate.DeleteTimer(id)
+	}
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
@@ -268,18 +296,18 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 func timerSetActiveState(id string, active bool) {
 	timersMutex.Lock()
-	defer timersMutex.Unlock()
 	for i := range timers {
 		if timers[i].ID == id {
 			timers[i].Active = active
 			break
 		}
 	}
+	timersMutex.Unlock()
+	farmerstate.UpdateTimerState(id, active)
 }
 
 func timerSetMsgID(id string, channelID string, msgID string) {
 	timersMutex.Lock()
-	defer timersMutex.Unlock()
 
 	for i := range timers {
 		if timers[i].ID == id {
@@ -288,25 +316,41 @@ func timerSetMsgID(id string, channelID string, msgID string) {
 			break
 		}
 	}
-}
-
-func saveTimerData() {
-	timersMutex.Lock()
-	defer timersMutex.Unlock()
-
-	b, _ := json.Marshal(timers)
-	_ = dataStore.Write(timerDataKey, b)
+	timersMutex.Unlock()
+	farmerstate.UpdateTimerMsg(id, channelID, msgID)
 }
 
 func loadTimerData() {
-	timersMutex.Lock()
-	defer timersMutex.Unlock()
-
 	b, err := dataStore.Read(timerDataKey)
-	if err == nil {
-		_ = json.Unmarshal(b, &timers)
+	if err == nil && len(b) > 0 {
+		var legacyTimers []BotTimer
+		if err := json.Unmarshal(b, &legacyTimers); err == nil {
+			for _, t := range legacyTimers {
+				farmerstate.AddTimer(t.ID, t.UserID, t.ChannelID, t.MsgID, t.Reminder, t.Message, int64(t.Duration), t.OriginalChannelID, t.OriginalMsgID, t.Active)
+			}
+		}
+		_ = dataStore.Erase(timerDataKey)
 	}
 
+	dbTimers := farmerstate.GetAllTimers()
+
+	timersMutex.Lock()
+	timers = make([]BotTimer, 0, len(dbTimers))
+	for _, dt := range dbTimers {
+		timers = append(timers, BotTimer{
+			ID:                dt.ID,
+			UserID:            dt.UserID,
+			ChannelID:         dt.ChannelID,
+			MsgID:             dt.MsgID,
+			Reminder:          dt.Reminder,
+			Message:           dt.Message,
+			Duration:          time.Duration(dt.Duration),
+			OriginalChannelID: dt.OriginalChannelID,
+			OriginalMsgID:     dt.OriginalMsgID,
+			Active:            dt.Active,
+		})
+	}
+	timersMutex.Unlock()
 }
 
 // HandleTimerInteraction handles button interactions from timer DMs.
@@ -318,14 +362,16 @@ func HandleTimerInteraction(s *discordgo.Session, i *discordgo.InteractionCreate
 	switch action {
 	case "repeat":
 		handleTimerRepeat(s, i, timerID, 0)
+		timerDelete(timerID)
 	case "repeat_3m40s":
 		handleTimerRepeat(s, i, timerID, 3*time.Minute+40*time.Second)
+		timerDelete(timerID)
 	case "close":
-		handleTimerClose(s, i)
+		handleTimerClose(s, i, timerID)
 	}
 }
 
-func handleTimerClose(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func handleTimerClose(s *discordgo.Session, i *discordgo.InteractionCreate, timerID string) {
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredMessageUpdate,
 	})
@@ -333,6 +379,7 @@ func handleTimerClose(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		log.Printf("Error responding to timer close: %v", err)
 	}
 	_ = s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
+	timerDelete(timerID)
 }
 
 func handleTimerRepeat(s *discordgo.Session, i *discordgo.InteractionCreate, oldTimerID string, newDuration time.Duration) {
@@ -387,5 +434,6 @@ func handleTimerRepeat(s *discordgo.Session, i *discordgo.InteractionCreate, old
 	timersMutex.Lock()
 	timers = append(timers, t)
 	timersMutex.Unlock()
-	saveTimerData()
+
+	farmerstate.AddTimer(t.ID, t.UserID, t.ChannelID, t.MsgID, t.Reminder, t.Message, int64(t.Duration), t.OriginalChannelID, t.OriginalMsgID, t.Active)
 }

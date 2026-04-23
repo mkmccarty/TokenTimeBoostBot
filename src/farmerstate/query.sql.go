@@ -77,6 +77,15 @@ func (q *Queries) DeleteFarmerRecord(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteInactiveTimers = `-- name: DeleteInactiveTimers :exec
+DELETE FROM timers WHERE active = 0
+`
+
+func (q *Queries) DeleteInactiveTimers(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteInactiveTimers)
+	return err
+}
+
 const deleteLegacyFarmerstate = `-- name: DeleteLegacyFarmerstate :exec
 DELETE FROM farmer_state
 WHERE id = ? AND key = 'legacy'
@@ -84,6 +93,15 @@ WHERE id = ? AND key = 'legacy'
 
 func (q *Queries) DeleteLegacyFarmerstate(ctx context.Context, id string) error {
 	_, err := q.db.ExecContext(ctx, deleteLegacyFarmerstate, id)
+	return err
+}
+
+const deleteTimer = `-- name: DeleteTimer :exec
+DELETE FROM timers WHERE id = ?
+`
+
+func (q *Queries) DeleteTimer(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteTimer, id)
 	return err
 }
 
@@ -242,6 +260,44 @@ func (q *Queries) GetLegacyFarmerstate(ctx context.Context, id string) (FarmerSt
 	return i, err
 }
 
+const getTimers = `-- name: GetTimers :many
+SELECT id, user_id, channel_id, msg_id, reminder, message, duration, original_channel_id, original_msg_id, active FROM timers
+`
+
+func (q *Queries) GetTimers(ctx context.Context) ([]Timer, error) {
+	rows, err := q.db.QueryContext(ctx, getTimers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Timer
+	for rows.Next() {
+		var i Timer
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ChannelID,
+			&i.MsgID,
+			&i.Reminder,
+			&i.Message,
+			&i.Duration,
+			&i.OriginalChannelID,
+			&i.OriginalMsgID,
+			&i.Active,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUserGuilds = `-- name: GetUserGuilds :many
 SELECT guild_id FROM farmer_guild_membership 
 WHERE user_id = ?
@@ -306,6 +362,40 @@ func (q *Queries) InsertLegacyFarmerstate(ctx context.Context, arg InsertLegacyF
 	return i, err
 }
 
+const insertTimer = `-- name: InsertTimer :exec
+INSERT INTO timers (id, user_id, channel_id, msg_id, reminder, message, duration, original_channel_id, original_msg_id, active)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertTimerParams struct {
+	ID                string
+	UserID            string
+	ChannelID         string
+	MsgID             string
+	Reminder          time.Time
+	Message           string
+	Duration          int64
+	OriginalChannelID string
+	OriginalMsgID     string
+	Active            bool
+}
+
+func (q *Queries) InsertTimer(ctx context.Context, arg InsertTimerParams) error {
+	_, err := q.db.ExecContext(ctx, insertTimer,
+		arg.ID,
+		arg.UserID,
+		arg.ChannelID,
+		arg.MsgID,
+		arg.Reminder,
+		arg.Message,
+		arg.Duration,
+		arg.OriginalChannelID,
+		arg.OriginalMsgID,
+		arg.Active,
+	)
+	return err
+}
+
 const removeGuildMembership = `-- name: RemoveGuildMembership :exec
 DELETE FROM farmer_guild_membership 
 WHERE user_id = ? AND guild_id = ?
@@ -338,6 +428,35 @@ func (q *Queries) UpdateLegacyFarmerstate(ctx context.Context, arg UpdateLegacyF
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const updateTimerMsg = `-- name: UpdateTimerMsg :exec
+UPDATE timers SET channel_id = ?, msg_id = ? WHERE id = ?
+`
+
+type UpdateTimerMsgParams struct {
+	ChannelID string
+	MsgID     string
+	ID        string
+}
+
+func (q *Queries) UpdateTimerMsg(ctx context.Context, arg UpdateTimerMsgParams) error {
+	_, err := q.db.ExecContext(ctx, updateTimerMsg, arg.ChannelID, arg.MsgID, arg.ID)
+	return err
+}
+
+const updateTimerState = `-- name: UpdateTimerState :exec
+UPDATE timers SET active = ? WHERE id = ?
+`
+
+type UpdateTimerStateParams struct {
+	Active bool
+	ID     string
+}
+
+func (q *Queries) UpdateTimerState(ctx context.Context, arg UpdateTimerStateParams) error {
+	_, err := q.db.ExecContext(ctx, updateTimerState, arg.Active, arg.ID)
+	return err
 }
 
 const upsertCustomBanner = `-- name: UpsertCustomBanner :exec
