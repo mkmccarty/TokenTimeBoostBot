@@ -288,7 +288,7 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 		options := make([]discordgo.SelectMenuOption, 0, len(bms))
 		for idx, bm := range bms {
 			if bm.GuildID != "" && bm.ChannelName != "" {
-				fmt.Fprintf(&bmBuilder, "%d. #%s\n", idx+1, bm.ChannelName, bm.GuildID, bm.ChannelID)
+				fmt.Fprintf(&bmBuilder, "%d. #%s (%s/%s)\n", idx+1, bm.ChannelName, bm.GuildID, bm.ChannelID)
 			} else {
 				fmt.Fprintf(&bmBuilder, "%d. <#%s>\n", idx+1, bm.ChannelID)
 			}
