@@ -16,7 +16,7 @@ import (
 func GetSlashDashboardCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
-		Description: "Show your personal BoostBot dashboard (active contracts, timers)",
+		Description: "Manage your personal BoostBot dashboard",
 		Contexts: &[]discordgo.InteractionContextType{
 			discordgo.InteractionContextGuild,
 			discordgo.InteractionContextBotDM,
@@ -26,6 +26,23 @@ func GetSlashDashboardCommand(cmd string) *discordgo.ApplicationCommand {
 			discordgo.ApplicationIntegrationGuildInstall,
 			discordgo.ApplicationIntegrationUserInstall,
 		},
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Name:        "show",
+				Description: "Show your personal BoostBot dashboard (active contracts, timers)",
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			},
+			{
+				Name:        "add-bookmark",
+				Description: "Add the current channel to your dashboard bookmarks",
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			},
+			{
+				Name:        "remove-bookmark",
+				Description: "Remove the current channel from your dashboard bookmarks",
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			},
+		},
 	}
 }
 
@@ -33,20 +50,77 @@ func GetSlashDashboardCommand(cmd string) *discordgo.ApplicationCommand {
 func HandleDashboardCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	userID := getInteractionUserID(i)
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
+	subcommand := "show"
+	if len(i.ApplicationCommandData().Options) > 0 {
+		subcommand = i.ApplicationCommandData().Options[0].Name
+	}
 
-	content, components := drawDashboard(userID)
+	switch subcommand {
+	case "show":
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags: discordgo.MessageFlagsEphemeral,
+			},
+		})
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content:    content,
-		Components: components,
-		Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
-	})
+		content, components := drawDashboard(userID)
+
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content:    content,
+			Components: components,
+			Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
+		})
+
+	case "add-bookmark":
+		channelName := "Unknown Channel"
+		guildName := "Unknown Server"
+		guildID := ""
+		if ch, err := s.Channel(i.ChannelID); err == nil {
+			channelName = ch.Name
+			guildID = ch.GuildID
+			if g, err := s.Guild(ch.GuildID); err == nil {
+				guildName = g.Name
+			}
+		}
+		addDashboardBookmark(userID, i.ChannelID, guildID, guildName, channelName)
+		bms := getDashboardBookmarks(userID)
+
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: fmt.Sprintf("Bookmark added for <#%s>. You have %d/15 bookmarks.", i.ChannelID, len(bms)),
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+
+	case "remove-bookmark":
+		bms := getDashboardBookmarks(userID)
+		found := false
+		for _, bm := range bms {
+			if bm.ChannelID == i.ChannelID {
+				found = true
+				break
+			}
+		}
+
+		var msg string
+		if found {
+			delDashboardBookmark(userID, i.ChannelID)
+			bms = getDashboardBookmarks(userID)
+			msg = fmt.Sprintf("Bookmark removed for <#%s>. You have %d/15 bookmarks.", i.ChannelID, len(bms))
+		} else {
+			msg = fmt.Sprintf("No bookmark found for <#%s>. You have %d/15 bookmarks.", i.ChannelID, len(bms))
+		}
+
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: msg,
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+	}
 }
 
 func drawDashboard(userID string) (string, []discordgo.MessageComponent) {
