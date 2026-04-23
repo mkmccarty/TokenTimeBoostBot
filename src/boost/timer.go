@@ -260,6 +260,7 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{
 			Content: builder.String(),
+			Flags:   discordgo.MessageFlagsEphemeral,
 		})
 
 	purgeOldTimers(s)
