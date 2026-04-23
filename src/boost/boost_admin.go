@@ -67,12 +67,9 @@ func SlashAdminListRoles(cmd string) *discordgo.ApplicationCommand {
 		DefaultMemberPermissions: &adminPermission,
 		Contexts: &[]discordgo.InteractionContextType{
 			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
 		},
 		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
 			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
 		},
 		Options: []*discordgo.ApplicationCommandOption{
 			{

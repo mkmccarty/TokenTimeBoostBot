@@ -476,7 +476,7 @@ func setupCommands() {
 			Handler:  boost.HandleSlashVoluntellSinkCommand,
 		},
 		{
-			AppCmd:       boost.GetSlasLinkAlternateCommand(slashLinkAlternate),
+			AppCmd:       boost.GetSlashLinkAlternateCommand(slashLinkAlternate),
 			Category:     CmdCategoryStandard,
 			Handler:      boost.HandleLinkAlternateCommand,
 			Autocomplete: boost.HandleLinkAlternateAutoComplete,

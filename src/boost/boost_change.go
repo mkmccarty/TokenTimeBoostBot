@@ -22,7 +22,13 @@ var integerZeroMinValue float64 = 0.0
 func GetSlashAdminContractsListCommand(cmd string) *discordgo.ApplicationCommand {
 	var adminPermission int64 = 0
 	return &discordgo.ApplicationCommand{
-		Name:                     cmd,
+		Name: cmd,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 		Description:              "List all running contracts",
 		DefaultMemberPermissions: &adminPermission,
 	}
@@ -31,7 +37,13 @@ func GetSlashAdminContractsListCommand(cmd string) *discordgo.ApplicationCommand
 // GetSlashJoinContractCommand returns the command definition for joining a contract
 func GetSlashJoinContractCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
-		Name:        cmd,
+		Name: cmd,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 		Description: "Add farmer or guest to contract.",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
@@ -81,7 +93,13 @@ func GetSlashJoinContractCommand(cmd string) *discordgo.ApplicationCommand {
 // GetSlashBoostCommand returns the command definition for boosting
 func GetSlashBoostCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
-		Name:        cmd,
+		Name: cmd,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 		Description: "Spending tokens to boost!",
 		Options:     []*discordgo.ApplicationCommandOption{},
 	}
@@ -90,7 +108,13 @@ func GetSlashBoostCommand(cmd string) *discordgo.ApplicationCommand {
 // GetSlashSkipCommand returns the command definition for skipping a booster
 func GetSlashSkipCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
-		Name:        cmd,
+		Name: cmd,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 		Description: "Move current booster to last in boost order.",
 		Options:     []*discordgo.ApplicationCommandOption{},
 	}
@@ -99,7 +123,13 @@ func GetSlashSkipCommand(cmd string) *discordgo.ApplicationCommand {
 // GetSlashUnboostCommand returns the command definition for unboosting
 func GetSlashUnboostCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
-		Name:        cmd,
+		Name: cmd,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 		Description: "Change boost state to unboosted.",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
@@ -117,6 +147,12 @@ func GetSlashPruneCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Prune Booster",
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
@@ -131,7 +167,13 @@ func GetSlashPruneCommand(cmd string) *discordgo.ApplicationCommand {
 // GetSlashBumpCommand returns the command definition for bumping a contract
 func GetSlashBumpCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
-		Name:        cmd,
+		Name: cmd,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 		Description: "Redraw the boost list to the timeline.",
 	}
 }
@@ -141,6 +183,12 @@ func GetSlashToggleContractPingsCommand(cmd string) *discordgo.ApplicationComman
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Toggle Boost Bot contract pings [sticky]",
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 	}
 }
 
@@ -149,13 +197,25 @@ func GetSlashContractSettingsCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        cmd,
 		Description: "Coordinator of contract can use this to show initial settings",
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 	}
 }
 
 // GetSlashChangeOneBoosterCommand adjust aspects of a running contract
 func GetSlashChangeOneBoosterCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
-		Name:        cmd,
+		Name: cmd,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 		Description: "Move booster to a new position. If current booster, will assign new booster",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
@@ -217,10 +277,16 @@ func GetSlashChangePlannedStartCommand(cmd string) *discordgo.ApplicationCommand
 	}
 }
 
-// GetSlasLinkAlternateCommand allows a player to associate an alt
-func GetSlasLinkAlternateCommand(cmd string) *discordgo.ApplicationCommand {
+// GetSlashLinkAlternateCommand allows a player to associate an alt.
+func GetSlashLinkAlternateCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
-		Name:        cmd,
+		Name: cmd,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 		Description: "Add an alternate persona for this contract.",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
