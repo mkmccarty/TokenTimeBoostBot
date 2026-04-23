@@ -26,3 +26,16 @@ type FarmerState struct {
 	Key   string
 	Value sql.NullString
 }
+
+type Timer struct {
+	ID                string
+	UserID            string
+	ChannelID         string
+	MsgID             string
+	Reminder          time.Time
+	Message           string
+	Duration          int64
+	OriginalChannelID string
+	OriginalMsgID     string
+	Active            bool
+}

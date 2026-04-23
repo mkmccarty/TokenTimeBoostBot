@@ -89,3 +89,22 @@ DELETE FROM custom_banners WHERE user_id = ? AND guild_id = ?;
 
 -- name: GetCustomBanner :one
 SELECT image_data, updated_at FROM custom_banners WHERE user_id = ? AND guild_id = ?;
+
+-- name: GetTimers :many
+SELECT id, user_id, channel_id, msg_id, reminder, message, duration, original_channel_id, original_msg_id, active FROM timers;
+
+-- name: InsertTimer :exec
+INSERT INTO timers (id, user_id, channel_id, msg_id, reminder, message, duration, original_channel_id, original_msg_id, active)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: UpdateTimerState :exec
+UPDATE timers SET active = ? WHERE id = ?;
+
+-- name: UpdateTimerMsg :exec
+UPDATE timers SET channel_id = ?, msg_id = ? WHERE id = ?;
+
+-- name: DeleteTimer :exec
+DELETE FROM timers WHERE id = ?;
+
+-- name: DeleteInactiveTimers :exec
+DELETE FROM timers WHERE active = 0;
