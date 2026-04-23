@@ -40,7 +40,7 @@ func HandleDashboardCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		},
 	})
 
-	content, components := drawDashboard(s, userID)
+	content, components := drawDashboard(userID)
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Content:    content,
@@ -49,7 +49,7 @@ func HandleDashboardCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 	})
 }
 
-func drawDashboard(s *discordgo.Session, userID string) (string, []discordgo.MessageComponent) {
+func drawDashboard(userID string) (string, []discordgo.MessageComponent) {
 	var containerComps []discordgo.MessageComponent
 	containerComps = append(containerComps, discordgo.TextDisplay{Content: "# 📊 Your BoostBot Dashboard"})
 
@@ -257,7 +257,7 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 			}
 		}
 		addDashboardBookmark(userID, i.ChannelID, guildName, channelName)
-		content, components := drawDashboard(s, userID)
+		content, components := drawDashboard(userID)
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{
@@ -328,7 +328,7 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 		if len(vals) > 0 {
 			delDashboardBookmark(userID, vals[0])
 		}
-		content, components := drawDashboard(s, userID)
+		content, components := drawDashboard(userID)
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{
@@ -339,7 +339,7 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 		})
 
 	case "refresh":
-		content, components := drawDashboard(s, userID)
+		content, components := drawDashboard(userID)
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{
