@@ -256,6 +256,7 @@ var (
 		"coop_status":         boost.HandleCoopStatusPermissionButton,
 		"leaderboard_perm":    boost.HandleLeaderboardPermissionButton,
 		"timer_btn":           boost.HandleTimerInteraction,
+		"dashboard_btn":       boost.HandleDashboardInteraction,
 		"mint_preview":        boost.HandleMintPreviewComponent,
 		"chart":               boost.HandleChartReactions,
 	}
