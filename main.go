@@ -98,6 +98,7 @@ const slashFun string = "fun"
 const slashStones string = "stones"
 const slashLeaderboard string = "leaderboard"
 const slashTimer string = "timer"
+const slashDashboard string = "dashboard"
 const slashArtifact string = "artifact"
 const slashScoreExplorer string = "score-explorer"
 const slashRemoveDMMessage string = "remove-dm-message"
@@ -525,6 +526,11 @@ func setupCommands() {
 			AppCmd:   boost.GetSlashTimer(slashTimer),
 			Category: CmdCategoryStandard,
 			Handler:  boost.HandleTimerCommand,
+		},
+		{
+			AppCmd:   boost.GetSlashDashboardCommand(slashDashboard),
+			Category: CmdCategoryStandard,
+			Handler:  boost.HandleDashboardCommand,
 		},
 		{
 			AppCmd:       boost.GetSlashEstimateTime(slashEstimateTime),
