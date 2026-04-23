@@ -61,7 +61,11 @@ func drawDashboard(userID string) (string, []discordgo.MessageComponent) {
 			contractCount++
 			channelStr := "Unknown Channel"
 			if len(c.Location) > 0 {
-				channelStr = fmt.Sprintf("<#%s>", c.Location[0].ChannelID)
+				guildID := c.Location[0].GuildID
+				if guildID == "" {
+					guildID = "@me"
+				}
+				channelStr = fmt.Sprintf("https://discord.com/channels/%s/%s", guildID, c.Location[0].ChannelID)
 			}
 
 			timeStr := "TBD"
@@ -71,7 +75,7 @@ func drawDashboard(userID string) (string, []discordgo.MessageComponent) {
 				timeStr = "In Sign-up"
 			}
 
-			fmt.Fprintf(&contractBuilder, "🚀 **%s / %s** %s\n", c.ContractID, c.CoopID, channelStr)
+			fmt.Fprintf(&contractBuilder, "🚀 [**%s / %s**](%s)\n", c.ContractID, c.CoopID, channelStr)
 			fmt.Fprintf(&contractBuilder, "-# _       _ Completion: %s\n", timeStr)
 		}
 	}
@@ -288,7 +292,7 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 		options := make([]discordgo.SelectMenuOption, 0, len(bms))
 		for idx, bm := range bms {
 			if bm.GuildID != "" && bm.ChannelName != "" {
-				fmt.Fprintf(&bmBuilder, "%d. #%s (%s/%s)\n", idx+1, bm.ChannelName, bm.GuildID, bm.ChannelID)
+				fmt.Fprintf(&bmBuilder, "%d. [#%s](https://discord.com/channels/@me/%s/%s)\n", idx+1, bm.ChannelName, bm.GuildID, bm.ChannelID)
 			} else {
 				fmt.Fprintf(&bmBuilder, "%d. <#%s>\n", idx+1, bm.ChannelID)
 			}
