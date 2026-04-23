@@ -15,7 +15,13 @@ import (
 // GetSlashSpeedrunCommand returns the slash command for speedrun
 func GetSlashSpeedrunCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
-		Name:        cmd,
+		Name: cmd,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 		Description: "Add speedrun features to a contract.",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
@@ -65,7 +71,14 @@ func GetSlashSpeedrunCommand(cmd string) *discordgo.ApplicationCommand {
 // GetSlashChangeSpeedRunSinkCommand returns the slash command for changing speedrun sink assignments
 func GetSlashChangeSpeedRunSinkCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
-		Name:        cmd,
+		Name: cmd,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
+
 		Description: "Change speedrun sink assignements of a running contract",
 		Options: []*discordgo.ApplicationCommandOption{
 			{

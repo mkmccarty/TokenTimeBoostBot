@@ -17,12 +17,9 @@ func GetSlashRenameThread(cmd string) *discordgo.ApplicationCommand {
 		Description: "Rename Boost Bot created contract thread.",
 		Contexts: &[]discordgo.InteractionContextType{
 			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
 		},
 		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
 			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
 		},
 		Options: []*discordgo.ApplicationCommandOption{
 			{

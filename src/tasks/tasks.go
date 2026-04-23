@@ -59,6 +59,12 @@ func GetSlashReloadContractsCommand(cmd string) *discordgo.ApplicationCommand {
 		Name:                     cmd,
 		Description:              "Manual check for new Egg Inc contract data.",
 		DefaultMemberPermissions: &adminPermission,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 	}
 }
 

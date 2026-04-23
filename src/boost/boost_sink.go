@@ -8,7 +8,13 @@ import (
 // GetSlashVolunteerSink is used to volunteer as token sink for a contract
 func GetSlashVolunteerSink(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
-		Name:        cmd,
+		Name: cmd,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 		Description: "Volunteer as token sink for this contract",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
@@ -24,7 +30,13 @@ func GetSlashVolunteerSink(cmd string) *discordgo.ApplicationCommand {
 // GetSlashVoluntellSink is used to volunteer as token sink for a contract
 func GetSlashVoluntellSink(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
-		Name:        cmd,
+		Name: cmd,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
 		Description: "Voluntell guest farmer to assign as token sink for this contract",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
