@@ -50,39 +50,98 @@ func HandleDashboardCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 }
 
 func drawDashboard(userID string) (string, []discordgo.MessageComponent) {
-	var containerComps []discordgo.MessageComponent
-	containerComps = append(containerComps, discordgo.TextDisplay{Content: "# 📊 Your BoostBot Dashboard"})
+	var components []discordgo.MessageComponent
+	components = append(components, discordgo.TextDisplay{Content: "# 📊 Your BoostBot Dashboard"})
+
+	colorContracts := 0xAAAAAA // Blurple
+	colorTimers := 0x999999    // Yellow
+	colorBookmarks := 0x777777 // Fuchsia
+	colorCommands := 0x555555  // Green
 
 	// Active Contracts
-	contractCount := 0
-	var contractBuilder strings.Builder
+	var activeContracts []*Contract
 	for _, c := range Contracts {
 		if userInContract(c, userID) {
-			contractCount++
-			channelStr := "Unknown Channel"
-			if len(c.Location) > 0 {
-				guildID := c.Location[0].GuildID
-				if guildID == "" {
-					guildID = "@me"
-				}
-				channelStr = fmt.Sprintf("https://discord.com/channels/%s/%s", guildID, c.Location[0].ChannelID)
+			if !c.EstimatedEndTime.IsZero() && time.Since(c.EstimatedEndTime) > 24*time.Hour {
+				continue
 			}
-
-			timeStr := "TBD"
-			if !c.EstimatedEndTime.IsZero() {
-				timeStr = fmt.Sprintf("<t:%d:f>", c.EstimatedEndTime.Unix())
-			} else if c.State == ContractStateSignup {
-				timeStr = "In Sign-up"
-			}
-
-			fmt.Fprintf(&contractBuilder, "🚀 [**%s / %s**](%s)\n", c.ContractID, c.CoopID, channelStr)
-			fmt.Fprintf(&contractBuilder, "-# _       _ Completion: %s\n", timeStr)
+			activeContracts = append(activeContracts, c)
 		}
 	}
+
+	sort.Slice(activeContracts, func(i, j int) bool {
+		a := activeContracts[i]
+		b := activeContracts[j]
+		now := time.Now()
+
+		group := func(c *Contract) int {
+			if !c.EstimatedEndTime.IsZero() && now.After(c.EstimatedEndTime) {
+				if now.Sub(c.EstimatedEndTime) <= 12*time.Hour {
+					return 0 // Completed recently
+				}
+				return 3 // Completed between 12-24h ago
+			}
+			if c.State == ContractStateSignup {
+				return 2 // Not started
+			}
+			return 1 // Running
+		}
+
+		gA := group(a)
+		gB := group(b)
+		if gA != gB {
+			return gA < gB
+		}
+
+		switch gA {
+		case 0, 3:
+			return a.EstimatedEndTime.After(b.EstimatedEndTime)
+		case 1:
+			if a.EstimatedEndTime.IsZero() && b.EstimatedEndTime.IsZero() {
+				return a.StartTime.Before(b.StartTime)
+			}
+			if a.EstimatedEndTime.IsZero() {
+				return false
+			}
+			if b.EstimatedEndTime.IsZero() {
+				return true
+			}
+			return a.EstimatedEndTime.Before(b.EstimatedEndTime)
+		case 2:
+			return a.ValidFrom.Before(b.ValidFrom)
+		}
+		return false
+	})
+
+	contractCount := len(activeContracts)
+	var contractBuilder strings.Builder
+	for _, c := range activeContracts {
+		channelStr := "Unknown Channel"
+		if len(c.Location) > 0 {
+			guildID := c.Location[0].GuildID
+			if guildID == "" {
+				guildID = "@me"
+			}
+			channelStr = fmt.Sprintf("https://discord.com/channels/%s/%s", guildID, c.Location[0].ChannelID)
+		}
+
+		var timeStr string
+		if !c.EstimatedEndTime.IsZero() {
+			timeStr = fmt.Sprintf("Completion: <t:%d:f>", c.EstimatedEndTime.Unix())
+		} else if c.State == ContractStateSignup {
+			timeStr = "In Sign-up"
+		} else {
+			timeStr = "Completion: TBD"
+		}
+
+		fmt.Fprintf(&contractBuilder, "[**%s / %s**](%s)\n", c.ContractID, c.CoopID, channelStr)
+		fmt.Fprintf(&contractBuilder, "-# _       _ %s\n", timeStr)
+	}
 	if contractCount > 0 {
-		containerComps = append(containerComps, discordgo.TextDisplay{Content: "## 🚀 Active Contracts\n" + contractBuilder.String()})
-	} else {
-		containerComps = append(containerComps, discordgo.TextDisplay{Content: "## 🚀 Active Contracts\n-# _       _ No active contracts."})
+		components = append(components, discordgo.Container{
+			AccentColor: &colorContracts,
+			Components:  []discordgo.MessageComponent{discordgo.TextDisplay{Content: "## 🚀 Active Contracts\n" + contractBuilder.String()}},
+		})
 	}
 
 	// Active Timers
@@ -104,7 +163,10 @@ func drawDashboard(userID string) (string, []discordgo.MessageComponent) {
 	timersMutex.Unlock()
 
 	if timerCount > 0 {
-		containerComps = append(containerComps, discordgo.TextDisplay{Content: "## ⏱️ Active Timers\n" + timerBuilder.String()})
+		components = append(components, discordgo.Container{
+			AccentColor: &colorTimers,
+			Components:  []discordgo.MessageComponent{discordgo.TextDisplay{Content: "## ⏱️ Active Timers\n" + timerBuilder.String()}},
+		})
 	}
 
 	// Bookmarks
@@ -114,12 +176,15 @@ func drawDashboard(userID string) (string, []discordgo.MessageComponent) {
 		bmBuilder.WriteString("## 🔖 Channel Bookmarks\n")
 		for _, bm := range bms {
 			if bm.GuildID != "" && bm.ChannelName != "" {
-				fmt.Fprintf(&bmBuilder, "🔖 [#%s](https://discord.com/channels/%s/%s)\n", bm.ChannelName, bm.GuildID, bm.ChannelID)
+				fmt.Fprintf(&bmBuilder, "[#%s](https://discord.com/channels/%s/%s)\n", bm.ChannelName, bm.GuildID, bm.ChannelID)
 			} else {
-				fmt.Fprintf(&bmBuilder, "🔖 <#%s>\n", bm.ChannelID)
+				fmt.Fprintf(&bmBuilder, "<#%s>\n", bm.ChannelID)
 			}
 		}
-		containerComps = append(containerComps, discordgo.TextDisplay{Content: bmBuilder.String()})
+		components = append(components, discordgo.Container{
+			AccentColor: &colorBookmarks,
+			Components:  []discordgo.MessageComponent{discordgo.TextDisplay{Content: bmBuilder.String()}},
+		})
 	}
 
 	// Command Links
@@ -139,37 +204,33 @@ func drawDashboard(userID string) (string, []discordgo.MessageComponent) {
 	}
 
 	fmt.Fprintf(&cmdBuilder, "-# %s 🪨 • %s 📈 • %s ⏱️", stonesCmd, csEstimateCmd, timerCmd)
-	containerComps = append(containerComps, discordgo.TextDisplay{Content: cmdBuilder.String()})
+	components = append(components, discordgo.Container{
+		AccentColor: &colorCommands,
+		Components:  []discordgo.MessageComponent{discordgo.TextDisplay{Content: cmdBuilder.String()}},
+	})
 
-	accentColor := 0x5865f2
-	components := []discordgo.MessageComponent{
-		discordgo.Container{
-			AccentColor: &accentColor,
-			Components:  containerComps,
-		},
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.Button{
-					Label:    "Refresh",
-					Style:    discordgo.SecondaryButton,
-					CustomID: "dashboard_btn#refresh",
-					Emoji:    &discordgo.ComponentEmoji{Name: "🔄"},
-				},
-				discordgo.Button{
-					Label:    "Add Bookmark",
-					Style:    discordgo.PrimaryButton,
-					CustomID: "dashboard_btn#add_bookmark",
-					Emoji:    &discordgo.ComponentEmoji{Name: "🔖"},
-				},
-				discordgo.Button{
-					Label:    "Delete Bookmark",
-					Style:    discordgo.DangerButton,
-					CustomID: "dashboard_btn#del_bookmark",
-					Disabled: len(bms) == 0,
-				},
+	components = append(components, discordgo.ActionsRow{
+		Components: []discordgo.MessageComponent{
+			discordgo.Button{
+				Label:    "Refresh",
+				Style:    discordgo.SecondaryButton,
+				CustomID: "dashboard_btn#refresh",
+				Emoji:    &discordgo.ComponentEmoji{Name: "🔄"},
+			},
+			discordgo.Button{
+				Label:    "Add Bookmark",
+				Style:    discordgo.PrimaryButton,
+				CustomID: "dashboard_btn#add_bookmark",
+				Emoji:    &discordgo.ComponentEmoji{Name: "🔖"},
+			},
+			discordgo.Button{
+				Label:    "Delete Bookmark",
+				Style:    discordgo.DangerButton,
+				CustomID: "dashboard_btn#del_bookmark",
+				Disabled: len(bms) == 0,
 			},
 		},
-	}
+	})
 
 	return "", components
 }
