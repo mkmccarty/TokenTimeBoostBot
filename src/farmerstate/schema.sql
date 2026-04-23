@@ -28,36 +28,3 @@ CREATE TABLE IF NOT EXISTS custom_banners (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (user_id, guild_id)
 );
-
-
-/*
--- The following SQL statements are used to identify and delete entries in the `farmer_state` table that have IDs matching the specified patterns.
-
-SELECT id
-FROM farmer_state 
-WHERE 
-    -- Isolate the 'left' part of the ID
-    SUBSTR(id, 1, INSTR(id, '_') - 1) IN (
-        'brisk', 'calm', 'clever', 'cosmic', 'crisp', 'daring', 'gentle', 'lucky', 'mellow', 'nimble',
-        'quiet', 'rapid', 'savvy', 'steady', 'swift', 'vivid', 'witty', 'bold', 'bright', 'chill'
-    )
-AND 
-    -- Isolate the 'right' part of the ID
-    SUBSTR(id, INSTR(id, '_') + 1) IN (
-        'acorn', 'anchor', 'aster', 'beacon', 'bison', 'comet', 'drifter', 'falcon', 'harbor', 'meadow',
-        'nebula', 'otter', 'ranger', 'rocket', 'sailor', 'sprout', 'thunder', 'valley', 'voyager', 'zephyr'
-    );
-
-DELETE FROM farmer_state 
-WHERE 
-    SUBSTR(id, 1, INSTR(id, '_') - 1) IN (
-        'brisk', 'calm', 'clever', 'cosmic', 'crisp', 'daring', 'gentle', 'lucky', 'mellow', 'nimble',
-        'quiet', 'rapid', 'savvy', 'steady', 'swift', 'vivid', 'witty', 'bold', 'bright', 'chill'
-    )
-AND 
-    SUBSTR(id, INSTR(id, '_') + 1) IN (
-        'acorn', 'anchor', 'aster', 'beacon', 'bison', 'comet', 'drifter', 'falcon', 'harbor', 'meadow',
-        'nebula', 'otter', 'ranger', 'rocket', 'sailor', 'sprout', 'thunder', 'valley', 'voyager', 'zephyr'
-    );
-
-*/
