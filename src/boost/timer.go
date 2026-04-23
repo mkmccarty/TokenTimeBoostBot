@@ -35,8 +35,24 @@ func timerDelete(id string) {
 	farmerstate.DeleteTimer(id)
 }
 
+func getTimerMsgDuration(userID string) time.Duration {
+	stickyMsgDur := farmerstate.GetMiscSettingString(userID, "timer_dm_timeout")
+	if stickyMsgDur == "" {
+		stickyMsgDur = farmerstate.GetMiscSettingString(userID, "timer_msg_duration")
+	}
+	if stickyMsgDur != "" {
+		if stickyMsgDur == "0" || stickyMsgDur == "0s" {
+			return 0
+		}
+		if dur, err := str2duration.ParseDuration(bottools.SanitizeStringDuration(stickyMsgDur)); err == nil {
+			return dur
+		}
+	}
+	return 30 * time.Second
+}
+
 func startTimer(s *discordgo.Session, t *BotTimer) {
-	deleteDuration := 30 * time.Second
+	deleteDuration := getTimerMsgDuration(t.UserID)
 	go func(t *BotTimer) {
 		<-t.timer.C
 		u, err := s.UserChannelCreate(t.UserID)
@@ -78,7 +94,9 @@ func startTimer(s *discordgo.Session, t *BotTimer) {
 		if t.OriginalChannelID != "" {
 			finalMessage = fmt.Sprintf("%s in <#%s>", t.Message, t.OriginalChannelID)
 		}
-		finalMessage = fmt.Sprintf("%s\nReminder deleting <t:%d:R>", finalMessage, time.Now().Add(deleteDuration).Unix())
+		if deleteDuration > 0 {
+			finalMessage = fmt.Sprintf("%s\nReminder deleting <t:%d:R>", finalMessage, time.Now().Add(deleteDuration).Unix())
+		}
 
 		msg, err := s.ChannelMessageSendComplex(u.ID, &discordgo.MessageSend{
 			Content:    finalMessage,
@@ -92,13 +110,15 @@ func startTimer(s *discordgo.Session, t *BotTimer) {
 		timerSetActiveState(t.ID, false)
 		if msg != nil {
 			timerSetMsgID(t.ID, u.ID, msg.ID)
-			time.AfterFunc(deleteDuration, func() {
-				err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
-				if err != nil {
-					log.Println(err)
-				}
-				timerDelete(t.ID)
-			})
+			if deleteDuration > 0 {
+				time.AfterFunc(deleteDuration, func() {
+					err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+					if err != nil {
+						log.Println(err)
+					}
+					timerDelete(t.ID)
+				})
+			}
 		}
 	}(t)
 }
@@ -109,7 +129,11 @@ func purgeOldTimers(s *discordgo.Session) {
 	var purgedIDs []string
 	now := time.Now()
 	for i := range timers {
-		if now.After(timers[i].Reminder.Add(5 * time.Minute)) {
+		deleteDuration := getTimerMsgDuration(timers[i].UserID)
+		if deleteDuration == 0 {
+			continue
+		}
+		if now.After(timers[i].Reminder.Add(deleteDuration).Add(time.Minute)) {
 			if timers[i].ChannelID != "" && timers[i].MsgID != "" {
 				_ = s.ChannelMessageDelete(timers[i].ChannelID, timers[i].MsgID)
 			}
@@ -178,6 +202,12 @@ func GetSlashTimer(cmd string) *discordgo.ApplicationCommand {
 				Description: "Message to display when the timer expires",
 				Required:    false,
 			},
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "dm-timeout",
+				Description: "How long the message stays in DM (e.g. 30s, 5m). 0 to keep until closed. [Sticky]",
+				Required:    false,
+			},
 		},
 	}
 }
@@ -230,12 +260,26 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
-	if statusMessage != "" {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: statusMessage,
-				Flags:   discordgo.MessageFlagsEphemeral,
-			})
+	if opt, ok := optionMap["dm-timeout"]; ok {
+		val := opt.StringValue()
+		if val == "0" {
+			val = "0s"
+		}
+		timespan := bottools.SanitizeStringDuration(val)
+		dur, err := str2duration.ParseDuration(timespan)
+		if err == nil {
+			farmerstate.SetMiscSettingString(userID, "timer_dm_timeout", val)
+			if statusMessage != "" {
+				statusMessage += "\n"
+			}
+			if dur == 0 {
+				statusMessage += "Sticky message duration set to: Keep until closed"
+			} else {
+				statusMessage += fmt.Sprintf("Sticky message duration set to: %s", dur)
+			}
+		} else {
+			statusMessage += fmt.Sprintf("\nCould not parse dm-timeout '%s'.", opt.StringValue())
+		}
 	}
 
 	t := BotTimer{
@@ -251,6 +295,9 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	startTimer(s, &t)
 
 	var builder strings.Builder
+	if statusMessage != "" {
+		builder.WriteString(statusMessage + "\n")
+	}
 	builder.WriteString("Timer set. Existing timers:")
 
 	var purgedIDs []string
