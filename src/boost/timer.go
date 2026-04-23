@@ -36,7 +36,46 @@ func startTimer(s *discordgo.Session, t *BotTimer) {
 			log.Printf("Error creating user channel: %v\n", err)
 			return
 		}
-		msg, err := s.ChannelMessageSend(u.ID, fmt.Sprintf("%s\nReminder deleting <t:%d:R>", t.Message, time.Now().Add(deleteDuration).Unix()))
+
+		var components []discordgo.MessageComponent
+		var actionRowComponents []discordgo.MessageComponent
+
+		// Repeat button
+		actionRowComponents = append(actionRowComponents, discordgo.Button{
+			Label:    fmt.Sprintf("Repeat %s Timer", bottools.FmtDuration(t.Duration)),
+			Style:    discordgo.PrimaryButton,
+			CustomID: fmt.Sprintf("timer_btn#repeat#%s", t.ID),
+		})
+
+		// 3m40s button
+		threeMin40s := 3*time.Minute + 40*time.Second
+		if t.Duration > threeMin40s+30*time.Second || t.Duration < threeMin40s-30*time.Second {
+			actionRowComponents = append(actionRowComponents, discordgo.Button{
+				Label:    "New 3m40s Timer",
+				Style:    discordgo.PrimaryButton,
+				CustomID: fmt.Sprintf("timer_btn#repeat_3m40s#%s", t.ID),
+			})
+		}
+
+		// Close button
+		actionRowComponents = append(actionRowComponents, discordgo.Button{
+			Label:    "Close",
+			Style:    discordgo.DangerButton,
+			CustomID: fmt.Sprintf("timer_btn#close#%s", t.ID),
+		})
+
+		components = append(components, discordgo.ActionsRow{Components: actionRowComponents})
+
+		finalMessage := t.Message
+		if t.OriginalChannelID != "" {
+			finalMessage = fmt.Sprintf("%s in <#%s>", t.Message, t.OriginalChannelID)
+		}
+		finalMessage = fmt.Sprintf("%s\nReminder deleting <t:%d:R>", finalMessage, time.Now().Add(deleteDuration).Unix())
+
+		msg, err := s.ChannelMessageSendComplex(u.ID, &discordgo.MessageSend{
+			Content:    finalMessage,
+			Components: components,
+		})
 		if err != nil {
 			log.Printf("Error sending message: %v\n", err)
 			return
@@ -125,7 +164,6 @@ func GetSlashTimer(cmd string) *discordgo.ApplicationCommand {
 
 // HandleTimerCommand will handle the /stones command
 func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	setTimer := false
 	userID := getInteractionUserID(i)
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -137,27 +175,25 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	})
 
 	var message string
+	var statusMessage string
 
 	optionMap := bottools.GetCommandOptionsMap(i)
 
 	if opt, ok := optionMap["message"]; ok {
-		message = fmt.Sprintf("%s <#%s>", opt.StringValue(), i.ChannelID)
+		message = opt.StringValue()
 	} else {
-		message = fmt.Sprintf("activity reminder in <#%s>", i.ChannelID)
+		message = "Activity reminder"
 	}
 
 	duration := time.Duration(3*time.Minute + 30*time.Second) // Default to 3m30s
-	setTimer = true
 
 	stickyTimer := farmerstate.GetMiscSettingString(userID, "timer")
 	if stickyTimer != "" {
 		timespan := bottools.SanitizeStringDuration(stickyTimer)
 		dur, err := str2duration.ParseDuration(timespan)
 		if err == nil {
-			// Error during parsing means skip this duration
 			duration = dur
-			setTimer = true
-			message = fmt.Sprintf("Using saved %s timer", duration)
+			statusMessage = fmt.Sprintf("Using saved timer duration: %s", duration)
 		}
 	}
 
@@ -167,27 +203,30 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if err == nil {
 			// Error during parsing means skip this duration
 			duration = dur
-			setTimer = true
 			farmerstate.SetMiscSettingString(userID, "timer", opt.StringValue())
-			message = fmt.Sprintf("Sticky timer set to %s", duration)
+			statusMessage = fmt.Sprintf("Sticky timer set to: %s", duration)
+		} else {
+			statusMessage = fmt.Sprintf("Could not parse duration '%s'. Using default/sticky.", opt.StringValue())
 		}
 	}
 
-	if !setTimer {
+	if statusMessage != "" {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true,
 			&discordgo.WebhookParams{
-				Content: message,
+				Content: statusMessage,
+				Flags:   discordgo.MessageFlagsEphemeral,
 			})
-		return
 	}
 
 	t := BotTimer{
-		ID:       xid.New().String(),
-		Reminder: time.Now().Add(duration),
-		Message:  message,
-		UserID:   userID,
-		timer:    time.NewTimer(duration),
-		Active:   true,
+		ID:                xid.New().String(),
+		Reminder:          time.Now().Add(duration),
+		Message:           message,
+		UserID:            userID,
+		timer:             time.NewTimer(duration),
+		Active:            true,
+		Duration:          duration,
+		OriginalChannelID: i.ChannelID,
 	}
 	startTimer(s, &t)
 
@@ -202,7 +241,11 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// Only move over new timers
 			newTimers = append(newTimers, timers[i])
 			if timers[i].UserID == userID {
-				fmt.Fprintf(&builder, "\n> <t:%d:R> %s", timers[i].Reminder.Unix(), timers[i].Message)
+				displayMessage := timers[i].Message
+				if timers[i].OriginalChannelID != "" {
+					displayMessage = fmt.Sprintf("%s in <#%s>", displayMessage, timers[i].OriginalChannelID)
+				}
+				fmt.Fprintf(&builder, "\n> <t:%d:R> %s", timers[i].Reminder.Unix(), displayMessage)
 			}
 		} else {
 			if timers[i].ChannelID != "" && timers[i].MsgID != "" {
@@ -263,4 +306,85 @@ func loadTimerData() {
 		_ = json.Unmarshal(b, &timers)
 	}
 
+}
+
+// HandleTimerInteraction handles button interactions from timer DMs.
+func HandleTimerInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	parts := strings.Split(i.MessageComponentData().CustomID, "#")
+	action := parts[1]
+	timerID := parts[2]
+
+	switch action {
+	case "repeat":
+		handleTimerRepeat(s, i, timerID, 0)
+	case "repeat_3m40s":
+		handleTimerRepeat(s, i, timerID, 3*time.Minute+40*time.Second)
+	case "close":
+		handleTimerClose(s, i)
+	}
+}
+
+func handleTimerClose(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
+	})
+	if err != nil {
+		log.Printf("Error responding to timer close: %v", err)
+	}
+	_ = s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
+}
+
+func handleTimerRepeat(s *discordgo.Session, i *discordgo.InteractionCreate, oldTimerID string, newDuration time.Duration) {
+	timersMutex.Lock()
+	var originalTimer BotTimer
+	found := false
+	for _, t := range timers {
+		if t.ID == oldTimerID {
+			originalTimer = t
+			found = true
+			break
+		}
+	}
+	timersMutex.Unlock()
+
+	if !found {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Could not find the original timer to repeat.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
+	duration := originalTimer.Duration
+	if newDuration > 0 {
+		duration = newDuration
+	}
+
+	userID := getInteractionUserID(i)
+
+	// Acknowledge interaction
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseUpdateMessage,
+		Data: &discordgo.InteractionResponseData{
+			Content:    fmt.Sprintf("New timer set for %s.", duration),
+			Components: []discordgo.MessageComponent{},
+		},
+	})
+	if err != nil {
+		log.Printf("Error responding to timer repeat: %v", err)
+	}
+
+	// Create and start new timer
+	t := BotTimer{
+		ID: xid.New().String(), Reminder: time.Now().Add(duration), Message: originalTimer.Message, UserID: userID, timer: time.NewTimer(duration), Active: true, Duration: duration, OriginalChannelID: originalTimer.OriginalChannelID,
+	}
+	startTimer(s, &t)
+
+	timersMutex.Lock()
+	timers = append(timers, t)
+	timersMutex.Unlock()
+	saveTimerData()
 }
