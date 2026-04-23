@@ -109,7 +109,11 @@ func drawDashboard(userID string) (string, []discordgo.MessageComponent) {
 		var bmBuilder strings.Builder
 		bmBuilder.WriteString("## 🔖 Channel Bookmarks\n")
 		for _, bm := range bms {
-			fmt.Fprintf(&bmBuilder, "🔖 <#%s>\n", bm.ChannelID)
+			if bm.GuildID != "" && bm.ChannelName != "" {
+				fmt.Fprintf(&bmBuilder, "🔖 [#%s](https://discord.com/channels/%s/%s)\n", bm.ChannelName, bm.GuildID, bm.ChannelID)
+			} else {
+				fmt.Fprintf(&bmBuilder, "🔖 <#%s>\n", bm.ChannelID)
+			}
 		}
 		containerComps = append(containerComps, discordgo.TextDisplay{Content: bmBuilder.String()})
 	}
@@ -169,6 +173,7 @@ func drawDashboard(userID string) (string, []discordgo.MessageComponent) {
 // DashboardBookmark represents a bookmark for a specific channel in the dashboard
 type DashboardBookmark struct {
 	ChannelID   string    `json:"channel_id"`
+	GuildID     string    `json:"guild_id,omitempty"`
 	GuildName   string    `json:"guild_name,omitempty"`
 	ChannelName string    `json:"channel_name,omitempty"`
 	Timestamp   time.Time `json:"timestamp"`
@@ -191,12 +196,13 @@ func saveDashboardBookmarks(userID string, bms []DashboardBookmark) {
 	farmerstate.SetMiscSettingString(userID, "dashboard_bookmarks", string(b))
 }
 
-func addDashboardBookmark(userID string, channelID string, guildName string, channelName string) {
+func addDashboardBookmark(userID string, channelID string, guildID string, guildName string, channelName string) {
 	bms := getDashboardBookmarks(userID)
 	found := false
 	for i := range bms {
 		if bms[i].ChannelID == channelID {
 			bms[i].Timestamp = time.Now()
+			bms[i].GuildID = guildID
 			bms[i].GuildName = guildName
 			bms[i].ChannelName = channelName
 			found = true
@@ -206,6 +212,7 @@ func addDashboardBookmark(userID string, channelID string, guildName string, cha
 	if !found {
 		bms = append(bms, DashboardBookmark{
 			ChannelID:   channelID,
+			GuildID:     guildID,
 			GuildName:   guildName,
 			ChannelName: channelName,
 			Timestamp:   time.Now(),
@@ -250,13 +257,15 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 	case "add_bookmark":
 		channelName := "Unknown Channel"
 		guildName := "Unknown Server"
+		guildID := ""
 		if ch, err := s.Channel(i.ChannelID); err == nil {
 			channelName = ch.Name
+			guildID = ch.GuildID
 			if g, err := s.Guild(ch.GuildID); err == nil {
 				guildName = g.Name
 			}
 		}
-		addDashboardBookmark(userID, i.ChannelID, guildName, channelName)
+		addDashboardBookmark(userID, i.ChannelID, guildID, guildName, channelName)
 		content, components := drawDashboard(userID)
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
@@ -278,7 +287,11 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 
 		options := make([]discordgo.SelectMenuOption, 0, len(bms))
 		for idx, bm := range bms {
-			fmt.Fprintf(&bmBuilder, "%d. <#%s>\n", idx+1, bm.ChannelID)
+			if bm.GuildID != "" && bm.ChannelName != "" {
+				fmt.Fprintf(&bmBuilder, "%d. #%s\n", idx+1, bm.ChannelName, bm.GuildID, bm.ChannelID)
+			} else {
+				fmt.Fprintf(&bmBuilder, "%d. <#%s>\n", idx+1, bm.ChannelID)
+			}
 			options = append(options, discordgo.SelectMenuOption{
 				Label: fmt.Sprintf("%d", idx+1),
 				Value: bm.ChannelID,
