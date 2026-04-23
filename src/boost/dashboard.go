@@ -66,7 +66,7 @@ func HandleDashboardCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 	}
 
 	// Active Timers
-	builder.WriteString("\n## ⏱️ Active Timers\n")
+	var timerBuilder strings.Builder
 	timerCount := 0
 	timersMutex.Lock()
 	now := time.Now()
@@ -77,13 +77,14 @@ func HandleDashboardCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			if t.OriginalChannelID != "" {
 				displayMessage = fmt.Sprintf("%s in <#%s>", displayMessage, t.OriginalChannelID)
 			}
-			fmt.Fprintf(&builder, "> <t:%d:R> %s\n", t.Reminder.Unix(), displayMessage)
+			fmt.Fprintf(&timerBuilder, "> <t:%d:R> %s\n", t.Reminder.Unix(), displayMessage)
 		}
 	}
 	timersMutex.Unlock()
 
-	if timerCount == 0 {
-		builder.WriteString("> You have no active timers.\n")
+	if timerCount > 0 {
+		builder.WriteString("\n## ⏱️ Active Timers\n")
+		builder.WriteString(timerBuilder.String())
 	}
 
 	// Command Links
