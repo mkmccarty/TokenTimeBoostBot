@@ -66,7 +66,7 @@ func drawDashboard(userID string) (string, []discordgo.MessageComponent) {
 
 			timeStr := "TBD"
 			if !c.EstimatedEndTime.IsZero() {
-				timeStr = fmt.Sprintf("<t:%d:R>", c.EstimatedEndTime.Unix())
+				timeStr = fmt.Sprintf("<t:%d:f>", c.EstimatedEndTime.Unix())
 			} else if c.State == ContractStateSignup {
 				timeStr = "In Sign-up"
 			}
