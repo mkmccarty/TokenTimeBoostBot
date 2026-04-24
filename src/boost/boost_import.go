@@ -187,7 +187,7 @@ func UpdatePredictedSignupContracts(s *discordgo.Session, liveContracts []ei.Egg
 
 			if contract.ContractID != live.ID {
 				contract.ContractID = live.ID
-				updateContractWithEggIncData(contract)
+				updateContractWithEggIncData(s, contract)
 
 				if contract.Name != "" && contract.EggName != "" && !contract.PredictionSignup {
 					creator := ""
@@ -508,7 +508,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	return c
 }
 
-func updateContractWithEggIncData(contract *Contract) {
+func updateContractWithEggIncData(s *discordgo.Session, contract *Contract) {
 	for _, cc := range ei.EggIncContracts {
 		if cc.ID == contract.ContractID {
 			contract.CoopSize = cc.MaxCoopSize
@@ -525,6 +525,7 @@ func updateContractWithEggIncData(contract *Contract) {
 			contract.Ultra = cc.Ultra
 			contract.SeasonalScoring = cc.SeasonalScoring
 			contract.PredictionSignup = cc.Predicted
+			renameContractRole(s, contract)
 			return
 		}
 	}

@@ -549,7 +549,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	contract.RegisteredNum = 0
 	contract.CoopSize = coopSize
 	contract.Name = contractID
-	updateContractWithEggIncData(contract)
+	updateContractWithEggIncData(s, contract)
 	if contractInfo, ok := ei.EggIncContractsAll[contract.ContractID]; ok {
 		bannerText := contract.Name
 		if bannerText == "" {
