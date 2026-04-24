@@ -7,8 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	_ "image/gif"
-	_ "image/jpeg"
 	"image/png"
 	"log"
 	"math"
