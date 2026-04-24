@@ -616,15 +616,17 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		}
 
 	case ContractStateBanker:
-		guidanceStr.WriteString("\n")
-		guidanceStr.WriteString("> " + tokenStr + " when sending tokens to the Banker")
-		runReady, _, _ := ei.GetBotEmoji("runready")
+		if contract.PlayStyle != ContractPlaystyleLeaderboard {
+			guidanceStr.WriteString("\n")
+			guidanceStr.WriteString("> " + tokenStr + " when sending tokens to the Banker")
+			runReady, _, _ := ei.GetBotEmoji("runready")
 
-		guidanceStr.WriteString(".\n")
-		guidanceStr.WriteString("> " + runReady + " when you're ready for others to run chickens on your farm.\n")
-		guidanceStr.WriteString("> 💰 is used by the Banker to send the requested number of tokens to the booster.\n")
-		guidanceStr.WriteString("> -When active Booster is sent tokens by the Banker they are marked as boosted.\n")
-		guidanceStr.WriteString("> -Adjust the number of boost tokens you want by adding a 6️⃣ to 🔟 reaction to the boost list message.\n")
+			guidanceStr.WriteString(".\n")
+			guidanceStr.WriteString("> " + runReady + " when you're ready for others to run chickens on your farm.\n")
+			guidanceStr.WriteString("> 💰 is used by the Banker to send the requested number of tokens to the booster.\n")
+			guidanceStr.WriteString("> -When active Booster is sent tokens by the Banker they are marked as boosted.\n")
+			guidanceStr.WriteString("> -Adjust the number of boost tokens you want by adding a 6️⃣ to 🔟 reaction to the boost list message.\n")
+		}
 		if contract.CoopSize != len(contract.Order) {
 			guidanceStr.WriteString("> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n")
 		}
