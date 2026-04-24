@@ -601,6 +601,17 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	needLegend := false
 	showGlitch := false
+	legendOrder := []string{"🚩", "💎", "🏠", "🧩", "🎣", "🫙"}
+	legendText := map[string]string{
+		"🚩": "🚩Research",
+		"💎": "💎Missing",
+		"🏠": "🏠Filling(🐣CR)",
+		"🧩": "🧩Slotted",
+		"🎣": "🎣Away",
+		"🫙": "🫙Silos",
+	}
+	legendSet := map[string]bool{}
+	addLegend := func(key string) { legendSet[key] = true }
 	const precisionConst float64 = 1e4
 
 	// 1e15
@@ -797,10 +808,12 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if len(as.missingResearch) > 0 {
 			notes += "🚩"
 			needLegend = true
+			addLegend("🚩")
 		}
 		if as.missingStones {
 			needLegend = true
 			notes += "💎"
+			addLegend("💎")
 		}
 
 		if as.farmPopulation < as.farmCapacity {
@@ -809,6 +822,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			if as.farmPopulation/as.farmCapacity < 0.95 {
 				notes += "🐣"
 			}
+			addLegend("🏠")
 		} else if as.farmPopulation > as.farmCapacity {
 			needLegend = true
 			showGlitch = true
@@ -818,12 +832,14 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if as.numSilos != 10 {
 			needLegend = true
 			notes += "🫙"
+			addLegend("🫙")
 		}
 
 		qStones := as.quantStones[ei.ArtifactSpec_INFERIOR] + as.quantStones[ei.ArtifactSpec_LESSER] + as.quantStones[ei.ArtifactSpec_NORMAL]
 		tStones := as.tachStones[ei.ArtifactSpec_INFERIOR] + as.tachStones[ei.ArtifactSpec_LESSER] + as.tachStones[ei.ArtifactSpec_NORMAL]
 		if as.quantWant != qStones || as.tachWant != tStones {
 			notes += fmt.Sprintf("🧩%dT/%dQ", tStones, qStones)
+			addLegend("🧩")
 			setContractEstimate = false
 		}
 
@@ -850,6 +866,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if as.offline != "" {
 			needLegend = true
 			notes += as.offline
+			addLegend("🎣")
 		}
 
 		if soloName != "" {
@@ -1084,11 +1101,16 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	// Need to write out a legend for the stones
 	if needLegend {
-		habGlitch := ""
-		if showGlitch {
-			habGlitch = " / 🤥 HabGlitch"
+		parts := []string{"√ Match"}
+		for _, key := range legendOrder {
+			if legendSet[key] {
+				parts = append(parts, legendText[key])
+			}
 		}
-		builder.WriteString("√ Match / 🚩Research / 💎Missing / 🏠Filling(🐣CR) / 🧩Slotted / 🎣Away" + habGlitch + "\n")
+		if showGlitch {
+			parts = append(parts, "🤥HabGlitch")
+		}
+		builder.WriteString(strings.Join(parts, " / ") + "\n")
 	}
 	fmt.Fprintf(&builder, "Colleggtibles show when less than %s\n", strings.Join(colleggtibleStr, ", "))
 
