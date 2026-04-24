@@ -92,7 +92,7 @@ func HandleSlashVolunteerSinkCommand(s *discordgo.Session, i *discordgo.Interact
 			str = "Token sink is already set"
 		} else {
 			// Check if user is already in contract
-			if userInContract(contract, i.Member.User.ID) {
+			if UserInContract(contract, i.Member.User.ID) {
 				contract.Banker.PostSinkUserID = i.Member.User.ID
 				changeContractState(contract, contract.State) // Update the changed sink
 				if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {
@@ -161,7 +161,7 @@ func HandleSlashVoluntellSinkCommand(s *discordgo.Session, i *discordgo.Interact
 		} else {
 			// if VolunteerSink is already set, reply with error
 			// Check if user is already in contract
-			if userInContract(contract, VoluntellName) {
+			if UserInContract(contract, VoluntellName) {
 				contract.Banker.PostSinkUserID = VoluntellName
 				changeContractState(contract, contract.State) // Update the changed sink
 				if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {

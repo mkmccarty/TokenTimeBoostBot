@@ -989,7 +989,7 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 	}
 
 	// Is this user in the contract?
-	if !userInContract(contract, i.Member.User.ID) {
+	if !UserInContract(contract, i.Member.User.ID) {
 		str = "You need to be in this contract to link an alternate that is also in the contract."
 	}
 

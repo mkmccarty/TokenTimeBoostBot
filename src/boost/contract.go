@@ -766,7 +766,7 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 
 		if contract.Banker.BoostingSinkUserID == sid {
 			contract.Banker.BoostingSinkUserID = ""
-		} else if userInContract(contract, sid) {
+		} else if UserInContract(contract, sid) {
 			contract.Banker.BoostingSinkUserID = sid
 		}
 		if contract.State == ContractStateBanker {
@@ -785,7 +785,7 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		}
 		if contract.Banker.PostSinkUserID == sid {
 			contract.Banker.PostSinkUserID = ""
-		} else if userInContract(contract, sid) {
+		} else if UserInContract(contract, sid) {
 			contract.Banker.PostSinkUserID = sid
 		}
 		if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {

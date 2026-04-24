@@ -136,7 +136,7 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 	var embed *discordgo.MessageSend
 	if contract == nil {
 		str = "No contract found in this channel"
-	} else if !userInContract(contract, userID) {
+	} else if !UserInContract(contract, userID) {
 		str = "You are not part of this contract"
 	} else {
 		targetTval := GetTargetTval(contract.SeasonalScoring, duration.Minutes(), float64(contract.MinutesPerToken))

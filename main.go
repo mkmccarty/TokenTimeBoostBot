@@ -20,6 +20,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dashboard"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
@@ -256,8 +257,8 @@ var (
 		"lobby":               boost.HandleLobbyButtons,
 		"coop_status":         boost.HandleCoopStatusPermissionButton,
 		"leaderboard_perm":    boost.HandleLeaderboardPermissionButton,
-		"timer_btn":           boost.HandleTimerInteraction,
-		"dashboard_btn":       boost.HandleDashboardInteraction,
+		"timer_btn":           dashboard.HandleTimerInteraction,
+		"dashboard_btn":       dashboard.HandleDashboardInteraction,
 		"mint_preview":        mint.HandleMintPreviewComponent,
 		"chart":               boost.HandleChartReactions,
 	}
@@ -525,14 +526,14 @@ func setupCommands() {
 			Handler:  boost.HandleLeaderboard,
 		},
 		{
-			AppCmd:   boost.GetSlashTimer(slashTimer),
+			AppCmd:   dashboard.GetSlashTimer(slashTimer),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleTimerCommand,
+			Handler:  dashboard.HandleTimerCommand,
 		},
 		{
-			AppCmd:   boost.GetSlashDashboardCommand(slashDashboard),
+			AppCmd:   dashboard.GetSlashDashboardCommand(slashDashboard),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleDashboardCommand,
+			Handler:  dashboard.HandleDashboardCommand,
 		},
 		{
 			AppCmd:       boost.GetSlashEstimateTime(slashEstimateTime),
@@ -837,7 +838,7 @@ func main() {
 	}
 
 	bottools.LoadEmotes(s, false)
-	boost.LaunchIndependentTimers(s)
+	dashboard.LaunchIndependentTimers(s)
 	go menno.Startup()
 
 	_ = s.UpdateStatusComplex(discordgo.UpdateStatusData{

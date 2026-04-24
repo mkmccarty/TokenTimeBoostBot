@@ -38,7 +38,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 		temp = "TEMP"
 		contract := FindContract(channelID)
 		if contract != nil {
-			if userInContract(contract, userID) {
+			if UserInContract(contract, userID) {
 				for a := range contract.Boosters[userID].ArtifactSet.Artifacts {
 					if strings.Contains(contract.Boosters[userID].ArtifactSet.Artifacts[a].Type, "Deflector") {
 						deflector = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
@@ -450,7 +450,7 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	//} else {
 	contract := FindContract(i.ChannelID)
 	if contract != nil {
-		if userInContract(contract, userID) {
+		if UserInContract(contract, userID) {
 			// User in this contract
 			currentSet := contract.Boosters[userID].ArtifactSet
 

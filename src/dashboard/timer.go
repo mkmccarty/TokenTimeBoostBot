@@ -1,7 +1,6 @@
-package boost
+package dashboard
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -15,11 +14,25 @@ import (
 	"github.com/xhit/go-str2duration/v2"
 )
 
+// BotTimer holds the data for each timer
+type BotTimer struct {
+	ID                string        `json:"id"`
+	Reminder          time.Time     `json:"reminder"`
+	timer             *time.Timer   `json:"-"`
+	Message           string        `json:"message"`
+	UserID            string        `json:"user_id"`
+	ChannelID         string        `json:"channel_id"`
+	MsgID             string        `json:"msg_id"`
+	Duration          time.Duration `json:"duration"`
+	OriginalChannelID string        `json:"original_channel_id"`
+	OriginalMsgID     string        `json:"original_msg_id"`
+	Active            bool          `json:"active"`
+}
+
 var timersMutex sync.Mutex
 var timers []BotTimer
 
 const (
-	timerDataKey             = "Timers"
 	processingRequestMessage = "Processing request..."
 )
 
@@ -214,7 +227,7 @@ func GetSlashTimer(cmd string) *discordgo.ApplicationCommand {
 
 // HandleTimerCommand will handle the /stones command
 func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	userID := getInteractionUserID(i)
+	userID := bottools.GetInteractionUserID(i)
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -368,17 +381,6 @@ func timerSetMsgID(id string, channelID string, msgID string) {
 }
 
 func loadTimerData() {
-	b, err := dataStore.Read(timerDataKey)
-	if err == nil && len(b) > 0 {
-		var legacyTimers []BotTimer
-		if err := json.Unmarshal(b, &legacyTimers); err == nil {
-			for _, t := range legacyTimers {
-				farmerstate.AddTimer(t.ID, t.UserID, t.ChannelID, t.MsgID, t.Reminder, t.Message, int64(t.Duration), t.OriginalChannelID, t.OriginalMsgID, t.Active)
-			}
-		}
-		_ = dataStore.Erase(timerDataKey)
-	}
-
 	dbTimers := farmerstate.GetAllTimers()
 
 	timersMutex.Lock()
@@ -458,7 +460,7 @@ func handleTimerRepeat(s *discordgo.Session, i *discordgo.InteractionCreate, old
 		duration = newDuration
 	}
 
-	userID := getInteractionUserID(i)
+	userID := bottools.GetInteractionUserID(i)
 
 	// Acknowledge interaction
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
