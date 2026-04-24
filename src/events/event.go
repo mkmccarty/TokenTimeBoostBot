@@ -47,7 +47,7 @@ func SlashEventHelperCommand(cmd string) *discordgo.ApplicationCommand {
 func HandleEventHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	ultraIcon, _, _ := ei.GetBotEmoji("ultra")
 
-	userID := getInteractionUserID(i)
+	userID := bottools.GetInteractionUserID(i)
 
 	optionMap := bottools.GetCommandOptionsMap(i)
 	privateReply := false

@@ -1,4 +1,4 @@
-package boost
+package mint
 
 import (
 	"bytes"
@@ -25,6 +25,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/google/go-github/v33/github"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	xdraw "golang.org/x/image/draw"
 )
 
@@ -38,8 +39,6 @@ const (
 	mintPreviewProceed     = "proceed"
 	mintPreviewUpdateCSV   = "updatecsv"
 	mintPreviewClose       = "close"
-	maxAnimateFileBytes    = 10 * 1024 * 1024
-	mintPreviewMaxAge      = 20 * time.Minute
 	mintEstimateMultiplier = 1.25
 )
 
@@ -200,23 +199,23 @@ func HandleMintCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	gifAttachment := getCommandAttachment(i, gifOpt)
+	gifAttachment := bottools.GetCommandAttachment(i, gifOpt)
 	if gifAttachment == nil {
 		sendTestAnimateError(s, i, "Unable to read the GIF attachment.")
 		return
 	}
-	csvAttachment := getCommandAttachment(i, csvOpt)
+	csvAttachment := bottools.GetCommandAttachment(i, csvOpt)
 	if csvAttachment == nil {
 		sendTestAnimateError(s, i, "Unable to read the CSV attachment.")
 		return
 	}
 
-	gifBytes, err := downloadAttachmentBytes(gifAttachment)
+	gifBytes, err := bottools.DownloadAttachmentBytes(gifAttachment)
 	if err != nil {
 		sendTestAnimateError(s, i, fmt.Sprintf("Failed downloading GIF: %v", err))
 		return
 	}
-	csvBytes, err := downloadAttachmentBytes(csvAttachment)
+	csvBytes, err := bottools.DownloadAttachmentBytes(csvAttachment)
 	if err != nil {
 		sendTestAnimateError(s, i, fmt.Sprintf("Failed downloading CSV: %v", err))
 		return
@@ -230,7 +229,7 @@ func HandleMintCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	session := &mintPreviewSession{
 		SessionID:        fmt.Sprintf("%d", time.Now().UnixNano()),
-		UserID:           getInteractionUserID(i),
+		UserID:           bottools.GetInteractionUserID(i),
 		ChannelID:        i.ChannelID,
 		OriginalFilename: gifAttachment.Filename,
 		InputFormat:      inputFormat,
@@ -254,7 +253,7 @@ func HandleMintCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 }
 
 func buildTestAnimateUsageText() string {
-	limitMiB := maxAnimateFileBytes / (1024 * 1024)
+	limitMiB := bottools.MaxAnimateFileBytes / (1024 * 1024)
 	return strings.Join([]string{
 		"Usage tips for /mint:",
 		"- Use /mint create to generate an output file.",
@@ -436,7 +435,7 @@ func HandleMintPreviewComponent(s *discordgo.Session, i *discordgo.InteractionCr
 
 	sessionID := parts[1]
 	action := parts[2]
-	userID := getInteractionUserID(i)
+	userID := bottools.GetInteractionUserID(i)
 
 	mintPreviewMu.Lock()
 	cleanupExpiredMintPreviewSessionsLocked(time.Now())
@@ -611,7 +610,7 @@ func HandleMintCSVUploadMessage(s *discordgo.Session, m *discordgo.MessageCreate
 		return
 	}
 
-	csvBytes, err := downloadAttachmentBytes(att)
+	csvBytes, err := bottools.DownloadAttachmentBytes(att)
 	if err != nil {
 		if _, sendErr := s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Failed downloading CSV: %v", err)); sendErr != nil {
 			log.Printf("mint csv download error send failed: %v", sendErr)
@@ -1104,7 +1103,7 @@ func renderMintOutput(session *mintPreviewSession) ([]byte, error) {
 
 func cleanupExpiredMintPreviewSessionsLocked(now time.Time) {
 	for id, session := range mintPreviewSessions {
-		if now.Sub(session.UpdatedAt) > mintPreviewMaxAge {
+		if now.Sub(session.UpdatedAt) > bottools.MintPreviewMaxAge {
 			delete(mintPreviewSessions, id)
 		}
 	}
@@ -1122,57 +1121,6 @@ func pickCSVAttachment(attachments []*discordgo.MessageAttachment) *discordgo.Me
 		return attachments[0]
 	}
 	return nil
-}
-
-func getCommandAttachment(i *discordgo.InteractionCreate, opt *discordgo.ApplicationCommandInteractionDataOption) *discordgo.MessageAttachment {
-	if opt == nil || opt.Type != discordgo.ApplicationCommandOptionAttachment {
-		return nil
-	}
-	attachmentID, ok := opt.Value.(string)
-	if !ok || attachmentID == "" {
-		return nil
-	}
-	resolved := i.ApplicationCommandData().Resolved
-	if resolved == nil {
-		return nil
-	}
-	return resolved.Attachments[attachmentID]
-}
-
-func downloadAttachmentBytes(att *discordgo.MessageAttachment) ([]byte, error) {
-	if att.Size > maxAnimateFileBytes {
-		return nil, fmt.Errorf("attachment %q is too large (%d bytes)", att.Filename, att.Size)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, att.URL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return nil, fmt.Errorf("download failed with status %s", resp.Status)
-	}
-
-	limited := io.LimitReader(resp.Body, maxAnimateFileBytes+1)
-	buf, err := io.ReadAll(limited)
-	if err != nil {
-		return nil, err
-	}
-	if int64(len(buf)) > maxAnimateFileBytes {
-		return nil, fmt.Errorf("attachment %q exceeds %d bytes", att.Filename, maxAnimateFileBytes)
-	}
-	return buf, nil
 }
 
 func buildTokenOverlayGIF(gifBytes []byte, csvBytes []byte) ([]byte, error) {

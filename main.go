@@ -25,6 +25,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/menno"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/mint"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/tasks"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/version"
@@ -257,7 +258,7 @@ var (
 		"leaderboard_perm":    boost.HandleLeaderboardPermissionButton,
 		"timer_btn":           boost.HandleTimerInteraction,
 		"dashboard_btn":       boost.HandleDashboardInteraction,
-		"mint_preview":        boost.HandleMintPreviewComponent,
+		"mint_preview":        mint.HandleMintPreviewComponent,
 		"chart":               boost.HandleChartReactions,
 	}
 )
@@ -615,9 +616,9 @@ func setupCommands() {
 	}
 
 	commandRegistry = append(commandRegistry, CommandDef{
-		AppCmd:   boost.GetSlashMintCommand(slashMint),
+		AppCmd:   mint.GetSlashMintCommand(slashMint),
 		Category: CmdCategoryStandard,
-		Handler:  boost.HandleMintCommand,
+		Handler:  mint.HandleMintCommand,
 	})
 
 	commandRegistry = append(commandRegistry, CommandDef{
@@ -734,7 +735,7 @@ func init() {
 
 	// Components are part of interactions, so we register InteractionCreate handler
 	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
-		boost.HandleMintCSVUploadMessage(s, m)
+		mint.HandleMintCSVUploadMessage(s, m)
 	})
 
 	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageReactionAdd) {

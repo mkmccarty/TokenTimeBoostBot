@@ -1,4 +1,4 @@
-package boost
+package mint
 
 import (
 	"bytes"
