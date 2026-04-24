@@ -654,7 +654,7 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 
 	if contractID != "" {
 		contract.ContractID = contractID
-		updateContractWithEggIncData(contract)
+		updateContractWithEggIncData(s, contract)
 		movedLabels := moveOverflowBoostersToWaitlist(contract)
 		movedToWaitlist = len(movedLabels)
 		contract.EggEmoji = FindEggEmoji(contract.EggName)
