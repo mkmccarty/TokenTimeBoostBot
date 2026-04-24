@@ -1,10 +1,19 @@
 package bottools
 
 import (
+	"context"
+	"fmt"
+	"io"
+	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+)
+
+const (
+	MaxAnimateFileBytes = 10 * 1024 * 1024
+	MintPreviewMaxAge   = 20 * time.Minute
 )
 
 // GetInteractionUserID returns the user ID from an interaction, whether in a guild or DM
@@ -86,4 +95,57 @@ func IsValidDiscordID(id string) bool {
 	tenYearsFromNow := now + (10 * 365 * 24 * 60 * 60 * 1000)
 
 	return timestamp >= discordEpoch && timestamp <= tenYearsFromNow
+}
+
+// GetCommandAttachment retrieves the attachment from the interaction options if it exists and is of the correct type.
+func GetCommandAttachment(i *discordgo.InteractionCreate, opt *discordgo.ApplicationCommandInteractionDataOption) *discordgo.MessageAttachment {
+	if opt == nil || opt.Type != discordgo.ApplicationCommandOptionAttachment {
+		return nil
+	}
+	attachmentID, ok := opt.Value.(string)
+	if !ok || attachmentID == "" {
+		return nil
+	}
+	resolved := i.ApplicationCommandData().Resolved
+	if resolved == nil {
+		return nil
+	}
+	return resolved.Attachments[attachmentID]
+}
+
+// DownloadAttachmentBytes downloads the attachment content and returns it as a byte slice.
+func DownloadAttachmentBytes(att *discordgo.MessageAttachment) ([]byte, error) {
+	if att.Size > MaxAnimateFileBytes {
+		return nil, fmt.Errorf("attachment %q is too large (%d bytes)", att.Filename, att.Size)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, att.URL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return nil, fmt.Errorf("download failed with status %s", resp.Status)
+	}
+
+	limited := io.LimitReader(resp.Body, MaxAnimateFileBytes+1)
+	buf, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(buf)) > MaxAnimateFileBytes {
+		return nil, fmt.Errorf("attachment %q exceeds %d bytes", att.Filename, MaxAnimateFileBytes)
+	}
+	return buf, nil
 }

@@ -2375,7 +2375,7 @@ func HandleUploadBannerCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	opt := options[0]
-	attachment := getCommandAttachment(i, opt)
+	attachment := bottools.GetCommandAttachment(i, opt)
 	if attachment == nil {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: "Failed to read the image attachment.",
@@ -2383,7 +2383,7 @@ func HandleUploadBannerCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		return
 	}
 
-	imgBytes, err := downloadAttachmentBytes(attachment)
+	imgBytes, err := bottools.DownloadAttachmentBytes(attachment)
 	if err != nil {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: "Failed to download the image attachment.",
