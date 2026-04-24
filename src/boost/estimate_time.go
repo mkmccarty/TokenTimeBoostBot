@@ -366,7 +366,7 @@ func calculateSingleEstimate(
 			stoneLayRate *= deflectorMultiplier
 			stoneLayRate *= math.Pow(1.05, float64(i)) * colELR * colHab
 
-			stoneShipRate := baseShipping * math.Pow(1.05, float64((intSlots-i))) * colShip
+			stoneShipRate := baseShipping * math.Pow(1.05, float64((intSlots-i))) * colShip * modShip
 
 			bestMin := min(stoneLayRate, stoneShipRate)
 			if bestMin > bestTotal {
