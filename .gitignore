@@ -12,6 +12,7 @@ output
 build
 banners
 ttbb-data
+src/mint/emoji
 TokenTimeBoostBot
 secure_hasher
 # Test binary, built with `go test -c`
