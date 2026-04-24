@@ -200,8 +200,6 @@ var (
 func init() {
 	Contracts = make(map[string]*Contract)
 
-	initDataStore()
-
 	var c, err = loadData()
 	if err == nil {
 		Contracts = c
@@ -240,7 +238,6 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 
 	var coopHash = contract.ContractHash
 	var coopName = contract.ContractID + "/" + contract.CoopID
-	//_ = saveEndData(contract) // Save for historical purposes
 
 	for _, el := range contract.Location {
 		if s != nil {
