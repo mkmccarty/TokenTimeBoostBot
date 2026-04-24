@@ -407,8 +407,8 @@ func HandleToggleContractPingsCommand(s *discordgo.Session, i *discordgo.Interac
 	userID := getInteractionUserID(i)
 	contract := FindContract(i.ChannelID)
 
-	userInContract := userInContract(contract, userID)
-	if contract != nil && userInContract {
+	UserInContract := UserInContract(contract, userID)
+	if contract != nil && UserInContract {
 		value := farmerstate.GetMiscSettingFlag(userID, "SuppressContractPings")
 		value = !value
 		farmerstate.SetMiscSettingFlag(userID, "SuppressContractPings", value)
@@ -595,7 +595,7 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 	if c == nil {
 		return "Contract not found."
 	}
-	if !userInContract(c, userID) {
+	if !UserInContract(c, userID) {
 		return "You are not in this contract."
 	}
 	var action int // 0:Move, 1: Delete, 2 Modify Count

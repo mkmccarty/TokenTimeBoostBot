@@ -134,7 +134,7 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 
 		if contract != nil {
 
-			if !userInContract(contract, userID) {
+			if !UserInContract(contract, userID) {
 				str := ` See the pinned message for buttons to *Join* or *Leave* the contract.
 		You can set your boost tokens wanted by selecting :five: :six: or :eight: and adjusting it with the +Token and -Token buttons.
 		`

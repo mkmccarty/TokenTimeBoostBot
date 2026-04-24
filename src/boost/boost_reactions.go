@@ -30,7 +30,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	defer saveData(contract.ContractHash)
 
 	// If the user is not in the contract then they can join with a farmer reaction
-	if !userInContract(contract, r.UserID) {
+	if !UserInContract(contract, r.UserID) {
 		var farmerSlice = []string{
 			"🧑‍🌾", "🧑🏻‍🌾", "🧑🏼‍🌾", "🧑🏽‍🌾", "🧑🏾‍🌾", "🧑🏿‍🌾", // farmer
 			"👩‍🌾", "👩🏻‍🌾", "👩🏼‍🌾", "👩🏽‍🌾", "👩🏾‍🌾", "👩🏿‍🌾", // woman farmer
@@ -46,7 +46,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	}
 
 	// If the user is in the contract then they can set their token count
-	if userInContract(contract, r.UserID) {
+	if UserInContract(contract, r.UserID) {
 		var numberSlice = []string{"0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"}
 		if slices.Contains(numberSlice, emojiName) {
 			var b = contract.Boosters[r.UserID]
@@ -61,7 +61,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		}
 	}
 
-	if userInContract(contract, r.UserID) || creatorOfContract(s, contract, r.UserID) {
+	if UserInContract(contract, r.UserID) || creatorOfContract(s, contract, r.UserID) {
 		contract.LastInteractionTime = time.Now()
 
 		switch contract.State {
@@ -171,7 +171,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				}
 			}
 		case "🐓":
-			if userInContract(contract, r.UserID) {
+			if UserInContract(contract, r.UserID) {
 				redraw, _ = buttonReactionRunChickens(s, contract, r.UserID)
 			}
 		case "🐿️":

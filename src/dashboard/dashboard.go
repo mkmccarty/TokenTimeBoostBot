@@ -1,4 +1,4 @@
-package boost
+package dashboard
 
 import (
 	"encoding/json"
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -48,7 +49,7 @@ func GetSlashDashboardCommand(cmd string) *discordgo.ApplicationCommand {
 
 // HandleDashboardCommand handles the /dashboard command
 func HandleDashboardCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	userID := getInteractionUserID(i)
+	userID := bottools.GetInteractionUserID(i)
 
 	subcommand := "show"
 	if len(i.ApplicationCommandData().Options) > 0 {
@@ -133,9 +134,9 @@ func drawDashboard(userID string) (string, []discordgo.MessageComponent) {
 	colorCommands := 0x555555  // Green
 
 	// Active Contracts
-	var activeContracts []*Contract
-	for _, c := range Contracts {
-		if userInContract(c, userID) {
+	var activeContracts []*boost.Contract
+	for _, c := range boost.Contracts {
+		if boost.UserInContract(c, userID) {
 			if !c.EstimatedEndTime.IsZero() && time.Since(c.EstimatedEndTime) > 24*time.Hour {
 				continue
 			}
@@ -148,14 +149,14 @@ func drawDashboard(userID string) (string, []discordgo.MessageComponent) {
 		b := activeContracts[j]
 		now := time.Now()
 
-		group := func(c *Contract) int {
+		group := func(c *boost.Contract) int {
 			if !c.EstimatedEndTime.IsZero() && now.After(c.EstimatedEndTime) {
 				if now.Sub(c.EstimatedEndTime) <= 12*time.Hour {
 					return 0 // Completed recently
 				}
 				return 3 // Completed between 12-24h ago
 			}
-			if c.State == ContractStateSignup {
+			if c.State == boost.ContractStateSignup {
 				return 2 // Not started
 			}
 			return 1 // Running
@@ -202,13 +203,13 @@ func drawDashboard(userID string) (string, []discordgo.MessageComponent) {
 		var timeStr string
 		if !c.EstimatedEndTime.IsZero() {
 			timeStr = fmt.Sprintf("Completion: <t:%d:f>", c.EstimatedEndTime.Unix())
-		} else if c.State == ContractStateSignup {
+		} else if c.State == boost.ContractStateSignup {
 			timeStr = "In Sign-up"
 		} else {
 			timeStr = "Completion: TBD"
 		}
 
-		fmt.Fprintf(&contractBuilder, "[**%s / %s**](%s)\n", c.ContractID, c.CoopID, channelStr)
+		fmt.Fprintf(&contractBuilder, "**%s / %s**\n%s\n", c.ContractID, c.CoopID, channelStr)
 		fmt.Fprintf(&contractBuilder, "-# _       _ %s\n", timeStr)
 	}
 	if contractCount > 0 {
@@ -309,8 +310,8 @@ func drawDashboard(userID string) (string, []discordgo.MessageComponent) {
 	return "", components
 }
 
-// DashboardBookmark represents a bookmark for a specific channel in the dashboard
-type DashboardBookmark struct {
+// Bookmark represents a bookmark for a specific channel in the dashboard
+type Bookmark struct {
 	ChannelID   string    `json:"channel_id"`
 	GuildID     string    `json:"guild_id,omitempty"`
 	GuildName   string    `json:"guild_name,omitempty"`
@@ -318,9 +319,9 @@ type DashboardBookmark struct {
 	Timestamp   time.Time `json:"timestamp"`
 }
 
-func getDashboardBookmarks(userID string) []DashboardBookmark {
+func getDashboardBookmarks(userID string) []Bookmark {
 	str := farmerstate.GetMiscSettingString(userID, "dashboard_bookmarks")
-	var bms []DashboardBookmark
+	var bms []Bookmark
 	if str != "" {
 		_ = json.Unmarshal([]byte(str), &bms)
 	}
@@ -330,7 +331,7 @@ func getDashboardBookmarks(userID string) []DashboardBookmark {
 	return bms
 }
 
-func saveDashboardBookmarks(userID string, bms []DashboardBookmark) {
+func saveDashboardBookmarks(userID string, bms []Bookmark) {
 	b, _ := json.Marshal(bms)
 	farmerstate.SetMiscSettingString(userID, "dashboard_bookmarks", string(b))
 }
@@ -349,7 +350,7 @@ func addDashboardBookmark(userID string, channelID string, guildID string, guild
 		}
 	}
 	if !found {
-		bms = append(bms, DashboardBookmark{
+		bms = append(bms, Bookmark{
 			ChannelID:   channelID,
 			GuildID:     guildID,
 			GuildName:   guildName,
@@ -368,7 +369,7 @@ func addDashboardBookmark(userID string, channelID string, guildID string, guild
 
 func delDashboardBookmark(userID string, channelID string) {
 	bms := getDashboardBookmarks(userID)
-	var newBms []DashboardBookmark
+	var newBms []Bookmark
 	for _, bm := range bms {
 		if bm.ChannelID != channelID {
 			newBms = append(newBms, bm)
@@ -384,7 +385,7 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 		return
 	}
 	action := parts[1]
-	userID := getInteractionUserID(i)
+	userID := bottools.GetInteractionUserID(i)
 
 	flags := discordgo.MessageFlags(0)
 	if i.Message != nil && i.Message.Flags&discordgo.MessageFlagsEphemeral != 0 {

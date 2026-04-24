@@ -127,21 +127,6 @@ type TokenUnit struct {
 	Serial string    // Serial number of the token
 }
 
-// BotTimer holds the data for each timer
-type BotTimer struct {
-	ID                string        `json:"id"`
-	Reminder          time.Time     `json:"reminder"`
-	timer             *time.Timer   `json:"-"`
-	Message           string        `json:"message"`
-	UserID            string        `json:"user_id"`
-	ChannelID         string        `json:"channel_id"`
-	MsgID             string        `json:"msg_id"`
-	Duration          time.Duration `json:"duration"`
-	OriginalChannelID string        `json:"original_channel_id"`
-	OriginalMsgID     string        `json:"original_msg_id"`
-	Active            bool          `json:"active"`
-}
-
 // ArtifactSet holds the data for each set of artifacts
 type ArtifactSet struct {
 	Artifacts []ei.Artifact

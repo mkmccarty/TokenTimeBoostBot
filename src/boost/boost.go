@@ -391,7 +391,7 @@ func AddBoostTokens(s *discordgo.Session, i *discordgo.InteractionCreate, setCou
 		return 0, 0, errors.New(errorNoContract)
 	}
 	// verify the user is in the contract
-	if !userInContract(contract, getInteractionUserID(i)) {
+	if !UserInContract(contract, getInteractionUserID(i)) {
 		return 0, 0, errors.New(errorUserNotInContract)
 	}
 
@@ -798,7 +798,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			}
 		}
 
-		if !userInContract(contract, b.UserID) {
+		if !UserInContract(contract, b.UserID) {
 			contract.Boosters[b.UserID] = b
 			if contract.Ultra {
 				contract.UltraCount++
@@ -974,7 +974,8 @@ func creatorOfContract(s *discordgo.Session, c *Contract, u string) bool {
 	return false
 }
 
-func userInContract(c *Contract, u string) bool {
+// UserInContract will return true if the user is in the contract, also checks for any discrepancies between Boosters and Order and resolves them
+func UserInContract(c *Contract, u string) bool {
 	if c != nil {
 
 		if len(c.Boosters) != len(c.Order) {

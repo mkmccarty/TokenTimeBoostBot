@@ -49,7 +49,7 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	}
 
 	// Restring commands to those within the contract
-	if !userInContract(contract, userID) && !creatorOfContract(s, contract, userID) {
+	if !UserInContract(contract, userID) && !creatorOfContract(s, contract, userID) {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: "User isn't in this contract.",
 			Flags:   discordgo.MessageFlagsEphemeral,
@@ -148,7 +148,7 @@ func buttonReactionBoost(s *discordgo.Session, GuildID string, ChannelID string,
 }
 
 func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, fromUserID string, count int, alternateBooster string) (bool, bool) {
-	if !userInContract(contract, fromUserID) {
+	if !UserInContract(contract, fromUserID) {
 		return false, false
 	}
 
@@ -222,7 +222,7 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 func buttonReactionLast(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, cUserID string) (bool, bool) {
 	var uid = cUserID
 	// make sure uid is in the contract
-	if !userInContract(contract, uid) {
+	if !UserInContract(contract, uid) {
 		return false, false
 	}
 
@@ -280,7 +280,7 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 	userID := cUserID
 	var str string
 
-	if !userInContract(contract, cUserID) {
+	if !UserInContract(contract, cUserID) {
 		return false, "You are not in this contract."
 	}
 
@@ -711,7 +711,7 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 		return
 	}
 
-	if !userInContract(contract, cUserID) {
+	if !UserInContract(contract, cUserID) {
 		return
 	}
 
@@ -822,7 +822,7 @@ func buttonReactionHelp(s *discordgo.Session, i *discordgo.InteractionCreate, co
 }
 
 func buttonReactionComplain(s *discordgo.Session, contract *Contract, cUserID string) {
-	if !userInContract(contract, cUserID) {
+	if !UserInContract(contract, cUserID) {
 		return
 	}
 

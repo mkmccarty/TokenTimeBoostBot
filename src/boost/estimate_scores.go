@@ -181,7 +181,7 @@ func HandleCsEstimateButtons(s *discordgo.Session, i *discordgo.InteractionCreat
 
 		// Is the user in the contract?
 		userID := getInteractionUserID(i)
-		if !userInContract(contract, userID) {
+		if !UserInContract(contract, userID) {
 			// Ignore if the user isn't in the contract
 			return
 		}
