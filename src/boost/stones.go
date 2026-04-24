@@ -430,14 +430,16 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				}
 			}
 		}
-		for _, er := range fi.GetEpicResearch() {
-			if researchData, ok := ei.EggIncResearchesMap[er.GetId()]; ok {
-				if slices.Contains(relevantResearch, er.GetId()) && er.GetLevel() != uint32(researchData.Levels) {
-					researchComplete = false
-					missingResearch = append(missingResearch, fmt.Sprintf("%s %d/%d", er.GetId(), er.GetLevel(), researchData.Levels))
+		/*
+			for _, er := range fi.GetEpicResearch() {
+				if researchData, ok := ei.EggIncResearchesMap[er.GetId()]; ok {
+					if slices.Contains(relevantResearch, er.GetId()) && er.GetLevel() != uint32(researchData.Levels) {
+						//researchComplete = false
+						missingResearch = append(missingResearch, fmt.Sprintf("%s %d/%d", er.GetId(), er.GetLevel(), researchData.Levels))
+					}
 				}
 			}
-		}
+		*/
 
 		//userLayRate *= 3600 // convert to hr rate
 		habPopulation := 0.0
