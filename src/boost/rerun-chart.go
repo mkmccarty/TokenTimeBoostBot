@@ -25,6 +25,7 @@ type chartRow struct {
 	percent    float64
 	validUntil int64
 	dayLabel   string
+	hasSiab    bool
 }
 
 type chartSession struct {
@@ -37,6 +38,7 @@ type chartSession struct {
 	expiresAt      time.Time
 	hasDayMap      bool
 	mobileFriendly bool
+	siabOnly       bool
 }
 
 var chartSessions = make(map[string]*chartSession)
@@ -81,9 +83,18 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 		}
 
 		if c.ContractVersion == 2 {
+			maxCxp := c.CxpMax
+			hasSiab := false
+			if c.CxpMaxSiab > c.CxpMax {
+				maxCxp = c.CxpMaxSiab
+				if c.CxpMaxSiab > evaluationCxp {
+					hasSiab = true
+				}
+			}
+
 			evalPercent := 0.0
-			if c.CxpMax > 0 {
-				evalPercent = (evaluationCxp / c.CxpMax) * 100.0
+			if maxCxp > 0 {
+				evalPercent = (evaluationCxp / maxCxp) * 100.0
 			}
 
 			dayLabel := ""
@@ -93,11 +104,12 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 			rows = append(rows, chartRow{
 				contractID: contractID,
 				cxp:        evaluationCxp,
-				maxCxp:     c.CxpMax,
-				gap:        c.CxpMax - evaluationCxp,
+				maxCxp:     maxCxp,
+				gap:        maxCxp - evaluationCxp,
 				percent:    evalPercent,
 				validUntil: c.ValidUntil.Unix(),
 				dayLabel:   dayLabel,
+				hasSiab:    hasSiab,
 			})
 		}
 	}
@@ -146,6 +158,17 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 				displayRows = append(displayRows, r)
 			}
 		}
+	}
+
+	// Apply SIAB filter if enabled
+	if session.siabOnly {
+		var siabRows []chartRow
+		for _, r := range displayRows {
+			if r.hasSiab {
+				siabRows = append(siabRows, r)
+			}
+		}
+		displayRows = siabRows
 	}
 
 	// Sort rows
@@ -251,6 +274,9 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 	default:
 		fmt.Fprintf(&builder, "## Displaying contract scores less than %d%% of speedrun potential:\n", session.percent)
 	}
+	if session.siabOnly {
+		builder.WriteString("### (Filtered to contracts where SIAB score is higher than Max)\n")
+	}
 
 	components = append(components, &discordgo.TextDisplay{Content: builder.String()})
 	components = append(components, &discordgo.Separator{Divider: &divider, Spacing: &spacing})
@@ -265,7 +291,7 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 	if !session.mobileFriendly {
 		if session.hasDayMap {
 			fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s %3s`\n",
-				bottools.AlignString("CONTRACT-ID", 30, bottools.StringAlignCenter),
+				bottools.AlignString("CONTRACT-ID", 25, bottools.StringAlignCenter),
 				bottools.AlignString("CS", 6, bottools.StringAlignCenter),
 				bottools.AlignString("HIGH", 6, bottools.StringAlignCenter),
 				bottools.AlignString("GAP", 6, bottools.StringAlignRight),
@@ -274,7 +300,7 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 			)
 		} else {
 			fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`\n",
-				bottools.AlignString("CONTRACT-ID", 30, bottools.StringAlignCenter),
+				bottools.AlignString("CONTRACT-ID", 25, bottools.StringAlignCenter),
 				bottools.AlignString("CS", 6, bottools.StringAlignCenter),
 				bottools.AlignString("HIGH", 6, bottools.StringAlignCenter),
 				bottools.AlignString("GAP", 6, bottools.StringAlignRight),
@@ -284,6 +310,11 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 	}
 
 	for _, r := range pageRows {
+		siabIcon := ""
+		if r.hasSiab {
+			siabIcon = " " + ei.GetBotEmojiMarkdown("SIAB_T4L")
+		}
+
 		if session.mobileFriendly {
 			c := ei.EggIncContractsAll[r.contractID]
 			name := c.Name
@@ -311,27 +342,29 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 				expireStr = fmt.Sprintf(" <t:%d:R>", r.validUntil)
 			}
 
-			fmt.Fprintf(&builder, "%s **%s**%s%s\n",
-				eggEmoji, name, dayStr, expireStr)
+			fmt.Fprintf(&builder, "%s **%s**%s%s%s\n",
+				eggEmoji, name, siabIcon, dayStr, expireStr)
 
 			fmt.Fprintf(&builder, "-# _       _ CS: **%d** / %d (%.1f%%) Gap: **%d**\n",
 				int(math.Ceil(r.cxp)), int(math.Ceil(r.maxCxp)), r.percent, int(math.Ceil(r.gap)))
 		} else {
 			if session.hasDayMap {
-				fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s %3s`\n",
-					bottools.AlignString(r.contractID, 30, bottools.StringAlignLeft),
+				fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s %3s`%s\n",
+					bottools.AlignString(r.contractID, 25, bottools.StringAlignLeft),
 					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(r.cxp))), 6, bottools.StringAlignRight),
 					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(r.maxCxp))), 6, bottools.StringAlignRight),
 					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(r.gap))), 6, bottools.StringAlignRight),
 					bottools.AlignString(fmt.Sprintf("%.1f", r.percent), 4, bottools.StringAlignCenter),
-					bottools.AlignString(r.dayLabel, 6, bottools.StringAlignCenter))
+					bottools.AlignString(r.dayLabel, 6, bottools.StringAlignCenter),
+					siabIcon)
 			} else {
-				fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s` <t:%d:R>\n",
-					bottools.AlignString(r.contractID, 30, bottools.StringAlignLeft),
+				fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`%s <t:%d:R>\n",
+					bottools.AlignString(r.contractID, 25, bottools.StringAlignLeft),
 					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(r.cxp))), 6, bottools.StringAlignRight),
 					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(r.maxCxp))), 6, bottools.StringAlignRight),
 					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(r.gap))), 6, bottools.StringAlignRight),
 					bottools.AlignString(fmt.Sprintf("%.1f", r.percent), 4, bottools.StringAlignCenter),
+					siabIcon,
 					r.validUntil)
 			}
 		}
@@ -354,7 +387,7 @@ func buildChartControls(session *chartSession, totalPages int) []discordgo.Messa
 	minValues := 1
 
 	// Threshold menu
-	if session.percent >= 0 && session.percent != -200 {
+	if session.percent >= 0 {
 		thresholdOptions := []discordgo.SelectMenuOption{}
 		for p := 0; p <= 50; p += 5 {
 			thresholdOptions = append(thresholdOptions, discordgo.SelectMenuOption{
@@ -403,30 +436,30 @@ func buildChartControls(session *chartSession, totalPages int) []discordgo.Messa
 		},
 	})
 
-	var buttons []discordgo.MessageComponent
+	var pageButtons []discordgo.MessageComponent
 	if totalPages > 1 {
 		if totalPages > 4 {
-			buttons = append(buttons, discordgo.Button{
+			pageButtons = append(pageButtons, discordgo.Button{
 				Label:    "First",
 				Style:    discordgo.SecondaryButton,
 				CustomID: fmt.Sprintf("chart#first#%s", session.xid),
 				Disabled: session.page <= 0,
 			})
 		}
-		buttons = append(buttons, discordgo.Button{
+		pageButtons = append(pageButtons, discordgo.Button{
 			Label:    "Prev",
 			Style:    discordgo.SecondaryButton,
 			CustomID: fmt.Sprintf("chart#prev#%s", session.xid),
 			Disabled: session.page <= 0,
 		})
-		buttons = append(buttons, discordgo.Button{
+		pageButtons = append(pageButtons, discordgo.Button{
 			Label:    "Next",
 			Style:    discordgo.SecondaryButton,
 			CustomID: fmt.Sprintf("chart#next#%s", session.xid),
 			Disabled: session.page >= totalPages-1,
 		})
 		if totalPages > 4 {
-			buttons = append(buttons, discordgo.Button{
+			pageButtons = append(pageButtons, discordgo.Button{
 				Label:    "Last",
 				Style:    discordgo.SecondaryButton,
 				CustomID: fmt.Sprintf("chart#last#%s", session.xid),
@@ -435,12 +468,37 @@ func buildChartControls(session *chartSession, totalPages int) []discordgo.Messa
 		}
 	}
 
-	buttons = append(buttons, discordgo.Button{
+	if len(pageButtons) > 0 {
+		rows = append(rows, discordgo.ActionsRow{Components: pageButtons})
+	}
+
+	var actionButtons []discordgo.MessageComponent
+	viewLabel := "Mobile View"
+	if session.mobileFriendly {
+		viewLabel = "Desktop View"
+	}
+	actionButtons = append(actionButtons, discordgo.Button{
+		Label:    viewLabel,
+		Style:    discordgo.PrimaryButton,
+		CustomID: fmt.Sprintf("chart#toggleview#%s", session.xid),
+	})
+	siabLabel := "Show SIAB Only"
+	siabStyle := discordgo.SecondaryButton
+	if session.siabOnly {
+		siabLabel = "Show All Contracts"
+		siabStyle = discordgo.PrimaryButton
+	}
+	actionButtons = append(actionButtons, discordgo.Button{
+		Label:    siabLabel,
+		Style:    siabStyle,
+		CustomID: fmt.Sprintf("chart#togglesiab#%s", session.xid),
+	})
+	actionButtons = append(actionButtons, discordgo.Button{
 		Label:    "Finish",
 		Style:    discordgo.DangerButton,
 		CustomID: fmt.Sprintf("chart#finish#%s", session.xid),
 	})
-	rows = append(rows, discordgo.ActionsRow{Components: buttons})
+	rows = append(rows, discordgo.ActionsRow{Components: actionButtons})
 
 	return rows
 }
@@ -496,6 +554,12 @@ func HandleChartReactions(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		session.page++
 	case "last":
 		session.page = 999999 // Let renderChartSession clamp this to the actual last page
+	case "toggleview":
+		session.mobileFriendly = !session.mobileFriendly
+		farmerstate.SetMiscSettingString(session.userID, "rerunMobileFriendly", strconv.FormatBool(session.mobileFriendly))
+	case "togglesiab":
+		session.siabOnly = !session.siabOnly
+		session.page = 0 // Reset to first page on filter change
 	case "threshold":
 		values := i.MessageComponentData().Values
 		if len(values) > 0 {
