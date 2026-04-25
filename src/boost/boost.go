@@ -830,12 +830,8 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			if contract.Boosters[altController] != nil {
 				contract.mutex.Lock()
 				// We have an alt we can auto link
-				newAltIcon := findAltIcon(userID, contract.AltIcons)
 				contract.Boosters[altController].Alts = append(contract.Boosters[altController].Alts, userID)
-				contract.Boosters[altController].AltsIcons = append(contract.Boosters[altController].AltsIcons, newAltIcon)
-				contract.AltIcons = append(contract.AltIcons, newAltIcon)
 				contract.Boosters[userID].AltController = altController
-				rebuildAltList(contract)
 				/*
 					str := "Associated your `" + userID + "` alt with " + contract.Boosters[altController].Mention + "\n"
 					str += "> Use the Signup sink buttons to select your alt for sinks, these cycle through alts so you may need to press them multiple times.\n"
@@ -1121,9 +1117,11 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 			currentBooster = activeID
 		}
 
+		booster := contract.Boosters[userID]
+
 		// Remove the user from the role
 		for _, el := range contract.Location {
-			if el.GuildID == guildID && el.GuildContractRole.ID != "" && contract.Boosters[userID].Name != userID {
+			if el.GuildID == guildID && el.GuildContractRole.ID != "" && booster != nil && booster.Name != userID {
 				_ = s.GuildMemberRoleRemove(guildID, userID, el.GuildContractRole.ID)
 			}
 		}
@@ -1144,8 +1142,8 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 		}
 
 		// If this is an alt, remove its entries from main
-		if contract.Boosters[userID].AltController != "" {
-			mainUserID := contract.Boosters[userID].AltController
+		if booster != nil && booster.AltController != "" {
+			mainUserID := booster.AltController
 			if contract.Banker.BoostingSinkUserID == userID {
 				contract.Banker.BoostingSinkUserID = mainUserID
 			}
@@ -1153,21 +1151,23 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 				contract.Banker.PostSinkUserID = mainUserID
 			}
 
-			altIdx := slices.Index(contract.Boosters[mainUserID].Alts, userID)
-			contract.Boosters[mainUserID].Alts = removeIndex(contract.Boosters[mainUserID].Alts, altIdx)
-			contract.Boosters[mainUserID].AltsIcons = removeIndex(contract.Boosters[mainUserID].AltsIcons, altIdx)
-			rebuildAltList(contract)
+			if mainBooster := contract.Boosters[mainUserID]; mainBooster != nil {
+				altIdx := slices.Index(mainBooster.Alts, userID)
+				if altIdx != -1 {
+					mainBooster.Alts = removeIndex(mainBooster.Alts, altIdx)
+				}
+			}
 			contract.buttonComponents = nil // reset button components
 			redraw = true
-		} else if len(contract.Boosters[userID].Alts) > 0 {
+		} else if booster != nil && len(booster.Alts) > 0 {
 			// If this is a main with alts, clear the alts
-			for _, alt := range contract.Boosters[userID].Alts {
-				contract.Boosters[alt].AltController = ""
+			for _, alt := range booster.Alts {
+				if contract.Boosters[alt] != nil {
+					contract.Boosters[alt].AltController = ""
+				}
 			}
-			contract.Boosters[userID].Alts = nil
-			contract.Boosters[userID].AltsIcons = nil
+			booster.Alts = nil
 
-			rebuildAltList(contract)
 			contract.buttonComponents = nil
 			redraw = true
 		}

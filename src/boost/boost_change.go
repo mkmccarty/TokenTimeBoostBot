@@ -589,7 +589,6 @@ func moveOverflowBoostersToWaitlist(contract *Contract) []string {
 				altIdx := slices.Index(contract.Boosters[mainUserID].Alts, userID)
 				if altIdx != -1 {
 					contract.Boosters[mainUserID].Alts = removeIndex(contract.Boosters[mainUserID].Alts, altIdx)
-					contract.Boosters[mainUserID].AltsIcons = removeIndex(contract.Boosters[mainUserID].AltsIcons, altIdx)
 					altRelationshipsChanged = true
 				}
 			}
@@ -600,7 +599,6 @@ func moveOverflowBoostersToWaitlist(contract *Contract) []string {
 				}
 			}
 			booster.Alts = nil
-			booster.AltsIcons = nil
 			altRelationshipsChanged = true
 		}
 
@@ -627,7 +625,6 @@ func moveOverflowBoostersToWaitlist(contract *Contract) []string {
 	contract.WaitlistBoosters = append(movedUserIDs, filteredExistingWaitlist...)
 
 	if altRelationshipsChanged {
-		rebuildAltList(contract)
 		contract.buttonComponents = nil
 	}
 
@@ -1009,16 +1006,11 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 			} else {
 				b := contract.Boosters[i.Member.User.ID]
 
-				newAltIcon := findAltIcon(newAlt, contract.AltIcons)
-
 				// Save remember this alt's owner so we can auto link next time
 				farmerstate.SetMiscSettingString(newAlt, "AltController", i.Member.User.ID)
 
 				b.Alts = append(b.Alts, newAlt)
-				b.AltsIcons = append(b.AltsIcons, newAltIcon)
-				contract.AltIcons = append(contract.AltIcons, newAltIcon)
 				contract.Boosters[newAlt].AltController = i.Member.User.ID
-				rebuildAltList(contract)
 				str = "Associated your `" + newAlt + "` alt with " + i.Member.User.Mention() + "\n"
 				str += "> Use the Signup sink buttons to select your alt for sinks, these cycle through alts so you may need to press them multiple times.\n"
 				str += "> Use the " + boostIcon + " reaction to indicate when your main or alt(s) boost.\n"
@@ -1038,37 +1030,6 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 		&discordgo.WebhookParams{
 			Content: str},
 	)
-}
-
-func findAltIcon(newAlt string, altIcons []string) string {
-	altIcon := ""
-	// Create an alphabet slice of 🇦 to 🇿
-	alphabet := make([]string, 0)
-	for i := 'A'; i <= 'Z'; i++ {
-		alphabet = append(alphabet, string('🇦'+(i-'A')))
-	}
-	for _, char := range strings.ToLower(newAlt) {
-		// Only want alpha digits
-		if char < 'a' || char > 'z' {
-			continue
-		}
-
-		altIcon = alphabet[char-'a']
-		if slices.Index(altIcons, altIcon) == -1 {
-			break
-		}
-	}
-	return altIcon
-}
-
-func rebuildAltList(contract *Contract) {
-	contract.AltIcons = make([]string, 0)
-	for _, b := range contract.Boosters {
-		if len(b.AltsIcons) != 0 {
-			contract.AltIcons = append(contract.AltIcons, b.AltsIcons...)
-		}
-	}
-
 }
 
 // HandleLinkAlternateAutoComplete will handle the /link-alternate autocomplete
