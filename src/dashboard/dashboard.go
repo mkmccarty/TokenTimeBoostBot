@@ -67,10 +67,9 @@ func HandleDashboardCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			},
 		})
 
-		content, components := drawDashboard(s, userID, false)
+		components := drawDashboard(s, userID, false)
 
 		msg, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content:    content,
 			Components: components,
 			Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
 		})
@@ -93,11 +92,10 @@ func HandleDashboardCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		bms := getDashboardBookmarks(userID)
 
 		if len(bms) > 15 {
-			content, components := getDeleteDialogComponents(userID, "channel")
+			components := getDeleteDialogComponents(userID, "channel")
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
-					Content:    content,
 					Components: components,
 					Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
 				},
@@ -107,21 +105,39 @@ func HandleDashboardCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 
 		UpdateDashboardsForUser(s, userID, "")
 
+		msg := fmt.Sprintf("Bookmark added for <#%s>. You have %d/15 channel bookmarks.", i.ChannelID, len(bms))
+
+		activeDashboardsMutex.Lock()
+		instances := activeDashboards[userID]
+		if len(instances) > 0 {
+			last := instances[len(instances)-1]
+			gID := last.Interaction.GuildID
+			if gID == "" {
+				gID = "@me"
+			}
+			msg += fmt.Sprintf("\n\n[Return to Dashboard](https://discord.com/channels/%s/%s/%s)", gID, last.Interaction.ChannelID, last.MessageID)
+
+			t, err := discordgo.SnowflakeTimestamp(last.MessageID)
+			if err == nil {
+				msg += " " + bottools.WrapTimestamp(t.Unix(), bottools.TimestampRelativeTime)
+			}
+		}
+		activeDashboardsMutex.Unlock()
+
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: fmt.Sprintf("Bookmark added for <#%s>. You have %d/15 channel bookmarks.", i.ChannelID, len(bms)),
-				Flags:   discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{discordgo.TextDisplay{Content: msg}},
+				Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
 			},
 		})
 
 	case "remove-bookmark":
-		content, components := getDeleteDialogComponents(userID, "")
+		components := getDeleteDialogComponents(userID, "")
 
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content:    content,
 				Components: components,
 				Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
 			},
@@ -182,14 +198,13 @@ func UpdateDashboardsForUser(s *discordgo.Session, userID string, currentMessage
 		return
 	}
 
-	content, components := drawDashboard(s, userID, false)
+	components := drawDashboard(s, userID, false)
 
 	for _, instance := range instances {
 		if instance.MessageID == currentMessageID {
 			continue
 		}
 		_, _ = s.FollowupMessageEdit(instance.Interaction, instance.MessageID, &discordgo.WebhookEdit{
-			Content:    &content,
 			Components: &components,
 		})
 	}
@@ -215,7 +230,7 @@ func init() {
 	}()
 }
 
-func drawDashboard(s *discordgo.Session, userID string, showExternal bool) (string, []discordgo.MessageComponent) {
+func drawDashboard(s *discordgo.Session, userID string, showExternal bool) []discordgo.MessageComponent {
 	var components []discordgo.MessageComponent
 	components = append(components, discordgo.TextDisplay{Content: "# 📊 Your BoostBot Dashboard"})
 
@@ -628,7 +643,7 @@ func drawDashboard(s *discordgo.Session, userID string, showExternal bool) (stri
 		Components: bottomButtons,
 	})
 
-	return "", components
+	return components
 }
 
 func getExternalContractBookmarks(userID string) []boost.ExternalContractBookmark {
@@ -740,11 +755,11 @@ func delDashboardBookmark(userID string, channelID string) {
 	saveDashboardBookmarks(userID, newBms)
 }
 
-func getDeleteDialogComponents(userID string, replaceType string) (string, []discordgo.MessageComponent) {
+func getDeleteDialogComponents(userID string, replaceType string) []discordgo.MessageComponent {
 	bms := getDashboardBookmarks(userID)
 	extBms := getExternalContractBookmarks(userID)
 	if len(bms) == 0 && len(extBms) == 0 {
-		return "You have no bookmarks to delete.", nil
+		return []discordgo.MessageComponent{discordgo.TextDisplay{Content: "You have no bookmarks to delete."}}
 	}
 
 	var bmBuilder strings.Builder
@@ -844,7 +859,7 @@ func getDeleteDialogComponents(userID string, replaceType string) (string, []dis
 		},
 	})
 
-	return "", components
+	return components
 }
 
 // HandleDashboardInteraction handles interactions on the dashboard like refreshing and bookmarks
@@ -877,17 +892,15 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 
 		extBms := getExternalContractBookmarks(userID)
 		if len(extBms) > 15 {
-			content, components := getDeleteDialogComponents(userID, "external")
+			components := getDeleteDialogComponents(userID, "external")
 			_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-				Content:    &content,
 				Components: &components,
 			})
 			return
 		}
 
-		content, components := drawDashboard(s, userID, true)
+		components := drawDashboard(s, userID, true)
 		_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Content:    &content,
 			Components: &components,
 		})
 		UpdateDashboardsForUser(s, userID, i.Message.ID)
@@ -901,9 +914,8 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 		delete(extContractCache, userID)
 		extContractCacheMutex.Unlock()
 
-		content, components := drawDashboard(s, userID, true)
+		components := drawDashboard(s, userID, true)
 		_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Content:    &content,
 			Components: &components,
 		})
 		UpdateDashboardsForUser(s, userID, i.Message.ID)
@@ -923,11 +935,10 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 
 		bms := getDashboardBookmarks(userID)
 		if len(bms) > 15 {
-			content, components := getDeleteDialogComponents(userID, "channel")
+			components := getDeleteDialogComponents(userID, "channel")
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseUpdateMessage,
 				Data: &discordgo.InteractionResponseData{
-					Content:    content,
 					Components: components,
 					Flags:      flags,
 				},
@@ -935,11 +946,10 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 			return
 		}
 
-		content, components := drawDashboard(s, userID, false)
+		components := drawDashboard(s, userID, false)
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{
-				Content:    content,
 				Components: components,
 				Flags:      flags,
 			},
@@ -947,14 +957,10 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 		UpdateDashboardsForUser(s, userID, i.Message.ID)
 
 	case "del_bookmark":
-		content, components := getDeleteDialogComponents(userID, "")
-		if components == nil {
-			return
-		}
+		components := getDeleteDialogComponents(userID, "")
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{
-				Content:    content,
 				Components: components,
 				Flags:      flags,
 			},
@@ -973,11 +979,10 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 				}
 			}
 		}
-		content, components := drawDashboard(s, userID, false)
+		components := drawDashboard(s, userID, false)
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{
-				Content:    content,
 				Components: components,
 				Flags:      flags,
 			},
@@ -985,11 +990,10 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 		UpdateDashboardsForUser(s, userID, i.Message.ID)
 
 	case "refresh":
-		content, components := drawDashboard(s, userID, false)
+		components := drawDashboard(s, userID, false)
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{
-				Content:    content,
 				Components: components,
 				Flags:      flags,
 			},
