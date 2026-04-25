@@ -43,7 +43,7 @@ func TestMoveOverflowBoostersToWaitlist_CleansAltRelationships(t *testing.T) {
 		CoopSize: 1,
 		Order:    []string{"main", "alt"},
 		Boosters: map[string]*Booster{
-			"main": {UserID: "main", Alts: []string{"alt"}, AltsIcons: []string{"😀"}},
+			"main": {UserID: "main", Alts: []string{"alt"}},
 			"alt":  {UserID: "alt", AltController: "main"},
 		},
 	}
@@ -52,9 +52,6 @@ func TestMoveOverflowBoostersToWaitlist_CleansAltRelationships(t *testing.T) {
 
 	if len(contract.Boosters["main"].Alts) != 0 {
 		t.Fatalf("main.Alts not cleared: %v", contract.Boosters["main"].Alts)
-	}
-	if len(contract.Boosters["main"].AltsIcons) != 0 {
-		t.Fatalf("main.AltsIcons not cleared: %v", contract.Boosters["main"].AltsIcons)
 	}
 	if contract.Boosters["alt"] != nil {
 		t.Fatalf("alt should be removed from boosters")

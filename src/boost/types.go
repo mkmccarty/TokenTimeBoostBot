@@ -151,7 +151,6 @@ type Booster struct {
 	Mention       string // String which mentions user
 	Color         int
 	Alts          []string // Array of alternate ids for the user
-	AltsIcons     []string // Array of alternate icons for the user
 	AltController string   // User ID of the controller of this alternate
 
 	BoostState             int           // Indicates if current booster
@@ -248,7 +247,6 @@ type Contract struct {
 	Boosters             map[string]*Booster // Boosters Registered
 	CRMessageIDs         map[string]string   // CR reqest messageIDs
 	WaitlistBoosters     []string            // Waitlist of UserID's
-	AltIcons             []string            // Array of alternate icons for the Boosters
 	Order                []string
 	BoostedOrder         []string   // Actual order of boosting
 	OrderRevision        int        // Incremented when Order is changed

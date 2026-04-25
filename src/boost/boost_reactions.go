@@ -189,14 +189,6 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		// Token reaction handling
 		tokenReactionStr := "token"
 		userID := r.UserID
-		// Special handling for alt icons representing token reactions
-		if slices.Index(contract.AltIcons, r.Emoji.Name) != -1 {
-			idx := slices.Index(contract.Boosters[r.UserID].AltsIcons, r.Emoji.Name)
-			if idx != -1 {
-				userID = contract.Boosters[r.UserID].Alts[idx]
-				tokenReactionStr = r.Emoji.Name
-			}
-		}
 
 		if strings.ToLower(r.Emoji.Name) == tokenReactionStr {
 			_, redraw = buttonReactionToken(s, r.GuildID, r.ChannelID, contract, userID, 1, "")
