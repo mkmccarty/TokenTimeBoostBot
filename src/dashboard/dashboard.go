@@ -518,7 +518,7 @@ func delExternalContractBookmark(userID, contractID, coopID string) {
 	bms := getExternalContractBookmarks(userID)
 	var newBms []boost.ExternalContractBookmark
 	for _, bm := range bms {
-		if !(bm.ContractID == contractID && strings.EqualFold(bm.CoopID, coopID)) {
+		if bm.ContractID != contractID || !strings.EqualFold(bm.CoopID, coopID) {
 			newBms = append(newBms, bm)
 		}
 	}
