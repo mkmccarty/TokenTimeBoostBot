@@ -676,15 +676,15 @@ func drawDashboard(s *discordgo.Session, userID string, showExternal bool) []dis
 
 	var bottomButtons []discordgo.MessageComponent
 	bottomButtons = append(bottomButtons, discordgo.Button{
-		Label:    "Refresh",
+		Label:    "Refresh Contracts",
 		Style:    discordgo.SecondaryButton,
 		CustomID: "dashboard_btn#refresh",
 		Emoji:    &discordgo.ComponentEmoji{Name: "🔄"},
 	})
 	if eeid != "" {
-		extBtnLabel := "Load External Contracts"
+		extBtnLabel := "Discover External Contracts"
 		if showExternal {
-			extBtnLabel = "Refresh External Contracts"
+			extBtnLabel = "Reload External Contracts"
 		}
 		bottomButtons = append(bottomButtons, discordgo.Button{
 			Label:    extBtnLabel,
@@ -1067,7 +1067,7 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 				}
 			}
 
-			//var recentDashboard bool
+			var recentDashboard bool
 			activeDashboardsMutex.Lock()
 			instances := activeDashboards[userID]
 			if len(instances) > 0 {
@@ -1080,29 +1080,28 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 				t, err := discordgo.SnowflakeTimestamp(last.MessageID)
 				if err == nil {
 					msg += " " + bottools.WrapTimestamp(t.Unix(), bottools.TimestampRelativeTime)
-					// if time.Since(t) <= 10*time.Minute {
-					// 	recentDashboard = true
-					// }
+					if time.Since(t) <= 10*time.Minute {
+						recentDashboard = true
+					}
 				}
 			}
 			activeDashboardsMutex.Unlock()
 
 			components = append(components, discordgo.TextDisplay{Content: msg})
 
-			/*
-				if recentDashboard {
-					components = append(components, discordgo.ActionsRow{
-						Components: []discordgo.MessageComponent{
-							discordgo.Button{
-								Label:    "Move Dashboard Here",
-								Style:    discordgo.PrimaryButton,
-								CustomID: "dashboard_btn#move_here",
-								Emoji:    &discordgo.ComponentEmoji{Name: "📊"},
-							},
+			if recentDashboard {
+				components = append(components, discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.Button{
+							Label:    "Move Dashboard Here",
+							Style:    discordgo.PrimaryButton,
+							CustomID: "dashboard_btn#move_here",
+							Emoji:    &discordgo.ComponentEmoji{Name: "📊"},
 						},
-					})
-				}
-			*/
+					},
+				})
+			}
+
 		} else {
 			components = drawDashboard(s, userID, false)
 		}
@@ -1170,6 +1169,20 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 				Flags:      flags,
 			},
 		})
+
+	case "move_here":
+		components := drawDashboard(s, userID, false)
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseUpdateMessage,
+			Data: &discordgo.InteractionResponseData{
+				Components: components,
+				Flags:      flags,
+			},
+		})
+		if i.Message != nil {
+			trackDashboard(userID, i.Interaction, i.Message.ID)
+			UpdateDashboardsForUser(s, userID, i.Message.ID)
+		}
 
 	case "refresh":
 		components := drawDashboard(s, userID, false)
