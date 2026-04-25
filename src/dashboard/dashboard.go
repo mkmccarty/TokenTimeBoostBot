@@ -296,17 +296,37 @@ func drawDashboard(s *discordgo.Session, userID string, showExternal bool) []dis
 	var useCache bool
 	var isFullLoad bool
 
+	var cached userExtContracts
+	var cacheFound bool
+
 	extContractCacheMutex.Lock()
-	if cached, ok := extContractCache[userID]; ok {
+	cached, cacheFound = extContractCache[userID]
+	extContractCacheMutex.Unlock()
+
+	if !cacheFound {
+		str := farmerstate.GetMiscSettingString(userID, "ext_contract_cache")
+		if str != "" {
+			if err := json.Unmarshal([]byte(str), &cached); err == nil {
+				cacheFound = true
+				extContractCacheMutex.Lock()
+				extContractCache[userID] = cached
+				extContractCacheMutex.Unlock()
+			}
+		}
+	}
+
+	if cacheFound {
 		if time.Now().Before(cached.Expires) {
 			useCache = true
 			extContractsToDisplay = cached.Contracts
 			isFullLoad = cached.FullLoad
 		} else {
+			extContractCacheMutex.Lock()
 			delete(extContractCache, userID)
+			extContractCacheMutex.Unlock()
+			farmerstate.SetMiscSettingString(userID, "ext_contract_cache", "")
 		}
 	}
-	extContractCacheMutex.Unlock()
 
 	if showExternal && eeid != "" {
 		if !isFullLoad {
@@ -352,22 +372,13 @@ func drawDashboard(s *discordgo.Session, userID string, showExternal bool) []dis
 						}
 
 						if contractID != "" {
-							var startTime, estEndTime time.Time
-							if coopID != "" {
-								st, durationSeconds, err := ei.GetCoopStatusStartTimeAndDuration(contractID, coopID, eeid)
-								if err == nil {
-									startTime = st
-									estEndTime = startTime.Add(time.Duration(durationSeconds) * time.Second)
-								}
-							} else {
+							if coopID == "" {
 								coopID = "N/A"
 							}
 							extContractsToDisplay = append(extContractsToDisplay, cachedExtContract{
-								ContractID:       contractID,
-								CoopID:           coopID,
-								StartTime:        startTime,
-								EstimatedEndTime: estEndTime,
-								State:            99,
+								ContractID: contractID,
+								CoopID:     coopID,
+								State:      99,
 							})
 						}
 					}
@@ -375,27 +386,39 @@ func drawDashboard(s *discordgo.Session, userID string, showExternal bool) []dis
 			}
 		} else {
 			for _, bm := range extBookmarks {
-				startTime, durationSeconds, err := ei.GetCoopStatusStartTimeAndDuration(bm.ContractID, bm.CoopID, eeid)
-				var estEndTime time.Time
-				if err == nil {
-					estEndTime = startTime.Add(time.Duration(durationSeconds) * time.Second)
-				}
 				extContractsToDisplay = append(extContractsToDisplay, cachedExtContract{
-					ContractID:       bm.ContractID,
-					CoopID:           bm.CoopID,
-					StartTime:        startTime,
-					EstimatedEndTime: estEndTime,
-					State:            99,
+					ContractID: bm.ContractID,
+					CoopID:     bm.CoopID,
+					State:      99,
 				})
 			}
 		}
-		extContractCacheMutex.Lock()
-		extContractCache[userID] = userExtContracts{
+		cacheData := userExtContracts{
 			Contracts: extContractsToDisplay,
-			Expires:   time.Now().Add(2 * time.Hour),
+			Expires:   time.Now().Add(4 * 24 * time.Hour),
 			FullLoad:  isFullLoad,
 		}
+		extContractCacheMutex.Lock()
+		extContractCache[userID] = cacheData
 		extContractCacheMutex.Unlock()
+
+		if b, err := json.Marshal(cacheData); err == nil {
+			farmerstate.SetMiscSettingString(userID, "ext_contract_cache", string(b))
+		}
+	}
+
+	// Fetch fresh status for external contracts using their cached IDs
+	if eeid != "" {
+		for i := range extContractsToDisplay {
+			c := &extContractsToDisplay[i]
+			if c.CoopID != "" && c.CoopID != "N/A" {
+				startTime, durationSeconds, err := ei.GetCoopStatusStartTimeAndDuration(c.ContractID, c.CoopID, eeid)
+				if err == nil {
+					c.StartTime = startTime
+					c.EstimatedEndTime = startTime.Add(time.Duration(durationSeconds) * time.Second)
+				}
+			}
+		}
 	}
 
 	for _, c := range extContractsToDisplay {
@@ -955,6 +978,7 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 		extContractCacheMutex.Lock()
 		delete(extContractCache, userID)
 		extContractCacheMutex.Unlock()
+		farmerstate.SetMiscSettingString(userID, "ext_contract_cache", "")
 
 		components := drawDashboard(s, userID, true)
 		_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
