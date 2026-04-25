@@ -291,8 +291,12 @@ func buildLobbyContent(contractID string, coopID string, userID string, bypassCa
 	if len(memberNames) == 0 {
 		lobby.WriteString("No lobby members found.")
 	} else {
-		for _, name := range memberNames {
-			fmt.Fprintf(&lobby, "- %s\n", name)
+		for i, name := range memberNames {
+			if i == 0 {
+				fmt.Fprintf(&lobby, "1. %s\n", name)
+			} else {
+				fmt.Fprintf(&lobby, "- %s\n", name)
+			}
 		}
 	}
 
