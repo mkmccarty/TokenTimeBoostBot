@@ -217,6 +217,7 @@ type artifactSet struct {
 	baseShippingRate float64
 	baseHab          float64
 	userLayRate      float64
+	deliveredEggs    float64
 	stones           int
 	deflector        artifact
 	metronome        artifact
@@ -241,8 +242,9 @@ type artifactSet struct {
 
 	tachWant       int
 	quantWant      int
-	bestELR        float64
-	bestSR         float64
+	bestLR         float64 // lay rate
+	bestSR         float64 // shipping rate
+	bestELR        float64 // effective lay rate
 	collegg        []string
 	soloData       [][]string
 	staabArtifacts []string
@@ -357,6 +359,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		contributionRatePerSecond += c.GetContributionRate()
 
 		as := artifactSet{}
+		as.deliveredEggs = c.GetContributionAmount()
 		as.name = c.GetUserName()
 		as.nameRaw = as.name
 		// Strip any multibyte characters from as.name and replace with ~
@@ -597,11 +600,16 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 		artifactSets = append(artifactSets, as)
 	}
+	// Sort the player list by delivered eggs, descending to create pseudo boost order
+	sort.Slice(artifactSets, func(i, j int) bool {
+		return artifactSets[i].deliveredEggs > artifactSets[j].deliveredEggs
+	})
 
 	var tableHeader string
 	var tableData []string
 
 	needLegend := false
+	anyColleggtibles := false
 	showGlitch := false
 	legendOrder := []string{"🚩", "💎", "🏠", "🧩", "🎣", "🫙"}
 	legendText := map[string]string{
@@ -651,7 +659,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				val = strings.ReplaceAll(val, ".5", "½")
 				val = strings.ReplaceAll(val, ".75", "¾")
 				as.collegg = append(as.collegg, val)
-				//anyColleggtiblesToShow = true
+				anyColleggtibles = true
 			} else if collegHab <= 1.0 {
 				as.collegg = append(as.collegg, "🛖")
 				//anyColleggtiblesToShow = true
@@ -667,7 +675,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if stoneLayRateNow == 0.0 {
 			privateFarm = true
 			stoneLayRateNow = chickELR
-			as.bestELR = stoneLayRateNow
+			as.bestLR = stoneLayRateNow
 			layingRate = stoneLayRateNow
 		}
 		collegELR := chickELR / (stoneLayRateNow * collegHab)
@@ -687,7 +695,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				val = strings.ReplaceAll(val, ".5", "½")
 				val = strings.ReplaceAll(val, ".75", "¾")
 				as.collegg = append(as.collegg, val)
-				//anyColleggtiblesToShow = true
+				anyColleggtibles = true
 			} else if collegELR == 1.0 {
 				as.collegg = append(as.collegg, "📦")
 				//anyColleggtiblesToShow = true
@@ -717,8 +725,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				val = strings.ReplaceAll(val, ".5", "½")
 				val = strings.ReplaceAll(val, ".75", "¾")
 				as.collegg = append(as.collegg, val)
-
-				//anyColleggtiblesToShow = true
+				anyColleggtibles = true
 			} else if collegShip == 1.0 {
 				as.collegg = append(as.collegg, "🚚")
 				//anyColleggtiblesToShow = true
@@ -774,7 +781,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				bestTotal = bestMin
 				as.tachWant = i
 				as.quantWant = as.stones - i
-				as.bestELR = stoneLayRate
+				as.bestLR = stoneLayRate
 				as.bestSR = stoneShipRate
 				//log.Printf("T-%d Q-%d %2.3f %2.3f  min:%2.3f\n", i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
 			}
@@ -806,6 +813,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			as.soloData = append(as.soloData, soloData)
 
 		}
+		as.bestELR = min(as.bestLR, as.bestSR)
+
 		var notes string
 		if len(as.missingResearch) > 0 {
 			notes += "🚩"
@@ -878,9 +887,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			}
 		} else {
 
-			lBestELR := fmt.Sprintf("%2.3f", as.bestELR)
-			if as.bestELR < 1.0 {
-				lBestELR = fmt.Sprintf("%2.2fT", as.bestELR*1000.0)
+			lBestELR := fmt.Sprintf("%2.3f", as.bestLR)
+			if as.bestLR < 1.0 {
+				lBestELR = fmt.Sprintf("%2.2fT", as.bestLR*1000.0)
 			}
 			lBestSR := fmt.Sprintf("%2.3f", as.bestSR)
 			if as.bestSR < 1.0 {
@@ -899,7 +908,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				prefix = ""
 			}
 			fmt.Fprintf(&tileBuilder, "\n %s %s\n %s %s\n", ei.GetBotEmojiMarkdown("afx_tachyon_stone_4"), strings.Replace(displayT, "√", " ⭐️", 1), ei.GetBotEmojiMarkdown("afx_quantum_stone_4"), strings.Replace(displayQ, "√", " ⭐️", 1))
-			fmt.Fprintf(&tileBuilder, "**ELR:** %2.3f\n**SR:** %2.3f\n", as.bestELR, as.bestSR)
+			fmt.Fprintf(&tileBuilder, "**LR:** %2.3f\n**SR:** %2.3f\n", as.bestLR, as.bestSR)
 			if len(as.collegg) > 0 {
 				fmt.Fprintf(&tileBuilder, "🥚: %s\n", strings.Join(as.collegg, ","))
 			}
@@ -934,6 +943,12 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 						bottools.AlignString(as.gusset.abbrev, 3, bottools.StringAlignRight),
 					)
 				}
+			} else {
+				lBestELR := fmt.Sprintf("%2.3f", as.bestELR)
+				if as.bestELR < 1.0 {
+					lBestELR = fmt.Sprintf("%2.2fT", as.bestELR*1000.0)
+				}
+				statsLine = append(statsLine, bottools.AlignString(lBestELR, 6, bottools.StringAlignCenter))
 			}
 
 			if len(as.collegg) > 0 {
@@ -968,7 +983,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			bottools.AlignString("Name", 12, bottools.StringAlignCenter),
 			bottools.AlignString("T", 3, bottools.StringAlignCenter),
 			bottools.AlignString("Q", 3, bottools.StringAlignCenter),
-			bottools.AlignString("ELR", 6, bottools.StringAlignCenter),
+			bottools.AlignString("LR", 6, bottools.StringAlignCenter),
 			bottools.AlignString("SR", 6, bottools.StringAlignCenter),
 			bottools.AlignString("Dfl", 3, bottools.StringAlignRight),
 			bottools.AlignString("Met", 3, bottools.StringAlignRight),
@@ -990,7 +1005,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		if details {
 			headerStr = append(headerStr,
-				bottools.AlignString("ELR", 6, bottools.StringAlignCenter),
+				bottools.AlignString("LR", 6, bottools.StringAlignCenter),
 				bottools.AlignString("SR", 6, bottools.StringAlignCenter))
 
 			// Skip Artifacts
@@ -1004,6 +1019,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			}
 
 			// Show Colleggtibles only if there are anyone not at max
+		} else {
+			headerStr = append(headerStr, bottools.AlignString("ELR", 6, bottools.StringAlignCenter))
 		}
 		headerStr = append(headerStr, bottools.AlignString("📓", 3, bottools.StringAlignCenter))
 
@@ -1114,7 +1131,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		}
 		builder.WriteString(strings.Join(parts, " / ") + "\n")
 	}
-	fmt.Fprintf(&builder, "Colleggtibles show when less than %s\n", strings.Join(colleggtibleStr, ", "))
+	if anyColleggtibles {
+		fmt.Fprintf(&builder, "Colleggtibles show when less than %s\n", strings.Join(colleggtibleStr, ", "))
+	}
 
 	return builder.String(), builderURL.String(), field
 }
