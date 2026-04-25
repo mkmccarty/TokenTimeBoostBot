@@ -1,7 +1,5 @@
 # Boost Bot
 
-[![Development](https://github.com/mkmccarty/TokenTimeBoostBot/actions/workflows/development.yml/badge.svg)](https://github.com/mkmccarty/TokenTimeBoostBot/actions/workflows/development.yml)
-
 Boost Order Management Discord Bot
 
 Allow for easy mobile creation and execution of a sign-up list and boost list for the game Egg Inc.
