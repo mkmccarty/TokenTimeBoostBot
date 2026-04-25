@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -41,7 +42,7 @@ func GetSlashDashboardCommand(cmd string) *discordgo.ApplicationCommand {
 			},
 			{
 				Name:        "remove-bookmark",
-				Description: "Remove the current channel from your dashboard bookmarks",
+				Description: "Remove a channel from your dashboard bookmarks",
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 			},
 		},
@@ -66,13 +67,16 @@ func HandleDashboardCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			},
 		})
 
-		content, components := drawDashboard(s, userID)
+		content, components := drawDashboard(s, userID, false)
 
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		msg, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content:    content,
 			Components: components,
 			Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
 		})
+		if err == nil && msg != nil {
+			trackDashboard(userID, i.Interaction, msg.ID)
+		}
 
 	case "add-bookmark":
 		channelName := "Unknown Channel"
@@ -88,44 +92,130 @@ func HandleDashboardCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		addDashboardBookmark(userID, i.ChannelID, guildID, guildName, channelName)
 		bms := getDashboardBookmarks(userID)
 
+		if len(bms) > 15 {
+			content, components := getDeleteDialogComponents(userID, "channel")
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content:    content,
+					Components: components,
+					Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
+				},
+			})
+			return
+		}
+
+		UpdateDashboardsForUser(s, userID, "")
+
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: fmt.Sprintf("Bookmark added for <#%s>. You have %d/15 bookmarks.", i.ChannelID, len(bms)),
+				Content: fmt.Sprintf("Bookmark added for <#%s>. You have %d/15 channel bookmarks.", i.ChannelID, len(bms)),
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
 
 	case "remove-bookmark":
-		bms := getDashboardBookmarks(userID)
-		found := false
-		for _, bm := range bms {
-			if bm.ChannelID == i.ChannelID {
-				found = true
-				break
-			}
-		}
-
-		var msg string
-		if found {
-			delDashboardBookmark(userID, i.ChannelID)
-			bms = getDashboardBookmarks(userID)
-			msg = fmt.Sprintf("Bookmark removed for <#%s>. You have %d/15 bookmarks.", i.ChannelID, len(bms))
-		} else {
-			msg = fmt.Sprintf("No bookmark found for <#%s>. You have %d/15 bookmarks.", i.ChannelID, len(bms))
-		}
+		content, components := getDeleteDialogComponents(userID, "")
 
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: msg,
-				Flags:   discordgo.MessageFlagsEphemeral,
+				Content:    content,
+				Components: components,
+				Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
 			},
 		})
 	}
 }
 
-func drawDashboard(s *discordgo.Session, userID string) (string, []discordgo.MessageComponent) {
+type cachedExtContract struct {
+	ContractID       string
+	CoopID           string
+	StartTime        time.Time
+	EstimatedEndTime time.Time
+	State            int
+}
+
+type userExtContracts struct {
+	Contracts []cachedExtContract
+	Expires   time.Time
+	FullLoad  bool
+}
+
+var (
+	extContractCache      = make(map[string]userExtContracts)
+	extContractCacheMutex sync.Mutex
+)
+
+type dashboardInstance struct {
+	Interaction *discordgo.Interaction
+	MessageID   string
+}
+
+var (
+	activeDashboards      = make(map[string][]dashboardInstance)
+	activeDashboardsMutex sync.Mutex
+)
+
+func trackDashboard(userID string, interaction *discordgo.Interaction, messageID string) {
+	activeDashboardsMutex.Lock()
+	defer activeDashboardsMutex.Unlock()
+	instances := activeDashboards[userID]
+	instances = append(instances, dashboardInstance{
+		Interaction: interaction,
+		MessageID:   messageID,
+	})
+	if len(instances) > 2 {
+		instances = instances[len(instances)-2:]
+	}
+	activeDashboards[userID] = instances
+}
+
+// UpdateDashboardsForUser updates any currently tracked dashboard messages for the user.
+func UpdateDashboardsForUser(s *discordgo.Session, userID string, currentMessageID string) {
+	activeDashboardsMutex.Lock()
+	instances := activeDashboards[userID]
+	activeDashboardsMutex.Unlock()
+
+	if len(instances) == 0 {
+		return
+	}
+
+	content, components := drawDashboard(s, userID, false)
+
+	for _, instance := range instances {
+		if instance.MessageID == currentMessageID {
+			continue
+		}
+		_, _ = s.FollowupMessageEdit(instance.Interaction, instance.MessageID, &discordgo.WebhookEdit{
+			Content:    &content,
+			Components: &components,
+		})
+	}
+}
+
+func init() {
+	bottools.UpdateDashboardDisplays = func(s *discordgo.Session, userID string) {
+		UpdateDashboardsForUser(s, userID, "")
+	}
+
+	go func() {
+		ticker := time.NewTicker(15 * time.Minute)
+		for range ticker.C {
+			extContractCacheMutex.Lock()
+			now := time.Now()
+			for k, v := range extContractCache {
+				if now.After(v.Expires) {
+					delete(extContractCache, k)
+				}
+			}
+			extContractCacheMutex.Unlock()
+		}
+	}()
+}
+
+func drawDashboard(s *discordgo.Session, userID string, showExternal bool) (string, []discordgo.MessageComponent) {
 	var components []discordgo.MessageComponent
 	components = append(components, discordgo.TextDisplay{Content: "# 📊 Your BoostBot Dashboard"})
 
@@ -155,79 +245,161 @@ func drawDashboard(s *discordgo.Session, userID string) (string, []discordgo.Mes
 	}
 	seenBookmarks := make(map[string]bool)
 
-	if eeid != "" {
-		backup, _ := ei.GetFirstContactFromAPI(s, eeid, userID, true)
-		if backup != nil {
-			for _, farm := range backup.GetFarms() {
-				if farm.GetFarmType() == ei.FarmType_CONTRACT {
-					contractID := farm.GetContractId()
-					if contractID == "" || contractID == "first-contract" {
-						continue
-					}
+	var extContractsToDisplay []cachedExtContract
+	var useCache bool
+	var isFullLoad bool
 
-					coopID := ""
-					if backup.GetContracts() != nil {
-						for _, lc := range backup.GetContracts().GetCurrentCoopStatuses() {
-							if lc.GetContractIdentifier() != "" && lc.GetContractIdentifier() == contractID {
-								if lc.GetClearedForExit() {
-									continue
+	extContractCacheMutex.Lock()
+	if cached, ok := extContractCache[userID]; ok {
+		if time.Now().Before(cached.Expires) {
+			useCache = true
+			extContractsToDisplay = cached.Contracts
+			isFullLoad = cached.FullLoad
+		} else {
+			delete(extContractCache, userID)
+		}
+	}
+	extContractCacheMutex.Unlock()
+
+	if showExternal && eeid != "" {
+		if !isFullLoad {
+			useCache = false // Force refresh if explicitly requested a full load and cache is partial
+			extContractsToDisplay = nil
+		}
+	} else if useCache && isFullLoad {
+		showExternal = true // Treat as shown to process bookmarks and hide button
+	}
+
+	if !useCache && eeid != "" {
+		isFullLoad = showExternal
+
+		if isFullLoad {
+			backup, _ := ei.GetFirstContactFromAPI(s, eeid, userID, true)
+			if backup != nil {
+				for _, farm := range backup.GetFarms() {
+					if farm.GetFarmType() == ei.FarmType_CONTRACT {
+						contractID := farm.GetContractId()
+						if contractID == "" || contractID == "first-contract" {
+							continue
+						}
+
+						coopID := ""
+						if backup.GetContracts() != nil {
+							for _, lc := range backup.GetContracts().GetContracts() {
+								if lc.GetContract() != nil && lc.GetContract().GetIdentifier() == contractID {
+									coopID = lc.GetCoopIdentifier()
+									break
 								}
-								coopID = lc.GetCoopIdentifier()
-								break
 							}
-						}
-					}
-
-					if contractID != "" && coopID != "" {
-						bookmarkKey := fmt.Sprintf("%s:%s", contractID, strings.ToLower(coopID))
-						found := false
-						for _, c := range activeContracts {
-							if c.ContractID == contractID {
-								found = true
-								break
-							}
-						}
-
-						if !found {
-							startTime, durationSeconds, err := ei.GetCoopStatusStartTimeAndDuration(contractID, coopID, eeid)
-							if err == nil {
-								estEndTime := startTime.Add(time.Duration(durationSeconds) * time.Second)
-								if estEndTime.IsZero() || time.Since(estEndTime) <= 24*time.Hour {
-									dummy := &boost.Contract{
-										ContractID:       contractID,
-										CoopID:           coopID,
-										StartTime:        startTime,
-										EstimatedEndTime: estEndTime,
-										State:            99, // Indicate active but not in signup
-									}
-									if bm, ok := extBookmarkMap[bookmarkKey]; ok {
-										dummy.Location = []*boost.LocationData{
-											{
-												GuildID:   bm.GuildID,
-												ChannelID: bm.ChannelID,
-											},
+							if coopID == "" {
+								for _, lc := range backup.GetContracts().GetCurrentCoopStatuses() {
+									if lc.GetContractIdentifier() != "" && lc.GetContractIdentifier() == contractID {
+										if lc.GetClearedForExit() {
+											continue
 										}
-										seenBookmarks[bookmarkKey] = true
+										coopID = lc.GetCoopIdentifier()
+										break
 									}
-									activeContracts = append(activeContracts, dummy)
 								}
 							}
+						}
+
+						if contractID != "" {
+							var startTime, estEndTime time.Time
+							if coopID != "" {
+								st, durationSeconds, err := ei.GetCoopStatusStartTimeAndDuration(contractID, coopID, eeid)
+								if err == nil {
+									startTime = st
+									estEndTime = startTime.Add(time.Duration(durationSeconds) * time.Second)
+								}
+							} else {
+								coopID = "N/A"
+							}
+							extContractsToDisplay = append(extContractsToDisplay, cachedExtContract{
+								ContractID:       contractID,
+								CoopID:           coopID,
+								StartTime:        startTime,
+								EstimatedEndTime: estEndTime,
+								State:            99,
+							})
 						}
 					}
 				}
 			}
+		} else {
+			for _, bm := range extBookmarks {
+				startTime, durationSeconds, err := ei.GetCoopStatusStartTimeAndDuration(bm.ContractID, bm.CoopID, eeid)
+				var estEndTime time.Time
+				if err == nil {
+					estEndTime = startTime.Add(time.Duration(durationSeconds) * time.Second)
+				}
+				extContractsToDisplay = append(extContractsToDisplay, cachedExtContract{
+					ContractID:       bm.ContractID,
+					CoopID:           bm.CoopID,
+					StartTime:        startTime,
+					EstimatedEndTime: estEndTime,
+					State:            99,
+				})
+			}
+		}
+		extContractCacheMutex.Lock()
+		extContractCache[userID] = userExtContracts{
+			Contracts: extContractsToDisplay,
+			Expires:   time.Now().Add(2 * time.Hour),
+			FullLoad:  isFullLoad,
+		}
+		extContractCacheMutex.Unlock()
+	}
+
+	for _, c := range extContractsToDisplay {
+		found := false
+		for _, ac := range activeContracts {
+			if ac.ContractID == c.ContractID {
+				found = true
+				break
+			}
+		}
+
+		bookmarkKey := fmt.Sprintf("%s:%s", c.ContractID, strings.ToLower(c.CoopID))
+
+		if !found {
+			if c.EstimatedEndTime.IsZero() || time.Since(c.EstimatedEndTime) <= 24*time.Hour {
+				dummy := &boost.Contract{
+					ContractID:       c.ContractID,
+					CoopID:           c.CoopID,
+					StartTime:        c.StartTime,
+					EstimatedEndTime: c.EstimatedEndTime,
+					State:            c.State,
+				}
+				if bm, ok := extBookmarkMap[bookmarkKey]; ok {
+					dummy.Location = []*boost.LocationData{
+						{
+							GuildID:   bm.GuildID,
+							ChannelID: bm.ChannelID,
+						},
+					}
+					seenBookmarks[bookmarkKey] = true
+				}
+				activeContracts = append(activeContracts, dummy)
+			}
+		} else {
+			if _, ok := extBookmarkMap[bookmarkKey]; ok {
+				seenBookmarks[bookmarkKey] = true
+			}
 		}
 	}
 
-	var newExtBookmarks []boost.ExternalContractBookmark
-	for _, bm := range extBookmarks {
-		key := fmt.Sprintf("%s:%s", bm.ContractID, strings.ToLower(bm.CoopID))
-		if seenBookmarks[key] {
-			newExtBookmarks = append(newExtBookmarks, bm)
+	if showExternal {
+		var newExtBookmarks []boost.ExternalContractBookmark
+		for _, bm := range extBookmarks {
+			key := fmt.Sprintf("%s:%s", bm.ContractID, strings.ToLower(bm.CoopID))
+			if seenBookmarks[key] {
+				newExtBookmarks = append(newExtBookmarks, bm)
+			}
 		}
-	}
-	if len(newExtBookmarks) != len(extBookmarks) {
-		saveExternalContractBookmarks(userID, newExtBookmarks)
+		if len(newExtBookmarks) != len(extBookmarks) {
+			saveExternalContractBookmarks(userID, newExtBookmarks)
+		}
 	}
 
 	sort.Slice(activeContracts, func(i, j int) bool {
@@ -274,10 +446,11 @@ func drawDashboard(s *discordgo.Session, userID string) (string, []discordgo.Mes
 		return false
 	})
 
+	var contractBuilder strings.Builder
+	var bookmarkButtons []discordgo.MessageComponent
+
 	contractCount := len(activeContracts)
 	if contractCount > 0 {
-		var contractBuilder strings.Builder
-		var bookmarkButtons []discordgo.MessageComponent
 
 		for _, c := range activeContracts {
 			channelStr := "Unknown Channel"
@@ -300,37 +473,57 @@ func drawDashboard(s *discordgo.Session, userID string) (string, []discordgo.Mes
 				timeStr = "Completion: TBD"
 			}
 
-			fmt.Fprintf(&contractBuilder, "**%s / %s**\n%s\n", c.ContractID, c.CoopID, channelStr)
+			contractName := c.Name
+			if contractName == "" {
+				eiContract := ei.EggIncContractsAll[c.ContractID]
+				if eiContract.ID != "" && eiContract.Name != "" {
+					contractName = eiContract.Name
+				} else {
+					contractName = c.ContractID
+				}
+			}
+
+			fmt.Fprintf(&contractBuilder, "**%s / %s**\n%s\n", contractName, c.CoopID, channelStr)
 			fmt.Fprintf(&contractBuilder, "-# _       _ %s\n", timeStr)
 
 			if c.State == 99 && len(c.Location) == 0 { // It's an un-bookmarked external contract
-				label := "Bookmark " + c.ContractID
+				label := "Bookmark " + contractName
 				if len(label) > 80 {
 					label = label[:80]
 				}
+
+				disabled := false
+				if c.CoopID == "N/A" || c.CoopID == "" {
+					disabled = true
+				}
+
 				bookmarkButtons = append(bookmarkButtons, discordgo.Button{
 					Label:    label,
 					Style:    discordgo.SecondaryButton,
 					CustomID: fmt.Sprintf("dashboard_btn#add_ext_bm#%s#%s", c.ContractID, c.CoopID),
 					Emoji:    &discordgo.ComponentEmoji{Name: "🔖"},
+					Disabled: disabled,
 				})
 			}
 		}
-		components = append(components, discordgo.Container{
-			AccentColor: &colorContracts,
-			Components:  []discordgo.MessageComponent{discordgo.TextDisplay{Content: "## 🚀 Active Contracts\n" + contractBuilder.String()}},
-		})
+	} else {
+		contractBuilder.WriteString("No active contracts.\n")
+	}
 
-		// Limit buttons per action row to 5 (Discord's maximum)
-		for i := 0; i < len(bookmarkButtons); i += 5 {
-			end := i + 5
-			if end > len(bookmarkButtons) {
-				end = len(bookmarkButtons)
-			}
-			components = append(components, discordgo.ActionsRow{
-				Components: bookmarkButtons[i:end],
-			})
+	components = append(components, discordgo.Container{
+		AccentColor: &colorContracts,
+		Components:  []discordgo.MessageComponent{discordgo.TextDisplay{Content: "## 🚀 Active Contracts\n" + contractBuilder.String()}},
+	})
+
+	// Limit buttons per action row to 5 (Discord's maximum)
+	for i := 0; i < len(bookmarkButtons); i += 5 {
+		end := i + 5
+		if end > len(bookmarkButtons) {
+			end = len(bookmarkButtons)
 		}
+		components = append(components, discordgo.ActionsRow{
+			Components: bookmarkButtons[i:end],
+		})
 	}
 
 	// Active Timers
@@ -360,10 +553,9 @@ func drawDashboard(s *discordgo.Session, userID string) (string, []discordgo.Mes
 
 	// Bookmarks
 	bms := getDashboardBookmarks(userID)
-	extBms := getExternalContractBookmarks(userID)
-	if len(bms) > 0 || len(extBms) > 0 {
-		var bmBuilder strings.Builder
-		bmBuilder.WriteString("## 🔖 Channel Bookmarks\n")
+	var bmBuilder strings.Builder
+
+	if len(bms) > 0 {
 		for _, bm := range bms {
 			if bm.GuildID != "" && bm.ChannelName != "" {
 				fmt.Fprintf(&bmBuilder, "[#%s](https://discord.com/channels/%s/%s)\n", bm.ChannelName, bm.GuildID, bm.ChannelID)
@@ -371,11 +563,24 @@ func drawDashboard(s *discordgo.Session, userID string) (string, []discordgo.Mes
 				fmt.Fprintf(&bmBuilder, "<#%s>\n", bm.ChannelID)
 			}
 		}
-		components = append(components, discordgo.Container{
-			AccentColor: &colorBookmarks,
-			Components:  []discordgo.MessageComponent{discordgo.TextDisplay{Content: bmBuilder.String()}},
-		})
+	} else {
+		bmBuilder.WriteString("No channel bookmarks.\n")
 	}
+
+	addBmCmd := bottools.GetFormattedCommand("dashboard add-bookmark")
+	if addBmCmd == "" {
+		addBmCmd = "`/dashboard add-bookmark`"
+	}
+	rmBmCmd := bottools.GetFormattedCommand("dashboard remove-bookmark")
+	if rmBmCmd == "" {
+		rmBmCmd = "`/dashboard remove-bookmark`"
+	}
+	fmt.Fprintf(&bmBuilder, "\n-# %s %s\n", addBmCmd, rmBmCmd)
+
+	components = append(components, discordgo.Container{
+		AccentColor: &colorBookmarks,
+		Components:  []discordgo.MessageComponent{discordgo.TextDisplay{Content: "## 🔖 Channel Bookmarks\n" + bmBuilder.String()}},
+	})
 
 	// Command Links
 	var cmdBuilder strings.Builder
@@ -406,17 +611,16 @@ func drawDashboard(s *discordgo.Session, userID string) (string, []discordgo.Mes
 		CustomID: "dashboard_btn#refresh",
 		Emoji:    &discordgo.ComponentEmoji{Name: "🔄"},
 	})
-	bottomButtons = append(bottomButtons, discordgo.Button{
-		Label:    "Bookmark Channel",
-		Style:    discordgo.PrimaryButton,
-		CustomID: "dashboard_btn#add_bookmark",
-		Emoji:    &discordgo.ComponentEmoji{Name: "🔖"},
-	})
-	if len(bms) > 0 || len(extBms) > 0 {
+	if eeid != "" {
+		extBtnLabel := "Load External Contracts"
+		if showExternal {
+			extBtnLabel = "Refresh External Contracts"
+		}
 		bottomButtons = append(bottomButtons, discordgo.Button{
-			Label:    "Delete Bookmark",
-			Style:    discordgo.DangerButton,
-			CustomID: "dashboard_btn#del_bookmark",
+			Label:    extBtnLabel,
+			Style:    discordgo.SecondaryButton,
+			CustomID: "dashboard_btn#load_external",
+			Emoji:    &discordgo.ComponentEmoji{Name: "☁️"},
 		})
 	}
 
@@ -460,8 +664,8 @@ func addExternalContractBookmark(s *discordgo.Session, userID, contractID, coopI
 		ContractID: contractID, CoopID: coopID, ChannelID: channelID, GuildID: guildID,
 		ChannelName: channelName, GuildName: guildName, Timestamp: time.Now(),
 	})
-	if len(bms) > 15 {
-		bms = bms[len(bms)-15:]
+	if len(bms) > 25 {
+		bms = bms[len(bms)-25:]
 	}
 	saveExternalContractBookmarks(userID, bms)
 }
@@ -508,8 +712,8 @@ func addDashboardBookmark(userID string, channelID string, guildID string, guild
 	sort.Slice(bms, func(i, j int) bool {
 		return bms[i].Timestamp.Before(bms[j].Timestamp)
 	})
-	if len(bms) > 15 {
-		bms = bms[len(bms)-15:]
+	if len(bms) > 25 {
+		bms = bms[len(bms)-25:]
 	}
 	saveDashboardBookmarks(userID, bms)
 }
@@ -536,6 +740,113 @@ func delDashboardBookmark(userID string, channelID string) {
 	saveDashboardBookmarks(userID, newBms)
 }
 
+func getDeleteDialogComponents(userID string, replaceType string) (string, []discordgo.MessageComponent) {
+	bms := getDashboardBookmarks(userID)
+	extBms := getExternalContractBookmarks(userID)
+	if len(bms) == 0 && len(extBms) == 0 {
+		return "You have no bookmarks to delete.", nil
+	}
+
+	var bmBuilder strings.Builder
+	if replaceType != "" {
+		bmBuilder.WriteString("## 🔖 Replace a Bookmark\n")
+		bmBuilder.WriteString("You have reached the maximum number of bookmarks (15) for this type. Please select one to replace:\n")
+	} else {
+		bmBuilder.WriteString("## 🗑️ Delete a Bookmark\n")
+	}
+
+	var selectMenus []discordgo.MessageComponent
+	idx := 1
+
+	if replaceType == "" || replaceType == "channel" {
+		chanOptions := make([]discordgo.SelectMenuOption, 0, len(bms))
+		for _, bm := range bms {
+			if bm.GuildID != "" && bm.ChannelName != "" {
+				fmt.Fprintf(&bmBuilder, "%d. Name: %s / Channel: #%s\n", idx, bm.ChannelName, bm.ChannelID)
+			} else {
+				fmt.Fprintf(&bmBuilder, "%d. Channel: <#%s>\n", idx, bm.ChannelID)
+			}
+			chanOptions = append(chanOptions, discordgo.SelectMenuOption{
+				Label: fmt.Sprintf("%d", idx),
+				Value: fmt.Sprintf("chan#%s", bm.ChannelID),
+			})
+			idx++
+		}
+		if len(chanOptions) > 0 {
+			minValues := 1
+			selectMenus = append(selectMenus, discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.SelectMenu{
+						CustomID:    "dashboard_btn#del_select_chan",
+						Placeholder: "Select channel bookmark to delete",
+						Options:     chanOptions,
+						MinValues:   &minValues,
+						MaxValues:   1,
+					},
+				},
+			})
+		}
+	}
+
+	if replaceType == "" || replaceType == "external" {
+		extOptions := make([]discordgo.SelectMenuOption, 0, len(extBms))
+		for _, bm := range extBms {
+			contractName := ei.EggIncContractsAll[bm.ContractID].Name
+			if contractName == "" {
+				contractName = bm.ContractID
+			}
+			fmt.Fprintf(&bmBuilder, "%d. Contract: %s / %s in <#%s>\n", idx, contractName, bm.CoopID, bm.ChannelID)
+			extOptions = append(extOptions, discordgo.SelectMenuOption{
+				Label: fmt.Sprintf("%d", idx),
+				Value: fmt.Sprintf("cont#%s#%s", bm.ContractID, bm.CoopID),
+			})
+			idx++
+		}
+		if len(extOptions) > 0 {
+			minValues := 1
+			selectMenus = append(selectMenus, discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.SelectMenu{
+						CustomID:    "dashboard_btn#del_select_ext",
+						Placeholder: "Select contract bookmark to delete",
+						Options:     extOptions,
+						MinValues:   &minValues,
+						MaxValues:   1,
+					},
+				},
+			})
+		}
+	}
+
+	accentColor := 0xed4245 // Danger red
+	if replaceType != "" {
+		accentColor = 0xfee75c // Yellow for warning/replace
+	}
+
+	components := []discordgo.MessageComponent{
+		discordgo.Container{
+			AccentColor: &accentColor,
+			Components: []discordgo.MessageComponent{
+				discordgo.TextDisplay{Content: bmBuilder.String()},
+			},
+		},
+	}
+
+	components = append(components, selectMenus...)
+
+	components = append(components, discordgo.ActionsRow{
+		Components: []discordgo.MessageComponent{
+			discordgo.Button{
+				Label:    "Cancel",
+				Style:    discordgo.SecondaryButton,
+				CustomID: "dashboard_btn#refresh",
+			},
+		},
+	})
+
+	return "", components
+}
+
 // HandleDashboardInteraction handles interactions on the dashboard like refreshing and bookmarks
 func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	parts := strings.Split(i.MessageComponentData().CustomID, "#")
@@ -556,18 +867,46 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 		if len(parts) < 4 {
 			return
 		}
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		})
+
 		contractID := parts[2]
 		coopID := parts[3]
 		addExternalContractBookmark(s, userID, contractID, coopID, i.ChannelID, i.GuildID)
-		content, components := drawDashboard(s, userID)
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Content:    content,
-				Components: components,
-				Flags:      flags,
-			},
+
+		extBms := getExternalContractBookmarks(userID)
+		if len(extBms) > 15 {
+			content, components := getDeleteDialogComponents(userID, "external")
+			_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+				Content:    &content,
+				Components: &components,
+			})
+			return
+		}
+
+		content, components := drawDashboard(s, userID, true)
+		_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content:    &content,
+			Components: &components,
 		})
+		UpdateDashboardsForUser(s, userID, i.Message.ID)
+
+	case "load_external":
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		})
+
+		extContractCacheMutex.Lock()
+		delete(extContractCache, userID)
+		extContractCacheMutex.Unlock()
+
+		content, components := drawDashboard(s, userID, true)
+		_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content:    &content,
+			Components: &components,
+		})
+		UpdateDashboardsForUser(s, userID, i.Message.ID)
 
 	case "add_bookmark":
 		channelName := "Unknown Channel"
@@ -581,7 +920,37 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 			}
 		}
 		addDashboardBookmark(userID, i.ChannelID, guildID, guildName, channelName)
-		content, components := drawDashboard(s, userID)
+
+		bms := getDashboardBookmarks(userID)
+		if len(bms) > 15 {
+			content, components := getDeleteDialogComponents(userID, "channel")
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseUpdateMessage,
+				Data: &discordgo.InteractionResponseData{
+					Content:    content,
+					Components: components,
+					Flags:      flags,
+				},
+			})
+			return
+		}
+
+		content, components := drawDashboard(s, userID, false)
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseUpdateMessage,
+			Data: &discordgo.InteractionResponseData{
+				Content:    content,
+				Components: components,
+				Flags:      flags,
+			},
+		})
+		UpdateDashboardsForUser(s, userID, i.Message.ID)
+
+	case "del_bookmark":
+		content, components := getDeleteDialogComponents(userID, "")
+		if components == nil {
+			return
+		}
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{
@@ -591,79 +960,7 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 			},
 		})
 
-	case "del_bookmark":
-		bms := getDashboardBookmarks(userID)
-		extBms := getExternalContractBookmarks(userID)
-		if len(bms) == 0 && len(extBms) == 0 {
-			return
-		}
-
-		var bmBuilder strings.Builder
-		bmBuilder.WriteString("## 🗑️ Delete a Bookmark\n")
-
-		options := make([]discordgo.SelectMenuOption, 0, len(bms)+len(extBms))
-		idx := 1
-		for _, bm := range bms {
-			if bm.GuildID != "" && bm.ChannelName != "" {
-				fmt.Fprintf(&bmBuilder, "%d. Name: %s / Channel: #%s\n", idx, bm.ChannelName, bm.ChannelID)
-			} else {
-				fmt.Fprintf(&bmBuilder, "%d. Channel: <#%s>\n", idx, bm.ChannelID)
-			}
-			options = append(options, discordgo.SelectMenuOption{
-				Label: fmt.Sprintf("%d", idx),
-				Value: fmt.Sprintf("chan#%s", bm.ChannelID),
-			})
-			idx++
-		}
-
-		for _, bm := range extBms {
-			fmt.Fprintf(&bmBuilder, "%d. Contract: %s / %s in <#%s>\n", idx, bm.ContractID, bm.CoopID, bm.ChannelID)
-			options = append(options, discordgo.SelectMenuOption{
-				Label: fmt.Sprintf("%d", idx),
-				Value: fmt.Sprintf("cont#%s#%s", bm.ContractID, bm.CoopID),
-			})
-			idx++
-		}
-
-		minValues := 1
-		accentColor := 0xed4245 // Danger red
-		components := []discordgo.MessageComponent{
-			discordgo.Container{
-				AccentColor: &accentColor,
-				Components: []discordgo.MessageComponent{
-					discordgo.TextDisplay{Content: bmBuilder.String()},
-				},
-			},
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.SelectMenu{
-						CustomID:    "dashboard_btn#del_select",
-						Placeholder: "Select bookmark number to delete",
-						Options:     options,
-						MinValues:   &minValues,
-						MaxValues:   1,
-					},
-				},
-			},
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.Button{
-						Label:    "Cancel",
-						Style:    discordgo.SecondaryButton,
-						CustomID: "dashboard_btn#refresh",
-					},
-				},
-			},
-		}
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Components: components,
-				Flags:      flags,
-			},
-		})
-
-	case "del_select":
+	case "del_select", "del_select_chan", "del_select_ext":
 		vals := i.MessageComponentData().Values
 		if len(vals) > 0 {
 			valParts := strings.Split(vals[0], "#")
@@ -676,7 +973,7 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 				}
 			}
 		}
-		content, components := drawDashboard(s, userID)
+		content, components := drawDashboard(s, userID, false)
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{
@@ -685,9 +982,10 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 				Flags:      flags,
 			},
 		})
+		UpdateDashboardsForUser(s, userID, i.Message.ID)
 
 	case "refresh":
-		content, components := drawDashboard(s, userID)
+		content, components := drawDashboard(s, userID, false)
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{
@@ -696,5 +994,6 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 				Flags:      flags,
 			},
 		})
+		UpdateDashboardsForUser(s, userID, i.Message.ID)
 	}
 }
