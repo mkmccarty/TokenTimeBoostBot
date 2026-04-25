@@ -6,6 +6,9 @@ import (
 
 var commandMap = make(map[string]string)
 
+// UpdateDashboardDisplays is a callback used to notify the dashboard of data changes
+var UpdateDashboardDisplays func(s *discordgo.Session, userID string)
+
 // UpdateCommandMap updates the command map
 func UpdateCommandMap(commands []*discordgo.ApplicationCommand) {
 	for _, cmd := range commands {

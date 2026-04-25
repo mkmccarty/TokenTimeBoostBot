@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -104,8 +106,8 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 	})
 	lastContractUpdate = time.Time{}
 	lastEventUpdate = time.Time{}
-	downloadEggIncData(eggIncContractsURL, eggIncContractsFile)
-	downloadEggIncData(eggIncEventsURL, eggIncEventsFile)
+	downloadEggIncData(eggIncContractsURL, eggIncContractsFile, true)
+	downloadEggIncData(eggIncEventsURL, eggIncEventsFile, true)
 	bottools.LoadEmotes(s, true)
 
 	events.GetPeriodicalsFromAPI(s)
@@ -181,10 +183,44 @@ func getGitBlobSHA(filename string) (string, error) {
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
+var manifestMutex sync.Mutex
+
+func getManifestTime(filename string) time.Time {
+	manifestMutex.Lock()
+	defer manifestMutex.Unlock()
+	data, err := os.ReadFile("ttbb-data/download-manifest.json")
+	if err != nil {
+		return time.Time{}
+	}
+	var manifest map[string]time.Time
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return time.Time{}
+	}
+	return manifest[filename]
+}
+
+func updateManifestTime(filename string) {
+	manifestMutex.Lock()
+	defer manifestMutex.Unlock()
+	var manifest map[string]time.Time
+	data, err := os.ReadFile("ttbb-data/download-manifest.json")
+	if err == nil {
+		_ = json.Unmarshal(data, &manifest)
+	}
+	if manifest == nil {
+		manifest = make(map[string]time.Time)
+	}
+	manifest[filename] = time.Now()
+	if b, err := json.MarshalIndent(manifest, "", "  "); err == nil {
+		_ = os.MkdirAll("ttbb-data", os.ModePerm)
+		_ = os.WriteFile("ttbb-data/download-manifest.json", b, 0644)
+	}
+}
+
 func crondownloadEggIncData() {
-	downloadEggIncData(eggIncContractsURL, eggIncContractsFile)
-	downloadEggIncData(eggIncEventsURL, eggIncEventsFile)
-	downloadEggIncData(eggIncCustomEggsURL, eggIncCustomEggsFile)
+	downloadEggIncData(eggIncContractsURL, eggIncContractsFile, false)
+	downloadEggIncData(eggIncEventsURL, eggIncEventsFile, false)
+	downloadEggIncData(eggIncCustomEggsURL, eggIncCustomEggsFile, false)
 }
 
 func cronPruneOldGeneratedBanners() {
@@ -238,7 +274,16 @@ func cronPruneOldGeneratedBanners() {
 	}
 }
 
-func downloadEggIncData(urlStr string, filename string) bool {
+func downloadEggIncData(urlStr string, filename string, force bool) bool {
+	if !force {
+		if _, err := os.Stat(filename); err == nil {
+			lastCheck := getManifestTime(filename)
+			if time.Since(lastCheck) < 23*time.Hour {
+				return false
+			}
+		}
+	}
+
 	owner, repo, branch, path, err := parseGithubRawURL(urlStr)
 	if err != nil {
 		log.Printf("Failed to parse URL %s: %v", urlStr, err)
@@ -259,6 +304,7 @@ func downloadEggIncData(urlStr string, filename string) bool {
 	localSHA, err := getGitBlobSHA(filename)
 	if err == nil && localSHA == newSHA {
 		// The file hasn't changed
+		updateManifestTime(filename)
 		return false
 	}
 
@@ -311,6 +357,8 @@ func downloadEggIncData(urlStr string, filename string) bool {
 		log.Print(err)
 		return false
 	}
+
+	updateManifestTime(filename)
 
 	// Notify bot of out new data
 	switch filename {
@@ -487,31 +535,31 @@ func ExecuteCronJob(s *discordgo.Session) {
 	}
 	ei.SetColleggtibleValues()
 
-	if !downloadEggIncData(eggIncContractsURL, eggIncContractsFile) {
+	if !downloadEggIncData(eggIncContractsURL, eggIncContractsFile, false) {
 		boost.LoadContractData(eggIncContractsFile)
 	}
-	if !downloadEggIncData(eggIncEventsURL, eggIncEventsFile) {
+	if !downloadEggIncData(eggIncEventsURL, eggIncEventsFile, false) {
 		ei.LoadEventData(eggIncEventsFile)
 	}
-	downloadEggIncData(eggIncDataSchemaURL, eggIncDataSchemaFile)
-	downloadEggIncData(eggIncEiAfxConfigURL, eggIncEiAfxConfigFile)
+	downloadEggIncData(eggIncDataSchemaURL, eggIncDataSchemaFile, false)
+	downloadEggIncData(eggIncEiAfxConfigURL, eggIncEiAfxConfigFile, false)
 
-	if !downloadEggIncData(eggIncEiAfxDataURL, eggIncEiAfxDataFile) {
+	if !downloadEggIncData(eggIncEiAfxDataURL, eggIncEiAfxDataFile, false) {
 		err := ei.LoadArtifactsData(eggIncEiAfxDataFile)
 		if err != nil {
 			log.Print(err)
 		}
 	}
 
-	if !downloadEggIncData(eggIncEiResearchesURL, eggIncEiResearchesFile) {
+	if !downloadEggIncData(eggIncEiResearchesURL, eggIncEiResearchesFile, false) {
 		ei.LoadResearchData(eggIncEiResearchesFile)
 	}
 
-	if !downloadEggIncData(eggIncTokenComplaintsURL, eggIncTokenComplaintsFile) {
+	if !downloadEggIncData(eggIncTokenComplaintsURL, eggIncTokenComplaintsFile, false) {
 		ei.LoadTokenComplaints(eggIncTokenComplaintsFile)
 	}
 
-	if !downloadEggIncData(eggIncStatusMessagesURL, eggIncStatusMessagesFile) {
+	if !downloadEggIncData(eggIncStatusMessagesURL, eggIncStatusMessagesFile, false) {
 		ei.LoadStatusMessages(eggIncStatusMessagesFile)
 	}
 
