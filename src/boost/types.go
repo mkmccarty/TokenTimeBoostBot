@@ -267,3 +267,23 @@ type Contract struct {
 
 	mutex sync.Mutex // Keep this contract thread safe
 }
+
+// Bookmark represents a bookmark for a specific channel in the dashboard
+type Bookmark struct {
+	ChannelID   string    `json:"channel_id"`
+	GuildID     string    `json:"guild_id,omitempty"`
+	GuildName   string    `json:"guild_name,omitempty"`
+	ChannelName string    `json:"channel_name,omitempty"`
+	Timestamp   time.Time `json:"timestamp"`
+}
+
+// ExternalContractBookmark represents a bookmark for an external contract
+type ExternalContractBookmark struct {
+	ContractID  string    `json:"contract_id"`
+	CoopID      string    `json:"coop_id"`
+	ChannelID   string    `json:"channel_id"`
+	GuildID     string    `json:"guild_id,omitempty"`
+	GuildName   string    `json:"guild_name,omitempty"`
+	ChannelName string    `json:"channel_name,omitempty"`
+	Timestamp   time.Time `json:"timestamp"`
+}
