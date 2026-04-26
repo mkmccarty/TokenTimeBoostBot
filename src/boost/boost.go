@@ -946,10 +946,8 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 
 func creatorOfContract(s *discordgo.Session, c *Contract, u string) bool {
 	if c != nil {
-		for _, el := range c.CreatorID {
-			if el == u {
-				return true
-			}
+		if slices.Contains(c.CreatorID, u) {
+			return true
 		}
 		for _, el := range c.Location {
 			perms, err := s.UserChannelPermissions(u, el.ChannelID)

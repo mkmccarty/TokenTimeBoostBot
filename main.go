@@ -113,6 +113,7 @@ const slashHunt string = "hunt"
 const slashPredictions string = "predictions"
 const slashMint string = "mint"
 const slashUploadBanner string = "upload-banner"
+const slashAvailability string = "availability"
 
 // const slashSignup string = "signup"
 var s *discordgo.Session
@@ -626,6 +627,12 @@ func setupCommands() {
 		AppCmd:   boost.GetSlashUploadBannerCommand(slashUploadBanner),
 		Category: CmdCategoryStandard,
 		Handler:  boost.HandleUploadBannerCommand,
+	})
+
+	commandRegistry = append(commandRegistry, CommandDef{
+		AppCmd:   boost.GetSlashAvailabilityCommand(slashAvailability),
+		Category: CmdCategoryStandard,
+		Handler:  boost.HandleAvailabilityCommand,
 	})
 
 	for _, def := range commandRegistry {

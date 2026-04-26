@@ -104,9 +104,16 @@ func CreatePredictedContract() []ei.EggIncContract {
 	nextWed := nextWeekdayDate(now, time.Wednesday)
 	nextFri := nextWeekdayDate(now, time.Friday)
 
-	create := func(label string, releaseDate time.Time, ultra bool) ei.EggIncContract {
+	fridayNonUltra, fridayUltra, wednesday := predictJeli(3)
+
+	create := func(label string, releaseDate time.Time, ultra bool, predictions []ei.EggIncContract) ei.EggIncContract {
 		id := fmt.Sprintf("%s-%s", strings.ToLower(label), releaseDate.Format("2006-01-02"))
 		name := fmt.Sprintf("Predicted %s", label)
+
+		var predList []string
+		for _, p := range predictions {
+			predList = append(predList, p.ID)
+		}
 
 		return ei.EggIncContract{
 			ID:              id,
@@ -119,13 +126,14 @@ func CreatePredictedContract() []ei.EggIncContract {
 			ValidFrom:       releaseDate,
 			ValidUntil:      releaseDate.Add(7 * 24 * time.Hour),
 			ContractVersion: 2,
+			PredictionsList: predList,
 		}
 	}
 
 	return []ei.EggIncContract{
-		create("Wednesday", nextWed, false),
-		create("Friday", nextFri, false),
-		create("Ultra", nextFri, true),
+		create("Wednesday", nextWed, false, wednesday),
+		create("Friday", nextFri, false, fridayNonUltra),
+		create("Ultra", nextFri, true, fridayUltra),
 	}
 }
 
@@ -525,6 +533,18 @@ func updateContractWithEggIncData(s *discordgo.Session, contract *Contract) {
 			contract.Ultra = cc.Ultra
 			contract.SeasonalScoring = cc.SeasonalScoring
 			contract.PredictionSignup = cc.Predicted
+			contract.PredictionsList = cc.PredictionsList
+			var pInfo []PredictionInfo
+			for _, pid := range cc.PredictionsList {
+				if pc, ok := ei.EggIncContractsAll[pid]; ok {
+					pInfo = append(pInfo, PredictionInfo{
+						ContractID: pid,
+						Name:       pc.Name,
+						EggName:    pc.EggName,
+					})
+				}
+			}
+			contract.PredictionInfo = pInfo
 			renameContractRole(s, contract)
 			return
 		}
@@ -545,5 +565,17 @@ func updateContractWithEggIncData(s *discordgo.Session, contract *Contract) {
 		contract.Ultra = cc.Ultra
 		contract.SeasonalScoring = cc.SeasonalScoring
 		contract.PredictionSignup = cc.Predicted
+		contract.PredictionsList = cc.PredictionsList
+		var pInfo []PredictionInfo
+		for _, pid := range cc.PredictionsList {
+			if pc, ok := ei.EggIncContractsAll[pid]; ok {
+				pInfo = append(pInfo, PredictionInfo{
+					ContractID: pid,
+					Name:       pc.Name,
+					EggName:    pc.EggName,
+				})
+			}
+		}
+		contract.PredictionInfo = pInfo
 	}
 }

@@ -158,6 +158,8 @@ type EggIncContract struct {
 	CxpMaxSiab      float64 // Maximum CXP value based on SIAB usage
 	CxpMaxSiabGG    float64 // CXP value for the contract based on SIAB usage
 	SeasonalScoring int     // 0 = old (0.2.0), true = 1 (0.2.0+ seasonal change for AA+AAA)
+	PredictionsList []string // List of predictions for this contract
+	
 }
 
 // EggIncContracts holds a list of all contracts, newest is last
