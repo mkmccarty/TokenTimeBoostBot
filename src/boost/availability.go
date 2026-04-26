@@ -208,12 +208,12 @@ func GetAvailabilityComponents(s *discordgo.Session, contract *Contract, userID 
 					}
 				}
 				if len(selectedContracts) > 0 {
-					report.WriteString(fmt.Sprintf("> **Contracts**: %s\n", strings.Join(selectedContracts, ", ")))
+					fmt.Fprintf(&report, "> **Contracts**: %s\n", strings.Join(selectedContracts, ", "))
 				} else {
 					report.WriteString("> **Contracts**: None selected\n")
 				}
 			}
-			report.WriteString(fmt.Sprintf("> **Times**: %s\n", formatTimes(b.Availability.Timeslots)))
+			fmt.Fprintf(&report, "> **Times**: %s\n", formatTimes(b.Availability.Timeslots))
 			out = append([]discordgo.MessageComponent{
 				&discordgo.TextDisplay{Content: report.String()},
 			}, out...)
