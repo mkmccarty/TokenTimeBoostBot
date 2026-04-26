@@ -28,6 +28,7 @@ const (
 	predictionFriPeLegacyBoth predictionType = "fri_pe_legacy_both"
 	predictionFriUltraLegacy  predictionType = "fri_ultra_legacy"
 	predictionFriNonUltra     predictionType = "fri_non_ultra_legacy"
+	predictionCollectibles    predictionType = "collectibles"
 )
 
 // flags returns which Leggacy prediction types to show based on the predictionType
@@ -218,6 +219,19 @@ func predictions(optionMap map[string]*discordgo.ApplicationCommandInteractionDa
 	}
 
 	buttonCall := params.buttonCall
+
+	// Collectibles view is handled separately
+	if params.pt == predictionCollectibles {
+		_, wedTime, friTime, _ := contractTimes9amPacific(0)
+		collectibles := predictCollectibles(wedTime, friTime)
+		components := make([]discordgo.MessageComponent, 0, 3)
+		components = append(components, writeCollectiblesPredictions(collectibles))
+		if buttonCall {
+			components = append(components, getPredictionsButtonsComponents(params.pt, contractCount)...)
+		}
+		return components
+	}
+
 	// Determine which predictions to show
 	showWednesday, showFridayNonUltra, showFridayUltra := params.pt.flags()
 	hasFriday := showFridayNonUltra || showFridayUltra
@@ -309,6 +323,12 @@ func getPredictionsButtonsComponents(predType predictionType, contractCount int6
 				Description: "Show Friday Ultra Leggacy contracts",
 				Value:       string(predictionFriUltraLegacy),
 				Default:     predType == predictionFriUltraLegacy,
+			},
+			{
+				Label:       "Colleggtibles",
+				Description: "Show Colleggtible contracts",
+				Value:       string(predictionCollectibles),
+				Default:     predType == predictionCollectibles,
 			},
 		},
 	}
@@ -536,6 +556,123 @@ func predictJeli(contractCount int) (fridayNonUltra, fridayUltra, wednesday []ei
 	}
 
 	return
+}
+
+// collectiblePrediction holds a contract and its predicted drop time for a custom egg (Egg_CUSTOM_EGG).
+type collectiblePrediction struct {
+	ei.EggIncContract
+	predictedTime time.Time
+}
+
+// predictCollectibles sorts ALL contracts into the 3 leggacy brackets (same
+// classification as predictJeli), computes each custom egg's predicted drop date
+// from its bracket position, and keeps the soonest occurrence per egg ID.
+func predictCollectibles(nextWed, nextFri time.Time) map[string]collectiblePrediction {
+	var wed, friPE, friUltra []ei.EggIncContract
+	for _, c := range ei.EggIncContractsAll {
+		switch {
+		case c.HasPE && !c.Ultra:
+			friUltra = append(friUltra, c)
+		case c.HasPE && c.Ultra:
+			friPE = append(friPE, c)
+		default:
+			wed = append(wed, c)
+		}
+	}
+	sort.Slice(wed, func(i, j int) bool { return sortValidFrom(wed[i], wed[j]) })
+	sort.Slice(friPE, func(i, j int) bool { return sortValidFrom(friPE[i], friPE[j]) })
+	sort.Slice(friUltra, func(i, j int) bool { return sortValidFrom(friUltra[i], friUltra[j]) })
+	/*
+		debugBracket := func(name string, bracket []ei.EggIncContract, base time.Time) {
+			log.Printf("[collectibles debug] === %s (%d contracts) ===", name, len(bracket))
+			for week, c := range bracket {
+				if c.Egg == int32(ei.Egg_CUSTOM_EGG) {
+					log.Printf("[collectibles debug]  week %d  *** CUSTOM EGG egg=%q id=%q predicted=%s",
+						week, c.EggName, c.ID, base.AddDate(0, 0, 7*week).Format("2006-01-02"))
+				} else {
+					log.Printf("[collectibles debug]  week %d  egg=%q id=%q validFrom=%s",
+						week, c.EggName, c.ID, c.ValidFrom.Format("2006-01-02"))
+				}
+			}
+		}
+		debugBracket("Wednesday", wed, nextWed)
+		debugBracket("Friday PE", friPE, nextFri)
+		debugBracket("Friday Ultra PE", friUltra, nextFri)
+	*/
+	result := make(map[string]collectiblePrediction)
+	scan := func(bracket []ei.EggIncContract, base time.Time) {
+		for week, c := range bracket {
+			eggName := c.EggName
+			if c.Egg == int32(ei.Egg_CUSTOM_EGG) {
+				if eggName == "" {
+					continue
+				}
+			} else {
+				// Old contracts used a regular egg enum for what is now a custom egg.
+				// Match by lowercasing the enum name against the CustomEggMap keys.
+				lowered := strings.ToLower(eggName)
+				if _, exists := ei.CustomEggMap[lowered]; !exists {
+					continue
+				}
+				eggName = lowered
+			}
+			predicted := base.AddDate(0, 0, 7*week)
+			if existing, seen := result[eggName]; !seen || predicted.Before(existing.predictedTime) {
+				contract := c
+				contract.EggName = eggName
+				result[eggName] = collectiblePrediction{contract, predicted}
+			}
+		}
+	}
+	scan(wed, nextWed)
+	scan(friPE, nextFri)
+	scan(friUltra, nextFri)
+	return result
+}
+
+// writeCollectiblesPredictions renders the Colleggtibles prediction,
+// showing one entry per custom egg sorted by predicted drop date.
+func writeCollectiblesPredictions(collectibles map[string]collectiblePrediction) *discordgo.TextDisplay {
+	entries := make([]collectiblePrediction, 0, len(collectibles))
+	for _, p := range collectibles {
+		entries = append(entries, p)
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].predictedTime.Equal(entries[j].predictedTime) {
+			return entries[i].ID < entries[j].ID
+		}
+		return entries[i].predictedTime.Before(entries[j].predictedTime)
+	})
+
+	var b strings.Builder
+	iconCoop := ei.GetBotEmojiMarkdown("icon_coop")
+
+	b.WriteString("**Colleggtibles Prediction 🔮**\n")
+
+	for _, e := range entries {
+		fmt.Fprintf(&b, "\n%s **[%s](https://eicoop-carpet.netlify.app/?q=%s)** %s `%d`\n",
+			ei.FindEggEmoji(e.EggName),
+			e.Name,
+			e.ID,
+			iconCoop,
+			e.MaxCoopSize,
+		)
+		fmt.Fprintf(&b, "-# _       _ Last: **%s** Predicted: **%s**\n",
+			bottools.WrapTimestamp(e.ValidFrom.Unix(), bottools.TimestampShortDate),
+			bottools.WrapTimestamp(e.predictedTime.Unix(), bottools.TimestampShortDate),
+		)
+		fmt.Fprintf(&b, "-# _       _ Dur: **%s** CS: **%.0f**",
+			bottools.FmtDuration(e.EstimatedDuration.Round(time.Minute)),
+			e.Cxp,
+		)
+	}
+
+	b.WriteString("\n-# ")
+	b.WriteString(iconCoop)
+	b.WriteString(" Coop Size | 🌼Seasonal LB\n")
+	b.WriteString("-# Implemented by @james.wst • Ping for feedback and issues\n")
+
+	return &discordgo.TextDisplay{Content: b.String()}
 }
 
 // ***** Helpers *****
