@@ -364,23 +364,24 @@ func getWeeklyEmbeds(wedTime, friTime time.Time, userName, botName, botIconURL s
 		addWed()
 	}
 
-	var footer strings.Builder
+	var legend, seasonalEmojis strings.Builder
 	for _, s := range seasonsOrdered {
 		if usedSeasons[s.Key] {
-			footer.WriteString(s.Emoji)
+			seasonalEmojis.WriteString(s.Emoji)
 		}
 	}
-	if footer.Len() > 0 {
-		footer.WriteString(" Seasonal LB")
+	if seasonalEmojis.Len() > 0 {
+		legend.WriteString(seasonalEmojis.String() + " Seasonal LB")
 	}
 	if timeSaverMissing {
-		if footer.Len() > 0 {
-			footer.WriteString("  •  ")
+		if legend.Len() > 0 {
+			legend.WriteString("  •  ")
 		}
-		footer.WriteString("🕯️ Missing since")
+		legend.WriteString("🕯️ Missing since")
 	}
-	if footer.Len() > 0 {
-		footer.WriteByte('\n')
+	var footer strings.Builder
+	if legend.Len() > 0 {
+		footer.WriteString("Legend: " + legend.String() + "\n")
 	}
 	footer.WriteString(botName + " • /pred weekly • Implemented by @james.wst\n")
 	footer.WriteString("User: " + userName)
