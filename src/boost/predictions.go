@@ -176,14 +176,17 @@ func HandlePredictionsPage(s *discordgo.Session, i *discordgo.InteractionCreate)
 			userName = i.User.Username
 		}
 		embeds := collectiblesEmbeds(predictCollectibles(wedTime, friTime), userName)
-		_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Embeds: embeds,
-			AllowedMentions: &discordgo.MessageAllowedMentions{
-				Parse: []discordgo.AllowedMentionType{},
-			},
-		})
-		if err != nil {
-			log.Println("Error sending collectibles embed:", err)
+		for _, embed := range embeds {
+			_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+				Embeds: []*discordgo.MessageEmbed{embed},
+				AllowedMentions: &discordgo.MessageAllowedMentions{
+					Parse: []discordgo.AllowedMentionType{},
+				},
+			})
+			if err != nil {
+				log.Println("Error sending collectibles embed:", err)
+				break
+			}
 		}
 		return
 	}
@@ -762,8 +765,7 @@ func writeCollectiblesPredictions(collectibles map[string]collectiblePrediction)
 }
 
 // collectiblesEmbeds builds one or more Discord embeds with one inline field per custom egg,
-// sorted by predicted drop date. Fields are inline (3 per row). A new embed is started
-// when either embedMaxFields or embedMaxTotalSize would be exceeded.
+// sorted by predicted drop date. Fields are inline (3 per row). A new embed is started if message length would exceed Discord limits.
 func collectiblesEmbeds(collectibles map[string]collectiblePrediction, userName string) []*discordgo.MessageEmbed {
 	collectibleContracts := make([]collectiblePrediction, 0, len(collectibles))
 	for _, p := range collectibles {
