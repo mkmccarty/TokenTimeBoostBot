@@ -159,8 +159,36 @@ func HandlePredictionsPage(s *discordgo.Session, i *discordgo.InteractionCreate)
 		expired = time.Since(createdAt) > ttl
 	}
 
-	flags := discordgo.MessageFlagsIsComponentsV2 | discordgo.MessageFlagsEphemeral
 	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
+
+	// Tiled embed button posts a new public message
+	if len(reaction) == 4 && reaction[1] == "collembed" {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		})
+		_, wedTime, friTime, _ := contractTimes9amPacific(0)
+		userName := ""
+		if i.Member != nil && i.Member.Nick != "" {
+			userName = i.Member.Nick
+		} else if i.Member != nil && i.Member.User != nil {
+			userName = i.Member.User.Username
+		} else if i.User != nil {
+			userName = i.User.Username
+		}
+		embeds := collectiblesEmbeds(predictCollectibles(wedTime, friTime), userName)
+		_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Embeds: embeds,
+			AllowedMentions: &discordgo.MessageAllowedMentions{
+				Parse: []discordgo.AllowedMentionType{},
+			},
+		})
+		if err != nil {
+			log.Println("Error sending collectibles embed:", err)
+		}
+		return
+	}
+
+	flags := discordgo.MessageFlagsIsComponentsV2 | discordgo.MessageFlagsEphemeral
 
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredMessageUpdate,
@@ -334,9 +362,21 @@ func getPredictionsButtonsComponents(predType predictionType, contractCount int6
 		},
 	}
 	closeButton := discordgo.Button{
-		Label:    "💾 Save",
+		Label:    "Save",
+		Emoji:    &discordgo.ComponentEmoji{Name: "💾"},
 		Style:    discordgo.SuccessButton,
 		CustomID: fmt.Sprintf("predictions#predclose#%s#%d", predType, contractCount),
+	}
+
+	bottomRow := []discordgo.MessageComponent{closeButton}
+	if predType == predictionCollectibles {
+		embedButton := discordgo.Button{
+			Label:    "Tiled View",
+			Emoji:    &discordgo.ComponentEmoji{Name: "🗂️"},
+			Style:    discordgo.PrimaryButton,
+			CustomID: fmt.Sprintf("predictions#collembed#%s#%d", predType, contractCount),
+		}
+		bottomRow = append(bottomRow, embedButton)
 	}
 
 	return []discordgo.MessageComponent{
@@ -344,7 +384,7 @@ func getPredictionsButtonsComponents(predType predictionType, contractCount int6
 			Components: []discordgo.MessageComponent{selectMenu},
 		},
 		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{closeButton},
+			Components: bottomRow,
 		},
 	}
 }
@@ -719,6 +759,155 @@ func writeCollectiblesPredictions(collectibles map[string]collectiblePrediction)
 	writeFooter(&b, iconCoop, usedSeasons)
 
 	return &discordgo.TextDisplay{Content: b.String()}
+}
+
+// collectiblesEmbeds builds one or more Discord embeds with one inline field per custom egg,
+// sorted by predicted drop date. Fields are inline (3 per row). A new embed is started
+// when either embedMaxFields or embedMaxTotalSize would be exceeded.
+func collectiblesEmbeds(collectibles map[string]collectiblePrediction, userName string) []*discordgo.MessageEmbed {
+	collectibleContracts := make([]collectiblePrediction, 0, len(collectibles))
+	for _, p := range collectibles {
+		collectibleContracts = append(collectibleContracts, p)
+	}
+	sort.Slice(collectibleContracts, func(i, j int) bool {
+		if collectibleContracts[i].predictedTime.Equal(collectibleContracts[j].predictedTime) {
+			return collectibleContracts[i].ID < collectibleContracts[j].ID
+		}
+		return collectibleContracts[i].predictedTime.Before(collectibleContracts[j].predictedTime)
+	})
+
+	usedSeasons := make(map[string]bool)
+
+	iconCoop := ei.GetBotEmojiMarkdown("icon_coop")
+
+	var embeds []*discordgo.MessageEmbed
+	var fields []*discordgo.MessageEmbedField
+	embedSize := len("🔮 Colleggtibles Prediction") // title length
+
+	flushEmbed := func() {
+		if len(fields) == 0 {
+			return
+		}
+		var footerParts strings.Builder
+		for _, s := range seasonsOrdered {
+			if usedSeasons[s.Key] {
+				footerParts.WriteString(s.Emoji)
+			}
+		}
+		line1 := "Boost Bot • /predictions • Implemented by @james.wst"
+		line2 := fmt.Sprintf("Requester: %s • %s",
+			userName,
+			time.Now().UTC().Format("1/2/06, 15:04"),
+		)
+		footerText := line1 + "\n" + line2
+		if footerParts.Len() > 0 {
+			footerText = footerParts.String() + " Seasonal LB | " + footerText
+		}
+		embeds = append(embeds, &discordgo.MessageEmbed{
+			Type:   discordgo.EmbedTypeRich,
+			Color:  0xBF00FF,
+			Title:  "🔮 Colleggtibles Prediction",
+			Fields: fields,
+			Footer: &discordgo.MessageEmbedFooter{Text: footerText},
+		})
+		fields = nil
+		embedSize = len("🔮 Colleggtibles Prediction")
+	}
+
+	for _, cc := range collectibleContracts {
+		displayName := cc.EggName
+		if egg, ok := ei.CustomEggMap[cc.EggName]; ok {
+			displayName = egg.Name
+		}
+
+		seasonLine := ""
+		if cc.SeasonID != "" {
+			if idx := strings.IndexByte(cc.SeasonID, '_'); idx > 0 && idx < len(cc.SeasonID)-1 {
+				seasonKey := cc.SeasonID[:idx]
+				seasonYear := cc.SeasonID[idx+1:]
+				if info, ok := seasonsByKey[seasonKey]; ok {
+					yearShort := seasonYear
+					if len(yearShort) >= 2 {
+						yearShort = yearShort[len(yearShort)-2:]
+					}
+					seasonLine = fmt.Sprintf("-# %s %s %s\n", info.Emoji, info.Name, yearShort)
+					usedSeasons[info.Key] = true
+				}
+			}
+		}
+
+		fieldName := displayName + " " + ei.FindEggEmoji(cc.EggName)
+
+		var v strings.Builder
+		if egg, ok := ei.CustomEggMap[cc.EggName]; ok && len(egg.DimensionValueString) > 0 {
+			fmt.Fprintf(&v, "-# %s %s %s\n",
+				colleggtibleDimensionEmoji(egg.Dimension),
+				egg.DimensionValueString[len(egg.DimensionValueString)-1],
+				colleggtibleDimensionName(egg.Dimension))
+		}
+		fmt.Fprintf(&v, "%s `%dp` [%s](https://eicoop-carpet.netlify.app/?q=%s)\n",
+			iconCoop, cc.MaxCoopSize, cc.Name, cc.ID)
+		fmt.Fprintf(&v, "-# 🔮 Pred Date: %s\n",
+			bottools.WrapTimestamp(cc.predictedTime.Unix(), bottools.TimestampShortDate))
+		fmt.Fprintf(&v, "-# 🗓️ Last Seen: %s",
+			bottools.WrapTimestamp(cc.ValidFrom.Unix(), bottools.TimestampShortDate))
+		if seasonLine != "" {
+			v.WriteByte('\n')
+			v.WriteString(seasonLine[:len(seasonLine)-1]) // trim trailing newline
+		}
+		fieldValue := v.String()
+
+		fieldSize := len(fieldName) + len(fieldValue)
+		if len(fields) >= 24 || embedSize+fieldSize > 3900 {
+			flushEmbed()
+		}
+
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   fieldName,
+			Value:  fieldValue,
+			Inline: true,
+		})
+		embedSize += fieldSize
+	}
+	flushEmbed()
+
+	return embeds
+}
+
+// colleggtibleDimensionName returns a short display name for a buff dimension.
+func colleggtibleDimensionName(d ei.GameModifier_GameDimension) string {
+	switch d {
+	case ei.GameModifier_INTERNAL_HATCHERY_RATE:
+		return "IHR"
+	default:
+		return ei.GetGameDimensionString(d)
+	}
+}
+
+// colleggtibleDimensionEmoji returns the emoji for a colleggtible buff dimension.
+func colleggtibleDimensionEmoji(d ei.GameModifier_GameDimension) string {
+	switch d {
+	case ei.GameModifier_EARNINGS:
+		return "💸"
+	case ei.GameModifier_AWAY_EARNINGS:
+		return "💤"
+	case ei.GameModifier_INTERNAL_HATCHERY_RATE:
+		return "🐣"
+	case ei.GameModifier_EGG_LAYING_RATE:
+		return "🥚"
+	case ei.GameModifier_SHIPPING_CAPACITY:
+		return "🚚"
+	case ei.GameModifier_HAB_CAPACITY:
+		return "🏠"
+	case ei.GameModifier_VEHICLE_COST:
+		return "🚗"
+	case ei.GameModifier_HAB_COST:
+		return "🏗️"
+	case ei.GameModifier_RESEARCH_COST:
+		return "🔬"
+	default:
+		return "✨"
+	}
 }
 
 // ***** Helpers *****
