@@ -364,7 +364,7 @@ func getWeeklyEmbeds(wedTime, friTime time.Time, userName, botName, botIconURL s
 		addWed()
 	}
 
-	var legend, seasonalEmojis strings.Builder
+	var footer, legend, seasonalEmojis strings.Builder
 	for _, s := range seasonsOrdered {
 		if usedSeasons[s.Key] {
 			seasonalEmojis.WriteString(s.Emoji)
@@ -379,7 +379,6 @@ func getWeeklyEmbeds(wedTime, friTime time.Time, userName, botName, botIconURL s
 		}
 		legend.WriteString("🕯️ Missing since")
 	}
-	var footer strings.Builder
 	if legend.Len() > 0 {
 		footer.WriteString("Legend: " + legend.String() + "\n")
 	}
@@ -418,18 +417,21 @@ func getCollectibleEmbeds(collectibles map[string]collectiblePrediction, userNam
 	embedSize := len("🔮 Colleggtibles Prediction")
 
 	buildFooter := func() *discordgo.MessageEmbedFooter {
-		var f strings.Builder
+		var footer, legend strings.Builder
 		for _, s := range seasonsOrdered {
 			if usedSeasons[s.Key] {
-				f.WriteString(s.Emoji)
+				legend.WriteString(s.Emoji)
 			}
 		}
-		if f.Len() > 0 {
-			f.WriteString(" Seasonal LB\n")
+		if legend.Len() > 0 {
+			legend.WriteString(" Seasonal LB")
 		}
-		f.WriteString(botName + " • /pred collectibles • Implemented by @james.wst\n")
-		f.WriteString("User: " + userName)
-		return &discordgo.MessageEmbedFooter{Text: f.String(), IconURL: botIconURL}
+		if legend.Len() > 0 {
+			footer.WriteString("Legend: " + legend.String() + "\n")
+		}
+		footer.WriteString(botName + " • /pred collectibles • Implemented by @james.wst\n")
+		footer.WriteString("User: " + userName)
+		return &discordgo.MessageEmbedFooter{Text: footer.String(), IconURL: botIconURL}
 	}
 
 	flushEmbed := func() {
