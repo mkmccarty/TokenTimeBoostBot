@@ -790,21 +790,21 @@ func collectiblesEmbeds(collectibles map[string]collectiblePrediction, userName 
 		if len(fields) == 0 {
 			return
 		}
-		var footerParts strings.Builder
+		var footerLines []string
+		var seasonEmojis strings.Builder
 		for _, s := range seasonsOrdered {
 			if usedSeasons[s.Key] {
-				footerParts.WriteString(s.Emoji)
+				seasonEmojis.WriteString(s.Emoji)
 			}
 		}
-		line1 := "Boost Bot • /predictions • Implemented by @james.wst"
-		line2 := fmt.Sprintf("Requester: %s • %s",
-			userName,
-			time.Now().UTC().Format("1/2/06, 15:04"),
-		)
-		footerText := line1 + "\n" + line2
-		if footerParts.Len() > 0 {
-			footerText = footerParts.String() + " Seasonal LB | " + footerText
+		if seasonEmojis.Len() > 0 {
+			footerLines = append(footerLines, seasonEmojis.String()+" Seasonal LB")
 		}
+		footerLines = append(footerLines,
+			"Boost Bot • /predictions • Implemented by @james.wst",
+			fmt.Sprintf("Requester: %s • %s", userName, time.Now().UTC().Format("2/1/06, 15:04")),
+		)
+		footerText := strings.Join(footerLines, "\n")
 		embeds = append(embeds, &discordgo.MessageEmbed{
 			Type:   discordgo.EmbedTypeRich,
 			Color:  0xBF00FF,
