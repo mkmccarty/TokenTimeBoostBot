@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"log"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -348,7 +349,7 @@ func getPredictionsButtonsComponents(predType predictionType, contractCount int6
 	}
 }
 
-// Wednesday Predictions
+// writeWednesdayPredictions renders the Wednesday Leggacy predictions as a discordgo.TextDisplay component.
 func writeWednesdayPredictions(dropTime time.Time, contracts []ei.EggIncContract, footer bool) *discordgo.TextDisplay {
 	var b strings.Builder
 
@@ -361,15 +362,12 @@ func writeWednesdayPredictions(dropTime time.Time, contracts []ei.EggIncContract
 	b.WriteByte('\n')
 
 	// Body
-	writeContracts(&b, contracts, iconCoop)
+	usedSeasons := writeContracts(&b, contracts, iconCoop)
 	b.WriteByte('\n')
 
 	// Footer
 	if footer {
-		b.WriteString("-# ")
-		b.WriteString(iconCoop)
-		b.WriteString(" Coop Size | 🌼Seasonal LB\n")
-		b.WriteString("-# Implemented by @james.wst • Ping for feedback and issues\n")
+		writeFooter(&b, iconCoop, usedSeasons)
 	}
 
 	return &discordgo.TextDisplay{
@@ -377,6 +375,7 @@ func writeWednesdayPredictions(dropTime time.Time, contracts []ei.EggIncContract
 	}
 }
 
+// writeFridayPredictions renders the Friday Leggacy predictions as a discordgo.TextDisplay component.
 func writeFridayPredictions(dropTime time.Time, peContracts, ultraContracts []ei.EggIncContract, footer, showNonUltra, showUltra bool) *discordgo.TextDisplay {
 	var b strings.Builder
 
@@ -390,12 +389,14 @@ func writeFridayPredictions(dropTime time.Time, peContracts, ultraContracts []ei
 	b.WriteString(bottools.WrapTimestamp(dropTime.Unix(), bottools.TimestampShortDateTime))
 	b.WriteByte('\n')
 
+	usedSeasons := make(map[string]bool)
+
 	// Non-Ultra
 	if showNonUltra && len(peContracts) != 0 {
 		b.WriteString("**")
 		b.WriteString(iconPE)
 		b.WriteString(" PE Leggacy**\n")
-		writeContracts(&b, peContracts, iconCoop)
+		maps.Copy(usedSeasons, writeContracts(&b, peContracts, iconCoop))
 		b.WriteByte('\n')
 	}
 
@@ -404,16 +405,13 @@ func writeFridayPredictions(dropTime time.Time, peContracts, ultraContracts []ei
 		b.WriteString("**")
 		b.WriteString(iconUltra)
 		b.WriteString(" Ultra PE Leggacy **\n")
-		writeContracts(&b, ultraContracts, iconCoop)
+		maps.Copy(usedSeasons, writeContracts(&b, ultraContracts, iconCoop))
 		b.WriteByte('\n')
 	}
 
 	// Footer
 	if footer {
-		b.WriteString("-# ")
-		b.WriteString(iconCoop)
-		b.WriteString(" Coop Size | 🌼Seasonal LB\n")
-		b.WriteString("-# Implemented by @james.wst • Ping for feedback and issues\n")
+		writeFooter(&b, iconCoop, usedSeasons)
 	}
 
 	return &discordgo.TextDisplay{
@@ -421,10 +419,30 @@ func writeFridayPredictions(dropTime time.Time, peContracts, ultraContracts []ei
 	}
 }
 
+// writeFooter appends the legend and attribution lines.
+// Only season emojis for seasons that appear in usedSeasons are shown.
+func writeFooter(b *strings.Builder, iconCoop string, usedSeasons map[string]bool) {
+	b.WriteString("-# ")
+	b.WriteString(iconCoop)
+	b.WriteString(" Coop Size")
+	var seasonEmojis strings.Builder
+	for _, s := range seasonsOrdered {
+		if usedSeasons[s.Key] {
+			seasonEmojis.WriteString(s.Emoji)
+		}
+	}
+	if seasonEmojis.Len() > 0 {
+		fmt.Fprintf(b, " | %s Seasonal LB", seasonEmojis.String())
+	}
+	b.WriteString("\n-# Implemented by @james.wst • Ping for feedback and issues\n")
+}
+
 const timeSaverContractID = "time-saver-2021"
 
-// writeContracts prints only the contract lines, reusing shared season metadata.
-func writeContracts(b *strings.Builder, contracts []ei.EggIncContract, iconCoop string) {
+// writeContracts prints only the contract lines and returns the set of season keys that appeared.
+func writeContracts(b *strings.Builder, contracts []ei.EggIncContract, iconCoop string) map[string]bool {
+	usedSeasons := make(map[string]bool)
+
 	// If time-saver-2021 is present, push it back one position.
 	for i, c := range contracts {
 		if c.ID == timeSaverContractID && i+1 < len(contracts) {
@@ -435,7 +453,7 @@ func writeContracts(b *strings.Builder, contracts []ei.EggIncContract, iconCoop 
 
 	for _, c := range contracts {
 
-		// Season label "🍂 FL25", "☀️ SU23", "🌼 SP23", "❄️ WI24"
+		// Season label "🍂 FL25", "☀️ SU23", "🌷 SP23", "❄️ WI24"
 		seasonLabel := ""
 		if c.SeasonID != "" {
 			if idx := strings.IndexByte(c.SeasonID, '_'); idx > 0 && idx < len(c.SeasonID)-1 {
@@ -448,6 +466,7 @@ func writeContracts(b *strings.Builder, contracts []ei.EggIncContract, iconCoop 
 						yearShort = yearShort[len(yearShort)-2:]
 					}
 					seasonLabel = fmt.Sprintf("%s %s%s", info.Emoji, info.Code, yearShort)
+					usedSeasons[info.Key] = true
 				}
 			}
 		}
@@ -494,6 +513,7 @@ func writeContracts(b *strings.Builder, contracts []ei.EggIncContract, iconCoop 
 			)
 		*/
 	}
+	return usedSeasons
 }
 
 /*
@@ -633,15 +653,15 @@ func predictCollectibles(nextWed, nextFri time.Time) map[string]collectiblePredi
 // writeCollectiblesPredictions renders the Colleggtibles prediction,
 // showing one entry per custom egg sorted by predicted drop date.
 func writeCollectiblesPredictions(collectibles map[string]collectiblePrediction) *discordgo.TextDisplay {
-	entries := make([]collectiblePrediction, 0, len(collectibles))
+	collectibleContracts := make([]collectiblePrediction, 0, len(collectibles))
 	for _, p := range collectibles {
-		entries = append(entries, p)
+		collectibleContracts = append(collectibleContracts, p)
 	}
-	sort.Slice(entries, func(i, j int) bool {
-		if entries[i].predictedTime.Equal(entries[j].predictedTime) {
-			return entries[i].ID < entries[j].ID
+	sort.Slice(collectibleContracts, func(i, j int) bool {
+		if collectibleContracts[i].predictedTime.Equal(collectibleContracts[j].predictedTime) {
+			return collectibleContracts[i].ID < collectibleContracts[j].ID
 		}
-		return entries[i].predictedTime.Before(entries[j].predictedTime)
+		return collectibleContracts[i].predictedTime.Before(collectibleContracts[j].predictedTime)
 	})
 
 	var b strings.Builder
@@ -649,28 +669,54 @@ func writeCollectiblesPredictions(collectibles map[string]collectiblePrediction)
 
 	b.WriteString("**Colleggtibles Prediction 🔮**\n")
 
-	for _, e := range entries {
-		fmt.Fprintf(&b, "\n%s **[%s](https://eicoop-carpet.netlify.app/?q=%s)** %s `%d`\n",
-			ei.FindEggEmoji(e.EggName),
-			e.Name,
-			e.ID,
+	usedSeasons := make(map[string]bool)
+
+	for _, cc := range collectibleContracts {
+
+		// Season label "🍂 FL25", "☀️ SU23", "🌷 SP23", "❄️ WI24"
+		seasonLabel := ""
+		if cc.SeasonID != "" {
+			if idx := strings.IndexByte(cc.SeasonID, '_'); idx > 0 && idx < len(cc.SeasonID)-1 {
+				seasonKey := cc.SeasonID[:idx]
+				seasonYear := cc.SeasonID[idx+1:]
+				if info, ok := seasonsByKey[seasonKey]; ok {
+					yearShort := seasonYear
+					if len(yearShort) >= 2 {
+						yearShort = yearShort[len(yearShort)-2:]
+					}
+					seasonLabel = fmt.Sprintf("%s %s%s", info.Emoji, info.Code, yearShort)
+					usedSeasons[info.Key] = true
+				}
+			}
+		}
+
+		// First line
+		fmt.Fprintf(&b, "\n%s **[%s](https://eicoop-carpet.netlify.app/?q=%s)** %s `%d`",
+			ei.FindEggEmoji(cc.EggName),
+			cc.Name,
+			cc.ID,
 			iconCoop,
-			e.MaxCoopSize,
+			cc.MaxCoopSize,
 		)
-		fmt.Fprintf(&b, "-# _       _ Last: **%s** Predicted: **%s**\n",
-			bottools.WrapTimestamp(e.ValidFrom.Unix(), bottools.TimestampShortDate),
-			bottools.WrapTimestamp(e.predictedTime.Unix(), bottools.TimestampShortDate),
+		if seasonLabel != "" {
+			b.WriteString("  ")
+			b.WriteString(seasonLabel)
+		}
+		b.WriteByte('\n')
+
+		// Second line
+		fmt.Fprintf(&b, "-# _       _ Seen: **%s** Predicted: **%s**\n",
+			bottools.WrapTimestamp(cc.ValidFrom.Unix(), bottools.TimestampShortDate),
+			bottools.WrapTimestamp(cc.predictedTime.Unix(), bottools.TimestampShortDate),
 		)
 		fmt.Fprintf(&b, "-# _       _ Dur: **%s** CS: **%.0f**",
-			bottools.FmtDuration(e.EstimatedDuration.Round(time.Minute)),
-			e.Cxp,
+			bottools.FmtDuration(cc.EstimatedDuration.Round(time.Minute)),
+			cc.Cxp,
 		)
 	}
 
-	b.WriteString("\n-# ")
-	b.WriteString(iconCoop)
-	b.WriteString(" Coop Size | 🌼Seasonal LB\n")
-	b.WriteString("-# Implemented by @james.wst • Ping for feedback and issues\n")
+	b.WriteByte('\n')
+	writeFooter(&b, iconCoop, usedSeasons)
 
 	return &discordgo.TextDisplay{Content: b.String()}
 }
@@ -689,7 +735,7 @@ type seasonInfo struct {
 // Order: 0=winter, 1=spring, 2=summer, 3=fall, 4=autumn
 var seasonsOrdered = []seasonInfo{
 	{Key: "winter", Name: "Winter", Emoji: "❄️", Code: "WI"},
-	{Key: "spring", Name: "Spring", Emoji: "🌼", Code: "SP"},
+	{Key: "spring", Name: "Spring", Emoji: "🌷", Code: "SP"},
 	{Key: "summer", Name: "Summer", Emoji: "☀️", Code: "SU"},
 	{Key: "fall", Name: "Fall", Emoji: "🍂", Code: "FL"},
 }
