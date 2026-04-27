@@ -518,9 +518,10 @@ func setupCommands() {
 			Handler:  boost.HandlePredictionsCommand,
 		},
 		{
-			AppCmd:   boost.GetPredCommand(slashPred),
-			Category: CmdCategoryStandard,
-			Handler:  boost.HandlePredCommand,
+			AppCmd:       boost.GetPredCommand(slashPred),
+			Category:     CmdCategoryStandard,
+			Handler:      boost.HandlePredCommand,
+			Autocomplete: boost.HandleAllContractsAutoComplete,
 		},
 		{
 			AppCmd:       boost.GetSlashStones(slashStones),
