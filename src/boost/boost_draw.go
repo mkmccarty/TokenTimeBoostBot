@@ -117,15 +117,12 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 	if contract.Description != "" && !contract.PredictionSignup {
 		fmt.Fprintf(&header, "## CoopID: [%s](%s/%s/%s)", contract.CoopID, "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID)
-	} else {
-		header.WriteString("## ")
 	}
 	if !contract.PredictionSignup {
 		if len(contract.Boosters) != contract.CoopSize {
-			fmt.Fprintf(&header, " - %d/%d\n", len(contract.Boosters), contract.CoopSize)
+			fmt.Fprintf(&header, "## - %d/%d\n", len(contract.Boosters), contract.CoopSize)
 		}
 	} else {
-		fmt.Fprintf(&header, " - %d interested\n", len(contract.Boosters))
 		if len(contract.PredictionInfo) > 0 {
 			timeLabels := map[string]string{
 				"00-02": "+0", "02-04": "+2", "04-06": "+4",
@@ -167,9 +164,11 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 					}
 				}
 				if len(tsStrings) > 0 {
-					fmt.Fprintf(&header, "> -# ↳ %s\n", strings.Join(tsStrings, ", "))
+					fmt.Fprintf(&header, "-# _  _ ↳ %s\n", strings.Join(tsStrings, ", "))
 				}
 			}
+			fmt.Fprintf(&header, "-# Specify via %s\n", bottools.GetFormattedCommand("availability"))
+
 		}
 	}
 
