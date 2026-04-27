@@ -142,10 +142,7 @@ func GetAvailabilityComponents(s *discordgo.Session, contract *Contract, userID 
 					if b := contract.Boosters[orderUserID]; b != nil {
 						if slices.Contains(b.Availability.Contract, pi.ContractID) {
 							count++
-							name := b.Name
-							if name == "" {
-								name = b.UserID
-							}
+							name := b.Nick
 							fmt.Fprintf(&report, "> **%s**: %s\n", name, formatTimes(b.Availability.Timeslots))
 						}
 					}
@@ -161,10 +158,7 @@ func GetAvailabilityComponents(s *discordgo.Session, contract *Contract, userID 
 				if b := contract.Boosters[orderUserID]; b != nil {
 					if len(b.Availability.Contract) == 0 && len(b.Availability.Timeslots) > 0 {
 						unassignedCount++
-						name := b.Name
-						if name == "" {
-							name = b.UserID
-						}
+						name := b.Nick
 						fmt.Fprintf(&unassignedReport, "> **%s**: %s\n", name, formatTimes(b.Availability.Timeslots))
 					}
 				}
@@ -179,10 +173,7 @@ func GetAvailabilityComponents(s *discordgo.Session, contract *Contract, userID 
 				if b := contract.Boosters[orderUserID]; b != nil {
 					if len(b.Availability.Timeslots) > 0 {
 						count++
-						name := b.Name
-						if name == "" {
-							name = b.UserID
-						}
+						name := b.Nick
 						fmt.Fprintf(&report, "> **%s**: %s\n", name, formatTimes(b.Availability.Timeslots))
 					}
 				}
