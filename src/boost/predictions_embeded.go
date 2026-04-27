@@ -394,7 +394,7 @@ func sendPredOne(s *discordgo.Session, i *discordgo.InteractionCreate, contractI
 
 	var contractVal strings.Builder
 	if seasonLabel != "" || modifiers.Len() > 0 {
-		fmt.Fprintf(&contractVal, "_   _ %s %s\n", seasonLabel, strings.TrimRight(modifiers.String(), "  "))
+		fmt.Fprintf(&contractVal, "_   _ %s %s\n", seasonLabel, strings.TrimRight(modifiers.String(), " "))
 	}
 	if c.Description != "" {
 		fmt.Fprintf(&contractVal, "-# %s", c.Description)
