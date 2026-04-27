@@ -96,6 +96,38 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 		buttonReactionCRPing(s, i, contract, userID)
 	case "complain":
 		buttonReactionComplain(s, contract, userID)
+	case "predmenu":
+		values := i.MessageComponentData().Values
+		if b := contract.Boosters[userID]; b != nil {
+			b.Availability.Contract = values
+			for _, altID := range b.Alts {
+				if altBooster := contract.Boosters[altID]; altBooster != nil {
+					altBooster.Availability.Contract = values
+				}
+			}
+			saveData(contract.ContractHash)
+			out := GetAvailabilityComponents(s, contract, userID)
+			_, _ = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &discordgo.WebhookEdit{
+				Components: &out,
+			})
+		}
+		return
+	case "predtime":
+		values := i.MessageComponentData().Values
+		if b := contract.Boosters[userID]; b != nil {
+			b.Availability.Timeslots = values
+			for _, altID := range b.Alts {
+				if altBooster := contract.Boosters[altID]; altBooster != nil {
+					altBooster.Availability.Timeslots = values
+				}
+			}
+			saveData(contract.ContractHash)
+			out := GetAvailabilityComponents(s, contract, userID)
+			_, _ = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &discordgo.WebhookEdit{
+				Components: &out,
+			})
+		}
+		return
 	}
 
 	if redraw {

@@ -109,6 +109,13 @@ const (
 	ContractPlaystyleLeaderboard    = 4 // Leaderboard
 )
 
+// PredictionInfo holds cached data for predicted contracts
+type PredictionInfo struct {
+	ContractID string
+	Name       string
+	EggName    string
+}
+
 // CompMap is a cached set of components for this contract
 type CompMap struct {
 	Emoji          string
@@ -134,6 +141,12 @@ type ArtifactSet struct {
 	ShipRate  float64
 }
 
+// ContractAvailability holds the data for a user's availability for a contract
+type ContractAvailability struct {
+	Contract  []string // list of contractIDs they want to run
+	Timeslots []string // list of timeslots they are available for, in the format "Monday 9-11am PT"
+}
+
 // Booster holds the data for each booster within a Contract
 type Booster struct {
 	UserID      string // Egg Farmer
@@ -153,26 +166,27 @@ type Booster struct {
 	Alts          []string // Array of alternate ids for the user
 	AltController string   // User ID of the controller of this alternate
 
-	BoostState             int           // Indicates if current booster
-	TokensReceived         int           // indicate number of boost tokens
-	TokensWanted           int           // indicate number of boost tokens
-	TokenValue             float64       // Current Token Value
-	TokenRequestFlag       bool          // Flag to indicate if the token request is active
-	StartTime              time.Time     // Time Farmer started boost turn
-	EndTime                time.Time     // Time Farmer ended boost turn
-	Duration               time.Duration // Duration of boost
-	BoostingTokenTimestamp time.Time     // When the boosting token was last received
-	VotingList             []string      // Record list of those that voted to boost
-	RunChickensTime        time.Time     // Time Farmer triggered chicken run reaction
-	RanChickensOn          []string      // Array of users that the farmer ran chickens on
-	BoostTriggerTime       time.Time     // Used for time remaining in boost
-	Hint                   []string      // Used to track which hints have been given
-	ArtifactSet            ArtifactSet   // Set of artifacts for this booster
-	EstDurationOfBoost     time.Duration // Estimated duration of the boost
-	EstEndOfBoost          time.Time     // Estimated end of the boost
-	EstRequestChickenRuns  time.Time     // Estimated time to request chicken runs
-	Ultra                  bool          // Does this player have Ultra
-	TECount                int           // Truth Egg Count
+	BoostState             int                  // Indicates if current booster
+	TokensReceived         int                  // indicate number of boost tokens
+	TokensWanted           int                  // indicate number of boost tokens
+	TokenValue             float64              // Current Token Value
+	TokenRequestFlag       bool                 // Flag to indicate if the token request is active
+	StartTime              time.Time            // Time Farmer started boost turn
+	EndTime                time.Time            // Time Farmer ended boost turn
+	Duration               time.Duration        // Duration of boost
+	BoostingTokenTimestamp time.Time            // When the boosting token was last received
+	VotingList             []string             // Record list of those that voted to boost
+	RunChickensTime        time.Time            // Time Farmer triggered chicken run reaction
+	RanChickensOn          []string             // Array of users that the farmer ran chickens on
+	BoostTriggerTime       time.Time            // Used for time remaining in boost
+	Hint                   []string             // Used to track which hints have been given
+	ArtifactSet            ArtifactSet          // Set of artifacts for this booster
+	EstDurationOfBoost     time.Duration        // Estimated duration of the boost
+	EstEndOfBoost          time.Time            // Estimated end of the boost
+	EstRequestChickenRuns  time.Time            // Estimated time to request chicken runs
+	Ultra                  bool                 // Does this player have Ultra
+	TECount                int                  // Truth Egg Count
+	Availability           ContractAvailability // Availability for contracts
 }
 
 // LocationData holds server specific Data for a contract
@@ -202,12 +216,14 @@ type BankerInfo struct {
 type Contract struct {
 	ContractHash              string // ContractID-CoopID
 	Location                  []*LocationData
-	CreatorID                 []string // Slice of creators
-	BannerURL                 string   // URL for the contract banner
-	ContractID                string   // Contract ID
-	CoopID                    string   // CoopID
-	PredictionSignup          bool     // True if this contract is/was a prediction
-	SeasonalScoring           int      // 1 = new scoring
+	CreatorID                 []string         // Slice of creators
+	BannerURL                 string           // URL for the contract banner
+	ContractID                string           // Contract ID
+	CoopID                    string           // CoopID
+	PredictionSignup          bool             // True if this contract is/was a prediction
+	PredictionsList           []string         // List of predictions for this contract
+	PredictionInfo            []PredictionInfo // Cached info for predictions
+	SeasonalScoring           int              // 1 = new scoring
 	Name                      string
 	Description               string
 	Egg                       int32

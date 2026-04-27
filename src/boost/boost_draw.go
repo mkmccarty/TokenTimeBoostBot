@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -125,8 +126,52 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		}
 	} else {
 		fmt.Fprintf(&header, " - %d interested\n", len(contract.Boosters))
+		if len(contract.PredictionInfo) > 0 {
+			timeLabels := map[string]string{
+				"00-02": "+0", "02-04": "+2", "04-06": "+4",
+				"06-08": "+6", "08-10": "+8", "10-12": "+10",
+				"12-14": "+12", "14-16": "+14", "16-18": "+16",
+				"18-20": "+18", "20-22": "+20", "22-24": "+22",
+			}
+			sortedTimeKeys := []string{
+				"00-02", "02-04", "04-06", "06-08",
+				"08-10", "10-12", "12-14", "14-16",
+				"16-18", "18-20", "20-22", "22-24",
+			}
+
+			for _, pi := range contract.PredictionInfo {
+				count := 0
+				anyCount := 0
+				tsCounts := make(map[string]int)
+				for _, b := range contract.Boosters {
+					if slices.Contains(b.Availability.Contract, pi.ContractID) {
+						count++
+						if len(b.Availability.Timeslots) == 12 {
+							anyCount++
+						} else {
+							for _, ts := range b.Availability.Timeslots {
+								tsCounts[ts]++
+							}
+						}
+					}
+				}
+				fmt.Fprintf(&header, "%s **%s**: %d interested\n", ei.FindEggEmoji(pi.EggName), pi.Name, count)
+
+				var tsStrings []string
+				if anyCount > 0 {
+					tsStrings = append(tsStrings, fmt.Sprintf("Any: %d", anyCount))
+				}
+				for _, k := range sortedTimeKeys {
+					if c := tsCounts[k]; c > 0 {
+						tsStrings = append(tsStrings, fmt.Sprintf("%s: %d", timeLabels[k], c))
+					}
+				}
+				if len(tsStrings) > 0 {
+					fmt.Fprintf(&header, "> -# ↳ %s\n", strings.Join(tsStrings, ", "))
+				}
+			}
+		}
 	}
-	header.WriteString("\n")
 
 	if contract.State == ContractStateSignup && contract.PlannedStartTime.After(now) && contract.PlannedStartTime.Before(now.Add(7*24*time.Hour)) {
 		fmt.Fprintf(&header, "## Planned Start Time: <t:%d:f>\n", contract.PlannedStartTime.Unix())
@@ -473,7 +518,6 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 				// Additions for contract state value display
 				sortRate := getSortRate(b, false)
-
 				sinkIcon := getSinkIcon(contract, b, receivedByUser[b.UserID]-sentByUser[b.UserID])
 				isActiveTokenBooster := b.BoostState == BoostStateTokenTime && b.UserID == activeBoosterID
 
@@ -508,7 +552,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 								boostingString = fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
 							}
 						}
-						fmt.Fprintf(&builder, "%s ~~%s~~%s  %s %s%s%s%s%s\n", prefix, name, deflStr, sortRate, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server)
+						fmt.Fprintf(&builder, "%s ~~%s~~%s%s  %s %s%s%s%s\n", prefix, name, deflStr, sortRate, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server)
 					}
 
 				} else {
@@ -539,7 +583,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 								boostingString = fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
 							}
 						}
-						fmt.Fprintf(&builder, "%s ~~%s~~%s  %s %s%s%s%s%s\n", prefix, name, deflStr, sortRate, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server)
+						fmt.Fprintf(&builder, "%s ~~%s~~%s%s  %s %s%s%s%s\n", prefix, name, deflStr, sortRate, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server)
 					}
 				}
 			}
