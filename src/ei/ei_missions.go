@@ -3,68 +3,151 @@ package ei
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/xhit/go-str2duration/v2"
 )
 
-// GetEpicResearchMissionCapacity calculates the mission capacity multiplier from the epic research items.
-func GetEpicResearchMissionCapacity(epicResearch []*Backup_ResearchItem) float64 {
-	missionCapacity := 1.0
-
-	ids := []string{
-		"afx_mission_capacity",
-	}
-	result := GetResearchGeneric(epicResearch, ids, missionCapacity)
-	return result
-}
-
-// GetEpicResearchMissionTime calculates the mission time multiplier from the epic research items.
-func GetEpicResearchMissionTime(epicResearch []*Backup_ResearchItem) float64 {
-	missionTime := 1.0
-
-	ids := []string{
-		"afx_mission_time",
-	}
-	result := GetResearchGeneric(epicResearch, ids, missionTime)
-	return result
-}
-
 const missionJSON = `{"ships":[
-	{"id": "MissionInfo_CHICKEN_ONE", "name": "Chicken One","art":"chicken1","duration":["20m","1h","2h"]},
-	{"id": "MissionInfo_CHICKEN_NINE", "name": "Chicken Nine","art":"chicken9","duration":["30m","1h","3h"]},
-	{"id": "MissionInfo_CHICKEN_HEAVY", "name": "Chicken Heavy","art":"chickenheavy","duration":["45m","1h30m","4h"]},
-	{"id": "MissionInfo_BCR", "name": "BCR","art":"bcr","duration":["1h30m","4h","8h"]},
-	{"id": "MissionInfo_QUINTILLION_CHICKEN", "name": "Quintillion Chicken","art":"milleniumchicken","duration":["3h","6h","12h"]},
-	{"id": "MissionInfo_CORNISH_HEN_CORVETTE", "name": "Cornish-Hen Corvette","art":"corellihencorvette","duration":["4h","12h","1d"]},
-	{"id": "MissionInfo_GALEGGTICA", "name": "Galeggtica","art":"galeggtica","duration":["6h","16h","1d6h"]},
-	{"id": "MissionInfo_DEFIHENT", "name": "Defihent","art":"defihent","duration":["8h","1d","2d"]},
-	{"id": "MissionInfo_VOYEGGER", "name": "Voyegger","art":"voyegger","duration":["12h","1d12h","3d"]},
-	{"id": "MissionInfo_HENERPRISE", "name": "Henerprise","art":"henerprise","duration":["1d","2d","4d"]},
-	{"id": "MissionInfo_ATREGGIES_HENLINER", "name": "Atreggies Henliner","art":"atreggies","duration":["2d","3d","4d"]}
+	{"name": "Chicken One","art":"chicken1","duration":["20m","1h","2h"]},
+	{"name": "Chicken Nine","art":"chicken9","duration":["30m","1h","3h"]},
+	{"name": "Chicken Heavy","art":"chickenheavy","duration":["45m","1h30m","4h"]},
+	{"name": "BCR","art":"bcr","duration":["1h30m","4h","8h"]},
+	{"name": "Quintillion Chicken","art":"milleniumchicken","duration":["3h","6h","12h"]},
+	{"name": "Cornish-Hen Corvette","art":"corellihencorvette","duration":["4h","12h","1d"]},
+	{"name": "Galeggtica","art":"galeggtica","duration":["6h","16h","1d6h"]},
+	{"name": "Defihent","art":"defihent","duration":["8h","1d","2d"]},
+	{"name": "Voyegger","art":"voyegger","duration":["12h","1d12h","3d"]},
+	{"name": "Henerprise","art":"henerprise","duration":["1d","2d","4d"]},
+	{"name": "Atreggies Henliner","art":"atreggies","duration":["2d","3d","4d"]}
 	]}`
 
 // ShipData holds data for each mission ship
 type ShipData struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Art      string   `json:"art"`
-	ArtDev   string   `json:"artDev"`
-	Duration []string `json:"duration"`
+	Name     string   `json:"Name"`
+	Art      string   `json:"Art"`
+	ArtDev   string   `json:"ArtDev"`
+	Duration []string `json:"Duration"`
 }
 
 type missionData struct {
 	Ships []ShipData `json:"ships"`
 }
 
+// AfxMissionParam holds mission parameter data from the AFX config.
+type AfxMissionParam struct {
+	Ship      string               `json:"ship"`
+	Durations []AfxMissionDuration `json:"durations"`
+}
+
+// AfxMissionDuration holds duration parameter data from the AFX config.
+type AfxMissionDuration struct {
+	DurationType string  `json:"durationType"`
+	Seconds      float64 `json:"seconds"`
+	Capacity     uint32  `json:"capacity"`
+}
+
+// AfxArtifactParam holds artifact parameter data from the AFX config.
+type AfxArtifactParam struct {
+	Spec struct {
+		Name   string `json:"name"`
+		Level  string `json:"level"`
+		Rarity string `json:"rarity"`
+	} `json:"spec"`
+	BaseQuality         float64 `json:"baseQuality"`
+	Value               float64 `json:"value"`
+	CraftingPrice       float64 `json:"craftingPrice"`
+	CraftingPriceLow    float64 `json:"craftingPriceLow"`
+	CraftingPriceDomain uint32  `json:"craftingPriceDomain"`
+	CraftingPriceCurve  float64 `json:"craftingPriceCurve"`
+	CraftingXp          uint64  `json:"craftingXp"`
+}
+
+// AfxCraftingLevel holds crafting level data from the AFX config.
+type AfxCraftingLevel struct {
+	XpRequired float64 `json:"xpRequired"`
+	RarityMult float32 `json:"rarityMult"`
+}
+
+// AfxConfigData holds the entire AFX config parsed.
+type AfxConfigData struct {
+	MissionParameters  []AfxMissionParam  `json:"missionParameters"`
+	ArtifactParameters []AfxArtifactParam `json:"artifactParameters"`
+	CraftingLevelInfos []AfxCraftingLevel `json:"craftingLevelInfos"`
+}
+
 // MissionArt holds the mission art and durations loaded from JSON
 var MissionArt missionData
 
+// AfxConfig holds the AFX configuration data loaded from JSON
+var AfxConfig AfxConfigData
+
+// MissionDurations maps ship and duration type to expected duration in seconds
+var MissionDurations = make(map[int]map[int]float64)
+
+func loadAfxConfig() {
+	const url = "https://raw.githubusercontent.com/carpetsage/egg/main/wasmegg/_common/eiafx/eiafx-config.json"
+	const filename = "ttbb-data/ei-afx-config.json"
+
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		log.Printf("Downloading %s...", filename)
+		resp, err := http.Get(url)
+		if err == nil {
+			defer resp.Body.Close()
+			body, _ := io.ReadAll(resp.Body)
+			_ = os.MkdirAll("ttbb-data", 0755)
+			_ = os.WriteFile(filename, body, 0644)
+		} else {
+			log.Printf("Failed to download afx config: %v", err)
+		}
+	}
+
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal(data, &AfxConfig)
+	if err != nil {
+		log.Printf("Failed to unmarshal afx config: %v", err)
+		return
+	}
+
+	for _, mp := range AfxConfig.MissionParameters {
+		shipInt := -1
+		for k, v := range MissionInfo_Spaceship_name {
+			if v == mp.Ship {
+				shipInt = int(k)
+				break
+			}
+		}
+		if shipInt == -1 {
+			continue
+		}
+
+		if MissionDurations[shipInt] == nil {
+			MissionDurations[shipInt] = make(map[int]float64)
+		}
+		for _, d := range mp.Durations {
+			durInt := -1
+			for k, v := range MissionInfo_DurationType_name {
+				if v == d.DurationType {
+					durInt = int(k)
+					break
+				}
+			}
+			if durInt != -1 {
+				MissionDurations[shipInt][durInt] = d.Seconds
+			}
+		}
+	}
+}
+
 func init() {
 	_ = json.Unmarshal([]byte(missionJSON), &MissionArt)
+	loadAfxConfig()
 }
 
 // MissionValidation evaluates mission data from a Backup to detect duration anomalies.
@@ -99,21 +182,21 @@ func MissionValidation(backup *Backup) {
 			continue
 		}
 
-		if ship < 0 || ship >= len(MissionArt.Ships) || durType < 0 || durType >= len(MissionArt.Ships[ship].Duration) {
+		shipDurs, ok := MissionDurations[ship]
+		if !ok {
 			continue
 		}
-
-		durationStr := MissionArt.Ships[ship].Duration[durType]
-		baseDur, err := str2duration.ParseDuration(durationStr)
-		if err != nil {
+		baseSeconds, ok := shipDurs[durType]
+		if !ok {
 			continue
 		}
-		baseSeconds := baseDur.Seconds() * epicResearchMult
 
 		actualSeconds := mission.GetDurationSeconds()
 		if actualSeconds <= 0 {
 			continue
 		}
+
+		baseSeconds *= epicResearchMult
 
 		// Check for if there was a fast event (0.25) applied to the mission time. If the actual duration is less than 25% of the base duration, it's likely an anomaly.
 		eventMult := FindFasterMissionEvent(time.Unix(int64(mission.GetStartTimeDerived()), 0))
@@ -122,12 +205,25 @@ func MissionValidation(backup *Backup) {
 			eventMultiplier = eventMult.Multiplier
 		}
 
+		// If this wasn't a valid event multiplier then we need to figure out our own minimum valid seconds based on the base seconds and the event multiplier. If the actual seconds is less than the minimum valid seconds, then we log it as a suspect mission.
+		calculatedEventMultiplier := float64(baseSeconds) / float64(actualSeconds)
+		if eventMultiplier != calculatedEventMultiplier {
+			eventMultiplier = calculatedEventMultiplier
+		}
+
 		minValidSeconds := baseSeconds * eventMultiplier
 
 		if actualSeconds < minValidSeconds {
+			shipName := ""
+			if ship >= 0 && ship < len(MissionArt.Ships) {
+				shipName = MissionArt.Ships[ship].Name
+			} else {
+				shipName = fmt.Sprintf("Ship%d", ship)
+			}
+
 			suspects = append(suspects, fmt.Sprintf(
 				"[%s] User: %s | Ship: %s | DurType: %d | BaseSec: %.0f | ActualSec: %.0f | ID: %s",
-				time.Now().UTC().Format(time.RFC3339), userID, MissionArt.Ships[ship].Name, durType, baseSeconds, actualSeconds, mission.GetIdentifier(),
+				time.Now().UTC().Format(time.RFC3339), userID, shipName, durType, baseSeconds, actualSeconds, mission.GetIdentifier(),
 			))
 		}
 	}
