@@ -144,6 +144,20 @@ func GetPredCommand(cmd string) *discordgo.ApplicationCommand {
 					},
 				},
 			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "one",
+				Description: "Show prediction info for a specific contract.",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         "contract-id",
+						Description:  "Contract to look up.",
+						Required:     true,
+						Autocomplete: true,
+					},
+				},
+			},
 		},
 	}
 }
@@ -155,15 +169,26 @@ func HandlePredCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 	subCmd := options[0]
-	weeklyType := 0
-	if subCmd.Name == "weekly" {
+	switch subCmd.Name {
+	case "weekly":
+		weeklyType := 0
 		for _, opt := range subCmd.Options {
 			if opt.Name == "type" {
 				weeklyType = int(opt.IntValue())
 			}
 		}
+		sendPredView(s, i, subCmd.Name, weeklyType)
+	case "one":
+		contractID := ""
+		for _, opt := range subCmd.Options {
+			if opt.Name == "contract-id" {
+				contractID = opt.StringValue()
+			}
+		}
+		sendPredOne(s, i, contractID)
+	default:
+		sendPredView(s, i, subCmd.Name, 0)
 	}
-	sendPredView(s, i, subCmd.Name, weeklyType)
 }
 
 // HandlePredPage handles select menu and button interactions for /pred.
@@ -258,6 +283,186 @@ func sendPredView(s *discordgo.Session, i *discordgo.InteractionCreate, viewID s
 			})
 		}(msg.ChannelID, msg.ID)
 	}
+}
+
+// sendPredOne responds with a prediction embed for a single contract looked up by ID.
+func sendPredOne(s *discordgo.Session, i *discordgo.InteractionCreate, contractID string) {
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	})
+
+	c, ok := ei.EggIncContractsAll[contractID]
+	if !ok {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: fmt.Sprintf("Contract `%s` not found.", contractID),
+		})
+		return
+	}
+
+	_, wedTime, friTime, _ := contractTimes9amPacific(0)
+
+	var bracket []ei.EggIncContract
+	var baseTime time.Time
+	var bracketLabel string
+	for _, bc := range ei.EggIncContractsAll {
+		if bc.EggName == "" {
+			continue
+		}
+		switch {
+		case bc.HasPE && !bc.Ultra:
+			if c.HasPE && !c.Ultra {
+				bracket = append(bracket, bc)
+			}
+		case bc.HasPE && bc.Ultra:
+			if c.HasPE && c.Ultra {
+				bracket = append(bracket, bc)
+			}
+		default:
+			if !c.HasPE {
+				bracket = append(bracket, bc)
+			}
+		}
+	}
+	sort.Slice(bracket, func(a, b int) bool { return sortValidFrom(bracket[a], bracket[b]) })
+
+	switch {
+	case c.HasPE && !c.Ultra:
+		baseTime = friTime
+		bracketLabel = "PE Leggacy (Friday)"
+	case c.HasPE && c.Ultra:
+		baseTime = friTime
+		bracketLabel = "Ultra PE Leggacy (Friday)"
+	default:
+		baseTime = wedTime
+		bracketLabel = "Wednesday Leggacy"
+	}
+
+	pos := -1
+	for idx, bc := range bracket {
+		if bc.ID == contractID {
+			pos = idx
+			break
+		}
+	}
+
+	botName := s.State.User.Username
+	botIconURL := s.State.User.AvatarURL("256")
+	userName := interactionUserName(i)
+	iconCoop := ei.GetBotEmojiMarkdown("icon_coop")
+
+	seasonLabel := ""
+	if c.SeasonID != "" {
+		if idx := strings.IndexByte(c.SeasonID, '_'); idx > 0 && idx < len(c.SeasonID)-1 {
+			if info, ok := seasonsByKey[c.SeasonID[:idx]]; ok {
+				yearShort := c.SeasonID[idx+1:]
+				if len(yearShort) >= 2 {
+					yearShort = yearShort[len(yearShort)-2:]
+				}
+				seasonLabel = fmt.Sprintf("%s %s %s", info.Emoji, info.Name, yearShort)
+			}
+		}
+	}
+
+	var modifiers strings.Builder
+	if c.ModifierSR != 1.0 && c.ModifierSR > 0.0 {
+		fmt.Fprintf(&modifiers, "🛻 %1.3gx  ", c.ModifierSR)
+	}
+	if c.ModifierELR != 1.0 && c.ModifierELR > 0.0 {
+		fmt.Fprintf(&modifiers, "🥚 %1.3gx  ", c.ModifierELR)
+	}
+	if c.ModifierHabCap != 1.0 && c.ModifierHabCap > 0.0 {
+		fmt.Fprintf(&modifiers, "🏠 %1.3gx  ", c.ModifierHabCap)
+	}
+	if c.ModifierEarnings != 1.0 && c.ModifierEarnings > 0.0 {
+		fmt.Fprintf(&modifiers, "💰 %1.3gx  ", c.ModifierEarnings)
+	}
+	if c.ModifierIHR != 1.0 && c.ModifierIHR > 0.0 {
+		fmt.Fprintf(&modifiers, "🐣 %1.3gx  ", c.ModifierIHR)
+	}
+	if c.ModifierAwayEarnings != 1.0 && c.ModifierAwayEarnings > 0.0 {
+		fmt.Fprintf(&modifiers, "🏝️💰 %1.3gx  ", c.ModifierAwayEarnings)
+	}
+	if c.ModifierVehicleCost != 1.0 && c.ModifierVehicleCost > 0.0 {
+		fmt.Fprintf(&modifiers, "🚗💲 %1.3gx  ", c.ModifierVehicleCost)
+	}
+	if c.ModifierResearchCost != 1.0 && c.ModifierResearchCost > 0.0 {
+		fmt.Fprintf(&modifiers, "📚💲 %1.3gx  ", c.ModifierResearchCost)
+	}
+	if c.ModifierHabCost != 1.0 && c.ModifierHabCost > 0.0 {
+		fmt.Fprintf(&modifiers, "🏠💲 %1.3gx  ", c.ModifierHabCost)
+	}
+
+	var contractVal strings.Builder
+	if seasonLabel != "" || modifiers.Len() > 0 {
+		fmt.Fprintf(&contractVal, "_   _ %s %s\n", seasonLabel, strings.TrimRight(modifiers.String(), " "))
+	}
+	if c.Description != "" {
+		fmt.Fprintf(&contractVal, "-# %s", c.Description)
+	}
+
+	var fields []*discordgo.MessageEmbedField
+	fields = append(fields, &discordgo.MessageEmbedField{
+		Name:   fmt.Sprintf("%s %s %s %s `%dp`", ei.FindEggEmoji(c.EggName), c.Name, c.ID, iconCoop, c.MaxCoopSize),
+		Value:  contractVal.String(),
+		Inline: false,
+	})
+	fields = append(fields, &discordgo.MessageEmbedField{
+		Name:   "Bracket",
+		Value:  bracketLabel,
+		Inline: true,
+	})
+	if pos >= 0 {
+		predictedDrop := baseTime.AddDate(0, 0, 7*pos)
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   "Predicted Drop",
+			Value:  bottools.WrapTimestamp(predictedDrop.Unix(), bottools.TimestampLongDate),
+			Inline: true,
+		})
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   "Queue Position",
+			Value:  fmt.Sprintf("%d of %d", pos+1, len(bracket)),
+			Inline: true,
+		})
+	}
+	fields = append(fields, &discordgo.MessageEmbedField{
+		Name:   "Last Seen",
+		Value:  bottools.WrapTimestamp(c.ValidFrom.Unix(), bottools.TimestampLongDate),
+		Inline: true,
+	})
+	fields = append(fields, &discordgo.MessageEmbedField{
+		Name:   "Duration",
+		Value:  bottools.FmtDuration(c.EstimatedDuration.Round(time.Minute)),
+		Inline: true,
+	})
+	fields = append(fields, &discordgo.MessageEmbedField{
+		Name:   "Speedrun CS",
+		Value:  fmt.Sprintf("%.0f", c.Cxp),
+		Inline: true,
+	})
+	/*
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   "Leggy Score",
+			Value:  fmt.Sprintf("%.0f", c.CxpMax),
+			Inline: true,
+		})
+	*/
+
+	footer := fmt.Sprintf("%s • /pred one • User: %s", botName, userName)
+	embed := &discordgo.MessageEmbed{
+		Type:      discordgo.EmbedTypeRich,
+		Color:     0xFFFFFF,
+		Title:     "🔮 Contract Prediction",
+		Fields:    fields,
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Footer:    &discordgo.MessageEmbedFooter{Text: footer, IconURL: botIconURL},
+	}
+
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Embeds: []*discordgo.MessageEmbed{embed},
+		AllowedMentions: &discordgo.MessageAllowedMentions{
+			Parse: []discordgo.AllowedMentionType{},
+		},
+	})
 }
 
 func interactionUserName(i *discordgo.InteractionCreate) string {
