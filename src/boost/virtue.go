@@ -837,6 +837,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 			fmt.Fprintf(&rockets, "%s<t:%d:R> ", art, missionEnd)
 		}
 	}
+	ei.MissionValidation(backup)
 
 	// Notes section
 	// Add notes only if not compact, default is false

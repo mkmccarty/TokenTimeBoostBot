@@ -155,3 +155,16 @@ func FindGiftEvent(eventTime time.Time) EggEvent {
 	}
 	return event
 }
+
+// FindFasterMissionEvent returns faster-missions events that occur during the specified time
+func FindFasterMissionEvent(eventTime time.Time) EggEvent {
+	var event EggEvent
+	EventMutex.Lock()
+	defer EventMutex.Unlock()
+	for _, e := range AllEventMap {
+		if e.EventType == "faster-missions" && e.StartTime.Before(eventTime) && e.EndTime.After(eventTime) {
+			return e
+		}
+	}
+	return event
+}
