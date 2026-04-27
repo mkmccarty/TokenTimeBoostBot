@@ -110,6 +110,7 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 			_, _ = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &discordgo.WebhookEdit{
 				Components: &out,
 			})
+			redraw = true
 		}
 		return
 	case "predtime":
@@ -126,6 +127,8 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 			_, _ = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &discordgo.WebhookEdit{
 				Components: &out,
 			})
+			redraw = true
+
 		}
 		return
 	}

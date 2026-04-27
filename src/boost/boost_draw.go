@@ -116,7 +116,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	}
 
 	if contract.Description != "" && !contract.PredictionSignup {
-		fmt.Fprintf(&header, "## CoopID: [%s](%s/%s/%s)", contract.CoopID, "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID)
+		fmt.Fprintf(&header, "## CoopID: [%s](%s/%s/%s)\n", contract.CoopID, "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID)
 	}
 	if !contract.PredictionSignup {
 		if len(contract.Boosters) != contract.CoopSize {
@@ -171,7 +171,6 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 		}
 	}
-
 	if contract.State == ContractStateSignup && contract.PlannedStartTime.After(now) && contract.PlannedStartTime.Before(now.Add(7*24*time.Hour)) {
 		fmt.Fprintf(&header, "## Planned Start Time: <t:%d:f>\n", contract.PlannedStartTime.Unix())
 	}
