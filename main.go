@@ -111,6 +111,7 @@ const slashVirtue string = "virtue"
 const slashRegister string = "register"
 const slashHunt string = "hunt"
 const slashPredictions string = "predictions"
+const slashPred string = "pred"
 const slashMint string = "mint"
 const slashUploadBanner string = "upload-banner"
 const slashAvailability string = "availability"
@@ -246,6 +247,7 @@ var (
 		"fd_playground":       boost.HandleScoreExplorerPage,
 		"bo_order":            boost.HandleBoostOrderReactions,
 		"predictions":         boost.HandlePredictionsPage,
+		"pred":                boost.HandlePredPage,
 		"leaderboard":         boost.HandleLeaderboardPage,
 		"active-contracts":    boost.HandleActiveContractsPage,
 		"admin-contract-list": boost.HandleAdminContractListComponent,
@@ -514,6 +516,11 @@ func setupCommands() {
 			AppCmd:   boost.GetPredictionsCommand(slashPredictions),
 			Category: CmdCategoryStandard,
 			Handler:  boost.HandlePredictionsCommand,
+		},
+		{
+			AppCmd:   boost.GetPredCommand(slashPred),
+			Category: CmdCategoryStandard,
+			Handler:  boost.HandlePredCommand,
 		},
 		{
 			AppCmd:       boost.GetSlashStones(slashStones),
