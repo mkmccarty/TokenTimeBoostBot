@@ -112,7 +112,6 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 			})
 			redraw = true
 		}
-		return
 	case "predtime":
 		values := i.MessageComponentData().Values
 		if b := contract.Boosters[userID]; b != nil {
@@ -130,7 +129,6 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 			redraw = true
 
 		}
-		return
 	}
 
 	if redraw {
