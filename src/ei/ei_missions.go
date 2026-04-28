@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -150,16 +151,33 @@ func init() {
 	loadAfxConfig()
 }
 
+// GetEpicResearchMissionCapacity calculates the mission capacity multiplier from the epic research items.
+func GetEpicResearchMissionCapacity(epicResearch []*Backup_ResearchItem) float64 {
+	missionCapacity := 1.0
+
+	ids := []string{
+		"afx_mission_capacity",
+	}
+	result := GetResearchGeneric(epicResearch, ids, missionCapacity)
+	return result
+}
+
+// GetEpicResearchMissionTime calculates the mission time multiplier from the epic research items.
+func GetEpicResearchMissionTime(epicResearch []*Backup_ResearchItem) float64 {
+	missionTime := 1.0
+
+	ids := []string{
+		"afx_mission_time",
+	}
+	result := GetResearchGeneric(epicResearch, ids, missionTime)
+	return result
+}
+
 // MissionValidation evaluates mission data from a Backup to detect duration anomalies.
 // It logs suspect missions to a log file.
 func MissionValidation(backup *Backup) {
 	if backup == nil || backup.GetArtifactsDb() == nil {
 		return
-	}
-
-	userID := backup.GetEiUserId()
-	if userID == "" {
-		userID = "UNKNOWN"
 	}
 
 	db := backup.GetArtifactsDb()
@@ -176,6 +194,10 @@ func MissionValidation(backup *Backup) {
 	for _, mission := range allMissions {
 		ship := int(mission.GetShip())
 		durType := int(mission.GetDurationType())
+		id := mission.GetIdentifier()
+		if id == "agxhdXhicmFpbmhvbWVyFgsSCUVJTWlzc2lvbhiAgPiG2q_rCww" {
+			log.Print("mmmm")
+		}
 
 		// Skip tutorial missions
 		if durType == 3 {
@@ -191,12 +213,12 @@ func MissionValidation(backup *Backup) {
 			continue
 		}
 
-		actualSeconds := mission.GetDurationSeconds()
+		actualSeconds := math.Round(mission.GetDurationSeconds())
 		if actualSeconds <= 0 {
 			continue
 		}
 
-		baseSeconds *= epicResearchMult
+		//baseSeconds *= epicResearchMult
 
 		// Check for if there was a fast event (0.25) applied to the mission time. If the actual duration is less than 25% of the base duration, it's likely an anomaly.
 		eventMult := FindFasterMissionEvent(time.Unix(int64(mission.GetStartTimeDerived()), 0))
@@ -205,15 +227,24 @@ func MissionValidation(backup *Backup) {
 			eventMultiplier = eventMult.Multiplier
 		}
 
-		// If this wasn't a valid event multiplier then we need to figure out our own minimum valid seconds based on the base seconds and the event multiplier. If the actual seconds is less than the minimum valid seconds, then we log it as a suspect mission.
-		calculatedEventMultiplier := float64(baseSeconds) / float64(actualSeconds)
-		if eventMultiplier != calculatedEventMultiplier {
-			eventMultiplier = calculatedEventMultiplier
+		/*
+			// If this wasn't a valid event multiplier then we need to figure out our own minimum valid seconds based on the base seconds and the event multiplier. If the actual seconds is less than the minimum valid seconds, then we log it as a suspect mission.
+			calculatedEventMultiplier := float64(baseSeconds) / float64(actualSeconds)
+			if eventMultiplier != calculatedEventMultiplier {
+				eventMultiplier = 1.0 / calculatedEventMultiplier
+			}
+		*/
+
+		// Bypass anomaly: allow a 10x mission speedup for a specific ship type and date range
+		missionTime := time.Unix(int64(mission.GetStartTimeDerived()), 0)
+		targetShip := int(MissionInfo_ATREGGIES)
+		startDate := time.Date(2024, time.March, 1, 0, 0, 0, 0, time.UTC)
+		endDate := time.Date(2024, time.September, 24, 0, 0, 0, 0, time.UTC)
+		if ship == targetShip && missionTime.After(startDate) && missionTime.Before(endDate) {
+			eventMultiplier *= 0.1
 		}
 
-		minValidSeconds := baseSeconds * eventMultiplier
-
-		if actualSeconds < minValidSeconds {
+		if actualSeconds < (math.Round(baseSeconds*eventMultiplier*epicResearchMult) - 1.0) {
 			shipName := ""
 			if ship >= 0 && ship < len(MissionArt.Ships) {
 				shipName = MissionArt.Ships[ship].Name
@@ -222,8 +253,9 @@ func MissionValidation(backup *Backup) {
 			}
 
 			suspects = append(suspects, fmt.Sprintf(
-				"[%s] User: %s | Ship: %s | DurType: %d | BaseSec: %.0f | ActualSec: %.0f | ID: %s",
-				time.Now().UTC().Format(time.RFC3339), userID, shipName, durType, baseSeconds, actualSeconds, mission.GetIdentifier(),
+				"Date: %s | Ship: %s | DurType: %d | BaseSec: %.0f | ActualSec: %.0f | EventMult: %.2f",
+				time.Unix(int64(mission.GetStartTimeDerived()), 0).UTC().Format("2006-01-02"),
+				shipName, durType, baseSeconds, actualSeconds, eventMultiplier,
 			))
 		}
 	}

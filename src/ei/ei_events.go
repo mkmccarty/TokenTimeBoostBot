@@ -162,7 +162,7 @@ func FindFasterMissionEvent(eventTime time.Time) EggEvent {
 	EventMutex.Lock()
 	defer EventMutex.Unlock()
 	for _, e := range AllEventMap {
-		if e.EventType == "faster-missions" && e.StartTime.Before(eventTime) && e.EndTime.After(eventTime) {
+		if e.EventType == "mission-duration" && e.StartTime.Before(eventTime) && e.EndTime.After(eventTime) {
 			return e
 		}
 	}
