@@ -12,8 +12,10 @@ import (
 )
 
 const (
+	// MaxAnimateFileBytes defines the maximum allowed file size for attachments to be processed by the bot.
 	MaxAnimateFileBytes = 10 * 1024 * 1024
-	MintPreviewMaxAge   = 20 * time.Minute
+	// MintPreviewMaxAge defines how long a mint preview is considered valid before it should be refreshed.
+	MintPreviewMaxAge = 20 * time.Minute
 )
 
 // GetInteractionUserID returns the user ID from an interaction, whether in a guild or DM

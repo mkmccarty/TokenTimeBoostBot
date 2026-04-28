@@ -104,7 +104,8 @@ func GetResearchGeneric(research []*Backup_ResearchItem, ids []string, baseValue
 			}
 		}
 	}
-	return result
+	// Round to 6 decimal places to eliminate floating point noise (e.g., 0.39999999999999997)
+	return math.Round(result*1e6) / 1e6
 }
 
 // GetFarmEggValue returns the current egg value for the farm
