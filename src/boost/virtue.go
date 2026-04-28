@@ -346,8 +346,8 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 			bottools.AlignString(eggEffects[i], 1, bottools.StringAlignCenter),
 			bottools.AlignString(fmt.Sprintf("%d", eovEarned-eovPending), 3, bottools.StringAlignRight),
 			bottools.AlignString(fmt.Sprintf("(%d)", eovPending), 5, bottools.StringAlignLeft),
-			bottools.AlignString(fmt.Sprintf("🥚 %s", ei.FormatEIValue(delivered, map[string]any{"decimals": 1, "trim": false})), 9, bottools.StringAlignLeft),
-			bottools.AlignString(fmt.Sprintf("%s%s", ei.GetBotEmojiMarkdown("egg_truth"), ei.FormatEIValue(nextTier, map[string]any{"decimals": 1, "trim": false})), 1, bottools.StringAlignLeft),
+			bottools.AlignString(fmt.Sprintf("🥚 %s", ei.FormatEIValue(delivered, map[string]any{"decimals": 4, "trim": true, "max_length": 5})), 9, bottools.StringAlignLeft),
+			bottools.AlignString(fmt.Sprintf("%s%s", ei.GetBotEmojiMarkdown("egg_truth"), ei.FormatEIValue(nextTier, map[string]any{"decimals": 4, "trim": true, "max_length": 5})), 1, bottools.StringAlignLeft),
 			bottools.AlignString(selected, 1, bottools.StringAlignLeft),
 		)
 	}
