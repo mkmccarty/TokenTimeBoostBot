@@ -246,8 +246,19 @@ func GetContractTeamNames(prompt string, quantity int) []string {
 	for i, s := range strArray {
 		strArray[i] = strings.TrimSpace(s)
 	}
-	return strArray
 
+	// Make sure this is a unique list of names, and remove any duplicates
+	uniqueNames := make(map[string]struct{})
+	var uniqueStrArray []string
+	for _, s := range strArray {
+		if _, exists := uniqueNames[s]; !exists && s != "" {
+			uniqueNames[s] = struct{}{}
+			uniqueStrArray = append(uniqueStrArray, s)
+		}
+	}
+	strArray = uniqueStrArray
+
+	return strArray
 }
 
 func wishGemini(mention string, text string, desc string) (string, error) {
