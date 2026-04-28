@@ -346,7 +346,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 			}
 		}
 		if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.PlayStyle != ContractPlaystyleChill {
-			sortRate = fmt.Sprintf(" *∆:%2.3f* ", b.TokenValue)
+			sortRate = fmt.Sprintf(" *∆:%2.2f* ", b.TokenValue)
 		}
 		return sortRate
 	}
