@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -49,7 +50,42 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 	return nil
 }
 
+var (
+	refreshMutex  sync.Mutex
+	refreshTimers = make(map[string]*time.Timer)
+	refreshSignup = make(map[string]bool)
+)
+
 func refreshBoostListMessage(s *discordgo.Session, contract *Contract, updateSignupMessage bool) {
+	if contract == nil {
+		return
+	}
+
+	refreshMutex.Lock()
+	defer refreshMutex.Unlock()
+
+	hash := contract.ContractHash
+	if updateSignupMessage {
+		refreshSignup[hash] = true
+	}
+
+	if timer, exists := refreshTimers[hash]; exists {
+		timer.Reset(1 * time.Second)
+		return
+	}
+
+	refreshTimers[hash] = time.AfterFunc(1*time.Second, func() {
+		refreshMutex.Lock()
+		doSignup := refreshSignup[hash]
+		delete(refreshSignup, hash)
+		delete(refreshTimers, hash)
+		refreshMutex.Unlock()
+
+		executeRefreshBoostListMessage(s, contract, doSignup)
+	})
+}
+
+func executeRefreshBoostListMessage(s *discordgo.Session, contract *Contract, updateSignupMessage bool) {
 	//contract.mutex.Lock()
 	//defer contract.mutex.Unlock()
 	// Edit the boost list in place
