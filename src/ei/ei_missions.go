@@ -97,7 +97,11 @@ func loadAfxConfig() {
 		log.Printf("Downloading %s...", filename)
 		resp, err := http.Get(url)
 		if err == nil {
-			defer resp.Body.Close()
+			defer func() {
+				if cerr := resp.Body.Close(); cerr != nil {
+					log.Printf("Failed to close suspect mission log: %v", cerr)
+				}
+			}()
 			body, _ := io.ReadAll(resp.Body)
 			_ = os.MkdirAll("ttbb-data", 0755)
 			_ = os.WriteFile(filename, body, 0644)
