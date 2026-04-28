@@ -600,11 +600,16 @@ func getWeeklyEmbeds(wedTime, friTime time.Time, userName, botName, botIconURL s
 	footer.WriteString(botName + " • /pred weekly • Implemented by @james.wst\n")
 	footer.WriteString("User: " + userName)
 
+	var title string
+	if weeklyType == 0 {
+		title = "🔮 Weekly Leggacy Prediction"
+	}
+
 	return []*discordgo.MessageEmbed{
 		{
 			Type:      discordgo.EmbedTypeRich,
 			Color:     embedColor,
-			Title:     "🔮 Weekly Leggacy Prediction",
+			Title:     title,
 			Fields:    fields,
 			Timestamp: time.Now().UTC().Format(time.RFC3339),
 			Footer:    &discordgo.MessageEmbedFooter{Text: footer.String(), IconURL: botIconURL},
