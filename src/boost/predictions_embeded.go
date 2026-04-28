@@ -301,40 +301,31 @@ func sendPredOne(s *discordgo.Session, i *discordgo.InteractionCreate, contractI
 
 	_, wedTime, friTime, _ := contractTimes9amPacific(0)
 
+	var wed, friPE, friUltra []ei.EggIncContract
+	for _, bc := range ei.EggIncContractsAll {
+		switch {
+		case bc.HasPE && !bc.Ultra:
+			friUltra = append(friUltra, bc)
+		case bc.HasPE && bc.Ultra:
+			friPE = append(friPE, bc)
+		default:
+			wed = append(wed, bc)
+		}
+	}
+	sort.Slice(wed, func(a, b int) bool { return sortValidFrom(wed[a], wed[b]) })
+	sort.Slice(friPE, func(a, b int) bool { return sortValidFrom(friPE[a], friPE[b]) })
+	sort.Slice(friUltra, func(a, b int) bool { return sortValidFrom(friUltra[a], friUltra[b]) })
+
 	var bracket []ei.EggIncContract
 	var baseTime time.Time
 	var bracketLabel string
-	for _, bc := range ei.EggIncContractsAll {
-		if bc.EggName == "" {
-			continue
-		}
-		switch {
-		case bc.HasPE && !bc.Ultra:
-			if c.HasPE && !c.Ultra {
-				bracket = append(bracket, bc)
-			}
-		case bc.HasPE && bc.Ultra:
-			if c.HasPE && c.Ultra {
-				bracket = append(bracket, bc)
-			}
-		default:
-			if !c.HasPE {
-				bracket = append(bracket, bc)
-			}
-		}
-	}
-	sort.Slice(bracket, func(a, b int) bool { return sortValidFrom(bracket[a], bracket[b]) })
-
 	switch {
 	case c.HasPE && !c.Ultra:
-		baseTime = friTime
-		bracketLabel = "PE Leggacy (Friday)"
+		bracket, baseTime, bracketLabel = friUltra, friTime, "Ultra PE Leggacy (Friday)"
 	case c.HasPE && c.Ultra:
-		baseTime = friTime
-		bracketLabel = "Ultra PE Leggacy (Friday)"
+		bracket, baseTime, bracketLabel = friPE, friTime, "PE Leggacy (Friday)"
 	default:
-		baseTime = wedTime
-		bracketLabel = "Wednesday Leggacy"
+		bracket, baseTime, bracketLabel = wed, wedTime, "Wednesday Leggacy"
 	}
 
 	pos := -1
@@ -365,78 +356,97 @@ func sendPredOne(s *discordgo.Session, i *discordgo.InteractionCreate, contractI
 
 	var modifiers strings.Builder
 	if c.ModifierSR != 1.0 && c.ModifierSR > 0.0 {
-		fmt.Fprintf(&modifiers, "🛻 %1.3gx  ", c.ModifierSR)
+		fmt.Fprintf(&modifiers, "🚚 Shipping Capacity %1.3gx  ", c.ModifierSR)
 	}
 	if c.ModifierELR != 1.0 && c.ModifierELR > 0.0 {
-		fmt.Fprintf(&modifiers, "🥚 %1.3gx  ", c.ModifierELR)
+		fmt.Fprintf(&modifiers, "🥚 Egg Laying %1.3gx  ", c.ModifierELR)
 	}
 	if c.ModifierHabCap != 1.0 && c.ModifierHabCap > 0.0 {
-		fmt.Fprintf(&modifiers, "🏠 %1.3gx  ", c.ModifierHabCap)
+		fmt.Fprintf(&modifiers, "🏠 Hab Capacity %1.3gx  ", c.ModifierHabCap)
 	}
 	if c.ModifierEarnings != 1.0 && c.ModifierEarnings > 0.0 {
-		fmt.Fprintf(&modifiers, "💰 %1.3gx  ", c.ModifierEarnings)
+		fmt.Fprintf(&modifiers, "💸 Earnings %1.3gx  ", c.ModifierEarnings)
 	}
 	if c.ModifierIHR != 1.0 && c.ModifierIHR > 0.0 {
-		fmt.Fprintf(&modifiers, "🐣 %1.3gx  ", c.ModifierIHR)
+		fmt.Fprintf(&modifiers, "🐣 Int. Hatchery Rate %1.3gx  ", c.ModifierIHR)
 	}
 	if c.ModifierAwayEarnings != 1.0 && c.ModifierAwayEarnings > 0.0 {
-		fmt.Fprintf(&modifiers, "🏝️💰 %1.3gx  ", c.ModifierAwayEarnings)
+		fmt.Fprintf(&modifiers, "💸💤 Away Earnings %1.3gx  ", c.ModifierAwayEarnings)
 	}
 	if c.ModifierVehicleCost != 1.0 && c.ModifierVehicleCost > 0.0 {
-		fmt.Fprintf(&modifiers, "🚗💲 %1.3gx  ", c.ModifierVehicleCost)
+		fmt.Fprintf(&modifiers, "🚗💲 Vehicle Cost %1.3gx  ", c.ModifierVehicleCost)
 	}
 	if c.ModifierResearchCost != 1.0 && c.ModifierResearchCost > 0.0 {
-		fmt.Fprintf(&modifiers, "📚💲 %1.3gx  ", c.ModifierResearchCost)
+		fmt.Fprintf(&modifiers, "🔬💲 Research Cost %1.3gx  ", c.ModifierResearchCost)
 	}
 	if c.ModifierHabCost != 1.0 && c.ModifierHabCost > 0.0 {
-		fmt.Fprintf(&modifiers, "🏠💲 %1.3gx  ", c.ModifierHabCost)
+		fmt.Fprintf(&modifiers, "🏗️💲 Hab Cost %1.3gx  ", c.ModifierHabCost)
 	}
 
 	var contractVal strings.Builder
 	if seasonLabel != "" || modifiers.Len() > 0 {
-		fmt.Fprintf(&contractVal, "_   _ %s %s\n", seasonLabel, strings.TrimRight(modifiers.String(), " "))
+		fmt.Fprintf(&contractVal, "_  _↳ %s %s\n", seasonLabel, strings.TrimRight(modifiers.String(), " "))
 	}
 	if c.Description != "" {
-		fmt.Fprintf(&contractVal, "-# %s", c.Description)
+		fmt.Fprintf(&contractVal, "-# _  _↳ %s", c.Description)
 	}
 
 	var fields []*discordgo.MessageEmbedField
 	fields = append(fields, &discordgo.MessageEmbedField{
-		Name:   fmt.Sprintf("%s %s %s %s `%dp`", ei.FindEggEmoji(c.EggName), c.Name, c.ID, iconCoop, c.MaxCoopSize),
+		Name:   fmt.Sprintf("%s %s `%s` %s `%dp`", ei.FindEggEmoji(c.EggName), c.Name, c.ID, iconCoop, c.MaxCoopSize),
 		Value:  contractVal.String(),
 		Inline: false,
 	})
 	fields = append(fields, &discordgo.MessageEmbedField{
 		Name:   "Bracket",
-		Value:  bracketLabel,
+		Value:  "_ _ " + bracketLabel,
 		Inline: true,
 	})
 	if pos >= 0 {
 		predictedDrop := baseTime.AddDate(0, 0, 7*pos)
 		fields = append(fields, &discordgo.MessageEmbedField{
 			Name:   "Predicted Drop",
-			Value:  bottools.WrapTimestamp(predictedDrop.Unix(), bottools.TimestampLongDate),
+			Value:  "_ _ " + bottools.WrapTimestamp(predictedDrop.Unix(), bottools.TimestampLongDate),
 			Inline: true,
 		})
 		fields = append(fields, &discordgo.MessageEmbedField{
 			Name:   "Queue Position",
-			Value:  fmt.Sprintf("%d of %d", pos+1, len(bracket)),
+			Value:  fmt.Sprintf("_ _ %d of %d", pos+1, len(bracket)),
 			Inline: true,
 		})
+		if c.HasPE && !c.Ultra {
+			pePos := pos + len(friUltra)
+			peDrop := friTime.AddDate(0, 0, 7*pePos)
+			fields = append(fields, &discordgo.MessageEmbedField{
+				Name:   "PE Leggacy Bracket",
+				Value:  "_ _ PE Leggacy (Friday)",
+				Inline: true,
+			})
+			fields = append(fields, &discordgo.MessageEmbedField{
+				Name:   "PE Predicted Drop",
+				Value:  "_ _ " + bottools.WrapTimestamp(peDrop.Unix(), bottools.TimestampLongDate),
+				Inline: true,
+			})
+			fields = append(fields, &discordgo.MessageEmbedField{
+				Name:   "PE Queue Position",
+				Value:  fmt.Sprintf("_ _ %d of %d", pePos+1, len(friUltra)+len(friPE)),
+				Inline: true,
+			})
+		}
 	}
 	fields = append(fields, &discordgo.MessageEmbedField{
 		Name:   "Last Seen",
-		Value:  bottools.WrapTimestamp(c.ValidFrom.Unix(), bottools.TimestampLongDate),
+		Value:  "_ _ " + bottools.WrapTimestamp(c.ValidFrom.Unix(), bottools.TimestampLongDate),
 		Inline: true,
 	})
 	fields = append(fields, &discordgo.MessageEmbedField{
 		Name:   "Duration",
-		Value:  bottools.FmtDuration(c.EstimatedDuration.Round(time.Minute)),
+		Value:  "_ _ " + bottools.FmtDuration(c.EstimatedDuration.Round(time.Minute)),
 		Inline: true,
 	})
 	fields = append(fields, &discordgo.MessageEmbedField{
 		Name:   "Speedrun CS",
-		Value:  fmt.Sprintf("%.0f", c.Cxp),
+		Value:  fmt.Sprintf("_ _ %.0f", c.Cxp),
 		Inline: true,
 	})
 	/*
@@ -506,8 +516,8 @@ func getWeeklyEmbeds(wedTime, friTime time.Time, userName, botName, botIconURL s
 
 		// Full-width header field, breaks the inline grid and labels the section.
 		fields = append(fields, &discordgo.MessageEmbedField{
-			Name:   fmt.Sprintf("%s Drop: %s", title, bottools.WrapTimestamp(dropTime.Unix(), bottools.TimestampShortDateTime)),
-			Value:  "_ _",
+			Name:   fmt.Sprintf("%s ", title),
+			Value:  fmt.Sprintf("-# _  _↳ %s", bottools.WrapTimestamp(dropTime.Unix(), bottools.TimestampShortDateTime)),
 			Inline: false,
 		})
 		for idx, c := range contracts {
@@ -720,7 +730,7 @@ func colleggtibleDimensionEmoji(d ei.GameModifier_GameDimension) string {
 	case ei.GameModifier_EARNINGS:
 		return "💸"
 	case ei.GameModifier_AWAY_EARNINGS:
-		return "💤"
+		return "💸💤"
 	case ei.GameModifier_INTERNAL_HATCHERY_RATE:
 		return "🐣"
 	case ei.GameModifier_EGG_LAYING_RATE:
@@ -730,11 +740,11 @@ func colleggtibleDimensionEmoji(d ei.GameModifier_GameDimension) string {
 	case ei.GameModifier_HAB_CAPACITY:
 		return "🏠"
 	case ei.GameModifier_VEHICLE_COST:
-		return "🚗"
+		return "🚗💲"
 	case ei.GameModifier_HAB_COST:
-		return "🏗️"
+		return "🏗️💲"
 	case ei.GameModifier_RESEARCH_COST:
-		return "🔬"
+		return "🔬💲"
 	default:
 		return "✨"
 	}
