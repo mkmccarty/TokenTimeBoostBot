@@ -134,20 +134,25 @@ func FormatEIValue(x float64, options map[string]any) string {
 	}
 
 	// Handle zero and numbers too small for unit suffix
-	if x == 0 || x < math.Pow10(minOom) {
+	if (x == 0 || x < math.Pow10(minOom)) && options["no_scale"] != true {
 		// Use standard rounding for the zero/small number case (as per test "Small Number")
 		return strconv.FormatFloat(x, 'f', 0, 64)
 	}
 
-	// Calculate the Order of Magnitude (oom)
-	oom := math.Log10(x)
-	oomFloor := math.Floor(oom)
-	if oom+1e-9 >= oomFloor+1 {
-		oomFloor++
-	}
-	oomFloor -= math.Mod(oomFloor, 3)
-	if int(oomFloor) > maxOom {
-		oomFloor = float64(maxOom)
+	var oomFloor float64
+	if options["no_scale"] == true {
+		oomFloor = 0
+	} else {
+		// Calculate the Order of Magnitude (oom)
+		oom := math.Log10(x)
+		oomFloor = math.Floor(oom)
+		if oom+1e-9 >= oomFloor+1 {
+			oomFloor++
+		}
+		oomFloor -= math.Mod(oomFloor, 3)
+		if int(oomFloor) > maxOom {
+			oomFloor = float64(maxOom)
+		}
 	}
 
 	principal := x / math.Pow10(int(oomFloor))
@@ -173,8 +178,24 @@ func FormatEIValue(x float64, options map[string]any) string {
 		numpart = strings.TrimRight(strings.TrimRight(numpart, "0"), ".")
 	}
 
+	if maxLength, ok := options["max_length"].(int); ok {
+		if len(numpart) > maxLength {
+			if dotIdx := strings.Index(numpart, "."); dotIdx != -1 {
+				if dotIdx >= maxLength {
+					numpart = numpart[:dotIdx]
+				} else {
+					numpart = numpart[:maxLength]
+					numpart = strings.TrimSuffix(numpart, ".")
+				}
+			}
+		}
+	}
+
 	if scientific {
 		return fmt.Sprintf("%s×10^%d", numpart, int(oomFloor))
+	}
+	if options["no_suffix"] == true {
+		return numpart
 	}
 	return numpart + oom2symbol[int(oomFloor)]
 }

@@ -66,15 +66,18 @@ type inputData struct {
 func FmtNumberSingleUnit(v float64, srSandboxOrdering bool) (string, int) {
 	var str string
 	var unit int
+	var val float64
 
 	switch {
 	case v >= 1e18:
-		str, unit = fmt.Sprintf("%g", v/1e18), 0 // Quintillion
+		val, unit = v/1e18, 0 // Quintillion
 	case v >= 1e15:
-		str, unit = fmt.Sprintf("%g", v/1e15), 1 // quadrillion
+		val, unit = v/1e15, 1 // quadrillion
 	default:
-		str, unit = fmt.Sprintf("%g", v/1e12), 2 // Trillion
+		val, unit = v/1e12, 2 // Trillion
 	}
+
+	str = ei.FormatEIValue(val, map[string]any{"no_scale": true, "no_suffix": true, "max_length": 5, "trim": true, "decimals": 4})
 
 	// Apply SR sandbox ordering: 0=quadrillion, 1=Quintillion, 2=Trillion
 	if srSandboxOrdering {
