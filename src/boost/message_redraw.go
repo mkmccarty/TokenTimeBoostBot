@@ -70,11 +70,11 @@ func refreshBoostListMessage(s *discordgo.Session, contract *Contract, updateSig
 	}
 
 	if timer, exists := refreshTimers[hash]; exists {
-		timer.Reset(1 * time.Second)
+		timer.Reset(500 * time.Millisecond)
 		return
 	}
 
-	refreshTimers[hash] = time.AfterFunc(1*time.Second, func() {
+	refreshTimers[hash] = time.AfterFunc(500*time.Millisecond, func() {
 		refreshMutex.Lock()
 		doSignup := refreshSignup[hash]
 		delete(refreshSignup, hash)
