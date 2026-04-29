@@ -884,8 +884,8 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 		compVals = make(map[string]CompMap, 14)
 		compVals[boostIconReaction] = CompMap{Emoji: boostIconReaction, Style: discordgo.SecondaryButton, CustomID: "rc_#Boost#"}
 		compVals[contract.TokenStr] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("token"), Style: discordgo.SecondaryButton, CustomID: "rc_#token#"}
-		compVals["GG"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("std_gg"), Style: discordgo.SecondaryButton, CustomID: "rc_#2token#"}
-		compVals["UG"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("ultra_gg"), Style: discordgo.SecondaryButton, CustomID: "rc_#2token#"}
+		compVals["GG"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("std_gg"), Style: discordgo.SecondaryButton, CustomID: "rc_#2token#gg#"}
+		compVals["UG"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("ultra_gg"), Style: discordgo.SecondaryButton, CustomID: "rc_#2token#ug#"}
 		compVals["💰"] = CompMap{Emoji: "💰", Style: discordgo.SecondaryButton, CustomID: "rc_#bag#"}
 		compVals["🚚"] = CompMap{Emoji: "🚚", Style: discordgo.SecondaryButton, CustomID: "rc_#truck#"}
 		compVals["💃"] = CompMap{Emoji: "💃", Style: discordgo.SecondaryButton, CustomID: "rc_#tango#"}
