@@ -89,6 +89,9 @@ var AfxConfig AfxConfigData
 // MissionDurations maps ship and duration type to expected duration in seconds
 var MissionDurations = make(map[int]map[int]float64)
 
+// SuspectMissionHandler is a callback to record suspect missions to the database without importing farmerstate
+var SuspectMissionHandler func(discordID string, mission *MissionInfo, baseSeconds, actualSeconds, eventMultiplier float64)
+
 func loadAfxConfig() {
 	const url = "https://raw.githubusercontent.com/carpetsage/egg/main/wasmegg/_common/eiafx/eiafx-config.json"
 	const filename = "ttbb-data/ei-afx-config.json"
@@ -179,7 +182,7 @@ func GetEpicResearchMissionTime(epicResearch []*Backup_ResearchItem) float64 {
 
 // MissionValidation evaluates mission data from a Backup to detect duration anomalies.
 // It logs suspect missions to a log file.
-func MissionValidation(backup *Backup) {
+func MissionValidation(backup *Backup, discordID string) {
 	if backup == nil || backup.GetArtifactsDb() == nil {
 		return
 	}
@@ -198,10 +201,6 @@ func MissionValidation(backup *Backup) {
 	for _, mission := range allMissions {
 		ship := int(mission.GetShip())
 		durType := int(mission.GetDurationType())
-		id := mission.GetIdentifier()
-		if id == "agxhdXhicmFpbmhvbWVyFgsSCUVJTWlzc2lvbhiAgPiG2q_rCww" {
-			log.Print("mmmm")
-		}
 
 		// Skip tutorial missions
 		if durType == 3 {
@@ -261,6 +260,10 @@ func MissionValidation(backup *Backup) {
 				time.Unix(int64(mission.GetStartTimeDerived()), 0).UTC().Format("2006-01-02"),
 				shipName, durType, baseSeconds, actualSeconds, eventMultiplier,
 			))
+
+			if discordID != "" && SuspectMissionHandler != nil {
+				SuspectMissionHandler(discordID, mission, baseSeconds, actualSeconds, eventMultiplier)
+			}
 		}
 	}
 

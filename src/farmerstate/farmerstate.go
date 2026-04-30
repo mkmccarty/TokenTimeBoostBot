@@ -588,3 +588,8 @@ func RemoveCustomBanner(userID string, guildID string) error {
 	}
 	return nil
 }
+
+// InsertSuspectMission records a suspect mission anomaly to the database.
+func InsertSuspectMission(arg InsertSuspectMissionParams) error {
+	return queries.InsertSuspectMission(ctx, arg)
+}

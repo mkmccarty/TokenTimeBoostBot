@@ -108,3 +108,15 @@ DELETE FROM timers WHERE id = ?;
 
 -- name: DeleteInactiveTimers :exec
 DELETE FROM timers WHERE active = 0;
+
+-- name: InsertSuspectMission :exec
+INSERT OR IGNORE INTO suspect_missions (
+    user_id, mission_id, ship, status, duration_type, mission_type,
+    level, capacity, quality_bump, target_artifact, duration_seconds,
+    start_time_derived, base_seconds, event_multiplier
+) VALUES (
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+);
+
+-- name: GetSuspectMissions :many
+SELECT * FROM suspect_missions WHERE user_id = ?;
