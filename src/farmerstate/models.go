@@ -27,6 +27,23 @@ type FarmerState struct {
 	Value sql.NullString
 }
 
+type SuspectMission struct {
+	UserID           string
+	MissionID        string
+	Ship             int64
+	Status           int64
+	DurationType     int64
+	MissionType      int64
+	Level            int64
+	Capacity         int64
+	QualityBump      float64
+	TargetArtifact   int64
+	DurationSeconds  float64
+	StartTimeDerived float64
+	BaseSeconds      float64
+	EventMultiplier  float64
+}
+
 type Timer struct {
 	ID                string
 	UserID            string

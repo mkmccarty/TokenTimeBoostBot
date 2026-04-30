@@ -260,6 +260,48 @@ func (q *Queries) GetLegacyFarmerstate(ctx context.Context, id string) (FarmerSt
 	return i, err
 }
 
+const getSuspectMissions = `-- name: GetSuspectMissions :many
+SELECT user_id, mission_id, ship, status, duration_type, mission_type, level, capacity, quality_bump, target_artifact, duration_seconds, start_time_derived, base_seconds, event_multiplier FROM suspect_missions WHERE user_id = ?
+`
+
+func (q *Queries) GetSuspectMissions(ctx context.Context, userID string) ([]SuspectMission, error) {
+	rows, err := q.db.QueryContext(ctx, getSuspectMissions, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SuspectMission
+	for rows.Next() {
+		var i SuspectMission
+		if err := rows.Scan(
+			&i.UserID,
+			&i.MissionID,
+			&i.Ship,
+			&i.Status,
+			&i.DurationType,
+			&i.MissionType,
+			&i.Level,
+			&i.Capacity,
+			&i.QualityBump,
+			&i.TargetArtifact,
+			&i.DurationSeconds,
+			&i.StartTimeDerived,
+			&i.BaseSeconds,
+			&i.EventMultiplier,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getTimers = `-- name: GetTimers :many
 SELECT id, user_id, channel_id, msg_id, reminder, message, duration, original_channel_id, original_msg_id, active FROM timers
 `
@@ -360,6 +402,53 @@ func (q *Queries) InsertLegacyFarmerstate(ctx context.Context, arg InsertLegacyF
 	var i FarmerState
 	err := row.Scan(&i.ID, &i.Key, &i.Value)
 	return i, err
+}
+
+const insertSuspectMission = `-- name: InsertSuspectMission :exec
+INSERT OR IGNORE INTO suspect_missions (
+    user_id, mission_id, ship, status, duration_type, mission_type,
+    level, capacity, quality_bump, target_artifact, duration_seconds,
+    start_time_derived, base_seconds, event_multiplier
+) VALUES (
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+)
+`
+
+type InsertSuspectMissionParams struct {
+	UserID           string
+	MissionID        string
+	Ship             int64
+	Status           int64
+	DurationType     int64
+	MissionType      int64
+	Level            int64
+	Capacity         int64
+	QualityBump      float64
+	TargetArtifact   int64
+	DurationSeconds  float64
+	StartTimeDerived float64
+	BaseSeconds      float64
+	EventMultiplier  float64
+}
+
+func (q *Queries) InsertSuspectMission(ctx context.Context, arg InsertSuspectMissionParams) error {
+	_, err := q.db.ExecContext(ctx, insertSuspectMission,
+		arg.UserID,
+		arg.MissionID,
+		arg.Ship,
+		arg.Status,
+		arg.DurationType,
+		arg.MissionType,
+		arg.Level,
+		arg.Capacity,
+		arg.QualityBump,
+		arg.TargetArtifact,
+		arg.DurationSeconds,
+		arg.StartTimeDerived,
+		arg.BaseSeconds,
+		arg.EventMultiplier,
+	)
+	return err
 }
 
 const insertTimer = `-- name: InsertTimer :exec

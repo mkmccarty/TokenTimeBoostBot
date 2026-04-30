@@ -167,6 +167,26 @@ func init() {
 		return guildstate.GetGuildSettingString("DEFAULT", "coop_status_fix") == "1"
 	}
 
+	// Wire the suspect mission handler to avoid import cycle in ei package
+	ei.SuspectMissionHandler = func(discordID string, mission *ei.MissionInfo, baseSeconds float64, actualSeconds float64, eventMultiplier float64) {
+		_ = farmerstate.InsertSuspectMission(farmerstate.InsertSuspectMissionParams{
+			UserID:           discordID,
+			MissionID:        mission.GetIdentifier(),
+			Ship:             int64(mission.GetShip()),
+			Status:           int64(mission.GetStatus()),
+			DurationType:     int64(mission.GetDurationType()),
+			MissionType:      int64(mission.GetType()),
+			Level:            int64(mission.GetLevel()),
+			Capacity:         int64(mission.GetCapacity()),
+			QualityBump:      float64(mission.GetQualityBump()),
+			TargetArtifact:   int64(mission.GetTargetArtifact()),
+			DurationSeconds:  actualSeconds,
+			StartTimeDerived: float64(mission.GetStartTimeDerived()),
+			BaseSeconds:      baseSeconds,
+			EventMultiplier:  eventMultiplier,
+		})
+	}
+
 	// Read application parameters
 	flag.Parse()
 
