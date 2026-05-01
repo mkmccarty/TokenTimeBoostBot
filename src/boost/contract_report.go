@@ -147,7 +147,7 @@ func GetSlashContractReportCommand(cmd string) *discordgo.ApplicationCommand {
 				Type:         discordgo.ApplicationCommandOptionString,
 				Name:         "contract-id",
 				Description:  "Select a contract-id",
-				Required:     true,
+				Required:     false,
 				Autocomplete: true,
 			},
 			{
