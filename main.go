@@ -76,6 +76,7 @@ const slashPrune string = "prune"
 const slashJoinContract string = "join-contract"
 const slashSetEggIncName string = "seteggincname"
 const slashBump string = "bump"
+const slashBumpCR string = "bump-cr"
 const slashToggleContractPings string = "toggle-contract-pings"
 const slashContractSettings string = "contract-settings"
 const slashHelp string = "help"
@@ -619,6 +620,11 @@ func setupCommands() {
 			AppCmd:   boost.GetSlashBumpCommand(slashBump),
 			Category: CmdCategoryStandard,
 			Handler:  boost.HandleBumpCommand,
+		},
+		{
+			AppCmd:   boost.GetSlashBumpCRCommand(slashBumpCR),
+			Category: CmdCategoryStandard,
+			Handler:  boost.HandleBumpCRCommand,
 		},
 		{
 			AppCmd:   boost.GetSlashToggleContractPingsCommand(slashToggleContractPings),

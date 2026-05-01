@@ -394,6 +394,31 @@ func HandleBumpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 }
 
+// HandleBumpCRCommand will handle the /bump-cr command
+func HandleBumpCRCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	str := "Contract not found"
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing request...",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+	contract := FindContract(i.ChannelID)
+	if contract != nil {
+		str = "CR messages moved."
+		bumpCRMessages(s, contract)
+	}
+	// Wait a moment
+	time.Sleep(2000 * time.Millisecond)
+	msg, _ := s.FollowupMessageCreate(i.Interaction, true,
+		&discordgo.WebhookParams{
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Content: str,
+		})
+	_ = s.FollowupMessageDelete(i.Interaction, msg.ID)
+}
+
 // HandleToggleContractPingsCommand will handle the /toggle-contract-pings command
 func HandleToggleContractPingsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	str := "Contract not found"

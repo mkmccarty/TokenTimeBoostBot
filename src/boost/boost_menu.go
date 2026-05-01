@@ -292,5 +292,31 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 		// Pull up the contract data in the target channel
 		AdminContractReport(s, i, contract, targetChannelID)
+	case "swap":
+		userID := i.Member.User.ID
+		redraw := buttonReactionSwap(s, i.GuildID, i.ChannelID, contract, userID)
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
+		})
+		if redraw {
+			refreshBoostListMessage(s, contract, false)
+		}
+	case "last":
+		userID := i.Member.User.ID
+		_, redraw := buttonReactionLast(s, i.GuildID, i.ChannelID, contract, userID)
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
+		})
+		if redraw {
+			refreshBoostListMessage(s, contract, false)
+		}
+	case "help":
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
+		})
+		buttonReactionHelp(s, i, contract)
 	}
 }

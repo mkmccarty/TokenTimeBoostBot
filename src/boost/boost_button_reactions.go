@@ -521,11 +521,6 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 		}
 	}
 
-	pingHeader := fmt.Sprintf(
-		"%s **%s** is requesting chicken runs!\n-# Check for trucks and incoming tokens before visiting.\n-# I'm sure you've already forced a game sync so no need to remind about that.",
-		roleMention, latestName,
-	)
-
 	worstPct := 0.0
 	containerComps := make([]discordgo.MessageComponent, 0, len(requesters)+1)
 	var buttons []discordgo.MessageComponent
@@ -606,20 +601,30 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 		})
 	}
 
-	// All requesters done, show a completion notice instead of an empty container
-	if len(containerComps) == 1 {
-		containerComps = []discordgo.MessageComponent{
-			discordgo.TextDisplay{Content: "🟩 All chicken runs complete!"},
-		}
-	}
-
+	pingHeader := fmt.Sprintf(
+		"%s **%s** is requesting chicken runs!\n-# Check for trucks and incoming tokens before visiting.\n",
+		roleMention, latestName,
+	)
 	accentColor := crColorFromPct(worstPct)
-	components := []discordgo.MessageComponent{
-		discordgo.TextDisplay{Content: pingHeader},
-		discordgo.Container{
-			AccentColor: &accentColor,
-			Components:  containerComps,
-		},
+	var components []discordgo.MessageComponent
+
+	// All requesters done, collapse into a single container with completion notice
+	if len(containerComps) == 1 {
+		completionMsg := fmt.Sprintf("-# %s **%s**'s request is complete!", roleMention, latestName)
+		components = []discordgo.MessageComponent{
+			discordgo.Container{
+				AccentColor: &accentColor,
+				Components:  []discordgo.MessageComponent{discordgo.TextDisplay{Content: completionMsg}},
+			},
+		}
+	} else {
+		components = []discordgo.MessageComponent{
+			discordgo.TextDisplay{Content: pingHeader},
+			discordgo.Container{
+				AccentColor: &accentColor,
+				Components:  containerComps,
+			},
+		}
 	}
 
 	// Up to 2 rows of 5 buttons
@@ -985,6 +990,23 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 
 		}
 
+		if contract.State == ContractStateFastrun {
+			menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+				Label: "Move to Last",
+				Value: "last",
+				Emoji: &discordgo.ComponentEmoji{Name: "⤵️"},
+			})
+			menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+				Label: "Swap with Next",
+				Value: "swap",
+				Emoji: &discordgo.ComponentEmoji{Name: "🔃"},
+			})
+		}
+		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+			Label: "Help",
+			Value: "help",
+			Emoji: &discordgo.ComponentEmoji{Name: "❓"},
+		})
 		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
 			Label: "Token Log",
 			Value: "tlog",
@@ -1077,7 +1099,7 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 	case ContractStateBanker:
 		iconsRowA = append(iconsRowA, []string{tokenStr, "🐓", "💰", "📢"}...)
 	case ContractStateFastrun:
-		iconsRowA = append(iconsRowA, []string{boostIconReaction, tokenStr, "🔃", "⤵️", "🐓", "📢"}...)
+		iconsRowA = append(iconsRowA, []string{boostIconReaction, tokenStr, "🐓", "📢"}...)
 	case ContractStateWaiting:
 		sinkID := contract.Banker.CurrentBanker
 		if sinkID != "" {
@@ -1091,7 +1113,7 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 		if sinkID != "" {
 			iconsRowA = append(iconsRowA, tokenStr)
 		}
-		iconsRowA = append(iconsRowA, "🐓")
+		iconsRowA = append(iconsRowA, "🐓", "📢")
 	}
 
 	gg, ugg, _ := ei.GetGenerousGiftEvent()
@@ -1101,23 +1123,19 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 			iconsRowA = append(iconsRowA[:idx+1], append([]string{"GG"}, iconsRowA[idx+1:]...)...)
 		}
 	}
-	if ugg > 1.0 {
+	if ugg > 1.0 && gg <= 1.0 {
 		if slices.Contains(iconsRowA, tokenStr) {
 			idx := slices.Index(iconsRowA, tokenStr)
 			iconsRowA = append(iconsRowA[:idx+1], append([]string{"UG"}, iconsRowA[idx+1:]...)...)
 		}
 	}
 
-	// Move any icons beyond 5 from iconsRowA to iconsRowB
+	// Move any icons beyond 5 from iconsRowA to iconsRowB, if we have < 5 add help icon
 	if len(iconsRowA) > 5 {
 		iconsRowB = append(iconsRowA[5:], iconsRowB...)
 		iconsRowA = iconsRowA[:5]
-	}
-
-	if len(iconsRowA) < 5 {
+	} else if len(iconsRowA) < 5 {
 		iconsRowA = append(iconsRowA, "❓")
-	} else {
-		iconsRowB = append(iconsRowB, "❓")
 	}
 	return iconsRowA, iconsRowB
 }

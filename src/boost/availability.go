@@ -33,17 +33,16 @@ func GetAvailabilityComponents(s *discordgo.Session, contract *Contract, userID 
 	var out []discordgo.MessageComponent
 
 	timeLabels := map[string]string{
-		"00-02": "0", "02-04": "+2", "04-06": "+4",
-		"06-08": "+6", "08-10": "+8", "10-12": "+10",
-		"12-14": "+12", "14-16": "+14", "16-18": "+16",
-		"18-20": "+18", "20-22": "+20", "22-24": "+22",
+		"00-01": "+0", "01-02": "+1", "02-03": "+2", "03-04": "+3",
+		"04-05": "+4", "05-06": "+5", "06-07": "+6", "07-08": "+7", "08-09": "+8",
+		"20-21": "-4", "21-22": "-3", "22-23": "-2", "23-24": "-1",
 	}
 
 	formatTimes := func(slots []string) string {
 		if len(slots) == 0 {
 			return "Not set"
 		}
-		if len(slots) == 12 {
+		if len(slots) == len(timeLabels) {
 			return "Any"
 		}
 		sorted := make([]string, len(slots))
@@ -94,18 +93,19 @@ func GetAvailabilityComponents(s *discordgo.Session, contract *Contract, userID 
 		}
 
 		timeOptions := []discordgo.SelectMenuOption{
-			{Label: "0", Value: "00-02"},
-			{Label: "+2", Value: "02-04"},
-			{Label: "+4", Value: "04-06"},
-			{Label: "+6", Value: "06-08"},
-			{Label: "+8", Value: "08-10"},
-			{Label: "+10", Value: "10-12"},
-			{Label: "+12", Value: "12-14"},
-			{Label: "+14", Value: "14-16"},
-			{Label: "+16", Value: "16-18"},
-			{Label: "+18", Value: "18-20"},
-			{Label: "+20", Value: "20-22"},
-			{Label: "+22", Value: "22-24"},
+			{Label: "+0", Value: "00-01"},
+			{Label: "+1", Value: "01-02"},
+			{Label: "+2", Value: "02-03"},
+			{Label: "+3", Value: "03-04"},
+			{Label: "+4", Value: "04-05"},
+			{Label: "+5", Value: "05-06"},
+			{Label: "+6", Value: "06-07"},
+			{Label: "+7", Value: "07-08"},
+			{Label: "+8", Value: "08-09"},
+			{Label: "-4", Value: "20-21"},
+			{Label: "-3", Value: "21-22"},
+			{Label: "-2", Value: "22-23"},
+			{Label: "-1", Value: "23-24"},
 		}
 		for i := range timeOptions {
 			if b != nil && slices.Contains(b.Availability.Timeslots, timeOptions[i].Value) {
