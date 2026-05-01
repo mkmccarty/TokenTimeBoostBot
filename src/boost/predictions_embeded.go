@@ -418,17 +418,17 @@ func sendPredOne(s *discordgo.Session, i *discordgo.InteractionCreate, contractI
 			pePos := pos + len(friUltra)
 			peDrop := friTime.AddDate(0, 0, 7*pePos)
 			fields = append(fields, &discordgo.MessageEmbedField{
-				Name:   "PE Leggacy Bracket",
+				Name:   "Non-Ultra Bracket",
 				Value:  "_ _ PE Leggacy (Friday)",
 				Inline: true,
 			})
 			fields = append(fields, &discordgo.MessageEmbedField{
-				Name:   "PE Predicted Drop",
+				Name:   "Non-Ultra Drop",
 				Value:  "_ _ " + bottools.WrapTimestamp(peDrop.Unix(), bottools.TimestampLongDate),
 				Inline: true,
 			})
 			fields = append(fields, &discordgo.MessageEmbedField{
-				Name:   "PE Queue Position",
+				Name:   "Non-Ultra Position",
 				Value:  fmt.Sprintf("_ _ %d of %d", pePos+1, len(friUltra)+len(friPE)),
 				Inline: true,
 			})
@@ -597,8 +597,7 @@ func getWeeklyEmbeds(wedTime, friTime time.Time, userName, botName, botIconURL s
 	if legend.Len() > 0 {
 		footer.WriteString("Legend: " + legend.String() + "\n")
 	}
-	footer.WriteString(botName + " • /pred weekly • Implemented by @james.wst\n")
-	footer.WriteString("User: " + userName)
+	footer.WriteString(botName + " • /pred weekly • User: " + userName)
 
 	var title string
 	if weeklyType == 0 {
@@ -649,8 +648,7 @@ func getCollectibleEmbeds(collectibles map[string]collectiblePrediction, userNam
 		if legend.Len() > 0 {
 			footer.WriteString("Legend: " + legend.String() + "\n")
 		}
-		footer.WriteString(botName + " • /pred collectibles • Implemented by @james.wst\n")
-		footer.WriteString("User: " + userName)
+		footer.WriteString(botName + " • /pred collectibles • User: " + userName)
 		return &discordgo.MessageEmbedFooter{Text: footer.String(), IconURL: botIconURL}
 	}
 
