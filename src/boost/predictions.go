@@ -425,8 +425,6 @@ func writeFridayPredictions(dropTime time.Time, peContracts, ultraContracts []ei
 
 // writeFooter appends the legend and attribution lines.
 // Only season emojis for seasons that appear in usedSeasons are shown.
-// writeFooter appends the legend and attribution lines.
-// Only season emojis for seasons that appear in usedSeasons are shown.
 func writeFooter(b *strings.Builder, iconCoop string, usedSeasons map[string]bool) {
 	b.WriteString("-# ")
 	b.WriteString(iconCoop)
