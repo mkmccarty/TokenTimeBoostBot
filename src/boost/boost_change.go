@@ -178,6 +178,20 @@ func GetSlashBumpCommand(cmd string) *discordgo.ApplicationCommand {
 	}
 }
 
+// GetSlashBumpCRCommand returns the command definition for bumping CR messages
+func GetSlashBumpCRCommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name: cmd,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
+		Description: "Redraw the chicken run messages to the timeline.",
+	}
+}
+
 // GetSlashToggleContractPingsCommand returns the command definition for toggling pings
 func GetSlashToggleContractPingsCommand(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"maps"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -47,6 +48,56 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 		}
 	}
 	return nil
+}
+
+// bumpCRMessages posts a new CR request message in each contract location, replacing the old one with a redirect.
+func bumpCRMessages(s *discordgo.Session, contract *Contract) {
+	contract.mutex.Lock()
+	locations := make([]*LocationData, len(contract.Location))
+	copy(locations, contract.Location)
+	crIDs := make(map[string]string, len(contract.CRMessageIDs))
+	maps.Copy(crIDs, contract.CRMessageIDs)
+	contract.mutex.Unlock()
+
+	for _, location := range locations {
+		contract.mutex.Lock()
+		components, _ := buildCRMessageComponents(contract, location.RoleMention)
+		contract.mutex.Unlock()
+
+		if components == nil {
+			continue
+		}
+
+		var data discordgo.MessageSend
+		data.Flags = discordgo.MessageFlagsIsComponentsV2
+		data.Components = components
+		data.AllowedMentions = &discordgo.MessageAllowedMentions{}
+		newMsg, err := s.ChannelMessageSendComplex(location.ChannelID, &data)
+		if err != nil {
+			log.Printf("bumpCRMessages send error: contractHash=%s channelID=%s error=%v",
+				contract.ContractHash, location.ChannelID, err)
+			continue
+		}
+
+		contract.mutex.Lock()
+		setChickenRunMessageID(contract, location.ChannelID, newMsg.ID)
+		contract.mutex.Unlock()
+
+		if existingMsgID := crIDs[location.ChannelID]; existingMsgID != "" {
+			newMsgLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", location.GuildID, location.ChannelID, newMsg.ID)
+			movedComponents := []discordgo.MessageComponent{
+				discordgo.TextDisplay{Content: fmt.Sprintf("-# Chicken Run request moved: [View updated message](%s)", newMsgLink)},
+			}
+			oldEdit := discordgo.NewMessageEdit(location.ChannelID, existingMsgID)
+			oldEdit.Flags = discordgo.MessageFlagsIsComponentsV2
+			oldEdit.AllowedMentions = &discordgo.MessageAllowedMentions{}
+			oldEdit.Components = &movedComponents
+			if _, err := s.ChannelMessageEditComplex(oldEdit); err != nil {
+				log.Printf("bumpCRMessages edit old error: contractHash=%s channelID=%s messageID=%s error=%v",
+					contract.ContractHash, location.ChannelID, existingMsgID, err)
+			}
+		}
+	}
 }
 
 func refreshBoostListMessage(s *discordgo.Session, contract *Contract, updateSignupMessage bool) {

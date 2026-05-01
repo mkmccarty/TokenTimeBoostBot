@@ -641,11 +641,11 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	switch contract.State {
 	case ContractStateFastrun:
 		guidanceStr.WriteString("\n")
-		guidanceStr.WriteString("> Active Booster: " + boostIcon + " when boosting. \n")
-		guidanceStr.WriteString("> Anyone: " + tokenStr + " when sending tokens ")
-		guidanceStr.WriteString(". ❓ Help.\n")
+		guidanceStr.WriteString("> -# Active Booster: " + boostIcon + " when boosting. \n")
+		guidanceStr.WriteString("> -# Anyone: " + tokenStr + " when sending tokens")
+		guidanceStr.WriteString(". ❓ Help under Boost Menu.\n")
 		if contract.CoopSize != len(contract.Order) {
-			guidanceStr.WriteString("> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n")
+			guidanceStr.WriteString("-# > Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n")
 		}
 		totalContentLength := guidanceStr.Len()
 		for _, component := range components {
@@ -664,13 +664,13 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 			runReady, _, _ := ei.GetBotEmoji("runready")
 
 			guidanceStr.WriteString(".\n")
-			guidanceStr.WriteString("> " + runReady + " when you're ready for others to run chickens on your farm.\n")
-			guidanceStr.WriteString("> 💰 is used by the Banker to send the requested number of tokens to the booster.\n")
-			guidanceStr.WriteString("> -When active Booster is sent tokens by the Banker they are marked as boosted.\n")
-			guidanceStr.WriteString("> -Adjust the number of boost tokens you want by adding a 6️⃣ to 🔟 reaction to the boost list message.\n")
+			guidanceStr.WriteString("-# > " + runReady + " when you're ready for others to run chickens on your farm.\n")
+			guidanceStr.WriteString("-# > 💰 is used by the Banker to send the requested number of tokens to the booster.\n")
+			guidanceStr.WriteString("-# > -When active Booster is sent tokens by the Banker they are marked as boosted.\n")
+			guidanceStr.WriteString("-# > -Adjust the number of boost tokens you want by adding a 6️⃣ to 🔟 reaction to the boost list message.\n")
 		}
 		if contract.CoopSize != len(contract.Order) {
-			guidanceStr.WriteString("> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n")
+			guidanceStr.WriteString("-# > Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n")
 		}
 		// Sum the Content lengths of the components for this length test
 		// If the length of the builder is less than 1900 characters, add the guidanceStr
@@ -694,8 +694,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 			Divider: &divider,
 			Spacing: &spacing,
 		})
-		guidanceStr.WriteString("> Waiting for other(s) to join...\n")
-		guidanceStr.WriteString("> Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n")
+		guidanceStr.WriteString("-# > Waiting for other(s) to join...\n")
+		guidanceStr.WriteString("-# > Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n")
 		totalContentLength := guidanceStr.Len()
 		for _, component := range components {
 			if textDisplay, ok := component.(*discordgo.TextDisplay); ok {
