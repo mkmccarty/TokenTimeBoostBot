@@ -65,30 +65,11 @@ func GetAvailabilityComponents(s *discordgo.Session, contract *Contract, userID 
 		if contract.PredictionSignup && len(contract.PredictionInfo) > 0 {
 			options := make([]discordgo.SelectMenuOption, len(contract.PredictionInfo))
 			for idx, pi := range contract.PredictionInfo {
-				eggName := pi.EggName
-				if !strings.HasPrefix(strings.ToLower(eggName), "egg_") {
-					eggName = "egg_" + eggName
-				}
 				isDefault := false
 				if b != nil && slices.Contains(b.Availability.Contract, pi.ContractID) {
 					isDefault = true
 				}
-				emojiStr := ei.FindEggEmoji(pi.EggName)
-				var componentEmoji *discordgo.ComponentEmoji
-				if emojiStr != "" {
-					// Parse emoji string format: <:name:id>
-					parts := strings.Split(emojiStr, ":")
-					if len(parts) >= 3 {
-						emojiName := parts[1]
-						emojiID := strings.TrimSuffix(parts[2], ">")
-						componentEmoji = &discordgo.ComponentEmoji{
-							Name: emojiName,
-							ID:   emojiID,
-						}
-					} else {
-						componentEmoji = &discordgo.ComponentEmoji{Name: emojiStr}
-					}
-				}
+				componentEmoji := ei.FindEggComponentEmoji(pi.EggName)
 				options[idx] = discordgo.SelectMenuOption{
 					Label:       pi.Name,
 					Value:       pi.ContractID,

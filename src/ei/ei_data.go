@@ -209,6 +209,28 @@ func FindEggEmoji(eggOrig string) string {
 	return eggIconString
 }
 
+// FindEggComponentEmoji will find the token emoji and return it as a ComponentEmoji
+func FindEggComponentEmoji(eggOrig string) *discordgo.ComponentEmoji {
+	eggOrig = strings.ReplaceAll(eggOrig, " ", "")
+	eggOrig = strings.ReplaceAll(eggOrig, "-", "")
+	eggOrig = strings.ReplaceAll(eggOrig, "_", "")
+
+	if !strings.HasPrefix(eggOrig, "egg_") {
+		eggOrig = "egg_" + eggOrig
+	}
+
+	if eggIcon, ok := EmoteMap[strings.ToLower(eggOrig)]; ok {
+		return &discordgo.ComponentEmoji{
+			Name: eggIcon.Name,
+			ID:   eggIcon.ID,
+		}
+	}
+	return &discordgo.ComponentEmoji{
+		Name: EmoteMap[eggUnknownName].Name,
+		ID:   EmoteMap[eggUnknownName].ID,
+	}
+}
+
 // Emotes is a struct to hold the name and ID of an egg emoji
 type Emotes struct {
 	Name     string
