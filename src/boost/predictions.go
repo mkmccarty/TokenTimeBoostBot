@@ -426,9 +426,7 @@ func writeFridayPredictions(dropTime time.Time, peContracts, ultraContracts []ei
 // writeFooter appends the legend and attribution lines.
 // Only season emojis for seasons that appear in usedSeasons are shown.
 func writeFooter(b *strings.Builder, iconCoop string, usedSeasons map[string]bool) {
-	b.WriteString("-# ")
-	b.WriteString(iconCoop)
-	b.WriteString(" Coop Size")
+	fmt.Fprintf(b, "-# %s Coop Size | %s Tokens/min", iconCoop, ei.GetBotEmojiMarkdown("token"))
 	var seasonEmojis strings.Builder
 	for _, s := range seasonsOrdered {
 		if usedSeasons[s.Key] {
@@ -442,7 +440,11 @@ func writeFooter(b *strings.Builder, iconCoop string, usedSeasons map[string]boo
 	if cmd == "" {
 		cmd = "/predictions"
 	}
-	fmt.Fprintf(b, "\n-# Boost Bot | %s | %s\n", cmd, bottools.WrapTimestamp(time.Now().Unix(), bottools.TimestampShortDateTime))
+	botIcon := ei.GetBotEmojiMarkdown("boostbot")
+	if botIcon != "" {
+		botIcon += " "
+	}
+	fmt.Fprintf(b, "\n-# %sBoost Bot | %s | %s\n", botIcon, cmd, bottools.WrapTimestamp(time.Now().Unix(), bottools.TimestampShortDateTime))
 }
 
 const timeSaverContractID = "time-saver-2021"
