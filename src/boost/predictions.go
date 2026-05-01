@@ -438,21 +438,11 @@ func writeFooter(b *strings.Builder, iconCoop string, usedSeasons map[string]boo
 	if seasonEmojis.Len() > 0 {
 		fmt.Fprintf(b, " | %s Seasonal LB", seasonEmojis.String())
 	}
-	predWeekly := bottools.GetFormattedCommand("pred weekly")
-	predCollectibles := bottools.GetFormattedCommand("pred collectibles")
-	if predWeekly != "" || predCollectibles != "" {
-		b.WriteString("\n-# Try the new embed view: ")
-		if predWeekly != "" {
-			b.WriteString(predWeekly)
-		}
-		if predCollectibles != "" {
-			if predWeekly != "" {
-				b.WriteString(" • ")
-			}
-			b.WriteString(predCollectibles)
-		}
+	cmd := bottools.GetFormattedCommand("predictions")
+	if cmd == "" {
+		cmd = "/predictions"
 	}
-	b.WriteString("\n-# Implemented by @james.wst • Ping for feedback and issues\n")
+	fmt.Fprintf(b, "\n-# Boost Bot | %s | %s\n", cmd, bottools.WrapTimestamp(time.Now().Unix(), bottools.TimestampShortDateTime))
 }
 
 const timeSaverContractID = "time-saver-2021"
@@ -508,9 +498,11 @@ func writeContracts(b *strings.Builder, contracts []ei.EggIncContract, iconCoop 
 		// Second line
 		fmt.Fprintf(
 			b,
-			"-# _       _ Dur: **%s** CS: **%.0f**\n",
+			"-# _       _ Dur: **%s** CS: **%.0f** %s/%dm\n",
 			bottools.FmtDuration(c.EstimatedDuration.Round(time.Minute)),
 			c.Cxp,
+			ei.GetBotEmojiMarkdown("token"),
+			c.MinutesPerToken,
 		)
 
 		// Third line for AWOL contracts
