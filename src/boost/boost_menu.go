@@ -296,8 +296,7 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		userID := i.Member.User.ID
 		redraw := buttonReactionSwap(s, i.GuildID, i.ChannelID, contract, userID)
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
 		})
 		if redraw {
 			refreshBoostListMessage(s, contract, false)
@@ -306,8 +305,7 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		userID := i.Member.User.ID
 		_, redraw := buttonReactionLast(s, i.GuildID, i.ChannelID, contract, userID)
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
 		})
 		if redraw {
 			refreshBoostListMessage(s, contract, false)
