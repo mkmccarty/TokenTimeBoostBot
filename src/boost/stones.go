@@ -250,6 +250,7 @@ type artifactSet struct {
 	staabArtifacts []string
 	colleggBuffs   ei.DimensionBuffs
 	artifactSlots  []string // Name of artifacts in each slot
+	permitLevel    uint32
 }
 
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
@@ -357,6 +358,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		as.deliveredEggs = c.GetContributionAmount()
 		as.name = c.GetUserName()
 		as.nameRaw = as.name
+		as.permitLevel = c.GetFarmInfo().GetPermitLevel()
 		// Strip any multibyte characters from as.name and replace with ~
 		/*
 			cleanName := make([]rune, len(as.name))
@@ -369,7 +371,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			}
 			as.name = strings.ReplaceAll(string(cleanName), "\x00", "")
 		*/
-		p := c.GetProductionParams()
+		p := c.GetProductionParams() // production params
 		as.farmCapacity = p.GetFarmCapacity()
 		as.farmPopulation = p.GetFarmPopulation()
 		as.elr = p.GetElr()
@@ -836,7 +838,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			notes += "🤥"
 		}
 
-		if as.numSilos != 10 {
+		if as.numSilos != 10 && as.permitLevel == 1 {
 			needLegend = true
 			notes += "🫙"
 			addLegend("🫙")
