@@ -63,6 +63,7 @@ func printActiveContractDetails(userID string, archive []*ei.LocalContract, cont
 		if c.ContractVersion == 2 { //&& c.ValidUntil.Unix() > time.Now().Unix() {
 			artifactIcons := ""
 			teamworkIcons := []string{}
+			colleggtiblesDiffStr := ""
 			deliveryTarget := c.TargetAmount[len(c.TargetAmount)-1] / float64(c.MaxCoopSize)
 
 			log.Printf("Evaluating contract %s coop %s for user %s\n", contractID, coopID, eiUserName)
@@ -103,6 +104,36 @@ func printActiveContractDetails(userID string, archive []*ei.LocalContract, cont
 							}
 							// sort in alpha order
 							sort.Strings(teamworkIcons)
+
+							// sort in alpha order
+							sort.Strings(teamworkIcons)
+
+							cInfo := contrib.GetColleggtibleInfo()
+							if cInfo != nil {
+								oldBuffs := ei.GetColleggtibleBuffsFromInfo(cInfo)
+								maxELR, maxShip, maxHab, _ := ei.GetColleggtibleValues()
+								var diffs []string
+								formatDiff := func(emoji string, diff float64) string {
+									val := fmt.Sprintf("%s+%.2f%%", emoji, diff*100.0)
+									val = strings.ReplaceAll(val, ".00", "")
+									val = strings.ReplaceAll(val, ".25", "¼")
+									val = strings.ReplaceAll(val, ".50", "½")
+									val = strings.ReplaceAll(val, ".75", "¾")
+									return val
+								}
+								if maxELR-oldBuffs.ELR > 0.001 {
+									diffs = append(diffs, formatDiff("📦", maxELR-oldBuffs.ELR))
+								}
+								if maxShip-oldBuffs.SR > 0.001 {
+									diffs = append(diffs, formatDiff("🚚", maxShip-oldBuffs.SR))
+								}
+								if maxHab-oldBuffs.Hab > 0.001 {
+									diffs = append(diffs, formatDiff("🛖", maxHab-oldBuffs.Hab))
+								}
+								if len(diffs) > 0 {
+									colleggtiblesDiffStr = fmt.Sprintf("**Colleggtibles Gained Since Run:** %s", strings.Join(diffs, " "))
+								}
+							}
 							break
 						}
 					}
@@ -200,6 +231,9 @@ func printActiveContractDetails(userID string, archive []*ei.LocalContract, cont
 				fmt.Fprintf(&builder, "**Contrib:** %s **TVal**: %s  **CR:** %s\n", contribCheck, tokCheck, crCheck)
 			}
 			fmt.Fprintf(&builder, "%s  **Teamwork:** %.3f  %s\n", artifactIcons, evaluation.GetTeamworkScore(), strings.Join(teamworkIcons, ""))
+			if colleggtiblesDiffStr != "" {
+				fmt.Fprintf(&builder, "%s\n", colleggtiblesDiffStr)
+			}
 
 			builder.WriteString("\n\n")
 			components = append(components, &discordgo.TextDisplay{
