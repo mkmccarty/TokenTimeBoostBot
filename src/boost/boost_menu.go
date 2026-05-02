@@ -303,7 +303,7 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	case "last":
 		userID := i.Member.User.ID
-		redraw, _ := buttonReactionLast(s, i.GuildID, i.ChannelID, contract, userID)
+		_, redraw := buttonReactionLast(s, i.GuildID, i.ChannelID, contract, userID)
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseDeferredMessageUpdate,
 		})
