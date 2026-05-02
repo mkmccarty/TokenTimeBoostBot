@@ -415,7 +415,7 @@ func sendPredOne(s *discordgo.Session, i *discordgo.InteractionCreate, contractI
 			Inline: true,
 		})
 		if c.HasPE && !c.Ultra {
-			pePos := pos + len(friUltra)
+			pePos := pos + len(friPE)
 			peDrop := friTime.AddDate(0, 0, 7*pePos)
 			fields = append(fields, &discordgo.MessageEmbedField{
 				Name:   "Non-Ultra Bracket",
