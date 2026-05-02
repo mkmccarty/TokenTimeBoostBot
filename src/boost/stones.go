@@ -248,11 +248,8 @@ type artifactSet struct {
 	collegg        []string
 	soloData       [][]string
 	staabArtifacts []string
-	colleggSR      float64
-	colleggELR     float64
-	colleggHab     float64
+	colleggBuffs   ei.DimensionBuffs
 	artifactSlots  []string // Name of artifacts in each slot
-	//colleggELR     float64
 }
 
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
@@ -352,8 +349,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	for _, c := range contributors {
 
-		//for _, c := range coopStatus.GetContributors() {
-
 		totalContributions += c.GetContributionAmount()
 		totalContributions += -(c.GetContributionRate() * c.GetFarmInfo().GetTimestamp()) // offline eggs
 		contributionRatePerSecond += c.GetContributionRate()
@@ -443,6 +438,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				}
 			}
 		*/
+		as.colleggBuffs = ei.GetColleggtibleBuffsFromInfo(c.GetColleggtibleInfo())
 
 		//userLayRate *= 3600 // convert to hr rate
 		habPopulation := 0.0
@@ -639,28 +635,28 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		privateFarm := false
 		// Determine Colleggtible Increase
-
-		collegHab := as.farmCapacity / (as.baseHab * (1 + as.gusset.percent/100.0))
-		// Check for hab size
-		if collegHab < 1.00 {
-			collegHab = 1.00
-		}
-		as.colleggHab = math.Round(collegHab*precisionConst) / precisionConst
-
+		/*
+			collegHab := as.farmCapacity / (as.baseHab * (1 + as.gusset.percent/100.0))
+			// Check for hab size
+			if collegHab < 1.00 {
+				collegHab = 1.00
+			}
+			as.colleggBuffs.Hab = math.Round(collegHab*precisionConst) / precisionConst
+		*/
 		if maxColleggtibleHab > 1.0 {
-			roundedCollegHab := math.Round(collegHab*precisionConst) / precisionConst
+			roundedCollegHab := math.Round(as.colleggBuffs.Hab*precisionConst) / precisionConst
 			if roundedCollegHab > 1.000 && roundedCollegHab < maxColleggtibleHab {
 				//log.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
 				//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
 				//farmerstate.SetMiscSettingString(as.name, "coll-elr", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
-				val := fmt.Sprintf("%2.2f🛖", (collegHab-1.0)*100.0)
+				val := fmt.Sprintf("%2.2f🛖", (as.colleggBuffs.Hab-1.0)*100.0)
 				val = strings.ReplaceAll(val, ".00", "")
 				val = strings.ReplaceAll(val, ".25", "¼")
 				val = strings.ReplaceAll(val, ".5", "½")
 				val = strings.ReplaceAll(val, ".75", "¾")
 				as.collegg = append(as.collegg, val)
 				anyColleggtibles = true
-			} else if collegHab <= 1.0 {
+			} else if as.colleggBuffs.Hab <= 1.0 {
 				as.collegg = append(as.collegg, "🛖")
 				//anyColleggtiblesToShow = true
 			}
@@ -678,13 +674,14 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			as.bestLR = stoneLayRateNow
 			layingRate = stoneLayRateNow
 		}
-		collegELR := chickELR / (stoneLayRateNow * collegHab)
-		//log.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
-		// No IHR Egg yet, this will need to be revisited
-		as.colleggELR = math.Round(collegELR*precisionConst) / precisionConst
-
+		/*
+			collegELR := chickELR / (stoneLayRateNow * collegHab)
+			//log.Printf("Calc ELR: %2.3f  Param.Elr: %2.3f   Diff:%2.2f\n", stoneLayRateNow, chickELR, (chickELR / stoneLayRateNow))
+			// No IHR Egg yet, this will need to be revisited
+			//as.colleggBuffs.ELR = math.Round(collegELR*precisionConst) / precisionConst
+		*/
 		if maxCollectibleELR > 1.0 {
-			roundedCollegELR := math.Round(collegELR*precisionConst) / precisionConst
+			roundedCollegELR := math.Round(as.colleggBuffs.ELR*precisionConst) / precisionConst
 			if roundedCollegELR > 1.000 && roundedCollegELR < maxCollectibleELR {
 				//log.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
 				//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
@@ -696,7 +693,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				val = strings.ReplaceAll(val, ".75", "¾")
 				as.collegg = append(as.collegg, val)
 				anyColleggtibles = true
-			} else if collegELR == 1.0 {
+			} else if as.colleggBuffs.ELR == 1.0 {
 				as.collegg = append(as.collegg, "📦")
 				//anyColleggtiblesToShow = true
 			}
@@ -713,11 +710,11 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			shippingRate = stoneShipRateNow
 		}
 		//log.Printf("Calc SR: %2.3f  param.Sr: %2.3f   Diff:%2.2f\n", stoneShipRateNow, as.sr/1e15, (as.sr/1e15)/stoneShipRateNow)
-		collegShip := (as.sr / 1e15) / stoneShipRateNow
-		as.colleggSR = math.Round(collegShip*precisionConst) / precisionConst
+		//collegShip := (as.sr / 1e15) / stoneShipRateNow
+		//as.colleggBuffs.SR = math.Round(collegShip*precisionConst) / precisionConst
 
 		if maxColllectibleShip > 1.0 {
-			roundedCollegShip := math.Round(collegShip*precisionConst) / precisionConst
+			roundedCollegShip := math.Round(as.colleggBuffs.SR*precisionConst) / precisionConst
 			if roundedCollegShip > 1.000 && roundedCollegShip < maxColllectibleShip {
 				val := fmt.Sprintf("%2.2f🚚", (roundedCollegShip-1.0)*100.0)
 				val = strings.ReplaceAll(val, ".00", "")
@@ -726,9 +723,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				val = strings.ReplaceAll(val, ".75", "¾")
 				as.collegg = append(as.collegg, val)
 				anyColleggtibles = true
-			} else if collegShip == 1.0 {
+			} else if as.colleggBuffs.SR == 1.0 {
 				as.collegg = append(as.collegg, "🚚")
-				//anyColleggtiblesToShow = true
 			}
 		}
 		/*
@@ -772,9 +768,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			if !privateFarm {
 				stoneLayRate *= (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
 			}
-			stoneLayRate *= math.Pow(stoneBonusIncrease, float64(i)) * collegELR * collegHab
+			stoneLayRate *= math.Pow(stoneBonusIncrease, float64(i)) * as.colleggBuffs.ELR * as.colleggBuffs.Hab
 
-			stoneShipRate := shippingRate * math.Pow(stoneBonusIncrease, float64((as.stones-i))) * collegShip
+			stoneShipRate := shippingRate * math.Pow(stoneBonusIncrease, float64((as.stones-i))) * as.colleggBuffs.SR
 
 			bestMin := min(stoneLayRate, stoneShipRate)
 			if bestMin > bestTotal {
@@ -790,9 +786,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		for i := 0; i <= as.stones; i++ {
 			stoneLayRate := layingRate * (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
-			stoneLayRate = stoneLayRate * math.Pow(1.05, float64(i)) * collegELR * collegHab
+			stoneLayRate = stoneLayRate * math.Pow(1.05, float64(i)) * as.colleggBuffs.ELR * as.colleggBuffs.Hab
 
-			stoneShipRate := shippingRate * math.Pow(1.05, float64((as.stones-i))) * collegShip
+			stoneShipRate := shippingRate * math.Pow(1.05, float64((as.stones-i))) * as.colleggBuffs.SR
 
 			soloData := []string{
 				bottools.FitString(as.name, 12, bottools.StringAlignRight),
@@ -960,7 +956,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			tableData = append(tableData, strings.Join(statsLine, " "))
 
 			if as.name != "[departed]" {
-				url := bottools.GetStaabmiaLink(true, dimension, rate, int(everyoneDeflectorPercent), as.staabArtifacts, as.colleggSR, as.colleggELR, as.colleggHab)
+				url := bottools.GetStaabmiaLink(true, dimension, rate, int(everyoneDeflectorPercent), as.staabArtifacts, as.colleggBuffs.SR, as.colleggBuffs.ELR, as.colleggBuffs.Hab)
 				fmt.Fprintf(&builderURL, "🔗[%s](%s)\n", as.nameRaw, url)
 				fmt.Fprintf(&tileBuilder, "[%sCalc](%s)", ei.GetBotEmojiMarkdown("staab"), url)
 			}

@@ -124,3 +124,15 @@ func GetColleggtibleBuffs(contracts *MyContracts) DimensionBuffs {
 
 	return buffs
 }
+
+// GetColleggtibleBuffsFromInfo calculates the total buffs from a PlayerColleggtibleInfo object
+func GetColleggtibleBuffsFromInfo(info *PlayerColleggtibleInfo) DimensionBuffs {
+	buffs := newDimensionBuffsIdentity()
+	if info == nil {
+		return buffs
+	}
+	for _, buff := range info.GetBuffs() {
+		applyDimensionBuff(&buffs, buff.GetDimension(), buff.GetValue())
+	}
+	return buffs
+}
