@@ -81,13 +81,6 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			discordgo.TextDisplay{Content: estimateText},
 		}
 
-		if predOneCompact := getPredOneCompactText(contractID); predOneCompact != "" {
-			components = append(components,
-				bottools.NewSmallSeparatorComponent(true),
-				discordgo.TextDisplay{Content: predOneCompact},
-			)
-		}
-
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
@@ -106,74 +99,6 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			Components: []discordgo.MessageComponent{},
 		},
 	})
-}
-
-func getPredOneCompactText(contractID string) string {
-	c, ok := ei.EggIncContractsAll[contractID]
-	if !ok {
-		return ""
-	}
-
-	// Only append pred-one details for unavailable contracts.
-	if c.ContractVersion != 1 && !c.ValidUntil.Before(time.Now().UTC()) {
-		return ""
-	}
-
-	_, wedTime, friTime, _ := contractTimes9amPacific(0)
-
-	var wed, friPE, friUltra []ei.EggIncContract
-	for _, bc := range ei.EggIncContractsAll {
-		switch {
-		case bc.HasPE && !bc.Ultra:
-			friUltra = append(friUltra, bc)
-		case bc.HasPE && bc.Ultra:
-			friPE = append(friPE, bc)
-		default:
-			wed = append(wed, bc)
-		}
-	}
-	sort.Slice(wed, func(a, b int) bool { return sortValidFrom(wed[a], wed[b]) })
-	sort.Slice(friPE, func(a, b int) bool { return sortValidFrom(friPE[a], friPE[b]) })
-	sort.Slice(friUltra, func(a, b int) bool { return sortValidFrom(friUltra[a], friUltra[b]) })
-
-	var bracket []ei.EggIncContract
-	var baseTime time.Time
-	var bracketLabel string
-	switch {
-	case c.HasPE && !c.Ultra:
-		bracket, baseTime, bracketLabel = friUltra, friTime, "Ultra PE Leggacy (Friday)"
-	case c.HasPE && c.Ultra:
-		bracket, baseTime, bracketLabel = friPE, friTime, "PE Leggacy (Friday)"
-	default:
-		bracket, baseTime, bracketLabel = wed, wedTime, "Wednesday Leggacy"
-	}
-
-	pos := -1
-	for idx, bc := range bracket {
-		if bc.ID == contractID {
-			pos = idx
-			break
-		}
-	}
-	if pos < 0 {
-		return ""
-	}
-
-	var b strings.Builder
-	b.WriteString("**Pred One**\n")
-	fmt.Fprintf(&b, "-# Bracket: %s\n", bracketLabel)
-	fmt.Fprintf(&b, "-# Predicted Drop: %s\n", bottools.WrapTimestamp(baseTime.AddDate(0, 0, 7*pos).Unix(), bottools.TimestampLongDate))
-	fmt.Fprintf(&b, "-# Queue Position: %d of %d\n", pos+1, len(bracket))
-
-	if c.HasPE && !c.Ultra {
-		pePos := pos + len(friPE)
-		peDrop := friTime.AddDate(0, 0, 7*pePos)
-		fmt.Fprintf(&b, "-# Non-Ultra Drop: %s\n", bottools.WrapTimestamp(peDrop.Unix(), bottools.TimestampLongDate))
-		fmt.Fprintf(&b, "-# Non-Ultra Position: %d of %d\n", pePos+1, len(friUltra)+len(friPE))
-	}
-
-	fmt.Fprintf(&b, "-# Last Seen: %s", bottools.WrapTimestamp(c.ValidFrom.Unix(), bottools.TimestampLongDate))
-	return b.String()
 }
 
 func getContractEstimateString(contractID string, includeLeggySet bool) string {
@@ -370,12 +295,72 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 
 	noteStr := ""
 	if c.ContractVersion == 1 {
-		noteStr = fmt.Sprintf("**This is a ELITE Version 1 contract last seen <t:%d:F>.**\n", c.ValidFrom.Unix())
+		noteStr = fmt.Sprintf("**ELITE V1 contract** last seen <t:%d:D>.\n", c.ValidFrom.Unix())
 	} else if c.ValidUntil.Before(time.Now().UTC()) {
-		noteStr = fmt.Sprintf("**This is an unavailable V2 contract last seen <t:%d:F>.**\n", c.ValidFrom.Unix())
+		noteStr = fmt.Sprintf("**Unavailable V2 contract** last seen <t:%d:D>.\n", c.ValidFrom.Unix())
+		noteStr += getContractPredLine(c.ID)
 	}
 
 	return noteStr + str
+}
+
+// getContractPredLine returns a single prediction line for an unavailable contract,
+// including the ultra prediction date on the same line if the contract is a PE ultra.
+func getContractPredLine(contractID string) string {
+	c, ok := ei.EggIncContractsAll[contractID]
+	if !ok {
+		return ""
+	}
+
+	_, wedTime, friTime, _ := contractTimes9amPacific(0)
+
+	var wed, friPE, friUltra []ei.EggIncContract
+	for _, bc := range ei.EggIncContractsAll {
+		switch {
+		case bc.HasPE && !bc.Ultra:
+			friUltra = append(friUltra, bc)
+		case bc.HasPE && bc.Ultra:
+			friPE = append(friPE, bc)
+		default:
+			wed = append(wed, bc)
+		}
+	}
+	sort.Slice(wed, func(a, b int) bool { return sortValidFrom(wed[a], wed[b]) })
+	sort.Slice(friPE, func(a, b int) bool { return sortValidFrom(friPE[a], friPE[b]) })
+	sort.Slice(friUltra, func(a, b int) bool { return sortValidFrom(friUltra[a], friUltra[b]) })
+
+	var bracket []ei.EggIncContract
+	var baseTime time.Time
+	switch {
+	case c.HasPE && !c.Ultra:
+		bracket, baseTime = friUltra, friTime
+	case c.HasPE && c.Ultra:
+		bracket, baseTime = friPE, friTime
+	default:
+		bracket, baseTime = wed, wedTime
+	}
+
+	pos := -1
+	for idx, bc := range bracket {
+		if bc.ID == contractID {
+			pos = idx
+			break
+		}
+	}
+	if pos < 0 {
+		return ""
+	}
+
+	predDate := baseTime.AddDate(0, 0, 7*pos)
+	line := fmt.Sprintf("-# 🔮 %s", bottools.WrapTimestamp(predDate.Unix(), bottools.TimestampShortDate))
+
+	if c.HasPE && !c.Ultra {
+		pePos := pos + len(friPE)
+		ultraDate := friTime.AddDate(0, 0, 7*pePos)
+		line += fmt.Sprintf(" · %s %s", ei.GetBotEmojiMarkdown("ultra"), bottools.WrapTimestamp(ultraDate.Unix(), bottools.TimestampShortDate))
+	}
+
+	return line + "\n"
 }
 
 // calculateSingleEstimate computes the completion duration for a contract
