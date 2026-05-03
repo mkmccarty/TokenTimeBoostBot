@@ -573,11 +573,12 @@ func PopulateColleggtiblesInArtifactMap() {
 		shipBuff := 1.0
 		layBuff := 1.0
 
-		if egg.Dimension == GameModifier_SHIPPING_CAPACITY {
+		switch egg.Dimension {
+		case GameModifier_SHIPPING_CAPACITY:
 			if len(egg.DimensionValue) > 0 {
 				shipBuff = egg.DimensionValue[len(egg.DimensionValue)-1]
 			}
-		} else if egg.Dimension == GameModifier_EGG_LAYING_RATE || egg.Dimension == GameModifier_HAB_CAPACITY {
+		case GameModifier_EGG_LAYING_RATE, GameModifier_HAB_CAPACITY:
 			if len(egg.DimensionValue) > 0 {
 				layBuff = egg.DimensionValue[len(egg.DimensionValue)-1]
 			}
