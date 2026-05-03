@@ -103,6 +103,15 @@ func HandleForceDownloadCommand(s *discordgo.Session, i *discordgo.InteractionCr
 	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
 	if err != nil {
 		log.Println(err)
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "Unable to verify your permissions right now. Please try again.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{},
+			},
+		})
+		return
 	}
 	if perms&discordgo.PermissionAdministrator == 0 && userID != config.AdminUserID {
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -318,9 +327,14 @@ func writeFileAtomic(filename string, content []byte, perm os.FileMode) error {
 		_ = os.Remove(tmpName)
 	}()
 
-	if _, err := tmpFile.Write(content); err != nil {
+	n, err := tmpFile.Write(content)
+	if err != nil {
 		_ = tmpFile.Close()
 		return err
+	}
+	if n != len(content) {
+		_ = tmpFile.Close()
+		return io.ErrShortWrite
 	}
 	if err := tmpFile.Chmod(perm); err != nil {
 		_ = tmpFile.Close()

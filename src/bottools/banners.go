@@ -408,6 +408,9 @@ func addLabel(img *image.RGBA, x, y int, label string, face font.Face, textColor
 // Once downloaded, files are considered permanent — a sentinel file gates re-scanning for 7 days
 // to avoid hitting the GitHub API rate limit on dev restarts.
 func DownloadLatestEggImages(localDownloadDir string) error {
+	const successScanCooldown = 7 * 24 * time.Hour
+	const failureScanCooldown = 1 * time.Hour
+
 	// Ensure the local download directory exists.
 	if err := os.MkdirAll(localDownloadDir, 0755); err != nil {
 		return fmt.Errorf("failed to create local directory %s: %w", localDownloadDir, err)
@@ -415,7 +418,12 @@ func DownloadLatestEggImages(localDownloadDir string) error {
 
 	// If we scanned recently, skip the API call entirely. These files rarely change.
 	sentinel := filepath.Join(localDownloadDir, ".last_scan")
-	if info, err := os.Stat(sentinel); err == nil && time.Since(info.ModTime()) < 7*24*time.Hour {
+	if info, err := os.Stat(sentinel); err == nil && time.Since(info.ModTime()) < successScanCooldown {
+		return nil
+	}
+
+	failureSentinel := filepath.Join(localDownloadDir, ".last_scan_failed")
+	if info, err := os.Stat(failureSentinel); err == nil && time.Since(info.ModTime()) < failureScanCooldown {
 		return nil
 	}
 
@@ -438,78 +446,77 @@ func DownloadLatestEggImages(localDownloadDir string) error {
 	for _, content := range directoryContents {
 		// Only process files.
 		if content.GetType() == "file" {
-			downloadURL := content.GetDownloadURL()
-			if downloadURL == "" {
-				continue // Skip if there's no download URL.
-			}
-			// Only want banner related assets
-			stringsToCheck := []string{"egg_", "banner", "Always Together", "aco", "chill", "fastrun", "leaderboard", "winter", "spring", "summer", "fall"}
-			found := false
-			for _, str := range stringsToCheck {
-				if strings.Contains(content.GetName(), str) {
-					found = true
-					break
+			err := func() error {
+				downloadURL := content.GetDownloadURL()
+				if downloadURL == "" {
+					return nil // Skip if there's no download URL.
 				}
-			}
-			if !found {
-				continue
-			}
-
-			// If the file already exists, don't need to download it
-			localFilePath := filepath.Join(localDownloadDir, content.GetName())
-			if _, err := os.Stat(localFilePath); err == nil {
-				//log.Printf("File %s already exists, skipping download.\n", localFilePath)
-				continue
-			}
-
-			log.Printf("Downloading %s...\n", content.GetName())
-
-			// Make an HTTP request to download the file.
-			resp, err := http.Get(downloadURL)
-			if err != nil {
-				log.Printf("Error downloading file %s: %v\n", content.GetName(), err)
-				failedDownloads++
-				continue
-			}
-			defer func() {
-				if err := resp.Body.Close(); err != nil {
-					// Handle the error appropriately, e.g., logging or taking corrective actions
-					log.Printf("Failed to close: %v", err)
+				// Only want banner related assets
+				stringsToCheck := []string{"egg_", "banner", "Always Together", "aco", "chill", "fastrun", "leaderboard", "winter", "spring", "summer", "fall"}
+				found := false
+				for _, str := range stringsToCheck {
+					if strings.Contains(content.GetName(), str) {
+						found = true
+						break
+					}
 				}
+				if !found {
+					return nil
+				}
+
+				// If the file already exists, don't need to download it
+				localFilePath := filepath.Join(localDownloadDir, content.GetName())
+				if _, err := os.Stat(localFilePath); err == nil {
+					//log.Printf("File %s already exists, skipping download.\n", localFilePath)
+					return nil
+				}
+
+				log.Printf("Downloading %s...\n", content.GetName())
+
+				// Make an HTTP request to download the file.
+				resp, err := http.Get(downloadURL)
+				if err != nil {
+					return fmt.Errorf("error downloading file %s: %w", content.GetName(), err)
+				}
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						log.Printf("Failed to close: %v", err)
+					}
+				}()
+
+				if resp.StatusCode < 200 || resp.StatusCode > 299 {
+					return fmt.Errorf("error downloading file %s: unexpected status %s", content.GetName(), resp.Status)
+				}
+
+				outFile, err := os.Create(localFilePath)
+				if err != nil {
+					return fmt.Errorf("error creating local file %s: %w", localFilePath, err)
+				}
+				defer func() {
+					if err := outFile.Close(); err != nil {
+						log.Printf("Failed to close: %v", err)
+					}
+				}()
+
+				// Copy the downloaded content to the local file.
+				if _, err := io.Copy(outFile, resp.Body); err != nil {
+					return fmt.Errorf("error writing to file %s: %w", localFilePath, err)
+				}
+				log.Printf("Successfully downloaded %s.\n", content.GetName())
+				return nil
 			}()
-
-			if resp.StatusCode < 200 || resp.StatusCode > 299 {
-				log.Printf("Error downloading file %s: unexpected status %s\n", content.GetName(), resp.Status)
-				failedDownloads++
-				continue
-			}
-
-			outFile, err := os.Create(localFilePath)
 			if err != nil {
-				log.Printf("Error creating local file %s: %v\n", localFilePath, err)
+				log.Print(err)
 				failedDownloads++
-				continue
 			}
-			defer func() {
-				if err := outFile.Close(); err != nil {
-					// Handle the error appropriately, e.g., logging or taking corrective actions
-					log.Printf("Failed to close: %v", err)
-				}
-			}()
-
-			// Copy the downloaded content to the local file.
-			if _, err := io.Copy(outFile, resp.Body); err != nil {
-				log.Printf("Error writing to file %s: %v\n", localFilePath, err)
-				failedDownloads++
-				continue
-			}
-			log.Printf("Successfully downloaded %s.\n", content.GetName())
 		}
 	}
 
 	if failedDownloads > 0 {
+		_ = os.WriteFile(failureSentinel, []byte(time.Now().Format(time.RFC3339)), 0644)
 		return fmt.Errorf("download scan completed with %d failed file(s)", failedDownloads)
 	}
+	_ = os.Remove(failureSentinel)
 
 	// Update the sentinel so we don't re-scan until next week.
 	_ = os.WriteFile(sentinel, []byte(time.Now().Format(time.RFC3339)), 0644)
