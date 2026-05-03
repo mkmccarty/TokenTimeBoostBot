@@ -258,6 +258,9 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 		changed = true
 	}
 
+	// Ensure the dynamic artifact map is up to date with the latest colleggtibles
+	ei.PopulateColleggtiblesInArtifactMap()
+
 	// Look for new contracts
 	var newContract []ei.EggIncContract
 	for _, contract := range periodicalsResponse.GetContracts().GetContracts() {
