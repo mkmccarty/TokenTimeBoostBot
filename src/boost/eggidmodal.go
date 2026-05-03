@@ -15,6 +15,10 @@ import (
 
 var optionMapCache = make(map[string]map[string]*discordgo.ApplicationCommandInteractionDataOption)
 
+func boolPtr(v bool) *bool {
+	return &v
+}
+
 // RequestEggIncIDModal sends a modal to the user requesting their Egg Inc ID
 func RequestEggIncIDModal(s *discordgo.Session, i *discordgo.InteractionCreate, action string, optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption) {
 	userID := bottools.GetInteractionUserID(i)
@@ -30,7 +34,7 @@ func RequestEggIncIDModal(s *discordgo.Session, i *discordgo.InteractionCreate, 
 				Style:       discordgo.TextInputShort,
 				Placeholder: "EI0000000000000000",
 				MaxLength:   18,
-				Required:    true,
+				Required:    boolPtr(true),
 			},
 		},
 	})
@@ -45,7 +49,7 @@ func RequestEggIncIDModal(s *discordgo.Session, i *discordgo.InteractionCreate, 
 					Placeholder: "save or forget",
 					Value:       "save",
 					MaxLength:   6,
-					Required:    true,
+					Required:    boolPtr(true),
 				},
 			},
 		})
