@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -55,7 +56,7 @@ var lastEventUpdate time.Time
 
 // GetSlashForceDownloadCommand returns a home-guild-only command to force re-download all data files.
 func GetSlashForceDownloadCommand(cmd string) *discordgo.ApplicationCommand {
-	var adminPermission int64 = 0
+	var adminPermission int64 = discordgo.PermissionAdministrator
 
 	guildID := guildstate.GetGuildSettingString("DEFAULT", "home_guild")
 	if guildID == "" {
@@ -92,6 +93,29 @@ func GetSlashForceDownloadCommand(cmd string) *discordgo.ApplicationCommand {
 
 // HandleForceDownloadCommand handles the home-guild force-download command.
 func HandleForceDownloadCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	userID := ""
+	if i.GuildID == "" {
+		userID = i.User.ID
+	} else {
+		userID = i.Member.User.ID
+	}
+
+	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
+	if err != nil {
+		log.Println(err)
+	}
+	if perms&discordgo.PermissionAdministrator == 0 && userID != config.AdminUserID {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "You are not authorized to use this command.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{},
+			},
+		})
+		return
+	}
+
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
@@ -258,13 +282,64 @@ type manifestEntry struct {
 	ETag      string    `json:"etag,omitempty"`
 }
 
+var rareFetchRandMu sync.Mutex
+var rareFetchRand = rand.New(rand.NewSource(time.Now().UnixNano()))
+
 // rareFetchInterval returns a randomized duration between 20 and 30 days,
 // used for files that change infrequently to spread out network checks.
 func rareFetchInterval() time.Duration {
-	return time.Duration(20+rand.Intn(11)) * 24 * time.Hour
+	rareFetchRandMu.Lock()
+	defer rareFetchRandMu.Unlock()
+	return time.Duration(20+rareFetchRand.Intn(11)) * 24 * time.Hour
 }
 
 var manifestMutex sync.Mutex
+var downloadFileLocks sync.Map
+
+func lockDownloadFile(filename string) func() {
+	mu, _ := downloadFileLocks.LoadOrStore(filename, &sync.Mutex{})
+	fileMu := mu.(*sync.Mutex)
+	fileMu.Lock()
+	return fileMu.Unlock
+}
+
+func writeFileAtomic(filename string, content []byte, perm os.FileMode) error {
+	dir := filepath.Dir(filename)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	tmpFile, err := os.CreateTemp(dir, filepath.Base(filename)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmpFile.Name()
+	defer func() {
+		_ = os.Remove(tmpName)
+	}()
+
+	if _, err := tmpFile.Write(content); err != nil {
+		_ = tmpFile.Close()
+		return err
+	}
+	if err := tmpFile.Chmod(perm); err != nil {
+		_ = tmpFile.Close()
+		return err
+	}
+	if err := tmpFile.Sync(); err != nil {
+		_ = tmpFile.Close()
+		return err
+	}
+	if err := tmpFile.Close(); err != nil {
+		return err
+	}
+
+	if err := os.Rename(tmpName, filename); err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func getManifestEntry(filename string) manifestEntry {
 	manifestMutex.Lock()
@@ -293,8 +368,7 @@ func updateManifestEntry(filename string, etag string) {
 	}
 	manifest[filename] = manifestEntry{LastCheck: time.Now(), ETag: etag}
 	if b, err := json.MarshalIndent(manifest, "", "  "); err == nil {
-		_ = os.MkdirAll("ttbb-data", os.ModePerm)
-		_ = os.WriteFile("ttbb-data/download-manifest.json", b, 0644)
+		_ = writeFileAtomic("ttbb-data/download-manifest.json", b, 0644)
 	}
 }
 
@@ -356,6 +430,9 @@ func cronPruneOldGeneratedBanners() {
 }
 
 func downloadEggIncData(urlStr string, filename string, force bool, maxAge time.Duration) bool {
+	unlock := lockDownloadFile(filename)
+	defer unlock()
+
 	entry := getManifestEntry(filename)
 
 	if !force {
@@ -417,7 +494,7 @@ func downloadEggIncData(urlStr string, filename string, force bool, maxAge time.
 	}
 
 	// Save to disk
-	err = os.WriteFile(filename, body, 0644)
+	err = writeFileAtomic(filename, body, 0644)
 	if err != nil {
 		log.Print(err)
 		return false

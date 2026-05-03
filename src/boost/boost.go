@@ -631,7 +631,7 @@ func getUserArtifacts(userID string, inSet *ArtifactSet) ArtifactSet {
 					art = strings.ReplaceAll(art, "FLAMERETARDANT", "FLAME RETARDANT")
 
 					if a != "" {
-						colleg := ei.ArtifactMap[art]
+						colleg := ei.GetArtifactByKey(art)
 						if colleg != nil {
 							mySet.Artifacts = append(mySet.Artifacts, *colleg)
 						}
@@ -639,7 +639,7 @@ func getUserArtifacts(userID string, inSet *ArtifactSet) ArtifactSet {
 				}
 			} else {
 				if art != "" {
-					a := ei.ArtifactMap[prefix[i]+art]
+					a := ei.GetArtifactByKey(prefix[i] + art)
 					if a != nil {
 						//fmt.Print(prefix[i]+art, a)
 						mySet.Artifacts = append(mySet.Artifacts, *a)
