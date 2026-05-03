@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/google/go-github/v33/github"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	xdraw "golang.org/x/image/draw"
 )
@@ -1439,15 +1438,8 @@ func downloadTokenOverlayFromRepo(localFilePath string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	client := github.NewClient(nil)
-	content, _, _, err := client.Repositories.GetContents(ctx, "mkmccarty", "TokenTimeBoostBot", testAnimateTokenPath, &github.RepositoryContentGetOptions{Ref: "main"})
-	if err != nil {
-		return fmt.Errorf("failed to resolve token file in repository: %w", err)
-	}
-	downloadURL := content.GetDownloadURL()
-	if downloadURL == "" {
-		return fmt.Errorf("token image download URL not found in repository")
-	}
+	// Use the raw URL directly — no API call needed since we know the exact path.
+	downloadURL := "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/main/" + testAnimateTokenPath
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
 	if err != nil {
