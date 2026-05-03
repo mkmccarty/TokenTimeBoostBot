@@ -57,6 +57,7 @@ const slashAdminSetGuildFlag string = "admin-set-guild-flag"
 const slashAdminGetGuildFlag string = "admin-get-guild-flag"
 const slashAdminGuildstate string = "admin-guildstate"
 const slashAdminMembers string = "admin-members"
+const slashAdminForceDownload string = "admin-force-download"
 const slashActiveContracts string = "active-contracts"
 const slashStatusMessage string = "status-message"
 
@@ -320,6 +321,11 @@ func setupCommands() {
 			AppCmd:   tasks.GetSlashReloadContractsCommand(slashReloadContracts),
 			Category: CmdCategoryAdmin,
 			Handler:  tasks.HandleReloadContractsCommand,
+		},
+		{
+			AppCmd:   tasks.GetSlashForceDownloadCommand(slashAdminForceDownload),
+			Category: CmdCategoryAdmin,
+			Handler:  tasks.HandleForceDownloadCommand,
 		},
 		{
 			AppCmd:       boost.SlashAdminGetContractData(slashAdminGetContractData),

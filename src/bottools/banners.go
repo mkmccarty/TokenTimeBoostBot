@@ -405,21 +405,29 @@ func addLabel(img *image.RGBA, x, y int, label string, face font.Face, textColor
 }
 
 // DownloadLatestEggImages downloads the latest image files from a specific GitHub repository directory.
+// Once downloaded, files are considered permanent — a sentinel file gates re-scanning for 7 days
+// to avoid hitting the GitHub API rate limit on dev restarts.
 func DownloadLatestEggImages(localDownloadDir string) error {
+	// Ensure the local download directory exists.
+	if err := os.MkdirAll(localDownloadDir, 0755); err != nil {
+		return fmt.Errorf("failed to create local directory %s: %w", localDownloadDir, err)
+	}
+
+	// If we scanned recently, skip the API call entirely. These files rarely change.
+	sentinel := filepath.Join(localDownloadDir, ".last_scan")
+	if info, err := os.Stat(sentinel); err == nil && time.Since(info.ModTime()) < 7*24*time.Hour {
+		return nil
+	}
+
 	owner := "mkmccarty"
 	repo := "TokenTimeBoostBot"
 	repoPath := "emoji"
 	client := github.NewClient(nil)
 	ctx := context.Background()
 
-	// Ensure the local download directory exists.
-	if err := os.MkdirAll(localDownloadDir, 0755); err != nil {
-		return fmt.Errorf("failed to create local directory %s: %w", localDownloadDir, err)
-	}
-
 	// Get the contents of the specified repository directory.
 	_, directoryContents, _, err := client.Repositories.GetContents(ctx, owner, repo, repoPath, &github.RepositoryContentGetOptions{
-		Ref: "main", // Always use the main branch for the latest content
+		Ref: "main",
 	})
 	if err != nil {
 		return fmt.Errorf("error getting repository contents: %w", err)
@@ -487,5 +495,8 @@ func DownloadLatestEggImages(localDownloadDir string) error {
 			log.Printf("Successfully downloaded %s.\n", content.GetName())
 		}
 	}
+
+	// Update the sentinel so we don't re-scan until next week.
+	_ = os.WriteFile(sentinel, []byte(time.Now().Format(time.RFC3339)), 0644)
 	return nil
 }

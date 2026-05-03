@@ -2,12 +2,11 @@ package tasks
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -15,12 +14,12 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/google/go-github/v33/github"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/version"
 )
 
@@ -53,6 +52,110 @@ const eggIncStatusMessagesFile string = "ttbb-data/status-messages.json"
 
 var lastContractUpdate time.Time
 var lastEventUpdate time.Time
+
+// GetSlashForceDownloadCommand returns a home-guild-only command to force re-download all data files.
+func GetSlashForceDownloadCommand(cmd string) *discordgo.ApplicationCommand {
+	var adminPermission int64 = 0
+
+	guildID := guildstate.GetGuildSettingString("DEFAULT", "home_guild")
+	if guildID == "" {
+		guildID = "DISABLED"
+	}
+
+	return &discordgo.ApplicationCommand{
+		Name:                     cmd,
+		Description:              "Force re-download of all Egg Inc data and image files.",
+		GuildID:                  guildID,
+		DefaultMemberPermissions: &adminPermission,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "target",
+				Description: "Which files to force download",
+				Required:    true,
+				Choices: []*discordgo.ApplicationCommandOptionChoice{
+					{Name: "all", Value: "all"},
+					{Name: "contracts+events", Value: "periodicals"},
+					{Name: "rare files (afx/researches/etc)", Value: "rare"},
+					{Name: "images (egg/banner)", Value: "images"},
+				},
+			},
+		},
+	}
+}
+
+// HandleForceDownloadCommand handles the home-guild force-download command.
+func HandleForceDownloadCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Forcing download...",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+
+	target := ""
+	for _, opt := range i.ApplicationCommandData().Options {
+		if opt.Name == "target" {
+			target = opt.StringValue()
+		}
+	}
+
+	var lines []string
+	dl := func(url, file string) {
+		if downloadEggIncData(url, file, true, 0) {
+			lines = append(lines, fmt.Sprintf("+ updated: %s", file))
+		} else {
+			lines = append(lines, fmt.Sprintf("  unchanged: %s", file))
+		}
+	}
+
+	switch target {
+	case "all", "periodicals":
+		dl(eggIncContractsURL, eggIncContractsFile)
+		dl(eggIncEventsURL, eggIncEventsFile)
+		if target == "periodicals" {
+			break
+		}
+		fallthrough
+	case "rare":
+		dl(eggIncCustomEggsURL, eggIncCustomEggsFile)
+		dl(eggIncDataSchemaURL, eggIncDataSchemaFile)
+		dl(eggIncEiAfxConfigURL, eggIncEiAfxConfigFile)
+		dl(eggIncEiAfxDataURL, eggIncEiAfxDataFile)
+		dl(eggIncEiResearchesURL, eggIncEiResearchesFile)
+		dl(eggIncTokenComplaintsURL, eggIncTokenComplaintsFile)
+		dl(eggIncStatusMessagesURL, eggIncStatusMessagesFile)
+	case "images":
+		_ = os.Remove(config.BannerPath + "/.last_scan")
+		if err := bottools.DownloadLatestEggImages(config.BannerPath); err != nil {
+			lines = append(lines, fmt.Sprintf("images error: %v", err))
+		} else {
+			lines = append(lines, "+ images rescanned")
+		}
+	}
+
+	if target == "all" {
+		_ = os.Remove(config.BannerPath + "/.last_scan")
+		if err := bottools.DownloadLatestEggImages(config.BannerPath); err != nil {
+			lines = append(lines, fmt.Sprintf("images error: %v", err))
+		} else {
+			lines = append(lines, "+ images rescanned")
+		}
+	}
+
+	result := fmt.Sprintf("Force download complete (`%s`):\n```\n%s\n```", target, strings.Join(lines, "\n"))
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content: result,
+		Flags:   discordgo.MessageFlagsEphemeral,
+	})
+}
 
 // GetSlashReloadContractsCommand returns the command definition for reloading contracts
 func GetSlashReloadContractsCommand(cmd string) *discordgo.ApplicationCommand {
@@ -106,8 +209,8 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 	})
 	lastContractUpdate = time.Time{}
 	lastEventUpdate = time.Time{}
-	downloadEggIncData(eggIncContractsURL, eggIncContractsFile, true)
-	downloadEggIncData(eggIncEventsURL, eggIncEventsFile, true)
+	downloadEggIncData(eggIncContractsURL, eggIncContractsFile, true, 23*time.Hour)
+	downloadEggIncData(eggIncEventsURL, eggIncEventsFile, true, 23*time.Hour)
 	bottools.LoadEmotes(s, true)
 
 	events.GetPeriodicalsFromAPI(s)
@@ -149,68 +252,46 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 
 }
 
-func parseGithubRawURL(urlStr string) (owner, repo, branch, path string, err error) {
-	urlStr = strings.TrimPrefix(urlStr, "https://raw.githubusercontent.com/")
-	parts := strings.Split(urlStr, "/")
-	if len(parts) < 4 {
-		return "", "", "", "", fmt.Errorf("invalid github raw url")
-	}
-	owner = parts[0]
-	repo = parts[1]
-
-	if parts[2] == "refs" && len(parts) >= 6 && parts[3] == "heads" {
-		branch = parts[4]
-		path = strings.Join(parts[5:], "/")
-	} else {
-		branch = parts[2]
-		path = strings.Join(parts[3:], "/")
-	}
-	return owner, repo, branch, path, nil
+// manifestEntry tracks the last download check time and ETag for a data file.
+type manifestEntry struct {
+	LastCheck time.Time `json:"last_check"`
+	ETag      string    `json:"etag,omitempty"`
 }
 
-func getGitBlobSHA(filename string) (string, error) {
-	content, err := os.ReadFile(filename)
-	if err != nil {
-		return "", err
-	}
-	hasher := sha1.New()
-	if _, err := fmt.Fprintf(hasher, "blob %d\x00", len(content)); err != nil {
-		return "", err
-	}
-	if _, err := hasher.Write(content); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(hasher.Sum(nil)), nil
+// rareFetchInterval returns a randomized duration between 20 and 30 days,
+// used for files that change infrequently to spread out network checks.
+func rareFetchInterval() time.Duration {
+	return time.Duration(20+rand.Intn(11)) * 24 * time.Hour
 }
 
 var manifestMutex sync.Mutex
 
-func getManifestTime(filename string) time.Time {
+func getManifestEntry(filename string) manifestEntry {
 	manifestMutex.Lock()
 	defer manifestMutex.Unlock()
 	data, err := os.ReadFile("ttbb-data/download-manifest.json")
 	if err != nil {
-		return time.Time{}
+		return manifestEntry{}
 	}
-	var manifest map[string]time.Time
+	var manifest map[string]manifestEntry
 	if err := json.Unmarshal(data, &manifest); err != nil {
-		return time.Time{}
+		return manifestEntry{}
 	}
 	return manifest[filename]
 }
 
-func updateManifestTime(filename string) {
+func updateManifestEntry(filename string, etag string) {
 	manifestMutex.Lock()
 	defer manifestMutex.Unlock()
-	var manifest map[string]time.Time
+	var manifest map[string]manifestEntry
 	data, err := os.ReadFile("ttbb-data/download-manifest.json")
 	if err == nil {
 		_ = json.Unmarshal(data, &manifest)
 	}
 	if manifest == nil {
-		manifest = make(map[string]time.Time)
+		manifest = make(map[string]manifestEntry)
 	}
-	manifest[filename] = time.Now()
+	manifest[filename] = manifestEntry{LastCheck: time.Now(), ETag: etag}
 	if b, err := json.MarshalIndent(manifest, "", "  "); err == nil {
 		_ = os.MkdirAll("ttbb-data", os.ModePerm)
 		_ = os.WriteFile("ttbb-data/download-manifest.json", b, 0644)
@@ -218,9 +299,9 @@ func updateManifestTime(filename string) {
 }
 
 func crondownloadEggIncData() {
-	downloadEggIncData(eggIncContractsURL, eggIncContractsFile, false)
-	downloadEggIncData(eggIncEventsURL, eggIncEventsFile, false)
-	downloadEggIncData(eggIncCustomEggsURL, eggIncCustomEggsFile, false)
+	downloadEggIncData(eggIncContractsURL, eggIncContractsFile, false, 23*time.Hour)
+	downloadEggIncData(eggIncEventsURL, eggIncEventsFile, false, 23*time.Hour)
+	downloadEggIncData(eggIncCustomEggsURL, eggIncCustomEggsFile, false, rareFetchInterval())
 }
 
 func cronPruneOldGeneratedBanners() {
@@ -274,55 +355,42 @@ func cronPruneOldGeneratedBanners() {
 	}
 }
 
-func downloadEggIncData(urlStr string, filename string, force bool) bool {
+func downloadEggIncData(urlStr string, filename string, force bool, maxAge time.Duration) bool {
+	entry := getManifestEntry(filename)
+
 	if !force {
-		if _, err := os.Stat(filename); err == nil {
-			lastCheck := getManifestTime(filename)
-			if time.Since(lastCheck) < 23*time.Hour {
+		if fi, err := os.Stat(filename); err == nil {
+			lastCheck := entry.LastCheck
+			if lastCheck.IsZero() {
+				// No manifest entry yet; use file modification time to avoid
+				// unnecessary network requests during development restarts.
+				lastCheck = fi.ModTime()
+			}
+			if time.Since(lastCheck) < maxAge {
 				return false
 			}
 		}
 	}
 
-	owner, repo, branch, path, err := parseGithubRawURL(urlStr)
-	if err != nil {
-		log.Printf("Failed to parse URL %s: %v", urlStr, err)
-		return false
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	client := github.NewClient(nil)
-	content, _, _, err := client.Repositories.GetContents(ctx, owner, repo, path, &github.RepositoryContentGetOptions{Ref: branch})
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, urlStr, nil)
 	if err != nil {
-		log.Printf("Failed to resolve %s in repository: %v", path, err)
+		log.Printf("Failed to create request for %s: %v", urlStr, err)
 		return false
 	}
 
-	newSHA := content.GetSHA()
-	localSHA, err := getGitBlobSHA(filename)
-	if err == nil && localSHA == newSHA {
-		// The file hasn't changed
-		updateManifestTime(filename)
-		return false
-	}
-
-	downloadURL := content.GetDownloadURL()
-	if downloadURL == "" {
-		log.Printf("Download URL not found in repository for %s", path)
-		return false
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
-	if err != nil {
-		log.Print(err)
-		return false
+	// Use ETag for a conditional GET — avoids downloading unchanged content
+	// and does not count against the GitHub API rate limit since we hit
+	// raw.githubusercontent.com directly.
+	if entry.ETag != "" {
+		req.Header.Set("If-None-Match", entry.ETag)
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Print(err)
+		log.Printf("Failed to fetch %s: %v", urlStr, err)
 		return false
 	}
 	defer func() {
@@ -331,8 +399,14 @@ func downloadEggIncData(urlStr string, filename string, force bool) bool {
 		}
 	}()
 
+	if resp.StatusCode == http.StatusNotModified {
+		// Content unchanged; refresh the manifest timestamp
+		updateManifestEntry(filename, entry.ETag)
+		return false
+	}
+
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		log.Printf("Download failed with status %s", resp.Status)
+		log.Printf("Download failed with status %s for %s", resp.Status, urlStr)
 		return false
 	}
 
@@ -342,15 +416,6 @@ func downloadEggIncData(urlStr string, filename string, force bool) bool {
 		return false
 	}
 
-	// Check if the file already exists
-	_, err = os.Stat(filename)
-	if err == nil {
-		err = os.Remove(filename)
-		if err != nil {
-			log.Println("Error Deleting file ", err.Error())
-		}
-	}
-
 	// Save to disk
 	err = os.WriteFile(filename, body, 0644)
 	if err != nil {
@@ -358,9 +423,9 @@ func downloadEggIncData(urlStr string, filename string, force bool) bool {
 		return false
 	}
 
-	updateManifestTime(filename)
+	updateManifestEntry(filename, resp.Header.Get("ETag"))
 
-	// Notify bot of out new data
+	// Notify bot of new data
 	switch filename {
 	case eggIncContractsFile:
 		boost.LoadContractData(filename)
@@ -535,31 +600,31 @@ func ExecuteCronJob(s *discordgo.Session) {
 	}
 	ei.SetColleggtibleValues()
 
-	if !downloadEggIncData(eggIncContractsURL, eggIncContractsFile, false) {
+	if !downloadEggIncData(eggIncContractsURL, eggIncContractsFile, false, 23*time.Hour) {
 		boost.LoadContractData(eggIncContractsFile)
 	}
-	if !downloadEggIncData(eggIncEventsURL, eggIncEventsFile, false) {
+	if !downloadEggIncData(eggIncEventsURL, eggIncEventsFile, false, 23*time.Hour) {
 		ei.LoadEventData(eggIncEventsFile)
 	}
-	downloadEggIncData(eggIncDataSchemaURL, eggIncDataSchemaFile, false)
-	downloadEggIncData(eggIncEiAfxConfigURL, eggIncEiAfxConfigFile, false)
+	downloadEggIncData(eggIncDataSchemaURL, eggIncDataSchemaFile, false, rareFetchInterval())
+	downloadEggIncData(eggIncEiAfxConfigURL, eggIncEiAfxConfigFile, false, rareFetchInterval())
 
-	if !downloadEggIncData(eggIncEiAfxDataURL, eggIncEiAfxDataFile, false) {
+	if !downloadEggIncData(eggIncEiAfxDataURL, eggIncEiAfxDataFile, false, rareFetchInterval()) {
 		err := ei.LoadArtifactsData(eggIncEiAfxDataFile)
 		if err != nil {
 			log.Print(err)
 		}
 	}
 
-	if !downloadEggIncData(eggIncEiResearchesURL, eggIncEiResearchesFile, false) {
+	if !downloadEggIncData(eggIncEiResearchesURL, eggIncEiResearchesFile, false, rareFetchInterval()) {
 		ei.LoadResearchData(eggIncEiResearchesFile)
 	}
 
-	if !downloadEggIncData(eggIncTokenComplaintsURL, eggIncTokenComplaintsFile, false) {
+	if !downloadEggIncData(eggIncTokenComplaintsURL, eggIncTokenComplaintsFile, false, rareFetchInterval()) {
 		ei.LoadTokenComplaints(eggIncTokenComplaintsFile)
 	}
 
-	if !downloadEggIncData(eggIncStatusMessagesURL, eggIncStatusMessagesFile, false) {
+	if !downloadEggIncData(eggIncStatusMessagesURL, eggIncStatusMessagesFile, false, rareFetchInterval()) {
 		ei.LoadStatusMessages(eggIncStatusMessagesFile)
 	}
 
