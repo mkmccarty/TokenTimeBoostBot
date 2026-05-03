@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -52,7 +53,6 @@ func GetSlashEstimateTime(cmd string) *discordgo.ApplicationCommand {
 
 // HandleEstimateTimeCommand will handle the estimate-contract-time command
 func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	//var builder strings.Builder
 	var contractID = ""
 	var str = ""
 	includeLeggySet := false
@@ -61,7 +61,6 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	if opt, ok := optionMap["contract-id"]; ok {
 		contractID = opt.StringValue()
 	} else {
-		// No contract ID in parameter, go find one
 		runningContract := FindContract(i.ChannelID)
 		if runningContract != nil {
 			contractID = runningContract.ContractID
@@ -70,35 +69,36 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	if opt, ok := optionMap["include-leggy"]; ok {
 		includeLeggySet = opt.BoolValue()
 	}
-	c := ei.EggIncContractsAll[contractID]
 
+	c := ei.EggIncContractsAll[contractID]
 	if c.ID == "" {
 		str = "No contract found in this channel, use the command parameters to pick one."
-
 	}
+
 	if str == "" {
-		str := getContractEstimateString(contractID, includeLeggySet)
+		estimateText := getContractEstimateString(contractID, includeLeggySet)
+		components := []discordgo.MessageComponent{
+			discordgo.TextDisplay{Content: estimateText},
+		}
 
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Flags: discordgo.MessageFlagsSuppressEmbeds | discordgo.MessageFlagsIsComponentsV2,
-				Components: []discordgo.MessageComponent{
-					discordgo.TextDisplay{
-						Content: str,
-					},
-				}},
+				Flags:      discordgo.MessageFlagsSuppressEmbeds | discordgo.MessageFlagsIsComponentsV2,
+				Components: components,
+			},
 		})
-	} else {
-		// Error messages only go back to the caller
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    str,
-				Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsSuppressEmbeds,
-				Components: []discordgo.MessageComponent{}},
-		})
+		return
 	}
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content:    str,
+			Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsSuppressEmbeds,
+			Components: []discordgo.MessageComponent{},
+		},
+	})
 }
 
 func getContractEstimateString(contractID string, includeLeggySet bool) string {
@@ -295,12 +295,72 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 
 	noteStr := ""
 	if c.ContractVersion == 1 {
-		noteStr = fmt.Sprintf("**This is a ELITE Version 1 contract last seen <t:%d:F>.**\n", c.ValidFrom.Unix())
+		noteStr = fmt.Sprintf("**ELITE V1 contract** last seen <t:%d:D>.\n", c.ValidFrom.Unix())
 	} else if c.ValidUntil.Before(time.Now().UTC()) {
-		noteStr = fmt.Sprintf("**This is an unavailable V2 contract last seen <t:%d:F>.**\n", c.ValidFrom.Unix())
+		noteStr = fmt.Sprintf("**Unavailable V2 contract** last seen <t:%d:D>.\n", c.ValidFrom.Unix())
+		noteStr += getContractPredLine(c.ID)
 	}
 
 	return noteStr + str
+}
+
+// getContractPredLine returns a single prediction line for an unavailable contract,
+// including the ultra prediction date on the same line if the contract is a PE ultra.
+func getContractPredLine(contractID string) string {
+	c, ok := ei.EggIncContractsAll[contractID]
+	if !ok {
+		return ""
+	}
+
+	_, wedTime, friTime, _ := contractTimes9amPacific(0)
+
+	var wed, friPE, friUltra []ei.EggIncContract
+	for _, bc := range ei.EggIncContractsAll {
+		switch {
+		case bc.HasPE && !bc.Ultra:
+			friUltra = append(friUltra, bc)
+		case bc.HasPE && bc.Ultra:
+			friPE = append(friPE, bc)
+		default:
+			wed = append(wed, bc)
+		}
+	}
+	sort.Slice(wed, func(a, b int) bool { return sortValidFrom(wed[a], wed[b]) })
+	sort.Slice(friPE, func(a, b int) bool { return sortValidFrom(friPE[a], friPE[b]) })
+	sort.Slice(friUltra, func(a, b int) bool { return sortValidFrom(friUltra[a], friUltra[b]) })
+
+	var bracket []ei.EggIncContract
+	var baseTime time.Time
+	switch {
+	case c.HasPE && !c.Ultra:
+		bracket, baseTime = friUltra, friTime
+	case c.HasPE && c.Ultra:
+		bracket, baseTime = friPE, friTime
+	default:
+		bracket, baseTime = wed, wedTime
+	}
+
+	pos := -1
+	for idx, bc := range bracket {
+		if bc.ID == contractID {
+			pos = idx
+			break
+		}
+	}
+	if pos < 0 {
+		return ""
+	}
+
+	predDate := baseTime.AddDate(0, 0, 7*pos)
+	line := fmt.Sprintf("-# 🔮 %s", bottools.WrapTimestamp(predDate.Unix(), bottools.TimestampShortDate))
+
+	if c.HasPE && !c.Ultra {
+		pePos := pos + len(friPE)
+		ultraDate := friTime.AddDate(0, 0, 7*pePos)
+		line += fmt.Sprintf(" · %s %s", ei.GetBotEmojiMarkdown("ultra"), bottools.WrapTimestamp(ultraDate.Unix(), bottools.TimestampShortDate))
+	}
+
+	return line + "\n"
 }
 
 // calculateSingleEstimate computes the completion duration for a contract
