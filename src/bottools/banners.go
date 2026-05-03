@@ -433,6 +433,8 @@ func DownloadLatestEggImages(localDownloadDir string) error {
 		return fmt.Errorf("error getting repository contents: %w", err)
 	}
 
+	failedDownloads := 0
+
 	for _, content := range directoryContents {
 		// Only process files.
 		if content.GetType() == "file" {
@@ -466,6 +468,7 @@ func DownloadLatestEggImages(localDownloadDir string) error {
 			resp, err := http.Get(downloadURL)
 			if err != nil {
 				log.Printf("Error downloading file %s: %v\n", content.GetName(), err)
+				failedDownloads++
 				continue
 			}
 			defer func() {
@@ -475,9 +478,16 @@ func DownloadLatestEggImages(localDownloadDir string) error {
 				}
 			}()
 
+			if resp.StatusCode < 200 || resp.StatusCode > 299 {
+				log.Printf("Error downloading file %s: unexpected status %s\n", content.GetName(), resp.Status)
+				failedDownloads++
+				continue
+			}
+
 			outFile, err := os.Create(localFilePath)
 			if err != nil {
 				log.Printf("Error creating local file %s: %v\n", localFilePath, err)
+				failedDownloads++
 				continue
 			}
 			defer func() {
@@ -490,10 +500,15 @@ func DownloadLatestEggImages(localDownloadDir string) error {
 			// Copy the downloaded content to the local file.
 			if _, err := io.Copy(outFile, resp.Body); err != nil {
 				log.Printf("Error writing to file %s: %v\n", localFilePath, err)
+				failedDownloads++
 				continue
 			}
 			log.Printf("Successfully downloaded %s.\n", content.GetName())
 		}
+	}
+
+	if failedDownloads > 0 {
+		return fmt.Errorf("download scan completed with %d failed file(s)", failedDownloads)
 	}
 
 	// Update the sentinel so we don't re-scan until next week.

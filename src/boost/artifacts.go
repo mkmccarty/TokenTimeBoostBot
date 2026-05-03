@@ -467,9 +467,9 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 			}
 			var newArtifact *ei.Artifact
 			if len(data.Values) == 0 {
-				newArtifact = ei.ArtifactMap[prefix+"NONE"]
+				newArtifact = ei.GetArtifactByKey(prefix + "NONE")
 			} else {
-				newArtifact = ei.ArtifactMap[prefix+data.Values[0]]
+				newArtifact = ei.GetArtifactByKey(prefix + data.Values[0])
 			}
 
 			// Check if artifact was found in map

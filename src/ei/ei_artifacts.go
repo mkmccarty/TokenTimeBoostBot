@@ -7,6 +7,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -187,6 +188,15 @@ var ArtifactMap = map[string]*Artifact{
 	"G-T2E":  {Type: "Gusset", Quality: "T2E", ShipBuff: 1.0, LayBuff: 1.12, DeflBuff: 1.0, Stones: 0},
 	"G-NONE": {Type: "Gusset", Quality: "NONE", ShipBuff: 1.0, LayBuff: 1.0, DeflBuff: 1.0, Stones: 0},
 	"NONE":   {Type: "Collegg", Quality: "NONE", ShipBuff: 1.0, LayBuff: 1.0, DeflBuff: 1.0, Stones: 0},
+}
+
+var artifactMapMu sync.RWMutex
+
+// GetArtifactByKey safely returns an artifact entry from ArtifactMap.
+func GetArtifactByKey(key string) *Artifact {
+	artifactMapMu.RLock()
+	defer artifactMapMu.RUnlock()
+	return ArtifactMap[key]
 }
 
 var data *Store
@@ -545,6 +555,9 @@ func GetBestCoopArtifactsFromInventory(items []*ArtifactInventoryItem) map[strin
 
 // PopulateColleggtiblesInArtifactMap dynamically populates the ArtifactMap with colleggtibles from CustomEggMap
 func PopulateColleggtiblesInArtifactMap() {
+	artifactMapMu.Lock()
+	defer artifactMapMu.Unlock()
+
 	// First remove existing dynamic Collegg entries (except "NONE")
 	for key, art := range ArtifactMap {
 		if art.Type == "Collegg" && key != "NONE" {
