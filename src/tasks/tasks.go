@@ -451,14 +451,21 @@ func downloadEggIncData(urlStr string, filename string, force bool, maxAge time.
 
 	if !force {
 		if fi, err := os.Stat(filename); err == nil {
-			lastCheck := entry.LastCheck
-			if lastCheck.IsZero() {
-				// No manifest entry yet; use file modification time to avoid
-				// unnecessary network requests during development restarts.
-				lastCheck = fi.ModTime()
-			}
-			if time.Since(lastCheck) < maxAge {
-				return false
+			// If this manifest entry has never captured an ETag yet, do one
+			// network validation pass so we can persist metadata and stop relying
+			// on file mtime fallback indefinitely.
+			if entry.LastCheck.IsZero() && entry.ETag == "" {
+				// continue to network request
+			} else {
+				lastCheck := entry.LastCheck
+				if lastCheck.IsZero() {
+					// No manifest entry yet; use file modification time to avoid
+					// unnecessary network requests during development restarts.
+					lastCheck = fi.ModTime()
+				}
+				if time.Since(lastCheck) < maxAge {
+					return false
+				}
 			}
 		}
 	}
@@ -697,6 +704,7 @@ func ExecuteCronJob(s *discordgo.Session) {
 	if !downloadEggIncData(eggIncEventsURL, eggIncEventsFile, false, 23*time.Hour) {
 		ei.LoadEventData(eggIncEventsFile)
 	}
+	downloadEggIncData(eggIncCustomEggsURL, eggIncCustomEggsFile, false, rareFetchInterval())
 	downloadEggIncData(eggIncDataSchemaURL, eggIncDataSchemaFile, false, rareFetchInterval())
 	downloadEggIncData(eggIncEiAfxConfigURL, eggIncEiAfxConfigFile, false, rareFetchInterval())
 
