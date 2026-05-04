@@ -16,6 +16,12 @@ import (
 
 var snowflakeRe = regexp.MustCompile(`\b\d{17,20}\b`)
 
+// knownSettingKeys is a curated list of setting keys always shown in the setting autocomplete.
+var knownSettingKeys = []string{
+	"admin_logs_channel",
+	"banner_override",
+}
+
 // SlashSetGuildSettingCommand creates an admin slash command to set/clear a guild string setting.
 func SlashSetGuildSettingCommand(cmd string) *discordgo.ApplicationCommand {
 	var adminPermission = int64(0)
@@ -31,10 +37,11 @@ func SlashSetGuildSettingCommand(cmd string) *discordgo.ApplicationCommand {
 		},
 		Options: []*discordgo.ApplicationCommandOption{
 			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "setting",
-				Description: "Setting key",
-				Required:    true,
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "setting",
+				Description:  "Setting key",
+				Required:     true,
+				Autocomplete: true,
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
@@ -43,6 +50,60 @@ func SlashSetGuildSettingCommand(cmd string) *discordgo.ApplicationCommand {
 				Required:    false,
 			},
 		},
+	}
+}
+
+// HandleSetGuildSettingAutoComplete handles autocomplete for the admin-set-guild-setting command.
+func HandleSetGuildSettingAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	data := i.ApplicationCommandData()
+	for _, opt := range data.Options {
+		if opt.Name != "setting" || !opt.Focused {
+			continue
+		}
+		searchString := strings.ToLower(opt.StringValue())
+
+		seen := make(map[string]struct{})
+		var keys []string
+		for _, k := range knownSettingKeys {
+			if _, ok := seen[k]; !ok {
+				seen[k] = struct{}{}
+				keys = append(keys, k)
+			}
+		}
+		if guild, err := GetGuildState(i.GuildID); err == nil {
+			existingKeys := make([]string, 0, len(guild.MiscSettingsString))
+			for k := range guild.MiscSettingsString {
+				existingKeys = append(existingKeys, k)
+			}
+			sort.Strings(existingKeys)
+			for _, k := range existingKeys {
+				if _, ok := seen[k]; !ok {
+					seen[k] = struct{}{}
+					keys = append(keys, k)
+				}
+			}
+		}
+		sort.Strings(keys)
+
+		choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, 25)
+		for _, k := range keys {
+			if searchString != "" && !strings.Contains(strings.ToLower(k), searchString) {
+				continue
+			}
+			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+				Name:  k,
+				Value: k,
+			})
+			if len(choices) == 25 {
+				break
+			}
+		}
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Setting Key",
+				Choices: choices,
+			}})
 	}
 }
 
@@ -348,6 +409,11 @@ func GetGuildSettingsForGuild(s *discordgo.Session, i *discordgo.InteractionCrea
 	respondEphemeral(s, i, builder.String())
 }
 
+// knownFlagKeys is a curated list of flag keys always shown in the flag autocomplete.
+var knownFlagKeys = []string{
+	"active-contracts-show-completed",
+}
+
 // SlashSetGuildFlagCommand creates an admin slash command to set a guild boolean flag.
 func SlashSetGuildFlagCommand(cmd string) *discordgo.ApplicationCommand {
 	var adminPermission = int64(0)
@@ -363,10 +429,11 @@ func SlashSetGuildFlagCommand(cmd string) *discordgo.ApplicationCommand {
 		},
 		Options: []*discordgo.ApplicationCommandOption{
 			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "flag",
-				Description: "Flag key",
-				Required:    true,
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "flag",
+				Description:  "Flag key",
+				Required:     true,
+				Autocomplete: true,
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
@@ -393,12 +460,53 @@ func SlashGetGuildFlagCommand(cmd string) *discordgo.ApplicationCommand {
 		},
 		Options: []*discordgo.ApplicationCommandOption{
 			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "flag",
-				Description: "Flag key",
-				Required:    true,
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "flag",
+				Description:  "Flag key",
+				Required:     true,
+				Autocomplete: true,
 			},
 		},
+	}
+}
+
+// HandleGuildFlagAutoComplete handles autocomplete for the flag key option on set/get flag commands.
+func HandleGuildFlagAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	data := i.ApplicationCommandData()
+	for _, opt := range data.Options {
+		if opt.Name != "flag" || !opt.Focused {
+			continue
+		}
+		searchString := strings.ToLower(opt.StringValue())
+
+		keys := make([]string, len(knownFlagKeys), len(knownFlagKeys)+8)
+		copy(keys, knownFlagKeys)
+		if guild, err := GetGuildState(i.GuildID); err == nil && len(guild.MiscSettingsFlag) > 0 {
+			for k := range guild.MiscSettingsFlag {
+				keys = append(keys, k)
+			}
+		}
+		sort.Strings(keys)
+
+		choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, 25)
+		for _, k := range keys {
+			if searchString != "" && !strings.Contains(strings.ToLower(k), searchString) {
+				continue
+			}
+			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+				Name:  k,
+				Value: k,
+			})
+			if len(choices) == 25 {
+				break
+			}
+		}
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Flag Key",
+				Choices: choices,
+			}})
 	}
 }
 
