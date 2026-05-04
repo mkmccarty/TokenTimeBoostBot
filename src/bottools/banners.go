@@ -99,7 +99,7 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 
 	hasCustomBanner := false
 	if creatorID != "" {
-		bgCustomPath := fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, guildID, creatorID)
+		bgCustomPath := fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, creatorID, guildID)
 		if SyncCustomBannerCallback != nil {
 			hasCustomBanner = SyncCustomBannerCallback(creatorID, guildID, bgCustomPath)
 		} else {
@@ -111,13 +111,13 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 
 	for _, style := range styleArray {
 		if hasCustomBanner {
-			customImgPath := fmt.Sprintf("%s/%s-b%s-%s_%s.png", config.BannerOutputPath, ID, style, guildID, creatorID)
+			customImgPath := fmt.Sprintf("%s/%s-b%s-%s_%s.png", config.BannerOutputPath, ID, style, creatorID, guildID)
 			info, err := os.Stat(customImgPath)
 			if os.IsNotExist(err) {
 				allExistAndFresh = false
 				break
 			}
-			bgInfo, _ := os.Stat(fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, guildID, creatorID))
+			bgInfo, _ := os.Stat(fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, creatorID, guildID))
 			if bgInfo != nil && info.ModTime().Before(bgInfo.ModTime()) {
 				allExistAndFresh = false
 				break
@@ -192,7 +192,7 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 
 	bgSeasonPath := fmt.Sprintf("%s/banner_%s_640.png", config.BannerPath, currentSeason)
 	bgSpacePath := config.BannerPath + "/banner_space_640.png"
-	bgCustomPath := fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, guildID, creatorID)
+	bgCustomPath := fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, creatorID, guildID)
 
 	if _, err := os.Stat(bgSeasonPath); os.IsNotExist(err) {
 		_ = DownloadLatestEggImages(config.BannerPath)
@@ -260,7 +260,7 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 
 	if hasCustomBanner {
 		backgrounds = []bgDef{
-			{path: bgCustomPath, suffix: fmt.Sprintf("-%s", creatorID)},
+			{path: bgCustomPath, suffix: fmt.Sprintf("-%s_%s", creatorID, guildID)},
 		}
 	} else {
 		backgrounds = []bgDef{

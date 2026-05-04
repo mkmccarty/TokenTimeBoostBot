@@ -281,6 +281,19 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 		contract.Egg = originalContract.Egg
 		contract.EggName = originalContract.EggName
 		contract.EggEmoji = boost.FindEggEmoji(originalContract.EggName)
+
+		// Regenerate banners for contracts with a custom banner so they are
+		// up to date in case the banner image was updated or never generated.
+		if len(contract.CreatorID) > 0 {
+			guildID := contract.Location[0].GuildID
+			bannerText := contract.Name
+			if bannerText == "" {
+				bannerText = originalContract.Name
+			}
+			if bannerText != "" && contract.EggName != "" {
+				go bottools.GenerateBanner(contract.ContractID, contract.EggName, bannerText, contract.CreatorID[0], guildID, "")
+			}
+		}
 	}
 
 }
