@@ -6,7 +6,7 @@ require (
 	github.com/bwmarrin/discordgo v0.29.1-0.20260214123928-f43dd94faaac
 	github.com/divan/num2words v1.0.3
 	github.com/ewohltman/discordgo-mock v0.0.11
-	github.com/fsnotify/fsnotify v1.10.0
+	github.com/fsnotify/fsnotify v1.10.1
 	github.com/google/go-github/v33 v33.0.0
 	github.com/mattn/go-runewidth v0.0.23
 	github.com/natefinch/lumberjack/v3 v3.0.0-alpha
