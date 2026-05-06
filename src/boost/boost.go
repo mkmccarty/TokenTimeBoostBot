@@ -356,20 +356,11 @@ func getBoostOrderString(contract *Contract) string {
 			return "Fair order"
 		}
 		return fmt.Sprintf("Fair -> Sign-up <t:%d:R> ", thresholdStartTime.Unix())
-	case ContractOrderTimeBased:
-		return "Time"
 	case ContractOrderELR:
 		return fmt.Sprintf("Egg Lay Rate order (%s)", bottools.GetFormattedCommand("artifact"))
-	case ContractOrderTVal:
-		return "Token Value order"
-	case ContractOrderTokenAsk:
-		return "Token Ask order."
-	case ContractOrderTE:
-		return "TE order"
-	case ContractOrderTEplus:
-		return "TE+ order"
-	case ContractManualOrder:
-		return "Curated order"
+	}
+	if contract.BoostOrder >= 0 && contract.BoostOrder < len(contractOrderNames) {
+		return contractOrderNames[contract.BoostOrder]
 	}
 	return "Unknown"
 }
@@ -795,7 +786,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			contract.UltraCount++
 		}
 
-		if contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEplus {
+		if contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEFuzzy {
 			updateContractFarmerTE(s, userID, b, contract)
 		}
 
@@ -1893,14 +1884,14 @@ func reorderBoosters(contract *Contract) {
 		contract.enforceOnlyOneTokenTimeBooster()
 		contract.mutex.Unlock()
 
-	case ContractOrderTE, ContractOrderTEplus:
+	case ContractOrderTE, ContractOrderTEFuzzy:
 		pairs := make([]teOrderPair, len(contract.Order))
 
 		for i, name := range contract.Order {
 			baseTE := float64(max(contract.Boosters[name].TECount, 0))
 			sortTE := baseTE
 
-			if contract.BoostOrder == ContractOrderTEplus {
+			if contract.BoostOrder == ContractOrderTEFuzzy {
 				randomBonusMax := math.Max(
 					baseTE*0.1,        // 10%
 					math.Sqrt(baseTE), // Sqrt
@@ -1924,7 +1915,7 @@ func reorderBoosters(contract *Contract) {
 	}
 
 	if contract.BoostOrder != ContractOrderTVal {
-		// Enforce singleton TokenTime invariant after TE/TEplus reordering
+		// Enforce singleton TokenTime invariant after TE/FuzzyTE reordering
 		if contract.State != ContractStateSignup {
 			contract.mutex.Lock()
 			contract.enforceOnlyOneTokenTimeBooster()

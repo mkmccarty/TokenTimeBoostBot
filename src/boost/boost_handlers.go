@@ -154,11 +154,11 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 							Default:     contract.BoostOrder == ContractOrderTE,
 						},
 						{
-							Label:       "TE+ Order",
+							Label:       "Fuzzy TE Order",
 							Description: "Highest Truth Egg count first with randomization",
-							Value:       "teplus",
+							Value:       "fuzzyte",
 							Emoji:       ei.GetBotComponentEmoji("egg_truth"),
-							Default:     contract.BoostOrder == ContractOrderTEplus,
+							Default:     contract.BoostOrder == ContractOrderTEFuzzy,
 						},
 					},
 				},
@@ -303,6 +303,15 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 				Style:    discordgo.DangerButton,
 				Disabled: false,
 				CustomID: "fd_delete",
+			},
+			discordgo.Button{
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "🔄",
+				},
+				Label:    "Restart",
+				Style:    discordgo.DangerButton,
+				Disabled: false,
+				CustomID: "fd_restart",
 			},
 		},
 	})

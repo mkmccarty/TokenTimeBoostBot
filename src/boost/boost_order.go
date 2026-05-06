@@ -470,7 +470,7 @@ func boostOrderNameButtons(contract *Contract, session *boostOrderSession, visib
 		sortRow := discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.Button{Label: "Next TE", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#te", boostOrderHandlerPrefix, session.xid, sortAction)},
-				discordgo.Button{Label: "Next TE+", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#teplus", boostOrderHandlerPrefix, session.xid, sortAction)},
+				discordgo.Button{Label: "Next Fuzzy TE", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#fuzzyte", boostOrderHandlerPrefix, session.xid, sortAction)},
 				discordgo.Button{Label: "Next ELR", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#elr", boostOrderHandlerPrefix, session.xid, sortAction)},
 				discordgo.Button{Label: "Random", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#random", boostOrderHandlerPrefix, session.xid, sortAction)},
 				discordgo.Button{Label: modeLabel, Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#mode", boostOrderHandlerPrefix, session.xid)},
@@ -958,7 +958,7 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 			}
 			return elrI > elrJ
 		})
-	case "te", "teplus":
+	case "te", "fuzzyte":
 		type tePair struct {
 			name string
 			te   float64
@@ -970,8 +970,8 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 				baseTE = float64(max(b.TECount, 0))
 			}
 			sortTE := baseTE
-			if sortType == "teplus" {
-				randomBonusMax := math.Max(baseTE*0.1, math.Sqrt(baseTE))
+			if sortType == "fuzzyte" {
+				randomBonusMax := math.Max(baseTE*0.1, math.Sqrt(baseTE+25))
 				randomOffset := (rand.Float64()*2 - 1) * randomBonusMax
 				sortTE = baseTE + randomOffset
 			}

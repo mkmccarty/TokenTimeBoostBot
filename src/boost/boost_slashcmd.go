@@ -688,6 +688,110 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 	return str
 }
 
+// HandleRestartContract recycles the current contract and recreates it with the same
+// participants, planned start time, and run style.
+func HandleRestartContract(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
+	})
+
+	channelID := i.ChannelID
+	var str = "Contract not found."
+	contract := FindContract(channelID)
+
+	if contract != nil {
+		if !creatorOfContract(s, contract, i.Member.User.ID) {
+			str = "Only the coordinator can restart this contract."
+		} else {
+			// Capture state before deletion
+			contractID := contract.ContractID
+			coopID := contract.CoopID
+			playStyle := contract.PlayStyle
+			coopSize := contract.CoopSize
+			// If contract already started keep the order via signup order, if not Fuzzy TE, random... might mess it up
+			boostOrder := contract.BoostOrder
+			if contract.State != ContractStateSignup {
+				// Ensures the same boost order with the previous run
+				boostOrder = ContractOrderSignup
+			}
+			progenitors := contract.Order
+			plannedStartTime := contract.PlannedStartTime
+			validFrom := contract.ValidFrom
+			savedStyle := contract.Style
+
+			// Original coordinator
+			originalCoordinatorID := contract.CreatorID[0]
+
+			_, err := DeleteContract(s, i.GuildID, channelID)
+			if err != nil {
+				str = "Failed to delete contract: " + err.Error()
+			} else {
+				mutex.Lock()
+				newContract, err := CreateContract(s, contractID, coopID, playStyle, coopSize, boostOrder, i.GuildID, channelID, progenitors, originalCoordinatorID, plannedStartTime, validFrom)
+				mutex.Unlock()
+
+				if err != nil {
+					str = "Failed to restart contract: " + err.Error()
+				} else {
+					newContract.Style = savedStyle
+					newContract.BoostOrder = boostOrder
+
+					createMsg := DrawBoostList(s, newContract)
+					var listData discordgo.MessageSend
+					listData.Components = createMsg
+					listData.Flags = discordgo.MessageFlagsIsComponentsV2
+					msg, err := s.ChannelMessageSendComplex(channelID, &listData)
+					if err == nil {
+						SetListMessageID(newContract, channelID, msg.ID)
+
+						contentStr, comp := GetSignupComponents(newContract)
+						var components []discordgo.MessageComponent
+						components = append(components, &discordgo.TextDisplay{Content: contentStr})
+						components = append(components, comp...)
+						var signupData discordgo.MessageSend
+						signupData.Flags = discordgo.MessageFlagsIsComponentsV2
+						signupData.Components = components
+
+						reactionMsg, err := s.ChannelMessageSendComplex(channelID, &signupData)
+						if err == nil {
+							SetReactionID(newContract, channelID, reactionMsg.ID)
+							_ = s.ChannelMessagePin(channelID, reactionMsg.ID)
+						}
+					}
+
+					orderName := fmt.Sprintf("%d", boostOrder)
+					if boostOrder >= 0 && boostOrder < len(contractOrderNames) {
+						orderName = contractOrderNames[boostOrder]
+					}
+					playStyleName := contractPlaystyleNames[ContractPlaystyleUnset]
+					if playStyle >= 0 && playStyle < len(contractPlaystyleNames) {
+						playStyleName = contractPlaystyleNames[playStyle]
+					}
+
+					var styleFlags []string
+					for _, f := range contractFlagNames {
+						if savedStyle&f.Flag != 0 {
+							styleFlags = append(styleFlags, f.Name)
+						}
+					}
+
+					var b strings.Builder
+					fmt.Fprintf(&b, "**%s/%s** restarted with **%d** farmers\n", contractID, coopID, len(progenitors))
+					fmt.Fprintf(&b, "Style: %s | Order: %s", playStyleName, orderName)
+					if len(styleFlags) > 0 {
+						fmt.Fprintf(&b, " | Flags: %s", strings.Join(styleFlags, ", "))
+					}
+					if !plannedStartTime.IsZero() {
+						fmt.Fprintf(&b, "\nPlanned start: <t:%d:t>", plannedStartTime.Unix())
+					}
+					str = b.String()
+				}
+			}
+		}
+	}
+	_, _ = s.ChannelMessageSend(channelID, str)
+}
+
 // HandleContractDelete facilitates the deletion of a channel contract
 func HandleContractDelete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Delete coop

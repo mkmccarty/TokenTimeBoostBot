@@ -125,15 +125,16 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	} else {
 		if len(contract.PredictionInfo) > 0 {
 			timeLabels := map[string]string{
-				"00-02": "+0", "02-04": "+2", "04-06": "+4",
-				"06-08": "+6", "08-10": "+8", "10-12": "+10",
-				"12-14": "+12", "14-16": "+14", "16-18": "+16",
-				"18-20": "+18", "20-22": "+20", "22-24": "+22",
+				"00-01": "+0", "01-02": "+1", "02-03": "+2", "03-04": "+3",
+				"04-05": "+4", "05-06": "+5", "06-07": "+6", "07-08": "+7",
+				"08-09": "+8",
+				"20-21": "-4", "21-22": "-3", "22-23": "-2", "23-24": "-1",
 			}
 			sortedTimeKeys := []string{
-				"00-02", "02-04", "04-06", "06-08",
-				"08-10", "10-12", "12-14", "14-16",
-				"16-18", "18-20", "20-22", "22-24",
+				"00-01", "01-02", "02-03", "03-04",
+				"04-05", "05-06", "06-07", "07-08",
+				"08-09",
+				"20-21", "21-22", "22-23", "23-24",
 			}
 
 			for _, pi := range contract.PredictionInfo {
@@ -334,7 +335,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 			sortRate = fmt.Sprintf(" **Ask:%d** ", b.TokensWanted)
 		}
 		if contract.State == ContractStateSignup &&
-			(contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEplus) {
+			(contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEFuzzy) {
 			if b.TECount == -1 {
 				if bottools.IsValidDiscordID(b.UserID) {
 					sortRate = " **TE:🛜** "
