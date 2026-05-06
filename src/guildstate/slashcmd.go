@@ -553,11 +553,18 @@ func HandleGuildFlagAutoComplete(s *discordgo.Session, i *discordgo.InteractionC
 		}
 		searchString := strings.ToLower(opt.StringValue())
 
-		keys := make([]string, len(knownFlagKeys), len(knownFlagKeys)+8)
-		copy(keys, knownFlagKeys)
+		seen := make(map[string]struct{})
+		var keys []string
+		for _, k := range knownFlagKeys {
+			seen[k] = struct{}{}
+			keys = append(keys, k)
+		}
 		if guild, err := GetGuildState(i.GuildID); err == nil && len(guild.MiscSettingsFlag) > 0 {
 			for k := range guild.MiscSettingsFlag {
-				keys = append(keys, k)
+				if _, ok := seen[k]; !ok {
+					seen[k] = struct{}{}
+					keys = append(keys, k)
+				}
 			}
 		}
 		sort.Strings(keys)
