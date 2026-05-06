@@ -1,17 +1,24 @@
 package guildstate
 
 import (
+	"bytes"
 	"database/sql"
 	"errors"
 	"fmt"
+	"image"
 	"log"
+	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 
+	_ "image/jpeg" // Register JPEG decoder for image.Decode.
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 var snowflakeRe = regexp.MustCompile(`\b\d{17,20}\b`)
@@ -472,4 +479,186 @@ func SetGuildSetting(s *discordgo.Session, i *discordgo.InteractionCreate) {
 // GetGuildSettings handles the admin slash command for retrieving all guild settings.
 func GetGuildSettings(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	GetGuildSettingsForGuild(s, i, i.GuildID)
+}
+
+func respondBannerFollowup(s *discordgo.Session, i *discordgo.InteractionCreate, message string) {
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content: message,
+	})
+}
+
+func saveDefaultGuildBanner(s *discordgo.Session, i *discordgo.InteractionCreate, guildID string, imageOpt *discordgo.ApplicationCommandInteractionDataOption) {
+	attachment := bottools.GetCommandAttachment(i, imageOpt)
+	if attachment == nil {
+		respondBannerFollowup(s, i, "Failed to read the image attachment.")
+		return
+	}
+
+	imgBytes, err := bottools.DownloadAttachmentBytes(attachment)
+	if err != nil {
+		respondBannerFollowup(s, i, "Failed to download the image attachment.")
+		return
+	}
+
+	img, _, err := image.Decode(bytes.NewReader(imgBytes))
+	if err != nil {
+		respondBannerFollowup(s, i, "Invalid image format. Please upload a valid PNG or JPG.")
+		return
+	}
+
+	pngBytes, feedback, err := bottools.NormalizeBannerImage(img)
+	if err != nil {
+		respondBannerFollowup(s, i, "Failed to encode the image to PNG.")
+		return
+	}
+
+	if err := os.MkdirAll(config.BannerPath, 0755); err != nil {
+		log.Println("Error creating banner directory:", err)
+	}
+
+	outPath := filepath.Join(config.BannerPath, fmt.Sprintf("banner_%s.png", guildID))
+	if err := os.WriteFile(outPath, pngBytes, 0644); err != nil {
+		respondBannerFollowup(s, i, "Failed to save the image on the server.")
+		return
+	}
+
+	_ = farmerstate.SetCustomBanner(guildID, "DEFAULT", pngBytes)
+	message := "Default guild banner successfully uploaded and saved."
+	if feedback != "" {
+		message += " " + feedback
+	}
+	respondBannerFollowup(s, i, message)
+}
+
+// SlashAdminSetServerBannerCommand creates an admin slash command to set a default guild banner.
+func SlashAdminSetServerBannerCommand(cmd string) *discordgo.ApplicationCommand {
+	var adminPermission = int64(0)
+	return &discordgo.ApplicationCommand{
+		Name:                     cmd,
+		Description:              "Set or remove the default guild banner (auto-fitted to 640x85)",
+		DefaultMemberPermissions: &adminPermission,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "guild-id",
+				Description: "Guild ID to set the default banner for (defaults to current guild)",
+				Required:    false,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionAttachment,
+				Name:        "image",
+				Description: "Default guild banner image (PNG or JPG, auto-fitted to 640x85); omit to remove",
+				Required:    false,
+			},
+		},
+	}
+}
+
+// SlashSetServerBannerCommand creates an admin-only command to set a guild default banner.
+func SlashSetServerBannerCommand(cmd string) *discordgo.ApplicationCommand {
+	var adminPermission = int64(0)
+	return &discordgo.ApplicationCommand{
+		Name:                     cmd,
+		Description:              "Set this server's default banner (auto-fitted to 640x85)",
+		DefaultMemberPermissions: &adminPermission,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionAttachment,
+				Name:        "image",
+				Description: "Server banner image (PNG or JPG, auto-fitted to 640x85)",
+				Required:    true,
+			},
+		},
+	}
+}
+
+// HandleSetServerBanner handles the /set-server-banner command.
+func HandleSetServerBanner(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+		},
+	})
+
+	if !isAdminCaller(s, i) {
+		respondBannerFollowup(s, i, "You are not authorized to use this command.")
+		return
+	}
+
+	guildID := strings.TrimSpace(i.GuildID)
+	if guildID == "" {
+		respondBannerFollowup(s, i, "This command must be used in a guild.")
+		return
+	}
+
+	optionMap := bottools.GetCommandOptionsMap(i)
+	imageOpt, hasImage := optionMap["image"]
+	if !hasImage {
+		respondBannerFollowup(s, i, "image is required.")
+		return
+	}
+
+	saveDefaultGuildBanner(s, i, guildID, imageOpt)
+}
+
+// HandleAdminSlashAdminSetServerBannerCommand handles the /admin-set-server-banner command.
+// The banner is stored with guildID in the user_id column and "DEFAULT" in the guild_id column.
+func HandleAdminSlashAdminSetServerBannerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+		},
+	})
+
+	if !isAdminCaller(s, i) {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: "You are not authorized to use this command.",
+		})
+		return
+	}
+
+	optionMap := bottools.GetCommandOptionsMap(i)
+
+	guildID := i.GuildID
+	if opt, ok := optionMap["guild-id"]; ok {
+		if v := strings.TrimSpace(opt.StringValue()); v != "" {
+			guildID = v
+		}
+	}
+	if guildID == "" {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: "This command must be used in a guild or a guild-id must be provided.",
+		})
+		return
+	}
+
+	const defaultGuildID = "DEFAULT"
+
+	imageOpt, hasImage := optionMap["image"]
+	if !hasImage {
+		outPath := filepath.Join(config.BannerPath, fmt.Sprintf("banner_%s.png", guildID))
+		if err := os.Remove(outPath); err != nil && !os.IsNotExist(err) {
+			respondBannerFollowup(s, i, "Failed to remove the default guild banner.")
+			return
+		}
+		_ = farmerstate.RemoveCustomBanner(guildID, defaultGuildID)
+		respondBannerFollowup(s, i, "Default guild banner removed.")
+		return
+	}
+
+	saveDefaultGuildBanner(s, i, guildID, imageOpt)
 }
