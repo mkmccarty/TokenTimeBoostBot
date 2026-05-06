@@ -155,38 +155,6 @@ func respondEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate, mess
 	}
 }
 
-func respondEphemeralOrFile(s *discordgo.Session, i *discordgo.InteractionCreate, message, filename string) {
-	const maxEphemeralContentLen = 1900
-
-	if len(message) <= maxEphemeralContentLen {
-		respondEphemeral(s, i, message)
-		return
-	}
-
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
-	if err != nil {
-		log.Println(err)
-		respondEphemeral(s, i, "Guild settings output was too large and could not be delivered.")
-		return
-	}
-
-	_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: "Guild settings output is too large for an inline message. Attached as a text file.",
-		Files: []*discordgo.File{{
-			Name:   filename,
-			Reader: bytes.NewReader([]byte(message)),
-		}},
-	})
-	if err != nil {
-		log.Println(err)
-	}
-}
-
 func respondDeferredEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
