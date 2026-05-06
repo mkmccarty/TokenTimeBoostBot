@@ -155,6 +155,81 @@ func respondEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate, mess
 	}
 }
 
+func respondEphemeralOrFile(s *discordgo.Session, i *discordgo.InteractionCreate, message, filename string) {
+	const maxEphemeralContentLen = 1900
+
+	if len(message) <= maxEphemeralContentLen {
+		respondEphemeral(s, i, message)
+		return
+	}
+
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+		},
+	})
+	if err != nil {
+		log.Println(err)
+		respondEphemeral(s, i, "Guild settings output was too large and could not be delivered.")
+		return
+	}
+
+	_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content: "Guild settings output is too large for an inline message. Attached as a text file.",
+		Files: []*discordgo.File{{
+			Name:   filename,
+			Reader: bytes.NewReader([]byte(message)),
+		}},
+	})
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func respondDeferredEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+		},
+	})
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+	return true
+}
+
+func followupEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate, message string) {
+	_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content: message,
+	})
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func followupEphemeralOrFile(s *discordgo.Session, i *discordgo.InteractionCreate, message, filename string) {
+	const maxEphemeralContentLen = 1900
+
+	if len(message) <= maxEphemeralContentLen {
+		followupEphemeral(s, i, message)
+		return
+	}
+
+	_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content: "Guild settings output is too large for an inline message. Attached as a text file.",
+		Files: []*discordgo.File{{
+			Name:   filename,
+			Reader: bytes.NewReader([]byte(message)),
+		}},
+	})
+	if err != nil {
+		log.Println(err)
+	}
+}
+
 func isAdminCaller(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
 	userID := getInteractionUserID(i)
 	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
@@ -263,6 +338,14 @@ func getSnowflakeDetails(s *discordgo.Session, guildID, value string) []string {
 	return details
 }
 
+func formatResolvedDetail(detail string) string {
+	parts := strings.SplitN(detail, " -> ", 2)
+	if len(parts) == 2 {
+		return parts[1]
+	}
+	return detail
+}
+
 // splitCSV splits a comma-separated value into trimmed, non-empty items.
 func splitCSV(value string) []string {
 	parts := strings.Split(value, ",")
@@ -292,25 +375,29 @@ func SetGuildSettingForGuild(s *discordgo.Session, i *discordgo.InteractionCreat
 		return
 	}
 
+	if !respondDeferredEphemeral(s, i) {
+		return
+	}
+
 	guildID = strings.TrimSpace(guildID)
 	setting = strings.TrimSpace(setting)
 	value = strings.TrimSpace(value)
 
 	if guildID == "" {
-		respondEphemeral(s, i, "Guild ID is required.")
+		followupEphemeral(s, i, "Guild ID is required.")
 		return
 	}
 
 	guildName := getGuildDisplayName(s, guildID)
 
 	if setting == "" {
-		respondEphemeral(s, i, "setting is required.")
+		followupEphemeral(s, i, "setting is required.")
 		return
 	}
 
 	SetGuildSettingString(guildID, setting, value)
 	if value == "" {
-		respondEphemeral(s, i, fmt.Sprintf("Cleared setting '%s' for guild '%s'.", setting, guildName))
+		followupEphemeral(s, i, fmt.Sprintf("Cleared setting '%s' for guild '%s'.", setting, guildName))
 		return
 	}
 
@@ -333,7 +420,7 @@ func SetGuildSettingForGuild(s *discordgo.Session, i *discordgo.InteractionCreat
 		}
 	}
 
-	respondEphemeral(s, i, builder.String())
+	followupEphemeralOrFile(s, i, builder.String(), fmt.Sprintf("guild-settings-%s.txt", guildID))
 }
 
 // GetGuildSettingsForGuild retrieves all persisted guild settings for a specific guild ID.
@@ -343,9 +430,13 @@ func GetGuildSettingsForGuild(s *discordgo.Session, i *discordgo.InteractionCrea
 		return
 	}
 
+	if !respondDeferredEphemeral(s, i) {
+		return
+	}
+
 	guildID = strings.TrimSpace(guildID)
 	if guildID == "" {
-		respondEphemeral(s, i, "Guild ID is required.")
+		followupEphemeral(s, i, "Guild ID is required.")
 		return
 	}
 
@@ -354,10 +445,10 @@ func GetGuildSettingsForGuild(s *discordgo.Session, i *discordgo.InteractionCrea
 	guild, err := GetGuildState(guildID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			respondEphemeral(s, i, fmt.Sprintf("No persisted settings found for guild '%s'.", guildName))
+			followupEphemeral(s, i, fmt.Sprintf("No persisted settings found for guild '%s'.", guildName))
 			return
 		}
-		respondEphemeral(s, i, fmt.Sprintf("Error loading guild settings for '%s': %v", guildName, err))
+		followupEphemeral(s, i, fmt.Sprintf("Error loading guild settings for '%s': %v", guildName, err))
 		return
 	}
 
@@ -366,7 +457,7 @@ func GetGuildSettingsForGuild(s *discordgo.Session, i *discordgo.InteractionCrea
 
 	if len(guild.MiscSettingsString) == 0 && len(guild.MiscSettingsFlag) == 0 {
 		builder.WriteString("No persisted settings found.")
-		respondEphemeral(s, i, builder.String())
+		followupEphemeral(s, i, builder.String())
 		return
 	}
 
@@ -384,15 +475,23 @@ func GetGuildSettingsForGuild(s *discordgo.Session, i *discordgo.InteractionCrea
 			if len(items) > 1 {
 				fmt.Fprintf(&builder, "  - parsed items (%d):\n", len(items))
 				for _, item := range items {
-					fmt.Fprintf(&builder, "    - %s\n", item)
-					for _, detail := range getSnowflakeDetails(s, guildID, item) {
-						fmt.Fprintf(&builder, "      - resolved: %s\n", detail)
+					details := getSnowflakeDetails(s, guildID, item)
+					if len(details) == 0 {
+						fmt.Fprintf(&builder, "    - %s\n", item)
+						continue
+					}
+					for _, detail := range details {
+						fmt.Fprintf(&builder, "    - resolved: %s\n", formatResolvedDetail(detail))
 					}
 				}
 				continue
 			}
-			for _, detail := range getSnowflakeDetails(s, guildID, value) {
-				fmt.Fprintf(&builder, "  - resolved: %s\n", detail)
+			details := getSnowflakeDetails(s, guildID, value)
+			if len(details) == 0 {
+				continue
+			}
+			for _, detail := range details {
+				fmt.Fprintf(&builder, "  - resolved: %s\n", formatResolvedDetail(detail))
 			}
 		}
 	}
@@ -413,7 +512,7 @@ func GetGuildSettingsForGuild(s *discordgo.Session, i *discordgo.InteractionCrea
 		fmt.Fprintf(&builder, "\nLast updated: %s", guild.LastUpdated.Format("2006-01-02 15:04:05 MST"))
 	}
 
-	respondEphemeral(s, i, builder.String())
+	followupEphemeralOrFile(s, i, builder.String(), fmt.Sprintf("guild-settings-%s.txt", guildID))
 }
 
 // knownFlagKeys is a curated list of flag keys always shown in the flag autocomplete.
