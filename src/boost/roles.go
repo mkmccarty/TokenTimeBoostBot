@@ -86,6 +86,13 @@ var potatoFallbackRoleNames = []string{
 	"Tater Team",
 	"Potato Patrol",
 	"Golden Potato",
+	"Speculative Tater",
+	"Tater Tot-alitarians",
+	"Potato Posse",
+	"The Mash Mob",
+	"The Waffle Fry Works",
+	"The Au Gratin Alliance,",
+	"The Russet Rangers",
 }
 
 func isPotatoPreferredUser(guildID string, userID string) bool {
@@ -222,6 +229,7 @@ func ensurePotatoTeamRoleForUser(s *discordgo.Session, contract *Contract, userI
 		if updatedRole != nil {
 			contract.mutex.Lock()
 			loc.GuildContractRole = *updatedRole
+			loc.RoleManagedByBot = true
 			loc.RoleMention = loc.GuildContractRole.Mention()
 			contract.mutex.Unlock()
 			roleRenamed = true
@@ -444,6 +452,7 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 		if loc.GuildID == guildID {
 
 			loc.GuildContractRole = *role
+			loc.RoleManagedByBot = true
 			return nil
 		}
 	}

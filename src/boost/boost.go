@@ -241,7 +241,7 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 			_ = s.ChannelMessageDelete(el.ChannelID, el.ListMsgID)
 			_ = s.ChannelMessageDelete(el.ChannelID, el.ReactionID)
 
-			if IsRoleCreatedByBot(el.GuildContractRole.Name) {
+			if el.RoleManagedByBot || IsRoleCreatedByBot(el.GuildContractRole.Name) {
 				err := s.GuildRoleDelete(el.GuildID, el.GuildContractRole.ID)
 				if err != nil {
 					log.Printf("Failed to delete role %s: %v", el.GuildContractRole.Name, err)
