@@ -198,6 +198,49 @@ func followupEphemeralOrFile(s *discordgo.Session, i *discordgo.InteractionCreat
 	}
 }
 
+func followupEphemeralOrFileWithBanner(s *discordgo.Session, i *discordgo.InteractionCreate, message, filename, bannerPath string) {
+	const maxEphemeralContentLen = 1900
+
+	params := &discordgo.WebhookParams{}
+
+	if len(message) <= maxEphemeralContentLen {
+		params.Content = message
+	} else {
+		params.Content = "Guild settings output is too large for an inline message. Attached as a text file."
+		params.Files = append(params.Files, &discordgo.File{
+			Name:   filename,
+			Reader: bytes.NewReader([]byte(message)),
+		})
+	}
+
+	if strings.TrimSpace(bannerPath) != "" {
+		bannerBytes, err := os.ReadFile(bannerPath)
+		if err != nil {
+			log.Println(err)
+		} else {
+			bannerFilename := filepath.Base(bannerPath)
+			if bannerFilename == "" {
+				bannerFilename = "server-banner.png"
+			}
+			params.Files = append(params.Files, &discordgo.File{
+				Name:   bannerFilename,
+				Reader: bytes.NewReader(bannerBytes),
+			})
+			params.Embeds = []*discordgo.MessageEmbed{{
+				Title: "Server Banner Preview",
+				Thumbnail: &discordgo.MessageEmbedThumbnail{
+					URL: "attachment://" + bannerFilename,
+				},
+			}}
+		}
+	}
+
+	_, err := s.FollowupMessageCreate(i.Interaction, true, params)
+	if err != nil {
+		log.Println(err)
+	}
+}
+
 func isAdminCaller(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
 	userID := getInteractionUserID(i)
 	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
@@ -423,10 +466,18 @@ func GetGuildSettingsForGuild(s *discordgo.Session, i *discordgo.InteractionCrea
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "Guild settings for '%s'\n", guildName)
 
-	if len(guild.MiscSettingsString) == 0 && len(guild.MiscSettingsFlag) == 0 {
+	bannerPath := filepath.Join(config.BannerPath, fmt.Sprintf("banner_%s.png", guildID))
+	_, bannerErr := os.Stat(bannerPath)
+	hasServerBanner := bannerErr == nil
+
+	if len(guild.MiscSettingsString) == 0 && len(guild.MiscSettingsFlag) == 0 && !hasServerBanner {
 		builder.WriteString("No persisted settings found.")
 		followupEphemeral(s, i, builder.String())
 		return
+	}
+
+	if len(guild.MiscSettingsString) == 0 && len(guild.MiscSettingsFlag) == 0 {
+		builder.WriteString("No persisted settings found.\n")
 	}
 
 	if len(guild.MiscSettingsString) > 0 {
@@ -476,11 +527,20 @@ func GetGuildSettingsForGuild(s *discordgo.Session, i *discordgo.InteractionCrea
 		}
 	}
 
+	if hasServerBanner {
+		builder.WriteString("\nServer banner: custom default is configured.")
+	}
+
+	bannerPreviewPath := ""
+	if hasServerBanner {
+		bannerPreviewPath = bannerPath
+	}
+
+	followupEphemeralOrFileWithBanner(s, i, builder.String(), fmt.Sprintf("guild-settings-%s.txt", guildID), bannerPreviewPath)
+
 	if !guild.LastUpdated.IsZero() {
 		fmt.Fprintf(&builder, "\nLast updated: %s", guild.LastUpdated.Format("2006-01-02 15:04:05 MST"))
 	}
-
-	followupEphemeralOrFile(s, i, builder.String(), fmt.Sprintf("guild-settings-%s.txt", guildID))
 }
 
 // knownFlagKeys is a curated list of flag keys always shown in the flag autocomplete.
