@@ -58,6 +58,8 @@ const slashAdminGetGuildFlag string = "admin-get-guild-flag"
 const slashAdminGuildstate string = "admin-guildstate"
 const slashAdminMembers string = "admin-members"
 const slashAdminForceDownload string = "admin-force-download"
+const slashAdminSetServerBanner string = "admin-set-server-banner"
+const slashSetServerBanner string = "set-server-banner"
 const slashActiveContracts string = "active-contracts"
 const slashStatusMessage string = "status-message"
 
@@ -380,6 +382,16 @@ func setupCommands() {
 			AppCmd:   guildstate.SlashGetGuildFlagCommand(slashAdminGetGuildFlag),
 			Category: CmdCategoryAdmin,
 			Handler:  guildstate.GetGuildFlag,
+		},
+		{
+			AppCmd:   guildstate.SlashAdminSetServerBannerCommand(slashAdminSetServerBanner),
+			Category: CmdCategoryAdmin,
+			Handler:  guildstate.HandleAdminSlashAdminSetServerBannerCommand,
+		},
+		{
+			AppCmd:   guildstate.SlashSetServerBannerCommand(slashSetServerBanner),
+			Category: CmdCategoryGlobal,
+			Handler:  guildstate.HandleSetServerBanner,
 		},
 
 		// Global Commands

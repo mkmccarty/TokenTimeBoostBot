@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"image/png"
 	"log"
 	"math"
 	"math/rand/v2"
@@ -282,22 +281,43 @@ func UpdateBannerURL(contract *Contract) {
 
 	suffix := ""
 	if len(contract.Location) > 0 {
-		if guildstate.GetGuildSettingString(contract.Location[0].GuildID, "banner_override") == "space" && (style == "f" || style == "l") {
-			suffix = "-space"
-		} else if len(contract.CreatorID) > 0 {
-			creatorID := contract.CreatorID[0]
-			guildID := contract.Location[0].GuildID
-			customBannerPath := fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, creatorID, guildID)
+		guildID := contract.Location[0].GuildID
+		bannerOverride := guildstate.GetGuildSettingString(guildID, "banner_override")
+		defaultBannerPath := fmt.Sprintf("%s/banner_%s.png", config.BannerPath, guildID)
 
-			hasBanner := false
-			if bottools.SyncCustomBannerCallback != nil {
-				hasBanner = bottools.SyncCustomBannerCallback(creatorID, guildID, customBannerPath)
-			} else if _, err := os.Stat(customBannerPath); err == nil {
-				hasBanner = true
+		hasDefaultBanner := false
+		if bottools.SyncCustomBannerCallback != nil {
+			hasDefaultBanner = bottools.SyncCustomBannerCallback(guildID, "DEFAULT", defaultBannerPath)
+		} else if _, err := os.Stat(defaultBannerPath); err == nil {
+			hasDefaultBanner = true
+		}
+
+		if bannerOverride == "space" && (style == "f" || style == "l") {
+			if hasDefaultBanner {
+				suffix = fmt.Sprintf("-%s", guildID)
+			} else {
+				// Final fallback remains the non-custom space banner for f/l styles.
+				suffix = "-space"
+			}
+		} else {
+			hasCoordinatorBanner := false
+			if len(contract.CreatorID) > 0 {
+				creatorID := contract.CreatorID[0]
+				customBannerPath := fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, creatorID, guildID)
+
+				if bottools.SyncCustomBannerCallback != nil {
+					hasCoordinatorBanner = bottools.SyncCustomBannerCallback(creatorID, guildID, customBannerPath)
+				} else if _, err := os.Stat(customBannerPath); err == nil {
+					hasCoordinatorBanner = true
+				}
+
+				if hasCoordinatorBanner {
+					suffix = fmt.Sprintf("-%s_%s", creatorID, guildID)
+				}
 			}
 
-			if hasBanner {
-				suffix = fmt.Sprintf("-%s_%s", creatorID, guildID)
+			if bannerOverride != "" && !hasCoordinatorBanner && hasDefaultBanner {
+				suffix = fmt.Sprintf("-%s", guildID)
 			}
 		}
 
@@ -2029,12 +2049,12 @@ func GetSlashUploadBannerCommand(cmd string) *discordgo.ApplicationCommand {
 		},
 		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
 			discordgo.ApplicationIntegrationGuildInstall,
-		}, Description: "Upload a custom contract banner for this server (Server Boosters only, 640x85 pixels)",
+		}, Description: "Upload a custom contract banner for this server (Server Boosters only, auto-fitted to 640x85)",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:        discordgo.ApplicationCommandOptionAttachment,
 				Name:        "image",
-				Description: "Your custom banner image (640x85 PNG or JPG)",
+				Description: "Your custom banner image (PNG, JPG, or GIF, auto-fitted to 640x85)",
 				Required:    false,
 			},
 		},
@@ -2117,17 +2137,8 @@ func HandleUploadBannerCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		return
 	}
 
-	bounds := img.Bounds()
-	if bounds.Dx() != 640 || bounds.Dy() != 85 {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: fmt.Sprintf("Image must be exactly 640x85 pixels. Yours is %dx%d.", bounds.Dx(), bounds.Dy()),
-		})
-		return
-	}
-
-	// Convert to PNG before saving
-	var pngBuffer bytes.Buffer
-	if err := png.Encode(&pngBuffer, img); err != nil {
+	pngBytes, feedback, err := bottools.NormalizeBannerImage(img)
+	if err != nil {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: "Failed to encode the image to PNG.",
 		})
@@ -2139,16 +2150,20 @@ func HandleUploadBannerCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	outPath := filepath.Join(config.BannerPath, fmt.Sprintf("banner_%s_%s.png", user.ID, i.GuildID))
-	if err := os.WriteFile(outPath, pngBuffer.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(outPath, pngBytes, 0644); err != nil {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: "Failed to save the image on the server.",
 		})
 		return
 	}
 
-	_ = farmerstate.SetCustomBanner(user.ID, i.GuildID, pngBuffer.Bytes())
+	_ = farmerstate.SetCustomBanner(user.ID, i.GuildID, pngBytes)
+	message := "Custom banner successfully uploaded and saved! It will be used for your next /contract."
+	if feedback != "" {
+		message += " " + feedback
+	}
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: "Custom banner successfully uploaded and saved! It will be used for your next /contract.",
+		Content: message,
 	})
 }
