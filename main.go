@@ -364,9 +364,10 @@ func setupCommands() {
 			Autocomplete: boost.HandleAdminStatusMessageAutoComplete,
 		},
 		{
-			AppCmd:   guildstate.SlashSetGuildSettingCommand(slashAdminSetGuildSetting),
-			Category: CmdCategoryAdmin,
-			Handler:  guildstate.SetGuildSetting,
+			AppCmd:       guildstate.SlashSetGuildSettingCommand(slashAdminSetGuildSetting),
+			Category:     CmdCategoryAdmin,
+			Handler:      guildstate.SetGuildSetting,
+			Autocomplete: guildstate.HandleSetGuildSettingAutoComplete,
 		},
 		{
 			AppCmd:   guildstate.SlashGetGuildSettingsCommand(slashAdminGetGuildSettings),
@@ -374,14 +375,16 @@ func setupCommands() {
 			Handler:  guildstate.GetGuildSettings,
 		},
 		{
-			AppCmd:   guildstate.SlashSetGuildFlagCommand(slashAdminSetGuildFlag),
-			Category: CmdCategoryAdmin,
-			Handler:  guildstate.SetGuildFlag,
+			AppCmd:       guildstate.SlashSetGuildFlagCommand(slashAdminSetGuildFlag),
+			Category:     CmdCategoryAdmin,
+			Handler:      guildstate.SetGuildFlag,
+			Autocomplete: guildstate.HandleGuildFlagAutoComplete,
 		},
 		{
-			AppCmd:   guildstate.SlashGetGuildFlagCommand(slashAdminGetGuildFlag),
-			Category: CmdCategoryAdmin,
-			Handler:  guildstate.GetGuildFlag,
+			AppCmd:       guildstate.SlashGetGuildFlagCommand(slashAdminGetGuildFlag),
+			Category:     CmdCategoryAdmin,
+			Handler:      guildstate.GetGuildFlag,
+			Autocomplete: guildstate.HandleGuildFlagAutoComplete,
 		},
 		{
 			AppCmd:   guildstate.SlashAdminSetServerBannerCommand(slashAdminSetServerBanner),
