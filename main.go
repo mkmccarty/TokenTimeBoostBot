@@ -47,7 +47,6 @@ const (
 // Admin Slash Command Constants
 const slashAdminContractsList string = "admin-contract-list"
 
-// const slashAdminBotSettings string = "admin-bot-settings"
 const slashReloadContracts string = "admin-reload-contracts"
 const slashAdminGetContractData string = "admin-get-contract-data"
 const slashAdminListRoles string = "list-roles"
