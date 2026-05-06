@@ -109,6 +109,10 @@ func getDefaultBannerOverrideGuildIDs() []string {
 // SyncCustomBannerCallback is a function hook to sync custom banners from the database to disk.
 var SyncCustomBannerCallback func(userID string, guildID string, destPath string) bool
 
+// RefreshGuildContractsForBannerCallback is a function hook to refresh/redraw contracts
+// in a guild after its default banner is updated.
+var RefreshGuildContractsForBannerCallback func(guildID string)
+
 // GenerateBanner creates a banner image with a background, overlay image, and text
 func GenerateBanner(ID string, eggName string, text string, creatorID string, guildID string, styleOverride string) {
 	defer func() {

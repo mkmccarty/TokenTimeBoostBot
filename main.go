@@ -207,6 +207,9 @@ func init() {
 	}
 
 	bottools.SyncCustomBannerCallback = farmerstate.SyncCustomBanner
+	bottools.RefreshGuildContractsForBannerCallback = func(guildID string) {
+		boost.RefreshGuildContractsForBannerUpdate(s, guildID)
+	}
 }
 
 func init() {
