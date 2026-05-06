@@ -13,6 +13,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 	"google.golang.org/genai"
 )
 
@@ -78,6 +79,171 @@ var randomThingNames []string = []string{
 var nameMutex sync.Mutex
 
 const googleModel = "gemini-2.5-flash-lite"
+
+var potatoFallbackRoleNames = []string{
+	"Potato Crew",
+	"Spud Squad",
+	"Tater Team",
+	"Potato Patrol",
+	"Golden Potato",
+}
+
+func isPotatoPreferredUser(guildID string, userID string) bool {
+	if userID == "" {
+		return false
+	}
+
+	taters := strings.TrimSpace(guildstate.GetGuildSettingString(guildID, "taters"))
+	if taters == "" {
+		taters = strings.TrimSpace(guildstate.GetGuildSettingString("DEFAULT", "taters"))
+	}
+	if taters == "" {
+		return false
+	}
+
+	for _, id := range strings.Split(taters, ",") {
+		if strings.TrimSpace(id) == userID {
+			return true
+		}
+	}
+
+	return false
+}
+
+func roleNameReferencesPotato(roleName string) bool {
+	name := strings.ToLower(roleName)
+	return strings.Contains(name, "potato") || strings.Contains(name, "spud") || strings.Contains(name, "tater")
+}
+
+func getPotatoContractRoleName(contract *Contract) string {
+	prompt := "Egg Inc contract"
+	if contract != nil {
+		switch {
+		case strings.TrimSpace(contract.Description) != "":
+			prompt = contract.Description
+		case strings.TrimSpace(contract.Name) != "":
+			prompt = contract.Name
+		case strings.TrimSpace(contract.ContractID) != "":
+			prompt = contract.ContractID
+		}
+	}
+
+	names := fetchContractTeamNames(prompt+" Include a potato reference in the team name.", 1)
+	if len(names) > 0 {
+		name := strings.TrimSpace(names[0])
+		if name != "" {
+			if !roleNameReferencesPotato(name) {
+				name = "Potato " + name
+			}
+			return name
+		}
+	}
+
+	return potatoFallbackRoleNames[rand.IntN(len(potatoFallbackRoleNames))]
+}
+
+func uniqueRoleName(existingRoles []string, preferredName string) string {
+	if preferredName == "" {
+		preferredName = "Potato Crew"
+	}
+	if !slices.Contains(existingRoles, preferredName) {
+		return preferredName
+	}
+	teamPreferred := "Team " + preferredName
+	if !slices.Contains(existingRoles, teamPreferred) {
+		return teamPreferred
+	}
+	for i := 2; i < 1000; i++ {
+		candidate := fmt.Sprintf("%s %d", preferredName, i)
+		if !slices.Contains(existingRoles, candidate) {
+			return candidate
+		}
+	}
+	return fmt.Sprintf("%s %d", preferredName, rand.IntN(1000)+1000)
+}
+
+func ensurePotatoTeamRoleForUser(s *discordgo.Session, contract *Contract, userID string) {
+	if s == nil || contract == nil {
+		return
+	}
+
+	roleRenamed := false
+
+	for _, loc := range contract.Location {
+		if loc == nil || loc.GuildContractRole.ID == "" {
+			continue
+		}
+		if !isPotatoPreferredUser(loc.GuildID, userID) {
+			continue
+		}
+		if roleNameReferencesPotato(loc.GuildContractRole.Name) {
+			continue
+		}
+
+		desiredName := getPotatoContractRoleName(contract)
+
+		roles, err := s.GuildRoles(loc.GuildID)
+		if err != nil {
+			log.Printf("ensurePotatoTeamRoleForUser: failed to list roles for guild %s: %v", loc.GuildID, err)
+			continue
+		}
+		existingRoles := make([]string, 0, len(roles))
+		for _, role := range roles {
+			existingRoles = append(existingRoles, role.Name)
+		}
+		newName := uniqueRoleName(existingRoles, desiredName)
+
+		updatedRole, err := s.GuildRoleEdit(loc.GuildID, loc.GuildContractRole.ID, &discordgo.RoleParams{
+			Name: newName,
+		})
+		if err != nil {
+			log.Printf("ensurePotatoTeamRoleForUser: failed to rename role %s (%s): %v", loc.GuildContractRole.Name, loc.GuildContractRole.ID, err)
+			continue
+		}
+
+		if updatedRole != nil {
+			contract.mutex.Lock()
+			loc.GuildContractRole = *updatedRole
+			loc.RoleMention = loc.GuildContractRole.Mention()
+			contract.mutex.Unlock()
+			roleRenamed = true
+		}
+		log.Printf("Renamed contract team role to potato-themed name %q for user %s", loc.GuildContractRole.Name, userID)
+	}
+
+	if roleRenamed {
+		refreshBoostListMessage(s, contract, contract.RegisteredNum == contract.CoopSize)
+	}
+}
+
+func ensurePotatoTeamRoleForUserAsync(s *discordgo.Session, contract *Contract, userID string) {
+	if s == nil || contract == nil || userID == "" {
+		return
+	}
+
+	needsPotatoRole := false
+	for _, loc := range contract.Location {
+		if loc == nil {
+			continue
+		}
+		if isPotatoPreferredUser(loc.GuildID, userID) {
+			needsPotatoRole = true
+			break
+		}
+	}
+	if !needsPotatoRole {
+		return
+	}
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("ensurePotatoTeamRoleForUserAsync panic for user %s: %v", userID, r)
+			}
+		}()
+		ensurePotatoTeamRoleForUser(s, contract, userID)
+	}()
+}
 
 // getContractRoleName generates a thematic role name for the given contract ID
 func getContractRoleName(contractID string) string {

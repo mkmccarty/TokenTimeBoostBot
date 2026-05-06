@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"image"
-	_ "image/gif"
-	_ "image/jpeg"
 	"image/png"
 	"math"
 
@@ -13,7 +11,9 @@ import (
 )
 
 const (
-	BannerWidth  = 640
+	// BannerWidth is set to 640 to fit within Discord's maximum banner width of 960 pixels while maintaining a good aspect ratio for most images.
+	BannerWidth = 640
+	// BannerHeight is set to 85 to maintain a 16:9 aspect ratio while fitting within Discord's maximum banner height of 256 pixels.
 	BannerHeight = 85
 )
 
