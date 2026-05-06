@@ -894,6 +894,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		}
 	}
 	if !progenitor {
+		ensurePotatoTeamRoleForUserAsync(s, contract, userID)
 		refreshBoostListMessage(s, contract, contract.RegisteredNum == contract.CoopSize)
 	}
 	return b, nil
