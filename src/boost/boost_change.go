@@ -730,13 +730,17 @@ func renameContractRole(s *discordgo.Session, contract *Contract) {
 			continue
 		}
 
-		_, err := s.GuildRoleEdit(loc.GuildID, loc.GuildContractRole.ID, &discordgo.RoleParams{
+		updatedRole, err := s.GuildRoleEdit(loc.GuildID, loc.GuildContractRole.ID, &discordgo.RoleParams{
 			Name: newRoleName,
 		})
 
 		if err != nil {
 			log.Println("Error renaming contract role:", err)
 		} else {
+			if updatedRole != nil {
+				loc.GuildContractRole = *updatedRole
+			}
+			loc.RoleManagedByBot = true
 			log.Println("Successfully renamed contract role to:", newRoleName)
 		}
 	}

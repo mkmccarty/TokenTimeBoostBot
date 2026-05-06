@@ -196,6 +196,7 @@ type LocationData struct {
 	ChannelID         string // Contract Discord ThreadID
 	ChannelMention    string // Mention string for the thread
 	GuildContractRole discordgo.Role
+	RoleManagedByBot  bool // True when the contract role name/role is created or managed by the bot
 	RoleMention       string
 	ListMsgID         string   // Message ID for the Last Boost Order message
 	ReactionID        string   // Message ID for the reaction Order String

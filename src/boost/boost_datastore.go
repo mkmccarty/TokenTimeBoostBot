@@ -279,6 +279,21 @@ func loadData() (map[string]*Contract, error) {
 					log.Printf("Error unmarshaling contract data from SQLite: %v", err)
 					continue
 				}
+
+				backfilledRoleManagedByBot := false
+				for _, loc := range contract.Location {
+					if loc == nil || loc.RoleManagedByBot || strings.TrimSpace(loc.GuildContractRole.Name) == "" {
+						continue
+					}
+					if IsRoleCreatedByBot(loc.GuildContractRole.Name) {
+						loc.RoleManagedByBot = true
+						backfilledRoleManagedByBot = true
+					}
+				}
+				if backfilledRoleManagedByBot {
+					saveSqliteData(&contract)
+				}
+
 				switch v := r.Contracthash.(type) {
 				case string:
 					c[v] = &contract
