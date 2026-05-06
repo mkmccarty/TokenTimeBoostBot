@@ -611,7 +611,7 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	// Override the contract style based on the play style, only for leaderboard play style
 	if contract.PlayStyle == ContractPlaystyleLeaderboard {
 		contract.Style = ContractFlagFastrun
-		contract.BoostOrder = ContractOrderTEplus
+		contract.BoostOrder = ContractOrderTEFuzzy
 	}
 	/*
 		} else { //if !creatorOfContract(contract, userID) {
@@ -745,13 +745,13 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			contract.BoostOrder = ContractOrderTVal
 		case "ask":
 			contract.BoostOrder = ContractOrderTokenAsk
-		case "te", "teplus":
+		case "te", "fuzzyte":
 			type userToRefresh struct {
 				userID  string
 				booster *Booster
 			}
-			if values[0] == "teplus" {
-				contract.BoostOrder = ContractOrderTEplus
+			if values[0] == "fuzzyte" {
+				contract.BoostOrder = ContractOrderTEFuzzy
 			} else {
 				contract.BoostOrder = ContractOrderTE
 			}

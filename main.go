@@ -264,6 +264,7 @@ var (
 		"fd_tokens_sub": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.AddBoostTokensInteraction(s, i, 0, -1)
 		},
+		"fd_restart":          boost.HandleRestartContract,
 		"fd_delete":           boost.HandleContractDelete,
 		"rc_":                 boost.HandleContractReactions,
 		"menu":                boost.HandleMenuReactions,

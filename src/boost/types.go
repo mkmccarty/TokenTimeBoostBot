@@ -49,6 +49,31 @@ var contractPlaystyleNames = []string{
 	"ACO",
 	"Fastrun",
 	"Leaderboard",
+	"GG Rerun",
+}
+
+var contractOrderNames = []string{
+	"Signup",     // ContractOrderSignup
+	"Reverse",    // ContractOrderReverse
+	"Random",     // ContractOrderRandom
+	"Fair",       // ContractOrderFair
+	"Time-Based", // ContractOrderTimeBased
+	"ELR",        // ContractOrderELR
+	"TVal",       // ContractOrderTVal
+	"Token-Ask",  // ContractOrderTokenAsk
+	"TE",         // ContractOrderTE
+	"Fuzzy TE",   // ContractOrderTEFuzzy
+	"Manual",     // ContractManualOrder
+}
+
+var contractFlagNames = []struct {
+	Flag int64
+	Name string
+}{
+	{ContractFlagBanker, "Banker"},
+	{ContractFlag6Tokens, "6-token"},
+	{ContractFlag8Tokens, "8-token"},
+	{ContractFlagDynamicTokens, "Dynamic-tokens"},
 }
 
 // Constnts for the contract
@@ -62,7 +87,7 @@ const (
 	ContractOrderTVal      = 6  // Token Value based order
 	ContractOrderTokenAsk  = 7  // Token Ask order, less tokens boosts earlier
 	ContractOrderTE        = 8  // Truth Egg based order
-	ContractOrderTEplus    = 9  // Truth Egg + randomization
+	ContractOrderTEFuzzy   = 9  // Truth Egg + randomization
 	ContractManualOrder    = 10 // Manual order set by contract creator
 
 	ContractStateSignup    = 0 // Contract is in signup phase
@@ -107,6 +132,7 @@ const (
 	ContractPlaystyleACOCooperative = 2 // ACO Cooperative
 	ContractPlaystyleFastrun        = 3 // Fastrun
 	ContractPlaystyleLeaderboard    = 4 // Leaderboard
+	ContractPlaystyleGGRerun        = 5 // GG Rerun
 )
 
 // PredictionInfo holds cached data for predicted contracts
