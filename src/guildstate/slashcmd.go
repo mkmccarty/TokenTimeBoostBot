@@ -698,6 +698,9 @@ func saveDefaultGuildBanner(s *discordgo.Session, i *discordgo.InteractionCreate
 	}
 
 	_ = farmerstate.SetCustomBanner(guildID, "DEFAULT", pngBytes)
+	if bottools.RefreshGuildContractsForBannerCallback != nil {
+		bottools.RefreshGuildContractsForBannerCallback(guildID)
+	}
 	message := "Default guild banner successfully uploaded and saved."
 	if feedback != "" {
 		message += " " + feedback

@@ -910,6 +910,34 @@ func IsUserCreatorOfAnyContract(s *discordgo.Session, userID string) bool {
 	return false
 }
 
+// RefreshGuildContractsForBannerUpdate updates banner URLs and redraws boost lists for
+// active contracts associated with the given guild.
+func RefreshGuildContractsForBannerUpdate(s *discordgo.Session, guildID string) {
+	if s == nil || guildID == "" {
+		return
+	}
+
+	for _, contract := range Contracts {
+		if contract == nil || contract.State == ContractStateArchive || contract.State == ContractStateCompleted {
+			continue
+		}
+
+		matchesGuild := false
+		for _, loc := range contract.Location {
+			if loc != nil && loc.GuildID == guildID {
+				matchesGuild = true
+				break
+			}
+		}
+		if !matchesGuild {
+			continue
+		}
+
+		UpdateBannerURL(contract)
+		refreshBoostListMessage(s, contract, false)
+	}
+}
+
 func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, contract *Contract) {
 	// Get user EI from the db and set any relevant fields
 	eggIncID := ""
