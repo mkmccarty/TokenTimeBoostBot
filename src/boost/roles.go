@@ -110,6 +110,21 @@ func isPotatoPreferredUser(guildID string, userID string) bool {
 	return false
 }
 
+func contractHasOtherPotatoPreferredUser(contract *Contract, guildID string, excludeUserID string) bool {
+	if contract == nil {
+		return false
+	}
+	for boosterID := range contract.Boosters {
+		if boosterID == excludeUserID {
+			continue
+		}
+		if isPotatoPreferredUser(guildID, boosterID) {
+			return true
+		}
+	}
+	return false
+}
+
 func roleNameReferencesPotato(roleName string) bool {
 	name := strings.ToLower(roleName)
 	return strings.Contains(name, "potato") || strings.Contains(name, "spud") || strings.Contains(name, "tater")
@@ -173,6 +188,9 @@ func ensurePotatoTeamRoleForUser(s *discordgo.Session, contract *Contract, userI
 		if loc == nil || loc.GuildContractRole.ID == "" {
 			continue
 		}
+		if contractHasOtherPotatoPreferredUser(contract, loc.GuildID, userID) {
+			continue
+		}
 		if !isPotatoPreferredUser(loc.GuildID, userID) {
 			continue
 		}
@@ -224,6 +242,9 @@ func ensurePotatoTeamRoleForUserAsync(s *discordgo.Session, contract *Contract, 
 	needsPotatoRole := false
 	for _, loc := range contract.Location {
 		if loc == nil {
+			continue
+		}
+		if contractHasOtherPotatoPreferredUser(contract, loc.GuildID, userID) {
 			continue
 		}
 		if isPotatoPreferredUser(loc.GuildID, userID) {

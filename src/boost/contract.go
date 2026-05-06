@@ -586,10 +586,23 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	contract.DynamicData = createDynamicTokenData(50)
 	Contracts[ContractHash] = contract
 
-	// Apply potato-themed role override asynchronously for configured users.
-	ensurePotatoTeamRoleForUserAsync(s, contract, userID)
+	// Apply potato-themed role override asynchronously once for the first configured user.
+	potatoRoleScheduled := false
+	schedulePotatoRoleOverride := func(candidateUserID string) {
+		if potatoRoleScheduled || candidateUserID == "" {
+			return
+		}
+		for _, loc := range contract.Location {
+			if loc != nil && isPotatoPreferredUser(loc.GuildID, candidateUserID) {
+				ensurePotatoTeamRoleForUserAsync(s, contract, candidateUserID)
+				potatoRoleScheduled = true
+				return
+			}
+		}
+	}
+	schedulePotatoRoleOverride(userID)
 	for _, pid := range progenitors {
-		ensurePotatoTeamRoleForUserAsync(s, contract, pid)
+		schedulePotatoRoleOverride(pid)
 	}
 
 	// want to string ContractFlagCrt and ContractFlagSelfRun from Style
