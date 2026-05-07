@@ -73,39 +73,6 @@ type bgDef struct {
 	suffix string
 }
 
-func getDefaultBannerOverrideGuildIDs() []string {
-	pattern := filepath.Join(config.BannerPath, "banner_*.png")
-	matches, err := filepath.Glob(pattern)
-	if err != nil {
-		log.Printf("failed to list default banner overrides: %v", err)
-		return nil
-	}
-
-	overrides := make([]string, 0, len(matches))
-	seen := make(map[string]struct{}, len(matches))
-	for _, match := range matches {
-		base := filepath.Base(match)
-		if !strings.HasPrefix(base, "banner_") || !strings.HasSuffix(base, ".png") {
-			continue
-		}
-		guildID := strings.TrimSuffix(strings.TrimPrefix(base, "banner_"), ".png")
-		guildID = strings.TrimSpace(guildID)
-		if guildID == "" {
-			continue
-		}
-		if strings.Contains(guildID, "_") {
-			continue
-		}
-		if _, ok := seen[guildID]; ok {
-			continue
-		}
-		seen[guildID] = struct{}{}
-		overrides = append(overrides, guildID)
-	}
-
-	return overrides
-}
-
 // SyncCustomBannerCallback is a function hook to sync custom banners from the database to disk.
 var SyncCustomBannerCallback func(userID string, guildID string, destPath string) bool
 
@@ -151,8 +118,6 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 		}
 	}
 
-	defaultOverrideGuildIDs := getDefaultBannerOverrideGuildIDs()
-
 	for _, style := range styleArray {
 		if hasCustomBanner {
 			customImgPath := fmt.Sprintf("%s/%s-b%s-%s_%s.png", config.BannerOutputPath, ID, style, creatorID, guildID)
@@ -174,29 +139,6 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 		if os.IsNotExist(err) || getCurrentSeason(info.ModTime()) != currentSeason {
 			allExistAndFresh = false
 			break
-		}
-
-		if style == "f" || style == "l" {
-			spaceImgPath := fmt.Sprintf("%s/%s-b%s-space.png", config.BannerOutputPath, ID, style)
-			if _, err := os.Stat(spaceImgPath); os.IsNotExist(err) {
-				allExistAndFresh = false
-				break
-			}
-		}
-
-		for _, overrideGuildID := range defaultOverrideGuildIDs {
-			overrideImgPath := fmt.Sprintf("%s/%s-b%s-%s.png", config.BannerOutputPath, ID, style, overrideGuildID)
-			overrideInfo, err := os.Stat(overrideImgPath)
-			if os.IsNotExist(err) {
-				allExistAndFresh = false
-				break
-			}
-
-			overrideBgInfo, _ := os.Stat(fmt.Sprintf("%s/banner_%s.png", config.BannerPath, overrideGuildID))
-			if overrideBgInfo != nil && overrideInfo.ModTime().Before(overrideBgInfo.ModTime()) {
-				allExistAndFresh = false
-				break
-			}
 		}
 		if !allExistAndFresh {
 			break
@@ -253,13 +195,9 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 	}
 
 	bgSeasonPath := fmt.Sprintf("%s/banner_%s_640.png", config.BannerPath, currentSeason)
-	bgSpacePath := config.BannerPath + "/banner_space_640.png"
 	bgCustomPath := fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, creatorID, guildID)
 
 	if _, err := os.Stat(bgSeasonPath); os.IsNotExist(err) {
-		_ = DownloadLatestEggImages(config.BannerPath)
-	}
-	if _, err := os.Stat(bgSpacePath); os.IsNotExist(err) {
 		_ = DownloadLatestEggImages(config.BannerPath)
 	}
 
@@ -323,11 +261,6 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 	} else {
 		backgrounds = []bgDef{
 			{path: bgSeasonPath, suffix: ""},
-			{path: bgSpacePath, suffix: "-space"},
-		}
-		for _, overrideGuildID := range defaultOverrideGuildIDs {
-			overridePath := fmt.Sprintf("%s/banner_%s.png", config.BannerPath, overrideGuildID)
-			backgrounds = append(backgrounds, bgDef{path: overridePath, suffix: fmt.Sprintf("-%s", overrideGuildID)})
 		}
 	}
 
@@ -395,9 +328,6 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 
 		for _, style := range sData {
 			if styleOverride != "" && style.id != styleOverride {
-				continue
-			}
-			if bgInfo.suffix == "-space" && style.id != "f" && style.id != "l" {
 				continue
 			}
 			styleImage := image.NewRGBA(compositeImage.Bounds())

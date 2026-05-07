@@ -22,7 +22,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/divan/num2words"
@@ -282,7 +281,6 @@ func UpdateBannerURL(contract *Contract) {
 	suffix := ""
 	if len(contract.Location) > 0 {
 		guildID := contract.Location[0].GuildID
-		bannerOverride := guildstate.GetGuildSettingString(guildID, "banner_override")
 		defaultBannerPath := fmt.Sprintf("%s/banner_%s.png", config.BannerPath, guildID)
 
 		hasDefaultBanner := false
@@ -292,33 +290,24 @@ func UpdateBannerURL(contract *Contract) {
 			hasDefaultBanner = true
 		}
 
-		if bannerOverride == "space" && (style == "f" || style == "l") {
-			if hasDefaultBanner {
-				suffix = fmt.Sprintf("-%s", guildID)
-			} else {
-				// Final fallback remains the non-custom space banner for f/l styles.
-				suffix = "-space"
-			}
-		} else {
-			hasCoordinatorBanner := false
-			if len(contract.CreatorID) > 0 {
-				creatorID := contract.CreatorID[0]
-				customBannerPath := fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, creatorID, guildID)
+		hasCoordinatorBanner := false
+		if len(contract.CreatorID) > 0 {
+			creatorID := contract.CreatorID[0]
+			customBannerPath := fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, creatorID, guildID)
 
-				if bottools.SyncCustomBannerCallback != nil {
-					hasCoordinatorBanner = bottools.SyncCustomBannerCallback(creatorID, guildID, customBannerPath)
-				} else if _, err := os.Stat(customBannerPath); err == nil {
-					hasCoordinatorBanner = true
-				}
-
-				if hasCoordinatorBanner {
-					suffix = fmt.Sprintf("-%s_%s", creatorID, guildID)
-				}
+			if bottools.SyncCustomBannerCallback != nil {
+				hasCoordinatorBanner = bottools.SyncCustomBannerCallback(creatorID, guildID, customBannerPath)
+			} else if _, err := os.Stat(customBannerPath); err == nil {
+				hasCoordinatorBanner = true
 			}
 
-			if bannerOverride != "" && !hasCoordinatorBanner && hasDefaultBanner {
-				suffix = fmt.Sprintf("-%s", guildID)
+			if hasCoordinatorBanner {
+				suffix = fmt.Sprintf("-%s_%s", creatorID, guildID)
 			}
+		}
+
+		if !hasCoordinatorBanner && hasDefaultBanner {
+			suffix = fmt.Sprintf("-%s", guildID)
 		}
 
 	}
