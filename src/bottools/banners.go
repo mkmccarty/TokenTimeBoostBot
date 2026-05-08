@@ -107,14 +107,23 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 	allExistAndFresh := true
 
 	hasCustomBanner := false
+	hasDefaultBanner := false
+	bgCustomPath := ""
+	bgDefaultPath := ""
 	if creatorID != "" {
-		bgCustomPath := fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, creatorID, guildID)
+		bgCustomPath = fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, creatorID, guildID)
 		if SyncCustomBannerCallback != nil {
 			hasCustomBanner = SyncCustomBannerCallback(creatorID, guildID, bgCustomPath)
-		} else {
-			if _, err := os.Stat(bgCustomPath); err == nil {
-				hasCustomBanner = true
-			}
+		} else if _, err := os.Stat(bgCustomPath); err == nil {
+			hasCustomBanner = true
+		}
+	}
+	if guildID != "" {
+		bgDefaultPath = fmt.Sprintf("%s/banner_%s.png", config.BannerPath, guildID)
+		if SyncCustomBannerCallback != nil {
+			hasDefaultBanner = SyncCustomBannerCallback(guildID, "DEFAULT", bgDefaultPath)
+		} else if _, err := os.Stat(bgDefaultPath); err == nil {
+			hasDefaultBanner = true
 		}
 	}
 
@@ -127,6 +136,20 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 				break
 			}
 			bgInfo, _ := os.Stat(fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, creatorID, guildID))
+			if bgInfo != nil && info.ModTime().Before(bgInfo.ModTime()) {
+				allExistAndFresh = false
+				break
+			}
+			continue
+		}
+		if hasDefaultBanner {
+			defaultImgPath := fmt.Sprintf("%s/%s-b%s-%s.png", config.BannerOutputPath, ID, style, guildID)
+			info, err := os.Stat(defaultImgPath)
+			if os.IsNotExist(err) {
+				allExistAndFresh = false
+				break
+			}
+			bgInfo, _ := os.Stat(fmt.Sprintf("%s/banner_%s.png", config.BannerPath, guildID))
 			if bgInfo != nil && info.ModTime().Before(bgInfo.ModTime()) {
 				allExistAndFresh = false
 				break
@@ -195,7 +218,7 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 	}
 
 	bgSeasonPath := fmt.Sprintf("%s/banner_%s_640.png", config.BannerPath, currentSeason)
-	bgCustomPath := fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, creatorID, guildID)
+	bgCustomPath = fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, creatorID, guildID)
 
 	if _, err := os.Stat(bgSeasonPath); os.IsNotExist(err) {
 		_ = DownloadLatestEggImages(config.BannerPath)
@@ -257,6 +280,10 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 	if hasCustomBanner {
 		backgrounds = []bgDef{
 			{path: bgCustomPath, suffix: fmt.Sprintf("-%s_%s", creatorID, guildID)},
+		}
+	} else if hasDefaultBanner {
+		backgrounds = []bgDef{
+			{path: bgDefaultPath, suffix: fmt.Sprintf("-%s", guildID)},
 		}
 	} else {
 		backgrounds = []bgDef{
