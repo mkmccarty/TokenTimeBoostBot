@@ -608,6 +608,8 @@ func schedulePeriodicals(s *discordgo.Session) {
 			needsReload = false
 		} else if fileInfo, err := os.Stat(eggIncContractsFile); err == nil && fileInfo.ModTime().In(loc).After(todayLoadTime) {
 			needsReload = false
+		} else if fileInfo, err := os.Stat(eggIncEventsFile); err == nil && fileInfo.ModTime().In(loc).After(todayLoadTime) {
+			needsReload = false
 		}
 
 		if needsReload {
@@ -644,18 +646,42 @@ func schedulePeriodicals(s *discordgo.Session) {
 	}
 }
 
+// hasTodaysContract returns true if any contract in ei.EggIncContracts has a ValidFrom date matching today in PT.
+func hasTodaysContract(loc *time.Location) bool {
+	now := time.Now().In(loc)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	tomorrow := today.AddDate(0, 0, 1)
+	for _, c := range ei.EggIncContracts {
+		vf := c.ValidFrom.In(loc)
+		if !vf.Before(today) && vf.Before(tomorrow) {
+			return true
+		}
+	}
+	return false
+}
+
 func pollPeriodicalsUntilUpdated(s *discordgo.Session) {
+	loc, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		log.Printf("Error loading timezone America/Los_Angeles: %v", err)
+		return
+	}
+
 	log.Println("Starting periodic checks for Egg Inc updates...")
 	// Poll every minute for the first 9 minutes, then every 5 minutes for roughly 2 hours
 	maxRetries := 32 // 10 attempts in the first 9 mins + 22 attempts every 5 mins
 	for i := 0; i < maxRetries; i++ {
-		events.GetPeriodicalsFromAPI(s)
+		gotEvents := events.GetPeriodicalsFromAPI(s)
 
 		// Check if a manual reload successfully updated the contracts or events
 		recentContract := !lastContractUpdate.IsZero() && time.Since(lastContractUpdate) < 5*time.Minute
 		recentEvent := !lastEventUpdate.IsZero() && time.Since(lastEventUpdate) < 5*time.Minute
+		todayContract := hasTodaysContract(loc)
 
-		if recentContract || recentEvent {
+		if recentContract || recentEvent || todayContract || gotEvents {
+			if gotEvents && !recentContract && !recentEvent {
+				lastEventUpdate = time.Now()
+			}
 			log.Println("Periodicals successfully updated via manual reload.")
 			break
 		}

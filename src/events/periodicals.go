@@ -21,8 +21,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// GetPeriodicalsFromAPI will download the events from the Egg Inc API
-func GetPeriodicalsFromAPI(s *discordgo.Session) {
+// GetPeriodicalsFromAPI will download the events from the Egg Inc API.
+// Returns true if it successfully received event data from the API.
+func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 	userID := config.EIUserID
 	reqURL := "https://www.auxbrain.com/ei/get_periodicals"
 	enc := base64.StdEncoding
@@ -35,7 +36,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	reqBin, err := proto.Marshal(&periodicalsRequest)
 	if err != nil {
 		log.Print(err)
-		return
+		return false
 	}
 	values := url.Values{}
 	reqDataEncoded := enc.EncodeToString(reqBin)
@@ -44,7 +45,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	response, err := http.PostForm(reqURL, values)
 	if err != nil {
 		log.Print(err)
-		return
+		return false
 	}
 
 	defer func() {
@@ -58,7 +59,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		log.Print(err)
-		return
+		return false
 	}
 
 	protoData := string(body)
@@ -68,14 +69,14 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	err = proto.Unmarshal(rawDecodedText, decodedAuthBuf)
 	if err != nil {
 		log.Print(err)
-		return
+		return false
 	}
 
 	periodicalsResponse := &ei.PeriodicalsResponse{}
 	err = proto.Unmarshal(decodedAuthBuf.Message, periodicalsResponse)
 	if err != nil {
 		log.Print(err)
-		return
+		return false
 	}
 
 	// Look for new events
@@ -319,4 +320,6 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	if updatedPredicted > 0 {
 		log.Printf("Updated %d predicted signup contract(s) to live contract IDs", updatedPredicted)
 	}
+
+	return len(currentEggIncEvents) > 0
 }
