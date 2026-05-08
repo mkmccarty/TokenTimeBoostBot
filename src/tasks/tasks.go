@@ -646,31 +646,19 @@ func schedulePeriodicals(s *discordgo.Session) {
 	}
 }
 
-// hasTodaysContract returns true if any non-predicted contract in ei.EggIncContracts
-// has a ValidFrom date matching today in PT.
-func hasTodaysContract(loc *time.Location) bool {
-	now := time.Now().In(loc)
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
-	tomorrow := today.AddDate(0, 0, 1)
+// hasActiveContracts returns true if ei.EggIncContracts contains at least 6 non-predicted contracts,
+// indicating the periodicals API has returned a full set of active contracts.
+func hasActiveContracts() bool {
+	count := 0
 	for _, c := range ei.EggIncContracts {
-		if c.Predicted {
-			continue
-		}
-		vf := c.ValidFrom.In(loc)
-		if !vf.Before(today) && vf.Before(tomorrow) {
-			return true
+		if !c.Predicted {
+			count++
 		}
 	}
-	return false
+	return count >= 6
 }
 
 func pollPeriodicalsUntilUpdated(s *discordgo.Session) {
-	loc, err := time.LoadLocation("America/Los_Angeles")
-	if err != nil {
-		log.Printf("Error loading timezone America/Los_Angeles: %v", err)
-		return
-	}
-
 	log.Println("Starting periodic checks for Egg Inc updates...")
 	// Poll every minute for the first 9 minutes, then every 5 minutes for roughly 2 hours
 	maxRetries := 32 // 10 attempts in the first 9 mins + 22 attempts every 5 mins
@@ -680,9 +668,9 @@ func pollPeriodicalsUntilUpdated(s *discordgo.Session) {
 		// Check if a manual reload successfully updated the contracts or events
 		recentContract := !lastContractUpdate.IsZero() && time.Since(lastContractUpdate) < 5*time.Minute
 		recentEvent := !lastEventUpdate.IsZero() && time.Since(lastEventUpdate) < 5*time.Minute
-		todayContract := hasTodaysContract(loc)
+		activeContracts := hasActiveContracts()
 
-		if recentContract || recentEvent || todayContract || gotEvents {
+		if recentContract || recentEvent || activeContracts || gotEvents {
 			log.Println("Periodicals successfully updated via manual reload.")
 			break
 		}
