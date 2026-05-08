@@ -254,6 +254,60 @@ type artifactSet struct {
 	permitLevel     uint32
 }
 
+// applyIdealStoneMix calculates and stores the best tachyon/quantum stone split.
+// It mutates the artifact set with best rates and desired stone counts.
+func applyIdealStoneMix(as *artifactSet, layingRate, shippingRate, everyoneDeflectorPercent float64, privateFarm bool, artifactPercentLevels []float64) float64 {
+	bestTotal := 0.0
+
+	// Default this to the maximum stone quality boost.
+	stoneBonusIncrease := 1.05
+
+	hasLesserStones := as.quantStones[ei.ArtifactSpec_INFERIOR] + as.tachStones[ei.ArtifactSpec_INFERIOR] +
+		as.quantStones[ei.ArtifactSpec_LESSER] + as.tachStones[*ei.ArtifactSpec_LESSER.Enum()]
+
+	if hasLesserStones > 0 {
+		maxPercentage := as.quantStonesPercent * as.tachStonesPercent
+
+		// Empty stone slots assume lowest seen artifact quality.
+		if as.stones != (as.quantStoneSlotted + as.tachStoneSlotted) {
+			// Missing stone value, assign it the lowest seen quantity.
+			stoneDiff := as.stones - (as.quantStoneSlotted + as.tachStoneSlotted)
+			if as.quantStones[ei.ArtifactSpec_INFERIOR] > 0 || as.tachStones[ei.ArtifactSpec_INFERIOR] > 0 {
+				maxPercentage *= float64(stoneDiff) * artifactPercentLevels[ei.ArtifactSpec_INFERIOR]
+				as.note = append(as.note, fmt.Sprintf("%d missing stones valued at %1.2f", stoneDiff, artifactPercentLevels[ei.ArtifactSpec_INFERIOR]))
+			} else if as.quantStones[ei.ArtifactSpec_LESSER] > 0 || as.tachStones[ei.ArtifactSpec_LESSER] > 0 {
+				maxPercentage *= float64(stoneDiff) * artifactPercentLevels[ei.ArtifactSpec_LESSER]
+				as.note = append(as.note, fmt.Sprintf("%d missing stones valued at %1.2f", stoneDiff, artifactPercentLevels[ei.ArtifactSpec_LESSER]))
+			}
+		}
+
+		// We know our total stone slots, so derive average per-stone boost.
+		stoneBonusIncrease = math.Pow(math.E, math.Log(maxPercentage)/float64(as.stones))
+	}
+
+	// Simple search for those with only one average stone bonus value.
+	for i := 0; i <= as.stones; i++ {
+		stoneLayRate := layingRate
+		if !privateFarm {
+			stoneLayRate *= (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
+		}
+		stoneLayRate *= math.Pow(stoneBonusIncrease, float64(i)) * as.colleggBuffs.ELR * as.colleggBuffs.Hab
+
+		stoneShipRate := shippingRate * math.Pow(stoneBonusIncrease, float64((as.stones-i))) * as.colleggBuffs.SR
+
+		bestMin := min(stoneLayRate, stoneShipRate)
+		if bestMin > bestTotal {
+			bestTotal = bestMin
+			as.tachWant = i
+			as.quantWant = as.stones - i
+			as.bestLR = stoneLayRate
+			as.bestSR = stoneShipRate
+		}
+	}
+
+	return stoneBonusIncrease
+}
+
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
 func DownloadCoopStatusStones(contractID string, coopID string, details bool, soloName string, useBuffHistory bool, eeidOverride string) (string, string, []*discordgo.MessageEmbedField) {
 	var builderURL strings.Builder
@@ -746,55 +800,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			}
 		*/
 
-		bestTotal := 0.0
-
-		// Default this to the maximum
-		stoneBonusIncrease := 1.05
-
-		hasLesserStones := as.quantStones[ei.ArtifactSpec_INFERIOR] + as.tachStones[ei.ArtifactSpec_INFERIOR] +
-			as.quantStones[ei.ArtifactSpec_LESSER] + as.tachStones[*ei.ArtifactSpec_LESSER.Enum()]
-
-		if hasLesserStones > 0 {
-			maxPercentage := as.quantStonesPercent * as.tachStonesPercent
-
-			// Empty stone slots assume lowest seen artifact quality.
-			if as.stones != (as.quantStoneSlotted + as.tachStoneSlotted) {
-				// Missing stone value, assign it the lowest seen quantity
-				stoneDiff := as.stones - (as.quantStoneSlotted + as.tachStoneSlotted)
-				if as.quantStones[ei.ArtifactSpec_INFERIOR] > 0 || as.tachStones[ei.ArtifactSpec_INFERIOR] > 0 {
-					maxPercentage *= float64(stoneDiff) * artifactPercentLevels[ei.ArtifactSpec_INFERIOR]
-					as.note = append(as.note, fmt.Sprintf("%d missing stones valued at %1.2f", stoneDiff, artifactPercentLevels[ei.ArtifactSpec_INFERIOR]))
-				} else if as.quantStones[ei.ArtifactSpec_LESSER] > 0 || as.tachStones[ei.ArtifactSpec_LESSER] > 0 {
-					maxPercentage *= float64(stoneDiff) * artifactPercentLevels[ei.ArtifactSpec_LESSER]
-					as.note = append(as.note, fmt.Sprintf("%d missing stones valued at %1.2f", stoneDiff, artifactPercentLevels[ei.ArtifactSpec_LESSER]))
-				}
-			}
-			// we know we have a certain number of stones
-			// knowing our exponent we need the average value of each stone
-			stoneBonusIncrease = math.Pow(math.E, math.Log(maxPercentage)/float64(as.stones))
-		}
-
-		// Simple search for those with only the 5% stones
-		for i := 0; i <= as.stones; i++ {
-			stoneLayRate := layingRate
-			if !privateFarm {
-				stoneLayRate *= (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
-			}
-			stoneLayRate *= math.Pow(stoneBonusIncrease, float64(i)) * as.colleggBuffs.ELR * as.colleggBuffs.Hab
-
-			stoneShipRate := shippingRate * math.Pow(stoneBonusIncrease, float64((as.stones-i))) * as.colleggBuffs.SR
-
-			bestMin := min(stoneLayRate, stoneShipRate)
-			if bestMin > bestTotal {
-				bestTotal = bestMin
-				as.tachWant = i
-				as.quantWant = as.stones - i
-				as.bestLR = stoneLayRate
-				as.bestSR = stoneShipRate
-				//log.Printf("T-%d Q-%d %2.3f %2.3f  min:%2.3f\n", i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
-			}
-			//log.Printf("%s Stone %d/%d: %2.3f %2.3f  min:%2.3f\n", as.name, i, (as.stones - i), stoneLayRate, stoneShipRate, min(stoneLayRate, stoneShipRate))
-		}
+		stoneBonusIncrease := applyIdealStoneMix(&as, layingRate, shippingRate, everyoneDeflectorPercent, privateFarm, artifactPercentLevels)
 
 		for i := 0; i <= as.stones; i++ {
 			stoneLayRate := layingRate * (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
