@@ -21,8 +21,22 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// GetPeriodicalsFromAPI will download the events from the Egg Inc API
-func GetPeriodicalsFromAPI(s *discordgo.Session) {
+const expectedActiveContracts = 6
+
+func hasExpectedActiveContracts(contracts []ei.EggIncContract) bool {
+	activeContracts := 0
+	for _, contract := range contracts {
+		if contract.Predicted {
+			continue
+		}
+		activeContracts++
+	}
+	return activeContracts >= expectedActiveContracts
+}
+
+// GetPeriodicalsFromAPI will download the events from the Egg Inc API.
+// Returns true if it detects a meaningful live periodicals refresh.
+func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 	userID := config.EIUserID
 	reqURL := "https://www.auxbrain.com/ei/get_periodicals"
 	enc := base64.StdEncoding
@@ -35,7 +49,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	reqBin, err := proto.Marshal(&periodicalsRequest)
 	if err != nil {
 		log.Print(err)
-		return
+		return false
 	}
 	values := url.Values{}
 	reqDataEncoded := enc.EncodeToString(reqBin)
@@ -44,7 +58,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	response, err := http.PostForm(reqURL, values)
 	if err != nil {
 		log.Print(err)
-		return
+		return false
 	}
 
 	defer func() {
@@ -58,7 +72,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		log.Print(err)
-		return
+		return false
 	}
 
 	protoData := string(body)
@@ -68,14 +82,14 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	err = proto.Unmarshal(rawDecodedText, decodedAuthBuf)
 	if err != nil {
 		log.Print(err)
-		return
+		return false
 	}
 
 	periodicalsResponse := &ei.PeriodicalsResponse{}
 	err = proto.Unmarshal(decodedAuthBuf.Message, periodicalsResponse)
 	if err != nil {
 		log.Print(err)
-		return
+		return false
 	}
 
 	// Look for new events
@@ -319,4 +333,6 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) {
 	if updatedPredicted > 0 {
 		log.Printf("Updated %d predicted signup contract(s) to live contract IDs", updatedPredicted)
 	}
+
+	return newEvents || updatedPredicted > 0 || hasExpectedActiveContracts(newContract)
 }
