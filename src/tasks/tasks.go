@@ -646,12 +646,16 @@ func schedulePeriodicals(s *discordgo.Session) {
 	}
 }
 
-// hasTodaysContract returns true if any contract in ei.EggIncContracts has a ValidFrom date matching today in PT.
+// hasTodaysContract returns true if any non-predicted contract in ei.EggIncContracts
+// has a ValidFrom date matching today in PT.
 func hasTodaysContract(loc *time.Location) bool {
 	now := time.Now().In(loc)
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 	tomorrow := today.AddDate(0, 0, 1)
 	for _, c := range ei.EggIncContracts {
+		if c.Predicted {
+			continue
+		}
 		vf := c.ValidFrom.In(loc)
 		if !vf.Before(today) && vf.Before(tomorrow) {
 			return true
