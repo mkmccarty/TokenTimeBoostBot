@@ -21,8 +21,21 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const expectedActiveContracts = 6
+
+func hasExpectedActiveContracts(contracts []ei.EggIncContract) bool {
+	activeContracts := 0
+	for _, contract := range contracts {
+		if contract.Predicted {
+			continue
+		}
+		activeContracts++
+	}
+	return activeContracts >= expectedActiveContracts
+}
+
 // GetPeriodicalsFromAPI will download the events from the Egg Inc API.
-// Returns true if it successfully received event data from the API.
+// Returns true if it detects a meaningful live periodicals refresh.
 func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 	userID := config.EIUserID
 	reqURL := "https://www.auxbrain.com/ei/get_periodicals"
@@ -321,5 +334,5 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 		log.Printf("Updated %d predicted signup contract(s) to live contract IDs", updatedPredicted)
 	}
 
-	return len(currentEggIncEvents) > 0
+	return newEvents || updatedPredicted > 0 || hasExpectedActiveContracts(newContract)
 }
