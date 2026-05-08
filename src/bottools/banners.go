@@ -145,7 +145,7 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 		if hasDefaultBanner {
 			defaultImgPath := fmt.Sprintf("%s/%s-b%s-%s.png", config.BannerOutputPath, ID, style, guildID)
 			info, err := os.Stat(defaultImgPath)
-			if os.IsNotExist(err) {
+			if err != nil {
 				allExistAndFresh = false
 				break
 			}
@@ -218,7 +218,6 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 	}
 
 	bgSeasonPath := fmt.Sprintf("%s/banner_%s_640.png", config.BannerPath, currentSeason)
-	bgCustomPath = fmt.Sprintf("%s/banner_%s_%s.png", config.BannerPath, creatorID, guildID)
 
 	if _, err := os.Stat(bgSeasonPath); os.IsNotExist(err) {
 		_ = DownloadLatestEggImages(config.BannerPath)
