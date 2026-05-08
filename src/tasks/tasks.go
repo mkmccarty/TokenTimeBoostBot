@@ -683,9 +683,6 @@ func pollPeriodicalsUntilUpdated(s *discordgo.Session) {
 		todayContract := hasTodaysContract(loc)
 
 		if recentContract || recentEvent || todayContract || gotEvents {
-			if gotEvents && !recentContract && !recentEvent {
-				lastEventUpdate = time.Now()
-			}
 			log.Println("Periodicals successfully updated via manual reload.")
 			break
 		}
