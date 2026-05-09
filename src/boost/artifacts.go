@@ -660,6 +660,8 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	setValue := len(data.Values) != 0
 	page := getArtifactsPageFromContent(i.Message.Content)
 	switch cmd {
+	case "pagedel":
+		page = "delivery"
 	case "pageihr", "defl-ihr", "chalice", "monocle", "siab":
 		page = "ihr"
 	case "pagecol", "collegg":
