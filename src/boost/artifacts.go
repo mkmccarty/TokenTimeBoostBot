@@ -12,9 +12,16 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func getArtifactsComponents(userID string, channelID string, contractOnly bool) (string, []discordgo.MessageComponent) {
+func getArtifactsComponents(userID string, channelID string, contractOnly bool, page string) (string, []discordgo.MessageComponent) {
 	minValues := 0
 	minV := 0
+	if page == "" {
+		page = "delivery"
+	}
+	page = strings.ToLower(page)
+	if page != "delivery" && page != "ihr" && page != "collegg" {
+		page = "delivery"
+	}
 
 	// is this channelID a thread
 	as := getUserArtifacts(userID, nil)
@@ -31,6 +38,10 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 	metronome := ""
 	compass := ""
 	gusset := ""
+	ihrDeflector := ""
+	chalice := ""
+	monocle := ""
+	siab := ""
 	coll := ""
 
 	temp := "PERM"
@@ -40,6 +51,10 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 		if contract != nil {
 			if UserInContract(contract, userID) {
 				for a := range contract.Boosters[userID].ArtifactSet.Artifacts {
+					if contract.Boosters[userID].ArtifactSet.Artifacts[a].Type == "IHR Deflector" {
+						ihrDeflector = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
+						continue
+					}
 					if strings.Contains(contract.Boosters[userID].ArtifactSet.Artifacts[a].Type, "Deflector") {
 						deflector = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
 					}
@@ -52,6 +67,15 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 					if strings.Contains(contract.Boosters[userID].ArtifactSet.Artifacts[a].Type, "Gusset") {
 						gusset = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
 					}
+					if strings.Contains(contract.Boosters[userID].ArtifactSet.Artifacts[a].Type, "Chalice") {
+						chalice = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
+					}
+					if strings.Contains(contract.Boosters[userID].ArtifactSet.Artifacts[a].Type, "Monocle") {
+						monocle = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
+					}
+					if strings.Contains(contract.Boosters[userID].ArtifactSet.Artifacts[a].Type, "SIAB") {
+						siab = contract.Boosters[userID].ArtifactSet.Artifacts[a].Quality
+					}
 				}
 			}
 		} else {
@@ -62,6 +86,13 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 		metronome = farmerstate.GetMiscSettingString(userID, "metr")
 		compass = farmerstate.GetMiscSettingString(userID, "comp")
 		gusset = farmerstate.GetMiscSettingString(userID, "guss")
+		ihrDeflector = farmerstate.GetMiscSettingString(userID, "defl-ihr")
+		chalice = farmerstate.GetMiscSettingString(userID, "chalice")
+		monocle = farmerstate.GetMiscSettingString(userID, "monocle")
+		siab = farmerstate.GetMiscSettingString(userID, "siab")
+		if siab == "" {
+			siab = farmerstate.GetMiscSettingString(userID, "SIAB")
+		}
 		coll = farmerstate.GetMiscSettingString(userID, "collegg")
 
 		// Need to perform a conversion on what's in coll.
@@ -70,7 +101,15 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 		coll = strings.ReplaceAll(coll, "CARBONFIBER", "CARBON FIBER")
 		coll = strings.ReplaceAll(coll, "FLAMERETARDANT", "FLAME RETARDANT")
 	}
-	// Remove the extra closing brace
+	builder.WriteString("\nSet: ")
+	switch page {
+	case "ihr":
+		builder.WriteString("IHR")
+	case "collegg":
+		builder.WriteString("Colleggtibles")
+	default:
+		builder.WriteString("Delivery")
+	}
 
 	component := []discordgo.MessageComponent{
 		discordgo.ActionsRow{
@@ -321,7 +360,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 		},
 	}
 
-	if !contractOnly {
+	if !contractOnly && page == "ihr" {
 		keys := make([]string, 0, len(ei.CustomEggMap))
 		for k := range ei.CustomEggMap {
 			keys = append(keys, k)
@@ -341,14 +380,152 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool) 
 			})
 		}
 
+		component = []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.SelectMenu{
+						CustomID:    "as_#DEFL-IHR#" + userID + "#" + temp,
+						Placeholder: "Select your IHR Deflector...",
+						MinValues:   &minValues,
+						MaxValues:   1,
+						Options: []discordgo.SelectMenuOption{
+							{Label: "IHR Deflector T4L", Description: "Legendary", Value: "T4L", Default: ihrDeflector == "T4L", Emoji: ei.GetBotComponentEmoji("defl_T4L")},
+							{Label: "IHR Deflector T4E", Description: "Epic", Value: "T4E", Default: ihrDeflector == "T4E", Emoji: ei.GetBotComponentEmoji("defl_T4E")},
+							{Label: "IHR Deflector T4R", Description: "Rare", Value: "T4R", Default: ihrDeflector == "T4R", Emoji: ei.GetBotComponentEmoji("defl_T4R")},
+							{Label: "IHR Deflector T4C", Description: "Common", Value: "T4C", Default: ihrDeflector == "T4C", Emoji: ei.GetBotComponentEmoji("defl_T4C")},
+							{Label: "IHR Deflector T3R", Description: "Rare", Value: "T3R", Default: ihrDeflector == "T3R", Emoji: ei.GetBotComponentEmoji("defl_T3R")},
+							{Label: "IHR Deflector T3C", Description: "Common", Value: "T3C", Default: ihrDeflector == "T3C", Emoji: ei.GetBotComponentEmoji("defl_T3C")},
+							{Label: "None", Description: "No IHR Deflector equipped", Value: "NONE", Default: ihrDeflector == "NONE" || ihrDeflector == ""},
+						},
+					},
+				},
+			},
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.SelectMenu{
+						CustomID:    "as_#CHALICE#" + userID + "#" + temp,
+						Placeholder: "Select your Chalice...",
+						MinValues:   &minValues,
+						MaxValues:   1,
+						Options: []discordgo.SelectMenuOption{
+							{Label: "Chalice T4L", Description: "Legendary", Value: "T4L", Default: chalice == "T4L", Emoji: ei.GetBotComponentEmoji("chalice_T4L")},
+							{Label: "Chalice T4E", Description: "Epic", Value: "T4E", Default: chalice == "T4E", Emoji: ei.GetBotComponentEmoji("chalice_T4E")},
+							{Label: "Chalice T4C", Description: "Common", Value: "T4C", Default: chalice == "T4C", Emoji: ei.GetBotComponentEmoji("chalice_T4C")},
+							{Label: "Chalice T3E", Description: "Epic", Value: "T3E", Default: chalice == "T3E", Emoji: ei.GetBotComponentEmoji("chalice_T3E")},
+							{Label: "Chalice T3R", Description: "Rare", Value: "T3R", Default: chalice == "T3R", Emoji: ei.GetBotComponentEmoji("chalice_T3R")},
+							{Label: "Chalice T3C", Description: "Common", Value: "T3C", Default: chalice == "T3C", Emoji: ei.GetBotComponentEmoji("chalice_T3C")},
+							{Label: "Chalice T2E", Description: "Epic", Value: "T2E", Default: chalice == "T2E", Emoji: ei.GetBotComponentEmoji("chalice_T2E")},
+							{Label: "Chalice T2C", Description: "Common", Value: "T2C", Default: chalice == "T2C", Emoji: ei.GetBotComponentEmoji("chalice_T2C")},
+							{Label: "Chalice T1C", Description: "Common", Value: "T1C", Default: chalice == "T1C", Emoji: ei.GetBotComponentEmoji("chalice_T1C")},
+							{Label: "None", Description: "No Chalice equipped", Value: "NONE", Default: chalice == "NONE" || chalice == ""},
+						},
+					},
+				},
+			},
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.SelectMenu{
+						CustomID:    "as_#MONOCLE#" + userID + "#" + temp,
+						Placeholder: "Select your Monocle...",
+						MinValues:   &minValues,
+						MaxValues:   1,
+						Options: []discordgo.SelectMenuOption{
+							{Label: "Monocle T4L", Description: "Legendary", Value: "T4L", Default: monocle == "T4L", Emoji: ei.GetBotComponentEmoji("monocle_T4L")},
+							{Label: "Monocle T4E", Description: "Epic", Value: "T4E", Default: monocle == "T4E", Emoji: ei.GetBotComponentEmoji("monocle_T4E")},
+							{Label: "Monocle T4C", Description: "Common", Value: "T4C", Default: monocle == "T4C", Emoji: ei.GetBotComponentEmoji("monocle_T4C")},
+							{Label: "Monocle T3C", Description: "Common", Value: "T3C", Default: monocle == "T3C", Emoji: ei.GetBotComponentEmoji("monocle_T3C")},
+							{Label: "Monocle T2C", Description: "Common", Value: "T2C", Default: monocle == "T2C", Emoji: ei.GetBotComponentEmoji("monocle_T2C")},
+							{Label: "Monocle T1C", Description: "Common", Value: "T1C", Default: monocle == "T1C", Emoji: ei.GetBotComponentEmoji("monocle_T1C")},
+							{Label: "None", Description: "No Monocle equipped", Value: "NONE", Default: monocle == "NONE" || monocle == ""},
+						},
+					},
+				},
+			},
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.SelectMenu{
+						CustomID:    "as_#SIAB#" + userID + "#" + temp,
+						Placeholder: "Select your Ship In A Bottle...",
+						MinValues:   &minValues,
+						MaxValues:   1,
+						Options: []discordgo.SelectMenuOption{
+							{Label: "SIAB T4L", Description: "Legendary", Value: "T4L", Default: siab == "T4L", Emoji: ei.GetBotComponentEmoji("SIAB_T4L")},
+							{Label: "SIAB T4E", Description: "Epic", Value: "T4E", Default: siab == "T4E", Emoji: ei.GetBotComponentEmoji("SIAB_T4E")},
+							{Label: "SIAB T4R", Description: "Rare", Value: "T4R", Default: siab == "T4R", Emoji: ei.GetBotComponentEmoji("SIAB_T4R")},
+							{Label: "SIAB T4C", Description: "Common", Value: "T4C", Default: siab == "T4C", Emoji: ei.GetBotComponentEmoji("SIAB_T4C")},
+							{Label: "SIAB T3R", Description: "Rare", Value: "T3R", Default: siab == "T3R", Emoji: ei.GetBotComponentEmoji("SIAB_T3R")},
+							{Label: "SIAB T3C", Description: "Common", Value: "T3C", Default: siab == "T3C", Emoji: ei.GetBotComponentEmoji("SIAB_T3C")},
+							{Label: "SIAB T2C", Description: "Common", Value: "T2C", Default: siab == "T2C", Emoji: ei.GetBotComponentEmoji("SIAB_T2C")},
+							{Label: "SIAB T1C", Description: "Common", Value: "T1C", Default: siab == "T1C", Emoji: ei.GetBotComponentEmoji("SIAB_T1C")},
+							{Label: "None", Description: "No SIAB equipped", Value: "NONE", Default: siab == "NONE" || siab == ""},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	if !contractOnly && page == "collegg" {
+		keys := make([]string, 0, len(ei.CustomEggMap))
+		for k := range ei.CustomEggMap {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		var eggOptions []discordgo.SelectMenuOption
+		for _, k := range keys {
+			eggOptions = append(eggOptions, discordgo.SelectMenuOption{
+				Label:       ei.CustomEggMap[k].Name,
+				Description: ei.CustomEggMap[k].Description,
+				Value:       strings.ReplaceAll(ei.CustomEggMap[k].Name, " ", ""),
+				Default:     strings.Contains(coll, ei.CustomEggMap[k].Name),
+				Emoji:       ei.GetBotComponentEmoji("egg_" + ei.CustomEggMap[k].ID),
+			})
+		}
+
+		component = []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.SelectMenu{
+						CustomID:    "as_#COLLEGG#" + userID + "#" + temp,
+						Placeholder: "Select your Colleggtibles",
+						MinValues:   &minV,
+						MaxValues:   len(ei.CustomEggMap),
+						Options:     eggOptions,
+					},
+				},
+			},
+		}
+	}
+
+	if !contractOnly {
+		deliveryStyle := discordgo.SecondaryButton
+		ihrStyle := discordgo.SecondaryButton
+		colleggStyle := discordgo.SecondaryButton
+		if page == "delivery" {
+			deliveryStyle = discordgo.PrimaryButton
+		} else if page == "ihr" {
+			ihrStyle = discordgo.PrimaryButton
+		} else {
+			colleggStyle = discordgo.PrimaryButton
+		}
+
 		component = append(component, discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
-				discordgo.SelectMenu{
-					CustomID:    "as_#COLLEGG#" + userID + "#" + temp,
-					Placeholder: "Select your Colleggtibles",
-					MinValues:   &minV,
-					MaxValues:   len(ei.CustomEggMap),
-					Options:     eggOptions,
+				discordgo.Button{
+					Label:    "Delivery Set",
+					Style:    deliveryStyle,
+					CustomID: "as_#PAGEDEL#" + userID + "#" + temp,
+				},
+				discordgo.Button{
+					Label:    "IHR Set",
+					Style:    ihrStyle,
+					CustomID: "as_#PAGEIHR#" + userID + "#" + temp,
+				},
+				discordgo.Button{
+					Label:    "Colleggtibles",
+					Style:    colleggStyle,
+					CustomID: "as_#PAGECOL#" + userID + "#" + temp,
 				},
 			},
 		})
@@ -388,7 +565,7 @@ func HandleArtifactCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	contractOnly := false
 
-	str, comp := getArtifactsComponents(userID, i.ChannelID, contractOnly)
+	str, comp := getArtifactsComponents(userID, i.ChannelID, contractOnly, "delivery")
 
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -423,10 +600,17 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	data := i.MessageComponentData()
 
 	setValue := len(data.Values) != 0
+	page := "delivery"
+	switch cmd {
+	case "pageihr", "defl-ihr", "chalice", "monocle", "siab":
+		page = "ihr"
+	case "pagecol", "collegg":
+		page = "collegg"
+	}
 
 	//if override == "PERM" {
 	switch cmd {
-	case "defl", "metr", "comp", "guss":
+	case "defl", "metr", "comp", "guss", "defl-ihr", "chalice", "monocle", "siab":
 		if setValue {
 			farmerstate.SetMiscSettingString(userID, cmd, data.Values[0])
 		} else {
@@ -437,7 +621,7 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	}
 
 	// Redraw the artifact list
-	str, comp := getArtifactsComponents(userID, i.ChannelID, false)
+	str, comp := getArtifactsComponents(userID, i.ChannelID, false, page)
 
 	_, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 		Content:    &str,
@@ -451,6 +635,9 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	contract := FindContract(i.ChannelID)
 	if contract != nil {
 		if UserInContract(contract, userID) {
+			if cmd != "defl" && cmd != "metr" && cmd != "comp" && cmd != "guss" && cmd != "defl-ihr" && cmd != "chalice" && cmd != "monocle" && cmd != "siab" {
+				goto done
+			}
 			// User in this contract
 			currentSet := contract.Boosters[userID].ArtifactSet
 
@@ -464,6 +651,14 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 				prefix = "C-"
 			case "guss":
 				prefix = "G-"
+			case "defl-ihr":
+				prefix = "ID-"
+			case "chalice":
+				prefix = "CH-"
+			case "monocle":
+				prefix = "MO-"
+			case "siab":
+				prefix = "SIAB-"
 			}
 			var newArtifact *ei.Artifact
 			if len(data.Values) == 0 {
@@ -500,6 +695,8 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 
 		}
 	}
+
+done:
 	//}
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,
 		&discordgo.WebhookParams{

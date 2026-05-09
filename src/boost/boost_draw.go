@@ -524,7 +524,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				if contract.State == ContractStateSignup &&
 					(contract.PlayStyle == ContractPlaystyleFastrun || contract.PlayStyle == ContractPlaystyleLeaderboard) {
 					for _, a := range b.ArtifactSet.Artifacts {
-						if strings.Contains(a.Type, "Deflector") && a.Quality != "" && a.Quality != "NONE" {
+						if a.Type == "Deflector" && a.Quality != "" && a.Quality != "NONE" {
 							deflStr = ei.GetBotEmojiMarkdown("defl_" + a.Quality)
 							break
 						}

@@ -22,6 +22,7 @@ func sandboxArtifactLabelsFromBooster(booster *Booster) []string {
 	labels := make([]string, 0, len(booster.ArtifactSet.Artifacts))
 	for _, artifact := range booster.ArtifactSet.Artifacts {
 		quality := strings.ToUpper(strings.TrimSpace(artifact.Quality))
+		artifactType := strings.TrimSpace(artifact.Type)
 		if quality == "" || quality == "NONE" {
 			if artifact.Stones >= 3 {
 				labels = append(labels, "3 Slot")
@@ -33,19 +34,21 @@ func sandboxArtifactLabelsFromBooster(booster *Booster) []string {
 
 		suffix := ""
 		switch {
-		case strings.Contains(artifact.Type, "Deflector"):
+		case artifactType == "IHR Deflector":
+			suffix = "IHR Defl."
+		case strings.Contains(artifactType, "Deflector"):
 			suffix = "Defl."
-		case strings.Contains(artifact.Type, "Metronome"):
+		case strings.Contains(artifactType, "Metronome"):
 			suffix = "Metro"
-		case strings.Contains(artifact.Type, "Compass"):
+		case strings.Contains(artifactType, "Compass"):
 			suffix = "Comp"
-		case strings.Contains(artifact.Type, "Gusset"):
+		case strings.Contains(artifactType, "Gusset"):
 			suffix = "Gusset"
-		case strings.Contains(artifact.Type, "Chalice"):
+		case artifactType == "Chalice":
 			suffix = "Chalice"
-		case strings.Contains(artifact.Type, "Monocle"):
+		case artifactType == "Monocle":
 			suffix = "Monocle"
-		case strings.Contains(artifact.Type, "Bottle") || strings.Contains(artifact.Type, "SIAB"):
+		case artifactType == "SIAB" || strings.Contains(artifactType, "Bottle"):
 			suffix = "SIAB"
 		}
 
@@ -123,6 +126,9 @@ func sandboxPlayersFromContract(contract *Contract) []SandboxPlayer {
 			chalice, monocle, ihrDefl, ihrSIAB = bottools.GetSandboxIHRItemIndices(artifactLabels)
 		}
 
+		// We use the old set as we're on v-5
+		// Boosted set:  old [metro][comp][gusset][defl]  → new [defl][metro][comp][gusset]
+		// IHR set:      old [chal][monocle][ihrDefl][ihrSIAB] → new [ihrDefl][ihrSIAB][monocle][chal]
 		players = append(players, SandboxPlayer{
 			Name:         name,
 			Tokens:       tokensStr,
@@ -205,8 +211,8 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: sandboxURL,
-				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: fmt.Sprintf("[SR Sandbox](%s)", sandboxURL),
+				Flags:   discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsSuppressEmbeds,
 			},
 		})
 	case "xpost":
