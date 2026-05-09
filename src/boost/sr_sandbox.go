@@ -190,10 +190,6 @@ func gatherData(input inputData, contractName, contractID string) (string, strin
 	data := []string{}
 	singleStr := []string{}
 
-	safeContractName := sanitizeSandboxField(contractName)
-	safeContractID := sanitizeSandboxField(contractID)
-	data = append(data, fmt.Sprintf("%s|%s", safeContractName, safeContractID))
-
 	singleStr = append(singleStr,
 		convertBool(input.crtToggle),
 		convertBool(input.tokenToggle),
