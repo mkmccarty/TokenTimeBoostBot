@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,6 +13,137 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
+
+func sandboxArtifactLabelsFromBooster(booster *Booster) []string {
+	if booster == nil || len(booster.ArtifactSet.Artifacts) == 0 {
+		return nil
+	}
+
+	labels := make([]string, 0, len(booster.ArtifactSet.Artifacts))
+	for _, artifact := range booster.ArtifactSet.Artifacts {
+		quality := strings.ToUpper(strings.TrimSpace(artifact.Quality))
+		if quality == "" || quality == "NONE" {
+			if artifact.Stones >= 3 {
+				labels = append(labels, "3 Slot")
+			} else if artifact.Stones == 2 {
+				labels = append(labels, "2 Slot")
+			}
+			continue
+		}
+
+		suffix := ""
+		switch {
+		case strings.Contains(artifact.Type, "Deflector"):
+			suffix = "Defl."
+		case strings.Contains(artifact.Type, "Metronome"):
+			suffix = "Metro"
+		case strings.Contains(artifact.Type, "Compass"):
+			suffix = "Comp"
+		case strings.Contains(artifact.Type, "Gusset"):
+			suffix = "Gusset"
+		case strings.Contains(artifact.Type, "Chalice"):
+			suffix = "Chalice"
+		case strings.Contains(artifact.Type, "Monocle"):
+			suffix = "Monocle"
+		case strings.Contains(artifact.Type, "Bottle") || strings.Contains(artifact.Type, "SIAB"):
+			suffix = "SIAB"
+		}
+
+		if suffix != "" {
+			labels = append(labels, fmt.Sprintf("%s %s", quality, suffix))
+		} else if artifact.Stones >= 3 {
+			labels = append(labels, "3 Slot")
+		} else if artifact.Stones == 2 {
+			labels = append(labels, "2 Slot")
+		}
+	}
+
+	return labels
+}
+
+func sandboxPlayersFromContract(contract *Contract) []SandboxPlayer {
+	if contract == nil || len(contract.Boosters) == 0 {
+		return nil
+	}
+
+	orderedUserIDs := make([]string, 0, len(contract.Boosters))
+	seen := make(map[string]bool, len(contract.Boosters))
+	for _, userID := range contract.Order {
+		if _, ok := contract.Boosters[userID]; ok {
+			orderedUserIDs = append(orderedUserIDs, userID)
+			seen[userID] = true
+		}
+	}
+	if len(orderedUserIDs) < len(contract.Boosters) {
+		extra := make([]string, 0, len(contract.Boosters)-len(orderedUserIDs))
+		for userID := range contract.Boosters {
+			if !seen[userID] {
+				extra = append(extra, userID)
+			}
+		}
+		sort.Slice(extra, func(i, j int) bool {
+			return contract.Boosters[extra[i]].Register.Before(contract.Boosters[extra[j]].Register)
+		})
+		orderedUserIDs = append(orderedUserIDs, extra...)
+	}
+
+	players := make([]SandboxPlayer, 0, len(orderedUserIDs))
+	for idx, userID := range orderedUserIDs {
+		b := contract.Boosters[userID]
+		if b == nil {
+			continue
+		}
+
+		tokensStr := "5"
+		if b.TokensWanted > 0 {
+			tokensStr = strconv.Itoa(b.TokensWanted)
+		}
+
+		teStr := "50"
+		if b.TECount > 0 {
+			teStr = strconv.Itoa(b.TECount)
+		}
+
+		name := b.Nick
+		if name == "" {
+			name = b.UserName
+		}
+		if name == "" {
+			name = b.GlobalName
+		}
+		if name == "" {
+			name = b.UserID
+		}
+
+		metro, comp, gusset, defl := "00", "00", "00", "00"
+		ihrDefl, ihrSIAB, monocle, chalice := "00", "00", "00", "00"
+		artifactLabels := sandboxArtifactLabelsFromBooster(b)
+		if len(artifactLabels) > 0 {
+			metro, comp, gusset, defl = bottools.GetSandboxItemIndices(artifactLabels)
+			chalice, monocle, ihrDefl, ihrSIAB = bottools.GetSandboxIHRItemIndices(artifactLabels)
+		}
+
+		players = append(players, SandboxPlayer{
+			Name:         name,
+			Tokens:       tokensStr,
+			TE:           teStr,
+			Mirror:       false,
+			Colleggtible: true,
+			Sink:         idx == len(orderedUserIDs)-1,
+			Creator:      idx == 0,
+			Item1:        metro,
+			Item2:        comp,
+			Item3:        gusset,
+			Item4:        defl,
+			Item5:        ihrDefl,
+			Item6:        ihrSIAB,
+			Item7:        monocle,
+			Item8:        chalice,
+		})
+	}
+
+	return players
+}
 
 // HandleMenuReactions handles the menu reactions for the contract
 func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -56,6 +188,25 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Data: &discordgo.InteractionResponseData{
 				Content: outputStr,
 				Flags:   discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsSuppressEmbeds,
+			},
+		})
+	case "sandbox":
+		sandboxURL, err := GenerateContractSandboxURL(contract, sandboxPlayersFromContract(contract))
+		if err != nil {
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: fmt.Sprintf("Unable to generate SR Sandbox link: %v", err),
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+			return
+		}
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: sandboxURL,
+				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
 	case "xpost":
