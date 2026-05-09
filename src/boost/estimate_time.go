@@ -59,6 +59,11 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	includeLeggySet := false
 	optionMap := bottools.GetCommandOptionsMap(i)
 
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{},
+	})
+
 	if opt, ok := optionMap["contract-id"]; ok {
 		contractID = opt.StringValue()
 	} else {
@@ -82,23 +87,16 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			discordgo.TextDisplay{Content: estimateText},
 		}
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags:      discordgo.MessageFlagsSuppressEmbeds | discordgo.MessageFlagsIsComponentsV2,
-				Components: components,
-			},
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Flags:      discordgo.MessageFlagsSuppressEmbeds | discordgo.MessageFlagsIsComponentsV2,
+			Components: components,
 		})
 		return
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsSuppressEmbeds,
-			Components: []discordgo.MessageComponent{},
-		},
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content: str,
+		Flags:   discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsSuppressEmbeds,
 	})
 }
 
