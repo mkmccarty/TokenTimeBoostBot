@@ -100,7 +100,7 @@ func Register(s *discordgo.Session, i *discordgo.InteractionCreate, encryptedID 
 				Flags:   discordgo.MessageFlagsEphemeral,
 			})
 			// Spawn /artifacts command response
-			artStr, artComponents := getArtifactsComponents(userID, "", false, "delivery")
+			artStr, artComponents := getArtifactsComponents(userID, "", false, "delivery", "")
 			artStr = "## Check your collectibles\n" + artStr
 			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 				Content:    artStr,
