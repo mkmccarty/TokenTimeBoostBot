@@ -197,23 +197,25 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			},
 		})
 	case "sandbox":
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags: discordgo.MessageFlagsEphemeral,
+			},
+		})
+
 		sandboxURL, err := GenerateContractSandboxURL(contract, sandboxPlayersFromContract(contract))
 		if err != nil {
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: fmt.Sprintf("Unable to generate SR Sandbox link: %v", err),
-					Flags:   discordgo.MessageFlagsEphemeral,
-				},
+			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+				Content: fmt.Sprintf("Unable to generate SR Sandbox link: %v", err),
+				Flags:   discordgo.MessageFlagsEphemeral,
 			})
 			return
 		}
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: fmt.Sprintf("[SR Sandbox](%s)", sandboxURL),
-				Flags:   discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsSuppressEmbeds,
-			},
+
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: fmt.Sprintf("[SR Sandbox](%s)", sandboxURL),
+			Flags:   discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsSuppressEmbeds,
 		})
 	case "xpost":
 		var outputStrBuilder strings.Builder
