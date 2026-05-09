@@ -674,6 +674,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			discordUserID = userID
 		}
 
+		metro, comp, gusset, defl := bottools.GetSandboxItemIndices(as.staabArtifacts)
+		ihrDefl, ihrSIAB, monocle, chalice := "00", "00", "00", "00"
+
 		if trackedContract != nil && discordUserID != "" {
 			if booster := trackedContract.Boosters[discordUserID]; booster != nil {
 				if booster.TokensWanted > 0 {
@@ -681,6 +684,12 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				}
 				if booster.TECount > 0 {
 					teStr = strconv.Itoa(booster.TECount)
+				}
+
+				// Prefer linked-contract IHR set when present so sandbox mirrors tracked booster data.
+				artifactLabels := sandboxArtifactLabelsFromBooster(booster)
+				if len(artifactLabels) > 0 {
+					chalice, monocle, ihrDefl, ihrSIAB = bottools.GetSandboxIHRItemIndices(artifactLabels)
 				}
 			}
 
@@ -697,8 +706,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			}
 		}
 
-		metro, comp, gusset, defl := bottools.GetSandboxItemIndices(as.staabArtifacts)
-		ihrDefl, ihrSIAB, monocle, chalice := "00", "00", "00", "00"
 		sp := SandboxPlayer{
 			Name:         as.nameRaw,
 			Tokens:       tokensStr,
@@ -711,10 +718,10 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			Item2:        comp,
 			Item3:        gusset,
 			Item4:        defl,
-			Item5:        ihrDefl,
-			Item6:        ihrSIAB,
-			Item7:        monocle,
-			Item8:        chalice,
+			Item5:        chalice,
+			Item6:        monocle,
+			Item7:        ihrDefl,
+			Item8:        ihrSIAB,
 		}
 		sandboxPlayers = append(sandboxPlayers, sp)
 	}
