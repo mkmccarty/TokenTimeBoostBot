@@ -342,6 +342,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	}
 
 	coopID = coopStatus.GetCoopIdentifier()
+	trackedContract := FindContractByIDs(contractID, coopID)
 
 	levels := []string{"T1", "T2", "T3", "T4", "T5"}
 	rarity := []string{"C", "R", "E", "L"}
@@ -665,15 +666,42 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	var sandboxPlayers []SandboxPlayer
 	for i, as := range artifactSets {
-		teStr := farmerstate.GetMiscSettingString(as.userID, "TE")
-		if teStr == "" {
-			teStr = "50"
+		tokensStr := "5"
+		teStr := "50"
+		discordUserID := ""
+
+		if userID, err := farmerstate.GetDiscordUserIDFromEiIgn(strings.TrimSpace(as.nameRaw)); err == nil {
+			discordUserID = userID
 		}
+
+		if trackedContract != nil && discordUserID != "" {
+			if booster := trackedContract.Boosters[discordUserID]; booster != nil {
+				if booster.TokensWanted > 0 {
+					tokensStr = strconv.Itoa(booster.TokensWanted)
+				}
+				if booster.TECount > 0 {
+					teStr = strconv.Itoa(booster.TECount)
+				}
+			}
+
+			if teStr == "50" {
+				if teSaved := farmerstate.GetMiscSettingString(discordUserID, "TE"); teSaved != "" {
+					teStr = teSaved
+				}
+			}
+		}
+
+		if teStr == "50" {
+			if teSaved := farmerstate.GetMiscSettingString(as.userID, "TE"); teSaved != "" {
+				teStr = teSaved
+			}
+		}
+
 		metro, comp, gusset, defl := bottools.GetSandboxItemIndices(as.staabArtifacts)
 		ihrDefl, ihrSIAB, monocle, chalice := "00", "00", "00", "00"
 		sp := SandboxPlayer{
 			Name:         as.nameRaw,
-			Tokens:       "5",
+			Tokens:       tokensStr,
 			TE:           teStr,
 			Mirror:       false,
 			Colleggtible: as.colleggBuffs.Hab > 1.0 || as.colleggBuffs.ELR > 1.0 || as.colleggBuffs.SR > 1.0,
