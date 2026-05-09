@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -128,18 +129,42 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 			cxpToggle = true
 		}
 	}
-	staabData, staabError := EncodeData(cxpToggle, c.TargetAmount[len(c.TargetAmount)-1],
-		strconv.Itoa(c.MinutesPerToken), c.LengthInSeconds, c.MaxCoopSize, &c)
+	playerCount := c.MaxCoopSize
+	if playerCount < 1 {
+		playerCount = 1
+	}
+	players := make([]SandboxPlayer, 0, playerCount)
+	for i := 0; i < playerCount; i++ {
+		players = append(players, SandboxPlayer{
+			Name:         fmt.Sprintf("Player %d", i),
+			Tokens:       "5",
+			TE:           "50",
+			Mirror:       false,
+			Colleggtible: true,
+			Sink:         i == playerCount-1,
+			Creator:      i == 0,
+			Item1:        "00",
+			Item2:        "00",
+			Item3:        "00",
+			Item4:        "00",
+			Item5:        "00",
+			Item6:        "00",
+			Item7:        "00",
+			Item8:        "00",
+		})
+	}
+	staabData, staabError := EncodeSandboxData(cxpToggle, c.TargetAmount[len(c.TargetAmount)-1],
+		strconv.Itoa(c.MinutesPerToken), c.LengthInSeconds, c.MaxCoopSize, &c, players)
 	if staabError != nil {
 		// Fallback to the default SR Sandbox configuration if encoding fails
-		staabData = "v-5MTEwMDAwMC0wLTEzLTctNTAwLTYwLTEtMS0yLVBsYXllciUyMDAtNi0xMA=B6mEavjeExzag"
+		staabData = "data=" + url.QueryEscape("v-5MTEwMDAwMC0wLTEzLTctNTAwLTYwLTEtMS0yLVBsYXllci01LTUw=B6mEavjeExzag")
 	}
 
-	str = fmt.Sprintf("%s%s **%s** [%s](%s), [SR Sandbox](%s)\n%s%d%s - %s/%dm - %s%d/%dm - 📏%s",
+	str = fmt.Sprintf("%s%s **%s** [%s](%s), [SR Sandbox](https://srsandbox-staabmia.netlify.app/?%s)\n%s%d%s - %s/%dm - %s%d/%dm - 📏%s",
 		ei.GetBotEmojiMarkdown("contract_grade_aaa"),
 		eggStr, c.Name, c.ID,
 		fmt.Sprintf("https://eicoop-carpet.netlify.app/?q=%s", c.ID),
-		fmt.Sprintf("https://srsandbox-staabmia.netlify.app/?data=%s", staabData),
+		staabData,
 		seasonalStr,
 		c.MaxCoopSize, ei.GetBotEmojiMarkdown("icon_coop"),
 		tokenStr, c.MinutesPerToken,
