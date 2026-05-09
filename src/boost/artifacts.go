@@ -361,25 +361,6 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 	}
 
 	if !contractOnly && page == "ihr" {
-		keys := make([]string, 0, len(ei.CustomEggMap))
-		for k := range ei.CustomEggMap {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-
-		// Dynamically build the list of custom eggs
-
-		var eggOptions []discordgo.SelectMenuOption
-		for _, k := range keys {
-			eggOptions = append(eggOptions, discordgo.SelectMenuOption{
-				Label:       ei.CustomEggMap[k].Name,
-				Description: ei.CustomEggMap[k].Description,
-				Value:       strings.ReplaceAll(ei.CustomEggMap[k].Name, " ", ""),
-				Default:     strings.Contains(coll, ei.CustomEggMap[k].Name),
-				Emoji:       ei.GetBotComponentEmoji("egg_" + ei.CustomEggMap[k].ID),
-			})
-		}
-
 		component = []discordgo.MessageComponent{
 			discordgo.ActionsRow{
 				Components: []discordgo.MessageComponent{
@@ -502,11 +483,12 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 		deliveryStyle := discordgo.SecondaryButton
 		ihrStyle := discordgo.SecondaryButton
 		colleggStyle := discordgo.SecondaryButton
-		if page == "delivery" {
+		switch page {
+		case "delivery":
 			deliveryStyle = discordgo.PrimaryButton
-		} else if page == "ihr" {
+		case "ihr":
 			ihrStyle = discordgo.PrimaryButton
-		} else {
+		default:
 			colleggStyle = discordgo.PrimaryButton
 		}
 
