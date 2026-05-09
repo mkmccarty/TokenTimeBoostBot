@@ -670,6 +670,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			teStr = "50"
 		}
 		metro, comp, gusset, defl := bottools.GetSandboxItemIndices(as.staabArtifacts)
+		ihrDefl, ihrSIAB, monocle, chalice := "00", "00", "00", "00"
 		sp := SandboxPlayer{
 			Name:         as.nameRaw,
 			Tokens:       "5",
@@ -678,7 +679,14 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			Colleggtible: as.colleggBuffs.Hab > 1.0 || as.colleggBuffs.ELR > 1.0 || as.colleggBuffs.SR > 1.0,
 			Sink:         i == len(artifactSets)-1,
 			Creator:      i == 0,
-			Item1:        metro, Item2: comp, Item3: gusset, Item4: defl,
+			Item1:        metro,
+			Item2:        comp,
+			Item3:        gusset,
+			Item4:        defl,
+			Item5:        ihrDefl,
+			Item6:        ihrSIAB,
+			Item7:        monocle,
+			Item8:        chalice,
 		}
 		sandboxPlayers = append(sandboxPlayers, sp)
 	}

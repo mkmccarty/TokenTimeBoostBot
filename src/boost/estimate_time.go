@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -138,13 +139,14 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 			Sink:         false,
 			Creator:      false,
 			Item1:        "00", Item2: "00", Item3: "00", Item4: "00",
+			Item5: "00", Item6: "00", Item7: "00", Item8: "00",
 		},
 	}
 	staabData, staabError := EncodeSandboxData(cxpToggle, c.TargetAmount[len(c.TargetAmount)-1],
 		strconv.Itoa(c.MinutesPerToken), c.LengthInSeconds, c.MaxCoopSize, &c, players)
 	if staabError != nil {
 		// Fallback to the default SR Sandbox configuration if encoding fails
-		staabData = "data=v_5MTEwMDAwMC0wLTEzLTctNTAwLTYwLTEtMS0yLVBsYXllci01LTUw=B6mEavjeExzag"
+		staabData = "data=" + url.QueryEscape("v-5MTEwMDAwMC0wLTEzLTctNTAwLTYwLTEtMS0yLVBsYXllci01LTUw=B6mEavjeExzag")
 	}
 
 	str = fmt.Sprintf("%s%s **%s** [%s](%s), [SR Sandbox](https://srsandbox-staabmia.netlify.app/?%s)\n%s%d%s - %s/%dm - %s%d/%dm - 📏%s",

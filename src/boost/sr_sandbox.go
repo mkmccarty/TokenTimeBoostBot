@@ -184,7 +184,7 @@ func sanitizeSandboxField(value string) string {
 	return safeValue
 }
 
-func gatherData(input inputData, contractName, contractID string) (string, string, error) {
+func gatherData(input inputData) (string, string, error) {
 
 	SEPARATOR := "-"
 	data := []string{}
@@ -289,16 +289,16 @@ func EncodeSandboxData(cxpToggle bool, targetEgg float64, tokenTimer string, con
 
 	spew.Dump(input)
 
-	d1, d2, err := gatherData(input, c.Name, c.ID)
+	d1, d2, err := gatherData(input)
 	if err != nil {
 		return "", err
 	}
 
 	encoded := dataToBase64(d1, d2)
-	finalData := "v_5" + encoded
+	finalData := "v-5" + encoded
 
 	b64Name := base64.RawStdEncoding.EncodeToString([]byte(c.Name))
 	safeB64Name := url.QueryEscape(b64Name)
 
-	return "data=" + finalData + "&c=" + safeB64Name, nil
+	return "data=" + url.QueryEscape(finalData) + "&c=" + safeB64Name, nil
 }

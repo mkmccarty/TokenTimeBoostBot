@@ -75,6 +75,51 @@ var deflectorIndexMap = map[string]string{
 	"Empty":     "09",
 }
 
+var chaliceIndexMap = map[string]string{
+	"T4L Chalice": "00",
+	"T4E Chalice": "01",
+	"T4C Chalice": "02",
+	"T3E Chalice": "03",
+	"T3R Chalice": "04",
+	"T3C Chalice": "05",
+	"T2E Chalice": "06",
+	"T2C Chalice": "07",
+	"T1C Chalice": "08",
+}
+
+var monocleIndexMap = map[string]string{
+	"T4L Monocle": "00",
+	"T4E Monocle": "01",
+	"T4C Monocle": "02",
+	"T3C Monocle": "03",
+	"T2C Monocle": "04",
+	"T1C Monocle": "05",
+}
+
+var ihrDeflectorIndexMap = map[string]string{
+	"T4L Defl.": "00",
+	"T4E Defl.": "01",
+	"T4R Defl.": "02",
+	"T4C Defl.": "03",
+	"T3R Defl.": "04",
+	"T3C Defl.": "05",
+	"T2C Defl.": "06",
+	"T1C Defl.": "07",
+	"3 Slot":    "08",
+	"2 Slot":    "09",
+}
+
+var ihrSiabIndexMap = map[string]string{
+	"T4L SIAB": "00",
+	"T4E SIAB": "01",
+	"T4R SIAB": "02",
+	"T4C SIAB": "03",
+	"T3R SIAB": "04",
+	"T3C SIAB": "05",
+	"3 Slot":   "06",
+	"2 Slot":   "07",
+}
+
 var base62 = struct {
 	charset []rune
 }{
@@ -289,43 +334,23 @@ func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, 
 	return link + version + base64encoded + "=" + base62encoded
 }
 
-// GetSandboxItemIndices returns the indices for Metro, Comp, Gusset, and Defl.
-func GetSandboxItemIndices(artifacts []string) (string, string, string, string) {
-	metro := "14"  // Empty
-	comp := "12"   // Empty
-	gusset := "12" // Empty
-	defl := "09"   // Empty
-
-	metroSet := false
-	compSet := false
-	gussetSet := false
-	deflSet := false
-
+func getSandboxItemIndicesFromMaps(artifacts []string, slotMaps []map[string]string, emptyCodes []string) []string {
+	indices := make([]string, len(slotMaps))
+	setFlags := make([]bool, len(slotMaps))
 	fallbackArtifacts := []string{}
 	usedFallback := make([]bool, 0)
 
 	for _, artifact := range artifacts {
-		if strings.Contains(artifact, "Metro") {
-			if val, ok := metroIndexMap[artifact]; ok {
-				metro = val
-				metroSet = true
+		matched := false
+		for slotIndex, indexMap := range slotMaps {
+			if val, ok := indexMap[artifact]; ok {
+				indices[slotIndex] = val
+				setFlags[slotIndex] = true
+				matched = true
+				break
 			}
-		} else if strings.Contains(artifact, "Comp") {
-			if val, ok := compassIndexMap[artifact]; ok {
-				comp = val
-				compSet = true
-			}
-		} else if strings.Contains(artifact, "Gusset") {
-			if val, ok := gussetIndexMap[artifact]; ok {
-				gusset = val
-				gussetSet = true
-			}
-		} else if strings.Contains(artifact, "Defl") {
-			if val, ok := deflectorIndexMap[artifact]; ok {
-				defl = val
-				deflSet = true
-			}
-		} else if artifact == "3 Slot" || strings.Contains(artifact, "SIAB") {
+		}
+		if !matched && (artifact == "3 Slot" || artifact == "2 Slot" || strings.Contains(artifact, "SIAB")) {
 			fallbackArtifacts = append(fallbackArtifacts, artifact)
 			usedFallback = append(usedFallback, false)
 		}
@@ -344,28 +369,38 @@ func GetSandboxItemIndices(artifacts []string) (string, string, string, string) 
 		return "", false
 	}
 
-	if !metroSet {
-		if val, ok := consumeFallback(metroIndexMap); ok {
-			metro = val
+	for slotIndex := range indices {
+		if setFlags[slotIndex] {
+			continue
 		}
-	}
-	if !compSet {
-		if val, ok := consumeFallback(compassIndexMap); ok {
-			comp = val
+		if val, ok := consumeFallback(slotMaps[slotIndex]); ok {
+			indices[slotIndex] = val
+			continue
 		}
-	}
-	if !gussetSet {
-		if val, ok := consumeFallback(gussetIndexMap); ok {
-			gusset = val
-		}
-	}
-	if !deflSet {
-		if val, ok := consumeFallback(deflectorIndexMap); ok {
-			defl = val
-		}
+		indices[slotIndex] = emptyCodes[slotIndex]
 	}
 
-	return metro, comp, gusset, defl
+	return indices
+}
+
+// GetSandboxItemIndices returns the indices for Metro, Comp, Gusset, and Defl.
+func GetSandboxItemIndices(artifacts []string) (string, string, string, string) {
+	indices := getSandboxItemIndicesFromMaps(
+		artifacts,
+		[]map[string]string{metroIndexMap, compassIndexMap, gussetIndexMap, deflectorIndexMap},
+		[]string{"14", "12", "12", "09"},
+	)
+	return indices[0], indices[1], indices[2], indices[3]
+}
+
+// GetSandboxIHRItemIndices returns the indices for Chalice, Monocle, IHR Defl., and IHR SIAB.
+func GetSandboxIHRItemIndices(artifacts []string) (string, string, string, string) {
+	indices := getSandboxItemIndicesFromMaps(
+		artifacts,
+		[]map[string]string{chaliceIndexMap, monocleIndexMap, ihrDeflectorIndexMap, ihrSiabIndexMap},
+		[]string{"08", "05", "09", "07"},
+	)
+	return indices[0], indices[1], indices[2], indices[3]
 }
 
 /*
