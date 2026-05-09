@@ -177,16 +177,20 @@ func chunk16(x string) string {
 	return y
 }
 
+func sanitizeSandboxField(value string) string {
+	safeValue := strings.ReplaceAll(value, "|", "")
+	safeValue = strings.ReplaceAll(safeValue, "-", "axJEFi")
+	return safeValue
+}
+
 func gatherData(input inputData, contractName, contractID string) (string, string, error) {
 
 	SEPARATOR := "-"
 	data := []string{}
 	singleStr := []string{}
 
-	safeContractName := strings.ReplaceAll(contractName, "|", "")
-	safeContractName = strings.ReplaceAll(safeContractName, "-", "axJEFi")
-	safeContractID := strings.ReplaceAll(contractID, "|", "")
-	safeContractID = strings.ReplaceAll(safeContractID, "-", "axJEFi")
+	safeContractName := sanitizeSandboxField(contractName)
+	safeContractID := sanitizeSandboxField(contractID)
 	data = append(data, fmt.Sprintf("%s|%s", safeContractName, safeContractID))
 
 	singleStr = append(singleStr,
@@ -214,7 +218,7 @@ func gatherData(input inputData, contractName, contractID string) (string, strin
 	singleStr2 := []string{"1"} // Start with leading 1
 
 	for _, p := range input.players {
-		safePlayerName := strings.ReplaceAll(p.Name, "-", "axJEFi")
+		safePlayerName := sanitizeSandboxField(p.Name)
 		data = append(data, safePlayerName, p.Tokens, p.TE)
 
 		singleStr2 = append(singleStr2,

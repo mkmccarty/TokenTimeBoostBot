@@ -211,6 +211,52 @@ func TestGatherData(t *testing.T) {
 	}
 }
 
+func TestGatherDataSanitizesPipeInPlayerName(t *testing.T) {
+	input := inputData{
+		crtToggle:   true,
+		tokenToggle: true,
+		ggToggle:    false,
+		eggUnit:     1,
+		durUnit:     0,
+		modName:     2,
+		cxpToggle:   true,
+		crtTime:     "0",
+		mpft:        "13",
+		duration:    "8",
+		targetEgg:   "1p3",
+		tokenTimer:  "60",
+		modifiers:   "0p5",
+		numPlayers:  8,
+		btvTarget:   "1p875",
+		players: []SandboxPlayer{
+			{
+				Name:         "Pipe|Player-One",
+				Tokens:       "5",
+				TE:           "50",
+				Mirror:       false,
+				Colleggtible: false,
+				Sink:         false,
+				Creator:      false,
+				Item1:        "00", Item2: "00", Item3: "00", Item4: "00",
+				Item5: "00", Item6: "00", Item7: "00", Item8: "00",
+			},
+		},
+	}
+
+	d1, _, err := gatherData(input, "Delu|gge", "delugge-2023")
+	if err != nil {
+		t.Fatalf("gatherData failed: %v", err)
+	}
+
+	if strings.Contains(d1, "Pipe|Player") {
+		t.Fatalf("Expected player name pipe to be removed, got %q", d1)
+	}
+
+	if !strings.Contains(d1, "PipePlayeraxJEFiOne") {
+		t.Fatalf("Expected sanitized player name to be present, got %q", d1)
+	}
+}
+
 func TestEncodeSandboxData(t *testing.T) {
 	c := &ei.EggIncContract{
 		ID:         "delugge-2023",
