@@ -5,6 +5,7 @@ import (
 	"log"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
@@ -12,7 +13,69 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func getArtifactsComponents(userID string, channelID string, contractOnly bool, page string) (string, []discordgo.MessageComponent) {
+func getArtifactsPageFromContent(content string) string {
+	if strings.Contains(content, "Set: IHR") {
+		return "ihr"
+	}
+	if strings.Contains(content, "Set: Colleggtibles") {
+		return "collegg"
+	}
+	return "delivery"
+}
+
+func populateArtifactsFromBackup(s *discordgo.Session, userID string) (string, error) {
+	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+	if eiID == "" {
+		return "No saved Egg Inc ID found. Run /register first.", nil
+	}
+
+	backup, _ := ei.GetFirstContactFromAPI(s, eiID, userID, true)
+	if backup == nil || backup.GetArtifactsDb() == nil {
+		return "Unable to fetch backup artifacts right now.", nil
+	}
+
+	best := ei.GetBestCoopArtifactsFromInventory(backup.GetArtifactsDb().GetInventoryItems())
+
+	// Always refresh all supported keys so stale values don't linger.
+	targets := []string{"defl", "metr", "comp", "guss", "chalice", "monocle", "siab"}
+	for _, key := range targets {
+		val := best[key]
+		if key == "siab" && val == "" {
+			val = best["SIAB"]
+		}
+		farmerstate.SetMiscSettingString(userID, key, val)
+	}
+
+	// Keep IHR deflector aligned with best deflector from the same primary artifact DB.
+	farmerstate.SetMiscSettingString(userID, "defl-ihr", best["defl"])
+
+	updatedContracts := 0
+	for _, contract := range Contracts {
+		if contract == nil || contract.State == ContractStateSignup || contract.State == ContractStateCompleted || contract.State == ContractStateArchive {
+			continue
+		}
+		if !UserInContract(contract, userID) {
+			continue
+		}
+
+		contract.mutex.Lock()
+		if contract.Boosters[userID] != nil {
+			contract.Boosters[userID].ArtifactSet = getUserArtifacts(userID, nil)
+			updatedContracts++
+		}
+		contract.mutex.Unlock()
+
+		refreshBoostListMessage(s, contract, false)
+	}
+
+	if updatedContracts > 0 {
+		return fmt.Sprintf("Populated from backup and updated %d running contract(s) (%s).", updatedContracts, time.Now().Format("15:04:05")), nil
+	}
+
+	return fmt.Sprintf("Populated from backup (%s).", time.Now().Format("15:04:05")), nil
+}
+
+func getArtifactsComponents(userID string, channelID string, contractOnly bool, page string, backupButtonLabel string) (string, []discordgo.MessageComponent) {
 	minValues := 0
 	minV := 0
 	if page == "" {
@@ -483,6 +546,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 		deliveryStyle := discordgo.SecondaryButton
 		ihrStyle := discordgo.SecondaryButton
 		colleggStyle := discordgo.SecondaryButton
+		hasBackup := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id") != ""
 		switch page {
 		case "delivery":
 			deliveryStyle = discordgo.PrimaryButton
@@ -492,25 +556,37 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 			colleggStyle = discordgo.PrimaryButton
 		}
 
-		component = append(component, discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.Button{
-					Label:    "Delivery Set",
-					Style:    deliveryStyle,
-					CustomID: "as_#PAGEDEL#" + userID + "#" + temp,
-				},
-				discordgo.Button{
-					Label:    "IHR Set",
-					Style:    ihrStyle,
-					CustomID: "as_#PAGEIHR#" + userID + "#" + temp,
-				},
-				discordgo.Button{
-					Label:    "Colleggtibles",
-					Style:    colleggStyle,
-					CustomID: "as_#PAGECOL#" + userID + "#" + temp,
-				},
+		navButtons := []discordgo.MessageComponent{
+			discordgo.Button{
+				Label:    "Delivery Set",
+				Style:    deliveryStyle,
+				CustomID: "as_#PAGEDEL#" + userID + "#" + temp,
 			},
-		})
+			discordgo.Button{
+				Label:    "IHR Set",
+				Style:    ihrStyle,
+				CustomID: "as_#PAGEIHR#" + userID + "#" + temp,
+			},
+			discordgo.Button{
+				Label:    "Colleggtibles",
+				Style:    colleggStyle,
+				CustomID: "as_#PAGECOL#" + userID + "#" + temp,
+			},
+		}
+
+		if hasBackup {
+			label := backupButtonLabel
+			if label == "" {
+				label = "Populate from Backup"
+			}
+			navButtons = append(navButtons, discordgo.Button{
+				Label:    label,
+				Style:    discordgo.SuccessButton,
+				CustomID: "as_#POPBACKUP#" + userID + "#" + temp,
+			})
+		}
+
+		component = append(component, discordgo.ActionsRow{Components: navButtons})
 	}
 
 	return builder.String(), component
@@ -582,7 +658,7 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	data := i.MessageComponentData()
 
 	setValue := len(data.Values) != 0
-	page := "delivery"
+	page := getArtifactsPageFromContent(i.Message.Content)
 	switch cmd {
 	case "pageihr", "defl-ihr", "chalice", "monocle", "siab":
 		page = "ihr"
@@ -591,7 +667,19 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	}
 
 	//if override == "PERM" {
+	statusPrefix := ""
 	switch cmd {
+	case "popbackup":
+		loadingStr, loadingComp := getArtifactsComponents(userID, i.ChannelID, false, page, "Loading Backup...")
+		_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content:    &loadingStr,
+			Components: &loadingComp,
+		})
+		status, err := populateArtifactsFromBackup(s, userID)
+		if err != nil {
+			log.Printf("populateArtifactsFromBackup: %v", err)
+		}
+		statusPrefix = status
 	case "defl", "metr", "comp", "guss", "defl-ihr", "chalice", "monocle", "siab":
 		if setValue {
 			farmerstate.SetMiscSettingString(userID, cmd, data.Values[0])
@@ -603,7 +691,10 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	}
 
 	// Redraw the artifact list
-	str, comp := getArtifactsComponents(userID, i.ChannelID, false, page)
+	str, comp := getArtifactsComponents(userID, i.ChannelID, false, page, "Backup Loaded")
+	if statusPrefix != "" {
+		str = statusPrefix + "\n" + str
+	}
 
 	_, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 		Content:    &str,
