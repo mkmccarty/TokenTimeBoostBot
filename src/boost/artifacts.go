@@ -118,9 +118,11 @@ func updateColleggtibleCategorySelection(userID string, category string, selecte
 	farmerstate.SetMiscSettingString(userID, "collegg", strings.Join(names, ","))
 }
 
-func populateColleggtiblesFromBackup(userID string, backup *ei.Backup) {
+func populateColleggtiblesFromBackup(userID string, backup *ei.Backup) ([]string, bool) {
+	previous := getSelectedColleggtiblesFromStored(farmerstate.GetMiscSettingString(userID, "collegg"))
+
 	if backup == nil || backup.GetContracts() == nil {
-		return
+		return nil, false
 	}
 
 	owned := make(map[string]bool)
@@ -144,7 +146,7 @@ func populateColleggtiblesFromBackup(userID string, backup *ei.Backup) {
 
 	if len(owned) == 0 {
 		farmerstate.SetMiscSettingString(userID, "collegg", "")
-		return
+		return nil, len(previous) != 0
 	}
 
 	names := make([]string, 0, len(owned))
@@ -153,59 +155,136 @@ func populateColleggtiblesFromBackup(userID string, backup *ei.Backup) {
 	}
 	sort.Strings(names)
 	farmerstate.SetMiscSettingString(userID, "collegg", strings.Join(names, ","))
+
+	if len(previous) != len(owned) {
+		return names, true
+	}
+	for name := range owned {
+		if !previous[name] {
+			return names, true
+		}
+	}
+
+	return names, false
 }
 
-func populateArtifactsFromBackup(s *discordgo.Session, userID string) (string, error) {
+func displayArtifactQuality(val string) string {
+	if strings.TrimSpace(val) == "" {
+		return "None"
+	}
+	return val
+}
+
+func populateArtifactsFromBackup(s *discordgo.Session, userID string) (string, string, error) {
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 	if eiID == "" {
-		return "No saved Egg Inc ID found. Run /register first.", nil
+		msg := "No saved Egg Inc ID found. Run /register first."
+		return msg, msg, nil
 	}
 
 	backup, _ := ei.GetFirstContactFromAPI(s, eiID, userID, true)
 	if backup == nil || backup.GetArtifactsDb() == nil {
-		return "Unable to fetch backup artifacts right now.", nil
+		msg := "Unable to fetch backup artifacts right now."
+		return msg, msg, nil
 	}
 
 	best := ei.GetBestCoopArtifactsFromInventory(backup.GetArtifactsDb().GetInventoryItems())
 
-	// Always refresh all supported keys so stale values don't linger.
-	targets := []string{"defl", "metr", "comp", "guss", "chalice", "monocle", "siab"}
-	for _, key := range targets {
-		val := best[key]
-		if key == "siab" && val == "" {
-			val = best["SIAB"]
-		}
-		farmerstate.SetMiscSettingString(userID, key, val)
+	type artifactSlot struct {
+		key   string
+		label string
+		value string
 	}
 
-	// Keep IHR deflector aligned with best deflector from the same primary artifact DB.
-	farmerstate.SetMiscSettingString(userID, "defl-ihr", best["defl"])
-	populateColleggtiblesFromBackup(userID, backup)
+	slots := []artifactSlot{
+		{key: "defl", label: "Deflector", value: best["defl"]},
+		{key: "metr", label: "Metronome", value: best["metr"]},
+		{key: "comp", label: "Compass", value: best["comp"]},
+		{key: "guss", label: "Gusset", value: best["guss"]},
+		{key: "chalice", label: "Chalice", value: best["chalice"]},
+		{key: "monocle", label: "Monocle", value: best["monocle"]},
+		{key: "siab", label: "SIAB", value: best["siab"]},
+	}
+	if slots[6].value == "" {
+		slots[6].value = best["SIAB"]
+	}
+	slots = append(slots, artifactSlot{key: "defl-ihr", label: "IHR Deflector", value: best["defl"]})
+
+	changedArtifactDetails := make([]string, 0)
+	changedArtifactCount := 0
+	discoveredArtifactCount := 0
+	discoveredArtifactDetails := make([]string, 0)
+
+	// Always refresh all supported keys so stale values don't linger.
+	for _, slot := range slots {
+		oldVal := farmerstate.GetMiscSettingString(userID, slot.key)
+		newVal := slot.value
+		if strings.TrimSpace(newVal) != "" {
+			discoveredArtifactCount++
+			discoveredArtifactDetails = append(discoveredArtifactDetails,
+				fmt.Sprintf("%s: %s", slot.label, displayArtifactQuality(newVal)))
+		}
+
+		if oldVal != newVal {
+			changedArtifactCount++
+			changedArtifactDetails = append(changedArtifactDetails,
+				fmt.Sprintf("%s: %s -> %s", slot.label, displayArtifactQuality(oldVal), displayArtifactQuality(newVal)))
+		}
+
+		farmerstate.SetMiscSettingString(userID, slot.key, newVal)
+	}
+
+	colleggtibles, colleggtiblesChanged := populateColleggtiblesFromBackup(userID, backup)
 
 	updatedContracts := 0
 	for _, contract := range Contracts {
-		if contract == nil || contract.State == ContractStateSignup || contract.State == ContractStateCompleted || contract.State == ContractStateArchive {
+		if contract == nil || contract.State == ContractStateCompleted || contract.State == ContractStateArchive {
 			continue
 		}
+
 		if !UserInContract(contract, userID) {
 			continue
 		}
 
+		updated := false
 		contract.mutex.Lock()
 		if contract.Boosters[userID] != nil {
 			contract.Boosters[userID].ArtifactSet = getUserArtifacts(userID, nil)
 			updatedContracts++
+			updated = true
 		}
 		contract.mutex.Unlock()
 
+		if !updated {
+			continue
+		}
+
 		refreshBoostListMessage(s, contract, false)
+		saveData(contract.ContractHash)
 	}
 
+	status := fmt.Sprintf("Backup loaded (%s).", time.Now().Format("15:04:05"))
 	if updatedContracts > 0 {
-		return fmt.Sprintf("Populated from backup and updated %d running contract(s) (%s).", updatedContracts, time.Now().Format("15:04:05")), nil
+		status = fmt.Sprintf("Backup loaded and updated %d running contract(s) (%s).", updatedContracts, time.Now().Format("15:04:05"))
 	}
 
-	return fmt.Sprintf("Populated from backup (%s).", time.Now().Format("15:04:05")), nil
+	var summary strings.Builder
+	summary.WriteString("## Backup Load Summary\n")
+	fmt.Fprintf(&summary, "Discovered artifact slots: %d/8\n", discoveredArtifactCount)
+	if len(discoveredArtifactDetails) > 0 {
+		summary.WriteString(strings.Join(discoveredArtifactDetails, "\n"))
+		summary.WriteString("\n")
+	}
+	fmt.Fprintf(&summary, "\nChanged artifact slots: %d\n", changedArtifactCount)
+	if len(changedArtifactDetails) > 0 {
+		summary.WriteString(strings.Join(changedArtifactDetails, "\n"))
+		summary.WriteString("\n")
+	}
+	fmt.Fprintf(&summary, "\nColleggtibles discovered: %d\n", len(colleggtibles))
+	fmt.Fprintf(&summary, "Colleggtibles changed: %t\n", colleggtiblesChanged)
+	fmt.Fprintf(&summary, "Running contracts refreshed: %d", updatedContracts)
+
+	return status, summary.String(), nil
 }
 
 func getArtifactsComponents(userID string, channelID string, contractOnly bool, page string, backupButtonLabel string) (string, []discordgo.MessageComponent) {
@@ -874,6 +953,7 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 
 	//if override == "PERM" {
 	statusPrefix := ""
+	backupSummary := ""
 	switch cmd {
 	case "popbackup":
 		loadingStr, loadingComp := getArtifactsComponents(userID, i.ChannelID, false, page, "Loading Backup...")
@@ -881,11 +961,12 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 			Content:    &loadingStr,
 			Components: &loadingComp,
 		})
-		status, err := populateArtifactsFromBackup(s, userID)
+		status, summary, err := populateArtifactsFromBackup(s, userID)
 		if err != nil {
 			log.Printf("populateArtifactsFromBackup: %v", err)
 		}
 		statusPrefix = status
+		backupSummary = summary
 	case "defl", "metr", "comp", "guss", "defl-ihr", "chalice", "monocle", "siab":
 		if setValue {
 			farmerstate.SetMiscSettingString(userID, cmd, data.Values[0])
@@ -912,6 +993,13 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	})
 	if err != nil {
 		log.Println("InteractionResponseEdit: ", err)
+	}
+
+	if backupSummary != "" {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: backupSummary,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		})
 	}
 
 	//} else {
@@ -974,6 +1062,7 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 				contract.Boosters[userID].ArtifactSet = getUserArtifacts(userID, &currentSet)
 
 				refreshBoostListMessage(s, contract, false)
+				saveData(contract.ContractHash)
 			}
 
 		}
@@ -981,10 +1070,4 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 
 done:
 	//}
-	_, _ = s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			//Content: "",
-			//Flags: discordgo.MessageFlagsEphemeral,
-		})
-
 }
