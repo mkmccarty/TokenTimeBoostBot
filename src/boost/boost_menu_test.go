@@ -46,15 +46,15 @@ func TestSandboxPlayersFromContractKeepsDeflectorsSeparate(t *testing.T) {
 		t.Fatalf("delivery deflector slot = %q, want %q", player.Item4, "00")
 	}
 	if player.Item5 != "00" {
-		t.Fatalf("IHR deflector slot = %q, want %q", player.Item5, "00")
+		t.Fatalf("chalice slot = %q, want %q", player.Item5, "00")
 	}
-	if player.Item6 != "00" {
-		t.Fatalf("IHR SIAB slot = %q, want %q", player.Item6, "00")
+	if player.Item6 != "05" {
+		t.Fatalf("monocle slot = %q, want %q", player.Item6, "05")
 	}
-	if player.Item7 != "05" {
-		t.Fatalf("monocle slot = %q, want %q", player.Item7, "05")
+	if player.Item7 != "00" {
+		t.Fatalf("IHR deflector slot = %q, want %q", player.Item7, "00")
 	}
 	if player.Item8 != "00" {
-		t.Fatalf("chalice slot = %q, want %q", player.Item8, "00")
+		t.Fatalf("IHR SIAB slot = %q, want %q", player.Item8, "00")
 	}
 }
