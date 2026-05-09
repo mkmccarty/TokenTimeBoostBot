@@ -289,6 +289,35 @@ func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, 
 	return link + version + base64encoded + "=" + base62encoded
 }
 
+// GetSandboxItemIndices returns the indices for Metro, Comp, Gusset, and Defl.
+func GetSandboxItemIndices(artifacts []string) (string, string, string, string) {
+	metro := "14"  // Empty
+	comp := "12"   // Empty
+	gusset := "12" // Empty
+	defl := "09"   // Empty
+
+	for _, artifact := range artifacts {
+		if strings.Contains(artifact, "Metro") {
+			if val, ok := metroIndexMap[artifact]; ok {
+				metro = val
+			}
+		} else if strings.Contains(artifact, "Comp") {
+			if val, ok := compassIndexMap[artifact]; ok {
+				comp = val
+			}
+		} else if strings.Contains(artifact, "Gusset") {
+			if val, ok := gussetIndexMap[artifact]; ok {
+				gusset = val
+			}
+		} else if strings.Contains(artifact, "Defl") {
+			if val, ok := deflectorIndexMap[artifact]; ok {
+				defl = val
+			}
+		}
+	}
+	return metro, comp, gusset, defl
+}
+
 /*
 type PlayerData struct {
 	Name                 string

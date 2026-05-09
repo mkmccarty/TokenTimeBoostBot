@@ -6,6 +6,7 @@ import (
 	"math"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -207,6 +208,7 @@ type artifact struct {
 type artifactSet struct {
 	name             string
 	nameRaw          string
+	userID           string
 	note             []string
 	missingResearch  []string
 	missingStones    bool
@@ -413,6 +415,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		as.deliveredEggs = c.GetContributionAmount()
 		as.name = c.GetUserName()
 		as.nameRaw = as.name
+		as.userID = c.GetUserId()
 		as.permitLevel = c.GetFarmInfo().GetPermitLevel()
 		// Strip any multibyte characters from as.name and replace with ~
 		/*
@@ -659,6 +662,27 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	sort.Slice(artifactSets, func(i, j int) bool {
 		return artifactSets[i].deliveredEggs > artifactSets[j].deliveredEggs
 	})
+
+	var sandboxPlayers []SandboxPlayer
+	for i, as := range artifactSets {
+		teStr := farmerstate.GetMiscSettingString(as.userID, "TE")
+		if teStr == "" {
+			teStr = "50"
+		}
+		metro, comp, gusset, defl := bottools.GetSandboxItemIndices(as.staabArtifacts)
+		sp := SandboxPlayer{
+			Name:         as.nameRaw,
+			Tokens:       "5",
+			TE:           teStr,
+			Mirror:       false,
+			Colleggtible: as.colleggBuffs.Hab > 1.0 || as.colleggBuffs.ELR > 1.0 || as.colleggBuffs.SR > 1.0,
+			Sink:         i == len(artifactSets)-1,
+			Creator:      i == 0,
+			Item1:        metro, Item2: comp, Item3: gusset, Item4: defl,
+			Item5: "00", Item6: "00", Item7: "00", Item8: "00",
+		}
+		sandboxPlayers = append(sandboxPlayers, sp)
+	}
 
 	var tableHeader string
 	var tableData []string
@@ -1047,7 +1071,15 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	var contractDurationSeconds float64
 	var calcSecondsRemaining float64
 
-	fmt.Fprintf(&builder, "Stones Report for %s %s/[**%s**](%s)\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID))
+	cxpToggle := eiContract.SeasonalScoring == ei.SeasonalScoringNerfed
+	sandboxData, err := EncodeSandboxData(cxpToggle, eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1], strconv.Itoa(eiContract.MinutesPerToken), eiContract.Grade[grade].LengthInSeconds, eiContract.MaxCoopSize, &eiContract, sandboxPlayers)
+	sandboxURL := ""
+	if err == nil {
+		sandboxURL = "https://srsandbox-staabmia.netlify.app/?" + sandboxData
+		fmt.Fprintf(&builder, "Stones Report for %s %s/[**%s**](%s) | [**SR Sandbox**](%s)\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID), sandboxURL)
+	} else {
+		fmt.Fprintf(&builder, "Stones Report for %s %s/[**%s**](%s)\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID))
+	}
 	if eiContract.ID != "" {
 		nowTime := time.Now()
 		startTime := nowTime

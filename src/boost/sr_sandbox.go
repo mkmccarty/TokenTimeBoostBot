@@ -2,8 +2,8 @@ package boost
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
+	"math"
 	"net/url"
 	"strconv"
 	"strings"
@@ -13,43 +13,43 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
-// playerData stores player-related data.
-type playerData struct {
-	name         string // Player name
-	tokens       string // Player tokens used
-	te           string // Truth Egg (TE) count
-	mirror       bool   // True if mirror (+1 token)
-	colleggtible bool   // True if player has all collectibles
-	sink         bool   // True if sink (no tval)
-	creator      bool   // True if creator (no join delay)
-	item1        string // Item slot 1
-	item2        string // Item slot 2
-	item3        string // Item slot 3
-	item4        string // Item slot 4
-	item5        string // Item slot 5
-	item6        string // Item slot 6
-	item7        string // Item slot 7
-	item8        string // Item slot 8
+// SandboxPlayer stores player-related data.
+type SandboxPlayer struct {
+	Name         string // Player name
+	Tokens       string // Player tokens used
+	TE           string // Truth Egg (TE) count
+	Mirror       bool   // True if mirror (+1 token)
+	Colleggtible bool   // True if player has all collectibles
+	Sink         bool   // True if sink (no tval)
+	Creator      bool   // True if creator (no join delay)
+	Item1        string // Item slot 1
+	Item2        string // Item slot 2
+	Item3        string // Item slot 3
+	Item4        string // Item slot 4
+	Item5        string // Item slot 5
+	Item6        string // Item slot 6
+	Item7        string // Item slot 7
+	Item8        string // Item slot 8
 }
 
 // inputData stores full coop info.
 type inputData struct {
-	crtToggle   bool         // Chicken Runs Maxed?*
-	tokenToggle bool         // Token Value Maxed?*
-	ggToggle    bool         // Generous Gifts?
-	eggUnit     int          // egg unit index (default: q)
-	durUnit     int          // duration unit index (default: days)
-	modName     int          // contract modifier type index
-	cxpToggle   bool         // False = Legacy, True = Seasonal Run
-	crtTime     string       // Join Delay (seconds)
-	mpft        string       // Minutes/TokenGift/Player*
-	duration    string       // Duration (days)
-	targetEgg   string       // Target Egg Amount (q)
-	tokenTimer  string       // Token Timer (minutes)
-	modifiers   string       // Modifier Multiplier
-	numPlayers  int          // CoopSize:
-	btvTarget   string       // BTV/complTime Target
-	players     []playerData // Player list for results
+	crtToggle   bool            // Chicken Runs Maxed?*
+	tokenToggle bool            // Token Value Maxed?*
+	ggToggle    bool            // Generous Gifts?
+	eggUnit     int             // egg unit index (default: q)
+	durUnit     int             // duration unit index (default: days)
+	modName     int             // contract modifier type index
+	cxpToggle   bool            // False = Legacy, True = Seasonal Run
+	crtTime     string          // Join Delay (seconds)
+	mpft        string          // Minutes/TokenGift/Player*
+	duration    string          // Duration (days)
+	targetEgg   string          // Target Egg Amount (q)
+	tokenTimer  string          // Token Timer (minutes)
+	modifiers   string          // Modifier Multiplier
+	numPlayers  int             // CoopSize:
+	btvTarget   string          // BTV/complTime Target
+	players     []SandboxPlayer // Player list for results
 }
 
 // FmtNumberSingleUnit converts a float64 to a string with the correct unit scale.
@@ -77,18 +77,22 @@ func FmtNumberSingleUnit(v float64, srSandboxOrdering bool) (string, int) {
 		val, unit = v/1e12, 2 // Trillion
 	}
 
-	str = ei.FormatEIValue(val, map[string]any{"no_scale": true, "no_suffix": true, "max_length": 5, "trim": true, "decimals": 4})
-
 	// Apply SR sandbox ordering: 0=quadrillion, 1=Quintillion, 2=Trillion
 	if srSandboxOrdering {
 		switch unit {
 		case 0: // Quintillion -> 1
 			unit = 1
+			str = fmt.Sprintf("%.1f", val)
+			str = strings.ReplaceAll(str, ".", "p")
 		case 1: // quadrillion -> 0
 			unit = 0
+			str = fmt.Sprintf("%.0f", math.Floor(val))
 		case 2: // Trillion <-> 2
 			unit = 2
+			str = fmt.Sprintf("%.0f", math.Floor(val))
 		}
+	} else {
+		str = ei.FormatEIValue(val, map[string]any{"no_scale": true, "no_suffix": true, "max_length": 5, "trim": true, "decimals": 4})
 	}
 
 	return str, unit
@@ -104,18 +108,18 @@ func FmtNumberSingleUnit(v float64, srSandboxOrdering bool) (string, int) {
 //   - int: index of the active modifier (0: HabCap, 1: IHR, 2: SR, 3: ELR).
 func FmtActiveModifier(c *ei.EggIncContract) (string, int) {
 	switch {
-	// HabCap (🏠)
-	case c.ModifierHabCap != 1.0 && c.ModifierHabCap > 0.0:
-		return fmt.Sprintf("%1.3g", c.ModifierHabCap), 0
-	// IHR (🐣)
-	case c.ModifierIHR != 1.0 && c.ModifierIHR > 0.0:
-		return fmt.Sprintf("%1.3g", c.ModifierIHR), 1
-	// SR (🛻)
-	case c.ModifierSR != 1.0 && c.ModifierSR > 0.0:
-		return fmt.Sprintf("%1.3g", c.ModifierSR), 2
 	// ELR (🥚)
 	case c.ModifierELR != 1.0 && c.ModifierELR > 0.0:
 		return fmt.Sprintf("%1.3g", c.ModifierELR), 3
+	// SR (🛻)
+	case c.ModifierSR != 1.0 && c.ModifierSR > 0.0:
+		return fmt.Sprintf("%1.3g", c.ModifierSR), 2
+	// IHR (🐣)
+	case c.ModifierIHR != 1.0 && c.ModifierIHR > 0.0:
+		return fmt.Sprintf("%1.3g", c.ModifierIHR), 1
+	// HabCap (🏠)
+	case c.ModifierHabCap != 1.0 && c.ModifierHabCap > 0.0:
+		return fmt.Sprintf("%1.3g", c.ModifierHabCap), 0
 	// 1x HabCap (🏠)
 	default:
 		return "1.0", 0
@@ -132,55 +136,58 @@ func convertBool(b bool) string {
 // Helpers from SR Sandbox
 var base62Charset = []rune("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-func base62Encode(integer int) string {
+func base62Encode(integer uint64) string {
 	if integer == 0 {
 		return "0"
 	}
 	s := []rune{}
 	for integer > 0 {
-		remainder := integer % 62
+		remainder := integer % uint64(62)
 		s = append([]rune{base62Charset[remainder]}, s...)
-		integer = integer / 62
+		integer = integer / uint64(62)
 	}
 	return string(s)
 }
 
 func dataToBase64(data, data2 string) string {
-	encoded := base64.StdEncoding.EncodeToString([]byte(url.QueryEscape(data)))
+	escapedData := strings.ReplaceAll(url.QueryEscape(data), "+", "%20")
+	encoded := base64.StdEncoding.EncodeToString([]byte(escapedData))
 	parts := strings.Split(encoded, "=")
 	dataB64 := parts[0]
-	dataEncoded := dataB64 + "=" + data2
-	return dataEncoded
+	return dataB64 + "=" + data2
 }
 
 func chunk16(x string) string {
 	if len(x) < 16 {
-		i, _ := strconv.Atoi(x)
+		i, _ := strconv.ParseUint(x, 10, 64)
 		return base62Encode(i)
 	}
 	y := ""
 	n := len(x) / 15
 	for i := 0; i < n; i++ {
 		tmp := "8" + x[i*15:(i*15)+15]
-		num, _ := strconv.Atoi(tmp)
+		num, _ := strconv.ParseUint(tmp, 10, 64)
 		y += base62Encode(num)
 	}
 	tmp := x[n*15:]
 	if tmp != "" {
-		num, _ := strconv.Atoi("8" + tmp)
+		num, _ := strconv.ParseUint("8"+tmp, 10, 64)
 		y += base62Encode(num)
 	}
 	return y
 }
 
-func gatherData(input inputData) (string, string, error) {
-	if input.numPlayers != len(input.players) {
-		return "", "", errors.New("numPlayers does not match player array length")
-	}
+func gatherData(input inputData, contractName, contractID string) (string, string, error) {
 
 	SEPARATOR := "-"
 	data := []string{}
 	singleStr := []string{}
+
+	safeContractName := strings.ReplaceAll(contractName, "|", "")
+	safeContractName = strings.ReplaceAll(safeContractName, "-", "axJEFi")
+	safeContractID := strings.ReplaceAll(contractID, "|", "")
+	safeContractID = strings.ReplaceAll(safeContractID, "-", "axJEFi")
+	data = append(data, fmt.Sprintf("%s|%s", safeContractName, safeContractID))
 
 	singleStr = append(singleStr,
 		convertBool(input.crtToggle),
@@ -207,15 +214,16 @@ func gatherData(input inputData) (string, string, error) {
 	singleStr2 := []string{"1"} // Start with leading 1
 
 	for _, p := range input.players {
-		data = append(data, p.name, p.tokens, p.te)
+		safePlayerName := strings.ReplaceAll(p.Name, "-", "axJEFi")
+		data = append(data, safePlayerName, p.Tokens, p.TE)
 
 		singleStr2 = append(singleStr2,
-			convertBool(p.mirror),
-			convertBool(p.colleggtible),
-			convertBool(p.sink),
-			convertBool(p.creator),
-			p.item1, p.item2, p.item3, p.item4,
-			p.item5, p.item6, p.item7, p.item8,
+			convertBool(p.Mirror),
+			convertBool(p.Colleggtible),
+			convertBool(p.Sink),
+			convertBool(p.Creator),
+			p.Item1, p.Item2, p.Item3, p.Item4,
+			p.Item5, p.Item6, p.Item7, p.Item8,
 		)
 	}
 
@@ -224,20 +232,21 @@ func gatherData(input inputData) (string, string, error) {
 	return strings.Join(data, SEPARATOR), strings.Join(data2, SEPARATOR), nil
 }
 
-// EncodeData generates and encodes configuration data for the SR Sandbox v-5.
+// EncodeSandboxData generates and encodes configuration data for the SR Sandbox v-6.
 //
 // Parameters:
 //   - CxpToggle (bool): enables or disables CXP calculations.
 //   - TargetEgg (string): target egg count.
 //   - TokenTimer (string): token timer interval in minutes.
 //   - contractLengthInSeconds (int): total contract duration in seconds.
-//   - NumPlayers (int): number of players.
+//   - numPlayers (int): coop size
 //   - c (*ei.EggIncContract): pointer to the contract data.
+//   - players ([]SandboxPlayer): array of player configurations to include.
 //
 // Returns:
 //   - (string): version-tagged encoded SR Sandbox data.
 //   - (error): returned if encoding fails.
-func EncodeData(cxpToggle bool, targetEgg float64, tokenTimer string, contractLengthInSeconds, numPlayers int, c *ei.EggIncContract) (string, error) {
+func EncodeSandboxData(cxpToggle bool, targetEgg float64, tokenTimer string, contractLengthInSeconds int, numPlayers int, c *ei.EggIncContract, players []SandboxPlayer) (string, error) {
 
 	// Duration formatting
 	contractDuration := time.Duration(contractLengthInSeconds) * time.Second
@@ -252,6 +261,12 @@ func EncodeData(cxpToggle bool, targetEgg float64, tokenTimer string, contractLe
 
 	// Get modifiers
 	modifiers, modName := FmtActiveModifier(c)
+	modifiers = strings.ReplaceAll(modifiers, ".", "p")
+
+	btvTarget := "2"
+	if cxpToggle {
+		btvTarget = "1p875"
+	}
 
 	input := inputData{
 		crtToggle:   true,
@@ -261,52 +276,27 @@ func EncodeData(cxpToggle bool, targetEgg float64, tokenTimer string, contractLe
 		durUnit:     durUnit, // in order days, hours, minutes, seconds
 		modName:     modName,
 		cxpToggle:   cxpToggle,
-		crtTime:     "20", // seconds
-		mpft:        "11", // minutes
+		crtTime:     "0",  // seconds
+		mpft:        "13", // minutes
 		duration:    durStr,
 		targetEgg:   eggStr,
 		tokenTimer:  tokenTimer, // minutes
 		modifiers:   modifiers,
 		numPlayers:  numPlayers,
-		btvTarget:   "2", // old max buff
+		btvTarget:   btvTarget,
+		players:     players,
 	}
 
-	tokensArr := make([]string, input.numPlayers)
-	teArr := make([]string, input.numPlayers)
-
-	for i := 0; i < input.numPlayers; i++ {
-		tokensArr[i] = "5"
-		teArr[i] = "50"
-	}
-
-	// Full leggy assumption
-	input.players = make([]playerData, input.numPlayers)
-	for i := 0; i < input.numPlayers; i++ {
-		input.players[i] = playerData{
-			name:         fmt.Sprintf("BBPlayer%d", i+1),
-			tokens:       tokensArr[i],
-			te:           teArr[i],
-			mirror:       false,
-			colleggtible: true,
-			sink:         false,
-			creator:      false,
-			item1:        "00",
-			item2:        "00",
-			item3:        "00",
-			item4:        "00",
-			item5:        "00",
-			item6:        "00",
-			item7:        "00",
-			item8:        "00",
-		}
-	}
-
-	d1, d2, err := gatherData(input)
+	d1, d2, err := gatherData(input, c.Name, c.ID)
 	if err != nil {
 		return "", err
 	}
 
 	encoded := dataToBase64(d1, d2)
-	final := "v-5" + encoded
-	return final, nil
+	finalData := "v_5" + encoded
+
+	b64Name := base64.RawStdEncoding.EncodeToString([]byte(c.Name))
+	safeB64Name := url.QueryEscape(b64Name)
+
+	return "data=" + finalData + "&c=" + safeB64Name, nil
 }
