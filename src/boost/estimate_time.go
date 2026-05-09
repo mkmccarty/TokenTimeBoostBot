@@ -129,18 +129,29 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 			cxpToggle = true
 		}
 	}
-	players := []SandboxPlayer{
-		{
-			Name:         "Player",
+	playerCount := c.MaxCoopSize
+	if playerCount < 1 {
+		playerCount = 1
+	}
+	players := make([]SandboxPlayer, 0, playerCount)
+	for i := 0; i < playerCount; i++ {
+		players = append(players, SandboxPlayer{
+			Name:         fmt.Sprintf("Player %d", i),
 			Tokens:       "5",
 			TE:           "50",
 			Mirror:       false,
 			Colleggtible: true,
-			Sink:         false,
-			Creator:      false,
-			Item1:        "00", Item2: "00", Item3: "00", Item4: "00",
-			Item5: "00", Item6: "00", Item7: "00", Item8: "00",
-		},
+			Sink:         i == playerCount-1,
+			Creator:      i == 0,
+			Item1:        "00",
+			Item2:        "00",
+			Item3:        "00",
+			Item4:        "00",
+			Item5:        "00",
+			Item6:        "00",
+			Item7:        "00",
+			Item8:        "00",
+		})
 	}
 	staabData, staabError := EncodeSandboxData(cxpToggle, c.TargetAmount[len(c.TargetAmount)-1],
 		strconv.Itoa(c.MinutesPerToken), c.LengthInSeconds, c.MaxCoopSize, &c, players)
