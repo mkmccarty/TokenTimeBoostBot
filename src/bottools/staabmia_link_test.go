@@ -28,7 +28,7 @@ func TestGetSandboxIHRItemIndices(t *testing.T) {
 	chalice, monocle, defl, siab := GetSandboxIHRItemIndices([]string{
 		"T4L Chalice",
 		"T4E Monocle",
-		"T4R Defl.",
+		"T4R IHR Defl.",
 		"T4C SIAB",
 	})
 
@@ -43,5 +43,30 @@ func TestGetSandboxIHRItemIndices(t *testing.T) {
 	}
 	if siab != "03" {
 		t.Fatalf("siab = %q, want %q", siab, "03")
+	}
+}
+
+func TestSandboxDeflectorsStaySeparate(t *testing.T) {
+	artifacts := []string{
+		"T4L Defl.",
+		"T4L IHR Defl.",
+	}
+
+	_, _, _, defl := GetSandboxItemIndices(artifacts)
+	_, _, ihrDefl, _ := GetSandboxIHRItemIndices(artifacts)
+
+	if defl != "00" {
+		t.Fatalf("defl = %q, want %q", defl, "00")
+	}
+	if ihrDefl != "00" {
+		t.Fatalf("ihrDefl = %q, want %q", ihrDefl, "00")
+	}
+}
+
+func TestNormalDeflectorDoesNotFillIHRSlot(t *testing.T) {
+	_, _, ihrDefl, _ := GetSandboxIHRItemIndices([]string{"T4L Defl."})
+
+	if ihrDefl != "09" {
+		t.Fatalf("ihrDefl = %q, want %q", ihrDefl, "09")
 	}
 }

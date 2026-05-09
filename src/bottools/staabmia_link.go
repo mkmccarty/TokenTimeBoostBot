@@ -97,16 +97,16 @@ var monocleIndexMap = map[string]string{
 }
 
 var ihrDeflectorIndexMap = map[string]string{
-	"T4L Defl.": "00",
-	"T4E Defl.": "01",
-	"T4R Defl.": "02",
-	"T4C Defl.": "03",
-	"T3R Defl.": "04",
-	"T3C Defl.": "05",
-	"T2C Defl.": "06",
-	"T1C Defl.": "07",
-	"3 Slot":    "08",
-	"2 Slot":    "09",
+	"T4L IHR Defl.": "00",
+	"T4E IHR Defl.": "01",
+	"T4R IHR Defl.": "02",
+	"T4C IHR Defl.": "03",
+	"T3R IHR Defl.": "04",
+	"T3C IHR Defl.": "05",
+	"T2C IHR Defl.": "06",
+	"T1C IHR Defl.": "07",
+	"3 Slot":        "08",
+	"2 Slot":        "09",
 }
 
 var ihrSiabIndexMap = map[string]string{

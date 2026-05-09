@@ -1023,6 +1023,11 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 			Emoji: &discordgo.ComponentEmoji{Name: "🧰"},
 		})
 		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+			Label: "SR Sandbox Link",
+			Value: "sandbox",
+			Emoji: &discordgo.ComponentEmoji{Name: "🌌"},
+		})
+		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
 			Label: "X-Post Template",
 			Value: "xpost",
 			Emoji: &discordgo.ComponentEmoji{Name: "🖇️"},

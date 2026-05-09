@@ -1106,11 +1106,23 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	var contractDurationSeconds float64
 	var calcSecondsRemaining float64
 
+	sandboxContract := trackedContract
+	if sandboxContract == nil {
+		sandboxContract = &Contract{ContractID: contractID}
+	}
+	targetAmount := eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1]
+	tokenMinutes := eiContract.MinutesPerToken
+	contractLength := eiContract.Grade[grade].LengthInSeconds
 	cxpToggle := eiContract.SeasonalScoring == ei.SeasonalScoringNerfed
-	sandboxData, err := EncodeSandboxData(cxpToggle, eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1], strconv.Itoa(eiContract.MinutesPerToken), eiContract.Grade[grade].LengthInSeconds, len(sandboxPlayers), &eiContract, sandboxPlayers)
+	generatedSandboxURL, err := GenerateContractSandboxURLWithOptions(sandboxContract, sandboxPlayers, &ContractSandboxOptions{
+		TargetEggOverride:             &targetAmount,
+		TokenTimerMinutesOverride:     &tokenMinutes,
+		ContractLengthSecondsOverride: &contractLength,
+		CxpToggleOverride:             &cxpToggle,
+	})
 	sandboxURL := ""
 	if err == nil {
-		sandboxURL = "https://srsandbox-staabmia.netlify.app/?" + sandboxData
+		sandboxURL = generatedSandboxURL
 		fmt.Fprintf(&builder, "Stones Report for %s %s/[**%s**](%s) | [**SR Sandbox**](%s)\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID), sandboxURL)
 	} else {
 		fmt.Fprintf(&builder, "Stones Report for %s %s/[**%s**](%s)\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), contractID, coopID, fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID))

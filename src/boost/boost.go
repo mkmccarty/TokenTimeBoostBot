@@ -617,9 +617,12 @@ func getUserArtifacts(userID string, inSet *ArtifactSet) ArtifactSet {
 	//mySet.Artifacts = make([]ei.Artifact, 5)
 	// Pull in any saved artifacts
 	if inSet == nil {
-		prefix := []string{"", "D-", "M-", "C-", "G-"}
-		for i, el := range []string{"collegg", "defl", "metr", "comp", "guss"} {
+		prefix := []string{"", "D-", "M-", "C-", "G-", "CH-", "MO-", "ID-", "SIAB-"}
+		for i, el := range []string{"collegg", "defl", "metr", "comp", "guss", "chalice", "monocle", "defl-ihr", "siab"} {
 			art := farmerstate.GetMiscSettingString(userID, el)
+			if art == "" && el == "siab" {
+				art = farmerstate.GetMiscSettingString(userID, "SIAB")
+			}
 			if art == "" {
 				continue
 			}
