@@ -1072,7 +1072,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	var calcSecondsRemaining float64
 
 	cxpToggle := eiContract.SeasonalScoring == ei.SeasonalScoringNerfed
-	sandboxData, err := EncodeSandboxData(cxpToggle, eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1], strconv.Itoa(eiContract.MinutesPerToken), eiContract.Grade[grade].LengthInSeconds, eiContract.MaxCoopSize, &eiContract, sandboxPlayers)
+	sandboxData, err := EncodeSandboxData(cxpToggle, eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1], strconv.Itoa(eiContract.MinutesPerToken), eiContract.Grade[grade].LengthInSeconds, len(sandboxPlayers), &eiContract, sandboxPlayers)
 	sandboxURL := ""
 	if err == nil {
 		sandboxURL = "https://srsandbox-staabmia.netlify.app/?" + sandboxData
