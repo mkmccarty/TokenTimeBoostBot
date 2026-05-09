@@ -23,6 +23,43 @@ func getArtifactsPageFromContent(content string) string {
 	return "delivery"
 }
 
+func populateColleggtiblesFromBackup(userID string, backup *ei.Backup) {
+	if backup == nil || backup.GetContracts() == nil {
+		return
+	}
+
+	owned := make(map[string]bool)
+	contracts := append(backup.GetContracts().GetArchive(), backup.GetContracts().GetContracts()...)
+	for _, c := range contracts {
+		if c == nil || c.GetContract() == nil {
+			continue
+		}
+		eggID := c.GetContract().GetCustomEggId()
+		if eggID == "" {
+			continue
+		}
+		// Tier 0 colleggtible ownership starts at 10M farm size.
+		if c.GetMaxFarmSizeReached() < 1e7 {
+			continue
+		}
+		if egg, ok := ei.CustomEggMap[eggID]; ok && egg != nil && egg.Name != "" {
+			owned[egg.Name] = true
+		}
+	}
+
+	if len(owned) == 0 {
+		farmerstate.SetMiscSettingString(userID, "collegg", "")
+		return
+	}
+
+	names := make([]string, 0, len(owned))
+	for name := range owned {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	farmerstate.SetMiscSettingString(userID, "collegg", strings.Join(names, ","))
+}
+
 func populateArtifactsFromBackup(s *discordgo.Session, userID string) (string, error) {
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 	if eiID == "" {
@@ -48,6 +85,7 @@ func populateArtifactsFromBackup(s *discordgo.Session, userID string) (string, e
 
 	// Keep IHR deflector aligned with best deflector from the same primary artifact DB.
 	farmerstate.SetMiscSettingString(userID, "defl-ihr", best["defl"])
+	populateColleggtiblesFromBackup(userID, backup)
 
 	updatedContracts := 0
 	for _, contract := range Contracts {
@@ -577,7 +615,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 		if hasBackup {
 			label := backupButtonLabel
 			if label == "" {
-				label = "Populate from Backup"
+				label = "Load from Backup"
 			}
 			navButtons = append(navButtons, discordgo.Button{
 				Label:    label,
@@ -693,7 +731,7 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	}
 
 	// Redraw the artifact list
-	str, comp := getArtifactsComponents(userID, i.ChannelID, false, page, "Backup Loaded")
+	str, comp := getArtifactsComponents(userID, i.ChannelID, false, page, "Load from Backup")
 	if statusPrefix != "" {
 		str = statusPrefix + "\n" + str
 	}
