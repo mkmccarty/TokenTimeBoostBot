@@ -623,7 +623,7 @@ func HandleArtifactCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	contractOnly := false
 
-	str, comp := getArtifactsComponents(userID, i.ChannelID, contractOnly, "delivery")
+	str, comp := getArtifactsComponents(userID, i.ChannelID, contractOnly, "delivery", "")
 
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
