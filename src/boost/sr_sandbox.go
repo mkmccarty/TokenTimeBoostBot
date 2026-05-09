@@ -232,7 +232,7 @@ func gatherData(input inputData, contractName, contractID string) (string, strin
 	return strings.Join(data, SEPARATOR), strings.Join(data2, SEPARATOR), nil
 }
 
-// EncodeSandboxData generates and encodes configuration data for the SR Sandbox v-6.
+// EncodeSandboxData generates and encodes configuration data for the SR Sandbox v_5 format.
 //
 // Parameters:
 //   - CxpToggle (bool): enables or disables CXP calculations.
