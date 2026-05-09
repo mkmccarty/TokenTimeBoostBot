@@ -296,25 +296,75 @@ func GetSandboxItemIndices(artifacts []string) (string, string, string, string) 
 	gusset := "12" // Empty
 	defl := "09"   // Empty
 
+	metroSet := false
+	compSet := false
+	gussetSet := false
+	deflSet := false
+
+	fallbackArtifacts := []string{}
+	usedFallback := make([]bool, 0)
+
 	for _, artifact := range artifacts {
 		if strings.Contains(artifact, "Metro") {
 			if val, ok := metroIndexMap[artifact]; ok {
 				metro = val
+				metroSet = true
 			}
 		} else if strings.Contains(artifact, "Comp") {
 			if val, ok := compassIndexMap[artifact]; ok {
 				comp = val
+				compSet = true
 			}
 		} else if strings.Contains(artifact, "Gusset") {
 			if val, ok := gussetIndexMap[artifact]; ok {
 				gusset = val
+				gussetSet = true
 			}
 		} else if strings.Contains(artifact, "Defl") {
 			if val, ok := deflectorIndexMap[artifact]; ok {
 				defl = val
+				deflSet = true
 			}
+		} else if artifact == "3 Slot" || strings.Contains(artifact, "SIAB") {
+			fallbackArtifacts = append(fallbackArtifacts, artifact)
+			usedFallback = append(usedFallback, false)
 		}
 	}
+
+	consumeFallback := func(indexMap map[string]string) (string, bool) {
+		for i, artifact := range fallbackArtifacts {
+			if usedFallback[i] {
+				continue
+			}
+			if val, ok := indexMap[artifact]; ok {
+				usedFallback[i] = true
+				return val, true
+			}
+		}
+		return "", false
+	}
+
+	if !metroSet {
+		if val, ok := consumeFallback(metroIndexMap); ok {
+			metro = val
+		}
+	}
+	if !compSet {
+		if val, ok := consumeFallback(compassIndexMap); ok {
+			comp = val
+		}
+	}
+	if !gussetSet {
+		if val, ok := consumeFallback(gussetIndexMap); ok {
+			gusset = val
+		}
+	}
+	if !deflSet {
+		if val, ok := consumeFallback(deflectorIndexMap); ok {
+			defl = val
+		}
+	}
+
 	return metro, comp, gusset, defl
 }
 
