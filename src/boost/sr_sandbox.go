@@ -269,7 +269,7 @@ func EncodeSandboxData(cxpToggle bool, targetEgg float64, tokenTimer string, con
 	}
 
 	input := inputData{
-		crtToggle:   true,
+		crtToggle:   false,
 		tokenToggle: true,
 		ggToggle:    ggToggle,
 		eggUnit:     eggUnit, // in order q, Q, T

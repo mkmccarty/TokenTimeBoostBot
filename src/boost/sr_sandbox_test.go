@@ -83,9 +83,7 @@ func TestDecodeURLData(t *testing.T) {
 	}
 
 	// 2. Remove v_5 prefix
-	if strings.HasPrefix(payload, "v_5") {
-		payload = strings.TrimPrefix(payload, "v_5")
-	}
+	payload = strings.TrimPrefix(payload, "v_5")
 
 	// 3. Split by '=' to get base64 and base62 parts
 	dataParts := strings.Split(payload, "=")
