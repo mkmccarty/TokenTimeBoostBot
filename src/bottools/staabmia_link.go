@@ -340,11 +340,25 @@ func getSandboxItemIndicesFromMaps(artifacts []string, slotMaps []map[string]str
 	fallbackArtifacts := []string{}
 	usedFallback := make([]bool, 0)
 
+	// Keep the best-ranked value for a slot. Index maps are ordered by quality,
+	// and lower numeric codes represent stronger artifacts.
+	chooseBetter := func(current, candidate string) string {
+		if current == "" {
+			return candidate
+		}
+		cur := parseInt(current)
+		cand := parseInt(candidate)
+		if cand < cur {
+			return candidate
+		}
+		return current
+	}
+
 	for _, artifact := range artifacts {
 		matched := false
 		for slotIndex, indexMap := range slotMaps {
 			if val, ok := indexMap[artifact]; ok {
-				indices[slotIndex] = val
+				indices[slotIndex] = chooseBetter(indices[slotIndex], val)
 				setFlags[slotIndex] = true
 				matched = true
 				break

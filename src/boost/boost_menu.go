@@ -141,10 +141,10 @@ func sandboxPlayersFromContract(contract *Contract) []SandboxPlayer {
 			Item2:        comp,
 			Item3:        gusset,
 			Item4:        defl,
-			Item5:        ihrDefl,
-			Item6:        ihrSIAB,
-			Item7:        monocle,
-			Item8:        chalice,
+			Item5:        chalice,
+			Item6:        monocle,
+			Item7:        ihrDefl,
+			Item8:        ihrSIAB,
 		})
 	}
 
