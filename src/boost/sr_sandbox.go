@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
@@ -226,8 +227,7 @@ func gatherData(input inputData, contractName, contractID string) (string, strin
 			convertBool(p.Colleggtible),
 			convertBool(p.Sink),
 			convertBool(p.Creator),
-			p.Item1, p.Item2, p.Item3, p.Item4,
-			p.Item5, p.Item6, p.Item7, p.Item8,
+			p.Item1, p.Item2, p.Item3, p.Item4, p.Item5, p.Item6, p.Item7, p.Item8,
 		)
 	}
 
@@ -273,7 +273,7 @@ func EncodeSandboxData(cxpToggle bool, targetEgg float64, tokenTimer string, con
 	}
 
 	input := inputData{
-		crtToggle:   false,
+		crtToggle:   true,
 		tokenToggle: true,
 		ggToggle:    ggToggle,
 		eggUnit:     eggUnit, // in order q, Q, T
@@ -290,6 +290,8 @@ func EncodeSandboxData(cxpToggle bool, targetEgg float64, tokenTimer string, con
 		btvTarget:   btvTarget,
 		players:     players,
 	}
+
+	spew.Dump(input)
 
 	d1, d2, err := gatherData(input, c.Name, c.ID)
 	if err != nil {

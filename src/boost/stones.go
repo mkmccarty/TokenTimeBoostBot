@@ -679,7 +679,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			Sink:         i == len(artifactSets)-1,
 			Creator:      i == 0,
 			Item1:        metro, Item2: comp, Item3: gusset, Item4: defl,
-			Item5: "00", Item6: "00", Item7: "00", Item8: "00",
 		}
 		sandboxPlayers = append(sandboxPlayers, sp)
 	}

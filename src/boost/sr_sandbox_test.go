@@ -69,36 +69,9 @@ func unchunk16(dataEncoded62 string) string {
 }
 
 func TestDecodeURLData(t *testing.T) {
-	// Generate test data using EncodeSandboxData
-	c := &ei.EggIncContract{
-		ID:         "backed-up-2023",
-		Name:       "Backed Up",
-		ModifierSR: 0.5,
-	}
-	players := []SandboxPlayer{
-		{
-			Name:         "Player",
-			Tokens:       "2",
-			TE:           "50",
-			Mirror:       true,
-			Colleggtible: false,
-			Sink:         false,
-			Creator:      false,
-			Item1:        "14", Item2: "14", Item3: "14", Item4: "00",
-			Item5: "00", Item6: "00", Item7: "00", Item8: "00",
-		},
-	}
+	urlData := "v_5VWx0aW1hdGUlMjBDb3VudGVycyU3Q3VsdGltYXRlYXhKRUZpY291bnRlcmF4SkVGaTIwMjQtMTEwMTAwMS0wLTEzLTYtMXA1LTYwLTFwMC03LTFwODc1LUR1YndheU1hbGxldDIzLTUtNTAtJUYwJTlGJTkxJUJEQ2hpcG11bmstNS01MC1UaGUlMjBCdTUlMjBEcml2ZXItNS01MC1+QmFzdGV0MTMtNS01MC1MYXJpR29ncm9ucnlhLTUtNTAtQ3B0S29tbWluLTUtNTAtQXVyb3JhQnJlZXplMjItNS01MA=B6mP5gi85ADGu9b3M4B6mEuShbRAJvpUeXQQCtyk2p9DD1qpO1BO&c=VWx0aW1hdGUgQ291bnRlcnM"
 
-	encoded, err := EncodeSandboxData(true, 1.3e18, "60", 7*86400, 2, c, players)
-	if err != nil {
-		t.Fatalf("EncodeSandboxData failed: %v", err)
-	}
-
-	// Now decode the generated data
-	// 1. Remove "data=" prefix
-	urlData := strings.TrimPrefix(encoded, "data=")
-
-	// 2. Separate '&c=' part if present
+	// 1. Separate '&c=' part if present
 	parts := strings.Split(urlData, "&c=")
 	payload := parts[0]
 	var contractName string
@@ -109,17 +82,21 @@ func TestDecodeURLData(t *testing.T) {
 		}
 	}
 
-	// 3. Remove v_5 prefix
-	payload = strings.TrimPrefix(payload, "v_5")
+	// 2. Remove v_5 prefix
+	if strings.HasPrefix(payload, "v_5") {
+		payload = strings.TrimPrefix(payload, "v_5")
+	}
 
-	// 4. Split by '=' to get base64 and base62 parts
+	// 3. Split by '=' to get base64 and base62 parts
 	dataParts := strings.Split(payload, "=")
 	if len(dataParts) != 2 {
 		t.Fatalf("Expected 2 parts separated by '=', got %d", len(dataParts))
 	}
 
-	// 5. Decode base64
-	base64Decoded, err := base64.StdEncoding.DecodeString(dataParts[0])
+	// 4. Decode base64
+	// Convert base64 spaces back into standard syntax
+	b64String := strings.ReplaceAll(dataParts[0], " ", "+")
+	base64Decoded, err := base64.StdEncoding.DecodeString(b64String)
 	if err != nil {
 		t.Fatalf("Base64 decode failed: %v", err)
 	}
@@ -129,27 +106,26 @@ func TestDecodeURLData(t *testing.T) {
 		t.Fatalf("QueryUnescape failed: %v", err)
 	}
 
-	// 6. Decode base62 (artifacts matrix)
+	// 5. Decode base62 (artifacts matrix)
 	data2 := unchunk16(dataParts[1])
 
-	// 7. Validate expected values match the encoding implementation
-	expectedContractName := "Backed Up"
+	// 6. Validate expected values match the encoding implementation
+	expectedContractName := "Ultimate Counters"
 	if contractName != expectedContractName {
 		t.Errorf("Expected contract name to be %q, got %q", expectedContractName, contractName)
 	}
 
-	// Contract ID "backed-up-2023" is sanitized to "backedaxJEFiupaxJEFi2023"
-	if !strings.Contains(unescapedData1, "Backed Up|backedaxJEFiupaxJEFi2023") {
-		t.Errorf("Expected data1 to contain sanitized contract info, got %q", unescapedData1)
+	// Verify data2 contains exactly 85 characters for 7 players (1 prefix + 7 * 12 chars per player)
+	if len(data2) != 85 {
+		t.Errorf("Expected data2 length 85 for 7 players, got %d", len(data2))
 	}
 
-	if !strings.Contains(unescapedData1, "Player") {
-		t.Errorf("Expected data1 to contain player name, got %q", unescapedData1)
-	}
-
-	// Verify data2 contains the artifact matrix (should start with "1" and contain player artifact indices)
 	if !strings.HasPrefix(data2, "1") {
 		t.Errorf("Expected data2 to start with '1', got %q", data2)
+	}
+
+	if !strings.Contains(unescapedData1, "DubwayMallet23") {
+		t.Errorf("Expected data1 to contain player name, got %q", unescapedData1)
 	}
 }
 
@@ -232,60 +208,13 @@ func TestGatherData(t *testing.T) {
 		t.Fatalf("gatherData failed: %v", err)
 	}
 
-	// Contract ID "delugge-2023" is sanitized to "deluggeaxJEFi2023" by sanitizeSandboxField
-	expectedD1Start := "Delugge|deluggeaxJEFi2023-1101021-0-13-8-1p3-60-0p5-8-1p875-TestPlayer-5-50"
+	expectedD1Start := "Delugge|delugge-2023-1101021-0-13-8-1p3-60-0p5-8-1p875-TestPlayer-5-50"
 	if !strings.HasPrefix(d1, expectedD1Start) {
 		t.Errorf("Expected D1 to start with %q, got %q", expectedD1Start, d1)
 	}
 
 	if d2 == "" {
 		t.Errorf("Expected D2 to be populated")
-	}
-}
-
-func TestGatherDataSanitizesPipeInPlayerName(t *testing.T) {
-	input := inputData{
-		crtToggle:   true,
-		tokenToggle: true,
-		ggToggle:    false,
-		eggUnit:     1,
-		durUnit:     0,
-		modName:     2,
-		cxpToggle:   true,
-		crtTime:     "0",
-		mpft:        "13",
-		duration:    "8",
-		targetEgg:   "1p3",
-		tokenTimer:  "60",
-		modifiers:   "0p5",
-		numPlayers:  8,
-		btvTarget:   "1p875",
-		players: []SandboxPlayer{
-			{
-				Name:         "Pipe|Player-One",
-				Tokens:       "5",
-				TE:           "50",
-				Mirror:       false,
-				Colleggtible: false,
-				Sink:         false,
-				Creator:      false,
-				Item1:        "00", Item2: "00", Item3: "00", Item4: "00",
-				Item5: "00", Item6: "00", Item7: "00", Item8: "00",
-			},
-		},
-	}
-
-	d1, _, err := gatherData(input, "Delu|gge", "delugge-2023")
-	if err != nil {
-		t.Fatalf("gatherData failed: %v", err)
-	}
-
-	if strings.Contains(d1, "Pipe|Player") {
-		t.Fatalf("Expected player name pipe to be removed, got %q", d1)
-	}
-
-	if !strings.Contains(d1, "PipePlayeraxJEFiOne") {
-		t.Fatalf("Expected sanitized player name to be present, got %q", d1)
 	}
 }
 

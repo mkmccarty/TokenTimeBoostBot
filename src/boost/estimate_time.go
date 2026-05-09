@@ -138,7 +138,6 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 			Sink:         false,
 			Creator:      false,
 			Item1:        "00", Item2: "00", Item3: "00", Item4: "00",
-			Item5: "00", Item6: "00", Item7: "00", Item8: "00",
 		},
 	}
 	staabData, staabError := EncodeSandboxData(cxpToggle, c.TargetAmount[len(c.TargetAmount)-1],
