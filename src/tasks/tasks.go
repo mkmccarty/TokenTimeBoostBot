@@ -669,16 +669,55 @@ func pollPeriodicalsUntilUpdated(s *discordgo.Session) {
 		recentContract := !lastContractUpdate.IsZero() && time.Since(lastContractUpdate) < 5*time.Minute
 		recentEvent := !lastEventUpdate.IsZero() && time.Since(lastEventUpdate) < 5*time.Minute
 		activeContracts := hasActiveContracts()
-		todayEvent, hasTodayEvent := events.HasEventStartedToday(ei.EggIncEvents, time.Now())
+		now := time.Now()
+		todayEvents := events.HasEventsStartedToday(ei.EggIncEvents, now)
+		ongoingEvents := events.HasOngoingEventsNow(ei.EggIncEvents, now)
+		hasTodayEvent := len(todayEvents) > 0
 
 		if activeContracts && hasTodayEvent {
-			log.Printf("Periodicals successfully updated via manual reload. Today's event: type=%s ultra=%t multiplier=%.2f start=%s end=%s",
-				todayEvent.EventType,
-				todayEvent.Ultra,
-				todayEvent.Multiplier,
-				todayEvent.StartTime.In(time.Local).Format(time.RFC3339),
-				todayEvent.EndTime.In(time.Local).Format(time.RFC3339),
-			)
+			log.Printf("Periodicals successfully updated via manual reload. Today's events (%d):", len(todayEvents))
+			for idx, event := range todayEvents {
+				log.Printf("  [%d/%d] type=%s ultra=%t multiplier=%.2f start=%s end=%s",
+					idx+1,
+					len(todayEvents),
+					event.EventType,
+					event.Ultra,
+					event.Multiplier,
+					event.StartTime.In(time.Local).Format(time.RFC3339),
+					event.EndTime.In(time.Local).Format(time.RFC3339),
+				)
+			}
+
+			ongoingNotToday := make([]ei.EggEvent, 0, len(ongoingEvents))
+			for _, event := range ongoingEvents {
+				eventStartedToday := false
+				for _, todayEvent := range todayEvents {
+					if todayEvent.ID == event.ID {
+						eventStartedToday = true
+						break
+					}
+				}
+				if !eventStartedToday {
+					ongoingNotToday = append(ongoingNotToday, event)
+				}
+			}
+
+			if len(ongoingNotToday) > 0 {
+				log.Printf("Other ongoing periodical events (%d):", len(ongoingNotToday))
+				for idx, event := range ongoingNotToday {
+					log.Printf("  [%d/%d] type=%s ultra=%t multiplier=%.2f start=%s end=%s",
+						idx+1,
+						len(ongoingNotToday),
+						event.EventType,
+						event.Ultra,
+						event.Multiplier,
+						event.StartTime.In(time.Local).Format(time.RFC3339),
+						event.EndTime.In(time.Local).Format(time.RFC3339),
+					)
+				}
+			} else {
+				log.Print("No other ongoing periodical events right now.")
+			}
 			break
 		}
 
