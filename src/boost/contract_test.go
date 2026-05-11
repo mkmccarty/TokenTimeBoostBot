@@ -98,3 +98,51 @@ func TestGetEggStandardTime(t *testing.T) {
 		})
 	}
 }
+
+func TestNextWeekdayDateBeforeEggStandardTimeStaysToday(t *testing.T) {
+	loc, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		t.Fatalf("Failed to load America/Los_Angeles location: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		now      time.Time
+		weekday  time.Weekday
+		expected time.Time
+	}{
+		{
+			name:     "Monday before 9 AM",
+			now:      time.Date(2026, 5, 11, 7, 0, 0, 0, loc),
+			weekday:  time.Monday,
+			expected: time.Date(2026, 5, 11, 9, 0, 0, 0, loc),
+		},
+		{
+			name:     "Wednesday before 9 AM",
+			now:      time.Date(2026, 5, 13, 7, 0, 0, 0, loc),
+			weekday:  time.Wednesday,
+			expected: time.Date(2026, 5, 13, 9, 0, 0, 0, loc),
+		},
+		{
+			name:     "Friday before 9 AM",
+			now:      time.Date(2026, 5, 15, 7, 0, 0, 0, loc),
+			weekday:  time.Friday,
+			expected: time.Date(2026, 5, 15, 9, 0, 0, 0, loc),
+		},
+		{
+			name:     "Wednesday after 9 AM rolls to next week",
+			now:      time.Date(2026, 5, 13, 10, 0, 0, 0, loc),
+			weekday:  time.Wednesday,
+			expected: time.Date(2026, 5, 20, 9, 0, 0, 0, loc),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := nextWeekdayDate(tc.now, tc.weekday)
+			if !got.Equal(tc.expected) {
+				t.Fatalf("nextWeekdayDate(%v, %v) = %v; want %v", tc.now, tc.weekday, got, tc.expected)
+			}
+		})
+	}
+}

@@ -87,6 +87,11 @@ const legacyContractValidDuration = 7 * 86400
 func nextWeekdayDate(now time.Time, weekday time.Weekday) time.Time {
 	loc, _ := time.LoadLocation("America/Los_Angeles")
 	nowInLoc := now.In(loc)
+	standardTime := GetEggStandardTime(nowInLoc)
+
+	if nowInLoc.Weekday() == weekday && nowInLoc.Before(standardTime) {
+		return standardTime
+	}
 
 	daysAhead := (int(weekday) - int(nowInLoc.Weekday()) + 7) % 7
 	if daysAhead == 0 {
@@ -97,23 +102,30 @@ func nextWeekdayDate(now time.Time, weekday time.Weekday) time.Time {
 	return GetEggStandardTime(nextDate)
 }
 
-// CreatePredictedContract creates one placeholder contract each for Wednesday,
-// Friday, and Friday Ultra based on the next predicted release dates.
+// CreatePredictedContract creates one placeholder contract each for Monday,
+// Wednesday, Friday, and Friday Ultra based on the next predicted release dates.
 func CreatePredictedContract() []ei.EggIncContract {
 	now := time.Now().UTC()
+	nextMon := nextWeekdayDate(now, time.Monday)
+	// Egg Day seasonal contracts are typically delayed from July 14 to July 15.
+	if nextMon.Month() == time.July && nextMon.Day() == 14 {
+		nextMon = nextMon.Add(24 * time.Hour)
+	}
 	nextWed := nextWeekdayDate(now, time.Wednesday)
 	nextFri := nextWeekdayDate(now, time.Friday)
 
 	fridayNonUltra, fridayUltra, wednesday := predictJeli(3)
-
-	create := func(label string, releaseDate time.Time, ultra bool, predictions []ei.EggIncContract) ei.EggIncContract {
-		id := fmt.Sprintf("%s-%s", strings.ToLower(label), releaseDate.Format("2006-01-02"))
-		name := fmt.Sprintf("Predicted %s", label)
-
+	toPredictionIDs := func(predictions []ei.EggIncContract) []string {
 		var predList []string
 		for _, p := range predictions {
 			predList = append(predList, p.ID)
 		}
+		return predList
+	}
+
+	create := func(idLabel string, displayLabel string, releaseDate time.Time, ultra bool, predictionIDs []string) ei.EggIncContract {
+		id := fmt.Sprintf("%s-%s", strings.ToLower(idLabel), releaseDate.Format("2006-01-02"))
+		name := fmt.Sprintf("Predicted %s", displayLabel)
 
 		return ei.EggIncContract{
 			ID:              id,
@@ -126,14 +138,17 @@ func CreatePredictedContract() []ei.EggIncContract {
 			ValidFrom:       releaseDate,
 			ValidUntil:      releaseDate.Add(7 * 24 * time.Hour),
 			ContractVersion: 2,
-			PredictionsList: predList,
+			PredictionsList: predictionIDs,
 		}
 	}
 
+	mondayID := fmt.Sprintf("monday-%s", nextMon.Format("2006-01-02"))
+
 	return []ei.EggIncContract{
-		create("Wednesday", nextWed, false, wednesday),
-		create("Friday", nextFri, false, fridayNonUltra),
-		create("Ultra", nextFri, true, fridayUltra),
+		create("Monday", "Seasonal", nextMon, false, []string{mondayID}),
+		create("Wednesday", "Wednesday", nextWed, false, toPredictionIDs(wednesday)),
+		create("Friday", "Friday", nextFri, false, toPredictionIDs(fridayNonUltra)),
+		create("Ultra", "Ultra", nextFri, true, toPredictionIDs(fridayUltra)),
 	}
 }
 
@@ -146,7 +161,7 @@ func UpdatePredictedSignupContracts(s *discordgo.Session, liveContracts []ei.Egg
 			continue
 		}
 
-		// Predicted IDs look like "wednesday-2024-05-15" or "ultra-2024-05-17"
+		// Predicted IDs look like "monday-2024-05-13", "wednesday-2024-05-15", or "ultra-2024-05-17"
 		parts := strings.Split(contract.ContractID, "-")
 		if len(parts) < 4 {
 			continue
