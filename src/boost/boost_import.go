@@ -87,6 +87,11 @@ const legacyContractValidDuration = 7 * 86400
 func nextWeekdayDate(now time.Time, weekday time.Weekday) time.Time {
 	loc, _ := time.LoadLocation("America/Los_Angeles")
 	nowInLoc := now.In(loc)
+	standardTime := GetEggStandardTime(nowInLoc)
+
+	if nowInLoc.Weekday() == weekday && nowInLoc.Before(standardTime) {
+		return standardTime
+	}
 
 	daysAhead := (int(weekday) - int(nowInLoc.Weekday()) + 7) % 7
 	if daysAhead == 0 {
