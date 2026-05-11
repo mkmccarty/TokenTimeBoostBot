@@ -355,6 +355,12 @@ func getSandboxItemIndicesFromMaps(artifacts []string, slotMaps []map[string]str
 	}
 
 	for _, artifact := range artifacts {
+		if artifact == "3 Slot" || artifact == "2 Slot" || strings.Contains(artifact, "SIAB") {
+			fallbackArtifacts = append(fallbackArtifacts, artifact)
+			usedFallback = append(usedFallback, false)
+			continue
+		}
+
 		matched := false
 		for slotIndex, indexMap := range slotMaps {
 			if val, ok := indexMap[artifact]; ok {
@@ -364,21 +370,29 @@ func getSandboxItemIndicesFromMaps(artifacts []string, slotMaps []map[string]str
 				break
 			}
 		}
-		if !matched && (artifact == "3 Slot" || artifact == "2 Slot" || strings.Contains(artifact, "SIAB")) {
+		if !matched {
 			fallbackArtifacts = append(fallbackArtifacts, artifact)
 			usedFallback = append(usedFallback, false)
 		}
 	}
 
 	consumeFallback := func(indexMap map[string]string) (string, bool) {
+		bestVal := ""
+		bestIdx := -1
 		for i, artifact := range fallbackArtifacts {
 			if usedFallback[i] {
 				continue
 			}
 			if val, ok := indexMap[artifact]; ok {
-				usedFallback[i] = true
-				return val, true
+				if chooseBetter(bestVal, val) == val {
+					bestVal = val
+					bestIdx = i
+				}
 			}
+		}
+		if bestIdx != -1 {
+			usedFallback[bestIdx] = true
+			return bestVal, true
 		}
 		return "", false
 	}
