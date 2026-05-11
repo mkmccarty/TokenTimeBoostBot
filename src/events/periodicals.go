@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -47,12 +48,11 @@ func countExpectedActiveContracts(contracts []ei.EggIncContract) int {
 	return activeContracts
 }
 
-func findLatestEventStartedToday(events []ei.EggEvent, now time.Time, loc *time.Location) (ei.EggEvent, bool) {
+func findEventsStartedToday(events []ei.EggEvent, now time.Time, loc *time.Location) []ei.EggEvent {
 	nowLocal := now.In(loc)
 	todayYear, todayMonth, todayDay := nowLocal.Date()
 
-	var latest ei.EggEvent
-	found := false
+	var todayEvents []ei.EggEvent
 
 	for _, event := range events {
 		if event.StartTime.IsZero() {
@@ -65,24 +65,63 @@ func findLatestEventStartedToday(events []ei.EggEvent, now time.Time, loc *time.
 			continue
 		}
 
-		if !found || event.StartTime.After(latest.StartTime) {
-			latest = event
-			found = true
-		}
+		todayEvents = append(todayEvents, event)
 	}
 
-	return latest, found
+	sort.Slice(todayEvents, func(i, j int) bool {
+		return todayEvents[i].StartTime.Before(todayEvents[j].StartTime)
+	})
+
+	return todayEvents
 }
 
-// HasEventStartedToday returns the latest event that started today in Pacific Time.
-func HasEventStartedToday(events []ei.EggEvent, now time.Time) (ei.EggEvent, bool) {
+func findOngoingEvents(events []ei.EggEvent, now time.Time) []ei.EggEvent {
+	var ongoing []ei.EggEvent
+
+	for _, event := range events {
+		if event.StartTime.IsZero() || event.EndTime.IsZero() {
+			continue
+		}
+		if now.Before(event.StartTime) {
+			continue
+		}
+		if !now.Before(event.EndTime) {
+			continue
+		}
+		ongoing = append(ongoing, event)
+	}
+
+	sort.Slice(ongoing, func(i, j int) bool {
+		return ongoing[i].EndTime.Before(ongoing[j].EndTime)
+	})
+
+	return ongoing
+}
+
+// HasEventsStartedToday returns all events that started today in Pacific Time.
+func HasEventsStartedToday(events []ei.EggEvent, now time.Time) []ei.EggEvent {
 	loc, err := time.LoadLocation(periodicalsLocationName)
 	if err != nil {
 		log.Printf("Error loading timezone %s: %v", periodicalsLocationName, err)
 		loc = time.Local
 	}
 
-	return findLatestEventStartedToday(events, now, loc)
+	return findEventsStartedToday(events, now, loc)
+}
+
+// HasOngoingEventsNow returns all events that are currently active.
+func HasOngoingEventsNow(events []ei.EggEvent, now time.Time) []ei.EggEvent {
+	return findOngoingEvents(events, now)
+}
+
+// HasEventStartedToday returns the latest event that started today in Pacific Time.
+func HasEventStartedToday(events []ei.EggEvent, now time.Time) (ei.EggEvent, bool) {
+	todayEvents := HasEventsStartedToday(events, now)
+	if len(todayEvents) == 0 {
+		return ei.EggEvent{}, false
+	}
+
+	return todayEvents[len(todayEvents)-1], true
 }
 
 // GetPeriodicalsFromAPI will download the events from the Egg Inc API.
@@ -385,19 +424,59 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 		log.Printf("Updated %d predicted signup contract(s) to live contract IDs", updatedPredicted)
 	}
 
+	now := time.Now()
 	activeContractCount := countExpectedActiveContracts(newContract)
-	todayEvent, hasTodayEvent := HasEventStartedToday(currentEggIncEvents, time.Now())
+	todayEvents := HasEventsStartedToday(currentEggIncEvents, now)
+	hasTodayEvent := len(todayEvents) > 0
 	if hasTodayEvent {
-		log.Printf("Today's periodical event: type=%s ultra=%t multiplier=%.2f start=%s end=%s message=%q",
-			todayEvent.EventType,
-			todayEvent.Ultra,
-			todayEvent.Multiplier,
-			todayEvent.StartTime.In(time.Local).Format(time.RFC3339),
-			todayEvent.EndTime.In(time.Local).Format(time.RFC3339),
-			todayEvent.Message,
-		)
+		log.Printf("Today's periodical events (%d):", len(todayEvents))
+		for idx, event := range todayEvents {
+			log.Printf("  [%d/%d] type=%s ultra=%t multiplier=%.2f start=%s end=%s message=%q",
+				idx+1,
+				len(todayEvents),
+				event.EventType,
+				event.Ultra,
+				event.Multiplier,
+				event.StartTime.In(time.Local).Format(time.RFC3339),
+				event.EndTime.In(time.Local).Format(time.RFC3339),
+				event.Message,
+			)
+		}
 	} else {
 		log.Printf("No event found that started today. Active contracts=%d/%d", activeContractCount, expectedActiveContracts)
+	}
+
+	ongoingEvents := HasOngoingEventsNow(currentEggIncEvents, now)
+	ongoingNotToday := make([]ei.EggEvent, 0, len(ongoingEvents))
+	for _, event := range ongoingEvents {
+		eventStartedToday := false
+		for _, todayEvent := range todayEvents {
+			if todayEvent.ID == event.ID {
+				eventStartedToday = true
+				break
+			}
+		}
+		if !eventStartedToday {
+			ongoingNotToday = append(ongoingNotToday, event)
+		}
+	}
+
+	if len(ongoingNotToday) > 0 {
+		log.Printf("Other ongoing periodical events (%d):", len(ongoingNotToday))
+		for idx, event := range ongoingNotToday {
+			log.Printf("  [%d/%d] type=%s ultra=%t multiplier=%.2f start=%s end=%s message=%q",
+				idx+1,
+				len(ongoingNotToday),
+				event.EventType,
+				event.Ultra,
+				event.Multiplier,
+				event.StartTime.In(time.Local).Format(time.RFC3339),
+				event.EndTime.In(time.Local).Format(time.RFC3339),
+				event.Message,
+			)
+		}
+	} else {
+		log.Print("No other ongoing periodical events right now.")
 	}
 
 	periodicalsReady := activeContractCount >= expectedActiveContracts && hasTodayEvent
