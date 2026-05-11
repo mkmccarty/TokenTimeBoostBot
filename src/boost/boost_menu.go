@@ -15,11 +15,18 @@ import (
 )
 
 func sandboxArtifactLabelsFromBooster(booster *Booster) []string {
-	if booster == nil || len(booster.ArtifactSet.Artifacts) == 0 {
+	if booster == nil {
 		return nil
 	}
 
-	labels := make([]string, 0, len(booster.ArtifactSet.Artifacts))
+	labels := make([]string, 0, len(booster.ArtifactSet.Artifacts)+4)
+
+	hasChalice := false
+	hasMonocle := false
+	hasSIAB := false
+	hasIHRDefl := false
+	deflQuality := ""
+
 	for _, artifact := range booster.ArtifactSet.Artifacts {
 		quality := strings.ToUpper(strings.TrimSpace(artifact.Quality))
 		artifactType := strings.TrimSpace(artifact.Type)
@@ -36,8 +43,10 @@ func sandboxArtifactLabelsFromBooster(booster *Booster) []string {
 		switch {
 		case artifactType == "IHR Deflector":
 			suffix = "IHR Defl."
+			hasIHRDefl = true
 		case strings.Contains(artifactType, "Deflector"):
 			suffix = "Defl."
+			deflQuality = quality
 		case strings.Contains(artifactType, "Metronome"):
 			suffix = "Metro"
 		case strings.Contains(artifactType, "Compass"):
@@ -46,10 +55,13 @@ func sandboxArtifactLabelsFromBooster(booster *Booster) []string {
 			suffix = "Gusset"
 		case artifactType == "Chalice":
 			suffix = "Chalice"
+			hasChalice = true
 		case artifactType == "Monocle":
 			suffix = "Monocle"
+			hasMonocle = true
 		case artifactType == "SIAB" || strings.Contains(artifactType, "Bottle"):
 			suffix = "SIAB"
+			hasSIAB = true
 		}
 
 		if suffix != "" {
@@ -58,6 +70,23 @@ func sandboxArtifactLabelsFromBooster(booster *Booster) []string {
 			labels = append(labels, "3 Slot")
 		} else if artifact.Stones == 2 {
 			labels = append(labels, "2 Slot")
+		}
+	}
+
+	if !hasChalice {
+		labels = append(labels, "T4L Chalice")
+	}
+	if !hasMonocle {
+		labels = append(labels, "T4L Monocle")
+	}
+	if !hasSIAB {
+		labels = append(labels, "3 Slot")
+	}
+	if !hasIHRDefl {
+		if deflQuality != "" {
+			labels = append(labels, fmt.Sprintf("%s IHR Defl.", deflQuality))
+		} else {
+			labels = append(labels, "T4L IHR Defl.")
 		}
 	}
 
