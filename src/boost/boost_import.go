@@ -102,6 +102,10 @@ func nextWeekdayDate(now time.Time, weekday time.Weekday) time.Time {
 func CreatePredictedContract() []ei.EggIncContract {
 	now := time.Now().UTC()
 	nextMon := nextWeekdayDate(now, time.Monday)
+	// Egg Day seasonal contracts are typically delayed from July 14 to July 15.
+	if nextMon.Month() == time.July && nextMon.Day() == 14 {
+		nextMon = nextMon.Add(24 * time.Hour)
+	}
 	nextWed := nextWeekdayDate(now, time.Wednesday)
 	nextFri := nextWeekdayDate(now, time.Friday)
 
