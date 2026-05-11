@@ -198,13 +198,10 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		})
 	case "sandbox":
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags: discordgo.MessageFlagsEphemeral,
-			},
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
 		})
 
-		sandboxURL, err := GenerateContractSandboxURL(contract, sandboxPlayersFromContract(contract))
+		err := SendSandboxDM(s, contract, i.Member.User.ID)
 		if err != nil {
 			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 				Content: fmt.Sprintf("Unable to generate SR Sandbox link: %v", err),
@@ -212,11 +209,6 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			})
 			return
 		}
-
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: fmt.Sprintf("[SR Sandbox](%s)", sandboxURL),
-			Flags:   discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsSuppressEmbeds,
-		})
 	case "xpost":
 		var outputStrBuilder strings.Builder
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
@@ -147,6 +148,56 @@ func GenerateContractSandboxURL(contract *Contract, players []SandboxPlayer) (st
 		return "", err
 	}
 	return srSandboxBaseURL + data, nil
+}
+
+// SendSandboxDM builds and sends an SR Sandbox DM to a user.
+func SendSandboxDM(s *discordgo.Session, contract *Contract, userID string) error {
+	sandboxURL, err := GenerateContractSandboxURL(contract, sandboxPlayersFromContract(contract))
+	if err != nil {
+		return err
+	}
+
+	contractLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", contract.Location[0].GuildID, contract.Location[0].ChannelID, contract.Location[0].ListMsgID)
+	contractName := contract.Name
+	if contractName == "" {
+		if contractInfo, ok := ei.EggIncContractsAll[contract.ContractID]; ok {
+			contractName = contractInfo.Name
+		}
+	}
+	if contractName == "" {
+		contractName = contract.ContractID
+	}
+	dmBody := fmt.Sprintf(
+		"SR Sandbox for %s\nCoop: %s\nSignup: %d/%d\nChannel: %s\n[Open contract thread](%s)\n[Open SR Sandbox](%s)",
+		contractName,
+		contract.CoopID,
+		len(contract.Boosters),
+		contract.CoopSize,
+		contract.Location[0].ChannelMention,
+		contractLink,
+		sandboxURL,
+	)
+
+	u, dmErr := s.UserChannelCreate(userID)
+	if dmErr != nil {
+		return dmErr
+	}
+
+	_, sendErr := s.ChannelMessageSendComplex(u.ID, &discordgo.MessageSend{
+		Content: dmBody,
+		Components: []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.Button{
+						Label:    "Dismiss",
+						Style:    discordgo.SecondaryButton,
+						CustomID: "rc_#dismiss#" + contract.ContractHash,
+					},
+				},
+			},
+		},
+	})
+	return sendErr
 }
 
 // GenerateContractSandboxURLWithOptions builds the full SR Sandbox URL from a Contract and player data,

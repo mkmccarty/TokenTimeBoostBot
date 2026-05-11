@@ -67,40 +67,11 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		if contract.State == ContractStateSignup {
 			switch r.Emoji.Name {
 			case "🏎️", "🏎":
-				sandboxURL, err := GenerateContractSandboxURL(contract, sandboxPlayersFromContract(contract))
+				err := SendSandboxDM(s, contract, r.UserID)
 				if err != nil {
 					u, dmErr := s.UserChannelCreate(r.UserID)
 					if dmErr == nil {
 						_, _ = s.ChannelMessageSend(u.ID, fmt.Sprintf("Unable to generate SR Sandbox link for %s/%s: %v", contract.ContractID, contract.CoopID, err))
-					}
-				} else {
-					contractLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", r.GuildID, r.ChannelID, r.MessageID)
-					contractName := contract.Name
-					if contractName == "" {
-						if contractInfo, ok := ei.EggIncContractsAll[contract.ContractID]; ok {
-							contractName = contractInfo.Name
-						}
-					}
-					if contractName == "" {
-						contractName = contract.ContractID
-					}
-					dmBody := fmt.Sprintf(
-						"SR Sandbox for %s\nCoop: %s\nSignup: %d/%d\n[Open contract thread](%s)\n[Open SR Sandbox](%s)",
-						contractName,
-						contract.CoopID,
-						len(contract.Boosters),
-						contract.CoopSize,
-						contractLink,
-						sandboxURL,
-					)
-					u, dmErr := s.UserChannelCreate(r.UserID)
-					if dmErr != nil {
-						log.Println("Error creating DM channel:", dmErr)
-					} else {
-						_, sendErr := s.ChannelMessageSend(u.ID, dmBody)
-						if sendErr != nil {
-							log.Println("Error sending SR Sandbox DM:", sendErr)
-						}
 					}
 				}
 			}

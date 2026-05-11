@@ -33,6 +33,11 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	cmd := strings.ToLower(reaction[1])
 	contractHash := reaction[len(reaction)-1]
 
+	if cmd == "dismiss" {
+		_ = s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
+		return
+	}
+
 	contract := FindContractByHash(contractHash)
 	if contract == nil {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
