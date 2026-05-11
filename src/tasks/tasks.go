@@ -669,10 +669,24 @@ func pollPeriodicalsUntilUpdated(s *discordgo.Session) {
 		recentContract := !lastContractUpdate.IsZero() && time.Since(lastContractUpdate) < 5*time.Minute
 		recentEvent := !lastEventUpdate.IsZero() && time.Since(lastEventUpdate) < 5*time.Minute
 		activeContracts := hasActiveContracts()
+		todayEvent, hasTodayEvent := events.HasEventStartedToday(ei.EggIncEvents, time.Now())
 
-		if recentContract || recentEvent || activeContracts || gotEvents {
-			log.Println("Periodicals successfully updated via manual reload.")
+		if activeContracts && hasTodayEvent {
+			log.Printf("Periodicals successfully updated via manual reload. Today's event: type=%s ultra=%t multiplier=%.2f start=%s end=%s",
+				todayEvent.EventType,
+				todayEvent.Ultra,
+				todayEvent.Multiplier,
+				todayEvent.StartTime.In(time.Local).Format(time.RFC3339),
+				todayEvent.EndTime.In(time.Local).Format(time.RFC3339),
+			)
 			break
+		}
+
+		if recentContract || recentEvent || gotEvents {
+			log.Printf("Detected periodicals activity but still waiting for complete data: active_contracts=%t event_started_today=%t",
+				activeContracts,
+				hasTodayEvent,
+			)
 		}
 
 		var waitTime time.Duration

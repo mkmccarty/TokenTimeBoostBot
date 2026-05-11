@@ -23,6 +23,8 @@ import (
 
 const expectedActiveContracts = 6
 
+const periodicalsLocationName = "America/Los_Angeles"
+
 func hasExpectedActiveContracts(contracts []ei.EggIncContract) bool {
 	activeContracts := 0
 	for _, contract := range contracts {
@@ -32,6 +34,55 @@ func hasExpectedActiveContracts(contracts []ei.EggIncContract) bool {
 		activeContracts++
 	}
 	return activeContracts >= expectedActiveContracts
+}
+
+func countExpectedActiveContracts(contracts []ei.EggIncContract) int {
+	activeContracts := 0
+	for _, contract := range contracts {
+		if contract.Predicted {
+			continue
+		}
+		activeContracts++
+	}
+	return activeContracts
+}
+
+func findLatestEventStartedToday(events []ei.EggEvent, now time.Time, loc *time.Location) (ei.EggEvent, bool) {
+	nowLocal := now.In(loc)
+	todayYear, todayMonth, todayDay := nowLocal.Date()
+
+	var latest ei.EggEvent
+	found := false
+
+	for _, event := range events {
+		if event.StartTime.IsZero() {
+			continue
+		}
+
+		eventLocal := event.StartTime.In(loc)
+		y, m, d := eventLocal.Date()
+		if y != todayYear || m != todayMonth || d != todayDay {
+			continue
+		}
+
+		if !found || event.StartTime.After(latest.StartTime) {
+			latest = event
+			found = true
+		}
+	}
+
+	return latest, found
+}
+
+// HasEventStartedToday returns the latest event that started today in Pacific Time.
+func HasEventStartedToday(events []ei.EggEvent, now time.Time) (ei.EggEvent, bool) {
+	loc, err := time.LoadLocation(periodicalsLocationName)
+	if err != nil {
+		log.Printf("Error loading timezone %s: %v", periodicalsLocationName, err)
+		loc = time.Local
+	}
+
+	return findLatestEventStartedToday(events, now, loc)
 }
 
 // GetPeriodicalsFromAPI will download the events from the Egg Inc API.
@@ -334,5 +385,29 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 		log.Printf("Updated %d predicted signup contract(s) to live contract IDs", updatedPredicted)
 	}
 
-	return newEvents || updatedPredicted > 0 || hasExpectedActiveContracts(newContract)
+	activeContractCount := countExpectedActiveContracts(newContract)
+	todayEvent, hasTodayEvent := HasEventStartedToday(currentEggIncEvents, time.Now())
+	if hasTodayEvent {
+		log.Printf("Today's periodical event: type=%s ultra=%t multiplier=%.2f start=%s end=%s message=%q",
+			todayEvent.EventType,
+			todayEvent.Ultra,
+			todayEvent.Multiplier,
+			todayEvent.StartTime.In(time.Local).Format(time.RFC3339),
+			todayEvent.EndTime.In(time.Local).Format(time.RFC3339),
+			todayEvent.Message,
+		)
+	} else {
+		log.Printf("No event found that started today. Active contracts=%d/%d", activeContractCount, expectedActiveContracts)
+	}
+
+	periodicalsReady := activeContractCount >= expectedActiveContracts && hasTodayEvent
+	if !periodicalsReady {
+		log.Printf("Periodicals not ready yet: active_contracts=%d/%d event_started_today=%t",
+			activeContractCount,
+			expectedActiveContracts,
+			hasTodayEvent,
+		)
+	}
+
+	return periodicalsReady || newEvents || updatedPredicted > 0
 }
