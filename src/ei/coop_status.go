@@ -3,6 +3,7 @@ package ei
 import (
 	"bytes"
 	"compress/gzip"
+	"compress/zlib"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -197,6 +198,21 @@ func getCoopStatus(contractID string, coopID string, eeidOverride string, bypass
 	if err != nil {
 		log.Print(err)
 		return nil, timestamp, dataTimestampStr, err
+	}
+
+	if decodedAuthBuf.GetCompressed() {
+		gr, zerr := zlib.NewReader(bytes.NewReader(decodedAuthBuf.Message))
+		if zerr != nil {
+			log.Print(zerr)
+		}
+		var buf bytes.Buffer
+		_, zerr = io.Copy(&buf, gr)
+		if zerr != nil {
+			log.Print(zerr)
+			_ = gr.Close()
+		}
+		_ = gr.Close()
+		decodedAuthBuf.Message = buf.Bytes()
 	}
 
 	decodeCoopStatus := &ContractCoopStatusResponse{}
@@ -397,6 +413,21 @@ func GetCoopStatusForCompletedContracts(contractID string, coopID string, eeidOv
 	if err != nil {
 		log.Print(err)
 		return nil, timestamp, dataTimestampStr, err
+	}
+
+	if decodedAuthBuf.GetCompressed() {
+		gr, zerr := zlib.NewReader(bytes.NewReader(decodedAuthBuf.Message))
+		if zerr != nil {
+			log.Print(zerr)
+		}
+		var buf bytes.Buffer
+		_, zerr = io.Copy(&buf, gr)
+		if zerr != nil {
+			log.Print(zerr)
+			_ = gr.Close()
+		}
+		_ = gr.Close()
+		decodedAuthBuf.Message = buf.Bytes()
 	}
 
 	decodeCoopStatus := &ContractCoopStatusResponse{}

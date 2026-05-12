@@ -320,6 +320,21 @@ func GetContractArchiveFromAPI(s *discordgo.Session, eggIncID string, discordID 
 		return nil, cachedData
 	}
 
+	if decodedAuthBuf.GetCompressed() {
+		gr, zerr := zlib.NewReader(bytes.NewReader(decodedAuthBuf.Message))
+		if zerr != nil {
+			log.Print(zerr)
+		}
+		var buf bytes.Buffer
+		_, zerr = io.Copy(&buf, gr)
+		if zerr != nil {
+			log.Print(zerr)
+			_ = gr.Close()
+		}
+		_ = gr.Close()
+		decodedAuthBuf.Message = buf.Bytes()
+	}
+
 	contractsArchiveResponse := &ContractsArchive{}
 	err = proto.Unmarshal(decodedAuthBuf.Message, contractsArchiveResponse)
 	if err != nil {
