@@ -7,7 +7,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/divan/num2words v1.0.3
 	github.com/ewohltman/discordgo-mock v0.0.11
-	github.com/fsnotify/fsnotify v1.10.1
 	github.com/google/go-github/v33 v33.0.0
 	github.com/mattn/go-runewidth v0.0.23
 	github.com/natefinch/lumberjack/v3 v3.0.0-alpha
