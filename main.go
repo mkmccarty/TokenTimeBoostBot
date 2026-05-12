@@ -16,7 +16,6 @@ import (
 	_ "time/tzdata"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/fsnotify/fsnotify"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
@@ -950,61 +949,44 @@ func main() {
 		}
 	}()
 
-	// Add a config file watcher to pick up changes to the config file
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer func() {
-		if err := watcher.Close(); err != nil {
-			// Handle the error appropriately, e.g., logging or taking corrective actions
-			log.Printf("Failed to close: %v", err)
-		}
-	}()
-
 	go func() {
-		for {
-			select {
-			case event, ok := <-watcher.Events:
-				if !ok {
-					return
-				}
-				log.Println("event:", event)
-				if event.Has(fsnotify.Write) || event.Has(fsnotify.Rename) {
-					switch event.Name {
-					case configFileName:
-						log.Println("modified file:", event.Name)
-						_ = config.ReadConfig(event.Name)
-						if event.Has(fsnotify.Rename) {
-							_ = watcher.Add(event.Name)
-						}
-					case statusMessagesFileName:
-						log.Println("modified file:", event.Name)
-						ei.LoadStatusMessages(event.Name)
-						if event.Has(fsnotify.Rename) {
-							_ = watcher.Add(event.Name)
-						}
-					}
-				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					return
-				}
-				log.Println("error:", err)
+		ticker := time.NewTicker(60 * time.Second)
+		defer ticker.Stop()
+
+		lastModTimes := make(map[string]time.Time)
+		filesToWatch := []string{configFileName, statusMessagesFileName}
+
+		for _, f := range filesToWatch {
+			if info, err := os.Stat(f); err == nil {
+				lastModTimes[f] = info.ModTime()
 			}
 		}
+
+		for range ticker.C {
+			for _, f := range filesToWatch {
+				info, err := os.Stat(f)
+				if err != nil {
+					continue // File might be temporarily missing during atomic saves
+				}
+
+				modTime := info.ModTime()
+				lastModTime, exists := lastModTimes[f]
+
+				if !exists || modTime.After(lastModTime) {
+					lastModTimes[f] = modTime
+					log.Println("modified file:", f)
+
+					switch f {
+					case configFileName:
+						_ = config.ReadConfig(f)
+					case statusMessagesFileName:
+						ei.LoadStatusMessages(f)
+					}
+				}
+			}
+		}
+
 	}()
-
-	err = watcher.Add(configFileName)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = watcher.Add(statusMessagesFileName)
-	if err != nil {
-		log.Printf("Warning: Could not watch status messages file: %v", err)
-	}
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
