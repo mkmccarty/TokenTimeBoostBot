@@ -48,7 +48,7 @@ func DecryptEID(encryptedString string) string {
 // GetFirstContactFromAPI will download the player data from the Egg Inc API
 func GetFirstContactFromAPI(s *discordgo.Session, eggIncID string, discordID string, okayToSave bool) (*Backup, bool) {
 	eiUserID := DecryptEID(eggIncID)
-	reqURL := "https://www.auxbrain.com//ei/bot_first_contact"
+	reqURL := "https://www.auxbrain.com/ei/bot_first_contact"
 
 	clientVersion := DefaultClientVersion
 	platform := DefaultPlatform
