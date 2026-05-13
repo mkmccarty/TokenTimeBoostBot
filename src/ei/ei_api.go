@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -49,36 +48,121 @@ func DecryptEID(encryptedString string) string {
 func GetFirstContactFromAPI(s *discordgo.Session, eggIncID string, discordID string, okayToSave bool) (*Backup, bool) {
 	eiUserID := DecryptEID(eggIncID)
 	reqURL := "https://www.auxbrain.com//ei/bot_first_contact"
+	enc := base64.StdEncoding
+	cachedData := false
 
-	clientVersion := DefaultClientVersion
-	platform := DefaultPlatform
-	platformString := DefaultPlatformString
-	version := DefaultVersion
-	build := DefaultBuild
+	protoData := ""
+	if fileInfo, err := os.Stat("ttbb-data/eiuserdata/firstcontact-" + discordID + ".pbz"); err == nil {
+		// File exists, check if it's within 30 seconds
+		if time.Since(fileInfo.ModTime()) <= 30*time.Second {
+			// File is recent, load it
+			data, err := os.ReadFile("ttbb-data/eiuserdata/firstcontact-" + discordID + ".pbz")
+			if err == nil {
+				encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
+				if err == nil {
+					decryptedData, err := config.DecryptCombined(encryptionKey, data)
+					if err == nil {
+						data = decryptedData
+						if len(data) >= 2 && data[0] == 0x1f && data[1] == 0x8b {
+							if gr, zerr := gzip.NewReader(bytes.NewReader(data)); zerr == nil {
+								var buf bytes.Buffer
+								if _, zerr = io.Copy(&buf, gr); zerr == nil {
+									data = buf.Bytes()
+								}
+								_ = gr.Close()
+							}
+						}
+						protoData = string(data)
+						cachedData = true
+						// Successfully decrypted, use protoData
+					}
+				}
+			}
+		}
+	}
 
-	firstContactRequest := EggIncFirstContactRequest{
-		Rinfo: &BasicRequestInfo{
+	if protoData == "" {
+		clientVersion := DefaultClientVersion
+
+		platform := DefaultPlatform
+		platformString := DefaultPlatformString
+		version := DefaultVersion
+		build := DefaultBuild
+
+		firstContactRequest := EggIncFirstContactRequest{
+			Rinfo: &BasicRequestInfo{
+				EiUserId:      &eiUserID,
+				ClientVersion: &clientVersion,
+				Version:       &version,
+				Build:         &build,
+				Platform:      &platformString,
+			},
 			EiUserId:      &eiUserID,
+			DeviceId:      proto.String("BoostBot"),
 			ClientVersion: &clientVersion,
-			Version:       &version,
-			Build:         &build,
-			Platform:      &platformString,
-		},
-		EiUserId:      &eiUserID,
-		DeviceId:      proto.String("BoostBot"),
-		ClientVersion: &clientVersion,
-		Platform:      &platform,
+			Platform:      &platform,
+		}
+
+		reqBin, err := proto.Marshal(&firstContactRequest)
+		if err != nil {
+			log.Print(err)
+			return nil, cachedData
+		}
+		values := url.Values{}
+		reqDataEncoded := enc.EncodeToString(reqBin)
+		values.Set("data", string(reqDataEncoded))
+
+		response, err := http.PostForm(reqURL, values)
+		if err != nil {
+			log.Print(err)
+			return nil, cachedData
+		}
+
+		defer func() {
+			if err := response.Body.Close(); err != nil {
+				// Handle the error appropriately, e.g., logging or taking corrective actions
+				log.Printf("Failed to close: %v", err)
+			}
+		}()
+
+		// Read the response body
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			log.Print(err)
+			return nil, cachedData
+		}
+		protoData = string(body)
+
+		if okayToSave {
+			go func() {
+				// Compress protoData first
+				var compressBuf bytes.Buffer
+				gw := gzip.NewWriter(&compressBuf)
+				if _, err := gw.Write([]byte(protoData)); err == nil {
+					if err = gw.Close(); err == nil {
+						// Then encrypt the compressed data
+						encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
+						if err == nil {
+							combinedData, err := config.EncryptAndCombine(encryptionKey, compressBuf.Bytes())
+							if err == nil {
+								_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
+								err = os.WriteFile("ttbb-data/eiuserdata/firstcontact-"+discordID+".pbz", combinedData, 0644)
+								if err != nil {
+									log.Print(err)
+								}
+							}
+						}
+					}
+				} else {
+					_ = gw.Close()
+				}
+			}()
+		}
 	}
 
-	savefilename := "ttbb-data/eiuserdata/firstcontact-" + discordID + ".pbz"
-	protoData, cachedData := APICall(reqURL, &firstContactRequest, okayToSave, 30*time.Second, savefilename)
-	if protoData == nil {
-		log.Print("GetFirstContactFromAPI: APICall returned nil response")
-		return nil, cachedData
-	}
-
+	rawDecodedText, _ := enc.DecodeString(protoData)
 	firstContactResponse := &EggIncFirstContactResponse{}
-	err := proto.Unmarshal(protoData, firstContactResponse)
+	err := proto.Unmarshal(rawDecodedText, firstContactResponse)
 	if err != nil {
 		log.Print(err)
 		return nil, cachedData
@@ -130,27 +214,129 @@ func RedactUserInfo(s, eiUserID string) string {
 func GetContractArchiveFromAPI(s *discordgo.Session, eggIncID string, discordID string, forceRefresh bool, okayToSave bool) ([]*LocalContract, bool) {
 	eiUserID := DecryptEID(eggIncID)
 	reqURL := "https://www.auxbrain.com/ei_ctx/get_contracts_archive"
-	//enc := base64.StdEncoding
+	enc := base64.StdEncoding
 	clientVersion := DefaultClientVersion
+	protoData := ""
+	cachedData := false
 
-	contractArchiveRequest := BasicRequestInfo{
-		EiUserId:      &eiUserID,
-		ClientVersion: &clientVersion,
+	if fileInfo, err := os.Stat("ttbb-data/eiuserdata/archive-" + discordID + ".pbz"); err == nil {
+		// File exists, check if it's within 1 hour
+		if !forceRefresh && time.Since(fileInfo.ModTime()) <= 1*time.Hour {
+			// File is recent, load it
+			data, err := os.ReadFile("ttbb-data/eiuserdata/archive-" + discordID + ".pbz")
+			if err == nil {
+				encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
+				if err == nil {
+					decryptedData, err := config.DecryptCombined(encryptionKey, data)
+					if err == nil {
+						protoData = string(decryptedData)
+						cachedData = true
+						// Check if the data is compressed
+						if len(decryptedData) >= 2 && decryptedData[0] == 0x1f && decryptedData[1] == 0x8b {
+							if gr, zerr := gzip.NewReader(bytes.NewReader(decryptedData)); zerr == nil {
+								var buf bytes.Buffer
+								if _, zerr = io.Copy(&buf, gr); zerr == nil {
+									protoData = buf.String()
+								}
+								_ = gr.Close()
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
-	savefile := "ttbb-data/eiuserdata/archive-" + discordID + ".pbz"
-	cacheDur := 2 * time.Hour
-	if forceRefresh {
-		cacheDur = 0
+	if protoData == "" {
+
+		contractArchiveRequest := BasicRequestInfo{
+			EiUserId:      &eiUserID,
+			ClientVersion: &clientVersion,
+		}
+		reqBin, err := proto.Marshal(&contractArchiveRequest)
+		if err != nil {
+			log.Print(err)
+			return nil, cachedData
+		}
+		values := url.Values{}
+		reqDataEncoded := enc.EncodeToString(reqBin)
+		values.Set("data", string(reqDataEncoded))
+
+		response, err := http.PostForm(reqURL, values)
+		if err != nil {
+			log.Print(err)
+			return nil, cachedData
+		}
+
+		defer func() {
+			if err := response.Body.Close(); err != nil {
+				// Handle the error appropriately, e.g., logging or taking corrective actions
+				log.Printf("Failed to close: %v", err)
+			}
+		}()
+
+		// Read the response body
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			log.Print(err)
+			return nil, cachedData
+		}
+
+		protoData = string(body)
+
+		// Encrypt this to save to disk
+		if okayToSave {
+			go func() {
+				// Compress protoData first
+				var compressBuf bytes.Buffer
+				gw := gzip.NewWriter(&compressBuf)
+				if _, err := gw.Write([]byte(protoData)); err == nil {
+					if err = gw.Close(); err == nil {
+						// Then encrypt the compressed data
+						encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
+						if err == nil {
+							combinedData, err := config.EncryptAndCombine(encryptionKey, compressBuf.Bytes())
+							if err == nil {
+								_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
+								err = os.WriteFile("ttbb-data/eiuserdata/archive-"+discordID+".pbz", combinedData, 0644)
+								if err != nil {
+									log.Print(err)
+								}
+							}
+						}
+					}
+				} else {
+					_ = gw.Close()
+				}
+			}()
+		}
 	}
 
-	protoData, cachedData := APICall(reqURL, &contractArchiveRequest, okayToSave, cacheDur, savefile)
-	if protoData == nil {
+	decodedAuthBuf := &AuthenticatedMessage{}
+	rawDecodedText, _ := enc.DecodeString(protoData)
+	err := proto.Unmarshal(rawDecodedText, decodedAuthBuf)
+	if err != nil {
+		log.Print(err)
 		return nil, cachedData
 	}
 
+	if decodedAuthBuf.GetCompressed() {
+		gr, zerr := zlib.NewReader(bytes.NewReader(decodedAuthBuf.Message))
+		if zerr != nil {
+			log.Print(zerr)
+		}
+		var buf bytes.Buffer
+		_, zerr = io.Copy(&buf, gr)
+		if zerr != nil {
+			log.Print(zerr)
+			_ = gr.Close()
+		}
+		_ = gr.Close()
+		decodedAuthBuf.Message = buf.Bytes()
+	}
+
 	contractsArchiveResponse := &ContractsArchive{}
-	err := proto.Unmarshal(protoData, contractsArchiveResponse)
+	err = proto.Unmarshal(decodedAuthBuf.Message, contractsArchiveResponse)
 	if err != nil {
 		log.Print(err)
 		return nil, cachedData
@@ -201,7 +387,7 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 			Platform:      &platformString,
 		},
 	}
-	response, _ := APICall(reqURL, &getConfigRequest, false, 0, "")
+	response := APICall(reqURL, &getConfigRequest)
 	if response == nil {
 		log.Print("APICall returned nil response")
 		return false
@@ -272,87 +458,14 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 	return true
 }
 
-// loadFromCache attempts to load and decrypt cached payload data
-func loadFromCache(savefilename string, cacheDuration time.Duration) ([]byte, bool) {
-	if savefilename == "" || cacheDuration <= 0 {
-		return nil, false
-	}
-
-	fileInfo, err := os.Stat(savefilename)
-	if err != nil || time.Since(fileInfo.ModTime()) > cacheDuration {
-		return nil, false
-	}
-
-	data, err := os.ReadFile(savefilename)
-	if err != nil {
-		return nil, false
-	}
-
-	encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
-	if err != nil {
-		return nil, false
-	}
-
-	decryptedData, err := config.DecryptCombined(encryptionKey, data)
-	if err != nil {
-		return nil, false
-	}
-
-	protoData := decryptedData
-	if len(decryptedData) >= 2 && decryptedData[0] == 0x1f && decryptedData[1] == 0x8b {
-		if gr, zerr := gzip.NewReader(bytes.NewReader(decryptedData)); zerr == nil {
-			var buf bytes.Buffer
-			if _, zerr = io.Copy(&buf, gr); zerr == nil {
-				protoData = buf.Bytes()
-			}
-			_ = gr.Close()
-		}
-	}
-	return protoData, true
-}
-
-// saveToCache compresses, encrypts, and saves the payload in the background
-func saveToCache(savefilename string, payloadToSave []byte) {
-	if savefilename == "" || len(payloadToSave) == 0 {
-		return
-	}
-
-	go func() {
-		var compressBuf bytes.Buffer
-		gw := gzip.NewWriter(&compressBuf)
-		if _, err := gw.Write(payloadToSave); err == nil {
-			if err = gw.Close(); err == nil {
-				encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
-				if err == nil {
-					combinedData, err := config.EncryptAndCombine(encryptionKey, compressBuf.Bytes())
-					if err == nil {
-						dir := filepath.Dir(savefilename)
-						_ = os.MkdirAll(dir, os.ModePerm)
-						err = os.WriteFile(savefilename, combinedData, 0644)
-						if err != nil {
-							log.Print(err)
-						}
-					}
-				}
-			}
-		} else {
-			_ = gw.Close()
-		}
-	}()
-}
-
 // APICall will make a generic Egg Inc API call with the given request and return the AuthenticatedMessage response
-func APICall(reqURL string, request proto.Message, okayToSave bool, cacheDuration time.Duration, savefilename string) ([]byte, bool) {
-	if cachedData, ok := loadFromCache(savefilename, cacheDuration); ok {
-		return cachedData, true
-	}
-
+func APICall(reqURL string, request proto.Message) []byte {
 	enc := base64.StdEncoding
 
 	reqBin, err := proto.Marshal(request)
 	if err != nil {
 		log.Print(err)
-		return nil, false
+		return nil
 	}
 
 	values := url.Values{}
@@ -362,7 +475,7 @@ func APICall(reqURL string, request proto.Message, okayToSave bool, cacheDuratio
 	response, err := http.PostForm(reqURL, values)
 	if err != nil {
 		log.Print(err)
-		return nil, false
+		return nil
 	}
 	defer func() {
 		if err := response.Body.Close(); err != nil {
@@ -373,7 +486,7 @@ func APICall(reqURL string, request proto.Message, okayToSave bool, cacheDuratio
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		log.Print(err)
-		return nil, false
+		return nil
 	}
 	protoData := string(body)
 
@@ -381,12 +494,12 @@ func APICall(reqURL string, request proto.Message, okayToSave bool, cacheDuratio
 	rawDecodedText, err := enc.DecodeString(protoData)
 	if err != nil {
 		log.Print(err)
-		return nil, false
+		return nil
 	}
 	err = proto.Unmarshal(rawDecodedText, decodedAuthBuf)
 	if err != nil {
 		log.Print(err)
-		return rawDecodedText, false
+		return rawDecodedText
 	}
 
 	// detect if auth_msg.message is compressed
@@ -394,24 +507,20 @@ func APICall(reqURL string, request proto.Message, okayToSave bool, cacheDuratio
 		gr, zerr := zlib.NewReader(bytes.NewReader(decodedAuthBuf.Message))
 		if zerr != nil {
 			log.Print(zerr)
-			return nil, false
+			return nil
 		}
 		var buf bytes.Buffer
 		_, zerr = io.Copy(&buf, gr)
 		if zerr != nil {
 			log.Print(zerr)
 			_ = gr.Close()
-			return nil, false
+			return nil
 		}
 		_ = gr.Close()
 		decodedAuthBuf.Message = buf.Bytes()
 	}
 
-	if okayToSave {
-		saveToCache(savefilename, decodedAuthBuf.Message)
-	}
-
-	return decodedAuthBuf.Message, false
+	return decodedAuthBuf.Message
 }
 
 func getSecureHash(data []byte) (string, error) {
