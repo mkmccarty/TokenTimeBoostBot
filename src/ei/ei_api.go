@@ -138,7 +138,7 @@ func GetContractArchiveFromAPI(s *discordgo.Session, eggIncID string, discordID 
 	}
 
 	savefile := "ttbb-data/eiuserdata/archive-" + discordID + ".pbz"
-	cacheDur := 2 * time.Hour
+	cacheDur := 1 * time.Hour
 	if forceRefresh {
 		cacheDur = 0
 	}
