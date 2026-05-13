@@ -659,6 +659,10 @@ func getUserArtifacts(userID string, inSet *ArtifactSet) ArtifactSet {
 	layRate := baseLaying
 	shipRate := baseShipping
 	for _, a := range mySet.Artifacts {
+		if a.Type == "Chalice" || a.Type == "Monocle" || a.Type == "IHR Deflector" || a.Type == "SIAB" ||
+			a.Type == "2 Slot" || a.Type == "3 Slot" {
+			continue
+		}
 		layRate *= a.LayBuff * math.Pow(1.05, float64(a.Stones))
 		shipRate *= a.ShipBuff * math.Pow(1.05, float64(a.Stones))
 	}
