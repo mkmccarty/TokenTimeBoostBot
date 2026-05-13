@@ -18,7 +18,7 @@ import (
 //   - (*LeaderboardResponse): the decoded leaderboard response, or nil on error.
 func GetLeaderboardFromAPI(eggIncID string, scope string, grade Contract_PlayerGrade) *LeaderboardResponse {
 	eiUserID := DecryptEID(eggIncID)
-	reqURL := "https://www.auxbrain.com//ei_ctx/get_leaderboard"
+	reqURL := "https://www.auxbrain.com/ei_ctx/get_leaderboard"
 
 	clientVersion := DefaultClientVersion
 	version := DefaultVersion
@@ -65,7 +65,7 @@ func GetLeaderboardFromAPI(eggIncID string, scope string, grade Contract_PlayerG
 //   - (*LeaderboardInfo): the decoded leaderboard info response, or nil on error.
 func GetLeaderboardInfoFromAPI(eggIncID string) *LeaderboardInfo {
 	eiUserID := DecryptEID(eggIncID)
-	reqURL := "https://www.auxbrain.com//ei_ctx/get_leaderboard_info"
+	reqURL := "https://www.auxbrain.com/ei_ctx/get_leaderboard_info"
 
 	clientVersion := DefaultClientVersion
 	version := DefaultVersion
@@ -80,7 +80,7 @@ func GetLeaderboardInfoFromAPI(eggIncID string) *LeaderboardInfo {
 		Platform:      &platformString,
 	}
 
-	payload := APICall(reqURL, &request)
+	payload, _ := APICall(reqURL, &request, false, 0, "")
 	if payload == nil {
 		log.Print("GetLeaderboardInfoFromAPI: APICall returned nil response")
 		return nil
