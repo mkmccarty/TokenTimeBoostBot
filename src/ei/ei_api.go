@@ -71,7 +71,7 @@ func GetFirstContactFromAPI(s *discordgo.Session, eggIncID string, discordID str
 	}
 
 	savefilename := "ttbb-data/eiuserdata/firstcontact-" + discordID + ".pbz"
-	protoData, cachedData := APICall(reqURL, &firstContactRequest, okayToSave, 30*time.Second, savefilename)
+	protoData, cachedData := APICall(reqURL, &firstContactRequest, okayToSave, 30*time.Second, savefilename, false)
 	if protoData == nil {
 		log.Print("GetFirstContactFromAPI: APICall returned nil response")
 		return nil, cachedData
@@ -143,7 +143,7 @@ func GetContractArchiveFromAPI(s *discordgo.Session, eggIncID string, discordID 
 		cacheDur = 0
 	}
 
-	protoData, cachedData := APICall(reqURL, &contractArchiveRequest, okayToSave, cacheDur, savefile)
+	protoData, cachedData := APICall(reqURL, &contractArchiveRequest, okayToSave, cacheDur, savefile, true)
 	if protoData == nil {
 		return nil, cachedData
 	}
@@ -200,7 +200,7 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 			Platform:      &platformString,
 		},
 	}
-	response, _ := APICall(reqURL, &getConfigRequest, false, 0, "")
+	response, _ := APICall(reqURL, &getConfigRequest, false, 0, "", true)
 	if response == nil {
 		log.Print("APICall returned nil response")
 		return false
@@ -340,8 +340,10 @@ func saveToCache(savefilename string, payloadToSave []byte) {
 	}()
 }
 
-// APICall will make a generic Egg Inc API call with the given request and return the AuthenticatedMessage response
-func APICall(reqURL string, request proto.Message, okayToSave bool, cacheDuration time.Duration, savefilename string) ([]byte, bool) {
+// APICall will make a generic Egg Inc API call with the given request.
+// If unwrapAuthEnvelope is true, it decodes an AuthenticatedMessage envelope and returns its message payload.
+// If unwrapAuthEnvelope is false, it returns the base64-decoded response payload directly.
+func APICall(reqURL string, request proto.Message, okayToSave bool, cacheDuration time.Duration, savefilename string, unwrapAuthEnvelope bool) ([]byte, bool) {
 	if cachedData, ok := loadFromCache(savefilename, cacheDuration); ok {
 		return cachedData, true
 	}
@@ -382,6 +384,14 @@ func APICall(reqURL string, request proto.Message, okayToSave bool, cacheDuratio
 		log.Print(err)
 		return nil, false
 	}
+
+	if !unwrapAuthEnvelope {
+		if okayToSave && savefilename != "" {
+			saveToCache(savefilename, rawDecodedText)
+		}
+		return rawDecodedText, false
+	}
+
 	err = proto.Unmarshal(rawDecodedText, decodedAuthBuf)
 	if err != nil {
 		log.Print(err)
