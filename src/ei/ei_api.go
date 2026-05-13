@@ -386,6 +386,9 @@ func APICall(reqURL string, request proto.Message, okayToSave bool, cacheDuratio
 	err = proto.Unmarshal(rawDecodedText, decodedAuthBuf)
 	if err != nil {
 		log.Print(err)
+		if okayToSave && savefilename != "" {
+			saveToCache(savefilename, rawDecodedText)
+		}
 		return rawDecodedText, false
 	}
 
