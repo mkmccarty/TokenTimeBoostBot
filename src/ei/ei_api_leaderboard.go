@@ -80,7 +80,7 @@ func GetLeaderboardInfoFromAPI(eggIncID string) *LeaderboardInfo {
 		Platform:      &platformString,
 	}
 
-	payload, _ := APICall(reqURL, &request, false, 0, "")
+	payload, _ := APICall(reqURL, &request, false, 0, "", true)
 	if payload == nil {
 		log.Print("GetLeaderboardInfoFromAPI: APICall returned nil response")
 		return nil
