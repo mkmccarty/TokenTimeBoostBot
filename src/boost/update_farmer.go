@@ -256,7 +256,15 @@ func HandleUpdateCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 // updateFarmerInContracts updates a farmer's data in all contracts they're part of
 func updateFarmerInContracts(s *discordgo.Session, userID string, subcommand string, value int64) {
-	for _, contract := range Contracts {
+	mutex.Lock()
+	contractsCopy := make([]*Contract, 0, len(Contracts))
+	for _, c := range Contracts {
+		contractsCopy = append(contractsCopy, c)
+	}
+	mutex.Unlock()
+
+	for _, contract := range contractsCopy {
+		contract.mutex.Lock()
 		if booster, exists := contract.Boosters[userID]; exists {
 			// Update the specific field based on which subcommand was used
 			switch subcommand {
@@ -265,6 +273,7 @@ func updateFarmerInContracts(s *discordgo.Session, userID string, subcommand str
 			case "te":
 				booster.TECount = int(value)
 			}
+			contract.mutex.Unlock()
 
 			// Redraw the boost list message to reflect the updated data
 			for _, loc := range contract.Location {
@@ -272,6 +281,8 @@ func updateFarmerInContracts(s *discordgo.Session, userID string, subcommand str
 				refreshBoostListMessage(s, contract, false)
 				break // Only need to refresh once
 			}
+		} else {
+			contract.mutex.Unlock()
 		}
 	}
 }

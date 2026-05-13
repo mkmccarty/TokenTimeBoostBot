@@ -8,8 +8,65 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
+
+// UpdateAllContractsEggInfo updates the EggName and EggEmoji fields for all active contracts,
+// and regenerates banners if necessary.
+func UpdateAllContractsEggInfo() {
+	mutex.Lock()
+	// Copy contracts to avoid holding the global lock during banner generation
+	contractsCopy := make([]*Contract, 0, len(Contracts))
+	for _, c := range Contracts {
+		contractsCopy = append(contractsCopy, c)
+	}
+	mutex.Unlock()
+
+	for _, contract := range contractsCopy {
+		if contract == nil {
+			continue
+		}
+
+		contract.mutex.Lock()
+		if len(contract.Location) == 0 {
+			contract.mutex.Unlock()
+			continue
+		}
+
+		originalContract, exists := ei.EggIncContractsAll[contract.ContractID]
+		if !exists {
+			contract.mutex.Unlock()
+			continue
+		}
+
+		contract.Egg = originalContract.Egg
+		contract.EggName = originalContract.EggName
+		contract.EggEmoji = FindEggEmoji(originalContract.EggName)
+
+		var creatorID string
+		if len(contract.CreatorID) > 0 {
+			creatorID = contract.CreatorID[0]
+		}
+		guildID := contract.Location[0].GuildID
+		bannerText := contract.Name
+		if bannerText == "" {
+			bannerText = originalContract.Name
+		}
+		eggName := contract.EggName
+		contractID := contract.ContractID
+		contract.mutex.Unlock()
+
+		// Regenerate banners for contracts with a custom banner so they are
+		// up to date in case the banner image was updated or never generated.
+		if creatorID != "" {
+			if bannerText != "" && eggName != "" {
+				go bottools.GenerateBanner(contractID, eggName, bannerText, creatorID, guildID, "")
+			}
+		}
+	}
+}
 
 // RedrawBoostList will move the boost message to the bottom of the channel
 func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) error {
