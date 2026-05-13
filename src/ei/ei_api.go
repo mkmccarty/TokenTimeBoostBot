@@ -130,7 +130,6 @@ func RedactUserInfo(s, eiUserID string) string {
 func GetContractArchiveFromAPI(s *discordgo.Session, eggIncID string, discordID string, forceRefresh bool, okayToSave bool) ([]*LocalContract, bool) {
 	eiUserID := DecryptEID(eggIncID)
 	reqURL := "https://www.auxbrain.com/ei_ctx/get_contracts_archive"
-	//enc := base64.StdEncoding
 	clientVersion := DefaultClientVersion
 
 	contractArchiveRequest := BasicRequestInfo{
