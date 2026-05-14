@@ -479,6 +479,12 @@ func handleTimerRepeat(s *discordgo.Session, i *discordgo.InteractionCreate, old
 		log.Printf("Error responding to timer repeat: %v", err)
 	}
 
+	time.AfterFunc(10*time.Second, func() {
+		if i.Message != nil {
+			_ = s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
+		}
+	})
+
 	// Create and start new timer
 	t := BotTimer{
 		ID: xid.New().String(), Reminder: time.Now().Add(duration), Message: originalTimer.Message, UserID: userID, timer: time.NewTimer(duration), Active: true, Duration: duration, OriginalChannelID: originalTimer.OriginalChannelID,
