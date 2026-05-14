@@ -462,11 +462,16 @@ func handleTimerRepeat(s *discordgo.Session, i *discordgo.InteractionCreate, old
 
 	userID := bottools.GetInteractionUserID(i)
 
+	content := fmt.Sprintf("New timer set for %s.", duration)
+	if originalTimer.OriginalChannelID != "" {
+		content = fmt.Sprintf("New timer set for %s in <#%s>.", duration, originalTimer.OriginalChannelID)
+	}
+
 	// Acknowledge interaction
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseUpdateMessage,
 		Data: &discordgo.InteractionResponseData{
-			Content:    fmt.Sprintf("New timer set for %s.", duration),
+			Content:    content,
 			Components: []discordgo.MessageComponent{},
 		},
 	})
