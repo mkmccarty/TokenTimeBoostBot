@@ -68,6 +68,20 @@ func GetPredictionsCommand(cmd string) *discordgo.ApplicationCommand {
 		},
 		Options: []*discordgo.ApplicationCommandOption{
 			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "prediction-type",
+				Description: "Which prediction type to show (default: all).",
+				Required:    false,
+				Choices: []*discordgo.ApplicationCommandOptionChoice{
+					{Name: "All Leggacies", Value: string(predictionAll)},
+					{Name: "Wednesday Leggacy", Value: string(predictionWedLegacy)},
+					{Name: "Friday PE Leggacies", Value: string(predictionFriPeLegacyBoth)},
+					{Name: "Friday Leggacy", Value: string(predictionFriNonUltra)},
+					{Name: "Friday Ultra Leggacy", Value: string(predictionFriUltraLegacy)},
+					{Name: "Colleggtibles", Value: string(predictionCollectibles)},
+				},
+			},
+			{
 				Type:        discordgo.ApplicationCommandOptionInteger,
 				Name:        "contract-count",
 				Description: "Contract count per category (default 3).",
@@ -111,9 +125,15 @@ func HandlePredictionsCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 			}
 		}
 	}
+	showButtons := true
+	if opt, ok := optionMap["prediction-type"]; ok {
+		pt = predictionType(opt.StringValue())
+		showButtons = false
+	}
 	components = predictions(optionMap, predictionCallParameters{
-		buttonCall: true,
-		pt:         pt,
+		buttonCall:   showButtons,
+		pt:           pt,
+		guildContext: i.GuildID != "",
 	})
 
 	if len(components) == 0 {
@@ -176,7 +196,8 @@ func HandlePredictionsPage(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 
 	predParams := predictionCallParameters{
-		buttonCall: true,
+		buttonCall:   true,
+		guildContext: i.GuildID != "",
 	}
 
 	// Determine the new prediction type based on the interaction
@@ -209,6 +230,7 @@ type predictionCallParameters struct {
 	buttonCall    bool           // Whether to display buttons
 	contractCount int64          // How many contracts to show per type
 	pt            predictionType // Which prediction type to show
+	guildContext  bool           // Whether the interaction is in a guild (server) context
 }
 
 // predictions prints predictions for the following weeks contracts.
@@ -221,13 +243,15 @@ func predictions(optionMap map[string]*discordgo.ApplicationCommandInteractionDa
 	}
 
 	buttonCall := params.buttonCall
+	pw := newPredictionsWriter(params.guildContext)
 
 	// Collectibles view is handled separately
 	if params.pt == predictionCollectibles {
+		pw.showTokenRate = false
 		_, wedTime, friTime, _ := contractTimes9amPacific(0)
 		collectibles := predictCollectibles(wedTime, friTime)
 		components := make([]discordgo.MessageComponent, 0, 3)
-		components = append(components, writeCollectiblesPredictions(collectibles))
+		components = append(components, pw.writeCollectiblesPredictions(collectibles))
 		if buttonCall {
 			components = append(components, getPredictionsButtonsComponents(params.pt, contractCount)...)
 		}
@@ -249,19 +273,19 @@ func predictions(optionMap map[string]*discordgo.ApplicationCommandInteractionDa
 		if hasFriday {
 			// both Wednesday and Friday
 			if wedTime.Before(friTime) {
-				first = writeWednesdayPredictions(wedTime, wednesday, false)
-				second = writeFridayPredictions(friTime, fridayNonUltra, fridayUltra, true, showFridayNonUltra, showFridayUltra)
+				first = pw.writeWednesdayPredictions(wedTime, wednesday, false)
+				second = pw.writeFridayPredictions(friTime, fridayNonUltra, fridayUltra, true, showFridayNonUltra, showFridayUltra)
 			} else {
-				first = writeFridayPredictions(friTime, fridayNonUltra, fridayUltra, false, showFridayNonUltra, showFridayUltra)
-				second = writeWednesdayPredictions(wedTime, wednesday, true)
+				first = pw.writeFridayPredictions(friTime, fridayNonUltra, fridayUltra, false, showFridayNonUltra, showFridayUltra)
+				second = pw.writeWednesdayPredictions(wedTime, wednesday, true)
 			}
 		} else {
 			// only Wednesday
-			first = writeWednesdayPredictions(wedTime, wednesday, true)
+			first = pw.writeWednesdayPredictions(wedTime, wednesday, true)
 		}
 	} else {
 		// only Friday
-		first = writeFridayPredictions(friTime, fridayNonUltra, fridayUltra, true, showFridayNonUltra, showFridayUltra)
+		first = pw.writeFridayPredictions(friTime, fridayNonUltra, fridayUltra, true, showFridayNonUltra, showFridayUltra)
 	}
 
 	// Build components slice
@@ -353,80 +377,91 @@ func getPredictionsButtonsComponents(predType predictionType, contractCount int6
 	}
 }
 
-// writeWednesdayPredictions renders the Wednesday Leggacy predictions as a discordgo.TextDisplay component.
-func writeWednesdayPredictions(dropTime time.Time, contracts []ei.EggIncContract, footer bool) *discordgo.TextDisplay {
+type predictionsWriter struct {
+	guildContext  bool
+	showTokenRate bool
+	iconCoop      string
+	iconUltra     string
+	iconPE        string
+	botIcon       string
+	cmd           string
+}
+
+func newPredictionsWriter(guildContext bool) predictionsWriter {
+	cmd := bottools.GetFormattedCommand("predictions")
+	if cmd == "" {
+		cmd = "/predictions"
+	}
+	botIcon := ei.GetBotEmojiMarkdown("boostbot")
+	if botIcon != "" {
+		botIcon += " "
+	}
+	return predictionsWriter{
+		guildContext:  guildContext,
+		showTokenRate: true,
+		iconCoop:      ei.GetBotEmojiMarkdown("icon_coop"),
+		iconUltra:     ei.GetBotEmojiMarkdown("ultra"),
+		iconPE:        ei.GetBotEmojiMarkdown("egg_prophecy"),
+		botIcon:       botIcon,
+		cmd:           cmd,
+	}
+}
+
+func (pw predictionsWriter) writeWednesdayPredictions(dropTime time.Time, contracts []ei.EggIncContract, footer bool) *discordgo.TextDisplay {
 	var b strings.Builder
 
-	// Icons
-	iconCoop := ei.GetBotEmojiMarkdown("icon_coop")
-
-	// Header
 	b.WriteString("**📜 Leggacy Prediction 🔮**\n-# ")
 	b.WriteString(bottools.WrapTimestamp(dropTime.Unix(), bottools.TimestampShortDateTime))
 	b.WriteByte('\n')
 
-	// Body
-	usedSeasons := writeContracts(&b, contracts, iconCoop)
+	usedSeasons := pw.writeContracts(&b, contracts)
 	b.WriteByte('\n')
 
-	// Footer
 	if footer {
-		writeFooter(&b, iconCoop, usedSeasons)
+		pw.writeFooter(&b, usedSeasons)
 	}
 
-	return &discordgo.TextDisplay{
-		Content: b.String(),
-	}
+	return &discordgo.TextDisplay{Content: b.String()}
 }
 
-// writeFridayPredictions renders the Friday Leggacy predictions as a discordgo.TextDisplay component.
-func writeFridayPredictions(dropTime time.Time, peContracts, ultraContracts []ei.EggIncContract, footer, showNonUltra, showUltra bool) *discordgo.TextDisplay {
+func (pw predictionsWriter) writeFridayPredictions(dropTime time.Time, peContracts, ultraContracts []ei.EggIncContract, footer, showNonUltra, showUltra bool) *discordgo.TextDisplay {
 	var b strings.Builder
 
-	// Icons BB vs Egg Server
-	iconCoop := ei.GetBotEmojiMarkdown("icon_coop")
-	iconUltra := ei.GetBotEmojiMarkdown("ultra")
-	iconPE := ei.GetBotEmojiMarkdown("egg_prophecy")
-
-	// Header
 	b.WriteString("**PE Leggacies Predictions 🔮**\n-# ")
 	b.WriteString(bottools.WrapTimestamp(dropTime.Unix(), bottools.TimestampShortDateTime))
 	b.WriteByte('\n')
 
 	usedSeasons := make(map[string]bool)
 
-	// Non-Ultra
 	if showNonUltra && len(peContracts) != 0 {
 		b.WriteString("**")
-		b.WriteString(iconPE)
+		b.WriteString(pw.iconPE)
 		b.WriteString(" PE Leggacy**\n")
-		maps.Copy(usedSeasons, writeContracts(&b, peContracts, iconCoop))
+		maps.Copy(usedSeasons, pw.writeContracts(&b, peContracts))
 		b.WriteByte('\n')
 	}
 
-	// Ultra
 	if showUltra && len(ultraContracts) != 0 {
 		b.WriteString("**")
-		b.WriteString(iconUltra)
+		b.WriteString(pw.iconUltra)
 		b.WriteString(" Ultra PE Leggacy **\n")
-		maps.Copy(usedSeasons, writeContracts(&b, ultraContracts, iconCoop))
+		maps.Copy(usedSeasons, pw.writeContracts(&b, ultraContracts))
 		b.WriteByte('\n')
 	}
 
-	// Footer
 	if footer {
-		writeFooter(&b, iconCoop, usedSeasons)
+		pw.writeFooter(&b, usedSeasons)
 	}
 
-	return &discordgo.TextDisplay{
-		Content: b.String(),
-	}
+	return &discordgo.TextDisplay{Content: b.String()}
 }
 
-// writeFooter appends the legend and attribution lines.
-// Only season emojis for seasons that appear in usedSeasons are shown.
-func writeFooter(b *strings.Builder, iconCoop string, usedSeasons map[string]bool) {
-	fmt.Fprintf(b, "-# %s Coop Size | %s Tokens/min", iconCoop, ei.GetBotEmojiMarkdown("token"))
+func (pw predictionsWriter) writeFooter(b *strings.Builder, usedSeasons map[string]bool) {
+	if pw.showTokenRate {
+		fmt.Fprintf(b, "-# %s Coop Size | %s Tokens/min", pw.iconCoop, ei.GetBotEmojiMarkdown("token"))
+	} else {
+		fmt.Fprintf(b, "-# %s Coop Size", pw.iconCoop)
+	}
 	var seasonEmojis strings.Builder
 	for _, s := range seasonsOrdered {
 		if usedSeasons[s.Key] {
@@ -436,21 +471,15 @@ func writeFooter(b *strings.Builder, iconCoop string, usedSeasons map[string]boo
 	if seasonEmojis.Len() > 0 {
 		fmt.Fprintf(b, " | %s Seasonal LB", seasonEmojis.String())
 	}
-	cmd := bottools.GetFormattedCommand("predictions")
-	if cmd == "" {
-		cmd = "/predictions"
+	if !pw.guildContext {
+		fmt.Fprintf(b, "\n-# %sBoost Bot | %s | %s\n", pw.botIcon, pw.cmd, bottools.WrapTimestamp(time.Now().Unix(), bottools.TimestampShortDateTime))
 	}
-	botIcon := ei.GetBotEmojiMarkdown("boostbot")
-	if botIcon != "" {
-		botIcon += " "
-	}
-	fmt.Fprintf(b, "\n-# %sBoost Bot | %s | %s\n", botIcon, cmd, bottools.WrapTimestamp(time.Now().Unix(), bottools.TimestampShortDateTime))
 }
 
 const timeSaverContractID = "time-saver-2021"
 
 // writeContracts prints only the contract lines and returns the set of season keys that appeared.
-func writeContracts(b *strings.Builder, contracts []ei.EggIncContract, iconCoop string) map[string]bool {
+func (pw predictionsWriter) writeContracts(b *strings.Builder, contracts []ei.EggIncContract) map[string]bool {
 	usedSeasons := make(map[string]bool)
 
 	// If time-saver-2021 is present, push it back one position.
@@ -488,7 +517,7 @@ func writeContracts(b *strings.Builder, contracts []ei.EggIncContract, iconCoop 
 			ei.FindEggEmoji(c.EggName),
 			c.Name,
 			c.ID,
-			iconCoop,
+			pw.iconCoop,
 			c.MaxCoopSize,
 		)
 		if seasonLabel != "" {
@@ -664,7 +693,7 @@ func predictCollectibles(nextWed, nextFri time.Time) map[string]collectiblePredi
 
 // writeCollectiblesPredictions renders the Colleggtibles prediction,
 // showing one entry per custom egg sorted by predicted drop date.
-func writeCollectiblesPredictions(collectibles map[string]collectiblePrediction) *discordgo.TextDisplay {
+func (pw predictionsWriter) writeCollectiblesPredictions(collectibles map[string]collectiblePrediction) *discordgo.TextDisplay {
 	collectibleContracts := make([]collectiblePrediction, 0, len(collectibles))
 	for _, p := range collectibles {
 		collectibleContracts = append(collectibleContracts, p)
@@ -677,7 +706,6 @@ func writeCollectiblesPredictions(collectibles map[string]collectiblePrediction)
 	})
 
 	var b strings.Builder
-	iconCoop := ei.GetBotEmojiMarkdown("icon_coop")
 
 	b.WriteString("**Colleggtibles Prediction 🔮**\n")
 
@@ -707,7 +735,7 @@ func writeCollectiblesPredictions(collectibles map[string]collectiblePrediction)
 			ei.FindEggEmoji(cc.EggName),
 			cc.Name,
 			cc.ID,
-			iconCoop,
+			pw.iconCoop,
 			cc.MaxCoopSize,
 		)
 		if seasonLabel != "" {
@@ -736,7 +764,7 @@ func writeCollectiblesPredictions(collectibles map[string]collectiblePrediction)
 		*/
 	}
 	b.WriteByte('\n')
-	writeFooter(&b, iconCoop, usedSeasons)
+	pw.writeFooter(&b, usedSeasons)
 
 	return &discordgo.TextDisplay{Content: b.String()}
 }
@@ -783,24 +811,8 @@ var KevinLoc = func() *time.Location {
 // isNextWedSoonerThanNextFri returns true if the next Wednesday 09:00
 // occurs before the next Friday 09:00 based on the given time and location
 func isNextWedSoonerThanNextFri(now time.Time, loc *time.Location) bool {
-	local := now.In(loc)
-
-	wd := local.Weekday()
-	after9 := local.Hour() > 9 ||
-		(local.Hour() == 9 && (local.Minute() > 0 || local.Second() > 0 || local.Nanosecond() > 0))
-
-	switch wd {
-	case time.Monday, time.Tuesday, time.Saturday, time.Sunday:
-		return true
-	case time.Wednesday:
-		return !after9
-	case time.Thursday:
-		return false
-	case time.Friday:
-		return after9
-	default:
-		return false
-	}
+	return findNextContractDropTime(now, time.Wednesday, loc).
+		Before(findNextContractDropTime(now, time.Friday, loc))
 }
 
 // findNextContractDropTime returns the next specified date based on given time at 9:00 AM in the given location
