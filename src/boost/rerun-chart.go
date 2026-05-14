@@ -18,14 +18,15 @@ import (
 )
 
 type chartRow struct {
-	contractID string
-	cxp        float64
-	maxCxp     float64
-	gap        float64
-	percent    float64
-	validUntil int64
-	dayLabel   string
-	hasSiab    bool
+	contractID  string
+	cxp         float64
+	maxCxp      float64
+	gap         float64
+	percent     float64
+	validUntil  int64
+	dayLabel    string
+	hasSiab     bool
+	maxCoopSize int
 }
 
 type chartSession struct {
@@ -102,14 +103,15 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 				dayLabel = contractDayMap[contractID]
 			}
 			rows = append(rows, chartRow{
-				contractID: contractID,
-				cxp:        evaluationCxp,
-				maxCxp:     maxCxp,
-				gap:        maxCxp - evaluationCxp,
-				percent:    evalPercent,
-				validUntil: c.ValidUntil.Unix(),
-				dayLabel:   dayLabel,
-				hasSiab:    hasSiab,
+				contractID:  contractID,
+				cxp:         evaluationCxp,
+				maxCxp:      maxCxp,
+				gap:         maxCxp - evaluationCxp,
+				percent:     evalPercent,
+				validUntil:  c.ValidUntil.Unix(),
+				dayLabel:    dayLabel,
+				hasSiab:     hasSiab,
+				maxCoopSize: c.MaxCoopSize,
 			})
 		}
 	}
@@ -290,13 +292,14 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 
 	if !session.mobileFriendly {
 		if session.hasDayMap {
-			fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s %3s`\n",
+			fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s %3s %3s`\n",
 				bottools.AlignString("CONTRACT-ID", 25, bottools.StringAlignCenter),
 				bottools.AlignString("CS", 6, bottools.StringAlignCenter),
 				bottools.AlignString("HIGH", 6, bottools.StringAlignCenter),
 				bottools.AlignString("GAP", 6, bottools.StringAlignRight),
 				bottools.AlignString("%", 4, bottools.StringAlignCenter),
 				bottools.AlignString("Day", 6, bottools.StringAlignCenter),
+				bottools.AlignString("👤", 3, bottools.StringAlignCenter),
 			)
 		} else {
 			fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`\n",
@@ -342,20 +345,26 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 				expireStr = fmt.Sprintf(" <t:%d:R>", r.validUntil)
 			}
 
+			szStr := ""
+			if session.hasDayMap {
+				szStr = fmt.Sprintf(" 👤 **%d**", r.maxCoopSize)
+			}
+
 			fmt.Fprintf(&builder, "%s **%s**%s%s%s\n",
 				eggEmoji, name, siabIcon, dayStr, expireStr)
 
-			fmt.Fprintf(&builder, "-# _       _ CS: **%d** / %d (%.1f%%) Gap: **%d**\n",
-				int(math.Ceil(r.cxp)), int(math.Ceil(r.maxCxp)), r.percent, int(math.Ceil(r.gap)))
+			fmt.Fprintf(&builder, "-# _       _ CS: **%d** / %d (%.1f%%) Gap: **%d**%s\n",
+				int(math.Ceil(r.cxp)), int(math.Ceil(r.maxCxp)), r.percent, int(math.Ceil(r.gap)), szStr)
 		} else {
 			if session.hasDayMap {
-				fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s %3s`%s\n",
+				fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s %3s %3s`%s\n",
 					bottools.AlignString(r.contractID, 25, bottools.StringAlignLeft),
 					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(r.cxp))), 6, bottools.StringAlignRight),
 					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(r.maxCxp))), 6, bottools.StringAlignRight),
 					bottools.AlignString(fmt.Sprintf("%d", int(math.Ceil(r.gap))), 6, bottools.StringAlignRight),
 					bottools.AlignString(fmt.Sprintf("%.1f", r.percent), 4, bottools.StringAlignCenter),
 					bottools.AlignString(r.dayLabel, 6, bottools.StringAlignCenter),
+					bottools.AlignString(fmt.Sprintf("%d", r.maxCoopSize), 3, bottools.StringAlignCenter),
 					siabIcon)
 			} else {
 				fmt.Fprintf(&builder, "`%12s %6s %6s %6s %6s`%s <t:%d:R>\n",
