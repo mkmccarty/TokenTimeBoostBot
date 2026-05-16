@@ -373,16 +373,18 @@ func AddPlayerOptInTypes(userID string, types []string) {
 }
 
 // RemovePlayerOptInTypes removes the given types from the player's opt-in list.
-// Passing []string{OptInAll} clears the entire opt-in.
+// Passing []string{OptInAll} clears the entire opt-in and all stored stats.
 func RemovePlayerOptInTypes(userID string, types []string) {
 	if len(types) == 1 && types[0] == OptInAll {
 		SetPlayerOptInTypes(userID, nil)
+		_ = farmerstate.DeleteAllLeaderboardStatsForPlayer(userID)
 		return
 	}
 	existing := GetPlayerOptInTypes(userID)
 	remove := make(map[string]struct{}, len(types))
 	for _, t := range types {
 		remove[t] = struct{}{}
+		_ = farmerstate.DeleteLeaderboardStatsForPlayer(userID, t)
 	}
 	var kept []string
 	for _, t := range existing {
