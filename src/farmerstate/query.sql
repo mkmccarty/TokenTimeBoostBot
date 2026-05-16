@@ -163,3 +163,9 @@ LIMIT 1;
 SELECT DISTINCT snap_date FROM leaderboard_stats
 WHERE lb_type = ?
 ORDER BY snap_date DESC;
+-- name: GetStatsForPlayer :many
+-- Returns all leaderboard stats for a specific player across all types, newest first.
+SELECT lb_type, player, game_name, snap_date, value, details
+FROM leaderboard_stats
+WHERE player = ?
+ORDER BY lb_type ASC, snap_date DESC;

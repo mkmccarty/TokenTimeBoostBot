@@ -292,6 +292,8 @@ var (
 		"dashboard_btn":       dashboard.HandleDashboardInteraction,
 		"mint_preview":        mint.HandleMintPreviewComponent,
 		"chart":               boost.HandleChartReactions,
+		"lb_list":             leaderboard.HandleLBListComponent,
+		"lb_stats":            leaderboard.HandleLBStatsComponent,
 	}
 )
 

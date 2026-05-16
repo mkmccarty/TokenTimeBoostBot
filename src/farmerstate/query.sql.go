@@ -418,6 +418,44 @@ func (q *Queries) GetLegacyFarmerstate(ctx context.Context, id string) (FarmerSt
 	return i, err
 }
 
+const getStatsForPlayer = `-- name: GetStatsForPlayer :many
+SELECT lb_type, player, game_name, snap_date, value, details
+FROM leaderboard_stats
+WHERE player = ?
+ORDER BY lb_type ASC, snap_date DESC
+`
+
+// Returns all leaderboard stats for a specific player across all types, newest first.
+func (q *Queries) GetStatsForPlayer(ctx context.Context, player string) ([]LeaderboardStat, error) {
+	rows, err := q.db.QueryContext(ctx, getStatsForPlayer, player)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LeaderboardStat
+	for rows.Next() {
+		var i LeaderboardStat
+		if err := rows.Scan(
+			&i.LbType,
+			&i.Player,
+			&i.GameName,
+			&i.SnapDate,
+			&i.Value,
+			&i.Details,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getSuspectMissions = `-- name: GetSuspectMissions :many
 SELECT user_id, mission_id, ship, status, duration_type, mission_type, level, capacity, quality_bump, target_artifact, duration_seconds, start_time_derived, base_seconds, event_multiplier FROM suspect_missions WHERE user_id = ?
 `

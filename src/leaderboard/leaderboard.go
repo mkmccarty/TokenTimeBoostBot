@@ -621,3 +621,78 @@ func GetPreviousSnapDate(lbType, snapDate string) string {
 	}
 	return ""
 }
+// PlayerStat holds a single metric's latest value and its previous week's value for comparison.
+type PlayerStat struct {
+	Def     LBDef
+	Current LBEntry
+	HasPrev bool
+	PrevVal float64
+	Rank    int
+}
+
+// GetPlayerStats retrieves the latest data for every leaderboard type for a given player.
+func GetPlayerStats(playerID string) []PlayerStat {
+	rows, err := farmerstate.GetStatsForPlayer(playerID)
+	if err != nil {
+		return nil
+	}
+
+	// Group rows by lb_type. Rows are ordered by lb_type ASC, snap_date DESC.
+	type lbGroup struct {
+		current  *LBEntry
+		previous *LBEntry
+	}
+	groups := make(map[string]*lbGroup)
+
+	for _, r := range rows {
+		g, ok := groups[r.LbType]
+		if !ok {
+			g = &lbGroup{}
+			groups[r.LbType] = g
+		}
+
+		entry := &LBEntry{
+			LBType:   r.LbType,
+			Player:   r.Player,
+			GameName: r.GameName,
+			SnapDate: r.SnapDate,
+			Value:    r.Value,
+		}
+		if r.Details.Valid {
+			entry.Details = r.Details.String
+		}
+
+		if g.current == nil {
+			g.current = entry
+		} else if g.previous == nil {
+			g.previous = entry
+		}
+	}
+
+	var out []PlayerStat
+	// Build output list using the registry order (AllLeaderboards).
+	for _, def := range AllLeaderboards {
+		if g, ok := groups[def.Key]; ok && g.current != nil {
+			stat := PlayerStat{
+				Def:     def,
+				Current: *g.current,
+			}
+			if g.previous != nil {
+				stat.HasPrev = true
+				stat.PrevVal = g.previous.Value
+			}
+
+			// Calculate rank
+			rows := GetLeaderboardRows(def.Key, g.current.SnapDate)
+			for i, r := range rows {
+				if r.Player == playerID {
+					stat.Rank = i + 1
+					break
+				}
+			}
+
+			out = append(out, stat)
+		}
+	}
+	return out
+}

@@ -182,10 +182,10 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64) (string,
 	infos := make([]rowInfo, 0, len(rows))
 
 	for i, r := range rows {
-		valStr := formatValue(def.ValueFmt, r.Value)
+		valStr := FormatLBValue(def.ValueFmt, r.Value)
 		deltaStr := ""
 		if prevVal, ok := prevMap[r.Player]; ok {
-			deltaStr = formatDelta(def.ValueFmt, r.Value-prevVal)
+			deltaStr = FormatLBDelta(def.ValueFmt, r.Value-prevVal)
 		}
 
 		infos = append(infos, rowInfo{
@@ -243,8 +243,8 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64) (string,
 	return colHeader, rowLines, footer
 }
 
-// formatValue formats a numeric leaderboard value according to the LBDef.ValueFmt.
-func formatValue(fmt_ string, v float64) string {
+// FormatLBValue formats a numeric leaderboard value according to the LBDef.ValueFmt.
+func FormatLBValue(fmt_ string, v float64) string {
 	switch fmt_ {
 	case "int":
 		return fmt.Sprintf("%.0f", v)
@@ -262,8 +262,8 @@ func formatValue(fmt_ string, v float64) string {
 	}
 }
 
-// formatDelta formats a numeric difference from the previous week.
-func formatDelta(fmt_ string, delta float64) string {
+// FormatLBDelta formats a numeric difference from the previous week.
+func FormatLBDelta(fmt_ string, delta float64) string {
 	if delta == 0 {
 		return ""
 	}
@@ -273,6 +273,6 @@ func formatDelta(fmt_ string, delta float64) string {
 		delta = -delta
 	}
 
-	valStr := formatValue(fmt_, delta)
+	valStr := FormatLBValue(fmt_, delta)
 	return sign + valStr
 }
