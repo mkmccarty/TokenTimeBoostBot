@@ -189,7 +189,7 @@ func RunCalculators(
 
 		{
 			totalCXP := 0.0
-			if backup != nil && backup.GetContracts() != nil && backup.GetContracts().GetLastCpi() != nil {
+			if backup.GetContracts() != nil && backup.GetContracts().GetLastCpi() != nil {
 				totalCXP = backup.GetContracts().GetLastCpi().GetTotalCxp()
 			}
 			if archive != nil {

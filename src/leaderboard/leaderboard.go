@@ -113,12 +113,12 @@ var AllGroups = []LBGroup{
 	{
 		Key:         "group_core",
 		DisplayName: "Core Stats",
-		Members:     []string{LBSoulEggs, LBProphecyEggs, LBEarningsBonus, LBContractExp, LBVirtueShifts, LBTETotal, LBCXPWeeklyDelta},
+		Members:     []string{LBSoulEggs, LBProphecyEggs, LBTETotal, LBEarningsBonus, LBVirtueShifts, LBContractExp, LBCXPWeeklyDelta},
 	},
 	{
 		Key:         "group_misc",
 		DisplayName: "Miscellaneous Stats",
-		Members:     []string{LBDrones, LBEliteDrones, LBPrestiges, LBSoulMirrors},
+		Members:     []string{LBPrestiges, LBDrones, LBEliteDrones, LBSoulMirrors},
 	},
 }
 
