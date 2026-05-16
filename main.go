@@ -28,6 +28,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/menno"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/mint"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/server"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/tasks"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/version"
 	"github.com/natefinch/lumberjack/v3"
@@ -121,6 +122,8 @@ const slashUploadBanner string = "upload-banner"
 const slashAvailability string = "availability"
 const slashAdminLB string = "admin-lb"
 const slashLBPlayer string = "lb"
+const slashChill string = "chill"
+const slashRoll string = "roll"
 
 // const slashSignup string = "signup"
 var s *discordgo.Session
@@ -703,6 +706,18 @@ func setupCommands() {
 		AppCmd:   boost.GetSlashAvailabilityCommand(slashAvailability),
 		Category: CmdCategoryStandard,
 		Handler:  boost.HandleAvailabilityCommand,
+	})
+
+	commandRegistry = append(commandRegistry, CommandDef{
+		AppCmd:   server.GetSlashChillCommand(slashChill),
+		Category: CmdCategoryStandard,
+		Handler:  server.HandleChillCommand,
+	})
+
+	commandRegistry = append(commandRegistry, CommandDef{
+		AppCmd:   server.GetSlashChillCommand(slashRoll),
+		Category: CmdCategoryStandard,
+		Handler:  server.HandleChillCommand,
 	})
 
 	commandRegistry = append(commandRegistry, CommandDef{
