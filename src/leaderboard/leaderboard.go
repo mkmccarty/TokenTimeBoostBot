@@ -184,24 +184,46 @@ func init() {
 		if !ok {
 			continue
 		}
-		
+
 		stdKey := fmt.Sprintf("std_ship_%d", i)
 		virtueKey := fmt.Sprintf("ship_%d", i)
-		
+
 		// Map specific IDs to our constants for compatibility
 		switch i {
 		case 0: // Skip tutorial
-		case 1: stdKey = LBShipStdChicken1; virtueKey = LBShipChicken1
-		case 2: stdKey = LBShipStdChicken9; virtueKey = LBShipChicken9
-		case 3: stdKey = LBShipStdChickenHeavy; virtueKey = LBShipChickenHeavy
-		case 4: stdKey = LBShipStdBCR; virtueKey = LBShipBCR
-		case 5: stdKey = LBShipStdMilleniumChicken; virtueKey = LBShipMilleniumChicken
-		case 6: stdKey = LBShipStdCorellihenCorvette; virtueKey = LBShipCorellihenCorvette
-		case 7: stdKey = LBShipStdGaleggtica; virtueKey = LBShipGaleggtica
-		case 8: stdKey = LBShipStdDefihent; virtueKey = LBShipDefihent
-		case 9: stdKey = LBShipStdVoyegger; virtueKey = LBShipStdVoyegger
-		case 10: stdKey = LBShipStdHenerprise; virtueKey = LBShipHenerprise
-		case 11: stdKey = LBShipStdAtreggies; virtueKey = LBShipAtreggies
+		case 1:
+			stdKey = LBShipStdChicken1
+			virtueKey = LBShipChicken1
+		case 2:
+			stdKey = LBShipStdChicken9
+			virtueKey = LBShipChicken9
+		case 3:
+			stdKey = LBShipStdChickenHeavy
+			virtueKey = LBShipChickenHeavy
+		case 4:
+			stdKey = LBShipStdBCR
+			virtueKey = LBShipBCR
+		case 5:
+			stdKey = LBShipStdMilleniumChicken
+			virtueKey = LBShipMilleniumChicken
+		case 6:
+			stdKey = LBShipStdCorellihenCorvette
+			virtueKey = LBShipCorellihenCorvette
+		case 7:
+			stdKey = LBShipStdGaleggtica
+			virtueKey = LBShipGaleggtica
+		case 8:
+			stdKey = LBShipStdDefihent
+			virtueKey = LBShipDefihent
+		case 9:
+			stdKey = LBShipStdVoyegger
+			virtueKey = LBShipStdVoyegger
+		case 10:
+			stdKey = LBShipStdHenerprise
+			virtueKey = LBShipHenerprise
+		case 11:
+			stdKey = LBShipStdAtreggies
+			virtueKey = LBShipAtreggies
 		}
 
 		AllLeaderboards = append(AllLeaderboards, LBDef{
