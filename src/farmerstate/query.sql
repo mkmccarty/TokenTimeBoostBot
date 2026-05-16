@@ -35,6 +35,11 @@ FROM farmer_state
 WHERE json_extract(value, '$.MiscSettingsString.' || ?) = ?
   AND json_extract(value, '$.MiscSettingsString.ei_ign') IS NOT NULL;
 
+-- name: GetIdsByMiscString :many
+SELECT id
+FROM farmer_state
+WHERE json_extract(value, '$.MiscSettingsString.' || ?) = ?;
+
 -- name: GetUserIdFromEiIgn :one
 SELECT
     id

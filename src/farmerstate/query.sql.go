@@ -43,6 +43,16 @@ func (q *Queries) ClearExtraLegacyRecords(ctx context.Context) error {
 	return err
 }
 
+const deleteAllLeaderboardStatsForPlayer = `-- name: DeleteAllLeaderboardStatsForPlayer :exec
+DELETE FROM leaderboard_stats
+WHERE player = ?
+`
+
+func (q *Queries) DeleteAllLeaderboardStatsForPlayer(ctx context.Context, player string) error {
+	_, err := q.db.ExecContext(ctx, deleteAllLeaderboardStatsForPlayer, player)
+	return err
+}
+
 const deleteCustomBanner = `-- name: DeleteCustomBanner :exec
 DELETE FROM custom_banners WHERE user_id = ? AND guild_id = ?
 `
@@ -83,6 +93,21 @@ DELETE FROM timers WHERE active = 0
 
 func (q *Queries) DeleteInactiveTimers(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, deleteInactiveTimers)
+	return err
+}
+
+const deleteLeaderboardStatsForPlayer = `-- name: DeleteLeaderboardStatsForPlayer :exec
+DELETE FROM leaderboard_stats
+WHERE player = ? AND lb_type = ?
+`
+
+type DeleteLeaderboardStatsForPlayerParams struct {
+	Player string
+	LbType string
+}
+
+func (q *Queries) DeleteLeaderboardStatsForPlayer(ctx context.Context, arg DeleteLeaderboardStatsForPlayerParams) error {
+	_, err := q.db.ExecContext(ctx, deleteLeaderboardStatsForPlayer, arg.Player, arg.LbType)
 	return err
 }
 
@@ -238,6 +263,40 @@ func (q *Queries) GetGuildMembers(ctx context.Context, guildID string) ([]string
 			return nil, err
 		}
 		items = append(items, user_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getIdsByMiscString = `-- name: GetIdsByMiscString :many
+SELECT id
+FROM farmer_state
+WHERE json_extract(value, '$.MiscSettingsString.' || ?) = ?
+`
+
+type GetIdsByMiscStringParams struct {
+	Column1 sql.NullString
+	Value   sql.NullString
+}
+
+func (q *Queries) GetIdsByMiscString(ctx context.Context, arg GetIdsByMiscStringParams) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getIdsByMiscString, arg.Column1, arg.Value)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

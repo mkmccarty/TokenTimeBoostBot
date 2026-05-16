@@ -112,9 +112,6 @@ func GetDressedEarningsBonus(backup *Backup, eov float64) float64 {
 		bobSlots, _ := GetStones(ArtifactSpec_BOOK_OF_BASAN, bestBoB.GetArtifact().GetSpec().GetLevel(), bestBoB.GetArtifact().GetSpec().GetRarity())
 		if equippedCount < 4 {
 			totalSlots += bobSlots
-		} else {
-			// Replace 4th if BoB is better? BoB itself adds bobBonus regardless of slots.
-			// But the slots are also valuable.
 		}
 	}
 
