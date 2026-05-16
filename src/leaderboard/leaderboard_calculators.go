@@ -159,6 +159,7 @@ func RunCalculators(
 
 		if game != nil {
 			emit(LBEntry{LBType: LBSoulEggs, Player: userID, GameName: gameName, SnapDate: snapDate, Value: game.GetSoulEggsD()})
+			emit(LBEntry{LBType: LBProphecyEggs, Player: userID, GameName: gameName, SnapDate: snapDate, Value: float64(game.GetEggsOfProphecy())})
 
 			// For Earnings Bonus, we need total Truth Eggs (EoV)
 			totalTE := 0.0
@@ -184,6 +185,16 @@ func RunCalculators(
 			emit(LBEntry{LBType: LBDrones, Player: userID, GameName: gameName, SnapDate: snapDate, Value: float64(stats.GetDroneTakedowns())})
 			emit(LBEntry{LBType: LBEliteDrones, Player: userID, GameName: gameName, SnapDate: snapDate, Value: float64(stats.GetDroneTakedownsElite())})
 			emit(LBEntry{LBType: LBPrestiges, Player: userID, GameName: gameName, SnapDate: snapDate, Value: float64(stats.GetNumPrestiges())})
+		}
+
+		if backup.GetContracts() != nil && backup.GetContracts().GetLastCpi() != nil {
+			emit(LBEntry{
+				LBType:   LBContractExp,
+				Player:   userID,
+				GameName: gameName,
+				SnapDate: snapDate,
+				Value:    backup.GetContracts().GetLastCpi().GetTotalCxp(),
+			})
 		}
 
 		// ── Soul Mirrors ──────────────────────────────────────────────────────

@@ -354,7 +354,7 @@ func (q *Queries) GetLatestLeaderboardSnapDate(ctx context.Context, lbType strin
 }
 
 const getLeaderboardForSnapDate = `-- name: GetLeaderboardForSnapDate :many
-SELECT s.player, s.game_name, s.value, s.details
+SELECT DISTINCT s.player, s.game_name, s.value, s.details
 FROM leaderboard_stats s
 JOIN leaderboard_optin o ON s.player = o.user_id AND (o.lb_type = s.lb_type OR o.lb_type = 'all')
 WHERE s.lb_type = ? AND o.guild_id = ? AND s.snap_date = ?
@@ -615,7 +615,7 @@ func (q *Queries) GetStatsForPlayer(ctx context.Context, player string) ([]Leade
 }
 
 const getStatsForPlayerInGuild = `-- name: GetStatsForPlayerInGuild :many
-SELECT s.lb_type, s.player, s.game_name, s.snap_date, s.value, s.details
+SELECT DISTINCT s.lb_type, s.player, s.game_name, s.snap_date, s.value, s.details
 FROM leaderboard_stats s
 JOIN leaderboard_optin o ON s.player = o.user_id AND (o.lb_type = s.lb_type OR o.lb_type = 'all')
 WHERE s.player = ? AND o.guild_id = ?
