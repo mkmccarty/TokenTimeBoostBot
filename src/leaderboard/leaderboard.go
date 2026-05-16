@@ -13,8 +13,6 @@ import (
 	"sort"
 	"strings"
 
-	_ "modernc.org/sqlite"
-
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
@@ -36,6 +34,7 @@ const (
 	LBEggsHumility   = "eggs_humility"
 	LBEggsResilience = "eggs_resilience"
 	LBEggsKindness   = "eggs_kindness"
+	LBEggsTotal      = "eggs_total"
 
 	// VIRTUE missions only (MissionInfo_VIRTUE)
 	LBShipChicken1           = "ship_chicken1"
@@ -135,6 +134,7 @@ var AllLeaderboards = []LBDef{
 	{LBEggsHumility, "Humility Eggs Delivered", "Raw eggs delivered to Humility egg (detail: TE count)", SourceFirstContact, true, "ei"},
 	{LBEggsResilience, "Resilience Eggs Delivered", "Raw eggs delivered to Resilience egg (detail: TE count)", SourceFirstContact, true, "ei"},
 	{LBEggsKindness, "Kindness Eggs Delivered", "Raw eggs delivered to Kindness egg (detail: TE count)", SourceFirstContact, true, "ei"},
+	{LBEggsTotal, "Total Virtue Eggs Delivered", "Sum of raw eggs delivered across all five virtue eggs", SourceFirstContact, true, "ei"},
 
 	// ── Ship launches — VIRTUE missions only ─────────────────────────────────
 	{LBShipChicken1, "Chicken One Launches (Virtue)", "VIRTUE mission launches: Chicken One", SourceFirstContact, true, "int"},
@@ -212,7 +212,7 @@ var AllGroups = []LBGroup{
 		Key:         "group_eggs_virtue",
 		DisplayName: "Virtue Egg Deliveries (all 5 eggs)",
 		Members: []string{
-			LBEggsCuriosity, LBEggsIntegrity, LBEggsHumility,
+			LBEggsTotal, LBEggsCuriosity, LBEggsIntegrity, LBEggsHumility,
 			LBEggsResilience, LBEggsKindness,
 		},
 	},

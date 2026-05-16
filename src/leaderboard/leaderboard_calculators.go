@@ -137,13 +137,16 @@ func RunCalculators(
 			}
 		}
 
-		// Total TE across all 5 eggs
-		if isOptedIn(LBTETotal) {
-			total := 0
+		// Total TE & raw eggs across all 5 virtue eggs
+		{
+			totalTE := 0
+			totalEggs := 0.0
 			for i := 0; i < 5 && i < len(deliveries); i++ {
-				total += int(ei.CountTruthEggTiersPassed(deliveries[i]))
+				totalTE += int(ei.CountTruthEggTiersPassed(deliveries[i]))
+				totalEggs += deliveries[i]
 			}
-			emit(LBEntry{LBType: LBTETotal, Player: userID, GameName: gameName, SnapDate: snapDate, Value: float64(total)})
+			emit(LBEntry{LBType: LBTETotal, Player: userID, GameName: gameName, SnapDate: snapDate, Value: float64(totalTE)})
+			emit(LBEntry{LBType: LBEggsTotal, Player: userID, GameName: gameName, SnapDate: snapDate, Value: totalEggs})
 		}
 	}
 

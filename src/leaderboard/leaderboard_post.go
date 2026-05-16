@@ -3,6 +3,7 @@ package leaderboard
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,118 +54,217 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, onP
 			onProgress(fmt.Sprintf("📬 Guild %s: Updating %s...", cfg.GuildID, def.DisplayName))
 		}
 
-		allRows := GetLeaderboardRows(lbType, snapDate)
-		if len(allRows) == 0 {
-			log.Printf("leaderboard: no data for %s on %s - skipping for guild %s",
-				lbType, snapDate, cfg.GuildID)
-			msgIDOffset++
-			continue
-		}
-
-		// Fetch previous week's rows for delta calculation.
-		prevSnapDate := GetPreviousSnapDate(lbType, snapDate)
-		prevMap := make(map[string]float64)
-		if prevSnapDate != "" {
-			prevRows := GetLeaderboardRows(lbType, prevSnapDate)
-			for _, r := range prevRows {
-				prevMap[r.Player] = r.Value
-			}
-		}
-
-		// Filter to guild members.
-		guildMemberIgns := farmerstate.GetEiIgnsByGuild(cfg.GuildID)
-		guildIgnSet := make(map[string]struct{}, len(guildMemberIgns))
-		for _, ign := range guildMemberIgns {
-			guildIgnSet[ign] = struct{}{}
-		}
-		// Filter to guild members and skip 0-value ship entries.
-		isShipLB := strings.HasPrefix(lbType, "ship_") || strings.HasPrefix(lbType, "std_ship_")
-		var guildRows []LBEntry
-		for _, row := range allRows {
-			inGuild := false
-			if len(guildMemberIgns) == 0 {
-				inGuild = true
-			} else {
-				nameToMatch := strings.TrimSuffix(row.GameName, " (SP)")
-				_, inGuild = guildIgnSet[nameToMatch]
-			}
-
-			if !inGuild {
-				continue
-			}
-
-			if isShipLB && row.Value == 0 {
-				continue
-			}
-
-			guildRows = append(guildRows, row)
-		}
-
-		if len(guildRows) == 0 {
-			log.Printf("leaderboard: no eligible guild members for %s in guild %s", lbType, cfg.GuildID)
-			msgIDOffset++
-			continue
-		}
-
-		blocks := buildMessageBlocks(def, guildRows, snapDate, prevMap)
-		for _, text := range blocks {
-			components := []discordgo.MessageComponent{
-				&discordgo.TextDisplay{Content: text},
-			}
-			flags := discordgo.MessageFlagsIsComponentsV2
-
-			if !forceNewPosts && msgIDOffset < len(cfg.MessageIDs) {
-				msgID := cfg.MessageIDs[msgIDOffset]
-				edit := discordgo.MessageEdit{
-					ID:         msgID,
-					Channel:    cfg.ChannelID,
-					Components: &components,
-					Flags:      flags,
-				}
-				if _, err := s.ChannelMessageEditComplex(&edit); err != nil {
-					log.Printf("leaderboard: failed to edit message %s: %v", msgID, err)
-
-					if isChannelNotFound(err) {
-						log.Printf("leaderboard: channel %s not found for guild %s - deleting config", cfg.ChannelID, cfg.GuildID)
-						_ = DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
-						return
-					}
-
-					// If the message was deleted (10008), force new posts for the rest to keep order.
-					if rerr, ok := err.(*discordgo.RESTError); ok && rerr.Message.Code == 10008 {
-						forceNewPosts = true
-					}
-
-					if msg, err := sendNewLBMessage(s, cfg.ChannelID, components, flags); err == nil {
-						newMsgIDs = append(newMsgIDs, msg.ID)
-					} else {
-						if isChannelNotFound(err) {
-							log.Printf("leaderboard: channel %s not found for guild %s - deleting config", cfg.ChannelID, cfg.GuildID)
-							_ = DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
-							return
-						}
-					}
-				} else {
-					newMsgIDs = append(newMsgIDs, msgID)
-				}
-			} else {
-				if msg, err := sendNewLBMessage(s, cfg.ChannelID, components, flags); err == nil {
-					newMsgIDs = append(newMsgIDs, msg.ID)
-				} else {
-					log.Printf("leaderboard: failed to post to channel %s: %v", cfg.ChannelID, err)
-					if isChannelNotFound(err) {
-						log.Printf("leaderboard: channel %s not found for guild %s - deleting config", cfg.ChannelID, cfg.GuildID)
-						_ = DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
-						return
-					}
-				}
-			}
-			msgIDOffset++
-			time.Sleep(1 * time.Second) // Conservative delay to allow room for concurrent bot activities
-		}
+		postSingleMetric(s, cfg, lbType, snapDate, &newMsgIDs, &msgIDOffset, &forceNewPosts)
+		time.Sleep(1 * time.Second) // Conservative delay to allow room for concurrent bot activities
 	}
 
 	UpdateGuildLBConfigMessageIDs(cfg.GuildID, cfg.LBType, newMsgIDs)
+}
+
+func getGuildRows(lbType string, snapDate string, guildID string) ([]LBEntry, map[string]float64) {
+	allRows := GetLeaderboardRows(lbType, snapDate)
+	prevSnapDate := GetPreviousSnapDate(lbType, snapDate)
+	prevMap := make(map[string]float64)
+	if prevSnapDate != "" {
+		prevRows := GetLeaderboardRows(lbType, prevSnapDate)
+		for _, r := range prevRows {
+			prevMap[r.Player] = r.Value
+		}
+	}
+
+	guildMemberIgns := farmerstate.GetEiIgnsByGuild(guildID)
+	guildIgnSet := make(map[string]struct{}, len(guildMemberIgns))
+	for _, ign := range guildMemberIgns {
+		guildIgnSet[ign] = struct{}{}
+	}
+
+	isShipLB := strings.HasPrefix(lbType, "ship_") || strings.HasPrefix(lbType, "std_ship_")
+	var guildRows []LBEntry
+	for _, row := range allRows {
+		nameToMatch := strings.TrimSuffix(row.GameName, " (SP)")
+		inGuild := false
+		if len(guildMemberIgns) == 0 {
+			inGuild = true
+		} else {
+			_, inGuild = guildIgnSet[nameToMatch]
+		}
+
+		if !inGuild {
+			continue
+		}
+
+		if isShipLB && row.Value == 0 {
+			continue
+		}
+
+		guildRows = append(guildRows, row)
+	}
+	return guildRows, prevMap
+}
+
+func postSingleMetric(s *discordgo.Session, cfg LBConfig, lbType, snapDate string, newMsgIDs *[]string, msgIDOffset *int, forceNewPosts *bool) {
+	def, _ := LBDefByKey(lbType)
+	guildRows, prevMap := getGuildRows(lbType, snapDate, cfg.GuildID)
+
+	if len(guildRows) == 0 {
+		log.Printf("leaderboard: no eligible guild members for %s in guild %s", lbType, cfg.GuildID)
+		*msgIDOffset++
+		return
+	}
+
+	pageSize := 50
+	usePagination := len(guildRows) > pageSize
+	page := 0
+
+	displayRows := guildRows
+	if usePagination {
+		displayRows = guildRows[:pageSize]
+	}
+
+	blocks := buildMessageBlocks(def, displayRows, snapDate, prevMap, 0)
+
+	// If using pagination, we enforce ONE message for the page.
+	if usePagination && len(blocks) > 1 {
+		// Truncate rows until it fits in one block?
+		// For now, let's just use the first block and add buttons.
+		blocks = blocks[:1]
+	}
+
+	for _, text := range blocks {
+		var components []discordgo.MessageComponent
+		if usePagination {
+			components = []discordgo.MessageComponent{
+				discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.Button{
+							Label:    "Previous",
+							Style:    discordgo.SecondaryButton,
+							CustomID: fmt.Sprintf("lb_p#%s#%s#%d", lbType, snapDate, page-1),
+							Disabled: true,
+						},
+						discordgo.Button{
+							Label:    "Next",
+							Style:    discordgo.SecondaryButton,
+							CustomID: fmt.Sprintf("lb_p#%s#%s#%d", lbType, snapDate, page+1),
+							Disabled: false,
+						},
+					},
+				},
+			}
+		} else {
+			components = []discordgo.MessageComponent{
+				&discordgo.TextDisplay{Content: text},
+			}
+		}
+
+		flags := discordgo.MessageFlagsIsComponentsV2
+		if !*forceNewPosts && *msgIDOffset < len(cfg.MessageIDs) {
+			msgID := cfg.MessageIDs[*msgIDOffset]
+			edit := discordgo.MessageEdit{
+				ID:         msgID,
+				Channel:    cfg.ChannelID,
+				Components: &components,
+				Flags:      flags,
+			}
+			if _, err := s.ChannelMessageEditComplex(&edit); err != nil {
+				log.Printf("leaderboard: failed to edit message %s: %v", msgID, err)
+				if isChannelNotFound(err) {
+					log.Printf("leaderboard: channel %s not found for guild %s - deleting config", cfg.ChannelID, cfg.GuildID)
+					_ = DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
+					return
+				}
+				if rerr, ok := err.(*discordgo.RESTError); ok && rerr.Message.Code == 10008 {
+					*forceNewPosts = true
+				}
+				if msg, err := sendNewLBMessage(s, cfg.ChannelID, components, flags); err == nil {
+					*newMsgIDs = append(*newMsgIDs, msg.ID)
+				} else if isChannelNotFound(err) {
+					log.Printf("leaderboard: channel %s not found for guild %s - deleting config", cfg.ChannelID, cfg.GuildID)
+					_ = DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
+					return
+				}
+			} else {
+				*newMsgIDs = append(*newMsgIDs, msgID)
+			}
+		} else {
+			if msg, err := sendNewLBMessage(s, cfg.ChannelID, components, flags); err == nil {
+				*newMsgIDs = append(*newMsgIDs, msg.ID)
+			} else if isChannelNotFound(err) {
+				log.Printf("leaderboard: channel %s not found for guild %s - deleting config", cfg.ChannelID, cfg.GuildID)
+				_ = DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
+				return
+			} else {
+				log.Printf("leaderboard: failed to post to channel %s: %v", cfg.ChannelID, err)
+			}
+		}
+		*msgIDOffset++
+	}
+}
+
+// HandleLBPageButton handles pagination buttons for leaderboard posts.
+func HandleLBPageButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	customID := i.MessageComponentData().CustomID
+	parts := strings.Split(customID, "#")
+	if len(parts) < 4 {
+		return
+	}
+	lbType := parts[1]
+	snapDate := parts[2]
+	page, _ := strconv.Atoi(parts[3])
+
+	def, ok := LBDefByKey(lbType)
+	if !ok {
+		return
+	}
+
+	guildRows, prevMap := getGuildRows(lbType, snapDate, i.GuildID)
+	pageSize := 50
+	start := page * pageSize
+	if start < 0 {
+		start = 0
+		page = 0
+	}
+	end := start + pageSize
+	if end > len(guildRows) {
+		end = len(guildRows)
+	}
+
+	displayRows := guildRows[start:end]
+	blocks := buildMessageBlocks(def, displayRows, snapDate, prevMap, start)
+	if len(blocks) == 0 {
+		return
+	}
+
+	// Use only the first block for paginated view to ensure consistent button behavior.
+	text := blocks[0]
+
+	components := []discordgo.MessageComponent{
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{
+					Label:    "Previous",
+					Style:    discordgo.SecondaryButton,
+					CustomID: fmt.Sprintf("lb_p#%s#%s#%d", lbType, snapDate, page-1),
+					Disabled: page <= 0,
+				},
+				discordgo.Button{
+					Label:    "Next",
+					Style:    discordgo.SecondaryButton,
+					CustomID: fmt.Sprintf("lb_p#%s#%s#%d", lbType, snapDate, page+1),
+					Disabled: end >= len(guildRows),
+				},
+			},
+		},
+	}
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseUpdateMessage,
+		Data: &discordgo.InteractionResponseData{
+			Content:    text,
+			Components: components,
+			Flags:      discordgo.MessageFlagsIsComponentsV2,
+		},
+	})
 }
 
 func sendNewLBMessage(s *discordgo.Session, channelID string, components []discordgo.MessageComponent, flags discordgo.MessageFlags) (*discordgo.Message, error) {
@@ -186,14 +286,14 @@ func isChannelNotFound(err error) bool {
 
 // buildMessageBlocks formats the leaderboard rows into one or more text blocks
 // that each fit within discordMessageCharLimit.
-func buildMessageBlocks(def LBDef, rows []LBEntry, snapDate string, prevMap map[string]float64) []string {
+func buildMessageBlocks(def LBDef, rows []LBEntry, snapDate string, prevMap map[string]float64, rankOffset int) []string {
 	header := fmt.Sprintf("## 🏆 %s — Week of %s\n", def.DisplayName, snapDate)
 	if def.Description != "" {
 		header += fmt.Sprintf("> %s\n", def.Description)
 	}
 	header += "\n"
 
-	colHeader, rowLines, footer := renderTable(def, rows, prevMap)
+	colHeader, rowLines, footer := renderTable(def, rows, prevMap, rankOffset)
 
 	var blocks []string
 	current := header + colHeader
@@ -213,13 +313,13 @@ func buildMessageBlocks(def LBDef, rows []LBEntry, snapDate string, prevMap map[
 }
 
 // renderTable returns the header, row lines, and footer for a leaderboard table.
-func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64) (string, []string, string) {
+func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffset int) (string, []string, string) {
 	if len(rows) == 0 {
 		return "", nil, ""
 	}
 
 	isEB := def.Key == LBEarningsBonus
-	maxRank := len(rows)
+	maxRank := len(rows) + rankOffset
 	rankWidth := len(fmt.Sprintf("%d", maxRank))
 	if rankWidth < 2 {
 		rankWidth = 2
@@ -263,7 +363,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64) (string,
 		}
 
 		infos = append(infos, rowInfo{
-			rank:          i + 1,
+			rank:          i + 1 + rankOffset,
 			row:           r,
 			valStr:        valStr,
 			dressedValStr: dressedValStr,
@@ -352,14 +452,13 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64) (string,
 }
 
 // FormatLBValue formats a numeric leaderboard value according to the LBDef.ValueFmt.
-func FormatLBValue(fmt_ string, v float64) string {
-	switch fmt_ {
+func FormatLBValue(fmtValue string, v float64) string {
+	switch fmtValue {
 	case "int":
 		return fmt.Sprintf("%.0f", v)
 	case "float":
 		return fmt.Sprintf("%.2f", v)
 	case "ei":
-		// Use the same formatting as virtue.go — EI large-number display.
 		return ei.FormatEIValue(v, map[string]any{"decimals": 3, "trim": true})
 	case "eb":
 		return ei.FormatEIValue(v, map[string]any{"decimals": 3, "trim": true}) + "%"
@@ -371,7 +470,7 @@ func FormatLBValue(fmt_ string, v float64) string {
 }
 
 // FormatLBDelta formats a numeric difference from the previous week.
-func FormatLBDelta(fmt_ string, delta float64) string {
+func FormatLBDelta(fmtValue string, delta float64) string {
 	if delta == 0 {
 		return ""
 	}
@@ -381,6 +480,6 @@ func FormatLBDelta(fmt_ string, delta float64) string {
 		delta = -delta
 	}
 
-	valStr := FormatLBValue(fmt_, delta)
+	valStr := FormatLBValue(fmtValue, delta)
 	return sign + valStr
 }

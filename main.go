@@ -119,7 +119,8 @@ const slashPred string = "pred"
 const slashMint string = "mint"
 const slashUploadBanner string = "upload-banner"
 const slashAvailability string = "availability"
-const slashBockLeaderboard string = "bock-leaderboard"
+const slashAdminLB string = "admin-lb"
+const slashLBPlayer string = "lb"
 
 // const slashSignup string = "signup"
 var s *discordgo.Session
@@ -295,6 +296,7 @@ var (
 		"chart":               boost.HandleChartReactions,
 		"lb_list":             leaderboard.HandleLBListComponent,
 		"lb_stats":            leaderboard.HandleLBStatsComponent,
+		"lb_p":                leaderboard.HandleLBPageButton,
 	}
 )
 
@@ -704,10 +706,16 @@ func setupCommands() {
 	})
 
 	commandRegistry = append(commandRegistry, CommandDef{
-		AppCmd:       leaderboard.GetSlashBockLeaderboardCommand(slashBockLeaderboard),
+		AppCmd:       leaderboard.GetSlashAdminLBCommand(slashAdminLB),
+		Category:     CmdCategoryAdmin,
+		Handler:      leaderboard.HandleAdminLB,
+		Autocomplete: leaderboard.HandleAdminLBAutoComplete,
+	})
+	commandRegistry = append(commandRegistry, CommandDef{
+		AppCmd:       leaderboard.GetSlashLBPlayerCommand(slashLBPlayer),
 		Category:     CmdCategoryStandard,
-		Handler:      leaderboard.HandleBockLeaderboard,
-		Autocomplete: leaderboard.HandleBockLeaderboardAutoComplete,
+		Handler:      leaderboard.HandleLBPlayer,
+		Autocomplete: leaderboard.HandleLBPlayerAutoComplete,
 	})
 
 	for _, def := range commandRegistry {
