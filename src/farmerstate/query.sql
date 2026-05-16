@@ -127,16 +127,37 @@ INSERT OR IGNORE INTO suspect_missions (
 SELECT * FROM suspect_missions WHERE user_id = ?;
 
 -- name: GetLeaderboardOptInUsers :many
--- Returns all Discord user IDs whose leaderboard_optin setting is non-empty.
-SELECT id FROM farmer_state
-WHERE json_extract(value, '$.MiscSettingsString.leaderboard_optin') IS NOT NULL
-  AND json_extract(value, '$.MiscSettingsString.leaderboard_optin') != '';
+-- Returns all Discord user IDs who have at least one opt-in in any guild.
+SELECT DISTINCT user_id FROM leaderboard_optin;
+
+-- name: GetLeaderboardOptInsForUser :many
+-- Returns all (guild_id, lb_type) pairs for a given user.
+SELECT guild_id, lb_type FROM leaderboard_optin
+WHERE user_id = ?;
+
+-- name: GetLeaderboardOptInsForGuild :many
+-- Returns all (user_id, lb_type) pairs for a given guild.
+SELECT user_id, lb_type FROM leaderboard_optin
+WHERE guild_id = ?;
+
+-- name: UpsertLeaderboardOptIn :exec
+INSERT INTO leaderboard_optin (guild_id, user_id, lb_type)
+VALUES (?, ?, ?)
+ON CONFLICT(guild_id, user_id, lb_type) DO NOTHING;
+
+-- name: DeleteLeaderboardOptIn :exec
+DELETE FROM leaderboard_optin
+WHERE guild_id = ? AND user_id = ? AND lb_type = ?;
+
+-- name: DeleteAllLeaderboardOptInsForUserInGuild :exec
+DELETE FROM leaderboard_optin
+WHERE guild_id = ? AND user_id = ?;
 
 -- name: UpsertLeaderboardStat :exec
--- Inserts or replaces a leaderboard snapshot for (lb_type, player, snap_date).
-INSERT INTO leaderboard_stats (lb_type, player, game_name, snap_date, value, details)
-VALUES (?, ?, ?, ?, ?, ?)
-ON CONFLICT(lb_type, player, snap_date) DO UPDATE SET
+-- Inserts or replaces a leaderboard snapshot for (lb_type, player, guild_id, snap_date).
+INSERT INTO leaderboard_stats (lb_type, player, guild_id, game_name, snap_date, value, details)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(lb_type, player, guild_id, snap_date) DO UPDATE SET
     game_name = excluded.game_name,
     value     = excluded.value,
     details   = excluded.details;
@@ -149,36 +170,44 @@ ORDER BY snap_date DESC
 LIMIT 1;
 
 -- name: GetLeaderboardForSnapDate :many
--- Returns all rows for a given lb_type and snap_date, ordered by value descending.
+-- Returns all rows for a given lb_type, guild_id, and snap_date, ordered by value descending.
 SELECT player, game_name, value, details
 FROM leaderboard_stats
-WHERE lb_type = ? AND snap_date = ?
+WHERE lb_type = ? AND guild_id = ? AND snap_date = ?
 ORDER BY value DESC;
 
 -- name: GetLeaderboardStatForPlayer :one
--- Returns the most recent stat row for a player + lb_type (useful for CXP delta).
+-- Returns the most recent stat row for a player + lb_type + guild_id.
 SELECT player, game_name, snap_date, value, details
 FROM leaderboard_stats
-WHERE lb_type = ? AND player = ?
+WHERE lb_type = ? AND player = ? AND guild_id = ?
 ORDER BY snap_date DESC
 LIMIT 1;
 
 -- name: GetLeaderboardSnapDates :many
--- Returns all distinct snap_dates for a given lb_type, newest first.
+-- Returns all distinct snap_dates for a given lb_type and guild_id, newest first.
 SELECT DISTINCT snap_date FROM leaderboard_stats
-WHERE lb_type = ?
+WHERE lb_type = ? AND guild_id = ?
 ORDER BY snap_date DESC;
+
 -- name: GetStatsForPlayer :many
--- Returns all leaderboard stats for a specific player across all types, newest first.
-SELECT lb_type, player, game_name, snap_date, value, details
+-- Returns all leaderboard stats for a specific player across all types and guilds, newest first.
+SELECT lb_type, player, guild_id, game_name, snap_date, value, details
 FROM leaderboard_stats
 WHERE player = ?
 ORDER BY lb_type ASC, snap_date DESC;
 
+-- name: GetStatsForPlayerInGuild :many
+-- Returns all leaderboard stats for a specific player in a specific guild.
+SELECT lb_type, player, guild_id, game_name, snap_date, value, details
+FROM leaderboard_stats
+WHERE player = ? AND guild_id = ?
+ORDER BY lb_type ASC, snap_date DESC;
+
 -- name: DeleteLeaderboardStatsForPlayer :exec
 DELETE FROM leaderboard_stats
-WHERE player = ? AND lb_type = ?;
+WHERE player = ? AND lb_type = ? AND guild_id = ?;
 
--- name: DeleteAllLeaderboardStatsForPlayer :exec
+-- name: DeleteAllLeaderboardStatsForPlayerInGuild :exec
 DELETE FROM leaderboard_stats
-WHERE player = ?;
+WHERE player = ? AND guild_id = ?;

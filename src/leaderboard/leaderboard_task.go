@@ -127,27 +127,42 @@ func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, onProgress func
 
 // collectPlayer fetches API data for one player and saves leaderboard entries.
 func collectPlayer(s *discordgo.Session, userID, snapDate string) {
-	optedIn := GetPlayerOptInTypes(userID)
-	if len(optedIn) == 0 {
+	optRows, err := farmerstate.GetLeaderboardOptInsForUser(userID)
+	if err != nil || len(optRows) == 0 {
 		return
 	}
 
-	// Determine which API calls are needed.
+	// Map of guildID -> list of individual lb_type keys they opted into in that guild.
+	guildOptIns := make(map[string][]string)
+	allKeysSet := make(map[string]struct{})
+
+	for _, o := range optRows {
+		keys := ExpandConfigKey(o.LbType)
+		guildOptIns[o.GuildID] = append(guildOptIns[o.GuildID], keys...)
+		for _, k := range keys {
+			allKeysSet[k] = struct{}{}
+		}
+	}
+
+	var allKeys []string
+	for k := range allKeysSet {
+		allKeys = append(allKeys, k)
+	}
+
+	// Determine which API calls are needed based on the union of all opted-in types.
 	needsFirstContact := false
 	needsArchive := false
-	for _, key := range optedIn {
-		def, ok := LBDefByKey(key)
-		if !ok {
-			continue
-		}
-		switch def.Source {
-		case SourceFirstContact:
-			needsFirstContact = true
-		case SourceContractArchive:
-			needsArchive = true
-		case SourceBoth:
-			needsFirstContact = true
-			needsArchive = true
+	for k := range allKeysSet {
+		if def, ok := LBDefByKey(k); ok {
+			switch def.Source {
+			case SourceFirstContact:
+				needsFirstContact = true
+			case SourceContractArchive:
+				needsArchive = true
+			case SourceBoth:
+				needsFirstContact = true
+				needsArchive = true
+			}
 		}
 	}
 
@@ -178,11 +193,39 @@ func collectPlayer(s *discordgo.Session, userID, snapDate string) {
 		}
 	}
 
-	entries := RunCalculators(userID, backup, archive, optedIn, snapDate)
-	for _, e := range entries {
-		SaveLBEntry(e)
+	if backup == nil && archive == nil {
+		return
 	}
-	log.Printf("leaderboard: saved %d entries for user %s", len(entries), userID)
+
+	// For CXPWeeklyDelta, we need a prior total from ANY guild.
+	priorCXPTotal := 0.0
+	for guildID := range guildOptIns {
+		if prior := GetPriorStatForPlayer(LBCXPWeeklyDelta, userID, guildID); prior != nil {
+			if _, err := fmt.Sscanf(prior.Details, "total:%f", &priorCXPTotal); err == nil {
+				break
+			}
+		}
+	}
+
+	// Run calculators once for the union of all keys.
+	allEntries := RunCalculators(userID, backup, archive, allKeys, snapDate, priorCXPTotal)
+
+	// Now save for each guild, filtering by that guild's opt-ins.
+	for guildID, optTypes := range guildOptIns {
+		guildOptSet := make(map[string]struct{})
+		for _, t := range optTypes {
+			guildOptSet[t] = struct{}{}
+		}
+
+		savedCount := 0
+		for _, e := range allEntries {
+			if _, ok := guildOptSet[e.LBType]; ok {
+				SaveLBEntry(guildID, e)
+				savedCount++
+			}
+		}
+		log.Printf("leaderboard: saved %d entries for user %s in guild %s", savedCount, userID, guildID)
+	}
 }
 
 // ScheduleWeeklyCollection registers the Friday 15:00 PT collection cron job.

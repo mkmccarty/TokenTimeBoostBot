@@ -11,7 +11,6 @@ import (
 	"github.com/mattn/go-runewidth"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 const discordMessageCharLimit = 1900
@@ -62,34 +61,20 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, onP
 }
 
 func getGuildRows(lbType string, snapDate string, guildID string) ([]LBEntry, map[string]float64) {
-	allRows := GetLeaderboardRows(lbType, snapDate)
-	prevSnapDate := GetPreviousSnapDate(lbType, snapDate)
+	guildRows := GetLeaderboardRows(lbType, snapDate, guildID)
+	prevSnapDate := GetPreviousSnapDate(lbType, snapDate, guildID)
 	prevMap := make(map[string]float64)
 	if prevSnapDate != "" {
-		prevRows := GetLeaderboardRows(lbType, prevSnapDate)
+		prevRows := GetLeaderboardRows(lbType, prevSnapDate, guildID)
 		for _, r := range prevRows {
 			prevMap[r.Player] = r.Value
 		}
 	}
 
-	guildMemberIgns := farmerstate.GetEiIgnsByGuild(guildID)
-	guildIgnSet := make(map[string]struct{}, len(guildMemberIgns))
-	for _, ign := range guildMemberIgns {
-		guildIgnSet[ign] = struct{}{}
-	}
-
 	isShipLB := strings.HasPrefix(lbType, "ship_") || strings.HasPrefix(lbType, "std_ship_")
-	var guildRows []LBEntry
-	for _, row := range allRows {
-		nameToMatch := strings.TrimSuffix(row.GameName, " (SP)")
-		inGuild := false
-		if len(guildMemberIgns) == 0 {
-			inGuild = true
-		} else {
-			_, inGuild = guildIgnSet[nameToMatch]
-		}
-
-		if !inGuild {
+	var outRows []LBEntry
+	for _, row := range guildRows {
+		if !PlayerIsOptedIn(guildID, row.Player, lbType) {
 			continue
 		}
 
@@ -97,9 +82,9 @@ func getGuildRows(lbType string, snapDate string, guildID string) ([]LBEntry, ma
 			continue
 		}
 
-		guildRows = append(guildRows, row)
+		outRows = append(outRows, row)
 	}
-	return guildRows, prevMap
+	return outRows, prevMap
 }
 
 func postSingleMetric(s *discordgo.Session, cfg LBConfig, lbType, snapDate string, newMsgIDs *[]string, msgIDOffset *int, forceNewPosts *bool) {

@@ -59,12 +59,14 @@ var virtueEggIndex = map[string]int{
 // Pass nil for archive if only SourceFirstContact types are being evaluated.
 //
 // snapDate is the ISO date string "YYYY-MM-DD" for this collection run.
+// priorCXPTotal is the total CXP from the previous collection, used for delta calculation.
 func RunCalculators(
 	userID string,
 	backup *ei.Backup,
 	archive []*ei.LocalContract,
 	optedIn []string,
 	snapDate string,
+	priorCXPTotal float64,
 ) []LBEntry {
 	if backup == nil && archive == nil {
 		return nil
@@ -254,15 +256,9 @@ func RunCalculators(
 			}
 		}
 
-		// Look up previous week's stored total (kept in the details field).
-		prior := GetPriorStatForPlayer(LBCXPWeeklyDelta, userID)
 		delta := totalCXP // first run: delta = total
-		if prior != nil {
-			// Prior details stores the raw CXP total at that snapshot.
-			var priorTotal float64
-			if _, err := fmt.Sscanf(prior.Details, "total:%f", &priorTotal); err == nil {
-				delta = totalCXP - priorTotal
-			}
+		if priorCXPTotal > 0 {
+			delta = totalCXP - priorCXPTotal
 		}
 		emit(LBEntry{
 			LBType:   LBCXPWeeklyDelta,

@@ -1,180 +1,242 @@
-// Package leaderboard manages weekly farm stat leaderboards collected from the
-// Egg Inc first-contact API (and contract archive for CXP data). Adding a new
-// leaderboard type requires only:
-//  1. Define a new key constant below.
-//  2. Append a LBDef entry to AllLeaderboards.
-//  3. Write the calculator function in leaderboard_calculators.go.
 package leaderboard
 
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"sort"
-	"strings"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
 
-// ─── Leaderboard type keys ────────────────────────────────────────────────────
-// Each key must be unique and stable across deployments (it is the DB primary key).
+// ─── Leaderboard Registry ───────────────────────────────────────────────────
+
 const (
-	LBVirtueShifts = "virtue_shifts"
+	LBEarningsBonus  = "eb"
+	LBSoulEggs       = "soul_eggs"
+	LBProphecyEggs   = "prophecy_eggs"
+	LBTerrorEvents   = "terror_events"
+	LBEggsDelivered  = "eggs_delivered"
+	LBContractExp    = "contract_exp"
+	LBEggsTotal      = "eggs_total"
+	LBStandardPermit = "std_permit"
+	LBDrones         = "drones"
+	LBEliteDrones    = "elite_drones"
+	LBPrestiges      = "prestiges"
+	LBSoulMirrors    = "soul_mirrors"
+	LBVirtueShifts   = "virtue_shifts"
+	LBTETotal        = "te_total"
+	LBCXPWeeklyDelta = "cxp_weekly"
 
 	LBTECuriosity  = "te_curiosity"
 	LBTEIntegrity  = "te_integrity"
 	LBTEHumility   = "te_humility"
 	LBTEResilience = "te_resilience"
 	LBTEKindness   = "te_kindness"
-	LBTETotal      = "te_total"
 
-	LBEggsCuriosity  = "eggs_curiosity"
-	LBEggsIntegrity  = "eggs_integrity"
-	LBEggsHumility   = "eggs_humility"
-	LBEggsResilience = "eggs_resilience"
-	LBEggsKindness   = "eggs_kindness"
-	LBEggsTotal      = "eggs_total"
+	LBEggsCuriosity  = "egg_curiosity"
+	LBEggsIntegrity  = "egg_integrity"
+	LBEggsHumility   = "egg_humility"
+	LBEggsResilience = "egg_resilience"
+	LBEggsKindness   = "egg_kindness"
 
-	// VIRTUE missions only (MissionInfo_VIRTUE)
 	LBShipChicken1           = "ship_chicken1"
 	LBShipChicken9           = "ship_chicken9"
-	LBShipChickenHeavy       = "ship_chickenheavy"
+	LBShipChickenHeavy       = "ship_chicken_heavy"
 	LBShipBCR                = "ship_bcr"
-	LBShipMilleniumChicken   = "ship_milleniumchicken"
-	LBShipCorellihenCorvette = "ship_corellihencorvette"
+	LBShipMilleniumChicken   = "ship_millenium_chicken"
+	LBShipCorellihenCorvette = "ship_corvette"
 	LBShipGaleggtica         = "ship_galeggtica"
 	LBShipDefihent           = "ship_defihent"
 	LBShipVoyegger           = "ship_voyegger"
 	LBShipHenerprise         = "ship_henerprise"
 	LBShipAtreggies          = "ship_atreggies"
 
-	// Non-VIRTUE missions (all other mission types)
 	LBShipStdChicken1           = "std_ship_chicken1"
 	LBShipStdChicken9           = "std_ship_chicken9"
-	LBShipStdChickenHeavy       = "std_ship_chickenheavy"
+	LBShipStdChickenHeavy       = "std_ship_chicken_heavy"
 	LBShipStdBCR                = "std_ship_bcr"
-	LBShipStdMilleniumChicken   = "std_ship_milleniumchicken"
-	LBShipStdCorellihenCorvette = "std_ship_corellihencorvette"
+	LBShipStdMilleniumChicken   = "std_ship_millenium_chicken"
+	LBShipStdCorellihenCorvette = "std_ship_corvette"
 	LBShipStdGaleggtica         = "std_ship_galeggtica"
 	LBShipStdDefihent           = "std_ship_defihent"
 	LBShipStdVoyegger           = "std_ship_voyegger"
 	LBShipStdHenerprise         = "std_ship_henerprise"
 	LBShipStdAtreggies          = "std_ship_atreggies"
-
-	LBCXPWeeklyDelta = "cxp_weekly_delta"
-
-	LBSoulEggs      = "soul_eggs"
-	LBEarningsBonus = "earnings_bonus"
-	LBDrones        = "drones"
-	LBEliteDrones   = "elite_drones"
-	LBPrestiges     = "prestiges"
-	LBSoulMirrors   = "soul_mirrors"
 )
 
-// OptInAll is the sentinel value stored in farmerstate meaning "all leaderboards".
-const OptInAll = "ALL"
+// LBDef defines a single leaderboard metric.
+type LBDef struct {
+	Key            string
+	DisplayName    string
+	Description    string
+	ValueFmt       string // "int", "float", "ei", "eb", "cxp"
+	HigherIsBetter bool
+	Source         LBSource
+}
 
-// ─── Leaderboard definition ───────────────────────────────────────────────────
-
-// DataSource indicates which Egg Inc API calls a leaderboard type requires.
-type DataSource uint8
+type LBSource int
 
 const (
-	// SourceFirstContact requires only the first-contact backup.
-	SourceFirstContact DataSource = iota
-	// SourceContractArchive requires only the contract archive.
+	SourceFirstContact LBSource = iota
 	SourceContractArchive
-	// SourceBoth requires both calls.
 	SourceBoth
 )
 
-// LBDef describes a single leaderboard type in the registry.
-// To add a new type, append a LBDef to AllLeaderboards and add its calculator
-// to leaderboard_calculators.go.
-type LBDef struct {
-	// Key is the stable DB identifier (one of the LB* constants above).
-	Key string
-	// DisplayName is shown in Discord messages and slash-command choices.
+// LBGroup defines a collection of leaderboard metrics that are posted together.
+type LBGroup struct {
+	Key         string
 	DisplayName string
-	// Description is shown in the /bock-leaderboard player optin choice list.
-	Description string
-	// Source controls which API calls are made during the weekly collection task.
-	Source DataSource
-	// HigherIsBetter controls sort order (true = DESC, false = ASC).
-	HigherIsBetter bool
-	// ValueFmt controls how the value column is formatted in leaderboard tables.
-	// Options: "int", "float", "ei" (Egg Inc large number format), "cxp"
-	ValueFmt string
+	Members     []string // Slice of LBDef.Key
 }
 
-// AllLeaderboards is the authoritative registry of all leaderboard types.
-//
-// ─── HOW TO ADD A NEW LEADERBOARD ────────────────────────────────────────────
-//  1. Add a new key constant in the const block above (e.g. LBMyNewStat = "my_new_stat").
-//  2. Append a LBDef{} entry to this slice.
-//  3. Add a case for your key in the RunCalculators switch in leaderboard_calculators.go.
-//
-// ─────────────────────────────────────────────────────────────────────────────
+// AllLeaderboards is the registry of all available individual leaderboard types.
 var AllLeaderboards = []LBDef{
-	// ── Virtue farm stats (first-contact only) ────────────────────────────────
-	{LBVirtueShifts, "Virtue Shifts", "Total number of virtue egg shifts completed", SourceFirstContact, true, "int"},
-
-	// ── Truth Eggs by virtue egg (integer tier count) ─────────────────────────
-	{LBTECuriosity, "Curiosity Truth Eggs", "Truth Eggs earned from Curiosity egg", SourceFirstContact, true, "int"},
-	{LBTEIntegrity, "Integrity Truth Eggs", "Truth Eggs earned from Integrity egg", SourceFirstContact, true, "int"},
-	{LBTEHumility, "Humility Truth Eggs", "Truth Eggs earned from Humility egg", SourceFirstContact, true, "int"},
-	{LBTEResilience, "Resilience Truth Eggs", "Truth Eggs earned from Resilience egg", SourceFirstContact, true, "int"},
-	{LBTEKindness, "Kindness Truth Eggs", "Truth Eggs earned from Kindness egg", SourceFirstContact, true, "int"},
-	{LBTETotal, "Total Truth Eggs", "Sum of Truth Eggs across all five virtue eggs", SourceFirstContact, true, "int"},
-
-	// ── Raw eggs delivered per virtue egg (EI large-number format) ───────────
-	{LBEggsCuriosity, "Curiosity Eggs Delivered", "Raw eggs delivered to Curiosity egg (detail: TE count)", SourceFirstContact, true, "ei"},
-	{LBEggsIntegrity, "Integrity Eggs Delivered", "Raw eggs delivered to Integrity egg (detail: TE count)", SourceFirstContact, true, "ei"},
-	{LBEggsHumility, "Humility Eggs Delivered", "Raw eggs delivered to Humility egg (detail: TE count)", SourceFirstContact, true, "ei"},
-	{LBEggsResilience, "Resilience Eggs Delivered", "Raw eggs delivered to Resilience egg (detail: TE count)", SourceFirstContact, true, "ei"},
-	{LBEggsKindness, "Kindness Eggs Delivered", "Raw eggs delivered to Kindness egg (detail: TE count)", SourceFirstContact, true, "ei"},
-	{LBEggsTotal, "Total Virtue Eggs Delivered", "Sum of raw eggs delivered across all five virtue eggs", SourceFirstContact, true, "ei"},
-
-	// ── Ship launches — VIRTUE missions only ─────────────────────────────────
-	{LBShipChicken1, "Chicken One Launches (Virtue)", "VIRTUE mission launches: Chicken One", SourceFirstContact, true, "int"},
-	{LBShipChicken9, "Chicken Nine Launches (Virtue)", "VIRTUE mission launches: Chicken Nine", SourceFirstContact, true, "int"},
-	{LBShipChickenHeavy, "Chicken Heavy Launches (Virtue)", "VIRTUE mission launches: Chicken Heavy", SourceFirstContact, true, "int"},
-	{LBShipBCR, "BCR Launches (Virtue)", "VIRTUE mission launches: BCR", SourceFirstContact, true, "int"},
-	{LBShipMilleniumChicken, "Quintillion Chicken Launches (Virtue)", "VIRTUE mission launches: Quintillion Chicken", SourceFirstContact, true, "int"},
-	{LBShipCorellihenCorvette, "Cornish-Hen Corvette Launches (Virtue)", "VIRTUE mission launches: Cornish-Hen Corvette", SourceFirstContact, true, "int"},
-	{LBShipGaleggtica, "Galeggtica Launches (Virtue)", "VIRTUE mission launches: Galeggtica", SourceFirstContact, true, "int"},
-	{LBShipDefihent, "Defihent Launches (Virtue)", "VIRTUE mission launches: Defihent", SourceFirstContact, true, "int"},
-	{LBShipVoyegger, "Voyegger Launches (Virtue)", "VIRTUE mission launches: Voyegger", SourceFirstContact, true, "int"},
-	{LBShipHenerprise, "Henerprise Launches (Virtue)", "VIRTUE mission launches: Henerprise", SourceFirstContact, true, "int"},
-	{LBShipAtreggies, "Atreggies Henliner Launches (Virtue)", "VIRTUE mission launches: Atreggies Henliner", SourceFirstContact, true, "int"},
-
-	// ── Ship launches — standard (non-VIRTUE) missions ────────────────────────
-	{LBShipStdChicken1, "Chicken One Launches (Standard)", "Standard mission launches: Chicken One", SourceFirstContact, true, "int"},
-	{LBShipStdChicken9, "Chicken Nine Launches (Standard)", "Standard mission launches: Chicken Nine", SourceFirstContact, true, "int"},
-	{LBShipStdChickenHeavy, "Chicken Heavy Launches (Standard)", "Standard mission launches: Chicken Heavy", SourceFirstContact, true, "int"},
-	{LBShipStdBCR, "BCR Launches (Standard)", "Standard mission launches: BCR", SourceFirstContact, true, "int"},
-	{LBShipStdMilleniumChicken, "Quintillion Chicken Launches (Standard)", "Standard mission launches: Quintillion Chicken", SourceFirstContact, true, "int"},
-	{LBShipStdCorellihenCorvette, "Cornish-Hen Corvette Launches (Standard)", "Standard mission launches: Cornish-Hen Corvette", SourceFirstContact, true, "int"},
-	{LBShipStdGaleggtica, "Galeggtica Launches (Standard)", "Standard mission launches: Galeggtica", SourceFirstContact, true, "int"},
-	{LBShipStdDefihent, "Defihent Launches (Standard)", "Standard mission launches: Defihent", SourceFirstContact, true, "int"},
-	{LBShipStdVoyegger, "Voyegger Launches (Standard)", "Standard mission launches: Voyegger", SourceFirstContact, true, "int"},
-	{LBShipStdHenerprise, "Henerprise Launches (Standard)", "Standard mission launches: Henerprise", SourceFirstContact, true, "int"},
-	{LBShipStdAtreggies, "Atreggies Henliner Launches (Standard)", "Standard mission launches: Atreggies Henliner", SourceFirstContact, true, "int"},
-
-	// ── Contract score (requires contract archive) ────────────────────────────
-	{LBCXPWeeklyDelta, "Weekly CXP Change", "Change in accumulated Contract Score (CXP) since last week", SourceContractArchive, true, "cxp"},
-
-	// ── Prestige and Drone stats ──────────────────────────────────────────────
-	{LBSoulEggs, "Soul Eggs", "Total Soul Egg count", SourceFirstContact, true, "ei"},
-	{LBEarningsBonus, "Earnings Bonus", "Calculated Earnings Bonus (including TE bonus)", SourceFirstContact, true, "eb"},
-	{LBDrones, "Drone Takedowns", "Total drones taken down", SourceFirstContact, true, "int"},
-	{LBEliteDrones, "Elite Drone Takedowns", "Total elite drones taken down", SourceFirstContact, true, "int"},
-	{LBPrestiges, "Prestige Count", "Total number of prestiges", SourceFirstContact, true, "int"},
-	{LBSoulMirrors, "Soul Mirrors Score", "Weighted Soul Mirror count (1x Blue, 2x Purple, 3x Orange). Lower is better.", SourceFirstContact, false, "int"},
+	{Key: LBSoulEggs, DisplayName: "Soul Eggs", Description: "Total soul eggs collected.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBProphecyEggs, DisplayName: "Prophecy Eggs", Description: "Total eggs of prophecy collected.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBEarningsBonus, DisplayName: "Earnings Bonus", Description: "Nekkid and Dressed earnings bonus.", ValueFmt: "eb", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBContractExp, DisplayName: "Contract XP", Description: "Total experience earned from contracts.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBVirtueShifts, DisplayName: "Virtue Shifts", Description: "Total virtue shifts completed.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBTETotal, DisplayName: "Total Truth Eggs", Description: "Sum of truth eggs across all virtues.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBDrones, DisplayName: "Drones", Description: "Total drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBEliteDrones, DisplayName: "Elite Drones", Description: "Total elite drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBPrestiges, DisplayName: "Prestiges", Description: "Total number of prestiges.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBSoulMirrors, DisplayName: "Soul Mirrors", Description: "Score based on soul mirror inventory (1, 2, 3 points).", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBCXPWeeklyDelta, DisplayName: "Weekly CXP", Description: "CXP earned since last collection.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceContractArchive},
 }
 
-// LBDefByKey returns the LBDef for the given key, or false if not found.
+// AllGroups defines logical groupings for the UI and posting tasks.
+var AllGroups = []LBGroup{
+	{
+		Key:         "group_core",
+		DisplayName: "Core Stats",
+		Members:     []string{LBSoulEggs, LBProphecyEggs, LBEarningsBonus, LBContractExp, LBVirtueShifts, LBTETotal, LBCXPWeeklyDelta},
+	},
+	{
+		Key:         "group_misc",
+		DisplayName: "Miscellaneous Stats",
+		Members:     []string{LBDrones, LBEliteDrones, LBPrestiges, LBSoulMirrors},
+	},
+}
+
+// Add ships leaderboards dynamically.
+func init() {
+	// Virtue eggs.
+	virtueEggs := []struct {
+		key          string
+		name         string
+		teKey        string
+		deliveredKey string
+	}{
+		{"curiosity", "Curiosity", LBTECuriosity, LBEggsCuriosity},
+		{"integrity", "Integrity", LBTEIntegrity, LBEggsIntegrity},
+		{"humility", "Humility", LBTEHumility, LBEggsHumility},
+		{"resilience", "Resilience", LBTEResilience, LBEggsResilience},
+		{"kindness", "Kindness", LBTEKindness, LBEggsKindness},
+	}
+
+	teGroupMembers := []string{}
+	deliveredGroupMembers := []string{}
+
+	for _, e := range virtueEggs {
+		AllLeaderboards = append(AllLeaderboards, LBDef{
+			Key:            e.teKey,
+			DisplayName:    e.name + " Truth Eggs",
+			Description:    fmt.Sprintf("Truth eggs earned for %s virtue contracts.", e.name),
+			ValueFmt:       "int",
+			HigherIsBetter: true,
+			Source:         SourceFirstContact,
+		})
+		teGroupMembers = append(teGroupMembers, e.teKey)
+
+		AllLeaderboards = append(AllLeaderboards, LBDef{
+			Key:            e.deliveredKey,
+			DisplayName:    e.name + " Eggs Delivered",
+			Description:    fmt.Sprintf("Raw eggs delivered for %s virtue contracts.", e.name),
+			ValueFmt:       "ei",
+			HigherIsBetter: true,
+			Source:         SourceFirstContact,
+		})
+		deliveredGroupMembers = append(deliveredGroupMembers, e.deliveredKey)
+	}
+
+	AllGroups = append(AllGroups, LBGroup{
+		Key:         "group_te",
+		DisplayName: "Virtue Truth Eggs",
+		Members:     teGroupMembers,
+	}, LBGroup{
+		Key:         "group_eggs_virtue",
+		DisplayName: "Virtue Egg Delivery",
+		Members:     deliveredGroupMembers,
+	})
+
+	// Add ship leaderboards using the static map in ei package.
+	standardGroupMembers := []string{}
+	virtueGroupShipsMembers := []string{}
+
+	// Keys are int32 (ship ID), values are string (ship name)
+	// We'll iterate in order 1-10 (skipping tutorial ship 0)
+	for i := int32(1); i <= 10; i++ {
+		name, ok := ei.ShipTypeName[i]
+		if !ok {
+			continue
+		}
+		
+		stdKey := fmt.Sprintf("std_ship_%d", i)
+		virtueKey := fmt.Sprintf("ship_%d", i)
+		
+		// Map specific IDs to our constants for compatibility
+		switch i {
+		case 0: // Skip tutorial
+		case 1: stdKey = LBShipStdChicken1; virtueKey = LBShipChicken1
+		case 2: stdKey = LBShipStdChicken9; virtueKey = LBShipChicken9
+		case 3: stdKey = LBShipStdChickenHeavy; virtueKey = LBShipChickenHeavy
+		case 4: stdKey = LBShipStdBCR; virtueKey = LBShipBCR
+		case 5: stdKey = LBShipStdMilleniumChicken; virtueKey = LBShipMilleniumChicken
+		case 6: stdKey = LBShipStdCorellihenCorvette; virtueKey = LBShipCorellihenCorvette
+		case 7: stdKey = LBShipStdGaleggtica; virtueKey = LBShipGaleggtica
+		case 8: stdKey = LBShipStdDefihent; virtueKey = LBShipDefihent
+		case 9: stdKey = LBShipStdVoyegger; virtueKey = LBShipStdVoyegger
+		case 10: stdKey = LBShipStdHenerprise; virtueKey = LBShipHenerprise
+		case 11: stdKey = LBShipStdAtreggies; virtueKey = LBShipAtreggies
+		}
+
+		AllLeaderboards = append(AllLeaderboards, LBDef{
+			Key:            stdKey,
+			DisplayName:    name + " Launches",
+			Description:    fmt.Sprintf("Total launches for the %s.", name),
+			ValueFmt:       "int",
+			HigherIsBetter: true,
+			Source:         SourceFirstContact,
+		})
+		standardGroupMembers = append(standardGroupMembers, stdKey)
+
+		AllLeaderboards = append(AllLeaderboards, LBDef{
+			Key:            virtueKey,
+			DisplayName:    name + " Virtue Launches",
+			Description:    fmt.Sprintf("Total virtue launches for the %s.", name),
+			ValueFmt:       "int",
+			HigherIsBetter: true,
+			Source:         SourceFirstContact,
+		})
+		virtueGroupShipsMembers = append(virtueGroupShipsMembers, virtueKey)
+	}
+
+	AllGroups = append(AllGroups, LBGroup{
+		Key:         "group_ships_std",
+		DisplayName: "Standard Ship Launches",
+		Members:     standardGroupMembers,
+	}, LBGroup{
+		Key:         "group_ships_virtue",
+		DisplayName: "Virtue Ship Launches",
+		Members:     virtueGroupShipsMembers,
+	})
+}
+
+// LBDefByKey looks up a definition by its unique key.
 func LBDefByKey(key string) (LBDef, bool) {
 	for _, def := range AllLeaderboards {
 		if def.Key == key {
@@ -184,68 +246,7 @@ func LBDefByKey(key string) (LBDef, bool) {
 	return LBDef{}, false
 }
 
-// ─── Leaderboard groups ───────────────────────────────────────────────────────
-// Groups bundle related leaderboard types under a single channel config key.
-// Admins configure channels using group keys (or individual keys).
-// Player opt-ins always use individual type keys.
-//
-// To add a new group: append a LBGroup entry to AllGroups.
-
-// LBGroup maps a single channel-config key to a set of individual LBDef keys.
-type LBGroup struct {
-	Key         string   // stable DB key (prefixed "group_")
-	DisplayName string   // shown in autocomplete and /admin list
-	Members     []string // individual LB type keys in display order
-}
-
-// AllGroups is the registry of channel-config groups.
-var AllGroups = []LBGroup{
-	{
-		Key:         "group_te_virtue",
-		DisplayName: "Truth Eggs per Virtue Egg (all 5 eggs)",
-		Members: []string{
-			LBTECuriosity, LBTEIntegrity, LBTEHumility,
-			LBTEResilience, LBTEKindness,
-		},
-	},
-	{
-		Key:         "group_eggs_virtue",
-		DisplayName: "Virtue Egg Deliveries (all 5 eggs)",
-		Members: []string{
-			LBEggsTotal, LBEggsCuriosity, LBEggsIntegrity, LBEggsHumility,
-			LBEggsResilience, LBEggsKindness,
-		},
-	},
-	{
-		Key:         "group_ships_virtue",
-		DisplayName: "Virtue Ship Launches (all ships)",
-		Members: []string{
-			LBShipChicken1, LBShipChicken9, LBShipChickenHeavy,
-			LBShipBCR, LBShipMilleniumChicken, LBShipCorellihenCorvette,
-			LBShipGaleggtica, LBShipDefihent, LBShipVoyegger,
-			LBShipHenerprise, LBShipAtreggies,
-		},
-	},
-	{
-		Key:         "group_ships_std",
-		DisplayName: "Standard Ship Launches (all ships)",
-		Members: []string{
-			LBShipStdChicken1, LBShipStdChicken9, LBShipStdChickenHeavy,
-			LBShipStdBCR, LBShipStdMilleniumChicken, LBShipStdCorellihenCorvette,
-			LBShipStdGaleggtica, LBShipStdDefihent, LBShipStdVoyegger,
-			LBShipStdHenerprise, LBShipStdAtreggies,
-		},
-	},
-	{
-		Key:         "group_prestige_stats",
-		DisplayName: "Prestige & Drone Stats",
-		Members: []string{
-			LBSoulEggs, LBEarningsBonus, LBDrones, LBEliteDrones, LBPrestiges,
-		},
-	},
-}
-
-// GroupByKey returns the LBGroup for the given key, or false if not found.
+// GroupByKey looks up a group by its unique key.
 func GroupByKey(key string) (LBGroup, bool) {
 	for _, g := range AllGroups {
 		if g.Key == key {
@@ -266,7 +267,7 @@ func ExpandConfigKey(key string) []string {
 }
 
 // IsValidConfigKey returns true if key is either an individual LBDef key or a
-// group key — i.e. valid for use in /bock-leaderboard admin set-channel.
+// group key — i.e. valid for use in /admin-lb admin set-channel.
 func IsValidConfigKey(key string) bool {
 	if _, ok := LBDefByKey(key); ok {
 		return true
@@ -289,110 +290,96 @@ func DisplayNameForConfigKey(key string) string {
 
 // ─── Player opt-in helpers ────────────────────────────────────────────────────
 
-const optInKey = "leaderboard_optin"
+const OptInAll = "all"
 
-// PlayerIsOptedIn returns true if the user is opted into the given lb_type.
-func PlayerIsOptedIn(userID, lbType string) bool {
-	val := farmerstate.GetMiscSettingString(userID, optInKey)
-	if val == "" {
+// PlayerIsOptedIn returns true if the user is opted into the given lb_type in the given guild.
+func PlayerIsOptedIn(guildID, userID, lbType string) bool {
+	if guildID == "" {
 		return false
 	}
-	if val == OptInAll {
-		return true
+	optins, err := farmerstate.GetLeaderboardOptInsForGuild(guildID)
+	if err != nil {
+		return false
 	}
-	for _, t := range strings.Split(val, ",") {
-		if strings.TrimSpace(t) == lbType {
+	for _, o := range optins {
+		if o.UserID == userID && (o.LbType == lbType || o.LbType == OptInAll) {
 			return true
 		}
 	}
 	return false
 }
 
-// GetPlayerOptInTypes returns the slice of lb_type keys the user is opted into.
-// Returns all keys when the stored value is OptInAll.
-func GetPlayerOptInTypes(userID string) []string {
-	val := farmerstate.GetMiscSettingString(userID, optInKey)
-	if val == "" {
+// GetPlayerOptInTypes returns the slice of lb_type keys the user is opted into for a guild.
+func GetPlayerOptInTypes(guildID, userID string) []string {
+	if guildID == "" {
 		return nil
 	}
-	if val == OptInAll {
+	optins, err := farmerstate.GetLeaderboardOptInsForUser(userID)
+	if err != nil {
+		return nil
+	}
+	var out []string
+	isOptInAll := false
+	for _, o := range optins {
+		if o.GuildID == guildID {
+			if o.LbType == OptInAll {
+				isOptInAll = true
+				break
+			}
+			out = append(out, o.LbType)
+		}
+	}
+	if isOptInAll {
 		keys := make([]string, 0, len(AllLeaderboards))
 		for _, def := range AllLeaderboards {
 			keys = append(keys, def.Key)
 		}
 		return keys
 	}
-	parts := strings.Split(val, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			out = append(out, p)
-		}
-	}
 	return out
 }
 
-// SetPlayerOptInTypes persists the opt-in list. Pass []string{OptInAll} for all.
-func SetPlayerOptInTypes(userID string, types []string) {
-	if len(types) == 0 {
-		farmerstate.SetMiscSettingString(userID, optInKey, "")
-		return
-	}
-	if len(types) == 1 && types[0] == OptInAll {
-		farmerstate.SetMiscSettingString(userID, optInKey, OptInAll)
-		return
-	}
-	farmerstate.SetMiscSettingString(userID, optInKey, strings.Join(types, ","))
+// GetAllOptInUserIDs returns all user IDs who have opted into leaderboards in ANY guild.
+func GetAllOptInUserIDs() []string {
+	users, _ := farmerstate.GetLeaderboardOptInUsers()
+	return users
 }
 
-// AddPlayerOptInTypes adds the given types to the player's opt-in list without
-// removing existing ones.
-func AddPlayerOptInTypes(userID string, types []string) {
-	existing := GetPlayerOptInTypes(userID)
-	existingVal := farmerstate.GetMiscSettingString(userID, optInKey)
-	if existingVal == OptInAll {
-		return // already in everything
-	}
-	seen := make(map[string]struct{}, len(existing))
-	for _, t := range existing {
-		seen[t] = struct{}{}
-	}
+// AddPlayerOptInTypes adds the given types to the player's opt-in list for a guild.
+func AddPlayerOptInTypes(guildID, userID string, types []string) {
 	for _, t := range types {
-		if t == OptInAll {
-			farmerstate.SetMiscSettingString(userID, optInKey, OptInAll)
-			return
-		}
-		seen[t] = struct{}{}
+		_ = farmerstate.UpsertLeaderboardOptIn(guildID, userID, t)
 	}
-	merged := make([]string, 0, len(seen))
-	for t := range seen {
-		merged = append(merged, t)
-	}
-	SetPlayerOptInTypes(userID, merged)
 }
 
-// RemovePlayerOptInTypes removes the given types from the player's opt-in list.
-// Passing []string{OptInAll} clears the entire opt-in and all stored stats.
-func RemovePlayerOptInTypes(userID string, types []string) {
+// RemovePlayerOptInTypes removes the given types from the player's opt-in list for a guild.
+func RemovePlayerOptInTypes(guildID, userID string, types []string) {
 	if len(types) == 1 && types[0] == OptInAll {
-		SetPlayerOptInTypes(userID, nil)
-		_ = farmerstate.DeleteAllLeaderboardStatsForPlayer(userID)
+		_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, userID)
+		_ = farmerstate.DeleteAllLeaderboardStatsForPlayerInGuild(userID, guildID)
 		return
 	}
-	existing := GetPlayerOptInTypes(userID)
-	remove := make(map[string]struct{}, len(types))
 	for _, t := range types {
-		remove[t] = struct{}{}
-		_ = farmerstate.DeleteLeaderboardStatsForPlayer(userID, t)
+		_ = farmerstate.DeleteLeaderboardOptIn(guildID, userID, t)
+		_ = farmerstate.DeleteLeaderboardStatsForPlayer(userID, t, guildID)
 	}
-	var kept []string
-	for _, t := range existing {
-		if _, ok := remove[t]; !ok {
-			kept = append(kept, t)
-		}
+}
+
+// GetUserOptInGuilds returns all guild IDs where the user has at least one opt-in.
+func GetUserOptInGuilds(userID string) []string {
+	optins, err := farmerstate.GetLeaderboardOptInsForUser(userID)
+	if err != nil {
+		return nil
 	}
-	SetPlayerOptInTypes(userID, kept)
+	guilds := make(map[string]struct{})
+	for _, o := range optins {
+		guilds[o.GuildID] = struct{}{}
+	}
+	var out []string
+	for g := range guilds {
+		out = append(out, g)
+	}
+	return out
 }
 
 // ─── Guild config helpers ─────────────────────────────────────────────────────
@@ -404,10 +391,6 @@ type LBConfig struct {
 	ChannelID  string
 	MessageIDs []string // JSON-decoded message ID list
 }
-
-// GuildQueries returns the guildstate sqlc Queries object via the package-level
-// accessor (avoids re-exporting the internal db handle).
-// We delegate to guildstate package functions to keep DB access encapsulated.
 
 // UpsertGuildLBConfig saves or updates a leaderboard config row.
 func UpsertGuildLBConfig(cfg LBConfig) error {
@@ -441,27 +424,6 @@ func GetGuildLBConfig(guildID, lbType string) (*LBConfig, error) {
 // GetAllConfigs retrieves every configured leaderboard in the system.
 func GetAllConfigs() ([]LBConfig, error) {
 	rows, err := guildstate.GetAllLeaderboardConfigs()
-	if err != nil {
-		return nil, err
-	}
-	cfgs := make([]LBConfig, 0, len(rows))
-	for _, row := range rows {
-		cfg := LBConfig{
-			LBType:    row.LbType,
-			GuildID:   row.GuildID,
-			ChannelID: row.ChannelID,
-		}
-		if row.MessageIds.Valid && row.MessageIds.String != "" {
-			_ = json.Unmarshal([]byte(row.MessageIds.String), &cfg.MessageIDs)
-		}
-		cfgs = append(cfgs, cfg)
-	}
-	return cfgs, nil
-}
-
-// GetAllGuildLBConfigs retrieves all leaderboard configs for a guild.
-func GetAllGuildLBConfigs(guildID string) ([]LBConfig, error) {
-	rows, err := guildstate.GetAllLeaderboardConfigsForGuild(guildID)
 	if err != nil {
 		return nil, err
 	}
@@ -530,10 +492,10 @@ type LBEntry struct {
 	Details  string // human-readable extra info
 }
 
-// SaveLBEntry persists one leaderboard stat row.
-func SaveLBEntry(e LBEntry) {
-	if err := farmerstate.UpsertLeaderboardStat(e.LBType, e.Player, e.GameName, e.SnapDate, e.Value, sql.NullString{String: e.Details, Valid: e.Details != ""}); err != nil {
-		log.Printf("leaderboard: save stat %s/%s: %v", e.LBType, e.Player, err)
+// SaveLBEntry persists one leaderboard stat row for a specific guild.
+func SaveLBEntry(guildID string, e LBEntry) {
+	if err := farmerstate.UpsertLeaderboardStat(e.LBType, e.Player, guildID, e.GameName, e.SnapDate, e.Value, sql.NullString{String: e.Details, Valid: e.Details != ""}); err != nil {
+		log.Printf("leaderboard: save stat %s/%s/%s: %v", e.LBType, e.Player, guildID, err)
 	}
 }
 
@@ -546,10 +508,9 @@ func GetLatestSnapDate(lbType string) string {
 	return date
 }
 
-// GetPriorStatForPlayer returns the most recent stored stat for a player+lbType.
-// Returns nil if none found.
-func GetPriorStatForPlayer(lbType, playerID string) *LBEntry {
-	row, err := farmerstate.GetLeaderboardStatForPlayer(lbType, playerID)
+// GetPriorStatForPlayer returns the most recent stored stat for a player+lbType in a guild.
+func GetPriorStatForPlayer(lbType, playerID, guildID string) *LBEntry {
+	row, err := farmerstate.GetLeaderboardStatForPlayer(lbType, playerID, guildID)
 	if err != nil {
 		return nil
 	}
@@ -566,11 +527,11 @@ func GetPriorStatForPlayer(lbType, playerID string) *LBEntry {
 	return e
 }
 
-// GetLeaderboardRows returns all rows for a lb_type on a given snap_date, ranked by value.
-func GetLeaderboardRows(lbType, snapDate string) []LBEntry {
-	rows, err := farmerstate.GetLeaderboardForSnapDate(lbType, snapDate)
+// GetLeaderboardRows returns all rows for a lb_type on a given snap_date for a guild, ranked by value.
+func GetLeaderboardRows(lbType, snapDate, guildID string) []LBEntry {
+	rows, err := farmerstate.GetLeaderboardForSnapDate(lbType, guildID, snapDate)
 	if err != nil {
-		log.Printf("leaderboard: GetLeaderboardRows %s/%s: %v", lbType, snapDate, err)
+		log.Printf("leaderboard: GetLeaderboardRows %s/%s/%s: %v", lbType, guildID, snapDate, err)
 		return nil
 	}
 	out := make([]LBEntry, 0, len(rows))
@@ -599,23 +560,12 @@ func GetLeaderboardRows(lbType, snapDate string) []LBEntry {
 	return out
 }
 
-// GetAllOptInUserIDs returns all Discord user IDs with any leaderboard opt-in.
-func GetAllOptInUserIDs() []string {
-	ids, err := farmerstate.GetLeaderboardOptInUsers()
-	if err != nil {
-		log.Printf("leaderboard: GetAllOptInUserIDs: %v", err)
-		return nil
-	}
-	return ids
-}
-
-// GetPreviousSnapDate returns the snap_date immediately preceding the given date for a lb_type.
-func GetPreviousSnapDate(lbType, snapDate string) string {
-	dates, err := farmerstate.GetLeaderboardSnapDates(lbType)
+// GetPreviousSnapDate returns the snap_date immediately before the given one for a guild.
+func GetPreviousSnapDate(lbType, snapDate, guildID string) string {
+	dates, err := farmerstate.GetLeaderboardSnapDates(lbType, guildID)
 	if err != nil {
 		return ""
 	}
-	// dates are newest first.
 	for i, d := range dates {
 		if d == snapDate && i+1 < len(dates) {
 			return dates[i+1]
@@ -633,9 +583,9 @@ type PlayerStat struct {
 	Rank    int
 }
 
-// GetPlayerStats retrieves the latest data for every leaderboard type for a given player.
-func GetPlayerStats(playerID string) []PlayerStat {
-	rows, err := farmerstate.GetStatsForPlayer(playerID)
+// GetPlayerStats retrieves the latest data for every leaderboard type for a given player in a guild.
+func GetPlayerStats(guildID, playerID string) []PlayerStat {
+	rows, err := farmerstate.GetStatsForPlayerInGuild(playerID, guildID)
 	if err != nil {
 		return nil
 	}
@@ -679,21 +629,12 @@ func GetPlayerStats(playerID string) []PlayerStat {
 			stat := PlayerStat{
 				Def:     def,
 				Current: *g.current,
+				Rank:    -1, // Will be filled in by rankings logic
 			}
 			if g.previous != nil {
 				stat.HasPrev = true
 				stat.PrevVal = g.previous.Value
 			}
-
-			// Calculate rank
-			rows := GetLeaderboardRows(def.Key, g.current.SnapDate)
-			for i, r := range rows {
-				if r.Player == playerID {
-					stat.Rank = i + 1
-					break
-				}
-			}
-
 			out = append(out, stat)
 		}
 	}

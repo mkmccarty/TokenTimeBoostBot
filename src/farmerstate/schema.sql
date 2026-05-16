@@ -63,9 +63,17 @@ CREATE TABLE IF NOT EXISTS suspect_missions (
 CREATE TABLE IF NOT EXISTS leaderboard_stats (
     lb_type   TEXT NOT NULL,
     player    TEXT NOT NULL,  -- Discord user ID
+    guild_id  TEXT NOT NULL,  -- Discord Guild ID
     game_name TEXT NOT NULL,  -- Egg Inc in-game name (snapshot at collection time)
     snap_date TEXT NOT NULL,  -- ISO date "2026-05-16" (Friday collection date)
     value     REAL NOT NULL DEFAULT 0,
     details   TEXT,           -- JSON or human-readable extra info
-    PRIMARY KEY (lb_type, player, snap_date)
+    PRIMARY KEY (lb_type, player, guild_id, snap_date)
+);
+
+CREATE TABLE IF NOT EXISTS leaderboard_optin (
+    guild_id TEXT NOT NULL,
+    user_id  TEXT NOT NULL,
+    lb_type  TEXT NOT NULL,  -- lb_type key or "all"
+    PRIMARY KEY (guild_id, user_id, lb_type)
 );
