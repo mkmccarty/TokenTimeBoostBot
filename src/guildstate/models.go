@@ -12,3 +12,10 @@ type GuildRecord struct {
 	ID    string
 	Value sql.NullString
 }
+
+type LeaderboardConfig struct {
+	LbType     string
+	GuildID    string
+	ChannelID  string
+	MessageIds sql.NullString
+}

@@ -248,6 +248,164 @@ func (q *Queries) GetGuildMembers(ctx context.Context, guildID string) ([]string
 	return items, nil
 }
 
+const getLatestLeaderboardSnapDate = `-- name: GetLatestLeaderboardSnapDate :one
+SELECT snap_date FROM leaderboard_stats
+WHERE lb_type = ?
+ORDER BY snap_date DESC
+LIMIT 1
+`
+
+// Returns the most recent snap_date recorded for a given lb_type.
+func (q *Queries) GetLatestLeaderboardSnapDate(ctx context.Context, lbType string) (string, error) {
+	row := q.db.QueryRowContext(ctx, getLatestLeaderboardSnapDate, lbType)
+	var snap_date string
+	err := row.Scan(&snap_date)
+	return snap_date, err
+}
+
+const getLeaderboardForSnapDate = `-- name: GetLeaderboardForSnapDate :many
+SELECT player, game_name, value, details
+FROM leaderboard_stats
+WHERE lb_type = ? AND snap_date = ?
+ORDER BY value DESC
+`
+
+type GetLeaderboardForSnapDateParams struct {
+	LbType   string
+	SnapDate string
+}
+
+type GetLeaderboardForSnapDateRow struct {
+	Player   string
+	GameName string
+	Value    float64
+	Details  sql.NullString
+}
+
+// Returns all rows for a given lb_type and snap_date, ordered by value descending.
+func (q *Queries) GetLeaderboardForSnapDate(ctx context.Context, arg GetLeaderboardForSnapDateParams) ([]GetLeaderboardForSnapDateRow, error) {
+	rows, err := q.db.QueryContext(ctx, getLeaderboardForSnapDate, arg.LbType, arg.SnapDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetLeaderboardForSnapDateRow
+	for rows.Next() {
+		var i GetLeaderboardForSnapDateRow
+		if err := rows.Scan(
+			&i.Player,
+			&i.GameName,
+			&i.Value,
+			&i.Details,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getLeaderboardOptInUsers = `-- name: GetLeaderboardOptInUsers :many
+SELECT id FROM farmer_state
+WHERE json_extract(value, '$.MiscSettingsString.leaderboard_optin') IS NOT NULL
+  AND json_extract(value, '$.MiscSettingsString.leaderboard_optin') != ''
+`
+
+// Returns all Discord user IDs whose leaderboard_optin setting is non-empty.
+func (q *Queries) GetLeaderboardOptInUsers(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getLeaderboardOptInUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getLeaderboardSnapDates = `-- name: GetLeaderboardSnapDates :many
+SELECT DISTINCT snap_date FROM leaderboard_stats
+WHERE lb_type = ?
+ORDER BY snap_date DESC
+`
+
+// Returns all distinct snap_dates for a given lb_type, newest first.
+func (q *Queries) GetLeaderboardSnapDates(ctx context.Context, lbType string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getLeaderboardSnapDates, lbType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var snap_date string
+		if err := rows.Scan(&snap_date); err != nil {
+			return nil, err
+		}
+		items = append(items, snap_date)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getLeaderboardStatForPlayer = `-- name: GetLeaderboardStatForPlayer :one
+SELECT player, game_name, snap_date, value, details
+FROM leaderboard_stats
+WHERE lb_type = ? AND player = ?
+ORDER BY snap_date DESC
+LIMIT 1
+`
+
+type GetLeaderboardStatForPlayerParams struct {
+	LbType string
+	Player string
+}
+
+type GetLeaderboardStatForPlayerRow struct {
+	Player   string
+	GameName string
+	SnapDate string
+	Value    float64
+	Details  sql.NullString
+}
+
+// Returns the most recent stat row for a player + lb_type (useful for CXP delta).
+func (q *Queries) GetLeaderboardStatForPlayer(ctx context.Context, arg GetLeaderboardStatForPlayerParams) (GetLeaderboardStatForPlayerRow, error) {
+	row := q.db.QueryRowContext(ctx, getLeaderboardStatForPlayer, arg.LbType, arg.Player)
+	var i GetLeaderboardStatForPlayerRow
+	err := row.Scan(
+		&i.Player,
+		&i.GameName,
+		&i.SnapDate,
+		&i.Value,
+		&i.Details,
+	)
+	return i, err
+}
+
 const getLegacyFarmerstate = `-- name: GetLegacyFarmerstate :one
 SELECT id, "key", value FROM farmer_state
 WHERE id = ? AND key = 'legacy' LIMIT 1
@@ -564,5 +722,36 @@ type UpsertCustomBannerParams struct {
 
 func (q *Queries) UpsertCustomBanner(ctx context.Context, arg UpsertCustomBannerParams) error {
 	_, err := q.db.ExecContext(ctx, upsertCustomBanner, arg.UserID, arg.GuildID, arg.ImageData)
+	return err
+}
+
+const upsertLeaderboardStat = `-- name: UpsertLeaderboardStat :exec
+INSERT INTO leaderboard_stats (lb_type, player, game_name, snap_date, value, details)
+VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT(lb_type, player, snap_date) DO UPDATE SET
+    game_name = excluded.game_name,
+    value     = excluded.value,
+    details   = excluded.details
+`
+
+type UpsertLeaderboardStatParams struct {
+	LbType   string
+	Player   string
+	GameName string
+	SnapDate string
+	Value    float64
+	Details  sql.NullString
+}
+
+// Inserts or replaces a leaderboard snapshot for (lb_type, player, snap_date).
+func (q *Queries) UpsertLeaderboardStat(ctx context.Context, arg UpsertLeaderboardStatParams) error {
+	_, err := q.db.ExecContext(ctx, upsertLeaderboardStat,
+		arg.LbType,
+		arg.Player,
+		arg.GameName,
+		arg.SnapDate,
+		arg.Value,
+		arg.Details,
+	)
 	return err
 }

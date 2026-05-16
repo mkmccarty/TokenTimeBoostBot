@@ -30,6 +30,21 @@ func (q *Queries) DeleteGuildState(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteLeaderboardConfig = `-- name: DeleteLeaderboardConfig :exec
+DELETE FROM leaderboard_config
+WHERE lb_type = ? AND guild_id = ?
+`
+
+type DeleteLeaderboardConfigParams struct {
+	LbType  string
+	GuildID string
+}
+
+func (q *Queries) DeleteLeaderboardConfig(ctx context.Context, arg DeleteLeaderboardConfigParams) error {
+	_, err := q.db.ExecContext(ctx, deleteLeaderboardConfig, arg.LbType, arg.GuildID)
+	return err
+}
+
 const getAllGuildState = `-- name: GetAllGuildState :many
 SELECT id, value FROM guild_record
 `
@@ -57,6 +72,76 @@ func (q *Queries) GetAllGuildState(ctx context.Context) ([]GuildRecord, error) {
 	return items, nil
 }
 
+const getAllLeaderboardConfigs = `-- name: GetAllLeaderboardConfigs :many
+SELECT lb_type, guild_id, channel_id, message_ids
+FROM leaderboard_config
+ORDER BY lb_type, guild_id
+`
+
+// Returns every configured (lb_type, guild_id) pair - used by the weekly post task.
+func (q *Queries) GetAllLeaderboardConfigs(ctx context.Context) ([]LeaderboardConfig, error) {
+	rows, err := q.db.QueryContext(ctx, getAllLeaderboardConfigs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LeaderboardConfig
+	for rows.Next() {
+		var i LeaderboardConfig
+		if err := rows.Scan(
+			&i.LbType,
+			&i.GuildID,
+			&i.ChannelID,
+			&i.MessageIds,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAllLeaderboardConfigsForGuild = `-- name: GetAllLeaderboardConfigsForGuild :many
+SELECT lb_type, guild_id, channel_id, message_ids
+FROM leaderboard_config
+WHERE guild_id = ?
+ORDER BY lb_type
+`
+
+func (q *Queries) GetAllLeaderboardConfigsForGuild(ctx context.Context, guildID string) ([]LeaderboardConfig, error) {
+	rows, err := q.db.QueryContext(ctx, getAllLeaderboardConfigsForGuild, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LeaderboardConfig
+	for rows.Next() {
+		var i LeaderboardConfig
+		if err := rows.Scan(
+			&i.LbType,
+			&i.GuildID,
+			&i.ChannelID,
+			&i.MessageIds,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getGuildState = `-- name: GetGuildState :one
 SELECT id, value FROM guild_record
 WHERE id = ? LIMIT 1
@@ -66,6 +151,29 @@ func (q *Queries) GetGuildState(ctx context.Context, id string) (GuildRecord, er
 	row := q.db.QueryRowContext(ctx, getGuildState, id)
 	var i GuildRecord
 	err := row.Scan(&i.ID, &i.Value)
+	return i, err
+}
+
+const getLeaderboardConfig = `-- name: GetLeaderboardConfig :one
+SELECT lb_type, guild_id, channel_id, message_ids
+FROM leaderboard_config
+WHERE lb_type = ? AND guild_id = ?
+`
+
+type GetLeaderboardConfigParams struct {
+	LbType  string
+	GuildID string
+}
+
+func (q *Queries) GetLeaderboardConfig(ctx context.Context, arg GetLeaderboardConfigParams) (LeaderboardConfig, error) {
+	row := q.db.QueryRowContext(ctx, getLeaderboardConfig, arg.LbType, arg.GuildID)
+	var i LeaderboardConfig
+	err := row.Scan(
+		&i.LbType,
+		&i.GuildID,
+		&i.ChannelID,
+		&i.MessageIds,
+	)
 	return i, err
 }
 
@@ -104,4 +212,48 @@ func (q *Queries) UpdateGuildState(ctx context.Context, arg UpdateGuildStatePara
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const updateLeaderboardConfigMessageIDs = `-- name: UpdateLeaderboardConfigMessageIDs :exec
+UPDATE leaderboard_config
+SET message_ids = ?
+WHERE lb_type = ? AND guild_id = ?
+`
+
+type UpdateLeaderboardConfigMessageIDsParams struct {
+	MessageIds sql.NullString
+	LbType     string
+	GuildID    string
+}
+
+// Persist the message ID(s) written during the last post run.
+func (q *Queries) UpdateLeaderboardConfigMessageIDs(ctx context.Context, arg UpdateLeaderboardConfigMessageIDsParams) error {
+	_, err := q.db.ExecContext(ctx, updateLeaderboardConfigMessageIDs, arg.MessageIds, arg.LbType, arg.GuildID)
+	return err
+}
+
+const upsertLeaderboardConfig = `-- name: UpsertLeaderboardConfig :exec
+INSERT INTO leaderboard_config (lb_type, guild_id, channel_id, message_ids)
+VALUES (?, ?, ?, ?)
+ON CONFLICT(lb_type, guild_id) DO UPDATE SET
+    channel_id  = excluded.channel_id,
+    message_ids = excluded.message_ids
+`
+
+type UpsertLeaderboardConfigParams struct {
+	LbType     string
+	GuildID    string
+	ChannelID  string
+	MessageIds sql.NullString
+}
+
+// Insert or update a guild leaderboard channel configuration.
+func (q *Queries) UpsertLeaderboardConfig(ctx context.Context, arg UpsertLeaderboardConfigParams) error {
+	_, err := q.db.ExecContext(ctx, upsertLeaderboardConfig,
+		arg.LbType,
+		arg.GuildID,
+		arg.ChannelID,
+		arg.MessageIds,
+	)
+	return err
 }

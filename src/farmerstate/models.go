@@ -27,6 +27,15 @@ type FarmerState struct {
 	Value sql.NullString
 }
 
+type LeaderboardStat struct {
+	LbType   string
+	Player   string
+	GameName string
+	SnapDate string
+	Value    float64
+	Details  sql.NullString
+}
+
 type SuspectMission struct {
 	UserID           string
 	MissionID        string
