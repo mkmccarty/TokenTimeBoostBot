@@ -104,7 +104,7 @@ var AllLeaderboards = []LBDef{
 	{Key: LBDrones, DisplayName: "Drones", Description: "Total drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBEliteDrones, DisplayName: "Elite Drones", Description: "Total elite drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBPrestiges, DisplayName: "Prestiges", Description: "Total number of prestiges.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBSoulMirrors, DisplayName: "Soul Mirrors", Description: "Score based on soul mirror inventory (1, 2, 3 points).", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBSoulMirrors, DisplayName: "Soul Mirrors", Description: "Score based on soul mirror inventory (1, 2, 3 points).", ValueFmt: "int", HigherIsBetter: false, Source: SourceFirstContact},
 	{Key: LBCXPWeeklyDelta, DisplayName: "Weekly CXP", Description: "CXP earned since last collection.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceContractArchive},
 }
 
