@@ -1,6 +1,7 @@
 package leaderboard
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
@@ -13,15 +14,14 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
 
-// GetSlashBockLeaderboardCommand returns the /bock-leaderboard command definition.
-// The command has three sub-command groups: admin, player, and run (home-guild only).
-func GetSlashBockLeaderboardCommand(cmd string) *discordgo.ApplicationCommand {
-
-	// Admin-only home-guild run command
+// GetSlashAdminLBCommand returns the /admin-lb command definition.
+func GetSlashAdminLBCommand(cmd string) *discordgo.ApplicationCommand {
+	adminPerms := int64(discordgo.PermissionManageGuild)
 
 	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Manage and view bock stat leaderboards.",
+		Name:                     cmd,
+		Description:              "Guild admin commands for leaderboard configuration.",
+		DefaultMemberPermissions: &adminPerms,
 		Contexts: &[]discordgo.InteractionContextType{
 			discordgo.InteractionContextGuild,
 		},
@@ -29,100 +29,41 @@ func GetSlashBockLeaderboardCommand(cmd string) *discordgo.ApplicationCommand {
 			discordgo.ApplicationIntegrationGuildInstall,
 		},
 		Options: []*discordgo.ApplicationCommandOption{
-			// ── admin subcommand group ─────────────────────────────────────────
 			{
-				Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
-				Name:        "admin",
-				Description: "Guild admin commands for leaderboard configuration (requires Manage Server).",
+				Type:         discordgo.ApplicationCommandOptionSubCommand,
+				Name:         "set-channel",
+				Description:  "Configure a leaderboard type to post in this channel.",
+				Autocomplete: true,
 				Options: []*discordgo.ApplicationCommandOption{
 					{
-						Type:        discordgo.ApplicationCommandOptionSubCommand,
-						Name:        "set-channel",
-						Description: "Configure a leaderboard type to post in this channel.",
-						Options: []*discordgo.ApplicationCommandOption{
-							{
-								Type:         discordgo.ApplicationCommandOptionString,
-								Name:         "type",
-								Description:  "Leaderboard type",
-								Required:     true,
-								Autocomplete: true,
-							},
-						},
-					},
-					{
-						Type:        discordgo.ApplicationCommandOptionSubCommand,
-						Name:        "list",
-						Description: "List all configured leaderboards for this guild.",
-					},
-					{
-						Type:        discordgo.ApplicationCommandOptionSubCommand,
-						Name:        "remove",
-						Description: "Remove a leaderboard configuration for this guild.",
-						Options: []*discordgo.ApplicationCommandOption{
-							{
-								Type:         discordgo.ApplicationCommandOptionString,
-								Name:         "type",
-								Description:  "Leaderboard type to remove",
-								Required:     true,
-								Autocomplete: true,
-							},
-						},
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         "type",
+						Description:  "Leaderboard type or group",
+						Required:     true,
+						Autocomplete: true,
 					},
 				},
 			},
-			// ── player subcommand group ────────────────────────────────────────
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
-				Name:        "player",
-				Description: "Player opt-in / opt-out commands.",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionSubCommand,
-						Name:        "optin",
-						Description: "Opt into leaderboards.",
-						Options: []*discordgo.ApplicationCommandOption{
-							{
-								Type:         discordgo.ApplicationCommandOptionString,
-								Name:         "type",
-								Description:  `Leaderboard type or group, or "all" for everything.`,
-								Required:     true,
-								Autocomplete: true,
-							},
-						},
-					},
-					{
-						Type:        discordgo.ApplicationCommandOptionSubCommand,
-						Name:        "optout",
-						Description: "Opt out of leaderboards.",
-						Options: []*discordgo.ApplicationCommandOption{
-							{
-								Type:         discordgo.ApplicationCommandOptionString,
-								Name:         "type",
-								Description:  `Leaderboard type or group, or "all" to opt out of everything.`,
-								Required:     true,
-								Autocomplete: true,
-							},
-						},
-					},
-					{
-						Type:        discordgo.ApplicationCommandOptionSubCommand,
-						Name:        "status",
-						Description: "Show your current leaderboard opt-in status.",
-					},
-					{
-						Type:        discordgo.ApplicationCommandOptionSubCommand,
-						Name:        "list",
-						Description: "List all available leaderboard types and their keys.",
-					},
-				},
-			},
-			// ── rankings subcommand ───────────────────────────────────────────
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "rankings",
-				Description: "Show your latest leaderboard rankings.",
+				Name:        "list",
+				Description: "List all configured leaderboards for this guild.",
 			},
-			// ── run subcommand (home-guild admin only) ─────────────────────────
+			{
+				Type:         discordgo.ApplicationCommandOptionSubCommand,
+				Name:         "remove",
+				Description:  "Remove a leaderboard configuration for this guild.",
+				Autocomplete: true,
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         "type",
+						Description:  "Leaderboard type to remove",
+						Required:     true,
+						Autocomplete: true,
+					},
+				},
+			},
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        "run",
@@ -140,33 +81,72 @@ func GetSlashBockLeaderboardCommand(cmd string) *discordgo.ApplicationCommand {
 	}
 }
 
-// HandleBockLeaderboard dispatches the /bock-leaderboard slash command.
-func HandleBockLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	opts := i.ApplicationCommandData().Options
-	if len(opts) == 0 {
-		respondEphemeral(s, i, "Unknown subcommand.")
-		return
-	}
-
-	switch opts[0].Name {
-	case "admin":
-		handleAdminGroup(s, i, opts[0].Options)
-	case "player":
-		handlePlayerGroup(s, i, opts[0].Options)
-	case "rankings":
-		handleRankings(s, i)
-	case "run":
-		handleRun(s, i, opts[0].Options)
-	default:
-		respondEphemeral(s, i, "Unknown subcommand group.")
+// GetSlashLBPlayerCommand returns the /lb command definition.
+func GetSlashLBPlayerCommand(cmd string) *discordgo.ApplicationCommand {
+	return &discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "Player commands for leaderboard participation and rankings.",
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:         discordgo.ApplicationCommandOptionSubCommand,
+				Name:         "opt-in",
+				Description:  "Opt into leaderboards.",
+				Autocomplete: true,
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         "type",
+						Description:  `Leaderboard type or group, or "all" for everything.`,
+						Required:     true,
+						Autocomplete: true,
+					},
+				},
+			},
+			{
+				Type:         discordgo.ApplicationCommandOptionSubCommand,
+				Name:         "opt-out",
+				Description:  "Opt out of leaderboards.",
+				Autocomplete: true,
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         "type",
+						Description:  `Leaderboard type or group, or "all" to opt out of everything.`,
+						Required:     true,
+						Autocomplete: true,
+					},
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "opt-status",
+				Description: "Show your current leaderboard opt-in status.",
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "opt-list",
+				Description: "List all available leaderboard types and their keys.",
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "rankings",
+				Description: "Show your latest leaderboard rankings.",
+			},
+		},
 	}
 }
 
-// ─── admin group ──────────────────────────────────────────────────────────────
-
-func handleAdminGroup(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*discordgo.ApplicationCommandInteractionDataOption) {
+// HandleAdminLB dispatches the /admin-lb slash command.
+func HandleAdminLB(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	opts := i.ApplicationCommandData().Options
 	if len(opts) == 0 {
-		respondEphemeral(s, i, "Unknown admin subcommand.")
+		respondEphemeral(s, i, "Unknown subcommand.")
 		return
 	}
 
@@ -184,8 +164,34 @@ func handleAdminGroup(s *discordgo.Session, i *discordgo.InteractionCreate, opts
 		handleAdminList(s, i)
 	case "remove":
 		handleAdminRemove(s, i, opts[0].Options)
+	case "run":
+		handleRun(s, i, opts[0].Options)
 	default:
 		respondEphemeral(s, i, "Unknown admin subcommand.")
+	}
+}
+
+// HandleLBPlayer dispatches the /lb slash command.
+func HandleLBPlayer(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	opts := i.ApplicationCommandData().Options
+	if len(opts) == 0 {
+		respondEphemeral(s, i, "Unknown subcommand.")
+		return
+	}
+
+	switch opts[0].Name {
+	case "opt-in":
+		handlePlayerOptIn(s, i, opts[0].Options)
+	case "opt-out":
+		handlePlayerOptOut(s, i, opts[0].Options)
+	case "opt-status":
+		handlePlayerStatus(s, i)
+	case "opt-list":
+		handlePlayerList(s, i)
+	case "rankings":
+		handleRankings(s, i)
+	default:
+		respondEphemeral(s, i, "Unknown player subcommand.")
 	}
 }
 
@@ -250,27 +256,6 @@ func handleAdminRemove(s *discordgo.Session, i *discordgo.InteractionCreate, opt
 	}
 	respondEphemeral(s, i, fmt.Sprintf("✅ Removed **%s** leaderboard configuration.\n-# The Discord messages were not deleted.",
 		DisplayNameForConfigKey(lbType)))
-}
-
-// ─── player group ─────────────────────────────────────────────────────────────
-
-func handlePlayerGroup(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*discordgo.ApplicationCommandInteractionDataOption) {
-	if len(opts) == 0 {
-		respondEphemeral(s, i, "Unknown player subcommand.")
-		return
-	}
-	switch opts[0].Name {
-	case "optin":
-		handlePlayerOptIn(s, i, opts[0].Options)
-	case "optout":
-		handlePlayerOptOut(s, i, opts[0].Options)
-	case "status":
-		handlePlayerStatus(s, i)
-	case "list":
-		handlePlayerList(s, i)
-	default:
-		respondEphemeral(s, i, "Unknown player subcommand.")
-	}
 }
 
 func handlePlayerOptIn(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*discordgo.ApplicationCommandInteractionDataOption) {
@@ -523,40 +508,66 @@ var groupMemberKeys = func() map[string]struct{} {
 	return m
 }()
 
-// HandleBockLeaderboardAutoComplete handles autocomplete for the "type" option on
-// admin set-channel and admin remove subcommands.
-//
-// List order: groups first, then individual types that are NOT covered by any
-// group (e.g. virtue_shifts, te_total, cxp_weekly_delta). Types inside a group
-// are omitted because they should be configured via the group key. Typing a
-// partial string filters across both groups and individuals.
-func HandleBockLeaderboardAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleAdminLBAutoComplete handles autocomplete for the /admin-lb command.
+func HandleAdminLBAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	data := i.ApplicationCommandData()
 
-	// Walk the option tree to find the focused string option.
 	var partial string
 	var found bool
-	var groupName, subName string
 	for _, opt := range data.Options {
-		groupName = opt.Name
-		for _, sub := range opt.Options {
-			subName = sub.Name
-			for _, leaf := range sub.Options {
-				if leaf.Focused {
-					partial = strings.ToLower(strings.TrimSpace(leaf.StringValue()))
-					found = true
-				}
+		for _, leaf := range opt.Options {
+			if leaf.Focused {
+				partial = strings.ToLower(strings.TrimSpace(leaf.StringValue()))
+				found = true
 			}
 		}
 	}
 	if !found {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-			Data: &discordgo.InteractionResponseData{Choices: []*discordgo.ApplicationCommandOptionChoice{}},
-		})
+		respondEmptyAutocomplete(s, i)
 		return
 	}
 
+	choices := buildAutocompleteChoices(partial, false)
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+		Data: &discordgo.InteractionResponseData{Choices: choices},
+	})
+}
+
+// HandleLBPlayerAutoComplete handles autocomplete for the /lb command.
+func HandleLBPlayerAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	data := i.ApplicationCommandData()
+
+	var partial string
+	var found bool
+	for _, opt := range data.Options {
+		for _, leaf := range opt.Options {
+			if leaf.Focused {
+				partial = strings.ToLower(strings.TrimSpace(leaf.StringValue()))
+				found = true
+			}
+		}
+	}
+	if !found {
+		respondEmptyAutocomplete(s, i)
+		return
+	}
+
+	choices := buildAutocompleteChoices(partial, true)
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+		Data: &discordgo.InteractionResponseData{Choices: choices},
+	})
+}
+
+func respondEmptyAutocomplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+		Data: &discordgo.InteractionResponseData{Choices: []*discordgo.ApplicationCommandOptionChoice{}},
+	})
+}
+
+func buildAutocompleteChoices(partial string, isPlayerCmd bool) []*discordgo.ApplicationCommandOptionChoice {
 	matches := func(name, key string) bool {
 		return partial == "" ||
 			strings.Contains(strings.ToLower(name), partial) ||
@@ -565,9 +576,6 @@ func HandleBockLeaderboardAutoComplete(s *discordgo.Session, i *discordgo.Intera
 
 	const maxChoices = 25
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, maxChoices)
-
-	// Individual types.
-	isPlayerCmd := (groupName == "player" && (subName == "optin" || subName == "optout"))
 
 	if isPlayerCmd && matches("All Leaderboards", "all") {
 		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
@@ -608,11 +616,7 @@ func HandleBockLeaderboardAutoComplete(s *discordgo.Session, i *discordgo.Intera
 			})
 		}
 	}
-
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{Choices: choices},
-	})
+	return choices
 }
 
 func handleRankings(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -647,7 +651,7 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 		return
 	}
 
-	const pageSize = 15
+	const pageSize = 10
 	start := page * pageSize
 	if start < 0 {
 		start = 0
@@ -673,10 +677,31 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 		val     string
 		delta   string
 		details string
+		link    string
+		label   string
 	}
 	var pageRows []row
 
-	for _, st := range stats[start:end] {
+	// Map lbType -> Discord link for jump-to functionality.
+	lbLinks := make(map[string]string)
+	if i.GuildID != "" {
+		cfgs, _ := guildstate.GetAllLeaderboardConfigsForGuild(i.GuildID)
+		for _, c := range cfgs {
+			keys := ExpandConfigKey(c.LbType)
+			var messageIDs []string
+			if c.MessageIds.Valid && c.MessageIds.String != "" {
+				_ = json.Unmarshal([]byte(c.MessageIds.String), &messageIDs)
+			}
+			if len(messageIDs) > 0 {
+				link := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", i.GuildID, c.ChannelID, messageIDs[0])
+				for _, k := range keys {
+					lbLinks[k] = link
+				}
+			}
+		}
+	}
+
+	for i, st := range stats[start:end] {
 		v := FormatLBValue(st.Def.ValueFmt, st.Current.Value)
 		d := ""
 		if st.HasPrev {
@@ -691,7 +716,8 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 			maxRankWidth = len(rankStr)
 		}
 
-		w := runewidth.StringWidth(st.Def.DisplayName)
+		displayName := fmt.Sprintf("%d. %s", i+1, st.Def.DisplayName)
+		w := runewidth.StringWidth(displayName)
 		if w > maxNameWidth {
 			maxNameWidth = w
 		}
@@ -705,10 +731,12 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 
 		pageRows = append(pageRows, row{
 			rank:    rankStr,
-			name:    st.Def.DisplayName,
+			name:    displayName,
 			val:     v,
 			delta:   d,
 			details: st.Current.Details,
+			link:    lbLinks[st.Def.Key],
+			label:   fmt.Sprintf("[%d]", i+1),
 		})
 	}
 
@@ -748,6 +776,16 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 			detail)
 	}
 	b.WriteString("```")
+
+	var links []string
+	for _, r := range pageRows {
+		if r.link != "" {
+			links = append(links, fmt.Sprintf("[%s](%s)", r.label, r.link))
+		}
+	}
+	if len(links) > 0 {
+		fmt.Fprintf(&b, "\n**Jump to:** %s", strings.Join(links, " | "))
+	}
 
 	components := []discordgo.MessageComponent{
 		discordgo.ActionsRow{

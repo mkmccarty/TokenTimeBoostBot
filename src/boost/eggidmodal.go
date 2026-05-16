@@ -81,7 +81,6 @@ func RequestEggIncIDModal(s *discordgo.Session, i *discordgo.InteractionCreate, 
 	}
 }
 
-
 // HandleEggIDModalSubmit handles the modal submission for an egginc ID
 func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	str := "That's not a valid Egg Inc ID. It should start with EI followed by 16 numbers."
