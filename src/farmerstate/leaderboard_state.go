@@ -4,18 +4,82 @@ import (
 	"database/sql"
 )
 
-// leaderboard_state.go — Wrapper functions for the leaderboard_stats table.
+// leaderboard_state.go — Wrapper functions for the leaderboard_stats and leaderboard_optin tables.
 // These are thin adapters over the sqlc-generated Queries methods so that the
 // leaderboard package can call into farmerstate without accessing internal state.
 
+// ─── Opt-In Management ───────────────────────────────────────────────────────
+
+// GetLeaderboardOptInUsers returns all Discord user IDs who have at least one opt-in in any guild.
+func GetLeaderboardOptInUsers() ([]string, error) {
+	if queries == nil {
+		return nil, nil
+	}
+	return queries.GetLeaderboardOptInUsers(ctx)
+}
+
+// GetLeaderboardOptInsForUser returns all (guild_id, lb_type) pairs for a given user.
+func GetLeaderboardOptInsForUser(userID string) ([]GetLeaderboardOptInsForUserRow, error) {
+	if queries == nil {
+		return nil, nil
+	}
+	return queries.GetLeaderboardOptInsForUser(ctx, userID)
+}
+
+// GetLeaderboardOptInsForGuild returns all (user_id, lb_type) pairs for a given guild.
+func GetLeaderboardOptInsForGuild(guildID string) ([]GetLeaderboardOptInsForGuildRow, error) {
+	if queries == nil {
+		return nil, nil
+	}
+	return queries.GetLeaderboardOptInsForGuild(ctx, guildID)
+}
+
+// UpsertLeaderboardOptIn adds a leaderboard opt-in record for a user in a guild.
+func UpsertLeaderboardOptIn(guildID, userID, lbType string) error {
+	if queries == nil {
+		return nil
+	}
+	return queries.UpsertLeaderboardOptIn(ctx, UpsertLeaderboardOptInParams{
+		GuildID: guildID,
+		UserID:  userID,
+		LbType:  lbType,
+	})
+}
+
+// DeleteLeaderboardOptIn removes a specific leaderboard opt-in record.
+func DeleteLeaderboardOptIn(guildID, userID, lbType string) error {
+	if queries == nil {
+		return nil
+	}
+	return queries.DeleteLeaderboardOptIn(ctx, DeleteLeaderboardOptInParams{
+		GuildID: guildID,
+		UserID:  userID,
+		LbType:  lbType,
+	})
+}
+
+// DeleteAllLeaderboardOptInsForUserInGuild removes all opt-ins for a user in a specific guild.
+func DeleteAllLeaderboardOptInsForUserInGuild(guildID, userID string) error {
+	if queries == nil {
+		return nil
+	}
+	return queries.DeleteAllLeaderboardOptInsForUserInGuild(ctx, DeleteAllLeaderboardOptInsForUserInGuildParams{
+		GuildID: guildID,
+		UserID:  userID,
+	})
+}
+
+// ─── Stats Management ────────────────────────────────────────────────────────
+
 // UpsertLeaderboardStat saves one leaderboard snapshot row (upsert on primary key).
-func UpsertLeaderboardStat(lbType, player, gameName, snapDate string, value float64, details sql.NullString) error {
+func UpsertLeaderboardStat(lbType, player, guildID, gameName, snapDate string, value float64, details sql.NullString) error {
 	if queries == nil {
 		return nil
 	}
 	return queries.UpsertLeaderboardStat(ctx, UpsertLeaderboardStatParams{
 		LbType:   lbType,
 		Player:   player,
+		GuildID:  guildID,
 		GameName: gameName,
 		SnapDate: snapDate,
 		Value:    value,
@@ -31,45 +95,42 @@ func GetLatestLeaderboardSnapDate(lbType string) (string, error) {
 	return queries.GetLatestLeaderboardSnapDate(ctx, lbType)
 }
 
-// GetLeaderboardForSnapDate returns all rows for a lb_type and snap_date, ordered by value DESC.
-func GetLeaderboardForSnapDate(lbType, snapDate string) ([]GetLeaderboardForSnapDateRow, error) {
+// GetLeaderboardForSnapDate returns all rows for a lb_type, guild_id and snap_date, ordered by value DESC.
+func GetLeaderboardForSnapDate(lbType, guildID, snapDate string) ([]GetLeaderboardForSnapDateRow, error) {
 	if queries == nil {
 		return nil, nil
 	}
 	return queries.GetLeaderboardForSnapDate(ctx, GetLeaderboardForSnapDateParams{
 		LbType:   lbType,
+		GuildID:  guildID,
 		SnapDate: snapDate,
 	})
 }
 
-// GetLeaderboardStatForPlayer returns the most recent stat for a player + lb_type.
-func GetLeaderboardStatForPlayer(lbType, player string) (GetLeaderboardStatForPlayerRow, error) {
+// GetLeaderboardStatForPlayer returns the most recent stat for a player + lb_type + guild_id.
+func GetLeaderboardStatForPlayer(lbType, player, guildID string) (GetLeaderboardStatForPlayerRow, error) {
 	if queries == nil {
 		return GetLeaderboardStatForPlayerRow{}, nil
 	}
 	return queries.GetLeaderboardStatForPlayer(ctx, GetLeaderboardStatForPlayerParams{
-		LbType: lbType,
-		Player: player,
+		LbType:  lbType,
+		Player:  player,
+		GuildID: guildID,
 	})
 }
 
-// GetLeaderboardOptInUsers returns all Discord user IDs with a non-empty leaderboard_optin.
-func GetLeaderboardOptInUsers() ([]string, error) {
+// GetLeaderboardSnapDates returns all distinct snap_dates for a lb_type in a guild, newest first.
+func GetLeaderboardSnapDates(lbType, guildID string) ([]string, error) {
 	if queries == nil {
 		return nil, nil
 	}
-	return queries.GetLeaderboardOptInUsers(ctx)
+	return queries.GetLeaderboardSnapDates(ctx, GetLeaderboardSnapDatesParams{
+		LbType:  lbType,
+		GuildID: guildID,
+	})
 }
 
-// GetLeaderboardSnapDates returns all distinct snap_dates for a lb_type, newest first.
-func GetLeaderboardSnapDates(lbType string) ([]string, error) {
-	if queries == nil {
-		return nil, nil
-	}
-	return queries.GetLeaderboardSnapDates(ctx, lbType)
-}
-
-// GetStatsForPlayer returns all leaderboard stats for a specific player across all types, newest first.
+// GetStatsForPlayer returns all leaderboard stats for a specific player across all types and guilds.
 func GetStatsForPlayer(player string) ([]LeaderboardStat, error) {
 	if queries == nil {
 		return nil, nil
@@ -77,16 +138,41 @@ func GetStatsForPlayer(player string) ([]LeaderboardStat, error) {
 	return queries.GetStatsForPlayer(ctx, player)
 }
 
-// DeleteLeaderboardStatsForPlayer removes all snapshots for a specific player and type.
-func DeleteLeaderboardStatsForPlayer(player, lbType string) error {
+// GetStatsForPlayerInGuild returns all leaderboard stats for a player in a specific guild.
+func GetStatsForPlayerInGuild(player, guildID string) ([]LeaderboardStat, error) {
+	if queries == nil {
+		return nil, nil
+	}
+	return queries.GetStatsForPlayerInGuild(ctx, GetStatsForPlayerInGuildParams{
+		Player:  player,
+		GuildID: guildID,
+	})
+}
+
+// DeleteLeaderboardStatsForPlayer removes snapshots for a specific player, type, and guild.
+func DeleteLeaderboardStatsForPlayer(player, lbType, guildID string) error {
 	if queries == nil {
 		return nil
 	}
-	_, err := queries.db.ExecContext(ctx, "DELETE FROM leaderboard_stats WHERE player = ? AND lb_type = ?", player, lbType)
-	return err
+	return queries.DeleteLeaderboardStatsForPlayer(ctx, DeleteLeaderboardStatsForPlayerParams{
+		Player:  player,
+		LbType:  lbType,
+		GuildID: guildID,
+	})
 }
 
-// DeleteAllLeaderboardStatsForPlayer removes every leaderboard stat for a player.
+// DeleteAllLeaderboardStatsForPlayerInGuild removes every leaderboard stat for a player in a guild.
+func DeleteAllLeaderboardStatsForPlayerInGuild(player, guildID string) error {
+	if queries == nil {
+		return nil
+	}
+	return queries.DeleteAllLeaderboardStatsForPlayerInGuild(ctx, DeleteAllLeaderboardStatsForPlayerInGuildParams{
+		Player:  player,
+		GuildID: guildID,
+	})
+}
+
+// DeleteAllLeaderboardStatsForPlayer removes every leaderboard stat for a player globally.
 func DeleteAllLeaderboardStatsForPlayer(player string) error {
 	if queries == nil {
 		return nil

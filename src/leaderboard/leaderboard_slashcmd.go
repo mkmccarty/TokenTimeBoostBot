@@ -222,10 +222,17 @@ func handleAdminSetChannel(s *discordgo.Session, i *discordgo.InteractionCreate,
 }
 
 func handleAdminList(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	cfgs, err := GetAllGuildLBConfigs(i.GuildID)
+	allCfgs, err := GetAllLBConfigs()
 	if err != nil {
-		respondEphemeral(s, i, "Failed to load configuration.")
+		respondEphemeral(s, i, "Failed to load leaderboard configurations.")
 		return
+	}
+
+	var cfgs []LBConfig
+	for _, c := range allCfgs {
+		if c.GuildID == i.GuildID {
+			cfgs = append(cfgs, c)
+		}
 	}
 	if len(cfgs) == 0 {
 		respondEphemeral(s, i, "No leaderboards configured for this guild.\nUse `/bock-leaderboard admin set-channel` to add one.")
@@ -269,7 +276,7 @@ func handlePlayerOptIn(s *discordgo.Session, i *discordgo.InteractionCreate, opt
 		types = ExpandConfigKey(raw)
 	}
 
-	AddPlayerOptInTypes(userID, types)
+	AddPlayerOptInTypes(i.GuildID, userID, types)
 
 	if len(types) == 1 && types[0] == OptInAll {
 		respondEphemeral(s, i, "✅ You are now opted into **all** leaderboards.")
@@ -290,7 +297,7 @@ func handlePlayerOptOut(s *discordgo.Session, i *discordgo.InteractionCreate, op
 		types = ExpandConfigKey(raw)
 	}
 
-	RemovePlayerOptInTypes(userID, types)
+	RemovePlayerOptInTypes(i.GuildID, userID, types)
 
 	if len(types) == 1 && types[0] == OptInAll {
 		respondEphemeral(s, i, "✅ You have opted out of **all** leaderboards.")
@@ -302,7 +309,12 @@ func handlePlayerOptOut(s *discordgo.Session, i *discordgo.InteractionCreate, op
 
 func handlePlayerStatus(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	userID := bottools.GetInteractionUserID(i)
-	storedVal := optInRaw(userID)
+	guildID := i.GuildID
+	if guildID == "" {
+		respondEphemeral(s, i, "This command must be used within a server.")
+		return
+	}
+	storedVal := optInRaw(guildID, userID)
 	if storedVal == "" {
 		respondEphemeral(s, i, "You are not opted into any leaderboards.\nUse `/bock-leaderboard player optin types:all` to join everything.")
 		return
@@ -311,7 +323,7 @@ func handlePlayerStatus(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		respondEphemeral(s, i, "You are opted into **all** leaderboards.")
 		return
 	}
-	types := GetPlayerOptInTypes(userID)
+	types := GetPlayerOptInTypes(guildID, userID)
 	names := typeKeysToNames(types)
 	respondEphemeral(s, i, fmt.Sprintf("**Your leaderboard opt-ins (%d):**\n%s",
 		len(names), strings.Join(names, "\n")))
@@ -488,8 +500,8 @@ func typeKeysToNames(keys []string) []string {
 }
 
 // optInRaw returns the raw stored opt-in string for a user (for status display).
-func optInRaw(userID string) string {
-	types := GetPlayerOptInTypes(userID)
+func optInRaw(guildID, userID string) string {
+	types := GetPlayerOptInTypes(guildID, userID)
 	if len(types) == 0 {
 		return ""
 	}
@@ -633,9 +645,28 @@ func handleRankings(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page int) {
 	userID := bottools.GetInteractionUserID(i)
-	stats := GetPlayerStats(userID)
+	guildID := i.GuildID
+	if guildID == "" {
+		respondEphemeral(s, i, "This command must be used within a server.")
+		return
+	}
+
+	optedIn := GetPlayerOptInTypes(guildID, userID)
+	optedSet := make(map[string]struct{}, len(optedIn))
+	for _, k := range optedIn {
+		optedSet[k] = struct{}{}
+	}
+
+	allStats := GetPlayerStats(guildID, userID)
+	var stats []PlayerStat
+	for _, st := range allStats {
+		if _, ok := optedSet[st.Def.Key]; ok {
+			stats = append(stats, st)
+		}
+	}
+
 	if len(stats) == 0 {
-		content := "You don't have any leaderboard rankings recorded yet."
+		content := "You don't have any leaderboard rankings recorded yet for metrics you are opted into in this server."
 		if i.Type == discordgo.InteractionMessageComponent {
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseUpdateMessage,
