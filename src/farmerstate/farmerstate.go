@@ -462,6 +462,20 @@ func GetEiIgnsByMiscString(key, value string) []string {
 	return eiIgns
 }
 
+// GetAltControllerByMiscString returns all IDs for farmers where MiscSettingsString[key] == value.
+func GetAltControllerByMiscString(key, value string) []string {
+	FlushPendingSaves()
+	results, err := queries.GetIdsByMiscString(ctx, GetIdsByMiscStringParams{
+		Column1: sql.NullString{String: key, Valid: true},
+		Value:   sql.NullString{String: value, Valid: true},
+	})
+	if err != nil {
+		log.Println("GetIdsByMiscString:", err)
+		return nil
+	}
+	return results
+}
+
 // FarmerExists returns true if a record for the given userID exists in farmer_state.
 func FarmerExists(userID string) bool {
 	FlushPendingSaves()
@@ -527,12 +541,18 @@ func GetEiIgnsByGuild(guildID string) []string {
 	return eiIgns
 }
 
-// GetDiscordUserIDFromEiIgn retrieves the Discord user ID based on the provided ei_ign
+// GetDiscordUserIDFromEiIgn retrieves the Discord user ID based on the provided ei_ign.
+// It also checks if the account is an alternate and returns the parent's Discord ID if so.
 func GetDiscordUserIDFromEiIgn(eiIgn string) (string, error) {
 	FlushPendingSaves()
 	id, err := queries.GetUserIdFromEiIgn(ctx, sql.NullString{String: eiIgn, Valid: true})
 	if err != nil {
 		return "", err
+	}
+	// Check if this ID is an alternate of another user
+	parentID := GetMiscSettingString(id, "AltController")
+	if parentID != "" {
+		return parentID, nil
 	}
 	return id, nil
 }

@@ -126,7 +126,7 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, onP
 
 					if isChannelNotFound(err) {
 						log.Printf("leaderboard: channel %s not found for guild %s - deleting config", cfg.ChannelID, cfg.GuildID)
-						DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
+						_ = DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
 						return
 					}
 
@@ -140,7 +140,7 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, onP
 					} else {
 						if isChannelNotFound(err) {
 							log.Printf("leaderboard: channel %s not found for guild %s - deleting config", cfg.ChannelID, cfg.GuildID)
-							DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
+							_ = DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
 							return
 						}
 					}
@@ -154,7 +154,7 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, onP
 					log.Printf("leaderboard: failed to post to channel %s: %v", cfg.ChannelID, err)
 					if isChannelNotFound(err) {
 						log.Printf("leaderboard: channel %s not found for guild %s - deleting config", cfg.ChannelID, cfg.GuildID)
-						DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
+						_ = DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
 						return
 					}
 				}
@@ -251,8 +251,9 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64) (string,
 		if isEB {
 			if idx := strings.Index(r.Details, "dressed:"); idx != -1 {
 				var d float64
-				fmt.Sscanf(r.Details[idx:], "dressed:%f", &d)
-				dressedValStr = FormatLBValue(def.ValueFmt, d)
+				if _, err := fmt.Sscanf(r.Details[idx:], "dressed:%f", &d); err == nil {
+					dressedValStr = FormatLBValue(def.ValueFmt, d)
+				}
 			}
 		}
 

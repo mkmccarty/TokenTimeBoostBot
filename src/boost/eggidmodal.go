@@ -55,11 +55,24 @@ func RequestEggIncIDModal(s *discordgo.Session, i *discordgo.InteractionCreate, 
 		})
 	}
 
+	title := "BoostBot needs your Egg Inc ID"
+	parts := strings.Split(action, "#")
+	if parts[0] == "register-alt" && len(parts) > 1 {
+		name := parts[1]
+		if name == "new" {
+			title = "Register New Alternate"
+		} else {
+			title = "Register Alternate: " + name
+		}
+	} else if parts[0] == "register" {
+		title = "Register Primary Account"
+	}
+
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseModal,
 		Data: &discordgo.InteractionResponseData{
 			CustomID:   "m_eggid#" + action,
-			Title:      "BoostBot needs your Egg Inc ID",
+			Title:      title,
 			Components: components,
 		},
 	})
@@ -68,56 +81,66 @@ func RequestEggIncIDModal(s *discordgo.Session, i *discordgo.InteractionCreate, 
 	}
 }
 
+
 // HandleEggIDModalSubmit handles the modal submission for an egginc ID
 func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	str := "That's not a valid Egg Inc ID. It should start with EI followed by 16 numbers."
 	encryptedID := ""
 	okayToSave := false
+	targetAlt := "new"
 	userID := bottools.GetInteractionUserID(i)
 	modalData := i.ModalSubmitData()
-	for _, comp := range modalData.Components {
-		input := comp.(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput)
-		if input.CustomID == "egginc-id" && input.Value != "" {
-			eggIncID := strings.TrimSpace(input.Value)
-			if len(eggIncID) != 18 || eggIncID[:2] != "EI" || !utf8.ValidString(eggIncID) {
-				break
-			}
-			encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
-			if err == nil {
-				combinedData, err := config.EncryptAndCombine(encryptionKey, []byte(eggIncID))
-				if err == nil {
-					encryptedID = base64.StdEncoding.EncodeToString(combinedData)
-					str = "Egg Inc ID saved.\nRerun the command to evaluate your contract history."
+	for _, row := range modalData.Components {
+		for _, comp := range row.(*discordgo.ActionsRow).Components {
+			switch input := comp.(type) {
+			case *discordgo.TextInput:
+				if input.CustomID == "egginc-id" && input.Value != "" {
+					eggIncID := strings.TrimSpace(input.Value)
+					if len(eggIncID) == 18 && eggIncID[:2] == "EI" && utf8.ValidString(eggIncID) {
+						encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
+						if err == nil {
+							combinedData, err := config.EncryptAndCombine(encryptionKey, []byte(eggIncID))
+							if err == nil {
+								encryptedID = base64.StdEncoding.EncodeToString(combinedData)
+								str = "Egg Inc ID saved.\nRerun the command to evaluate your contract history."
+							}
+						}
+					}
 				}
-			}
-		}
-
-		parts := strings.Split(modalData.CustomID, "#")
-		if parts[1] == "register" {
-			okayToSave = true
-			break
-		} else {
-			// Need to check if there's a second input for save/forget for other dialogs
-			for _, comp := range modalData.Components {
-				input := comp.(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput)
 				if input.CustomID == "confirm" && strings.ToLower(strings.TrimSpace(input.Value)) == "save" {
 					okayToSave = true
-					break
+				}
+			case *discordgo.SelectMenu:
+				if input.CustomID == "target-alt" {
+					if len(input.Values) > 0 {
+						targetAlt = input.Values[0]
+					}
 				}
 			}
-			str += "\nI will forget your Egg Inc ID after this session."
-
 		}
 	}
-	if okayToSave {
+
+	parts := strings.Split(modalData.CustomID, "#")
+	if parts[1] == "register" || parts[1] == "register-alt" {
+		okayToSave = true
+	} else {
+		if !okayToSave {
+			str += "\nI will forget your Egg Inc ID after this session."
+		}
+	}
+
+	if okayToSave && encryptedID != "" {
 		farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", encryptedID)
 		str += "\nI will remember your Egg Inc ID for future sessions."
+	}
+
+	if parts[1] == "register-alt" && len(parts) > 2 {
+		targetAlt = parts[2]
 	}
 
 	optionMap := optionMapCache[userID]
 	delete(optionMapCache, userID)
 
-	parts := strings.Split(modalData.CustomID, "#")
 	switch parts[1] {
 	case "register":
 		if encryptedID == "" {
@@ -125,6 +148,9 @@ func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate
 			break
 		}
 		Register(s, i, encryptedID, okayToSave)
+		return
+	case "register-alt":
+		RegisterAlt(s, i, targetAlt, encryptedID)
 		return
 	case "replay":
 		if encryptedID == "" {

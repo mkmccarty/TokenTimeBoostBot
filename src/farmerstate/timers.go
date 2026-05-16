@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// GetAllTimers returns all timers from the database.
 func GetAllTimers() []Timer {
 	FlushPendingSaves()
 	timers, err := queries.GetTimers(ctx)
@@ -15,6 +16,7 @@ func GetAllTimers() []Timer {
 	return timers
 }
 
+// AddTimer inserts a new timer into the database.
 func AddTimer(id, userID, channelID, msgID string, reminder time.Time, message string, duration int64, origChannelID, origMsgID string, active bool) {
 	FlushPendingSaves()
 	err := queries.InsertTimer(ctx, InsertTimerParams{
@@ -34,6 +36,7 @@ func AddTimer(id, userID, channelID, msgID string, reminder time.Time, message s
 	}
 }
 
+// UpdateTimerState updates the active state of a timer in the database.
 func UpdateTimerState(id string, active bool) {
 	FlushPendingSaves()
 	err := queries.UpdateTimerState(ctx, UpdateTimerStateParams{
@@ -45,6 +48,7 @@ func UpdateTimerState(id string, active bool) {
 	}
 }
 
+// UpdateTimerMsg updates the channel and message ID of a timer in the database.
 func UpdateTimerMsg(id, channelID, msgID string) {
 	FlushPendingSaves()
 	err := queries.UpdateTimerMsg(ctx, UpdateTimerMsgParams{
@@ -57,6 +61,7 @@ func UpdateTimerMsg(id, channelID, msgID string) {
 	}
 }
 
+// DeleteTimer removes a timer from the database by its ID.
 func DeleteTimer(id string) {
 	FlushPendingSaves()
 	err := queries.DeleteTimer(ctx, id)
@@ -65,6 +70,7 @@ func DeleteTimer(id string) {
 	}
 }
 
+// DeleteInactiveTimers removes all inactive timers from the database.
 func DeleteInactiveTimers() {
 	FlushPendingSaves()
 	err := queries.DeleteInactiveTimers(ctx)

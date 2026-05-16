@@ -112,6 +112,7 @@ const slashRerunEval string = "rerun-eval"
 const slashContractReport string = "contract-report"
 const slashVirtue string = "virtue"
 const slashRegister string = "register"
+const slashRegisterAlt string = "register-alt"
 const slashHunt string = "hunt"
 const slashPredictions string = "predictions"
 const slashPred string = "pred"
@@ -429,6 +430,12 @@ func setupCommands() {
 			AppCmd:   boost.GetSlashRegisterCommand(slashRegister),
 			Category: CmdCategoryGlobal,
 			Handler:  boost.HandleRegister,
+		},
+		{
+			AppCmd:       boost.GetSlashRegisterAltCommand(slashRegisterAlt),
+			Category:     CmdCategoryGlobal,
+			Handler:      boost.HandleRegisterAlt,
+			Autocomplete: boost.HandleRegisterAltAutocomplete,
 		},
 		{
 			AppCmd:       menno.SlashHuntCommand(slashHunt),
