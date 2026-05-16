@@ -260,6 +260,13 @@ func GroupByKey(key string) (LBGroup, bool) {
 // resolves to. For group keys this is the group's Members slice; for individual
 // type keys it's a single-element slice containing that key.
 func ExpandConfigKey(key string) []string {
+	if key == OptInAll {
+		keys := make([]string, 0, len(AllLeaderboards))
+		for _, def := range AllLeaderboards {
+			keys = append(keys, def.Key)
+		}
+		return keys
+	}
 	if g, ok := GroupByKey(key); ok {
 		return g.Members
 	}
@@ -356,12 +363,10 @@ func AddPlayerOptInTypes(guildID, userID string, types []string) {
 func RemovePlayerOptInTypes(guildID, userID string, types []string) {
 	if len(types) == 1 && types[0] == OptInAll {
 		_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, userID)
-		_ = farmerstate.DeleteAllLeaderboardStatsForPlayerInGuild(userID, guildID)
 		return
 	}
 	for _, t := range types {
 		_ = farmerstate.DeleteLeaderboardOptIn(guildID, userID, t)
-		_ = farmerstate.DeleteLeaderboardStatsForPlayer(userID, t, guildID)
 	}
 }
 
@@ -492,10 +497,10 @@ type LBEntry struct {
 	Details  string // human-readable extra info
 }
 
-// SaveLBEntry persists one leaderboard stat row for a specific guild.
-func SaveLBEntry(guildID string, e LBEntry) {
-	if err := farmerstate.UpsertLeaderboardStat(e.LBType, e.Player, guildID, e.GameName, e.SnapDate, e.Value, sql.NullString{String: e.Details, Valid: e.Details != ""}); err != nil {
-		log.Printf("leaderboard: save stat %s/%s/%s: %v", e.LBType, e.Player, guildID, err)
+// SaveLBEntry persists one leaderboard stat row.
+func SaveLBEntry(e LBEntry) {
+	if err := farmerstate.UpsertLeaderboardStat(e.LBType, e.Player, e.GameName, e.SnapDate, e.Value, sql.NullString{String: e.Details, Valid: e.Details != ""}); err != nil {
+		log.Printf("leaderboard: save stat %s/%s: %v", e.LBType, e.Player, err)
 	}
 }
 
@@ -508,9 +513,9 @@ func GetLatestSnapDate(lbType string) string {
 	return date
 }
 
-// GetPriorStatForPlayer returns the most recent stored stat for a player+lbType in a guild.
-func GetPriorStatForPlayer(lbType, playerID, guildID string) *LBEntry {
-	row, err := farmerstate.GetLeaderboardStatForPlayer(lbType, playerID, guildID)
+// GetPriorStatForPlayer returns the most recent stored stat for a player+lbType.
+func GetPriorStatForPlayer(lbType, playerID string) *LBEntry {
+	row, err := farmerstate.GetLeaderboardStatForPlayer(lbType, playerID)
 	if err != nil {
 		return nil
 	}
@@ -560,9 +565,9 @@ func GetLeaderboardRows(lbType, snapDate, guildID string) []LBEntry {
 	return out
 }
 
-// GetPreviousSnapDate returns the snap_date immediately before the given one for a guild.
-func GetPreviousSnapDate(lbType, snapDate, guildID string) string {
-	dates, err := farmerstate.GetLeaderboardSnapDates(lbType, guildID)
+// GetPreviousSnapDate returns the snap_date immediately before the given one.
+func GetPreviousSnapDate(lbType, snapDate string) string {
+	dates, err := farmerstate.GetLeaderboardSnapDates(lbType)
 	if err != nil {
 		return ""
 	}

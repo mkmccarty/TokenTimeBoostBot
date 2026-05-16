@@ -59,17 +59,12 @@ func (q *Queries) DeleteAllLeaderboardOptInsForUserInGuild(ctx context.Context, 
 }
 
 const deleteAllLeaderboardStatsForPlayerInGuild = `-- name: DeleteAllLeaderboardStatsForPlayerInGuild :exec
-DELETE FROM leaderboard_stats
-WHERE player = ? AND guild_id = ?
+SELECT 1
 `
 
-type DeleteAllLeaderboardStatsForPlayerInGuildParams struct {
-	Player  string
-	GuildID string
-}
-
-func (q *Queries) DeleteAllLeaderboardStatsForPlayerInGuild(ctx context.Context, arg DeleteAllLeaderboardStatsForPlayerInGuildParams) error {
-	_, err := q.db.ExecContext(ctx, deleteAllLeaderboardStatsForPlayerInGuild, arg.Player, arg.GuildID)
+// No-op since leaderboard_stats is now global.
+func (q *Queries) DeleteAllLeaderboardStatsForPlayerInGuild(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAllLeaderboardStatsForPlayerInGuild)
 	return err
 }
 
@@ -134,17 +129,16 @@ func (q *Queries) DeleteLeaderboardOptIn(ctx context.Context, arg DeleteLeaderbo
 
 const deleteLeaderboardStatsForPlayer = `-- name: DeleteLeaderboardStatsForPlayer :exec
 DELETE FROM leaderboard_stats
-WHERE player = ? AND lb_type = ? AND guild_id = ?
+WHERE player = ? AND lb_type = ?
 `
 
 type DeleteLeaderboardStatsForPlayerParams struct {
-	Player  string
-	LbType  string
-	GuildID string
+	Player string
+	LbType string
 }
 
 func (q *Queries) DeleteLeaderboardStatsForPlayer(ctx context.Context, arg DeleteLeaderboardStatsForPlayerParams) error {
-	_, err := q.db.ExecContext(ctx, deleteLeaderboardStatsForPlayer, arg.Player, arg.LbType, arg.GuildID)
+	_, err := q.db.ExecContext(ctx, deleteLeaderboardStatsForPlayer, arg.Player, arg.LbType)
 	return err
 }
 
@@ -360,10 +354,11 @@ func (q *Queries) GetLatestLeaderboardSnapDate(ctx context.Context, lbType strin
 }
 
 const getLeaderboardForSnapDate = `-- name: GetLeaderboardForSnapDate :many
-SELECT player, game_name, value, details
-FROM leaderboard_stats
-WHERE lb_type = ? AND guild_id = ? AND snap_date = ?
-ORDER BY value DESC
+SELECT s.player, s.game_name, s.value, s.details
+FROM leaderboard_stats s
+JOIN leaderboard_optin o ON s.player = o.user_id AND (o.lb_type = s.lb_type OR o.lb_type = 'all')
+WHERE s.lb_type = ? AND o.guild_id = ? AND s.snap_date = ?
+ORDER BY s.value DESC
 `
 
 type GetLeaderboardForSnapDateParams struct {
@@ -506,18 +501,13 @@ func (q *Queries) GetLeaderboardOptInsForUser(ctx context.Context, userID string
 
 const getLeaderboardSnapDates = `-- name: GetLeaderboardSnapDates :many
 SELECT DISTINCT snap_date FROM leaderboard_stats
-WHERE lb_type = ? AND guild_id = ?
+WHERE lb_type = ?
 ORDER BY snap_date DESC
 `
 
-type GetLeaderboardSnapDatesParams struct {
-	LbType  string
-	GuildID string
-}
-
-// Returns all distinct snap_dates for a given lb_type and guild_id, newest first.
-func (q *Queries) GetLeaderboardSnapDates(ctx context.Context, arg GetLeaderboardSnapDatesParams) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, getLeaderboardSnapDates, arg.LbType, arg.GuildID)
+// Returns all distinct snap_dates for a given lb_type, newest first.
+func (q *Queries) GetLeaderboardSnapDates(ctx context.Context, lbType string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getLeaderboardSnapDates, lbType)
 	if err != nil {
 		return nil, err
 	}
@@ -542,15 +532,14 @@ func (q *Queries) GetLeaderboardSnapDates(ctx context.Context, arg GetLeaderboar
 const getLeaderboardStatForPlayer = `-- name: GetLeaderboardStatForPlayer :one
 SELECT player, game_name, snap_date, value, details
 FROM leaderboard_stats
-WHERE lb_type = ? AND player = ? AND guild_id = ?
+WHERE lb_type = ? AND player = ?
 ORDER BY snap_date DESC
 LIMIT 1
 `
 
 type GetLeaderboardStatForPlayerParams struct {
-	LbType  string
-	Player  string
-	GuildID string
+	LbType string
+	Player string
 }
 
 type GetLeaderboardStatForPlayerRow struct {
@@ -561,9 +550,9 @@ type GetLeaderboardStatForPlayerRow struct {
 	Details  sql.NullString
 }
 
-// Returns the most recent stat row for a player + lb_type + guild_id.
+// Returns the most recent stat row for a player + lb_type.
 func (q *Queries) GetLeaderboardStatForPlayer(ctx context.Context, arg GetLeaderboardStatForPlayerParams) (GetLeaderboardStatForPlayerRow, error) {
-	row := q.db.QueryRowContext(ctx, getLeaderboardStatForPlayer, arg.LbType, arg.Player, arg.GuildID)
+	row := q.db.QueryRowContext(ctx, getLeaderboardStatForPlayer, arg.LbType, arg.Player)
 	var i GetLeaderboardStatForPlayerRow
 	err := row.Scan(
 		&i.Player,
@@ -588,13 +577,13 @@ func (q *Queries) GetLegacyFarmerstate(ctx context.Context, id string) (FarmerSt
 }
 
 const getStatsForPlayer = `-- name: GetStatsForPlayer :many
-SELECT lb_type, player, guild_id, game_name, snap_date, value, details
+SELECT lb_type, player, game_name, snap_date, value, details
 FROM leaderboard_stats
 WHERE player = ?
 ORDER BY lb_type ASC, snap_date DESC
 `
 
-// Returns all leaderboard stats for a specific player across all types and guilds, newest first.
+// Returns all leaderboard stats for a specific player across all types, newest first.
 func (q *Queries) GetStatsForPlayer(ctx context.Context, player string) ([]LeaderboardStat, error) {
 	rows, err := q.db.QueryContext(ctx, getStatsForPlayer, player)
 	if err != nil {
@@ -607,7 +596,6 @@ func (q *Queries) GetStatsForPlayer(ctx context.Context, player string) ([]Leade
 		if err := rows.Scan(
 			&i.LbType,
 			&i.Player,
-			&i.GuildID,
 			&i.GameName,
 			&i.SnapDate,
 			&i.Value,
@@ -627,10 +615,11 @@ func (q *Queries) GetStatsForPlayer(ctx context.Context, player string) ([]Leade
 }
 
 const getStatsForPlayerInGuild = `-- name: GetStatsForPlayerInGuild :many
-SELECT lb_type, player, guild_id, game_name, snap_date, value, details
-FROM leaderboard_stats
-WHERE player = ? AND guild_id = ?
-ORDER BY lb_type ASC, snap_date DESC
+SELECT s.lb_type, s.player, s.game_name, s.snap_date, s.value, s.details
+FROM leaderboard_stats s
+JOIN leaderboard_optin o ON s.player = o.user_id AND (o.lb_type = s.lb_type OR o.lb_type = 'all')
+WHERE s.player = ? AND o.guild_id = ?
+ORDER BY s.lb_type ASC, s.snap_date DESC
 `
 
 type GetStatsForPlayerInGuildParams struct {
@@ -651,7 +640,6 @@ func (q *Queries) GetStatsForPlayerInGuild(ctx context.Context, arg GetStatsForP
 		if err := rows.Scan(
 			&i.LbType,
 			&i.Player,
-			&i.GuildID,
 			&i.GameName,
 			&i.SnapDate,
 			&i.Value,
@@ -995,9 +983,9 @@ func (q *Queries) UpsertLeaderboardOptIn(ctx context.Context, arg UpsertLeaderbo
 }
 
 const upsertLeaderboardStat = `-- name: UpsertLeaderboardStat :exec
-INSERT INTO leaderboard_stats (lb_type, player, guild_id, game_name, snap_date, value, details)
-VALUES (?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(lb_type, player, guild_id, snap_date) DO UPDATE SET
+INSERT INTO leaderboard_stats (lb_type, player, game_name, snap_date, value, details)
+VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT(lb_type, player, snap_date) DO UPDATE SET
     game_name = excluded.game_name,
     value     = excluded.value,
     details   = excluded.details
@@ -1006,19 +994,17 @@ ON CONFLICT(lb_type, player, guild_id, snap_date) DO UPDATE SET
 type UpsertLeaderboardStatParams struct {
 	LbType   string
 	Player   string
-	GuildID  string
 	GameName string
 	SnapDate string
 	Value    float64
 	Details  sql.NullString
 }
 
-// Inserts or replaces a leaderboard snapshot for (lb_type, player, guild_id, snap_date).
+// Inserts or replaces a leaderboard snapshot for (lb_type, player, snap_date).
 func (q *Queries) UpsertLeaderboardStat(ctx context.Context, arg UpsertLeaderboardStatParams) error {
 	_, err := q.db.ExecContext(ctx, upsertLeaderboardStat,
 		arg.LbType,
 		arg.Player,
-		arg.GuildID,
 		arg.GameName,
 		arg.SnapDate,
 		arg.Value,

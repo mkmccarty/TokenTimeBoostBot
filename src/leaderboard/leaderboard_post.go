@@ -62,7 +62,7 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, onP
 
 func getGuildRows(lbType string, snapDate string, guildID string) ([]LBEntry, map[string]float64) {
 	guildRows := GetLeaderboardRows(lbType, snapDate, guildID)
-	prevSnapDate := GetPreviousSnapDate(lbType, snapDate, guildID)
+	prevSnapDate := GetPreviousSnapDate(lbType, snapDate)
 	prevMap := make(map[string]float64)
 	if prevSnapDate != "" {
 		prevRows := GetLeaderboardRows(lbType, prevSnapDate, guildID)

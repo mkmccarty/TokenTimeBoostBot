@@ -36,7 +36,6 @@ type LeaderboardOptin struct {
 type LeaderboardStat struct {
 	LbType   string
 	Player   string
-	GuildID  string
 	GameName string
 	SnapDate string
 	Value    float64
