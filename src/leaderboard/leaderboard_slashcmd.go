@@ -3,6 +3,7 @@ package leaderboard
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -352,7 +353,7 @@ func showListPage(s *discordgo.Session, i *discordgo.InteractionCreate, page int
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("**Available leaderboard types (Page %d/%d):**\n", page+1, (len(AllLeaderboards)+pageSize-1)/pageSize))
+	fmt.Fprintf(&b, "**Available leaderboard types (Page %d/%d):**\n", page+1, (len(AllLeaderboards)+pageSize-1)/pageSize)
 	b.WriteString("```\n")
 	for _, def := range AllLeaderboards[start:end] {
 		fmt.Fprintf(&b, "%-22s  %s\n", def.Key, def.DisplayName)
@@ -415,8 +416,7 @@ func HandleLBListComponent(s *discordgo.Session, i *discordgo.InteractionCreate)
 	if len(parts) < 2 {
 		return
 	}
-	var page int
-	fmt.Sscanf(parts[1], "%d", &page)
+	page, _ := strconv.Atoi(parts[1])
 	showListPage(s, i, page)
 }
 
@@ -483,40 +483,8 @@ func optionMap(opts []*discordgo.ApplicationCommandInteractionDataOption) map[st
 	}
 	return m
 }
-
-// parseTypeList parses a comma-separated type string like "te_total,virtue_shifts"
-// or the literal "all". Returns (nil, errorMsg) on invalid input.
-func parseTypeList(raw string) ([]string, string) {
-	raw = strings.TrimSpace(raw)
-	if strings.ToLower(raw) == "all" {
-		return []string{OptInAll}, ""
-	}
-	parts := strings.Split(raw, ",")
-	var out []string
-	var bad []string
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p == "" {
-			continue
-		}
-		if _, ok := LBDefByKey(p); !ok {
-			bad = append(bad, p)
-			continue
-		}
-		out = append(out, p)
-	}
-	if len(bad) > 0 {
-		return nil, fmt.Sprintf("Unknown leaderboard key(s): %s\nUse `/bock-leaderboard player list` to see valid keys.",
-			strings.Join(bad, ", "))
-	}
-	if len(out) == 0 {
-		return nil, "No valid leaderboard types provided."
-	}
-	return out, ""
-}
-
 func typeKeysToNames(keys []string) []string {
-	names := make([]string, 0, len(keys))
+	var names []string
 	for _, k := range keys {
 		if def, ok := LBDefByKey(k); ok {
 			names = append(names, def.DisplayName)
@@ -738,12 +706,12 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("## 📊 Rankings for %s (Page %d/%d)\n", stats[0].Current.GameName, page+1, (len(stats)+pageSize-1)/pageSize))
+	fmt.Fprintf(&b, "## 📊 Rankings for %s (Page %d/%d)\n", stats[0].Current.GameName, page+1, (len(stats)+pageSize-1)/pageSize)
 	b.WriteString("```\n")
-	b.WriteString(fmt.Sprintf("%s|%s|%s\n",
+	fmt.Fprintf(&b, "%s|%s|%s\n",
 		bottools.AlignString("#", maxRankWidth, bottools.StringAlignLeft),
 		bottools.AlignString("Metric", maxNameWidth, bottools.StringAlignLeft),
-		bottools.AlignString("Value", maxValWidth, bottools.StringAlignRight)))
+		bottools.AlignString("Value", maxValWidth, bottools.StringAlignRight))
 	b.WriteString(strings.Repeat("—", maxRankWidth+maxNameWidth+maxValWidth+2) + "\n")
 
 	for _, r := range pageRows {
@@ -757,11 +725,11 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 			detail = fmt.Sprintf(" (%s)", r.details)
 		}
 
-		b.WriteString(fmt.Sprintf("%s|%s|%s%s\n",
+		fmt.Fprintf(&b, "%s|%s|%s%s\n",
 			bottools.AlignString(r.rank, maxRankWidth, bottools.StringAlignLeft),
 			bottools.AlignString(r.name, maxNameWidth, bottools.StringAlignLeft),
 			bottools.AlignString(displayVal, maxValWidth, bottools.StringAlignRight),
-			detail))
+			detail)
 	}
 	b.WriteString("```")
 
@@ -814,7 +782,6 @@ func HandleLBStatsComponent(s *discordgo.Session, i *discordgo.InteractionCreate
 	if len(parts) < 2 {
 		return
 	}
-	var page int
-	fmt.Sscanf(parts[1], "%d", &page)
+	page, _ := strconv.Atoi(parts[1])
 	showRankingsPage(s, i, page)
 }
