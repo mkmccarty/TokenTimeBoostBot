@@ -68,3 +68,11 @@ func GetLeaderboardSnapDates(lbType string) ([]string, error) {
 	}
 	return queries.GetLeaderboardSnapDates(ctx, lbType)
 }
+
+// GetStatsForPlayer returns all leaderboard stats for a specific player across all types, newest first.
+func GetStatsForPlayer(player string) ([]LeaderboardStat, error) {
+	if queries == nil {
+		return nil, nil
+	}
+	return queries.GetStatsForPlayer(ctx, player)
+}

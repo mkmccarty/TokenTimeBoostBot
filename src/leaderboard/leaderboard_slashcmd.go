@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mattn/go-runewidth"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
@@ -114,6 +115,12 @@ func GetSlashBockLeaderboardCommand(cmd string) *discordgo.ApplicationCommand {
 					},
 				},
 			},
+			// ── rankings subcommand ───────────────────────────────────────────
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "rankings",
+				Description: "Show your latest leaderboard rankings.",
+			},
 			// ── run subcommand (home-guild admin only) ─────────────────────────
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
@@ -145,6 +152,8 @@ func HandleBockLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate)
 		handleAdminGroup(s, i, opts[0].Options)
 	case "player":
 		handlePlayerGroup(s, i, opts[0].Options)
+	case "rankings":
+		handleRankings(s, i)
 	case "run":
 		handleRun(s, i, opts[0].Options)
 	default:
@@ -323,14 +332,92 @@ func handlePlayerStatus(s *discordgo.Session, i *discordgo.InteractionCreate) {
 }
 
 func handlePlayerList(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	showListPage(s, i, 0)
+}
+
+func showListPage(s *discordgo.Session, i *discordgo.InteractionCreate, page int) {
+	const pageSize = 15
+	start := page * pageSize
+	if start < 0 {
+		start = 0
+		page = 0
+	}
+	if start >= len(AllLeaderboards) {
+		start = (len(AllLeaderboards) - 1) / pageSize * pageSize
+		page = (len(AllLeaderboards) - 1) / pageSize
+	}
+	end := start + pageSize
+	if end > len(AllLeaderboards) {
+		end = len(AllLeaderboards)
+	}
+
 	var b strings.Builder
-	b.WriteString("**Available leaderboard types:**\n")
+	b.WriteString(fmt.Sprintf("**Available leaderboard types (Page %d/%d):**\n", page+1, (len(AllLeaderboards)+pageSize-1)/pageSize))
 	b.WriteString("```\n")
-	for _, def := range AllLeaderboards {
-		fmt.Fprintf(&b, "%-42s  %s\n", def.Key, def.DisplayName)
+	for _, def := range AllLeaderboards[start:end] {
+		fmt.Fprintf(&b, "%-22s  %s\n", def.Key, def.DisplayName)
 	}
 	b.WriteString("```")
-	respondEphemeral(s, i, b.String())
+
+	components := []discordgo.MessageComponent{
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{
+					Label:    "Previous",
+					Style:    discordgo.SecondaryButton,
+					CustomID: fmt.Sprintf("lb_list#%d", page-1),
+					Disabled: page <= 0,
+				},
+				discordgo.Button{
+					Label:    "Next",
+					Style:    discordgo.SecondaryButton,
+					CustomID: fmt.Sprintf("lb_list#%d", page+1),
+					Disabled: end >= len(AllLeaderboards),
+				},
+			},
+		},
+	}
+
+	var flags discordgo.MessageFlags
+	if i.Type != discordgo.InteractionMessageComponent {
+		flags |= discordgo.MessageFlagsEphemeral
+	}
+
+	var err error
+	if i.Type == discordgo.InteractionMessageComponent {
+		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseUpdateMessage,
+			Data: &discordgo.InteractionResponseData{
+				Content:    b.String(),
+				Components: components,
+				Flags:      flags,
+			},
+		})
+	} else {
+		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    b.String(),
+				Components: components,
+				Flags:      flags,
+			},
+		})
+	}
+	if err != nil {
+		log.Printf("leaderboard: failed to showListPage: %v", err)
+	}
+}
+
+// HandleLBListComponent handles button clicks for the leaderboard list pagination.
+func HandleLBListComponent(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	customID := i.MessageComponentData().CustomID
+	parts := strings.Split(customID, "#")
+	if len(parts) < 2 {
+		return
+	}
+	var page int
+	fmt.Sscanf(parts[1], "%d", &page)
+	showListPage(s, i, page)
 }
 
 // ─── run command ──────────────────────────────────────────────────────────────
@@ -551,4 +638,183 @@ func HandleBockLeaderboardAutoComplete(s *discordgo.Session, i *discordgo.Intera
 		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
 		Data: &discordgo.InteractionResponseData{Choices: choices},
 	})
+}
+
+func handleRankings(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// Acknowledge immediately to avoid timeout.
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+		},
+	})
+
+	showRankingsPage(s, i, 0)
+}
+
+func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page int) {
+	userID := bottools.GetInteractionUserID(i)
+	stats := GetPlayerStats(userID)
+	if len(stats) == 0 {
+		content := "You don't have any leaderboard rankings recorded yet."
+		if i.Type == discordgo.InteractionMessageComponent {
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseUpdateMessage,
+				Data: &discordgo.InteractionResponseData{
+					Content: content,
+				},
+			})
+		} else {
+			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+				Content: content,
+			})
+		}
+		return
+	}
+
+	const pageSize = 15
+	start := page * pageSize
+	if start < 0 {
+		start = 0
+		page = 0
+	}
+	if start >= len(stats) {
+		start = (len(stats) - 1) / pageSize * pageSize
+		page = (len(stats) - 1) / pageSize
+	}
+	end := start + pageSize
+	if end > len(stats) {
+		end = len(stats)
+	}
+
+	maxRankWidth := 3 // "#"
+	maxNameWidth := 6 // "Metric"
+	maxValWidth := 5  // "Value"
+
+	type row struct {
+		rank    string
+		name    string
+		val     string
+		delta   string
+		details string
+	}
+	var pageRows []row
+
+	for _, st := range stats[start:end] {
+		v := FormatLBValue(st.Def.ValueFmt, st.Current.Value)
+		d := ""
+		if st.HasPrev {
+			d = FormatLBDelta(st.Def.ValueFmt, st.Current.Value-st.PrevVal)
+		}
+
+		rankStr := fmt.Sprintf("#%d", st.Rank)
+		if st.Rank == 0 {
+			rankStr = "-"
+		}
+		if len(rankStr) > maxRankWidth {
+			maxRankWidth = len(rankStr)
+		}
+
+		w := runewidth.StringWidth(st.Def.DisplayName)
+		if w > maxNameWidth {
+			maxNameWidth = w
+		}
+
+		fullValLen := len(v)
+		if d != "" {
+			fullValLen += 1 + len(d)
+		}
+		if fullValLen > maxValWidth {
+			maxValWidth = fullValLen
+		}
+
+		pageRows = append(pageRows, row{
+			rank:    rankStr,
+			name:    st.Def.DisplayName,
+			val:     v,
+			delta:   d,
+			details: st.Current.Details,
+		})
+	}
+
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("## 📊 Rankings for %s (Page %d/%d)\n", stats[0].Current.GameName, page+1, (len(stats)+pageSize-1)/pageSize))
+	b.WriteString("```\n")
+	b.WriteString(fmt.Sprintf("%s|%s|%s\n",
+		bottools.AlignString("#", maxRankWidth, bottools.StringAlignLeft),
+		bottools.AlignString("Metric", maxNameWidth, bottools.StringAlignLeft),
+		bottools.AlignString("Value", maxValWidth, bottools.StringAlignRight)))
+	b.WriteString(strings.Repeat("—", maxRankWidth+maxNameWidth+maxValWidth+2) + "\n")
+
+	for _, r := range pageRows {
+		displayVal := r.val
+		if r.delta != "" {
+			displayVal += " " + r.delta
+		}
+
+		detail := ""
+		if r.details != "" && !strings.HasPrefix(r.details, "total:") {
+			detail = fmt.Sprintf(" (%s)", r.details)
+		}
+
+		b.WriteString(fmt.Sprintf("%s|%s|%s%s\n",
+			bottools.AlignString(r.rank, maxRankWidth, bottools.StringAlignLeft),
+			bottools.AlignString(r.name, maxNameWidth, bottools.StringAlignLeft),
+			bottools.AlignString(displayVal, maxValWidth, bottools.StringAlignRight),
+			detail))
+	}
+	b.WriteString("```")
+
+	components := []discordgo.MessageComponent{
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{
+					Label:    "Previous",
+					Style:    discordgo.SecondaryButton,
+					CustomID: fmt.Sprintf("lb_stats#%d", page-1),
+					Disabled: page <= 0,
+				},
+				discordgo.Button{
+					Label:    "Next",
+					Style:    discordgo.SecondaryButton,
+					CustomID: fmt.Sprintf("lb_stats#%d", page+1),
+					Disabled: end >= len(stats),
+				},
+			},
+		},
+	}
+
+	var flags discordgo.MessageFlags
+	var err error
+	fullText := b.String()
+	if i.Type == discordgo.InteractionMessageComponent {
+		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseUpdateMessage,
+			Data: &discordgo.InteractionResponseData{
+				Content:    fullText,
+				Components: components,
+				Flags:      flags,
+			},
+		})
+	} else {
+		_, err = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content:    &fullText,
+			Components: &components,
+		})
+	}
+	if err != nil {
+		log.Printf("leaderboard: failed to showRankingsPage for %s: %v", userID, err)
+	}
+}
+
+// HandleLBStatsComponent handles button clicks for the leaderboard rankings pagination.
+func HandleLBStatsComponent(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	customID := i.MessageComponentData().CustomID
+	parts := strings.Split(customID, "#")
+	if len(parts) < 2 {
+		return
+	}
+	var page int
+	fmt.Sscanf(parts[1], "%d", &page)
+	showRankingsPage(s, i, page)
 }
