@@ -61,6 +61,13 @@ func SnapDateNow() string {
 	return time.Now().Format("2006-01-02")
 }
 
+type playerGroup struct {
+	eiUserID      string
+	encryptedEIID string
+	discordIDs    []string
+	optedInTypes  []string // Union of all individual lb_type keys for these Discord IDs
+}
+
 // RunLeaderboardCollection is the main weekly entry point. It fans out API
 // calls through a bounded worker pool, saves results, then posts to Discord.
 // Pass dryRun=true to skip the Discord post step.
@@ -76,9 +83,77 @@ func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, onProgress func
 		return
 	}
 
+	// Group the opted-in Discord users by their Egg Inc User ID to minimize duplicate API requests.
+	groups := make(map[string]*playerGroup)
+	for _, uid := range userIDs {
+		enc := farmerstate.GetMiscSettingString(uid, "encrypted_ei_id")
+		if enc == "" {
+			continue
+		}
+		dec := ei.DecryptEID(enc)
+		if dec == "" {
+			continue
+		}
+
+		// Get all individual lb_types this user has opted into.
+		optRows, err := farmerstate.GetLeaderboardOptInsForUser(uid)
+		if err != nil || len(optRows) == 0 {
+			continue
+		}
+
+		var keys []string
+		for _, o := range optRows {
+			if o.LbType == OptInAll {
+				for _, def := range AllLeaderboards {
+					keys = append(keys, def.Key)
+				}
+			} else {
+				keys = append(keys, ExpandConfigKey(o.LbType)...)
+			}
+		}
+
+		if len(keys) == 0 {
+			continue
+		}
+
+		g, ok := groups[dec]
+		if !ok {
+			g = &playerGroup{
+				eiUserID:      dec,
+				encryptedEIID: enc,
+			}
+			groups[dec] = g
+		}
+		g.discordIDs = append(g.discordIDs, uid)
+		g.optedInTypes = append(g.optedInTypes, keys...)
+	}
+
+	var playerGroups []*playerGroup
+	for _, g := range groups {
+		// Unique the opted-in types in the group
+		keysSet := make(map[string]struct{})
+		for _, k := range g.optedInTypes {
+			keysSet[k] = struct{}{}
+		}
+		var uniqueKeys []string
+		for k := range keysSet {
+			uniqueKeys = append(uniqueKeys, k)
+		}
+		g.optedInTypes = uniqueKeys
+		playerGroups = append(playerGroups, g)
+	}
+
+	if len(playerGroups) == 0 {
+		log.Println("leaderboard: no players with valid Egg Inc IDs, skipping")
+		if onProgress != nil {
+			onProgress("❌ No players with valid Egg Inc IDs found.")
+		}
+		return
+	}
+
 	snapDate := SnapDateNow()
 	n := workerCount()
-	status := fmt.Sprintf("📡 Collecting %d players with %d workers...", len(userIDs), n)
+	status := fmt.Sprintf("📡 Collecting %d unique players (from %d opted-in Discord accounts) with %d workers...", len(playerGroups), len(userIDs), n)
 	log.Printf("leaderboard: %s (snap_date %s, dry=%v)", status, snapDate, dryRun)
 	if onProgress != nil {
 		onProgress(status)
@@ -89,14 +164,14 @@ func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, onProgress func
 
 	var completed int
 	var mu sync.Mutex
-	for _, uid := range userIDs {
-		uid := uid
+	for _, g := range playerGroups {
+		g := g
 		sem <- struct{}{}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			collectPlayer(s, uid, snapDate)
+			collectPlayerGroup(s, g, snapDate)
 
 			mu.Lock()
 			completed++
@@ -104,7 +179,7 @@ func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, onProgress func
 			mu.Unlock()
 
 			if onProgress != nil && c%5 == 0 {
-				onProgress(fmt.Sprintf("📡 Collecting players... (%d/%d)", c, len(userIDs)))
+				onProgress(fmt.Sprintf("📡 Collecting players... (%d/%d)", c, len(playerGroups)))
 			}
 		}()
 	}
@@ -125,34 +200,12 @@ func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, onProgress func
 	}
 }
 
-// collectPlayer fetches API data for one player and saves leaderboard entries.
-func collectPlayer(s *discordgo.Session, userID, snapDate string) {
-	optRows, err := farmerstate.GetLeaderboardOptInsForUser(userID)
-	if err != nil || len(optRows) == 0 {
-		return
-	}
-
-	// Map of guildID -> list of individual lb_type keys they opted into in that guild.
-	guildOptIns := make(map[string][]string)
-	allKeysSet := make(map[string]struct{})
-
-	for _, o := range optRows {
-		keys := ExpandConfigKey(o.LbType)
-		guildOptIns[o.GuildID] = append(guildOptIns[o.GuildID], keys...)
-		for _, k := range keys {
-			allKeysSet[k] = struct{}{}
-		}
-	}
-
-	var allKeys []string
-	for k := range allKeysSet {
-		allKeys = append(allKeys, k)
-	}
-
+// collectPlayerGroup fetches API data for one Egg Inc account and saves leaderboard entries for all associated Discord users.
+func collectPlayerGroup(s *discordgo.Session, g *playerGroup, snapDate string) {
 	// Determine which API calls are needed based on the union of all opted-in types.
 	needsFirstContact := false
 	needsArchive := false
-	for k := range allKeysSet {
+	for _, k := range g.optedInTypes {
 		if def, ok := LBDefByKey(k); ok {
 			switch def.Source {
 			case SourceFirstContact:
@@ -166,30 +219,24 @@ func collectPlayer(s *discordgo.Session, userID, snapDate string) {
 		}
 	}
 
-	encryptedEIID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
-	if encryptedEIID == "" {
-		log.Printf("leaderboard: no EI ID for user %s, skipping", userID)
-		return
-	}
-
 	var backup *ei.Backup
 	var archive []*ei.LocalContract
 
 	if needsFirstContact {
 		var cached bool
-		backup, cached = ei.GetFirstContactFromAPI(s, encryptedEIID, userID, true)
+		backup, cached = ei.GetFirstContactFromAPI(s, g.encryptedEIID, g.discordIDs[0], true)
 		_ = cached
 		if backup == nil {
-			log.Printf("leaderboard: first-contact API failed for user %s", userID)
+			log.Printf("leaderboard: first-contact API failed for Egg Inc ID %s (Discord IDs: %v)", g.eiUserID, g.discordIDs)
 		}
 	}
 
 	if needsArchive {
 		var cached bool
-		archive, cached = ei.GetContractArchiveFromAPI(s, encryptedEIID, userID, false, true)
+		archive, cached = ei.GetContractArchiveFromAPI(s, g.encryptedEIID, g.discordIDs[0], false, true)
 		_ = cached
 		if archive == nil {
-			log.Printf("leaderboard: contract archive API failed for user %s", userID)
+			log.Printf("leaderboard: contract archive API failed for Egg Inc ID %s (Discord IDs: %v)", g.eiUserID, g.discordIDs)
 		}
 	}
 
@@ -197,34 +244,46 @@ func collectPlayer(s *discordgo.Session, userID, snapDate string) {
 		return
 	}
 
-	// For CXPWeeklyDelta, we need a prior total from ANY guild.
-	priorCXPTotal := 0.0
-	for guildID := range guildOptIns {
-		if prior := GetPriorStatForPlayer(LBCXPWeeklyDelta, userID, guildID); prior != nil {
-			if _, err := fmt.Sscanf(prior.Details, "total:%f", &priorCXPTotal); err == nil {
-				break
+	// Calculate and save entries for each individual Discord user mapped to this Egg Inc account.
+	for _, userID := range g.discordIDs {
+		// Get all individual lb_types this specific Discord user has opted into.
+		optRows, err := farmerstate.GetLeaderboardOptInsForUser(userID)
+		if err != nil || len(optRows) == 0 {
+			continue
+		}
+
+		userKeysSet := make(map[string]struct{})
+		for _, o := range optRows {
+			if o.LbType == OptInAll {
+				for _, def := range AllLeaderboards {
+					userKeysSet[def.Key] = struct{}{}
+				}
+			} else {
+				for _, k := range ExpandConfigKey(o.LbType) {
+					userKeysSet[k] = struct{}{}
+				}
 			}
 		}
-	}
 
-	// Run calculators once for the union of all keys.
-	allEntries := RunCalculators(userID, backup, archive, allKeys, snapDate, priorCXPTotal)
-
-	// Now save for each guild, filtering by that guild's opt-ins.
-	for guildID, optTypes := range guildOptIns {
-		guildOptSet := make(map[string]struct{})
-		for _, t := range optTypes {
-			guildOptSet[t] = struct{}{}
+		var userKeys []string
+		for k := range userKeysSet {
+			userKeys = append(userKeys, k)
 		}
 
-		savedCount := 0
+		// For CXPWeeklyDelta, we need a prior total.
+		priorCXPTotal := 0.0
+		if prior := GetPriorStatForPlayer(LBCXPWeeklyDelta, userID); prior != nil {
+			_, _ = fmt.Sscanf(prior.Details, "total:%f", &priorCXPTotal)
+		}
+
+		// Run calculators specifically for this user's opted-in keys.
+		allEntries := RunCalculators(userID, backup, archive, userKeys, snapDate, priorCXPTotal)
+
+		// Save global entries.
 		for _, e := range allEntries {
-			if _, ok := guildOptSet[e.LBType]; ok {
-				SaveLBEntry(guildID, e)
-				savedCount++
-			}
+			SaveLBEntry(e)
 		}
-		log.Printf("leaderboard: saved %d entries for user %s in guild %s", savedCount, userID, guildID)
+		log.Printf("leaderboard: saved %d entries globally for user %s (Egg Inc: %s)", len(allEntries), userID, g.eiUserID)
 	}
 }
 

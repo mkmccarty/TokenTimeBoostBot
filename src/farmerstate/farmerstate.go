@@ -58,6 +58,30 @@ func sqliteInit() {
 	db, _ := sql.Open("sqlite", "ttbb-data/Farmers.sqlite?_busy_timeout=5000")
 	db.SetMaxOpenConns(1)
 
+	// Drop old leaderboard_stats table if it has guild_id column to migrate to new global schema
+	var hasGuildID bool
+	rows, err := db.QueryContext(ctx, "PRAGMA table_info(leaderboard_stats)")
+	if err == nil {
+		for rows.Next() {
+			var cid int
+			var name string
+			var type_ string
+			var notnull int
+			var dfltVal interface{}
+			var pk int
+			if err := rows.Scan(&cid, &name, &type_, &notnull, &dfltVal, &pk); err == nil {
+				if name == "guild_id" {
+					hasGuildID = true
+				}
+			}
+		}
+		_ = rows.Close()
+	}
+	if hasGuildID {
+		log.Println("farmerstate: dropping old guild-specific leaderboard_stats to migrate to global schema")
+		_, _ = db.ExecContext(ctx, "DROP TABLE leaderboard_stats;")
+	}
+
 	// Execute each statement in the DDL to set up the database schema
 	for stmt := range strings.SplitSeq(ddl, ";") {
 		stmt = strings.TrimSpace(stmt)

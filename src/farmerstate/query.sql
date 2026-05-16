@@ -154,10 +154,10 @@ DELETE FROM leaderboard_optin
 WHERE guild_id = ? AND user_id = ?;
 
 -- name: UpsertLeaderboardStat :exec
--- Inserts or replaces a leaderboard snapshot for (lb_type, player, guild_id, snap_date).
-INSERT INTO leaderboard_stats (lb_type, player, guild_id, game_name, snap_date, value, details)
-VALUES (?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(lb_type, player, guild_id, snap_date) DO UPDATE SET
+-- Inserts or replaces a leaderboard snapshot for (lb_type, player, snap_date).
+INSERT INTO leaderboard_stats (lb_type, player, game_name, snap_date, value, details)
+VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT(lb_type, player, snap_date) DO UPDATE SET
     game_name = excluded.game_name,
     value     = excluded.value,
     details   = excluded.details;
@@ -171,43 +171,45 @@ LIMIT 1;
 
 -- name: GetLeaderboardForSnapDate :many
 -- Returns all rows for a given lb_type, guild_id, and snap_date, ordered by value descending.
-SELECT player, game_name, value, details
-FROM leaderboard_stats
-WHERE lb_type = ? AND guild_id = ? AND snap_date = ?
-ORDER BY value DESC;
+SELECT s.player, s.game_name, s.value, s.details
+FROM leaderboard_stats s
+JOIN leaderboard_optin o ON s.player = o.user_id AND (o.lb_type = s.lb_type OR o.lb_type = 'all')
+WHERE s.lb_type = ? AND o.guild_id = ? AND s.snap_date = ?
+ORDER BY s.value DESC;
 
 -- name: GetLeaderboardStatForPlayer :one
--- Returns the most recent stat row for a player + lb_type + guild_id.
+-- Returns the most recent stat row for a player + lb_type.
 SELECT player, game_name, snap_date, value, details
 FROM leaderboard_stats
-WHERE lb_type = ? AND player = ? AND guild_id = ?
+WHERE lb_type = ? AND player = ?
 ORDER BY snap_date DESC
 LIMIT 1;
 
 -- name: GetLeaderboardSnapDates :many
--- Returns all distinct snap_dates for a given lb_type and guild_id, newest first.
+-- Returns all distinct snap_dates for a given lb_type, newest first.
 SELECT DISTINCT snap_date FROM leaderboard_stats
-WHERE lb_type = ? AND guild_id = ?
+WHERE lb_type = ?
 ORDER BY snap_date DESC;
 
 -- name: GetStatsForPlayer :many
--- Returns all leaderboard stats for a specific player across all types and guilds, newest first.
-SELECT lb_type, player, guild_id, game_name, snap_date, value, details
+-- Returns all leaderboard stats for a specific player across all types, newest first.
+SELECT lb_type, player, game_name, snap_date, value, details
 FROM leaderboard_stats
 WHERE player = ?
 ORDER BY lb_type ASC, snap_date DESC;
 
 -- name: GetStatsForPlayerInGuild :many
 -- Returns all leaderboard stats for a specific player in a specific guild.
-SELECT lb_type, player, guild_id, game_name, snap_date, value, details
-FROM leaderboard_stats
-WHERE player = ? AND guild_id = ?
-ORDER BY lb_type ASC, snap_date DESC;
+SELECT s.lb_type, s.player, s.game_name, s.snap_date, s.value, s.details
+FROM leaderboard_stats s
+JOIN leaderboard_optin o ON s.player = o.user_id AND (o.lb_type = s.lb_type OR o.lb_type = 'all')
+WHERE s.player = ? AND o.guild_id = ?
+ORDER BY s.lb_type ASC, s.snap_date DESC;
 
 -- name: DeleteLeaderboardStatsForPlayer :exec
 DELETE FROM leaderboard_stats
-WHERE player = ? AND lb_type = ? AND guild_id = ?;
+WHERE player = ? AND lb_type = ?;
 
 -- name: DeleteAllLeaderboardStatsForPlayerInGuild :exec
-DELETE FROM leaderboard_stats
-WHERE player = ? AND guild_id = ?;
+-- No-op since leaderboard_stats is now global.
+SELECT 1;
