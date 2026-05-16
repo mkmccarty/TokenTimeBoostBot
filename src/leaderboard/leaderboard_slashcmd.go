@@ -80,10 +80,11 @@ func GetSlashBockLeaderboardCommand(cmd string) *discordgo.ApplicationCommand {
 						Description: "Opt into leaderboards.",
 						Options: []*discordgo.ApplicationCommandOption{
 							{
-								Type:        discordgo.ApplicationCommandOptionString,
-								Name:        "types",
-								Description: `Comma-separated leaderboard keys, or "all" for everything.`,
-								Required:    true,
+								Type:         discordgo.ApplicationCommandOptionString,
+								Name:         "type",
+								Description:  `Leaderboard type or group, or "all" for everything.`,
+								Required:     true,
+								Autocomplete: true,
 							},
 						},
 					},
@@ -93,10 +94,11 @@ func GetSlashBockLeaderboardCommand(cmd string) *discordgo.ApplicationCommand {
 						Description: "Opt out of leaderboards.",
 						Options: []*discordgo.ApplicationCommandOption{
 							{
-								Type:        discordgo.ApplicationCommandOptionString,
-								Name:        "types",
-								Description: `Comma-separated leaderboard keys, or "all" to opt out of everything.`,
-								Required:    true,
+								Type:         discordgo.ApplicationCommandOptionString,
+								Name:         "type",
+								Description:  `Leaderboard type or group, or "all" to opt out of everything.`,
+								Required:     true,
+								Autocomplete: true,
 							},
 						},
 					},
@@ -263,12 +265,15 @@ func handlePlayerGroup(s *discordgo.Session, i *discordgo.InteractionCreate, opt
 
 func handlePlayerOptIn(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*discordgo.ApplicationCommandInteractionDataOption) {
 	userID := bottools.GetInteractionUserID(i)
-	raw := optionMap(opts)["types"].StringValue()
-	types, msg := parseTypeList(raw)
-	if msg != "" {
-		respondEphemeral(s, i, msg)
-		return
+	raw := optionMap(opts)["type"].StringValue()
+
+	var types []string
+	if strings.ToLower(raw) == "all" {
+		types = []string{OptInAll}
+	} else {
+		types = ExpandConfigKey(raw)
 	}
+
 	AddPlayerOptInTypes(userID, types)
 
 	if len(types) == 1 && types[0] == OptInAll {
@@ -281,12 +286,15 @@ func handlePlayerOptIn(s *discordgo.Session, i *discordgo.InteractionCreate, opt
 
 func handlePlayerOptOut(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*discordgo.ApplicationCommandInteractionDataOption) {
 	userID := bottools.GetInteractionUserID(i)
-	raw := optionMap(opts)["types"].StringValue()
-	types, msg := parseTypeList(raw)
-	if msg != "" {
-		respondEphemeral(s, i, msg)
-		return
+	raw := optionMap(opts)["type"].StringValue()
+
+	var types []string
+	if strings.ToLower(raw) == "all" {
+		types = []string{OptInAll}
+	} else {
+		types = ExpandConfigKey(raw)
 	}
+
 	RemovePlayerOptInTypes(userID, types)
 
 	if len(types) == 1 && types[0] == OptInAll {
@@ -466,8 +474,11 @@ func HandleBockLeaderboardAutoComplete(s *discordgo.Session, i *discordgo.Intera
 	// Walk the option tree to find the focused string option.
 	var partial string
 	var found bool
+	var groupName, subName string
 	for _, opt := range data.Options {
+		groupName = opt.Name
 		for _, sub := range opt.Options {
+			subName = sub.Name
 			for _, leaf := range sub.Options {
 				if leaf.Focused {
 					partial = strings.ToLower(strings.TrimSpace(leaf.StringValue()))
@@ -493,6 +504,16 @@ func HandleBockLeaderboardAutoComplete(s *discordgo.Session, i *discordgo.Intera
 	const maxChoices = 25
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, maxChoices)
 
+	// Individual types.
+	isPlayerCmd := (groupName == "player" && (subName == "optin" || subName == "optout"))
+
+	if isPlayerCmd && matches("All Leaderboards", "all") {
+		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+			Name:  "All Leaderboards",
+			Value: "all",
+		})
+	}
+
 	// Groups first.
 	for _, g := range AllGroups {
 		if len(choices) >= maxChoices {
@@ -506,13 +527,17 @@ func HandleBockLeaderboardAutoComplete(s *discordgo.Session, i *discordgo.Intera
 		}
 	}
 
-	// Individual types that are NOT covered by any group.
+	// Individual types.
 	for _, def := range AllLeaderboards {
 		if len(choices) >= maxChoices {
 			break
 		}
-		if _, inGroup := groupMemberKeys[def.Key]; inGroup {
-			continue
+		// In admin commands, hide types that are covered by groups to declutter.
+		// In player commands, show everything.
+		if !isPlayerCmd {
+			if _, inGroup := groupMemberKeys[def.Key]; inGroup {
+				continue
+			}
 		}
 		if matches(def.DisplayName, def.Key) {
 			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{

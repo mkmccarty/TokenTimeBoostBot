@@ -253,6 +253,8 @@ func formatValue(fmt_ string, v float64) string {
 	case "ei":
 		// Use the same formatting as virtue.go — EI large-number display.
 		return ei.FormatEIValue(v, map[string]any{"decimals": 3, "trim": true})
+	case "eb":
+		return ei.FormatEIValue(v, map[string]any{"decimals": 3, "trim": true}) + "%"
 	case "cxp":
 		return fmt.Sprintf("%.0f", v)
 	default:
