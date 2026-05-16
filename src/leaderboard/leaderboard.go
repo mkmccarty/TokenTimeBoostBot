@@ -621,6 +621,7 @@ func GetPreviousSnapDate(lbType, snapDate string) string {
 	}
 	return ""
 }
+
 // PlayerStat holds a single metric's latest value and its previous week's value for comparison.
 type PlayerStat struct {
 	Def     LBDef
