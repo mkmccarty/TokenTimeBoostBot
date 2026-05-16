@@ -25,6 +25,7 @@ func PostLeaderboards(s *discordgo.Session, snapDate string) {
 
 	for _, cfg := range configs {
 		postOneLeaderboard(s, cfg, snapDate)
+		time.Sleep(2 * time.Second) // Gap between guilds to leave room for other bot activities
 	}
 }
 
@@ -119,6 +120,7 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string) {
 				}
 			}
 			msgIDOffset++
+			time.Sleep(1 * time.Second) // Conservative delay to allow room for concurrent bot activities
 		}
 	}
 
