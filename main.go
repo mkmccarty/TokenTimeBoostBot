@@ -24,6 +24,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/leaderboard"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/menno"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/mint"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
@@ -117,6 +118,7 @@ const slashPred string = "pred"
 const slashMint string = "mint"
 const slashUploadBanner string = "upload-banner"
 const slashAvailability string = "availability"
+const slashBockLeaderboard string = "bock-leaderboard"
 
 // const slashSignup string = "signup"
 var s *discordgo.Session
@@ -690,6 +692,13 @@ func setupCommands() {
 		AppCmd:   boost.GetSlashAvailabilityCommand(slashAvailability),
 		Category: CmdCategoryStandard,
 		Handler:  boost.HandleAvailabilityCommand,
+	})
+
+	commandRegistry = append(commandRegistry, CommandDef{
+		AppCmd:       leaderboard.GetSlashBockLeaderboardCommand(slashBockLeaderboard),
+		Category:     CmdCategoryStandard,
+		Handler:      leaderboard.HandleBockLeaderboard,
+		Autocomplete: leaderboard.HandleBockLeaderboardAutoComplete,
 	})
 
 	for _, def := range commandRegistry {

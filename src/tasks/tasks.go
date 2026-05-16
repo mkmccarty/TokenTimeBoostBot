@@ -21,6 +21,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/leaderboard"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/version"
 )
 
@@ -809,6 +810,9 @@ func ExecuteCronJob(s *discordgo.Session) {
 
 	// Start timezone-aware loop to pre-fetch images at 8:55 AM PT daily
 	go scheduleImageDownloads()
+
+	// Start weekly leaderboard collection run (Friday 15:00 PT)
+	leaderboard.ScheduleWeeklyCollection(s)
 
 	log.Print("Cron jobs scheduled")
 }

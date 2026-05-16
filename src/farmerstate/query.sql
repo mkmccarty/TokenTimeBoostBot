@@ -120,3 +120,46 @@ INSERT OR IGNORE INTO suspect_missions (
 
 -- name: GetSuspectMissions :many
 SELECT * FROM suspect_missions WHERE user_id = ?;
+
+-- name: GetLeaderboardOptInUsers :many
+-- Returns all Discord user IDs whose leaderboard_optin setting is non-empty.
+SELECT id FROM farmer_state
+WHERE json_extract(value, '$.MiscSettingsString.leaderboard_optin') IS NOT NULL
+  AND json_extract(value, '$.MiscSettingsString.leaderboard_optin') != '';
+
+-- name: UpsertLeaderboardStat :exec
+-- Inserts or replaces a leaderboard snapshot for (lb_type, player, snap_date).
+INSERT INTO leaderboard_stats (lb_type, player, game_name, snap_date, value, details)
+VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT(lb_type, player, snap_date) DO UPDATE SET
+    game_name = excluded.game_name,
+    value     = excluded.value,
+    details   = excluded.details;
+
+-- name: GetLatestLeaderboardSnapDate :one
+-- Returns the most recent snap_date recorded for a given lb_type.
+SELECT snap_date FROM leaderboard_stats
+WHERE lb_type = ?
+ORDER BY snap_date DESC
+LIMIT 1;
+
+-- name: GetLeaderboardForSnapDate :many
+-- Returns all rows for a given lb_type and snap_date, ordered by value descending.
+SELECT player, game_name, value, details
+FROM leaderboard_stats
+WHERE lb_type = ? AND snap_date = ?
+ORDER BY value DESC;
+
+-- name: GetLeaderboardStatForPlayer :one
+-- Returns the most recent stat row for a player + lb_type (useful for CXP delta).
+SELECT player, game_name, snap_date, value, details
+FROM leaderboard_stats
+WHERE lb_type = ? AND player = ?
+ORDER BY snap_date DESC
+LIMIT 1;
+
+-- name: GetLeaderboardSnapDates :many
+-- Returns all distinct snap_dates for a given lb_type, newest first.
+SELECT DISTINCT snap_date FROM leaderboard_stats
+WHERE lb_type = ?
+ORDER BY snap_date DESC;
