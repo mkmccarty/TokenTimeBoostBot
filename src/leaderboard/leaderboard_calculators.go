@@ -187,14 +187,33 @@ func RunCalculators(
 			emit(LBEntry{LBType: LBPrestiges, Player: userID, GameName: gameName, SnapDate: snapDate, Value: float64(stats.GetNumPrestiges())})
 		}
 
-		if backup.GetContracts() != nil && backup.GetContracts().GetLastCpi() != nil {
-			emit(LBEntry{
-				LBType:   LBContractExp,
-				Player:   userID,
-				GameName: gameName,
-				SnapDate: snapDate,
-				Value:    backup.GetContracts().GetLastCpi().GetTotalCxp(),
-			})
+		{
+			totalCXP := 0.0
+			if backup != nil && backup.GetContracts() != nil && backup.GetContracts().GetLastCpi() != nil {
+				totalCXP = backup.GetContracts().GetLastCpi().GetTotalCxp()
+			}
+			if archive != nil {
+				archiveTotalCXP := 0.0
+				for _, lc := range archive {
+					eval := lc.GetEvaluation()
+					if eval != nil {
+						archiveTotalCXP += eval.GetCxp()
+					}
+				}
+				if archiveTotalCXP > totalCXP {
+					totalCXP = archiveTotalCXP
+				}
+			}
+
+			if totalCXP > 0 {
+				emit(LBEntry{
+					LBType:   LBContractExp,
+					Player:   userID,
+					GameName: gameName,
+					SnapDate: snapDate,
+					Value:    totalCXP,
+				})
+			}
 		}
 
 		// ── Soul Mirrors ──────────────────────────────────────────────────────

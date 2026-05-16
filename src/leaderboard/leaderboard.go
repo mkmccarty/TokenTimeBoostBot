@@ -98,7 +98,7 @@ var AllLeaderboards = []LBDef{
 	{Key: LBSoulEggs, DisplayName: "Soul Eggs", Description: "Total soul eggs collected.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBProphecyEggs, DisplayName: "Prophecy Eggs", Description: "Total eggs of prophecy collected.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBEarningsBonus, DisplayName: "Earnings Bonus", Description: "Nekkid and Dressed earnings bonus.", ValueFmt: "eb", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBContractExp, DisplayName: "Contract XP", Description: "Total experience earned from contracts.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBContractExp, DisplayName: "Contract XP", Description: "Total experience earned from contracts.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceBoth},
 	{Key: LBVirtueShifts, DisplayName: "Virtue Shifts", Description: "Total virtue shifts completed.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBTETotal, DisplayName: "Total Truth Eggs", Description: "Sum of truth eggs across all virtues.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBDrones, DisplayName: "Drones", Description: "Total drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
