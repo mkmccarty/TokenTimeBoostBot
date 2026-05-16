@@ -68,10 +68,33 @@ type playerGroup struct {
 	optedInTypes  []string // Union of all individual lb_type keys for these Discord IDs
 }
 
+var (
+	collectionMu      sync.Mutex
+	collectionRunning bool
+)
+
 // RunLeaderboardCollection is the main weekly entry point. It fans out API
 // calls through a bounded worker pool, saves results, then posts to Discord.
 // Pass dryRun=true to skip the Discord post step.
 func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, onProgress func(string)) {
+	collectionMu.Lock()
+	if collectionRunning {
+		collectionMu.Unlock()
+		log.Println("leaderboard: a collection run is already in progress, skipping")
+		if onProgress != nil {
+			onProgress("⚠️ A leaderboard collection run is already in progress. Please wait.")
+		}
+		return
+	}
+	collectionRunning = true
+	collectionMu.Unlock()
+
+	defer func() {
+		collectionMu.Lock()
+		collectionRunning = false
+		collectionMu.Unlock()
+	}()
+
 	if onProgress != nil {
 		onProgress("🔍 Starting weekly collection run...")
 	}

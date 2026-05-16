@@ -171,7 +171,7 @@ LIMIT 1;
 
 -- name: GetLeaderboardForSnapDate :many
 -- Returns all rows for a given lb_type, guild_id, and snap_date, ordered by value descending.
-SELECT s.player, s.game_name, s.value, s.details
+SELECT DISTINCT s.player, s.game_name, s.value, s.details
 FROM leaderboard_stats s
 JOIN leaderboard_optin o ON s.player = o.user_id AND (o.lb_type = s.lb_type OR o.lb_type = 'all')
 WHERE s.lb_type = ? AND o.guild_id = ? AND s.snap_date = ?
@@ -200,7 +200,7 @@ ORDER BY lb_type ASC, snap_date DESC;
 
 -- name: GetStatsForPlayerInGuild :many
 -- Returns all leaderboard stats for a specific player in a specific guild.
-SELECT s.lb_type, s.player, s.game_name, s.snap_date, s.value, s.details
+SELECT DISTINCT s.lb_type, s.player, s.game_name, s.snap_date, s.value, s.details
 FROM leaderboard_stats s
 JOIN leaderboard_optin o ON s.player = o.user_id AND (o.lb_type = s.lb_type OR o.lb_type = 'all')
 WHERE s.player = ? AND o.guild_id = ?

@@ -258,8 +258,22 @@ func init() {
 	})
 }
 
+// legacyKeyAliases maps old/renamed config keys to their current registered equivalents.
+var legacyKeyAliases = map[string]string{
+	"cxp_weekly_delta":     LBCXPWeeklyDelta,
+	"group_prestige_stats": "group_misc",
+}
+
+func resolveAlias(key string) string {
+	if alias, ok := legacyKeyAliases[key]; ok {
+		return alias
+	}
+	return key
+}
+
 // LBDefByKey looks up a definition by its unique key.
 func LBDefByKey(key string) (LBDef, bool) {
+	key = resolveAlias(key)
 	for _, def := range AllLeaderboards {
 		if def.Key == key {
 			return def, true
@@ -270,6 +284,7 @@ func LBDefByKey(key string) (LBDef, bool) {
 
 // GroupByKey looks up a group by its unique key.
 func GroupByKey(key string) (LBGroup, bool) {
+	key = resolveAlias(key)
 	for _, g := range AllGroups {
 		if g.Key == key {
 			return g, true
@@ -282,6 +297,7 @@ func GroupByKey(key string) (LBGroup, bool) {
 // resolves to. For group keys this is the group's Members slice; for individual
 // type keys it's a single-element slice containing that key.
 func ExpandConfigKey(key string) []string {
+	key = resolveAlias(key)
 	if key == OptInAll {
 		keys := make([]string, 0, len(AllLeaderboards))
 		for _, def := range AllLeaderboards {
@@ -298,6 +314,7 @@ func ExpandConfigKey(key string) []string {
 // IsValidConfigKey returns true if key is either an individual LBDef key or a
 // group key — i.e. valid for use in /admin-lb admin set-channel.
 func IsValidConfigKey(key string) bool {
+	key = resolveAlias(key)
 	if _, ok := LBDefByKey(key); ok {
 		return true
 	}
@@ -308,6 +325,7 @@ func IsValidConfigKey(key string) bool {
 // DisplayNameForConfigKey returns a human-readable name for any config key
 // (individual or group).
 func DisplayNameForConfigKey(key string) string {
+	key = resolveAlias(key)
 	if def, ok := LBDefByKey(key); ok {
 		return def.DisplayName
 	}
@@ -331,7 +349,7 @@ func PlayerIsOptedIn(guildID, userID, lbType string) bool {
 		return false
 	}
 	for _, o := range optins {
-		if o.UserID == userID && (o.LbType == lbType || o.LbType == OptInAll) {
+		if o.UserID == userID && (resolveAlias(o.LbType) == resolveAlias(lbType) || o.LbType == OptInAll) {
 			return true
 		}
 	}

@@ -57,6 +57,20 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, onP
 		time.Sleep(1 * time.Second) // Conservative delay to allow room for concurrent bot activities
 	}
 
+	// Clean up any leftover/orphaned messages from the channel that were not reused.
+	newMsgIDsMap := make(map[string]bool)
+	for _, id := range newMsgIDs {
+		if id != "" {
+			newMsgIDsMap[id] = true
+		}
+	}
+	for _, oldID := range cfg.MessageIDs {
+		if oldID != "" && !newMsgIDsMap[oldID] {
+			log.Printf("leaderboard: deleting orphaned message %s in channel %s", oldID, cfg.ChannelID)
+			_ = s.ChannelMessageDelete(cfg.ChannelID, oldID)
+		}
+	}
+
 	UpdateGuildLBConfigMessageIDs(cfg.GuildID, cfg.LBType, newMsgIDs)
 }
 
@@ -93,6 +107,7 @@ func postSingleMetric(s *discordgo.Session, cfg LBConfig, lbType, snapDate strin
 
 	if len(guildRows) == 0 {
 		log.Printf("leaderboard: no eligible guild members for %s in guild %s", lbType, cfg.GuildID)
+		*newMsgIDs = append(*newMsgIDs, "")
 		*msgIDOffset++
 		return
 	}
@@ -143,7 +158,7 @@ func postSingleMetric(s *discordgo.Session, cfg LBConfig, lbType, snapDate strin
 		}
 
 		flags := discordgo.MessageFlagsIsComponentsV2
-		if !*forceNewPosts && *msgIDOffset < len(cfg.MessageIDs) {
+		if !*forceNewPosts && *msgIDOffset < len(cfg.MessageIDs) && cfg.MessageIDs[*msgIDOffset] != "" {
 			msgID := cfg.MessageIDs[*msgIDOffset]
 			edit := discordgo.MessageEdit{
 				ID:         msgID,
@@ -158,15 +173,22 @@ func postSingleMetric(s *discordgo.Session, cfg LBConfig, lbType, snapDate strin
 					_ = DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
 					return
 				}
-				if rerr, ok := err.(*discordgo.RESTError); ok && rerr.Message.Code == 10008 {
+				if rerr, ok := err.(*discordgo.RESTError); ok && rerr.Message != nil && rerr.Message.Code == 10008 {
+					// The message was orphaned/deleted. We must create a new one if the channel exists.
 					*forceNewPosts = true
-				}
-				if msg, err := sendNewLBMessage(s, cfg.ChannelID, components, flags); err == nil {
-					*newMsgIDs = append(*newMsgIDs, msg.ID)
-				} else if isChannelNotFound(err) {
-					log.Printf("leaderboard: channel %s not found for guild %s - deleting config", cfg.ChannelID, cfg.GuildID)
-					_ = DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
-					return
+					if msg, err := sendNewLBMessage(s, cfg.ChannelID, components, flags); err == nil {
+						*newMsgIDs = append(*newMsgIDs, msg.ID)
+					} else if isChannelNotFound(err) {
+						log.Printf("leaderboard: channel %s not found for guild %s - deleting config", cfg.ChannelID, cfg.GuildID)
+						_ = DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
+						return
+					} else {
+						log.Printf("leaderboard: failed to post new message to channel %s: %v", cfg.ChannelID, err)
+						*newMsgIDs = append(*newMsgIDs, "")
+					}
+				} else {
+					// For other errors (e.g. rate limit, transient), retain the ID to keep slot alignment
+					*newMsgIDs = append(*newMsgIDs, msgID)
 				}
 			} else {
 				*newMsgIDs = append(*newMsgIDs, msgID)
@@ -180,6 +202,7 @@ func postSingleMetric(s *discordgo.Session, cfg LBConfig, lbType, snapDate strin
 				return
 			} else {
 				log.Printf("leaderboard: failed to post to channel %s: %v", cfg.ChannelID, err)
+				*newMsgIDs = append(*newMsgIDs, "")
 			}
 		}
 		*msgIDOffset++
@@ -262,7 +285,7 @@ func sendNewLBMessage(s *discordgo.Session, channelID string, components []disco
 
 func isChannelNotFound(err error) bool {
 	if rerr, ok := err.(*discordgo.RESTError); ok {
-		if rerr.Response.StatusCode == 404 || rerr.Message.Code == 10003 {
+		if rerr.Response.StatusCode == 404 || (rerr.Message != nil && rerr.Message.Code == 10003) {
 			return true
 		}
 	}
