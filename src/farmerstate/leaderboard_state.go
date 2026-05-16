@@ -76,3 +76,21 @@ func GetStatsForPlayer(player string) ([]LeaderboardStat, error) {
 	}
 	return queries.GetStatsForPlayer(ctx, player)
 }
+
+// DeleteLeaderboardStatsForPlayer removes all snapshots for a specific player and type.
+func DeleteLeaderboardStatsForPlayer(player, lbType string) error {
+	if queries == nil {
+		return nil
+	}
+	_, err := queries.db.ExecContext(ctx, "DELETE FROM leaderboard_stats WHERE player = ? AND lb_type = ?", player, lbType)
+	return err
+}
+
+// DeleteAllLeaderboardStatsForPlayer removes every leaderboard stat for a player.
+func DeleteAllLeaderboardStatsForPlayer(player string) error {
+	if queries == nil {
+		return nil
+	}
+	_, err := queries.db.ExecContext(ctx, "DELETE FROM leaderboard_stats WHERE player = ?", player)
+	return err
+}

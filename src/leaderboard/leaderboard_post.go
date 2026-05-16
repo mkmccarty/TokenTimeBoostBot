@@ -77,18 +77,31 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, onP
 		for _, ign := range guildMemberIgns {
 			guildIgnSet[ign] = struct{}{}
 		}
+		// Filter to guild members and skip 0-value ship entries.
+		isShipLB := strings.HasPrefix(lbType, "ship_") || strings.HasPrefix(lbType, "std_ship_")
 		var guildRows []LBEntry
-		if len(guildMemberIgns) == 0 {
-			guildRows = allRows
-		} else {
-			for _, row := range allRows {
-				if _, ok := guildIgnSet[row.GameName]; ok {
-					guildRows = append(guildRows, row)
-				}
+		for _, row := range allRows {
+			inGuild := false
+			if len(guildMemberIgns) == 0 {
+				inGuild = true
+			} else {
+				nameToMatch := strings.TrimSuffix(row.GameName, " (SP)")
+				_, inGuild = guildIgnSet[nameToMatch]
 			}
+
+			if !inGuild {
+				continue
+			}
+
+			if isShipLB && row.Value == 0 {
+				continue
+			}
+
+			guildRows = append(guildRows, row)
 		}
+
 		if len(guildRows) == 0 {
-			log.Printf("leaderboard: no guild members on %s for guild %s", lbType, cfg.GuildID)
+			log.Printf("leaderboard: no eligible guild members for %s in guild %s", lbType, cfg.GuildID)
 			msgIDOffset++
 			continue
 		}
@@ -111,13 +124,25 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, onP
 				if _, err := s.ChannelMessageEditComplex(&edit); err != nil {
 					log.Printf("leaderboard: failed to edit message %s: %v", msgID, err)
 
-					// If the message was deleted (404/10008), force new posts for the rest to keep order.
-					if rerr, ok := err.(*discordgo.RESTError); ok && (rerr.Response.StatusCode == 404 || rerr.Message.Code == 10008) {
+					if isChannelNotFound(err) {
+						log.Printf("leaderboard: channel %s not found for guild %s - deleting config", cfg.ChannelID, cfg.GuildID)
+						DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
+						return
+					}
+
+					// If the message was deleted (10008), force new posts for the rest to keep order.
+					if rerr, ok := err.(*discordgo.RESTError); ok && rerr.Message.Code == 10008 {
 						forceNewPosts = true
 					}
 
 					if msg, err := sendNewLBMessage(s, cfg.ChannelID, components, flags); err == nil {
 						newMsgIDs = append(newMsgIDs, msg.ID)
+					} else {
+						if isChannelNotFound(err) {
+							log.Printf("leaderboard: channel %s not found for guild %s - deleting config", cfg.ChannelID, cfg.GuildID)
+							DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
+							return
+						}
 					}
 				} else {
 					newMsgIDs = append(newMsgIDs, msgID)
@@ -127,6 +152,11 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, onP
 					newMsgIDs = append(newMsgIDs, msg.ID)
 				} else {
 					log.Printf("leaderboard: failed to post to channel %s: %v", cfg.ChannelID, err)
+					if isChannelNotFound(err) {
+						log.Printf("leaderboard: channel %s not found for guild %s - deleting config", cfg.ChannelID, cfg.GuildID)
+						DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
+						return
+					}
 				}
 			}
 			msgIDOffset++
@@ -143,6 +173,15 @@ func sendNewLBMessage(s *discordgo.Session, channelID string, components []disco
 		Flags:      flags,
 	}
 	return s.ChannelMessageSendComplex(channelID, &data)
+}
+
+func isChannelNotFound(err error) bool {
+	if rerr, ok := err.(*discordgo.RESTError); ok {
+		if rerr.Response.StatusCode == 404 || rerr.Message.Code == 10003 {
+			return true
+		}
+	}
+	return false
 }
 
 // buildMessageBlocks formats the leaderboard rows into one or more text blocks
@@ -179,36 +218,55 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64) (string,
 		return "", nil, ""
 	}
 
+	isEB := def.Key == LBEarningsBonus
 	maxRank := len(rows)
 	rankWidth := len(fmt.Sprintf("%d", maxRank))
-	if rankWidth < 4 {
-		rankWidth = 4
+	if rankWidth < 2 {
+		rankWidth = 2
 	}
-	maxNameWidth := len("Name")
-	maxValOnlyWidth := 5
+	maxNameWidth := runewidth.StringWidth("Name")
+	maxValOnlyWidth := runewidth.StringWidth(def.DisplayName)
+	if isEB {
+		maxValOnlyWidth = runewidth.StringWidth("Nekkid")
+	}
+	maxDressedWidth := 0
+	if isEB {
+		maxDressedWidth = runewidth.StringWidth("Dressed")
+	}
 	maxDeltaWidth := 0
 
 	// Pre-calculate deltas and widths.
 	type rowInfo struct {
-		rank     int
-		row      LBEntry
-		valStr   string
-		deltaStr string
+		rank          int
+		row           LBEntry
+		valStr        string
+		dressedValStr string
+		deltaStr      string
 	}
 	infos := make([]rowInfo, 0, len(rows))
 
 	for i, r := range rows {
 		valStr := FormatLBValue(def.ValueFmt, r.Value)
+		dressedValStr := ""
+		if isEB {
+			if idx := strings.Index(r.Details, "dressed:"); idx != -1 {
+				var d float64
+				fmt.Sscanf(r.Details[idx:], "dressed:%f", &d)
+				dressedValStr = FormatLBValue(def.ValueFmt, d)
+			}
+		}
+
 		deltaStr := ""
 		if prevVal, ok := prevMap[r.Player]; ok {
 			deltaStr = FormatLBDelta(def.ValueFmt, r.Value-prevVal)
 		}
 
 		infos = append(infos, rowInfo{
-			rank:     i + 1,
-			row:      r,
-			valStr:   valStr,
-			deltaStr: deltaStr,
+			rank:          i + 1,
+			row:           r,
+			valStr:        valStr,
+			dressedValStr: dressedValStr,
+			deltaStr:      deltaStr,
 		})
 
 		w := runewidth.StringWidth(r.GameName)
@@ -218,6 +276,9 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64) (string,
 
 		if len(valStr) > maxValOnlyWidth {
 			maxValOnlyWidth = len(valStr)
+		}
+		if isEB && len(dressedValStr) > maxDressedWidth {
+			maxDressedWidth = len(dressedValStr)
 		}
 		if len(deltaStr) > maxDeltaWidth {
 			maxDeltaWidth = len(deltaStr)
@@ -229,17 +290,28 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64) (string,
 		maxValWidth += 1 + maxDeltaWidth
 	}
 
-	colHeader := fmt.Sprintf("```\n%s|%s|%s\n%s\n",
-		bottools.AlignString("Rank", rankWidth+1, bottools.StringAlignLeft),
-		bottools.AlignString("Name", maxNameWidth, bottools.StringAlignLeft),
-		bottools.AlignString("Value", maxValWidth, bottools.StringAlignRight),
-		strings.Repeat("—", rankWidth+1+maxNameWidth+maxValWidth+2),
-	)
+	var colHeader string
+	if isEB {
+		colHeader = fmt.Sprintf("```\n%s %s %s %s\n%s\n",
+			bottools.AlignString("##:", rankWidth+1, bottools.StringAlignRight),
+			bottools.AlignString("Name", maxNameWidth, bottools.StringAlignLeft),
+			bottools.AlignString("Nekkid", maxValWidth, bottools.StringAlignRight),
+			bottools.AlignString("Dressed", maxDressedWidth, bottools.StringAlignRight),
+			strings.Repeat("═", rankWidth+1+1+maxNameWidth+1+maxValWidth+1+maxDressedWidth),
+		)
+	} else {
+		colHeader = fmt.Sprintf("```\n%s %s %s\n%s\n",
+			bottools.AlignString("##:", rankWidth+1, bottools.StringAlignRight),
+			bottools.AlignString("Name", maxNameWidth, bottools.StringAlignLeft),
+			bottools.AlignString(def.DisplayName, maxValWidth, bottools.StringAlignRight),
+			strings.Repeat("═", rankWidth+1+1+maxNameWidth+1+maxValWidth),
+		)
+	}
 
 	rowLines := make([]string, 0, len(rows))
 	for _, info := range infos {
 		detail := ""
-		if info.row.Details != "" && !strings.HasPrefix(info.row.Details, "total:") {
+		if info.row.Details != "" && !strings.HasPrefix(info.row.Details, "total:") && !strings.Contains(info.row.Details, "dressed:") {
 			detail = fmt.Sprintf(" (%s)", info.row.Details)
 		}
 
@@ -252,13 +324,24 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64) (string,
 			}
 		}
 
-		line := fmt.Sprintf("%s|%s|%s%s\n",
-			bottools.AlignString(fmt.Sprintf("#%d", info.rank), rankWidth+1, bottools.StringAlignLeft),
-			bottools.AlignString(info.row.GameName, maxNameWidth, bottools.StringAlignLeft),
-			displayVal,
-			detail,
-		)
-		rowLines = append(rowLines, line)
+		if isEB {
+			line := fmt.Sprintf("%s %s %s %s%s\n",
+				bottools.AlignString(fmt.Sprintf("%d:", info.rank), rankWidth+1, bottools.StringAlignRight),
+				bottools.AlignString(info.row.GameName, maxNameWidth, bottools.StringAlignLeft),
+				displayVal,
+				bottools.AlignString(info.dressedValStr, maxDressedWidth, bottools.StringAlignRight),
+				detail,
+			)
+			rowLines = append(rowLines, line)
+		} else {
+			line := fmt.Sprintf("%s %s %s%s\n",
+				bottools.AlignString(fmt.Sprintf("%d:", info.rank), rankWidth+1, bottools.StringAlignRight),
+				bottools.AlignString(info.row.GameName, maxNameWidth, bottools.StringAlignLeft),
+				displayVal,
+				detail,
+			)
+			rowLines = append(rowLines, line)
+		}
 	}
 
 	footer := fmt.Sprintf("-# Updated: %s\n",

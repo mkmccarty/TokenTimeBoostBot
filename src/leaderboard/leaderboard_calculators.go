@@ -73,6 +73,9 @@ func RunCalculators(
 	gameName := ""
 	if backup != nil {
 		gameName = backup.GetUserName()
+		if game := backup.GetGame(); game != nil && game.GetPermitLevel() != 1 {
+			gameName += " (SP)"
+		}
 	}
 
 	// Build a set for fast opt-in lookup.
@@ -160,7 +163,16 @@ func RunCalculators(
 					totalTE += float64(ei.CountTruthEggTiersPassed(deliveries[i]))
 				}
 			}
-			emit(LBEntry{LBType: LBEarningsBonus, Player: userID, GameName: gameName, SnapDate: snapDate, Value: ei.GetEarningsBonus(backup, totalTE)})
+			nakedEB := ei.GetEarningsBonus(backup, totalTE)
+			dressedEB := ei.GetDressedEarningsBonus(backup, totalTE)
+			emit(LBEntry{
+				LBType:   LBEarningsBonus,
+				Player:   userID,
+				GameName: gameName,
+				SnapDate: snapDate,
+				Value:    nakedEB,
+				Details:  fmt.Sprintf("dressed:%.6f", dressedEB),
+			})
 		}
 
 		if stats != nil {

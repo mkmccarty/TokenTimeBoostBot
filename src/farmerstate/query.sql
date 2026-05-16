@@ -169,3 +169,11 @@ SELECT lb_type, player, game_name, snap_date, value, details
 FROM leaderboard_stats
 WHERE player = ?
 ORDER BY lb_type ASC, snap_date DESC;
+
+-- name: DeleteLeaderboardStatsForPlayer :exec
+DELETE FROM leaderboard_stats
+WHERE player = ? AND lb_type = ?;
+
+-- name: DeleteAllLeaderboardStatsForPlayer :exec
+DELETE FROM leaderboard_stats
+WHERE player = ?;
