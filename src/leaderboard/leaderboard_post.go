@@ -16,21 +16,27 @@ import (
 const discordMessageCharLimit = 1900
 
 // PostLeaderboards triggers the posting task for all configured guilds.
-func PostLeaderboards(s *discordgo.Session, snapDate string) {
+func PostLeaderboards(s *discordgo.Session, snapDate string, onProgress func(string)) {
 	configs, err := GetAllLBConfigs()
 	if err != nil {
 		log.Printf("leaderboard: PostLeaderboards: failed to load configs: %v", err)
 		return
 	}
 
-	for _, cfg := range configs {
-		postOneLeaderboard(s, cfg, snapDate)
+	for i, cfg := range configs {
+		if onProgress != nil {
+			onProgress(fmt.Sprintf("📬 Posting leaderboards to guild %d/%d (%s)...", i+1, len(configs), cfg.GuildID))
+		}
+		postOneLeaderboard(s, cfg, snapDate, onProgress)
 		time.Sleep(2 * time.Second) // Gap between guilds to leave room for other bot activities
+	}
+	if onProgress != nil {
+		onProgress("🏁 Weekly leaderboard update complete!")
 	}
 }
 
 // postOneLeaderboard handles the expanded posting of a single config (which might be a group).
-func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string) {
+func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, onProgress func(string)) {
 	memberKeys := ExpandConfigKey(cfg.LBType)
 	var newMsgIDs []string
 	msgIDOffset := 0
@@ -41,6 +47,10 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string) {
 		if !ok {
 			log.Printf("leaderboard: unknown lb_type %q in group/config for guild %s", lbType, cfg.GuildID)
 			continue
+		}
+
+		if onProgress != nil && len(memberKeys) > 1 {
+			onProgress(fmt.Sprintf("📬 Guild %s: Updating %s...", cfg.GuildID, def.DisplayName))
 		}
 
 		allRows := GetLeaderboardRows(lbType, snapDate)
@@ -170,9 +180,13 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64) (string,
 	}
 
 	maxRank := len(rows)
-	rankWidth := max(len(fmt.Sprintf("%d", maxRank)), 4)
+	rankWidth := len(fmt.Sprintf("%d", maxRank))
+	if rankWidth < 4 {
+		rankWidth = 4
+	}
 	maxNameWidth := len("Name")
-	maxValWidth := len("Value")
+	maxValOnlyWidth := 5
+	maxDeltaWidth := 0
 
 	// Pre-calculate deltas and widths.
 	type rowInfo struct {
@@ -202,13 +216,17 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64) (string,
 			maxNameWidth = w
 		}
 
-		fullValLen := len(valStr)
-		if deltaStr != "" {
-			fullValLen += 1 + len(deltaStr) // space + delta
+		if len(valStr) > maxValOnlyWidth {
+			maxValOnlyWidth = len(valStr)
 		}
-		if fullValLen > maxValWidth {
-			maxValWidth = fullValLen
+		if len(deltaStr) > maxDeltaWidth {
+			maxDeltaWidth = len(deltaStr)
 		}
+	}
+
+	maxValWidth := maxValOnlyWidth
+	if maxDeltaWidth > 0 {
+		maxValWidth += 1 + maxDeltaWidth
 	}
 
 	colHeader := fmt.Sprintf("```\n%s|%s|%s\n%s\n",
@@ -225,15 +243,19 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64) (string,
 			detail = fmt.Sprintf(" (%s)", info.row.Details)
 		}
 
-		displayVal := info.valStr
-		if info.deltaStr != "" {
-			displayVal += " " + info.deltaStr
+		displayVal := bottools.AlignString(info.valStr, maxValOnlyWidth, bottools.StringAlignRight)
+		if maxDeltaWidth > 0 {
+			if info.deltaStr != "" {
+				displayVal += " " + bottools.AlignString(info.deltaStr, maxDeltaWidth, bottools.StringAlignLeft)
+			} else {
+				displayVal += strings.Repeat(" ", maxDeltaWidth+1)
+			}
 		}
 
 		line := fmt.Sprintf("%s|%s|%s%s\n",
 			bottools.AlignString(fmt.Sprintf("#%d", info.rank), rankWidth+1, bottools.StringAlignLeft),
 			bottools.AlignString(info.row.GameName, maxNameWidth, bottools.StringAlignLeft),
-			bottools.AlignString(displayVal, maxValWidth, bottools.StringAlignRight),
+			displayVal,
 			detail,
 		)
 		rowLines = append(rowLines, line)

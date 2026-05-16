@@ -443,16 +443,23 @@ func handleRun(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*dis
 		dryRun = opt.BoolValue()
 	}
 
-	// Acknowledge immediately, run in background.
+	// Immediate response to confirm we're starting.
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
+			Content: "**Starting collection run...**",
+			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	})
 
+	onProgress := func(status string) {
+		_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content: &status,
+		})
+	}
+
 	go func() {
-		RunLeaderboardCollection(s, dryRun)
+		RunLeaderboardCollection(s, dryRun, onProgress)
 		msg := "✅ Leaderboard collection run complete."
 		if dryRun {
 			msg = "✅ Dry run complete — data collected, Discord post skipped."
@@ -657,7 +664,8 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 
 	maxRankWidth := 3 // "#"
 	maxNameWidth := 6 // "Metric"
-	maxValWidth := 5  // "Value"
+	maxValOnlyWidth := 5
+	maxDeltaWidth := 0
 
 	type row struct {
 		rank    string
@@ -688,12 +696,11 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 			maxNameWidth = w
 		}
 
-		fullValLen := len(v)
-		if d != "" {
-			fullValLen += 1 + len(d)
+		if len(v) > maxValOnlyWidth {
+			maxValOnlyWidth = len(v)
 		}
-		if fullValLen > maxValWidth {
-			maxValWidth = fullValLen
+		if len(d) > maxDeltaWidth {
+			maxDeltaWidth = len(d)
 		}
 
 		pageRows = append(pageRows, row{
@@ -703,6 +710,11 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 			delta:   d,
 			details: st.Current.Details,
 		})
+	}
+
+	maxValWidth := maxValOnlyWidth
+	if maxDeltaWidth > 0 {
+		maxValWidth += 1 + maxDeltaWidth
 	}
 
 	var b strings.Builder
@@ -715,9 +727,13 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 	b.WriteString(strings.Repeat("—", maxRankWidth+maxNameWidth+maxValWidth+2) + "\n")
 
 	for _, r := range pageRows {
-		displayVal := r.val
-		if r.delta != "" {
-			displayVal += " " + r.delta
+		displayVal := bottools.AlignString(r.val, maxValOnlyWidth, bottools.StringAlignRight)
+		if maxDeltaWidth > 0 {
+			if r.delta != "" {
+				displayVal += " " + bottools.AlignString(r.delta, maxDeltaWidth, bottools.StringAlignLeft)
+			} else {
+				displayVal += strings.Repeat(" ", maxDeltaWidth+1)
+			}
 		}
 
 		detail := ""
@@ -728,7 +744,7 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 		fmt.Fprintf(&b, "%s|%s|%s%s\n",
 			bottools.AlignString(r.rank, maxRankWidth, bottools.StringAlignLeft),
 			bottools.AlignString(r.name, maxNameWidth, bottools.StringAlignLeft),
-			bottools.AlignString(displayVal, maxValWidth, bottools.StringAlignRight),
+			displayVal,
 			detail)
 	}
 	b.WriteString("```")

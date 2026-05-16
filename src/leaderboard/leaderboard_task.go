@@ -1,6 +1,7 @@
 package leaderboard
 
 import (
+	"fmt"
 	"log"
 	"strconv"
 	"sync"
@@ -63,7 +64,10 @@ func SnapDateNow() string {
 // RunLeaderboardCollection is the main weekly entry point. It fans out API
 // calls through a bounded worker pool, saves results, then posts to Discord.
 // Pass dryRun=true to skip the Discord post step.
-func RunLeaderboardCollection(s *discordgo.Session, dryRun bool) {
+func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, onProgress func(string)) {
+	if onProgress != nil {
+		onProgress("🔍 Starting weekly collection run...")
+	}
 	log.Println("leaderboard: starting weekly collection run")
 
 	userIDs := GetAllOptInUserIDs()
@@ -74,12 +78,17 @@ func RunLeaderboardCollection(s *discordgo.Session, dryRun bool) {
 
 	snapDate := SnapDateNow()
 	n := workerCount()
-	log.Printf("leaderboard: collecting %d players with %d workers (snap_date %s, dry=%v)",
-		len(userIDs), n, snapDate, dryRun)
+	status := fmt.Sprintf("📡 Collecting %d players with %d workers...", len(userIDs), n)
+	log.Printf("leaderboard: %s (snap_date %s, dry=%v)", status, snapDate, dryRun)
+	if onProgress != nil {
+		onProgress(status)
+	}
 
 	sem := make(chan struct{}, n)
 	var wg sync.WaitGroup
 
+	var completed int
+	var mu sync.Mutex
 	for _, uid := range userIDs {
 		uid := uid
 		sem <- struct{}{}
@@ -88,16 +97,31 @@ func RunLeaderboardCollection(s *discordgo.Session, dryRun bool) {
 			defer wg.Done()
 			defer func() { <-sem }()
 			collectPlayer(s, uid, snapDate)
+
+			mu.Lock()
+			completed++
+			c := completed
+			mu.Unlock()
+
+			if onProgress != nil && c%5 == 0 {
+				onProgress(fmt.Sprintf("📡 Collecting players... (%d/%d)", c, len(userIDs)))
+			}
 		}()
 	}
 
 	wg.Wait()
 	log.Println("leaderboard: collection complete")
+	if onProgress != nil {
+		onProgress("✅ Collection complete. Preparing posts...")
+	}
 
 	if !dryRun {
-		PostLeaderboards(s, snapDate)
+		PostLeaderboards(s, snapDate, onProgress)
 	} else {
 		log.Println("leaderboard: dry run — skipping Discord post")
+		if onProgress != nil {
+			onProgress("🏁 Dry run complete. Data saved but not posted.")
+		}
 	}
 }
 
@@ -165,6 +189,6 @@ func collectPlayer(s *discordgo.Session, userID, snapDate string) {
 // Call this from tasks.ExecuteCronJob.
 func ScheduleWeeklyCollection(s *discordgo.Session) {
 	scheduleWeeklyFriday(15, 0, func() {
-		RunLeaderboardCollection(s, false)
+		RunLeaderboardCollection(s, false, nil)
 	})
 }
