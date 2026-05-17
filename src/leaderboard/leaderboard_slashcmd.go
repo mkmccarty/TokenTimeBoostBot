@@ -10,7 +10,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mattn/go-runewidth"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
 
@@ -423,7 +422,7 @@ func handleRun(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*dis
 	userID := bottools.GetInteractionUserID(i)
 
 	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
-	if err != nil || (perms&discordgo.PermissionAdministrator == 0 && userID != config.AdminUserID) {
+	if err != nil || (perms&discordgo.PermissionAdministrator == 0) {
 		respondEphemeral(s, i, "You need Administrator permission to trigger a collection run.")
 		return
 	}

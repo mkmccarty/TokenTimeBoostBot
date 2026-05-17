@@ -533,7 +533,6 @@ func GetGuildLBConfigs(guildID string) ([]LBConfig, error) {
 	return cfgs, nil
 }
 
-
 // UpdateGuildLBConfigMessageIDs persists message IDs after a post run.
 func UpdateGuildLBConfigMessageIDs(guildID, lbType string, messageIDs []string) {
 	b, err := json.Marshal(messageIDs)
