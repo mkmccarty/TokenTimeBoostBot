@@ -14,6 +14,7 @@ import (
 
 // ─── Leaderboard Registry ───────────────────────────────────────────────────
 
+// Leaderboard keys constants.
 const (
 	LBEarningsBonus  = "eb"
 	LBSoulEggs       = "soul_eggs"
@@ -78,8 +79,10 @@ type LBDef struct {
 	Source         LBSource
 }
 
+// LBSource represents the backend data source required to calculate a metric.
 type LBSource int
 
+// Data source constants.
 const (
 	SourceFirstContact LBSource = iota
 	SourceContractArchive
@@ -337,6 +340,7 @@ func DisplayNameForConfigKey(key string) string {
 
 // ─── Player opt-in helpers ────────────────────────────────────────────────────
 
+// OptInAll represents the option to opt into all available leaderboards.
 const OptInAll = "all"
 
 // PlayerIsOptedIn returns true if the user is opted into the given lb_type in the given guild.
@@ -507,6 +511,28 @@ func GetAllLBConfigs() ([]LBConfig, error) {
 	}
 	return cfgs, nil
 }
+
+// GetGuildLBConfigs retrieves all leaderboard configs for a single guild.
+func GetGuildLBConfigs(guildID string) ([]LBConfig, error) {
+	rows, err := guildstate.GetAllLeaderboardConfigsForGuild(guildID)
+	if err != nil {
+		return nil, err
+	}
+	cfgs := make([]LBConfig, 0, len(rows))
+	for _, row := range rows {
+		cfg := LBConfig{
+			LBType:    row.LbType,
+			GuildID:   row.GuildID,
+			ChannelID: row.ChannelID,
+		}
+		if row.MessageIds.Valid && row.MessageIds.String != "" {
+			_ = json.Unmarshal([]byte(row.MessageIds.String), &cfg.MessageIDs)
+		}
+		cfgs = append(cfgs, cfg)
+	}
+	return cfgs, nil
+}
+
 
 // UpdateGuildLBConfigMessageIDs persists message IDs after a post run.
 func UpdateGuildLBConfigMessageIDs(guildID, lbType string, messageIDs []string) {

@@ -15,9 +15,15 @@ import (
 
 const discordMessageCharLimit = 1900
 
-// PostLeaderboards triggers the posting task for all configured guilds.
-func PostLeaderboards(s *discordgo.Session, snapDate string, onProgress func(string)) {
-	configs, err := GetAllLBConfigs()
+// PostLeaderboards triggers the posting task for all configured guilds (or a specific guild if guildID is provided).
+func PostLeaderboards(s *discordgo.Session, snapDate string, guildID string, onProgress func(string)) {
+	var configs []LBConfig
+	var err error
+	if guildID != "" {
+		configs, err = GetGuildLBConfigs(guildID)
+	} else {
+		configs, err = GetAllLBConfigs()
+	}
 	if err != nil {
 		log.Printf("leaderboard: PostLeaderboards: failed to load configs: %v", err)
 		return

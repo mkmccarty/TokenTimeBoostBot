@@ -76,7 +76,7 @@ var (
 // RunLeaderboardCollection is the main weekly entry point. It fans out API
 // calls through a bounded worker pool, saves results, then posts to Discord.
 // Pass dryRun=true to skip the Discord post step.
-func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, onProgress func(string)) {
+func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, guildID string, onProgress func(string)) {
 	collectionMu.Lock()
 	if collectionRunning {
 		collectionMu.Unlock()
@@ -100,7 +100,22 @@ func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, onProgress func
 	}
 	log.Println("leaderboard: starting weekly collection run")
 
-	userIDs := GetAllOptInUserIDs()
+	var userIDs []string
+	if guildID != "" {
+		optins, err := farmerstate.GetLeaderboardOptInsForGuild(guildID)
+		if err == nil {
+			seen := make(map[string]bool)
+			for _, o := range optins {
+				if !seen[o.UserID] {
+					seen[o.UserID] = true
+					userIDs = append(userIDs, o.UserID)
+				}
+			}
+		}
+	} else {
+		userIDs = GetAllOptInUserIDs()
+	}
+
 	if len(userIDs) == 0 {
 		log.Println("leaderboard: no opted-in players, skipping")
 		return
@@ -126,6 +141,9 @@ func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, onProgress func
 
 		var keys []string
 		for _, o := range optRows {
+			if guildID != "" && o.GuildID != guildID {
+				continue
+			}
 			if o.LbType == OptInAll {
 				for _, def := range AllLeaderboards {
 					keys = append(keys, def.Key)
@@ -214,7 +232,7 @@ func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, onProgress func
 	}
 
 	if !dryRun {
-		PostLeaderboards(s, snapDate, onProgress)
+		PostLeaderboards(s, snapDate, guildID, onProgress)
 	} else {
 		log.Println("leaderboard: dry run — skipping Discord post")
 		if onProgress != nil {
@@ -314,6 +332,6 @@ func collectPlayerGroup(s *discordgo.Session, g *playerGroup, snapDate string) {
 // Call this from tasks.ExecuteCronJob.
 func ScheduleWeeklyCollection(s *discordgo.Session) {
 	scheduleWeeklyFriday(15, 0, func() {
-		RunLeaderboardCollection(s, false, nil)
+		RunLeaderboardCollection(s, false, "", nil)
 	})
 }
