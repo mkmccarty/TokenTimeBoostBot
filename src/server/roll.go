@@ -7,20 +7,44 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-var integerOneMinValue float64 = 1.0
+var (
+	integerOneMinValue float64 = 1.0
 
-func d20Emoji(roll int64) string {
-	cold := []string{"🥶", "❄️", "🧊", "⛄", "🌨️"}
-	fire := []string{"🔥", "♨️", "🌋", "☀️", "🌡️"}
+	iceCold = []string{"🥶", "❄️", "🧊", "⛄", "🌨️", "🏔️", "🌬️", "🐧", "🦭"}
+	cool    = []string{"😎", "🌊", "🏄", "🌿", "🍃", "🫠", "😴", "💤", "🛋️", "🌙", "🍹", "🧋", "☕", "🤙", "🦥"}
+	heated  = []string{"😤", "🤯", "⚡", "🚨", "😱", "🏃", "💨", "👊", "🤬", "😵", "‼️"}
+	onFire  = []string{"🔥", "♨️", "🌋", "☀️", "🌡️", "☄️", "🌞", "🏜️", "🕯️", "🧨", "💣", "💥"}
+)
+
+func pick(pool []string) string { return pool[rand.IntN(len(pool))] }
+
+const (
+	colorPureBlue       = 0x0000FF
+	colorCornflowerBlue = 0x6495ED
+	colorGray           = 0x9E9E9E
+	colorSalmon         = 0xFA8072
+	colorPureRed        = 0xFF0000
+)
+
+// d20Flair returns the text suffix and accent color for a d20 roll.
+// Accent colors follow blackbody radiation: dark red (coldest) → orange → yellow → white (hottest).
+func d20Flair(roll int64) (suffix string, accent int) {
 	switch {
 	case roll >= 18:
-		return " " + cold[rand.IntN(len(cold))]
-	case roll >= 10 && roll <= 11:
-		return " 😐 MID"
-	case roll <= 5:
-		return " " + fire[rand.IntN(len(fire))]
+		return " " + pick(iceCold), colorPureBlue
+	case roll >= 15:
+		return " " + pick(cool), colorCornflowerBlue
+	case roll >= 12:
+		return "", colorCornflowerBlue
+	case roll >= 10:
+		return " 😐 MID", colorGray
+	case roll >= 7:
+		return "", colorSalmon
+	case roll >= 4:
+		return " " + pick(heated), colorSalmon
+	default:
+		return " " + pick(onFire), colorPureRed
 	}
-	return ""
 }
 
 // GetSlashChillCommand returns the slash command definition for the chill/roll dice command.
@@ -84,13 +108,35 @@ func HandleChillCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
-	msg := fmt.Sprintf("🎲 Rolling %dd%d: `%v`", count, sides, results)
-	if i.ApplicationCommandData().Name == "chill" && sides == 20 && count == 1 {
-		msg += d20Emoji(results[0])
+	var msg string
+	if count == 1 {
+		msg = fmt.Sprintf("🎲 d%d: `%d`", sides, results[0])
+	} else {
+		msg = fmt.Sprintf("🎲 Rolling %dd%d: `%v`", count, sides, results)
 	}
 	if count > 1 {
 		avg := float64(total) / float64(count)
 		msg += fmt.Sprintf("\nTotal: **%d** | Avg: **%.1f** | Min: **%d** | Max: **%d**", total, avg, minRoll, maxRoll)
+	}
+
+	if i.ApplicationCommandData().Name == "chill" && sides == 20 && count == 1 {
+		suffix, accent := d20Flair(results[0])
+		msg = fmt.Sprintf("**Roll: %d**%s", results[0], suffix)
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags: discordgo.MessageFlagsIsComponentsV2,
+				Components: []discordgo.MessageComponent{
+					discordgo.Container{
+						AccentColor: &accent,
+						Components: []discordgo.MessageComponent{
+							discordgo.TextDisplay{Content: msg},
+						},
+					},
+				},
+			},
+		})
+		return
 	}
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
