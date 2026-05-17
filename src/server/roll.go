@@ -27,7 +27,6 @@ const (
 )
 
 // d20Flair returns the text suffix and accent color for a d20 roll.
-// Accent colors follow blackbody radiation: dark red (coldest) → orange → yellow → white (hottest).
 func d20Flair(roll int64) (suffix string, accent int) {
 	switch {
 	case roll >= 18:
