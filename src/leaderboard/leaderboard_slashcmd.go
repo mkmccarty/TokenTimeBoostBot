@@ -152,8 +152,8 @@ func HandleAdminLB(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	userID := bottools.GetInteractionUserID(i)
 	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
-	if err != nil || perms&discordgo.PermissionManageGuild == 0 {
-		respondEphemeral(s, i, "You need the Manage Server permission to use admin commands.")
+	if err != nil || perms&discordgo.PermissionAdministrator == 0 {
+		respondEphemeral(s, i, "You need the Administrator permission to use admin commands.")
 		return
 	}
 
@@ -422,12 +422,6 @@ func HandleLBListComponent(s *discordgo.Session, i *discordgo.InteractionCreate)
 func handleRun(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*discordgo.ApplicationCommandInteractionDataOption) {
 	userID := bottools.GetInteractionUserID(i)
 
-	// Restrict to home-guild admin only.
-	homeGuild := guildstate.GetGuildSettingString("DEFAULT", "home_guild")
-	if i.GuildID != homeGuild && userID != config.AdminUserID {
-		respondEphemeral(s, i, "This command is restricted to the bot's home guild admin.")
-		return
-	}
 	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
 	if err != nil || (perms&discordgo.PermissionAdministrator == 0 && userID != config.AdminUserID) {
 		respondEphemeral(s, i, "You need Administrator permission to trigger a collection run.")
@@ -456,7 +450,7 @@ func handleRun(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*dis
 	}
 
 	go func() {
-		RunLeaderboardCollection(s, dryRun, onProgress)
+		RunLeaderboardCollection(s, dryRun, i.GuildID, onProgress)
 		msg := "✅ Leaderboard collection run complete."
 		if dryRun {
 			msg = "✅ Dry run complete — data collected, Discord post skipped."
