@@ -636,7 +636,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 					"## Simulating shift after TE %[1]d%[2]s\n**Deliver %[3]s%[2]s <t:%[4]d:f>💤**\n",
 					targetTE,
 					currentEggEmote,
-					ei.FormatEIValue(currentEggTarget, map[string]any{"decimals": 1, "trim": true}),
+					ei.FormatEIValue(currentEggTarget, map[string]any{"decimals": 4, "trim": true, "max_length": 5}),
 					time.Now().Add(time.Duration(int64(offsetRemainingTime))*time.Second).Unix(),
 				)
 			}
@@ -661,34 +661,34 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 			if remainingTime == -1.0 {
 				if selectedTarget-selectedDelivered-offlineEggs <= 0.0 {
 					fmt.Fprintf(&header, "Offline deliveries complete %s%s",
-						ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 1, "trim": true}),
+						ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 4, "trim": true, "max_length": 5}),
 						selectedEggEmote)
 				} else {
 					fmt.Fprintf(&header, "Deliver %s%s in more than a year 💤",
-						ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 1, "trim": true}),
+						ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 4, "trim": true, "max_length": 5}),
 						selectedEggEmote)
 				}
 			} else if adjustedRemainingTime < 43200.0 && targetTE == 0 { // 12 hours
 				fmt.Fprintf(&header, "Deliver %s%s <t:%d:t>💤",
-					ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 1, "trim": true}),
+					ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 4, "trim": true, "max_length": 5}),
 					selectedEggEmote,
 					time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Second).Unix())
 			} else if targetTE != 0 && offsetRemainingTime != -1.0 { // Show the estimated time/duration with offset from TE target on the current egg
 				if !compact {
 					fmt.Fprintf(&header, "Sim %s%s <t:%d:f>💤 %s",
-						ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 1, "trim": true}),
+						ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 4, "trim": true, "max_length": 5}),
 						selectedEggEmote,
 						time.Now().Add(time.Duration(int64(adjustedRemainingTime+offsetRemainingTime))*time.Second).Unix(),
 						bottools.FmtDuration(time.Duration(int64(adjustedRemainingTime+offsetRemainingTime))*time.Second))
 				} else { // Remove duration in compact mode
 					fmt.Fprintf(&header, "Sim %s%s <t:%d:f>💤",
-						ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 1, "trim": true}),
+						ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 4, "trim": true, "max_length": 5}),
 						selectedEggEmote,
 						time.Now().Add(time.Duration(int64(adjustedRemainingTime+offsetRemainingTime))*time.Second).Unix())
 				}
 			} else {
 				fmt.Fprintf(&header, "Deliver %s%s <t:%d:f>💤",
-					ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 1, "trim": true}),
+					ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 4, "trim": true, "max_length": 5}),
 					selectedEggEmote,
 					time.Now().Add(time.Duration(int64(adjustedRemainingTime))*time.Second).Unix())
 			}
