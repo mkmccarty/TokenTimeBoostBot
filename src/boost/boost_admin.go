@@ -1108,24 +1108,153 @@ func HandleAdminExitCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		return
 	}
 
-	// Respond to the interaction to inform the administrator
+	// Find all active contracts (excluding signup)
+	var activeContracts []*Contract
+	for _, c := range Contracts {
+		if c == nil {
+			continue
+		}
+		if c.State != ContractStateCompleted && c.State != ContractStateArchive && c.State != ContractStateSignup {
+			activeContracts = append(activeContracts, c)
+		}
+	}
+
+	// Sort active contracts by last interaction time descending (most recently active first)
+	sort.Slice(activeContracts, func(idx, jdx int) bool {
+		return activeContracts[idx].LastInteractionTime.After(activeContracts[jdx].LastInteractionTime)
+	})
+
+	var b strings.Builder
+	b.WriteString("## ⚠️ Bot Exit & Restart Confirmation\n")
+	if len(activeContracts) == 0 {
+		b.WriteString("There are currently no active contracts.\n\n")
+	} else {
+		b.WriteString("Here is a list of active contracts and their last interaction times:\n\n")
+		for _, c := range activeContracts {
+			stateStr := "Unknown"
+			switch c.State {
+			case ContractStateSignup:
+				stateStr = "Signup"
+			case ContractStateFastrun:
+				stateStr = "🚀 Boosting (Fastrun)"
+			case ContractStateWaiting:
+				stateStr = "Waiting"
+			case ContractStateBanker:
+				stateStr = "💰 Boosting (Banker)"
+			}
+
+			lastInteraction := "Never"
+			if !c.LastInteractionTime.IsZero() {
+				lastInteraction = fmt.Sprintf("%s (%s)",
+					bottools.WrapTimestamp(c.LastInteractionTime.Unix(), bottools.TimestampShortDateTime),
+					bottools.WrapTimestamp(c.LastInteractionTime.Unix(), bottools.TimestampRelativeTime))
+			}
+
+			fmt.Fprintf(&b, "- **%s** (`%s/%s`)\n  ↳ State: `%s`\n  ↳ Last Interaction: %s\n",
+				c.Name, c.ContractID, c.CoopID, stateStr, lastInteraction)
+		}
+		b.WriteString("\n")
+	}
+	b.WriteString("**Are you sure you want to gracefully exit the bot for a restart?**")
+
+	confirmBtn := discordgo.Button{
+		Label:    "Confirm Restart",
+		Style:    discordgo.DangerButton,
+		CustomID: "admin_exit#confirm",
+		Emoji:    &discordgo.ComponentEmoji{Name: "🔄"},
+	}
+	cancelBtn := discordgo.Button{
+		Label:    "Cancel Abort",
+		Style:    discordgo.SecondaryButton,
+		CustomID: "admin_exit#cancel",
+		Emoji:    &discordgo.ComponentEmoji{Name: "❌"},
+	}
+
+	components := []discordgo.MessageComponent{
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{confirmBtn, cancelBtn},
+		},
+	}
+
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content:    "Bot is exiting gracefully...",
+			Content:    b.String(),
 			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{},
+			Components: components,
 		},
 	})
+}
 
-	// Run graceful shutdown in a goroutine so that the response is fully sent and processed
-	go func() {
-		log.Println("Exit command triggered by administrator")
-		SaveAllData()
-		time.Sleep(5 * time.Second)
-		if serr := syscall.Kill(os.Getpid(), syscall.SIGTERM); serr != nil {
-			log.Printf("Exit command error: could not signal shutdown (forcing exit): %v", serr)
-			os.Exit(1)
+// HandleAdminExitButton handles the confirm/cancel button clicks for the admin-exit command.
+func HandleAdminExitButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if !isAdminCommandCaller(s, i) {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "You are not authorized to use this button.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{},
+			},
+		})
+		return
+	}
+
+	customID := i.MessageComponentData().CustomID
+	parts := strings.Split(customID, "#")
+	if len(parts) < 2 {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "Invalid action.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{},
+			},
+		})
+		return
+	}
+
+	action := parts[1]
+
+	respondAndClose := func(content string) {
+		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
+			Data: &discordgo.InteractionResponseData{
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{},
+			},
+		})
+		if err != nil {
+			log.Println("Error acknowledging exit button dialog:", err)
+			return
 		}
-	}()
+
+		emptyComponents := []discordgo.MessageComponent{}
+		edit := discordgo.WebhookEdit{
+			Content:    &content,
+			Components: &emptyComponents,
+		}
+		_, err = s.InteractionResponseEdit(i.Interaction, &edit)
+		if err != nil {
+			log.Println("Error updating exit button dialog:", err)
+		}
+	}
+
+	switch action {
+	case "confirm":
+		respondAndClose("Bot is exiting gracefully for a restart...")
+		// Run graceful shutdown in a goroutine so that the response is fully sent and processed
+		go func() {
+			log.Println("Exit confirmed by administrator")
+			SaveAllData()
+			time.Sleep(5 * time.Second)
+			if serr := syscall.Kill(os.Getpid(), syscall.SIGTERM); serr != nil {
+				log.Printf("Exit command error: could not signal shutdown (forcing exit): %v", serr)
+				os.Exit(1)
+			}
+		}()
+
+	case "cancel":
+		respondAndClose("Restart cancelled. The bot remains active.")
+	}
 }

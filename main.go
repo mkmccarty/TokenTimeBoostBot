@@ -285,6 +285,7 @@ var (
 		"leaderboard":         boost.HandleLeaderboardPage,
 		"active-contracts":    boost.HandleActiveContractsPage,
 		"admin-contract-list": boost.HandleAdminContractListComponent,
+		"admin_exit":          boost.HandleAdminExitButton,
 		"fd_signupStart":      boost.HandleSignupStart,
 		"fd_signupFarmer":     boost.HandleSignupFarmer,
 		"fd_signupBell":       boost.HandleSignupBell,
