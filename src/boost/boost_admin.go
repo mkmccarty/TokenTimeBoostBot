@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"regexp"
 	"slices"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -1067,4 +1069,63 @@ func HandleAdminMembers(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			&discordgo.TextDisplay{Content: content},
 		},
 	})
+}
+
+// SlashAdminExitCommand provides an admin-only command to gracefully exit the bot.
+func SlashAdminExitCommand(cmd string) *discordgo.ApplicationCommand {
+	var adminPermission = int64(0)
+
+	guildID := guildstate.GetGuildSettingString("DEFAULT", "home_guild")
+	if guildID == "" {
+		guildID = "DISABLED"
+	}
+
+	return &discordgo.ApplicationCommand{
+		Name:                     cmd,
+		Description:              "Gracefully exit the bot so that it can be restarted by its controlling daemon",
+		GuildID:                  guildID,
+		DefaultMemberPermissions: &adminPermission,
+		Contexts: &[]discordgo.InteractionContextType{
+			discordgo.InteractionContextGuild,
+		},
+		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
+			discordgo.ApplicationIntegrationGuildInstall,
+		},
+	}
+}
+
+// HandleAdminExitCommand handles the admin-exit command to gracefully shutdown the bot.
+func HandleAdminExitCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if !isAdminCommandCaller(s, i) {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "You are not authorized to use this command.",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{},
+			},
+		})
+		return
+	}
+
+	// Respond to the interaction to inform the administrator
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content:    "Bot is exiting gracefully...",
+			Flags:      discordgo.MessageFlagsEphemeral,
+			Components: []discordgo.MessageComponent{},
+		},
+	})
+
+	// Run graceful shutdown in a goroutine so that the response is fully sent and processed
+	go func() {
+		log.Println("Exit command triggered by administrator")
+		SaveAllData()
+		time.Sleep(5 * time.Second)
+		if serr := syscall.Kill(os.Getpid(), syscall.SIGTERM); serr != nil {
+			log.Printf("Exit command error: could not signal shutdown (forcing exit): %v", serr)
+			os.Exit(1)
+		}
+	}()
 }
