@@ -2,12 +2,14 @@ package boost
 
 import (
 	"bytes"
+	"debug/buildinfo"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"os"
 	"regexp"
+	"runtime/debug"
 	"slices"
 	"sort"
 	"strings"
@@ -20,6 +22,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/version"
 )
 
 const (
@@ -1124,8 +1127,18 @@ func HandleAdminExitCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		return activeContracts[idx].LastInteractionTime.After(activeContracts[jdx].LastInteractionTime)
 	})
 
+	runningVer, runningRev, runningTime, diskRev, diskTime := getVersionAndRevisionInfo()
+
 	var b strings.Builder
 	b.WriteString("## ⚠️ Bot Exit & Restart Confirmation\n")
+	fmt.Fprintf(&b, "**Running Version:** `%s` (Commit: `%s`, Built: `%s`)\n", runningVer, shortenRevision(runningRev), runningTime)
+	if runningRev != diskRev && diskRev != "Unknown" {
+		fmt.Fprintf(&b, "**Disk Version (Pending):** Commit `%s` (Built: `%s`)\n", shortenRevision(diskRev), diskTime)
+		b.WriteString("⚠️ *A new binary version is detected on disk. Confirming restart will load this version.*\n\n")
+	} else {
+		b.WriteString("**Disk Version:** Matches running version.\n\n")
+	}
+
 	if len(activeContracts) == 0 {
 		b.WriteString("There are currently no active contracts.\n\n")
 	} else {
@@ -1257,4 +1270,57 @@ func HandleAdminExitButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 	case "cancel":
 		respondAndClose("Restart cancelled. The bot remains active.")
 	}
+}
+
+func getVersionAndRevisionInfo() (runningVer, runningRev, runningTime, diskRev, diskTime string) {
+	runningVer = version.Version
+	if runningVer == "" {
+		runningVer = "Unknown"
+	}
+
+	runningRev = "Unknown"
+	runningTime = "Unknown"
+	if bi, ok := debug.ReadBuildInfo(); ok {
+		for _, s := range bi.Settings {
+			switch s.Key {
+			case "vcs.revision":
+				runningRev = s.Value
+			case "vcs.time":
+				runningTime = s.Value
+			}
+		}
+	}
+
+	diskRev = "Unknown"
+	diskTime = "Unknown"
+	if exePath, err := os.Executable(); err == nil {
+		if bi, err := buildinfo.ReadFile(exePath); err == nil {
+			for _, s := range bi.Settings {
+				switch s.Key {
+				case "vcs.revision":
+					diskRev = s.Value
+				case "vcs.time":
+					diskTime = s.Value
+				}
+			}
+		}
+	} else if bi, err := buildinfo.ReadFile(os.Args[0]); err == nil {
+		for _, s := range bi.Settings {
+			switch s.Key {
+			case "vcs.revision":
+				diskRev = s.Value
+			case "vcs.time":
+				diskTime = s.Value
+			}
+		}
+	}
+
+	return
+}
+
+func shortenRevision(rev string) string {
+	if len(rev) > 7 {
+		return rev[:7]
+	}
+	return rev
 }
