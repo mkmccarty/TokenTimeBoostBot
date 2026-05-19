@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -74,10 +75,12 @@ ALTER TABLE contract_data_new RENAME TO contract_data;
 //go:embed schema.sql
 var ddl string
 var queries *Queries
+var dbConn *sql.DB
 
 func sqliteInit() {
 	db, _ := sql.Open("sqlite", "ttbb-data/ContractData.sqlite?_busy_timeout=5000")
 	db.SetMaxOpenConns(1)
+	dbConn = db
 
 	result, err := db.ExecContext(ctx, ddl)
 	if err != nil {
@@ -98,6 +101,7 @@ func sqliteInit() {
 		log.Printf("Error enforcing contract_data channel uniqueness: %v", err)
 	}
 	queries = New(db)
+	performTransitionFromJSON(db)
 	go dbFlusher()
 }
 
@@ -435,3 +439,198 @@ FROM
     contract_data;
 
 */
+
+func performTransitionFromJSON(db *sql.DB) {
+	// Transition for roles
+	rolesPath := "ttbb-data/ei-roles.json"
+	if _, err := os.Stat(rolesPath); err == nil {
+		log.Printf("Found legacy roles JSON file %s, importing to database...", rolesPath)
+		data, err := os.ReadFile(rolesPath)
+		if err == nil {
+			var rolesMap map[string][]string
+			if err := json.Unmarshal(data, &rolesMap); err == nil {
+				tx, err := db.BeginTx(ctx, nil)
+				if err == nil {
+					txQueries := queries.WithTx(tx)
+					for contractID, roles := range rolesMap {
+						for _, rName := range roles {
+							_ = txQueries.InsertContractRole(ctx, InsertContractRoleParams{
+								Contractid: contractID,
+								RoleName:   rName,
+							})
+						}
+					}
+					if err := tx.Commit(); err != nil {
+						log.Printf("Failed to commit imported roles: %v", err)
+					} else {
+						log.Printf("Successfully imported roles for %d contracts", len(rolesMap))
+						_ = os.Remove(rolesPath)
+					}
+				}
+			} else {
+				log.Printf("Failed to unmarshal legacy roles JSON: %v", err)
+			}
+		} else {
+			log.Printf("Failed to read legacy roles JSON file: %v", err)
+		}
+	}
+
+	// Transition for complaints
+	complaintsPath := "ttbb-data/ei-complaints.json"
+	if _, err := os.Stat(complaintsPath); err == nil {
+		log.Printf("Found legacy complaints JSON file %s, importing to database...", complaintsPath)
+		data, err := os.ReadFile(complaintsPath)
+		if err == nil {
+			var complaintsMap map[string][]string
+			if err := json.Unmarshal(data, &complaintsMap); err == nil {
+				tx, err := db.BeginTx(ctx, nil)
+				if err == nil {
+					txQueries := queries.WithTx(tx)
+					for contractID, complaints := range complaintsMap {
+						for _, complaint := range complaints {
+							_ = txQueries.InsertContractComplaint(ctx, InsertContractComplaintParams{
+								Contractid: contractID,
+								Complaint:  complaint,
+							})
+						}
+					}
+					if err := tx.Commit(); err != nil {
+						log.Printf("Failed to commit imported complaints: %v", err)
+					} else {
+						log.Printf("Successfully imported complaints for %d contracts", len(complaintsMap))
+						_ = os.Remove(complaintsPath)
+					}
+				}
+			} else {
+				log.Printf("Failed to unmarshal legacy complaints JSON: %v", err)
+			}
+		} else {
+			log.Printf("Failed to read legacy complaints JSON file: %v", err)
+		}
+	}
+}
+
+// LoadRoleNames loads all contract roles from the database
+func LoadRoleNames() (map[string][]string, error) {
+	if queries == nil {
+		sqliteInit()
+	}
+	rows, err := queries.GetContractRoles(ctx)
+	if err != nil {
+		return nil, err
+	}
+	res := make(map[string][]string)
+	for _, row := range rows {
+		res[row.Contractid] = append(res[row.Contractid], row.RoleName)
+	}
+	return res, nil
+}
+
+// SaveRoleNames saves contract roles to the database.
+// It deletes existing roles for the given contract IDs and inserts the new ones in a transaction.
+func SaveRoleNames(data map[string][]string) {
+	if queries == nil {
+		sqliteInit()
+	}
+	tx, err := dbConn.BeginTx(ctx, nil)
+	if err != nil {
+		log.Printf("SaveRoleNames: failed to begin transaction: %v", err)
+		return
+	}
+	txQueries := queries.WithTx(tx)
+	for contractID, roles := range data {
+		if err := txQueries.DeleteContractRoles(ctx, contractID); err != nil {
+			_ = tx.Rollback()
+			log.Printf("SaveRoleNames: failed to delete roles for contract %s: %v", contractID, err)
+			return
+		}
+		for _, rName := range roles {
+			err := txQueries.InsertContractRole(ctx, InsertContractRoleParams{
+				Contractid: contractID,
+				RoleName:   rName,
+			})
+			if err != nil {
+				log.Printf("SaveRoleNames: failed to insert role %s for %s: %v", rName, contractID, err)
+			}
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		log.Printf("SaveRoleNames: failed to commit transaction: %v", err)
+	}
+}
+
+var (
+	thematicComplaintsMap map[string][]string
+	thematicComplaintsMu  sync.RWMutex
+)
+
+// LoadThematicComplaints loads all contract complaints from the database,
+// using an in-memory cache to match previous behavior.
+func LoadThematicComplaints() (map[string][]string, error) {
+	thematicComplaintsMu.RLock()
+	if thematicComplaintsMap != nil {
+		defer thematicComplaintsMu.RUnlock()
+		return thematicComplaintsMap, nil
+	}
+	thematicComplaintsMu.RUnlock()
+
+	thematicComplaintsMu.Lock()
+	defer thematicComplaintsMu.Unlock()
+	// Check again in case it was loaded in between
+	if thematicComplaintsMap != nil {
+		return thematicComplaintsMap, nil
+	}
+
+	if queries == nil {
+		sqliteInit()
+	}
+
+	rows, err := queries.GetContractComplaints(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make(map[string][]string)
+	for _, row := range rows {
+		res[row.Contractid] = append(res[row.Contractid], row.Complaint)
+	}
+	thematicComplaintsMap = res
+	return res, nil
+}
+
+// SaveThematicComplaints saves contract complaints to the database.
+// It deletes existing complaints for the given contract IDs and inserts the new ones in a transaction.
+func SaveThematicComplaints(data map[string][]string) error {
+	thematicComplaintsMu.Lock()
+	thematicComplaintsMap = nil // Invalidate cache so that next Load loads all complaints from DB
+	thematicComplaintsMu.Unlock()
+
+	if queries == nil {
+		sqliteInit()
+	}
+
+	tx, err := dbConn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	txQueries := queries.WithTx(tx)
+
+	for contractID, complaints := range data {
+		if err := txQueries.DeleteContractComplaints(ctx, contractID); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		for _, complaint := range complaints {
+			err := txQueries.InsertContractComplaint(ctx, InsertContractComplaintParams{
+				Contractid: contractID,
+				Complaint:  complaint,
+			})
+			if err != nil {
+				log.Printf("SaveThematicComplaints: failed to insert complaint %s for %s: %v", complaint, contractID, err)
+			}
+		}
+	}
+
+	return tx.Commit()
+}
+

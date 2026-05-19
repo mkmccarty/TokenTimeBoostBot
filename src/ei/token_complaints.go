@@ -109,45 +109,4 @@ func GetTokenComplaint(userName string) (string, error) {
 	return fmt.Sprintf(":loudspeaker: %s", strings.ReplaceAll(template, playerToken, userName)), nil
 }
 
-// ThematicComplaintsMap caches thematic complaints by contract ID
-var ThematicComplaintsMap map[string][]string
-var thematicComplaintsMutex sync.RWMutex
 
-// SaveThematicComplaints writes thematic complaints to a JSON file
-func SaveThematicComplaints(data map[string][]string) error {
-	thematicComplaintsMutex.Lock()
-	ThematicComplaintsMap = data
-	thematicComplaintsMutex.Unlock()
-
-	b, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile("ttbb-data/ei-complaints.json", b, 0644)
-}
-
-// LoadThematicComplaints reads thematic complaints from the JSON file
-func LoadThematicComplaints() (map[string][]string, error) {
-	thematicComplaintsMutex.Lock()
-	defer thematicComplaintsMutex.Unlock()
-
-	if ThematicComplaintsMap != nil {
-		return ThematicComplaintsMap, nil
-	}
-
-	b, err := os.ReadFile("ttbb-data/ei-complaints.json")
-	if err != nil {
-		if os.IsNotExist(err) {
-			ThematicComplaintsMap = make(map[string][]string)
-			return ThematicComplaintsMap, nil
-		}
-		return nil, err
-	}
-
-	var data map[string][]string
-	if err := json.Unmarshal(b, &data); err != nil {
-		return nil, err
-	}
-	ThematicComplaintsMap = data
-	return data, nil
-}

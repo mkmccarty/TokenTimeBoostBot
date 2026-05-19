@@ -204,15 +204,15 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 	teamRoleMap := make(map[string][]string)
 	currentTeamRoleMap := make(map[string][]string)
 
-	// read this from disk if it exists
-	loadedRoles, err := loadRoleNames()
+	// read this from database if it exists
+	loadedRoles, err := boost.LoadRoleNames()
 	if err == nil {
 		teamRoleMap = loadedRoles
 	}
 
 	complaintsMap := make(map[string][]string)
 	currentComplaintsMap := make(map[string][]string)
-	loadedComplaints, err := ei.LoadThematicComplaints()
+	loadedComplaints, err := boost.LoadThematicComplaints()
 	if err == nil {
 		complaintsMap = loadedComplaints
 	}
@@ -424,9 +424,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 		ei.SetEggIncCurrentSeason(seasonInfo.GetId(), seasonInfo.GetName(), seasonInfo.GetStartTime())
 	}
 
-	// Replace what we have with only a current list of names
-	saveRoleNames(currentTeamRoleMap)
-	_ = ei.SaveThematicComplaints(currentComplaintsMap)
+
 
 	// Replace all new contracts
 	if len(newContract) > 0 {
@@ -531,26 +529,12 @@ func fetchThematicDataAsync(contractID string, contractName string, contractDesc
 		defer asyncPeriodicalMutex.Unlock()
 
 		if len(teamNames) > 0 {
-			loadedRoles, err := loadRoleNames()
-			if err == nil {
-				if loadedRoles == nil {
-					loadedRoles = make(map[string][]string)
-				}
-				loadedRoles[contractID] = teamNames
-				saveRoleNames(loadedRoles)
-			}
+			boost.SaveRoleNames(map[string][]string{contractID: teamNames})
 			ei.SetContractTeamNames(contractID, teamNames)
 		}
 
 		if len(complaints) > 0 {
-			loadedComplaints, err := ei.LoadThematicComplaints()
-			if err == nil {
-				if loadedComplaints == nil {
-					loadedComplaints = make(map[string][]string)
-				}
-				loadedComplaints[contractID] = complaints
-				_ = ei.SaveThematicComplaints(loadedComplaints)
-			}
+			_ = boost.SaveThematicComplaints(map[string][]string{contractID: complaints})
 			boost.PopulateThematicComplaintsForContractID(contractID, complaints)
 		}
 	}
