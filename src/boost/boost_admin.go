@@ -176,6 +176,29 @@ func isAdminCommandCaller(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	return perms&discordgo.PermissionAdministrator != 0 || userID == config.AdminUserID
 }
 
+// isAdminBotController returns true if the calling user has the guild's bot_controller role.
+// Falls back to false if the setting is not configured or the member cannot be fetched.
+func isAdminBotController(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
+	if i.GuildID == "" {
+		return false
+	}
+	roleID := guildstate.GetGuildSettingString(i.GuildID, "bot_controller")
+	if roleID == "" {
+		return false
+	}
+	// Strip role mention formatting "<@&snowflake>" if present.
+	roleID = strings.TrimPrefix(roleID, "<@&")
+	roleID = strings.TrimSuffix(roleID, ">")
+	roleID = strings.TrimSpace(roleID)
+	userID := getInteractionUserID(i)
+	member, err := s.GuildMember(i.GuildID, userID)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+	return slices.Contains(member.Roles, roleID)
+}
+
 // HandleAdminGuildStateAutoComplete serves guild-id suggestions from persisted guildstate keys.
 func HandleAdminGuildStateAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	optionMap := bottools.GetCommandOptionsMap(i)
@@ -1099,7 +1122,7 @@ func SlashAdminExitCommand(cmd string) *discordgo.ApplicationCommand {
 
 // HandleAdminExitCommand handles the admin-exit command to gracefully shutdown the bot.
 func HandleAdminExitCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if !isAdminCommandCaller(s, i) {
+	if !isAdminCommandCaller(s, i) && !isAdminBotController(s, i) {
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
