@@ -418,17 +418,20 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 func CreateContract(s *discordgo.Session, contractID string, coopID string, playStyle int, coopSize int, BoostOrder int, guildID string, channelID string, progenitors []string, userID string, plannedStartTime time.Time, validFrom time.Time) (*Contract, error) {
 	// When creating contracts, we can make sure to clean up and archived ones
 	// Just in case a contract was immediately recreated
+	var archivedContracts []*Contract
 	ContractsMutex.RLock()
 	for _, c := range Contracts {
 		if c.State == ContractStateArchive {
 			if c.CalcOperations == 0 || time.Since(c.CalcOperationTime).Minutes() > 20 {
-				ContractsMutex.RUnlock()
-				FinishContract(s, c)
-				ContractsMutex.RLock()
+				archivedContracts = append(archivedContracts, c)
 			}
 		}
 	}
 	ContractsMutex.RUnlock()
+
+	for _, archivedContract := range archivedContracts {
+		FinishContract(s, archivedContract)
+	}
 
 	// Make sure this channel doesn't already have a contract
 	existingContract := FindContract(channelID)
