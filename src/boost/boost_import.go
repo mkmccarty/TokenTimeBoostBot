@@ -144,9 +144,22 @@ func CreatePredictedContract() []ei.EggIncContract {
 	}
 
 	mondayID := fmt.Sprintf("monday-%s", nextMon.Format("2006-01-02"))
+	mondayContract := ei.EggIncContract{
+		ID:              mondayID,
+		Name:            "Monday Seasonal",
+		Description:     "Upcoming seasonal contract placeholder",
+		Predicted:       true,
+		MaxCoopSize:     100,
+		CoopAllowed:     true,
+		Ultra:           false,
+		ValidFrom:       nextMon,
+		ValidUntil:      nextMon.Add(21 * 24 * time.Hour),
+		ContractVersion: 2,
+		PredictionsList: []string{mondayID},
+	}
 
 	return []ei.EggIncContract{
-		create("Monday", "Seasonal", nextMon, false, []string{mondayID}),
+		mondayContract,
 		create("Wednesday", "Wednesday", nextWed, false, toPredictionIDs(wednesday)),
 		create("Friday", "Friday", nextFri, false, toPredictionIDs(fridayNonUltra)),
 		create("Ultra", "Ultra", nextFri, true, toPredictionIDs(fridayUltra)),
