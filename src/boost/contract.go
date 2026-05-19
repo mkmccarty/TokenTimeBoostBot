@@ -527,8 +527,6 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 		contract.CreatorID = append(contract.CreatorID, userID)
 	}
 
-
-
 	contract.StartTime = time.Now()
 
 	contract.NewFeature = 1
