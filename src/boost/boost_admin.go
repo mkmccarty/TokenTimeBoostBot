@@ -1141,6 +1141,9 @@ func HandleAdminExitCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			continue
 		}
 		if c.State != ContractStateCompleted && c.State != ContractStateArchive && c.State != ContractStateSignup {
+			if !c.LastInteractionTime.IsZero() && time.Since(c.LastInteractionTime) > 3*time.Hour {
+				continue
+			}
 			activeContracts = append(activeContracts, c)
 		}
 	}
