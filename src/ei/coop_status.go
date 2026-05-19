@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
@@ -30,7 +31,8 @@ type eiData struct {
 
 var (
 	// Contracts is a map of contracts and is saved to disk
-	eiDatas map[string]*eiData
+	eiDatas      map[string]*eiData
+	eiDatasMutex sync.RWMutex
 
 	// CoopStatusFixEnabled is a callback set from outside the ei package (to avoid import
 	// cycles) that returns true when the alternate coop_status endpoint and eeid override
@@ -89,7 +91,9 @@ func getCoopStatus(contractID string, coopID string, eeidOverride string, bypass
 	var protoData string
 
 	cacheID := contractID + ":" + coopID
+	eiDatasMutex.RLock()
 	cachedData := eiDatas[cacheID]
+	eiDatasMutex.RUnlock()
 
 	// Check if the file exists
 	if strings.HasPrefix(coopID, "!!") {
@@ -169,7 +173,9 @@ func getCoopStatus(contractID string, coopID string, eeidOverride string, bypass
 		//dataTimestampStr = ""
 		protoData = string(body)
 		data := eiData{ID: cacheID, timestamp: time.Now(), expirationTimestamp: time.Now().Add(10 * time.Second), contractID: contractID, coopID: coopID, protoData: protoData}
+		eiDatasMutex.Lock()
 		eiDatas[cacheID] = &data
+		eiDatasMutex.Unlock()
 
 		// Save protoData into a file
 		fileName := fmt.Sprintf("ttbb-data/pb/%s-%s-%s.pb", contractID, coopID, timestamp.Format("20060102150405"))
@@ -240,8 +246,8 @@ func GetCoopStatusUncached(contractID string, coopID string, eeidOverride string
 func GetCoopStatusStartTimeAndDuration(contractID string, coopID string, eeidOverride string) (time.Time, float64, error) {
 	nowTime := time.Now()
 
-	eiContract := EggIncContractsAll[contractID]
-	if eiContract.ID == "" {
+	eiContract, ok := GetEggIncContract(contractID)
+	if !ok || eiContract.ID == "" {
 		return time.Time{}, 0, fmt.Errorf("invalid contract ID")
 	}
 
@@ -298,6 +304,7 @@ func GetCoopStatusStartTimeAndDuration(contractID string, coopID string, eeidOve
 // ClearCoopStatusCachedData clears the cached data for coop status
 func ClearCoopStatusCachedData() {
 	var finishHash []string
+	eiDatasMutex.RLock()
 	for _, d := range eiDatas {
 		if d != nil {
 			if time.Now().After(d.timestamp) {
@@ -305,8 +312,14 @@ func ClearCoopStatusCachedData() {
 			}
 		}
 	}
-	for _, hash := range finishHash {
-		eiDatas[hash] = nil
+	eiDatasMutex.RUnlock()
+
+	if len(finishHash) > 0 {
+		eiDatasMutex.Lock()
+		for _, hash := range finishHash {
+			delete(eiDatas, hash)
+		}
+		eiDatasMutex.Unlock()
 	}
 }
 

@@ -60,4 +60,3 @@ func LoadCustomEggData() (map[string]*ei.EggIncCustomEgg, error) {
 
 	return c, nil
 }
-

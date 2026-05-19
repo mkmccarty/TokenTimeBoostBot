@@ -155,10 +155,7 @@ func HandlePrivacyCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		// Return the users settings data in a JSON file to the user
 		getData := opt.BoolValue()
 		if getData {
-			if farmerstate[userID] == nil {
-				newFarmer(userID)
-			}
-			userData = farmerstate[userID]
+			userData = getFarmer(userID)
 
 			filename = "boostbot-data-" + userID + ".json"
 			buf := &bytes.Buffer{}
@@ -195,18 +192,13 @@ func HandlePrivacyCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 }
 
 func getDataPrivacy(userID string) bool {
-	if farmerstate, ok := farmerstate[userID]; ok {
-		return farmerstate.DataPrivacy
-	}
-	return false
+	farmer := getFarmer(userID)
+	return farmer.DataPrivacy
 }
 
 func setDataPrivacy(userID string, dataPrivacy bool) {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
-
-	farmerstate[userID].DataPrivacy = dataPrivacy
-	farmerstate[userID].LastUpdated = time.Now()
-	saveSqliteData(userID, farmerstate[userID])
+	farmer := getFarmer(userID)
+	farmer.DataPrivacy = dataPrivacy
+	farmer.LastUpdated = time.Now()
+	saveSqliteData(userID, farmer)
 }

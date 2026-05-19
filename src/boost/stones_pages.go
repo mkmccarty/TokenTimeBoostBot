@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -29,7 +30,9 @@ func buildStonesCache(s string, url string, tiles []*discordgo.MessageEmbedField
 }
 
 func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMessage bool, xid string, refresh bool, links bool, toggle bool) {
+	stonesCacheMutex.Lock()
 	cache, exists := stonesCacheMap[xid]
+	stonesCacheMutex.Unlock()
 
 	if exists && links && cache.url != "" {
 
@@ -74,7 +77,9 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 			cache.urlPage = 0
 		}
 		cache.LinkTime = time.Now().Add(1 * time.Minute)
+		stonesCacheMutex.Lock()
 		stonesCacheMap[xid] = cache
+		stonesCacheMutex.Unlock()
 		return
 	}
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
@@ -95,7 +100,9 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		newCache.page = cache.page
 		newCache.displayTiles = cache.displayTiles
 		cache = newCache
+		stonesCacheMutex.Lock()
 		stonesCacheMap[cache.xid] = newCache
+		stonesCacheMutex.Unlock()
 
 		contract := FindContractByIDs(cache.contractID, cache.coopID)
 		if contract != nil {
@@ -136,7 +143,9 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 
 	if toggle {
 		cache.displayTiles = !cache.displayTiles
+		stonesCacheMutex.Lock()
 		stonesCacheMap[cache.xid] = cache
+		stonesCacheMutex.Unlock()
 	}
 
 	// if Refresh this should be the previous page
@@ -264,7 +273,9 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		}
 		log.Print(msg.ID)
 	}
+	stonesCacheMutex.Lock()
 	stonesCacheMap[cache.xid] = cache
+	stonesCacheMutex.Unlock()
 }
 
 // HandleStonesPage steps a page of cached stones data
@@ -274,6 +285,12 @@ func HandleStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	links := false
 	toggle := false
 	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
+
+	if len(reaction) == 3 && reaction[2] == "close" {
+		stonesCacheMutex.Lock()
+		delete(stonesCacheMap, reaction[1])
+		stonesCacheMutex.Unlock()
+	}
 
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredMessageUpdate,
@@ -295,7 +312,7 @@ func HandleStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		toggle = true
 	}
 	if len(reaction) == 3 && reaction[2] == "close" {
-		delete(stonesCacheMap, reaction[1])
+		return
 	}
 
 	sendStonesPage(s, i, false, reaction[1], refresh, links, toggle)
@@ -372,4 +389,7 @@ type stonesCache struct {
 	tiles               []*discordgo.MessageEmbedField
 }
 
-var stonesCacheMap = make(map[string]stonesCache)
+var (
+	stonesCacheMap   = make(map[string]stonesCache)
+	stonesCacheMutex sync.Mutex
+)

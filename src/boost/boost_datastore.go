@@ -204,6 +204,7 @@ func saveData(contractHash string) {
 	}
 
 	byChannel := make(map[string]*Contract)
+	ContractsMutex.RLock()
 	for _, c := range Contracts {
 		if c == nil || len(c.Location) == 0 {
 			continue
@@ -215,6 +216,7 @@ func saveData(contractHash string) {
 			byChannel[channelID] = c
 		}
 	}
+	ContractsMutex.RUnlock()
 
 	now := time.Now()
 	for _, c := range byChannel {
@@ -633,4 +635,3 @@ func SaveThematicComplaints(data map[string][]string) error {
 
 	return tx.Commit()
 }
-

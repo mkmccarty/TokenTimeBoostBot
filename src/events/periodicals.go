@@ -424,8 +424,6 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 		ei.SetEggIncCurrentSeason(seasonInfo.GetId(), seasonInfo.GetName(), seasonInfo.GetStartTime())
 	}
 
-
-
 	// Replace all new contracts
 	if len(newContract) > 0 {
 		for _, predicted := range boost.CreatePredictedContract() {

@@ -108,5 +108,3 @@ func GetTokenComplaint(userName string) (string, error) {
 
 	return fmt.Sprintf(":loudspeaker: %s", strings.ReplaceAll(template, playerToken, userName)), nil
 }
-
-

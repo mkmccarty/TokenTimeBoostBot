@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
@@ -191,7 +192,8 @@ func (c *Contract) enforceOnlyOneTokenTimeBooster() {
 
 var (
 	// Contracts is a map of contracts and is saved to disk
-	Contracts map[string]*Contract
+	Contracts      map[string]*Contract
+	ContractsMutex sync.RWMutex
 )
 
 func init() {
@@ -251,7 +253,9 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 	}
 	contract.State = ContractStateArchive
 	saveData(contract.ContractHash)
+	ContractsMutex.Lock()
 	delete(Contracts, coopHash)
+	ContractsMutex.Unlock()
 
 	return coopName, nil
 }
@@ -485,6 +489,8 @@ func getTokenCountString(tokenStr string, tokensWanted int, tokensReceived int) 
 
 // FindContract will find the contract by the guildID and channelID
 func FindContract(channelID string) *Contract {
+	ContractsMutex.RLock()
+	defer ContractsMutex.RUnlock()
 	// Look for the contract
 	for key, element := range Contracts {
 		for _, el := range element.Location {
@@ -500,6 +506,8 @@ func FindContract(channelID string) *Contract {
 
 // FindContractByHash will find a contract by its hash
 func FindContractByHash(hash string) *Contract {
+	ContractsMutex.RLock()
+	defer ContractsMutex.RUnlock()
 	contract, exists := Contracts[hash]
 	if exists {
 		return contract
@@ -509,6 +517,8 @@ func FindContractByHash(hash string) *Contract {
 
 // FindContractByMessageID will find the contract by the messageID
 func FindContractByMessageID(channelID string, messageID string) *Contract {
+	ContractsMutex.RLock()
+	defer ContractsMutex.RUnlock()
 	// Given a
 	for _, c := range Contracts {
 		for _, loc := range c.Location {
@@ -523,6 +533,8 @@ func FindContractByMessageID(channelID string, messageID string) *Contract {
 
 // FindContractByIDs will find the contract by the contractID and coopID
 func FindContractByIDs(contractID string, coopID string) *Contract {
+	ContractsMutex.RLock()
+	defer ContractsMutex.RUnlock()
 	// Look for the contract
 	for key, element := range Contracts {
 		if strings.EqualFold(element.ContractID, contractID) && strings.EqualFold(element.CoopID, coopID) {
@@ -890,6 +902,8 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 
 // IsUserCreatorOfAnyContract will return true if the user is the creator of any contract
 func IsUserCreatorOfAnyContract(s *discordgo.Session, userID string) bool {
+	ContractsMutex.RLock()
+	defer ContractsMutex.RUnlock()
 	for _, c := range Contracts {
 		if creatorOfContract(s, c, userID) {
 			return true
@@ -905,6 +919,8 @@ func RefreshGuildContractsForBannerUpdate(s *discordgo.Session, guildID string) 
 		return
 	}
 
+	ContractsMutex.RLock()
+	defer ContractsMutex.RUnlock()
 	for _, contract := range Contracts {
 		if contract == nil || contract.State == ContractStateArchive || contract.State == ContractStateCompleted {
 			continue
@@ -1988,6 +2004,7 @@ func ArchiveContracts(s *discordgo.Session) {
 
 	var finishHash []string
 	currentTime := time.Now()
+	ContractsMutex.RLock()
 	for _, contract := range Contracts {
 		hasValidThread := contractHasValidThread(s, contract)
 
@@ -2034,6 +2051,8 @@ func ArchiveContracts(s *discordgo.Session) {
 			}
 		}
 	}
+	ContractsMutex.RUnlock()
+
 	for _, hash := range finishHash {
 		_ = finishContractByHash(s, hash)
 	}
