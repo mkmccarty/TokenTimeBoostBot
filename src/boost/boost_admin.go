@@ -1132,6 +1132,8 @@ func HandleAdminExitCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		return
 	}
 
+	bottools.AcknowledgeResponse(s, i, discordgo.MessageFlagsEphemeral)
+
 	// Find all active contracts (excluding signup)
 	var activeContracts []*Contract
 	for _, c := range Contracts {
@@ -1210,17 +1212,12 @@ func HandleAdminExitCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		},
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:    b.String(),
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: components,
-		},
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content:    b.String(),
+		Flags:      discordgo.MessageFlagsEphemeral,
+		Components: components,
 	})
 }
-
-// HandleAdminExitButton handles the confirm/cancel button clicks for the admin-exit command.
 func HandleAdminExitButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if !isAdminCommandCaller(s, i) {
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
