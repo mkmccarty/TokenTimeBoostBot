@@ -1,3 +1,0 @@
-# Example snippet inside .github/workflows/copilot-review.yml
-with:
-  custom_instructions: "Do not perform or suggest automatic code reviews. Provide explanations only when explicitly requested."
