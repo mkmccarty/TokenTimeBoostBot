@@ -872,7 +872,7 @@ func buttonReactionComplain(s *discordgo.Session, contract *Contract, cUserID st
 
 	// Backfill thematic complaints from cache if empty
 	if len(contract.ThematicComplaints) == 0 {
-		if complaints, err := ei.LoadThematicComplaints(); err == nil {
+		if complaints, err := LoadThematicComplaints(); err == nil {
 			if themed, ok := complaints[contract.ContractID]; ok && len(themed) > 0 {
 				contract.ThematicComplaints = append([]string(nil), themed...)
 				r := rand.New(rand.NewSource(time.Now().UnixNano()))

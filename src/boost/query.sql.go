@@ -24,6 +24,24 @@ func (q *Queries) CountContractsByChannel(ctx context.Context, channelid string)
 	return count, err
 }
 
+const deleteAllContractComplaints = `-- name: DeleteAllContractComplaints :exec
+DELETE FROM contract_complaints
+`
+
+func (q *Queries) DeleteAllContractComplaints(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAllContractComplaints)
+	return err
+}
+
+const deleteAllContractRoles = `-- name: DeleteAllContractRoles :exec
+DELETE FROM contract_roles
+`
+
+func (q *Queries) DeleteAllContractRoles(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAllContractRoles)
+	return err
+}
+
 const deleteContractByChannel = `-- name: DeleteContractByChannel :exec
 DELETE FROM contract_data
 WHERE channelID = ?
@@ -31,6 +49,24 @@ WHERE channelID = ?
 
 func (q *Queries) DeleteContractByChannel(ctx context.Context, channelid string) error {
 	_, err := q.db.ExecContext(ctx, deleteContractByChannel, channelid)
+	return err
+}
+
+const deleteContractComplaints = `-- name: DeleteContractComplaints :exec
+DELETE FROM contract_complaints WHERE contractID = ?
+`
+
+func (q *Queries) DeleteContractComplaints(ctx context.Context, contractid string) error {
+	_, err := q.db.ExecContext(ctx, deleteContractComplaints, contractid)
+	return err
+}
+
+const deleteContractRoles = `-- name: DeleteContractRoles :exec
+DELETE FROM contract_roles WHERE contractID = ?
+`
+
+func (q *Queries) DeleteContractRoles(ctx context.Context, contractid string) error {
+	_, err := q.db.ExecContext(ctx, deleteContractRoles, contractid)
 	return err
 }
 
@@ -83,6 +119,60 @@ func (q *Queries) GetContractByChannelID(ctx context.Context, channelid string) 
 	return i, err
 }
 
+const getContractComplaints = `-- name: GetContractComplaints :many
+SELECT contractID, complaint FROM contract_complaints
+`
+
+func (q *Queries) GetContractComplaints(ctx context.Context) ([]ContractComplaint, error) {
+	rows, err := q.db.QueryContext(ctx, getContractComplaints)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ContractComplaint
+	for rows.Next() {
+		var i ContractComplaint
+		if err := rows.Scan(&i.Contractid, &i.Complaint); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getContractRoles = `-- name: GetContractRoles :many
+SELECT contractID, role_name FROM contract_roles
+`
+
+func (q *Queries) GetContractRoles(ctx context.Context) ([]ContractRole, error) {
+	rows, err := q.db.QueryContext(ctx, getContractRoles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ContractRole
+	for rows.Next() {
+		var i ContractRole
+		if err := rows.Scan(&i.Contractid, &i.RoleName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertContract = `-- name: InsertContract :exec
 INSERT INTO contract_data (channelID, contractID, coopID, value)
 VALUES (?, ?, ?, ?)
@@ -102,6 +192,36 @@ func (q *Queries) InsertContract(ctx context.Context, arg InsertContractParams) 
 		arg.Coopid,
 		arg.Value,
 	)
+	return err
+}
+
+const insertContractComplaint = `-- name: InsertContractComplaint :exec
+INSERT INTO contract_complaints (contractID, complaint) VALUES (?, ?)
+ON CONFLICT(contractID, complaint) DO NOTHING
+`
+
+type InsertContractComplaintParams struct {
+	Contractid string
+	Complaint  string
+}
+
+func (q *Queries) InsertContractComplaint(ctx context.Context, arg InsertContractComplaintParams) error {
+	_, err := q.db.ExecContext(ctx, insertContractComplaint, arg.Contractid, arg.Complaint)
+	return err
+}
+
+const insertContractRole = `-- name: InsertContractRole :exec
+INSERT INTO contract_roles (contractID, role_name) VALUES (?, ?)
+ON CONFLICT(contractID, role_name) DO NOTHING
+`
+
+type InsertContractRoleParams struct {
+	Contractid string
+	RoleName   string
+}
+
+func (q *Queries) InsertContractRole(ctx context.Context, arg InsertContractRoleParams) error {
+	_, err := q.db.ExecContext(ctx, insertContractRole, arg.Contractid, arg.RoleName)
 	return err
 }
 

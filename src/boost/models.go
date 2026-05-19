@@ -8,9 +8,19 @@ import (
 	"database/sql"
 )
 
+type ContractComplaint struct {
+	Contractid string
+	Complaint  string
+}
+
 type ContractDatum struct {
 	Channelid  string
 	Contractid string
 	Coopid     string
 	Value      sql.NullString
+}
+
+type ContractRole struct {
+	Contractid string
+	RoleName   string
 }
