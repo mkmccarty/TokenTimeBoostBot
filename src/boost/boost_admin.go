@@ -1131,13 +1131,14 @@ func HandleAdminExitCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		return
 	}
 
-	bottools.AcknowledgeResponse(s, i, discordgo.MessageFlagsEphemeral)
+	flags := discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2
+	bottools.AcknowledgeResponse(s, i, flags)
 
 	content, components := buildAdminExitResponse(0)
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Content:    content,
-		Flags:      discordgo.MessageFlagsEphemeral,
+		Flags:      flags,
 		Components: components,
 	})
 }
@@ -1351,7 +1352,7 @@ func HandleAdminExitButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{
 				Content:    content,
-				Flags:      discordgo.MessageFlagsEphemeral,
+				Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
 				Components: components,
 			},
 		})
