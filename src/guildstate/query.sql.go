@@ -10,6 +10,20 @@ import (
 	"database/sql"
 )
 
+const deleteGuildCoordinator = `-- name: DeleteGuildCoordinator :exec
+DELETE FROM guild_coordinator WHERE guild_id = ? AND user_id = ?
+`
+
+type DeleteGuildCoordinatorParams struct {
+	GuildID string
+	UserID  string
+}
+
+func (q *Queries) DeleteGuildCoordinator(ctx context.Context, arg DeleteGuildCoordinatorParams) error {
+	_, err := q.db.ExecContext(ctx, deleteGuildCoordinator, arg.GuildID, arg.UserID)
+	return err
+}
+
 const deleteGuildRecords = `-- name: DeleteGuildRecords :exec
 DELETE FROM guild_record
 WHERE id = ?
@@ -142,6 +156,62 @@ func (q *Queries) GetAllLeaderboardConfigsForGuild(ctx context.Context, guildID 
 	return items, nil
 }
 
+const getGuildCoordinator = `-- name: GetGuildCoordinator :one
+SELECT guild_id, user_id, added_by, added_at FROM guild_coordinator
+WHERE guild_id = ? AND user_id = ? LIMIT 1
+`
+
+type GetGuildCoordinatorParams struct {
+	GuildID string
+	UserID  string
+}
+
+func (q *Queries) GetGuildCoordinator(ctx context.Context, arg GetGuildCoordinatorParams) (GuildCoordinator, error) {
+	row := q.db.QueryRowContext(ctx, getGuildCoordinator, arg.GuildID, arg.UserID)
+	var i GuildCoordinator
+	err := row.Scan(
+		&i.GuildID,
+		&i.UserID,
+		&i.AddedBy,
+		&i.AddedAt,
+	)
+	return i, err
+}
+
+const getGuildCoordinators = `-- name: GetGuildCoordinators :many
+SELECT guild_id, user_id, added_by, added_at FROM guild_coordinator
+WHERE guild_id = ?
+ORDER BY added_at ASC
+`
+
+func (q *Queries) GetGuildCoordinators(ctx context.Context, guildID string) ([]GuildCoordinator, error) {
+	rows, err := q.db.QueryContext(ctx, getGuildCoordinators, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GuildCoordinator
+	for rows.Next() {
+		var i GuildCoordinator
+		if err := rows.Scan(
+			&i.GuildID,
+			&i.UserID,
+			&i.AddedBy,
+			&i.AddedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getGuildState = `-- name: GetGuildState :one
 SELECT id, value FROM guild_record
 WHERE id = ? LIMIT 1
@@ -175,6 +245,28 @@ func (q *Queries) GetLeaderboardConfig(ctx context.Context, arg GetLeaderboardCo
 		&i.MessageIds,
 	)
 	return i, err
+}
+
+const insertGuildCoordinator = `-- name: InsertGuildCoordinator :exec
+INSERT INTO guild_coordinator (guild_id, user_id, added_by, added_at)
+VALUES (?, ?, ?, ?)
+`
+
+type InsertGuildCoordinatorParams struct {
+	GuildID string
+	UserID  string
+	AddedBy string
+	AddedAt int64
+}
+
+func (q *Queries) InsertGuildCoordinator(ctx context.Context, arg InsertGuildCoordinatorParams) error {
+	_, err := q.db.ExecContext(ctx, insertGuildCoordinator,
+		arg.GuildID,
+		arg.UserID,
+		arg.AddedBy,
+		arg.AddedAt,
+	)
+	return err
 }
 
 const insertGuildState = `-- name: InsertGuildState :one

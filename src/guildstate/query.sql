@@ -1,3 +1,5 @@
+-- ─── Guild Record ────────────────────────────────────────────────────────────
+
 -- name: GetGuildState :one
 SELECT * FROM guild_record
 WHERE id = ? LIMIT 1;
@@ -22,6 +24,8 @@ WHERE id = ?;
 -- name: DeleteGuildRecords :exec
 DELETE FROM guild_record
 WHERE id = ?;
+
+-- ─── Leaderboard Config ──────────────────────────────────────────────────────
 
 -- name: UpsertLeaderboardConfig :exec
 -- Insert or update a guild leaderboard channel configuration.
@@ -57,3 +61,21 @@ WHERE lb_type = ? AND guild_id = ?;
 -- name: DeleteLeaderboardConfig :exec
 DELETE FROM leaderboard_config
 WHERE lb_type = ? AND guild_id = ?;
+
+-- ─── Guild Coordinator ───────────────────────────────────────────────────────
+
+-- name: InsertGuildCoordinator :exec
+INSERT INTO guild_coordinator (guild_id, user_id, added_by, added_at)
+VALUES (?, ?, ?, ?);
+
+-- name: GetGuildCoordinator :one
+SELECT guild_id, user_id, added_by, added_at FROM guild_coordinator
+WHERE guild_id = ? AND user_id = ? LIMIT 1;
+
+-- name: GetGuildCoordinators :many
+SELECT guild_id, user_id, added_by, added_at FROM guild_coordinator
+WHERE guild_id = ?
+ORDER BY added_at ASC;
+
+-- name: DeleteGuildCoordinator :exec
+DELETE FROM guild_coordinator WHERE guild_id = ? AND user_id = ?;
