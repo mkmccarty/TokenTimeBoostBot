@@ -8,6 +8,13 @@ import (
 	"database/sql"
 )
 
+type GuildCoordinator struct {
+	GuildID string
+	UserID  string
+	AddedBy string
+	AddedAt int64
+}
+
 type GuildRecord struct {
 	ID    string
 	Value sql.NullString
