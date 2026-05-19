@@ -478,12 +478,14 @@ func HandleAdminListRoles(s *discordgo.Session, i *discordgo.InteractionCreate) 
 // finishContractByHash is called only when the contract is complete
 func finishContractByHash(s *discordgo.Session, contractHash string) error {
 	var contract *Contract
+	ContractsMutex.RLock()
 	for _, c := range Contracts {
 		if c.ContractHash == contractHash {
 			contract = c
 			break
 		}
 	}
+	ContractsMutex.RUnlock()
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
@@ -504,7 +506,9 @@ func finishContractByHash(s *discordgo.Session, contractHash string) error {
 	contract.State = ContractStateArchive
 	//_ = saveEndData(contract) // Save for historical purposes
 	saveData(contract.ContractHash)
+	ContractsMutex.Lock()
 	delete(Contracts, contract.ContractHash)
+	ContractsMutex.Unlock()
 
 	return nil
 }
@@ -528,6 +532,7 @@ func HandleCoopAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate
 
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
 
+	ContractsMutex.RLock()
 	for _, c := range Contracts {
 		if c.ContractID == contractID {
 			// if coopID is empty, or contains the search string
@@ -540,6 +545,7 @@ func HandleCoopAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate
 			}
 		}
 	}
+	ContractsMutex.RUnlock()
 
 	sort.Slice(choices, func(i, j int) bool {
 		return choices[i].Name < choices[j].Name
@@ -1147,6 +1153,7 @@ func HandleAdminExitCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 func buildAdminExitResponse(page int) []discordgo.MessageComponent {
 	// Find all active contracts (excluding signup)
 	var activeContracts []*Contract
+	ContractsMutex.RLock()
 	for _, c := range Contracts {
 		if c == nil {
 			continue

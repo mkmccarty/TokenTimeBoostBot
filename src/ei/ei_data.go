@@ -393,3 +393,20 @@ func GetContractTeamNames(contractID string) []string {
 	}
 	return nil
 }
+
+// GetEggIncContract returns a copy of the EggIncContract for the given ID thread-safely
+func GetEggIncContract(contractID string) (EggIncContract, bool) {
+	EggIncContractsMutex.RLock()
+	defer EggIncContractsMutex.RUnlock()
+	c, ok := EggIncContractsAll[contractID]
+	return c, ok
+}
+
+// GetEggIncContractsSlice returns a copy of the EggIncContracts slice thread-safely
+func GetEggIncContractsSlice() []EggIncContract {
+	EggIncContractsMutex.RLock()
+	defer EggIncContractsMutex.RUnlock()
+	contracts := make([]EggIncContract, len(EggIncContracts))
+	copy(contracts, EggIncContracts)
+	return contracts
+}

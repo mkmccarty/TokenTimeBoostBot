@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"log"
 	"strings"
+	"sync"
 	"unicode/utf8"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
@@ -13,7 +14,10 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-var optionMapCache = make(map[string]map[string]*discordgo.ApplicationCommandInteractionDataOption)
+var (
+	optionMapCache      = make(map[string]map[string]*discordgo.ApplicationCommandInteractionDataOption)
+	optionMapCacheMutex sync.Mutex
+)
 
 func boolPtr(v bool) *bool {
 	return &v
@@ -22,7 +26,9 @@ func boolPtr(v bool) *bool {
 // RequestEggIncIDModal sends a modal to the user requesting their Egg Inc ID
 func RequestEggIncIDModal(s *discordgo.Session, i *discordgo.InteractionCreate, action string, optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption) {
 	userID := bottools.GetInteractionUserID(i)
+	optionMapCacheMutex.Lock()
 	optionMapCache[userID] = optionMap
+	optionMapCacheMutex.Unlock()
 
 	var components []discordgo.MessageComponent
 
@@ -137,8 +143,10 @@ func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate
 		targetAlt = parts[2]
 	}
 
+	optionMapCacheMutex.Lock()
 	optionMap := optionMapCache[userID]
 	delete(optionMapCache, userID)
+	optionMapCacheMutex.Unlock()
 
 	switch parts[1] {
 	case "register":

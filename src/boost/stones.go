@@ -180,18 +180,22 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		cache.useBuffHistory = useBuffHistory
 		cache.displayTiles = useTiles
 
+		stonesCacheMutex.Lock()
 		stonesCacheMap[cache.xid] = cache
+		stonesCacheMutex.Unlock()
 
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
 
 		sendStonesPage(s, i, true, cache.xid, false, false, false)
 
 		// Traverse stonesCacheMap and delete expired entries
+		stonesCacheMutex.Lock()
 		for key, cache := range stonesCacheMap {
 			if cache.expirationTimestamp.Before(time.Now()) {
 				delete(stonesCacheMap, key)
 			}
 		}
+		stonesCacheMutex.Unlock()
 	} else {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: s1,
@@ -320,7 +324,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		return err.Error(), "", field
 	}
 	var builder strings.Builder
-	eiContract := ei.EggIncContractsAll[contractID]
+	eiContract, _ := ei.GetEggIncContract(contractID)
 	dimension := ei.GameModifier_INVALID
 	rate := 1.0
 	if eiContract.ModifierSR != 1.0 {

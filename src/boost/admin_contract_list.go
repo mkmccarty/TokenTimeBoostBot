@@ -448,48 +448,55 @@ func adminContractListComponents(session *adminContractListSession, guilds []adm
 }
 
 func buildAdminContractListGuilds(defaultGuildID string, defaultGuildName string) []adminContractListGuild {
-	guildMap := make(map[string]*adminContractListGuild)
+	guilds := []adminContractListGuild{}
 
+	ContractsMutex.RLock()
 	for _, contract := range Contracts {
-		if contract == nil {
-			continue
-		}
-		for _, loc := range contract.Location {
-			if loc == nil || loc.GuildID == "" {
-				continue
-			}
-			entry, exists := guildMap[loc.GuildID]
-			if !exists {
-				name := loc.GuildName
-				if name == "" {
-					name = loc.GuildID
+		if contract != nil && contract.State != ContractStateArchive {
+			for _, loc := range contract.Location {
+				if loc == nil || loc.GuildID == "" {
+					continue
 				}
-				entry = &adminContractListGuild{ID: loc.GuildID, Name: name, Contracts: []*Contract{}}
-				guildMap[loc.GuildID] = entry
+				var entry *adminContractListGuild
+				for i := range guilds {
+					if guilds[i].ID == loc.GuildID {
+						entry = &guilds[i]
+						break
+					}
+				}
+				if entry == nil {
+					name := loc.GuildName
+					if name == "" {
+						name = loc.GuildID
+					}
+					guilds = append(guilds, adminContractListGuild{ID: loc.GuildID, Name: name, Contracts: []*Contract{}})
+					entry = &guilds[len(guilds)-1]
+				}
+				entry.Contracts = append(entry.Contracts, contract)
 			}
-			entry.Contracts = append(entry.Contracts, contract)
-			break
 		}
 	}
+	ContractsMutex.RUnlock()
 
 	if defaultGuildID != "" {
-		if _, ok := guildMap[defaultGuildID]; !ok {
+		found := false
+		for _, g := range guilds {
+			if g.ID == defaultGuildID {
+				found = true
+				break
+			}
+		}
+		if !found {
 			name := strings.TrimSpace(defaultGuildName)
 			if name == "" {
 				name = defaultGuildID
 			}
-			guildMap[defaultGuildID] = &adminContractListGuild{
+			guilds = append(guilds, adminContractListGuild{
 				ID:        defaultGuildID,
 				Name:      name,
 				Contracts: []*Contract{},
-			}
+			})
 		}
-	}
-
-	guilds := make([]adminContractListGuild, 0, len(guildMap))
-	for _, guild := range guildMap {
-		guild.Contracts = adminContractListContractsForGuildRaw(guild.ID)
-		guilds = append(guilds, *guild)
 	}
 
 	sort.Slice(guilds, func(i, j int) bool {
@@ -509,35 +516,6 @@ func adminContractListContractsForGuild(guilds []adminContractListGuild, guildID
 		}
 	}
 	return []*Contract{}
-}
-
-func adminContractListContractsForGuildRaw(guildID string) []*Contract {
-	contracts := make([]*Contract, 0)
-	for _, contract := range Contracts {
-		if contract == nil {
-			continue
-		}
-		for _, loc := range contract.Location {
-			if loc != nil && loc.GuildID == guildID {
-				contracts = append(contracts, contract)
-				break
-			}
-		}
-	}
-
-	sort.Slice(contracts, func(i, j int) bool {
-		left := contracts[i]
-		right := contracts[j]
-		if !left.StartTime.Equal(right.StartTime) {
-			return left.StartTime.Before(right.StartTime)
-		}
-		if left.ContractID != right.ContractID {
-			return left.ContractID < right.ContractID
-		}
-		return left.CoopID < right.CoopID
-	})
-
-	return contracts
 }
 
 func adminContractListGuildIndex(guilds []adminContractListGuild, guildID string) int {

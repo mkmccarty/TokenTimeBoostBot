@@ -262,8 +262,10 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 
 	// Before we make a thread, make sure this isn't a duplicate contract
+	ContractsMutex.RLock()
 	for _, c := range Contracts {
 		if c.ContractID == contractID && c.CoopID == coopID {
+			ContractsMutex.RUnlock()
 			_, _ = s.FollowupMessageCreate(i.Interaction, true,
 				&discordgo.WebhookParams{
 					Content:    "A contract with this coop-id (" + c.CoopID + ") exists in " + c.Location[0].ChannelMention,
@@ -274,6 +276,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			return
 		}
 	}
+	ContractsMutex.RUnlock()
 
 	contractInfo := ei.EggIncContractsAll[contractID]
 	if contractInfo.ID != "" {
@@ -415,13 +418,17 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 func CreateContract(s *discordgo.Session, contractID string, coopID string, playStyle int, coopSize int, BoostOrder int, guildID string, channelID string, progenitors []string, userID string, plannedStartTime time.Time, validFrom time.Time) (*Contract, error) {
 	// When creating contracts, we can make sure to clean up and archived ones
 	// Just in case a contract was immediately recreated
+	ContractsMutex.RLock()
 	for _, c := range Contracts {
 		if c.State == ContractStateArchive {
 			if c.CalcOperations == 0 || time.Since(c.CalcOperationTime).Minutes() > 20 {
+				ContractsMutex.RUnlock()
 				FinishContract(s, c)
+				ContractsMutex.RLock()
 			}
 		}
 	}
+	ContractsMutex.RUnlock()
 
 	// Make sure this channel doesn't already have a contract
 	existingContract := FindContract(channelID)
@@ -431,13 +438,16 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 
 	var contract *Contract
 	// Does a coop already exist for this contract-id and coop-id
+	ContractsMutex.RLock()
 	for _, c := range Contracts {
 		if c.ContractID == contractID && c.CoopID == coopID {
 			// We have a coop, add this channel to the coop
+			ContractsMutex.RUnlock()
 			return nil, errors.New("a contract with this coop-id (" + c.CoopID + ") exists in " + c.Location[0].ChannelMention)
 			//contract = c
 		}
 	}
+	ContractsMutex.RUnlock()
 
 	// Lets find a ping role to use
 
@@ -462,7 +472,10 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	// Try a number of random docker-style names first
 	for attempt := 0; attempt < 64; attempt++ {
 		cand := bottools.GetRandomName(0)
-		if Contracts[cand] == nil {
+		ContractsMutex.RLock()
+		isNil := Contracts[cand] == nil
+		ContractsMutex.RUnlock()
+		if isNil {
 			ContractHash = cand
 			break
 		}
@@ -477,7 +490,10 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 				suffix = suffix[:6]
 			}
 			cand := fmt.Sprintf("%s-%s", base, suffix)
-			if Contracts[cand] == nil {
+			ContractsMutex.RLock()
+			isNil := Contracts[cand] == nil
+			ContractsMutex.RUnlock()
+			if isNil {
 				ContractHash = cand
 				break
 			}
@@ -568,7 +584,9 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	}
 
 	contract.DynamicData = createDynamicTokenData(50)
+	ContractsMutex.Lock()
 	Contracts[ContractHash] = contract
+	ContractsMutex.Unlock()
 
 	// Apply potato-themed role override asynchronously once for the first configured user.
 	potatoRoleScheduled := false
