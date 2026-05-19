@@ -14,7 +14,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -527,20 +526,8 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	if !slices.Contains(contract.CreatorID, userID) {
 		contract.CreatorID = append(contract.CreatorID, userID)
 	}
-	// Add global admins uniquely
-	for _, admin := range config.AdminUsers {
-		if !slices.Contains(contract.CreatorID, admin) {
-			contract.CreatorID = append(contract.CreatorID, admin)
-		}
-	}
-	// Add guild coordinators uniquely
-	if coords, err := guildstate.GetCoordinatorList(guildID); err == nil {
-		for _, c := range coords {
-			if !slices.Contains(contract.CreatorID, c.UserID) {
-				contract.CreatorID = append(contract.CreatorID, c.UserID)
-			}
-		}
-	}
+
+
 
 	contract.StartTime = time.Now()
 

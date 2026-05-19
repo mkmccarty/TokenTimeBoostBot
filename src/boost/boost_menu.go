@@ -2,7 +2,6 @@ package boost
 
 import (
 	"fmt"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -445,7 +444,7 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 		// Check if the user is a coordinator for the contract
 		userID := i.Member.User.ID
-		if !slices.Contains(contract.CreatorID, userID) {
+		if !creatorOfContract(s, contract, userID) {
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
