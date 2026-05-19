@@ -7,6 +7,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -35,7 +36,10 @@ type boostOrderSession struct {
 	bottomCount          int  // Track how many names were added to the bottom
 }
 
-var boostOrderSessions = make(map[string]*boostOrderSession)
+var (
+	boostOrderSessions      = make(map[string]*boostOrderSession)
+	boostOrderSessionsMutex sync.Mutex
+)
 
 // GetSlashBoostOrderCommand returns the definition of the /boost-order command.
 func GetSlashBoostOrderCommand(cmd string) *discordgo.ApplicationCommand {
@@ -97,7 +101,9 @@ func HandleBoostOrderCommand(s *discordgo.Session, i *discordgo.InteractionCreat
 		selectionMode:        0,
 		bottomCount:          0,
 	}
+	boostOrderSessionsMutex.Lock()
 	boostOrderSessions[session.xid] = session
+	boostOrderSessionsMutex.Unlock()
 
 	content, components := renderBoostOrderInterview(contract, session, "")
 	respondBoostOrderCommand(s, i, content, components)
@@ -117,7 +123,9 @@ func HandleBoostOrderReactions(s *discordgo.Session, i *discordgo.InteractionCre
 	action := reaction[2]
 	userID := getInteractionUserID(i)
 
+	boostOrderSessionsMutex.Lock()
 	session, ok := boostOrderSessions[xidPart]
+	boostOrderSessionsMutex.Unlock()
 	if !ok {
 		respondBoostOrderUpdate(s, i, "This catalyst session expired. Please rerun the command.", nil)
 		return
@@ -129,7 +137,9 @@ func HandleBoostOrderReactions(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	if session.expiresAt.Before(time.Now()) {
+		boostOrderSessionsMutex.Lock()
 		delete(boostOrderSessions, session.xid)
+		boostOrderSessionsMutex.Unlock()
 		respondBoostOrderUpdate(s, i, fmt.Sprintf("This catalyst session expired. Please rerun %s.", boostOrderCommandPath(session.commandName)), nil)
 		return
 	}
@@ -137,12 +147,16 @@ func HandleBoostOrderReactions(s *discordgo.Session, i *discordgo.InteractionCre
 
 	contract := FindContractByHash(session.contractHash)
 	if contract == nil {
+		boostOrderSessionsMutex.Lock()
 		delete(boostOrderSessions, session.xid)
+		boostOrderSessionsMutex.Unlock()
 		respondBoostOrderUpdate(s, i, "Unable to find this contract anymore. Catalyst closed.", nil)
 		return
 	}
 	if !creatorOfContract(s, contract, userID) {
+		boostOrderSessionsMutex.Lock()
 		delete(boostOrderSessions, session.xid)
+		boostOrderSessionsMutex.Unlock()
 		respondBoostOrderUpdate(s, i, "You are no longer allowed to edit this contract.", nil)
 		return
 	}
@@ -278,7 +292,9 @@ func HandleBoostOrderReactions(s *discordgo.Session, i *discordgo.InteractionCre
 		respondBoostOrderUpdate(s, i, fmt.Sprintf("Boost order saved and contract redrawn. %s", changeText), []discordgo.MessageComponent{})
 		return
 	case "exit":
+		boostOrderSessionsMutex.Lock()
 		delete(boostOrderSessions, session.xid)
+		boostOrderSessionsMutex.Unlock()
 		respondBoostOrderUpdate(s, i, "Exited without saving changes.", []discordgo.MessageComponent{})
 		return
 	default:
@@ -350,6 +366,8 @@ func boostOrderCommandPath(commandName string) string {
 
 func cleanupBoostOrderSessions() {
 	now := time.Now()
+	boostOrderSessionsMutex.Lock()
+	defer boostOrderSessionsMutex.Unlock()
 	for key, session := range boostOrderSessions {
 		if session.expiresAt.Before(now) {
 			delete(boostOrderSessions, key)
@@ -358,6 +376,8 @@ func cleanupBoostOrderSessions() {
 }
 
 func clearBoostOrderSessionsForUserContract(userID string, contractHash string) {
+	boostOrderSessionsMutex.Lock()
+	defer boostOrderSessionsMutex.Unlock()
 	for key, session := range boostOrderSessions {
 		if session.userID == userID && session.contractHash == contractHash {
 			delete(boostOrderSessions, key)

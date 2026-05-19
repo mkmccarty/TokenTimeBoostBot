@@ -473,4 +473,3 @@ func GetContractThematicComplaints(contractName string, contractDescription stri
 
 	return validComplaints
 }
-

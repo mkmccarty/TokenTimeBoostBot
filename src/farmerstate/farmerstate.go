@@ -45,6 +45,7 @@ var (
 	farmerstate  map[string]*Farmer
 	pendingSaves = make(map[string]string)
 	saveMutex    sync.Mutex
+	stateMutex   sync.RWMutex
 )
 
 var ctx = context.Background()
@@ -158,20 +159,38 @@ func FlushPendingSaves() {
 	}
 }
 
-// NewFarmer creates a new Farmer
-func newFarmer(userID string) {
+// getFarmer returns a Farmer from the map, creating it if it doesn't exist
+// This function is thread-safe.
+func getFarmer(userID string) *Farmer {
+	stateMutex.RLock()
+	f, ok := farmerstate[userID]
+	stateMutex.RUnlock()
+	if ok {
+		return f
+	}
+
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
+
+	// Check again in case another goroutine created it while we were waiting for the lock
+	if f, ok = farmerstate[userID]; ok {
+		return f
+	}
+
 	// Check if farmer already exists in SQLite
+	// We do this while holding the lock to ensure we don't have multiple
+	// goroutines trying to load/create the same farmer.
 	sqliteFarmer, err := queries.GetLegacyFarmerstate(ctx, userID)
 	if err == nil && sqliteFarmer.Value.Valid {
 		var farmer Farmer
 		err = json.Unmarshal([]byte(sqliteFarmer.Value.String), &farmer)
 		if err == nil {
 			farmerstate[userID] = &farmer
-			return
+			return &farmer
 		}
 	}
 
-	farmerstate[userID] = &Farmer{
+	f = &Farmer{
 		UserID:               userID,
 		Ping:                 false,
 		Tokens:               0,
@@ -181,201 +200,197 @@ func newFarmer(userID string) {
 		MissionShipSecondary: 1,
 		LastSeen:             time.Now(),
 	}
+	farmerstate[userID] = f
+	return f
 }
 
 // DeleteFarmer deletes a Farmer from the map
 func DeleteFarmer(userID string) {
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
 	delete(farmerstate, userID)
 }
 
 // GetEggIncName returns a Farmer Egg Inc name
 func GetEggIncName(userID string) string {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
-	return farmerstate[userID].EggIncName
+	f := getFarmer(userID)
+	stateMutex.RLock()
+	defer stateMutex.RUnlock()
+	return f.EggIncName
 }
 
 // SetEggIncName sets a Farmer Egg Inc name
 func SetEggIncName(userID string, eggIncName string) {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
-	if !farmerstate[userID].DataPrivacy {
-		farmerstate[userID].EggIncName = eggIncName
+	f := getFarmer(userID)
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
+	if !f.DataPrivacy {
+		f.EggIncName = eggIncName
+		// Release lock before calling another exported function that takes the lock
+		stateMutex.Unlock()
 		SetMiscSettingString(userID, "EggIncRawName", eggIncName)
+		stateMutex.Lock()
 	}
 }
 
 // GetLaunchHistory returns a Farmer Launch History
 func GetLaunchHistory(userID string) bool {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
-	return farmerstate[userID].LaunchChain
+	f := getFarmer(userID)
+	stateMutex.RLock()
+	defer stateMutex.RUnlock()
+	return f.LaunchChain
 }
 
 // SetLaunchHistory sets a Farmer Launch History
 func SetLaunchHistory(userID string, setting bool) {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
-	if !farmerstate[userID].DataPrivacy {
-		farmerstate[userID].LaunchChain = setting
-		saveSqliteData(userID, farmerstate[userID])
+	f := getFarmer(userID)
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
+	if !f.DataPrivacy {
+		f.LaunchChain = setting
+		saveSqliteData(userID, f)
 	}
 }
 
 // GetMissionShipPrimary returns a Farmer Mission Ship Primary
 func GetMissionShipPrimary(userID string) int {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
-	return farmerstate[userID].MissionShipPrimary
+	f := getFarmer(userID)
+	stateMutex.RLock()
+	defer stateMutex.RUnlock()
+	return f.MissionShipPrimary
 }
 
 // SetMissionShipPrimary sets a Farmer Mission Ship Primary
 func SetMissionShipPrimary(userID string, setting int) {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
-	if !farmerstate[userID].DataPrivacy {
-		farmerstate[userID].MissionShipPrimary = setting
-		saveSqliteData(userID, farmerstate[userID])
+	f := getFarmer(userID)
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
+	if !f.DataPrivacy {
+		f.MissionShipPrimary = setting
+		saveSqliteData(userID, f)
 	}
 }
 
 // GetMissionShipSecondary returns a Farmer Mission Ship Secondary
 func GetMissionShipSecondary(userID string) int {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
-	f := farmerstate[userID]
+	f := getFarmer(userID)
+	stateMutex.RLock()
+	defer stateMutex.RUnlock()
 	return f.MissionShipSecondary
 }
 
 // SetMissionShipSecondary sets a Farmer Mission Ship Secondary
 func SetMissionShipSecondary(userID string, setting int) {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
-	if !farmerstate[userID].DataPrivacy {
-		farmerstate[userID].MissionShipSecondary = setting
-		saveSqliteData(userID, farmerstate[userID])
+	f := getFarmer(userID)
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
+	if !f.DataPrivacy {
+		f.MissionShipSecondary = setting
+		saveSqliteData(userID, f)
 	}
 }
 
 // GetTokens returns a Farmer's tokens
 func GetTokens(userID string) int {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
-	if farmerstate, ok := farmerstate[userID]; ok {
-		return farmerstate.Tokens
-	}
-	return 0
+	f := getFarmer(userID)
+	stateMutex.RLock()
+	defer stateMutex.RUnlock()
+	return f.Tokens
 }
 
 // SetTokens sets a Farmer's tokens
 func SetTokens(userID string, tokens int) {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
-	if !farmerstate[userID].DataPrivacy {
-		farmerstate[userID].Tokens = tokens
-		saveSqliteData(userID, farmerstate[userID])
+	f := getFarmer(userID)
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
+	if !f.DataPrivacy {
+		f.Tokens = tokens
+		saveSqliteData(userID, f)
 	}
 }
 
 // SetPing sets a Farmer's ping preference
 func SetPing(userID string, ping bool) {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
+	f := getFarmer(userID)
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
 
-	if !farmerstate[userID].DataPrivacy {
-		farmerstate[userID].Ping = ping
-		saveSqliteData(userID, farmerstate[userID])
+	if !f.DataPrivacy {
+		f.Ping = ping
+		saveSqliteData(userID, f)
 	}
 }
 
 // SetLastSeen updates the timestamp of the last time a farmer was added to a contract
 func SetLastSeen(userID string) {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
-	farmerstate[userID].LastSeen = time.Now()
-	saveSqliteData(userID, farmerstate[userID])
+	f := getFarmer(userID)
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
+	f.LastSeen = time.Now()
+	saveSqliteData(userID, f)
 }
 
 // GetLastSeen returns the last time a farmer was added to a contract
 func GetLastSeen(userID string) time.Time {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
-	return farmerstate[userID].LastSeen
+	f := getFarmer(userID)
+	stateMutex.RLock()
+	defer stateMutex.RUnlock()
+	return f.LastSeen
 }
 
 // GetPing returns a Farmer's ping preference
 func GetPing(userID string) bool {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
-
-	if farmerstate, ok := farmerstate[userID]; ok {
-		return farmerstate.Ping
-	}
-	return false
+	f := getFarmer(userID)
+	stateMutex.RLock()
+	defer stateMutex.RUnlock()
+	return f.Ping
 }
 
 // SetMiscSettingFlag sets a key-value sticky setting
 func SetMiscSettingFlag(userID string, key string, value bool) {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
+	f := getFarmer(userID)
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
 
-	if farmerstate[userID].MiscSettingsFlag == nil {
-		farmerstate[userID].MiscSettingsFlag = make(map[string]bool)
+	if f.MiscSettingsFlag == nil {
+		f.MiscSettingsFlag = make(map[string]bool)
 	}
-	if !farmerstate[userID].DataPrivacy {
-		farmerstate[userID].MiscSettingsFlag[key] = value
-		saveSqliteData(userID, farmerstate[userID])
+	if !f.DataPrivacy {
+		f.MiscSettingsFlag[key] = value
+		saveSqliteData(userID, f)
 	}
 }
 
 // GetMiscSettingFlag returns a Farmer sticky setting
 func GetMiscSettingFlag(userID string, key string) bool {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
+	f := getFarmer(userID)
+	stateMutex.Lock() // Using Lock because we might initialize the map
+	defer stateMutex.Unlock()
 
-	if farmer, ok := farmerstate[userID]; ok {
-		if farmer.MiscSettingsFlag == nil {
-			farmer.MiscSettingsFlag = make(map[string]bool)
-		}
-		return farmer.MiscSettingsFlag[key]
+	if f.MiscSettingsFlag == nil {
+		f.MiscSettingsFlag = make(map[string]bool)
 	}
-	return false
+	return f.MiscSettingsFlag[key]
 }
 
 // SetMiscSettingString sets a key-value sticky setting
 func SetMiscSettingString(userID string, key string, value string) {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
+	f := getFarmer(userID)
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
+
+	if f.MiscSettingsString == nil {
+		f.MiscSettingsString = make(map[string]string)
 	}
 
-	if farmerstate[userID].MiscSettingsString == nil {
-		farmerstate[userID].MiscSettingsString = make(map[string]string)
-	}
-
-	if !farmerstate[userID].DataPrivacy {
+	if !f.DataPrivacy {
 		if value == "" {
-			delete(farmerstate[userID].MiscSettingsString, key)
-			saveSqliteData(userID, farmerstate[userID])
+			delete(f.MiscSettingsString, key)
+			saveSqliteData(userID, f)
 		} else {
-			if farmerstate[userID].MiscSettingsString[key] != value {
-				farmerstate[userID].MiscSettingsString[key] = value
-				saveSqliteData(userID, farmerstate[userID])
+			if f.MiscSettingsString[key] != value {
+				f.MiscSettingsString[key] = value
+				saveSqliteData(userID, f)
 			}
 		}
 	}
@@ -383,28 +398,25 @@ func SetMiscSettingString(userID string, key string, value string) {
 
 // GetMiscSettingString returns a Farmer sticky setting
 func GetMiscSettingString(userID string, key string) string {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
+	f := getFarmer(userID)
+	stateMutex.Lock() // Using Lock because we might initialize the map
+	defer stateMutex.Unlock()
 
-	if farmer, ok := farmerstate[userID]; ok {
-		if farmer.MiscSettingsString == nil {
-			farmer.MiscSettingsString = make(map[string]string)
-		}
-		return farmer.MiscSettingsString[key]
+	if f.MiscSettingsString == nil {
+		f.MiscSettingsString = make(map[string]string)
 	}
-	return ""
+	return f.MiscSettingsString[key]
 }
 
 // GetLinks will return a slice of bookmark links
 func GetLinks(userID string) []string {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
+	f := getFarmer(userID)
+	stateMutex.RLock()
+	defer stateMutex.RUnlock()
 
 	var retLinks []string
 	// Collect all Links.link into a slice
-	for _, link := range farmerstate[userID].Links {
+	for _, link := range f.Links {
 		retLinks = append(retLinks, link.Link)
 	}
 
@@ -413,13 +425,10 @@ func GetLinks(userID string) []string {
 
 // SetLink will store a link for a user
 func SetLink(userID string, description string, guildID string, channelID string, messageID string) {
-	//	link := fmt.Sprintf("https://discordapp.com/channels/%s/%s/%s", contract.Location[0].GuildID, contract.Location[0].ChannelID, contract.SRData.ChickenRunCheckMsgID)
-	//
-	// fmt.Fprintf(&builder, "\n[link to Chicken Run Check Status](%s)\n", link)
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
-	if !farmerstate[userID].DataPrivacy {
+	f := getFarmer(userID)
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
+	if !f.DataPrivacy {
 		var link Link
 		var strURL string
 		link.Timestamp = time.Now()
@@ -434,35 +443,35 @@ func SetLink(userID string, description string, guildID string, channelID string
 			link.Link = fmt.Sprintf("%s %s", description, strURL)
 		}
 
-		newList := append(farmerstate[userID].Links, link)
-		farmerstate[userID].Links = nil
+		newList := append(f.Links, link)
+		f.Links = nil
 		// Prune farmerstate links older than 2 days
 		for _, el := range newList {
 			if el.Timestamp.Before(time.Now().Add(-48 * time.Hour)) {
-				farmerstate[userID].Links = append(farmerstate[userID].Links, el)
+				f.Links = append(f.Links, el)
 			}
 		}
-		saveSqliteData(userID, farmerstate[userID])
+		saveSqliteData(userID, f)
 	}
 }
 
 // IsUltra will return if a player has joined an ultra contract in last 60 days
 func IsUltra(userID string) bool {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
+	f := getFarmer(userID)
+	stateMutex.RLock()
+	defer stateMutex.RUnlock()
 
-	return time.Since(farmerstate[userID].UltraContract) <= 60*24*time.Hour
+	return time.Since(f.UltraContract) <= 60*24*time.Hour
 }
 
 // SetUltra sets a player to have joined an ultra contract
 func SetUltra(userID string) {
-	if farmerstate[userID] == nil {
-		newFarmer(userID)
-	}
-	if !farmerstate[userID].DataPrivacy {
-		farmerstate[userID].UltraContract = time.Now()
-		saveSqliteData(userID, farmerstate[userID])
+	f := getFarmer(userID)
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
+	if !f.DataPrivacy {
+		f.UltraContract = time.Now()
+		saveSqliteData(userID, f)
 	}
 }
 

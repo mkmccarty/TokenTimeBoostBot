@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log"
 	"sort"
+	"sync"
 	"time"
 
 	_ "modernc.org/sqlite" // SQLite driver registration.
@@ -24,6 +25,7 @@ var (
 	ctx        = context.Background()
 	queries    *Queries
 	guildstate map[string]*GuildState
+	stateMutex sync.RWMutex
 )
 
 //go:embed schema.sql
@@ -45,18 +47,37 @@ func init() {
 
 }
 
-func newGuild(guildID string) {
+// getGuild returns a GuildState from the map, creating it if it doesn't exist.
+// This function is thread-safe.
+func getGuild(guildID string) *GuildState {
+	stateMutex.RLock()
+	g, ok := guildstate[guildID]
+	stateMutex.RUnlock()
+	if ok {
+		return g
+	}
+
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
+
+	// Check again
+	if g, ok = guildstate[guildID]; ok {
+		return g
+	}
+
 	sqliteGuild, err := queries.GetGuildState(ctx, guildID)
 	if err == nil && sqliteGuild.Value.Valid {
 		var guild GuildState
 		err = json.Unmarshal([]byte(sqliteGuild.Value.String), &guild)
 		if err == nil {
 			guildstate[guildID] = &guild
-			return
+			return &guild
 		}
 	}
 
-	guildstate[guildID] = &GuildState{GuildID: guildID}
+	g = &GuildState{GuildID: guildID}
+	guildstate[guildID] = g
+	return g
 }
 
 func saveGuildSqliteData(guildID string, guild *GuildState) error {
@@ -158,78 +179,76 @@ func GetAllGuildIDs() ([]string, error) {
 
 // SetGuildSettingFlag sets a boolean guild setting and persists it.
 func SetGuildSettingFlag(guildID string, key string, value bool) {
-	if guildstate[guildID] == nil {
-		newGuild(guildID)
-	}
+	g := getGuild(guildID)
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
 
-	if guildstate[guildID].MiscSettingsFlag == nil {
-		guildstate[guildID].MiscSettingsFlag = make(map[string]bool)
+	if g.MiscSettingsFlag == nil {
+		g.MiscSettingsFlag = make(map[string]bool)
 	}
-	guildstate[guildID].MiscSettingsFlag[key] = value
-	if err := saveGuildSqliteData(guildID, guildstate[guildID]); err != nil {
+	g.MiscSettingsFlag[key] = value
+	if err := saveGuildSqliteData(guildID, g); err != nil {
 		log.Printf("error saving guild data: %v", err)
 	}
 }
 
 // GetGuildSettingFlag gets a boolean guild setting.
 func GetGuildSettingFlag(guildID string, key string) bool {
-	if guildstate[guildID] == nil {
-		newGuild(guildID)
-	}
+	g := getGuild(guildID)
+	stateMutex.Lock() // Lock because we might initialize the map
+	defer stateMutex.Unlock()
 
-	if guild, ok := guildstate[guildID]; ok {
-		if guild.MiscSettingsFlag == nil {
-			guild.MiscSettingsFlag = make(map[string]bool)
-		}
-		return guild.MiscSettingsFlag[key]
+	if g.MiscSettingsFlag == nil {
+		g.MiscSettingsFlag = make(map[string]bool)
 	}
-	return false
+	return g.MiscSettingsFlag[key]
 }
 
 // SetGuildSettingString sets a string guild setting and persists it.
 func SetGuildSettingString(guildID string, key string, value string) {
-	if guildstate[guildID] == nil {
-		newGuild(guildID)
-	}
+	g := getGuild(guildID)
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
 
-	if guildstate[guildID].MiscSettingsString == nil {
-		guildstate[guildID].MiscSettingsString = make(map[string]string)
+	if g.MiscSettingsString == nil {
+		g.MiscSettingsString = make(map[string]string)
 	}
 
 	if value == "" {
-		delete(guildstate[guildID].MiscSettingsString, key)
-	} else if guildstate[guildID].MiscSettingsString[key] != value {
-		guildstate[guildID].MiscSettingsString[key] = value
+		delete(g.MiscSettingsString, key)
+	} else if g.MiscSettingsString[key] != value {
+		g.MiscSettingsString[key] = value
 	}
 
-	if err := saveGuildSqliteData(guildID, guildstate[guildID]); err != nil {
+	if err := saveGuildSqliteData(guildID, g); err != nil {
 		log.Printf("error saving guild data: %v", err)
 	}
 }
 
 // GetGuildSettingString gets a string guild setting.
 func GetGuildSettingString(guildID string, key string) string {
-	if guildstate[guildID] == nil {
-		newGuild(guildID)
-	}
+	g := getGuild(guildID)
+	stateMutex.Lock() // Lock because we might initialize the map
+	defer stateMutex.Unlock()
 
-	if guild, ok := guildstate[guildID]; ok {
-		if guild.MiscSettingsString == nil {
-			guild.MiscSettingsString = make(map[string]string)
-		}
-		return guild.MiscSettingsString[key]
+	if g.MiscSettingsString == nil {
+		g.MiscSettingsString = make(map[string]string)
 	}
-	return ""
+	return g.MiscSettingsString[key]
 }
 
 // DeleteGuildState deletes persisted state for a guild.
 func DeleteGuildState(guildID string) error {
+	stateMutex.Lock()
 	delete(guildstate, guildID)
+	stateMutex.Unlock()
 	return queries.DeleteGuildState(ctx, guildID)
 }
 
 // DeleteGuildRecords deletes guild records for a guild ID.
 func DeleteGuildRecords(guildID string) error {
+	stateMutex.Lock()
 	delete(guildstate, guildID)
+	stateMutex.Unlock()
 	return queries.DeleteGuildRecords(ctx, guildID)
 }

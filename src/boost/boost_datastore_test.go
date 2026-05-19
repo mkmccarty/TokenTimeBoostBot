@@ -16,7 +16,7 @@ func TestRoleNamesSaveLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open in-memory db: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Execute DDL
 	_, err = db.Exec(ddl)
@@ -26,10 +26,10 @@ func TestRoleNamesSaveLoad(t *testing.T) {
 
 	// Backup original queries and dbConn
 	origQueries := queries
-	origDbConn := dbConn
+	origDBConn := dbConn
 	defer func() {
 		queries = origQueries
-		dbConn = origDbConn
+		dbConn = origDBConn
 	}()
 
 	// Set them to our test db
@@ -81,7 +81,7 @@ func TestThematicComplaintsSaveLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open in-memory db: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Execute DDL
 	_, err = db.Exec(ddl)
@@ -91,11 +91,11 @@ func TestThematicComplaintsSaveLoad(t *testing.T) {
 
 	// Backup original queries, dbConn, and the complaints cache
 	origQueries := queries
-	origDbConn := dbConn
+	origDBConn := dbConn
 	origCache := thematicComplaintsMap
 	defer func() {
 		queries = origQueries
-		dbConn = origDbConn
+		dbConn = origDBConn
 		thematicComplaintsMap = origCache
 	}()
 
@@ -173,7 +173,7 @@ func TestPerformTransitionFromJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open in-memory db: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Execute DDL
 	_, err = db.Exec(ddl)
@@ -183,10 +183,10 @@ func TestPerformTransitionFromJSON(t *testing.T) {
 
 	// Backup original queries and dbConn
 	origQueries := queries
-	origDbConn := dbConn
+	origDBConn := dbConn
 	defer func() {
 		queries = origQueries
-		dbConn = origDbConn
+		dbConn = origDBConn
 	}()
 
 	queries = New(db)
@@ -204,14 +204,14 @@ func TestPerformTransitionFromJSON(t *testing.T) {
 	}
 	rolesBytes, _ := json.Marshal(rolesData)
 	_ = os.WriteFile(rolesPath, rolesBytes, 0644)
-	defer os.Remove(rolesPath)
+	defer func() { _ = os.Remove(rolesPath) }()
 
 	complaintsData := map[string][]string{
 		"legacy-c1": {"Complaint X", "Complaint Y"},
 	}
 	complaintsBytes, _ := json.Marshal(complaintsData)
 	_ = os.WriteFile(complaintsPath, complaintsBytes, 0644)
-	defer os.Remove(complaintsPath)
+	defer func() { _ = os.Remove(complaintsPath) }()
 
 	// Run transition
 	performTransitionFromJSON(db)

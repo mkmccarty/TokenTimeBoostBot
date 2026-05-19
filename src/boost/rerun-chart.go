@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -42,10 +43,15 @@ type chartSession struct {
 	siabOnly       bool
 }
 
-var chartSessions = make(map[string]*chartSession)
+var (
+	chartSessions      = make(map[string]*chartSession)
+	chartSessionsMutex sync.Mutex
+)
 
 func cleanupChartSessions() {
 	now := time.Now()
+	chartSessionsMutex.Lock()
+	defer chartSessionsMutex.Unlock()
 	for k, v := range chartSessions {
 		if now.After(v.expiresAt) {
 			delete(chartSessions, k)
@@ -75,7 +81,7 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 
 		evaluation := a.GetEvaluation()
 		evaluationCxp := evaluation.GetCxp()
-		c := ei.EggIncContractsAll[contractID]
+		c, _ := ei.GetEggIncContract(contractID)
 
 		if len(contractIDList) > 0 {
 			if !slices.Contains(contractIDList, contractID) {
@@ -131,7 +137,9 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 		session.page = 0
 	}
 
+	chartSessionsMutex.Lock()
 	chartSessions[session.xid] = session
+	chartSessionsMutex.Unlock()
 	return renderChartSession(session)
 }
 
@@ -209,11 +217,13 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 		case "date_asc":
 			return displayRows[i].validUntil < displayRows[j].validUntil
 		case "name":
-			nameI := ei.EggIncContractsAll[displayRows[i].contractID].Name
+			cI, _ := ei.GetEggIncContract(displayRows[i].contractID)
+			nameI := cI.Name
 			if nameI == "" {
 				nameI = displayRows[i].contractID
 			}
-			nameJ := ei.EggIncContractsAll[displayRows[j].contractID].Name
+			cJ, _ := ei.GetEggIncContract(displayRows[j].contractID)
+			nameJ := cJ.Name
 			if nameJ == "" {
 				nameJ = displayRows[j].contractID
 			}
@@ -222,11 +232,13 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 			}
 			return nameI < nameJ
 		case "name_desc":
-			nameI := ei.EggIncContractsAll[displayRows[i].contractID].Name
+			cI, _ := ei.GetEggIncContract(displayRows[i].contractID)
+			nameI := cI.Name
 			if nameI == "" {
 				nameI = displayRows[i].contractID
 			}
-			nameJ := ei.EggIncContractsAll[displayRows[j].contractID].Name
+			cJ, _ := ei.GetEggIncContract(displayRows[j].contractID)
+			nameJ := cJ.Name
 			if nameJ == "" {
 				nameJ = displayRows[j].contractID
 			}
@@ -523,7 +535,9 @@ func HandleChartReactions(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	xidPart := parts[2]
 	userID := bottools.GetInteractionUserID(i)
 
+	chartSessionsMutex.Lock()
 	session, ok := chartSessions[xidPart]
+	chartSessionsMutex.Unlock()
 	if !ok {
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -591,7 +605,9 @@ func HandleChartReactions(s *discordgo.Session, i *discordgo.InteractionCreate) 
 			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{Components: finalComponents},
 		})
+		chartSessionsMutex.Lock()
 		delete(chartSessions, xidPart) // Clean up session
+		chartSessionsMutex.Unlock()
 		return
 	}
 
