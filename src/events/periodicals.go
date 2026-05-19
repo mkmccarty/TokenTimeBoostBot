@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
@@ -209,6 +210,13 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 		teamRoleMap = loadedRoles
 	}
 
+	complaintsMap := make(map[string][]string)
+	currentComplaintsMap := make(map[string][]string)
+	loadedComplaints, err := ei.LoadThematicComplaints()
+	if err == nil {
+		complaintsMap = loadedComplaints
+	}
+
 	for _, event := range periodicalsResponse.GetEvents().GetEvents() {
 		var e ei.EggEvent
 		e.ID = event.GetIdentifier()
@@ -384,13 +392,26 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 			log.Print("New Original contract: ", c.ID)
 		}
 		bottools.GenerateBanner(c.ID, c.EggName, c.Name, "", "", "")
-		if len(teamRoleMap[c.ID]) == 0 {
-			c.TeamNames = notok.GetContractTeamNames(c.Description, 30)
-			currentTeamRoleMap[c.ID] = c.TeamNames
-		} else {
+		needTeamNames := len(teamRoleMap[c.ID]) == 0
+		needComplaints := len(complaintsMap[c.ID]) == 0
+
+		if !needTeamNames {
 			c.TeamNames = teamRoleMap[c.ID]
 			currentTeamRoleMap[c.ID] = teamRoleMap[c.ID]
+		} else {
+			currentTeamRoleMap[c.ID] = nil
 		}
+
+		if !needComplaints {
+			currentComplaintsMap[c.ID] = complaintsMap[c.ID]
+		} else {
+			currentComplaintsMap[c.ID] = nil
+		}
+
+		if needTeamNames || needComplaints {
+			go fetchThematicDataAsync(c.ID, c.Name, c.Description, needTeamNames, needComplaints)
+		}
+
 		ei.EggIncContractsAll[c.ID] = c
 		if c.ID != "first-contract" {
 			newContract = append(newContract, c)
@@ -405,6 +426,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 
 	// Replace what we have with only a current list of names
 	saveRoleNames(currentTeamRoleMap)
+	_ = ei.SaveThematicComplaints(currentComplaintsMap)
 
 	// Replace all new contracts
 	if len(newContract) > 0 {
@@ -489,4 +511,47 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 	}
 
 	return periodicalsReady || newEvents || updatedPredicted > 0
+}
+
+var asyncPeriodicalMutex sync.Mutex
+
+func fetchThematicDataAsync(contractID string, contractName string, contractDescription string, needTeamNames bool, needComplaints bool) {
+	var teamNames []string
+	var complaints []string
+
+	if needTeamNames {
+		teamNames = notok.GetContractTeamNames(contractDescription, 30)
+	}
+	if needComplaints {
+		complaints = notok.GetContractThematicComplaints(contractName, contractDescription, 12)
+	}
+
+	if len(teamNames) > 0 || len(complaints) > 0 {
+		asyncPeriodicalMutex.Lock()
+		defer asyncPeriodicalMutex.Unlock()
+
+		if len(teamNames) > 0 {
+			loadedRoles, err := loadRoleNames()
+			if err == nil {
+				if loadedRoles == nil {
+					loadedRoles = make(map[string][]string)
+				}
+				loadedRoles[contractID] = teamNames
+				saveRoleNames(loadedRoles)
+			}
+			ei.SetContractTeamNames(contractID, teamNames)
+		}
+
+		if len(complaints) > 0 {
+			loadedComplaints, err := ei.LoadThematicComplaints()
+			if err == nil {
+				if loadedComplaints == nil {
+					loadedComplaints = make(map[string][]string)
+				}
+				loadedComplaints[contractID] = complaints
+				_ = ei.SaveThematicComplaints(loadedComplaints)
+			}
+			boost.PopulateThematicComplaintsForContractID(contractID, complaints)
+		}
+	}
 }

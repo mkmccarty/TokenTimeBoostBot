@@ -146,3 +146,47 @@ func TestNextWeekdayDateBeforeEggStandardTimeStaysToday(t *testing.T) {
 		})
 	}
 }
+
+func TestPopulateThematicComplaintsForContractID(t *testing.T) {
+	// Create a dummy contract and put it in Contracts map
+	cID := "test-contract-123"
+	cHash := "test-hash-456"
+	contract := &Contract{
+		ContractID:   cID,
+		ContractHash: cHash,
+	}
+
+	mutex.Lock()
+	Contracts[cHash] = contract
+	mutex.Unlock()
+
+	defer func() {
+		mutex.Lock()
+		delete(Contracts, cHash)
+		mutex.Unlock()
+	}()
+
+	complaints := []string{"complaint 1", "complaint 2"}
+	PopulateThematicComplaintsForContractID(cID, complaints)
+
+	mutex.Lock()
+	tc := contract.ThematicComplaints
+	mutex.Unlock()
+
+	if len(tc) != 2 {
+		t.Fatalf("expected 2 complaints, got %d", len(tc))
+	}
+	found1 := false
+	found2 := false
+	for _, c := range tc {
+		if c == "complaint 1" {
+			found1 = true
+		}
+		if c == "complaint 2" {
+			found2 = true
+		}
+	}
+	if !found1 || !found2 {
+		t.Errorf("complaints not populated correctly: %v", tc)
+	}
+}

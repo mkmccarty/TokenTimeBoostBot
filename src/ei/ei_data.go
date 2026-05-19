@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -354,4 +355,41 @@ func GetCurrentWeekNumber(locationTZ *time.Location) int {
 
 	days := int(now.Sub(seasonStart).Hours() / 24)
 	return days/7 + 1
+}
+
+// EggIncContractsMutex protects EggIncContracts and EggIncContractsAll maps/slices from concurrent access.
+var EggIncContractsMutex sync.RWMutex
+
+// SetContractTeamNames updates the team names for a contract thread-safely
+func SetContractTeamNames(contractID string, teamNames []string) {
+	EggIncContractsMutex.Lock()
+	defer EggIncContractsMutex.Unlock()
+
+	// Update in EggIncContractsAll
+	if c, ok := EggIncContractsAll[contractID]; ok {
+		c.TeamNames = teamNames
+		EggIncContractsAll[contractID] = c
+	}
+
+	// Update in EggIncContracts slice
+	for i, c := range EggIncContracts {
+		if c.ID == contractID {
+			EggIncContracts[i].TeamNames = teamNames
+			break
+		}
+	}
+}
+
+// GetContractTeamNames returns the team names for a contract thread-safely
+func GetContractTeamNames(contractID string) []string {
+	EggIncContractsMutex.RLock()
+	defer EggIncContractsMutex.RUnlock()
+
+	if c, ok := EggIncContractsAll[contractID]; ok {
+		if len(c.TeamNames) > 0 {
+			// Return a copy to prevent race conditions on slice elements
+			return append([]string(nil), c.TeamNames...)
+		}
+	}
+	return nil
 }

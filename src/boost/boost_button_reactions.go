@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"runtime/debug"
 	"slices"
 	"strings"
@@ -869,10 +870,34 @@ func buttonReactionComplain(s *discordgo.Session, contract *Contract, cUserID st
 		return
 	}
 
-	complaint, err := ei.GetTokenComplaint(contract.Boosters[cUserID].Mention)
-	if err != nil {
-		log.Print(err)
-		return
+	// Backfill thematic complaints from cache if empty
+	if len(contract.ThematicComplaints) == 0 {
+		if complaints, err := ei.LoadThematicComplaints(); err == nil {
+			if themed, ok := complaints[contract.ContractID]; ok && len(themed) > 0 {
+				contract.ThematicComplaints = append([]string(nil), themed...)
+				r := rand.New(rand.NewSource(time.Now().UnixNano()))
+				r.Shuffle(len(contract.ThematicComplaints), func(i, j int) {
+					contract.ThematicComplaints[i], contract.ThematicComplaints[j] = contract.ThematicComplaints[j], contract.ThematicComplaints[i]
+				})
+				saveData(contract.ContractHash)
+			}
+		}
+	}
+
+	var complaint string
+	var err error
+
+	if len(contract.ThematicComplaints) > 0 && rand.Float64() < 0.33 {
+		template := contract.ThematicComplaints[0]
+		contract.ThematicComplaints = append(contract.ThematicComplaints[1:], template)
+		complaint = fmt.Sprintf(":loudspeaker: %s", strings.ReplaceAll(template, "[player]", contract.Boosters[cUserID].Mention))
+		saveData(contract.ContractHash)
+	} else {
+		complaint, err = ei.GetTokenComplaint(contract.Boosters[cUserID].Mention)
+		if err != nil {
+			log.Print(err)
+			return
+		}
 	}
 
 	_, err = s.ChannelMessageSendComplex(contract.Location[0].ChannelID, &discordgo.MessageSend{

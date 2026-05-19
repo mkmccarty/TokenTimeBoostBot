@@ -2,6 +2,7 @@ package notok
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -396,3 +397,80 @@ func downloadFile(filepath string, url string, prompt string) error {
 	return err
 }
 */
+
+// GetContractThematicComplaints returns a list of contract themed complaints for a given contract.
+func GetContractThematicComplaints(contractName string, contractDescription string, quantity int) []string {
+	if config.GoogleAPIKey == "" {
+		return nil
+	}
+	var builder strings.Builder
+	builder.WriteString("Egg Inc. is an idle game where players cooperate in contracts. Boost tokens are extremely rare and valuable items players need to boost their farms. Sometimes, players are extremely unlucky and don't get boost tokens from random trucks or boxes. In the game, players complain about their poor token luck.\n\n")
+	builder.WriteString("Here are examples of token complaints:\n")
+	builder.WriteString("- [player] has become a statistical anomaly.\n")
+	builder.WriteString("- [player] stared into the void. The void handed cash.\n")
+	builder.WriteString("- Kev knows what he did to [player].\n")
+	builder.WriteString("- [player] has begun to suspect tokens are a myth but refuses to say it out loud.\n")
+	builder.WriteString("- Rip [player].\n\n")
+	fmt.Fprintf(&builder, "The current contract is named \"%s\" and described as \"%s\".\n", contractName, contractDescription)
+	fmt.Fprintf(&builder, "Generate exactly %d comical, witty, desperate, or sarcastic token complaints specifically themed around the name and description of this contract. Each complaint MUST include the exact placeholder \"[player]\" (e.g. \"[player] got eaten by [contract theme]\"). Return the complaints as a JSON array of strings: [\"complaint 1\", \"complaint 2\", ...]. Return ONLY the raw JSON array of strings and nothing else. No markdown formatting, no backticks, no code blocks.", quantity)
+
+	const maxAttempts = 5
+	var str string
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		var err error
+		str, err = getStringFromGoogleGemini(builder.String())
+		if err == nil {
+			break
+		}
+		if !isRetryableModelError(err) || attempt == maxAttempts {
+			return nil
+		}
+		time.Sleep(time.Duration(attempt) * 5 * time.Second)
+	}
+
+	cleaned := strings.TrimSpace(str)
+	if strings.HasPrefix(cleaned, "```json") {
+		cleaned = strings.TrimPrefix(cleaned, "```json")
+		cleaned = strings.TrimSuffix(cleaned, "```")
+	} else if strings.HasPrefix(cleaned, "```") {
+		cleaned = strings.TrimPrefix(cleaned, "```")
+		cleaned = strings.TrimSuffix(cleaned, "```")
+	}
+	cleaned = strings.TrimSpace(cleaned)
+
+	var complaints []string
+	if err := json.Unmarshal([]byte(cleaned), &complaints); err != nil {
+		log.Printf("Failed to unmarshal thematic complaints from Gemini: %v, attempting fallback parsing", err)
+		// Fallback: search for quoted strings or split by newlines
+		lines := strings.Split(str, "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			firstQuote := strings.Index(line, "\"")
+			lastQuote := strings.LastIndex(line, "\"")
+			if firstQuote != -1 && lastQuote > firstQuote {
+				complaints = append(complaints, line[firstQuote+1:lastQuote])
+			} else {
+				line = strings.TrimLeft(line, "0123456789.-*• ")
+				complaints = append(complaints, line)
+			}
+		}
+	}
+
+	var validComplaints []string
+	for _, c := range complaints {
+		c = strings.TrimSpace(c)
+		if c != "" && strings.Contains(c, "[player]") {
+			validComplaints = append(validComplaints, c)
+		}
+	}
+
+	if len(validComplaints) == 0 {
+		return nil
+	}
+
+	return validComplaints
+}
+

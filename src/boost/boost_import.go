@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -532,6 +533,17 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 }
 
 func updateContractWithEggIncData(s *discordgo.Session, contract *Contract) {
+	if len(contract.ThematicComplaints) == 0 {
+		if complaints, err := ei.LoadThematicComplaints(); err == nil {
+			if themed, ok := complaints[contract.ContractID]; ok && len(themed) > 0 {
+				contract.ThematicComplaints = append([]string(nil), themed...)
+				r := rand.New(rand.NewSource(time.Now().UnixNano()))
+				r.Shuffle(len(contract.ThematicComplaints), func(i, j int) {
+					contract.ThematicComplaints[i], contract.ThematicComplaints[j] = contract.ThematicComplaints[j], contract.ThematicComplaints[i]
+				})
+			}
+		}
+	}
 	for _, cc := range ei.EggIncContracts {
 		if cc.ID == contract.ContractID {
 			contract.CoopSize = cc.MaxCoopSize
