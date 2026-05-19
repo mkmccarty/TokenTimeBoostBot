@@ -47,7 +47,7 @@ const (
 
 // Admin Slash Command Constants
 const slashAdminContractsList string = "admin-contract-list"
-
+const slashAdminCoordinator string = "admin-coordinator"
 const slashReloadContracts string = "admin-reload-contracts"
 const slashAdminGetContractData string = "admin-get-contract-data"
 const slashAdminListRoles string = "list-roles"
@@ -365,6 +365,11 @@ func setupCommands() {
 			AppCmd:   boost.SlashAdminMembers(slashAdminMembers),
 			Category: CmdCategoryAdmin,
 			Handler:  boost.HandleAdminMembers,
+		},
+		{
+			AppCmd:   guildstate.SlashCoordinatorsCommand(slashAdminCoordinator),
+			Category: CmdCategoryAdmin,
+			Handler:  guildstate.HandleCoordinators,
 		},
 		{
 			AppCmd:   boost.SlashAdminCurrentContracts(slashActiveContracts),
