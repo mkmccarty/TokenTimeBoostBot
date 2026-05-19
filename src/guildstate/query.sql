@@ -1,4 +1,4 @@
--- ─── Guild Record ────────────────────────────────────────────────────────────
+-- --- Guild Record ------------------------------------------------------------
 
 -- name: GetGuildState :one
 SELECT * FROM guild_record
@@ -25,7 +25,7 @@ WHERE id = ?;
 DELETE FROM guild_record
 WHERE id = ?;
 
--- ─── Leaderboard Config ──────────────────────────────────────────────────────
+-- --- Leaderboard Config ------------------------------------------------------
 
 -- name: UpsertLeaderboardConfig :exec
 -- Insert or update a guild leaderboard channel configuration.
@@ -62,7 +62,7 @@ WHERE lb_type = ? AND guild_id = ?;
 DELETE FROM leaderboard_config
 WHERE lb_type = ? AND guild_id = ?;
 
--- ─── Guild Coordinator ───────────────────────────────────────────────────────
+-- --- Guild Coordinator -------------------------------------------------------
 
 -- name: InsertGuildCoordinator :exec
 INSERT INTO guild_coordinator (guild_id, user_id, added_by, added_at)

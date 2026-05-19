@@ -213,10 +213,12 @@ func (q *Queries) GetGuildCoordinators(ctx context.Context, guildID string) ([]G
 }
 
 const getGuildState = `-- name: GetGuildState :one
+
 SELECT id, value FROM guild_record
 WHERE id = ? LIMIT 1
 `
 
+// --- Guild Record ------------------------------------------------------------
 func (q *Queries) GetGuildState(ctx context.Context, id string) (GuildRecord, error) {
 	row := q.db.QueryRowContext(ctx, getGuildState, id)
 	var i GuildRecord
@@ -248,6 +250,7 @@ func (q *Queries) GetLeaderboardConfig(ctx context.Context, arg GetLeaderboardCo
 }
 
 const insertGuildCoordinator = `-- name: InsertGuildCoordinator :exec
+
 INSERT INTO guild_coordinator (guild_id, user_id, added_by, added_at)
 VALUES (?, ?, ?, ?)
 `
@@ -259,6 +262,7 @@ type InsertGuildCoordinatorParams struct {
 	AddedAt int64
 }
 
+// --- Guild Coordinator -------------------------------------------------------
 func (q *Queries) InsertGuildCoordinator(ctx context.Context, arg InsertGuildCoordinatorParams) error {
 	_, err := q.db.ExecContext(ctx, insertGuildCoordinator,
 		arg.GuildID,
@@ -325,6 +329,7 @@ func (q *Queries) UpdateLeaderboardConfigMessageIDs(ctx context.Context, arg Upd
 }
 
 const upsertLeaderboardConfig = `-- name: UpsertLeaderboardConfig :exec
+
 INSERT INTO leaderboard_config (lb_type, guild_id, channel_id, message_ids)
 VALUES (?, ?, ?, ?)
 ON CONFLICT(lb_type, guild_id) DO UPDATE SET
@@ -339,6 +344,7 @@ type UpsertLeaderboardConfigParams struct {
 	MessageIds sql.NullString
 }
 
+// --- Leaderboard Config ------------------------------------------------------
 // Insert or update a guild leaderboard channel configuration.
 func (q *Queries) UpsertLeaderboardConfig(ctx context.Context, arg UpsertLeaderboardConfigParams) error {
 	_, err := q.db.ExecContext(ctx, upsertLeaderboardConfig,
