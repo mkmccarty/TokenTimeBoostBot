@@ -1154,6 +1154,7 @@ func buildAdminExitResponse(page int) []discordgo.MessageComponent {
 	// Find all active contracts (excluding signup)
 	var activeContracts []*Contract
 	ContractsMutex.RLock()
+	defer ContractsMutex.RUnlock()
 	for _, c := range Contracts {
 		if c == nil {
 			continue

@@ -238,6 +238,7 @@ func populateArtifactsFromBackup(s *discordgo.Session, userID string) (string, s
 
 	updatedContracts := 0
 	ContractsMutex.RLock()
+	defer ContractsMutex.RUnlock()
 	for _, contract := range Contracts {
 		if contract == nil || contract.State == ContractStateCompleted || contract.State == ContractStateArchive {
 			continue
