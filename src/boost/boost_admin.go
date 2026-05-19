@@ -1099,7 +1099,6 @@ func HandleAdminMembers(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 // SlashAdminExitCommand provides an admin-only command to gracefully exit the bot.
 func SlashAdminExitCommand(cmd string) *discordgo.ApplicationCommand {
-	var adminPermission = int64(0)
 
 	guildID := guildstate.GetGuildSettingString("DEFAULT", "home_guild")
 	if guildID == "" {
@@ -1107,10 +1106,9 @@ func SlashAdminExitCommand(cmd string) *discordgo.ApplicationCommand {
 	}
 
 	return &discordgo.ApplicationCommand{
-		Name:                     cmd,
-		Description:              "Gracefully exit the bot so that it can be restarted by its controlling daemon",
-		GuildID:                  guildID,
-		DefaultMemberPermissions: &adminPermission,
+		Name:        cmd,
+		Description: "Gracefully exit the bot so that it can be restarted by its controlling daemon",
+		GuildID:     guildID,
 		Contexts: &[]discordgo.InteractionContextType{
 			discordgo.InteractionContextGuild,
 		},
