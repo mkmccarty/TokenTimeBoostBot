@@ -1359,6 +1359,23 @@ func HandleAdminExitButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 }
 
+var (
+	startupExeModTime time.Time
+	startupExeSize    int64
+)
+
+func init() {
+	if exePath, err := os.Executable(); err == nil {
+		if info, err := os.Stat(exePath); err == nil {
+			startupExeModTime = info.ModTime()
+			startupExeSize = info.Size()
+		}
+	} else if info, err := os.Stat(os.Args[0]); err == nil {
+		startupExeModTime = info.ModTime()
+		startupExeSize = info.Size()
+	}
+}
+
 func getVersionAndRevisionInfo() (runningVer, runningRev, runningTime, diskRev, diskTime string) {
 	runningVer = version.Version
 	if runningVer == "" {
@@ -1381,7 +1398,14 @@ func getVersionAndRevisionInfo() (runningVer, runningRev, runningTime, diskRev, 
 	diskRev = "Unknown"
 	diskTime = "Unknown"
 	if exePath, err := os.Executable(); err == nil {
-		if bi, err := buildinfo.ReadFile(exePath); err == nil {
+		if info, err := os.Stat(exePath); err == nil {
+			if !startupExeModTime.IsZero() && (info.ModTime().After(startupExeModTime) || info.Size() != startupExeSize) {
+				diskRev = "New Version Detected (Disk Changed)"
+				diskTime = info.ModTime().Format("2006-01-02 15:04:05")
+				return
+			}
+		}
+		if bi, err := buildinfo.ReadFile(exePath); err == nil && bi != nil {
 			for _, s := range bi.Settings {
 				switch s.Key {
 				case "vcs.revision":
@@ -1391,13 +1415,22 @@ func getVersionAndRevisionInfo() (runningVer, runningRev, runningTime, diskRev, 
 				}
 			}
 		}
-	} else if bi, err := buildinfo.ReadFile(os.Args[0]); err == nil {
-		for _, s := range bi.Settings {
-			switch s.Key {
-			case "vcs.revision":
-				diskRev = s.Value
-			case "vcs.time":
-				diskTime = s.Value
+	} else {
+		if info, err := os.Stat(os.Args[0]); err == nil {
+			if !startupExeModTime.IsZero() && (info.ModTime().After(startupExeModTime) || info.Size() != startupExeSize) {
+				diskRev = "New Version Detected (Disk Changed)"
+				diskTime = info.ModTime().Format("2006-01-02 15:04:05")
+				return
+			}
+		}
+		if bi, err := buildinfo.ReadFile(os.Args[0]); err == nil && bi != nil {
+			for _, s := range bi.Settings {
+				switch s.Key {
+				case "vcs.revision":
+					diskRev = s.Value
+				case "vcs.time":
+					diskTime = s.Value
+				}
 			}
 		}
 	}
@@ -1411,3 +1444,4 @@ func shortenRevision(rev string) string {
 	}
 	return rev
 }
+
