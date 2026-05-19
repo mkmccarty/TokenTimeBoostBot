@@ -192,7 +192,8 @@ func (c *Contract) enforceOnlyOneTokenTimeBooster() {
 
 var (
 	// Contracts is a map of contracts and is saved to disk
-	Contracts      map[string]*Contract
+	Contracts map[string]*Contract
+	// ContractsMutex is used to synchronize access to the Contracts map
 	ContractsMutex sync.RWMutex
 )
 

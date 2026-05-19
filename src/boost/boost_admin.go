@@ -1123,7 +1123,9 @@ func SlashAdminExitCommand(cmd string) *discordgo.ApplicationCommand {
 			discordgo.ApplicationIntegrationGuildInstall,
 		},
 	}
-} // HandleAdminExitCommand handles the admin-exit command to gracefully shutdown the bot.
+}
+
+// HandleAdminExitCommand handles the admin-exit command to gracefully shutdown the bot.
 func HandleAdminExitCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if !isAdminCommandCaller(s, i) && !isAdminBotController(s, i) {
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -1444,4 +1446,3 @@ func shortenRevision(rev string) string {
 	}
 	return rev
 }
-
