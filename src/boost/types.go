@@ -305,6 +305,7 @@ type Contract struct {
 	NewFeature           int                // Used to slide in new features
 	DynamicData          *DynamicTokenData
 	LastSaveTime         time.Time // The last time the contract was saved
+	ThematicComplaints   []string  `json:"thematic_complaints,omitempty"`
 
 	mutex sync.Mutex // Keep this contract thread safe
 }

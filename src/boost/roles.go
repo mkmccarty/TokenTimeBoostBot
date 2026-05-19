@@ -278,13 +278,8 @@ func ensurePotatoTeamRoleForUserAsync(s *discordgo.Session, contract *Contract, 
 func getContractRoleName(contractID string) string {
 	roleNames := randomThingNames
 
-	for _, c := range ei.EggIncContracts {
-		if c.ID == contractID {
-			if len(c.TeamNames) > 0 {
-				roleNames = c.TeamNames
-			}
-			break
-		}
+	if names := ei.GetContractTeamNames(contractID); len(names) > 0 {
+		roleNames = names
 	}
 
 	// Get existing roles in a default guild (since we don't have context here)
@@ -368,13 +363,8 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 
 	roleNames := randomThingNames
 
-	for _, c := range ei.EggIncContracts {
-		if c.ID == contract.ContractID {
-			if len(c.TeamNames) > 0 {
-				roleNames = c.TeamNames
-			}
-			break
-		}
+	if names := ei.GetContractTeamNames(contract.ContractID); len(names) > 0 {
+		roleNames = names
 	}
 
 	// remove anything from roles where the name does not start with "Team"

@@ -971,3 +971,18 @@ func HandleContractSettingsCommand(s *discordgo.Session, i *discordgo.Interactio
 			Content: str,
 		})
 }
+
+// PopulateThematicComplaintsForContractID updates active contracts for a contract ID with complaints.
+func PopulateThematicComplaintsForContractID(contractID string, complaints []string) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	for _, contract := range Contracts {
+		if contract.ContractID == contractID && len(contract.ThematicComplaints) == 0 && len(complaints) > 0 {
+			contract.ThematicComplaints = append([]string(nil), complaints...)
+			rand.Shuffle(len(contract.ThematicComplaints), func(i, j int) {
+				contract.ThematicComplaints[i], contract.ThematicComplaints[j] = contract.ThematicComplaints[j], contract.ThematicComplaints[i]
+			})
+			saveData(contract.ContractHash)
+		}
+	}
+}
