@@ -22,6 +22,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/divan/num2words"
@@ -986,6 +987,9 @@ func creatorOfContract(s *discordgo.Session, c *Contract, u string) bool {
 			return true
 		}
 		for _, el := range c.Location {
+			if guildstate.IsGuildCoordinator(el.GuildID, u) {
+				return true
+			}
 			perms, err := s.UserChannelPermissions(u, el.ChannelID)
 			if err != nil {
 				log.Println(err)

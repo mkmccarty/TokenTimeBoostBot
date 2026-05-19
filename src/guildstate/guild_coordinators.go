@@ -3,6 +3,7 @@ package guildstate
 import (
 	"fmt"
 	"log"
+	"slices"
 	"strings"
 	"time"
 
@@ -16,6 +17,9 @@ import (
 // or the global bot admin.
 func IsGuildCoordinator(guildID, userID string) bool {
 	if userID == config.AdminUserID {
+		return true
+	}
+	if slices.Contains(config.AdminUsers, userID) {
 		return true
 	}
 	_, err := queries.GetGuildCoordinator(ctx, GetGuildCoordinatorParams{GuildID: guildID, UserID: userID})
