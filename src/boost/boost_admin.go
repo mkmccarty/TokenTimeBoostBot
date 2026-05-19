@@ -1134,16 +1134,17 @@ func HandleAdminExitCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 	flags := discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2
 	bottools.AcknowledgeResponse(s, i, flags)
 
-	content, components := buildAdminExitResponse(0)
+	components := buildAdminExitResponse(0)
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content:    content,
+	if _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Flags:      flags,
 		Components: components,
-	})
+	}); err != nil {
+		log.Println("Error sending admin-exit follow-up message:", err)
+	}
 }
 
-func buildAdminExitResponse(page int) (string, []discordgo.MessageComponent) {
+func buildAdminExitResponse(page int) []discordgo.MessageComponent {
 	// Find all active contracts (excluding signup)
 	var activeContracts []*Contract
 	for _, c := range Contracts {
@@ -1261,17 +1262,18 @@ func buildAdminExitResponse(page int) (string, []discordgo.MessageComponent) {
 	row1Components = append(row1Components, confirmBtn, cancelBtn)
 
 	components := []discordgo.MessageComponent{
+		&discordgo.TextDisplay{Content: b.String()},
 		discordgo.ActionsRow{
 			Components: row1Components,
 		},
 	}
 
-	return b.String(), components
+	return components
 }
 
 // HandleAdminExitButton handles the admin-exit button clicks (confirm, cancel, and page navigation).
 func HandleAdminExitButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if !isAdminCommandCaller(s, i) {
+	if !isAdminCommandCaller(s, i) && !isAdminBotController(s, i) {
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
@@ -1301,23 +1303,14 @@ func HandleAdminExitButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	respondAndClose := func(content string) {
 		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
+			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{},
+				Flags: discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
+				Components: []discordgo.MessageComponent{
+					&discordgo.TextDisplay{Content: content},
+				},
 			},
 		})
-		if err != nil {
-			log.Println("Error acknowledging exit button dialog:", err)
-			return
-		}
-
-		emptyComponents := []discordgo.MessageComponent{}
-		edit := discordgo.WebhookEdit{
-			Content:    &content,
-			Components: &emptyComponents,
-		}
-		_, err = s.InteractionResponseEdit(i.Interaction, &edit)
 		if err != nil {
 			log.Println("Error updating exit button dialog:", err)
 		}
@@ -1347,11 +1340,10 @@ func HandleAdminExitButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 				page = p
 			}
 		}
-		content, components := buildAdminExitResponse(page)
+		components := buildAdminExitResponse(page)
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{
-				Content:    content,
 				Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
 				Components: components,
 			},
