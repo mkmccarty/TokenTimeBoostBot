@@ -12,6 +12,7 @@ import (
 	"runtime/debug"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -1116,9 +1117,7 @@ func SlashAdminExitCommand(cmd string) *discordgo.ApplicationCommand {
 			discordgo.ApplicationIntegrationGuildInstall,
 		},
 	}
-}
-
-// HandleAdminExitCommand handles the admin-exit command to gracefully shutdown the bot.
+} // HandleAdminExitCommand handles the admin-exit command to gracefully shutdown the bot.
 func HandleAdminExitCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if !isAdminCommandCaller(s, i) && !isAdminBotController(s, i) {
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -1134,6 +1133,16 @@ func HandleAdminExitCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 
 	bottools.AcknowledgeResponse(s, i, discordgo.MessageFlagsEphemeral)
 
+	content, components := buildAdminExitResponse(0)
+
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content:    content,
+		Flags:      discordgo.MessageFlagsEphemeral,
+		Components: components,
+	})
+}
+
+func buildAdminExitResponse(page int) (string, []discordgo.MessageComponent) {
 	// Find all active contracts (excluding signup)
 	var activeContracts []*Contract
 	for _, c := range Contracts {
@@ -1165,11 +1174,31 @@ func HandleAdminExitCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		b.WriteString("**Disk Version:** Matches running version.\n\n")
 	}
 
-	if len(activeContracts) == 0 {
+	const pageSize = 5
+	totalContracts := len(activeContracts)
+	totalPages := (totalContracts + pageSize - 1) / pageSize
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	if page < 0 {
+		page = 0
+	}
+	if page >= totalPages {
+		page = totalPages - 1
+	}
+
+	if totalContracts == 0 {
 		b.WriteString("There are currently no active contracts.\n\n")
 	} else {
-		b.WriteString("Here is a list of active contracts and their last interaction times:\n\n")
-		for _, c := range activeContracts {
+		fmt.Fprintf(&b, "Here is a list of active contracts (Page %d of %d):\n\n", page+1, totalPages)
+		startIndex := page * pageSize
+		endIndex := startIndex + pageSize
+		if endIndex > totalContracts {
+			endIndex = totalContracts
+		}
+
+		for _, c := range activeContracts[startIndex:endIndex] {
 			stateStr := "Unknown"
 			switch c.State {
 			case ContractStateSignup:
@@ -1203,24 +1232,43 @@ func HandleAdminExitCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		Emoji:    &discordgo.ComponentEmoji{Name: "🔄"},
 	}
 	cancelBtn := discordgo.Button{
-		Label:    "Cancel Abort",
+		Label:    "Cancel",
 		Style:    discordgo.SecondaryButton,
 		CustomID: "admin_exit#cancel",
 		Emoji:    &discordgo.ComponentEmoji{Name: "❌"},
 	}
 
+	var row1Components []discordgo.MessageComponent
+	if totalPages > 1 {
+		prevBtn := discordgo.Button{
+			Label:    "Previous Page",
+			Style:    discordgo.SecondaryButton,
+			CustomID: fmt.Sprintf("admin_exit#page#%d", page-1),
+			Emoji:    &discordgo.ComponentEmoji{Name: "◀️"},
+			Disabled: page == 0,
+		}
+		nextBtn := discordgo.Button{
+			Label:    "Next Page",
+			Style:    discordgo.SecondaryButton,
+			CustomID: fmt.Sprintf("admin_exit#page#%d", page+1),
+			Emoji:    &discordgo.ComponentEmoji{Name: "▶️"},
+			Disabled: page == totalPages-1,
+		}
+		row1Components = append(row1Components, prevBtn, nextBtn)
+	}
+
+	row1Components = append(row1Components, confirmBtn, cancelBtn)
+
 	components := []discordgo.MessageComponent{
 		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{confirmBtn, cancelBtn},
+			Components: row1Components,
 		},
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content:    b.String(),
-		Flags:      discordgo.MessageFlagsEphemeral,
-		Components: components,
-	})
+	return b.String(), components
 }
+
+// HandleAdminExitButton handles the admin-exit button clicks (confirm, cancel, and page navigation).
 func HandleAdminExitButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if !isAdminCommandCaller(s, i) {
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -1290,6 +1338,23 @@ func HandleAdminExitButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	case "cancel":
 		respondAndClose("Restart cancelled. The bot remains active.")
+
+	case "page":
+		page := 0
+		if len(parts) >= 3 {
+			if p, err := strconv.Atoi(parts[2]); err == nil {
+				page = p
+			}
+		}
+		content, components := buildAdminExitResponse(page)
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseUpdateMessage,
+			Data: &discordgo.InteractionResponseData{
+				Content:    content,
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: components,
+			},
+		})
 	}
 }
 
