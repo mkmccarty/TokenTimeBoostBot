@@ -887,7 +887,7 @@ func buttonReactionComplain(s *discordgo.Session, contract *Contract, cUserID st
 	var complaint string
 	var err error
 
-	if len(contract.ThematicComplaints) > 0 && rand.Float64() < 0.33 {
+	if len(contract.ThematicComplaints) > 0 && rand.Float64() < 0.60 {
 		template := contract.ThematicComplaints[0]
 		contract.ThematicComplaints = append(contract.ThematicComplaints[1:], template)
 		complaint = fmt.Sprintf(":loudspeaker: %s", strings.ReplaceAll(template, "[player]", contract.Boosters[cUserID].Mention))
