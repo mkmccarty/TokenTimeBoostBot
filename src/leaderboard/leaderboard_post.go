@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/mattn/go-runewidth"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
@@ -328,38 +327,77 @@ func buildMessageBlocks(def LBDef, rows []LBEntry, snapDate string, prevMap map[
 
 // renderTable returns the header, row lines, and footer for a leaderboard table.
 func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffset int) (string, []string, string) {
-	if len(rows) == 0 {
-		return "", nil, ""
+	const maxNameChars = 15
+	maxNameWidth := len("Name")
+	// Prefer per-leaderboard header override; otherwise use compact virtue headers.
+	shortDisplayName := def.DisplayName
+	if def.HeaderName != "" {
+		shortDisplayName = def.HeaderName
+	} else {
+		switch def.Key {
+		case LBEggsCuriosity:
+			shortDisplayName = "Curiosity"
+		case LBEggsIntegrity:
+			shortDisplayName = "Integrity"
+		case LBEggsHumility:
+			shortDisplayName = "Humility"
+		case LBEggsResilience:
+			shortDisplayName = "Resilience"
+		case LBEggsKindness:
+			shortDisplayName = "Kindness"
+		}
 	}
+
+	rankHeader := "Rank"
+	rankWidth := len(rankHeader)
+	maxValOnlyWidth := len(shortDisplayName)
 
 	isEB := def.Key == LBEarningsBonus
-	maxRank := len(rows) + rankOffset
-	rankWidth := len(fmt.Sprintf("%d", maxRank))
-	if rankWidth < 2 {
-		rankWidth = 2
-	}
-	maxNameWidth := runewidth.StringWidth("Name")
-	maxValOnlyWidth := runewidth.StringWidth(def.DisplayName)
+	hasTEColumn := def.Key == LBEggsCuriosity || def.Key == LBEggsIntegrity || def.Key == LBEggsHumility || def.Key == LBEggsResilience || def.Key == LBEggsKindness || def.Key == LBVirtueEggsSum
+	teWidth := len("TE")
 	if isEB {
-		maxValOnlyWidth = runewidth.StringWidth("Nekkid")
+		maxValOnlyWidth = len("Nekkid")
 	}
-	maxDressedWidth := 0
+	maxDressedWidth := len("Dressed")
 	if isEB {
-		maxDressedWidth = runewidth.StringWidth("Dressed")
+		maxDressedWidth = len("Dressed")
 	}
-	maxDeltaWidth := 0
 
-	// Pre-calculate deltas and widths.
 	type rowInfo struct {
 		rank          int
 		row           LBEntry
+		rankStr       string
+		nameStr       string
 		valStr        string
+		displayValStr string
 		dressedValStr string
-		deltaStr      string
+		teStr         string
 	}
 	infos := make([]rowInfo, 0, len(rows))
 
+	parseTEFromDetails := func(details string) int {
+		var te int
+		if _, err := fmt.Sscanf(details, "te:%d", &te); err == nil {
+			return te
+		}
+		if _, err := fmt.Sscanf(details, "%d TE", &te); err == nil {
+			return te
+		}
+		return 0
+	}
+
 	for i, r := range rows {
+		rank := i + 1 + rankOffset
+		rankStr := fmt.Sprintf("#%d", rank)
+		if w := len(rankStr); w > rankWidth {
+			rankWidth = w
+		}
+
+		nameStr := truncateString(r.GameName, maxNameChars)
+		if w := len(nameStr); w > maxNameWidth {
+			maxNameWidth = w
+		}
+
 		valStr := FormatLBValue(def.ValueFmt, r.Value)
 		dressedValStr := ""
 		if isEB {
@@ -372,87 +410,128 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 		}
 
 		deltaStr := ""
-		if prevVal, ok := prevMap[r.Player]; ok {
-			deltaStr = FormatLBDelta(def.ValueFmt, r.Value-prevVal)
+		if def.ValueFmt == "cxp" {
+			if prevVal, ok := prevMap[r.Player]; ok {
+				deltaStr = FormatLBDelta(def.ValueFmt, r.Value-prevVal)
+			}
+		}
+
+		displayValStr := valStr
+		if deltaStr != "" {
+			displayValStr += " " + deltaStr
+		}
+		if w := len(displayValStr); w > maxValOnlyWidth {
+			maxValOnlyWidth = w
+		}
+
+		teStr := ""
+		if hasTEColumn {
+			teStr = fmt.Sprintf("%d", parseTEFromDetails(r.Details))
+			if w := len(teStr); w > teWidth {
+				teWidth = w
+			}
 		}
 
 		infos = append(infos, rowInfo{
-			rank:          i + 1 + rankOffset,
+			rank:          rank,
 			row:           r,
+			rankStr:       rankStr,
+			nameStr:       nameStr,
 			valStr:        valStr,
+			displayValStr: displayValStr,
 			dressedValStr: dressedValStr,
-			deltaStr:      deltaStr,
+			teStr:         teStr,
 		})
-
-		w := runewidth.StringWidth(r.GameName)
-		if w > maxNameWidth {
-			maxNameWidth = w
-		}
-
-		if len(valStr) > maxValOnlyWidth {
-			maxValOnlyWidth = len(valStr)
-		}
-		if isEB && len(dressedValStr) > maxDressedWidth {
-			maxDressedWidth = len(dressedValStr)
-		}
-		if len(deltaStr) > maxDeltaWidth {
-			maxDeltaWidth = len(deltaStr)
+		if isEB {
+			if w := len(dressedValStr); w > maxDressedWidth {
+				maxDressedWidth = w
+			}
 		}
 	}
 
-	maxValWidth := maxValOnlyWidth
-	if maxDeltaWidth > 0 {
-		maxValWidth += 1 + maxDeltaWidth
+	padField := func(s string, width int, align bottools.StringAlign) string {
+		return " " + bottools.AlignString(s, width, align) + " "
 	}
 
 	var colHeader string
 	if isEB {
-		colHeader = fmt.Sprintf("```\n%s %s %s %s\n%s\n",
-			bottools.AlignString("##:", rankWidth+1, bottools.StringAlignRight),
-			bottools.AlignString("Name", maxNameWidth, bottools.StringAlignLeft),
-			bottools.AlignString("Nekkid", maxValWidth, bottools.StringAlignRight),
-			bottools.AlignString("Dressed", maxDressedWidth, bottools.StringAlignRight),
-			strings.Repeat("═", rankWidth+1+1+maxNameWidth+1+maxValWidth+1+maxDressedWidth),
+		headerParts := []string{
+			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
+			padField("Name", maxNameWidth, bottools.StringAlignLeft),
+			padField("Nekkid", maxValOnlyWidth, bottools.StringAlignRight),
+			padField("Dressed", maxDressedWidth, bottools.StringAlignRight),
+		}
+		headerLine := strings.Join(headerParts, "|")
+		colHeader = fmt.Sprintf("```\n%s\n%s\n",
+			headerLine,
+			strings.Repeat("-", len(headerLine)),
+		)
+	} else if hasTEColumn {
+		headerLine := strings.Join([]string{
+			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
+			padField("Name", maxNameWidth, bottools.StringAlignLeft),
+			padField(shortDisplayName, maxValOnlyWidth, bottools.StringAlignRight),
+			padField("TE", teWidth, bottools.StringAlignRight),
+		}, "|")
+		colHeader = fmt.Sprintf("```\n%s\n%s\n",
+			headerLine,
+			strings.Repeat("-", len(headerLine)),
 		)
 	} else {
-		colHeader = fmt.Sprintf("```\n%s %s %s\n%s\n",
-			bottools.AlignString("##:", rankWidth+1, bottools.StringAlignRight),
-			bottools.AlignString("Name", maxNameWidth, bottools.StringAlignLeft),
-			bottools.AlignString(def.DisplayName, maxValWidth, bottools.StringAlignRight),
-			strings.Repeat("═", rankWidth+1+1+maxNameWidth+1+maxValWidth),
+		headerLine := strings.Join([]string{
+			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
+			padField("Name", maxNameWidth, bottools.StringAlignLeft),
+			padField(shortDisplayName, maxValOnlyWidth, bottools.StringAlignRight),
+		}, "|")
+		colHeader = fmt.Sprintf("```\n%s\n%s\n",
+			headerLine,
+			strings.Repeat("-", len(headerLine)),
 		)
 	}
 
 	rowLines := make([]string, 0, len(rows))
 	for _, info := range infos {
+		// Always show TE for virtue eggs if available
 		detail := ""
-		if info.row.Details != "" && !strings.HasPrefix(info.row.Details, "total:") && !strings.Contains(info.row.Details, "dressed:") {
-			detail = fmt.Sprintf(" (%s)", info.row.Details)
-		}
-
-		displayVal := bottools.AlignString(info.valStr, maxValOnlyWidth, bottools.StringAlignRight)
-		if maxDeltaWidth > 0 {
-			if info.deltaStr != "" {
-				displayVal += " " + bottools.AlignString(info.deltaStr, maxDeltaWidth, bottools.StringAlignLeft)
-			} else {
-				displayVal += strings.Repeat(" ", maxDeltaWidth+1)
+		switch {
+		case hasTEColumn:
+			// TE is shown in a dedicated column for these boards.
+			detail = ""
+		default:
+			if info.row.Details != "" && !strings.HasPrefix(info.row.Details, "total:") && !strings.Contains(info.row.Details, "dressed:") && !strings.HasPrefix(info.row.Details, "te:") {
+				detail = fmt.Sprintf(" (%s)", info.row.Details)
 			}
 		}
 
 		if isEB {
-			line := fmt.Sprintf("%s %s %s %s%s\n",
-				bottools.AlignString(fmt.Sprintf("%d:", info.rank), rankWidth+1, bottools.StringAlignRight),
-				bottools.AlignString(info.row.GameName, maxNameWidth, bottools.StringAlignLeft),
-				displayVal,
-				bottools.AlignString(info.dressedValStr, maxDressedWidth, bottools.StringAlignRight),
+			line := fmt.Sprintf("%s%s\n",
+				strings.Join([]string{
+					padField(info.rankStr, rankWidth, bottools.StringAlignLeft),
+					padField(info.nameStr, maxNameWidth, bottools.StringAlignLeft),
+					padField(info.displayValStr, maxValOnlyWidth, bottools.StringAlignRight),
+					padField(info.dressedValStr, maxDressedWidth, bottools.StringAlignRight),
+				}, "|"),
+				detail,
+			)
+			rowLines = append(rowLines, line)
+		} else if hasTEColumn {
+			line := fmt.Sprintf("%s%s\n",
+				strings.Join([]string{
+					padField(info.rankStr, rankWidth, bottools.StringAlignLeft),
+					padField(info.nameStr, maxNameWidth, bottools.StringAlignLeft),
+					padField(info.displayValStr, maxValOnlyWidth, bottools.StringAlignRight),
+					padField(info.teStr, teWidth, bottools.StringAlignRight),
+				}, "|"),
 				detail,
 			)
 			rowLines = append(rowLines, line)
 		} else {
-			line := fmt.Sprintf("%s %s %s%s\n",
-				bottools.AlignString(fmt.Sprintf("%d:", info.rank), rankWidth+1, bottools.StringAlignRight),
-				bottools.AlignString(info.row.GameName, maxNameWidth, bottools.StringAlignLeft),
-				displayVal,
+			line := fmt.Sprintf("%s%s\n",
+				strings.Join([]string{
+					padField(info.rankStr, rankWidth, bottools.StringAlignLeft),
+					padField(info.nameStr, maxNameWidth, bottools.StringAlignLeft),
+					padField(info.displayValStr, maxValOnlyWidth, bottools.StringAlignRight),
+				}, "|"),
 				detail,
 			)
 			rowLines = append(rowLines, line)
@@ -463,6 +542,17 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 		bottools.WrapTimestamp(time.Now().Unix(), bottools.TimestampShortDateTime))
 
 	return colHeader, rowLines, footer
+}
+
+// truncateString ensures a string is at most max characters, adding … if needed
+func truncateString(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	if max <= 3 {
+		return s[:max]
+	}
+	return s[:max-3] + "..."
 }
 
 // FormatLBValue formats a numeric leaderboard value according to the LBDef.ValueFmt.

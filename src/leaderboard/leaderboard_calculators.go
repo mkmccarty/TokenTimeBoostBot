@@ -37,18 +37,8 @@ var shipStdIndex = map[string]int{
 }
 
 // virtueEggIndex maps LB key → index in virtue.GetEggsDelivered() / GetEovEarned()
-var virtueEggIndex = map[string]int{
-	LBTECuriosity:    0,
-	LBTEIntegrity:    1,
-	LBTEHumility:     2,
-	LBTEResilience:   3,
-	LBTEKindness:     4,
-	LBEggsCuriosity:  0,
-	LBEggsIntegrity:  1,
-	LBEggsHumility:   2,
-	LBEggsResilience: 3,
-	LBEggsKindness:   4,
-}
+
+// No longer needed: virtueEggIndex for individual virtues (removed)
 
 // ─── CollectionResult carries the outputs of RunCalculators ──────────────────
 
@@ -119,37 +109,42 @@ func RunCalculators(
 	// Truth Eggs & raw eggs per virtue egg
 	if virtue != nil {
 		deliveries := virtue.GetEggsDelivered()
-		for key, idx := range virtueEggIndex {
-			if idx >= len(deliveries) {
-				continue
-			}
-			delivered := deliveries[idx]
-
-			switch key {
-			case LBTECuriosity, LBTEIntegrity, LBTEHumility, LBTEResilience, LBTEKindness:
-				// Integer TE count
-				te := float64(ei.CountTruthEggTiersPassed(delivered))
-				emit(LBEntry{LBType: key, Player: userID, GameName: gameName, SnapDate: snapDate, Value: te})
-
-			case LBEggsCuriosity, LBEggsIntegrity, LBEggsHumility, LBEggsResilience, LBEggsKindness:
-				// Raw delivered eggs; detail = TE count
-				te := ei.CountTruthEggTiersPassed(delivered)
-				detail := fmt.Sprintf("%d TE", te)
-				emit(LBEntry{LBType: key, Player: userID, GameName: gameName, SnapDate: snapDate, Value: delivered, Details: detail})
-			}
+		// Individual virtue eggs
+		eggKeys := []string{
+			LBEggsCuriosity,
+			LBEggsIntegrity,
+			LBEggsHumility,
+			LBEggsResilience,
+			LBEggsKindness,
+		}
+		for i := 0; i < 5 && i < len(deliveries); i++ {
+			teEarned := ei.CountTruthEggTiersPassed(deliveries[i])
+			emit(LBEntry{
+				LBType:   eggKeys[i],
+				Player:   userID,
+				GameName: gameName,
+				SnapDate: snapDate,
+				Value:    deliveries[i],
+				Details:  fmt.Sprintf("%d TE", teEarned),
+			})
 		}
 
-		// Total TE & raw eggs across all 5 virtue eggs
-		{
-			totalTE := 0
-			totalEggs := 0.0
-			for i := 0; i < 5 && i < len(deliveries); i++ {
-				totalTE += int(ei.CountTruthEggTiersPassed(deliveries[i]))
-				totalEggs += deliveries[i]
-			}
-			emit(LBEntry{LBType: LBTETotal, Player: userID, GameName: gameName, SnapDate: snapDate, Value: float64(totalTE)})
-			emit(LBEntry{LBType: LBEggsTotal, Player: userID, GameName: gameName, SnapDate: snapDate, Value: totalEggs})
+		// Combined sum for all virtue eggs
+		totalEggs := 0.0
+		totalTEAtLevel := 0
+		for i := 0; i < 5 && i < len(deliveries); i++ {
+			delivered := deliveries[i]
+			totalEggs += delivered
+			totalTEAtLevel += int(ei.CountTruthEggTiersPassed(delivered))
 		}
+		emit(LBEntry{
+			LBType:   LBVirtueEggsSum,
+			Player:   userID,
+			GameName: gameName,
+			SnapDate: snapDate,
+			Value:    totalEggs,
+			Details:  fmt.Sprintf("te:%d", totalTEAtLevel),
+		})
 	}
 
 	// ── Prestige and Drone stats ──────────────────────────────────────────────

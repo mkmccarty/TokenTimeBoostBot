@@ -32,17 +32,14 @@ const (
 	LBTETotal        = "te_total"
 	LBCXPWeeklyDelta = "cxp_weekly"
 
-	LBTECuriosity  = "te_curiosity"
-	LBTEIntegrity  = "te_integrity"
-	LBTEHumility   = "te_humility"
-	LBTEResilience = "te_resilience"
-	LBTEKindness   = "te_kindness"
-
 	LBEggsCuriosity  = "egg_curiosity"
 	LBEggsIntegrity  = "egg_integrity"
 	LBEggsHumility   = "egg_humility"
 	LBEggsResilience = "egg_resilience"
 	LBEggsKindness   = "egg_kindness"
+
+	LBVirtueEggsSum     = "virtue_eggs_sum"
+	LBVirtueTEEarnedSum = "virtue_te_earned_sum"
 
 	LBShipChicken1           = "ship_chicken1"
 	LBShipChicken9           = "ship_chicken9"
@@ -73,6 +70,7 @@ const (
 type LBDef struct {
 	Key            string
 	DisplayName    string
+	HeaderName     string // optional column header override for posting (defaults to DisplayName)
 	Description    string
 	ValueFmt       string // "int", "float", "ei", "eb", "cxp"
 	HigherIsBetter bool
@@ -109,6 +107,11 @@ var AllLeaderboards = []LBDef{
 	{Key: LBPrestiges, DisplayName: "Prestiges", Description: "Total number of prestiges.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBSoulMirrors, DisplayName: "Soul Mirrors", Description: "Score based on soul mirror inventory (1, 2, 3 points).", ValueFmt: "int", HigherIsBetter: false, Source: SourceFirstContact},
 	{Key: LBCXPWeeklyDelta, DisplayName: "Weekly CXP", Description: "CXP earned since last collection.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceContractArchive},
+	{Key: LBEggsCuriosity, DisplayName: "Curiosity Eggs Delivered", Description: "Curiosity deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBEggsIntegrity, DisplayName: "Integrity Eggs Delivered", Description: "Integrity deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBEggsHumility, DisplayName: "Humility Eggs Delivered", Description: "Humility deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBEggsResilience, DisplayName: "Resilience Eggs Delivered", Description: "Resilience deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBEggsKindness, DisplayName: "Kindness Eggs Delivered", Description: "Kindness deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
 }
 
 // AllGroups defines logical groupings for the UI and posting tasks.
@@ -127,53 +130,24 @@ var AllGroups = []LBGroup{
 
 // Add ships leaderboards dynamically.
 func init() {
-	// Virtue eggs.
-	virtueEggs := []struct {
-		key          string
-		name         string
-		teKey        string
-		deliveredKey string
-	}{
-		{"curiosity", "Curiosity", LBTECuriosity, LBEggsCuriosity},
-		{"integrity", "Integrity", LBTEIntegrity, LBEggsIntegrity},
-		{"humility", "Humility", LBTEHumility, LBEggsHumility},
-		{"resilience", "Resilience", LBTEResilience, LBEggsResilience},
-		{"kindness", "Kindness", LBTEKindness, LBEggsKindness},
-	}
 
-	teGroupMembers := []string{}
-	deliveredGroupMembers := []string{}
-
-	for _, e := range virtueEggs {
-		AllLeaderboards = append(AllLeaderboards, LBDef{
-			Key:            e.teKey,
-			DisplayName:    e.name + " Truth Eggs",
-			Description:    fmt.Sprintf("Truth eggs earned for %s virtue contracts.", e.name),
-			ValueFmt:       "int",
-			HigherIsBetter: true,
-			Source:         SourceFirstContact,
-		})
-		teGroupMembers = append(teGroupMembers, e.teKey)
-
-		AllLeaderboards = append(AllLeaderboards, LBDef{
-			Key:            e.deliveredKey,
-			DisplayName:    e.name + " Eggs Delivered",
-			Description:    fmt.Sprintf("Raw eggs delivered for %s virtue contracts.", e.name),
-			ValueFmt:       "ei",
-			HigherIsBetter: true,
-			Source:         SourceFirstContact,
-		})
-		deliveredGroupMembers = append(deliveredGroupMembers, e.deliveredKey)
-	}
+	// Combined virtue eggs and TE-earned-at-that-level leaderboards
+	AllLeaderboards = append(AllLeaderboards, LBDef{
+		Key:            LBVirtueEggsSum,
+		DisplayName:    "Virtue Eggs Delivered",
+		HeaderName:     "Delivered",
+		Description:    "Sum of all virtue eggs delivered (Curiosity, Integrity, Humility, Resilience, Kindness)",
+		ValueFmt:       "ei",
+		HigherIsBetter: true,
+		Source:         SourceFirstContact,
+	})
 
 	AllGroups = append(AllGroups, LBGroup{
-		Key:         "group_te",
-		DisplayName: "Virtue Truth Eggs",
-		Members:     teGroupMembers,
-	}, LBGroup{
-		Key:         "group_eggs_virtue",
-		DisplayName: "Virtue Egg Delivery",
-		Members:     deliveredGroupMembers,
+		Key:         "group_virtue_eggs",
+		DisplayName: "Virtue Eggs",
+		Members: []string{
+			LBVirtueEggsSum, LBEggsCuriosity, LBEggsIntegrity, LBEggsHumility, LBEggsResilience, LBEggsKindness,
+		},
 	})
 
 	// Add ship leaderboards using the static map in ei package.
@@ -231,7 +205,7 @@ func init() {
 
 		AllLeaderboards = append(AllLeaderboards, LBDef{
 			Key:            stdKey,
-			DisplayName:    name + " Launches",
+			DisplayName:    name,
 			Description:    fmt.Sprintf("Total launches for the %s.", name),
 			ValueFmt:       "int",
 			HigherIsBetter: true,
@@ -241,7 +215,7 @@ func init() {
 
 		AllLeaderboards = append(AllLeaderboards, LBDef{
 			Key:            virtueKey,
-			DisplayName:    name + " Virtue Launches",
+			DisplayName:    "Virtue " + name,
 			Description:    fmt.Sprintf("Total virtue launches for the %s.", name),
 			ValueFmt:       "int",
 			HigherIsBetter: true,
@@ -265,6 +239,7 @@ func init() {
 var legacyKeyAliases = map[string]string{
 	"cxp_weekly_delta":     LBCXPWeeklyDelta,
 	"group_prestige_stats": "group_misc",
+	LBVirtueTEEarnedSum:    LBVirtueEggsSum,
 }
 
 func resolveAlias(key string) string {
