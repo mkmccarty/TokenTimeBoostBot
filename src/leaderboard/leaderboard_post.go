@@ -15,6 +15,7 @@ import (
 )
 
 const discordMessageCharLimit = 1900
+const leaderboardUpdateConfirmationTTL = 1 * time.Minute
 
 // PostLeaderboards triggers the posting task for all configured guilds (or a specific guild if guildID is provided).
 func PostLeaderboards(s *discordgo.Session, snapDate string, guildID string, onProgress func(string)) {
@@ -79,6 +80,23 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, onP
 	}
 
 	UpdateGuildLBConfigMessageIDs(cfg.GuildID, cfg.LBType, newMsgIDs)
+	postChannelUpdateConfirmation(s, cfg.ChannelID, snapDate)
+}
+
+func postChannelUpdateConfirmation(s *discordgo.Session, channelID string, snapDate string) {
+	content := "✅ Leaderboards updated."
+	msg, err := s.ChannelMessageSend(channelID, content)
+	if err != nil {
+		log.Printf("leaderboard: failed to post channel update confirmation in %s: %v", channelID, err)
+		return
+	}
+
+	go func(chID, msgID string) {
+		time.Sleep(leaderboardUpdateConfirmationTTL)
+		if err := s.ChannelMessageDelete(chID, msgID); err != nil {
+			log.Printf("leaderboard: failed to auto-delete channel update confirmation %s in %s: %v", msgID, chID, err)
+		}
+	}(channelID, msg.ID)
 }
 
 func getGuildRows(lbType string, snapDate string, guildID string) ([]LBEntry, map[string]float64) {
