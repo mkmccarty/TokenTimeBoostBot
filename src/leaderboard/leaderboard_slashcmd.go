@@ -495,7 +495,7 @@ func (e *runEstimate) line(completed bool) string {
 	if remaining < 0 || completed {
 		remaining = 0
 	}
-	etaFinish := time.Now().Add(time.Duration(remaining) * time.Second).Format("15:04:05")
+	etaFinish := bottools.WrapTimestamp(time.Now().Add(time.Duration(remaining)*time.Second).Unix(), bottools.TimestampLongTime)
 
 	return fmt.Sprintf("-# Estimate: %d records to print, %ds remaining scheduled posting delays, earliest finish around %s.", e.recordCount, remaining, etaFinish)
 }
