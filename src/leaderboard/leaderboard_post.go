@@ -3,6 +3,8 @@ package leaderboard
 import (
 	"fmt"
 	"log"
+	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -81,6 +83,9 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, onP
 
 func getGuildRows(lbType string, snapDate string, guildID string) ([]LBEntry, map[string]float64) {
 	guildRows := GetLeaderboardRows(lbType, snapDate, guildID)
+	if lbType == LBCXPWeeklyDelta {
+		guildRows = buildWeeklyCSRows(snapDate, guildID)
+	}
 	prevSnapDate := GetPreviousSnapDate(lbType, snapDate)
 	prevMap := make(map[string]float64)
 	if prevSnapDate != "" {
@@ -104,6 +109,72 @@ func getGuildRows(lbType string, snapDate string, guildID string) ([]LBEntry, ma
 		outRows = append(outRows, row)
 	}
 	return outRows, prevMap
+}
+
+func buildWeeklyCSRows(snapDate string, guildID string) []LBEntry {
+	currentRows := GetLeaderboardRows(LBContractExp, snapDate, guildID)
+	lookbackMap, hasLookback := findLookbackValueMap(LBContractExp, snapDate, guildID)
+
+	out := make([]LBEntry, 0, len(currentRows))
+	for _, r := range currentRows {
+		delta := 0.0
+		details := ""
+		if hasLookback {
+			if prev, ok := lookbackMap[r.Player]; ok {
+				delta = r.Value - prev
+			} else {
+				details = "na"
+			}
+		} else {
+			details = "na"
+		}
+
+		out = append(out, LBEntry{
+			LBType:   LBCXPWeeklyDelta,
+			Player:   r.Player,
+			GameName: r.GameName,
+			SnapDate: r.SnapDate,
+			Value:    delta,
+			Details:  details,
+		})
+	}
+
+	// Weekly CS is a derived metric, so sort here by highest delta first.
+	sort.Slice(out, func(i, j int) bool {
+		iNA := out[i].Details == "na"
+		jNA := out[j].Details == "na"
+		if iNA != jNA {
+			return !iNA
+		}
+		if out[i].Value == out[j].Value {
+			return out[i].GameName < out[j].GameName
+		}
+		return out[i].Value > out[j].Value
+	})
+
+	return out
+}
+
+func findLookbackValueMap(lbType string, snapDate string, guildID string) (map[string]float64, bool) {
+	out := make(map[string]float64)
+	snapTime, err := time.Parse("2006-01-02", snapDate)
+	if err != nil {
+		return out, false
+	}
+
+	for daysBack := 7; daysBack >= 1; daysBack-- {
+		candidateDate := snapTime.AddDate(0, 0, -daysBack).Format("2006-01-02")
+		rows := GetLeaderboardRows(lbType, candidateDate, guildID)
+		if len(rows) == 0 {
+			continue
+		}
+		for _, r := range rows {
+			out[r.Player] = r.Value
+		}
+		return out, true
+	}
+
+	return out, false
 }
 
 func postSingleMetric(s *discordgo.Session, cfg LBConfig, lbType, snapDate string, newMsgIDs *[]string, msgIDOffset *int, forceNewPosts *bool) {
@@ -327,9 +398,11 @@ func buildMessageBlocks(def LBDef, rows []LBEntry, snapDate string, prevMap map[
 
 // renderTable returns the header, row lines, and footer for a leaderboard table.
 func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffset int) (string, []string, string) {
+	_ = prevMap
+
 	const maxNameChars = 15
 	maxNameWidth := len("Name")
-	// Prefer per-leaderboard header override; otherwise use compact virtue headers.
+
 	shortDisplayName := def.DisplayName
 	if def.HeaderName != "" {
 		shortDisplayName = def.HeaderName
@@ -353,25 +426,26 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 	maxValOnlyWidth := len(shortDisplayName)
 
 	isEB := def.Key == LBEarningsBonus
+	hasCTEComparisonColumn := def.Key == LBCTETotal
 	hasTEColumn := def.Key == LBEggsCuriosity || def.Key == LBEggsIntegrity || def.Key == LBEggsHumility || def.Key == LBEggsResilience || def.Key == LBEggsKindness || def.Key == LBVirtueEggsSum
 	teWidth := len("TE")
+	actualCTEWidth := len("Actual CTE")
+	if hasCTEComparisonColumn {
+		maxValOnlyWidth = len("Future CTE")
+	}
 	if isEB {
 		maxValOnlyWidth = len("Nekkid")
 	}
 	maxDressedWidth := len("Dressed")
-	if isEB {
-		maxDressedWidth = len("Dressed")
-	}
 
 	type rowInfo struct {
-		rank          int
 		row           LBEntry
 		rankStr       string
 		nameStr       string
-		valStr        string
 		displayValStr string
 		dressedValStr string
 		teStr         string
+		actualCTEStr  string
 	}
 	infos := make([]rowInfo, 0, len(rows))
 
@@ -386,8 +460,25 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 		return 0
 	}
 
+	formatCTE := func(v float64) string {
+		return formatIntWithCommas(int64(math.Round(v)))
+	}
+
+	parseActualCTEFromDetails := func(details string) string {
+		var actual float64
+		if _, err := fmt.Sscanf(details, "actual:%f", &actual); err == nil {
+			return formatCTE(actual)
+		}
+		return "-"
+	}
+
+	lastRank := 0
+	lastValue := 0.0
 	for i, r := range rows {
 		rank := i + 1 + rankOffset
+		if i > 0 && r.Value == lastValue {
+			rank = lastRank
+		}
 		rankStr := fmt.Sprintf("#%d", rank)
 		if w := len(rankStr); w > rankWidth {
 			rankWidth = w
@@ -398,30 +489,36 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			maxNameWidth = w
 		}
 
-		valStr := FormatLBValue(def.ValueFmt, r.Value)
-		dressedValStr := ""
-		if isEB {
-			if idx := strings.Index(r.Details, "dressed:"); idx != -1 {
-				var d float64
-				if _, err := fmt.Sscanf(r.Details[idx:], "dressed:%f", &d); err == nil {
-					dressedValStr = FormatLBValue(def.ValueFmt, d)
+		displayValStr := FormatLBValue(def.ValueFmt, r.Value)
+		if def.Key == LBCXPWeeklyDelta {
+			if r.Details == "na" {
+				displayValStr = "-"
+			} else {
+				sign := "+"
+				if r.Value < 0 {
+					sign = "-"
 				}
+				displayValStr = sign + FormatLBValue(def.ValueFmt, absFloat(r.Value))
 			}
 		}
-
-		deltaStr := ""
-		if def.ValueFmt == "cxp" {
-			if prevVal, ok := prevMap[r.Player]; ok {
-				deltaStr = FormatLBDelta(def.ValueFmt, r.Value-prevVal)
-			}
-		}
-
-		displayValStr := valStr
-		if deltaStr != "" {
-			displayValStr += " " + deltaStr
+		if hasCTEComparisonColumn {
+			displayValStr = formatCTE(r.Value)
 		}
 		if w := len(displayValStr); w > maxValOnlyWidth {
 			maxValOnlyWidth = w
+		}
+
+		dressedValStr := ""
+		if isEB {
+			if idx := strings.Index(r.Details, "dressed:"); idx != -1 {
+				var dressed float64
+				if _, err := fmt.Sscanf(r.Details[idx:], "dressed:%f", &dressed); err == nil {
+					dressedValStr = FormatLBValue(def.ValueFmt, dressed)
+				}
+			}
+			if w := len(dressedValStr); w > maxDressedWidth {
+				maxDressedWidth = w
+			}
 		}
 
 		teStr := ""
@@ -432,21 +529,26 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			}
 		}
 
+		actualCTEStr := ""
+		if hasCTEComparisonColumn {
+			actualCTEStr = parseActualCTEFromDetails(r.Details)
+			if w := len(actualCTEStr); w > actualCTEWidth {
+				actualCTEWidth = w
+			}
+		}
+
 		infos = append(infos, rowInfo{
-			rank:          rank,
 			row:           r,
 			rankStr:       rankStr,
 			nameStr:       nameStr,
-			valStr:        valStr,
 			displayValStr: displayValStr,
 			dressedValStr: dressedValStr,
 			teStr:         teStr,
+			actualCTEStr:  actualCTEStr,
 		})
-		if isEB {
-			if w := len(dressedValStr); w > maxDressedWidth {
-				maxDressedWidth = w
-			}
-		}
+
+		lastRank = rank
+		lastValue = r.Value
 	}
 
 	padField := func(s string, width int, align bottools.StringAlign) string {
@@ -455,17 +557,21 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 
 	var colHeader string
 	if isEB {
-		headerParts := []string{
+		headerLine := strings.Join([]string{
 			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
 			padField("Name", maxNameWidth, bottools.StringAlignLeft),
 			padField("Nekkid", maxValOnlyWidth, bottools.StringAlignRight),
 			padField("Dressed", maxDressedWidth, bottools.StringAlignRight),
-		}
-		headerLine := strings.Join(headerParts, "|")
-		colHeader = fmt.Sprintf("```\n%s\n%s\n",
-			headerLine,
-			strings.Repeat("-", len(headerLine)),
-		)
+		}, "|")
+		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
+	} else if hasCTEComparisonColumn {
+		headerLine := strings.Join([]string{
+			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
+			padField("Name", maxNameWidth, bottools.StringAlignLeft),
+			padField("Pending CTE", maxValOnlyWidth, bottools.StringAlignRight),
+			padField("CTE", actualCTEWidth, bottools.StringAlignRight),
+		}, "|")
+		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
 	} else if hasTEColumn {
 		headerLine := strings.Join([]string{
 			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
@@ -473,75 +579,69 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			padField(shortDisplayName, maxValOnlyWidth, bottools.StringAlignRight),
 			padField("TE", teWidth, bottools.StringAlignRight),
 		}, "|")
-		colHeader = fmt.Sprintf("```\n%s\n%s\n",
-			headerLine,
-			strings.Repeat("-", len(headerLine)),
-		)
+		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
 	} else {
 		headerLine := strings.Join([]string{
 			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
 			padField("Name", maxNameWidth, bottools.StringAlignLeft),
 			padField(shortDisplayName, maxValOnlyWidth, bottools.StringAlignRight),
 		}, "|")
-		colHeader = fmt.Sprintf("```\n%s\n%s\n",
-			headerLine,
-			strings.Repeat("-", len(headerLine)),
-		)
+		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
 	}
 
-	rowLines := make([]string, 0, len(rows))
+	rowLines := make([]string, 0, len(infos))
 	for _, info := range infos {
-		// Always show TE for virtue eggs if available
 		detail := ""
-		switch {
-		case hasTEColumn:
-			// TE is shown in a dedicated column for these boards.
-			detail = ""
-		default:
-			if info.row.Details != "" && !strings.HasPrefix(info.row.Details, "total:") && !strings.Contains(info.row.Details, "dressed:") && !strings.HasPrefix(info.row.Details, "te:") {
-				detail = fmt.Sprintf(" (%s)", info.row.Details)
-			}
+		if info.row.Details != "" && info.row.Details != "na" && !strings.HasPrefix(info.row.Details, "total:") && !strings.Contains(info.row.Details, "dressed:") && !strings.HasPrefix(info.row.Details, "te:") && !strings.HasSuffix(info.row.Details, " TE") && !strings.HasPrefix(info.row.Details, "actual:") {
+			detail = fmt.Sprintf(" (%s)", info.row.Details)
 		}
 
 		if isEB {
-			line := fmt.Sprintf("%s%s\n",
-				strings.Join([]string{
-					padField(info.rankStr, rankWidth, bottools.StringAlignLeft),
-					padField(info.nameStr, maxNameWidth, bottools.StringAlignLeft),
-					padField(info.displayValStr, maxValOnlyWidth, bottools.StringAlignRight),
-					padField(info.dressedValStr, maxDressedWidth, bottools.StringAlignRight),
-				}, "|"),
-				detail,
-			)
-			rowLines = append(rowLines, line)
-		} else if hasTEColumn {
-			line := fmt.Sprintf("%s%s\n",
-				strings.Join([]string{
-					padField(info.rankStr, rankWidth, bottools.StringAlignLeft),
-					padField(info.nameStr, maxNameWidth, bottools.StringAlignLeft),
-					padField(info.displayValStr, maxValOnlyWidth, bottools.StringAlignRight),
-					padField(info.teStr, teWidth, bottools.StringAlignRight),
-				}, "|"),
-				detail,
-			)
-			rowLines = append(rowLines, line)
-		} else {
-			line := fmt.Sprintf("%s%s\n",
-				strings.Join([]string{
-					padField(info.rankStr, rankWidth, bottools.StringAlignLeft),
-					padField(info.nameStr, maxNameWidth, bottools.StringAlignLeft),
-					padField(info.displayValStr, maxValOnlyWidth, bottools.StringAlignRight),
-				}, "|"),
-				detail,
-			)
-			rowLines = append(rowLines, line)
+			rowLines = append(rowLines, fmt.Sprintf("%s%s\n", strings.Join([]string{
+				padField(info.rankStr, rankWidth, bottools.StringAlignLeft),
+				padField(info.nameStr, maxNameWidth, bottools.StringAlignLeft),
+				padField(info.displayValStr, maxValOnlyWidth, bottools.StringAlignRight),
+				padField(info.dressedValStr, maxDressedWidth, bottools.StringAlignRight),
+			}, "|"), detail))
+			continue
 		}
+
+		if hasCTEComparisonColumn {
+			rowLines = append(rowLines, fmt.Sprintf("%s%s\n", strings.Join([]string{
+				padField(info.rankStr, rankWidth, bottools.StringAlignLeft),
+				padField(info.nameStr, maxNameWidth, bottools.StringAlignLeft),
+				padField(info.displayValStr, maxValOnlyWidth, bottools.StringAlignRight),
+				padField(info.actualCTEStr, actualCTEWidth, bottools.StringAlignRight),
+			}, "|"), detail))
+			continue
+		}
+
+		if hasTEColumn {
+			rowLines = append(rowLines, fmt.Sprintf("%s%s\n", strings.Join([]string{
+				padField(info.rankStr, rankWidth, bottools.StringAlignLeft),
+				padField(info.nameStr, maxNameWidth, bottools.StringAlignLeft),
+				padField(info.displayValStr, maxValOnlyWidth, bottools.StringAlignRight),
+				padField(info.teStr, teWidth, bottools.StringAlignRight),
+			}, "|"), detail))
+			continue
+		}
+
+		rowLines = append(rowLines, fmt.Sprintf("%s%s\n", strings.Join([]string{
+			padField(info.rankStr, rankWidth, bottools.StringAlignLeft),
+			padField(info.nameStr, maxNameWidth, bottools.StringAlignLeft),
+			padField(info.displayValStr, maxValOnlyWidth, bottools.StringAlignRight),
+		}, "|"), detail))
 	}
 
-	footer := fmt.Sprintf("-# Updated: %s\n",
-		bottools.WrapTimestamp(time.Now().Unix(), bottools.TimestampShortDateTime))
-
+	footer := fmt.Sprintf("-# Updated: %s\n", bottools.WrapTimestamp(time.Now().Unix(), bottools.TimestampShortDateTime))
 	return colHeader, rowLines, footer
+}
+
+func absFloat(v float64) float64 {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 // truncateString ensures a string is at most max characters, adding … if needed
@@ -567,10 +667,38 @@ func FormatLBValue(fmtValue string, v float64) string {
 	case "eb":
 		return ei.FormatEIValue(v, map[string]any{"decimals": 3, "trim": true}) + "%"
 	case "cxp":
-		return fmt.Sprintf("%.0f", v)
+		return formatIntWithCommas(int64(math.Round(v)))
 	default:
 		return fmt.Sprintf("%g", v)
 	}
+}
+
+func formatIntWithCommas(n int64) string {
+	sign := ""
+	if n < 0 {
+		sign = "-"
+		n = -n
+	}
+
+	s := strconv.FormatInt(n, 10)
+	if len(s) <= 3 {
+		return sign + s
+	}
+
+	first := len(s) % 3
+	if first == 0 {
+		first = 3
+	}
+
+	var b strings.Builder
+	b.WriteString(sign)
+	b.WriteString(s[:first])
+	for i := first; i < len(s); i += 3 {
+		b.WriteString(",")
+		b.WriteString(s[i : i+3])
+	}
+
+	return b.String()
 }
 
 // FormatLBDelta formats a numeric difference from the previous week.

@@ -96,13 +96,48 @@ func RunCalculators(
 	}
 
 	// Virtue shifts
+	pendingTE := 0.0
 	if virtue != nil {
+		claimedTE := ei.GetCurrentTruthEggs(backup)
+		totalTEWithUnclaimed := claimedTE
+		deliveries := virtue.GetEggsDelivered()
+		earned := virtue.GetEovEarned()
+		for i := 0; i < len(deliveries); i++ {
+			earnedTE := uint32(0)
+			if i < len(earned) {
+				earnedTE = earned[i]
+			}
+			pendingTE += float64(ei.PendingTruthEggs(deliveries[i], earnedTE))
+			totalTEWithUnclaimed += ei.PendingTruthEggs(deliveries[i], earnedTE)
+		}
+
 		emit(LBEntry{
 			LBType:   LBVirtueShifts,
 			Player:   userID,
 			GameName: gameName,
 			SnapDate: snapDate,
 			Value:    float64(virtue.GetShiftCount()),
+		})
+
+		// Total Truth Eggs should use currently credited/claimed TE, not pending.
+		emit(LBEntry{
+			LBType:   LBTETotal,
+			Player:   userID,
+			GameName: gameName,
+			SnapDate: snapDate,
+			Value:    float64(claimedTE),
+		})
+
+		maxCTEResult := ei.CalculateMaxClothedTEWithSlotHint(backup, 2*(int(backup.GetGame().GetPermitLevel())+1))
+		maxCTE := maxCTEResult.ClothedTE
+
+		emit(LBEntry{
+			LBType:   LBCTETotal,
+			Player:   userID,
+			GameName: gameName,
+			SnapDate: snapDate,
+			Value:    maxCTE + pendingTE,
+			Details:  fmt.Sprintf("actual:%f", maxCTE),
 		})
 	}
 

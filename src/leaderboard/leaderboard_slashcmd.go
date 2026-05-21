@@ -6,6 +6,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mattn/go-runewidth"
@@ -433,18 +434,25 @@ func handleRun(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*dis
 		dryRun = opt.BoolValue()
 	}
 
+	estimate := buildRunEstimate(i.GuildID, dryRun)
+	estimateText := estimate.line(false)
+
 	// Immediate response to confirm we're starting.
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "**Starting collection run...**",
+			Content: "**Starting collection run...**\n" + estimateText,
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	})
 
 	onProgress := func(status string) {
+		content := status
+		if estimate != nil {
+			content = status + "\n" + estimate.line(false)
+		}
 		_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Content: &status,
+			Content: &content,
 		})
 	}
 
@@ -454,11 +462,72 @@ func handleRun(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*dis
 		if dryRun {
 			msg = "✅ Dry run complete — data collected, Discord post skipped."
 		}
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: msg,
-			Flags:   discordgo.MessageFlagsEphemeral,
+		if estimate != nil {
+			msg += "\n" + estimate.line(true)
+		}
+		_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content: &msg,
 		})
 	}()
+}
+
+type runEstimate struct {
+	dryRun       bool
+	available    bool
+	recordCount  int
+	delaySeconds int
+	startedAt    time.Time
+	errorText    string
+}
+
+func (e *runEstimate) line(completed bool) string {
+	if e == nil {
+		return ""
+	}
+	if e.dryRun {
+		return "-# Estimate: dry-run skips posting delays."
+	}
+	if !e.available {
+		return e.errorText
+	}
+
+	remaining := e.delaySeconds - int(time.Since(e.startedAt).Seconds())
+	if remaining < 0 || completed {
+		remaining = 0
+	}
+	etaFinish := time.Now().Add(time.Duration(remaining) * time.Second).Format("15:04:05")
+
+	return fmt.Sprintf("-# Estimate: %d records to print, %ds remaining scheduled posting delays, earliest finish around %s.", e.recordCount, remaining, etaFinish)
+}
+
+func buildRunEstimate(guildID string, dryRun bool) *runEstimate {
+	if dryRun {
+		return &runEstimate{dryRun: true, available: true, startedAt: time.Now()}
+	}
+
+	configs, err := GetGuildLBConfigs(guildID)
+	if err != nil {
+		return &runEstimate{
+			available: false,
+			errorText: "-# Estimate unavailable: could not load guild leaderboard configs.",
+			startedAt: time.Now(),
+		}
+	}
+
+	recordCount := 0
+	for _, cfg := range configs {
+		recordCount += len(ExpandConfigKey(cfg.LBType))
+	}
+
+	// Posting currently waits 1s after each metric and 2s after each guild config.
+	delaySeconds := recordCount + (2 * len(configs))
+
+	return &runEstimate{
+		available:    true,
+		recordCount:  recordCount,
+		delaySeconds: delaySeconds,
+		startedAt:    time.Now(),
+	}
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -596,7 +665,7 @@ func buildAutocompleteChoices(partial string, isPlayerCmd bool) []*discordgo.App
 		}
 		if matches(g.DisplayName, g.Key) {
 			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-				Name:  g.DisplayName,
+				Name:  g.DisplayName + " (Group)",
 				Value: g.Key,
 			})
 		}
@@ -728,7 +797,7 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 	for i, st := range stats[start:end] {
 		v := FormatLBValue(st.Def.ValueFmt, st.Current.Value)
 		d := ""
-		if st.HasPrev {
+		if st.HasPrev && st.Def.Key != LBContractExp && st.Def.Key != LBCXPWeeklyDelta {
 			d = FormatLBDelta(st.Def.ValueFmt, st.Current.Value-st.PrevVal)
 		}
 
