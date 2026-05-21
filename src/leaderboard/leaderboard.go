@@ -97,8 +97,8 @@ type LBGroup struct {
 
 // AllLeaderboards is the registry of all available individual leaderboard types.
 var AllLeaderboards = []LBDef{
-	{Key: LBSoulEggs, DisplayName: "Soul Eggs", Description: "Total soul eggs collected.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBProphecyEggs, DisplayName: "Prophecy Eggs", Description: "Total eggs of prophecy collected.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBSoulEggs, DisplayName: "Soul Eggs", HeaderName: "SE", Description: "Total soul eggs collected.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBProphecyEggs, DisplayName: "Prophecy Eggs", HeaderName: "PE", Description: "Total eggs of prophecy collected.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBEarningsBonus, DisplayName: "Earnings Bonus", Description: "Nekkid and Dressed earnings bonus.", ValueFmt: "eb", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBVirtueShifts, DisplayName: "Virtue Shifts", HeaderName: "Shifts", Description: "Total virtue shifts completed.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBTETotal, DisplayName: "Total Truth Eggs", Description: "Sum of truth eggs across all virtues.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
