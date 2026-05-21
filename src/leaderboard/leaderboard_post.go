@@ -375,7 +375,7 @@ func buildMessageBlocks(def LBDef, rows []LBEntry, snapDate string, prevMap map[
 	if def.Description != "" {
 		header += fmt.Sprintf("> %s\n", def.Description)
 	}
-	header += "\n"
+	//header += "\n"
 
 	colHeader, rowLines, footer := renderTable(def, rows, prevMap, rankOffset)
 
@@ -430,6 +430,10 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 	hasTEColumn := def.Key == LBEggsCuriosity || def.Key == LBEggsIntegrity || def.Key == LBEggsHumility || def.Key == LBEggsResilience || def.Key == LBEggsKindness || def.Key == LBVirtueEggsSum
 	teWidth := len("TE")
 	actualCTEWidth := len("Actual CTE")
+	soulMirrorCommonWidth := len("C")
+	soulMirrorEpicWidth := len("E")
+	soulMirrorLegendaryWidth := len("L")
+	const soulMirrorMaxDigits = 5
 	if hasCTEComparisonColumn {
 		maxValOnlyWidth = len("Future CTE")
 	}
@@ -439,13 +443,16 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 	maxDressedWidth := len("Dressed")
 
 	type rowInfo struct {
-		row           LBEntry
-		rankStr       string
-		nameStr       string
-		displayValStr string
-		dressedValStr string
-		teStr         string
-		actualCTEStr  string
+		row                    LBEntry
+		rankStr                string
+		nameStr                string
+		displayValStr          string
+		dressedValStr          string
+		teStr                  string
+		actualCTEStr           string
+		soulMirrorCommonStr    string
+		soulMirrorEpicStr      string
+		soulMirrorLegendaryStr string
 	}
 	infos := make([]rowInfo, 0, len(rows))
 
@@ -470,6 +477,14 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			return formatCTE(actual)
 		}
 		return "-"
+	}
+
+	parseSoulMirrorTiersFromDetails := func(details string) (int, int, int) {
+		var common, epic, legendary int
+		if _, err := fmt.Sscanf(details, "%d, %d, %d", &common, &epic, &legendary); err == nil {
+			return common, epic, legendary
+		}
+		return 0, 0, 0
 	}
 
 	lastRank := 0
@@ -537,14 +552,44 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			}
 		}
 
+		soulMirrorCommonStr, soulMirrorEpicStr, soulMirrorLegendaryStr := "", "", ""
+		if def.Key == LBSoulMirrors {
+			common, epic, legendary := parseSoulMirrorTiersFromDetails(r.Details)
+			soulMirrorCommonStr = fmt.Sprintf("%d", common)
+			soulMirrorEpicStr = fmt.Sprintf("%d", epic)
+			soulMirrorLegendaryStr = fmt.Sprintf("%d", legendary)
+
+			if w := len(soulMirrorCommonStr); w > soulMirrorCommonWidth {
+				soulMirrorCommonWidth = w
+				if soulMirrorCommonWidth > soulMirrorMaxDigits {
+					soulMirrorCommonWidth = soulMirrorMaxDigits
+				}
+			}
+			if w := len(soulMirrorEpicStr); w > soulMirrorEpicWidth {
+				soulMirrorEpicWidth = w
+				if soulMirrorEpicWidth > soulMirrorMaxDigits {
+					soulMirrorEpicWidth = soulMirrorMaxDigits
+				}
+			}
+			if w := len(soulMirrorLegendaryStr); w > soulMirrorLegendaryWidth {
+				soulMirrorLegendaryWidth = w
+				if soulMirrorLegendaryWidth > soulMirrorMaxDigits {
+					soulMirrorLegendaryWidth = soulMirrorMaxDigits
+				}
+			}
+		}
+
 		infos = append(infos, rowInfo{
-			row:           r,
-			rankStr:       rankStr,
-			nameStr:       nameStr,
-			displayValStr: displayValStr,
-			dressedValStr: dressedValStr,
-			teStr:         teStr,
-			actualCTEStr:  actualCTEStr,
+			row:                    r,
+			rankStr:                rankStr,
+			nameStr:                nameStr,
+			displayValStr:          displayValStr,
+			dressedValStr:          dressedValStr,
+			teStr:                  teStr,
+			actualCTEStr:           actualCTEStr,
+			soulMirrorCommonStr:    soulMirrorCommonStr,
+			soulMirrorEpicStr:      soulMirrorEpicStr,
+			soulMirrorLegendaryStr: soulMirrorLegendaryStr,
 		})
 
 		lastRank = rank
@@ -578,6 +623,16 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			padField("Name", maxNameWidth, bottools.StringAlignLeft),
 			padField(shortDisplayName, maxValOnlyWidth, bottools.StringAlignRight),
 			padField("TE", teWidth, bottools.StringAlignRight),
+		}, "|")
+		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
+	} else if def.Key == LBSoulMirrors {
+		headerLine := strings.Join([]string{
+			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
+			padField("Name", maxNameWidth, bottools.StringAlignLeft),
+			padField("Pts", maxValOnlyWidth, bottools.StringAlignRight),
+			padField("C", soulMirrorCommonWidth, bottools.StringAlignRight),
+			padField("E", soulMirrorEpicWidth, bottools.StringAlignRight),
+			padField("L", soulMirrorLegendaryWidth, bottools.StringAlignRight),
 		}, "|")
 		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
 	} else {
@@ -623,6 +678,18 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 				padField(info.displayValStr, maxValOnlyWidth, bottools.StringAlignRight),
 				padField(info.teStr, teWidth, bottools.StringAlignRight),
 			}, "|"), detail))
+			continue
+		}
+
+		if def.Key == LBSoulMirrors {
+			rowLines = append(rowLines, fmt.Sprintf("%s\n", strings.Join([]string{
+				padField(info.rankStr, rankWidth, bottools.StringAlignLeft),
+				padField(info.nameStr, maxNameWidth, bottools.StringAlignLeft),
+				padField(info.displayValStr, maxValOnlyWidth, bottools.StringAlignRight),
+				padField(info.soulMirrorCommonStr, soulMirrorCommonWidth, bottools.StringAlignRight),
+				padField(info.soulMirrorEpicStr, soulMirrorEpicWidth, bottools.StringAlignRight),
+				padField(info.soulMirrorLegendaryStr, soulMirrorLegendaryWidth, bottools.StringAlignRight),
+			}, "|")))
 			continue
 		}
 
