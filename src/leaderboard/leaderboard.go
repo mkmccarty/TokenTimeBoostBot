@@ -101,7 +101,7 @@ var AllLeaderboards = []LBDef{
 	{Key: LBProphecyEggs, DisplayName: "Prophecy Eggs", HeaderName: "PE", Description: "Total eggs of prophecy collected.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBEarningsBonus, DisplayName: "Earnings Bonus", Description: "Nekkid and Dressed earnings bonus.", ValueFmt: "eb", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBVirtueShifts, DisplayName: "Virtue Shifts", HeaderName: "Shifts", Description: "Total virtue shifts completed.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBTETotal, DisplayName: "Total Truth Eggs", Description: "Sum of truth eggs across all virtues.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBTETotal, DisplayName: "Total Truth Eggs", HeaderName: "TE", Description: "Sum of truth eggs across all virtues.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBCTETotal, DisplayName: "Total CTE", HeaderName: "CTE", Description: "Current clothed Truth Egg equivalent.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBDrones, DisplayName: "Drones", Description: "Total drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBEliteDrones, DisplayName: "Elite Drones", Description: "Total elite drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
