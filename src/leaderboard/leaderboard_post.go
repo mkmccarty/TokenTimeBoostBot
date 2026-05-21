@@ -652,7 +652,7 @@ func truncateString(s string, max int) string {
 	if max <= 3 {
 		return s[:max]
 	}
-	return s[:max-3] + "..."
+	return s[:max-3]
 }
 
 // FormatLBValue formats a numeric leaderboard value according to the LBDef.ValueFmt.
