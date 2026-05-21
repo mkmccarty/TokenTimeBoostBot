@@ -629,7 +629,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 		headerLine := strings.Join([]string{
 			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
 			padField("Name", maxNameWidth, bottools.StringAlignLeft),
-			padField("Pts", maxValOnlyWidth, bottools.StringAlignRight),
+			padField(shortDisplayName, maxValOnlyWidth, bottools.StringAlignRight),
 			padField("C", soulMirrorCommonWidth, bottools.StringAlignRight),
 			padField("E", soulMirrorEpicWidth, bottools.StringAlignRight),
 			padField("L", soulMirrorLegendaryWidth, bottools.StringAlignRight),

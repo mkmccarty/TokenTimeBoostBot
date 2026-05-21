@@ -106,7 +106,7 @@ var AllLeaderboards = []LBDef{
 	{Key: LBDrones, DisplayName: "Drones", Description: "Total drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBEliteDrones, DisplayName: "Elite Drones", Description: "Total elite drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBPrestiges, DisplayName: "Prestiges", Description: "Total number of prestiges.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBSoulMirrors, DisplayName: "Soul Mirrors", HeaderName: "SM", Description: "Score based on soul mirror inventory of Common, Epic & Legendary worth 1, 2, or 3 points respectively.", ValueFmt: "int", HigherIsBetter: false, Source: SourceFirstContact},
+	{Key: LBSoulMirrors, DisplayName: "Soul Mirrors", HeaderName: "Score", Description: "Score based on soul mirror inventory of Common, Epic & Legendary worth 1, 2, or 3 points respectively.", ValueFmt: "int", HigherIsBetter: false, Source: SourceFirstContact},
 	{Key: LBContractExp, DisplayName: "Contract Score", HeaderName: "CS", Description: "Total experience earned from contracts.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceBoth},
 	{Key: LBCXPWeeklyDelta, DisplayName: "Weekly CS", Description: "CXP earned since last collection.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceContractArchive},
 	{Key: LBEggsCuriosity, DisplayName: "Curiosity Eggs Delivered", Description: "Curiosity deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
