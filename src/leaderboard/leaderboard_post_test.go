@@ -27,6 +27,10 @@ func TestRenderTable_AllLeaderboards(t *testing.T) {
 		LBVirtueEggsSum:  true,
 	}
 
+	withCTEComparisonColumns := map[string]bool{
+		LBCTETotal: true,
+	}
+
 	shortVirtueHeaders := map[string]string{
 		LBEggsCuriosity:  "Curiosity",
 		LBEggsIntegrity:  "Integrity",
@@ -48,10 +52,14 @@ func TestRenderTable_AllLeaderboards(t *testing.T) {
 			switch {
 			case def.Key == LBEarningsBonus:
 				row.Details = "dressed:23456"
+			case def.Key == LBCXPWeeklyDelta:
+				row.Details = "na"
 			case def.Key == LBEggsCuriosity:
 				row.Details = "te:77"
 			case def.Key == LBVirtueEggsSum:
 				row.Details = "te:321"
+			case def.Key == LBCTETotal:
+				row.Details = "actual:12000"
 			case virtueEggKeys[def.Key]:
 				row.Details = "77 TE"
 			default:
@@ -76,12 +84,12 @@ func TestRenderTable_AllLeaderboards(t *testing.T) {
 			}
 
 			expectedDelta := FormatLBDelta(def.ValueFmt, row.Value-prevMap[row.Player])
-			if def.ValueFmt == "cxp" {
-				if expectedDelta != "" && !strings.Contains(line, expectedDelta) {
-					t.Fatalf("expected CXP gain %q in row line for %s, got %q", expectedDelta, def.Key, line)
+			if def.Key == LBCXPWeeklyDelta {
+				if !strings.Contains(line, "-") {
+					t.Fatalf("expected fallback '-' display for %s when lookback is unavailable, got %q", def.Key, line)
 				}
 			} else if expectedDelta != "" && strings.Contains(line, expectedDelta) {
-				t.Fatalf("did not expect non-CXP gain %q in row line for %s, got %q", expectedDelta, def.Key, line)
+				t.Fatalf("did not expect delta %q in row line for %s, got %q", expectedDelta, def.Key, line)
 			}
 
 			if !strings.HasPrefix(footer, "-# Updated:") {
@@ -110,6 +118,15 @@ func TestRenderTable_AllLeaderboards(t *testing.T) {
 				}
 			}
 
+			if withCTEComparisonColumns[def.Key] {
+				if !strings.Contains(colHeader, "Future CTE") || !strings.Contains(colHeader, "Actual CTE") {
+					t.Fatalf("expected CTE comparison columns for %s, got %q", def.Key, colHeader)
+				}
+				if !strings.Contains(line, "12,345") || !strings.Contains(line, "12,000") {
+					t.Fatalf("expected future and actual CTE values in row for %s, got %q", def.Key, line)
+				}
+			}
+
 			if def.Key == LBEarningsBonus {
 				if !strings.Contains(colHeader, "Nekkid") || !strings.Contains(colHeader, "Dressed") {
 					t.Fatalf("expected EB columns for %s, got %q", def.Key, colHeader)
@@ -134,7 +151,7 @@ func TestRenderTable_AllLeaderboards(t *testing.T) {
 				if !withTEColumn[def.Key] && !strings.Contains(line, "(77 TE)") {
 					t.Fatalf("expected TE detail in row for %s, got %q", def.Key, line)
 				}
-			} else if def.Key != LBEarningsBonus && !withTEColumn[def.Key] {
+			} else if def.Key != LBEarningsBonus && def.Key != LBCXPWeeklyDelta && !withTEColumn[def.Key] && !withCTEComparisonColumns[def.Key] {
 				if !strings.Contains(line, "(sample detail)") {
 					t.Fatalf("expected generic detail rendering for %s, got %q", def.Key, line)
 				}
@@ -142,5 +159,30 @@ func TestRenderTable_AllLeaderboards(t *testing.T) {
 
 			//t.Logf("rendered table for %s:\n%s%s%s", def.Key, colHeader, line, footer)
 		})
+	}
+}
+
+func TestRenderTable_CompetitionRankingOnTies(t *testing.T) {
+	def := LBDef{Key: LBDrones, DisplayName: "Drones", ValueFmt: "int", HigherIsBetter: true}
+
+	rows := []LBEntry{
+		{LBType: LBDrones, Player: "p1", GameName: "Alpha", Value: 101},
+		{LBType: LBDrones, Player: "p2", GameName: "Bravo", Value: 101},
+		{LBType: LBDrones, Player: "p3", GameName: "Charlie", Value: 90},
+	}
+
+	_, rowLines, _ := renderTable(def, rows, map[string]float64{}, 0)
+	if len(rowLines) != 3 {
+		t.Fatalf("expected 3 row lines, got %d", len(rowLines))
+	}
+
+	if !strings.Contains(rowLines[0], "#1") {
+		t.Fatalf("expected first row rank #1, got %q", rowLines[0])
+	}
+	if !strings.Contains(rowLines[1], "#1") {
+		t.Fatalf("expected second row rank #1 due to tie, got %q", rowLines[1])
+	}
+	if !strings.Contains(rowLines[2], "#3") {
+		t.Fatalf("expected third row rank #3 after tie, got %q", rowLines[2])
 	}
 }

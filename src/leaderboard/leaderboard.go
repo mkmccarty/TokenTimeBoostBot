@@ -30,6 +30,7 @@ const (
 	LBSoulMirrors    = "soul_mirrors"
 	LBVirtueShifts   = "virtue_shifts"
 	LBTETotal        = "te_total"
+	LBCTETotal       = "cte_total"
 	LBCXPWeeklyDelta = "cxp_weekly"
 
 	LBEggsCuriosity  = "egg_curiosity"
@@ -99,14 +100,15 @@ var AllLeaderboards = []LBDef{
 	{Key: LBSoulEggs, DisplayName: "Soul Eggs", Description: "Total soul eggs collected.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBProphecyEggs, DisplayName: "Prophecy Eggs", Description: "Total eggs of prophecy collected.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBEarningsBonus, DisplayName: "Earnings Bonus", Description: "Nekkid and Dressed earnings bonus.", ValueFmt: "eb", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBContractExp, DisplayName: "Contract XP", Description: "Total experience earned from contracts.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceBoth},
-	{Key: LBVirtueShifts, DisplayName: "Virtue Shifts", Description: "Total virtue shifts completed.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBVirtueShifts, DisplayName: "Virtue Shifts", HeaderName: "Shifts", Description: "Total virtue shifts completed.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBTETotal, DisplayName: "Total Truth Eggs", Description: "Sum of truth eggs across all virtues.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBCTETotal, DisplayName: "Total CTE", HeaderName: "CTE", Description: "Current clothed Truth Egg equivalent.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBDrones, DisplayName: "Drones", Description: "Total drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBEliteDrones, DisplayName: "Elite Drones", Description: "Total elite drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBPrestiges, DisplayName: "Prestiges", Description: "Total number of prestiges.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBSoulMirrors, DisplayName: "Soul Mirrors", Description: "Score based on soul mirror inventory (1, 2, 3 points).", ValueFmt: "int", HigherIsBetter: false, Source: SourceFirstContact},
-	{Key: LBCXPWeeklyDelta, DisplayName: "Weekly CXP", Description: "CXP earned since last collection.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceContractArchive},
+	{Key: LBContractExp, DisplayName: "Contract Score", HeaderName: "CS", Description: "Total experience earned from contracts.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceBoth},
+	{Key: LBCXPWeeklyDelta, DisplayName: "Weekly CS", Description: "CXP earned since last collection.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceContractArchive},
 	{Key: LBEggsCuriosity, DisplayName: "Curiosity Eggs Delivered", Description: "Curiosity deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBEggsIntegrity, DisplayName: "Integrity Eggs Delivered", Description: "Integrity deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBEggsHumility, DisplayName: "Humility Eggs Delivered", Description: "Humility deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
@@ -118,13 +120,18 @@ var AllLeaderboards = []LBDef{
 var AllGroups = []LBGroup{
 	{
 		Key:         "group_core",
-		DisplayName: "Core Stats",
-		Members:     []string{LBSoulEggs, LBProphecyEggs, LBTETotal, LBEarningsBonus, LBVirtueShifts, LBContractExp, LBCXPWeeklyDelta},
+		DisplayName: "EB Stats",
+		Members:     []string{LBEarningsBonus, LBSoulEggs, LBProphecyEggs, LBTETotal, LBCTETotal, LBVirtueShifts, LBPrestiges},
+	},
+	{
+		Key:         "group_cs_stats",
+		DisplayName: "CS Stats",
+		Members:     []string{LBContractExp, LBCXPWeeklyDelta},
 	},
 	{
 		Key:         "group_misc",
 		DisplayName: "Miscellaneous Stats",
-		Members:     []string{LBPrestiges, LBDrones, LBEliteDrones, LBSoulMirrors},
+		Members:     []string{LBDrones, LBEliteDrones, LBSoulMirrors},
 	},
 }
 
