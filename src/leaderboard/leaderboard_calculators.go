@@ -261,7 +261,7 @@ func RunCalculators(
 			}
 
 			pts := float64(blue + purple*2 + orange*3)
-			emit(LBEntry{LBType: LBSoulMirrors, Player: userID, GameName: gameName, Value: pts, Details: fmt.Sprintf("(%d, %d, %d)", blue, purple, orange)})
+			emit(LBEntry{LBType: LBSoulMirrors, Player: userID, GameName: gameName, SnapDate: snapDate, Value: pts, Details: fmt.Sprintf("(%d, %d, %d)", blue, purple, orange)})
 		}
 	}
 
