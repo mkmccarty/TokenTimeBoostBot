@@ -24,12 +24,8 @@ func parseComplaintArrayFallback(raw string) []string {
 		return nil
 	}
 
-	if strings.HasPrefix(cleaned, "[") {
-		cleaned = strings.TrimPrefix(cleaned, "[")
-	}
-	if strings.HasSuffix(cleaned, "]") {
-		cleaned = strings.TrimSuffix(cleaned, "]")
-	}
+	cleaned = strings.TrimPrefix(cleaned, "[")
+	cleaned = strings.TrimSuffix(cleaned, "]")
 
 	parts := strings.Split(cleaned, "\",\"")
 	if len(parts) == 1 {
