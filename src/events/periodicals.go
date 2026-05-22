@@ -202,23 +202,6 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 
 	var newEventEndGG time.Time
 
-	// I'm retrieving c.TeamNames but want to cache those results in a separate map that I can save to disk
-	teamRoleMap := make(map[string][]string)
-	currentTeamRoleMap := make(map[string][]string)
-
-	// read this from database if it exists
-	loadedRoles, err := boost.LoadRoleNames()
-	if err == nil {
-		teamRoleMap = loadedRoles
-	}
-
-	complaintsMap := make(map[string][]string)
-	currentComplaintsMap := make(map[string][]string)
-	loadedComplaints, err := boost.LoadThematicComplaints()
-	if err == nil {
-		complaintsMap = loadedComplaints
-	}
-
 	for _, event := range periodicalsResponse.GetEvents().GetEvents() {
 		var e ei.EggEvent
 		e.ID = event.GetIdentifier()
@@ -394,22 +377,21 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 			log.Print("New Original contract: ", c.ID)
 		}
 		bottools.GenerateBanner(c.ID, c.EggName, c.Name, "", "", "")
-		existingTeamNames := teamRoleMap[c.ID]
-		existingComplaints := complaintsMap[c.ID]
+		existingTeamNames, err := boost.GetRoleNamesForContract(c.ID)
+		if err != nil {
+			log.Printf("periodicals: failed to load role names for %s: %v", c.ID, err)
+		}
+
+		existingComplaints, err := boost.GetThematicComplaintsForContract(c.ID)
+		if err != nil {
+			log.Printf("periodicals: failed to load complaints for %s: %v", c.ID, err)
+		}
+
 		needTeamNames := len(existingTeamNames) < expectedContractRoleNames
 		needComplaints := len(existingComplaints) < expectedContractComplaints
 
 		if len(existingTeamNames) > 0 {
 			c.TeamNames = existingTeamNames
-			currentTeamRoleMap[c.ID] = existingTeamNames
-		} else {
-			currentTeamRoleMap[c.ID] = nil
-		}
-
-		if len(existingComplaints) > 0 {
-			currentComplaintsMap[c.ID] = existingComplaints
-		} else {
-			currentComplaintsMap[c.ID] = nil
 		}
 
 		if needTeamNames || needComplaints {
