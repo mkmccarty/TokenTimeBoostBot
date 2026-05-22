@@ -18,6 +18,47 @@ import (
 
 const googleModel = "gemini-2.5-flash-lite"
 
+func parseComplaintArrayFallback(raw string) []string {
+	cleaned := strings.TrimSpace(raw)
+	if cleaned == "" {
+		return nil
+	}
+
+	if strings.HasPrefix(cleaned, "[") {
+		cleaned = strings.TrimPrefix(cleaned, "[")
+	}
+	if strings.HasSuffix(cleaned, "]") {
+		cleaned = strings.TrimSuffix(cleaned, "]")
+	}
+
+	parts := strings.Split(cleaned, "\",\"")
+	if len(parts) == 1 {
+		parts = strings.Split(cleaned, "\", \"")
+	}
+	if len(parts) <= 1 {
+		return nil
+	}
+
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		part = strings.TrimPrefix(part, "\"")
+		part = strings.TrimSuffix(part, "\"")
+		part = strings.Trim(part, ", ")
+		part = strings.ReplaceAll(part, "\\\"", "\"")
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+
+	if len(out) <= 1 {
+		return nil
+	}
+
+	return out
+}
+
 var defaultWish = "Show a potato staring into a lightbulb in an unhealthy way."
 
 var lastWish = defaultWish
@@ -242,10 +283,41 @@ func GetContractTeamNames(prompt string, quantity int) []string {
 		time.Sleep(time.Duration(attempt) * 5 * time.Second)
 	}
 
-	// Want to split the string result, trim whitespace for each split string, and remove any empty strings
-	strArray := strings.Split(str, ",")
+	cleaned := strings.TrimSpace(str)
+
+	// Prefer strict JSON parsing when model follows instructions.
+	var strArray []string
+	if strings.HasPrefix(cleaned, "[") {
+		if err := json.Unmarshal([]byte(cleaned), &strArray); err != nil {
+			strArray = nil
+		}
+	}
+
+	// Fallback parsing for malformed/non-JSON responses.
+	if len(strArray) == 0 {
+		normalized := cleaned
+		normalized = strings.TrimPrefix(normalized, "[")
+		normalized = strings.TrimSuffix(normalized, "]")
+
+		switch {
+		case strings.Contains(normalized, "\",\""):
+			strArray = strings.Split(normalized, "\",\"")
+		case strings.Contains(normalized, "\", \""):
+			strArray = strings.Split(normalized, "\", \"")
+		case strings.Contains(normalized, "\n"):
+			strArray = strings.Split(normalized, "\n")
+		default:
+			strArray = strings.Split(normalized, ",")
+		}
+	}
+
 	for i, s := range strArray {
-		strArray[i] = strings.TrimSpace(s)
+		s = strings.TrimSpace(s)
+		s = strings.TrimPrefix(s, "\"")
+		s = strings.TrimSuffix(s, "\"")
+		s = strings.TrimLeft(s, "0123456789.-*• ")
+		s = strings.TrimSpace(s)
+		strArray[i] = s
 	}
 
 	// Make sure this is a unique list of names, and remove any duplicates
@@ -441,20 +513,23 @@ func GetContractThematicComplaints(contractName string, contractDescription stri
 	var complaints []string
 	if err := json.Unmarshal([]byte(cleaned), &complaints); err != nil {
 		log.Printf("Failed to unmarshal thematic complaints from Gemini: %v, attempting fallback parsing", err)
-		// Fallback: search for quoted strings or split by newlines
-		lines := strings.Split(str, "\n")
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if line == "" {
-				continue
-			}
-			firstQuote := strings.Index(line, "\"")
-			lastQuote := strings.LastIndex(line, "\"")
-			if firstQuote != -1 && lastQuote > firstQuote {
-				complaints = append(complaints, line[firstQuote+1:lastQuote])
-			} else {
-				line = strings.TrimLeft(line, "0123456789.-*• ")
-				complaints = append(complaints, line)
+		complaints = parseComplaintArrayFallback(cleaned)
+		if len(complaints) == 0 {
+			// Secondary fallback: search for quoted strings or split by newlines.
+			lines := strings.Split(str, "\n")
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if line == "" {
+					continue
+				}
+				firstQuote := strings.Index(line, "\"")
+				lastQuote := strings.LastIndex(line, "\"")
+				if firstQuote != -1 && lastQuote > firstQuote {
+					complaints = append(complaints, line[firstQuote+1:lastQuote])
+				} else {
+					line = strings.TrimLeft(line, "0123456789.-*• ")
+					complaints = append(complaints, line)
+				}
 			}
 		}
 	}
