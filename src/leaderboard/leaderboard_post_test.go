@@ -190,8 +190,8 @@ func TestRenderTable_SoulMirrorsDynamicSpacing(t *testing.T) {
 	}
 
 	rows := []LBEntry{
-		{LBType: LBSoulMirrors, Player: "p1", GameName: "Alpha", Value: 123, Details: "1, 22, 333"},
-		{LBType: LBSoulMirrors, Player: "p2", GameName: "Bravo", Value: 456, Details: "4444, 5, 66"},
+		{LBType: LBSoulMirrors, Player: "p1", GameName: "Alpha", Value: 123, Details: "(1, 22, 333)"},
+		{LBType: LBSoulMirrors, Player: "p2", GameName: "Bravo", Value: 456, Details: "(4444, 5, 66)"},
 	}
 
 	colHeader, rowLines, _ := renderTable(def, rows, map[string]float64{}, 0)

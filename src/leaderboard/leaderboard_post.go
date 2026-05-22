@@ -504,6 +504,9 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 
 	parseSoulMirrorTiersFromDetails := func(details string) (int, int, int) {
 		var common, epic, legendary int
+		if _, err := fmt.Sscanf(details, "(%d, %d, %d)", &common, &epic, &legendary); err == nil {
+			return common, epic, legendary
+		}
 		if _, err := fmt.Sscanf(details, "%d, %d, %d", &common, &epic, &legendary); err == nil {
 			return common, epic, legendary
 		}
