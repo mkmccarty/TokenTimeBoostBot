@@ -512,6 +512,77 @@ func performTransitionFromJSON(db *sql.DB) {
 	}
 }
 
+func splitPackedRoleNames(raw string) []string {
+	cleaned := strings.TrimSpace(raw)
+	if cleaned == "" {
+		return nil
+	}
+
+	var parsed []string
+	if strings.HasPrefix(cleaned, "[") && strings.HasSuffix(cleaned, "]") {
+		if err := json.Unmarshal([]byte(cleaned), &parsed); err == nil && len(parsed) > 1 {
+			return parsed
+		}
+	}
+
+	if strings.Contains(cleaned, "\",\"") || strings.Contains(cleaned, "\", \"") {
+		cleaned = strings.TrimPrefix(cleaned, "[")
+		cleaned = strings.TrimSuffix(cleaned, "]")
+		parts := strings.Split(cleaned, "\",\"")
+		if len(parts) == 1 {
+			parts = strings.Split(cleaned, "\", \"")
+		}
+		out := make([]string, 0, len(parts))
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			p = strings.TrimPrefix(p, "\"")
+			p = strings.TrimSuffix(p, "\"")
+			p = strings.Trim(p, ", ")
+			p = strings.TrimSpace(p)
+			if p != "" {
+				out = append(out, p)
+			}
+		}
+		if len(out) > 1 {
+			return out
+		}
+	}
+
+	if strings.Count(cleaned, ",") >= 2 {
+		parts := strings.Split(cleaned, ",")
+		out := make([]string, 0, len(parts))
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			p = strings.TrimPrefix(p, "\"")
+			p = strings.TrimSuffix(p, "\"")
+			if p != "" {
+				out = append(out, p)
+			}
+		}
+		if len(out) > 1 {
+			return out
+		}
+	}
+
+	if strings.Contains(cleaned, "\n") {
+		lines := strings.Split(cleaned, "\n")
+		out := make([]string, 0, len(lines))
+		for _, l := range lines {
+			l = strings.TrimSpace(l)
+			l = strings.TrimLeft(l, "0123456789.-*• ")
+			l = strings.TrimSpace(l)
+			if l != "" {
+				out = append(out, l)
+			}
+		}
+		if len(out) > 1 {
+			return out
+		}
+	}
+
+	return nil
+}
+
 // LoadRoleNames loads all contract roles from the database
 func LoadRoleNames() (map[string][]string, error) {
 	if queries == nil {
@@ -522,9 +593,55 @@ func LoadRoleNames() (map[string][]string, error) {
 		return nil, err
 	}
 	res := make(map[string][]string)
+	repairedContracts := make(map[string]bool)
 	for _, row := range rows {
+		if repaired := splitPackedRoleNames(row.RoleName); len(repaired) > 1 {
+			res[row.Contractid] = append(res[row.Contractid], repaired...)
+			repairedContracts[row.Contractid] = true
+			log.Printf("LoadRoleNames: repaired packed role row for %s into %d role names", row.Contractid, len(repaired))
+			continue
+		}
 		res[row.Contractid] = append(res[row.Contractid], row.RoleName)
 	}
+
+	if len(repairedContracts) > 0 {
+		tx, txErr := dbConn.BeginTx(ctx, nil)
+		if txErr != nil {
+			log.Printf("LoadRoleNames: failed to begin repair transaction: %v", txErr)
+		} else {
+			txQueries := queries.WithTx(tx)
+			repairFailed := false
+			for contractID := range repairedContracts {
+				if err := txQueries.DeleteContractRoles(ctx, contractID); err != nil {
+					log.Printf("LoadRoleNames: failed to clear roles for %s during repair: %v", contractID, err)
+					repairFailed = true
+					break
+				}
+				for _, roleName := range res[contractID] {
+					if err := txQueries.InsertContractRole(ctx, InsertContractRoleParams{
+						Contractid: contractID,
+						RoleName:   roleName,
+					}); err != nil {
+						log.Printf("LoadRoleNames: failed to write repaired role for %s: %v", contractID, err)
+						repairFailed = true
+						break
+					}
+				}
+				if repairFailed {
+					break
+				}
+			}
+
+			if repairFailed {
+				_ = tx.Rollback()
+			} else if err := tx.Commit(); err != nil {
+				log.Printf("LoadRoleNames: failed to commit repair transaction: %v", err)
+			} else {
+				log.Printf("LoadRoleNames: repaired %d contract role record sets", len(repairedContracts))
+			}
+		}
+	}
+
 	return res, nil
 }
 
@@ -566,6 +683,56 @@ var (
 	thematicComplaintsMu  sync.RWMutex
 )
 
+func splitPackedComplaintList(raw string) []string {
+	cleaned := strings.TrimSpace(raw)
+	if cleaned == "" {
+		return nil
+	}
+
+	if !strings.Contains(cleaned, "\",\"") && strings.Count(cleaned, "[player]") < 2 {
+		return nil
+	}
+
+	if strings.HasPrefix(cleaned, "[") {
+		cleaned = strings.TrimPrefix(cleaned, "[")
+	}
+	if strings.HasSuffix(cleaned, "]") {
+		cleaned = strings.TrimSuffix(cleaned, "]")
+	}
+
+	parts := strings.Split(cleaned, "\",\"")
+	if len(parts) == 1 {
+		parts = strings.Split(cleaned, "\", \"")
+	}
+	if len(parts) <= 1 {
+		return nil
+	}
+
+	out := make([]string, 0, len(parts))
+	playerCount := 0
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		part = strings.TrimPrefix(part, "\"")
+		part = strings.TrimSuffix(part, "\"")
+		part = strings.Trim(part, ", ")
+		part = strings.ReplaceAll(part, "\\\"", "\"")
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if strings.Contains(part, "[player]") {
+			playerCount++
+		}
+		out = append(out, part)
+	}
+
+	if len(out) <= 1 || playerCount < 2 {
+		return nil
+	}
+
+	return out
+}
+
 // LoadThematicComplaints loads all contract complaints from the database,
 // using an in-memory cache to match previous behavior.
 func LoadThematicComplaints() (map[string][]string, error) {
@@ -593,8 +760,54 @@ func LoadThematicComplaints() (map[string][]string, error) {
 	}
 
 	res := make(map[string][]string)
+	repairedContracts := make(map[string]bool)
 	for _, row := range rows {
+		if repaired := splitPackedComplaintList(row.Complaint); len(repaired) > 1 {
+			res[row.Contractid] = append(res[row.Contractid], repaired...)
+			repairedContracts[row.Contractid] = true
+			log.Printf("LoadThematicComplaints: repaired packed complaint row for %s into %d complaints", row.Contractid, len(repaired))
+			continue
+		}
+
 		res[row.Contractid] = append(res[row.Contractid], row.Complaint)
+	}
+
+	if len(repairedContracts) > 0 {
+		tx, txErr := dbConn.BeginTx(ctx, nil)
+		if txErr != nil {
+			log.Printf("LoadThematicComplaints: failed to begin repair transaction: %v", txErr)
+		} else {
+			txQueries := queries.WithTx(tx)
+			repairFailed := false
+			for contractID := range repairedContracts {
+				if err := txQueries.DeleteContractComplaints(ctx, contractID); err != nil {
+					log.Printf("LoadThematicComplaints: failed to clear complaints for %s during repair: %v", contractID, err)
+					repairFailed = true
+					break
+				}
+				for _, complaint := range res[contractID] {
+					if err := txQueries.InsertContractComplaint(ctx, InsertContractComplaintParams{
+						Contractid: contractID,
+						Complaint:  complaint,
+					}); err != nil {
+						log.Printf("LoadThematicComplaints: failed to write repaired complaint for %s: %v", contractID, err)
+						repairFailed = true
+						break
+					}
+				}
+				if repairFailed {
+					break
+				}
+			}
+
+			if repairFailed {
+				_ = tx.Rollback()
+			} else if err := tx.Commit(); err != nil {
+				log.Printf("LoadThematicComplaints: failed to commit repair transaction: %v", err)
+			} else {
+				log.Printf("LoadThematicComplaints: repaired %d contract complaint record sets", len(repairedContracts))
+			}
+		}
 	}
 	thematicComplaintsMap = res
 	return res, nil
