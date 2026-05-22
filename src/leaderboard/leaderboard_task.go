@@ -324,7 +324,7 @@ func collectPlayerGroup(s *discordgo.Session, g *playerGroup, snapDate string) {
 		for _, e := range allEntries {
 			SaveLBEntry(e)
 		}
-		log.Printf("leaderboard: saved %d entries globally for user %s (Egg Inc: %s)", len(allEntries), userID, g.eiUserID)
+		log.Printf("leaderboard: saved %d entries globally for user %s", len(allEntries), userID)
 	}
 }
 
