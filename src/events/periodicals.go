@@ -24,6 +24,8 @@ import (
 )
 
 const expectedActiveContracts = 6
+const expectedContractRoleNames = 30
+const expectedContractComplaints = 12
 
 const periodicalsLocationName = "America/Los_Angeles"
 
@@ -392,18 +394,20 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 			log.Print("New Original contract: ", c.ID)
 		}
 		bottools.GenerateBanner(c.ID, c.EggName, c.Name, "", "", "")
-		needTeamNames := len(teamRoleMap[c.ID]) == 0
-		needComplaints := len(complaintsMap[c.ID]) == 0
+		existingTeamNames := teamRoleMap[c.ID]
+		existingComplaints := complaintsMap[c.ID]
+		needTeamNames := len(existingTeamNames) < expectedContractRoleNames
+		needComplaints := len(existingComplaints) < expectedContractComplaints
 
-		if !needTeamNames {
-			c.TeamNames = teamRoleMap[c.ID]
-			currentTeamRoleMap[c.ID] = teamRoleMap[c.ID]
+		if len(existingTeamNames) > 0 {
+			c.TeamNames = existingTeamNames
+			currentTeamRoleMap[c.ID] = existingTeamNames
 		} else {
 			currentTeamRoleMap[c.ID] = nil
 		}
 
-		if !needComplaints {
-			currentComplaintsMap[c.ID] = complaintsMap[c.ID]
+		if len(existingComplaints) > 0 {
+			currentComplaintsMap[c.ID] = existingComplaints
 		} else {
 			currentComplaintsMap[c.ID] = nil
 		}
@@ -516,10 +520,10 @@ func fetchThematicDataAsync(contractID string, contractName string, contractDesc
 	var complaints []string
 
 	if needTeamNames {
-		teamNames = notok.GetContractTeamNames(contractDescription, 30)
+		teamNames = notok.GetContractTeamNames(contractDescription, expectedContractRoleNames)
 	}
 	if needComplaints {
-		complaints = notok.GetContractThematicComplaints(contractName, contractDescription, 12)
+		complaints = notok.GetContractThematicComplaints(contractName, contractDescription, expectedContractComplaints)
 	}
 
 	if len(teamNames) > 0 || len(complaints) > 0 {
