@@ -334,9 +334,15 @@ func PlayerIsOptedIn(guildID, userID, lbType string) bool {
 	if err != nil {
 		return false
 	}
+	targetKey := resolveAlias(lbType)
 	for _, o := range optins {
-		if o.UserID == userID && (resolveAlias(o.LbType) == resolveAlias(lbType) || o.LbType == OptInAll) {
-			return true
+		if o.UserID != userID {
+			continue
+		}
+		for _, optType := range ExpandConfigKey(o.LbType) {
+			if resolveAlias(optType) == targetKey {
+				return true
+			}
 		}
 	}
 	return false
@@ -351,23 +357,30 @@ func GetPlayerOptInTypes(guildID, userID string) []string {
 	if err != nil {
 		return nil
 	}
+	seen := make(map[string]struct{})
 	var out []string
-	isOptInAll := false
 	for _, o := range optins {
 		if o.GuildID == guildID {
 			if o.LbType == OptInAll {
-				isOptInAll = true
-				break
+				keys := make([]string, 0, len(AllLeaderboards))
+				for _, def := range AllLeaderboards {
+					if _, ok := seen[def.Key]; ok {
+						continue
+					}
+					seen[def.Key] = struct{}{}
+					keys = append(keys, def.Key)
+				}
+				return keys
 			}
-			out = append(out, o.LbType)
+			for _, optType := range ExpandConfigKey(o.LbType) {
+				optType = resolveAlias(optType)
+				if _, ok := seen[optType]; ok {
+					continue
+				}
+				seen[optType] = struct{}{}
+				out = append(out, optType)
+			}
 		}
-	}
-	if isOptInAll {
-		keys := make([]string, 0, len(AllLeaderboards))
-		for _, def := range AllLeaderboards {
-			keys = append(keys, def.Key)
-		}
-		return keys
 	}
 	return out
 }
