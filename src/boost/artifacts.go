@@ -895,10 +895,19 @@ func SlashArtifactsCommand(cmd string) *discordgo.ApplicationCommand {
 }
 
 func getInteractionUserID(i *discordgo.InteractionCreate) string {
-	if i.GuildID == "" {
+	if i == nil {
+		return ""
+	}
+	if i.Member != nil && i.Member.User != nil && i.Member.User.ID != "" {
+		return i.Member.User.ID
+	}
+	if i.User != nil && i.User.ID != "" {
 		return i.User.ID
 	}
-	return i.Member.User.ID
+	if i.Message != nil && i.Message.Author != nil {
+		return i.Message.Author.ID
+	}
+	return ""
 }
 
 // HandleArtifactCommand handles the /artifacts command

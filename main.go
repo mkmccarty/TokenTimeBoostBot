@@ -790,6 +790,7 @@ func init() {
 		case discordgo.InteractionApplicationCommand:
 			if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
 				if debugLogging {
+					userID := bottools.GetInteractionUserID(i)
 					options := i.ApplicationCommandData().Options
 					optionMap := make(map[string]string, len(options))
 					for _, opt := range options {
@@ -807,9 +808,9 @@ func init() {
 						}
 					}
 					if i.GuildID != "" {
-						log.Println("Command:", i.ApplicationCommandData().Name, optionMap, i.ChannelID, i.Member.User.ID)
+						log.Println("Command:", i.ApplicationCommandData().Name, optionMap, i.ChannelID, userID)
 					} else {
-						log.Println("Command-DM:", i.ApplicationCommandData().Name, optionMap, i.ChannelID, i.User.ID)
+						log.Println("Command-DM:", i.ApplicationCommandData().Name, optionMap, i.ChannelID, userID)
 					}
 				}
 				h(s, i)
