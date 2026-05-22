@@ -259,11 +259,9 @@ func RunCalculators(
 					orange = int(b.GetCount())
 				}
 			}
-			totalScore := float64(blue*1 + purple*2 + orange*3)
-			if totalScore > 0 {
-				detail := fmt.Sprintf("%d, %d, %d", blue, purple, orange)
-				emit(LBEntry{LBType: LBSoulMirrors, Player: userID, GameName: gameName, SnapDate: snapDate, Value: totalScore, Details: detail})
-			}
+
+			pts := float64(blue + purple*2 + orange*3)
+			emit(LBEntry{LBType: LBSoulMirrors, Player: userID, Value: pts, Details: fmt.Sprintf("(%d, %d, %d)", blue, purple, orange)})
 		}
 	}
 
