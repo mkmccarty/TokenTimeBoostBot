@@ -1127,6 +1127,12 @@ func SlashAdminExitCommand(cmd string) *discordgo.ApplicationCommand {
 
 // HandleAdminExitCommand handles the admin-exit command to gracefully shutdown the bot.
 func HandleAdminExitCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			handleAdminExitPanic(s, i, "HandleAdminExitCommand", recovered)
+		}
+	}()
+
 	if !isAdminCommandCaller(s, i) && !isAdminBotController(s, i) {
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -1152,27 +1158,57 @@ func HandleAdminExitCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 	}
 }
 
-func buildAdminExitResponse(page int) []discordgo.MessageComponent {
-	// Find all active contracts (excluding signup)
-	var activeContracts []*Contract
+func handleAdminExitPanic(s *discordgo.Session, i *discordgo.InteractionCreate, handlerName string, recovered any) {
+	log.Printf("panic in %s: %v\n%s", handlerName, recovered, string(debug.Stack()))
+
+	if s == nil || i == nil || i.Interaction == nil {
+		return
+	}
+
+	message := "Internal error while handling admin-exit. Bot restart was not requested. Please try again."
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: message,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+	if err != nil {
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: message,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		})
+	}
+}
+
+func getActiveContractsForAdminExit(now time.Time) []*Contract {
+	activeContracts := make([]*Contract, 0)
+
 	ContractsMutex.RLock()
-	defer ContractsMutex.RUnlock()
 	for _, c := range Contracts {
 		if c == nil {
 			continue
 		}
-		if c.State != ContractStateCompleted && c.State != ContractStateArchive && c.State != ContractStateSignup {
-			if !c.LastInteractionTime.IsZero() && time.Since(c.LastInteractionTime) > 3*time.Hour {
-				continue
-			}
-			activeContracts = append(activeContracts, c)
+		if c.State == ContractStateCompleted || c.State == ContractStateArchive || c.State == ContractStateSignup {
+			continue
 		}
+		if !c.LastInteractionTime.IsZero() && now.Sub(c.LastInteractionTime) > 3*time.Hour {
+			continue
+		}
+		activeContracts = append(activeContracts, c)
 	}
+	ContractsMutex.RUnlock()
 
 	// Sort active contracts by last interaction time descending (most recently active first)
 	sort.Slice(activeContracts, func(idx, jdx int) bool {
 		return activeContracts[idx].LastInteractionTime.After(activeContracts[jdx].LastInteractionTime)
 	})
+
+	return activeContracts
+}
+
+func buildAdminExitResponse(page int) []discordgo.MessageComponent {
+	activeContracts := getActiveContractsForAdminExit(time.Now())
 
 	runningVer, runningRev, runningTime, diskRev, diskTime := getVersionAndRevisionInfo()
 
@@ -1283,6 +1319,12 @@ func buildAdminExitResponse(page int) []discordgo.MessageComponent {
 
 // HandleAdminExitButton handles the admin-exit button clicks (confirm, cancel, and page navigation).
 func HandleAdminExitButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			handleAdminExitPanic(s, i, "HandleAdminExitButton", recovered)
+		}
+	}()
+
 	if !isAdminCommandCaller(s, i) && !isAdminBotController(s, i) {
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,

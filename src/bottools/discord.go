@@ -20,10 +20,19 @@ const (
 
 // GetInteractionUserID returns the user ID from an interaction, whether in a guild or DM
 func GetInteractionUserID(i *discordgo.InteractionCreate) string {
-	if i.GuildID == "" {
+	if i == nil {
+		return ""
+	}
+	if i.Member != nil && i.Member.User != nil && i.Member.User.ID != "" {
+		return i.Member.User.ID
+	}
+	if i.User != nil && i.User.ID != "" {
 		return i.User.ID
 	}
-	return i.Member.User.ID
+	if i.Message != nil && i.Message.Author != nil {
+		return i.Message.Author.ID
+	}
+	return ""
 }
 
 // NewSmallSeparatorComponent returns a Discord separator component configured with
