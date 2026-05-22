@@ -80,10 +80,10 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, onP
 	}
 
 	UpdateGuildLBConfigMessageIDs(cfg.GuildID, cfg.LBType, newMsgIDs)
-	postChannelUpdateConfirmation(s, cfg.ChannelID, snapDate)
+	postChannelUpdateConfirmation(s, cfg.ChannelID)
 }
 
-func postChannelUpdateConfirmation(s *discordgo.Session, channelID string, snapDate string) {
+func postChannelUpdateConfirmation(s *discordgo.Session, channelID string) {
 	content := "✅ Leaderboards updated."
 	msg, err := s.ChannelMessageSend(channelID, content)
 	if err != nil {
