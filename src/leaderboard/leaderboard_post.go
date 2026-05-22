@@ -54,6 +54,11 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, onP
 		def, ok := LBDefByKey(lbType)
 		if !ok {
 			log.Printf("leaderboard: unknown lb_type %q in group/config for guild %s", lbType, cfg.GuildID)
+			if err := DeleteGuildLBConfig(cfg.GuildID, lbType); err != nil {
+				log.Printf("leaderboard: failed to delete unknown lb_type %q for guild %s: %v", lbType, cfg.GuildID, err)
+			} else {
+				log.Printf("leaderboard: deleted unknown lb_type %q for guild %s", lbType, cfg.GuildID)
+			}
 			continue
 		}
 
