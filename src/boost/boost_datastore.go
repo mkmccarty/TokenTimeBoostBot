@@ -583,6 +583,128 @@ func splitPackedRoleNames(raw string) []string {
 	return nil
 }
 
+func normalizeUniqueStrings(values []string) []string {
+	out := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, v := range values {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			continue
+		}
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	return out
+}
+
+func sameStringSet(a, b []string) bool {
+	aNorm := normalizeUniqueStrings(a)
+	bNorm := normalizeUniqueStrings(b)
+	if len(aNorm) != len(bNorm) {
+		return false
+	}
+	bSet := make(map[string]struct{}, len(bNorm))
+	for _, v := range bNorm {
+		bSet[v] = struct{}{}
+	}
+	for _, v := range aNorm {
+		if _, ok := bSet[v]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func rewriteContractRoleNames(contractID string, roleNames []string) error {
+	if queries == nil {
+		sqliteInit()
+	}
+
+	tx, err := dbConn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	txQueries := queries.WithTx(tx)
+
+	if err := txQueries.DeleteContractRoles(ctx, contractID); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	for _, roleName := range normalizeUniqueStrings(roleNames) {
+		if err := txQueries.InsertContractRole(ctx, InsertContractRoleParams{
+			Contractid: contractID,
+			RoleName:   roleName,
+		}); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+func loadContractRoleNames(contractID string) ([]string, bool, error) {
+	if queries == nil {
+		sqliteInit()
+	}
+
+	rows, err := dbConn.QueryContext(ctx, "SELECT role_name FROM contract_roles WHERE contractID = ? ORDER BY rowid", contractID)
+	if err != nil {
+		return nil, false, err
+	}
+	defer func() {
+		if cerr := rows.Close(); cerr != nil {
+			log.Printf("loadContractRoleNames: failed to close rows for %s: %v", contractID, cerr)
+		}
+	}()
+
+	out := make([]string, 0)
+	repaired := false
+	for rows.Next() {
+		var roleName string
+		if err := rows.Scan(&roleName); err != nil {
+			return nil, false, err
+		}
+
+		if split := splitPackedRoleNames(roleName); len(split) > 1 {
+			out = append(out, split...)
+			repaired = true
+			continue
+		}
+
+		out = append(out, roleName)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, false, err
+	}
+
+	out = normalizeUniqueStrings(out)
+	return out, repaired, nil
+}
+
+// GetRoleNamesForContract returns role names for one contract without loading the full role map.
+func GetRoleNamesForContract(contractID string) ([]string, error) {
+	roleNames, repaired, err := loadContractRoleNames(contractID)
+	if err != nil {
+		return nil, err
+	}
+
+	if repaired {
+		if err := rewriteContractRoleNames(contractID, roleNames); err != nil {
+			log.Printf("GetRoleNamesForContract: failed to persist repaired role names for %s: %v", contractID, err)
+		} else {
+			log.Printf("GetRoleNamesForContract: repaired packed role rows for %s", contractID)
+		}
+	}
+
+	return roleNames, nil
+}
+
 // LoadRoleNames loads all contract roles from the database
 func LoadRoleNames() (map[string][]string, error) {
 	if queries == nil {
@@ -651,19 +773,43 @@ func SaveRoleNames(data map[string][]string) {
 	if queries == nil {
 		sqliteInit()
 	}
-	tx, err := dbConn.BeginTx(ctx, nil)
-	if err != nil {
-		log.Printf("SaveRoleNames: failed to begin transaction: %v", err)
-		return
+
+	var tx *sql.Tx
+	var txQueries *Queries
+	ensureTx := func() error {
+		if tx != nil {
+			return nil
+		}
+		var err error
+		tx, err = dbConn.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		txQueries = queries.WithTx(tx)
+		return nil
 	}
-	txQueries := queries.WithTx(tx)
+
 	for contractID, roles := range data {
+		normalizedRoles := normalizeUniqueStrings(roles)
+		existingRoles, err := GetRoleNamesForContract(contractID)
+		if err == nil && sameStringSet(existingRoles, normalizedRoles) {
+			continue
+		}
+		if err != nil {
+			log.Printf("SaveRoleNames: failed to load existing roles for %s: %v", contractID, err)
+		}
+
+		if err := ensureTx(); err != nil {
+			log.Printf("SaveRoleNames: failed to begin transaction: %v", err)
+			return
+		}
+
 		if err := txQueries.DeleteContractRoles(ctx, contractID); err != nil {
 			_ = tx.Rollback()
 			log.Printf("SaveRoleNames: failed to delete roles for contract %s: %v", contractID, err)
 			return
 		}
-		for _, rName := range roles {
+		for _, rName := range normalizedRoles {
 			err := txQueries.InsertContractRole(ctx, InsertContractRoleParams{
 				Contractid: contractID,
 				RoleName:   rName,
@@ -673,6 +819,11 @@ func SaveRoleNames(data map[string][]string) {
 			}
 		}
 	}
+
+	if tx == nil {
+		return
+	}
+
 	if err := tx.Commit(); err != nil {
 		log.Printf("SaveRoleNames: failed to commit transaction: %v", err)
 	}
@@ -727,6 +878,103 @@ func splitPackedComplaintList(raw string) []string {
 	}
 
 	return out
+}
+
+func rewriteContractComplaints(contractID string, complaints []string) error {
+	if queries == nil {
+		sqliteInit()
+	}
+
+	tx, err := dbConn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	txQueries := queries.WithTx(tx)
+
+	if err := txQueries.DeleteContractComplaints(ctx, contractID); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	for _, complaint := range normalizeUniqueStrings(complaints) {
+		if err := txQueries.InsertContractComplaint(ctx, InsertContractComplaintParams{
+			Contractid: contractID,
+			Complaint:  complaint,
+		}); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+func loadContractComplaints(contractID string) ([]string, bool, error) {
+	if queries == nil {
+		sqliteInit()
+	}
+
+	rows, err := dbConn.QueryContext(ctx, "SELECT complaint FROM contract_complaints WHERE contractID = ? ORDER BY rowid", contractID)
+	if err != nil {
+		return nil, false, err
+	}
+	defer func() {
+		if cerr := rows.Close(); cerr != nil {
+			log.Printf("loadContractComplaints: failed to close rows for %s: %v", contractID, cerr)
+		}
+	}()
+
+	out := make([]string, 0)
+	repaired := false
+	for rows.Next() {
+		var complaint string
+		if err := rows.Scan(&complaint); err != nil {
+			return nil, false, err
+		}
+
+		if split := splitPackedComplaintList(complaint); len(split) > 1 {
+			out = append(out, split...)
+			repaired = true
+			continue
+		}
+
+		out = append(out, complaint)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, false, err
+	}
+
+	out = normalizeUniqueStrings(out)
+	return out, repaired, nil
+}
+
+// GetThematicComplaintsForContract returns complaints for one contract without loading the full complaint map.
+func GetThematicComplaintsForContract(contractID string) ([]string, error) {
+	thematicComplaintsMu.RLock()
+	if thematicComplaintsMap != nil {
+		if cached, ok := thematicComplaintsMap[contractID]; ok {
+			out := append([]string(nil), cached...)
+			thematicComplaintsMu.RUnlock()
+			return out, nil
+		}
+	}
+	thematicComplaintsMu.RUnlock()
+
+	complaints, repaired, err := loadContractComplaints(contractID)
+	if err != nil {
+		return nil, err
+	}
+
+	if repaired {
+		if err := rewriteContractComplaints(contractID, complaints); err != nil {
+			log.Printf("GetThematicComplaintsForContract: failed to persist repaired complaints for %s: %v", contractID, err)
+		} else {
+			log.Printf("GetThematicComplaintsForContract: repaired packed complaint rows for %s", contractID)
+		}
+	}
+
+	return complaints, nil
 }
 
 // LoadThematicComplaints loads all contract complaints from the database,
@@ -812,26 +1060,46 @@ func LoadThematicComplaints() (map[string][]string, error) {
 // SaveThematicComplaints saves contract complaints to the database.
 // It deletes existing complaints for the given contract IDs and inserts the new ones in a transaction.
 func SaveThematicComplaints(data map[string][]string) error {
-	thematicComplaintsMu.Lock()
-	thematicComplaintsMap = nil // Invalidate cache so that next Load loads all complaints from DB
-	thematicComplaintsMu.Unlock()
-
 	if queries == nil {
 		sqliteInit()
 	}
 
-	tx, err := dbConn.BeginTx(ctx, nil)
-	if err != nil {
-		return err
+	var tx *sql.Tx
+	var txQueries *Queries
+	ensureTx := func() error {
+		if tx != nil {
+			return nil
+		}
+		var err error
+		tx, err = dbConn.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		txQueries = queries.WithTx(tx)
+		return nil
 	}
-	txQueries := queries.WithTx(tx)
+
+	changed := false
 
 	for contractID, complaints := range data {
+		normalizedComplaints := normalizeUniqueStrings(complaints)
+		existingComplaints, err := GetThematicComplaintsForContract(contractID)
+		if err == nil && sameStringSet(existingComplaints, normalizedComplaints) {
+			continue
+		}
+		if err != nil {
+			log.Printf("SaveThematicComplaints: failed to load existing complaints for %s: %v", contractID, err)
+		}
+
+		if err := ensureTx(); err != nil {
+			return err
+		}
+
 		if err := txQueries.DeleteContractComplaints(ctx, contractID); err != nil {
 			_ = tx.Rollback()
 			return err
 		}
-		for _, complaint := range complaints {
+		for _, complaint := range normalizedComplaints {
 			err := txQueries.InsertContractComplaint(ctx, InsertContractComplaintParams{
 				Contractid: contractID,
 				Complaint:  complaint,
@@ -840,7 +1108,22 @@ func SaveThematicComplaints(data map[string][]string) error {
 				log.Printf("SaveThematicComplaints: failed to insert complaint %s for %s: %v", complaint, contractID, err)
 			}
 		}
+		changed = true
 	}
 
-	return tx.Commit()
+	if tx == nil {
+		return nil
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	if changed {
+		thematicComplaintsMu.Lock()
+		thematicComplaintsMap = nil // Invalidate cache so next Load reflects updates
+		thematicComplaintsMu.Unlock()
+	}
+
+	return nil
 }
