@@ -76,7 +76,7 @@ var (
 // RunLeaderboardCollection is the main weekly entry point. It fans out API
 // calls through a bounded worker pool, saves results, then posts to Discord.
 // Pass dryRun=true to skip the Discord post step.
-func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, guildID string, onProgress func(string)) {
+func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, guildID string, target string, action string, onProgress func(string)) {
 	collectionMu.Lock()
 	if collectionRunning {
 		collectionMu.Unlock()
@@ -232,7 +232,7 @@ func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, guildID string,
 	}
 
 	if !dryRun {
-		PostLeaderboards(s, snapDate, guildID, onProgress)
+		PostLeaderboards(s, snapDate, guildID, target, action, onProgress)
 	} else {
 		log.Println("leaderboard: dry run — skipping Discord post")
 		if onProgress != nil {
@@ -332,6 +332,6 @@ func collectPlayerGroup(s *discordgo.Session, g *playerGroup, snapDate string) {
 // Call this from tasks.ExecuteCronJob.
 func ScheduleWeeklyCollection(s *discordgo.Session) {
 	scheduleWeeklyFriday(15, 0, func() {
-		RunLeaderboardCollection(s, false, "", nil)
+		RunLeaderboardCollection(s, false, "", "", "update", nil)
 	})
 }

@@ -75,6 +75,24 @@ func GetSlashAdminLBCommand(cmd string) *discordgo.ApplicationCommand {
 						Description: "Collect data but skip posting to Discord.",
 						Required:    false,
 					},
+					{
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         "target",
+						Description:  "Select any group or single leaderboard to update",
+						Required:     false,
+						Autocomplete: true,
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionString,
+						Name:        "action",
+						Description: "Update behavior for Discord messages",
+						Required:    false,
+						Choices: []*discordgo.ApplicationCommandOptionChoice{
+							{Name: "Update Original Messages", Value: "update"},
+							{Name: "Bump Messages", Value: "bump"},
+							{Name: "New Messages", Value: "new"},
+						},
+					},
 				},
 			},
 		},
@@ -429,12 +447,20 @@ func handleRun(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*dis
 	}
 
 	dryRun := false
+	target := ""
+	action := "update"
 	optMap := optionMap(opts)
 	if opt, ok := optMap["dry-run"]; ok {
 		dryRun = opt.BoolValue()
 	}
+	if opt, ok := optMap["target"]; ok {
+		target = opt.StringValue()
+	}
+	if opt, ok := optMap["action"]; ok {
+		action = opt.StringValue()
+	}
 
-	estimate := buildRunEstimate(i.GuildID, dryRun)
+	estimate := buildRunEstimate(i.GuildID, dryRun, target)
 	estimateText := estimate.line(false)
 
 	// Immediate response to confirm we're starting.
@@ -457,7 +483,7 @@ func handleRun(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*dis
 	}
 
 	go func() {
-		RunLeaderboardCollection(s, dryRun, i.GuildID, onProgress)
+		RunLeaderboardCollection(s, dryRun, i.GuildID, target, action, onProgress)
 		msg := "✅ Leaderboard collection run complete."
 		if dryRun {
 			msg = "✅ Dry run complete — data collected, Discord post skipped."
@@ -500,7 +526,7 @@ func (e *runEstimate) line(completed bool) string {
 	return fmt.Sprintf("-# Estimate: %d records to print, %ds remaining scheduled posting delays, earliest finish around %s.", e.recordCount, remaining, etaFinish)
 }
 
-func buildRunEstimate(guildID string, dryRun bool) *runEstimate {
+func buildRunEstimate(guildID string, dryRun bool, target string) *runEstimate {
 	if dryRun {
 		return &runEstimate{dryRun: true, available: true, startedAt: time.Now()}
 	}
@@ -515,12 +541,23 @@ func buildRunEstimate(guildID string, dryRun bool) *runEstimate {
 	}
 
 	recordCount := 0
+	configCount := 0
+	targetSet := targetMemberSet(target)
 	for _, cfg := range configs {
-		recordCount += len(ExpandConfigKey(cfg.LBType))
+		members := ExpandConfigKey(cfg.LBType)
+		if !intersectsTarget(members, targetSet) {
+			continue
+		}
+		for _, member := range members {
+			if shouldProcessMember(member, targetSet) {
+				recordCount++
+			}
+		}
+		configCount++
 	}
 
 	// Posting currently waits 1s after each metric and 2s after each guild config.
-	delaySeconds := recordCount + (2 * len(configs))
+	delaySeconds := recordCount + (2 * configCount)
 
 	return &runEstimate{
 		available:    true,
@@ -570,17 +607,51 @@ func optInRaw(guildID, userID string) string {
 	return strings.Join(types, ",")
 }
 
-// groupMemberKeys is the set of individual lb_type keys that belong to at least
-// one group. Built once at package init so the autocomplete can skip them.
-var groupMemberKeys = func() map[string]struct{} {
-	m := make(map[string]struct{})
+// lbGroupsByKey maps individual leaderboard keys to the short labels of groups
+// they belong to (for autocomplete display tags like "(CS,MISC)").
+var lbGroupsByKey = func() map[string][]string {
+	m := make(map[string][]string)
 	for _, g := range AllGroups {
+		abbr := shortGroupLabel(g)
 		for _, k := range g.Members {
-			m[k] = struct{}{}
+			m[k] = append(m[k], abbr)
 		}
 	}
 	return m
 }()
+
+func shortGroupLabel(g LBGroup) string {
+	switch g.Key {
+	case "group_core":
+		return "CORE"
+	case "group_cs_stats":
+		return "CS"
+	case "group_misc":
+		return "MISC"
+	case "group_virtue_eggs":
+		return "VIRTUE"
+	case "group_ships_std":
+		return "SHIP_STD"
+	case "group_ships_virtue":
+		return "SHIP_VIRTUE"
+	default:
+		if g.DisplayName == "" {
+			return "GROUP"
+		}
+		parts := strings.Fields(g.DisplayName)
+		if len(parts) == 0 {
+			return "GROUP"
+		}
+		return strings.ToUpper(parts[0])
+	}
+}
+
+func leaderboardChoiceName(def LBDef) string {
+	if groups := lbGroupsByKey[def.Key]; len(groups) > 0 {
+		return fmt.Sprintf("%s (%s)", def.DisplayName, strings.Join(groups, ","))
+	}
+	return def.DisplayName
+}
 
 // HandleAdminLBAutoComplete handles autocomplete for the /admin-lb command.
 func HandleAdminLBAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -671,21 +742,19 @@ func buildAutocompleteChoices(partial string, isPlayerCmd bool) []*discordgo.App
 		}
 	}
 
+	if partial == "" {
+		return choices
+	}
+
 	// Individual types.
 	for _, def := range AllLeaderboards {
 		if len(choices) >= maxChoices {
 			break
 		}
-		// In admin commands, hide types that are covered by groups to declutter.
-		// In player commands, show everything.
-		if !isPlayerCmd {
-			if _, inGroup := groupMemberKeys[def.Key]; inGroup {
-				continue
-			}
-		}
-		if matches(def.DisplayName, def.Key) {
+		choiceName := leaderboardChoiceName(def)
+		if matches(choiceName, def.Key) {
 			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-				Name:  def.DisplayName,
+				Name:  choiceName,
 				Value: def.Key,
 			})
 		}

@@ -43,6 +43,21 @@ func (q *Queries) ClearExtraLegacyRecords(ctx context.Context) error {
 	return err
 }
 
+const deleteAllLeaderboardExclusionsForUserInGuild = `-- name: DeleteAllLeaderboardExclusionsForUserInGuild :exec
+DELETE FROM leaderboard_exclusion
+WHERE guild_id = ? AND user_id = ?
+`
+
+type DeleteAllLeaderboardExclusionsForUserInGuildParams struct {
+	GuildID string
+	UserID  string
+}
+
+func (q *Queries) DeleteAllLeaderboardExclusionsForUserInGuild(ctx context.Context, arg DeleteAllLeaderboardExclusionsForUserInGuildParams) error {
+	_, err := q.db.ExecContext(ctx, deleteAllLeaderboardExclusionsForUserInGuild, arg.GuildID, arg.UserID)
+	return err
+}
+
 const deleteAllLeaderboardOptInsForUserInGuild = `-- name: DeleteAllLeaderboardOptInsForUserInGuild :exec
 DELETE FROM leaderboard_optin
 WHERE guild_id = ? AND user_id = ?
@@ -108,6 +123,22 @@ DELETE FROM timers WHERE active = 0
 
 func (q *Queries) DeleteInactiveTimers(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, deleteInactiveTimers)
+	return err
+}
+
+const deleteLeaderboardExclusion = `-- name: DeleteLeaderboardExclusion :exec
+DELETE FROM leaderboard_exclusion
+WHERE guild_id = ? AND user_id = ? AND lb_type = ?
+`
+
+type DeleteLeaderboardExclusionParams struct {
+	GuildID string
+	UserID  string
+	LbType  string
+}
+
+func (q *Queries) DeleteLeaderboardExclusion(ctx context.Context, arg DeleteLeaderboardExclusionParams) error {
+	_, err := q.db.ExecContext(ctx, deleteLeaderboardExclusion, arg.GuildID, arg.UserID, arg.LbType)
 	return err
 }
 
@@ -353,11 +384,47 @@ func (q *Queries) GetLatestLeaderboardSnapDate(ctx context.Context, lbType strin
 	return snap_date, err
 }
 
+const getLeaderboardExclusionsForUser = `-- name: GetLeaderboardExclusionsForUser :many
+SELECT guild_id, lb_type FROM leaderboard_exclusion
+WHERE user_id = ?
+`
+
+type GetLeaderboardExclusionsForUserRow struct {
+	GuildID string
+	LbType  string
+}
+
+// Returns all (guild_id, lb_type) exclusion pairs for a given user.
+func (q *Queries) GetLeaderboardExclusionsForUser(ctx context.Context, userID string) ([]GetLeaderboardExclusionsForUserRow, error) {
+	rows, err := q.db.QueryContext(ctx, getLeaderboardExclusionsForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetLeaderboardExclusionsForUserRow
+	for rows.Next() {
+		var i GetLeaderboardExclusionsForUserRow
+		if err := rows.Scan(&i.GuildID, &i.LbType); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getLeaderboardForSnapDate = `-- name: GetLeaderboardForSnapDate :many
 SELECT DISTINCT s.player, s.game_name, s.value, s.details
 FROM leaderboard_stats s
 JOIN leaderboard_optin o ON s.player = o.user_id AND (o.lb_type = s.lb_type OR o.lb_type = 'all')
+LEFT JOIN leaderboard_exclusion excl ON s.player = excl.user_id AND excl.guild_id = o.guild_id AND excl.lb_type = s.lb_type
 WHERE s.lb_type = ? AND o.guild_id = ? AND s.snap_date = ?
+  AND excl.user_id IS NULL
 ORDER BY s.value DESC
 `
 
@@ -618,7 +685,9 @@ const getStatsForPlayerInGuild = `-- name: GetStatsForPlayerInGuild :many
 SELECT DISTINCT s.lb_type, s.player, s.game_name, s.snap_date, s.value, s.details
 FROM leaderboard_stats s
 JOIN leaderboard_optin o ON s.player = o.user_id AND (o.lb_type = s.lb_type OR o.lb_type = 'all')
+LEFT JOIN leaderboard_exclusion excl ON s.player = excl.user_id AND excl.guild_id = o.guild_id AND excl.lb_type = s.lb_type
 WHERE s.player = ? AND o.guild_id = ?
+  AND excl.user_id IS NULL
 ORDER BY s.lb_type ASC, s.snap_date DESC
 `
 
@@ -962,6 +1031,23 @@ type UpsertCustomBannerParams struct {
 
 func (q *Queries) UpsertCustomBanner(ctx context.Context, arg UpsertCustomBannerParams) error {
 	_, err := q.db.ExecContext(ctx, upsertCustomBanner, arg.UserID, arg.GuildID, arg.ImageData)
+	return err
+}
+
+const upsertLeaderboardExclusion = `-- name: UpsertLeaderboardExclusion :exec
+INSERT INTO leaderboard_exclusion (guild_id, user_id, lb_type)
+VALUES (?, ?, ?)
+ON CONFLICT(guild_id, user_id, lb_type) DO NOTHING
+`
+
+type UpsertLeaderboardExclusionParams struct {
+	GuildID string
+	UserID  string
+	LbType  string
+}
+
+func (q *Queries) UpsertLeaderboardExclusion(ctx context.Context, arg UpsertLeaderboardExclusionParams) error {
+	_, err := q.db.ExecContext(ctx, upsertLeaderboardExclusion, arg.GuildID, arg.UserID, arg.LbType)
 	return err
 }
 

@@ -27,6 +27,12 @@ type FarmerState struct {
 	Value sql.NullString
 }
 
+type LeaderboardExclusion struct {
+	GuildID string
+	UserID  string
+	LbType  string
+}
+
 type LeaderboardOptin struct {
 	GuildID string
 	UserID  string

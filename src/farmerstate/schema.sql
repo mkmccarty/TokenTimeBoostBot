@@ -76,3 +76,10 @@ CREATE TABLE IF NOT EXISTS leaderboard_optin (
     lb_type  TEXT NOT NULL,  -- lb_type key or "all"
     PRIMARY KEY (guild_id, user_id, lb_type)
 );
+
+CREATE TABLE IF NOT EXISTS leaderboard_exclusion (
+    guild_id TEXT NOT NULL,
+    user_id  TEXT NOT NULL,
+    lb_type  TEXT NOT NULL,
+    PRIMARY KEY (guild_id, user_id, lb_type)
+);
