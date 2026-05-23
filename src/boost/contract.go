@@ -48,10 +48,11 @@ func GetSlashContractCommand(cmd string) *discordgo.ApplicationCommand {
 				Autocomplete: true,
 			},
 			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "coop-id",
-				Description: "Coop ID",
-				Required:    true,
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "coop-id",
+				Description:  "Coop ID",
+				Required:     true,
+				Autocomplete: true,
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionInteger,

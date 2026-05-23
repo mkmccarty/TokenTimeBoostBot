@@ -52,6 +52,9 @@ const eggIncTokenComplaintsFile string = "ttbb-data/token-complaints.json"
 const eggIncStatusMessagesURL string = "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/refs/heads/main/data/status-messages.json"
 const eggIncStatusMessagesFile string = "ttbb-data/status-messages.json"
 
+const eggscapeCoopIDURL string = "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/refs/heads/main/data/eggscape-coopid.json"
+const eggscapeCoopIDFile string = "ttbb-data/coopid-eggscape.json"
+
 var lastContractUpdate time.Time
 var lastEventUpdate time.Time
 
@@ -166,6 +169,7 @@ func HandleForceDownloadCommand(s *discordgo.Session, i *discordgo.InteractionCr
 		dl(eggIncEiResearchesURL, eggIncEiResearchesFile)
 		dl(eggIncTokenComplaintsURL, eggIncTokenComplaintsFile)
 		dl(eggIncStatusMessagesURL, eggIncStatusMessagesFile)
+		dl(eggscapeCoopIDURL, eggscapeCoopIDFile)
 	case "images":
 		_ = os.Remove(config.BannerPath + "/.last_scan")
 		if err := bottools.DownloadLatestEggImages(config.BannerPath); err != nil {
@@ -539,6 +543,8 @@ func downloadEggIncData(urlStr string, filename string, force bool, maxAge time.
 		ei.LoadTokenComplaints(filename)
 	case eggIncStatusMessagesFile:
 		ei.LoadStatusMessages(filename)
+	case eggscapeCoopIDFile:
+		boost.LoadEggscapeCoopIDs(filename)
 	}
 	return true
 }
@@ -786,6 +792,10 @@ func ExecuteCronJob(s *discordgo.Session) {
 
 	if !downloadEggIncData(eggIncStatusMessagesURL, eggIncStatusMessagesFile, false, rareFetchInterval()) {
 		ei.LoadStatusMessages(eggIncStatusMessagesFile)
+	}
+
+	if !downloadEggIncData(eggscapeCoopIDURL, eggscapeCoopIDFile, false, rareFetchInterval()) {
+		boost.LoadEggscapeCoopIDs(eggscapeCoopIDFile)
 	}
 
 	events.GetPeriodicalsFromAPI(s)
