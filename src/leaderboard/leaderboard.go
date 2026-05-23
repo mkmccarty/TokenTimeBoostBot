@@ -165,7 +165,7 @@ func init() {
 
 	// Keys are int32 (ship ID), values are string (ship name)
 	// We'll iterate in order 1-10
-	for i := int32(1); i <= 10; i++ {
+	for i := int32(0); i <= 10; i++ {
 		name, ok := ei.ShipTypeName[i]
 		if !ok {
 			continue
