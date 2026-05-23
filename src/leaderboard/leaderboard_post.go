@@ -17,8 +17,39 @@ import (
 const discordMessageCharLimit = 1900
 const leaderboardUpdateConfirmationTTL = 1 * time.Minute
 
+func targetMemberSet(target string) map[string]struct{} {
+	if target == "" {
+		return nil
+	}
+	m := make(map[string]struct{})
+	for _, k := range ExpandConfigKey(target) {
+		m[k] = struct{}{}
+	}
+	return m
+}
+
+func intersectsTarget(memberKeys []string, targetSet map[string]struct{}) bool {
+	if len(targetSet) == 0 {
+		return true
+	}
+	for _, k := range memberKeys {
+		if _, ok := targetSet[k]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func shouldProcessMember(lbType string, targetSet map[string]struct{}) bool {
+	if len(targetSet) == 0 {
+		return true
+	}
+	_, ok := targetSet[lbType]
+	return ok
+}
+
 // PostLeaderboards triggers the posting task for all configured guilds (or a specific guild if guildID is provided).
-func PostLeaderboards(s *discordgo.Session, snapDate string, guildID string, onProgress func(string)) {
+func PostLeaderboards(s *discordgo.Session, snapDate string, guildID string, target string, action string, onProgress func(string)) {
 	var configs []LBConfig
 	var err error
 	if guildID != "" {
@@ -31,11 +62,22 @@ func PostLeaderboards(s *discordgo.Session, snapDate string, guildID string, onP
 		return
 	}
 
+	targetSet := targetMemberSet(target)
+
+	var filteredConfigs []LBConfig
+	for _, cfg := range configs {
+		if !intersectsTarget(ExpandConfigKey(cfg.LBType), targetSet) {
+			continue
+		}
+		filteredConfigs = append(filteredConfigs, cfg)
+	}
+	configs = filteredConfigs
+
 	for i, cfg := range configs {
 		if onProgress != nil {
 			onProgress(fmt.Sprintf("📬 Posting leaderboards to guild %d/%d (%s)...", i+1, len(configs), cfg.GuildID))
 		}
-		postOneLeaderboard(s, cfg, snapDate, onProgress)
+		postOneLeaderboard(s, cfg, snapDate, targetSet, action, onProgress)
 		time.Sleep(2 * time.Second) // Gap between guilds to leave room for other bot activities
 	}
 	if onProgress != nil {
@@ -44,13 +86,32 @@ func PostLeaderboards(s *discordgo.Session, snapDate string, guildID string, onP
 }
 
 // postOneLeaderboard handles the expanded posting of a single config (which might be a group).
-func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, onProgress func(string)) {
+func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, targetSet map[string]struct{}, action string, onProgress func(string)) {
 	memberKeys := ExpandConfigKey(cfg.LBType)
 	var newMsgIDs []string
 	msgIDOffset := 0
 	forceNewPosts := false
 
+	if action == "bump" {
+		forceNewPosts = true
+	} else if action == "new" {
+		forceNewPosts = true
+		if len(targetSet) == 0 {
+			cfg.MessageIDs = nil
+		}
+	}
+
 	for _, lbType := range memberKeys {
+		if !shouldProcessMember(lbType, targetSet) {
+			existingID := ""
+			if msgIDOffset < len(cfg.MessageIDs) {
+				existingID = cfg.MessageIDs[msgIDOffset]
+			}
+			newMsgIDs = append(newMsgIDs, existingID)
+			msgIDOffset++
+			continue
+		}
+
 		def, ok := LBDefByKey(lbType)
 		if !ok {
 			log.Printf("leaderboard: unknown lb_type %q in group/config for guild %s", lbType, cfg.GuildID)
@@ -71,16 +132,19 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, onP
 	}
 
 	// Clean up any leftover/orphaned messages from the channel that were not reused.
-	newMsgIDsMap := make(map[string]bool)
-	for _, id := range newMsgIDs {
-		if id != "" {
-			newMsgIDsMap[id] = true
+	// For "new" action we intentionally keep old messages and only post fresh ones.
+	if action != "new" {
+		newMsgIDsMap := make(map[string]bool)
+		for _, id := range newMsgIDs {
+			if id != "" {
+				newMsgIDsMap[id] = true
+			}
 		}
-	}
-	for _, oldID := range cfg.MessageIDs {
-		if oldID != "" && !newMsgIDsMap[oldID] {
-			log.Printf("leaderboard: deleting orphaned message %s in channel %s", oldID, cfg.ChannelID)
-			_ = s.ChannelMessageDelete(cfg.ChannelID, oldID)
+		for _, oldID := range cfg.MessageIDs {
+			if oldID != "" && !newMsgIDsMap[oldID] {
+				log.Printf("leaderboard: deleting orphaned message %s in channel %s", oldID, cfg.ChannelID)
+				_ = s.ChannelMessageDelete(cfg.ChannelID, oldID)
+			}
 		}
 	}
 
