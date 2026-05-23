@@ -32,7 +32,7 @@ const (
 	LBTETotal        = "te_total"
 	LBCTETotal       = "cte_total"
 	LBCXPWeeklyDelta = "cxp_weekly"
-
+	//LBAAASoloDuration = "aaa_solo_duration"
 	LBEggsCuriosity  = "egg_curiosity"
 	LBEggsIntegrity  = "egg_integrity"
 	LBEggsHumility   = "egg_humility"
@@ -109,6 +109,7 @@ var AllLeaderboards = []LBDef{
 	{Key: LBSoulMirrors, DisplayName: "Soul Mirrors", HeaderName: "Score", Description: "Score based on soul mirror inventory of Common, Epic & Legendary worth 1, 2, or 3 points respectively (tokens needed to burn them).", ValueFmt: "int", HigherIsBetter: false, Source: SourceFirstContact},
 	{Key: LBContractExp, DisplayName: "Contract Score", HeaderName: "CS", Description: "Total experience earned from contracts.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceBoth},
 	{Key: LBCXPWeeklyDelta, DisplayName: "Weekly CS", Description: "CXP earned since last collection.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceContractArchive},
+	//{Key: LBAAASoloDuration, DisplayName: "AAA Solo Duration", HeaderName: "Duration", Description: "Shortest duration across all solo grade AAA contracts.", ValueFmt: "duration", HigherIsBetter: false, Source: SourceContractArchive},
 	{Key: LBEggsCuriosity, DisplayName: "Curiosity Eggs Delivered", Description: "Curiosity deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBEggsIntegrity, DisplayName: "Integrity Eggs Delivered", Description: "Integrity deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBEggsHumility, DisplayName: "Humility Eggs Delivered", Description: "Humility deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
@@ -162,7 +163,7 @@ func init() {
 	virtueGroupShipsMembers := []string{}
 
 	// Keys are int32 (ship ID), values are string (ship name)
-	// We'll iterate in order 1-10 (skipping tutorial ship 0)
+	// We'll iterate in order 1-10
 	for i := int32(1); i <= 10; i++ {
 		name, ok := ei.ShipTypeName[i]
 		if !ok {
@@ -174,38 +175,34 @@ func init() {
 
 		// Map specific IDs to our constants for compatibility
 		switch i {
-		case 0: // Skip tutorial
 		case 1:
-			stdKey = LBShipStdChicken1
-			virtueKey = LBShipChicken1
-		case 2:
 			stdKey = LBShipStdChicken9
 			virtueKey = LBShipChicken9
-		case 3:
+		case 2:
 			stdKey = LBShipStdChickenHeavy
 			virtueKey = LBShipChickenHeavy
-		case 4:
+		case 3:
 			stdKey = LBShipStdBCR
 			virtueKey = LBShipBCR
-		case 5:
+		case 4:
 			stdKey = LBShipStdMilleniumChicken
 			virtueKey = LBShipMilleniumChicken
-		case 6:
+		case 5:
 			stdKey = LBShipStdCorellihenCorvette
 			virtueKey = LBShipCorellihenCorvette
-		case 7:
+		case 6:
 			stdKey = LBShipStdGaleggtica
 			virtueKey = LBShipGaleggtica
-		case 8:
+		case 7:
 			stdKey = LBShipStdDefihent
 			virtueKey = LBShipDefihent
-		case 9:
+		case 8:
 			stdKey = LBShipStdVoyegger
-			virtueKey = LBShipStdVoyegger
-		case 10:
+			virtueKey = LBShipVoyegger
+		case 9:
 			stdKey = LBShipStdHenerprise
 			virtueKey = LBShipHenerprise
-		case 11:
+		case 10:
 			stdKey = LBShipStdAtreggies
 			virtueKey = LBShipAtreggies
 		}
