@@ -69,13 +69,14 @@ const (
 
 // LBDef defines a single leaderboard metric.
 type LBDef struct {
-	Key            string
-	DisplayName    string
-	HeaderName     string // optional column header override for posting (defaults to DisplayName)
-	Description    string
-	ValueFmt       string // "int", "float", "ei", "eb", "cxp"
-	HigherIsBetter bool
-	Source         LBSource
+	Key              string
+	DisplayName      string
+	HeaderName       string // optional column header override for posting (defaults to DisplayName)
+	Description      string
+	ValueFmt         string // "int", "float", "ei", "eb", "cxp"
+	HigherIsBetter   bool
+	Source           LBSource
+	RetainRecentOnly bool // Only keep the most recent set of LB records
 }
 
 // LBSource represents the backend data source required to calculate a metric.
@@ -175,6 +176,9 @@ func init() {
 
 		// Map specific IDs to our constants for compatibility
 		switch i {
+		case 0:
+			stdKey = LBShipStdChicken1
+			virtueKey = LBShipChicken1
 		case 1:
 			stdKey = LBShipStdChicken9
 			virtueKey = LBShipChicken9
@@ -208,22 +212,24 @@ func init() {
 		}
 
 		AllLeaderboards = append(AllLeaderboards, LBDef{
-			Key:            stdKey,
-			DisplayName:    name,
-			Description:    fmt.Sprintf("Total launches for the %s.", name),
-			ValueFmt:       "int",
-			HigherIsBetter: true,
-			Source:         SourceFirstContact,
+			Key:              stdKey,
+			DisplayName:      name,
+			Description:      fmt.Sprintf("Total launches for the %s.", name),
+			ValueFmt:         "int",
+			HigherIsBetter:   true,
+			Source:           SourceFirstContact,
+			RetainRecentOnly: true,
 		})
 		standardGroupMembers = append(standardGroupMembers, stdKey)
 
 		AllLeaderboards = append(AllLeaderboards, LBDef{
-			Key:            virtueKey,
-			DisplayName:    "Virtue " + name,
-			Description:    fmt.Sprintf("Total virtue launches for the %s.", name),
-			ValueFmt:       "int",
-			HigherIsBetter: true,
-			Source:         SourceFirstContact,
+			Key:              virtueKey,
+			DisplayName:      "Virtue " + name,
+			Description:      fmt.Sprintf("Total virtue launches for the %s.", name),
+			ValueFmt:         "int",
+			HigherIsBetter:   true,
+			Source:           SourceFirstContact,
+			RetainRecentOnly: true,
 		})
 		virtueGroupShipsMembers = append(virtueGroupShipsMembers, virtueKey)
 	}
@@ -610,6 +616,11 @@ type LBEntry struct {
 func SaveLBEntry(e LBEntry) {
 	if err := farmerstate.UpsertLeaderboardStat(e.LBType, e.Player, e.GameName, e.SnapDate, e.Value, sql.NullString{String: e.Details, Valid: e.Details != ""}); err != nil {
 		log.Printf("leaderboard: save stat %s/%s: %v", e.LBType, e.Player, err)
+	}
+
+	// Prune older entries if this leaderboard should only retain the most recent records.
+	if def, ok := LBDefByKey(e.LBType); ok && def.RetainRecentOnly {
+		_ = farmerstate.PruneOlderLeaderboardStatsForPlayer(e.LBType, e.Player, e.SnapDate)
 	}
 }
 

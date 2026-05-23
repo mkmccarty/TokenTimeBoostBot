@@ -952,6 +952,23 @@ func (q *Queries) InsertTimer(ctx context.Context, arg InsertTimerParams) error 
 	return err
 }
 
+const pruneOlderLeaderboardStatsForPlayer = `-- name: PruneOlderLeaderboardStatsForPlayer :exec
+DELETE FROM leaderboard_stats
+WHERE lb_type = ? AND player = ? AND snap_date != ?
+`
+
+type PruneOlderLeaderboardStatsForPlayerParams struct {
+	LbType   string
+	Player   string
+	SnapDate string
+}
+
+// Deletes older leaderboard stats for a player if RetainRecentOnly is true.
+func (q *Queries) PruneOlderLeaderboardStatsForPlayer(ctx context.Context, arg PruneOlderLeaderboardStatsForPlayerParams) error {
+	_, err := q.db.ExecContext(ctx, pruneOlderLeaderboardStatsForPlayer, arg.LbType, arg.Player, arg.SnapDate)
+	return err
+}
+
 const removeGuildMembership = `-- name: RemoveGuildMembership :exec
 DELETE FROM farmer_guild_membership 
 WHERE user_id = ? AND guild_id = ?

@@ -216,3 +216,15 @@ func DeleteAllLeaderboardStatsForPlayer(player string) error {
 	_, err := queries.db.ExecContext(ctx, "DELETE FROM leaderboard_stats WHERE player = ?", player)
 	return err
 }
+
+// PruneOlderLeaderboardStatsForPlayer removes older leaderboard stats for a specific player and type.
+func PruneOlderLeaderboardStatsForPlayer(lbType, player, keepSnapDate string) error {
+	if queries == nil {
+		return nil
+	}
+	return queries.PruneOlderLeaderboardStatsForPlayer(ctx, PruneOlderLeaderboardStatsForPlayerParams{
+		LbType:   lbType,
+		Player:   player,
+		SnapDate: keepSnapDate,
+	})
+}
