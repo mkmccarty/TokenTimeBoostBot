@@ -2,7 +2,6 @@ package leaderboard
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
@@ -278,10 +277,6 @@ func RunCalculators(
 			for _, m := range allMissions {
 				ship := int(m.GetShip())
 				if m.GetType() == ei.MissionInfo_VIRTUE {
-					if m.GetShip() == ei.MissionInfo_ATREGGIES {
-						log.Print("Found")
-
-					}
 					virtueCount[ship]++
 				} else {
 					stdCount[ship]++
@@ -290,7 +285,6 @@ func RunCalculators(
 
 			for key, shipIdx := range shipVirtueIndex {
 				if shipIdx == int(ei.MissionInfo_ATREGGIES) {
-					log.Print("Skipping ATREGGIES for leaderboard")
 					// make sure key exists in the map
 					_, ok := virtueCount[shipIdx]
 					if !ok {
