@@ -174,7 +174,9 @@ LIMIT 1;
 SELECT DISTINCT s.player, s.game_name, s.value, s.details
 FROM leaderboard_stats s
 JOIN leaderboard_optin o ON s.player = o.user_id AND (o.lb_type = s.lb_type OR o.lb_type = 'all')
+LEFT JOIN leaderboard_exclusion excl ON s.player = excl.user_id AND excl.guild_id = o.guild_id AND excl.lb_type = s.lb_type
 WHERE s.lb_type = ? AND o.guild_id = ? AND s.snap_date = ?
+  AND excl.user_id IS NULL
 ORDER BY s.value DESC;
 
 -- name: GetLeaderboardStatForPlayer :one
@@ -203,7 +205,9 @@ ORDER BY lb_type ASC, snap_date DESC;
 SELECT DISTINCT s.lb_type, s.player, s.game_name, s.snap_date, s.value, s.details
 FROM leaderboard_stats s
 JOIN leaderboard_optin o ON s.player = o.user_id AND (o.lb_type = s.lb_type OR o.lb_type = 'all')
+LEFT JOIN leaderboard_exclusion excl ON s.player = excl.user_id AND excl.guild_id = o.guild_id AND excl.lb_type = s.lb_type
 WHERE s.player = ? AND o.guild_id = ?
+  AND excl.user_id IS NULL
 ORDER BY s.lb_type ASC, s.snap_date DESC;
 
 -- name: DeleteLeaderboardStatsForPlayer :exec
@@ -213,3 +217,21 @@ WHERE player = ? AND lb_type = ?;
 -- name: DeleteAllLeaderboardStatsForPlayerInGuild :exec
 -- No-op since leaderboard_stats is now global.
 SELECT 1;
+
+-- name: GetLeaderboardExclusionsForUser :many
+-- Returns all (guild_id, lb_type) exclusion pairs for a given user.
+SELECT guild_id, lb_type FROM leaderboard_exclusion
+WHERE user_id = ?;
+
+-- name: UpsertLeaderboardExclusion :exec
+INSERT INTO leaderboard_exclusion (guild_id, user_id, lb_type)
+VALUES (?, ?, ?)
+ON CONFLICT(guild_id, user_id, lb_type) DO NOTHING;
+
+-- name: DeleteLeaderboardExclusion :exec
+DELETE FROM leaderboard_exclusion
+WHERE guild_id = ? AND user_id = ? AND lb_type = ?;
+
+-- name: DeleteAllLeaderboardExclusionsForUserInGuild :exec
+DELETE FROM leaderboard_exclusion
+WHERE guild_id = ? AND user_id = ?;

@@ -153,7 +153,7 @@ func init() {
 		Key:         "group_virtue_eggs",
 		DisplayName: "Virtue Eggs",
 		Members: []string{
-			LBVirtueEggsSum, LBEggsCuriosity, LBEggsIntegrity, LBEggsHumility, LBEggsResilience, LBEggsKindness,
+			LBTETotal, LBCTETotal, LBVirtueShifts, LBVirtueEggsSum, LBEggsCuriosity, LBEggsIntegrity, LBEggsHumility, LBEggsResilience, LBEggsKindness,
 		},
 	})
 
@@ -335,6 +335,14 @@ func PlayerIsOptedIn(guildID, userID, lbType string) bool {
 		return false
 	}
 	targetKey := resolveAlias(lbType)
+
+	exclusions, _ := farmerstate.GetLeaderboardExclusionsForUser(userID)
+	for _, e := range exclusions {
+		if e.GuildID == guildID && resolveAlias(e.LbType) == targetKey {
+			return false
+		}
+	}
+
 	for _, o := range optins {
 		if o.UserID != userID {
 			continue
@@ -357,6 +365,15 @@ func GetPlayerOptInTypes(guildID, userID string) []string {
 	if err != nil {
 		return nil
 	}
+
+	exclusions, _ := farmerstate.GetLeaderboardExclusionsForUser(userID)
+	excludedSet := make(map[string]struct{})
+	for _, e := range exclusions {
+		if e.GuildID == guildID {
+			excludedSet[resolveAlias(e.LbType)] = struct{}{}
+		}
+	}
+
 	seen := make(map[string]struct{})
 	var out []string
 	for _, o := range optins {
@@ -364,6 +381,9 @@ func GetPlayerOptInTypes(guildID, userID string) []string {
 			if o.LbType == OptInAll {
 				keys := make([]string, 0, len(AllLeaderboards))
 				for _, def := range AllLeaderboards {
+					if _, isExcl := excludedSet[def.Key]; isExcl {
+						continue
+					}
 					if _, ok := seen[def.Key]; ok {
 						continue
 					}
@@ -374,6 +394,9 @@ func GetPlayerOptInTypes(guildID, userID string) []string {
 			}
 			for _, optType := range ExpandConfigKey(o.LbType) {
 				optType = resolveAlias(optType)
+				if _, isExcl := excludedSet[optType]; isExcl {
+					continue
+				}
 				if _, ok := seen[optType]; ok {
 					continue
 				}
@@ -394,6 +417,11 @@ func GetAllOptInUserIDs() []string {
 // AddPlayerOptInTypes adds the given types to the player's opt-in list for a guild.
 func AddPlayerOptInTypes(guildID, userID string, types []string) {
 	for _, t := range types {
+		if t == OptInAll {
+			_ = farmerstate.DeleteAllLeaderboardExclusionsForUserInGuild(guildID, userID)
+		} else {
+			_ = farmerstate.DeleteLeaderboardExclusion(guildID, userID, t)
+		}
 		_ = farmerstate.UpsertLeaderboardOptIn(guildID, userID, t)
 	}
 }
@@ -402,10 +430,34 @@ func AddPlayerOptInTypes(guildID, userID string, types []string) {
 func RemovePlayerOptInTypes(guildID, userID string, types []string) {
 	if len(types) == 1 && types[0] == OptInAll {
 		_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, userID)
+		_ = farmerstate.DeleteAllLeaderboardExclusionsForUserInGuild(guildID, userID)
+
+		// If they have no opt-ins left in any guild, delete all stats globally.
+		if len(GetUserOptInGuilds(userID)) == 0 {
+			_ = farmerstate.DeleteAllLeaderboardStatsForPlayer(userID)
+		}
 		return
 	}
 	for _, t := range types {
 		_ = farmerstate.DeleteLeaderboardOptIn(guildID, userID, t)
+		_ = farmerstate.UpsertLeaderboardExclusion(guildID, userID, t)
+
+		// Check if they are still opted into this metric in any other guild.
+		// PlayerIsOptedIn checks exclusions as well.
+		stillOptedIn := false
+		for _, gID := range GetUserOptInGuilds(userID) {
+			if PlayerIsOptedIn(gID, userID, t) {
+				stillOptedIn = true
+				break
+			}
+		}
+
+		// If they are no longer opted into this metric anywhere, delete the collected data.
+		if !stillOptedIn {
+			for _, resolvedType := range ExpandConfigKey(t) {
+				_ = farmerstate.DeleteLeaderboardStatsForPlayer(userID, resolveAlias(resolvedType))
+			}
+		}
 	}
 }
 

@@ -69,6 +69,51 @@ func DeleteAllLeaderboardOptInsForUserInGuild(guildID, userID string) error {
 	})
 }
 
+// ─── Exclusion Management ────────────────────────────────────────────────────
+
+// GetLeaderboardExclusionsForUser returns all (guild_id, lb_type) exclusion pairs for a given user.
+func GetLeaderboardExclusionsForUser(userID string) ([]GetLeaderboardExclusionsForUserRow, error) {
+	if queries == nil {
+		return nil, nil
+	}
+	return queries.GetLeaderboardExclusionsForUser(ctx, userID)
+}
+
+// UpsertLeaderboardExclusion adds a leaderboard exclusion record for a user in a guild.
+func UpsertLeaderboardExclusion(guildID, userID, lbType string) error {
+	if queries == nil {
+		return nil
+	}
+	return queries.UpsertLeaderboardExclusion(ctx, UpsertLeaderboardExclusionParams{
+		GuildID: guildID,
+		UserID:  userID,
+		LbType:  lbType,
+	})
+}
+
+// DeleteLeaderboardExclusion removes a specific leaderboard exclusion record.
+func DeleteLeaderboardExclusion(guildID, userID, lbType string) error {
+	if queries == nil {
+		return nil
+	}
+	return queries.DeleteLeaderboardExclusion(ctx, DeleteLeaderboardExclusionParams{
+		GuildID: guildID,
+		UserID:  userID,
+		LbType:  lbType,
+	})
+}
+
+// DeleteAllLeaderboardExclusionsForUserInGuild removes all exclusions for a user in a specific guild.
+func DeleteAllLeaderboardExclusionsForUserInGuild(guildID, userID string) error {
+	if queries == nil {
+		return nil
+	}
+	return queries.DeleteAllLeaderboardExclusionsForUserInGuild(ctx, DeleteAllLeaderboardExclusionsForUserInGuildParams{
+		GuildID: guildID,
+		UserID:  userID,
+	})
+}
+
 // ─── Stats Management ────────────────────────────────────────────────────────
 
 // UpsertLeaderboardStat saves one leaderboard snapshot row (upsert on primary key).

@@ -92,9 +92,10 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, tar
 	msgIDOffset := 0
 	forceNewPosts := false
 
-	if action == "bump" {
+	switch action {
+	case "bump":
 		forceNewPosts = true
-	} else if action == "new" {
+	case "new":
 		forceNewPosts = true
 		if len(targetSet) == 0 {
 			cfg.MessageIDs = nil
