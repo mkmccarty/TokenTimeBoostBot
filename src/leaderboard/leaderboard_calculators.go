@@ -2,6 +2,7 @@ package leaderboard
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
@@ -277,6 +278,10 @@ func RunCalculators(
 			for _, m := range allMissions {
 				ship := int(m.GetShip())
 				if m.GetType() == ei.MissionInfo_VIRTUE {
+					if m.GetShip() == ei.MissionInfo_ATREGGIES {
+						log.Print("Found")
+
+					}
 					virtueCount[ship]++
 				} else {
 					stdCount[ship]++
@@ -284,6 +289,14 @@ func RunCalculators(
 			}
 
 			for key, shipIdx := range shipVirtueIndex {
+				if shipIdx == int(ei.MissionInfo_ATREGGIES) {
+					log.Print("Skipping ATREGGIES for leaderboard")
+					// make sure key exists in the map
+					_, ok := virtueCount[shipIdx]
+					if !ok {
+						continue
+					}
+				}
 				emit(LBEntry{
 					LBType:   key,
 					Player:   userID,
@@ -327,6 +340,29 @@ func RunCalculators(
 			Details:  fmt.Sprintf("total:%.0f", totalCXP),
 		})
 	}
+
+	/*
+		// ── AAA Solo Duration (contract archive) ──────────────────────────────────
+		if isOptedIn(LBAAASoloDuration) && archive != nil {
+			minDuration := -1.0
+			for _, lc := range archive {
+				if lc.GetGrade() == ei.Contract_GRADE_AAA && lc.GetContract().GetMaxCoopSize() == 1 {
+					duration := lc.GetCoopSharedEndTime() - lc.GetTimeAccepted()
+					minDuration = duration
+				}
+			}
+
+			if minDuration >= 0 {
+				emit(LBEntry{
+					LBType:   LBAAASoloDuration,
+					Player:   userID,
+					GameName: gameName,
+					SnapDate: snapDate,
+					Value:    minDuration,
+				})
+			}
+		}
+	*/
 
 	return entries
 }

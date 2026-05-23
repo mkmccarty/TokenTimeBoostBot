@@ -826,6 +826,15 @@ func FormatLBValue(fmtValue string, v float64) string {
 		return ei.FormatEIValue(v, map[string]any{"decimals": 3, "trim": true}) + "%"
 	case "cxp":
 		return formatIntWithCommas(int64(math.Round(v)))
+	case "duration":
+		d := time.Duration(v) * time.Second
+		days := int(d.Hours() / 24)
+		hours := int(d.Hours()) % 24
+		minutes := int(d.Minutes()) % 60
+		if days > 0 {
+			return fmt.Sprintf("%dd %dh %dm", days, hours, minutes)
+		}
+		return fmt.Sprintf("%dh %dm", hours, minutes)
 	default:
 		return fmt.Sprintf("%g", v)
 	}
