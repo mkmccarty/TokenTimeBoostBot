@@ -235,3 +235,8 @@ WHERE guild_id = ? AND user_id = ? AND lb_type = ?;
 -- name: DeleteAllLeaderboardExclusionsForUserInGuild :exec
 DELETE FROM leaderboard_exclusion
 WHERE guild_id = ? AND user_id = ?;
+
+-- name: PruneOlderLeaderboardStatsForPlayer :exec
+-- Deletes older leaderboard stats for a player if RetainRecentOnly is true.
+DELETE FROM leaderboard_stats
+WHERE lb_type = ? AND player = ? AND snap_date != ?;
