@@ -539,19 +539,19 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 	sePerPrestigePrestigesWidth := len("Prestiges")
 
 	type rowInfo struct {
-		row                    LBEntry
-		rankStr                string
-		nameStr                string
-		displayValStr          string
-		dressedValStr          string
-		teStr                  string
-		actualCTEStr           string
-		soulMirrorCommonStr    string
-		soulMirrorEpicStr      string
-		soulMirrorLegendaryStr string
-		tePerShiftTEStr        string
-		tePerShiftShiftsStr    string
-		sePerPrestigeSEStr     string
+		row                       LBEntry
+		rankStr                   string
+		nameStr                   string
+		displayValStr             string
+		dressedValStr             string
+		teStr                     string
+		actualCTEStr              string
+		soulMirrorCommonStr       string
+		soulMirrorEpicStr         string
+		soulMirrorLegendaryStr    string
+		tePerShiftTEStr           string
+		tePerShiftShiftsStr       string
+		sePerPrestigeSEStr        string
 		sePerPrestigePrestigesStr string
 	}
 	infos := make([]rowInfo, 0, len(rows))
@@ -720,19 +720,19 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 		}
 
 		infos = append(infos, rowInfo{
-			row:                    r,
-			rankStr:                rankStr,
-			nameStr:                nameStr,
-			displayValStr:          displayValStr,
-			dressedValStr:          dressedValStr,
-			teStr:                  teStr,
-			actualCTEStr:           actualCTEStr,
-			soulMirrorCommonStr:    soulMirrorCommonStr,
-			soulMirrorEpicStr:      soulMirrorEpicStr,
-			soulMirrorLegendaryStr: soulMirrorLegendaryStr,
-			tePerShiftTEStr:        tePerShiftTEStr,
-			tePerShiftShiftsStr:    tePerShiftShiftsStr,
-			sePerPrestigeSEStr:     sePerPrestigeSEStr,
+			row:                       r,
+			rankStr:                   rankStr,
+			nameStr:                   nameStr,
+			displayValStr:             displayValStr,
+			dressedValStr:             dressedValStr,
+			teStr:                     teStr,
+			actualCTEStr:              actualCTEStr,
+			soulMirrorCommonStr:       soulMirrorCommonStr,
+			soulMirrorEpicStr:         soulMirrorEpicStr,
+			soulMirrorLegendaryStr:    soulMirrorLegendaryStr,
+			tePerShiftTEStr:           tePerShiftTEStr,
+			tePerShiftShiftsStr:       tePerShiftShiftsStr,
+			sePerPrestigeSEStr:        sePerPrestigeSEStr,
 			sePerPrestigePrestigesStr: sePerPrestigePrestigesStr,
 		})
 
