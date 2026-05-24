@@ -333,6 +333,40 @@ func RunCalculators(
 		}
 	}
 
+	// ── Artifact stats ────────────────────────────────────────────────────────
+	if backup != nil && isOptedIn(LBLegendaryActuators) {
+		legendaryActuators := 0.0
+		db := backup.GetArtifactsDb()
+		if db != nil {
+			countActuators := func(items []*ei.ArtifactInventoryItem) {
+				for _, item := range items {
+					artifact := item.GetArtifact()
+					if artifact != nil {
+						spec := artifact.GetSpec()
+						if spec != nil && spec.GetName() == ei.ArtifactSpec_TITANIUM_ACTUATOR {
+							if spec.GetRarity() == ei.ArtifactSpec_LEGENDARY {
+								legendaryActuators += item.GetQuantity()
+							}
+						}
+					}
+				}
+			}
+			countActuators(db.GetInventoryItems())
+			if virtueDB := db.GetVirtueAfxDb(); virtueDB != nil {
+				countActuators(virtueDB.GetInventoryItems())
+			}
+		}
+		if legendaryActuators > 0 {
+			emit(LBEntry{
+				LBType:   LBLegendaryActuators,
+				Player:   userID,
+				GameName: gameName,
+				SnapDate: snapDate,
+				Value:    legendaryActuators,
+			})
+		}
+	}
+
 	// ── CXP weekly delta (contract archive) ───────────────────────────────────
 	if isOptedIn(LBCXPWeeklyDelta) && archive != nil {
 		totalCXP := 0.0

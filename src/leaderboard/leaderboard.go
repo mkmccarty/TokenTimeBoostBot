@@ -41,6 +41,8 @@ const (
 	LBEggsResilience = "egg_resilience"
 	LBEggsKindness   = "egg_kindness"
 
+	LBLegendaryActuators = "legendary_actuators"
+
 	LBVirtueEggsSum     = "virtue_eggs_sum"
 	LBVirtueTEEarnedSum = "virtue_te_earned_sum"
 
@@ -120,6 +122,7 @@ var AllLeaderboards = []LBDef{
 	{Key: LBEggsHumility, DisplayName: "Humility Eggs Delivered", Description: "Humility deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBEggsResilience, DisplayName: "Resilience Eggs Delivered", Description: "Resilience deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBEggsKindness, DisplayName: "Kindness Eggs Delivered", Description: "Kindness deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBLegendaryActuators, DisplayName: "Legendary Actuators", Description: "Total Legendary Actuators across home and virtue farms.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 }
 
 // AllGroups defines logical groupings for the UI and posting tasks.
@@ -143,6 +146,11 @@ var AllGroups = []LBGroup{
 		Key:         "group_ratios",
 		DisplayName: "Ratio Leaderboards",
 		Members:     []string{LBTEPerShift, LBSEPerPrestige},
+	},
+	{
+		Key:         "group_artifacts",
+		DisplayName: "Artifacts",
+		Members:     []string{LBLegendaryActuators},
 	},
 }
 
