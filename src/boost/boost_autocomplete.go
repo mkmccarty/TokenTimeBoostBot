@@ -1,12 +1,17 @@
 package boost
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
+	"math/rand/v2"
+	"os"
 	"sort"
 	"strings"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -29,6 +34,12 @@ func limitContractChoices(choices []*discordgo.ApplicationCommandOptionChoice, m
 // HandleContractAutoComplete will handle the contract auto complete of contract-id's
 func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	optionMap := bottools.GetCommandOptionsMap(i)
+
+	if opt, ok := optionMap["coop-id"]; ok && opt.Focused {
+		handleCoopIDAutoComplete(s, i, opt.StringValue())
+		return
+	}
+
 	searchString := ""
 	if opt, ok := optionMap["contract-id"]; ok {
 		searchString = strings.ToLower(opt.StringValue())
@@ -182,4 +193,74 @@ func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.Interacti
 			Choices: choices,
 		}})
 
+}
+
+type eggscapeCoopIDFile struct {
+	CoopCodes []string `json:"coop_codes"`
+}
+
+var eggscapeCoopCodes []string
+
+// LoadEggscapeCoopIDs loads the eggscape coop ID list from a JSON file.
+func LoadEggscapeCoopIDs(filename string) {
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Printf("failed to open eggscape coop ID file: %v", err)
+		return
+	}
+	defer func() {
+		if cerr := file.Close(); cerr != nil {
+			log.Printf("failed to close eggscape coop ID file: %v", cerr)
+		}
+	}()
+
+	var loaded eggscapeCoopIDFile
+	if err := json.NewDecoder(file).Decode(&loaded); err != nil {
+		log.Printf("failed to decode eggscape coop ID file: %v", err)
+		return
+	}
+
+	eggscapeCoopCodes = append([]string(nil), loaded.CoopCodes...)
+	log.Printf("Loaded %d eggscape coop ID codes", len(loaded.CoopCodes))
+}
+
+func handleCoopIDAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate, search string) {
+	if !guildstate.GetGuildSettingFlag(i.GuildID, "coopid_suggestions") {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+			Data: &discordgo.InteractionResponseData{Choices: []*discordgo.ApplicationCommandOptionChoice{}},
+		})
+		return
+	}
+
+	codes := append([]string(nil), eggscapeCoopCodes...)
+
+	search = strings.ToLower(search)
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, maxAutocompleteChoices)
+
+	if search == "" {
+		rand.Shuffle(len(codes), func(a, b int) { codes[a], codes[b] = codes[b], codes[a] })
+		for _, code := range codes {
+			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{Name: code, Value: code})
+			if len(choices) >= maxAutocompleteChoices {
+				break
+			}
+		}
+	} else {
+		for _, code := range codes {
+			if strings.Contains(code, search) {
+				choices = append(choices, &discordgo.ApplicationCommandOptionChoice{Name: code, Value: code})
+				if len(choices) >= maxAutocompleteChoices {
+					break
+				}
+			}
+		}
+	}
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Coop ID",
+			Choices: choices,
+		}})
 }

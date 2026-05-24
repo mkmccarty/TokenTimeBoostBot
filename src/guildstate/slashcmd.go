@@ -545,6 +545,7 @@ func GetGuildSettingsForGuild(s *discordgo.Session, i *discordgo.InteractionCrea
 // knownFlagKeys is a curated list of flag keys always shown in the flag autocomplete.
 var knownFlagKeys = []string{
 	"active-contracts-show-completed",
+	"coopid_suggestions",
 }
 
 // SlashSetGuildFlagCommand creates an admin slash command to set a guild boolean flag.
