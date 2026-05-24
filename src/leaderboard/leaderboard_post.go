@@ -480,11 +480,13 @@ func isChannelNotFound(err error) bool {
 // buildMessageBlocks formats the leaderboard rows into one or more text blocks
 // that each fit within discordMessageCharLimit.
 func buildMessageBlocks(def LBDef, rows []LBEntry, snapDate string, prevMap map[string]float64, rankOffset int) []string {
-	header := fmt.Sprintf("## 🏆 %s — Week of %s\n", def.DisplayName, snapDate)
+	header := fmt.Sprintf("## 🏆 %s\n", def.DisplayName)
+	if def.Key == LBCXPWeeklyDelta {
+		header += fmt.Sprintf("### Week of %s\n", snapDate)
+	}
 	if def.Description != "" {
 		header += fmt.Sprintf("> %s\n", def.Description)
 	}
-	//header += "\n"
 
 	colHeader, rowLines, footer := renderTable(def, rows, prevMap, rankOffset)
 

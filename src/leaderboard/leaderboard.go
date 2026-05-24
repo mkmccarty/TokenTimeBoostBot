@@ -102,27 +102,27 @@ type LBGroup struct {
 
 // AllLeaderboards is the registry of all available individual leaderboard types.
 var AllLeaderboards = []LBDef{
-	{Key: LBSoulEggs, DisplayName: "Soul Eggs", HeaderName: "SE", Description: "Total soul eggs collected.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBProphecyEggs, DisplayName: "Prophecy Eggs", HeaderName: "PE", Description: "Total eggs of prophecy collected.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBEarningsBonus, DisplayName: "Earnings Bonus", Description: "Nekkid and Dressed earnings bonus.", ValueFmt: "eb", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBVirtueShifts, DisplayName: "Virtue Shifts", HeaderName: "Shifts", Description: "Total virtue shifts completed.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBTETotal, DisplayName: "Total Truth Eggs", HeaderName: "TE", Description: "Sum of truth eggs across all virtues.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBCTETotal, DisplayName: "Total CTE", HeaderName: "CTE", Description: "Current clothed Truth Egg equivalent.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBTEPerShift, DisplayName: "TE per Shift", HeaderName: "TE/Shift", Description: "Average Truth Eggs earned per Virtue Shift.", ValueFmt: "float", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBDrones, DisplayName: "Drones", Description: "Total drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBEliteDrones, DisplayName: "Elite Drones", Description: "Total elite drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBPrestiges, DisplayName: "Prestiges", Description: "Total number of prestiges.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBSEPerPrestige, DisplayName: "SE per Prestige", HeaderName: "SE/Prestige", Description: "Average Soul Eggs earned per Prestige.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBSoulMirrors, DisplayName: "Soul Mirrors", HeaderName: "Score", Description: "Score based on soul mirror inventory of Common, Epic & Legendary worth 1, 2, or 3 points respectively (tokens needed to burn them).", ValueFmt: "int", HigherIsBetter: false, Source: SourceFirstContact},
+	{Key: LBSoulEggs, DisplayName: "Soul Eggs", HeaderName: "SE", Description: "Total soul eggs collected.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBProphecyEggs, DisplayName: "Prophecy Eggs", HeaderName: "PE", Description: "Total eggs of prophecy collected.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBEarningsBonus, DisplayName: "Earnings Bonus", Description: "Nekkid and Dressed earnings bonus.", ValueFmt: "eb", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBVirtueShifts, DisplayName: "Virtue Shifts", HeaderName: "Shifts", Description: "Total virtue shifts completed.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBTETotal, DisplayName: "Total Truth Eggs", HeaderName: "TE", Description: "Sum of truth eggs across all virtues.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBCTETotal, DisplayName: "Total CTE", HeaderName: "CTE", Description: "Current clothed Truth Egg equivalent.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBTEPerShift, DisplayName: "TE per Shift", HeaderName: "TE/Shift", Description: "Average Truth Eggs earned per Virtue Shift.", ValueFmt: "float", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBDrones, DisplayName: "Drones", Description: "Total drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBEliteDrones, DisplayName: "Elite Drones", Description: "Total elite drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBPrestiges, DisplayName: "Prestiges", Description: "Total number of prestiges.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBSEPerPrestige, DisplayName: "SE per Prestige", HeaderName: "SE/Prestige", Description: "Average Soul Eggs earned per Prestige.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBSoulMirrors, DisplayName: "Soul Mirrors", HeaderName: "Score", Description: "Score based on soul mirror inventory of Common, Epic & Legendary worth 1, 2, or 3 points respectively (tokens needed to burn them).", ValueFmt: "int", HigherIsBetter: false, Source: SourceFirstContact, RetainRecentOnly: true},
 	{Key: LBContractExp, DisplayName: "Contract Score", HeaderName: "CS", Description: "Total experience earned from contracts.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceBoth},
-	{Key: LBCXPWeeklyDelta, DisplayName: "Weekly CS", Description: "CXP earned since last collection.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceContractArchive},
+	{Key: LBCXPWeeklyDelta, DisplayName: "Weekly CS", HeaderName: "CS Delta", Description: "CS change earned within last 7 days.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceContractArchive},
 	//{Key: LBAAASoloDuration, DisplayName: "AAA Solo Duration", HeaderName: "Duration", Description: "Shortest duration across all solo grade AAA contracts.", ValueFmt: "duration", HigherIsBetter: false, Source: SourceContractArchive},
-	{Key: LBEggsCuriosity, DisplayName: "Curiosity Eggs Delivered", Description: "Curiosity deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBEggsIntegrity, DisplayName: "Integrity Eggs Delivered", Description: "Integrity deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBEggsHumility, DisplayName: "Humility Eggs Delivered", Description: "Humility deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBEggsResilience, DisplayName: "Resilience Eggs Delivered", Description: "Resilience deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBEggsKindness, DisplayName: "Kindness Eggs Delivered", Description: "Kindness deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
-	{Key: LBLegendaryActuators, DisplayName: "Legendary Actuators", Description: "Total Legendary Actuators across home and virtue farms.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBEggsCuriosity, DisplayName: "Curiosity Eggs Delivered", Description: "Curiosity deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBEggsIntegrity, DisplayName: "Integrity Eggs Delivered", Description: "Integrity deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBEggsHumility, DisplayName: "Humility Eggs Delivered", Description: "Humility deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBEggsResilience, DisplayName: "Resilience Eggs Delivered", Description: "Resilience deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBEggsKindness, DisplayName: "Kindness Eggs Delivered", Description: "Kindness deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBLegendaryActuators, DisplayName: "Legendary Actuators", HeaderName: "Actuators", Description: "Total Legendary Actuators across home and virtue farms.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
 }
 
 // AllGroups defines logical groupings for the UI and posting tasks.
@@ -159,13 +159,14 @@ func init() {
 
 	// Combined virtue eggs and TE-earned-at-that-level leaderboards
 	AllLeaderboards = append(AllLeaderboards, LBDef{
-		Key:            LBVirtueEggsSum,
-		DisplayName:    "Virtue Eggs Delivered",
-		HeaderName:     "Delivered",
-		Description:    "Sum of all virtue eggs delivered (Curiosity, Integrity, Humility, Resilience, Kindness)",
-		ValueFmt:       "ei",
-		HigherIsBetter: true,
-		Source:         SourceFirstContact,
+		Key:              LBVirtueEggsSum,
+		DisplayName:      "Virtue Eggs Delivered",
+		HeaderName:       "Delivered",
+		Description:      "Sum of all virtue eggs delivered (Curiosity, Integrity, Humility, Resilience, Kindness)",
+		ValueFmt:         "ei",
+		HigherIsBetter:   true,
+		Source:           SourceFirstContact,
+		RetainRecentOnly: true,
 	})
 
 	AllGroups = append(AllGroups, LBGroup{
