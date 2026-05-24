@@ -11,6 +11,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mattn/go-runewidth"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
 
@@ -124,6 +125,13 @@ func GetSlashLBPlayerCommand(cmd string) *discordgo.ApplicationCommand {
 						Required:     true,
 						Autocomplete: true,
 					},
+					{
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         "alt",
+						Description:  "The name of the alternate account (optional).",
+						Required:     false,
+						Autocomplete: true,
+					},
 				},
 			},
 			{
@@ -139,12 +147,28 @@ func GetSlashLBPlayerCommand(cmd string) *discordgo.ApplicationCommand {
 						Required:     true,
 						Autocomplete: true,
 					},
+					{
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         "alt",
+						Description:  "The name of the alternate account (optional).",
+						Required:     false,
+						Autocomplete: true,
+					},
 				},
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        "opt-status",
 				Description: "Show your current leaderboard opt-in status.",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         "alt",
+						Description:  "The name of the alternate account (optional).",
+						Required:     false,
+						Autocomplete: true,
+					},
+				},
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
@@ -203,7 +227,7 @@ func HandleLBPlayer(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	case "opt-out":
 		handlePlayerOptOut(s, i, opts[0].Options)
 	case "opt-status":
-		handlePlayerStatus(s, i)
+		handlePlayerStatus(s, i, opts[0].Options)
 	case "opt-list":
 		handlePlayerList(s, i)
 	case "rankings":
@@ -285,7 +309,11 @@ func handleAdminRemove(s *discordgo.Session, i *discordgo.InteractionCreate, opt
 
 func handlePlayerOptIn(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*discordgo.ApplicationCommandInteractionDataOption) {
 	userID := bottools.GetInteractionUserID(i)
-	raw := optionMap(opts)["type"].StringValue()
+	optMap := optionMap(opts)
+	raw := optMap["type"].StringValue()
+	if altOpt, ok := optMap["alt"]; ok && altOpt.StringValue() != "" {
+		userID = altOpt.StringValue()
+	}
 
 	var types []string
 	if strings.ToLower(raw) == "all" {
@@ -306,7 +334,11 @@ func handlePlayerOptIn(s *discordgo.Session, i *discordgo.InteractionCreate, opt
 
 func handlePlayerOptOut(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*discordgo.ApplicationCommandInteractionDataOption) {
 	userID := bottools.GetInteractionUserID(i)
-	raw := optionMap(opts)["type"].StringValue()
+	optMap := optionMap(opts)
+	raw := optMap["type"].StringValue()
+	if altOpt, ok := optMap["alt"]; ok && altOpt.StringValue() != "" {
+		userID = altOpt.StringValue()
+	}
 
 	var types []string
 	if strings.ToLower(raw) == "all" {
@@ -325,8 +357,13 @@ func handlePlayerOptOut(s *discordgo.Session, i *discordgo.InteractionCreate, op
 	respondEphemeral(s, i, fmt.Sprintf("✅ Opted out of: %s", strings.Join(names, ", ")))
 }
 
-func handlePlayerStatus(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func handlePlayerStatus(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*discordgo.ApplicationCommandInteractionDataOption) {
 	userID := bottools.GetInteractionUserID(i)
+	optMap := optionMap(opts)
+	if altOpt, ok := optMap["alt"]; ok && altOpt.StringValue() != "" {
+		userID = altOpt.StringValue()
+	}
+
 	guildID := i.GuildID
 	if guildID == "" {
 		respondEphemeral(s, i, "This command must be used within a server.")
@@ -684,10 +721,12 @@ func HandleLBPlayerAutoComplete(s *discordgo.Session, i *discordgo.InteractionCr
 	data := i.ApplicationCommandData()
 
 	var partial string
+	var focusedName string
 	var found bool
 	for _, opt := range data.Options {
 		for _, leaf := range opt.Options {
 			if leaf.Focused {
+				focusedName = leaf.Name
 				partial = strings.ToLower(strings.TrimSpace(leaf.StringValue()))
 				found = true
 			}
@@ -695,6 +734,25 @@ func HandleLBPlayerAutoComplete(s *discordgo.Session, i *discordgo.InteractionCr
 	}
 	if !found {
 		respondEmptyAutocomplete(s, i)
+		return
+	}
+
+	if focusedName == "alt" {
+		userID := bottools.GetInteractionUserID(i)
+		alts := farmerstate.GetAltControllerByMiscString("AltController", userID)
+		var choices []*discordgo.ApplicationCommandOptionChoice
+		for _, alt := range alts {
+			if partial == "" || strings.Contains(strings.ToLower(alt), partial) {
+				choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+					Name:  alt,
+					Value: alt,
+				})
+			}
+		}
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+			Data: &discordgo.InteractionResponseData{Choices: choices},
+		})
 		return
 	}
 
@@ -928,7 +986,23 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 
 		detail := ""
 		if r.details != "" && !strings.HasPrefix(r.details, "total:") {
-			detail = fmt.Sprintf(" (%s)", r.details)
+			formattedDetails := r.details
+			if idx := strings.Index(formattedDetails, "dressed:"); idx != -1 {
+				var dressed float64
+				if _, err := fmt.Sscanf(formattedDetails[idx:], "dressed:%f", &dressed); err == nil {
+					// Use FormatLBValue for the EB formatting
+					originalStr := fmt.Sprintf("dressed:%.6f", dressed)
+					formattedDetails = strings.Replace(formattedDetails, originalStr, "dressed:"+FormatLBValue("eb", dressed), 1)
+				}
+			}
+			if idx := strings.Index(formattedDetails, "actual:"); idx != -1 {
+				var actual float64
+				if _, err := fmt.Sscanf(formattedDetails[idx:], "actual:%f", &actual); err == nil {
+					originalStr := fmt.Sprintf("actual:%f", actual)
+					formattedDetails = strings.Replace(formattedDetails, originalStr, fmt.Sprintf("actual:%.2f", actual), 1)
+				}
+			}
+			detail = fmt.Sprintf(" (%s)", formattedDetails)
 		}
 
 		fmt.Fprintf(&b, "%s|%s|%s%s\n",
