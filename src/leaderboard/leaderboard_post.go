@@ -73,12 +73,34 @@ func PostLeaderboards(s *discordgo.Session, snapDate string, guildID string, tar
 	}
 	configs = filteredConfigs
 
-	for i, cfg := range configs {
-		if onProgress != nil {
-			onProgress(fmt.Sprintf("📬 Posting leaderboards to guild %d/%d (%s)...", i+1, len(configs), cfg.GuildID))
+	guildConfigs := make(map[string][]LBConfig)
+	var guildOrder []string
+	for _, cfg := range configs {
+		if len(guildConfigs[cfg.GuildID]) == 0 {
+			guildOrder = append(guildOrder, cfg.GuildID)
 		}
-		postOneLeaderboard(s, cfg, snapDate, targetSet, action, onProgress)
-		time.Sleep(2 * time.Second) // Gap between guilds to leave room for other bot activities
+		guildConfigs[cfg.GuildID] = append(guildConfigs[cfg.GuildID], cfg)
+	}
+
+	guildIndex := 0
+	for _, gid := range guildOrder {
+		guildIndex++
+		gc := guildConfigs[gid]
+
+		if onProgress != nil {
+			onProgress(fmt.Sprintf("📬 Posting leaderboards to guild %d/%d (%s)...", guildIndex, len(guildOrder), gid))
+		}
+
+		channelsUpdated := make(map[string]bool)
+		for _, cfg := range gc {
+			postOneLeaderboard(s, cfg, snapDate, targetSet, action, onProgress)
+			channelsUpdated[cfg.ChannelID] = true
+			time.Sleep(2 * time.Second) // Gap between configs to leave room for other bot activities
+		}
+
+		for channelID := range channelsUpdated {
+			postChannelUpdateConfirmation(s, channelID)
+		}
 	}
 	if onProgress != nil {
 		onProgress("🏁 Weekly leaderboard update complete!")
@@ -150,7 +172,6 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, tar
 	}
 
 	UpdateGuildLBConfigMessageIDs(cfg.GuildID, cfg.LBType, newMsgIDs)
-	postChannelUpdateConfirmation(s, cfg.ChannelID)
 }
 
 func postChannelUpdateConfirmation(s *discordgo.Session, channelID string) {
