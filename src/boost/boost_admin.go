@@ -1184,7 +1184,7 @@ func handleAdminExitPanic(s *discordgo.Session, i *discordgo.InteractionCreate, 
 func getActiveContractsForAdminExit(now time.Time) []*Contract {
 	activeContracts := make([]*Contract, 0)
 
-	ContractsMutex.RLock()
+	//ContractsMutex.RLock()
 	for _, c := range Contracts {
 		if c == nil {
 			continue
@@ -1197,7 +1197,7 @@ func getActiveContractsForAdminExit(now time.Time) []*Contract {
 		}
 		activeContracts = append(activeContracts, c)
 	}
-	ContractsMutex.RUnlock()
+	//ContractsMutex.RUnlock()
 
 	// Sort active contracts by last interaction time descending (most recently active first)
 	sort.Slice(activeContracts, func(idx, jdx int) bool {
