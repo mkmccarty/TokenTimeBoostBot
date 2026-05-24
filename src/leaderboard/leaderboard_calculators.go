@@ -119,6 +119,17 @@ func RunCalculators(
 			Value:    float64(virtue.GetShiftCount()),
 		})
 
+		if shiftCount := float64(virtue.GetShiftCount()); shiftCount > 0 {
+			emit(LBEntry{
+				LBType:   LBTEPerShift,
+				Player:   userID,
+				GameName: gameName,
+				SnapDate: snapDate,
+				Value:    float64(claimedTE) / shiftCount,
+				Details:  fmt.Sprintf("te:%d shifts:%d", claimedTE, int(shiftCount)),
+			})
+		}
+
 		// Total Truth Eggs should use currently credited/claimed TE, not pending.
 		emit(LBEntry{
 			LBType:   LBTETotal,
@@ -215,6 +226,17 @@ func RunCalculators(
 			emit(LBEntry{LBType: LBDrones, Player: userID, GameName: gameName, SnapDate: snapDate, Value: float64(stats.GetDroneTakedowns())})
 			emit(LBEntry{LBType: LBEliteDrones, Player: userID, GameName: gameName, SnapDate: snapDate, Value: float64(stats.GetDroneTakedownsElite())})
 			emit(LBEntry{LBType: LBPrestiges, Player: userID, GameName: gameName, SnapDate: snapDate, Value: float64(stats.GetNumPrestiges())})
+
+			if prestiges := float64(stats.GetNumPrestiges()); prestiges > 0 {
+				emit(LBEntry{
+					LBType:   LBSEPerPrestige,
+					Player:   userID,
+					GameName: gameName,
+					SnapDate: snapDate,
+					Value:    game.GetSoulEggsD() / prestiges,
+					Details:  fmt.Sprintf("se:%g prestiges:%d", game.GetSoulEggsD(), int(prestiges)),
+				})
+			}
 		}
 
 		{
