@@ -2005,8 +2005,28 @@ func ArchiveContracts(s *discordgo.Session) {
 
 	var finishHash []string
 	currentTime := time.Now()
+	predictedContracts := CreatePredictedContract()
+	var predictedIDs []string
+	for _, p := range predictedContracts {
+		predictedIDs = append(predictedIDs, p.ID)
+		predictedIDs = append(predictedIDs, p.PredictionsList...)
+	}
+
 	ContractsMutex.RLock()
 	for _, contract := range Contracts {
+		if contract.State == ContractStateSignup {
+			isPredicted := false
+			for _, pid := range predictedIDs {
+				if contract.ContractID == pid {
+					isPredicted = true
+					break
+				}
+			}
+			if isPredicted {
+				continue
+			}
+		}
+
 		hasValidThread := contractHasValidThread(s, contract)
 
 		// If the contract thread is no longer valid, archive immediately.
