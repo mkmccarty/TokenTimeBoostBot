@@ -31,6 +31,8 @@ const (
 	LBVirtueShifts   = "virtue_shifts"
 	LBTETotal        = "te_total"
 	LBCTETotal       = "cte_total"
+	LBTEPerShift     = "te_per_shift"
+	LBSEPerPrestige  = "se_per_prestige"
 	LBCXPWeeklyDelta = "cxp_weekly"
 	//LBAAASoloDuration = "aaa_solo_duration"
 	LBEggsCuriosity  = "egg_curiosity"
@@ -104,9 +106,11 @@ var AllLeaderboards = []LBDef{
 	{Key: LBVirtueShifts, DisplayName: "Virtue Shifts", HeaderName: "Shifts", Description: "Total virtue shifts completed.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBTETotal, DisplayName: "Total Truth Eggs", HeaderName: "TE", Description: "Sum of truth eggs across all virtues.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBCTETotal, DisplayName: "Total CTE", HeaderName: "CTE", Description: "Current clothed Truth Egg equivalent.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBTEPerShift, DisplayName: "TE per Shift", HeaderName: "TE/Shift", Description: "Average Truth Eggs earned per Virtue Shift.", ValueFmt: "float", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBDrones, DisplayName: "Drones", Description: "Total drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBEliteDrones, DisplayName: "Elite Drones", Description: "Total elite drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBPrestiges, DisplayName: "Prestiges", Description: "Total number of prestiges.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact},
+	{Key: LBSEPerPrestige, DisplayName: "SE per Prestige", HeaderName: "SE/Prestige", Description: "Average Soul Eggs earned per Prestige.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact},
 	{Key: LBSoulMirrors, DisplayName: "Soul Mirrors", HeaderName: "Score", Description: "Score based on soul mirror inventory of Common, Epic & Legendary worth 1, 2, or 3 points respectively (tokens needed to burn them).", ValueFmt: "int", HigherIsBetter: false, Source: SourceFirstContact},
 	{Key: LBContractExp, DisplayName: "Contract Score", HeaderName: "CS", Description: "Total experience earned from contracts.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceBoth},
 	{Key: LBCXPWeeklyDelta, DisplayName: "Weekly CS", Description: "CXP earned since last collection.", ValueFmt: "cxp", HigherIsBetter: true, Source: SourceContractArchive},
@@ -134,6 +138,11 @@ var AllGroups = []LBGroup{
 		Key:         "group_misc",
 		DisplayName: "Miscellaneous Stats",
 		Members:     []string{LBDrones, LBEliteDrones, LBSoulMirrors},
+	},
+	{
+		Key:         "group_ratios",
+		DisplayName: "Ratio Leaderboards",
+		Members:     []string{LBTEPerShift, LBSEPerPrestige},
 	},
 }
 
@@ -165,7 +174,7 @@ func init() {
 
 	// Keys are int32 (ship ID), values are string (ship name)
 	// We'll iterate in order 1-10
-	for i := int32(1); i <= 10; i++ {
+	for i := int32(0); i <= 10; i++ {
 		name, ok := ei.ShipTypeName[i]
 		if !ok {
 			continue

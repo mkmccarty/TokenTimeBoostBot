@@ -530,17 +530,29 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 	}
 	maxDressedWidth := len("Dressed")
 
+	isTEPerShift := def.Key == LBTEPerShift
+	tePerShiftTEWidth := len("TE")
+	tePerShiftShiftsWidth := len("Shifts")
+
+	isSEPerPrestige := def.Key == LBSEPerPrestige
+	sePerPrestigeSEWidth := len("SE")
+	sePerPrestigePrestigesWidth := len("Prestiges")
+
 	type rowInfo struct {
-		row                    LBEntry
-		rankStr                string
-		nameStr                string
-		displayValStr          string
-		dressedValStr          string
-		teStr                  string
-		actualCTEStr           string
-		soulMirrorCommonStr    string
-		soulMirrorEpicStr      string
-		soulMirrorLegendaryStr string
+		row                       LBEntry
+		rankStr                   string
+		nameStr                   string
+		displayValStr             string
+		dressedValStr             string
+		teStr                     string
+		actualCTEStr              string
+		soulMirrorCommonStr       string
+		soulMirrorEpicStr         string
+		soulMirrorLegendaryStr    string
+		tePerShiftTEStr           string
+		tePerShiftShiftsStr       string
+		sePerPrestigeSEStr        string
+		sePerPrestigePrestigesStr string
 	}
 	infos := make([]rowInfo, 0, len(rows))
 
@@ -576,6 +588,24 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			return common, epic, legendary
 		}
 		return 0, 0, 0
+	}
+
+	parseTEPerShiftDetails := func(details string) (string, string) {
+		var te int
+		var shifts int
+		if _, err := fmt.Sscanf(details, "te:%d shifts:%d", &te, &shifts); err == nil {
+			return formatIntWithCommas(int64(te)), formatIntWithCommas(int64(shifts))
+		}
+		return "-", "-"
+	}
+
+	parseSEPerPrestigeDetails := func(details string) (string, string) {
+		var se float64
+		var prestiges int
+		if _, err := fmt.Sscanf(details, "se:%g prestiges:%d", &se, &prestiges); err == nil {
+			return FormatLBValue("ei", se), formatIntWithCommas(int64(prestiges))
+		}
+		return "-", "-"
 	}
 
 	lastRank := 0
@@ -670,17 +700,40 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			}
 		}
 
+		tePerShiftTEStr, tePerShiftShiftsStr, sePerPrestigeSEStr, sePerPrestigePrestigesStr := "", "", "", ""
+		if isTEPerShift {
+			tePerShiftTEStr, tePerShiftShiftsStr = parseTEPerShiftDetails(r.Details)
+			if w := len(tePerShiftTEStr); w > tePerShiftTEWidth {
+				tePerShiftTEWidth = w
+			}
+			if w := len(tePerShiftShiftsStr); w > tePerShiftShiftsWidth {
+				tePerShiftShiftsWidth = w
+			}
+		} else if isSEPerPrestige {
+			sePerPrestigeSEStr, sePerPrestigePrestigesStr = parseSEPerPrestigeDetails(r.Details)
+			if w := len(sePerPrestigeSEStr); w > sePerPrestigeSEWidth {
+				sePerPrestigeSEWidth = w
+			}
+			if w := len(sePerPrestigePrestigesStr); w > sePerPrestigePrestigesWidth {
+				sePerPrestigePrestigesWidth = w
+			}
+		}
+
 		infos = append(infos, rowInfo{
-			row:                    r,
-			rankStr:                rankStr,
-			nameStr:                nameStr,
-			displayValStr:          displayValStr,
-			dressedValStr:          dressedValStr,
-			teStr:                  teStr,
-			actualCTEStr:           actualCTEStr,
-			soulMirrorCommonStr:    soulMirrorCommonStr,
-			soulMirrorEpicStr:      soulMirrorEpicStr,
-			soulMirrorLegendaryStr: soulMirrorLegendaryStr,
+			row:                       r,
+			rankStr:                   rankStr,
+			nameStr:                   nameStr,
+			displayValStr:             displayValStr,
+			dressedValStr:             dressedValStr,
+			teStr:                     teStr,
+			actualCTEStr:              actualCTEStr,
+			soulMirrorCommonStr:       soulMirrorCommonStr,
+			soulMirrorEpicStr:         soulMirrorEpicStr,
+			soulMirrorLegendaryStr:    soulMirrorLegendaryStr,
+			tePerShiftTEStr:           tePerShiftTEStr,
+			tePerShiftShiftsStr:       tePerShiftShiftsStr,
+			sePerPrestigeSEStr:        sePerPrestigeSEStr,
+			sePerPrestigePrestigesStr: sePerPrestigePrestigesStr,
 		})
 
 		lastRank = rank
@@ -726,6 +779,24 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			padField("L", soulMirrorLegendaryWidth, bottools.StringAlignRight),
 		}, "|")
 		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
+	} else if isTEPerShift {
+		headerLine := strings.Join([]string{
+			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
+			padField("Name", maxNameWidth, bottools.StringAlignLeft),
+			padField(shortDisplayName, maxValOnlyWidth, bottools.StringAlignRight),
+			padField("TE", tePerShiftTEWidth, bottools.StringAlignRight),
+			padField("Shifts", tePerShiftShiftsWidth, bottools.StringAlignRight),
+		}, "|")
+		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
+	} else if isSEPerPrestige {
+		headerLine := strings.Join([]string{
+			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
+			padField("Name", maxNameWidth, bottools.StringAlignLeft),
+			padField(shortDisplayName, maxValOnlyWidth, bottools.StringAlignRight),
+			padField("SE", sePerPrestigeSEWidth, bottools.StringAlignRight),
+			padField("Prestiges", sePerPrestigePrestigesWidth, bottools.StringAlignRight),
+		}, "|")
+		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
 	} else {
 		headerLine := strings.Join([]string{
 			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
@@ -738,7 +809,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 	rowLines := make([]string, 0, len(infos))
 	for _, info := range infos {
 		detail := ""
-		if info.row.Details != "" && info.row.Details != "na" && !strings.HasPrefix(info.row.Details, "total:") && !strings.Contains(info.row.Details, "dressed:") && !strings.HasPrefix(info.row.Details, "te:") && !strings.HasSuffix(info.row.Details, " TE") && !strings.HasPrefix(info.row.Details, "actual:") {
+		if info.row.Details != "" && info.row.Details != "na" && !strings.HasPrefix(info.row.Details, "total:") && !strings.Contains(info.row.Details, "dressed:") && !strings.HasPrefix(info.row.Details, "te:") && !strings.HasSuffix(info.row.Details, " TE") && !strings.HasPrefix(info.row.Details, "actual:") && !strings.HasPrefix(info.row.Details, "se:") {
 			detail = fmt.Sprintf(" (%s)", info.row.Details)
 		}
 
@@ -781,6 +852,28 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 				padField(info.soulMirrorEpicStr, soulMirrorEpicWidth, bottools.StringAlignRight),
 				padField(info.soulMirrorLegendaryStr, soulMirrorLegendaryWidth, bottools.StringAlignRight),
 			}, "|")))
+			continue
+		}
+
+		if isTEPerShift {
+			rowLines = append(rowLines, fmt.Sprintf("%s%s\n", strings.Join([]string{
+				padField(info.rankStr, rankWidth, bottools.StringAlignLeft),
+				padField(info.nameStr, maxNameWidth, bottools.StringAlignLeft),
+				padField(info.displayValStr, maxValOnlyWidth, bottools.StringAlignRight),
+				padField(info.tePerShiftTEStr, tePerShiftTEWidth, bottools.StringAlignRight),
+				padField(info.tePerShiftShiftsStr, tePerShiftShiftsWidth, bottools.StringAlignRight),
+			}, "|"), detail))
+			continue
+		}
+
+		if isSEPerPrestige {
+			rowLines = append(rowLines, fmt.Sprintf("%s%s\n", strings.Join([]string{
+				padField(info.rankStr, rankWidth, bottools.StringAlignLeft),
+				padField(info.nameStr, maxNameWidth, bottools.StringAlignLeft),
+				padField(info.displayValStr, maxValOnlyWidth, bottools.StringAlignRight),
+				padField(info.sePerPrestigeSEStr, sePerPrestigeSEWidth, bottools.StringAlignRight),
+				padField(info.sePerPrestigePrestigesStr, sePerPrestigePrestigesWidth, bottools.StringAlignRight),
+			}, "|"), detail))
 			continue
 		}
 
