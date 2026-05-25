@@ -375,6 +375,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 			}
 		} else if c.ID != "first-contract" {
 			log.Print("New Original contract: ", c.ID)
+			ei.EggIncContractsAll[c.ID] = c
 		}
 		bottools.GenerateBanner(c.ID, c.EggName, c.Name, "", "", "")
 		existingTeamNames, err := boost.GetRoleNamesForContract(c.ID)
