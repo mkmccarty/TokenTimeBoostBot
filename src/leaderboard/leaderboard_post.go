@@ -561,6 +561,9 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 	sePerPrestigeSEWidth := len("SE")
 	sePerPrestigePrestigesWidth := len("Prestiges")
 
+	isCraftingXP := def.Key == LBCraftingXP
+	craftingLevelWidth := len("Lvl")
+
 	type rowInfo struct {
 		row                       LBEntry
 		rankStr                   string
@@ -576,6 +579,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 		tePerShiftShiftsStr       string
 		sePerPrestigeSEStr        string
 		sePerPrestigePrestigesStr string
+		craftingLevelStr          string
 	}
 	infos := make([]rowInfo, 0, len(rows))
 
@@ -742,6 +746,14 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			}
 		}
 
+		craftingLevelStr := ""
+		if isCraftingXP {
+			craftingLevelStr = r.Details
+			if w := len(craftingLevelStr); w > craftingLevelWidth {
+				craftingLevelWidth = w
+			}
+		}
+
 		infos = append(infos, rowInfo{
 			row:                       r,
 			rankStr:                   rankStr,
@@ -757,6 +769,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			tePerShiftShiftsStr:       tePerShiftShiftsStr,
 			sePerPrestigeSEStr:        sePerPrestigeSEStr,
 			sePerPrestigePrestigesStr: sePerPrestigePrestigesStr,
+			craftingLevelStr:          craftingLevelStr,
 		})
 
 		lastRank = rank
@@ -818,6 +831,14 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			padField(shortDisplayName, maxValOnlyWidth, bottools.StringAlignRight),
 			padField("SE", sePerPrestigeSEWidth, bottools.StringAlignRight),
 			padField("Prestiges", sePerPrestigePrestigesWidth, bottools.StringAlignRight),
+		}, "|")
+		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
+	} else if isCraftingXP {
+		headerLine := strings.Join([]string{
+			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
+			padField("Name", maxNameWidth, bottools.StringAlignLeft),
+			padField(shortDisplayName, maxValOnlyWidth, bottools.StringAlignRight),
+			padField("Level", craftingLevelWidth, bottools.StringAlignRight),
 		}, "|")
 		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
 	} else {
@@ -897,6 +918,16 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 				padField(info.sePerPrestigeSEStr, sePerPrestigeSEWidth, bottools.StringAlignRight),
 				padField(info.sePerPrestigePrestigesStr, sePerPrestigePrestigesWidth, bottools.StringAlignRight),
 			}, "|"), detail))
+			continue
+		}
+
+		if isCraftingXP {
+			rowLines = append(rowLines, fmt.Sprintf("%s\n", strings.Join([]string{
+				padField(info.rankStr, rankWidth, bottools.StringAlignLeft),
+				padField(info.nameStr, maxNameWidth, bottools.StringAlignLeft),
+				padField(info.displayValStr, maxValOnlyWidth, bottools.StringAlignRight),
+				padField(info.craftingLevelStr, craftingLevelWidth, bottools.StringAlignRight),
+			}, "|")))
 			continue
 		}
 

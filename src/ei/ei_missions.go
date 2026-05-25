@@ -80,6 +80,23 @@ type AfxConfigData struct {
 	CraftingLevelInfos []AfxCraftingLevel `json:"craftingLevelInfos"`
 }
 
+// GetCraftingLevel calculates the crafting level based on the provided total crafting XP.
+func GetCraftingLevel(xp float64) int {
+	level := 1
+	for _, info := range AfxConfig.CraftingLevelInfos {
+		if info.XpRequired <= 1 {
+			// Ignore dummy max level entries.
+			break
+		}
+		if xp >= info.XpRequired {
+			level++
+		} else {
+			break
+		}
+	}
+	return level
+}
+
 // MissionArt holds the mission art and durations loaded from JSON
 var MissionArt missionData
 

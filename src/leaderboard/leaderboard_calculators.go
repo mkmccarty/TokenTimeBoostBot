@@ -335,36 +335,65 @@ func RunCalculators(
 	}
 
 	// ── Artifact stats ────────────────────────────────────────────────────────
-	if backup != nil && isOptedIn(LBLegendaryActuators) {
-		legendaryActuators := 0.0
-		db := backup.GetArtifactsDb()
-		if db != nil {
-			countActuators := func(items []*ei.ArtifactInventoryItem) {
-				for _, item := range items {
-					artifact := item.GetArtifact()
-					if artifact != nil {
-						spec := artifact.GetSpec()
-						if spec != nil && spec.GetName() == ei.ArtifactSpec_TITANIUM_ACTUATOR {
-							if spec.GetRarity() == ei.ArtifactSpec_LEGENDARY {
-								legendaryActuators += item.GetQuantity()
+	if backup != nil {
+		artifacts := backup.GetArtifacts()
+		if artifacts != nil {
+			if isOptedIn(LBCraftingXP) {
+				if cxp := artifacts.GetCraftingXp(); cxp > 0 {
+					emit(LBEntry{
+						LBType:   LBCraftingXP,
+						Player:   userID,
+						GameName: gameName,
+						SnapDate: snapDate,
+						Value:    cxp,
+						Details:  fmt.Sprintf("%d", ei.GetCraftingLevel(cxp)),
+					})
+				}
+			}
+			if isOptedIn(LBArtifactScore) {
+				if score := artifacts.GetInventoryScore(); score > 0 {
+					emit(LBEntry{
+						LBType:   LBArtifactScore,
+						Player:   userID,
+						GameName: gameName,
+						SnapDate: snapDate,
+						Value:    score,
+					})
+				}
+			}
+		}
+
+		if isOptedIn(LBLegendaryActuators) {
+			legendaryActuators := 0.0
+			db := backup.GetArtifactsDb()
+			if db != nil {
+				countActuators := func(items []*ei.ArtifactInventoryItem) {
+					for _, item := range items {
+						artifact := item.GetArtifact()
+						if artifact != nil {
+							spec := artifact.GetSpec()
+							if spec != nil && spec.GetName() == ei.ArtifactSpec_TITANIUM_ACTUATOR {
+								if spec.GetRarity() == ei.ArtifactSpec_LEGENDARY {
+									legendaryActuators += item.GetQuantity()
+								}
 							}
 						}
 					}
 				}
+				countActuators(db.GetInventoryItems())
+				if virtueDB := db.GetVirtueAfxDb(); virtueDB != nil {
+					countActuators(virtueDB.GetInventoryItems())
+				}
 			}
-			countActuators(db.GetInventoryItems())
-			if virtueDB := db.GetVirtueAfxDb(); virtueDB != nil {
-				countActuators(virtueDB.GetInventoryItems())
+			if legendaryActuators > 0 {
+				emit(LBEntry{
+					LBType:   LBLegendaryActuators,
+					Player:   userID,
+					GameName: gameName,
+					SnapDate: snapDate,
+					Value:    legendaryActuators,
+				})
 			}
-		}
-		if legendaryActuators > 0 {
-			emit(LBEntry{
-				LBType:   LBLegendaryActuators,
-				Player:   userID,
-				GameName: gameName,
-				SnapDate: snapDate,
-				Value:    legendaryActuators,
-			})
 		}
 	}
 
