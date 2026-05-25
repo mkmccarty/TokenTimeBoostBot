@@ -6,7 +6,6 @@ import (
 	"log"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mattn/go-runewidth"
@@ -497,116 +496,35 @@ func handleRun(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*dis
 		action = opt.StringValue()
 	}
 
-	estimate := buildRunEstimate(i.GuildID, dryRun, target)
-	estimateText := estimate.line(false)
-
 	// Immediate response to confirm we're starting.
+	msg := "**Starting collection run...**"
+	if dryRun {
+		msg += "\n-# Dry-run skips Discord posting."
+	}
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "**Starting collection run...**\n" + estimateText,
+			Content: msg,
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	})
 
 	onProgress := func(status string) {
-		content := status
-		if estimate != nil {
-			content = status + "\n" + estimate.line(false)
-		}
 		_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Content: &content,
+			Content: &status,
 		})
 	}
 
 	go func() {
 		RunLeaderboardCollection(s, dryRun, i.GuildID, target, action, onProgress)
-		msg := "✅ Leaderboard collection run complete."
+		finalMsg := "✅ Leaderboard collection run complete."
 		if dryRun {
-			msg = "✅ Dry run complete — data collected, Discord post skipped."
-		}
-		if estimate != nil {
-			msg += "\n" + estimate.line(true)
+			finalMsg = "✅ Dry run complete — data collected, Discord post skipped."
 		}
 		_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Content: &msg,
+			Content: &finalMsg,
 		})
 	}()
-}
-
-type runEstimate struct {
-	dryRun       bool
-	available    bool
-	recordCount  int
-	delaySeconds int
-	startedAt    time.Time
-	errorText    string
-}
-
-func (e *runEstimate) line(completed bool) string {
-	if e == nil {
-		return ""
-	}
-	if e.dryRun {
-		return "-# Estimate: dry-run skips posting delays."
-	}
-	if !e.available {
-		return e.errorText
-	}
-
-	elapsed := int(time.Since(e.startedAt).Seconds())
-	if completed {
-		return fmt.Sprintf("-# ✅ Finished posting %d leaderboards in %ds.", e.recordCount, elapsed)
-	}
-
-	remaining := e.delaySeconds - elapsed
-	if remaining < 0 {
-		remaining = 0
-	}
-	etaFinish := bottools.WrapTimestamp(time.Now().Add(time.Duration(remaining)*time.Second).Unix(), bottools.TimestampLongTime)
-
-	return fmt.Sprintf("-# ⏳ Estimating %ds remaining for posting %d leaderboards (finishing around %s).", remaining, e.recordCount, etaFinish)
-}
-
-func buildRunEstimate(guildID string, dryRun bool, target string) *runEstimate {
-	if dryRun {
-		return &runEstimate{dryRun: true, available: true, startedAt: time.Now()}
-	}
-
-	configs, err := GetGuildLBConfigs(guildID)
-	if err != nil {
-		return &runEstimate{
-			available: false,
-			errorText: "-# Estimate unavailable: could not load guild leaderboard configs.",
-			startedAt: time.Now(),
-		}
-	}
-
-	recordCount := 0
-	configCount := 0
-	targetSet := targetMemberSet(target)
-	for _, cfg := range configs {
-		members := ExpandConfigKey(cfg.LBType)
-		if !intersectsTarget(members, targetSet) {
-			continue
-		}
-		for _, member := range members {
-			if shouldProcessMember(member, targetSet) {
-				recordCount++
-			}
-		}
-		configCount++
-	}
-
-	// Posting currently waits 1s after each metric and 2s after each guild config.
-	delaySeconds := recordCount + (2 * configCount)
-
-	return &runEstimate{
-		available:    true,
-		recordCount:  recordCount,
-		delaySeconds: delaySeconds,
-		startedAt:    time.Now(),
-	}
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
