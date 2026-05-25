@@ -125,8 +125,8 @@ func RunCalculators(
 				Player:   userID,
 				GameName: gameName,
 				SnapDate: snapDate,
-				Value:    float64(claimedTE) / shiftCount,
-				Details:  fmt.Sprintf("te:%d shifts:%d", claimedTE, int(shiftCount)),
+				Value:    float64(pendingTE) / shiftCount,
+				Details:  fmt.Sprintf("te:%d shifts:%d", pendingTE, int(shiftCount)),
 			})
 		}
 
