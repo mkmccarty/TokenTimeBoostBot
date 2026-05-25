@@ -97,9 +97,10 @@ func RunCalculators(
 
 	// Virtue shifts
 	pendingTE := 0.0
+	totalTEWithUnclaimed := 0.0
 	if virtue != nil {
 		claimedTE := ei.GetCurrentTruthEggs(backup)
-		totalTEWithUnclaimed := claimedTE
+		totalTEWithUnclaimed = float64(claimedTE)
 		deliveries := virtue.GetEggsDelivered()
 		earned := virtue.GetEovEarned()
 		for i := 0; i < len(deliveries); i++ {
@@ -108,8 +109,8 @@ func RunCalculators(
 				earnedTE = earned[i]
 			}
 			pendingTE += float64(ei.PendingTruthEggs(deliveries[i], earnedTE))
-			totalTEWithUnclaimed += ei.PendingTruthEggs(deliveries[i], earnedTE)
 		}
+		totalTEWithUnclaimed += pendingTE
 
 		emit(LBEntry{
 			LBType:   LBVirtueShifts,
@@ -125,8 +126,8 @@ func RunCalculators(
 				Player:   userID,
 				GameName: gameName,
 				SnapDate: snapDate,
-				Value:    float64(pendingTE) / shiftCount,
-				Details:  fmt.Sprintf("te:%d shifts:%d", pendingTE, int(shiftCount)),
+				Value:    float64(totalTEWithUnclaimed) / shiftCount,
+				Details:  fmt.Sprintf("te:%d shifts:%d", int(totalTEWithUnclaimed), int(shiftCount)),
 			})
 		}
 
