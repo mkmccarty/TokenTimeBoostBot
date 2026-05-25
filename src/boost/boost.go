@@ -207,6 +207,11 @@ func init() {
 }
 
 func changeContractState(contract *Contract, newstate int) {
+	if contract.State == ContractStateSignup && newstate != ContractStateSignup && contract.CoopID != "" {
+		for _, creatorID := range contract.CreatorID {
+			farmerstate.AddRecentCoopID(creatorID, contract.CoopID)
+		}
+	}
 	contract.State = newstate
 
 	// Set the banker to a common sink variable

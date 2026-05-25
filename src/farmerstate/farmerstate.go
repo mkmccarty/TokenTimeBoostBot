@@ -408,6 +408,41 @@ func GetMiscSettingString(userID string, key string) string {
 	return f.MiscSettingsString[key]
 }
 
+// GetRecentCoopIDs returns the list of recently used coop IDs
+func GetRecentCoopIDs(userID string) []string {
+	val := GetMiscSettingString(userID, "RecentCoopIDs")
+	if val == "" {
+		return []string{}
+	}
+	return strings.Split(val, ",")
+}
+
+// AddRecentCoopID adds a coop ID to the recent list (max 5)
+func AddRecentCoopID(userID string, coopID string) {
+	if coopID == "" {
+		return
+	}
+	coopID = strings.ToLower(coopID)
+	recent := GetRecentCoopIDs(userID)
+	
+	// Remove if already exists
+	var newRecent []string
+	newRecent = append(newRecent, coopID)
+	for _, id := range recent {
+		if id != coopID {
+			newRecent = append(newRecent, id)
+		}
+	}
+	
+	// Truncate to max 5
+	if len(newRecent) > 5 {
+		newRecent = newRecent[:5]
+	}
+	
+	SetMiscSettingString(userID, "RecentCoopIDs", strings.Join(newRecent, ","))
+}
+
+
 // GetLinks will return a slice of bookmark links
 func GetLinks(userID string) []string {
 	f := getFarmer(userID)
