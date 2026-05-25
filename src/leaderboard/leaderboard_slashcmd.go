@@ -554,13 +554,18 @@ func (e *runEstimate) line(completed bool) string {
 		return e.errorText
 	}
 
-	remaining := e.delaySeconds - int(time.Since(e.startedAt).Seconds())
-	if remaining < 0 || completed {
+	elapsed := int(time.Since(e.startedAt).Seconds())
+	if completed {
+		return fmt.Sprintf("-# ✅ Finished posting %d leaderboards in %ds.", e.recordCount, elapsed)
+	}
+
+	remaining := e.delaySeconds - elapsed
+	if remaining < 0 {
 		remaining = 0
 	}
 	etaFinish := bottools.WrapTimestamp(time.Now().Add(time.Duration(remaining)*time.Second).Unix(), bottools.TimestampLongTime)
 
-	return fmt.Sprintf("-# Estimate: %d records to print, %ds remaining scheduled posting delays, earliest finish around %s.", e.recordCount, remaining, etaFinish)
+	return fmt.Sprintf("-# ⏳ Estimating %ds remaining for posting %d leaderboards (finishing around %s).", remaining, e.recordCount, etaFinish)
 }
 
 func buildRunEstimate(guildID string, dryRun bool, target string) *runEstimate {
