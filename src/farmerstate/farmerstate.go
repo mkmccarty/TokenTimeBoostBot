@@ -424,7 +424,7 @@ func AddRecentCoopID(userID string, coopID string) {
 	}
 	coopID = strings.ToLower(coopID)
 	recent := GetRecentCoopIDs(userID)
-	
+
 	// Remove if already exists
 	var newRecent []string
 	newRecent = append(newRecent, coopID)
@@ -433,15 +433,14 @@ func AddRecentCoopID(userID string, coopID string) {
 			newRecent = append(newRecent, id)
 		}
 	}
-	
+
 	// Truncate to max 5
 	if len(newRecent) > 5 {
 		newRecent = newRecent[:5]
 	}
-	
+
 	SetMiscSettingString(userID, "RecentCoopIDs", strings.Join(newRecent, ","))
 }
-
 
 // GetLinks will return a slice of bookmark links
 func GetLinks(userID string) []string {
