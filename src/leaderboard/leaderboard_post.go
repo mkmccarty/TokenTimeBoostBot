@@ -16,6 +16,13 @@ import (
 
 const discordMessageCharLimit = 1900
 const leaderboardUpdateConfirmationTTL = 1 * time.Minute
+const rateLimitDelay = 200 * time.Millisecond
+
+type PostProgress struct {
+	TotalMetrics  int
+	PostedMetrics int
+	TotalDuration time.Duration
+}
 
 func targetMemberSet(target string) map[string]struct{} {
 	if target == "" {
@@ -73,6 +80,15 @@ func PostLeaderboards(s *discordgo.Session, snapDate string, guildID string, tar
 	}
 	configs = filteredConfigs
 
+	var prog PostProgress
+	for _, cfg := range configs {
+		for _, lbType := range ExpandConfigKey(cfg.LBType) {
+			if shouldProcessMember(lbType, targetSet) {
+				prog.TotalMetrics++
+			}
+		}
+	}
+
 	guildConfigs := make(map[string][]LBConfig)
 	var guildOrder []string
 	for _, cfg := range configs {
@@ -93,7 +109,7 @@ func PostLeaderboards(s *discordgo.Session, snapDate string, guildID string, tar
 
 		channelsUpdated := make(map[string]bool)
 		for _, cfg := range gc {
-			postOneLeaderboard(s, cfg, snapDate, targetSet, action, onProgress)
+			postOneLeaderboard(s, cfg, snapDate, targetSet, action, &prog, onProgress)
 			channelsUpdated[cfg.ChannelID] = true
 			time.Sleep(2 * time.Second) // Gap between configs to leave room for other bot activities
 		}
@@ -108,7 +124,7 @@ func PostLeaderboards(s *discordgo.Session, snapDate string, guildID string, tar
 }
 
 // postOneLeaderboard handles the expanded posting of a single config (which might be a group).
-func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, targetSet map[string]struct{}, action string, onProgress func(string)) {
+func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, targetSet map[string]struct{}, action string, prog *PostProgress, onProgress func(string)) {
 	memberKeys := ExpandConfigKey(cfg.LBType)
 	var newMsgIDs []string
 	msgIDOffset := 0
@@ -146,12 +162,25 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, tar
 			continue
 		}
 
-		if onProgress != nil && len(memberKeys) > 1 {
-			onProgress(fmt.Sprintf("📬 Guild %s: Updating %s...", cfg.GuildID, def.DisplayName))
+		if onProgress != nil {
+			statusStr := fmt.Sprintf("📬 Guild %s: Updating %s...", cfg.GuildID, def.DisplayName)
+			if prog != nil && prog.PostedMetrics > 0 && prog.TotalMetrics > prog.PostedMetrics {
+				avg := time.Duration(int64(prog.TotalDuration) / int64(prog.PostedMetrics))
+				rem := prog.TotalMetrics - prog.PostedMetrics
+				eta := time.Duration(rem) * avg
+				finishTime := bottools.WrapTimestamp(time.Now().Add(eta).Unix(), bottools.TimestampLongTime)
+				statusStr += fmt.Sprintf("\n-# ⏳ Estimating %ds remaining (~%d leaderboards left to post, finishing around %s).", int(eta.Seconds()), rem, finishTime)
+			}
+			onProgress(statusStr)
 		}
 
+		start := time.Now()
 		postSingleMetric(s, cfg, lbType, snapDate, &newMsgIDs, &msgIDOffset, &forceNewPosts)
-		time.Sleep(1 * time.Second) // Conservative delay to allow room for concurrent bot activities
+		time.Sleep(rateLimitDelay)
+		if prog != nil {
+			prog.TotalDuration += time.Since(start)
+			prog.PostedMetrics++
+		}
 	}
 
 	// Clean up any leftover/orphaned messages from the channel that were not reused.
