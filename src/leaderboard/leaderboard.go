@@ -42,6 +42,8 @@ const (
 	LBEggsKindness   = "egg_kindness"
 
 	LBLegendaryActuators = "legendary_actuators"
+	LBCraftingXP         = "crafting_xp"
+	LBArtifactScore      = "artifact_score"
 
 	LBVirtueEggsSum     = "virtue_eggs_sum"
 	LBVirtueTEEarnedSum = "virtue_te_earned_sum"
@@ -123,6 +125,8 @@ var AllLeaderboards = []LBDef{
 	{Key: LBEggsResilience, DisplayName: "Resilience Eggs Delivered", Description: "Resilience deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
 	{Key: LBEggsKindness, DisplayName: "Kindness Eggs Delivered", Description: "Kindness deliveries.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
 	{Key: LBLegendaryActuators, DisplayName: "Legendary Actuators", HeaderName: "Actuators", Description: "Total Legendary Actuators across home and virtue farms.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBCraftingXP, DisplayName: "Crafting XP", HeaderName: "XP", Description: "Total Crafting Experience.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBArtifactScore, DisplayName: "Artifact Score", HeaderName: "Score", Description: "Calculated Artifact Score based on inventory.", ValueFmt: "float", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
 }
 
 // AllGroups defines logical groupings for the UI and posting tasks.
@@ -150,7 +154,7 @@ var AllGroups = []LBGroup{
 	{
 		Key:         "group_artifacts",
 		DisplayName: "Artifacts",
-		Members:     []string{LBLegendaryActuators},
+		Members:     []string{LBLegendaryActuators, LBCraftingXP, LBArtifactScore},
 	},
 }
 
