@@ -83,12 +83,14 @@ type AfxConfigData struct {
 // GetCraftingLevel calculates the crafting level based on the provided total crafting XP.
 func GetCraftingLevel(xp float64) int {
 	level := 1
+	cumulativeXP := 0.0
 	for _, info := range AfxConfig.CraftingLevelInfos {
 		if info.XpRequired <= 1 {
 			// Ignore dummy max level entries.
 			break
 		}
-		if xp >= info.XpRequired {
+		cumulativeXP += info.XpRequired
+		if xp >= cumulativeXP {
 			level++
 		} else {
 			break
