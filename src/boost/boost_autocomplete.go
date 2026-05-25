@@ -11,6 +11,7 @@ import (
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 
 	"github.com/bwmarrin/discordgo"
@@ -226,9 +227,20 @@ func LoadEggscapeCoopIDs(filename string) {
 
 func handleCoopIDAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate, search string) {
 	if !guildstate.GetGuildSettingFlag(i.GuildID, "coopid_suggestions") {
+		userID := getInteractionUserID(i)
+		recent := farmerstate.GetRecentCoopIDs(userID)
+
+		choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, len(recent))
+		search = strings.ToLower(search)
+		for _, code := range recent {
+			if search == "" || strings.Contains(strings.ToLower(code), search) {
+				choices = append(choices, &discordgo.ApplicationCommandOptionChoice{Name: code, Value: code})
+			}
+		}
+
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-			Data: &discordgo.InteractionResponseData{Choices: []*discordgo.ApplicationCommandOptionChoice{}},
+			Data: &discordgo.InteractionResponseData{Choices: choices},
 		})
 		return
 	}
