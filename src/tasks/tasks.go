@@ -52,7 +52,7 @@ const eggIncTokenComplaintsFile string = "ttbb-data/token-complaints.json"
 const eggIncStatusMessagesURL string = "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/refs/heads/main/data/status-messages.json"
 const eggIncStatusMessagesFile string = "ttbb-data/status-messages.json"
 
-const eggscapeCoopIDURL string = "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/refs/heads/main/data/eggscape-coopid.json"
+const eggscapeCoopIDURL string = "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/refs/heads/main/data/coopid-eggscape.json"
 const eggscapeCoopIDFile string = "ttbb-data/coopid-eggscape.json"
 
 var lastContractUpdate time.Time
