@@ -838,7 +838,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
 			padField("Name", maxNameWidth, bottools.StringAlignLeft),
 			padField(shortDisplayName, maxValOnlyWidth, bottools.StringAlignRight),
-			padField("Level", craftingLevelWidth, bottools.StringAlignRight),
+			padField("Lvl", craftingLevelWidth, bottools.StringAlignRight),
 		}, "|")
 		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
 	} else {
