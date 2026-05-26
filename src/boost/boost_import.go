@@ -224,6 +224,8 @@ func UpdatePredictedSignupContracts(s *discordgo.Session, liveContracts []ei.Egg
 
 			if contract.ContractID != live.ID {
 				contract.ContractID = live.ID
+				// Want to clear these out if they were set previously
+				contract.ThematicComplaints = nil
 				updateContractWithEggIncData(s, contract)
 
 				if contract.Name != "" && contract.EggName != "" && !contract.PredictionSignup {
@@ -583,6 +585,13 @@ func updateContractWithEggIncData(s *discordgo.Session, contract *Contract) {
 				}
 			}
 			contract.PredictionInfo = pInfo
+			if themed, err := GetThematicComplaintsForContract(contract.ContractID); err == nil && len(themed) > 0 {
+				contract.ThematicComplaints = append([]string(nil), themed...)
+				r := rand.New(rand.NewSource(time.Now().UnixNano()))
+				r.Shuffle(len(contract.ThematicComplaints), func(i, j int) {
+					contract.ThematicComplaints[i], contract.ThematicComplaints[j] = contract.ThematicComplaints[j], contract.ThematicComplaints[i]
+				})
+			}
 			renameContractRole(s, contract)
 			return
 		}
