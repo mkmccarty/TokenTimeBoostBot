@@ -585,12 +585,14 @@ func updateContractWithEggIncData(s *discordgo.Session, contract *Contract) {
 				}
 			}
 			contract.PredictionInfo = pInfo
-			if themed, err := GetThematicComplaintsForContract(contract.ContractID); err == nil && len(themed) > 0 {
-				contract.ThematicComplaints = append([]string(nil), themed...)
-				r := rand.New(rand.NewSource(time.Now().UnixNano()))
-				r.Shuffle(len(contract.ThematicComplaints), func(i, j int) {
-					contract.ThematicComplaints[i], contract.ThematicComplaints[j] = contract.ThematicComplaints[j], contract.ThematicComplaints[i]
-				})
+			if len(contract.ThematicComplaints) == 0 {
+				if themed, err := GetThematicComplaintsForContract(contract.ContractID); err == nil && len(themed) > 0 {
+					contract.ThematicComplaints = append([]string(nil), themed...)
+					r := rand.New(rand.NewSource(time.Now().UnixNano()))
+					r.Shuffle(len(contract.ThematicComplaints), func(i, j int) {
+						contract.ThematicComplaints[i], contract.ThematicComplaints[j] = contract.ThematicComplaints[j], contract.ThematicComplaints[i]
+					})
+				}
 			}
 			renameContractRole(s, contract)
 			return
