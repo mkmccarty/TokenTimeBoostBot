@@ -395,7 +395,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 			c.TeamNames = existingTeamNames
 		}
 
-		if !c.Predicted && (needTeamNames || needComplaints) {
+		if needTeamNames || needComplaints {
 			go fetchThematicDataAsync(c.ID, c.Name, c.Description, needTeamNames, needComplaints)
 		}
 
