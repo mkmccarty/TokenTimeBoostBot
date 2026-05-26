@@ -506,6 +506,20 @@ func buildAdminContractListGuilds(defaultGuildID string, defaultGuildName string
 		return guilds[i].Name < guilds[j].Name
 	})
 
+	for i := range guilds {
+		sort.Slice(guilds[i].Contracts, func(a, b int) bool {
+			c1 := guilds[i].Contracts[a]
+			c2 := guilds[i].Contracts[b]
+			if !c1.StartTime.Equal(c2.StartTime) {
+				return c1.StartTime.Before(c2.StartTime)
+			}
+			if c1.ContractID != c2.ContractID {
+				return c1.ContractID < c2.ContractID
+			}
+			return c1.CoopID < c2.CoopID
+		})
+	}
+
 	return guilds
 }
 
