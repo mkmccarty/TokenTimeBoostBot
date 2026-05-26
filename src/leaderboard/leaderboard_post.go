@@ -668,10 +668,15 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 	lastValue := 0.0
 	for i, r := range rows {
 		rank := i + 1 + rankOffset
+		isTie := false
 		if i > 0 && r.Value == lastValue {
 			rank = lastRank
+			isTie = true
 		}
 		rankStr := fmt.Sprintf("#%d", rank)
+		if isTie {
+			rankStr = ""
+		}
 		if w := len(rankStr); w > rankWidth {
 			rankWidth = w
 		}
