@@ -175,8 +175,8 @@ func TestRenderTable_CompetitionRankingOnTies(t *testing.T) {
 	if !strings.Contains(rowLines[0], "#1") {
 		t.Fatalf("expected first row rank #1, got %q", rowLines[0])
 	}
-	if !strings.Contains(rowLines[1], "#1") {
-		t.Fatalf("expected second row rank #1 due to tie, got %q", rowLines[1])
+	if strings.Contains(rowLines[1], "#") {
+		t.Fatalf("expected second row rank to be blank due to tie, got %q", rowLines[1])
 	}
 	if !strings.Contains(rowLines[2], "#3") {
 		t.Fatalf("expected third row rank #3 after tie, got %q", rowLines[2])
