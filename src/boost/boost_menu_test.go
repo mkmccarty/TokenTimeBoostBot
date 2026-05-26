@@ -12,11 +12,11 @@ func mustSandboxArtifact(t *testing.T, key string) ei.Artifact {
 	t.Helper()
 
 	artifact := ei.GetArtifactByKey(key)
-	if artifact == nil {
-		t.Fatalf("artifact %q not found", key)
+	if artifact != nil {
+		return *artifact
 	}
-
-	return *artifact
+	t.Fatalf("artifact %q not found", key)
+	return ei.Artifact{}
 }
 
 func TestSandboxPlayersFromContractKeepsDeflectorsSeparate(t *testing.T) {
