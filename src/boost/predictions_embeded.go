@@ -301,20 +301,7 @@ func sendPredOne(s *discordgo.Session, i *discordgo.InteractionCreate, contractI
 
 	_, wedTime, friTime, _ := contractTimes9amPacific(0)
 
-	var wed, friPE, friUltra []ei.EggIncContract
-	for _, bc := range ei.EggIncContractsAll {
-		switch {
-		case bc.HasPE && !bc.Ultra:
-			friUltra = append(friUltra, bc)
-		case bc.HasPE && bc.Ultra:
-			friPE = append(friPE, bc)
-		default:
-			wed = append(wed, bc)
-		}
-	}
-	sort.Slice(wed, func(a, b int) bool { return sortValidFrom(wed[a], wed[b]) })
-	sort.Slice(friPE, func(a, b int) bool { return sortValidFrom(friPE[a], friPE[b]) })
-	sort.Slice(friUltra, func(a, b int) bool { return sortValidFrom(friUltra[a], friUltra[b]) })
+	wed, friPE, friUltra := GetPredictionBrackets()
 
 	var bracket []ei.EggIncContract
 	var baseTime time.Time
@@ -506,13 +493,7 @@ func getWeeklyEmbeds(wedTime, friTime time.Time, userName, botName, botIconURL s
 			return
 		}
 
-		// Bump time-saver to second position, same as writeContracts.
-		for i, c := range contracts {
-			if c.ID == timeSaverContractID && i+1 < len(contracts) {
-				contracts[i], contracts[i+1] = contracts[i+1], c
-				break
-			}
-		}
+		// (The time-saver-2021 hack is now applied centrally in GetPredictionBrackets)
 
 		// Full-width header field, breaks the inline grid and labels the section.
 		fields = append(fields, &discordgo.MessageEmbedField{

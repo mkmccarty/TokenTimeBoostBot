@@ -482,13 +482,7 @@ const timeSaverContractID = "time-saver-2021"
 func (pw predictionsWriter) writeContracts(b *strings.Builder, contracts []ei.EggIncContract) map[string]bool {
 	usedSeasons := make(map[string]bool)
 
-	// If time-saver-2021 is present, push it back one position.
-	for i, c := range contracts {
-		if c.ID == timeSaverContractID && i+1 < len(contracts) {
-			contracts[i], contracts[i+1] = contracts[i+1], c
-			break
-		}
-	}
+	// (The time-saver-2021 hack is now applied centrally in GetPredictionBrackets)
 
 	for _, c := range contracts {
 
@@ -581,36 +575,48 @@ func sortValidFrom(a, b ei.EggIncContract) bool {
 	return a.ValidFrom.Before(b.ValidFrom)
 }
 
-// predictJeli returns up to N oldest contracts per legacy contract type.
-// Contributed by jelibean84
-func predictJeli(contractCount int) (fridayNonUltra, fridayUltra, wednesday []ei.EggIncContract) {
-
+// GetPredictionBrackets returns the sorted brackets for all Leggacy contracts.
+func GetPredictionBrackets() (wed, friPE, friUltra []ei.EggIncContract) {
 	for _, c := range ei.EggIncContractsAll {
 		switch {
 		case c.HasPE && !c.Ultra:
-			fridayUltra = append(fridayUltra, c)
+			friUltra = append(friUltra, c)
 		case c.HasPE && c.Ultra:
-			fridayNonUltra = append(fridayNonUltra, c)
+			friPE = append(friPE, c)
 		default:
-			wednesday = append(wednesday, c)
+			wed = append(wed, c)
 		}
 	}
 
-	sort.Slice(fridayUltra, func(i, j int) bool {
-		return sortValidFrom(fridayUltra[i], fridayUltra[j])
-	})
-	sort.Slice(fridayNonUltra, func(i, j int) bool {
-		return sortValidFrom(fridayNonUltra[i], fridayNonUltra[j])
-	})
-	sort.Slice(wednesday, func(i, j int) bool {
-		return sortValidFrom(wednesday[i], wednesday[j])
-	})
-
-	if len(fridayUltra) > contractCount {
-		fridayUltra = fridayUltra[:contractCount]
+	sortBracket := func(bracket []ei.EggIncContract) {
+		sort.Slice(bracket, func(i, j int) bool {
+			return sortValidFrom(bracket[i], bracket[j])
+		})
+		for i, c := range bracket {
+			if c.ID == timeSaverContractID && i+1 < len(bracket) {
+				bracket[i], bracket[i+1] = bracket[i+1], c
+				break
+			}
+		}
 	}
+
+	sortBracket(wed)
+	sortBracket(friPE)
+	sortBracket(friUltra)
+
+	return wed, friPE, friUltra
+}
+
+// predictJeli returns up to N oldest contracts per legacy contract type.
+// Contributed by jelibean84
+func predictJeli(contractCount int) (fridayNonUltra, fridayUltra, wednesday []ei.EggIncContract) {
+	wednesday, fridayNonUltra, fridayUltra = GetPredictionBrackets()
+
 	if len(fridayNonUltra) > contractCount {
 		fridayNonUltra = fridayNonUltra[:contractCount]
+	}
+	if len(fridayUltra) > contractCount {
+		fridayUltra = fridayUltra[:contractCount]
 	}
 	if len(wednesday) > contractCount {
 		wednesday = wednesday[:contractCount]
@@ -629,20 +635,7 @@ type collectiblePrediction struct {
 // classification as predictJeli), computes each custom egg's predicted drop date
 // from its bracket position, and keeps the soonest occurrence per egg ID.
 func predictCollectibles(nextWed, nextFri time.Time) map[string]collectiblePrediction {
-	var wed, friPE, friUltra []ei.EggIncContract
-	for _, c := range ei.EggIncContractsAll {
-		switch {
-		case c.HasPE && !c.Ultra:
-			friUltra = append(friUltra, c)
-		case c.HasPE && c.Ultra:
-			friPE = append(friPE, c)
-		default:
-			wed = append(wed, c)
-		}
-	}
-	sort.Slice(wed, func(i, j int) bool { return sortValidFrom(wed[i], wed[j]) })
-	sort.Slice(friPE, func(i, j int) bool { return sortValidFrom(friPE[i], friPE[j]) })
-	sort.Slice(friUltra, func(i, j int) bool { return sortValidFrom(friUltra[i], friUltra[j]) })
+	wed, friPE, friUltra := GetPredictionBrackets()
 	/*
 		debugBracket := func(name string, bracket []ei.EggIncContract, base time.Time) {
 			log.Printf("[collectibles debug] === %s (%d contracts) ===", name, len(bracket))

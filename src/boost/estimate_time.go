@@ -5,7 +5,6 @@ import (
 	"log"
 	"math"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -337,20 +336,7 @@ func getContractPredLine(contractID string) string {
 
 	_, wedTime, friTime, _ := contractTimes9amPacific(0)
 
-	var wed, friPE, friUltra []ei.EggIncContract
-	for _, bc := range ei.EggIncContractsAll {
-		switch {
-		case bc.HasPE && !bc.Ultra:
-			friUltra = append(friUltra, bc)
-		case bc.HasPE && bc.Ultra:
-			friPE = append(friPE, bc)
-		default:
-			wed = append(wed, bc)
-		}
-	}
-	sort.Slice(wed, func(a, b int) bool { return sortValidFrom(wed[a], wed[b]) })
-	sort.Slice(friPE, func(a, b int) bool { return sortValidFrom(friPE[a], friPE[b]) })
-	sort.Slice(friUltra, func(a, b int) bool { return sortValidFrom(friUltra[a], friUltra[b]) })
+	wed, friPE, friUltra := GetPredictionBrackets()
 
 	var bracket []ei.EggIncContract
 	var baseTime time.Time
