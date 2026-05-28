@@ -10,9 +10,9 @@ import (
 
 func TestDrawBoostListOutputScenarios(t *testing.T) {
 	scenarios := []struct {
-		name          string
-		totalPlayers  int
-		currentIdx    int
+		name         string
+		totalPlayers int
+		currentIdx   int
 	}{
 		{
 			name:         "Compact - 15 Players (Current in middle)",
@@ -53,7 +53,7 @@ func TestDrawBoostListOutputScenarios(t *testing.T) {
 			for i := 0; i < tc.totalPlayers; i++ {
 				userID := fmt.Sprintf("user%02d", i)
 				contract.Order[i] = userID
-				
+
 				// Determine boost state based on position relative to currentIdx
 				boostState := BoostStateUnboosted
 				if i < tc.currentIdx {
@@ -77,8 +77,8 @@ func TestDrawBoostListOutputScenarios(t *testing.T) {
 			components := DrawBoostList(nil, contract)
 
 			var outputBuilder strings.Builder
-			outputBuilder.WriteString(fmt.Sprintf("\n=== Scenario: %s ===\n", tc.name))
-			outputBuilder.WriteString(fmt.Sprintf("Total Players: %d | Current Active Booster Index: %d (%s)\n", tc.totalPlayers, tc.currentIdx, contract.CurrentBoosterUserID))
+			fmt.Fprintf(&outputBuilder, "\n=== Scenario: %s ===\n", tc.name)
+			fmt.Fprintf(&outputBuilder, "Total Players: %d | Current Active Booster Index: %d (%s)\n", tc.totalPlayers, tc.currentIdx, contract.CurrentBoosterUserID)
 			outputBuilder.WriteString("--------------------------------------------------------------------------------\n")
 			for _, comp := range components {
 				if textDisplay, ok := comp.(*discordgo.TextDisplay); ok {
