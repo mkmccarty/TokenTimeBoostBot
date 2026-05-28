@@ -361,7 +361,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		return fmt.Sprintf("%s(%d)%s%s", b.Mention, b.TokensWanted, sortRate, sinkIcon)
 	}
 
-	buildCompactRange := func(order []string, startNum int, endNum int, includeTokenAsk bool, trailingNewline bool) string {
+	buildCompactRange := func(order []string, startNum int, endNum int, includeTokenAsk bool, keepLast bool, trailingNewline bool) string {
 		if len(order) == 0 {
 			return ""
 		}
@@ -383,7 +383,24 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 			rangeLabel = fmt.Sprintf("%d-%d", startNum, endNum)
 		}
 
-		output := fmt.Sprintf("%s: %s", rangeLabel, strings.Join(parts, ", "))
+		var listStr string
+		if len(parts) > 10 {
+			if keepLast {
+				// Keep the last 3 elements (e.g. for Early List)
+				lastThree := parts[len(parts)-3:]
+				middleCount := len(parts) - 3
+				listStr = fmt.Sprintf("... (%d more) ..., %s", middleCount, strings.Join(lastThree, ", "))
+			} else {
+				// Keep the first 3 elements (e.g. for Late List)
+				firstThree := parts[:3]
+				middleCount := len(parts) - 3
+				listStr = fmt.Sprintf("%s, ... (%d more) ...", strings.Join(firstThree, ", "), middleCount)
+			}
+		} else {
+			listStr = strings.Join(parts, ", ")
+		}
+
+		output := fmt.Sprintf("%s: %s", rangeLabel, listStr)
 		if trailingNewline {
 			output += "\n"
 		}
@@ -465,8 +482,8 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				end = len(contract.Order)
 			}
 
-			earlyList.WriteString(buildCompactRange(contract.Order[0:start], 1, start, true, true))
-			lateList.WriteString(buildCompactRange(contract.Order[end:len(contract.Order)], end+1, len(contract.Order), false, false))
+			earlyList.WriteString(buildCompactRange(contract.Order[0:start], 1, start, true, true, true))
+			lateList.WriteString(buildCompactRange(contract.Order[end:len(contract.Order)], end+1, len(contract.Order), false, false, false))
 
 			orderSubset = contract.Order[start:end]
 			offset = start + 1
