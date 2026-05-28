@@ -1,10 +1,13 @@
 package boost
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
@@ -150,5 +153,72 @@ func TestSandboxArtifactLabelsFromBooster(t *testing.T) {
 				t.Errorf("sandboxArtifactLabelsFromBooster() = %v, want %v", got, tt.expected)
 			}
 		})
+	}
+}
+
+func TestDrawBoostListCompactRange(t *testing.T) {
+	// Create a contract with 35 players, state Waiting (active).
+	// We want to test earlyList (>10 players) and lateList (>10 players) compaction.
+	contract := &Contract{
+		ContractHash: "test-hash",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		State:        ContractStateWaiting,
+		Style:        ContractStyleFastrun,
+		CreatorID:    []string{"creator-id"},
+		Order:        make([]string, 35),
+		Boosters:     make(map[string]*Booster),
+		Location:     []*LocationData{{GuildID: "guild1", ChannelID: "channel1"}},
+	}
+
+	for i := 0; i < 35; i++ {
+		userID := fmt.Sprintf("user%d", i)
+		contract.Order[i] = userID
+		contract.Boosters[userID] = &Booster{
+			UserID:       userID,
+			Mention:      fmt.Sprintf("<@%d>", i),
+			TokensWanted: 6,
+			BoostState:   BoostStateUnboosted,
+		}
+	}
+
+	// Set current booster index to 20.
+	// This will make start = 20 - 6 = 14 (early list elements: 0 to 14, count = 14 > 10).
+	// and end = 20 + 4 = 24 (late list elements: 24 to 35, count = 11 > 10).
+	contract.CurrentBoosterUserID = "user20"
+	contract.BoostPosition = 20
+
+	// Also make sure we have some boosted/token time states if needed, but buildCompactRange just formats them.
+	// We will call DrawBoostList.
+	components := DrawBoostList(nil, contract)
+	if len(components) == 0 {
+		t.Fatalf("expected components, got none")
+	}
+
+	// We expect the earlyList and lateList text displays to contain compaction indicators.
+	foundEarlyCompaction := false
+	foundLateCompaction := false
+
+	for _, comp := range components {
+		if textDisplay, ok := comp.(*discordgo.TextDisplay); ok {
+			content := textDisplay.Content
+			if reflect.TypeOf(comp).String() == "*discordgo.TextDisplay" {
+				if strings.Contains(content, "... (11 more) ...,") {
+					foundEarlyCompaction = true
+				}
+				if strings.Contains(content, ", ... (8 more) ...") {
+					// 35 - 24 = 11 total elements in lateList.
+					// Compaction keeps first 3, so middleCount = 11 - 3 = 8.
+					foundLateCompaction = true
+				}
+			}
+		}
+	}
+
+	if !foundEarlyCompaction {
+		t.Errorf("expected early list compaction '... (11 more) ...' not found in components")
+	}
+	if !foundLateCompaction {
+		t.Errorf("expected late list compaction '... (8 more) ...' not found in components")
 	}
 }
