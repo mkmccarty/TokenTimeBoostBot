@@ -1138,7 +1138,7 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 	case ContractStateWaiting:
 		sinkID := contract.Banker.CurrentBanker
 		if sinkID != "" {
-			iconsRowA = append(iconsRowA, tokenStr, "📢")
+			iconsRowA = append(iconsRowA, tokenStr)
 		}
 		iconsRowA = append(iconsRowA, "🐓", "📢")
 
