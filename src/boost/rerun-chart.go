@@ -48,6 +48,17 @@ var (
 	chartSessionsMutex sync.Mutex
 )
 
+const rerunSortByMiscKey = "rerunSortBy"
+
+func isValidChartSortBy(sortBy string) bool {
+	switch sortBy {
+	case "date", "date_asc", "gap", "gap_asc", "percent", "percent_desc", "cs", "cs_asc", "name", "name_desc", "id", "id_desc":
+		return true
+	default:
+		return false
+	}
+}
+
 func cleanupChartSessions() {
 	now := time.Now()
 	chartSessionsMutex.Lock()
@@ -64,6 +75,10 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 	var rows []chartRow
 
 	eiUserName := farmerstate.GetMiscSettingString(userID, "ei_ign")
+	sortBy := farmerstate.GetMiscSettingString(userID, rerunSortByMiscKey)
+	if !isValidChartSortBy(sortBy) {
+		sortBy = "percent_desc"
+	}
 
 	if archive == nil {
 		log.Print("No archived contracts found in Egg Inc API response")
@@ -127,7 +142,7 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 		userID:         userID,
 		rows:           rows,
 		page:           page - 1, // Store as 0-indexed internally
-		sortBy:         "percent_desc",
+		sortBy:         sortBy,
 		percent:        percent,
 		expiresAt:      time.Now().Add(15 * time.Minute),
 		hasDayMap:      len(contractDayMap) > 0,
@@ -566,8 +581,12 @@ func HandleChartReactions(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	case "sort":
 		values := i.MessageComponentData().Values
 		if len(values) > 0 {
-			session.sortBy = values[0]
-			session.page = 0 // Reset to first page on sort
+			newSortBy := values[0]
+			if isValidChartSortBy(newSortBy) {
+				session.sortBy = newSortBy
+				farmerstate.SetMiscSettingString(session.userID, rerunSortByMiscKey, newSortBy)
+				session.page = 0 // Reset to first page on sort
+			}
 		}
 	case "first":
 		session.page = 0
