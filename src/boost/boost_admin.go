@@ -665,10 +665,60 @@ func AdminContractReport(s *discordgo.Session, i *discordgo.InteractionCreate, c
 		},
 	})
 
+	type reportBoosterSnapshot struct {
+		UserID   string
+		Nick     string
+		Mention  string
+		Register time.Time
+	}
+
+	contractHash := ""
+	contractID := ""
+	coopID := ""
+	coordinatorID := ""
+	var startTime time.Time
+	var actualStartTime time.Time
+	loc := LocationData{
+		GuildName:         "Unknown",
+		GuildID:           "Unknown",
+		ChannelID:         "Unknown",
+		GuildContractRole: discordgo.Role{Name: "Unknown"},
+	}
+	var boosterSnapshots []reportBoosterSnapshot
+
+	contract.mutex.Lock()
+	contractHash = contract.ContractHash
+	contractID = contract.ContractID
+	coopID = contract.CoopID
+	startTime = contract.StartTime
+	actualStartTime = contract.ActualStartTime
+
+	if len(contract.CreatorID) > 0 {
+		coordinatorID = contract.CreatorID[0]
+	}
+
+	if len(contract.Location) > 0 && contract.Location[0] != nil {
+		loc = *contract.Location[0]
+	}
+
+	boosterSnapshots = make([]reportBoosterSnapshot, 0, len(contract.Boosters))
+	for userID, booster := range contract.Boosters {
+		if booster == nil {
+			continue
+		}
+		boosterSnapshots = append(boosterSnapshots, reportBoosterSnapshot{
+			UserID:   userID,
+			Nick:     booster.Nick,
+			Mention:  booster.Mention,
+			Register: booster.Register,
+		})
+	}
+	contract.mutex.Unlock()
+
 	// Get contract data from the list of all contract
-	eiContract, ok := ei.EggIncContractsAll[contract.ContractID]
+	eiContract, ok := ei.EggIncContractsAll[contractID]
 	if !ok { // ContractID not set
-		eiContract.MaxCoopSize = len(contract.Boosters)
+		eiContract.MaxCoopSize = len(boosterSnapshots)
 	}
 
 	// Determine run type based on contract valid from date
@@ -689,15 +739,12 @@ func AdminContractReport(s *discordgo.Session, i *discordgo.InteractionCreate, c
 		}
 	}
 
-	coordinatorID := contract.CreatorID[0]
-
 	// Carpet URL for summary view
-	carpetURL := fmt.Sprintf("https://eicoop-carpet.netlify.app/%s/%s", contract.ContractID, contract.CoopID)
+	carpetURL := fmt.Sprintf("https://eicoop-carpet.netlify.app/%s/%s", contractID, coopID)
 
 	// Set contract Start time
-	startTime := contract.StartTime
-	if !contract.ActualStartTime.IsZero() {
-		startTime = contract.ActualStartTime
+	if !actualStartTime.IsZero() {
+		startTime = actualStartTime
 	}
 
 	// Determine whether if GG was active at the start of the contract
@@ -715,33 +762,38 @@ func AdminContractReport(s *discordgo.Session, i *discordgo.InteractionCreate, c
 
 	// Build the list of members sorted by join date
 	type boosterEntry struct {
-		userID  string
-		booster *Booster
+		userID   string
+		nick     string
+		mention  string
+		register time.Time
 	}
 
-	entries := make([]boosterEntry, 0, len(contract.Boosters))
-	for userID, booster := range contract.Boosters {
-		if booster != nil {
-			entries = append(entries, boosterEntry{userID, booster})
-		}
+	entries := make([]boosterEntry, 0, len(boosterSnapshots))
+	for _, booster := range boosterSnapshots {
+		entries = append(entries, boosterEntry{
+			userID:   booster.UserID,
+			nick:     booster.Nick,
+			mention:  booster.Mention,
+			register: booster.Register,
+		})
 	}
 	// Sort by join date
 	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].booster.Register.Before(entries[j].booster.Register)
+		return entries[i].register.Before(entries[j].register)
 	})
 
 	reportMembers := make([]adminContractReportMember, 0, len(entries))
 	summaryMemberLines := make([]string, 0, len(entries))
 	for _, entry := range entries {
 		// Use nickname if available, fallback to userID
-		nick := entry.booster.Nick
+		nick := entry.nick
 		if nick == "" {
 			nick = entry.userID
 		}
 		// Joined timestamp for the current booster
 		joinedUnix := int64(0)
-		if !entry.booster.Register.IsZero() {
-			joinedUnix = entry.booster.Register.Unix()
+		if !entry.register.IsZero() {
+			joinedUnix = entry.register.Unix()
 		}
 
 		// Build JSON object
@@ -755,22 +807,11 @@ func AdminContractReport(s *discordgo.Session, i *discordgo.InteractionCreate, c
 		summaryMemberLines = append(summaryMemberLines,
 			fmt.Sprintf("%s %s (`%s`) joined: %s",
 				member.Nick,
-				entry.booster.Mention,
+				entry.mention,
 				member.UserID,
 				bottools.WrapTimestamp(member.JoinedUnix, bottools.TimestampShortTime),
 			),
 		)
-	}
-
-	// Guild and channel info for the contract
-	loc := LocationData{
-		GuildName:         "Unknown",
-		GuildID:           "Unknown",
-		ChannelID:         "Unknown",
-		GuildContractRole: discordgo.Role{Name: "Unknown"},
-	}
-	if len(contract.Location) > 0 && contract.Location[0] != nil {
-		loc = *contract.Location[0]
 	}
 
 	// Generate a link to contract thread
@@ -785,9 +826,9 @@ func AdminContractReport(s *discordgo.Session, i *discordgo.InteractionCreate, c
 		GuildID:        loc.GuildID,
 		ChannelID:      loc.ChannelID,
 		ChannelURL:     channelURL,
-		ContractHash:   contract.ContractHash,
-		ContractID:     contract.ContractID,
-		CoopID:         contract.CoopID,
+		ContractHash:   contractHash,
+		ContractID:     contractID,
+		CoopID:         coopID,
 		RunType:        runType,
 		GGType:         ggType,
 		ContractSize:   int64(eiContract.MaxCoopSize),
@@ -798,9 +839,13 @@ func AdminContractReport(s *discordgo.Session, i *discordgo.InteractionCreate, c
 
 	// Write the summary section of the report
 	var summary strings.Builder
+	coordinatorSummary := "Unknown"
+	if reportJSON.CoordinatorID != "" {
+		coordinatorSummary = fmt.Sprintf("<@%s> (%s)", reportJSON.CoordinatorID, reportJSON.CoordinatorID)
+	}
 
 	fmt.Fprintf(&summary, `### Admin Logs
-Coordinator ID: <@%s> (%s)
+Coordinator ID: %s
 Guild Name: *%s*
 Channel URL: %s
 Contract Hash: *%s*
@@ -812,7 +857,7 @@ Contract Size: *%d*
 Start Time: %s
 Role Name: *%s*
 `,
-		reportJSON.CoordinatorID, reportJSON.CoordinatorID,
+		coordinatorSummary,
 		reportJSON.GuildName,
 		reportJSON.ChannelURL,
 		reportJSON.ContractHash,

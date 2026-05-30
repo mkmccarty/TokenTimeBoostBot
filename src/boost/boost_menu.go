@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -441,10 +442,47 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			},
 		})
 	case "adminlogs":
+		creatorIDs := make([]string, 0)
+		var locations []LocationData
+
+		contract.mutex.Lock()
+		creatorIDs = append(creatorIDs, contract.CreatorID...)
+		locations = make([]LocationData, 0, len(contract.Location))
+		for _, loc := range contract.Location {
+			if loc != nil {
+				locations = append(locations, *loc)
+			}
+		}
+		contract.mutex.Unlock()
 
 		// Check if the user is a coordinator for the contract
-		userID := i.Member.User.ID
-		if !creatorOfContract(s, contract, userID) {
+		userID := bottools.GetInteractionUserID(i)
+		isCoordinator := false
+		for _, creatorID := range creatorIDs {
+			if creatorID == userID {
+				isCoordinator = true
+				break
+			}
+		}
+		if !isCoordinator {
+			for _, loc := range locations {
+				if guildstate.IsGuildCoordinator(loc.GuildID, userID) {
+					isCoordinator = true
+					break
+				}
+				perms, err := s.UserChannelPermissions(userID, loc.ChannelID)
+				if err != nil {
+					log.Println(err)
+					continue
+				}
+				if perms&discordgo.PermissionAdministrator != 0 {
+					isCoordinator = true
+					break
+				}
+			}
+		}
+
+		if !isCoordinator {
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
@@ -456,7 +494,20 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 
 		// Fetch target channel from guild settings
-		guildID := contract.Location[0].GuildID
+		guildID := ""
+		if len(locations) > 0 {
+			guildID = locations[0].GuildID
+		}
+		if guildID == "" {
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Unable to determine the guild for this contract.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+			return
+		}
 		targetChannelID := guildstate.GetGuildSettingString(guildID, "admin_logs_channel")
 		if targetChannelID == "" {
 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
