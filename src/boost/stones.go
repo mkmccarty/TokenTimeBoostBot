@@ -399,6 +399,9 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 	//alternateStr := ""
 
+	if coopStatus.GetGrade() == ei.Contract_GRADE_UNSET {
+		return "This isn't a V2 contract", "", field
+	}
 	grade := int(coopStatus.GetGrade())
 
 	artifactPercentLevels := []float64{1.02, 1.04, 1.05}
