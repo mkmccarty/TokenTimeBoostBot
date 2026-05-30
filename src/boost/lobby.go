@@ -219,6 +219,9 @@ func buildLobbyComponents(contractID string, coopID string, userID string, bypas
 		discordgo.TextDisplay{Content: content.header},
 		discordgo.TextDisplay{Content: content.lobby},
 	}
+	if content.mismatch != "" {
+		components = append(components, discordgo.TextDisplay{Content: content.mismatch})
+	}
 	if includeButtons {
 		components = append(components, lobbyButtons(contractID, coopID))
 	}
@@ -227,8 +230,9 @@ func buildLobbyComponents(contractID string, coopID string, userID string, bypas
 }
 
 type lobbyContent struct {
-	header string
-	lobby  string
+	header   string
+	lobby    string
+	mismatch string
 }
 
 func buildLobbyContent(contractID string, coopID string, userID string, bypassCache bool) (lobbyContent, error) {
@@ -300,7 +304,150 @@ func buildLobbyContent(contractID string, coopID string, userID string, bypassCa
 		}
 	}
 
-	return lobbyContent{header: header.String(), lobby: lobby.String()}, nil
+	mismatch := buildLobbyMismatchSection(coopStatus.GetContributors(), FindContractByIDs(contractID, coopID))
+
+	return lobbyContent{header: header.String(), lobby: lobby.String(), mismatch: mismatch}, nil
+}
+
+func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_ContributionInfo, contract *Contract) string {
+	if contract == nil {
+		return ""
+	}
+
+	// Snapshot booster info to avoid holding the contract mutex across farmerstate calls.
+	type boosterSnapshot struct {
+		discordID string
+		eiIgn     string
+		nick      string
+		mention   string
+	}
+	contract.mutex.Lock()
+	snapshots := make([]boosterSnapshot, 0, len(contract.Boosters))
+	for id, b := range contract.Boosters {
+		snapshots = append(snapshots, boosterSnapshot{discordID: id, nick: b.Nick, mention: b.Mention})
+	}
+	contract.mutex.Unlock()
+
+	// Fetch ei_ign for each booster outside the contract lock.
+	for i := range snapshots {
+		snapshots[i].eiIgn = farmerstate.GetMiscSettingString(snapshots[i].discordID, "ei_ign")
+	}
+
+	// Build case-insensitive lookup map: lowercase ei_ign -> discordID.
+	ignToID := make(map[string]string, len(snapshots))
+	for _, s := range snapshots {
+		if s.eiIgn != "" {
+			ignToID[strings.ToLower(s.eiIgn)] = s.discordID
+		}
+	}
+
+	matchedBoosterIDs := make(map[string]bool)
+
+	type guessEntry struct {
+		coopName        string
+		contractDisplay string
+	}
+	var bestFitGuesses []guessEntry
+	var coopNotInContract []string
+
+	for _, contributor := range contributors {
+		coopName := contributor.GetUserName()
+		if coopName == "" {
+			coopName = contributor.GetUserId()
+		}
+		if coopName == "" {
+			continue
+		}
+
+		matched := false
+
+		// 1. Exact database lookup by ei_ign.
+		if discordID, err := farmerstate.GetDiscordUserIDFromEiIgn(coopName); err == nil && discordID != "" {
+			contract.mutex.Lock()
+			_, inContract := contract.Boosters[discordID]
+			contract.mutex.Unlock()
+			if inContract {
+				matchedBoosterIDs[discordID] = true
+				matched = true
+			}
+		}
+
+		// 2. Case-insensitive ei_ign match.
+		if !matched {
+			coopLower := strings.ToLower(coopName)
+			if id, ok := ignToID[coopLower]; ok {
+				matchedBoosterIDs[id] = true
+				matched = true
+			}
+		}
+
+		// 3. Best-fit: substring match against ei_ign or Discord nick.
+		if !matched {
+			coopLower := strings.ToLower(coopName)
+			for _, s := range snapshots {
+				ignLower := strings.ToLower(s.eiIgn)
+				nickLower := strings.ToLower(s.nick)
+				if (ignLower != "" && (strings.Contains(ignLower, coopLower) || strings.Contains(coopLower, ignLower))) ||
+					(nickLower != "" && (strings.Contains(nickLower, coopLower) || strings.Contains(coopLower, nickLower))) {
+					matchedBoosterIDs[s.discordID] = true
+					display := s.mention
+					if !strings.HasPrefix(display, "<@") {
+						display = "`" + s.nick + "`"
+					}
+					bestFitGuesses = append(bestFitGuesses, guessEntry{coopName: coopName, contractDisplay: display})
+					matched = true
+					break
+				}
+			}
+		}
+
+		if !matched {
+			coopNotInContract = append(coopNotInContract, coopName)
+		}
+	}
+
+	// Find contract members with no matching coop contributor.
+	var contractNotInCoop []string
+	for _, s := range snapshots {
+		if !matchedBoosterIDs[s.discordID] {
+			display := s.mention
+			if !strings.HasPrefix(display, "<@") {
+				display = "`" + s.nick + "`"
+			}
+			contractNotInCoop = append(contractNotInCoop, display)
+		}
+	}
+
+	if len(bestFitGuesses) == 0 && len(coopNotInContract) == 0 && len(contractNotInCoop) == 0 {
+		return ""
+	}
+
+	sort.Strings(coopNotInContract)
+	sort.Strings(contractNotInCoop)
+
+	var sb strings.Builder
+	sb.WriteString("**Roster Mismatches**\n")
+
+	if len(bestFitGuesses) > 0 {
+		sb.WriteString("Possible matches (unverified):\n")
+		for _, g := range bestFitGuesses {
+			fmt.Fprintf(&sb, "- `%s` (coop) ≈ %s (contract)\n", g.coopName, g.contractDisplay)
+		}
+	}
+	if len(coopNotInContract) > 0 {
+		sb.WriteString("In coop but not in bot contract:\n")
+		for _, name := range coopNotInContract {
+			fmt.Fprintf(&sb, "- `%s`\n", name)
+		}
+	}
+	if len(contractNotInCoop) > 0 {
+		sb.WriteString("In bot contract but not in coop:\n")
+		for _, display := range contractNotInCoop {
+			fmt.Fprintf(&sb, "- %s\n", display)
+		}
+	}
+
+	return sb.String()
 }
 
 func lobbyButtons(contractID string, coopID string) discordgo.ActionsRow {
