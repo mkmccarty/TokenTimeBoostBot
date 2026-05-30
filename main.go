@@ -156,12 +156,12 @@ func init() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, syscall.SIGHUP)
 
-		go func() {
+		safeGo("logrotate-sighup", func() {
 			for {
 				<-c
 				_ = l.Rotate()
 			}
-		}()
+		})
 	}
 
 	version.Version = Version
@@ -786,6 +786,8 @@ func respondUnknownAutocompletePath(s *discordgo.Session, i *discordgo.Interacti
 // main init to call other init functions in sequence
 func init() {
 	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		defer recoverPanic("discord-interaction", 0, interactionCrashMetadata(s, i))
+
 		switch i.Type {
 		case discordgo.InteractionApplicationCommand:
 			if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
@@ -825,7 +827,6 @@ func init() {
 				log.Printf("Unknown autocomplete handler: %s", i.ApplicationCommandData().Name)
 				respondUnknownAutocompletePath(s, i)
 			}
-
 		case discordgo.InteractionModalSubmit:
 			// Handlers could include a parameter to help identify this uniquly
 			handlerID := strings.Split(i.ModalSubmitData().CustomID, "#")[0]
@@ -854,10 +855,25 @@ func init() {
 
 	// Components are part of interactions, so we register InteractionCreate handler
 	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
+		defer recoverPanic("discord-message-create", 0, withSessionHints(map[string]string{
+			"guild_id":   m.GuildID,
+			"channel_id": m.ChannelID,
+			"message_id": m.ID,
+			"author_id":  m.Author.ID,
+		}, s))
+
 		mint.HandleMintCSVUploadMessage(s, m)
 	})
 
 	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
+		defer recoverPanic("discord-reaction-add", 0, withSessionHints(map[string]string{
+			"guild_id":   m.GuildID,
+			"channel_id": m.ChannelID,
+			"message_id": m.MessageID,
+			"emoji":      m.Emoji.APIName(),
+			"user_id":    m.UserID,
+		}, s))
+
 		if m.UserID != s.State.User.ID {
 			if m.GuildID != "" {
 				boost.ReactionAdd(s, m.MessageReaction)
@@ -866,7 +882,15 @@ func init() {
 	})
 	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageReactionRemove) {
 		if m.UserID != s.State.User.ID {
-			go boost.ReactionRemove(s, m.MessageReaction)
+			safeGoMeta("reaction-remove", withSessionHints(map[string]string{
+				"guild_id":   m.GuildID,
+				"channel_id": m.ChannelID,
+				"message_id": m.MessageID,
+				"emoji":      m.Emoji.APIName(),
+				"user_id":    m.UserID,
+			}, s), func() {
+				boost.ReactionRemove(s, m.MessageReaction)
+			})
 		}
 	})
 }
@@ -928,6 +952,8 @@ func connectWithRetry(dg *discordgo.Session) error {
 }
 
 func main() {
+	defer handleCrash()
+
 	setupCommands()
 
 	/*
@@ -943,7 +969,11 @@ func main() {
 
 	// Start our CRON job to grab Egg Inc contract data from the Carpet github repository
 	startHeartbeat("/tmp/tokentimeboost.heartbeat", 1*time.Minute)
-	go tasks.ExecuteCronJob(s)
+	safeGoMeta("cron-job", withSessionHints(map[string]string{
+		"job": "tasks.ExecuteCronJob",
+	}, s), func() {
+		tasks.ExecuteCronJob(s)
+	})
 
 	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
 		log.Printf("Ready message for: %v#%v  SessID:%v", s.State.User.Username, s.State.User.Discriminator, r.SessionID)
@@ -957,7 +987,9 @@ func main() {
 
 	bottools.LoadEmotes(s, false)
 	dashboard.LaunchIndependentTimers(s)
-	go menno.Startup()
+	safeGoMeta("menno-startup", withSessionHints(map[string]string{
+		"job": "menno.Startup",
+	}, s), menno.Startup)
 
 	_ = s.UpdateStatusComplex(discordgo.UpdateStatusData{
 		AFK: false,
@@ -1003,7 +1035,9 @@ func main() {
 		}
 	}()
 
-	go func() {
+	safeGoMeta("file-watcher", withSessionHints(map[string]string{
+		"watch_files": strings.Join([]string{configFileName, statusMessagesFileName}, ","),
+	}, s), func() {
 		ticker := time.NewTicker(60 * time.Second)
 		defer ticker.Stop()
 
@@ -1040,7 +1074,7 @@ func main() {
 			}
 		}
 
-	}()
+	})
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
@@ -1055,7 +1089,10 @@ func main() {
 
 // Heartbeat function to update the modification time of a file at regular intervals
 func startHeartbeat(filepath string, interval time.Duration) {
-	go func() {
+	safeGoMeta("heartbeat", withSessionHints(map[string]string{
+		"heartbeat_path":     filepath,
+		"heartbeat_interval": interval.String(),
+	}, s), func() {
 		// Create the file if it doesn't exist
 		if _, err := os.Stat(filepath); os.IsNotExist(err) {
 			f, err := os.Create(filepath)
@@ -1112,5 +1149,5 @@ func startHeartbeat(filepath string, interval time.Duration) {
 				}
 			}
 		}
-	}()
+	})
 }
