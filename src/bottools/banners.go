@@ -49,17 +49,27 @@ func loadFontFile(name string, size, dpi float64) (font.Face, error) {
 	return face, nil
 }
 
-// getCurrentSeason returns the current season based on the month
-func getCurrentSeason(t time.Time) string {
-	month := t.Month()
-	if month >= 3 && month <= 5 {
+// getCelestialSeason returns the current season using late-month cutovers.
+// This keeps early June in spring, matching expected seasonal timing.
+func getCelestialSeason(t time.Time) string {
+	year, _, _ := t.Date()
+	loc := t.Location()
+
+	springStart := time.Date(year, time.March, 20, 0, 0, 0, 0, loc)
+	summerStart := time.Date(year, time.June, 21, 0, 0, 0, 0, loc)
+	fallStart := time.Date(year, time.September, 22, 0, 0, 0, 0, loc)
+	winterStart := time.Date(year, time.December, 21, 0, 0, 0, 0, loc)
+
+	switch {
+	case !t.Before(springStart) && t.Before(summerStart):
 		return "spring"
-	} else if month >= 6 && month <= 8 {
+	case !t.Before(summerStart) && t.Before(fallStart):
 		return "summer"
-	} else if month >= 9 && month <= 11 {
+	case !t.Before(fallStart) && t.Before(winterStart):
 		return "fall"
+	default:
+		return "winter"
 	}
-	return "winter"
 }
 
 type styleData struct {
@@ -103,7 +113,7 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 		}
 	}
 
-	currentSeason := getCurrentSeason(time.Now())
+	currentSeason := getCelestialSeason(time.Now())
 	allExistAndFresh := true
 
 	hasCustomBanner := false
@@ -159,7 +169,7 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 
 		seasonImgPath := fmt.Sprintf("%s/%s-b%s.png", config.BannerOutputPath, ID, style)
 		info, err := os.Stat(seasonImgPath)
-		if os.IsNotExist(err) || getCurrentSeason(info.ModTime()) != currentSeason {
+		if os.IsNotExist(err) || getCelestialSeason(info.ModTime()) != currentSeason {
 			allExistAndFresh = false
 			break
 		}
