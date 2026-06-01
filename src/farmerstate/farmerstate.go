@@ -624,6 +624,23 @@ func GetDiscordUserIDFromEiIgn(eiIgn string) (string, error) {
 	return id, nil
 }
 
+// GetDiscordUserIDFromEggIncName retrieves the Discord user ID based on the provided eggincname.
+// It also checks if the account is an alternate and returns the parent's Discord ID if so.
+func GetDiscordUserIDFromEggIncName(eggIncName string) (string, error) {
+	FlushPendingSaves()
+	var id string
+	err := queries.db.QueryRowContext(ctx, "SELECT id FROM farmer_state WHERE json_extract(value, '$.EggIncName') = ? LIMIT 1", eggIncName).Scan(&id)
+	if err != nil {
+		return "", err
+	}
+	// Check if this ID is an alternate of another user
+	parentID := GetMiscSettingString(id, "AltController")
+	if parentID != "" {
+		return parentID, nil
+	}
+	return id, nil
+}
+
 // SetCustomBanner saves a user's custom banner PNG bytes into the database.
 func SetCustomBanner(userID string, guildID string, imageData []byte) error {
 	FlushPendingSaves()

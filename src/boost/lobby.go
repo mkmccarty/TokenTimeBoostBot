@@ -316,10 +316,11 @@ func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_Con
 
 	// Snapshot booster info to avoid holding the contract mutex across farmerstate calls.
 	type boosterSnapshot struct {
-		discordID string
-		eiIgn     string
-		nick      string
-		mention   string
+		discordID  string
+		eiIgn      string
+		eggIncName string
+		nick       string
+		mention    string
 	}
 	contract.mutex.Lock()
 	snapshots := make([]boosterSnapshot, 0, len(contract.Boosters))
@@ -328,16 +329,20 @@ func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_Con
 	}
 	contract.mutex.Unlock()
 
-	// Fetch ei_ign for each booster outside the contract lock.
+	// Fetch ei_ign and eggincname for each booster outside the contract lock.
 	for i := range snapshots {
 		snapshots[i].eiIgn = farmerstate.GetMiscSettingString(snapshots[i].discordID, "ei_ign")
+		snapshots[i].eggIncName = farmerstate.GetEggIncName(snapshots[i].discordID)
 	}
 
-	// Build case-insensitive lookup map: lowercase ei_ign -> discordID.
+	// Build case-insensitive lookup map: lowercase ei_ign or eggincname -> discordID.
 	ignToID := make(map[string]string, len(snapshots))
 	for _, s := range snapshots {
 		if s.eiIgn != "" {
 			ignToID[strings.ToLower(s.eiIgn)] = s.discordID
+		}
+		if s.eggIncName != "" {
+			ignToID[strings.ToLower(s.eggIncName)] = s.discordID
 		}
 	}
 
@@ -372,7 +377,20 @@ func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_Con
 			}
 		}
 
-		// 2. Case-insensitive ei_ign match.
+		// 1b. Exact database lookup by eggincname.
+		if !matched {
+			if discordID, err := farmerstate.GetDiscordUserIDFromEggIncName(coopName); err == nil && discordID != "" {
+				contract.mutex.Lock()
+				_, inContract := contract.Boosters[discordID]
+				contract.mutex.Unlock()
+				if inContract {
+					matchedBoosterIDs[discordID] = true
+					matched = true
+				}
+			}
+		}
+
+		// 2. Case-insensitive match on ei_ign or eggincname.
 		if !matched {
 			coopLower := strings.ToLower(coopName)
 			if id, ok := ignToID[coopLower]; ok {
@@ -381,13 +399,15 @@ func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_Con
 			}
 		}
 
-		// 3. Best-fit: substring match against ei_ign or Discord nick.
+		// 3. Best-fit: substring match against ei_ign, eggincname, or Discord nick.
 		if !matched {
 			coopLower := strings.ToLower(coopName)
 			for _, s := range snapshots {
 				ignLower := strings.ToLower(s.eiIgn)
+				eggLower := strings.ToLower(s.eggIncName)
 				nickLower := strings.ToLower(s.nick)
 				if (ignLower != "" && (strings.Contains(ignLower, coopLower) || strings.Contains(coopLower, ignLower))) ||
+					(eggLower != "" && (strings.Contains(eggLower, coopLower) || strings.Contains(coopLower, eggLower))) ||
 					(nickLower != "" && (strings.Contains(nickLower, coopLower) || strings.Contains(coopLower, nickLower))) {
 					matchedBoosterIDs[s.discordID] = true
 					display := s.mention
