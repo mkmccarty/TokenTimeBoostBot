@@ -647,12 +647,17 @@ func GetContractArchivesForNames(s *discordgo.Session, names []string, cxpVersio
 // prevCXPFromArchive returns the previous CXP for this contract, returning (0, false) if not found or any issue with the archive
 func prevCXPFromArchive(arch []*ei.LocalContract, contractID, currentCoopID string) (float64, bool) {
 	for _, lc := range arch {
-		c := lc.GetContract()
 		ev := lc.GetEvaluation()
-		if c == nil || ev == nil {
+		if ev == nil {
 			continue
 		}
-		if c.GetIdentifier() != contractID {
+		lcContractID := ""
+		if lc.GetContract() != nil {
+			lcContractID = lc.GetContract().GetIdentifier()
+		} else {
+			lcContractID = ev.GetContractIdentifier()
+		}
+		if lcContractID != contractID {
 			continue
 		}
 		if ev.GetCoopIdentifier() == currentCoopID {

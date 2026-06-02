@@ -426,7 +426,16 @@ func RunCalculators(
 		if isOptedIn(LBAAASoloDuration) && archive != nil {
 			minDuration := -1.0
 			for _, lc := range archive {
-				if lc.GetGrade() == ei.Contract_GRADE_AAA && lc.GetContract().GetMaxCoopSize() == 1 {
+				maxCoopSize := int32(0)
+				if lc.GetContract() != nil {
+					maxCoopSize = lc.GetContract().GetMaxCoopSize()
+				} else if lc.GetEvaluation() != nil {
+					contractID := lc.GetEvaluation().GetContractIdentifier()
+					if contractInfo, ok := ei.GetEggIncContract(contractID); ok {
+						maxCoopSize = int32(contractInfo.MaxCoopSize)
+					}
+				}
+				if lc.GetGrade() == ei.Contract_GRADE_AAA && maxCoopSize == 1 {
 					duration := lc.GetCoopSharedEndTime() - lc.GetTimeAccepted()
 					minDuration = duration
 				}

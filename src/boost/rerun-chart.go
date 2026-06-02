@@ -89,12 +89,17 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 	log.Printf("Downloaded %d archived contracts from Egg Inc API for %s\n", len(archive), eiUserName)
 
 	for _, a := range archive {
-		contractID := a.GetContract().GetIdentifier()
-		if contractID == "first-contract" {
+		contractID := ""
+		evaluation := a.GetEvaluation()
+		if a.GetContract() != nil {
+			contractID = a.GetContract().GetIdentifier()
+		} else if evaluation != nil {
+			contractID = evaluation.GetContractIdentifier()
+		}
+		if contractID == "first-contract" || contractID == "" {
 			continue
 		}
 
-		evaluation := a.GetEvaluation()
 		evaluationCxp := evaluation.GetCxp()
 		c, _ := ei.GetEggIncContract(contractID)
 

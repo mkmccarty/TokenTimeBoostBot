@@ -128,10 +128,20 @@ func populateColleggtiblesFromBackup(userID string, backup *ei.Backup) ([]string
 	owned := make(map[string]bool)
 	contracts := append(backup.GetContracts().GetArchive(), backup.GetContracts().GetContracts()...)
 	for _, c := range contracts {
-		if c == nil || c.GetContract() == nil {
+		if c == nil {
 			continue
 		}
-		eggID := c.GetContract().GetCustomEggId()
+		eggID := ""
+		if c.GetContract() != nil {
+			eggID = c.GetContract().GetCustomEggId()
+		} else if c.GetEvaluation() != nil {
+			contractID := c.GetEvaluation().GetContractIdentifier()
+			if contractInfo, ok := ei.GetEggIncContract(contractID); ok {
+				if contractInfo.Egg == int32(ei.Egg_CUSTOM_EGG) {
+					eggID = contractInfo.EggName
+				}
+			}
+		}
 		if eggID == "" {
 			continue
 		}
