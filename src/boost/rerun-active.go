@@ -47,12 +47,17 @@ func printActiveContractDetails(userID string, archive []*ei.LocalContract, cont
 			1.15: "T4C", 1.17: "T4R", 1.19: "T4E", 1.20: "T4L",
 		}
 
-		contractID := a.GetContract().GetIdentifier()
-		if contractID == "first-contract" {
+		contractID := ""
+		evaluation := a.GetEvaluation()
+		if a.GetContract() != nil {
+			contractID = a.GetContract().GetIdentifier()
+		} else if evaluation != nil {
+			contractID = evaluation.GetContractIdentifier()
+		}
+		if contractID == "first-contract" || contractID == "" {
 			continue
 		}
 
-		evaluation := a.GetEvaluation()
 		coopID := evaluation.GetCoopIdentifier()
 		evaluationCxp := evaluation.GetCxp()
 		c := ei.EggIncContractsAll[contractID]

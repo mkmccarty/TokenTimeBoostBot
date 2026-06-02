@@ -83,7 +83,17 @@ func GetColleggtibleBuffs(contracts *MyContracts) DimensionBuffs {
 
 	// Look in active and archived contracts for custom eggs
 	for _, c := range append(contracts.GetArchive(), contracts.GetContracts()...) {
-		egg := c.GetContract().GetCustomEggId()
+		egg := ""
+		if c.GetContract() != nil {
+			egg = c.GetContract().GetCustomEggId()
+		} else if c.GetEvaluation() != nil {
+			contractID := c.GetEvaluation().GetContractIdentifier()
+			if contractInfo, ok := GetEggIncContract(contractID); ok {
+				if contractInfo.Egg == int32(Egg_CUSTOM_EGG) {
+					egg = contractInfo.EggName
+				}
+			}
+		}
 		if egg == "" {
 			continue
 		}
