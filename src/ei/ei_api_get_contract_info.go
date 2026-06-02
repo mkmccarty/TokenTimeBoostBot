@@ -35,9 +35,9 @@ func GetContractsInfoFromAPI(contractIdentifiers []string) *ContractsInfoRespons
 		ClientVersion:       proto.Uint32(clientVersion),
 	}
 
-	payload, _ := APICall(reqURL, &request, false, 0, "", true)
+	payload := APIAuthenticatedCall(reqURL, &request)
 	if payload == nil {
-		log.Print("GetContractsInfoFromAPI: APICall returned nil response")
+		log.Print("GetContractsInfoFromAPI: APIAuthenticatedCall returned nil response")
 		return nil
 	}
 
