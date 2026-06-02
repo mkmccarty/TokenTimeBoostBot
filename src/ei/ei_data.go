@@ -151,15 +151,16 @@ type EggIncContract struct {
 	Grade                     []ContractGrade
 	TeamNames                 []string // Names of the teams in the contract
 	// Contract Scoring Values
-	CxpBuffOnly     float64  // Minimum score with only CR/TVal
-	CxpRunDelta     float64  // Individual chicken run addition
-	Cxp             float64  // CXP value for the contract
-	CxpMax          float64  // Maximum CXP value based on EstimatedDurationMax
-	CxpMaxGG        float64  // Maximum CXP value based on EstimatedDurationMaxGG
-	CxpMaxSiab      float64  // Maximum CXP value based on SIAB usage
-	CxpMaxSiabGG    float64  // CXP value for the contract based on SIAB usage
-	SeasonalScoring int      // 0 = old (0.2.0), true = 1 (0.2.0+ seasonal change for AA+AAA)
-	PredictionsList []string // List of predictions for this contract
+	CxpBuffOnly     float64          // Minimum score with only CR/TVal
+	CxpRunDelta     float64          // Individual chicken run addition
+	Cxp             float64          // CXP value for the contract
+	CxpMax          float64          // Maximum CXP value based on EstimatedDurationMax
+	CxpMaxGG        float64          // Maximum CXP value based on EstimatedDurationMaxGG
+	CxpMaxSiab      float64          // Maximum CXP value based on SIAB usage
+	CxpMaxSiabGG    float64          // CXP value for the contract based on SIAB usage
+	SeasonalScoring int              // 0 = old (0.2.0), true = 1 (0.2.0+ seasonal change for AA+AAA)
+	PredictionsList []string         // List of predictions for this contract
+	History         []EggIncContract `json:"history,omitempty"` // History of replaced versions of this contract
 }
 
 // EggIncContracts holds a list of all contracts, newest is last
@@ -400,6 +401,34 @@ func GetEggIncContract(contractID string) (EggIncContract, bool) {
 	defer EggIncContractsMutex.RUnlock()
 	c, ok := EggIncContractsAll[contractID]
 	return c, ok
+}
+
+// GetEggIncContractByStartTime returns the version of the contract that was active at the given start time thread-safely.
+// It iterates through the history of the contract to find the one active at startTime.
+func GetEggIncContractByStartTime(contractID string, startTime time.Time) (EggIncContract, bool) {
+	EggIncContractsMutex.RLock()
+	defer EggIncContractsMutex.RUnlock()
+
+	c, ok := EggIncContractsAll[contractID]
+	if !ok {
+		return EggIncContract{}, false
+	}
+
+	if !startTime.Before(c.ValidFrom) {
+		return c, true
+	}
+
+	for _, h := range c.History {
+		if !startTime.Before(h.ValidFrom) {
+			return h, true
+		}
+	}
+
+	// Fallback to the oldest version if the start time is before any ValidFrom
+	if len(c.History) > 0 {
+		return c.History[len(c.History)-1], true
+	}
+	return c, true
 }
 
 // GetEggIncContractsSlice returns a copy of the EggIncContracts slice thread-safely
