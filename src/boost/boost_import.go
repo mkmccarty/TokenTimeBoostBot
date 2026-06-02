@@ -10,9 +10,11 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 
 	"google.golang.org/protobuf/proto"
@@ -58,11 +60,24 @@ func LoadContractData(filename string) {
 			EggIncContractsNew = append(EggIncContractsNew, contract)
 		}
 
-		// Only add completely new contracts to this list
+		// Only add completely new contracts to this list, older contracts will be
+		// preserved in the history
 		if existingContract, exists := ei.EggIncContractsAll[c.ID]; !exists || contract.ValidFrom.After(existingContract.ValidFrom) {
+
+			if exists {
+				replaced := existingContract
+				replaced.History = nil
+				contract.History = append([]ei.EggIncContract{replaced}, existingContract.History...)
+			}
+
 			ei.EggIncContractsAll[c.ID] = contract
 		}
 
+	}
+
+	// Determine the amount of memory used by this structure
+	if config.IsDevBot() {
+		log.Printf("EggIncContractsAll memory usage: %d bytes (%.2f KB, %.2f MB)", estimateMapMemory(), float64(estimateMapMemory())/1024.0, float64(estimateMapMemory())/(1024.0*1024.0))
 	}
 
 	for _, predicted := range CreatePredictedContract() {
@@ -616,4 +631,44 @@ func updateContractWithEggIncData(s *discordgo.Session, contract *Contract) {
 		}
 		contract.PredictionInfo = pInfo
 	}
+}
+
+// estimateMapMemory returns the estimated memory footprint in bytes of ei.EggIncContractsAll
+func estimateMapMemory() int {
+	ei.EggIncContractsMutex.RLock()
+	defer ei.EggIncContractsMutex.RUnlock()
+	totalBytes := 48 + 8 // map header + pointer
+	for k, v := range ei.EggIncContractsAll {
+		totalBytes += 8 + 16 + len(k) // map bucket slot (8 byte hash + 16 byte string header + key len)
+		totalBytes += int(unsafe.Sizeof(v))
+		totalBytes += estimateContractMemory(v)
+	}
+	return totalBytes
+}
+func estimateContractMemory(c ei.EggIncContract) int {
+	bytes := 0
+	bytes += len(c.ID)
+	bytes += len(c.Proto)
+	bytes += len(c.Name)
+	bytes += len(c.Description)
+	bytes += len(c.EggName)
+	bytes += len(c.SeasonID)
+	bytes += cap(c.TargetAmount) * 8
+	bytes += cap(c.Grade) * int(unsafe.Sizeof(ei.ContractGrade{}))
+	for _, g := range c.Grade {
+		bytes += cap(g.TargetAmount) * 8
+	}
+	bytes += cap(c.TeamNames) * 16
+	for _, name := range c.TeamNames {
+		bytes += len(name)
+	}
+	bytes += cap(c.PredictionsList) * 16
+	for _, pred := range c.PredictionsList {
+		bytes += len(pred)
+	}
+	bytes += cap(c.History) * int(unsafe.Sizeof(ei.EggIncContract{}))
+	for _, hist := range c.History {
+		bytes += estimateContractMemory(hist)
+	}
+	return bytes
 }
