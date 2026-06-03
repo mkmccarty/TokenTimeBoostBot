@@ -47,11 +47,11 @@ func printActiveContractDetails(userID string, archive []*ei.LocalContract, cont
 			1.15: "T4C", 1.17: "T4R", 1.19: "T4E", 1.20: "T4L",
 		}
 
-		contractID := ""
+		contractID := a.GetContractIdentifier()
 		evaluation := a.GetEvaluation()
-		if a.GetContract() != nil {
+		if contractID == "" && a.GetContract() != nil {
 			contractID = a.GetContract().GetIdentifier()
-		} else if evaluation != nil {
+		} else if contractID == "" && evaluation != nil {
 			contractID = evaluation.GetContractIdentifier()
 		}
 		if contractID == "first-contract" || contractID == "" {

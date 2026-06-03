@@ -429,10 +429,10 @@ func ContractReport(
 	cxpVersion := ""
 	var callerEval *ei.ContractEvaluation
 	for _, lc := range callerArchive {
-		lcContractID := ""
-		if lc.GetContract() != nil {
+		lcContractID := lc.GetContractIdentifier()
+		if lcContractID == "" && lc.GetContract() != nil {
 			lcContractID = lc.GetContract().GetIdentifier()
-		} else if lc.GetEvaluation() != nil {
+		} else if lcContractID == "" && lc.GetEvaluation() != nil {
 			lcContractID = lc.GetEvaluation().GetContractIdentifier()
 		}
 		// Check if we have an evaluation with the given contract ID
@@ -877,10 +877,10 @@ func deriveThresholds(p *contractReportParameters) thresholds {
 // pick the evaluation for a specific contractID from an archive
 func evalForContract(archive []*ei.LocalContract, contractID, coopID string) *ei.ContractEvaluation {
 	for _, lc := range archive {
-		lcContractID := ""
-		if lc.GetContract() != nil {
+		lcContractID := lc.GetContractIdentifier()
+		if lcContractID == "" && lc.GetContract() != nil {
 			lcContractID = lc.GetContract().GetIdentifier()
-		} else if lc.GetEvaluation() != nil {
+		} else if lcContractID == "" && lc.GetEvaluation() != nil {
 			lcContractID = lc.GetEvaluation().GetContractIdentifier()
 		}
 		if lcContractID == contractID && lc.GetEvaluation() != nil && lc.GetEvaluation().GetCoopIdentifier() == coopID {

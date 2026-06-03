@@ -353,10 +353,10 @@ func drawDashboard(s *discordgo.Session, userID string, showExternal bool) []dis
 						coopID := ""
 						if backup.GetContracts() != nil {
 							for _, lc := range backup.GetContracts().GetContracts() {
-								lcContractID := ""
-								if lc.GetContract() != nil {
+								lcContractID := lc.GetContractIdentifier()
+								if lcContractID == "" && lc.GetContract() != nil {
 									lcContractID = lc.GetContract().GetIdentifier()
-								} else if lc.GetEvaluation() != nil {
+								} else if lcContractID == "" && lc.GetEvaluation() != nil {
 									lcContractID = lc.GetEvaluation().GetContractIdentifier()
 								}
 								if lcContractID == contractID {
