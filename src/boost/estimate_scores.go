@@ -651,10 +651,10 @@ func prevCXPFromArchive(arch []*ei.LocalContract, contractID, currentCoopID stri
 		if ev == nil {
 			continue
 		}
-		lcContractID := ""
-		if lc.GetContract() != nil {
+		lcContractID := lc.GetContractIdentifier()
+		if lcContractID == "" && lc.GetContract() != nil {
 			lcContractID = lc.GetContract().GetIdentifier()
-		} else {
+		} else if lcContractID == "" {
 			lcContractID = ev.GetContractIdentifier()
 		}
 		if lcContractID != contractID {
