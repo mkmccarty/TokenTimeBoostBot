@@ -608,6 +608,17 @@ func GetEiIgnsByGuild(guildID string) []string {
 	return eiIgns
 }
 
+// GetDiscordUserIDFromEiIgnExact retrieves the Discord user ID based on the provided ei_ign
+// without collapsing alternate accounts back to their controller.
+func GetDiscordUserIDFromEiIgnExact(eiIgn string) (string, error) {
+	FlushPendingSaves()
+	id, err := queries.GetUserIdFromEiIgn(ctx, sql.NullString{String: eiIgn, Valid: true})
+	if err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
 // GetDiscordUserIDFromEiIgn retrieves the Discord user ID based on the provided ei_ign.
 // It also checks if the account is an alternate and returns the parent's Discord ID if so.
 func GetDiscordUserIDFromEiIgn(eiIgn string) (string, error) {

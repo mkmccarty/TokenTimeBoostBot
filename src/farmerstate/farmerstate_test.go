@@ -116,3 +116,25 @@ func TestGuildMembership(t *testing.T) {
 		t.Errorf("after remove, GetGuildMembers() = %v, want [gm_user2]", members)
 	}
 }
+
+func TestGetDiscordUserIDFromEiIgnExactDoesNotCollapseAlt(t *testing.T) {
+	SetMiscSettingString("main-user", "ei_ign", "MainFarmer")
+	SetMiscSettingString("alt-user", "ei_ign", "AltFarmer")
+	SetMiscSettingString("alt-user", "AltController", "main-user")
+
+	gotExact, err := GetDiscordUserIDFromEiIgnExact("AltFarmer")
+	if err != nil {
+		t.Fatalf("GetDiscordUserIDFromEiIgnExact() returned error: %v", err)
+	}
+	if gotExact != "alt-user" {
+		t.Fatalf("GetDiscordUserIDFromEiIgnExact() = %q, want %q", gotExact, "alt-user")
+	}
+
+	gotCollapsed, err := GetDiscordUserIDFromEiIgn("AltFarmer")
+	if err != nil {
+		t.Fatalf("GetDiscordUserIDFromEiIgn() returned error: %v", err)
+	}
+	if gotCollapsed != "main-user" {
+		t.Fatalf("GetDiscordUserIDFromEiIgn() = %q, want %q", gotCollapsed, "main-user")
+	}
+}
