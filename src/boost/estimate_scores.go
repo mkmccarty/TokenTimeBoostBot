@@ -565,7 +565,7 @@ func GetContractArchivesForNames(s *discordgo.Session, names []string, cxpVersio
 				continue
 			}
 
-			discordID, e := farmerstate.GetDiscordUserIDFromEiIgn(name)
+			discordID, e := farmerstate.GetDiscordUserIDFromEiIgnExact(name)
 			if e != nil && config.IsDevBot() {
 				log.Printf("GetContractArchivesForNames: IGN->discordID lookup failed name=%q: %v", name, e)
 			}
