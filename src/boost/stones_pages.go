@@ -270,8 +270,9 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		msg, err := s.FollowupMessageEdit(i.Interaction, i.Message.ID, &d2)
 		if err != nil {
 			log.Println(err)
+		} else {
+			log.Print(msg.ID)
 		}
-		log.Print(msg.ID)
 	}
 	stonesCacheMutex.Lock()
 	stonesCacheMap[cache.xid] = cache
