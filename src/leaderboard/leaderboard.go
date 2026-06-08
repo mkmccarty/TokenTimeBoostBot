@@ -236,6 +236,7 @@ func init() {
 		AllLeaderboards = append(AllLeaderboards, LBDef{
 			Key:              stdKey,
 			DisplayName:      name,
+			HeaderName:       "Launched",
 			Description:      fmt.Sprintf("Total launches for the %s.", name),
 			ValueFmt:         "int",
 			HigherIsBetter:   true,
@@ -247,6 +248,7 @@ func init() {
 		AllLeaderboards = append(AllLeaderboards, LBDef{
 			Key:              virtueKey,
 			DisplayName:      "Virtue " + name,
+			HeaderName:       "Launched",
 			Description:      fmt.Sprintf("Total virtue launches for the %s.", name),
 			ValueFmt:         "int",
 			HigherIsBetter:   true,
