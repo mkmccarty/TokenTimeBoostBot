@@ -15,5 +15,5 @@ const (
 	DefaultVersion = "1.35.7"
 
 	// DefaultBuild is the build number used for API requests
-	DefaultBuild = "111342"
+	DefaultBuild = "111344"
 )
