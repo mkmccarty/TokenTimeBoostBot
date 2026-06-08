@@ -541,7 +541,7 @@ func buildMessageBlocks(def LBDef, rows []LBEntry, snapDate string, prevMap map[
 func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffset int) (string, []string, string) {
 	_ = prevMap
 
-	const maxNameChars = 14
+	const maxNameChars = 15
 	maxNameWidth := len("Name")
 
 	shortDisplayName := def.DisplayName
