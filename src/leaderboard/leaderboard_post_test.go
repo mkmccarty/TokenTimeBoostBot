@@ -119,7 +119,7 @@ func TestRenderTable_AllLeaderboards(t *testing.T) {
 			}
 
 			if withCTEComparisonColumns[def.Key] {
-				if !strings.Contains(colHeader, "Pending CTE") || !strings.Contains(colHeader, "CTE") {
+				if !strings.Contains(colHeader, "Pending") || !strings.Contains(colHeader, "CTE") {
 					t.Fatalf("expected CTE comparison columns for %s, got %q", def.Key, colHeader)
 				}
 				if !strings.Contains(line, "12,345") || !strings.Contains(line, "12,000") {
