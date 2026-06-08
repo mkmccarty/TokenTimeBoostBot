@@ -570,13 +570,13 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 	hasCTEComparisonColumn := def.Key == LBCTETotal
 	hasTEColumn := def.Key == LBEggsCuriosity || def.Key == LBEggsIntegrity || def.Key == LBEggsHumility || def.Key == LBEggsResilience || def.Key == LBEggsKindness || def.Key == LBVirtueEggsSum
 	teWidth := len("TE")
-	actualCTEWidth := len("Actual CTE")
+	actualCTEWidth := len("CTE")
 	soulMirrorCommonWidth := len("C")
 	soulMirrorEpicWidth := len("E")
 	soulMirrorLegendaryWidth := len("L")
 	const soulMirrorMaxDigits = 5
 	if hasCTEComparisonColumn {
-		maxValOnlyWidth = len("Future CTE")
+		maxValOnlyWidth = len("Pending")
 	}
 	if isEB {
 		maxValOnlyWidth = len("Nekkid")
@@ -828,7 +828,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 		headerLine := strings.Join([]string{
 			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
 			padField("Name", maxNameWidth, bottools.StringAlignLeft),
-			padField("Pending CTE", maxValOnlyWidth, bottools.StringAlignRight),
+			padField("Pending", maxValOnlyWidth, bottools.StringAlignRight),
 			padField("CTE", actualCTEWidth, bottools.StringAlignRight),
 		}, "|")
 		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))

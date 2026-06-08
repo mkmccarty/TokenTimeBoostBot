@@ -109,7 +109,7 @@ var AllLeaderboards = []LBDef{
 	{Key: LBEarningsBonus, DisplayName: "Earnings Bonus", Description: "Nekkid and Dressed earnings bonus.", ValueFmt: "eb", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
 	{Key: LBVirtueShifts, DisplayName: "Virtue Shifts", HeaderName: "Shifts", Description: "Total virtue shifts completed.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
 	{Key: LBTETotal, DisplayName: "Total Truth Eggs", HeaderName: "TE", Description: "Sum of truth eggs across all virtues.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
-	{Key: LBCTETotal, DisplayName: "Total CTE", HeaderName: "CTE", Description: "Current clothed Truth Egg equivalent.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBCTETotal, DisplayName: "Total CTE", HeaderName: "CTE", Description: "Clothed Truth Egg equivalent for pending and current TE.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
 	{Key: LBTEPerShift, DisplayName: "TE per Shift", HeaderName: "TE/Shift", Description: "Average Truth Eggs earned per Virtue Shift.", ValueFmt: "float", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
 	{Key: LBDrones, DisplayName: "Drones", Description: "Total drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
 	{Key: LBEliteDrones, DisplayName: "Elite Drones", Description: "Total elite drones taken down.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
