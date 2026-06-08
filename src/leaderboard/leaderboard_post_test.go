@@ -218,3 +218,27 @@ func TestRenderTable_SoulMirrorsDynamicSpacing(t *testing.T) {
 		t.Fatalf("did not expect fixed 5-character Soul Mirrors row spacing, got %q / %q", rowLines[0], rowLines[1])
 	}
 }
+
+func TestTruncateString_EmojisAndWidth(t *testing.T) {
+	tests := []struct {
+		input    string
+		max      int
+		expected string
+	}{
+		{"ShortName", 14, "ShortName"},
+		{"Exactly14Chars", 14, "Exactly14Chars"},
+		{"WayTooLongNameHere", 14, "WayTooLongNam…"},
+		{"Emoji🚀Name", 14, "Emoji🚀Name"},
+		{"🚀🚀🚀🚀🚀🚀🚀", 14, "🚀🚀🚀🚀🚀🚀🚀"}, // 7 * 2 = 14 width
+		{"🚀🚀🚀🚀🚀🚀🚀🚀", 14, "🚀🚀🚀🚀🚀🚀…"}, // 8 * 2 = 16 width, so truncate. "…" is width 1, 6 * 2 = 12, total 13 width <= 14.
+		{"🚀🚀🚀🚀🚀🚀🚀A", 14, "🚀🚀🚀🚀🚀🚀…"}, // 7*2 + 1 = 15 width. 6 * 2 = 12 + "…" (1) = 13 <= 14.
+		{"Emoji🚀🚀🚀🚀🚀🚀", 14, "Emoji🚀🚀🚀🚀…"}, // 5 + 6*2 = 17 width. "Emoji" (5) + 4*2 (8) + "…" (1) = 14 <= 14.
+	}
+
+	for _, tt := range tests {
+		result := truncateString(tt.input, tt.max)
+		if result != tt.expected {
+			t.Errorf("truncateString(%q, %d) = %q; want %q", tt.input, tt.max, result, tt.expected)
+		}
+	}
+}
