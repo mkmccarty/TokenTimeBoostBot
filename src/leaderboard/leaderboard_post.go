@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mattn/go-runewidth"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
@@ -540,7 +541,7 @@ func buildMessageBlocks(def LBDef, rows []LBEntry, snapDate string, prevMap map[
 func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffset int) (string, []string, string) {
 	_ = prevMap
 
-	const maxNameChars = 15
+	const maxNameChars = 14
 	maxNameWidth := len("Name")
 
 	shortDisplayName := def.DisplayName
@@ -682,7 +683,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 		}
 
 		nameStr := truncateString(r.GameName, maxNameChars)
-		if w := len(nameStr); w > maxNameWidth {
+		if w := runewidth.StringWidth(nameStr); w > maxNameWidth {
 			maxNameWidth = w
 		}
 
@@ -983,15 +984,15 @@ func absFloat(v float64) float64 {
 	return v
 }
 
-// truncateString ensures a string is at most max characters, adding … if needed
+// truncateString ensures a string is at most max monospaced characters wide, adding … if needed
 func truncateString(s string, max int) string {
-	if len(s) <= max {
+	if runewidth.StringWidth(s) <= max {
 		return s
 	}
-	if max <= 3 {
-		return s[:max]
+	if max <= 1 {
+		return runewidth.Truncate(s, max, "")
 	}
-	return s[:max-3]
+	return runewidth.Truncate(s, max, "…")
 }
 
 // FormatLBValue formats a numeric leaderboard value according to the LBDef.ValueFmt.
