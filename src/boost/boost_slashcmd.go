@@ -737,6 +737,10 @@ func HandleRestartContract(s *discordgo.Session, i *discordgo.InteractionCreate)
 					newContract.BoostOrder = boostOrder
 
 					createMsg := DrawBoostList(s, newContract)
+					buttonComponents := getContractReactionsComponents(newContract)
+					if len(buttonComponents) > 0 {
+						createMsg = append(createMsg, buttonComponents...)
+					}
 					var listData discordgo.MessageSend
 					listData.Components = createMsg
 					listData.Flags = discordgo.MessageFlagsIsComponentsV2

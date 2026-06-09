@@ -385,6 +385,10 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 
 	var createMsg = DrawBoostList(s, contract)
+	buttonComponents := getContractReactionsComponents(contract)
+	if len(buttonComponents) > 0 {
+		createMsg = append(createMsg, buttonComponents...)
+	}
 	var data discordgo.MessageSend
 	data.Components = createMsg
 	data.Flags = discordgo.MessageFlagsIsComponentsV2

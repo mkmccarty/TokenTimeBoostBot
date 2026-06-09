@@ -271,6 +271,10 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkBoosting str
 	for _, loc := range contract.Location {
 		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
 		components := DrawBoostList(s, contract)
+		buttonComponents := getContractReactionsComponents(contract)
+		if len(buttonComponents) > 0 {
+			components = append(components, buttonComponents...)
+		}
 		msgedit.Components = &components
 		msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
 		//msgedit.SetComponents(contentStr)
