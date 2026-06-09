@@ -206,6 +206,10 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			// Full contract for speedrun
 			listComp := DrawBoostList(s, contract)
 			components = append(components, listComp...)
+			buttonComponents := getContractReactionsComponents(contract)
+			if len(buttonComponents) > 0 {
+				components = append(components, buttonComponents...)
+			}
 			msgedit.Components = &components
 			msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
 			_, err := s.ChannelMessageEditComplex(msgedit)

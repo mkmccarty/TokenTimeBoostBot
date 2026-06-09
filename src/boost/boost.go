@@ -1311,6 +1311,10 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 		}
 		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
 		components := DrawBoostList(s, contract)
+		buttonComponents := getContractReactionsComponents(contract)
+		if len(buttonComponents) > 0 {
+			components = append(components, buttonComponents...)
+		}
 		msgedit.Components = &components
 		msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
 		msg, err := s.ChannelMessageEditComplex(msgedit)
