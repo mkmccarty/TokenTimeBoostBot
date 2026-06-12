@@ -784,10 +784,17 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 
 	case "boostsink":
 		sid := getInteractionUserID(i)
-		alts := []string{sid}
-		if booster, ok := contract.Boosters[sid]; ok && booster != nil {
-			alts = append(alts, booster.Alts...)
+		booster, ok := contract.Boosters[sid]
+		if !ok || booster == nil {
+			_, _ = s.FollowupMessageCreate(i.Interaction, true,
+				&discordgo.WebhookParams{
+					Content: "You're not in this contract, so you can't modify sink selections.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				})
+			return
 		}
+		alts := []string{sid}
+		alts = append(alts, booster.Alts...)
 		altIdx := slices.Index(alts, contract.Banker.BoostingSinkUserID)
 		if altIdx != -1 {
 			if altIdx != len(alts)-1 {
@@ -807,10 +814,17 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		}
 	case "postsink":
 		sid := getInteractionUserID(i)
-		alts := []string{sid}
-		if booster, ok := contract.Boosters[sid]; ok && booster != nil {
-			alts = append(alts, booster.Alts...)
+		booster, ok := contract.Boosters[sid]
+		if !ok || booster == nil {
+			_, _ = s.FollowupMessageCreate(i.Interaction, true,
+				&discordgo.WebhookParams{
+					Content: "You're not in this contract, so you can't modify sink selections.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				})
+			return
 		}
+		alts := []string{sid}
+		alts = append(alts, booster.Alts...)
 		altIdx := slices.Index(alts, contract.Banker.PostSinkUserID)
 		if altIdx != -1 {
 			if altIdx != len(alts)-1 {
