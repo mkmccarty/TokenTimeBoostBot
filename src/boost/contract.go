@@ -784,7 +784,10 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 
 	case "boostsink":
 		sid := getInteractionUserID(i)
-		alts := append([]string{sid}, contract.Boosters[sid].Alts...)
+		alts := []string{sid}
+		if booster, ok := contract.Boosters[sid]; ok && booster != nil {
+			alts = append(alts, booster.Alts...)
+		}
 		altIdx := slices.Index(alts, contract.Banker.BoostingSinkUserID)
 		if altIdx != -1 {
 			if altIdx != len(alts)-1 {
@@ -804,7 +807,10 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 		}
 	case "postsink":
 		sid := getInteractionUserID(i)
-		alts := append([]string{sid}, contract.Boosters[sid].Alts...)
+		alts := []string{sid}
+		if booster, ok := contract.Boosters[sid]; ok && booster != nil {
+			alts = append(alts, booster.Alts...)
+		}
 		altIdx := slices.Index(alts, contract.Banker.PostSinkUserID)
 		if altIdx != -1 {
 			if altIdx != len(alts)-1 {
