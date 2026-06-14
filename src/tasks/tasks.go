@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -211,9 +212,99 @@ func GetSlashReloadContractsCommand(cmd string) *discordgo.ApplicationCommand {
 	}
 }
 
+func listActiveContractsForSummary() []string {
+	now := time.Now().UTC()
+
+	ei.EggIncContractsMutex.RLock()
+	defer ei.EggIncContractsMutex.RUnlock()
+
+	type activeContractSummary struct {
+		id        string
+		validFrom time.Time
+	}
+
+	activeContracts := make([]activeContractSummary, 0)
+	for _, contract := range ei.EggIncContracts {
+		if contract.Predicted {
+			continue
+		}
+		if !contract.ValidFrom.IsZero() && now.Before(contract.ValidFrom) {
+			continue
+		}
+		if !contract.ValidUntil.IsZero() && !now.Before(contract.ValidUntil) {
+			continue
+		}
+		activeContracts = append(activeContracts, activeContractSummary{
+			id:        contract.ID,
+			validFrom: contract.ValidFrom,
+		})
+	}
+
+	sort.Slice(activeContracts, func(i, j int) bool {
+		if activeContracts[i].validFrom.Equal(activeContracts[j].validFrom) {
+			return activeContracts[i].id < activeContracts[j].id
+		}
+		if activeContracts[i].validFrom.IsZero() {
+			return true
+		}
+		if activeContracts[j].validFrom.IsZero() {
+			return false
+		}
+		return activeContracts[i].validFrom.Before(activeContracts[j].validFrom)
+	})
+
+	activeContractIDs := make([]string, 0, len(activeContracts))
+	for _, contract := range activeContracts {
+		activeContractIDs = append(activeContractIDs, contract.id)
+	}
+
+	return activeContractIDs
+}
+
+func summarizeOngoingEventsForReload() (int, []string) {
+	ei.EventMutex.Lock()
+	eventsSnapshot := append([]ei.EggEvent(nil), ei.EggIncEvents...)
+	ei.EventMutex.Unlock()
+
+	if len(eventsSnapshot) == 0 {
+		return 0, nil
+	}
+
+	sort.Slice(eventsSnapshot, func(i, j int) bool {
+		return eventsSnapshot[i].EndTime.Before(eventsSnapshot[j].EndTime)
+	})
+
+	eventParts := make([]string, 0, len(eventsSnapshot))
+	for _, event := range eventsSnapshot {
+		eventName := strings.TrimSpace(event.Message)
+		if eventName == "" {
+			eventName = strings.TrimSpace(event.EventType)
+		}
+		if eventName == "" {
+			eventName = "unknown-event"
+		}
+		if event.Multiplier > 0 {
+			eventName = fmt.Sprintf("%s (x%.2g)", eventName, event.Multiplier)
+		}
+		eventParts = append(eventParts, eventName)
+	}
+
+	return len(eventsSnapshot), eventParts
+}
+
 // HandleReloadContractsCommand will handle the /reload command
 func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	str := "No updated Egg Inc contract data available.\n"
+
+	updateProgress := func(lines []string) {
+		content := strings.Join(lines, "\n")
+		_, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content: &content,
+		})
+		if err != nil {
+			log.Printf("reload-contracts status update failed: %v", err)
+		}
+	}
 
 	userID := ""
 	if i.GuildID == "" {
@@ -241,44 +332,95 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "Working on it...",
+			Content: "Starting contract reload checks...",
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	})
+
+	progressLines := []string{
+		"Running manual Egg Inc data checks...",
+		"- Contracts feed: checking...",
+		"- Events feed: waiting...",
+		"- Emotes refresh: waiting...",
+		"- Periodicals refresh: waiting...",
+	}
+	updateProgress(progressLines)
+
 	lastContractUpdate = time.Time{}
 	lastEventUpdate = time.Time{}
-	downloadEggIncData(eggIncContractsURL, eggIncContractsFile, true, 23*time.Hour)
-	downloadEggIncData(eggIncEventsURL, eggIncEventsFile, true, 23*time.Hour)
+	contractsUpdated := downloadEggIncData(eggIncContractsURL, eggIncContractsFile, true, 23*time.Hour)
+	if contractsUpdated {
+		progressLines[1] = "- Contracts feed: updated"
+	} else {
+		progressLines[1] = "- Contracts feed: no change"
+	}
+	progressLines[2] = "- Events feed: checking..."
+	updateProgress(progressLines)
+
+	eventsUpdated := downloadEggIncData(eggIncEventsURL, eggIncEventsFile, true, 23*time.Hour)
+	if eventsUpdated {
+		progressLines[2] = "- Events feed: updated"
+	} else {
+		progressLines[2] = "- Events feed: no change"
+	}
+	progressLines[3] = "- Emotes refresh: running..."
+	updateProgress(progressLines)
+
 	bottools.LoadEmotes(s, true)
+	progressLines[3] = "- Emotes refresh: complete"
+	progressLines[4] = "- Periodicals refresh: running..."
+	updateProgress(progressLines)
 
 	events.GetPeriodicalsFromAPI(s)
+	progressLines[4] = "- Periodicals refresh: complete"
+	updateProgress(progressLines)
 
 	// if lastContractUpdate or lastEventUpdate was updated within the last 1 minute
 	// then we have new data
-	if time.Since(lastContractUpdate) < 1*time.Minute || time.Since(lastEventUpdate) < 1*time.Minute {
-		str = "Updated Egg Inc contract data:.\n"
-		str += fmt.Sprintf("> Boost Bot version:  %s\n", version.Version)
-		str += fmt.Sprintf("> Contracts: %s\n", lastContractUpdate.Format(time.RFC1123))
-		str += fmt.Sprintf("> Events: %s\n", lastEventUpdate.Format(time.RFC1123))
-		str += fmt.Sprintf("> Collegeggtibles: %d\n", len(ei.CustomEggMap))
-	} else {
-		str += fmt.Sprintf("> Boost Bot version:  %s\n", version.Version)
-		str += fmt.Sprintf("> Contracts: %s\n", lastContractUpdate.Format(time.RFC1123))
-		str += fmt.Sprintf("> Events: %s\n", lastEventUpdate.Format(time.RFC1123))
-		str += fmt.Sprintf("> Collegeggtibles: %d\n", len(ei.CustomEggMap))
+	activeContractIDs := listActiveContractsForSummary()
+	activeContractCount := len(activeContractIDs)
+	ongoingEventsCount, ongoingEventNames := summarizeOngoingEventsForReload()
+	activeContractsSummary := "None"
+	if activeContractCount > 0 {
+		activeContractsSummary = strings.Join(activeContractIDs, ", ")
 	}
-	if config.IsDevBot() {
-		ei.GetConfigFromAPI(s)
+	ongoingEventsSummary := "None"
+	if ongoingEventsCount > 0 {
+		ongoingEventsSummary = strings.Join(ongoingEventNames, ", ")
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Content: str},
-	)
+	if time.Since(lastContractUpdate) < 1*time.Minute || time.Since(lastEventUpdate) < 1*time.Minute {
+		str = "Updated Egg Inc contract data:.\n"
+	}
+	str += fmt.Sprintf("**Boost Bot version:** %s\n", version.Version)
+	str += fmt.Sprintf("**Active contracts:** %d\n", activeContractCount)
+	str += fmt.Sprintf("**Active contract IDs:** %s\n", activeContractsSummary)
+	str += fmt.Sprintf("**Current events:** %d\n", ongoingEventsCount)
+	str += fmt.Sprintf("**Event summary:** %s\n", ongoingEventsSummary)
+	str += fmt.Sprintf("**Collegeggtibles:** %d\n", len(ei.CustomEggMap))
+	if config.IsDevBot() {
+		progressLines = append(progressLines, "- Dev config refresh: running...")
+		updateProgress(progressLines)
+		ei.GetConfigFromAPI(s)
+		progressLines[len(progressLines)-1] = "- Dev config refresh: complete"
+		updateProgress(progressLines)
+	}
+
+	progressLines = append(progressLines, "- Contract egg metadata sync: running...")
+	updateProgress(progressLines)
 
 	// I want to go through all the active contracts and update their EggName and EggEmoji field.
 	// Use the original Contract data for that info
 	boost.UpdateAllContractsEggInfo()
+	progressLines[len(progressLines)-1] = "- Contract egg metadata sync: complete"
+
+	finalContent := strings.Join(progressLines, "\n") + "\n\n" + str
+	_, err = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content: &finalContent,
+	})
+	if err != nil {
+		log.Printf("reload-contracts final status update failed: %v", err)
+	}
 
 }
 
