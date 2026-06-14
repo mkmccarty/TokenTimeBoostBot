@@ -1,7 +1,6 @@
 package bottools
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
@@ -26,6 +25,8 @@ import (
 
 const emoteFilePath = "ttbb-data/Emotes.json"
 
+var emojiImportMu sync.Mutex
+
 // fetchEmojisFromDiscord fetches emojis from the discord API
 func fetchEmojisFromDiscord(s *discordgo.Session) map[string]ei.Emotes {
 	emotes := make(map[string]ei.Emotes)
@@ -45,6 +46,10 @@ func fetchEmojisFromDiscord(s *discordgo.Session) map[string]ei.Emotes {
 
 // LoadEmotes will load all the emojis from the app
 func LoadEmotes(s *discordgo.Session, force bool) {
+	ei.SetEmojiResolver(func(name string) (ei.Emotes, bool) {
+		return EnsureEmojiFromLocalRepo(s, name)
+	})
+
 	EmoteMapNew := make(map[string]ei.Emotes)
 
 	// Attempt to load the cached file
@@ -77,6 +82,69 @@ func LoadEmotes(s *discordgo.Session, force bool) {
 			saveEmotesToFile(emoteFilePath, EmoteMapNew)
 		}
 	}
+}
+
+// EnsureEmojiFromLocalRepo tries to load a missing emoji from the local emoji directory,
+// uploads it to Discord, and refreshes the in-memory emoji map.
+func EnsureEmojiFromLocalRepo(s *discordgo.Session, name string) (ei.Emotes, bool) {
+	emojiName := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(name, "-", "")))
+	if emojiName == "" {
+		return ei.Emotes{}, false
+	}
+
+	if emoji, ok := ei.EmoteMap[emojiName]; ok {
+		return emoji, true
+	}
+
+	emojiImportMu.Lock()
+	defer emojiImportMu.Unlock()
+
+	if emoji, ok := ei.EmoteMap[emojiName]; ok {
+		return emoji, true
+	}
+
+	emojiPath, ok := findLocalEmojiPath(emojiName)
+	if !ok {
+		return ei.Emotes{}, false
+	}
+
+	createdEmoji, err := importSingleEmojiFromPath(s, emojiName, emojiPath)
+	if err != nil {
+		log.Printf("Error importing missing local emoji %s: %v", emojiName, err)
+		return ei.Emotes{}, false
+	}
+
+	refreshed := fetchEmojisFromDiscord(s)
+	if len(refreshed) > 0 {
+		ei.EmoteMap = refreshed
+		saveEmotesToFile(emoteFilePath, ei.EmoteMap)
+		if emoji, found := ei.EmoteMap[emojiName]; found {
+			return emoji, true
+		}
+	}
+
+	ei.EmoteMap[emojiName] = createdEmoji
+	saveEmotesToFile(emoteFilePath, ei.EmoteMap)
+	return createdEmoji, true
+}
+
+func findLocalEmojiPath(emojiName string) (string, bool) {
+	files, err := os.ReadDir("emoji")
+	if err != nil {
+		return "", false
+	}
+
+	for _, file := range files {
+		if file.IsDir() || !isAllowedSuffix(file.Name()) {
+			continue
+		}
+		candidate := strings.TrimSuffix(file.Name(), filepath.Ext(file.Name()))
+		if strings.EqualFold(candidate, emojiName) {
+			return filepath.Join("emoji", file.Name()), true
+		}
+	}
+
+	return "", false
 }
 
 // saveEmotesToFile saves the emotes to a file
@@ -279,41 +347,31 @@ func ImportNewEmojis(s *discordgo.Session) {
 }
 
 func importSingleEmoji(s *discordgo.Session, emojiName string, file os.DirEntry) {
-
-	// Open the emoji file
-	emojiFile, err := os.Open("emoji/" + file.Name())
+	emojiData, err := importSingleEmojiFromPath(s, emojiName, filepath.Join("emoji", file.Name()))
 	if err != nil {
-		log.Println("Error opening emoji file:", err)
+		log.Println("Error creating emoji in Discord:", err)
 		return
 	}
-	defer func() {
-		if err := emojiFile.Close(); err != nil {
-			// Handle the error appropriately, e.g., logging or taking corrective actions
-			log.Printf("Failed to close: %v", err)
-		}
-	}()
+	ei.EmoteMap[strings.ToLower(emojiName)] = emojiData
+}
 
-	// Read the emoji file into memory
-	reader := bufio.NewReader(emojiFile)
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, reader)
+func importSingleEmojiFromPath(s *discordgo.Session, emojiName, emojiPath string) (ei.Emotes, error) {
+	imageBytes, err := os.ReadFile(emojiPath)
 	if err != nil {
-		log.Println("Error reading emoji file:", err)
-		return
+		return ei.Emotes{}, err
 	}
-	// Encode the emoji image
-	fileSuffix := strings.TrimPrefix(filepath.Ext(file.Name()), ".")
-	base64Image := fmt.Sprintf("data:image/%s;base64,%s", fileSuffix, base64.StdEncoding.EncodeToString(buf.Bytes()))
 
-	// Create the emoji in Discord
+	fileSuffix := strings.TrimPrefix(strings.ToLower(filepath.Ext(emojiPath)), ".")
+	base64Image := fmt.Sprintf("data:image/%s;base64,%s", fileSuffix, base64.StdEncoding.EncodeToString(imageBytes))
+
 	data := discordgo.EmojiParams{
 		Name:  emojiName,
 		Image: base64Image,
 	}
 	newID, err := s.ApplicationEmojiCreate(config.DiscordAppID, &data)
 	if err != nil {
-		log.Println("Error creating emoji in Discord:", err)
-		return
+		return ei.Emotes{}, err
 	}
-	ei.EmoteMap[strings.ToLower(emojiName)] = ei.Emotes{Name: newID.Name, ID: newID.ID, Animated: newID.Animated}
+
+	return ei.Emotes{Name: newID.Name, ID: newID.ID, Animated: newID.Animated}, nil
 }

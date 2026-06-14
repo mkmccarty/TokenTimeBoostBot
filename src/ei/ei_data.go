@@ -244,6 +244,39 @@ type Emotes struct {
 // EmoteMap of egg emojis from the Egg Inc Discord
 var EmoteMap map[string]Emotes
 
+var (
+	emojiResolverMu sync.RWMutex
+	emojiResolver   func(name string) (Emotes, bool)
+)
+
+// SetEmojiResolver sets a callback used to resolve missing bot emojis at runtime.
+func SetEmojiResolver(resolver func(name string) (Emotes, bool)) {
+	emojiResolverMu.Lock()
+	emojiResolver = resolver
+	emojiResolverMu.Unlock()
+}
+
+func getBotEmojiData(name string) (Emotes, bool) {
+	key := strings.ToLower(name)
+	if emoji, ok := EmoteMap[key]; ok {
+		return emoji, true
+	}
+
+	emojiResolverMu.RLock()
+	resolver := emojiResolver
+	emojiResolverMu.RUnlock()
+	if resolver == nil {
+		return Emotes{}, false
+	}
+
+	emoji, ok := resolver(key)
+	if !ok {
+		return Emotes{}, false
+	}
+	EmoteMap[key] = emoji
+	return emoji, true
+}
+
 // GetBotComponentEmoji will return a ComponentEmoji for the given name
 func GetBotComponentEmoji(name string) *discordgo.ComponentEmoji {
 	compEmoji := new(discordgo.ComponentEmoji)
@@ -252,7 +285,7 @@ func GetBotComponentEmoji(name string) *discordgo.ComponentEmoji {
 
 	name = strings.ReplaceAll(name, "-", "")
 
-	emoji, ok := EmoteMap[strings.ToLower(name)]
+	emoji, ok := getBotEmojiData(name)
 	if ok {
 		emojiName = emoji.Name
 		emojiID = emoji.ID
@@ -272,7 +305,7 @@ func GetBotEmoji(name string) (string, string, string) {
 	var emojiID string
 	var markdown string
 
-	emoji, ok := EmoteMap[strings.ToLower(name)]
+	emoji, ok := getBotEmojiData(name)
 	if ok {
 		emojiName = emoji.Name
 		emojiID = emoji.ID
@@ -292,7 +325,7 @@ func GetBotEmojiMarkdown(name string) string {
 	var markdown string
 	animated := ""
 
-	emoji, ok := EmoteMap[strings.ToLower(name)]
+	emoji, ok := getBotEmojiData(name)
 	if ok {
 		emojiName = emoji.Name
 		emojiID = emoji.ID
