@@ -614,55 +614,59 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEst
 				crThreshold = float64(eiContract.MaxCoopSize - 1)
 			}
 
-			var diffCR float64 // difference in CS per Chicken Run
-			var scoreCRdiff int64
-			switch eiContract.SeasonalScoring {
-			case ei.SeasonalScoringNerfed:
-				diffCR = (float64(scoreBase) * 0.19) * ((5.0 / 19.0) * (1.0 / crThreshold))
-				scoreCRdiff = calculateContractScore(eiContract.SeasonalScoring, grade,
-					eiContract.MaxCoopSize,
-					eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
-					contribution[i],
-					eiContract.Grade[grade].LengthInSeconds,
-					contractDurationSeconds,
-					B, 0, 0) // only buffs, no CR or Tokens
-			default:
-				diffCR = (float64(scoreBase) * 0.19) * ((6.0 / 19.0) * (1.0 / crThreshold))
-				T := calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 5.0)
-				scoreCRdiff = calculateContractScore(eiContract.SeasonalScoring, grade,
-					eiContract.MaxCoopSize,
-					eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
-					contribution[i],
-					eiContract.Grade[grade].LengthInSeconds,
-					contractDurationSeconds,
-					B, 0, T) // MAX TVAL & Tokens sent
-			}
+			diffCR := 0.0 // difference in CS per Chicken Run
+			scoreCRdiff := (int64)(0)
 
-			// Calculate a score with only the Buffs included
-			var crBuilder strings.Builder
-			crBuilder.WriteString("```")
-
-			for maxCR := eiContract.ChickenRuns; maxCR >= 0; maxCR-- {
-				added := float64(maxCR) * diffCR
-				if float64(maxCR) > crThreshold {
-					added = float64(scoreBase) * 0.19 * (6.0 / 19.0)
+			if eiContract.ChickenRuns > 0 {
+				switch eiContract.SeasonalScoring {
+				case ei.SeasonalScoringNerfed:
+					diffCR = (float64(scoreBase) * 0.19) * ((5.0 / 19.0) * (1.0 / crThreshold))
+					scoreCRdiff = calculateContractScore(eiContract.SeasonalScoring, grade,
+						eiContract.MaxCoopSize,
+						eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+						contribution[i],
+						eiContract.Grade[grade].LengthInSeconds,
+						contractDurationSeconds,
+						B, 0, 0) // only buffs, no CR or Tokens
+				default:
+					diffCR = (float64(scoreBase) * 0.19) * ((6.0 / 19.0) * (1.0 / crThreshold))
+					T := calculateTokenTeamwork(contractDurationSeconds, eiContract.MinutesPerToken, 100.0, 5.0)
+					scoreCRdiff = calculateContractScore(eiContract.SeasonalScoring, grade,
+						eiContract.MaxCoopSize,
+						eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
+						contribution[i],
+						eiContract.Grade[grade].LengthInSeconds,
+						contractDurationSeconds,
+						B, 0, T) // MAX TVAL & Tokens sent
 				}
-				fmt.Fprintf(&crBuilder, "%d:%d ", maxCR, scoreCRdiff+int64(math.Ceil(added)))
-			}
-			crBuilder.WriteString("```")
 
-			if diffCR > 0 {
-				fmt.Fprintf(&crBuilder, "\nEach Chicken Run adds `%3.1f` to Contract Score.",
-					diffCR)
-				if math.Mod(crThreshold, 1.0) == 0.5 {
-					// print the half val
-					fmt.Fprintf(&crBuilder, "\nNote: CR Threshold is `%3.1f` The final run gives only half credit `%3.1f` (+0.5 CR threshold).", crThreshold, diffCR/2.0)
+				// Calculate a score with only the Buffs included
+				var crBuilder strings.Builder
+				crBuilder.WriteString("```")
+
+				for maxCR := eiContract.ChickenRuns; maxCR >= 0; maxCR-- {
+					added := float64(maxCR) * diffCR
+					if float64(maxCR) > crThreshold {
+						added = float64(scoreBase) * 0.19 * (6.0 / 19.0)
+					}
+					fmt.Fprintf(&crBuilder, "%d:%d ", maxCR, scoreCRdiff+int64(math.Ceil(added)))
 				}
-			}
-			str := "Chicken Runs (CR)"
-			field = append(field, TeamworkOutputData{str, crBuilder.String()})
+				crBuilder.WriteString("```")
 
+				if diffCR > 0 {
+					fmt.Fprintf(&crBuilder, "\nEach Chicken Run adds `%3.1f` to Contract Score.",
+						diffCR)
+					if math.Mod(crThreshold, 1.0) == 0.5 {
+						// print the half val
+						fmt.Fprintf(&crBuilder, "\nNote: CR Threshold is `%3.1f` The final run gives only half credit `%3.1f` (+0.5 CR threshold).", crThreshold, diffCR/2.0)
+					}
+				}
+				str := "Chicken Runs (CR)"
+				field = append(field, TeamworkOutputData{str, crBuilder.String()})
+
+			}
 		}
+
 		// Create a table of Contract Scores for this user
 		var csBuilder strings.Builder
 		// No token sharing, with CR to coop size -1
