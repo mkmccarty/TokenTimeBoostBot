@@ -857,7 +857,10 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 	// convert boostOrderArray to an array of ints
 	var boostOrderIntArray []int
 	for _, element := range boostOrderArray {
-		var intElement, _ = strconv.Atoi(element)
+		intElement, err := strconv.Atoi(strings.TrimSpace(element))
+		if err != nil || intElement < 1 || intElement > len(contract.Order) {
+			return "", errors.New("invalid boost order. Positions must be between 1 and " + strconv.Itoa(len(contract.Order)))
+		}
 		boostOrderIntArray = append(boostOrderIntArray, intElement)
 	}
 
