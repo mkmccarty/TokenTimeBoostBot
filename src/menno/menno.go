@@ -530,7 +530,7 @@ func PrintUserDropData(backup *ei.Backup, duration ei.MissionInfo_DurationType, 
 	}
 
 	fmt.Fprintf(&output, "\n-# Drop rates are based on user contributions to Menno's drop data tool.\n")
-	fmt.Fprintf(&output, "-# This tool is made for RAIYC and is still under development. Data presentation may not be pretty.\n")
+	fmt.Fprintf(&output, "-# This tool is made for RAIYC and is still under development.\n")
 	return output.String()
 }
 
