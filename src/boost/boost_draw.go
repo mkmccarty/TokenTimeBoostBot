@@ -658,49 +658,59 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	// Add reaction guidance to the bottom of this list
 	switch contract.State {
 	case ContractStateFastrun:
-		guidanceStr.WriteString("\n")
-		guidanceStr.WriteString("> -# Active Booster: " + boostIcon + " when boosting. \n")
-		guidanceStr.WriteString("> -# Anyone: " + tokenStr + " when sending tokens")
-		guidanceStr.WriteString(". ❓ Help under Boost Menu.\n")
-		if contract.CoopSize != len(contract.Order) {
-			guidanceStr.WriteString("-# > Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n")
+		if !contract.HideGuidance && now.Sub(contract.StartTime) > 10*time.Minute {
+			contract.HideGuidance = true
 		}
-		totalContentLength := guidanceStr.Len()
-		for _, component := range components {
-			if textDisplay, ok := component.(*discordgo.TextDisplay); ok {
-				totalContentLength += len(textDisplay.Content)
+		if !contract.HideGuidance {
+			guidanceStr.WriteString("\n")
+			guidanceStr.WriteString("> -# Active Booster: " + boostIcon + " when boosting. \n")
+			guidanceStr.WriteString("> -# Anyone: " + tokenStr + " when sending tokens")
+			guidanceStr.WriteString(". ❓ Help under Boost Menu.\n")
+			if contract.CoopSize != len(contract.Order) {
+				guidanceStr.WriteString("-# > Use pinned message or add 🧑\u200d🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n")
 			}
-		}
-		if totalContentLength < 3000 {
-			builder.WriteString(guidanceStr.String())
+			totalContentLength := guidanceStr.Len()
+			for _, component := range components {
+				if textDisplay, ok := component.(*discordgo.TextDisplay); ok {
+					totalContentLength += len(textDisplay.Content)
+				}
+			}
+			if totalContentLength < 3000 {
+				builder.WriteString(guidanceStr.String())
+			}
 		}
 
 	case ContractStateBanker:
-		if contract.PlayStyle != ContractPlaystyleLeaderboard {
-			guidanceStr.WriteString("\n")
-			guidanceStr.WriteString("> " + tokenStr + " when sending tokens to the Banker")
-			runReady, _, _ := ei.GetBotEmoji("runready")
+		if !contract.HideGuidance && now.Sub(contract.StartTime) > 10*time.Minute {
+			contract.HideGuidance = true
+		}
+		if !contract.HideGuidance {
+			if contract.PlayStyle != ContractPlaystyleLeaderboard {
+				guidanceStr.WriteString("\n")
+				guidanceStr.WriteString("> " + tokenStr + " when sending tokens to the Banker")
+				runReady, _, _ := ei.GetBotEmoji("runready")
 
-			guidanceStr.WriteString(".\n")
-			guidanceStr.WriteString("-# > " + runReady + " when you're ready for others to run chickens on your farm.\n")
-			guidanceStr.WriteString("-# > 💰 is used by the Banker to send the requested number of tokens to the booster.\n")
-			guidanceStr.WriteString("-# > -When active Booster is sent tokens by the Banker they are marked as boosted.\n")
-			guidanceStr.WriteString("-# > -Adjust the number of boost tokens you want by adding a 6️⃣ to 🔟 reaction to the boost list message.\n")
-		}
-		if contract.CoopSize != len(contract.Order) {
-			guidanceStr.WriteString("-# > Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n")
-		}
-		// Sum the Content lengths of the components for this length test
-		// If the length of the builder is less than 1900 characters, add the guidanceStr
-		// to the builder
-		totalContentLength := guidanceStr.Len()
-		for _, component := range components {
-			if textDisplay, ok := component.(*discordgo.TextDisplay); ok {
-				totalContentLength += len(textDisplay.Content)
+				guidanceStr.WriteString(".\n")
+				guidanceStr.WriteString("-# > " + runReady + " when you're ready for others to run chickens on your farm.\n")
+				guidanceStr.WriteString("-# > 💰 is used by the Banker to send the requested number of tokens to the booster.\n")
+				guidanceStr.WriteString("-# > -When active Booster is sent tokens by the Banker they are marked as boosted.\n")
+				guidanceStr.WriteString("-# > -Adjust the number of boost tokens you want by adding a 6️⃣ to 🔟 reaction to the boost list message.\n")
 			}
-		}
-		if totalContentLength < 3000 {
-			builder.WriteString(guidanceStr.String())
+			if contract.CoopSize != len(contract.Order) {
+				guidanceStr.WriteString("-# > Use pinned message or add 🧑‍🌾 reaction to join this list and set boost " + tokenStr + " wanted.\n")
+			}
+			// Sum the Content lengths of the components for this length test
+			// If the length of the builder is less than 1900 characters, add the guidanceStr
+			// to the builder
+			totalContentLength := guidanceStr.Len()
+			for _, component := range components {
+				if textDisplay, ok := component.(*discordgo.TextDisplay); ok {
+					totalContentLength += len(textDisplay.Content)
+				}
+			}
+			if totalContentLength < 3000 {
+				builder.WriteString(guidanceStr.String())
+			}
 		}
 
 	case ContractStateWaiting:
