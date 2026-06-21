@@ -421,8 +421,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		as := artifactSet{}
 		as.deliveredEggs = c.GetContributionAmount()
-		as.name = c.GetUserName()
-		as.nameRaw = as.name
+		as.name = ei.NormalizePlayerNameForDisplay(c.GetUserName())
+		as.nameRaw = c.GetUserName()
 		as.userID = c.GetUserId()
 		as.permitLevel = c.GetFarmInfo().GetPermitLevel()
 		// Strip any multibyte characters from as.name and replace with ~

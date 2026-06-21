@@ -671,7 +671,7 @@ func printContractReport(p *contractReportParameters, showTokenDetails, showMiss
 					b.WriteString(", ")
 				}
 				b.WriteByte('`')
-				b.WriteString(strings.ReplaceAll(s, "-", "\u2011"))
+				b.WriteString(strings.ReplaceAll(ei.NormalizePlayerNameForDisplay(s), "-", "\u2011"))
 				b.WriteByte('`')
 			}
 
@@ -934,7 +934,7 @@ func evalsForContractParallel(
 // extract evalMetrics from ContractEvaluation
 func metricsFromEval(name string, ev *ei.ContractEvaluation) evalMetrics {
 	return evalMetrics{
-		player:            name,
+		player:            ei.NormalizePlayerNameForDisplay(name),
 		cxp:               ev.GetCxp(),
 		contributionRatio: ev.GetContributionRatio(),
 		teamwork:          ev.GetTeamworkScore(),

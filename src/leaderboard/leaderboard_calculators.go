@@ -64,7 +64,7 @@ func RunCalculators(
 
 	gameName := ""
 	if backup != nil {
-		gameName = backup.GetUserName()
+		gameName = ei.NormalizePlayerNameForDisplay(backup.GetUserName())
 		if game := backup.GetGame(); game != nil && game.GetPermitLevel() != 1 {
 			gameName += " (SP)"
 		}

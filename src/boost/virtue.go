@@ -266,12 +266,13 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 	}
 
 	shiftCost := getShiftCost(virtue.GetShiftCount(), se)
+	displayName := ei.NormalizePlayerNameForDisplay(backup.GetUserName())
 
 	fmt.Fprint(&header, "# Eggs of Virtue Helper\n")
 	if onVirtueFarm {
-		fmt.Fprintf(&header, "**__%s the Ascender__**\n", backup.GetUserName())
+		fmt.Fprintf(&header, "**__%s the Ascender__**\n", displayName)
 	} else {
-		fmt.Fprintf(&header, "**__%s, the Prestiged One__**\n", backup.GetUserName())
+		fmt.Fprintf(&header, "**__%s, the Prestiged One__**\n", displayName)
 	}
 	fmt.Fprintf(&header, "**Resets**: %d  **Shifts**: %d  %s%s\n",
 		virtue.GetResets(),

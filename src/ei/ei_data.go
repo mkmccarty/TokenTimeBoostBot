@@ -178,10 +178,66 @@ var EggIncCurrentSeason = EggIncSeason{
 	Name: SeasonUnknown,
 }
 
+// applePrivateUseEmojiMap covers a broad collection of the legacy
+// SoftBank PUA runes mapped directly to standard UTF-8 Go runes.
+var applePrivateUseEmojiMap = map[rune]rune{
+	// Smileys & Emotion
+	'\ue056': '😊', '\ue057': '😃', '\ue058': '😗', '\ue059': '😘',
+	'\ue105': '😜', '\ue106': '😍', '\ue107': '😱', '\ue108': '😜',
+	'\ue401': '😥', '\ue402': '😏', '\ue403': '😔', '\ue404': '😚',
+	'\ue405': '😜', '\ue406': '😡', '\ue407': '😰', '\ue408': '👋',
+	'\ue409': '😭', '\ue40a': '😭', '\ue40b': '😲', '\ue40c': '😷',
+	'\ue40d': '🚀', '\ue40e': '😁', '\ue40f': '😒', '\ue410': '😅',
+	'\ue411': '🏃', '\ue412': '😤', '\ue413': '😜', '\ue414': '😄',
+	'\ue415': '😄', '\ue416': '🤝', '\ue417': '🤤', '\ue418': '😋',
+
+	// Creatures / Sci-Fi
+	'\ue10c': '👽', '\ue10b': '👻', '\ue428': '🐻', '\ue429': '🐱',
+
+	// Clothing / Accessories
+	'\ue31d': '👑', '\ue31e': '👟', '\ue31f': '👠', '\ue320': '👜',
+	'\ue321': '💄', '\ue322': '👗', '\ue323': '👕', '\ue324': '👖',
+
+	// Hand Gestures & People
+	'\ue00e': '👍', '\ue00f': '👎', '\ue010': '👊', '\ue011': '☝',
+	'\ue012': '🙌', '\ue22e': '👄', '\ue22f': '👁', '\ue230': '👂',
+	'\ue231': '👃', '\ue41f': '👀', '\ue420': '👄', '\ue421': '💅',
+
+	// Weather & Nature
+	'\ue04a': '☀', '\ue04b': '☁', '\ue04c': '🌧', '\ue04d': '❄',
+	'\ue04e': '🌪', '\ue04f': '⚡', '\ue050': '🌙', '\ue051': '🏞',
+	'\ue303': '🌸', '\ue304': '🌹', '\ue305': '🍀', '\ue306': '🍁',
+	'\ue307': '🍂', '\ue308': '🍃', '\ue310': '🌴', '\ue311': '🌵',
+
+	// Travel & Places
+	'\ue01b': '🚗', '\ue01c': '🚌', '\ue01d': '🚊', '\ue01e': '🚂',
+	'\ue01f': '✈', '\ue020': '🚢', '\ue124': '⚓', '\ue125': '🚀',
+	'\ue14c': '🚲', '\ue436': '🏠', '\ue437': '🏢', '\ue43a': '🏥',
+
+	// Objects & Tech
+	'\ue00a': '✉', '\ue00b': '📱', '\ue00c': '💻',
+	'\ue022': '☕', '\ue023': '🍻', '\ue043': '🎥', '\ue044': '📷',
+	'\ue11c': '🎙', '\ue11d': '🎸', '\ue11e': '🎹', '\ue314': '💎',
+}
+
 func init() {
 	EggIncContractsAll = make(map[string]EggIncContract)
 	CustomEggMap = make(map[string]*EggIncCustomEgg)
 	EmoteMap = make(map[string]Emotes)
+}
+
+// NormalizePlayerNameForDisplay replaces known Apple private-use emoji with standard Unicode equivalents.
+func NormalizePlayerNameForDisplay(name string) string {
+	if name == "" {
+		return ""
+	}
+
+	return strings.Map(func(r rune) rune {
+		if replacement, ok := applePrivateUseEmojiMap[r]; ok {
+			return replacement
+		}
+		return r
+	}, name)
 }
 
 const eggUnknownName = "egg_unknown"

@@ -474,7 +474,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEst
 		var field []TeamworkOutputData
 		name := strings.ToLower(c.GetUserName())
 
-		field = append(field, TeamworkOutputData{"Name", c.GetUserName()})
+		field = append(field, TeamworkOutputData{"Name", ei.NormalizePlayerNameForDisplay(c.GetUserName())})
 		// Determine the contribution rate for the user
 		futureDeliveries := c.GetContributionRate() * math.Max(0, float64(calcSecondsRemaining))
 		contributionPast := c.GetContributionAmount()
