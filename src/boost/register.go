@@ -133,7 +133,7 @@ func Register(s *discordgo.Session, i *discordgo.InteractionCreate, encryptedID 
 		} else {
 			farmerName := farmerstate.GetMiscSettingString(userID, "ei_ign")
 			newName := backup.GetUserName()
-				displayName := ei.NormalizePlayerNameForDisplay(newName)
+			displayName := ei.NormalizePlayerNameForDisplay(newName)
 			farmerstate.SetMiscSettingString(userID, "ei_ign", newName)
 			te := ei.GetCurrentTruthEggs(backup)
 			farmerstate.SetMiscSettingString(userID, "TE", fmt.Sprintf("%d", te))
@@ -149,9 +149,9 @@ func Register(s *discordgo.Session, i *discordgo.InteractionCreate, encryptedID 
 				}
 				farmerstate.SetMiscSettingString(userID, "collegg", strings.Join(eggNames, ","))
 			}
-				str = "Your Egg Inc ID has been registered as " + displayName + fmt.Sprintf(" (TE: %d).", te)
+			str = "Your Egg Inc ID has been registered as " + displayName + fmt.Sprintf(" (TE: %d).", te)
 			if farmerName != "" && farmerName != newName {
-					str += " (Previously: " + ei.NormalizePlayerNameForDisplay(farmerName) + ")"
+				str += " (Previously: " + ei.NormalizePlayerNameForDisplay(farmerName) + ")"
 			}
 			// Respond to register command
 			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
