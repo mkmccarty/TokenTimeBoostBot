@@ -220,13 +220,36 @@ var applePrivateUseEmojiMap = map[rune]rune{
 	'\ue11c': '🎙', '\ue11d': '🎸', '\ue11e': '🎹', '\ue314': '💎',
 }
 
+// googlePrivateUseEmojiMap covers the legacy Google/Android Plane 15 PUA
+// codes mapped to standard modern Unicode runes.
+var googlePrivateUseEmojiMap = map[rune]rune{
+	// Smileys & Faces
+	'\U000fe320': '😂', '\U000fe321': '😃', '\U000fe322': '😄', '\U000fe323': '😆',
+	'\U000fe324': '😉', '\U000fe325': '😊', '\U000fe326': '😋', '\U000fe327': '😌',
+	'\U000fe328': '😍', '\U000fe329': '😏', '\U000fe32a': '😒', '\U000fe32b': '😓',
+	'\U000fe32c': '😔', '\U000fe32d': '😘', '\U000fe32e': '😚', '\U000fe32f': '😜',
+	'\U000fe330': '😝', '\U000fe331': '😞', '\U000fe332': '😠', '\U000fe333': '😡',
+	'\U000fe334': '😢', '\U000fe33a': '😭', '\U000fe33b': '😲', '\U000fe34f': '😴',
+
+	// Hand Gestures
+	'\U000fe3a0': '👍', '\U000fe3a1': '👎', '\U000fe3a2': '👊', '\U000fe3a3': '☝',
+	'\U000fe3a4': '✌', '\U000fe3a5': '👋', '\U000fe3a6': '✋', '\U000fe3a7': '👌',
+
+	// Animals / Sci-Fi
+	'\U000fe724': '🐶', '\U000fe725': '🐱', '\U000fe726': '🐭', '\U000fe727': '🐹',
+	'\U000fe73d': '👽', '\U000fe740': '👻',
+
+	// Weather
+	'\U000fe44c': '☀', '\U000fe44d': '☁', '\U000fe44e': '🌧', '\U000fe44f': '❄',
+}
+
 func init() {
 	EggIncContractsAll = make(map[string]EggIncContract)
 	CustomEggMap = make(map[string]*EggIncCustomEgg)
 	EmoteMap = make(map[string]Emotes)
 }
 
-// NormalizePlayerNameForDisplay replaces known Apple private-use emoji with standard Unicode equivalents.
+// NormalizePlayerNameForDisplay replaces known Apple and Google private-use emoji with standard Unicode equivalents.
 func NormalizePlayerNameForDisplay(name string) string {
 	if name == "" {
 		return ""
@@ -234,6 +257,9 @@ func NormalizePlayerNameForDisplay(name string) string {
 
 	return strings.Map(func(r rune) rune {
 		if replacement, ok := applePrivateUseEmojiMap[r]; ok {
+			return replacement
+		}
+		if replacement, ok := googlePrivateUseEmojiMap[r]; ok {
 			return replacement
 		}
 		return r
