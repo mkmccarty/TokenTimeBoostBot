@@ -542,7 +542,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 	_ = prevMap
 
 	const maxNameChars = 15
-	maxNameWidth := len("Name")
+	maxNameWidth := runewidth.StringWidth("Name")
 
 	shortDisplayName := def.DisplayName
 	if def.HeaderName != "" {
@@ -563,36 +563,36 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 	}
 
 	rankHeader := "Rank"
-	rankWidth := len(rankHeader)
-	maxValOnlyWidth := len(shortDisplayName)
+	rankWidth := runewidth.StringWidth(rankHeader)
+	maxValOnlyWidth := runewidth.StringWidth(shortDisplayName)
 
 	isEB := def.Key == LBEarningsBonus
 	hasCTEComparisonColumn := def.Key == LBCTETotal
 	hasTEColumn := def.Key == LBEggsCuriosity || def.Key == LBEggsIntegrity || def.Key == LBEggsHumility || def.Key == LBEggsResilience || def.Key == LBEggsKindness || def.Key == LBVirtueEggsSum
-	teWidth := len("TE")
-	actualCTEWidth := len("CTE")
-	soulMirrorCommonWidth := len("C")
-	soulMirrorEpicWidth := len("E")
-	soulMirrorLegendaryWidth := len("L")
+	teWidth := runewidth.StringWidth("TE")
+	actualCTEWidth := runewidth.StringWidth("CTE")
+	soulMirrorCommonWidth := runewidth.StringWidth("C")
+	soulMirrorEpicWidth := runewidth.StringWidth("E")
+	soulMirrorLegendaryWidth := runewidth.StringWidth("L")
 	const soulMirrorMaxDigits = 5
 	if hasCTEComparisonColumn {
-		maxValOnlyWidth = len("Pending")
+		maxValOnlyWidth = runewidth.StringWidth("Pending")
 	}
 	if isEB {
-		maxValOnlyWidth = len("Nekkid")
+		maxValOnlyWidth = runewidth.StringWidth("Nekkid")
 	}
-	maxDressedWidth := len("Dressed")
+	maxDressedWidth := runewidth.StringWidth("Dressed")
 
 	isTEPerShift := def.Key == LBTEPerShift
-	tePerShiftTEWidth := len("TE")
-	tePerShiftShiftsWidth := len("Shifts")
+	tePerShiftTEWidth := runewidth.StringWidth("TE")
+	tePerShiftShiftsWidth := runewidth.StringWidth("Shifts")
 
 	isSEPerPrestige := def.Key == LBSEPerPrestige
-	sePerPrestigeSEWidth := len("SE")
-	sePerPrestigePrestigesWidth := len("Prestiges")
+	sePerPrestigeSEWidth := runewidth.StringWidth("SE")
+	sePerPrestigePrestigesWidth := runewidth.StringWidth("Prestiges")
 
 	isCraftingXP := def.Key == LBCraftingXP
-	craftingLevelWidth := len("Lvl")
+	craftingLevelWidth := runewidth.StringWidth("Lvl")
 
 	type rowInfo struct {
 		row                       LBEntry
@@ -678,7 +678,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 		if isTie {
 			rankStr = ""
 		}
-		if w := len(rankStr); w > rankWidth {
+		if w := runewidth.StringWidth(rankStr); w > rankWidth {
 			rankWidth = w
 		}
 
@@ -702,7 +702,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 		if hasCTEComparisonColumn {
 			displayValStr = formatCTE(r.Value)
 		}
-		if w := len(displayValStr); w > maxValOnlyWidth {
+		if w := runewidth.StringWidth(displayValStr); w > maxValOnlyWidth {
 			maxValOnlyWidth = w
 		}
 
@@ -714,7 +714,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 					dressedValStr = FormatLBValue(def.ValueFmt, dressed)
 				}
 			}
-			if w := len(dressedValStr); w > maxDressedWidth {
+			if w := runewidth.StringWidth(dressedValStr); w > maxDressedWidth {
 				maxDressedWidth = w
 			}
 		}
@@ -722,7 +722,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 		teStr := ""
 		if hasTEColumn {
 			teStr = fmt.Sprintf("%d", parseTEFromDetails(r.Details))
-			if w := len(teStr); w > teWidth {
+			if w := runewidth.StringWidth(teStr); w > teWidth {
 				teWidth = w
 			}
 		}
@@ -730,7 +730,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 		actualCTEStr := ""
 		if hasCTEComparisonColumn {
 			actualCTEStr = parseActualCTEFromDetails(r.Details)
-			if w := len(actualCTEStr); w > actualCTEWidth {
+			if w := runewidth.StringWidth(actualCTEStr); w > actualCTEWidth {
 				actualCTEWidth = w
 			}
 		}
@@ -742,19 +742,19 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			soulMirrorEpicStr = fmt.Sprintf("%d", epic)
 			soulMirrorLegendaryStr = fmt.Sprintf("%d", legendary)
 
-			if w := len(soulMirrorCommonStr); w > soulMirrorCommonWidth {
+			if w := runewidth.StringWidth(soulMirrorCommonStr); w > soulMirrorCommonWidth {
 				soulMirrorCommonWidth = w
 				if soulMirrorCommonWidth > soulMirrorMaxDigits {
 					soulMirrorCommonWidth = soulMirrorMaxDigits
 				}
 			}
-			if w := len(soulMirrorEpicStr); w > soulMirrorEpicWidth {
+			if w := runewidth.StringWidth(soulMirrorEpicStr); w > soulMirrorEpicWidth {
 				soulMirrorEpicWidth = w
 				if soulMirrorEpicWidth > soulMirrorMaxDigits {
 					soulMirrorEpicWidth = soulMirrorMaxDigits
 				}
 			}
-			if w := len(soulMirrorLegendaryStr); w > soulMirrorLegendaryWidth {
+			if w := runewidth.StringWidth(soulMirrorLegendaryStr); w > soulMirrorLegendaryWidth {
 				soulMirrorLegendaryWidth = w
 				if soulMirrorLegendaryWidth > soulMirrorMaxDigits {
 					soulMirrorLegendaryWidth = soulMirrorMaxDigits
@@ -765,18 +765,18 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 		tePerShiftTEStr, tePerShiftShiftsStr, sePerPrestigeSEStr, sePerPrestigePrestigesStr := "", "", "", ""
 		if isTEPerShift {
 			tePerShiftTEStr, tePerShiftShiftsStr = parseTEPerShiftDetails(r.Details)
-			if w := len(tePerShiftTEStr); w > tePerShiftTEWidth {
+			if w := runewidth.StringWidth(tePerShiftTEStr); w > tePerShiftTEWidth {
 				tePerShiftTEWidth = w
 			}
-			if w := len(tePerShiftShiftsStr); w > tePerShiftShiftsWidth {
+			if w := runewidth.StringWidth(tePerShiftShiftsStr); w > tePerShiftShiftsWidth {
 				tePerShiftShiftsWidth = w
 			}
 		} else if isSEPerPrestige {
 			sePerPrestigeSEStr, sePerPrestigePrestigesStr = parseSEPerPrestigeDetails(r.Details)
-			if w := len(sePerPrestigeSEStr); w > sePerPrestigeSEWidth {
+			if w := runewidth.StringWidth(sePerPrestigeSEStr); w > sePerPrestigeSEWidth {
 				sePerPrestigeSEWidth = w
 			}
-			if w := len(sePerPrestigePrestigesStr); w > sePerPrestigePrestigesWidth {
+			if w := runewidth.StringWidth(sePerPrestigePrestigesStr); w > sePerPrestigePrestigesWidth {
 				sePerPrestigePrestigesWidth = w
 			}
 		}
@@ -784,7 +784,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 		craftingLevelStr := ""
 		if isCraftingXP {
 			craftingLevelStr = r.Details
-			if w := len(craftingLevelStr); w > craftingLevelWidth {
+			if w := runewidth.StringWidth(craftingLevelStr); w > craftingLevelWidth {
 				craftingLevelWidth = w
 			}
 		}
@@ -823,7 +823,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			padField("Nekkid", maxValOnlyWidth, bottools.StringAlignRight),
 			padField("Dressed", maxDressedWidth, bottools.StringAlignRight),
 		}, "|")
-		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
+		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", runewidth.StringWidth(headerLine)))
 	} else if hasCTEComparisonColumn {
 		headerLine := strings.Join([]string{
 			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
@@ -831,7 +831,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			padField("Pending", maxValOnlyWidth, bottools.StringAlignRight),
 			padField("CTE", actualCTEWidth, bottools.StringAlignRight),
 		}, "|")
-		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
+		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", runewidth.StringWidth(headerLine)))
 	} else if hasTEColumn {
 		headerLine := strings.Join([]string{
 			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
@@ -839,7 +839,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			padField(shortDisplayName, maxValOnlyWidth, bottools.StringAlignRight),
 			padField("TE", teWidth, bottools.StringAlignRight),
 		}, "|")
-		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
+		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", runewidth.StringWidth(headerLine)))
 	} else if def.Key == LBSoulMirrors {
 		headerLine := strings.Join([]string{
 			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
@@ -849,7 +849,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			padField("E", soulMirrorEpicWidth, bottools.StringAlignRight),
 			padField("L", soulMirrorLegendaryWidth, bottools.StringAlignRight),
 		}, "|")
-		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
+		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", runewidth.StringWidth(headerLine)))
 	} else if isTEPerShift {
 		headerLine := strings.Join([]string{
 			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
@@ -858,7 +858,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			padField("TE", tePerShiftTEWidth, bottools.StringAlignRight),
 			padField("Shifts", tePerShiftShiftsWidth, bottools.StringAlignRight),
 		}, "|")
-		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
+		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", runewidth.StringWidth(headerLine)))
 	} else if isSEPerPrestige {
 		headerLine := strings.Join([]string{
 			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
@@ -867,7 +867,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			padField("SE", sePerPrestigeSEWidth, bottools.StringAlignRight),
 			padField("Prestiges", sePerPrestigePrestigesWidth, bottools.StringAlignRight),
 		}, "|")
-		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
+		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", runewidth.StringWidth(headerLine)))
 	} else if isCraftingXP {
 		headerLine := strings.Join([]string{
 			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
@@ -875,14 +875,14 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 			padField(shortDisplayName, maxValOnlyWidth, bottools.StringAlignRight),
 			padField("Lvl", craftingLevelWidth, bottools.StringAlignRight),
 		}, "|")
-		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
+		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", runewidth.StringWidth(headerLine)))
 	} else {
 		headerLine := strings.Join([]string{
 			padField(rankHeader, rankWidth, bottools.StringAlignLeft),
 			padField("Name", maxNameWidth, bottools.StringAlignLeft),
 			padField(shortDisplayName, maxValOnlyWidth, bottools.StringAlignRight),
 		}, "|")
-		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", len(headerLine)))
+		colHeader = fmt.Sprintf("```\n%s\n%s\n", headerLine, strings.Repeat("-", runewidth.StringWidth(headerLine)))
 	}
 
 	rowLines := make([]string, 0, len(infos))
