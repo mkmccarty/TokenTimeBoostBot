@@ -220,6 +220,10 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	}
 
 	if r.Emoji.Name == "❓" {
+		contract.HelpGuidanceUntil = time.Now().Add(10 * time.Minute)
+		saveData(contract.ContractHash)
+		refreshBoostListMessage(s, contract, false)
+
 		go func() {
 			runReady, _, _ := ei.GetBotEmoji("runready")
 			outputStr := "## Boost Bot Icon Meanings\n\n"
