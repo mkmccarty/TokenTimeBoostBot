@@ -302,7 +302,7 @@ type Contract struct {
 	LastWishPrompt       string             // saved prompt for this contract
 	LastInteractionTime  time.Time          // last time the contract was drawn
 	buttonComponents     map[string]CompMap // Cached components for this contract
-	HideGuidance         bool               // True after guidance has been hidden (10+ min into running)
+	HelpGuidanceUntil    time.Time          // Show bottom guidance while now is before this timestamp
 	NewFeature           int                // Used to slide in new features
 	DynamicData          *DynamicTokenData
 	LastSaveTime         time.Time // The last time the contract was saved

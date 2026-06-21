@@ -824,6 +824,10 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 }
 
 func buttonReactionHelp(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract) {
+	contract.HelpGuidanceUntil = time.Now().Add(10 * time.Minute)
+	saveData(contract.ContractHash)
+	refreshBoostListMessage(s, contract, false)
+
 	chickMention, _, _ := ei.GetBotEmoji("runready")
 	var outputStr strings.Builder
 	// Each of the contract play styles has a link that descibes them, Lets print that

@@ -655,13 +655,11 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	}
 
 	var guidanceStr strings.Builder
+	showTimedGuidance := now.Before(contract.HelpGuidanceUntil)
 	// Add reaction guidance to the bottom of this list
 	switch contract.State {
 	case ContractStateFastrun:
-		if !contract.HideGuidance && now.Sub(contract.StartTime) > 10*time.Minute {
-			contract.HideGuidance = true
-		}
-		if !contract.HideGuidance {
+		if showTimedGuidance {
 			guidanceStr.WriteString("\n")
 			guidanceStr.WriteString("> -# Active Booster: " + boostIcon + " when boosting. \n")
 			guidanceStr.WriteString("> -# Anyone: " + tokenStr + " when sending tokens")
@@ -681,10 +679,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		}
 
 	case ContractStateBanker:
-		if !contract.HideGuidance && now.Sub(contract.StartTime) > 10*time.Minute {
-			contract.HideGuidance = true
-		}
-		if !contract.HideGuidance {
+		if showTimedGuidance {
 			if contract.PlayStyle != ContractPlaystyleLeaderboard {
 				guidanceStr.WriteString("\n")
 				guidanceStr.WriteString("> " + tokenStr + " when sending tokens to the Banker")
