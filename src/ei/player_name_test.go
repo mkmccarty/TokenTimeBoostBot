@@ -14,6 +14,11 @@ func TestNormalizePlayerNameForDisplay(t *testing.T) {
 			want: "Chipmunk 👽",
 		},
 		{
+			name: "replaces google private-use alien",
+			in:   "Chipmunk \U000fe73d",
+			want: "Chipmunk 👽",
+		},
+		{
 			name: "leaves normal text unchanged",
 			in:   "Plain Name",
 			want: "Plain Name",
