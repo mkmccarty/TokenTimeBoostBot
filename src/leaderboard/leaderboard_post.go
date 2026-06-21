@@ -19,6 +19,7 @@ const discordMessageCharLimit = 1900
 const leaderboardUpdateConfirmationTTL = 1 * time.Minute
 const rateLimitDelay = 200 * time.Millisecond
 
+// PostProgress tracks the progress of posting multiple leaderboards, allowing for ETA estimation and progress reporting.
 type PostProgress struct {
 	TotalMetrics  int
 	PostedMetrics int
