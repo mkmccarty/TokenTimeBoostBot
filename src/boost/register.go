@@ -75,7 +75,7 @@ func HandleRegisterAltAutocomplete(s *discordgo.Session, i *discordgo.Interactio
 	}
 	for _, alt := range alts {
 		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-			Name:  alt,
+			Name:  ei.NormalizePlayerNameForDisplay(alt),
 			Value: alt,
 		})
 	}
@@ -133,6 +133,7 @@ func Register(s *discordgo.Session, i *discordgo.InteractionCreate, encryptedID 
 		} else {
 			farmerName := farmerstate.GetMiscSettingString(userID, "ei_ign")
 			newName := backup.GetUserName()
+				displayName := ei.NormalizePlayerNameForDisplay(newName)
 			farmerstate.SetMiscSettingString(userID, "ei_ign", newName)
 			te := ei.GetCurrentTruthEggs(backup)
 			farmerstate.SetMiscSettingString(userID, "TE", fmt.Sprintf("%d", te))
@@ -148,9 +149,9 @@ func Register(s *discordgo.Session, i *discordgo.InteractionCreate, encryptedID 
 				}
 				farmerstate.SetMiscSettingString(userID, "collegg", strings.Join(eggNames, ","))
 			}
-			str = "Your Egg Inc ID has been registered as " + newName + fmt.Sprintf(" (TE: %d).", te)
+				str = "Your Egg Inc ID has been registered as " + displayName + fmt.Sprintf(" (TE: %d).", te)
 			if farmerName != "" && farmerName != newName {
-				str += " (Previously: " + farmerName + ")"
+					str += " (Previously: " + ei.NormalizePlayerNameForDisplay(farmerName) + ")"
 			}
 			// Respond to register command
 			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
@@ -227,6 +228,7 @@ func RegisterAlt(s *discordgo.Session, i *discordgo.InteractionCreate, targetAlt
 			str = "Your Egg Inc ID was saved but the backup could not be retrieved from EI."
 		} else {
 			newName := backup.GetUserName()
+			displayName := ei.NormalizePlayerNameForDisplay(newName)
 			// Use newName as the ID for the alt record
 			farmerstate.SetMiscSettingString(newName, "ei_ign", newName)
 			farmerstate.SetMiscSettingString(newName, "encrypted_ei_id", encryptedID)
@@ -238,7 +240,7 @@ func RegisterAlt(s *discordgo.Session, i *discordgo.InteractionCreate, targetAlt
 			for key, val := range artifacts {
 				farmerstate.SetMiscSettingString(newName, key, val)
 			}
-			str = "Your alternate Egg Inc ID has been registered as " + newName + fmt.Sprintf(" (TE: %d).", te)
+			str = "Your alternate Egg Inc ID has been registered as " + displayName + fmt.Sprintf(" (TE: %d).", te)
 		}
 	}
 

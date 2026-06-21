@@ -153,7 +153,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 						}
 					}
 				}
-				fmt.Fprintf(&header, "%s **%s**: %d interested\n", ei.FindEggEmoji(pi.EggName), pi.Name, count)
+				fmt.Fprintf(&header, "%s **%s**: %d interested\n", ei.FindEggEmoji(pi.EggName), ei.NormalizePlayerNameForDisplay(pi.Name), count)
 
 				var tsStrings []string
 				if anyCount > 0 {

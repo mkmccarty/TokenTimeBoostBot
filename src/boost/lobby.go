@@ -279,7 +279,7 @@ func buildLobbyContent(contractID string, coopID string, userID string, bypassCa
 		if name == "" {
 			name = "Unknown"
 		}
-		memberNames = append(memberNames, name)
+		memberNames = append(memberNames, ei.NormalizePlayerNameForDisplay(name))
 	}
 	sort.Strings(memberNames)
 
@@ -412,9 +412,9 @@ func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_Con
 					matchedBoosterIDs[s.discordID] = true
 					display := s.mention
 					if !strings.HasPrefix(display, "<@") {
-						display = "`" + s.nick + "`"
+						display = "`" + ei.NormalizePlayerNameForDisplay(s.nick) + "`"
 					}
-					bestFitGuesses = append(bestFitGuesses, guessEntry{coopName: coopName, contractDisplay: display})
+					bestFitGuesses = append(bestFitGuesses, guessEntry{coopName: ei.NormalizePlayerNameForDisplay(coopName), contractDisplay: display})
 					matched = true
 					break
 				}
@@ -422,7 +422,7 @@ func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_Con
 		}
 
 		if !matched {
-			coopNotInContract = append(coopNotInContract, coopName)
+			coopNotInContract = append(coopNotInContract, ei.NormalizePlayerNameForDisplay(coopName))
 		}
 	}
 
@@ -432,7 +432,7 @@ func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_Con
 		if !matchedBoosterIDs[s.discordID] {
 			display := s.mention
 			if !strings.HasPrefix(display, "<@") {
-				display = "`" + s.nick + "`"
+				display = "`" + ei.NormalizePlayerNameForDisplay(s.nick) + "`"
 			}
 			contractNotInCoop = append(contractNotInCoop, display)
 		}
