@@ -747,7 +747,7 @@ func RenderScoreTableANSI(rows []srRow, srmode bool, includeDiff bool) string {
 
 	for _, r := range rows {
 		// Name
-		line := bottools.FitString(r.name, srnameW, bottools.StringAlignLeft)
+		line := bottools.FitString(ei.NormalizePlayerNameForDisplay(r.name), srnameW, bottools.StringAlignLeft)
 
 		// CXP (blue if max)
 		cxpColor := ""
