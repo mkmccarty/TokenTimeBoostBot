@@ -238,6 +238,9 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 			c.MaxCoopSize-1, // All Chicken Runs
 			3, 100)          // Sink token use, sent at least 3 (max) and received a lot
 
+		// TODO:  I'd pull the #2 score from the LB (or the top non-outlier - either cheated or pushed) from the prior season and assume that's $CAP. Then $LAST_GOAL/$CAP rounded sensibly becomes the target ratio. So 800k/979k ~ 82%
+		csTarget := 0.82
+
 		if c.SeasonalScoring != ei.SeasonalScoringNerfed { // Leggacies originally released before Sept 22, 2025
 			var cs strings.Builder
 			fmt.Fprintf(&cs, "CS Est: **%d** ", int64(c.Cxp))
@@ -249,7 +252,8 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 			if c.MaxCoopSize > 1 {
 				fmt.Fprintf(&cs, " - **%d** (Sink) ", scoreSink)
 			}
-			fmt.Fprintf(&cs, " - **%.0f** ", c.Cxp*0.70)
+
+			fmt.Fprintf(&cs, " - **%.0f** ", c.Cxp*csTarget) // 82% of max CXP for a fair share estimate
 			if c.SeasonID == "" {
 				cs.WriteString(("(Low Target)\n"))
 			} else {
@@ -259,7 +263,7 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 		} else { // Seasonal contracts released starting Sept 22, 2025
 			str += fmt.Sprintf("CS Est: **%d** (SR) - **%.0f** (Seasonal Target)\n",
 				int64(c.Cxp),
-				c.Cxp*0.70)
+				c.Cxp*csTarget)
 		}
 		if includeLeggySet {
 			gg, ugg, _ := ei.GetGenerousGiftEvent()
