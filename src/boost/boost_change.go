@@ -721,14 +721,14 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 
 // renameContractRole renames the contract role to match the new contract ID
 func renameContractRole(s *discordgo.Session, contract *Contract) {
-	// Get the new thematic role name for the updated contract
-	newRoleName := getContractRoleName(contract.ContractID)
-
 	// Rename the role in each guild where the contract exists
 	for _, loc := range contract.Location {
 		if loc.GuildContractRole.ID == "" {
 			continue
 		}
+
+		// Get the new thematic role name for the updated contract in this specific guild
+		newRoleName := getContractRoleName(s, loc.GuildID, contract.ContractID)
 
 		updatedRole, err := s.GuildRoleEdit(loc.GuildID, loc.GuildContractRole.ID, &discordgo.RoleParams{
 			Name: newRoleName,
