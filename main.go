@@ -479,9 +479,10 @@ func setupCommands() {
 			Handler:  boost.HandleRenameThreadCommand,
 		},
 		{
-			AppCmd:   boost.SlashArtifactsCommand(slashArtifact),
-			Category: CmdCategoryStandard,
-			Handler:  boost.HandleArtifactCommand,
+			AppCmd:       boost.SlashArtifactsCommand(slashArtifact),
+			Category:     CmdCategoryStandard,
+			Handler:      boost.HandleArtifactCommand,
+			Autocomplete: boost.HandleArtifactAltAutoComplete,
 		},
 		{
 			AppCmd:       boost.GetSlashScoreExplorerCommand(slashScoreExplorer),

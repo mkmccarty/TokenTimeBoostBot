@@ -66,6 +66,42 @@ func getSelectedColleggtiblesFromStored(stored string) map[string]bool {
 	return selected
 }
 
+func isDiscordSnowflake(value string) bool {
+	if len(value) < 15 || len(value) > 21 {
+		return false
+	}
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func formatArtifactTarget(userID string) string {
+	if mentionID, ok := parseMentionUserID(userID); ok {
+		ign := strings.TrimSpace(farmerstate.GetMiscSettingString(mentionID, "ei_ign"))
+		if ign != "" {
+			return fmt.Sprintf("<@%s> (%s)", mentionID, ei.NormalizePlayerNameForDisplay(ign))
+		}
+		return "<@" + mentionID + ">"
+	}
+
+	if isDiscordSnowflake(userID) {
+		ign := strings.TrimSpace(farmerstate.GetMiscSettingString(userID, "ei_ign"))
+		if ign != "" {
+			return fmt.Sprintf("<@%s> (%s)", userID, ei.NormalizePlayerNameForDisplay(ign))
+		}
+		return "<@" + userID + ">"
+	}
+
+	ign := strings.TrimSpace(farmerstate.GetMiscSettingString(userID, "ei_ign"))
+	if ign != "" {
+		return fmt.Sprintf("%s (%s)", userID, ei.NormalizePlayerNameForDisplay(ign))
+	}
+	return userID
+}
+
 func getColleggtibleCategory(egg *ei.EggIncCustomEgg) string {
 	if egg == nil {
 		return colleggCategoryOther
@@ -192,6 +228,11 @@ func displayArtifactQuality(val string) string {
 
 func populateArtifactsFromBackup(s *discordgo.Session, userID string) (string, string, error) {
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+	if eiID == "" && !isDiscordSnowflake(userID) {
+		if discordID, err := farmerstate.GetDiscordUserIDFromEiIgnExact(userID); err == nil && discordID != "" {
+			eiID = farmerstate.GetMiscSettingString(discordID, "encrypted_ei_id")
+		}
+	}
 	if eiID == "" {
 		msg := "No saved Egg Inc ID found. Run /register first."
 		return msg, msg, nil
@@ -319,10 +360,11 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 	as := getUserArtifacts(userID, nil)
 
 	var builder strings.Builder
+	targetDisplay := formatArtifactTarget(userID)
 	if !contractOnly {
-		fmt.Fprintf(&builder, "Select your global coop artifacts <@%s>\nELR: %1.3f", userID, as.LayRate)
+		fmt.Fprintf(&builder, "Select your global coop artifacts %s\nELR: %1.3f", targetDisplay, as.LayRate)
 	} else {
-		fmt.Fprintf(&builder, "Adjust your coop artifact overrides for this contract <@%s>\n ELR: %2.3f  SR:%2.3f", userID, as.LayRate, as.ShipRate)
+		fmt.Fprintf(&builder, "Adjust your coop artifact overrides for this contract %s\n ELR: %2.3f  SR:%2.3f", targetDisplay, as.LayRate, as.ShipRate)
 	}
 
 	// These are the global settings
@@ -846,7 +888,13 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 		deliveryStyle := discordgo.SecondaryButton
 		ihrStyle := discordgo.SecondaryButton
 		colleggStyle := discordgo.SecondaryButton
-		hasBackup := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id") != ""
+		eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+		if eiID == "" && !isDiscordSnowflake(userID) {
+			if discordID, err := farmerstate.GetDiscordUserIDFromEiIgnExact(userID); err == nil && discordID != "" {
+				eiID = farmerstate.GetMiscSettingString(discordID, "encrypted_ei_id")
+			}
+		}
+		hasBackup := eiID != ""
 		switch page {
 		case "delivery":
 			deliveryStyle = discordgo.PrimaryButton
@@ -906,7 +954,73 @@ func SlashArtifactsCommand(cmd string) *discordgo.ApplicationCommand {
 			discordgo.ApplicationIntegrationGuildInstall,
 			discordgo.ApplicationIntegrationUserInstall,
 		},
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "alternate",
+				Description:  "Select a linked alternate account",
+				Required:     false,
+				Autocomplete: true,
+			},
+		},
 	}
+}
+
+// HandleArtifactAltAutoComplete provides linked-alt suggestions for /artifact.
+func HandleArtifactAltAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	userID := getInteractionUserID(i)
+	alts := farmerstate.GetAltControllerByMiscString("AltController", userID)
+
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, len(alts))
+	for _, alt := range alts {
+		ign := strings.TrimSpace(farmerstate.GetMiscSettingString(alt, "ei_ign"))
+		displayName := alt
+		if isDiscordSnowflake(alt) {
+			if ign != "" {
+				displayName = ei.NormalizePlayerNameForDisplay(ign)
+			}
+		} else {
+			if ign != "" {
+				displayName = fmt.Sprintf("%s (%s)", alt, ei.NormalizePlayerNameForDisplay(ign))
+			}
+		}
+		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+			Name:  displayName,
+			Value: alt,
+		})
+	}
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+		Data: &discordgo.InteractionResponseData{
+			Choices: choices,
+		},
+	})
+}
+
+func resolveArtifactTargetUserID(i *discordgo.InteractionCreate) (string, string, bool) {
+	requesterID := getInteractionUserID(i)
+	targetUserID := requesterID
+
+	for _, opt := range i.ApplicationCommandData().Options {
+		if opt.Name != "alternate" {
+			continue
+		}
+		candidate := strings.TrimSpace(opt.StringValue())
+		if candidate == "" || candidate == requesterID {
+			return requesterID, targetUserID, false
+		}
+
+		for _, alt := range farmerstate.GetAltControllerByMiscString("AltController", requesterID) {
+			if alt == candidate {
+				return requesterID, candidate, false
+			}
+		}
+
+		return requesterID, requesterID, true
+	}
+
+	return requesterID, targetUserID, false
 }
 
 func getInteractionUserID(i *discordgo.InteractionCreate) string {
@@ -927,8 +1041,19 @@ func getInteractionUserID(i *discordgo.InteractionCreate) string {
 
 // HandleArtifactCommand handles the /artifacts command
 func HandleArtifactCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	_, targetUserID, invalidAlt := resolveArtifactTargetUserID(i)
+	if invalidAlt {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "The selected alternate is not linked to your account.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
 
-	userID := getInteractionUserID(i)
+	userID := targetUserID
 
 	contractOnly := false
 

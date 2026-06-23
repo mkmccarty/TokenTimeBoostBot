@@ -135,7 +135,9 @@ func HandleEggIDModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate
 	}
 
 	if okayToSave && encryptedID != "" {
-		farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", encryptedID)
+		if parts[1] != "register-alt" {
+			farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", encryptedID)
+		}
 		str += "\nI will remember your Egg Inc ID for future sessions."
 	}
 
