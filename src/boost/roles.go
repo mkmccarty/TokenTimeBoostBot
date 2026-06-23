@@ -275,27 +275,44 @@ func ensurePotatoTeamRoleForUserAsync(s *discordgo.Session, contract *Contract, 
 }
 
 // getContractRoleName generates a thematic role name for the given contract ID
-func getContractRoleName(contractID string) string {
-	roleNames := randomThingNames
-
-	if names := ei.GetContractTeamNames(contractID); len(names) > 0 {
-		roleNames = names
+func selectUniqueTeamName(s *discordgo.Session, guildID string, roleNames []string) (string, string) {
+	var existingRoles []string
+	if s != nil && guildID != "" {
+		roles, err := s.GuildRoles(guildID)
+		if err == nil {
+			for _, r := range roles {
+				existingRoles = append(existingRoles, r.Name)
+			}
+		}
+		ContractsMutex.RLock()
+		for _, c := range Contracts {
+			if c.State == ContractStateArchive {
+				continue
+			}
+			for _, loc := range c.Location {
+				if loc.GuildID == guildID && loc.GuildContractRole.Name != "" {
+					existingRoles = append(existingRoles, loc.GuildContractRole.Name)
+				}
+			}
+		}
+		ContractsMutex.RUnlock()
 	}
 
-	// Get existing roles in a default guild (since we don't have context here)
-	// For naming purposes, we'll just use the first available name
-	var existingRoles []string
-	// In the context of renaming, we don't need to check all guilds -
-	// we just need a thematic name that's different from the current one
+	// Create a list of existing lowercase role names and also "team " prefixed version
+	// for robust case-insensitive duplicate check
+	existingLower := make(map[string]bool)
+	for _, rName := range existingRoles {
+		existingLower[strings.ToLower(rName)] = true
+	}
 
 	tryCount := 0
 	prefix := ""
-	var teamName string
 
-	// Create a list of unused role names (just pick from the theme list)
+	// Create a list of unused role names (case-insensitive check)
 	var unusedRoleNames []string
 	for _, name := range roleNames {
-		if !slices.Contains(existingRoles, fmt.Sprintf("%s%s", prefix, name)) {
+		lowerName := strings.ToLower(name)
+		if !existingLower[lowerName] && !existingLower["team "+lowerName] {
 			unusedRoleNames = append(unusedRoleNames, name)
 		}
 	}
@@ -303,15 +320,23 @@ func getContractRoleName(contractID string) string {
 		unusedRoleNames[i], unusedRoleNames[j] = unusedRoleNames[j], unusedRoleNames[i]
 	})
 
+	var teamName string
 	if len(unusedRoleNames) == 0 {
 		// All names are taken; fall back to a generated team name
-		teamName = bottools.GetRandomName(0)
 		prefix = "Team "
+		for {
+			cand := bottools.GetRandomName(0)
+			if !existingLower[strings.ToLower(prefix+cand)] {
+				teamName = cand
+				break
+			}
+		}
 	} else {
 		lastChance := false
 		for {
 			name := unusedRoleNames[tryCount]
-			if !slices.Contains(existingRoles, prefix+name) {
+			candidate := prefix + name
+			if !existingLower[strings.ToLower(candidate)] {
 				// Found an unused name
 				teamName = name
 				break
@@ -325,7 +350,7 @@ func getContractRoleName(contractID string) string {
 				// Filter out names that are already taken with the new prefix
 				filteredNames := make([]string, 0, len(unusedRoleNames))
 				for _, name := range unusedRoleNames {
-					if !slices.Contains(existingRoles, prefix+name) {
+					if !existingLower[strings.ToLower(prefix+name)] {
 						filteredNames = append(filteredNames, name)
 					}
 				}
@@ -341,10 +366,29 @@ func getContractRoleName(contractID string) string {
 			}
 		}
 		if teamName == "" {
-			teamName = bottools.GetRandomName(0)
+			prefix = "Team "
+			for {
+				cand := bottools.GetRandomName(0)
+				if !existingLower[strings.ToLower(prefix+cand)] {
+					teamName = cand
+					break
+				}
+			}
 		}
 	}
 
+	return prefix, teamName
+}
+
+// getContractRoleName generates a thematic role name for the given contract ID
+func getContractRoleName(s *discordgo.Session, guildID string, contractID string) string {
+	roleNames := randomThingNames
+
+	if names := ei.GetContractTeamNames(contractID); len(names) > 0 {
+		roleNames = names
+	}
+
+	prefix, teamName := selectUniqueTeamName(s, guildID, roleNames)
 	return fmt.Sprintf("%s%s", prefix, teamName)
 }
 
@@ -352,14 +396,8 @@ func getContractRoleName(contractID string) string {
 func getContractRole(s *discordgo.Session, guildID string, contract *Contract) error {
 	var role *discordgo.Role
 	var err error
-	var teamName string
 	nameMutex.Lock()
 	defer nameMutex.Unlock()
-
-	roles, err := s.GuildRoles(guildID)
-	if err != nil {
-		return err
-	}
 
 	roleNames := randomThingNames
 
@@ -367,67 +405,7 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 		roleNames = names
 	}
 
-	// remove anything from roles where the name does not start with "Team"
-	var existingRoles []string
-	for _, role := range roles {
-		existingRoles = append(existingRoles, role.Name)
-	}
-
-	tryCount := 0
-	prefix := ""
-
-	// Create a list of unused role names
-	var unusedRoleNames []string
-	for _, name := range roleNames {
-		if !slices.Contains(existingRoles, fmt.Sprintf("%s%s", prefix, name)) {
-			unusedRoleNames = append(unusedRoleNames, name)
-		}
-	}
-	rand.Shuffle(len(unusedRoleNames), func(i, j int) {
-		unusedRoleNames[i], unusedRoleNames[j] = unusedRoleNames[j], unusedRoleNames[i]
-	})
-
-	if len(unusedRoleNames) == 0 {
-		// All names are taken; fall back to a generated team name
-		teamName = bottools.GetRandomName(0)
-		prefix = "Team "
-	} else {
-		lastChance := false
-		for {
-			name := unusedRoleNames[tryCount]
-			if !slices.Contains(existingRoles, prefix+name) {
-				// Found an unused name
-				teamName = name
-				break
-			}
-			tryCount++
-			if tryCount == len(unusedRoleNames) {
-				if lastChance {
-					break
-				}
-				prefix = "Team "
-				// Filter out names that are already taken with the new prefix
-				filteredNames := make([]string, 0, len(unusedRoleNames))
-				for _, name := range unusedRoleNames {
-					if !slices.Contains(existingRoles, prefix+name) {
-						filteredNames = append(filteredNames, name)
-					}
-				}
-				unusedRoleNames = filteredNames
-				rand.Shuffle(len(unusedRoleNames), func(i, j int) {
-					unusedRoleNames[i], unusedRoleNames[j] = unusedRoleNames[j], unusedRoleNames[i]
-				})
-				if len(unusedRoleNames) == 0 {
-					break
-				}
-				tryCount = 0
-				lastChance = true
-			}
-		}
-		if teamName == "" {
-			teamName = bottools.GetRandomName(0)
-		}
-	}
+	prefix, teamName := selectUniqueTeamName(s, guildID, roleNames)
 
 	mentionable := true
 	role, err = s.GuildRoleCreate(guildID, &discordgo.RoleParams{
