@@ -952,6 +952,11 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 	// Get user EI from the db and set any relevant fields
 	eggIncID := ""
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+	if eiID == "" && !isDiscordSnowflake(userID) {
+		if discordID, err := farmerstate.GetDiscordUserIDFromEiIgnExact(userID); err == nil && discordID != "" {
+			eiID = farmerstate.GetMiscSettingString(discordID, "encrypted_ei_id")
+		}
+	}
 	encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
 	if err == nil {
 		decodedData, err := base64.StdEncoding.DecodeString(eiID)

@@ -229,16 +229,20 @@ func RegisterAlt(s *discordgo.Session, i *discordgo.InteractionCreate, targetAlt
 		} else {
 			newName := backup.GetUserName()
 			displayName := ei.NormalizePlayerNameForDisplay(newName)
-			// Use newName as the ID for the alt record
-			farmerstate.SetMiscSettingString(newName, "ei_ign", newName)
-			farmerstate.SetMiscSettingString(newName, "encrypted_ei_id", encryptedID)
-			farmerstate.SetMiscSettingString(newName, "AltController", parentUserID)
+			altID := targetAlt
+			if altID == "new" {
+				altID = newName
+			}
+			// Use altID as the ID for the alt record
+			farmerstate.SetMiscSettingString(altID, "ei_ign", newName)
+			farmerstate.SetMiscSettingString(altID, "encrypted_ei_id", encryptedID)
+			farmerstate.SetMiscSettingString(altID, "AltController", parentUserID)
 
 			te := ei.GetCurrentTruthEggs(backup)
-			farmerstate.SetMiscSettingString(newName, "TE", fmt.Sprintf("%d", te))
+			farmerstate.SetMiscSettingString(altID, "TE", fmt.Sprintf("%d", te))
 			artifacts := ei.GetBestCoopArtifactsFromInventory(backup.GetArtifactsDb().GetInventoryItems())
 			for key, val := range artifacts {
-				farmerstate.SetMiscSettingString(newName, key, val)
+				farmerstate.SetMiscSettingString(altID, key, val)
 			}
 			str = "Your alternate Egg Inc ID has been registered as " + displayName + fmt.Sprintf(" (TE: %d).", te)
 		}
