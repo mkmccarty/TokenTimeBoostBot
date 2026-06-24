@@ -603,9 +603,10 @@ func setupCommands() {
 			Autocomplete: boost.HandleAllContractsAutoComplete,
 		},
 		{
-			AppCmd:   boost.GetSlashLeaderboard(slashLeaderboard),
-			Category: CmdCategoryStandard,
-			Handler:  boost.HandleLeaderboard,
+			AppCmd:       boost.GetSlashLeaderboard(slashLeaderboard),
+			Category:     CmdCategoryStandard,
+			Handler:      boost.HandleLeaderboard,
+			Autocomplete: boost.HandleLeaderboardAutoComplete,
 		},
 		{
 			AppCmd:   dashboard.GetSlashTimer(slashTimer),
