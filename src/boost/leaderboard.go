@@ -18,8 +18,9 @@ type leaderboardSeason struct {
 	value string
 }
 
-var leaderboardSeasons = []leaderboardSeason{
+var leaderboardFallbackSeasons = []leaderboardSeason{
 	{"All Time", "ALL_TIME"},
+	{"Summer 2026", "summer_2026"},
 	{"Spring 2026", "spring_2026"},
 	{"Winter 2026", "winter_2026"},
 	{"Fall 2025", "fall_2025"},
@@ -35,14 +36,172 @@ var leaderboardSeasons = []leaderboardSeason{
 	{"Spring 2023", "spring_2023"},
 }
 
+const leaderboardAllTimeScope = "ALL_TIME"
+const leaderboardMaxSeasonOptions = 25
+const leaderboardMaxAutocompleteChoices = 25
+const leaderboardSeasonStartYear = 2023
+const leaderboardSeasonStartName = "spring"
+
+var leaderboardSeasonOrder = []string{"winter", "spring", "summer", "fall"}
+
+func leaderboardSeasonLabel(seasonID string) string {
+	parts := strings.SplitN(seasonID, "_", 2)
+	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+		return seasonID
+	}
+
+	seasonName := map[string]string{
+		"winter": "Winter",
+		"spring": "Spring",
+		"summer": "Summer",
+		"fall":   "Fall",
+	}[strings.ToLower(parts[0])]
+	if seasonName == "" {
+		return seasonID
+	}
+
+	return fmt.Sprintf("%s %s", seasonName, parts[1])
+}
+
+func leaderboardParseSeasonID(seasonID string) (string, int, bool) {
+	parts := strings.SplitN(strings.ToLower(strings.TrimSpace(seasonID)), "_", 2)
+	if len(parts) != 2 {
+		return "", 0, false
+	}
+
+	if parts[0] != "winter" && parts[0] != "spring" && parts[0] != "summer" && parts[0] != "fall" {
+		return "", 0, false
+	}
+
+	year := 0
+	_, err := fmt.Sscanf(parts[1], "%d", &year)
+	if err != nil {
+		return "", 0, false
+	}
+
+	return parts[0], year, true
+}
+
+func leaderboardSeasonID(name string, year int) string {
+	return fmt.Sprintf("%s_%d", name, year)
+}
+
+func leaderboardSeasonIndex(name string) int {
+	for i, n := range leaderboardSeasonOrder {
+		if n == name {
+			return i
+		}
+	}
+	return -1
+}
+
+func leaderboardIsBeforeStart(name string, year int) bool {
+	if year < leaderboardSeasonStartYear {
+		return true
+	}
+	if year > leaderboardSeasonStartYear {
+		return false
+	}
+
+	return leaderboardSeasonIndex(name) < leaderboardSeasonIndex(leaderboardSeasonStartName)
+}
+
+func leaderboardPreviousSeason(name string, year int) (string, int, bool) {
+	idx := leaderboardSeasonIndex(name)
+	if idx < 0 {
+		return "", 0, false
+	}
+
+	idx--
+	if idx < 0 {
+		idx = len(leaderboardSeasonOrder) - 1
+		year--
+	}
+
+	return leaderboardSeasonOrder[idx], year, true
+}
+
+func leaderboardMostRecentSeason() (string, int, bool) {
+	if currentName, currentYear, _ := ei.GetEggIncCurrentSeason(); currentYear >= leaderboardSeasonStartYear {
+		currentName = strings.ToLower(strings.TrimSpace(currentName))
+		if leaderboardSeasonIndex(currentName) >= 0 {
+			return currentName, currentYear, true
+		}
+	}
+
+	bestName := ""
+	bestYear := 0
+	bestIdx := -1
+
+	consider := func(seasonID string) {
+		name, year, ok := leaderboardParseSeasonID(seasonID)
+		if !ok || leaderboardIsBeforeStart(name, year) {
+			return
+		}
+
+		idx := leaderboardSeasonIndex(name)
+		if year > bestYear || (year == bestYear && idx > bestIdx) {
+			bestName = name
+			bestYear = year
+			bestIdx = idx
+		}
+	}
+
+	for _, c := range ei.GetEggIncContractsSlice() {
+		consider(c.SeasonID)
+	}
+	for _, s := range leaderboardFallbackSeasons {
+		consider(s.value)
+	}
+
+	if bestName == "" {
+		return "", 0, false
+	}
+
+	return bestName, bestYear, true
+}
+
+// leaderboardSeasons returns all known seasonal scopes from periodicals-loaded contracts,
+// with All Time always pinned first. Falls back to a static list until data is loaded.
+func leaderboardSeasons() []leaderboardSeason {
+	seasons := []leaderboardSeason{{name: "All Time", value: leaderboardAllTimeScope}}
+	seen := map[string]struct{}{leaderboardAllTimeScope: {}}
+
+	if name, year, ok := leaderboardMostRecentSeason(); ok {
+		for {
+			if leaderboardIsBeforeStart(name, year) {
+				break
+			}
+
+			seasonID := leaderboardSeasonID(name, year)
+			if _, exists := seen[seasonID]; !exists {
+				seasons = append(seasons, leaderboardSeason{
+					name:  leaderboardSeasonLabel(seasonID),
+					value: seasonID,
+				})
+				seen[seasonID] = struct{}{}
+			}
+
+			prevName, prevYear, hasPrev := leaderboardPreviousSeason(name, year)
+			if !hasPrev {
+				break
+			}
+			name, year = prevName, prevYear
+		}
+	}
+
+	if len(seasons) > 1 {
+		return seasons
+	}
+
+	fallback := make([]leaderboardSeason, len(leaderboardFallbackSeasons))
+	copy(fallback, leaderboardFallbackSeasons)
+	return fallback
+}
+
 // GetSlashLeaderboard returns the /leaderboard command
 func GetSlashLeaderboard(cmd string) *discordgo.ApplicationCommand {
 	adminPermission := int64(0)
-
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, len(leaderboardSeasons))
-	for _, s := range leaderboardSeasons {
-		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{Name: s.name, Value: s.value})
-	}
 
 	return &discordgo.ApplicationCommand{
 		Name:                     cmd,
@@ -56,14 +215,49 @@ func GetSlashLeaderboard(cmd string) *discordgo.ApplicationCommand {
 		},
 		Options: []*discordgo.ApplicationCommandOption{
 			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "season",
-				Description: "Season to display. Default is All Time.",
-				Required:    false,
-				Choices:     choices,
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "season",
+				Description:  "Season to display. Default is All Time.",
+				Required:     false,
+				Autocomplete: true,
 			},
 		},
 	}
+}
+
+// HandleLeaderboardAutoComplete provides typed season suggestions for /leaderboard.
+func HandleLeaderboardAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	search := ""
+	for _, opt := range i.ApplicationCommandData().Options {
+		if opt.Name == "season" && opt.Focused {
+			search = strings.ToLower(strings.TrimSpace(opt.StringValue()))
+			break
+		}
+	}
+
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, leaderboardMaxAutocompleteChoices)
+	for _, season := range leaderboardSeasons() {
+		if search != "" {
+			name := strings.ToLower(season.name)
+			value := strings.ToLower(season.value)
+			if !strings.Contains(name, search) && !strings.Contains(value, search) {
+				continue
+			}
+		}
+
+		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+			Name:  season.name,
+			Value: season.value,
+		})
+		if len(choices) >= leaderboardMaxAutocompleteChoices {
+			break
+		}
+	}
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+		Data: &discordgo.InteractionResponseData{Choices: choices},
+	})
 }
 
 // HandleLeaderboard handles the /leaderboard command
@@ -72,7 +266,7 @@ func HandleLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	season := "ALL_TIME"
+	season := leaderboardAllTimeScope
 	optionMap := bottools.GetCommandOptionsMap(i)
 	if opt, ok := optionMap["season"]; ok {
 		season = opt.StringValue()
@@ -242,8 +436,12 @@ func leaderboardFetchAndBuild(eiID, season, guildID string) []discordgo.MessageC
 	}
 
 	min := 1
-	options := make([]discordgo.SelectMenuOption, 0, len(leaderboardSeasons))
-	for _, s := range leaderboardSeasons {
+	seasons := leaderboardSeasons()
+	if len(seasons) > leaderboardMaxSeasonOptions {
+		seasons = seasons[:leaderboardMaxSeasonOptions]
+	}
+	options := make([]discordgo.SelectMenuOption, 0, len(seasons))
+	for _, s := range seasons {
 		options = append(options, discordgo.SelectMenuOption{
 			Label:   s.name,
 			Value:   s.value,
@@ -298,11 +496,12 @@ func leaderboardTable(resp *ei.LeaderboardResponse, season string, guildNames []
 	var rows []row
 	serverRank := 0
 	for _, entry := range resp.GetTopEntries() {
+		alias := ei.NormalizePlayerNameForDisplay(entry.GetAlias())
 		if len(guildNames) > 0 && !slices.Contains(guildNames, entry.GetAlias()) {
 			continue
 		}
 		serverRank++
-		rows = append(rows, row{serverRank, entry.GetRank(), entry.GetAlias(), entry.GetScore()})
+		rows = append(rows, row{serverRank, entry.GetRank(), alias, entry.GetScore()})
 	}
 
 	maxNameLen := 0
@@ -357,10 +556,16 @@ func leaderboardTable(resp *ei.LeaderboardResponse, season string, guildNames []
 
 // leaderboardSeasonName returns the display name for a season scope value.
 func leaderboardSeasonName(scope string) string {
-	for _, s := range leaderboardSeasons {
+	for _, s := range leaderboardSeasons() {
 		if s.value == scope {
 			return s.name
 		}
+	}
+	if scope == leaderboardAllTimeScope {
+		return "All Time"
+	}
+	if label := leaderboardSeasonLabel(scope); label != scope {
+		return label
 	}
 	return scope
 }
