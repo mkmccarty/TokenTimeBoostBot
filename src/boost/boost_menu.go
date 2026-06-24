@@ -347,7 +347,7 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: fmt.Sprintf("Token sent to %s", escapeDiscordMarkdown(contract.Boosters[wantUser].Nick)),
+				Content: fmt.Sprintf("Token sent to %s", bottools.EscapeDiscordMarkdown(contract.Boosters[wantUser].Nick)),
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
@@ -360,7 +360,7 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: fmt.Sprintf("Token sent to %s", escapeDiscordMarkdown(contract.Boosters[nextUser].Nick)),
+				Content: fmt.Sprintf("Token sent to %s", bottools.EscapeDiscordMarkdown(contract.Boosters[nextUser].Nick)),
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
