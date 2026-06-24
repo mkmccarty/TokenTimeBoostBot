@@ -12,6 +12,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
 
 const (
@@ -238,8 +239,19 @@ func getContractEstimateString(contractID string, includeLeggySet bool) string {
 			c.MaxCoopSize-1, // All Chicken Runs
 			3, 100)          // Sink token use, sent at least 3 (max) and received a lot
 
-		// TODO:  I'd pull the #2 score from the LB (or the top non-outlier - either cheated or pushed) from the prior season and assume that's $CAP. Then $LAST_GOAL/$CAP rounded sensibly becomes the target ratio. So 800k/979k ~ 82%
-		csTarget := 0.82
+		// Use the current season Grade AAA final CXP goal from periodicals as the numerator.
+		gradeAAAFinalCxpGoal := ei.GetEggIncCurrentSeasonAAAFinalCxpGoal()
+		if gradeAAAFinalCxpGoal <= 0 {
+			gradeAAAFinalCxpGoal = 800_000.0
+		}
+
+		prevSeasonScore := 980_000.0
+		if value := strings.TrimSpace(guildstate.GetGuildSettingString("DEFAULT", "top_season_score")); value != "" {
+			if parsed, err := strconv.ParseFloat(value, 64); err == nil && parsed > 0 {
+				prevSeasonScore = parsed
+			}
+		}
+		csTarget := gradeAAAFinalCxpGoal / prevSeasonScore
 
 		if c.SeasonalScoring != ei.SeasonalScoringNerfed { // Leggacies originally released before Sept 22, 2025
 			var cs strings.Builder

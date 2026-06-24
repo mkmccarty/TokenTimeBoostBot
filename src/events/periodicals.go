@@ -127,6 +127,25 @@ func HasEventStartedToday(events []ei.EggEvent, now time.Time) (ei.EggEvent, boo
 	return todayEvents[len(todayEvents)-1], true
 }
 
+func getAAAFinalSeasonCxpGoal(seasonInfo *ei.ContractSeasonInfo) float64 {
+	if seasonInfo == nil {
+		return 0
+	}
+
+	for _, goalSet := range seasonInfo.GetGradeGoals() {
+		if goalSet == nil || goalSet.GetGrade() != ei.Contract_GRADE_AAA {
+			continue
+		}
+		goals := goalSet.GetGoals()
+		if len(goals) == 0 {
+			continue
+		}
+		return goals[len(goals)-1].GetCxp()
+	}
+
+	return 0
+}
+
 // GetPeriodicalsFromAPI will download the events from the Egg Inc API.
 // Returns true if it detects a meaningful live periodicals refresh.
 func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
@@ -409,6 +428,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 	seasonInfo := periodicalsResponse.GetContracts().GetCurrentSeason()
 	if seasonInfo != nil {
 		ei.SetEggIncCurrentSeason(seasonInfo.GetId(), seasonInfo.GetName(), seasonInfo.GetStartTime())
+		ei.SetEggIncCurrentSeasonAAAFinalCxpGoal(getAAAFinalSeasonCxpGoal(seasonInfo))
 	}
 
 	// Replace all new contracts
