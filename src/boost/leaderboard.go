@@ -168,11 +168,7 @@ func leaderboardSeasons() []leaderboardSeason {
 	seen := map[string]struct{}{leaderboardAllTimeScope: {}}
 
 	if name, year, ok := leaderboardMostRecentSeason(); ok {
-		for {
-			if leaderboardIsBeforeStart(name, year) {
-				break
-			}
-
+		for !leaderboardIsBeforeStart(name, year) {
 			seasonID := leaderboardSeasonID(name, year)
 			if _, exists := seen[seasonID]; !exists {
 				seasons = append(seasons, leaderboardSeason{
