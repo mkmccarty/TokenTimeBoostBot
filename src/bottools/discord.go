@@ -6,10 +6,33 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
+
+var discordMarkdownEscaper = strings.NewReplacer(
+	"\\", "\\\\",
+	"*", "\\*",
+	"_", "\\_",
+	"~", "\\~",
+	"`", "\\`",
+	"|", "\\|",
+	">", "\\>",
+	"#", "\\#",
+	"[", "\\[",
+	"]", "\\]",
+	"(", "\\(",
+	")", "\\)",
+)
+
+func EscapeDiscordMarkdown(s string) string {
+	if s == "" {
+		return ""
+	}
+	return discordMarkdownEscaper.Replace(s)
+}
 
 const (
 	// MaxAnimateFileBytes defines the maximum allowed file size for attachments to be processed by the bot.
