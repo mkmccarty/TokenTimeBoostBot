@@ -178,6 +178,9 @@ var EggIncCurrentSeason = EggIncSeason{
 	Name: SeasonUnknown,
 }
 
+// EggIncCurrentSeasonAAAFinalCxpGoal stores the current season Grade AAA final CXP goal.
+var EggIncCurrentSeasonAAAFinalCxpGoal float64
+
 // applePrivateUseEmojiMap covers a broad collection of the legacy
 // SoftBank PUA runes mapped directly to standard UTF-8 Go runes.
 var applePrivateUseEmojiMap = map[rune]rune{
@@ -438,6 +441,16 @@ func SetEggIncCurrentSeason(seasonID, seasonName string, seasonStartTime float64
 	EggIncCurrentSeason.ID = seasonID
 	EggIncCurrentSeason.Name = seasonName
 	EggIncCurrentSeason.StartTime = seasonStartTime
+}
+
+// SetEggIncCurrentSeasonAAAFinalCxpGoal sets the current season Grade AAA final CXP goal.
+func SetEggIncCurrentSeasonAAAFinalCxpGoal(goal float64) {
+	EggIncCurrentSeasonAAAFinalCxpGoal = goal
+}
+
+// GetEggIncCurrentSeasonAAAFinalCxpGoal returns the current season Grade AAA final CXP goal.
+func GetEggIncCurrentSeasonAAAFinalCxpGoal() float64 {
+	return EggIncCurrentSeasonAAAFinalCxpGoal
 }
 
 // GetEggIncCurrentSeason returns the current season name and year
