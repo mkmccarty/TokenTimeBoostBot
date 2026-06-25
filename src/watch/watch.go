@@ -849,49 +849,53 @@ func CheckWatches(s *discordgo.Session) {
 		}
 	}
 
-	for _, m := range matches {
-		// Get output layout with legendary set info
-		estimateText := boost.GetContractEstimateString(m.contractID, true)
+	if len(matches) > 0 {
+		go func() {
+			for _, m := range matches {
+				// Get output layout with legendary set info
+				estimateText := boost.GetContractEstimateString(m.contractID, true)
 
-		// Create DM channel
-		channel, err := s.UserChannelCreate(m.userID)
-		if err != nil {
-			log.Printf("watch: failed to create DM channel for user %s: %v", m.userID, err)
-			continue
-		}
+				// Create DM channel
+				channel, err := s.UserChannelCreate(m.userID)
+				if err != nil {
+					log.Printf("watch: failed to create DM channel for user %s: %v", m.userID, err)
+					continue
+				}
 
-		// Send DM with Dismiss and Keep buttons
-		_, err = s.ChannelMessageSendComplex(channel.ID, &discordgo.MessageSend{
-			Content: estimateText,
-			Flags:   discordgo.MessageFlagsSuppressEmbeds,
-			Components: []discordgo.MessageComponent{
-				discordgo.ActionsRow{
+				// Send DM with Dismiss and Keep buttons
+				_, err = s.ChannelMessageSendComplex(channel.ID, &discordgo.MessageSend{
+					Content: estimateText,
+					Flags:   discordgo.MessageFlagsSuppressEmbeds,
 					Components: []discordgo.MessageComponent{
-						discordgo.Button{
-							Label:    "Dismiss",
-							Style:    discordgo.DangerButton,
-							CustomID: "watch-dismiss",
-						},
-						discordgo.Button{
-							Label:    "Keep",
-							Style:    discordgo.SuccessButton,
-							CustomID: "watch-keep",
+						discordgo.ActionsRow{
+							Components: []discordgo.MessageComponent{
+								discordgo.Button{
+									Label:    "Dismiss",
+									Style:    discordgo.DangerButton,
+									CustomID: "watch-dismiss",
+								},
+								discordgo.Button{
+									Label:    "Keep",
+									Style:    discordgo.SuccessButton,
+									CustomID: "watch-keep",
+								},
+							},
 						},
 					},
-				},
-			},
-		})
-		if err != nil {
-			log.Printf("watch: failed to send DM message to user %s: %v", m.userID, err)
-			// Do not clear the watch if DM fails so we can retry next time, or should we?
-			// Let's keep it so they can receive it when their DMs open, or delete it to avoid stuck watches.
-			// The requirement says: "and then the watch for that item is cleared." So let's clear it.
-		}
+				})
+				if err != nil {
+					log.Printf("watch: failed to send DM message to user %s: %v", m.userID, err)
+				}
 
-		// Clear the watch from DB (unless it is a persistent "new" colleggtible watch)
-		if m.targetID != "new" {
-			farmerstate.DeleteWatch(m.userID, m.watchType, m.targetID)
-		}
+				// Clear the watch from DB (unless it is a persistent "new" colleggtible watch)
+				if m.targetID != "new" {
+					farmerstate.DeleteWatch(m.userID, m.watchType, m.targetID)
+				}
+
+				// Be sensitive to Discord rate limits
+				time.Sleep(250 * time.Millisecond)
+			}
+		}()
 	}
 }
 
