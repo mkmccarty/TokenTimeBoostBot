@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -21,6 +22,18 @@ const (
 	WatchTypeContract     = "contract"
 	WatchTypeColleggtible = "colleggtible"
 )
+
+var (
+	newColleggtibles []string
+	newCollMutex     sync.Mutex
+)
+
+// AddNewColleggtible registers a newly detected custom egg ID.
+func AddNewColleggtible(id string) {
+	newCollMutex.Lock()
+	defer newCollMutex.Unlock()
+	newColleggtibles = append(newColleggtibles, id)
+}
 
 // GetSlashWatchCommand returns the slash command definition for /watch.
 func GetSlashWatchCommand(cmd string) *discordgo.ApplicationCommand {
@@ -130,8 +143,12 @@ func HandleWatchCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			return
 		}
 		farmerstate.AddWatch(userID, WatchTypeColleggtible, colleggtibleID)
+		msgContent := fmt.Sprintf("Success! Added watch for colleggtible: `%s`.", colleggtibleID)
+		if colleggtibleID == "new" {
+			msgContent = "Success! Added watch for any **NEW COLLEGGTIBLES**."
+		}
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: fmt.Sprintf("Success! Added watch for colleggtible: `%s`.", colleggtibleID),
+			Content: msgContent,
 		})
 
 	case "missing":
@@ -247,6 +264,12 @@ func HandleWatchAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreat
 		}
 
 		choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+		if searchString == "" || strings.Contains("new colleggtible", searchString) {
+			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+				Name:  "NEW COLLEGGTIBLE",
+				Value: "new",
+			})
+		}
 		type eggChoice struct {
 			Name string
 			ID   string
@@ -317,6 +340,14 @@ func renderStatusPage(s *discordgo.Session, interaction *discordgo.Interaction, 
 	}
 
 	sort.Slice(watches, func(i, j int) bool {
+		// "new" watches should always appear first
+		if watches[i].TargetID == "new" && watches[j].TargetID != "new" {
+			return true
+		}
+		if watches[j].TargetID == "new" && watches[i].TargetID != "new" {
+			return false
+		}
+
 		if sortStyle == "predicted" {
 			tI := getPredTime(watches[i])
 			tJ := getPredTime(watches[j])
@@ -333,6 +364,9 @@ func renderStatusPage(s *discordgo.Session, interaction *discordgo.Interaction, 
 		// Fallback to alphabetical sorting of the target name or ID
 		getName := func(w farmerstate.Watch) string {
 			if w.WatchType == WatchTypeColleggtible {
+				if w.TargetID == "new" {
+					return "New Colleggtibles"
+				}
 				if egg, ok := ei.CustomEggMap[w.TargetID]; ok && egg != nil {
 					return egg.Name
 				}
@@ -368,7 +402,9 @@ func renderStatusPage(s *discordgo.Session, interaction *discordgo.Interaction, 
 	for idx, w := range watches[start:end] {
 		targetName := w.TargetID
 		if w.WatchType == WatchTypeColleggtible {
-			if egg, ok := ei.CustomEggMap[w.TargetID]; ok && egg != nil {
+			if w.TargetID == "new" {
+				targetName = "New Colleggtibles"
+			} else if egg, ok := ei.CustomEggMap[w.TargetID]; ok && egg != nil {
 				targetName = egg.Name
 			}
 		} else {
@@ -387,7 +423,11 @@ func renderStatusPage(s *discordgo.Session, interaction *discordgo.Interaction, 
 
 		typeStr := "📜"
 		if w.WatchType == WatchTypeColleggtible {
-			typeStr = ei.FindEggEmoji(w.TargetID)
+			if w.TargetID == "new" {
+				typeStr = "🆕"
+			} else {
+				typeStr = ei.FindEggEmoji(w.TargetID)
+			}
 		} else {
 			if c, ok := ei.EggIncContractsAll[w.TargetID]; ok {
 				typeStr = ei.FindEggEmoji(c.EggName)
@@ -658,6 +698,14 @@ func CheckWatches(s *discordgo.Session) {
 		return
 	}
 
+	newCollMutex.Lock()
+	newEggs := make(map[string]bool)
+	for _, id := range newColleggtibles {
+		newEggs[id] = true
+	}
+	newColleggtibles = nil // Reset list
+	newCollMutex.Unlock()
+
 	// Group matches by user to prevent spamming if multiple matches occur
 	type notification struct {
 		userID     string
@@ -687,19 +735,36 @@ func CheckWatches(s *discordgo.Session) {
 				})
 			}
 		} else if w.WatchType == WatchTypeColleggtible {
-			// Check if any active contract offers this custom egg
-			for _, c := range ei.EggIncContracts {
-				if c.Predicted {
-					continue
+			if w.TargetID == "new" {
+				// Check if any active contract offers a new custom egg
+				for _, c := range ei.EggIncContracts {
+					if c.Predicted {
+						continue
+					}
+					if newEggs[c.EggName] {
+						matches = append(matches, notification{
+							userID:     w.UserID,
+							watchType:  w.WatchType,
+							targetID:   w.TargetID,
+							contractID: c.ID,
+						})
+					}
 				}
-				if c.EggName == w.TargetID {
-					matches = append(matches, notification{
-						userID:     w.UserID,
-						watchType:  w.WatchType,
-						targetID:   w.TargetID,
-						contractID: c.ID,
-					})
-					break
+			} else {
+				// Check if any active contract offers this custom egg
+				for _, c := range ei.EggIncContracts {
+					if c.Predicted {
+						continue
+					}
+					if c.EggName == w.TargetID {
+						matches = append(matches, notification{
+							userID:     w.UserID,
+							watchType:  w.WatchType,
+							targetID:   w.TargetID,
+							contractID: c.ID,
+						})
+						break
+					}
 				}
 			}
 		}
@@ -744,8 +809,10 @@ func CheckWatches(s *discordgo.Session) {
 			// The requirement says: "and then the watch for that item is cleared." So let's clear it.
 		}
 
-		// Clear the watch from DB
-		farmerstate.DeleteWatch(m.userID, m.watchType, m.targetID)
+		// Clear the watch from DB (unless it is a persistent "new" colleggtible watch)
+		if m.targetID != "new" {
+			farmerstate.DeleteWatch(m.userID, m.watchType, m.targetID)
+		}
 	}
 }
 

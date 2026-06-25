@@ -322,6 +322,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 				continue
 			}
 		} else if notifyDiscordOfNewEgg {
+			watch.AddNewColleggtible(egg.ID)
 			var builder strings.Builder
 			// Do we have an icon for this egg?
 			_, err := bottools.ImportEggImage(s, egg.ID, egg.IconURL)
