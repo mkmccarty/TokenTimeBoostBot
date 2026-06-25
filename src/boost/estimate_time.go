@@ -82,7 +82,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	if str == "" {
-		estimateText := getContractEstimateString(contractID, includeLeggySet)
+		estimateText := GetContractEstimateString(contractID, includeLeggySet)
 		components := []discordgo.MessageComponent{
 			discordgo.TextDisplay{Content: estimateText},
 		}
@@ -100,7 +100,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	})
 }
 
-func getContractEstimateString(contractID string, includeLeggySet bool) string {
+func GetContractEstimateString(contractID string, includeLeggySet bool) string {
 
 	str := ""
 	c := ei.EggIncContractsAll[contractID]

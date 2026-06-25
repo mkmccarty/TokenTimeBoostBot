@@ -192,6 +192,30 @@ func (q *Queries) DeleteTimer(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteUserWatches = `-- name: DeleteUserWatches :exec
+DELETE FROM watches WHERE user_id = ?
+`
+
+func (q *Queries) DeleteUserWatches(ctx context.Context, userID string) error {
+	_, err := q.db.ExecContext(ctx, deleteUserWatches, userID)
+	return err
+}
+
+const deleteWatch = `-- name: DeleteWatch :exec
+DELETE FROM watches WHERE user_id = ? AND watch_type = ? AND target_id = ?
+`
+
+type DeleteWatchParams struct {
+	UserID    string
+	WatchType string
+	TargetID  string
+}
+
+func (q *Queries) DeleteWatch(ctx context.Context, arg DeleteWatchParams) error {
+	_, err := q.db.ExecContext(ctx, deleteWatch, arg.UserID, arg.WatchType, arg.TargetID)
+	return err
+}
+
 const getAllLegacyFarmerstate = `-- name: GetAllLegacyFarmerstate :many
 SELECT id, "key", value FROM farmer_state
 WHERE key = 'legacy'
@@ -207,6 +231,38 @@ func (q *Queries) GetAllLegacyFarmerstate(ctx context.Context) ([]FarmerState, e
 	for rows.Next() {
 		var i FarmerState
 		if err := rows.Scan(&i.ID, &i.Key, &i.Value); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAllWatches = `-- name: GetAllWatches :many
+SELECT user_id, watch_type, target_id, created_at FROM watches
+`
+
+func (q *Queries) GetAllWatches(ctx context.Context) ([]Watch, error) {
+	rows, err := q.db.QueryContext(ctx, getAllWatches)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Watch
+	for rows.Next() {
+		var i Watch
+		if err := rows.Scan(
+			&i.UserID,
+			&i.WatchType,
+			&i.TargetID,
+			&i.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -853,6 +909,38 @@ func (q *Queries) GetUserIdFromEiIgn(ctx context.Context, value sql.NullString) 
 	return id, err
 }
 
+const getWatchesForUser = `-- name: GetWatchesForUser :many
+SELECT user_id, watch_type, target_id, created_at FROM watches WHERE user_id = ?
+`
+
+func (q *Queries) GetWatchesForUser(ctx context.Context, userID string) ([]Watch, error) {
+	rows, err := q.db.QueryContext(ctx, getWatchesForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Watch
+	for rows.Next() {
+		var i Watch
+		if err := rows.Scan(
+			&i.UserID,
+			&i.WatchType,
+			&i.TargetID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertLegacyFarmerstate = `-- name: InsertLegacyFarmerstate :one
 INSERT INTO farmer_state (id, key, value)
 VALUES (?, 'legacy', ?)
@@ -949,6 +1037,22 @@ func (q *Queries) InsertTimer(ctx context.Context, arg InsertTimerParams) error 
 		arg.OriginalMsgID,
 		arg.Active,
 	)
+	return err
+}
+
+const insertWatch = `-- name: InsertWatch :exec
+INSERT OR IGNORE INTO watches (user_id, watch_type, target_id)
+VALUES (?, ?, ?)
+`
+
+type InsertWatchParams struct {
+	UserID    string
+	WatchType string
+	TargetID  string
+}
+
+func (q *Queries) InsertWatch(ctx context.Context, arg InsertWatchParams) error {
+	_, err := q.db.ExecContext(ctx, insertWatch, arg.UserID, arg.WatchType, arg.TargetID)
 	return err
 }
 

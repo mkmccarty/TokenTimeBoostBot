@@ -83,3 +83,12 @@ CREATE TABLE IF NOT EXISTS leaderboard_exclusion (
     lb_type  TEXT NOT NULL,
     PRIMARY KEY (guild_id, user_id, lb_type)
 );
+
+CREATE TABLE IF NOT EXISTS watches (
+    user_id TEXT NOT NULL,
+    watch_type TEXT NOT NULL, -- 'contract' or 'colleggtible'
+    target_id TEXT NOT NULL,  -- contract-id or custom-egg-id
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY (user_id, watch_type, target_id)
+);
+

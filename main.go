@@ -31,6 +31,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/server"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/tasks"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/version"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/watch"
 	"github.com/natefinch/lumberjack/v3"
 )
 
@@ -125,6 +126,7 @@ const slashAdminLB string = "admin-lb"
 const slashLBPlayer string = "lb"
 const slashChill string = "chill"
 const slashRoll string = "roll"
+const slashWatch string = "watch"
 
 // const slashSignup string = "signup"
 var s *discordgo.Session
@@ -270,38 +272,51 @@ var (
 		"fd_tokens_sub": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			boost.AddBoostTokensInteraction(s, i, 0, -1)
 		},
-		"fd_restart":          boost.HandleRestartContract,
-		"fd_delete":           boost.HandleContractDelete,
-		"rc_":                 boost.HandleContractReactions,
-		"menu":                boost.HandleMenuReactions,
-		"cs_":                 boost.HandleContractSettingsReactions,
-		"as_":                 boost.HandleArtifactReactions,
-		"fd_stones":           boost.HandleStonesPage,
-		"fd_teamwork":         boost.HandleTeamworkPage,
-		"fd_playground":       boost.HandleScoreExplorerPage,
-		"bo_order":            boost.HandleBoostOrderReactions,
-		"predictions":         boost.HandlePredictionsPage,
-		"pred":                boost.HandlePredPage,
-		"leaderboard":         boost.HandleLeaderboardPage,
-		"active-contracts":    boost.HandleActiveContractsPage,
-		"admin-contract-list": boost.HandleAdminContractListComponent,
-		"admin_exit":          boost.HandleAdminExitButton,
-		"fd_signupStart":      boost.HandleSignupStart,
-		"fd_signupFarmer":     boost.HandleSignupFarmer,
-		"fd_signupBell":       boost.HandleSignupBell,
-		"m_eggid":             boost.HandleEggIDModalSubmit,
-		"fd_signupLeave":      boost.HandleSignupLeave,
-		"csestimate":          boost.HandleCsEstimateButtons,
-		"lobby":               boost.HandleLobbyButtons,
-		"coop_status":         boost.HandleCoopStatusPermissionButton,
-		"leaderboard_perm":    boost.HandleLeaderboardPermissionButton,
-		"timer_btn":           dashboard.HandleTimerInteraction,
-		"dashboard_btn":       dashboard.HandleDashboardInteraction,
-		"mint_preview":        mint.HandleMintPreviewComponent,
-		"chart":               boost.HandleChartReactions,
-		"lb_list":             leaderboard.HandleLBListComponent,
-		"lb_stats":            leaderboard.HandleLBStatsComponent,
-		"lb_p":                leaderboard.HandleLBPageButton,
+		"fd_restart":              boost.HandleRestartContract,
+		"fd_delete":               boost.HandleContractDelete,
+		"rc_":                     boost.HandleContractReactions,
+		"menu":                    boost.HandleMenuReactions,
+		"cs_":                     boost.HandleContractSettingsReactions,
+		"as_":                     boost.HandleArtifactReactions,
+		"fd_stones":               boost.HandleStonesPage,
+		"fd_teamwork":             boost.HandleTeamworkPage,
+		"fd_playground":           boost.HandleScoreExplorerPage,
+		"bo_order":                boost.HandleBoostOrderReactions,
+		"predictions":             boost.HandlePredictionsPage,
+		"pred":                    boost.HandlePredPage,
+		"leaderboard":             boost.HandleLeaderboardPage,
+		"active-contracts":        boost.HandleActiveContractsPage,
+		"admin-contract-list":     boost.HandleAdminContractListComponent,
+		"admin_exit":              boost.HandleAdminExitButton,
+		"fd_signupStart":          boost.HandleSignupStart,
+		"fd_signupFarmer":         boost.HandleSignupFarmer,
+		"fd_signupBell":           boost.HandleSignupBell,
+		"m_eggid":                 boost.HandleEggIDModalSubmit,
+		"fd_signupLeave":          boost.HandleSignupLeave,
+		"csestimate":              boost.HandleCsEstimateButtons,
+		"lobby":                   boost.HandleLobbyButtons,
+		"coop_status":             boost.HandleCoopStatusPermissionButton,
+		"leaderboard_perm":        boost.HandleLeaderboardPermissionButton,
+		"timer_btn":               dashboard.HandleTimerInteraction,
+		"dashboard_btn":           dashboard.HandleDashboardInteraction,
+		"mint_preview":            mint.HandleMintPreviewComponent,
+		"chart":                   boost.HandleChartReactions,
+		"lb_list":                 leaderboard.HandleLBListComponent,
+		"lb_stats":                leaderboard.HandleLBStatsComponent,
+		"lb_p":                    leaderboard.HandleLBPageButton,
+		"watch-dismiss":           watch.HandleDismiss,
+		"watch-keep":              watch.HandleKeep,
+		"watch-clear":             watch.HandleClear,
+		"watch-page":              watch.HandlePage,
+		"watch-page-first":        watch.HandlePage,
+		"watch-page-prev":         watch.HandlePage,
+		"watch-page-next":         watch.HandlePage,
+		"watch-page-last":         watch.HandlePage,
+		"watch-page-cancel":       watch.HandlePage,
+		"watch-toggle-sort":       watch.HandleToggleSort,
+		"watch-clear-confirm":     watch.HandleClearConfirm,
+		"watch-test-contract":     watch.HandleTestContract,
+		"watch-test-colleggtible": watch.HandleTestColleggtible,
 	}
 )
 
@@ -745,6 +760,13 @@ func setupCommands() {
 		Category:     CmdCategoryStandard,
 		Handler:      leaderboard.HandleLBPlayer,
 		Autocomplete: leaderboard.HandleLBPlayerAutoComplete,
+	})
+
+	commandRegistry = append(commandRegistry, CommandDef{
+		AppCmd:       watch.GetSlashWatchCommand(slashWatch),
+		Category:     CmdCategoryStandard,
+		Handler:      watch.HandleWatchCommand,
+		Autocomplete: watch.HandleWatchAutoComplete,
 	})
 
 	for _, def := range commandRegistry {

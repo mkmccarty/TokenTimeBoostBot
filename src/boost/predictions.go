@@ -878,3 +878,45 @@ func contractTimes9amPacific(week int) (monday, wednesday, friday time.Time, ok 
 
 	return monday, wednesday, friday, true
 }
+
+// GetPredictedTimes calculates and returns prediction times for all contracts and custom eggs.
+func GetPredictedTimes() (map[string]time.Time, map[string]time.Time) {
+	contractPreds := make(map[string]time.Time)
+	eggPreds := make(map[string]time.Time)
+
+	// Get next contract drop times
+	_, wedTime, friTime, _ := contractTimes9amPacific(0)
+
+	// Collectibles
+	collPreds := predictCollectibles(wedTime, friTime)
+	for eggID, cp := range collPreds {
+		eggPreds[eggID] = cp.predictedTime
+	}
+
+	// Brackets
+	wednesday, fridayNonUltra, fridayUltra := GetPredictionBrackets()
+
+	// Wednesday contracts
+	for week, c := range wednesday {
+		pTime := wedTime.AddDate(0, 0, 7*week)
+		if existing, seen := contractPreds[c.ID]; !seen || pTime.Before(existing) {
+			contractPreds[c.ID] = pTime
+		}
+	}
+	// Friday non-ultra contracts
+	for week, c := range fridayNonUltra {
+		pTime := friTime.AddDate(0, 0, 7*week)
+		if existing, seen := contractPreds[c.ID]; !seen || pTime.Before(existing) {
+			contractPreds[c.ID] = pTime
+		}
+	}
+	// Friday ultra contracts
+	for week, c := range fridayUltra {
+		pTime := friTime.AddDate(0, 0, 7*week)
+		if existing, seen := contractPreds[c.ID]; !seen || pTime.Before(existing) {
+			contractPreds[c.ID] = pTime
+		}
+	}
+
+	return contractPreds, eggPreds
+}
