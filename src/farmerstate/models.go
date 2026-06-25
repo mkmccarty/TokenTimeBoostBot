@@ -77,3 +77,10 @@ type Timer struct {
 	OriginalMsgID     string
 	Active            bool
 }
+
+type Watch struct {
+	UserID    string
+	WatchType string
+	TargetID  string
+	CreatedAt time.Time
+}

@@ -240,3 +240,20 @@ WHERE guild_id = ? AND user_id = ?;
 -- Deletes older leaderboard stats for a player if RetainRecentOnly is true.
 DELETE FROM leaderboard_stats
 WHERE lb_type = ? AND player = ? AND snap_date != ?;
+
+-- name: InsertWatch :exec
+INSERT OR IGNORE INTO watches (user_id, watch_type, target_id)
+VALUES (?, ?, ?);
+
+-- name: GetWatchesForUser :many
+SELECT * FROM watches WHERE user_id = ?;
+
+-- name: GetAllWatches :many
+SELECT * FROM watches;
+
+-- name: DeleteWatch :exec
+DELETE FROM watches WHERE user_id = ? AND watch_type = ? AND target_id = ?;
+
+-- name: DeleteUserWatches :exec
+DELETE FROM watches WHERE user_id = ?;
+

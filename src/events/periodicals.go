@@ -13,13 +13,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
-
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/watch"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -512,6 +512,8 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 			hasTodayEvent,
 		)
 	}
+
+	go watch.CheckWatches(s)
 
 	return periodicalsReady || newEvents || updatedPredicted > 0
 }
