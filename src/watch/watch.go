@@ -815,19 +815,16 @@ func CheckWatches(s *discordgo.Session) {
 			}
 		} else if w.WatchType == WatchTypeColleggtible {
 			if w.TargetID == "new" {
-				// Check if any active contract offers a new custom egg
-				for _, c := range ei.EggIncContracts {
-					if c.Predicted {
-						continue
-					}
-					if newEggs[c.EggName] {
-						matches = append(matches, notification{
-							userID:     w.UserID,
-							watchType:  w.WatchType,
-							targetID:   w.TargetID,
-							contractID: c.ID,
-						})
-					}
+				// Check if any new custom eggs were detected
+				for eggID := range newEggs {
+					matches = append(matches, notification{
+						userID:     w.UserID,
+						watchType:  w.WatchType,
+						targetID:   w.TargetID,
+						contractID: eggID, // Pass the egg ID in contractID
+					})
+					// Automatically add a watch for this specific new egg so they get alerted when its contract drops
+					farmerstate.AddWatch(w.UserID, WatchTypeColleggtible, eggID)
 				}
 			} else {
 				// Check if any active contract offers this custom egg
@@ -852,8 +849,25 @@ func CheckWatches(s *discordgo.Session) {
 	if len(matches) > 0 {
 		go func() {
 			for _, m := range matches {
-				// Get output layout with legendary set info
-				estimateText := boost.GetContractEstimateString(m.contractID, true)
+				// Get output layout
+				var estimateText string
+				if m.targetID == "new" {
+					eggID := m.contractID // stored egg ID in contractID
+					egg, ok := ei.CustomEggMap[eggID]
+					if ok && egg != nil {
+						emojiMarkdown := ei.GetBotEmojiMarkdown(egg.ID)
+						description := strings.Join(egg.DimensionValueString, ",") + " " + egg.DimensionName
+						estimateText = fmt.Sprintf("🆕 **NEW COLLEGGTIBLE DETECTED!** 🆕\n\n"+
+							"**Name:** %s %s\n"+
+							"**Description:** %s\n"+
+							"**Value:** %g\n",
+							emojiMarkdown, egg.Name, description, egg.Value)
+					} else {
+						estimateText = fmt.Sprintf("🆕 **NEW COLLEGGTIBLE DETECTED!** 🆕\n\nEgg ID: `%s`", eggID)
+					}
+				} else {
+					estimateText = boost.GetContractEstimateString(m.contractID, true)
+				}
 
 				// Create DM channel
 				channel, err := s.UserChannelCreate(m.userID)
