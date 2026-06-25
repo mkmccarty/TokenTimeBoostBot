@@ -120,6 +120,40 @@ func HandleWatchCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			})
 			return
 		}
+
+		// If they already have a watch for this contract, toggle it off (clear it)
+		hasWatch := false
+		watches := farmerstate.GetWatchesForUser(userID)
+		for _, w := range watches {
+			if w.WatchType == WatchTypeContract && w.TargetID == contractID {
+				hasWatch = true
+				break
+			}
+		}
+		if hasWatch {
+			farmerstate.DeleteWatch(userID, WatchTypeContract, contractID)
+			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+				Content: fmt.Sprintf("Watch for contract `%s` cleared/removed.", contractID),
+			})
+			return
+		}
+
+		// If contract is currently active, clear the watch instead of adding it
+		isActive := false
+		for _, c := range ei.EggIncContracts {
+			if c.ID == contractID && !c.Predicted {
+				isActive = true
+				break
+			}
+		}
+		if isActive {
+			farmerstate.DeleteWatch(userID, WatchTypeContract, contractID)
+			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+				Content: fmt.Sprintf("Contract `%s` is currently active. Watch cleared/removed.", contractID),
+			})
+			return
+		}
+
 		farmerstate.AddWatch(userID, WatchTypeContract, contractID)
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: fmt.Sprintf("Success! Added watch for contract: `%s`.", contractID),
@@ -142,6 +176,51 @@ func HandleWatchCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			})
 			return
 		}
+
+		// If they already have a watch for this colleggtible, toggle it off (clear it)
+		hasWatch := false
+		watches := farmerstate.GetWatchesForUser(userID)
+		for _, w := range watches {
+			if w.WatchType == WatchTypeColleggtible && w.TargetID == colleggtibleID {
+				hasWatch = true
+				break
+			}
+		}
+		if hasWatch {
+			farmerstate.DeleteWatch(userID, WatchTypeColleggtible, colleggtibleID)
+			msg := fmt.Sprintf("Watch for colleggtible `%s` cleared/removed.", colleggtibleID)
+			if colleggtibleID == "new" {
+				msg = "Watch for any **NEW COLLEGGTIBLES** cleared/removed."
+			}
+			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+				Content: msg,
+			})
+			return
+		}
+
+		// If colleggtible is currently active, clear the watch instead of adding it
+		if colleggtibleID != "new" {
+			isActive := false
+			activeContractName := ""
+			for _, c := range ei.EggIncContracts {
+				if c.Predicted {
+					continue
+				}
+				if c.EggName == colleggtibleID {
+					isActive = true
+					activeContractName = c.Name
+					break
+				}
+			}
+			if isActive {
+				farmerstate.DeleteWatch(userID, WatchTypeColleggtible, colleggtibleID)
+				_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+					Content: fmt.Sprintf("Colleggtible `%s` is currently active (offered in contract **%s**). Watch cleared/removed.", colleggtibleID, activeContractName),
+				})
+				return
+			}
+		}
+
 		farmerstate.AddWatch(userID, WatchTypeColleggtible, colleggtibleID)
 		msgContent := fmt.Sprintf("Success! Added watch for colleggtible: `%s`.", colleggtibleID)
 		if colleggtibleID == "new" {
