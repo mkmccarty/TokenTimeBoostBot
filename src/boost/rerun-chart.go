@@ -535,6 +535,11 @@ func buildChartControls(session *chartSession, totalPages int) []discordgo.Messa
 		CustomID: fmt.Sprintf("chart#togglesiab#%s", session.xid),
 	})
 	actionButtons = append(actionButtons, discordgo.Button{
+		Label:    "Watch Filtered",
+		Style:    discordgo.SuccessButton,
+		CustomID: fmt.Sprintf("chart#watchfiltered#%s", session.xid),
+	})
+	actionButtons = append(actionButtons, discordgo.Button{
 		Label:    "Finish",
 		Style:    discordgo.DangerButton,
 		CustomID: fmt.Sprintf("chart#finish#%s", session.xid),
@@ -616,6 +621,61 @@ func HandleChartReactions(s *discordgo.Session, i *discordgo.InteractionCreate) 
 				session.page = 0 // Reset to first page on filter change
 			}
 		}
+	case "watchfiltered":
+		now := time.Now().Unix()
+		var displayRows []chartRow
+		switch session.percent {
+		case -1: // Active contracts chart
+			for _, r := range session.rows {
+				if r.validUntil > now {
+					displayRows = append(displayRows, r)
+				}
+			}
+		case -200: // Predictions chart
+			displayRows = session.rows
+		default: // Threshold chart
+			for _, r := range session.rows {
+				if r.percent < float64(100-session.percent) {
+					displayRows = append(displayRows, r)
+				}
+			}
+		}
+
+		if session.siabOnly {
+			var siabRows []chartRow
+			for _, r := range displayRows {
+				if r.hasSiab {
+					siabRows = append(siabRows, r)
+				}
+			}
+			displayRows = siabRows
+		}
+
+		// Add watches for all of these contracts (skipping currently active ones)
+		count := 0
+		activeContracts := make(map[string]bool)
+		for _, c := range ei.EggIncContracts {
+			if !c.Predicted {
+				activeContracts[c.ID] = true
+			}
+		}
+
+		for _, r := range displayRows {
+			if activeContracts[r.contractID] {
+				continue
+			}
+			farmerstate.AddWatch(userID, "contract", r.contractID)
+			count++
+		}
+
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: fmt.Sprintf("Success! Added watch for %d contracts meeting the current chart conditions.", count),
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
 	case "finish":
 		// Remove interactive components
 		var finalComponents []discordgo.MessageComponent
