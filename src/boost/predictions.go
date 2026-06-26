@@ -248,6 +248,7 @@ func predictions(optionMap map[string]*discordgo.ApplicationCommandInteractionDa
 	// Collectibles view is handled separately
 	if params.pt == predictionCollectibles {
 		pw.showTokenRate = false
+		pw.showOrderNote = false
 		_, wedTime, friTime, _ := contractTimes9amPacific(0)
 		collectibles := predictCollectibles(wedTime, friTime)
 		components := make([]discordgo.MessageComponent, 0, 3)
@@ -289,15 +290,15 @@ func predictions(optionMap map[string]*discordgo.ApplicationCommandInteractionDa
 	}
 
 	// Build components slice
-	cap := 2
+	n := 2
 	if second != nil {
-		cap++
+		n++
 	}
 	if buttonCall {
-		cap += 2
+		n += 2
 	}
 
-	components := make([]discordgo.MessageComponent, 0, cap)
+	components := make([]discordgo.MessageComponent, 0, n)
 	components = append(components, first)
 	if second != nil {
 		components = append(components, bottools.NewSmallSeparatorComponent(true), second)
@@ -380,6 +381,7 @@ func getPredictionsButtonsComponents(predType predictionType, contractCount int6
 type predictionsWriter struct {
 	guildContext  bool
 	showTokenRate bool
+	showOrderNote bool
 	iconCoop      string
 	iconUltra     string
 	iconPE        string
@@ -399,6 +401,7 @@ func newPredictionsWriter(guildContext bool) predictionsWriter {
 	return predictionsWriter{
 		guildContext:  guildContext,
 		showTokenRate: true,
+		showOrderNote: true,
 		iconCoop:      ei.GetBotEmojiMarkdown("icon_coop"),
 		iconUltra:     ei.GetBotEmojiMarkdown("ultra"),
 		iconPE:        ei.GetBotEmojiMarkdown("egg_prophecy"),
@@ -457,6 +460,9 @@ func (pw predictionsWriter) writeFridayPredictions(dropTime time.Time, peContrac
 }
 
 func (pw predictionsWriter) writeFooter(b *strings.Builder, usedSeasons map[string]bool) {
+	if pw.showOrderNote {
+		b.WriteString("-# 🔮 Likeliest first — ordered by longest absence\n")
+	}
 	if pw.showTokenRate {
 		fmt.Fprintf(b, "-# %s Coop Size | %s Tokens/min", pw.iconCoop, ei.GetBotEmojiMarkdown("token"))
 	} else {
@@ -476,7 +482,30 @@ func (pw predictionsWriter) writeFooter(b *strings.Builder, usedSeasons map[stri
 	}
 }
 
-const timeSaverContractID = "time-saver-2021"
+const (
+	timeSaverContractID = "time-saver-2021"
+	// timeSaverMissingSince is the Unix time the time-saver-2021 contract went AWOL.
+	timeSaverMissingSince = 1774454400
+	// eicoopSearchURL is the eicoop contract lookup link, formatted with a contract ID.
+	eicoopSearchURL = "https://eicoop-carpet.netlify.app/?q=%s"
+)
+
+// writeContractHeader writes the shared first line for a contract: egg emoji,
+// linked name, coop size, and an optional season chip.
+func (pw predictionsWriter) writeContractHeader(b *strings.Builder, c ei.EggIncContract, season string) {
+	fmt.Fprintf(b, "%s **[%s]("+eicoopSearchURL+")** %s `%d`",
+		ei.FindEggEmoji(c.EggName),
+		c.Name,
+		c.ID,
+		pw.iconCoop,
+		c.MaxCoopSize,
+	)
+	if season != "" {
+		b.WriteString("  ")
+		b.WriteString(season)
+	}
+	b.WriteByte('\n')
+}
 
 // writeContracts prints only the contract lines and returns the set of season keys that appeared.
 func (pw predictionsWriter) writeContracts(b *strings.Builder, contracts []ei.EggIncContract) map[string]bool {
@@ -487,38 +516,13 @@ func (pw predictionsWriter) writeContracts(b *strings.Builder, contracts []ei.Eg
 	for _, c := range contracts {
 
 		// Season label "🍂 FL25", "☀️ SU23", "🌷 SP23", "❄️ WI24"
-		seasonLabel := ""
-		if c.SeasonID != "" {
-			if idx := strings.IndexByte(c.SeasonID, '_'); idx > 0 && idx < len(c.SeasonID)-1 {
-				seasonKey := c.SeasonID[:idx]
-				seasonYear := c.SeasonID[idx+1:]
-
-				if info, ok := seasonsByKey[seasonKey]; ok {
-					yearShort := seasonYear
-					if len(yearShort) >= 2 {
-						yearShort = yearShort[len(yearShort)-2:]
-					}
-					seasonLabel = fmt.Sprintf("%s %s%s", info.Emoji, info.Code, yearShort)
-					usedSeasons[info.Key] = true
-				}
-			}
+		label, key, ok := seasonLabel(c.SeasonID)
+		if ok {
+			usedSeasons[key] = true
 		}
 
 		// First line
-		fmt.Fprintf(
-			b,
-			"%s **[%s](https://eicoop-carpet.netlify.app/?q=%s)** %s `%d`",
-			ei.FindEggEmoji(c.EggName),
-			c.Name,
-			c.ID,
-			pw.iconCoop,
-			c.MaxCoopSize,
-		)
-		if seasonLabel != "" {
-			b.WriteString("  ")
-			b.WriteString(seasonLabel)
-		}
-		b.WriteByte('\n')
+		pw.writeContractHeader(b, c, label)
 
 		// Second line
 		fmt.Fprintf(
@@ -531,10 +535,10 @@ func (pw predictionsWriter) writeContracts(b *strings.Builder, contracts []ei.Eg
 		)
 
 		// Third line for AWOL contracts
-		if c.ID == timeSaverContractID {
-			if c.ValidFrom.Before(time.Unix(1774454400, 0)) {
-				fmt.Fprintf(b, "-# _       _ Missing since: **%s** (%s)🕯️\n", bottools.WrapTimestamp(1774454400, bottools.TimestampShortDate), bottools.WrapTimestamp(1774454400, bottools.TimestampRelativeTime))
-			}
+		if c.ID == timeSaverContractID && c.ValidFrom.Before(time.Unix(timeSaverMissingSince, 0)) {
+			fmt.Fprintf(b, "-# _       _ Missing since: **%s** (%s)🕯️\n",
+				bottools.WrapTimestamp(timeSaverMissingSince, bottools.TimestampShortDate),
+				bottools.WrapTimestamp(timeSaverMissingSince, bottools.TimestampRelativeTime))
 		}
 
 		// TODO: implement a debug mode for these
@@ -707,35 +711,13 @@ func (pw predictionsWriter) writeCollectiblesPredictions(collectibles map[string
 	for _, cc := range collectibleContracts {
 
 		// Season label "🍂 FL25", "☀️ SU23", "🌷 SP23", "❄️ WI24"
-		seasonLabel := ""
-		if cc.SeasonID != "" {
-			if idx := strings.IndexByte(cc.SeasonID, '_'); idx > 0 && idx < len(cc.SeasonID)-1 {
-				seasonKey := cc.SeasonID[:idx]
-				seasonYear := cc.SeasonID[idx+1:]
-				if info, ok := seasonsByKey[seasonKey]; ok {
-					yearShort := seasonYear
-					if len(yearShort) >= 2 {
-						yearShort = yearShort[len(yearShort)-2:]
-					}
-					seasonLabel = fmt.Sprintf("%s %s%s", info.Emoji, info.Code, yearShort)
-					usedSeasons[info.Key] = true
-				}
-			}
+		label, key, ok := seasonLabel(cc.SeasonID)
+		if ok {
+			usedSeasons[key] = true
 		}
 
 		// First line
-		fmt.Fprintf(&b, "%s **[%s](https://eicoop-carpet.netlify.app/?q=%s)** %s `%d`",
-			ei.FindEggEmoji(cc.EggName),
-			cc.Name,
-			cc.ID,
-			pw.iconCoop,
-			cc.MaxCoopSize,
-		)
-		if seasonLabel != "" {
-			b.WriteString("  ")
-			b.WriteString(seasonLabel)
-		}
-		b.WriteByte('\n')
+		pw.writeContractHeader(&b, cc.EggIncContract, label)
 
 		// Second line
 		if egg, ok := ei.CustomEggMap[cc.EggName]; ok && len(egg.DimensionValueString) > 0 {
@@ -789,6 +771,25 @@ var seasonsByKey = func() map[string]seasonInfo {
 	}
 	return m
 }()
+
+// seasonLabel builds the season chip (e.g. "🍂 FL25") from a contract's SeasonID
+// (e.g. "fall_2025"). It returns the label, the matched season key, and whether a
+// known season matched.
+func seasonLabel(seasonID string) (label, key string, ok bool) {
+	idx := strings.IndexByte(seasonID, '_')
+	if idx <= 0 || idx >= len(seasonID)-1 {
+		return "", "", false
+	}
+	info, ok := seasonsByKey[seasonID[:idx]]
+	if !ok {
+		return "", "", false
+	}
+	yearShort := seasonID[idx+1:]
+	if len(yearShort) >= 2 {
+		yearShort = yearShort[len(yearShort)-2:]
+	}
+	return fmt.Sprintf("%s %s%s", info.Emoji, info.Code, yearShort), info.Key, true
+}
 
 // ==== Time Keepers ====
 
