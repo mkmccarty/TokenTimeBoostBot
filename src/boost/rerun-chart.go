@@ -48,11 +48,14 @@ var (
 	chartSessionsMutex sync.Mutex
 )
 
-const rerunSortByMiscKey = "rerunSortBy"
+const (
+	rerunSortByMiscKey       = "rerunSortBy"
+	predictionsSortByMiscKey = "predictionsSortBy"
+)
 
 func isValidChartSortBy(sortBy string) bool {
 	switch sortBy {
-	case "date", "date_asc", "gap", "gap_asc", "percent", "percent_desc", "cs", "cs_asc", "name", "name_desc", "id", "id_desc":
+	case "date", "date_asc", "gap", "gap_asc", "percent", "percent_desc", "cs", "cs_asc", "name", "name_desc", "id", "id_desc", "pred", "pred_desc":
 		return true
 	default:
 		return false
@@ -75,9 +78,17 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 	var rows []chartRow
 
 	eiUserName := farmerstate.GetMiscSettingString(userID, "ei_ign")
-	sortBy := farmerstate.GetMiscSettingString(userID, rerunSortByMiscKey)
-	if !isValidChartSortBy(sortBy) {
-		sortBy = "percent_desc"
+	var sortBy string
+	if percent == -200 {
+		sortBy = farmerstate.GetMiscSettingString(userID, predictionsSortByMiscKey)
+		if !isValidChartSortBy(sortBy) {
+			sortBy = "pred"
+		}
+	} else {
+		sortBy = farmerstate.GetMiscSettingString(userID, rerunSortByMiscKey)
+		if !isValidChartSortBy(sortBy) {
+			sortBy = "percent_desc"
+		}
 	}
 
 	if archive == nil {
@@ -201,9 +212,37 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 		displayRows = siabRows
 	}
 
+	contractPreds, _ := GetPredictedTimes()
+
 	// Sort rows
 	sort.SliceStable(displayRows, func(i, j int) bool {
 		switch session.sortBy {
+		case "pred":
+			tI := contractPreds[displayRows[i].contractID]
+			tJ := contractPreds[displayRows[j].contractID]
+			if !tI.IsZero() && !tJ.IsZero() {
+				if !tI.Equal(tJ) {
+					return tI.Before(tJ)
+				}
+			} else if !tI.IsZero() {
+				return true
+			} else if !tJ.IsZero() {
+				return false
+			}
+			return displayRows[i].validUntil > displayRows[j].validUntil
+		case "pred_desc":
+			tI := contractPreds[displayRows[i].contractID]
+			tJ := contractPreds[displayRows[j].contractID]
+			if !tI.IsZero() && !tJ.IsZero() {
+				if !tI.Equal(tJ) {
+					return tI.After(tJ)
+				}
+			} else if !tI.IsZero() {
+				return true
+			} else if !tJ.IsZero() {
+				return false
+			}
+			return displayRows[i].validUntil > displayRows[j].validUntil
 		case "gap":
 			if displayRows[i].gap == displayRows[j].gap {
 				return displayRows[i].validUntil > displayRows[j].validUntil
@@ -453,6 +492,8 @@ func buildChartControls(session *chartSession, totalPages int) []discordgo.Messa
 	sortOptions := []discordgo.SelectMenuOption{
 		{Label: "Sort by Date (Newest First)", Value: "date", Default: session.sortBy == "date"},
 		{Label: "Sort by Date (Oldest First)", Value: "date_asc", Default: session.sortBy == "date_asc"},
+		{Label: "Sort by Prediction (Soonest First)", Value: "pred", Default: session.sortBy == "pred"},
+		{Label: "Sort by Prediction (Latest First)", Value: "pred_desc", Default: session.sortBy == "pred_desc"},
 		{Label: "Sort by CS Gap (Highest First)", Value: "gap", Default: session.sortBy == "gap"},
 		{Label: "Sort by CS Gap (Lowest First)", Value: "gap_asc", Default: session.sortBy == "gap_asc"},
 		{Label: "Sort by % of Max (Lowest First)", Value: "percent", Default: session.sortBy == "percent"},
@@ -594,7 +635,11 @@ func HandleChartReactions(s *discordgo.Session, i *discordgo.InteractionCreate) 
 			newSortBy := values[0]
 			if isValidChartSortBy(newSortBy) {
 				session.sortBy = newSortBy
-				farmerstate.SetMiscSettingString(session.userID, rerunSortByMiscKey, newSortBy)
+				if session.percent == -200 {
+					farmerstate.SetMiscSettingString(session.userID, predictionsSortByMiscKey, newSortBy)
+				} else {
+					farmerstate.SetMiscSettingString(session.userID, rerunSortByMiscKey, newSortBy)
+				}
 				session.page = 0 // Reset to first page on sort
 			}
 		}
