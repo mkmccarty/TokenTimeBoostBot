@@ -257,3 +257,37 @@ DELETE FROM watches WHERE user_id = ? AND watch_type = ? AND target_id = ?;
 -- name: DeleteUserWatches :exec
 DELETE FROM watches WHERE user_id = ?;
 
+-- name: GetCustomBannersForUser :many
+SELECT user_id, guild_id, image_data, updated_at FROM custom_banners WHERE user_id = ?;
+
+-- name: GetTimersForUser :many
+SELECT id, user_id, channel_id, msg_id, reminder, message, duration, original_channel_id, original_msg_id, active FROM timers WHERE user_id = ?;
+
+-- name: DeleteUserGuildMemberships :exec
+DELETE FROM farmer_guild_membership
+WHERE user_id = ?;
+
+-- name: DeleteUserCustomBanners :exec
+DELETE FROM custom_banners
+WHERE user_id = ?;
+
+-- name: DeleteUserTimers :exec
+DELETE FROM timers
+WHERE user_id = ?;
+
+-- name: DeleteUserSuspectMissions :exec
+DELETE FROM suspect_missions
+WHERE user_id = ?;
+
+-- name: DeleteUserLeaderboardStats :exec
+DELETE FROM leaderboard_stats
+WHERE player = ?;
+
+-- name: DeleteUserLeaderboardOptIns :exec
+DELETE FROM leaderboard_optin
+WHERE user_id = ?;
+
+-- name: DeleteUserLeaderboardExclusions :exec
+DELETE FROM leaderboard_exclusion
+WHERE user_id = ?;
+

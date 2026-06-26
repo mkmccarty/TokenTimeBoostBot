@@ -204,12 +204,29 @@ func getFarmer(userID string) *Farmer {
 	return f
 }
 
-// DeleteFarmer deletes a Farmer from the map
+// DeleteFarmer deletes a Farmer from the map and SQLite database tables
 func DeleteFarmer(userID string) {
 	stateMutex.Lock()
-	defer stateMutex.Unlock()
 	delete(farmerstate, userID)
+	stateMutex.Unlock()
+
+	saveMutex.Lock()
+	delete(pendingSaves, userID)
+	saveMutex.Unlock()
+
+	if queries != nil {
+		_ = queries.DeleteFarmerRecord(ctx, userID)
+		_ = queries.DeleteUserGuildMemberships(ctx, userID)
+		_ = queries.DeleteUserCustomBanners(ctx, userID)
+		_ = queries.DeleteUserTimers(ctx, userID)
+		_ = queries.DeleteUserSuspectMissions(ctx, userID)
+		_ = queries.DeleteUserLeaderboardStats(ctx, userID)
+		_ = queries.DeleteUserLeaderboardOptIns(ctx, userID)
+		_ = queries.DeleteUserLeaderboardExclusions(ctx, userID)
+		_ = queries.DeleteUserWatches(ctx, userID)
+	}
 }
+
 
 // GetEggIncName returns a Farmer Egg Inc name
 func GetEggIncName(userID string) string {
