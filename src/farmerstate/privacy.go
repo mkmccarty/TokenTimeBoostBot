@@ -95,8 +95,6 @@ func HandlePrivacyCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	var filename string
 	var reader *bytes.Reader
 
-	// Convert userData to JSON string
-	var userData *Farmer
 	userPrivacy := getDataPrivacy(userID)
 	removeData := false
 	confirmOption := false
@@ -134,7 +132,7 @@ func HandlePrivacyCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		builder.WriteString("A default set of settings is now used along with your preference not to store data.")
 
 		// Want to remove all files from within ttbb-data/eiuserdata/ which contain this userID in the filename
-		userFilesPattern := "ttbb-data/eiuserdata/*" + userID + ".*"
+		userFilesPattern := "ttbb-data/eiuserdata/*" + userID + "*"
 		matches, err := filepath.Glob(userFilesPattern)
 		if err != nil {
 			log.Printf("Error finding user data files for deletion: %v", err)
@@ -155,7 +153,7 @@ func HandlePrivacyCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		// Return the users settings data in a JSON file to the user
 		getData := opt.BoolValue()
 		if getData {
-			userData = getFarmer(userID)
+			userData := GetFullUserData(userID)
 
 			filename = "boostbot-data-" + userID + ".json"
 			buf := &bytes.Buffer{}
@@ -202,3 +200,51 @@ func setDataPrivacy(userID string, dataPrivacy bool) {
 	farmer.LastUpdated = time.Now()
 	saveSqliteData(userID, farmer)
 }
+
+// UserPrivacyData contains all information we store about a user
+type UserPrivacyData struct {
+	FarmerState           *Farmer                           `json:"farmer_state,omitempty"`
+	GuildMemberships      []string                          `json:"guild_memberships,omitempty"`
+	CustomBanners         []CustomBanner                    `json:"custom_banners,omitempty"`
+	Timers                []Timer                           `json:"timers,omitempty"`
+	SuspectMissions       []SuspectMission                  `json:"suspect_missions,omitempty"`
+	LeaderboardStats      []LeaderboardStat                 `json:"leaderboard_stats,omitempty"`
+	LeaderboardOptins     []GetLeaderboardOptInsForUserRow  `json:"leaderboard_optins,omitempty"`
+	LeaderboardExclusions []GetLeaderboardExclusionsForUserRow `json:"leaderboard_exclusions,omitempty"`
+	Watches               []Watch                           `json:"watches,omitempty"`
+}
+
+
+func GetFullUserData(userID string) *UserPrivacyData {
+	data := &UserPrivacyData{}
+	data.FarmerState = getFarmer(userID)
+
+	if queries != nil {
+		if guilds, err := queries.GetUserGuilds(ctx, userID); err == nil {
+			data.GuildMemberships = guilds
+		}
+		if banners, err := queries.GetCustomBannersForUser(ctx, userID); err == nil {
+			data.CustomBanners = banners
+		}
+		if timers, err := queries.GetTimersForUser(ctx, userID); err == nil {
+			data.Timers = timers
+		}
+		if missions, err := queries.GetSuspectMissions(ctx, userID); err == nil {
+			data.SuspectMissions = missions
+		}
+		if stats, err := queries.GetStatsForPlayer(ctx, userID); err == nil {
+			data.LeaderboardStats = stats
+		}
+		if optins, err := queries.GetLeaderboardOptInsForUser(ctx, userID); err == nil {
+			data.LeaderboardOptins = optins
+		}
+		if exclusions, err := queries.GetLeaderboardExclusionsForUser(ctx, userID); err == nil {
+			data.LeaderboardExclusions = exclusions
+		}
+		if watches, err := queries.GetWatchesForUser(ctx, userID); err == nil {
+			data.Watches = watches
+		}
+	}
+	return data
+}
+

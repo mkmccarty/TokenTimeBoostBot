@@ -138,3 +138,45 @@ func TestGetDiscordUserIDFromEiIgnExactDoesNotCollapseAlt(t *testing.T) {
 		t.Fatalf("GetDiscordUserIDFromEiIgn() = %q, want %q", gotCollapsed, "main-user")
 	}
 }
+
+func TestDeleteFarmerAndGetFullUserData(t *testing.T) {
+	userID := "test-privacy-user"
+
+	// Setup initial data
+	SetEggIncName(userID, "PrivacyFarmer")
+	AddGuildMembership(userID, "guild-x")
+
+	_ = queries.InsertWatch(ctx, InsertWatchParams{
+		UserID:    userID,
+		WatchType: "contract",
+		TargetID:  "test-contract",
+	})
+
+	// Get full data
+	data := GetFullUserData(userID)
+	if data.FarmerState.EggIncName != "PrivacyFarmer" {
+		t.Errorf("expected EggIncName to be PrivacyFarmer, got %s", data.FarmerState.EggIncName)
+	}
+	if len(data.GuildMemberships) != 1 || data.GuildMemberships[0] != "guild-x" {
+		t.Errorf("expected GuildMemberships to have guild-x, got %v", data.GuildMemberships)
+	}
+	if len(data.Watches) != 1 || data.Watches[0].TargetID != "test-contract" {
+		t.Errorf("expected Watches to have test-contract, got %v", data.Watches)
+	}
+
+	// Delete user
+	DeleteFarmer(userID)
+
+	// Verify they are deleted
+	dataAfter := GetFullUserData(userID)
+	if dataAfter.FarmerState.EggIncName != "" {
+		t.Errorf("expected empty EggIncName after deletion, got %s", dataAfter.FarmerState.EggIncName)
+	}
+	if len(dataAfter.GuildMemberships) != 0 {
+		t.Errorf("expected no guild memberships after deletion, got %v", dataAfter.GuildMemberships)
+	}
+	if len(dataAfter.Watches) != 0 {
+		t.Errorf("expected no watches after deletion, got %v", dataAfter.Watches)
+	}
+}
+

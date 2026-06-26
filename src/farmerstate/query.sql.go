@@ -192,6 +192,76 @@ func (q *Queries) DeleteTimer(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteUserCustomBanners = `-- name: DeleteUserCustomBanners :exec
+DELETE FROM custom_banners
+WHERE user_id = ?
+`
+
+func (q *Queries) DeleteUserCustomBanners(ctx context.Context, userID string) error {
+	_, err := q.db.ExecContext(ctx, deleteUserCustomBanners, userID)
+	return err
+}
+
+const deleteUserGuildMemberships = `-- name: DeleteUserGuildMemberships :exec
+DELETE FROM farmer_guild_membership
+WHERE user_id = ?
+`
+
+func (q *Queries) DeleteUserGuildMemberships(ctx context.Context, userID string) error {
+	_, err := q.db.ExecContext(ctx, deleteUserGuildMemberships, userID)
+	return err
+}
+
+const deleteUserLeaderboardExclusions = `-- name: DeleteUserLeaderboardExclusions :exec
+DELETE FROM leaderboard_exclusion
+WHERE user_id = ?
+`
+
+func (q *Queries) DeleteUserLeaderboardExclusions(ctx context.Context, userID string) error {
+	_, err := q.db.ExecContext(ctx, deleteUserLeaderboardExclusions, userID)
+	return err
+}
+
+const deleteUserLeaderboardOptIns = `-- name: DeleteUserLeaderboardOptIns :exec
+DELETE FROM leaderboard_optin
+WHERE user_id = ?
+`
+
+func (q *Queries) DeleteUserLeaderboardOptIns(ctx context.Context, userID string) error {
+	_, err := q.db.ExecContext(ctx, deleteUserLeaderboardOptIns, userID)
+	return err
+}
+
+const deleteUserLeaderboardStats = `-- name: DeleteUserLeaderboardStats :exec
+DELETE FROM leaderboard_stats
+WHERE player = ?
+`
+
+func (q *Queries) DeleteUserLeaderboardStats(ctx context.Context, player string) error {
+	_, err := q.db.ExecContext(ctx, deleteUserLeaderboardStats, player)
+	return err
+}
+
+const deleteUserSuspectMissions = `-- name: DeleteUserSuspectMissions :exec
+DELETE FROM suspect_missions
+WHERE user_id = ?
+`
+
+func (q *Queries) DeleteUserSuspectMissions(ctx context.Context, userID string) error {
+	_, err := q.db.ExecContext(ctx, deleteUserSuspectMissions, userID)
+	return err
+}
+
+const deleteUserTimers = `-- name: DeleteUserTimers :exec
+DELETE FROM timers
+WHERE user_id = ?
+`
+
+func (q *Queries) DeleteUserTimers(ctx context.Context, userID string) error {
+	_, err := q.db.ExecContext(ctx, deleteUserTimers, userID)
+	return err
+}
+
 const deleteUserWatches = `-- name: DeleteUserWatches :exec
 DELETE FROM watches WHERE user_id = ?
 `
@@ -295,6 +365,38 @@ func (q *Queries) GetCustomBanner(ctx context.Context, arg GetCustomBannerParams
 	var i GetCustomBannerRow
 	err := row.Scan(&i.ImageData, &i.UpdatedAt)
 	return i, err
+}
+
+const getCustomBannersForUser = `-- name: GetCustomBannersForUser :many
+SELECT user_id, guild_id, image_data, updated_at FROM custom_banners WHERE user_id = ?
+`
+
+func (q *Queries) GetCustomBannersForUser(ctx context.Context, userID string) ([]CustomBanner, error) {
+	rows, err := q.db.QueryContext(ctx, getCustomBannersForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CustomBanner
+	for rows.Next() {
+		var i CustomBanner
+		if err := rows.Scan(
+			&i.UserID,
+			&i.GuildID,
+			&i.ImageData,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getEiIgnsByGuild = `-- name: GetEiIgnsByGuild :many
@@ -831,6 +933,44 @@ SELECT id, user_id, channel_id, msg_id, reminder, message, duration, original_ch
 
 func (q *Queries) GetTimers(ctx context.Context) ([]Timer, error) {
 	rows, err := q.db.QueryContext(ctx, getTimers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Timer
+	for rows.Next() {
+		var i Timer
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ChannelID,
+			&i.MsgID,
+			&i.Reminder,
+			&i.Message,
+			&i.Duration,
+			&i.OriginalChannelID,
+			&i.OriginalMsgID,
+			&i.Active,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTimersForUser = `-- name: GetTimersForUser :many
+SELECT id, user_id, channel_id, msg_id, reminder, message, duration, original_channel_id, original_msg_id, active FROM timers WHERE user_id = ?
+`
+
+func (q *Queries) GetTimersForUser(ctx context.Context, userID string) ([]Timer, error) {
+	rows, err := q.db.QueryContext(ctx, getTimersForUser, userID)
 	if err != nil {
 		return nil, err
 	}
