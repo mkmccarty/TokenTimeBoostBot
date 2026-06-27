@@ -751,6 +751,13 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	legendSet := map[string]bool{}
 	addLegend := func(key string) { legendSet[key] = true }
 	const precisionConst float64 = 1e4
+	formatCollegg := func(emoji string, diff float64) string {
+		val := fmt.Sprintf("%.2f", diff)
+		val = strings.TrimSuffix(val, "0")
+		val = strings.TrimSuffix(val, "0")
+		val = strings.TrimSuffix(val, ".")
+		return val + emoji
+	}
 
 	// 1e15
 	for _, as := range artifactSets {
@@ -780,11 +787,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				//log.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
 				//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
 				//farmerstate.SetMiscSettingString(as.name, "coll-elr", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
-				val := fmt.Sprintf("%2.2f🛖", (as.colleggBuffs.Hab-1.0)*100.0)
-				val = strings.ReplaceAll(val, ".00", "")
-				val = strings.ReplaceAll(val, ".25", "¼")
-				val = strings.ReplaceAll(val, ".5", "½")
-				val = strings.ReplaceAll(val, ".75", "¾")
+				val := formatCollegg("🛖", (as.colleggBuffs.Hab-1.0)*100.0)
 				as.collegg = append(as.collegg, val)
 				anyColleggtibles = true
 			} else if as.colleggBuffs.Hab <= 1.0 {
@@ -819,11 +822,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 				//log.Printf("Colleggtible Egg Laying Rate Factored in with %2.2f%%\n", collegELR)
 				//as.collegg = append(as.collegg, fmt.Sprintf("ELR:%2.0f%%", (collegELR-1.0)*100.0))
 				//farmerstate.SetMiscSettingString(as.name, "coll-elr", fmt.Sprintf("%2.0f%%", (collegELR-1.0)*100.0))
-				val := fmt.Sprintf("%2.2f📦", (roundedCollegELR-1.0)*100.0)
-				val = strings.ReplaceAll(val, ".00", "")
-				val = strings.ReplaceAll(val, ".25", "¼")
-				val = strings.ReplaceAll(val, ".5", "½")
-				val = strings.ReplaceAll(val, ".75", "¾")
+				val := formatCollegg("📦", (roundedCollegELR-1.0)*100.0)
 				as.collegg = append(as.collegg, val)
 				anyColleggtibles = true
 			} else if as.colleggBuffs.ELR == 1.0 {
@@ -855,11 +854,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if maxColllectibleShip > 1.0 {
 			roundedCollegShip := math.Round(as.colleggBuffs.SR*precisionConst) / precisionConst
 			if roundedCollegShip > 1.000 && roundedCollegShip < maxColllectibleShip {
-				val := fmt.Sprintf("%2.2f🚚", (roundedCollegShip-1.0)*100.0)
-				val = strings.ReplaceAll(val, ".00", "")
-				val = strings.ReplaceAll(val, ".25", "¼")
-				val = strings.ReplaceAll(val, ".5", "½")
-				val = strings.ReplaceAll(val, ".75", "¾")
+				val := formatCollegg("🚚", (roundedCollegShip-1.0)*100.0)
 				as.collegg = append(as.collegg, val)
 				anyColleggtibles = true
 			} else if as.colleggBuffs.SR == 1.0 {
