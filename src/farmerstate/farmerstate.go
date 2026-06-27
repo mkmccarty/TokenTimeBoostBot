@@ -227,7 +227,6 @@ func DeleteFarmer(userID string) {
 	}
 }
 
-
 // GetEggIncName returns a Farmer Egg Inc name
 func GetEggIncName(userID string) string {
 	f := getFarmer(userID)

@@ -203,17 +203,16 @@ func setDataPrivacy(userID string, dataPrivacy bool) {
 
 // UserPrivacyData contains all information we store about a user
 type UserPrivacyData struct {
-	FarmerState           *Farmer                           `json:"farmer_state,omitempty"`
-	GuildMemberships      []string                          `json:"guild_memberships,omitempty"`
-	CustomBanners         []CustomBanner                    `json:"custom_banners,omitempty"`
-	Timers                []Timer                           `json:"timers,omitempty"`
-	SuspectMissions       []SuspectMission                  `json:"suspect_missions,omitempty"`
-	LeaderboardStats      []LeaderboardStat                 `json:"leaderboard_stats,omitempty"`
-	LeaderboardOptins     []GetLeaderboardOptInsForUserRow  `json:"leaderboard_optins,omitempty"`
+	FarmerState           *Farmer                              `json:"farmer_state,omitempty"`
+	GuildMemberships      []string                             `json:"guild_memberships,omitempty"`
+	CustomBanners         []CustomBanner                       `json:"custom_banners,omitempty"`
+	Timers                []Timer                              `json:"timers,omitempty"`
+	SuspectMissions       []SuspectMission                     `json:"suspect_missions,omitempty"`
+	LeaderboardStats      []LeaderboardStat                    `json:"leaderboard_stats,omitempty"`
+	LeaderboardOptins     []GetLeaderboardOptInsForUserRow     `json:"leaderboard_optins,omitempty"`
 	LeaderboardExclusions []GetLeaderboardExclusionsForUserRow `json:"leaderboard_exclusions,omitempty"`
-	Watches               []Watch                           `json:"watches,omitempty"`
+	Watches               []Watch                              `json:"watches,omitempty"`
 }
-
 
 func GetFullUserData(userID string) *UserPrivacyData {
 	data := &UserPrivacyData{}
@@ -247,4 +246,3 @@ func GetFullUserData(userID string) *UserPrivacyData {
 	}
 	return data
 }
-

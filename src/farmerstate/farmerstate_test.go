@@ -179,4 +179,3 @@ func TestDeleteFarmerAndGetFullUserData(t *testing.T) {
 		t.Errorf("expected no watches after deletion, got %v", dataAfter.Watches)
 	}
 }
-
