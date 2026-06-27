@@ -100,6 +100,7 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	})
 }
 
+// GetContractEstimateString returns a string with the estimated completion time of a contract
 func GetContractEstimateString(contractID string, includeLeggySet bool) string {
 
 	str := ""
