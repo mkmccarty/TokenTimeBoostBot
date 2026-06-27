@@ -119,12 +119,11 @@ func printActiveContractDetails(userID string, archive []*ei.LocalContract, cont
 								maxELR, maxShip, maxHab, _ := ei.GetColleggtibleValues()
 								var diffs []string
 								formatDiff := func(emoji string, diff float64) string {
-									val := fmt.Sprintf("%s+%.2f%%", emoji, diff*100.0)
-									val = strings.ReplaceAll(val, ".00", "")
-									val = strings.ReplaceAll(val, ".25", "¼")
-									val = strings.ReplaceAll(val, ".50", "½")
-									val = strings.ReplaceAll(val, ".75", "¾")
-									return val
+									val := fmt.Sprintf("%.2f", diff*100.0)
+									val = strings.TrimSuffix(val, "0")
+									val = strings.TrimSuffix(val, "0")
+									val = strings.TrimSuffix(val, ".")
+									return fmt.Sprintf("%s+%s%%", emoji, val)
 								}
 								if maxELR-oldBuffs.ELR > 0.001 {
 									diffs = append(diffs, formatDiff("📦", maxELR-oldBuffs.ELR))
