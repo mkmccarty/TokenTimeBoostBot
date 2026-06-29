@@ -8,6 +8,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"sort"
 	"strings"
 	"time"
 	"unsafe"
@@ -86,6 +87,21 @@ func LoadContractData(filename string) {
 	}
 
 	ei.EggIncContracts = EggIncContractsNew
+
+	// Build a chronologically sorted list of all contracts to find first available dates of custom eggs
+	var allContracts []ei.EggIncContract
+	for _, contract := range ei.EggIncContractsAll {
+		allContracts = append(allContracts, contract)
+		allContracts = append(allContracts, contract.History...)
+	}
+	sort.Slice(allContracts, func(i, j int) bool {
+		return allContracts[i].ValidFrom.Before(allContracts[j].ValidFrom)
+	})
+	for _, contract := range allContracts {
+		if contract.Egg == int32(ei.Egg_CUSTOM_EGG) {
+			ei.SetColleggtibleReleaseDate(contract.EggName, contract.ValidFrom)
+		}
+	}
 
 	/*
 		// Call the function to write the estimated durations to a CSV file
