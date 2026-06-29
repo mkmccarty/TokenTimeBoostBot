@@ -1,5 +1,52 @@
 package ei
 
+import (
+	"sync"
+	"time"
+)
+
+var (
+	colleggtibleReleaseDates = make(map[string]time.Time)
+	colleggtibleDatesMu      sync.RWMutex
+)
+
+// SetColleggtibleReleaseDate sets the first available date of a colleggtible egg after July 1, 2024.
+func SetColleggtibleReleaseDate(eggID string, date time.Time) {
+	july1 := time.Date(2024, time.July, 1, 0, 0, 0, 0, time.UTC)
+	if !date.After(july1) {
+		return
+	}
+	colleggtibleDatesMu.Lock()
+	defer colleggtibleDatesMu.Unlock()
+	if _, ok := colleggtibleReleaseDates[eggID]; !ok {
+		colleggtibleReleaseDates[eggID] = date
+	}
+}
+
+// GetColleggtibleDimensionBuffsAt returns the DimensionBuffs available at the given date.
+func GetColleggtibleDimensionBuffsAt(date time.Time) DimensionBuffs {
+	buffs := newDimensionBuffsIdentity()
+
+	colleggtibleDatesMu.RLock()
+	defer colleggtibleDatesMu.RUnlock()
+
+	for eggName, releaseDate := range colleggtibleReleaseDates {
+		if !releaseDate.After(date) {
+			customEgg, ok := CustomEggMap[eggName]
+			if !ok {
+				continue
+			}
+			value, ok := getDimensionValueForTier(customEgg.DimensionValue, len(customEgg.DimensionValue)-1)
+			if !ok {
+				continue
+			}
+			applyDimensionBuff(&buffs, customEgg.Dimension, value)
+		}
+	}
+
+	return buffs
+}
+
 var colleggtibleBuffs = newDimensionBuffsIdentity()
 
 // GetColleggtibleValues will return the current values of the 3 collectibles

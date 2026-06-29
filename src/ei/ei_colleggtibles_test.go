@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
+	"time"
 )
 
 func setupCustomEggMap() {
@@ -234,5 +235,65 @@ func TestGetColleggtibleBuffsAllDimensions(t *testing.T) {
 	}
 	if buffs.ResearchDiscount != 0.9025 {
 		t.Errorf("ResearchDiscount: got %v, want 0.9025", buffs.ResearchDiscount)
+	}
+}
+
+func TestColleggtibleReleaseDates(t *testing.T) {
+	setupCustomEggMap()
+
+	// Clear out any release dates before test
+	colleggtibleDatesMu.Lock()
+	colleggtibleReleaseDates = make(map[string]time.Time)
+	colleggtibleDatesMu.Unlock()
+
+	july1 := time.Date(2024, time.July, 1, 0, 0, 0, 0, time.UTC)
+	july2 := time.Date(2024, time.July, 2, 0, 0, 0, 0, time.UTC)
+	july3 := time.Date(2024, time.July, 3, 0, 0, 0, 0, time.UTC)
+	june30 := time.Date(2024, time.June, 30, 0, 0, 0, 0, time.UTC)
+
+	// Set dates
+	SetColleggtibleReleaseDate("carbon-fiber", june30) // should be ignored (before/on 7/1/24)
+	SetColleggtibleReleaseDate("chocolate", july2)
+	SetColleggtibleReleaseDate("easter", july3)
+
+	// Attempt setting again (should be ignored because one is already set)
+	SetColleggtibleReleaseDate("chocolate", july3)
+
+	// Verify dates
+	colleggtibleDatesMu.RLock()
+	_, carbonFiberExists := colleggtibleReleaseDates["carbon-fiber"]
+	chocolateDate := colleggtibleReleaseDates["chocolate"]
+	colleggtibleDatesMu.RUnlock()
+
+	if carbonFiberExists {
+		t.Errorf("expected carbon-fiber release date to be ignored")
+	}
+	if !chocolateDate.Equal(july2) {
+		t.Errorf("expected chocolate release date to be %v, got %v", july2, chocolateDate)
+	}
+
+	// Verify buffs at various dates
+	// At july 1: nothing is released
+	buffsJuly1 := GetColleggtibleDimensionBuffsAt(july1)
+	if buffsJuly1.AwayEarnings != 1.0 || buffsJuly1.IHR != 1.0 {
+		t.Errorf("expected default buffs at July 1, got AwayEarnings=%v, IHR=%v", buffsJuly1.AwayEarnings, buffsJuly1.IHR)
+	}
+
+	// At july 2: chocolate is released (dimension is GameModifier_AWAY_EARNINGS, values: [1.25, 1.5, 2.0, 3.0] -> max 3.0)
+	buffsJuly2 := GetColleggtibleDimensionBuffsAt(july2)
+	if buffsJuly2.AwayEarnings != 3.0 {
+		t.Errorf("expected AwayEarnings 3.0 at July 2, got %v", buffsJuly2.AwayEarnings)
+	}
+	if buffsJuly2.IHR != 1.0 {
+		t.Errorf("expected IHR 1.0 at July 2, got %v", buffsJuly2.IHR)
+	}
+
+	// At july 3: chocolate (AwayEarnings=3.0) and easter (IHR: [1.01, 1.02, 1.03, 1.05] -> max 1.05) are released
+	buffsJuly3 := GetColleggtibleDimensionBuffsAt(july3)
+	if buffsJuly3.AwayEarnings != 3.0 {
+		t.Errorf("expected AwayEarnings 3.0 at July 3, got %v", buffsJuly3.AwayEarnings)
+	}
+	if buffsJuly3.IHR != 1.05 {
+		t.Errorf("expected IHR 1.05 at July 3, got %v", buffsJuly3.IHR)
 	}
 }

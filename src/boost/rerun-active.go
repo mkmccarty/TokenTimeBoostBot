@@ -61,6 +61,8 @@ func printActiveContractDetails(userID string, archive []*ei.LocalContract, cont
 		coopID := evaluation.GetCoopIdentifier()
 		evaluationCxp := evaluation.GetCxp()
 		c := ei.EggIncContractsAll[contractID]
+		duration := time.Duration(evaluation.GetCompletionTime() * float64(time.Second))
+		startTime := time.Unix(int64(evaluation.GetEvaluationStartTime())-int64(duration.Seconds()), 0)
 
 		if contractID != contractIDParam {
 			continue
@@ -113,31 +115,15 @@ func printActiveContractDetails(userID string, archive []*ei.LocalContract, cont
 							// sort in alpha order
 							sort.Strings(teamworkIcons)
 
+							var oldBuffs ei.DimensionBuffs
 							cInfo := contrib.GetColleggtibleInfo()
 							if cInfo != nil {
-								oldBuffs := ei.GetColleggtibleBuffsFromInfo(cInfo)
-								maxELR, maxShip, maxHab, _ := ei.GetColleggtibleValues()
-								var diffs []string
-								formatDiff := func(emoji string, diff float64) string {
-									val := fmt.Sprintf("%.2f", diff*100.0)
-									val = strings.TrimSuffix(val, "0")
-									val = strings.TrimSuffix(val, "0")
-									val = strings.TrimSuffix(val, ".")
-									return fmt.Sprintf("%s+%s%%", emoji, val)
-								}
-								if maxELR-oldBuffs.ELR > 0.001 {
-									diffs = append(diffs, formatDiff("📦", maxELR-oldBuffs.ELR))
-								}
-								if maxShip-oldBuffs.SR > 0.001 {
-									diffs = append(diffs, formatDiff("🚚", maxShip-oldBuffs.SR))
-								}
-								if maxHab-oldBuffs.Hab > 0.001 {
-									diffs = append(diffs, formatDiff("🛖", maxHab-oldBuffs.Hab))
-								}
-								if len(diffs) > 0 {
-									colleggtiblesDiffStr = fmt.Sprintf("**Colleggtibles Gained Since Run:** %s", strings.Join(diffs, " "))
-								}
+								oldBuffs = ei.GetColleggtibleBuffsFromInfo(cInfo)
+							} else {
+								// Guess what the colleggtibles were at this time
+								oldBuffs = ei.GetColleggtibleDimensionBuffsAt(startTime)
 							}
+							colleggtiblesDiffStr = getColleggtibleDiffStr(oldBuffs)
 							break
 						}
 					}
@@ -146,8 +132,10 @@ func printActiveContractDetails(userID string, archive []*ei.LocalContract, cont
 				}
 			}
 
-			duration := time.Duration(evaluation.GetCompletionTime() * float64(time.Second))
-			startTime := time.Unix(int64(evaluation.GetEvaluationStartTime())-int64(duration.Seconds()), 0)
+			if colleggtiblesDiffStr == "" {
+				colleggtiblesDiffStr = getColleggtibleDiffStr(ei.GetColleggtibleDimensionBuffsAt(startTime))
+			}
+
 			ggIcon := ""
 			ggEvent := ei.FindGiftEvent(startTime)
 			if ggEvent.EventType != "" {
@@ -269,4 +257,29 @@ func printActiveContractDetails(userID string, archive []*ei.LocalContract, cont
 		})
 	}
 	return components
+}
+
+func getColleggtibleDiffStr(oldBuffs ei.DimensionBuffs) string {
+	maxELR, maxShip, maxHab, _ := ei.GetColleggtibleValues()
+	var diffs []string
+	formatDiff := func(emoji string, diff float64) string {
+		val := fmt.Sprintf("%.2f", diff*100.0)
+		val = strings.TrimSuffix(val, "0")
+		val = strings.TrimSuffix(val, "0")
+		val = strings.TrimSuffix(val, ".")
+		return fmt.Sprintf("%s+%s%%", emoji, val)
+	}
+	if maxELR-oldBuffs.ELR > 0.001 {
+		diffs = append(diffs, formatDiff("📦", maxELR-oldBuffs.ELR))
+	}
+	if maxShip-oldBuffs.SR > 0.001 {
+		diffs = append(diffs, formatDiff("🚚", maxShip-oldBuffs.SR))
+	}
+	if maxHab-oldBuffs.Hab > 0.001 {
+		diffs = append(diffs, formatDiff("🛖", maxHab-oldBuffs.Hab))
+	}
+	if len(diffs) > 0 {
+		return fmt.Sprintf("**New Colleggtibles Since Run:** %s", strings.Join(diffs, " "))
+	}
+	return ""
 }
