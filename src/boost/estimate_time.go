@@ -297,7 +297,11 @@ func GetContractEstimateString(contractID string, includeLeggySet bool) string {
 			if c.CxpMaxSiab > c.CxpMax {
 				estStrMaxSiab := c.EstimatedDurationSIAB.Round(time.Minute).String()
 				estStrMaxSiab = strings.TrimRight(estStrMaxSiab, "0s")
-				str += fmt.Sprintf(" / %s **%s** CS:**%d** (no gusset, 9 stones)\n", ei.GetBotEmojiMarkdown("SIAB_T4L"), estStrMaxSiab, int64(c.CxpMaxSiab))
+				siabComment := "no gusset, 9 stones"
+				if c.ModifierELR < 1.0 && c.ModifierELR > 0.0 {
+					siabComment = "no compass, 10 stones"
+				}
+				str += fmt.Sprintf(" / %s **%s** CS:**%d** (%s)\n", ei.GetBotEmojiMarkdown("SIAB_T4L"), estStrMaxSiab, int64(c.CxpMaxSiab), siabComment)
 			} else {
 				str += "\n"
 			}
@@ -723,6 +727,15 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 
 	deflectorsOnFarmer := numFarmers - 1.0
 
+	siabCompass := 1.5
+	siabGusset := 1.0
+	siabSlots := 9.0
+	if modELR < 1.0 {
+		siabCompass = 1.0
+		siabGusset = 1.25
+		siabSlots = 10.0 // defl(2), metr(3), gusset(3), siab(2)
+	}
+
 	estimates := []estimatePlayer{
 		{
 			id:                "basic_set",
@@ -801,10 +814,10 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			colHab:            colleggtibleHab,
 			colIHR:            colleggtiblesIHR,
 			calcMode:          modeStoneHuntMethod,
-			metronome:         1.35,   // T4L
-			compass:           1.5,    // T4L
-			gusset:            1.0,    // N/A - using SIAB instead of gusset
-			deliverySlots:     9.0,    // defl(2), metr(3), comp(2), siab(2)
+			metronome:         1.35,        // T4L
+			compass:           siabCompass, // Use Compass instead of Gusset if ELR is reduced
+			gusset:            siabGusset,
+			deliverySlots:     siabSlots,
 			ihr:               7440.0, // leggacy set, Deflector w/o IHR stones
 			te:                50,
 			chalice:           1.4, // T4L
@@ -846,10 +859,10 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			colHab:            colleggtibleHab,
 			colIHR:            colleggtiblesIHR,
 			calcMode:          modeStoneHuntMethod,
-			metronome:         1.35,   // T4L
-			compass:           1.5,    // T4L
-			gusset:            1.0,    // N/A - using SIAB instead of gusset
-			deliverySlots:     9.0,    // defl(2), metr(3), comp(2), siab(2)
+			metronome:         1.35,        // T4L
+			compass:           siabCompass, // Use Compass instead of Gusset if ELR is reduced
+			gusset:            siabGusset,
+			deliverySlots:     siabSlots,
 			ihr:               7440.0, // leggacy set, Deflector w/o IHR stones
 			te:                50,
 			chalice:           1.4, // T4L
