@@ -714,12 +714,12 @@ type estimatePlayer struct {
 // ContractDurationEstimate groups the various duration estimates
 // produced by getContractDurationEstimate.
 type ContractDurationEstimate struct {
-	Upper  time.Duration
-	Lower  time.Duration
-	Max    time.Duration
-	SIAB   time.Duration
-	MaxGG  time.Duration
-	SIABGG time.Duration
+	Upper         time.Duration
+	Lower         time.Duration
+	Max           time.Duration
+	SIAB          time.Duration
+	MaxGG         time.Duration
+	SIABGG        time.Duration
 	SIABCompass   bool
 	SIABGGCompass bool
 	MaxCompass    bool
@@ -817,10 +817,10 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			colHab:            colleggtibleHab,
 			colIHR:            colleggtiblesIHR,
 			calcMode:          modeStoneHuntMethod,
-			metronome:         1.35, // T4L
-			compass:           1.5,  // T4L
-			gusset:            1.0,  // N/A - using SIAB instead of gusset
-			deliverySlots:     9.0,  // defl(2), metr(3), comp(2), siab(2)
+			metronome:         1.35,   // T4L
+			compass:           1.5,    // T4L
+			gusset:            1.0,    // N/A - using SIAB instead of gusset
+			deliverySlots:     9.0,    // defl(2), metr(3), comp(2), siab(2)
 			ihr:               7440.0, // leggacy set, Deflector w/o IHR stones
 			te:                50,
 			chalice:           1.4, // T4L
@@ -862,10 +862,10 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			colHab:            colleggtibleHab,
 			colIHR:            colleggtiblesIHR,
 			calcMode:          modeStoneHuntMethod,
-			metronome:         1.35, // T4L
-			compass:           1.5,  // T4L
-			gusset:            1.0,  // N/A - using SIAB instead of gusset
-			deliverySlots:     9.0,  // defl(2), metr(3), comp(2), siab(2)
+			metronome:         1.35,   // T4L
+			compass:           1.5,    // T4L
+			gusset:            1.0,    // N/A - using SIAB instead of gusset
+			deliverySlots:     9.0,    // defl(2), metr(3), comp(2), siab(2)
 			ihr:               7440.0, // leggacy set, Deflector w/o IHR stones
 			te:                50,
 			chalice:           1.4, // T4L
@@ -937,7 +937,7 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 				// Try Config C: Swap Compass for 3-slot any
 				estC := est
 				estC.compass = 1.0
-				estC.gusset = 1.0
+				estC.gusset = 1.25
 				estC.deliverySlots = 10.0
 				estCVal := calculateSingleEstimate(estC, c, contractEggsTotal, numFarmers,
 					contractLengthInSeconds, modShip, modELR, modHab, deflectorsOnFarmer, debug)
