@@ -199,8 +199,14 @@ func GetContractEstimateString(contractID string, includeLeggySet bool) string {
 	str += "\n"
 	estStr := c.EstimatedDuration.Round(time.Minute).String()
 	estStr = strings.TrimRight(estStr, "0s")
+	if c.UpperCompass {
+		estStr += " (no compass)"
+	}
 	estStrLower := c.EstimatedDurationLower.Round(time.Minute).String()
 	estStrLower = strings.TrimRight(estStrLower, "0s")
+	if c.LowerCompass {
+		estStrLower += " (no compass)"
+	}
 
 	/*
 		upperEstEmotes := fmt.Sprintf("%s%s%s%s",
@@ -724,6 +730,8 @@ type ContractDurationEstimate struct {
 	SIABGGCompass bool
 	MaxCompass    bool
 	MaxGGCompass  bool
+	UpperCompass  bool
+	LowerCompass  bool
 }
 
 // getContractDurationEstimate returns three estimated durations (upper, lower, and max) of a contract based on great and well equipped artifact sets
@@ -887,6 +895,8 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 	siabGGCompassSwap := false
 	maxCompassSwap := false
 	maxGGCompassSwap := false
+	upperCompassSwap := false
+	lowerCompassSwap := false
 
 	for _, est := range estimates {
 		estimate := calculateSingleEstimate(est, c, contractEggsTotal, numFarmers,
@@ -895,14 +905,40 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 		switch est.id {
 		case "basic_set":
 			estimateDurationUpper = time.Duration(estimate * float64(time.Hour))
+			if modELR < 1.0 {
+				// Try Config: Swap Compass for 3-slot any
+				estAlt := est
+				estAlt.compass = 1.0
+				estAlt.deliverySlots = 9.0 // 8.0 + 1.0
+				estAltVal := calculateSingleEstimate(estAlt, c, contractEggsTotal, numFarmers,
+					contractLengthInSeconds, modShip, modELR, modHab, deflectorsOnFarmer, debug)
+				estAltDur := time.Duration(estAltVal * float64(time.Hour))
+				if estAltDur < estimateDurationUpper {
+					estimateDurationUpper = estAltDur
+					upperCompassSwap = true
+				}
+			}
 			if debug {
-				log.Printf("estimateDurationUpper: %v\n", estimateDurationUpper)
+				log.Printf("estimateDurationUpper: %v (compass swap: %v)\n", estimateDurationUpper, upperCompassSwap)
 				log.Print("--------------------\n")
 			}
 		case "solid_set":
 			estimateDurationLower = time.Duration(estimate * float64(time.Hour))
+			if modELR < 1.0 {
+				// Try Config: Swap Compass for 3-slot any
+				estAlt := est
+				estAlt.compass = 1.0
+				estAlt.deliverySlots = 10.0 // 9.0 + 1.0
+				estAltVal := calculateSingleEstimate(estAlt, c, contractEggsTotal, numFarmers,
+					contractLengthInSeconds, modShip, modELR, modHab, deflectorsOnFarmer, debug)
+				estAltDur := time.Duration(estAltVal * float64(time.Hour))
+				if estAltDur < estimateDurationLower {
+					estimateDurationLower = estAltDur
+					lowerCompassSwap = true
+				}
+			}
 			if debug {
-				log.Printf("estimateDurationLower: %v\n", estimateDurationLower)
+				log.Printf("estimateDurationLower: %v (compass swap: %v)\n", estimateDurationLower, lowerCompassSwap)
 			}
 		case "leggy_set":
 			estimateDurationMax = time.Duration(estimate * float64(time.Hour))
@@ -937,7 +973,7 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 				// Try Config C: Swap Compass for 3-slot any
 				estC := est
 				estC.compass = 1.0
-				estC.gusset = 1.25
+				estC.gusset = 1.0
 				estC.deliverySlots = 10.0
 				estCVal := calculateSingleEstimate(estC, c, contractEggsTotal, numFarmers,
 					contractLengthInSeconds, modShip, modELR, modHab, deflectorsOnFarmer, debug)
@@ -1021,6 +1057,8 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			SIABGGCompass: siabGGCompassSwap,
 			MaxCompass:    maxCompassSwap,
 			MaxGGCompass:  maxGGCompassSwap,
+			UpperCompass:  upperCompassSwap,
+			LowerCompass:  lowerCompassSwap,
 		}
 	}
 
@@ -1035,6 +1073,8 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 		SIABGGCompass: siabGGCompassSwap,
 		MaxCompass:    maxCompassSwap,
 		MaxGGCompass:  maxGGCompassSwap,
+		UpperCompass:  upperCompassSwap,
+		LowerCompass:  lowerCompassSwap,
 	}
 }
 
