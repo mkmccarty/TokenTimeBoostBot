@@ -31,10 +31,11 @@ func GetSlashChangeCommand(cmd string) *discordgo.ApplicationCommand {
 						Description: "Update contract coopID",
 						Options: []*discordgo.ApplicationCommandOption{
 							{
-								Type:        discordgo.ApplicationCommandOptionString,
-								Name:        "coop-id",
-								Description: "New coopID value",
-								Required:    true,
+								Type:         discordgo.ApplicationCommandOptionString,
+								Name:         "coop-id",
+								Description:  "New coopID value",
+								Required:     true,
+								Autocomplete: true,
 							},
 						},
 					},

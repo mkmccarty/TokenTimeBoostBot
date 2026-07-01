@@ -40,6 +40,10 @@ func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCr
 		handleCoopIDAutoComplete(s, i, opt.StringValue())
 		return
 	}
+	if opt, ok := optionMap["contract-coop-id-coop-id"]; ok && opt.Focused {
+		handleCoopIDAutoComplete(s, i, opt.StringValue())
+		return
+	}
 
 	searchString := ""
 	if opt, ok := optionMap["contract-id"]; ok {
