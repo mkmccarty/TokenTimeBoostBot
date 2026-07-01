@@ -292,13 +292,17 @@ func GetContractEstimateString(contractID string, includeLeggySet bool) string {
 
 			estStrMax := c.EstimatedDurationMax.Round(time.Minute).String()
 			estStrMax = strings.TrimRight(estStrMax, "0s")
-			str += fmt.Sprintf("Leggy Set: **%s** CS:**%d**", estStrMax, int64(c.CxpMax))
+			maxComment := ""
+			if c.MaxCompass {
+				maxComment = " (no compass, 11 stones)"
+			}
+			str += fmt.Sprintf("Leggy Set: **%s** CS:**%d**%s", estStrMax, int64(c.CxpMax), maxComment)
 
 			if c.CxpMaxSiab > c.CxpMax {
 				estStrMaxSiab := c.EstimatedDurationSIAB.Round(time.Minute).String()
 				estStrMaxSiab = strings.TrimRight(estStrMaxSiab, "0s")
 				siabComment := "no gusset, 9 stones"
-				if c.ModifierELR < 1.0 && c.ModifierELR > 0.0 {
+				if c.SIABCompass {
 					siabComment = "no compass, 10 stones"
 				}
 				str += fmt.Sprintf(" / %s **%s** CS:**%d** (%s)\n", ei.GetBotEmojiMarkdown("SIAB_T4L"), estStrMaxSiab, int64(c.CxpMaxSiab), siabComment)
@@ -309,7 +313,11 @@ func GetContractEstimateString(contractID string, includeLeggySet bool) string {
 			if ggicon != "" {
 				estStrGG := c.EstimatedDurationMaxGG.Round(time.Minute).String()
 				estStrGG = strings.TrimRight(estStrGG, "0s")
-				str += fmt.Sprintf("%s **%s** CS:**%d**", ggicon, estStrGG, int64(c.CxpMaxGG))
+				maxGGComment := ""
+				if c.MaxGGCompass {
+					maxGGComment = " (no compass, 11 stones)"
+				}
+				str += fmt.Sprintf("%s **%s** CS:**%d**%s", ggicon, estStrGG, int64(c.CxpMaxGG), maxGGComment)
 				if c.CxpMaxSiab > c.CxpMax {
 					estStrGG := c.EstimatedDurationSIABGG.Round(time.Minute).String()
 					estStrGG = strings.TrimRight(estStrGG, "0s")
@@ -712,6 +720,10 @@ type ContractDurationEstimate struct {
 	SIAB   time.Duration
 	MaxGG  time.Duration
 	SIABGG time.Duration
+	SIABCompass   bool
+	SIABGGCompass bool
+	MaxCompass    bool
+	MaxGGCompass  bool
 }
 
 // getContractDurationEstimate returns three estimated durations (upper, lower, and max) of a contract based on great and well equipped artifact sets
@@ -726,15 +738,6 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 	collectibleELR, colllectibleShip, colleggtibleHab, colleggtiblesIHR := ei.GetColleggtibleValues()
 
 	deflectorsOnFarmer := numFarmers - 1.0
-
-	siabCompass := 1.5
-	siabGusset := 1.0
-	siabSlots := 9.0
-	if modELR < 1.0 {
-		siabCompass = 1.0
-		siabGusset = 1.25
-		siabSlots = 10.0 // defl(2), metr(3), gusset(3), siab(2)
-	}
 
 	estimates := []estimatePlayer{
 		{
@@ -814,10 +817,10 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			colHab:            colleggtibleHab,
 			colIHR:            colleggtiblesIHR,
 			calcMode:          modeStoneHuntMethod,
-			metronome:         1.35,        // T4L
-			compass:           siabCompass, // Use Compass instead of Gusset if ELR is reduced
-			gusset:            siabGusset,
-			deliverySlots:     siabSlots,
+			metronome:         1.35, // T4L
+			compass:           1.5,  // T4L
+			gusset:            1.0,  // N/A - using SIAB instead of gusset
+			deliverySlots:     9.0,  // defl(2), metr(3), comp(2), siab(2)
 			ihr:               7440.0, // leggacy set, Deflector w/o IHR stones
 			te:                50,
 			chalice:           1.4, // T4L
@@ -859,10 +862,10 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			colHab:            colleggtibleHab,
 			colIHR:            colleggtiblesIHR,
 			calcMode:          modeStoneHuntMethod,
-			metronome:         1.35,        // T4L
-			compass:           siabCompass, // Use Compass instead of Gusset if ELR is reduced
-			gusset:            siabGusset,
-			deliverySlots:     siabSlots,
+			metronome:         1.35, // T4L
+			compass:           1.5,  // T4L
+			gusset:            1.0,  // N/A - using SIAB instead of gusset
+			deliverySlots:     9.0,  // defl(2), metr(3), comp(2), siab(2)
 			ihr:               7440.0, // leggacy set, Deflector w/o IHR stones
 			te:                50,
 			chalice:           1.4, // T4L
@@ -879,6 +882,11 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 	var estimateDurationSIAB time.Duration
 	var estimateDurationMaxGG time.Duration
 	var estimateDurationSIABGG time.Duration
+
+	siabCompassSwap := false
+	siabGGCompassSwap := false
+	maxCompassSwap := false
+	maxGGCompassSwap := false
 
 	for _, est := range estimates {
 		estimate := calculateSingleEstimate(est, c, contractEggsTotal, numFarmers,
@@ -898,45 +906,135 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			}
 		case "leggy_set":
 			estimateDurationMax = time.Duration(estimate * float64(time.Hour))
+			if modELR < 1.0 {
+				// Try Config: Swap Compass for 3-slot any
+				estAlt := est
+				estAlt.compass = 1.0
+				estAlt.deliverySlots = 11.0
+				estAltVal := calculateSingleEstimate(estAlt, c, contractEggsTotal, numFarmers,
+					contractLengthInSeconds, modShip, modELR, modHab, deflectorsOnFarmer, debug)
+				estAltDur := time.Duration(estAltVal * float64(time.Hour))
+				if estAltDur < estimateDurationMax {
+					estimateDurationMax = estAltDur
+					maxCompassSwap = true
+				}
+			}
 			if debug {
-				log.Printf("estimateDurationMax: %v\n", estimateDurationMax)
+				log.Printf("estimateDurationMax: %v (compass swap: %v)\n", estimateDurationMax, maxCompassSwap)
 			}
 		case "leggy_siab":
 			estimateDurationSIAB = time.Duration(estimate * float64(time.Hour))
+			if modELR < 1.0 {
+				// Try Config B: Swap Compass for SIAB
+				estB := est
+				estB.compass = 1.0
+				estB.gusset = 1.25
+				estB.deliverySlots = 10.0
+				estBVal := calculateSingleEstimate(estB, c, contractEggsTotal, numFarmers,
+					contractLengthInSeconds, modShip, modELR, modHab, deflectorsOnFarmer, debug)
+				estBDur := time.Duration(estBVal * float64(time.Hour))
+
+				// Try Config C: Swap Compass for 3-slot any
+				estC := est
+				estC.compass = 1.0
+				estC.gusset = 1.0
+				estC.deliverySlots = 10.0
+				estCVal := calculateSingleEstimate(estC, c, contractEggsTotal, numFarmers,
+					contractLengthInSeconds, modShip, modELR, modHab, deflectorsOnFarmer, debug)
+				estCDur := time.Duration(estCVal * float64(time.Hour))
+
+				if estBDur < estimateDurationSIAB || estCDur < estimateDurationSIAB {
+					siabCompassSwap = true
+					if estBDur < estCDur {
+						estimateDurationSIAB = estBDur
+					} else {
+						estimateDurationSIAB = estCDur
+					}
+				}
+			}
 			if debug {
-				log.Printf("estimateDurationSIAB: %v\n", estimateDurationSIAB)
+				log.Printf("estimateDurationSIAB: %v (compass swap: %v)\n", estimateDurationSIAB, siabCompassSwap)
 			}
 		case "leggy_set_gg":
 			estimateDurationMaxGG = time.Duration(estimate * float64(time.Hour))
+			if modELR < 1.0 {
+				// Try Config: Swap Compass for 3-slot any
+				estAlt := est
+				estAlt.compass = 1.0
+				estAlt.deliverySlots = 11.0
+				estAltVal := calculateSingleEstimate(estAlt, c, contractEggsTotal, numFarmers,
+					contractLengthInSeconds, modShip, modELR, modHab, deflectorsOnFarmer, debug)
+				estAltDur := time.Duration(estAltVal * float64(time.Hour))
+				if estAltDur < estimateDurationMaxGG {
+					estimateDurationMaxGG = estAltDur
+					maxGGCompassSwap = true
+				}
+			}
 			if debug {
-				log.Printf("estimateDurationMaxGG: %v\n", estimateDurationMaxGG)
+				log.Printf("estimateDurationMaxGG: %v (compass swap: %v)\n", estimateDurationMaxGG, maxGGCompassSwap)
 			}
 		case "leggy_siab_gg":
 			estimateDurationSIABGG = time.Duration(estimate * float64(time.Hour))
+			if modELR < 1.0 {
+				// Try Config B: Swap Compass for SIAB
+				estB := est
+				estB.compass = 1.0
+				estB.gusset = 1.25
+				estB.deliverySlots = 10.0
+				estBVal := calculateSingleEstimate(estB, c, contractEggsTotal, numFarmers,
+					contractLengthInSeconds, modShip, modELR, modHab, deflectorsOnFarmer, debug)
+				estBDur := time.Duration(estBVal * float64(time.Hour))
+
+				// Try Config C: Swap Compass for 3-slot any
+				estC := est
+				estC.compass = 1.0
+				estC.gusset = 1.0
+				estC.deliverySlots = 10.0
+				estCVal := calculateSingleEstimate(estC, c, contractEggsTotal, numFarmers,
+					contractLengthInSeconds, modShip, modELR, modHab, deflectorsOnFarmer, debug)
+				estCDur := time.Duration(estCVal * float64(time.Hour))
+
+				if estBDur < estimateDurationSIABGG || estCDur < estimateDurationSIABGG {
+					siabGGCompassSwap = true
+					if estBDur < estCDur {
+						estimateDurationSIABGG = estBDur
+					} else {
+						estimateDurationSIABGG = estCDur
+					}
+				}
+			}
 			if debug {
-				log.Printf("estimateDurationSIABGG: %v\n", estimateDurationSIABGG)
+				log.Printf("estimateDurationSIABGG: %v (compass swap: %v)\n", estimateDurationSIABGG, siabGGCompassSwap)
 			}
 		}
 	}
 
 	if estimateDurationUpper > contractDuration {
 		return ContractDurationEstimate{
-			Upper:  contractDuration,
-			Lower:  contractDuration,
-			Max:    estimateDurationMax,
-			SIAB:   estimateDurationSIAB,
-			MaxGG:  estimateDurationMaxGG,
-			SIABGG: estimateDurationSIABGG,
+			Upper:         contractDuration,
+			Lower:         contractDuration,
+			Max:           estimateDurationMax,
+			SIAB:          estimateDurationSIAB,
+			MaxGG:         estimateDurationMaxGG,
+			SIABGG:        estimateDurationSIABGG,
+			SIABCompass:   siabCompassSwap,
+			SIABGGCompass: siabGGCompassSwap,
+			MaxCompass:    maxCompassSwap,
+			MaxGGCompass:  maxGGCompassSwap,
 		}
 	}
 
 	return ContractDurationEstimate{
-		Upper:  estimateDurationUpper,
-		Lower:  estimateDurationLower,
-		Max:    estimateDurationMax,
-		SIAB:   estimateDurationSIAB,
-		MaxGG:  estimateDurationMaxGG,
-		SIABGG: estimateDurationSIABGG,
+		Upper:         estimateDurationUpper,
+		Lower:         estimateDurationLower,
+		Max:           estimateDurationMax,
+		SIAB:          estimateDurationSIAB,
+		MaxGG:         estimateDurationMaxGG,
+		SIABGG:        estimateDurationSIABGG,
+		SIABCompass:   siabCompassSwap,
+		SIABGGCompass: siabGGCompassSwap,
+		MaxCompass:    maxCompassSwap,
+		MaxGGCompass:  maxGGCompassSwap,
 	}
 }
 
