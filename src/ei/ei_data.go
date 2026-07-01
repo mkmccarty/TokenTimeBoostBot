@@ -137,6 +137,8 @@ type EggIncContract struct {
 	SIABGGCompass             bool
 	MaxCompass                bool
 	MaxGGCompass              bool
+	UpperCompass              bool
+	LowerCompass              bool
 	TargetTval                float64
 	TargetTvalLower           float64
 	ModifierEarnings          float64
