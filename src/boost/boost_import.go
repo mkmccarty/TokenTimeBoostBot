@@ -467,6 +467,10 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 		c.EstimatedDurationSIAB = estAll.SIAB
 		c.EstimatedDurationMaxGG = estAll.MaxGG
 		c.EstimatedDurationSIABGG = estAll.SIABGG
+		c.SIABCompass = estAll.SIABCompass
+		c.SIABGGCompass = estAll.SIABGGCompass
+		c.MaxCompass = estAll.MaxCompass
+		c.MaxGGCompass = estAll.MaxGGCompass
 	}
 	/*
 

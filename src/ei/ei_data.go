@@ -133,6 +133,10 @@ type EggIncContract struct {
 	EstimatedDurationSIAB     time.Duration
 	EstimatedDurationMaxGG    time.Duration
 	EstimatedDurationSIABGG   time.Duration
+	SIABCompass               bool
+	SIABGGCompass             bool
+	MaxCompass                bool
+	MaxGGCompass              bool
 	TargetTval                float64
 	TargetTvalLower           float64
 	ModifierEarnings          float64
