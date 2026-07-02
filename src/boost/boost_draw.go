@@ -46,7 +46,7 @@ func buildTokenTotalsFromLog(contract *Contract) (map[string]int, map[string]int
 
 	for _, logEntry := range contract.TokenLog {
 		if logEntry.Quantity == 1 || logEntry.Quantity == 2 {
-			singleTokenEntries++
+			singleTokenEntries += logEntry.Quantity
 		}
 
 		receivedByUser[logEntry.ToUserID] += logEntry.Quantity
