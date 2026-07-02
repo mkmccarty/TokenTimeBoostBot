@@ -41,6 +41,7 @@ type chartSession struct {
 	hasDayMap      bool
 	mobileFriendly bool
 	siabOnly       bool
+	generousGift   bool
 }
 
 var (
@@ -99,6 +100,11 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 	}
 	log.Printf("Downloaded %d archived contracts from Egg Inc API for %s\n", len(archive), eiUserName)
 
+	var generousGift bool
+	if val := farmerstate.GetMiscSettingString(userID, "rerunGenerousGift"); val != "" {
+		generousGift, _ = strconv.ParseBool(val)
+	}
+
 	for _, a := range archive {
 		contractID := a.GetContractIdentifier()
 		evaluation := a.GetEvaluation()
@@ -122,11 +128,23 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 
 		if c.ContractVersion == 2 {
 			maxCxp := c.CxpMax
+			if generousGift {
+				maxCxp = c.CxpMaxGG
+			}
 			hasSiab := false
-			if c.CxpMaxSiab > c.CxpMax {
-				maxCxp = c.CxpMaxSiab
-				if c.CxpMaxSiab > evaluationCxp {
-					hasSiab = true
+			if generousGift {
+				if c.CxpMaxSiabGG > c.CxpMaxGG {
+					maxCxp = c.CxpMaxSiabGG
+					if c.CxpMaxSiabGG > evaluationCxp {
+						hasSiab = true
+					}
+				}
+			} else {
+				if c.CxpMaxSiab > c.CxpMax {
+					maxCxp = c.CxpMaxSiab
+					if c.CxpMaxSiab > evaluationCxp {
+						hasSiab = true
+					}
 				}
 			}
 
@@ -163,6 +181,7 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 		expiresAt:      time.Now().Add(15 * time.Minute),
 		hasDayMap:      len(contractDayMap) > 0,
 		mobileFriendly: mobileFriendly,
+		generousGift:   generousGift,
 	}
 	if session.page < 0 {
 		session.page = 0
@@ -183,18 +202,48 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 
 	// Filter rows based on session criteria
 	var displayRows []chartRow
-	switch session.percent {
-	case -1: // Active contracts chart
-		for _, r := range session.rows {
+	for _, r := range session.rows {
+		c, ok := ei.GetEggIncContract(r.contractID)
+		if ok {
+			maxCxp := c.CxpMax
+			if session.generousGift {
+				maxCxp = c.CxpMaxGG
+			}
+			hasSiab := false
+			if session.generousGift {
+				if c.CxpMaxSiabGG > c.CxpMaxGG {
+					maxCxp = c.CxpMaxSiabGG
+					if c.CxpMaxSiabGG > r.cxp {
+						hasSiab = true
+					}
+				}
+			} else {
+				if c.CxpMaxSiab > c.CxpMax {
+					maxCxp = c.CxpMaxSiab
+					if c.CxpMaxSiab > r.cxp {
+						hasSiab = true
+					}
+				}
+			}
+
+			r.maxCxp = maxCxp
+			r.gap = maxCxp - r.cxp
+			if maxCxp > 0 {
+				r.percent = (r.cxp / maxCxp) * 100.0
+			} else {
+				r.percent = 0.0
+			}
+			r.hasSiab = hasSiab
+		}
+
+		switch session.percent {
+		case -1: // Active contracts chart
 			if r.validUntil > now {
 				displayRows = append(displayRows, r)
 			}
-		}
-	case -200: // Predictions chart
-		// This is pre-filtered by contractIDList when the session was created.
-		displayRows = session.rows
-	default: // Threshold chart
-		for _, r := range session.rows {
+		case -200: // Predictions chart
+			displayRows = append(displayRows, r)
+		default: // Threshold chart
 			if r.percent < float64(100-session.percent) {
 				displayRows = append(displayRows, r)
 			}
@@ -341,12 +390,16 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 
 	switch session.percent {
 	case -1:
-		builder.WriteString("## Contract CS eval of active contracts\n")
+		builder.WriteString("## Contract CS eval of active contracts")
 	case -200:
-		builder.WriteString("## Displaying contract scores for future predictions:\n")
+		builder.WriteString("## Displaying contract scores for future predictions")
 	default:
-		fmt.Fprintf(&builder, "## Displaying contract scores less than %d%% of speedrun potential:\n", session.percent)
+		fmt.Fprintf(&builder, "## Displaying contract scores less than %d%% of speedrun potential", session.percent)
 	}
+	if session.generousGift {
+		builder.WriteString(" (Generous Gift)")
+	}
+	builder.WriteString(":\n")
 	if session.siabOnly {
 		builder.WriteString("### (Filtered to contracts where SIAB score is higher than Max)\n")
 	}
@@ -454,7 +507,13 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 	if !session.mobileFriendly && session.hasDayMap {
 		fmt.Fprintf(&builder, "-# Predicted contract days: W=Wednesday, F=Friday, U=Friday%s\n", ei.GetBotEmojiMarkdown("ultra"))
 	}
-	fmt.Fprintf(&builder, "-# Est duration/CS based on 1.0 fair share, 5%s boosts (w/50%sIHR), 6%s/hr rate and leggy artifacts.\n", ei.GetBotEmojiMarkdown("token"), ei.GetBotEmojiMarkdown("egg_truth"), ei.GetBotEmojiMarkdown("token"))
+	rateVal := "6"
+	ggSuffix := ""
+	if session.generousGift {
+		rateVal = "12"
+		ggSuffix = " (GG x2)"
+	}
+	fmt.Fprintf(&builder, "-# Est duration/CS based on 1.0 fair share, 5%s boosts (w/50%sIHR), %s%s/hr%s rate and leggy artifacts.\n", ei.GetBotEmojiMarkdown("token"), ei.GetBotEmojiMarkdown("egg_truth"), rateVal, ei.GetBotEmojiMarkdown("token"), ggSuffix)
 
 	components = append(components, &discordgo.TextDisplay{Content: builder.String()})
 	components = append(components, buildChartControls(session, totalPages)...)
@@ -575,6 +634,20 @@ func buildChartControls(session *chartSession, totalPages int) []discordgo.Messa
 		Style:    siabStyle,
 		CustomID: fmt.Sprintf("chart#togglesiab#%s", session.xid),
 	})
+	ggLabel := "Standard View"
+	ggEmoji := ei.GetBotComponentEmoji("token")
+	ggStyle := discordgo.SecondaryButton
+	if session.generousGift {
+		ggLabel = "Generous Gift"
+		ggEmoji = ei.GetBotComponentEmoji("std_gg")
+		ggStyle = discordgo.SuccessButton
+	}
+	actionButtons = append(actionButtons, discordgo.Button{
+		Label:    ggLabel,
+		Emoji:    ggEmoji,
+		Style:    ggStyle,
+		CustomID: fmt.Sprintf("chart#togglegg#%s", session.xid),
+	})
 	actionButtons = append(actionButtons, discordgo.Button{
 		Label:    "Watch Filtered",
 		Style:    discordgo.SuccessButton,
@@ -656,6 +729,10 @@ func HandleChartReactions(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		farmerstate.SetMiscSettingString(session.userID, "rerunMobileFriendly", strconv.FormatBool(session.mobileFriendly))
 	case "togglesiab":
 		session.siabOnly = !session.siabOnly
+		session.page = 0 // Reset to first page on filter change
+	case "togglegg":
+		session.generousGift = !session.generousGift
+		farmerstate.SetMiscSettingString(session.userID, "rerunGenerousGift", strconv.FormatBool(session.generousGift))
 		session.page = 0 // Reset to first page on filter change
 	case "threshold":
 		values := i.MessageComponentData().Values
