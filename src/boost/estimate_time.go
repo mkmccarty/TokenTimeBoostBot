@@ -20,6 +20,37 @@ const (
 	modeStoneHuntMethod = 2
 )
 
+var (
+	DefaultLeggyTE                = 100.0
+	DefaultLeggyDeflectorBonus    = 0.20
+	DefaultLeggyMetronome         = 1.35
+	DefaultLeggyCompass           = 1.50
+	DefaultLeggyGusset            = 1.25
+	DefaultLeggyDeliverySlots     = 10.0
+	DefaultLeggyIHR               = 7440.0
+	DefaultLeggyChalice           = 1.40
+	DefaultLeggyMonocle           = 1.30
+	DefaultLeggyIHRSlots          = 8.0
+	DefaultLeggyChickenRunPercent = 70.0
+	teOverrideMinValue            = 0.0
+)
+
+// calcLeggyBoost computes the boost tokens and multiplier dynamically based on TE.
+func calcLeggyBoost(te float64) (tokens float64, multiplier float64) {
+	teMult := math.Pow(1.01, te)
+	if teMult > 100.0 {
+		tokens = 2.0
+	} else if teMult > 4.0 {
+		tokens = 4.0
+	} else if teMult > 2.0 {
+		tokens = 5.0
+	} else {
+		tokens = 6.0
+	}
+	multiplier = calcBoostMulti(tokens)
+	return tokens, multiplier
+}
+
 // GetSlashEstimateTime is the definition of the slash command
 func GetSlashEstimateTime(cmd string) *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
@@ -47,6 +78,14 @@ func GetSlashEstimateTime(cmd string) *discordgo.ApplicationCommand {
 				Name:        "include-leggy",
 				Description: "Include estimate for full leggy set.",
 				Required:    false,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "te-override",
+				Description: "Override default TE (0-490) for this run.",
+				Required:    false,
+				MinValue:    &teOverrideMinValue,
+				MaxValue:    490.0,
 			},
 		},
 	}
@@ -76,13 +115,18 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		includeLeggySet = opt.BoolValue()
 	}
 
+	var teOverride []float64
+	if opt, ok := optionMap["te-override"]; ok {
+		teOverride = append(teOverride, float64(opt.IntValue()))
+	}
+
 	c := ei.EggIncContractsAll[contractID]
 	if c.ID == "" {
 		str = "No contract found in this channel, use the command parameters to pick one."
 	}
 
 	if str == "" {
-		estimateText := GetContractEstimateString(contractID, includeLeggySet)
+		estimateText := GetContractEstimateString(contractID, includeLeggySet, teOverride...)
 		components := []discordgo.MessageComponent{
 			discordgo.TextDisplay{Content: estimateText},
 		}
@@ -101,10 +145,99 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 }
 
 // GetContractEstimateString returns a string with the estimated completion time of a contract
-func GetContractEstimateString(contractID string, includeLeggySet bool) string {
+func GetContractEstimateString(contractID string, includeLeggySet bool, teOverride ...float64) string {
 
 	str := ""
 	c := ei.EggIncContractsAll[contractID]
+	teVal := DefaultLeggyTE
+	hasOverride := false
+	if len(teOverride) > 0 {
+		teVal = teOverride[0]
+		hasOverride = true
+	}
+
+	if c.ID != "" && hasOverride {
+		cCopy := c
+		estAll := getContractDurationEstimate(cCopy, cCopy.TargetAmount[len(cCopy.TargetAmount)-1], float64(cCopy.MaxCoopSize), cCopy.LengthInSeconds,
+			cCopy.ModifierSR, cCopy.ModifierELR, cCopy.ModifierHabCap, false, teVal)
+		cCopy.EstimatedDuration = estAll.Upper
+		cCopy.EstimatedDurationLower = estAll.Lower
+		cCopy.EstimatedDurationMax = estAll.Max
+		cCopy.EstimatedDurationSIAB = estAll.SIAB
+		cCopy.EstimatedDurationMaxGG = estAll.MaxGG
+		cCopy.EstimatedDurationSIABGG = estAll.SIABGG
+		cCopy.SIABCompass = estAll.SIABCompass
+		cCopy.SIABGGCompass = estAll.SIABGGCompass
+		cCopy.MaxCompass = estAll.MaxCompass
+		cCopy.MaxGGCompass = estAll.MaxGGCompass
+		cCopy.UpperCompass = estAll.UpperCompass
+		cCopy.LowerCompass = estAll.LowerCompass
+
+		if len(cCopy.TargetAmount) != 0 {
+			BTA := math.Floor(float64(cCopy.EstimatedDuration.Minutes() / float64(cCopy.MinutesPerToken)))
+			cCopy.TargetTval = 3.0
+			if BTA > 42.0 {
+				cCopy.TargetTval = 0.07 * BTA
+			}
+			BTALower := math.Floor(float64(cCopy.EstimatedDurationLower.Minutes() / float64(cCopy.MinutesPerToken)))
+			cCopy.TargetTvalLower = 3.0
+			if BTALower > 42.0 {
+				cCopy.TargetTvalLower = 0.07 * BTALower
+			}
+		}
+
+		fairShare := 1.00
+		if cCopy.SeasonalScoring == ei.SeasonalScoringNerfed {
+			fairShare = 1.00
+			if cCopy.ID == "quant-blitz" {
+				fairShare = 3.85
+			}
+		}
+		if cCopy.MaxCoopSize == 1 {
+			fairShare = 1.0
+		}
+		cCopy.CxpMax = float64(getContractScoreEstimateWithDuration(cCopy, ei.Contract_GRADE_AAA,
+			cCopy.EstimatedDurationMax,
+			fairShare,
+			100, 30,
+			20, 0,
+			cCopy.ChickenRuns,
+			100, 5))
+
+		cCopy.CxpMaxSiab = float64(getContractScoreEstimateWithDuration(cCopy, ei.Contract_GRADE_AAA,
+			cCopy.EstimatedDurationSIAB,
+			fairShare,
+			100, int(cCopy.EstimatedDurationSIAB.Minutes()),
+			20, 0,
+			cCopy.ChickenRuns,
+			100, 5))
+
+		cCopy.CxpMaxGG = float64(getContractScoreEstimateWithDuration(cCopy, ei.Contract_GRADE_AAA,
+			cCopy.EstimatedDurationMaxGG,
+			fairShare,
+			100, 30,
+			20, 0,
+			cCopy.ChickenRuns,
+			100, 5))
+
+		cCopy.CxpMaxSiabGG = float64(getContractScoreEstimateWithDuration(cCopy, ei.Contract_GRADE_AAA,
+			cCopy.EstimatedDurationSIABGG,
+			fairShare,
+			100, int(cCopy.EstimatedDurationSIABGG.Minutes()),
+			20, 0,
+			cCopy.ChickenRuns,
+			100, 5))
+
+		cCopy.Cxp = float64(getContractScoreEstimate(cCopy, ei.Contract_GRADE_AAA,
+			true, 1.0,
+			fairShare,
+			100, 30,
+			20, 0,
+			cCopy.ChickenRuns,
+			100, 5))
+
+		c = cCopy
+	}
 
 	if c.ID == "" {
 		str = "No contract found  use the command parameters to pick one."
@@ -132,12 +265,15 @@ func GetContractEstimateString(contractID string, includeLeggySet bool) string {
 	if playerCount < 1 {
 		playerCount = 1
 	}
+	leggyTokens, _ := calcLeggyBoost(teVal)
+	leggyTokensStr := strconv.Itoa(int(leggyTokens))
+	leggyTEStr := strconv.FormatFloat(teVal, 'f', -1, 64)
 	players := make([]SandboxPlayer, 0, playerCount)
 	for i := 0; i < playerCount; i++ {
 		players = append(players, SandboxPlayer{
 			Name:         fmt.Sprintf("Player %d", i),
-			Tokens:       "5",
-			TE:           "50",
+			Tokens:       leggyTokensStr,
+			TE:           leggyTEStr,
 			Mirror:       false,
 			Colleggtible: true,
 			Sink:         i == playerCount-1,
@@ -332,7 +468,8 @@ func GetContractEstimateString(contractID string, includeLeggySet bool) string {
 				str += fmt.Sprintf(" (6%s)\n", ei.GetBotEmojiMarkdown("token"))
 			}
 
-			str += fmt.Sprintf("-# Leggy set 50 TE, 8 IHR & 10 delivery stone sets, 1.0 fair share, 5%s boost.\n", ei.GetBotEmojiMarkdown("token"))
+			str += fmt.Sprintf("-# Leggy set %.0f TE, %.0f IHR & %.0f delivery stone sets, 1.0 fair share, %.0f%s boost.\n",
+				teVal, DefaultLeggyIHRSlots, DefaultLeggyDeliverySlots, leggyTokens, ei.GetBotEmojiMarkdown("token"))
 		}
 		if footerAboutCR && c.MaxCoopSize > 1 {
 			str += fmt.Sprintf("-# CoopSize-1 used for CR, extras **+%.0f**/%s\n",
@@ -735,15 +872,19 @@ type ContractDurationEstimate struct {
 }
 
 // getContractDurationEstimate returns three estimated durations (upper, lower, and max) of a contract based on great and well equipped artifact sets
-func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64, numFarmers float64, contractLengthInSeconds int, modifierSR float64, modifierELR float64, modifierHabCap float64, debug bool) ContractDurationEstimate {
+func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64, numFarmers float64, contractLengthInSeconds int, modifierSR float64, modifierELR float64, modifierHabCap float64, debug bool, teOverride ...float64) ContractDurationEstimate {
 
 	contractDuration := time.Duration(contractLengthInSeconds) * time.Second
-
 	modHab := modifierHabCap
 	modELR := modifierELR
 	modShip := modifierSR
 
 	collectibleELR, colllectibleShip, colleggtibleHab, colleggtiblesIHR := ei.GetColleggtibleValues()
+	teVal := DefaultLeggyTE
+	if len(teOverride) > 0 {
+		teVal = teOverride[0]
+	}
+	leggyTokens, leggyMult := calcLeggyBoost(teVal)
 
 	deflectorsOnFarmer := numFarmers - 1.0
 
@@ -788,58 +929,58 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			te:                0,
 			chalice:           1.4, // T4L
 			monocle:           1.3, // T4L
-			ihrSlots:          8.0, // leggacy set, Deflector w/o IHR stones
+			ihrSlots:          8.0, // solid set, Deflector w/o IHR stones
 			chickenRunPercent: 70.0,
 			generousGifts:     1.0,
 		},
 		{
 			id:                "leggy_set",
-			deflectorBonus:    0.20,
-			boostTokens:       5.0,
-			boostMultiplier:   calcBoostMulti(5.0),
+			deflectorBonus:    DefaultLeggyDeflectorBonus,
+			boostTokens:       leggyTokens,
+			boostMultiplier:   leggyMult,
 			colELR:            collectibleELR,
 			colShip:           colllectibleShip,
 			colHab:            colleggtibleHab,
 			colIHR:            colleggtiblesIHR,
 			calcMode:          modeStoneHuntMethod,
-			metronome:         1.35,   // T4L
-			compass:           1.5,    // T4L
-			gusset:            1.25,   // T4L
-			deliverySlots:     10.0,   // defl(2), metr(3), comp(2), gusset(3)
-			ihr:               7440.0, // leggacy set, Deflector w/o IHR stones
-			te:                50,
-			chalice:           1.4, // T4L
-			monocle:           1.3, // T4L
-			ihrSlots:          8.0, // leggacy set, Deflector w/o IHR stones
-			chickenRunPercent: 70.0,
+			metronome:         DefaultLeggyMetronome,
+			compass:           DefaultLeggyCompass,
+			gusset:            DefaultLeggyGusset,
+			deliverySlots:     DefaultLeggyDeliverySlots,
+			ihr:               DefaultLeggyIHR,
+			te:                teVal,
+			chalice:           DefaultLeggyChalice,
+			monocle:           DefaultLeggyMonocle,
+			ihrSlots:          DefaultLeggyIHRSlots,
+			chickenRunPercent: DefaultLeggyChickenRunPercent,
 			generousGifts:     1.0,
 		},
 		{
-			// Full leggacy set with TE boosts of 5 tokens, using SIAB instead of gusset (9 delivery slots)
+			// Full leggacy set with TE boosts of dynamic tokens, using SIAB instead of gusset (9 delivery slots)
 			id:                "leggy_siab",
-			deflectorBonus:    0.20,
-			boostTokens:       5.0,
-			boostMultiplier:   calcBoostMulti(5.0),
+			deflectorBonus:    DefaultLeggyDeflectorBonus,
+			boostTokens:       leggyTokens,
+			boostMultiplier:   leggyMult,
 			colELR:            collectibleELR,
 			colShip:           colllectibleShip,
 			colHab:            colleggtibleHab,
 			colIHR:            colleggtiblesIHR,
 			calcMode:          modeStoneHuntMethod,
-			metronome:         1.35,   // T4L
-			compass:           1.5,    // T4L
-			gusset:            1.0,    // N/A - using SIAB instead of gusset
-			deliverySlots:     9.0,    // defl(2), metr(3), comp(2), siab(2)
-			ihr:               7440.0, // leggacy set, Deflector w/o IHR stones
-			te:                50,
-			chalice:           1.4, // T4L
-			monocle:           1.3, // T4L
-			ihrSlots:          8.0, // leggacy set, Deflector w/o IHR stones
-			chickenRunPercent: 70.0,
+			metronome:         DefaultLeggyMetronome,
+			compass:           DefaultLeggyCompass,
+			gusset:            1.0, // N/A - using SIAB instead of gusset
+			deliverySlots:     DefaultLeggyDeliverySlots - 1.0,
+			ihr:               DefaultLeggyIHR,
+			te:                teVal,
+			chalice:           DefaultLeggyChalice,
+			monocle:           DefaultLeggyMonocle,
+			ihrSlots:          DefaultLeggyIHRSlots,
+			chickenRunPercent: DefaultLeggyChickenRunPercent,
 			generousGifts:     1.0,
 		},
 		{
 			id:                "leggy_set_gg",
-			deflectorBonus:    0.20,
+			deflectorBonus:    DefaultLeggyDeflectorBonus,
 			boostTokens:       6.0,
 			boostMultiplier:   calcBoostMulti(6.0),
 			colELR:            collectibleELR,
@@ -847,22 +988,21 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			colHab:            colleggtibleHab,
 			colIHR:            colleggtiblesIHR,
 			calcMode:          modeStoneHuntMethod,
-			metronome:         1.35,   // T4L
-			compass:           1.5,    // T4L
-			gusset:            1.25,   // T4L
-			deliverySlots:     10.0,   // defl(2), metr(3), comp(2), gusset(3)
-			ihr:               7440.0, // leggacy set, Deflector w/o IHR stones
-			te:                50,
-			chalice:           1.4, // T4L
-			monocle:           1.3, // T4L
-			ihrSlots:          8.0, // leggacy set, Deflector w/o IHR stones
-			chickenRunPercent: 70.0,
+			metronome:         DefaultLeggyMetronome,
+			compass:           DefaultLeggyCompass,
+			gusset:            DefaultLeggyGusset,
+			deliverySlots:     DefaultLeggyDeliverySlots,
+			ihr:               DefaultLeggyIHR,
+			te:                teVal,
+			chalice:           DefaultLeggyChalice,
+			monocle:           DefaultLeggyMonocle,
+			ihrSlots:          DefaultLeggyIHRSlots,
+			chickenRunPercent: DefaultLeggyChickenRunPercent,
 			generousGifts:     2.0,
 		},
 		{
-			// Full leggacy set with TE boosts of 5 tokens, using SIAB instead of gusset (9 delivery slots)
 			id:                "leggy_siab_gg",
-			deflectorBonus:    0.20,
+			deflectorBonus:    DefaultLeggyDeflectorBonus,
 			boostTokens:       6.0,
 			boostMultiplier:   calcBoostMulti(6.0),
 			colELR:            collectibleELR,
@@ -870,16 +1010,16 @@ func getContractDurationEstimate(c ei.EggIncContract, contractEggsTotal float64,
 			colHab:            colleggtibleHab,
 			colIHR:            colleggtiblesIHR,
 			calcMode:          modeStoneHuntMethod,
-			metronome:         1.35,   // T4L
-			compass:           1.5,    // T4L
-			gusset:            1.0,    // N/A - using SIAB instead of gusset
-			deliverySlots:     9.0,    // defl(2), metr(3), comp(2), siab(2)
-			ihr:               7440.0, // leggacy set, Deflector w/o IHR stones
-			te:                50,
-			chalice:           1.4, // T4L
-			monocle:           1.3, // T4L
-			ihrSlots:          8.0, // leggacy set, Deflector w/o IHR stones
-			chickenRunPercent: 70.0,
+			metronome:         DefaultLeggyMetronome,
+			compass:           DefaultLeggyCompass,
+			gusset:            1.0, // N/A - using SIAB instead of gusset
+			deliverySlots:     DefaultLeggyDeliverySlots - 1.0,
+			ihr:               DefaultLeggyIHR,
+			te:                teVal,
+			chalice:           DefaultLeggyChalice,
+			monocle:           DefaultLeggyMonocle,
+			ihrSlots:          DefaultLeggyIHRSlots,
+			chickenRunPercent: DefaultLeggyChickenRunPercent,
 			generousGifts:     2.0,
 		},
 	}
