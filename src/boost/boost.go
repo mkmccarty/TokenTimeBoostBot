@@ -416,7 +416,7 @@ func AddBoostTokens(s *discordgo.Session, i *discordgo.InteractionCreate, setCou
 		b.TokensWanted = 0
 	}
 
-	if (ContractFlagDynamicTokens+ContractFlag8Tokens+ContractFlag6Tokens)&contract.Style == 0 {
+	if (ContractFlagDynamicTokens+ContractFlag8Tokens+ContractFlag6Tokens+ContractFlag4Tokens)&contract.Style == 0 {
 		// Only set this if the contract isn't controlling the wanted tokens
 		farmerstate.SetTokens(b.UserID, b.TokensWanted)
 	}
@@ -585,7 +585,9 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 			b := contract.Boosters[guest]
 			wantedTokens := farmerstate.GetTokens(b.UserID)
 			if contract.State != ContractStateSignup {
-				if contract.Style&ContractFlag6Tokens != 0 {
+				if contract.Style&ContractFlag4Tokens != 0 {
+					wantedTokens = 4
+				} else if contract.Style&ContractFlag6Tokens != 0 {
 					wantedTokens = 6
 				} else if contract.Style&ContractFlag8Tokens != 0 {
 					wantedTokens = 8
@@ -781,7 +783,9 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			b.TokensWanted = defaultFamerTokens // Default to 6
 		}
 		if contract.State != ContractStateSignup {
-			if contract.Style&ContractFlag6Tokens != 0 {
+			if contract.Style&ContractFlag4Tokens != 0 {
+				b.TokensWanted = 4
+			} else if contract.Style&ContractFlag6Tokens != 0 {
 				b.TokensWanted = 6
 			} else if contract.Style&ContractFlag8Tokens != 0 {
 				b.TokensWanted = 8
@@ -1372,7 +1376,9 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 
 	// Set tokens...
 	for i := range contract.Boosters {
-		if contract.Style&ContractFlag6Tokens != 0 {
+		if contract.Style&ContractFlag4Tokens != 0 {
+			contract.Boosters[i].TokensWanted = 4
+		} else if contract.Style&ContractFlag6Tokens != 0 {
 			contract.Boosters[i].TokensWanted = 6
 		} else if contract.Style&ContractFlag8Tokens != 0 {
 			contract.Boosters[i].TokensWanted = 8

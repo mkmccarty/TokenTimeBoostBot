@@ -693,11 +693,22 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			contract.Style &= ^ContractFlagDynamicTokens
 			contract.Style &= ^ContractFlag6Tokens
 			contract.Style &= ^ContractFlag8Tokens
+			contract.Style &= ^ContractFlag4Tokens
 		} else {
 			switch values[0] {
+			case "boost4":
+				contract.Style &= ^ContractFlagDynamicTokens
+				contract.Style &= ^ContractFlag6Tokens
+				contract.Style &= ^ContractFlag8Tokens
+				if contract.Style&ContractFlag4Tokens != 0 {
+					contract.Style &= ^ContractFlag4Tokens
+				} else {
+					contract.Style |= ContractFlag4Tokens
+				}
 			case "boost6":
 				contract.Style &= ^ContractFlagDynamicTokens
 				contract.Style &= ^ContractFlag8Tokens
+				contract.Style &= ^ContractFlag4Tokens
 				if contract.Style&ContractFlag6Tokens != 0 {
 					contract.Style &= ^ContractFlag6Tokens
 				} else {
@@ -706,6 +717,7 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			case "boost8":
 				contract.Style &= ^ContractFlagDynamicTokens
 				contract.Style &= ^ContractFlag6Tokens
+				contract.Style &= ^ContractFlag4Tokens
 				if contract.Style&ContractFlag8Tokens != 0 {
 					contract.Style &= ^ContractFlag8Tokens
 				} else {
@@ -714,6 +726,7 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			case "dynamic":
 				contract.Style &= ^ContractFlag6Tokens
 				contract.Style &= ^ContractFlag8Tokens
+				contract.Style &= ^ContractFlag4Tokens
 				if contract.Style&ContractFlagDynamicTokens != 0 {
 					contract.Style &= ^ContractFlagDynamicTokens
 				} else {
