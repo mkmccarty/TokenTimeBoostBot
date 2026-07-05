@@ -679,8 +679,7 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	}
 	// Recalculate token values after the change
-	targetTval := GetTargetTval(c.SeasonalScoring, c.EstimatedDuration.Minutes(), float64(c.MinutesPerToken))
-	calculateTokenValueCoopLog(c, c.EstimatedDuration, targetTval)
+	calculateTokenValueCoopLog(c, c.EstimatedDuration)
 
 	c.mutex.Unlock()
 	saveData(c.ContractHash)

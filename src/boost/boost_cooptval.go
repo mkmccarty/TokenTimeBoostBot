@@ -98,9 +98,8 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		fmt.Fprintf(&builder, "## Coop token value based on contract reactions\n")
 		fmt.Fprintf(&builder, "Contract started at: <t:%d:f> with a duration of %s\n", contract.StartTime.Unix(), duration.Round(time.Second))
 		fmt.Fprintf(&builder, "Target token value: %6.3f\n\n", targetTval)
-		builder.WriteString(calculateTokenValueCoopLog(contract, duration, targetTval))
+		builder.WriteString(calculateTokenValueCoopLog(contract, duration))
 
-		fmt.Fprintf(&builder, "\nTokens remaining are based on average of 6 tokens per hour plus timer token.")
 		fmt.Fprintf(&builder, "\nUpdated <t:%d:R>, refresh with %s\n", time.Now().Unix(), bottools.GetFormattedCommand("coop-tval"))
 
 	}
@@ -142,26 +141,11 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 }
 
-func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval float64) string {
+func calculateTokenValueCoopLog(contract *Contract, duration time.Duration) string {
 	tokenSent := make(map[string]int)
 	tokensReceived := make(map[string]int)
 	tokenValue := make(map[string]float64)
 	tokenUser := make(map[string]bool)
-	ultraUser := make(map[string]bool)
-
-	gg, ugg, _ := ei.GetGenerousGiftEvent()
-	// Define thresholds for determining if a Generous Gift (GG) event is active
-	const ggThreshold = 1.0
-
-	// Check if either GG or Ultra GG exceeds their respective thresholds
-	isGG := gg > ggThreshold || ugg > ggThreshold
-
-	const maxFutureTokenLogEntries = 100 // Maximum number of future token log entries to process
-	const rateSecondPerTokens = 592      // Rate at which tokens are generated
-	// 1 token = 591.6 seconds / 9.86 minutes
-
-	futureTokenLog, futureTokenLogGG :=
-		bottools.CalculateFutureTokenLogs(maxFutureTokenLogEntries, contract.StartTime, contract.MinutesPerToken, duration, rateSecondPerTokens)
 
 	// Now we have a sorted list of future token logs
 	for _, t := range contract.TokenLog {
@@ -176,10 +160,6 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 		// Sent tokens
 		tokenSent[t.FromNick] += t.Quantity
 		tokenValue[t.FromNick] += t.Value * float64(t.Quantity)
-		if t.Quantity == 2 && ugg > ggThreshold {
-			// Assuming this is a GG token
-			ultraUser[t.FromNick] = true
-		}
 
 		tokenUser[t.ToNick] = true
 		tokenUser[t.FromNick] = true
@@ -194,36 +174,19 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration, tval
 		return strings.ToLower(keys[i]) < strings.ToLower(keys[j])
 	})
 
-	headerStr := "`%-12s %3s %3s %6s %3s`\n"
-	formatStr := "`%s %3d %3d %6.2f %3s`%s\n"
+	headerStr := "`%-12s %3s %3s %6s`\n"
+	formatStr := "`%s %3d %3d %6.2f`\n"
 	var builder strings.Builder
 	if len(keys) == 0 {
 		fmt.Fprintf(&builder, "No tokens sent or received in this contract.\n")
 	} else {
-		fmt.Fprintf(&builder, headerStr, "Name", "Snd", "Rcv", "TVal-∆", "🪙#")
+		fmt.Fprintf(&builder, headerStr, "Name", "Snd", "Rcv", "TVal-∆")
 
 		// Iterate through the sorted keys
 		for _, key := range keys {
 			name := key
-			var valueLog []bottools.FutureToken
-			// test if ultraUser[key] exists
-			ultra := false
-			if _, ok := ultraUser[key]; ok {
-				ultra = true
-			}
-			if isGG && ((ultra && ugg > ggThreshold) || (gg > ggThreshold)) {
-				valueLog = futureTokenLogGG
-			} else {
-				valueLog = futureTokenLog
-			}
 
-			tcount := "√"
-			ttime := ""
-			if contract.SeasonalScoring == ei.SeasonalScoringStandard {
-				tcount, ttime, _ = bottools.CalculateTcountTtime(tokenValue[key], tval, valueLog)
-			}
-
-			fmt.Fprintf(&builder, formatStr, bottools.FitString(name, 12, bottools.StringAlignLeft), tokenSent[key], tokensReceived[key], tokenValue[key], tcount, ttime)
+			fmt.Fprintf(&builder, formatStr, bottools.FitString(name, 12, bottools.StringAlignLeft), tokenSent[key], tokensReceived[key], tokenValue[key])
 		}
 	}
 	return builder.String()
