@@ -71,6 +71,7 @@ var contractFlagNames = []struct {
 	Name string
 }{
 	{ContractFlagBanker, "Banker"},
+	{ContractFlag4Tokens, "4-token"},
 	{ContractFlag6Tokens, "6-token"},
 	{ContractFlag8Tokens, "8-token"},
 	{ContractFlagDynamicTokens, "Dynamic-tokens"},
@@ -119,6 +120,7 @@ const (
 	ContractFlag6Tokens       = 0x0100
 	ContractFlag8Tokens       = 0x0200
 	ContractFlagDynamicTokens = 0x0400
+	ContractFlag4Tokens       = 0x0800
 	ContractFlagFastrun       = 0x4000
 	ContractFlagBanker        = 0x8000
 

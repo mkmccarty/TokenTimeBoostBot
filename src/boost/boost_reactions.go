@@ -52,7 +52,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			var b = contract.Boosters[r.UserID]
 			if b != nil {
 				var tokenCount = slices.Index(numberSlice, emojiName)
-				if (ContractFlagDynamicTokens+ContractFlag8Tokens+ContractFlag6Tokens)&contract.Style == 0 {
+				if (ContractFlagDynamicTokens+ContractFlag8Tokens+ContractFlag6Tokens+ContractFlag4Tokens)&contract.Style == 0 {
 					farmerstate.SetTokens(r.UserID, tokenCount)
 				}
 				b.TokensWanted = tokenCount

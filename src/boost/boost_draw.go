@@ -179,7 +179,9 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	if contract.Description != "" {
 		if len(contract.Boosters) != contract.CoopSize || contract.State == ContractStateSignup {
 			fmt.Fprintf(&header, "### Boost ordering is %s\n", getBoostOrderString(contract))
-			if contract.Style&ContractFlag6Tokens != 0 {
+			if contract.Style&ContractFlag4Tokens != 0 {
+				fmt.Fprintf(&header, ">  4️⃣%s boosting for everyone!\n", contract.TokenStr)
+			} else if contract.Style&ContractFlag6Tokens != 0 {
 				fmt.Fprintf(&header, ">  6️⃣%s boosting for everyone!\n", contract.TokenStr)
 			} else if contract.Style&ContractFlag8Tokens != 0 {
 				fmt.Fprintf(&header, ">  8️⃣%s boosting for everyone!\n", contract.TokenStr)
