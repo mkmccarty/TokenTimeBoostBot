@@ -709,7 +709,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		}
 
 	case ContractStateWaiting:
-		coopTvalStr := calculateTokenValueCoopLog(contract, contract.EstimatedDuration, targetTval)
+		coopTvalStr := calculateTokenValueCoopLog(contract, contract.EstimatedDuration)
 		components = append(components, &discordgo.TextDisplay{
 			Content: coopTvalStr,
 		})
@@ -730,7 +730,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		}
 
 	case ContractStateCompleted:
-		coopTvalStr := calculateTokenValueCoopLog(contract, contract.EstimatedDuration, targetTval)
+		coopTvalStr := calculateTokenValueCoopLog(contract, contract.EstimatedDuration)
 		components = append(components, &discordgo.TextDisplay{
 			Content: coopTvalStr,
 		})
