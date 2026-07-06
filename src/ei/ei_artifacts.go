@@ -48,6 +48,9 @@ var ArtifactRarity = []string{"C", "R", "E", "L"}
 
 // GetArtifactBuffs calculates the total buffs from artifacts
 func GetArtifactBuffs(artifacts []*CompleteArtifact) DimensionBuffs {
+	if len(artifacts) == 0 {
+		return newDimensionBuffsIdentity()
+	}
 	artifactBuffs := newDimensionBuffsIdentity()
 
 	chalice := map[string]float64{
