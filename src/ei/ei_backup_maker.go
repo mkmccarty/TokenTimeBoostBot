@@ -3,9 +3,17 @@ package ei
 import (
 	"fmt"
 	"math"
+	"os"
 	"strings"
 	"time"
+
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
+
+// mockBackupFile can be set to a JSON file path (e.g. "ttbb-data/eiuserdata/firstcontact-mock-b.json")
+// to override the default test data with that mock data. Keep empty to use normal defaults.
+const mockBackupFile = ""
 
 // BackupMaker is a builder for creating test Backup objects.
 type BackupMaker struct {
@@ -16,6 +24,61 @@ type BackupMaker struct {
 
 // NewBackupMaker creates a new BackupMaker with a minimal backup structure.
 func NewBackupMaker(eiUserID, userName string) *BackupMaker {
+	if mockBackupFile != "" {
+		paths := []string{
+			mockBackupFile,
+			"../../" + mockBackupFile,
+			"../" + mockBackupFile,
+		}
+		var data []byte
+		var err error
+		for _, path := range paths {
+			data, err = os.ReadFile(path)
+			if err == nil {
+				break
+			}
+		}
+		if err != nil {
+			panic(fmt.Sprintf("mock_backup: failed to read mock file %q: %v", mockBackupFile, err))
+		}
+
+		var response EggIncFirstContactResponse
+		opts := protojson.UnmarshalOptions{
+			DiscardUnknown: true,
+		}
+		if err := opts.Unmarshal(data, &response); err != nil {
+			panic(fmt.Sprintf("mock_backup: failed to unmarshal mock JSON: %v", err))
+		}
+
+		backup := response.GetBackup()
+		if backup == nil {
+			panic("mock_backup: backup was nil in mock JSON response")
+		}
+
+		backup = proto.Clone(backup).(*Backup)
+		if eiUserID != "" {
+			backup.EiUserId = &eiUserID
+		}
+		if userName != "" {
+			backup.UserName = &userName
+		}
+		nextItemID := uint64(1)
+		if backup.ArtifactsDb != nil && backup.ArtifactsDb.ItemSequence != nil {
+			nextItemID = *backup.ArtifactsDb.ItemSequence
+		}
+		var currentFarm *Backup_Simulation
+		if backup.Sim != nil {
+			currentFarm = backup.Sim
+		} else if len(backup.Farms) > 0 {
+			currentFarm = backup.Farms[0]
+		}
+		return &BackupMaker{
+			backup:      backup,
+			nextItemID:  nextItemID,
+			currentFarm: currentFarm,
+		}
+	}
+
 	now := float64(time.Now().Unix())
 
 	lastFueledShip := MissionInfo_Spaceship(10)
