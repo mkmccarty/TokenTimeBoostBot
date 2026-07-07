@@ -61,3 +61,60 @@ func FuzzSanitizeStringDuration(f *testing.F) {
 	})
 
 }
+
+func TestCleanContractTeamNames(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{
+			name: "JSON array format",
+			input: `["Galaxy Strikers", "Solar Flares", "Nebula Nomads"]`,
+			expected: []string{"Galaxy Strikers", "Solar Flares", "Nebula Nomads"},
+		},
+		{
+			name: "Conversational preamble with newline and comma-separated list",
+			input: `Here are 30 team names:
+
+Galaxy Strikers, Solar Flares, Nebula Nomads`,
+			expected: []string{"Galaxy Strikers", "Solar Flares", "Nebula Nomads"},
+		},
+		{
+			name: "Numbered list format",
+			input: `1. Galaxy Strikers
+2. Solar Flares
+3. Nebula Nomads`,
+			expected: []string{"Galaxy Strikers", "Solar Flares", "Nebula Nomads"},
+		},
+		{
+			name: "Bulleted list format with conversational outro",
+			input: `Sure! I can help with that.
+- Galaxy Strikers
+- Solar Flares
+- Nebula Nomads
+
+Let me know if you need more!`,
+			expected: []string{"Galaxy Strikers", "Solar Flares", "Nebula Nomads"},
+		},
+		{
+			name: "Single line comma separated list",
+			input: `Galaxy Strikers, Solar Flares, Nebula Nomads`,
+			expected: []string{"Galaxy Strikers", "Solar Flares", "Nebula Nomads"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := CleanContractTeamNames(tc.input)
+			if len(got) != len(tc.expected) {
+				t.Fatalf("expected %d elements, got %d. Got: %v", len(tc.expected), len(got), got)
+			}
+			for i, v := range got {
+				if v != tc.expected[i] {
+					t.Errorf("at index %d: expected %q, got %q", i, tc.expected[i], v)
+				}
+			}
+		})
+	}
+}

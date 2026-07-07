@@ -465,16 +465,7 @@ func fetchContractTeamNames(prompt string, quantity int) []string {
 
 	text := strings.ReplaceAll(respStr.String(), "widget", "token")
 
-	parts := strings.Split(text, ",")
-	var names []string
-	for _, p := range parts {
-		name := strings.TrimSpace(p)
-		if name != "" {
-			names = append(names, name)
-		}
-	}
-
-	return names
+	return bottools.CleanContractTeamNames(text)
 }
 
 // IsRoleCreatedByBot checks if a role name was created by the bot by verifying if it matches
