@@ -1211,4 +1211,3 @@ func scheduleCoopStatusPoll(contract *Contract) {
 		pollCoopStatus(contract)
 	})
 }
-
