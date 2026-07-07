@@ -228,6 +228,13 @@ func getCoopStatus(contractID string, coopID string, eeidOverride string, bypass
 		return nil, timestamp, dataTimestampStr, err
 	}
 
+	// We don't care about the shells a user has in place
+	for _, contributor := range decodeCoopStatus.GetContributors() {
+		if farmInfo := contributor.GetFarmInfo(); farmInfo != nil {
+			farmInfo.FarmAppearance = nil
+		}
+	}
+
 	return decodeCoopStatus, timestamp, dataTimestampStr, nil
 }
 
