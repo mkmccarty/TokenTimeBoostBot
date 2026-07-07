@@ -307,8 +307,8 @@ type Contract struct {
 	HelpGuidanceUntil    time.Time          // Show bottom guidance while now is before this timestamp
 	NewFeature           int                // Used to slide in new features
 	DynamicData          *DynamicTokenData
-	LastSaveTime         time.Time // The last time the contract was saved
-	ThematicComplaints   []string  `json:"thematic_complaints,omitempty"`
+	LastSaveTime         time.Time                      // The last time the contract was saved
+	ThematicComplaints   []string                       `json:"thematic_complaints,omitempty"`
 	LatestCoopStatus     *ei.ContractCoopStatusResponse `json:"-"`
 
 	mutex sync.Mutex // Keep this contract thread safe
