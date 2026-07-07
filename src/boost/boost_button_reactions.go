@@ -181,7 +181,7 @@ func buttonReactionBoost(s *discordgo.Session, GuildID string, ChannelID string,
 
 	if userID == currentBoosterID || votingElection || creatorOfContract(s, contract, cUserID) {
 		_ = Boosting(s, GuildID, ChannelID)
-		scheduleCoopStatusPoll(contract)
+		scheduleCoopStatusPoll(s, contract)
 		return true
 	}
 	return redraw
@@ -254,7 +254,7 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 			return true, false
 		}
 		if bankerID != "" && fromUserID == bankerID {
-			scheduleCoopStatusPoll(contract)
+			scheduleCoopStatusPoll(s, contract)
 		}
 		return false, true
 
@@ -1183,7 +1183,7 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 	return iconsRowA, iconsRowB
 }
 
-func pollCoopStatus(contract *Contract) {
+func pollCoopStatus(s *discordgo.Session, contract *Contract) {
 	if contract.PlayStyle != ContractPlaystyleLeaderboard {
 		return
 	}
@@ -1197,9 +1197,16 @@ func pollCoopStatus(contract *Contract) {
 		return
 	}
 	log.Printf("pollCoopStatus: successfully retrieved status for %s, response: %s", contract.ContractHash, coopStatus.GetResponseStatus().String())
+
+	contract.mutex.Lock()
+	contract.LatestCoopStatus = coopStatus
+	contract.mutex.Unlock()
+
+	UpdateAllEstimatedBoostTimings(contract, coopStatus)
+	refreshBoostListMessage(s, contract, false)
 }
 
-func scheduleCoopStatusPoll(contract *Contract) {
+func scheduleCoopStatusPoll(s *discordgo.Session, contract *Contract) {
 	if contract.PlayStyle != ContractPlaystyleLeaderboard {
 		return
 	}
@@ -1208,6 +1215,6 @@ func scheduleCoopStatusPoll(contract *Contract) {
 	}
 	log.Printf("scheduleCoopStatusPoll: scheduled coop status poll in 1 minute for contract %s", contract.ContractHash)
 	time.AfterFunc(1*time.Minute, func() {
-		pollCoopStatus(contract)
+		pollCoopStatus(s, contract)
 	})
 }

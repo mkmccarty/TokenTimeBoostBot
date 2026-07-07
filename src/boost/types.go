@@ -309,6 +309,7 @@ type Contract struct {
 	DynamicData          *DynamicTokenData
 	LastSaveTime         time.Time // The last time the contract was saved
 	ThematicComplaints   []string  `json:"thematic_complaints,omitempty"`
+	LatestCoopStatus     *ei.ContractCoopStatusResponse `json:"-"`
 
 	mutex sync.Mutex // Keep this contract thread safe
 }
