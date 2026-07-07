@@ -69,8 +69,8 @@ func TestCleanContractTeamNames(t *testing.T) {
 		expected []string
 	}{
 		{
-			name: "JSON array format",
-			input: `["Galaxy Strikers", "Solar Flares", "Nebula Nomads"]`,
+			name:     "JSON array format",
+			input:    `["Galaxy Strikers", "Solar Flares", "Nebula Nomads"]`,
 			expected: []string{"Galaxy Strikers", "Solar Flares", "Nebula Nomads"},
 		},
 		{
@@ -98,8 +98,8 @@ Let me know if you need more!`,
 			expected: []string{"Galaxy Strikers", "Solar Flares", "Nebula Nomads"},
 		},
 		{
-			name: "Single line comma separated list",
-			input: `Galaxy Strikers, Solar Flares, Nebula Nomads`,
+			name:     "Single line comma separated list",
+			input:    `Galaxy Strikers, Solar Flares, Nebula Nomads`,
 			expected: []string{"Galaxy Strikers", "Solar Flares", "Nebula Nomads"},
 		},
 	}
