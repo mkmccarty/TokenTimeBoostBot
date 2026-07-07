@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 
 	"github.com/bwmarrin/discordgo"
@@ -279,55 +280,7 @@ func GetContractTeamNames(prompt string, quantity int) []string {
 		time.Sleep(time.Duration(attempt) * 5 * time.Second)
 	}
 
-	cleaned := strings.TrimSpace(str)
-
-	// Prefer strict JSON parsing when model follows instructions.
-	var strArray []string
-	if strings.HasPrefix(cleaned, "[") {
-		if err := json.Unmarshal([]byte(cleaned), &strArray); err != nil {
-			strArray = nil
-		}
-	}
-
-	// Fallback parsing for malformed/non-JSON responses.
-	if len(strArray) == 0 {
-		normalized := cleaned
-		normalized = strings.TrimPrefix(normalized, "[")
-		normalized = strings.TrimSuffix(normalized, "]")
-
-		switch {
-		case strings.Contains(normalized, "\",\""):
-			strArray = strings.Split(normalized, "\",\"")
-		case strings.Contains(normalized, "\", \""):
-			strArray = strings.Split(normalized, "\", \"")
-		case strings.Contains(normalized, "\n"):
-			strArray = strings.Split(normalized, "\n")
-		default:
-			strArray = strings.Split(normalized, ",")
-		}
-	}
-
-	for i, s := range strArray {
-		s = strings.TrimSpace(s)
-		s = strings.TrimPrefix(s, "\"")
-		s = strings.TrimSuffix(s, "\"")
-		s = strings.TrimLeft(s, "0123456789.-*• ")
-		s = strings.TrimSpace(s)
-		strArray[i] = s
-	}
-
-	// Make sure this is a unique list of names, and remove any duplicates
-	uniqueNames := make(map[string]struct{})
-	var uniqueStrArray []string
-	for _, s := range strArray {
-		if _, exists := uniqueNames[s]; !exists && s != "" {
-			uniqueNames[s] = struct{}{}
-			uniqueStrArray = append(uniqueStrArray, s)
-		}
-	}
-	strArray = uniqueStrArray
-
-	return strArray
+	return bottools.CleanContractTeamNames(str)
 }
 
 func wishGemini(mention string, text string, desc string) (string, error) {

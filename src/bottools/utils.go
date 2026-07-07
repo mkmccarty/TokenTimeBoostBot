@@ -1,6 +1,7 @@
 package bottools
 
 import (
+	"encoding/json"
 	"fmt"
 	"maps"
 	"regexp"
@@ -322,4 +323,113 @@ func RefreshMap[K comparable, V any](m map[K]V) map[K]V {
 	newMap := make(map[K]V, len(m))
 	maps.Copy(newMap, m)
 	return newMap
+}
+
+// CleanContractTeamNames parses and cleans a raw string (which may be JSON or plain text with conversational preambles/lists) into a slice of team names.
+func CleanContractTeamNames(raw string) []string {
+	cleaned := strings.TrimSpace(raw)
+	if cleaned == "" {
+		return nil
+	}
+
+	// Try to parse as JSON first
+	var strArray []string
+	if strings.HasPrefix(cleaned, "[") {
+		if err := json.Unmarshal([]byte(cleaned), &strArray); err != nil {
+			strArray = nil
+		}
+	}
+
+	// If it's not a JSON array, parse line by line and comma by comma
+	if len(strArray) == 0 {
+		// Clean outer brackets if present but failed JSON parsing
+		normalized := cleaned
+		normalized = strings.TrimPrefix(normalized, "[")
+		normalized = strings.TrimSuffix(normalized, "]")
+
+		lines := strings.Split(normalized, "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+
+			// Check for conversational preambles/outros
+			lowerLine := strings.ToLower(line)
+			if strings.HasSuffix(line, ":") {
+				continue
+			}
+			// Skip lines that start with common conversational phrases
+			hasPreamble := false
+			preambles := []string{
+				"here is", "here are", "sure,", "sure!", "below is", "below are",
+				"here's", "here’s", "list of", "i have", "i've", "i can help",
+				"these are", "this is", "the following", "let me", "hope this",
+				"feel free", "please", "i hope", "if you", "enjoy", "here you go",
+			}
+			for _, p := range preambles {
+				if strings.HasPrefix(lowerLine, p) {
+					hasPreamble = true
+					break
+				}
+			}
+			if hasPreamble {
+				continue
+			}
+
+			// If the line contains commas, split it by commas
+			if strings.Contains(line, ",") {
+				parts := strings.Split(line, ",")
+				strArray = append(strArray, parts...)
+			} else {
+				strArray = append(strArray, line)
+			}
+		}
+	}
+
+	// Clean each item
+	var names []string
+	seen := make(map[string]struct{})
+	for _, item := range strArray {
+		item = strings.TrimSpace(item)
+		item = strings.TrimPrefix(item, "\"")
+		item = strings.TrimSuffix(item, "\"")
+		item = strings.TrimPrefix(item, "'")
+		item = strings.TrimSuffix(item, "'")
+		item = strings.TrimLeft(item, "0123456789.-*• \t")
+		item = strings.TrimSpace(item)
+
+		if item == "" {
+			continue
+		}
+
+		// Skip if item matches preamble/outro checks
+		lowerItem := strings.ToLower(item)
+		if strings.HasSuffix(item, ":") {
+			continue
+		}
+		hasPreamble := false
+		preambles := []string{
+			"here is", "here are", "sure,", "sure!", "below is", "below are",
+			"here's", "here’s", "list of", "i have", "i've", "i can help",
+			"these are", "this is", "the following", "let me", "hope this",
+			"feel free", "please", "i hope", "if you", "enjoy", "here you go",
+		}
+		for _, p := range preambles {
+			if strings.HasPrefix(lowerItem, p) {
+				hasPreamble = true
+				break
+			}
+		}
+		if hasPreamble {
+			continue
+		}
+
+		if _, exists := seen[item]; !exists {
+			seen[item] = struct{}{}
+			names = append(names, item)
+		}
+	}
+
+	return names
 }
