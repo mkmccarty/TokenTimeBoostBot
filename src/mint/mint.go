@@ -1421,13 +1421,30 @@ func loadTokenImage() (*image.NRGBA, error) {
 }
 
 func ensureTokenImageFile() (string, error) {
-	filePath := filepath.Clean(testAnimateTokenPath)
-	if _, statErr := os.Stat(filePath); os.IsNotExist(statErr) {
-		if err := downloadTokenOverlayFromRepo(filePath); err != nil {
-			return "", err
+	candidates := []string{filepath.Clean(testAnimateTokenPath)}
+	if cwd, err := os.Getwd(); err == nil {
+		candidates = append(candidates, filepath.Join(cwd, filepath.Clean(testAnimateTokenPath)))
+		for dir := cwd; dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
+			candidates = append(candidates, filepath.Join(dir, filepath.Clean(testAnimateTokenPath)))
 		}
 	}
-	return filePath, nil
+
+	for _, candidate := range candidates {
+		if _, statErr := os.Stat(candidate); statErr == nil {
+			return candidate, nil
+		}
+	}
+
+	for _, candidate := range candidates {
+		if _, statErr := os.Stat(candidate); os.IsNotExist(statErr) {
+			if err := downloadTokenOverlayFromRepo(candidate); err != nil {
+				return "", err
+		}
+			return candidate, nil
+		}
+	}
+
+	return "", fmt.Errorf("token image not found")
 }
 
 func downloadTokenOverlayFromRepo(localFilePath string) error {
