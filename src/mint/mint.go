@@ -1439,7 +1439,7 @@ func ensureTokenImageFile() (string, error) {
 		if _, statErr := os.Stat(candidate); os.IsNotExist(statErr) {
 			if err := downloadTokenOverlayFromRepo(candidate); err != nil {
 				return "", err
-		}
+			}
 			return candidate, nil
 		}
 	}
