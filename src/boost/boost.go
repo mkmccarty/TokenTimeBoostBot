@@ -1484,7 +1484,8 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 	booster.Duration = time.Since(booster.StartTime)
 
 	// Estimate timings for remaining boosters
-	setEstimatedBoostTimings(booster)
+	coopStatus, _, _, _ := ei.GetCoopStatus(contract.ContractID, contract.CoopID, "")
+	setEstimatedBoostTimings(contract, booster, coopStatus)
 
 	contract.BoostedOrder = append(contract.BoostedOrder, currentBoosterID)
 

@@ -59,7 +59,8 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 			contract.Boosters[b.UserID].TokenValue -= tval * float64(tokensToSend)
 
 			// Set the estimated boost timings for the booster
-			setEstimatedBoostTimings(b)
+			coopStatus, _, _, _ := ei.GetCoopStatus(contract.ContractID, contract.CoopID, "")
+			setEstimatedBoostTimings(contract, b, coopStatus)
 			/*
 				if contract.Style&ContractFlagDynamicTokens != 0 {
 					// Determine the dynamic tokens
