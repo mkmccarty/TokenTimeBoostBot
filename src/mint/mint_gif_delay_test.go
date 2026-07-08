@@ -6,6 +6,8 @@ import (
 	"image/color"
 	"image/color/palette"
 	"image/gif"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -53,6 +55,51 @@ func TestBuildTokenOverlayGIFSingleFrameExpansionUsesFiveFPS(t *testing.T) {
 		if d != 20 {
 			t.Fatalf("expected delay 20 at frame %d, got %d", idx+1, d)
 		}
+	}
+}
+
+func TestEnsureTokenImageFileResolvesRepoAssetFromParentDirectory(t *testing.T) {
+	repoRoot := t.TempDir()
+	assetDir := filepath.Join(repoRoot, "emoji")
+	if err := os.MkdirAll(assetDir, 0755); err != nil {
+		t.Fatalf("failed to create fixture asset dir: %v", err)
+	}
+	assetPath := filepath.Join(assetDir, "token_overlay.png")
+	if err := os.WriteFile(assetPath, []byte("fixture"), 0600); err != nil {
+		t.Fatalf("failed to write fixture asset: %v", err)
+	}
+
+	packageDir := filepath.Join(repoRoot, "src", "mint")
+	if err := os.MkdirAll(packageDir, 0755); err != nil {
+		t.Fatalf("failed to create fixture package dir: %v", err)
+	}
+
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working dir: %v", err)
+	}
+	defer func() {
+		_ = os.Chdir(oldWd)
+	}()
+	if err := os.Chdir(packageDir); err != nil {
+		t.Fatalf("failed to enter fixture package dir: %v", err)
+	}
+
+	resolvedPath, err := ensureTokenImageFile()
+	if err != nil {
+		t.Fatalf("ensureTokenImageFile returned error: %v", err)
+	}
+
+	resolvedInfo, err := os.Stat(resolvedPath)
+	if err != nil {
+		t.Fatalf("failed to stat resolved asset: %v", err)
+	}
+	assetInfo, err := os.Stat(assetPath)
+	if err != nil {
+		t.Fatalf("failed to stat fixture asset: %v", err)
+	}
+	if !os.SameFile(resolvedInfo, assetInfo) {
+		t.Fatalf("expected resolved asset to match fixture asset, got %q and %q", resolvedPath, assetPath)
 	}
 }
 
