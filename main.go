@@ -962,7 +962,7 @@ func connectWithRetry(dg *discordgo.Session) error {
 	var err error
 	backoff := time.Second * 2
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		err = dg.Open()
 		if err == nil {
 			return nil
