@@ -27,6 +27,7 @@ var discordMarkdownEscaper = strings.NewReplacer(
 	")", "\\)",
 )
 
+// EscapeDiscordMarkdown escapes special characters in a string to prevent Discord from interpreting them as Markdown formatting.
 func EscapeDiscordMarkdown(s string) string {
 	if s == "" {
 		return ""
