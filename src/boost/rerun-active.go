@@ -249,7 +249,8 @@ func printActiveContractDetails(userID string, archive []*ei.LocalContract, cont
 		}
 	}
 
-	fmt.Fprintf(&builder, "-# Est duration/CS based on 1.0 fair share, 5%s boosts (w/50%sIHR), 6%s/hr rate and leggy artifacts.\n", ei.GetBotEmojiMarkdown("token"), ei.GetBotEmojiMarkdown("egg_truth"), ei.GetBotEmojiMarkdown("token"))
+	leggyTokens, _ := calcLeggyBoost(DefaultLeggyTE)
+	fmt.Fprintf(&builder, "-# Est duration/CS based on 1.0 fair share, %.0f%s boosts (w/%.0f%s TE), 6%s/hr rate and leggy artifacts.\n", leggyTokens, ei.GetBotEmojiMarkdown("token"), DefaultLeggyTE, ei.GetBotEmojiMarkdown("egg_truth"), ei.GetBotEmojiMarkdown("token"))
 
 	if builder.Len() > 0 {
 		components = append(components, &discordgo.TextDisplay{
