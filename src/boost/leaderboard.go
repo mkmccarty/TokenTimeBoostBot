@@ -533,8 +533,10 @@ func leaderboardTable(resp *ei.LeaderboardResponse, season string, guildNames []
 		bottools.AlignString("Name", nameWidth, bottools.StringAlignLeft),
 		bottools.AlignString("Score", scoreWidth, bottools.StringAlignRight),
 	}, "|")
-	b.WriteString(header + "\n")
-	b.WriteString(strings.Repeat("—", len(header)) + "\n")
+	b.WriteString(header)
+	b.WriteString("\n")
+	b.WriteString(strings.Repeat("—", len(header)))
+	b.WriteString("\n")
 
 	for _, r := range rows {
 		row := strings.Join([]string{
@@ -543,7 +545,8 @@ func leaderboardTable(resp *ei.LeaderboardResponse, season string, guildNames []
 			bottools.AlignString(r.name, nameWidth, bottools.StringAlignLeft),
 			bottools.AlignString(fmt.Sprintf("%.0f", r.score), scoreWidth, bottools.StringAlignRight),
 		}, "|")
-		b.WriteString(row + "\n")
+		b.WriteString(row)
+		b.WriteString("\n")
 	}
 
 	b.WriteString("```")

@@ -567,7 +567,8 @@ func getWeeklyEmbeds(wedTime, friTime time.Time, userName, botName, botIconURL s
 		}
 	}
 	if seasonalEmojis.Len() > 0 {
-		legend.WriteString(seasonalEmojis.String() + " Seasonal LB")
+		legend.WriteString(seasonalEmojis.String())
+		legend.WriteString(" Seasonal LB")
 	}
 	if timeSaverMissing {
 		if legend.Len() > 0 {
@@ -576,9 +577,13 @@ func getWeeklyEmbeds(wedTime, friTime time.Time, userName, botName, botIconURL s
 		legend.WriteString("🕯️ Missing since")
 	}
 	if legend.Len() > 0 {
-		footer.WriteString("Legend: " + legend.String() + "\n")
+		footer.WriteString("Legend: ")
+		footer.WriteString(legend.String())
+		footer.WriteString("\n")
 	}
-	footer.WriteString(botName + " • /pred weekly • User: " + userName)
+	footer.WriteString(botName)
+	footer.WriteString(" • /pred weekly • User: ")
+	footer.WriteString(userName)
 
 	var title string
 	if weeklyType == 0 {
@@ -627,9 +632,13 @@ func getCollectibleEmbeds(collectibles map[string]collectiblePrediction, userNam
 			legend.WriteString(" Seasonal LB")
 		}
 		if legend.Len() > 0 {
-			footer.WriteString("Legend: " + legend.String() + "\n")
+			footer.WriteString("Legend: ")
+			footer.WriteString(legend.String())
+			footer.WriteString("\n")
 		}
-		footer.WriteString(botName + " • /pred collectibles • User: " + userName)
+		footer.WriteString(botName)
+		footer.WriteString(" • /pred collectibles • User: ")
+		footer.WriteString(userName)
 		return &discordgo.MessageEmbedFooter{Text: footer.String(), IconURL: botIconURL}
 	}
 

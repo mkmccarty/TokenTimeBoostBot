@@ -404,7 +404,8 @@ func HandleAdminListRoles(s *discordgo.Session, i *discordgo.InteractionCreate) 
 
 	guildRoles, err := s.GuildRoles(i.GuildID)
 	if err != nil {
-		builder.WriteString("Error retrieving guild roles: " + err.Error())
+		builder.WriteString("Error retrieving guild roles: ")
+		builder.WriteString(err.Error())
 	} else {
 
 		for _, c := range ei.EggIncContracts {
@@ -591,11 +592,13 @@ func HandleAdminGetContractData(s *discordgo.Session, i *discordgo.InteractionCr
 	jsonData, err := json.Marshal(contract)
 	if err != nil {
 		log.Println(err.Error())
-		builder.WriteString("Error formatting JSON data. " + err.Error())
+		builder.WriteString("Error formatting JSON data. ")
+		builder.WriteString(err.Error())
 	} else {
 		err = json.Indent(buf, jsonData, "", "  ")
 		if err != nil {
-			builder.WriteString("Error formatting JSON data. " + err.Error())
+			builder.WriteString("Error formatting JSON data. ")
+			builder.WriteString(err.Error())
 		} else {
 			// Create io.Reader from JSON string
 			reader = bytes.NewReader(buf.Bytes())
