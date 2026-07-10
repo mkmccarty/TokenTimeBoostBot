@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -21,6 +22,7 @@ import (
 const (
 	WatchTypeContract     = "contract"
 	WatchTypeColleggtible = "colleggtible"
+	WatchTypeEvent        = "event"
 )
 
 var (
@@ -33,6 +35,114 @@ func AddNewColleggtible(id string) {
 	newCollMutex.Lock()
 	defer newCollMutex.Unlock()
 	newColleggtibles = append(newColleggtibles, id)
+}
+func getEventName(eventType string) string {
+	switch eventType {
+	case "boost-duration":
+		return "Boost Duration"
+	case "boost-sale":
+		return "Boost Sale"
+	case "crafting-sale":
+		return "Crafting Sale"
+	case "drone-boost":
+		return "Drone Boost"
+	case "earnings-boost":
+		return "Earnings Boost"
+	case "epic-research-sale":
+		return "Epic Research Sale"
+	case "gift-boost":
+		return "Generous Gifts"
+	case "hab-sale":
+		return "Hab Sale"
+	case "mission-capacity":
+		return "Mission Capacity"
+	case "mission-duration":
+		return "Mission Duration"
+	case "mission-fuel":
+		return "Mission Fuel"
+	case "piggy-boost":
+		return "Piggy Boost"
+	case "piggy-cap-boost":
+		return "Uncapped Piggy"
+	case "prestige-boost":
+		return "Prestige Boost"
+	case "research-sale":
+		return "Research Sale"
+	case "shell-sale":
+		return "Shell Sale"
+	case "vehicle-sale":
+		return "Vehicle Sale"
+	default:
+		return eventType
+	}
+}
+
+var watchedEventTypes = []string{
+	"boost-duration",
+	"boost-sale",
+	"crafting-sale",
+	"drone-boost",
+	"earnings-boost",
+	"epic-research-sale",
+	"gift-boost",
+	"hab-sale",
+	"mission-capacity",
+	"mission-duration",
+	"mission-fuel",
+	"piggy-boost",
+	"piggy-cap-boost",
+	"prestige-boost",
+	"research-sale",
+	"shell-sale",
+	"vehicle-sale",
+}
+
+func getEventChoices() []*discordgo.ApplicationCommandOptionChoice {
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, len(watchedEventTypes))
+	for i, eventType := range watchedEventTypes {
+		choices[i] = &discordgo.ApplicationCommandOptionChoice{
+			Name:  getEventName(eventType),
+			Value: eventType,
+		}
+	}
+	return choices
+}
+
+func parseEventWatchTarget(targetID string) (eventType string, ultra bool, repeat bool) {
+	parts := strings.Split(targetID, ":")
+	if len(parts) >= 1 {
+		eventType = parts[0]
+	}
+	ultra = false
+	if len(parts) >= 2 {
+		ultra = parts[1] == "true"
+	}
+	repeat = false
+	if len(parts) >= 3 {
+		repeat = parts[2] == "true"
+	}
+	return
+}
+
+func markEventNotified(userID string, eventID string) bool {
+	notifiedStr := farmerstate.GetMiscSettingString(userID, "notified_events")
+	var notified []string
+	if notifiedStr != "" {
+		_ = json.Unmarshal([]byte(notifiedStr), &notified)
+	}
+	for _, id := range notified {
+		if id == eventID {
+			return false // already notified
+		}
+	}
+	notified = append(notified, eventID)
+	// Keep the list size bounded, e.g., last 50 events
+	if len(notified) > 50 {
+		notified = notified[len(notified)-50:]
+	}
+	b, _ := json.Marshal(notified)
+	farmerstate.SetMiscSettingString(userID, "notified_events", string(b))
+	return true
 }
 
 // GetSlashWatchCommand returns the slash command definition for /watch.
@@ -75,6 +185,32 @@ func GetSlashWatchCommand(cmd string) *discordgo.ApplicationCommand {
 						Description:  "Colleggtible to watch.",
 						Required:     true,
 						Autocomplete: true,
+					},
+				},
+			},
+			{
+				Name:        "event",
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Description: "Watch for a specific type of event.",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:        discordgo.ApplicationCommandOptionString,
+						Name:        "event-type",
+						Description: "Type of event to watch.",
+						Required:    true,
+						Choices:     getEventChoices(),
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionBoolean,
+						Name:        "ultra",
+						Description: "Include Ultra events (default: false)?",
+						Required:    false,
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionBoolean,
+						Name:        "repeat",
+						Description: "Should this watch repeat (keep notifying every time the event starts)?",
+						Required:    false,
 					},
 				},
 			},
@@ -228,6 +364,55 @@ func HandleWatchCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: msgContent,
+		})
+
+	case "event":
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
+		})
+		eventType := ""
+		ultra := false
+		repeat := false
+		for _, opt := range options[0].Options {
+			switch opt.Name {
+			case "event-type":
+				eventType = opt.StringValue()
+			case "ultra":
+				ultra = opt.BoolValue()
+			case "repeat":
+				repeat = opt.BoolValue()
+			}
+		}
+		if eventType == "" {
+			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+				Content: "Please provide a valid event type.",
+			})
+			return
+		}
+
+		targetID := fmt.Sprintf("%s:%t:%t", eventType, ultra, repeat)
+
+		// If they already have a watch for this exact event configuration, toggle it off (clear it)
+		hasWatch := false
+		watches := farmerstate.GetWatchesForUser(userID)
+		for _, w := range watches {
+			if w.WatchType == WatchTypeEvent && w.TargetID == targetID {
+				hasWatch = true
+				break
+			}
+		}
+		if hasWatch {
+			farmerstate.DeleteWatch(userID, WatchTypeEvent, targetID)
+			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+				Content: fmt.Sprintf("Watch for event `%s` (include ultra: `%t`, repeat: `%t`) cleared/removed.", eventType, ultra, repeat),
+			})
+			return
+		}
+
+		farmerstate.AddWatch(userID, WatchTypeEvent, targetID)
+		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: fmt.Sprintf("Success! Added watch for event: `%s` (include ultra: `%t`, repeat: `%t`).", eventType, ultra, repeat),
 		})
 
 	case "missing":
@@ -415,7 +600,10 @@ func renderStatusPage(s *discordgo.Session, interaction *discordgo.Interaction, 
 		if w.WatchType == WatchTypeContract {
 			return contractPreds[w.TargetID]
 		}
-		return eggPreds[w.TargetID]
+		if w.WatchType == WatchTypeColleggtible {
+			return eggPreds[w.TargetID]
+		}
+		return time.Time{}
 	}
 
 	sort.Slice(watches, func(i, j int) bool {
@@ -442,14 +630,27 @@ func renderStatusPage(s *discordgo.Session, interaction *discordgo.Interaction, 
 		}
 		// Fallback to alphabetical sorting of the target name or ID
 		getName := func(w farmerstate.Watch) string {
-			if w.WatchType == WatchTypeColleggtible {
+			switch w.WatchType {
+			case WatchTypeColleggtible:
 				if w.TargetID == "new" {
 					return "New Colleggtibles"
 				}
 				if egg, ok := ei.CustomEggMap[w.TargetID]; ok && egg != nil {
 					return egg.Name
 				}
-			} else {
+			case WatchTypeEvent:
+				eventType, ultra, repeat := parseEventWatchTarget(w.TargetID)
+				eventName := getEventName(eventType)
+				ultraStr := ""
+				if ultra {
+					ultraStr = " +" + ei.GetBotEmojiMarkdown("ultra")
+				}
+				repeatStr := ""
+				if repeat {
+					repeatStr = " 🔁"
+				}
+				return fmt.Sprintf("Event: %s%s%s", eventName, ultraStr, repeatStr)
+			default:
 				if c, ok := ei.EggIncContractsAll[w.TargetID]; ok {
 					return c.Name
 				}
@@ -480,13 +681,26 @@ func renderStatusPage(s *discordgo.Session, interaction *discordgo.Interaction, 
 	fmt.Fprintf(&sb, "### Your Active Watches (Page %d/%d):\n", page+1, totalPages)
 	for idx, w := range watches[start:end] {
 		targetName := w.TargetID
-		if w.WatchType == WatchTypeColleggtible {
+		switch w.WatchType {
+		case WatchTypeColleggtible:
 			if w.TargetID == "new" {
 				targetName = "New Colleggtibles"
 			} else if egg, ok := ei.CustomEggMap[w.TargetID]; ok && egg != nil {
 				targetName = egg.Name
 			}
-		} else {
+		case WatchTypeEvent:
+			eventType, ultra, repeat := parseEventWatchTarget(w.TargetID)
+			eventName := getEventName(eventType)
+			ultraStr := ""
+			if ultra {
+				ultraStr = " +" + ei.GetBotEmojiMarkdown("ultra")
+			}
+			repeatStr := ""
+			if repeat {
+				repeatStr = " 🔁"
+			}
+			targetName = fmt.Sprintf("Event: %s%s%s", eventName, ultraStr, repeatStr)
+		default:
 			if c, ok := ei.EggIncContractsAll[w.TargetID]; ok {
 				targetName = c.Name
 			}
@@ -494,26 +708,35 @@ func renderStatusPage(s *discordgo.Session, interaction *discordgo.Interaction, 
 
 		pTime := getPredTime(w)
 		timeStr := ""
-		if !pTime.IsZero() {
-			timeStr = fmt.Sprintf(" - 🔮 <t:%d:d> (<t:%d:R>)", pTime.Unix(), pTime.Unix())
-		} else {
-			timeStr = " - 🔮 Unknown"
+		if w.WatchType != WatchTypeEvent {
+			if !pTime.IsZero() {
+				timeStr = fmt.Sprintf(" - 🔮 <t:%d:d> (<t:%d:R>)", pTime.Unix(), pTime.Unix())
+			} else {
+				timeStr = " - 🔮 Unknown"
+			}
 		}
 
 		typeStr := "📜"
-		if w.WatchType == WatchTypeColleggtible {
+		switch w.WatchType {
+		case WatchTypeColleggtible:
 			if w.TargetID == "new" {
 				typeStr = "🆕"
 			} else {
 				typeStr = ei.FindEggEmoji(w.TargetID)
 			}
-		} else {
+		case WatchTypeEvent:
+			typeStr = "🔔"
+		default:
 			if c, ok := ei.EggIncContractsAll[w.TargetID]; ok {
 				typeStr = ei.FindEggEmoji(c.EggName)
 			}
 		}
 
-		fmt.Fprintf(&sb, "%d. %s **%s** `%s` %s\n", start+idx+1, typeStr, targetName, w.TargetID, timeStr)
+		if w.WatchType == WatchTypeEvent {
+			fmt.Fprintf(&sb, "%d. %s **%s**%s\n", start+idx+1, typeStr, targetName, timeStr)
+		} else {
+			fmt.Fprintf(&sb, "%d. %s **%s** `%s` %s\n", start+idx+1, typeStr, targetName, w.TargetID, timeStr)
+		}
 	}
 
 	// Create buttons
@@ -787,10 +1010,11 @@ func CheckWatches(s *discordgo.Session) {
 
 	// Group matches by user to prevent spamming if multiple matches occur
 	type notification struct {
-		userID     string
-		watchType  string
-		targetID   string
-		contractID string
+		userID      string
+		watchType   string
+		targetID    string
+		contractID  string
+		messageText string
 	}
 
 	var matches []notification
@@ -843,6 +1067,44 @@ func CheckWatches(s *discordgo.Session) {
 					}
 				}
 			}
+		} else if w.WatchType == WatchTypeEvent {
+			eventType, includeUltra, _ := parseEventWatchTarget(w.TargetID)
+			ei.EventMutex.Lock()
+			activeEvents := append([]ei.EggEvent(nil), ei.EggIncEvents...)
+			ei.EventMutex.Unlock()
+
+			for _, ev := range activeEvents {
+				if ev.EventType == eventType {
+					// Match if we also want ultra, or if it is not an ultra event.
+					match := includeUltra || !ev.Ultra
+					if match {
+						// Check if already notified
+						if markEventNotified(w.UserID, ev.ID) {
+							ultraStr := "No (Common)"
+							if ev.Ultra {
+								ultraStr = "Yes (Ultra)"
+							}
+							msgText := fmt.Sprintf("🔔 **EVENT STARTED!** 🔔\n\n"+
+								"**Event Type:** `%s`\n"+
+								"**Description:** %s\n"+
+								"**Multiplier:** %.2fx\n"+
+								"**Ultra:** %s\n"+
+								"**Starts:** <t:%d:F> (<t:%d:R>)\n"+
+								"**Ends:** <t:%d:F> (<t:%d:R>)\n",
+								ev.EventType, ev.Message, ev.Multiplier, ultraStr,
+								ev.StartTime.Unix(), ev.StartTime.Unix(),
+								ev.EndTime.Unix(), ev.EndTime.Unix())
+
+							matches = append(matches, notification{
+								userID:      w.UserID,
+								watchType:   w.WatchType,
+								targetID:    w.TargetID,
+								messageText: msgText,
+							})
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -851,7 +1113,9 @@ func CheckWatches(s *discordgo.Session) {
 			for _, m := range matches {
 				// Get output layout
 				var estimateText string
-				if m.targetID == "new" {
+				if m.watchType == WatchTypeEvent {
+					estimateText = m.messageText
+				} else if m.targetID == "new" {
 					eggID := m.contractID // stored egg ID in contractID
 					egg, ok := ei.CustomEggMap[eggID]
 					if ok && egg != nil {
@@ -901,8 +1165,13 @@ func CheckWatches(s *discordgo.Session) {
 					log.Printf("watch: failed to send DM message to user %s: %v", m.userID, err)
 				}
 
-				// Clear the watch from DB (unless it is a persistent "new" colleggtible watch)
-				if m.targetID != "new" {
+				// Clear the watch from DB (unless it is a persistent "new" colleggtible watch or repeating event watch)
+				if m.watchType == WatchTypeEvent {
+					_, _, repeat := parseEventWatchTarget(m.targetID)
+					if !repeat {
+						farmerstate.DeleteWatch(m.userID, m.watchType, m.targetID)
+					}
+				} else if m.targetID != "new" {
 					farmerstate.DeleteWatch(m.userID, m.watchType, m.targetID)
 				}
 
