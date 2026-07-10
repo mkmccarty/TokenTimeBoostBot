@@ -499,7 +499,7 @@ func GatherCommonResearchCosts(gemsOnHand float64, offlineRateHr float64, epicRe
 
 	for _, category := range researchCategories {
 		if len(category.research) > 0 {
-			builder.WriteString("-# **" + category.name + ":** ")
+			fmt.Fprintf(&builder, "-# **%s:** ", category.name)
 			if len(category.research) == 1 {
 				research := category.research[0]
 				fmt.Fprintf(&builder, "%s: %s\n", research.Name, FormatEIValue(research.Price, map[string]any{"decimals": 3, "trim": true}))
