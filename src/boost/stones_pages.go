@@ -55,7 +55,8 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 					pageBuilder.Reset()
 					currentPageSize = 0
 				}
-				pageBuilder.WriteString(line + "\n")
+				pageBuilder.WriteString(line)
+				pageBuilder.WriteString("\n")
 				currentPageSize += lineSize
 			}
 
@@ -203,7 +204,8 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 				})
 				currentField.Reset()
 			}
-			currentField.WriteString(line + "\n")
+			currentField.WriteString(line)
+			currentField.WriteString("\n")
 		}
 		if currentField.Len() > 0 {
 			field = append(field, &discordgo.MessageEmbedField{

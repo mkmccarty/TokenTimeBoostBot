@@ -1231,7 +1231,8 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 		if showGlitch {
 			parts = append(parts, "🤥HabGlitch")
 		}
-		builder.WriteString(strings.Join(parts, " / ") + "\n")
+		builder.WriteString(strings.Join(parts, " / "))
+		builder.WriteString("\n")
 	}
 	if anyColleggtibles {
 		fmt.Fprintf(&builder, "Colleggtibles show when less than %s\n", strings.Join(colleggtibleStr, ", "))

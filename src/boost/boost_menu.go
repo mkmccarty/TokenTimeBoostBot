@@ -290,7 +290,8 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				})
 				currentField.Reset()
 			}
-			currentField.WriteString(line + "\n")
+			currentField.WriteString(line)
+			currentField.WriteString("\n")
 		}
 		if currentField.Len() > 0 {
 			field = append(field, &discordgo.MessageEmbedField{
