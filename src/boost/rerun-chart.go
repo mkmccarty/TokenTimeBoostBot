@@ -105,6 +105,8 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 		generousGift, _ = strconv.ParseBool(val)
 	}
 
+	processedIDs := make(map[string]bool)
+
 	for _, a := range archive {
 		contractID := a.GetContractIdentifier()
 		evaluation := a.GetEvaluation()
@@ -125,6 +127,8 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 				continue
 			}
 		}
+
+		processedIDs[contractID] = true
 
 		if c.ContractVersion == 2 {
 			maxCxp := c.CxpMax
@@ -168,6 +172,57 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 				hasSiab:     hasSiab,
 				maxCoopSize: c.MaxCoopSize,
 			})
+		}
+	}
+
+	if percent == -200 {
+		for _, contractID := range contractIDList {
+			if processedIDs[contractID] {
+				continue
+			}
+			c, ok := ei.GetEggIncContract(contractID)
+			if !ok {
+				continue
+			}
+			if c.ContractVersion == 2 {
+				evaluationCxp := 0.0
+				maxCxp := c.CxpMax
+				if generousGift {
+					maxCxp = c.CxpMaxGG
+				}
+				hasSiab := false
+				if generousGift {
+					if c.CxpMaxSiabGG > c.CxpMaxGG {
+						maxCxp = c.CxpMaxSiabGG
+						if c.CxpMaxSiabGG > evaluationCxp {
+							hasSiab = true
+						}
+					}
+				} else {
+					if c.CxpMaxSiab > c.CxpMax {
+						maxCxp = c.CxpMaxSiab
+						if c.CxpMaxSiab > evaluationCxp {
+							hasSiab = true
+						}
+					}
+				}
+
+				dayLabel := ""
+				if len(contractDayMap) > 0 {
+					dayLabel = contractDayMap[contractID]
+				}
+				rows = append(rows, chartRow{
+					contractID:  contractID,
+					cxp:         evaluationCxp,
+					maxCxp:      maxCxp,
+					gap:         maxCxp - evaluationCxp,
+					percent:     0.0,
+					validUntil:  c.ValidUntil.Unix(),
+					dayLabel:    dayLabel,
+					hasSiab:     hasSiab,
+					maxCoopSize: c.MaxCoopSize,
+				})
+			}
 		}
 	}
 
