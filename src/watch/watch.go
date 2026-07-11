@@ -1109,75 +1109,111 @@ func CheckWatches(s *discordgo.Session) {
 	}
 
 	if len(matches) > 0 {
+		// Prioritize events over colleggtibles and contracts, and colleggtibles over contracts
+		sort.Slice(matches, func(i, j int) bool {
+			if matches[i].watchType == WatchTypeEvent && matches[j].watchType != WatchTypeEvent {
+				return true
+			}
+			if matches[j].watchType == WatchTypeEvent && matches[i].watchType != WatchTypeEvent {
+				return false
+			}
+			if matches[i].watchType == WatchTypeColleggtible && matches[j].watchType == WatchTypeContract {
+				return true
+			}
+			if matches[j].watchType == WatchTypeColleggtible && matches[i].watchType == WatchTypeContract {
+				return false
+			}
+			return false
+		})
+
 		go func() {
+			numWorkers := 3
+			if len(matches) < numWorkers {
+				numWorkers = len(matches)
+			}
+
+			jobs := make(chan notification, len(matches))
 			for _, m := range matches {
-				// Get output layout
-				var estimateText string
-				if m.watchType == WatchTypeEvent {
-					estimateText = m.messageText
-				} else if m.targetID == "new" {
-					eggID := m.contractID // stored egg ID in contractID
-					egg, ok := ei.CustomEggMap[eggID]
-					if ok && egg != nil {
-						emojiMarkdown := ei.GetBotEmojiMarkdown(egg.ID)
-						description := strings.Join(egg.DimensionValueString, ",") + " " + egg.DimensionName
-						estimateText = fmt.Sprintf("🆕 **NEW COLLEGGTIBLE DETECTED!** 🆕\n\n"+
-							"**Name:** %s %s\n"+
-							"**Description:** %s\n"+
-							"**Value:** %g\n",
-							emojiMarkdown, egg.Name, description, egg.Value)
-					} else {
-						estimateText = fmt.Sprintf("🆕 **NEW COLLEGGTIBLE DETECTED!** 🆕\n\nEgg ID: `%s`", eggID)
-					}
-				} else {
-					estimateText = boost.GetContractEstimateString(m.contractID, true)
-				}
+				jobs <- m
+			}
+			close(jobs)
 
-				// Create DM channel
-				channel, err := s.UserChannelCreate(m.userID)
-				if err != nil {
-					log.Printf("watch: failed to create DM channel for user %s: %v", m.userID, err)
-					continue
-				}
+			var wg sync.WaitGroup
+			for w := 0; w < numWorkers; w++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for m := range jobs {
+						// Get output layout
+						var estimateText string
+						if m.watchType == WatchTypeEvent {
+							estimateText = m.messageText
+						} else if m.targetID == "new" {
+							eggID := m.contractID // stored egg ID in contractID
+							egg, ok := ei.CustomEggMap[eggID]
+							if ok && egg != nil {
+								emojiMarkdown := ei.GetBotEmojiMarkdown(egg.ID)
+								description := strings.Join(egg.DimensionValueString, ",") + " " + egg.DimensionName
+								estimateText = fmt.Sprintf("🆕 **NEW COLLEGGTIBLE DETECTED!** 🆕\n\n"+
+									"**Name:** %s %s\n"+
+									"**Description:** %s\n"+
+									"**Value:** %g\n",
+									emojiMarkdown, egg.Name, description, egg.Value)
+							} else {
+								estimateText = fmt.Sprintf("🆕 **NEW COLLEGGTIBLE DETECTED!** 🆕\n\nEgg ID: `%s`", eggID)
+							}
+						} else {
+							estimateText = boost.GetContractEstimateString(m.contractID, true)
+						}
 
-				// Send DM with Dismiss and Keep buttons
-				_, err = s.ChannelMessageSendComplex(channel.ID, &discordgo.MessageSend{
-					Content: estimateText,
-					Flags:   discordgo.MessageFlagsSuppressEmbeds,
-					Components: []discordgo.MessageComponent{
-						discordgo.ActionsRow{
+						// Create DM channel
+						channel, err := s.UserChannelCreate(m.userID)
+						if err != nil {
+							log.Printf("watch: failed to create DM channel for user %s: %v", m.userID, err)
+							continue
+						}
+
+						// Send DM with Dismiss and Keep buttons
+						_, err = s.ChannelMessageSendComplex(channel.ID, &discordgo.MessageSend{
+							Content: estimateText,
+							Flags:   discordgo.MessageFlagsSuppressEmbeds,
 							Components: []discordgo.MessageComponent{
-								discordgo.Button{
-									Label:    "Dismiss",
-									Style:    discordgo.DangerButton,
-									CustomID: "watch-dismiss",
-								},
-								discordgo.Button{
-									Label:    "Keep",
-									Style:    discordgo.SuccessButton,
-									CustomID: "watch-keep",
+								discordgo.ActionsRow{
+									Components: []discordgo.MessageComponent{
+										discordgo.Button{
+											Label:    "Dismiss",
+											Style:    discordgo.DangerButton,
+											CustomID: "watch-dismiss",
+										},
+										discordgo.Button{
+											Label:    "Keep",
+											Style:    discordgo.SuccessButton,
+											CustomID: "watch-keep",
+										},
+									},
 								},
 							},
-						},
-					},
-				})
-				if err != nil {
-					log.Printf("watch: failed to send DM message to user %s: %v", m.userID, err)
-				}
+						})
+						if err != nil {
+							log.Printf("watch: failed to send DM message to user %s: %v", m.userID, err)
+						}
 
-				// Clear the watch from DB (unless it is a persistent "new" colleggtible watch or repeating event watch)
-				if m.watchType == WatchTypeEvent {
-					_, _, repeat := parseEventWatchTarget(m.targetID)
-					if !repeat {
-						farmerstate.DeleteWatch(m.userID, m.watchType, m.targetID)
+						// Clear the watch from DB (unless it is a persistent "new" colleggtible watch or repeating event watch)
+						if m.watchType == WatchTypeEvent {
+							_, _, repeat := parseEventWatchTarget(m.targetID)
+							if !repeat {
+								farmerstate.DeleteWatch(m.userID, m.watchType, m.targetID)
+							}
+						} else if m.targetID != "new" {
+							farmerstate.DeleteWatch(m.userID, m.watchType, m.targetID)
+						}
+
+						// Be sensitive to Discord rate limits
+						time.Sleep(250 * time.Millisecond)
 					}
-				} else if m.targetID != "new" {
-					farmerstate.DeleteWatch(m.userID, m.watchType, m.targetID)
-				}
-
-				// Be sensitive to Discord rate limits
-				time.Sleep(250 * time.Millisecond)
+				}()
 			}
+			wg.Wait()
 		}()
 	}
 }
