@@ -471,35 +471,39 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 		optionMap := bottools.GetCommandOptionsMap(i)
 
 		if opt, ok := optionMap["offset-relative-time"]; ok {
-			var startTime int64
-			var err error
 			offsetStr := opt.StringValue()
-			offset, err := strconv.ParseFloat(offsetStr, 64)
-			if err != nil {
-				str = "Invalid offset format. Use a number like +2.5 or -1.5"
-			} else {
-				baseTime := contract.ValidFrom
-
-				// Fallback for older contracts created prior to this update
-				if baseTime.IsZero() {
-					baseTime = GetEggStandardTime(time.Now())
-					contract.ValidFrom = baseTime
-				}
-
-				// Apply offset
-				offsetDuration := time.Duration(offset * float64(time.Hour))
-				resultTime := baseTime.Add(offsetDuration)
-
-				// If the resulting time is in the past, push it forward day by day until it's in the future
-				for resultTime.Before(time.Now()) {
-					resultTime = resultTime.Add(24 * time.Hour)
-				}
-
-				startTime = resultTime.Unix()
-
-				contract.PlannedStartTime = time.Unix(startTime, 0)
-				str = "Planned start time changed to " + "<t:" + strconv.FormatInt(startTime, 10) + ":f>"
+			if strings.EqualFold(offsetStr, "tbd") {
+				contract.PlannedStartTime = time.Time{}
+				str = "Planned start time set to TBD"
 				refreshBoostListMessage(s, contract, false)
+			} else {
+				offset, err := strconv.ParseFloat(offsetStr, 64)
+				if err != nil {
+					str = "Invalid offset format. Use a number like +2.5 or -1.5 or TBD"
+				} else {
+					baseTime := contract.ValidFrom
+
+					// Fallback for older contracts created prior to this update
+					if baseTime.IsZero() {
+						baseTime = GetEggStandardTime(time.Now())
+						contract.ValidFrom = baseTime
+					}
+
+					// Apply offset
+					offsetDuration := time.Duration(offset * float64(time.Hour))
+					resultTime := baseTime.Add(offsetDuration)
+
+					// If the resulting time is in the past, push it forward day by day until it's in the future
+					for resultTime.Before(time.Now()) {
+						resultTime = resultTime.Add(24 * time.Hour)
+					}
+
+					startTime := resultTime.Unix()
+
+					contract.PlannedStartTime = time.Unix(startTime, 0)
+					str = "Planned start time changed to " + "<t:" + strconv.FormatInt(startTime, 10) + ":f>"
+					refreshBoostListMessage(s, contract, false)
+				}
 			}
 		}
 
@@ -519,16 +523,19 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 			if err != nil {
 				str = "Invalid start time format. Use timestamps from [Discord Timestamp](https://discordtimestamp.com)"
 			} else {
-				contract.PlannedStartTime = time.Unix(startTime, 0)
 				if startTime == 0 {
+					contract.PlannedStartTime = time.Time{}
 					str = "Planned start time cleared"
 					refreshBoostListMessage(s, contract, false)
-				} else if contract.PlannedStartTime.After(time.Now()) && contract.PlannedStartTime.Before(time.Now().AddDate(0, 0, 7)) {
-					str = "Planned start time changed to " + "<t:" + strconv.FormatInt(startTime, 10) + ":f>"
-					refreshBoostListMessage(s, contract, false)
 				} else {
-					str = "Planned start time must be within the next 7 days. Use timestamps from [Discord Timestamp](https://discordtimestamp.com)"
-					contract.PlannedStartTime = time.Unix(0, 0)
+					contract.PlannedStartTime = time.Unix(startTime, 0)
+					if contract.PlannedStartTime.After(time.Now()) && contract.PlannedStartTime.Before(time.Now().AddDate(0, 0, 7)) {
+						str = "Planned start time changed to " + "<t:" + strconv.FormatInt(startTime, 10) + ":f>"
+						refreshBoostListMessage(s, contract, false)
+					} else {
+						str = "Planned start time must be within the next 7 days. Use timestamps from [Discord Timestamp](https://discordtimestamp.com)"
+						contract.PlannedStartTime = time.Time{}
+					}
 				}
 			}
 		}
