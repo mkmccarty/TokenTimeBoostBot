@@ -330,6 +330,14 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 		Components: []discordgo.MessageComponent{
 			discordgo.Button{
 				Emoji: &discordgo.ComponentEmoji{
+					Name: "4️⃣",
+				},
+				Label:    " Tokens",
+				Style:    discordgo.SecondaryButton,
+				CustomID: "fd_tokens4",
+			},
+			discordgo.Button{
+				Emoji: &discordgo.ComponentEmoji{
 					Name: "5️⃣",
 				},
 				Label:    " Tokens",
@@ -343,14 +351,6 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 				Label:    " Tokens",
 				Style:    discordgo.SecondaryButton,
 				CustomID: "fd_tokens6",
-			},
-			discordgo.Button{
-				Emoji: &discordgo.ComponentEmoji{
-					Name: "8️⃣",
-				},
-				Label:    " Tokens",
-				Style:    discordgo.SecondaryButton,
-				CustomID: "fd_tokens8",
 			},
 			discordgo.Button{
 				Label:    "+ Token",
