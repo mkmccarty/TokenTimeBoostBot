@@ -45,6 +45,9 @@ const (
 	LBCraftingXP         = "crafting_xp"
 	LBArtifactScore      = "artifact_score"
 
+	LBEggDaySEGain = "egg_day_se_gain"
+	LBEggDaySEPct  = "egg_day_se_pct"
+
 	LBVirtueEggsSum     = "virtue_eggs_sum"
 	LBVirtueTEEarnedSum = "virtue_te_earned_sum"
 
@@ -127,6 +130,8 @@ var AllLeaderboards = []LBDef{
 	{Key: LBLegendaryActuators, DisplayName: "Legendary Actuators", HeaderName: "Actuators", Description: "Total Legendary Actuators across home and virtue farms.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
 	{Key: LBCraftingXP, DisplayName: "Crafting XP", HeaderName: "XP", Description: "Total Crafting Experience.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
 	{Key: LBArtifactScore, DisplayName: "Artifact Score", HeaderName: "Score", Description: "Calculated Artifact Score based on inventory.", ValueFmt: "float", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBEggDaySEGain, DisplayName: "Egg Day SE Gain", HeaderName: "SE Gain", Description: "Soul Eggs gained during Egg Day.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: false},
+	{Key: LBEggDaySEPct, DisplayName: "Egg Day SE % Gain", HeaderName: "SE % Gain", Description: "Percentage of Soul Eggs gained during Egg Day.", ValueFmt: "pct", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: false},
 }
 
 // AllGroups defines logical groupings for the UI and posting tasks.
@@ -155,6 +160,11 @@ var AllGroups = []LBGroup{
 		Key:         "group_artifacts",
 		DisplayName: "Artifacts",
 		Members:     []string{LBLegendaryActuators, LBCraftingXP, LBArtifactScore},
+	},
+	{
+		Key:         "group_egg_day",
+		DisplayName: "Egg Day",
+		Members:     []string{LBEggDaySEGain, LBEggDaySEPct},
 	},
 }
 

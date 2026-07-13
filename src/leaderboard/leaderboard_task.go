@@ -95,6 +95,11 @@ func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, guildID string,
 		collectionMu.Unlock()
 	}()
 
+	if target == "group_egg_day" || target == LBEggDaySEGain || target == LBEggDaySEPct {
+		CollectEggDayManual(s, target, dryRun, onProgress)
+		return
+	}
+
 	if onProgress != nil {
 		onProgress("🔍 Starting weekly collection run...")
 	}
@@ -146,10 +151,18 @@ func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, guildID string,
 			}
 			if o.LbType == OptInAll {
 				for _, def := range AllLeaderboards {
+					if def.Key == LBEggDaySEGain || def.Key == LBEggDaySEPct {
+						continue
+					}
 					keys = append(keys, def.Key)
 				}
 			} else {
-				keys = append(keys, ExpandConfigKey(o.LbType)...)
+				for _, k := range ExpandConfigKey(o.LbType) {
+					if k == LBEggDaySEGain || k == LBEggDaySEPct {
+						continue
+					}
+					keys = append(keys, k)
+				}
 			}
 		}
 
@@ -297,10 +310,16 @@ func collectPlayerGroup(s *discordgo.Session, g *playerGroup, snapDate string) {
 		for _, o := range optRows {
 			if o.LbType == OptInAll {
 				for _, def := range AllLeaderboards {
+					if def.Key == LBEggDaySEGain || def.Key == LBEggDaySEPct {
+						continue
+					}
 					userKeysSet[def.Key] = struct{}{}
 				}
 			} else {
 				for _, k := range ExpandConfigKey(o.LbType) {
+					if k == LBEggDaySEGain || k == LBEggDaySEPct {
+						continue
+					}
 					userKeysSet[k] = struct{}{}
 				}
 			}

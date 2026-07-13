@@ -187,6 +187,12 @@ WHERE lb_type = ? AND player = ?
 ORDER BY snap_date DESC
 LIMIT 1;
 
+-- name: GetLeaderboardStatForPlayerAndSnapDate :one
+-- Returns the stat row for a player + lb_type + snap_date.
+SELECT player, game_name, snap_date, value, details
+FROM leaderboard_stats
+WHERE lb_type = ? AND player = ? AND snap_date = ?;
+
 -- name: GetLeaderboardSnapDates :many
 -- Returns all distinct snap_dates for a given lb_type, newest first.
 SELECT DISTINCT snap_date FROM leaderboard_stats

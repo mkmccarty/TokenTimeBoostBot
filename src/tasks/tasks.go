@@ -966,5 +966,8 @@ func ExecuteCronJob(s *discordgo.Session) {
 	// Start weekly leaderboard collection run (Friday 15:00 PT)
 	leaderboard.ScheduleWeeklyCollection(s)
 
+	// Start Egg Day scheduler
+	leaderboard.StartEggDayScheduler(s)
+
 	log.Print("Cron jobs scheduled")
 }

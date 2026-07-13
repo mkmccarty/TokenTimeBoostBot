@@ -75,6 +75,18 @@ func PostLeaderboards(s *discordgo.Session, snapDate string, guildID string, tar
 
 	var filteredConfigs []LBConfig
 	for _, cfg := range configs {
+		if target == "" {
+			hasEggDay := false
+			for _, k := range ExpandConfigKey(cfg.LBType) {
+				if k == LBEggDaySEGain || k == LBEggDaySEPct {
+					hasEggDay = true
+					break
+				}
+			}
+			if hasEggDay {
+				continue
+			}
+		}
 		if !intersectsTarget(ExpandConfigKey(cfg.LBType), targetSet) {
 			continue
 		}
@@ -1003,6 +1015,8 @@ func FormatLBValue(fmtValue string, v float64) string {
 		return fmt.Sprintf("%.0f", v)
 	case "float":
 		return fmt.Sprintf("%.2f", v)
+	case "pct":
+		return fmt.Sprintf("%.2f%%", v)
 	case "ei":
 		return ei.FormatEIValue(v, map[string]any{"decimals": 3, "trim": true})
 	case "eb":
