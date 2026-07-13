@@ -176,13 +176,7 @@ func GetLeaderboardStatForPlayerAndSnapDate(lbType, player, snapDate string) (Ge
 	if err != nil {
 		return GetLeaderboardStatForPlayerRow{}, err
 	}
-	return GetLeaderboardStatForPlayerRow{
-		Player:   row.Player,
-		GameName: row.GameName,
-		SnapDate: row.SnapDate,
-		Value:    row.Value,
-		Details:  row.Details,
-	}, nil
+	return GetLeaderboardStatForPlayerRow(row), nil
 }
 
 // GetLeaderboardSnapDates returns all distinct snap_dates for a lb_type, newest first.
