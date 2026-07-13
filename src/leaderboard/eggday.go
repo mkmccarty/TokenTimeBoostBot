@@ -70,10 +70,10 @@ func StartEggDayScheduler(s *discordgo.Session) {
 			endTime := determineEggDayEndTime(s, runYear, loc)
 			log.Printf("eggday: determined end time: %s", endTime.Format(time.RFC3339))
 
-			// Sleep until end time (or slightly after, e.g. 1 minute after)
-			sleepUntilEnd := time.Until(endTime.Add(1 * time.Minute))
+			// Sleep until end time (or slightly after, e.g. 10 minutes after)
+			sleepUntilEnd := time.Until(endTime.Add(10 * time.Minute))
 			if sleepUntilEnd > 0 {
-				log.Printf("eggday: sleeping until end time: %s", endTime.Format(time.RFC3339))
+				log.Printf("eggday: sleeping until 10 minutes after end time: %s", endTime.Add(10*time.Minute).Format(time.RFC3339))
 				time.Sleep(sleepUntilEnd)
 			}
 
@@ -105,7 +105,7 @@ func determineEggDayEndTime(s *discordgo.Session, year int, loc *time.Location) 
 		targetStartUpper := time.Date(year, time.July, 14, 9, 10, 0, 0, loc)
 
 		for _, ev := range eventsCopy {
-			if ev.StartTime.After(targetStartLower) && ev.StartTime.Before(targetStartUpper) {
+			if ev.EventType == "prestige-boost" && ev.StartTime.After(targetStartLower) && ev.StartTime.Before(targetStartUpper) {
 				foundEggDayEvent = true
 				if ev.EndTime.After(maxEndTime) {
 					maxEndTime = ev.EndTime
