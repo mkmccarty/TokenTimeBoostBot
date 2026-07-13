@@ -895,7 +895,8 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 		bottools.AlignString("#", maxRankWidth, bottools.StringAlignLeft),
 		bottools.AlignString("Metric", maxNameWidth, bottools.StringAlignLeft),
 		bottools.AlignString("Value", maxValWidth, bottools.StringAlignRight))
-	b.WriteString(strings.Repeat("—", maxRankWidth+maxNameWidth+maxValWidth+2) + "\n")
+	b.WriteString(strings.Repeat("—", maxRankWidth+maxNameWidth+maxValWidth+2))
+	b.WriteByte('\n')
 
 	for _, r := range pageRows {
 		displayVal := bottools.AlignString(r.val, maxValOnlyWidth, bottools.StringAlignRight)

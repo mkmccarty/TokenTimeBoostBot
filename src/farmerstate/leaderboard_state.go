@@ -162,6 +162,29 @@ func GetLeaderboardStatForPlayer(lbType, player string) (GetLeaderboardStatForPl
 	})
 }
 
+// GetLeaderboardStatForPlayerAndSnapDate returns the stat for a player + lb_type + snap_date.
+func GetLeaderboardStatForPlayerAndSnapDate(lbType, player, snapDate string) (GetLeaderboardStatForPlayerRow, error) {
+	if queries == nil {
+		return GetLeaderboardStatForPlayerRow{}, nil
+	}
+	// We can use the generated struct from sqlc: GetLeaderboardStatForPlayerAndSnapDateParams
+	row, err := queries.GetLeaderboardStatForPlayerAndSnapDate(ctx, GetLeaderboardStatForPlayerAndSnapDateParams{
+		LbType:   lbType,
+		Player:   player,
+		SnapDate: snapDate,
+	})
+	if err != nil {
+		return GetLeaderboardStatForPlayerRow{}, err
+	}
+	return GetLeaderboardStatForPlayerRow{
+		Player:   row.Player,
+		GameName: row.GameName,
+		SnapDate: row.SnapDate,
+		Value:    row.Value,
+		Details:  row.Details,
+	}, nil
+}
+
 // GetLeaderboardSnapDates returns all distinct snap_dates for a lb_type, newest first.
 func GetLeaderboardSnapDates(lbType string) ([]string, error) {
 	if queries == nil {

@@ -789,6 +789,40 @@ func (q *Queries) GetLeaderboardStatForPlayer(ctx context.Context, arg GetLeader
 	return i, err
 }
 
+const getLeaderboardStatForPlayerAndSnapDate = `-- name: GetLeaderboardStatForPlayerAndSnapDate :one
+SELECT player, game_name, snap_date, value, details
+FROM leaderboard_stats
+WHERE lb_type = ? AND player = ? AND snap_date = ?
+`
+
+type GetLeaderboardStatForPlayerAndSnapDateParams struct {
+	LbType   string
+	Player   string
+	SnapDate string
+}
+
+type GetLeaderboardStatForPlayerAndSnapDateRow struct {
+	Player   string
+	GameName string
+	SnapDate string
+	Value    float64
+	Details  sql.NullString
+}
+
+// Returns the stat row for a player + lb_type + snap_date.
+func (q *Queries) GetLeaderboardStatForPlayerAndSnapDate(ctx context.Context, arg GetLeaderboardStatForPlayerAndSnapDateParams) (GetLeaderboardStatForPlayerAndSnapDateRow, error) {
+	row := q.db.QueryRowContext(ctx, getLeaderboardStatForPlayerAndSnapDate, arg.LbType, arg.Player, arg.SnapDate)
+	var i GetLeaderboardStatForPlayerAndSnapDateRow
+	err := row.Scan(
+		&i.Player,
+		&i.GameName,
+		&i.SnapDate,
+		&i.Value,
+		&i.Details,
+	)
+	return i, err
+}
+
 const getLegacyFarmerstate = `-- name: GetLegacyFarmerstate :one
 SELECT id, "key", value FROM farmer_state
 WHERE id = ? AND key = 'legacy' LIMIT 1
