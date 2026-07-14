@@ -140,7 +140,6 @@ func CollectEggDayManual(s *discordgo.Session, target string, dryRun bool, onPro
 	now := time.Now().In(loc)
 	year := now.Year()
 
-
 	// We collect start stats if we are before July 14th at 9:00 AM PT.
 	// Otherwise, we collect end stats and calculate.
 	eventStart := time.Date(year, time.July, 14, 9, 0, 0, 0, loc)
