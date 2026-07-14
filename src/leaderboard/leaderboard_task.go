@@ -354,3 +354,67 @@ func ScheduleWeeklyCollection(s *discordgo.Session) {
 		RunLeaderboardCollection(s, false, "", "", "update", nil)
 	})
 }
+
+// CollectSinglePlayer fetches API data and saves leaderboard entries for a single Discord user.
+func CollectSinglePlayer(s *discordgo.Session, userID string, snapDate string) error {
+	enc := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+	if enc == "" {
+		return fmt.Errorf("no encrypted Egg Inc ID found for user %s", userID)
+	}
+	dec := ei.DecryptEID(enc)
+	if dec == "" {
+		return fmt.Errorf("failed to decrypt Egg Inc ID for user %s", userID)
+	}
+
+	optRows, err := farmerstate.GetLeaderboardOptInsForUser(userID)
+	if err != nil {
+		return fmt.Errorf("failed to get opt-ins for user %s: %w", userID, err)
+	}
+	if len(optRows) == 0 {
+		return fmt.Errorf("user %s has no leaderboard opt-ins", userID)
+	}
+
+	var keys []string
+	for _, o := range optRows {
+		if o.LbType == OptInAll {
+			for _, def := range AllLeaderboards {
+				if def.Key == LBEggDaySEGain || def.Key == LBEggDaySEPct {
+					continue
+				}
+				keys = append(keys, def.Key)
+			}
+		} else {
+			for _, k := range ExpandConfigKey(o.LbType) {
+				if k == LBEggDaySEGain || k == LBEggDaySEPct {
+					continue
+				}
+				keys = append(keys, k)
+			}
+		}
+	}
+
+	if len(keys) == 0 {
+		return fmt.Errorf("user %s has no active leaderboard keys", userID)
+	}
+
+	// Unique keys
+	keysSet := make(map[string]struct{})
+	for _, k := range keys {
+		keysSet[k] = struct{}{}
+	}
+	var uniqueKeys []string
+	for k := range keysSet {
+		uniqueKeys = append(uniqueKeys, k)
+	}
+
+	g := &playerGroup{
+		eiUserID:      dec,
+		encryptedEIID: enc,
+		discordIDs:    []string{userID},
+		optedInTypes:  uniqueKeys,
+	}
+
+	collectPlayerGroup(s, g, snapDate)
+	return nil
+}
+
