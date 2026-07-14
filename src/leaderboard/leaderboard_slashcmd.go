@@ -323,6 +323,17 @@ func handlePlayerOptIn(s *discordgo.Session, i *discordgo.InteractionCreate, opt
 
 	AddPlayerOptInTypes(i.GuildID, userID, types)
 
+	guildID := i.GuildID
+	go func() {
+		log.Printf("leaderboard: pulling stats for newly opted-in user %s in guild %s", userID, guildID)
+		if err := CollectSinglePlayer(s, userID, SnapDateNow()); err != nil {
+			log.Printf("leaderboard: failed to collect stats for user %s on opt-in: %v", userID, err)
+			return
+		}
+		log.Printf("leaderboard: refreshing leaderboard messages for guild %s", guildID)
+		PostLeaderboards(s, SnapDateNow(), guildID, "", "update", nil)
+	}()
+
 	if len(types) == 1 && types[0] == OptInAll {
 		respondEphemeral(s, i, "✅ You are now opted into **all** leaderboards.")
 		return
