@@ -139,24 +139,12 @@ func CollectEggDayManual(s *discordgo.Session, target string, dryRun bool, onPro
 
 	now := time.Now().In(loc)
 	year := now.Year()
-	yearStr := fmt.Sprintf("%d", year)
 
-	// Check if any player already has a start stat for this year
-	hasStart := false
-	userIDs := GetAllOptInUserIDs()
-	for _, u := range userIDs {
-		if GetStatForPlayerAndSnapDate("egg_day_se_start", u, yearStr) != nil {
-			hasStart = true
-			break
-		}
-	}
 
-	// We collect start stats if we are on July 14th (or earlier) and don't have start stats yet.
+	// We collect start stats if we are before July 14th at 9:00 AM PT.
 	// Otherwise, we collect end stats and calculate.
-	isStartPhase := !hasStart
-	if now.Month() == time.July && now.Day() == 14 && now.Hour() < 12 {
-		isStartPhase = true
-	}
+	eventStart := time.Date(year, time.July, 14, 9, 0, 0, 0, loc)
+	isStartPhase := now.Before(eventStart)
 
 	if isStartPhase {
 		if onProgress != nil {
