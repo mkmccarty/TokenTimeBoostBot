@@ -40,6 +40,47 @@ func StartEggDayScheduler(s *discordgo.Session) {
 	}
 
 	go func() {
+		// On startup, check if we need to run or catch up on Egg Day for the current year.
+		now := time.Now().In(loc)
+		year := now.Year()
+		yearStr := fmt.Sprintf("%d", year)
+
+		// Egg Day target start time for this year: July 14th 8:55 AM PT.
+		targetStart := time.Date(year, time.July, 14, 8, 55, 0, 0, loc)
+
+		if now.After(targetStart) {
+			// Check if we need to do startup/catch-up for the current year.
+			latestStart, errStart := farmerstate.GetLatestLeaderboardSnapDate("egg_day_se_start")
+			latestEnd, errEnd := farmerstate.GetLatestLeaderboardSnapDate(LBEggDaySEGain)
+
+			hasStart := (errStart == nil && latestStart == yearStr)
+			hasEnd := (errEnd == nil && latestEnd == yearStr)
+
+			if !hasStart {
+				// We are past start time, but start stats have not been collected.
+				// Run start collection now.
+				log.Printf("eggday: catch-up: running start collection for %d", year)
+				CollectEggDayStart(s, year)
+				hasStart = true
+
+				// Sleep 10 mins to let periodicals update, then fall through to end collection.
+				time.Sleep(10 * time.Minute)
+			}
+
+			if hasStart && !hasEnd {
+				// Start has run, but end has not.
+				// Determine end time and sleep until then, then run end collection.
+				endTime := determineEggDayEndTime(s, year, loc)
+				sleepUntilEnd := time.Until(endTime.Add(10 * time.Minute))
+				if sleepUntilEnd > 0 {
+					log.Printf("eggday: catch-up: sleeping until 10 minutes after end time: %s", endTime.Add(10*time.Minute).Format(time.RFC3339))
+					time.Sleep(sleepUntilEnd)
+				}
+				log.Printf("eggday: catch-up: running end collection and calculations for %d", year)
+				CollectEggDayEndAndCalculate(s, year, false)
+			}
+		}
+
 		for {
 			now := time.Now().In(loc)
 			year := now.Year()
