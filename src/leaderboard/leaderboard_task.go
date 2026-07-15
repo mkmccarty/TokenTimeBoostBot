@@ -417,4 +417,3 @@ func CollectSinglePlayer(s *discordgo.Session, userID string, snapDate string) e
 	collectPlayerGroup(s, g, snapDate)
 	return nil
 }
-
