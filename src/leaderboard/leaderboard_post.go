@@ -362,6 +362,7 @@ func postSingleMetric(s *discordgo.Session, cfg LBConfig, lbType, snapDate strin
 		var components []discordgo.MessageComponent
 		if usePagination {
 			components = []discordgo.MessageComponent{
+				&discordgo.TextDisplay{Content: text},
 				discordgo.ActionsRow{
 					Components: []discordgo.MessageComponent{
 						discordgo.Button{
@@ -475,6 +476,7 @@ func HandleLBPageButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	text := blocks[0]
 
 	components := []discordgo.MessageComponent{
+		&discordgo.TextDisplay{Content: text},
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.Button{
@@ -496,7 +498,6 @@ func HandleLBPageButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseUpdateMessage,
 		Data: &discordgo.InteractionResponseData{
-			Content:    text,
 			Components: components,
 			Flags:      discordgo.MessageFlagsIsComponentsV2,
 		},
