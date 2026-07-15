@@ -340,13 +340,16 @@ func postSingleMetric(s *discordgo.Session, cfg LBConfig, lbType, snapDate strin
 		return
 	}
 
-	pageSize := 50
-	usePagination := len(guildRows) > pageSize
+	pageSize := 25
+	allBlocks := buildMessageBlocks(def, guildRows, snapDate, prevMap, 0)
+	usePagination := len(allBlocks) > 1
 	page := 0
 
 	displayRows := guildRows
 	if usePagination {
-		displayRows = guildRows[:pageSize]
+		if len(guildRows) > pageSize {
+			displayRows = guildRows[:pageSize]
+		}
 	}
 
 	blocks := buildMessageBlocks(def, displayRows, snapDate, prevMap, 0)
@@ -455,7 +458,7 @@ func HandleLBPageButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	guildRows, prevMap := getGuildRows(lbType, snapDate, i.GuildID)
-	pageSize := 50
+	pageSize := 25
 	start := page * pageSize
 	if start < 0 {
 		start = 0
