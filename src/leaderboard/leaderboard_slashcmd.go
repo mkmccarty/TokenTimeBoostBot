@@ -1,15 +1,18 @@
 package leaderboard
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mattn/go-runewidth"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
@@ -42,6 +45,17 @@ func GetSlashAdminLBCommand(cmd string) *discordgo.ApplicationCommand {
 						Required:     true,
 						Autocomplete: true,
 					},
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "backfill-eggday",
+				Description: "Manually set Egg Day start/end SE for a player and recalculate.",
+				Options: []*discordgo.ApplicationCommandOption{
+					{Type: discordgo.ApplicationCommandOptionUser, Name: "user", Description: "Discord user to backfill", Required: true},
+					{Type: discordgo.ApplicationCommandOptionString, Name: "start", Description: "Start SE value (e.g., 23.45s or 12345)", Required: false},
+					{Type: discordgo.ApplicationCommandOptionString, Name: "end", Description: "End SE value (e.g., 23.45s or 12345)", Required: false},
+					{Type: discordgo.ApplicationCommandOptionInteger, Name: "year", Description: "Year for the Egg Day snap (e.g., 2026). Defaults to current year.", Required: false},
 				},
 			},
 			{
@@ -207,9 +221,136 @@ func HandleAdminLB(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		handleAdminRemove(s, i, opts[0].Options)
 	case "run":
 		handleRun(s, i, opts[0].Options)
+	case "backfill-eggday":
+		handleAdminBackfillEggDay(s, i, opts[0].Options)
 	default:
 		respondEphemeral(s, i, "Unknown admin subcommand.")
 	}
+}
+
+func handleAdminBackfillEggDay(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*discordgo.ApplicationCommandInteractionDataOption) {
+	optMap := optionMap(opts)
+
+	// Get user
+	var userID string
+	if uopt, ok := optMap["user"]; ok && uopt.UserValue(s) != nil {
+		userID = uopt.UserValue(s).ID
+	}
+	if userID == "" {
+		respondEphemeral(s, i, "Please specify a user to backfill.")
+		return
+	}
+
+	startStr := ""
+	endStr := ""
+	if so, ok := optMap["start"]; ok {
+		startStr = strings.TrimSpace(so.StringValue())
+	}
+	if eo, ok := optMap["end"]; ok {
+		endStr = strings.TrimSpace(eo.StringValue())
+	}
+
+	if startStr == "" && endStr == "" {
+		respondEphemeral(s, i, "No start or end value provided — nothing to do.")
+		return
+	}
+
+	loc, _ := time.LoadLocation("America/Los_Angeles")
+	year := time.Now().In(loc).Year()
+	if yo, ok := optMap["year"]; ok {
+		// Use provided year if set
+		y := int(yo.IntValue())
+		if y > 0 {
+			year = y
+		}
+	}
+	yearStr := fmt.Sprintf("%d", year)
+
+	// Determine gameName from existing stats or API fallback
+	var gameName string
+	if st := GetStatForPlayerAndSnapDate("egg_day_se_start", userID, yearStr); st != nil {
+		gameName = st.GameName
+	}
+	if gameName == "" {
+		if et := GetStatForPlayerAndSnapDate("egg_day_se_end", userID, yearStr); et != nil {
+			gameName = et.GameName
+		}
+	}
+	if gameName == "" {
+		enc := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+		if enc != "" {
+			if backup, _ := ei.GetFirstContactFromAPI(s, enc, userID, true); backup != nil && backup.GetGame() != nil {
+				gameName = ei.NormalizePlayerNameForDisplay(backup.GetUserName())
+				if backup.GetGame().GetPermitLevel() != 1 {
+					gameName += " (SP)"
+				}
+			}
+		}
+	}
+	if gameName == "" {
+		gameName = userID
+	}
+
+	var updated []string
+
+	// Parse and upsert start
+	if startStr != "" {
+		v, err := ei.ParseValueWithUnit(startStr, false)
+		if err != nil {
+			respondEphemeral(s, i, fmt.Sprintf("Failed to parse start value: %v", err))
+			return
+		}
+		if err := farmerstate.UpsertLeaderboardStat("egg_day_se_start", userID, gameName, yearStr, v, sql.NullString{}); err != nil {
+			respondEphemeral(s, i, fmt.Sprintf("Failed to save start stat: %v", err))
+			return
+		}
+		updated = append(updated, fmt.Sprintf("start=%g", v))
+	}
+
+	// Parse and upsert end
+	if endStr != "" {
+		v, err := ei.ParseValueWithUnit(endStr, false)
+		if err != nil {
+			respondEphemeral(s, i, fmt.Sprintf("Failed to parse end value: %v", err))
+			return
+		}
+		if err := farmerstate.UpsertLeaderboardStat("egg_day_se_end", userID, gameName, yearStr, v, sql.NullString{}); err != nil {
+			respondEphemeral(s, i, fmt.Sprintf("Failed to save end stat: %v", err))
+			return
+		}
+		updated = append(updated, fmt.Sprintf("end=%g", v))
+	}
+
+	// Recalculate gain/pct if both start and end present
+	startStat := GetStatForPlayerAndSnapDate("egg_day_se_start", userID, yearStr)
+	endStat := GetStatForPlayerAndSnapDate("egg_day_se_end", userID, yearStr)
+	if startStat != nil && endStat != nil {
+		seStart := startStat.Value
+		seEnd := endStat.Value
+		gain := seEnd - seStart
+		if gain < 0 {
+			gain = 0
+		}
+		var pct float64
+		if seStart > 0 {
+			pct = (gain / seStart) * 100.0
+		}
+		if err := farmerstate.UpsertLeaderboardStat(LBEggDaySEGain, userID, gameName, yearStr, gain, sql.NullString{}); err != nil {
+			respondEphemeral(s, i, fmt.Sprintf("Failed to save gain stat: %v", err))
+			return
+		}
+		if err := farmerstate.UpsertLeaderboardStat(LBEggDaySEPct, userID, gameName, yearStr, pct, sql.NullString{}); err != nil {
+			respondEphemeral(s, i, fmt.Sprintf("Failed to save pct stat: %v", err))
+			return
+		}
+		updated = append(updated, fmt.Sprintf("gain=%g", gain))
+		updated = append(updated, fmt.Sprintf("pct=%.2f", pct))
+	}
+
+	// Redraw Egg Day leaderboards for everyone
+	go PostLeaderboards(s, yearStr, "", "group_egg_day", "update", nil)
+
+	respondEphemeral(s, i, fmt.Sprintf("Backfill complete for <@%s>: %s", userID, strings.Join(updated, ", ")))
 }
 
 // HandleLBPlayer dispatches the /lb slash command.
