@@ -337,6 +337,7 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 	// Indicate that a farmer is ready for chicken runs
 	if len(contract.Boosters[cUserID].Alts) > 0 {
 		ids := append(contract.Boosters[cUserID].Alts, cUserID)
+		var fallbackID string
 		for _, id := range contract.Order {
 			if slices.Index(ids, id) != -1 {
 				alt := contract.Boosters[id]
@@ -346,11 +347,17 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 					)
 					continue
 				}
-				userID = id
+				if fallbackID == "" && alt.RunChickensTime.IsZero() {
+					fallbackID = id
+				}
 				if alt.BoostState == BoostStateBoosted && alt.RunChickensTime.IsZero() {
+					userID = id
 					break
 				}
 			}
+		}
+		if userID == cUserID && fallbackID != "" {
+			userID = fallbackID
 		}
 	}
 
@@ -361,13 +368,25 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 		return false, "Unable to process chicken run request right now."
 	}
 
-	if contract.Boosters[userID].BoostState == BoostStateBoosted && !contract.Boosters[userID].RunChickensTime.IsZero() {
+	if !contract.Boosters[userID].RunChickensTime.IsZero() {
 		// Already asked for chicken runs
 		return false, "You've already asked for Chicken Runs, if you have an alternate use `/link-alternate` to link them to your main account and then ask for chicken runs."
 	}
 
-	if contract.Boosters[userID].BoostState == BoostStateBoosted && contract.Boosters[userID].RunChickensTime.IsZero() {
+	canRequest := false
+	if contract.Boosters[userID].BoostState == BoostStateBoosted {
+		canRequest = true
+	} else {
+		now := time.Now()
+		if !contract.Boosters[userID].LastCRAttempt.IsZero() && now.Sub(contract.Boosters[userID].LastCRAttempt) < 5*time.Second {
+			canRequest = true
+		} else {
+			contract.Boosters[userID].LastCRAttempt = now
+			return false, fmt.Sprintf("You cannot request chicken runs as **%s** hasn't boosted yet. (Click the button again within 5 seconds to request anyway)", contract.Boosters[userID].Nick)
+		}
+	}
 
+	if canRequest {
 		contract.Boosters[userID].RunChickensTime = time.Now()
 
 		go func() {
@@ -420,7 +439,7 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 		str = "You've asked for Chicken Runs, now what...\n...\nMaybe.. check on your habs and gusset?\nI'm sure you've already forced a game sync so no need to remind about that."
 		return true, str
 	}
-	return false, fmt.Sprintf("You cannot request chicken runs as **%s** hasen't boosted yet.", contract.Boosters[userID].Nick)
+	return false, fmt.Sprintf("You cannot request chicken runs as **%s** hasn't boosted yet.", contract.Boosters[userID].Nick)
 }
 
 // buildChickenRunLists returns who has/hasn't run chickens for requesterUserID.
