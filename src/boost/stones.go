@@ -958,34 +958,6 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			notes += "🤥"
 		}
 
-		if as.numSilos != 10 && as.permitLevel == 1 {
-			needLegend = true
-			notes += "🫙"
-			addLegend("🫙")
-		}
-
-		if as.numVehicles < as.maxVehicles {
-			needLegend = true
-			vehEmoji := ei.GetBotEmojiMarkdown(fmt.Sprintf("veh%d", as.missingVehicle))
-			notes += vehEmoji
-			addLegend(vehEmoji)
-			legendText[vehEmoji] = vehEmoji + "Ships"
-			if !slices.Contains(legendOrder, vehEmoji) {
-				legendOrder = append(legendOrder, vehEmoji)
-			}
-		}
-
-		if as.missingTrainCars {
-			needLegend = true
-			tlEmoji := ei.GetBotEmojiMarkdown("tl")
-			notes += tlEmoji
-			addLegend(tlEmoji)
-			legendText[tlEmoji] = tlEmoji + "Train Length"
-			if !slices.Contains(legendOrder, tlEmoji) {
-				legendOrder = append(legendOrder, tlEmoji)
-			}
-		}
-
 		qStones := as.quantStones[ei.ArtifactSpec_INFERIOR] + as.quantStones[ei.ArtifactSpec_LESSER] + as.quantStones[ei.ArtifactSpec_NORMAL]
 		tStones := as.tachStones[ei.ArtifactSpec_INFERIOR] + as.tachStones[ei.ArtifactSpec_LESSER] + as.tachStones[ei.ArtifactSpec_NORMAL]
 		if as.quantWant != qStones || as.tachWant != tStones {
@@ -1269,6 +1241,23 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	fmt.Fprintf(&builder, "`%s`\n", tableHeader)
 	for _, d := range tableData {
 		fmt.Fprintf(&builder, "`%v`\n", d)
+	}
+
+	for _, as := range artifactSets {
+		var missingItems []string
+
+		if as.numSilos != 10 && as.permitLevel == 1 {
+			missingItems = append(missingItems, ei.GetBotEmojiMarkdown("silo"))
+		}
+		if as.numVehicles < as.maxVehicles {
+			missingItems = append(missingItems, ei.GetBotEmojiMarkdown(fmt.Sprintf("veh%d", as.missingVehicle)))
+		}
+		if as.missingTrainCars {
+			missingItems = append(missingItems, ei.GetBotEmojiMarkdown("tl"))
+		}
+		if len(missingItems) > 0 {
+			fmt.Fprintf(&builder, "**%s** %s\n", as.name, strings.Join(missingItems, " "))
+		}
 	}
 	builder.WriteString("```")
 
