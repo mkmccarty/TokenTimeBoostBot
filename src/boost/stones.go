@@ -219,6 +219,10 @@ type artifactSet struct {
 	offline          string
 	siloMinutes      uint32
 	numSilos         uint32
+	numVehicles      uint32
+	maxVehicles      uint32
+	missingVehicle   uint32
+	missingTrainCars bool
 	baseLayingRate   float64
 	baseShippingRate float64
 	baseHab          float64
@@ -477,6 +481,38 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 
 		as.numSilos = fi.GetSilosOwned()
 		as.siloMinutes = ei.GetSiloMinutes(as.numSilos, fi.GetEpicResearch())
+		as.numVehicles = uint32(len(fi.GetVehicles()))
+		as.maxVehicles = ei.GetFleetSize(fi.GetCommonResearch())
+		highestVehicle := uint32(0)
+		for _, v := range fi.GetVehicles() {
+			if v > highestVehicle {
+				highestVehicle = v
+			}
+		}
+		as.missingVehicle = highestVehicle
+		if fi.GetHyperloopStation() {
+			as.missingVehicle = 11
+		} else {
+			if as.missingVehicle > 10 {
+				as.missingVehicle = 10
+			}
+			if len(fi.GetVehicles()) == 0 {
+				as.missingVehicle = 10
+			}
+		}
+		as.missingTrainCars = false
+		if fi.GetHyperloopStation() {
+			availableTrainLength := ei.GetTrainLength(fi.GetCommonResearch())
+			trainLengths := fi.GetTrainLength()
+			for i, v := range fi.GetVehicles() {
+				if v == 11 {
+					if i < len(trainLengths) && trainLengths[i] < availableTrainLength {
+						as.missingTrainCars = true
+						break
+					}
+				}
+			}
+		}
 
 		// Check for incomplete research
 		relevantResearch := []string{
@@ -926,6 +962,28 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			needLegend = true
 			notes += "🫙"
 			addLegend("🫙")
+		}
+
+		if as.numVehicles < as.maxVehicles {
+			needLegend = true
+			vehEmoji := ei.GetBotEmojiMarkdown(fmt.Sprintf("veh%d", as.missingVehicle))
+			notes += vehEmoji
+			addLegend(vehEmoji)
+			legendText[vehEmoji] = vehEmoji + "Ships"
+			if !slices.Contains(legendOrder, vehEmoji) {
+				legendOrder = append(legendOrder, vehEmoji)
+			}
+		}
+
+		if as.missingTrainCars {
+			needLegend = true
+			tlEmoji := ei.GetBotEmojiMarkdown("tl")
+			notes += tlEmoji
+			addLegend(tlEmoji)
+			legendText[tlEmoji] = tlEmoji + "Train Length"
+			if !slices.Contains(legendOrder, tlEmoji) {
+				legendOrder = append(legendOrder, tlEmoji)
+			}
 		}
 
 		qStones := as.quantStones[ei.ArtifactSpec_INFERIOR] + as.quantStones[ei.ArtifactSpec_LESSER] + as.quantStones[ei.ArtifactSpec_NORMAL]
