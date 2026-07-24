@@ -588,8 +588,10 @@ func downloadEggIncData(urlStr string, filename string, force bool, maxAge time.
 
 	entry := getManifestEntry(filename)
 
-	if !force {
-		if fi, err := os.Stat(filename); err == nil {
+	fileExists := false
+	if fi, err := os.Stat(filename); err == nil {
+		fileExists = true
+		if !force {
 			// If this manifest entry has never captured an ETag yet, do one
 			// network validation pass so we can persist metadata and stop relying
 			// on file mtime fallback indefinitely.
@@ -621,7 +623,7 @@ func downloadEggIncData(urlStr string, filename string, force bool, maxAge time.
 	// Use ETag for a conditional GET — avoids downloading unchanged content
 	// and does not count against the GitHub API rate limit since we hit
 	// raw.githubusercontent.com directly.
-	if entry.ETag != "" {
+	if fileExists && entry.ETag != "" {
 		req.Header.Set("If-None-Match", entry.ETag)
 	}
 
