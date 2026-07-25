@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"compress/zlib"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -235,6 +236,8 @@ func getCoopStatus(contractID string, coopID string, eeidOverride string, bypass
 		}
 	}
 
+	saveCoopStatusJSONDebug(contractID, coopID, eggIncID, decodeCoopStatus)
+
 	return decodeCoopStatus, timestamp, dataTimestampStr, nil
 }
 
@@ -464,5 +467,29 @@ func GetCoopStatusForCompletedContracts(contractID string, coopID string, eeidOv
 		}
 	}
 
+	saveCoopStatusJSONDebug(contractID, coopID, eggIncID, decodeCoopStatus)
+
 	return decodeCoopStatus, timestamp, dataTimestampStr, nil
+}
+
+func saveCoopStatusJSONDebug(contractID, coopID, eggIncID string, decodeCoopStatus *ContractCoopStatusResponse) {
+	if config.IsDevBot() {
+		go func() {
+			jsonData, err := json.MarshalIndent(decodeCoopStatus, "", "  ")
+			if err != nil {
+				log.Println("Error marshalling coop status to JSON:", err)
+				return
+			}
+			jsonDataStr := RedactUserInfo(string(jsonData), eggIncID)
+			if config.EIUserID != "" {
+				jsonDataStr = RedactUserInfo(jsonDataStr, config.EIUserID)
+			}
+			_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
+			fileName := fmt.Sprintf("ttbb-data/eiuserdata/coopstatus-%s-%s.json", contractID, coopID)
+			err = os.WriteFile(fileName, []byte(jsonDataStr), 0644)
+			if err != nil {
+				log.Print(err)
+			}
+		}()
+	}
 }
