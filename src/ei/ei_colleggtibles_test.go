@@ -297,3 +297,137 @@ func TestColleggtibleReleaseDates(t *testing.T) {
 		t.Errorf("expected IHR 1.05 at July 3, got %v", buffsJuly3.IHR)
 	}
 }
+
+func TestGetNewDeliveryColleggtibles(t *testing.T) {
+	CustomEggMap = make(map[string]*EggIncCustomEgg)
+
+	// Clear dates
+	colleggtibleDatesMu.Lock()
+	colleggtibleReleaseDates = make(map[string]time.Time)
+	firstContractDates = make(map[string]time.Time)
+	colleggtibleDatesMu.Unlock()
+
+	july2 := time.Date(2024, time.July, 2, 0, 0, 0, 0, time.UTC)
+	july3 := time.Date(2024, time.July, 3, 0, 0, 0, 0, time.UTC)
+
+	// ELR Egg
+	CustomEggMap["elr-test"] = &EggIncCustomEgg{
+		ID:             "elr-test",
+		Name:           "ELR Test Egg",
+		Dimension:      GameModifier_EGG_LAYING_RATE,
+		DimensionValue: []float64{1.01, 1.05},
+	}
+	// SR Egg
+	CustomEggMap["sr-test"] = &EggIncCustomEgg{
+		ID:             "sr-test",
+		Name:           "SR Test Egg",
+		Dimension:      GameModifier_SHIPPING_CAPACITY,
+		DimensionValue: []float64{1.01, 1.10},
+	}
+	// Hab Egg
+	CustomEggMap["hab-test"] = &EggIncCustomEgg{
+		ID:             "hab-test",
+		Name:           "Hab Test Egg",
+		Dimension:      GameModifier_HAB_CAPACITY,
+		DimensionValue: []float64{1.01, 1.08},
+	}
+	// IHR Egg
+	CustomEggMap["ihr-test"] = &EggIncCustomEgg{
+		ID:             "ihr-test",
+		Name:           "IHR Test Egg",
+		Dimension:      GameModifier_INTERNAL_HATCHERY_RATE,
+		DimensionValue: []float64{1.01, 1.05},
+	}
+	// Other Egg (should be ignored)
+	CustomEggMap["other-test"] = &EggIncCustomEgg{
+		ID:             "other-test",
+		Name:           "Other Test Egg",
+		Dimension:      GameModifier_AWAY_EARNINGS,
+		DimensionValue: []float64{1.1, 1.5},
+	}
+	// Unrun Egg
+	CustomEggMap["elr-unrun"] = &EggIncCustomEgg{
+		ID:             "elr-unrun",
+		Name:           "ELR Unrun Egg",
+		Dimension:      GameModifier_EGG_LAYING_RATE,
+		DimensionValue: []float64{1.01, 1.15},
+	}
+
+	// Set dates
+	SetColleggtibleReleaseDate("elr-test", july2)
+	SetColleggtibleReleaseDate("sr-test", july3)
+	SetColleggtibleReleaseDate("hab-test", july3)
+	SetColleggtibleReleaseDate("ihr-test", july3)
+	SetColleggtibleReleaseDate("other-test", july2)
+	// Do not set date for "elr-unrun" (simulating first contract not run)
+
+	// At July 1 (before either is released):
+	// - elr-test, sr-test, hab-test, ihr-test should all be included because their first contracts are in the future
+	// - elr-unrun has never been run -> should be included
+	// - other-test should be ignored because it is not a delivery egg
+	newAtJuly1 := GetNewDeliveryColleggtibles(time.Date(2024, time.July, 1, 0, 0, 0, 0, time.UTC))
+	expectedJuly1 := []struct {
+		ID        string
+		Name      string
+		Dimension GameModifier_GameDimension
+		MaxVal    float64
+	}{
+		{"elr-test", "ELR Test Egg", GameModifier_EGG_LAYING_RATE, 1.05},
+		{"elr-unrun", "ELR Unrun Egg", GameModifier_EGG_LAYING_RATE, 1.15},
+		{"hab-test", "Hab Test Egg", GameModifier_HAB_CAPACITY, 1.08},
+		{"ihr-test", "IHR Test Egg", GameModifier_INTERNAL_HATCHERY_RATE, 1.05},
+		{"sr-test", "SR Test Egg", GameModifier_SHIPPING_CAPACITY, 1.10},
+	}
+	if len(newAtJuly1) != 5 {
+		t.Fatalf("expected 5 delivery collectibles at July 1, got %d: %v", len(newAtJuly1), newAtJuly1)
+	}
+	for i, exp := range expectedJuly1 {
+		if newAtJuly1[i].ID != exp.ID {
+			t.Errorf("expected index %d ID to be %s, got %s", i, exp.ID, newAtJuly1[i].ID)
+		}
+		if newAtJuly1[i].Name != exp.Name {
+			t.Errorf("expected index %d name to be %s, got %s", i, exp.Name, newAtJuly1[i].Name)
+		}
+		if newAtJuly1[i].Dimension != exp.Dimension {
+			t.Errorf("expected index %d dimension to be %v, got %v", i, exp.Dimension, newAtJuly1[i].Dimension)
+		}
+		if newAtJuly1[i].MaxVal != exp.MaxVal {
+			t.Errorf("expected index %d maxval to be %v, got %v", i, exp.MaxVal, newAtJuly1[i].MaxVal)
+		}
+	}
+
+	// At July 2 (elr-test first contract has run):
+	// - elr-test was run on July 2 (NOT after July 2) -> should NOT be included
+	// - sr-test, hab-test, ihr-test were run on July 3 (after July 2) -> should be included
+	// - elr-unrun has never been run -> should be included
+	newAtJuly2 := GetNewDeliveryColleggtibles(july2)
+	expectedJuly2 := []struct {
+		ID        string
+		Name      string
+		Dimension GameModifier_GameDimension
+		MaxVal    float64
+	}{
+		{"elr-unrun", "ELR Unrun Egg", GameModifier_EGG_LAYING_RATE, 1.15},
+		{"hab-test", "Hab Test Egg", GameModifier_HAB_CAPACITY, 1.08},
+		{"ihr-test", "IHR Test Egg", GameModifier_INTERNAL_HATCHERY_RATE, 1.05},
+		{"sr-test", "SR Test Egg", GameModifier_SHIPPING_CAPACITY, 1.10},
+	}
+	if len(newAtJuly2) != 4 {
+		t.Fatalf("expected 4 delivery collectibles at July 2, got %d: %v", len(newAtJuly2), newAtJuly2)
+	}
+	for i, exp := range expectedJuly2 {
+		if newAtJuly2[i].ID != exp.ID {
+			t.Errorf("expected index %d ID to be %s, got %s", i, exp.ID, newAtJuly2[i].ID)
+		}
+		if newAtJuly2[i].Name != exp.Name {
+			t.Errorf("expected index %d name to be %s, got %s", i, exp.Name, newAtJuly2[i].Name)
+		}
+		if newAtJuly2[i].Dimension != exp.Dimension {
+			t.Errorf("expected index %d dimension to be %v, got %v", i, exp.Dimension, newAtJuly2[i].Dimension)
+		}
+		if newAtJuly2[i].MaxVal != exp.MaxVal {
+			t.Errorf("expected index %d maxval to be %v, got %v", i, exp.MaxVal, newAtJuly2[i].MaxVal)
+		}
+	}
+}
+

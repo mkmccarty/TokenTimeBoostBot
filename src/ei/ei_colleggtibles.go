@@ -1,17 +1,25 @@
 package ei
 
 import (
+	"sort"
 	"sync"
 	"time"
 )
 
 var (
 	colleggtibleReleaseDates = make(map[string]time.Time)
+	firstContractDates       = make(map[string]time.Time)
 	colleggtibleDatesMu      sync.RWMutex
 )
 
 // SetColleggtibleReleaseDate sets the first available date of a colleggtible egg after July 1, 2024.
 func SetColleggtibleReleaseDate(eggID string, date time.Time) {
+	colleggtibleDatesMu.Lock()
+	if _, ok := firstContractDates[eggID]; !ok {
+		firstContractDates[eggID] = date
+	}
+	colleggtibleDatesMu.Unlock()
+
 	july1 := time.Date(2024, time.July, 1, 0, 0, 0, 0, time.UTC)
 	if !date.After(july1) {
 		return
@@ -198,4 +206,56 @@ func GetColleggtibleBuffsFromInfo(info *PlayerColleggtibleInfo) DimensionBuffs {
 		applyDimensionBuff(&buffs, buff.GetDimension(), buff.GetValue())
 	}
 	return buffs
+}
+
+type NewColleggtibleInfo struct {
+	ID        string
+	Name      string
+	Dimension GameModifier_GameDimension
+	MaxVal    float64
+}
+
+// GetNewDeliveryColleggtibles returns info on delivery-related (ELR, SR, Hab, IHR) colleggtibles introduced after the runTime.
+// This includes colleggtibles whose first contract started after runTime,
+// as well as colleggtibles that have never been in a contract (first contract isn't run).
+func GetNewDeliveryColleggtibles(runTime time.Time) []NewColleggtibleInfo {
+	colleggtibleDatesMu.RLock()
+	defer colleggtibleDatesMu.RUnlock()
+
+	var list []NewColleggtibleInfo
+	for eggID, egg := range CustomEggMap {
+		if egg == nil {
+			continue
+		}
+		isDeliveryEgg := egg.Dimension == GameModifier_EGG_LAYING_RATE ||
+			egg.Dimension == GameModifier_SHIPPING_CAPACITY ||
+			egg.Dimension == GameModifier_HAB_CAPACITY ||
+			egg.Dimension == GameModifier_INTERNAL_HATCHERY_RATE
+
+		if !isDeliveryEgg {
+			continue
+		}
+		fcDate, hasFc := firstContractDates[eggID]
+		if !hasFc || fcDate.After(runTime) {
+			name := egg.Name
+			if name == "" {
+				name = egg.ID
+			}
+			var maxVal float64
+			if len(egg.DimensionValue) > 0 {
+				maxVal = egg.DimensionValue[len(egg.DimensionValue)-1]
+			}
+			list = append(list, NewColleggtibleInfo{
+				ID:        eggID,
+				Name:      name,
+				Dimension: egg.Dimension,
+				MaxVal:    maxVal,
+			})
+		}
+	}
+	// Sort by Name to keep order deterministic
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Name < list[j].Name
+	})
+	return list
 }

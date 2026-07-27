@@ -115,15 +115,7 @@ func printActiveContractDetails(userID string, archive []*ei.LocalContract, cont
 							// sort in alpha order
 							sort.Strings(teamworkIcons)
 
-							var oldBuffs ei.DimensionBuffs
-							cInfo := contrib.GetColleggtibleInfo()
-							if cInfo != nil {
-								oldBuffs = ei.GetColleggtibleBuffsFromInfo(cInfo)
-							} else {
-								// Guess what the colleggtibles were at this time
-								oldBuffs = ei.GetColleggtibleDimensionBuffsAt(startTime)
-							}
-							colleggtiblesDiffStr = getColleggtibleDiffStr(oldBuffs)
+							colleggtiblesDiffStr = getColleggtibleDiffStr(startTime)
 							break
 						}
 					}
@@ -133,7 +125,7 @@ func printActiveContractDetails(userID string, archive []*ei.LocalContract, cont
 			}
 
 			if colleggtiblesDiffStr == "" {
-				colleggtiblesDiffStr = getColleggtibleDiffStr(ei.GetColleggtibleDimensionBuffsAt(startTime))
+				colleggtiblesDiffStr = getColleggtibleDiffStr(startTime)
 			}
 
 			ggIcon := ""
@@ -260,27 +252,30 @@ func printActiveContractDetails(userID string, archive []*ei.LocalContract, cont
 	return components
 }
 
-func getColleggtibleDiffStr(oldBuffs ei.DimensionBuffs) string {
-	maxELR, maxShip, maxHab, _ := ei.GetColleggtibleValues()
-	var diffs []string
-	formatDiff := func(emoji string, diff float64) string {
-		val := fmt.Sprintf("%.2f", diff*100.0)
-		val = strings.TrimSuffix(val, "0")
-		val = strings.TrimSuffix(val, "0")
-		val = strings.TrimSuffix(val, ".")
-		return fmt.Sprintf("%s+%s%%", emoji, val)
-	}
-	if maxELR-oldBuffs.ELR > 0.001 {
-		diffs = append(diffs, formatDiff("📦", maxELR-oldBuffs.ELR))
-	}
-	if maxShip-oldBuffs.SR > 0.001 {
-		diffs = append(diffs, formatDiff("🚚", maxShip-oldBuffs.SR))
-	}
-	if maxHab-oldBuffs.Hab > 0.001 {
-		diffs = append(diffs, formatDiff("🛖", maxHab-oldBuffs.Hab))
-	}
-	if len(diffs) > 0 {
-		return fmt.Sprintf("**New Colleggtibles Since Run:** %s", strings.Join(diffs, " "))
+func getColleggtibleDiffStr(runTime time.Time) string {
+	newColleggtibles := ei.GetNewDeliveryColleggtibles(runTime)
+	if len(newColleggtibles) > 0 {
+		var parts []string
+		for _, c := range newColleggtibles {
+			dimStr := ""
+			switch c.Dimension {
+			case ei.GameModifier_EGG_LAYING_RATE:
+				dimStr = "ELR"
+			case ei.GameModifier_SHIPPING_CAPACITY:
+				dimStr = "SR"
+			case ei.GameModifier_HAB_CAPACITY:
+				dimStr = "HAB"
+			case ei.GameModifier_INTERNAL_HATCHERY_RATE:
+				dimStr = "IHR"
+			}
+			pct := (c.MaxVal - 1.0) * 100.0
+			valStr := fmt.Sprintf("%.2f", pct)
+			valStr = strings.TrimSuffix(valStr, "0")
+			valStr = strings.TrimSuffix(valStr, "0")
+			valStr = strings.TrimSuffix(valStr, ".")
+			parts = append(parts, fmt.Sprintf("%s (%s: %s%%)", FindEggEmoji(c.ID), dimStr, valStr))
+		}
+		return fmt.Sprintf("**Colleggtibles Since Run:** %s", strings.Join(parts, ", "))
 	}
 	return ""
 }
