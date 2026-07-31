@@ -416,7 +416,7 @@ func AddBoostTokens(s *discordgo.Session, i *discordgo.InteractionCreate, setCou
 		b.TokensWanted = 0
 	}
 
-	if (ContractFlagDynamicTokens+ContractFlag8Tokens+ContractFlag6Tokens+ContractFlag4Tokens)&contract.Style == 0 {
+	if (ContractFlagDynamicTokens+ContractFlag8Tokens+ContractFlag6Tokens+ContractFlag4Tokens+ContractFlagThresholdTokens)&contract.Style == 0 {
 		// Only set this if the contract isn't controlling the wanted tokens
 		farmerstate.SetTokens(b.UserID, b.TokensWanted)
 	}
@@ -591,6 +591,20 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 					wantedTokens = 6
 				} else if contract.Style&ContractFlag8Tokens != 0 {
 					wantedTokens = 8
+				} else if contract.Style&ContractFlagThresholdTokens != 0 {
+					x := contract.ThresholdTokensX
+					y := contract.ThresholdTokensY
+					a := contract.ThresholdTokensA
+					if x == 0 && y == 0 && a == 0 {
+						x = 4
+						y = 5
+						a = 70
+					}
+					if b.TECount >= a {
+						wantedTokens = x
+					} else {
+						wantedTokens = y
+					}
 				}
 			}
 
@@ -782,6 +796,12 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		if b.TokensWanted <= 0 {
 			b.TokensWanted = defaultFamerTokens // Default to 6
 		}
+		// Get TE count from Farmerstate
+		te := farmerstate.GetMiscSettingString(userID, "TE")
+		if te != "" {
+			b.TECount, _ = strconv.Atoi(te)
+		}
+
 		if contract.State != ContractStateSignup {
 			if contract.Style&ContractFlag4Tokens != 0 {
 				b.TokensWanted = 4
@@ -789,12 +809,21 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 				b.TokensWanted = 6
 			} else if contract.Style&ContractFlag8Tokens != 0 {
 				b.TokensWanted = 8
+			} else if contract.Style&ContractFlagThresholdTokens != 0 {
+				x := contract.ThresholdTokensX
+				y := contract.ThresholdTokensY
+				a := contract.ThresholdTokensA
+				if x == 0 && y == 0 && a == 0 {
+					x = 4
+					y = 5
+					a = 70
+				}
+				if b.TECount >= a {
+					b.TokensWanted = x
+				} else {
+					b.TokensWanted = y
+				}
 			}
-		}
-		// Get TE count from Farmerstate
-		te := farmerstate.GetMiscSettingString(userID, "TE")
-		if te != "" {
-			b.TECount, _ = strconv.Atoi(te)
 		}
 		b.ArtifactSet = getUserArtifacts(userID, nil)
 		if contract.Ultra {
@@ -1382,6 +1411,20 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 			contract.Boosters[i].TokensWanted = 6
 		} else if contract.Style&ContractFlag8Tokens != 0 {
 			contract.Boosters[i].TokensWanted = 8
+		} else if contract.Style&ContractFlagThresholdTokens != 0 {
+			x := contract.ThresholdTokensX
+			y := contract.ThresholdTokensY
+			a := contract.ThresholdTokensA
+			if x == 0 && y == 0 && a == 0 {
+				x = 4
+				y = 5
+				a = 70
+			}
+			if contract.Boosters[i].TECount >= a {
+				contract.Boosters[i].TokensWanted = x
+			} else {
+				contract.Boosters[i].TokensWanted = y
+			}
 		}
 	}
 

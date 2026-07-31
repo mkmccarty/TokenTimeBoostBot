@@ -185,6 +185,16 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				fmt.Fprintf(&header, ">  6️⃣%s boosting for everyone!\n", contract.TokenStr)
 			} else if contract.Style&ContractFlag8Tokens != 0 {
 				fmt.Fprintf(&header, ">  8️⃣%s boosting for everyone!\n", contract.TokenStr)
+			} else if contract.Style&ContractFlagThresholdTokens != 0 {
+				x := contract.ThresholdTokensX
+				y := contract.ThresholdTokensY
+				a := contract.ThresholdTokensA
+				if x == 0 && y == 0 && a == 0 {
+					x = 4
+					y = 5
+					a = 70
+				}
+				fmt.Fprintf(&header, ">  📊 %d %s for > %d TE, %d %s < %d TE\n", x, contract.TokenStr, a, y, contract.TokenStr, a)
 			}
 		}
 	}

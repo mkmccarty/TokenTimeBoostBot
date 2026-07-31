@@ -219,6 +219,15 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 								Name: "🤖",
 							},
 						},
+						{
+							Label:       "Threshold Boost Tokens",
+							Description: "X tokens for > TE, Y tokens < TE",
+							Value:       "threshold",
+							Default:     (contract.Style & ContractFlagThresholdTokens) != 0,
+							Emoji: &discordgo.ComponentEmoji{
+								Name: "📊",
+							},
+						},
 					},
 				},
 			},

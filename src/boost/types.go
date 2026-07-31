@@ -75,6 +75,7 @@ var contractFlagNames = []struct {
 	{ContractFlag6Tokens, "6-token"},
 	{ContractFlag8Tokens, "8-token"},
 	{ContractFlagDynamicTokens, "Dynamic-tokens"},
+	{ContractFlagThresholdTokens, "Threshold-tokens"},
 }
 
 // Constnts for the contract
@@ -114,15 +115,16 @@ const (
 	SinkBoostLast        = 1  // Last position
 
 	// These are an int64 flaglist to construct the style of the contract
-	ContractFlagNone          = 0x0000
-	ContractFlagCrt           = 0x0001
-	ContractFlagSelfRuns      = 0x0002
-	ContractFlag6Tokens       = 0x0100
-	ContractFlag8Tokens       = 0x0200
-	ContractFlagDynamicTokens = 0x0400
-	ContractFlag4Tokens       = 0x0800
-	ContractFlagFastrun       = 0x4000
-	ContractFlagBanker        = 0x8000
+	ContractFlagNone            = 0x0000
+	ContractFlagCrt             = 0x0001
+	ContractFlagSelfRuns        = 0x0002
+	ContractFlag6Tokens         = 0x0100
+	ContractFlag8Tokens         = 0x0200
+	ContractFlagDynamicTokens   = 0x0400
+	ContractFlag4Tokens         = 0x0800
+	ContractFlagThresholdTokens = 0x1000
+	ContractFlagFastrun         = 0x4000
+	ContractFlagBanker          = 0x8000
 
 	ContractStyleFastrun       = ContractFlagFastrun
 	ContractStyleFastrunBanker = ContractFlagBanker
@@ -278,6 +280,9 @@ type Contract struct {
 	Style                int64 // Mask for the Contract Style
 	PlayStyle            int   // Playstyle of the contract
 	NewToPlayStyle       bool  // Someone in the contract is new to this playstyle
+	ThresholdTokensX     int   // X tokens for >= A TE
+	ThresholdTokensY     int   // Y tokens < A TE
+	ThresholdTokensA     int   // A TE threshold
 	LengthInSeconds      int
 	BoostOrder           int // How the contract is sorted
 	BoostVoting          int
