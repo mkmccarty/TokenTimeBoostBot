@@ -413,7 +413,7 @@ func HandleChangeOneBoosterCommand(s *discordgo.Session, i *discordgo.Interactio
 		} else {
 			str += fmt.Sprintf("Moved %s to position %d.", contract.Boosters[boosterName].Mention, position)
 
-			if newBooster != "" {
+			if newBooster != "" && contract.State != ContractStateSignup {
 				err := ChangeCurrentBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID, newBooster, true)
 				if err != nil {
 					str += " " + strings.ToUpper(string(err.Error()[0])) + err.Error()[1:]
@@ -915,11 +915,6 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
-	}
-
-	// return an error if the contract is in the signup state
-	if contract.State == ContractStateSignup {
-		return errors.New(errorContractNotStarted)
 	}
 
 	// return an error if the userID isn't the contract creator
