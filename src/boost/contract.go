@@ -530,6 +530,9 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	}
 
 	contract.Style = ContractStyleFastrun
+	contract.ThresholdTokensX = 4
+	contract.ThresholdTokensY = 5
+	contract.ThresholdTokensA = 70
 
 	//GlobalContracts[ContractHash] = append(GlobalContracts[ContractHash], loc)
 	contract.Boosters = make(map[string]*Booster)
@@ -655,6 +658,12 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 	cmd := strings.ToLower(reaction[1])
 	contractHash := reaction[len(reaction)-1]
 
+	data := i.MessageComponentData()
+	if cmd == "features" && len(data.Values) > 0 && data.Values[0] == "threshold" {
+		SendThresholdModal(s, i, contractHash)
+		return
+	}
+
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredMessageUpdate,
 		Data: &discordgo.InteractionResponseData{
@@ -669,9 +678,8 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 				Content: "Unable to find this contract.",
 				Flags:   discordgo.MessageFlagsEphemeral,
 			})
+		return
 	}
-
-	data := i.MessageComponentData()
 
 	if cmd == "style" {
 		values := data.Values
@@ -694,12 +702,14 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			contract.Style &= ^ContractFlag6Tokens
 			contract.Style &= ^ContractFlag8Tokens
 			contract.Style &= ^ContractFlag4Tokens
+			contract.Style &= ^ContractFlagThresholdTokens
 		} else {
 			switch values[0] {
 			case "boost4":
 				contract.Style &= ^ContractFlagDynamicTokens
 				contract.Style &= ^ContractFlag6Tokens
 				contract.Style &= ^ContractFlag8Tokens
+				contract.Style &= ^ContractFlagThresholdTokens
 				if contract.Style&ContractFlag4Tokens != 0 {
 					contract.Style &= ^ContractFlag4Tokens
 				} else {
@@ -709,6 +719,7 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 				contract.Style &= ^ContractFlagDynamicTokens
 				contract.Style &= ^ContractFlag8Tokens
 				contract.Style &= ^ContractFlag4Tokens
+				contract.Style &= ^ContractFlagThresholdTokens
 				if contract.Style&ContractFlag6Tokens != 0 {
 					contract.Style &= ^ContractFlag6Tokens
 				} else {
@@ -718,6 +729,7 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 				contract.Style &= ^ContractFlagDynamicTokens
 				contract.Style &= ^ContractFlag6Tokens
 				contract.Style &= ^ContractFlag4Tokens
+				contract.Style &= ^ContractFlagThresholdTokens
 				if contract.Style&ContractFlag8Tokens != 0 {
 					contract.Style &= ^ContractFlag8Tokens
 				} else {
@@ -727,6 +739,7 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 				contract.Style &= ^ContractFlag6Tokens
 				contract.Style &= ^ContractFlag8Tokens
 				contract.Style &= ^ContractFlag4Tokens
+				contract.Style &= ^ContractFlagThresholdTokens
 				if contract.Style&ContractFlagDynamicTokens != 0 {
 					contract.Style &= ^ContractFlagDynamicTokens
 				} else {
@@ -1043,5 +1056,200 @@ func PopulateThematicComplaintsForContractID(contractID string, complaints []str
 			})
 			saveData(contract.ContractHash)
 		}
+	}
+}
+
+// SendThresholdModal displays a modal to configure threshold tokens
+func SendThresholdModal(s *discordgo.Session, i *discordgo.InteractionCreate, contractHash string) {
+	contract := FindContractByHash(contractHash)
+	if contract == nil {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Unable to find this contract.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
+	xVal := "4"
+	yVal := "5"
+	aVal := "70"
+	if contract.ThresholdTokensX > 0 {
+		xVal = strconv.Itoa(contract.ThresholdTokensX)
+	}
+	if contract.ThresholdTokensY > 0 {
+		yVal = strconv.Itoa(contract.ThresholdTokensY)
+	}
+	if contract.ThresholdTokensA > 0 {
+		aVal = strconv.Itoa(contract.ThresholdTokensA)
+	}
+
+	var components []discordgo.MessageComponent
+
+	components = append(components, discordgo.ActionsRow{
+		Components: []discordgo.MessageComponent{
+			discordgo.TextInput{
+				CustomID:    "threshold-x",
+				Label:       "Tokens Wanted if > TE (X)",
+				Style:       discordgo.TextInputShort,
+				Placeholder: "X tokens (default 4)",
+				Value:       xVal,
+				MaxLength:   2,
+				Required:    boolPtr(true),
+			},
+		},
+	})
+
+	components = append(components, discordgo.ActionsRow{
+		Components: []discordgo.MessageComponent{
+			discordgo.TextInput{
+				CustomID:    "threshold-y",
+				Label:       "Tokens Wanted if < TE (Y)",
+				Style:       discordgo.TextInputShort,
+				Placeholder: "Y tokens (default 5)",
+				Value:       yVal,
+				MaxLength:   2,
+				Required:    boolPtr(true),
+			},
+		},
+	})
+
+	components = append(components, discordgo.ActionsRow{
+		Components: []discordgo.MessageComponent{
+			discordgo.TextInput{
+				CustomID:    "threshold-a",
+				Label:       "TE Threshold",
+				Style:       discordgo.TextInputShort,
+				Placeholder: "TE threshold (default 70)",
+				Value:       aVal,
+				MaxLength:   3,
+				Required:    boolPtr(true),
+			},
+		},
+	})
+
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseModal,
+		Data: &discordgo.InteractionResponseData{
+			CustomID:   "m_threshold#" + contractHash,
+			Title:      "Configure Threshold Boost Tokens",
+			Components: components,
+		},
+	})
+	if err != nil {
+		log.Println("Error sending threshold modal:", err)
+	}
+}
+
+// HandleThresholdModalSubmit processes the submitted threshold tokens modal dialog
+func HandleThresholdModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	modalData := i.ModalSubmitData()
+	parts := strings.Split(modalData.CustomID, "#")
+	contractHash := parts[1]
+
+	contract := FindContractByHash(contractHash)
+	if contract == nil {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Contract not found.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
+	var xStr, yStr, aStr string
+	for _, row := range modalData.Components {
+		for _, comp := range row.(*discordgo.ActionsRow).Components {
+			switch input := comp.(type) {
+			case *discordgo.TextInput:
+				switch input.CustomID {
+				case "threshold-x":
+					xStr = input.Value
+				case "threshold-y":
+					yStr = input.Value
+				case "threshold-a":
+					aStr = input.Value
+				}
+			}
+		}
+	}
+
+	x, errX := strconv.Atoi(strings.TrimSpace(xStr))
+	y, errY := strconv.Atoi(strings.TrimSpace(yStr))
+	a, errA := strconv.Atoi(strings.TrimSpace(aStr))
+
+	if errX != nil || errY != nil || errA != nil || x < 0 || y < 0 || a < 0 {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Invalid values entered. Please enter non-negative numbers.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
+	contract.mutex.Lock()
+	contract.ThresholdTokensX = x
+	contract.ThresholdTokensY = y
+	contract.ThresholdTokensA = a
+
+	contract.Style &= ^ContractFlagDynamicTokens
+	contract.Style &= ^ContractFlag6Tokens
+	contract.Style &= ^ContractFlag8Tokens
+	contract.Style &= ^ContractFlag4Tokens
+	contract.Style |= ContractFlagThresholdTokens
+	contract.mutex.Unlock()
+
+	saveData(contract.ContractHash)
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
+	})
+
+	// Redraw/refresh settings page
+	inThread := false
+	ch, err := s.Channel(i.ChannelID)
+	if err == nil && ch.IsThread() {
+		inThread = true
+	}
+	str, comp := getSignupContractSettings(contract.Location[0].ChannelID, contract.ContractHash, inThread)
+	var components []discordgo.MessageComponent
+	components = append(components, &discordgo.TextDisplay{
+		Content: str,
+	})
+	components = append(components, comp...)
+
+	edit := discordgo.WebhookEdit{
+		Components: &components,
+	}
+
+	_, _ = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit)
+
+	// Redraw/refresh booster list and signup reactions
+	for _, loc := range contract.Location {
+		var listComponents []discordgo.MessageComponent
+		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
+		msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
+		boostListComp := DrawBoostList(s, contract)
+		listComponents = append(listComponents, boostListComp...)
+		buttonComponents := getContractReactionsComponents(contract)
+		if len(buttonComponents) > 0 {
+			listComponents = append(listComponents, buttonComponents...)
+		}
+		msgedit.Components = &listComponents
+
+		msg, err := s.ChannelMessageEditComplex(msgedit)
+		if err == nil {
+			loc.ListMsgID = msg.ID
+		} else {
+			log.Print(err)
+		}
+
+		updateSignupReactionMessage(s, contract, loc)
 	}
 }

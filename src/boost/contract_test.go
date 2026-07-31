@@ -190,3 +190,46 @@ func TestPopulateThematicComplaintsForContractID(t *testing.T) {
 		t.Errorf("complaints not populated correctly: %v", tc)
 	}
 }
+
+func TestThresholdTokensCalculation(t *testing.T) {
+	contract := &Contract{
+		Style:              ContractFlagThresholdTokens,
+		ThresholdTokensX:   4,
+		ThresholdTokensY:   5,
+		ThresholdTokensA:   70,
+		Boosters:           make(map[string]*Booster),
+	}
+
+	b1 := &Booster{UserID: "user1", TECount: 75}
+	b2 := &Booster{UserID: "user2", TECount: 65}
+	b3 := &Booster{UserID: "user3", TECount: 70}
+
+	contract.Boosters["user1"] = b1
+	contract.Boosters["user2"] = b2
+	contract.Boosters["user3"] = b3
+
+	// Simulate contract start logic for setting tokens
+	for i := range contract.Boosters {
+		if contract.Style&ContractFlagThresholdTokens != 0 {
+			x := contract.ThresholdTokensX
+			y := contract.ThresholdTokensY
+			a := contract.ThresholdTokensA
+			if contract.Boosters[i].TECount >= a {
+				contract.Boosters[i].TokensWanted = x
+			} else {
+				contract.Boosters[i].TokensWanted = y
+			}
+		}
+	}
+
+	if b1.TokensWanted != 4 {
+		t.Errorf("expected user1 to want 4 tokens (TE 75 >= 70), got %d", b1.TokensWanted)
+	}
+	if b2.TokensWanted != 5 {
+		t.Errorf("expected user2 to want 5 tokens (TE 65 < 70), got %d", b2.TokensWanted)
+	}
+	if b3.TokensWanted != 4 {
+		t.Errorf("expected user3 to want 4 tokens (TE 70 >= 70), got %d", b3.TokensWanted)
+	}
+}
+

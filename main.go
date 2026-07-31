@@ -295,6 +295,7 @@ var (
 		"fd_signupFarmer":         boost.HandleSignupFarmer,
 		"fd_signupBell":           boost.HandleSignupBell,
 		"m_eggid":                 boost.HandleEggIDModalSubmit,
+		"m_threshold":             boost.HandleThresholdModalSubmit,
 		"fd_signupLeave":          boost.HandleSignupLeave,
 		"csestimate":              boost.HandleCsEstimateButtons,
 		"lobby":                   boost.HandleLobbyButtons,
