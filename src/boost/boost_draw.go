@@ -194,7 +194,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 					y = 5
 					a = 70
 				}
-				fmt.Fprintf(&header, ">  📊 %d %s for > %d TE, %d %s < %d TE\n", x, contract.TokenStr, a, y, contract.TokenStr, a)
+				fmt.Fprintf(&header, ">  📊 %d %s for >= %d TE, %d %s < %d TE\n", x, contract.TokenStr, a, y, contract.TokenStr, a)
 			}
 		}
 	}

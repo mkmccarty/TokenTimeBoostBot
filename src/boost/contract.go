@@ -1092,7 +1092,7 @@ func SendThresholdModal(s *discordgo.Session, i *discordgo.InteractionCreate, co
 		Components: []discordgo.MessageComponent{
 			discordgo.TextInput{
 				CustomID:    "threshold-x",
-				Label:       "Tokens Wanted if > TE (X)",
+				Label:       "Tokens Wanted if >= TE (X)",
 				Style:       discordgo.TextInputShort,
 				Placeholder: "X tokens (default 4)",
 				Value:       xVal,
