@@ -193,11 +193,11 @@ func TestPopulateThematicComplaintsForContractID(t *testing.T) {
 
 func TestThresholdTokensCalculation(t *testing.T) {
 	contract := &Contract{
-		Style:              ContractFlagThresholdTokens,
-		ThresholdTokensX:   4,
-		ThresholdTokensY:   5,
-		ThresholdTokensA:   70,
-		Boosters:           make(map[string]*Booster),
+		Style:            ContractFlagThresholdTokens,
+		ThresholdTokensX: 4,
+		ThresholdTokensY: 5,
+		ThresholdTokensA: 70,
+		Boosters:         make(map[string]*Booster),
 	}
 
 	b1 := &Booster{UserID: "user1", TECount: 75}
@@ -232,4 +232,3 @@ func TestThresholdTokensCalculation(t *testing.T) {
 		t.Errorf("expected user3 to want 4 tokens (TE 70 >= 70), got %d", b3.TokensWanted)
 	}
 }
-
