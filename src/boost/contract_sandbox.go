@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
@@ -178,6 +179,26 @@ func SendSandboxDM(s *discordgo.Session, contract *Contract, userID string) erro
 		sandboxURL,
 	)
 
+	var files []*discordgo.File
+	if len(dmBody) > 2000 {
+		dmBody = fmt.Sprintf(
+			"SR Sandbox for %s\nCoop: %s\nSignup: %d/%d\nChannel: %s\n[Open contract thread](%s)\nOpen SR Sandbox: URL is attached as a text file.",
+			contractName,
+			contract.CoopID,
+			len(contract.Boosters),
+			contract.CoopSize,
+			contract.Location[0].ChannelMention,
+			contractLink,
+		)
+		files = []*discordgo.File{
+			{
+				Name:        "sandbox_url.txt",
+				ContentType: "text/plain",
+				Reader:      strings.NewReader(sandboxURL),
+			},
+		}
+	}
+
 	u, dmErr := s.UserChannelCreate(userID)
 	if dmErr != nil {
 		return dmErr
@@ -185,6 +206,7 @@ func SendSandboxDM(s *discordgo.Session, contract *Contract, userID string) erro
 
 	_, sendErr := s.ChannelMessageSendComplex(u.ID, &discordgo.MessageSend{
 		Content: dmBody,
+		Files:   files,
 		Components: []discordgo.MessageComponent{
 			discordgo.ActionsRow{
 				Components: []discordgo.MessageComponent{
