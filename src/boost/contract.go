@@ -305,7 +305,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	// Create a new thread for this contract
 	if makeThread {
 		threadStyleIcons := []string{"", "🟦 ", "🟩 ", "🟧 ", "🟥 "}
-		
+
 		// Build the suffixes first to know how much space they consume
 		var suffixBuilder strings.Builder
 		if contractInfo.ID != "" {
@@ -341,7 +341,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 					}
 				}
 				ContractsMutex.RUnlock()
-				
+
 				collisionStr := ""
 				if collisionCount > 0 {
 					collisionStr = fmt.Sprintf(" #%d", collisionCount+1)
@@ -349,7 +349,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 				icon := threadStyleIcons[playStyle]
 				fixedLen := len(icon) + 1 + len(coopID) + len(collisionStr) + len(suffixes) + 2
-				
+
 				nameToUse := contractInfo.Name
 				if fixedLen+len(nameToUse) > 100 {
 					allowedNameLen := 100 - fixedLen
