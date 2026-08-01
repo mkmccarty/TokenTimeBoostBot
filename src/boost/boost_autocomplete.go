@@ -36,6 +36,10 @@ func limitContractChoices(choices []*discordgo.ApplicationCommandOptionChoice, m
 func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	optionMap := bottools.GetCommandOptionsMap(i)
 
+	if opt, ok := optionMap["boost-order"]; ok && opt.Focused {
+		handleBoostOrderAutoComplete(s, i, opt.StringValue())
+		return
+	}
 	if opt, ok := optionMap["coop-id"]; ok && opt.Focused {
 		handleCoopIDAutoComplete(s, i, opt.StringValue())
 		return
@@ -279,4 +283,46 @@ func handleCoopIDAutoComplete(s *discordgo.Session, i *discordgo.InteractionCrea
 			Content: "Coop ID",
 			Choices: choices,
 		}})
+}
+
+// handleBoostOrderAutoComplete handles autocomplete for the boost-order option in /contract
+func handleBoostOrderAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate, searchString string) {
+	searchString = strings.ToLower(searchString)
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+
+	for orderVal, name := range contractOrderNames {
+		if orderVal == ContractOrderFair {
+			continue
+		}
+		var formattedName string
+		switch orderVal {
+		case ContractOrderSignup:
+			formattedName = "Sign-up Ordering"
+		case ContractOrderTimeBased:
+			formattedName = "Time Based Ordering"
+		case ContractOrderRandom:
+			formattedName = "Random Ordering"
+		case ContractOrderTEFuzzy:
+			formattedName = "Fuzzy TE Ordering"
+		default:
+			formattedName = name + " Ordering"
+		}
+
+		if searchString == "" || strings.Contains(strings.ToLower(formattedName), searchString) {
+			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+				Name:  formattedName,
+				Value: fmt.Sprintf("%d", orderVal),
+			})
+		}
+	}
+
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+		Data: &discordgo.InteractionResponseData{
+			Choices: choices,
+		},
+	})
+	if err != nil {
+		log.Println("Error responding to boost order autocomplete:", err)
+	}
 }
