@@ -111,7 +111,7 @@ func HandleLobbyCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	userID := bottools.GetInteractionUserID(i)
-	components := buildLobbyComponents(contractID, coopID, userID, false, true)
+	components := buildLobbyComponents(i.ChannelID, contractID, coopID, userID, false, true)
 	_, sendErr := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Flags:      p.flags,
 		Components: components,
@@ -175,7 +175,7 @@ func HandleLobbyButtons(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		})
 
 		userID := bottools.GetInteractionUserID(i)
-		components := buildLobbyComponents(contractID, coopID, userID, true, true)
+		components := buildLobbyComponents(i.ChannelID, contractID, coopID, userID, true, true)
 		edit := discordgo.WebhookEdit{Components: &components}
 		if _, err := s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit); err != nil {
 			log.Println("lobby FollowupMessageEdit:", err)
@@ -203,8 +203,8 @@ func resolveLobbyRequest(i *discordgo.InteractionCreate, contractID string, coop
 	return contractID, coopID, ""
 }
 
-func buildLobbyComponents(contractID string, coopID string, userID string, bypassCache bool, includeButtons bool) []discordgo.MessageComponent {
-	content, err := buildLobbyContent(contractID, coopID, userID, bypassCache)
+func buildLobbyComponents(channelID string, contractID string, coopID string, userID string, bypassCache bool, includeButtons bool) []discordgo.MessageComponent {
+	content, err := buildLobbyContent(channelID, contractID, coopID, userID, bypassCache)
 	if err != nil {
 		components := []discordgo.MessageComponent{
 			discordgo.TextDisplay{Content: err.Error()},
@@ -235,7 +235,7 @@ type lobbyContent struct {
 	mismatch string
 }
 
-func buildLobbyContent(contractID string, coopID string, userID string, bypassCache bool) (lobbyContent, error) {
+func buildLobbyContent(channelID string, contractID string, coopID string, userID string, bypassCache bool) (lobbyContent, error) {
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 	eiContract := ei.EggIncContractsAll[contractID]
 	if eiContract.ID == "" {
@@ -304,7 +304,7 @@ func buildLobbyContent(contractID string, coopID string, userID string, bypassCa
 		}
 	}
 
-	mismatch := buildLobbyMismatchSection(coopStatus.GetContributors(), FindContractByIDs(contractID, coopID))
+	mismatch := buildLobbyMismatchSection(coopStatus.GetContributors(), FindContractByIDs(channelID, contractID, coopID))
 
 	return lobbyContent{header: header.String(), lobby: lobby.String(), mismatch: mismatch}, nil
 }

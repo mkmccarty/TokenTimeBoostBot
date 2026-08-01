@@ -175,7 +175,6 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 		fmt.Fprintf(&builder, "%s : Contract score estimates\n", bottools.GetFormattedCommand("cs-estimate"))
 		fmt.Fprintf(&builder, "%s : Eggs of Virtue Helper\n", bottools.GetFormattedCommand("virtue"))
 		fmt.Fprintf(&builder, "%s : Rerun evaluation\n", bottools.GetFormattedCommand("rerun-eval active"))
-		fmt.Fprintf(&builder, "%s : General purpose Token Tracker via DM.\n", bottools.GetFormattedCommand("token"))
 		fmt.Fprintf(&builder, "%s : Last occurrance of every event.\n", bottools.GetFormattedCommand("events"))
 		fmt.Fprintf(&builder, "%s : Timer tool\n", bottools.GetFormattedCommand("timer"))
 

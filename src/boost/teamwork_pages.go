@@ -92,7 +92,7 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 
 	if exists && (refresh || cache.expirationTimestamp.Before(time.Now())) {
 
-		s1, fields, _ := DownloadCoopStatusTeamwork(cache.contractID, cache.coopID, true, cache.eiID)
+		s1, fields, _ := DownloadCoopStatusTeamwork(i.ChannelID, cache.contractID, cache.coopID, true, cache.eiID)
 		newCache := buildTeamworkCache(s1, fields)
 
 		newCache.public = cache.public

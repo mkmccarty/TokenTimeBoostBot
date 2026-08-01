@@ -715,6 +715,7 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 	}
 	if coopID != "" {
 		contract.CoopID = coopID
+		refreshBoostListMessage(s, contract, true)
 	}
 	if coordinatorID != "" {
 		if slices.Index(contract.Order, coordinatorID) != -1 {

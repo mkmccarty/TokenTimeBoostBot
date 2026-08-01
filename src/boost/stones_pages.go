@@ -87,7 +87,7 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 
 	if exists && (refresh || cache.expirationTimestamp.Before(time.Now())) {
 
-		s1, urls, tiles := DownloadCoopStatusStones(cache.contractID, cache.coopID, cache.details, cache.soloName, cache.useBuffHistory, cache.eiID)
+		s1, urls, tiles := DownloadCoopStatusStones(i.ChannelID, cache.contractID, cache.coopID, cache.details, cache.soloName, cache.useBuffHistory, cache.eiID)
 		newCache := buildStonesCache(s1, urls, tiles)
 
 		newCache.private = cache.private
@@ -105,7 +105,7 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		stonesCacheMap[cache.xid] = newCache
 		stonesCacheMutex.Unlock()
 
-		contract := FindContractByIDs(cache.contractID, cache.coopID)
+		contract := FindContractByIDs(i.ChannelID, cache.contractID, cache.coopID)
 		if contract != nil {
 			if contract.State == ContractStateCompleted {
 				// Only refresh if EstimateUpdateTime is within 10 seconds of now

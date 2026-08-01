@@ -13,11 +13,18 @@ var UpdateDashboardDisplays func(s *discordgo.Session, userID string)
 func UpdateCommandMap(commands []*discordgo.ApplicationCommand) {
 	for _, cmd := range commands {
 		commandMap[cmd.Name] = cmd.ID
-		// Handle subcommands
+		// Handle subcommands and subcommand groups
 		if len(cmd.Options) > 0 {
 			for _, option := range cmd.Options {
-				if option.Type == discordgo.ApplicationCommandOptionSubCommand {
+				switch option.Type {
+				case discordgo.ApplicationCommandOptionSubCommand:
 					commandMap[cmd.Name+" "+option.Name] = cmd.ID
+				case discordgo.ApplicationCommandOptionSubCommandGroup:
+					for _, subOption := range option.Options {
+						if subOption.Type == discordgo.ApplicationCommandOptionSubCommand {
+							commandMap[cmd.Name+" "+option.Name+" "+subOption.Name] = cmd.ID
+						}
+					}
 				}
 			}
 		}

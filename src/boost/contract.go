@@ -273,21 +273,23 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 
 	// Before we make a thread, make sure this isn't a duplicate contract
-	ContractsMutex.RLock()
-	for _, c := range Contracts {
-		if c.ContractID == contractID && c.CoopID == coopID {
-			ContractsMutex.RUnlock()
-			_, _ = s.FollowupMessageCreate(i.Interaction, true,
-				&discordgo.WebhookParams{
-					Content:    "A contract with this coop-id (" + c.CoopID + ") exists in " + c.Location[0].ChannelMention,
-					Flags:      discordgo.MessageFlagsEphemeral,
-					Components: []discordgo.MessageComponent{},
-				},
-			)
-			return
+	if !isTBDCoopID(coopID) {
+		ContractsMutex.RLock()
+		for _, c := range Contracts {
+			if c.ContractID == contractID && strings.EqualFold(c.CoopID, coopID) {
+				ContractsMutex.RUnlock()
+				_, _ = s.FollowupMessageCreate(i.Interaction, true,
+					&discordgo.WebhookParams{
+						Content:    "A contract with this coop-id (" + c.CoopID + ") exists in " + c.Location[0].ChannelMention,
+						Flags:      discordgo.MessageFlagsEphemeral,
+						Components: []discordgo.MessageComponent{},
+					},
+				)
+				return
+			}
 		}
+		ContractsMutex.RUnlock()
 	}
-	ContractsMutex.RUnlock()
 
 	contractInfo := ei.EggIncContractsAll[contractID]
 	if contractInfo.ID != "" {
@@ -303,23 +305,19 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	// Create a new thread for this contract
 	if makeThread {
 		threadStyleIcons := []string{"", "🟦 ", "🟩 ", "🟧 ", "🟥 "}
-		// Default to 1 day timeout
-		var builder strings.Builder
-		if !contractInfo.Predicted {
-			fmt.Fprintf(&builder, "%s %s", threadStyleIcons[playStyle], coopID)
-		} else {
-			fmt.Fprintf(&builder, "%s %s %s", threadStyleIcons[playStyle], contractInfo.Name, "Signup")
-		}
+		
+		// Build the suffixes first to know how much space they consume
+		var suffixBuilder strings.Builder
 		if contractInfo.ID != "" {
 			playStyleStr := fmt.Sprintf("%s ", contractPlaystyleNames[playStyle])
 			if !contractInfo.Predicted {
 				if len(progenitors) != contractInfo.MaxCoopSize {
-					fmt.Fprintf(&builder, "(%s%d/%d)", playStyleStr, len(progenitors), contractInfo.MaxCoopSize)
+					fmt.Fprintf(&suffixBuilder, "(%s%d/%d)", playStyleStr, len(progenitors), contractInfo.MaxCoopSize)
 				} else {
-					fmt.Fprint(&builder, "(FULL)")
+					fmt.Fprint(&suffixBuilder, "(FULL)")
 				}
 			} else {
-				fmt.Fprintf(&builder, " (%s%d)", playStyleStr, len(progenitors))
+				fmt.Fprintf(&suffixBuilder, " (%s%d)", playStyleStr, len(progenitors))
 			}
 		}
 		if !plannedStartTime.IsZero() {
@@ -327,11 +325,75 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			if err == nil {
 				currentTime := plannedStartTime.In(nyTime)
 				formattedTime := currentTime.Format("3:04pm MST")
-				fmt.Fprint(&builder, " "+formattedTime)
+				fmt.Fprint(&suffixBuilder, " "+formattedTime)
 			}
 		}
+		suffixes := suffixBuilder.String()
 
-		thread, err := s.ThreadStart(ChannelID, builder.String(), discordgo.ChannelTypeGuildPublicThread, 60*24)
+		var builder strings.Builder
+		if !contractInfo.Predicted {
+			if isTBDCoopID(coopID) {
+				collisionCount := 0
+				ContractsMutex.RLock()
+				for _, c := range Contracts {
+					if c.ContractID == contractID && strings.EqualFold(c.CoopID, coopID) && c.State != ContractStateArchive {
+						collisionCount++
+					}
+				}
+				ContractsMutex.RUnlock()
+				
+				collisionStr := ""
+				if collisionCount > 0 {
+					collisionStr = fmt.Sprintf(" #%d", collisionCount+1)
+				}
+
+				icon := threadStyleIcons[playStyle]
+				fixedLen := len(icon) + 1 + len(coopID) + len(collisionStr) + len(suffixes) + 2
+				
+				nameToUse := contractInfo.Name
+				if fixedLen+len(nameToUse) > 100 {
+					allowedNameLen := 100 - fixedLen
+					if allowedNameLen > 3 {
+						nameToUse = nameToUse[:allowedNameLen-3] + "..."
+					} else if allowedNameLen > 0 {
+						nameToUse = nameToUse[:allowedNameLen]
+					} else {
+						nameToUse = ""
+					}
+				}
+
+				if collisionCount > 0 {
+					fmt.Fprintf(&builder, "%s%s %s%s", icon, nameToUse, coopID, collisionStr)
+				} else {
+					fmt.Fprintf(&builder, "%s%s %s", icon, nameToUse, coopID)
+				}
+			} else {
+				fmt.Fprintf(&builder, "%s%s", threadStyleIcons[playStyle], coopID)
+			}
+		} else {
+			icon := threadStyleIcons[playStyle]
+			fixedLen := len(icon) + 1 + len("Signup") + len(suffixes) + 1
+			nameToUse := contractInfo.Name
+			if fixedLen+len(nameToUse) > 100 {
+				allowedNameLen := 100 - fixedLen
+				if allowedNameLen > 3 {
+					nameToUse = nameToUse[:allowedNameLen-3] + "..."
+				} else if allowedNameLen > 0 {
+					nameToUse = nameToUse[:allowedNameLen]
+				} else {
+					nameToUse = ""
+				}
+			}
+			fmt.Fprintf(&builder, "%s%s %s", icon, nameToUse, "Signup")
+		}
+
+		builder.WriteString(suffixes)
+		threadName := builder.String()
+		if len(threadName) > 100 {
+			threadName = threadName[:100]
+		}
+
+		thread, err := s.ThreadStart(ChannelID, threadName, discordgo.ChannelTypeGuildPublicThread, 60*24)
 		if err == nil {
 			ChannelID = thread.ID
 			_ = s.ThreadJoin(getInteractionUserID(i))
@@ -456,16 +518,18 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 
 	var contract *Contract
 	// Does a coop already exist for this contract-id and coop-id
-	ContractsMutex.RLock()
-	for _, c := range Contracts {
-		if c.ContractID == contractID && c.CoopID == coopID {
-			// We have a coop, add this channel to the coop
-			ContractsMutex.RUnlock()
-			return nil, errors.New("a contract with this coop-id (" + c.CoopID + ") exists in " + c.Location[0].ChannelMention)
-			//contract = c
+	if !isTBDCoopID(coopID) {
+		ContractsMutex.RLock()
+		for _, c := range Contracts {
+			if c.ContractID == contractID && strings.EqualFold(c.CoopID, coopID) {
+				// We have a coop, add this channel to the coop
+				ContractsMutex.RUnlock()
+				return nil, errors.New("a contract with this coop-id (" + c.CoopID + ") exists in " + c.Location[0].ChannelMention)
+				//contract = c
+			}
 		}
+		ContractsMutex.RUnlock()
 	}
-	ContractsMutex.RUnlock()
 
 	// Lets find a ping role to use
 

@@ -203,6 +203,13 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		fmt.Fprintf(&header, "> Team Role: %s\n", contract.Location[0].RoleMention)
 	}
 	if contract.State == ContractStateSignup {
+		if isTBDCoopID(contract.CoopID) {
+			cmdLink := bottools.GetFormattedCommand("change contract coop-id")
+			if cmdLink == "" {
+				cmdLink = "`/change contract coop-id`"
+			}
+			fmt.Fprintf(&header, "\n⚠️ **Coop ID is set to TBD. You must change the coop-id (%s) before starting the contract.**\n", cmdLink)
+		}
 		if contract.Style&ContractFlagBanker != 0 {
 			if contract.Banker.BoostingSinkUserID != "" {
 				fmt.Fprintf(&header, "> * During boosting send all tokens to **%s**\n", contract.Boosters[contract.Banker.BoostingSinkUserID].Mention)
