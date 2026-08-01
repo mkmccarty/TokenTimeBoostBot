@@ -873,18 +873,35 @@ Role Name: *%s*
 		reportJSON.RoleName,
 	)
 
-	memberContent := strings.Join(summaryMemberLines, "\n")
-	if memberContent == "" {
-		memberContent = "No boosters found for this contract.*\n"
+	var memberChunks []string
+	if len(summaryMemberLines) == 0 {
+		memberChunks = append(memberChunks, "*No boosters found for this contract.*\n")
+	} else {
+		var currentChunk strings.Builder
+		for _, line := range summaryMemberLines {
+			if currentChunk.Len()+len(line)+1 > 1800 {
+				memberChunks = append(memberChunks, currentChunk.String())
+				currentChunk.Reset()
+			}
+			if currentChunk.Len() > 0 {
+				currentChunk.WriteString("\n")
+			}
+			currentChunk.WriteString(line)
+		}
+		if currentChunk.Len() > 0 {
+			memberChunks = append(memberChunks, currentChunk.String())
+		}
 	}
 
 	components := []discordgo.MessageComponent{
 		&discordgo.TextDisplay{
 			Content: summary.String(),
 		},
-		&discordgo.TextDisplay{
-			Content: fmt.Sprintf("## %s\n%s", reportJSON.RoleName, memberContent),
-		},
+	}
+	if len(memberChunks) > 0 {
+		components = append(components, &discordgo.TextDisplay{
+			Content: fmt.Sprintf("## %s\n%s", reportJSON.RoleName, memberChunks[0]),
+		})
 	}
 
 	// Shouldn't ever happen but just to be safe sanitize file names
@@ -922,6 +939,20 @@ Role Name: *%s*
 	if err != nil {
 		log.Println("Error sending admin contract summary:", err)
 		return
+	}
+
+	for _, chunk := range memberChunks[1:] {
+		_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
+			Components: []discordgo.MessageComponent{
+				&discordgo.TextDisplay{
+					Content: chunk,
+				},
+			},
+		})
+		if err != nil {
+			log.Println("Error sending admin contract member chunk:", err)
+		}
 	}
 
 	_, err = s.ChannelMessageSendComplex(targetChannelID, &discordgo.MessageSend{
