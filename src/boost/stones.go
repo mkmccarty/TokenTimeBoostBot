@@ -157,9 +157,9 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
-	s1, urls, tiles := DownloadCoopStatusStones(contractID, coopID, details, soloName, useBuffHistory, eiID)
+	s1, urls, tiles := DownloadCoopStatusStones(i.ChannelID, contractID, coopID, details, soloName, useBuffHistory, eiID)
 
-	contract := FindContractByIDs(contractID, coopID)
+	contract := FindContractByIDs(i.ChannelID, contractID, coopID)
 	if contract != nil {
 		if contract.State == ContractStateCompleted {
 			// Only refresh if EstimateUpdateTime is within 10 seconds of now
@@ -319,7 +319,7 @@ func applyIdealStoneMix(as *artifactSet, layingRate, shippingRate, everyoneDefle
 }
 
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
-func DownloadCoopStatusStones(contractID string, coopID string, details bool, soloName string, useBuffHistory bool, eeidOverride string) (string, string, []*discordgo.MessageEmbedField) {
+func DownloadCoopStatusStones(channelID string, contractID string, coopID string, details bool, soloName string, useBuffHistory bool, eeidOverride string) (string, string, []*discordgo.MessageEmbedField) {
 	var builderURL strings.Builder
 	var field []*discordgo.MessageEmbedField
 
@@ -350,7 +350,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 	}
 
 	coopID = coopStatus.GetCoopIdentifier()
-	trackedContract := FindContractByIDs(contractID, coopID)
+	trackedContract := FindContractByIDs(channelID, contractID, coopID)
 
 	levels := []string{"T1", "T2", "T3", "T4", "T5"}
 	rarity := []string{"C", "R", "E", "L"}
@@ -1187,7 +1187,7 @@ func DownloadCoopStatusStones(contractID string, coopID string, details bool, so
 			endStr = "Est End:"
 			contractDurationSeconds = endTime.Sub(startTime).Seconds()
 			if setContractEstimate {
-				c := FindContractByIDs(contractID, coopID)
+				c := FindContractByIDs(channelID, contractID, coopID)
 				if c != nil {
 					c.mutex.Lock()
 					if contributionRatePerSecond > 0 &&

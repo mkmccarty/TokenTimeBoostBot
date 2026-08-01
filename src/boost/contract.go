@@ -456,16 +456,18 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 
 	var contract *Contract
 	// Does a coop already exist for this contract-id and coop-id
-	ContractsMutex.RLock()
-	for _, c := range Contracts {
-		if c.ContractID == contractID && c.CoopID == coopID {
-			// We have a coop, add this channel to the coop
-			ContractsMutex.RUnlock()
-			return nil, errors.New("a contract with this coop-id (" + c.CoopID + ") exists in " + c.Location[0].ChannelMention)
-			//contract = c
+	if !isTBDCoopID(coopID) {
+		ContractsMutex.RLock()
+		for _, c := range Contracts {
+			if c.ContractID == contractID && strings.EqualFold(c.CoopID, coopID) {
+				// We have a coop, add this channel to the coop
+				ContractsMutex.RUnlock()
+				return nil, errors.New("a contract with this coop-id (" + c.CoopID + ") exists in " + c.Location[0].ChannelMention)
+				//contract = c
+			}
 		}
+		ContractsMutex.RUnlock()
 	}
-	ContractsMutex.RUnlock()
 
 	// Lets find a ping role to use
 

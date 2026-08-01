@@ -574,7 +574,7 @@ func HandleAdminGetContractData(s *discordgo.Session, i *discordgo.InteractionCr
 	}
 
 	// Find a contract by contract ID and coop ID
-	contract := FindContractByIDs(contractID, coopID)
+	contract := FindContractByIDs(i.ChannelID, contractID, coopID)
 
 	// Create combined contract and coopid with only alphanumberic characters
 	// This is used to create a unique filename

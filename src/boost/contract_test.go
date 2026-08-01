@@ -1,8 +1,11 @@
 package boost
 
 import (
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 func TestGetEggStandardTime(t *testing.T) {
@@ -289,5 +292,96 @@ func TestCreateContractPlaystyleBoostOrder(t *testing.T) {
 	}()
 	if contract3.BoostOrder != ContractOrderSignup {
 		t.Errorf("expected default boost order for Chill playstyle to be ContractOrderSignup (%d), got %d", ContractOrderSignup, contract3.BoostOrder)
+	}
+}
+
+func TestMultipleTBDContracts(t *testing.T) {
+	s, err := createMockSession()
+	if err != nil {
+		t.Fatalf("Failed to create mock session: %v", err)
+	}
+	contractID := "tbd-test-contract"
+	guildID := "guild-123"
+	creatorUserID := "user-456"
+
+	// Create first TBD contract in channel-1
+	channelID1 := "channel-1"
+	contract1, err := CreateContract(s, contractID, "tbd", ContractPlaystyleChill, 10, -1, guildID, channelID1, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("Failed to create first TBD contract: %v", err)
+	}
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract1.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	// Create second TBD contract in channel-2 (with a variation "tbd+3")
+	channelID2 := "channel-2"
+	contract2, err := CreateContract(s, contractID, "tbd+3", ContractPlaystyleChill, 10, -1, guildID, channelID2, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("Failed to create second TBD contract (tbd+3): %v", err)
+	}
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract2.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	// Create third TBD contract in channel-3 (with same coopID "tbd" to test duplicate bypass)
+	channelID3 := "channel-3"
+	contract3, err := CreateContract(s, contractID, "tbd", ContractPlaystyleChill, 10, -1, guildID, channelID3, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("Failed to create third TBD contract (duplicate tbd): %v", err)
+	}
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract3.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	// Verify lookups by coopID and channelID
+	found1 := FindContractByIDs(channelID1, contractID, "tbd")
+	if found1 == nil || found1.ContractHash != contract1.ContractHash {
+		t.Errorf("Lookup for channel-1 / tbd returned %v, expected hash %s", found1, contract1.ContractHash)
+	}
+
+	found2 := FindContractByIDs(channelID2, contractID, "tbd+3")
+	if found2 == nil || found2.ContractHash != contract2.ContractHash {
+		t.Errorf("Lookup for channel-2 / tbd+3 returned %v, expected hash %s", found2, contract2.ContractHash)
+	}
+
+	found3 := FindContractByIDs(channelID3, contractID, "tbd")
+	if found3 == nil || found3.ContractHash != contract3.ContractHash {
+		t.Errorf("Lookup for channel-3 / tbd returned %v, expected hash %s", found3, contract3.ContractHash)
+	}
+
+	// Lookup without channel context should fallback to returning one of them
+	foundFallback := FindContractByIDs("", contractID, "tbd")
+	if foundFallback == nil {
+		t.Errorf("Lookup without channel context returned nil")
+	}
+
+	// Verify GetSignupComponents disables start button and adds guidance text
+	str, components := GetSignupComponents(contract1)
+	if !strings.Contains(str, "Coop ID is set to TBD") {
+		t.Errorf("expected guidance text to contain TBD warning, got: %s", str)
+	}
+
+	foundStartBtn := false
+	for _, row := range components {
+		if actionRow, ok := row.(discordgo.ActionsRow); ok {
+			for _, comp := range actionRow.Components {
+				if btn, ok := comp.(discordgo.Button); ok && btn.CustomID == "fd_signupStart" {
+					foundStartBtn = true
+					if !btn.Disabled {
+						t.Errorf("expected start button to be disabled for TBD contract")
+					}
+				}
+			}
+		}
+	}
+	if !foundStartBtn {
+		t.Errorf("start button not found in signup components")
 	}
 }

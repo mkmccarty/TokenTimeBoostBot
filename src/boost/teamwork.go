@@ -179,7 +179,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 	var str string
-	str, fields, _ := DownloadCoopStatusTeamwork(contractID, coopID, true, eiID)
+	str, fields, _ := DownloadCoopStatusTeamwork(i.ChannelID, contractID, coopID, true, eiID)
 	if fields == nil || strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {
 		// Trim output to 3500 characters if needed
 		trimmedStr := str
@@ -231,7 +231,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 }
 
 // DownloadCoopStatusTeamwork will download the coop status for a given contract and coop ID
-func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEstimate bool, eeidOverride string) (string, map[string][]TeamworkOutputData, ContractScore) {
+func DownloadCoopStatusTeamwork(channelID string, contractID string, coopID string, setContractEstimate bool, eeidOverride string) (string, map[string][]TeamworkOutputData, ContractScore) {
 	var dataTimestampStr string
 	var nowTime time.Time
 
@@ -364,7 +364,7 @@ func DownloadCoopStatusTeamwork(contractID string, coopID string, setContractEst
 		contractDurationSeconds = endTime.Sub(startTime).Seconds()
 		fmt.Fprintf(&builder, "In Progress %s %s/[**%s**](%s)\nOn target to complete %s\n", ei.GetBotEmojiMarkdown("contract_grade_"+ei.GetContractGradeString(grade)), coopStatus.GetContractIdentifier(), coopStatus.GetCoopIdentifier(), fmt.Sprintf("%s/%s/%s", "https://eicoop-carpet.netlify.app", contractID, coopID), bottools.WrapTimestamp(endTime.Unix(), bottools.TimestampRelativeTime))
 		if setContractEstimate {
-			c := FindContractByIDs(contractID, coopID)
+			c := FindContractByIDs(channelID, contractID, coopID)
 			if c != nil {
 				c.mutex.Lock()
 				if contributionRatePerSecond > 0 &&

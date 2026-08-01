@@ -537,10 +537,28 @@ func FindContractByMessageID(channelID string, messageID string) *Contract {
 	return nil
 }
 
-// FindContractByIDs will find the contract by the contractID and coopID
-func FindContractByIDs(contractID string, coopID string) *Contract {
+func isTBDCoopID(coopID string) bool {
+	return strings.HasPrefix(strings.ToLower(coopID), "tbd")
+}
+
+// FindContractByIDs will find the contract by the contractID and coopID, optionally filtering by channelID if it is a TBD coop
+func FindContractByIDs(channelID string, contractID string, coopID string) *Contract {
 	ContractsMutex.RLock()
 	defer ContractsMutex.RUnlock()
+
+	// If it's a TBD coop and we have a channelID, try to find the contract associated with that channel first
+	if isTBDCoopID(coopID) && channelID != "" {
+		for key, element := range Contracts {
+			if strings.EqualFold(element.ContractID, contractID) && strings.EqualFold(element.CoopID, coopID) {
+				for _, loc := range element.Location {
+					if loc.ChannelID == channelID {
+						return Contracts[key]
+					}
+				}
+			}
+		}
+	}
+
 	// Look for the contract
 	for key, element := range Contracts {
 		if strings.EqualFold(element.ContractID, contractID) && strings.EqualFold(element.CoopID, coopID) {
@@ -2148,7 +2166,7 @@ func ArchiveContracts(s *discordgo.Session) {
 // UpdateContractTime will update the contract start time and estimated duration
 func UpdateContractTime(contractID string, coopID string, startTime, endTime time.Time, contractDurationSeconds float64) {
 	// Update the contract start time and estimated duration
-	contract := FindContractByIDs(contractID, coopID)
+	contract := FindContractByIDs("", contractID, coopID)
 	if contract == nil || (contract.State != ContractStateCompleted && contract.State != ContractStateWaiting) {
 		return
 	}
