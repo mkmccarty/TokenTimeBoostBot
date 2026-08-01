@@ -943,7 +943,7 @@ Role Name: *%s*
 
 	for _, chunk := range memberChunks[1:] {
 		_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
+			Flags: discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
 			Components: []discordgo.MessageComponent{
 				&discordgo.TextDisplay{
 					Content: chunk,
