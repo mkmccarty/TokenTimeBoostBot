@@ -306,7 +306,23 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		// Default to 1 day timeout
 		var builder strings.Builder
 		if !contractInfo.Predicted {
-			fmt.Fprintf(&builder, "%s %s", threadStyleIcons[playStyle], coopID)
+			if isTBDCoopID(coopID) {
+				collisionCount := 0
+				ContractsMutex.RLock()
+				for _, c := range Contracts {
+					if c.ContractID == contractID && strings.EqualFold(c.CoopID, coopID) && c.State != ContractStateArchive {
+						collisionCount++
+					}
+				}
+				ContractsMutex.RUnlock()
+				if collisionCount > 0 {
+					fmt.Fprintf(&builder, "%s %s %s #%d", threadStyleIcons[playStyle], contractInfo.Name, coopID, collisionCount+1)
+				} else {
+					fmt.Fprintf(&builder, "%s %s %s", threadStyleIcons[playStyle], contractInfo.Name, coopID)
+				}
+			} else {
+				fmt.Fprintf(&builder, "%s %s", threadStyleIcons[playStyle], coopID)
+			}
 		} else {
 			fmt.Fprintf(&builder, "%s %s %s", threadStyleIcons[playStyle], contractInfo.Name, "Signup")
 		}
