@@ -12,8 +12,8 @@ const (
 	DefaultPlatformString = "IOS"
 
 	// DefaultVersion is the app version used for API requests
-	DefaultVersion = "1.36.0.2"
+	DefaultVersion = "1.37"
 
 	// DefaultBuild is the build number used for API requests
-	DefaultBuild = "111350"
+	DefaultBuild = "111355"
 )
