@@ -362,10 +362,25 @@ func TestMultipleTBDContracts(t *testing.T) {
 		t.Errorf("Lookup without channel context returned nil")
 	}
 
-	// Verify GetSignupComponents disables start button and adds guidance text
+	// Verify DrawBoostList adds guidance text
+	boostComponents := DrawBoostList(s, contract1)
+	foundWarning := false
+	for _, comp := range boostComponents {
+		if td, ok := comp.(*discordgo.TextDisplay); ok {
+			if strings.Contains(td.Content, "Coop ID is set to TBD") {
+				foundWarning = true
+				break
+			}
+		}
+	}
+	if !foundWarning {
+		t.Errorf("expected DrawBoostList output to contain TBD warning")
+	}
+
+	// Verify GetSignupComponents disables start button
 	str, components := GetSignupComponents(contract1)
-	if !strings.Contains(str, "Coop ID is set to TBD") {
-		t.Errorf("expected guidance text to contain TBD warning, got: %s", str)
+	if strings.Contains(str, "Coop ID is set to TBD") {
+		t.Errorf("expected join dialog guidance text NOT to contain TBD warning, got: %s", str)
 	}
 
 	foundStartBtn := false

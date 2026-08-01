@@ -247,9 +247,7 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 	if contract.State == ContractStateSignup && contract.Style&ContractFlagBanker != 0 {
 		str += "\nThe Sink boost position button cycles from First->Last->Follow Order."
 	}
-	if isTBDCoopID(contract.CoopID) {
-		str += "\n⚠️ **Coop ID is set to TBD. You must change the coop-id (`/contract change coop-id: <name>`) before starting the contract.**"
-	}
+
 	startLabel := "Start Boost List"
 	if contract.State != ContractStateSignup {
 		startLabel = "Started"
