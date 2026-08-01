@@ -445,7 +445,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 	colBuffs := ei.GetColleggtibleBuffs(contracts)
 
 	shippingRate := ei.GetShippingRateFromBackup(farm, backup.GetGame())
-	eggLayingRate, habPop, habCap := ei.GetEggLayingRateFromBackup(farm, backup.GetGame())
+	eggLayingRate, habPop, habCap := ei.GetEggLayingRateFromBackup(farm, backup.GetGame(), colBuffs.Hab)
 	if simulatedEgg != -1 {
 		eggLayingRate /= habPop // Remove population from the ELR
 		if targetTE == 0 {
@@ -456,7 +456,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 	//deliveryRate := math.Min(eggLayingRate, shippingRate)
 	eggLayingRate *= artifactBuffs.ELR * colBuffs.ELR
 	shippingRate *= artifactBuffs.SR * colBuffs.SR
-	habCap *= artifactBuffs.Hab * colBuffs.Hab
+	habCap *= artifactBuffs.Hab
 
 	gemsOnHand := backup.GetFarms()[0].GetCashEarned() - backup.GetFarms()[0].GetCashSpent()
 	_, onlineRate, _, offlineRate := ei.GetInternalHatcheryFromBackup(farm.GetCommonResearch(), backup.GetGame(), artifactBuffs.IHR*colBuffs.IHR, allEov)
