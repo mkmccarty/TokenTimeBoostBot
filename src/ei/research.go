@@ -81,7 +81,7 @@ func GetEggLayingRate(farmInfo *PlayerFarmInfo) float64 {
 }
 
 // GetEggLayingRateFromBackup calculates the egg laying rate multiplier
-func GetEggLayingRateFromBackup(farmInfo *Backup_Simulation, game *Backup_Game) (float64, float64, float64) {
+func GetEggLayingRateFromBackup(farmInfo *Backup_Simulation, game *Backup_Game, colHabMultiplier float64) (float64, float64, float64) {
 	userLayRate := 1 / 30.0 // 1 chicken per 30 seconds
 
 	userLayRate *= GetCommonResearchLayRate(farmInfo.GetCommonResearch())
@@ -95,6 +95,10 @@ func GetEggLayingRateFromBackup(farmInfo *Backup_Simulation, game *Backup_Game) 
 		habPopulation += float64(hab)
 	}
 
+	if colHabMultiplier <= 0 {
+		colHabMultiplier = 1.0
+	}
+
 	habCapacity := 0.0
 	for _, hab := range farmInfo.GetHabs() {
 		// Values 1->18 for each of these
@@ -105,6 +109,8 @@ func GetEggLayingRateFromBackup(farmInfo *Backup_Simulation, game *Backup_Game) 
 				value *= portalHabCapacity
 			}
 			value *= universalHabCapacity
+			value *= colHabMultiplier
+			value = math.Round(value)
 		}
 		habCapacity += value
 	}
