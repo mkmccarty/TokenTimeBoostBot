@@ -79,6 +79,13 @@ func GetSlashContractCommand(cmd string) *discordgo.ApplicationCommand {
 				Required: false,
 			},
 			{
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "boost-order",
+				Description:  "Select the starting boost order",
+				Required:     false,
+				Autocomplete: true,
+			},
+			{
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "progenitors",
 				Description: "List of mentions to seed farmers for this contract.",
@@ -143,7 +150,7 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	var contractID = i.GuildID
 	var coopID = i.GuildID // Default to the Guild ID
-	var boostOrder = ContractOrderSignup
+	var boostOrder = -1
 	var coopSize = 0
 	var ChannelID = i.ChannelID
 	var playStyle = ContractPlaystyleChill
@@ -160,7 +167,10 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 		coopSize = int(opt.IntValue())
 	}
 	if opt, ok := optionMap["boost-order"]; ok {
-		boostOrder = int(opt.IntValue())
+		valStr := opt.StringValue()
+		if val, err := strconv.Atoi(valStr); err == nil {
+			boostOrder = val
+		}
 	}
 	if opt, ok := optionMap["progenitors"]; ok {
 		farmerList := opt.StringValue()
@@ -540,7 +550,14 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	contract.ContractID = contractID
 	contract.CoopID = coopID
 	contract.PlayStyle = playStyle
-	contract.BoostOrder = BoostOrder
+	if BoostOrder == -1 {
+		contract.BoostOrder = ContractOrderSignup
+		if playStyle == ContractPlaystyleLeaderboard {
+			contract.BoostOrder = ContractOrderTEFuzzy
+		}
+	} else {
+		contract.BoostOrder = BoostOrder
+	}
 	contract.BoostVoting = 0
 	contract.OrderRevision = 0
 
@@ -624,7 +641,6 @@ func CreateContract(s *discordgo.Session, contractID string, coopID string, play
 	// Override the contract style based on the play style, only for leaderboard play style
 	if contract.PlayStyle == ContractPlaystyleLeaderboard {
 		contract.Style = ContractFlagFastrun
-		contract.BoostOrder = ContractOrderTEFuzzy
 	}
 	/*
 		} else { //if !creatorOfContract(contract, userID) {

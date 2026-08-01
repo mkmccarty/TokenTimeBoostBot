@@ -232,3 +232,62 @@ func TestThresholdTokensCalculation(t *testing.T) {
 		t.Errorf("expected user3 to want 4 tokens (TE 70 >= 70), got %d", b3.TokensWanted)
 	}
 }
+
+func TestCreateContractPlaystyleBoostOrder(t *testing.T) {
+	s, err := createMockSession()
+	if err != nil {
+		t.Fatalf("Failed to create mock session: %v", err)
+	}
+
+	contractID := "playstyle-boost-order-test"
+	guildID := "guild-123"
+	creatorUserID := "user-456"
+
+	// Case 1: boostOrder is -1 (not specified) and PlayStyle is Leaderboard.
+	// It should default to ContractOrderTEFuzzy.
+	channelID1 := "channel-123-1"
+	contract1, err := CreateContract(s, contractID, "coop-order-test-1", ContractPlaystyleLeaderboard, 10, -1, guildID, channelID1, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("Failed to create contract: %v", err)
+	}
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract1.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+	if contract1.BoostOrder != ContractOrderTEFuzzy {
+		t.Errorf("expected default boost order for Leaderboard playstyle to be ContractOrderTEFuzzy (%d), got %d", ContractOrderTEFuzzy, contract1.BoostOrder)
+	}
+
+	// Case 2: boostOrder is explicitly ContractOrderRandom (2) and PlayStyle is Leaderboard.
+	// It should override the default playstyle boost order and remain ContractOrderRandom.
+	channelID2 := "channel-123-2"
+	contract2, err := CreateContract(s, contractID, "coop-order-test-2", ContractPlaystyleLeaderboard, 10, ContractOrderRandom, guildID, channelID2, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("Failed to create contract: %v", err)
+	}
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract2.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+	if contract2.BoostOrder != ContractOrderRandom {
+		t.Errorf("expected explicit boost order ContractOrderRandom (%d) to override Leaderboard playstyle, got %d", ContractOrderRandom, contract2.BoostOrder)
+	}
+
+	// Case 3: boostOrder is -1 (not specified) and PlayStyle is Chill.
+	// It should default to ContractOrderSignup (0).
+	channelID3 := "channel-123-3"
+	contract3, err := CreateContract(s, contractID, "coop-order-test-3", ContractPlaystyleChill, 10, -1, guildID, channelID3, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("Failed to create contract: %v", err)
+	}
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract3.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+	if contract3.BoostOrder != ContractOrderSignup {
+		t.Errorf("expected default boost order for Chill playstyle to be ContractOrderSignup (%d), got %d", ContractOrderSignup, contract3.BoostOrder)
+	}
+}
