@@ -198,7 +198,7 @@ func GetStaabmiaLink(darkMode bool, modifierType ei.GameModifier_GameDimension, 
 	itemsData := make([]string, len(itemsToSweep))
 
 	// Build Base64 data
-	base64res := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%g-%d", modifierMult, coopDeflectorBonus)))
+	base64res := base64.StdEncoding.EncodeToString(fmt.Appendf(nil, "%g-%d", modifierMult, coopDeflectorBonus))
 	base64encoded := strings.Split(base64res, "=")[0]
 
 	// Constants for itemsData indices
