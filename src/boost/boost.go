@@ -2221,17 +2221,32 @@ func reorderBoosters(contract *Contract) {
 
 	case ContractOrderIHR:
 		type ihrOrderPair struct {
-			name string
-			ihr  float64
+			name     string
+			ihr      float64
+			deflQual int
+			delQual  int
+			te       int
 		}
 		pairs := make([]ihrOrderPair, len(contract.Order))
 
 		for i, name := range contract.Order {
-			pairs[i] = ihrOrderPair{name: name, ihr: contract.Boosters[name].IHRRate}
+			b := contract.Boosters[name]
+			deflQ := getArtifactQualityScore(b, "Deflector")
+			delQ := getArtifactQualityScore(b, "Metronome") + getArtifactQualityScore(b, "Compass") + getArtifactQualityScore(b, "Gusset")
+			pairs[i] = ihrOrderPair{name: name, ihr: b.IHRRate, deflQual: deflQ, delQual: delQ, te: b.TECount}
 		}
 
 		sort.Slice(pairs, func(i, j int) bool {
-			return pairs[i].ihr > pairs[j].ihr
+			if pairs[i].ihr != pairs[j].ihr {
+				return pairs[i].ihr > pairs[j].ihr
+			}
+			if pairs[i].deflQual != pairs[j].deflQual {
+				return pairs[i].deflQual > pairs[j].deflQual
+			}
+			if pairs[i].delQual != pairs[j].delQual {
+				return pairs[i].delQual > pairs[j].delQual
+			}
+			return pairs[i].te > pairs[j].te
 		})
 
 		for i := range pairs {
@@ -2534,4 +2549,35 @@ func HandleUploadBannerCommand(s *discordgo.Session, i *discordgo.InteractionCre
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Content: message,
 	})
+}
+
+func getArtifactQualityScore(b *Booster, artType string) int {
+	if b == nil {
+		return -1
+	}
+	for _, a := range b.ArtifactSet.Artifacts {
+		if a.Type == artType {
+			switch a.Quality {
+			case "T4L":
+				return 8
+			case "T4E":
+				return 7
+			case "T4R":
+				return 6
+			case "T4C":
+				return 5
+			case "T3E":
+				return 4
+			case "T3R":
+				return 3
+			case "T3C":
+				return 2
+			case "T2E":
+				return 1
+			case "T2C":
+				return 0
+			}
+		}
+	}
+	return -1
 }
