@@ -65,6 +65,7 @@ var contractOrderNames = []string{
 	"Fuzzy TE",     // ContractOrderTEFuzzy
 	"Manual",       // ContractManualOrder
 	"Boosting IHR", // ContractOrderIHR
+	"Fuzzy IHR",    // ContractOrderIHRFuzzy
 }
 
 var contractFlagNames = []struct {
@@ -93,6 +94,7 @@ const (
 	ContractOrderTEFuzzy   = 9  // Truth Egg + randomization
 	ContractManualOrder    = 10 // Manual order set by contract creator
 	ContractOrderIHR       = 11 // IHR based order
+	ContractOrderIHRFuzzy  = 12 // Fuzzy IHR based order
 
 	ContractStateSignup    = 0 // Contract is in signup phase
 	ContractStateFastrun   = 1 // Contract in Boosting as fastrun

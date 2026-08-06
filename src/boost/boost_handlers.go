@@ -167,6 +167,13 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 							Emoji:       ei.GetBotComponentEmoji("chalice_T4L"),
 							Default:     contract.BoostOrder == ContractOrderIHR,
 						},
+						{
+							Label:       "Fuzzy Boosting IHR Order",
+							Description: "Highest Boosting IHR first with randomization",
+							Value:       "fuzzyihr",
+							Emoji:       ei.GetBotComponentEmoji("chalice_T4L"),
+							Default:     contract.BoostOrder == ContractOrderIHRFuzzy,
+						},
 					},
 				},
 			},
