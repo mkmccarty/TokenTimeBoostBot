@@ -512,7 +512,7 @@ type StoneCount struct {
 	Levels   [3]int
 }
 
-func findStoneCount(artifacts []*ArtifactInventoryItem, target ArtifactSpec_Name) StoneCount {
+func FindStoneCount(artifacts []*ArtifactInventoryItem, target ArtifactSpec_Name) StoneCount {
 	// Levels is an array of 3 stone levels.
 	stones := [3]int{0, 0, 0}
 	for _, artifact := range artifacts {
@@ -562,7 +562,7 @@ func formatArtifactLabel(item *ArtifactInventoryItem) string {
 }
 
 func formatStoneCount(stones StoneCount) string {
-	return fmt.Sprintf("%s T1=%d T2=%d T3=%d", stones.Artifact.String(), stones.Levels[0], stones.Levels[1], stones.Levels[2])
+	return fmt.Sprintf("T1:%d T2:%d T3:%d", stones.Levels[0], stones.Levels[1], stones.Levels[2])
 }
 
 // GetBestCoopArtifactsFromInventory returns the best contract artifact selections from the player's inventory.
@@ -656,11 +656,11 @@ func ExamineArtifacts(artifacts []*ArtifactInventoryItem) {
 	bestMetronome := findBestArtifact(artifacts, ArtifactSpec_QUANTUM_METRONOME)
 	bestCompass := findBestArtifact(artifacts, ArtifactSpec_INTERSTELLAR_COMPASS)
 	bestGusset := findBestArtifact(artifacts, ArtifactSpec_ORNATE_GUSSET)
-	tachStones := findStoneCount(artifacts, ArtifactSpec_TACHYON_STONE)
-	quantStones := findStoneCount(artifacts, ArtifactSpec_QUANTUM_STONE)
-	lifeStones := findStoneCount(artifacts, ArtifactSpec_LIFE_STONE)
-	lunarStones := findStoneCount(artifacts, ArtifactSpec_LUNAR_STONE)
-	shellStones := findStoneCount(artifacts, ArtifactSpec_SHELL_STONE)
+	tachStones := FindStoneCount(artifacts, ArtifactSpec_TACHYON_STONE)
+	quantStones := FindStoneCount(artifacts, ArtifactSpec_QUANTUM_STONE)
+	lifeStones := FindStoneCount(artifacts, ArtifactSpec_LIFE_STONE)
+	lunarStones := FindStoneCount(artifacts, ArtifactSpec_LUNAR_STONE)
+	shellStones := FindStoneCount(artifacts, ArtifactSpec_SHELL_STONE)
 
 	// Coop Artifacts
 	bestDelector := findBestArtifact(artifacts, ArtifactSpec_TACHYON_DEFLECTOR)

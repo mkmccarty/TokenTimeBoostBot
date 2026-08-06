@@ -852,7 +852,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			contract.UltraCount++
 		}
 
-		if contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEFuzzy {
+		if contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEFuzzy || contract.BoostOrder == ContractOrderIHR {
 			updateContractFarmerTE(s, userID, b, contract)
 		}
 
@@ -999,6 +999,182 @@ func RefreshGuildContractsForBannerUpdate(s *discordgo.Session, guildID string) 
 	}
 }
 
+func CalculateIHRRateFromBackup(backup *ei.Backup) float64 {
+	if backup == nil {
+		return 0.0
+	}
+	var farm *ei.Backup_Simulation
+	if len(backup.GetFarms()) > 0 {
+		farm = backup.GetFarms()[0]
+	}
+	if farm == nil {
+		return 0.0
+	}
+
+	baseOnlineRatePerHab := 7440.0
+
+	virtue := backup.GetVirtue()
+	var allEov uint32
+	if virtue != nil {
+		for i := range 5 {
+			eov := virtue.GetEovEarned()[i]
+			delivered := virtue.GetEggsDelivered()[i]
+			eovEarned := ei.CountTruthEggTiersPassed(delivered)
+			eovPending := ei.PendingTruthEggs(delivered, eov)
+			allEov += max(eovEarned-eovPending, 0)
+		}
+	}
+	teMultiplier := math.Pow(1.01, float64(allEov))
+
+	colBuffs := ei.GetColleggtibleBuffs(backup.GetContracts())
+	colMultiplier := colBuffs.IHR
+
+	best := ei.GetBestCoopArtifactsFromInventory(backup.GetArtifactsDb().GetInventoryItems())
+
+	chaliceMultiplier := 1.0
+	chaliceKey := "CH-" + best["chalice"]
+	chaliceArt := ei.GetArtifactByKey(chaliceKey)
+	if chaliceArt != nil {
+		chaliceMap := map[string]float64{
+			"T1C": 1.05,
+			"T2C": 1.10, "T2E": 1.15,
+			"T3C": 1.20, "T3R": 1.23, "T3E": 1.25,
+			"T4C": 1.30, "T4E": 1.35, "T4L": 1.40,
+		}
+		if mult, ok := chaliceMap[best["chalice"]]; ok {
+			chaliceMultiplier = mult
+		}
+	}
+
+	monocleMultiplier := 1.0
+	monocleKey := "MO-" + best["monocle"]
+	monocleArt := ei.GetArtifactByKey(monocleKey)
+	if monocleArt != nil {
+		monocleMap := map[string]float64{
+			"T1C": 1.05,
+			"T2C": 1.10,
+			"T3C": 1.15,
+			"T4C": 1.20, "T4E": 1.25, "T4L": 1.30,
+		}
+		if mult, ok := monocleMap[best["monocle"]]; ok {
+			monocleMultiplier = mult
+		}
+	}
+
+	totalSlots := 0
+	for _, artKey := range []string{"CH-" + best["chalice"], "ID-" + best["defl"], "MO-" + best["monocle"], "SIAB-" + best["SIAB"]} {
+		art := ei.GetArtifactByKey(artKey)
+		if art != nil {
+			totalSlots += art.Stones
+		}
+	}
+
+	lifeStones := ei.FindStoneCount(backup.GetArtifactsDb().GetInventoryItems(), ei.ArtifactSpec_LIFE_STONE)
+	remainingSlots := totalSlots
+	lifeStoneMultiplier := 1.0
+
+	t3Used := min(remainingSlots, lifeStones.Levels[2])
+	lifeStoneMultiplier *= math.Pow(1.05, float64(t3Used))
+	remainingSlots -= t3Used
+
+	t2Used := min(remainingSlots, lifeStones.Levels[1])
+	lifeStoneMultiplier *= math.Pow(1.04, float64(t2Used))
+	remainingSlots -= t2Used
+
+	t1Used := min(remainingSlots, lifeStones.Levels[0])
+	lifeStoneMultiplier *= math.Pow(1.02, float64(t1Used))
+
+	finalIHR := baseOnlineRatePerHab * teMultiplier * colMultiplier * chaliceMultiplier * monocleMultiplier * lifeStoneMultiplier
+	log.Printf("IHR Calculation (Backup): Base=%0.2f, TE=%d (Mult=%0.4f), Collegg=%0.4f, Chalice=%0.4f, Monocle=%0.4f, Stones (slots=%d)=%0.4f, Final=%0.2f",
+		baseOnlineRatePerHab, allEov, teMultiplier, colMultiplier, chaliceMultiplier, monocleMultiplier, totalSlots, lifeStoneMultiplier, finalIHR)
+
+	return finalIHR
+}
+
+func CalculateIHRRateFromDB(userID string) float64 {
+	baseOnlineRatePerHab := 7440.0
+
+	teStr := farmerstate.GetMiscSettingString(userID, "TE")
+	teVal := 0
+	if teStr != "" {
+		teVal, _ = strconv.Atoi(teStr)
+	}
+	teMultiplier := math.Pow(1.01, float64(teVal))
+
+	coll := farmerstate.GetMiscSettingString(userID, "collegg")
+	colMap := getSelectedColleggtiblesFromStored(coll)
+	colMultiplier := 1.0
+	for canonical, selected := range colMap {
+		if selected {
+			egg, ok := ei.CustomEggMap[strings.ToLower(canonical)]
+			if !ok {
+				egg, ok = ei.CustomEggMap[canonical]
+			}
+			if ok && egg.Dimension == ei.GameModifier_INTERNAL_HATCHERY_RATE {
+				if len(egg.DimensionValue) > 0 {
+					colMultiplier *= egg.DimensionValue[len(egg.DimensionValue)-1]
+				}
+			}
+		}
+	}
+
+	chaliceVal := farmerstate.GetMiscSettingString(userID, "chalice")
+	chaliceMultiplier := 1.0
+	chaliceMap := map[string]float64{
+		"T1C": 1.05,
+		"T2C": 1.10, "T2E": 1.15,
+		"T3C": 1.20, "T3R": 1.23, "T3E": 1.25,
+		"T4C": 1.30, "T4E": 1.35, "T4L": 1.40,
+	}
+	if mult, ok := chaliceMap[chaliceVal]; ok {
+		chaliceMultiplier = mult
+	}
+
+	monocleVal := farmerstate.GetMiscSettingString(userID, "monocle")
+	monocleMultiplier := 1.0
+	monocleMap := map[string]float64{
+		"T1C": 1.05,
+		"T2C": 1.10,
+		"T3C": 1.15,
+		"T4C": 1.20, "T4E": 1.25, "T4L": 1.30,
+	}
+	if mult, ok := monocleMap[monocleVal]; ok {
+		monocleMultiplier = mult
+	}
+
+	totalSlots := 0
+	for _, slotKey := range []string{"chalice", "defl-ihr", "monocle", "siab"} {
+		quality := farmerstate.GetMiscSettingString(userID, slotKey)
+		if slotKey == "siab" && quality == "" {
+			quality = farmerstate.GetMiscSettingString(userID, "SIAB")
+		}
+		if quality != "" {
+			prefix := ""
+			switch slotKey {
+			case "chalice":
+				prefix = "CH-"
+			case "defl-ihr":
+				prefix = "ID-"
+			case "monocle":
+				prefix = "MO-"
+			case "siab":
+				prefix = "SIAB-"
+			}
+			art := ei.GetArtifactByKey(prefix + quality)
+			if art != nil {
+				totalSlots += art.Stones
+			}
+		}
+	}
+	lifeStoneMultiplier := math.Pow(1.05, float64(totalSlots))
+
+	finalIHR := baseOnlineRatePerHab * teMultiplier * colMultiplier * chaliceMultiplier * monocleMultiplier * lifeStoneMultiplier
+	log.Printf("IHR Calculation (DB for %s): Base=%0.2f, TE=%d (Mult=%0.4f), Collegg=%0.4f, Chalice=%0.4f, Monocle=%0.4f, Stones (slots=%d)=%0.4f, Final=%0.2f",
+		userID, baseOnlineRatePerHab, teVal, teMultiplier, colMultiplier, chaliceMultiplier, monocleMultiplier, totalSlots, lifeStoneMultiplier, finalIHR)
+
+	return finalIHR
+}
+
 func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, contract *Contract) {
 	// Get user EI from the db and set any relevant fields
 	eggIncID := ""
@@ -1019,6 +1195,12 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 		}
 	}
 	b.TECount = -1 // Indicate we are fetching TE Count
+	ihrStr := farmerstate.GetMiscSettingString(userID, "IHR")
+	var manualIHR float64
+	if ihrStr != "" {
+		manualIHR, _ = strconv.ParseFloat(ihrStr, 64)
+	}
+
 	if len(eggIncID) == 18 && strings.HasPrefix(eggIncID, "EI") {
 		go func(eggIncID, userID string, b *Booster) {
 			backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, true)
@@ -1047,7 +1229,29 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 
 			contract.mutex.Lock()
 			b.TECount = int(allEov)
+			if manualIHR > 0 {
+				b.IHRRate = manualIHR
+			} else {
+				b.IHRRate = CalculateIHRRateFromBackup(backup)
+			}
 			contract.mutex.Unlock()
+
+			// Update the farmerstate database with the retrieved artifacts & TE
+			farmerstate.SetMiscSettingString(userID, "TE", fmt.Sprintf("%d", allEov))
+			best := ei.GetBestCoopArtifactsFromInventory(backup.GetArtifactsDb().GetInventoryItems())
+			if best["chalice"] != "" {
+				farmerstate.SetMiscSettingString(userID, "chalice", best["chalice"])
+			}
+			if best["monocle"] != "" {
+				farmerstate.SetMiscSettingString(userID, "monocle", best["monocle"])
+			}
+			if best["defl"] != "" {
+				farmerstate.SetMiscSettingString(userID, "defl-ihr", best["defl"])
+			}
+			if best["SIAB"] != "" {
+				farmerstate.SetMiscSettingString(userID, "siab", best["SIAB"])
+			}
+
 			refreshBoostListMessage(s, contract, false)
 
 		}(eggIncID, userID, b)
@@ -1055,6 +1259,11 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 		te := farmerstate.GetMiscSettingString(userID, "TE")
 		if te != "" {
 			b.TECount, _ = strconv.Atoi(te)
+		}
+		if manualIHR > 0 {
+			b.IHRRate = manualIHR
+		} else {
+			b.IHRRate = CalculateIHRRateFromDB(userID)
 		}
 	}
 }
@@ -2010,6 +2219,24 @@ func reorderBoosters(contract *Contract) {
 			contract.Order[i] = pairs[i].name
 		}
 
+	case ContractOrderIHR:
+		type ihrOrderPair struct {
+			name string
+			ihr  float64
+		}
+		pairs := make([]ihrOrderPair, len(contract.Order))
+
+		for i, name := range contract.Order {
+			pairs[i] = ihrOrderPair{name: name, ihr: contract.Boosters[name].IHRRate}
+		}
+
+		sort.Slice(pairs, func(i, j int) bool {
+			return pairs[i].ihr > pairs[j].ihr
+		})
+
+		for i := range pairs {
+			contract.Order[i] = pairs[i].name
+		}
 	}
 
 	if contract.BoostOrder != ContractOrderTVal {

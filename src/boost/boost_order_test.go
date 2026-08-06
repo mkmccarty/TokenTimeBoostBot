@@ -425,3 +425,40 @@ func TestApplyBoostOrderSelectionDoesNotUpdateStartTimeWhenCurrentUnchanged(t *t
 		t.Fatalf("expected u1 StartTime to remain unchanged when current booster does not change")
 	}
 }
+
+func TestBoostOrderButtonLabelIncludesIHR(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateFastrun,
+		BoostOrder: ContractOrderIHR,
+		Boosters: map[string]*Booster{
+			"u1": {Nick: "Alpha", IHRRate: 256789.12},
+		},
+	}
+
+	label := boostOrderButtonLabel(contract, "u1")
+	if !strings.Contains(label, "(IHR:256.78K)") {
+		t.Fatalf("expected IHR suffix in label, got %q", label)
+	}
+}
+
+func TestReorderBoostersIHR(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderIHR,
+		Order:      []string{"u1", "u2", "u3"},
+		Boosters: map[string]*Booster{
+			"u1": {UserID: "u1", IHRRate: 10000.0},
+			"u2": {UserID: "u2", IHRRate: 50000.0},
+			"u3": {UserID: "u3", IHRRate: 25000.0},
+		},
+	}
+
+	reorderBoosters(contract)
+
+	expectedOrder := []string{"u2", "u3", "u1"}
+	for i, name := range contract.Order {
+		if name != expectedOrder[i] {
+			t.Fatalf("expected order %v, got %v", expectedOrder, contract.Order)
+		}
+	}
+}

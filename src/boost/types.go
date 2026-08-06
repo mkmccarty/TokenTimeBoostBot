@@ -53,17 +53,18 @@ var contractPlaystyleNames = []string{
 }
 
 var contractOrderNames = []string{
-	"Signup",     // ContractOrderSignup
-	"Reverse",    // ContractOrderReverse
-	"Random",     // ContractOrderRandom
-	"Fair",       // ContractOrderFair
-	"Time-Based", // ContractOrderTimeBased
-	"ELR",        // ContractOrderELR
-	"TVal",       // ContractOrderTVal
-	"Token-Ask",  // ContractOrderTokenAsk
-	"TE",         // ContractOrderTE
-	"Fuzzy TE",   // ContractOrderTEFuzzy
-	"Manual",     // ContractManualOrder
+	"Signup",       // ContractOrderSignup
+	"Reverse",      // ContractOrderReverse
+	"Random",       // ContractOrderRandom
+	"Fair",         // ContractOrderFair
+	"Time-Based",   // ContractOrderTimeBased
+	"ELR",          // ContractOrderELR
+	"TVal",         // ContractOrderTVal
+	"Token-Ask",    // ContractOrderTokenAsk
+	"TE",           // ContractOrderTE
+	"Fuzzy TE",     // ContractOrderTEFuzzy
+	"Manual",       // ContractManualOrder
+	"Boosting IHR", // ContractOrderIHR
 }
 
 var contractFlagNames = []struct {
@@ -91,6 +92,7 @@ const (
 	ContractOrderTE        = 8  // Truth Egg based order
 	ContractOrderTEFuzzy   = 9  // Truth Egg + randomization
 	ContractManualOrder    = 10 // Manual order set by contract creator
+	ContractOrderIHR       = 11 // IHR based order
 
 	ContractStateSignup    = 0 // Contract is in signup phase
 	ContractStateFastrun   = 1 // Contract in Boosting as fastrun
@@ -217,6 +219,7 @@ type Booster struct {
 	EstRequestChickenRuns  time.Time            // Estimated time to request chicken runs
 	Ultra                  bool                 // Does this player have Ultra
 	TECount                int                  // Truth Egg Count
+	IHRRate                float64              // Internal Hatchery Rate for IHR Order
 	Availability           ContractAvailability // Availability for contracts
 }
 

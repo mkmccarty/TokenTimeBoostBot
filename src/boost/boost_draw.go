@@ -365,6 +365,17 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
 			}
 		}
+		if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderIHR {
+			if b.IHRRate == 0 {
+				if bottools.IsValidDiscordID(b.UserID) {
+					sortRate = " **IHR:🛜** "
+				} else {
+					sortRate = " **IHR:0** "
+				}
+			} else {
+				sortRate = fmt.Sprintf(" **IHR:%s** ", ei.FormatEIValue(b.IHRRate, map[string]any{"decimals": 2, "trim": true}))
+			}
+		}
 		if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.PlayStyle != ContractPlaystyleChill {
 			sortRate = fmt.Sprintf(" *∆:%2.2f* ", b.TokenValue)
 		}
