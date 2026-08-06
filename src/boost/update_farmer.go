@@ -14,6 +14,7 @@ func GetSlashUpdateCommand(cmd string) *discordgo.ApplicationCommand {
 	intMin0 := float64(0)
 	intMax12 := float64(12)
 	intMax490 := float64(490)
+	intMaxIHR := float64(1000000000000)
 
 	return &discordgo.ApplicationCommand{
 		Name: cmd,
@@ -69,6 +70,27 @@ func GetSlashUpdateCommand(cmd string) *discordgo.ApplicationCommand {
 								Required:    true,
 								MinValue:    &intMin0,
 								MaxValue:    intMax490,
+							},
+						},
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionSubCommand,
+						Name:        "ihr",
+						Description: "Update IHR value",
+						Options: []*discordgo.ApplicationCommandOption{
+							{
+								Type:        discordgo.ApplicationCommandOptionString,
+								Name:        "farmername",
+								Description: "Farmer name to update",
+								Required:    true,
+							},
+							{
+								Type:        discordgo.ApplicationCommandOptionInteger,
+								Name:        "value",
+								Description: "IHR value",
+								Required:    true,
+								MinValue:    &intMin0,
+								MaxValue:    intMaxIHR,
 							},
 						},
 					},
@@ -190,6 +212,12 @@ func HandleUpdateCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if opt, ok := optionMap["farmer-te-value"]; ok {
 			value = opt.IntValue()
 		}
+		if opt, ok := optionMap["farmer-ihr-farmername"]; ok {
+			farmername = strings.TrimSpace(opt.StringValue())
+		}
+		if opt, ok := optionMap["farmer-ihr-value"]; ok {
+			value = opt.IntValue()
+		}
 		if opt, ok := optionMap["farmer-artifacts-farmername"]; ok {
 			farmername = strings.TrimSpace(opt.StringValue())
 		}
@@ -216,6 +244,10 @@ func HandleUpdateCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		case "te":
 			farmerstate.SetMiscSettingString(userID, "TE", fmt.Sprintf("%d", value))
 			resultMsg = fmt.Sprintf("✅ Updated %s's TE to %d", farmername, value)
+
+		case "ihr":
+			farmerstate.SetMiscSettingString(userID, "IHR", fmt.Sprintf("%d", value))
+			resultMsg = fmt.Sprintf("✅ Updated %s's IHR to %d", farmername, value)
 
 		case "artifacts":
 			var changed []string
@@ -272,6 +304,8 @@ func updateFarmerInContracts(s *discordgo.Session, userID string, subcommand str
 				booster.TokensWanted = int(value)
 			case "te":
 				booster.TECount = int(value)
+			case "ihr":
+				booster.IHRRate = float64(value)
 			}
 			contract.mutex.Unlock()
 

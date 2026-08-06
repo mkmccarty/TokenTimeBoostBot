@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/rs/xid"
 )
 
@@ -487,16 +488,21 @@ func boostOrderNameButtons(contract *Contract, session *boostOrderSession, visib
 			sortAction = "sortfill"
 		}
 
-		sortRow := discordgo.ActionsRow{
+		sortRow1 := discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.Button{Label: "Next TE", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#te", boostOrderHandlerPrefix, session.xid, sortAction)},
 				discordgo.Button{Label: "Next Fuzzy TE", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#fuzzyte", boostOrderHandlerPrefix, session.xid, sortAction)},
 				discordgo.Button{Label: "Next ELR", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#elr", boostOrderHandlerPrefix, session.xid, sortAction)},
+				discordgo.Button{Label: "Next IHR", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#ihr", boostOrderHandlerPrefix, session.xid, sortAction)},
+			},
+		}
+		sortRow2 := discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
 				discordgo.Button{Label: "Random", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#random", boostOrderHandlerPrefix, session.xid, sortAction)},
 				discordgo.Button{Label: modeLabel, Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#mode", boostOrderHandlerPrefix, session.xid)},
 			},
 		}
-		components = append(components, sortRow)
+		components = append(components, sortRow1, sortRow2)
 	}
 
 	return components
@@ -725,6 +731,8 @@ func boostOrderButtonLabel(contract *Contract, userID string) string {
 
 		if contract.BoostOrder == ContractOrderELR {
 			metric = fmt.Sprintf("(ELR:%0.2f)", booster.ArtifactSet.LayRate)
+		} else if contract.BoostOrder == ContractOrderIHR {
+			metric = fmt.Sprintf("(IHR:%s)", ei.FormatEIValue(booster.IHRRate, map[string]any{"decimals": 2, "trim": true}))
 		} else if booster.TECount > 0 {
 			metric = fmt.Sprintf("(TE:%d)", booster.TECount)
 		}
@@ -977,6 +985,17 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 				elrJ = b.ArtifactSet.LayRate
 			}
 			return elrI > elrJ
+		})
+	case "ihr":
+		sort.SliceStable(sorted, func(i, j int) bool {
+			ihrI, ihrJ := 0.0, 0.0
+			if b := contract.Boosters[sorted[i]]; b != nil {
+				ihrI = b.IHRRate
+			}
+			if b := contract.Boosters[sorted[j]]; b != nil {
+				ihrJ = b.IHRRate
+			}
+			return ihrI > ihrJ
 		})
 	case "te", "fuzzyte":
 		type tePair struct {
