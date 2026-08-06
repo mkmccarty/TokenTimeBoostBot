@@ -989,13 +989,36 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 	case "ihr":
 		sort.SliceStable(sorted, func(i, j int) bool {
 			ihrI, ihrJ := 0.0, 0.0
+			var bI, bJ *Booster
 			if b := contract.Boosters[sorted[i]]; b != nil {
 				ihrI = b.IHRRate
+				bI = b
 			}
 			if b := contract.Boosters[sorted[j]]; b != nil {
 				ihrJ = b.IHRRate
+				bJ = b
 			}
-			return ihrI > ihrJ
+			if ihrI != ihrJ {
+				return ihrI > ihrJ
+			}
+			deflI := getArtifactQualityScore(bI, "Deflector")
+			deflJ := getArtifactQualityScore(bJ, "Deflector")
+			if deflI != deflJ {
+				return deflI > deflJ
+			}
+			delI := getArtifactQualityScore(bI, "Metronome") + getArtifactQualityScore(bI, "Compass") + getArtifactQualityScore(bI, "Gusset")
+			delJ := getArtifactQualityScore(bJ, "Metronome") + getArtifactQualityScore(bJ, "Compass") + getArtifactQualityScore(bJ, "Gusset")
+			if delI != delJ {
+				return delI > delJ
+			}
+			teI, teJ := 0, 0
+			if bI != nil {
+				teI = bI.TECount
+			}
+			if bJ != nil {
+				teJ = bJ.TECount
+			}
+			return teI > teJ
 		})
 	case "te", "fuzzyte":
 		type tePair struct {
