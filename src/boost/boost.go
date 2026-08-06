@@ -852,7 +852,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			contract.UltraCount++
 		}
 
-		if contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEFuzzy || contract.BoostOrder == ContractOrderIHR {
+		if contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEFuzzy || contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy {
 			updateContractFarmerTE(s, userID, b, contract)
 		}
 
@@ -2219,7 +2219,7 @@ func reorderBoosters(contract *Contract) {
 			contract.Order[i] = pairs[i].name
 		}
 
-	case ContractOrderIHR:
+	case ContractOrderIHR, ContractOrderIHRFuzzy:
 		type ihrOrderPair struct {
 			name     string
 			ihr      float64
@@ -2233,7 +2233,17 @@ func reorderBoosters(contract *Contract) {
 			b := contract.Boosters[name]
 			deflQ := getArtifactQualityScore(b, "Deflector")
 			delQ := getArtifactQualityScore(b, "Metronome") + getArtifactQualityScore(b, "Compass") + getArtifactQualityScore(b, "Gusset")
-			pairs[i] = ihrOrderPair{name: name, ihr: b.IHRRate, deflQual: deflQ, delQual: delQ, te: b.TECount}
+			baseIHR := b.IHRRate
+			sortIHR := baseIHR
+			if contract.BoostOrder == ContractOrderIHRFuzzy {
+				randomBonusMax := math.Max(
+					baseIHR*0.1,        // 10%
+					math.Sqrt(baseIHR), // Sqrt
+				)
+				randomOffset := (rand.Float64()*2 - 1) * randomBonusMax
+				sortIHR = baseIHR + randomOffset
+			}
+			pairs[i] = ihrOrderPair{name: name, ihr: sortIHR, deflQual: deflQ, delQual: delQ, te: b.TECount}
 		}
 
 		sort.Slice(pairs, func(i, j int) bool {

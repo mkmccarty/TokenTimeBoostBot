@@ -462,3 +462,39 @@ func TestReorderBoostersIHR(t *testing.T) {
 		}
 	}
 }
+
+func TestBoostOrderButtonLabelIncludesIHRFuzzy(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateFastrun,
+		BoostOrder: ContractOrderIHRFuzzy,
+		Boosters: map[string]*Booster{
+			"u1": {Nick: "Alpha", IHRRate: 256789.12},
+		},
+	}
+
+	label := boostOrderButtonLabel(contract, "u1")
+	if !strings.Contains(label, "(IHR:256.78K)") {
+		t.Fatalf("expected IHR suffix in label, got %q", label)
+	}
+}
+
+func TestReorderBoostersIHRFuzzy(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderIHRFuzzy,
+		Order:      []string{"u1", "u2", "u3"},
+		Boosters: map[string]*Booster{
+			"u1": {UserID: "u1", IHRRate: 10000.0},
+			"u2": {UserID: "u2", IHRRate: 50000.0},
+			"u3": {UserID: "u3", IHRRate: 25000.0},
+		},
+	}
+
+	reorderBoosters(contract)
+
+	// Since there is a random offset, we won't assert the exact order, but we can verify it doesn't crash
+	// and is populated.
+	if len(contract.Order) != 3 {
+		t.Fatalf("expected order to have 3 elements, got %d", len(contract.Order))
+	}
+}

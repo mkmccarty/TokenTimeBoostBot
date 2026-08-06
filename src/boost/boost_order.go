@@ -494,6 +494,7 @@ func boostOrderNameButtons(contract *Contract, session *boostOrderSession, visib
 				discordgo.Button{Label: "Next Fuzzy TE", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#fuzzyte", boostOrderHandlerPrefix, session.xid, sortAction)},
 				discordgo.Button{Label: "Next ELR", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#elr", boostOrderHandlerPrefix, session.xid, sortAction)},
 				discordgo.Button{Label: "Next IHR", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#ihr", boostOrderHandlerPrefix, session.xid, sortAction)},
+				discordgo.Button{Label: "Next Fuzzy IHR", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#fuzzyihr", boostOrderHandlerPrefix, session.xid, sortAction)},
 			},
 		}
 		sortRow2 := discordgo.ActionsRow{
@@ -731,7 +732,7 @@ func boostOrderButtonLabel(contract *Contract, userID string) string {
 
 		if contract.BoostOrder == ContractOrderELR {
 			metric = fmt.Sprintf("(ELR:%0.2f)", booster.ArtifactSet.LayRate)
-		} else if contract.BoostOrder == ContractOrderIHR {
+		} else if contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy {
 			metric = fmt.Sprintf("(IHR:%s)", ei.FormatEIValue(booster.IHRRate, map[string]any{"decimals": 2, "trim": true}))
 		} else if booster.TECount > 0 {
 			metric = fmt.Sprintf("(TE:%d)", booster.TECount)
@@ -986,40 +987,57 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 			}
 			return elrI > elrJ
 		})
-	case "ihr":
-		sort.SliceStable(sorted, func(i, j int) bool {
-			ihrI, ihrJ := 0.0, 0.0
-			var bI, bJ *Booster
-			if b := contract.Boosters[sorted[i]]; b != nil {
-				ihrI = b.IHRRate
-				bI = b
+	case "ihr", "fuzzyihr":
+		type ihrPair struct {
+			name     string
+			ihr      float64
+			deflQual int
+			delQual  int
+			te       int
+		}
+		pairs := make([]ihrPair, len(sorted))
+		for i, name := range sorted {
+			ihrVal := 0.0
+			deflQ := 0
+			delQ := 0
+			teVal := 0
+			if b := contract.Boosters[name]; b != nil {
+				ihrVal = b.IHRRate
+				deflQ = getArtifactQualityScore(b, "Deflector")
+				delQ = getArtifactQualityScore(b, "Metronome") + getArtifactQualityScore(b, "Compass") + getArtifactQualityScore(b, "Gusset")
+				teVal = b.TECount
 			}
-			if b := contract.Boosters[sorted[j]]; b != nil {
-				ihrJ = b.IHRRate
-				bJ = b
+			if sortType == "fuzzyihr" {
+				randomBonusMax := math.Max(
+					ihrVal*0.1,        // 10%
+					math.Sqrt(ihrVal), // Sqrt
+				)
+				randomOffset := (rand.Float64()*2 - 1) * randomBonusMax
+				ihrVal = ihrVal + randomOffset
 			}
-			if ihrI != ihrJ {
-				return ihrI > ihrJ
+			pairs[i] = ihrPair{
+				name:     name,
+				ihr:      ihrVal,
+				deflQual: deflQ,
+				delQual:  delQ,
+				te:       teVal,
 			}
-			deflI := getArtifactQualityScore(bI, "Deflector")
-			deflJ := getArtifactQualityScore(bJ, "Deflector")
-			if deflI != deflJ {
-				return deflI > deflJ
+		}
+		sort.SliceStable(pairs, func(i, j int) bool {
+			if pairs[i].ihr != pairs[j].ihr {
+				return pairs[i].ihr > pairs[j].ihr
 			}
-			delI := getArtifactQualityScore(bI, "Metronome") + getArtifactQualityScore(bI, "Compass") + getArtifactQualityScore(bI, "Gusset")
-			delJ := getArtifactQualityScore(bJ, "Metronome") + getArtifactQualityScore(bJ, "Compass") + getArtifactQualityScore(bJ, "Gusset")
-			if delI != delJ {
-				return delI > delJ
+			if pairs[i].deflQual != pairs[j].deflQual {
+				return pairs[i].deflQual > pairs[j].deflQual
 			}
-			teI, teJ := 0, 0
-			if bI != nil {
-				teI = bI.TECount
+			if pairs[i].delQual != pairs[j].delQual {
+				return pairs[i].delQual > pairs[j].delQual
 			}
-			if bJ != nil {
-				teJ = bJ.TECount
-			}
-			return teI > teJ
+			return pairs[i].te > pairs[j].te
 		})
+		for i, p := range pairs {
+			sorted[i] = p.name
+		}
 	case "te", "fuzzyte":
 		type tePair struct {
 			name string

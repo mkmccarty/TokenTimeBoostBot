@@ -365,7 +365,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 				sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
 			}
 		}
-		if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderIHR {
+		if contract.State == ContractStateSignup && (contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy) {
 			if b.IHRRate == 0 {
 				if bottools.IsValidDiscordID(b.UserID) {
 					sortRate = " **IHR:🛜** "

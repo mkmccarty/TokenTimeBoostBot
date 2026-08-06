@@ -304,6 +304,8 @@ func handleBoostOrderAutoComplete(s *discordgo.Session, i *discordgo.Interaction
 			formattedName = "Random Ordering"
 		case ContractOrderTEFuzzy:
 			formattedName = "Fuzzy TE Ordering"
+		case ContractOrderIHRFuzzy:
+			formattedName = "Fuzzy IHR Ordering"
 		default:
 			formattedName = name + " Ordering"
 		}
