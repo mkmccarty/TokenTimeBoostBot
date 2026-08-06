@@ -296,6 +296,8 @@ func applyIdealStoneMix(as *artifactSet, layingRate, shippingRate, everyoneDefle
 	}
 
 	// Simple search for those with only one average stone bonus value.
+	bestI := 0
+	var bestLR, bestSR float64
 	for i := 0; i <= as.stones; i++ {
 		stoneLayRate := layingRate
 		if !privateFarm {
@@ -308,12 +310,40 @@ func applyIdealStoneMix(as *artifactSet, layingRate, shippingRate, everyoneDefle
 		bestMin := min(stoneLayRate, stoneShipRate)
 		if bestMin > bestTotal {
 			bestTotal = bestMin
-			as.tachWant = i
-			as.quantWant = as.stones - i
-			as.bestLR = stoneLayRate
-			as.bestSR = stoneShipRate
+			bestI = i
+			bestLR = stoneLayRate
+			bestSR = stoneShipRate
 		}
 	}
+
+	tStones := as.tachStones[ei.ArtifactSpec_INFERIOR] + as.tachStones[ei.ArtifactSpec_LESSER] + as.tachStones[ei.ArtifactSpec_NORMAL]
+
+	chosenI := bestI
+	chosenLR := bestLR
+	chosenSR := bestSR
+
+	if tStones >= 0 && tStones <= as.stones && bestTotal > 0 {
+		stoneLayRate := layingRate
+		if !privateFarm {
+			stoneLayRate *= (1 + (everyoneDeflectorPercent-as.deflector.percent)/100.0)
+		}
+		stoneLayRate *= math.Pow(stoneBonusIncrease, float64(tStones)) * as.colleggBuffs.ELR * as.colleggBuffs.Hab
+
+		stoneShipRate := shippingRate * math.Pow(stoneBonusIncrease, float64((as.stones-tStones))) * as.colleggBuffs.SR
+
+		playerMin := min(stoneLayRate, stoneShipRate)
+		// Check if player's mix is within 1e-7 relative difference of the maximum rate
+		if math.Abs(playerMin-bestTotal)/bestTotal < 1e-7 {
+			chosenI = tStones
+			chosenLR = stoneLayRate
+			chosenSR = stoneShipRate
+		}
+	}
+
+	as.tachWant = chosenI
+	as.quantWant = as.stones - chosenI
+	as.bestLR = chosenLR
+	as.bestSR = chosenSR
 
 	return stoneBonusIncrease
 }
