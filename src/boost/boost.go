@@ -1074,11 +1074,11 @@ func CalculateIHRRateFromBackup(backup *ei.Backup) float64 {
 	lifeStoneMultiplier := 1.0
 
 	t3Used := min(remainingSlots, lifeStones.Levels[2])
-	lifeStoneMultiplier *= math.Pow(1.05, float64(t3Used))
+	lifeStoneMultiplier *= math.Pow(1.04, float64(t3Used))
 	remainingSlots -= t3Used
 
 	t2Used := min(remainingSlots, lifeStones.Levels[1])
-	lifeStoneMultiplier *= math.Pow(1.04, float64(t2Used))
+	lifeStoneMultiplier *= math.Pow(1.03, float64(t2Used))
 	remainingSlots -= t2Used
 
 	t1Used := min(remainingSlots, lifeStones.Levels[0])
@@ -1166,7 +1166,7 @@ func CalculateIHRRateFromDB(userID string) float64 {
 			}
 		}
 	}
-	lifeStoneMultiplier := math.Pow(1.05, float64(totalSlots))
+	lifeStoneMultiplier := math.Pow(1.04, float64(totalSlots))
 
 	finalIHR := baseOnlineRatePerHab * teMultiplier * colMultiplier * chaliceMultiplier * monocleMultiplier * lifeStoneMultiplier
 	log.Printf("IHR Calculation (DB for %s): Base=%0.2f, TE=%d (Mult=%0.4f), Collegg=%0.4f, Chalice=%0.4f, Monocle=%0.4f, Stones (slots=%d)=%0.4f, Final=%0.2f",
