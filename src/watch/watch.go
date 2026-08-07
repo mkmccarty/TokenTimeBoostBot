@@ -710,7 +710,47 @@ func renderStatusPage(s *discordgo.Session, interaction *discordgo.Interaction, 
 		timeStr := ""
 		if w.WatchType != WatchTypeEvent {
 			if !pTime.IsZero() {
-				timeStr = fmt.Sprintf(" - 🔮 <t:%d:d> (<t:%d:R>)", pTime.Unix(), pTime.Unix())
+				if w.WatchType == WatchTypeContract {
+					wedTime, nonUltraTime, ultraTime := boost.GetPredictedContractTimes(w.TargetID)
+					_ = wedTime
+					if !nonUltraTime.IsZero() && !ultraTime.IsZero() && !nonUltraTime.Equal(ultraTime) {
+						ultraIcon := ei.GetBotEmojiMarkdown("ultra")
+						normalIcon := "🔮"
+						
+						var firstLabel, secondLabel string
+						var firstTime, secondTime time.Time
+						var firstIcon, secondIcon string
+						
+						if ultraTime.Before(nonUltraTime) {
+							firstLabel = "Ultra"
+							firstTime = ultraTime
+							firstIcon = ultraIcon
+							
+							secondLabel = "Non-Ultra"
+							secondTime = nonUltraTime
+							secondIcon = normalIcon
+						} else {
+							firstLabel = "Non-Ultra"
+							firstTime = nonUltraTime
+							firstIcon = normalIcon
+							
+							secondLabel = "Ultra"
+							secondTime = ultraTime
+							secondIcon = ultraIcon
+						}
+						
+						timeStr = fmt.Sprintf(" - %s %s: <t:%d:d> (<t:%d:R>) · %s %s: <t:%d:d>",
+							firstIcon, firstLabel, firstTime.Unix(), firstTime.Unix(),
+							secondIcon, secondLabel, secondTime.Unix())
+					} else if !ultraTime.IsZero() && nonUltraTime.IsZero() {
+						ultraIcon := ei.GetBotEmojiMarkdown("ultra")
+						timeStr = fmt.Sprintf(" - %s <t:%d:d> (<t:%d:R>)", ultraIcon, ultraTime.Unix(), ultraTime.Unix())
+					} else {
+						timeStr = fmt.Sprintf(" - 🔮 <t:%d:d> (<t:%d:R>)", pTime.Unix(), pTime.Unix())
+					}
+				} else {
+					timeStr = fmt.Sprintf(" - 🔮 <t:%d:d> (<t:%d:R>)", pTime.Unix(), pTime.Unix())
+				}
 			} else {
 				timeStr = " - 🔮 Unknown"
 			}
@@ -779,6 +819,20 @@ func renderStatusPage(s *discordgo.Session, interaction *discordgo.Interaction, 
 		Label:    sortLabel,
 		Style:    discordgo.PrimaryButton,
 		CustomID: fmt.Sprintf("watch-toggle-sort#%s#%d", userID, page),
+	})
+
+	ultraEnabled := farmerstate.GetMiscSettingFlag(userID, "watch_ultra")
+	ultraLabel := "Disabled"
+	ultraStyle := discordgo.SecondaryButton
+	if ultraEnabled {
+		ultraLabel = "Enabled"
+		ultraStyle = discordgo.SuccessButton
+	}
+	row2 = append(row2, discordgo.Button{
+		Label:    ultraLabel,
+		Style:    ultraStyle,
+		CustomID: fmt.Sprintf("watch-toggle-ultra#%s#%d", userID, page),
+		Emoji:    ei.GetBotComponentEmoji("ultra"),
 	})
 
 	if showClearConfirm {
@@ -915,6 +969,41 @@ func HandleToggleSort(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	renderStatusPage(s, i.Interaction, userID, 0, false)
 }
 
+// HandleToggleUltra handles the Ultra toggle button clicks.
+func HandleToggleUltra(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	parts := strings.Split(i.MessageComponentData().CustomID, "#")
+	if len(parts) < 3 {
+		return
+	}
+	userID := parts[1]
+	page, err := strconv.Atoi(parts[2])
+	if err != nil {
+		page = 0
+	}
+
+	clickerID := bottools.GetInteractionUserID(i)
+	if clickerID != userID {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "You can only interact with your own watch status pages.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
+	})
+
+	isUltra := farmerstate.GetMiscSettingFlag(userID, "watch_ultra")
+	farmerstate.SetMiscSettingFlag(userID, "watch_ultra", !isUltra)
+
+	renderStatusPage(s, i.Interaction, userID, page, false)
+}
+
+
 // HandleClearConfirm handles transitioning clear all watches to confirmation state.
 func HandleClearConfirm(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	parts := strings.Split(i.MessageComponentData().CustomID, "#")
@@ -1025,6 +1114,9 @@ func CheckWatches(s *discordgo.Session) {
 			active := false
 			for _, c := range ei.EggIncContracts {
 				if c.ID == w.TargetID && !c.Predicted {
+					if c.Ultra && !farmerstate.GetMiscSettingFlag(w.UserID, "watch_ultra") {
+						continue
+					}
 					active = true
 					break
 				}
@@ -1041,6 +1133,18 @@ func CheckWatches(s *discordgo.Session) {
 			if w.TargetID == "new" {
 				// Check if any new custom eggs were detected
 				for eggID := range newEggs {
+					var ultraContract bool
+					for _, c := range ei.EggIncContracts {
+						if !c.Predicted && c.EggName == eggID {
+							if c.Ultra {
+								ultraContract = true
+							}
+							break
+						}
+					}
+					if ultraContract && !farmerstate.GetMiscSettingFlag(w.UserID, "watch_ultra") {
+						continue
+					}
 					matches = append(matches, notification{
 						userID:     w.UserID,
 						watchType:  w.WatchType,
@@ -1057,6 +1161,9 @@ func CheckWatches(s *discordgo.Session) {
 						continue
 					}
 					if c.EggName == w.TargetID {
+						if c.Ultra && !farmerstate.GetMiscSettingFlag(w.UserID, "watch_ultra") {
+							continue
+						}
 						matches = append(matches, notification{
 							userID:     w.UserID,
 							watchType:  w.WatchType,
