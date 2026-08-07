@@ -977,4 +977,3 @@ func GetPredictedContractTimes(contractID string) (time.Time, time.Time, time.Ti
 
 	return wTime, nuTime, uTime
 }
-
