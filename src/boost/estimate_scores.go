@@ -437,8 +437,22 @@ func buildCsEstimateActionRow(foundContractHash string) (discordgo.MessageCompon
 // sendCompletionPing sends a ping with the estimated completion time of the contract
 func sendCompletionPing(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, userID string) {
 
-	//Check if the contract is still ongoing
+	allFinalized := true
 	if time.Now().After(contract.EstimatedEndTime) {
+		// If the contract has ended, we check if all users have checked in (finalized)
+		eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+		if coopStatus, _, _, err := ei.GetCoopStatus(contract.ContractID, contract.CoopID, eiID); err == nil && coopStatus != nil {
+			for _, contributor := range coopStatus.GetContributors() {
+				if !contributor.GetFinalized() {
+					allFinalized = false
+					break
+				}
+			}
+		}
+	}
+
+	//Check if the contract is still ongoing (or not all users have checked in)
+	if time.Now().After(contract.EstimatedEndTime) && allFinalized {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Flags:   discordgo.MessageFlagsEphemeral,
 			Content: "The contract has already ended. Ping not sent.",
@@ -452,15 +466,29 @@ func sendCompletionPing(s *discordgo.Session, i *discordgo.InteractionCreate, co
 		roleMention = "@here"
 	}
 
-	message :=
-		fmt.Sprintf("%s, The contract **%s** `%s` will complete on\n## %s at %s!\nPlease set an alarm or leave your devices on!\n-# Ping requested by %s",
+	requesterMention := userID
+	if b := contract.Boosters[userID]; b != nil {
+		requesterMention = b.Mention
+	}
+
+	var message string
+	if time.Now().After(contract.EstimatedEndTime) {
+		message = fmt.Sprintf("%s, The contract **%s** `%s` has ended! Please check-in to finalize scores.\n-# Ping requested by %s",
+			roleMention,
+			contract.Name,
+			contract.CoopID,
+			requesterMention,
+		)
+	} else {
+		message = fmt.Sprintf("%s, The contract **%s** `%s` will complete on\n## %s at %s!\nPlease set an alarm or leave your devices on!\n-# Ping requested by %s",
 			roleMention,
 			contract.Name,
 			contract.CoopID,
 			bottools.WrapTimestamp(contract.EstimatedEndTime.Unix(), bottools.TimestampLongDate),
 			bottools.WrapTimestamp(contract.EstimatedEndTime.Unix(), bottools.TimestampLongTime),
-			contract.Boosters[userID].Mention,
+			requesterMention,
 		)
+	}
 
 	_, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
 		Content: message,
