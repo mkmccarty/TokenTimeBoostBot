@@ -11,6 +11,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
 
@@ -134,6 +135,8 @@ func sandboxPlayersFromContract(contract *Contract) []SandboxPlayer {
 		teStr := "50"
 		if b.TECount > 0 {
 			teStr = strconv.Itoa(b.TECount)
+		} else if teSaved := farmerstate.GetMiscSettingString(b.UserID, "TE"); teSaved != "" {
+			teStr = teSaved
 		}
 
 		name := b.Nick
