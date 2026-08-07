@@ -51,3 +51,4 @@ func TestMarkEventNotified(t *testing.T) {
 		t.Errorf("Expected markEventNotified to return true for new event ID")
 	}
 }
+

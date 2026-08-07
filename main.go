@@ -318,6 +318,7 @@ var (
 		"watch-page-last":         watch.HandlePage,
 		"watch-page-cancel":       watch.HandlePage,
 		"watch-toggle-sort":       watch.HandleToggleSort,
+		"watch-toggle-ultra":      watch.HandleToggleUltra,
 		"watch-clear-confirm":     watch.HandleClearConfirm,
 		"watch-test-contract":     watch.HandleTestContract,
 		"watch-test-colleggtible": watch.HandleTestColleggtible,

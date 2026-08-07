@@ -921,3 +921,60 @@ func GetPredictedTimes() (map[string]time.Time, map[string]time.Time) {
 
 	return contractPreds, eggPreds
 }
+
+// GetPredictedContractTimes returns the prediction times for a given contract.
+// It returns (wednesdayTime, nonUltraTime, ultraTime).
+func GetPredictedContractTimes(contractID string) (time.Time, time.Time, time.Time) {
+	c, ok := ei.EggIncContractsAll[contractID]
+	if !ok {
+		return time.Time{}, time.Time{}, time.Time{}
+	}
+
+	_, wedTime, friTime, _ := contractTimes9amPacific(0)
+	wed, friPE, friUltra := GetPredictionBrackets()
+
+	var bracket []ei.EggIncContract
+	var baseTime time.Time
+	switch {
+	case c.HasPE && !c.Ultra:
+		bracket, baseTime = friUltra, friTime
+	case c.HasPE && c.Ultra:
+		bracket, baseTime = friPE, friTime
+	default:
+		bracket, baseTime = wed, wedTime
+	}
+
+	pos := -1
+	for idx, bc := range bracket {
+		if bc.ID == contractID {
+			pos = idx
+			break
+		}
+	}
+
+	if pos < 0 {
+		return time.Time{}, time.Time{}, time.Time{}
+	}
+
+	predDate := baseTime.AddDate(0, 0, 7*pos)
+
+	var wTime, nuTime, uTime time.Time
+	if c.HasPE && !c.Ultra {
+		// Non-Ultra contract (in friUltra/Ultra bracket).
+		// Ultra players get it at predDate (sooner).
+		// Non-Ultra players get it at pePos = pos + len(friPE) (later).
+		pePos := pos + len(friPE)
+		nonUltraDate := friTime.AddDate(0, 0, 7*pePos)
+		wTime, nuTime, uTime = time.Time{}, nonUltraDate, predDate
+	} else if c.HasPE && c.Ultra {
+		// Standard PE contract (in friPE/Non-Ultra bracket).
+		// Both Ultra and Non-Ultra players get it at predDate.
+		wTime, nuTime, uTime = time.Time{}, predDate, predDate
+	} else {
+		// Wednesday contract.
+		wTime, nuTime, uTime = predDate, time.Time{}, time.Time{}
+	}
+
+	return wTime, nuTime, uTime
+}
+
