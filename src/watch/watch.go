@@ -716,16 +716,16 @@ func renderStatusPage(s *discordgo.Session, interaction *discordgo.Interaction, 
 					if !nonUltraTime.IsZero() && !ultraTime.IsZero() && !nonUltraTime.Equal(ultraTime) {
 						ultraIcon := ei.GetBotEmojiMarkdown("ultra")
 						normalIcon := "🔮"
-						
+
 						var firstLabel, secondLabel string
 						var firstTime, secondTime time.Time
 						var firstIcon, secondIcon string
-						
+
 						if ultraTime.Before(nonUltraTime) {
 							firstLabel = "Ultra"
 							firstTime = ultraTime
 							firstIcon = ultraIcon
-							
+
 							secondLabel = "Non-Ultra"
 							secondTime = nonUltraTime
 							secondIcon = normalIcon
@@ -733,12 +733,12 @@ func renderStatusPage(s *discordgo.Session, interaction *discordgo.Interaction, 
 							firstLabel = "Non-Ultra"
 							firstTime = nonUltraTime
 							firstIcon = normalIcon
-							
+
 							secondLabel = "Ultra"
 							secondTime = ultraTime
 							secondIcon = ultraIcon
 						}
-						
+
 						timeStr = fmt.Sprintf(" - %s %s: <t:%d:d> (<t:%d:R>) · %s %s: <t:%d:d>",
 							firstIcon, firstLabel, firstTime.Unix(), firstTime.Unix(),
 							secondIcon, secondLabel, secondTime.Unix())
@@ -1002,7 +1002,6 @@ func HandleToggleUltra(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	renderStatusPage(s, i.Interaction, userID, page, false)
 }
-
 
 // HandleClearConfirm handles transitioning clear all watches to confirmation state.
 func HandleClearConfirm(s *discordgo.Session, i *discordgo.InteractionCreate) {
