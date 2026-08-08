@@ -11,6 +11,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
@@ -1262,4 +1263,108 @@ func calcBoostMulti(tokens float64) float64 {
 	}
 
 	return mult
+}
+
+// BoostResult holds the strategy name, token count, boost multiplier, and calculated total time.
+type BoostResult struct {
+	Strategy   string
+	Tokens     int
+	Multiplier float64
+	TotalTime  float64
+}
+
+// CalculateBoostTime calculates the total time in minutes for a specific token strategy.
+// Parameters:
+//
+//	te: Tachyon Deflector / Enrichment level (e.g., 0, 1, 2...)
+//	tokens: Number of tokens used (0 to 8)
+//	tokenRate: Token generation rate (minutes per token, e.g., 13.0)
+//	sixTokBoostTime: The nominal 6-token boost time parameter from the sheet (e.g., 20.0)
+//	artifactMult: Optional artifact multiplier (chalice, monocle, life stones, etc.)
+func CalculateBoostTime(te int, tokens int, tokenRate float64, sixTokBoostTime float64, artifactMult ...float64) float64 {
+	var baseRemainingTime float64
+
+	// Base remaining times at TE = 0 derived from the sheet's constants
+	switch tokens {
+	case 0:
+		baseRemainingTime = 1600.0
+	case 1:
+		baseRemainingTime = 1000.0
+	case 2:
+		baseRemainingTime = 571.43
+	case 3:
+		baseRemainingTime = 307.69
+	case 4:
+		baseRemainingTime = 76.92
+	case 5:
+		baseRemainingTime = 38.83
+	case 6:
+		// Scales the nominal 20-minute parameter to the exact 19.61 baseline used in the sheet
+		baseRemainingTime = sixTokBoostTime * (19.61 / 20.0)
+	case 7:
+		baseRemainingTime = 13.2
+	case 8:
+		baseRemainingTime = 8.0
+	default:
+		return 0.0
+	}
+
+	artMult := 1.0
+	if len(artifactMult) > 0 && artifactMult[0] > 0 {
+		artMult = artifactMult[0]
+	}
+
+	// Core Formula: Total Time = (Tokens * Token Rate) + Base Remaining Time / ((1.01 ^ TE) * artifactMult)
+	teMultiplier := math.Pow(1.01, float64(te)) * artMult
+	totalTime := (float64(tokens) * tokenRate) + (baseRemainingTime / teMultiplier)
+
+	return totalTime
+}
+
+// FindFastestBoost determines the optimal boost strategy and its duration for a given TE level and optional artifact multiplier.
+func FindFastestBoost(te int, tokenRate float64, sixTokBoostTime float64, artifactMult ...float64) BoostResult {
+	bestStrategy := ""
+	bestTokens := 0
+	minTime := math.MaxFloat64
+
+	artMult := 1.0
+	if len(artifactMult) > 0 && artifactMult[0] > 0 {
+		artMult = artifactMult[0]
+	}
+
+	if config.IsDevBot() {
+		log.Printf("FindFastestBoost: TE=%d, TokenRate=%.2f, SixTokBoostTime=%.2f, ArtifactMult=%.4f",
+			te, tokenRate, sixTokBoostTime, artMult)
+	}
+
+	for tokens := 0; tokens <= 8; tokens++ {
+		time := CalculateBoostTime(te, tokens, tokenRate, sixTokBoostTime, artifactMult...)
+		if config.IsDevBot() {
+			log.Printf("  -> Strategy: %dtok, Time: %.2f mins", tokens, time)
+		}
+		if time < minTime {
+			minTime = time
+			bestTokens = tokens
+			bestStrategy = fmt.Sprintf("%dtok", tokens)
+		}
+	}
+
+	mult := calcBoostMulti(float64(bestTokens))
+	if config.IsDevBot() {
+		log.Printf("  => Optimal Strategy: %s (Tokens=%d, Multiplier=%.2f, TotalTime=%.2f mins)",
+			bestStrategy, bestTokens, mult, minTime)
+	}
+	return BoostResult{Strategy: bestStrategy, Tokens: bestTokens, Multiplier: mult, TotalTime: minTime}
+}
+
+// GetPlayerBoostConfig returns the optimal number of tokens used for boost and the boost multiplier
+// based on the player's Tachyon Deflector / Enrichment (TE) level and optional artifact multiplier.
+func GetPlayerBoostConfig(te float64, artifactMult ...float64) (tokens float64, multiplier float64) {
+	fastest := FindFastestBoost(int(te), 13.0, 20.0, artifactMult...)
+	return float64(fastest.Tokens), fastest.Multiplier
+}
+
+// GetBoostMultiplierForTokens returns the boost multiplier for a specific number of tokens.
+func GetBoostMultiplierForTokens(tokens float64) float64 {
+	return calcBoostMulti(tokens)
 }
