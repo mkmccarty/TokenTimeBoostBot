@@ -221,4 +221,3 @@ func TestCalculateClothedIHRWithArtifacts(t *testing.T) {
 		t.Errorf("CalculateClothedIHRWithArtifacts(backup, nil) = %f; want 7440.0", got)
 	}
 }
-
