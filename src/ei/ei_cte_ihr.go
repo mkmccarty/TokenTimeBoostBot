@@ -20,14 +20,24 @@ func CalculateClothedIHRFromBackup(backup *Backup) float64 {
 	return CalculateClothedIHRWithArtifacts(backup, GetActiveVirtueArtifacts(backup))
 }
 
-// CalculateMaxClothedIHR calculates the maximum possible clothed IHR rate from virtue inventory.
+// CalculateMaxClothedIHR calculates the maximum possible clothed IHR rate from inventory.
 func CalculateMaxClothedIHR(backup *Backup) MaxClothedIHRResult {
-	return CalculateMaxClothedIHRWithSlotHint(backup, 0)
+	return CalculateMaxClothedIHRWithSlotHintAndFlags(backup, 0, false, false)
 }
 
-// CalculateMaxClothedIHRWithSlotHint calculates max clothed IHR using a host slot hint (e.g. equipped count).
+// CalculateMaxClothedIHRWithFlags calculates max clothed IHR with deflector/siab options.
+func CalculateMaxClothedIHRWithFlags(backup *Backup, includeDeflector bool, includeSIAB bool) MaxClothedIHRResult {
+	return CalculateMaxClothedIHRWithSlotHintAndFlags(backup, 0, includeDeflector, includeSIAB)
+}
+
+// CalculateMaxClothedIHRWithSlotHint calculates max clothed IHR using a host slot hint.
 func CalculateMaxClothedIHRWithSlotHint(backup *Backup, slotHint int) MaxClothedIHRResult {
-	bestArtifacts := GetMaxClothedIHRArtifactsWithSlotHint(backup, slotHint)
+	return CalculateMaxClothedIHRWithSlotHintAndFlags(backup, slotHint, false, false)
+}
+
+// CalculateMaxClothedIHRWithSlotHintAndFlags calculates max clothed IHR using slot hint and deflector/siab flags.
+func CalculateMaxClothedIHRWithSlotHintAndFlags(backup *Backup, slotHint int, includeDeflector bool, includeSIAB bool) MaxClothedIHRResult {
+	bestArtifacts := GetMaxClothedIHRArtifactsWithSlotHintAndFlags(backup, slotHint, includeDeflector, includeSIAB)
 	return MaxClothedIHRResult{
 		ClothedIHR: CalculateClothedIHRWithArtifacts(backup, bestArtifacts),
 		Artifacts:  bestArtifacts,
@@ -36,11 +46,16 @@ func CalculateMaxClothedIHRWithSlotHint(backup *Backup, slotHint int) MaxClothed
 
 // GetMaxClothedIHRArtifacts returns the best artifact loadout for clothed IHR.
 func GetMaxClothedIHRArtifacts(backup *Backup) []*CompleteArtifact {
-	return GetMaxClothedIHRArtifactsWithSlotHint(backup, 0)
+	return GetMaxClothedIHRArtifactsWithSlotHintAndFlags(backup, 0, false, false)
 }
 
 // GetMaxClothedIHRArtifactsWithSlotHint returns best artifact loadout using slot hint when provided.
 func GetMaxClothedIHRArtifactsWithSlotHint(backup *Backup, slotHint int) []*CompleteArtifact {
+	return GetMaxClothedIHRArtifactsWithSlotHintAndFlags(backup, slotHint, false, false)
+}
+
+// GetMaxClothedIHRArtifactsWithSlotHintAndFlags returns best artifact loadout using slot hint and optional deflector/siab inclusion.
+func GetMaxClothedIHRArtifactsWithSlotHintAndFlags(backup *Backup, slotHint int, includeDeflector bool, includeSIAB bool) []*CompleteArtifact {
 	if backup == nil || backup.GetArtifactsDb() == nil {
 		return nil
 	}
@@ -48,7 +63,7 @@ func GetMaxClothedIHRArtifactsWithSlotHint(backup *Backup, slotHint int) []*Comp
 
 	slotCount := resolveCTEArtifactSlotCount(backup, slotHint)
 
-	hostCandidates, stonePool := collectCTEIHRCandidates(inventory)
+	hostCandidates, stonePool := collectCTEIHRCandidatesWithFlags(inventory, includeDeflector, includeSIAB)
 	if len(hostCandidates) == 0 {
 		return nil
 	}
@@ -149,7 +164,7 @@ func CalculateClothedIHRWithArtifacts(backup *Backup, artifacts []*CompleteArtif
 	return baseOnlineRatePerHab * teMultiplier * colMultiplier * chaliceMultiplier * monocleMultiplier * lifeStoneMultiplier
 }
 
-func collectCTEIHRCandidates(inventory []*ArtifactInventoryItem) ([]cteHostCandidate, []cteStoneCandidate) {
+func collectCTEIHRCandidatesWithFlags(inventory []*ArtifactInventoryItem, includeDeflector bool, includeSIAB bool) ([]cteHostCandidate, []cteStoneCandidate) {
 	hosts := make([]cteHostCandidate, 0, len(inventory))
 	bestHostByType := make(map[ArtifactSpec_Name]cteHostCandidate)
 	stones := make([]cteStoneCandidate, 0)
@@ -194,7 +209,18 @@ func collectCTEIHRCandidates(inventory []*ArtifactInventoryItem) ([]cteHostCandi
 		}
 
 		base := cteIHRArtifactMultiplierWithoutStones(spec)
-		if base <= 1.0 && slots == 0 {
+		isAllowedHost := false
+		if base > 1.0 {
+			isAllowedHost = true
+		} else if slots > 0 {
+			if spec.GetName() == ArtifactSpec_TACHYON_DEFLECTOR && includeDeflector {
+				isAllowedHost = true
+			} else if spec.GetName() == ArtifactSpec_SHIP_IN_A_BOTTLE && includeSIAB {
+				isAllowedHost = true
+			}
+		}
+
+		if !isAllowedHost {
 			continue
 		}
 
