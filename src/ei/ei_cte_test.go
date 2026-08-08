@@ -207,3 +207,18 @@ func TestNextTruthEggThreshold(t *testing.T) {
 		})
 	}
 }
+
+func TestCalculateClothedIHRWithArtifacts(t *testing.T) {
+	// Baseline with no backup or artifacts -> 0
+	if got := CalculateClothedIHRWithArtifacts(nil, nil); got != 0 {
+		t.Errorf("CalculateClothedIHRWithArtifacts(nil, nil) = %f; want 0", got)
+	}
+
+	backup := &Backup{}
+	// Base online rate per hab: 7440.0 * 1.0 (TE 0) * 1.0 (no artifacts) = 7440.0
+	got := CalculateClothedIHRWithArtifacts(backup, nil)
+	if got != 7440.0 {
+		t.Errorf("CalculateClothedIHRWithArtifacts(backup, nil) = %f; want 7440.0", got)
+	}
+}
+
