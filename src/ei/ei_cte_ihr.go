@@ -41,14 +41,14 @@ func GetMaxClothedIHRArtifacts(backup *Backup) []*CompleteArtifact {
 
 // GetMaxClothedIHRArtifactsWithSlotHint returns best artifact loadout using slot hint when provided.
 func GetMaxClothedIHRArtifactsWithSlotHint(backup *Backup, slotHint int) []*CompleteArtifact {
-	virtueDB := getVirtueArtifactDB(backup)
-	if virtueDB == nil {
+	if backup == nil || backup.GetArtifactsDb() == nil {
 		return nil
 	}
+	inventory := backup.GetArtifactsDb().GetInventoryItems()
 
 	slotCount := resolveCTEArtifactSlotCount(backup, slotHint)
 
-	hostCandidates, stonePool := collectCTEIHRCandidates(virtueDB.GetInventoryItems())
+	hostCandidates, stonePool := collectCTEIHRCandidates(inventory)
 	if len(hostCandidates) == 0 {
 		return nil
 	}
