@@ -8,6 +8,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -31,6 +32,9 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 	builder.WriteString("React with ⏱️ after the boosting is completed to update the duration from the EI API.")
 
 	contract := FindContractByHash(hashID)
+	if contract == nil {
+		return "", nil
+	}
 
 	// Dynamic Boost List Styles
 	runStyleOptions := []discordgo.SelectMenuOption{}
@@ -83,6 +87,74 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 		Default:     (contract.PlayStyle == ContractPlaystyleLeaderboard),
 		Emoji:       ei.GetBotComponentEmoji("leaderboard"),
 	})
+
+	featuresOptions := []discordgo.SelectMenuOption{
+		{
+			Label:       "4 token boosts",
+			Description: "Everyone joins wanting 4 token boosts",
+			Value:       "boost4",
+			Default:     (contract.Style & ContractFlag4Tokens) != 0,
+			Emoji: &discordgo.ComponentEmoji{
+				Name: "4️⃣",
+			},
+		},
+		{
+			Label:       "6 token boosts",
+			Description: "Everyone joins wanting 6 token boosts",
+			Value:       "boost6",
+			Default:     (contract.Style & ContractFlag6Tokens) != 0,
+			Emoji: &discordgo.ComponentEmoji{
+				Name: "6️⃣",
+			},
+		},
+		{
+			Label:       "8 token boosts",
+			Description: "Everyone joins wanting 8 token boosts",
+			Value:       "boost8",
+			Default:     (contract.Style & ContractFlag8Tokens) != 0,
+			Emoji: &discordgo.ComponentEmoji{
+				Name: "8️⃣",
+			},
+		},
+		{
+			Label:       "Dynamic Boost Tokens",
+			Description: "Based on highest 120min delivery rate",
+			Value:       "dynamic",
+			Default:     (contract.Style & ContractFlagDynamicTokens) != 0,
+			Emoji: &discordgo.ComponentEmoji{
+				Name: "🤖",
+			},
+		},
+		{
+			Label:       "Threshold Boost Tokens",
+			Description: "X tokens for >= TE, Y tokens < TE",
+			Value:       "threshold",
+			Default:     (contract.Style & ContractFlagThresholdTokens) != 0,
+			Emoji: &discordgo.ComponentEmoji{
+				Name: "📊",
+			},
+		},
+	}
+
+	hasAMQP := false
+	if len(contract.Location) > 0 {
+		guildID := contract.Location[0].GuildID
+		if guildID != "" && guildstate.GetGuildSettingString(guildID, "amqp_url") != "" {
+			hasAMQP = true
+		}
+	}
+
+	if hasAMQP {
+		featuresOptions = append(featuresOptions, discordgo.SelectMenuOption{
+			Label:       "AMQP Publish",
+			Description: "Send token logs and boost status to AMQP queue",
+			Value:       "amqp",
+			Default:     (contract.Style & ContractFlagAMQP) != 0,
+			Emoji: &discordgo.ComponentEmoji{
+				Name: "📣",
+			},
+		})
+	}
 
 	return builder.String(), []discordgo.MessageComponent{
 		discordgo.ActionsRow{
@@ -196,53 +268,7 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 					Placeholder: "Optional Features",
 					MinValues:   &minZeroValues,
 					MaxValues:   1,
-					Options: []discordgo.SelectMenuOption{
-						{
-							Label:       "4 token boosts",
-							Description: "Everyone joins wanting 4 token boosts",
-							Value:       "boost4",
-							Default:     (contract.Style & ContractFlag4Tokens) != 0,
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "4️⃣",
-							},
-						},
-						{
-							Label:       "6 token boosts",
-							Description: "Everyone joins wanting 6 token boosts",
-							Value:       "boost6",
-							Default:     (contract.Style & ContractFlag6Tokens) != 0,
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "6️⃣",
-							},
-						},
-						{
-							Label:       "8 token boosts",
-							Description: "Everyone joins wanting 8 token boosts",
-							Value:       "boost8",
-							Default:     (contract.Style & ContractFlag8Tokens) != 0,
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "8️⃣",
-							},
-						},
-						{
-							Label:       "Dynamic Boost Tokens",
-							Description: "Based on highest 120min delivery rate",
-							Value:       "dynamic",
-							Default:     (contract.Style & ContractFlagDynamicTokens) != 0,
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "🤖",
-							},
-						},
-						{
-							Label:       "Threshold Boost Tokens",
-							Description: "X tokens for >= TE, Y tokens < TE",
-							Value:       "threshold",
-							Default:     (contract.Style & ContractFlagThresholdTokens) != 0,
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "📊",
-							},
-						},
-					},
+					Options:     featuresOptions,
 				},
 			},
 		},
