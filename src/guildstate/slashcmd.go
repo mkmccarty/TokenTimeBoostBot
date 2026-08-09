@@ -26,6 +26,7 @@ var snowflakeRe = regexp.MustCompile(`\b\d{17,20}\b`)
 // knownSettingKeys is a curated list of setting keys always shown in the setting autocomplete.
 var knownSettingKeys = []string{
 	"admin_logs_channel",
+	"amqp_url",
 }
 
 // SlashSetGuildSettingCommand creates an admin slash command to set/clear a guild string setting.

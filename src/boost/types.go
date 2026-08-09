@@ -129,6 +129,7 @@ const (
 	ContractFlagThresholdTokens = 0x1000
 	ContractFlagFastrun         = 0x4000
 	ContractFlagBanker          = 0x8000
+	ContractFlagAMQP            = 0x20000
 
 	ContractStyleFastrun       = ContractFlagFastrun
 	ContractStyleFastrunBanker = ContractFlagBanker
@@ -279,47 +280,49 @@ type Contract struct {
 	EstimateUpdateTime        time.Time
 	TimeBoosting              time.Time // When the contract boost started
 
-	CoopSize             int
-	Ultra                bool
-	UltraCount           int
-	Style                int64 // Mask for the Contract Style
-	PlayStyle            int   // Playstyle of the contract
-	NewToPlayStyle       bool  // Someone in the contract is new to this playstyle
-	ThresholdTokensX     int   // X tokens for >= A TE
-	ThresholdTokensY     int   // Y tokens < A TE
-	ThresholdTokensA     int   // A TE threshold
-	LengthInSeconds      int
-	BoostOrder           int // How the contract is sorted
-	BoostVoting          int
-	CurrentBoosterUserID string    // Current booster UserID (source of truth)
-	BoostPosition        int       // Starting Slot
-	State                int       // Boost Completed
-	StartTime            time.Time // When Contract is started
-	EndTime              time.Time // When final booster ends
-	PlannedStartTime     time.Time // Parameter start time
-	ActualStartTime      time.Time // Actual start time for token tracking
-	ValidFrom            time.Time // Base time used for offsets (9 AM PT of creation day)
-	RegisteredNum        int
-	Boosters             map[string]*Booster // Boosters Registered
-	CRMessageIDs         map[string]string   // CR reqest messageIDs
-	WaitlistBoosters     []string            // Waitlist of UserID's
-	Order                []string
-	BoostedOrder         []string   // Actual order of boosting
-	OrderRevision        int        // Incremented when Order is changed
-	Banker               BankerInfo // Banker for the contract
-	TokenLog             []ei.TokenUnitLog
-	TokensPerMinute      float64
-	CalcOperations       int
-	CalcOperationTime    time.Time
-	CoopTokenValueMsgID  string
-	LastWishPrompt       string             // saved prompt for this contract
-	LastInteractionTime  time.Time          // last time the contract was drawn
-	buttonComponents     map[string]CompMap // Cached components for this contract
-	HelpGuidanceUntil    time.Time          // Show bottom guidance while now is before this timestamp
-	NewFeature           int                // Used to slide in new features
-	DynamicData          *DynamicTokenData
-	LastSaveTime         time.Time // The last time the contract was saved
-	ThematicComplaints   []string  `json:"thematic_complaints,omitempty"`
+	CoopSize                   int
+	Ultra                      bool
+	UltraCount                 int
+	Style                      int64 // Mask for the Contract Style
+	PlayStyle                  int   // Playstyle of the contract
+	NewToPlayStyle             bool  // Someone in the contract is new to this playstyle
+	ThresholdTokensX           int   // X tokens for >= A TE
+	ThresholdTokensY           int   // Y tokens < A TE
+	ThresholdTokensA           int   // A TE threshold
+	LengthInSeconds            int
+	BoostOrder                 int // How the contract is sorted
+	BoostVoting                int
+	CurrentBoosterUserID       string    // Current booster UserID (source of truth)
+	BoostPosition              int       // Starting Slot
+	State                      int       // Boost Completed
+	StartTime                  time.Time // When Contract is started
+	EndTime                    time.Time // When final booster ends
+	PlannedStartTime           time.Time // Parameter start time
+	ActualStartTime            time.Time // Actual start time for token tracking
+	ValidFrom                  time.Time // Base time used for offsets (9 AM PT of creation day)
+	RegisteredNum              int
+	Boosters                   map[string]*Booster // Boosters Registered
+	CRMessageIDs               map[string]string   // CR reqest messageIDs
+	WaitlistBoosters           []string            // Waitlist of UserID's
+	Order                      []string
+	BoostedOrder               []string   // Actual order of boosting
+	OrderRevision              int        // Incremented when Order is changed
+	Banker                     BankerInfo // Banker for the contract
+	TokenLog                   []ei.TokenUnitLog
+	LastPublishedTokenLogIndex int            `json:"last_published_token_log_index"`
+	LastPublishedStates        map[string]int `json:"last_published_states"`
+	TokensPerMinute            float64
+	CalcOperations             int
+	CalcOperationTime          time.Time
+	CoopTokenValueMsgID        string
+	LastWishPrompt             string             // saved prompt for this contract
+	LastInteractionTime        time.Time          // last time the contract was drawn
+	buttonComponents           map[string]CompMap // Cached components for this contract
+	HelpGuidanceUntil          time.Time          // Show bottom guidance while now is before this timestamp
+	NewFeature                 int                // Used to slide in new features
+	DynamicData                *DynamicTokenData
+	LastSaveTime               time.Time // The last time the contract was saved
+	ThematicComplaints         []string  `json:"thematic_complaints,omitempty"`
 
 	mutex sync.Mutex // Keep this contract thread safe
 }

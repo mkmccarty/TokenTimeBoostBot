@@ -783,6 +783,7 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			contract.Style &= ^ContractFlag8Tokens
 			contract.Style &= ^ContractFlag4Tokens
 			contract.Style &= ^ContractFlagThresholdTokens
+			contract.Style &= ^ContractFlagAMQP
 		} else {
 			switch values[0] {
 			case "boost4":
@@ -825,8 +826,16 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 				} else {
 					contract.Style |= ContractFlagDynamicTokens
 				}
+			case "amqp":
+				if contract.Style&ContractFlagAMQP != 0 {
+					contract.Style &= ^ContractFlagAMQP
+				} else {
+					contract.Style |= ContractFlagAMQP
+				}
 			}
 		}
+		redrawSignup = true
+		redrawSettings = true
 	}
 
 	if cmd == "order" {

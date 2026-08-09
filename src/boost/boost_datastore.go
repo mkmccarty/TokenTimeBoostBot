@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
 
 var ctx = context.Background()
@@ -347,6 +348,60 @@ func readSqliteData(channelID string) (*Contract, error) {
 func saveSqliteData(contract *Contract) {
 	if contract == nil || len(contract.Location) == 0 {
 		return
+	}
+
+	// Check if AMQP Publish is enabled and configured
+	if contract.Style&ContractFlagAMQP != 0 {
+		guildID := contract.Location[0].GuildID
+		if guildID != "" {
+			amqpURL := guildstate.GetGuildSettingString(guildID, "amqp_url")
+			if amqpURL != "" {
+				// Process player boost state changes
+				if contract.LastPublishedStates == nil {
+					contract.LastPublishedStates = make(map[string]int)
+				}
+				for userID, booster := range contract.Boosters {
+					lastState, exists := contract.LastPublishedStates[userID]
+					if !exists || lastState != booster.BoostState {
+						contract.LastPublishedStates[userID] = booster.BoostState
+						PublishAMQPBoostStatus(guildID, amqpURL, contract.ContractID, contract.CoopID, AMQPBoostStatusMessage{
+							Event:      "boost_status_change",
+							GuildID:    guildID,
+							ContractID: contract.ContractID,
+							CoopID:     contract.CoopID,
+							UserID:     userID,
+							Nick:       booster.Nick,
+							BoostState: getBoostStateString(booster.BoostState),
+							Time:       time.Now(),
+						})
+					}
+				}
+
+				// Process new token logs
+				if contract.LastPublishedTokenLogIndex < 0 {
+					contract.LastPublishedTokenLogIndex = 0
+				}
+				for i := contract.LastPublishedTokenLogIndex; i < len(contract.TokenLog); i++ {
+					entry := contract.TokenLog[i]
+					PublishAMQPTokenLog(guildID, amqpURL, contract.ContractID, contract.CoopID, AMQPTokenMessage{
+						Event:      "token_transfer",
+						GuildID:    guildID,
+						ContractID: contract.ContractID,
+						CoopID:     contract.CoopID,
+						Time:       entry.Time,
+						Quantity:   entry.Quantity,
+						Value:      entry.Value,
+						FromUserID: entry.FromUserID,
+						FromNick:   entry.FromNick,
+						ToUserID:   entry.ToUserID,
+						ToNick:     entry.ToNick,
+						Serial:     entry.Serial,
+						Boost:      entry.Boost,
+					})
+				}
+				contract.LastPublishedTokenLogIndex = len(contract.TokenLog)
+			}
+		}
 	}
 
 	// Save the contract data to SQLite
