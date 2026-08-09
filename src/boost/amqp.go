@@ -130,7 +130,6 @@ type AMQPTokenMessage struct {
 	FromNick   string    `json:"from_nick"`
 	ToUserID   string    `json:"to_user_id"`
 	ToNick     string    `json:"to_nick"`
-	Serial     string    `json:"serial"`
 	Boost      bool      `json:"boost"`
 }
 
