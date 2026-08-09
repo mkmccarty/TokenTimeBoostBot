@@ -192,3 +192,30 @@ func PublishAMQPBoostStatus(guildID string, url string, contractID string, coopI
 		}
 	}()
 }
+
+// AMQPNonTokenMessage represents a non-token delivery report.
+type AMQPNonTokenMessage struct {
+	Event      string    `json:"event"`
+	GuildID    string    `json:"guild_id"`
+	ContractID string    `json:"contract_id"`
+	CoopID     string    `json:"coop_id"`
+	UserID     string    `json:"user_id"`
+	Nick       string    `json:"nick"`
+	Time       time.Time `json:"time"`
+}
+
+// PublishAMQPNonToken publishes a non-token event to the guild's AMQP queue.
+func PublishAMQPNonToken(guildID string, url string, contractID string, coopID string, status AMQPNonTokenMessage) {
+	body, err := json.Marshal(status)
+	if err != nil {
+		log.Printf("AMQP: error marshaling non-token: %v", err)
+		return
+	}
+
+	client := getAMQPClient(guildID, url)
+	go func() {
+		if err := client.publish(body); err != nil {
+			log.Printf("AMQP: error publishing non-token: %v", err)
+		}
+	}()
+}
