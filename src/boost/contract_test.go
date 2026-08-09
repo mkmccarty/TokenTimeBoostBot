@@ -400,3 +400,76 @@ func TestMultipleTBDContracts(t *testing.T) {
 		t.Errorf("start button not found in signup components")
 	}
 }
+
+func TestMakeShortNameMap(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected map[string]string
+	}{
+		{
+			name:  "No common prefixes",
+			input: []string{"Alice", "Bob", "Charlie"},
+			expected: map[string]string{
+				"Alice":   "Alice",
+				"Bob":     "Bob",
+				"Charlie": "Charlie",
+			},
+		},
+		{
+			name:  "Common prefix of length < 3",
+			input: []string{"Al", "An", "Bob"},
+			expected: map[string]string{
+				"Al":  "Al",
+				"An":  "An",
+				"Bob": "Bob",
+			},
+		},
+		{
+			name:  "Common prefix of length >= 3",
+			input: []string{"EggscapeABC", "EggscapeDEF", "EggscapeGHI", "OtherPlayer"},
+			expected: map[string]string{
+				"EggscapeABC": "~ABC",
+				"EggscapeDEF": "~DEF",
+				"EggscapeGHI": "~GHI",
+				"OtherPlayer": "OtherPlayer",
+			},
+		},
+		{
+			name:  "Multiple different common prefixes",
+			input: []string{"EggscapeABC", "EggscapeDEF", "Cluck123", "Cluck456", "Solo"},
+			expected: map[string]string{
+				"EggscapeABC": "~ABC",
+				"EggscapeDEF": "~DEF",
+				"Cluck123":    "~123",
+				"Cluck456":    "~456",
+				"Solo":        "Solo",
+			},
+		},
+		{
+			name:  "One name is exactly the prefix of another",
+			input: []string{"Eggscape", "EggscapeABC"},
+			expected: map[string]string{
+				"Eggscape":    "Eggscape",
+				"EggscapeABC": "~ABC",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := makeShortNameMap(tc.input)
+			if tc.expected == nil && got == nil {
+				return
+			}
+			if len(got) != len(tc.expected) {
+				t.Fatalf("expected map length %d, got %d", len(tc.expected), len(got))
+			}
+			for k, v := range tc.expected {
+				if got[k] != v {
+					t.Errorf("for key %q: expected %q, got %q", k, v, got[k])
+				}
+			}
+		})
+	}
+}

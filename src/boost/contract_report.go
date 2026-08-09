@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/mattn/go-runewidth"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
@@ -582,6 +583,15 @@ func printContractReport(p *contractReportParameters, showTokenDetails, showMiss
 
 	currentContract := p.contract
 
+	displayNames := make([]string, 0, len(p.playerEvalsMetrics)+len(p.missingPlayers))
+	for _, e := range p.playerEvalsMetrics {
+		displayNames = append(displayNames, e.player)
+	}
+	for _, s := range p.missingPlayers {
+		displayNames = append(displayNames, ei.NormalizePlayerNameForDisplay(s))
+	}
+	shortMap := makeShortNameMap(displayNames)
+
 	// --- Header (markdown) ---
 	var h strings.Builder
 	// Round/format thresholds for display
@@ -636,8 +646,12 @@ func printContractReport(p *contractReportParameters, showTokenDetails, showMiss
 		b.WriteByte('\n')
 
 		for _, e := range p.playerEvalsMetrics {
+			rowMetrics := e
+			if short, ok := shortMap[e.player]; ok {
+				rowMetrics.player = short
+			}
 			b.WriteString(formatEvalMetricsRowANSI(
-				e,                // pass the whole evalMetrics struct
+				rowMetrics,       // pass the whole evalMetrics struct
 				p.thresholds,     // thresholds
 				p.metricPeaks,    // peak metrics
 				showTokenDetails, // whether to include +TS, ΔTVal, -TS
@@ -671,7 +685,11 @@ func printContractReport(p *contractReportParameters, showTokenDetails, showMiss
 					b.WriteString(", ")
 				}
 				b.WriteByte('`')
-				b.WriteString(strings.ReplaceAll(ei.NormalizePlayerNameForDisplay(s), "-", "\u2011"))
+				displayName := ei.NormalizePlayerNameForDisplay(s)
+				if short, ok := shortMap[displayName]; ok {
+					displayName = short
+				}
+				b.WriteString(strings.ReplaceAll(displayName, "-", "\u2011"))
 				b.WriteByte('`')
 			}
 
@@ -994,6 +1012,63 @@ func buildAndSortEvals(
 
 	return out, peaks
 }
+
+// makeShortNameMap simplifies names that share a common prefix of length >= 3 to display their unique parts.
+func makeShortNameMap(names []string) map[string]string {
+	if len(names) <= 1 {
+		return nil
+	}
+
+	sorted := make([]string, len(names))
+	copy(sorted, names)
+	sort.Slice(sorted, func(i, j int) bool {
+		return strings.ToLower(sorted[i]) < strings.ToLower(sorted[j])
+	})
+
+	commonPrefix := func(a, b string) string {
+		aRunes := []rune(a)
+		bRunes := []rune(b)
+		n := min(len(aRunes), len(bRunes))
+		for i := 0; i < n; i++ {
+			if unicode.ToLower(aRunes[i]) != unicode.ToLower(bRunes[i]) {
+				return string(aRunes[:i])
+			}
+		}
+		return string(aRunes[:n])
+	}
+
+	longestShared := make(map[string]string)
+	for i := 0; i < len(sorted); i++ {
+		prefix := ""
+		if i > 0 {
+			p := commonPrefix(sorted[i], sorted[i-1])
+			if len(p) > len(prefix) {
+				prefix = p
+			}
+		}
+		if i < len(sorted)-1 {
+			p := commonPrefix(sorted[i], sorted[i+1])
+			if len(p) > len(prefix) {
+				prefix = p
+			}
+		}
+		if len(prefix) >= 3 {
+			longestShared[sorted[i]] = prefix
+		}
+	}
+
+	shortNames := make(map[string]string)
+	for _, name := range names {
+		prefix, ok := longestShared[name]
+		if ok && len(name) > len(prefix) {
+			shortNames[name] = "~" + name[len(prefix):]
+		} else {
+			shortNames[name] = name
+		}
+	}
+	return shortNames
+}
+
 
 /*
 {
