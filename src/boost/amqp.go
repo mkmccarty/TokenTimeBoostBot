@@ -121,7 +121,6 @@ func (c *AMQPClient) publish(body []byte) error {
 // AMQPTokenMessage represents the structure of the token unit log sent over AMQP.
 type AMQPTokenMessage struct {
 	Event      string    `json:"event"`
-	GuildID    string    `json:"guild_id"`
 	ContractID string    `json:"contract_id"`
 	CoopID     string    `json:"coop_id"`
 	Time       time.Time `json:"time"`
@@ -138,7 +137,6 @@ type AMQPTokenMessage struct {
 // AMQPBoostStatusMessage represents a player's boost status change.
 type AMQPBoostStatusMessage struct {
 	Event      string    `json:"event"`
-	GuildID    string    `json:"guild_id"`
 	ContractID string    `json:"contract_id"`
 	CoopID     string    `json:"coop_id"`
 	UserID     string    `json:"user_id"`
@@ -196,7 +194,6 @@ func PublishAMQPBoostStatus(guildID string, url string, contractID string, coopI
 // AMQPNonTokenMessage represents a non-token delivery report.
 type AMQPNonTokenMessage struct {
 	Event      string    `json:"event"`
-	GuildID    string    `json:"guild_id"`
 	ContractID string    `json:"contract_id"`
 	CoopID     string    `json:"coop_id"`
 	UserID     string    `json:"user_id"`
