@@ -20,7 +20,6 @@ func TestAMQPMessageFormatting(t *testing.T) {
 		FromNick:   "FromUser",
 		ToUserID:   "user-to",
 		ToNick:     "ToUser",
-		Serial:     "serial-123",
 		Boost:      false,
 	}
 

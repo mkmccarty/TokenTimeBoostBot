@@ -393,7 +393,6 @@ func saveSqliteData(contract *Contract) {
 						FromNick:   entry.FromNick,
 						ToUserID:   entry.ToUserID,
 						ToNick:     entry.ToNick,
-						Serial:     entry.Serial,
 						Boost:      entry.Boost,
 					})
 				}
