@@ -113,6 +113,7 @@ func (c *AMQPClient) publish(body []byte) error {
 		amqp.Publishing{
 			ContentType: "application/json",
 			Body:        body,
+			Expiration:  "86400000", // 24 hours in milliseconds
 		},
 	)
 }
