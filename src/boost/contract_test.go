@@ -458,10 +458,10 @@ func TestMakeShortNameMap(t *testing.T) {
 			name:  "Coincidental overlap of sub-prefix should not strip part of unique name",
 			input: []string{"EscapeCat", "Escaperaftsman", "EscapeJames", "EscapeChicken"},
 			expected: map[string]string{
-				"EscapeCat":       "Cat",
+				"EscapeCat":      "Cat",
 				"Escaperaftsman": "raftsman",
-				"EscapeJames":     "James",
-				"EscapeChicken":   "Chicken",
+				"EscapeJames":    "James",
+				"EscapeChicken":  "Chicken",
 			},
 		},
 	}

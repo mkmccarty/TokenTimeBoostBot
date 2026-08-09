@@ -1063,7 +1063,6 @@ func makeShortNameMap(names []string) map[string]string {
 	return shortNames
 }
 
-
 /*
 {
 	"evaluation": {
