@@ -1265,7 +1265,6 @@ func buttonReactionNonToken(s *discordgo.Session, i *discordgo.InteractionCreate
 		if amqpURL != "" {
 			PublishAMQPNonToken(guildID, amqpURL, contract.ContractID, contract.CoopID, AMQPNonTokenMessage{
 				Event:      "non_token",
-				GuildID:    guildID,
 				ContractID: contract.ContractID,
 				CoopID:     contract.CoopID,
 				UserID:     userID,
@@ -1274,9 +1273,4 @@ func buttonReactionNonToken(s *discordgo.Session, i *discordgo.InteractionCreate
 			})
 		}
 	}
-
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: "Non-token event sent!",
-		Flags:   discordgo.MessageFlagsEphemeral,
-	})
 }

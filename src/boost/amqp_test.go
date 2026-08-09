@@ -11,7 +11,6 @@ import (
 func TestAMQPMessageFormatting(t *testing.T) {
 	tokenMsg := AMQPTokenMessage{
 		Event:      "token_transfer",
-		GuildID:    "guild-1",
 		ContractID: "contract-1",
 		CoopID:     "coop-1",
 		Time:       time.Now(),
@@ -41,7 +40,6 @@ func TestAMQPMessageFormatting(t *testing.T) {
 
 	statusMsg := AMQPBoostStatusMessage{
 		Event:      "boost_status_change",
-		GuildID:    "guild-1",
 		ContractID: "contract-1",
 		CoopID:     "coop-1",
 		UserID:     "user-1",

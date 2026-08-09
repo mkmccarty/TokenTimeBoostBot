@@ -366,7 +366,6 @@ func saveSqliteData(contract *Contract) {
 						contract.LastPublishedStates[userID] = booster.BoostState
 						PublishAMQPBoostStatus(guildID, amqpURL, contract.ContractID, contract.CoopID, AMQPBoostStatusMessage{
 							Event:      "boost_status_change",
-							GuildID:    guildID,
 							ContractID: contract.ContractID,
 							CoopID:     contract.CoopID,
 							UserID:     userID,
@@ -385,7 +384,6 @@ func saveSqliteData(contract *Contract) {
 					entry := contract.TokenLog[i]
 					PublishAMQPTokenLog(guildID, amqpURL, contract.ContractID, contract.CoopID, AMQPTokenMessage{
 						Event:      "token_transfer",
-						GuildID:    guildID,
 						ContractID: contract.ContractID,
 						CoopID:     contract.CoopID,
 						Time:       entry.Time,
