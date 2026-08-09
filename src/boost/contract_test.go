@@ -429,9 +429,9 @@ func TestMakeShortNameMap(t *testing.T) {
 			name:  "Common prefix of length >= 3",
 			input: []string{"EggscapeABC", "EggscapeDEF", "EggscapeGHI", "OtherPlayer"},
 			expected: map[string]string{
-				"EggscapeABC": "~ABC",
-				"EggscapeDEF": "~DEF",
-				"EggscapeGHI": "~GHI",
+				"EggscapeABC": "ABC",
+				"EggscapeDEF": "DEF",
+				"EggscapeGHI": "GHI",
 				"OtherPlayer": "OtherPlayer",
 			},
 		},
@@ -439,10 +439,10 @@ func TestMakeShortNameMap(t *testing.T) {
 			name:  "Multiple different common prefixes",
 			input: []string{"EggscapeABC", "EggscapeDEF", "Cluck123", "Cluck456", "Solo"},
 			expected: map[string]string{
-				"EggscapeABC": "~ABC",
-				"EggscapeDEF": "~DEF",
-				"Cluck123":    "~123",
-				"Cluck456":    "~456",
+				"EggscapeABC": "ABC",
+				"EggscapeDEF": "DEF",
+				"Cluck123":    "123",
+				"Cluck456":    "456",
 				"Solo":        "Solo",
 			},
 		},
@@ -451,7 +451,7 @@ func TestMakeShortNameMap(t *testing.T) {
 			input: []string{"Eggscape", "EggscapeABC"},
 			expected: map[string]string{
 				"Eggscape":    "Eggscape",
-				"EggscapeABC": "~ABC",
+				"EggscapeABC": "ABC",
 			},
 		},
 	}

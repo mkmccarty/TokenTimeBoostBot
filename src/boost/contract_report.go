@@ -1061,7 +1061,7 @@ func makeShortNameMap(names []string) map[string]string {
 	for _, name := range names {
 		prefix, ok := longestShared[name]
 		if ok && len(name) > len(prefix) {
-			shortNames[name] = "~" + name[len(prefix):]
+			shortNames[name] = name[len(prefix):]
 		} else {
 			shortNames[name] = name
 		}
