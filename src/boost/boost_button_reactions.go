@@ -12,6 +12,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mattn/go-runewidth"
@@ -102,6 +103,8 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 		buttonReactionCRPing(s, i, contract, userID)
 	case "complain":
 		buttonReactionComplain(s, contract, userID)
+	case "notoken":
+		buttonReactionNonToken(s, i, contract, userID)
 	case "predmenu":
 		values := i.MessageComponentData().Values
 		if b := contract.Boosters[userID]; b != nil {
@@ -970,6 +973,7 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 		compVals["✅"] = CompMap{Emoji: "✅", Style: discordgo.SecondaryButton, CustomID: "rc_#check#"}
 		compVals["❓"] = CompMap{Emoji: "❓", Style: discordgo.SecondaryButton, CustomID: "rc_#help#"}
 		compVals["📢"] = CompMap{Emoji: "📢", Style: discordgo.SecondaryButton, CustomID: "rc_#complain#"}
+		compVals["🚫"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("notoken"), Style: discordgo.SecondaryButton, CustomID: "rc_#notoken#"}
 		contract.buttonComponents = compVals
 	}
 
@@ -1203,6 +1207,9 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 			iconsRowA = append(iconsRowA[:idx+1], append([]string{"UG"}, iconsRowA[idx+1:]...)...)
 		}
 	}
+	if contract.Style&ContractFlagAMQP != 0 {
+		iconsRowA = append(iconsRowA, "🚫")
+	}
 
 	// Move any icons beyond 5 from iconsRowA to iconsRowB, if we have < 5 add help icon
 	if len(iconsRowA) > 5 {
@@ -1240,5 +1247,36 @@ func scheduleCoopStatusPoll(contract *Contract) {
 	log.Printf("scheduleCoopStatusPoll: scheduled coop status poll in 1 minute for contract %s", contract.ContractHash)
 	time.AfterFunc(1*time.Minute, func() {
 		pollCoopStatus(contract)
+	})
+}
+
+func buttonReactionNonToken(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, userID string) {
+	if !UserInContract(contract, userID) {
+		return
+	}
+
+	guildID := i.GuildID
+	if guildID == "" && len(contract.Location) > 0 {
+		guildID = contract.Location[0].GuildID
+	}
+
+	if guildID != "" {
+		amqpURL := guildstate.GetGuildSettingString(guildID, "amqp_url")
+		if amqpURL != "" {
+			PublishAMQPNonToken(guildID, amqpURL, contract.ContractID, contract.CoopID, AMQPNonTokenMessage{
+				Event:      "non_token",
+				GuildID:    guildID,
+				ContractID: contract.ContractID,
+				CoopID:     contract.CoopID,
+				UserID:     userID,
+				Nick:       contract.Boosters[userID].Nick,
+				Time:       time.Now(),
+			})
+		}
+	}
+
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content: "Non-token event sent!",
+		Flags:   discordgo.MessageFlagsEphemeral,
 	})
 }
