@@ -12,12 +12,13 @@ require (
 	github.com/natefinch/lumberjack/v3 v3.0.0-alpha
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/pkg/errors v0.9.1
+	github.com/rabbitmq/amqp091-go v1.13.0
 	github.com/rs/xid v1.6.0
 	github.com/wI2L/jsondiff v0.7.1
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	golang.org/x/image v0.44.0
 	golang.org/x/text v0.40.0
-	google.golang.org/genai v1.66.0
+	google.golang.org/genai v1.67.0
 	google.golang.org/protobuf v1.36.11
 	modernc.org/sqlite v1.56.0
 )
@@ -43,7 +44,6 @@ require (
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
-	github.com/rabbitmq/amqp091-go v1.13.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/tidwall/gjson v1.19.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
