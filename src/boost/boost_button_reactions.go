@@ -104,7 +104,7 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	case "complain":
 		buttonReactionComplain(s, contract, userID)
 	case "notoken":
-		buttonReactionNonToken(s, i, contract, userID)
+		buttonReactionNonToken(i, contract, userID)
 	case "predmenu":
 		values := i.MessageComponentData().Values
 		if b := contract.Boosters[userID]; b != nil {
@@ -1250,7 +1250,7 @@ func scheduleCoopStatusPoll(contract *Contract) {
 	})
 }
 
-func buttonReactionNonToken(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, userID string) {
+func buttonReactionNonToken(i *discordgo.InteractionCreate, contract *Contract, userID string) {
 	if !UserInContract(contract, userID) {
 		return
 	}
