@@ -498,3 +498,23 @@ func TestReorderBoostersIHRFuzzy(t *testing.T) {
 		t.Fatalf("expected order to have 3 elements, got %d", len(contract.Order))
 	}
 }
+
+func TestReorderBoostersIHRTokensWantedTieBreaker(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderIHR,
+		Order:      []string{"u1", "u2"},
+		Boosters: map[string]*Booster{
+			"u1": {UserID: "u1", IHRRate: 10000.0, TokensWanted: 8},
+			"u2": {UserID: "u2", IHRRate: 10000.0, TokensWanted: 5},
+		},
+	}
+
+	for _, sortType := range []string{"ihr", "fuzzyihr"} {
+		sorted := boostOrderSortRemaining(contract, []string{"u1", "u2"}, sortType)
+		if sorted[0] != "u2" || sorted[1] != "u1" {
+			t.Fatalf("[%s] expected u2 (5 tokens) to be before u1 (8 tokens) as tie breaker, got %v", sortType, sorted)
+		}
+	}
+}
+

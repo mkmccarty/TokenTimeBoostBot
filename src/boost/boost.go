@@ -2221,11 +2221,12 @@ func reorderBoosters(contract *Contract) {
 
 	case ContractOrderIHR, ContractOrderIHRFuzzy:
 		type ihrOrderPair struct {
-			name     string
-			ihr      float64
-			deflQual int
-			delQual  int
-			te       int
+			name         string
+			ihr          float64
+			tokensWanted int
+			deflQual     int
+			delQual      int
+			te           int
 		}
 		pairs := make([]ihrOrderPair, len(contract.Order))
 
@@ -2236,19 +2237,19 @@ func reorderBoosters(contract *Contract) {
 			baseIHR := b.IHRRate
 			sortIHR := baseIHR
 			if contract.BoostOrder == ContractOrderIHRFuzzy {
-				randomBonusMax := math.Max(
-					baseIHR*0.1,        // 10%
-					math.Sqrt(baseIHR), // Sqrt
-				)
+				randomBonusMax := baseIHR * 0.1 // 10%
 				randomOffset := (rand.Float64()*2 - 1) * randomBonusMax
 				sortIHR = baseIHR + randomOffset
 			}
-			pairs[i] = ihrOrderPair{name: name, ihr: sortIHR, deflQual: deflQ, delQual: delQ, te: b.TECount}
+			pairs[i] = ihrOrderPair{name: name, ihr: sortIHR, tokensWanted: b.TokensWanted, deflQual: deflQ, delQual: delQ, te: b.TECount}
 		}
 
 		sort.Slice(pairs, func(i, j int) bool {
 			if pairs[i].ihr != pairs[j].ihr {
 				return pairs[i].ihr > pairs[j].ihr
+			}
+			if pairs[i].tokensWanted != pairs[j].tokensWanted {
+				return pairs[i].tokensWanted < pairs[j].tokensWanted
 			}
 			if pairs[i].deflQual != pairs[j].deflQual {
 				return pairs[i].deflQual > pairs[j].deflQual
