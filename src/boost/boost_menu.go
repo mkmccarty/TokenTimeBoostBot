@@ -547,7 +547,11 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	case "ihrlog":
 		var logLines []string
 		contract.mutex.Lock()
-		for _, userID := range contract.Order {
+		orderList := contract.Order
+		if len(contract.OriginalOrder) > 0 {
+			orderList = contract.OriginalOrder
+		}
+		for _, userID := range orderList {
 			if b, ok := contract.Boosters[userID]; ok {
 				name := b.Nick
 				if name == "" {

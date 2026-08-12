@@ -714,6 +714,9 @@ func HandleRestartContract(s *discordgo.Session, i *discordgo.InteractionCreate)
 				boostOrder = ContractOrderSignup
 			}
 			progenitors := contract.Order
+			if contract.State != ContractStateSignup && len(contract.OriginalOrder) > 0 {
+				progenitors = contract.OriginalOrder
+			}
 			plannedStartTime := contract.PlannedStartTime
 			validFrom := contract.ValidFrom
 			savedStyle := contract.Style

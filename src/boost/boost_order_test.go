@@ -517,3 +517,22 @@ func TestReorderBoostersIHRTokensWantedTieBreaker(t *testing.T) {
 		}
 	}
 }
+
+func TestOriginalOrderPreservedOnStart(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderIHR,
+		Order:      []string{"u1", "u2"},
+		Boosters: map[string]*Booster{
+			"u1": {UserID: "u1", IHRRate: 1000.0},
+			"u2": {UserID: "u2", IHRRate: 5000.0},
+		},
+	}
+
+	reorderBoosters(contract)
+	contract.OriginalOrder = append([]string(nil), contract.Order...)
+
+	if len(contract.OriginalOrder) != 2 || contract.OriginalOrder[0] != "u2" || contract.OriginalOrder[1] != "u1" {
+		t.Fatalf("expected OriginalOrder [u2 u1], got %v", contract.OriginalOrder)
+	}
+}
