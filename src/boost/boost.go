@@ -1637,6 +1637,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 	}
 
 	reorderBoosters(contract)
+	contract.OriginalOrder = append([]string(nil), contract.Order...)
 
 	// Set tokens...
 	for i := range contract.Boosters {

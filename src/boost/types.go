@@ -306,6 +306,7 @@ type Contract struct {
 	CRMessageIDs               map[string]string   // CR reqest messageIDs
 	WaitlistBoosters           []string            // Waitlist of UserID's
 	Order                      []string
+	OriginalOrder              []string   // Initial sorted order when contract boosting starts
 	BoostedOrder               []string   // Actual order of boosting
 	OrderRevision              int        // Incremented when Order is changed
 	Banker                     BankerInfo // Banker for the contract
