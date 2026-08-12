@@ -1110,6 +1110,14 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 			Value: "grange",
 			Emoji: &discordgo.ComponentEmoji{Name: "🧑‍🧑‍🧒‍🧒"},
 		})
+		if contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy {
+			menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+				Label:       "IHR Calculation Details",
+				Description: "View IHR calculations for contract boosters",
+				Value:       "ihrlog",
+				Emoji:       ei.GetBotComponentEmoji("chalice_T4L"),
+			})
+		}
 		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
 			Label: "Admin Logs",
 			Value: "adminlogs",
