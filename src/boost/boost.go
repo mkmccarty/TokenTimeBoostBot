@@ -1062,7 +1062,7 @@ func CalculateIHRRateFromBackup(backup *ei.Backup) (float64, string) {
 	}
 
 	totalSlots := 0
-	for _, artKey := range []string{"CH-" + best["chalice"], "ID-" + best["defl"], "MO-" + best["monocle"], "SIAB-" + best["SIAB"]} {
+	for _, artKey := range []string{"CH-" + best["chalice"], "MO-" + best["monocle"], "SIAB-" + best["SIAB"]} {
 		art := ei.GetArtifactByKey(artKey)
 		if art != nil {
 			totalSlots += art.Stones
@@ -1144,7 +1144,7 @@ func CalculateIHRRateFromDB(userID string) (float64, string) {
 	}
 
 	totalSlots := 0
-	for _, slotKey := range []string{"chalice", "defl-ihr", "monocle", "siab"} {
+	for _, slotKey := range []string{"chalice", "monocle", "siab"} {
 		quality := farmerstate.GetMiscSettingString(userID, slotKey)
 		if slotKey == "siab" && quality == "" {
 			quality = farmerstate.GetMiscSettingString(userID, "SIAB")
@@ -1154,8 +1154,6 @@ func CalculateIHRRateFromDB(userID string) (float64, string) {
 			switch slotKey {
 			case "chalice":
 				prefix = "CH-"
-			case "defl-ihr":
-				prefix = "ID-"
 			case "monocle":
 				prefix = "MO-"
 			case "siab":
