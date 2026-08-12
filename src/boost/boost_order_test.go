@@ -505,8 +505,8 @@ func TestReorderBoostersIHRTokensWantedTieBreaker(t *testing.T) {
 		BoostOrder: ContractOrderIHR,
 		Order:      []string{"u1", "u2"},
 		Boosters: map[string]*Booster{
-			"u1": {UserID: "u1", IHRRate: 10000.0, TokensWanted: 8},
-			"u2": {UserID: "u2", IHRRate: 10000.0, TokensWanted: 5},
+			"u1": {UserID: "u1", IHRRate: 0.0, TokensWanted: 8},
+			"u2": {UserID: "u2", IHRRate: 0.0, TokensWanted: 5},
 		},
 	}
 
