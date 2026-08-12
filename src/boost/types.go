@@ -223,6 +223,7 @@ type Booster struct {
 	Ultra                  bool                 // Does this player have Ultra
 	TECount                int                  // Truth Egg Count
 	IHRRate                float64              // Internal Hatchery Rate for IHR Order
+	IHRCalcLog             string               // Plain text log of IHR calculation details
 	Availability           ContractAvailability // Availability for contracts
 }
 

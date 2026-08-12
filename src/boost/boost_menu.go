@@ -544,6 +544,56 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if redraw {
 			refreshBoostListMessage(s, contract, false)
 		}
+	case "ihrlog":
+		var logLines []string
+		contract.mutex.Lock()
+		for _, userID := range contract.Order {
+			if b, ok := contract.Boosters[userID]; ok {
+				name := b.Nick
+				if name == "" {
+					name = b.UserName
+				}
+				if name == "" {
+					name = b.GlobalName
+				}
+				if name == "" {
+					name = userID
+				}
+				if b.IHRCalcLog != "" {
+					logLines = append(logLines, fmt.Sprintf("%s: %s", name, b.IHRCalcLog))
+				} else {
+					logLines = append(logLines, fmt.Sprintf("%s: IHR Rate = %0.2f", name, b.IHRRate))
+				}
+			}
+		}
+		contract.mutex.Unlock()
+
+		if len(logLines) == 0 {
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "No IHR calculation logs recorded for this contract.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+			return
+		}
+
+		contentStr := strings.Join(logLines, "\n") + "\n"
+		file := &discordgo.File{
+			Name:        "ihr_calculations.txt",
+			ContentType: "text/plain",
+			Reader:      strings.NewReader(contentStr),
+		}
+
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "### IHR Calculation Details",
+				Files:   []*discordgo.File{file},
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
 	case "help":
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,

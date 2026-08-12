@@ -999,16 +999,16 @@ func RefreshGuildContractsForBannerUpdate(s *discordgo.Session, guildID string) 
 	}
 }
 
-func CalculateIHRRateFromBackup(backup *ei.Backup) float64 {
+func CalculateIHRRateFromBackup(backup *ei.Backup) (float64, string) {
 	if backup == nil {
-		return 0.0
+		return 0.0, ""
 	}
 	var farm *ei.Backup_Simulation
 	if len(backup.GetFarms()) > 0 {
 		farm = backup.GetFarms()[0]
 	}
 	if farm == nil {
-		return 0.0
+		return 0.0, ""
 	}
 
 	baseOnlineRatePerHab := 7440.0
@@ -1085,13 +1085,14 @@ func CalculateIHRRateFromBackup(backup *ei.Backup) float64 {
 	lifeStoneMultiplier *= math.Pow(1.02, float64(t1Used))
 
 	finalIHR := baseOnlineRatePerHab * teMultiplier * colMultiplier * chaliceMultiplier * monocleMultiplier * lifeStoneMultiplier
-	log.Printf("IHR Calculation (Backup): Base=%0.2f, TE=%d (Mult=%0.4f), Collegg=%0.4f, Chalice=%0.4f, Monocle=%0.4f, Stones (slots=%d)=%0.4f, Final=%0.2f",
+	logStr := fmt.Sprintf("IHR Calculation (Backup): Base=%0.2f, TE=%d (Mult=%0.4f), Collegg=%0.4f, Chalice=%0.4f, Monocle=%0.4f, Stones (slots=%d)=%0.4f, Final=%0.2f",
 		baseOnlineRatePerHab, allEov, teMultiplier, colMultiplier, chaliceMultiplier, monocleMultiplier, totalSlots, lifeStoneMultiplier, finalIHR)
+	log.Print(logStr)
 
-	return finalIHR
+	return finalIHR, logStr
 }
 
-func CalculateIHRRateFromDB(userID string) float64 {
+func CalculateIHRRateFromDB(userID string) (float64, string) {
 	baseOnlineRatePerHab := 7440.0
 
 	teStr := farmerstate.GetMiscSettingString(userID, "TE")
@@ -1169,10 +1170,11 @@ func CalculateIHRRateFromDB(userID string) float64 {
 	lifeStoneMultiplier := math.Pow(1.04, float64(totalSlots))
 
 	finalIHR := baseOnlineRatePerHab * teMultiplier * colMultiplier * chaliceMultiplier * monocleMultiplier * lifeStoneMultiplier
-	log.Printf("IHR Calculation (DB for %s): Base=%0.2f, TE=%d (Mult=%0.4f), Collegg=%0.4f, Chalice=%0.4f, Monocle=%0.4f, Stones (slots=%d)=%0.4f, Final=%0.2f",
+	logStr := fmt.Sprintf("IHR Calculation (DB for %s): Base=%0.2f, TE=%d (Mult=%0.4f), Collegg=%0.4f, Chalice=%0.4f, Monocle=%0.4f, Stones (slots=%d)=%0.4f, Final=%0.2f",
 		userID, baseOnlineRatePerHab, teVal, teMultiplier, colMultiplier, chaliceMultiplier, monocleMultiplier, totalSlots, lifeStoneMultiplier, finalIHR)
+	log.Print(logStr)
 
-	return finalIHR
+	return finalIHR, logStr
 }
 
 func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, contract *Contract) {
@@ -1231,8 +1233,11 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 			b.TECount = int(allEov)
 			if manualIHR > 0 {
 				b.IHRRate = manualIHR
+				b.IHRCalcLog = fmt.Sprintf("IHR Calculation (Manual for %s): Final=%0.2f", userID, manualIHR)
 			} else {
-				b.IHRRate = CalculateIHRRateFromBackup(backup)
+				rate, logStr := CalculateIHRRateFromBackup(backup)
+				b.IHRRate = rate
+				b.IHRCalcLog = logStr
 			}
 			contract.mutex.Unlock()
 
@@ -1262,8 +1267,11 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 		}
 		if manualIHR > 0 {
 			b.IHRRate = manualIHR
+			b.IHRCalcLog = fmt.Sprintf("IHR Calculation (Manual for %s): Final=%0.2f", userID, manualIHR)
 		} else {
-			b.IHRRate = CalculateIHRRateFromDB(userID)
+			rate, logStr := CalculateIHRRateFromDB(userID)
+			b.IHRRate = rate
+			b.IHRCalcLog = logStr
 		}
 	}
 }
@@ -2240,6 +2248,9 @@ func reorderBoosters(contract *Contract) {
 				randomBonusMax := baseIHR * 0.1 // 10%
 				randomOffset := (rand.Float64()*2 - 1) * randomBonusMax
 				sortIHR = baseIHR + randomOffset
+				if b.IHRCalcLog != "" {
+					b.IHRCalcLog = fmt.Sprintf("%s, Fuzzy (Max=%0.2f, Offset=%0.2f, Sorted=%0.2f)", b.IHRCalcLog, randomBonusMax, randomOffset, sortIHR)
+				}
 			}
 			pairs[i] = ihrOrderPair{name: name, ihr: sortIHR, tokensWanted: b.TokensWanted, deflQual: deflQ, delQual: delQ, te: b.TECount}
 		}
