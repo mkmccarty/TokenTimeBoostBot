@@ -902,14 +902,18 @@ func HandleContractSettingsReactions(s *discordgo.Session, i *discordgo.Interact
 			} else {
 				contract.BoostOrder = ContractOrderIHR
 			}
-			// Refresh the user's egg inc data, if they have 0 IHR rate
 			usersToRefresh := make([]userToRefresh, 0, len(contract.Boosters))
 			for userID, b := range contract.Boosters {
+				// Recalculate IHR rate from DB for all boosters so pre-change values excluding deflector stones are updated
+				rate, logStr := CalculateIHRRateFromDB(userID)
+				b.IHRRate = rate
+				b.IHRCalcLog = logStr
+
 				if b.IHRRate == 0 {
 					usersToRefresh = append(usersToRefresh, userToRefresh{userID: userID, booster: b})
 				}
 			}
-			// Call updateContractFarmerTE for each collected user
+			// Call updateContractFarmerTE for each collected user with 0 IHR
 			for _, item := range usersToRefresh {
 				updateContractFarmerTE(s, item.userID, item.booster, contract)
 			}

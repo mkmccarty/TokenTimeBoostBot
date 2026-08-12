@@ -1028,9 +1028,6 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 			if pairs[i].ihr != pairs[j].ihr {
 				return pairs[i].ihr > pairs[j].ihr
 			}
-			if pairs[i].tokensWanted != pairs[j].tokensWanted {
-				return pairs[i].tokensWanted < pairs[j].tokensWanted
-			}
 			if pairs[i].deflQual != pairs[j].deflQual {
 				return pairs[i].deflQual > pairs[j].deflQual
 			}
