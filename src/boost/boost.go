@@ -421,6 +421,14 @@ func AddBoostTokens(s *discordgo.Session, i *discordgo.InteractionCreate, setCou
 		farmerstate.SetTokens(b.UserID, b.TokensWanted)
 	}
 
+	if contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy {
+		for uID, booster := range contract.Boosters {
+			rate, logStr := CalculateIHRRateFromDB(uID)
+			booster.IHRRate = rate
+			booster.IHRCalcLog = logStr
+		}
+	}
+
 	refreshBoostListMessage(s, contract, false)
 
 	return b.TokensWanted, b.TokensReceived, nil
@@ -2257,9 +2265,6 @@ func reorderBoosters(contract *Contract) {
 		sort.Slice(pairs, func(i, j int) bool {
 			if pairs[i].ihr != pairs[j].ihr {
 				return pairs[i].ihr > pairs[j].ihr
-			}
-			if pairs[i].tokensWanted != pairs[j].tokensWanted {
-				return pairs[i].tokensWanted < pairs[j].tokensWanted
 			}
 			if pairs[i].deflQual != pairs[j].deflQual {
 				return pairs[i].deflQual > pairs[j].deflQual

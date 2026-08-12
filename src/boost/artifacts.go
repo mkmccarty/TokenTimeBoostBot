@@ -306,8 +306,11 @@ func populateArtifactsFromBackup(s *discordgo.Session, userID string) (string, s
 
 		updated := false
 		contract.mutex.Lock()
-		if contract.Boosters[userID] != nil {
-			contract.Boosters[userID].ArtifactSet = getUserArtifacts(userID, nil)
+		if b := contract.Boosters[userID]; b != nil {
+			b.ArtifactSet = getUserArtifacts(userID, nil)
+			rate, logStr := CalculateIHRRateFromDB(userID)
+			b.IHRRate = rate
+			b.IHRCalcLog = logStr
 			updatedContracts++
 			updated = true
 		}
@@ -1124,12 +1127,14 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 		} else {
 			farmerstate.SetMiscSettingString(userID, cmd, "") // Clear the value
 		}
+		updateFarmerInContracts(s, userID, "artifacts", 0)
 	case "collegg", "collegg-lay", "collegg-ship", "collegg-ihr", "collegg-other":
 		if cmd == "collegg" {
 			farmerstate.SetMiscSettingString(userID, "collegg", strings.Join(data.Values, ","))
 		} else {
 			updateColleggtibleCategorySelection(userID, cmd, data.Values)
 		}
+		updateFarmerInContracts(s, userID, "artifacts", 0)
 	}
 
 	// Redraw the artifact list

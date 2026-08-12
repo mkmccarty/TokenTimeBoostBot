@@ -304,8 +304,16 @@ func updateFarmerInContracts(s *discordgo.Session, userID string, subcommand str
 				booster.TokensWanted = int(value)
 			case "te":
 				booster.TECount = int(value)
+				rate, logStr := CalculateIHRRateFromDB(userID)
+				booster.IHRRate = rate
+				booster.IHRCalcLog = logStr
 			case "ihr":
 				booster.IHRRate = float64(value)
+				booster.IHRCalcLog = fmt.Sprintf("IHR Calculation (Manual for %s): Final=%0.2f", userID, float64(value))
+			case "artifacts":
+				rate, logStr := CalculateIHRRateFromDB(userID)
+				booster.IHRRate = rate
+				booster.IHRCalcLog = logStr
 			}
 			contract.mutex.Unlock()
 
