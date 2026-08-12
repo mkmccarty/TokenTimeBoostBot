@@ -989,43 +989,47 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 		})
 	case "ihr", "fuzzyihr":
 		type ihrPair struct {
-			name     string
-			ihr      float64
-			deflQual int
-			delQual  int
-			te       int
+			name         string
+			ihr          float64
+			tokensWanted int
+			deflQual     int
+			delQual      int
+			te           int
 		}
 		pairs := make([]ihrPair, len(sorted))
 		for i, name := range sorted {
 			ihrVal := 0.0
+			tokensW := 0
 			deflQ := 0
 			delQ := 0
 			teVal := 0
 			if b := contract.Boosters[name]; b != nil {
 				ihrVal = b.IHRRate
+				tokensW = b.TokensWanted
 				deflQ = getArtifactQualityScore(b, "Deflector")
 				delQ = getArtifactQualityScore(b, "Metronome") + getArtifactQualityScore(b, "Compass") + getArtifactQualityScore(b, "Gusset")
 				teVal = b.TECount
 			}
 			if sortType == "fuzzyihr" {
-				randomBonusMax := math.Max(
-					ihrVal*0.1,        // 10%
-					math.Sqrt(ihrVal), // Sqrt
-				)
+				randomBonusMax := ihrVal * 0.1 // 10%
 				randomOffset := (rand.Float64()*2 - 1) * randomBonusMax
 				ihrVal = ihrVal + randomOffset
 			}
 			pairs[i] = ihrPair{
-				name:     name,
-				ihr:      ihrVal,
-				deflQual: deflQ,
-				delQual:  delQ,
-				te:       teVal,
+				name:         name,
+				ihr:          ihrVal,
+				tokensWanted: tokensW,
+				deflQual:     deflQ,
+				delQual:      delQ,
+				te:           teVal,
 			}
 		}
 		sort.SliceStable(pairs, func(i, j int) bool {
 			if pairs[i].ihr != pairs[j].ihr {
 				return pairs[i].ihr > pairs[j].ihr
+			}
+			if pairs[i].tokensWanted != pairs[j].tokensWanted {
+				return pairs[i].tokensWanted < pairs[j].tokensWanted
 			}
 			if pairs[i].deflQual != pairs[j].deflQual {
 				return pairs[i].deflQual > pairs[j].deflQual
