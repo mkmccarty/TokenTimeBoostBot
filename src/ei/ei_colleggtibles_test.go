@@ -178,6 +178,23 @@ func TestGetColleggtibleBuffs(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("ColleggtibleMaxFarmSizeReached populated", func(t *testing.T) {
+		eggId := "pumpkin"
+		maxSize := 1e10
+		mc := &MyContracts{
+			ColleggtibleMaxFarmSizeReached: []*ColleggtibleMaxFarmSize{
+				{
+					EggId:              &eggId,
+					MaxFarmSizeReached: &maxSize,
+				},
+			},
+		}
+		buffs := GetColleggtibleBuffs(mc)
+		if buffs.SR != 1.05 {
+			t.Errorf("SR: got %v, want 1.05", buffs.SR)
+		}
+	})
 }
 
 func TestGetColleggtibleBuffsAllDimensions(t *testing.T) {
