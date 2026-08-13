@@ -136,32 +136,41 @@ func GetColleggtibleBuffs(contracts *MyContracts) DimensionBuffs {
 
 	eggCounts := make(map[string]float64)
 
-	// Look in active and archived contracts for custom eggs
-	for _, c := range append(contracts.GetArchive(), contracts.GetContracts()...) {
-		contractID := c.GetContractIdentifier()
-		if contractID == "" && c.GetContract() != nil {
-			contractID = c.GetContract().GetIdentifier()
-		} else if contractID == "" && c.GetEvaluation() != nil {
-			contractID = c.GetEvaluation().GetContractIdentifier()
-		}
-
-		egg := ""
-		if c.GetContract() != nil {
-			egg = c.GetContract().GetCustomEggId()
-		} else if contractID != "" {
-			if contractInfo, ok := GetEggIncContract(contractID); ok {
-				if contractInfo.Egg == int32(Egg_CUSTOM_EGG) {
-					egg = contractInfo.EggName
-				}
+	colleggtibleSizes := contracts.GetColleggtibleMaxFarmSizeReached()
+	if len(colleggtibleSizes) > 0 {
+		for _, s := range colleggtibleSizes {
+			if s.GetEggId() != "" {
+				eggCounts[s.GetEggId()] = s.GetMaxFarmSizeReached()
 			}
 		}
-		if egg == "" {
-			continue
-		}
-		farmSize := c.GetMaxFarmSizeReached()
-		value := eggCounts[egg]
-		if farmSize > value {
-			eggCounts[egg] = farmSize
+	} else {
+		// Look in active and archived contracts for custom eggs
+		for _, c := range append(contracts.GetArchive(), contracts.GetContracts()...) {
+			contractID := c.GetContractIdentifier()
+			if contractID == "" && c.GetContract() != nil {
+				contractID = c.GetContract().GetIdentifier()
+			} else if contractID == "" && c.GetEvaluation() != nil {
+				contractID = c.GetEvaluation().GetContractIdentifier()
+			}
+
+			egg := ""
+			if c.GetContract() != nil {
+				egg = c.GetContract().GetCustomEggId()
+			} else if contractID != "" {
+				if contractInfo, ok := GetEggIncContract(contractID); ok {
+					if contractInfo.Egg == int32(Egg_CUSTOM_EGG) {
+						egg = contractInfo.EggName
+					}
+				}
+			}
+			if egg == "" {
+				continue
+			}
+			farmSize := c.GetMaxFarmSizeReached()
+			value := eggCounts[egg]
+			if farmSize > value {
+				eggCounts[egg] = farmSize
+			}
 		}
 	}
 
