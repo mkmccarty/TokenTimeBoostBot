@@ -180,12 +180,12 @@ func TestGetColleggtibleBuffs(t *testing.T) {
 	}
 
 	t.Run("ColleggtibleMaxFarmSizeReached populated", func(t *testing.T) {
-		eggId := "pumpkin"
+		eggID := "pumpkin"
 		maxSize := 1e10
 		mc := &MyContracts{
 			ColleggtibleMaxFarmSizeReached: []*ColleggtibleMaxFarmSize{
 				{
-					EggId:              &eggId,
+					EggId:              &eggID,
 					MaxFarmSizeReached: &maxSize,
 				},
 			},

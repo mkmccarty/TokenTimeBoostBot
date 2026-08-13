@@ -222,6 +222,9 @@ var ArtifactMap = map[string]*Artifact{
 	"SIAB-T3C":  {Type: "SIAB", Quality: "T3C", ShipBuff: 1.0, LayBuff: 1.0, DeflBuff: 1.0, Stones: 0},
 	"SIAB-T2C":  {Type: "SIAB", Quality: "T2C", ShipBuff: 1.0, LayBuff: 1.0, DeflBuff: 1.0, Stones: 0},
 	"SIAB-T1C":  {Type: "SIAB", Quality: "T1C", ShipBuff: 1.0, LayBuff: 1.0, DeflBuff: 1.0, Stones: 0},
+	"SIAB-3S":   {Type: "SIAB", Quality: "3S", ShipBuff: 1.0, LayBuff: 1.0, DeflBuff: 1.0, Stones: 3},
+	"SIAB-2S":   {Type: "SIAB", Quality: "2S", ShipBuff: 1.0, LayBuff: 1.0, DeflBuff: 1.0, Stones: 2},
+	"SIAB-1S":   {Type: "SIAB", Quality: "1S", ShipBuff: 1.0, LayBuff: 1.0, DeflBuff: 1.0, Stones: 1},
 	"SIAB-NONE": {Type: "SIAB", Quality: "NONE", ShipBuff: 1.0, LayBuff: 1.0, DeflBuff: 1.0, Stones: 0},
 	"NONE":      {Type: "Collegg", Quality: "NONE", ShipBuff: 1.0, LayBuff: 1.0, DeflBuff: 1.0, Stones: 0},
 }

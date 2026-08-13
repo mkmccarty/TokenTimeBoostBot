@@ -275,6 +275,18 @@ func populateArtifactsFromBackup(s *discordgo.Session, userID string) (string, s
 	for _, slot := range slots {
 		oldVal := farmerstate.GetMiscSettingString(userID, slot.key)
 		newVal := slot.value
+		if slot.key == "defl-ihr" && strings.HasSuffix(oldVal, "_L") {
+			baseOldDefl := strings.TrimSuffix(oldVal, "_L")
+			if baseOldDefl == newVal {
+				newVal = oldVal
+			}
+		}
+		if (slot.key == "siab" || slot.key == "SIAB") && oldVal != "" {
+			oldArt := ei.GetArtifactByKey("SIAB-" + oldVal)
+			if oldArt != nil && oldArt.Stones >= 3 {
+				newVal = oldVal
+			}
+		}
 		if strings.TrimSpace(newVal) != "" {
 			discoveredArtifactCount++
 			discoveredArtifactDetails = append(discoveredArtifactDetails,
@@ -362,12 +374,25 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 	// is this channelID a thread
 	as := getUserArtifacts(userID, nil)
 
+	ihrRate, _ := CalculateIHRRateFromDB(userID)
+	ihrStr := ei.FormatEIValue(ihrRate, map[string]any{"decimals": 2, "trim": true})
+
+	elrDisplay := fmt.Sprintf("ELR: %1.3f", as.LayRate)
+	srDisplay := fmt.Sprintf("SR: %2.3f", as.ShipRate)
+	ihrDisplay := fmt.Sprintf("IHR: %s", ihrStr)
+
+	if page == "ihr" {
+		ihrDisplay = "**" + ihrDisplay + "**"
+	} else if page == "delivery" {
+		elrDisplay = "**" + elrDisplay + "**"
+	}
+
 	var builder strings.Builder
 	targetDisplay := formatArtifactTarget(userID)
 	if !contractOnly {
-		fmt.Fprintf(&builder, "Select your global coop artifacts %s\nELR: %1.3f", targetDisplay, as.LayRate)
+		fmt.Fprintf(&builder, "Select your global coop artifacts %s\n%s  %s", targetDisplay, elrDisplay, ihrDisplay)
 	} else {
-		fmt.Fprintf(&builder, "Adjust your coop artifact overrides for this contract %s\n ELR: %2.3f  SR:%2.3f", targetDisplay, as.LayRate, as.ShipRate)
+		fmt.Fprintf(&builder, "Adjust your coop artifact overrides for this contract %s\n %s  %s  %s", targetDisplay, elrDisplay, srDisplay, ihrDisplay)
 	}
 
 	// These are the global settings
@@ -437,15 +462,6 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 		coll = strings.ToUpper(coll)
 		coll = strings.ReplaceAll(coll, "CARBONFIBER", "CARBON FIBER")
 		coll = strings.ReplaceAll(coll, "FLAMERETARDANT", "FLAME RETARDANT")
-	}
-	builder.WriteString("\nSet: ")
-	switch page {
-	case "ihr":
-		builder.WriteString("IHR")
-	case "collegg":
-		builder.WriteString("Colleggtibles")
-	default:
-		builder.WriteString("Delivery")
 	}
 
 	component := []discordgo.MessageComponent{
@@ -707,10 +723,14 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 						MinValues:   &minValues,
 						MaxValues:   1,
 						Options: []discordgo.SelectMenuOption{
+							{Label: "IHR Deflector T4L w/Life", Description: "Legendary (w/Life stones)", Value: "T4L_L", Default: ihrDeflector == "T4L_L", Emoji: ei.GetBotComponentEmoji("defl_T4L")},
 							{Label: "IHR Deflector T4L", Description: "Legendary", Value: "T4L", Default: ihrDeflector == "T4L", Emoji: ei.GetBotComponentEmoji("defl_T4L")},
+							{Label: "IHR Deflector T4E w/Life", Description: "Epic (w/Life stones)", Value: "T4E_L", Default: ihrDeflector == "T4E_L", Emoji: ei.GetBotComponentEmoji("defl_T4E")},
 							{Label: "IHR Deflector T4E", Description: "Epic", Value: "T4E", Default: ihrDeflector == "T4E", Emoji: ei.GetBotComponentEmoji("defl_T4E")},
+							{Label: "IHR Deflector T4R w/Life", Description: "Rare (w/Life stones)", Value: "T4R_L", Default: ihrDeflector == "T4R_L", Emoji: ei.GetBotComponentEmoji("defl_T4R")},
 							{Label: "IHR Deflector T4R", Description: "Rare", Value: "T4R", Default: ihrDeflector == "T4R", Emoji: ei.GetBotComponentEmoji("defl_T4R")},
 							{Label: "IHR Deflector T4C", Description: "Common", Value: "T4C", Default: ihrDeflector == "T4C", Emoji: ei.GetBotComponentEmoji("defl_T4C")},
+							{Label: "IHR Deflector T3R w/Life", Description: "Rare (w/Life stones)", Value: "T3R_L", Default: ihrDeflector == "T3R_L", Emoji: ei.GetBotComponentEmoji("defl_T3R")},
 							{Label: "IHR Deflector T3R", Description: "Rare", Value: "T3R", Default: ihrDeflector == "T3R", Emoji: ei.GetBotComponentEmoji("defl_T3R")},
 							{Label: "IHR Deflector T3C", Description: "Common", Value: "T3C", Default: ihrDeflector == "T3C", Emoji: ei.GetBotComponentEmoji("defl_T3C")},
 							{Label: "None", Description: "No IHR Deflector equipped", Value: "NONE", Default: ihrDeflector == "NONE" || ihrDeflector == ""},
@@ -775,6 +795,9 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 							{Label: "SIAB T3C", Description: "Common", Value: "T3C", Default: siab == "T3C", Emoji: ei.GetBotComponentEmoji("SIAB_T3C")},
 							{Label: "SIAB T2C", Description: "Common", Value: "T2C", Default: siab == "T2C", Emoji: ei.GetBotComponentEmoji("SIAB_T2C")},
 							{Label: "SIAB T1C", Description: "Common", Value: "T1C", Default: siab == "T1C", Emoji: ei.GetBotComponentEmoji("SIAB_T1C")},
+							{Label: "3 Slot Artifact", Description: "Generic 3 Stone Slot Artifact", Value: "3S", Default: siab == "3S"},
+							{Label: "2 Slot Artifact", Description: "Generic 2 Stone Slot Artifact", Value: "2S", Default: siab == "2S"},
+							{Label: "1 Slot Artifact", Description: "Generic 1 Stone Slot Artifact", Value: "1S", Default: siab == "1S"},
 							{Label: "None", Description: "No SIAB equipped", Value: "NONE", Default: siab == "NONE" || siab == ""},
 						},
 					},
@@ -1191,7 +1214,8 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 			if len(data.Values) == 0 {
 				newArtifact = ei.GetArtifactByKey(prefix + "NONE")
 			} else {
-				newArtifact = ei.GetArtifactByKey(prefix + data.Values[0])
+				val := strings.TrimSuffix(data.Values[0], "_L")
+				newArtifact = ei.GetArtifactByKey(prefix + val)
 			}
 
 			// Check if artifact was found in map
