@@ -2,12 +2,8 @@ package boost
 
 import (
 	"encoding/base64"
-	"encoding/json"
-	"fmt"
-	"os"
 	"slices"
 	"strconv"
-	"strings"
 
 	"log"
 
@@ -247,9 +243,7 @@ func RerunEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap m
 			farmerstate.SetMiscSettingString(userID, "ei_ign", farmerName)
 		}
 	}
-	archive, cached := ei.GetContractArchiveFromAPI(s, eggIncID, userID, forceRefresh, okayToSave)
-
-	cxpVersion := ""
+	archive, _ := ei.GetContractArchiveFromAPI(s, eggIncID, userID, forceRefresh, okayToSave)
 
 	var components []discordgo.MessageComponent
 	if len(contractIDList) == 1 {
@@ -266,43 +260,4 @@ func RerunEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap m
 		log.Println("Error sending follow-up message:", err)
 	}
 
-	if !cached && okayToSave {
-		for _, c := range archive {
-			eval := c.GetEvaluation()
-			if eval != nil {
-				cxpVersion = eval.GetVersion()
-				// Replace all non-numeric characters in cxpVersion with underscores
-				cxpVersion = strings.Map(func(r rune) rune {
-					if (r >= '0' && r <= '9') || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
-						return r
-					}
-					return '_'
-				}, cxpVersion)
-
-				if cxpVersion != "cxp_v0_2_0" {
-					log.Printf("CXP version is %s, not 0.2.0, cannot evaluate contracts\n", cxpVersion)
-				}
-				break
-			}
-		}
-		if config.IsDevBot() {
-			jsonData, err := json.Marshal(archive)
-
-			if err != nil {
-				log.Println("Error marshalling archive to JSON:", err)
-				return
-			}
-
-			discordID := userID
-			fileName := fmt.Sprintf("ttbb-data/eiuserdata/archive-%s-%s.json", discordID, cxpVersion)
-			// Replace eggIncID with userID in the JSON data
-			jsonString := string(jsonData)
-			jsonString = strings.ReplaceAll(jsonString, eggIncID, userID)
-			jsonData = []byte(jsonString)
-			err = os.WriteFile(fileName, jsonData, 0644)
-			if err != nil {
-				log.Println("Error saving contract archive to file:", err)
-			}
-		}
-	}
 }

@@ -1,9 +1,7 @@
 package boost
 
 import (
-	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -636,25 +634,12 @@ func GetContractArchivesForNames(s *discordgo.Session, names []string, cxpVersio
 				continue
 			}
 
-			archive, cached := ei.GetContractArchiveFromAPI(s, eiID, discordID, forceRefresh, okayToSave)
+			archive, _ := ei.GetContractArchiveFromAPI(s, eiID, discordID, forceRefresh, okayToSave)
 
 			archives[j.i] = archive
 			fetched[j.i] = true
 
-			// Write individual archive to file
-			if !cached && okayToSave && config.IsDevBot() {
-				jsonData, e := json.Marshal(archive)
-				if e != nil {
-					log.Printf("GetContractArchivesForNames: marshal archive failed for discordID=%s: %v", discordID, e)
-					continue
-				}
-				jsonData = bytes.ReplaceAll(jsonData, []byte(eiID), []byte(discordID))
 
-				fileName := fmt.Sprintf("%s/archive-%s-%s.json", cacheDir, discordID, cxpVersion)
-				if e := os.WriteFile(fileName, jsonData, 0o644); e != nil {
-					log.Printf("GetContractArchivesForNames: write archive file failed for discordID=%s file=%s: %v", discordID, fileName, e)
-				}
-			}
 		}
 	}
 

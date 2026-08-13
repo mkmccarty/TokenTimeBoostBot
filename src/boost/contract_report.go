@@ -1,9 +1,7 @@
 package boost
 
 import (
-	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -280,30 +278,14 @@ func processContributors(
 				}
 			}
 
-			archive, cached := ei.GetContractArchiveFromAPI(s, eiID, discordID, forceRefresh, okayToSave)
+			archive, _ := ei.GetContractArchiveFromAPI(s, eiID, discordID, forceRefresh, okayToSave)
 
 			// record archive by contributor name
 			muEval.Lock()
 			evalsByName[name] = archive
 			muEval.Unlock()
 
-			// write per-contributor cache file
-			if !cached && okayToSave {
-				if config.IsDevBot() {
 
-					jsonData, err := json.Marshal(archive)
-					if err != nil {
-						log.Printf("processContributors: marshal archive failed (non-fatal) for discordID=%s: %v", discordID, err)
-						continue
-					}
-					jsonData = bytes.ReplaceAll(jsonData, []byte(eiID), []byte(discordID))
-
-					fileName := fmt.Sprintf("ttbb-data/eiuserdata/archive-%s-%s.json", discordID, cxpVersion)
-					if err := os.WriteFile(fileName, jsonData, 0o644); err != nil {
-						log.Printf("processContributors: write archive file failed (non-fatal) for discordID=%s file=%s: %v", discordID, fileName, err)
-					}
-				}
-			}
 		}
 	}
 
@@ -423,7 +405,7 @@ func ContractReport(
 			farmerstate.SetMiscSettingString(callerUserID, "ei_ign", callerFarmerName)
 		}
 	}
-	callerArchive, callerCached := ei.GetContractArchiveFromAPI(s, callerEI, callerUserID, forceRefresh, okayToSave)
+	callerArchive, _ := ei.GetContractArchiveFromAPI(s, callerEI, callerUserID, forceRefresh, okayToSave)
 
 	// Locate the caller’s evaluation for this specific contract, then validate it.
 	cxpVersion := ""
@@ -554,23 +536,7 @@ func ContractReport(
 		return fmt.Errorf("%w: %v", ErrReportSendFailed, err)
 	}
 
-	// cache (best-effort; non-fatal)
-	if !callerCached && okayToSave {
-		if config.IsDevBot() {
-			go func() {
-				jsonData, merr := json.Marshal(callerArchive)
-				if merr != nil {
-					log.Println("Error marshalling archive to JSON:", merr)
-				} else {
-					fileName := fmt.Sprintf("ttbb-data/eiuserdata/archive-%s-%s.json", callerUserID, cxpVersion)
-					jsonData = bytes.ReplaceAll(jsonData, []byte(callerEI), []byte(callerUserID))
-					if werr := os.WriteFile(fileName, jsonData, 0o644); werr != nil {
-						log.Println("Error saving contract archive to file:", werr)
-					}
-				}
-			}()
-		}
-	}
+
 	return nil
 }
 
