@@ -381,9 +381,10 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 	srDisplay := fmt.Sprintf("SR: %2.3f", as.ShipRate)
 	ihrDisplay := fmt.Sprintf("IHR: %s", ihrStr)
 
-	if page == "ihr" {
+	switch page {
+	case "ihr":
 		ihrDisplay = "**" + ihrDisplay + "**"
-	} else if page == "delivery" {
+	case "delivery":
 		elrDisplay = "**" + elrDisplay + "**"
 	}
 
