@@ -1007,7 +1007,7 @@ func RefreshGuildContractsForBannerUpdate(s *discordgo.Session, guildID string) 
 	}
 }
 
-func CalculateIHRRateFromBackup(backup *ei.Backup) (float64, string) {
+func CalculateIHRRateFromBackup(backup *ei.Backup, userID string) (float64, string) {
 	if backup == nil {
 		return 0.0, ""
 	}
@@ -1021,14 +1021,17 @@ func CalculateIHRRateFromBackup(backup *ei.Backup) (float64, string) {
 
 	baseOnlineRatePerHab := 7440.0
 
+	allEov := uint32(0)
+
 	virtue := backup.GetVirtue()
-	var allEov uint32
 	if virtue != nil {
 		for i := range 5 {
 			eov := virtue.GetEovEarned()[i]
 			delivered := virtue.GetEggsDelivered()[i]
+
 			eovEarned := ei.CountTruthEggTiersPassed(delivered)
 			eovPending := ei.PendingTruthEggs(delivered, eov)
+
 			allEov += max(eovEarned-eovPending, 0)
 		}
 	}
@@ -1069,8 +1072,17 @@ func CalculateIHRRateFromBackup(backup *ei.Backup) (float64, string) {
 		}
 	}
 
+	artKeys := []string{"CH-" + best["chalice"], "MO-" + best["monocle"], "SIAB-" + best["SIAB"]}
+	if userID != "" {
+		ihrDeflSetting := farmerstate.GetMiscSettingString(userID, "defl-ihr")
+		if strings.HasSuffix(ihrDeflSetting, "_L") {
+			deflQuality := strings.TrimSuffix(ihrDeflSetting, "_L")
+			artKeys = append(artKeys, "ID-"+deflQuality)
+		}
+	}
+
 	totalSlots := 0
-	for _, artKey := range []string{"CH-" + best["chalice"], "MO-" + best["monocle"], "SIAB-" + best["SIAB"]} {
+	for _, artKey := range artKeys {
 		art := ei.GetArtifactByKey(artKey)
 		if art != nil {
 			totalSlots += art.Stones
@@ -1152,10 +1164,16 @@ func CalculateIHRRateFromDB(userID string) (float64, string) {
 	}
 
 	totalSlots := 0
-	for _, slotKey := range []string{"chalice", "monocle", "siab"} {
+	for _, slotKey := range []string{"chalice", "monocle", "siab", "defl-ihr"} {
 		quality := farmerstate.GetMiscSettingString(userID, slotKey)
 		if slotKey == "siab" && quality == "" {
 			quality = farmerstate.GetMiscSettingString(userID, "SIAB")
+		}
+		if slotKey == "defl-ihr" {
+			if !strings.HasSuffix(quality, "_L") {
+				continue
+			}
+			quality = strings.TrimSuffix(quality, "_L")
 		}
 		if quality != "" {
 			prefix := ""
@@ -1166,6 +1184,8 @@ func CalculateIHRRateFromDB(userID string) (float64, string) {
 				prefix = "MO-"
 			case "siab":
 				prefix = "SIAB-"
+			case "defl-ihr":
+				prefix = "ID-"
 			}
 			art := ei.GetArtifactByKey(prefix + quality)
 			if art != nil {
@@ -1241,7 +1261,7 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 				b.IHRRate = manualIHR
 				b.IHRCalcLog = fmt.Sprintf("IHR Calculation (Manual for %s): Final=%0.2f", userID, manualIHR)
 			} else {
-				rate, logStr := CalculateIHRRateFromBackup(backup)
+				rate, logStr := CalculateIHRRateFromBackup(backup, userID)
 				b.IHRRate = rate
 				b.IHRCalcLog = logStr
 			}
@@ -1257,10 +1277,24 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 				farmerstate.SetMiscSettingString(userID, "monocle", best["monocle"])
 			}
 			if best["defl"] != "" {
-				farmerstate.SetMiscSettingString(userID, "defl-ihr", best["defl"])
+				currentDeflIHR := farmerstate.GetMiscSettingString(userID, "defl-ihr")
+				if strings.HasSuffix(currentDeflIHR, "_L") && strings.TrimSuffix(currentDeflIHR, "_L") == best["defl"] {
+					// Preserve existing Deflector w/Life setting
+				} else {
+					farmerstate.SetMiscSettingString(userID, "defl-ihr", best["defl"])
+				}
 			}
 			if best["SIAB"] != "" {
-				farmerstate.SetMiscSettingString(userID, "siab", best["SIAB"])
+				currentSIAB := farmerstate.GetMiscSettingString(userID, "siab")
+				if currentSIAB == "" {
+					currentSIAB = farmerstate.GetMiscSettingString(userID, "SIAB")
+				}
+				oldArt := ei.GetArtifactByKey("SIAB-" + currentSIAB)
+				if oldArt != nil && oldArt.Stones >= 3 {
+					// Preserve existing 3-slot SIAB / filler artifact setting
+				} else {
+					farmerstate.SetMiscSettingString(userID, "siab", best["SIAB"])
+				}
 			}
 
 			refreshBoostListMessage(s, contract, false)

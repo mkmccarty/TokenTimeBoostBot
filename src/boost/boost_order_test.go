@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 func TestBoostOrderUnselected(t *testing.T) {
@@ -515,5 +517,23 @@ func TestOriginalOrderPreservedOnStart(t *testing.T) {
 
 	if len(contract.OriginalOrder) != 2 || contract.OriginalOrder[0] != "u2" || contract.OriginalOrder[1] != "u1" {
 		t.Fatalf("expected OriginalOrder [u2 u1], got %v", contract.OriginalOrder)
+	}
+}
+
+func TestCalculateIHRRateFromDBDeflectorWithLife(t *testing.T) {
+	userID := "test_deflector_wlife_user"
+	farmerstate.SetMiscSettingString(userID, "TE", "100")
+	farmerstate.SetMiscSettingString(userID, "chalice", "T4L") // 3 slots
+
+	// Standard T4L deflector without _L suffix -> stone slots excluded
+	farmerstate.SetMiscSettingString(userID, "defl-ihr", "T4L")
+	rateWithoutLife, _ := CalculateIHRRateFromDB(userID)
+
+	// Deflector T4L w/Life -> 3 stone slots included
+	farmerstate.SetMiscSettingString(userID, "defl-ihr", "T4L_L")
+	rateWithLife, _ := CalculateIHRRateFromDB(userID)
+
+	if rateWithLife <= rateWithoutLife {
+		t.Fatalf("expected IHR rate with life deflector (%.2f) to be higher than without (%.2f)", rateWithLife, rateWithoutLife)
 	}
 }
