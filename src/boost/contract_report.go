@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"os"
 	"runtime"
 	"slices"
 	"sort"
@@ -199,7 +198,7 @@ func HandleContractReport(s *discordgo.Session, i *discordgo.InteractionCreate) 
 func processContributors(
 	s *discordgo.Session,
 	coopStatus *ei.ContractCoopStatusResponse,
-	callerUserID, cxpVersion string,
+	callerUserID string,
 	forceRefresh, okayToSave bool,
 ) (map[string][]*ei.LocalContract, []string, error) {
 	if coopStatus == nil {
@@ -285,13 +284,6 @@ func processContributors(
 			evalsByName[name] = archive
 			muEval.Unlock()
 
-
-		}
-	}
-
-	if config.IsDevBot() {
-		if err := os.MkdirAll("ttbb-data/eiuserdata", 0o755); err != nil {
-			log.Printf("processContributors: ensure cache dir failed (non-fatal): %v", err)
 		}
 	}
 
@@ -466,7 +458,6 @@ func ContractReport(
 		s,          // *discordgo.Session
 		coopStatus, // *ei.ContractCoopStatusResponse
 		callerUserID,
-		cxpVersion,
 		forceRefresh,
 		okayToSave,
 	)
@@ -535,7 +526,6 @@ func ContractReport(
 	}); err != nil {
 		return fmt.Errorf("%w: %v", ErrReportSendFailed, err)
 	}
-
 
 	return nil
 }

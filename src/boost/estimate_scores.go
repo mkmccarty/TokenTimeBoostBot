@@ -639,7 +639,6 @@ func GetContractArchivesForNames(s *discordgo.Session, names []string, cxpVersio
 			archives[j.i] = archive
 			fetched[j.i] = true
 
-
 		}
 	}
 

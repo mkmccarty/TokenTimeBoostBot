@@ -484,8 +484,8 @@ func saveCoopStatusJSONDebug(contractID, coopID, eggIncID string, decodeCoopStat
 			if config.EIUserID != "" {
 				jsonDataStr = RedactUserInfo(jsonDataStr, config.EIUserID)
 			}
-			_ = os.MkdirAll("ttbb-data/eiuserdata", os.ModePerm)
-			fileName := fmt.Sprintf("ttbb-data/eiuserdata/coopstatus-%s-%s.json", contractID, coopID)
+			_ = os.MkdirAll("ttbb-data/pb-json", 0755)
+			fileName := fmt.Sprintf("ttbb-data/pb-json/coopstatus-%s-%s.json", contractID, coopID)
 			err = os.WriteFile(fileName, []byte(jsonDataStr), 0644)
 			if err != nil {
 				log.Print(err)
