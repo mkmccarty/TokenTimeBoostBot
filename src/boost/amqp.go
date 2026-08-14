@@ -190,6 +190,32 @@ func PublishAMQPBoostStatus(guildID string, url string, contractID string, coopI
 	}()
 }
 
+// AMQPContractStartMessage represents details of a contract when started.
+type AMQPContractStartMessage struct {
+	Event          string    `json:"event"`
+	ContractID     string    `json:"contract_id"`
+	CoopID         string    `json:"coop_id"`
+	StartTime      time.Time `json:"start_time"`
+	CoopSize       int       `json:"coop_size"`
+	DeliveryTarget float64   `json:"delivery_target"`
+}
+
+// PublishAMQPContractStart publishes a contract start event to the guild's AMQP queue.
+func PublishAMQPContractStart(guildID string, url string, status AMQPContractStartMessage) {
+	body, err := json.Marshal(status)
+	if err != nil {
+		log.Printf("AMQP: error marshaling contract start: %v", err)
+		return
+	}
+
+	client := getAMQPClient(guildID, url)
+	go func() {
+		if err := client.publish(body); err != nil {
+			log.Printf("AMQP: error publishing contract start: %v", err)
+		}
+	}()
+}
+
 // AMQPNonTokenMessage represents a non-token delivery report.
 type AMQPNonTokenMessage struct {
 	Event      string    `json:"event"`
@@ -215,3 +241,5 @@ func PublishAMQPNonToken(guildID string, url string, contractID string, coopID s
 		}
 	}()
 }
+
+

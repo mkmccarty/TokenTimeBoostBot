@@ -1725,6 +1725,27 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 
 	contract.enforceOnlyOneTokenTimeBooster()
 
+	if contract.Style&ContractFlagAMQP != 0 && len(contract.Location) > 0 {
+		guildID := contract.Location[0].GuildID
+		if guildID != "" {
+			amqpURL := guildstate.GetGuildSettingString(guildID, "amqp_url")
+			if amqpURL != "" {
+				var deliveryTarget float64
+				if contractInfo, ok := ei.EggIncContractsAll[contract.ContractID]; ok && len(contractInfo.TargetAmount) > 0 {
+					deliveryTarget = contractInfo.TargetAmount[len(contractInfo.TargetAmount)-1]
+				}
+				PublishAMQPContractStart(guildID, amqpURL, AMQPContractStartMessage{
+					Event:          "contract_start",
+					ContractID:     contract.ContractID,
+					CoopID:         contract.CoopID,
+					StartTime:      contract.StartTime,
+					CoopSize:       contract.CoopSize,
+					DeliveryTarget: deliveryTarget,
+				})
+			}
+		}
+	}
+
 	sendNextNotification(s, contract, true)
 
 	return nil
