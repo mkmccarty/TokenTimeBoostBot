@@ -241,5 +241,3 @@ func PublishAMQPNonToken(guildID string, url string, contractID string, coopID s
 		}
 	}()
 }
-
-
