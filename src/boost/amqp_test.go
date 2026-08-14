@@ -60,6 +60,29 @@ func TestAMQPMessageFormatting(t *testing.T) {
 	if parsedStatus.BoostState != "Boosted" || parsedStatus.Nick != "BoosterUser" {
 		t.Errorf("Unexpected status message fields. Got: %+v", parsedStatus)
 	}
+
+	startMsg := AMQPContractStartMessage{
+		Event:          "contract_start",
+		ContractID:     "contract-1",
+		CoopID:         "coop-1",
+		StartTime:      time.Now(),
+		CoopSize:       5,
+		DeliveryTarget: 1e15,
+	}
+
+	data, err = json.Marshal(startMsg)
+	if err != nil {
+		t.Fatalf("Failed to marshal AMQPContractStartMessage: %v", err)
+	}
+
+	var parsedStart AMQPContractStartMessage
+	if err := json.Unmarshal(data, &parsedStart); err != nil {
+		t.Fatalf("Failed to unmarshal AMQPContractStartMessage: %v", err)
+	}
+
+	if parsedStart.Event != "contract_start" || parsedStart.CoopSize != 5 || parsedStart.DeliveryTarget != 1e15 {
+		t.Errorf("Unexpected contract start message fields. Got: %+v", parsedStart)
+	}
 }
 
 func TestGetBoostStateString(t *testing.T) {
