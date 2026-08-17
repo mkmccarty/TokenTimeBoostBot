@@ -221,91 +221,173 @@ func processContributors(
 	if n == 0 {
 		return make(map[string][]*ei.LocalContract), nil, nil
 	}
+	var resolvedList []resolvedContributor
+	var missing []string
 
-	maxParallelJobs := max(min(n, maxParallel), 1)
-
-	namesCh := make(chan string, n)
-	var wg sync.WaitGroup
-
-	evalsByName := make(map[string][]*ei.LocalContract, n)
-	var (
-		muEval  sync.Mutex
-		muMiss  sync.Mutex
-		missing = make([]string, 0, n)
-	)
-
-	worker := func() {
-		defer wg.Done()
-		for name := range namesCh {
-			discordID, _ := farmerstate.GetDiscordUserIDFromEiIgn(name)
-			if discordID == "" || discordID == callerUserID {
-				if discordID == "" {
-					muMiss.Lock()
-					missing = append(missing, name)
-					muMiss.Unlock()
-				}
-				continue
-			}
-
-			eiCipherB64 := farmerstate.GetMiscSettingString(discordID, "encrypted_ei_id")
-			if eiCipherB64 == "" {
-				muMiss.Lock()
-				missing = append(missing, name)
-				muMiss.Unlock()
-				continue
-			}
-			cipherBytes, err := base64.StdEncoding.DecodeString(eiCipherB64)
-			if err != nil {
-				muMiss.Lock()
-				missing = append(missing, name)
-				muMiss.Unlock()
-				continue
-			}
-			plain, err := config.DecryptCombined(encKey, cipherBytes)
-			if err != nil {
-				muMiss.Lock()
-				missing = append(missing, name)
-				muMiss.Unlock()
-				continue
-			}
-			eiID := string(plain)
-			if len(eiID) != 18 || !strings.HasPrefix(eiID, "EI") {
-				muMiss.Lock()
-				missing = append(missing, name)
-				muMiss.Unlock()
-				continue
-			}
-
-			// cache IGN if missing
-			if ign := farmerstate.GetMiscSettingString(discordID, "ei_ign"); ign == "" {
-				if backup, _ := ei.GetFirstContactFromAPI(s, eiID, discordID, okayToSave); backup != nil {
-					farmerstate.SetMiscSettingString(discordID, "ei_ign", backup.GetUserName())
-				}
-			}
-
-			archive, _ := ei.GetContractArchiveFromAPI(s, eiID, discordID, forceRefresh, okayToSave)
-
-			// record archive by contributor name
-			muEval.Lock()
-			evalsByName[name] = archive
-			muEval.Unlock()
-
-		}
-	}
-
-	wg.Add(maxParallelJobs)
-	for range maxParallelJobs {
-		go worker()
-	}
-	// enqueue contributors
+	// Phase 1: Resolve all contributors and decrypt EIDs
 	for _, c := range contribs {
-		namesCh <- c.GetUserName()
+		name := c.GetUserName()
+		discordID, _ := farmerstate.GetDiscordUserIDFromEiIgnExact(name)
+		if discordID == "" || discordID == callerUserID {
+			if discordID == "" {
+				missing = append(missing, name)
+			}
+			continue
+		}
+
+		eiCipherB64 := farmerstate.GetMiscSettingString(discordID, "encrypted_ei_id")
+		if eiCipherB64 == "" {
+			missing = append(missing, name)
+			continue
+		}
+		cipherBytes, err := base64.StdEncoding.DecodeString(eiCipherB64)
+		if err != nil {
+			missing = append(missing, name)
+			continue
+		}
+		plain, err := config.DecryptCombined(encKey, cipherBytes)
+		if err != nil {
+			missing = append(missing, name)
+			continue
+		}
+		eiID := string(plain)
+		if len(eiID) != 18 || !strings.HasPrefix(eiID, "EI") {
+			missing = append(missing, name)
+			continue
+		}
+
+		resolvedList = append(resolvedList, resolvedContributor{
+			name:      name,
+			discordID: discordID,
+			eiID:      eiID,
+		})
 	}
-	close(namesCh)
-	wg.Wait()
+
+	// Phase 2: Group by EID and detect duplicates
+	getStoredIgn := func(discordID string) string {
+		return farmerstate.GetMiscSettingString(discordID, "ei_ign")
+	}
+	finalResolvedList, dupMissing := deduplicateContributors(resolvedList, getStoredIgn)
+	missing = append(missing, dupMissing...)
+
+	// Phase 3: Fetch contract archives in parallel for finalResolvedList
+	evalsByName := make(map[string][]*ei.LocalContract)
+	var muEval sync.Mutex
+
+	if len(finalResolvedList) > 0 {
+		maxParallelJobs := max(min(len(finalResolvedList), maxParallel), 1)
+		jobsCh := make(chan resolvedContributor, len(finalResolvedList))
+		var wg sync.WaitGroup
+
+		worker := func() {
+			defer wg.Done()
+			for r := range jobsCh {
+				// cache IGN if missing
+				if ign := farmerstate.GetMiscSettingString(r.discordID, "ei_ign"); ign == "" {
+					if backup, _ := ei.GetFirstContactFromAPI(s, r.eiID, r.discordID, okayToSave); backup != nil {
+						farmerstate.SetMiscSettingString(r.discordID, "ei_ign", backup.GetUserName())
+					}
+				}
+
+				archive, _ := ei.GetContractArchiveFromAPI(s, r.eiID, r.discordID, forceRefresh, okayToSave)
+
+				muEval.Lock()
+				evalsByName[r.name] = archive
+				muEval.Unlock()
+			}
+		}
+
+		wg.Add(maxParallelJobs)
+		for i := 0; i < maxParallelJobs; i++ {
+			go worker()
+		}
+
+		for _, r := range finalResolvedList {
+			jobsCh <- r
+		}
+		close(jobsCh)
+		wg.Wait()
+	}
 
 	return evalsByName, missing, nil
 }
+
+type resolvedContributor struct {
+	name      string
+	discordID string
+	eiID      string
+}
+
+func deduplicateContributors(
+	resolvedList []resolvedContributor,
+	getStoredIgn func(discordID string) string,
+) ([]resolvedContributor, []string) {
+	var finalResolvedList []resolvedContributor
+	var missing []string
+
+	// Group by EID
+	eidGroups := make(map[string][]resolvedContributor)
+	for _, r := range resolvedList {
+		eidGroups[r.eiID] = append(eidGroups[r.eiID], r)
+	}
+
+	for _, group := range eidGroups {
+		if len(group) == 1 {
+			finalResolvedList = append(finalResolvedList, group[0])
+		} else {
+			// Duplicate EID detected!
+			// Check matching name for each member in the group
+			var matched []resolvedContributor
+			for _, r := range group {
+				ign := getStoredIgn(r.discordID)
+				if strings.EqualFold(r.name, ign) {
+					matched = append(matched, r)
+				}
+			}
+
+			// If we have matches, let's filter further if there are multiple matches
+			if len(matched) == 1 {
+				finalResolvedList = append(finalResolvedList, matched[0])
+				// The other ones in this group are considered missing
+				for _, r := range group {
+					if r.name != matched[0].name {
+						missing = append(missing, r.name)
+					}
+				}
+			} else if len(matched) > 1 {
+				// Break ties using exact case-sensitive match if possible
+				var exactCaseMatched []resolvedContributor
+				for _, r := range matched {
+					ign := getStoredIgn(r.discordID)
+					if r.name == ign {
+						exactCaseMatched = append(exactCaseMatched, r)
+					}
+				}
+				if len(exactCaseMatched) == 1 {
+					finalResolvedList = append(finalResolvedList, exactCaseMatched[0])
+					for _, r := range group {
+						if r.name != exactCaseMatched[0].name {
+							missing = append(missing, r.name)
+						}
+					}
+				} else {
+					// Still tied or no exact match, discard all to be safe and avoid wrong assignments.
+					for _, r := range group {
+						missing = append(missing, r.name)
+					}
+				}
+			} else {
+				// No candidate matches, all are missing
+				for _, r := range group {
+					missing = append(missing, r.name)
+				}
+			}
+		}
+	}
+
+	return finalResolvedList, missing
+}
+
 
 // ContractReport generates a contract report for player's contract with the given contract ID
 //
