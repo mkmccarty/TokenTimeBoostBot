@@ -159,6 +159,12 @@ func GetSlashContractReportCommand(cmd string) *discordgo.ApplicationCommand {
 				Description: "Show missing players in the report. Default is false.",
 				Required:    false,
 			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "trim-prefixes",
+				Description: "Trim non-unique prefixes from player names. Default is false.",
+				Required:    false,
+			},
 		},
 	}
 }
@@ -339,6 +345,10 @@ func ContractReport(
 	if opt, ok := optionMap["missing-players"]; ok {
 		showMissingPlayers = opt.BoolValue()
 	}
+	trimPrefixes := false
+	if opt, ok := optionMap["trim-prefixes"]; ok {
+		trimPrefixes = opt.BoolValue()
+	}
 
 	// resolve contractID, prefer the slash option.
 	var contractID string
@@ -514,7 +524,7 @@ func ContractReport(
 	p.playerEvalsMetrics, p.metricPeaks = buildAndSortEvals(callerFarmerName, callerEval, evByName)
 
 	// render components
-	components := printContractReport(&p, showTokenDetails, showMissingPlayers)
+	components := printContractReport(&p, showTokenDetails, showMissingPlayers, trimPrefixes)
 	if len(components) == 0 {
 		components = []discordgo.MessageComponent{
 			&discordgo.TextDisplay{Content: "No archived contracts found in Egg Inc API response"},
@@ -533,19 +543,22 @@ func ContractReport(
 // printContractReport returns two components:
 //  1. markdown header with thresholds
 //  2. the ANSI table with colors
-func printContractReport(p *contractReportParameters, showTokenDetails, showMissingPlayers bool) []discordgo.MessageComponent {
+func printContractReport(p *contractReportParameters, showTokenDetails, showMissingPlayers, trimPrefixes bool) []discordgo.MessageComponent {
 	var components []discordgo.MessageComponent
 
 	currentContract := p.contract
 
-	displayNames := make([]string, 0, len(p.playerEvalsMetrics)+len(p.missingPlayers))
-	for _, e := range p.playerEvalsMetrics {
-		displayNames = append(displayNames, e.player)
+	var shortMap map[string]string
+	if trimPrefixes {
+		displayNames := make([]string, 0, len(p.playerEvalsMetrics)+len(p.missingPlayers))
+		for _, e := range p.playerEvalsMetrics {
+			displayNames = append(displayNames, e.player)
+		}
+		for _, s := range p.missingPlayers {
+			displayNames = append(displayNames, ei.NormalizePlayerNameForDisplay(s))
+		}
+		shortMap = makeShortNameMap(displayNames)
 	}
-	for _, s := range p.missingPlayers {
-		displayNames = append(displayNames, ei.NormalizePlayerNameForDisplay(s))
-	}
-	shortMap := makeShortNameMap(displayNames)
 
 	// --- Header (markdown) ---
 	var h strings.Builder
@@ -602,8 +615,10 @@ func printContractReport(p *contractReportParameters, showTokenDetails, showMiss
 
 		for _, e := range p.playerEvalsMetrics {
 			rowMetrics := e
-			if short, ok := shortMap[e.player]; ok {
-				rowMetrics.player = short
+			if trimPrefixes {
+				if short, ok := shortMap[e.player]; ok {
+					rowMetrics.player = short
+				}
 			}
 			b.WriteString(formatEvalMetricsRowANSI(
 				rowMetrics,       // pass the whole evalMetrics struct
@@ -641,8 +656,10 @@ func printContractReport(p *contractReportParameters, showTokenDetails, showMiss
 				}
 				b.WriteByte('`')
 				displayName := ei.NormalizePlayerNameForDisplay(s)
-				if short, ok := shortMap[displayName]; ok {
-					displayName = short
+				if trimPrefixes {
+					if short, ok := shortMap[displayName]; ok {
+						displayName = short
+					}
 				}
 				b.WriteString(strings.ReplaceAll(displayName, "-", "\u2011"))
 				b.WriteByte('`')
