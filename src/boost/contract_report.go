@@ -388,7 +388,6 @@ func deduplicateContributors(
 	return finalResolvedList, missing
 }
 
-
 // ContractReport generates a contract report for player's contract with the given contract ID
 //
 // Parameters:
