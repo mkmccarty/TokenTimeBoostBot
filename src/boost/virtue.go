@@ -650,7 +650,10 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 
 		// Loop to show time to next several Truth Egg thresholds
 		remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, selectedTarget-selectedDelivered)
-		adjustedRemainingTime := remainingTime - elapsed
+		adjustedRemainingTime := remainingTime
+		if targetTE == 0 {
+			adjustedRemainingTime = remainingTime - elapsed
+		}
 
 		loopCount := 0
 		currentSelectedTarget := selectedTarget
@@ -701,7 +704,11 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 				break
 			}
 			remainingTime = ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, currentSelectedTarget-selectedDelivered)
-			adjustedRemainingTime = remainingTime - elapsed
+			if targetTE != 0 {
+				adjustedRemainingTime = remainingTime
+			} else {
+				adjustedRemainingTime = remainingTime - elapsed
+			}
 
 			loopCount++
 			// Stop if remainingTime is -1 or adjustedRemainingTime is more than 2 weeks (1209600 seconds), or after 5 iterations to avoid infinite loop
