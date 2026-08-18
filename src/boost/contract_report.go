@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"bytes"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -161,8 +162,8 @@ func GetSlashContractReportCommand(cmd string) *discordgo.ApplicationCommand {
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "trim-prefixes",
-				Description: "Trim non-unique prefixes from player names. Default is false.",
+				Name:        "as-image",
+				Description: "Render table as an image instead of text. Default is false (sticky).",
 				Required:    false,
 			},
 		},
@@ -426,9 +427,11 @@ func ContractReport(
 	if opt, ok := optionMap["missing-players"]; ok {
 		showMissingPlayers = opt.BoolValue()
 	}
-	trimPrefixes := false
-	if opt, ok := optionMap["trim-prefixes"]; ok {
-		trimPrefixes = opt.BoolValue()
+	userID := bottools.GetInteractionUserID(i)
+	imageTable := farmerstate.GetMiscSettingFlag(userID, "as-image")
+	if opt, ok := optionMap["as-image"]; ok {
+		imageTable = opt.BoolValue()
+		farmerstate.SetMiscSettingFlag(userID, "as-image", imageTable)
 	}
 
 	// resolve contractID, prefer the slash option.
@@ -604,8 +607,8 @@ func ContractReport(
 	p.missingPlayers = missing
 	p.playerEvalsMetrics, p.metricPeaks = buildAndSortEvals(callerFarmerName, callerEval, evByName)
 
-	// render components
-	components := printContractReport(&p, showTokenDetails, showMissingPlayers, trimPrefixes)
+	// render components and image table
+	components, files := printContractReport(&p, imageTable, showTokenDetails, showMissingPlayers)
 	if len(components) == 0 {
 		components = []discordgo.MessageComponent{
 			&discordgo.TextDisplay{Content: "No archived contracts found in Egg Inc API response"},
@@ -614,6 +617,7 @@ func ContractReport(
 	if _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Flags:      flags,
 		Components: components,
+		Files:      files,
 	}); err != nil {
 		return fmt.Errorf("%w: %v", ErrReportSendFailed, err)
 	}
@@ -621,25 +625,14 @@ func ContractReport(
 	return nil
 }
 
-// printContractReport returns two components:
-//  1. markdown header with thresholds
-//  2. the ANSI table with colors
-func printContractReport(p *contractReportParameters, showTokenDetails, showMissingPlayers, trimPrefixes bool) []discordgo.MessageComponent {
+// printContractReport returns:
+//  1. markdown header with thresholds (and missing players note)
+//  2. rendered table image attachment
+func printContractReport(p *contractReportParameters, imageTable, showTokenDetails, showMissingPlayers bool) ([]discordgo.MessageComponent, []*discordgo.File) {
 	var components []discordgo.MessageComponent
+	var files []*discordgo.File
 
 	currentContract := p.contract
-
-	var shortMap map[string]string
-	if trimPrefixes {
-		displayNames := make([]string, 0, len(p.playerEvalsMetrics)+len(p.missingPlayers))
-		for _, e := range p.playerEvalsMetrics {
-			displayNames = append(displayNames, e.player)
-		}
-		for _, s := range p.missingPlayers {
-			displayNames = append(displayNames, ei.NormalizePlayerNameForDisplay(s))
-		}
-		shortMap = makeShortNameMap(displayNames)
-	}
 
 	// --- Header (markdown) ---
 	var h strings.Builder
@@ -681,39 +674,44 @@ func printContractReport(p *contractReportParameters, showTokenDetails, showMiss
 	}
 	components = append(components, &discordgo.TextDisplay{Content: h.String()})
 
-	// --- ANSI Table ---
-	if len(p.playerEvalsMetrics) > 0 {
+	// --- Render Table (Image or ANSI text) ---
+	if imageTable {
+		if len(p.playerEvalsMetrics) > 0 {
+			imgBytes, err := renderContractReportImage(p, showTokenDetails)
+			if err != nil {
+				log.Printf("Error rendering contract report image: %v", err)
+			} else if len(imgBytes) > 0 {
+				files = append(files, &discordgo.File{
+					Name:        "contract_report.png",
+					ContentType: "image/png",
+					Reader:      bytes.NewReader(imgBytes),
+				})
+				var mediaItem discordgo.MediaGalleryItem
+				mediaItem.Media.URL = "attachment://contract_report.png"
+				components = append(components, &discordgo.MediaGallery{
+					Items: []discordgo.MediaGalleryItem{
+						mediaItem,
+					},
+				})
+			}
+		}
+	} else if len(p.playerEvalsMetrics) > 0 {
 		var b strings.Builder
 		b.WriteString("```ansi\n")
-
 		header := evalMetricsHeader(showTokenDetails)
 		b.WriteString(header)
 		b.WriteByte('\n')
-
-		// em-dash rule between header and rows
 		b.WriteString(strings.Repeat("—", bottools.VisibleLenANSI(header)))
 		b.WriteByte('\n')
-
 		for _, e := range p.playerEvalsMetrics {
-			rowMetrics := e
-			if trimPrefixes {
-				if short, ok := shortMap[e.player]; ok {
-					rowMetrics.player = short
-				}
-			}
-			b.WriteString(formatEvalMetricsRowANSI(
-				rowMetrics,       // pass the whole evalMetrics struct
-				p.thresholds,     // thresholds
-				p.metricPeaks,    // peak metrics
-				showTokenDetails, // whether to include +TS, ΔTVal, -TS
-			))
+			rowStr := formatEvalMetricsRowANSI(e, p.thresholds, p.metricPeaks, showTokenDetails)
+			b.WriteString(rowStr)
 			b.WriteByte('\n')
 		}
-
 		b.WriteString("```")
-
 		components = append(components, &discordgo.TextDisplay{Content: b.String()})
 	}
+
 	if len(p.missingPlayers) > 0 {
 		var b strings.Builder
 		// message about registration
@@ -730,28 +728,21 @@ func printContractReport(p *contractReportParameters, showTokenDetails, showMiss
 			})
 
 			// build missing players list, account for `-` in names (thx -wittysquid-)
-
 			for i, s := range names {
 				if i > 0 {
 					b.WriteString(", ")
 				}
 				b.WriteByte('`')
 				displayName := ei.NormalizePlayerNameForDisplay(s)
-				if trimPrefixes {
-					if short, ok := shortMap[displayName]; ok {
-						displayName = short
-					}
-				}
 				b.WriteString(strings.ReplaceAll(displayName, "-", "\u2011"))
 				b.WriteByte('`')
 			}
-
 		}
 		components = append(components, &discordgo.TextDisplay{
 			Content: registerMessage + b.String(),
 		})
 	}
-	return components
+	return components, files
 }
 
 // ===== header & row formatting =====
@@ -921,6 +912,86 @@ func peakColor(v, peak float64, baseColor string, exact bool) string {
 		}
 	}
 	return baseColor
+}
+
+// renderContractReportImage renders the contract report table as a PNG image using the game font.
+func renderContractReportImage(p *contractReportParameters, showTokenDetails bool) ([]byte, error) {
+	cols := []TableImageColumn{
+		{Label: "Player", Align: bottools.StringAlignLeft},
+		{Label: "Cxp", Align: bottools.StringAlignRight},
+		{Label: "Contr", Align: bottools.StringAlignRight},
+		{Label: "TmWk", Align: bottools.StringAlignRight},
+		{Label: "CR", Align: bottools.StringAlignRight},
+		{Label: "BTV", Align: bottools.StringAlignCenter},
+	}
+	if showTokenDetails {
+		cols = append(cols,
+			TableImageColumn{Label: "+TS", Align: bottools.StringAlignRight},
+			TableImageColumn{Label: "ΔTVal", Align: bottools.StringAlignRight},
+			TableImageColumn{Label: "-TS", Align: bottools.StringAlignRight},
+		)
+	}
+
+	formatFloat := func(f float64, prec int, trimLeadingZero bool) string {
+		s := fmt.Sprintf("%.*f", prec, f)
+		if trimLeadingZero {
+			if f >= 0 && strings.HasPrefix(s, "0") {
+				return s[1:]
+			}
+			if f < 0 && strings.HasPrefix(s, "-0") {
+				return "-" + s[2:]
+			}
+		} else if f < 0 {
+			s = fmt.Sprintf("%.*f", prec-1, f)
+		}
+		return s
+	}
+
+	var tableRows []TableImageRow
+	for _, e := range p.playerEvalsMetrics {
+		cxpBase := ""
+		teamBase := colorIfGE(e.teamwork, p.thresholds.teamwork, "green")
+		contrBase := ""
+		crBase := colorIfGE(int(e.chickenRunsSent), p.thresholds.chickenRuns, "green")
+		btvBase := colorIfGE(e.buffTimeValue, p.thresholds.buffTimeValue, "green")
+
+		cxpColor := peakColor(e.cxp, p.metricPeaks.cxp, cxpBase, true)
+		teamColor := peakColor(e.teamwork, p.metricPeaks.teamwork, teamBase, false)
+		contrColor := peakColor(e.contributionRatio, p.metricPeaks.contributionRatio, contrBase, true)
+		btvColor := peakColor(e.buffTimeValue, p.metricPeaks.buffTimeValue, btvBase, true)
+
+		btvStr := fmt.Sprintf("%.0f", e.buffTimeValue)
+
+		cells := []TableImageCell{
+			{Text: ei.NormalizePlayerNameForDisplay(e.player), Color: ""},
+			{Text: fmt.Sprintf("%d", int(e.cxp)), Color: cxpColor},
+			{Text: fmt.Sprintf("%.3f", e.contributionRatio), Color: contrColor},
+			{Text: formatFloat(e.teamwork, 3, true), Color: teamColor},
+			{Text: fmt.Sprintf("%d", e.chickenRunsSent), Color: crBase},
+			{Text: btvStr, Color: btvColor},
+		}
+
+		if showTokenDetails {
+			plusTSBase := ""
+			if e.plusTS != 0 {
+				plusTSBase = "green"
+			}
+			minusTSBase := ""
+			if e.minusTS != 0 {
+				minusTSBase = "red"
+			}
+			dtColor := dtvalColor(e.deltaTVal, 3.0)
+
+			cells = append(cells,
+				TableImageCell{Text: fmt.Sprintf("%d", e.plusTS), Color: plusTSBase},
+				TableImageCell{Text: formatFloat(e.deltaTVal, 3, false), Color: dtColor},
+				TableImageCell{Text: fmt.Sprintf("%d", e.minusTS), Color: minusTSBase},
+			)
+		}
+		tableRows = append(tableRows, TableImageRow{Cells: cells})
+	}
+
+	return RenderTableImage(cols, tableRows)
 }
 
 // ===== data & selection =====
