@@ -147,15 +147,15 @@ func drawRuneStringAt(img *image.RGBA, lf loadedFont, fallbackFace font.Face, st
 
 // RenderTableImage renders a generic table of columns and rows as a PNG image.
 func RenderTableImage(cols []TableImageColumn, rows []TableImageRow) ([]byte, error) {
-	lf := loadContractReportFont(16.0)
-	fallbackFace := loadEmojiFallbackFont(14.0)
+	lf := loadContractReportFont(24.0)
+	fallbackFace := loadEmojiFallbackFont(21.0)
 
 	metrics := lf.face.Metrics()
 	ascent := metrics.Ascent.Ceil()
 	descent := metrics.Descent.Ceil()
-	cellPadX := 6
-	padX := 10
-	padY := 10
+	cellPadX := 9
+	padX := 15
+	padY := 15
 
 	// Compute max pixel width per column
 	colWidths := make([]int, len(cols))
@@ -197,9 +197,9 @@ func RenderTableImage(cols []TableImageColumn, rows []TableImageRow) ([]byte, er
 		}
 	}
 
-	rowH := max(16, ascent+descent+2)
-	headerGap := 4
-	dividerToRowGap := 4
+	rowH := max(24, ascent+descent+3)
+	headerGap := 6
+	dividerToRowGap := 6
 	headerH := ascent + descent + headerGap
 
 	imgW := colX[len(cols)] + padX
