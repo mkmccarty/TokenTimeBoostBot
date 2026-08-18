@@ -1137,57 +1137,6 @@ func buildAndSortEvals(
 	return out, peaks
 }
 
-// makeShortNameMap simplifies names that share a common prefix of length >= 3 to display their unique parts.
-func makeShortNameMap(names []string) map[string]string {
-	if len(names) <= 1 {
-		return nil
-	}
-
-	// Count occurrences of each prefix of length >= 3
-	prefixCounts := make(map[string]int)
-	for _, name := range names {
-		runes := []rune(name)
-		for l := 3; l <= len(runes); l++ {
-			prefix := strings.ToLower(string(runes[:l]))
-			prefixCounts[prefix]++
-		}
-	}
-
-	shortNames := make(map[string]string)
-	for _, name := range names {
-		runes := []rune(name)
-		bestPrefix := ""
-		maxCount := 0
-
-		// Find the prefix of this name that:
-		// 1. Is shared by at least 2 names (count >= 2)
-		// 2. Has the maximum count among all prefixes of this name
-		// 3. Among those with max count, is the longest
-		for l := 3; l <= len(runes); l++ {
-			prefixStr := string(runes[:l])
-			prefixLower := strings.ToLower(prefixStr)
-			count := prefixCounts[prefixLower]
-			if count >= 2 {
-				if count > maxCount {
-					maxCount = count
-					bestPrefix = prefixStr
-				} else if count == maxCount {
-					if len(prefixStr) > len(bestPrefix) {
-						bestPrefix = prefixStr
-					}
-				}
-			}
-		}
-
-		if bestPrefix != "" && len(name) > len(bestPrefix) {
-			shortNames[name] = name[len(bestPrefix):]
-		} else {
-			shortNames[name] = name
-		}
-	}
-	return shortNames
-}
-
 /*
 {
 	"evaluation": {
