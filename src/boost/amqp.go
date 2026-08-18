@@ -195,6 +195,7 @@ type AMQPContractStartMessage struct {
 	Event          string    `json:"event"`
 	ContractID     string    `json:"contract_id"`
 	CoopID         string    `json:"coop_id"`
+	ChannelID      string    `json:"channel_id"`
 	StartTime      time.Time `json:"start_time"`
 	CoopSize       int       `json:"coop_size"`
 	DeliveryTarget float64   `json:"delivery_target"`

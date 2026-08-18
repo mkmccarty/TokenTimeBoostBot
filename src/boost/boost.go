@@ -1749,6 +1749,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 					Event:          "contract_start",
 					ContractID:     contract.ContractID,
 					CoopID:         contract.CoopID,
+					ChannelID:      contract.Location[0].ChannelID,
 					StartTime:      contract.StartTime,
 					CoopSize:       contract.CoopSize,
 					DeliveryTarget: deliveryTarget,
