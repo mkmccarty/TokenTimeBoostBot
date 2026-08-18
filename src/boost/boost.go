@@ -1734,13 +1734,27 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 				if contractInfo, ok := ei.EggIncContractsAll[contract.ContractID]; ok && len(contractInfo.TargetAmount) > 0 {
 					deliveryTarget = contractInfo.TargetAmount[len(contractInfo.TargetAmount)-1]
 				}
+				gg, ugg, _ := ei.GetGenerousGiftEvent()
+				generousGifts := "None"
+				var ggMultiplier float64
+				if ugg > 1.0 {
+					generousGifts = "Ultra GG"
+					ggMultiplier = ugg
+				} else if gg > 1.0 {
+					generousGifts = "Common GG"
+					ggMultiplier = gg
+				}
+
 				PublishAMQPContractStart(guildID, amqpURL, AMQPContractStartMessage{
 					Event:          "contract_start",
 					ContractID:     contract.ContractID,
 					CoopID:         contract.CoopID,
+					ChannelID:      contract.Location[0].ChannelID,
 					StartTime:      contract.StartTime,
 					CoopSize:       contract.CoopSize,
 					DeliveryTarget: deliveryTarget,
+					GenerousGifts:  generousGifts,
+					GGMultiplier:   ggMultiplier,
 				})
 			}
 		}
