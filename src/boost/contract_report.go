@@ -920,7 +920,7 @@ func renderContractReportImage(p *contractReportParameters, showTokenDetails boo
 		{Label: "Player", Align: bottools.StringAlignLeft},
 		{Label: "Cxp", Align: bottools.StringAlignRight},
 		{Label: "Contr", Align: bottools.StringAlignRight},
-		{Label: "TmWk", Align: bottools.StringAlignRight},
+		{Label: "TW", Align: bottools.StringAlignRight},
 		{Label: "CR", Align: bottools.StringAlignRight},
 		{Label: "BTV", Align: bottools.StringAlignCenter},
 	}
