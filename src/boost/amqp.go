@@ -198,6 +198,8 @@ type AMQPContractStartMessage struct {
 	StartTime      time.Time `json:"start_time"`
 	CoopSize       int       `json:"coop_size"`
 	DeliveryTarget float64   `json:"delivery_target"`
+	GenerousGifts  string    `json:"generous_gifts"`
+	GGMultiplier   float64   `json:"gg_multiplier,omitempty"`
 }
 
 // PublishAMQPContractStart publishes a contract start event to the guild's AMQP queue.
