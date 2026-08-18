@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"log"
@@ -44,6 +45,7 @@ type csEstimateParams struct {
 	contractID string
 	coopID     string
 	srMode     bool
+	imageTable bool
 	flags      discordgo.MessageFlags
 }
 
@@ -84,6 +86,12 @@ func GetSlashCsEstimates(cmd string) *discordgo.ApplicationCommand {
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "as-image",
+				Description: "Render table as an image instead of text. Default is false (sticky).",
+				Required:    false,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
 				Name:        "private-reply",
 				Description: "Response visibility, default is public",
 				Required:    false,
@@ -115,11 +123,18 @@ func parseCsEstimateParams(i *discordgo.InteractionCreate) csEstimateParams {
 	if opt, ok := optionMap["sr-mode"]; ok {
 		srMode = opt.BoolValue()
 	}
+	userID := bottools.GetInteractionUserID(i)
+	imageTable := farmerstate.GetMiscSettingFlag(userID, "as-image")
+	if opt, ok := optionMap["as-image"]; ok {
+		imageTable = opt.BoolValue()
+		farmerstate.SetMiscSettingFlag(userID, "as-image", imageTable)
+	}
 
 	return csEstimateParams{
 		contractID: contractID,
 		coopID:     coopID,
 		srMode:     srMode,
+		imageTable: imageTable,
 		flags:      flags,
 	}
 }
@@ -317,17 +332,43 @@ func runCsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate, p csEst
 	if p.srMode {
 		title = "## Projected SR Scores"
 	}
-	tableFast := RenderScoreTableANSI(rows, p.srMode, false)
 
-	components := []discordgo.MessageComponent{
-		discordgo.TextDisplay{Content: str},
-		discordgo.TextDisplay{Content: title},
-		discordgo.TextDisplay{Content: tableFast},
+	var components []discordgo.MessageComponent
+	var files []*discordgo.File
+
+	if p.imageTable {
+		imgBytes, err := RenderScoreTableImage(rows, p.srMode, false)
+		if err != nil {
+			log.Printf("Error rendering score table image: %v", err)
+		} else if len(imgBytes) > 0 {
+			files = append(files, &discordgo.File{
+				Name:        "cs_estimate.png",
+				ContentType: "image/png",
+				Reader:      bytes.NewReader(imgBytes),
+			})
+			var mediaItem discordgo.MediaGalleryItem
+			mediaItem.Media.URL = "attachment://cs_estimate.png"
+			components = []discordgo.MessageComponent{
+				discordgo.TextDisplay{Content: str},
+				discordgo.TextDisplay{Content: title},
+				&discordgo.MediaGallery{Items: []discordgo.MediaGalleryItem{mediaItem}},
+			}
+		}
+	}
+
+	if len(components) == 0 {
+		tableFast := RenderScoreTableANSI(rows, p.srMode, false)
+		components = []discordgo.MessageComponent{
+			discordgo.TextDisplay{Content: str},
+			discordgo.TextDisplay{Content: title},
+			discordgo.TextDisplay{Content: tableFast},
+		}
 	}
 
 	msg, sendErr := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Flags:      p.flags,
 		Components: components,
+		Files:      files,
 	})
 	if sendErr != nil || msg == nil {
 		if sendErr != nil {
@@ -350,6 +391,7 @@ func runCsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate, p csEst
 	interaction := i.Interaction
 	msgID := msg.ID
 	srmode := p.srMode
+	imageTable := p.imageTable
 	flags := p.flags
 
 	go func() {
@@ -384,19 +426,45 @@ func runCsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate, p csEst
 			}
 		}
 
-		tableFinal := RenderScoreTableANSI(rowsCopy, srmode, anyDiffs)
+		var edited []discordgo.MessageComponent
+		var editFiles []*discordgo.File
 
-		edited := []discordgo.MessageComponent{
-			discordgo.TextDisplay{Content: str},
-			discordgo.TextDisplay{Content: title},
-			discordgo.TextDisplay{Content: tableFinal},
+		if imageTable {
+			imgBytes, err := RenderScoreTableImage(rowsCopy, srmode, anyDiffs)
+			if err != nil {
+				log.Printf("Error rendering score table image edit: %v", err)
+			} else if len(imgBytes) > 0 {
+				editFiles = append(editFiles, &discordgo.File{
+					Name:        "cs_estimate.png",
+					ContentType: "image/png",
+					Reader:      bytes.NewReader(imgBytes),
+				})
+				var mediaItem discordgo.MediaGalleryItem
+				mediaItem.Media.URL = "attachment://cs_estimate.png"
+				edited = []discordgo.MessageComponent{
+					discordgo.TextDisplay{Content: str},
+					discordgo.TextDisplay{Content: title},
+					&discordgo.MediaGallery{Items: []discordgo.MediaGalleryItem{mediaItem}},
+				}
+			}
 		}
+
+		if len(edited) == 0 {
+			tableFinal := RenderScoreTableANSI(rowsCopy, srmode, anyDiffs)
+			edited = []discordgo.MessageComponent{
+				discordgo.TextDisplay{Content: str},
+				discordgo.TextDisplay{Content: title},
+				discordgo.TextDisplay{Content: tableFinal},
+			}
+		}
+
 		if haveActionRow {
 			edited = append(edited, actionRow)
 		}
 
 		_, editErr := s.FollowupMessageEdit(interaction, msgID, &discordgo.WebhookEdit{
 			Components: &edited,
+			Files:      editFiles,
 			Flags:      flags,
 		})
 		if editErr != nil {
@@ -847,4 +915,68 @@ func formatTmWk(f float64) string {
 		return s
 	}
 	return fmt.Sprintf("%.2f", f)
+}
+
+// RenderScoreTableImage renders the score table as a PNG image using RenderTableImage.
+func RenderScoreTableImage(rows []srRow, srmode bool, includeDiff bool) ([]byte, error) {
+	peaks := computePeaks(rows)
+	cols := []TableImageColumn{
+		{Label: "Name", Align: bottools.StringAlignLeft},
+		{Label: "CXP", Align: bottools.StringAlignRight},
+	}
+	if srmode {
+		cols = append(cols,
+			TableImageColumn{Label: "Contr", Align: bottools.StringAlignRight},
+			TableImageColumn{Label: "TmWk", Align: bottools.StringAlignRight},
+			TableImageColumn{Label: "BTV", Align: bottools.StringAlignRight},
+		)
+	}
+	if includeDiff {
+		cols = append(cols, TableImageColumn{Label: "Diff", Align: bottools.StringAlignRight})
+	}
+
+	var tableRows []TableImageRow
+	for _, r := range rows {
+		cxpColor := ""
+		if r.cxp == peaks.cxp {
+			cxpColor = "blue"
+		}
+		cells := []TableImageCell{
+			{Text: ei.NormalizePlayerNameForDisplay(r.name), Color: ""},
+			{Text: fmt.Sprintf("%d", r.cxp), Color: cxpColor},
+		}
+		if srmode {
+			contrColor := ""
+			if approxEqual(r.contrRatio, peaks.contrRatio) {
+				contrColor = "blue"
+			}
+			tmwkColor := ""
+			if approxEqual(r.teamwork, peaks.teamwork) {
+				tmwkColor = "blue"
+			}
+			btvColor := ""
+			if r.btv == peaks.btv {
+				btvColor = "blue"
+			}
+			cells = append(cells,
+				TableImageCell{Text: fmt.Sprintf("%.3f", r.contrRatio), Color: contrColor},
+				TableImageCell{Text: formatTmWk(r.teamwork), Color: tmwkColor},
+				TableImageCell{Text: fmt.Sprintf("%d", r.btv), Color: btvColor},
+			)
+		}
+		if includeDiff {
+			diffColor := ""
+			if r.diffOK {
+				if r.diffVal > 0 {
+					diffColor = "green"
+				} else if r.diffVal < 0 {
+					diffColor = "red"
+				}
+			}
+			cells = append(cells, TableImageCell{Text: r.diffStr, Color: diffColor})
+		}
+		tableRows = append(tableRows, TableImageRow{Cells: cells})
+	}
+
+	return RenderTableImage(cols, tableRows)
 }
