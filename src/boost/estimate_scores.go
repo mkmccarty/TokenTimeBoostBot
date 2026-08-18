@@ -927,7 +927,7 @@ func RenderScoreTableImage(rows []srRow, srmode bool, includeDiff bool) ([]byte,
 	if srmode {
 		cols = append(cols,
 			TableImageColumn{Label: "Contr", Align: bottools.StringAlignRight},
-			TableImageColumn{Label: "TmWk", Align: bottools.StringAlignRight},
+			TableImageColumn{Label: "TW", Align: bottools.StringAlignRight},
 			TableImageColumn{Label: "BTV", Align: bottools.StringAlignRight},
 		)
 	}
