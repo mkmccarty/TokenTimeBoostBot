@@ -228,7 +228,7 @@ func ensurePotatoTeamRoleForUser(s *discordgo.Session, contract *Contract, userI
 
 		if updatedRole != nil {
 			contract.mutex.Lock()
-			loc.GuildContractRole = *updatedRole
+			loc.GuildContractRole = guildRoleFromDiscord(updatedRole)
 			loc.RoleManagedByBot = true
 			loc.RoleMention = loc.GuildContractRole.Mention()
 			contract.mutex.Unlock()
@@ -419,7 +419,7 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 	for _, loc := range contract.Location {
 		if loc.GuildID == guildID {
 
-			loc.GuildContractRole = *role
+			loc.GuildContractRole = guildRoleFromDiscord(role)
 			loc.RoleManagedByBot = true
 			return nil
 		}

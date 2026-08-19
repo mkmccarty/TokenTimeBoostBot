@@ -685,7 +685,7 @@ func AdminContractReport(s *discordgo.Session, i *discordgo.InteractionCreate, c
 		GuildName:         "Unknown",
 		GuildID:           "Unknown",
 		ChannelID:         "Unknown",
-		GuildContractRole: discordgo.Role{Name: "Unknown"},
+		GuildContractRole: GuildRole{Name: "Unknown"},
 	}
 	var boosterSnapshots []reportBoosterSnapshot
 
