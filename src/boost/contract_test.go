@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -471,3 +472,41 @@ func TestRenderContractReportImage(t *testing.T) {
 		}
 	})
 }
+
+func TestProgenitorsCreatorNotProgenitor(t *testing.T) {
+	s, err := createMockSession()
+	if err != nil {
+		t.Fatalf("Failed to create mock session: %v", err)
+	}
+
+	contractID := "progenitor-test-contract"
+	guildID := "guild-123"
+	creatorUserID := "coordinator-user"
+	progenitorID1 := "progenitor-1"
+	progenitorID2 := "progenitor-2"
+	progenitors := []string{progenitorID1, progenitorID2}
+
+	contract, err := CreateContract(s, contractID, "coop-prog-test", ContractPlaystyleChill, 10, -1, guildID, "channel-prog-1", progenitors, creatorUserID, time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("Failed to create contract: %v", err)
+	}
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	// Creator (who is not in progenitors) should be in CreatorID (coordinator list)
+	if !slices.Contains(contract.CreatorID, creatorUserID) {
+		t.Errorf("Expected creatorUserID %s to be in contract.CreatorID, got %v", creatorUserID, contract.CreatorID)
+	}
+	// The first progenitor should also be in CreatorID
+	if !slices.Contains(contract.CreatorID, progenitorID1) {
+		t.Errorf("Expected first progenitor %s to be in contract.CreatorID, got %v", progenitorID1, contract.CreatorID)
+	}
+	// Creator should NOT be in progenitors/order list
+	if slices.Contains(contract.Order, creatorUserID) {
+		t.Errorf("Expected creatorUserID %s NOT to be in contract.Order, got %v", creatorUserID, contract.Order)
+	}
+}
+
