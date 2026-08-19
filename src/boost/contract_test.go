@@ -509,4 +509,3 @@ func TestProgenitorsCreatorNotProgenitor(t *testing.T) {
 		t.Errorf("Expected creatorUserID %s NOT to be in contract.Order, got %v", creatorUserID, contract.Order)
 	}
 }
-
