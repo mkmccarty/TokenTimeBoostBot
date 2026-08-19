@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -227,13 +228,41 @@ type Booster struct {
 	Availability           ContractAvailability // Availability for contracts
 }
 
+// GuildRole identifies the Discord role used for contract pings.
+//
+// Only the ID and Name of a role are ever needed, so this holds those directly
+// rather than embedding a library type. LocationData is persisted as JSON inside
+// the Contract blob, and keeping a local type here means the stored shape does not
+// change when the Discord library is updated or replaced.
+//
+// The `id` and `name` JSON tags match the ones the library uses, so contracts
+// written before this type existed still unmarshal without a data migration.
+type GuildRole struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// Mention returns the Discord mention string for the role.
+func (r GuildRole) Mention() string {
+	return fmt.Sprintf("<@&%s>", r.ID)
+}
+
+// guildRoleFromDiscord converts a role returned by the Discord API into the
+// stored representation. A nil role yields the zero value.
+func guildRoleFromDiscord(role *discordgo.Role) GuildRole {
+	if role == nil {
+		return GuildRole{}
+	}
+	return GuildRole{ID: role.ID, Name: role.Name}
+}
+
 // LocationData holds server specific Data for a contract
 type LocationData struct {
 	GuildID           string
 	GuildName         string
 	ChannelID         string // Contract Discord ThreadID
 	ChannelMention    string // Mention string for the thread
-	GuildContractRole discordgo.Role
+	GuildContractRole GuildRole
 	RoleManagedByBot  bool // True when the contract role name/role is created or managed by the bot
 	RoleMention       string
 	ListMsgID         string   // Message ID for the Last Boost Order message
