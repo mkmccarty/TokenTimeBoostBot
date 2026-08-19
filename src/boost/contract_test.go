@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -401,85 +402,110 @@ func TestMultipleTBDContracts(t *testing.T) {
 	}
 }
 
-func TestMakeShortNameMap(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    []string
-		expected map[string]string
-	}{
-		{
-			name:  "No common prefixes",
-			input: []string{"Alice", "Bob", "Charlie"},
-			expected: map[string]string{
-				"Alice":   "Alice",
-				"Bob":     "Bob",
-				"Charlie": "Charlie",
+func TestRenderContractReportImage(t *testing.T) {
+	p := contractReportParameters{
+		contractID:  "test-contract",
+		coopID:      "test-coop",
+		thresholds:  thresholds{buffTimeValue: 100, chickenRuns: 10, teamwork: 25},
+		metricPeaks: metricPeaks{cxp: 1000, teamwork: 30, contributionRatio: 5.0, buffTimeValue: 150},
+		playerEvalsMetrics: []evalMetrics{
+			{
+				player:            "VeryLongPlayerNameForTesting",
+				cxp:               1000,
+				contributionRatio: 5.0,
+				teamwork:          30,
+				chickenRunsSent:   10,
+				buffTimeValue:     150,
 			},
-		},
-		{
-			name:  "Common prefix of length < 3",
-			input: []string{"Al", "An", "Bob"},
-			expected: map[string]string{
-				"Al":  "Al",
-				"An":  "An",
-				"Bob": "Bob",
+			{
+				player:            "ShortName",
+				cxp:               800,
+				contributionRatio: 3.5,
+				teamwork:          20,
+				chickenRunsSent:   5,
+				buffTimeValue:     90,
 			},
-		},
-		{
-			name:  "Common prefix of length >= 3",
-			input: []string{"EggscapeABC", "EggscapeDEF", "EggscapeGHI", "OtherPlayer"},
-			expected: map[string]string{
-				"EggscapeABC": "ABC",
-				"EggscapeDEF": "DEF",
-				"EggscapeGHI": "GHI",
-				"OtherPlayer": "OtherPlayer",
+			{
+				player:            "EmojiFarmer🔥Δ",
+				cxp:               950,
+				contributionRatio: 4.2,
+				teamwork:          28,
+				chickenRunsSent:   8,
+				buffTimeValue:     120,
 			},
-		},
-		{
-			name:  "Multiple different common prefixes",
-			input: []string{"EggscapeABC", "EggscapeDEF", "Cluck123", "Cluck456", "Solo"},
-			expected: map[string]string{
-				"EggscapeABC": "ABC",
-				"EggscapeDEF": "DEF",
-				"Cluck123":    "123",
-				"Cluck456":    "456",
-				"Solo":        "Solo",
+			{
+				player:            "\ue40dPUAFarmer",
+				cxp:               910,
+				contributionRatio: 4.0,
+				teamwork:          26,
+				chickenRunsSent:   7,
+				buffTimeValue:     110,
 			},
-		},
-		{
-			name:  "One name is exactly the prefix of another",
-			input: []string{"Eggscape", "EggscapeABC"},
-			expected: map[string]string{
-				"Eggscape":    "Eggscape",
-				"EggscapeABC": "ABC",
-			},
-		},
-		{
-			name:  "Coincidental overlap of sub-prefix should not strip part of unique name",
-			input: []string{"EscapeCat", "Escaperaftsman", "EscapeJames", "EscapeChicken"},
-			expected: map[string]string{
-				"EscapeCat":      "Cat",
-				"Escaperaftsman": "raftsman",
-				"EscapeJames":    "James",
-				"EscapeChicken":  "Chicken",
+			{
+				player:            "👽Chipmunk",
+				cxp:               77654,
+				contributionRatio: 0.949,
+				teamwork:          0.658,
+				chickenRunsSent:   4,
+				buffTimeValue:     55794,
 			},
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := makeShortNameMap(tc.input)
-			if tc.expected == nil && got == nil {
-				return
-			}
-			if len(got) != len(tc.expected) {
-				t.Fatalf("expected map length %d, got %d", len(tc.expected), len(got))
-			}
-			for k, v := range tc.expected {
-				if got[k] != v {
-					t.Errorf("for key %q: expected %q, got %q", k, v, got[k])
-				}
-			}
-		})
+	t.Run("Default", func(t *testing.T) {
+		imgBytes, err := renderContractReportImage(&p, false)
+		if err != nil {
+			t.Fatalf("renderContractReportImage failed: %v", err)
+		}
+		if len(imgBytes) == 0 {
+			t.Fatal("expected non-empty PNG image bytes")
+		}
+	})
+
+	t.Run("Show token details", func(t *testing.T) {
+		imgBytes, err := renderContractReportImage(&p, true)
+		if err != nil {
+			t.Fatalf("renderContractReportImage failed: %v", err)
+		}
+		if len(imgBytes) == 0 {
+			t.Fatal("expected non-empty PNG image bytes")
+		}
+	})
+}
+
+func TestProgenitorsCreatorNotProgenitor(t *testing.T) {
+	s, err := createMockSession()
+	if err != nil {
+		t.Fatalf("Failed to create mock session: %v", err)
+	}
+
+	contractID := "progenitor-test-contract"
+	guildID := "guild-123"
+	creatorUserID := "coordinator-user"
+	progenitorID1 := "progenitor-1"
+	progenitorID2 := "progenitor-2"
+	progenitors := []string{progenitorID1, progenitorID2}
+
+	contract, err := CreateContract(s, contractID, "coop-prog-test", ContractPlaystyleChill, 10, -1, guildID, "channel-prog-1", progenitors, creatorUserID, time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("Failed to create contract: %v", err)
+	}
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	// Creator (who is not in progenitors) should be in CreatorID (coordinator list)
+	if !slices.Contains(contract.CreatorID, creatorUserID) {
+		t.Errorf("Expected creatorUserID %s to be in contract.CreatorID, got %v", creatorUserID, contract.CreatorID)
+	}
+	// The first progenitor should also be in CreatorID
+	if !slices.Contains(contract.CreatorID, progenitorID1) {
+		t.Errorf("Expected first progenitor %s to be in contract.CreatorID, got %v", progenitorID1, contract.CreatorID)
+	}
+	// Creator should NOT be in progenitors/order list
+	if slices.Contains(contract.Order, creatorUserID) {
+		t.Errorf("Expected creatorUserID %s NOT to be in contract.Order, got %v", creatorUserID, contract.Order)
 	}
 }

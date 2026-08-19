@@ -26,7 +26,7 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-func loadFontFile(name string, size, dpi float64) (font.Face, error) {
+func LoadFontFile(name string, size, dpi float64) (font.Face, error) {
 	data, err := os.ReadFile(name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read font file: %w", err)
@@ -272,7 +272,7 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 	fontSize := 64.0
 	dpi := 72.0
 
-	face, err := loadFontFile(fontFile, fontSize, dpi)
+	face, err := LoadFontFile(fontFile, fontSize, dpi)
 	if err != nil {
 		log.Printf("Error loading font: %v", err)
 		return
@@ -342,7 +342,7 @@ func GenerateBanner(ID string, eggName string, text string, creatorID string, gu
 		if textWidth > maxWidth {
 			scaleFactor := float64(maxWidth) / float64(textWidth)
 			adjustedFontSize := fontSize * scaleFactor
-			adjFace, err := loadFontFile(fontFile, adjustedFontSize, dpi)
+			adjFace, err := LoadFontFile(fontFile, adjustedFontSize, dpi)
 			if err == nil {
 				adjustedFace = adjFace
 			}

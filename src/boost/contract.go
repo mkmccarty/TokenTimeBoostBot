@@ -292,12 +292,16 @@ func HandleContractCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 
 	contractInfo := ei.EggIncContractsAll[contractID]
-	if contractInfo.ID != "" {
+	maxSize := contractInfo.MaxCoopSize
+	if maxSize == 0 {
+		maxSize = coopSize
+	}
+	if maxSize > 0 {
 		// Trim the progenitor list to the max coop size
-		if len(progenitors) > contractInfo.MaxCoopSize {
-			progenitors = progenitors[:contractInfo.MaxCoopSize]
+		if len(progenitors) > maxSize {
+			progenitors = progenitors[:maxSize]
 		}
-		if !slices.Contains(progenitors, getInteractionUserID(i)) && len(progenitors) < contractInfo.MaxCoopSize {
+		if !slices.Contains(progenitors, getInteractionUserID(i)) && len(progenitors) < maxSize {
 			progenitors = append([]string{getInteractionUserID(i)}, progenitors...)
 		}
 	}

@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"bytes"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -161,8 +162,8 @@ func GetSlashContractReportCommand(cmd string) *discordgo.ApplicationCommand {
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "trim-prefixes",
-				Description: "Trim non-unique prefixes from player names. Default is false.",
+				Name:        "as-image",
+				Description: "Render table as an image instead of text. Default is false (sticky).",
 				Required:    false,
 			},
 		},
@@ -221,90 +222,171 @@ func processContributors(
 	if n == 0 {
 		return make(map[string][]*ei.LocalContract), nil, nil
 	}
+	var resolvedList []resolvedContributor
+	var missing []string
 
-	maxParallelJobs := max(min(n, maxParallel), 1)
+	// Phase 1: Resolve all contributors and decrypt EIDs
+	for _, c := range contribs {
+		name := c.GetUserName()
+		discordID, _ := farmerstate.GetDiscordUserIDFromEiIgnExact(name)
+		if discordID == "" || discordID == callerUserID {
+			if discordID == "" {
+				missing = append(missing, name)
+			}
+			continue
+		}
 
-	namesCh := make(chan string, n)
-	var wg sync.WaitGroup
+		eiCipherB64 := farmerstate.GetMiscSettingString(discordID, "encrypted_ei_id")
+		if eiCipherB64 == "" {
+			missing = append(missing, name)
+			continue
+		}
+		cipherBytes, err := base64.StdEncoding.DecodeString(eiCipherB64)
+		if err != nil {
+			missing = append(missing, name)
+			continue
+		}
+		plain, err := config.DecryptCombined(encKey, cipherBytes)
+		if err != nil {
+			missing = append(missing, name)
+			continue
+		}
+		eiID := string(plain)
+		if len(eiID) != 18 || !strings.HasPrefix(eiID, "EI") {
+			missing = append(missing, name)
+			continue
+		}
 
-	evalsByName := make(map[string][]*ei.LocalContract, n)
-	var (
-		muEval  sync.Mutex
-		muMiss  sync.Mutex
-		missing = make([]string, 0, n)
-	)
+		resolvedList = append(resolvedList, resolvedContributor{
+			name:      name,
+			discordID: discordID,
+			eiID:      eiID,
+		})
+	}
 
-	worker := func() {
-		defer wg.Done()
-		for name := range namesCh {
-			discordID, _ := farmerstate.GetDiscordUserIDFromEiIgn(name)
-			if discordID == "" || discordID == callerUserID {
-				if discordID == "" {
-					muMiss.Lock()
-					missing = append(missing, name)
-					muMiss.Unlock()
+	// Phase 2: Group by EID and detect duplicates
+	getStoredIgn := func(discordID string) string {
+		return farmerstate.GetMiscSettingString(discordID, "ei_ign")
+	}
+	finalResolvedList, dupMissing := deduplicateContributors(resolvedList, getStoredIgn)
+	missing = append(missing, dupMissing...)
+
+	// Phase 3: Fetch contract archives in parallel for finalResolvedList
+	evalsByName := make(map[string][]*ei.LocalContract)
+	var muEval sync.Mutex
+
+	if len(finalResolvedList) > 0 {
+		maxParallelJobs := max(min(len(finalResolvedList), maxParallel), 1)
+		jobsCh := make(chan resolvedContributor, len(finalResolvedList))
+		var wg sync.WaitGroup
+
+		worker := func() {
+			defer wg.Done()
+			for r := range jobsCh {
+				// cache IGN if missing
+				if ign := farmerstate.GetMiscSettingString(r.discordID, "ei_ign"); ign == "" {
+					if backup, _ := ei.GetFirstContactFromAPI(s, r.eiID, r.discordID, okayToSave); backup != nil {
+						farmerstate.SetMiscSettingString(r.discordID, "ei_ign", backup.GetUserName())
+					}
 				}
-				continue
-			}
 
-			eiCipherB64 := farmerstate.GetMiscSettingString(discordID, "encrypted_ei_id")
-			if eiCipherB64 == "" {
-				muMiss.Lock()
-				missing = append(missing, name)
-				muMiss.Unlock()
-				continue
-			}
-			cipherBytes, err := base64.StdEncoding.DecodeString(eiCipherB64)
-			if err != nil {
-				muMiss.Lock()
-				missing = append(missing, name)
-				muMiss.Unlock()
-				continue
-			}
-			plain, err := config.DecryptCombined(encKey, cipherBytes)
-			if err != nil {
-				muMiss.Lock()
-				missing = append(missing, name)
-				muMiss.Unlock()
-				continue
-			}
-			eiID := string(plain)
-			if len(eiID) != 18 || !strings.HasPrefix(eiID, "EI") {
-				muMiss.Lock()
-				missing = append(missing, name)
-				muMiss.Unlock()
-				continue
-			}
+				archive, _ := ei.GetContractArchiveFromAPI(s, r.eiID, r.discordID, forceRefresh, okayToSave)
 
-			// cache IGN if missing
-			if ign := farmerstate.GetMiscSettingString(discordID, "ei_ign"); ign == "" {
-				if backup, _ := ei.GetFirstContactFromAPI(s, eiID, discordID, okayToSave); backup != nil {
-					farmerstate.SetMiscSettingString(discordID, "ei_ign", backup.GetUserName())
+				muEval.Lock()
+				evalsByName[r.name] = archive
+				muEval.Unlock()
+			}
+		}
+
+		wg.Add(maxParallelJobs)
+		for i := 0; i < maxParallelJobs; i++ {
+			go worker()
+		}
+
+		for _, r := range finalResolvedList {
+			jobsCh <- r
+		}
+		close(jobsCh)
+		wg.Wait()
+	}
+
+	return evalsByName, missing, nil
+}
+
+type resolvedContributor struct {
+	name      string
+	discordID string
+	eiID      string
+}
+
+func deduplicateContributors(
+	resolvedList []resolvedContributor,
+	getStoredIgn func(discordID string) string,
+) ([]resolvedContributor, []string) {
+	var finalResolvedList []resolvedContributor
+	var missing []string
+
+	// Group by EID
+	eidGroups := make(map[string][]resolvedContributor)
+	for _, r := range resolvedList {
+		eidGroups[r.eiID] = append(eidGroups[r.eiID], r)
+	}
+
+	for _, group := range eidGroups {
+		if len(group) == 1 {
+			finalResolvedList = append(finalResolvedList, group[0])
+		} else {
+			// Duplicate EID detected!
+			// Check matching name for each member in the group
+			var matched []resolvedContributor
+			for _, r := range group {
+				ign := getStoredIgn(r.discordID)
+				if strings.EqualFold(r.name, ign) {
+					matched = append(matched, r)
 				}
 			}
 
-			archive, _ := ei.GetContractArchiveFromAPI(s, eiID, discordID, forceRefresh, okayToSave)
-
-			// record archive by contributor name
-			muEval.Lock()
-			evalsByName[name] = archive
-			muEval.Unlock()
-
+			// If we have matches, let's filter further if there are multiple matches
+			if len(matched) == 1 {
+				finalResolvedList = append(finalResolvedList, matched[0])
+				// The other ones in this group are considered missing
+				for _, r := range group {
+					if r.name != matched[0].name {
+						missing = append(missing, r.name)
+					}
+				}
+			} else if len(matched) > 1 {
+				// Break ties using exact case-sensitive match if possible
+				var exactCaseMatched []resolvedContributor
+				for _, r := range matched {
+					ign := getStoredIgn(r.discordID)
+					if r.name == ign {
+						exactCaseMatched = append(exactCaseMatched, r)
+					}
+				}
+				if len(exactCaseMatched) == 1 {
+					finalResolvedList = append(finalResolvedList, exactCaseMatched[0])
+					for _, r := range group {
+						if r.name != exactCaseMatched[0].name {
+							missing = append(missing, r.name)
+						}
+					}
+				} else {
+					// Still tied or no exact match, discard all to be safe and avoid wrong assignments.
+					for _, r := range group {
+						missing = append(missing, r.name)
+					}
+				}
+			} else {
+				// No candidate matches, all are missing
+				for _, r := range group {
+					missing = append(missing, r.name)
+				}
+			}
 		}
 	}
 
-	wg.Add(maxParallelJobs)
-	for range maxParallelJobs {
-		go worker()
-	}
-	// enqueue contributors
-	for _, c := range contribs {
-		namesCh <- c.GetUserName()
-	}
-	close(namesCh)
-	wg.Wait()
-
-	return evalsByName, missing, nil
+	return finalResolvedList, missing
 }
 
 // ContractReport generates a contract report for player's contract with the given contract ID
@@ -345,9 +427,11 @@ func ContractReport(
 	if opt, ok := optionMap["missing-players"]; ok {
 		showMissingPlayers = opt.BoolValue()
 	}
-	trimPrefixes := false
-	if opt, ok := optionMap["trim-prefixes"]; ok {
-		trimPrefixes = opt.BoolValue()
+	userID := bottools.GetInteractionUserID(i)
+	imageTable := farmerstate.GetMiscSettingFlag(userID, "as-image")
+	if opt, ok := optionMap["as-image"]; ok {
+		imageTable = opt.BoolValue()
+		farmerstate.SetMiscSettingFlag(userID, "as-image", imageTable)
 	}
 
 	// resolve contractID, prefer the slash option.
@@ -523,8 +607,8 @@ func ContractReport(
 	p.missingPlayers = missing
 	p.playerEvalsMetrics, p.metricPeaks = buildAndSortEvals(callerFarmerName, callerEval, evByName)
 
-	// render components
-	components := printContractReport(&p, showTokenDetails, showMissingPlayers, trimPrefixes)
+	// render components and image table
+	components, files := printContractReport(&p, imageTable, showTokenDetails, showMissingPlayers)
 	if len(components) == 0 {
 		components = []discordgo.MessageComponent{
 			&discordgo.TextDisplay{Content: "No archived contracts found in Egg Inc API response"},
@@ -533,6 +617,7 @@ func ContractReport(
 	if _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Flags:      flags,
 		Components: components,
+		Files:      files,
 	}); err != nil {
 		return fmt.Errorf("%w: %v", ErrReportSendFailed, err)
 	}
@@ -540,25 +625,14 @@ func ContractReport(
 	return nil
 }
 
-// printContractReport returns two components:
-//  1. markdown header with thresholds
-//  2. the ANSI table with colors
-func printContractReport(p *contractReportParameters, showTokenDetails, showMissingPlayers, trimPrefixes bool) []discordgo.MessageComponent {
+// printContractReport returns:
+//  1. markdown header with thresholds (and missing players note)
+//  2. rendered table image attachment
+func printContractReport(p *contractReportParameters, imageTable, showTokenDetails, showMissingPlayers bool) ([]discordgo.MessageComponent, []*discordgo.File) {
 	var components []discordgo.MessageComponent
+	var files []*discordgo.File
 
 	currentContract := p.contract
-
-	var shortMap map[string]string
-	if trimPrefixes {
-		displayNames := make([]string, 0, len(p.playerEvalsMetrics)+len(p.missingPlayers))
-		for _, e := range p.playerEvalsMetrics {
-			displayNames = append(displayNames, e.player)
-		}
-		for _, s := range p.missingPlayers {
-			displayNames = append(displayNames, ei.NormalizePlayerNameForDisplay(s))
-		}
-		shortMap = makeShortNameMap(displayNames)
-	}
 
 	// --- Header (markdown) ---
 	var h strings.Builder
@@ -600,39 +674,44 @@ func printContractReport(p *contractReportParameters, showTokenDetails, showMiss
 	}
 	components = append(components, &discordgo.TextDisplay{Content: h.String()})
 
-	// --- ANSI Table ---
-	if len(p.playerEvalsMetrics) > 0 {
+	// --- Render Table (Image or ANSI text) ---
+	if imageTable {
+		if len(p.playerEvalsMetrics) > 0 {
+			imgBytes, err := renderContractReportImage(p, showTokenDetails)
+			if err != nil {
+				log.Printf("Error rendering contract report image: %v", err)
+			} else if len(imgBytes) > 0 {
+				files = append(files, &discordgo.File{
+					Name:        "contract_report.png",
+					ContentType: "image/png",
+					Reader:      bytes.NewReader(imgBytes),
+				})
+				var mediaItem discordgo.MediaGalleryItem
+				mediaItem.Media.URL = "attachment://contract_report.png"
+				components = append(components, &discordgo.MediaGallery{
+					Items: []discordgo.MediaGalleryItem{
+						mediaItem,
+					},
+				})
+			}
+		}
+	} else if len(p.playerEvalsMetrics) > 0 {
 		var b strings.Builder
 		b.WriteString("```ansi\n")
-
 		header := evalMetricsHeader(showTokenDetails)
 		b.WriteString(header)
 		b.WriteByte('\n')
-
-		// em-dash rule between header and rows
 		b.WriteString(strings.Repeat("—", bottools.VisibleLenANSI(header)))
 		b.WriteByte('\n')
-
 		for _, e := range p.playerEvalsMetrics {
-			rowMetrics := e
-			if trimPrefixes {
-				if short, ok := shortMap[e.player]; ok {
-					rowMetrics.player = short
-				}
-			}
-			b.WriteString(formatEvalMetricsRowANSI(
-				rowMetrics,       // pass the whole evalMetrics struct
-				p.thresholds,     // thresholds
-				p.metricPeaks,    // peak metrics
-				showTokenDetails, // whether to include +TS, ΔTVal, -TS
-			))
+			rowStr := formatEvalMetricsRowANSI(e, p.thresholds, p.metricPeaks, showTokenDetails)
+			b.WriteString(rowStr)
 			b.WriteByte('\n')
 		}
-
 		b.WriteString("```")
-
 		components = append(components, &discordgo.TextDisplay{Content: b.String()})
 	}
+
 	if len(p.missingPlayers) > 0 {
 		var b strings.Builder
 		// message about registration
@@ -649,28 +728,21 @@ func printContractReport(p *contractReportParameters, showTokenDetails, showMiss
 			})
 
 			// build missing players list, account for `-` in names (thx -wittysquid-)
-
 			for i, s := range names {
 				if i > 0 {
 					b.WriteString(", ")
 				}
 				b.WriteByte('`')
 				displayName := ei.NormalizePlayerNameForDisplay(s)
-				if trimPrefixes {
-					if short, ok := shortMap[displayName]; ok {
-						displayName = short
-					}
-				}
 				b.WriteString(strings.ReplaceAll(displayName, "-", "\u2011"))
 				b.WriteByte('`')
 			}
-
 		}
 		components = append(components, &discordgo.TextDisplay{
 			Content: registerMessage + b.String(),
 		})
 	}
-	return components
+	return components, files
 }
 
 // ===== header & row formatting =====
@@ -842,6 +914,86 @@ func peakColor(v, peak float64, baseColor string, exact bool) string {
 	return baseColor
 }
 
+// renderContractReportImage renders the contract report table as a PNG image using the game font.
+func renderContractReportImage(p *contractReportParameters, showTokenDetails bool) ([]byte, error) {
+	cols := []TableImageColumn{
+		{Label: "Player", Align: bottools.StringAlignLeft},
+		{Label: "Cxp", Align: bottools.StringAlignRight},
+		{Label: "Contr", Align: bottools.StringAlignRight},
+		{Label: "TW", Align: bottools.StringAlignRight},
+		{Label: "CR", Align: bottools.StringAlignRight},
+		{Label: "BTV", Align: bottools.StringAlignCenter},
+	}
+	if showTokenDetails {
+		cols = append(cols,
+			TableImageColumn{Label: "+TS", Align: bottools.StringAlignRight},
+			TableImageColumn{Label: "ΔTVal", Align: bottools.StringAlignRight},
+			TableImageColumn{Label: "-TS", Align: bottools.StringAlignRight},
+		)
+	}
+
+	formatFloat := func(f float64, prec int, trimLeadingZero bool) string {
+		s := fmt.Sprintf("%.*f", prec, f)
+		if trimLeadingZero {
+			if f >= 0 && strings.HasPrefix(s, "0") {
+				return s[1:]
+			}
+			if f < 0 && strings.HasPrefix(s, "-0") {
+				return "-" + s[2:]
+			}
+		} else if f < 0 {
+			s = fmt.Sprintf("%.*f", prec-1, f)
+		}
+		return s
+	}
+
+	var tableRows []TableImageRow
+	for _, e := range p.playerEvalsMetrics {
+		cxpBase := ""
+		teamBase := colorIfGE(e.teamwork, p.thresholds.teamwork, "green")
+		contrBase := ""
+		crBase := colorIfGE(int(e.chickenRunsSent), p.thresholds.chickenRuns, "green")
+		btvBase := colorIfGE(e.buffTimeValue, p.thresholds.buffTimeValue, "green")
+
+		cxpColor := peakColor(e.cxp, p.metricPeaks.cxp, cxpBase, true)
+		teamColor := peakColor(e.teamwork, p.metricPeaks.teamwork, teamBase, false)
+		contrColor := peakColor(e.contributionRatio, p.metricPeaks.contributionRatio, contrBase, true)
+		btvColor := peakColor(e.buffTimeValue, p.metricPeaks.buffTimeValue, btvBase, true)
+
+		btvStr := fmt.Sprintf("%.0f", e.buffTimeValue)
+
+		cells := []TableImageCell{
+			{Text: ei.NormalizePlayerNameForDisplay(e.player), Color: ""},
+			{Text: fmt.Sprintf("%d", int(e.cxp)), Color: cxpColor},
+			{Text: fmt.Sprintf("%.3f", e.contributionRatio), Color: contrColor},
+			{Text: formatFloat(e.teamwork, 3, true), Color: teamColor},
+			{Text: fmt.Sprintf("%d", e.chickenRunsSent), Color: crBase},
+			{Text: btvStr, Color: btvColor},
+		}
+
+		if showTokenDetails {
+			plusTSBase := ""
+			if e.plusTS != 0 {
+				plusTSBase = "green"
+			}
+			minusTSBase := ""
+			if e.minusTS != 0 {
+				minusTSBase = "red"
+			}
+			dtColor := dtvalColor(e.deltaTVal, 3.0)
+
+			cells = append(cells,
+				TableImageCell{Text: fmt.Sprintf("%d", e.plusTS), Color: plusTSBase},
+				TableImageCell{Text: formatFloat(e.deltaTVal, 3, false), Color: dtColor},
+				TableImageCell{Text: fmt.Sprintf("%d", e.minusTS), Color: minusTSBase},
+			)
+		}
+		tableRows = append(tableRows, TableImageRow{Cells: cells})
+	}
+
+	return RenderTableImage(cols, tableRows)
+}
+
 // ===== data & selection =====
 
 func deriveThresholds(p *contractReportParameters) thresholds {
@@ -983,57 +1135,6 @@ func buildAndSortEvals(
 	}
 
 	return out, peaks
-}
-
-// makeShortNameMap simplifies names that share a common prefix of length >= 3 to display their unique parts.
-func makeShortNameMap(names []string) map[string]string {
-	if len(names) <= 1 {
-		return nil
-	}
-
-	// Count occurrences of each prefix of length >= 3
-	prefixCounts := make(map[string]int)
-	for _, name := range names {
-		runes := []rune(name)
-		for l := 3; l <= len(runes); l++ {
-			prefix := strings.ToLower(string(runes[:l]))
-			prefixCounts[prefix]++
-		}
-	}
-
-	shortNames := make(map[string]string)
-	for _, name := range names {
-		runes := []rune(name)
-		bestPrefix := ""
-		maxCount := 0
-
-		// Find the prefix of this name that:
-		// 1. Is shared by at least 2 names (count >= 2)
-		// 2. Has the maximum count among all prefixes of this name
-		// 3. Among those with max count, is the longest
-		for l := 3; l <= len(runes); l++ {
-			prefixStr := string(runes[:l])
-			prefixLower := strings.ToLower(prefixStr)
-			count := prefixCounts[prefixLower]
-			if count >= 2 {
-				if count > maxCount {
-					maxCount = count
-					bestPrefix = prefixStr
-				} else if count == maxCount {
-					if len(prefixStr) > len(bestPrefix) {
-						bestPrefix = prefixStr
-					}
-				}
-			}
-		}
-
-		if bestPrefix != "" && len(name) > len(bestPrefix) {
-			shortNames[name] = name[len(bestPrefix):]
-		} else {
-			shortNames[name] = name
-		}
-	}
-	return shortNames
 }
 
 /*
