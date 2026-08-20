@@ -1755,6 +1755,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 					DeliveryTarget: deliveryTarget,
 					GenerousGifts:  generousGifts,
 					GGMultiplier:   ggMultiplier,
+					MinutesPerToken: contract.MinutesPerToken,
 				})
 			}
 		}
