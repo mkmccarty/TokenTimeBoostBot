@@ -192,16 +192,16 @@ func PublishAMQPBoostStatus(guildID string, url string, contractID string, coopI
 
 // AMQPContractStartMessage represents details of a contract when started.
 type AMQPContractStartMessage struct {
-	Event          string    `json:"event"`
-	ContractID     string    `json:"contract_id"`
-	CoopID         string    `json:"coop_id"`
-	ChannelID      string    `json:"channel_id"`
-	StartTime      time.Time `json:"start_time"`
-	CoopSize       int       `json:"coop_size"`
-	DeliveryTarget float64   `json:"delivery_target"`
-	GenerousGifts  string    `json:"generous_gifts"`
-	GGMultiplier   float64   `json:"gg_multiplier,omitempty"`
-	MinutesPerToken int      `json:"minutes_per_token"`
+	Event           string    `json:"event"`
+	ContractID      string    `json:"contract_id"`
+	CoopID          string    `json:"coop_id"`
+	ChannelID       string    `json:"channel_id"`
+	StartTime       time.Time `json:"start_time"`
+	CoopSize        int       `json:"coop_size"`
+	DeliveryTarget  float64   `json:"delivery_target"`
+	GenerousGifts   string    `json:"generous_gifts"`
+	GGMultiplier    float64   `json:"gg_multiplier,omitempty"`
+	MinutesPerToken int       `json:"minutes_per_token"`
 }
 
 // PublishAMQPContractStart publishes a contract start event to the guild's AMQP queue.

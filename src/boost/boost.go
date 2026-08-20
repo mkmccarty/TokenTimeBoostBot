@@ -1746,15 +1746,15 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 				}
 
 				PublishAMQPContractStart(guildID, amqpURL, AMQPContractStartMessage{
-					Event:          "contract_start",
-					ContractID:     contract.ContractID,
-					CoopID:         contract.CoopID,
-					ChannelID:      contract.Location[0].ChannelID,
-					StartTime:      contract.StartTime,
-					CoopSize:       contract.CoopSize,
-					DeliveryTarget: deliveryTarget,
-					GenerousGifts:  generousGifts,
-					GGMultiplier:   ggMultiplier,
+					Event:           "contract_start",
+					ContractID:      contract.ContractID,
+					CoopID:          contract.CoopID,
+					ChannelID:       contract.Location[0].ChannelID,
+					StartTime:       contract.StartTime,
+					CoopSize:        contract.CoopSize,
+					DeliveryTarget:  deliveryTarget,
+					GenerousGifts:   generousGifts,
+					GGMultiplier:    ggMultiplier,
 					MinutesPerToken: contract.MinutesPerToken,
 				})
 			}
