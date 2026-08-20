@@ -62,7 +62,7 @@ func loadContractReportFont(fontSize float64) loadedFont {
 			DPI:     72,
 			Hinting: font.HintingFull,
 		})
-		if err == nil && face != nil {
+		if err == nil {
 			return loadedFont{face: face, sfntFont: sfFont}
 		}
 	}
@@ -77,7 +77,7 @@ func loadEmojiFallbackFont(fontSize float64) font.Face {
 			DPI:     72,
 			Hinting: font.HintingFull,
 		})
-		if err == nil && face != nil {
+		if err == nil {
 			return face
 		}
 	}
