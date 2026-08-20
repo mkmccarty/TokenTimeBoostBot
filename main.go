@@ -858,7 +858,7 @@ func init() {
 			}
 		case discordgo.InteractionModalSubmit:
 			// Handlers could include a parameter to help identify this uniquly
-			handlerID := strings.Split(i.ModalSubmitData().CustomID, "#")[0]
+			handlerID, _, _ := strings.Cut(i.ModalSubmitData().CustomID, "#")
 			if h, ok := componentHandlers[handlerID]; ok {
 				userID := bottools.GetInteractionUserID(i)
 				log.Println("Component: ", i.ModalSubmitData().CustomID, userID)
@@ -869,7 +869,7 @@ func init() {
 			}
 		case discordgo.InteractionMessageComponent:
 			// Handlers could include a parameter to help identify this uniquly
-			handlerID := strings.Split(i.MessageComponentData().CustomID, "#")[0]
+			handlerID, _, _ := strings.Cut(i.MessageComponentData().CustomID, "#")
 
 			if h, ok := componentHandlers[handlerID]; ok {
 				userID := bottools.GetInteractionUserID(i)
