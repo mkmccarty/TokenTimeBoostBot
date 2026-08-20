@@ -62,12 +62,13 @@ func TestAMQPMessageFormatting(t *testing.T) {
 	}
 
 	startMsg := AMQPContractStartMessage{
-		Event:          "contract_start",
-		ContractID:     "contract-1",
-		CoopID:         "coop-1",
-		StartTime:      time.Now(),
-		CoopSize:       5,
-		DeliveryTarget: 1e15,
+		Event:           "contract_start",
+		ContractID:      "contract-1",
+		CoopID:          "coop-1",
+		StartTime:       time.Now(),
+		CoopSize:        5,
+		DeliveryTarget:  1e15,
+		MinutesPerToken: 60,
 	}
 
 	data, err = json.Marshal(startMsg)
@@ -80,7 +81,7 @@ func TestAMQPMessageFormatting(t *testing.T) {
 		t.Fatalf("Failed to unmarshal AMQPContractStartMessage: %v", err)
 	}
 
-	if parsedStart.Event != "contract_start" || parsedStart.CoopSize != 5 || parsedStart.DeliveryTarget != 1e15 {
+	if parsedStart.Event != "contract_start" || parsedStart.CoopSize != 5 || parsedStart.DeliveryTarget != 1e15 || parsedStart.MinutesPerToken != 60 {
 		t.Errorf("Unexpected contract start message fields. Got: %+v", parsedStart)
 	}
 }
