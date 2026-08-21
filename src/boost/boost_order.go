@@ -1011,7 +1011,7 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 				teVal = b.TECount
 			}
 			if sortType == "fuzzyihr" {
-				randomBonusMax := ihrVal * 0.1 // 10%
+				randomBonusMax := ihrVal * 0.06 // 6%
 				randomOffset := (rand.Float64()*2 - 1) * randomBonusMax
 				ihrVal = ihrVal + randomOffset
 			}
@@ -1052,7 +1052,7 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 			}
 			sortTE := baseTE
 			if sortType == "fuzzyte" {
-				randomBonusMax := math.Max(baseTE*0.1, math.Sqrt(baseTE+25))
+				randomBonusMax := math.Max(baseTE*0.06, math.Sqrt(baseTE+25))
 				randomOffset := (rand.Float64()*2 - 1) * randomBonusMax
 				sortTE = baseTE + randomOffset
 			}
