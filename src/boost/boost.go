@@ -2285,10 +2285,10 @@ func reorderBoosters(contract *Contract) {
 
 			if contract.BoostOrder == ContractOrderTEFuzzy {
 				randomBonusMax := math.Max(
-					baseTE*0.1,        // 10%
+					baseTE*0.06,       // 6%
 					math.Sqrt(baseTE), // Sqrt
 				)
-				// Maximum of 10% or sqrt of the TE count as a random bonus, can be negative or positive
+				// Maximum of 6% or sqrt of the TE count as a random bonus, can be negative or positive
 				randomOffset := (rand.Float64()*2 - 1) * randomBonusMax
 				sortTE = baseTE + randomOffset
 			}
@@ -2322,7 +2322,7 @@ func reorderBoosters(contract *Contract) {
 			baseIHR := b.IHRRate
 			sortIHR := baseIHR
 			if contract.BoostOrder == ContractOrderIHRFuzzy {
-				randomBonusMax := baseIHR * 0.1 // 10%
+				randomBonusMax := baseIHR * 0.06 // 6%
 				randomOffset := (rand.Float64()*2 - 1) * randomBonusMax
 				sortIHR = baseIHR + randomOffset
 				if b.IHRCalcLog != "" {
