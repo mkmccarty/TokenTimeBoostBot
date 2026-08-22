@@ -106,17 +106,13 @@ func EnsureEmojiFromLocalRepo(s *discordgo.Session, name string) (ei.Emotes, boo
 		}
 	}
 
-	// If still missing after Discord fetch, look up image in local emoji/ directory
-	emojiPath, ok := findLocalEmojiPath(emojiName)
-	if !ok {
-		// Download missing emoji file directly from GitHub repository into emoji/ folder
-		downloadedPath, downloaded := downloadMissingEmojiFromGit(emojiName)
-		if downloaded {
-			emojiPath = downloadedPath
-			ok = true
-		}
+	// If running on dev bot, do not read or import missing emojis from local emoji/ directory
+	if config.IsDevBot() {
+		return ei.Emotes{}, false
 	}
 
+	// If still missing after Discord fetch, look up image in local emoji/ directory
+	emojiPath, ok := findLocalEmojiPath(emojiName)
 	if !ok {
 		return ei.Emotes{}, false
 	}
@@ -140,43 +136,6 @@ func EnsureEmojiFromLocalRepo(s *discordgo.Session, name string) (ei.Emotes, boo
 	ei.EmoteMap[emojiName] = createdEmoji
 	saveEmotesToFile(emoteFilePath, ei.EmoteMap)
 	return createdEmoji, true
-}
-
-
-
-func downloadMissingEmojiFromGit(emojiName string) (string, bool) {
-	baseURL := "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/refs/heads/main/emoji/"
-	extensions := []string{".png", ".gif"}
-
-	for _, ext := range extensions {
-		fileURL := fmt.Sprintf("%s%s%s", baseURL, emojiName, ext)
-		resp, err := http.Get(fileURL)
-		if err != nil || resp.StatusCode != http.StatusOK {
-			if resp != nil && resp.Body != nil {
-				_ = resp.Body.Close()
-			}
-			continue
-		}
-
-		_ = os.MkdirAll("emoji", 0755)
-		localPath := filepath.Join("emoji", fmt.Sprintf("%s%s", emojiName, ext))
-		outFile, err := os.Create(localPath)
-		if err != nil {
-			_ = resp.Body.Close()
-			continue
-		}
-
-		_, err = io.Copy(outFile, resp.Body)
-		_ = outFile.Close()
-		_ = resp.Body.Close()
-
-		if err == nil {
-			log.Printf("Successfully pulled missing emoji %s%s from GitHub repo", emojiName, ext)
-			return localPath, true
-		}
-	}
-
-	return "", false
 }
 
 func findLocalEmojiPath(emojiName string) (string, bool) {
@@ -364,6 +323,10 @@ func isEmojiFile(fileName string) bool {
 
 // ImportNewEmojis will import new emojis from the emoji directory into the discord app
 func ImportNewEmojis(s *discordgo.Session) {
+	if config.IsDevBot() {
+		return
+	}
+
 	// Get a list of all files in the emoji directory
 	files, err := os.ReadDir("emoji")
 	if err != nil {
