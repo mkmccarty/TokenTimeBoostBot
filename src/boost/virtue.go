@@ -645,7 +645,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 				)
 			} else {
 				fmt.Fprintf(&header,
-					"## Simulating shift after TE %[1]d%[2]s\n**Deliver %[3]s%[2]s <t:%[4]d:f>💤**\n",
+					"## Simulating shift after TE %[1]d%[2]s\n**%[1]d%[2]s %[3]s <t:%[4]d:f>**\n",
 					targetTE,
 					currentEggEmote,
 					ei.FormatEIValue(currentEggTarget, map[string]any{"decimals": 4, "trim": true, "max_length": 5}),
