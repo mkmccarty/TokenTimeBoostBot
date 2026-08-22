@@ -3,6 +3,12 @@
 UNAME_A = `uname -m`
 UNAME_S = `uname -s`
 GO_VERSION = 1.27
+GOLANGCI_LINT_VERSION=v2.13.1
+
+# Fallback GOROOT if system environment GOROOT points to non-existent directory
+ifneq ($(wildcard /opt/homebrew/opt/go/libexec),)
+    export GOROOT = /opt/homebrew/opt/go/libexec
+endif
 
 #// Get machine architecture into ARCH variable
 #ifeq ($(UNAME_A),aarch64)
@@ -70,11 +76,11 @@ audit:
 
 .PHONY: lint-update
 lint-update:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCI_LINT_VERSION)/install.sh | sh -s -- -b ./build/bin
 
 .PHONY: lint
 lint:
-	$(shell go env GOPATH)/bin/golangci-lint run
+	./build/bin/golangci-lint run
 
 # ==================================================================================== #
 # DEVELOPMENT
