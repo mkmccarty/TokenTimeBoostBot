@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -52,29 +53,21 @@ func LoadEmotes(s *discordgo.Session, force bool) {
 
 	EmoteMapNew := make(map[string]ei.Emotes)
 
-	// Attempt to load the cached file
 	fileInfo, err := os.Stat(emoteFilePath)
 	if force || err != nil {
-		if force || os.IsNotExist(err) {
-			// File didn't eist load fresh data
-			EmoteMapNew = fetchEmojisFromDiscord(s)
-			ei.EmoteMap = EmoteMapNew
-			saveEmotesToFile(emoteFilePath, EmoteMapNew)
-			ei.EmoteMap = EmoteMapNew
-			// ImportNewEmojis is intended to import new emojis to the Discord API
-			ImportNewEmojis(s)
-			return
-		}
-	} else {
-		// File exists, load the data
-		EmoteMapNew, err = loadEmotesFromFile(emoteFilePath)
-		if err != nil {
-			log.Print(err)
-		}
+		EmoteMapNew = fetchEmojisFromDiscord(s)
 		ei.EmoteMap = EmoteMapNew
+		saveEmotesToFile(emoteFilePath, EmoteMapNew)
+		return
 	}
 
-	// If data is empty or the file is older than 1 day, fetch new data
+	EmoteMapNew, err = loadEmotesFromFile(emoteFilePath)
+	if err != nil {
+		log.Print(err)
+	}
+	ei.EmoteMap = EmoteMapNew
+
+	// Refresh cache if file is older than 24 hours
 	if len(EmoteMapNew) == 0 || time.Since(fileInfo.ModTime()) > 24*time.Hour {
 		EmoteMapNew = fetchEmojisFromDiscord(s)
 		if len(EmoteMapNew) != len(ei.EmoteMap) {
@@ -103,7 +96,27 @@ func EnsureEmojiFromLocalRepo(s *discordgo.Session, name string) (ei.Emotes, boo
 		return emoji, true
 	}
 
+	// On cache miss, first fetch fresh emoji list from Discord API to check if it's already uploaded
+	refreshed := fetchEmojisFromDiscord(s)
+	if len(refreshed) > 0 {
+		ei.EmoteMap = refreshed
+		saveEmotesToFile(emoteFilePath, ei.EmoteMap)
+		if emoji, found := ei.EmoteMap[emojiName]; found {
+			return emoji, true
+		}
+	}
+
+	// If still missing after Discord fetch, look up image in local emoji/ directory
 	emojiPath, ok := findLocalEmojiPath(emojiName)
+	if !ok {
+		// Download missing emoji file directly from GitHub repository into emoji/ folder
+		downloadedPath, downloaded := downloadMissingEmojiFromGit(emojiName)
+		if downloaded {
+			emojiPath = downloadedPath
+			ok = true
+		}
+	}
+
 	if !ok {
 		return ei.Emotes{}, false
 	}
@@ -114,7 +127,8 @@ func EnsureEmojiFromLocalRepo(s *discordgo.Session, name string) (ei.Emotes, boo
 		return ei.Emotes{}, false
 	}
 
-	refreshed := fetchEmojisFromDiscord(s)
+	// Refresh map to store Discord assigned ID
+	refreshed = fetchEmojisFromDiscord(s)
 	if len(refreshed) > 0 {
 		ei.EmoteMap = refreshed
 		saveEmotesToFile(emoteFilePath, ei.EmoteMap)
@@ -128,6 +142,43 @@ func EnsureEmojiFromLocalRepo(s *discordgo.Session, name string) (ei.Emotes, boo
 	return createdEmoji, true
 }
 
+
+
+func downloadMissingEmojiFromGit(emojiName string) (string, bool) {
+	baseURL := "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/refs/heads/main/emoji/"
+	extensions := []string{".png", ".gif"}
+
+	for _, ext := range extensions {
+		fileURL := fmt.Sprintf("%s%s%s", baseURL, emojiName, ext)
+		resp, err := http.Get(fileURL)
+		if err != nil || resp.StatusCode != http.StatusOK {
+			if resp != nil && resp.Body != nil {
+				_ = resp.Body.Close()
+			}
+			continue
+		}
+
+		_ = os.MkdirAll("emoji", 0755)
+		localPath := filepath.Join("emoji", fmt.Sprintf("%s%s", emojiName, ext))
+		outFile, err := os.Create(localPath)
+		if err != nil {
+			_ = resp.Body.Close()
+			continue
+		}
+
+		_, err = io.Copy(outFile, resp.Body)
+		_ = outFile.Close()
+		_ = resp.Body.Close()
+
+		if err == nil {
+			log.Printf("Successfully pulled missing emoji %s%s from GitHub repo", emojiName, ext)
+			return localPath, true
+		}
+	}
+
+	return "", false
+}
+
 func findLocalEmojiPath(emojiName string) (string, bool) {
 	files, err := os.ReadDir("emoji")
 	if err != nil {
@@ -135,7 +186,7 @@ func findLocalEmojiPath(emojiName string) (string, bool) {
 	}
 
 	for _, file := range files {
-		if file.IsDir() || !isAllowedSuffix(file.Name()) {
+		if file.IsDir() || !isEmojiFile(file.Name()) {
 			continue
 		}
 		candidate := strings.TrimSuffix(file.Name(), filepath.Ext(file.Name()))
@@ -297,10 +348,14 @@ func ImportEggImage(s *discordgo.Session, eggID, IconURL string) (string, error)
 	return fmt.Sprintf(":%s:%s:", newID.Name, newID.ID), nil
 }
 
-func isAllowedSuffix(fileName string) bool {
+func isEmojiFile(fileName string) bool {
+	lower := strings.ToLower(fileName)
+	if strings.HasPrefix(lower, "banner") {
+		return false
+	}
 	allowedSuffixes := []string{".png", ".gif"}
 	for _, suffix := range allowedSuffixes {
-		if strings.HasSuffix(strings.ToLower(fileName), suffix) {
+		if strings.HasSuffix(lower, suffix) {
 			return true
 		}
 	}
@@ -324,11 +379,12 @@ func ImportNewEmojis(s *discordgo.Session) {
 
 	// Create a wait group to wait for all goroutines to finish
 	var wg sync.WaitGroup
+	var importedCount int32
 
 	// Loop through all files in the emoji directory
 	for _, file := range files {
-		// Check if the file is a PNG image
-		if !isAllowedSuffix(file.Name()) {
+		// Check if the file is an emoji image
+		if !isEmojiFile(file.Name()) {
 			continue
 		}
 
@@ -338,12 +394,22 @@ func ImportNewEmojis(s *discordgo.Session) {
 			continue
 		}
 		f := file
-		wg.Go(func() { importSingleEmoji(s, emojiName, f) })
+		wg.Go(func() {
+			importSingleEmoji(s, emojiName, f)
+			atomic.AddInt32(&importedCount, 1)
+		})
 	}
 
 	// Wait for all goroutines to finish
 	wg.Wait()
-	//LoadEmotes(s, true)
+
+	if importedCount > 0 {
+		refreshed := fetchEmojisFromDiscord(s)
+		if len(refreshed) > 0 {
+			ei.EmoteMap = refreshed
+			saveEmotesToFile(emoteFilePath, ei.EmoteMap)
+		}
+	}
 }
 
 func importSingleEmoji(s *discordgo.Session, emojiName string, file os.DirEntry) {
