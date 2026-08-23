@@ -242,6 +242,11 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 			msg, err = s.ChannelMessageSendComplex(loc.ChannelID, &data)
 			if err == nil {
 				SetListMessageID(contract, loc.ChannelID, msg.ID)
+				contract.mutex.Lock()
+				for _, booster := range contract.Boosters {
+					booster.NonTokenMsgID = ""
+				}
+				contract.mutex.Unlock()
 			}
 			drawn = true
 		}

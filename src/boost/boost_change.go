@@ -724,6 +724,9 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 			return 0, errors.New("the selected coordinator needs to be in the contract")
 		}
 	}
+	if contractID != "" || coopID != "" {
+		CheckAndPublishAMQPContractUpdate(contract)
+	}
 	return movedToWaitlist, nil
 }
 

@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"runtime/debug"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -79,8 +80,10 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 		_, redraw = buttonReactionBag(s, i.GuildID, i.ChannelID, contract, userID)
 	case "token":
 		_, redraw = buttonReactionToken(s, i.GuildID, i.ChannelID, contract, userID, 1, "")
+		sendOrUpdateUserReactionSummary(s, i, contract, userID)
 	case "2token":
 		_, redraw = buttonReactionToken(s, i.GuildID, i.ChannelID, contract, userID, 2, "")
+		sendOrUpdateUserReactionSummary(s, i, contract, userID)
 	case "swap":
 		redraw = buttonReactionSwap(s, i.GuildID, i.ChannelID, contract, userID)
 	case "last":
@@ -104,7 +107,7 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	case "complain":
 		buttonReactionComplain(s, contract, userID)
 	case "notoken":
-		buttonReactionNonToken(i, contract, userID)
+		buttonReactionNonToken(s, i, contract, userID)
 	case "predmenu":
 		values := i.MessageComponentData().Values
 		if b := contract.Boosters[userID]; b != nil {
@@ -1086,6 +1089,11 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 			Emoji: ei.GetBotComponentEmoji("token"),
 		})
 		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+			Label: "Toggle Reaction Log",
+			Value: "togglerxlog",
+			Emoji: &discordgo.ComponentEmoji{Name: "📊"},
+		})
+		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
 			Label: "My Chicken Runs",
 			Value: "mychickens",
 			Emoji: ei.GetBotComponentEmoji("icon_chicken_run"),
@@ -1215,7 +1223,7 @@ func addContractReactionsGather(contract *Contract, tokenStr string) ([]string, 
 			iconsRowA = append(iconsRowA[:idx+1], append([]string{"UG"}, iconsRowA[idx+1:]...)...)
 		}
 	}
-	if contract.Style&ContractFlagAMQP != 0 {
+	if contract.Style&ContractFlagAMQP != 0 && contract.State != ContractStateSignup {
 		iconsRowA = append(iconsRowA, "🚫")
 	}
 
@@ -1258,10 +1266,101 @@ func scheduleCoopStatusPoll(contract *Contract) {
 	})
 }
 
-func buttonReactionNonToken(i *discordgo.InteractionCreate, contract *Contract, userID string) {
+func sendOrUpdateUserReactionSummary(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, userID string) {
+	if contract == nil {
+		return
+	}
+
+	contract.mutex.Lock()
+	booster := contract.Boosters[userID]
+	if booster == nil || booster.DisableEphemeralLog {
+		contract.mutex.Unlock()
+		return
+	}
+	nick := booster.Nick
+
+	var logLines []string
+	tokenCount := 0
+	for _, entry := range contract.TokenLog {
+		if entry.FromUserID == userID {
+			tokenCount += entry.Quantity
+			logLines = append(logLines, fmt.Sprintf("<t:%d:T> 🪙 Sent %d token(s) to **%s**", entry.Time.Unix(), entry.Quantity, entry.ToNick))
+		}
+	}
+
+	for _, t := range booster.NonTokenReactionTimes {
+		logLines = append(logLines, fmt.Sprintf("<t:%d:T> 🚫 Sent no-token reaction", t.Unix()))
+	}
+	noTokenCount := len(booster.NonTokenReactionTimes)
+	existingMsgID := booster.NonTokenMsgID
+	contract.mutex.Unlock()
+
+	// Sort logs chronologically
+	sort.Slice(logLines, func(i, j int) bool {
+		return logLines[i] < logLines[j]
+	})
+
+	// Limit to the last 10 log entries while keeping overall stats intact
+	if len(logLines) > 10 {
+		logLines = logLines[len(logLines)-10:]
+	}
+
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "### 📊 Reaction Summary for %s\n", nick)
+	fmt.Fprintf(&sb, "**Tokens Sent:** %d | **No-Token Reactions:** %d\n\n", tokenCount, noTokenCount)
+	if len(logLines) > 0 {
+		sb.WriteString("**Activity Log (Last 10):**\n")
+		for _, line := range logLines {
+			sb.WriteString(line + "\n")
+		}
+	} else {
+		sb.WriteString("*No recorded reactions yet.*")
+	}
+
+	content := sb.String()
+	edited := false
+
+	if existingMsgID != "" {
+		edit := discordgo.WebhookEdit{
+			Content: &content,
+		}
+		if _, err := s.FollowupMessageEdit(i.Interaction, existingMsgID, &edit); err == nil {
+			edited = true
+		} else {
+			contract.mutex.Lock()
+			if b := contract.Boosters[userID]; b != nil {
+				b.NonTokenMsgID = ""
+			}
+			contract.mutex.Unlock()
+		}
+	}
+
+	if !edited {
+		msg, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: content,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		})
+		if err == nil && msg != nil {
+			contract.mutex.Lock()
+			if b := contract.Boosters[userID]; b != nil {
+				b.NonTokenMsgID = msg.ID
+			}
+			contract.mutex.Unlock()
+		}
+	}
+}
+
+func buttonReactionNonToken(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, userID string) {
 	if !UserInContract(contract, userID) {
 		return
 	}
+
+	now := time.Now()
+	contract.mutex.Lock()
+	if booster, ok := contract.Boosters[userID]; ok {
+		booster.NonTokenReactionTimes = append(booster.NonTokenReactionTimes, now)
+	}
+	contract.mutex.Unlock()
 
 	guildID := i.GuildID
 	if guildID == "" && len(contract.Location) > 0 {
@@ -1277,8 +1376,10 @@ func buttonReactionNonToken(i *discordgo.InteractionCreate, contract *Contract, 
 				CoopID:     contract.CoopID,
 				UserID:     userID,
 				Nick:       contract.Boosters[userID].Nick,
-				Time:       time.Now(),
+				Time:       now,
 			})
 		}
 	}
+
+	sendOrUpdateUserReactionSummary(s, i, contract, userID)
 }
