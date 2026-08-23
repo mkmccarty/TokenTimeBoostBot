@@ -152,3 +152,86 @@ func TestSaveSqliteDataAMQPTrigger(t *testing.T) {
 		t.Errorf("Expected LastPublishedTokenLogIndex to be 1")
 	}
 }
+
+func TestAMQPContractUpdateAndBoosterChange(t *testing.T) {
+	updateMsg := AMQPContractUpdateMessage{
+		Event:           "contract_update",
+		ContractID:      "contract-1",
+		CoopID:          "coop-1",
+		ChannelID:       "channel-1",
+		StartTime:       time.Now(),
+		CoopSize:        10,
+		DeliveryTarget:  1e15,
+		GenerousGifts:   "None",
+		MinutesPerToken: 60,
+	}
+
+	data, err := json.Marshal(updateMsg)
+	if err != nil {
+		t.Fatalf("Failed to marshal AMQPContractUpdateMessage: %v", err)
+	}
+
+	var parsedUpdate AMQPContractUpdateMessage
+	if err := json.Unmarshal(data, &parsedUpdate); err != nil {
+		t.Fatalf("Failed to unmarshal AMQPContractUpdateMessage: %v", err)
+	}
+
+	if parsedUpdate.Event != "contract_update" || parsedUpdate.CoopSize != 10 {
+		t.Errorf("Unexpected contract update message fields. Got: %+v", parsedUpdate)
+	}
+
+	joinMsg := AMQPBoosterChangeMessage{
+		Event:      "booster_join",
+		ContractID: "contract-1",
+		CoopID:     "coop-1",
+		UserID:     "user-1",
+		Nick:       "FarmerBob",
+		Time:       time.Now(),
+	}
+
+	data, err = json.Marshal(joinMsg)
+	if err != nil {
+		t.Fatalf("Failed to marshal AMQPBoosterChangeMessage: %v", err)
+	}
+
+	var parsedJoin AMQPBoosterChangeMessage
+	if err := json.Unmarshal(data, &parsedJoin); err != nil {
+		t.Fatalf("Failed to unmarshal AMQPBoosterChangeMessage: %v", err)
+	}
+
+	if parsedJoin.Event != "booster_join" || parsedJoin.Nick != "FarmerBob" {
+		t.Errorf("Unexpected booster change message fields. Got: %+v", parsedJoin)
+	}
+}
+
+func TestNonTokenReactionTracking(t *testing.T) {
+	contract := &Contract{
+		ContractID: "test-contract",
+		CoopID:     "test-coop",
+		Boosters: map[string]*Booster{
+			"user1": {
+				UserID: "user1",
+				Nick:   "FarmerUser1",
+			},
+		},
+		TokenLog: []ei.TokenUnitLog{
+			{
+				Time:       time.Now().Add(-5 * time.Minute),
+				Quantity:   2,
+				FromUserID: "user1",
+				FromNick:   "FarmerUser1",
+				ToUserID:   "user2",
+				ToNick:     "FarmerUser2",
+			},
+		},
+	}
+
+	booster := contract.Boosters["user1"]
+	booster.NonTokenReactionTimes = append(booster.NonTokenReactionTimes, time.Now())
+
+	if len(booster.NonTokenReactionTimes) != 1 {
+		t.Errorf("Expected 1 non-token reaction time, got %d", len(booster.NonTokenReactionTimes))
+	}
+}
+
+

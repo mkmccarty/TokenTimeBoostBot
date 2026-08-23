@@ -707,12 +707,7 @@ func HandleRestartContract(s *discordgo.Session, i *discordgo.InteractionCreate)
 			coopID := contract.CoopID
 			playStyle := contract.PlayStyle
 			coopSize := contract.CoopSize
-			// If contract already started keep the order via signup order, if not Fuzzy TE, random... might mess it up
 			boostOrder := contract.BoostOrder
-			if contract.State != ContractStateSignup {
-				// Ensures the same boost order with the previous run
-				boostOrder = ContractOrderSignup
-			}
 			progenitors := contract.Order
 			if contract.State != ContractStateSignup && len(contract.OriginalOrder) > 0 {
 				progenitors = contract.OriginalOrder
@@ -720,6 +715,9 @@ func HandleRestartContract(s *discordgo.Session, i *discordgo.InteractionCreate)
 			plannedStartTime := contract.PlannedStartTime
 			validFrom := contract.ValidFrom
 			savedStyle := contract.Style
+			thresholdX := contract.ThresholdTokensX
+			thresholdY := contract.ThresholdTokensY
+			thresholdA := contract.ThresholdTokensA
 
 			// Original coordinator
 			originalCoordinatorID := contract.CreatorID[0]
@@ -737,6 +735,14 @@ func HandleRestartContract(s *discordgo.Session, i *discordgo.InteractionCreate)
 				} else {
 					newContract.Style = savedStyle
 					newContract.BoostOrder = boostOrder
+					newContract.ThresholdTokensX = thresholdX
+					newContract.ThresholdTokensY = thresholdY
+					newContract.ThresholdTokensA = thresholdA
+
+					reorderBoosters(newContract)
+					saveData(newContract.ContractHash)
+
+					CheckAndPublishAMQPContractUpdate(newContract)
 
 					createMsg := DrawBoostList(s, newContract)
 					buttonComponents := getContractReactionsComponents(newContract)

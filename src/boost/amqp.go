@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -245,3 +247,127 @@ func PublishAMQPNonToken(guildID string, url string, contractID string, coopID s
 		}
 	}()
 }
+
+// AMQPContractUpdateMessage represents details of a contract when updated/reset.
+type AMQPContractUpdateMessage struct {
+	Event           string    `json:"event"`
+	ContractID      string    `json:"contract_id"`
+	CoopID          string    `json:"coop_id"`
+	ChannelID       string    `json:"channel_id"`
+	StartTime       time.Time `json:"start_time"`
+	CoopSize        int       `json:"coop_size"`
+	DeliveryTarget  float64   `json:"delivery_target"`
+	GenerousGifts   string    `json:"generous_gifts"`
+	GGMultiplier    float64   `json:"gg_multiplier,omitempty"`
+	MinutesPerToken int       `json:"minutes_per_token"`
+}
+
+// PublishAMQPContractUpdate publishes a contract update/reset event to the guild's AMQP queue.
+func PublishAMQPContractUpdate(guildID string, url string, status AMQPContractUpdateMessage) {
+	body, err := json.Marshal(status)
+	if err != nil {
+		log.Printf("AMQP: error marshaling contract update: %v", err)
+		return
+	}
+
+	client := getAMQPClient(guildID, url)
+	go func() {
+		if err := client.publish(body); err != nil {
+			log.Printf("AMQP: error publishing contract update: %v", err)
+		}
+	}()
+}
+
+// CheckAndPublishAMQPContractUpdate publishes an update event if contract has AMQP enabled.
+func CheckAndPublishAMQPContractUpdate(contract *Contract) {
+	if contract == nil || contract.Style&ContractFlagAMQP == 0 || len(contract.Location) == 0 {
+		return
+	}
+	guildID := contract.Location[0].GuildID
+	if guildID == "" {
+		return
+	}
+	amqpURL := guildstate.GetGuildSettingString(guildID, "amqp_url")
+	if amqpURL == "" {
+		return
+	}
+
+	var deliveryTarget float64
+	if contractInfo, ok := ei.EggIncContractsAll[contract.ContractID]; ok && len(contractInfo.TargetAmount) > 0 {
+		deliveryTarget = contractInfo.TargetAmount[len(contractInfo.TargetAmount)-1]
+	}
+	gg, ugg, _ := ei.GetGenerousGiftEvent()
+	generousGifts := "None"
+	var ggMultiplier float64
+	if ugg > 1.0 {
+		generousGifts = "Ultra GG"
+		ggMultiplier = ugg
+	} else if gg > 1.0 {
+		generousGifts = "Common GG"
+		ggMultiplier = gg
+	}
+
+	PublishAMQPContractUpdate(guildID, amqpURL, AMQPContractUpdateMessage{
+		Event:           "contract_update",
+		ContractID:      contract.ContractID,
+		CoopID:          contract.CoopID,
+		ChannelID:       contract.Location[0].ChannelID,
+		StartTime:       contract.StartTime,
+		CoopSize:        contract.CoopSize,
+		DeliveryTarget:  deliveryTarget,
+		GenerousGifts:   generousGifts,
+		GGMultiplier:    ggMultiplier,
+		MinutesPerToken: contract.MinutesPerToken,
+	})
+}
+
+// AMQPBoosterChangeMessage represents a join or remove event for a booster in a contract.
+type AMQPBoosterChangeMessage struct {
+	Event      string    `json:"event"` // "booster_join" or "booster_remove"
+	ContractID string    `json:"contract_id"`
+	CoopID     string    `json:"coop_id"`
+	UserID     string    `json:"user_id"`
+	Nick       string    `json:"nick"`
+	Time       time.Time `json:"time"`
+}
+
+// PublishAMQPBoosterChange publishes a booster join/remove event to the guild's AMQP queue.
+func PublishAMQPBoosterChange(guildID string, url string, status AMQPBoosterChangeMessage) {
+	body, err := json.Marshal(status)
+	if err != nil {
+		log.Printf("AMQP: error marshaling booster change: %v", err)
+		return
+	}
+
+	client := getAMQPClient(guildID, url)
+	go func() {
+		if err := client.publish(body); err != nil {
+			log.Printf("AMQP: error publishing booster change: %v", err)
+		}
+	}()
+}
+
+// CheckAndPublishAMQPBoosterChange publishes a booster join or remove event if contract has AMQP enabled.
+func CheckAndPublishAMQPBoosterChange(contract *Contract, userID string, nick string, event string) {
+	if contract == nil || contract.Style&ContractFlagAMQP == 0 || len(contract.Location) == 0 {
+		return
+	}
+	guildID := contract.Location[0].GuildID
+	if guildID == "" {
+		return
+	}
+	amqpURL := guildstate.GetGuildSettingString(guildID, "amqp_url")
+	if amqpURL == "" {
+		return
+	}
+
+	PublishAMQPBoosterChange(guildID, amqpURL, AMQPBoosterChangeMessage{
+		Event:      event,
+		ContractID: contract.ContractID,
+		CoopID:     contract.CoopID,
+		UserID:     userID,
+		Nick:       nick,
+		Time:       time.Now(),
+	})
+}
+

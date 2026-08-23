@@ -752,7 +752,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 	var b = contract.Boosters[userID]
 	if b == nil {
 		// New Booster - add them to boost list
-		var b = new(Booster)
+		b = new(Booster)
 		b.Register = time.Now()
 		b.UserID = userID
 		b.Color = 0x00cc00
@@ -954,6 +954,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 				//	s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
 				//}
 				sendNextNotification(s, contract, true)
+				CheckAndPublishAMQPBoosterChange(contract, userID, b.Nick, "booster_join")
 				return b, nil
 			}
 		}
@@ -961,6 +962,9 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 	if !progenitor {
 		ensurePotatoTeamRoleForUserAsync(s, contract, userID)
 		refreshBoostListMessage(s, contract, contract.RegisteredNum == contract.CoopSize)
+	}
+	if b != nil {
+		CheckAndPublishAMQPBoosterChange(contract, userID, b.Nick, "booster_join")
 	}
 	return b, nil
 }
@@ -1457,6 +1461,7 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 	}
 
 	previousBoosters := len(contract.Boosters)
+	boosterNick := ""
 
 	if len(contract.Boosters) == 0 {
 		return errors.New(errorContractEmpty)
@@ -1491,6 +1496,10 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 		}
 
 		booster := contract.Boosters[userID]
+		boosterNick = userID
+		if booster != nil && booster.Nick != "" {
+			boosterNick = booster.Nick
+		}
 
 		// Remove the user from the role
 		for _, el := range contract.Location {
@@ -1589,6 +1598,7 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 						contract.Boosters[nextID].BoostState = BoostStateTokenTime
 						contract.Boosters[nextID].StartTime = time.Now()
 						sendNextNotification(s, contract, true)
+						CheckAndPublishAMQPBoosterChange(contract, userID, boosterNick, "booster_remove")
 						// Returning here since we're actively boosting and will send a new message
 						return nil
 					}
@@ -1643,6 +1653,7 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 	}
 	//}
 
+	CheckAndPublishAMQPBoosterChange(contract, userID, boosterNick, "booster_remove")
 	return nil
 }
 

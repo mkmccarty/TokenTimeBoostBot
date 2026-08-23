@@ -279,7 +279,7 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			logs = append(logs, fmt.Sprintf("`%v %s %d->%s %s`", line.Time.Sub(contract.StartTime).Round(time.Second), line.FromNick, line.Quantity, boostStr, line.ToNick))
 		}
 
-		// Trin logs to the last 30 lines
+		// Trim logs to the last 30 lines
 		if len(logs) > 30 {
 			logs = logs[len(logs)-30:]
 		}
@@ -442,6 +442,29 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content: chickenRunList.String(),
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+	case "togglerxlog":
+		userID := i.Member.User.ID
+		contract.mutex.Lock()
+		booster := contract.Boosters[userID]
+		msgStr := "You are not part of this contract."
+		if booster != nil {
+			booster.DisableEphemeralLog = !booster.DisableEphemeralLog
+			if booster.DisableEphemeralLog {
+				booster.NonTokenMsgID = ""
+				msgStr = "🚫 **Reaction Summary Log:** Disabled for your button reactions."
+			} else {
+				msgStr = "📊 **Reaction Summary Log:** Enabled for your button reactions."
+			}
+		}
+		contract.mutex.Unlock()
+
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: msgStr,
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})

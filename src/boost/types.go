@@ -226,6 +226,9 @@ type Booster struct {
 	IHRRate                float64              // Internal Hatchery Rate for IHR Order
 	IHRCalcLog             string               // Plain text log of IHR calculation details
 	Availability           ContractAvailability // Availability for contracts
+	NonTokenReactionTimes  []time.Time          // Timestamps of no-token button interactions
+	NonTokenMsgID          string               // Last ephemeral message ID for user reaction summary log
+	DisableEphemeralLog    bool                 // Toggle for user ephemeral reaction summary log
 }
 
 // GuildRole identifies the Discord role used for contract pings.

@@ -509,3 +509,77 @@ func TestProgenitorsCreatorNotProgenitor(t *testing.T) {
 		t.Errorf("Expected creatorUserID %s NOT to be in contract.Order, got %v", creatorUserID, contract.Order)
 	}
 }
+
+func TestRestartContractRestoresState(t *testing.T) {
+	s, err := createMockSession()
+	if err != nil {
+		t.Fatalf("Failed to create mock session: %v", err)
+	}
+
+	contractID := "restart-state-contract"
+	guildID := "guild-123"
+	channelID := "channel-restart-1"
+	creatorUserID := "coordinator-user"
+	progenitors := []string{"farmer-1", "farmer-2", "farmer-3"}
+
+	contract, err := CreateContract(s, contractID, "coop-restart-test", ContractPlaystyleChill, 10, ContractOrderFair, guildID, channelID, progenitors, creatorUserID, time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("Failed to create contract: %v", err)
+	}
+
+	// Customize style flags and threshold tokens
+	contract.Style |= ContractFlag4Tokens | ContractFlagThresholdTokens
+	contract.ThresholdTokensX = 6
+	contract.ThresholdTokensY = 8
+	contract.ThresholdTokensA = 80
+	contract.BoostOrder = ContractOrderFair
+
+	// Simulate contract starting state
+	contract.State = ContractStateFastrun
+	contract.OriginalOrder = append([]string{}, progenitors...)
+
+	// Capture state as done in HandleRestartContract
+	savedBoostOrder := contract.BoostOrder
+	savedStyle := contract.Style
+	savedProgenitors := contract.Order
+	if contract.State != ContractStateSignup && len(contract.OriginalOrder) > 0 {
+		savedProgenitors = contract.OriginalOrder
+	}
+	savedThresholdX := contract.ThresholdTokensX
+	savedThresholdY := contract.ThresholdTokensY
+	savedThresholdA := contract.ThresholdTokensA
+	origCreatorID := contract.CreatorID[0]
+
+	_, err = DeleteContract(s, guildID, channelID)
+	if err != nil {
+		t.Fatalf("Failed to delete contract: %v", err)
+	}
+
+	newContract, err := CreateContract(s, contractID, "coop-restart-test", ContractPlaystyleChill, 10, savedBoostOrder, guildID, channelID, savedProgenitors, origCreatorID, time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("Failed to recreate contract on restart: %v", err)
+	}
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, newContract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	newContract.Style = savedStyle
+	newContract.BoostOrder = savedBoostOrder
+	newContract.ThresholdTokensX = savedThresholdX
+	newContract.ThresholdTokensY = savedThresholdY
+	newContract.ThresholdTokensA = savedThresholdA
+	reorderBoosters(newContract)
+
+	if newContract.BoostOrder != ContractOrderFair {
+		t.Errorf("Expected BoostOrder to be %d, got %d", ContractOrderFair, newContract.BoostOrder)
+	}
+	if newContract.Style != savedStyle {
+		t.Errorf("Expected Style to be %d, got %d", savedStyle, newContract.Style)
+	}
+	if newContract.ThresholdTokensX != 6 || newContract.ThresholdTokensY != 8 || newContract.ThresholdTokensA != 80 {
+		t.Errorf("Expected threshold tokens (6, 8, 80), got (%d, %d, %d)", newContract.ThresholdTokensX, newContract.ThresholdTokensY, newContract.ThresholdTokensA)
+	}
+}
+
