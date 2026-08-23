@@ -106,11 +106,6 @@ func EnsureEmojiFromLocalRepo(s *discordgo.Session, name string) (ei.Emotes, boo
 		}
 	}
 
-	// If running on dev bot, do not read or import missing emojis from local emoji/ directory
-	if config.IsDevBot() {
-		return ei.Emotes{}, false
-	}
-
 	// If still missing after Discord fetch, look up image in local emoji/ directory
 	emojiPath, ok := findLocalEmojiPath(emojiName)
 	if !ok {
