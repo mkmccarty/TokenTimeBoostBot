@@ -1277,19 +1277,29 @@ func sendOrUpdateUserReactionSummary(s *discordgo.Session, i *discordgo.Interact
 		contract.mutex.Unlock()
 		return
 	}
-	nick := booster.Nick
+	tokenEmoji := contract.TokenStr
+	if tokenEmoji == "" {
+		tokenEmoji = "🪙"
+	}
 
 	var logLines []string
 	tokenCount := 0
 	for _, entry := range contract.TokenLog {
 		if entry.FromUserID == userID {
 			tokenCount += entry.Quantity
-			logLines = append(logLines, fmt.Sprintf("<t:%d:T> 🪙 Sent %d token(s) to **%s**", entry.Time.Unix(), entry.Quantity, entry.ToNick))
+			tokenWord := "token"
+			if entry.Quantity != 1 {
+				tokenWord = "tokens"
+			}
+			logLines = append(logLines, fmt.Sprintf("-# <t:%d:T> %s Sent %d %s to **%s**", entry.Time.Unix(), tokenEmoji, entry.Quantity, tokenWord, entry.ToNick))
 		}
 	}
 
-	for _, t := range booster.NonTokenReactionTimes {
-		logLines = append(logLines, fmt.Sprintf("<t:%d:T> 🚫 Sent no-token reaction", t.Unix()))
+	isAMQP := (contract.Style & ContractFlagAMQP) != 0
+	if isAMQP {
+		for _, t := range booster.NonTokenReactionTimes {
+			logLines = append(logLines, fmt.Sprintf("-# <t:%d:T> 🚫 Sent no-token reaction", t.Unix()))
+		}
 	}
 	noTokenCount := len(booster.NonTokenReactionTimes)
 	existingMsgID := booster.NonTokenMsgID
@@ -1306,15 +1316,19 @@ func sendOrUpdateUserReactionSummary(s *discordgo.Session, i *discordgo.Interact
 	}
 
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "### 📊 Reaction Summary for %s\n", nick)
-	fmt.Fprintf(&sb, "**Tokens Sent:** %d | **No-Token Reactions:** %d\n\n", tokenCount, noTokenCount)
+	if isAMQP {
+		fmt.Fprintf(&sb, "-#**Tokens Sent:** %d | **No-Token Reactions:** %d\n\n", tokenCount, noTokenCount)
+	} else {
+		fmt.Fprintf(&sb, "-#**Tokens Sent:** %d\n\n", tokenCount)
+	}
 	if len(logLines) > 0 {
-		sb.WriteString("**Activity Log (Last 10):**\n")
+		sb.WriteString("-#**Activity Log (Last 10):**\n")
 		for _, line := range logLines {
-			sb.WriteString(line + "\n")
+			sb.WriteString(line)
+			sb.WriteString("\n")
 		}
 	} else {
-		sb.WriteString("*No recorded reactions yet.*")
+		sb.WriteString("-#*No recorded reactions yet.*")
 	}
 
 	content := sb.String()
