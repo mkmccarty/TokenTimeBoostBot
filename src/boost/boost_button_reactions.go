@@ -1316,19 +1316,23 @@ func sendOrUpdateUserReactionSummary(s *discordgo.Session, i *discordgo.Interact
 	}
 
 	var sb strings.Builder
-	if isAMQP {
-		fmt.Fprintf(&sb, "-#**Tokens Sent:** %d | **No-Token Reactions:** %d\n\n", tokenCount, noTokenCount)
-	} else {
-		fmt.Fprintf(&sb, "-#**Tokens Sent:** %d\n\n", tokenCount)
-	}
 	if len(logLines) > 0 {
-		sb.WriteString("-#**Activity Log (Last 10):**\n")
+		if isAMQP {
+			fmt.Fprintf(&sb, "-# **Tokens Sent:** %d | **No-Token Reactions:** %d | **Activity Log (Last 10):**\n", tokenCount, noTokenCount)
+		} else {
+			fmt.Fprintf(&sb, "-# **Tokens Sent:** %d | **Activity Log (Last 10):**\n", tokenCount)
+		}
 		for _, line := range logLines {
 			sb.WriteString(line)
 			sb.WriteString("\n")
 		}
 	} else {
-		sb.WriteString("-#*No recorded reactions yet.*")
+		if isAMQP {
+			fmt.Fprintf(&sb, "-# **Tokens Sent:** %d | **No-Token Reactions:** %d\n", tokenCount, noTokenCount)
+		} else {
+			fmt.Fprintf(&sb, "-# **Tokens Sent:** %d\n", tokenCount)
+		}
+		sb.WriteString("-# *No recorded reactions yet.*")
 	}
 
 	content := sb.String()
