@@ -536,7 +536,7 @@ func (pw predictionsWriter) writeContracts(b *strings.Builder, contracts []ei.Eg
 
 		// Third line for AWOL contracts
 		if missingMap, err := LoadMissingContracts(); err == nil {
-			if ts, isMissing := missingMap[c.ID]; isMissing && c.ValidFrom.Before(time.Unix(ts, 0)) {
+			if ts, isMissing := missingMap[c.ID]; isMissing && c.ValidFrom.Before(time.Unix(ts, 0)) && time.Now().After(time.Unix(ts, 0)) {
 				fmt.Fprintf(b, "-# _       _ Missing since: **%s** (%s)🕯️\n",
 					bottools.WrapTimestamp(ts, bottools.TimestampShortDate),
 					bottools.WrapTimestamp(ts, bottools.TimestampRelativeTime))
