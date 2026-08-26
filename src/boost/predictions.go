@@ -622,6 +622,28 @@ func GetPredictionBrackets() (wed, friPE, friUltra []ei.EggIncContract) {
 			}
 		}
 
+		// Identify and automatically record the top choice BEFORE applying demotions.
+		// This captures when a contract FIRST reaches top prediction status so its timestamp is saved.
+		_, wedTime, friTime, _ := contractTimes9amPacific(0)
+		for _, c := range bracket {
+			if ts, isMissing := missingMap[c.ID]; isMissing && c.ValidFrom.Before(time.Unix(ts, 0)) {
+				// Skip contracts that are already missing/AWOL
+				continue
+			}
+			// c is the current #1 predicted choice in this bracket.
+			if _, exists := missingMap[c.ID]; !exists {
+				var predTimestamp int64
+				if c.HasPE {
+					predTimestamp = friTime.Unix()
+				} else {
+					predTimestamp = wedTime.Unix()
+				}
+				_ = SaveMissingContract(c.ID, predTimestamp)
+				missingMap[c.ID] = predTimestamp
+			}
+			break
+		}
+
 		// Find all active missing contracts present in this bracket
 		type missingContractInfo struct {
 			contractID string
