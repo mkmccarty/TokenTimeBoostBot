@@ -370,4 +370,3 @@ func CheckAndPublishAMQPBoosterChange(contract *Contract, userID string, nick st
 		Time:       time.Now(),
 	})
 }
-

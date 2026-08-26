@@ -233,5 +233,3 @@ func TestNonTokenReactionTracking(t *testing.T) {
 		t.Errorf("Expected 1 non-token reaction time, got %d", len(booster.NonTokenReactionTimes))
 	}
 }
-
-
