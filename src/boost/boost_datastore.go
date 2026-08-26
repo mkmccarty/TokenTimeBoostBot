@@ -1179,3 +1179,78 @@ func SaveThematicComplaints(data map[string][]string) error {
 
 	return nil
 }
+
+var (
+	missingContractsMu  sync.RWMutex
+	missingContractsMap map[string]int64
+)
+
+// LoadMissingContracts loads missing contracts and their initial missing timestamps from the database.
+func LoadMissingContracts() (map[string]int64, error) {
+	missingContractsMu.Lock()
+	defer missingContractsMu.Unlock()
+
+	if missingContractsMap != nil {
+		return missingContractsMap, nil
+	}
+
+	if queries == nil {
+		sqliteInit()
+	}
+
+	rows, err := queries.GetMissingContracts(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make(map[string]int64)
+	for _, row := range rows {
+		res[row.Contractid] = row.Timestamp
+	}
+
+	missingContractsMap = res
+	return res, nil
+}
+
+// SaveMissingContract inserts or updates a missing contract timestamp in the database.
+func SaveMissingContract(contractID string, timestamp int64) error {
+	if queries == nil {
+		sqliteInit()
+	}
+
+	err := queries.InsertMissingContract(ctx, InsertMissingContractParams{
+		Contractid: contractID,
+		Timestamp:  timestamp,
+	})
+	if err != nil {
+		return err
+	}
+
+	missingContractsMu.Lock()
+	if missingContractsMap != nil {
+		missingContractsMap[contractID] = timestamp
+	}
+	missingContractsMu.Unlock()
+
+	return nil
+}
+
+// DeleteMissingContract removes a missing contract from the database.
+func DeleteMissingContract(contractID string) error {
+	if queries == nil {
+		sqliteInit()
+	}
+
+	err := queries.DeleteMissingContract(ctx, contractID)
+	if err != nil {
+		return err
+	}
+
+	missingContractsMu.Lock()
+	if missingContractsMap != nil {
+		delete(missingContractsMap, contractID)
+	}
+	missingContractsMu.Unlock()
+
+	return nil
+}

@@ -523,9 +523,11 @@ func getWeeklyEmbeds(wedTime, friTime time.Time, userName, botName, botIconURL s
 				fmt.Fprintf(&v, "_ _%s `%dp` [⧉](https://eicoop-carpet.netlify.app/?q=%s)\n", iconCoop, c.MaxCoopSize, c.ID)
 			}
 			fmt.Fprintf(&v, "-# _ _⏱️ Dur: **%s**\n-# _ _🏎️ CS: **%.0f**\n", bottools.FmtDuration(c.EstimatedDuration.Round(time.Minute)), c.Cxp)
-			if c.ID == timeSaverContractID && c.ValidFrom.Before(time.Unix(1774454400, 0)) {
-				timeSaverMissing = true
-				fmt.Fprintf(&v, "-# _ _🕯️ %s\n", bottools.WrapTimestamp(1774454400, bottools.TimestampShortDate))
+			if missingMap, err := LoadMissingContracts(); err == nil {
+				if ts, isMissing := missingMap[c.ID]; isMissing && c.ValidFrom.Before(time.Unix(ts, 0)) {
+					timeSaverMissing = true
+					fmt.Fprintf(&v, "-# _ _🕯️ %s\n", bottools.WrapTimestamp(ts, bottools.TimestampShortDate))
+				}
 			}
 			if idx == len(contracts)-1 {
 				fmt.Fprintf(&v, "_ _")

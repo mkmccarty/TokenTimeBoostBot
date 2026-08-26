@@ -535,10 +535,12 @@ func (pw predictionsWriter) writeContracts(b *strings.Builder, contracts []ei.Eg
 		)
 
 		// Third line for AWOL contracts
-		if c.ID == timeSaverContractID && c.ValidFrom.Before(time.Unix(timeSaverMissingSince, 0)) {
-			fmt.Fprintf(b, "-# _       _ Missing since: **%s** (%s)🕯️\n",
-				bottools.WrapTimestamp(timeSaverMissingSince, bottools.TimestampShortDate),
-				bottools.WrapTimestamp(timeSaverMissingSince, bottools.TimestampRelativeTime))
+		if missingMap, err := LoadMissingContracts(); err == nil {
+			if ts, isMissing := missingMap[c.ID]; isMissing && c.ValidFrom.Before(time.Unix(ts, 0)) {
+				fmt.Fprintf(b, "-# _       _ Missing since: **%s** (%s)🕯️\n",
+					bottools.WrapTimestamp(ts, bottools.TimestampShortDate),
+					bottools.WrapTimestamp(ts, bottools.TimestampRelativeTime))
+			}
 		}
 
 		// TODO: implement a debug mode for these
@@ -592,14 +594,80 @@ func GetPredictionBrackets() (wed, friPE, friUltra []ei.EggIncContract) {
 		}
 	}
 
+	missingMap, err := LoadMissingContracts()
+	if err != nil {
+		missingMap = make(map[string]int64)
+	}
+
+	// Ensure time-saver-2021 is tracked in DB with default initial prediction timestamp
+	if _, exists := missingMap[timeSaverContractID]; !exists {
+		_ = SaveMissingContract(timeSaverContractID, timeSaverMissingSince)
+		missingMap[timeSaverContractID] = timeSaverMissingSince
+	}
+
 	sortBracket := func(bracket []ei.EggIncContract) {
 		sort.Slice(bracket, func(i, j int) bool {
 			return sortValidFrom(bracket[i], bracket[j])
 		})
-		for i, c := range bracket {
-			if c.ID == timeSaverContractID && i+1 < len(bracket) {
-				bracket[i], bracket[i+1] = bracket[i+1], c
-				break
+
+		nowSec := time.Now().Unix()
+
+		// First, clean up any missing contracts that have shown up (ValidFrom >= missing timestamp)
+		for _, c := range bracket {
+			if ts, isMissing := missingMap[c.ID]; isMissing {
+				if !c.ValidFrom.Before(time.Unix(ts, 0)) {
+					_ = DeleteMissingContract(c.ID)
+					delete(missingMap, c.ID)
+				}
+			}
+		}
+
+		// Find all active missing contracts present in this bracket
+		type missingContractInfo struct {
+			contractID string
+			timestamp  int64
+		}
+		var missingInBracket []missingContractInfo
+		for _, c := range bracket {
+			if ts, isMissing := missingMap[c.ID]; isMissing && c.ValidFrom.Before(time.Unix(ts, 0)) {
+				missingInBracket = append(missingInBracket, missingContractInfo{contractID: c.ID, timestamp: ts})
+			}
+		}
+
+		// Sort missing contracts in bracket by timestamp ascending (oldest missing timestamp first)
+		sort.Slice(missingInBracket, func(i, j int) bool {
+			if missingInBracket[i].timestamp == missingInBracket[j].timestamp {
+				return missingInBracket[i].contractID < missingInBracket[j].contractID
+			}
+			return missingInBracket[i].timestamp < missingInBracket[j].timestamp
+		})
+
+		// Apply demotions with index offset for multiple missing contracts
+		for missingRank, mc := range missingInBracket {
+			// Find current index of mc.contractID in bracket
+			currIdx := -1
+			for idx, c := range bracket {
+				if c.ID == mc.contractID {
+					currIdx = idx
+					break
+				}
+			}
+			if currIdx < 0 {
+				continue
+			}
+
+			targetIdx := 0
+			diffSec := nowSec - mc.timestamp
+			if diffSec > 30*24*3600 {
+				targetIdx = 2 + missingRank // 3rd choice for oldest, 4th choice for next, etc.
+			} else if diffSec > 14*24*3600 {
+				targetIdx = 1 + missingRank // 2nd choice for oldest, 3rd choice for next, etc.
+			}
+
+			if targetIdx > 0 && targetIdx < len(bracket) && currIdx < targetIdx {
+				item := bracket[currIdx]
+				copy(bracket[currIdx:targetIdx], bracket[currIdx+1:targetIdx+1])
+				bracket[targetIdx] = item
 			}
 		}
 	}

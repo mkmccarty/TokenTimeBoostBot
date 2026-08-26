@@ -24,3 +24,8 @@ type ContractRole struct {
 	Contractid string
 	RoleName   string
 }
+
+type MissingContract struct {
+	Contractid string
+	Timestamp  int64
+}

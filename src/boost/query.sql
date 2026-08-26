@@ -58,3 +58,13 @@ DELETE FROM contract_complaints;
 -- name: DeleteContractComplaints :exec
 DELETE FROM contract_complaints WHERE contractID = ?;
 
+-- name: GetMissingContracts :many
+SELECT contractID, timestamp FROM missing_contracts;
+
+-- name: InsertMissingContract :exec
+INSERT INTO missing_contracts (contractID, timestamp) VALUES (?, ?)
+ON CONFLICT(contractID) DO UPDATE SET timestamp = excluded.timestamp;
+
+-- name: DeleteMissingContract :exec
+DELETE FROM missing_contracts WHERE contractID = ?;
+

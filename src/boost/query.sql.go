@@ -70,6 +70,15 @@ func (q *Queries) DeleteContractRoles(ctx context.Context, contractid string) er
 	return err
 }
 
+const deleteMissingContract = `-- name: DeleteMissingContract :exec
+DELETE FROM missing_contracts WHERE contractID = ?
+`
+
+func (q *Queries) DeleteMissingContract(ctx context.Context, contractid string) error {
+	_, err := q.db.ExecContext(ctx, deleteMissingContract, contractid)
+	return err
+}
+
 const getActiveContracts = `-- name: GetActiveContracts :many
 SELECT value->>'ContractHash' AS ContractHash,value FROM contract_data WHERE value->>'State' != 4
 `
@@ -173,6 +182,33 @@ func (q *Queries) GetContractRoles(ctx context.Context) ([]ContractRole, error) 
 	return items, nil
 }
 
+const getMissingContracts = `-- name: GetMissingContracts :many
+SELECT contractID, timestamp FROM missing_contracts
+`
+
+func (q *Queries) GetMissingContracts(ctx context.Context) ([]MissingContract, error) {
+	rows, err := q.db.QueryContext(ctx, getMissingContracts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MissingContract
+	for rows.Next() {
+		var i MissingContract
+		if err := rows.Scan(&i.Contractid, &i.Timestamp); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertContract = `-- name: InsertContract :exec
 INSERT INTO contract_data (channelID, contractID, coopID, value)
 VALUES (?, ?, ?, ?)
@@ -222,6 +258,21 @@ type InsertContractRoleParams struct {
 
 func (q *Queries) InsertContractRole(ctx context.Context, arg InsertContractRoleParams) error {
 	_, err := q.db.ExecContext(ctx, insertContractRole, arg.Contractid, arg.RoleName)
+	return err
+}
+
+const insertMissingContract = `-- name: InsertMissingContract :exec
+INSERT INTO missing_contracts (contractID, timestamp) VALUES (?, ?)
+ON CONFLICT(contractID) DO UPDATE SET timestamp = excluded.timestamp
+`
+
+type InsertMissingContractParams struct {
+	Contractid string
+	Timestamp  int64
+}
+
+func (q *Queries) InsertMissingContract(ctx context.Context, arg InsertMissingContractParams) error {
+	_, err := q.db.ExecContext(ctx, insertMissingContract, arg.Contractid, arg.Timestamp)
 	return err
 }
 
