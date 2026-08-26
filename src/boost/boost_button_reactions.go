@@ -1287,11 +1287,8 @@ func sendOrUpdateUserReactionSummary(s *discordgo.Session, i *discordgo.Interact
 	for _, entry := range contract.TokenLog {
 		if entry.FromUserID == userID {
 			tokenCount += entry.Quantity
-			tokenWord := "token"
-			if entry.Quantity != 1 {
-				tokenWord = "tokens"
-			}
-			logLines = append(logLines, fmt.Sprintf("-# <t:%d:T> %s Sent %d %s to **%s**", entry.Time.Unix(), tokenEmoji, entry.Quantity, tokenWord, entry.ToNick))
+			tokenIcons := strings.Repeat(tokenEmoji, entry.Quantity)
+			logLines = append(logLines, fmt.Sprintf("-# <t:%d:T> %s to **%s**", entry.Time.Unix(), tokenIcons, entry.ToNick))
 		}
 	}
 
@@ -1318,9 +1315,9 @@ func sendOrUpdateUserReactionSummary(s *discordgo.Session, i *discordgo.Interact
 	var sb strings.Builder
 	if len(logLines) > 0 {
 		if isAMQP {
-			fmt.Fprintf(&sb, "-# **Tokens Sent:** %d | **No-Token Reactions:** %d | **Activity Log (Last 10):**\n", tokenCount, noTokenCount)
+			fmt.Fprintf(&sb, "-# **Tokens:** %d | **Other:** %d\n", tokenCount, noTokenCount)
 		} else {
-			fmt.Fprintf(&sb, "-# **Tokens Sent:** %d | **Activity Log (Last 10):**\n", tokenCount)
+			fmt.Fprintf(&sb, "-# **Tokens:** %d\n", tokenCount)
 		}
 		for _, line := range logLines {
 			sb.WriteString(line)
@@ -1328,9 +1325,9 @@ func sendOrUpdateUserReactionSummary(s *discordgo.Session, i *discordgo.Interact
 		}
 	} else {
 		if isAMQP {
-			fmt.Fprintf(&sb, "-# **Tokens Sent:** %d | **No-Token Reactions:** %d\n", tokenCount, noTokenCount)
+			fmt.Fprintf(&sb, "-# **Tokens:** %d | **Other:** %d\n", tokenCount, noTokenCount)
 		} else {
-			fmt.Fprintf(&sb, "-# **Tokens Sent:** %d\n", tokenCount)
+			fmt.Fprintf(&sb, "-# **Tokens:** %d\n", tokenCount)
 		}
 		sb.WriteString("-# *No recorded reactions yet.*")
 	}
