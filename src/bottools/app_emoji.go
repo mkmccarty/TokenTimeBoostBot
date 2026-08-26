@@ -51,7 +51,7 @@ func LoadEmotes(s *discordgo.Session, force bool) {
 		return EnsureEmojiFromLocalRepo(s, name)
 	})
 
-	EmoteMapNew := make(map[string]ei.Emotes)
+	var EmoteMapNew map[string]ei.Emotes
 
 	fileInfo, err := os.Stat(emoteFilePath)
 	if force || err != nil {
