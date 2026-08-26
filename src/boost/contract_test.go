@@ -582,4 +582,3 @@ func TestRestartContractRestoresState(t *testing.T) {
 		t.Errorf("Expected threshold tokens (6, 8, 80), got (%d, %d, %d)", newContract.ThresholdTokensX, newContract.ThresholdTokensY, newContract.ThresholdTokensA)
 	}
 }
-
