@@ -680,10 +680,8 @@ func GetPredictionBrackets() (wed, friPE, friUltra []ei.EggIncContract) {
 
 			targetIdx := 0
 			diffSec := nowSec - mc.timestamp
-			if diffSec > 30*24*3600 {
-				targetIdx = 2 + missingRank // 3rd choice for oldest, 4th choice for next, etc.
-			} else if diffSec > 14*24*3600 {
-				targetIdx = 1 + missingRank // 2nd choice for oldest, 3rd choice for next, etc.
+			if diffSec > 14*24*3600 {
+				targetIdx = 1 + missingRank // 2nd choice (1st choice for subsequent missing contracts)
 			}
 
 			if targetIdx > 0 && targetIdx < len(bracket) && currIdx < targetIdx {
