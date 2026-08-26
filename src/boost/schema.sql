@@ -17,3 +17,8 @@ CREATE TABLE IF NOT EXISTS contract_complaints (
     PRIMARY KEY (contractID, complaint)
 );
 
+CREATE TABLE IF NOT EXISTS missing_contracts (
+    contractID text PRIMARY KEY NOT NULL,
+    timestamp  INTEGER NOT NULL
+);
+
