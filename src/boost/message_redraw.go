@@ -97,6 +97,11 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 			msg, err := s.ChannelMessageSendComplex(loc.ChannelID, &data)
 			if err == nil {
 				SetListMessageID(contract, loc.ChannelID, msg.ID)
+				contract.mutex.Lock()
+				for _, booster := range contract.Boosters {
+					booster.NonTokenMsgID = ""
+				}
+				contract.mutex.Unlock()
 				//				addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
 			} else {
 				log.Println("Unable to resend message." + err.Error())
