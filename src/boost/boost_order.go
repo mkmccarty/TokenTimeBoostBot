@@ -1013,7 +1013,17 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 			if sortType == "fuzzyihr" {
 				randomBonusMax := ihrVal * 0.06 // 6%
 				randomOffset := (rand.Float64()*2 - 1) * randomBonusMax
-				ihrVal = ihrVal + randomOffset
+				sortIHR := ihrVal + randomOffset
+				if b := contract.Boosters[name]; b != nil {
+					b.FuzzyOffset = randomOffset
+					if b.IHRCalcLog == "" {
+						b.IHRCalcLog = fmt.Sprintf("IHR Rate = %0.2f", ihrVal)
+					} else if idx := strings.Index(b.IHRCalcLog, ", Fuzzy ("); idx != -1 {
+						b.IHRCalcLog = b.IHRCalcLog[:idx]
+					}
+					b.IHRCalcLog = fmt.Sprintf("%s, Fuzzy (Max=%0.2f, Offset=%0.2f, Sorted=%0.2f)", b.IHRCalcLog, randomBonusMax, randomOffset, sortIHR)
+				}
+				ihrVal = sortIHR
 			}
 			pairs[i] = ihrPair{
 				name:         name,
@@ -1055,6 +1065,9 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 				randomBonusMax := math.Max(baseTE*0.06, math.Sqrt(baseTE+25))
 				randomOffset := (rand.Float64()*2 - 1) * randomBonusMax
 				sortTE = baseTE + randomOffset
+				if b := contract.Boosters[name]; b != nil {
+					b.FuzzyOffset = randomOffset
+				}
 			}
 			pairs[i] = tePair{name: name, te: sortTE}
 		}
