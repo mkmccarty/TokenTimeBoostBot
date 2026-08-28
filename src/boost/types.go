@@ -225,6 +225,7 @@ type Booster struct {
 	TECount                int                  // Truth Egg Count
 	IHRRate                float64              // Internal Hatchery Rate for IHR Order
 	IHRCalcLog             string               // Plain text log of IHR calculation details
+	FuzzyOffset            float64              // Fuzzy random offset applied during fuzzy TE or IHR ordering
 	Availability           ContractAvailability // Availability for contracts
 	NonTokenReactionTimes  []time.Time          // Timestamps of no-token button interactions
 	NonTokenMsgID          string               // Last ephemeral message ID for user reaction summary log

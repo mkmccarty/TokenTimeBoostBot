@@ -537,3 +537,30 @@ func TestCalculateIHRRateFromDBDeflectorWithLife(t *testing.T) {
 		t.Fatalf("expected IHR rate with life deflector (%.2f) to be higher than without (%.2f)", rateWithLife, rateWithoutLife)
 	}
 }
+
+func TestBoostOrderSortRemainingFuzzyIHRCalcLog(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderSignup,
+		Order:      []string{"u1", "u2"},
+		Boosters: map[string]*Booster{
+			"u1": {UserID: "u1", IHRRate: 1000.0, IHRCalcLog: "Base=1000.00"},
+			"u2": {UserID: "u2", IHRRate: 5000.0},
+		},
+	}
+
+	boostOrderSortRemaining(contract, []string{"u1", "u2"}, "fuzzyihr")
+
+	if !strings.Contains(contract.Boosters["u1"].IHRCalcLog, "Fuzzy (Max=") {
+		t.Fatalf("expected u1 IHRCalcLog to contain Fuzzy details, got %q", contract.Boosters["u1"].IHRCalcLog)
+	}
+	if !strings.Contains(contract.Boosters["u2"].IHRCalcLog, "Fuzzy (Max=") {
+		t.Fatalf("expected u2 IHRCalcLog to contain Fuzzy details, got %q", contract.Boosters["u2"].IHRCalcLog)
+	}
+
+	// Verify repeat sort doesn't duplicate Fuzzy string recursively
+	boostOrderSortRemaining(contract, []string{"u1", "u2"}, "fuzzyihr")
+	if strings.Count(contract.Boosters["u1"].IHRCalcLog, "Fuzzy (") != 1 {
+		t.Fatalf("expected single Fuzzy entry in u1 IHRCalcLog, got %q", contract.Boosters["u1"].IHRCalcLog)
+	}
+}
