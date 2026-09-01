@@ -9,7 +9,6 @@ Place a configuration file in the same directory as the bot. When launched the b
     "DiscordAppID": "",
     "DevBotAppID": "",
     "DiscordGuildID": "",
-    "OpenAIKey": "",
     "GoogleAPIKey": "",
     "AdminUserId": "",
     "AdminUsers": [],
@@ -40,10 +39,6 @@ development bot.
 
 This is the server ID for the server you want to restrict the bot to.  When this is set to something then the commands will only be available on that server. To use commands via DM you need to leave this empty. This is an optional setting.
 
-## OpenAIKey
-
-This is the API key for the OpenAI GPT API. This is optional.
-Used with the /fun commands to generate DALLE-3 images
 
 ## GoogleAPIKey
 
