@@ -652,6 +652,7 @@ func updateContractWithEggIncData(s *discordgo.Session, contract *Contract) {
 			}
 		}
 		contract.PredictionInfo = pInfo
+		renameContractRole(s, contract)
 	}
 }
 
