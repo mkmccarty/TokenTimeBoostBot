@@ -164,8 +164,9 @@ func HandleEventHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	if len(config.EventsURL) > 0 {
-		events.WriteString("[Event Calendar](" + config.EventsURL + ")")
-		//footerStr = fmt.Sprint("[Event Calendar](" + config.EventsURL + ")")
+		events.WriteString("[Event Calendar](")
+		events.WriteString(config.EventsURL)
+		events.WriteString(")")
 	}
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true,

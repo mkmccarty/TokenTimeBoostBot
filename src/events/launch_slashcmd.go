@@ -387,7 +387,10 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var sName = " " + ship.Name
 			var sArt = ei.GetBotEmojiMarkdown(ship.Art)
 			if shipIndex == 0 || len(missionShips) <= 2 {
-				builder.WriteString(sArt + " __" + ship.Name + "__:\n")
+				builder.WriteString(sArt)
+				builder.WriteString(" __")
+				builder.WriteString(ship.Name)
+				builder.WriteString("__:\n")
 				sName = "" // Clear this out for single missions
 				sArt = ""
 			} else if shipIndex == 1 {
