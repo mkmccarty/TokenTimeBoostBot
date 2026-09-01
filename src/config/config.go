@@ -14,8 +14,6 @@ var (
 	DiscordAppID string
 	// DiscordGuildID holds a GuildID to restring the bot to a single guild.
 	DiscordGuildID string
-	// OpenAIKey holds the API key for OpenAI.
-	OpenAIKey string
 	// GoogleAPIKey holds the API key for Google.
 	GoogleAPIKey string
 	// AdminUserID holds primary admin's DiscordID
@@ -58,7 +56,6 @@ type configStruct struct {
 	DiscordToken     string   `json:"DiscordToken"`
 	DiscordAppID     string   `json:"DiscordAppID"`
 	DiscordGuildID   string   `json:"DiscordGuildID"`
-	OpenAIKey        string   `json:"OpenAIKey"`
 	GoogleAPIKey     string   `json:"GoogleAPIKey"`
 	AdminUserID      string   `json:"AdminUserId"`
 	EIUserIDBasic    string   `json:"EIUserIDBasic"`
@@ -97,7 +94,6 @@ func ReadConfig(cfgFile string) error {
 	DiscordToken = config.DiscordToken
 	DiscordAppID = config.DiscordAppID
 	DiscordGuildID = config.DiscordGuildID
-	OpenAIKey = config.OpenAIKey
 	GoogleAPIKey = config.GoogleAPIKey
 	AdminUserID = config.AdminUserID
 	EIUserID = config.EIUserID

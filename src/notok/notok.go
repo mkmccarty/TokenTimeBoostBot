@@ -208,26 +208,6 @@ func letter(mention string, text string, desc string) (string, error) {
 	return str, nil
 }
 
-/*
-	func getStringFromOpenAI(text string) string {
-		var str = ""
-		var client = openai.NewClient(config.OpenAIKey)
-		var resp, _ = client.CreateChatCompletion(
-			context.Background(),
-			openai.ChatCompletionRequest{
-				Model: openai.GPT3Dot5Turbo0301,
-				Messages: []openai.ChatCompletionMessage{
-					{
-						Role:    openai.ChatMessageRoleUser,
-						Content: text,
-					},
-				},
-			},
-		)
-		str = resp.Choices[0].Message.Content
-		return str
-	}
-*/
 func getStringFromGoogleGemini(text string) (string, error) {
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
@@ -334,90 +314,6 @@ func isRetryableModelError(err error) bool {
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "503") || strings.Contains(msg, "overloaded") || strings.Contains(msg, "overload") || strings.Contains(msg, "please try again later")
 }
-
-/*
-func wishImage(prompt string, user string) (string, error) {
-	var client = openai.NewClient(config.OpenAIKey)
-
-	respURL, err := client.CreateImage(
-		context.Background(),
-		openai.ImageRequest{
-			Prompt:         fmt.Sprintf("%s %s", prompt, ""),
-			Model:          openai.CreateImageModelDallE3,
-			N:              1,
-			Size:           openai.CreateImageSize1024x1024,
-			ResponseFormat: openai.CreateImageResponseFormatURL,
-			Quality:        openai.CreateImageQualityStandard,
-			Style:          openai.CreateImageStyleVivid,
-			User:           user,
-		},
-	)
-	if err != nil {
-		var apiError *openai.APIError
-		switch {
-		case errors.As(err, &apiError):
-			return "", errors.New(apiError.Message)
-		default:
-			return "", errors.New("error creating image")
-		}
-	}
-
-	fmt.Println(prompt)
-	fmt.Println(respURL.Data[0].URL)
-
-	go downloadFileNoErr("./ttbb-data/images", respURL.Data[0].URL, prompt)
-
-	return respURL.Data[0].URL, nil
-}
-
-func downloadFileNoErr(filepath string, url string, prompt string) {
-	_ = downloadFile(filepath, url, prompt)
-}
-
-func downloadFile(filepath string, url string, prompt string) error {
-
-	// Get the data
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			// Handle the error appropriately, e.g., logging or taking corrective actions
-			log.Printf("Failed to close: %v", err)
-		}
-	}()
-
-	err = os.MkdirAll(filepath, os.ModePerm)
-	if err != nil {
-		return err
-	}
-
-	id := xid.New()
-	newfile := fmt.Sprintf("%s/%s.png", filepath, id.String())
-	newfilePrompt := fmt.Sprintf("%s/%s.txt", filepath, id.String())
-	err = os.WriteFile(newfilePrompt, []byte(prompt), 0664)
-	if err != nil {
-		log.Print(err)
-	}
-
-	// Create the file
-	out, err := os.Create(newfile)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := out.Close(); err != nil {
-			// Handle the error appropriately, e.g., logging or taking corrective actions
-			log.Printf("Failed to close: %v", err)
-		}
-	}()
-	// Write the body to file
-	_, err = io.Copy(out, resp.Body)
-	return err
-}
-*/
 
 // GetContractThematicComplaints returns a list of contract themed complaints for a given contract.
 func GetContractThematicComplaints(contractName string, contractDescription string, quantity int) []string {
