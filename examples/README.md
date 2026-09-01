@@ -57,15 +57,16 @@ Other discord server users that have the PermissionAdministrator permission can 
 
 ## EIUserId
 
-You need to use an Eggs Inc. user ID so that the contracts and periodicals get more timely information.
-This should ideally be subscribed to Ultra to receive the Ultra events and contracts.
+This is the game Egg, Inc. user ID (EID) used for all other bot requests, such as retrieving contracts, periodicals, and leaderboards. To ensure the bot receives Ultra events and contracts in a timely manner, this account needs to be an active game user with an Ultra subscription.
 
 For iOS you could create a second AppleID and with that create a new GameCenter account to use for this purpose. With your primary AppleID you can sign out of Game Center and then sign in with the GameCenter ID from the new AppleID. Once in the game you can Restore Purchases to get the Ultra subscription added to this new EI User ID. You don't need to do anything else with this account.
 
 ## EIUserIdBasic
 
-You need to use an Eggs Inc. user ID so that can be used for retrieving coop_status information.
-This doesn't need to have Ultra.
+This is a special bot user ID requested directly from AuxBrain that is used specifically for all `coop_status_bot` requests. This ID does not need an Ultra subscription.
+
+> [!WARNING]
+> Do not use a normal player's user ID for `EIUserIdBasic` / `coop_status_bot` requests. Using a personal user ID for these requests can result in lost tokens and lost chicken runs, and will limit lookups only to contracts that specific user is currently in.
 
 ## AdminUsers
 
