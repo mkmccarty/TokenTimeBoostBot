@@ -102,6 +102,8 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 			targetUserID = reaction[2]
 		}
 		buttonReactionRanChicken(s, i, contract, userID, targetUserID)
+	case "rancoop":
+		buttonReactionRanCoop(s, i, contract, userID)
 	case "crping":
 		buttonReactionCRPing(s, i, contract, userID)
 	case "complain":
@@ -614,8 +616,8 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 		}
 		containerComps = append(containerComps, discordgo.TextDisplay{Content: sb.String()})
 
-		// One button per incomplete requester, max 10 total
-		if len(buttons) < 10 {
+		// One button per incomplete requester, max 9 total so Ran Coop button fits
+		if len(buttons) < 9 {
 			label := runewidth.Truncate(name, 16, "")
 			buttonLabelCount[label]++
 			// Truncating to 16 chars can produce duplicate labels, append a number to keep them distinct
@@ -633,6 +635,16 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 		selectOptions = append(selectOptions, discordgo.SelectMenuOption{
 			Label: name + " Runners",
 			Value: reqID,
+		})
+	}
+
+	// Always add the "Ran Coop" button if there are buttons/requesters
+	if len(buttons) > 0 {
+		buttons = append(buttons, discordgo.Button{
+			Emoji:    ei.GetBotComponentEmoji("icon_chicken_run"),
+			Label:    "Ran Coop",
+			Style:    discordgo.PrimaryButton,
+			CustomID: fmt.Sprintf("rc_#RanCoop#%s", contract.ContractHash),
 		})
 	}
 
@@ -822,7 +834,9 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 				contract.ContractHash, requesterUserID, cUserID, id)
 			continue
 		}
-		targetBooster.RanChickensOn = append(targetBooster.RanChickensOn, requesterUserID)
+		if !slices.Contains(targetBooster.RanChickensOn, requesterUserID) {
+			targetBooster.RanChickensOn = append(targetBooster.RanChickensOn, requesterUserID)
+		}
 	}
 
 	newColor := getChickenRunAccentColor(contract)
@@ -848,6 +862,96 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 
 	if newColor != oldColor {
 		saveData(contract.ContractHash)
+		refreshBoostListMessage(s, contract, false)
+	}
+}
+
+func buttonReactionRanCoop(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, cUserID string) {
+	defer func() {
+		if r := recover(); r != nil {
+			msgID := ""
+			channelID := ""
+			if i != nil {
+				channelID = i.ChannelID
+				if i.Message != nil {
+					msgID = i.Message.ID
+				}
+			}
+			contractHash := ""
+			if contract != nil {
+				contractHash = contract.ContractHash
+			}
+			log.Printf("panic recovered in buttonReactionRanCoop: panic=%v contractHash=%s channelID=%s messageID=%s userID=%s\n%s",
+				r, contractHash, channelID, msgID, cUserID, string(debug.Stack()),
+			)
+		}
+	}()
+
+	if contract == nil || i == nil || i.Message == nil {
+		log.Printf("buttonReactionRanCoop invalid input: contractNil=%t interactionNil=%t messageNil=%t userID=%s",
+			contract == nil, i == nil, i == nil || i.Message == nil, cUserID,
+		)
+		return
+	}
+
+	if !UserInContract(contract, cUserID) {
+		return
+	}
+
+	contract.mutex.Lock()
+	defer contract.mutex.Unlock()
+
+	userBooster := contract.Boosters[cUserID]
+	if userBooster == nil {
+		log.Printf("buttonReactionRanCoop missing booster entry for reacting user: contractHash=%s reactingUserID=%s",
+			contract.ContractHash, cUserID)
+		return
+	}
+
+	oldColor := getChickenRunAccentColor(contract)
+
+	// User IDs for reacting user and their alts
+	reactingUserIDs := append([]string{cUserID}, userBooster.Alts...)
+
+	// Mark all other boosters in the coop as having chickens run on them
+	for _, id := range reactingUserIDs {
+		targetBooster := contract.Boosters[id]
+		if targetBooster == nil {
+			continue
+		}
+		for _, coopMemberID := range contract.Order {
+			if slices.Contains(reactingUserIDs, coopMemberID) {
+				continue
+			}
+			if !slices.Contains(targetBooster.RanChickensOn, coopMemberID) {
+				targetBooster.RanChickensOn = append(targetBooster.RanChickensOn, coopMemberID)
+			}
+		}
+	}
+
+	newColor := getChickenRunAccentColor(contract)
+
+	// Find role mention for this channel to rebuild the header
+	var roleMention string
+	for _, loc := range contract.Location {
+		if loc.ChannelID == i.ChannelID {
+			roleMention = loc.RoleMention
+			break
+		}
+	}
+
+	components, allowedMentions := buildCRMessageComponents(contract, roleMention)
+	msgedit := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
+	msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
+	msgedit.AllowedMentions = &discordgo.MessageAllowedMentions{Users: allowedMentions}
+	msgedit.Components = &components
+	if _, err := s.ChannelMessageEditComplex(msgedit); err != nil {
+		log.Printf("ChannelMessageEditComplex error: contractHash=%s messageID=%s error=%v",
+			contract.ContractHash, i.Message.ID, err)
+	}
+
+	saveData(contract.ContractHash)
+	if newColor != oldColor {
 		refreshBoostListMessage(s, contract, false)
 	}
 }
