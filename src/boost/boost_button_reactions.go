@@ -643,7 +643,7 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 		buttons = append(buttons, discordgo.Button{
 			Emoji:    ei.GetBotComponentEmoji("icon_chicken_run"),
 			Label:    "Ran Coop",
-			Style:    discordgo.PrimaryButton,
+			Style:    discordgo.SecondaryButton,
 			CustomID: fmt.Sprintf("rc_#RanCoop#%s", contract.ContractHash),
 		})
 	}
