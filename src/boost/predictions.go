@@ -534,9 +534,9 @@ func (pw predictionsWriter) writeContracts(b *strings.Builder, contracts []ei.Eg
 			c.MinutesPerToken,
 		)
 
-		// Third line for AWOL contracts
+		// Third line for AWOL contracts (passed by more than 15 days)
 		if missingMap, err := LoadMissingContracts(); err == nil {
-			if ts, isMissing := missingMap[c.ID]; isMissing && c.ValidFrom.Before(time.Unix(ts, 0)) && time.Now().After(time.Unix(ts, 0)) {
+			if ts, isMissing := missingMap[c.ID]; isMissing && c.ValidFrom.Before(time.Unix(ts, 0)) && time.Now().Unix()-ts > 15*86400 {
 				fmt.Fprintf(b, "-# _       _ Missing since: **%s** (%s)🕯️\n",
 					bottools.WrapTimestamp(ts, bottools.TimestampShortDate),
 					bottools.WrapTimestamp(ts, bottools.TimestampRelativeTime))
@@ -622,36 +622,31 @@ func GetPredictionBrackets() (wed, friPE, friUltra []ei.EggIncContract) {
 			}
 		}
 
-		// Identify and automatically record the top choice BEFORE applying demotions.
-		// This captures when a contract FIRST reaches top prediction status so its timestamp is saved.
-		_, wedTime, friTime, _ := contractTimes9amPacific(0)
-		for _, c := range bracket {
-			if ts, isMissing := missingMap[c.ID]; isMissing && c.ValidFrom.Before(time.Unix(ts, 0)) {
-				// Skip contracts that are already missing/AWOL
-				continue
-			}
-			// c is the current #1 predicted choice in this bracket.
-			if _, exists := missingMap[c.ID]; !exists {
+		// Record the top predicted choice if not already tracked.
+		// This captures when a contract FIRST reaches top prediction status so its drop timestamp is saved.
+		if len(bracket) > 0 {
+			top := bracket[0]
+			if _, exists := missingMap[top.ID]; !exists {
+				_, wedTime, friTime, _ := contractTimes9amPacific(0)
 				var predTimestamp int64
-				if c.HasPE {
+				if top.HasPE {
 					predTimestamp = friTime.Unix()
 				} else {
 					predTimestamp = wedTime.Unix()
 				}
-				_ = SaveMissingContract(c.ID, predTimestamp)
-				missingMap[c.ID] = predTimestamp
+				_ = SaveMissingContract(top.ID, predTimestamp)
+				missingMap[top.ID] = predTimestamp
 			}
-			break
 		}
 
-		// Find all active missing contracts present in this bracket
+		// Find all active missing contracts present in this bracket that are past their drop date by > 15 days
 		type missingContractInfo struct {
 			contractID string
 			timestamp  int64
 		}
 		var missingInBracket []missingContractInfo
 		for _, c := range bracket {
-			if ts, isMissing := missingMap[c.ID]; isMissing && c.ValidFrom.Before(time.Unix(ts, 0)) {
+			if ts, isMissing := missingMap[c.ID]; isMissing && c.ValidFrom.Before(time.Unix(ts, 0)) && nowSec-ts > 15*86400 {
 				missingInBracket = append(missingInBracket, missingContractInfo{contractID: c.ID, timestamp: ts})
 			}
 		}
@@ -678,12 +673,7 @@ func GetPredictionBrackets() (wed, friPE, friUltra []ei.EggIncContract) {
 				continue
 			}
 
-			targetIdx := 0
-			diffSec := nowSec - mc.timestamp
-			if diffSec > 14*24*3600 {
-				targetIdx = 1 + missingRank // 2nd choice (1st choice for subsequent missing contracts)
-			}
-
+			targetIdx := 1 + missingRank // 2nd choice (or subsequent for older missing contracts)
 			if targetIdx > 0 && targetIdx < len(bracket) && currIdx < targetIdx {
 				item := bracket[currIdx]
 				copy(bracket[currIdx:targetIdx], bracket[currIdx+1:targetIdx+1])

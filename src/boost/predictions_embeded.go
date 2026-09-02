@@ -524,7 +524,7 @@ func getWeeklyEmbeds(wedTime, friTime time.Time, userName, botName, botIconURL s
 			}
 			fmt.Fprintf(&v, "-# _ _⏱️ Dur: **%s**\n-# _ _🏎️ CS: **%.0f**\n", bottools.FmtDuration(c.EstimatedDuration.Round(time.Minute)), c.Cxp)
 			if missingMap, err := LoadMissingContracts(); err == nil {
-				if ts, isMissing := missingMap[c.ID]; isMissing && c.ValidFrom.Before(time.Unix(ts, 0)) && time.Now().After(time.Unix(ts, 0)) {
+				if ts, isMissing := missingMap[c.ID]; isMissing && c.ValidFrom.Before(time.Unix(ts, 0)) && time.Now().Unix()-ts > 15*86400 {
 					timeSaverMissing = true
 					fmt.Fprintf(&v, "-# _ _🕯️ %s\n", bottools.WrapTimestamp(ts, bottools.TimestampShortDate))
 				}
