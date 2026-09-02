@@ -8,7 +8,7 @@ require (
 	github.com/divan/num2words v1.0.3
 	github.com/ewohltman/discordgo-mock v0.0.11
 	github.com/google/go-github/v71 v71.0.0
-	github.com/mattn/go-runewidth v0.0.28
+	github.com/mattn/go-runewidth v0.0.29
 	github.com/natefinch/lumberjack/v3 v3.0.0-alpha
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/pkg/errors v0.9.1
@@ -20,7 +20,7 @@ require (
 	golang.org/x/text v0.41.0
 	google.golang.org/genai v1.71.0
 	google.golang.org/protobuf v1.36.12
-	modernc.org/sqlite v1.57.0
+	modernc.org/sqlite v1.58.0
 )
 
 require (
@@ -57,10 +57,10 @@ require (
 	golang.org/x/crypto v0.55.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
-	google.golang.org/api v0.296.0 // indirect
+	google.golang.org/api v0.297.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260831171406-18b4a7587f8a // indirect
 	google.golang.org/grpc v1.83.2 // indirect
-	modernc.org/libc v1.75.6 // indirect
+	modernc.org/libc v1.75.7 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
