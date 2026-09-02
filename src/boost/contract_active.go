@@ -238,6 +238,14 @@ func getCurrentContractsComponents(s *discordgo.Session, channelID string) ([]di
 			}
 			// Get the contract display component for this contract and its active coops, if any.
 			if len(activeCoops) > 0 {
+				sort.Slice(activeCoops, func(a, b int) bool {
+					fullA := len(activeCoops[a].Boosters) >= activeCoops[a].CoopSize
+					fullB := len(activeCoops[b].Boosters) >= activeCoops[b].CoopSize
+					if fullA != fullB {
+						return fullA // FULL coops first
+					}
+					return activeCoops[a].CoopID < activeCoops[b].CoopID
+				})
 				display := getContractDisplay(group[0], activeCoops, activeThreadIDs, discordEmbedTotalCharLimit-totalChars)
 				if totalChars+len(display.Content) > discordEmbedTotalCharLimit {
 					break
