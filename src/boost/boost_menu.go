@@ -445,6 +445,26 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
+	case "rancoop":
+		userID := i.Member.User.ID
+		if !UserInContract(contract, userID) {
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "You are not part of this contract.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+			return
+		}
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: fmt.Sprintf("%s Marked all farms that you've run chickens.", ei.GetBotEmojiMarkdown("icon_chicken_run")),
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		buttonReactionRanCoop(s, i, contract, userID)
 	case "togglerxlog":
 		userID := i.Member.User.ID
 		contract.mutex.Lock()

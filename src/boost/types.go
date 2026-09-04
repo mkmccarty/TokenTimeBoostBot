@@ -337,6 +337,7 @@ type Contract struct {
 	RegisteredNum              int
 	Boosters                   map[string]*Booster // Boosters Registered
 	CRMessageIDs               map[string]string   // CR reqest messageIDs
+	CRNoticeCount              int                 // Number of times CR dialog has been displayed
 	WaitlistBoosters           []string            // Waitlist of UserID's
 	Order                      []string
 	OriginalOrder              []string   // Initial sorted order when contract boosting starts
