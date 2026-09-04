@@ -143,6 +143,7 @@ func bumpCRMessages(s *discordgo.Session, contract *Contract) {
 
 		contract.mutex.Lock()
 		setChickenRunMessageID(contract, location.ChannelID, newMsg.ID)
+		contract.CRNoticeCount++
 		contract.mutex.Unlock()
 
 		if existingMsgID := crIDs[location.ChannelID]; existingMsgID != "" {

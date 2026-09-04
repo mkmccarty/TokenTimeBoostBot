@@ -425,6 +425,7 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 
 				contract.mutex.Lock()
 				setChickenRunMessageID(contract, location.ChannelID, newMsg.ID)
+				contract.CRNoticeCount++
 				contract.mutex.Unlock()
 
 				if existingMsgID != "" {
@@ -616,8 +617,8 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 		}
 		containerComps = append(containerComps, discordgo.TextDisplay{Content: sb.String()})
 
-		// One button per incomplete requester, max 9 total so Ran Coop button fits
-		if len(buttons) < 9 {
+		// One button per incomplete requester, max 10 total (up to 2 rows of 5)
+		if len(buttons) < 10 {
 			label := runewidth.Truncate(name, 16, "")
 			buttonLabelCount[label]++
 			// Truncating to 16 chars can produce duplicate labels, append a number to keep them distinct
@@ -638,19 +639,14 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 		})
 	}
 
-	// Always add the "Ran Coop" button if there are buttons/requesters
-	if len(buttons) > 0 {
-		buttons = append(buttons, discordgo.Button{
-			Emoji:    ei.GetBotComponentEmoji("icon_chicken_run"),
-			Label:    "Ran Coop",
-			Style:    discordgo.SecondaryButton,
-			CustomID: fmt.Sprintf("rc_#RanCoop#%s", contract.ContractHash),
-		})
+	var tipText string
+	if contract.CRNoticeCount < 2 {
+		tipText = "\n-# 💡 Use the Boost Menu to indicate you aren't holding runs."
 	}
 
 	pingHeader := fmt.Sprintf(
-		"%s **%s** is requesting chicken runs!\n-# Check for trucks and incoming tokens before visiting.\n",
-		roleMention, latestName,
+		"%s **%s** is requesting chicken runs!\n-# Check for trucks and incoming tokens before visiting.%s\n",
+		roleMention, latestName, tipText,
 	)
 	accentColor := crColorFromPct(worstPct)
 	var components []discordgo.MessageComponent
@@ -931,23 +927,31 @@ func buttonReactionRanCoop(s *discordgo.Session, i *discordgo.InteractionCreate,
 
 	newColor := getChickenRunAccentColor(contract)
 
-	// Find role mention for this channel to rebuild the header
-	var roleMention string
-	for _, loc := range contract.Location {
-		if loc.ChannelID == i.ChannelID {
-			roleMention = loc.RoleMention
-			break
-		}
+	// Determine the CR message ID to update for this channel
+	targetMsgID := contract.CRMessageIDs[i.ChannelID]
+	if targetMsgID == "" && i.Message != nil {
+		targetMsgID = i.Message.ID
 	}
 
-	components, allowedMentions := buildCRMessageComponents(contract, roleMention)
-	msgedit := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
-	msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
-	msgedit.AllowedMentions = &discordgo.MessageAllowedMentions{Users: allowedMentions}
-	msgedit.Components = &components
-	if _, err := s.ChannelMessageEditComplex(msgedit); err != nil {
-		log.Printf("ChannelMessageEditComplex error: contractHash=%s messageID=%s error=%v",
-			contract.ContractHash, i.Message.ID, err)
+	if targetMsgID != "" {
+		// Find role mention for this channel to rebuild the header
+		var roleMention string
+		for _, loc := range contract.Location {
+			if loc.ChannelID == i.ChannelID {
+				roleMention = loc.RoleMention
+				break
+			}
+		}
+
+		components, allowedMentions := buildCRMessageComponents(contract, roleMention)
+		msgedit := discordgo.NewMessageEdit(i.ChannelID, targetMsgID)
+		msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
+		msgedit.AllowedMentions = &discordgo.MessageAllowedMentions{Users: allowedMentions}
+		msgedit.Components = &components
+		if _, err := s.ChannelMessageEditComplex(msgedit); err != nil {
+			log.Printf("ChannelMessageEditComplex error: contractHash=%s messageID=%s error=%v",
+				contract.ContractHash, targetMsgID, err)
+		}
 	}
 
 	saveData(contract.ContractHash)
@@ -1200,6 +1204,11 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
 			Label: "My Chicken Runs",
 			Value: "mychickens",
+			Emoji: ei.GetBotComponentEmoji("icon_chicken_run"),
+		})
+		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+			Label: "Ran chickens early on all farms",
+			Value: "rancoop",
 			Emoji: ei.GetBotComponentEmoji("icon_chicken_run"),
 		})
 		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
