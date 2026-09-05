@@ -481,13 +481,7 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 				if err != nil {
 					str = "Invalid offset format. Use a number like +2.5 or -1.5 or TBD"
 				} else {
-					baseTime := contract.ValidFrom
-
-					// Fallback for older contracts created prior to this update
-					if baseTime.IsZero() {
-						baseTime = GetEggStandardTime(time.Now())
-						contract.ValidFrom = baseTime
-					}
+					baseTime := GetEggStandardTime(time.Now())
 
 					// Apply offset
 					offsetDuration := time.Duration(offset * float64(time.Hour))
