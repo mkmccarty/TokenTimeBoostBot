@@ -151,6 +151,52 @@ func TestNextWeekdayDateBeforeEggStandardTimeStaysToday(t *testing.T) {
 	}
 }
 
+func TestChangePlannedStartOffsetCalculation(t *testing.T) {
+	loc, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		t.Fatalf("Failed to load America/Los_Angeles location: %v", err)
+	}
+
+	// Simulated current time: Sept 5, 2026 at 8:10 AM PT
+	now := time.Date(2026, 9, 5, 8, 10, 0, 0, loc)
+	baseTime := GetEggStandardTime(now) // Sept 5, 2026 at 9:00 AM PT
+
+	tests := []struct {
+		name     string
+		offset   float64
+		expected time.Time
+	}{
+		{
+			name:     "Offset +24 from 8:10 AM should be tomorrow Sept 6 at 9:00 AM PT",
+			offset:   24,
+			expected: time.Date(2026, 9, 6, 9, 0, 0, 0, loc),
+		},
+		{
+			name:     "Offset +48 from 8:10 AM should be Sept 7 at 9:00 AM PT",
+			offset:   48,
+			expected: time.Date(2026, 9, 7, 9, 0, 0, 0, loc),
+		},
+		{
+			name:     "Offset +2.5 from 8:10 AM should be today Sept 5 at 11:30 AM PT",
+			offset:   2.5,
+			expected: time.Date(2026, 9, 5, 11, 30, 0, 0, loc),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			offsetDuration := time.Duration(tc.offset * float64(time.Hour))
+			resultTime := baseTime.Add(offsetDuration)
+			for resultTime.Before(now) {
+				resultTime = resultTime.Add(24 * time.Hour)
+			}
+			if !resultTime.Equal(tc.expected) {
+				t.Fatalf("resultTime = %v, want %v", resultTime, tc.expected)
+			}
+		})
+	}
+}
+
 func TestPopulateThematicComplaintsForContractID(t *testing.T) {
 	// Create a dummy contract and put it in Contracts map
 	cID := "test-contract-123"
