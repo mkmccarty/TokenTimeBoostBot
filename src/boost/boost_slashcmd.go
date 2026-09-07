@@ -707,7 +707,6 @@ func HandleRestartContract(s *discordgo.Session, i *discordgo.InteractionCreate)
 			coopID := contract.CoopID
 			playStyle := contract.PlayStyle
 			coopSize := contract.CoopSize
-			boostOrder := contract.BoostOrder
 			progenitors := contract.Order
 			if contract.State != ContractStateSignup && len(contract.OriginalOrder) > 0 {
 				progenitors = contract.OriginalOrder
@@ -727,14 +726,14 @@ func HandleRestartContract(s *discordgo.Session, i *discordgo.InteractionCreate)
 				str = "Failed to delete contract: " + err.Error()
 			} else {
 				mutex.Lock()
-				newContract, err := CreateContract(s, contractID, coopID, playStyle, coopSize, boostOrder, i.GuildID, channelID, progenitors, originalCoordinatorID, plannedStartTime, validFrom)
+				newContract, err := CreateContract(s, contractID, coopID, playStyle, coopSize, ContractOrderSignup, i.GuildID, channelID, progenitors, originalCoordinatorID, plannedStartTime, validFrom)
 				mutex.Unlock()
 
 				if err != nil {
 					str = "Failed to restart contract: " + err.Error()
 				} else {
 					newContract.Style = savedStyle
-					newContract.BoostOrder = boostOrder
+					newContract.BoostOrder = ContractOrderSignup
 					newContract.ThresholdTokensX = thresholdX
 					newContract.ThresholdTokensY = thresholdY
 					newContract.ThresholdTokensA = thresholdA
@@ -771,6 +770,7 @@ func HandleRestartContract(s *discordgo.Session, i *discordgo.InteractionCreate)
 						}
 					}
 
+					boostOrder := ContractOrderSignup
 					orderName := fmt.Sprintf("%d", boostOrder)
 					if boostOrder >= 0 && boostOrder < len(contractOrderNames) {
 						orderName = contractOrderNames[boostOrder]

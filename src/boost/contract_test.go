@@ -585,7 +585,6 @@ func TestRestartContractRestoresState(t *testing.T) {
 	contract.OriginalOrder = append([]string{}, progenitors...)
 
 	// Capture state as done in HandleRestartContract
-	savedBoostOrder := contract.BoostOrder
 	savedStyle := contract.Style
 	savedProgenitors := contract.Order
 	if contract.State != ContractStateSignup && len(contract.OriginalOrder) > 0 {
@@ -601,7 +600,7 @@ func TestRestartContractRestoresState(t *testing.T) {
 		t.Fatalf("Failed to delete contract: %v", err)
 	}
 
-	newContract, err := CreateContract(s, contractID, "coop-restart-test", ContractPlaystyleChill, 10, savedBoostOrder, guildID, channelID, savedProgenitors, origCreatorID, time.Now(), time.Now())
+	newContract, err := CreateContract(s, contractID, "coop-restart-test", ContractPlaystyleChill, 10, ContractOrderSignup, guildID, channelID, savedProgenitors, origCreatorID, time.Now(), time.Now())
 	if err != nil {
 		t.Fatalf("Failed to recreate contract on restart: %v", err)
 	}
@@ -612,14 +611,17 @@ func TestRestartContractRestoresState(t *testing.T) {
 	}()
 
 	newContract.Style = savedStyle
-	newContract.BoostOrder = savedBoostOrder
+	newContract.BoostOrder = ContractOrderSignup
 	newContract.ThresholdTokensX = savedThresholdX
 	newContract.ThresholdTokensY = savedThresholdY
 	newContract.ThresholdTokensA = savedThresholdA
 	reorderBoosters(newContract)
 
-	if newContract.BoostOrder != ContractOrderFair {
-		t.Errorf("Expected BoostOrder to be %d, got %d", ContractOrderFair, newContract.BoostOrder)
+	if newContract.BoostOrder != ContractOrderSignup {
+		t.Errorf("Expected BoostOrder to be %d, got %d", ContractOrderSignup, newContract.BoostOrder)
+	}
+	if slices.Compare(newContract.Order, savedProgenitors) != 0 {
+		t.Errorf("Expected Order to be preserved as %v, got %v", savedProgenitors, newContract.Order)
 	}
 	if newContract.Style != savedStyle {
 		t.Errorf("Expected Style to be %d, got %d", savedStyle, newContract.Style)
