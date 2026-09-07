@@ -573,12 +573,13 @@ func TestRestartContractRestoresState(t *testing.T) {
 		t.Fatalf("Failed to create contract: %v", err)
 	}
 
-	// Customize style flags and threshold tokens
+	// Customize style flags, threshold tokens, and planned start time
 	contract.Style |= ContractFlag4Tokens | ContractFlagThresholdTokens
 	contract.ThresholdTokensX = 6
 	contract.ThresholdTokensY = 8
 	contract.ThresholdTokensA = 80
 	contract.BoostOrder = ContractOrderFair
+	contract.PlannedStartTime = time.Now().Add(2 * time.Hour)
 
 	// Simulate contract starting state
 	contract.State = ContractStateFastrun
@@ -600,7 +601,7 @@ func TestRestartContractRestoresState(t *testing.T) {
 		t.Fatalf("Failed to delete contract: %v", err)
 	}
 
-	newContract, err := CreateContract(s, contractID, "coop-restart-test", ContractPlaystyleChill, 10, ContractOrderSignup, guildID, channelID, savedProgenitors, origCreatorID, time.Now(), time.Now())
+	newContract, err := CreateContract(s, contractID, "coop-restart-test", ContractPlaystyleChill, 10, ContractOrderSignup, guildID, channelID, savedProgenitors, origCreatorID, time.Time{}, time.Now())
 	if err != nil {
 		t.Fatalf("Failed to recreate contract on restart: %v", err)
 	}
@@ -619,6 +620,9 @@ func TestRestartContractRestoresState(t *testing.T) {
 
 	if newContract.BoostOrder != ContractOrderSignup {
 		t.Errorf("Expected BoostOrder to be %d, got %d", ContractOrderSignup, newContract.BoostOrder)
+	}
+	if !newContract.PlannedStartTime.IsZero() {
+		t.Errorf("Expected PlannedStartTime to be zero, got %v", newContract.PlannedStartTime)
 	}
 	if slices.Compare(newContract.Order, savedProgenitors) != 0 {
 		t.Errorf("Expected Order to be preserved as %v, got %v", savedProgenitors, newContract.Order)

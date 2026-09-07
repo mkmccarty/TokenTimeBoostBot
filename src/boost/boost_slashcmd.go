@@ -711,7 +711,6 @@ func HandleRestartContract(s *discordgo.Session, i *discordgo.InteractionCreate)
 			if contract.State != ContractStateSignup && len(contract.OriginalOrder) > 0 {
 				progenitors = contract.OriginalOrder
 			}
-			plannedStartTime := contract.PlannedStartTime
 			validFrom := contract.ValidFrom
 			savedStyle := contract.Style
 			thresholdX := contract.ThresholdTokensX
@@ -726,7 +725,7 @@ func HandleRestartContract(s *discordgo.Session, i *discordgo.InteractionCreate)
 				str = "Failed to delete contract: " + err.Error()
 			} else {
 				mutex.Lock()
-				newContract, err := CreateContract(s, contractID, coopID, playStyle, coopSize, ContractOrderSignup, i.GuildID, channelID, progenitors, originalCoordinatorID, plannedStartTime, validFrom)
+				newContract, err := CreateContract(s, contractID, coopID, playStyle, coopSize, ContractOrderSignup, i.GuildID, channelID, progenitors, originalCoordinatorID, time.Time{}, validFrom)
 				mutex.Unlock()
 
 				if err != nil {
@@ -792,9 +791,6 @@ func HandleRestartContract(s *discordgo.Session, i *discordgo.InteractionCreate)
 					fmt.Fprintf(&b, "Style: %s | Order: %s", playStyleName, orderName)
 					if len(styleFlags) > 0 {
 						fmt.Fprintf(&b, " | Flags: %s", strings.Join(styleFlags, ", "))
-					}
-					if !plannedStartTime.IsZero() {
-						fmt.Fprintf(&b, "\nPlanned start: <t:%d:t>", plannedStartTime.Unix())
 					}
 					str = b.String()
 				}
