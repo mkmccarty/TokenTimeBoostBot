@@ -343,31 +343,33 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		})
 		refreshBoostListMessage(s, contract, false)
 	case "send":
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{}},
+		})
 		wantUser := cmd[1]
 		_, redraw := buttonReactionToken(s, i.GuildID, i.ChannelID, contract, i.Member.User.ID, 1, wantUser)
 		if redraw {
 			refreshBoostListMessage(s, contract, false)
 		}
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: fmt.Sprintf("Token sent to %s", bottools.EscapeDiscordMarkdown(contract.Boosters[wantUser].Nick)),
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
+		sendOrUpdateUserReactionSummary(s, i, contract, i.Member.User.ID)
 	case "next":
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "",
+				Flags:      discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{}},
+		})
 		nextUser := cmd[1]
 		_, redraw := buttonReactionToken(s, i.GuildID, i.ChannelID, contract, i.Member.User.ID, 1, nextUser)
 		if redraw {
 			refreshBoostListMessage(s, contract, false)
 		}
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: fmt.Sprintf("Token sent to %s", bottools.EscapeDiscordMarkdown(contract.Boosters[nextUser].Nick)),
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
+		sendOrUpdateUserReactionSummary(s, i, contract, i.Member.User.ID)
 	case "grange":
 		// Create a list of the grange members from contract.BoostList, with each line formatted as "MemberName (UserID)" and the join timestamp
 		var grangeMembers []string
