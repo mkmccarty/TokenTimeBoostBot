@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"sort"
@@ -178,7 +179,23 @@ func HandleLobbyButtons(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		components := buildLobbyComponents(i.ChannelID, contractID, coopID, userID, true, true)
 		edit := discordgo.WebhookEdit{Components: &components}
 		if _, err := s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit); err != nil {
-			log.Println("lobby FollowupMessageEdit:", err)
+			var restErr *discordgo.RESTError
+			if errors.As(err, &restErr) && restErr.Message != nil && (restErr.Message.Code == discordgo.ErrCodeMissingAccess || restErr.Message.Code == discordgo.ErrCodeMissingPermissions) {
+				log.Printf("lobby: unable to edit message %s in channel %s (missing access/permissions): %v", i.Message.ID, i.ChannelID, err)
+				fallbackComponents := append([]discordgo.MessageComponent{
+					discordgo.TextDisplay{Content: "_⚠️ Unable to update the original message (missing permissions in this channel). Here is the refreshed lobby:_"},
+				}, components...)
+				_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+					Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
+					Components: fallbackComponents,
+				})
+			} else {
+				log.Printf("lobby FollowupMessageEdit failed (channel: %s, message: %s): %v", i.ChannelID, i.Message.ID, err)
+				_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+					Flags:   discordgo.MessageFlagsEphemeral,
+					Content: "Unable to refresh lobby message. Please try running `/lobby` again.",
+				})
+			}
 		}
 
 	default:
