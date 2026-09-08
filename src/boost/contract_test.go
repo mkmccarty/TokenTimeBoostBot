@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
 )
 
 func TestGetEggStandardTime(t *testing.T) {
@@ -622,3 +623,72 @@ func TestRestartContractRestoresState(t *testing.T) {
 		t.Errorf("Expected threshold tokens (6, 8, 80), got (%d, %d, %d)", newContract.ThresholdTokensX, newContract.ThresholdTokensY, newContract.ThresholdTokensA)
 	}
 }
+
+func TestHandleContractSettingsReactionsFeatures(t *testing.T) {
+	client := newTestClient()
+	contractID := "features-contract"
+	guildID := "guild-123"
+	channelID := "channel-restart-1"
+	creatorUserID := "coordinator-user"
+	progenitors := []string{"farmer-1"}
+
+	contract, err := CreateContract(client, contractID, "coop-features-test", ContractPlaystyleChill, 10, ContractOrderSignup, guildID, channelID, progenitors, creatorUserID, time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("Failed to create contract: %v", err)
+	}
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	customID := "cs_#features#" + contract.ContractHash
+
+	// 1. Select both boost6 and amqp concurrently
+	ev1 := dctest.ComponentSelectEvent(customID, "boost6", "amqp")
+	HandleContractSettingsReactions(client, ev1)
+
+	if contract.Style&ContractFlag6Tokens == 0 {
+		t.Errorf("Expected ContractFlag6Tokens to be set, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlagAMQP == 0 {
+		t.Errorf("Expected ContractFlagAMQP to be set, style: %x", contract.Style)
+	}
+
+	// 2. Select boost8 and amqp concurrently; boost6 should be replaced by boost8
+	ev2 := dctest.ComponentSelectEvent(customID, "boost8", "amqp")
+	HandleContractSettingsReactions(client, ev2)
+
+	if contract.Style&ContractFlag8Tokens == 0 {
+		t.Errorf("Expected ContractFlag8Tokens to be set, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlag6Tokens != 0 {
+		t.Errorf("Expected ContractFlag6Tokens to be cleared, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlagAMQP == 0 {
+		t.Errorf("Expected ContractFlagAMQP to remain set, style: %x", contract.Style)
+	}
+
+	// 3. Select only dynamic; AMQP should be cleared and dynamic set
+	ev3 := dctest.ComponentSelectEvent(customID, "dynamic")
+	HandleContractSettingsReactions(client, ev3)
+
+	if contract.Style&ContractFlagDynamicTokens == 0 {
+		t.Errorf("Expected ContractFlagDynamicTokens to be set, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlag8Tokens != 0 {
+		t.Errorf("Expected ContractFlag8Tokens to be cleared, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlagAMQP != 0 {
+		t.Errorf("Expected ContractFlagAMQP to be cleared, style: %x", contract.Style)
+	}
+
+	// 4. Threshold + AMQP: should set AMQP and trigger threshold modal flow
+	ev4 := dctest.ComponentSelectEvent(customID, "threshold", "amqp")
+	HandleContractSettingsReactions(client, ev4)
+
+	if contract.Style&ContractFlagAMQP == 0 {
+		t.Errorf("Expected ContractFlagAMQP to be set when threshold is selected with amqp, style: %x", contract.Style)
+	}
+}
+

@@ -669,7 +669,15 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 	contractHash := reaction[len(reaction)-1]
 
 	dataValues := e.Values()
-	if cmd == "features" && len(dataValues) > 0 && dataValues[0] == "threshold" {
+	if cmd == "features" && slices.Contains(dataValues, "threshold") {
+		// If threshold was selected alongside other features like amqp, update AMQP flag before showing modal
+		if contract := FindContractByHash(contractHash); contract != nil {
+			if slices.Contains(dataValues, "amqp") {
+				contract.Style |= ContractFlagAMQP
+			} else {
+				contract.Style &= ^ContractFlagAMQP
+			}
+		}
 		SendThresholdModal(e, contractHash)
 		return
 	}
@@ -701,63 +709,49 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 
 	if cmd == "features" {
 		values := dataValues
-		if len(values) == 0 {
-			contract.Style &= ^ContractFlagDynamicTokens
-			contract.Style &= ^ContractFlag6Tokens
-			contract.Style &= ^ContractFlag8Tokens
-			contract.Style &= ^ContractFlag4Tokens
-			contract.Style &= ^ContractFlagThresholdTokens
-			contract.Style &= ^ContractFlagAMQP
+
+		// AMQP is independent of token quantity
+		if slices.Contains(values, "amqp") {
+			contract.Style |= ContractFlagAMQP
 		} else {
-			switch values[0] {
-			case "boost4":
-				contract.Style &= ^ContractFlagDynamicTokens
-				contract.Style &= ^ContractFlag6Tokens
-				contract.Style &= ^ContractFlag8Tokens
-				contract.Style &= ^ContractFlagThresholdTokens
-				if contract.Style&ContractFlag4Tokens != 0 {
-					contract.Style &= ^ContractFlag4Tokens
-				} else {
-					contract.Style |= ContractFlag4Tokens
+			contract.Style &= ^ContractFlagAMQP
+		}
+
+		// Find token option if selected (mutually exclusive)
+		const tokenMask = ContractFlagDynamicTokens | ContractFlag6Tokens | ContractFlag8Tokens | ContractFlag4Tokens | ContractFlagThresholdTokens
+		var selectedTokenFlag int64
+
+		// If a new token option was selected, find which one
+		tokenOptions := []string{"boost4", "boost6", "boost8", "dynamic"}
+		for _, opt := range tokenOptions {
+			if slices.Contains(values, opt) {
+				// If contract already had this option and multiple were selected, we might want the new one,
+				// or if it's the only one selected, check if it's being toggled or set.
+				switch opt {
+				case "boost4":
+					selectedTokenFlag = ContractFlag4Tokens
+				case "boost6":
+					selectedTokenFlag = ContractFlag6Tokens
+				case "boost8":
+					selectedTokenFlag = ContractFlag8Tokens
+				case "dynamic":
+					selectedTokenFlag = ContractFlagDynamicTokens
 				}
-			case "boost6":
-				contract.Style &= ^ContractFlagDynamicTokens
-				contract.Style &= ^ContractFlag8Tokens
-				contract.Style &= ^ContractFlag4Tokens
-				contract.Style &= ^ContractFlagThresholdTokens
-				if contract.Style&ContractFlag6Tokens != 0 {
-					contract.Style &= ^ContractFlag6Tokens
-				} else {
-					contract.Style |= ContractFlag6Tokens
-				}
-			case "boost8":
-				contract.Style &= ^ContractFlagDynamicTokens
-				contract.Style &= ^ContractFlag6Tokens
-				contract.Style &= ^ContractFlag4Tokens
-				contract.Style &= ^ContractFlagThresholdTokens
-				if contract.Style&ContractFlag8Tokens != 0 {
-					contract.Style &= ^ContractFlag8Tokens
-				} else {
-					contract.Style |= ContractFlag8Tokens
-				}
-			case "dynamic":
-				contract.Style &= ^ContractFlag6Tokens
-				contract.Style &= ^ContractFlag8Tokens
-				contract.Style &= ^ContractFlag4Tokens
-				contract.Style &= ^ContractFlagThresholdTokens
-				if contract.Style&ContractFlagDynamicTokens != 0 {
-					contract.Style &= ^ContractFlagDynamicTokens
-				} else {
-					contract.Style |= ContractFlagDynamicTokens
-				}
-			case "amqp":
-				if contract.Style&ContractFlagAMQP != 0 {
-					contract.Style &= ^ContractFlagAMQP
-				} else {
-					contract.Style |= ContractFlagAMQP
+				// If this option was NOT previously set on contract, prioritize it as the newly chosen one
+				if contract.Style&selectedTokenFlag == 0 {
+					break
 				}
 			}
 		}
+
+		// Clear all token flags first
+		contract.Style &= ^tokenMask
+
+		// Apply the selected token flag if any
+		if selectedTokenFlag != 0 {
+			contract.Style |= selectedTokenFlag
+		}
+
 		redrawSignup = true
 		redrawSettings = true
 	}
