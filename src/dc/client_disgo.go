@@ -345,9 +345,9 @@ func (c *disgoClient) CreateUserChannel(userID string) (*Channel, error) {
 
 // UserChannelPermissions computes a user's effective permissions in a channel.
 //
-// disgo computes this from the gateway cache rather than over REST, so it
-// needs the member and the channel to be cached. A member the cache has not
-// seen is fetched first.
+// disgo answers this from the gateway cache. When the channel is not cached the
+// computation falls back to REST, which is what discordgo did before the port —
+// see permissions_disgo.go.
 func (c *disgoClient) UserChannelPermissions(userID, channelID string) (Permissions, error) {
 	ids, err := parseIDs(userID, channelID)
 	if err != nil {
@@ -355,7 +355,10 @@ func (c *disgoClient) UserChannelPermissions(userID, channelID string) (Permissi
 	}
 	channel, ok := c.bot.Caches.Channel(ids[1])
 	if !ok {
-		return 0, &APIError{StatusCode: 404, Code: ErrCodeUnknownChannel, Message: "channel is not cached"}
+		// An archived thread drops out of the cache, and this bot's contracts
+		// live in threads, so the fallback is a normal path rather than a rare
+		// one.
+		return c.permissionsFromREST(ids[0], ids[1])
 	}
 	member, ok := c.bot.Caches.Member(channel.GuildID(), ids[0])
 	if !ok {
