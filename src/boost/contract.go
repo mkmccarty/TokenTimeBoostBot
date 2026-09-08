@@ -670,16 +670,25 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 
 	dataValues := e.Values()
 	if cmd == "features" && slices.Contains(dataValues, "threshold") {
-		// If threshold was selected alongside other features like amqp, update AMQP flag before showing modal
-		if contract := FindContractByHash(contractHash); contract != nil {
-			if slices.Contains(dataValues, "amqp") {
-				contract.Style |= ContractFlagAMQP
-			} else {
-				contract.Style &= ^ContractFlagAMQP
+		// Only open threshold modal if threshold is the topmost boost token setting selected.
+		// Higher options in featuresOptions: boost4, boost6, boost8, dynamic.
+		hasHigherTokenOption := slices.Contains(dataValues, "boost4") ||
+			slices.Contains(dataValues, "boost6") ||
+			slices.Contains(dataValues, "boost8") ||
+			slices.Contains(dataValues, "dynamic")
+
+		if !hasHigherTokenOption {
+			// If threshold was selected alongside other features like amqp, update AMQP flag before showing modal
+			if contract := FindContractByHash(contractHash); contract != nil {
+				if slices.Contains(dataValues, "amqp") {
+					contract.Style |= ContractFlagAMQP
+				} else {
+					contract.Style &= ^ContractFlagAMQP
+				}
 			}
+			SendThresholdModal(e, contractHash)
+			return
 		}
-		SendThresholdModal(e, contractHash)
-		return
 	}
 
 	_ = e.DeferUpdate()
@@ -717,30 +726,26 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 			contract.Style &= ^ContractFlagAMQP
 		}
 
-		// Find token option if selected (mutually exclusive)
+		// Find token option if selected (mutually exclusive).
+		// In the menu, the options are ordered: boost4, boost6, boost8, dynamic, threshold.
+		// Within the settings allowing boost token selections, only accept the topmost value and clear the others.
 		const tokenMask = ContractFlagDynamicTokens | ContractFlag6Tokens | ContractFlag8Tokens | ContractFlag4Tokens | ContractFlagThresholdTokens
 		var selectedTokenFlag int64
 
-		// If a new token option was selected, find which one
-		tokenOptions := []string{"boost4", "boost6", "boost8", "dynamic"}
+		tokenOptions := []struct {
+			name string
+			flag int64
+		}{
+			{"boost4", ContractFlag4Tokens},
+			{"boost6", ContractFlag6Tokens},
+			{"boost8", ContractFlag8Tokens},
+			{"dynamic", ContractFlagDynamicTokens},
+		}
+
 		for _, opt := range tokenOptions {
-			if slices.Contains(values, opt) {
-				// If contract already had this option and multiple were selected, we might want the new one,
-				// or if it's the only one selected, check if it's being toggled or set.
-				switch opt {
-				case "boost4":
-					selectedTokenFlag = ContractFlag4Tokens
-				case "boost6":
-					selectedTokenFlag = ContractFlag6Tokens
-				case "boost8":
-					selectedTokenFlag = ContractFlag8Tokens
-				case "dynamic":
-					selectedTokenFlag = ContractFlagDynamicTokens
-				}
-				// If this option was NOT previously set on contract, prioritize it as the newly chosen one
-				if contract.Style&selectedTokenFlag == 0 {
-					break
-				}
+			if slices.Contains(values, opt.name) {
+				selectedTokenFlag = opt.flag
+				break
 			}
 		}
 
