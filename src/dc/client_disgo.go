@@ -210,11 +210,7 @@ func (c *disgoClient) GuildMemberWithColor(guildID, userID, _ string) (*Member, 
 	}
 	color := 0
 	if m != nil {
-		for _, role := range c.bot.Caches.MemberRoles(*m) {
-			if role.Color != 0 && (color == 0 || role.Position > 0) {
-				color = role.Color
-			}
-		}
+		color = highestColoredRoleColor(c.bot.Caches.MemberRoles(*m))
 	}
 	return memberFrom(m), color, nil
 }
