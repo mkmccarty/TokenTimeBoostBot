@@ -81,4 +81,3 @@ func ComponentSelectEvent(customID string, values ...string) *dc.ComponentEvent 
 	}
 	return event
 }
-
