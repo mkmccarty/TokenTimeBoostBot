@@ -170,9 +170,9 @@ func TestBuildCRMessageComponentsCompleted(t *testing.T) {
 				RunChickensTime: time.Now(),
 			},
 			"user2": {
-				UserID:          "user2",
-				Nick:            "Player2",
-				RanChickensOn:   []string{"user1"},
+				UserID:        "user2",
+				Nick:          "Player2",
+				RanChickensOn: []string{"user1"},
 			},
 		},
 	}
@@ -199,4 +199,3 @@ func TestBuildCRMessageComponentsCompleted(t *testing.T) {
 		t.Errorf("expected completion message with Player1, got %q", textDisplay.Content)
 	}
 }
-
