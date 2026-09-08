@@ -165,3 +165,24 @@ func autoArchiveDuration(minutes int) discord.AutoArchiveDuration {
 		return discord.AutoArchiveDuration1w
 	}
 }
+
+// highestColoredRoleColor is the color Discord paints a member's name: the
+// color of their highest-positioned role that has one.
+//
+// A role whose color is 0 has no color of its own and never wins, however high
+// it sits — that is how a hoisted organisational role leaves the name colored
+// by something lower down. Position is compared against the best seen so far
+// rather than against zero, so the @everyone role at position 0 can still
+// supply the color when it is the only colored role.
+func highestColoredRoleColor(roles []discord.Role) int {
+	color := 0
+	highest := -1
+	for _, role := range roles {
+		if role.Color == 0 || role.Position <= highest {
+			continue
+		}
+		highest = role.Position
+		color = role.Color
+	}
+	return color
+}
