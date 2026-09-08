@@ -727,4 +727,3 @@ func TestHandleContractSettingsReactionsFeatures(t *testing.T) {
 		t.Errorf("Expected ContractFlagAMQP to remain set, style: %x", contract.Style)
 	}
 }
-
