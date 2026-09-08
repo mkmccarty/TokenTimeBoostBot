@@ -17,9 +17,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
@@ -32,158 +32,106 @@ const (
 )
 
 // SlashAdminGetContractData is the slash to get contract JSON data
-func SlashAdminGetContractData(cmd string) *discordgo.ApplicationCommand {
-	var adminPermission = int64(0)
-	return &discordgo.ApplicationCommand{
-		Name:                     cmd,
-		Description:              "Retrieve contract JSON data",
-		DefaultMemberPermissions: &adminPermission,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
+func SlashAdminGetContractData(cmd string) *dc.Command {
+	command := adminGuildCommand(cmd, "Retrieve contract JSON data")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:         "contract-id",
+			Description:  "Select a contract-id",
+			Required:     true,
+			Autocomplete: true,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "contract-id",
-				Description:  "Select a contract-id",
-				Required:     true,
-				Autocomplete: true,
-			},
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "coop-id",
-				Description:  "Your coop-id",
-				Required:     true,
-				Autocomplete: true,
-			},
+		dc.StringOption{
+			Name:         "coop-id",
+			Description:  "Your coop-id",
+			Required:     true,
+			Autocomplete: true,
 		},
 	}
+	return &command
 }
 
 // SlashAdminListRoles is the slash to info about bot roles
-func SlashAdminListRoles(cmd string) *discordgo.ApplicationCommand {
-	var adminPermission = int64(0)
-	return &discordgo.ApplicationCommand{
-		Name:                     cmd,
-		Description:              "Display contract role usage",
-		DefaultMemberPermissions: &adminPermission,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "contract-id",
-				Description:  "Select a contract-id",
-				Required:     true,
-				Autocomplete: true,
-			},
+func SlashAdminListRoles(cmd string) *dc.Command {
+	command := adminGuildCommand(cmd, "Display contract role usage")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:         "contract-id",
+			Description:  "Select a contract-id",
+			Required:     true,
+			Autocomplete: true,
 		},
 	}
+	return &command
 }
 
 // SlashAdminGuildStateCommand provides a generic entrypoint for guildstate admin actions.
-func SlashAdminGuildStateCommand(cmd string) *discordgo.ApplicationCommand {
-	var adminPermission = int64(0)
-
+func SlashAdminGuildStateCommand(cmd string) *dc.Command {
 	guildID := guildstate.GetGuildSettingString("DEFAULT", "home_guild")
 	if guildID == "" {
 		guildID = "DISABLED"
 	}
 
-	return &discordgo.ApplicationCommand{
-		Name:                     cmd,
-		Description:              "Run guildstate admin command with guild override",
-		GuildID:                  guildID,
-		DefaultMemberPermissions: &adminPermission,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
+	command := adminGuildCommand(cmd, "Run guildstate admin command with guild override")
+	command.GuildID = guildID
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:        "action",
+			Description: "Guildstate command to run",
+			Required:    true,
+			Choices: []dc.Choice[string]{
+				{Name: "set-guild-setting", Value: adminGuildStateActionSet},
+				{Name: "get-guild-settings", Value: adminGuildStateActionGet},
+			},
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
+		dc.StringOption{
+			Name:         "guild-id",
+			Description:  "Guild ID override (from persisted guildstate)",
+			Required:     true,
+			Autocomplete: true,
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "action",
-				Description: "Guildstate command to run",
-				Required:    true,
-				Choices: []*discordgo.ApplicationCommandOptionChoice{
-					{Name: "set-guild-setting", Value: adminGuildStateActionSet},
-					{Name: "get-guild-settings", Value: adminGuildStateActionGet},
-				},
-			},
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "guild-id",
-				Description:  "Guild ID override (from persisted guildstate)",
-				Required:     true,
-				Autocomplete: true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "setting",
-				Description: "Setting key (used by set-guild-setting)",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "value",
-				Description: "Optional value (used by set-guild-setting; blank clears)",
-				Required:    false,
-			},
+		dc.StringOption{
+			Name:        "setting",
+			Description: "Setting key (used by set-guild-setting)",
+		},
+		dc.StringOption{
+			Name:        "value",
+			Description: "Optional value (used by set-guild-setting; blank clears)",
 		},
 	}
+	return &command
 }
 
 // SlashAdminStatusMessageCommand sets the next bot status message.
-func SlashAdminStatusMessageCommand(cmd string) *discordgo.ApplicationCommand {
-	var adminPermission = int64(0)
-	return &discordgo.ApplicationCommand{
-		Name:                     cmd,
-		Description:              "Set the next bot status message",
-		DefaultMemberPermissions: &adminPermission,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "message",
-				Description:  "Status message to use on the next update",
-				Required:     true,
-				Autocomplete: true,
-			},
+func SlashAdminStatusMessageCommand(cmd string) *dc.Command {
+	command := adminGuildCommand(cmd, "Set the next bot status message")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:         "message",
+			Description:  "Status message to use on the next update",
+			Required:     true,
+			Autocomplete: true,
 		},
 	}
+	return &command
 }
 
-func isAdminCommandCaller(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
-	userID := getInteractionUserID(i)
-	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
+func isAdminCommandCaller(client dc.Client, e dc.InteractionEvent) bool {
+	userID := e.UserID()
+	perms, err := client.UserChannelPermissions(userID, e.ChannelID())
 	if err != nil {
 		log.Println(err)
 	}
-	return perms&discordgo.PermissionAdministrator != 0 || userID == config.AdminUserID
+	return perms.Administrator() || userID == config.AdminUserID
 }
 
 // isAdminBotController returns true if the calling user has the guild's bot_controller role.
 // Falls back to false if the setting is not configured or the member cannot be fetched.
-func isAdminBotController(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
-	if i.GuildID == "" {
+func isAdminBotController(client dc.Client, e dc.InteractionEvent) bool {
+	if e.GuildID() == "" {
 		return false
 	}
-	roleID := guildstate.GetGuildSettingString(i.GuildID, "bot_controller")
+	roleID := guildstate.GetGuildSettingString(e.GuildID(), "bot_controller")
 	if roleID == "" {
 		return false
 	}
@@ -191,8 +139,7 @@ func isAdminBotController(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	roleID = strings.TrimPrefix(roleID, "<@&")
 	roleID = strings.TrimSuffix(roleID, ">")
 	roleID = strings.TrimSpace(roleID)
-	userID := getInteractionUserID(i)
-	member, err := s.GuildMember(i.GuildID, userID)
+	member, err := client.GuildMember(e.GuildID(), e.UserID())
 	if err != nil {
 		log.Println(err)
 		return false
@@ -201,11 +148,10 @@ func isAdminBotController(s *discordgo.Session, i *discordgo.InteractionCreate) 
 }
 
 // HandleAdminGuildStateAutoComplete serves guild-id suggestions from persisted guildstate keys.
-func HandleAdminGuildStateAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	optionMap := bottools.GetCommandOptionsMap(i)
+func HandleAdminGuildStateAutoComplete(client dc.Client, e *dc.AutocompleteEvent) {
 	search := ""
-	if opt, ok := optionMap["guild-id"]; ok {
-		search = strings.TrimSpace(opt.StringValue())
+	if name, value := e.FocusedOption(); name == "guild-id" {
+		search = strings.TrimSpace(value)
 	}
 
 	ids, err := guildstate.GetAllGuildIDs()
@@ -215,10 +161,10 @@ func HandleAdminGuildStateAutoComplete(s *discordgo.Session, i *discordgo.Intera
 	}
 
 	searchLower := strings.ToLower(search)
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, 25)
+	choices := make([]dc.Choice[string], 0, 25)
 	for _, id := range ids {
 		choiceName := id
-		if guild, guildErr := s.Guild(id); guildErr == nil && guild != nil {
+		if guild, guildErr := client.Guild(id); guildErr == nil && guild != nil {
 			guildName := strings.TrimSpace(guild.Name)
 			if guildName != "" {
 				choiceName = fmt.Sprintf("%s (%s)", guildName, id)
@@ -228,181 +174,129 @@ func HandleAdminGuildStateAutoComplete(s *discordgo.Session, i *discordgo.Intera
 		if searchLower != "" && !strings.Contains(strings.ToLower(choiceName), searchLower) && !strings.Contains(strings.ToLower(id), searchLower) {
 			continue
 		}
-		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{Name: choiceName, Value: id})
+		choices = append(choices, dc.Choice[string]{Name: choiceName, Value: id})
 		if len(choices) >= 25 {
 			break
 		}
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Guild IDs",
-			Choices: choices,
-		},
-	})
+	_ = e.RespondChoices(choices)
 }
 
 // HandleAdminGuildStateCommand routes to guildstate handlers with explicit guild override.
-func HandleAdminGuildStateCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if !isAdminCommandCaller(s, i) {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "You are not authorized to use this command.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{},
-			},
+func HandleAdminGuildStateCommand(client dc.Client, e *dc.CommandEvent) {
+	if !isAdminCommandCaller(client, e) {
+		_ = e.Respond(dc.Message{
+			Content:   "You are not authorized to use this command.",
+			Ephemeral: true,
 		})
 		return
 	}
 
-	optionMap := bottools.GetCommandOptionsMap(i)
 	action := ""
 	guildID := ""
 	setting := ""
 	value := ""
 
-	if opt, ok := optionMap["action"]; ok {
-		action = strings.TrimSpace(opt.StringValue())
+	if opt, ok := e.OptString("action"); ok {
+		action = strings.TrimSpace(opt)
 	}
-	if opt, ok := optionMap["guild-id"]; ok {
-		guildID = strings.TrimSpace(opt.StringValue())
+	if opt, ok := e.OptString("guild-id"); ok {
+		guildID = strings.TrimSpace(opt)
 	}
-	if opt, ok := optionMap["setting"]; ok {
-		setting = strings.TrimSpace(opt.StringValue())
+	if opt, ok := e.OptString("setting"); ok {
+		setting = strings.TrimSpace(opt)
 	}
-	if opt, ok := optionMap["value"]; ok {
-		value = strings.TrimSpace(opt.StringValue())
+	if opt, ok := e.OptString("value"); ok {
+		value = strings.TrimSpace(opt)
 	}
 
 	if guildID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "guild-id is required.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{},
-			},
-		})
+		_ = e.Respond(dc.Message{Content: "guild-id is required.", Ephemeral: true})
 		return
 	}
 
 	switch action {
 	case adminGuildStateActionSet:
 		if setting == "" {
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content:    "setting is required when action is set-guild-setting.",
-					Flags:      discordgo.MessageFlagsEphemeral,
-					Components: []discordgo.MessageComponent{},
-				},
+			_ = e.Respond(dc.Message{
+				Content:   "setting is required when action is set-guild-setting.",
+				Ephemeral: true,
 			})
 			return
 		}
-		guildstate.SetGuildSettingForGuild(s, i, guildID, setting, value)
+		guildstate.SetGuildSettingForGuild(client, e, guildID, setting, value)
 	case adminGuildStateActionGet:
-		guildstate.GetGuildSettingsForGuild(s, i, guildID)
+		guildstate.GetGuildSettingsForGuild(client, e, guildID)
 	default:
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "action must be one of: set-guild-setting, get-guild-settings",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{},
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "action must be one of: set-guild-setting, get-guild-settings",
+			Ephemeral: true,
 		})
 	}
 }
 
 // HandleAdminStatusMessageAutoComplete provides status message suggestions.
-func HandleAdminStatusMessageAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	optionMap := bottools.GetCommandOptionsMap(i)
+func HandleAdminStatusMessageAutoComplete(e *dc.AutocompleteEvent) {
 	search := ""
-	if opt, ok := optionMap["message"]; ok {
-		search = strings.TrimSpace(opt.StringValue())
+	if name, value := e.FocusedOption(); name == "message" {
+		search = strings.TrimSpace(value)
 	}
 
 	messages := ei.GetStatusMessageChoices(search, 25)
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, len(messages))
+	choices := make([]dc.Choice[string], 0, len(messages))
 	for _, message := range messages {
 		if len(message) > 100 {
 			continue
 		}
-		choiceName := message
-		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-			Name:  choiceName,
+		choices = append(choices, dc.Choice[string]{
+			Name:  message,
 			Value: message,
 		})
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Status message suggestions",
-			Choices: choices,
-		},
-	})
+	_ = e.RespondChoices(choices)
 }
 
 // HandleAdminStatusMessageCommand sets a one-time status message override.
-func HandleAdminStatusMessageCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if !isAdminCommandCaller(s, i) {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "You are not authorized to use this command.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{},
-			},
+func HandleAdminStatusMessageCommand(client dc.Client, e *dc.CommandEvent) {
+	if !isAdminCommandCaller(client, e) {
+		_ = e.Respond(dc.Message{
+			Content:   "You are not authorized to use this command.",
+			Ephemeral: true,
 		})
 		return
 	}
 
-	optionMap := bottools.GetCommandOptionsMap(i)
 	message := ""
-	discordID := getInteractionUserID(i)
-	if opt, ok := optionMap["message"]; ok {
-		message = strings.TrimSpace(opt.StringValue())
+	discordID := e.UserID()
+	if opt, ok := e.OptString("message"); ok {
+		message = strings.TrimSpace(opt)
 	}
 
 	if err := ei.SetNextStatusMessageOverride(discordID, message); err != nil {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    err.Error(),
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{},
-			},
-		})
+		_ = e.Respond(dc.Message{Content: err.Error(), Ephemeral: true})
 		return
 	}
 
-	responseMessage := fmt.Sprintf("Next status message set to: %q", message)
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:    responseMessage,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{},
-		},
+	_ = e.Respond(dc.Message{
+		Content:   fmt.Sprintf("Next status message set to: %q", message),
+		Ephemeral: true,
 	})
 }
 
-// HandleAdminListRoles is the handler for the list roles command
-func HandleAdminListRoles(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleAdminListRoles is the handler for the list roles command.
+func HandleAdminListRoles(client dc.Client, e *dc.CommandEvent) {
 	var contractID string
 	var builder strings.Builder
-	optionMap := bottools.GetCommandOptionsMap(i)
-	if opt, ok := optionMap["contract-id"]; ok {
-		contractID = strings.TrimSpace(opt.StringValue())
+	if opt, ok := e.OptString("contract-id"); ok {
+		contractID = strings.TrimSpace(opt)
 	}
 
-	var components []discordgo.MessageComponent
+	var components []dc.LayoutComponent
 	//
 
-	guildRoles, err := s.GuildRoles(i.GuildID)
+	guildRoles, err := client.GuildRoles(e.GuildID())
 	if err != nil {
 		builder.WriteString("Error retrieving guild roles: ")
 		builder.WriteString(err.Error())
@@ -463,21 +357,18 @@ func HandleAdminListRoles(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		}
 	}
 
-	components = append(components, &discordgo.TextDisplay{
+	components = append(components, dc.TextDisplay{
 		Content: builder.String(),
 	})
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
-			Components: components,
-		},
+	_ = e.Respond(dc.Message{
+		Ephemeral:  true,
+		Components: components,
 	})
 }
 
 // finishContractByHash is called only when the contract is complete
-func finishContractByHash(s *discordgo.Session, contractHash string) error {
+func finishContractByHash(client dc.Client, contractHash string) error {
 	var contract *Contract
 	ContractsMutex.RLock()
 	for _, c := range Contracts {
@@ -493,7 +384,7 @@ func finishContractByHash(s *discordgo.Session, contractHash string) error {
 
 	// Get rid of any roles
 	for _, loc := range contract.Location {
-		err := s.GuildRoleDelete(loc.GuildID, loc.GuildContractRole.ID)
+		err := client.DeleteGuildRole(loc.GuildID, loc.GuildContractRole.ID)
 		if err != nil {
 			log.Println(err)
 		}
@@ -515,34 +406,34 @@ func finishContractByHash(s *discordgo.Session, contractHash string) error {
 }
 
 // HandleCoopAutoComplete will handle the contract auto complete of contract-id's
-func HandleCoopAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	optionMap := bottools.GetCommandOptionsMap(i)
+func HandleCoopAutoComplete(e *dc.AutocompleteEvent) {
+	// The contract-id field has its own suggestions; this handler only serves
+	// the coop-id field, narrowed to the contract already chosen.
+	if focused, _ := e.FocusedOption(); focused == "contract-id" {
+		HandleContractAutoComplete(e)
+		return
+	}
 
 	contractID := ""
 	coopID := ""
-	if opt, ok := optionMap["contract-id"]; ok {
-		if opt.Focused {
-			HandleContractAutoComplete(s, i)
-			return
-		}
-		contractID = opt.StringValue()
+	if opt, ok := e.OptString("contract-id"); ok {
+		contractID = opt
 	}
-	if opt, ok := optionMap["coop-id"]; ok {
-		coopID = opt.StringValue()
+	if opt, ok := e.OptString("coop-id"); ok {
+		coopID = opt
 	}
 
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+	choices := make([]dc.Choice[string], 0)
 
 	ContractsMutex.RLock()
 	for _, c := range Contracts {
 		if c.ContractID == contractID {
 			// if coopID is empty, or contains the search string
 			if coopID == "" || strings.Contains(c.CoopID, coopID) {
-				choice := discordgo.ApplicationCommandOptionChoice{
+				choices = append(choices, dc.Choice[string]{
 					Name:  c.CoopID,
 					Value: c.CoopID,
-				}
-				choices = append(choices, &choice)
+				})
 			}
 		}
 	}
@@ -552,29 +443,23 @@ func HandleCoopAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate
 		return choices[i].Name < choices[j].Name
 	})
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Coop ID",
-			Choices: choices,
-		}})
+	_ = e.RespondChoices(choices)
 }
 
-// HandleAdminGetContractData get JSON data about a contract given the contract and coop id
-func HandleAdminGetContractData(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	optionMap := bottools.GetCommandOptionsMap(i)
+// HandleAdminGetContractData gets JSON data about a contract given the contract and coop id.
+func HandleAdminGetContractData(e *dc.CommandEvent) {
 	var contractID string
 	var coopID string
 
-	if opt, ok := optionMap["contract-id"]; ok {
-		contractID = strings.TrimSpace(opt.StringValue())
+	if opt, ok := e.OptString("contract-id"); ok {
+		contractID = strings.TrimSpace(opt)
 	}
-	if opt, ok := optionMap["coop-id"]; ok {
-		coopID = strings.TrimSpace(opt.StringValue())
+	if opt, ok := e.OptString("coop-id"); ok {
+		coopID = strings.TrimSpace(opt)
 	}
 
 	// Find a contract by contract ID and coop ID
-	contract := FindContractByIDs(i.ChannelID, contractID, coopID)
+	contract := FindContractByIDs(e.ChannelID(), contractID, coopID)
 
 	// Create combined contract and coopid with only alphanumberic characters
 	// This is used to create a unique filename
@@ -605,17 +490,14 @@ func HandleAdminGetContractData(s *discordgo.Session, i *discordgo.InteractionCr
 		}
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf("Here is the JSON data for contract %s/%s", contractID, coopID),
-			Flags:   discordgo.MessageFlagsEphemeral,
-			Files: []*discordgo.File{
-				{
-					Name:        filename,
-					ContentType: "application/json",
-					Reader:      reader,
-				},
+	_ = e.Respond(dc.Message{
+		Content:   fmt.Sprintf("Here is the JSON data for contract %s/%s", contractID, coopID),
+		Ephemeral: true,
+		Files: []dc.File{
+			{
+				Name:        filename,
+				ContentType: "application/json",
+				Reader:      reader,
 			},
 		},
 	})
@@ -647,26 +529,17 @@ type adminContractReportMember struct {
 }
 
 // AdminContractReport sends a contract summary plus a JSON attachment containing
-func AdminContractReport(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, targetChannelID string) {
+func AdminContractReport(client dc.Client, e *dc.ComponentEvent, contract *Contract, targetChannelID string) {
 	if contract == nil {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "No contract found.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "No contract found.",
+			Ephemeral: true,
 		})
 		return
 	}
 
 	// Respond immediately to buy some time for processing and to avoid interaction timeout
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing Request...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
+	_ = e.Defer(true)
 
 	type reportBoosterSnapshot struct {
 		UserID   string
@@ -893,13 +766,13 @@ Role Name: *%s*
 		}
 	}
 
-	components := []discordgo.MessageComponent{
-		&discordgo.TextDisplay{
+	components := []dc.LayoutComponent{
+		dc.TextDisplay{
 			Content: summary.String(),
 		},
 	}
 	if len(memberChunks) > 0 {
-		components = append(components, &discordgo.TextDisplay{
+		components = append(components, dc.TextDisplay{
 			Content: fmt.Sprintf("## %s\n%s", reportJSON.RoleName, memberChunks[0]),
 		})
 	}
@@ -922,18 +795,17 @@ Role Name: *%s*
 	jsonData, err := json.MarshalIndent(reportJSON, "", "  ")
 	if err != nil {
 		log.Println("Error marshaling contract report JSON:", err)
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Error formatting contract JSON: " + err.Error(),
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		// The interaction was deferred above, so this has to be a followup.
+		// A second initial response is rejected as already acknowledged.
+		_ = e.Followup(dc.Message{
+			Content:   "Error formatting contract JSON: " + err.Error(),
+			Ephemeral: true,
 		})
 		return
 	}
 
-	_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
+	err = e.Followup(dc.Message{
+		Ephemeral:  true,
 		Components: components,
 	})
 	if err != nil {
@@ -942,10 +814,10 @@ Role Name: *%s*
 	}
 
 	for _, chunk := range memberChunks[1:] {
-		_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Flags: discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
-			Components: []discordgo.MessageComponent{
-				&discordgo.TextDisplay{
+		err = e.Followup(dc.Message{
+			Ephemeral: true,
+			Components: []dc.LayoutComponent{
+				dc.TextDisplay{
 					Content: chunk,
 				},
 			},
@@ -955,77 +827,60 @@ Role Name: *%s*
 		}
 	}
 
-	_, err = s.ChannelMessageSendComplex(targetChannelID, &discordgo.MessageSend{
+	_, err = client.SendMessage(targetChannelID, dc.Message{
 		Content: summary.String(),
-		Files: []*discordgo.File{
+		Files: []dc.File{
 			{
 				Name:        filename,
 				ContentType: "application/json",
 				Reader:      bytes.NewReader(jsonData),
 			},
 		},
-		Flags: discordgo.MessageFlagsSuppressEmbeds,
+		SuppressEmbeds: true,
 	})
-	if restErr, ok := err.(*discordgo.RESTError); ok && restErr.Message != nil {
+	if apiErr, ok := dc.AsAPIError(err); ok {
 		log.Printf("Failed to send JSON file to channel %s: HTTP %d, Discord message: %s\n",
-			targetChannelID, restErr.Response.StatusCode, restErr.Message.Message)
+			targetChannelID, apiErr.StatusCode, apiErr.Message)
 		return
 	}
 }
 
 // SlashAdminMembers returns the admin-members slash command definition with set/remove subcommands.
-func SlashAdminMembers(cmd string) *discordgo.ApplicationCommand {
-	var adminPermission = int64(0)
-	farmerOptions := []*discordgo.ApplicationCommandOption{
-		{
-			Type:        discordgo.ApplicationCommandOptionString,
+func SlashAdminMembers(cmd string) *dc.Command {
+	farmerOptions := []dc.Option{
+		dc.StringOption{
 			Name:        "farmers",
 			Description: "List of user mentions or IDs",
-			Required:    false,
 		},
-		{
-			Type:        discordgo.ApplicationCommandOptionString,
+		dc.StringOption{
 			Name:        "names",
 			Description: "Comma-separated list of plain user Names",
-			Required:    false,
 		},
 	}
-	return &discordgo.ApplicationCommand{
-		Name:                     cmd,
-		Description:              "Manage farmers as members of this server.",
-		DefaultMemberPermissions: &adminPermission,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
+	command := adminGuildCommand(cmd, "Manage farmers as members of this server.")
+	command.Options = []dc.Option{
+		dc.SubCommand{
+			Name:        "set",
+			Description: "Add one or more farmers as members of this server.",
+			Options:     farmerOptions,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
+		dc.SubCommand{
+			Name:        "remove",
+			Description: "Remove one or more farmers from this server's membership.",
+			Options:     farmerOptions,
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "set",
-				Description: "Add one or more farmers as members of this server.",
-				Options:     farmerOptions,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "remove",
-				Description: "Remove one or more farmers from this server's membership.",
-				Options:     farmerOptions,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "list",
-				Description: "List all farmers registered as members of this server.",
-			},
+		dc.SubCommand{
+			Name:        "list",
+			Description: "List all farmers registered as members of this server.",
 		},
 	}
+	return &command
 }
 
 var adminMembersRe = regexp.MustCompile(`\d+`)
 
 // adminMembersListContent builds the member list string for the current guild.
-func adminMembersListContent(s *discordgo.Session, guildID, guildName string) string {
+func adminMembersListContent(client dc.Client, guildID, guildName string) string {
 	members := farmerstate.GetGuildMembers(guildID)
 	var b strings.Builder
 	if len(members) == 0 {
@@ -1035,7 +890,7 @@ func adminMembersListContent(s *discordgo.Session, guildID, guildName string) st
 	fmt.Fprintf(&b, "**Members of guild `%s`** (%d)\n", guildName, len(members))
 	for _, userID := range members {
 		ign := farmerstate.GetMiscSettingString(userID, "ei_ign")
-		_, inGuild := s.GuildMember(guildID, userID)
+		_, inGuild := client.GuildMember(guildID, userID)
 		mention := ""
 		if inGuild == nil {
 			mention = fmt.Sprintf(" <@%s>", userID)
@@ -1050,12 +905,12 @@ func adminMembersListContent(s *discordgo.Session, guildID, guildName string) st
 }
 
 // adminMembersSetContent adds farmers to the guild and returns a result string.
-func adminMembersSetContent(s *discordgo.Session, optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption, guildID, guildName string) string {
+func adminMembersSetContent(client dc.Client, e *dc.CommandEvent, guildID, guildName string) string {
 	var affected, skipped, invalid []string
 
-	if opt, ok := optionMap["set-farmers"]; ok {
-		for _, userID := range adminMembersRe.FindAllString(opt.StringValue(), -1) {
-			if _, err := s.GuildMember(guildID, userID); err != nil {
+	if opt, ok := e.OptString("set-farmers"); ok {
+		for _, userID := range adminMembersRe.FindAllString(opt, -1) {
+			if _, err := client.GuildMember(guildID, userID); err != nil {
 				invalid = append(invalid, fmt.Sprintf("<@%s>", userID))
 				continue
 			}
@@ -1066,8 +921,8 @@ func adminMembersSetContent(s *discordgo.Session, optionMap map[string]*discordg
 			}
 		}
 	}
-	if opt, ok := optionMap["set-names"]; ok {
-		for name := range strings.SplitSeq(opt.StringValue(), ",") {
+	if opt, ok := e.OptString("set-names"); ok {
+		for name := range strings.SplitSeq(opt, ",") {
 			userID := strings.TrimSpace(name)
 			if userID == "" {
 				continue
@@ -1107,11 +962,11 @@ func adminMembersSetContent(s *discordgo.Session, optionMap map[string]*discordg
 }
 
 // adminMembersRemoveContent removes farmers from the guild and returns a result string.
-func adminMembersRemoveContent(optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption, guildID, guildName string) string {
+func adminMembersRemoveContent(e *dc.CommandEvent, guildID, guildName string) string {
 	var affected, invalid []string
 
-	if opt, ok := optionMap["remove-farmers"]; ok {
-		for _, userID := range adminMembersRe.FindAllString(opt.StringValue(), -1) {
+	if opt, ok := e.OptString("remove-farmers"); ok {
+		for _, userID := range adminMembersRe.FindAllString(opt, -1) {
 			if !farmerstate.FarmerExists(userID) {
 				invalid = append(invalid, fmt.Sprintf("<@%s>", userID))
 				continue
@@ -1120,8 +975,8 @@ func adminMembersRemoveContent(optionMap map[string]*discordgo.ApplicationComman
 			affected = append(affected, fmt.Sprintf("<@%s>", userID))
 		}
 	}
-	if opt, ok := optionMap["remove-names"]; ok {
-		for name := range strings.SplitSeq(opt.StringValue(), ",") {
+	if opt, ok := e.OptString("remove-names"); ok {
+		for name := range strings.SplitSeq(opt, ",") {
 			userID := strings.TrimSpace(name)
 			if userID == "" {
 				continue
@@ -1152,111 +1007,86 @@ func adminMembersRemoveContent(optionMap map[string]*discordgo.ApplicationComman
 }
 
 // HandleAdminMembers handles the set, remove, and list subcommands for admin-members.
-func HandleAdminMembers(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	flags := discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2
-	bottools.AcknowledgeResponse(s, i, flags)
+func HandleAdminMembers(client dc.Client, e *dc.CommandEvent) {
+	_ = e.Defer(true)
 
-	guildID := i.GuildID
-	g, _ := s.Guild(guildID)
+	guildID := e.GuildID()
+	g, _ := client.Guild(guildID)
 	guildName := g.Name
-	subcmd := i.ApplicationCommandData().Options[0].Name
-	optionMap := bottools.GetCommandOptionsMap(i)
+	subcmd, _ := e.Subcommand()
 
 	var content string
-	var allowedMentions *discordgo.MessageAllowedMentions
+	var allowedMentions *dc.AllowedMentions
 	switch subcmd {
 	case "list":
-		content = adminMembersListContent(s, guildID, guildName)
-		allowedMentions = &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}}
+		content = adminMembersListContent(client, guildID, guildName)
+		allowedMentions = &dc.AllowedMentions{}
 	case "set":
-		content = adminMembersSetContent(s, optionMap, guildID, guildName)
+		content = adminMembersSetContent(client, e, guildID, guildName)
 	case "remove":
-		content = adminMembersRemoveContent(optionMap, guildID, guildName)
+		content = adminMembersRemoveContent(e, guildID, guildName)
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Flags:           flags,
+	_ = e.Followup(dc.Message{
+		Ephemeral:       true,
 		AllowedMentions: allowedMentions,
-		Components: []discordgo.MessageComponent{
-			&discordgo.TextDisplay{Content: content},
+		Components: []dc.LayoutComponent{
+			dc.TextDisplay{Content: content},
 		},
 	})
 }
 
 // SlashAdminExitCommand provides an admin-only command to gracefully exit the bot.
-func SlashAdminExitCommand(cmd string) *discordgo.ApplicationCommand {
+func SlashAdminExitCommand(cmd string) *dc.Command {
 
 	guildID := guildstate.GetGuildSettingString("DEFAULT", "home_guild")
 	if guildID == "" {
 		guildID = "DISABLED"
 	}
 
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Gracefully exit the bot so that it can be restarted by its controlling daemon",
-		GuildID:     guildID,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-	}
+	command := guildOnlyCommand(cmd, "Gracefully exit the bot so that it can be restarted by its controlling daemon")
+	command.GuildID = guildID
+	return &command
 }
 
 // HandleAdminExitCommand handles the admin-exit command to gracefully shutdown the bot.
-func HandleAdminExitCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleAdminExitCommand(client dc.Client, e *dc.CommandEvent) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			handleAdminExitPanic(s, i, "HandleAdminExitCommand", recovered)
+			handleAdminExitPanic(e, "HandleAdminExitCommand", recovered)
 		}
 	}()
 
-	if !isAdminCommandCaller(s, i) && !isAdminBotController(s, i) {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "You are not authorized to use this command.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{},
-			},
+	if !isAdminCommandCaller(client, e) && !isAdminBotController(client, e) {
+		_ = e.Respond(dc.Message{
+			Content:   "You are not authorized to use this command.",
+			Ephemeral: true,
 		})
 		return
 	}
 
-	flags := discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2
-	bottools.AcknowledgeResponse(s, i, flags)
+	_ = e.Defer(true)
 
-	components := buildAdminExitResponse(0)
-
-	if _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Flags:      flags,
-		Components: components,
+	if err := e.Followup(dc.Message{
+		Ephemeral:  true,
+		Components: buildAdminExitResponse(0),
 	}); err != nil {
 		log.Println("Error sending admin-exit follow-up message:", err)
 	}
 }
 
-func handleAdminExitPanic(s *discordgo.Session, i *discordgo.InteractionCreate, handlerName string, recovered any) {
+func handleAdminExitPanic(e dc.InteractionEvent, handlerName string, recovered any) {
 	log.Printf("panic in %s: %v\n%s", handlerName, recovered, string(debug.Stack()))
 
-	if s == nil || i == nil || i.Interaction == nil {
+	if e == nil {
 		return
 	}
 
 	message := "Internal error while handling admin-exit. Bot restart was not requested. Please try again."
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: message,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
-	if err != nil {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: message,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		})
+	if err := e.Respond(dc.Message{Content: message, Ephemeral: true}); err != nil {
+		// The interaction was already answered, so a followup is the only way
+		// left to say anything.
+		_ = e.Followup(dc.Message{Content: message, Ephemeral: true})
 	}
 }
 
@@ -1286,7 +1116,7 @@ func getActiveContractsForAdminExit(now time.Time) []*Contract {
 	return activeContracts
 }
 
-func buildAdminExitResponse(page int) []discordgo.MessageComponent {
+func buildAdminExitResponse(page int) []dc.LayoutComponent {
 	activeContracts := getActiveContractsForAdminExit(time.Now())
 
 	runningVer, runningRev, runningTime, diskRev, diskTime := getVersionAndRevisionInfo()
@@ -1352,33 +1182,33 @@ func buildAdminExitResponse(page int) []discordgo.MessageComponent {
 	}
 	b.WriteString("**Are you sure you want to gracefully exit the bot for a restart?**")
 
-	confirmBtn := discordgo.Button{
+	confirmBtn := dc.Button{
 		Label:    "Confirm Restart",
-		Style:    discordgo.DangerButton,
+		Style:    dc.ButtonDanger,
 		CustomID: "admin_exit#confirm",
-		Emoji:    &discordgo.ComponentEmoji{Name: "🔄"},
+		Emoji:    &dc.Emoji{Name: "🔄"},
 	}
-	cancelBtn := discordgo.Button{
+	cancelBtn := dc.Button{
 		Label:    "Cancel",
-		Style:    discordgo.SecondaryButton,
+		Style:    dc.ButtonSecondary,
 		CustomID: "admin_exit#cancel",
-		Emoji:    &discordgo.ComponentEmoji{Name: "❌"},
+		Emoji:    &dc.Emoji{Name: "❌"},
 	}
 
-	var row1Components []discordgo.MessageComponent
+	var row1Components []dc.InteractiveComponent
 	if totalPages > 1 {
-		prevBtn := discordgo.Button{
+		prevBtn := dc.Button{
 			Label:    "Previous Page",
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("admin_exit#page#%d", page-1),
-			Emoji:    &discordgo.ComponentEmoji{Name: "◀️"},
+			Emoji:    &dc.Emoji{Name: "◀️"},
 			Disabled: page == 0,
 		}
-		nextBtn := discordgo.Button{
+		nextBtn := dc.Button{
 			Label:    "Next Page",
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("admin_exit#page#%d", page+1),
-			Emoji:    &discordgo.ComponentEmoji{Name: "▶️"},
+			Emoji:    &dc.Emoji{Name: "▶️"},
 			Disabled: page == totalPages-1,
 		}
 		row1Components = append(row1Components, prevBtn, nextBtn)
@@ -1386,9 +1216,9 @@ func buildAdminExitResponse(page int) []discordgo.MessageComponent {
 
 	row1Components = append(row1Components, confirmBtn, cancelBtn)
 
-	components := []discordgo.MessageComponent{
-		&discordgo.TextDisplay{Content: b.String()},
-		discordgo.ActionsRow{
+	components := []dc.LayoutComponent{
+		dc.TextDisplay{Content: b.String()},
+		dc.ActionRow{
 			Components: row1Components,
 		},
 	}
@@ -1397,49 +1227,34 @@ func buildAdminExitResponse(page int) []discordgo.MessageComponent {
 }
 
 // HandleAdminExitButton handles the admin-exit button clicks (confirm, cancel, and page navigation).
-func HandleAdminExitButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleAdminExitButton(client dc.Client, e *dc.ComponentEvent) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			handleAdminExitPanic(s, i, "HandleAdminExitButton", recovered)
+			handleAdminExitPanic(e, "HandleAdminExitButton", recovered)
 		}
 	}()
 
-	if !isAdminCommandCaller(s, i) && !isAdminBotController(s, i) {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "You are not authorized to use this button.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{},
-			},
+	if !isAdminCommandCaller(client, e) && !isAdminBotController(client, e) {
+		_ = e.Respond(dc.Message{
+			Content:   "You are not authorized to use this button.",
+			Ephemeral: true,
 		})
 		return
 	}
 
-	customID := i.MessageComponentData().CustomID
-	parts := strings.Split(customID, "#")
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 2 {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "Invalid action.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{},
-			},
-		})
+		_ = e.Respond(dc.Message{Content: "Invalid action.", Ephemeral: true})
 		return
 	}
 
 	action := parts[1]
 
 	respondAndClose := func(content string) {
-		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Flags: discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
-				Components: []discordgo.MessageComponent{
-					&discordgo.TextDisplay{Content: content},
-				},
+		err := e.Update(dc.Message{
+			Ephemeral: true,
+			Components: []dc.LayoutComponent{
+				dc.TextDisplay{Content: content},
 			},
 		})
 		if err != nil {
@@ -1471,13 +1286,9 @@ func HandleAdminExitButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 				page = p
 			}
 		}
-		components := buildAdminExitResponse(page)
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
-				Components: components,
-			},
+		_ = e.Update(dc.Message{
+			Ephemeral:  true,
+			Components: buildAdminExitResponse(page),
 		})
 	}
 }

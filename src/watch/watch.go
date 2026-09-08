@@ -11,10 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -97,10 +96,10 @@ var watchedEventTypes = []string{
 	"vehicle-sale",
 }
 
-func getEventChoices() []*discordgo.ApplicationCommandOptionChoice {
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, len(watchedEventTypes))
+func getEventChoices() []dc.Choice[string] {
+	choices := make([]dc.Choice[string], len(watchedEventTypes))
 	for i, eventType := range watchedEventTypes {
-		choices[i] = &discordgo.ApplicationCommandOptionChoice{
+		choices[i] = dc.Choice[string]{
 			Name:  getEventName(eventType),
 			Value: eventType,
 		}
@@ -146,27 +145,25 @@ func markEventNotified(userID string, eventID string) bool {
 }
 
 // GetSlashWatchCommand returns the slash command definition for /watch.
-func GetSlashWatchCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
+func GetSlashWatchCommand(cmd string) *dc.Command {
+	command := dc.Command{
 		Name:        cmd,
 		Description: "Watch for contracts or colleggtibles and get notified when they become available.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
+		Contexts: []dc.InteractionContext{
+			dc.ContextGuild,
+			dc.ContextBotDM,
+			dc.ContextPrivateChannel,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
+		IntegrationTypes: []dc.IntegrationType{
+			dc.IntegrationGuildInstall,
+			dc.IntegrationUserInstall,
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
+		Options: []dc.Option{
+			dc.SubCommand{
 				Name:        "contract",
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Description: "Watch a specific contract.",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:         discordgo.ApplicationCommandOptionString,
+				Options: []dc.Option{
+					dc.StringOption{
 						Name:         "contract-id",
 						Description:  "Contract ID to watch.",
 						Required:     true,
@@ -174,13 +171,11 @@ func GetSlashWatchCommand(cmd string) *discordgo.ApplicationCommand {
 					},
 				},
 			},
-			{
+			dc.SubCommand{
 				Name:        "colleggtible",
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Description: "Watch a specific colleggtible.",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:         discordgo.ApplicationCommandOptionString,
+				Options: []dc.Option{
+					dc.StringOption{
 						Name:         "colleggtible-id",
 						Description:  "Colleggtible to watch.",
 						Required:     true,
@@ -188,72 +183,59 @@ func GetSlashWatchCommand(cmd string) *discordgo.ApplicationCommand {
 					},
 				},
 			},
-			{
+			dc.SubCommand{
 				Name:        "event",
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Description: "Watch for a specific type of event.",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionString,
+				Options: []dc.Option{
+					dc.StringOption{
 						Name:        "event-type",
 						Description: "Type of event to watch.",
 						Required:    true,
 						Choices:     getEventChoices(),
 					},
-					{
-						Type:        discordgo.ApplicationCommandOptionBoolean,
+					dc.BoolOption{
 						Name:        "ultra",
 						Description: "Include Ultra events (default: false)?",
 						Required:    false,
 					},
-					{
-						Type:        discordgo.ApplicationCommandOptionBoolean,
+					dc.BoolOption{
 						Name:        "repeat",
 						Description: "Should this watch repeat (keep notifying every time the event starts)?",
 						Required:    false,
 					},
 				},
 			},
-			{
+			dc.SubCommand{
 				Name:        "missing",
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Description: "Automatically watch all missing contracts and colleggtibles based on your EI backup.",
 			},
-			{
+			dc.SubCommand{
 				Name:        "status",
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Description: "View and manage your active watches.",
 			},
 		},
 	}
+	return &command
 }
 
-// HandleWatchCommand handles the /watch command.
-func HandleWatchCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	options := i.ApplicationCommandData().Options
-	if len(options) == 0 {
+// HandleWatch handles the /watch command through the dc facade.
+//
+// It still takes a raw session for ei.GetFirstContactFromAPI, which is not on
+// the facade yet. Every Discord call it makes itself goes through e.
+func HandleWatch(e *dc.CommandEvent) {
+	subcmd, ok := e.Subcommand()
+	if !ok {
 		return
 	}
 
-	subcmd := options[0].Name
-	userID := bottools.GetInteractionUserID(i)
+	userID := e.UserID()
 
 	switch subcmd {
 	case "contract":
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
-		})
-		contractID := ""
-		for _, opt := range options[0].Options {
-			if opt.Name == "contract-id" {
-				contractID = opt.StringValue()
-			}
-		}
+		_ = e.Defer(true)
+		contractID, _ := e.OptString("contract-id")
 		if contractID == "" {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: "Please provide a valid contract ID.",
-			})
+			_ = e.Followup(dc.Message{Content: "Please provide a valid contract ID."})
 			return
 		}
 
@@ -268,9 +250,7 @@ func HandleWatchCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 		if hasWatch {
 			farmerstate.DeleteWatch(userID, WatchTypeContract, contractID)
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: fmt.Sprintf("Watch for contract `%s` cleared/removed.", contractID),
-			})
+			_ = e.Followup(dc.Message{Content: fmt.Sprintf("Watch for contract `%s` cleared/removed.", contractID)})
 			return
 		}
 
@@ -284,32 +264,18 @@ func HandleWatchCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 		if isActive {
 			farmerstate.DeleteWatch(userID, WatchTypeContract, contractID)
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: fmt.Sprintf("Contract `%s` is currently active. Watch cleared/removed.", contractID),
-			})
+			_ = e.Followup(dc.Message{Content: fmt.Sprintf("Contract `%s` is currently active. Watch cleared/removed.", contractID)})
 			return
 		}
 
 		farmerstate.AddWatch(userID, WatchTypeContract, contractID)
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: fmt.Sprintf("Success! Added watch for contract: `%s`.", contractID),
-		})
+		_ = e.Followup(dc.Message{Content: fmt.Sprintf("Success! Added watch for contract: `%s`.", contractID)})
 
 	case "colleggtible":
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
-		})
-		colleggtibleID := ""
-		for _, opt := range options[0].Options {
-			if opt.Name == "colleggtible-id" {
-				colleggtibleID = opt.StringValue()
-			}
-		}
+		_ = e.Defer(true)
+		colleggtibleID, _ := e.OptString("colleggtible-id")
 		if colleggtibleID == "" {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: "Please provide a valid colleggtible ID.",
-			})
+			_ = e.Followup(dc.Message{Content: "Please provide a valid colleggtible ID."})
 			return
 		}
 
@@ -328,9 +294,7 @@ func HandleWatchCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			if colleggtibleID == "new" {
 				msg = "Watch for any **NEW COLLEGGTIBLES** cleared/removed."
 			}
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: msg,
-			})
+			_ = e.Followup(dc.Message{Content: msg})
 			return
 		}
 
@@ -350,9 +314,7 @@ func HandleWatchCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			}
 			if isActive {
 				farmerstate.DeleteWatch(userID, WatchTypeColleggtible, colleggtibleID)
-				_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-					Content: fmt.Sprintf("Colleggtible `%s` is currently active (offered in contract **%s**). Watch cleared/removed.", colleggtibleID, activeContractName),
-				})
+				_ = e.Followup(dc.Message{Content: fmt.Sprintf("Colleggtible `%s` is currently active (offered in contract **%s**). Watch cleared/removed.", colleggtibleID, activeContractName)})
 				return
 			}
 		}
@@ -362,32 +324,15 @@ func HandleWatchCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if colleggtibleID == "new" {
 			msgContent = "Success! Added watch for any **NEW COLLEGGTIBLES**."
 		}
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: msgContent,
-		})
+		_ = e.Followup(dc.Message{Content: msgContent})
 
 	case "event":
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
-		})
-		eventType := ""
-		ultra := false
-		repeat := false
-		for _, opt := range options[0].Options {
-			switch opt.Name {
-			case "event-type":
-				eventType = opt.StringValue()
-			case "ultra":
-				ultra = opt.BoolValue()
-			case "repeat":
-				repeat = opt.BoolValue()
-			}
-		}
+		_ = e.Defer(true)
+		eventType, _ := e.OptString("event-type")
+		ultra, _ := e.OptBool("ultra")
+		repeat, _ := e.OptBool("repeat")
 		if eventType == "" {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: "Please provide a valid event type.",
-			})
+			_ = e.Followup(dc.Message{Content: "Please provide a valid event type."})
 			return
 		}
 
@@ -404,34 +349,23 @@ func HandleWatchCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 		if hasWatch {
 			farmerstate.DeleteWatch(userID, WatchTypeEvent, targetID)
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: fmt.Sprintf("Watch for event `%s` (include ultra: `%t`, repeat: `%t`) cleared/removed.", eventType, ultra, repeat),
-			})
+			_ = e.Followup(dc.Message{Content: fmt.Sprintf("Watch for event `%s` (include ultra: `%t`, repeat: `%t`) cleared/removed.", eventType, ultra, repeat)})
 			return
 		}
 
 		farmerstate.AddWatch(userID, WatchTypeEvent, targetID)
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: fmt.Sprintf("Success! Added watch for event: `%s` (include ultra: `%t`, repeat: `%t`).", eventType, ultra, repeat),
-		})
+		_ = e.Followup(dc.Message{Content: fmt.Sprintf("Success! Added watch for event: `%s` (include ultra: `%t`, repeat: `%t`).", eventType, ultra, repeat)})
 
 	case "missing":
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
-		})
+		_ = e.Defer(true)
 		eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 		if eiID == "" {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: "No EIID found. Please run the `/register` command first to link your account.",
-			})
+			_ = e.Followup(dc.Message{Content: "No EIID found. Please run the `/register` command first to link your account."})
 			return
 		}
-		backup, _ := ei.GetFirstContactFromAPI(s, eiID, userID, true)
+		backup, _ := ei.GetFirstContactFromAPI(eiID, userID, true)
 		if backup == nil {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: "Failed to retrieve your player data from Egg Inc API. Please try again later.",
-			})
+			_ = e.Followup(dc.Message{Content: "Failed to retrieve your player data from Egg Inc API. Please try again later."})
 			return
 		}
 
@@ -496,40 +430,36 @@ func HandleWatchCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			farmerstate.AddWatch(userID, WatchTypeColleggtible, eggID)
 		}
 
-		renderStatusPage(s, i.Interaction, userID, 0, false)
+		renderStatusPage(e, userID, 0, false)
 
 	case "status":
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
-		})
-		renderStatusPage(s, i.Interaction, userID, 0, false)
+		_ = e.Defer(true)
+		renderStatusPage(e, userID, 0, false)
 	}
 }
 
 // HandleWatchAutoComplete handles autocomplete requests for /watch parameters.
-func HandleWatchAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	data := i.ApplicationCommandData()
-	if len(data.Options) == 0 {
-		return
-	}
-	subcmd := data.Options[0]
-	optionMap := bottools.GetCommandOptionsMap(i)
-
-	if subcmd.Name == "contract" {
-		boost.HandleAllContractsAutoComplete(s, i)
+func HandleWatchAutoComplete(e *dc.AutocompleteEvent) {
+	subcmd, ok := e.Subcommand()
+	if !ok {
 		return
 	}
 
-	if subcmd.Name == "colleggtible" {
+	if subcmd == "contract" {
+		boost.HandleAllContractsAutoComplete(e)
+		return
+	}
+
+	if subcmd == "colleggtible" {
+		name, value := e.FocusedOption()
 		searchString := ""
-		if opt, ok := optionMap["colleggtible-id"]; ok {
-			searchString = strings.ToLower(opt.StringValue())
+		if name == "colleggtible-id" {
+			searchString = strings.ToLower(value)
 		}
 
-		choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+		choices := make([]dc.Choice[string], 0)
 		if searchString == "" || strings.Contains("new colleggtible", searchString) {
-			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+			choices = append(choices, dc.Choice[string]{
 				Name:  "NEW COLLEGGTIBLE",
 				Value: "new",
 			})
@@ -551,7 +481,7 @@ func HandleWatchAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreat
 		})
 
 		for _, item := range list {
-			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+			choices = append(choices, dc.Choice[string]{
 				Name:  item.Name,
 				Value: item.ID,
 			})
@@ -560,33 +490,20 @@ func HandleWatchAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreat
 			choices = choices[:25]
 		}
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-			Data: &discordgo.InteractionResponseData{
-				Choices: choices,
-			},
-		})
+		_ = e.RespondChoices(choices)
 	}
 }
 
-// renderStatusPage renders the watches status page.
-func renderStatusPage(s *discordgo.Session, interaction *discordgo.Interaction, userID string, page int, showClearConfirm bool) {
+// renderStatusPage renders the watches status page. It serves both the slash
+// command, which has nothing on screen yet and answers with a followup, and
+// the page buttons, which replace the message they live on.
+func renderStatusPage(e dc.InteractionEvent, userID string, page int, showClearConfirm bool) {
 	watches := farmerstate.GetWatchesForUser(userID)
 	if len(watches) == 0 {
-		components := []discordgo.MessageComponent{}
-		// We want to update or send followup
-		content := "You currently have no active watches."
-		if interaction.Type == discordgo.InteractionMessageComponent {
-			_, _ = s.InteractionResponseEdit(interaction, &discordgo.WebhookEdit{
-				Content:    &content,
-				Components: &components,
-			})
-		} else {
-			_, _ = s.FollowupMessageCreate(interaction, true, &discordgo.WebhookParams{
-				Content:    content,
-				Components: components,
-			})
-		}
+		sendStatusPage(e, dc.Message{
+			Content:      "You currently have no active watches.",
+			ComponentsV1: true,
+		})
 		return
 	}
 
@@ -780,55 +697,55 @@ func renderStatusPage(s *discordgo.Session, interaction *discordgo.Interaction, 
 	}
 
 	// Create buttons
-	var row1 []discordgo.MessageComponent
+	var row1 []dc.InteractiveComponent
 	if totalPages > 2 {
-		row1 = append(row1, discordgo.Button{
+		row1 = append(row1, dc.Button{
 			Label:    "⏮ First",
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("watch-page-first#%s#0", userID),
 			Disabled: page == 0,
 		})
 	}
-	row1 = append(row1, discordgo.Button{
+	row1 = append(row1, dc.Button{
 		Label:    "◀ Previous",
-		Style:    discordgo.SecondaryButton,
+		Style:    dc.ButtonSecondary,
 		CustomID: fmt.Sprintf("watch-page-prev#%s#%d", userID, page-1),
 		Disabled: page == 0,
 	})
-	row1 = append(row1, discordgo.Button{
+	row1 = append(row1, dc.Button{
 		Label:    "Next ▶",
-		Style:    discordgo.SecondaryButton,
+		Style:    dc.ButtonSecondary,
 		CustomID: fmt.Sprintf("watch-page-next#%s#%d", userID, page+1),
 		Disabled: page == totalPages-1,
 	})
 	if totalPages > 2 {
-		row1 = append(row1, discordgo.Button{
+		row1 = append(row1, dc.Button{
 			Label:    "Last ⏭",
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("watch-page-last#%s#%d", userID, totalPages-1),
 			Disabled: page == totalPages-1,
 		})
 	}
 
-	var row2 []discordgo.MessageComponent
+	var row2 []dc.InteractiveComponent
 	sortLabel := "Sort: Predicted"
 	if sortStyle == "alpha" {
 		sortLabel = "Sort: Alphabetical"
 	}
-	row2 = append(row2, discordgo.Button{
+	row2 = append(row2, dc.Button{
 		Label:    sortLabel,
-		Style:    discordgo.PrimaryButton,
+		Style:    dc.ButtonPrimary,
 		CustomID: fmt.Sprintf("watch-toggle-sort#%s#%d", userID, page),
 	})
 
 	ultraEnabled := farmerstate.GetMiscSettingFlag(userID, "watch_ultra")
 	ultraLabel := "Disabled"
-	ultraStyle := discordgo.SecondaryButton
+	ultraStyle := dc.ButtonSecondary
 	if ultraEnabled {
 		ultraLabel = "Enabled"
-		ultraStyle = discordgo.SuccessButton
+		ultraStyle = dc.ButtonSuccess
 	}
-	row2 = append(row2, discordgo.Button{
+	row2 = append(row2, dc.Button{
 		Label:    ultraLabel,
 		Style:    ultraStyle,
 		CustomID: fmt.Sprintf("watch-toggle-ultra#%s#%d", userID, page),
@@ -836,74 +753,68 @@ func renderStatusPage(s *discordgo.Session, interaction *discordgo.Interaction, 
 	})
 
 	if showClearConfirm {
-		row2 = append(row2, discordgo.Button{
+		row2 = append(row2, dc.Button{
 			Label:    "Are you sure?",
-			Style:    discordgo.DangerButton,
+			Style:    dc.ButtonDanger,
 			CustomID: fmt.Sprintf("watch-clear#%s", userID),
 		})
-		row2 = append(row2, discordgo.Button{
+		row2 = append(row2, dc.Button{
 			Label:    "Cancel",
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("watch-page-cancel#%s#%d", userID, page),
 		})
 	} else {
-		row2 = append(row2, discordgo.Button{
+		row2 = append(row2, dc.Button{
 			Label:    "Clear All Watches (safe)",
-			Style:    discordgo.PrimaryButton,
+			Style:    dc.ButtonPrimary,
 			CustomID: fmt.Sprintf("watch-clear-confirm#%s#%d", userID, page),
 		})
 	}
 
-	content := sb.String()
-	components := []discordgo.MessageComponent{
-		discordgo.ActionsRow{
-			Components: row1,
-		},
-		discordgo.ActionsRow{
-			Components: row2,
-		},
+	components := []dc.LayoutComponent{
+		dc.ActionRow{Components: row1},
+		dc.ActionRow{Components: row2},
 	}
 
 	if config.IsDevBot() {
-		row3 := []discordgo.MessageComponent{
-			discordgo.Button{
+		row3 := []dc.InteractiveComponent{
+			dc.Button{
 				Label:    "Test Contract",
-				Style:    discordgo.SecondaryButton,
+				Style:    dc.ButtonSecondary,
 				CustomID: fmt.Sprintf("watch-test-contract#%s", userID),
 			},
-			discordgo.Button{
+			dc.Button{
 				Label:    "Test Colleggtible",
-				Style:    discordgo.SecondaryButton,
+				Style:    dc.ButtonSecondary,
 				CustomID: fmt.Sprintf("watch-test-colleggtible#%s", userID),
 			},
 		}
-		components = append(components, discordgo.ActionsRow{
-			Components: row3,
-		})
+		components = append(components, dc.ActionRow{Components: row3})
 	}
 
-	if interaction.Type == discordgo.InteractionMessageComponent {
-		_, err := s.InteractionResponseEdit(interaction, &discordgo.WebhookEdit{
-			Content:    &content,
-			Components: &components,
-		})
-		if err != nil {
-			log.Printf("watch: InteractionResponseEdit error: %v", err)
+	sendStatusPage(e, dc.Message{
+		Content:      sb.String(),
+		Components:   components,
+		ComponentsV1: true,
+	})
+}
+
+// sendStatusPage delivers a status page either by editing the message the
+// clicked button lives on, or, for the slash command, as a followup.
+func sendStatusPage(e dc.InteractionEvent, m dc.Message) {
+	if e.FromComponent() {
+		if err := e.EditResponse(m); err != nil {
+			log.Printf("watch: EditResponse error: %v", err)
 		}
-	} else {
-		_, err := s.FollowupMessageCreate(interaction, true, &discordgo.WebhookParams{
-			Content:    content,
-			Components: components,
-		})
-		if err != nil {
-			log.Printf("watch: FollowupMessageCreate error: %v", err)
-		}
+		return
+	}
+	if err := e.Followup(m); err != nil {
+		log.Printf("watch: Followup error: %v", err)
 	}
 }
 
-// HandlePage handles watch status pagination clicks.
-func HandlePage(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	parts := strings.Split(i.MessageComponentData().CustomID, "#")
+func HandlePage(e *dc.ComponentEvent) {
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 3 {
 		return
 	}
@@ -915,49 +826,38 @@ func HandlePage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	// Ensure clicking user is the owner
-	clickerID := bottools.GetInteractionUserID(i)
+	clickerID := e.UserID()
 	if clickerID != userID {
 		log.Printf("watch: HandlePage clicker ID mismatch: clicker=%s, owner=%s", clickerID, userID)
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "You can only interact with your own watch status pages.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "You can only interact with your own watch status pages.",
+			Ephemeral: true,
 		})
 		return
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-	})
+	_ = e.DeferUpdate()
 
-	renderStatusPage(s, i.Interaction, userID, page, false)
+	renderStatusPage(e, userID, page, false)
 }
 
-// HandleToggleSort handles sorting toggle clicks.
-func HandleToggleSort(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	parts := strings.Split(i.MessageComponentData().CustomID, "#")
+func HandleToggleSort(e *dc.ComponentEvent) {
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 3 {
 		return
 	}
 	userID := parts[1]
 
-	clickerID := bottools.GetInteractionUserID(i)
+	clickerID := e.UserID()
 	if clickerID != userID {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "You can only interact with your own watch status pages.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "You can only interact with your own watch status pages.",
+			Ephemeral: true,
 		})
 		return
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-	})
+	_ = e.DeferUpdate()
 
 	sortStyle := farmerstate.GetMiscSettingString(userID, "watch_sort")
 	if sortStyle == "alpha" {
@@ -966,12 +866,11 @@ func HandleToggleSort(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		farmerstate.SetMiscSettingString(userID, "watch_sort", "alpha")
 	}
 
-	renderStatusPage(s, i.Interaction, userID, 0, false)
+	renderStatusPage(e, userID, 0, false)
 }
 
-// HandleToggleUltra handles the Ultra toggle button clicks.
-func HandleToggleUltra(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	parts := strings.Split(i.MessageComponentData().CustomID, "#")
+func HandleToggleUltra(e *dc.ComponentEvent) {
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 3 {
 		return
 	}
@@ -981,31 +880,25 @@ func HandleToggleUltra(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		page = 0
 	}
 
-	clickerID := bottools.GetInteractionUserID(i)
+	clickerID := e.UserID()
 	if clickerID != userID {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "You can only interact with your own watch status pages.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "You can only interact with your own watch status pages.",
+			Ephemeral: true,
 		})
 		return
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-	})
+	_ = e.DeferUpdate()
 
 	isUltra := farmerstate.GetMiscSettingFlag(userID, "watch_ultra")
 	farmerstate.SetMiscSettingFlag(userID, "watch_ultra", !isUltra)
 
-	renderStatusPage(s, i.Interaction, userID, page, false)
+	renderStatusPage(e, userID, page, false)
 }
 
-// HandleClearConfirm handles transitioning clear all watches to confirmation state.
-func HandleClearConfirm(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	parts := strings.Split(i.MessageComponentData().CustomID, "#")
+func HandleClearConfirm(e *dc.ComponentEvent) {
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 3 {
 		return
 	}
@@ -1015,74 +908,56 @@ func HandleClearConfirm(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		page = 0
 	}
 
-	clickerID := bottools.GetInteractionUserID(i)
+	clickerID := e.UserID()
 	if clickerID != userID {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "You can only clear your own watches.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "You can only clear your own watches.",
+			Ephemeral: true,
 		})
 		return
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-	})
+	_ = e.DeferUpdate()
 
-	renderStatusPage(s, i.Interaction, userID, page, true)
+	renderStatusPage(e, userID, page, true)
 }
 
-// HandleClear handles clearing all watches for a user.
-func HandleClear(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	parts := strings.Split(i.MessageComponentData().CustomID, "#")
+func HandleClear(e *dc.ComponentEvent) {
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 2 {
 		return
 	}
 	userID := parts[1]
 
-	clickerID := bottools.GetInteractionUserID(i)
+	clickerID := e.UserID()
 	if clickerID != userID {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "You can only clear your own watches.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "You can only clear your own watches.",
+			Ephemeral: true,
 		})
 		return
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-	})
+	_ = e.DeferUpdate()
 
 	farmerstate.DeleteUserWatches(userID)
-	renderStatusPage(s, i.Interaction, userID, 0, false)
+	renderStatusPage(e, userID, 0, false)
 }
 
-// HandleDismiss handles dismissing a watch DM message.
-func HandleDismiss(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-	})
-	_ = s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
+func HandleDismiss(client dc.Client, e *dc.ComponentEvent) {
+	_ = e.DeferUpdate()
+	_ = client.DeleteMessage(e.ChannelID(), e.MessageID())
 }
 
-// HandleKeep handles keeping a watch DM message (removes the buttons).
-func HandleKeep(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseUpdateMessage,
-		Data: &discordgo.InteractionResponseData{
-			Content:    i.Message.Content,
-			Components: []discordgo.MessageComponent{},
-		},
+func HandleKeep(e *dc.ComponentEvent) {
+	_ = e.Update(dc.Message{
+		Content:      e.MessageContent(),
+		ComponentsV1: true,
 	})
 }
 
 // CheckWatches is called periodically to check watches and send DM notifications if matches are found.
-func CheckWatches(s *discordgo.Session) {
+func CheckWatches(client dc.Client) {
 	watches := farmerstate.GetAllWatches()
 	if len(watches) == 0 {
 		return
@@ -1273,27 +1148,28 @@ func CheckWatches(s *discordgo.Session) {
 						}
 
 						// Create DM channel
-						channel, err := s.UserChannelCreate(m.userID)
+						channel, err := client.CreateUserChannel(m.userID)
 						if err != nil {
 							log.Printf("watch: failed to create DM channel for user %s: %v", m.userID, err)
 							continue
 						}
 
 						// Send DM with Dismiss and Keep buttons
-						_, err = s.ChannelMessageSendComplex(channel.ID, &discordgo.MessageSend{
-							Content: estimateText,
-							Flags:   discordgo.MessageFlagsSuppressEmbeds,
-							Components: []discordgo.MessageComponent{
-								discordgo.ActionsRow{
-									Components: []discordgo.MessageComponent{
-										discordgo.Button{
+						_, err = client.SendMessage(channel.ID, dc.Message{
+							Content:        estimateText,
+							SuppressEmbeds: true,
+							ComponentsV1:   true,
+							Components: []dc.LayoutComponent{
+								dc.ActionRow{
+									Components: []dc.InteractiveComponent{
+										dc.Button{
 											Label:    "Dismiss",
-											Style:    discordgo.DangerButton,
+											Style:    dc.ButtonDanger,
 											CustomID: "watch-dismiss",
 										},
-										discordgo.Button{
+										dc.Button{
 											Label:    "Keep",
-											Style:    discordgo.SuccessButton,
+											Style:    dc.ButtonSuccess,
 											CustomID: "watch-keep",
 										},
 									},
@@ -1325,20 +1201,14 @@ func CheckWatches(s *discordgo.Session) {
 }
 
 // HandleTestContract triggers a mock DM notification for a contract.
-func HandleTestContract(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	parts := strings.Split(i.MessageComponentData().CustomID, "#")
+func HandleTestContract(client dc.Client, e *dc.ComponentEvent) {
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 2 {
 		return
 	}
 	userID := parts[1]
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Testing contract watch DM notification...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
+	_ = e.Respond(dc.Message{Content: "Testing contract watch DM notification...", Ephemeral: true})
 
 	contractID := "first-contract"
 	for _, c := range ei.EggIncContracts {
@@ -1350,22 +1220,23 @@ func HandleTestContract(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	estimateText := boost.GetContractEstimateString(contractID, true)
 
-	channel, err := s.UserChannelCreate(userID)
+	channel, err := client.CreateUserChannel(userID)
 	if err == nil {
-		_, _ = s.ChannelMessageSendComplex(channel.ID, &discordgo.MessageSend{
-			Content: estimateText,
-			Flags:   discordgo.MessageFlagsSuppressEmbeds,
-			Components: []discordgo.MessageComponent{
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.Button{
+		_, _ = client.SendMessage(channel.ID, dc.Message{
+			Content:        estimateText,
+			SuppressEmbeds: true,
+			ComponentsV1:   true,
+			Components: []dc.LayoutComponent{
+				dc.ActionRow{
+					Components: []dc.InteractiveComponent{
+						dc.Button{
 							Label:    "Dismiss",
-							Style:    discordgo.DangerButton,
+							Style:    dc.ButtonDanger,
 							CustomID: "watch-dismiss",
 						},
-						discordgo.Button{
+						dc.Button{
 							Label:    "Keep",
-							Style:    discordgo.SuccessButton,
+							Style:    dc.ButtonSuccess,
 							CustomID: "watch-keep",
 						},
 					},
@@ -1376,20 +1247,14 @@ func HandleTestContract(s *discordgo.Session, i *discordgo.InteractionCreate) {
 }
 
 // HandleTestColleggtible triggers a mock DM notification for a colleggtible.
-func HandleTestColleggtible(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	parts := strings.Split(i.MessageComponentData().CustomID, "#")
+func HandleTestColleggtible(client dc.Client, e *dc.ComponentEvent) {
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 2 {
 		return
 	}
 	userID := parts[1]
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Testing colleggtible watch DM notification...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
+	_ = e.Respond(dc.Message{Content: "Testing colleggtible watch DM notification...", Ephemeral: true})
 
 	contractID := "first-contract"
 	for _, c := range ei.EggIncContracts {
@@ -1404,22 +1269,23 @@ func HandleTestColleggtible(s *discordgo.Session, i *discordgo.InteractionCreate
 
 	estimateText := boost.GetContractEstimateString(contractID, true)
 
-	channel, err := s.UserChannelCreate(userID)
+	channel, err := client.CreateUserChannel(userID)
 	if err == nil {
-		_, _ = s.ChannelMessageSendComplex(channel.ID, &discordgo.MessageSend{
-			Content: estimateText,
-			Flags:   discordgo.MessageFlagsSuppressEmbeds,
-			Components: []discordgo.MessageComponent{
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.Button{
+		_, _ = client.SendMessage(channel.ID, dc.Message{
+			Content:        estimateText,
+			SuppressEmbeds: true,
+			ComponentsV1:   true,
+			Components: []dc.LayoutComponent{
+				dc.ActionRow{
+					Components: []dc.InteractiveComponent{
+						dc.Button{
 							Label:    "Dismiss",
-							Style:    discordgo.DangerButton,
+							Style:    dc.ButtonDanger,
 							CustomID: "watch-dismiss",
 						},
-						discordgo.Button{
+						dc.Button{
 							Label:    "Keep",
-							Style:    discordgo.SuccessButton,
+							Style:    dc.ButtonSuccess,
 							CustomID: "watch-keep",
 						},
 					},

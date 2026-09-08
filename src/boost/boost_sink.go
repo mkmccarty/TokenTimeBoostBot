@@ -1,89 +1,63 @@
 package boost
 
 import (
-	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 // GetSlashVolunteerSink is used to volunteer as token sink for a contract
-func GetSlashVolunteerSink(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Description: "Volunteer as token sink for this contract",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "confirm",
-				Description: "Confirm you want to be the token sink. Default is false.",
-				Required:    true,
-			},
+func GetSlashVolunteerSink(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Volunteer as token sink for this contract")
+	command.Options = []dc.Option{
+		dc.BoolOption{
+			Name:        "confirm",
+			Description: "Confirm you want to be the token sink. Default is false.",
+			Required:    true,
 		},
 	}
+	return &command
 }
 
 // GetSlashVoluntellSink is used to volunteer as token sink for a contract
-func GetSlashVoluntellSink(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
+func GetSlashVoluntellSink(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Voluntell guest farmer to assign as token sink for this contract")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:        "farmer",
+			Description: "Guest farmer to use as the token sink for this contract.",
+			Required:    true,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Description: "Voluntell guest farmer to assign as token sink for this contract",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "farmer",
-				Description: "Guest farmer to use as the token sink for this contract.",
-				Required:    true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "confirm",
-				Description: "Confirm you want to be the token sink.  Default is false.",
-				Required:    true,
-			},
+		dc.BoolOption{
+			Name:        "confirm",
+			Description: "Confirm you want to be the token sink.  Default is false.",
+			Required:    true,
 		},
 	}
+	return &command
 }
 
-// HandleSlashVolunteerSinkCommand is used to volunteer as token sink for a contract
-func HandleSlashVolunteerSinkCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleSlashVolunteerSinkCommand is used to volunteer as token sink for a contract.
+//
+// It still takes a raw session because RedrawBoostList is not on the facade
+// yet.
+func HandleSlashVolunteerSinkCommand(client dc.Client, e *dc.CommandEvent) {
 	str := "Volunteering as token sink for this contract. It will show up on the next boost list refresh."
 	confirm := false
 
-	optionMap := bottools.GetCommandOptionsMap(i)
-	if opt, ok := optionMap["confirm"]; ok {
-		confirm = opt.BoolValue()
+	if opt, ok := e.OptBool("confirm"); ok {
+		confirm = opt
 	}
 
 	// Find the contract
-	var contract = FindContract(i.ChannelID)
+	var contract = FindContract(e.ChannelID())
 	if contract == nil {
 		str = "No contract found in this channel"
 	} else {
-
-		var userID string
-		if i.GuildID != "" {
-			userID = i.Member.User.ID
-		} else {
-			userID = i.User.ID
-		}
+		userID := e.UserID()
 
 		isAdmin := false
-		perms, err := s.UserChannelPermissions(userID, i.ChannelID)
+		perms, err := client.UserChannelPermissions(userID, e.ChannelID())
 		if err == nil {
-			if perms&discordgo.PermissionAdministrator != 0 {
-				isAdmin = true
-			}
+			isAdmin = perms.Administrator()
 		}
 
 		if !confirm {
@@ -92,11 +66,11 @@ func HandleSlashVolunteerSinkCommand(s *discordgo.Session, i *discordgo.Interact
 			str = "Token sink is already set"
 		} else {
 			// Check if user is already in contract
-			if UserInContract(contract, i.Member.User.ID) {
-				contract.Banker.PostSinkUserID = i.Member.User.ID
+			if UserInContract(contract, userID) {
+				contract.Banker.PostSinkUserID = userID
 				changeContractState(contract, contract.State) // Update the changed sink
 				if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {
-					_ = RedrawBoostList(s, i.GuildID, i.ChannelID)
+					_ = RedrawBoostList(client, e.GuildID(), e.ChannelID())
 				}
 			} else {
 				str = "You are not in this contract"
@@ -104,52 +78,41 @@ func HandleSlashVolunteerSinkCommand(s *discordgo.Session, i *discordgo.Interact
 		}
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: str,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	},
-	)
+	_ = e.Respond(dc.Message{
+		Content:   str,
+		Ephemeral: true,
+	})
 }
 
-// HandleSlashVoluntellSinkCommand is used to volunteer as token sink for a contract
-func HandleSlashVoluntellSinkCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleSlashVoluntellSinkCommand is used to volunteer as token sink for a contract.
+//
+// It still takes a raw session because RedrawBoostList is not on the facade
+// yet.
+func HandleSlashVoluntellSinkCommand(client dc.Client, e *dc.CommandEvent) {
 	str := "Voluntell as token sink for this contract. It will show up on the next boost list refresh."
-
-	optionMap := bottools.GetCommandOptionsMap(i)
 
 	var VoluntellName string
 	confirm := false
 
-	if opt, ok := optionMap["farmer"]; ok {
-		VoluntellName = opt.StringValue()
+	if opt, ok := e.OptString("farmer"); ok {
+		VoluntellName = opt
 	}
 
-	if opt, ok := optionMap["confirm"]; ok {
-		confirm = opt.BoolValue()
+	if opt, ok := e.OptBool("confirm"); ok {
+		confirm = opt
 	}
 
 	// Find the contract
-	var contract = FindContract(i.ChannelID)
+	var contract = FindContract(e.ChannelID())
 	if contract == nil {
 		str = "No contract found in this channel"
 	} else {
-
-		var userID string
-		if i.GuildID != "" {
-			userID = i.Member.User.ID
-		} else {
-			userID = i.User.ID
-		}
+		userID := e.UserID()
 
 		isAdmin := false
-		perms, err := s.UserChannelPermissions(userID, i.ChannelID)
+		perms, err := client.UserChannelPermissions(userID, e.ChannelID())
 		if err == nil {
-			if perms&discordgo.PermissionAdministrator != 0 {
-				isAdmin = true
-			}
+			isAdmin = perms.Administrator()
 		}
 
 		if !confirm {
@@ -165,7 +128,7 @@ func HandleSlashVoluntellSinkCommand(s *discordgo.Session, i *discordgo.Interact
 				contract.Banker.PostSinkUserID = VoluntellName
 				changeContractState(contract, contract.State) // Update the changed sink
 				if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {
-					_ = RedrawBoostList(s, i.GuildID, i.ChannelID)
+					_ = RedrawBoostList(client, e.GuildID(), e.ChannelID())
 				}
 			} else {
 				str = "They are not in this contract"
@@ -173,12 +136,8 @@ func HandleSlashVoluntellSinkCommand(s *discordgo.Session, i *discordgo.Interact
 		}
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: str,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	},
-	)
+	_ = e.Respond(dc.Message{
+		Content:   str,
+		Ephemeral: true,
+	})
 }

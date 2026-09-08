@@ -9,81 +9,58 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 // GetSlashPrivacyCommand creates a new slash command for setting Egg, Inc name
-func GetSlashPrivacyCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
+func GetSlashPrivacyCommand(cmd string) *dc.Command {
+	command := dc.Command{
 		Name:        cmd,
 		Description: "Boost bot privacy information.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
+		Contexts: []dc.InteractionContext{
+			dc.ContextGuild,
+			dc.ContextBotDM,
+			dc.ContextPrivateChannel,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
+		IntegrationTypes: []dc.IntegrationType{
+			dc.IntegrationGuildInstall,
+			dc.IntegrationUserInstall,
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
+		Options: []dc.Option{
+			dc.IntOption{
 				Name:        "enable-data-privacy",
 				Description: "Change your data privacy setting.",
 				Required:    false,
-				Choices: []*discordgo.ApplicationCommandOptionChoice{
-					{
-						Name:  "Do not persist bot settings.",
-						Value: 1,
-					},
-					{
-						Name:  "Allow the bot to store some information.",
-						Value: 0,
-					},
+				Choices: []dc.Choice[int]{
+					{Name: "Do not persist bot settings.", Value: 1},
+					{Name: "Allow the bot to store some information.", Value: 0},
 				},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
+			dc.BoolOption{
 				Name:        "get-settings-data",
 				Description: "Retrieve a JSON file with your stored settings.",
 				Required:    false,
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
+			dc.BoolOption{
 				Name:        "remove-data",
 				Description: "Remove my data from the boost bot database.",
 				Required:    false,
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
+			dc.BoolOption{
 				Name:        "confirm-request",
 				Description: "Confirm privacy setting change or data removal.",
 				Required:    false,
 			},
 		},
 	}
+	return &command
 }
 
-// HandlePrivacyCommand will handle the /privacy command
-func HandlePrivacyCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	var userID string
-	if i.GuildID != "" {
-		userID = i.Member.User.ID
-	} else {
-		userID = i.User.ID
-	}
+// HandlePrivacy will handle the /privacy command through the dc facade.
+func HandlePrivacy(e *dc.CommandEvent) {
+	userID := e.UserID()
 
-	optionMap := bottools.GetCommandOptionsMap(i)
-
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
+	_ = e.Defer(true)
 	var builder strings.Builder
 
 	builder.WriteString("# Privacy information for user: <@" + userID + ">\n")
@@ -100,12 +77,12 @@ func HandlePrivacyCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	confirmOption := false
 
 	// User must confirm data removal and/or privacy setting change
-	if opt, ok := optionMap["confirm-request"]; ok {
-		confirmOption = opt.BoolValue()
+	if opt, ok := e.OptBool("confirm-request"); ok {
+		confirmOption = opt
 	}
 
-	if opt, ok := optionMap["enable-data-privacy"]; ok {
-		userPrivacy = opt.IntValue() == 1
+	if opt, ok := e.OptInt("enable-data-privacy"); ok {
+		userPrivacy = opt == 1
 		if userPrivacy && confirmOption {
 			builder.WriteString("Boost Bot wil no longer store any persistent data about you.")
 			builder.WriteString("If you wish to store data again, you will need to re-enable it.")
@@ -119,8 +96,8 @@ func HandlePrivacyCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		}
 	}
 
-	if opt, ok := optionMap["remove-data"]; ok {
-		removeData = opt.BoolValue()
+	if opt, ok := e.OptBool("remove-data"); ok {
+		removeData = opt
 		if removeData && !confirmOption {
 			builder.WriteString("You have not confirmed your data removal, use the **confirm-request** option.")
 			removeData = false
@@ -149,9 +126,9 @@ func HandlePrivacyCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		setDataPrivacy(userID, userPrivacy)
 	}
 
-	if opt, ok := optionMap["get-settings-data"]; ok {
+	if opt, ok := e.OptBool("get-settings-data"); ok {
 		// Return the users settings data in a JSON file to the user
-		getData := opt.BoolValue()
+		getData := opt
 		if getData {
 			userData := GetFullUserData(userID)
 
@@ -176,16 +153,12 @@ func HandlePrivacyCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	}
 	if reader != nil {
 		builder.WriteString("Your settings data has been saved to a JSON file. You can view and download it.")
-		_, _ = s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: builder.String(),
-				Files:   []*discordgo.File{{Name: filename, Reader: reader}},
-			})
+		_ = e.Followup(dc.Message{
+			Content: builder.String(),
+			Files:   []dc.File{{Name: filename, Reader: reader}},
+		})
 	} else {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: builder.String(),
-			})
+		_ = e.Followup(dc.Message{Content: builder.String()})
 	}
 }
 

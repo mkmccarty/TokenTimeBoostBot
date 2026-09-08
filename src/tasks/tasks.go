@@ -15,10 +15,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
@@ -60,32 +60,27 @@ var lastContractUpdate time.Time
 var lastEventUpdate time.Time
 
 // GetSlashForceDownloadCommand returns a home-guild-only command to force re-download all data files.
-func GetSlashForceDownloadCommand(cmd string) *discordgo.ApplicationCommand {
-	var adminPermission int64 = discordgo.PermissionAdministrator
+func GetSlashForceDownloadCommand(cmd string) *dc.Command {
+	adminPermission := dc.PermissionAdministrator
 
 	guildID := guildstate.GetGuildSettingString("DEFAULT", "home_guild")
 	if guildID == "" {
 		guildID = "DISABLED"
 	}
 
-	return &discordgo.ApplicationCommand{
+	command := dc.Command{
 		Name:                     cmd,
 		Description:              "Force re-download of all Egg Inc data and image files.",
 		GuildID:                  guildID,
 		DefaultMemberPermissions: &adminPermission,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
+		Contexts:                 []dc.InteractionContext{dc.ContextGuild},
+		IntegrationTypes:         []dc.IntegrationType{dc.IntegrationGuildInstall},
+		Options: []dc.Option{
+			dc.StringOption{
 				Name:        "target",
 				Description: "Which files to force download",
 				Required:    true,
-				Choices: []*discordgo.ApplicationCommandOptionChoice{
+				Choices: []dc.Choice[string]{
 					{Name: "all", Value: "all"},
 					{Name: "contracts+events", Value: "periodicals"},
 					{Name: "rare files (afx/researches/etc)", Value: "rare"},
@@ -94,55 +89,39 @@ func GetSlashForceDownloadCommand(cmd string) *discordgo.ApplicationCommand {
 			},
 		},
 	}
+	return &command
 }
 
-// HandleForceDownloadCommand handles the home-guild force-download command.
-func HandleForceDownloadCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	userID := ""
-	if i.GuildID == "" {
-		userID = i.User.ID
-	} else {
-		userID = i.Member.User.ID
-	}
+// HandleForceDownload handles the home-guild force-download command through the
+// dc facade.
+//
+// It still takes a raw session because the download work it kicks off reaches
+// into packages that are not on the facade yet.
+func HandleForceDownload(client dc.Client, e *dc.CommandEvent) {
+	userID := e.UserID()
 
-	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
+	perms, err := client.UserChannelPermissions(userID, e.ChannelID())
 	if err != nil {
 		log.Println(err)
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "Unable to verify your permissions right now. Please try again.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{},
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "Unable to verify your permissions right now. Please try again.",
+			Ephemeral: true,
 		})
 		return
 	}
-	if perms&discordgo.PermissionAdministrator == 0 && userID != config.AdminUserID {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "You are not authorized to use this command.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{},
-			},
+	if !perms.Administrator() && userID != config.AdminUserID {
+		_ = e.Respond(dc.Message{
+			Content:   "You are not authorized to use this command.",
+			Ephemeral: true,
 		})
 		return
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Forcing download...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
+	_ = e.Defer(true)
 
 	target := ""
-	for _, opt := range i.ApplicationCommandData().Options {
-		if opt.Name == "target" {
-			target = opt.StringValue()
-		}
+	if opt, ok := e.OptString("target"); ok {
+		target = opt
 	}
 
 	var lines []string
@@ -190,26 +169,20 @@ func HandleForceDownloadCommand(s *discordgo.Session, i *discordgo.InteractionCr
 	}
 
 	result := fmt.Sprintf("Force download complete (`%s`):\n```\n%s\n```", target, strings.Join(lines, "\n"))
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: result,
-		Flags:   discordgo.MessageFlagsEphemeral,
-	})
+	_ = e.Followup(dc.Message{Content: result, Ephemeral: true})
 }
 
 // GetSlashReloadContractsCommand returns the command definition for reloading contracts
-func GetSlashReloadContractsCommand(cmd string) *discordgo.ApplicationCommand {
-	var adminPermission int64 = 0
-	return &discordgo.ApplicationCommand{
+func GetSlashReloadContractsCommand(cmd string) *dc.Command {
+	var adminPermission int64
+	command := dc.Command{
 		Name:                     cmd,
 		Description:              "Manual check for new Egg Inc contract data.",
 		DefaultMemberPermissions: &adminPermission,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
+		Contexts:                 []dc.InteractionContext{dc.ContextGuild},
+		IntegrationTypes:         []dc.IntegrationType{dc.IntegrationGuildInstall},
 	}
+	return &command
 }
 
 func listActiveContractsForSummary() []string {
@@ -292,50 +265,36 @@ func summarizeOngoingEventsForReload() (int, []string) {
 	return len(eventsSnapshot), eventParts
 }
 
-// HandleReloadContractsCommand will handle the /reload command
-func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleReloadContracts handles the reload-contracts command through the dc
+// facade.
+//
+// It still takes a raw session because the reload work reaches into packages
+// that are not on the facade yet.
+func HandleReloadContracts(client dc.Client, e *dc.CommandEvent) {
 	str := "No updated Egg Inc contract data available.\n"
 
 	updateProgress := func(lines []string) {
-		content := strings.Join(lines, "\n")
-		_, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Content: &content,
-		})
-		if err != nil {
+		if err := e.EditResponse(dc.Message{Content: strings.Join(lines, "\n")}); err != nil {
 			log.Printf("reload-contracts status update failed: %v", err)
 		}
 	}
 
-	userID := ""
-	if i.GuildID == "" {
-		userID = i.User.ID
-	} else {
-		userID = i.Member.User.ID
-	}
+	userID := e.UserID()
 
 	// Only allow command if users is in the admin list
-	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
+	perms, err := client.UserChannelPermissions(userID, e.ChannelID())
 	if err != nil {
 		log.Println(err)
 	}
-	if perms&discordgo.PermissionAdministrator == 0 && userID != config.AdminUserID {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "You are not authorized to use this command.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
+	if !perms.Administrator() && userID != config.AdminUserID {
+		_ = e.Respond(dc.Message{
+			Content:   "You are not authorized to use this command.",
+			Ephemeral: true,
 		})
 		return
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Starting contract reload checks...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
+	_ = e.Defer(true)
 
 	progressLines := []string{
 		"Running manual Egg Inc data checks...",
@@ -366,12 +325,12 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 	progressLines[3] = "- Emotes refresh: running..."
 	updateProgress(progressLines)
 
-	bottools.LoadEmotes(s, true)
+	bottools.LoadEmotesWithClient(client, true)
 	progressLines[3] = "- Emotes refresh: complete"
 	progressLines[4] = "- Periodicals refresh: running..."
 	updateProgress(progressLines)
 
-	events.GetPeriodicalsFromAPI(s)
+	events.GetPeriodicalsFromAPI(client)
 	progressLines[4] = "- Periodicals refresh: complete"
 	updateProgress(progressLines)
 
@@ -401,7 +360,7 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 	if config.IsDevBot() {
 		progressLines = append(progressLines, "- Dev config refresh: running...")
 		updateProgress(progressLines)
-		ei.GetConfigFromAPI(s)
+		ei.GetConfigFromAPI(client)
 		progressLines[len(progressLines)-1] = "- Dev config refresh: complete"
 		updateProgress(progressLines)
 	}
@@ -415,10 +374,7 @@ func HandleReloadContractsCommand(s *discordgo.Session, i *discordgo.Interaction
 	progressLines[len(progressLines)-1] = "- Contract egg metadata sync: complete"
 
 	finalContent := strings.Join(progressLines, "\n") + "\n\n" + str
-	_, err = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-		Content: &finalContent,
-	})
-	if err != nil {
+	if err := e.EditResponse(dc.Message{Content: finalContent}); err != nil {
 		log.Printf("reload-contracts final status update failed: %v", err)
 	}
 
@@ -716,7 +672,7 @@ func scheduleDaily(hour, min, sec int, task func()) {
 
 	TLDR yes it checks right at contract release time and also fairly frequently for the next hour or two after contract release time and then every 30 minutes
 */
-func schedulePeriodicals(s *discordgo.Session) {
+func schedulePeriodicals(client dc.Client) {
 	loc, err := time.LoadLocation("America/Los_Angeles")
 	if err != nil {
 		log.Printf("Error loading timezone America/Los_Angeles: %v", err)
@@ -745,10 +701,10 @@ func schedulePeriodicals(s *discordgo.Session) {
 		if needsReload {
 			if isPollDay {
 				log.Println("Startup check: Periodicals data hasn't been updated since today's load time. Triggering reload loop.")
-				go pollPeriodicalsUntilUpdated(s)
+				go pollPeriodicalsUntilUpdated(client)
 			} else {
 				log.Println("Startup check: Periodicals data hasn't been updated since today's load time. Triggering single reload.")
-				go events.GetPeriodicalsFromAPI(s)
+				go events.GetPeriodicalsFromAPI(client)
 			}
 		}
 	}
@@ -769,9 +725,9 @@ func schedulePeriodicals(s *discordgo.Session) {
 		// Run retry loop on Mon, Wed, Fri; otherwise, run once
 		wd = next.Weekday()
 		if wd == time.Monday || wd == time.Wednesday || wd == time.Friday {
-			go pollPeriodicalsUntilUpdated(s)
+			go pollPeriodicalsUntilUpdated(client)
 		} else {
-			go events.GetPeriodicalsFromAPI(s)
+			go events.GetPeriodicalsFromAPI(client)
 		}
 	}
 }
@@ -788,12 +744,12 @@ func hasActiveContracts() bool {
 	return count >= 6
 }
 
-func pollPeriodicalsUntilUpdated(s *discordgo.Session) {
+func pollPeriodicalsUntilUpdated(client dc.Client) {
 	log.Println("Starting periodic checks for Egg Inc updates...")
 	// Poll every minute for the first 9 minutes, then every 5 minutes for roughly 2 hours
 	maxRetries := 32 // 10 attempts in the first 9 mins + 22 attempts every 5 mins
 	for i := 0; i < maxRetries; i++ {
-		gotEvents := events.GetPeriodicalsFromAPI(s)
+		gotEvents := events.GetPeriodicalsFromAPI(client)
 
 		// Check if a manual reload successfully updated the contracts or events
 		recentContract := !lastContractUpdate.IsZero() && time.Since(lastContractUpdate) < 5*time.Minute
@@ -898,14 +854,14 @@ func scheduleImageDownloads() {
 }
 
 // ExecuteCronJob runs the cron jobs for the bot
-func ExecuteCronJob(s *discordgo.Session) {
+func ExecuteCronJob(client dc.Client) {
 	// Look for new Custom Eggs
 
 	var err error
 	ei.CustomEggMap, err = events.LoadCustomEggData()
 	if err != nil {
 		ei.CustomEggMap = make(map[string]*ei.EggIncCustomEgg)
-		events.GetPeriodicalsFromAPI(s)
+		events.GetPeriodicalsFromAPI(client)
 	}
 	ei.SetColleggtibleValues()
 
@@ -942,14 +898,14 @@ func ExecuteCronJob(s *discordgo.Session) {
 		boost.LoadEggscapeCoopIDs(eggscapeCoopIDFile)
 	}
 
-	events.GetPeriodicalsFromAPI(s)
+	events.GetPeriodicalsFromAPI(client)
 
 	// Archive contracts every 8 hours
 	go func() {
 		ticker := time.NewTicker(8 * time.Hour)
 		defer ticker.Stop()
 		for range ticker.C {
-			boost.ArchiveContracts(s)
+			boost.ArchiveContracts(client)
 		}
 	}()
 
@@ -960,16 +916,16 @@ func ExecuteCronJob(s *discordgo.Session) {
 	scheduleDaily(0, 30, 5, cronPruneOldGeneratedBanners)
 
 	// Start timezone-aware loop to poll Periodicals on Mon, Wed, Fri at 9 AM PT
-	go schedulePeriodicals(s)
+	go schedulePeriodicals(client)
 
 	// Start timezone-aware loop to pre-fetch images at 8:55 AM PT daily
 	go scheduleImageDownloads()
 
 	// Start weekly leaderboard collection run (Friday 15:00 PT)
-	leaderboard.ScheduleWeeklyCollection(s)
+	leaderboard.ScheduleWeeklyCollection(client)
 
 	// Start Egg Day scheduler
-	leaderboard.StartEggDayScheduler(s)
+	leaderboard.StartEggDayScheduler(client)
 
 	log.Print("Cron jobs scheduled")
 }

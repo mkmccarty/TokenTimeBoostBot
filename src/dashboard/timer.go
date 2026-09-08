@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/rs/xid"
 	"github.com/xhit/go-str2duration/v2"
@@ -31,10 +31,6 @@ type BotTimer struct {
 
 var timersMutex sync.Mutex
 var timers []BotTimer
-
-const (
-	processingRequestMessage = "Processing request..."
-)
 
 func timerDelete(id string) {
 	timersMutex.Lock()
@@ -64,44 +60,44 @@ func getTimerMsgDuration(userID string) time.Duration {
 	return 30 * time.Second
 }
 
-func startTimer(s *discordgo.Session, t *BotTimer) {
+func startTimer(client dc.Client, t *BotTimer) {
 	deleteDuration := getTimerMsgDuration(t.UserID)
 	go func(t *BotTimer) {
 		<-t.timer.C
-		u, err := s.UserChannelCreate(t.UserID)
+		u, err := client.CreateUserChannel(t.UserID)
 		if err != nil {
 			log.Printf("Error creating user channel: %v\n", err)
 			return
 		}
 
-		var components []discordgo.MessageComponent
-		var actionRowComponents []discordgo.MessageComponent
+		var components []dc.LayoutComponent
+		var actionRowComponents []dc.InteractiveComponent
 
 		// Repeat button
-		actionRowComponents = append(actionRowComponents, discordgo.Button{
+		actionRowComponents = append(actionRowComponents, dc.Button{
 			Label:    fmt.Sprintf("Repeat %s Timer", bottools.FmtDuration(t.Duration)),
-			Style:    discordgo.PrimaryButton,
+			Style:    dc.ButtonPrimary,
 			CustomID: fmt.Sprintf("timer_btn#repeat#%s", t.ID),
 		})
 
 		// 3m40s button
 		threeMin40s := 3*time.Minute + 40*time.Second
 		if t.Duration > threeMin40s+30*time.Second || t.Duration < threeMin40s-30*time.Second {
-			actionRowComponents = append(actionRowComponents, discordgo.Button{
+			actionRowComponents = append(actionRowComponents, dc.Button{
 				Label:    "New 3m40s Timer",
-				Style:    discordgo.PrimaryButton,
+				Style:    dc.ButtonPrimary,
 				CustomID: fmt.Sprintf("timer_btn#repeat_3m40s#%s", t.ID),
 			})
 		}
 
 		// Close button
-		actionRowComponents = append(actionRowComponents, discordgo.Button{
+		actionRowComponents = append(actionRowComponents, dc.Button{
 			Label:    "Close",
-			Style:    discordgo.DangerButton,
+			Style:    dc.ButtonDanger,
 			CustomID: fmt.Sprintf("timer_btn#close#%s", t.ID),
 		})
 
-		components = append(components, discordgo.ActionsRow{Components: actionRowComponents})
+		components = append(components, dc.ActionRow{Components: actionRowComponents})
 
 		finalMessage := t.Message
 		if t.OriginalChannelID != "" {
@@ -111,9 +107,10 @@ func startTimer(s *discordgo.Session, t *BotTimer) {
 			finalMessage = fmt.Sprintf("%s\nReminder deleting <t:%d:R>", finalMessage, time.Now().Add(deleteDuration).Unix())
 		}
 
-		msg, err := s.ChannelMessageSendComplex(u.ID, &discordgo.MessageSend{
-			Content:    finalMessage,
-			Components: components,
+		msg, err := client.SendMessage(u.ID, dc.Message{
+			Content:      finalMessage,
+			Components:   components,
+			ComponentsV1: true,
 		})
 		if err != nil {
 			log.Printf("Error sending message: %v\n", err)
@@ -125,7 +122,7 @@ func startTimer(s *discordgo.Session, t *BotTimer) {
 			timerSetMsgID(t.ID, u.ID, msg.ID)
 			if deleteDuration > 0 {
 				time.AfterFunc(deleteDuration, func() {
-					err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+					err := client.DeleteMessage(msg.ChannelID, msg.ID)
 					if err != nil {
 						log.Println(err)
 					}
@@ -136,7 +133,7 @@ func startTimer(s *discordgo.Session, t *BotTimer) {
 	}(t)
 }
 
-func purgeOldTimers(s *discordgo.Session) {
+func purgeOldTimers(client dc.Client) {
 	timersMutex.Lock()
 	var purgeIndexes []int
 	var purgedIDs []string
@@ -148,7 +145,7 @@ func purgeOldTimers(s *discordgo.Session) {
 		}
 		if now.After(timers[i].Reminder.Add(deleteDuration).Add(time.Minute)) {
 			if timers[i].ChannelID != "" && timers[i].MsgID != "" {
-				_ = s.ChannelMessageDelete(timers[i].ChannelID, timers[i].MsgID)
+				_ = client.DeleteMessage(timers[i].ChannelID, timers[i].MsgID)
 			}
 			purgeIndexes = append(purgeIndexes, i)
 			purgedIDs = append(purgedIDs, timers[i].ID)
@@ -166,7 +163,7 @@ func purgeOldTimers(s *discordgo.Session) {
 }
 
 // LaunchIndependentTimers will start all the timers that are active
-func LaunchIndependentTimers(s *discordgo.Session) {
+func LaunchIndependentTimers(client dc.Client) {
 	loadTimerData()
 
 	now := time.Now()
@@ -176,7 +173,7 @@ func LaunchIndependentTimers(s *discordgo.Session) {
 			nextTimer := time.Until(timers[i].Reminder)
 			if nextTimer >= 0 {
 				timers[i].timer = time.NewTimer(nextTimer)
-				startTimer(s, &timers[i])
+				startTimer(client, &timers[i])
 			}
 		} else {
 			timers[i].Active = false
@@ -189,61 +186,51 @@ func LaunchIndependentTimers(s *discordgo.Session) {
 }
 
 // GetSlashTimer will return the discord command for calculating ideal stone set
-func GetSlashTimer(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
+func GetSlashTimer(cmd string) *dc.Command {
+	command := dc.Command{
 		Name:        cmd,
 		Description: "Set a DM reminder timer for a contract",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
+		Contexts: []dc.InteractionContext{
+			dc.ContextGuild,
+			dc.ContextBotDM,
+			dc.ContextPrivateChannel,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
+		IntegrationTypes: []dc.IntegrationType{
+			dc.IntegrationGuildInstall,
+			dc.IntegrationUserInstall,
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
+		Options: []dc.Option{
+			dc.StringOption{
 				Name:        "duration",
 				Description: "When do you want the timer to remind you? Example: 4m or 1h30m5s. [Sticky]",
 				Required:    false,
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
+			dc.StringOption{
 				Name:        "message",
 				Description: "Message to display when the timer expires",
 				Required:    false,
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
+			dc.StringOption{
 				Name:        "dm-timeout",
 				Description: "How long the message stays in DM (e.g. 30s, 5m). 0 to keep until closed. [Sticky]",
 				Required:    false,
 			},
 		},
 	}
+	return &command
 }
 
-// HandleTimerCommand will handle the /stones command
-func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	userID := bottools.GetInteractionUserID(i)
+// HandleTimer handles the /timer command through the dc facade.
+func HandleTimer(client dc.Client, e *dc.CommandEvent) {
+	userID := e.UserID()
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: processingRequestMessage,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
+	_ = e.Defer(true)
 
 	var message string
 	var statusMessage string
 
-	optionMap := bottools.GetCommandOptionsMap(i)
-
-	if opt, ok := optionMap["message"]; ok {
-		message = opt.StringValue()
+	if opt, ok := e.OptString("message"); ok {
+		message = opt
 	} else {
 		message = "Activity reminder"
 	}
@@ -260,21 +247,21 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
-	if opt, ok := optionMap["duration"]; ok {
-		timespan := bottools.SanitizeStringDuration(opt.StringValue())
+	if opt, ok := e.OptString("duration"); ok {
+		timespan := bottools.SanitizeStringDuration(opt)
 		dur, err := str2duration.ParseDuration(timespan)
 		if err == nil {
 			// Error during parsing means skip this duration
 			duration = dur
-			farmerstate.SetMiscSettingString(userID, "timer", opt.StringValue())
+			farmerstate.SetMiscSettingString(userID, "timer", opt)
 			statusMessage = fmt.Sprintf("Sticky timer set to: %s", duration)
 		} else {
-			statusMessage = fmt.Sprintf("Could not parse duration '%s'. Using default/sticky.", opt.StringValue())
+			statusMessage = fmt.Sprintf("Could not parse duration '%s'. Using default/sticky.", opt)
 		}
 	}
 
-	if opt, ok := optionMap["dm-timeout"]; ok {
-		val := opt.StringValue()
+	if opt, ok := e.OptString("dm-timeout"); ok {
+		val := opt
 		if val == "0" {
 			val = "0s"
 		}
@@ -291,7 +278,7 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				statusMessage += fmt.Sprintf("Sticky message duration set to: %s", dur)
 			}
 		} else {
-			statusMessage += fmt.Sprintf("\nCould not parse dm-timeout '%s'.", opt.StringValue())
+			statusMessage += fmt.Sprintf("\nCould not parse dm-timeout '%s'.", opt)
 		}
 	}
 
@@ -303,9 +290,9 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		timer:             time.NewTimer(duration),
 		Active:            true,
 		Duration:          duration,
-		OriginalChannelID: i.ChannelID,
+		OriginalChannelID: e.ChannelID(),
 	}
-	startTimer(s, &t)
+	startTimer(client, &t)
 
 	var builder strings.Builder
 	if statusMessage != "" {
@@ -332,7 +319,7 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		} else {
 			if timers[i].ChannelID != "" && timers[i].MsgID != "" {
 				// Purge old timer messages when a new one is scheduled
-				_ = s.ChannelMessageDelete(timers[i].ChannelID, timers[i].MsgID)
+				_ = client.DeleteMessage(timers[i].ChannelID, timers[i].MsgID)
 			}
 			purgedIDs = append(purgedIDs, timers[i].ID)
 		}
@@ -345,13 +332,9 @@ func HandleTimerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		farmerstate.DeleteTimer(id)
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Content: builder.String(),
-			Flags:   discordgo.MessageFlagsEphemeral,
-		})
+	_ = e.Followup(dc.Message{Content: builder.String(), Ephemeral: true})
 
-	purgeOldTimers(s)
+	purgeOldTimers(client)
 }
 
 func timerSetActiveState(id string, active bool) {
@@ -402,36 +385,32 @@ func loadTimerData() {
 	timersMutex.Unlock()
 }
 
-// HandleTimerInteraction handles button interactions from timer DMs.
-func HandleTimerInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	parts := strings.Split(i.MessageComponentData().CustomID, "#")
+func HandleTimerInteraction(client dc.Client, e *dc.ComponentEvent) {
+	parts := strings.Split(e.CustomID(), "#")
 	action := parts[1]
 	timerID := parts[2]
 
 	switch action {
 	case "repeat":
-		handleTimerRepeat(s, i, timerID, 0)
+		handleTimerRepeat(client, e, timerID, 0)
 		timerDelete(timerID)
 	case "repeat_3m40s":
-		handleTimerRepeat(s, i, timerID, 3*time.Minute+40*time.Second)
+		handleTimerRepeat(client, e, timerID, 3*time.Minute+40*time.Second)
 		timerDelete(timerID)
 	case "close":
-		handleTimerClose(s, i, timerID)
+		handleTimerClose(client, e, timerID)
 	}
 }
 
-func handleTimerClose(s *discordgo.Session, i *discordgo.InteractionCreate, timerID string) {
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-	})
-	if err != nil {
+func handleTimerClose(client dc.Client, e *dc.ComponentEvent, timerID string) {
+	if err := e.DeferUpdate(); err != nil {
 		log.Printf("Error responding to timer close: %v", err)
 	}
-	_ = s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
+	_ = client.DeleteMessage(e.ChannelID(), e.MessageID())
 	timerDelete(timerID)
 }
 
-func handleTimerRepeat(s *discordgo.Session, i *discordgo.InteractionCreate, oldTimerID string, newDuration time.Duration) {
+func handleTimerRepeat(client dc.Client, e *dc.ComponentEvent, oldTimerID string, newDuration time.Duration) {
 	timersMutex.Lock()
 	var originalTimer BotTimer
 	found := false
@@ -445,13 +424,7 @@ func handleTimerRepeat(s *discordgo.Session, i *discordgo.InteractionCreate, old
 	timersMutex.Unlock()
 
 	if !found {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Could not find the original timer to repeat.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
+		_ = e.Respond(dc.Message{Content: "Could not find the original timer to repeat.", Ephemeral: true})
 		return
 	}
 
@@ -460,7 +433,7 @@ func handleTimerRepeat(s *discordgo.Session, i *discordgo.InteractionCreate, old
 		duration = newDuration
 	}
 
-	userID := bottools.GetInteractionUserID(i)
+	userID := e.UserID()
 
 	content := fmt.Sprintf("New timer set for %s.", duration)
 	if originalTimer.OriginalChannelID != "" {
@@ -468,20 +441,15 @@ func handleTimerRepeat(s *discordgo.Session, i *discordgo.InteractionCreate, old
 	}
 
 	// Acknowledge interaction
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseUpdateMessage,
-		Data: &discordgo.InteractionResponseData{
-			Content:    content,
-			Components: []discordgo.MessageComponent{},
-		},
-	})
-	if err != nil {
+	if err := e.Update(dc.Message{Content: content, ComponentsV1: true}); err != nil {
 		log.Printf("Error responding to timer repeat: %v", err)
 	}
 
+	messageID := e.MessageID()
+	channelID := e.ChannelID()
 	time.AfterFunc(10*time.Second, func() {
-		if i.Message != nil {
-			_ = s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
+		if messageID != "" {
+			_ = client.DeleteMessage(channelID, messageID)
 		}
 	})
 
@@ -489,7 +457,7 @@ func handleTimerRepeat(s *discordgo.Session, i *discordgo.InteractionCreate, old
 	t := BotTimer{
 		ID: xid.New().String(), Reminder: time.Now().Add(duration), Message: originalTimer.Message, UserID: userID, timer: time.NewTimer(duration), Active: true, Duration: duration, OriginalChannelID: originalTimer.OriginalChannelID,
 	}
-	startTimer(s, &t)
+	startTimer(client, &t)
 
 	timersMutex.Lock()
 	timers = append(timers, t)

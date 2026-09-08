@@ -5,43 +5,32 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 // HandleSetEggIncName handles the /seteggincname command
-func HandleSetEggIncName(s *discordgo.Session, i *discordgo.InteractionCreate, isCoordinator func(*discordgo.Session, string) bool) {
+func HandleSetEggIncName(client dc.Client, e *dc.CommandEvent, isCoordinator func(dc.Client, string) bool) {
 	// Protection against DM use
-	if i.GuildID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "This command can only be run in a server.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
+	if e.GuildID() == "" {
+		_ = e.Respond(dc.Message{
+			Content:   "This command can only be run in a server.",
+			Ephemeral: true,
 		})
 		return
 	}
 	var eiName string
-	var callerUserID = bottools.GetInteractionUserID(i)
-	var userID = bottools.GetInteractionUserID(i)
+	var callerUserID = e.UserID()
+	var userID = e.UserID()
 
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
-
-	if opt, ok := optionMap["discord-name"]; ok {
-		farmerMention := opt.UserValue(s).Mention()
+	if farmer, ok := e.OptUser("discord-name"); ok {
 		re := regexp.MustCompile(`[\\<>@#&!]`)
-		userID = re.ReplaceAllString(farmerMention, "")
+		userID = re.ReplaceAllString(farmer.Mention(), "")
 	}
 
 	var str = "Setting Egg, IGN for <@" + userID + "> to "
 
-	if opt, ok := optionMap["ei-ign"]; ok {
-		eiName = strings.TrimSpace(opt.StringValue())
+	if opt, ok := e.OptString("ei-ign"); ok {
+		eiName = strings.TrimSpace(opt)
 		str += eiName
 	}
 
@@ -51,20 +40,14 @@ func HandleSetEggIncName(s *discordgo.Session, i *discordgo.InteractionCreate, i
 		str = "Don't use your Egg, Inc. EI number."
 	} else {
 		// Is the user issuing the command a coordinator?
-		if userID != callerUserID && !isCoordinator(s, callerUserID) {
+		if userID != callerUserID && !isCoordinator(client, callerUserID) {
 			str = "This form of usage is restricted to contract coordinators and administrators."
 		} else {
 			SetEggIncName(userID, eiName)
 		}
 	}
 
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
-	})
+	err := e.Respond(dc.Message{Content: str, Ephemeral: true})
 	if err != nil {
 		log.Println(err.Error())
 	}

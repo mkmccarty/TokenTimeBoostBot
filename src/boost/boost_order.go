@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/rs/xid"
 )
@@ -43,44 +43,36 @@ var (
 )
 
 // GetSlashBoostOrderCommand returns the definition of the /boost-order command.
-func GetSlashBoostOrderCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Description: "Interactive catalyst to reorder contract boost order",
-	}
+func GetSlashBoostOrderCommand(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Interactive catalyst to reorder contract boost order")
+	return &command
 }
 
 // HandleBoostOrderCommand handles the /boost-order command, starting an interactive session to reorder the boost order for a contract.
-func HandleBoostOrderCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if i.GuildID == "" {
-		respondBoostOrderCommand(s, i, "This command can only be run in a server.", nil)
+func HandleBoostOrderCommand(client dc.Client, e *dc.CommandEvent) {
+	if e.GuildID() == "" {
+		respondBoostOrderCommand(e, "This command can only be run in a server.", nil)
 		return
 	}
 
-	userID := getInteractionUserID(i)
-	commandName := i.ApplicationCommandData().Name
+	userID := e.UserID()
+	commandName := e.CommandName()
 	if commandName == "" {
 		commandName = "boost-order"
 	}
-	contract := FindContract(i.ChannelID)
+	contract := FindContract(e.ChannelID())
 	if contract == nil {
-		respondBoostOrderCommand(s, i, "Contract not found in this channel.", nil)
+		respondBoostOrderCommand(e, "Contract not found in this channel.", nil)
 		return
 	}
 
-	if !creatorOfContract(s, contract, userID) {
-		respondBoostOrderCommand(s, i, "Only coordinators or channel admins can change boost order.", nil)
+	if !creatorOfContract(client, contract, userID) {
+		respondBoostOrderCommand(e, "Only coordinators or channel admins can change boost order.", nil)
 		return
 	}
 
 	if !boostOrderHasReorderTargets(contract) {
-		respondBoostOrderCommand(s, i, "There is nothing to reorder. All players have already boosted.", nil)
+		respondBoostOrderCommand(e, "There is nothing to reorder. All players have already boosted.", nil)
 		return
 	}
 
@@ -90,7 +82,7 @@ func HandleBoostOrderCommand(s *discordgo.Session, i *discordgo.InteractionCreat
 	session := &boostOrderSession{
 		xid:                  xid.New().String(),
 		contractHash:         contract.ContractHash,
-		channelID:            i.ChannelID,
+		channelID:            e.ChannelID(),
 		userID:               userID,
 		commandName:          commandName,
 		original:             append([]string(nil), contract.Order...),
@@ -107,33 +99,33 @@ func HandleBoostOrderCommand(s *discordgo.Session, i *discordgo.InteractionCreat
 	boostOrderSessionsMutex.Unlock()
 
 	content, components := renderBoostOrderInterview(contract, session, "")
-	respondBoostOrderCommand(s, i, content, components)
+	respondBoostOrderCommand(e, content, components)
 }
 
 // HandleBoostOrderReactions handles button interactions for the boost order catalyst, allowing the user to build a new boost order and save it.
-func HandleBoostOrderReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleBoostOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 	cleanupBoostOrderSessions()
 
-	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
+	reaction := strings.Split(e.CustomID(), "#")
 	if len(reaction) < 3 {
-		respondBoostOrderUpdate(s, i, "Boost order catalyst path was invalid. Please rerun the command.", nil)
+		respondBoostOrderUpdate(e, "Boost order catalyst path was invalid. Please rerun the command.", nil)
 		return
 	}
 
 	xidPart := reaction[1]
 	action := reaction[2]
-	userID := getInteractionUserID(i)
+	userID := e.UserID()
 
 	boostOrderSessionsMutex.Lock()
 	session, ok := boostOrderSessions[xidPart]
 	boostOrderSessionsMutex.Unlock()
 	if !ok {
-		respondBoostOrderUpdate(s, i, "This catalyst session expired. Please rerun the command.", nil)
+		respondBoostOrderUpdate(e, "This catalyst session expired. Please rerun the command.", nil)
 		return
 	}
 
 	if session.userID != userID {
-		respondBoostOrderUpdate(s, i, "Only the command caller can use this catalyst.", nil)
+		respondBoostOrderUpdate(e, "Only the command caller can use this catalyst.", nil)
 		return
 	}
 
@@ -141,7 +133,7 @@ func HandleBoostOrderReactions(s *discordgo.Session, i *discordgo.InteractionCre
 		boostOrderSessionsMutex.Lock()
 		delete(boostOrderSessions, session.xid)
 		boostOrderSessionsMutex.Unlock()
-		respondBoostOrderUpdate(s, i, fmt.Sprintf("This catalyst session expired. Please rerun %s.", boostOrderCommandPath(session.commandName)), nil)
+		respondBoostOrderUpdate(e, fmt.Sprintf("This catalyst session expired. Please rerun %s.", boostOrderCommandPath(session.commandName)), nil)
 		return
 	}
 	session.expiresAt = time.Now().Add(boostOrderSessionTTL)
@@ -151,14 +143,14 @@ func HandleBoostOrderReactions(s *discordgo.Session, i *discordgo.InteractionCre
 		boostOrderSessionsMutex.Lock()
 		delete(boostOrderSessions, session.xid)
 		boostOrderSessionsMutex.Unlock()
-		respondBoostOrderUpdate(s, i, "Unable to find this contract anymore. Catalyst closed.", nil)
+		respondBoostOrderUpdate(e, "Unable to find this contract anymore. Catalyst closed.", nil)
 		return
 	}
-	if !creatorOfContract(s, contract, userID) {
+	if !creatorOfContract(client, contract, userID) {
 		boostOrderSessionsMutex.Lock()
 		delete(boostOrderSessions, session.xid)
 		boostOrderSessionsMutex.Unlock()
-		respondBoostOrderUpdate(s, i, "You are no longer allowed to edit this contract.", nil)
+		respondBoostOrderUpdate(e, "You are no longer allowed to edit this contract.", nil)
 		return
 	}
 
@@ -274,7 +266,7 @@ func HandleBoostOrderReactions(s *discordgo.Session, i *discordgo.InteractionCre
 		newCurrentBoosterID := contract.currentBoosterID()
 		notifiedCurrentBoosterChange := false
 		if previousCurrentBoosterID != newCurrentBoosterID && newCurrentBoosterID != "" && contract.Style&ContractFlagBanker == 0 {
-			sendNextNotification(s, contract, true)
+			sendNextNotification(client, contract, true)
 			notifiedCurrentBoosterChange = true
 		}
 		currentBoosterText := "none"
@@ -287,75 +279,50 @@ func HandleBoostOrderReactions(s *discordgo.Session, i *discordgo.InteractionCre
 		}
 		saveData(contract.ContractHash)
 		if !notifiedCurrentBoosterChange {
-			refreshBoostListMessage(s, contract, false)
+			refreshBoostListMessage(client, contract, false)
 		}
+		boostOrderSessionsMutex.Lock()
 		delete(boostOrderSessions, session.xid)
-		respondBoostOrderUpdate(s, i, fmt.Sprintf("Boost order saved and contract redrawn. %s", changeText), []discordgo.MessageComponent{})
+		boostOrderSessionsMutex.Unlock()
+		respondBoostOrderUpdate(e, fmt.Sprintf("Boost order saved and contract redrawn. %s", changeText), nil)
 		return
 	case "exit":
 		boostOrderSessionsMutex.Lock()
 		delete(boostOrderSessions, session.xid)
 		boostOrderSessionsMutex.Unlock()
-		respondBoostOrderUpdate(s, i, "Exited without saving changes.", []discordgo.MessageComponent{})
+		respondBoostOrderUpdate(e, "Exited without saving changes.", nil)
 		return
 	default:
 		status = "Unknown catalyst action."
 	}
 
 	content, components := renderBoostOrderInterview(contract, session, status)
-	respondBoostOrderUpdate(s, i, content, components)
+	respondBoostOrderUpdate(e, content, components)
 }
 
-func respondBoostOrderCommand(s *discordgo.Session, i *discordgo.InteractionCreate, content string, components []discordgo.MessageComponent) {
-	flags := discordgo.MessageFlagsEphemeral
-	if boostOrderHasV2Components(components) {
-		flags |= discordgo.MessageFlagsIsComponentsV2
-	}
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:    content,
-			Flags:      flags,
-			Components: components,
-		},
+// respondBoostOrderCommand answers the /boost-order invocation. The catalyst
+// itself is a components v2 message; the error paths send plain text.
+func respondBoostOrderCommand(e *dc.CommandEvent, content string, components []dc.LayoutComponent) {
+	_ = e.Respond(dc.Message{
+		Content:    content,
+		Ephemeral:  true,
+		Components: components,
 	})
 }
 
-func respondBoostOrderUpdate(s *discordgo.Session, i *discordgo.InteractionCreate, content string, components []discordgo.MessageComponent) {
-	flags := discordgo.MessageFlags(0)
-	if i != nil && i.Message != nil {
-		if i.Message.Flags&discordgo.MessageFlagsEphemeral != 0 {
-			flags |= discordgo.MessageFlagsEphemeral
-		}
-		if i.Message.Flags&discordgo.MessageFlagsIsComponentsV2 != 0 {
-			flags |= discordgo.MessageFlagsIsComponentsV2
-		}
-	}
-	if boostOrderHasV2Components(components) {
-		flags |= discordgo.MessageFlagsIsComponentsV2
-	}
-	if flags&discordgo.MessageFlagsIsComponentsV2 != 0 && len(components) == 0 && content != "" {
-		components = []discordgo.MessageComponent{&discordgo.TextDisplay{Content: content}}
+// respondBoostOrderUpdate rewrites the catalyst message in place.
+func respondBoostOrderUpdate(e *dc.ComponentEvent, content string, components []dc.LayoutComponent) {
+	// The catalyst message is components v2, which carries no Content, so a
+	// plain-text reply has to go out as a TextDisplay instead.
+	if len(components) == 0 && content != "" {
+		components = []dc.LayoutComponent{dc.TextDisplay{Content: content}}
 		content = ""
 	}
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseUpdateMessage,
-		Data: &discordgo.InteractionResponseData{
-			Content:    content,
-			Flags:      flags,
-			Components: components,
-		},
+	_ = e.Update(dc.Message{
+		Content:    content,
+		Ephemeral:  e.MessageIsEphemeral(),
+		Components: components,
 	})
-}
-
-func boostOrderHasV2Components(components []discordgo.MessageComponent) bool {
-	for _, component := range components {
-		switch component.(type) {
-		case *discordgo.TextDisplay, *discordgo.Separator:
-			return true
-		}
-	}
-	return false
 }
 
 func boostOrderCommandPath(commandName string) string {
@@ -385,8 +352,7 @@ func clearBoostOrderSessionsForUserContract(userID string, contractHash string) 
 		}
 	}
 }
-
-func renderBoostOrderInterview(contract *Contract, session *boostOrderSession, status string) (string, []discordgo.MessageComponent) {
+func renderBoostOrderInterview(contract *Contract, session *boostOrderSession, status string) (string, []dc.LayoutComponent) {
 	unselected := boostOrderUnselected(session.original, session.selected)
 	sort.SliceStable(unselected, func(i, j int) bool {
 		left := boostOrderSortKey(contract, unselected[i])
@@ -405,80 +371,80 @@ func renderBoostOrderInterview(contract *Contract, session *boostOrderSession, s
 
 	visible := boostOrderVisiblePage(unselected, session.page)
 	headerText, currentText, boostedText, buildingText, instructionsText, footerText := buildBoostOrderTextSections(contract, session, len(unselected), pages)
-	components := []discordgo.MessageComponent{
-		&discordgo.TextDisplay{Content: headerText},
-		&discordgo.TextDisplay{Content: currentText},
+	components := []dc.LayoutComponent{
+		dc.TextDisplay{Content: headerText},
+		dc.TextDisplay{Content: currentText},
 	}
 	if boostedText != "" {
 		components = append(components, boostOrderSeparatorComponent())
-		components = append(components, &discordgo.TextDisplay{Content: boostedText})
+		components = append(components, dc.TextDisplay{Content: boostedText})
 	}
 	components = append(components,
-		&discordgo.TextDisplay{Content: buildingText},
+		dc.TextDisplay{Content: buildingText},
 		boostOrderSeparatorComponent(),
-		&discordgo.TextDisplay{Content: instructionsText},
+		dc.TextDisplay{Content: instructionsText},
 		boostOrderSeparatorComponent(),
 	)
 	components = append(components, boostOrderNameButtons(contract, session, visible)...)
 	components = append(components, boostOrderControlButtons(contract, session, len(unselected), pages)...)
-	components = append(components, &discordgo.TextDisplay{Content: footerText})
+	components = append(components, dc.TextDisplay{Content: footerText})
 	if status != "" {
-		components = append(components, &discordgo.TextDisplay{Content: status})
+		components = append(components, dc.TextDisplay{Content: status})
 	}
 
 	return "", components
 }
 
-func boostOrderNameButtons(contract *Contract, session *boostOrderSession, visible []string) []discordgo.MessageComponent {
+func boostOrderNameButtons(contract *Contract, session *boostOrderSession, visible []string) []dc.LayoutComponent {
 	if len(visible) == 0 {
 		return nil
 	}
 
-	components := make([]discordgo.MessageComponent, 0, 3)
+	components := make([]dc.LayoutComponent, 0, 3)
 
 	if session.selectionMode == 0 || session.selectionMode == 1 {
-		var rowButtons []discordgo.MessageComponent
+		var rowButtons []dc.InteractiveComponent
 		for _, userID := range visible {
 			if len(rowButtons) == 5 {
-				components = append(components, discordgo.ActionsRow{Components: rowButtons})
-				rowButtons = make([]discordgo.MessageComponent, 0, 5)
+				components = append(components, dc.ActionRow{Components: rowButtons})
+				rowButtons = make([]dc.InteractiveComponent, 0, 5)
 			}
-			rowButtons = append(rowButtons, discordgo.Button{
+			rowButtons = append(rowButtons, dc.Button{
 				Label:    boostOrderButtonLabel(contract, userID),
-				Style:    discordgo.PrimaryButton,
+				Style:    dc.ButtonPrimary,
 				CustomID: fmt.Sprintf("%s#%s#pick#%s", boostOrderHandlerPrefix, session.xid, userID),
 			})
 		}
 		if len(rowButtons) == 5 {
-			components = append(components, discordgo.ActionsRow{Components: rowButtons})
-			rowButtons = make([]discordgo.MessageComponent, 0, 5)
+			components = append(components, dc.ActionRow{Components: rowButtons})
+			rowButtons = make([]dc.InteractiveComponent, 0, 5)
 		}
 		modeLabel := "Mode: Forward"
 		if session.selectionMode == 1 {
 			modeLabel = "Mode: Reverse"
 		}
-		rowButtons = append(rowButtons, discordgo.Button{
+		rowButtons = append(rowButtons, dc.Button{
 			Label:    modeLabel,
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("%s#%s#mode", boostOrderHandlerPrefix, session.xid),
 		})
-		components = append(components, discordgo.ActionsRow{Components: rowButtons})
+		components = append(components, dc.ActionRow{Components: rowButtons})
 	} else {
 		limit := min(len(visible), 10)
-		var rowButtons []discordgo.MessageComponent
+		var rowButtons []dc.InteractiveComponent
 		for i := 0; i < limit; i++ {
 			if len(rowButtons) == 5 {
-				components = append(components, discordgo.ActionsRow{Components: rowButtons})
-				rowButtons = make([]discordgo.MessageComponent, 0, 5)
+				components = append(components, dc.ActionRow{Components: rowButtons})
+				rowButtons = make([]dc.InteractiveComponent, 0, 5)
 			}
-			rowButtons = append(rowButtons, discordgo.Button{
+			rowButtons = append(rowButtons, dc.Button{
 				Label:    boostOrderButtonLabel(contract, visible[i]),
-				Style:    discordgo.PrimaryButton,
+				Style:    dc.ButtonPrimary,
 				CustomID: fmt.Sprintf("%s#%s#pick#%s", boostOrderHandlerPrefix, session.xid, visible[i]),
 			})
 		}
 		if len(rowButtons) > 0 {
-			components = append(components, discordgo.ActionsRow{Components: rowButtons})
+			components = append(components, dc.ActionRow{Components: rowButtons})
 		}
 
 		modeLabel := "Mode: Sort One"
@@ -488,19 +454,19 @@ func boostOrderNameButtons(contract *Contract, session *boostOrderSession, visib
 			sortAction = "sortfill"
 		}
 
-		sortRow1 := discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.Button{Label: "Next TE", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#te", boostOrderHandlerPrefix, session.xid, sortAction)},
-				discordgo.Button{Label: "Next Fuzzy TE", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#fuzzyte", boostOrderHandlerPrefix, session.xid, sortAction)},
-				discordgo.Button{Label: "Next ELR", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#elr", boostOrderHandlerPrefix, session.xid, sortAction)},
-				discordgo.Button{Label: "Next IHR", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#ihr", boostOrderHandlerPrefix, session.xid, sortAction)},
-				discordgo.Button{Label: "Next Fuzzy IHR", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#fuzzyihr", boostOrderHandlerPrefix, session.xid, sortAction)},
+		sortRow1 := dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.Button{Label: "Next TE", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#te", boostOrderHandlerPrefix, session.xid, sortAction)},
+				dc.Button{Label: "Next Fuzzy TE", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#fuzzyte", boostOrderHandlerPrefix, session.xid, sortAction)},
+				dc.Button{Label: "Next ELR", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#elr", boostOrderHandlerPrefix, session.xid, sortAction)},
+				dc.Button{Label: "Next IHR", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#ihr", boostOrderHandlerPrefix, session.xid, sortAction)},
+				dc.Button{Label: "Next Fuzzy IHR", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#fuzzyihr", boostOrderHandlerPrefix, session.xid, sortAction)},
 			},
 		}
-		sortRow2 := discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.Button{Label: "Random", Style: discordgo.SuccessButton, CustomID: fmt.Sprintf("%s#%s#%s#random", boostOrderHandlerPrefix, session.xid, sortAction)},
-				discordgo.Button{Label: modeLabel, Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#mode", boostOrderHandlerPrefix, session.xid)},
+		sortRow2 := dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.Button{Label: "Random", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#random", boostOrderHandlerPrefix, session.xid, sortAction)},
+				dc.Button{Label: modeLabel, Style: dc.ButtonSecondary, CustomID: fmt.Sprintf("%s#%s#mode", boostOrderHandlerPrefix, session.xid)},
 			},
 		}
 		components = append(components, sortRow1, sortRow2)
@@ -509,18 +475,18 @@ func boostOrderNameButtons(contract *Contract, session *boostOrderSession, visib
 	return components
 }
 
-func boostOrderControlButtons(contract *Contract, session *boostOrderSession, unselectedCount int, pages int) []discordgo.MessageComponent {
-	controls := make([]discordgo.MessageComponent, 0, 5)
+func boostOrderControlButtons(contract *Contract, session *boostOrderSession, unselectedCount int, pages int) []dc.LayoutComponent {
+	controls := make([]dc.InteractiveComponent, 0, 5)
 	if unselectedCount > boostOrderPageSize {
-		controls = append(controls, discordgo.Button{
+		controls = append(controls, dc.Button{
 			Label:    "Shift",
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("%s#%s#shift", boostOrderHandlerPrefix, session.xid),
 		})
 	} else {
-		controls = append(controls, discordgo.Button{
+		controls = append(controls, dc.Button{
 			Label:    "Fill",
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("%s#%s#fill", boostOrderHandlerPrefix, session.xid),
 			Disabled: unselectedCount == 0,
 		})
@@ -535,7 +501,7 @@ func boostOrderControlButtons(contract *Contract, session *boostOrderSession, un
 	}
 
 	// Add preference buttons when the order is full (order complete)
-	var toggleComponents []discordgo.MessageComponent
+	var toggleComponents []dc.LayoutComponent
 	if unselectedCount == 0 {
 		keepLabel := "Keep current booster"
 		resetLabel := "Reset to first unboosted"
@@ -544,16 +510,16 @@ func boostOrderControlButtons(contract *Contract, session *boostOrderSession, un
 		} else {
 			resetLabel = "✓ Reset to first unboosted"
 		}
-		toggleComponents = append(toggleComponents, discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.Button{
+		toggleComponents = append(toggleComponents, dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.Button{
 					Label:    keepLabel,
-					Style:    discordgo.SecondaryButton,
+					Style:    dc.ButtonSecondary,
 					CustomID: fmt.Sprintf("%s#%s#setkeepcurrent", boostOrderHandlerPrefix, session.xid),
 				},
-				discordgo.Button{
+				dc.Button{
 					Label:    resetLabel,
-					Style:    discordgo.SecondaryButton,
+					Style:    dc.ButtonSecondary,
 					CustomID: fmt.Sprintf("%s#%s#setresetfirst", boostOrderHandlerPrefix, session.xid),
 				},
 			},
@@ -561,27 +527,27 @@ func boostOrderControlButtons(contract *Contract, session *boostOrderSession, un
 	}
 
 	controls = append(controls,
-		discordgo.Button{
+		dc.Button{
 			Label:    "Undo",
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("%s#%s#undo", boostOrderHandlerPrefix, session.xid),
 			Disabled: len(session.undoSteps) == 0,
 		},
-		discordgo.Button{
+		dc.Button{
 			Label:    "Reset",
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("%s#%s#reset", boostOrderHandlerPrefix, session.xid),
 			Disabled: len(session.selected) == 0,
 		},
-		discordgo.Button{
+		dc.Button{
 			Label:    "Save",
-			Style:    discordgo.SuccessButton,
+			Style:    dc.ButtonSuccess,
 			CustomID: fmt.Sprintf("%s#%s#save", boostOrderHandlerPrefix, session.xid),
 			Disabled: len(session.selected) != actualOriginalCount,
 		},
-		discordgo.Button{
+		dc.Button{
 			Label:    "Exit",
-			Style:    discordgo.DangerButton,
+			Style:    dc.ButtonDanger,
 			CustomID: fmt.Sprintf("%s#%s#exit", boostOrderHandlerPrefix, session.xid),
 		},
 	)
@@ -590,12 +556,12 @@ func boostOrderControlButtons(contract *Contract, session *boostOrderSession, un
 	}
 
 	// Build final components: toggle first (if present), then control buttons
-	var result []discordgo.MessageComponent
+	var result []dc.LayoutComponent
 	if len(toggleComponents) > 0 {
 		result = append(result, toggleComponents...)
 	}
 	if len(controls) > 0 {
-		result = append(result, discordgo.ActionsRow{Components: controls})
+		result = append(result, dc.ActionRow{Components: controls})
 	}
 
 	if len(result) == 0 {
@@ -676,13 +642,8 @@ func buildBoostOrderTextSections(contract *Contract, session *boostOrderSession,
 	return headerText, currentText, boostedText, buildingText, instructionsText, footerBuilder.String()
 }
 
-func boostOrderSeparatorComponent() *discordgo.Separator {
-	divider := true
-	spacing := discordgo.SeparatorSpacingSizeSmall
-	return &discordgo.Separator{
-		Divider: &divider,
-		Spacing: &spacing,
-	}
+func boostOrderSeparatorComponent() dc.Separator {
+	return dc.Separator{Divider: true, Spacing: dc.SeparatorSpacingSmall}
 }
 
 func boostOrderButtonsHint(unselectedCount int) string {

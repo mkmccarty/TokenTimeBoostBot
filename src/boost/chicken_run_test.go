@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 func TestRanCoopAndBuildChickenRunLists(t *testing.T) {
@@ -139,7 +139,7 @@ func TestBuildCRMessageComponentsTipAndButtons(t *testing.T) {
 	if len(comps) == 0 {
 		t.Fatalf("expected components, got none")
 	}
-	headerText, ok := comps[0].(discordgo.TextDisplay)
+	headerText, ok := comps[0].(dc.TextDisplay)
 	if !ok {
 		t.Fatalf("expected first component to be TextDisplay")
 	}
@@ -150,7 +150,7 @@ func TestBuildCRMessageComponentsTipAndButtons(t *testing.T) {
 	// After 2 displays (CRNoticeCount = 2): should NOT contain helper tip
 	c.CRNoticeCount = 2
 	comps2, _ := buildCRMessageComponents(c, "@CoopRole")
-	headerText2, ok := comps2[0].(discordgo.TextDisplay)
+	headerText2, ok := comps2[0].(dc.TextDisplay)
 	if !ok {
 		t.Fatalf("expected first component to be TextDisplay")
 	}
@@ -184,14 +184,14 @@ func TestBuildCRMessageComponentsCompleted(t *testing.T) {
 	if len(allowedMentions) != 0 {
 		t.Errorf("expected no allowed mentions when all complete, got %v", allowedMentions)
 	}
-	container, ok := comps[0].(discordgo.Container)
+	container, ok := comps[0].(dc.Container)
 	if !ok {
 		t.Fatalf("expected component to be Container, got %T", comps[0])
 	}
 	if len(container.Components) != 1 {
 		t.Fatalf("expected 1 text display inside container, got %d", len(container.Components))
 	}
-	textDisplay, ok := container.Components[0].(discordgo.TextDisplay)
+	textDisplay, ok := container.Components[0].(dc.TextDisplay)
 	if !ok {
 		t.Fatalf("expected inner component to be TextDisplay, got %T", container.Components[0])
 	}

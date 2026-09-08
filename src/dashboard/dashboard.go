@@ -8,45 +8,41 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // GetSlashDashboardCommand returns the /dashboard slash command definition
-func GetSlashDashboardCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
+func GetSlashDashboardCommand(cmd string) *dc.Command {
+	command := dc.Command{
 		Name:        cmd,
 		Description: "Manage your personal BoostBot dashboard",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
+		Contexts: []dc.InteractionContext{
+			dc.ContextGuild,
+			dc.ContextBotDM,
+			dc.ContextPrivateChannel,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
+		IntegrationTypes: []dc.IntegrationType{
+			dc.IntegrationGuildInstall,
+			dc.IntegrationUserInstall,
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
+		Options: []dc.Option{
+			dc.SubCommand{
 				Name:        "show",
 				Description: "Show your personal BoostBot dashboard (active contracts, timers)",
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
 			},
-			{
+			dc.SubCommand{
 				Name:        "add-bookmark",
 				Description: "Add the current channel to your dashboard bookmarks",
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
 			},
-			{
+			dc.SubCommand{
 				Name:        "remove-bookmark",
 				Description: "Remove a channel from your dashboard bookmarks",
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionBoolean,
+				Options: []dc.Option{
+					dc.BoolOption{
 						Name:        "all-channels",
 						Description: "Clear all non-contract (channel) bookmarks",
 						Required:    false,
@@ -55,124 +51,104 @@ func GetSlashDashboardCommand(cmd string) *discordgo.ApplicationCommand {
 			},
 		},
 	}
+	return &command
 }
 
-// HandleDashboardCommand handles the /dashboard command
-func HandleDashboardCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	userID := bottools.GetInteractionUserID(i)
+// HandleDashboard handles the /dashboard command through the dc facade.
+//
+// It still takes a raw session because drawDashboard hands one to
+// ei.GetFirstContactFromAPI, which is not on the facade yet. Every Discord
+// call it makes itself goes through client or e.
+func HandleDashboard(client dc.Client, e *dc.CommandEvent) {
+	userID := e.UserID()
 
-	subcommand := "show"
-	if len(i.ApplicationCommandData().Options) > 0 {
-		subcommand = i.ApplicationCommandData().Options[0].Name
+	subcommand, ok := e.Subcommand()
+	if !ok {
+		subcommand = "show"
 	}
 
 	switch subcommand {
 	case "show":
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags: discordgo.MessageFlagsEphemeral,
-			},
-		})
+		_ = e.Defer(true)
 
-		components := drawDashboard(s, userID, false)
+		components := drawDashboard(client, userID, false)
 
-		msg, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		msg, err := e.FollowupMessage(dc.Message{
 			Components: components,
-			Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
+			Ephemeral:  true,
 		})
 		if err == nil && msg != nil {
-			trackDashboard(userID, i.Interaction, msg.ID)
+			trackDashboard(userID, e, msg.ID)
 		}
 
 	case "add-bookmark":
 		channelName := "Unknown Channel"
 		guildName := "Unknown Server"
 		guildID := ""
-		if ch, err := s.Channel(i.ChannelID); err == nil {
+		if ch, err := client.Channel(e.ChannelID()); err == nil {
 			channelName = ch.Name
 			guildID = ch.GuildID
-			if g, err := s.Guild(ch.GuildID); err == nil {
+			if g, err := client.Guild(ch.GuildID); err == nil {
 				guildName = g.Name
 			}
 		}
-		addDashboardBookmark(userID, i.ChannelID, guildID, guildName, channelName)
+		addDashboardBookmark(userID, e.ChannelID(), guildID, guildName, channelName)
 		bms := getDashboardBookmarks(userID)
 
 		if len(bms) > 15 {
 			components := getDeleteDialogComponents(userID, "channel", true)
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Components: components,
-					Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
-				},
+			_ = e.Respond(dc.Message{
+				Components: components,
+				Ephemeral:  true,
 			})
 			return
 		}
 
-		UpdateDashboardsForUser(s, userID, "")
+		UpdateDashboardsForUser(client, userID, "")
 
-		msg := fmt.Sprintf("Bookmark added for <#%s>. You have %d/15 channel bookmarks.", i.ChannelID, len(bms))
+		msg := fmt.Sprintf("Bookmark added for <#%s>. You have %d/15 channel bookmarks.", e.ChannelID(), len(bms))
 
 		activeDashboardsMutex.Lock()
 		instances := activeDashboards[userID]
 		if len(instances) > 0 {
 			last := instances[len(instances)-1]
-			gID := last.Interaction.GuildID
+			gID := last.Event.GuildID()
 			if gID == "" {
 				gID = "@me"
 			}
-			msg += fmt.Sprintf("\n\n[Return to Dashboard](https://discord.com/channels/%s/%s/%s)", gID, last.Interaction.ChannelID, last.MessageID)
+			msg += fmt.Sprintf("\n\n[Return to Dashboard](https://discord.com/channels/%s/%s/%s)", gID, last.Event.ChannelID(), last.MessageID)
 
-			t, err := discordgo.SnowflakeTimestamp(last.MessageID)
+			t, err := dc.SnowflakeTimestamp(last.MessageID)
 			if err == nil {
 				msg += " " + bottools.WrapTimestamp(t.Unix(), bottools.TimestampRelativeTime)
 			}
 		}
 		activeDashboardsMutex.Unlock()
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Components: []discordgo.MessageComponent{discordgo.TextDisplay{Content: msg}},
-				Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
-			},
+		_ = e.Respond(dc.Message{
+			Components: []dc.LayoutComponent{dc.TextDisplay{Content: msg}},
+			Ephemeral:  true,
 		})
 
 	case "remove-bookmark":
-		clearAll := false
-		if len(i.ApplicationCommandData().Options) > 0 {
-			subOpts := i.ApplicationCommandData().Options[0].Options
-			for _, opt := range subOpts {
-				if opt.Name == "all-channels" {
-					clearAll = opt.BoolValue()
-				}
-			}
-		}
+		clearAll, _ := e.OptBool("all-channels")
 
 		if clearAll {
 			saveDashboardBookmarks(userID, []boost.Bookmark{})
-			UpdateDashboardsForUser(s, userID, "")
+			UpdateDashboardsForUser(client, userID, "")
 
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Components: []discordgo.MessageComponent{discordgo.TextDisplay{Content: "All non-contract channel bookmarks have been cleared."}},
-					Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
-				},
+			_ = e.Respond(dc.Message{
+				Components: []dc.LayoutComponent{dc.TextDisplay{Content: "All non-contract channel bookmarks have been cleared."}},
+				Ephemeral:  true,
 			})
 			return
 		}
 
 		components := getDeleteDialogComponents(userID, "", true)
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Components: components,
-				Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
-			},
+		_ = e.Respond(dc.Message{
+			Components: components,
+			Ephemeral:  true,
 		})
 	}
 }
@@ -197,8 +173,8 @@ var (
 )
 
 type dashboardInstance struct {
-	Interaction *discordgo.Interaction
-	MessageID   string
+	Event     dc.InteractionEvent
+	MessageID string
 }
 
 var (
@@ -206,13 +182,13 @@ var (
 	activeDashboardsMutex sync.Mutex
 )
 
-func trackDashboard(userID string, interaction *discordgo.Interaction, messageID string) {
+func trackDashboard(userID string, e dc.InteractionEvent, messageID string) {
 	activeDashboardsMutex.Lock()
 	defer activeDashboardsMutex.Unlock()
 	instances := activeDashboards[userID]
 	instances = append(instances, dashboardInstance{
-		Interaction: interaction,
-		MessageID:   messageID,
+		Event:     e,
+		MessageID: messageID,
 	})
 	if len(instances) > 2 {
 		instances = instances[len(instances)-2:]
@@ -221,7 +197,7 @@ func trackDashboard(userID string, interaction *discordgo.Interaction, messageID
 }
 
 // UpdateDashboardsForUser updates any currently tracked dashboard messages for the user.
-func UpdateDashboardsForUser(s *discordgo.Session, userID string, currentMessageID string) {
+func UpdateDashboardsForUser(client dc.Client, userID string, currentMessageID string) {
 	activeDashboardsMutex.Lock()
 	instances := activeDashboards[userID]
 	activeDashboardsMutex.Unlock()
@@ -230,21 +206,19 @@ func UpdateDashboardsForUser(s *discordgo.Session, userID string, currentMessage
 		return
 	}
 
-	components := drawDashboard(s, userID, false)
+	components := drawDashboard(client, userID, false)
 
 	for _, instance := range instances {
 		if instance.MessageID == currentMessageID {
 			continue
 		}
-		_, _ = s.FollowupMessageEdit(instance.Interaction, instance.MessageID, &discordgo.WebhookEdit{
-			Components: &components,
-		})
+		_ = instance.Event.EditFollowup(instance.MessageID, dc.Message{Components: components})
 	}
 }
 
 func init() {
-	bottools.UpdateDashboardDisplays = func(s *discordgo.Session, userID string) {
-		UpdateDashboardsForUser(s, userID, "")
+	bottools.UpdateDashboardDisplays = func(client dc.Client, userID string) {
+		UpdateDashboardsForUser(client, userID, "")
 	}
 
 	go func() {
@@ -262,9 +236,9 @@ func init() {
 	}()
 }
 
-func drawDashboard(s *discordgo.Session, userID string, showExternal bool) []discordgo.MessageComponent {
-	var components []discordgo.MessageComponent
-	components = append(components, discordgo.TextDisplay{Content: "# 📊 Your BoostBot Dashboard"})
+func drawDashboard(client dc.Client, userID string, showExternal bool) []dc.LayoutComponent {
+	var components []dc.LayoutComponent
+	components = append(components, dc.TextDisplay{Content: "# 📊 Your BoostBot Dashboard"})
 
 	colorContracts := 0xAAAAAA // Blurple
 	colorTimers := 0x999999    // Yellow
@@ -341,7 +315,7 @@ func drawDashboard(s *discordgo.Session, userID string, showExternal bool) []dis
 		isFullLoad = showExternal
 
 		if isFullLoad {
-			backup, _ := ei.GetFirstContactFromAPI(s, eeid, userID, true)
+			backup, _ := ei.GetFirstContactFromAPI(eeid, userID, true)
 			if backup != nil {
 				for _, farm := range backup.GetFarms() {
 					if farm.GetFarmType() == ei.FarmType_CONTRACT {
@@ -523,7 +497,7 @@ func drawDashboard(s *discordgo.Session, userID string, showExternal bool) []dis
 	})
 
 	var contractBuilder strings.Builder
-	var bookmarkButtons []discordgo.MessageComponent
+	var bookmarkButtons []dc.InteractiveComponent
 
 	contractCount := len(activeContracts)
 	if contractCount > 0 {
@@ -573,11 +547,11 @@ func drawDashboard(s *discordgo.Session, userID string, showExternal bool) []dis
 					disabled = true
 				}
 
-				bookmarkButtons = append(bookmarkButtons, discordgo.Button{
+				bookmarkButtons = append(bookmarkButtons, dc.Button{
 					Label:    label,
-					Style:    discordgo.SecondaryButton,
+					Style:    dc.ButtonSecondary,
 					CustomID: fmt.Sprintf("dashboard_btn#add_ext_bm#%s#%s", c.ContractID, c.CoopID),
-					Emoji:    &discordgo.ComponentEmoji{Name: "🔖"},
+					Emoji:    &dc.Emoji{Name: "🔖"},
 					Disabled: disabled,
 				})
 			}
@@ -586,9 +560,9 @@ func drawDashboard(s *discordgo.Session, userID string, showExternal bool) []dis
 		contractBuilder.WriteString("No active contracts.\n")
 	}
 
-	components = append(components, discordgo.Container{
-		AccentColor: &colorContracts,
-		Components:  []discordgo.MessageComponent{discordgo.TextDisplay{Content: "## 🚀 Active Contracts\n" + contractBuilder.String()}},
+	components = append(components, dc.Container{
+		AccentColor: colorContracts,
+		Components:  []dc.ContainerSubComponent{dc.TextDisplay{Content: "## 🚀 Active Contracts\n" + contractBuilder.String()}},
 	})
 
 	// Limit buttons per action row to 5 (Discord's maximum)
@@ -597,7 +571,7 @@ func drawDashboard(s *discordgo.Session, userID string, showExternal bool) []dis
 		if end > len(bookmarkButtons) {
 			end = len(bookmarkButtons)
 		}
-		components = append(components, discordgo.ActionsRow{
+		components = append(components, dc.ActionRow{
 			Components: bookmarkButtons[i:end],
 		})
 	}
@@ -621,9 +595,9 @@ func drawDashboard(s *discordgo.Session, userID string, showExternal bool) []dis
 	timersMutex.Unlock()
 
 	if timerCount > 0 {
-		components = append(components, discordgo.Container{
-			AccentColor: &colorTimers,
-			Components:  []discordgo.MessageComponent{discordgo.TextDisplay{Content: "## ⏱️ Active Timers\n" + timerBuilder.String()}},
+		components = append(components, dc.Container{
+			AccentColor: colorTimers,
+			Components:  []dc.ContainerSubComponent{dc.TextDisplay{Content: "## ⏱️ Active Timers\n" + timerBuilder.String()}},
 		})
 	}
 
@@ -653,9 +627,9 @@ func drawDashboard(s *discordgo.Session, userID string, showExternal bool) []dis
 	}
 	fmt.Fprintf(&bmBuilder, "\n-# %s %s\n", addBmCmd, rmBmCmd)
 
-	components = append(components, discordgo.Container{
-		AccentColor: &colorBookmarks,
-		Components:  []discordgo.MessageComponent{discordgo.TextDisplay{Content: "## 🔖 Channel Bookmarks\n" + bmBuilder.String()}},
+	components = append(components, dc.Container{
+		AccentColor: colorBookmarks,
+		Components:  []dc.ContainerSubComponent{dc.TextDisplay{Content: "## 🔖 Channel Bookmarks\n" + bmBuilder.String()}},
 	})
 
 	// Command Links
@@ -675,32 +649,32 @@ func drawDashboard(s *discordgo.Session, userID string, showExternal bool) []dis
 	}
 
 	fmt.Fprintf(&cmdBuilder, "-# %s 🪨 • %s 📈 • %s ⏱️", stonesCmd, csEstimateCmd, timerCmd)
-	components = append(components, discordgo.Container{
-		AccentColor: &colorCommands,
-		Components:  []discordgo.MessageComponent{discordgo.TextDisplay{Content: cmdBuilder.String()}},
+	components = append(components, dc.Container{
+		AccentColor: colorCommands,
+		Components:  []dc.ContainerSubComponent{dc.TextDisplay{Content: cmdBuilder.String()}},
 	})
 
-	var bottomButtons []discordgo.MessageComponent
-	bottomButtons = append(bottomButtons, discordgo.Button{
+	var bottomButtons []dc.InteractiveComponent
+	bottomButtons = append(bottomButtons, dc.Button{
 		Label:    "Refresh Contracts",
-		Style:    discordgo.SecondaryButton,
+		Style:    dc.ButtonSecondary,
 		CustomID: "dashboard_btn#refresh",
-		Emoji:    &discordgo.ComponentEmoji{Name: "🔄"},
+		Emoji:    &dc.Emoji{Name: "🔄"},
 	})
 	if eeid != "" {
 		extBtnLabel := "Discover External Contracts"
 		if showExternal {
 			extBtnLabel = "Reload External Contracts"
 		}
-		bottomButtons = append(bottomButtons, discordgo.Button{
+		bottomButtons = append(bottomButtons, dc.Button{
 			Label:    extBtnLabel,
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: "dashboard_btn#load_external",
-			Emoji:    &discordgo.ComponentEmoji{Name: "☁️"},
+			Emoji:    &dc.Emoji{Name: "☁️"},
 		})
 	}
 
-	components = append(components, discordgo.ActionsRow{
+	components = append(components, dc.ActionRow{
 		Components: bottomButtons,
 	})
 
@@ -724,14 +698,14 @@ func saveExternalContractBookmarks(userID string, bms []boost.ExternalContractBo
 	farmerstate.SetMiscSettingString(userID, "ext_contract_bookmarks", string(b))
 }
 
-func addExternalContractBookmark(s *discordgo.Session, userID, contractID, coopID, channelID, guildID string) {
+func addExternalContractBookmark(client dc.Client, userID, contractID, coopID, channelID, guildID string) {
 	bms := getExternalContractBookmarks(userID)
 
 	channelName := "Unknown Channel"
 	guildName := "Unknown Server"
-	if ch, err := s.Channel(channelID); err == nil {
+	if ch, err := client.Channel(channelID); err == nil {
 		channelName = ch.Name
-		if g, err := s.Guild(ch.GuildID); err == nil {
+		if g, err := client.Guild(ch.GuildID); err == nil {
 			guildName = g.Name
 		}
 	}
@@ -816,11 +790,11 @@ func delDashboardBookmark(userID string, channelID string) {
 	saveDashboardBookmarks(userID, newBms)
 }
 
-func getDeleteDialogComponents(userID string, replaceType string, isStandalone bool) []discordgo.MessageComponent {
+func getDeleteDialogComponents(userID string, replaceType string, isStandalone bool) []dc.LayoutComponent {
 	bms := getDashboardBookmarks(userID)
 	extBms := getExternalContractBookmarks(userID)
 	if len(bms) == 0 && len(extBms) == 0 {
-		return []discordgo.MessageComponent{discordgo.TextDisplay{Content: "You have no bookmarks to delete."}}
+		return []dc.LayoutComponent{dc.TextDisplay{Content: "You have no bookmarks to delete."}}
 	}
 
 	var bmBuilder strings.Builder
@@ -831,7 +805,7 @@ func getDeleteDialogComponents(userID string, replaceType string, isStandalone b
 		bmBuilder.WriteString("## 🗑️ Delete a Bookmark\n")
 	}
 
-	var selectMenus []discordgo.MessageComponent
+	var selectMenus []dc.LayoutComponent
 	idx := 1
 
 	standaloneStr := "dash"
@@ -840,14 +814,14 @@ func getDeleteDialogComponents(userID string, replaceType string, isStandalone b
 	}
 
 	if replaceType == "" || replaceType == "channel" {
-		chanOptions := make([]discordgo.SelectMenuOption, 0, len(bms))
+		chanOptions := make([]dc.SelectOption, 0, len(bms))
 		for _, bm := range bms {
 			if bm.GuildID != "" && bm.ChannelName != "" {
 				fmt.Fprintf(&bmBuilder, "%d. Name: %s / Channel: #%s\n", idx, bm.ChannelName, bm.ChannelID)
 			} else {
 				fmt.Fprintf(&bmBuilder, "%d. Channel: <#%s>\n", idx, bm.ChannelID)
 			}
-			chanOptions = append(chanOptions, discordgo.SelectMenuOption{
+			chanOptions = append(chanOptions, dc.SelectOption{
 				Label: fmt.Sprintf("%d", idx),
 				Value: fmt.Sprintf("chan#%s", bm.ChannelID),
 			})
@@ -855,9 +829,9 @@ func getDeleteDialogComponents(userID string, replaceType string, isStandalone b
 		}
 		if len(chanOptions) > 0 {
 			minValues := 1
-			selectMenus = append(selectMenus, discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.SelectMenu{
+			selectMenus = append(selectMenus, dc.ActionRow{
+				Components: []dc.InteractiveComponent{
+					dc.SelectMenu{
 						CustomID:    fmt.Sprintf("dashboard_btn#del_select_chan#%s", standaloneStr),
 						Placeholder: "Select channel bookmark to delete",
 						Options:     chanOptions,
@@ -870,14 +844,14 @@ func getDeleteDialogComponents(userID string, replaceType string, isStandalone b
 	}
 
 	if replaceType == "" || replaceType == "external" {
-		extOptions := make([]discordgo.SelectMenuOption, 0, len(extBms))
+		extOptions := make([]dc.SelectOption, 0, len(extBms))
 		for _, bm := range extBms {
 			contractName := ei.EggIncContractsAll[bm.ContractID].Name
 			if contractName == "" {
 				contractName = bm.ContractID
 			}
 			fmt.Fprintf(&bmBuilder, "%d. Contract: %s / %s in <#%s>\n", idx, contractName, bm.CoopID, bm.ChannelID)
-			extOptions = append(extOptions, discordgo.SelectMenuOption{
+			extOptions = append(extOptions, dc.SelectOption{
 				Label: fmt.Sprintf("%d", idx),
 				Value: fmt.Sprintf("cont#%s#%s", bm.ContractID, bm.CoopID),
 			})
@@ -885,9 +859,9 @@ func getDeleteDialogComponents(userID string, replaceType string, isStandalone b
 		}
 		if len(extOptions) > 0 {
 			minValues := 1
-			selectMenus = append(selectMenus, discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.SelectMenu{
+			selectMenus = append(selectMenus, dc.ActionRow{
+				Components: []dc.InteractiveComponent{
+					dc.SelectMenu{
 						CustomID:    fmt.Sprintf("dashboard_btn#del_select_ext#%s", standaloneStr),
 						Placeholder: "Select contract bookmark to delete",
 						Options:     extOptions,
@@ -904,11 +878,11 @@ func getDeleteDialogComponents(userID string, replaceType string, isStandalone b
 		accentColor = 0xfee75c // Yellow for warning/replace
 	}
 
-	components := []discordgo.MessageComponent{
-		discordgo.Container{
-			AccentColor: &accentColor,
-			Components: []discordgo.MessageComponent{
-				discordgo.TextDisplay{Content: bmBuilder.String()},
+	components := []dc.LayoutComponent{
+		dc.Container{
+			AccentColor: accentColor,
+			Components: []dc.ContainerSubComponent{
+				dc.TextDisplay{Content: bmBuilder.String()},
 			},
 		},
 	}
@@ -920,11 +894,11 @@ func getDeleteDialogComponents(userID string, replaceType string, isStandalone b
 		cancelID = "dashboard_btn#cancel_standalone"
 	}
 
-	components = append(components, discordgo.ActionsRow{
-		Components: []discordgo.MessageComponent{
-			discordgo.Button{
+	components = append(components, dc.ActionRow{
+		Components: []dc.InteractiveComponent{
+			dc.Button{
 				Label:    "Cancel",
-				Style:    discordgo.SecondaryButton,
+				Style:    dc.ButtonSecondary,
 				CustomID: cancelID,
 			},
 		},
@@ -933,113 +907,85 @@ func getDeleteDialogComponents(userID string, replaceType string, isStandalone b
 	return components
 }
 
-// HandleDashboardInteraction handles interactions on the dashboard like refreshing and bookmarks
-func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	parts := strings.Split(i.MessageComponentData().CustomID, "#")
+// HandleDashboardComponent handles dashboard component interactions through the
+// dc facade.
+//
+// It still takes a raw session because drawDashboard hands one to
+// ei.GetFirstContactFromAPI, which is not on the facade yet.
+func HandleDashboardComponent(client dc.Client, e *dc.ComponentEvent) {
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 2 {
 		return
 	}
 	action := parts[1]
-	userID := bottools.GetInteractionUserID(i)
+	userID := e.UserID()
 
-	flags := discordgo.MessageFlags(0)
-	if i.Message != nil && i.Message.Flags&discordgo.MessageFlagsEphemeral != 0 {
-		flags |= discordgo.MessageFlagsEphemeral
-	}
-	flags |= discordgo.MessageFlagsIsComponentsV2
+	ephemeral := e.MessageIsEphemeral()
 
 	switch action {
 	case "add_ext_bm":
 		if len(parts) < 4 {
 			return
 		}
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		})
+		_ = e.DeferUpdate()
 
 		contractID := parts[2]
 		coopID := parts[3]
-		addExternalContractBookmark(s, userID, contractID, coopID, i.ChannelID, i.GuildID)
+		addExternalContractBookmark(client, userID, contractID, coopID, e.ChannelID(), e.GuildID())
 
 		extBms := getExternalContractBookmarks(userID)
 		if len(extBms) > 15 {
 			components := getDeleteDialogComponents(userID, "external", false)
-			_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-				Components: &components,
-			})
+			_ = e.EditResponse(dc.Message{Components: components, Ephemeral: ephemeral})
 			return
 		}
 
-		components := drawDashboard(s, userID, true)
-		_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Components: &components,
-		})
-		UpdateDashboardsForUser(s, userID, i.Message.ID)
+		components := drawDashboard(client, userID, true)
+		_ = e.EditResponse(dc.Message{Components: components, Ephemeral: ephemeral})
+		UpdateDashboardsForUser(client, userID, e.MessageID())
 
 	case "load_external":
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		})
+		_ = e.DeferUpdate()
 
 		extContractCacheMutex.Lock()
 		delete(extContractCache, userID)
 		extContractCacheMutex.Unlock()
 		farmerstate.SetMiscSettingString(userID, "ext_contract_cache", "")
 
-		components := drawDashboard(s, userID, true)
-		_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Components: &components,
-		})
-		UpdateDashboardsForUser(s, userID, i.Message.ID)
+		components := drawDashboard(client, userID, true)
+		_ = e.EditResponse(dc.Message{Components: components, Ephemeral: ephemeral})
+		UpdateDashboardsForUser(client, userID, e.MessageID())
 
 	case "add_bookmark":
 		channelName := "Unknown Channel"
 		guildName := "Unknown Server"
 		guildID := ""
-		if ch, err := s.Channel(i.ChannelID); err == nil {
+		if ch, err := client.Channel(e.ChannelID()); err == nil {
 			channelName = ch.Name
 			guildID = ch.GuildID
-			if g, err := s.Guild(ch.GuildID); err == nil {
+			if g, err := client.Guild(ch.GuildID); err == nil {
 				guildName = g.Name
 			}
 		}
-		addDashboardBookmark(userID, i.ChannelID, guildID, guildName, channelName)
+		addDashboardBookmark(userID, e.ChannelID(), guildID, guildName, channelName)
 
 		bms := getDashboardBookmarks(userID)
 		if len(bms) > 15 {
 			components := getDeleteDialogComponents(userID, "channel", false)
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseUpdateMessage,
-				Data: &discordgo.InteractionResponseData{
-					Components: components,
-					Flags:      flags,
-				},
-			})
+			_ = e.Update(dc.Message{Components: components, Ephemeral: ephemeral})
 			return
 		}
 
-		components := drawDashboard(s, userID, false)
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Components: components,
-				Flags:      flags,
-			},
-		})
-		UpdateDashboardsForUser(s, userID, i.Message.ID)
+		components := drawDashboard(client, userID, false)
+		_ = e.Update(dc.Message{Components: components, Ephemeral: ephemeral})
+		UpdateDashboardsForUser(client, userID, e.MessageID())
 
 	case "del_bookmark":
 		components := getDeleteDialogComponents(userID, "", false)
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Components: components,
-				Flags:      flags,
-			},
-		})
+		_ = e.Update(dc.Message{Components: components, Ephemeral: ephemeral})
 
 	case "del_select", "del_select_chan", "del_select_ext":
-		vals := i.MessageComponentData().Values
+		vals := e.Values()
 		if len(vals) > 0 {
 			valParts := strings.Split(vals[0], "#")
 			if len(valParts) > 1 {
@@ -1052,9 +998,9 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 			}
 		}
 
-		var components []discordgo.MessageComponent
+		var components []dc.LayoutComponent
 		isStandalone := len(parts) > 2 && parts[2] == "standalone"
-		isEphemeral := i.Message != nil && i.Message.Flags&discordgo.MessageFlagsEphemeral != 0
+		isEphemeral := e.MessageIsEphemeral()
 		if isStandalone || isEphemeral {
 			msg := "Bookmark removed/replaced."
 			bms := getDashboardBookmarks(userID)
@@ -1078,12 +1024,12 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 			instances := activeDashboards[userID]
 			if len(instances) > 0 {
 				last := instances[len(instances)-1]
-				gID := last.Interaction.GuildID
+				gID := last.Event.GuildID()
 				if gID == "" {
 					gID = "@me"
 				}
-				msg += fmt.Sprintf("\n\n[Return to Dashboard](https://discord.com/channels/%s/%s/%s)", gID, last.Interaction.ChannelID, last.MessageID)
-				t, err := discordgo.SnowflakeTimestamp(last.MessageID)
+				msg += fmt.Sprintf("\n\n[Return to Dashboard](https://discord.com/channels/%s/%s/%s)", gID, last.Event.ChannelID(), last.MessageID)
+				t, err := dc.SnowflakeTimestamp(last.MessageID)
 				if err == nil {
 					msg += " " + bottools.WrapTimestamp(t.Unix(), bottools.TimestampRelativeTime)
 					if time.Since(t) <= 10*time.Minute {
@@ -1093,33 +1039,27 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 			}
 			activeDashboardsMutex.Unlock()
 
-			components = append(components, discordgo.TextDisplay{Content: msg})
+			components = append(components, dc.TextDisplay{Content: msg})
 
 			if recentDashboard {
-				components = append(components, discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.Button{
+				components = append(components, dc.ActionRow{
+					Components: []dc.InteractiveComponent{
+						dc.Button{
 							Label:    "Move Dashboard Here",
-							Style:    discordgo.PrimaryButton,
+							Style:    dc.ButtonPrimary,
 							CustomID: "dashboard_btn#move_here",
-							Emoji:    &discordgo.ComponentEmoji{Name: "📊"},
+							Emoji:    &dc.Emoji{Name: "📊"},
 						},
 					},
 				})
 			}
 
 		} else {
-			components = drawDashboard(s, userID, false)
+			components = drawDashboard(client, userID, false)
 		}
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Components: components,
-				Flags:      flags,
-			},
-		})
-		UpdateDashboardsForUser(s, userID, i.Message.ID)
+		_ = e.Update(dc.Message{Components: components, Ephemeral: ephemeral})
+		UpdateDashboardsForUser(client, userID, e.MessageID())
 
 	case "cancel_standalone":
 		bms := getDashboardBookmarks(userID)
@@ -1132,18 +1072,18 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 		}
 
 		msg := "Action cancelled."
-		var components []discordgo.MessageComponent
+		var components []dc.LayoutComponent
 		var recentDashboard bool
 		activeDashboardsMutex.Lock()
 		instances := activeDashboards[userID]
 		if len(instances) > 0 {
 			last := instances[len(instances)-1]
-			gID := last.Interaction.GuildID
+			gID := last.Event.GuildID()
 			if gID == "" {
 				gID = "@me"
 			}
-			msg += fmt.Sprintf("\n\n[Return to Dashboard](https://discord.com/channels/%s/%s/%s)", gID, last.Interaction.ChannelID, last.MessageID)
-			t, err := discordgo.SnowflakeTimestamp(last.MessageID)
+			msg += fmt.Sprintf("\n\n[Return to Dashboard](https://discord.com/channels/%s/%s/%s)", gID, last.Event.ChannelID(), last.MessageID)
+			t, err := dc.SnowflakeTimestamp(last.MessageID)
 			if err == nil {
 				msg += " " + bottools.WrapTimestamp(t.Unix(), bottools.TimestampRelativeTime)
 				if time.Since(t) <= 10*time.Minute {
@@ -1153,52 +1093,34 @@ func HandleDashboardInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 		}
 		activeDashboardsMutex.Unlock()
 
-		components = append(components, discordgo.TextDisplay{Content: msg})
+		components = append(components, dc.TextDisplay{Content: msg})
 
 		if recentDashboard {
-			components = append(components, discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.Button{
+			components = append(components, dc.ActionRow{
+				Components: []dc.InteractiveComponent{
+					dc.Button{
 						Label:    "Move Dashboard Here",
-						Style:    discordgo.PrimaryButton,
+						Style:    dc.ButtonPrimary,
 						CustomID: "dashboard_btn#move_here",
-						Emoji:    &discordgo.ComponentEmoji{Name: "📊"},
+						Emoji:    &dc.Emoji{Name: "📊"},
 					},
 				},
 			})
 		}
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Components: components,
-				Flags:      flags,
-			},
-		})
+		_ = e.Update(dc.Message{Components: components, Ephemeral: ephemeral})
 
 	case "move_here":
-		components := drawDashboard(s, userID, false)
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Components: components,
-				Flags:      flags,
-			},
-		})
-		if i.Message != nil {
-			trackDashboard(userID, i.Interaction, i.Message.ID)
-			UpdateDashboardsForUser(s, userID, i.Message.ID)
+		components := drawDashboard(client, userID, false)
+		_ = e.Update(dc.Message{Components: components, Ephemeral: ephemeral})
+		if e.MessageID() != "" {
+			trackDashboard(userID, e, e.MessageID())
+			UpdateDashboardsForUser(client, userID, e.MessageID())
 		}
 
 	case "refresh":
-		components := drawDashboard(s, userID, false)
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Components: components,
-				Flags:      flags,
-			},
-		})
-		UpdateDashboardsForUser(s, userID, i.Message.ID)
+		components := drawDashboard(client, userID, false)
+		_ = e.Update(dc.Message{Components: components, Ephemeral: ephemeral})
+		UpdateDashboardsForUser(client, userID, e.MessageID())
 	}
 }

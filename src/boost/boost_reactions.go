@@ -11,18 +11,18 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 // ReactionAdd is called when a reaction is added to a message
-func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
+func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 	// Find the message
 	keepReaction := false
 	returnVal := ""
 	redraw := false
-	emojiName := r.Emoji.Name
+	emojiName := e.EmojiName()
 
-	var contract = FindContractByMessageID(r.ChannelID, r.MessageID)
+	var contract = FindContractByMessageID(e.ChannelID(), e.MessageID())
 	if contract == nil {
 		return returnVal
 	}
@@ -30,7 +30,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	defer saveData(contract.ContractHash)
 
 	// If the user is not in the contract then they can join with a farmer reaction
-	if !UserInContract(contract, r.UserID) {
+	if !UserInContract(contract, e.UserID()) {
 		var farmerSlice = []string{
 			"🧑‍🌾", "🧑🏻‍🌾", "🧑🏼‍🌾", "🧑🏽‍🌾", "🧑🏾‍🌾", "🧑🏿‍🌾", // farmer
 			"👩‍🌾", "👩🏻‍🌾", "👩🏼‍🌾", "👩🏽‍🌾", "👩🏾‍🌾", "👩🏿‍🌾", // woman farmer
@@ -38,7 +38,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		}
 
 		if slices.Contains(farmerSlice, emojiName) {
-			err := JoinContract(s, r.GuildID, r.ChannelID, r.UserID, false)
+			err := JoinContract(client, e.GuildID(), e.ChannelID(), e.UserID(), false)
 			if err == nil {
 				redraw = true
 			}
@@ -46,14 +46,14 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	}
 
 	// If the user is in the contract then they can set their token count
-	if UserInContract(contract, r.UserID) {
+	if UserInContract(contract, e.UserID()) {
 		var numberSlice = []string{"0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"}
 		if slices.Contains(numberSlice, emojiName) {
-			var b = contract.Boosters[r.UserID]
+			var b = contract.Boosters[e.UserID()]
 			if b != nil {
 				var tokenCount = slices.Index(numberSlice, emojiName)
 				if (ContractFlagDynamicTokens+ContractFlag8Tokens+ContractFlag6Tokens+ContractFlag4Tokens+ContractFlagThresholdTokens)&contract.Style == 0 {
-					farmerstate.SetTokens(r.UserID, tokenCount)
+					farmerstate.SetTokens(e.UserID(), tokenCount)
 				}
 				b.TokensWanted = tokenCount
 				redraw = true
@@ -61,17 +61,17 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		}
 	}
 
-	if UserInContract(contract, r.UserID) || creatorOfContract(s, contract, r.UserID) {
+	if UserInContract(contract, e.UserID()) || creatorOfContract(client, contract, e.UserID()) {
 		contract.LastInteractionTime = time.Now()
 
 		if contract.State == ContractStateSignup {
-			switch r.Emoji.Name {
+			switch e.EmojiName() {
 			case "🏎️", "🏎":
-				err := SendSandboxDM(s, contract, r.UserID)
+				err := SendSandboxDM(client, contract, e.UserID())
 				if err != nil {
-					u, dmErr := s.UserChannelCreate(r.UserID)
+					u, dmErr := client.CreateUserChannel(e.UserID())
 					if dmErr == nil {
-						_, _ = s.ChannelMessageSend(u.ID, fmt.Sprintf("Unable to generate SR Sandbox link for %s/%s: %v", contract.ContractID, contract.CoopID, err))
+						_, _ = client.SendMessage(u.ID, dc.Message{Content: fmt.Sprintf("Unable to generate SR Sandbox link for %s/%s: %v", contract.ContractID, contract.CoopID, err)})
 					}
 				}
 			}
@@ -79,9 +79,9 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 		switch contract.State {
 		case ContractStateBanker:
-			return speedrunReactions(s, r, contract)
+			return speedrunReactions(client, e, contract)
 		case ContractStateCompleted:
-			return speedrunReactions(s, r, contract)
+			return speedrunReactions(client, e, contract)
 		}
 
 		currentBoosterID := contract.currentBoosterID()
@@ -96,35 +96,35 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				}
 			}
 
-			switch r.Emoji.Name {
+			switch e.EmojiName() {
 			case boostIconName:
-				if r.MessageID == contract.Location[0].ListMsgID {
-					result := buttonReactionBoost(s, r.GuildID, r.ChannelID, contract, r.UserID)
+				if e.MessageID() == contract.Location[0].ListMsgID {
+					result := buttonReactionBoost(client, e.GuildID(), e.ChannelID(), contract, e.UserID())
 					if result {
 						return returnVal
 					}
 				}
 			case "🔃":
-				result := buttonReactionSwap(s, r.GuildID, r.ChannelID, contract, r.UserID)
+				result := buttonReactionSwap(client, e.GuildID(), e.ChannelID(), contract, e.UserID())
 				if result {
 					return returnVal
 				}
 			case "⤵️":
 				willReturn := false
-				willReturn, redraw = buttonReactionLast(s, r.GuildID, r.ChannelID, contract, r.UserID)
+				willReturn, redraw = buttonReactionLast(client, e.GuildID(), e.ChannelID(), contract, e.UserID())
 				if willReturn {
 					return returnVal
 				}
 			case "🚽":
-				if contract.Boosters[r.UserID].BoostState == BoostStateUnboosted {
+				if contract.Boosters[e.UserID()].BoostState == BoostStateUnboosted {
 					// Bounds check: ensure currentBoosterIdx is valid before using it
 					if currentBoosterIdx < 0 {
-						_, _ = s.ChannelMessageSend(r.ChannelID, "Unable to move booster right now because the current booster position could not be determined.")
+						_, _ = client.SendMessage(e.ChannelID(), dc.Message{Content: "Unable to move booster right now because the current booster position could not be determined."})
 					} else {
 						// Move Booster position is 1 based, so we need to add 2 to the current position
-						err := MoveBooster(s, r.GuildID, r.ChannelID, contract.CreatorID[0], r.UserID, currentBoosterIdx+2, true)
+						err := MoveBooster(client, e.GuildID(), e.ChannelID(), contract.CreatorID[0], e.UserID(), currentBoosterIdx+2, true)
 						if err == nil {
-							_, _ = s.ChannelMessageSend(r.ChannelID, contract.Boosters[r.UserID].Name+" expressed a desire to go next!")
+							_, _ = client.SendMessage(e.ChannelID(), dc.Message{Content: contract.Boosters[e.UserID()].Name + " expressed a desire to go next!"})
 							returnVal = "!gonow"
 						}
 					}
@@ -133,30 +133,30 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 		}
 
 		// Anyone can use these reactions
-		switch r.Emoji.Name {
+		switch e.EmojiName() {
 		case "🌊":
 			if time.Since(contract.ThreadRenameTime) < 30*time.Second {
-				msg, err := s.ChannelMessageSend(r.ChannelID, fmt.Sprintf("🌊 thread renaming is on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(30*time.Second).Unix()))
+				msg, err := client.SendMessage(e.ChannelID(), dc.Message{Content: fmt.Sprintf("🌊 thread renaming is on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(30*time.Second).Unix())})
 				if err == nil {
 					time.AfterFunc(10*time.Second, func() {
-						err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+						err := client.DeleteMessage(msg.ChannelID, msg.ID)
 						if err != nil {
 							log.Println(err)
 						}
 					})
 				}
 			} else {
-				UpdateThreadName(s, contract)
+				UpdateThreadName(client, contract)
 			}
 		case "⏱️":
 			if contract.State != ContractStateCompleted {
-				var data discordgo.MessageSend
-				data.Content = "⏱️ can only be used after the contract completes boosting."
-				data.Flags = discordgo.MessageFlagsEphemeral
-				msg, err := s.ChannelMessageSendComplex(r.ChannelID, &data)
+				msg, err := client.SendMessage(e.ChannelID(), dc.Message{
+					Content:   "⏱️ can only be used after the contract completes boosting.",
+					Ephemeral: true,
+				})
 				if err == nil {
 					time.AfterFunc(10*time.Second, func() {
-						err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+						err := client.DeleteMessage(msg.ChannelID, msg.ID)
 						if err != nil {
 							log.Println(err)
 						}
@@ -165,13 +165,13 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 			} else {
 				if time.Since(contract.EstimateUpdateTime) < 2*time.Minute {
-					var data discordgo.MessageSend
-					data.Content = fmt.Sprintf("⏱️ duration update on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(10*time.Second).Unix())
-					data.Flags = discordgo.MessageFlagsEphemeral
-					msg, err := s.ChannelMessageSendComplex(r.ChannelID, &data)
+					msg, err := client.SendMessage(e.ChannelID(), dc.Message{
+						Content:   fmt.Sprintf("⏱️ duration update on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(10*time.Second).Unix()),
+						Ephemeral: true,
+					})
 					if err == nil {
 						time.AfterFunc(10*time.Second, func() {
-							err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+							err := client.DeleteMessage(msg.ChannelID, msg.ID)
 							if err != nil {
 								log.Println(err)
 							}
@@ -180,17 +180,17 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 				} else {
 					log.Print("Updating estimated time")
 					contract.EstimateUpdateTime = time.Now()
-					go updateEstimatedTime(s, r.ChannelID, contract, true, r.UserID)
+					go updateEstimatedTime(client, e.ChannelID(), contract, true, e.UserID())
 				}
 			}
 		case "🐓":
-			if UserInContract(contract, r.UserID) {
-				redraw, _ = buttonReactionRunChickens(s, contract, r.UserID)
+			if UserInContract(contract, e.UserID()) {
+				redraw, _ = buttonReactionRunChickens(client, contract, e.UserID())
 			}
 		case "🐿️":
-			if creatorOfContract(s, contract, r.UserID) {
+			if creatorOfContract(client, contract, e.UserID()) {
 				for i := len(contract.Order); i < contract.CoopSize; i++ {
-					_, err := AddFarmerToContract(s, contract, r.GuildID, r.ChannelID, bottools.GetRandomName(0), contract.BoostOrder, true, false)
+					_, err := AddFarmerToContract(client, contract, e.GuildID(), e.ChannelID(), bottools.GetRandomName(0), contract.BoostOrder, true, false)
 					if err != nil {
 						log.Println(err)
 					}
@@ -201,10 +201,10 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 		// Token reaction handling
 		tokenReactionStr := "token"
-		userID := r.UserID
+		userID := e.UserID()
 
-		if strings.ToLower(r.Emoji.Name) == tokenReactionStr {
-			_, redraw = buttonReactionToken(s, r.GuildID, r.ChannelID, contract, userID, 1, "")
+		if strings.ToLower(e.EmojiName()) == tokenReactionStr {
+			_, redraw = buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 1, "")
 		}
 	} else {
 		keepReaction = false
@@ -212,17 +212,17 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 
 	// Remove extra added emoji
 	if !keepReaction {
-		go RemoveAddedReaction(s, r)
+		go RemoveAddedReaction(client, e)
 	}
 
 	if redraw {
-		refreshBoostListMessage(s, contract, false)
+		refreshBoostListMessage(client, contract, false)
 	}
 
-	if r.Emoji.Name == "❓" {
+	if e.EmojiName() == "❓" {
 		contract.HelpGuidanceUntil = time.Now().Add(10 * time.Minute)
 		saveData(contract.ContractHash)
-		refreshBoostListMessage(s, contract, false)
+		refreshBoostListMessage(client, contract, false)
 
 		go func() {
 			runReady, _, _ := ei.GetBotEmoji("runready")
@@ -243,7 +243,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 			outputStr += "Additional help through the **/help** command.\n"
 
 			for _, loc := range contract.Location {
-				_, _ = s.ChannelMessageSend(loc.ChannelID, outputStr)
+				_, _ = client.SendMessage(loc.ChannelID, dc.Message{Content: outputStr})
 			}
 		}()
 	}
@@ -251,7 +251,7 @@ func ReactionAdd(s *discordgo.Session, r *discordgo.MessageReaction) string {
 	return returnVal
 }
 
-func updateEstimatedTime(s *discordgo.Session, channelID string, contract *Contract, displayMsg bool, userID string) {
+func updateEstimatedTime(client dc.Client, channelID string, contract *Contract, displayMsg bool, userID string) {
 	if !displayMsg {
 		eeidOverride := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 		coopStartTime, coopDurationSeconds, err := ei.GetCoopStatusStartTimeAndDuration(contract.ContractID, contract.CoopID, eeidOverride)
@@ -259,44 +259,39 @@ func updateEstimatedTime(s *discordgo.Session, channelID string, contract *Contr
 			contract.StartTime = coopStartTime
 			contract.EstimatedDuration = time.Duration(coopDurationSeconds) * time.Second
 			contract.EstimateUpdateTime = time.Now()
-			refreshBoostListMessage(s, contract, false)
+			refreshBoostListMessage(client, contract, false)
 		}
 		return
 	}
-	var data discordgo.MessageSend
-	data.Content = "⏱️ reaction received, updating contract duration."
-	data.Flags = discordgo.MessageFlagsEphemeral
-	msg, msgErr := s.ChannelMessageSendComplex(channelID, &data)
+	msg, msgErr := client.SendMessage(channelID, dc.Message{
+		Content:   "⏱️ reaction received, updating contract duration.",
+		Ephemeral: true,
+	})
 	eeidOverride := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 	coopStartTime, coopDurationSeconds, err := ei.GetCoopStatusStartTimeAndDuration(contract.ContractID, contract.CoopID, eeidOverride)
 	if err == nil {
 		if msgErr == nil {
-			_ = s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+			_ = client.DeleteMessage(msg.ChannelID, msg.ID)
 		}
 		contract.StartTime = coopStartTime
 		contract.EstimatedDuration = time.Duration(coopDurationSeconds) * time.Second
 		contract.EstimateUpdateTime = time.Now()
-		refreshBoostListMessage(s, contract, false)
+		refreshBoostListMessage(client, contract, false)
 	}
 }
 
 // RemoveAddedReaction removes an added reaction from a message so it can be reactivated
-func RemoveAddedReaction(s *discordgo.Session, r *discordgo.MessageReaction) {
-	var emojiName = r.Emoji.Name
+func RemoveAddedReaction(client dc.Client, e *dc.ReactionEvent) {
+	emojiRef := e.EmojiRef()
 
-	if r.Emoji.ID != "" {
-		emojiName = r.Emoji.Name + ":" + r.Emoji.ID
-	}
-
-	err := s.MessageReactionRemove(r.ChannelID, r.MessageID, emojiName, r.UserID)
+	err := client.RemoveMessageReaction(e.ChannelID(), e.MessageID(), emojiRef, e.UserID())
 	if err != nil {
-		log.Println(err, emojiName)
-		_ = s.MessageReactionRemove(r.ChannelID, r.MessageID, r.Emoji.Name, r.UserID)
+		log.Println(err, emojiRef)
+		_ = client.RemoveMessageReaction(e.ChannelID(), e.MessageID(), e.EmojiName(), e.UserID())
 	}
-
 }
 
 // ReactionRemove handles a user removing a reaction from a message
-func ReactionRemove(s *discordgo.Session, r *discordgo.MessageReaction) {
+func ReactionRemove(_ dc.Client, _ *dc.ReactionEvent) {
 	// Don't need to track removal of reactions at this point
 }

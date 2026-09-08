@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
@@ -52,65 +52,40 @@ func (p predictionType) flags() (showWednesday, showFridayNonUltra, showFridayUl
 }
 
 // GetPredictionsCommand returns the command for the /predictions command
-func GetPredictionsCommand(cmd string) *discordgo.ApplicationCommand {
-	minValue := 1.0
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Get predictions for the following week's leggacy contracts.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
-		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "prediction-type",
-				Description: "Which prediction type to show (default: all).",
-				Required:    false,
-				Choices: []*discordgo.ApplicationCommandOptionChoice{
-					{Name: "All Leggacies", Value: string(predictionAll)},
-					{Name: "Wednesday Leggacy", Value: string(predictionWedLegacy)},
-					{Name: "Friday PE Leggacies", Value: string(predictionFriPeLegacyBoth)},
-					{Name: "Friday Leggacy", Value: string(predictionFriNonUltra)},
-					{Name: "Friday Ultra Leggacy", Value: string(predictionFriUltraLegacy)},
-					{Name: "Colleggtibles", Value: string(predictionCollectibles)},
-				},
+func GetPredictionsCommand(cmd string) *dc.Command {
+	countMin, countMax := 1, 5
+	command := anywhereCommand(cmd, "Get predictions for the following week's leggacy contracts.")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:        "prediction-type",
+			Description: "Which prediction type to show (default: all).",
+			Choices: []dc.Choice[string]{
+				{Name: "All Leggacies", Value: string(predictionAll)},
+				{Name: "Wednesday Leggacy", Value: string(predictionWedLegacy)},
+				{Name: "Friday PE Leggacies", Value: string(predictionFriPeLegacyBoth)},
+				{Name: "Friday Leggacy", Value: string(predictionFriNonUltra)},
+				{Name: "Friday Ultra Leggacy", Value: string(predictionFriUltraLegacy)},
+				{Name: "Colleggtibles", Value: string(predictionCollectibles)},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "contract-count",
-				Description: "Contract count per category (default 3).",
-				Required:    false,
-				MinValue:    &minValue,
-				MaxValue:    5.0,
-			},
+		},
+		dc.IntOption{
+			Name:        "contract-count",
+			Description: "Contract count per category (default 3).",
+			MinValue:    &countMin,
+			MaxValue:    &countMax,
 		},
 	}
+	return &command
 }
 
 // HandlePredictionsCommand will handle the /predictions command
-func HandlePredictionsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	flags := discordgo.MessageFlagsIsComponentsV2
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   flags,
-		},
-	})
-
-	optionMap := bottools.GetCommandOptionsMap(i)
-	var components []discordgo.MessageComponent
+func HandlePredictionsCommand(client dc.Client, e *dc.CommandEvent) {
+	_ = e.Defer(false)
 
 	pt := predictionAll
 	// Check for ACO guild's categories
-	if i.GuildID == acoGuild {
-		categoryID, err := bottools.FindCategoryID(s, i.ChannelID)
+	if e.GuildID() == acoGuild {
+		categoryID, err := bottools.FindCategoryID(client, e.ChannelID())
 		if err == nil {
 			switch categoryID {
 			case ultraCategory:
@@ -126,31 +101,32 @@ func HandlePredictionsCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 		}
 	}
 	showButtons := true
-	if opt, ok := optionMap["prediction-type"]; ok {
-		pt = predictionType(opt.StringValue())
+	if opt, ok := e.OptString("prediction-type"); ok {
+		pt = predictionType(opt)
 		showButtons = false
 	}
-	components = predictions(optionMap, predictionCallParameters{
+	params := predictionCallParameters{
 		buttonCall:   showButtons,
 		pt:           pt,
-		guildContext: i.GuildID != "",
-	})
+		guildContext: e.GuildID() != "",
+	}
+	if opt, ok := e.OptInt("contract-count"); ok {
+		params.contractCount = int64(opt)
+	}
+	components := predictions(params)
 
 	if len(components) == 0 {
 		// A text component
-		components = []discordgo.MessageComponent{
-			&discordgo.TextDisplay{
+		components = []dc.LayoutComponent{
+			dc.TextDisplay{
 				Content: "No predictions available at this time.",
 			},
 		}
 	}
 
-	_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Flags:      flags,
-		Components: components,
-		AllowedMentions: &discordgo.MessageAllowedMentions{
-			Parse: []discordgo.AllowedMentionType{},
-		},
+	err := e.Followup(dc.Message{
+		Components:      components,
+		AllowedMentions: &dc.AllowedMentions{},
 	})
 	if err != nil {
 		log.Println("Error sending follow-up message /predictions:", err)
@@ -158,46 +134,33 @@ func HandlePredictionsCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 }
 
 // HandlePredictionsPage handles interaction for prediction pages
-func HandlePredictionsPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandlePredictionsPage(e *dc.ComponentEvent) {
 
 	// check if the original message is older than 5 minutes
 	const ttl = 5 * time.Minute
 	expired := false
-	if i.Message != nil {
-		createdAt, err := discordgo.SnowflakeTimestamp(i.Message.ID)
+	if messageID := e.MessageID(); messageID != "" {
+		createdAt, err := dc.SnowflakeTimestamp(messageID)
 		if err != nil {
 			log.Println("Error parsing message timestamp:", err)
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "This prediction interaction is invalid or expired. Run /predictions again to get a fresh panel.",
-					Flags:   discordgo.MessageFlagsEphemeral,
-				},
+			_ = e.Respond(dc.Message{
+				Content:   "This prediction interaction is invalid or expired. Run /predictions again to get a fresh panel.",
+				Ephemeral: true,
 			})
 			return
 		}
 		expired = time.Since(createdAt) > ttl
 	}
 
-	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
+	reaction := strings.Split(e.CustomID(), "#")
 
-	flags := discordgo.MessageFlagsIsComponentsV2 | discordgo.MessageFlagsEphemeral
-
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{
-			Content:    "",
-			Flags:      flags,
-			Components: []discordgo.MessageComponent{},
-		},
-	})
-	if err != nil {
+	if err := e.DeferUpdate(); err != nil {
 		log.Println("Error responding to interaction /predictions:", err)
 	}
 
 	predParams := predictionCallParameters{
 		buttonCall:   true,
-		guildContext: i.GuildID != "",
+		guildContext: e.GuildID() != "",
 	}
 
 	// Determine the new prediction type based on the interaction
@@ -207,21 +170,16 @@ func HandlePredictionsPage(s *discordgo.Session, i *discordgo.InteractionCreate)
 			predParams.pt = predictionType(reaction[2])
 			predParams.buttonCall = false
 		case reaction[1] == "predtype":
-			predParams.pt = predictionType(i.MessageComponentData().Values[0])
+			predParams.pt = predictionType(e.Values()[0])
 		}
 		if count, err := strconv.Atoi(reaction[3]); err == nil {
 			predParams.contractCount = int64(count)
 		}
 	}
 
-	components := predictions(nil, predParams)
+	components := predictions(predParams)
 
-	edit := discordgo.WebhookEdit{
-		Components: &components,
-	}
-
-	_, err = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit)
-	if err != nil {
+	if err := e.EditFollowup(e.MessageID(), dc.Message{Components: components}); err != nil {
 		log.Println(err)
 	}
 }
@@ -234,11 +192,9 @@ type predictionCallParameters struct {
 }
 
 // predictions prints predictions for the following weeks contracts.
-func predictions(optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption, params predictionCallParameters) []discordgo.MessageComponent {
+func predictions(params predictionCallParameters) []dc.LayoutComponent {
 	var contractCount int64 = 3
-	if optionMap != nil && optionMap["contract-count"] != nil {
-		contractCount = optionMap["contract-count"].IntValue()
-	} else if params.contractCount > 0 {
+	if params.contractCount > 0 {
 		contractCount = params.contractCount
 	}
 
@@ -251,7 +207,7 @@ func predictions(optionMap map[string]*discordgo.ApplicationCommandInteractionDa
 		pw.showOrderNote = false
 		_, wedTime, friTime, _ := contractTimes9amPacific(0)
 		collectibles := predictCollectibles(wedTime, friTime)
-		components := make([]discordgo.MessageComponent, 0, 3)
+		components := make([]dc.LayoutComponent, 0, 3)
 		components = append(components, pw.writeCollectiblesPredictions(collectibles))
 		if buttonCall {
 			components = append(components, getPredictionsButtonsComponents(params.pt, contractCount)...)
@@ -269,7 +225,7 @@ func predictions(optionMap map[string]*discordgo.ApplicationCommandInteractionDa
 	// Get the next Wednesday and Friday times; 0 means current week
 	_, wedTime, friTime, _ := contractTimes9amPacific(0)
 
-	var first, second discordgo.MessageComponent
+	var first, second dc.LayoutComponent
 	if showWednesday {
 		if hasFriday {
 			// both Wednesday and Friday
@@ -298,10 +254,10 @@ func predictions(optionMap map[string]*discordgo.ApplicationCommandInteractionDa
 		n += 2
 	}
 
-	components := make([]discordgo.MessageComponent, 0, n)
+	components := make([]dc.LayoutComponent, 0, n)
 	components = append(components, first)
 	if second != nil {
-		components = append(components, bottools.NewSmallSeparatorComponent(true), second)
+		components = append(components, dc.Separator{Divider: true, Spacing: dc.SeparatorSpacingSmall}, second)
 	}
 
 	// Add select menu if not a button call
@@ -312,15 +268,14 @@ func predictions(optionMap map[string]*discordgo.ApplicationCommandInteractionDa
 	return components
 }
 
-func getPredictionsButtonsComponents(predType predictionType, contractCount int64) []discordgo.MessageComponent {
-	min := 1
-	selectMenu := discordgo.SelectMenu{
-		MenuType:    discordgo.StringSelectMenu,
+func getPredictionsButtonsComponents(predType predictionType, contractCount int64) []dc.LayoutComponent {
+	minValues := 1
+	selectMenu := dc.SelectMenu{
 		CustomID:    fmt.Sprintf("predictions#predtype#%s#%d", predType, contractCount),
 		Placeholder: "Prediction Type",
-		MinValues:   &min,
+		MinValues:   &minValues,
 		MaxValues:   1,
-		Options: []discordgo.SelectMenuOption{
+		Options: []dc.SelectOption{
 			{
 				Label:       "All Leggacies",
 				Description: "Show all Leggacy contracts",
@@ -359,21 +314,19 @@ func getPredictionsButtonsComponents(predType predictionType, contractCount int6
 			},
 		},
 	}
-	closeButton := discordgo.Button{
+	closeButton := dc.Button{
 		Label:    "Save",
-		Emoji:    &discordgo.ComponentEmoji{Name: "💾"},
-		Style:    discordgo.SuccessButton,
+		Emoji:    &dc.Emoji{Name: "💾"},
+		Style:    dc.ButtonSuccess,
 		CustomID: fmt.Sprintf("predictions#predclose#%s#%d", predType, contractCount),
 	}
 
-	bottomRow := []discordgo.MessageComponent{closeButton}
-
-	return []discordgo.MessageComponent{
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{selectMenu},
+	return []dc.LayoutComponent{
+		dc.ActionRow{
+			Components: []dc.InteractiveComponent{selectMenu},
 		},
-		discordgo.ActionsRow{
-			Components: bottomRow,
+		dc.ActionRow{
+			Components: []dc.InteractiveComponent{closeButton},
 		},
 	}
 }
@@ -410,7 +363,7 @@ func newPredictionsWriter(guildContext bool) predictionsWriter {
 	}
 }
 
-func (pw predictionsWriter) writeWednesdayPredictions(dropTime time.Time, contracts []ei.EggIncContract, footer bool) *discordgo.TextDisplay {
+func (pw predictionsWriter) writeWednesdayPredictions(dropTime time.Time, contracts []ei.EggIncContract, footer bool) *dc.TextDisplay {
 	var b strings.Builder
 
 	b.WriteString("**📜 Leggacy Prediction 🔮**\n-# ")
@@ -424,10 +377,10 @@ func (pw predictionsWriter) writeWednesdayPredictions(dropTime time.Time, contra
 		pw.writeFooter(&b, usedSeasons)
 	}
 
-	return &discordgo.TextDisplay{Content: b.String()}
+	return &dc.TextDisplay{Content: b.String()}
 }
 
-func (pw predictionsWriter) writeFridayPredictions(dropTime time.Time, peContracts, ultraContracts []ei.EggIncContract, footer, showNonUltra, showUltra bool) *discordgo.TextDisplay {
+func (pw predictionsWriter) writeFridayPredictions(dropTime time.Time, peContracts, ultraContracts []ei.EggIncContract, footer, showNonUltra, showUltra bool) *dc.TextDisplay {
 	var b strings.Builder
 
 	b.WriteString("**PE Leggacies Predictions 🔮**\n-# ")
@@ -456,7 +409,7 @@ func (pw predictionsWriter) writeFridayPredictions(dropTime time.Time, peContrac
 		pw.writeFooter(&b, usedSeasons)
 	}
 
-	return &discordgo.TextDisplay{Content: b.String()}
+	return &dc.TextDisplay{Content: b.String()}
 }
 
 func (pw predictionsWriter) writeFooter(b *strings.Builder, usedSeasons map[string]bool) {
@@ -768,7 +721,7 @@ func predictCollectibles(nextWed, nextFri time.Time) map[string]collectiblePredi
 
 // writeCollectiblesPredictions renders the Colleggtibles prediction,
 // showing one entry per custom egg sorted by predicted drop date.
-func (pw predictionsWriter) writeCollectiblesPredictions(collectibles map[string]collectiblePrediction) *discordgo.TextDisplay {
+func (pw predictionsWriter) writeCollectiblesPredictions(collectibles map[string]collectiblePrediction) *dc.TextDisplay {
 	collectibleContracts := make([]collectiblePrediction, 0, len(collectibles))
 	for _, p := range collectibles {
 		collectibleContracts = append(collectibleContracts, p)
@@ -819,7 +772,7 @@ func (pw predictionsWriter) writeCollectiblesPredictions(collectibles map[string
 	b.WriteByte('\n')
 	pw.writeFooter(&b, usedSeasons)
 
-	return &discordgo.TextDisplay{Content: b.String()}
+	return &dc.TextDisplay{Content: b.String()}
 }
 
 // ***** Helpers *****

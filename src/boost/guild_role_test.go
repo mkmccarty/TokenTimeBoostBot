@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 // TestGuildRoleReadsLegacyContractJSON guards the on-disk compatibility of the
@@ -58,29 +58,32 @@ func TestGuildRoleJSONMatchesDiscordShape(t *testing.T) {
 		t.Fatalf("marshal GuildRole: %v", err)
 	}
 
-	var asDiscordRole discordgo.Role
-	if err := json.Unmarshal(stored, &asDiscordRole); err != nil {
-		t.Fatalf("unmarshal GuildRole into discordgo.Role: %v", err)
+	// The keys are asserted directly rather than by round-tripping through a
+	// library role type. Discord's wire names are what an older build reads,
+	// and they outlive whichever library this bot happens to use.
+	var wire map[string]any
+	if err := json.Unmarshal(stored, &wire); err != nil {
+		t.Fatalf("unmarshal GuildRole: %v", err)
 	}
 
-	if asDiscordRole.ID != "444" {
-		t.Errorf("discordgo.Role.ID = %q, want %q", asDiscordRole.ID, "444")
+	if wire["id"] != "444" {
+		t.Errorf("stored id = %v, want %q", wire["id"], "444")
 	}
-	if asDiscordRole.Name != "Team Turnip" {
-		t.Errorf("discordgo.Role.Name = %q, want %q", asDiscordRole.Name, "Team Turnip")
+	if wire["name"] != "Team Turnip" {
+		t.Errorf("stored name = %v, want %q", wire["name"], "Team Turnip")
 	}
 }
 
 func TestGuildRoleFromDiscord(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    *discordgo.Role
+		input    *dc.Role
 		wantID   string
 		wantName string
 	}{
 		{name: "nil role", input: nil, wantID: "", wantName: ""},
-		{name: "populated role", input: &discordgo.Role{ID: "555", Name: "Team Radish", Color: 99}, wantID: "555", wantName: "Team Radish"},
-		{name: "empty role", input: &discordgo.Role{}, wantID: "", wantName: ""},
+		{name: "populated role", input: &dc.Role{ID: "555", Name: "Team Radish", Color: 99}, wantID: "555", wantName: "Team Radish"},
+		{name: "empty role", input: &dc.Role{}, wantID: "", wantName: ""},
 	}
 
 	for _, tc := range tests {
@@ -96,14 +99,12 @@ func TestGuildRoleFromDiscord(t *testing.T) {
 	}
 }
 
-// TestGuildRoleMentionMatchesDiscord pins Mention() to the exact string the
-// library produced, including the empty-ID case, so this refactor stays
+// TestGuildRoleMentionMatchesDiscord pins Mention() to the exact markdown
+// Discord expects, including the empty-ID case, so this refactor stays
 // behaviour-neutral.
 func TestGuildRoleMentionMatchesDiscord(t *testing.T) {
-	for _, id := range []string{"666", ""} {
-		local := GuildRole{ID: id}
-		library := discordgo.Role{ID: id}
-		if got, want := local.Mention(), library.Mention(); got != want {
+	for id, want := range map[string]string{"666": "<@&666>", "": "<@&>"} {
+		if got := (GuildRole{ID: id}).Mention(); got != want {
 			t.Errorf("Mention() with ID %q = %q, want %q", id, got, want)
 		}
 	}

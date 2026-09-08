@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mattn/go-runewidth"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
@@ -58,7 +58,7 @@ func shouldProcessMember(lbType string, targetSet map[string]struct{}) bool {
 }
 
 // PostLeaderboards triggers the posting task for all configured guilds (or a specific guild if guildID is provided).
-func PostLeaderboards(s *discordgo.Session, snapDate string, guildID string, target string, action string, onProgress func(string)) {
+func PostLeaderboards(client dc.Client, snapDate string, guildID string, target string, action string, onProgress func(string)) {
 	var configs []LBConfig
 	var err error
 	if guildID != "" {
@@ -123,13 +123,13 @@ func PostLeaderboards(s *discordgo.Session, snapDate string, guildID string, tar
 
 		channelsUpdated := make(map[string]bool)
 		for _, cfg := range gc {
-			postOneLeaderboard(s, cfg, snapDate, targetSet, action, &prog, onProgress)
+			postOneLeaderboard(client, cfg, snapDate, targetSet, action, &prog, onProgress)
 			channelsUpdated[cfg.ChannelID] = true
 			time.Sleep(2 * time.Second) // Gap between configs to leave room for other bot activities
 		}
 
 		for channelID := range channelsUpdated {
-			postChannelUpdateConfirmation(s, channelID)
+			postChannelUpdateConfirmation(client, channelID)
 		}
 	}
 	if onProgress != nil {
@@ -138,7 +138,7 @@ func PostLeaderboards(s *discordgo.Session, snapDate string, guildID string, tar
 }
 
 // postOneLeaderboard handles the expanded posting of a single config (which might be a group).
-func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, targetSet map[string]struct{}, action string, prog *PostProgress, onProgress func(string)) {
+func postOneLeaderboard(client dc.Client, cfg LBConfig, snapDate string, targetSet map[string]struct{}, action string, prog *PostProgress, onProgress func(string)) {
 	memberKeys := ExpandConfigKey(cfg.LBType)
 	var newMsgIDs []string
 	msgIDOffset := 0
@@ -189,7 +189,7 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, tar
 		}
 
 		start := time.Now()
-		postSingleMetric(s, cfg, lbType, snapDate, &newMsgIDs, &msgIDOffset, &forceNewPosts)
+		postSingleMetric(client, cfg, lbType, snapDate, &newMsgIDs, &msgIDOffset, &forceNewPosts)
 		time.Sleep(rateLimitDelay)
 		if prog != nil {
 			prog.TotalDuration += time.Since(start)
@@ -209,7 +209,7 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, tar
 		for _, oldID := range cfg.MessageIDs {
 			if oldID != "" && !newMsgIDsMap[oldID] {
 				log.Printf("leaderboard: deleting orphaned message %s in channel %s", oldID, cfg.ChannelID)
-				_ = s.ChannelMessageDelete(cfg.ChannelID, oldID)
+				_ = client.DeleteMessage(cfg.ChannelID, oldID)
 			}
 		}
 	}
@@ -217,9 +217,9 @@ func postOneLeaderboard(s *discordgo.Session, cfg LBConfig, snapDate string, tar
 	UpdateGuildLBConfigMessageIDs(cfg.GuildID, cfg.LBType, newMsgIDs)
 }
 
-func postChannelUpdateConfirmation(s *discordgo.Session, channelID string) {
+func postChannelUpdateConfirmation(client dc.Client, channelID string) {
 	content := "✅ Leaderboards updated."
-	msg, err := s.ChannelMessageSend(channelID, content)
+	msg, err := client.SendMessage(channelID, dc.Message{Content: content})
 	if err != nil {
 		log.Printf("leaderboard: failed to post channel update confirmation in %s: %v", channelID, err)
 		return
@@ -227,7 +227,7 @@ func postChannelUpdateConfirmation(s *discordgo.Session, channelID string) {
 
 	go func(chID, msgID string) {
 		time.Sleep(leaderboardUpdateConfirmationTTL)
-		if err := s.ChannelMessageDelete(chID, msgID); err != nil {
+		if err := client.DeleteMessage(chID, msgID); err != nil {
 			log.Printf("leaderboard: failed to auto-delete channel update confirmation %s in %s: %v", msgID, chID, err)
 		}
 	}(channelID, msg.ID)
@@ -329,7 +329,7 @@ func findLookbackValueMap(lbType string, snapDate string, guildID string) (map[s
 	return out, false
 }
 
-func postSingleMetric(s *discordgo.Session, cfg LBConfig, lbType, snapDate string, newMsgIDs *[]string, msgIDOffset *int, forceNewPosts *bool) {
+func postSingleMetric(client dc.Client, cfg LBConfig, lbType, snapDate string, newMsgIDs *[]string, msgIDOffset *int, forceNewPosts *bool) {
 	def, _ := LBDefByKey(lbType)
 	guildRows, prevMap := getGuildRows(lbType, snapDate, cfg.GuildID)
 
@@ -362,21 +362,21 @@ func postSingleMetric(s *discordgo.Session, cfg LBConfig, lbType, snapDate strin
 	}
 
 	for _, text := range blocks {
-		var components []discordgo.MessageComponent
+		var components []dc.LayoutComponent
 		if usePagination {
-			components = []discordgo.MessageComponent{
-				&discordgo.TextDisplay{Content: text},
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.Button{
+			components = []dc.LayoutComponent{
+				dc.TextDisplay{Content: text},
+				dc.ActionRow{
+					Components: []dc.InteractiveComponent{
+						dc.Button{
 							Label:    "Previous",
-							Style:    discordgo.SecondaryButton,
+							Style:    dc.ButtonSecondary,
 							CustomID: fmt.Sprintf("lb_p#%s#%s#%d", lbType, snapDate, page-1),
 							Disabled: true,
 						},
-						discordgo.Button{
+						dc.Button{
 							Label:    "Next",
-							Style:    discordgo.SecondaryButton,
+							Style:    dc.ButtonSecondary,
 							CustomID: fmt.Sprintf("lb_p#%s#%s#%d", lbType, snapDate, page+1),
 							Disabled: false,
 						},
@@ -384,31 +384,20 @@ func postSingleMetric(s *discordgo.Session, cfg LBConfig, lbType, snapDate strin
 				},
 			}
 		} else {
-			components = []discordgo.MessageComponent{
-				&discordgo.TextDisplay{Content: text},
+			components = []dc.LayoutComponent{
+				dc.TextDisplay{Content: text},
 			}
 		}
 
-		flags := discordgo.MessageFlagsIsComponentsV2
 		if !*forceNewPosts && *msgIDOffset < len(cfg.MessageIDs) && cfg.MessageIDs[*msgIDOffset] != "" {
 			msgID := cfg.MessageIDs[*msgIDOffset]
-			edit := discordgo.MessageEdit{
-				ID:         msgID,
-				Channel:    cfg.ChannelID,
-				Components: &components,
-				Flags:      flags,
-			}
-			if _, err := s.ChannelMessageEditComplex(&edit); err != nil {
+			if _, err := client.EditMessage(cfg.ChannelID, msgID, dc.Message{Components: components}); err != nil {
 				log.Printf("leaderboard: failed to edit message %s: %v", msgID, err)
-				if isChannelNotFound(err) {
-					log.Printf("leaderboard: channel %s not found for guild %s - deleting config", cfg.ChannelID, cfg.GuildID)
-					_ = DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
-					return
-				}
-				if rerr, ok := err.(*discordgo.RESTError); ok && rerr.Message != nil && rerr.Message.Code == 10008 {
+				switch classifyEditFailure(err) {
+				case editFailureRepost:
 					// The message was orphaned/deleted. We must create a new one if the channel exists.
 					*forceNewPosts = true
-					if msg, err := sendNewLBMessage(s, cfg.ChannelID, components, flags); err == nil {
+					if msg, err := sendNewLBMessage(client, cfg.ChannelID, components); err == nil {
 						*newMsgIDs = append(*newMsgIDs, msg.ID)
 					} else if isChannelNotFound(err) {
 						log.Printf("leaderboard: channel %s not found for guild %s - deleting config", cfg.ChannelID, cfg.GuildID)
@@ -418,7 +407,11 @@ func postSingleMetric(s *discordgo.Session, cfg LBConfig, lbType, snapDate strin
 						log.Printf("leaderboard: failed to post new message to channel %s: %v", cfg.ChannelID, err)
 						*newMsgIDs = append(*newMsgIDs, "")
 					}
-				} else {
+				case editFailureChannelGone:
+					log.Printf("leaderboard: channel %s not found for guild %s - deleting config", cfg.ChannelID, cfg.GuildID)
+					_ = DeleteGuildLBConfig(cfg.GuildID, cfg.LBType)
+					return
+				case editFailureRetryLater:
 					// For other errors (e.g. rate limit, transient), retain the ID to keep slot alignment
 					*newMsgIDs = append(*newMsgIDs, msgID)
 				}
@@ -426,7 +419,7 @@ func postSingleMetric(s *discordgo.Session, cfg LBConfig, lbType, snapDate strin
 				*newMsgIDs = append(*newMsgIDs, msgID)
 			}
 		} else {
-			if msg, err := sendNewLBMessage(s, cfg.ChannelID, components, flags); err == nil {
+			if msg, err := sendNewLBMessage(client, cfg.ChannelID, components); err == nil {
 				*newMsgIDs = append(*newMsgIDs, msg.ID)
 			} else if isChannelNotFound(err) {
 				log.Printf("leaderboard: channel %s not found for guild %s - deleting config", cfg.ChannelID, cfg.GuildID)
@@ -441,10 +434,8 @@ func postSingleMetric(s *discordgo.Session, cfg LBConfig, lbType, snapDate strin
 	}
 }
 
-// HandleLBPageButton handles pagination buttons for leaderboard posts.
-func HandleLBPageButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	customID := i.MessageComponentData().CustomID
-	parts := strings.Split(customID, "#")
+func HandleLBPageButton(e *dc.ComponentEvent) {
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 4 {
 		return
 	}
@@ -457,7 +448,7 @@ func HandleLBPageButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	guildRows, prevMap := getGuildRows(lbType, snapDate, i.GuildID)
+	guildRows, prevMap := getGuildRows(lbType, snapDate, e.GuildID())
 	pageSize := 25
 	start := page * pageSize
 	if start < 0 {
@@ -478,19 +469,19 @@ func HandleLBPageButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Use only the first block for paginated view to ensure consistent button behavior.
 	text := blocks[0]
 
-	components := []discordgo.MessageComponent{
-		&discordgo.TextDisplay{Content: text},
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.Button{
+	components := []dc.LayoutComponent{
+		dc.TextDisplay{Content: text},
+		dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.Button{
 					Label:    "Previous",
-					Style:    discordgo.SecondaryButton,
+					Style:    dc.ButtonSecondary,
 					CustomID: fmt.Sprintf("lb_p#%s#%s#%d", lbType, snapDate, page-1),
 					Disabled: page <= 0,
 				},
-				discordgo.Button{
+				dc.Button{
 					Label:    "Next",
-					Style:    discordgo.SecondaryButton,
+					Style:    dc.ButtonSecondary,
 					CustomID: fmt.Sprintf("lb_p#%s#%s#%d", lbType, snapDate, page+1),
 					Disabled: end >= len(guildRows),
 				},
@@ -498,30 +489,52 @@ func HandleLBPageButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseUpdateMessage,
-		Data: &discordgo.InteractionResponseData{
-			Components: components,
-			Flags:      discordgo.MessageFlagsIsComponentsV2,
-		},
-	})
+	_ = e.Update(dc.Message{Components: components})
 }
 
-func sendNewLBMessage(s *discordgo.Session, channelID string, components []discordgo.MessageComponent, flags discordgo.MessageFlags) (*discordgo.Message, error) {
-	data := discordgo.MessageSend{
-		Components: components,
-		Flags:      flags,
+func sendNewLBMessage(client dc.Client, channelID string, components []dc.LayoutComponent) (*dc.MessageRef, error) {
+	return client.SendMessage(channelID, dc.Message{Components: components})
+}
+
+// editFailure is what a failed leaderboard message edit means for the config
+// that produced it.
+type editFailure int
+
+const (
+	// editFailureRetryLater is a transient failure (rate limit, network). The
+	// message ID is kept so the config's slots stay aligned.
+	editFailureRetryLater editFailure = iota
+	// editFailureRepost means the message is gone but the channel is not, so
+	// a replacement can be posted.
+	editFailureRepost
+	// editFailureChannelGone means the channel itself is gone and the guild's
+	// config is stale.
+	editFailureChannelGone
+)
+
+// classifyEditFailure decides what a failed edit means.
+//
+// Unknown Message is tested first because Discord answers it with HTTP 404,
+// which isChannelNotFound also matches. Checking the channel first would treat
+// a merely orphaned message as a dead channel and delete the guild's whole
+// leaderboard config instead of reposting.
+func classifyEditFailure(err error) editFailure {
+	switch {
+	case dc.IsUnknownMessage(err):
+		return editFailureRepost
+	case isChannelNotFound(err):
+		return editFailureChannelGone
+	default:
+		return editFailureRetryLater
 	}
-	return s.ChannelMessageSendComplex(channelID, &data)
 }
 
+// isChannelNotFound reports whether a failed call means the leaderboard's
+// channel is gone, in which case the guild's config is dropped. A bare 404
+// counts, so callers that could also be seeing a missing message must rule
+// that out first — see classifyEditFailure.
 func isChannelNotFound(err error) bool {
-	if rerr, ok := err.(*discordgo.RESTError); ok {
-		if rerr.Response.StatusCode == 404 || (rerr.Message != nil && rerr.Message.Code == 10003) {
-			return true
-		}
-	}
-	return false
+	return dc.IsUnknownChannel(err)
 }
 
 // buildMessageBlocks formats the leaderboard rows into one or more text blocks

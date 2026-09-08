@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/rs/xid"
 )
 
 // buildStonesCache will build a cache of the stones data
-func buildStonesCache(s string, url string, tiles []*discordgo.MessageEmbedField) stonesCache {
+func buildStonesCache(s string, url string, tiles []dc.EmbedField) stonesCache {
 	// Split string by "```" characters into a header, body and footer
 	split := strings.Split(s, "```")
 
@@ -29,7 +29,11 @@ func buildStonesCache(s string, url string, tiles []*discordgo.MessageEmbedField
 	return stonesCache{xid: xid.New().String(), header: split[0], footer: split[2], tableHeader: tableHeader, table: table, page: 0, pages: len(table) / 10, expirationTimestamp: time.Now().Add(15 * time.Minute), url: url, tiles: tiles}
 }
 
-func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMessage bool, xid string, refresh bool, links bool, toggle bool) {
+// sendStonesPage renders one page of a cached stones report.
+//
+// It still takes a raw session because the boost list redraw is not on the
+// facade yet.
+func sendStonesPage(client dc.Client, e dc.InteractionEvent, newMessage bool, xid string, refresh bool, links bool, toggle bool) {
 	stonesCacheMutex.Lock()
 	cache, exists := stonesCacheMap[xid]
 	stonesCacheMutex.Unlock()
@@ -38,10 +42,6 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 
 		if time.Now().Before(cache.LinkTime) && len(cache.urlPages) == 1 {
 			return
-		}
-		flags := discordgo.MessageFlagsSupressEmbeds
-		if cache.private {
-			flags += discordgo.MessageFlagsEphemeral
 		}
 
 		if len(cache.urlPages) == 0 {
@@ -65,11 +65,11 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 			}
 		}
 
-		_, err := s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: fmt.Sprintf("## Staabmia's Stone Calculator Links (%d/%d)\n%s", cache.urlPage+1, len(cache.urlPages), cache.urlPages[cache.urlPage]),
-				Flags:   flags,
-			})
+		err := e.Followup(dc.Message{
+			Content:        fmt.Sprintf("## Staabmia's Stone Calculator Links (%d/%d)\n%s", cache.urlPage+1, len(cache.urlPages), cache.urlPages[cache.urlPage]),
+			SuppressEmbeds: true,
+			Ephemeral:      cache.private,
+		})
 		if err != nil {
 			log.Println(err)
 		}
@@ -83,11 +83,11 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		stonesCacheMutex.Unlock()
 		return
 	}
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
+	_ = e.Followup(dc.Message{})
 
 	if exists && (refresh || cache.expirationTimestamp.Before(time.Now())) {
 
-		s1, urls, tiles := DownloadCoopStatusStones(i.ChannelID, cache.contractID, cache.coopID, cache.details, cache.soloName, cache.useBuffHistory, cache.eiID)
+		s1, urls, tiles := DownloadCoopStatusStones(e.ChannelID(), cache.contractID, cache.coopID, cache.details, cache.soloName, cache.useBuffHistory, cache.eiID)
 		newCache := buildStonesCache(s1, urls, tiles)
 
 		newCache.private = cache.private
@@ -105,12 +105,12 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		stonesCacheMap[cache.xid] = newCache
 		stonesCacheMutex.Unlock()
 
-		contract := FindContractByIDs(i.ChannelID, cache.contractID, cache.coopID)
+		contract := FindContractByIDs(e.ChannelID(), cache.contractID, cache.coopID)
 		if contract != nil {
 			if contract.State == ContractStateCompleted {
 				// Only refresh if EstimateUpdateTime is within 10 seconds of now
 				if math.Abs(time.Since(contract.EstimateUpdateTime).Seconds()) <= 10 {
-					refreshBoostListMessage(s, contract, false)
+					refreshBoostListMessage(client, contract, false)
 				}
 			}
 		}
@@ -120,25 +120,16 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 	if !exists {
 
 		str := fmt.Sprintf("The stones data has expired. Please re-run the %s command.\n", bottools.GetFormattedCommand("stones"))
-		str += (*(*(*i).Interaction).Message).Content
-		comp := []discordgo.MessageComponent{}
-		d2 := discordgo.WebhookEdit{
-			Content:    &str,
-			Components: &comp,
-		}
+		str += e.MessageContent()
 
-		_, err := s.FollowupMessageEdit(i.Interaction, i.Message.ID, &d2)
+		err := e.EditFollowup(e.MessageID(), dc.Message{
+			Content:      str,
+			ComponentsV1: true,
+		})
 		if err != nil {
 			log.Println(err)
 		}
-		/*
-			time.AfterFunc(10*time.Second, func() {
-				err := s.FollowupMessageDelete(i.Interaction, i.Message.ID)
-				if err != nil {
-					log.Println(err)
-				}
-			})
-		*/
+
 		return
 	}
 
@@ -174,13 +165,10 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 		cache.pages = int(math.Ceil(float64(len(cache.table)) / float64(itemsPerPage)))
 	}
 
-	var flags discordgo.MessageFlags
-
-	field := []*discordgo.MessageEmbedField{}
-	var embed []*discordgo.MessageEmbed
+	var field []dc.EmbedField
+	var embed []dc.Embed
 
 	page := cache.page
-	var builder strings.Builder
 
 	start := page * itemsPerPage
 	end := start + itemsPerPage
@@ -189,16 +177,11 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 	}
 
 	if !cache.displayTiles {
-		//flags |= discordgo.MessageFlagsSuppressEmbeds
-		builder.WriteString(cache.header)
-		//builder.WriteString("```")
-		//builder.WriteString(cache.tableHeader)
-
 		var currentField strings.Builder
 		currentField.WriteString(cache.tableHeader)
 		for _, line := range cache.table[start:end] {
 			if currentField.Len()+len(line)+1 > 950 { // +1 for the newline character
-				field = append(field, &discordgo.MessageEmbedField{
+				field = append(field, dc.EmbedField{
 					Name:  "",
 					Value: currentField.String(),
 				})
@@ -208,72 +191,54 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 			currentField.WriteString("\n")
 		}
 		if currentField.Len() > 0 {
-			field = append(field, &discordgo.MessageEmbedField{
+			field = append(field, dc.EmbedField{
 				Name:  "",
 				Value: currentField.String(),
 			})
 		}
-		embed = []*discordgo.MessageEmbed{{
-			Type:        discordgo.EmbedTypeRich,
+		embed = []dc.Embed{{
 			Title:       "Stones Report",
 			Description: cache.header,
 			Fields:      field,
-			Footer:      &discordgo.MessageEmbedFooter{Text: strings.ReplaceAll(cache.footer, "⭐️", "√")},
+			Footer:      &dc.EmbedFooter{Text: strings.ReplaceAll(cache.footer, "⭐️", "√")},
 		}}
-
-		//builder.WriteString("```")
-		//builder.WriteString(cache.footer)
 	} else {
 
 		for i := start; i < end && i < len(cache.tiles); i++ {
-			if cache.tiles[i] != nil {
-				field = append(field, cache.tiles[i])
-			}
+			field = append(field, cache.tiles[i])
 		}
 
-		// remove any null
-
-		embed = []*discordgo.MessageEmbed{{
-			Type:        discordgo.EmbedTypeRich,
+		embed = []dc.Embed{{
 			Title:       "Stones Report",
 			Description: cache.header,
 			Fields:      field,
-			Footer:      &discordgo.MessageEmbedFooter{Text: strings.ReplaceAll(cache.footer, "√", "⭐️")},
+			Footer:      &dc.EmbedFooter{Text: strings.ReplaceAll(cache.footer, "√", "⭐️")},
 		}}
 
 	}
 
 	cache.page = page + 1
 
+	// Content sits beside an ActionRow and embeds here, which is the legacy
+	// component model.
+	msg := dc.Message{
+		Components:   getStonesComponents(cache.xid, page, cache.pages),
+		Embeds:       embed,
+		ComponentsV1: true,
+	}
+
 	if newMessage {
-		msg, err := s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content:    "", //builder.String(),
-				Flags:      flags,
-				Components: getStonesComponents(cache.xid, page, cache.pages),
-				Embeds:     embed,
-			})
+		ref, err := e.FollowupMessage(msg)
 		if err != nil {
 			log.Println(err)
 		} else {
-			cache.msgID = msg.ID
+			cache.msgID = ref.ID
 		}
 
 	} else {
-		comp := getStonesComponents(cache.xid, page, cache.pages)
-
-		str := "" //builder.String()
-		d2 := discordgo.WebhookEdit{
-			Content:    &str,
-			Components: &comp,
-			Embeds:     &embed,
-		}
-
-		msg, err := s.FollowupMessageEdit(i.Interaction, i.Message.ID, &d2)
+		err := e.EditFollowup(e.MessageID(), msg)
 		if err != nil {
 			log.Println(err)
-		} else {
-			log.Print(msg.ID)
 		}
 	}
 	stonesCacheMutex.Lock()
@@ -281,13 +246,16 @@ func sendStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMes
 	stonesCacheMutex.Unlock()
 }
 
-// HandleStonesPage steps a page of cached stones data
-func HandleStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleStonesPage steps a page of cached stones data through the dc facade.
+//
+// It still takes a raw session because sendStonesPage can trigger a boost list
+// redraw, which is not on the facade yet.
+func HandleStonesPage(client dc.Client, e *dc.ComponentEvent) {
 	// cs_#Name # cs_#ID # HASH
 	refresh := false
 	links := false
 	toggle := false
-	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
+	reaction := strings.Split(e.CustomID(), "#")
 
 	if len(reaction) == 3 && reaction[2] == "close" {
 		stonesCacheMutex.Lock()
@@ -295,13 +263,7 @@ func HandleStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		stonesCacheMutex.Unlock()
 	}
 
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{
-			Content:    "",
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
-	})
+	err := e.DeferUpdate()
 	if err != nil {
 		log.Println(err)
 	}
@@ -318,53 +280,49 @@ func HandleStonesPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	sendStonesPage(s, i, false, reaction[1], refresh, links, toggle)
+	sendStonesPage(client, e, false, reaction[1], refresh, links, toggle)
 }
 
-// getTokenValComponents returns the components for the token value
-func getStonesComponents(name string, page int, pageEnd int) []discordgo.MessageComponent {
-	var buttons []discordgo.Button
+// getStonesComponents returns the components for the token value
+func getStonesComponents(name string, page int, pageEnd int) []dc.LayoutComponent {
+	var buttons []dc.InteractiveComponent
 
 	if pageEnd > 1 {
-		buttons = append(buttons, discordgo.Button{
+		buttons = append(buttons, dc.Button{
 			Label:    fmt.Sprintf("Page %d/%d", page+1, pageEnd),
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("fd_stones#%s", name),
 		})
 	}
 	buttons = append(buttons,
-		discordgo.Button{
+		dc.Button{
 			Label:    "Refresh",
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("fd_stones#%s#refresh", name),
 		})
 
 	buttons = append(buttons,
-		discordgo.Button{
+		dc.Button{
 			Label:    "Tile/Table",
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("fd_stones#%s#toggle", name),
 		})
 	/*
 		buttons = append(buttons,
-			discordgo.Button{
+			dc.Button{
 				Label:    "staabmia links",
-				Style:    discordgo.SecondaryButton,
+				Style:    dc.ButtonSecondary,
 				CustomID: fmt.Sprintf("fd_stones#%s#links", name),
 			})
 	*/
 	buttons = append(buttons,
-		discordgo.Button{
+		dc.Button{
 			Label:    "Close",
-			Style:    discordgo.DangerButton,
+			Style:    dc.ButtonDanger,
 			CustomID: fmt.Sprintf("fd_stones#%s#close", name),
 		})
 
-	var components []discordgo.MessageComponent
-	for _, button := range buttons {
-		components = append(components, button)
-	}
-	return []discordgo.MessageComponent{discordgo.ActionsRow{Components: components}}
+	return []dc.LayoutComponent{dc.ActionRow{Components: buttons}}
 }
 
 type stonesCache struct {
@@ -389,7 +347,7 @@ type stonesCache struct {
 	urlPages            []string
 	private             bool
 	LinkTime            time.Time
-	tiles               []*discordgo.MessageEmbedField
+	tiles               []dc.EmbedField
 }
 
 var (

@@ -5,44 +5,22 @@ import (
 	"log"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 // GetSlashHelpCommand returns the command for the /help command
-func GetSlashHelpCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Help with Boost Bot commands.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
-		},
-	}
+func GetSlashHelpCommand(cmd string) *dc.Command {
+	command := anywhereCommand(cmd, "Help with Boost Bot commands.")
+	return &command
 }
 
 // HandleHelpCommand will handle the help command
-func HandleHelpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	userID := ""
-	if i.GuildID == "" {
-		userID = i.User.ID
-	} else {
-		userID = i.Member.User.ID
-	}
-
-	embed := GetHelp(s, i.GuildID, i.ChannelID, userID)
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:    "",
-			Embeds:     embed.Embeds,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
+func HandleHelpCommand(client dc.Client, e *dc.CommandEvent) {
+	embed := GetHelp(client, e.GuildID(), e.ChannelID(), e.UserID())
+	err := e.Respond(dc.Message{
+		Embeds:    []dc.Embed{*embed},
+		Ephemeral: true,
 	})
 	if err != nil {
 		log.Print(err)
@@ -50,14 +28,14 @@ func HandleHelpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 }
 
 // GetHelp will return the help string for the contract
-func GetHelp(s *discordgo.Session, guildID string, channelID string, userID string) *discordgo.MessageSend {
+func GetHelp(client dc.Client, guildID string, channelID string, userID string) *dc.Embed {
 	userCmd := false
-	var field []*discordgo.MessageEmbedField
+	var field []dc.EmbedField
 
 	var builder strings.Builder
 	var footer strings.Builder
 
-	_, errch := s.Channel(channelID)
+	_, errch := client.Channel(channelID)
 	if errch != nil {
 		userCmd = true
 	}
@@ -74,14 +52,14 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 			str += "* **contract-id** : Select from dropdown of contracts.\n"
 			str += "* **coop-id** : Coop id"
 
-			field = append(field, &discordgo.MessageEmbedField{
+			field = append(field, dc.EmbedField{
 				Name:   "CREATE CONTRACT",
 				Value:  str,
 				Inline: false,
 			})
 		}
 
-		contractCreator := creatorOfContract(s, contract, userID)
+		contractCreator := creatorOfContract(client, contract, userID)
 
 		if contract != nil && contractCreator {
 
@@ -97,7 +75,7 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 					bottools.GetFormattedCommand("change-start timestamp"),
 				)
 
-				field = append(field, &discordgo.MessageEmbedField{
+				field = append(field, dc.EmbedField{
 					Name:   "Basic Contract Info",
 					Value:  speedRunStr,
 					Inline: false,
@@ -106,7 +84,7 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 				str := `
 			Press the 🟩 Green Button to move from the Sign-up phase to the Boost phase.
 			`
-				field = append(field, &discordgo.MessageEmbedField{
+				field = append(field, dc.EmbedField{
 					Name:   "START CONTRACT",
 					Value:  str,
 					Inline: false,
@@ -125,7 +103,7 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 			fmt.Fprintf(&strBuilder, "%s : Move a single booster to a different position.\n", bottools.GetFormattedCommand("change-one-booster"))
 			fmt.Fprintf(&strBuilder, "%s : Redraw the Boost List message.\n", bottools.GetFormattedCommand("bump"))
 
-			field = append(field, &discordgo.MessageEmbedField{
+			field = append(field, dc.EmbedField{
 				Name:   "COORDINATOR COMMANDS",
 				Value:  strBuilder.String(),
 				Inline: false,
@@ -138,7 +116,7 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 				str := ` See the pinned message for buttons to *Join* or *Leave* the contract.
 		You can set your boost tokens wanted by selecting :five: :six: or :eight: and adjusting it with the +Token and -Token buttons.
 		`
-				field = append(field, &discordgo.MessageEmbedField{
+				field = append(field, dc.EmbedField{
 					Name:   "JOIN CONTRACT",
 					Value:  str,
 					Inline: false,
@@ -158,7 +136,7 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 			fmt.Fprintf(&boosterStrBuilder, "%s : Display a discord message with a discord timestamp of the contract completion time.\n", bottools.GetFormattedCommand("coopeta"))
 			fmt.Fprintf(&boosterStrBuilder, "%s : Use to set your Egg, Inc game name.\n", bottools.GetFormattedCommand("seteggincname"))
 
-			field = append(field, &discordgo.MessageEmbedField{
+			field = append(field, dc.EmbedField{
 				Name:   "BOOSTER COMMANDS",
 				Value:  boosterStrBuilder.String(),
 				Inline: false,
@@ -178,7 +156,7 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 		fmt.Fprintf(&builder, "%s : Last occurrance of every event.\n", bottools.GetFormattedCommand("events"))
 		fmt.Fprintf(&builder, "%s : Timer tool\n", bottools.GetFormattedCommand("timer"))
 
-		field = append(field, &discordgo.MessageEmbedField{
+		field = append(field, dc.EmbedField{
 			Name:   "GENERAL COMMANDS",
 			Value:  builder.String(),
 			Inline: false,
@@ -186,17 +164,13 @@ func GetHelp(s *discordgo.Session, guildID string, channelID string, userID stri
 
 	}
 
-	embed := &discordgo.MessageSend{
-		Embeds: []*discordgo.MessageEmbed{{
-			Type:        discordgo.EmbedTypeRich,
-			Title:       "Boost Bot Help",
-			Description: builder.String(),
-			Color:       0x888888, // Warm purple color
-			Fields:      field,
-			Footer: &discordgo.MessageEmbedFooter{
-				Text: footer.String(),
-			},
-		},
+	embed := &dc.Embed{
+		Title:       "Boost Bot Help",
+		Description: builder.String(),
+		Color:       0x888888, // Warm purple color
+		Fields:      field,
+		Footer: &dc.EmbedFooter{
+			Text: footer.String(),
 		},
 	}
 

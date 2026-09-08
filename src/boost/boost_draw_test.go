@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 func TestDrawBoostListOutputScenarios(t *testing.T) {
@@ -74,14 +74,14 @@ func TestDrawBoostListOutputScenarios(t *testing.T) {
 			contract.CurrentBoosterUserID = contract.Order[tc.currentIdx]
 			contract.BoostPosition = tc.currentIdx
 
-			components := DrawBoostList(nil, contract)
+			components := DrawBoostList(contract)
 
 			var outputBuilder strings.Builder
 			fmt.Fprintf(&outputBuilder, "\n=== Scenario: %s ===\n", tc.name)
 			fmt.Fprintf(&outputBuilder, "Total Players: %d | Current Active Booster Index: %d (%s)\n", tc.totalPlayers, tc.currentIdx, contract.CurrentBoosterUserID)
 			outputBuilder.WriteString("--------------------------------------------------------------------------------\n")
 			for _, comp := range components {
-				if textDisplay, ok := comp.(*discordgo.TextDisplay); ok {
+				if textDisplay, ok := comp.(dc.TextDisplay); ok {
 					outputBuilder.WriteString(textDisplay.Content)
 				}
 			}
@@ -89,5 +89,68 @@ func TestDrawBoostListOutputScenarios(t *testing.T) {
 
 			t.Log(outputBuilder.String())
 		})
+	}
+}
+
+func TestHasRenderableBannerURL(t *testing.T) {
+	cases := []struct {
+		name string
+		url  string
+		want bool
+	}{
+		{name: "absolute https", url: "https://example.com/banners/contract-b.png", want: true},
+		{name: "absolute http", url: "http://example.com/banners/contract-b.png", want: true},
+		{name: "empty", url: "", want: false},
+		{name: "bare filename from unset BannerURL config", url: "farmers-market-2026-b.png", want: false},
+		{name: "relative path", url: "/banners/contract-b.png", want: false},
+		{name: "scheme without host", url: "https:///contract-b.png", want: false},
+		{name: "attachment scheme", url: "attachment://contract-b.png", want: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := hasRenderableBannerURL(tc.url); got != tc.want {
+				t.Errorf("hasRenderableBannerURL(%q) = %v, want %v", tc.url, got, tc.want)
+			}
+		})
+	}
+}
+
+// A contract whose banner URL is not absolute must still draw. Discord rejects
+// the entire message when a media gallery item carries an unusable URL, which
+// used to leave the boost list unposted whenever the BannerURL config field was
+// missing.
+func TestDrawBoostListSkipsUnusableBanner(t *testing.T) {
+	newContract := func(bannerURL string) *Contract {
+		return &Contract{
+			ContractHash: "banner-test-hash",
+			ContractID:   "banner-test-contract",
+			CoopID:       "banner-test-coop",
+			Description:  "Banner Test Contract",
+			State:        ContractStateSignup,
+			Style:        ContractStyleFastrun,
+			CreatorID:    []string{"creator-id"},
+			BannerURL:    bannerURL,
+			Order:        []string{},
+			Boosters:     map[string]*Booster{},
+			Location:     []*LocationData{{GuildID: "guild1", ChannelID: "channel1"}},
+		}
+	}
+
+	hasGallery := func(components []dc.LayoutComponent) bool {
+		for _, comp := range components {
+			if _, ok := comp.(dc.MediaGallery); ok {
+				return true
+			}
+		}
+		return false
+	}
+
+	if hasGallery(DrawBoostList(newContract("banner-test-contract-b.png"))) {
+		t.Error("DrawBoostList included a media gallery for a banner URL that is not absolute")
+	}
+
+	if !hasGallery(DrawBoostList(newContract("https://example.com/banners/banner-test-contract-b.png"))) {
+		t.Error("DrawBoostList dropped the media gallery for a usable banner URL")
 	}
 }

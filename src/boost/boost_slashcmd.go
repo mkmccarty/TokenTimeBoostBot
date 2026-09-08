@@ -12,13 +12,13 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/rs/xid"
 	"github.com/xhit/go-str2duration/v2"
 )
 
 // UpdateThreadName will update a threads name to the current contract state
-func UpdateThreadName(s *discordgo.Session, contract *Contract) {
+func UpdateThreadName(client dc.Client, contract *Contract) {
 	if contract == nil {
 		return
 	}
@@ -30,13 +30,11 @@ func UpdateThreadName(s *discordgo.Session, contract *Contract) {
 	contract.ThreadRenameTime = time.Now()
 
 	for _, loc := range contract.Location {
-		ch, err := s.Channel(loc.ChannelID)
+		ch, err := client.Channel(loc.ChannelID)
 		if err == nil {
 
-			if ch.IsThread() {
-				_, err := s.ChannelEdit(loc.ChannelID, &discordgo.ChannelEdit{
-					Name: builder.String(),
-				})
+			if ch.IsThread {
+				_, err := client.EditChannel(loc.ChannelID, builder.String())
 				if err != nil {
 					log.Println("Error updating thread name", err)
 				}
@@ -46,94 +44,74 @@ func UpdateThreadName(s *discordgo.Session, contract *Contract) {
 }
 
 // HandleBoostCommand will handle the /boost command
-func HandleBoostCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleBoostCommand(client dc.Client, e *dc.CommandEvent) {
 	// Protection against DM use
-	if i.GuildID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "This command can only be run in a server.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+	if e.GuildID() == "" {
+		_ = e.Respond(dc.Message{
+			Content:   "This command can only be run in a server.",
+			Ephemeral: true,
 		})
 		return
 	}
 	var str = "Boosting!!"
-	var err = UserBoost(s, i.GuildID, i.ChannelID, i.Member.User.ID)
+	var err = UserBoost(client, e.GuildID(), e.ChannelID(), e.UserID())
 	if err != nil {
 		str = err.Error()
 	}
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: str,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
+	_ = e.Respond(dc.Message{
+		Content:   str,
+		Ephemeral: true,
 	})
 }
 
 // HandleUnboostCommand will handle the /unboost command
-func HandleUnboostCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleUnboostCommand(client dc.Client, e *dc.CommandEvent) {
 	// Protection against DM use
-	if i.GuildID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "This command can only be run in a server.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
+	if e.GuildID() == "" {
+		_ = e.Respond(dc.Message{
+			Content:   "This command can only be run in a server.",
+			Ephemeral: true,
 		})
 		return
 	}
 	var str string
 	var farmer = ""
-	optionMap := bottools.GetCommandOptionsMap(i)
 
-	if opt, ok := optionMap["farmer"]; ok {
-		farmer = opt.StringValue()
+	if opt, ok := e.OptString("farmer"); ok {
+		farmer = opt
 	}
-	var err = Unboost(s, i.GuildID, i.ChannelID, farmer)
+	var err = Unboost(client, e.GuildID(), e.ChannelID(), farmer)
 	if err != nil {
 		str = err.Error()
 	} else {
 		str = "Marked " + farmer + " as unboosted."
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
+	_ = e.Respond(dc.Message{
+		Content:   str,
+		Ephemeral: true,
 	})
-
 }
 
 // HandleSkipCommand will handle the /skip command
-func HandleSkipCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleSkipCommand(client dc.Client, e *dc.CommandEvent) {
 	// Protection against DM use
-	if i.GuildID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "This command can only be run in a server.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
+	if e.GuildID() == "" {
+		_ = e.Respond(dc.Message{
+			Content:   "This command can only be run in a server.",
+			Ephemeral: true,
 		})
 		return
 	}
 	var str = "Skip to Next Booster"
-	var err = SkipBooster(s, i.GuildID, i.ChannelID, "")
+	var err = SkipBooster(client, e.GuildID(), e.ChannelID(), "")
 	if err != nil {
 		str = err.Error()
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
+	_ = e.Respond(dc.Message{
+		Content:   str,
+		Ephemeral: true,
 	})
 }
 
@@ -171,15 +149,12 @@ func ParseFarmerInput(farmerInput string) []ParsedFarmer {
 }
 
 // HandleJoinCommand will handle the /join command
-func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleJoinCommand(client dc.Client, e *dc.CommandEvent) {
 	// Protection against DM use
-	if i.GuildID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "This command can only be run in a server.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
+	if e.GuildID() == "" {
+		_ = e.Respond(dc.Message{
+			Content:   "This command can only be run in a server.",
+			Ephemeral: true,
 		})
 		return
 	}
@@ -189,34 +164,26 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var tokenWant = 0
 	var alreadyBoosted = false
 
-	optionMap := bottools.GetCommandOptionsMap(i)
-
-	if opt, ok := optionMap["farmer"]; ok {
-		farmerInput = opt.StringValue()
+	if opt, ok := e.OptString("farmer"); ok {
+		farmerInput = opt
 		str += " " + farmerInput
 	}
 
-	if opt, ok := optionMap["token-count"]; ok {
-		tokenWant = int(opt.IntValue())
+	if opt, ok := e.OptInt("token-count"); ok {
+		tokenWant = opt
 		str += " with " + fmt.Sprintf("%d", tokenWant) + " boost tokens"
 	}
-	if opt, ok := optionMap["boost-order"]; ok {
-		orderValue = int(opt.IntValue())
+	if opt, ok := e.OptInt("boost-order"); ok {
+		orderValue = opt
 	}
-	if opt, ok := optionMap["already-boosted"]; ok {
-		alreadyBoosted = opt.BoolValue()
+	if opt, ok := e.OptBool("already-boosted"); ok {
+		alreadyBoosted = opt
 		if alreadyBoosted {
 			str += " (already boosted)"
 		}
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Working on it...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
+	_ = e.Defer(true)
 
 	if farmerInput != "" {
 		parsedFarmers := ParseFarmerInput(farmerInput)
@@ -228,7 +195,7 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 					farmerstate.SetTokens(normalizeUserIDInput(p.Mention), tokenWant)
 				}
 			}
-			var err = AddContractMember(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), p.Mention, p.Guest, orderValue, alreadyBoosted)
+			var err = AddContractMember(client, e.GuildID(), e.ChannelID(), callerMention(e), p.Mention, p.Guest, orderValue, alreadyBoosted)
 			if err != nil {
 				str = err.Error()
 			}
@@ -236,99 +203,79 @@ func HandleJoinCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	// Refresh the boost list to show updated TE for TE-ordered contracts
-	contract := FindContract(i.ChannelID)
+	contract := FindContract(e.ChannelID())
 	if contract != nil {
-		refreshBoostListMessage(s, contract, false)
+		refreshBoostListMessage(client, contract, false)
 		saveData(contract.ContractHash)
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Content: str,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	)
+	_ = e.Followup(dc.Message{
+		Content:   str,
+		Ephemeral: true,
+	})
+}
+
+// callerMention is the mention string for the user who ran the command, which
+// several contract helpers take as the acting coordinator.
+func callerMention(e *dc.CommandEvent) string {
+	if u := e.User(); u != nil {
+		return u.Mention()
+	}
+	return ""
 }
 
 // HandlePruneCommand will handle the /prune command
-func HandlePruneCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandlePruneCommand(client dc.Client, e *dc.CommandEvent) {
 	// Protection against DM use
-	if i.GuildID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "This command can only be run in a server.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
+	if e.GuildID() == "" {
+		_ = e.Respond(dc.Message{
+			Content:   "This command can only be run in a server.",
+			Ephemeral: true,
 		})
 		return
 	}
 	var str = "Prune Booster"
 	var farmer = ""
 
-	optionMap := bottools.GetCommandOptionsMap(i)
-
-	if opt, ok := optionMap["farmer"]; ok {
-		farmer = opt.StringValue()
+	if opt, ok := e.OptString("farmer"); ok {
+		farmer = opt
 		str += " " + farmer
 	}
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:    "Working on it...",
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
-	})
+	_ = e.Defer(true)
 
-	var err = RemoveFarmerByMention(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), farmer)
+	var err = RemoveFarmerByMention(client, e.GuildID(), e.ChannelID(), callerMention(e), farmer)
 	if err != nil {
 		log.Println("/prune", err.Error())
 		str = err.Error()
 	}
-	_, _ = s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Content: str},
-	)
+	_ = e.Followup(dc.Message{Content: str})
 }
 
 // GetSlashCoopETACommand returns the command definition for the coopeta command
-func GetSlashCoopETACommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
+func GetSlashCoopETACommand(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Display contract completion estimate.")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:        "rate",
+			Description: "Hourly production rate (i.e. 15.7q)",
+			Required:    true,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Description: "Display contract completion estimate.",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "rate",
-				Description: "Hourly production rate (i.e. 15.7q)",
-				Required:    true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "timespan",
-				Description: "Time remaining in this contract. Example: 0d7h27m.",
-				Required:    true,
-			},
+		dc.StringOption{
+			Name:        "timespan",
+			Description: "Time remaining in this contract. Example: 0d7h27m.",
+			Required:    true,
 		},
 	}
+	return &command
 }
 
 // HandleCoopETACommand will handle the /coopeta command
-func HandleCoopETACommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleCoopETACommand(e *dc.CommandEvent) {
 	// Protection against DM use
-	if i.GuildID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "This command can only be run in a server.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
+	if e.GuildID() == "" {
+		_ = e.Respond(dc.Message{
+			Content:   "This command can only be run in a server.",
+			Ephemeral: true,
 		})
 		return
 	}
@@ -336,101 +283,77 @@ func HandleCoopETACommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	var t = time.Now()
 	var timespan = ""
 
-	optionMap := bottools.GetCommandOptionsMap(i)
-	if opt, ok := optionMap["rate"]; ok {
-		rate = opt.StringValue()
+	if opt, ok := e.OptString("rate"); ok {
+		rate = opt
 	}
-	if opt, ok := optionMap["timespan"]; ok {
-		timespan = opt.StringValue()
+	if opt, ok := e.OptString("timespan"); ok {
+		timespan = opt
 	}
 
 	dur, _ := str2duration.ParseDuration(timespan)
 	endTime := t.Add(dur)
 
-	var str = fmt.Sprintf("With a production rate of %s/hr completion <t:%d:R> near <t:%d:f>", rate, endTime.Unix(), endTime.Unix())
-
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: str,
-			//Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
+	_ = e.Respond(dc.Message{
+		Content: fmt.Sprintf("With a production rate of %s/hr completion <t:%d:R> near <t:%d:f>", rate, endTime.Unix(), endTime.Unix()),
 	})
-
 }
 
 // HandleBumpCommand will handle the /bump command
-func HandleBumpCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleBumpCommand(client dc.Client, e *dc.CommandEvent) {
 	str := "Contract not found"
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
-	contract := FindContract(i.ChannelID)
+	_ = e.Defer(true)
+	contract := FindContract(e.ChannelID())
 	if contract != nil {
 
 		{
 			str = "Boost list moved."
-			err := RedrawBoostList(s, i.GuildID, i.ChannelID)
+			err := RedrawBoostList(client, e.GuildID(), e.ChannelID())
 			if err != nil {
 				str = err.Error()
 			}
 		}
 		if contract.CoopTokenValueMsgID != "" {
-			HandleCoopTvalCommand(s, i)
+			HandleCoopTvalCommand(client, e)
 		}
 
 	}
 
-	msg, _ := s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Flags:   discordgo.MessageFlagsEphemeral,
-			Content: str,
-		})
-	_ = s.FollowupMessageDelete(i.Interaction, msg.ID)
-
+	msg, err := e.FollowupMessage(dc.Message{
+		Ephemeral: true,
+		Content:   str,
+	})
+	if err == nil {
+		_ = e.DeleteFollowup(msg.ID)
+	}
 }
 
 // HandleBumpCRCommand will handle the /bump-cr command
-func HandleBumpCRCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleBumpCRCommand(client dc.Client, e *dc.CommandEvent) {
 	str := "Contract not found"
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
-	contract := FindContract(i.ChannelID)
+	_ = e.Defer(true)
+	contract := FindContract(e.ChannelID())
 	if contract != nil {
 		str = "CR messages moved."
-		bumpCRMessages(s, contract)
+		bumpCRMessages(client, contract)
 	}
 	// Wait a moment
 	time.Sleep(2000 * time.Millisecond)
-	msg, _ := s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Flags:   discordgo.MessageFlagsEphemeral,
-			Content: str,
-		})
-	_ = s.FollowupMessageDelete(i.Interaction, msg.ID)
+	msg, err := e.FollowupMessage(dc.Message{
+		Ephemeral: true,
+		Content:   str,
+	})
+	if err == nil {
+		_ = e.DeleteFollowup(msg.ID)
+	}
 }
 
 // HandleToggleContractPingsCommand will handle the /toggle-contract-pings command
-func HandleToggleContractPingsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleToggleContractPingsCommand(client dc.Client, e *dc.CommandEvent) {
 	str := "Contract not found"
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
-	userID := getInteractionUserID(i)
-	contract := FindContract(i.ChannelID)
+	_ = e.Defer(true)
+	userID := e.UserID()
+	guildID := e.GuildID()
+	contract := FindContract(e.ChannelID())
 
 	UserInContract := UserInContract(contract, userID)
 	if contract != nil && UserInContract {
@@ -438,13 +361,13 @@ func HandleToggleContractPingsCommand(s *discordgo.Session, i *discordgo.Interac
 		value = !value
 		farmerstate.SetMiscSettingFlag(userID, "SuppressContractPings", value)
 		for _, loc := range contract.Location {
-			if loc.GuildID == i.GuildID {
+			if loc.GuildID == guildID {
 				if value {
 					str = fmt.Sprintf("Suppressing contract pings.\nRemoving you from this contract's %s role.", loc.GuildContractRole.Name)
-					_ = s.GuildMemberRoleRemove(i.GuildID, userID, loc.GuildContractRole.ID)
+					_ = client.RemoveGuildMemberRole(guildID, userID, loc.GuildContractRole.ID)
 				} else {
 					str = fmt.Sprintf("Enabling contract pings.\nAdding you to this contract's %s role.", loc.GuildContractRole.Name)
-					_ = s.GuildMemberRoleAdd(i.GuildID, userID, loc.GuildContractRole.ID)
+					_ = client.AddGuildMemberRole(guildID, userID, loc.GuildContractRole.ID)
 				}
 			}
 		}
@@ -452,47 +375,43 @@ func HandleToggleContractPingsCommand(s *discordgo.Session, i *discordgo.Interac
 		str = "You are not in this contract."
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Flags:   discordgo.MessageFlagsEphemeral,
-			Content: str,
-		})
-
+	_ = e.Followup(dc.Message{
+		Ephemeral: true,
+		Content:   str,
+	})
 }
 
-// HandleTokenListAutoComplete will handle the /token-remove autocomplete
-func HandleTokenListAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) (string, []*discordgo.ApplicationCommandOptionChoice) {
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+// tokenListAutoCompleteChoices offers the contract this channel is running as
+// the tracker to adjust.
+func tokenListAutoCompleteChoices(e *dc.AutocompleteEvent) []dc.Choice[string] {
+	choices := make([]dc.Choice[string], 0)
 
-	c := FindContract(i.ChannelID)
-
+	c := FindContract(e.ChannelID())
 	if c == nil {
-		return "Contract not found.", choices
+		return choices
 	}
 
-	choice := discordgo.ApplicationCommandOptionChoice{
+	choices = append(choices, dc.Choice[string]{
 		Name:  c.ContractID + "/" + c.CoopID,
 		Value: c.CoopID,
-	}
-	choices = append(choices, &choice)
+	})
 
-	return "Select tracker to adjust the token.", choices
+	return choices
 }
 
-// HandleTokenIDAutoComplete will handle the /token-edit token-id autocomplete
-func HandleTokenIDAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) (string, []*discordgo.ApplicationCommandOptionChoice) {
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+// tokenIDAutoCompleteChoices offers the caller's own recent tokens, newest
+// last, identified by the counter embedded in the token serial.
+func tokenIDAutoCompleteChoices(e *dc.AutocompleteEvent) []dc.Choice[int] {
+	choices := make([]dc.Choice[int], 0)
 
-	//optionMap := bottools.GetCommandOptionsMap(i)
-	c := FindContract(i.ChannelID)
-
+	c := FindContract(e.ChannelID())
 	if c == nil {
-		return "Contract not found.", choices
+		return choices
 	}
 
 	var myTokes []ei.TokenUnitLog
 	for _, t := range c.TokenLog {
-		if t.FromUserID == i.Member.User.ID {
+		if t.FromUserID == e.UserID() {
 			t.Value = bottools.GetTokenValue(t.Time.Sub(c.StartTime).Seconds(), c.EstimatedDuration.Seconds()) * float64(t.Quantity)
 			myTokes = append(myTokes, t)
 		}
@@ -504,30 +423,28 @@ func HandleTokenIDAutoComplete(s *discordgo.Session, i *discordgo.InteractionCre
 
 	for _, t := range myTokes {
 		x, _ := xid.FromString(t.Serial)
-		choice := discordgo.ApplicationCommandOptionChoice{
+		choices = append(choices, dc.Choice[int]{
 			Name:  fmt.Sprintf("%ds ago %s - %d @ %2.3f", int(time.Since(t.Time).Seconds()), t.ToNick, t.Quantity, t.Value),
-			Value: x.Counter(),
-		}
-		choices = append(choices, &choice)
+			Value: int(x.Counter()),
+		})
 	}
 
-	return "Select token to modify", choices
+	return choices
 }
 
-// HandleTokenReceiverAutoComplete will handle the /token-edit new-receiver autocomplete
-func HandleTokenReceiverAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) (string, []*discordgo.ApplicationCommandOptionChoice) {
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+// tokenReceiverAutoCompleteChoices offers the coop's boosters, filtered by
+// whatever the caller has typed so far.
+func tokenReceiverAutoCompleteChoices(e *dc.AutocompleteEvent) []dc.Choice[string] {
+	choices := make([]dc.Choice[string], 0)
 
-	optionMap := bottools.GetCommandOptionsMap(i)
-
-	c := FindContract(i.ChannelID)
+	c := FindContract(e.ChannelID())
 	if c == nil {
-		return "Contract not found.", choices
+		return choices
 	}
 	searchString := ""
 
-	if opt, ok := optionMap["new-receiver"]; ok {
-		searchString = opt.StringValue()
+	if opt, ok := e.OptString("new-receiver"); ok {
+		searchString = opt
 	}
 
 	// Want a set of sorted keys from c.Boosters
@@ -542,81 +459,38 @@ func HandleTokenReceiverAutoComplete(s *discordgo.Session, i *discordgo.Interact
 	sort.Strings(keys)
 
 	for _, b := range keys {
-		choice := discordgo.ApplicationCommandOptionChoice{
+		choices = append(choices, dc.Choice[string]{
 			Name:  c.Boosters[b].Nick,
 			Value: b,
-		}
-		choices = append(choices, &choice)
+		})
 		if len(choices) > 15 {
 			break
 		}
 	}
-	/* else {
-		for i, o := range c.Order {
-			b := c.Boosters[o]
-
-			if strings.Contains(strings.ToLower(b.Nick), strings.ToLower(searchString)) {
-				choice := discordgo.ApplicationCommandOptionChoice{
-					Name:  b.Nick,
-					Value: i,
-				}
-				choices = append(choices, &choice)
-				if len(choices) > 15 {
-					break
-				}
-			}
-		}
-	}
-	*/
-	return "Select new recipient", choices
+	return choices
 }
 
 // HandleTokenEditAutoComplete will handle the /token-edit autocomplete
-func HandleTokenEditAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	data := i.ApplicationCommandData()
-	for _, opt := range data.Options {
-		if opt.Name == "list" && opt.Focused {
-			str, choices := HandleTokenListAutoComplete(s, i)
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-				Data: &discordgo.InteractionResponseData{
-					Content: str,
-					Choices: choices,
-				}})
+func HandleTokenEditAutoComplete(e *dc.AutocompleteEvent) {
+	focused, _ := e.FocusedOption()
+	switch focused {
+	case "list":
+		_ = e.RespondChoices(tokenListAutoCompleteChoices(e))
+	case "id":
+		if err := e.RespondChoicesInt(tokenIDAutoCompleteChoices(e)); err != nil {
+			log.Println(err.Error())
 		}
-		if opt.Name == "id" && opt.Focused {
-			str, choices := HandleTokenIDAutoComplete(s, i)
-			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-				Data: &discordgo.InteractionResponseData{
-					Content: str,
-					Choices: choices,
-				}})
-			if err != nil {
-				log.Println(err.Error())
-			}
-		}
-		if opt.Name == "new-receiver" && opt.Focused {
-			str, choices := HandleTokenReceiverAutoComplete(s, i)
-			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-				Data: &discordgo.InteractionResponseData{
-					Content: str,
-					Choices: choices,
-				}})
-			if err != nil {
-				log.Println(err.Error())
-			}
+	case "new-receiver":
+		if err := e.RespondChoices(tokenReceiverAutoCompleteChoices(e)); err != nil {
+			log.Println(err.Error())
 		}
 	}
 }
 
 // HandleTokenEditCommand will handle the /token-edit command
-func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate) string {
-	optionMap := bottools.GetCommandOptionsMap(i)
-
-	userID := getInteractionUserID(i)
-	c := FindContract(i.ChannelID)
+func HandleTokenEditCommand(client dc.Client, e *dc.CommandEvent) string {
+	userID := e.UserID()
+	c := FindContract(e.ChannelID())
 	if c == nil {
 		return "Contract not found."
 	}
@@ -624,26 +498,20 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		return "You are not in this contract."
 	}
 	var action int // 0:Move, 1: Delete, 2 Modify Count
-	//var tokenCoop string
 	var tokenIndex int32
 	var boosterIndex string
-	var tokenCount int64
-	if opt, ok := optionMap["action"]; ok {
-		action = int(opt.IntValue())
+	var tokenCount int
+	if opt, ok := e.OptInt("action"); ok {
+		action = opt
 	}
-	/*
-		if opt, ok := optionMap["list"]; ok {
-			tokenCoop = opt.StringValue()
-		}
-	*/
-	if opt, ok := optionMap["id"]; ok {
-		tokenIndex = int32(opt.IntValue())
+	if opt, ok := e.OptInt("id"); ok {
+		tokenIndex = int32(opt)
 	}
-	if opt, ok := optionMap["new-receiver"]; ok {
-		boosterIndex = opt.StringValue()
+	if opt, ok := e.OptString("new-receiver"); ok {
+		boosterIndex = opt
 	}
-	if opt, ok := optionMap["new-quantity"]; ok {
-		tokenCount = opt.IntValue()
+	if opt, ok := e.OptInt("new-quantity"); ok {
+		tokenCount = opt
 	}
 
 	str := "Token not found"
@@ -671,7 +539,7 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		for i, t := range c.TokenLog {
 			xid, _ := xid.FromString(t.Serial)
 			if xid.Counter() == tokenIndex {
-				c.TokenLog[i].Quantity = int(tokenCount)
+				c.TokenLog[i].Quantity = tokenCount
 				c.TokenLog[i].Value = bottools.GetTokenValue(c.TokenLog[i].Time.Sub(c.StartTime).Seconds(), c.EstimatedDuration.Seconds()) * float64(c.TokenLog[i].Quantity)
 				str = "Token count modified"
 				break
@@ -683,23 +551,22 @@ func HandleTokenEditCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 
 	c.mutex.Unlock()
 	saveData(c.ContractHash)
-	refreshBoostListMessage(s, c, false)
+	refreshBoostListMessage(client, c, false)
 	return str
 }
 
 // HandleRestartContract recycles the current contract and recreates it with the same
 // participants, planned start time, and run style.
-func HandleRestartContract(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-	})
+func HandleRestartContract(client dc.Client, e *dc.ComponentEvent) {
+	_ = e.DeferUpdate()
 
-	channelID := i.ChannelID
+	channelID := e.ChannelID()
+	guildID := e.GuildID()
 	var str = "Contract not found."
 	contract := FindContract(channelID)
 
 	if contract != nil {
-		if !creatorOfContract(s, contract, i.Member.User.ID) {
+		if !creatorOfContract(client, contract, e.UserID()) {
 			str = "Only the coordinator can restart this contract."
 		} else {
 			// Capture state before deletion
@@ -720,12 +587,12 @@ func HandleRestartContract(s *discordgo.Session, i *discordgo.InteractionCreate)
 			// Original coordinator
 			originalCoordinatorID := contract.CreatorID[0]
 
-			_, err := DeleteContract(s, i.GuildID, channelID)
+			_, err := DeleteContract(client, guildID, channelID)
 			if err != nil {
 				str = "Failed to delete contract: " + err.Error()
 			} else {
 				mutex.Lock()
-				newContract, err := CreateContract(s, contractID, coopID, playStyle, coopSize, ContractOrderSignup, i.GuildID, channelID, progenitors, originalCoordinatorID, time.Time{}, validFrom)
+				newContract, err := CreateContract(client, contractID, coopID, playStyle, coopSize, ContractOrderSignup, guildID, channelID, progenitors, originalCoordinatorID, time.Time{}, validFrom)
 				mutex.Unlock()
 
 				if err != nil {
@@ -742,30 +609,24 @@ func HandleRestartContract(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 					CheckAndPublishAMQPContractUpdate(newContract)
 
-					createMsg := DrawBoostList(s, newContract)
+					createMsg := DrawBoostList(newContract)
 					buttonComponents := getContractReactionsComponents(newContract)
 					if len(buttonComponents) > 0 {
 						createMsg = append(createMsg, buttonComponents...)
 					}
-					var listData discordgo.MessageSend
-					listData.Components = createMsg
-					listData.Flags = discordgo.MessageFlagsIsComponentsV2
-					msg, err := s.ChannelMessageSendComplex(channelID, &listData)
+					msg, err := client.SendMessage(channelID, dc.Message{Components: createMsg})
 					if err == nil {
 						SetListMessageID(newContract, channelID, msg.ID)
 
 						contentStr, comp := GetSignupComponents(newContract)
-						var components []discordgo.MessageComponent
-						components = append(components, &discordgo.TextDisplay{Content: contentStr})
+						var components []dc.LayoutComponent
+						components = append(components, dc.TextDisplay{Content: contentStr})
 						components = append(components, comp...)
-						var signupData discordgo.MessageSend
-						signupData.Flags = discordgo.MessageFlagsIsComponentsV2
-						signupData.Components = components
 
-						reactionMsg, err := s.ChannelMessageSendComplex(channelID, &signupData)
+						reactionMsg, err := client.SendMessage(channelID, dc.Message{Components: components})
 						if err == nil {
 							SetReactionID(newContract, channelID, reactionMsg.ID)
-							_ = s.ChannelMessagePin(channelID, reactionMsg.ID)
+							_ = client.PinMessage(channelID, reactionMsg.ID)
 						}
 					}
 
@@ -797,37 +658,35 @@ func HandleRestartContract(s *discordgo.Session, i *discordgo.InteractionCreate)
 			}
 		}
 	}
-	_, _ = s.ChannelMessageSend(channelID, str)
+	_, _ = client.SendMessage(channelID, dc.Message{Content: str})
 }
 
 // HandleContractDelete facilitates the deletion of a channel contract
-func HandleContractDelete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleContractDelete(client dc.Client, e *dc.ComponentEvent) {
 	// Delete coop
 	var str = "Contract not found."
 	// if user is contract coordinator
-	contract := FindContract(i.ChannelID)
+	contract := FindContract(e.ChannelID())
 
 	if contract != nil {
 
-		if creatorOfContract(s, contract, i.Member.User.ID) {
+		if creatorOfContract(client, contract, e.UserID()) {
 
-			coopName, err := DeleteContract(s, i.GuildID, i.ChannelID)
+			coopName, err := DeleteContract(client, e.GuildID(), e.ChannelID())
 			if err == nil {
 				str = fmt.Sprintf("Contract %s recycled.", coopName)
 			}
 			for _, loc := range contract.Location {
-				_ = s.ChannelMessageUnpin(loc.ChannelID, loc.ReactionID)
+				_ = client.UnpinMessage(loc.ChannelID, loc.ReactionID)
 			}
-			_ = s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
+			_ = client.DeleteMessage(e.ChannelID(), e.MessageID())
 		} else {
 			str = "Only the coordinator can recycle this contract."
 		}
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: str,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		}})
+	_ = e.Respond(dc.Message{
+		Content:   str,
+		Ephemeral: true,
+	})
 }

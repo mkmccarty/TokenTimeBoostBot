@@ -10,101 +10,69 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/xhit/go-str2duration/v2"
 )
 
 // GetSlashCalcContractTval calculates the callers token value of a running contract
-func GetSlashCalcContractTval(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Calculate token values of current running contract",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
+func GetSlashCalcContractTval(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Calculate token values of current running contract")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:        "duration",
+			Description: "Total duration of this contract. Example: 19h35m.",
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
+		dc.BoolOption{
+			Name:        "details",
+			Description: "Show individual token values. Default is false. (sticky)",
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "duration",
-				Description: "Total duration of this contract. Example: 19h35m.",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "details",
-				Description: "Show individual token values. Default is false. (sticky)",
-				Required:    false,
-			},
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "alternate",
-				Description:  "Select a linked alternate to show their token values",
-				Required:     false,
-				Autocomplete: true,
-			},
+		dc.StringOption{
+			Name:         "alternate",
+			Description:  "Select a linked alternate to show their token values",
+			Autocomplete: true,
 		},
 	}
+	return &command
 }
 
 // HandleAltsAutoComplete will populate with linked alternate names
-func HandleAltsAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
-	userID := getInteractionUserID(i)
+func HandleAltsAutoComplete(e *dc.AutocompleteEvent) {
+	choices := make([]dc.Choice[string], 0)
+	userID := e.UserID()
 
-	contract := FindContract(i.ChannelID)
+	contract := FindContract(e.ChannelID())
 	if contract != nil && contract.Boosters[userID] != nil {
 		for _, name := range contract.Boosters[userID].Alts {
-			choice := discordgo.ApplicationCommandOptionChoice{
+			choices = append(choices, dc.Choice[string]{
 				Name:  name,
 				Value: name,
-			}
-			choices = append(choices, &choice)
+			})
 		}
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Contract ID",
-			Choices: choices,
-		}})
+	_ = e.RespondChoices(choices)
 }
 
 // HandleContractCalcContractTvalCommand will handle the /contract-token-tval command
-func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	optionMap := bottools.GetCommandOptionsMap(i)
+func HandleContractCalcContractTvalCommand(e *dc.CommandEvent) {
+	_ = e.Defer(true)
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
 	// Call into boost module to do that calculations
-	var userID string
-	if i.GuildID != "" {
-		userID = i.Member.User.ID
-	} else {
-		userID = i.User.ID
-	}
+	userID := e.UserID()
 
 	str := ""
 	invalidDuration := false
-	channelID := i.ChannelID
+	channelID := e.ChannelID()
 	contract := FindContract(channelID)
 	var duration time.Duration
 	if contract != nil {
 		duration = contract.EstimatedDuration
 	}
 	details := false
-	if opt, ok := optionMap["duration"]; ok {
+	if opt, ok := e.OptString("duration"); ok {
 		var err error
 		// Timespan of the contract duration
-		contractTimespan := bottools.SanitizeStringDuration(opt.StringValue())
+		contractTimespan := bottools.SanitizeStringDuration(opt)
 		duration, err = str2duration.ParseDuration(contractTimespan)
 		if err != nil {
 			duration = 12 * time.Hour
@@ -123,17 +91,17 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 			}
 		}
 	}
-	if opt, ok := optionMap["details"]; ok {
-		details = opt.BoolValue()
+	if opt, ok := e.OptBool("details"); ok {
+		details = opt
 		farmerstate.SetMiscSettingFlag(userID, "calc-details", details)
 	} else {
 		details = farmerstate.GetMiscSettingFlag(userID, "calc-details")
 	}
 
-	if opt, ok := optionMap["alternate"]; ok {
-		userID = opt.StringValue()
+	if opt, ok := e.OptString("alternate"); ok {
+		userID = opt
 	}
-	var embed *discordgo.MessageSend
+	var embed *dc.Embed
 	if contract == nil {
 		str = "No contract found in this channel"
 	} else if !UserInContract(contract, userID) {
@@ -154,21 +122,14 @@ func HandleContractCalcContractTvalCommand(s *discordgo.Session, i *discordgo.In
 		str += "Format should be entered like `19h35m` or `1d 2h 3m` or `1d2h3m` or `1d 2h"
 	}
 
+	message := dc.Message{Content: str}
 	if embed != nil {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: str,
-				Embeds:  embed.Embeds,
-			})
-	} else {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: str,
-			})
+		message.Embeds = []dc.Embed{*embed}
 	}
+	_ = e.Followup(message)
 }
 
-func calculateTokenValueFromLog(contract *Contract, duration time.Duration, details bool, targetTval float64, userID string) *discordgo.MessageSend {
+func calculateTokenValueFromLog(contract *Contract, duration time.Duration, details bool, targetTval float64, userID string) *dc.Embed {
 	var description strings.Builder
 
 	var totalHeader string
@@ -211,7 +172,7 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 		}
 	}
 
-	var field []*discordgo.MessageEmbedField
+	var field []dc.EmbedField
 
 	URL := fmt.Sprintf("[%s](%s/%s/%s)", contract.CoopID, "https://eicoop-carpet.netlify.app", contract.ContractID, contract.CoopID)
 
@@ -222,17 +183,17 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 
 	offsetTime := time.Since(contract.StartTime).Seconds()
 
-	field = append(field, &discordgo.MessageEmbedField{
+	field = append(field, dc.EmbedField{
 		Name:   fmt.Sprintf("Value <t:%d:R>", time.Now().Unix()),
 		Value:  fmt.Sprintf("%1.3f\n", bottools.GetTokenValue(offsetTime, duration.Seconds())),
 		Inline: true,
 	})
-	field = append(field, &discordgo.MessageEmbedField{
+	field = append(field, dc.EmbedField{
 		Name:   fmt.Sprintf("<t:%d:R>", time.Now().Add(30*time.Minute).Unix()),
 		Value:  fmt.Sprintf("%1.3f\n", bottools.GetTokenValue(offsetTime+(30*60), duration.Seconds())),
 		Inline: true,
 	})
-	field = append(field, &discordgo.MessageEmbedField{
+	field = append(field, dc.EmbedField{
 		Name:   fmt.Sprintf("<t:%d:R>", time.Now().Add(60*time.Minute).Unix()),
 		Value:  fmt.Sprintf("%1.3f\n", bottools.GetTokenValue(offsetTime+(60*60), duration.Seconds())),
 		Inline: true,
@@ -246,7 +207,7 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 		}
 
 		fmt.Fprintf(&fbuilder, "%d", farmedCount)
-		field = append(field, &discordgo.MessageEmbedField{
+		field = append(field, dc.EmbedField{
 			Name:   "Farmed Tokens",
 			Value:  fbuilder.String(),
 			Inline: false,
@@ -279,7 +240,7 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 				}
 			}
 
-			field = append(field, &discordgo.MessageEmbedField{
+			field = append(field, dc.EmbedField{
 				Name:   "Sent Summary",
 				Value:  sbuilder.String(),
 				Inline: false,
@@ -303,7 +264,7 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 				fmt.Fprintf(&sbuilder, "> %d%s: <t:%d:R> %6.3f %s\n", i+1+sentOffset, quant, t.Time.Unix(), t.Value, id)
 
 				if i > 0 && (i+1)%25 == 0 {
-					field = append(field, &discordgo.MessageEmbedField{
+					field = append(field, dc.EmbedField{
 						Name:   "Sent Tokens",
 						Value:  sbuilder.String(),
 						Inline: false,
@@ -313,7 +274,7 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 				}
 			}
 		}
-		field = append(field, &discordgo.MessageEmbedField{
+		field = append(field, dc.EmbedField{
 			Name:   sentStr,
 			Value:  sbuilder.String(),
 			Inline: false,
@@ -345,7 +306,7 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 				}
 			}
 
-			field = append(field, &discordgo.MessageEmbedField{
+			field = append(field, dc.EmbedField{
 				Name:   "Received Summary",
 				Value:  rbuilder.String(),
 				Inline: false,
@@ -367,7 +328,7 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 				}
 				fmt.Fprintf(&rbuilder, "> %d%s: <t:%d:R> %6.3f %s\n", i+1+recvOffset, quant, t.Time.Unix(), t.Value, id)
 				if i > 0 && (i+1)%25 == 0 {
-					field = append(field, &discordgo.MessageEmbedField{
+					field = append(field, dc.EmbedField{
 						Name:   "Received Tokens",
 						Value:  rbuilder.String(),
 						Inline: false,
@@ -378,7 +339,7 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 			}
 		}
 
-		field = append(field, &discordgo.MessageEmbedField{
+		field = append(field, dc.EmbedField{
 			Name:   recvStr,
 			Value:  rbuilder.String(),
 			Inline: false,
@@ -388,13 +349,13 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 	totalHeader = "Current △ TVal"
 	finalTotal = fmt.Sprintf("%4.3f", SentValue-ReceivedValue)
 	contract.Boosters[userID].TokenValue = SentValue - ReceivedValue
-	field = append(field, &discordgo.MessageEmbedField{
+	field = append(field, dc.EmbedField{
 		Name:   totalHeader,
 		Value:  finalTotal,
 		Inline: true,
 	})
 
-	field = append(field, &discordgo.MessageEmbedField{
+	field = append(field, dc.EmbedField{
 		Name:   "Target TVal",
 		Value:  fmt.Sprintf("%4.3f", targetTval),
 		Inline: true,
@@ -403,7 +364,7 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 	// Show Token Teamwork score vs max.
 	myTeamwork := calculateTokenTeamwork(contract.EstimatedDuration.Seconds(), contract.MinutesPerToken, SentValue, ReceivedValue)
 	maxTeamwork := calculateTokenTeamwork(contract.EstimatedDuration.Seconds(), contract.MinutesPerToken, 1000, 8)
-	field = append(field, &discordgo.MessageEmbedField{
+	field = append(field, dc.EmbedField{
 		Name:   "Teamwork Value",
 		Value:  fmt.Sprintf("%4.3g / %4.3g", myTeamwork, maxTeamwork),
 		Inline: true,
@@ -411,17 +372,13 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 
 	footerStr := "For the most accurate values make sure total contract time is accurate."
 
-	embed := &discordgo.MessageSend{
-		Embeds: []*discordgo.MessageEmbed{{
-			Type:        discordgo.EmbedTypeRich,
-			Title:       "Token Tracking",
-			Description: description.String(),
-			Color:       0xeedd00,
-			Fields:      field,
-			Footer: &discordgo.MessageEmbedFooter{
-				Text: footerStr,
-			},
-		},
+	embed := &dc.Embed{
+		Title:       "Token Tracking",
+		Description: description.String(),
+		Color:       0xeedd00,
+		Fields:      field,
+		Footer: &dc.EmbedFooter{
+			Text: footerStr,
 		},
 	}
 

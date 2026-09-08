@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/watch"
@@ -148,7 +148,11 @@ func getAAAFinalSeasonCxpGoal(seasonInfo *ei.ContractSeasonInfo) float64 {
 
 // GetPeriodicalsFromAPI will download the events from the Egg Inc API.
 // Returns true if it detects a meaningful live periodicals refresh.
-func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
+//
+// It still takes a raw session because it hands one to boost and watch, which
+// are not on the dc facade yet; every Discord call it makes itself goes
+// through client. The parameter becomes a dc.Client once those two migrate.
+func GetPeriodicalsFromAPI(client dc.Client) bool {
 	userID := config.EIUserID
 	reqURL := "https://www.auxbrain.com/ei/get_periodicals"
 	enc := base64.StdEncoding
@@ -325,7 +329,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 			watch.AddNewColleggtible(egg.ID)
 			var builder strings.Builder
 			// Do we have an icon for this egg?
-			_, err := bottools.ImportEggImage(s, egg.ID, egg.IconURL)
+			_, err := bottools.ImportEggImageWithClient(client, egg.ID, egg.IconURL)
 			if err != nil {
 				log.Print(err)
 				// Can't continue here on error, so skip this egg
@@ -336,17 +340,16 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 			description := strings.Join(egg.DimensionValueString, ",") + " " + egg.DimensionName
 			description += fmt.Sprintf("\n%s Value: %g", ei.GetBotEmojiMarkdown(egg.ID), egg.Value)
 			// Send a message about a new egg
-			u, _ := s.UserChannelCreate(config.AdminUserID)
-			var data discordgo.MessageSend
-			data.Content = builder.String()
-			data.Embed = &discordgo.MessageEmbed{
-				Title:       egg.Name,
-				Description: description,
-				Thumbnail: &discordgo.MessageEmbedThumbnail{
-					URL: egg.IconURL,
-				},
+			u, _ := client.CreateUserChannel(config.AdminUserID)
+			data := dc.Message{
+				Content: builder.String(),
+				Embeds: []dc.Embed{{
+					Title:       egg.Name,
+					Description: description,
+					Thumbnail:   egg.IconURL,
+				}},
 			}
-			_, err = s.ChannelMessageSendComplex(u.ID, &data)
+			_, err = client.SendMessage(u.ID, data)
 			if err != nil {
 				log.Print(err)
 			}
@@ -354,14 +357,14 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 			// Also send this for ACO
 			if !config.IsDevBot() {
 				acoChannel := "1257340301438222401" // ACO #colleggtibles-chat
-				permissions, err := s.UserChannelPermissions(config.DiscordAppID, acoChannel)
+				permissions, err := client.UserChannelPermissions(config.DiscordAppID, acoChannel)
 				if err != nil {
 					log.Printf("Error getting permissions for channel %s: %v", acoChannel, err)
 				} else {
-					if permissions&discordgo.PermissionSendMessages == 0 {
+					if !permissions.SendMessages() {
 						log.Printf("Bot does not have permission to send messages in channel %s", acoChannel)
 					} else {
-						_, err = s.ChannelMessageSendComplex(acoChannel, &data)
+						_, err = client.SendMessage(acoChannel, data)
 						if err != nil {
 							log.Print(err)
 						}
@@ -445,7 +448,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 		saveCustomEggData(ei.CustomEggMap)
 	}
 
-	updatedPredicted := boost.UpdatePredictedSignupContracts(s, newContract)
+	updatedPredicted := boost.UpdatePredictedSignupContracts(client, newContract)
 	if updatedPredicted > 0 {
 		log.Printf("Updated %d predicted signup contract(s) to live contract IDs", updatedPredicted)
 	}
@@ -514,7 +517,7 @@ func GetPeriodicalsFromAPI(s *discordgo.Session) bool {
 		)
 	}
 
-	go watch.CheckWatches(s)
+	go watch.CheckWatches(client)
 
 	return periodicalsReady || newEvents || updatedPredicted > 0
 }

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 	"google.golang.org/genai"
@@ -184,8 +184,8 @@ func uniqueRoleName(existingRoles []string, preferredName string) string {
 	return fmt.Sprintf("%s %d", preferredName, rand.IntN(1000)+1000)
 }
 
-func ensurePotatoTeamRoleForUser(s *discordgo.Session, contract *Contract, userID string) {
-	if s == nil || contract == nil {
+func ensurePotatoTeamRoleForUser(client dc.Client, contract *Contract, userID string) {
+	if client == nil || contract == nil {
 		return
 	}
 
@@ -207,7 +207,7 @@ func ensurePotatoTeamRoleForUser(s *discordgo.Session, contract *Contract, userI
 
 		desiredName := getPotatoContractRoleName(contract)
 
-		roles, err := s.GuildRoles(loc.GuildID)
+		roles, err := client.GuildRoles(loc.GuildID)
 		if err != nil {
 			log.Printf("ensurePotatoTeamRoleForUser: failed to list roles for guild %s: %v", loc.GuildID, err)
 			continue
@@ -218,7 +218,7 @@ func ensurePotatoTeamRoleForUser(s *discordgo.Session, contract *Contract, userI
 		}
 		newName := uniqueRoleName(existingRoles, desiredName)
 
-		updatedRole, err := s.GuildRoleEdit(loc.GuildID, loc.GuildContractRole.ID, &discordgo.RoleParams{
+		updatedRole, err := client.EditGuildRole(loc.GuildID, loc.GuildContractRole.ID, dc.RoleParams{
 			Name: newName,
 		})
 		if err != nil {
@@ -238,12 +238,12 @@ func ensurePotatoTeamRoleForUser(s *discordgo.Session, contract *Contract, userI
 	}
 
 	if roleRenamed {
-		refreshBoostListMessage(s, contract, contract.RegisteredNum == contract.CoopSize)
+		refreshBoostListMessage(client, contract, contract.RegisteredNum == contract.CoopSize)
 	}
 }
 
-func ensurePotatoTeamRoleForUserAsync(s *discordgo.Session, contract *Contract, userID string) {
-	if s == nil || contract == nil || userID == "" {
+func ensurePotatoTeamRoleForUserAsync(client dc.Client, contract *Contract, userID string) {
+	if client == nil || contract == nil || userID == "" {
 		return
 	}
 
@@ -270,15 +270,15 @@ func ensurePotatoTeamRoleForUserAsync(s *discordgo.Session, contract *Contract, 
 				log.Printf("ensurePotatoTeamRoleForUserAsync panic for user %s: %v", userID, r)
 			}
 		}()
-		ensurePotatoTeamRoleForUser(s, contract, userID)
+		ensurePotatoTeamRoleForUser(client, contract, userID)
 	}()
 }
 
 // getContractRoleName generates a thematic role name for the given contract ID
-func selectUniqueTeamName(s *discordgo.Session, guildID string, roleNames []string) (string, string) {
+func selectUniqueTeamName(client dc.Client, guildID string, roleNames []string) (string, string) {
 	var existingRoles []string
-	if s != nil && guildID != "" {
-		roles, err := s.GuildRoles(guildID)
+	if client != nil && guildID != "" {
+		roles, err := client.GuildRoles(guildID)
 		if err == nil {
 			for _, r := range roles {
 				existingRoles = append(existingRoles, r.Name)
@@ -381,20 +381,20 @@ func selectUniqueTeamName(s *discordgo.Session, guildID string, roleNames []stri
 }
 
 // getContractRoleName generates a thematic role name for the given contract ID
-func getContractRoleName(s *discordgo.Session, guildID string, contractID string) string {
+func getContractRoleName(client dc.Client, guildID string, contractID string) string {
 	roleNames := randomThingNames
 
 	if names := ei.GetContractTeamNames(contractID); len(names) > 0 {
 		roleNames = names
 	}
 
-	prefix, teamName := selectUniqueTeamName(s, guildID, roleNames)
+	prefix, teamName := selectUniqueTeamName(client, guildID, roleNames)
 	return fmt.Sprintf("%s%s", prefix, teamName)
 }
 
 // Return a new contract role for the given guild
-func getContractRole(s *discordgo.Session, guildID string, contract *Contract) error {
-	var role *discordgo.Role
+func getContractRole(client dc.Client, guildID string, contract *Contract) error {
+	var role *dc.Role
 	var err error
 	nameMutex.Lock()
 	defer nameMutex.Unlock()
@@ -405,10 +405,10 @@ func getContractRole(s *discordgo.Session, guildID string, contract *Contract) e
 		roleNames = names
 	}
 
-	prefix, teamName := selectUniqueTeamName(s, guildID, roleNames)
+	prefix, teamName := selectUniqueTeamName(client, guildID, roleNames)
 
 	mentionable := true
-	role, err = s.GuildRoleCreate(guildID, &discordgo.RoleParams{
+	role, err = client.CreateGuildRole(guildID, dc.RoleParams{
 		Name:        fmt.Sprintf("%s%s", prefix, teamName),
 		Mentionable: &mentionable,
 	})

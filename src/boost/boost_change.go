@@ -10,313 +10,179 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
-var integerOneMinValue float64 = 1.0
-var integerZeroMinValue float64 = 0.0
-
 // GetSlashAdminContractsListCommand returns the command definition for admin contract list
-func GetSlashAdminContractsListCommand(cmd string) *discordgo.ApplicationCommand {
-	var adminPermission int64 = 0
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Description:              "List all running contracts",
-		DefaultMemberPermissions: &adminPermission,
-	}
+func GetSlashAdminContractsListCommand(cmd string) *dc.Command {
+	command := adminGuildCommand(cmd, "List all running contracts")
+	return &command
 }
 
 // GetSlashJoinContractCommand returns the command definition for joining a contract
-func GetSlashJoinContractCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
+func GetSlashJoinContractCommand(cmd string) *dc.Command {
+	tokenMin, tokenMax := 0, 14
+	command := guildOnlyCommand(cmd, "Add farmer or guest to contract.")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:        "farmer",
+			Description: "User mention or guest name to add to existing contract",
+			Required:    true,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
+		dc.IntOption{
+			Name:        "token-count",
+			Description: "Set the number of boost tokens for this farmer. Default is 8.",
+			MinValue:    &tokenMin,
+			MaxValue:    &tokenMax,
 		},
-		Description: "Add farmer or guest to contract.",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "farmer",
-				Description: "User mention or guest name to add to existing contract",
-				Required:    true,
+		dc.IntOption{
+			Name:        "boost-order",
+			Description: "Order farmer added to contract. Default is Signup order.",
+			Choices: []dc.Choice[int]{
+				{Name: "Sign-up Ordering", Value: ContractOrderSignup},
+				{Name: "Time Based Ordering", Value: ContractOrderTimeBased},
+				{Name: "Random Ordering", Value: ContractOrderRandom},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "token-count",
-				Description: "Set the number of boost tokens for this farmer. Default is 8.",
-				MinValue:    &integerZeroMinValue,
-				MaxValue:    14,
-				Required:    false,
-			},
-			{
-				Name:        "boost-order",
-				Description: "Order farmer added to contract. Default is Signup order.",
-				Required:    false,
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Choices: []*discordgo.ApplicationCommandOptionChoice{
-					{
-						Name:  "Sign-up Ordering",
-						Value: ContractOrderSignup,
-					},
-					{
-						Name:  "Time Based Ordering",
-						Value: ContractOrderTimeBased,
-					},
-					{
-						Name:  "Random Ordering",
-						Value: ContractOrderRandom,
-					},
-				},
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "already-boosted",
-				Description: "Add farmer in an already boosted state.",
-				Required:    false,
-			},
+		},
+		dc.BoolOption{
+			Name:        "already-boosted",
+			Description: "Add farmer in an already boosted state.",
 		},
 	}
+	return &command
 }
 
 // GetSlashBoostCommand returns the command definition for boosting
-func GetSlashBoostCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Description: "Spending tokens to boost!",
-		Options:     []*discordgo.ApplicationCommandOption{},
-	}
+func GetSlashBoostCommand(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Spending tokens to boost!")
+	return &command
 }
 
 // GetSlashSkipCommand returns the command definition for skipping a booster
-func GetSlashSkipCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Description: "Move current booster to last in boost order.",
-		Options:     []*discordgo.ApplicationCommandOption{},
-	}
+func GetSlashSkipCommand(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Move current booster to last in boost order.")
+	return &command
 }
 
 // GetSlashUnboostCommand returns the command definition for unboosting
-func GetSlashUnboostCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Description: "Change boost state to unboosted.",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "farmer",
-				Description: "User Mention",
-				Required:    true,
-			},
+func GetSlashUnboostCommand(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Change boost state to unboosted.")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:        "farmer",
+			Description: "User Mention",
+			Required:    true,
 		},
 	}
+	return &command
 }
 
 // GetSlashPruneCommand returns the command definition for pruning a booster
-func GetSlashPruneCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Prune Booster",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "farmer",
-				Description: "User Mention",
-				Required:    true,
-			},
+func GetSlashPruneCommand(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Prune Booster")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:        "farmer",
+			Description: "User Mention",
+			Required:    true,
 		},
 	}
+	return &command
 }
 
 // GetSlashBumpCommand returns the command definition for bumping a contract
-func GetSlashBumpCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Description: "Redraw the boost list to the timeline.",
-	}
+func GetSlashBumpCommand(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Redraw the boost list to the timeline.")
+	return &command
 }
 
 // GetSlashBumpCRCommand returns the command definition for bumping CR messages
-func GetSlashBumpCRCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Description: "Redraw the chicken run messages to the timeline.",
-	}
+func GetSlashBumpCRCommand(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Redraw the chicken run messages to the timeline.")
+	return &command
 }
 
 // GetSlashToggleContractPingsCommand returns the command definition for toggling pings
-func GetSlashToggleContractPingsCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Toggle Boost Bot contract pings [sticky]",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-	}
+func GetSlashToggleContractPingsCommand(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Toggle Boost Bot contract pings [sticky]")
+	return &command
 }
 
 // GetSlashContractSettingsCommand returns the command definition for contract settings
-func GetSlashContractSettingsCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Coordinator of contract can use this to show initial settings",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-	}
+func GetSlashContractSettingsCommand(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Coordinator of contract can use this to show initial settings")
+	return &command
 }
 
 // GetSlashChangeOneBoosterCommand adjust aspects of a running contract
-func GetSlashChangeOneBoosterCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
+func GetSlashChangeOneBoosterCommand(cmd string) *dc.Command {
+	positionMin := 1
+	command := guildOnlyCommand(cmd, "Move booster to a new position. If current booster, will assign new booster")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:        "booster-name",
+			Description: "Booster to move. Use an @mention or guest farmer name",
+			Required:    true,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Description: "Move booster to a new position. If current booster, will assign new booster",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "booster-name",
-				Description: "Booster to move. Use an @mention or guest farmer name",
-				Required:    true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "new-position",
-				Description: "Position to move the booster to",
-				Required:    true,
-				MinValue:    &integerOneMinValue,
-			},
+		dc.IntOption{
+			Name:        "new-position",
+			Description: "Position to move the booster to",
+			Required:    true,
+			MinValue:    &positionMin,
 		},
 	}
+	return &command
 }
 
 // GetSlashChangePlannedStartCommand adjust aspects of a running contract
-func GetSlashChangePlannedStartCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Description: "Change the planned start time of the contract",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "offset",
-				Description: "Relative offset",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionString,
-						Name:        "relative-time",
-						Description: "Relative time offset from 9:00 AM. Example: +2.5 or -1.5",
-						Required:    true,
-					},
+func GetSlashChangePlannedStartCommand(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Change the planned start time of the contract")
+	command.Options = []dc.Option{
+		dc.SubCommand{
+			Name:        "offset",
+			Description: "Relative offset",
+			Options: []dc.Option{
+				dc.StringOption{
+					Name:        "relative-time",
+					Description: "Relative time offset from 9:00 AM. Example: +2.5 or -1.5",
+					Required:    true,
 				},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "timestamp",
-				Description: "Discord Timestamp",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionString,
-						Name:        "start-time",
-						Description: "Discord Timestamp format. Example: <t:1716822000:f>",
-						Required:    true,
-					},
+		},
+		dc.SubCommand{
+			Name:        "timestamp",
+			Description: "Discord Timestamp",
+			Options: []dc.Option{
+				dc.StringOption{
+					Name:        "start-time",
+					Description: "Discord Timestamp format. Example: <t:1716822000:f>",
+					Required:    true,
 				},
 			},
 		},
 	}
+	return &command
 }
 
 // GetSlashLinkAlternateCommand allows a player to associate an alt.
-func GetSlashLinkAlternateCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Description: "Add an alternate persona for this contract.",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "farmer-name",
-				Description:  "Name of your alternate persona. This guest needs to be in the contract.",
-				Required:     true,
-				Autocomplete: true,
-			},
+func GetSlashLinkAlternateCommand(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Add an alternate persona for this contract.")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:         "farmer-name",
+			Description:  "Name of your alternate persona. This guest needs to be in the contract.",
+			Required:     true,
+			Autocomplete: true,
 		},
 	}
+	return &command
 }
 
-func extractUserID(s *discordgo.Session, boosterName string) (string, error) {
+func extractUserID(client dc.Client, boosterName string) (string, error) {
 	if userID, isMention := parseMentionUserID(boosterName); isMention {
-		u, err := s.User(userID)
+		u, err := client.User(userID)
 		if err != nil {
 			return "", err
 		}
@@ -325,32 +191,29 @@ func extractUserID(s *discordgo.Session, boosterName string) (string, error) {
 	return normalizeUserIDInput(boosterName), nil
 }
 
-// HandleChangeOneBoosterCommand will handle the /change-one-booster command
-func HandleChangeOneBoosterCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleChangeOneBoosterCommand handles the /change-one-booster command
+// through the dc facade.
+//
+// It still takes a raw session because the boost order mutators are not on the
+// facade yet.
+func HandleChangeOneBoosterCommand(client dc.Client, e *dc.CommandEvent) {
 	// Protection against DM use as we need the channel ID to find the contract
-	if i.GuildID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "This command can only be run in a server.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
+	if e.GuildID() == "" {
+		_ = e.Respond(dc.Message{
+			Content:   "This command can only be run in a server.",
+			Ephemeral: true,
 		})
 		return
 	}
 
 	var str = ""
-	optionMap := bottools.GetCommandOptionsMap(i)
 
 	var err error
-	contract := FindContract(i.ChannelID)
+	contract := FindContract(e.ChannelID())
 	if contract == nil {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    errorNoContract,
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
+		_ = e.Respond(dc.Message{
+			Content:   errorNoContract,
+			Ephemeral: true,
 		})
 		return
 	}
@@ -359,17 +222,17 @@ func HandleChangeOneBoosterCommand(s *discordgo.Session, i *discordgo.Interactio
 	boosterName := ""
 	newBooster := ""
 
-	if opt, ok := optionMap["new-position"]; ok {
-		position = int(opt.IntValue())
+	if opt, ok := e.OptInt("new-position"); ok {
+		position = opt
 		if position > len(contract.Order) {
 			str = "Invalid position, must be between 1 and " + strconv.Itoa(len(contract.Order))
 		}
 	}
 
-	if opt, ok := optionMap["booster-name"]; ok {
+	if opt, ok := e.OptString("booster-name"); ok {
 		// String in the form of mention
-		boosterName = strings.TrimSpace(opt.StringValue())
-		boosterName, err = extractUserID(s, boosterName)
+		boosterName = strings.TrimSpace(opt)
+		boosterName, err = extractUserID(client, boosterName)
 		if err != nil {
 			str = err.Error()
 		}
@@ -396,25 +259,19 @@ func HandleChangeOneBoosterCommand(s *discordgo.Session, i *discordgo.Interactio
 		}
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
+	_ = e.Defer(true)
 
 	// Empty string means we are good to go
 	if str == "" {
 
-		err := MoveBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID, boosterName, position, newBooster == "")
+		err := MoveBooster(client, e.GuildID(), e.ChannelID(), e.UserID(), boosterName, position, newBooster == "")
 		if err != nil {
 			str += err.Error()
 		} else {
 			str += fmt.Sprintf("Moved %s to position %d.", contract.Boosters[boosterName].Mention, position)
 
 			if newBooster != "" && contract.State != ContractStateSignup {
-				err := ChangeCurrentBooster(s, i.GuildID, i.ChannelID, i.Member.User.ID, newBooster, true)
+				err := ChangeCurrentBooster(client, e.GuildID(), e.ChannelID(), e.UserID(), newBooster, true)
 				if err != nil {
 					str += " " + strings.ToUpper(string(err.Error()[0])) + err.Error()[1:]
 				} else {
@@ -424,42 +281,34 @@ func HandleChangeOneBoosterCommand(s *discordgo.Session, i *discordgo.Interactio
 		}
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Content: str},
-	)
+	_ = e.Followup(dc.Message{Content: str})
 
 }
 
-// HandleChangePlannedStartCommand will handle the /change--planned-start command
-func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleChangePlannedStartCommand handles the /change-planned-start command
+// through the dc facade.
+//
+// It still takes a raw session because creatorOfContract and the boost list
+// redraw are not on the facade yet.
+func HandleChangePlannedStartCommand(client dc.Client, e *dc.CommandEvent) {
 	// Protection against DM use as we need the channel ID to find the contract
-	if i.GuildID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "This command can only be run in a server.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
+	if e.GuildID() == "" {
+		_ = e.Respond(dc.Message{
+			Content:   "This command can only be run in a server.",
+			Ephemeral: true,
 		})
 		return
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
+	_ = e.Defer(true)
 
 	var str = ""
 
-	contract := FindContract(i.ChannelID)
+	contract := FindContract(e.ChannelID())
 	if contract == nil {
 		str = errorNoContract
 	} else {
-		if !creatorOfContract(s, contract, i.Member.User.ID) {
+		if !creatorOfContract(client, contract, e.UserID()) {
 			str = "only the contract creator can change the contract"
 		}
 	}
@@ -468,14 +317,12 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 	if str == "" {
 		// Default to @here when there is no parameter
 
-		optionMap := bottools.GetCommandOptionsMap(i)
-
-		if opt, ok := optionMap["offset-relative-time"]; ok {
-			offsetStr := opt.StringValue()
+		if opt, ok := e.OptString("offset-relative-time"); ok {
+			offsetStr := opt
 			if strings.EqualFold(offsetStr, "tbd") {
 				contract.PlannedStartTime = time.Time{}
 				str = "Planned start time set to TBD"
-				refreshBoostListMessage(s, contract, false)
+				refreshBoostListMessage(client, contract, false)
 			} else {
 				offset, err := strconv.ParseFloat(offsetStr, 64)
 				if err != nil {
@@ -496,15 +343,15 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 
 					contract.PlannedStartTime = time.Unix(startTime, 0)
 					str = "Planned start time changed to " + "<t:" + strconv.FormatInt(startTime, 10) + ":f>"
-					refreshBoostListMessage(s, contract, false)
+					refreshBoostListMessage(client, contract, false)
 				}
 			}
 		}
 
-		if opt, ok := optionMap["timestamp-start-time"]; ok {
+		if opt, ok := e.OptString("timestamp-start-time"); ok {
 			var startTime int64
 			var err error
-			startTimeStr := opt.StringValue()
+			startTimeStr := opt
 
 			// Split string by colons to get the timestamp
 			startTimeArry := strings.Split(startTimeStr, ":")
@@ -520,12 +367,12 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 				if startTime == 0 {
 					contract.PlannedStartTime = time.Time{}
 					str = "Planned start time cleared"
-					refreshBoostListMessage(s, contract, false)
+					refreshBoostListMessage(client, contract, false)
 				} else {
 					contract.PlannedStartTime = time.Unix(startTime, 0)
 					if contract.PlannedStartTime.After(time.Now()) && contract.PlannedStartTime.Before(time.Now().AddDate(0, 0, 7)) {
 						str = "Planned start time changed to " + "<t:" + strconv.FormatInt(startTime, 10) + ":f>"
-						refreshBoostListMessage(s, contract, false)
+						refreshBoostListMessage(client, contract, false)
 					} else {
 						str = "Planned start time must be within the next 7 days. Use timestamps from [Discord Timestamp](https://discordtimestamp.com)"
 						contract.PlannedStartTime = time.Time{}
@@ -535,10 +382,7 @@ func HandleChangePlannedStartCommand(s *discordgo.Session, i *discordgo.Interact
 		}
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Content: str},
-	)
+	_ = e.Followup(dc.Message{Content: str})
 }
 
 // removeDuplicates takes a slice as an argument and returns the array with all duplicate elements removed.
@@ -649,14 +493,14 @@ func moveOverflowBoostersToWaitlist(contract *Contract) []string {
 }
 
 // ChangeContractIDs will change the contractID and/or coopID
-func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, userID string, contractID string, coopID string, coordinatorID string) (int, error) {
+func ChangeContractIDs(client dc.Client, guildID string, channelID string, userID string, contractID string, coopID string, coordinatorID string) (int, error) {
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return 0, errors.New(errorNoContract)
 	}
 
 	// return an error if the userID isn't the contract creator
-	if !creatorOfContract(s, contract, userID) {
+	if !creatorOfContract(client, contract, userID) {
 		return 0, errors.New("only the contract creator can change the contract")
 	}
 
@@ -666,7 +510,7 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 
 	if contractID != "" {
 		contract.ContractID = contractID
-		updateContractWithEggIncData(s, contract)
+		updateContractWithEggIncData(client, contract)
 		movedLabels := moveOverflowBoostersToWaitlist(contract)
 		movedToWaitlist = len(movedLabels)
 		contract.EggEmoji = FindEggEmoji(contract.EggName)
@@ -697,19 +541,19 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 				len(movedLabels),
 				strings.Join(movedLabels, ", "),
 			)
-			if _, err := s.ChannelMessageSend(channelID, channelMsg); err != nil {
+			if _, err := client.SendMessage(channelID, dc.Message{Content: channelMsg}); err != nil {
 				log.Println("Error sending waitlist movement message:", err)
 			}
 		}
 
 		// Rename the contract role to match the new contract
-		renameContractRole(s, contract)
+		renameContractRole(client, contract)
 
-		refreshBoostListMessage(s, contract, false)
+		refreshBoostListMessage(client, contract, false)
 	}
 	if coopID != "" {
 		contract.CoopID = coopID
-		refreshBoostListMessage(s, contract, true)
+		refreshBoostListMessage(client, contract, true)
 	}
 	if coordinatorID != "" {
 		if slices.Index(contract.Order, coordinatorID) != -1 {
@@ -725,7 +569,7 @@ func ChangeContractIDs(s *discordgo.Session, guildID string, channelID string, u
 }
 
 // renameContractRole renames the contract role to match the new contract ID
-func renameContractRole(s *discordgo.Session, contract *Contract) {
+func renameContractRole(client dc.Client, contract *Contract) {
 	// Rename the role in each guild where the contract exists
 	for _, loc := range contract.Location {
 		if loc.GuildContractRole.ID == "" {
@@ -733,9 +577,9 @@ func renameContractRole(s *discordgo.Session, contract *Contract) {
 		}
 
 		// Get the new thematic role name for the updated contract in this specific guild
-		newRoleName := getContractRoleName(s, loc.GuildID, contract.ContractID)
+		newRoleName := getContractRoleName(client, loc.GuildID, contract.ContractID)
 
-		updatedRole, err := s.GuildRoleEdit(loc.GuildID, loc.GuildContractRole.ID, &discordgo.RoleParams{
+		updatedRole, err := client.EditGuildRole(loc.GuildID, loc.GuildContractRole.ID, dc.RoleParams{
 			Name: newRoleName,
 		})
 
@@ -752,7 +596,7 @@ func renameContractRole(s *discordgo.Session, contract *Contract) {
 }
 
 // ChangeCurrentBooster will change the current booster to the specified userID
-func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string, userID string, newBooster string, redraw bool) error {
+func ChangeCurrentBooster(client dc.Client, guildID string, channelID string, userID string, newBooster string, redraw bool) error {
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -764,7 +608,7 @@ func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string
 	}
 
 	// return an error if the userID isn't the contract creator
-	if !creatorOfContract(s, contract, userID) {
+	if !creatorOfContract(client, contract, userID) {
 		return errors.New("only the contract creator can change the contract")
 	}
 
@@ -789,13 +633,13 @@ func ChangeCurrentBooster(s *discordgo.Session, guildID string, channelID string
 
 	// Clear current booster boost state
 	if redraw {
-		sendNextNotification(s, contract, true)
+		sendNextNotification(client, contract, true)
 	}
 	return nil
 }
 
 // ChangeBoostOrder will change the order of the boosters in the contract
-func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, userID string, boostOrder string, redraw bool) (string, error) {
+func ChangeBoostOrder(client dc.Client, guildID string, channelID string, userID string, boostOrder string, redraw bool) (string, error) {
 	var contract = FindContract(channelID)
 	var boostOrderClean = ""
 	if contract == nil {
@@ -808,7 +652,7 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 	}
 
 	// return an error if the userID isn't the contract creator
-	if !creatorOfContract(s, contract, userID) {
+	if !creatorOfContract(client, contract, userID) {
 		return "", errors.New("only the contract creator can change the contract")
 	}
 
@@ -895,9 +739,9 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 		contract.enforceOnlyOneTokenTimeBooster()
 	}
 
-	//sendNextNotification(s, contract, true)
+	//sendNextNotification(client, contract, true)
 	if redraw {
-		refreshBoostListMessage(s, contract, false)
+		refreshBoostListMessage(client, contract, false)
 	}
 
 	summaryStr := fmt.Sprintf("Boost order changed to %s.", boostOrder)
@@ -909,14 +753,14 @@ func ChangeBoostOrder(s *discordgo.Session, guildID string, channelID string, us
 }
 
 // MoveBooster will move a booster to a new position in the contract
-func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID string, boosterName string, boosterPosition int, redraw bool) error {
+func MoveBooster(client dc.Client, guildID string, channelID string, userID string, boosterName string, boosterPosition int, redraw bool) error {
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
 
 	// return an error if the userID isn't the contract creator
-	if !creatorOfContract(s, contract, userID) {
+	if !creatorOfContract(client, contract, userID) {
 		return errors.New("only the contract creator can change the contract")
 	}
 
@@ -971,43 +815,40 @@ func MoveBooster(s *discordgo.Session, guildID string, channelID string, userID 
 		contract.enforceOnlyOneTokenTimeBooster()
 	}
 	if redraw {
-		refreshBoostListMessage(s, contract, false)
+		refreshBoostListMessage(client, contract, false)
 	}
 
 	return nil
 }
 
-// HandleLinkAlternateCommand will handle the /link-alternate command
-func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleLinkAlternateCommand handles the /link-alternate command through the
+// dc facade.
+//
+// It still takes a raw session because the boost list redraw is not on the
+// facade yet.
+func HandleLinkAlternateCommand(client dc.Client, e *dc.CommandEvent) {
 	// Protection against DM use as we need the channel ID to find the contract
-	if i.GuildID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "This command can only be run in a server.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
+	if e.GuildID() == "" {
+		_ = e.Respond(dc.Message{
+			Content:   "This command can only be run in a server.",
+			Ephemeral: true,
 		})
 		return
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
+	_ = e.Defer(true)
 
 	var str = ""
 
-	contract := FindContract(i.ChannelID)
+	userID := e.UserID()
+
+	contract := FindContract(e.ChannelID())
 	if contract == nil {
 		str = errorNoContract
 	}
 
 	// Is this user in the contract?
-	if !UserInContract(contract, i.Member.User.ID) {
+	if !UserInContract(contract, userID) {
 		str = "You need to be in this contract to link an alternate that is also in the contract."
 	}
 
@@ -1016,48 +857,44 @@ func HandleLinkAlternateCommand(s *discordgo.Session, i *discordgo.InteractionCr
 		// Default to @here when there is no parameter
 		newAlt := ""
 
-		optionMap := bottools.GetCommandOptionsMap(i)
-
-		if opt, ok := optionMap["farmer-name"]; ok {
-			newAlt = strings.TrimSpace(opt.StringValue())
+		if opt, ok := e.OptString("farmer-name"); ok {
+			newAlt = strings.TrimSpace(opt)
 
 			// Is this booster in the contract?
 			if _, ok := contract.Boosters[newAlt]; !ok {
 				str = "This farmer is not in the contract"
 			} else {
-				b := contract.Boosters[i.Member.User.ID]
+				b := contract.Boosters[userID]
 
 				// Save remember this alt's owner so we can auto link next time
-				farmerstate.SetMiscSettingString(newAlt, "AltController", i.Member.User.ID)
+				farmerstate.SetMiscSettingString(newAlt, "AltController", userID)
 
 				b.Alts = append(b.Alts, newAlt)
-				contract.Boosters[newAlt].AltController = i.Member.User.ID
-				str = "Associated your `" + newAlt + "` alt with " + i.Member.User.Mention() + "\n"
+				contract.Boosters[newAlt].AltController = userID
+				str = "Associated your `" + newAlt + "` alt with <@" + userID + ">\n"
 				str += "> Use the Signup sink buttons to select your alt for sinks, these cycle through alts so you may need to press them multiple times.\n"
 				str += "> Use the " + boostIcon + " reaction to indicate when your main or alt(s) boost.\n"
 				str += "> Use the normal token buttons to indicate when `" + newAlt + "` sends tokens."
 				contract.buttonComponents = nil // reset button components
 				defer saveData(contract.ContractHash)
 				//if contract.State == ContractStateSignup {
-				refreshBoostListMessage(s, contract, false)
+				refreshBoostListMessage(client, contract, false)
 				//} else {
-				//	_ = RedrawBoostList(s, i.GuildID, i.ChannelID)
+				//	_ = RedrawBoostList(client, e.GuildID(), e.ChannelID())
 				//}
 			}
 		}
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Content: str},
-	)
+	_ = e.Followup(dc.Message{Content: str})
 }
 
 // HandleLinkAlternateAutoComplete will handle the /link-alternate autocomplete
-func HandleLinkAlternateAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+// through the dc facade.
+func HandleLinkAlternateAutoComplete(e *dc.AutocompleteEvent) {
+	choices := make([]dc.Choice[string], 0)
 
-	contract := FindContract(i.ChannelID)
+	contract := FindContract(e.ChannelID())
 	if contract != nil {
 		for _, b := range contract.Boosters {
 			if b.UserID != b.Name {
@@ -1067,18 +904,12 @@ func HandleLinkAlternateAutoComplete(s *discordgo.Session, i *discordgo.Interact
 				continue
 			}
 
-			choice := discordgo.ApplicationCommandOptionChoice{
+			choices = append(choices, dc.Choice[string]{
 				Name:  b.Name,
 				Value: b.Name,
-			}
-			choices = append(choices, &choice)
+			})
 		}
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Contract ID",
-			Choices: choices,
-		}})
+	_ = e.RespondChoices(choices)
 }

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
@@ -183,30 +183,24 @@ func sandboxPlayersFromContract(contract *Contract) []SandboxPlayer {
 	return players
 }
 
-// HandleMenuReactions handles the menu reactions for the contract
-func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
-
-	//userID := getInteractionUserID(i)
-
-	data := i.MessageComponentData()
-	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
+// HandleMenuReactions handles the menu reactions for the contract.
+//
+// It still takes a raw session because the boost list redraw, the token
+// helpers and the sandbox DM are not on the facade yet.
+func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
+	reaction := strings.Split(e.CustomID(), "#")
 	contractHash := reaction[len(reaction)-1]
 	contract := FindContractByHash(contractHash)
 
 	// menu # HASH
-	values := data.Values
+	values := e.Values()
 	if len(values) == 0 || contract == nil {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
-		})
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
+		_ = e.DeferUpdate()
+		_ = e.Followup(dc.Message{})
 		return
 	}
 
+	userID := e.UserID()
 	cmd := strings.Split(values[0], ":")
 
 	switch cmd[0] {
@@ -220,24 +214,19 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		fmt.Fprintf(&outputStrBuilder, "> * [%s](%s)\n", "Kaylier Coop Laying Assistant", "https://ei-coop-assistant.netlify.app/laying-set")
 		fmt.Fprintf(&outputStrBuilder, "> * [%s](%s)\n", "Token Farmer", "http://t-farmer.gigalixirapp.com/")
 		fmt.Fprintf(&outputStrBuilder, "> * [%s](%s)\n", "Tokification: Android App for Speedrunners!", "https://github.com/ItsJustSomeDude/tokification-android/releases")
-		outputStr := outputStrBuilder.String()
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: outputStr,
-				Flags:   discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsSuppressEmbeds,
-			},
+		_ = e.Respond(dc.Message{
+			Content:        outputStrBuilder.String(),
+			Ephemeral:      true,
+			SuppressEmbeds: true,
 		})
 	case "sandbox":
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		})
+		_ = e.DeferUpdate()
 
-		err := SendSandboxDM(s, contract, i.Member.User.ID)
+		err := SendSandboxDM(client, contract, userID)
 		if err != nil {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: fmt.Sprintf("Unable to generate SR Sandbox link: %v", err),
-				Flags:   discordgo.MessageFlagsEphemeral,
+			_ = e.Followup(dc.Message{
+				Content:   fmt.Sprintf("Unable to generate SR Sandbox link: %v", err),
+				Ephemeral: true,
 			})
 			return
 		}
@@ -252,23 +241,18 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		outputStrBuilder.WriteString("\\* Boost.\n")
 		fmt.Fprintf(&outputStrBuilder, "\necoopad %s %s\n", contract.ContractID, contract.CoopID)
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "",
-				Embeds: []*discordgo.MessageEmbed{
-					{
-						Title:       "X-Post",
-						Description: outputStrBuilder.String(),
-						Color:       0x00cc00,
-					},
+		_ = e.Respond(dc.Message{
+			Embeds: []dc.Embed{
+				{
+					Title:       "X-Post",
+					Description: outputStrBuilder.String(),
+					Color:       0x00cc00,
 				},
-				Flags: discordgo.MessageFlagsEphemeral,
 			},
+			Ephemeral: true,
 		})
 	case "tlog":
-		field := []*discordgo.MessageEmbedField{}
-		var embed []*discordgo.MessageEmbed
+		var field []dc.EmbedField
 
 		var logs []string
 		for _, line := range contract.TokenLog {
@@ -287,7 +271,7 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		var currentField strings.Builder
 		for _, line := range logs {
 			if currentField.Len()+len(line)+1 > 950 { // +1 for the newline character
-				field = append(field, &discordgo.MessageEmbedField{
+				field = append(field, dc.EmbedField{
 					Name:  "",
 					Value: currentField.String(),
 				})
@@ -297,79 +281,54 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			currentField.WriteString("\n")
 		}
 		if currentField.Len() > 0 {
-			field = append(field, &discordgo.MessageEmbedField{
+			field = append(field, dc.EmbedField{
 				Name:  "",
 				Value: currentField.String(),
 			})
 		}
-		embed = []*discordgo.MessageEmbed{{
-			Type:        discordgo.EmbedTypeRich,
-			Title:       "Token Log",
-			Description: "",
-			Fields:      field,
-		}}
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "",
-				Embeds:  embed,
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Embeds: []dc.Embed{{
+				Title:       "Token Log",
+				Description: "",
+				Fields:      field,
+			}},
+			Ephemeral: true,
 		})
 
 	case "time":
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Updating boost list with estimated time...",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "Updating boost list with estimated time...",
+			Ephemeral: true,
 		})
 		contract.EstimateUpdateTime = time.Now()
-		go updateEstimatedTime(s, i.ChannelID, contract, false, i.Member.User.ID)
+		go updateEstimatedTime(client, e.ChannelID(), contract, false, userID)
 	case "want":
 		message := "**%s** wants at least 1 more token."
-		contract.Boosters[i.Member.User.ID].TokenRequestFlag = !contract.Boosters[i.Member.User.ID].TokenRequestFlag
-		if !contract.Boosters[i.Member.User.ID].TokenRequestFlag {
+		contract.Boosters[userID].TokenRequestFlag = !contract.Boosters[userID].TokenRequestFlag
+		if !contract.Boosters[userID].TokenRequestFlag {
 			message = "**%s** now has the tokens they need."
 		}
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: fmt.Sprintf(message, contract.Boosters[i.Member.User.ID].Nick),
-				//Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content: fmt.Sprintf(message, contract.Boosters[userID].Nick),
 		})
-		refreshBoostListMessage(s, contract, false)
+		refreshBoostListMessage(client, contract, false)
 	case "send":
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
-		})
+		_ = e.DeferUpdate()
 		wantUser := cmd[1]
-		_, redraw := buttonReactionToken(s, i.GuildID, i.ChannelID, contract, i.Member.User.ID, 1, wantUser)
+		_, redraw := buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 1, wantUser)
 		if redraw {
-			refreshBoostListMessage(s, contract, false)
+			refreshBoostListMessage(client, contract, false)
 		}
-		sendOrUpdateUserReactionSummary(s, i, contract, i.Member.User.ID)
+		sendOrUpdateUserReactionSummary(e, contract, e.UserID())
 	case "next":
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
-		})
+		_ = e.DeferUpdate()
 		nextUser := cmd[1]
-		_, redraw := buttonReactionToken(s, i.GuildID, i.ChannelID, contract, i.Member.User.ID, 1, nextUser)
+		_, redraw := buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 1, nextUser)
 		if redraw {
-			refreshBoostListMessage(s, contract, false)
+			refreshBoostListMessage(client, contract, false)
 		}
-		sendOrUpdateUserReactionSummary(s, i, contract, i.Member.User.ID)
+		sendOrUpdateUserReactionSummary(e, contract, e.UserID())
 	case "grange":
 		// Create a list of the grange members from contract.BoostList, with each line formatted as "MemberName (UserID)" and the join timestamp
 		var grangeMembers []string
@@ -393,27 +352,20 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		for _, entry := range entries {
 			grangeMembers = append(grangeMembers, fmt.Sprintf("`%s` joined: <t:%d:T>", entry.booster.Nick, entry.booster.Register.Unix()))
 		}
-		var components []discordgo.MessageComponent
-		components = append(components, &discordgo.TextDisplay{
+		var components []dc.LayoutComponent
+		components = append(components, dc.TextDisplay{
 			Content: fmt.Sprintf("# %s Grange Members\n%s", contract.Location[0].GuildContractRole.Name, strings.Join(grangeMembers, "\n")),
 		})
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
-				Components: components,
-			},
+		_ = e.Respond(dc.Message{
+			Ephemeral:  true,
+			Components: components,
 		})
 	case "mychickens":
-		userID := i.Member.User.ID
 		booster := contract.Boosters[userID]
 		if booster == nil {
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "You are not part of this contract.",
-					Flags:   discordgo.MessageFlagsEphemeral,
-				},
+			_ = e.Respond(dc.Message{
+				Content:   "You are not part of this contract.",
+				Ephemeral: true,
 			})
 			return
 		}
@@ -440,35 +392,24 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			}
 		}
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: chickenRunList.String(),
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   chickenRunList.String(),
+			Ephemeral: true,
 		})
 	case "rancoop":
-		userID := i.Member.User.ID
 		if !UserInContract(contract, userID) {
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "You are not part of this contract.",
-					Flags:   discordgo.MessageFlagsEphemeral,
-				},
+			_ = e.Respond(dc.Message{
+				Content:   "You are not part of this contract.",
+				Ephemeral: true,
 			})
 			return
 		}
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: fmt.Sprintf("%s Marked all farms that you've run chickens.", ei.GetBotEmojiMarkdown("icon_chicken_run")),
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   fmt.Sprintf("%s Marked all farms that you've run chickens.", ei.GetBotEmojiMarkdown("icon_chicken_run")),
+			Ephemeral: true,
 		})
-		buttonReactionRanCoop(s, i, contract, userID)
+		buttonReactionRanCoop(client, e, contract, userID)
 	case "togglerxlog":
-		userID := i.Member.User.ID
 		contract.mutex.Lock()
 		booster := contract.Boosters[userID]
 		msgStr := "You are not part of this contract."
@@ -483,12 +424,9 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 		contract.mutex.Unlock()
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: msgStr,
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   msgStr,
+			Ephemeral: true,
 		})
 	case "adminlogs":
 		creatorIDs := make([]string, 0)
@@ -505,7 +443,6 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		contract.mutex.Unlock()
 
 		// Check if the user is a coordinator for the contract
-		userID := bottools.GetInteractionUserID(i)
 		isCoordinator := false
 		for _, creatorID := range creatorIDs {
 			if creatorID == userID {
@@ -519,12 +456,12 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 					isCoordinator = true
 					break
 				}
-				perms, err := s.UserChannelPermissions(userID, loc.ChannelID)
+				perms, err := client.UserChannelPermissions(userID, loc.ChannelID)
 				if err != nil {
 					log.Println(err)
 					continue
 				}
-				if perms&discordgo.PermissionAdministrator != 0 {
+				if perms.Administrator() {
 					isCoordinator = true
 					break
 				}
@@ -532,12 +469,9 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 
 		if !isCoordinator {
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "You are not a coordinator for this contract.",
-					Flags:   discordgo.MessageFlagsEphemeral,
-				},
+			_ = e.Respond(dc.Message{
+				Content:   "You are not a coordinator for this contract.",
+				Ephemeral: true,
 			})
 			return
 		}
@@ -548,46 +482,34 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			guildID = locations[0].GuildID
 		}
 		if guildID == "" {
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "Unable to determine the guild for this contract.",
-					Flags:   discordgo.MessageFlagsEphemeral,
-				},
+			_ = e.Respond(dc.Message{
+				Content:   "Unable to determine the guild for this contract.",
+				Ephemeral: true,
 			})
 			return
 		}
 		targetChannelID := guildstate.GetGuildSettingString(guildID, "admin_logs_channel")
 		if targetChannelID == "" {
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "Admin logs are not configured for this server. Contact an admin to set the `admin_logs_channel` guildstate.",
-					Flags:   discordgo.MessageFlagsEphemeral,
-				},
+			_ = e.Respond(dc.Message{
+				Content:   "Admin logs are not configured for this server. Contact an admin to set the `admin_logs_channel` guildstate.",
+				Ephemeral: true,
 			})
 			return
 		}
 
 		// Pull up the contract data in the target channel
-		AdminContractReport(s, i, contract, targetChannelID)
+		AdminContractReport(client, e, contract, targetChannelID)
 	case "swap":
-		userID := i.Member.User.ID
-		redraw := buttonReactionSwap(s, i.GuildID, i.ChannelID, contract, userID)
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		})
+		redraw := buttonReactionSwap(client, e.GuildID(), e.ChannelID(), contract, userID)
+		_ = e.DeferUpdate()
 		if redraw {
-			refreshBoostListMessage(s, contract, false)
+			refreshBoostListMessage(client, contract, false)
 		}
 	case "last":
-		userID := i.Member.User.ID
-		_, redraw := buttonReactionLast(s, i.GuildID, i.ChannelID, contract, userID)
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		})
+		_, redraw := buttonReactionLast(client, e.GuildID(), e.ChannelID(), contract, userID)
+		_ = e.DeferUpdate()
 		if redraw {
-			refreshBoostListMessage(s, contract, false)
+			refreshBoostListMessage(client, contract, false)
 		}
 	case "ihrlog":
 		var logLines []string
@@ -618,36 +540,26 @@ func HandleMenuReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		contract.mutex.Unlock()
 
 		if len(logLines) == 0 {
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "No IHR calculation logs recorded for this contract.",
-					Flags:   discordgo.MessageFlagsEphemeral,
-				},
+			_ = e.Respond(dc.Message{
+				Content:   "No IHR calculation logs recorded for this contract.",
+				Ephemeral: true,
 			})
 			return
 		}
 
 		contentStr := strings.Join(logLines, "\n") + "\n"
-		file := &discordgo.File{
-			Name:        "ihr_calculations.txt",
-			ContentType: "text/plain",
-			Reader:      strings.NewReader(contentStr),
-		}
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "### IHR Calculation Details",
-				Files:   []*discordgo.File{file},
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content: "### IHR Calculation Details",
+			Files: []dc.File{{
+				Name:        "ihr_calculations.txt",
+				ContentType: "text/plain",
+				Reader:      strings.NewReader(contentStr),
+			}},
+			Ephemeral: true,
 		})
 	case "help":
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
-		})
-		buttonReactionHelp(s, i, contract)
+		_ = e.Defer(true)
+		buttonReactionHelp(client, e, contract)
 	}
 }

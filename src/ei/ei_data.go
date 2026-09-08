@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 // TokenUnitLog is a full log of all passed tokens
@@ -302,8 +302,8 @@ func FindEggEmoji(eggOrig string) string {
 	return eggIconString
 }
 
-// FindEggComponentEmoji will find the token emoji and return it as a ComponentEmoji
-func FindEggComponentEmoji(eggOrig string) *discordgo.ComponentEmoji {
+// FindEggComponentEmoji will find the token emoji and return it as a component emoji
+func FindEggComponentEmoji(eggOrig string) *dc.Emoji {
 	eggOrig = strings.ReplaceAll(eggOrig, " ", "")
 	eggOrig = strings.ReplaceAll(eggOrig, "-", "")
 	eggOrig = strings.ReplaceAll(eggOrig, "_", "")
@@ -313,12 +313,12 @@ func FindEggComponentEmoji(eggOrig string) *discordgo.ComponentEmoji {
 	}
 
 	if eggIcon, ok := EmoteMap[strings.ToLower(eggOrig)]; ok {
-		return &discordgo.ComponentEmoji{
+		return &dc.Emoji{
 			Name: eggIcon.Name,
 			ID:   eggIcon.ID,
 		}
 	}
-	return &discordgo.ComponentEmoji{
+	return &dc.Emoji{
 		Name: EmoteMap[eggUnknownName].Name,
 		ID:   EmoteMap[eggUnknownName].ID,
 	}
@@ -368,9 +368,9 @@ func getBotEmojiData(name string) (Emotes, bool) {
 	return emoji, true
 }
 
-// GetBotComponentEmoji will return a ComponentEmoji for the given name
-func GetBotComponentEmoji(name string) *discordgo.ComponentEmoji {
-	compEmoji := new(discordgo.ComponentEmoji)
+// GetBotComponentEmoji will return a component emoji for the given name
+func GetBotComponentEmoji(name string) *dc.Emoji {
+	compEmoji := new(dc.Emoji)
 	var emojiName string
 	var emojiID string
 

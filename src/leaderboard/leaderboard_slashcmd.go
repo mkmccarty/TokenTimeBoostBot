@@ -9,37 +9,30 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mattn/go-runewidth"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
 
 // GetSlashAdminLBCommand returns the /admin-lb command definition.
-func GetSlashAdminLBCommand(cmd string) *discordgo.ApplicationCommand {
-	adminPerms := int64(discordgo.PermissionManageGuild)
+func GetSlashAdminLBCommand(cmd string) *dc.Command {
+	adminPerms := dc.PermissionManageGuild
 
-	return &discordgo.ApplicationCommand{
+	command := dc.Command{
 		Name:                     cmd,
 		Description:              "Guild admin commands for leaderboard configuration.",
 		DefaultMemberPermissions: &adminPerms,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:         discordgo.ApplicationCommandOptionSubCommand,
-				Name:         "set-channel",
-				Description:  "Configure a leaderboard type to post in this channel.",
-				Autocomplete: true,
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:         discordgo.ApplicationCommandOptionString,
+		Contexts:                 []dc.InteractionContext{dc.ContextGuild},
+		IntegrationTypes:         []dc.IntegrationType{dc.IntegrationGuildInstall},
+		Options: []dc.Option{
+			dc.SubCommand{
+				Name:        "set-channel",
+				Description: "Configure a leaderboard type to post in this channel.",
+				Options: []dc.Option{
+					dc.StringOption{
 						Name:         "type",
 						Description:  "Leaderboard type or group",
 						Required:     true,
@@ -47,30 +40,25 @@ func GetSlashAdminLBCommand(cmd string) *discordgo.ApplicationCommand {
 					},
 				},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			dc.SubCommand{
 				Name:        "backfill-eggday",
 				Description: "Manually set Egg Day start/end SE for a player and recalculate.",
-				Options: []*discordgo.ApplicationCommandOption{
-					{Type: discordgo.ApplicationCommandOptionUser, Name: "user", Description: "Discord user to backfill", Required: true},
-					{Type: discordgo.ApplicationCommandOptionString, Name: "start", Description: "Start SE value (e.g., 23.45s or 12345)", Required: false},
-					{Type: discordgo.ApplicationCommandOptionString, Name: "end", Description: "End SE value (e.g., 23.45s or 12345)", Required: false},
-					{Type: discordgo.ApplicationCommandOptionInteger, Name: "year", Description: "Year for the Egg Day snap (e.g., 2026). Defaults to current year.", Required: false},
+				Options: []dc.Option{
+					dc.UserOption{Name: "user", Description: "Discord user to backfill", Required: true},
+					dc.StringOption{Name: "start", Description: "Start SE value (e.g., 23.45s or 12345)"},
+					dc.StringOption{Name: "end", Description: "End SE value (e.g., 23.45s or 12345)"},
+					dc.IntOption{Name: "year", Description: "Year for the Egg Day snap (e.g., 2026). Defaults to current year."},
 				},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			dc.SubCommand{
 				Name:        "list",
 				Description: "List all configured leaderboards for this guild.",
 			},
-			{
-				Type:         discordgo.ApplicationCommandOptionSubCommand,
-				Name:         "remove",
-				Description:  "Remove a leaderboard configuration for this guild.",
-				Autocomplete: true,
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:         discordgo.ApplicationCommandOptionString,
+			dc.SubCommand{
+				Name:        "remove",
+				Description: "Remove a leaderboard configuration for this guild.",
+				Options: []dc.Option{
+					dc.StringOption{
 						Name:         "type",
 						Description:  "Leaderboard type to remove",
 						Required:     true,
@@ -78,30 +66,23 @@ func GetSlashAdminLBCommand(cmd string) *discordgo.ApplicationCommand {
 					},
 				},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			dc.SubCommand{
 				Name:        "run",
 				Description: "Trigger an immediate leaderboard collection run (home guild admin only).",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionBoolean,
+				Options: []dc.Option{
+					dc.BoolOption{
 						Name:        "dry-run",
 						Description: "Collect data but skip posting to Discord.",
-						Required:    false,
 					},
-					{
-						Type:         discordgo.ApplicationCommandOptionString,
+					dc.StringOption{
 						Name:         "target",
 						Description:  "Select any group or single leaderboard to update",
-						Required:     false,
 						Autocomplete: true,
 					},
-					{
-						Type:        discordgo.ApplicationCommandOptionString,
+					dc.StringOption{
 						Name:        "action",
 						Description: "Update behavior for Discord messages",
-						Required:    false,
-						Choices: []*discordgo.ApplicationCommandOptionChoice{
+						Choices: []dc.Choice[string]{
 							{Name: "Update Original Messages", Value: "update"},
 							{Name: "Bump Messages", Value: "bump"},
 							{Name: "New Messages", Value: "new"},
@@ -111,155 +92,134 @@ func GetSlashAdminLBCommand(cmd string) *discordgo.ApplicationCommand {
 			},
 		},
 	}
+	return &command
 }
 
 // GetSlashLBPlayerCommand returns the /lb command definition.
-func GetSlashLBPlayerCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Player commands for leaderboard participation and rankings.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:         discordgo.ApplicationCommandOptionSubCommand,
-				Name:         "opt-in",
-				Description:  "Opt into leaderboards.",
-				Autocomplete: true,
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:         discordgo.ApplicationCommandOptionString,
+func GetSlashLBPlayerCommand(cmd string) *dc.Command {
+	command := dc.Command{
+		Name:             cmd,
+		Description:      "Player commands for leaderboard participation and rankings.",
+		Contexts:         []dc.InteractionContext{dc.ContextGuild},
+		IntegrationTypes: []dc.IntegrationType{dc.IntegrationGuildInstall},
+		Options: []dc.Option{
+			dc.SubCommand{
+				Name:        "opt-in",
+				Description: "Opt into leaderboards.",
+				Options: []dc.Option{
+					dc.StringOption{
 						Name:         "type",
 						Description:  `Leaderboard type or group, or "all" for everything.`,
 						Required:     true,
 						Autocomplete: true,
 					},
-					{
-						Type:         discordgo.ApplicationCommandOptionString,
+					dc.StringOption{
 						Name:         "alt",
 						Description:  "The name of the alternate account (optional).",
-						Required:     false,
 						Autocomplete: true,
 					},
 				},
 			},
-			{
-				Type:         discordgo.ApplicationCommandOptionSubCommand,
-				Name:         "opt-out",
-				Description:  "Opt out of leaderboards.",
-				Autocomplete: true,
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:         discordgo.ApplicationCommandOptionString,
+			dc.SubCommand{
+				Name:        "opt-out",
+				Description: "Opt out of leaderboards.",
+				Options: []dc.Option{
+					dc.StringOption{
 						Name:         "type",
 						Description:  `Leaderboard type or group, or "all" to opt out of everything.`,
 						Required:     true,
 						Autocomplete: true,
 					},
-					{
-						Type:         discordgo.ApplicationCommandOptionString,
+					dc.StringOption{
 						Name:         "alt",
 						Description:  "The name of the alternate account (optional).",
-						Required:     false,
 						Autocomplete: true,
 					},
 				},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			dc.SubCommand{
 				Name:        "opt-status",
 				Description: "Show your current leaderboard opt-in status.",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:         discordgo.ApplicationCommandOptionString,
+				Options: []dc.Option{
+					dc.StringOption{
 						Name:         "alt",
 						Description:  "The name of the alternate account (optional).",
-						Required:     false,
 						Autocomplete: true,
 					},
 				},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			dc.SubCommand{
 				Name:        "opt-list",
 				Description: "List all available leaderboard types and their keys.",
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			dc.SubCommand{
 				Name:        "rankings",
 				Description: "Show your latest leaderboard rankings.",
 			},
 		},
 	}
+	return &command
 }
 
-// HandleAdminLB dispatches the /admin-lb slash command.
-func HandleAdminLB(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	opts := i.ApplicationCommandData().Options
-	if len(opts) == 0 {
-		respondEphemeral(s, i, "Unknown subcommand.")
+func HandleAdminLB(client dc.Client, e *dc.CommandEvent) {
+	sub, ok := e.Subcommand()
+	if !ok {
+		respondEphemeral(e, "Unknown subcommand.")
 		return
 	}
 
-	userID := bottools.GetInteractionUserID(i)
-	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
-	if err != nil || perms&discordgo.PermissionAdministrator == 0 {
-		respondEphemeral(s, i, "You need the Administrator permission to use admin commands.")
+	userID := e.UserID()
+	perms, err := client.UserChannelPermissions(userID, e.ChannelID())
+	if err != nil || !perms.Administrator() {
+		respondEphemeral(e, "You need the Administrator permission to use admin commands.")
 		return
 	}
 
-	switch opts[0].Name {
+	switch sub {
 	case "set-channel":
-		handleAdminSetChannel(s, i, opts[0].Options)
+		handleAdminSetChannel(e)
 	case "list":
-		handleAdminList(s, i)
+		handleAdminList(e)
 	case "remove":
-		handleAdminRemove(s, i, opts[0].Options)
+		handleAdminRemove(e)
 	case "run":
-		handleRun(s, i, opts[0].Options)
+		handleRun(client, e)
 	case "backfill-eggday":
-		handleAdminBackfillEggDay(s, i, opts[0].Options)
+		handleAdminBackfillEggDay(client, e)
 	default:
-		respondEphemeral(s, i, "Unknown admin subcommand.")
+		respondEphemeral(e, "Unknown admin subcommand.")
 	}
 }
 
-func handleAdminBackfillEggDay(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*discordgo.ApplicationCommandInteractionDataOption) {
-	optMap := optionMap(opts)
-
+func handleAdminBackfillEggDay(client dc.Client, e *dc.CommandEvent) {
 	// Get user
 	var userID string
-	if uopt, ok := optMap["user"]; ok && uopt.UserValue(s) != nil {
-		userID = uopt.UserValue(s).ID
+	if u, ok := e.OptUser("backfill-eggday-user"); ok {
+		userID = u.ID
 	}
 	if userID == "" {
-		respondEphemeral(s, i, "Please specify a user to backfill.")
+		respondEphemeral(e, "Please specify a user to backfill.")
 		return
 	}
 
 	startStr := ""
 	endStr := ""
-	if so, ok := optMap["start"]; ok {
-		startStr = strings.TrimSpace(so.StringValue())
+	if so, ok := e.OptString("backfill-eggday-start"); ok {
+		startStr = strings.TrimSpace(so)
 	}
-	if eo, ok := optMap["end"]; ok {
-		endStr = strings.TrimSpace(eo.StringValue())
+	if eo, ok := e.OptString("backfill-eggday-end"); ok {
+		endStr = strings.TrimSpace(eo)
 	}
 
 	if startStr == "" && endStr == "" {
-		respondEphemeral(s, i, "No start or end value provided — nothing to do.")
+		respondEphemeral(e, "No start or end value provided — nothing to do.")
 		return
 	}
 
 	loc, _ := time.LoadLocation("America/Los_Angeles")
 	year := time.Now().In(loc).Year()
-	if yo, ok := optMap["year"]; ok {
+	if y, ok := e.OptInt("backfill-eggday-year"); ok {
 		// Use provided year if set
-		y := int(yo.IntValue())
 		if y > 0 {
 			year = y
 		}
@@ -279,7 +239,7 @@ func handleAdminBackfillEggDay(s *discordgo.Session, i *discordgo.InteractionCre
 	if gameName == "" {
 		enc := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 		if enc != "" {
-			if backup, _ := ei.GetFirstContactFromAPI(s, enc, userID, true); backup != nil && backup.GetGame() != nil {
+			if backup, _ := ei.GetFirstContactFromAPI(enc, userID, true); backup != nil && backup.GetGame() != nil {
 				gameName = ei.NormalizePlayerNameForDisplay(backup.GetUserName())
 				if backup.GetGame().GetPermitLevel() != 1 {
 					gameName += " (SP)"
@@ -297,11 +257,11 @@ func handleAdminBackfillEggDay(s *discordgo.Session, i *discordgo.InteractionCre
 	if startStr != "" {
 		v, err := ei.ParseValueWithUnit(startStr, false)
 		if err != nil {
-			respondEphemeral(s, i, fmt.Sprintf("Failed to parse start value: %v", err))
+			respondEphemeral(e, fmt.Sprintf("Failed to parse start value: %v", err))
 			return
 		}
 		if err := farmerstate.UpsertLeaderboardStat("egg_day_se_start", userID, gameName, yearStr, v, sql.NullString{}); err != nil {
-			respondEphemeral(s, i, fmt.Sprintf("Failed to save start stat: %v", err))
+			respondEphemeral(e, fmt.Sprintf("Failed to save start stat: %v", err))
 			return
 		}
 		updated = append(updated, fmt.Sprintf("start=%g", v))
@@ -311,11 +271,11 @@ func handleAdminBackfillEggDay(s *discordgo.Session, i *discordgo.InteractionCre
 	if endStr != "" {
 		v, err := ei.ParseValueWithUnit(endStr, false)
 		if err != nil {
-			respondEphemeral(s, i, fmt.Sprintf("Failed to parse end value: %v", err))
+			respondEphemeral(e, fmt.Sprintf("Failed to parse end value: %v", err))
 			return
 		}
 		if err := farmerstate.UpsertLeaderboardStat("egg_day_se_end", userID, gameName, yearStr, v, sql.NullString{}); err != nil {
-			respondEphemeral(s, i, fmt.Sprintf("Failed to save end stat: %v", err))
+			respondEphemeral(e, fmt.Sprintf("Failed to save end stat: %v", err))
 			return
 		}
 		updated = append(updated, fmt.Sprintf("end=%g", v))
@@ -336,11 +296,11 @@ func handleAdminBackfillEggDay(s *discordgo.Session, i *discordgo.InteractionCre
 			pct = (gain / seStart) * 100.0
 		}
 		if err := farmerstate.UpsertLeaderboardStat(LBEggDaySEGain, userID, gameName, yearStr, gain, sql.NullString{}); err != nil {
-			respondEphemeral(s, i, fmt.Sprintf("Failed to save gain stat: %v", err))
+			respondEphemeral(e, fmt.Sprintf("Failed to save gain stat: %v", err))
 			return
 		}
 		if err := farmerstate.UpsertLeaderboardStat(LBEggDaySEPct, userID, gameName, yearStr, pct, sql.NullString{}); err != nil {
-			respondEphemeral(s, i, fmt.Sprintf("Failed to save pct stat: %v", err))
+			respondEphemeral(e, fmt.Sprintf("Failed to save pct stat: %v", err))
 			return
 		}
 		updated = append(updated, fmt.Sprintf("gain=%g", gain))
@@ -348,76 +308,74 @@ func handleAdminBackfillEggDay(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	// Redraw Egg Day leaderboards for everyone
-	go PostLeaderboards(s, yearStr, "", "group_egg_day", "update", nil)
+	go PostLeaderboards(client, yearStr, "", "group_egg_day", "update", nil)
 
-	respondEphemeral(s, i, fmt.Sprintf("Backfill complete for <@%s>: %s", userID, strings.Join(updated, ", ")))
+	respondEphemeral(e, fmt.Sprintf("Backfill complete for <@%s>: %s", userID, strings.Join(updated, ", ")))
 }
 
-// HandleLBPlayer dispatches the /lb slash command.
-func HandleLBPlayer(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	opts := i.ApplicationCommandData().Options
-	if len(opts) == 0 {
-		respondEphemeral(s, i, "Unknown subcommand.")
+func HandleLBPlayer(client dc.Client, e *dc.CommandEvent) {
+	sub, ok := e.Subcommand()
+	if !ok {
+		respondEphemeral(e, "Unknown subcommand.")
 		return
 	}
 
-	switch opts[0].Name {
+	switch sub {
 	case "opt-in":
-		handlePlayerOptIn(s, i, opts[0].Options)
+		handlePlayerOptIn(client, e)
 	case "opt-out":
-		handlePlayerOptOut(s, i, opts[0].Options)
+		handlePlayerOptOut(e)
 	case "opt-status":
-		handlePlayerStatus(s, i, opts[0].Options)
+		handlePlayerStatus(e)
 	case "opt-list":
-		handlePlayerList(s, i)
+		handlePlayerList(e)
 	case "rankings":
-		handleRankings(s, i)
+		handleRankings(e)
 	default:
-		respondEphemeral(s, i, "Unknown player subcommand.")
+		respondEphemeral(e, "Unknown player subcommand.")
 	}
 }
 
-func handleAdminSetChannel(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*discordgo.ApplicationCommandInteractionDataOption) {
-	optMap := optionMap(opts)
-	lbType := optMap["type"].StringValue()
+func handleAdminSetChannel(e *dc.CommandEvent) {
+	lbType, _ := e.OptString("set-channel-type")
 	// Use the channel where the command was invoked.
-	channelID := i.ChannelID
+	channelID := e.ChannelID()
 
 	if !IsValidConfigKey(lbType) {
-		respondEphemeral(s, i, fmt.Sprintf("Unknown leaderboard type or group: %q", lbType))
+		respondEphemeral(e, fmt.Sprintf("Unknown leaderboard type or group: %q", lbType))
 		return
 	}
 
 	cfg := LBConfig{
 		LBType:    lbType,
-		GuildID:   i.GuildID,
+		GuildID:   e.GuildID(),
 		ChannelID: channelID,
 	}
 	if err := UpsertGuildLBConfig(cfg); err != nil {
 		log.Printf("leaderboard: admin set-channel error: %v", err)
-		respondEphemeral(s, i, "Failed to save configuration. Please try again.")
+		respondEphemeral(e, "Failed to save configuration. Please try again.")
 		return
 	}
 
-	respondEphemeral(s, i, fmt.Sprintf("✅ **%s** leaderboard will post in this channel (<#%s>).",
+	respondEphemeral(e, fmt.Sprintf("✅ **%s** leaderboard will post in this channel (<#%s>).",
 		DisplayNameForConfigKey(lbType), channelID))
 }
 
-func handleAdminList(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func handleAdminList(e *dc.CommandEvent) {
 	allCfgs, err := GetAllLBConfigs()
 	if err != nil {
-		respondEphemeral(s, i, "Failed to load leaderboard configurations.")
+		respondEphemeral(e, "Failed to load leaderboard configurations.")
 		return
 	}
 
 	var cfgs []LBConfig
 	for _, c := range allCfgs {
-		if c.GuildID == i.GuildID {
+		if c.GuildID == e.GuildID() {
 			cfgs = append(cfgs, c)
 		}
 	}
 	if len(cfgs) == 0 {
-		respondEphemeral(s, i, "No leaderboards configured for this guild.\nUse `/bock-leaderboard admin set-channel` to add one.")
+		respondEphemeral(e, "No leaderboards configured for this guild.\nUse `/bock-leaderboard admin set-channel` to add one.")
 		return
 	}
 
@@ -426,33 +384,31 @@ func handleAdminList(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	for _, cfg := range cfgs {
 		fmt.Fprintf(&b, "• **%s** → <#%s>\n", DisplayNameForConfigKey(cfg.LBType), cfg.ChannelID)
 	}
-	respondEphemeral(s, i, b.String())
+	respondEphemeral(e, b.String())
 }
 
-func handleAdminRemove(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*discordgo.ApplicationCommandInteractionDataOption) {
-	optMap := optionMap(opts)
-	lbType := optMap["type"].StringValue()
+func handleAdminRemove(e *dc.CommandEvent) {
+	lbType, _ := e.OptString("remove-type")
 
 	if !IsValidConfigKey(lbType) {
-		respondEphemeral(s, i, fmt.Sprintf("Unknown leaderboard type or group: %q", lbType))
+		respondEphemeral(e, fmt.Sprintf("Unknown leaderboard type or group: %q", lbType))
 		return
 	}
 
-	if err := DeleteGuildLBConfig(i.GuildID, lbType); err != nil {
+	if err := DeleteGuildLBConfig(e.GuildID(), lbType); err != nil {
 		log.Printf("leaderboard: admin remove error: %v", err)
-		respondEphemeral(s, i, "Failed to remove configuration.")
+		respondEphemeral(e, "Failed to remove configuration.")
 		return
 	}
-	respondEphemeral(s, i, fmt.Sprintf("✅ Removed **%s** leaderboard configuration.\n-# The Discord messages were not deleted.",
+	respondEphemeral(e, fmt.Sprintf("✅ Removed **%s** leaderboard configuration.\n-# The Discord messages were not deleted.",
 		DisplayNameForConfigKey(lbType)))
 }
 
-func handlePlayerOptIn(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*discordgo.ApplicationCommandInteractionDataOption) {
-	userID := bottools.GetInteractionUserID(i)
-	optMap := optionMap(opts)
-	raw := optMap["type"].StringValue()
-	if altOpt, ok := optMap["alt"]; ok && altOpt.StringValue() != "" {
-		userID = altOpt.StringValue()
+func handlePlayerOptIn(client dc.Client, e *dc.CommandEvent) {
+	userID := e.UserID()
+	raw, _ := e.OptString("opt-in-type")
+	if alt, ok := e.OptString("opt-in-alt"); ok && alt != "" {
+		userID = alt
 	}
 
 	var types []string
@@ -462,37 +418,36 @@ func handlePlayerOptIn(s *discordgo.Session, i *discordgo.InteractionCreate, opt
 		types = ExpandConfigKey(raw)
 	}
 
-	AddPlayerOptInTypes(i.GuildID, userID, types)
+	AddPlayerOptInTypes(e.GuildID(), userID, types)
 
-	guildID := i.GuildID
+	guildID := e.GuildID()
 	go func() {
 		snapDate := GetLatestSnapDate(LBContractExp)
 		if snapDate == "" {
 			snapDate = SnapDateNow()
 		}
 		log.Printf("leaderboard: pulling stats for newly opted-in user %s in guild %s with snapDate %s", userID, guildID, snapDate)
-		if err := CollectSinglePlayer(s, userID, snapDate); err != nil {
+		if err := CollectSinglePlayer(userID, snapDate); err != nil {
 			log.Printf("leaderboard: failed to collect stats for user %s on opt-in: %v", userID, err)
 			return
 		}
 		log.Printf("leaderboard: refreshing leaderboard messages for guild %s with snapDate %s", guildID, snapDate)
-		PostLeaderboards(s, snapDate, guildID, "", "update", nil)
+		PostLeaderboards(client, snapDate, guildID, "", "update", nil)
 	}()
 
 	if len(types) == 1 && types[0] == OptInAll {
-		respondEphemeral(s, i, "✅ You are now opted into **all** leaderboards.")
+		respondEphemeral(e, "✅ You are now opted into **all** leaderboards.")
 		return
 	}
 	names := typeKeysToNames(types)
-	respondEphemeral(s, i, fmt.Sprintf("✅ Opted into: %s", strings.Join(names, ", ")))
+	respondEphemeral(e, fmt.Sprintf("✅ Opted into: %s", strings.Join(names, ", ")))
 }
 
-func handlePlayerOptOut(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*discordgo.ApplicationCommandInteractionDataOption) {
-	userID := bottools.GetInteractionUserID(i)
-	optMap := optionMap(opts)
-	raw := optMap["type"].StringValue()
-	if altOpt, ok := optMap["alt"]; ok && altOpt.StringValue() != "" {
-		userID = altOpt.StringValue()
+func handlePlayerOptOut(e *dc.CommandEvent) {
+	userID := e.UserID()
+	raw, _ := e.OptString("opt-out-type")
+	if alt, ok := e.OptString("opt-out-alt"); ok && alt != "" {
+		userID = alt
 	}
 
 	var types []string
@@ -502,48 +457,50 @@ func handlePlayerOptOut(s *discordgo.Session, i *discordgo.InteractionCreate, op
 		types = ExpandConfigKey(raw)
 	}
 
-	RemovePlayerOptInTypes(i.GuildID, userID, types)
+	RemovePlayerOptInTypes(e.GuildID(), userID, types)
 
 	if len(types) == 1 && types[0] == OptInAll {
-		respondEphemeral(s, i, "✅ You have opted out of **all** leaderboards.")
+		respondEphemeral(e, "✅ You have opted out of **all** leaderboards.")
 		return
 	}
 	names := typeKeysToNames(types)
-	respondEphemeral(s, i, fmt.Sprintf("✅ Opted out of: %s", strings.Join(names, ", ")))
+	respondEphemeral(e, fmt.Sprintf("✅ Opted out of: %s", strings.Join(names, ", ")))
 }
 
-func handlePlayerStatus(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*discordgo.ApplicationCommandInteractionDataOption) {
-	userID := bottools.GetInteractionUserID(i)
-	optMap := optionMap(opts)
-	if altOpt, ok := optMap["alt"]; ok && altOpt.StringValue() != "" {
-		userID = altOpt.StringValue()
+func handlePlayerStatus(e *dc.CommandEvent) {
+	userID := e.UserID()
+	if alt, ok := e.OptString("opt-status-alt"); ok && alt != "" {
+		userID = alt
 	}
 
-	guildID := i.GuildID
+	guildID := e.GuildID()
 	if guildID == "" {
-		respondEphemeral(s, i, "This command must be used within a server.")
+		respondEphemeral(e, "This command must be used within a server.")
 		return
 	}
 	storedVal := optInRaw(guildID, userID)
 	if storedVal == "" {
-		respondEphemeral(s, i, "You are not opted into any leaderboards.\nUse `/bock-leaderboard player optin types:all` to join everything.")
+		respondEphemeral(e, "You are not opted into any leaderboards.\nUse `/bock-leaderboard player optin types:all` to join everything.")
 		return
 	}
 	if storedVal == OptInAll {
-		respondEphemeral(s, i, "You are opted into **all** leaderboards.")
+		respondEphemeral(e, "You are opted into **all** leaderboards.")
 		return
 	}
 	types := GetPlayerOptInTypes(guildID, userID)
 	names := typeKeysToNames(types)
-	respondEphemeral(s, i, fmt.Sprintf("**Your leaderboard opt-ins (%d):**\n%s",
+	respondEphemeral(e, fmt.Sprintf("**Your leaderboard opt-ins (%d):**\n%s",
 		len(names), strings.Join(names, "\n")))
 }
 
-func handlePlayerList(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	showListPage(s, i, 0)
+func handlePlayerList(e *dc.CommandEvent) {
+	showListPage(e, 0)
 }
 
-func showListPage(s *discordgo.Session, i *discordgo.InteractionCreate, page int) {
+// showListPage answers either the /lb opt-list command or a click on one of
+// its pagination buttons: a command gets a fresh ephemeral message, a button
+// replaces the message it lives on.
+func showListPage(e dc.InteractionEvent, page int) {
 	const pageSize = 15
 	start := page * pageSize
 	if start < 0 {
@@ -567,89 +524,75 @@ func showListPage(s *discordgo.Session, i *discordgo.InteractionCreate, page int
 	}
 	b.WriteString("```")
 
-	components := []discordgo.MessageComponent{
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.Button{
-					Label:    "Previous",
-					Style:    discordgo.SecondaryButton,
-					CustomID: fmt.Sprintf("lb_list#%d", page-1),
-					Disabled: page <= 0,
-				},
-				discordgo.Button{
-					Label:    "Next",
-					Style:    discordgo.SecondaryButton,
-					CustomID: fmt.Sprintf("lb_list#%d", page+1),
-					Disabled: end >= len(AllLeaderboards),
+	// Content alongside a button row, so this stays on Discord's v1 component
+	// model.
+	msg := dc.Message{
+		Content:      b.String(),
+		ComponentsV1: true,
+		Components: []dc.LayoutComponent{
+			dc.ActionRow{
+				Components: []dc.InteractiveComponent{
+					dc.Button{
+						Label:    "Previous",
+						Style:    dc.ButtonSecondary,
+						CustomID: fmt.Sprintf("lb_list#%d", page-1),
+						Disabled: page <= 0,
+					},
+					dc.Button{
+						Label:    "Next",
+						Style:    dc.ButtonSecondary,
+						CustomID: fmt.Sprintf("lb_list#%d", page+1),
+						Disabled: end >= len(AllLeaderboards),
+					},
 				},
 			},
 		},
 	}
 
-	var flags discordgo.MessageFlags
-	if i.Type != discordgo.InteractionMessageComponent {
-		flags |= discordgo.MessageFlagsEphemeral
-	}
-
 	var err error
-	if i.Type == discordgo.InteractionMessageComponent {
-		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Content:    b.String(),
-				Components: components,
-				Flags:      flags,
-			},
-		})
-	} else {
-		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    b.String(),
-				Components: components,
-				Flags:      flags,
-			},
-		})
+	switch ev := e.(type) {
+	case *dc.ComponentEvent:
+		err = ev.Update(msg)
+	case *dc.CommandEvent:
+		msg.Ephemeral = true
+		err = ev.Respond(msg)
 	}
 	if err != nil {
 		log.Printf("leaderboard: failed to showListPage: %v", err)
 	}
 }
 
-// HandleLBListComponent handles button clicks for the leaderboard list pagination.
-func HandleLBListComponent(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	customID := i.MessageComponentData().CustomID
-	parts := strings.Split(customID, "#")
+func HandleLBListComponent(e *dc.ComponentEvent) {
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 2 {
 		return
 	}
 	page, _ := strconv.Atoi(parts[1])
-	showListPage(s, i, page)
+	showListPage(e, page)
 }
 
 // ─── run command ──────────────────────────────────────────────────────────────
 
-func handleRun(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*discordgo.ApplicationCommandInteractionDataOption) {
-	userID := bottools.GetInteractionUserID(i)
+func handleRun(client dc.Client, e *dc.CommandEvent) {
+	userID := e.UserID()
 
-	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
-	if err != nil || (perms&discordgo.PermissionAdministrator == 0) {
-		respondEphemeral(s, i, "You need Administrator permission to trigger a collection run.")
+	perms, err := client.UserChannelPermissions(userID, e.ChannelID())
+	if err != nil || !perms.Administrator() {
+		respondEphemeral(e, "You need Administrator permission to trigger a collection run.")
 		return
 	}
 
 	dryRun := false
 	target := ""
 	action := "update"
-	optMap := optionMap(opts)
-	if opt, ok := optMap["dry-run"]; ok {
-		dryRun = opt.BoolValue()
+	if opt, ok := e.OptBool("run-dry-run"); ok {
+		dryRun = opt
 	}
-	if opt, ok := optMap["target"]; ok {
-		target = opt.StringValue()
+	if opt, ok := e.OptString("run-target"); ok {
+		target = opt
 	}
-	if opt, ok := optMap["action"]; ok {
-		action = opt.StringValue()
+	if opt, ok := e.OptString("run-action"); ok {
+		action = opt
 	}
 
 	// Immediate response to confirm we're starting.
@@ -657,50 +600,27 @@ func handleRun(s *discordgo.Session, i *discordgo.InteractionCreate, opts []*dis
 	if dryRun {
 		msg += "\n-# Dry-run skips Discord posting."
 	}
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: msg,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
+	respondEphemeral(e, msg)
 
 	onProgress := func(status string) {
-		_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Content: &status,
-		})
+		_ = e.EditResponse(dc.Message{Content: status})
 	}
 
+	guildID := e.GuildID()
 	go func() {
-		RunLeaderboardCollection(s, dryRun, i.GuildID, target, action, onProgress)
+		RunLeaderboardCollection(client, dryRun, guildID, target, action, onProgress)
 		finalMsg := "✅ Leaderboard collection run complete."
 		if dryRun {
 			finalMsg = "✅ Dry run complete — data collected, Discord post skipped."
 		}
-		_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Content: &finalMsg,
-		})
+		_ = e.EditResponse(dc.Message{Content: finalMsg})
 	}()
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-func respondEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate, msg string) {
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: msg,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
-}
-
-func optionMap(opts []*discordgo.ApplicationCommandInteractionDataOption) map[string]*discordgo.ApplicationCommandInteractionDataOption {
-	m := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(opts))
-	for _, o := range opts {
-		m[o.Name] = o
-	}
-	return m
+func respondEphemeral(e *dc.CommandEvent, msg string) {
+	_ = e.Respond(dc.Message{Content: msg, Ephemeral: true})
 }
 func typeKeysToNames(keys []string) []string {
 	var names []string
@@ -769,87 +689,48 @@ func leaderboardChoiceName(def LBDef) string {
 	return def.DisplayName
 }
 
-// HandleAdminLBAutoComplete handles autocomplete for the /admin-lb command.
-func HandleAdminLBAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	data := i.ApplicationCommandData()
-
-	var partial string
-	var found bool
-	for _, opt := range data.Options {
-		for _, leaf := range opt.Options {
-			if leaf.Focused {
-				partial = strings.ToLower(strings.TrimSpace(leaf.StringValue()))
-				found = true
-			}
-		}
-	}
-	if !found {
-		respondEmptyAutocomplete(s, i)
+func HandleAdminLBAutoComplete(e *dc.AutocompleteEvent) {
+	name, value := e.FocusedOption()
+	if name == "" {
+		respondAutocomplete(e, nil)
 		return
 	}
 
-	choices := buildAutocompleteChoices(partial, false)
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{Choices: choices},
-	})
+	partial := strings.ToLower(strings.TrimSpace(value))
+	respondAutocomplete(e, buildAutocompleteChoices(partial, false))
 }
 
-// HandleLBPlayerAutoComplete handles autocomplete for the /lb command.
-func HandleLBPlayerAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	data := i.ApplicationCommandData()
-
-	var partial string
-	var focusedName string
-	var found bool
-	for _, opt := range data.Options {
-		for _, leaf := range opt.Options {
-			if leaf.Focused {
-				focusedName = leaf.Name
-				partial = strings.ToLower(strings.TrimSpace(leaf.StringValue()))
-				found = true
-			}
-		}
-	}
-	if !found {
-		respondEmptyAutocomplete(s, i)
+func HandleLBPlayerAutoComplete(e *dc.AutocompleteEvent) {
+	focusedName, value := e.FocusedOption()
+	if focusedName == "" {
+		respondAutocomplete(e, nil)
 		return
 	}
+
+	partial := strings.ToLower(strings.TrimSpace(value))
 
 	if focusedName == "alt" {
-		userID := bottools.GetInteractionUserID(i)
-		alts := farmerstate.GetAltControllerByMiscString("AltController", userID)
-		var choices []*discordgo.ApplicationCommandOptionChoice
+		alts := farmerstate.GetAltControllerByMiscString("AltController", e.UserID())
+		var choices []dc.Choice[string]
 		for _, alt := range alts {
 			if partial == "" || strings.Contains(strings.ToLower(alt), partial) {
-				choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-					Name:  alt,
-					Value: alt,
-				})
+				choices = append(choices, dc.Choice[string]{Name: alt, Value: alt})
 			}
 		}
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-			Data: &discordgo.InteractionResponseData{Choices: choices},
-		})
+		respondAutocomplete(e, choices)
 		return
 	}
 
-	choices := buildAutocompleteChoices(partial, true)
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{Choices: choices},
-	})
+	respondAutocomplete(e, buildAutocompleteChoices(partial, true))
 }
 
-func respondEmptyAutocomplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{Choices: []*discordgo.ApplicationCommandOptionChoice{}},
-	})
+func respondAutocomplete(e *dc.AutocompleteEvent, choices []dc.Choice[string]) {
+	if err := e.RespondChoices(choices); err != nil {
+		log.Printf("leaderboard: failed to answer autocomplete: %v", err)
+	}
 }
 
-func buildAutocompleteChoices(partial string, isPlayerCmd bool) []*discordgo.ApplicationCommandOptionChoice {
+func buildAutocompleteChoices(partial string, isPlayerCmd bool) []dc.Choice[string] {
 	matches := func(name, key string) bool {
 		return partial == "" ||
 			strings.Contains(strings.ToLower(name), partial) ||
@@ -857,13 +738,10 @@ func buildAutocompleteChoices(partial string, isPlayerCmd bool) []*discordgo.App
 	}
 
 	const maxChoices = 25
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, maxChoices)
+	choices := make([]dc.Choice[string], 0, maxChoices)
 
 	if isPlayerCmd && matches("All Leaderboards", "all") {
-		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-			Name:  "All Leaderboards",
-			Value: "all",
-		})
+		choices = append(choices, dc.Choice[string]{Name: "All Leaderboards", Value: "all"})
 	}
 
 	// Groups first.
@@ -872,10 +750,7 @@ func buildAutocompleteChoices(partial string, isPlayerCmd bool) []*discordgo.App
 			break
 		}
 		if matches(g.DisplayName, g.Key) {
-			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-				Name:  g.DisplayName + " (Group)",
-				Value: g.Key,
-			})
+			choices = append(choices, dc.Choice[string]{Name: g.DisplayName + " (Group)", Value: g.Key})
 		}
 	}
 
@@ -890,32 +765,28 @@ func buildAutocompleteChoices(partial string, isPlayerCmd bool) []*discordgo.App
 		}
 		choiceName := leaderboardChoiceName(def)
 		if matches(choiceName, def.Key) {
-			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-				Name:  choiceName,
-				Value: def.Key,
-			})
+			choices = append(choices, dc.Choice[string]{Name: choiceName, Value: def.Key})
 		}
 	}
 	return choices
 }
 
-func handleRankings(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func handleRankings(e *dc.CommandEvent) {
 	// Acknowledge immediately to avoid timeout.
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
+	_ = e.Defer(true)
 
-	showRankingsPage(s, i, 0)
+	showRankingsPage(e, 0)
 }
 
-func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page int) {
-	userID := bottools.GetInteractionUserID(i)
-	guildID := i.GuildID
+// showRankingsPage answers either the deferred /lb rankings command or a click
+// on one of its pagination buttons.
+func showRankingsPage(e dc.InteractionEvent, page int) {
+	userID := e.UserID()
+	guildID := e.GuildID()
 	if guildID == "" {
-		respondEphemeral(s, i, "This command must be used within a server.")
+		if err := e.Followup(dc.Message{Content: "This command must be used within a server."}); err != nil {
+			log.Printf("leaderboard: failed to report missing guild: %v", err)
+		}
 		return
 	}
 
@@ -935,17 +806,10 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 
 	if len(stats) == 0 {
 		content := "You don't have any leaderboard rankings recorded yet for metrics you are opted into in this server."
-		if i.Type == discordgo.InteractionMessageComponent {
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseUpdateMessage,
-				Data: &discordgo.InteractionResponseData{
-					Content: content,
-				},
-			})
+		if ev, ok := e.(*dc.ComponentEvent); ok {
+			_ = ev.Update(dc.Message{Content: content})
 		} else {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: content,
-			})
+			_ = e.Followup(dc.Message{Content: content})
 		}
 		return
 	}
@@ -983,8 +847,8 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 
 	// Map lbType -> Discord link for jump-to functionality.
 	lbLinks := make(map[string]string)
-	if i.GuildID != "" {
-		cfgs, _ := guildstate.GetAllLeaderboardConfigsForGuild(i.GuildID)
+	if guildID != "" {
+		cfgs, _ := guildstate.GetAllLeaderboardConfigsForGuild(guildID)
 		for _, c := range cfgs {
 			keys := ExpandConfigKey(c.LbType)
 			var messageIDs []string
@@ -992,7 +856,7 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 				_ = json.Unmarshal([]byte(c.MessageIds.String), &messageIDs)
 			}
 			if len(messageIDs) > 0 {
-				link := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", i.GuildID, c.ChannelID, messageIDs[0])
+				link := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", guildID, c.ChannelID, messageIDs[0])
 				for _, k := range keys {
 					lbLinks[k] = link
 				}
@@ -1103,55 +967,47 @@ func showRankingsPage(s *discordgo.Session, i *discordgo.InteractionCreate, page
 		fmt.Fprintf(&b, "\n**Jump to:** %s", strings.Join(links, " | "))
 	}
 
-	components := []discordgo.MessageComponent{
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.Button{
-					Label:    "Previous",
-					Style:    discordgo.SecondaryButton,
-					CustomID: fmt.Sprintf("lb_stats#%d", page-1),
-					Disabled: page <= 0,
-				},
-				discordgo.Button{
-					Label:    "Next",
-					Style:    discordgo.SecondaryButton,
-					CustomID: fmt.Sprintf("lb_stats#%d", page+1),
-					Disabled: end >= len(stats),
+	// Content alongside a button row, so this stays on Discord's v1 component
+	// model.
+	msg := dc.Message{
+		Content:      b.String(),
+		ComponentsV1: true,
+		Components: []dc.LayoutComponent{
+			dc.ActionRow{
+				Components: []dc.InteractiveComponent{
+					dc.Button{
+						Label:    "Previous",
+						Style:    dc.ButtonSecondary,
+						CustomID: fmt.Sprintf("lb_stats#%d", page-1),
+						Disabled: page <= 0,
+					},
+					dc.Button{
+						Label:    "Next",
+						Style:    dc.ButtonSecondary,
+						CustomID: fmt.Sprintf("lb_stats#%d", page+1),
+						Disabled: end >= len(stats),
+					},
 				},
 			},
 		},
 	}
 
-	var flags discordgo.MessageFlags
 	var err error
-	fullText := b.String()
-	if i.Type == discordgo.InteractionMessageComponent {
-		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Content:    fullText,
-				Components: components,
-				Flags:      flags,
-			},
-		})
+	if ev, ok := e.(*dc.ComponentEvent); ok {
+		err = ev.Update(msg)
 	} else {
-		_, err = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Content:    &fullText,
-			Components: &components,
-		})
+		err = e.EditResponse(msg)
 	}
 	if err != nil {
 		log.Printf("leaderboard: failed to showRankingsPage for %s: %v", userID, err)
 	}
 }
 
-// HandleLBStatsComponent handles button clicks for the leaderboard rankings pagination.
-func HandleLBStatsComponent(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	customID := i.MessageComponentData().CustomID
-	parts := strings.Split(customID, "#")
+func HandleLBStatsComponent(e *dc.ComponentEvent) {
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 2 {
 		return
 	}
 	page, _ := strconv.Atoi(parts[1])
-	showRankingsPage(s, i, page)
+	showRankingsPage(e, page)
 }

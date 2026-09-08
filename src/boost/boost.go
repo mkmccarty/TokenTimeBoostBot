@@ -25,8 +25,8 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/divan/num2words"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 // UnmarshalJSON handles backward compatibility for CRMessageIDs
@@ -235,7 +235,7 @@ func changeContractState(contract *Contract, newstate int) {
 }
 
 // DeleteContract will delete the contract
-func DeleteContract(s *discordgo.Session, guildID string, channelID string) (string, error) {
+func DeleteContract(client dc.Client, guildID string, channelID string) (string, error) {
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return "", errors.New(errorNoContract)
@@ -245,12 +245,12 @@ func DeleteContract(s *discordgo.Session, guildID string, channelID string) (str
 	var coopName = contract.ContractID + "/" + contract.CoopID
 
 	for _, el := range contract.Location {
-		if s != nil {
-			_ = s.ChannelMessageDelete(el.ChannelID, el.ListMsgID)
-			_ = s.ChannelMessageDelete(el.ChannelID, el.ReactionID)
+		if client != nil {
+			_ = client.DeleteMessage(el.ChannelID, el.ListMsgID)
+			_ = client.DeleteMessage(el.ChannelID, el.ReactionID)
 
 			if el.RoleManagedByBot || IsRoleCreatedByBot(el.GuildContractRole.Name) {
-				err := s.GuildRoleDelete(el.GuildID, el.GuildContractRole.ID)
+				err := client.DeleteGuildRole(el.GuildID, el.GuildContractRole.ID)
 				if err != nil {
 					log.Printf("Failed to delete role %s: %v", el.GuildContractRole.Name, err)
 				}
@@ -366,43 +366,34 @@ func getBoostOrderString(contract *Contract) string {
 }
 
 // AddBoostTokensInteraction handles the interactions responses for AddBoostTokens
-func AddBoostTokensInteraction(s *discordgo.Session, i *discordgo.InteractionCreate, setCountWant int, countWantAdjust int) {
+func AddBoostTokensInteraction(client dc.Client, e *dc.ComponentEvent, setCountWant int, countWantAdjust int) {
 	var str string
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
+	_ = e.Defer(true)
 
-	tSent, tRecv, err := AddBoostTokens(s, i, setCountWant, countWantAdjust)
+	tSent, tRecv, err := AddBoostTokens(client, e, setCountWant, countWantAdjust)
 	if err != nil {
 		str = err.Error()
 	} else {
 		str = fmt.Sprintf("Adjusted. Tokens Wanted %d, Received %d", tSent, tRecv)
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Content: str,
-		})
+	_ = e.Followup(dc.Message{Content: str})
 }
 
 // AddBoostTokens will add tokens to the current booster and adjust the count of the booster
-func AddBoostTokens(s *discordgo.Session, i *discordgo.InteractionCreate, setCountWant int, countWantAdjust int) (int, int, error) {
+func AddBoostTokens(client dc.Client, e dc.InteractionEvent, setCountWant int, countWantAdjust int) (int, int, error) {
 	// Find the contract
-	var contract = FindContract(i.ChannelID)
+	var contract = FindContract(e.ChannelID())
 	if contract == nil {
 		return 0, 0, errors.New(errorNoContract)
 	}
 	// verify the user is in the contract
-	if !UserInContract(contract, getInteractionUserID(i)) {
+	if !UserInContract(contract, e.UserID()) {
 		return 0, 0, errors.New(errorUserNotInContract)
 	}
 
 	// Add the token count for the userID, ensure the count is not negative
-	var b = contract.Boosters[getInteractionUserID(i)]
+	var b = contract.Boosters[e.UserID()]
 	if b == nil {
 		return 0, 0, errors.New(errorUserNotInContract)
 	}
@@ -429,7 +420,7 @@ func AddBoostTokens(s *discordgo.Session, i *discordgo.InteractionCreate, setCou
 		}
 	}
 
-	refreshBoostListMessage(s, contract, false)
+	refreshBoostListMessage(client, contract, false)
 
 	return b.TokensWanted, b.TokensReceived, nil
 }
@@ -578,7 +569,7 @@ func FindContractByIDs(channelID string, contractID string, coopID string) *Cont
 }
 
 // AddContractMember adds a member to a contract
-func AddContractMember(s *discordgo.Session, guildID string, channelID string, operator string, mention string, guest string, order int, alreadyBoosted bool) error {
+func AddContractMember(client dc.Client, guildID string, channelID string, operator string, mention string, guest string, order int, alreadyBoosted bool) error {
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -591,14 +582,14 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 			return errors.New(errorUserInContract)
 		}
 
-		var u, err = s.User(userID)
+		var u, err = client.User(userID)
 		if err != nil {
 			return errors.New(errorNoFarmer)
 		}
 		if u.Bot {
 			return errors.New(errorBot)
 		}
-		_, err = AddFarmerToContract(s, contract, guildID, channelID, u.ID, order, false, alreadyBoosted)
+		_, err = AddFarmerToContract(client, contract, guildID, channelID, u.ID, order, false, alreadyBoosted)
 		if err != nil {
 			return err
 		}
@@ -643,7 +634,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 
 		previousBoosters := len(contract.Boosters)
 
-		_, err := AddFarmerToContract(s, contract, guildID, channelID, guest, order, false, alreadyBoosted)
+		_, err := AddFarmerToContract(client, contract, guildID, channelID, guest, order, false, alreadyBoosted)
 		if err != nil {
 			return err
 		}
@@ -653,10 +644,10 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 				listStr = "Sign-up"
 			}
 			var str = fmt.Sprintf("%s was added to the %s List by %s", guest, listStr, operator)
-			msg, err := s.ChannelMessageSend(loc.ChannelID, str)
+			msg, err := client.SendMessage(loc.ChannelID, dc.Message{Content: str})
 			if err == nil && msg != nil {
 				time.AfterFunc(10*time.Second, func() {
-					if err := s.ChannelMessageDelete(msg.ChannelID, msg.ID); err != nil {
+					if err := client.DeleteMessage(msg.ChannelID, msg.ID); err != nil {
 						log.Println(err)
 					}
 				})
@@ -664,7 +655,7 @@ func AddContractMember(s *discordgo.Session, guildID string, channelID string, o
 
 			if contract.State == ContractStateSignup {
 				if previousBoosters != len(contract.Boosters) && previousBoosters == contract.CoopSize {
-					updateSignupReactionMessage(s, contract, loc)
+					updateSignupReactionMessage(client, contract, loc)
 				}
 			}
 		}
@@ -733,7 +724,7 @@ func getUserArtifacts(userID string, inSet *ArtifactSet) ArtifactSet {
 }
 
 // AddFarmerToContract adds a farmer to a contract
-func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID string, channelID string, userID string, order int, progenitor bool, alreadyBoosted bool) (*Booster, error) {
+func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, channelID string, userID string, order int, progenitor bool, alreadyBoosted bool) (*Booster, error) {
 	log.Println("AddFarmerToContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", order)
 
 	// Add farmers to booster list if the coop isn't full, otherwise add to waitlist
@@ -742,7 +733,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		// Only add to waitlist if user isn't already in it
 		if !slices.Contains(contract.WaitlistBoosters, userID) {
 			contract.WaitlistBoosters = append(contract.WaitlistBoosters, userID)
-			refreshBoostListMessage(s, contract, false)
+			refreshBoostListMessage(client, contract, false)
 
 			return nil, nil
 		}
@@ -757,7 +748,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		b.UserID = userID
 		b.Color = 0x00cc00
 
-		var user, err = s.User(userID)
+		var user, err = client.User(userID)
 		if err != nil {
 			b.GlobalName = userID
 			b.Name = userID
@@ -768,7 +759,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 			b.GlobalName = user.GlobalName
 			b.UserName = user.Username
 			b.Mention = user.Mention()
-			gm, errGM := s.GuildMember(guildID, userID)
+			gm, memberColor, errGM := client.GuildMemberWithColor(guildID, userID, channelID)
 			if errGM == nil {
 				if gm.Nick != "" {
 					b.Name = gm.Nick
@@ -777,10 +768,12 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 					b.Name = user.GlobalName
 					b.Nick = user.GlobalName
 				}
-				b.Unique = gm.User.String()
+				if gm.User != nil {
+					b.Unique = gm.User.String()
+				}
 				// See if we can find a color
-				if s.State.MemberAdd(gm) == nil {
-					b.Color = s.State.UserColor(userID, channelID)
+				if memberColor != 0 {
+					b.Color = memberColor
 				}
 			}
 
@@ -795,14 +788,14 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 
 		b.GuildID = guildID
 		// Get Guild Name
-		g, errG := s.Guild(guildID)
+		g, errG := client.Guild(guildID)
 		if errG != nil {
 			b.GuildName = "Unknown"
 		} else {
 			b.GuildName = g.Name
 		}
 		// Get Channel Name
-		ch, errCh := s.Channel(channelID)
+		ch, errCh := client.Channel(channelID)
 		if errCh != nil {
 			b.ChannelName = "Unknown"
 		} else {
@@ -861,7 +854,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 		}
 
 		if contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEFuzzy || contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy {
-			updateContractFarmerTE(s, userID, b, contract)
+			updateContractFarmerTE(client, userID, b, contract)
 		}
 
 		// Check if within the start period of a contract
@@ -900,7 +893,7 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 
 			for _, el := range contract.Location {
 				if el.GuildID == guildID && b.UserID != b.Name && el.GuildContractRole.ID != "" {
-					_ = s.GuildMemberRoleAdd(guildID, b.UserID, el.GuildContractRole.ID)
+					_ = client.AddGuildMemberRole(guildID, b.UserID, el.GuildContractRole.ID)
 				}
 			}
 
@@ -953,15 +946,15 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 				//for _, loc := range contract.Location {
 				//	s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
 				//}
-				sendNextNotification(s, contract, true)
+				sendNextNotification(client, contract, true)
 				CheckAndPublishAMQPBoosterChange(contract, userID, b.Nick, "booster_join")
 				return b, nil
 			}
 		}
 	}
 	if !progenitor {
-		ensurePotatoTeamRoleForUserAsync(s, contract, userID)
-		refreshBoostListMessage(s, contract, contract.RegisteredNum == contract.CoopSize)
+		ensurePotatoTeamRoleForUserAsync(client, contract, userID)
+		refreshBoostListMessage(client, contract, contract.RegisteredNum == contract.CoopSize)
 	}
 	if b != nil {
 		CheckAndPublishAMQPBoosterChange(contract, userID, b.Nick, "booster_join")
@@ -970,11 +963,11 @@ func AddFarmerToContract(s *discordgo.Session, contract *Contract, guildID strin
 }
 
 // IsUserCreatorOfAnyContract will return true if the user is the creator of any contract
-func IsUserCreatorOfAnyContract(s *discordgo.Session, userID string) bool {
+func IsUserCreatorOfAnyContract(client dc.Client, userID string) bool {
 	ContractsMutex.RLock()
 	defer ContractsMutex.RUnlock()
 	for _, c := range Contracts {
-		if creatorOfContract(s, c, userID) {
+		if creatorOfContract(client, c, userID) {
 			return true
 		}
 	}
@@ -983,8 +976,8 @@ func IsUserCreatorOfAnyContract(s *discordgo.Session, userID string) bool {
 
 // RefreshGuildContractsForBannerUpdate updates banner URLs and redraws boost lists for
 // active contracts associated with the given guild.
-func RefreshGuildContractsForBannerUpdate(s *discordgo.Session, guildID string) {
-	if s == nil || guildID == "" {
+func RefreshGuildContractsForBannerUpdate(client dc.Client, guildID string) {
+	if client == nil || guildID == "" {
 		return
 	}
 
@@ -1007,7 +1000,7 @@ func RefreshGuildContractsForBannerUpdate(s *discordgo.Session, guildID string) 
 		}
 
 		UpdateBannerURL(contract)
-		refreshBoostListMessage(s, contract, false)
+		refreshBoostListMessage(client, contract, false)
 	}
 }
 
@@ -1207,7 +1200,7 @@ func CalculateIHRRateFromDB(userID string) (float64, string) {
 	return finalIHR, logStr
 }
 
-func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, contract *Contract) {
+func updateContractFarmerTE(client dc.Client, userID string, b *Booster, contract *Contract) {
 	// Get user EI from the db and set any relevant fields
 	eggIncID := ""
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
@@ -1235,7 +1228,7 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 
 	if len(eggIncID) == 18 && strings.HasPrefix(eggIncID, "EI") {
 		go func(eggIncID, userID string, b *Booster) {
-			backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, true)
+			backup, _ := ei.GetFirstContactFromAPI(eggIncID, userID, true)
 			if backup == nil {
 				log.Printf("Received nil backup for user %s", userID)
 				return
@@ -1301,7 +1294,7 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 				}
 			}
 
-			refreshBoostListMessage(s, contract, false)
+			refreshBoostListMessage(client, contract, false)
 
 		}(eggIncID, userID, b)
 	} else {
@@ -1320,7 +1313,7 @@ func updateContractFarmerTE(s *discordgo.Session, userID string, b *Booster, con
 	}
 }
 
-func creatorOfContract(s *discordgo.Session, c *Contract, u string) bool {
+func creatorOfContract(client dc.Client, c *Contract, u string) bool {
 	if c != nil {
 		if slices.Contains(c.CreatorID, u) {
 			return true
@@ -1329,11 +1322,11 @@ func creatorOfContract(s *discordgo.Session, c *Contract, u string) bool {
 			if guildstate.IsGuildCoordinator(el.GuildID, u) {
 				return true
 			}
-			perms, err := s.UserChannelPermissions(u, el.ChannelID)
+			perms, err := client.UserChannelPermissions(u, el.ChannelID)
 			if err != nil {
 				log.Println(err)
 			}
-			if perms&discordgo.PermissionAdministrator != 0 {
+			if perms.Administrator() {
 				return true
 			}
 		}
@@ -1397,7 +1390,7 @@ func findNextBoosterAfterUser(contract *Contract, userID string) int {
 }
 
 // JoinContract will add a user to the contract
-func JoinContract(s *discordgo.Session, guildID string, channelID string, userID string, bell bool) error {
+func JoinContract(client dc.Client, guildID string, channelID string, userID string, bell bool) error {
 	var err error
 
 	log.Println("JoinContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Bell: ", bell)
@@ -1418,7 +1411,7 @@ func JoinContract(s *discordgo.Session, guildID string, channelID string, userID
 
 		// Wait here until we get our lock
 		contract.mutex.Lock()
-		_, err = AddFarmerToContract(s, contract, guildID, channelID, userID, contract.BoostOrder, false, false)
+		_, err = AddFarmerToContract(client, contract, guildID, channelID, userID, contract.BoostOrder, false, false)
 
 		contract.mutex.Unlock()
 		if err != nil {
@@ -1433,9 +1426,9 @@ func JoinContract(s *discordgo.Session, guildID string, channelID string, userID
 	}
 
 	if bell {
-		u, _ := s.UserChannelCreate(userID)
+		u, _ := client.CreateUserChannel(userID)
 		var str = fmt.Sprintf("Boost notifications will be sent for %s/%s.", contract.ContractID, contract.CoopID)
-		_, err := s.ChannelMessageSend(u.ID, str)
+		_, err := client.SendMessage(u.ID, dc.Message{Content: str})
 		if err != nil {
 			log.Println("Error sending DM to user: ", err)
 		}
@@ -1451,7 +1444,7 @@ func removeIndex(s []string, index int) []string {
 }
 
 // RemoveFarmerByMention will remove a booster from the contract by mention
-func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID string, operator string, mention string) error {
+func RemoveFarmerByMention(client dc.Client, guildID string, channelID string, operator string, mention string) error {
 	log.Println("RemoveContractBoosterByMention", "GuildID: ", guildID, "ChannelID: ", channelID, "Operator: ", operator, "Mention: ", mention)
 	var contract = FindContract(channelID)
 	redraw := false
@@ -1469,7 +1462,7 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 	userID := normalizeUserIDInput(mention)
 
 	if _, isMention := parseMentionUserID(mention); isMention {
-		u, _ := s.User(userID)
+		u, _ := client.User(userID)
 		if u != nil && u.Bot {
 			return errors.New(errorBot)
 		}
@@ -1504,7 +1497,7 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 		// Remove the user from the role
 		for _, el := range contract.Location {
 			if el.GuildID == guildID && el.GuildContractRole.ID != "" && booster != nil && booster.Name != userID {
-				_ = s.GuildMemberRoleRemove(guildID, userID, el.GuildContractRole.ID)
+				_ = client.RemoveGuildMemberRole(guildID, userID, el.GuildContractRole.ID)
 			}
 		}
 
@@ -1586,18 +1579,18 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 				if contract.State == ContractStateCompleted || contract.State == ContractStateArchive || contract.State == ContractStateWaiting {
 					changeContractState(contract, ContractStateWaiting)
 					contract.setCurrentBoosterByIndex(len(contract.Order))
-					sendNextNotification(s, contract, true)
+					sendNextNotification(client, contract, true)
 				} else if (contract.State == ContractStateFastrun || contract.State == ContractStateBanker) && contract.currentBoosterID() == "" {
 					// set contract to waiting
 					changeContractState(contract, ContractStateWaiting)
-					sendNextNotification(s, contract, true)
+					sendNextNotification(client, contract, true)
 				} else {
 					nextID := findNextBoosterID(contract)
 					if nextID != "" {
 						contract.setCurrentBoosterByUserID(nextID)
 						contract.Boosters[nextID].BoostState = BoostStateTokenTime
 						contract.Boosters[nextID].StartTime = time.Now()
-						sendNextNotification(s, contract, true)
+						sendNextNotification(client, contract, true)
 						CheckAndPublishAMQPBoosterChange(contract, userID, boosterNick, "booster_remove")
 						// Returning here since we're actively boosting and will send a new message
 						return nil
@@ -1610,7 +1603,7 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 				// Remove the first person from the want list
 				firstWaitlistUser := contract.WaitlistBoosters[0]
 				contract.WaitlistBoosters = contract.WaitlistBoosters[1:]
-				_, _ = AddFarmerToContract(s, contract, guildID, channelID, firstWaitlistUser, contract.BoostOrder, false, false)
+				_, _ = AddFarmerToContract(client, contract, guildID, channelID, firstWaitlistUser, contract.BoostOrder, false, false)
 			}
 		}
 	}
@@ -1622,7 +1615,7 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 			if contract.State == ContractStateSignup && previousBoosters == contract.CoopSize {
 				redrawSignup = true
 			}
-			refreshBoostListMessage(s, contract, redrawSignup)
+			refreshBoostListMessage(client, contract, redrawSignup)
 			continue
 		}
 		if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
@@ -1632,22 +1625,19 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 				contract.Banker.PostSinkUserID = ""
 			}
 		}
-		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
-		components := DrawBoostList(s, contract)
+		components := DrawBoostList(contract)
 		buttonComponents := getContractReactionsComponents(contract)
 		if len(buttonComponents) > 0 {
 			components = append(components, buttonComponents...)
 		}
-		msgedit.Components = &components
-		msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
-		msg, err := s.ChannelMessageEditComplex(msgedit)
+		msg, err := client.EditMessage(loc.ChannelID, loc.ListMsgID, dc.Message{Components: components})
 		if err == nil {
 			loc.ListMsgID = msg.ID
 		}
 		// Need to disable the speedrun start button if the contract is no longer full
 		if previousBoosters != len(contract.Boosters) && previousBoosters == contract.CoopSize {
 			if contract.State == ContractStateSignup {
-				updateSignupReactionMessage(s, contract, loc)
+				updateSignupReactionMessage(client, contract, loc)
 			}
 		}
 	}
@@ -1658,7 +1648,7 @@ func RemoveFarmerByMention(s *discordgo.Session, guildID string, channelID strin
 }
 
 // StartContractBoosting will start the contract
-func StartContractBoosting(s *discordgo.Session, guildID string, channelID string, userID string) error {
+func StartContractBoosting(client dc.Client, guildID string, channelID string, userID string) error {
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -1675,7 +1665,7 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 		return errors.New(errorContractAlreadyStarted)
 	}
 
-	if !creatorOfContract(s, contract, userID) && contract.CreatorID[0] != config.DiscordAppID {
+	if !creatorOfContract(client, contract, userID) && contract.CreatorID[0] != config.DiscordAppID {
 		//if contract.Style&ContractFlagCrt == 0 || contract.Banker.CrtSinkUserID != userID {
 		return errors.New(errorNotContractCreator)
 		//}
@@ -1772,13 +1762,13 @@ func StartContractBoosting(s *discordgo.Session, guildID string, channelID strin
 		}
 	}
 
-	sendNextNotification(s, contract, true)
+	sendNextNotification(client, contract, true)
 
 	return nil
 }
 
 // UserBoost will trigger a contract boost of a user
-func UserBoost(s *discordgo.Session, guildID string, channelID string, userID string) error {
+func UserBoost(client dc.Client, guildID string, channelID string, userID string) error {
 	var contract = FindContract(channelID)
 
 	if contract == nil {
@@ -1791,7 +1781,7 @@ func UserBoost(s *discordgo.Session, guildID string, channelID string, userID st
 
 	if currentID := contract.currentBoosterID(); currentID != "" && userID == currentID {
 		// User is using /boost command instead of reaction
-		_ = Boosting(s, guildID, channelID)
+		_ = Boosting(client, guildID, channelID)
 	} else {
 		for i := range contract.Order {
 			if contract.Order[i] == userID {
@@ -1813,7 +1803,7 @@ func UserBoost(s *discordgo.Session, guildID string, channelID string, userID st
 				}
 				contract.Boosters[contract.Order[i]].EndTime = time.Now()
 				contract.Boosters[contract.Order[i]].Duration = time.Since(contract.Boosters[contract.Order[i]].StartTime)
-				sendNextNotification(s, contract, false)
+				sendNextNotification(client, contract, false)
 				return nil
 			}
 		}
@@ -1824,7 +1814,7 @@ func UserBoost(s *discordgo.Session, guildID string, channelID string, userID st
 }
 
 // Boosting will mark a as boosted and advance to the next in the list
-func Boosting(s *discordgo.Session, guildID string, channelID string) error {
+func Boosting(client dc.Client, guildID string, channelID string) error {
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -1909,13 +1899,13 @@ func Boosting(s *discordgo.Session, guildID string, channelID string) error {
 
 	contract.enforceOnlyOneTokenTimeBooster()
 
-	sendNextNotification(s, contract, true)
+	sendNextNotification(client, contract, true)
 
 	return nil
 }
 
 // Unboost will mark a user as unboosted
-func Unboost(s *discordgo.Session, guildID string, channelID string, mention string) error {
+func Unboost(client dc.Client, guildID string, channelID string, mention string) error {
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -1933,7 +1923,7 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 	*/
 	userID := normalizeUserIDInput(mention)
 
-	var u, _ = s.User(userID)
+	var u, _ = client.User(userID)
 	if u != nil {
 		if u.Bot {
 			return errors.New(errorBot)
@@ -1963,7 +1953,7 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 		contract.setCurrentBoosterByUserIDWithStart(userID)
 		contract.enforceOnlyOneTokenTimeBooster()
 
-		sendNextNotification(s, contract, true)
+		sendNextNotification(client, contract, true)
 	} else {
 		contract.Boosters[userID].BoostState = BoostStateUnboosted
 		boostedIdx := slices.Index(contract.BoostedOrder, userID)
@@ -1972,7 +1962,7 @@ func Unboost(s *discordgo.Session, guildID string, channelID string, mention str
 		} else {
 			log.Printf("Unboost warning: user not found in BoostedOrder; contractHash=%s channelID=%s userID=%s state=%d", contract.ContractHash, channelID, userID, contract.State)
 		}
-		refreshBoostListMessage(s, contract, false)
+		refreshBoostListMessage(client, contract, false)
 	}
 	return nil
 }
@@ -1988,7 +1978,7 @@ func insert(a []string, index int, value string) []string {
 }
 
 // SkipBooster will skip the current booster and move to the next
-func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID string) error {
+func SkipBooster(client dc.Client, guildID string, channelID string, userID string) error {
 	var boosterSwap = false
 	var contract = FindContract(channelID)
 	if contract == nil {
@@ -2068,15 +2058,15 @@ func SkipBooster(s *discordgo.Session, guildID string, channelID string, userID 
 
 	contract.enforceOnlyOneTokenTimeBooster()
 
-	sendNextNotification(s, contract, true)
+	sendNextNotification(client, contract, true)
 
 	return nil
 }
 
-func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
+func notifyBellBoosters(client dc.Client, contract *Contract) {
 	for i, b := range contract.Boosters {
 		if contract.Boosters[i].Ping {
-			u, _ := s.UserChannelCreate(b.UserID)
+			u, _ := client.CreateUserChannel(b.UserID)
 			var str string
 			switch contract.State {
 			case ContractStateCompleted, ContractStateArchive:
@@ -2101,7 +2091,7 @@ func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
 				}
 				str = fmt.Sprintf("%s: Send Boost Tokens to %s", b.ChannelName, name)
 			}
-			_, err := s.ChannelMessageSend(u.ID, str)
+			_, err := client.SendMessage(u.ID, dc.Message{Content: str})
 			if err != nil {
 				log.Println(err)
 			}
@@ -2111,13 +2101,13 @@ func notifyBellBoosters(s *discordgo.Session, contract *Contract) {
 }
 
 // FinishContract is called only when the contract is complete
-func FinishContract(s *discordgo.Session, contract *Contract) {
+func FinishContract(client dc.Client, contract *Contract) {
 	// Don't delete the final boost message
 	for _, loc := range contract.Location {
 		loc.ListMsgID = ""
 	}
 	// Location[0] for this since the original contract is on the first location
-	_, _ = DeleteContract(s, contract.Location[0].GuildID, contract.Location[0].ChannelID)
+	_, _ = DeleteContract(client, contract.Location[0].GuildID, contract.Location[0].ChannelID)
 }
 
 func reorderBoosters(contract *Contract) {
@@ -2384,8 +2374,8 @@ func reorderBoosters(contract *Contract) {
 	}
 }
 
-func contractHasValidThread(s *discordgo.Session, contract *Contract) bool {
-	if s == nil || contract == nil {
+func contractHasValidThread(client dc.Client, contract *Contract) bool {
+	if client == nil || contract == nil {
 		return false
 	}
 
@@ -2394,12 +2384,12 @@ func contractHasValidThread(s *discordgo.Session, contract *Contract) bool {
 			continue
 		}
 
-		ch, err := s.Channel(loc.ChannelID)
+		ch, err := client.Channel(loc.ChannelID)
 		if err != nil || ch == nil {
 			continue
 		}
 
-		if ch.IsThread() {
+		if ch.IsThread {
 			return true
 		}
 	}
@@ -2407,8 +2397,8 @@ func contractHasValidThread(s *discordgo.Session, contract *Contract) bool {
 	return false
 }
 
-func getContractThreadCreatedAtFromLastMessageID(s *discordgo.Session, contract *Contract) (time.Time, bool) {
-	if s == nil || contract == nil {
+func getContractThreadCreatedAtFromLastMessageID(client dc.Client, contract *Contract) (time.Time, bool) {
+	if client == nil || contract == nil {
 		return time.Time{}, false
 	}
 
@@ -2420,12 +2410,12 @@ func getContractThreadCreatedAtFromLastMessageID(s *discordgo.Session, contract 
 			continue
 		}
 
-		ch, err := s.Channel(loc.ChannelID)
-		if err != nil || ch == nil || !ch.IsThread() || ch.LastMessageID == "" {
+		ch, err := client.Channel(loc.ChannelID)
+		if err != nil || ch == nil || !ch.IsThread || ch.LastMessageID == "" {
 			continue
 		}
 
-		createdAt, err := discordgo.SnowflakeTimestamp(ch.LastMessageID)
+		createdAt, err := dc.SnowflakeTimestamp(ch.LastMessageID)
 		if err != nil {
 			continue
 		}
@@ -2440,7 +2430,7 @@ func getContractThreadCreatedAtFromLastMessageID(s *discordgo.Session, contract 
 }
 
 // ArchiveContracts will set a contract state to Archive if it is older than 5 days
-func ArchiveContracts(s *discordgo.Session) {
+func ArchiveContracts(client dc.Client) {
 
 	var finishHash []string
 	currentTime := time.Now()
@@ -2466,7 +2456,7 @@ func ArchiveContracts(s *discordgo.Session) {
 			}
 		}
 
-		hasValidThread := contractHasValidThread(s, contract)
+		hasValidThread := contractHasValidThread(client, contract)
 
 		// If the contract thread is no longer valid, archive immediately.
 		if !hasValidThread {
@@ -2488,7 +2478,7 @@ func ArchiveContracts(s *discordgo.Session) {
 					continue
 				}
 			} else {
-				if threadCreatedAt, ok := getContractThreadCreatedAtFromLastMessageID(s, contract); ok {
+				if threadCreatedAt, ok := getContractThreadCreatedAtFromLastMessageID(client, contract); ok {
 					if currentTime.After(threadCreatedAt.Add(signupThreadBackstopDuration)) {
 						log.Println("Archiving signup contract (1-week backstop): ", contract.ContractID, " / ", contract.CoopID)
 						changeContractState(contract, ContractStateArchive)
@@ -2514,7 +2504,7 @@ func ArchiveContracts(s *discordgo.Session) {
 	ContractsMutex.RUnlock()
 
 	for _, hash := range finishHash {
-		_ = finishContractByHash(s, hash)
+		_ = finishContractByHash(client, hash)
 	}
 
 	// clear finishHash
@@ -2540,89 +2530,77 @@ func UpdateContractTime(contractID string, coopID string, startTime, endTime tim
 }
 
 // GetSlashUploadBannerCommand returns the command definition for uploading a custom banner
-func GetSlashUploadBannerCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		}, Description: "Upload a custom contract banner for this server (Server Boosters only, auto-fitted to 640x85)",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionAttachment,
-				Name:        "image",
-				Description: "Your custom banner image (PNG, JPG, or GIF, auto-fitted to 640x85)",
-				Required:    false,
-			},
+func GetSlashUploadBannerCommand(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Upload a custom contract banner for this server (Server Boosters only, auto-fitted to 640x85)")
+	command.Options = []dc.Option{
+		dc.AttachmentOption{
+			Name:        "image",
+			Description: "Your custom banner image (PNG, JPG, or GIF, auto-fitted to 640x85)",
 		},
 	}
+	return &command
 }
 
 // HandleUploadBannerCommand handles the /upload-banner command
-func HandleUploadBannerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
+func HandleUploadBannerCommand(client dc.Client, e *dc.CommandEvent) {
+	_ = e.Defer(true)
 
-	user := i.Member.User
+	user := e.User()
 	if user == nil {
-		user = i.User
+		_ = e.Followup(dc.Message{
+			Content: "Unable to identify the calling user.",
+		})
+		return
 	}
 
+	guildID := e.GuildID()
 	isServerOwner := false
 	isServerBooster := false
 
-	if i.GuildID != "" {
-		guild, err := s.Guild(i.GuildID)
+	if guildID != "" {
+		guild, err := client.Guild(guildID)
 		if err == nil && guild.OwnerID == user.ID {
 			isServerOwner = true
 		}
-		if i.Member != nil && i.Member.PremiumSince != nil {
+		if member := e.Member(); member != nil && member.PremiumSince != nil {
 			isServerBooster = true
 		}
 
 	}
 
 	if !isServerBooster && !isServerOwner {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		_ = e.Followup(dc.Message{
 			Content: "You must be a Server Booster in this server or the Server Owner to upload a custom banner.",
 		})
 		return
 	}
 
-	options := i.ApplicationCommandData().Options
-	if len(options) == 0 {
-		outPath := filepath.Join(config.BannerPath, fmt.Sprintf("banner_%s_%s.png", user.ID, i.GuildID))
+	if !e.HasOption("image") {
+		outPath := filepath.Join(config.BannerPath, fmt.Sprintf("banner_%s_%s.png", user.ID, guildID))
 		if err := os.Remove(outPath); err != nil && !os.IsNotExist(err) {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			_ = e.Followup(dc.Message{
 				Content: "Failed to remove your custom banner.",
 			})
 			return
 		}
-		_ = farmerstate.RemoveCustomBanner(user.ID, i.GuildID)
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		_ = farmerstate.RemoveCustomBanner(user.ID, guildID)
+		_ = e.Followup(dc.Message{
 			Content: "Custom banner successfully removed. You will now use standard banners.",
 		})
 		return
 	}
 
-	opt := options[0]
-	attachment := bottools.GetCommandAttachment(i, opt)
-	if attachment == nil {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+	attachment, ok := e.OptAttachment("image")
+	if !ok {
+		_ = e.Followup(dc.Message{
 			Content: "Failed to read the image attachment.",
 		})
 		return
 	}
 
-	imgBytes, err := bottools.DownloadAttachmentBytes(attachment)
+	imgBytes, err := bottools.DownloadAttachmentBytesDC(attachment)
 	if err != nil {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		_ = e.Followup(dc.Message{
 			Content: "Failed to download the image attachment.",
 		})
 		return
@@ -2630,7 +2608,7 @@ func HandleUploadBannerCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 	img, _, err := image.Decode(bytes.NewReader(imgBytes))
 	if err != nil {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		_ = e.Followup(dc.Message{
 			Content: "Invalid image format. Please upload a valid PNG, JPG, or GIF.",
 		})
 		return
@@ -2638,7 +2616,7 @@ func HandleUploadBannerCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 	pngBytes, feedback, err := bottools.NormalizeBannerImage(img)
 	if err != nil {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		_ = e.Followup(dc.Message{
 			Content: "Failed to encode the image to PNG.",
 		})
 		return
@@ -2648,21 +2626,21 @@ func HandleUploadBannerCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		log.Println("Error creating banner directory:", err)
 	}
 
-	outPath := filepath.Join(config.BannerPath, fmt.Sprintf("banner_%s_%s.png", user.ID, i.GuildID))
+	outPath := filepath.Join(config.BannerPath, fmt.Sprintf("banner_%s_%s.png", user.ID, guildID))
 	if err := os.WriteFile(outPath, pngBytes, 0644); err != nil {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		_ = e.Followup(dc.Message{
 			Content: "Failed to save the image on the server.",
 		})
 		return
 	}
 
-	_ = farmerstate.SetCustomBanner(user.ID, i.GuildID, pngBytes)
+	_ = farmerstate.SetCustomBanner(user.ID, guildID, pngBytes)
 	message := "Custom banner successfully uploaded and saved! It will be used for your next /contract."
 	if feedback != "" {
 		message += " " + feedback
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+	_ = e.Followup(dc.Message{
 		Content: message,
 	})
 }

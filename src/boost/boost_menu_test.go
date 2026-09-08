@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
@@ -190,7 +190,7 @@ func TestDrawBoostListCompactRange(t *testing.T) {
 
 	// Also make sure we have some boosted/token time states if needed, but buildCompactRange just formats them.
 	// We will call DrawBoostList.
-	components := DrawBoostList(nil, contract)
+	components := DrawBoostList(contract)
 	if len(components) == 0 {
 		t.Fatalf("expected components, got none")
 	}
@@ -200,9 +200,9 @@ func TestDrawBoostListCompactRange(t *testing.T) {
 	foundLateCompaction := false
 
 	for _, comp := range components {
-		if textDisplay, ok := comp.(*discordgo.TextDisplay); ok {
+		if textDisplay, ok := comp.(dc.TextDisplay); ok {
 			content := textDisplay.Content
-			if reflect.TypeOf(comp).String() == "*discordgo.TextDisplay" {
+			if reflect.TypeOf(comp).String() == "dc.TextDisplay" {
 				if strings.Contains(content, "... (11 more) ...,") {
 					foundEarlyCompaction = true
 				}

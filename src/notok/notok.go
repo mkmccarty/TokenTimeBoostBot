@@ -12,8 +12,8 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 
-	"github.com/bwmarrin/discordgo"
 	"google.golang.org/genai"
 )
 
@@ -65,12 +65,17 @@ func init() {
 }
 
 // Notok is the main function for the notok command
-func Notok(s *discordgo.Session, i *discordgo.InteractionCreate, cmd int64, text string) error {
-	var name = i.Member.Nick
-	if name == "" {
-		name = i.Member.User.GlobalName
+func Notok(client dc.Client, e *dc.CommandEvent, cmd int64, text string) error {
+	var name string
+	if member := e.Member(); member != nil {
+		name = member.Nick
 	}
-	var g, err = s.GuildMember(i.GuildID, i.Member.User.ID)
+	if name == "" {
+		if user := e.User(); user != nil {
+			name = user.GlobalName
+		}
+	}
+	var g, err = client.GuildMember(e.GuildID(), e.UserID())
 	if err == nil && g.Nick != "" {
 		name = g.Nick
 	}
@@ -79,7 +84,7 @@ func Notok(s *discordgo.Session, i *discordgo.InteractionCreate, cmd int64, text
 
 	// Respond to messages
 	var currentStartTime = time.Now()
-	contractDesc := boost.GetContractDescription(i.ChannelID)
+	contractDesc := boost.GetContractDescription(e.ChannelID())
 
 	switch cmd {
 	case 1:
@@ -112,36 +117,27 @@ func Notok(s *discordgo.Session, i *discordgo.InteractionCreate, cmd int64, text
 	}
 
 	if err != nil {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: fmt.Sprintf("%s\nResponse time: %s", err.Error(), time.Since(currentStartTime).Round(time.Second).String()),
-			},
-		)
+		_ = e.Followup(dc.Message{
+			Content: fmt.Sprintf("%s\nResponse time: %s", err.Error(), time.Since(currentStartTime).Round(time.Second).String()),
+		})
 		return err
 	}
 
 	/*
 		if wishURL != "" {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true,
-				&discordgo.WebhookParams{
-					Content: fmt.Sprintf("Success\nResponse time: %s", time.Since(currentStartTime).Round(time.Second).String()),
-				},
-			)
-			sendImageReply(s, i.ChannelID, wishURL, wishStr, hidden)
+			_ = e.Followup(dc.Message{
+				Content: fmt.Sprintf("Success\nResponse time: %s", time.Since(currentStartTime).Round(time.Second).String()),
+			})
+			sendImageReply(client, e.ChannelID(), wishURL, wishStr, hidden)
 		} else */
 	if wishStr != "" {
 		if strings.HasPrefix(text, "!!") {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true,
-				&discordgo.WebhookParams{
-					Content: wishStr},
-			)
+			_ = e.Followup(dc.Message{Content: wishStr})
 		} else {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true,
-				&discordgo.WebhookParams{
-					Content: fmt.Sprintf("Success\nResponse time: %s", time.Since(currentStartTime).Round(time.Second).String()),
-				},
-			)
-			_, _ = s.ChannelMessageSend(i.ChannelID, wishStr)
+			_ = e.Followup(dc.Message{
+				Content: fmt.Sprintf("Success\nResponse time: %s", time.Since(currentStartTime).Round(time.Second).String()),
+			})
+			_, _ = client.SendMessage(e.ChannelID(), dc.Message{Content: wishStr})
 			lastWish = wishStr
 		}
 	} else if wishStr == lastWish {
@@ -152,19 +148,19 @@ func Notok(s *discordgo.Session, i *discordgo.InteractionCreate, cmd int64, text
 
 /*
 // DoGoNow gets the AI to draw a chicken in a hurry
-func DoGoNow(s *discordgo.Session, channelID string) {
+func DoGoNow(client dc.Client, channelID string) {
 	var str = gonow(boost.GetContractDescription(channelID))
-	_ = s.ChannelTyping(channelID)
+	_ = client.Typing(channelID)
 	wishURL, _ := wishImage(str, "")
-	sendImageReply(s, channelID, wishURL, "", false)
+	sendImageReply(client, channelID, wishURL, "", false)
 }
 */
 
 /*
-func sendImageReply(s *discordgo.Session, channelID string, wishURL string, wishStr string, hidden bool) {
-	_ = s.ChannelTyping(channelID)
+func sendImageReply(client dc.Client, channelID string, wishURL string, wishStr string, hidden bool) {
+	_ = client.Typing(channelID)
 	response, _ := http.Get(wishURL)
-	var data discordgo.MessageSend
+	var data dc.Message
 	if wishStr != lastWish {
 		if hidden {
 			data.Content = "||" + wishStr + "||"
@@ -174,15 +170,15 @@ func sendImageReply(s *discordgo.Session, channelID string, wishURL string, wish
 	}
 
 	if response != nil && response.StatusCode == 200 {
-		var myFile discordgo.File
-		myFile.ContentType = "image/png"
-		myFile.Name = "ttbb-dalle3.png"
-		myFile.Reader = response.Body
-		data.Files = append(data.Files, &myFile)
-		_, _ = s.ChannelMessageSendComplex(channelID, &data)
+		data.Files = append(data.Files, dc.File{
+			Name:        "ttbb-dalle3.png",
+			ContentType: "image/png",
+			Reader:      response.Body,
+		})
+		_, _ = client.SendMessage(channelID, data)
 	} else {
 		// Error message
-		_, _ = s.ChannelMessageSend(channelID, "Sorry the AIrtists responsed with \""+wishURL+"\"") //"Sorry, the AIrtists are not available at the moment. Some image prompts ")
+		_, _ = client.SendMessage(channelID, dc.Message{Content: "Sorry the AIrtists responsed with \"" + wishURL + "\""}) //"Sorry, the AIrtists are not available at the moment. Some image prompts ")
 	}
 }
 */

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 func TestGetEggStandardTime(t *testing.T) {
@@ -284,10 +284,7 @@ func TestThresholdTokensCalculation(t *testing.T) {
 }
 
 func TestCreateContractPlaystyleBoostOrder(t *testing.T) {
-	s, err := createMockSession()
-	if err != nil {
-		t.Fatalf("Failed to create mock session: %v", err)
-	}
+	client := newTestClient()
 
 	contractID := "playstyle-boost-order-test"
 	guildID := "guild-123"
@@ -296,7 +293,7 @@ func TestCreateContractPlaystyleBoostOrder(t *testing.T) {
 	// Case 1: boostOrder is -1 (not specified) and PlayStyle is Leaderboard.
 	// It should default to ContractOrderTEFuzzy.
 	channelID1 := "channel-123-1"
-	contract1, err := CreateContract(s, contractID, "coop-order-test-1", ContractPlaystyleLeaderboard, 10, -1, guildID, channelID1, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
+	contract1, err := CreateContract(client, contractID, "coop-order-test-1", ContractPlaystyleLeaderboard, 10, -1, guildID, channelID1, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
 	if err != nil {
 		t.Fatalf("Failed to create contract: %v", err)
 	}
@@ -312,7 +309,7 @@ func TestCreateContractPlaystyleBoostOrder(t *testing.T) {
 	// Case 2: boostOrder is explicitly ContractOrderRandom (2) and PlayStyle is Leaderboard.
 	// It should override the default playstyle boost order and remain ContractOrderRandom.
 	channelID2 := "channel-123-2"
-	contract2, err := CreateContract(s, contractID, "coop-order-test-2", ContractPlaystyleLeaderboard, 10, ContractOrderRandom, guildID, channelID2, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
+	contract2, err := CreateContract(client, contractID, "coop-order-test-2", ContractPlaystyleLeaderboard, 10, ContractOrderRandom, guildID, channelID2, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
 	if err != nil {
 		t.Fatalf("Failed to create contract: %v", err)
 	}
@@ -328,7 +325,7 @@ func TestCreateContractPlaystyleBoostOrder(t *testing.T) {
 	// Case 3: boostOrder is -1 (not specified) and PlayStyle is Chill.
 	// It should default to ContractOrderSignup (0).
 	channelID3 := "channel-123-3"
-	contract3, err := CreateContract(s, contractID, "coop-order-test-3", ContractPlaystyleChill, 10, -1, guildID, channelID3, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
+	contract3, err := CreateContract(client, contractID, "coop-order-test-3", ContractPlaystyleChill, 10, -1, guildID, channelID3, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
 	if err != nil {
 		t.Fatalf("Failed to create contract: %v", err)
 	}
@@ -343,17 +340,14 @@ func TestCreateContractPlaystyleBoostOrder(t *testing.T) {
 }
 
 func TestMultipleTBDContracts(t *testing.T) {
-	s, err := createMockSession()
-	if err != nil {
-		t.Fatalf("Failed to create mock session: %v", err)
-	}
+	client := newTestClient()
 	contractID := "tbd-test-contract"
 	guildID := "guild-123"
 	creatorUserID := "user-456"
 
 	// Create first TBD contract in channel-1
 	channelID1 := "channel-1"
-	contract1, err := CreateContract(s, contractID, "tbd", ContractPlaystyleChill, 10, -1, guildID, channelID1, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
+	contract1, err := CreateContract(client, contractID, "tbd", ContractPlaystyleChill, 10, -1, guildID, channelID1, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
 	if err != nil {
 		t.Fatalf("Failed to create first TBD contract: %v", err)
 	}
@@ -365,7 +359,7 @@ func TestMultipleTBDContracts(t *testing.T) {
 
 	// Create second TBD contract in channel-2 (with a variation "tbd+3")
 	channelID2 := "channel-2"
-	contract2, err := CreateContract(s, contractID, "tbd+3", ContractPlaystyleChill, 10, -1, guildID, channelID2, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
+	contract2, err := CreateContract(client, contractID, "tbd+3", ContractPlaystyleChill, 10, -1, guildID, channelID2, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
 	if err != nil {
 		t.Fatalf("Failed to create second TBD contract (tbd+3): %v", err)
 	}
@@ -377,7 +371,7 @@ func TestMultipleTBDContracts(t *testing.T) {
 
 	// Create third TBD contract in channel-3 (with same coopID "tbd" to test duplicate bypass)
 	channelID3 := "channel-3"
-	contract3, err := CreateContract(s, contractID, "tbd", ContractPlaystyleChill, 10, -1, guildID, channelID3, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
+	contract3, err := CreateContract(client, contractID, "tbd", ContractPlaystyleChill, 10, -1, guildID, channelID3, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
 	if err != nil {
 		t.Fatalf("Failed to create third TBD contract (duplicate tbd): %v", err)
 	}
@@ -410,10 +404,10 @@ func TestMultipleTBDContracts(t *testing.T) {
 	}
 
 	// Verify DrawBoostList adds guidance text
-	boostComponents := DrawBoostList(s, contract1)
+	boostComponents := DrawBoostList(contract1)
 	foundWarning := false
 	for _, comp := range boostComponents {
-		if td, ok := comp.(*discordgo.TextDisplay); ok {
+		if td, ok := comp.(dc.TextDisplay); ok {
 			if strings.Contains(td.Content, "Coop ID is set to TBD") {
 				foundWarning = true
 				break
@@ -432,9 +426,9 @@ func TestMultipleTBDContracts(t *testing.T) {
 
 	foundStartBtn := false
 	for _, row := range components {
-		if actionRow, ok := row.(discordgo.ActionsRow); ok {
+		if actionRow, ok := row.(dc.ActionRow); ok {
 			for _, comp := range actionRow.Components {
-				if btn, ok := comp.(discordgo.Button); ok && btn.CustomID == "fd_signupStart" {
+				if btn, ok := comp.(dc.Button); ok && btn.CustomID == "fd_signupStart" {
 					foundStartBtn = true
 					if !btn.Disabled {
 						t.Errorf("expected start button to be disabled for TBD contract")
@@ -520,10 +514,7 @@ func TestRenderContractReportImage(t *testing.T) {
 }
 
 func TestProgenitorsCreatorNotProgenitor(t *testing.T) {
-	s, err := createMockSession()
-	if err != nil {
-		t.Fatalf("Failed to create mock session: %v", err)
-	}
+	client := newTestClient()
 
 	contractID := "progenitor-test-contract"
 	guildID := "guild-123"
@@ -532,7 +523,7 @@ func TestProgenitorsCreatorNotProgenitor(t *testing.T) {
 	progenitorID2 := "progenitor-2"
 	progenitors := []string{progenitorID1, progenitorID2}
 
-	contract, err := CreateContract(s, contractID, "coop-prog-test", ContractPlaystyleChill, 10, -1, guildID, "channel-prog-1", progenitors, creatorUserID, time.Now(), time.Now())
+	contract, err := CreateContract(client, contractID, "coop-prog-test", ContractPlaystyleChill, 10, -1, guildID, "channel-prog-1", progenitors, creatorUserID, time.Now(), time.Now())
 	if err != nil {
 		t.Fatalf("Failed to create contract: %v", err)
 	}
@@ -557,10 +548,7 @@ func TestProgenitorsCreatorNotProgenitor(t *testing.T) {
 }
 
 func TestRestartContractRestoresState(t *testing.T) {
-	s, err := createMockSession()
-	if err != nil {
-		t.Fatalf("Failed to create mock session: %v", err)
-	}
+	client := newTestClient()
 
 	contractID := "restart-state-contract"
 	guildID := "guild-123"
@@ -568,7 +556,7 @@ func TestRestartContractRestoresState(t *testing.T) {
 	creatorUserID := "coordinator-user"
 	progenitors := []string{"farmer-1", "farmer-2", "farmer-3"}
 
-	contract, err := CreateContract(s, contractID, "coop-restart-test", ContractPlaystyleChill, 10, ContractOrderFair, guildID, channelID, progenitors, creatorUserID, time.Now(), time.Now())
+	contract, err := CreateContract(client, contractID, "coop-restart-test", ContractPlaystyleChill, 10, ContractOrderFair, guildID, channelID, progenitors, creatorUserID, time.Now(), time.Now())
 	if err != nil {
 		t.Fatalf("Failed to create contract: %v", err)
 	}
@@ -596,12 +584,12 @@ func TestRestartContractRestoresState(t *testing.T) {
 	savedThresholdA := contract.ThresholdTokensA
 	origCreatorID := contract.CreatorID[0]
 
-	_, err = DeleteContract(s, guildID, channelID)
+	_, err = DeleteContract(client, guildID, channelID)
 	if err != nil {
 		t.Fatalf("Failed to delete contract: %v", err)
 	}
 
-	newContract, err := CreateContract(s, contractID, "coop-restart-test", ContractPlaystyleChill, 10, ContractOrderSignup, guildID, channelID, savedProgenitors, origCreatorID, time.Time{}, time.Now())
+	newContract, err := CreateContract(client, contractID, "coop-restart-test", ContractPlaystyleChill, 10, ContractOrderSignup, guildID, channelID, savedProgenitors, origCreatorID, time.Time{}, time.Now())
 	if err != nil {
 		t.Fatalf("Failed to recreate contract on restart: %v", err)
 	}

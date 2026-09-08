@@ -11,9 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/version"
 )
@@ -132,12 +131,19 @@ func mustExecutablePath() string {
 
 func recoverPanic(scope string, exitCode int, metadata map[string]string) {
 	if r := recover(); r != nil {
-		writeCrashLog(scope, r, metadata)
-		sendCrashAlert(scope, r, metadata)
+		handlePanic(scope, r, metadata)
 		if exitCode != 0 {
 			os.Exit(exitCode)
 		}
 	}
+}
+
+// handlePanic records an already-recovered panic. dc.Bot recovers panics
+// raised inside interaction handlers itself and hands the value to its OnPanic
+// hook, so that path cannot go through recoverPanic's own recover().
+func handlePanic(scope string, recovered any, metadata map[string]string) {
+	writeCrashLog(scope, recovered, metadata)
+	sendCrashAlert(scope, recovered, metadata)
 }
 
 func sendCrashAlert(scope string, recovered any, metadata map[string]string) {
@@ -147,7 +153,8 @@ func sendCrashAlert(scope string, recovered any, metadata map[string]string) {
 		}
 	}()
 
-	if s == nil {
+	client := bot.Client()
+	if client == nil {
 		return
 	}
 
@@ -155,7 +162,7 @@ func sendCrashAlert(scope string, recovered any, metadata map[string]string) {
 
 	channelID := getCrashAlertChannelID(metadata)
 	if channelID != "" {
-		if _, err := s.ChannelMessageSend(channelID, content); err != nil {
+		if _, err := client.SendMessage(channelID, dc.Message{Content: content}); err != nil {
 			log.Printf("Failed to send crash alert to channel %s: %v", channelID, err)
 		}
 	}
@@ -165,13 +172,13 @@ func sendCrashAlert(scope string, recovered any, metadata map[string]string) {
 		return
 	}
 
-	dm, err := s.UserChannelCreate(adminUserID)
+	dm, err := client.CreateUserChannel(adminUserID)
 	if err != nil {
 		log.Printf("Failed to create admin DM channel for crash alert (user=%s): %v", adminUserID, err)
 		return
 	}
 
-	if _, err := s.ChannelMessageSend(dm.ID, content); err != nil {
+	if _, err := client.SendMessage(dm.ID, dc.Message{Content: content}); err != nil {
 		log.Printf("Failed to send crash alert DM to admin user %s: %v", adminUserID, err)
 	}
 }
@@ -255,62 +262,39 @@ func safeGoMeta(scope string, metadata map[string]string, fn func()) {
 	}()
 }
 
-func withSessionHints(md map[string]string, sess *discordgo.Session) map[string]string {
+// withSessionHints adds the bot's own identity to crash metadata, which is
+// what tells two bots logging to the same place apart.
+func withSessionHints(md map[string]string) map[string]string {
 	if md == nil {
 		md = map[string]string{}
 	}
-	if sess == nil {
-		return md
-	}
 
-	md["discord_intents"] = strconv.Itoa(int(sess.Identify.Intents))
-	if sess.State != nil && sess.State.User != nil {
-		md["bot_user_id"] = sess.State.User.ID
-		md["bot_username"] = sess.State.User.Username
+	md["discord_intents"] = strconv.Itoa(int(gatewayIntents))
+	if userID := bot.UserID(); userID != "" {
+		md["bot_user_id"] = userID
+		if client := bot.Client(); client != nil {
+			md["bot_username"] = client.BotUsername()
+		}
 	}
 
 	return md
 }
 
-func interactionTypeName(t discordgo.InteractionType) string {
-	switch t {
-	case discordgo.InteractionPing:
-		return "ping"
-	case discordgo.InteractionApplicationCommand:
-		return "application_command"
-	case discordgo.InteractionMessageComponent:
-		return "message_component"
-	case discordgo.InteractionApplicationCommandAutocomplete:
-		return "command_autocomplete"
-	case discordgo.InteractionModalSubmit:
-		return "modal_submit"
-	default:
-		return fmt.Sprintf("unknown_%d", int(t))
-	}
-}
-
-func interactionCrashMetadata(s *discordgo.Session, i *discordgo.InteractionCreate) map[string]string {
+// interactionCrashMetadata describes the interaction a handler panicked on.
+func interactionCrashMetadata(meta dc.InteractionMeta) map[string]string {
 	md := map[string]string{
-		"interaction_type": interactionTypeName(i.Type),
-		"interaction_id":   i.ID,
-		"guild_id":         i.GuildID,
-		"channel_id":       i.ChannelID,
-		"app_id":           i.AppID,
-		"user_id":          bottools.GetInteractionUserID(i),
+		"interaction_type": string(meta.Kind),
+		"guild_id":         meta.GuildID,
+		"channel_id":       meta.ChannelID,
+		"user_id":          meta.UserID,
 	}
 
-	switch i.Type {
-	case discordgo.InteractionApplicationCommand, discordgo.InteractionApplicationCommandAutocomplete:
-		data := i.ApplicationCommandData()
-		md["command_name"] = data.Name
-		md["options_count"] = strconv.Itoa(len(data.Options))
-	case discordgo.InteractionModalSubmit:
-		md["custom_id"] = i.ModalSubmitData().CustomID
-	case discordgo.InteractionMessageComponent:
-		component := i.MessageComponentData()
-		md["custom_id"] = component.CustomID
-		md["component_type"] = strconv.Itoa(int(component.ComponentType))
+	switch meta.Kind {
+	case dc.KindCommand, dc.KindAutocomplete:
+		md["command_name"] = meta.Name
+	case dc.KindModal, dc.KindComponent:
+		md["custom_id"] = meta.CustomID
 	}
 
-	return withSessionHints(md, s)
+	return withSessionHints(md)
 }

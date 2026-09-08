@@ -13,9 +13,9 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 
 	"google.golang.org/protobuf/proto"
@@ -199,7 +199,7 @@ func CreatePredictedContract() []ei.EggIncContract {
 
 // UpdatePredictedSignupContracts replaces signup contracts using predicted IDs
 // with real IDs when a matching periodical contract for the same day/ultra slot arrives.
-func UpdatePredictedSignupContracts(s *discordgo.Session, liveContracts []ei.EggIncContract) int {
+func UpdatePredictedSignupContracts(client dc.Client, liveContracts []ei.EggIncContract) int {
 	updated := 0
 	for _, contract := range Contracts {
 		if contract == nil || contract.State != ContractStateSignup || !contract.PredictionSignup {
@@ -255,7 +255,7 @@ func UpdatePredictedSignupContracts(s *discordgo.Session, liveContracts []ei.Egg
 
 			if contract.ContractID != live.ID {
 				contract.ContractID = live.ID
-				updateContractWithEggIncData(s, contract)
+				updateContractWithEggIncData(client, contract)
 
 				if contract.Name != "" && contract.EggName != "" && !contract.PredictionSignup {
 					creator := ""
@@ -275,8 +275,8 @@ func UpdatePredictedSignupContracts(s *discordgo.Session, liveContracts []ei.Egg
 				}
 
 				UpdateBannerURL(contract)
-				refreshBoostListMessage(s, contract, true)
-				UpdateThreadName(s, contract)
+				refreshBoostListMessage(client, contract, true)
+				UpdateThreadName(client, contract)
 				saveData(contract.ContractHash)
 				updated++
 			}
@@ -582,7 +582,7 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 	return c
 }
 
-func updateContractWithEggIncData(s *discordgo.Session, contract *Contract) {
+func updateContractWithEggIncData(client dc.Client, contract *Contract) {
 	if len(contract.ThematicComplaints) == 0 {
 		if themed, err := GetThematicComplaintsForContract(contract.ContractID); err == nil && len(themed) > 0 {
 			contract.ThematicComplaints = append([]string(nil), themed...)
@@ -620,7 +620,7 @@ func updateContractWithEggIncData(s *discordgo.Session, contract *Contract) {
 				}
 			}
 			contract.PredictionInfo = pInfo
-			renameContractRole(s, contract)
+			renameContractRole(client, contract)
 			return
 		}
 	}
@@ -652,7 +652,7 @@ func updateContractWithEggIncData(s *discordgo.Session, contract *Contract) {
 			}
 		}
 		contract.PredictionInfo = pInfo
-		renameContractRole(s, contract)
+		renameContractRole(client, contract)
 	}
 }
 

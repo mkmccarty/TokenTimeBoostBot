@@ -20,7 +20,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 const maxParallel = 20 // max concurrent EI API fetches
@@ -126,84 +126,62 @@ type metricPeaks struct {
 }
 
 // GetSlashContractReportCommand returns the command for the /contract-report command
-func GetSlashContractReportCommand(cmd string) *discordgo.ApplicationCommand {
+func GetSlashContractReportCommand(cmd string) *dc.Command {
 	//minValue := 0.0
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Generate contract report from player EIs.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
+	command := anywhereCommand(cmd, "Generate contract report from player EIs.")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:         "contract-id",
+			Description:  "Select a contract-id",
+			Autocomplete: true,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
+		dc.BoolOption{
+			Name:        "token-details",
+			Description: "Show token details in the report. Default is false.",
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "contract-id",
-				Description:  "Select a contract-id",
-				Required:     false,
-				Autocomplete: true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "token-details",
-				Description: "Show token details in the report. Default is false.",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "missing-players",
-				Description: "Show missing players in the report. Default is false.",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "as-image",
-				Description: "Render table as an image instead of text. Default is false (sticky).",
-				Required:    false,
-			},
+		dc.BoolOption{
+			Name:        "missing-players",
+			Description: "Show missing players in the report. Default is false.",
+		},
+		dc.BoolOption{
+			Name:        "as-image",
+			Description: "Render table as an image instead of text. Default is false (sticky).",
+		},
+		dc.BoolOption{
+			Name:        "reset",
+			Description: "Reset stored EI number",
 		},
 	}
+	return &command
 }
 
-// HandleContractReport handles the /contract-report command
-func HandleContractReport(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleContractReport handles the /contract-report command.
+func HandleContractReport(e *dc.CommandEvent) {
 	// Check if user has permission to use CoopStatus API
-	if !CheckCoopStatusPermission(s, i, ei.CoopStatusFixEnabled != nil && ei.CoopStatusFixEnabled()) {
+	if !CheckCoopStatusPermission(e, ei.CoopStatusFixEnabled != nil && ei.CoopStatusFixEnabled()) {
 		return
 	}
 
-	userID := bottools.GetInteractionUserID(i)
-	optionMap := bottools.GetCommandOptionsMap(i)
-	if opt, ok := optionMap["reset"]; ok {
-		if opt.BoolValue() {
-			farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
-		}
+	userID := e.UserID()
+	if opt, ok := e.OptBool("reset"); ok && opt {
+		farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
 	}
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
-	if err := ContractReport(s, i, optionMap, eiID, true); err != nil {
+	if err := ContractReport(e, e.Options(), eiID, true); err != nil {
 		log.Printf("ContractReport failed: %v", err)
 
-		_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Flags: discordgo.MessageFlagsIsComponentsV2,
-			Components: []discordgo.MessageComponent{
-				&discordgo.TextDisplay{Content: userMessage(err)},
+		if err = e.Followup(dc.Message{
+			Components: []dc.LayoutComponent{
+				dc.TextDisplay{Content: userMessage(err)},
 			},
-		})
-		if err != nil {
+		}); err != nil {
 			log.Println("Error sending error message:", err)
 		}
 		return
 	}
-
 }
 
 func processContributors(
-	s *discordgo.Session,
 	coopStatus *ei.ContractCoopStatusResponse,
 	callerUserID string,
 	forceRefresh, okayToSave bool,
@@ -285,12 +263,12 @@ func processContributors(
 			for r := range jobsCh {
 				// cache IGN if missing
 				if ign := farmerstate.GetMiscSettingString(r.discordID, "ei_ign"); ign == "" {
-					if backup, _ := ei.GetFirstContactFromAPI(s, r.eiID, r.discordID, okayToSave); backup != nil {
+					if backup, _ := ei.GetFirstContactFromAPI(r.eiID, r.discordID, okayToSave); backup != nil {
 						farmerstate.SetMiscSettingString(r.discordID, "ei_ign", backup.GetUserName())
 					}
 				}
 
-				archive, _ := ei.GetContractArchiveFromAPI(s, r.eiID, r.discordID, forceRefresh, okayToSave)
+				archive, _ := ei.GetContractArchiveFromAPI(r.eiID, r.discordID, forceRefresh, okayToSave)
 
 				muEval.Lock()
 				evalsByName[r.name] = archive
@@ -394,21 +372,20 @@ func deduplicateContributors(
 // Parameters:
 //   - s: active Discord session
 //   - i: the triggering interaction
-//   - optionMap: slash-command options (e.g., "contract-id").
+//   - options: the slash command options (e.g., "contract-id").
 //   - userID: Discord user ID of the caller
 //   - okayToSave: whether API fetches may be cached/persisted.
 //
 // Returns:
 //   - error: nil on success.
 func ContractReport(
-	s *discordgo.Session,
-	i *discordgo.InteractionCreate,
-	optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption,
+	e dc.InteractionEvent,
+	options dc.OptionValues,
 	eiID string,
 	okayToSave bool,
 ) error {
 
-	callerUserID := bottools.GetInteractionUserID(i)
+	callerUserID := e.UserID()
 
 	// define parameter struct
 	p := contractReportParameters{}
@@ -420,29 +397,29 @@ func ContractReport(
 	forceRefresh := true
 
 	showTokenDetails := false
-	if opt, ok := optionMap["token-details"]; ok {
-		showTokenDetails = opt.BoolValue()
+	if opt, ok := options.Bool("token-details"); ok {
+		showTokenDetails = opt
 	}
 	showMissingPlayers := false
-	if opt, ok := optionMap["missing-players"]; ok {
-		showMissingPlayers = opt.BoolValue()
+	if opt, ok := options.Bool("missing-players"); ok {
+		showMissingPlayers = opt
 	}
-	userID := bottools.GetInteractionUserID(i)
+	userID := callerUserID
 	imageTable := farmerstate.GetMiscSettingFlag(userID, "as-image")
-	if opt, ok := optionMap["as-image"]; ok {
-		imageTable = opt.BoolValue()
+	if opt, ok := options.Bool("as-image"); ok {
+		imageTable = opt
 		farmerstate.SetMiscSettingFlag(userID, "as-image", imageTable)
 	}
 
 	// resolve contractID, prefer the slash option.
 	var contractID string
-	if opt, ok := optionMap["contract-id"]; ok {
-		contractID = strings.ToLower(opt.StringValue())
+	if opt, ok := options.String("contract-id"); ok {
+		contractID = strings.ToLower(opt)
 		contractID = strings.ReplaceAll(contractID, " ", "")
 	}
 	// If absent, fall back to the channel's contract.
 	if contractID == "" {
-		c := FindContract(i.ChannelID)
+		c := FindContract(e.ChannelID())
 		if c != nil && c.ContractID != "" {
 			contractID = strings.ToLower(c.ContractID)
 			contractID = strings.ReplaceAll(contractID, " ", "")
@@ -465,24 +442,22 @@ func ContractReport(
 	}
 	// validate EI or prompt
 	if len(callerEI) != 18 || !strings.HasPrefix(callerEI, "EI") {
-		RequestEggIncIDModal(s, i, "contract-report", optionMap)
+		// Only the command path reaches this: the modal path already checked
+		// that an ID came back, and Discord will not answer a modal with a
+		// modal.
+		if cmd, ok := e.(*dc.CommandEvent); ok {
+			RequestEggIncIDModal(cmd, "contract-report", options)
+		}
 		return nil
 	}
 
 	// Quick reply to buy us some time
-	flags := discordgo.MessageFlagsIsComponentsV2
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   flags,
-		},
-	})
+	_ = e.Defer(false)
 
 	// Do I know the user's IGN?
 	callerFarmerName := farmerstate.GetMiscSettingString(callerUserID, "ei_ign")
 	// Update their IGN using the backup
-	backup, _ := ei.GetFirstContactFromAPI(s, callerEI, callerUserID, okayToSave)
+	backup, _ := ei.GetFirstContactFromAPI(callerEI, callerUserID, okayToSave)
 	if backup != nil {
 		newIGN := backup.GetUserName()
 		if newIGN != "" && newIGN != callerFarmerName {
@@ -491,7 +466,7 @@ func ContractReport(
 			farmerstate.SetMiscSettingString(callerUserID, "ei_ign", callerFarmerName)
 		}
 	}
-	callerArchive, _ := ei.GetContractArchiveFromAPI(s, callerEI, callerUserID, forceRefresh, okayToSave)
+	callerArchive, _ := ei.GetContractArchiveFromAPI(callerEI, callerUserID, forceRefresh, okayToSave)
 
 	// Locate the caller’s evaluation for this specific contract, then validate it.
 	cxpVersion := ""
@@ -549,7 +524,6 @@ func ContractReport(
 	}
 
 	evalsByName, missing, perr := processContributors(
-		s,          // *discordgo.Session
 		coopStatus, // *ei.ContractCoopStatusResponse
 		callerUserID,
 		forceRefresh,
@@ -610,12 +584,11 @@ func ContractReport(
 	// render components and image table
 	components, files := printContractReport(&p, imageTable, showTokenDetails, showMissingPlayers)
 	if len(components) == 0 {
-		components = []discordgo.MessageComponent{
-			&discordgo.TextDisplay{Content: "No archived contracts found in Egg Inc API response"},
+		components = []dc.LayoutComponent{
+			dc.TextDisplay{Content: "No archived contracts found in Egg Inc API response"},
 		}
 	}
-	if _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Flags:      flags,
+	if err = e.Followup(dc.Message{
 		Components: components,
 		Files:      files,
 	}); err != nil {
@@ -628,9 +601,9 @@ func ContractReport(
 // printContractReport returns:
 //  1. markdown header with thresholds (and missing players note)
 //  2. rendered table image attachment
-func printContractReport(p *contractReportParameters, imageTable, showTokenDetails, showMissingPlayers bool) ([]discordgo.MessageComponent, []*discordgo.File) {
-	var components []discordgo.MessageComponent
-	var files []*discordgo.File
+func printContractReport(p *contractReportParameters, imageTable, showTokenDetails, showMissingPlayers bool) ([]dc.LayoutComponent, []dc.File) {
+	var components []dc.LayoutComponent
+	var files []dc.File
 
 	currentContract := p.contract
 
@@ -672,7 +645,7 @@ func printContractReport(p *contractReportParameters, imageTable, showTokenDetai
 	} else {
 		fmt.Fprintf(&h, "__Members__ (%d players)\n", len(p.playerEvalsMetrics))
 	}
-	components = append(components, &discordgo.TextDisplay{Content: h.String()})
+	components = append(components, dc.TextDisplay{Content: h.String()})
 
 	// --- Render Table (Image or ANSI text) ---
 	if imageTable {
@@ -681,15 +654,14 @@ func printContractReport(p *contractReportParameters, imageTable, showTokenDetai
 			if err != nil {
 				log.Printf("Error rendering contract report image: %v", err)
 			} else if len(imgBytes) > 0 {
-				files = append(files, &discordgo.File{
+				files = append(files, dc.File{
 					Name:        "contract_report.png",
 					ContentType: "image/png",
 					Reader:      bytes.NewReader(imgBytes),
 				})
-				var mediaItem discordgo.MediaGalleryItem
-				mediaItem.Media.URL = "attachment://contract_report.png"
-				components = append(components, &discordgo.MediaGallery{
-					Items: []discordgo.MediaGalleryItem{
+				mediaItem := dc.MediaItem{URL: "attachment://contract_report.png"}
+				components = append(components, dc.MediaGallery{
+					Items: []dc.MediaItem{
 						mediaItem,
 					},
 				})
@@ -709,7 +681,7 @@ func printContractReport(p *contractReportParameters, imageTable, showTokenDetai
 			b.WriteByte('\n')
 		}
 		b.WriteString("```")
-		components = append(components, &discordgo.TextDisplay{Content: b.String()})
+		components = append(components, dc.TextDisplay{Content: b.String()})
 	}
 
 	if len(p.missingPlayers) > 0 {
@@ -738,7 +710,7 @@ func printContractReport(p *contractReportParameters, imageTable, showTokenDetai
 				b.WriteByte('`')
 			}
 		}
-		components = append(components, &discordgo.TextDisplay{
+		components = append(components, dc.TextDisplay{
 			Content: registerMessage + b.String(),
 		})
 	}

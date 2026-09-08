@@ -17,8 +17,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 
 	"golang.org/x/image/draw"
@@ -29,9 +29,9 @@ const emoteFilePath = "ttbb-data/Emotes.json"
 var emojiImportMu sync.Mutex
 
 // fetchEmojisFromDiscord fetches emojis from the discord API
-func fetchEmojisFromDiscord(s *discordgo.Session) map[string]ei.Emotes {
+func fetchEmojisFromDiscord(client dc.Client) map[string]ei.Emotes {
 	emotes := make(map[string]ei.Emotes)
-	appEmoji, err := s.ApplicationEmojis(config.DiscordAppID)
+	appEmoji, err := client.ApplicationEmojis(config.DiscordAppID)
 	if err != nil {
 		return emotes
 	}
@@ -45,17 +45,17 @@ func fetchEmojisFromDiscord(s *discordgo.Session) map[string]ei.Emotes {
 	return emotes
 }
 
-// LoadEmotes will load all the emojis from the app
-func LoadEmotes(s *discordgo.Session, force bool) {
+// LoadEmotesWithClient will load all the emojis from the app using the dc facade client.
+func LoadEmotesWithClient(client dc.Client, force bool) {
 	ei.SetEmojiResolver(func(name string) (ei.Emotes, bool) {
-		return EnsureEmojiFromLocalRepo(s, name)
+		return EnsureEmojiFromLocalRepoWithClient(client, name)
 	})
 
 	var EmoteMapNew map[string]ei.Emotes
 
 	fileInfo, err := os.Stat(emoteFilePath)
 	if force || err != nil {
-		EmoteMapNew = fetchEmojisFromDiscord(s)
+		EmoteMapNew = fetchEmojisFromDiscord(client)
 		ei.EmoteMap = EmoteMapNew
 		saveEmotesToFile(emoteFilePath, EmoteMapNew)
 		return
@@ -69,7 +69,7 @@ func LoadEmotes(s *discordgo.Session, force bool) {
 
 	// Refresh cache if file is older than 24 hours
 	if len(EmoteMapNew) == 0 || time.Since(fileInfo.ModTime()) > 24*time.Hour {
-		EmoteMapNew = fetchEmojisFromDiscord(s)
+		EmoteMapNew = fetchEmojisFromDiscord(client)
 		if len(EmoteMapNew) != len(ei.EmoteMap) {
 			ei.EmoteMap = EmoteMapNew
 			saveEmotesToFile(emoteFilePath, EmoteMapNew)
@@ -77,9 +77,9 @@ func LoadEmotes(s *discordgo.Session, force bool) {
 	}
 }
 
-// EnsureEmojiFromLocalRepo tries to load a missing emoji from the local emoji directory,
-// uploads it to Discord, and refreshes the in-memory emoji map.
-func EnsureEmojiFromLocalRepo(s *discordgo.Session, name string) (ei.Emotes, bool) {
+// EnsureEmojiFromLocalRepoWithClient tries to load a missing emoji from the local emoji directory,
+// uploads it to Discord via the dc facade client, and refreshes the in-memory emoji map.
+func EnsureEmojiFromLocalRepoWithClient(client dc.Client, name string) (ei.Emotes, bool) {
 	emojiName := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(name, "-", "")))
 	if emojiName == "" {
 		return ei.Emotes{}, false
@@ -97,7 +97,7 @@ func EnsureEmojiFromLocalRepo(s *discordgo.Session, name string) (ei.Emotes, boo
 	}
 
 	// On cache miss, first fetch fresh emoji list from Discord API to check if it's already uploaded
-	refreshed := fetchEmojisFromDiscord(s)
+	refreshed := fetchEmojisFromDiscord(client)
 	if len(refreshed) > 0 {
 		ei.EmoteMap = refreshed
 		saveEmotesToFile(emoteFilePath, ei.EmoteMap)
@@ -112,14 +112,14 @@ func EnsureEmojiFromLocalRepo(s *discordgo.Session, name string) (ei.Emotes, boo
 		return ei.Emotes{}, false
 	}
 
-	createdEmoji, err := importSingleEmojiFromPath(s, emojiName, emojiPath)
+	createdEmoji, err := importSingleEmojiFromPath(client, emojiName, emojiPath)
 	if err != nil {
 		log.Printf("Error importing missing local emoji %s: %v", emojiName, err)
 		return ei.Emotes{}, false
 	}
 
 	// Refresh map to store Discord assigned ID
-	refreshed = fetchEmojisFromDiscord(s)
+	refreshed = fetchEmojisFromDiscord(client)
 	if len(refreshed) > 0 {
 		ei.EmoteMap = refreshed
 		saveEmotesToFile(emoteFilePath, ei.EmoteMap)
@@ -196,8 +196,8 @@ func loadEmotesFromFile(emoteFilePath string) (map[string]ei.Emotes, error) {
 	return emotes, nil
 }
 
-// ImportEggImage will import an egg image into the discord app
-func ImportEggImage(s *discordgo.Session, eggID, IconURL string) (string, error) {
+// ImportEggImageWithClient will import an egg image into the discord app using the dc facade client.
+func ImportEggImageWithClient(client dc.Client, eggID, IconURL string) (string, error) {
 
 	// Read the icon URL into memory
 	resp, err := http.Get(IconURL)
@@ -281,12 +281,10 @@ func ImportEggImage(s *discordgo.Session, eggID, IconURL string) (string, error)
 	}
 	base64Image := base64.StdEncoding.EncodeToString(buf.Bytes())
 
-	data := discordgo.EmojiParams{
+	newID, err := client.ApplicationEmojiCreate(config.DiscordAppID, dc.EmojiParams{
 		Name:  fmt.Sprintf("egg_%s", cleanEggID),
 		Image: "data:image/png;base64," + base64Image,
-	}
-
-	newID, err := s.ApplicationEmojiCreate(config.DiscordAppID, &data)
+	})
 	if err != nil {
 		log.Print(err)
 		return "", err
@@ -316,8 +314,8 @@ func isEmojiFile(fileName string) bool {
 	return false
 }
 
-// ImportNewEmojis will import new emojis from the emoji directory into the discord app
-func ImportNewEmojis(s *discordgo.Session) {
+// ImportNewEmojisWithClient will import new emojis from the emoji directory into the discord app using the dc facade client.
+func ImportNewEmojisWithClient(client dc.Client) {
 	if config.IsDevBot() {
 		return
 	}
@@ -353,7 +351,7 @@ func ImportNewEmojis(s *discordgo.Session) {
 		}
 		f := file
 		wg.Go(func() {
-			importSingleEmoji(s, emojiName, f)
+			importSingleEmoji(client, emojiName, f)
 			atomic.AddInt32(&importedCount, 1)
 		})
 	}
@@ -362,7 +360,7 @@ func ImportNewEmojis(s *discordgo.Session) {
 	wg.Wait()
 
 	if importedCount > 0 {
-		refreshed := fetchEmojisFromDiscord(s)
+		refreshed := fetchEmojisFromDiscord(client)
 		if len(refreshed) > 0 {
 			ei.EmoteMap = refreshed
 			saveEmotesToFile(emoteFilePath, ei.EmoteMap)
@@ -370,8 +368,8 @@ func ImportNewEmojis(s *discordgo.Session) {
 	}
 }
 
-func importSingleEmoji(s *discordgo.Session, emojiName string, file os.DirEntry) {
-	emojiData, err := importSingleEmojiFromPath(s, emojiName, filepath.Join("emoji", file.Name()))
+func importSingleEmoji(client dc.Client, emojiName string, file os.DirEntry) {
+	emojiData, err := importSingleEmojiFromPath(client, emojiName, filepath.Join("emoji", file.Name()))
 	if err != nil {
 		log.Println("Error creating emoji in Discord:", err)
 		return
@@ -379,7 +377,7 @@ func importSingleEmoji(s *discordgo.Session, emojiName string, file os.DirEntry)
 	ei.EmoteMap[strings.ToLower(emojiName)] = emojiData
 }
 
-func importSingleEmojiFromPath(s *discordgo.Session, emojiName, emojiPath string) (ei.Emotes, error) {
+func importSingleEmojiFromPath(client dc.Client, emojiName, emojiPath string) (ei.Emotes, error) {
 	imageBytes, err := os.ReadFile(emojiPath)
 	if err != nil {
 		return ei.Emotes{}, err
@@ -388,11 +386,10 @@ func importSingleEmojiFromPath(s *discordgo.Session, emojiName, emojiPath string
 	fileSuffix := strings.TrimPrefix(strings.ToLower(filepath.Ext(emojiPath)), ".")
 	base64Image := fmt.Sprintf("data:image/%s;base64,%s", fileSuffix, base64.StdEncoding.EncodeToString(imageBytes))
 
-	data := discordgo.EmojiParams{
+	newID, err := client.ApplicationEmojiCreate(config.DiscordAppID, dc.EmojiParams{
 		Name:  emojiName,
 		Image: base64Image,
-	}
-	newID, err := s.ApplicationEmojiCreate(config.DiscordAppID, &data)
+	})
 	if err != nil {
 		return ei.Emotes{}, err
 	}

@@ -6,31 +6,22 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-
-	"github.com/bwmarrin/discordgo"
 )
 
 // GetSlashAvailabilityCommand returns the slash command for setting availability
-func GetSlashAvailabilityCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Set your availability for a contract.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-	}
+func GetSlashAvailabilityCommand(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Set your availability for a contract.")
+	return &command
 }
 
 // GetAvailabilityComponents returns the components for the availability command
-func GetAvailabilityComponents(s *discordgo.Session, contract *Contract, userID string) []discordgo.MessageComponent {
-	isCoord := creatorOfContract(s, contract, userID)
+func GetAvailabilityComponents(client dc.Client, contract *Contract, userID string) []dc.LayoutComponent {
+	isCoord := creatorOfContract(client, contract, userID)
 	inContract := UserInContract(contract, userID)
 
-	var out []discordgo.MessageComponent
+	var out []dc.LayoutComponent
 
 	timeLabels := map[string]string{
 		"00-01": "+0", "01-02": "+1", "02-03": "+2", "03-04": "+3",
@@ -59,17 +50,21 @@ func GetAvailabilityComponents(s *discordgo.Session, contract *Contract, userID 
 		return strings.Join(short, ", ")
 	}
 
+	// Discord defaults an unset MinValues to 1; these menus are deselectable,
+	// so the zero has to be sent explicitly.
+	minValues := 0
+
 	if inContract {
 		b := contract.Boosters[userID]
 		if contract.PredictionSignup && len(contract.PredictionInfo) > 0 {
-			options := make([]discordgo.SelectMenuOption, len(contract.PredictionInfo))
+			options := make([]dc.SelectOption, len(contract.PredictionInfo))
 			for idx, pi := range contract.PredictionInfo {
 				isDefault := false
 				if b != nil && slices.Contains(b.Availability.Contract, pi.ContractID) {
 					isDefault = true
 				}
 				componentEmoji := ei.FindEggComponentEmoji(pi.EggName)
-				options[idx] = discordgo.SelectMenuOption{
+				options[idx] = dc.SelectOption{
 					Label:       pi.Name,
 					Value:       pi.ContractID,
 					Description: pi.ContractID,
@@ -77,22 +72,20 @@ func GetAvailabilityComponents(s *discordgo.Session, contract *Contract, userID 
 					Default:     isDefault,
 				}
 			}
-			minValues := 0
-			maxValues := len(options)
-			out = append(out, discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.SelectMenu{
+			out = append(out, dc.ActionRow{
+				Components: []dc.InteractiveComponent{
+					dc.SelectMenu{
 						CustomID:    "rc_#predmenu#" + contract.ContractHash,
 						Placeholder: "Select contracts you want to run",
 						MinValues:   &minValues,
-						MaxValues:   maxValues,
+						MaxValues:   len(options),
 						Options:     options,
 					},
 				},
 			})
 		}
 
-		timeOptions := []discordgo.SelectMenuOption{
+		timeOptions := []dc.SelectOption{
 			{Label: "+0", Value: "00-01"},
 			{Label: "+1", Value: "01-02"},
 			{Label: "+2", Value: "02-03"},
@@ -112,15 +105,13 @@ func GetAvailabilityComponents(s *discordgo.Session, contract *Contract, userID 
 				timeOptions[i].Default = true
 			}
 		}
-		minValuesTime := 0
-		maxValuesTime := len(timeOptions)
-		out = append(out, discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.SelectMenu{
+		out = append(out, dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.SelectMenu{
 					CustomID:    "rc_#predtime#" + contract.ContractHash,
 					Placeholder: "Select preferred start offsets (hours)",
-					MinValues:   &minValuesTime,
-					MaxValues:   maxValuesTime,
+					MinValues:   &minValues,
+					MaxValues:   len(timeOptions),
 					Options:     timeOptions,
 				},
 			},
@@ -180,8 +171,8 @@ func GetAvailabilityComponents(s *discordgo.Session, contract *Contract, userID 
 			}
 		}
 
-		out = append([]discordgo.MessageComponent{
-			&discordgo.TextDisplay{Content: report.String()},
+		out = append([]dc.LayoutComponent{
+			dc.TextDisplay{Content: report.String()},
 		}, out...)
 	} else if inContract {
 		b := contract.Boosters[userID]
@@ -202,17 +193,17 @@ func GetAvailabilityComponents(s *discordgo.Session, contract *Contract, userID 
 				}
 			}
 			fmt.Fprintf(&report, "> **Times**: %s\n", formatTimes(b.Availability.Timeslots))
-			out = append([]discordgo.MessageComponent{
-				&discordgo.TextDisplay{Content: report.String()},
+			out = append([]dc.LayoutComponent{
+				dc.TextDisplay{Content: report.String()},
 			}, out...)
 		}
 	}
 
 	if inContract && len(out) > 0 {
 		for _, c := range out {
-			if _, ok := c.(discordgo.ActionsRow); ok {
-				out = append([]discordgo.MessageComponent{
-					&discordgo.TextDisplay{Content: "Select your availability options below:"},
+			if _, ok := c.(dc.ActionRow); ok {
+				out = append([]dc.LayoutComponent{
+					dc.TextDisplay{Content: "Select your availability options below:"},
 				}, out...)
 				break
 			}
@@ -222,55 +213,44 @@ func GetAvailabilityComponents(s *discordgo.Session, contract *Contract, userID 
 	return out
 }
 
-// HandleAvailabilityCommand handles the /availability command
-func HandleAvailabilityCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if i.GuildID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "This command can only be run in a server.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+// HandleAvailabilityCommand handles the /availability command through the dc
+// facade.
+//
+// It still takes a raw session because creatorOfContract is not on the facade
+// yet.
+func HandleAvailabilityCommand(client dc.Client, e *dc.CommandEvent) {
+	if e.GuildID() == "" {
+		_ = e.Respond(dc.Message{
+			Content:   "This command can only be run in a server.",
+			Ephemeral: true,
 		})
 		return
 	}
 
-	contract := FindContract(i.ChannelID)
+	contract := FindContract(e.ChannelID())
 	if contract == nil {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "This command requires a running contract in this channel.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "This command requires a running contract in this channel.",
+			Ephemeral: true,
 		})
 		return
 	}
 
-	userID := getInteractionUserID(i)
-	isCoord := creatorOfContract(s, contract, userID)
+	userID := e.UserID()
+	isCoord := creatorOfContract(client, contract, userID)
 	inContract := UserInContract(contract, userID)
 
 	if !inContract && !isCoord {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "You must join the contract first to set your availability.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "You must join the contract first to set your availability.",
+			Ephemeral: true,
 		})
 		return
 	}
 
-	out := GetAvailabilityComponents(s, contract, userID)
-	flags := discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2
-
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Components: out,
-			Flags:      flags,
-		},
+	err := e.Respond(dc.Message{
+		Components: GetAvailabilityComponents(client, contract, userID),
+		Ephemeral:  true,
 	})
 	if err != nil {
 		fmt.Printf("Error responding to availability command: %v\n", err)

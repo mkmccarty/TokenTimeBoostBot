@@ -5,73 +5,66 @@ import (
 	"strings"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
-
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 // GetSlashRemoveMessage returns the slash command for removing a bot message from a DM channel.
-func GetSlashRemoveMessage(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Remove BoostBot message from this DM channel.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
-		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
+func GetSlashRemoveMessage(cmd string) *dc.Command {
+	command := dc.Command{
+		Name:             cmd,
+		Description:      "Remove BoostBot message from this DM channel.",
+		Contexts:         []dc.InteractionContext{dc.ContextBotDM, dc.ContextPrivateChannel},
+		IntegrationTypes: []dc.IntegrationType{dc.IntegrationGuildInstall, dc.IntegrationUserInstall},
+		Options: []dc.Option{
+			dc.StringOption{
 				Name:        "message",
 				Description: "Message Link or Message ID to remove.",
 				Required:    true,
 			},
 		},
 	}
+	return &command
 }
 
-// HandleRemoveMessageCommand handles the remove message command.
-func HandleRemoveMessageCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	optionMap := GetCommandOptionsMap(i)
+// HandleRemoveMessage handles the remove message command against the dc facade.
+func HandleRemoveMessage(client dc.Client, e *dc.CommandEvent) {
+	messageID := parseRemoveMessageID(e)
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
+	_ = e.Defer(true)
 
-	var messageID string
-	var responseStr string
-	if opt, ok := optionMap["message"]; ok {
-		// Timespan of the contract duration
-		// https://discord.com/channels/@me/1124490885204287610/1276990861158256664
-		// 1276990861158256664
-		message := strings.TrimSpace(opt.StringValue())
-		split := strings.Split(message, "/")
-		messageID = split[len(split)-1]
+	responseStr := removeBotMessage(client, e.ChannelID(), messageID)
+
+	_ = e.Followup(dc.Message{Content: responseStr})
+}
+
+// parseRemoveMessageID extracts the message ID from the command's "message"
+// option, which accepts either a bare message ID or a full message link.
+func parseRemoveMessageID(e *dc.CommandEvent) string {
+	v, ok := e.OptString("message")
+	if !ok {
+		return ""
 	}
+	// Timespan of the contract duration
+	// https://discord.com/channels/@me/1124490885204287610/1276990861158256664
+	// 1276990861158256664
+	message := strings.TrimSpace(v)
+	split := strings.Split(message, "/")
+	return split[len(split)-1]
+}
 
-	responseStr = "Failed to remove message with ID: " + messageID
-	msg, err := s.ChannelMessage(i.ChannelID, messageID)
-	if err == nil {
-		time := msg.Timestamp
-		if msg.Author.ID == config.DiscordAppID {
-			err := s.ChannelMessageDelete(i.ChannelID, msg.ID)
-			if err == nil {
-				responseStr = fmt.Sprintf("Removed message from <t:%d:f>.", time.Unix())
+// removeBotMessage deletes the bot's own message identified by messageID in
+// channelID and returns the human-readable outcome to report back to the user.
+func removeBotMessage(client dc.Client, channelID, messageID string) string {
+	responseStr := "Failed to remove message with ID: " + messageID
+	msg, err := client.GetMessage(channelID, messageID)
+	if err == nil && msg != nil {
+		if msg.Author != nil && msg.Author.ID == config.DiscordAppID {
+			if err := client.DeleteMessage(channelID, msg.ID); err == nil {
+				responseStr = fmt.Sprintf("Removed message from <t:%d:f>.", msg.Timestamp.Unix())
 			}
 		} else {
-			responseStr = fmt.Sprintf("The BoostBot can only remove its own messages. Message from <t:%d:f> was not removed.", time.Unix())
+			responseStr = fmt.Sprintf("The BoostBot can only remove its own messages. Message from <t:%d:f> was not removed.", msg.Timestamp.Unix())
 		}
 	}
-
-	_, _ = s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Content: responseStr,
-		})
+	return responseStr
 }

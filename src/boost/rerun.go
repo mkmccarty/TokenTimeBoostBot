@@ -7,140 +7,97 @@ import (
 
 	"log"
 
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 // GetSlashRerunEvalCommand returns the command for the /launch-helper command
-func GetSlashRerunEvalCommand(cmd string) *discordgo.ApplicationCommand {
-	minValue := 0.0
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Evaluate a contract's history and provide replay guidance.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
+func GetSlashRerunEvalCommand(cmd string) *dc.Command {
+	percentMin, percentMax := 0, 50
+	refreshOption := dc.BoolOption{
+		Name:        "refresh",
+		Description: "If you want to force a refresh due a recent change to your contracts.",
+	}
+	mobileOption := dc.BoolOption{
+		Name:        "mobile-friendly",
+		Description: "Format output for mobile devices (sticky)",
+	}
+	// This command is built from subcommands, and Discord does not allow a
+	// command to carry top-level options alongside them, so the reset flag is
+	// declared on each subcommand. The handler reads it by its bare name,
+	// which resolves whichever subcommand was invoked.
+	resetOption := dc.BoolOption{
+		Name:        "reset",
+		Description: "Reset stored EI number",
+	}
+
+	command := anywhereCommand(cmd, "Evaluate a contract's history and provide replay guidance.")
+	command.Options = []dc.Option{
+		dc.SubCommand{
+			Name:        "active",
+			Description: "Evaluate Active Contract Details",
+			Options: []dc.Option{
+				dc.StringOption{
+					Name:         "contract-id",
+					Description:  "Contract ID",
+					Required:     true,
+					Autocomplete: true,
+				},
+				refreshOption,
+				mobileOption,
+				resetOption,
+			},
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
+		dc.SubCommand{
+			Name:        "chart",
+			Description: "Summary chart of active contracts evaluations",
+			Options:     []dc.Option{refreshOption, mobileOption, resetOption},
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "active",
-				Description: "Evaluate Active Contract Details",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:         discordgo.ApplicationCommandOptionString,
-						Name:         "contract-id",
-						Description:  "Contract ID",
-						Required:     true,
-						Autocomplete: true,
-					},
-					{
-						Type:        discordgo.ApplicationCommandOptionBoolean,
-						Name:        "refresh",
-						Description: "If you want to force a refresh due a recent change to your contracts.",
-						Required:    false,
-					},
-					{
-						Type:        discordgo.ApplicationCommandOptionBoolean,
-						Name:        "mobile-friendly",
-						Description: "Format output for mobile devices (sticky)",
-						Required:    false,
-					},
+		dc.SubCommand{
+			Name:        "predictions",
+			Description: "Summary chart of predicted contracts evaluations",
+			Options:     []dc.Option{refreshOption, mobileOption, resetOption},
+		},
+		dc.SubCommand{
+			Name:        "threshold",
+			Description: "Summarize contracts below a certain % of speedrun score",
+			Options: []dc.Option{
+				dc.IntOption{
+					Name:        "percent",
+					Description: "Below % of speedrun score",
+					Required:    true,
+					MinValue:    &percentMin,
+					MaxValue:    &percentMax,
 				},
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "chart",
-				Description: "Summary chart of active contracts evaluations",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionBoolean,
-						Name:        "refresh",
-						Description: "If you want to force a refresh due a recent change to your contracts.",
-						Required:    false,
-					},
-					{
-						Type:        discordgo.ApplicationCommandOptionBoolean,
-						Name:        "mobile-friendly",
-						Description: "Format output for mobile devices (sticky)",
-						Required:    false,
-					},
-				},
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "predictions",
-				Description: "Summary chart of predicted contracts evaluations",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionBoolean,
-						Name:        "refresh",
-						Description: "If you want to force a refresh due a recent change to your contracts.",
-						Required:    false,
-					},
-					{
-						Type:        discordgo.ApplicationCommandOptionBoolean,
-						Name:        "mobile-friendly",
-						Description: "Format output for mobile devices (sticky)",
-						Required:    false,
-					},
-				},
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "threshold",
-				Description: "Summarize contracts below a certain % of speedrun score",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionInteger,
-						Name:        "percent",
-						Description: "Below % of speedrun score",
-						MinValue:    &minValue,
-						MaxValue:    50,
-						Required:    true,
-					},
-					{
-						Type:        discordgo.ApplicationCommandOptionBoolean,
-						Name:        "mobile-friendly",
-						Description: "Format output for mobile devices (sticky)",
-						Required:    false,
-					},
-				},
+				mobileOption,
+				resetOption,
 			},
 		},
 	}
+	return &command
 }
 
-// HandleReplayEval handles the /replay-eval command
-func HandleReplayEval(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleReplayEval handles the /replay-eval command.
+func HandleReplayEval(e *dc.CommandEvent) {
 	// Check if user has permission to use CoopStatus API
-	if !CheckCoopStatusPermission(s, i, ei.CoopStatusFixEnabled != nil && ei.CoopStatusFixEnabled()) {
+	if !CheckCoopStatusPermission(e, ei.CoopStatusFixEnabled != nil && ei.CoopStatusFixEnabled()) {
 		return
 	}
 
-	userID := bottools.GetInteractionUserID(i)
+	userID := e.UserID()
 
-	optionMap := bottools.GetCommandOptionsMap(i)
-	if opt, ok := optionMap["reset"]; ok {
-		if opt.BoolValue() {
-			farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
-		}
+	if opt, ok := e.OptBool("reset"); ok && opt {
+		farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
 	}
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
-	RerunEval(s, i, optionMap, eiID, true)
+	RerunEval(e, e.Options(), eiID, true)
 }
 
 // RerunEval evaluates the contract history and provides replay guidance
-func RerunEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption, eiID string, okayToSave bool) {
+func RerunEval(e dc.InteractionEvent, options dc.OptionValues, eiID string, okayToSave bool) {
 	// Get the Egg Inc ID from the stored settings
 	eggIncID := ""
 	encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
@@ -154,7 +111,12 @@ func RerunEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap m
 		}
 	}
 	if eggIncID == "" || len(eggIncID) != 18 || eggIncID[:2] != "EI" {
-		RequestEggIncIDModal(s, i, "replay", optionMap)
+		// Only the command path reaches this: the modal path already checked
+		// that an ID came back, and Discord will not answer a modal with a
+		// modal.
+		if cmd, ok := e.(*dc.CommandEvent); ok {
+			RequestEggIncIDModal(cmd, "replay", options)
+		}
 		return
 	}
 
@@ -164,15 +126,15 @@ func RerunEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap m
 	forceRefresh := false
 	contractIDList := []string{}
 
-	if opt, ok := optionMap["threshold-percent"]; ok {
-		percent = int(opt.UintValue())
+	if opt, ok := options.Uint("threshold-percent"); ok {
+		percent = int(opt)
 	}
-	if opt, ok := optionMap["active-contract-id"]; ok {
-		contractID = opt.StringValue()
+	if opt, ok := options.String("active-contract-id"); ok {
+		contractID = opt
 		contractIDList = append(contractIDList, contractID)
 	}
 	contractDayMap := make(map[string]string)
-	if _, ok := optionMap["predictions"]; ok {
+	if sub, ok := options.Subcommand(); ok && sub == "predictions" {
 		fridayNonUltra, fridayUltra, wednesdayNonUltra := predictJeli(3)
 		// for each of these 3 I want to collect the contract IDs
 		for _, c := range fridayNonUltra {
@@ -198,37 +160,30 @@ func RerunEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap m
 		}
 		percent = -200
 	}
-	if opt, ok := optionMap["chart-refresh"]; ok {
-		forceRefresh = opt.BoolValue()
+	if opt, ok := options.Bool("chart-refresh"); ok {
+		forceRefresh = opt
 	}
-	if opt, ok := optionMap["predictions-refresh"]; ok {
-		forceRefresh = opt.BoolValue()
+	if opt, ok := options.Bool("predictions-refresh"); ok {
+		forceRefresh = opt
 	}
-	if opt, ok := optionMap["active-refresh"]; ok {
-		forceRefresh = opt.BoolValue()
+	if opt, ok := options.Bool("active-refresh"); ok {
+		forceRefresh = opt
 	}
 
 	// Quick reply to buy us some time
-	flags := discordgo.MessageFlagsIsComponentsV2
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   flags,
-		},
-	})
+	_ = e.Defer(false)
 
-	userID := bottools.GetInteractionUserID(i)
+	userID := e.UserID()
 
 	mobileFriendly := farmerstate.GetMiscSettingString(userID, "rerunMobileFriendly") == "true"
-	if opt, ok := optionMap["chart-mobile-friendly"]; ok {
-		mobileFriendly = opt.BoolValue()
+	if opt, ok := options.Bool("chart-mobile-friendly"); ok {
+		mobileFriendly = opt
 		farmerstate.SetMiscSettingString(userID, "rerunMobileFriendly", strconv.FormatBool(mobileFriendly))
-	} else if opt, ok := optionMap["predictions-mobile-friendly"]; ok {
-		mobileFriendly = opt.BoolValue()
+	} else if opt, ok := options.Bool("predictions-mobile-friendly"); ok {
+		mobileFriendly = opt
 		farmerstate.SetMiscSettingString(userID, "rerunMobileFriendly", strconv.FormatBool(mobileFriendly))
-	} else if opt, ok := optionMap["threshold-mobile-friendly"]; ok {
-		mobileFriendly = opt.BoolValue()
+	} else if opt, ok := options.Bool("threshold-mobile-friendly"); ok {
+		mobileFriendly = opt
 		farmerstate.SetMiscSettingString(userID, "rerunMobileFriendly", strconv.FormatBool(mobileFriendly))
 	} else if val := farmerstate.GetMiscSettingString(userID, "rerunMobileFriendly"); val != "" {
 		mobileFriendly, _ = strconv.ParseBool(val)
@@ -237,26 +192,22 @@ func RerunEval(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap m
 	// Do I know the user's IGN?
 	farmerName := farmerstate.GetMiscSettingString(userID, "ei_ign")
 	if farmerName == "" {
-		backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, okayToSave)
+		backup, _ := ei.GetFirstContactFromAPI(eggIncID, userID, okayToSave)
 		if backup != nil {
 			farmerName = backup.GetUserName()
 			farmerstate.SetMiscSettingString(userID, "ei_ign", farmerName)
 		}
 	}
-	archive, _ := ei.GetContractArchiveFromAPI(s, eggIncID, userID, forceRefresh, okayToSave)
+	archive, _ := ei.GetContractArchiveFromAPI(eggIncID, userID, forceRefresh, okayToSave)
 
-	var components []discordgo.MessageComponent
+	var components []dc.LayoutComponent
 	if len(contractIDList) == 1 {
 		components = printActiveContractDetails(userID, archive, contractIDList[0])
 	} else {
 		components = printContractChart(userID, archive, percent, page, contractIDList, contractDayMap, mobileFriendly)
 	}
 
-	_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Flags:      flags,
-		Components: components,
-	})
-	if err != nil {
+	if err = e.Followup(dc.Message{Components: components}); err != nil {
 		log.Println("Error sending follow-up message:", err)
 	}
 
