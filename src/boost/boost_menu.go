@@ -329,6 +329,14 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 			refreshBoostListMessage(client, contract, false)
 		}
 		sendOrUpdateUserReactionSummary(e, contract, e.UserID())
+	case "next2":
+		_ = e.DeferUpdate()
+		nextUser := cmd[1]
+		_, redraw := buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 2, nextUser)
+		if redraw {
+			refreshBoostListMessage(client, contract, false)
+		}
+		sendOrUpdateUserReactionSummary(e, contract, e.UserID())
 	case "grange":
 		// Create a list of the grange members from contract.BoostList, with each line formatted as "MemberName (UserID)" and the join timestamp
 		var grangeMembers []string

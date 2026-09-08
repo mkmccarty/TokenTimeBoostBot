@@ -1159,12 +1159,27 @@ func getContractReactionsComponents(contract *Contract) []dc.LayoutComponent {
 			if contract.State == ContractStateFastrun && currentIdx >= 0 && currentIdx < len(contract.Order)-1 {
 				b := contract.currentBooster()
 				if b != nil && b.TokensWanted <= b.TokensReceived {
+					nextBoosterNick := contract.Boosters[contract.Order[currentIdx+1]].Nick
 					menuOptions = append(menuOptions, dc.SelectOption{
-						Label:       fmt.Sprintf("Send %s a token", contract.Boosters[contract.Order[currentIdx+1]].Nick),
+						Label:       fmt.Sprintf("Send %s a token", nextBoosterNick),
 						Description: fmt.Sprintf("Waiting on %s 🚀.", b.Nick),
 						Value:       fmt.Sprintf("next:%s", contract.Order[currentIdx+1]),
 						Emoji:       ei.GetBotComponentEmoji("token"),
 					})
+
+					gg, ugg, _ := ei.GetGenerousGiftEvent()
+					if gg > 1.0 || ugg > 1.0 {
+						ggEmojiName := "std_gg"
+						if ugg > 1.0 && gg <= 1.0 {
+							ggEmojiName = "ultra_gg"
+						}
+						menuOptions = append(menuOptions, dc.SelectOption{
+							Label:       fmt.Sprintf("Send %s 2 tokens", nextBoosterNick),
+							Description: fmt.Sprintf("Waiting on %s 🚀.", b.Nick),
+							Value:       fmt.Sprintf("next2:%s", contract.Order[currentIdx+1]),
+							Emoji:       ei.GetBotComponentEmoji(ggEmojiName),
+						})
+					}
 				}
 			}
 
