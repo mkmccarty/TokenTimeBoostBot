@@ -653,7 +653,15 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 
 	// All requesters done, collapse into a single container with completion notice
 	if len(containerComps) == 1 {
-		completionMsg := fmt.Sprintf("-# %s **%s**'s request is complete!", roleMention, latestName)
+		prefix := ""
+		if roleMention != "" {
+			prefix = roleMention + " "
+		}
+		name := latestName
+		if name == "" {
+			name = "Contract"
+		}
+		completionMsg := fmt.Sprintf("-# %s**%s**'s chicken run request is complete!", prefix, name)
 		components = []discordgo.MessageComponent{
 			discordgo.Container{
 				AccentColor: &accentColor,

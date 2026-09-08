@@ -158,3 +158,45 @@ func TestBuildCRMessageComponentsTipAndButtons(t *testing.T) {
 		t.Errorf("expected header NOT to contain helper tip when CRNoticeCount >= 2, got: %s", headerText2.Content)
 	}
 }
+
+func TestBuildCRMessageComponentsCompleted(t *testing.T) {
+	c := &Contract{
+		ContractHash: "test-hash-completed",
+		Order:        []string{"user1", "user2"},
+		Boosters: map[string]*Booster{
+			"user1": {
+				UserID:          "user1",
+				Nick:            "Player1",
+				RunChickensTime: time.Now(),
+			},
+			"user2": {
+				UserID:          "user2",
+				Nick:            "Player2",
+				RanChickensOn:   []string{"user1"},
+			},
+		},
+	}
+
+	comps, allowedMentions := buildCRMessageComponents(c, "")
+	if len(comps) != 1 {
+		t.Fatalf("expected 1 container component when complete, got %d", len(comps))
+	}
+	if len(allowedMentions) != 0 {
+		t.Errorf("expected no allowed mentions when all complete, got %v", allowedMentions)
+	}
+	container, ok := comps[0].(discordgo.Container)
+	if !ok {
+		t.Fatalf("expected component to be Container, got %T", comps[0])
+	}
+	if len(container.Components) != 1 {
+		t.Fatalf("expected 1 text display inside container, got %d", len(container.Components))
+	}
+	textDisplay, ok := container.Components[0].(discordgo.TextDisplay)
+	if !ok {
+		t.Fatalf("expected inner component to be TextDisplay, got %T", container.Components[0])
+	}
+	if textDisplay.Content == "" || !strings.Contains(textDisplay.Content, "Player1") {
+		t.Errorf("expected completion message with Player1, got %q", textDisplay.Content)
+	}
+}
+
