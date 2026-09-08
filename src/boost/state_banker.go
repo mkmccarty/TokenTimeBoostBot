@@ -5,13 +5,13 @@ import (
 	"log"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/rs/xid"
 )
 
-func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, cUserID string) (bool, bool) {
+func buttonReactionBag(client dc.Client, GuildID string, ChannelID string, contract *Contract, cUserID string) (bool, bool) {
 	redraw := false
 
 	if contract.Boosters[cUserID] != nil && len(contract.Boosters[cUserID].Alts) > 0 {
@@ -74,9 +74,9 @@ func buttonReactionBag(s *discordgo.Session, GuildID string, ChannelID string, c
 		}
 		str += fmt.Sprintf("you've been sent %d tokens to boost with!", b.TokensWanted)
 
-		_, _ = s.ChannelMessageSend(contract.Location[0].ChannelID, str)
+		_, _ = client.SendMessage(contract.Location[0].ChannelID, dc.Message{Content: str})
 
-		_ = Boosting(s, GuildID, ChannelID)
+		_ = Boosting(client, GuildID, ChannelID)
 
 		return false, redraw
 	}

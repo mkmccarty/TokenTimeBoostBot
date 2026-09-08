@@ -9,23 +9,21 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
-
-	"github.com/bwmarrin/discordgo"
 )
 
 const maxAutocompleteChoices = 25
 
-func sortContractChoices(choices []*discordgo.ApplicationCommandOptionChoice) {
+func sortContractChoices(choices []dc.Choice[string]) {
 	sort.Slice(choices, func(i, j int) bool {
 		return choices[i].Name < choices[j].Name
 	})
 }
 
-func limitContractChoices(choices []*discordgo.ApplicationCommandOptionChoice, maxChoices int) []*discordgo.ApplicationCommandOptionChoice {
+func limitContractChoices(choices []dc.Choice[string], maxChoices int) []dc.Choice[string] {
 	if len(choices) <= maxChoices {
 		return choices
 	}
@@ -33,36 +31,32 @@ func limitContractChoices(choices []*discordgo.ApplicationCommandOptionChoice, m
 }
 
 // HandleContractAutoComplete will handle the contract auto complete of contract-id's
-func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	optionMap := bottools.GetCommandOptionsMap(i)
-
-	if opt, ok := optionMap["boost-order"]; ok && opt.Focused {
-		handleBoostOrderAutoComplete(s, i, opt.StringValue())
+func HandleContractAutoComplete(e *dc.AutocompleteEvent) {
+	// The focused option carries the leaf name, so a nested "coop-id" and a
+	// top-level one arrive under the same name.
+	switch focused, value := e.FocusedOption(); focused {
+	case "boost-order":
+		handleBoostOrderAutoComplete(e, value)
 		return
-	}
-	if opt, ok := optionMap["coop-id"]; ok && opt.Focused {
-		handleCoopIDAutoComplete(s, i, opt.StringValue())
-		return
-	}
-	if opt, ok := optionMap["contract-coop-id-coop-id"]; ok && opt.Focused {
-		handleCoopIDAutoComplete(s, i, opt.StringValue())
+	case "coop-id":
+		handleCoopIDAutoComplete(e, value)
 		return
 	}
 
 	searchString := ""
-	if opt, ok := optionMap["contract-id"]; ok {
-		searchString = strings.ToLower(opt.StringValue())
+	if opt, ok := e.OptString("contract-id"); ok {
+		searchString = strings.ToLower(opt)
 	}
-	if opt, ok := optionMap["contract-contract-id-contract-id"]; ok {
-		searchString = strings.ToLower(opt.StringValue())
+	if opt, ok := e.OptString("contract-contract-id-contract-id"); ok {
+		searchString = strings.ToLower(opt)
 	}
 
-	isContractCommand := i.ApplicationCommandData().Name == "contract"
+	isContractCommand := e.CommandName() == "contract"
 
-	contract := FindContract(i.ChannelID)
+	contract := FindContract(e.ChannelID())
 	allowPredicted := isContractCommand || (contract != nil && contract.State == ContractStateSignup && contract.PredictionSignup)
 
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+	choices := make([]dc.Choice[string], 0)
 	contracts := make([]ei.EggIncContract, len(ei.EggIncContracts))
 	copy(contracts, ei.EggIncContracts)
 	sort.SliceStable(contracts, func(i, j int) bool {
@@ -94,39 +88,27 @@ func HandleContractAutoComplete(s *discordgo.Session, i *discordgo.InteractionCr
 		if c.Ultra && !c.Predicted {
 			ultra = " -ultra"
 		}
-		choice := discordgo.ApplicationCommandOptionChoice{
+		choices = append(choices, dc.Choice[string]{
 			Name:  fmt.Sprintf("%s (%s)%s %s", c.Name, c.ID, ultra, seasonalStr),
 			Value: c.ID,
-		}
-		choices = append(choices, &choice)
+		})
 	}
 
 	//sortContractChoices(choices)
 	choices = limitContractChoices(choices, maxAutocompleteChoices)
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Contract ID",
-			Choices: choices,
-		}})
+	_ = e.RespondChoices(choices)
 }
 
 // HandleAllContractsAutoComplete will handle the contract auto complete of contract-id's
 // default to new contracts but allow searching all contracts
-func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-
-	optionMap := bottools.GetCommandOptionsMap(i)
-
+func HandleAllContractsAutoComplete(e *dc.AutocompleteEvent) {
 	searchString := ""
-
-	for k, opt := range optionMap {
-		if strings.HasSuffix(k, "contract-id") {
-			searchString = opt.StringValue()
-			break
-		}
+	if name, value := e.FocusedOption(); strings.HasSuffix(name, "contract-id") {
+		searchString = value
 	}
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+
+	choices := make([]dc.Choice[string], 0)
 
 	if searchString == "" {
 		for _, c := range ei.EggIncContracts {
@@ -146,22 +128,16 @@ func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.Interacti
 				seasonalStr = fmt.Sprintf("%s%s", seasonEmote[seasonIcon], seasonYear[2:4])
 			}
 
-			choice := discordgo.ApplicationCommandOptionChoice{
+			choices = append(choices, dc.Choice[string]{
 				Name:  fmt.Sprintf("%s (%s)%s %s", c.Name, c.ID, ultra, seasonalStr),
 				Value: c.ID,
-			}
-			choices = append(choices, &choice)
+			})
 		}
 
 		sortContractChoices(choices)
 		choices = limitContractChoices(choices, maxAutocompleteChoices)
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Contract ID",
-				Choices: choices,
-			}})
+		_ = e.RespondChoices(choices)
 		return
 	}
 
@@ -181,11 +157,10 @@ func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.Interacti
 				seasonalStr = fmt.Sprintf("%s%s", seasonEmote[seasonIcon], seasonYear[2:4])
 			}
 
-			choice := discordgo.ApplicationCommandOptionChoice{
+			choices = append(choices, dc.Choice[string]{
 				Name:  fmt.Sprintf("%s (%s) %s", c.Name, c.ID, seasonalStr),
 				Value: c.ID,
-			}
-			choices = append(choices, &choice)
+			})
 			if len(choices) >= 13 {
 				break
 			}
@@ -195,13 +170,7 @@ func HandleAllContractsAutoComplete(s *discordgo.Session, i *discordgo.Interacti
 	sortContractChoices(choices)
 	choices = limitContractChoices(choices, 13)
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Contract ID",
-			Choices: choices,
-		}})
-
+	_ = e.RespondChoices(choices)
 }
 
 type eggscapeCoopIDFile struct {
@@ -233,35 +202,31 @@ func LoadEggscapeCoopIDs(filename string) {
 	log.Printf("Loaded %d eggscape coop ID codes", len(loaded.CoopCodes))
 }
 
-func handleCoopIDAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate, search string) {
-	if !guildstate.GetGuildSettingFlag(i.GuildID, "coopid_suggestions") {
-		userID := getInteractionUserID(i)
-		recent := farmerstate.GetRecentCoopIDs(userID)
+func handleCoopIDAutoComplete(e *dc.AutocompleteEvent, search string) {
+	if !guildstate.GetGuildSettingFlag(e.GuildID(), "coopid_suggestions") {
+		recent := farmerstate.GetRecentCoopIDs(e.UserID())
 
-		choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, len(recent))
+		choices := make([]dc.Choice[string], 0, len(recent))
 		search = strings.ToLower(search)
 		for _, code := range recent {
 			if search == "" || strings.Contains(strings.ToLower(code), search) {
-				choices = append(choices, &discordgo.ApplicationCommandOptionChoice{Name: code, Value: code})
+				choices = append(choices, dc.Choice[string]{Name: code, Value: code})
 			}
 		}
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-			Data: &discordgo.InteractionResponseData{Choices: choices},
-		})
+		_ = e.RespondChoices(choices)
 		return
 	}
 
 	codes := append([]string(nil), eggscapeCoopCodes...)
 
 	search = strings.ToLower(search)
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, maxAutocompleteChoices)
+	choices := make([]dc.Choice[string], 0, maxAutocompleteChoices)
 
 	if search == "" {
 		rand.Shuffle(len(codes), func(a, b int) { codes[a], codes[b] = codes[b], codes[a] })
 		for _, code := range codes {
-			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{Name: code, Value: code})
+			choices = append(choices, dc.Choice[string]{Name: code, Value: code})
 			if len(choices) >= maxAutocompleteChoices {
 				break
 			}
@@ -269,7 +234,7 @@ func handleCoopIDAutoComplete(s *discordgo.Session, i *discordgo.InteractionCrea
 	} else {
 		for _, code := range codes {
 			if strings.Contains(code, search) {
-				choices = append(choices, &discordgo.ApplicationCommandOptionChoice{Name: code, Value: code})
+				choices = append(choices, dc.Choice[string]{Name: code, Value: code})
 				if len(choices) >= maxAutocompleteChoices {
 					break
 				}
@@ -277,18 +242,13 @@ func handleCoopIDAutoComplete(s *discordgo.Session, i *discordgo.InteractionCrea
 		}
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Coop ID",
-			Choices: choices,
-		}})
+	_ = e.RespondChoices(choices)
 }
 
 // handleBoostOrderAutoComplete handles autocomplete for the boost-order option in /contract
-func handleBoostOrderAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate, searchString string) {
+func handleBoostOrderAutoComplete(e *dc.AutocompleteEvent, searchString string) {
 	searchString = strings.ToLower(searchString)
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+	choices := make([]dc.Choice[string], 0)
 
 	for orderVal, name := range contractOrderNames {
 		if orderVal == ContractOrderFair {
@@ -311,20 +271,14 @@ func handleBoostOrderAutoComplete(s *discordgo.Session, i *discordgo.Interaction
 		}
 
 		if searchString == "" || strings.Contains(strings.ToLower(formattedName), searchString) {
-			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+			choices = append(choices, dc.Choice[string]{
 				Name:  formattedName,
 				Value: fmt.Sprintf("%d", orderVal),
 			})
 		}
 	}
 
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{
-			Choices: choices,
-		},
-	})
-	if err != nil {
+	if err := e.RespondChoices(choices); err != nil {
 		log.Println("Error responding to boost order autocomplete:", err)
 	}
 }

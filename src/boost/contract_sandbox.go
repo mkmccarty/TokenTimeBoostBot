@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
@@ -152,7 +152,7 @@ func GenerateContractSandboxURL(contract *Contract, players []SandboxPlayer) (st
 }
 
 // SendSandboxDM builds and sends an SR Sandbox DM to a user.
-func SendSandboxDM(s *discordgo.Session, contract *Contract, userID string) error {
+func SendSandboxDM(client dc.Client, contract *Contract, userID string) error {
 	sandboxURL, err := GenerateContractSandboxURL(contract, sandboxPlayersFromContract(contract))
 	if err != nil {
 		return err
@@ -179,7 +179,7 @@ func SendSandboxDM(s *discordgo.Session, contract *Contract, userID string) erro
 		sandboxURL,
 	)
 
-	var files []*discordgo.File
+	var files []dc.File
 	if len(dmBody) > 2000 {
 		dmBody = fmt.Sprintf(
 			"SR Sandbox for %s\nCoop: %s\nSignup: %d/%d\nChannel: %s\n[Open contract thread](%s)\nOpen SR Sandbox: URL is attached as a text file.",
@@ -190,7 +190,7 @@ func SendSandboxDM(s *discordgo.Session, contract *Contract, userID string) erro
 			contract.Location[0].ChannelMention,
 			contractLink,
 		)
-		files = []*discordgo.File{
+		files = []dc.File{
 			{
 				Name:        "sandbox_url.txt",
 				ContentType: "text/plain",
@@ -199,20 +199,21 @@ func SendSandboxDM(s *discordgo.Session, contract *Contract, userID string) erro
 		}
 	}
 
-	u, dmErr := s.UserChannelCreate(userID)
+	u, dmErr := client.CreateUserChannel(userID)
 	if dmErr != nil {
 		return dmErr
 	}
 
-	_, sendErr := s.ChannelMessageSendComplex(u.ID, &discordgo.MessageSend{
-		Content: dmBody,
-		Files:   files,
-		Components: []discordgo.MessageComponent{
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.Button{
+	_, sendErr := client.SendMessage(u.ID, dc.Message{
+		Content:      dmBody,
+		Files:        files,
+		ComponentsV1: true,
+		Components: []dc.LayoutComponent{
+			dc.ActionRow{
+				Components: []dc.InteractiveComponent{
+					dc.Button{
 						Label:    "Dismiss",
-						Style:    discordgo.SecondaryButton,
+						Style:    dc.ButtonSecondary,
 						CustomID: "rc_#dismiss#" + contract.ContractHash,
 					},
 				},

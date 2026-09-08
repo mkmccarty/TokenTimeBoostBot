@@ -16,109 +16,63 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 // GetSlashVirtueCommand returns the command for the /launch-helper command
-func GetSlashVirtueCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Evaluate virtue farm and provide detailed EoV overview.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
+func GetSlashVirtueCommand(cmd string) *dc.Command {
+	teMin, teMax := 1, 98
+	command := anywhereCommand(cmd, "Evaluate virtue farm and provide detailed EoV overview.")
+	command.Options = []dc.Option{
+		dc.IntOption{
+			Name:        "simulate-shift",
+			Description: "What does a 0 pop shift look like for this egg?",
+			Choices: []dc.Choice[int]{
+				{Name: "Curiosity", Value: 50},
+				{Name: "Integrity", Value: 51},
+				{Name: "Humility", Value: 52},
+				{Name: "Resilience", Value: 53},
+				{Name: "Kindness", Value: 54},
+			},
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
+		dc.IntOption{
+			Name:        "simulate-shift-target-te",
+			Description: "Target Truth Eggs for simulated shift (requires simulate-shift).",
+			MinValue:    &teMin,
+			MaxValue:    &teMax,
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "simulate-shift",
-				Description: "What does a 0 pop shift look like for this egg?",
-				Choices: []*discordgo.ApplicationCommandOptionChoice{
-					{
-						Name:  "Curiosity",
-						Value: 50,
-					},
-					{
-						Name:  "Integrity",
-						Value: 51,
-					},
-					{
-						Name:  "Humility",
-						Value: 52,
-					},
-					{
-						Name:  "Resilience",
-						Value: 53,
-					},
-					{
-						Name:  "Kindness",
-						Value: 54,
-					},
-				},
-				Required: false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "simulate-shift-target-te",
-				Description: "Target Truth Eggs for simulated shift (requires simulate-shift).",
-				MinValue:    func() *float64 { v := 1.0; return &v }(), // Why a pointer??
-				MaxValue:    98.0,
-				Required:    false,
-			},
-			/*
-				{
-					Type:        discordgo.ApplicationCommandOptionBoolean,
-					Name:        "help",
-					Description: "Show help for /virtue output and options",
-					Required:    false,
-				},
-			*/
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "reset",
-				Description: "Reset stored EI number",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "compact",
-				Description: "Compact display (sticky)",
-				Required:    false,
-			},
+		dc.BoolOption{
+			Name:        "help",
+			Description: "Explain what this command reports",
+		},
+		dc.BoolOption{
+			Name:        "reset",
+			Description: "Reset stored EI number",
+		},
+		dc.BoolOption{
+			Name:        "compact",
+			Description: "Compact display (sticky)",
 		},
 	}
+	return &command
 }
 
-// HandleVirtue handles the /virtue command
-func HandleVirtue(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	userID := bottools.GetInteractionUserID(i)
+// HandleVirtue handles the /virtue command.
+func HandleVirtue(e *dc.CommandEvent) {
+	userID := e.UserID()
 
-	optionMap := bottools.GetCommandOptionsMap(i)
-	if opt, ok := optionMap["help"]; ok && opt.BoolValue() {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: virtueHelpText(),
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
+	if opt, ok := e.OptBool("help"); ok && opt {
+		_ = e.Respond(dc.Message{Content: virtueHelpText(), Ephemeral: true})
 		return
 	}
 
-	if opt, ok := optionMap["reset"]; ok {
-		if opt.BoolValue() {
-			farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
-		}
+	if opt, ok := e.OptBool("reset"); ok && opt {
+		farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
 	}
 
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 
-	Virtue(s, i, optionMap, eiID, true)
+	Virtue(e, e.Options(), eiID, true)
 }
 
 func virtueHelpText() string {
@@ -151,21 +105,21 @@ The /virtue command evaluates your Eggs of Virtue home farm and shows shift plan
 }
 
 // Virtue processes the virtue command
-func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[string]*discordgo.ApplicationCommandInteractionDataOption, eiID string, okayToSave bool) {
-	userID := bottools.GetInteractionUserID(i)
+func Virtue(e dc.InteractionEvent, options dc.OptionValues, eiID string, okayToSave bool) {
+	userID := e.UserID()
 	simulatedEgg := ei.Egg(-1)
-	var components []discordgo.MessageComponent
+	var components []dc.LayoutComponent
 
 	var targetTE uint64 = 0
-	if opt, ok := optionMap["simulate-shift"]; ok {
-		simulatedEgg = ei.Egg(opt.IntValue())
-		if opt2, ok2 := optionMap["simulate-shift-target-te"]; ok2 {
-			targetTE = opt2.UintValue()
+	if opt, ok := options.Int("simulate-shift"); ok {
+		simulatedEgg = ei.Egg(opt)
+		if opt2, ok2 := options.Uint("simulate-shift-target-te"); ok2 {
+			targetTE = opt2
 		}
 	}
 	compact := false
-	if opt, ok := optionMap["compact"]; ok {
-		compact = opt.BoolValue()
+	if opt, ok := options.Bool("compact"); ok {
+		compact = opt
 		farmerstate.SetMiscSettingString(userID, "virtueCompactMode", fmt.Sprintf("%t", compact))
 	} else {
 		savedCompact := farmerstate.GetMiscSettingString(userID, "virtueCompactMode")
@@ -187,26 +141,21 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[
 		}
 	}
 	if eggIncID == "" || len(eggIncID) != 18 || eggIncID[:2] != "EI" {
-		RequestEggIncIDModal(s, i, "virtue", optionMap)
+		// Only the command path reaches this: the modal path already checked
+		// that an ID came back, and Discord will not answer a modal with a
+		// modal.
+		if cmd, ok := e.(*dc.CommandEvent); ok {
+			RequestEggIncIDModal(cmd, "virtue", options)
+		}
 		return
 	}
 
 	// Quick reply to buy us some time
-	flags := discordgo.MessageFlagsIsComponentsV2
+	ephemeral := e.ChannelID() == "571836573243539476" // ACO- #bot-commands
 
-	if i.ChannelID == "571836573243539476" { // ACO- #bot-commands
-		flags += discordgo.MessageFlagsEphemeral
-	}
+	_ = e.Defer(ephemeral)
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   flags,
-		},
-	})
-
-	backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, okayToSave)
+	backup, _ := ei.GetFirstContactFromAPI(eggIncID, userID, okayToSave)
 
 	if backup != nil {
 		farmerName := farmerstate.GetMiscSettingString(userID, "ei_ign")
@@ -224,21 +173,21 @@ func Virtue(s *discordgo.Session, i *discordgo.InteractionCreate, optionMap map[
 		}
 	}
 	if len(components) == 0 {
-		components = append(components, &discordgo.TextDisplay{
+		components = append(components, dc.TextDisplay{
 			Content: "Your home farm isn't currently producing Eggs of Virtue. Switch to an Egg of Virtue on your home farm to see this information.",
 		})
 	}
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Flags:      flags,
+	_ = e.Followup(dc.Message{
+		Ephemeral:  ephemeral,
 		Components: components,
 	})
 
 }
 
-func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compact bool) []discordgo.MessageComponent {
-	var components []discordgo.MessageComponent
+func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compact bool) []dc.LayoutComponent {
+	var components []dc.LayoutComponent
 	divider := true
-	spacing := discordgo.SeparatorSpacingSizeSmall
+	spacing := dc.SeparatorSpacingSmall
 	virtueEggs := []string{"CURIOSITY", "INTEGRITY", "HUMILITY", "RESILIENCE", "KINDNESS"}
 
 	farm := backup.GetFarms()[0]
@@ -247,7 +196,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 	//pe := backup.GetGame().GetEggsOfProphecy()
 	se := backup.GetGame().GetSoulEggsD()
 	if virtue == nil {
-		components = append(components, &discordgo.TextDisplay{
+		components = append(components, dc.TextDisplay{
 			Content: "No virtue backup data found in Egg Inc API response",
 		})
 		return components
@@ -911,46 +860,42 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 		}
 	}
 
-	components = append(components, &discordgo.Section{
-		Components: []discordgo.MessageComponent{
-			&discordgo.TextDisplay{
-				Content: header.String(),
-			},
+	components = append(components, dc.Section{
+		Components: []dc.TextDisplay{
+			{Content: header.String()},
 		},
-		Accessory: &discordgo.Thumbnail{
-			Media: discordgo.UnfurledMediaItem{
-				URL: "https://cdn.discordapp.com/emojis/1418022084205875210.webp?size=128",
-			},
+		Accessory: dc.Thumbnail{
+			URL: "https://cdn.discordapp.com/emojis/1418022084205875210.webp?size=128",
 		},
 	})
-	components = append(components, &discordgo.Separator{
-		Divider: &divider,
-		Spacing: &spacing,
+	components = append(components, dc.Separator{
+		Divider: divider,
+		Spacing: spacing,
 	})
-	components = append(components, &discordgo.TextDisplay{
+	components = append(components, dc.TextDisplay{
 		Content: eggs.String(),
 	})
 
-	components = append(components, &discordgo.TextDisplay{
+	components = append(components, dc.TextDisplay{
 		Content: stats.String(),
 	})
-	components = append(components, &discordgo.Separator{
-		Divider: &divider,
-		Spacing: &spacing,
+	components = append(components, dc.Separator{
+		Divider: divider,
+		Spacing: spacing,
 	})
 	if notes.Len() > 0 {
-		components = append(components, &discordgo.TextDisplay{
+		components = append(components, dc.TextDisplay{
 			Content: notes.String(),
 		})
-		components = append(components, &discordgo.Separator{
-			Divider: &divider,
-			Spacing: &spacing,
+		components = append(components, dc.Separator{
+			Divider: divider,
+			Spacing: spacing,
 		})
 	}
-	components = append(components, &discordgo.TextDisplay{
+	components = append(components, dc.TextDisplay{
 		Content: rockets.String(),
 	})
-	components = append(components, &discordgo.TextDisplay{
+	components = append(components, dc.TextDisplay{
 		Content: footer.String(),
 	})
 

@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -46,87 +46,62 @@ type csEstimateParams struct {
 	coopID     string
 	srMode     bool
 	imageTable bool
-	flags      discordgo.MessageFlags
+	ephemeral  bool
 }
 
 // GetSlashCsEstimates returns the slash command for estimating scores
-func GetSlashCsEstimates(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-
-		Description: "Provide a Contract Score estimates for a running contract",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
+func GetSlashCsEstimates(cmd string) *dc.Command {
+	command := anywhereCommand(cmd, "Provide a Contract Score estimates for a running contract")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:         "contract-id",
+			Description:  "Select a contract-id",
+			Autocomplete: true,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
+		dc.StringOption{
+			Name:        "coop-id",
+			Description: "Your coop-id",
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "contract-id",
-				Description:  "Select a contract-id",
-				Required:     false,
-				Autocomplete: true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "coop-id",
-				Description: "Your coop-id",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "sr-mode",
-				Description: "Display detailed score breakdown for Speedrun Predictions, default is false",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "as-image",
-				Description: "Render table as an image instead of text. Default is false (sticky).",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "private-reply",
-				Description: "Response visibility, default is public",
-				Required:    false,
-			},
+		dc.BoolOption{
+			Name:        "sr-mode",
+			Description: "Display detailed score breakdown for Speedrun Predictions, default is false",
+		},
+		dc.BoolOption{
+			Name:        "as-image",
+			Description: "Render table as an image instead of text. Default is false (sticky).",
+		},
+		dc.BoolOption{
+			Name:        "private-reply",
+			Description: "Response visibility, default is public",
 		},
 	}
+	return &command
 }
 
-func parseCsEstimateParams(i *discordgo.InteractionCreate) csEstimateParams {
-	flags := discordgo.MessageFlagsIsComponentsV2
-
+func parseCsEstimateParams(e *dc.CommandEvent) csEstimateParams {
 	var (
 		contractID string
 		coopID     string
 	)
 
-	optionMap := bottools.GetCommandOptionsMap(i)
-
-	if opt, ok := optionMap["contract-id"]; ok {
-		contractID = strings.ToLower(strings.ReplaceAll(opt.StringValue(), " ", ""))
+	if opt, ok := e.OptString("contract-id"); ok {
+		contractID = strings.ToLower(strings.ReplaceAll(opt, " ", ""))
 	}
-	if opt, ok := optionMap["coop-id"]; ok {
-		coopID = strings.ToLower(strings.ReplaceAll(opt.StringValue(), " ", ""))
+	if opt, ok := e.OptString("coop-id"); ok {
+		coopID = strings.ToLower(strings.ReplaceAll(opt, " ", ""))
 	}
-	if opt, ok := optionMap["private-reply"]; ok && opt.BoolValue() {
-		flags |= discordgo.MessageFlagsEphemeral
+	ephemeral := false
+	if opt, ok := e.OptBool("private-reply"); ok && opt {
+		ephemeral = true
 	}
 	srMode := false
-	if opt, ok := optionMap["sr-mode"]; ok {
-		srMode = opt.BoolValue()
+	if opt, ok := e.OptBool("sr-mode"); ok {
+		srMode = opt
 	}
-	userID := bottools.GetInteractionUserID(i)
+	userID := e.UserID()
 	imageTable := farmerstate.GetMiscSettingFlag(userID, "as-image")
-	if opt, ok := optionMap["as-image"]; ok {
-		imageTable = opt.BoolValue()
+	if opt, ok := e.OptBool("as-image"); ok {
+		imageTable = opt
 		farmerstate.SetMiscSettingFlag(userID, "as-image", imageTable)
 	}
 
@@ -135,32 +110,25 @@ func parseCsEstimateParams(i *discordgo.InteractionCreate) csEstimateParams {
 		coopID:     coopID,
 		srMode:     srMode,
 		imageTable: imageTable,
-		flags:      flags,
+		ephemeral:  ephemeral,
 	}
 }
 
-// HandleCsEstimatesCommand handles the estimate scores command
-func HandleCsEstimatesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	p := parseCsEstimateParams(i)
+// HandleCsEstimatesCommand handles the estimate scores command.
+func HandleCsEstimatesCommand(e *dc.CommandEvent) {
+	p := parseCsEstimateParams(e)
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   p.flags,
-		},
-	})
+	_ = e.Defer(p.ephemeral)
 
-	runCsEstimate(s, i, p)
+	runCsEstimate(e, p)
 }
 
-// HandleCsEstimateButtons handles button interactions for /cs-estimate
-func HandleCsEstimateButtons(s *discordgo.Session, i *discordgo.InteractionCreate) {
-
+// HandleCsEstimateButtons handles button interactions for /cs-estimate.
+func HandleCsEstimateButtons(e *dc.ComponentEvent) {
 	const ttl = 5 * time.Minute
 	expired := false
-	if i.Message != nil {
-		createdAt, err := discordgo.SnowflakeTimestamp(i.Message.ID)
+	if messageID := e.MessageID(); messageID != "" {
+		createdAt, err := dc.SnowflakeTimestamp(messageID)
 		if err != nil {
 			log.Println("Error parsing message timestamp:", err)
 			return
@@ -168,17 +136,12 @@ func HandleCsEstimateButtons(s *discordgo.Session, i *discordgo.InteractionCreat
 		expired = time.Since(createdAt) > ttl
 	}
 
-	flags := discordgo.MessageFlagsIsComponentsV2 | discordgo.MessageFlagsEphemeral
-	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{
-			Content:    "",
-			Flags:      flags,
-			Components: []discordgo.MessageComponent{},
-		},
-	})
-	if err != nil {
+	// Keep everything but the trailing action row, which is what this handler
+	// takes away once it has run.
+	kept := e.MessageComponentsWithoutActionRows()
+
+	reaction := strings.Split(e.CustomID(), "#")
+	if err := e.DeferUpdate(); err != nil {
 		log.Println(err)
 	}
 
@@ -193,7 +156,7 @@ func HandleCsEstimateButtons(s *discordgo.Session, i *discordgo.InteractionCreat
 		}
 
 		// Is the user in the contract?
-		userID := getInteractionUserID(i)
+		userID := e.UserID()
 		if !UserInContract(contract, userID) {
 			// Ignore if the user isn't in the contract
 			return
@@ -201,7 +164,7 @@ func HandleCsEstimateButtons(s *discordgo.Session, i *discordgo.InteractionCreat
 
 		switch action {
 		case "completionping":
-			go sendCompletionPing(s, i, contract, userID)
+			go sendCompletionPing(e, contract, userID)
 		case "checkinping":
 			//go SendCheckinPings(s, i, contract)
 		default:
@@ -210,27 +173,18 @@ func HandleCsEstimateButtons(s *discordgo.Session, i *discordgo.InteractionCreat
 	}
 
 	// Remove the buttons regardless of expiration
-	var comp []discordgo.MessageComponent
-	if len(i.Message.Components) > 0 {
-		comp = i.Message.Components[:len(i.Message.Components)-1]
-	}
-	// Edit the original message to remove buttons
-	edit := discordgo.WebhookEdit{
-		Components: &comp,
-	}
-	_, _ = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit)
-	if err != nil {
+	if err := e.EditFollowup(e.MessageID(), dc.Message{Components: kept}); err != nil {
 		log.Println(err)
 	}
 }
 
-func runCsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate, p csEstimateParams) {
+func runCsEstimate(e *dc.CommandEvent, p csEstimateParams) {
 	contractID := p.contractID
 	coopID := p.coopID
 
 	// Look for the contract in the channel to determine buttons
 	foundContractHash := ""
-	contract := FindContract(i.ChannelID)
+	contract := FindContract(e.ChannelID())
 	if contract != nil {
 		foundContractHash = contract.ContractHash
 	}
@@ -241,10 +195,10 @@ func runCsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate, p csEst
 			if commandLink == "" {
 				commandLink = "/cs-estimate"
 			}
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Flags: p.flags | discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{
-					discordgo.TextDisplay{Content: fmt.Sprintf("No contract found in this channel. Run %s in a channel with an active contract, or provide a `contract-id` and `coop-id`.", commandLink)},
+			_ = e.Followup(dc.Message{
+				Ephemeral: true,
+				Components: []dc.LayoutComponent{
+					dc.TextDisplay{Content: fmt.Sprintf("No contract found in this channel. Run %s in a channel with an active contract, or provide a `contract-id` and `coop-id`.", commandLink)},
 				},
 			})
 			return
@@ -254,17 +208,16 @@ func runCsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate, p csEst
 	}
 
 	// Get coopStatus with the given contractID and coopID
-	userID := bottools.GetInteractionUserID(i)
+	userID := e.UserID()
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
-	str, fields, contractScore := DownloadCoopStatusTeamwork(i.ChannelID, contractID, coopID, true, eiID)
+	str, fields, contractScore := DownloadCoopStatusTeamwork(e.ChannelID(), contractID, coopID, true, eiID)
 	if fields == nil || strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {
-		_, sendErr := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Flags: p.flags,
-			Components: []discordgo.MessageComponent{
-				discordgo.TextDisplay{Content: str},
+		if sendErr := e.Followup(dc.Message{
+			Ephemeral: p.ephemeral,
+			Components: []dc.LayoutComponent{
+				dc.TextDisplay{Content: str},
 			},
-		})
-		if sendErr != nil {
+		}); sendErr != nil {
 			log.Println("Cs-estsimate: FollowupMessageCreate:", sendErr)
 		}
 		return
@@ -333,40 +286,39 @@ func runCsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate, p csEst
 		title = "## Projected SR Scores"
 	}
 
-	var components []discordgo.MessageComponent
-	var files []*discordgo.File
+	var components []dc.LayoutComponent
+	var files []dc.File
 
 	if p.imageTable {
 		imgBytes, err := RenderScoreTableImage(rows, p.srMode, false)
 		if err != nil {
 			log.Printf("Error rendering score table image: %v", err)
 		} else if len(imgBytes) > 0 {
-			files = append(files, &discordgo.File{
+			files = append(files, dc.File{
 				Name:        "cs_estimate.png",
 				ContentType: "image/png",
 				Reader:      bytes.NewReader(imgBytes),
 			})
-			var mediaItem discordgo.MediaGalleryItem
-			mediaItem.Media.URL = "attachment://cs_estimate.png"
-			components = []discordgo.MessageComponent{
-				discordgo.TextDisplay{Content: str},
-				discordgo.TextDisplay{Content: title},
-				&discordgo.MediaGallery{Items: []discordgo.MediaGalleryItem{mediaItem}},
+			mediaItem := dc.MediaItem{URL: "attachment://cs_estimate.png"}
+			components = []dc.LayoutComponent{
+				dc.TextDisplay{Content: str},
+				dc.TextDisplay{Content: title},
+				dc.MediaGallery{Items: []dc.MediaItem{mediaItem}},
 			}
 		}
 	}
 
 	if len(components) == 0 {
 		tableFast := RenderScoreTableANSI(rows, p.srMode, false)
-		components = []discordgo.MessageComponent{
-			discordgo.TextDisplay{Content: str},
-			discordgo.TextDisplay{Content: title},
-			discordgo.TextDisplay{Content: tableFast},
+		components = []dc.LayoutComponent{
+			dc.TextDisplay{Content: str},
+			dc.TextDisplay{Content: title},
+			dc.TextDisplay{Content: tableFast},
 		}
 	}
 
-	msg, sendErr := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Flags:      p.flags,
+	msg, sendErr := e.FollowupMessage(dc.Message{
+		Ephemeral:  p.ephemeral,
 		Components: components,
 		Files:      files,
 	})
@@ -388,15 +340,12 @@ func runCsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate, p csEst
 		names[i] = row.name
 	}
 
-	interaction := i.Interaction
 	msgID := msg.ID
 	srmode := p.srMode
 	imageTable := p.imageTable
-	flags := p.flags
 
 	go func() {
 		archives, fetched, missing, err := GetContractArchivesForNames(
-			s,
 			names,
 			"cxp_v0_2_0",
 			false,
@@ -426,35 +375,34 @@ func runCsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate, p csEst
 			}
 		}
 
-		var edited []discordgo.MessageComponent
-		var editFiles []*discordgo.File
+		var edited []dc.LayoutComponent
+		var editFiles []dc.File
 
 		if imageTable {
 			imgBytes, err := RenderScoreTableImage(rowsCopy, srmode, anyDiffs)
 			if err != nil {
 				log.Printf("Error rendering score table image edit: %v", err)
 			} else if len(imgBytes) > 0 {
-				editFiles = append(editFiles, &discordgo.File{
+				editFiles = append(editFiles, dc.File{
 					Name:        "cs_estimate.png",
 					ContentType: "image/png",
 					Reader:      bytes.NewReader(imgBytes),
 				})
-				var mediaItem discordgo.MediaGalleryItem
-				mediaItem.Media.URL = "attachment://cs_estimate.png"
-				edited = []discordgo.MessageComponent{
-					discordgo.TextDisplay{Content: str},
-					discordgo.TextDisplay{Content: title},
-					&discordgo.MediaGallery{Items: []discordgo.MediaGalleryItem{mediaItem}},
+				mediaItem := dc.MediaItem{URL: "attachment://cs_estimate.png"}
+				edited = []dc.LayoutComponent{
+					dc.TextDisplay{Content: str},
+					dc.TextDisplay{Content: title},
+					dc.MediaGallery{Items: []dc.MediaItem{mediaItem}},
 				}
 			}
 		}
 
 		if len(edited) == 0 {
 			tableFinal := RenderScoreTableANSI(rowsCopy, srmode, anyDiffs)
-			edited = []discordgo.MessageComponent{
-				discordgo.TextDisplay{Content: str},
-				discordgo.TextDisplay{Content: title},
-				discordgo.TextDisplay{Content: tableFinal},
+			edited = []dc.LayoutComponent{
+				dc.TextDisplay{Content: str},
+				dc.TextDisplay{Content: title},
+				dc.TextDisplay{Content: tableFinal},
 			}
 		}
 
@@ -462,46 +410,44 @@ func runCsEstimate(s *discordgo.Session, i *discordgo.InteractionCreate, p csEst
 			edited = append(edited, actionRow)
 		}
 
-		_, editErr := s.FollowupMessageEdit(interaction, msgID, &discordgo.WebhookEdit{
-			Components: &edited,
+		if editErr := e.EditFollowup(msgID, dc.Message{
+			Components: edited,
 			Files:      editFiles,
-			Flags:      flags,
-		})
-		if editErr != nil {
+		}); editErr != nil {
 			log.Println("FollowupMessageEdit:", editErr)
 		}
 	}()
 }
 
-func buildCsEstimateActionRow(foundContractHash string) (discordgo.MessageComponent, bool) {
+func buildCsEstimateActionRow(foundContractHash string) (dc.LayoutComponent, bool) {
 	if foundContractHash == "" {
 		return nil, false
 	}
 
 	buttonConfigs := []struct {
 		label  string
-		style  discordgo.ButtonStyle
+		style  dc.ButtonStyle
 		action string
 	}{
-		{"Completion Ping", discordgo.PrimaryButton, "completionping"},
-		// {"Check-in Pings", discordgo.SecondaryButton, "checkinping"},
-		{"Close", discordgo.DangerButton, "close"},
+		{"Completion Ping", dc.ButtonPrimary, "completionping"},
+		// {"Check-in Pings", dc.ButtonSecondary, "checkinping"},
+		{"Close", dc.ButtonDanger, "close"},
 	}
 
-	buttons := make([]discordgo.MessageComponent, 0, len(buttonConfigs))
+	buttons := make([]dc.InteractiveComponent, 0, len(buttonConfigs))
 	for _, cfg := range buttonConfigs {
-		buttons = append(buttons, discordgo.Button{
+		buttons = append(buttons, dc.Button{
 			Label:    cfg.label,
 			Style:    cfg.style,
 			CustomID: fmt.Sprintf("csestimate#%s#%s", cfg.action, foundContractHash),
 		})
 	}
 
-	return discordgo.ActionsRow{Components: buttons}, true
+	return dc.ActionRow{Components: buttons}, true
 }
 
 // sendCompletionPing sends a ping with the estimated completion time of the contract
-func sendCompletionPing(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, userID string) {
+func sendCompletionPing(e *dc.ComponentEvent, contract *Contract, userID string) {
 
 	allFinalized := true
 	if time.Now().After(contract.EstimatedEndTime) {
@@ -519,9 +465,9 @@ func sendCompletionPing(s *discordgo.Session, i *discordgo.InteractionCreate, co
 
 	//Check if the contract is still ongoing (or not all users have checked in)
 	if time.Now().After(contract.EstimatedEndTime) && allFinalized {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Flags:   discordgo.MessageFlagsEphemeral,
-			Content: "The contract has already ended. Ping not sent.",
+		_ = e.Followup(dc.Message{
+			Ephemeral: true,
+			Content:   "The contract has already ended. Ping not sent.",
 		})
 		return
 	}
@@ -556,21 +502,18 @@ func sendCompletionPing(s *discordgo.Session, i *discordgo.InteractionCreate, co
 		)
 	}
 
-	_, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
+	err := e.Followup(dc.Message{
 		Content: message,
-		AllowedMentions: &discordgo.MessageAllowedMentions{
-			Parse: []discordgo.AllowedMentionType{
-				discordgo.AllowedMentionTypeRoles,
-				discordgo.AllowedMentionTypeUsers,
-			},
+		AllowedMentions: &dc.AllowedMentions{
+			Parse: []dc.MentionType{dc.MentionRoles, dc.MentionUsers},
 		},
 	})
 
 	if err != nil {
 		log.Println("Error sending completion ping:", err)
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Flags:   discordgo.MessageFlagsEphemeral,
-			Content: "Error sending completion ping.",
+		_ = e.Followup(dc.Message{
+			Ephemeral: true,
+			Content:   "Error sending completion ping.",
 		})
 		return
 	}
@@ -613,7 +556,7 @@ func calculateSRScores(cxpversion, grade, coopSize, contractLength int, targetGo
 }
 
 // GetContractArchivesForNames fetches contract archives for a list of player names concurrently, returning index-aligned slices for (archives, fetched, missing).
-func GetContractArchivesForNames(s *discordgo.Session, names []string, cxpVersion string, forceRefresh bool, okayToSave bool,
+func GetContractArchivesForNames(names []string, cxpVersion string, forceRefresh bool, okayToSave bool,
 ) (archives [][]*ei.LocalContract, fetched []bool, missing []string, err error) {
 
 	// Get encryption key for decrypting EI IDs
@@ -702,7 +645,7 @@ func GetContractArchivesForNames(s *discordgo.Session, names []string, cxpVersio
 				continue
 			}
 
-			archive, _ := ei.GetContractArchiveFromAPI(s, eiID, discordID, forceRefresh, okayToSave)
+			archive, _ := ei.GetContractArchiveFromAPI(eiID, discordID, forceRefresh, okayToSave)
 
 			archives[j.i] = archive
 			fetched[j.i] = true

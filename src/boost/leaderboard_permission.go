@@ -5,8 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
@@ -21,8 +20,8 @@ const (
 
 // CheckLeaderboardPermission checks if a user has granted permission for leaderboard API calls.
 // Returns true if permission is valid, false if the permission dialog was shown.
-func CheckLeaderboardPermission(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
-	userID := bottools.GetInteractionUserID(i)
+func CheckLeaderboardPermission(e dc.InteractionEvent) bool {
+	userID := e.UserID()
 
 	span := farmerstate.GetMiscSettingString(userID, LeaderboardPermissionSpanKey)
 	if span == "forever" {
@@ -31,18 +30,18 @@ func CheckLeaderboardPermission(s *discordgo.Session, i *discordgo.InteractionCr
 
 	timeStr := farmerstate.GetMiscSettingString(userID, LeaderboardPermissionKey)
 	if timeStr == "" {
-		ShowLeaderboardPermissionDialog(s, i)
+		ShowLeaderboardPermissionDialog(e)
 		return false
 	}
 
 	parseTime, err := time.Parse(time.RFC3339, timeStr)
 	if err != nil {
-		ShowLeaderboardPermissionDialog(s, i)
+		ShowLeaderboardPermissionDialog(e)
 		return false
 	}
 
 	if time.Since(parseTime) > LeaderboardPermission24h {
-		ShowLeaderboardPermissionDialog(s, i)
+		ShowLeaderboardPermissionDialog(e)
 		return false
 	}
 
@@ -50,76 +49,58 @@ func CheckLeaderboardPermission(s *discordgo.Session, i *discordgo.InteractionCr
 }
 
 // ShowLeaderboardPermissionDialog shows the ephemeral dialog with Allow and Close buttons.
-func ShowLeaderboardPermissionDialog(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "This command makes an authenticated request using your saved Egg Inc ID. What do you want to do?",
-			Flags:   discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.Button{
-							Label:    "Allow for 24 hours",
-							Style:    discordgo.SuccessButton,
-							CustomID: "leaderboard_perm#allow24h",
-						},
-						discordgo.Button{
-							Label:    "Allow forever",
-							Style:    discordgo.SuccessButton,
-							CustomID: "leaderboard_perm#allowforever",
-						},
-						discordgo.Button{
-							Label:    "Close",
-							Style:    discordgo.DangerButton,
-							CustomID: "leaderboard_perm#close",
-						},
-					},
+func ShowLeaderboardPermissionDialog(e dc.InteractionEvent) {
+	err := e.Respond(dc.Message{
+		Content:   "This command makes an authenticated request using your saved Egg Inc ID. What do you want to do?",
+		Ephemeral: true,
+		Components: []dc.LayoutComponent{
+			dc.ActionRow{Components: []dc.InteractiveComponent{
+				dc.Button{
+					Label:    "Allow for 24 hours",
+					Style:    dc.ButtonSuccess,
+					CustomID: "leaderboard_perm#allow24h",
 				},
-			},
+				dc.Button{
+					Label:    "Allow forever",
+					Style:    dc.ButtonSuccess,
+					CustomID: "leaderboard_perm#allowforever",
+				},
+				dc.Button{
+					Label:    "Close",
+					Style:    dc.ButtonDanger,
+					CustomID: "leaderboard_perm#close",
+				},
+			}},
 		},
+		ComponentsV1: true,
 	})
 	if err != nil {
 		log.Println("Error sending leaderboard permission dialog:", err)
 	}
 }
 
-// HandleLeaderboardPermissionButton handles button interactions for the leaderboard permission dialog.
-func HandleLeaderboardPermissionButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	userID := bottools.GetInteractionUserID(i)
-	customID := i.MessageComponentData().CustomID
+// HandleLeaderboardPermissionButton records the answer to the permission
+// dialog and closes it.
+func HandleLeaderboardPermissionButton(e *dc.ComponentEvent) {
+	userID := e.UserID()
 	respondAndClose := func(content string) {
-		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-			Data: &discordgo.InteractionResponseData{
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{},
-			},
-		})
-		if err != nil {
+		if err := e.DeferUpdate(); err != nil {
 			log.Println("Error acknowledging leaderboard permission dialog:", err)
 			return
 		}
 
-		emptyComponents := []discordgo.MessageComponent{}
-		edit := discordgo.WebhookEdit{
-			Content:    &content,
-			Components: &emptyComponents,
-		}
-		_, err = s.InteractionResponseEdit(i.Interaction, &edit)
-		if err != nil {
+		// EditResponse always sends a component list, so the buttons come off
+		// with the text swap.
+		if err := e.EditResponse(dc.Message{Content: content}); err != nil {
 			log.Println("Error updating leaderboard permission dialog:", err)
 		}
 	}
 
-	parts := strings.Split(customID, "#")
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 2 {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Invalid permission action. Use Allow for 24 hours, Allow forever, or Close from the permission dialog.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "Invalid permission action. Use Allow for 24 hours, Allow forever, or Close from the permission dialog.",
+			Ephemeral: true,
 		})
 		return
 	}
@@ -141,12 +122,9 @@ func HandleLeaderboardPermissionButton(s *discordgo.Session, i *discordgo.Intera
 	case "close":
 		respondAndClose("I understand")
 	default:
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Unknown permission action. Use Allow for 24 hours, Allow forever, or Close from the permission dialog.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "Unknown permission action. Use Allow for 24 hours, Allow forever, or Close from the permission dialog.",
+			Ephemeral: true,
 		})
 	}
 }

@@ -7,8 +7,8 @@ import (
 	"maps"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -69,7 +69,7 @@ func UpdateAllContractsEggInfo() {
 }
 
 // RedrawBoostList will move the boost message to the bottom of the channel
-func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) error {
+func RedrawBoostList(client dc.Client, guildID string, channelID string) error {
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -84,17 +84,15 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 	buttonComponents := getContractReactionsComponents(contract)
 	for _, loc := range contract.Location {
 		if loc.GuildID == guildID && loc.ChannelID == channelID {
-			_ = s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
-			var data discordgo.MessageSend
-			var am discordgo.MessageAllowedMentions
-			var components []discordgo.MessageComponent
-			data.Flags = discordgo.MessageFlagsIsComponentsV2
-			data.AllowedMentions = &am
-			listComp := DrawBoostList(s, contract)
+			_ = client.DeleteMessage(loc.ChannelID, loc.ListMsgID)
+			var components []dc.LayoutComponent
+			listComp := DrawBoostList(contract)
 			components = append(components, listComp...)
 			components = append(components, buttonComponents...)
-			data.Components = components
-			msg, err := s.ChannelMessageSendComplex(loc.ChannelID, &data)
+			msg, err := client.SendMessage(loc.ChannelID, dc.Message{
+				Components:      components,
+				AllowedMentions: &dc.AllowedMentions{},
+			})
 			if err == nil {
 				SetListMessageID(contract, loc.ChannelID, msg.ID)
 				contract.mutex.Lock()
@@ -113,7 +111,7 @@ func RedrawBoostList(s *discordgo.Session, guildID string, channelID string) err
 }
 
 // bumpCRMessages posts a new CR request message in each contract location, replacing the old one with a redirect.
-func bumpCRMessages(s *discordgo.Session, contract *Contract) {
+func bumpCRMessages(client dc.Client, contract *Contract) {
 	contract.mutex.Lock()
 	locations := make([]*LocationData, len(contract.Location))
 	copy(locations, contract.Location)
@@ -130,11 +128,10 @@ func bumpCRMessages(s *discordgo.Session, contract *Contract) {
 			continue
 		}
 
-		var data discordgo.MessageSend
-		data.Flags = discordgo.MessageFlagsIsComponentsV2
-		data.Components = components
-		data.AllowedMentions = &discordgo.MessageAllowedMentions{}
-		newMsg, err := s.ChannelMessageSendComplex(location.ChannelID, &data)
+		newMsg, err := client.SendMessage(location.ChannelID, dc.Message{
+			Components:      components,
+			AllowedMentions: &dc.AllowedMentions{},
+		})
 		if err != nil {
 			log.Printf("bumpCRMessages send error: contractHash=%s channelID=%s error=%v",
 				contract.ContractHash, location.ChannelID, err)
@@ -148,14 +145,13 @@ func bumpCRMessages(s *discordgo.Session, contract *Contract) {
 
 		if existingMsgID := crIDs[location.ChannelID]; existingMsgID != "" {
 			newMsgLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", location.GuildID, location.ChannelID, newMsg.ID)
-			movedComponents := []discordgo.MessageComponent{
-				discordgo.TextDisplay{Content: fmt.Sprintf("-# Chicken Run request moved: [View updated message](%s)", newMsgLink)},
+			movedComponents := []dc.LayoutComponent{
+				dc.TextDisplay{Content: fmt.Sprintf("-# Chicken Run request moved: [View updated message](%s)", newMsgLink)},
 			}
-			oldEdit := discordgo.NewMessageEdit(location.ChannelID, existingMsgID)
-			oldEdit.Flags = discordgo.MessageFlagsIsComponentsV2
-			oldEdit.AllowedMentions = &discordgo.MessageAllowedMentions{}
-			oldEdit.Components = &movedComponents
-			if _, err := s.ChannelMessageEditComplex(oldEdit); err != nil {
+			if _, err := client.EditMessage(location.ChannelID, existingMsgID, dc.Message{
+				Components:      movedComponents,
+				AllowedMentions: &dc.AllowedMentions{},
+			}); err != nil {
 				log.Printf("bumpCRMessages edit old error: contractHash=%s channelID=%s messageID=%s error=%v",
 					contract.ContractHash, location.ChannelID, existingMsgID, err)
 			}
@@ -163,89 +159,80 @@ func bumpCRMessages(s *discordgo.Session, contract *Contract) {
 	}
 }
 
-func refreshBoostListMessage(s *discordgo.Session, contract *Contract, updateSignupMessage bool) {
+func refreshBoostListMessage(client dc.Client, contract *Contract, updateSignupMessage bool) {
 	//contract.mutex.Lock()
 	//defer contract.mutex.Unlock()
 	// Edit the boost list in place
 	for _, loc := range contract.Location {
-		var components []discordgo.MessageComponent
-		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
-		msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
-		listComponents := DrawBoostList(s, contract)
+		var components []dc.LayoutComponent
+		listComponents := DrawBoostList(contract)
 		components = append(components, listComponents...)
 		buttonComponents := getContractReactionsComponents(contract)
 		if len(buttonComponents) > 0 {
 			components = append(components, buttonComponents...)
 		}
-		msgedit.Components = &components
+
+		edit := dc.Message{Components: components}
 
 		// Disable ALL pings during the run
 		if contract.State != ContractStateSignup {
-			msgedit.AllowedMentions = &discordgo.MessageAllowedMentions{
-				Parse:       []discordgo.AllowedMentionType{},
-				RepliedUser: false,
-			}
+			edit.AllowedMentions = &dc.AllowedMentions{}
 		}
 
 		// Full contract for speedrun
-		msg, err := s.ChannelMessageEditComplex(msgedit)
+		msg, err := client.EditMessage(loc.ChannelID, loc.ListMsgID, edit)
 		if err == nil {
 			// This is an edit, it should be the same
 			loc.ListMsgID = msg.ID
 		}
 		if updateSignupMessage {
-			updateSignupReactionMessage(s, contract, loc)
+			updateSignupReactionMessage(client, contract, loc)
 		}
 	}
 }
 
-func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bool) {
+func sendNextNotification(client dc.Client, contract *Contract, pingUsers bool) {
 	// Start boosting contract
 	drawn := false
 	for _, loc := range contract.Location {
-		var msg *discordgo.Message
+		var msg *dc.MessageRef
 		var err error
 
 		if contract.State == ContractStateSignup {
-			var components []discordgo.MessageComponent
-			msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
+			var components []dc.LayoutComponent
 			// Full contract for speedrun
-			listComp := DrawBoostList(s, contract)
+			listComp := DrawBoostList(contract)
 			components = append(components, listComp...)
 			buttonComponents := getContractReactionsComponents(contract)
 			if len(buttonComponents) > 0 {
 				components = append(components, buttonComponents...)
 			}
-			msgedit.Components = &components
-			msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
-			_, err := s.ChannelMessageEditComplex(msgedit)
+			_, err := client.EditMessage(loc.ChannelID, loc.ListMsgID, dc.Message{Components: components})
 			if err != nil {
 				log.Println("Unable to send this message." + err.Error())
 			}
-			updateSignupReactionMessage(s, contract, loc)
+			updateSignupReactionMessage(client, contract, loc)
 
 		} else {
-			var components []discordgo.MessageComponent
+			var components []dc.LayoutComponent
 
 			// Unpin message once the contract is completed
 			if contract.State == ContractStateArchive {
-				_ = s.ChannelMessageUnpin(loc.ChannelID, loc.ReactionID)
+				_ = client.UnpinMessage(loc.ChannelID, loc.ReactionID)
 			}
-			_ = s.ChannelMessageDelete(loc.ChannelID, loc.ListMsgID)
+			_ = client.DeleteMessage(loc.ChannelID, loc.ListMsgID)
 
 			// Compose the message without a Ping
-			var data discordgo.MessageSend
-			var am discordgo.MessageAllowedMentions
-			data.Flags = discordgo.MessageFlagsIsComponentsV2
-			data.AllowedMentions = &am
-			listComp := DrawBoostList(s, contract)
+			listComp := DrawBoostList(contract)
 			components = append(components, listComp...)
 			buttonComponents := getContractReactionsComponents(contract)
 			if len(buttonComponents) > 0 {
 				components = append(components, buttonComponents...)
 			}
-			data.Components = components
-			msg, err = s.ChannelMessageSendComplex(loc.ChannelID, &data)
+			msg, err = client.SendMessage(loc.ChannelID, dc.Message{
+				Components:      components,
+				AllowedMentions: &dc.AllowedMentions{},
+			})
 			if err == nil {
 				SetListMessageID(contract, loc.ChannelID, msg.ID)
 				contract.mutex.Lock()
@@ -324,42 +311,39 @@ func sendNextNotification(s *discordgo.Session, contract *Contract, pingUsers bo
 
 		// Sending the update message
 		if contract.Style&ContractFlagBanker == 0 {
-			_, _ = s.ChannelMessageSend(loc.ChannelID, str)
+			_, _ = client.SendMessage(loc.ChannelID, dc.Message{Content: str})
 		} else if !drawn {
-			_ = RedrawBoostList(s, loc.GuildID, loc.ChannelID)
+			_ = RedrawBoostList(client, loc.GuildID, loc.ChannelID)
 		}
 	}
 	if pingUsers {
-		notifyBellBoosters(s, contract)
+		notifyBellBoosters(client, contract)
 	}
 	/*
 		if contract.State == ContractStateArchive {
 			// Only purge the contract from memory if /calc isn't being used
 			if contract.CalcOperations == 0 || time.Since(contract.CalcOperationTime).Minutes() > 20 {
-				FinishContract(s, contract)
+				FinishContract(client, contract)
 			}
 		}
 	*/
 }
 
-func updateSignupReactionMessage(s *discordgo.Session, contract *Contract, loc *LocationData) {
+func updateSignupReactionMessage(client dc.Client, contract *Contract, loc *LocationData) {
 	//if contract.State != ContractStateSignup {
 	//	return
 	//	}
 	// Only want to update this when we have to change the Join button
 	//if len(contract.Order) == contract.CoopSize || len(contract.Order) == (contract.CoopSize-1) {
-	var components []discordgo.MessageComponent
+	var components []dc.LayoutComponent
 	msgID := loc.ReactionID
-	msg := discordgo.NewMessageEdit(loc.ChannelID, msgID)
 	// Full contract for speedrun
 	contentStr, comp := GetSignupComponents(contract)
-	components = append(components, &discordgo.TextDisplay{
+	components = append(components, dc.TextDisplay{
 		Content: contentStr,
 	})
 	components = append(components, comp...)
-	msg.Flags = discordgo.MessageFlagsIsComponentsV2
-	msg.Components = &components
-	_, err := s.ChannelMessageEditComplex(msg)
+	_, err := client.EditMessage(loc.ChannelID, msgID, dc.Message{Components: components})
 	if err != nil {
 		log.Printf("unable to send this message: %v", err)
 	}

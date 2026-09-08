@@ -6,9 +6,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mattn/go-runewidth"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -196,42 +196,26 @@ func leaderboardSeasons() []leaderboardSeason {
 }
 
 // GetSlashLeaderboard returns the /leaderboard command
-func GetSlashLeaderboard(cmd string) *discordgo.ApplicationCommand {
-	adminPermission := int64(0)
-
-	return &discordgo.ApplicationCommand{
-		Name:                     cmd,
-		Description:              "Show the leaderboard.",
-		DefaultMemberPermissions: &adminPermission,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "season",
-				Description:  "Season to display. Default is All Time.",
-				Required:     false,
-				Autocomplete: true,
-			},
+func GetSlashLeaderboard(cmd string) *dc.Command {
+	command := adminGuildCommand(cmd, "Show the leaderboard.")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:         "season",
+			Description:  "Season to display. Default is All Time.",
+			Autocomplete: true,
 		},
 	}
+	return &command
 }
 
-// HandleLeaderboardAutoComplete provides typed season suggestions for /leaderboard.
-func HandleLeaderboardAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleLeaderboardAutoComplete suggests seasons for the /leaderboard season option.
+func HandleLeaderboardAutoComplete(e *dc.AutocompleteEvent) {
 	search := ""
-	for _, opt := range i.ApplicationCommandData().Options {
-		if opt.Name == "season" && opt.Focused {
-			search = strings.ToLower(strings.TrimSpace(opt.StringValue()))
-			break
-		}
+	if name, value := e.FocusedOption(); name == "season" {
+		search = strings.ToLower(strings.TrimSpace(value))
 	}
 
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, leaderboardMaxAutocompleteChoices)
+	choices := make([]dc.Choice[string], 0, leaderboardMaxAutocompleteChoices)
 	for _, season := range leaderboardSeasons() {
 		if search != "" {
 			name := strings.ToLower(season.name)
@@ -241,7 +225,7 @@ func HandleLeaderboardAutoComplete(s *discordgo.Session, i *discordgo.Interactio
 			}
 		}
 
-		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+		choices = append(choices, dc.Choice[string]{
 			Name:  season.name,
 			Value: season.value,
 		})
@@ -250,97 +234,62 @@ func HandleLeaderboardAutoComplete(s *discordgo.Session, i *discordgo.Interactio
 		}
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{Choices: choices},
-	})
+	_ = e.RespondChoices(choices)
 }
 
-// HandleLeaderboard handles the /leaderboard command
-func HandleLeaderboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if !CheckLeaderboardPermission(s, i) {
+// HandleLeaderboard posts the leaderboard for the requested season.
+func HandleLeaderboard(e *dc.CommandEvent) {
+	if !CheckLeaderboardPermission(e) {
 		return
 	}
 
 	season := leaderboardAllTimeScope
-	optionMap := bottools.GetCommandOptionsMap(i)
-	if opt, ok := optionMap["season"]; ok {
-		season = opt.StringValue()
+	if opt, ok := e.OptString("season"); ok {
+		season = opt
 	}
 
-	flags := discordgo.MessageFlagsIsComponentsV2
 	// Acknowledge the command
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: flags,
-		},
-	})
+	_ = e.Defer(false)
 
-	userID := bottools.GetInteractionUserID(i)
-	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+	eiID := farmerstate.GetMiscSettingString(e.UserID(), "encrypted_ei_id")
 
-	components := leaderboardFetchAndBuild(eiID, season, i.GuildID)
+	components := leaderboardFetchAndBuild(eiID, season, e.GuildID())
 
-	_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Flags:      flags,
-		Components: components,
-		AllowedMentions: &discordgo.MessageAllowedMentions{
-			Parse: []discordgo.AllowedMentionType{},
-		},
-	})
-	if err != nil {
+	if err := e.Followup(dc.Message{
+		Components:      components,
+		AllowedMentions: &dc.AllowedMentions{},
+	}); err != nil {
 		log.Println("Error sending follow-up message /leaderboard:", err)
 	}
 }
 
-// HandleLeaderboardPage handles the season select menu, refresh, and close button interactions
-func HandleLeaderboardPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	flags := discordgo.MessageFlagsIsComponentsV2
+// HandleLeaderboardPage drives the season selector, Refresh and Close controls.
+func HandleLeaderboardPage(e *dc.ComponentEvent) {
 	respondUsage := func(msg string) {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: msg,
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
+		_ = e.Respond(dc.Message{Content: msg, Ephemeral: true})
 	}
 
-	parts := strings.Split(i.MessageComponentData().CustomID, "#")
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 2 {
 		respondUsage("Invalid leaderboard action. Use the season selector, Refresh, or Close controls from a /leaderboard response.")
 		return
 	}
 
-	userID := bottools.GetInteractionUserID(i)
+	userID := e.UserID()
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 
 	switch parts[1] {
 	case "close":
+		// Keep the leaderboard text, drop the two rows of controls.
+		kept := e.MessageComponentsWithoutActionRows()
+
 		// Acknowledge update interactions that mutate the existing leaderboard message.
-		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-			Data: &discordgo.InteractionResponseData{
-				Flags:      flags,
-				Components: []discordgo.MessageComponent{},
-			},
-		})
-		if err != nil {
+		if err := e.DeferUpdate(); err != nil {
 			log.Println("Error responding to leaderboard close interaction:", err)
 			return
 		}
 
-		// Keep only the TextDisplay, drop the ActionsRows
-		var kept []discordgo.MessageComponent
-		for _, c := range i.Message.Components {
-			if _, ok := c.(*discordgo.TextDisplay); ok {
-				kept = append(kept, c)
-			}
-		}
-		edit := discordgo.WebhookEdit{Components: &kept}
-		_, err = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit)
-		if err != nil {
+		if err := e.EditFollowup(e.MessageID(), dc.Message{Components: kept}); err != nil {
 			log.Println("Error closing leaderboard:", err)
 		}
 
@@ -349,66 +298,48 @@ func HandleLeaderboardPage(s *discordgo.Session, i *discordgo.InteractionCreate)
 			respondUsage("Invalid refresh action. Use the Refresh button from a /leaderboard response.")
 			return
 		}
-		if !CheckLeaderboardPermission(s, i) {
+		if !CheckLeaderboardPermission(e) {
 			return
 		}
 
-		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-			Data: &discordgo.InteractionResponseData{
-				Flags:      flags,
-				Components: []discordgo.MessageComponent{},
-			},
-		})
-		if err != nil {
+		if err := e.DeferUpdate(); err != nil {
 			log.Println("Error responding to leaderboard refresh interaction:", err)
 			return
 		}
 
 		if eiID == "" {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: fmt.Sprintf("Your Egg Inc ID is needed to update the leaderboard. Use %s to register.", bottools.GetFormattedCommand("register")),
-				Flags:   discordgo.MessageFlagsEphemeral,
+			_ = e.Followup(dc.Message{
+				Content:   fmt.Sprintf("Your Egg Inc ID is needed to update the leaderboard. Use %s to register.", bottools.GetFormattedCommand("register")),
+				Ephemeral: true,
 			})
 			return
 		}
 		season := parts[2]
-		components := leaderboardFetchAndBuild(eiID, season, i.GuildID)
-		edit := discordgo.WebhookEdit{Components: &components}
-		_, err = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit)
-		if err != nil {
+		components := leaderboardFetchAndBuild(eiID, season, e.GuildID())
+		if err := e.EditFollowup(e.MessageID(), dc.Message{Components: components}); err != nil {
 			log.Println("Error refreshing leaderboard:", err)
 		}
 
 	case "season":
-		if !CheckLeaderboardPermission(s, i) {
+		if !CheckLeaderboardPermission(e) {
 			return
 		}
 
-		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-			Data: &discordgo.InteractionResponseData{
-				Flags:      flags,
-				Components: []discordgo.MessageComponent{},
-			},
-		})
-		if err != nil {
+		if err := e.DeferUpdate(); err != nil {
 			log.Println("Error responding to leaderboard season interaction:", err)
 			return
 		}
 
 		if eiID == "" {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: fmt.Sprintf("Your Egg Inc ID is needed to update the leaderboard. Use %s to register.", bottools.GetFormattedCommand("register")),
-				Flags:   discordgo.MessageFlagsEphemeral,
+			_ = e.Followup(dc.Message{
+				Content:   fmt.Sprintf("Your Egg Inc ID is needed to update the leaderboard. Use %s to register.", bottools.GetFormattedCommand("register")),
+				Ephemeral: true,
 			})
 			return
 		}
-		season := i.MessageComponentData().Values[0]
-		components := leaderboardFetchAndBuild(eiID, season, i.GuildID)
-		edit := discordgo.WebhookEdit{Components: &components}
-		_, err = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit)
-		if err != nil {
+		season := e.Values()[0]
+		components := leaderboardFetchAndBuild(eiID, season, e.GuildID())
+		if err := e.EditFollowup(e.MessageID(), dc.Message{Components: components}); err != nil {
 			log.Println("Error editing leaderboard message:", err)
 		}
 	default:
@@ -417,7 +348,7 @@ func HandleLeaderboardPage(s *discordgo.Session, i *discordgo.InteractionCreate)
 }
 
 // leaderboardFetchAndBuild fetches the leaderboard data and returns the full component tree.
-func leaderboardFetchAndBuild(eiID, season, guildID string) []discordgo.MessageComponent {
+func leaderboardFetchAndBuild(eiID, season, guildID string) []dc.LayoutComponent {
 	var content string
 
 	if eiID == "" {
@@ -431,45 +362,44 @@ func leaderboardFetchAndBuild(eiID, season, guildID string) []discordgo.MessageC
 		}
 	}
 
-	min := 1
+	minValues := 1
 	seasons := leaderboardSeasons()
 	if len(seasons) > leaderboardMaxSeasonOptions {
 		seasons = seasons[:leaderboardMaxSeasonOptions]
 	}
-	options := make([]discordgo.SelectMenuOption, 0, len(seasons))
+	options := make([]dc.SelectOption, 0, len(seasons))
 	for _, s := range seasons {
-		options = append(options, discordgo.SelectMenuOption{
+		options = append(options, dc.SelectOption{
 			Label:   s.name,
 			Value:   s.value,
 			Default: s.value == season,
 		})
 	}
 
-	return []discordgo.MessageComponent{
-		&discordgo.TextDisplay{Content: content},
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.SelectMenu{
-					MenuType:    discordgo.StringSelectMenu,
+	return []dc.LayoutComponent{
+		dc.TextDisplay{Content: content},
+		dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.SelectMenu{
 					CustomID:    fmt.Sprintf("leaderboard#season#%s", season),
 					Placeholder: "Select Season",
-					MinValues:   &min,
+					MinValues:   &minValues,
 					MaxValues:   1,
 					Options:     options,
 				},
 			},
 		},
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.Button{
+		dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.Button{
 					Label:    "Refresh",
-					Style:    discordgo.SecondaryButton,
+					Style:    dc.ButtonSecondary,
 					CustomID: fmt.Sprintf("leaderboard#refresh#%s", season),
-					Emoji:    &discordgo.ComponentEmoji{Name: "🔄"},
+					Emoji:    &dc.Emoji{Name: "🔄"},
 				},
-				discordgo.Button{
+				dc.Button{
 					Label:    "Close",
-					Style:    discordgo.DangerButton,
+					Style:    dc.ButtonDanger,
 					CustomID: "leaderboard#close",
 				},
 			},

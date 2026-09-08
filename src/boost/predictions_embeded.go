@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
@@ -32,13 +32,14 @@ var predViews = []predView{
 }
 
 // predSaveRow returns an ActionsRow with a single Save button.
-func predSaveRow() discordgo.ActionsRow {
-	return discordgo.ActionsRow{
-		Components: []discordgo.MessageComponent{
-			discordgo.Button{
+// predSaveRow returns an ActionRow with a single Save button.
+func predSaveRow() dc.ActionRow {
+	return dc.ActionRow{
+		Components: []dc.InteractiveComponent{
+			dc.Button{
 				Label:    "Save",
-				Emoji:    &discordgo.ComponentEmoji{Name: "💾"},
-				Style:    discordgo.SuccessButton,
+				Emoji:    &dc.Emoji{Name: "💾"},
+				Style:    dc.ButtonSuccess,
 				CustomID: "pred#save",
 			},
 		},
@@ -46,28 +47,27 @@ func predSaveRow() discordgo.ActionsRow {
 }
 
 // predNavRow returns a select menu component for switching between views.
-func predNavRow(currentID string) discordgo.ActionsRow {
-	min := 1
-	options := make([]discordgo.SelectMenuOption, len(predViews))
+func predNavRow(currentID string) dc.ActionRow {
+	minValues := 1
+	options := make([]dc.SelectOption, len(predViews))
 	for idx, v := range predViews {
-		opt := discordgo.SelectMenuOption{
+		opt := dc.SelectOption{
 			Label:       v.label,
 			Description: v.description,
 			Value:       v.id,
 			Default:     v.id == currentID,
 		}
 		if v.emojiName != "" {
-			opt.Emoji = &discordgo.ComponentEmoji{Name: v.emojiName}
+			opt.Emoji = &dc.Emoji{Name: v.emojiName}
 		}
 		options[idx] = opt
 	}
-	return discordgo.ActionsRow{
-		Components: []discordgo.MessageComponent{
-			discordgo.SelectMenu{
-				MenuType:    discordgo.StringSelectMenu,
+	return dc.ActionRow{
+		Components: []dc.InteractiveComponent{
+			dc.SelectMenu{
 				CustomID:    "pred#nav",
 				Placeholder: "Switch view…",
-				MinValues:   &min,
+				MinValues:   &minValues,
 				MaxValues:   1,
 				Options:     options,
 			},
@@ -77,10 +77,10 @@ func predNavRow(currentID string) discordgo.ActionsRow {
 
 // buildPredEmbeds returns the embeds for a given view ID.
 // viewID may be a compound like "weekly:2"; the suffix encodes the weekly filter type.
-func buildPredEmbeds(s *discordgo.Session, viewID, userName string, weeklyType int) []*discordgo.MessageEmbed {
+func buildPredEmbeds(client dc.Client, viewID, userName string, weeklyType int) []dc.Embed {
 	_, wedTime, friTime, _ := contractTimes9amPacific(0)
-	botName := s.State.User.Username
-	botIconURL := s.State.User.AvatarURL("256")
+	botName := client.BotUsername()
+	botIconURL := client.BotAvatarURL("256")
 	baseID, suffix, hasSuffix := strings.Cut(viewID, ":")
 	wType := weeklyType
 	if hasSuffix {
@@ -105,197 +105,145 @@ func buildPredEmbeds(s *discordgo.Session, viewID, userName string, weeklyType i
 }
 
 // GetPredCommand returns the /pred command definition.
-func GetPredCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Prediction commands.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
+func GetPredCommand(cmd string) *dc.Command {
+	command := anywhereCommand(cmd, "Prediction commands.")
+	command.Options = []dc.Option{
+		dc.SubCommand{
+			Name:        "collectibles",
+			Description: "Show Colleggtibles drop predictions.",
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
-		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "collectibles",
-				Description: "Show Colleggtibles drop predictions.",
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "weekly",
-				Description: "Show this week's Leggacy contract predictions.",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionInteger,
-						Name:        "type",
-						Description: "Filter which contract types to show.",
-						Required:    false,
-						Choices: []*discordgo.ApplicationCommandOptionChoice{
-							{Name: "Show all Leggacy contracts", Value: int64(0)},
-							{Name: "Wednesday only", Value: int64(1)},
-							{Name: "Both Friday (PE + Ultra)", Value: int64(2)},
-							{Name: "Non-Ultra PE only", Value: int64(3)},
-							{Name: "Ultra PE only", Value: int64(4)},
-						},
+		dc.SubCommand{
+			Name:        "weekly",
+			Description: "Show this week's Leggacy contract predictions.",
+			Options: []dc.Option{
+				dc.IntOption{
+					Name:        "type",
+					Description: "Filter which contract types to show.",
+					Choices: []dc.Choice[int]{
+						{Name: "Show all Leggacy contracts", Value: 0},
+						{Name: "Wednesday only", Value: 1},
+						{Name: "Both Friday (PE + Ultra)", Value: 2},
+						{Name: "Non-Ultra PE only", Value: 3},
+						{Name: "Ultra PE only", Value: 4},
 					},
 				},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "one",
-				Description: "Show prediction info for a specific contract.",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:         discordgo.ApplicationCommandOptionString,
-						Name:         "contract-id",
-						Description:  "Contract to look up.",
-						Required:     true,
-						Autocomplete: true,
-					},
+		},
+		dc.SubCommand{
+			Name:        "one",
+			Description: "Show prediction info for a specific contract.",
+			Options: []dc.Option{
+				dc.StringOption{
+					Name:         "contract-id",
+					Description:  "Contract to look up.",
+					Required:     true,
+					Autocomplete: true,
 				},
 			},
 		},
 	}
+	return &command
 }
 
 // HandlePredCommand dispatches /pred subcommands.
-func HandlePredCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	options := i.ApplicationCommandData().Options
-	if len(options) == 0 {
+func HandlePredCommand(client dc.Client, e *dc.CommandEvent) {
+	subCmd, ok := e.Subcommand()
+	if !ok {
 		return
 	}
-	subCmd := options[0]
-	switch subCmd.Name {
+	switch subCmd {
 	case "weekly":
 		weeklyType := 0
-		for _, opt := range subCmd.Options {
-			if opt.Name == "type" {
-				weeklyType = int(opt.IntValue())
-			}
+		if opt, ok := e.OptInt("weekly-type"); ok {
+			weeklyType = opt
 		}
-		sendPredView(s, i, subCmd.Name, weeklyType)
+		sendPredView(client, e, subCmd, weeklyType)
 	case "one":
 		contractID := ""
-		for _, opt := range subCmd.Options {
-			if opt.Name == "contract-id" {
-				contractID = opt.StringValue()
-			}
+		if opt, ok := e.OptString("one-contract-id"); ok {
+			contractID = opt
 		}
-		sendPredOne(s, i, contractID)
+		sendPredOne(client, e, contractID)
 	default:
-		sendPredView(s, i, subCmd.Name, 0)
+		sendPredView(client, e, subCmd, 0)
 	}
 }
 
 // HandlePredPage handles select menu and button interactions for /pred.
-func HandlePredPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if i.Message != nil {
-		if createdAt, err := discordgo.SnowflakeTimestamp(i.Message.ID); err == nil && time.Since(createdAt) > 5*time.Minute {
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseDeferredMessageUpdate,
-			})
-			empty := []discordgo.MessageComponent{}
-			if i.GuildID != "" {
-				_, _ = s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-					Channel:    i.Message.ChannelID,
-					ID:         i.Message.ID,
-					Components: &empty,
-				})
+func HandlePredPage(client dc.Client, e *dc.ComponentEvent) {
+	if messageID := e.MessageID(); messageID != "" {
+		if createdAt, err := dc.SnowflakeTimestamp(messageID); err == nil && time.Since(createdAt) > 5*time.Minute {
+			_ = e.DeferUpdate()
+			if e.GuildID() != "" {
+				_, _ = client.EditMessage(e.ChannelID(), messageID, dc.Message{ClearComponents: true})
 			} else {
-				_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-					Components: &empty,
-				})
+				_ = e.EditResponse(dc.Message{})
 			}
 			return
 		}
 	}
 
-	if i.MessageComponentData().CustomID == "pred#save" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		})
-		empty := []discordgo.MessageComponent{}
-		_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Components: &empty,
-		})
+	if e.CustomID() == "pred#save" {
+		_ = e.DeferUpdate()
+		_ = e.EditResponse(dc.Message{})
 		return
 	}
 
-	values := i.MessageComponentData().Values
+	values := e.Values()
 	if len(values) == 0 {
 		return
 	}
 	viewID := values[0]
-	embeds := buildPredEmbeds(s, viewID, interactionUserName(i), 0)
+	embeds := buildPredEmbeds(client, viewID, eventUserName(e), 0)
 	nav := predNavRow(viewID)
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseUpdateMessage,
-		Data: &discordgo.InteractionResponseData{
-			Embeds:     embeds,
-			Components: []discordgo.MessageComponent{nav, predSaveRow()},
-			AllowedMentions: &discordgo.MessageAllowedMentions{
-				Parse: []discordgo.AllowedMentionType{},
-			},
-		},
+	_ = e.Update(dc.Message{
+		Embeds:          embeds,
+		Components:      []dc.LayoutComponent{nav, predSaveRow()},
+		ComponentsV1:    true,
+		AllowedMentions: &dc.AllowedMentions{},
 	})
 }
 
 // sendPredView defers, builds the requested view, and sends it as a single message.
-func sendPredView(s *discordgo.Session, i *discordgo.InteractionCreate, viewID string, weeklyType int) {
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-	})
+func sendPredView(client dc.Client, e *dc.CommandEvent, viewID string, weeklyType int) {
+	_ = e.Defer(false)
 
 	compoundID := viewID
 	if weeklyType > 0 {
 		compoundID = fmt.Sprintf("%s:%d", viewID, weeklyType)
 	}
-	embeds := buildPredEmbeds(s, compoundID, interactionUserName(i), 0)
+	embeds := buildPredEmbeds(client, compoundID, eventUserName(e), 0)
 	nav := predNavRow(compoundID)
 
-	msg, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Embeds:     embeds,
-		Components: []discordgo.MessageComponent{nav, predSaveRow()},
-		AllowedMentions: &discordgo.MessageAllowedMentions{
-			Parse: []discordgo.AllowedMentionType{},
-		},
+	msg, err := e.FollowupMessage(dc.Message{
+		Embeds:          embeds,
+		Components:      []dc.LayoutComponent{nav, predSaveRow()},
+		ComponentsV1:    true,
+		AllowedMentions: &dc.AllowedMentions{},
 	})
 	if err != nil {
 		log.Printf("Error sending /pred %s: %v", viewID, err)
 		return
 	}
 
-	if i.GuildID != "" {
+	if e.GuildID() != "" {
 		go func(channelID, messageID string) {
 			// Debug string for the routine
 			// log.Printf("Started cleanup routine for message %s in channel %s", messageID, channelID)
 			time.Sleep(5 * time.Minute)
-			empty := []discordgo.MessageComponent{}
-			_, _ = s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-				Channel:    channelID,
-				ID:         messageID,
-				Components: &empty,
-			})
+			_, _ = client.EditMessage(channelID, messageID, dc.Message{ClearComponents: true})
 		}(msg.ChannelID, msg.ID)
 	}
 }
 
 // sendPredOne responds with a prediction embed for a single contract looked up by ID.
-func sendPredOne(s *discordgo.Session, i *discordgo.InteractionCreate, contractID string) {
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-	})
+func sendPredOne(client dc.Client, e *dc.CommandEvent, contractID string) {
+	_ = e.Defer(false)
 
 	c, ok := ei.EggIncContractsAll[contractID]
 	if !ok {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: fmt.Sprintf("Contract `%s` not found.", contractID),
-		})
+		_ = e.Followup(dc.Message{Content: fmt.Sprintf("Contract `%s` not found.", contractID)})
 		return
 	}
 
@@ -323,9 +271,9 @@ func sendPredOne(s *discordgo.Session, i *discordgo.InteractionCreate, contractI
 		}
 	}
 
-	botName := s.State.User.Username
-	botIconURL := s.State.User.AvatarURL("256")
-	userName := interactionUserName(i)
+	botName := client.BotUsername()
+	botIconURL := client.BotAvatarURL("256")
+	userName := eventUserName(e)
 	iconCoop := ei.GetBotEmojiMarkdown("icon_coop")
 
 	seasonLabel := ""
@@ -378,25 +326,25 @@ func sendPredOne(s *discordgo.Session, i *discordgo.InteractionCreate, contractI
 		fmt.Fprintf(&contractVal, "-# _  _↳ %s", c.Description)
 	}
 
-	var fields []*discordgo.MessageEmbedField
-	fields = append(fields, &discordgo.MessageEmbedField{
+	var fields []dc.EmbedField
+	fields = append(fields, dc.EmbedField{
 		Name:   fmt.Sprintf("%s %s `%s` %s `%dp`", ei.FindEggEmoji(c.EggName), c.Name, c.ID, iconCoop, c.MaxCoopSize),
 		Value:  contractVal.String(),
 		Inline: false,
 	})
-	fields = append(fields, &discordgo.MessageEmbedField{
+	fields = append(fields, dc.EmbedField{
 		Name:   "Bracket",
 		Value:  "_ _ " + bracketLabel,
 		Inline: true,
 	})
 	if pos >= 0 {
 		predictedDrop := baseTime.AddDate(0, 0, 7*pos)
-		fields = append(fields, &discordgo.MessageEmbedField{
+		fields = append(fields, dc.EmbedField{
 			Name:   "Predicted Drop",
 			Value:  "_ _ " + bottools.WrapTimestamp(predictedDrop.Unix(), bottools.TimestampLongDate),
 			Inline: true,
 		})
-		fields = append(fields, &discordgo.MessageEmbedField{
+		fields = append(fields, dc.EmbedField{
 			Name:   "Queue Position",
 			Value:  fmt.Sprintf("_ _ %d of %d", pos+1, len(bracket)),
 			Inline: true,
@@ -404,40 +352,40 @@ func sendPredOne(s *discordgo.Session, i *discordgo.InteractionCreate, contractI
 		if c.HasPE && !c.Ultra {
 			pePos := pos + len(friPE)
 			peDrop := friTime.AddDate(0, 0, 7*pePos)
-			fields = append(fields, &discordgo.MessageEmbedField{
+			fields = append(fields, dc.EmbedField{
 				Name:   "Non-Ultra Bracket",
 				Value:  "_ _ PE Leggacy (Friday)",
 				Inline: true,
 			})
-			fields = append(fields, &discordgo.MessageEmbedField{
+			fields = append(fields, dc.EmbedField{
 				Name:   "Non-Ultra Drop",
 				Value:  "_ _ " + bottools.WrapTimestamp(peDrop.Unix(), bottools.TimestampLongDate),
 				Inline: true,
 			})
-			fields = append(fields, &discordgo.MessageEmbedField{
+			fields = append(fields, dc.EmbedField{
 				Name:   "Non-Ultra Position",
 				Value:  fmt.Sprintf("_ _ %d of %d", pePos+1, len(friUltra)+len(friPE)),
 				Inline: true,
 			})
 		}
 	}
-	fields = append(fields, &discordgo.MessageEmbedField{
+	fields = append(fields, dc.EmbedField{
 		Name:   "Last Seen",
 		Value:  "_ _ " + bottools.WrapTimestamp(c.ValidFrom.Unix(), bottools.TimestampLongDate),
 		Inline: true,
 	})
-	fields = append(fields, &discordgo.MessageEmbedField{
+	fields = append(fields, dc.EmbedField{
 		Name:   "Duration",
 		Value:  "_ _ " + bottools.FmtDuration(c.EstimatedDuration.Round(time.Minute)),
 		Inline: true,
 	})
-	fields = append(fields, &discordgo.MessageEmbedField{
+	fields = append(fields, dc.EmbedField{
 		Name:   "Speedrun CS",
 		Value:  fmt.Sprintf("_ _ %.0f", c.Cxp),
 		Inline: true,
 	})
 	/*
-		fields = append(fields, &discordgo.MessageEmbedField{
+		fields = append(fields, dc.EmbedField{
 			Name:   "Leggy Score",
 			Value:  fmt.Sprintf("%.0f", c.CxpMax),
 			Inline: true,
@@ -445,32 +393,33 @@ func sendPredOne(s *discordgo.Session, i *discordgo.InteractionCreate, contractI
 	*/
 
 	footer := fmt.Sprintf("%s • /pred one • User: %s", botName, userName)
-	embed := &discordgo.MessageEmbed{
-		Type:      discordgo.EmbedTypeRich,
+	embed := dc.Embed{
 		Color:     0xFFFFFF,
 		Title:     "🔮 Contract Prediction",
 		Fields:    fields,
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
-		Footer:    &discordgo.MessageEmbedFooter{Text: footer, IconURL: botIconURL},
+		Timestamp: time.Now().UTC(),
+		Footer:    &dc.EmbedFooter{Text: footer, IconURL: botIconURL},
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Embeds: []*discordgo.MessageEmbed{embed},
-		AllowedMentions: &discordgo.MessageAllowedMentions{
-			Parse: []discordgo.AllowedMentionType{},
-		},
+	_ = e.Followup(dc.Message{
+		Embeds:          []dc.Embed{embed},
+		AllowedMentions: &dc.AllowedMentions{},
 	})
 }
 
-func interactionUserName(i *discordgo.InteractionCreate) string {
-	if i.Member != nil && i.Member.Nick != "" {
-		return i.Member.Nick
+// eventUserName is the display name to credit an interaction to: the guild
+// nickname when there is one, the account name otherwise.
+func eventUserName(e dc.InteractionEvent) string {
+	if member := e.Member(); member != nil {
+		if member.Nick != "" {
+			return member.Nick
+		}
+		if member.User != nil {
+			return member.User.Username
+		}
 	}
-	if i.Member != nil && i.Member.User != nil {
-		return i.Member.User.Username
-	}
-	if i.User != nil {
-		return i.User.Username
+	if user := e.User(); user != nil {
+		return user.Username
 	}
 	return ""
 }
@@ -478,7 +427,7 @@ func interactionUserName(i *discordgo.InteractionCreate) string {
 // getWeeklyEmbeds builds a single embed with all three Leggacy types.
 // Each type gets a full-width (non-inline) header field followed by inline contract fields.
 // A non-inline field in Discord takes the full row width, acting as a section divider.
-func getWeeklyEmbeds(wedTime, friTime time.Time, userName, botName, botIconURL string, weeklyType, embedColor int) []*discordgo.MessageEmbed {
+func getWeeklyEmbeds(wedTime, friTime time.Time, userName, botName, botIconURL string, weeklyType, embedColor int) []dc.Embed {
 	fridayNonUltra, fridayUltra, wednesday := predictJeli(3)
 	iconCoop := ei.GetBotEmojiMarkdown("icon_coop")
 	iconPE := ei.GetBotEmojiMarkdown("egg_prophecy")
@@ -486,7 +435,7 @@ func getWeeklyEmbeds(wedTime, friTime time.Time, userName, botName, botIconURL s
 
 	usedSeasons := make(map[string]bool)
 	timeSaverMissing := false
-	var fields []*discordgo.MessageEmbedField
+	var fields []dc.EmbedField
 
 	addSection := func(title string, dropTime time.Time, contracts []ei.EggIncContract) {
 		if len(contracts) == 0 {
@@ -496,7 +445,7 @@ func getWeeklyEmbeds(wedTime, friTime time.Time, userName, botName, botIconURL s
 		// (The time-saver-2021 hack is now applied centrally in GetPredictionBrackets)
 
 		// Full-width header field, breaks the inline grid and labels the section.
-		fields = append(fields, &discordgo.MessageEmbedField{
+		fields = append(fields, dc.EmbedField{
 			Name:   fmt.Sprintf("%s ", title),
 			Value:  fmt.Sprintf("-# _  _↳ %s", bottools.WrapTimestamp(dropTime.Unix(), bottools.TimestampShortDateTime)),
 			Inline: false,
@@ -533,7 +482,7 @@ func getWeeklyEmbeds(wedTime, friTime time.Time, userName, botName, botIconURL s
 				fmt.Fprintf(&v, "_ _")
 			}
 
-			fields = append(fields, &discordgo.MessageEmbedField{
+			fields = append(fields, dc.EmbedField{
 				Name:   fmt.Sprintf("%d. %s %s", idx+1, c.Name, ei.FindEggEmoji(c.EggName)),
 				Value:  v.String(),
 				Inline: true,
@@ -592,19 +541,18 @@ func getWeeklyEmbeds(wedTime, friTime time.Time, userName, botName, botIconURL s
 		title = "🔮 Weekly Leggacy Prediction"
 	}
 
-	return []*discordgo.MessageEmbed{
+	return []dc.Embed{
 		{
-			Type:      discordgo.EmbedTypeRich,
 			Color:     embedColor,
 			Title:     title,
 			Fields:    fields,
-			Timestamp: time.Now().UTC().Format(time.RFC3339),
-			Footer:    &discordgo.MessageEmbedFooter{Text: footer.String(), IconURL: botIconURL},
+			Timestamp: time.Now().UTC(),
+			Footer:    &dc.EmbedFooter{Text: footer.String(), IconURL: botIconURL},
 		},
 	}
 }
 
-func getCollectibleEmbeds(collectibles map[string]collectiblePrediction, userName, botName, botIconURL string, embedColor int) []*discordgo.MessageEmbed {
+func getCollectibleEmbeds(collectibles map[string]collectiblePrediction, userName, botName, botIconURL string, embedColor int) []dc.Embed {
 	contracts := make([]collectiblePrediction, 0, len(collectibles))
 	for _, p := range collectibles {
 		contracts = append(contracts, p)
@@ -619,11 +567,11 @@ func getCollectibleEmbeds(collectibles map[string]collectiblePrediction, userNam
 	iconCoop := ei.GetBotEmojiMarkdown("icon_coop")
 	usedSeasons := make(map[string]bool)
 
-	var embeds []*discordgo.MessageEmbed
-	var fields []*discordgo.MessageEmbedField
+	var embeds []dc.Embed
+	var fields []dc.EmbedField
 	embedSize := len("🔮 Colleggtibles Prediction")
 
-	buildFooter := func() *discordgo.MessageEmbedFooter {
+	buildFooter := func() *dc.EmbedFooter {
 		var footer, legend strings.Builder
 		for _, s := range seasonsOrdered {
 			if usedSeasons[s.Key] {
@@ -641,19 +589,18 @@ func getCollectibleEmbeds(collectibles map[string]collectiblePrediction, userNam
 		footer.WriteString(botName)
 		footer.WriteString(" • /pred collectibles • User: ")
 		footer.WriteString(userName)
-		return &discordgo.MessageEmbedFooter{Text: footer.String(), IconURL: botIconURL}
+		return &dc.EmbedFooter{Text: footer.String(), IconURL: botIconURL}
 	}
 
 	flushEmbed := func() {
 		if len(fields) == 0 {
 			return
 		}
-		embeds = append(embeds, &discordgo.MessageEmbed{
-			Type:      discordgo.EmbedTypeRich,
+		embeds = append(embeds, dc.Embed{
 			Color:     embedColor,
 			Title:     "🔮 Colleggtibles Prediction",
 			Fields:    fields,
-			Timestamp: time.Now().UTC().Format(time.RFC3339),
+			Timestamp: time.Now().UTC(),
 			Footer:    buildFooter(),
 		})
 		fields = nil
@@ -700,7 +647,7 @@ func getCollectibleEmbeds(collectibles map[string]collectiblePrediction, userNam
 		if len(fields) >= 24 || embedSize+fieldSize > 3900 {
 			flushEmbed()
 		}
-		fields = append(fields, &discordgo.MessageEmbedField{
+		fields = append(fields, dc.EmbedField{
 			Name:   fieldName,
 			Value:  fieldValue,
 			Inline: true,

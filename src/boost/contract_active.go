@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
@@ -17,73 +17,48 @@ import (
 var threadStyleIcons = []string{"", "🟦", "🟩", "🟧", "🟥"}
 
 // SlashAdminCurrentContracts creates the admin current-contracts command for Discord.
-func SlashAdminCurrentContracts(cmd string) *discordgo.ApplicationCommand {
-	var adminPermission = int64(0)
-	return &discordgo.ApplicationCommand{
-		Name:                     cmd,
-		Description:              "Display current boost contracts",
-		DefaultMemberPermissions: &adminPermission,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionChannel,
-				Name:        "channel",
-				Description: "Override the channel to search for active contracts (defaults to current channel)",
-				Required:    false,
-				ChannelTypes: []discordgo.ChannelType{
-					discordgo.ChannelTypeGuildText,
-					discordgo.ChannelTypeGuildForum,
-					discordgo.ChannelTypeGuildNews,
-				},
-			},
+func SlashAdminCurrentContracts(cmd string) *dc.Command {
+	command := adminGuildCommand(cmd, "Display current boost contracts")
+	command.Options = []dc.Option{
+		dc.ChannelOption{
+			Name:         "channel",
+			Description:  "Override the channel to search for active contracts (defaults to current channel)",
+			ChannelTypes: []dc.ChannelType{dc.ChannelText, dc.ChannelForum, dc.ChannelNews},
 		},
 	}
+	return &command
 }
 
 // HandleAdminCurrentContracts handles the admin current-contracts command.
-func HandleAdminCurrentContracts(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	flags := discordgo.MessageFlagsIsComponentsV2
-	bottools.AcknowledgeResponse(s, i, flags)
+func HandleAdminCurrentContracts(client dc.Client, e *dc.CommandEvent) {
+	_ = e.Defer(false)
 
 	// Resolve the effective channel: explicit override > thread parent > interaction channel.
-	channelID := i.ChannelID
-	opts := bottools.GetCommandOptionsMap(i)
-	if opt, ok := opts["channel"]; ok {
-		channelID = opt.ChannelValue(s).ID
-	} else if ch, err := s.Channel(channelID); err == nil && ch != nil {
-		if isThreadChannelType(ch.Type) && ch.ParentID != "" {
+	channelID := e.ChannelID()
+	if opt, ok := e.OptChannel("channel"); ok {
+		channelID = opt
+	} else if ch, err := client.Channel(channelID); err == nil && ch != nil {
+		if ch.IsThread && ch.ParentID != "" {
 			channelID = ch.ParentID
 		}
 	}
 
-	components, _ := getCurrentContractsComponents(s, channelID)
-	if _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Flags:      flags,
-		Components: components,
-	}); err != nil {
+	components, _ := getCurrentContractsComponents(client, channelID)
+	if err := e.Followup(dc.Message{Components: components}); err != nil {
 		log.Println("Error sending follow-up message:", err)
 	}
 }
 
 // HandleActiveContractsPage handles button interactions for the active-contracts message.
-func HandleActiveContractsPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	flags := discordgo.MessageFlagsIsComponentsV2
+func HandleActiveContractsPage(client dc.Client, e *dc.ComponentEvent) {
 	respondUsage := func(msg string) {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: msg,
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   msg,
+			Ephemeral: true,
 		})
 	}
 
-	parts := strings.Split(i.MessageComponentData().CustomID, "#")
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 2 {
 		respondUsage("Invalid active-contracts action. Use the Refresh, Bump, or Close buttons on an active-contracts message.")
 		return
@@ -91,19 +66,7 @@ func HandleActiveContractsPage(s *discordgo.Session, i *discordgo.InteractionCre
 
 	switch parts[1] {
 	case "close":
-		var kept []discordgo.MessageComponent
-		for _, c := range i.Message.Components {
-			if _, ok := c.(*discordgo.ActionsRow); !ok {
-				kept = append(kept, c)
-			}
-		}
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Flags:      flags,
-				Components: kept,
-			},
-		})
+		_ = e.Update(dc.Message{Components: e.MessageComponentsWithoutActionRows()})
 
 	case "refresh":
 		if len(parts) < 3 {
@@ -111,14 +74,10 @@ func HandleActiveContractsPage(s *discordgo.Session, i *discordgo.InteractionCre
 			return
 		}
 		channelID := parts[2]
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-			Data: &discordgo.InteractionResponseData{Flags: flags},
-		})
+		_ = e.DeferUpdate()
 
-		components, _ := getCurrentContractsComponents(s, channelID)
-		edit := discordgo.WebhookEdit{Components: &components}
-		if _, err := s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit); err != nil {
+		components, _ := getCurrentContractsComponents(client, channelID)
+		if err := e.EditFollowup(e.MessageID(), dc.Message{Components: components}); err != nil {
 			log.Println("Error refreshing active contracts:", err)
 		}
 
@@ -128,20 +87,14 @@ func HandleActiveContractsPage(s *discordgo.Session, i *discordgo.InteractionCre
 			return
 		}
 		channelID := parts[2]
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-			Data: &discordgo.InteractionResponseData{Flags: flags},
-		})
+		_ = e.DeferUpdate()
 
-		if err := s.ChannelMessageDelete(i.ChannelID, i.Message.ID); err != nil {
+		if err := client.DeleteMessage(e.ChannelID(), e.MessageID()); err != nil {
 			log.Println("Error deleting message for bump:", err)
 		}
 
-		components, _ := getCurrentContractsComponents(s, channelID)
-		if _, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
-			Flags:      flags,
-			Components: components,
-		}); err != nil {
+		components, _ := getCurrentContractsComponents(client, channelID)
+		if _, err := client.SendMessage(e.ChannelID(), dc.Message{Components: components}); err != nil {
 			log.Println("Error sending bumped active contracts:", err)
 		}
 
@@ -150,50 +103,48 @@ func HandleActiveContractsPage(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 }
 
-func activeContractsButtons(channelID string) discordgo.ActionsRow {
-	return discordgo.ActionsRow{
-		Components: []discordgo.MessageComponent{
-			discordgo.Button{
+func activeContractsButtons(channelID string) dc.ActionRow {
+	return dc.ActionRow{
+		Components: []dc.InteractiveComponent{
+			dc.Button{
 				Label:    "Refresh",
-				Style:    discordgo.SecondaryButton,
+				Style:    dc.ButtonSecondary,
 				CustomID: fmt.Sprintf("active-contracts#refresh#%s", channelID),
-				Emoji:    &discordgo.ComponentEmoji{Name: "🔄"},
+				Emoji:    &dc.Emoji{Name: "🔄"},
 			},
-			discordgo.Button{
+			dc.Button{
 				Label:    "Bump",
-				Style:    discordgo.SecondaryButton,
+				Style:    dc.ButtonSecondary,
 				CustomID: fmt.Sprintf("active-contracts#bump#%s", channelID),
-				Emoji:    &discordgo.ComponentEmoji{Name: "⤵"},
+				Emoji:    &dc.Emoji{Name: "⤵"},
 			},
-			discordgo.Button{
+			dc.Button{
 				Label:    "Close",
-				Style:    discordgo.DangerButton,
+				Style:    dc.ButtonDanger,
 				CustomID: "active-contracts#close",
 			},
 		},
 	}
 }
 
-func getCurrentContractsComponents(s *discordgo.Session, channelID string) ([]discordgo.MessageComponent, bool) {
-	tl, err := s.ThreadsActive(channelID)
+func getCurrentContractsComponents(client dc.Client, channelID string) ([]dc.LayoutComponent, bool) {
+	threads, err := client.ActiveThreads(channelID)
 	if err != nil {
 		log.Println("Error fetching active threads:", err)
-		return []discordgo.MessageComponent{
-			discordgo.Container{Components: []discordgo.MessageComponent{
-				discordgo.TextDisplay{Content: "Error retrieving active contracts: " + err.Error()},
+		return []dc.LayoutComponent{
+			dc.Container{Components: []dc.ContainerSubComponent{
+				dc.TextDisplay{Content: "Error retrieving active contracts: " + err.Error()},
 			}},
 			activeContractsButtons(channelID),
 		}, false
 	}
 
 	guildID := ""
-	activeThreadIDs := make(map[string]bool, len(tl.Threads))
-	for _, th := range tl.Threads {
-		if th != nil {
-			activeThreadIDs[th.ID] = true
-			if guildID == "" {
-				guildID = th.GuildID
-			}
+	activeThreadIDs := make(map[string]bool, len(threads))
+	for _, th := range threads {
+		activeThreadIDs[th.ID] = true
+		if guildID == "" {
+			guildID = th.GuildID
 		}
 	}
 
@@ -210,10 +161,10 @@ func getCurrentContractsComponents(s *discordgo.Session, channelID string) ([]di
 		}
 	}
 
-	var contractComponents []discordgo.MessageComponent
+	var contractComponents []dc.ContainerSubComponent
 	shownContracts := 0
 	if len(matched) == 0 {
-		contractComponents = []discordgo.MessageComponent{discordgo.TextDisplay{Content: "No active contracts found in this channel."}}
+		contractComponents = []dc.ContainerSubComponent{dc.TextDisplay{Content: "No active contracts found in this channel."}}
 	} else {
 		sort.Slice(matched, func(i, j int) bool {
 			if matched[i].ContractID != matched[j].ContractID {
@@ -259,18 +210,17 @@ func getCurrentContractsComponents(s *discordgo.Session, channelID string) ([]di
 	}
 
 	if len(contractComponents) == 0 {
-		contractComponents = []discordgo.MessageComponent{discordgo.TextDisplay{Content: "No active contracts found in this channel."}}
+		contractComponents = []dc.ContainerSubComponent{dc.TextDisplay{Content: "No active contracts found in this channel."}}
 	}
 
-	accentColor := 0x5865f2
-	return []discordgo.MessageComponent{
-		discordgo.Container{
+	return []dc.LayoutComponent{
+		dc.Container{
 			Components:  contractComponents,
-			AccentColor: &accentColor},
+			AccentColor: 0x5865f2},
 		activeContractsButtons(channelID),
 	}, shownContracts > 0
 }
-func getContractDisplay(header *Contract, coops []*Contract, activeThreadIDs map[string]bool, charBudget int) discordgo.TextDisplay {
+func getContractDisplay(header *Contract, coops []*Contract, activeThreadIDs map[string]bool, charBudget int) dc.TextDisplay {
 	iconCoop := ei.GetBotEmojiMarkdown("icon_coop")
 
 	var b strings.Builder
@@ -309,16 +259,5 @@ func getContractDisplay(header *Contract, coops []*Contract, activeThreadIDs map
 		}
 	}
 
-	return discordgo.TextDisplay{Content: b.String()}
-}
-
-func isThreadChannelType(t discordgo.ChannelType) bool {
-	switch t {
-	case discordgo.ChannelTypeGuildPublicThread,
-		discordgo.ChannelTypeGuildPrivateThread,
-		discordgo.ChannelTypeGuildNewsThread:
-		return true
-	default:
-		return false
-	}
+	return dc.TextDisplay{Content: b.String()}
 }

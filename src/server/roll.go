@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"math/rand/v2"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 var (
-	integerOneMinValue float64 = 1.0
+	dieMinValue   = 1
+	dieMaxValue   = 1000
+	countMinValue = 1
+	countMaxValue = 100
 
 	iceCold = []string{"🥶", "❄️", "🧊", "⛄", "🌨️", "🏔️", "🌬️", "🐧", "🦭"}
 	cool    = []string{"😎", "🌊", "🏄", "🌿", "🍃", "🫠", "😴", "💤", "🛋️", "🌙", "🍹", "🧋", "☕", "🤙", "🦥"}
@@ -27,7 +30,7 @@ const (
 )
 
 // d20Flair returns the text suffix and accent color for a d20 roll.
-func d20Flair(roll int64) (suffix string, accent int) {
+func d20Flair(roll int) (suffix string, accent int) {
 	switch {
 	case roll >= 18:
 		return " " + pick(iceCold), colorPureBlue
@@ -47,56 +50,48 @@ func d20Flair(roll int64) (suffix string, accent int) {
 }
 
 // GetSlashChillCommand returns the slash command definition for the chill/roll dice command.
-func GetSlashChillCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Description: "Roll some dice.",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
+func GetSlashChillCommand(cmd string) *dc.Command {
+	command := dc.Command{
+		Name:             cmd,
+		Description:      "Roll some dice.",
+		Contexts:         []dc.InteractionContext{dc.ContextGuild},
+		IntegrationTypes: []dc.IntegrationType{dc.IntegrationGuildInstall},
+		Options: []dc.Option{
+			dc.IntOption{
 				Name:        "die",
 				Description: "Number of sides on the die (default: 20).",
-				MinValue:    &integerOneMinValue,
-				MaxValue:    1000,
+				MinValue:    &dieMinValue,
+				MaxValue:    &dieMaxValue,
 				Required:    false,
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
+			dc.IntOption{
 				Name:        "count",
 				Description: "Number of dice to roll (default: 1).",
-				MinValue:    &integerOneMinValue,
-				MaxValue:    100,
+				MinValue:    &countMinValue,
+				MaxValue:    &countMaxValue,
 				Required:    false,
 			},
 		},
 	}
+	return &command
 }
 
 // HandleChillCommand handles the chill/roll slash command interaction.
-func HandleChillCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	sides := int64(20)
-	count := int64(1)
-
-	for _, opt := range i.ApplicationCommandData().Options {
-		switch opt.Name {
-		case "die":
-			sides = opt.IntValue()
-		case "count":
-			count = opt.IntValue()
-		}
+func HandleChillCommand(e *dc.CommandEvent) {
+	sides := 20
+	count := 1
+	if v, ok := e.OptInt("die"); ok {
+		sides = v
+	}
+	if v, ok := e.OptInt("count"); ok {
+		count = v
 	}
 
-	total := int64(0)
-	minRoll, maxRoll := int64(sides+1), int64(0)
-	results := make([]int64, count)
+	total := 0
+	minRoll, maxRoll := sides+1, 0
+	results := make([]int, count)
 	for j := range results {
-		roll := rand.Int64N(sides) + 1
+		roll := rand.IntN(sides) + 1
 		results[j] = roll
 		total += roll
 		if roll < minRoll {
@@ -112,25 +107,18 @@ func HandleChillCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		msg = fmt.Sprintf("🎲 d%d: `%d`", sides, results[0])
 	} else {
 		msg = fmt.Sprintf("🎲 Rolling %dd%d: `%v`", count, sides, results)
-	}
-	if count > 1 {
 		avg := float64(total) / float64(count)
 		msg += fmt.Sprintf("\nTotal: **%d** | Avg: **%.1f** | Min: **%d** | Max: **%d**", total, avg, minRoll, maxRoll)
 	}
 
-	if i.ApplicationCommandData().Name == "chill" && sides == 20 && count == 1 {
+	if e.CommandName() == "chill" && sides == 20 && count == 1 {
 		suffix, accent := d20Flair(results[0])
-		msg = fmt.Sprintf("**Roll: %d**%s", results[0], suffix)
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags: discordgo.MessageFlagsIsComponentsV2,
-				Components: []discordgo.MessageComponent{
-					discordgo.Container{
-						AccentColor: &accent,
-						Components: []discordgo.MessageComponent{
-							discordgo.TextDisplay{Content: msg},
-						},
+		_ = e.Respond(dc.Message{
+			Components: []dc.LayoutComponent{
+				dc.Container{
+					AccentColor: accent,
+					Components: []dc.ContainerSubComponent{
+						dc.TextDisplay{Content: fmt.Sprintf("**Roll: %d**%s", results[0], suffix)},
 					},
 				},
 			},
@@ -138,10 +126,5 @@ func HandleChillCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: msg,
-		},
-	})
+	_ = e.Respond(dc.Message{Content: msg})
 }

@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/wI2L/jsondiff"
 	"google.golang.org/protobuf/proto"
 )
@@ -46,7 +46,7 @@ func DecryptEID(encryptedString string) string {
 }
 
 // GetFirstContactFromAPI will download the player data from the Egg Inc API
-func GetFirstContactFromAPI(s *discordgo.Session, eggIncID string, discordID string, okayToSave bool) (*Backup, bool) {
+func GetFirstContactFromAPI(eggIncID string, discordID string, okayToSave bool) (*Backup, bool) {
 	eiUserID := DecryptEID(eggIncID)
 	reqURL := "https://www.auxbrain.com/ei/bot_first_contact"
 
@@ -127,7 +127,7 @@ func RedactUserInfo(s, eiUserID string) string {
 }
 
 // GetContractArchiveFromAPI will download the events from the Egg Inc API
-func GetContractArchiveFromAPI(s *discordgo.Session, eggIncID string, discordID string, forceRefresh bool, okayToSave bool) ([]*LocalContract, bool) {
+func GetContractArchiveFromAPI(eggIncID string, discordID string, forceRefresh bool, okayToSave bool) ([]*LocalContract, bool) {
 	eiUserID := DecryptEID(eggIncID)
 	reqURL := "https://www.auxbrain.com/ei_ctx/get_contracts_archive"
 	clientVersion := DefaultClientVersion
@@ -183,7 +183,7 @@ func GetContractArchiveFromAPI(s *discordgo.Session, eggIncID string, discordID 
 }
 
 // GetConfigFromAPI will download the config data from the Egg Inc API and write it to ei-config.json
-func GetConfigFromAPI(s *discordgo.Session) bool {
+func GetConfigFromAPI(client dc.Client) bool {
 	reqURL := "https://www.auxbrain.com/ei/get_config"
 
 	clientVersion := DefaultClientVersion
@@ -237,18 +237,16 @@ func GetConfigFromAPI(s *discordgo.Session) bool {
 				if b, merr := json.MarshalIndent(patch, "", "    "); merr == nil {
 					if strings.Contains(string(b), "ei_hatchery_custom") {
 						// If the diff contains the string "ei_hatchery_custom"
-						u, err := s.UserChannelCreate(config.AdminUserID)
+						u, err := client.CreateUserChannel(config.AdminUserID)
 						if err != nil {
 							log.Printf("Failed to create user channel for admin: %v", err)
 							return
 						}
-						var data discordgo.MessageSend
-						data.Components = []discordgo.MessageComponent{
-							discordgo.TextDisplay{
-								Content: fmt.Sprintf("```diff\n%s\n```", string(b)),
+						_, sendErr := client.SendMessage(u.ID, dc.Message{
+							Components: []dc.LayoutComponent{
+								dc.TextDisplay{Content: fmt.Sprintf("```diff\n%s\n```", string(b))},
 							},
-						}
-						_, sendErr := s.ChannelMessageSendComplex(u.ID, &data)
+						})
 						if sendErr != nil {
 							log.Print(sendErr)
 						}

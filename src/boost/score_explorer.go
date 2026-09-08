@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/rs/xid"
@@ -48,110 +48,55 @@ type ScoreCalcParams struct {
 var scoreCalcMap = make(map[string]ScoreCalcParams)
 
 // GetSlashScoreExplorerCommand returns the slash command for token tracking
-func GetSlashScoreExplorerCommand(cmd string) *discordgo.ApplicationCommand {
+func GetSlashScoreExplorerCommand(cmd string) *dc.Command {
 	//adminPermission := int64(0)
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Start token value tracking for a contract",
-		//DefaultMemberPermissions: &adminPermission,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
+	command := anywhereCommand(cmd, "Start token value tracking for a contract")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:         "contract-id",
+			Description:  "Contract ID",
+			Required:     true,
+			Autocomplete: true,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
-		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "contract-id",
-				Description:  "Contract ID",
-				Required:     true,
-				Autocomplete: true,
-			},
-			/*
-				{
-					Type:        discordgo.ApplicationCommandOptionInteger,
-					Name:        "grade",
-					Description: "Contract Grade. Defaults to AAA",
-					Choices: []*discordgo.ApplicationCommandOptionChoice{
-						{
-							Name:  "AAA",
-							Value: ei.Contract_GRADE_AAA,
-						},
-						{
-							Name:  "AA",
-							Value: ei.Contract_GRADE_AA,
-						},
-						{
-							Name:  "A",
-							Value: ei.Contract_GRADE_A,
-						},
-						{
-							Name:  "B",
-							Value: ei.Contract_GRADE_B,
-						},
-						{
-							Name:  "C",
-							Value: ei.Contract_GRADE_C,
-						},
-					},
-				},
-			*/
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "public",
-				Description: "Display this to everyone within this channel. Default is true.",
-				Required:    false,
-			},
+		dc.BoolOption{
+			Name:        "public",
+			Description: "Display this to everyone within this channel. Default is true.",
 		},
 	}
+	return &command
 }
 
-// HandleScoreExplorerCommand will handle the /playground command
-func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	optionMap := bottools.GetCommandOptionsMap(i)
-
-	flags := discordgo.MessageFlagsEphemeral
+// HandleScoreExplorerCommand handles the score explorer command through the dc
+// facade.
+func HandleScoreExplorerCommand(e *dc.CommandEvent) {
+	ephemeral := true
 	grade := ei.Contract_PlayerGrade(ei.Contract_GRADE_AAA)
 	var contractID string
 
 	if contractID == "" {
-		if opt, ok := optionMap["contract-id"]; ok {
-			contractID = opt.StringValue()
+		if opt, ok := e.OptString("contract-id"); ok {
+			contractID = opt
 		}
 	}
-	if opt, ok := optionMap["grade"]; ok {
-		grade = ei.Contract_PlayerGrade(opt.IntValue())
+	if opt, ok := e.OptInt("grade"); ok {
+		grade = ei.Contract_PlayerGrade(opt)
 	}
-	if opt, ok := optionMap["public"]; ok {
-		if opt.BoolValue() {
-			flags = 0
+	if opt, ok := e.OptBool("public"); ok {
+		if opt {
+			ephemeral = false
 		}
 	}
 
 	c := ei.EggIncContractsAll[contractID]
 
 	if c.ID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Unknown contract ID",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		},
-		)
+		_ = e.Respond(dc.Message{
+			Content:   "Unknown contract ID",
+			Ephemeral: true,
+		})
 		return
 	}
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   flags,
-		},
-	})
+	_ = e.Defer(ephemeral)
 
 	xid := xid.New().String()
 	scoreCalcParams := ScoreCalcParams{
@@ -159,7 +104,7 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 		contractID:           contractID,
 		contract:             c,
 		Grade:                grade,
-		public:               flags == 0,
+		public:               !ephemeral,
 		Deflector:            0,
 		DeflectorDownMinutes: 0,
 		Siab:                 0,
@@ -187,33 +132,22 @@ func HandleScoreExplorerCommand(s *discordgo.Session, i *discordgo.InteractionCr
 
 	components := getScoreExplorerComponents(scoreCalcParams)
 
-	_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content:    scoreCalcParams.contractInfo,
-		Flags:      flags,
-		Components: components,
-		Embeds:     []*discordgo.MessageEmbed{embed},
-		//CustomID:   "maybe-store-data",
+	// Content sits beside select menus and an embed here, which is the legacy
+	// component model.
+	err := e.Followup(dc.Message{
+		Content:      scoreCalcParams.contractInfo,
+		Ephemeral:    ephemeral,
+		Components:   components,
+		Embeds:       []dc.Embed{embed},
+		ComponentsV1: true,
 	})
-	/*
-		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    scoreCalcParams.contractInfo,
-				Flags:      flags,
-				Components: components,
-				Embeds:     []*discordgo.MessageEmbed{embed},
-				//CustomID:   "maybe-store-data",
-				Title: "Contract Score Explorer",
-			},
-		},
-		)*/
 	if err != nil {
 		log.Println(err)
 	}
 }
 
-func getScoreExplorerCalculations(params ScoreCalcParams) (string, *discordgo.MessageEmbed) {
-	var field []*discordgo.MessageEmbedField
+func getScoreExplorerCalculations(params ScoreCalcParams) (string, dc.Embed) {
+	var field []dc.EmbedField
 	var builder strings.Builder
 	grade := params.Grade
 
@@ -221,7 +155,7 @@ func getScoreExplorerCalculations(params ScoreCalcParams) (string, *discordgo.Me
 
 	if c.ID == "" {
 		str := "No contract found in this channel, use the command parameters to pick one."
-		return str, nil
+		return str, dc.Embed{}
 	}
 
 	ratio := params.FairShare
@@ -253,7 +187,7 @@ func getScoreExplorerCalculations(params ScoreCalcParams) (string, *discordgo.Me
 		0)
 	fmt.Fprintf(&builder, "**%d**", scoreLower)
 
-	field = append(field, &discordgo.MessageEmbedField{
+	field = append(field, dc.EmbedField{
 		Name:   "Contract Score",
 		Value:  builder.String(),
 		Inline: true,
@@ -267,73 +201,74 @@ func getScoreExplorerCalculations(params ScoreCalcParams) (string, *discordgo.Me
 	fmt.Fprintf(&builder, "Fair Share: %2.3g\n", ratio)
 	fmt.Fprintf(&builder, "Chicken Runs: %d\n", params.chickenRunValues[params.ChickenRuns])
 
-	embed := &discordgo.MessageEmbed{}
-	embed.Title = "Score Explorer"
-	embed.Description = builder.String()
-	embed.Color = 0x9a8b7c
-	embed.Fields = field
+	embed := dc.Embed{
+		Title:       "Score Explorer",
+		Description: builder.String(),
+		Color:       0x9a8b7c,
+		Fields:      field,
+	}
 
 	return builder.String(), embed
 }
 
 // getTokenValComponents returns the components for the token value
-func getScoreExplorerComponents(param ScoreCalcParams) []discordgo.MessageComponent {
-	var buttons []discordgo.Button
-	var menu []discordgo.SelectMenu
+func getScoreExplorerComponents(param ScoreCalcParams) []dc.LayoutComponent {
+	var buttons []dc.Button
+	var menu []dc.SelectMenu
 
 	buttons = append(buttons,
-		discordgo.Button{
+		dc.Button{
 			Label:    playStyles[param.Style],
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("fd_playground#%s#style", param.xid),
 		})
 
 	buttons = append(buttons,
-		discordgo.Button{
+		dc.Button{
 			Label:    fmt.Sprintf("Chicken Runs: %s", chickenRunsStr[param.ChickenRuns]),
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("fd_playground#%s#runs", param.xid),
 		})
 
 	buttons = append(buttons,
-		discordgo.Button{
+		dc.Button{
 			Label:    fmt.Sprintf("Deflector Use: %s", deflectorDurationsStr[param.DeflIndex]),
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("fd_playground#%s#defltime", param.xid),
 		})
 
 	buttons = append(buttons,
-		discordgo.Button{
+		dc.Button{
 			Label:    fmt.Sprintf("SIAB Equip Time: %s", siabDurationStr[param.SiabIndex]),
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("fd_playground#%s#siabtime", param.xid),
 		})
 
 	if !param.public {
 		buttons = append(buttons,
-			discordgo.Button{
+			dc.Button{
 				Label:    "Load Settings",
-				Style:    discordgo.PrimaryButton,
+				Style:    dc.ButtonPrimary,
 				CustomID: fmt.Sprintf("fd_playground#%s#load", param.xid),
 			})
 		buttons = append(buttons,
-			discordgo.Button{
+			dc.Button{
 				Label:    "Save Settings",
-				Style:    discordgo.PrimaryButton,
+				Style:    dc.ButtonPrimary,
 				CustomID: fmt.Sprintf("fd_playground#%s#save", param.xid),
 			})
 	}
 
 	buttons = append(buttons,
-		discordgo.Button{
+		dc.Button{
 			Label:    "Close",
-			Style:    discordgo.DangerButton,
+			Style:    dc.ButtonDanger,
 			CustomID: fmt.Sprintf("fd_playground#%s#close", param.xid),
 		})
 
 	MinValues := 1
 
-	fairShareOptions := []discordgo.SelectMenuOption{}
+	fairShareOptions := []dc.SelectOption{}
 	// I want to create a float64 array with several values
 	var fairShare = []float64{1.5, 1.2, 1.1}
 	for ratio := 1.07; ratio >= 0.95; ratio -= 0.01 {
@@ -345,14 +280,14 @@ func getScoreExplorerComponents(param ScoreCalcParams) []discordgo.MessageCompon
 		if ratio == 1.0 {
 			str = "Fair Share "
 		}
-		fairShareOptions = append(fairShareOptions, discordgo.SelectMenuOption{
+		fairShareOptions = append(fairShareOptions, dc.SelectOption{
 			Label:   fmt.Sprintf("%s%2.2f", str, ratio),
 			Value:   fmt.Sprintf("%1.2f", ratio),
 			Default: param.FairShare == ratio,
 		})
 	}
 
-	menu = append(menu, discordgo.SelectMenu{
+	menu = append(menu, dc.SelectMenu{
 		CustomID:    fmt.Sprintf("fd_playground#%s#fair", param.xid),
 		Placeholder: "Fair Share",
 		MaxValues:   1,
@@ -360,12 +295,12 @@ func getScoreExplorerComponents(param ScoreCalcParams) []discordgo.MessageCompon
 		Options:     fairShareOptions,
 	})
 
-	menu = append(menu, discordgo.SelectMenu{
+	menu = append(menu, dc.SelectMenu{
 		CustomID:    fmt.Sprintf("fd_playground#%s#deflector", param.xid),
 		Placeholder: "Deflector Quality",
 		MaxValues:   1,
 		MinValues:   &MinValues,
-		Options: []discordgo.SelectMenuOption{
+		Options: []dc.SelectOption{
 			{
 				Label:   "No Deflector Used",
 				Value:   "0",
@@ -422,13 +357,13 @@ func getScoreExplorerComponents(param ScoreCalcParams) []discordgo.MessageCompon
 		},
 	})
 
-	menu = append(menu, discordgo.SelectMenu{
+	menu = append(menu, dc.SelectMenu{
 		CustomID:    fmt.Sprintf("fd_playground#%s#siab", param.xid),
 		Placeholder: "SIAB Quality",
 		MaxValues:   1,
 		MinValues:   &MinValues,
 
-		Options: []discordgo.SelectMenuOption{
+		Options: []dc.SelectOption{
 			{
 				Label:   "No SIAB Used",
 				Value:   "0",
@@ -485,44 +420,39 @@ func getScoreExplorerComponents(param ScoreCalcParams) []discordgo.MessageCompon
 		},
 	})
 
-	var components []discordgo.MessageComponent
+	var components []dc.LayoutComponent
 
-	components = append(components, discordgo.ActionsRow{Components: []discordgo.MessageComponent{menu[0]}})
-	components = append(components, discordgo.ActionsRow{Components: []discordgo.MessageComponent{menu[1]}})
-	components = append(components, discordgo.ActionsRow{Components: []discordgo.MessageComponent{menu[2]}})
+	components = append(components, dc.ActionRow{Components: []dc.InteractiveComponent{menu[0]}})
+	components = append(components, dc.ActionRow{Components: []dc.InteractiveComponent{menu[1]}})
+	components = append(components, dc.ActionRow{Components: []dc.InteractiveComponent{menu[2]}})
 
 	for i := 0; i < len(buttons); i += 5 {
 		end := i + 5
 		if end > len(buttons) {
 			end = len(buttons)
 		}
-		var rowComponents []discordgo.MessageComponent
+		var rowComponents []dc.InteractiveComponent
 		for _, button := range buttons[i:end] {
 			rowComponents = append(rowComponents, button)
 		}
-		components = append(components, discordgo.ActionsRow{Components: rowComponents})
+		components = append(components, dc.ActionRow{Components: rowComponents})
 	}
 
 	return components
 }
 
-// HandleScoreExplorerPage steps a page of cached teamwork data
-func HandleScoreExplorerPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleScoreExplorerPage steps a page of the score explorer through the dc
+// facade.
+func HandleScoreExplorerPage(e *dc.ComponentEvent) {
 	// cs_#Name # cs_#ID # HASH
-	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
+	reaction := strings.Split(e.CustomID(), "#")
 
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{
-			Content:    "",
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
-	})
+	err := e.DeferUpdate()
 
 	params, exists := scoreCalcMap[reaction[1]]
 	if !exists {
 		log.Println("Invalid reaction ID")
-		_ = s.InteractionResponseDelete(i.Interaction)
+		_ = e.DeleteResponse()
 		return
 	}
 
@@ -536,8 +466,8 @@ func HandleScoreExplorerPage(s *discordgo.Session, i *discordgo.InteractionCreat
 		}
 	}
 	if len(reaction) == 3 && reaction[2] == "fair" {
-		data := i.MessageComponentData()
-		values := data.Values
+		data := e.Values()
+		values := data
 		fairShareValue, err := strconv.ParseFloat(values[0], 64)
 		if err != nil {
 			log.Println("Invalid fair share value:", err)
@@ -564,7 +494,7 @@ func HandleScoreExplorerPage(s *discordgo.Session, i *discordgo.InteractionCreat
 		}
 	}
 	if len(reaction) == 3 && reaction[2] == "deflector" {
-		deflectorValue, err := strconv.Atoi(i.MessageComponentData().Values[0])
+		deflectorValue, err := strconv.Atoi(e.Values()[0])
 		if err != nil {
 			log.Println("Invalid deflector value:", err)
 			return
@@ -572,7 +502,7 @@ func HandleScoreExplorerPage(s *discordgo.Session, i *discordgo.InteractionCreat
 		params.Deflector = float64(deflectorValue)
 	}
 	if len(reaction) == 3 && reaction[2] == "siab" {
-		siabValue, err := strconv.Atoi(i.MessageComponentData().Values[0])
+		siabValue, err := strconv.Atoi(e.Values()[0])
 		if err != nil {
 			log.Println("Invalid deflector value:", err)
 			return
@@ -581,7 +511,7 @@ func HandleScoreExplorerPage(s *discordgo.Session, i *discordgo.InteractionCreat
 	}
 	if len(reaction) == 3 && reaction[2] == "load" {
 		// Load settings
-		userID := getInteractionUserID(i)
+		userID := e.UserID()
 		paramsStr := farmerstate.GetMiscSettingString(userID, "scoreCalcParams")
 		if err != nil {
 			log.Println("Error loading settings:", err)
@@ -612,14 +542,14 @@ func HandleScoreExplorerPage(s *discordgo.Session, i *discordgo.InteractionCreat
 		//farmerstate.SetMiscSettingString()
 		paramsBytes, err := json.Marshal(params)
 		if err == nil {
-			userID := getInteractionUserID(i)
+			userID := e.UserID()
 			paramsStr := string(paramsBytes)
 			farmerstate.SetMiscSettingString(userID, "scoreCalcParams", paramsStr)
 		}
 	}
 
 	if len(reaction) == 3 && reaction[2] == "close" {
-		_ = s.InteractionResponseDelete(i.Interaction)
+		_ = e.DeleteResponse()
 		return
 	}
 
@@ -628,15 +558,12 @@ func HandleScoreExplorerPage(s *discordgo.Session, i *discordgo.InteractionCreat
 	_, embed := getScoreExplorerCalculations(params)
 
 	components := getScoreExplorerComponents(params)
-	embeds := []*discordgo.MessageEmbed{embed}
-
-	edit := discordgo.WebhookEdit{
-		Content:    &params.contractInfo,
-		Components: &components,
-		Embeds:     &embeds,
-	}
-
-	_, err = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit)
+	err = e.EditFollowup(e.MessageID(), dc.Message{
+		Content:      params.contractInfo,
+		Components:   components,
+		Embeds:       []dc.Embed{embed},
+		ComponentsV1: true,
+	})
 	if err != nil {
 		log.Println(err)
 	}

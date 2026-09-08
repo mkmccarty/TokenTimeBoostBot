@@ -8,7 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
 
@@ -44,52 +44,44 @@ type adminContractListGuild struct {
 
 var adminContractListSessions = make(map[string]*adminContractListSession)
 
-// HandleAdminContractList will list all contracts.
-func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	userID := getInteractionUserID(i)
+// HandleAdminContractList opens the admin contract list panel.
+//
+// It still takes a raw session because ArchiveContracts is not on the facade
+// yet.
+func HandleAdminContractList(client dc.Client, e *dc.CommandEvent) {
+	userID := e.UserID()
 
 	// Only allow command if users is in the admin list
-	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
+	perms, err := client.UserChannelPermissions(userID, e.ChannelID())
 	if err != nil {
 		log.Println(err)
 	}
-	if perms&discordgo.PermissionAdministrator == 0 {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "You are not authorized to use this command.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{},
-			},
+	if !perms.Administrator() {
+		_ = e.Respond(dc.Message{
+			Content:   "You are not authorized to use this command.",
+			Ephemeral: true,
 		})
 		return
 	}
 
-	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Gathering contract list...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
-	if err != nil {
+	if err = e.Defer(true); err != nil {
 		log.Println(err)
 		return
 	}
 
-	ArchiveContracts(s)
+	ArchiveContracts(client)
 
 	cleanupAdminContractListSessions()
-	selectedGuildName := i.GuildID
-	if guild, guildErr := s.Guild(i.GuildID); guildErr == nil && guild != nil && strings.TrimSpace(guild.Name) != "" {
+	selectedGuildName := e.GuildID()
+	if guild, guildErr := client.Guild(e.GuildID()); guildErr == nil && guild != nil && strings.TrimSpace(guild.Name) != "" {
 		selectedGuildName = strings.TrimSpace(guild.Name)
 	}
 	homeGuildID := guildstate.GetGuildSettingString("DEFAULT", "home_guild")
-	allowGuildSelect := homeGuildID != "" && i.GuildID == homeGuildID
+	allowGuildSelect := homeGuildID != "" && e.GuildID() == homeGuildID
 	session := &adminContractListSession{
 		id:                fmt.Sprintf("%d", time.Now().UnixNano()),
 		userID:            userID,
-		selectedGuildID:   i.GuildID,
+		selectedGuildID:   e.GuildID(),
 		selectedGuildName: selectedGuildName,
 		allowGuildSelect:  allowGuildSelect,
 		selectedIndex:     0,
@@ -100,27 +92,26 @@ func HandleAdminContractList(s *discordgo.Session, i *discordgo.InteractionCreat
 	adminContractListSessions[session.id] = session
 
 	content, components := renderAdminContractListPanel(session, false)
-	if _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content:    content,
-		Components: components,
-		Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsSuppressEmbeds,
+	if err = e.Followup(dc.Message{
+		Content:        content,
+		Components:     components,
+		Ephemeral:      true,
+		SuppressEmbeds: true,
+		ComponentsV1:   true,
 	}); err != nil {
 		log.Println(err)
 		delete(adminContractListSessions, session.id)
 	}
 }
 
-// HandleAdminContractListComponent handles all button/select interactions for admin-contract-list.
-func HandleAdminContractListComponent(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	parts := strings.Split(i.MessageComponentData().CustomID, "#")
+// HandleAdminContractListComponent drives the admin contract list panel.
+//
+// It still takes a raw session because finishContractByHash and
+// ArchiveContracts are not on the facade yet.
+func HandleAdminContractListComponent(client dc.Client, e *dc.ComponentEvent) {
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 3 {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Invalid contract list action.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
+		_ = e.Respond(dc.Message{Content: "Invalid contract list action.", Ephemeral: true})
 		return
 	}
 
@@ -129,40 +120,25 @@ func HandleAdminContractListComponent(s *discordgo.Session, i *discordgo.Interac
 	action := parts[2]
 	session, ok := adminContractListSessions[sessionID]
 	if !ok {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "This contract list panel has expired. Please run the command again.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "This contract list panel has expired. Please run the command again.",
+			Ephemeral: true,
 		})
 		return
 	}
 
-	userID := getInteractionUserID(i)
+	userID := e.UserID()
 	if session.userID != userID {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Only the command caller can use this panel.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
+		_ = e.Respond(dc.Message{Content: "Only the command caller can use this panel.", Ephemeral: true})
 		return
 	}
 
-	perms, err := s.UserChannelPermissions(userID, i.ChannelID)
+	perms, err := client.UserChannelPermissions(userID, e.ChannelID())
 	if err != nil {
 		log.Println(err)
 	}
-	if perms&discordgo.PermissionAdministrator == 0 {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "You are not authorized to use this command.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
+	if !perms.Administrator() {
+		_ = e.Respond(dc.Message{Content: "You are not authorized to use this command.", Ephemeral: true})
 		return
 	}
 
@@ -176,20 +152,16 @@ func HandleAdminContractListComponent(s *discordgo.Session, i *discordgo.Interac
 	switch action {
 	case "close":
 		delete(adminContractListSessions, session.id)
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "Contract list closed.",
-				Flags:      discordgo.MessageFlagsSuppressEmbeds,
-				Components: []discordgo.MessageComponent{},
-			},
+		_ = e.Update(dc.Message{
+			Content:        "Contract list closed.",
+			SuppressEmbeds: true,
 		})
 		return
 	case "guild-select":
 		if !session.allowGuildSelect {
 			break
 		}
-		values := i.MessageComponentData().Values
+		values := e.Values()
 		if len(values) > 0 {
 			session.selectedGuildID = values[0]
 			session.selectedIndex = 0
@@ -243,33 +215,31 @@ func HandleAdminContractListComponent(s *discordgo.Session, i *discordgo.Interac
 		session.finishArmed = false
 		session.statusMessage = "Deleting selected contract..."
 		loadingContent, loadingComponents := renderAdminContractListPanel(session, true)
-		if err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Content:    loadingContent,
-				Flags:      discordgo.MessageFlagsSuppressEmbeds,
-				Components: loadingComponents,
-			},
+		if err = e.Update(dc.Message{
+			Content:        loadingContent,
+			Components:     loadingComponents,
+			SuppressEmbeds: true,
+			ComponentsV1:   true,
 		}); err != nil {
 			log.Println(err)
 			return
 		}
 
-		err = finishContractByHash(s, selected.ContractHash)
+		err = finishContractByHash(client, selected.ContractHash)
 		if err != nil {
 			session.statusMessage = "Unable to finish contract: " + err.Error()
 		} else {
 			session.statusMessage = fmt.Sprintf("Finished contract **%s/%s**.", selected.ContractID, selected.CoopID)
 			session.selectedIndex = 0
-			ArchiveContracts(s)
+			ArchiveContracts(client)
 		}
 
 		updatedContent, updatedComponents := renderAdminContractListPanel(session, false)
-		edit := discordgo.WebhookEdit{
-			Content:    &updatedContent,
-			Components: &updatedComponents,
-		}
-		if _, err = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit); err != nil {
+		if err = e.EditFollowup(e.MessageID(), dc.Message{
+			Content:      updatedContent,
+			Components:   updatedComponents,
+			ComponentsV1: true,
+		}); err != nil {
 			log.Println(err)
 		}
 		return
@@ -283,13 +253,11 @@ func HandleAdminContractListComponent(s *discordgo.Session, i *discordgo.Interac
 
 	content, components := renderAdminContractListPanel(session, false)
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseUpdateMessage,
-		Data: &discordgo.InteractionResponseData{
-			Content:    content,
-			Flags:      discordgo.MessageFlagsSuppressEmbeds,
-			Components: components,
-		},
+	_ = e.Update(dc.Message{
+		Content:        content,
+		Components:     components,
+		SuppressEmbeds: true,
+		ComponentsV1:   true,
 	})
 }
 
@@ -302,7 +270,7 @@ func cleanupAdminContractListSessions() {
 	}
 }
 
-func renderAdminContractListPanel(session *adminContractListSession, deleting bool) (string, []discordgo.MessageComponent) {
+func renderAdminContractListPanel(session *adminContractListSession, deleting bool) (string, []dc.LayoutComponent) {
 	guilds := buildAdminContractListGuilds(session.selectedGuildID, session.selectedGuildName)
 
 	if len(guilds) == 0 {
@@ -310,9 +278,9 @@ func renderAdminContractListPanel(session *adminContractListSession, deleting bo
 		if session.statusMessage != "" {
 			content += "\n\n" + session.statusMessage
 		}
-		return content, []discordgo.MessageComponent{
-			discordgo.ActionsRow{Components: []discordgo.MessageComponent{
-				discordgo.Button{Label: "Close", Style: discordgo.DangerButton, CustomID: fmt.Sprintf("%s#%s#close", adminContractListHandlerPrefix, session.id)},
+		return content, []dc.LayoutComponent{
+			dc.ActionRow{Components: []dc.InteractiveComponent{
+				dc.Button{Label: "Close", Style: dc.ButtonDanger, CustomID: fmt.Sprintf("%s#%s#close", adminContractListHandlerPrefix, session.id)},
 			}},
 		}
 	}
@@ -381,8 +349,8 @@ func renderAdminContractListPanel(session *adminContractListSession, deleting bo
 	return truncateDiscordText(content.String(), discordMessageContentLimit), components
 }
 
-func adminContractListComponents(session *adminContractListSession, guilds []adminContractListGuild, hasContract bool, deleting bool) []discordgo.MessageComponent {
-	options := make([]discordgo.SelectMenuOption, 0, min(len(guilds), 25))
+func adminContractListComponents(session *adminContractListSession, guilds []adminContractListGuild, hasContract bool, deleting bool) []dc.LayoutComponent {
+	options := make([]dc.SelectOption, 0, min(len(guilds), 25))
 	for idx, guild := range guilds {
 		if idx >= 25 {
 			break
@@ -392,7 +360,7 @@ func adminContractListComponents(session *adminContractListSession, guilds []adm
 			label = guild.ID
 		}
 		description := fmt.Sprintf("%d contract(s)", len(guild.Contracts))
-		options = append(options, discordgo.SelectMenuOption{
+		options = append(options, dc.SelectOption{
 			Label:       truncateDiscordText(label, 100),
 			Value:       guild.ID,
 			Description: truncateDiscordText(description, 100),
@@ -401,47 +369,48 @@ func adminContractListComponents(session *adminContractListSession, guilds []adm
 	}
 
 	finishLabel := "Finish (Arm)"
-	finishStyle := discordgo.SecondaryButton
+	finishStyle := dc.ButtonSecondary
 	if session.finishArmed {
 		finishLabel = "Confirm Finish"
-		finishStyle = discordgo.DangerButton
+		finishStyle = dc.ButtonDanger
 	}
 	if deleting {
 		finishLabel = "Deleting..."
-		finishStyle = discordgo.SecondaryButton
+		finishStyle = dc.ButtonSecondary
 	}
 
 	navDisabled := !hasContract || deleting
 
-	secondRowButtons := []discordgo.MessageComponent{discordgo.Button{
+	secondRowButtons := []dc.InteractiveComponent{dc.Button{
 		Label:    "Close",
-		Style:    discordgo.DangerButton,
+		Style:    dc.ButtonDanger,
 		CustomID: fmt.Sprintf("%s#%s#close", adminContractListHandlerPrefix, session.id),
 		Disabled: deleting,
 	}}
 
-	components := make([]discordgo.MessageComponent, 0, 3)
+	components := make([]dc.LayoutComponent, 0, 3)
 	if session.allowGuildSelect {
-		components = append(components, discordgo.ActionsRow{Components: []discordgo.MessageComponent{
-			discordgo.SelectMenu{
+		minValues := 1
+		components = append(components, dc.ActionRow{Components: []dc.InteractiveComponent{
+			dc.SelectMenu{
 				CustomID:    fmt.Sprintf("%s#%s#guild-select", adminContractListHandlerPrefix, session.id),
 				Placeholder: "Select guild",
 				Options:     options,
-				MinValues:   &[]int{1}[0],
+				MinValues:   &minValues,
 				MaxValues:   1,
 			},
 		}})
 	}
 
 	components = append(components,
-		discordgo.ActionsRow{Components: []discordgo.MessageComponent{
-			discordgo.Button{Label: "First", Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#first", adminContractListHandlerPrefix, session.id), Disabled: navDisabled},
-			discordgo.Button{Label: "Previous", Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#prev", adminContractListHandlerPrefix, session.id), Disabled: navDisabled},
-			discordgo.Button{Label: finishLabel, Style: finishStyle, CustomID: fmt.Sprintf("%s#%s#finish", adminContractListHandlerPrefix, session.id), Disabled: navDisabled},
-			discordgo.Button{Label: "Next", Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#next", adminContractListHandlerPrefix, session.id), Disabled: navDisabled},
-			discordgo.Button{Label: "Last", Style: discordgo.SecondaryButton, CustomID: fmt.Sprintf("%s#%s#last", adminContractListHandlerPrefix, session.id), Disabled: navDisabled},
+		dc.ActionRow{Components: []dc.InteractiveComponent{
+			dc.Button{Label: "First", Style: dc.ButtonSecondary, CustomID: fmt.Sprintf("%s#%s#first", adminContractListHandlerPrefix, session.id), Disabled: navDisabled},
+			dc.Button{Label: "Previous", Style: dc.ButtonSecondary, CustomID: fmt.Sprintf("%s#%s#prev", adminContractListHandlerPrefix, session.id), Disabled: navDisabled},
+			dc.Button{Label: finishLabel, Style: finishStyle, CustomID: fmt.Sprintf("%s#%s#finish", adminContractListHandlerPrefix, session.id), Disabled: navDisabled},
+			dc.Button{Label: "Next", Style: dc.ButtonSecondary, CustomID: fmt.Sprintf("%s#%s#next", adminContractListHandlerPrefix, session.id), Disabled: navDisabled},
+			dc.Button{Label: "Last", Style: dc.ButtonSecondary, CustomID: fmt.Sprintf("%s#%s#last", adminContractListHandlerPrefix, session.id), Disabled: navDisabled},
 		}},
-		discordgo.ActionsRow{Components: secondRowButtons},
+		dc.ActionRow{Components: secondRowButtons},
 	)
 
 	return components

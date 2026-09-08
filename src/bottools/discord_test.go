@@ -2,8 +2,12 @@ package bottools
 
 import (
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 func TestIsValidDiscordID(t *testing.T) {
@@ -108,5 +112,28 @@ func TestEscapeDiscordMarkdown(t *testing.T) {
 				t.Fatalf("EscapeDiscordMarkdown() = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestDownloadAttachmentBytesDC(t *testing.T) {
+	const payload = "hello attachment bytes"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(payload))
+	}))
+	defer srv.Close()
+
+	got, err := DownloadAttachmentBytesDC(&dc.Attachment{Filename: "f.txt", URL: srv.URL, Size: len(payload)})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(got) != payload {
+		t.Fatalf("want %q, got %q", payload, string(got))
+	}
+}
+
+func TestDownloadAttachmentBytesDCTooLarge(t *testing.T) {
+	_, err := DownloadAttachmentBytesDC(&dc.Attachment{Filename: "f.txt", URL: "http://example.invalid/f.txt", Size: MaxAnimateFileBytes + 1})
+	if err == nil {
+		t.Fatal("expected error for oversized attachment")
 	}
 }

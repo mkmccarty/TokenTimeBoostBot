@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
@@ -76,7 +76,7 @@ var (
 // RunLeaderboardCollection is the main weekly entry point. It fans out API
 // calls through a bounded worker pool, saves results, then posts to Discord.
 // Pass dryRun=true to skip the Discord post step.
-func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, guildID string, target string, action string, onProgress func(string)) {
+func RunLeaderboardCollection(client dc.Client, dryRun bool, guildID string, target string, action string, onProgress func(string)) {
 	collectionMu.Lock()
 	if collectionRunning {
 		collectionMu.Unlock()
@@ -96,7 +96,7 @@ func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, guildID string,
 	}()
 
 	if target == "group_egg_day" || target == LBEggDaySEGain || target == LBEggDaySEPct {
-		CollectEggDayManual(s, target, dryRun, onProgress)
+		CollectEggDayManual(client, target, dryRun, onProgress)
 		return
 	}
 
@@ -225,7 +225,7 @@ func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, guildID string,
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			collectPlayerGroup(s, g, snapDate)
+			collectPlayerGroup(g, snapDate)
 
 			mu.Lock()
 			completed++
@@ -245,7 +245,7 @@ func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, guildID string,
 	}
 
 	if !dryRun {
-		PostLeaderboards(s, snapDate, guildID, target, action, onProgress)
+		PostLeaderboards(client, snapDate, guildID, target, action, onProgress)
 	} else {
 		log.Println("leaderboard: dry run — skipping Discord post")
 		if onProgress != nil {
@@ -255,7 +255,7 @@ func RunLeaderboardCollection(s *discordgo.Session, dryRun bool, guildID string,
 }
 
 // collectPlayerGroup fetches API data for one Egg Inc account and saves leaderboard entries for all associated Discord users.
-func collectPlayerGroup(s *discordgo.Session, g *playerGroup, snapDate string) {
+func collectPlayerGroup(g *playerGroup, snapDate string) {
 	// Determine which API calls are needed based on the union of all opted-in types.
 	needsFirstContact := false
 	needsArchive := false
@@ -278,7 +278,7 @@ func collectPlayerGroup(s *discordgo.Session, g *playerGroup, snapDate string) {
 
 	if needsFirstContact {
 		var cached bool
-		backup, cached = ei.GetFirstContactFromAPI(s, g.encryptedEIID, g.discordIDs[0], true)
+		backup, cached = ei.GetFirstContactFromAPI(g.encryptedEIID, g.discordIDs[0], true)
 		_ = cached
 		if backup == nil {
 			log.Printf("leaderboard: first-contact API failed for Egg Inc ID %s (Discord IDs: %v)", g.eiUserID, g.discordIDs)
@@ -287,7 +287,7 @@ func collectPlayerGroup(s *discordgo.Session, g *playerGroup, snapDate string) {
 
 	if needsArchive {
 		var cached bool
-		archive, cached = ei.GetContractArchiveFromAPI(s, g.encryptedEIID, g.discordIDs[0], false, true)
+		archive, cached = ei.GetContractArchiveFromAPI(g.encryptedEIID, g.discordIDs[0], false, true)
 		_ = cached
 		if archive == nil {
 			log.Printf("leaderboard: contract archive API failed for Egg Inc ID %s (Discord IDs: %v)", g.eiUserID, g.discordIDs)
@@ -349,14 +349,14 @@ func collectPlayerGroup(s *discordgo.Session, g *playerGroup, snapDate string) {
 
 // ScheduleWeeklyCollection registers the Friday 15:00 PT collection cron job.
 // Call this from tasks.ExecuteCronJob.
-func ScheduleWeeklyCollection(s *discordgo.Session) {
+func ScheduleWeeklyCollection(client dc.Client) {
 	scheduleWeeklyFriday(15, 0, func() {
-		RunLeaderboardCollection(s, false, "", "", "update", nil)
+		RunLeaderboardCollection(client, false, "", "", "update", nil)
 	})
 }
 
 // CollectSinglePlayer fetches API data and saves leaderboard entries for a single Discord user.
-func CollectSinglePlayer(s *discordgo.Session, userID string, snapDate string) error {
+func CollectSinglePlayer(userID string, snapDate string) error {
 	enc := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 	if enc == "" {
 		return fmt.Errorf("no encrypted Egg Inc ID found for user %s", userID)
@@ -414,6 +414,6 @@ func CollectSinglePlayer(s *discordgo.Session, userID string, snapDate string) e
 		optedInTypes:  uniqueKeys,
 	}
 
-	collectPlayerGroup(s, g, snapDate)
+	collectPlayerGroup(g, snapDate)
 	return nil
 }

@@ -10,10 +10,10 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
-func getSignupContractSettings(channelID string, hashID string, thread bool) (string, []discordgo.MessageComponent) {
+func getSignupContractSettings(channelID string, hashID string, thread bool) (string, []dc.LayoutComponent) {
 	minValues := 1
 	minZeroValues := 0
 
@@ -37,50 +37,50 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 	}
 
 	// Dynamic Boost List Styles
-	runStyleOptions := []discordgo.SelectMenuOption{}
-	runStyleOptions = append(runStyleOptions, discordgo.SelectMenuOption{
+	runStyleOptions := []dc.SelectOption{}
+	runStyleOptions = append(runStyleOptions, dc.SelectOption{
 		Label:       "Boost List Style",
 		Description: "Everyone sends tokens to the current booster",
 		Value:       "boostlist",
 		Default:     (contract.Style & ContractFlagFastrun) != 0,
-		Emoji: &discordgo.ComponentEmoji{
+		Emoji: &dc.Emoji{
 			Name: "📜",
 		},
 	})
 
-	runStyleOptions = append(runStyleOptions, discordgo.SelectMenuOption{
+	runStyleOptions = append(runStyleOptions, dc.SelectOption{
 		Label:       "Banker Style",
 		Description: "Everyone sends tokens to a banker.",
 		Value:       "banker",
 		Default:     (contract.Style & ContractFlagBanker) != 0,
-		Emoji: &discordgo.ComponentEmoji{
+		Emoji: &dc.Emoji{
 			Name: "💰",
 		},
 	})
-	playstyleOptions := []discordgo.SelectMenuOption{}
+	playstyleOptions := []dc.SelectOption{}
 
-	playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
+	playstyleOptions = append(playstyleOptions, dc.SelectOption{
 		Label:       "Chill play style",
 		Description: "Everyone fills habs and uses correct artifacts",
 		Value:       "chill",
 		Default:     (contract.PlayStyle == ContractPlaystyleChill),
 		Emoji:       ei.GetBotComponentEmoji("chill"),
 	})
-	playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
+	playstyleOptions = append(playstyleOptions, dc.SelectOption{
 		Label:       "ACO Cooperative play style",
 		Description: "Chill + Everyone checks in on time",
 		Value:       "aco",
 		Default:     (contract.PlayStyle == ContractPlaystyleACOCooperative),
 		Emoji:       ei.GetBotComponentEmoji("aco"),
 	})
-	playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
+	playstyleOptions = append(playstyleOptions, dc.SelectOption{
 		Label:       "Fastrun",
 		Description: "ACO + Get TVal and CR from your coop size or act as sink",
 		Value:       "fastrun",
 		Default:     (contract.PlayStyle == ContractPlaystyleFastrun),
 		Emoji:       ei.GetBotComponentEmoji("fastrun"),
 	})
-	playstyleOptions = append(playstyleOptions, discordgo.SelectMenuOption{
+	playstyleOptions = append(playstyleOptions, dc.SelectOption{
 		Label:       "Leaderboard",
 		Description: "Banker Run + TBD",
 		Value:       "leaderboard",
@@ -88,13 +88,13 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 		Emoji:       ei.GetBotComponentEmoji("leaderboard"),
 	})
 
-	featuresOptions := []discordgo.SelectMenuOption{
+	featuresOptions := []dc.SelectOption{
 		{
 			Label:       "4 token boosts",
 			Description: "Everyone joins wanting 4 token boosts",
 			Value:       "boost4",
 			Default:     (contract.Style & ContractFlag4Tokens) != 0,
-			Emoji: &discordgo.ComponentEmoji{
+			Emoji: &dc.Emoji{
 				Name: "4️⃣",
 			},
 		},
@@ -103,7 +103,7 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 			Description: "Everyone joins wanting 6 token boosts",
 			Value:       "boost6",
 			Default:     (contract.Style & ContractFlag6Tokens) != 0,
-			Emoji: &discordgo.ComponentEmoji{
+			Emoji: &dc.Emoji{
 				Name: "6️⃣",
 			},
 		},
@@ -112,7 +112,7 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 			Description: "Everyone joins wanting 8 token boosts",
 			Value:       "boost8",
 			Default:     (contract.Style & ContractFlag8Tokens) != 0,
-			Emoji: &discordgo.ComponentEmoji{
+			Emoji: &dc.Emoji{
 				Name: "8️⃣",
 			},
 		},
@@ -121,7 +121,7 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 			Description: "Based on highest 120min delivery rate",
 			Value:       "dynamic",
 			Default:     (contract.Style & ContractFlagDynamicTokens) != 0,
-			Emoji: &discordgo.ComponentEmoji{
+			Emoji: &dc.Emoji{
 				Name: "🤖",
 			},
 		},
@@ -130,7 +130,7 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 			Description: "X tokens for >= TE, Y tokens < TE",
 			Value:       "threshold",
 			Default:     (contract.Style & ContractFlagThresholdTokens) != 0,
-			Emoji: &discordgo.ComponentEmoji{
+			Emoji: &dc.Emoji{
 				Name: "📊",
 			},
 		},
@@ -145,21 +145,21 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 	}
 
 	if hasAMQP {
-		featuresOptions = append(featuresOptions, discordgo.SelectMenuOption{
+		featuresOptions = append(featuresOptions, dc.SelectOption{
 			Label:       "AMQP Publish",
 			Description: "Send token logs and boost status to AMQP queue",
 			Value:       "amqp",
 			Default:     (contract.Style & ContractFlagAMQP) != 0,
-			Emoji: &discordgo.ComponentEmoji{
+			Emoji: &dc.Emoji{
 				Name: "📣",
 			},
 		})
 	}
 
-	return builder.String(), []discordgo.MessageComponent{
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.SelectMenu{
+	return builder.String(), []dc.LayoutComponent{
+		dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.SelectMenu{
 					CustomID:    "cs_#style#" + hashID,
 					Placeholder: "Select contract styles",
 					MinValues:   &minValues,
@@ -168,14 +168,14 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 				},
 			},
 		},
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.SelectMenu{
+		dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.SelectMenu{
 					CustomID:    "cs_#order#" + hashID,
 					Placeholder: "Select the boosting order for this contract",
 					MinValues:   &minValues,
 					MaxValues:   1,
-					Options: []discordgo.SelectMenuOption{
+					Options: []dc.SelectOption{
 						{
 							Label:       "Sign-up Order",
 							Description: "Boost list is in the order farmers sign up",
@@ -250,9 +250,9 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 				},
 			},
 		},
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.SelectMenu{
+		dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.SelectMenu{
 					CustomID:    "cs_#play#" + hashID,
 					Placeholder: "Choose your play style",
 					MinValues:   &minValues,
@@ -261,9 +261,9 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 				},
 			},
 		},
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.SelectMenu{
+		dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.SelectMenu{
 					CustomID:    "cs_#features#" + hashID,
 					Placeholder: "Optional Features",
 					MinValues:   &minZeroValues,
@@ -277,9 +277,9 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 }
 
 // GetSignupComponents returns the signup components for a contract
-func GetSignupComponents(contract *Contract) (string, []discordgo.MessageComponent) {
+func GetSignupComponents(contract *Contract) (string, []dc.LayoutComponent) {
 	if contract == nil {
-		return "", []discordgo.MessageComponent{}
+		return "", []dc.LayoutComponent{}
 	}
 
 	disableStartContract := false
@@ -320,58 +320,58 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 	}
 
 	// Build the return message
-	var buttons []discordgo.MessageComponent
+	var buttons []dc.LayoutComponent
 	// Add the buttons to join, leave, and start the contract
-	buttons = append(buttons, discordgo.ActionsRow{
-		Components: []discordgo.MessageComponent{
-			discordgo.Button{
+	buttons = append(buttons, dc.ActionRow{
+		Components: []dc.InteractiveComponent{
+			dc.Button{
 				Emoji:    ei.GetBotComponentEmoji("clucker"),
 				Label:    joinMsg,
-				Style:    discordgo.PrimaryButton,
+				Style:    dc.ButtonPrimary,
 				CustomID: "fd_signupFarmer",
 			},
 			/*
-				discordgo.Button{
-					Emoji: &discordgo.ComponentEmoji{
+				dc.Button{
+					Emoji: &dc.Emoji{
 						Name: "🔔",
 					},
 					Label:    "Join w/Ping",
-					Style:    discordgo.PrimaryButton,
+					Style:    dc.ButtonPrimary,
 					CustomID: "fd_signupBell",
 				},
 			*/
-			discordgo.Button{
-				Emoji: &discordgo.ComponentEmoji{
+			dc.Button{
+				Emoji: &dc.Emoji{
 					Name: "❌",
 				},
 				Label:    "Leave",
-				Style:    discordgo.SecondaryButton,
+				Style:    dc.ButtonSecondary,
 				CustomID: "fd_signupLeave",
 			},
-			discordgo.Button{
-				Emoji: &discordgo.ComponentEmoji{
+			dc.Button{
+				Emoji: &dc.Emoji{
 					Name: "⏱️",
 				},
 				Label:    startLabel,
-				Style:    discordgo.SuccessButton,
+				Style:    dc.ButtonSuccess,
 				CustomID: "fd_signupStart",
 				Disabled: disableStartContract,
 			},
-			discordgo.Button{
-				Emoji: &discordgo.ComponentEmoji{
+			dc.Button{
+				Emoji: &dc.Emoji{
 					Name: "♻️",
 				},
 				Label:    "Contract",
-				Style:    discordgo.DangerButton,
+				Style:    dc.ButtonDanger,
 				Disabled: false,
 				CustomID: "fd_delete",
 			},
-			discordgo.Button{
-				Emoji: &discordgo.ComponentEmoji{
+			dc.Button{
+				Emoji: &dc.Emoji{
 					Name: "🔄",
 				},
 				Label:    "Restart",
-				Style:    discordgo.DangerButton,
+				Style:    dc.ButtonDanger,
 				Disabled: false,
 				CustomID: "fd_restart",
 			},
@@ -379,40 +379,40 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 	})
 
 	// Add the buttons to adjust the numbers of tokens
-	buttons = append(buttons, discordgo.ActionsRow{
-		Components: []discordgo.MessageComponent{
-			discordgo.Button{
-				Emoji: &discordgo.ComponentEmoji{
+	buttons = append(buttons, dc.ActionRow{
+		Components: []dc.InteractiveComponent{
+			dc.Button{
+				Emoji: &dc.Emoji{
 					Name: "4️⃣",
 				},
 				Label:    " Tokens",
-				Style:    discordgo.SecondaryButton,
+				Style:    dc.ButtonSecondary,
 				CustomID: "fd_tokens4",
 			},
-			discordgo.Button{
-				Emoji: &discordgo.ComponentEmoji{
+			dc.Button{
+				Emoji: &dc.Emoji{
 					Name: "5️⃣",
 				},
 				Label:    " Tokens",
-				Style:    discordgo.SecondaryButton,
+				Style:    dc.ButtonSecondary,
 				CustomID: "fd_tokens5",
 			},
-			discordgo.Button{
-				Emoji: &discordgo.ComponentEmoji{
+			dc.Button{
+				Emoji: &dc.Emoji{
 					Name: "6️⃣",
 				},
 				Label:    " Tokens",
-				Style:    discordgo.SecondaryButton,
+				Style:    dc.ButtonSecondary,
 				CustomID: "fd_tokens6",
 			},
-			discordgo.Button{
+			dc.Button{
 				Label:    "+ Token",
-				Style:    discordgo.SecondaryButton,
+				Style:    dc.ButtonSecondary,
 				CustomID: "fd_tokens1",
 			},
-			discordgo.Button{
+			dc.Button{
 				Label:    "- Token",
-				Style:    discordgo.SecondaryButton,
+				Style:    dc.ButtonSecondary,
 				CustomID: "fd_tokens_sub",
 			},
 		},
@@ -434,14 +434,14 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 		sinkList = append(sinkList, SinkList{"Sink", "🏁", contract.Banker.PostSinkUserID, "postsink"})
 	}
 
-	var mComp []discordgo.MessageComponent
+	var mComp []dc.InteractiveComponent
 	for _, sink := range sinkList {
-		buttonStyle := discordgo.SecondaryButton
+		buttonStyle := dc.ButtonSecondary
 		if sink.userID == "" {
-			buttonStyle = discordgo.PrimaryButton
+			buttonStyle = dc.ButtonPrimary
 		}
-		mComp = append(mComp, discordgo.Button{
-			Emoji: &discordgo.ComponentEmoji{
+		mComp = append(mComp, dc.Button{
+			Emoji: &dc.Emoji{
 				Name: sink.emote,
 			},
 			Label:    sink.name,
@@ -461,99 +461,83 @@ func GetSignupComponents(contract *Contract) (string, []discordgo.MessageCompone
 			name = "Sink will follow order"
 		}
 
-		mComp = append(mComp, discordgo.Button{
+		mComp = append(mComp, dc.Button{
 			Label:    name,
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: "cs_#sinkorder#" + contract.ContractHash,
 		})
 	}
 
 	if len(mComp) > 0 {
-		buttons = append(buttons, discordgo.ActionsRow{Components: mComp})
+		buttons = append(buttons, dc.ActionRow{Components: mComp})
 	}
 
 	return str, buttons
 }
 
-func joinContract(s *discordgo.Session, i *discordgo.InteractionCreate, bell bool) {
-	var str = "Adding to Contract..."
+func joinContract(client dc.Client, e *dc.ComponentEvent, bell bool) {
+	_ = e.DeferUpdate()
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
-	})
+	userID := e.UserID()
 
-	userID := bottools.GetInteractionUserID(i)
-
-	err := JoinContract(s, i.GuildID, i.ChannelID, userID, bell)
-	if err != nil {
-		str = err.Error()
-		log.Print(str)
+	if err := JoinContract(client, e.GuildID(), e.ChannelID(), userID, bell); err != nil {
+		log.Print(err.Error())
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
+	_ = e.Followup(dc.Message{})
 }
 
-// HandleSignupStart handles the interaction for starting the signup process
-func HandleSignupStart(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{
-			Content:    "",
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
-	})
-	err := StartContractBoosting(s, i.GuildID, i.ChannelID, bottools.GetInteractionUserID(i))
+// HandleSignupStart handles the interaction for starting the signup process.
+//
+// It still takes a raw session because StartContractBoosting and the signup
+// message rebuild are not on the facade yet.
+func HandleSignupStart(client dc.Client, e *dc.ComponentEvent) {
+	_ = e.DeferUpdate()
+	err := StartContractBoosting(client, e.GuildID(), e.ChannelID(), e.UserID())
 	if err != nil {
 		str := fmt.Sprint(err.Error())
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: str,
-			Flags:   discordgo.MessageFlagsEphemeral,
+		_ = e.Followup(dc.Message{
+			Content:   str,
+			Ephemeral: true,
 		})
 	} else {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
+		_ = e.Followup(dc.Message{})
 
-		contract := FindContract(i.ChannelID)
+		contract := FindContract(e.ChannelID())
 		// Rebuild the signup message to disable the start button
-		msg := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
 		contentStr, comp := GetSignupComponents(contract) // True to get a disabled start button
-		msg.SetContent(contentStr)
-		msg.Components = &comp
-		_, _ = s.ChannelMessageEditComplex(msg)
+		_, _ = client.EditMessage(e.ChannelID(), e.MessageID(), dc.Message{
+			Components: append([]dc.LayoutComponent{dc.TextDisplay{Content: contentStr}}, comp...),
+		})
 	}
 }
 
 // HandleSignupFarmer handles the interaction for joining a contract as a farmer
-func HandleSignupFarmer(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	joinContract(s, i, false)
+func HandleSignupFarmer(client dc.Client, e *dc.ComponentEvent) {
+	joinContract(client, e, false)
 }
 
 // HandleSignupBell handles the interaction for joining a contract with a bell
-func HandleSignupBell(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	joinContract(s, i, true)
+func HandleSignupBell(client dc.Client, e *dc.ComponentEvent) {
+	joinContract(client, e, true)
 }
 
-// HandleSignupLeave handles the interaction for leaving a contract
-func HandleSignupLeave(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleSignupLeave handles the interaction for leaving a contract.
+//
+// It still takes a raw session because RemoveFarmerByMention is not on the
+// facade yet.
+func HandleSignupLeave(client dc.Client, e *dc.ComponentEvent) {
 	str := "Removed from Contract"
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
+	_ = e.Defer(true)
 
-	var err = RemoveFarmerByMention(s, i.GuildID, i.ChannelID, i.Member.User.Mention(), i.Member.User.Mention())
+	mention := "<@" + e.UserID() + ">"
+	var err = RemoveFarmerByMention(client, e.GuildID(), e.ChannelID(), mention, mention)
 	if err != nil {
 		str = err.Error()
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: str,
-		Flags:   discordgo.MessageFlagsEphemeral,
+	_ = e.Followup(dc.Message{
+		Content:   str,
+		Ephemeral: true,
 	})
 }

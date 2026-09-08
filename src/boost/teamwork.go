@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -38,82 +38,50 @@ type DeliveryTimeValue struct {
 }
 
 // GetSlashTeamworkEval will return the discord command for calculating token values of a running contract
-func GetSlashTeamworkEval(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Evaluate teamwork values in a contract",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
+func GetSlashTeamworkEval(cmd string) *dc.Command {
+	command := anywhereCommand(cmd, "Evaluate teamwork values in a contract")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:         "contract-id",
+			Description:  "Select a contract-id",
+			Required:     true,
+			Autocomplete: true,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
+		dc.StringOption{
+			Name:        "coop-id",
+			Description: "Your coop-id",
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "contract-id",
-				Description:  "Select a contract-id",
-				Required:     true,
-				Autocomplete: true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "coop-id",
-				Description: "Your coop-id",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "egginc-ign",
-				Description: "Egg Inc, in game name to evaluate.",
-				Required:    false,
-			},
-			/*
-				{
-					Type:        discordgo.ApplicationCommandOptionBoolean,
-					Name:        "show-scores",
-					Description: "Show Contract Scores only. Default is false. (sticky)",
-					Required:    false,
-				},
-			*/
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "public-reply",
-				Description: "Respond publicly. Default is false.",
-				Required:    false,
-			},
+		dc.StringOption{
+			Name:        "egginc-ign",
+			Description: "Egg Inc, in game name to evaluate.",
+		},
+		dc.BoolOption{
+			Name:        "public-reply",
+			Description: "Respond publicly. Default is false.",
 		},
 	}
+	return &command
 }
 
-// HandleTeamworkEvalCommand will handle the /teamwork command
-func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleTeamworkEvalCommand will handle the /teamwork command through the dc
+// facade.
+func HandleTeamworkEvalCommand(e *dc.CommandEvent) {
 
 	// Check if user has permission to use CoopStatus API
-	if !CheckCoopStatusPermission(s, i, ei.CoopStatusFixEnabled != nil && ei.CoopStatusFixEnabled()) {
+	if !CheckCoopStatusPermission(e, ei.CoopStatusFixEnabled != nil && ei.CoopStatusFixEnabled()) {
 		return
 	}
 
 	publicReply := false
-	flags := discordgo.MessageFlagsEphemeral
 
-	var userID string
-	if i.GuildID != "" {
-		userID = i.Member.User.ID
-	} else {
-		userID = i.User.ID
-	}
+	userID := e.UserID()
 	var contractID string
 	var coopID string
 	var eggign string
 	scoresFirst := false
-	optionMap := bottools.GetCommandOptionsMap(i)
 
-	if opt, ok := optionMap["egginc-ign"]; ok {
-		eggign = strings.ToLower(opt.StringValue())
+	if opt, ok := e.OptString("egginc-ign"); ok {
+		eggign = strings.ToLower(opt)
 	} else {
 		name := farmerstate.GetMiscSettingString(userID, "EggIncRawName")
 		if name != "" {
@@ -121,24 +89,24 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		}
 	}
 
-	if opt, ok := optionMap["contract-id"]; ok {
-		contractID = opt.StringValue()
+	if opt, ok := e.OptString("contract-id"); ok {
+		contractID = opt
 		contractID = strings.ReplaceAll(contractID, " ", "")
 	}
-	if opt, ok := optionMap["coop-id"]; ok {
-		coopID = strings.ToLower(opt.StringValue())
+	if opt, ok := e.OptString("coop-id"); ok {
+		coopID = strings.ToLower(opt)
 		coopID = strings.ReplaceAll(coopID, " ", "")
 		// Only Development Staff can use a coop-id that starts with '?'
 		if !slices.Contains(config.DevelopmentStaff, userID) && strings.HasPrefix(coopID, "?") {
 			coopID = strings.TrimPrefix(coopID, "?")
 		}
 	}
-	if opt, ok := optionMap["public-reply"]; ok {
-		publicReply = !opt.BoolValue()
-		if opt.BoolValue() {
-			flags &= ^discordgo.MessageFlagsEphemeral
-		}
+	if opt, ok := e.OptBool("public-reply"); ok {
+		// This used to be assigned inverted, so public-reply:True produced an
+		// ephemeral teamwork page and public-reply:False produced a public one.
+		publicReply = opt
 	}
+	ephemeral := !publicReply
 	/*
 		if opt, ok := optionMap["show-scores"]; ok {
 			// If show-scores is true, then we want to show the scores only
@@ -149,27 +117,20 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		}
 	*/
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   flags,
-		},
-	})
+	_ = e.Defer(ephemeral)
 
 	// Unset contractID and coopID means we want the Boost Bot contract
 	if contractID == "" || coopID == "" {
-		contract := FindContract(i.ChannelID)
+		contract := FindContract(e.ChannelID())
 		if contract == nil {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true,
-				&discordgo.WebhookParams{
-					Flags: flags | discordgo.MessageFlagsIsComponentsV2,
-					Components: []discordgo.MessageComponent{
-						discordgo.TextDisplay{
-							Content: "No contract found in this channel. Please provide a contract-id and coop-id.",
-						},
+			_ = e.Followup(dc.Message{
+				Ephemeral: ephemeral,
+				Components: []dc.LayoutComponent{
+					dc.TextDisplay{
+						Content: "No contract found in this channel. Please provide a contract-id and coop-id.",
 					},
-				})
+				},
+			})
 
 			return
 		}
@@ -179,7 +140,7 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 	var str string
-	str, fields, _ := DownloadCoopStatusTeamwork(i.ChannelID, contractID, coopID, true, eiID)
+	str, fields, _ := DownloadCoopStatusTeamwork(e.ChannelID(), contractID, coopID, true, eiID)
 	if fields == nil || strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {
 		// Trim output to 3500 characters if needed
 		trimmedStr := str
@@ -189,10 +150,9 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 			trimmedStr = str[:maxLen]
 			trimNotice = "\n\n*Output trimmed to 3500 characters.*"
 		}
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Flags: discordgo.MessageFlagsIsComponentsV2,
-			Components: []discordgo.MessageComponent{
-				discordgo.TextDisplay{
+		_ = e.Followup(dc.Message{
+			Components: []dc.LayoutComponent{
+				dc.TextDisplay{
 					Content: trimmedStr + trimNotice,
 				},
 			},
@@ -218,9 +178,9 @@ func HandleTeamworkEvalCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 	teamworkCacheMap[cache.xid] = cache
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
+	_ = e.Followup(dc.Message{})
 
-	sendTeamworkPage(s, i, true, cache.xid, false, false, true)
+	sendTeamworkPage(e, true, cache.xid, false, false, true)
 
 	// Traverse stonesCacheMap and delete expired entries
 	for key, cache := range teamworkCacheMap {

@@ -1,14 +1,13 @@
 package boost
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"sort"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -16,150 +15,107 @@ import (
 type lobbyParams struct {
 	contractID string
 	coopID     string
-	flags      discordgo.MessageFlags
+	ephemeral  bool
 }
 
 // GetSlashLobbyCommand returns the slash command for showing the current coop lobby.
-func GetSlashLobbyCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Show the current contract lobby roster",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
+func GetSlashLobbyCommand(cmd string) *dc.Command {
+	command := anywhereCommand(cmd, "Show the current contract lobby roster")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:         "contract-id",
+			Description:  "Select a contract-id",
+			Autocomplete: true,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
+		dc.StringOption{
+			Name:        "coop-id",
+			Description: "Your coop-id",
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "contract-id",
-				Description:  "Select a contract-id",
-				Required:     false,
-				Autocomplete: true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "coop-id",
-				Description: "Your coop-id",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "private-reply",
-				Description: "Response visibility, default is public",
-				Required:    false,
-			},
+		dc.BoolOption{
+			Name:        "private-reply",
+			Description: "Response visibility, default is public",
 		},
 	}
+	return &command
 }
 
-func parseLobbyParams(i *discordgo.InteractionCreate) lobbyParams {
-	flags := discordgo.MessageFlagsIsComponentsV2
-
+func parseLobbyParams(e *dc.CommandEvent) lobbyParams {
 	var (
 		contractID string
 		coopID     string
+		ephemeral  bool
 	)
 
-	optionMap := bottools.GetCommandOptionsMap(i)
-
-	if opt, ok := optionMap["contract-id"]; ok {
-		contractID = strings.ToLower(strings.ReplaceAll(opt.StringValue(), " ", ""))
+	if opt, ok := e.OptString("contract-id"); ok {
+		contractID = strings.ToLower(strings.ReplaceAll(opt, " ", ""))
 	}
-	if opt, ok := optionMap["coop-id"]; ok {
-		coopID = strings.ToLower(strings.ReplaceAll(opt.StringValue(), " ", ""))
+	if opt, ok := e.OptString("coop-id"); ok {
+		coopID = strings.ToLower(strings.ReplaceAll(opt, " ", ""))
 	}
-	if opt, ok := optionMap["private-reply"]; ok && opt.BoolValue() {
-		flags |= discordgo.MessageFlagsEphemeral
+	if opt, ok := e.OptBool("private-reply"); ok && opt {
+		ephemeral = true
 	}
 
 	return lobbyParams{
 		contractID: contractID,
 		coopID:     coopID,
-		flags:      flags,
+		ephemeral:  ephemeral,
 	}
 }
 
 // HandleLobbyCommand handles the /lobby slash command.
-func HandleLobbyCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if !CheckCoopStatusPermission(s, i, ei.CoopStatusFixEnabled != nil && ei.CoopStatusFixEnabled()) {
+func HandleLobbyCommand(e *dc.CommandEvent) {
+	if !CheckCoopStatusPermission(e, ei.CoopStatusFixEnabled != nil && ei.CoopStatusFixEnabled()) {
 		return
 	}
 
-	p := parseLobbyParams(i)
+	p := parseLobbyParams(e)
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   p.flags,
-		},
-	})
+	_ = e.Defer(p.ephemeral)
 
-	contractID, coopID, errMsg := resolveLobbyRequest(i, p.contractID, p.coopID)
+	contractID, coopID, errMsg := resolveLobbyRequest(e.ChannelID(), p.contractID, p.coopID)
 	if errMsg != "" {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Flags: p.flags | discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{
-				discordgo.TextDisplay{Content: errMsg},
+		_ = e.Followup(dc.Message{
+			Ephemeral: true,
+			Components: []dc.LayoutComponent{
+				dc.TextDisplay{Content: errMsg},
 			},
 		})
 		return
 	}
 
-	userID := bottools.GetInteractionUserID(i)
-	components := buildLobbyComponents(i.ChannelID, contractID, coopID, userID, false, true)
-	_, sendErr := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Flags:      p.flags,
+	components := buildLobbyComponents(e.ChannelID(), contractID, coopID, e.UserID(), false, true)
+	if sendErr := e.Followup(dc.Message{
+		Ephemeral:  p.ephemeral,
 		Components: components,
-	})
-	if sendErr != nil {
+	}); sendErr != nil {
 		log.Println("lobby FollowupMessageCreate:", sendErr)
 	}
 }
 
 // HandleLobbyButtons handles refresh and close button interactions for /lobby.
-func HandleLobbyButtons(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleLobbyButtons(e *dc.ComponentEvent) {
 	respondUsage := func(msg string) {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: msg,
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   msg,
+			Ephemeral: true,
 		})
 	}
 
-	parts := strings.Split(i.MessageComponentData().CustomID, "#")
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 2 {
 		respondUsage("Invalid lobby action. Use the Refresh or Close buttons from a /lobby response.")
 		return
 	}
 
 	action := parts[1]
-	flags := discordgo.MessageFlagsIsComponentsV2
-	if i.Message != nil && i.Message.Flags&discordgo.MessageFlagsEphemeral != 0 {
-		flags |= discordgo.MessageFlagsEphemeral
-	}
+	ephemeral := e.MessageIsEphemeral()
 
 	switch action {
 	case "close":
-		var kept []discordgo.MessageComponent
-		for _, c := range i.Message.Components {
-			if _, ok := c.(*discordgo.ActionsRow); !ok {
-				kept = append(kept, c)
-			}
-		}
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Flags:      flags,
-				Components: kept,
-			},
+		_ = e.Update(dc.Message{
+			Ephemeral:  ephemeral,
+			Components: e.MessageComponentsWithoutActionRows(),
 		})
 
 	case "refresh":
@@ -170,30 +126,21 @@ func HandleLobbyButtons(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		contractID := parts[2]
 		coopID := parts[3]
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-			Data: &discordgo.InteractionResponseData{Flags: flags},
-		})
+		_ = e.DeferUpdate()
 
-		userID := bottools.GetInteractionUserID(i)
-		components := buildLobbyComponents(i.ChannelID, contractID, coopID, userID, true, true)
-		edit := discordgo.WebhookEdit{Components: &components}
-		if _, err := s.FollowupMessageEdit(i.Interaction, i.Message.ID, &edit); err != nil {
-			var restErr *discordgo.RESTError
-			if errors.As(err, &restErr) && restErr.Message != nil && (restErr.Message.Code == discordgo.ErrCodeMissingAccess || restErr.Message.Code == discordgo.ErrCodeMissingPermissions) {
-				log.Printf("lobby: unable to edit message %s in channel %s (missing access/permissions): %v", i.Message.ID, i.ChannelID, err)
-				fallbackComponents := append([]discordgo.MessageComponent{
-					discordgo.TextDisplay{Content: "_⚠️ Unable to update the original message (missing permissions in this channel). Here is the refreshed lobby:_"},
+		components := buildLobbyComponents(e.ChannelID(), contractID, coopID, e.UserID(), true, true)
+		if err := e.EditFollowup(e.MessageID(), dc.Message{Components: components}); err != nil {
+			if apiErr, ok := dc.AsAPIError(err); ok && (apiErr.Code == dc.ErrCodeMissingAccess || apiErr.Code == dc.ErrCodeMissingPermissions) {
+				log.Printf("lobby: unable to edit message %s in channel %s (missing access/permissions): %v", e.MessageID(), e.ChannelID(), err)
+				fallback := append([]dc.LayoutComponent{
+					dc.TextDisplay{Content: "_⚠️ Unable to update the original message (missing permissions in this channel). Here is the refreshed lobby:_"},
 				}, components...)
-				_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-					Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
-					Components: fallbackComponents,
-				})
+				_ = e.Followup(dc.Message{Ephemeral: true, Components: fallback})
 			} else {
-				log.Printf("lobby FollowupMessageEdit failed (channel: %s, message: %s): %v", i.ChannelID, i.Message.ID, err)
-				_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-					Flags:   discordgo.MessageFlagsEphemeral,
-					Content: "Unable to refresh lobby message. Please try running `/lobby` again.",
+				log.Printf("lobby FollowupMessageEdit failed (channel: %s, message: %s): %v", e.ChannelID(), e.MessageID(), err)
+				_ = e.Followup(dc.Message{
+					Ephemeral: true,
+					Content:   "Unable to refresh lobby message. Please try running `/lobby` again.",
 				})
 			}
 		}
@@ -203,9 +150,9 @@ func HandleLobbyButtons(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 }
 
-func resolveLobbyRequest(i *discordgo.InteractionCreate, contractID string, coopID string) (string, string, string) {
+func resolveLobbyRequest(channelID string, contractID string, coopID string) (string, string, string) {
 	if contractID == "" || coopID == "" {
-		contract := FindContract(i.ChannelID)
+		contract := FindContract(channelID)
 		if contract == nil {
 			commandLink := bottools.GetFormattedCommand("lobby")
 			if commandLink == "" {
@@ -220,11 +167,11 @@ func resolveLobbyRequest(i *discordgo.InteractionCreate, contractID string, coop
 	return contractID, coopID, ""
 }
 
-func buildLobbyComponents(channelID string, contractID string, coopID string, userID string, bypassCache bool, includeButtons bool) []discordgo.MessageComponent {
+func buildLobbyComponents(channelID string, contractID string, coopID string, userID string, bypassCache bool, includeButtons bool) []dc.LayoutComponent {
 	content, err := buildLobbyContent(channelID, contractID, coopID, userID, bypassCache)
 	if err != nil {
-		components := []discordgo.MessageComponent{
-			discordgo.TextDisplay{Content: err.Error()},
+		components := []dc.LayoutComponent{
+			dc.TextDisplay{Content: err.Error()},
 		}
 		if includeButtons {
 			components = append(components, lobbyButtons(contractID, coopID))
@@ -232,12 +179,12 @@ func buildLobbyComponents(channelID string, contractID string, coopID string, us
 		return components
 	}
 
-	components := []discordgo.MessageComponent{
-		discordgo.TextDisplay{Content: content.header},
-		discordgo.TextDisplay{Content: content.lobby},
+	components := []dc.LayoutComponent{
+		dc.TextDisplay{Content: content.header},
+		dc.TextDisplay{Content: content.lobby},
 	}
 	if content.mismatch != "" {
-		components = append(components, discordgo.TextDisplay{Content: content.mismatch})
+		components = append(components, dc.TextDisplay{Content: content.mismatch})
 	}
 	if includeButtons {
 		components = append(components, lobbyButtons(contractID, coopID))
@@ -487,18 +434,18 @@ func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_Con
 	return sb.String()
 }
 
-func lobbyButtons(contractID string, coopID string) discordgo.ActionsRow {
-	return discordgo.ActionsRow{
-		Components: []discordgo.MessageComponent{
-			discordgo.Button{
+func lobbyButtons(contractID string, coopID string) dc.ActionRow {
+	return dc.ActionRow{
+		Components: []dc.InteractiveComponent{
+			dc.Button{
 				Label:    "Refresh",
-				Style:    discordgo.SecondaryButton,
+				Style:    dc.ButtonSecondary,
 				CustomID: fmt.Sprintf("lobby#refresh#%s#%s", contractID, coopID),
-				Emoji:    &discordgo.ComponentEmoji{Name: "🔄"},
+				Emoji:    &dc.Emoji{Name: "🔄"},
 			},
-			discordgo.Button{
+			dc.Button{
 				Label:    "Close",
-				Style:    discordgo.DangerButton,
+				Style:    dc.ButtonDanger,
 				CustomID: fmt.Sprintf("lobby#close#%s#%s", contractID, coopID),
 			},
 		},

@@ -10,80 +10,52 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // GetSlashStones will return the discord command for calculating ideal stone set
-func GetSlashStones(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Optimal stone set for running contract. Optional params for non-BoostBot coop use.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
+func GetSlashStones(cmd string) *dc.Command {
+	command := anywhereCommand(cmd, "Optimal stone set for running contract. Optional params for non-BoostBot coop use.")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:         "contract-id",
+			Description:  "Select a contract-id",
+			Autocomplete: true,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
+		dc.StringOption{
+			Name:        "coop-id",
+			Description: "Your coop-id",
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "contract-id",
-				Description:  "Select a contract-id",
-				Required:     false,
-				Autocomplete: true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "coop-id",
-				Description: "Your coop-id",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "tiled",
-				Description: "Display using embedded tiles. Default is false. (sticky)",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "details",
-				Description: "Show full details. Default is false. (sticky)",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "private-reply",
-				Description: "Respond privately. Default is false.",
-				Required:    false,
-			},
-			/*
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "solo-report-name",
-					Description: "egg-inc game name for solo report",
-					Required:    false,
-				},
-			*/
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "use-buffhistory",
-				Description: "Use Buff History for unequipped Deflector. Default is false.",
-				Required:    false,
-			},
+		dc.BoolOption{
+			Name:        "tiled",
+			Description: "Display using embedded tiles. Default is false. (sticky)",
+		},
+		dc.BoolOption{
+			Name:        "details",
+			Description: "Show full details. Default is false. (sticky)",
+		},
+		dc.BoolOption{
+			Name:        "private-reply",
+			Description: "Respond privately. Default is false.",
+		},
+		dc.BoolOption{
+			Name:        "use-buffhistory",
+			Description: "Use Buff History for unequipped Deflector. Default is false.",
 		},
 	}
+	return &command
 }
 
-// HandleStonesCommand will handle the /stones command
-func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleStonesCommand handles the /stones command through the dc facade.
+//
+// It still takes a raw session because the boost list redraw is not on the
+// facade yet.
+func HandleStonesCommand(client dc.Client, e *dc.CommandEvent) {
 	// Check if user has permission to use CoopStatus API
-	if !CheckCoopStatusPermission(s, i, ei.CoopStatusFixEnabled != nil && ei.CoopStatusFixEnabled()) {
+	if !CheckCoopStatusPermission(e, ei.CoopStatusFixEnabled != nil && ei.CoopStatusFixEnabled()) {
 		return
 	}
 
@@ -91,64 +63,55 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var coopID string
 	var soloName string
 	privateReply := false
-	flags := discordgo.MessageFlags(0)
+	ephemeral := false
 	details := false
 	useTiles := false
 
-	optionMap := bottools.GetCommandOptionsMap(i)
-
-	if opt, ok := optionMap["contract-id"]; ok {
-		contractID = opt.StringValue()
+	if opt, ok := e.OptString("contract-id"); ok {
+		contractID = opt
 		contractID = strings.ReplaceAll(contractID, " ", "")
 	}
-	if opt, ok := optionMap["coop-id"]; ok {
-		coopID = strings.ToLower(opt.StringValue())
+	if opt, ok := e.OptString("coop-id"); ok {
+		coopID = strings.ToLower(opt)
 		coopID = strings.ReplaceAll(coopID, " ", "")
 	}
-	if opt, ok := optionMap["solo-report-name"]; ok {
-		soloName = strings.ToLower(opt.StringValue())
-		flags = discordgo.MessageFlagsEphemeral
+	if opt, ok := e.OptString("solo-report-name"); ok {
+		soloName = strings.ToLower(opt)
+		ephemeral = true
 	}
-	userID := getInteractionUserID(i)
-	if opt, ok := optionMap["details"]; ok {
-		details = opt.BoolValue()
+	userID := e.UserID()
+	if opt, ok := e.OptBool("details"); ok {
+		details = opt
 		farmerstate.SetMiscSettingFlag(userID, "stone-details", details)
 	} else {
 		details = farmerstate.GetMiscSettingFlag(userID, "stone-details")
 	}
 	useBuffHistory := false
-	if opt, ok := optionMap["use-buffhistory"]; ok {
-		useBuffHistory = opt.BoolValue()
+	if opt, ok := e.OptBool("use-buffhistory"); ok {
+		useBuffHistory = opt
 	}
-	if opt, ok := optionMap["private-reply"]; ok {
-		privateReply = opt.BoolValue()
+	if opt, ok := e.OptBool("private-reply"); ok {
+		privateReply = opt
 		if privateReply {
-			flags |= discordgo.MessageFlagsEphemeral
+			ephemeral = true
 		}
 	}
-	if opt, ok := optionMap["tiled"]; ok {
-		useTiles = opt.BoolValue()
+	if opt, ok := e.OptBool("tiled"); ok {
+		useTiles = opt
 		farmerstate.SetMiscSettingFlag(userID, "stone-tiled", useTiles)
 	} else {
 		useTiles = farmerstate.GetMiscSettingFlag(userID, "stone-tiled")
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   flags,
-		},
-	})
+	_ = e.Defer(ephemeral)
 
 	// Unser contractID and coopID means we want the Boost Bot contract
 	if contractID == "" || coopID == "" {
-		contract := FindContract(i.ChannelID)
+		contract := FindContract(e.ChannelID())
 		if contract == nil {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true,
-				&discordgo.WebhookParams{
-					Content: "No contract found in this channel. Please provide a contract-id and coop-id.",
-				})
+			_ = e.Followup(dc.Message{
+				Content: "No contract found in this channel. Please provide a contract-id and coop-id.",
+			})
 
 			return
 		}
@@ -157,14 +120,14 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
-	s1, urls, tiles := DownloadCoopStatusStones(i.ChannelID, contractID, coopID, details, soloName, useBuffHistory, eiID)
+	s1, urls, tiles := DownloadCoopStatusStones(e.ChannelID(), contractID, coopID, details, soloName, useBuffHistory, eiID)
 
-	contract := FindContractByIDs(i.ChannelID, contractID, coopID)
+	contract := FindContractByIDs(e.ChannelID(), contractID, coopID)
 	if contract != nil {
 		if contract.State == ContractStateCompleted {
 			// Only refresh if EstimateUpdateTime is within 10 seconds of now
 			if math.Abs(time.Since(contract.EstimateUpdateTime).Seconds()) <= 10 {
-				refreshBoostListMessage(s, contract, false)
+				refreshBoostListMessage(client, contract, false)
 			}
 		}
 	}
@@ -184,9 +147,9 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		stonesCacheMap[cache.xid] = cache
 		stonesCacheMutex.Unlock()
 
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
+		_ = e.Followup(dc.Message{})
 
-		sendStonesPage(s, i, true, cache.xid, false, false, false)
+		sendStonesPage(client, e, true, cache.xid, false, false, false)
 
 		// Traverse stonesCacheMap and delete expired entries
 		stonesCacheMutex.Lock()
@@ -197,7 +160,7 @@ func HandleStonesCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 		stonesCacheMutex.Unlock()
 	} else {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		_ = e.Followup(dc.Message{
 			Content: s1,
 		})
 	}
@@ -349,9 +312,9 @@ func applyIdealStoneMix(as *artifactSet, layingRate, shippingRate, everyoneDefle
 }
 
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
-func DownloadCoopStatusStones(channelID string, contractID string, coopID string, details bool, soloName string, useBuffHistory bool, eeidOverride string) (string, string, []*discordgo.MessageEmbedField) {
+func DownloadCoopStatusStones(channelID string, contractID string, coopID string, details bool, soloName string, useBuffHistory bool, eeidOverride string) (string, string, []dc.EmbedField) {
 	var builderURL strings.Builder
-	var field []*discordgo.MessageEmbedField
+	var field []dc.EmbedField
 
 	coopStatus, _, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID, eeidOverride)
 	if err != nil {
@@ -1112,7 +1075,7 @@ func DownloadCoopStatusStones(channelID string, contractID string, coopID string
 				safeName = "\\" + safeName
 			}
 
-			field = append(field, &discordgo.MessageEmbedField{
+			field = append(field, dc.EmbedField{
 				Name:   safeName,
 				Value:  tileBuilder.String(),
 				Inline: true,

@@ -5,10 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-
-	"github.com/bwmarrin/discordgo"
 )
 
 const (
@@ -35,19 +33,19 @@ func getCoopStatusPermissionDuration(userID string) time.Duration {
 // CheckCoopStatusPermission checks if a user needs permission for CoopStatus API calls
 // Returns true if permission is valid or not needed, false if permission dialog is needed
 // If permission is not valid, it shows the permission dialog and returns false
-func CheckCoopStatusPermission(s *discordgo.Session, i *discordgo.InteractionCreate, coopStatusFixEnabled bool) bool {
+func CheckCoopStatusPermission(e *dc.CommandEvent, coopStatusFixEnabled bool) bool {
 	// If the coop_status_fix is not enabled, permission is not needed
 	if !coopStatusFixEnabled {
 		return true
 	}
 
-	userID := bottools.GetInteractionUserID(i)
+	userID := e.UserID()
 
 	// Check if user has a valid "allow_coop_status" timestamp
 	timeStr := farmerstate.GetMiscSettingString(userID, CoopStatusPermissionKey)
 	if timeStr == "" {
 		// Timestamp doesn't exist, show permission dialog
-		ShowCoopStatusPermissionDialog(s, i)
+		ShowCoopStatusPermissionDialog(e)
 		return false
 	}
 
@@ -55,14 +53,14 @@ func CheckCoopStatusPermission(s *discordgo.Session, i *discordgo.InteractionCre
 	parseTime, err := time.Parse(time.RFC3339, timeStr)
 	if err != nil {
 		// Invalid timestamp format, show permission dialog
-		ShowCoopStatusPermissionDialog(s, i)
+		ShowCoopStatusPermissionDialog(e)
 		return false
 	}
 
 	// Check if timestamp is older than selected permission window.
 	if time.Since(parseTime) > getCoopStatusPermissionDuration(userID) {
 		// Timestamp is too old, show permission dialog
-		ShowCoopStatusPermissionDialog(s, i)
+		ShowCoopStatusPermissionDialog(e)
 		return false
 	}
 
@@ -71,30 +69,28 @@ func CheckCoopStatusPermission(s *discordgo.Session, i *discordgo.InteractionCre
 }
 
 // ShowCoopStatusPermissionDialog shows the ephemeral dialog with Allow and Close buttons
-func ShowCoopStatusPermissionDialog(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Due to a game API issue, your saved game ID is needed to make the request. You can allow this for 24 hours, allow this for 7 days, or close this dialog.\n\nUsing your EI number when you're in a contract and expecting to receive tokens or chickens can cause those deliveries to be lost.\n\nBecause of this you can only query about the contracts you're participating in.",
-			Flags:   discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.Button{
-							Label:    "Allow 24h",
-							Style:    discordgo.SuccessButton,
-							CustomID: "coop_status#allow24h",
-						},
-						discordgo.Button{
-							Label:    "Allow 7d",
-							Style:    discordgo.SuccessButton,
-							CustomID: "coop_status#allow7d",
-						},
-						discordgo.Button{
-							Label:    "Close",
-							Style:    discordgo.DangerButton,
-							CustomID: "coop_status#close",
-						},
+func ShowCoopStatusPermissionDialog(e *dc.CommandEvent) {
+	err := e.Respond(dc.Message{
+		Content:      "Due to a game API issue, your saved game ID is needed to make the request. You can allow this for 24 hours, allow this for 7 days, or close this dialog.\n\nUsing your EI number when you're in a contract and expecting to receive tokens or chickens can cause those deliveries to be lost.\n\nBecause of this you can only query about the contracts you're participating in.",
+		Ephemeral:    true,
+		ComponentsV1: true,
+		Components: []dc.LayoutComponent{
+			dc.ActionRow{
+				Components: []dc.InteractiveComponent{
+					dc.Button{
+						Label:    "Allow 24h",
+						Style:    dc.ButtonSuccess,
+						CustomID: "coop_status#allow24h",
+					},
+					dc.Button{
+						Label:    "Allow 7d",
+						Style:    dc.ButtonSuccess,
+						CustomID: "coop_status#allow7d",
+					},
+					dc.Button{
+						Label:    "Close",
+						Style:    dc.ButtonDanger,
+						CustomID: "coop_status#close",
 					},
 				},
 			},
@@ -105,29 +101,19 @@ func ShowCoopStatusPermissionDialog(s *discordgo.Session, i *discordgo.Interacti
 	}
 }
 
-// HandleCoopStatusPermissionButton handles button interactions for the permission dialog
-func HandleCoopStatusPermissionButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	userID := bottools.GetInteractionUserID(i)
-	customID := i.MessageComponentData().CustomID
+// HandleCoopStatusPermissionButton handles button interactions for the
+// permission dialog through the dc facade.
+func HandleCoopStatusPermissionButton(e *dc.ComponentEvent) {
+	userID := e.UserID()
+	customID := e.CustomID()
 	respondAndClose := func(content string) {
-		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-			Data: &discordgo.InteractionResponseData{
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{},
-			},
-		})
+		err := e.DeferUpdate()
 		if err != nil {
 			log.Println("Error acknowledging coop status permission dialog:", err)
 			return
 		}
 
-		emptyComponents := []discordgo.MessageComponent{}
-		edit := discordgo.WebhookEdit{
-			Content:    &content,
-			Components: &emptyComponents,
-		}
-		_, err = s.InteractionResponseEdit(i.Interaction, &edit)
+		err = e.EditResponse(dc.Message{Content: content})
 		if err != nil {
 			log.Println("Error updating coop status permission dialog:", err)
 		}
@@ -136,12 +122,9 @@ func HandleCoopStatusPermissionButton(s *discordgo.Session, i *discordgo.Interac
 	// Extract the action part after the "#"
 	parts := strings.Split(customID, "#")
 	if len(parts) < 2 {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Invalid permission action. Use Allow 24h, Allow 7d, or Close from the permission dialog.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "Invalid permission action. Use Allow 24h, Allow 7d, or Close from the permission dialog.",
+			Ephemeral: true,
 		})
 		return
 	}
@@ -165,12 +148,9 @@ func HandleCoopStatusPermissionButton(s *discordgo.Session, i *discordgo.Interac
 	case "close":
 		respondAndClose("I understand")
 	default:
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Unknown permission action. Use Allow 24h, Allow 7d, or Close from the permission dialog.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "Unknown permission action. Use Allow 24h, Allow 7d, or Close from the permission dialog.",
+			Ephemeral: true,
 		})
 	}
 }

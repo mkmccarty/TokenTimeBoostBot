@@ -7,10 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
-
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 // IsGuildCoordinator returns true if the user is a registered coordinator for the guild
@@ -48,137 +47,134 @@ func GetCoordinatorList(guildID string) ([]GuildCoordinator, error) {
 
 // SlashCoordinatorsCommand builds the /admin-coordinators slash command definition.
 // DefaultMemberPermissions is set to 0 so only Discord server admins can use it.
-func SlashCoordinatorsCommand(cmd string) *discordgo.ApplicationCommand {
+func SlashCoordinatorsCommand(cmd string) *dc.Command {
 	var adminPermission = int64(0)
-	return &discordgo.ApplicationCommand{
+	command := dc.Command{
 		Name:                     cmd,
 		Description:              "Manage bot coordinators for this server",
 		DefaultMemberPermissions: &adminPermission,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Contexts:                 []dc.InteractionContext{dc.ContextGuild},
+		IntegrationTypes:         []dc.IntegrationType{dc.IntegrationGuildInstall},
+		Options: []dc.Option{
+			dc.SubCommand{
 				Name:        "add",
 				Description: "Add a coordinator",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionUser,
+				Options: []dc.Option{
+					dc.UserOption{
 						Name:        "user",
 						Description: "User to grant coordinator access",
 						Required:    true,
 					},
 				},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			dc.SubCommand{
 				Name:        "remove",
 				Description: "Remove a coordinator",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionUser,
+				Options: []dc.Option{
+					dc.UserOption{
 						Name:        "user",
 						Description: "User to revoke coordinator access from",
 						Required:    true,
 					},
 				},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			dc.SubCommand{
 				Name:        "list",
 				Description: "List all coordinators",
 			},
 		},
 	}
+	return &command
 }
 
-// HandleCoordinators dispatches the /admin-coordinators subcommands.
-func HandleCoordinators(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleCoordinators(client dc.Client, e *dc.CommandEvent) {
 	// Ack first to buy time for DB operations and avoid hitting the 3s limit for responding to interactions.
-	if !respondDeferredEphemeral(s, i) {
+	if !respondDeferredEphemeral(e) {
 		return
 	}
 
-	// Options
-	data := i.ApplicationCommandData()
-	if len(data.Options) == 0 {
-		followupEphemeral(s, i, "Please specify a subcommand.")
+	sub, ok := e.Subcommand()
+	if !ok {
+		followupEphemeral(e, "Please specify a subcommand.")
 		return
 	}
-	switch data.Options[0].Name {
+	switch sub {
 	case "add":
-		handleCoordinatorAdd(s, i, data.Options[0])
+		handleCoordinatorAdd(client, e)
 	case "remove":
-		handleCoordinatorRemove(s, i, data.Options[0])
+		handleCoordinatorRemove(client, e)
 	case "list":
-		handleCoordinatorList(s, i)
+		handleCoordinatorList(client, e)
 	default:
-		followupEphemeral(s, i, "Unknown subcommand.")
+		followupEphemeral(e, "Unknown subcommand.")
 	}
 }
 
-func handleCoordinatorAdd(s *discordgo.Session, i *discordgo.InteractionCreate, sub *discordgo.ApplicationCommandInteractionDataOption) {
-	if !isAdminCaller(s, i) {
-		followupEphemeral(s, i, "You are not authorized to add coordinators.")
+func handleCoordinatorAdd(client dc.Client, e *dc.CommandEvent) {
+	if !isAdminCaller(client, e) {
+		followupEphemeral(e, "You are not authorized to add coordinators.")
 		return
 	}
 
-	user := sub.Options[0].UserValue(s)
-
-	if IsGuildCoordinator(i.GuildID, user.ID) {
-		followupEphemeral(s, i, fmt.Sprintf("<@%s> is already a coordinator.", user.ID))
+	user, ok := e.OptUser("add-user")
+	if !ok {
+		followupEphemeral(e, "No user was supplied.")
 		return
 	}
 
-	callerID := getInteractionUserID(i)
-	if err := AddGuildCoordinator(i.GuildID, user.ID, callerID); err != nil {
+	if IsGuildCoordinator(e.GuildID(), user.ID) {
+		followupEphemeral(e, fmt.Sprintf("<@%s> is already a coordinator.", user.ID))
+		return
+	}
+
+	if err := AddGuildCoordinator(e.GuildID(), user.ID, e.UserID()); err != nil {
 		log.Println("AddGuildCoordinator:", err)
-		followupEphemeral(s, i, "Failed to add coordinator.")
+		followupEphemeral(e, "Failed to add coordinator.")
 		return
 	}
-	followupEphemeral(s, i, fmt.Sprintf("Added <@%s> as a coordinator.", user.ID))
+	followupEphemeral(e, fmt.Sprintf("Added <@%s> as a coordinator.", user.ID))
 }
 
-func handleCoordinatorRemove(s *discordgo.Session, i *discordgo.InteractionCreate, sub *discordgo.ApplicationCommandInteractionDataOption) {
-	if !isAdminCaller(s, i) {
-		followupEphemeral(s, i, "You are not authorized to remove coordinators.")
+func handleCoordinatorRemove(client dc.Client, e *dc.CommandEvent) {
+	if !isAdminCaller(client, e) {
+		followupEphemeral(e, "You are not authorized to remove coordinators.")
 		return
 	}
 
-	user := sub.Options[0].UserValue(s)
-
-	if !IsGuildCoordinator(i.GuildID, user.ID) {
-		followupEphemeral(s, i, fmt.Sprintf("<@%s> is not a coordinator.", user.ID))
+	user, ok := e.OptUser("remove-user")
+	if !ok {
+		followupEphemeral(e, "No user was supplied.")
 		return
 	}
 
-	if err := RemoveGuildCoordinator(i.GuildID, user.ID); err != nil {
+	if !IsGuildCoordinator(e.GuildID(), user.ID) {
+		followupEphemeral(e, fmt.Sprintf("<@%s> is not a coordinator.", user.ID))
+		return
+	}
+
+	if err := RemoveGuildCoordinator(e.GuildID(), user.ID); err != nil {
 		log.Println("RemoveGuildCoordinator:", err)
-		followupEphemeral(s, i, "Failed to remove coordinator.")
+		followupEphemeral(e, "Failed to remove coordinator.")
 		return
 	}
-	followupEphemeral(s, i, fmt.Sprintf("Removed <@%s> from coordinators.", user.ID))
+	followupEphemeral(e, fmt.Sprintf("Removed <@%s> from coordinators.", user.ID))
 }
 
-func handleCoordinatorList(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if !isAdminCaller(s, i) {
-		followupEphemeral(s, i, "You are not authorized to view coordinators.")
+func handleCoordinatorList(client dc.Client, e *dc.CommandEvent) {
+	if !isAdminCaller(client, e) {
+		followupEphemeral(e, "You are not authorized to view coordinators.")
 		return
 	}
 
-	coords, err := GetCoordinatorList(i.GuildID)
+	coords, err := GetCoordinatorList(e.GuildID())
 	if err != nil {
 		log.Println("GetCoordinatorList:", err)
-		followupEphemeral(s, i, "Failed to retrieve coordinators.")
+		followupEphemeral(e, "Failed to retrieve coordinators.")
 		return
 	}
 
 	if len(coords) == 0 {
-		followupEphemeral(s, i, "No coordinators configured for this server.")
+		followupEphemeral(e, "No coordinators configured for this server.")
 		return
 	}
 
@@ -188,5 +184,5 @@ func handleCoordinatorList(s *discordgo.Session, i *discordgo.InteractionCreate)
 		fmt.Fprintf(&sb, "%d. <@%s> — added by <@%s> on %s\n",
 			idx+1, c.UserID, c.AddedBy, bottools.WrapTimestamp(c.AddedAt, bottools.TimestampLongDateTime))
 	}
-	followupEphemeral(s, i, sb.String())
+	followupEphemeral(e, sb.String())
 }

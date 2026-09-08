@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 var discordMarkdownEscaper = strings.NewReplacer(
@@ -42,44 +42,15 @@ const (
 	MintPreviewMaxAge = 20 * time.Minute
 )
 
-// GetInteractionUserID returns the user ID from an interaction, whether in a guild or DM
-func GetInteractionUserID(i *discordgo.InteractionCreate) string {
-	if i == nil {
-		return ""
-	}
-	if i.Member != nil && i.Member.User != nil && i.Member.User.ID != "" {
-		return i.Member.User.ID
-	}
-	if i.User != nil && i.User.ID != "" {
-		return i.User.ID
-	}
-	if i.Message != nil && i.Message.Author != nil {
-		return i.Message.Author.ID
-	}
-	return ""
-}
-
-// NewSmallSeparatorComponent returns a Discord separator component configured with
-// small spacing and optional visibility.
-func NewSmallSeparatorComponent(visible bool) *discordgo.Separator {
-	divider := visible
-	spacing := discordgo.SeparatorSpacingSizeSmall
-
-	return &discordgo.Separator{
-		Divider: &divider,
-		Spacing: &spacing,
-	}
-}
-
 // FindCategoryID walks up the parent chain until it finds the category.
 // Returns the category ID, or "" if err.
-func FindCategoryID(s *discordgo.Session, channelID string) (string, error) {
-	ch, err := getChannel(s, channelID)
+func FindCategoryID(client dc.Client, channelID string) (string, error) {
+	ch, err := client.Channel(channelID)
 	if err != nil {
 		return "", err
 	}
 	// Is a category.
-	if ch.Type == discordgo.ChannelTypeGuildCategory {
+	if ch.IsCategory {
 		return ch.ID, nil
 	}
 	// No parent found.
@@ -88,23 +59,7 @@ func FindCategoryID(s *discordgo.Session, channelID string) (string, error) {
 	}
 
 	// Recurse up the parent chain.
-	return FindCategoryID(s, ch.ParentID)
-}
-
-// getChannel retrieves a channel from State first, then falls back to Channel directly.
-func getChannel(s *discordgo.Session, id string) (*discordgo.Channel, error) {
-	if ch, err := s.State.Channel(id); err == nil {
-		return ch, nil
-	}
-	return s.Channel(id)
-}
-
-// AcknowledgeResponse sends a deferred response to acknowledge the interaction with the given flags.
-func AcknowledgeResponse(s *discordgo.Session, i *discordgo.InteractionCreate, flags discordgo.MessageFlags) {
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{Flags: flags},
-	})
+	return FindCategoryID(client, ch.ParentID)
 }
 
 // IsValidDiscordID checks if a string is a valid Discord snowflake ID by validating
@@ -132,24 +87,9 @@ func IsValidDiscordID(id string) bool {
 	return timestamp >= discordEpoch && timestamp <= tenYearsFromNow
 }
 
-// GetCommandAttachment retrieves the attachment from the interaction options if it exists and is of the correct type.
-func GetCommandAttachment(i *discordgo.InteractionCreate, opt *discordgo.ApplicationCommandInteractionDataOption) *discordgo.MessageAttachment {
-	if opt == nil || opt.Type != discordgo.ApplicationCommandOptionAttachment {
-		return nil
-	}
-	attachmentID, ok := opt.Value.(string)
-	if !ok || attachmentID == "" {
-		return nil
-	}
-	resolved := i.ApplicationCommandData().Resolved
-	if resolved == nil {
-		return nil
-	}
-	return resolved.Attachments[attachmentID]
-}
-
-// DownloadAttachmentBytes downloads the attachment content and returns it as a byte slice.
-func DownloadAttachmentBytes(att *discordgo.MessageAttachment) ([]byte, error) {
+// DownloadAttachmentBytesDC downloads the attachment content and returns it
+// as a byte slice, given the dc facade's neutral Attachment form.
+func DownloadAttachmentBytesDC(att *dc.Attachment) ([]byte, error) {
 	if att.Size > MaxAnimateFileBytes {
 		return nil, fmt.Errorf("attachment %q is too large (%d bytes)", att.Filename, att.Size)
 	}

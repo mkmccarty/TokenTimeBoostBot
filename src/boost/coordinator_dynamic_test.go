@@ -1,88 +1,48 @@
 package boost
 
 import (
-	"net/http"
 	"slices"
 	"testing"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
-	"github.com/ewohltman/discordgo-mock/mockchannel"
-	"github.com/ewohltman/discordgo-mock/mockconstants"
-	"github.com/ewohltman/discordgo-mock/mockguild"
-	"github.com/ewohltman/discordgo-mock/mockmember"
-	"github.com/ewohltman/discordgo-mock/mockrest"
-	"github.com/ewohltman/discordgo-mock/mockrole"
-	"github.com/ewohltman/discordgo-mock/mocksession"
-	"github.com/ewohltman/discordgo-mock/mockstate"
-	"github.com/ewohltman/discordgo-mock/mockuser"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
 
-func createMockSession() (*discordgo.Session, error) {
-	role := mockrole.New(
-		mockrole.WithID(mockconstants.TestRole),
-		mockrole.WithName(mockconstants.TestRole),
-		mockrole.WithPermissions(discordgo.PermissionViewChannel),
-	)
+const (
+	testGuildID   = "guild-123"
+	testChannelID = "channel-coord-1"
+)
 
-	botUser := mockuser.New(
-		mockuser.WithID(mockconstants.TestUser+"Bot"),
-		mockuser.WithUsername(mockconstants.TestUser+"Bot"),
-		mockuser.WithBotFlag(true),
-	)
+// testContractChannels is every channel the contract tests create a contract
+// in. The fake client answers Channel for these and returns not-found for
+// anything else, which is what an unknown channel looks like to CreateContract.
+var testContractChannels = []string{
+	testChannelID,
+	"channel-1",
+	"channel-2",
+	"channel-3",
+	"channel-123-1",
+	"channel-123-2",
+	"channel-123-3",
+	"channel-prog-1",
+	"channel-restart-1",
+}
 
-	botMember := mockmember.New(
-		mockmember.WithUser(botUser),
-		mockmember.WithGuildID(mockconstants.TestGuild),
-		mockmember.WithRoles(role),
-	)
-
-	userMember := mockmember.New(
-		mockmember.WithUser(mockuser.New(
-			mockuser.WithID(mockconstants.TestUser),
-			mockuser.WithUsername(mockconstants.TestUser),
-		)),
-		mockmember.WithGuildID(mockconstants.TestGuild),
-		mockmember.WithRoles(role),
-	)
-
-	channel := mockchannel.New(
-		mockchannel.WithID(mockconstants.TestChannel),
-		mockchannel.WithGuildID(mockconstants.TestGuild),
-		mockchannel.WithName(mockconstants.TestChannel),
-		mockchannel.WithType(discordgo.ChannelTypeGuildText),
-	)
-
-	state, err := mockstate.New(
-		mockstate.WithUser(botUser),
-		mockstate.WithGuilds(
-			mockguild.New(
-				mockguild.WithID(mockconstants.TestGuild),
-				mockguild.WithName(mockconstants.TestGuild),
-				mockguild.WithRoles(role),
-				mockguild.WithChannels(channel),
-				mockguild.WithMembers(botMember, userMember),
-			),
-		),
-	)
-	if err != nil {
-		return nil, err
+// newTestClient is the dc.Client the contract tests run against: it knows the
+// test guild and the channels above, and records every call.
+func newTestClient() *dctest.FakeClient {
+	client := dctest.New().WithGuild(testGuildID, "Test Guild")
+	for _, channelID := range testContractChannels {
+		client.WithChannel(channelID, testGuildID, channelID)
 	}
-
-	session, err := mocksession.New(
-		mocksession.WithState(state),
-		mocksession.WithClient(&http.Client{
-			Transport: mockrest.NewTransport(state),
-		}),
-	)
-	return session, err
+	return client
 }
 
 func TestDynamicGuildCoordinator(t *testing.T) {
 	// 1. Add a test coordinator to guildstate
-	guildID := mockconstants.TestGuild
+	guildID := testGuildID
 	coordinatorUserID := "user-coord-123"
 	adminUserID := "admin-user"
 
@@ -107,15 +67,17 @@ func TestDynamicGuildCoordinator(t *testing.T) {
 	coopID := "coop-dynamic-1"
 	creatorUserID := "original-creator-456"
 
-	s, err := createMockSession()
-	if err != nil {
-		t.Fatalf("Failed to create mock session: %v", err)
-	}
+	client := newTestClient()
 
-	contract, err := CreateContract(s, contractID, coopID, ContractPlaystyleChill, 10, ContractOrderSignup, guildID, mockconstants.TestChannel, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
+	contract, err := CreateContract(client, contractID, coopID, ContractPlaystyleChill, 10, ContractOrderSignup, guildID, testChannelID, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
 	if err != nil {
 		t.Fatalf("Failed to create contract: %v", err)
 	}
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
 
 	// Verify that original creator is in CreatorID
 	if !slices.Contains(contract.CreatorID, creatorUserID) {
@@ -127,9 +89,14 @@ func TestDynamicGuildCoordinator(t *testing.T) {
 		t.Errorf("Expected guild coordinator %s NOT to be statically appended to contract.CreatorID", coordinatorUserID)
 	}
 
+	// The contract picked up the guild and channel the client reported.
+	if contract.Location[0].GuildName != "Test Guild" {
+		t.Errorf("GuildName = %q, want %q", contract.Location[0].GuildName, "Test Guild")
+	}
+
 	// 3. Test creatorOfContract helper - it should dynamically authorize the guild coordinator
 	// Even though coordinatorUserID is not in contract.CreatorID, creatorOfContract should return true
-	isAuthorized := creatorOfContract(s, contract, coordinatorUserID)
+	isAuthorized := creatorOfContract(client, contract, coordinatorUserID)
 	if !isAuthorized {
 		t.Errorf("Expected creatorOfContract to dynamically return true for guild coordinator %s", coordinatorUserID)
 	}
@@ -155,19 +122,24 @@ func TestDynamicGuildCoordinator(t *testing.T) {
 	}
 
 	// Verify creatorOfContract recognizes them dynamically
-	if !creatorOfContract(s, contract, "mock-primary-admin") {
+	if !creatorOfContract(client, contract, "mock-primary-admin") {
 		t.Error("Expected creatorOfContract to dynamically authorize primary admin")
 	}
-	if !creatorOfContract(s, contract, "mock-admin-2") {
+	if !creatorOfContract(client, contract, "mock-admin-2") {
 		t.Error("Expected creatorOfContract to dynamically authorize secondary admin")
 	}
 
 	// Create another contract and verify admins are not statically copied into contract.CreatorID
 	delete(Contracts, contract.ContractHash)
-	contract2, err := CreateContract(s, contractID, "coop-dynamic-2", ContractPlaystyleChill, 10, ContractOrderSignup, guildID, mockconstants.TestChannel, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
+	contract2, err := CreateContract(client, contractID, "coop-dynamic-2", ContractPlaystyleChill, 10, ContractOrderSignup, guildID, testChannelID, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
 	if err != nil {
 		t.Fatalf("Failed to create contract2: %v", err)
 	}
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract2.ContractHash)
+		ContractsMutex.Unlock()
+	}()
 
 	if slices.Contains(contract2.CreatorID, "mock-primary-admin") {
 		t.Error("Expected mock-primary-admin NOT to be statically appended to contract.CreatorID")

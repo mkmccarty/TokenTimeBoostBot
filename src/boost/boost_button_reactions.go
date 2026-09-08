@@ -15,103 +15,100 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mattn/go-runewidth"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/rs/xid"
 )
 
-// HandleContractReactions handles all the button reactions for a contract
-func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{
-			Content:    "",
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
-	})
-	userID := getInteractionUserID(i)
+// HandleContractReactions handles all the button reactions for a contract.
+//
+// It still takes a raw session because the boost order helpers and the boost
+// list redraw are not on the facade yet.
+func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
+	_ = e.DeferUpdate()
+	userID := e.UserID()
 
 	// rc_Name # rc_ID # HASH
-	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
+	reaction := strings.Split(e.CustomID(), "#")
 	cmd := strings.ToLower(reaction[1])
 	contractHash := reaction[len(reaction)-1]
 
 	if cmd == "dismiss" {
-		_ = s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
+		_ = client.DeleteMessage(e.ChannelID(), e.MessageID())
 		return
 	}
 
 	contract := FindContractByHash(contractHash)
 	if contract == nil {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: "Unable to find this contract.",
-			Flags:   discordgo.MessageFlagsEphemeral,
+		_ = e.Followup(dc.Message{
+			Content:   "Unable to find this contract.",
+			Ephemeral: true,
 		})
 		return
 	}
 
 	if cmd == "help" {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
-		buttonReactionHelp(s, i, contract)
+		_ = e.Followup(dc.Message{})
+		buttonReactionHelp(client, e, contract)
 		return
 	}
 
 	// Restring commands to those within the contract
-	if !UserInContract(contract, userID) && !creatorOfContract(s, contract, userID) {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: "User isn't in this contract.",
-			Flags:   discordgo.MessageFlagsEphemeral,
+	if !UserInContract(contract, userID) && !creatorOfContract(client, contract, userID) {
+		_ = e.Followup(dc.Message{
+			Content:   "User isn't in this contract.",
+			Ephemeral: true,
 		})
 		return
 	}
 	// Ack the message for every other command
 	if cmd != "cr" {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
+		_ = e.Followup(dc.Message{})
 	}
 
 	redraw := false
 
 	switch cmd {
 	case "boost":
-		if i.Message.ID == contract.Location[0].ListMsgID {
-			redraw = buttonReactionBoost(s, i.GuildID, i.ChannelID, contract, userID)
+		if e.MessageID() == contract.Location[0].ListMsgID {
+			redraw = buttonReactionBoost(client, e.GuildID(), e.ChannelID(), contract, userID)
 		}
 	case "bag":
-		_, redraw = buttonReactionBag(s, i.GuildID, i.ChannelID, contract, userID)
+		_, redraw = buttonReactionBag(client, e.GuildID(), e.ChannelID(), contract, userID)
 	case "token":
-		_, redraw = buttonReactionToken(s, i.GuildID, i.ChannelID, contract, userID, 1, "")
-		sendOrUpdateUserReactionSummary(s, i, contract, userID)
+		_, redraw = buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 1, "")
+		sendOrUpdateUserReactionSummary(e, contract, userID)
 	case "2token":
-		_, redraw = buttonReactionToken(s, i.GuildID, i.ChannelID, contract, userID, 2, "")
-		sendOrUpdateUserReactionSummary(s, i, contract, userID)
+		_, redraw = buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 2, "")
+		sendOrUpdateUserReactionSummary(e, contract, userID)
 	case "swap":
-		redraw = buttonReactionSwap(s, i.GuildID, i.ChannelID, contract, userID)
+		redraw = buttonReactionSwap(client, e.GuildID(), e.ChannelID(), contract, userID)
 	case "last":
-		_, redraw = buttonReactionLast(s, i.GuildID, i.ChannelID, contract, userID)
+		_, redraw = buttonReactionLast(client, e.GuildID(), e.ChannelID(), contract, userID)
 	case "cr":
 		var str string
-		redraw, str = buttonReactionRunChickens(s, contract, userID)
+		redraw, str = buttonReactionRunChickens(client, contract, userID)
 		// Ack the message for every other command
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: str,
-			Flags:   discordgo.MessageFlagsEphemeral,
+		_ = e.Followup(dc.Message{
+			Content:   str,
+			Ephemeral: true,
 		})
 	case "ranchicken":
 		targetUserID := ""
 		if len(reaction) >= 4 {
 			targetUserID = reaction[2]
 		}
-		buttonReactionRanChicken(s, i, contract, userID, targetUserID)
+		buttonReactionRanChicken(client, e, contract, userID, targetUserID)
 	case "rancoop":
-		buttonReactionRanCoop(s, i, contract, userID)
+		buttonReactionRanCoop(client, e, contract, userID)
 	case "crping":
-		buttonReactionCRPing(s, i, contract, userID)
+		buttonReactionCRPing(client, e, contract, userID)
 	case "complain":
-		buttonReactionComplain(s, contract, userID)
+		buttonReactionComplain(client, contract, userID)
 	case "notoken":
-		buttonReactionNonToken(s, i, contract, userID)
+		buttonReactionNonToken(client, e, contract, userID)
 	case "predmenu":
-		values := i.MessageComponentData().Values
+		values := e.Values()
 		if b := contract.Boosters[userID]; b != nil {
 			b.Availability.Contract = values
 			for _, altID := range b.Alts {
@@ -120,14 +117,13 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 				}
 			}
 			saveData(contract.ContractHash)
-			out := GetAvailabilityComponents(s, contract, userID)
-			_, _ = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &discordgo.WebhookEdit{
-				Components: &out,
+			_ = e.EditFollowup(e.MessageID(), dc.Message{
+				Components: GetAvailabilityComponents(client, contract, userID),
 			})
 			redraw = true
 		}
 	case "predtime":
-		values := i.MessageComponentData().Values
+		values := e.Values()
 		if b := contract.Boosters[userID]; b != nil {
 			b.Availability.Timeslots = values
 			for _, altID := range b.Alts {
@@ -136,9 +132,8 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 				}
 			}
 			saveData(contract.ContractHash)
-			out := GetAvailabilityComponents(s, contract, userID)
-			_, _ = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &discordgo.WebhookEdit{
-				Components: &out,
+			_ = e.EditFollowup(e.MessageID(), dc.Message{
+				Components: GetAvailabilityComponents(client, contract, userID),
 			})
 			redraw = true
 
@@ -146,11 +141,11 @@ func HandleContractReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	}
 
 	if redraw {
-		refreshBoostListMessage(s, contract, false)
+		refreshBoostListMessage(client, contract, false)
 	}
 }
 
-func buttonReactionBoost(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, cUserID string) bool {
+func buttonReactionBoost(client dc.Client, GuildID string, ChannelID string, contract *Contract, cUserID string) bool {
 	// If Rocket reaction on Boost List, only that boosting user can apply a reaction
 	redraw := false
 	votingElection := false
@@ -187,15 +182,15 @@ func buttonReactionBoost(s *discordgo.Session, GuildID string, ChannelID string,
 		log.Printf("Vote for %s to boost from %s - vote count %d or %d\n", b.UserID, userID, len(b.VotingList), votesNeeded)
 	}
 
-	if userID == currentBoosterID || votingElection || creatorOfContract(s, contract, cUserID) {
-		_ = Boosting(s, GuildID, ChannelID)
+	if userID == currentBoosterID || votingElection || creatorOfContract(client, contract, cUserID) {
+		_ = Boosting(client, GuildID, ChannelID)
 		scheduleCoopStatusPoll(contract)
 		return true
 	}
 	return redraw
 }
 
-func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, fromUserID string, count int, alternateBooster string) (bool, bool) {
+func buttonReactionToken(client dc.Client, GuildID string, ChannelID string, contract *Contract, fromUserID string, count int, alternateBooster string) (bool, bool) {
 	if !UserInContract(contract, fromUserID) {
 		return false, false
 	}
@@ -258,7 +253,7 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 			b.TokensReceived >= b.TokensWanted &&
 			b.AltController == "" {
 			// Guest farmer auto boosts
-			_ = Boosting(s, GuildID, ChannelID)
+			_ = Boosting(client, GuildID, ChannelID)
 			return true, false
 		}
 		if bankerID != "" && fromUserID == bankerID {
@@ -270,7 +265,7 @@ func buttonReactionToken(s *discordgo.Session, GuildID string, ChannelID string,
 	return false, false
 }
 
-func buttonReactionLast(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, cUserID string) (bool, bool) {
+func buttonReactionLast(client dc.Client, GuildID string, ChannelID string, contract *Contract, cUserID string) (bool, bool) {
 	var uid = cUserID
 	// make sure uid is in the contract
 	if !UserInContract(contract, uid) {
@@ -280,35 +275,35 @@ func buttonReactionLast(s *discordgo.Session, GuildID string, ChannelID string, 
 	switch contract.Boosters[uid].BoostState {
 	case BoostStateTokenTime:
 		currentBoosterPosition := findNextBooster(contract)
-		err := MoveBooster(s, GuildID, ChannelID, contract.CreatorID[0], uid, len(contract.Order), currentBoosterPosition == -1)
+		err := MoveBooster(client, GuildID, ChannelID, contract.CreatorID[0], uid, len(contract.Order), currentBoosterPosition == -1)
 		if err == nil && currentBoosterPosition != -1 {
-			_ = ChangeCurrentBooster(s, GuildID, ChannelID, contract.CreatorID[0], contract.Order[currentBoosterPosition], true)
+			_ = ChangeCurrentBooster(client, GuildID, ChannelID, contract.CreatorID[0], contract.Order[currentBoosterPosition], true)
 			return true, false
 		}
 	case BoostStateUnboosted:
-		_ = MoveBooster(s, GuildID, ChannelID, contract.CreatorID[0], uid, len(contract.Order), true)
+		_ = MoveBooster(client, GuildID, ChannelID, contract.CreatorID[0], uid, len(contract.Order), true)
 	}
 
 	return false, false
 }
 
-func buttonReactionSwap(s *discordgo.Session, GuildID string, ChannelID string, contract *Contract, cUserID string) bool {
+func buttonReactionSwap(client dc.Client, GuildID string, ChannelID string, contract *Contract, cUserID string) bool {
 	// Reaction for current booster to change places
 	currentID := contract.currentBoosterID()
 	currentIdx := contract.currentBoosterOrderIndex()
 	if currentID == "" || currentIdx < 0 {
 		return false
 	}
-	if cUserID == currentID || creatorOfContract(s, contract, cUserID) {
+	if cUserID == currentID || creatorOfContract(client, contract, cUserID) {
 		if (currentIdx + 1) < len(contract.Order) {
-			_ = SkipBooster(s, GuildID, ChannelID, "")
+			_ = SkipBooster(client, GuildID, ChannelID, "")
 			return true
 		}
 	}
 	return false
 }
 
-func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID string) (bool, string) {
+func buttonReactionRunChickens(client dc.Client, contract *Contract, cUserID string) (bool, string) {
 	defer func() {
 		if r := recover(); r != nil {
 			contractHash := ""
@@ -321,9 +316,9 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 		}
 	}()
 
-	if s == nil || contract == nil {
-		log.Printf("buttonReactionRunChickens invalid input: sessionNil=%t contractNil=%t userID=%s",
-			s == nil, contract == nil, cUserID,
+	if client == nil || contract == nil {
+		log.Printf("buttonReactionRunChickens invalid input: clientNil=%t contractNil=%t userID=%s",
+			client == nil, contract == nil, cUserID,
 		)
 		return false, "Unable to process chicken run request right now."
 	}
@@ -398,6 +393,7 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 		contract.Boosters[userID].RunChickensTime = time.Now()
 
 		go func() {
+			client := client
 			for _, location := range contract.Location {
 				contract.mutex.Lock()
 				components, _ := buildCRMessageComponents(contract, location.RoleMention)
@@ -409,14 +405,13 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 				}
 
 				// Always post a new message to bump the CR requests
-				var data discordgo.MessageSend
-				data.Flags = discordgo.MessageFlagsIsComponentsV2
-				data.Components = components
-				// Ping everyone with the first
-				data.AllowedMentions = &discordgo.MessageAllowedMentions{
-					Parse: []discordgo.AllowedMentionType{discordgo.AllowedMentionTypeRoles, discordgo.AllowedMentionTypeUsers},
-				}
-				newMsg, err := s.ChannelMessageSendComplex(location.ChannelID, &data)
+				newMsg, err := client.SendMessage(location.ChannelID, dc.Message{
+					Components: components,
+					// Ping everyone with the first
+					AllowedMentions: &dc.AllowedMentions{
+						Parse: []dc.MentionType{dc.MentionRoles, dc.MentionUsers},
+					},
+				})
 				if err != nil {
 					log.Printf("Error sending CR message: contractHash=%s channelID=%s userID=%s error=%v",
 						contract.ContractHash, location.ChannelID, userID, err)
@@ -431,14 +426,13 @@ func buttonReactionRunChickens(s *discordgo.Session, contract *Contract, cUserID
 				if existingMsgID != "" {
 					// Replace old message with a redirect to the new one
 					newMsgLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", location.GuildID, location.ChannelID, newMsg.ID)
-					movedComponents := []discordgo.MessageComponent{
-						discordgo.TextDisplay{Content: fmt.Sprintf("-# Chicken Run request moved: [View updated message](%s)", newMsgLink)},
+					movedComponents := []dc.LayoutComponent{
+						dc.TextDisplay{Content: fmt.Sprintf("-# Chicken Run request moved: [View updated message](%s)", newMsgLink)},
 					}
-					oldEdit := discordgo.NewMessageEdit(location.ChannelID, existingMsgID)
-					oldEdit.Flags = discordgo.MessageFlagsIsComponentsV2
-					oldEdit.AllowedMentions = &discordgo.MessageAllowedMentions{}
-					oldEdit.Components = &movedComponents
-					if _, err := s.ChannelMessageEditComplex(oldEdit); err != nil {
+					if _, err := client.EditMessage(location.ChannelID, existingMsgID, dc.Message{
+						Components:      movedComponents,
+						AllowedMentions: &dc.AllowedMentions{},
+					}); err != nil {
 						log.Printf("Error editing old CR message: contractHash=%s channelID=%s messageID=%s error=%v",
 							contract.ContractHash, location.ChannelID, existingMsgID, err)
 					}
@@ -521,7 +515,7 @@ func getChickenRunAccentColor(contract *Contract) int {
 
 // buildCRMessageComponents builds the components for the chicken run message.
 // Also returns the combined set of user IDs that should receive mention highlights (players still missing runs).
-func buildCRMessageComponents(contract *Contract, roleMention string) ([]discordgo.MessageComponent, []string) {
+func buildCRMessageComponents(contract *Contract, roleMention string) ([]dc.LayoutComponent, []string) {
 	// Collect requesters within the last 10 minutes, sorted by RunChickensTime (oldest request first).
 	requesters := make([]string, 0, len(contract.Boosters))
 	for id, b := range contract.Boosters {
@@ -560,13 +554,13 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 	}
 
 	worstPct := 0.0
-	containerComps := make([]discordgo.MessageComponent, 0, len(requesters)+1)
-	var buttons []discordgo.MessageComponent
-	var selectOptions []discordgo.SelectMenuOption
+	containerComps := make([]dc.ContainerSubComponent, 0, len(requesters)+1)
+	var buttons []dc.InteractiveComponent
+	var selectOptions []dc.SelectOption
 	var allAllowedMentions []string
 
 	// Add a TextDisplay for a header
-	containerComps = append(containerComps, discordgo.TextDisplay{Content: "### Active Chicken Run Requests"})
+	containerComps = append(containerComps, dc.TextDisplay{Content: "### Active Chicken Run Requests"})
 
 	buttonLabelCount := make(map[string]int)
 
@@ -615,7 +609,7 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 				fmt.Fprintf(&sb, "\n-# _  _↳ Ran: %s", strings.Join(alreadyRun, " "))
 			}
 		}
-		containerComps = append(containerComps, discordgo.TextDisplay{Content: sb.String()})
+		containerComps = append(containerComps, dc.TextDisplay{Content: sb.String()})
 
 		// One button per incomplete requester, max 10 total (up to 2 rows of 5)
 		if len(buttons) < 10 {
@@ -625,15 +619,15 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 			if buttonLabelCount[label] > 1 {
 				label = fmt.Sprintf("%s%d", label, buttonLabelCount[label])
 			}
-			buttons = append(buttons, discordgo.Button{
+			buttons = append(buttons, dc.Button{
 				Emoji:    ei.GetBotComponentEmoji("icon_chicken_run"),
 				Label:    label,
-				Style:    discordgo.SecondaryButton,
+				Style:    dc.ButtonSecondary,
 				CustomID: fmt.Sprintf("rc_#RanChicken#%s#%s", reqID, contract.ContractHash),
 			})
 		}
 
-		selectOptions = append(selectOptions, discordgo.SelectMenuOption{
+		selectOptions = append(selectOptions, dc.SelectOption{
 			Label: name + " Runners",
 			Value: reqID,
 		})
@@ -649,7 +643,7 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 		roleMention, latestName, tipText,
 	)
 	accentColor := crColorFromPct(worstPct)
-	var components []discordgo.MessageComponent
+	var components []dc.LayoutComponent
 
 	// All requesters done, collapse into a single container with completion notice
 	if len(containerComps) == 1 {
@@ -662,17 +656,17 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 			name = "Contract"
 		}
 		completionMsg := fmt.Sprintf("-# %s**%s**'s chicken run request is complete!", prefix, name)
-		components = []discordgo.MessageComponent{
-			discordgo.Container{
-				AccentColor: &accentColor,
-				Components:  []discordgo.MessageComponent{discordgo.TextDisplay{Content: completionMsg}},
+		components = []dc.LayoutComponent{
+			dc.Container{
+				AccentColor: accentColor,
+				Components:  []dc.ContainerSubComponent{dc.TextDisplay{Content: completionMsg}},
 			},
 		}
 	} else {
-		components = []discordgo.MessageComponent{
-			discordgo.TextDisplay{Content: pingHeader},
-			discordgo.Container{
-				AccentColor: &accentColor,
+		components = []dc.LayoutComponent{
+			dc.TextDisplay{Content: pingHeader},
+			dc.Container{
+				AccentColor: accentColor,
 				Components:  containerComps,
 			},
 		}
@@ -681,17 +675,16 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 	// Up to 2 rows of 5 buttons
 	for i := 0; i < len(buttons); i += 5 {
 		end := min(i+5, len(buttons))
-		components = append(components, discordgo.ActionsRow{
+		components = append(components, dc.ActionRow{
 			Components: buttons[i:end],
 		})
 	}
 
 	// Select menu to ping remaining players for a specific requester
 	if len(selectOptions) > 0 {
-		components = append(components, discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.SelectMenu{
-					MenuType:    discordgo.StringSelectMenu,
+		components = append(components, dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.SelectMenu{
 					CustomID:    fmt.Sprintf("rc_#CRPing#%s", contract.ContractHash),
 					Placeholder: "Ping remaining for...",
 					Options:     selectOptions,
@@ -703,12 +696,12 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]discord
 	return components, allAllowedMentions
 }
 
-func buttonReactionCRPing(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, cUserID string) {
-	if contract == nil || i == nil || i.Message == nil {
+func buttonReactionCRPing(client dc.Client, e *dc.ComponentEvent, contract *Contract, cUserID string) {
+	if contract == nil || e == nil || e.MessageID() == "" {
 		return
 	}
 
-	values := i.MessageComponentData().Values
+	values := e.Values()
 	if len(values) == 0 {
 		return
 	}
@@ -723,9 +716,9 @@ func buttonReactionCRPing(s *discordgo.Session, i *discordgo.InteractionCreate, 
 
 	_, _, pingIDs := buildChickenRunLists(contract, requesterUserID)
 	if len(pingIDs) == 0 {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: "No players remaining.",
-			Flags:   discordgo.MessageFlagsEphemeral,
+		_ = e.Followup(dc.Message{
+			Content:   "No players remaining.",
+			Ephemeral: true,
 		})
 		return
 	}
@@ -753,28 +746,28 @@ func buttonReactionCRPing(s *discordgo.Session, i *discordgo.InteractionCreate, 
 		presserMention = mb.Mention
 	}
 
-	msgLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", i.GuildID, i.ChannelID, i.Message.ID)
+	msgLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", e.GuildID(), e.ChannelID(), e.MessageID())
 	content := fmt.Sprintf(
 		"Hey %s! **%s** is waiting on you to run chickens. Those chickens aren't going to run themselves! %s\n Link: %s\n-# Ping requested by %s ",
 		strings.Join(mentions, " "), requesterName, ei.GetBotEmojiMarkdown("icon_chicken_run"), msgLink, presserMention)
-	if _, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
+	if _, err := client.SendMessage(e.ChannelID(), dc.Message{
 		Content:         content,
-		AllowedMentions: &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{discordgo.AllowedMentionTypeUsers}},
+		AllowedMentions: &dc.AllowedMentions{Parse: []dc.MentionType{dc.MentionUsers}},
 	}); err != nil {
 		log.Printf("buttonReactionCRPing send error: contractHash=%s channelID=%s requesterUserID=%s pingIDs=%v error=%v",
-			contract.ContractHash, i.ChannelID, requesterUserID, pingIDs, err)
+			contract.ContractHash, e.ChannelID(), requesterUserID, pingIDs, err)
 	}
 }
 
-func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, cUserID, requesterUserID string) {
+func buttonReactionRanChicken(client dc.Client, e *dc.ComponentEvent, contract *Contract, cUserID, requesterUserID string) {
 	defer func() {
 		if r := recover(); r != nil {
 			msgID := ""
 			channelID := ""
-			if i != nil {
-				channelID = i.ChannelID
-				if i.Message != nil {
-					msgID = i.Message.ID
+			if e != nil {
+				channelID = e.ChannelID()
+				if e.MessageID() != "" {
+					msgID = e.MessageID()
 				}
 			}
 			contractHash := ""
@@ -787,16 +780,16 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 		}
 	}()
 
-	if contract == nil || i == nil || i.Message == nil {
+	if contract == nil || e == nil || e.MessageID() == "" {
 		log.Printf("buttonReactionRanChicken invalid input: contractNil=%t interactionNil=%t messageNil=%t userID=%s",
-			contract == nil, i == nil, i == nil || i.Message == nil, cUserID,
+			contract == nil, e == nil, e == nil || e.MessageID() == "", cUserID,
 		)
 		return
 	}
 
 	if requesterUserID == "" {
 		log.Printf("buttonReactionRanChicken empty requesterUserID: contractHash=%s messageID=%s userID=%s",
-			contract.ContractHash, i.Message.ID, cUserID)
+			contract.ContractHash, e.MessageID(), cUserID)
 		return
 	}
 
@@ -848,37 +841,36 @@ func buttonReactionRanChicken(s *discordgo.Session, i *discordgo.InteractionCrea
 	// Find role mention for this channel to rebuild the header
 	var roleMention string
 	for _, loc := range contract.Location {
-		if loc.ChannelID == i.ChannelID {
+		if loc.ChannelID == e.ChannelID() {
 			roleMention = loc.RoleMention
 			break
 		}
 	}
 
 	components, allowedMentions := buildCRMessageComponents(contract, roleMention)
-	msgedit := discordgo.NewMessageEdit(i.ChannelID, i.Message.ID)
-	msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
-	msgedit.AllowedMentions = &discordgo.MessageAllowedMentions{Users: allowedMentions}
-	msgedit.Components = &components
-	if _, err := s.ChannelMessageEditComplex(msgedit); err != nil {
+	if _, err := client.EditMessage(e.ChannelID(), e.MessageID(), dc.Message{
+		Components:      components,
+		AllowedMentions: &dc.AllowedMentions{Users: allowedMentions},
+	}); err != nil {
 		log.Printf("ChannelMessageEditComplex error: contractHash=%s messageID=%s error=%v",
-			contract.ContractHash, i.Message.ID, err)
+			contract.ContractHash, e.MessageID(), err)
 	}
 
 	if newColor != oldColor {
 		saveData(contract.ContractHash)
-		refreshBoostListMessage(s, contract, false)
+		refreshBoostListMessage(client, contract, false)
 	}
 }
 
-func buttonReactionRanCoop(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, cUserID string) {
+func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Contract, cUserID string) {
 	defer func() {
 		if r := recover(); r != nil {
 			msgID := ""
 			channelID := ""
-			if i != nil {
-				channelID = i.ChannelID
-				if i.Message != nil {
-					msgID = i.Message.ID
+			if e != nil {
+				channelID = e.ChannelID()
+				if e.MessageID() != "" {
+					msgID = e.MessageID()
 				}
 			}
 			contractHash := ""
@@ -891,9 +883,9 @@ func buttonReactionRanCoop(s *discordgo.Session, i *discordgo.InteractionCreate,
 		}
 	}()
 
-	if contract == nil || i == nil || i.Message == nil {
+	if contract == nil || e == nil || e.MessageID() == "" {
 		log.Printf("buttonReactionRanCoop invalid input: contractNil=%t interactionNil=%t messageNil=%t userID=%s",
-			contract == nil, i == nil, i == nil || i.Message == nil, cUserID,
+			contract == nil, e == nil, e == nil || e.MessageID() == "", cUserID,
 		)
 		return
 	}
@@ -936,42 +928,41 @@ func buttonReactionRanCoop(s *discordgo.Session, i *discordgo.InteractionCreate,
 	newColor := getChickenRunAccentColor(contract)
 
 	// Determine the CR message ID to update for this channel
-	targetMsgID := contract.CRMessageIDs[i.ChannelID]
-	if targetMsgID == "" && i.Message != nil {
-		targetMsgID = i.Message.ID
+	targetMsgID := contract.CRMessageIDs[e.ChannelID()]
+	if targetMsgID == "" {
+		targetMsgID = e.MessageID()
 	}
 
 	if targetMsgID != "" {
 		// Find role mention for this channel to rebuild the header
 		var roleMention string
 		for _, loc := range contract.Location {
-			if loc.ChannelID == i.ChannelID {
+			if loc.ChannelID == e.ChannelID() {
 				roleMention = loc.RoleMention
 				break
 			}
 		}
 
 		components, allowedMentions := buildCRMessageComponents(contract, roleMention)
-		msgedit := discordgo.NewMessageEdit(i.ChannelID, targetMsgID)
-		msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
-		msgedit.AllowedMentions = &discordgo.MessageAllowedMentions{Users: allowedMentions}
-		msgedit.Components = &components
-		if _, err := s.ChannelMessageEditComplex(msgedit); err != nil {
-			log.Printf("ChannelMessageEditComplex error: contractHash=%s messageID=%s error=%v",
+		if _, err := client.EditMessage(e.ChannelID(), targetMsgID, dc.Message{
+			Components:      components,
+			AllowedMentions: &dc.AllowedMentions{Users: allowedMentions},
+		}); err != nil {
+			log.Printf("EditMessage error: contractHash=%s messageID=%s error=%v",
 				contract.ContractHash, targetMsgID, err)
 		}
 	}
 
 	saveData(contract.ContractHash)
 	if newColor != oldColor {
-		refreshBoostListMessage(s, contract, false)
+		refreshBoostListMessage(client, contract, false)
 	}
 }
 
-func buttonReactionHelp(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract) {
+func buttonReactionHelp(client dc.Client, e dc.InteractionEvent, contract *Contract) {
 	contract.HelpGuidanceUntil = time.Now().Add(10 * time.Minute)
 	saveData(contract.ContractHash)
-	refreshBoostListMessage(s, contract, false)
+	refreshBoostListMessage(client, contract, false)
 
 	chickMention, _, _ := ei.GetBotEmoji("runready")
 	var outputStr strings.Builder
@@ -1016,17 +1007,16 @@ func buttonReactionHelp(s *discordgo.Session, i *discordgo.InteractionCreate, co
 	outputStr.WriteString("Anyone can add a 🚽 reaction to express your urgency to boost next.\n")
 	outputStr.WriteString("Additional help through the **/help** command.\n")
 
-	_, err := s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Content: outputStr.String(),
-			Flags:   discordgo.MessageFlagsEphemeral,
-		})
+	err := e.Followup(dc.Message{
+		Content:   outputStr.String(),
+		Ephemeral: true,
+	})
 	if err != nil {
 		log.Print(err)
 	}
 }
 
-func buttonReactionComplain(s *discordgo.Session, contract *Contract, cUserID string) {
+func buttonReactionComplain(client dc.Client, contract *Contract, cUserID string) {
 	if !UserInContract(contract, cUserID) {
 		return
 	}
@@ -1061,12 +1051,10 @@ func buttonReactionComplain(s *discordgo.Session, contract *Contract, cUserID st
 		}
 	}
 
-	_, err = s.ChannelMessageSendComplex(contract.Location[0].ChannelID, &discordgo.MessageSend{
+	_, err = client.SendMessage(contract.Location[0].ChannelID, dc.Message{
 		Content: complaint,
-		AllowedMentions: &discordgo.MessageAllowedMentions{
-			Parse: []discordgo.AllowedMentionType{
-				discordgo.AllowedMentionTypeUsers,
-			},
+		AllowedMentions: &dc.AllowedMentions{
+			Parse: []dc.MentionType{dc.MentionUsers},
 		},
 	})
 	if err != nil {
@@ -1074,25 +1062,25 @@ func buttonReactionComplain(s *discordgo.Session, contract *Contract, cUserID st
 	}
 }
 
-func getContractReactionsComponents(contract *Contract) []discordgo.MessageComponent {
+func getContractReactionsComponents(contract *Contract) []dc.LayoutComponent {
 	compVals := contract.buttonComponents
 	if compVals == nil {
 		compVals = make(map[string]CompMap, 14)
-		compVals[boostIconReaction] = CompMap{Emoji: boostIconReaction, Style: discordgo.SecondaryButton, CustomID: "rc_#Boost#"}
-		compVals[contract.TokenStr] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("token"), Style: discordgo.SecondaryButton, CustomID: "rc_#token#"}
-		compVals["GG"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("std_gg"), Style: discordgo.SecondaryButton, CustomID: "rc_#2token#gg#"}
-		compVals["UG"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("ultra_gg"), Style: discordgo.SecondaryButton, CustomID: "rc_#2token#ug#"}
-		compVals["💰"] = CompMap{Emoji: "💰", Style: discordgo.SecondaryButton, CustomID: "rc_#bag#"}
-		compVals["🚚"] = CompMap{Emoji: "🚚", Style: discordgo.SecondaryButton, CustomID: "rc_#truck#"}
-		compVals["💃"] = CompMap{Emoji: "💃", Style: discordgo.SecondaryButton, CustomID: "rc_#tango#"}
-		compVals["🦵"] = CompMap{Emoji: "🦵", Style: discordgo.SecondaryButton, CustomID: "rc_#leg#"}
-		compVals["🔃"] = CompMap{Emoji: "🔃", Style: discordgo.SecondaryButton, CustomID: "rc_#swap#"}
-		compVals["⤵️"] = CompMap{Emoji: "⤵️", Style: discordgo.SecondaryButton, CustomID: "rc_#last#"}
-		compVals["🐓"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("runready"), Style: discordgo.SecondaryButton, CustomID: "rc_#cr#"}
-		compVals["✅"] = CompMap{Emoji: "✅", Style: discordgo.SecondaryButton, CustomID: "rc_#check#"}
-		compVals["❓"] = CompMap{Emoji: "❓", Style: discordgo.SecondaryButton, CustomID: "rc_#help#"}
-		compVals["📢"] = CompMap{Emoji: "📢", Style: discordgo.SecondaryButton, CustomID: "rc_#complain#"}
-		compVals["🚫"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("notoken"), Style: discordgo.SecondaryButton, CustomID: "rc_#notoken#"}
+		compVals[boostIconReaction] = CompMap{Emoji: boostIconReaction, Style: dc.ButtonSecondary, CustomID: "rc_#Boost#"}
+		compVals[contract.TokenStr] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("token"), Style: dc.ButtonSecondary, CustomID: "rc_#token#"}
+		compVals["GG"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("std_gg"), Style: dc.ButtonSecondary, CustomID: "rc_#2token#gg#"}
+		compVals["UG"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("ultra_gg"), Style: dc.ButtonSecondary, CustomID: "rc_#2token#ug#"}
+		compVals["💰"] = CompMap{Emoji: "💰", Style: dc.ButtonSecondary, CustomID: "rc_#bag#"}
+		compVals["🚚"] = CompMap{Emoji: "🚚", Style: dc.ButtonSecondary, CustomID: "rc_#truck#"}
+		compVals["💃"] = CompMap{Emoji: "💃", Style: dc.ButtonSecondary, CustomID: "rc_#tango#"}
+		compVals["🦵"] = CompMap{Emoji: "🦵", Style: dc.ButtonSecondary, CustomID: "rc_#leg#"}
+		compVals["🔃"] = CompMap{Emoji: "🔃", Style: dc.ButtonSecondary, CustomID: "rc_#swap#"}
+		compVals["⤵️"] = CompMap{Emoji: "⤵️", Style: dc.ButtonSecondary, CustomID: "rc_#last#"}
+		compVals["🐓"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("runready"), Style: dc.ButtonSecondary, CustomID: "rc_#cr#"}
+		compVals["✅"] = CompMap{Emoji: "✅", Style: dc.ButtonSecondary, CustomID: "rc_#check#"}
+		compVals["❓"] = CompMap{Emoji: "❓", Style: dc.ButtonSecondary, CustomID: "rc_#help#"}
+		compVals["📢"] = CompMap{Emoji: "📢", Style: dc.ButtonSecondary, CustomID: "rc_#complain#"}
+		compVals["🚫"] = CompMap{ComponentEmoji: ei.GetBotComponentEmoji("notoken"), Style: dc.ButtonSecondary, CustomID: "rc_#notoken#"}
 		contract.buttonComponents = compVals
 	}
 
@@ -1116,24 +1104,24 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 		}
 	}
 
-	out := []discordgo.MessageComponent{}
+	out := []dc.LayoutComponent{}
 
 	if contract.State != ContractStateSignup {
 
-		menuOptions := []discordgo.SelectMenuOption{}
+		menuOptions := []dc.SelectOption{}
 		/*
-			menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+			menuOptions = append(menuOptions, dc.SelectOption{
 				Label:       "Send 2 Tokens",
 				Description: "Sent 2 tokens to the current booster.",
 				Value:       "send2",
 				Emoji:       ei.GetBotComponentEmoji("token"),
 			})*/
 		if contract.State == ContractStateCompleted {
-			menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+			menuOptions = append(menuOptions, dc.SelectOption{
 				Label:       "Sync w/EI",
 				Description: "Add completion timestamp.",
 				Value:       "time",
-				Emoji:       &discordgo.ComponentEmoji{Name: "⏱️"},
+				Emoji:       &dc.Emoji{Name: "⏱️"},
 			})
 		}
 
@@ -1142,7 +1130,7 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 			for _, booster := range contract.Boosters {
 				if booster.TokenRequestFlag {
 					requestors = append(requestors, booster.Nick)
-					menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+					menuOptions = append(menuOptions, dc.SelectOption{
 						Label: fmt.Sprintf("Send %s a token", booster.Nick),
 						Value: fmt.Sprintf("send:%s", booster.UserID),
 						Emoji: ei.GetBotComponentEmoji("token"),
@@ -1151,14 +1139,14 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 			}
 
 			if len(requestors) == 0 {
-				menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+				menuOptions = append(menuOptions, dc.SelectOption{
 					Label: "Request a token",
 					Value: "want:",
 					Emoji: ei.GetBotComponentEmoji("token"),
 				})
 
 			} else {
-				menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+				menuOptions = append(menuOptions, dc.SelectOption{
 					Label:       "Request a token",
 					Description: fmt.Sprintf("%s can use to cancel request.", strings.Join(requestors, ", ")),
 					Value:       "want:",
@@ -1171,7 +1159,7 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 			if contract.State == ContractStateFastrun && currentIdx >= 0 && currentIdx < len(contract.Order)-1 {
 				b := contract.currentBooster()
 				if b != nil && b.TokensWanted <= b.TokensReceived {
-					menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+					menuOptions = append(menuOptions, dc.SelectOption{
 						Label:       fmt.Sprintf("Send %s a token", contract.Boosters[contract.Order[currentIdx+1]].Nick),
 						Description: fmt.Sprintf("Waiting on %s 🚀.", b.Nick),
 						Value:       fmt.Sprintf("next:%s", contract.Order[currentIdx+1]),
@@ -1183,80 +1171,81 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 		}
 
 		if contract.State == ContractStateFastrun {
-			menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+			menuOptions = append(menuOptions, dc.SelectOption{
 				Label: "Move to Last",
 				Value: "last",
-				Emoji: &discordgo.ComponentEmoji{Name: "⤵️"},
+				Emoji: &dc.Emoji{Name: "⤵️"},
 			})
-			menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+			menuOptions = append(menuOptions, dc.SelectOption{
 				Label: "Swap with Next",
 				Value: "swap",
-				Emoji: &discordgo.ComponentEmoji{Name: "🔃"},
+				Emoji: &dc.Emoji{Name: "🔃"},
 			})
 		}
-		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+		menuOptions = append(menuOptions, dc.SelectOption{
 			Label: "Help",
 			Value: "help",
-			Emoji: &discordgo.ComponentEmoji{Name: "❓"},
+			Emoji: &dc.Emoji{Name: "❓"},
 		})
-		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+		menuOptions = append(menuOptions, dc.SelectOption{
 			Label: "Token Log",
 			Value: "tlog",
 			Emoji: ei.GetBotComponentEmoji("token"),
 		})
-		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+		menuOptions = append(menuOptions, dc.SelectOption{
 			Label: "Toggle Reaction Log",
 			Value: "togglerxlog",
-			Emoji: &discordgo.ComponentEmoji{Name: "📊"},
+			Emoji: &dc.Emoji{Name: "📊"},
 		})
-		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+		menuOptions = append(menuOptions, dc.SelectOption{
 			Label: "My Chicken Runs",
 			Value: "mychickens",
 			Emoji: ei.GetBotComponentEmoji("icon_chicken_run"),
 		})
-		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+		menuOptions = append(menuOptions, dc.SelectOption{
 			Label: "Ran chickens early on all farms",
 			Value: "rancoop",
 			Emoji: ei.GetBotComponentEmoji("icon_chicken_run"),
 		})
-		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+		menuOptions = append(menuOptions, dc.SelectOption{
 			Label: "Coop Tools",
 			Value: "tools",
-			Emoji: &discordgo.ComponentEmoji{Name: "🧰"},
+			Emoji: &dc.Emoji{Name: "🧰"},
 		})
-		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+		menuOptions = append(menuOptions, dc.SelectOption{
 			Label: "SR Sandbox Link",
 			Value: "sandbox",
-			Emoji: &discordgo.ComponentEmoji{Name: "🌌"},
+			Emoji: &dc.Emoji{Name: "🌌"},
 		})
-		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+		menuOptions = append(menuOptions, dc.SelectOption{
 			Label: "X-Post Template",
 			Value: "xpost",
-			Emoji: &discordgo.ComponentEmoji{Name: "🖇️"},
+			Emoji: &dc.Emoji{Name: "🖇️"},
 		})
-		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+		menuOptions = append(menuOptions, dc.SelectOption{
 			Label: fmt.Sprintf("%s Grange", contract.Location[0].GuildContractRole.Name),
 			Value: "grange",
-			Emoji: &discordgo.ComponentEmoji{Name: "🧑‍🧑‍🧒‍🧒"},
+			Emoji: &dc.Emoji{Name: "🧑‍🧑‍🧒‍🧒"},
 		})
 		if contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy {
-			menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+			menuOptions = append(menuOptions, dc.SelectOption{
 				Label:       "IHR Calculation Details",
 				Description: "View IHR calculations for contract boosters",
 				Value:       "ihrlog",
 				Emoji:       ei.GetBotComponentEmoji("chalice_T4L"),
 			})
 		}
-		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
+		menuOptions = append(menuOptions, dc.SelectOption{
 			Label: "Admin Logs",
 			Value: "adminlogs",
-			Emoji: &discordgo.ComponentEmoji{Name: "📜"},
+			Emoji: &dc.Emoji{Name: "📜"},
 		})
 
+		// An explicit 0 is what lets the menu be deselected.
 		minValues := 0
-		out = append(out, discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.SelectMenu{
+		out = append(out, dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.SelectMenu{
 					CustomID:    "menu#" + contract.ContractHash,
 					Placeholder: "Boost Menu",
 					MinValues:   &minValues,
@@ -1268,7 +1257,7 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 	}
 
 	for _, row := range iconsRow {
-		var mComp []discordgo.MessageComponent
+		var mComp []dc.InteractiveComponent
 		for _, el := range row {
 			// if compVals[el] is not found, it will panic
 			if _, ok := compVals[el]; !ok {
@@ -1276,7 +1265,7 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 				continue
 			}
 			if compVals[el].Emoji == "" {
-				mComp = append(mComp, discordgo.Button{
+				mComp = append(mComp, dc.Button{
 					//Label: "Send a Token",
 					Emoji:    compVals[el].ComponentEmoji,
 					Style:    compVals[el].Style,
@@ -1284,9 +1273,9 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 				})
 
 			} else {
-				mComp = append(mComp, discordgo.Button{
+				mComp = append(mComp, dc.Button{
 					Label: compVals[el].Name,
-					Emoji: &discordgo.ComponentEmoji{
+					Emoji: &dc.Emoji{
 						Name: compVals[el].Emoji,
 						ID:   compVals[el].ID,
 					},
@@ -1296,9 +1285,8 @@ func getContractReactionsComponents(contract *Contract) []discordgo.MessageCompo
 			}
 		}
 
-		actionRow := discordgo.ActionsRow{Components: mComp}
-		if len(actionRow.Components) > 0 {
-			out = append(out, actionRow)
+		if len(mComp) > 0 {
+			out = append(out, dc.ActionRow{Components: mComp})
 		}
 	}
 
@@ -1387,7 +1375,7 @@ func scheduleCoopStatusPoll(contract *Contract) {
 	})
 }
 
-func sendOrUpdateUserReactionSummary(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, userID string) {
+func sendOrUpdateUserReactionSummary(e *dc.ComponentEvent, contract *Contract, userID string) {
 	if contract == nil {
 		return
 	}
@@ -1457,10 +1445,7 @@ func sendOrUpdateUserReactionSummary(s *discordgo.Session, i *discordgo.Interact
 	edited := false
 
 	if existingMsgID != "" {
-		edit := discordgo.WebhookEdit{
-			Content: &content,
-		}
-		if _, err := s.FollowupMessageEdit(i.Interaction, existingMsgID, &edit); err == nil {
+		if err := e.EditFollowup(existingMsgID, dc.Message{Content: content}); err == nil {
 			edited = true
 		} else {
 			contract.mutex.Lock()
@@ -1472,9 +1457,9 @@ func sendOrUpdateUserReactionSummary(s *discordgo.Session, i *discordgo.Interact
 	}
 
 	if !edited {
-		msg, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: content,
-			Flags:   discordgo.MessageFlagsEphemeral,
+		msg, err := e.FollowupMessage(dc.Message{
+			Content:   content,
+			Ephemeral: true,
 		})
 		if err == nil && msg != nil {
 			contract.mutex.Lock()
@@ -1486,7 +1471,7 @@ func sendOrUpdateUserReactionSummary(s *discordgo.Session, i *discordgo.Interact
 	}
 }
 
-func buttonReactionNonToken(s *discordgo.Session, i *discordgo.InteractionCreate, contract *Contract, userID string) {
+func buttonReactionNonToken(client dc.Client, e *dc.ComponentEvent, contract *Contract, userID string) {
 	if !UserInContract(contract, userID) {
 		return
 	}
@@ -1498,7 +1483,7 @@ func buttonReactionNonToken(s *discordgo.Session, i *discordgo.InteractionCreate
 	}
 	contract.mutex.Unlock()
 
-	guildID := i.GuildID
+	guildID := e.GuildID()
 	if guildID == "" && len(contract.Location) > 0 {
 		guildID = contract.Location[0].GuildID
 	}
@@ -1517,5 +1502,5 @@ func buttonReactionNonToken(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	}
 
-	sendOrUpdateUserReactionSummary(s, i, contract, userID)
+	sendOrUpdateUserReactionSummary(e, contract, userID)
 }

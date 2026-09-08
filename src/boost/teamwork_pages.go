@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/rs/xid"
 )
 
@@ -28,7 +28,7 @@ type teamworkCache struct {
 	public              bool
 	names               []string
 	fields              map[string][]TeamworkOutputData
-	scorefields         map[string]discordgo.MessageComponent
+	scorefields         map[string]dc.LayoutComponent
 }
 
 var teamworkCacheMap = make(map[string]teamworkCache)
@@ -44,25 +44,24 @@ func buildTeamworkCache(s string, fields map[string][]TeamworkOutputData) teamwo
 	sort.Strings(keys)
 
 	// Initialize the scorefields map
-	scoreFields := make(map[string]discordgo.MessageComponent)
+	scoreFields := make(map[string]dc.LayoutComponent)
 
 	// Traverse the fields map and look for the field with Name "Contract Score"
 	for key, fieldList := range fields {
 		for _, field := range fieldList {
 			// Check if the field is a TextDisplay or a container with components
-			// MessageComponent
+			// LayoutComponent
 			//   Container
 			//     TextDisplay
 			//     TextDisplay
-			mycolor := 0xffaa00
 			if field.Title == "Contract Score" {
-				scoreFields[key] = discordgo.Container{
-					AccentColor: &mycolor,
-					Components: []discordgo.MessageComponent{
-						discordgo.TextDisplay{
+				scoreFields[key] = dc.Container{
+					AccentColor: 0xffaa00,
+					Components: []dc.ContainerSubComponent{
+						dc.TextDisplay{
 							Content: field.Title,
 						},
-						discordgo.TextDisplay{
+						dc.TextDisplay{
 							Content: field.Content,
 						},
 					},
@@ -85,14 +84,14 @@ func buildTeamworkCache(s string, fields map[string][]TeamworkOutputData) teamwo
 	}
 }
 
-func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newMessage bool, xid string, refresh bool, toggle bool, drawButtons bool) {
+func sendTeamworkPage(e dc.InteractionEvent, newMessage bool, xid string, refresh bool, toggle bool, drawButtons bool) {
 	cache, exists := teamworkCacheMap[xid]
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{})
+	_ = e.Followup(dc.Message{})
 
 	if exists && (refresh || cache.expirationTimestamp.Before(time.Now())) {
 
-		s1, fields, _ := DownloadCoopStatusTeamwork(i.ChannelID, cache.contractID, cache.coopID, true, cache.eiID)
+		s1, fields, _ := DownloadCoopStatusTeamwork(e.ChannelID(), cache.contractID, cache.coopID, true, cache.eiID)
 		newCache := buildTeamworkCache(s1, fields)
 
 		newCache.public = cache.public
@@ -112,28 +111,16 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 
 	if !exists {
 		str := fmt.Sprintf("The teamwork data has expired. Please re-run the %s command.", bottools.GetFormattedCommand("teamwork"))
-		comp := []discordgo.MessageComponent{}
-		comp = append(comp, discordgo.TextDisplay{
-			Content: str,
+
+		err := e.EditFollowup(e.MessageID(), dc.Message{
+			Components: []dc.LayoutComponent{
+				dc.TextDisplay{Content: str},
+			},
 		})
-
-		d2 := discordgo.WebhookEdit{
-			Components: &comp,
-		}
-
-		_, err := s.FollowupMessageEdit(i.Interaction, i.Message.ID, &d2)
 		if err != nil {
 			log.Println(err)
 		}
 
-		/*
-			time.AfterFunc(10*time.Second, func() {
-				err := s.FollowupMessageDelete(i.Interaction, i.Message.ID)
-				if err != nil {
-					log.Println(err)
-				}
-			})
-		*/
 		return
 	}
 
@@ -142,56 +129,48 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 		teamworkCacheMap[cache.xid] = cache
 	}
 
-	flags := discordgo.MessageFlagsEphemeral
-	if cache.public {
-		flags = 0
-	}
+	ephemeral := !cache.public
 
 	if cache.page < 0 || cache.page >= cache.pages {
 		cache.page = 0
 	}
 
-	var comp []discordgo.MessageComponent
-	comp = append(comp, discordgo.TextDisplay{
+	var comp []dc.LayoutComponent
+	comp = append(comp, dc.TextDisplay{
 		Content: cache.header,
 	})
 
 	if len(cache.names) != 0 {
 		key := cache.names[cache.page]
 		field := cache.fields[key]
-		var container discordgo.Container
 		// Need to make a component list of the field data.
 		// First element of this is th player name
-		var bodyText []discordgo.MessageComponent
-		bodyText = append(bodyText, discordgo.TextDisplay{
+		var bodyText []dc.ContainerSubComponent
+		bodyText = append(bodyText, dc.TextDisplay{
 			Content: "## " + field[0].Content,
 		})
 		for _, f := range field[1:] {
 			// Section header - should be a Label but that's not in the library yet.
-			bodyText = append(bodyText, discordgo.TextDisplay{
+			bodyText = append(bodyText, dc.TextDisplay{
 				Content: fmt.Sprintf("### %s\n%s\n", f.Title, f.Content),
 			})
 		}
 
-		myColor := 0xffaa00
-		container = discordgo.Container{
+		comp = append(comp, dc.Container{
 			Components:  bodyText,
-			AccentColor: &myColor,
-		}
-		comp = append(comp, container)
+			AccentColor: 0xffaa00,
+		})
+	}
+
+	if drawButtons {
+		comp = append(comp, getTeamworkComponents(cache.xid, cache.page, cache.pages)...)
 	}
 
 	if newMessage {
-
-		if drawButtons {
-			comp = append(comp, getTeamworkComponents(cache.xid, cache.page, cache.pages)...)
-		}
-
-		msg, err := s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Flags:      flags | discordgo.MessageFlagsIsComponentsV2,
-				Components: comp,
-			})
+		msg, err := e.FollowupMessage(dc.Message{
+			Ephemeral:  ephemeral,
+			Components: comp,
+		})
 		if err != nil {
 			log.Println(err)
 		} else {
@@ -199,16 +178,10 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 		}
 
 	} else {
-		if drawButtons {
-			comp = append(comp, getTeamworkComponents(cache.xid, cache.page, cache.pages)...)
-		}
-
-		d2 := discordgo.WebhookEdit{
-			Flags:      flags | discordgo.MessageFlagsIsComponentsV2,
-			Components: &comp,
-		}
-
-		_, err := s.FollowupMessageEdit(i.Interaction, i.Message.ID, &d2)
+		err := e.EditFollowup(e.MessageID(), dc.Message{
+			Ephemeral:  ephemeral,
+			Components: comp,
+		})
 		if err != nil {
 			log.Println(err)
 		}
@@ -223,20 +196,15 @@ func sendTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate, newM
 	teamworkCacheMap[cache.xid] = cache
 }
 
-// HandleTeamworkPage steps a page of cached teamwork data
-func HandleTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleTeamworkPage steps a page of cached teamwork data through the dc
+// facade.
+func HandleTeamworkPage(e *dc.ComponentEvent) {
 	// cs_#Name # cs_#ID # HASH
 	refresh := false
 	toggle := false
-	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
+	reaction := strings.Split(e.CustomID(), "#")
 
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{
-			Content:    "",
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
-	})
+	err := e.DeferUpdate()
 
 	drawButtons := true
 	if err != nil {
@@ -251,48 +219,44 @@ func HandleTeamworkPage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if len(reaction) == 3 && reaction[2] == "close" {
 		drawButtons = false
 	}
-	sendTeamworkPage(s, i, false, reaction[1], refresh, toggle, drawButtons)
+	sendTeamworkPage(e, false, reaction[1], refresh, toggle, drawButtons)
 
 	if !drawButtons {
 		delete(teamworkCacheMap, reaction[1])
 	}
 }
 
-// getTokenValComponents returns the components for the token value
-func getTeamworkComponents(name string, page int, pageEnd int) []discordgo.MessageComponent {
-	var buttons []discordgo.Button
+// getTeamworkComponents returns the components for the token value
+func getTeamworkComponents(name string, page int, pageEnd int) []dc.LayoutComponent {
+	var buttons []dc.InteractiveComponent
 
 	if pageEnd != 0 {
-		buttons = append(buttons, discordgo.Button{
+		buttons = append(buttons, dc.Button{
 			Label:    fmt.Sprintf("Page %d/%d", page+1, pageEnd),
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("fd_teamwork#%s", name),
 		})
 	}
 	buttons = append(buttons,
-		discordgo.Button{
+		dc.Button{
 			Label:    "Refresh",
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("fd_teamwork#%s#refresh", name),
 		})
 	/*
 		buttons = append(buttons,
-			discordgo.Button{
+			dc.Button{
 				Label:    "Scores Toggle",
-				Style:    discordgo.SecondaryButton,
+				Style:    dc.ButtonSecondary,
 				CustomID: fmt.Sprintf("fd_teamwork#%s#toggle", name),
 			})
 	*/
 	buttons = append(buttons,
-		discordgo.Button{
+		dc.Button{
 			Label:    "Close",
-			Style:    discordgo.DangerButton,
+			Style:    dc.ButtonDanger,
 			CustomID: fmt.Sprintf("fd_teamwork#%s#close", name),
 		})
 
-	var components []discordgo.MessageComponent
-	for _, button := range buttons {
-		components = append(components, button)
-	}
-	return []discordgo.MessageComponent{discordgo.ActionsRow{Components: components}}
+	return []dc.LayoutComponent{dc.ActionRow{Components: buttons}}
 }

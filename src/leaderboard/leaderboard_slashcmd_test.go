@@ -17,7 +17,7 @@ func TestBuildAutocompleteChoices_DefaultShowsGroups(t *testing.T) {
 	}
 
 	for _, c := range choices {
-		if _, ok := groupKeys[c.Value.(string)]; !ok {
+		if _, ok := groupKeys[c.Value]; !ok {
 			t.Fatalf("expected only group values for empty autocomplete, got %q", c.Value)
 		}
 	}

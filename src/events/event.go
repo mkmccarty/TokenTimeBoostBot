@@ -4,82 +4,67 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-
-	"github.com/bwmarrin/discordgo"
 )
 
 // SlashEventHelperCommand returns the command for the /launch-helper command
-func SlashEventHelperCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
+func SlashEventHelperCommand(cmd string) *dc.Command {
+	command := dc.Command{
 		Name:        cmd,
 		Description: "Display Last Event(s) and current Event(s) information.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
+		Contexts: []dc.InteractionContext{
+			dc.ContextGuild,
+			dc.ContextBotDM,
+			dc.ContextPrivateChannel,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
+		IntegrationTypes: []dc.IntegrationType{
+			dc.IntegrationGuildInstall,
+			dc.IntegrationUserInstall,
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
+		Options: []dc.Option{
+			dc.BoolOption{
 				Name:        "ultra",
 				Description: "Show ultra event info. Default is false. [Sticky]",
 				Required:    false,
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
+			dc.BoolOption{
 				Name:        "private",
 				Description: "Private reply, default is false. [Sticky]",
 				Required:    false,
 			},
 		},
 	}
+	return &command
 }
 
-// HandleEventHelper handles the /launch-helper command
-func HandleEventHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleEventHelperCommand handles the /launch-helper command through the dc facade.
+func HandleEventHelperCommand(e *dc.CommandEvent) {
 	ultraIcon, _, _ := ei.GetBotEmoji("ultra")
 
-	userID := bottools.GetInteractionUserID(i)
+	userID := e.UserID()
 
-	optionMap := bottools.GetCommandOptionsMap(i)
 	privateReply := false
 
 	ultra := false
-	if opt, ok := optionMap["ultra"]; ok {
-		ultra = opt.BoolValue()
+	if opt, ok := e.OptBool("ultra"); ok {
+		ultra = opt
 		farmerstate.SetMiscSettingFlag(userID, "ultra", ultra)
 	} else {
 		ultra = farmerstate.GetMiscSettingFlag(userID, "ultra")
 	}
-	if opt, ok := optionMap["private"]; ok {
-		privateReply = opt.BoolValue()
+	if opt, ok := e.OptBool("private"); ok {
+		privateReply = opt
 		farmerstate.SetMiscSettingFlag(userID, "event-private", privateReply)
 	} else {
 		privateReply = farmerstate.GetMiscSettingFlag(userID, "event-private")
 	}
 
-	flags := discordgo.MessageFlagsEphemeral
-	if !privateReply {
-		flags = 0
-	}
+	_ = e.Defer(privateReply)
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   flags, //discordgo.MessageFlagsEphemeral,
-		},
-	})
-
-	var field []*discordgo.MessageEmbedField
+	var field []dc.EmbedField
 	var events strings.Builder
 
 	ei.EventMutex.Lock()
@@ -139,7 +124,7 @@ func HandleEventHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 		/*
 			if len(prevEvents.String()) > 900 {
-				field = append(field, &discordgo.MessageEmbedField{
+				field = append(field, dc.EmbedField{
 					Name:   "Event History",
 					Value:  prevEvents.String(),
 					Inline: false,
@@ -149,14 +134,14 @@ func HandleEventHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			}*/
 	}
 
-	field = append(field, &discordgo.MessageEmbedField{
+	field = append(field, dc.EmbedField{
 		Name:   "Event History",
 		Value:  prevEvents.String(),
 		Inline: false,
 	})
 
 	if ultra {
-		field = append(field, &discordgo.MessageEmbedField{
+		field = append(field, dc.EmbedField{
 			Name:   "Ultra Event History" + continuedStr,
 			Value:  ultraEvents.String(),
 			Inline: false,
@@ -169,14 +154,12 @@ func HandleEventHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		events.WriteString(")")
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Content: events.String() + "\n\n",
-			Embeds: []*discordgo.MessageEmbed{{
-				Type:   discordgo.EmbedTypeRich,
-				Color:  0x0055FF,
-				Fields: field,
-			}},
-		})
+	_ = e.Followup(dc.Message{
+		Content: events.String() + "\n\n",
+		Embeds: []dc.Embed{{
+			Color:  0x0055FF,
+			Fields: field,
+		}},
+	})
 
 }

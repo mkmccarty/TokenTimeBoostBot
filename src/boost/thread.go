@@ -6,61 +6,48 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 // GetSlashRenameThread is the definition of the slash command
-func GetSlashRenameThread(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Rename Boost Bot created contract thread.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "thread-name",
-				Description: "The name of the thread. Enter `help` for more information.",
-				Required:    true,
-			},
+func GetSlashRenameThread(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Rename Boost Bot created contract thread.")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:        "thread-name",
+			Description: "The name of the thread. Enter `help` for more information.",
+			Required:    true,
 		},
 	}
+	return &command
 }
 
 // HandleRenameThreadCommand will handle the thread rename command
-func HandleRenameThreadCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	//var builder strings.Builder
-	optionMap := bottools.GetCommandOptionsMap(i)
-
+func HandleRenameThreadCommand(client dc.Client, e *dc.CommandEvent) {
 	var threadName string
 	var builder strings.Builder
 
-	if opt, ok := optionMap["thread-name"]; ok {
-		threadName = opt.StringValue()
+	if opt, ok := e.OptString("thread-name"); ok {
+		threadName = opt
 	}
 
 	setName := true
 
 	// Command will only work in a thread
-	ch, err := s.Channel(i.ChannelID)
-	if err != nil || !ch.IsThread() {
+	ch, err := client.Channel(e.ChannelID())
+	if err != nil || !ch.IsThread {
 		fmt.Fprint(&builder, "This command can only be used in a thread, ")
 		setName = false
 	}
 	// Requires a contract
-	c := FindContract(i.ChannelID)
+	c := FindContract(e.ChannelID())
 	if c == nil {
 		fmt.Fprint(&builder, "There is no contract in this thread.")
 		setName = false
 	} else {
-		userID := getInteractionUserID(i)
+		userID := e.UserID()
 		// if member is not the contract owner or in the contract, then return
-		if !creatorOfContract(s, c, userID) && slices.Index(c.Order, userID) == -1 {
+		if !creatorOfContract(client, c, userID) && slices.Index(c.Order, userID) == -1 {
 			fmt.Fprint(&builder, "This command can only be used by the contract owner or a member of the contract.")
 			setName = false
 		}
@@ -93,12 +80,9 @@ func HandleRenameThreadCommand(s *discordgo.Session, i *discordgo.InteractionCre
 		}
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:    builder.String(),
-			Flags:      discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{}},
+	_ = e.Respond(dc.Message{
+		Content:   builder.String(),
+		Ephemeral: true,
 	})
 }
 

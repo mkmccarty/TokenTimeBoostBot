@@ -9,17 +9,16 @@ import (
 	"os"
 	"os/signal"
 	"slices"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
 	_ "time/tzdata"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dashboard"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
@@ -129,7 +128,14 @@ const slashRoll string = "roll"
 const slashWatch string = "watch"
 
 // const slashSignup string = "signup"
-var s *discordgo.Session
+var bot = dc.NewBot()
+
+// gatewayIntents is the event subscription the bot identifies with.
+const gatewayIntents = dc.IntentGuilds |
+	dc.IntentGuildMessages |
+	dc.IntentDirectMessages |
+	dc.IntentGuildMessageReactions |
+	dc.IntentDirectMessageReactions
 
 // Version is set by the build system
 var Version = "development"
@@ -216,22 +222,11 @@ func init() {
 
 	bottools.SyncCustomBannerCallback = farmerstate.SyncCustomBanner
 	bottools.RefreshGuildContractsForBannerCallback = func(guildID string) {
-		boost.RefreshGuildContractsForBannerUpdate(s, guildID)
+		boost.RefreshGuildContractsForBannerUpdate(botClient(), guildID)
 	}
 }
 
 func init() {
-	var err error
-
-	s, err = discordgo.New("Bot " + *BotToken)
-	if err != nil {
-		log.Fatalf("Invalid bot parameters: %v", err)
-	}
-	s.Identify.Intents = discordgo.IntentsGuilds |
-		discordgo.IntentsGuildMessages |
-		discordgo.IntentsDirectMessages |
-		discordgo.IntentsGuildMessageReactions |
-		discordgo.IntentsDirectMessageReactions
 	// if ttbb-data directory doesn't exist, create it
 	if _, err := os.Stat("ttbb-data"); os.IsNotExist(err) {
 		err := os.Mkdir("ttbb-data", 0755)
@@ -248,67 +243,69 @@ var (
 	AppID          = flag.String("app", "", "Application ID")
 	RemoveCommands = flag.Bool("rmcmd", false, "Remove all commands after shutdowning or not")
 
-	commandRegistry      []CommandDef
-	adminCommands        []*discordgo.ApplicationCommand
-	globalCommands       []*discordgo.ApplicationCommand
-	commands             []*discordgo.ApplicationCommand
-	commandHandlers      = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
-	autocompleteHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
+	commandRegistry []CommandDef
+	adminCommands   []*dc.Command
+	globalCommands  []*dc.Command
+	commands        []*dc.Command
+
+	// Define the handlers for modal submissions
+	modalHandlers = map[string]func(*dc.ModalEvent){
+		"m_eggid":     boost.HandleEggIDModalSubmit,
+		"m_threshold": func(e *dc.ModalEvent) { boost.HandleThresholdModalSubmit(botClient(), e) },
+	}
 
 	// Define the handlers for component interactions
-	componentHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"fd_tokens4": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.AddBoostTokensInteraction(s, i, 4, 0)
+	componentHandlers = map[string]func(*dc.ComponentEvent){
+		"fd_tokens4": func(e *dc.ComponentEvent) {
+			boost.AddBoostTokensInteraction(botClient(), e, 4, 0)
 		},
-		"fd_tokens5": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.AddBoostTokensInteraction(s, i, 5, 0)
+		"fd_tokens5": func(e *dc.ComponentEvent) {
+			boost.AddBoostTokensInteraction(botClient(), e, 5, 0)
 		},
-		"fd_tokens6": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.AddBoostTokensInteraction(s, i, 6, 0)
+		"fd_tokens6": func(e *dc.ComponentEvent) {
+			boost.AddBoostTokensInteraction(botClient(), e, 6, 0)
 		},
-		"fd_tokens8": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.AddBoostTokensInteraction(s, i, 8, 0)
+		"fd_tokens8": func(e *dc.ComponentEvent) {
+			boost.AddBoostTokensInteraction(botClient(), e, 8, 0)
 		},
-		"fd_tokens1": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.AddBoostTokensInteraction(s, i, 0, 1)
+		"fd_tokens1": func(e *dc.ComponentEvent) {
+			boost.AddBoostTokensInteraction(botClient(), e, 0, 1)
 		},
-		"fd_tokens_sub": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			boost.AddBoostTokensInteraction(s, i, 0, -1)
+		"fd_tokens_sub": func(e *dc.ComponentEvent) {
+			boost.AddBoostTokensInteraction(botClient(), e, 0, -1)
 		},
-		"fd_restart":              boost.HandleRestartContract,
-		"fd_delete":               boost.HandleContractDelete,
-		"rc_":                     boost.HandleContractReactions,
-		"menu":                    boost.HandleMenuReactions,
-		"cs_":                     boost.HandleContractSettingsReactions,
-		"as_":                     boost.HandleArtifactReactions,
-		"fd_stones":               boost.HandleStonesPage,
+		"fd_restart":              func(e *dc.ComponentEvent) { boost.HandleRestartContract(botClient(), e) },
+		"fd_delete":               func(e *dc.ComponentEvent) { boost.HandleContractDelete(botClient(), e) },
+		"rc_":                     func(e *dc.ComponentEvent) { boost.HandleContractReactions(botClient(), e) },
+		"menu":                    func(e *dc.ComponentEvent) { boost.HandleMenuReactions(botClient(), e) },
+		"cs_":                     func(e *dc.ComponentEvent) { boost.HandleContractSettingsReactions(botClient(), e) },
+		"as_":                     func(e *dc.ComponentEvent) { boost.HandleArtifactReactions(botClient(), e) },
+		"fd_stones":               func(e *dc.ComponentEvent) { boost.HandleStonesPage(botClient(), e) },
 		"fd_teamwork":             boost.HandleTeamworkPage,
 		"fd_playground":           boost.HandleScoreExplorerPage,
-		"bo_order":                boost.HandleBoostOrderReactions,
+		"bo_order":                func(e *dc.ComponentEvent) { boost.HandleBoostOrderReactions(botClient(), e) },
 		"predictions":             boost.HandlePredictionsPage,
-		"pred":                    boost.HandlePredPage,
+		"pred":                    func(e *dc.ComponentEvent) { boost.HandlePredPage(botClient(), e) },
 		"leaderboard":             boost.HandleLeaderboardPage,
-		"active-contracts":        boost.HandleActiveContractsPage,
-		"admin-contract-list":     boost.HandleAdminContractListComponent,
-		"admin_exit":              boost.HandleAdminExitButton,
-		"fd_signupStart":          boost.HandleSignupStart,
-		"fd_signupFarmer":         boost.HandleSignupFarmer,
-		"fd_signupBell":           boost.HandleSignupBell,
-		"m_eggid":                 boost.HandleEggIDModalSubmit,
-		"m_threshold":             boost.HandleThresholdModalSubmit,
-		"fd_signupLeave":          boost.HandleSignupLeave,
+		"active-contracts":        func(e *dc.ComponentEvent) { boost.HandleActiveContractsPage(botClient(), e) },
+		"admin-contract-list":     func(e *dc.ComponentEvent) { boost.HandleAdminContractListComponent(botClient(), e) },
+		"admin_exit":              func(e *dc.ComponentEvent) { boost.HandleAdminExitButton(botClient(), e) },
+		"fd_signupStart":          func(e *dc.ComponentEvent) { boost.HandleSignupStart(botClient(), e) },
+		"fd_signupFarmer":         func(e *dc.ComponentEvent) { boost.HandleSignupFarmer(botClient(), e) },
+		"fd_signupBell":           func(e *dc.ComponentEvent) { boost.HandleSignupBell(botClient(), e) },
+		"fd_signupLeave":          func(e *dc.ComponentEvent) { boost.HandleSignupLeave(botClient(), e) },
 		"csestimate":              boost.HandleCsEstimateButtons,
 		"lobby":                   boost.HandleLobbyButtons,
 		"coop_status":             boost.HandleCoopStatusPermissionButton,
 		"leaderboard_perm":        boost.HandleLeaderboardPermissionButton,
-		"timer_btn":               dashboard.HandleTimerInteraction,
-		"dashboard_btn":           dashboard.HandleDashboardInteraction,
-		"mint_preview":            mint.HandleMintPreviewComponent,
+		"timer_btn":               func(e *dc.ComponentEvent) { dashboard.HandleTimerInteraction(botClient(), e) },
+		"dashboard_btn":           func(e *dc.ComponentEvent) { dashboard.HandleDashboardComponent(botClient(), e) },
+		"mint_preview":            mint.HandleMintPreview,
 		"chart":                   boost.HandleChartReactions,
 		"lb_list":                 leaderboard.HandleLBListComponent,
 		"lb_stats":                leaderboard.HandleLBStatsComponent,
 		"lb_p":                    leaderboard.HandleLBPageButton,
-		"watch-dismiss":           watch.HandleDismiss,
+		"watch-dismiss":           func(e *dc.ComponentEvent) { watch.HandleDismiss(botClient(), e) },
 		"watch-keep":              watch.HandleKeep,
 		"watch-clear":             watch.HandleClear,
 		"watch-page":              watch.HandlePage,
@@ -320,8 +317,8 @@ var (
 		"watch-toggle-sort":       watch.HandleToggleSort,
 		"watch-toggle-ultra":      watch.HandleToggleUltra,
 		"watch-clear-confirm":     watch.HandleClearConfirm,
-		"watch-test-contract":     watch.HandleTestContract,
-		"watch-test-colleggtible": watch.HandleTestColleggtible,
+		"watch-test-contract":     func(e *dc.ComponentEvent) { watch.HandleTestContract(botClient(), e) },
+		"watch-test-colleggtible": func(e *dc.ComponentEvent) { watch.HandleTestColleggtible(botClient(), e) },
 	}
 )
 
@@ -339,10 +336,17 @@ const (
 
 // CommandDef represents a Discord application command definition
 type CommandDef struct {
-	AppCmd       *discordgo.ApplicationCommand
+	AppCmd       *dc.Command
 	Category     CommandCategory
-	Handler      func(s *discordgo.Session, i *discordgo.InteractionCreate)
-	Autocomplete func(s *discordgo.Session, i *discordgo.InteractionCreate)
+	Handler      func(*dc.CommandEvent)
+	Autocomplete func(*dc.AutocompleteEvent)
+}
+
+// botClient is the facade's REST surface for the running gateway session. The
+// component and command closures below call it lazily because the session is
+// not open when the handler table is built.
+func botClient() dc.Client {
+	return bot.Client()
 }
 
 func setupCommands() {
@@ -351,17 +355,17 @@ func setupCommands() {
 		{
 			AppCmd:   boost.GetSlashAdminContractsListCommand(slashAdminContractsList),
 			Category: CmdCategoryAdmin,
-			Handler:  boost.HandleAdminContractList,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleAdminContractList(botClient(), e) },
 		},
 		{
 			AppCmd:   tasks.GetSlashReloadContractsCommand(slashReloadContracts),
 			Category: CmdCategoryAdmin,
-			Handler:  tasks.HandleReloadContractsCommand,
+			Handler:  func(e *dc.CommandEvent) { tasks.HandleReloadContracts(botClient(), e) },
 		},
 		{
 			AppCmd:   tasks.GetSlashForceDownloadCommand(slashAdminForceDownload),
 			Category: CmdCategoryAdmin,
-			Handler:  tasks.HandleForceDownloadCommand,
+			Handler:  func(e *dc.CommandEvent) { tasks.HandleForceDownload(botClient(), e) },
 		},
 		{
 			AppCmd:       boost.SlashAdminGetContractData(slashAdminGetContractData),
@@ -372,85 +376,85 @@ func setupCommands() {
 		{
 			AppCmd:       boost.SlashAdminListRoles(slashAdminListRoles),
 			Category:     CmdCategoryAdmin,
-			Handler:      boost.HandleAdminListRoles,
+			Handler:      func(e *dc.CommandEvent) { boost.HandleAdminListRoles(botClient(), e) },
 			Autocomplete: boost.HandleContractAutoComplete,
 		},
 		{
 			AppCmd:       boost.SlashAdminGuildStateCommand(slashAdminGuildstate),
 			Category:     CmdCategoryAdmin,
-			Handler:      boost.HandleAdminGuildStateCommand,
-			Autocomplete: boost.HandleAdminGuildStateAutoComplete,
+			Handler:      func(e *dc.CommandEvent) { boost.HandleAdminGuildStateCommand(botClient(), e) },
+			Autocomplete: func(e *dc.AutocompleteEvent) { boost.HandleAdminGuildStateAutoComplete(botClient(), e) },
 		},
 		{
 			AppCmd:   boost.SlashAdminMembers(slashAdminMembers),
 			Category: CmdCategoryAdmin,
-			Handler:  boost.HandleAdminMembers,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleAdminMembers(botClient(), e) },
 		},
 		{
 			AppCmd:   guildstate.SlashCoordinatorsCommand(slashAdminCoordinator),
 			Category: CmdCategoryAdmin,
-			Handler:  guildstate.HandleCoordinators,
+			Handler:  func(e *dc.CommandEvent) { guildstate.HandleCoordinators(botClient(), e) },
 		},
 		{
 			AppCmd:   boost.SlashAdminCurrentContracts(slashActiveContracts),
 			Category: CmdCategoryAdmin,
-			Handler:  boost.HandleAdminCurrentContracts,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleAdminCurrentContracts(botClient(), e) },
 		},
 		{
 			AppCmd:       boost.SlashAdminStatusMessageCommand(slashStatusMessage),
 			Category:     CmdCategoryAdmin,
-			Handler:      boost.HandleAdminStatusMessageCommand,
+			Handler:      func(e *dc.CommandEvent) { boost.HandleAdminStatusMessageCommand(botClient(), e) },
 			Autocomplete: boost.HandleAdminStatusMessageAutoComplete,
 		},
 		{
 			AppCmd:   boost.SlashAdminExitCommand(slashAdminExit),
 			Category: CmdCategoryAdmin,
-			Handler:  boost.HandleAdminExitCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleAdminExitCommand(botClient(), e) },
 		},
 		{
 			AppCmd:       guildstate.SlashSetGuildSettingCommand(slashAdminSetGuildSetting),
 			Category:     CmdCategoryAdmin,
-			Handler:      guildstate.SetGuildSetting,
+			Handler:      func(e *dc.CommandEvent) { guildstate.SetGuildSetting(botClient(), e) },
 			Autocomplete: guildstate.HandleSetGuildSettingAutoComplete,
 		},
 		{
 			AppCmd:   guildstate.SlashGetGuildSettingsCommand(slashAdminGetGuildSettings),
 			Category: CmdCategoryAdmin,
-			Handler:  guildstate.GetGuildSettings,
+			Handler:  func(e *dc.CommandEvent) { guildstate.GetGuildSettings(botClient(), e) },
 		},
 		{
 			AppCmd:       guildstate.SlashSetGuildFlagCommand(slashAdminSetGuildFlag),
 			Category:     CmdCategoryAdmin,
-			Handler:      guildstate.SetGuildFlag,
+			Handler:      func(e *dc.CommandEvent) { guildstate.SetGuildFlag(botClient(), e) },
 			Autocomplete: guildstate.HandleGuildFlagAutoComplete,
 		},
 		{
 			AppCmd:       guildstate.SlashGetGuildFlagCommand(slashAdminGetGuildFlag),
 			Category:     CmdCategoryAdmin,
-			Handler:      guildstate.GetGuildFlag,
+			Handler:      func(e *dc.CommandEvent) { guildstate.GetGuildFlag(botClient(), e) },
 			Autocomplete: guildstate.HandleGuildFlagAutoComplete,
 		},
 		{
 			AppCmd:   guildstate.SlashAdminSetServerBannerCommand(slashAdminSetServerBanner),
 			Category: CmdCategoryAdmin,
-			Handler:  guildstate.HandleAdminSlashAdminSetServerBannerCommand,
+			Handler:  func(e *dc.CommandEvent) { guildstate.HandleAdminSlashAdminSetServerBannerCommand(botClient(), e) },
 		},
 		{
 			AppCmd:   guildstate.SlashSetServerBannerCommand(slashSetServerBanner),
 			Category: CmdCategoryGlobal,
-			Handler:  guildstate.HandleSetServerBanner,
+			Handler:  func(e *dc.CommandEvent) { guildstate.HandleSetServerBanner(botClient(), e) },
 		},
 
 		// Global Commands
 		{
 			AppCmd:   events.SlashLaunchHelperCommand(slashLaunchHelper),
 			Category: CmdCategoryGlobal,
-			Handler:  events.HandleLaunchHelper,
+			Handler:  events.HandleLaunchHelperCommand,
 		},
 		{
 			AppCmd:   events.SlashEventHelperCommand(slashEventHelper),
 			Category: CmdCategoryGlobal,
-			Handler:  events.HandleEventHelper,
+			Handler:  events.HandleEventHelperCommand,
 		},
 		{
 			AppCmd:       boost.GetSlashRerunEvalCommand(slashRerunEval),
@@ -477,26 +481,26 @@ func setupCommands() {
 		{
 			AppCmd:       menno.SlashHuntCommand(slashHunt),
 			Category:     CmdCategoryGlobal,
-			Handler:      menno.HandleHuntCommand,
-			Autocomplete: menno.HandleHuntAutoComplete,
+			Handler:      menno.HandleHunt,
+			Autocomplete: menno.HandleHuntAutocomplete,
 		},
 
 		// Standard Commands
 		{
 			AppCmd:       boost.GetSlashContractCommand(slashContract),
 			Category:     CmdCategoryStandard,
-			Handler:      boost.HandleContractCommand,
+			Handler:      func(e *dc.CommandEvent) { boost.HandleContractCommand(botClient(), e) },
 			Autocomplete: boost.HandleContractAutoComplete,
 		},
 		{
 			AppCmd:   boost.GetSlashSpeedrunCommand(slashSpeedrun),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleSpeedrunCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleSpeedrunCommand(botClient(), e) },
 		},
 		{
 			AppCmd:   boost.GetSlashRenameThread(slashRenameThread),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleRenameThreadCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleRenameThreadCommand(botClient(), e) },
 		},
 		{
 			AppCmd:       boost.SlashArtifactsCommand(slashArtifact),
@@ -513,53 +517,53 @@ func setupCommands() {
 		{
 			AppCmd:   boost.GetSlashChangeSpeedRunSinkCommand(slashChangeSpeedRunSink),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleChangeSpeedrunSinkCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleChangeSpeedrunSinkCommand(botClient(), e) },
 		},
 		{
 			AppCmd:   boost.GetSlashUpdateCommand(slashUpdateCommand),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleUpdateCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleUpdateCommand(botClient(), e) },
 		},
 		{
 			AppCmd:       boost.GetSlashChangeCommand(slashChangeCommand),
 			Category:     CmdCategoryStandard,
-			Handler:      boost.HandleChangeCommand,
+			Handler:      func(e *dc.CommandEvent) { boost.HandleChangeCommand(botClient(), e) },
 			Autocomplete: boost.HandleContractAutoComplete,
 		},
 		{
 			AppCmd:   boost.GetSlashJoinContractCommand(slashJoinContract),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleJoinCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleJoinCommand(botClient(), e) },
 		},
 		{
 			AppCmd:   boost.GetSlashBoostCommand(slashBoost),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleBoostCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleBoostCommand(botClient(), e) },
 		},
 		{
 			AppCmd:   boost.GetSlashBoostOrderCommand(slashBoostOrder),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleBoostOrderCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleBoostOrderCommand(botClient(), e) },
 		},
 		{
 			AppCmd:   boost.GetSlashBoostOrderCommand(slashCatalyst),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleBoostOrderCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleBoostOrderCommand(botClient(), e) },
 		},
 		{
 			AppCmd:   boost.GetSlashSkipCommand(slashSkip),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleSkipCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleSkipCommand(botClient(), e) },
 		},
 		{
 			AppCmd:   boost.GetSlashUnboostCommand(slashUnboost),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleUnboostCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleUnboostCommand(botClient(), e) },
 		},
 		{
 			AppCmd:   boost.GetSlashPruneCommand(slashPrune),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandlePruneCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandlePruneCommand(botClient(), e) },
 		},
 		{
 			AppCmd:   boost.GetSlashCoopETACommand(slashCoopETA),
@@ -569,17 +573,17 @@ func setupCommands() {
 		{
 			AppCmd:   boost.GetSlashVolunteerSink(slashVolunteerSink),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleSlashVolunteerSinkCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleSlashVolunteerSinkCommand(botClient(), e) },
 		},
 		{
 			AppCmd:   boost.GetSlashVoluntellSink(slashVoluntellSink),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleSlashVoluntellSinkCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleSlashVoluntellSinkCommand(botClient(), e) },
 		},
 		{
 			AppCmd:       boost.GetSlashLinkAlternateCommand(slashLinkAlternate),
 			Category:     CmdCategoryStandard,
-			Handler:      boost.HandleLinkAlternateCommand,
+			Handler:      func(e *dc.CommandEvent) { boost.HandleLinkAlternateCommand(botClient(), e) },
 			Autocomplete: boost.HandleLinkAlternateAutoComplete,
 		},
 		{
@@ -591,7 +595,7 @@ func setupCommands() {
 		{
 			AppCmd:   boost.GetSlashCoopTval(slashCoopTval),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleCoopTvalCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleCoopTvalCommand(botClient(), e) },
 		},
 		{
 			AppCmd:       boost.GetSlashTeamworkEval(slashTeamworkEval),
@@ -608,18 +612,18 @@ func setupCommands() {
 		{
 			AppCmd:   boost.GetPredictionsCommand(slashPredictions),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandlePredictionsCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandlePredictionsCommand(botClient(), e) },
 		},
 		{
 			AppCmd:       boost.GetPredCommand(slashPred),
 			Category:     CmdCategoryStandard,
-			Handler:      boost.HandlePredCommand,
+			Handler:      func(e *dc.CommandEvent) { boost.HandlePredCommand(botClient(), e) },
 			Autocomplete: boost.HandleAllContractsAutoComplete,
 		},
 		{
 			AppCmd:       boost.GetSlashStones(slashStones),
 			Category:     CmdCategoryStandard,
-			Handler:      boost.HandleStonesCommand,
+			Handler:      func(e *dc.CommandEvent) { boost.HandleStonesCommand(botClient(), e) },
 			Autocomplete: boost.HandleAllContractsAutoComplete,
 		},
 		{
@@ -631,12 +635,12 @@ func setupCommands() {
 		{
 			AppCmd:   dashboard.GetSlashTimer(slashTimer),
 			Category: CmdCategoryStandard,
-			Handler:  dashboard.HandleTimerCommand,
+			Handler:  func(e *dc.CommandEvent) { dashboard.HandleTimer(botClient(), e) },
 		},
 		{
 			AppCmd:   dashboard.GetSlashDashboardCommand(slashDashboard),
 			Category: CmdCategoryStandard,
-			Handler:  dashboard.HandleDashboardCommand,
+			Handler:  func(e *dc.CommandEvent) { dashboard.HandleDashboard(botClient(), e) },
 		},
 		{
 			AppCmd:       boost.GetSlashEstimateTime(slashEstimateTime),
@@ -659,60 +663,60 @@ func setupCommands() {
 		{
 			AppCmd:   boost.GetSlashChangeOneBoosterCommand(slashChangeOneBooster),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleChangeOneBoosterCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleChangeOneBoosterCommand(botClient(), e) },
 		},
 		{
 			AppCmd:   boost.GetSlashChangePlannedStartCommand(slashChangePlannedStartCommand),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleChangePlannedStartCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleChangePlannedStartCommand(botClient(), e) },
 		},
 		{
 			AppCmd:   bottools.GetSlashRemoveMessage(slashRemoveDMMessage),
 			Category: CmdCategoryStandard,
-			Handler:  bottools.HandleRemoveMessageCommand,
+			Handler:  func(e *dc.CommandEvent) { bottools.HandleRemoveMessage(botClient(), e) },
 		},
 		{
 			AppCmd:       boost.GetSlashTokenEditCommand(slashTokenEdit),
 			Category:     CmdCategoryStandard,
-			Handler:      boost.HandleTokenEditInteraction,
+			Handler:      func(e *dc.CommandEvent) { boost.HandleTokenEditInteraction(botClient(), e) },
 			Autocomplete: boost.HandleTokenEditAutoComplete,
 		},
 		{
 			AppCmd:   farmerstate.SlashSetEggIncNameCommand(slashSetEggIncName),
 			Category: CmdCategoryStandard,
-			Handler: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-				farmerstate.HandleSetEggIncName(s, i, boost.IsUserCreatorOfAnyContract)
+			Handler: func(e *dc.CommandEvent) {
+				farmerstate.HandleSetEggIncName(botClient(), e, boost.IsUserCreatorOfAnyContract)
 			},
 		},
 		{
 			AppCmd:   farmerstate.GetSlashPrivacyCommand(slashPrivacy),
 			Category: CmdCategoryStandard,
-			Handler:  farmerstate.HandlePrivacyCommand,
+			Handler:  farmerstate.HandlePrivacy,
 		},
 		{
 			AppCmd:   boost.GetSlashBumpCommand(slashBump),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleBumpCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleBumpCommand(botClient(), e) },
 		},
 		{
 			AppCmd:   boost.GetSlashBumpCRCommand(slashBumpCR),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleBumpCRCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleBumpCRCommand(botClient(), e) },
 		},
 		{
 			AppCmd:   boost.GetSlashToggleContractPingsCommand(slashToggleContractPings),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleToggleContractPingsCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleToggleContractPingsCommand(botClient(), e) },
 		},
 		{
 			AppCmd:   boost.GetSlashHelpCommand(slashHelp),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleHelpCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleHelpCommand(botClient(), e) },
 		},
 		{
 			AppCmd:   boost.GetSlashContractSettingsCommand(slashContractSettings),
 			Category: CmdCategoryStandard,
-			Handler:  boost.HandleContractSettingsCommand,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleContractSettingsCommand(botClient(), e) },
 		},
 	}
 
@@ -720,26 +724,26 @@ func setupCommands() {
 		commandRegistry = append(commandRegistry, CommandDef{
 			AppCmd:   notok.SlashFunCommand(slashFun),
 			Category: CmdCategoryStandard,
-			Handler:  notok.FunHandler,
+			Handler:  func(e *dc.CommandEvent) { notok.HandleFun(botClient(), e) },
 		})
 	}
 
 	commandRegistry = append(commandRegistry, CommandDef{
 		AppCmd:   mint.GetSlashMintCommand(slashMint),
 		Category: CmdCategoryStandard,
-		Handler:  mint.HandleMintCommand,
+		Handler:  mint.HandleMint,
 	})
 
 	commandRegistry = append(commandRegistry, CommandDef{
 		AppCmd:   boost.GetSlashUploadBannerCommand(slashUploadBanner),
 		Category: CmdCategoryStandard,
-		Handler:  boost.HandleUploadBannerCommand,
+		Handler:  func(e *dc.CommandEvent) { boost.HandleUploadBannerCommand(botClient(), e) },
 	})
 
 	commandRegistry = append(commandRegistry, CommandDef{
 		AppCmd:   boost.GetSlashAvailabilityCommand(slashAvailability),
 		Category: CmdCategoryStandard,
-		Handler:  boost.HandleAvailabilityCommand,
+		Handler:  func(e *dc.CommandEvent) { boost.HandleAvailabilityCommand(botClient(), e) },
 	})
 
 	commandRegistry = append(commandRegistry, CommandDef{
@@ -757,29 +761,29 @@ func setupCommands() {
 	commandRegistry = append(commandRegistry, CommandDef{
 		AppCmd:       leaderboard.GetSlashAdminLBCommand(slashAdminLB),
 		Category:     CmdCategoryAdmin,
-		Handler:      leaderboard.HandleAdminLB,
+		Handler:      func(e *dc.CommandEvent) { leaderboard.HandleAdminLB(botClient(), e) },
 		Autocomplete: leaderboard.HandleAdminLBAutoComplete,
 	})
 	commandRegistry = append(commandRegistry, CommandDef{
 		AppCmd:       leaderboard.GetSlashLBPlayerCommand(slashLBPlayer),
 		Category:     CmdCategoryStandard,
-		Handler:      leaderboard.HandleLBPlayer,
+		Handler:      func(e *dc.CommandEvent) { leaderboard.HandleLBPlayer(botClient(), e) },
 		Autocomplete: leaderboard.HandleLBPlayerAutoComplete,
 	})
 
 	commandRegistry = append(commandRegistry, CommandDef{
 		AppCmd:       watch.GetSlashWatchCommand(slashWatch),
 		Category:     CmdCategoryStandard,
-		Handler:      watch.HandleWatchCommand,
+		Handler:      watch.HandleWatch,
 		Autocomplete: watch.HandleWatchAutoComplete,
 	})
 
 	for _, def := range commandRegistry {
 		if def.Handler != nil {
-			commandHandlers[def.AppCmd.Name] = def.Handler
+			bot.OnCommand(def.AppCmd.Name, withCommandLogging(def.AppCmd.Name, def.Handler))
 		}
 		if def.Autocomplete != nil {
-			autocompleteHandlers[def.AppCmd.Name] = def.Autocomplete
+			bot.OnAutocomplete(def.AppCmd.Name, def.Autocomplete)
 		}
 
 		switch def.Category {
@@ -791,161 +795,120 @@ func setupCommands() {
 			commands = append(commands, def.AppCmd)
 		}
 	}
+
+	for prefix, handler := range componentHandlers {
+		bot.OnComponent(prefix, handler)
+	}
+	for prefix, handler := range modalHandlers {
+		bot.OnModal(prefix, handler)
+	}
 }
 
-func respondUnknownInteractionPath(s *discordgo.Session, i *discordgo.InteractionCreate, content string) {
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: content,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
-}
-
-func respondUnknownAutocompletePath(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{
-			Choices: []*discordgo.ApplicationCommandOptionChoice{},
-		},
-	})
-}
-
-// main init to call other init functions in sequence
-func init() {
-	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		defer recoverPanic("discord-interaction", 0, interactionCrashMetadata(s, i))
-
-		switch i.Type {
-		case discordgo.InteractionApplicationCommand:
-			if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
-				if debugLogging {
-					userID := bottools.GetInteractionUserID(i)
-					options := i.ApplicationCommandData().Options
-					optionMap := make(map[string]string, len(options))
-					for _, opt := range options {
-						switch opt.Type {
-						case discordgo.ApplicationCommandOptionString:
-							optionMap[opt.Name] = opt.StringValue()
-						case discordgo.ApplicationCommandOptionInteger:
-							optionMap[opt.Name] = strconv.Itoa(int(opt.IntValue()))
-						case discordgo.ApplicationCommandOptionBoolean:
-							optionMap[opt.Name] = strconv.FormatBool(opt.BoolValue())
-						case discordgo.ApplicationCommandOptionUser:
-							optionMap[opt.Name] = opt.UserValue(s).Username
-						default:
-							optionMap[opt.Name] = "Unknown"
-						}
-					}
-					if i.GuildID != "" {
-						log.Println("Command:", i.ApplicationCommandData().Name, optionMap, i.ChannelID, userID)
-					} else {
-						log.Println("Command-DM:", i.ApplicationCommandData().Name, optionMap, i.ChannelID, userID)
-					}
-				}
-				h(s, i)
+// withCommandLogging logs the options a command was invoked with before
+// running it, which is what the interaction dispatch used to do inline.
+func withCommandLogging(name string, handler func(*dc.CommandEvent)) func(*dc.CommandEvent) {
+	return func(e *dc.CommandEvent) {
+		if debugLogging {
+			if e.GuildID() != "" {
+				log.Println("Command:", name, e.OptionSummary(), e.ChannelID(), e.UserID())
 			} else {
-				log.Printf("Unknown command handler: %s", i.ApplicationCommandData().Name)
-				respondUnknownInteractionPath(s, i, unknownCommandPathMessage)
-			}
-		case discordgo.InteractionApplicationCommandAutocomplete:
-			if h, ok := autocompleteHandlers[i.ApplicationCommandData().Name]; ok {
-				h(s, i)
-			} else {
-				log.Printf("Unknown autocomplete handler: %s", i.ApplicationCommandData().Name)
-				respondUnknownAutocompletePath(s, i)
-			}
-		case discordgo.InteractionModalSubmit:
-			// Handlers could include a parameter to help identify this uniquly
-			handlerID, _, _ := strings.Cut(i.ModalSubmitData().CustomID, "#")
-			if h, ok := componentHandlers[handlerID]; ok {
-				userID := bottools.GetInteractionUserID(i)
-				log.Println("Component: ", i.ModalSubmitData().CustomID, userID)
-				h(s, i)
-			} else {
-				log.Printf("Unknown modal handler: %s", i.ModalSubmitData().CustomID)
-				respondUnknownInteractionPath(s, i, unknownModalPathMessage)
-			}
-		case discordgo.InteractionMessageComponent:
-			// Handlers could include a parameter to help identify this uniquly
-			handlerID, _, _ := strings.Cut(i.MessageComponentData().CustomID, "#")
-
-			if h, ok := componentHandlers[handlerID]; ok {
-				userID := bottools.GetInteractionUserID(i)
-				log.Println("Component: ", i.MessageComponentData().CustomID, userID)
-				h(s, i)
-			} else {
-				log.Printf("Unknown component handler: %s", i.MessageComponentData().CustomID)
-				respondUnknownInteractionPath(s, i, unknownComponentPathMessage)
+				log.Println("Command-DM:", name, e.OptionSummary(), e.ChannelID(), e.UserID())
 			}
 		}
+		handler(e)
+	}
+}
+
+// respondUnknownRoute answers an interaction that matched no handler, so the
+// user sees a message instead of "this application did not respond".
+func respondUnknownRoute(e *dc.UnknownEvent) {
+	meta := e.Meta()
+	switch meta.Kind {
+	case dc.KindCommand:
+		log.Printf("Unknown command handler: %s", meta.Name)
+		_ = e.Respond(dc.Message{Content: unknownCommandPathMessage, Ephemeral: true})
+	case dc.KindAutocomplete:
+		log.Printf("Unknown autocomplete handler: %s", meta.Name)
+		_ = e.RespondChoices(nil)
+	case dc.KindModal:
+		log.Printf("Unknown modal handler: %s", meta.CustomID)
+		_ = e.Respond(dc.Message{Content: unknownModalPathMessage, Ephemeral: true})
+	case dc.KindComponent:
+		log.Printf("Unknown component handler: %s", meta.CustomID)
+		_ = e.Respond(dc.Message{Content: unknownComponentPathMessage, Ephemeral: true})
+	}
+}
+
+// registerGatewayHandlers wires the non-interaction gateway events and the
+// bot-wide hooks. Every one of these has to be in place before Connect.
+func registerGatewayHandlers() {
+	bot.OnUnknown(respondUnknownRoute)
+
+	bot.OnPanic(func(recovered any, meta dc.InteractionMeta) {
+		handlePanic("discord-interaction", recovered, interactionCrashMetadata(meta))
 	})
 
-	// Components are part of interactions, so we register InteractionCreate handler
-	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
+	bot.OnReady(func() {
+		log.Printf("Ready message for: %v (%v)", botClient().BotUsername(), bot.UserID())
+	})
+
+	bot.OnMessage(func(e *dc.MessageEvent) {
 		defer recoverPanic("discord-message-create", 0, withSessionHints(map[string]string{
-			"guild_id":   m.GuildID,
-			"channel_id": m.ChannelID,
-			"message_id": m.ID,
-			"author_id":  m.Author.ID,
-		}, s))
+			"guild_id":   e.GuildID(),
+			"channel_id": e.ChannelID(),
+			"message_id": e.MessageID(),
+			"author_id":  e.AuthorID(),
+		}))
 
-		mint.HandleMintCSVUploadMessage(s, m)
+		mint.HandleMintCSVUpload(botClient(), e)
 	})
 
-	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
+	bot.OnReactionAdd(func(e *dc.ReactionEvent) {
 		defer recoverPanic("discord-reaction-add", 0, withSessionHints(map[string]string{
-			"guild_id":   m.GuildID,
-			"channel_id": m.ChannelID,
-			"message_id": m.MessageID,
-			"emoji":      m.Emoji.APIName(),
-			"user_id":    m.UserID,
-		}, s))
+			"guild_id":   e.GuildID(),
+			"channel_id": e.ChannelID(),
+			"message_id": e.MessageID(),
+			"emoji":      e.EmojiRef(),
+			"user_id":    e.UserID(),
+		}))
 
-		if m.UserID != s.State.User.ID {
-			if m.GuildID != "" {
-				boost.ReactionAdd(s, m.MessageReaction)
-			}
+		if e.UserID() != bot.UserID() && e.GuildID() != "" {
+			boost.ReactionAdd(botClient(), e)
 		}
 	})
-	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageReactionRemove) {
-		if m.UserID != s.State.User.ID {
-			safeGoMeta("reaction-remove", withSessionHints(map[string]string{
-				"guild_id":   m.GuildID,
-				"channel_id": m.ChannelID,
-				"message_id": m.MessageID,
-				"emoji":      m.Emoji.APIName(),
-				"user_id":    m.UserID,
-			}, s), func() {
-				boost.ReactionRemove(s, m.MessageReaction)
-			})
+
+	bot.OnReactionRemove(func(e *dc.ReactionEvent) {
+		if e.UserID() == bot.UserID() {
+			return
 		}
+		safeGoMeta("reaction-remove", withSessionHints(map[string]string{
+			"guild_id":   e.GuildID(),
+			"channel_id": e.ChannelID(),
+			"message_id": e.MessageID(),
+			"emoji":      e.EmojiRef(),
+			"user_id":    e.UserID(),
+		}), func() {
+			boost.ReactionRemove(botClient(), e)
+		})
 	})
 }
 
-func syncCommands(s *discordgo.Session, guildID string, desiredCommandList []*discordgo.ApplicationCommand) {
-	existingCommands, err := s.ApplicationCommands(s.State.User.ID, guildID)
+func syncCommands(client dc.Client, appID, guildID string, desiredCommandList []*dc.Command) {
+	existingCommands, err := client.ApplicationCommands(appID, guildID)
 	if err != nil {
 		log.Fatalf("Failed to fetch commands for guild %s: %v", guildID, err)
 		return
 	}
-	bottools.UpdateCommandMap(existingCommands)
 
-	desiredMap := make(map[string]*discordgo.ApplicationCommand)
+	desiredMap := make(map[string]*dc.Command)
 	for _, cmd := range desiredCommandList {
 		desiredMap[cmd.Name] = cmd
-	}
-
-	existingMap := make(map[string]*discordgo.ApplicationCommand)
-	for _, cmd := range existingCommands {
-		existingMap[cmd.Name] = cmd
 	}
 
 	// Delete commands not in the desired list
 	for _, cmd := range existingCommands {
 		if _, found := desiredMap[cmd.Name]; !found {
-			err := s.ApplicationCommandDelete(s.State.User.ID, guildID, cmd.ID)
+			err := client.DeleteApplicationCommand(appID, guildID, cmd.ID)
 			if err != nil {
 				log.Printf("Failed to delete command %s (%s) in guild %s: %v", cmd.Name, cmd.ID, guildID, err)
 			} else {
@@ -954,21 +917,25 @@ func syncCommands(s *discordgo.Session, guildID string, desiredCommandList []*di
 		}
 	}
 
-	cmds, err := s.ApplicationCommandBulkOverwrite(s.State.User.ID, guildID, desiredCommandList)
+	payload := make([]dc.Command, 0, len(desiredCommandList))
+	for _, cmd := range desiredCommandList {
+		payload = append(payload, *cmd)
+	}
+
+	published, err := client.BulkOverwriteApplicationCommands(appID, guildID, payload)
 	if err != nil {
 		log.Fatalf("Failed to bulk overwrite commands for guild %s: %v", guildID, err)
 	} else {
-		bottools.UpdateCommandMap(cmds)
+		bottools.UpdateCommandMap(desiredCommandList, published)
 	}
-
 }
 
-func connectWithRetry(dg *discordgo.Session) error {
+func connectWithRetry() error {
 	var err error
 	backoff := time.Second * 2
 
 	for range 5 {
-		err = dg.Open()
+		err = bot.Open()
 		if err == nil {
 			return nil
 		}
@@ -996,40 +963,31 @@ func main() {
 	//bottools.GenerateBanner("EDIBLE", "Race Fuel")
 	// Load the config file
 
+	registerGatewayHandlers()
+
+	if err := bot.Connect(*BotToken, gatewayIntents); err != nil {
+		log.Fatalf("Invalid bot parameters: %v", err)
+	}
+
 	// Start our CRON job to grab Egg Inc contract data from the Carpet github repository
 	startHeartbeat("/tmp/tokentimeboost.heartbeat", 1*time.Minute)
 	safeGoMeta("cron-job", withSessionHints(map[string]string{
 		"job": "tasks.ExecuteCronJob",
-	}, s), func() {
-		tasks.ExecuteCronJob(s)
+	}), func() {
+		tasks.ExecuteCronJob(botClient())
 	})
 
-	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
-		log.Printf("Ready message for: %v#%v  SessID:%v", s.State.User.Username, s.State.User.Discriminator, r.SessionID)
-		//log.Printf("Ready Vers:%v  SessId:%v", r.Version, r.SessionID)
-	})
-
-	err := connectWithRetry(s)
-	if err != nil {
+	if err := connectWithRetry(); err != nil {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
 
-	bottools.LoadEmotes(s, false)
-	dashboard.LaunchIndependentTimers(s)
+	bottools.LoadEmotesWithClient(botClient(), false)
+	dashboard.LaunchIndependentTimers(botClient())
 	safeGoMeta("menno-startup", withSessionHints(map[string]string{
 		"job": "menno.Startup",
-	}, s), menno.Startup)
+	}), menno.Startup)
 
-	_ = s.UpdateStatusComplex(discordgo.UpdateStatusData{
-		AFK: false,
-		Activities: []*discordgo.Activity{
-			{
-				Name: fmt.Sprintf("Starting: %s", Version),
-				Type: discordgo.ActivityTypeGame,
-			},
-		},
-		Status: string(discordgo.StatusOnline),
-	})
+	_ = bot.SetPresence(fmt.Sprintf("Starting: %s", Version))
 
 	commandSet := append(commands, globalCommands...)
 
@@ -1041,8 +999,8 @@ func main() {
 		homeGuild = "DISABLED"
 	}
 
-	var homeGuildCommandSet []*discordgo.ApplicationCommand
-	var filteredCommandSet []*discordgo.ApplicationCommand
+	var homeGuildCommandSet []*dc.Command
+	var filteredCommandSet []*dc.Command
 	for _, cmd := range commandSet {
 		if homeGuild != "" && cmd.GuildID == homeGuild {
 			homeGuildCommandSet = append(homeGuildCommandSet, cmd)
@@ -1053,12 +1011,12 @@ func main() {
 	commandSet = filteredCommandSet
 
 	if homeGuild != "DISABLED" {
-		syncCommands(s, homeGuild, homeGuildCommandSet)
+		syncCommands(botClient(), bot.UserID(), homeGuild, homeGuildCommandSet)
 	}
-	syncCommands(s, config.DiscordGuildID, commandSet)
+	syncCommands(botClient(), bot.UserID(), config.DiscordGuildID, commandSet)
 
 	defer func() {
-		if err := s.Close(); err != nil {
+		if err := bot.Close(); err != nil {
 			// Handle the error appropriately, e.g., logging or taking corrective actions
 			log.Printf("Failed to close: %v", err)
 		}
@@ -1066,7 +1024,7 @@ func main() {
 
 	safeGoMeta("file-watcher", withSessionHints(map[string]string{
 		"watch_files": strings.Join([]string{configFileName, statusMessagesFileName}, ","),
-	}, s), func() {
+	}), func() {
 		ticker := time.NewTicker(60 * time.Second)
 		defer ticker.Stop()
 
@@ -1121,7 +1079,7 @@ func startHeartbeat(filepath string, interval time.Duration) {
 	safeGoMeta("heartbeat", withSessionHints(map[string]string{
 		"heartbeat_path":     filepath,
 		"heartbeat_interval": interval.String(),
-	}, s), func() {
+	}), func() {
 		// Create the file if it doesn't exist
 		if _, err := os.Stat(filepath); os.IsNotExist(err) {
 			f, err := os.Create(filepath)
@@ -1150,16 +1108,7 @@ func startHeartbeat(filepath string, interval time.Duration) {
 					activityName = "Egg, Inc."
 				}
 
-				err = s.UpdateStatusComplex(discordgo.UpdateStatusData{
-					AFK: false,
-					Activities: []*discordgo.Activity{
-						{
-							Name: activityName,
-							Type: discordgo.ActivityTypeGame,
-						},
-					},
-					Status: string(discordgo.StatusOnline),
-				})
+				err = bot.SetPresence(activityName)
 				if err != nil {
 					log.Printf("Heartbeat error: %v", err)
 					log.Printf("Restarting the bot")

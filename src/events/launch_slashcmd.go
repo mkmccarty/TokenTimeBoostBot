@@ -7,151 +7,100 @@ import (
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/xhit/go-str2duration/v2"
 )
 
 // SlashLaunchHelperCommand returns the command for the /launch-helper command
-func SlashLaunchHelperCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
+func SlashLaunchHelperCommand(cmd string) *dc.Command {
+	ftlMin, ftlMax := 0, 60
+	command := dc.Command{
 		Name:        cmd,
 		Description: "Display timestamp table for next mission.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
+		Contexts: []dc.InteractionContext{
+			dc.ContextGuild,
+			dc.ContextBotDM,
+			dc.ContextPrivateChannel,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
+		IntegrationTypes: []dc.IntegrationType{
+			dc.IntegrationGuildInstall,
+			dc.IntegrationUserInstall,
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
+		Options: []dc.Option{
+			dc.StringOption{
 				Name:        "mission-duration",
 				Description: "Time remaining for next mission(s). Example: 8h15m",
 				Required:    true,
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
+			dc.IntOption{
 				Name:        "primary-ship",
 				Description: "Select the primary ship to display. Default is Atreggies Henliner. [Sticky]",
 				Required:    false,
-				Choices: []*discordgo.ApplicationCommandOptionChoice{
-					{
-						Name:  "Atreggies Henliner",
-						Value: 0,
-					},
-					{
-						Name:  "Henerprise",
-						Value: 1,
-					},
+				Choices: []dc.Choice[int]{
+					{Name: "Atreggies Henliner", Value: 0},
+					{Name: "Henerprise", Value: 1},
 				},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
+			dc.IntOption{
 				Name:        "secondary-ship",
 				Description: "Select a secondary ship to display. Default is Henerprise. [Sticky]",
 				Required:    false,
-				Choices: []*discordgo.ApplicationCommandOptionChoice{
-					{
-						Name:  "None",
-						Value: -1,
-					},
-					{
-						Name:  "All Stars Club",
-						Value: -2,
-					},
-					{
-						Name:  "Starfleet Commander",
-						Value: -3,
-					},
-					{
-						Name:  "Henerprise",
-						Value: 1,
-					},
-					{
-						Name:  "Voyegger",
-						Value: 2,
-					},
-					{
-						Name:  "Defihent",
-						Value: 3,
-					},
-					{
-						Name:  "Galeggtica",
-						Value: 4,
-					},
-					{
-						Name:  "Cornish-Hen Corvette",
-						Value: 5,
-					},
-					{
-						Name:  "Quintillion Chicken",
-						Value: 6,
-					},
+				Choices: []dc.Choice[int]{
+					{Name: "None", Value: -1},
+					{Name: "All Stars Club", Value: -2},
+					{Name: "Starfleet Commander", Value: -3},
+					{Name: "Henerprise", Value: 1},
+					{Name: "Voyegger", Value: 2},
+					{Name: "Defihent", Value: 3},
+					{Name: "Galeggtica", Value: 4},
+					{Name: "Cornish-Hen Corvette", Value: 5},
+					{Name: "Quintillion Chicken", Value: 6},
 				},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
+			dc.BoolOption{
 				Name:        "chain",
 				Description: "Show return time for a chained Henliner extended mission. [Sticky]",
 				Required:    false,
 			},
 			/*
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
+				dc.StringOption{
 					Name:        "dubcap-time",
 					Description: "Time remaining for double capacity event. Examples: `43:16:22` or `43h16m22s`",
 					Required:    false,
 				},
-				{
-					Type:        discordgo.ApplicationCommandOptionInteger,
+				dc.IntOption{
 					Name:        "fast-missions",
 					Description: "Missions return 2x, 3x or 4x faster. Default is 1x.",
 					Required:    false,
-					Choices: []*discordgo.ApplicationCommandOptionChoice{
-						{
-							Name:  "1x / None",
-							Value: 1,
-						},
-						{
-							Name:  "2x",
-							Value: 2,
-						},
-						{
-							Name:  "3x",
-							Value: 3,
-						},
-						{
-							Name:  "4x",
-							Value: 4,
-						},
+					Choices: []dc.Choice[int]{
+						{Name: "1x / None", Value: 1},
+						{Name: "2x", Value: 2},
+						{Name: "3x", Value: 3},
+						{Name: "4x", Value: 4},
 					},
 				},*/
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
+			dc.IntOption{
 				Name:        "ftl",
 				Description: "FTL Drive Upgrades level. Default is 60.",
-				MinValue:    &integerZeroMinValue,
-				MaxValue:    60,
+				MinValue:    &ftlMin,
+				MaxValue:    &ftlMax,
 				Required:    false,
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
+			dc.BoolOption{
 				Name:        "ultra",
 				Description: "Enable ultra event calculations. Default is false. [Sticky]",
 				Required:    false,
 			},
 		},
 	}
+	return &command
 }
 
-// HandleLaunchHelper handles the /launch-helper command
-func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleLaunchHelperCommand handles the /launch-helper command through the dc facade.
+func HandleLaunchHelperCommand(e *dc.CommandEvent) {
 	var ftlLevel = 60
 	var ftlMult = 0.4
 	var t = time.Now()
@@ -167,32 +116,20 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var selectedShipPrimary int
 	var selectedShipSecondary int
 
-	var userID string
-	if i.GuildID != "" {
-		userID = i.Member.User.ID
-	} else {
-		userID = i.User.ID
-	}
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Processing request...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
+	userID := e.UserID()
+	_ = e.Defer(true)
 
-	var components []discordgo.MessageComponent
+	var components []dc.LayoutComponent
 
-	optionMap := bottools.GetCommandOptionsMap(i)
-	if opt, ok := optionMap["primary-ship"]; ok {
-		selectedShipPrimary = int(opt.IntValue())
+	if opt, ok := e.OptInt("primary-ship"); ok {
+		selectedShipPrimary = opt
 		farmerstate.SetMissionShipPrimary(userID, selectedShipPrimary)
 	} else {
 		selectedShipPrimary = farmerstate.GetMissionShipPrimary(userID)
 	}
 
-	if opt, ok := optionMap["secondary-ship"]; ok {
-		selectedShipSecondary = int(opt.IntValue())
+	if opt, ok := e.OptInt("secondary-ship"); ok {
+		selectedShipSecondary = opt
 		farmerstate.SetMissionShipSecondary(userID, selectedShipSecondary)
 	} else {
 		selectedShipSecondary = farmerstate.GetMissionShipSecondary(userID)
@@ -238,20 +175,19 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 	//log.Print("Sunday Event Start: ", sundayEventStart.Unix())
 
-	if opt, ok := optionMap["ftl"]; ok {
-		ftlLevel = int(opt.IntValue())
+	if opt, ok := e.OptInt("ftl"); ok {
+		ftlLevel = opt
 		ftlMult = float64(100-ftlLevel) / 100.0
 	}
-	if opt, ok := optionMap["chain"]; ok {
-		chainExtended = opt.BoolValue()
+	if opt, ok := e.OptBool("chain"); ok {
+		chainExtended = opt
 		farmerstate.SetLaunchHistory(userID, chainExtended)
 	} else {
 		chainExtended = farmerstate.GetLaunchHistory(userID)
 	}
-	if opt, ok := optionMap["mission-duration"]; ok {
+	if inputStr, ok := e.OptString("mission-duration"); ok {
 		// Timespan is when the next mission arrives
 		var list []string
-		inputStr := opt.StringValue()
 		inputList := strings.Split(inputStr, ",")
 		for _, durationStr := range inputList {
 			list = append(list, bottools.SanitizeStringDuration(durationStr))
@@ -260,17 +196,16 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	ultra := false
-	if opt, ok := optionMap["ultra"]; ok {
-		ultra = opt.BoolValue()
+	if opt, ok := e.OptBool("ultra"); ok {
+		ultra = opt
 		farmerstate.SetMiscSettingFlag(userID, "ultra", ultra)
 	} else {
 		ultra = farmerstate.GetMiscSettingFlag(userID, "ultra")
 	}
 	/*
-		if opt, ok := optionMap["dubcap-time"]; ok {
+		if dcTimespan, ok := e.OptString("dubcap-time"); ok {
 			// Timespan is when the next mission arrives
 			// Time could be HH:MM:SS or 1h2m3s
-			dcTimespan := opt.StringValue()
 			// Does String contain a colon? then it's in HH:MM:SS format
 			durDubCap, err := hhmmss.Parse(dcTimespan)
 			if err != nil {
@@ -470,20 +405,18 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			}
 		}
 		if events.Len() > 0 {
-			components = append(components, &discordgo.TextDisplay{
+			components = append(components, dc.TextDisplay{
 				Content: events.String(),
 			})
 		}
 
-		components = append(components, &discordgo.TextDisplay{
+		components = append(components, dc.TextDisplay{
 			Content: header.String() + "\n" + builder.String(),
 		})
-		divider := true
-		spacing := discordgo.SeparatorSpacingSizeLarge
 
-		components = append(components, &discordgo.Separator{
-			Divider: &divider,
-			Spacing: &spacing,
+		components = append(components, dc.Separator{
+			Divider: true,
+			Spacing: dc.SeparatorSpacingLarge,
 		})
 		header.Reset()
 		builder.Reset()
@@ -532,27 +465,21 @@ func HandleLaunchHelper(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		fmt.Fprintf(&prevEvents, "%s %s for %.2dh on <t:%d:R>\n", eventIconStr, e.Message, int(hours), e.StartTime.Unix())
 		//prevEvents.WriteString(fmt.Sprintf("%s on <t:%d:d>\n", e.Message, e.StartTime.Unix()))
 	}
-	components = append(components, &discordgo.TextDisplay{
+	components = append(components, dc.TextDisplay{
 		Content: "## Event History\n" + prevEvents.String(),
 	})
-	divider := false
-	spacing := discordgo.SeparatorSpacingSizeSmall
 
-	components = append(components, &discordgo.Separator{
-		Divider: &divider,
-		Spacing: &spacing,
+	components = append(components, dc.Separator{
+		Divider: false,
+		Spacing: dc.SeparatorSpacingSmall,
 	})
 	if instr.Len() > 0 {
-		components = append(components, &discordgo.TextDisplay{
+		components = append(components, dc.TextDisplay{
 			Content: instr.String(),
 		})
 	}
 
-	_, err := s.FollowupMessageCreate(i.Interaction, true,
-		&discordgo.WebhookParams{
-			Flags:      discordgo.MessageFlagsIsComponentsV2,
-			Components: components,
-		})
+	err := e.Followup(dc.Message{Components: components})
 	if err != nil {
 		log.Println("Error sending followup message:", err)
 		return

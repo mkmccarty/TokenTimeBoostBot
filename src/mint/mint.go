@@ -23,8 +23,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	xdraw "golang.org/x/image/draw"
 )
 
@@ -71,7 +71,7 @@ type mintPreviewSession struct {
 	OutContentType        string
 	MediaBytes            []byte
 	CSVBytes              []byte
-	Interaction           *discordgo.Interaction
+	Event                 *dc.CommandEvent
 	AwaitingCSV           bool
 	PreviewSampleDuration time.Duration
 	PreviewSampleFrames   int
@@ -82,161 +82,116 @@ var mintPreviewMu sync.Mutex
 var mintPreviewSessions = make(map[string]*mintPreviewSession)
 
 // GetSlashMintCommand creates the /mint command.
-func GetSlashMintCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
+func GetSlashMintCommand(cmd string) *dc.Command {
+	command := dc.Command{
 		Name:        cmd,
 		Description: "Overlay the token image on an animated GIF or MP4/M4P using tracked CSV coordinates.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
+		Contexts: []dc.InteractionContext{
+			dc.ContextGuild,
+			dc.ContextBotDM,
+			dc.ContextPrivateChannel,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
+		IntegrationTypes: []dc.IntegrationType{
+			dc.IntegrationGuildInstall,
+			dc.IntegrationUserInstall,
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Options: []dc.Option{
+			dc.SubCommand{
 				Name:        testAnimateCreateSub,
 				Description: "Render animation using uploaded media and CSV tracking data",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionAttachment,
+				Options: []dc.Option{
+					dc.AttachmentOption{
 						Name:        testAnimateGIFOption,
 						Description: "Animated GIF or MP4/M4P to process",
 						Required:    true,
 					},
-					{
-						Type:        discordgo.ApplicationCommandOptionAttachment,
+					dc.AttachmentOption{
 						Name:        testAnimateCSVOption,
 						Description: "Tracking CSV with Frame,X,Y,Width,Visibility,Rotation,Opacity columns",
 						Required:    true,
 					},
 				},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			dc.SubCommand{
 				Name:        testAnimateHelpSub,
 				Description: "Show usage help for /mint",
 			},
 		},
 	}
+	return &command
 }
 
-// HandleMintCommand validates user-uploaded GIF/CSV and returns an overlaid animation.
-func HandleMintCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	data := i.ApplicationCommandData()
-	if len(data.Options) == 0 {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Please choose a subcommand: /mint create or /mint help.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
-		return
-	}
-
-	sub := data.Options[0]
-	if sub.Type != discordgo.ApplicationCommandOptionSubCommand {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Invalid usage. Use /mint create or /mint help.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
-		return
-	}
-
-	if sub.Name == testAnimateHelpSub {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags: discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
-				Components: []discordgo.MessageComponent{
-					discordgo.TextDisplay{
-						Content: buildTestAnimateUsageText(),
-					},
-				},
-			},
-		})
-		return
-	}
-
-	if sub.Name != testAnimateCreateSub {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Unknown subcommand. Use /mint create or /mint help.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
-		return
-	}
-
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
-
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(sub.Options))
-	for _, opt := range sub.Options {
-		optionMap[opt.Name] = opt
-	}
-	gifOpt, ok := optionMap[testAnimateGIFOption]
+// HandleMint validates user-uploaded GIF/CSV and returns an overlaid animation,
+// through the dc facade.
+func HandleMint(e *dc.CommandEvent) {
+	sub, ok := e.Subcommand()
 	if !ok {
-		sendTestAnimateError(s, i, "Missing required GIF attachment.")
-		return
-	}
-	csvOpt, ok := optionMap[testAnimateCSVOption]
-	if !ok {
-		sendTestAnimateError(s, i, "Missing required CSV attachment.")
-		return
-	}
-
-	gifAttachment := bottools.GetCommandAttachment(i, gifOpt)
-	if gifAttachment == nil {
-		sendTestAnimateError(s, i, "Unable to read the GIF attachment.")
-		return
-	}
-	csvAttachment := bottools.GetCommandAttachment(i, csvOpt)
-	if csvAttachment == nil {
-		sendTestAnimateError(s, i, "Unable to read the CSV attachment.")
+		_ = e.Respond(dc.Message{
+			Content:   "Please choose a subcommand: /mint create or /mint help.",
+			Ephemeral: true,
+		})
 		return
 	}
 
-	gifBytes, err := bottools.DownloadAttachmentBytes(gifAttachment)
-	if err != nil {
-		sendTestAnimateError(s, i, fmt.Sprintf("Failed downloading GIF: %v", err))
+	if sub == testAnimateHelpSub {
+		_ = e.Respond(dc.Message{
+			Ephemeral: true,
+			Components: []dc.LayoutComponent{
+				dc.TextDisplay{Content: buildTestAnimateUsageText()},
+			},
+		})
 		return
 	}
-	csvBytes, err := bottools.DownloadAttachmentBytes(csvAttachment)
+
+	if sub != testAnimateCreateSub {
+		_ = e.Respond(dc.Message{
+			Content:   "Unknown subcommand. Use /mint create or /mint help.",
+			Ephemeral: true,
+		})
+		return
+	}
+
+	_ = e.Defer(true)
+
+	gifAttachment, ok := e.OptAttachment(testAnimateGIFOption)
+	if !ok || gifAttachment == nil {
+		sendTestAnimateError(e, "Unable to read the GIF attachment.")
+		return
+	}
+	csvAttachment, ok := e.OptAttachment(testAnimateCSVOption)
+	if !ok || csvAttachment == nil {
+		sendTestAnimateError(e, "Unable to read the CSV attachment.")
+		return
+	}
+
+	gifBytes, err := bottools.DownloadAttachmentBytesDC(gifAttachment)
 	if err != nil {
-		sendTestAnimateError(s, i, fmt.Sprintf("Failed downloading CSV: %v", err))
+		sendTestAnimateError(e, fmt.Sprintf("Failed downloading GIF: %v", err))
+		return
+	}
+	csvBytes, err := bottools.DownloadAttachmentBytesDC(csvAttachment)
+	if err != nil {
+		sendTestAnimateError(e, fmt.Sprintf("Failed downloading CSV: %v", err))
 		return
 	}
 
 	inputFormat, outExt, outContentType, err := detectAnimationFormat(gifAttachment, gifBytes)
 	if err != nil {
-		sendTestAnimateError(s, i, err.Error())
+		sendTestAnimateError(e, err.Error())
 		return
 	}
 
 	session := &mintPreviewSession{
 		SessionID:        fmt.Sprintf("%d", time.Now().UnixNano()),
-		UserID:           bottools.GetInteractionUserID(i),
-		ChannelID:        i.ChannelID,
+		UserID:           e.UserID(),
+		ChannelID:        e.ChannelID(),
 		OriginalFilename: gifAttachment.Filename,
 		InputFormat:      inputFormat,
 		OutExt:           outExt,
 		OutContentType:   outContentType,
 		MediaBytes:       gifBytes,
 		CSVBytes:         csvBytes,
-		Interaction:      i.Interaction,
+		Event:            e,
 		UpdatedAt:        time.Now(),
 	}
 
@@ -245,8 +200,8 @@ func HandleMintCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	mintPreviewSessions[session.SessionID] = session
 	mintPreviewMu.Unlock()
 
-	if err := sendMintPreviewMessage(s, session); err != nil {
-		sendTestAnimateError(s, i, err.Error())
+	if err := sendMintPreviewMessage(session); err != nil {
+		sendTestAnimateError(e, err.Error())
 		return
 	}
 }
@@ -372,7 +327,7 @@ func probeVideoFrameCount(videoBytes []byte, outExt string) (int, error) {
 	return count, nil
 }
 
-func detectAnimationFormat(att *discordgo.MessageAttachment, data []byte) (format string, outExt string, contentType string, err error) {
+func detectAnimationFormat(att *dc.Attachment, data []byte) (format string, outExt string, contentType string, err error) {
 	lowerName := strings.ToLower(att.Filename)
 	ext := strings.ToLower(filepath.Ext(lowerName))
 
@@ -411,30 +366,25 @@ func isISOBaseMediaBytes(data []byte) bool {
 	return string(data[4:8]) == "ftyp"
 }
 
-func sendTestAnimateError(s *discordgo.Session, i *discordgo.InteractionCreate, msg string) {
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: msg,
-		Flags:   discordgo.MessageFlagsEphemeral,
-	})
+func sendTestAnimateError(e *dc.CommandEvent, msg string) {
+	_ = e.Followup(dc.Message{Content: msg, Ephemeral: true})
 }
 
-// HandleMintPreviewComponent handles button interactions for mint preview flows.
-func HandleMintPreviewComponent(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	parts := strings.Split(i.MessageComponentData().CustomID, "#")
+// HandleMintPreview handles button interactions for mint preview flows through
+// the dc facade.
+func HandleMintPreview(e *dc.ComponentEvent) {
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) != 3 {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Invalid mint preview action.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "Invalid mint preview action.",
+			Ephemeral: true,
 		})
 		return
 	}
 
 	sessionID := parts[1]
 	action := parts[2]
-	userID := bottools.GetInteractionUserID(i)
+	userID := e.UserID()
 
 	mintPreviewMu.Lock()
 	cleanupExpiredMintPreviewSessionsLocked(time.Now())
@@ -445,22 +395,16 @@ func HandleMintPreviewComponent(s *discordgo.Session, i *discordgo.InteractionCr
 	mintPreviewMu.Unlock()
 
 	if !ok {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "This mint preview has expired. Please run /mint create again.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "This mint preview has expired. Please run /mint create again.",
+			Ephemeral: true,
 		})
 		return
 	}
 	if session.UserID != userID {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Only the original requester can use these preview controls.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "Only the original requester can use these preview controls.",
+			Ephemeral: true,
 		})
 		return
 	}
@@ -468,20 +412,16 @@ func HandleMintPreviewComponent(s *discordgo.Session, i *discordgo.InteractionCr
 	switch action {
 	case mintPreviewProceed:
 		estimateText := describeMintRenderEstimate(session)
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Content:    estimateText,
-				Components: []discordgo.MessageComponent{},
-				Flags:      discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Update(dc.Message{
+			Content:   estimateText,
+			Ephemeral: true,
 		})
 
 		outputData, err := renderMintOutput(session)
 		if err != nil {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: err.Error(),
-				Flags:   discordgo.MessageFlagsEphemeral,
+			_ = e.Followup(dc.Message{
+				Content:   err.Error(),
+				Ephemeral: true,
 			})
 			return
 		}
@@ -502,16 +442,16 @@ func HandleMintPreviewComponent(s *discordgo.Session, i *discordgo.InteractionCr
 			log.Printf("Failed to save mint output to %s: %v", savePath, writeErr)
 		}
 
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		_ = e.Followup(dc.Message{
 			Content: "Rendering complete. Generated file:\n",
-			Files: []*discordgo.File{
+			Files: []dc.File{
 				{
 					Name:        uniqueFilename,
 					ContentType: session.OutContentType,
 					Reader:      bytes.NewReader(outputData),
 				},
 			},
-			Flags: discordgo.MessageFlagsEphemeral,
+			Ephemeral: true,
 		})
 
 		mintPreviewMu.Lock()
@@ -524,13 +464,11 @@ func HandleMintPreviewComponent(s *discordgo.Session, i *discordgo.InteractionCr
 		session.UpdatedAt = time.Now()
 		mintPreviewMu.Unlock()
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		})
+		_ = e.DeferUpdate()
 
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: "Upload a new CSV file in this channel (same user) and I will regenerate the preview using the original animation.",
-			Flags:   discordgo.MessageFlagsEphemeral,
+		_ = e.Followup(dc.Message{
+			Content:   "Upload a new CSV file in this channel (same user) and I will regenerate the preview using the original animation.",
+			Ephemeral: true,
 		})
 
 		return
@@ -540,31 +478,27 @@ func HandleMintPreviewComponent(s *discordgo.Session, i *discordgo.InteractionCr
 		delete(mintPreviewSessions, session.SessionID)
 		mintPreviewMu.Unlock()
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "Mint preview closed.",
-				Components: []discordgo.MessageComponent{},
-				Flags:      discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Update(dc.Message{
+			Content:   "Mint preview closed.",
+			Ephemeral: true,
 		})
 
 	default:
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Unknown mint preview action.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "Unknown mint preview action.",
+			Ephemeral: true,
 		})
 	}
 }
 
-// HandleMintCSVUploadMessage consumes a replacement CSV attachment for an active preview update request.
-func HandleMintCSVUploadMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
-	if m == nil || m.Author == nil || m.Author.Bot || len(m.Attachments) == 0 {
+// HandleMintCSVUpload consumes a replacement CSV attachment for an active preview update request.
+func HandleMintCSVUpload(client dc.Client, e *dc.MessageEvent) {
+	attachments := e.Attachments()
+	if e.AuthorIsBot() || len(attachments) == 0 {
 		return
 	}
+	authorID := e.AuthorID()
+	channelID := e.ChannelID()
 
 	now := time.Now()
 	var selected *mintPreviewSession
@@ -576,10 +510,10 @@ func HandleMintCSVUploadMessage(s *discordgo.Session, m *discordgo.MessageCreate
 		if !session.AwaitingCSV {
 			continue
 		}
-		if session.UserID != m.Author.ID {
+		if session.UserID != authorID {
 			continue
 		}
-		if session.ChannelID == m.ChannelID {
+		if session.ChannelID == channelID {
 			if selected == nil || session.UpdatedAt.After(selected.UpdatedAt) {
 				selected = session
 			}
@@ -594,24 +528,24 @@ func HandleMintCSVUploadMessage(s *discordgo.Session, m *discordgo.MessageCreate
 	if selected == nil {
 		if sameUserDifferentChannel != nil {
 			msg := fmt.Sprintf("I am waiting for your replacement CSV in channel ID %s. Please upload it there, or click 'Update the CSV file' again in the newest preview.", sameUserDifferentChannel.ChannelID)
-			if _, err := s.ChannelMessageSend(m.ChannelID, msg); err != nil {
+			if _, err := client.SendMessage(channelID, dc.Message{Content: msg}); err != nil {
 				log.Printf("mint csv update notice send failed: %v", err)
 			}
 		}
 		return
 	}
 
-	att := pickCSVAttachment(m.Attachments)
+	att := pickCSVAttachment(attachments)
 	if att == nil {
-		if _, err := s.ChannelMessageSend(m.ChannelID, "Please upload a CSV file attachment."); err != nil {
+		if _, err := client.SendMessage(channelID, dc.Message{Content: "Please upload a CSV file attachment."}); err != nil {
 			log.Printf("mint csv update prompt send failed: %v", err)
 		}
 		return
 	}
 
-	csvBytes, err := bottools.DownloadAttachmentBytes(att)
+	csvBytes, err := bottools.DownloadAttachmentBytesDC(att)
 	if err != nil {
-		if _, sendErr := s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Failed downloading CSV: %v", err)); sendErr != nil {
+		if _, sendErr := client.SendMessage(channelID, dc.Message{Content: fmt.Sprintf("Failed downloading CSV: %v", err)}); sendErr != nil {
 			log.Printf("mint csv download error send failed: %v", sendErr)
 		}
 		return
@@ -623,19 +557,19 @@ func HandleMintCSVUploadMessage(s *discordgo.Session, m *discordgo.MessageCreate
 	selected.UpdatedAt = time.Now()
 	mintPreviewMu.Unlock()
 
-	if err := sendMintPreviewMessage(s, selected); err != nil {
-		if _, sendErr := s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Could not render updated preview: %v", err)); sendErr != nil {
+	if err := sendMintPreviewMessage(selected); err != nil {
+		if _, sendErr := client.SendMessage(channelID, dc.Message{Content: fmt.Sprintf("Could not render updated preview: %v", err)}); sendErr != nil {
 			log.Printf("mint csv preview error send failed: %v", sendErr)
 		}
 		return
 	}
 
-	if _, err := s.ChannelMessageSend(m.ChannelID, "Updated CSV received. A new preview was sent."); err != nil {
+	if _, err := client.SendMessage(channelID, dc.Message{Content: "Updated CSV received. A new preview was sent."}); err != nil {
 		log.Printf("mint csv success send failed: %v", err)
 	}
 }
 
-func sendMintPreviewMessage(s *discordgo.Session, session *mintPreviewSession) error {
+func sendMintPreviewMessage(session *mintPreviewSession) error {
 	start := time.Now()
 	initialGIF, distantGIF, detailsText, err := buildMintPreviewAssets(session)
 	if err != nil {
@@ -650,24 +584,26 @@ func sendMintPreviewMessage(s *discordgo.Session, session *mintPreviewSession) e
 	mintPreviewMu.Unlock()
 
 	frameDetails := getFrameDetailsText(session.InputFormat, session.MediaBytes, session.CSVBytes, session.OutExt)
-	buttons := []discordgo.MessageComponent{
-		discordgo.ActionsRow{Components: []discordgo.MessageComponent{
-			discordgo.Button{
+	buttons := []dc.LayoutComponent{
+		dc.ActionRow{Components: []dc.InteractiveComponent{
+			dc.Button{
 				Label:    "Okay to proceed",
-				Style:    discordgo.SuccessButton,
+				Style:    dc.ButtonSuccess,
 				CustomID: fmt.Sprintf("%s#%s#%s", mintPreviewPrefix, session.SessionID, mintPreviewProceed),
 			},
-			discordgo.Button{
+			dc.Button{
 				Label:    "Close",
-				Style:    discordgo.DangerButton,
+				Style:    dc.ButtonDanger,
 				CustomID: fmt.Sprintf("%s#%s#%s", mintPreviewPrefix, session.SessionID, mintPreviewClose),
 			},
 		}},
 	}
 
-	_, err = s.FollowupMessageCreate(session.Interaction, true, &discordgo.WebhookParams{
+	// Components v1: the preview mixes text, files and a button row, which
+	// components v2 does not allow in one message.
+	err = session.Event.Followup(dc.Message{
 		Content: "Preview before full render:\n" + frameDetails + "\n" + detailsText,
-		Files: []*discordgo.File{
+		Files: []dc.File{
 			{
 				Name:        "mint-preview-initial.gif",
 				ContentType: "image/gif",
@@ -679,8 +615,9 @@ func sendMintPreviewMessage(s *discordgo.Session, session *mintPreviewSession) e
 				Reader:      bytes.NewReader(distantGIF),
 			},
 		},
-		Components: buttons,
-		Flags:      discordgo.MessageFlagsEphemeral,
+		Components:   buttons,
+		ComponentsV1: true,
+		Ephemeral:    true,
 	})
 	if err != nil {
 		return fmt.Errorf("failed sending mint preview: %w", err)
@@ -1108,16 +1045,16 @@ func cleanupExpiredMintPreviewSessionsLocked(now time.Time) {
 	}
 }
 
-func pickCSVAttachment(attachments []*discordgo.MessageAttachment) *discordgo.MessageAttachment {
-	for _, att := range attachments {
-		name := strings.ToLower(strings.TrimSpace(att.Filename))
-		ct := strings.ToLower(strings.TrimSpace(att.ContentType))
+func pickCSVAttachment(attachments []dc.Attachment) *dc.Attachment {
+	for i := range attachments {
+		name := strings.ToLower(strings.TrimSpace(attachments[i].Filename))
+		ct := strings.ToLower(strings.TrimSpace(attachments[i].ContentType))
 		if strings.HasSuffix(name, ".csv") || strings.Contains(ct, "csv") {
-			return att
+			return &attachments[i]
 		}
 	}
 	if len(attachments) > 0 {
-		return attachments[0]
+		return &attachments[0]
 	}
 	return nil
 }

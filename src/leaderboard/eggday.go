@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
@@ -32,7 +32,7 @@ func GetStatForPlayerAndSnapDate(lbType, playerID, snapDate string) *LBEntry {
 }
 
 // StartEggDayScheduler schedules the Egg Day start and end collections.
-func StartEggDayScheduler(s *discordgo.Session) {
+func StartEggDayScheduler(client dc.Client) {
 	loc, err := time.LoadLocation("America/Los_Angeles")
 	if err != nil {
 		log.Printf("eggday: error loading timezone America/Los_Angeles: %v", err)
@@ -60,7 +60,7 @@ func StartEggDayScheduler(s *discordgo.Session) {
 				// We are past start time, but start stats have not been collected.
 				// Run start collection now.
 				log.Printf("eggday: catch-up: running start collection for %d", year)
-				CollectEggDayStart(s, year)
+				CollectEggDayStart(year)
 				hasStart = true
 
 				// Sleep 10 mins to let periodicals update, then fall through to end collection.
@@ -70,14 +70,14 @@ func StartEggDayScheduler(s *discordgo.Session) {
 			if hasStart && !hasEnd {
 				// Start has run, but end has not.
 				// Determine end time and sleep until then, then run end collection.
-				endTime := determineEggDayEndTime(s, year, loc)
+				endTime := determineEggDayEndTime(client, year, loc)
 				sleepUntilEnd := time.Until(endTime.Add(10 * time.Minute))
 				if sleepUntilEnd > 0 {
 					log.Printf("eggday: catch-up: sleeping until 10 minutes after end time: %s", endTime.Add(10*time.Minute).Format(time.RFC3339))
 					time.Sleep(sleepUntilEnd)
 				}
 				log.Printf("eggday: catch-up: running end collection and calculations for %d", year)
-				CollectEggDayEndAndCalculate(s, year, false)
+				CollectEggDayEndAndCalculate(client, year, false)
 			}
 		}
 
@@ -103,12 +103,12 @@ func StartEggDayScheduler(s *discordgo.Session) {
 			log.Printf("eggday: starting Egg Day collection for year %d", runYear)
 
 			// 1. Run start collection
-			CollectEggDayStart(s, runYear)
+			CollectEggDayStart(runYear)
 
 			// 2. Wait 10 minutes (until 9:05 AM PT) to let periodicals update, then determine event end time
 			time.Sleep(10 * time.Minute)
 
-			endTime := determineEggDayEndTime(s, runYear, loc)
+			endTime := determineEggDayEndTime(client, runYear, loc)
 			log.Printf("eggday: determined end time: %s", endTime.Format(time.RFC3339))
 
 			// Sleep until end time (or slightly after, e.g. 10 minutes after)
@@ -119,20 +119,24 @@ func StartEggDayScheduler(s *discordgo.Session) {
 			}
 
 			// 3. Run end collection, calculate gains/pct, and post leaderboards
-			CollectEggDayEndAndCalculate(s, runYear, false)
+			CollectEggDayEndAndCalculate(client, runYear, false)
 		}
 	}()
 }
 
 // determineEggDayEndTime polls the active events to find the end time of Egg Day events.
-func determineEggDayEndTime(s *discordgo.Session, year int, loc *time.Location) time.Time {
+//
+// It takes a raw session only to hand one to events.GetPeriodicalsFromAPI,
+// which still needs one for boost and watch. The parameter becomes a dc.Client
+// once those migrate.
+func determineEggDayEndTime(client dc.Client, year int, loc *time.Location) time.Time {
 	// Default to 24 hours later (July 15th 9:00 AM PT)
 	defaultEndTime := time.Date(year, time.July, 15, 9, 0, 0, 0, loc)
 
 	// Poll up to 6 times, once every 5 minutes
 	for attempt := 0; attempt < 6; attempt++ {
 		// Active call to download the new periodicals from the API to guarantee updated events
-		_ = events.GetPeriodicalsFromAPI(s)
+		_ = events.GetPeriodicalsFromAPI(client)
 
 		ei.EventMutex.Lock()
 		eventsCopy := make([]ei.EggEvent, len(ei.EggIncEvents))
@@ -169,7 +173,7 @@ func determineEggDayEndTime(s *discordgo.Session, year int, loc *time.Location) 
 
 // CollectEggDayManual runs the manual collection flow. It determines whether to perform starting collection
 // or ending collection/calculation based on current date & database presence.
-func CollectEggDayManual(s *discordgo.Session, target string, dryRun bool, onProgress func(string)) {
+func CollectEggDayManual(client dc.Client, target string, dryRun bool, onProgress func(string)) {
 	loc, err := time.LoadLocation("America/Los_Angeles")
 	if err != nil {
 		if onProgress != nil {
@@ -190,7 +194,7 @@ func CollectEggDayManual(s *discordgo.Session, target string, dryRun bool, onPro
 		if onProgress != nil {
 			onProgress("🚀 Running Egg Day START collection (saving baseline SE counts)...")
 		}
-		CollectEggDayStart(s, year)
+		CollectEggDayStart(year)
 		if onProgress != nil {
 			onProgress("✅ Egg Day START collection complete. Baseline SE counts saved.")
 		}
@@ -198,7 +202,7 @@ func CollectEggDayManual(s *discordgo.Session, target string, dryRun bool, onPro
 		if onProgress != nil {
 			onProgress("🏁 Running Egg Day END collection & calculating gains...")
 		}
-		CollectEggDayEndAndCalculate(s, year, dryRun)
+		CollectEggDayEndAndCalculate(client, year, dryRun)
 		if onProgress != nil {
 			onProgress("✅ Egg Day END collection and calculations complete.")
 		}
@@ -206,7 +210,7 @@ func CollectEggDayManual(s *discordgo.Session, target string, dryRun bool, onPro
 }
 
 // CollectEggDayStart records the initial SE count for all opted-in players.
-func CollectEggDayStart(s *discordgo.Session, year int) {
+func CollectEggDayStart(year int) {
 	log.Printf("eggday: collecting start stats for year %d", year)
 	userIDs := GetAllOptInUserIDs()
 	if len(userIDs) == 0 {
@@ -226,7 +230,7 @@ func CollectEggDayStart(s *discordgo.Session, year int) {
 			continue
 		}
 
-		backup, _ := ei.GetFirstContactFromAPI(s, enc, userID, true)
+		backup, _ := ei.GetFirstContactFromAPI(enc, userID, true)
 		if backup == nil {
 			log.Printf("eggday: failed to fetch backup for user %s during start collection", userID)
 			continue
@@ -253,7 +257,7 @@ func CollectEggDayStart(s *discordgo.Session, year int) {
 }
 
 // CollectEggDayEndAndCalculate records the ending SE count, calculates gains, and posts leaderboards.
-func CollectEggDayEndAndCalculate(s *discordgo.Session, year int, dryRun bool) {
+func CollectEggDayEndAndCalculate(client dc.Client, year int, dryRun bool) {
 	log.Printf("eggday: collecting end stats for year %d", year)
 	userIDs := GetAllOptInUserIDs()
 	if len(userIDs) == 0 {
@@ -273,7 +277,7 @@ func CollectEggDayEndAndCalculate(s *discordgo.Session, year int, dryRun bool) {
 			continue
 		}
 
-		backup, _ := ei.GetFirstContactFromAPI(s, enc, userID, true)
+		backup, _ := ei.GetFirstContactFromAPI(enc, userID, true)
 		if backup == nil {
 			log.Printf("eggday: failed to fetch backup for user %s during end collection", userID)
 			continue
@@ -332,7 +336,7 @@ func CollectEggDayEndAndCalculate(s *discordgo.Session, year int, dryRun bool) {
 	// Post the new leaderboards if not a dry run
 	if !dryRun {
 		log.Printf("eggday: posting Egg Day leaderboards for year %s", yearStr)
-		PostLeaderboards(s, yearStr, "", "group_egg_day", "update", nil)
+		PostLeaderboards(client, yearStr, "", "group_egg_day", "update", nil)
 	} else {
 		log.Printf("eggday: dry run — skipping Discord post for Egg Day leaderboards")
 	}

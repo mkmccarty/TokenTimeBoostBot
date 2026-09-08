@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
@@ -33,7 +33,6 @@ var (
 	DefaultLeggyMonocle           = 1.30
 	DefaultLeggyIHRSlots          = 8.0
 	DefaultLeggyChickenRunPercent = 70.0
-	teOverrideMinValue            = 0.0
 )
 
 // calcLeggyBoost computes the boost tokens and multiplier dynamically based on TE.
@@ -53,72 +52,52 @@ func calcLeggyBoost(te float64) (tokens float64, multiplier float64) {
 }
 
 // GetSlashEstimateTime is the definition of the slash command
-func GetSlashEstimateTime(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Get an estimate of completion time of a contract.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
+func GetSlashEstimateTime(cmd string) *dc.Command {
+	teMin, teMax := 0, 490
+	command := anywhereCommand(cmd, "Get an estimate of completion time of a contract.")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:         "contract-id",
+			Description:  "Contract ID",
+			Autocomplete: true,
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
+		dc.BoolOption{
+			Name:        "include-leggy",
+			Description: "Include estimate for full leggy set.",
 		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "contract-id",
-				Description:  "Contract ID",
-				Required:     false,
-				Autocomplete: true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "include-leggy",
-				Description: "Include estimate for full leggy set.",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "te-override",
-				Description: "Override default TE (0-490) for this run.",
-				Required:    false,
-				MinValue:    &teOverrideMinValue,
-				MaxValue:    490.0,
-			},
+		dc.IntOption{
+			Name:        "te-override",
+			Description: "Override default TE (0-490) for this run.",
+			MinValue:    &teMin,
+			MaxValue:    &teMax,
 		},
 	}
+	return &command
 }
 
 // HandleEstimateTimeCommand will handle the estimate-contract-time command
-func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleEstimateTimeCommand(e *dc.CommandEvent) {
 	var contractID = ""
 	var str = ""
 	includeLeggySet := false
-	optionMap := bottools.GetCommandOptionsMap(i)
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{},
-	})
+	_ = e.Defer(false)
 
-	if opt, ok := optionMap["contract-id"]; ok {
-		contractID = opt.StringValue()
+	if opt, ok := e.OptString("contract-id"); ok {
+		contractID = opt
 	} else {
-		runningContract := FindContract(i.ChannelID)
+		runningContract := FindContract(e.ChannelID())
 		if runningContract != nil {
 			contractID = runningContract.ContractID
 		}
 	}
-	if opt, ok := optionMap["include-leggy"]; ok {
-		includeLeggySet = opt.BoolValue()
+	if opt, ok := e.OptBool("include-leggy"); ok {
+		includeLeggySet = opt
 	}
 
 	var teOverride []float64
-	if opt, ok := optionMap["te-override"]; ok {
-		teOverride = append(teOverride, float64(opt.IntValue()))
+	if opt, ok := e.OptInt("te-override"); ok {
+		teOverride = append(teOverride, float64(opt))
 	}
 
 	c := ei.EggIncContractsAll[contractID]
@@ -128,20 +107,20 @@ func HandleEstimateTimeCommand(s *discordgo.Session, i *discordgo.InteractionCre
 
 	if str == "" {
 		estimateText := GetContractEstimateString(contractID, includeLeggySet, teOverride...)
-		components := []discordgo.MessageComponent{
-			discordgo.TextDisplay{Content: estimateText},
-		}
 
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Flags:      discordgo.MessageFlagsSuppressEmbeds | discordgo.MessageFlagsIsComponentsV2,
-			Components: components,
+		_ = e.Followup(dc.Message{
+			SuppressEmbeds: true,
+			Components: []dc.LayoutComponent{
+				dc.TextDisplay{Content: estimateText},
+			},
 		})
 		return
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: str,
-		Flags:   discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsSuppressEmbeds,
+	_ = e.Followup(dc.Message{
+		Content:        str,
+		Ephemeral:      true,
+		SuppressEmbeds: true,
 	})
 }
 

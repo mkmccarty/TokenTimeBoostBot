@@ -10,7 +10,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 func getArtifactsPageFromContent(content string) string {
@@ -226,7 +226,7 @@ func displayArtifactQuality(val string) string {
 	return val
 }
 
-func populateArtifactsFromBackup(s *discordgo.Session, userID string) (string, string, error) {
+func populateArtifactsFromBackup(client dc.Client, userID string) (string, string, error) {
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 	if eiID == "" && !isDiscordSnowflake(userID) {
 		if discordID, err := farmerstate.GetDiscordUserIDFromEiIgnExact(userID); err == nil && discordID != "" {
@@ -238,7 +238,7 @@ func populateArtifactsFromBackup(s *discordgo.Session, userID string) (string, s
 		return msg, msg, nil
 	}
 
-	backup, _ := ei.GetFirstContactFromAPI(s, eiID, userID, true)
+	backup, _ := ei.GetFirstContactFromAPI(eiID, userID, true)
 	if backup == nil || backup.GetArtifactsDb() == nil {
 		msg := "Unable to fetch backup artifacts right now."
 		return msg, msg, nil
@@ -332,7 +332,7 @@ func populateArtifactsFromBackup(s *discordgo.Session, userID string) (string, s
 			continue
 		}
 
-		refreshBoostListMessage(s, contract, false)
+		refreshBoostListMessage(client, contract, false)
 		saveData(contract.ContractHash)
 	}
 
@@ -360,7 +360,7 @@ func populateArtifactsFromBackup(s *discordgo.Session, userID string) (string, s
 	return status, summary.String(), nil
 }
 
-func getArtifactsComponents(userID string, channelID string, contractOnly bool, page string, backupButtonLabel string) (string, []discordgo.MessageComponent) {
+func getArtifactsComponents(userID string, channelID string, contractOnly bool, page string, backupButtonLabel string) (string, []dc.LayoutComponent) {
 	minValues := 0
 	minV := 0
 	if page == "" {
@@ -465,15 +465,15 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 		coll = strings.ReplaceAll(coll, "FLAMERETARDANT", "FLAME RETARDANT")
 	}
 
-	component := []discordgo.MessageComponent{
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.SelectMenu{
+	component := []dc.LayoutComponent{
+		dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.SelectMenu{
 					CustomID:    "as_#DEFL#" + userID + "#" + temp,
 					Placeholder: "Select your Deflector...",
 					MinValues:   &minValues,
 					MaxValues:   1,
-					Options: []discordgo.SelectMenuOption{
+					Options: []dc.SelectOption{
 						{
 							Label:       "Deflector T4L",
 							Description: "Legendary",
@@ -525,14 +525,14 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 				},
 			},
 		},
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.SelectMenu{
+		dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.SelectMenu{
 					CustomID:    "as_#METR#" + userID + "#" + temp,
 					Placeholder: "Select your Metronome...",
 					MinValues:   &minValues,
 					MaxValues:   1,
-					Options: []discordgo.SelectMenuOption{
+					Options: []dc.SelectOption{
 						{
 							Label:       "Metronome T4L",
 							Description: "Legendary",
@@ -592,14 +592,14 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 				},
 			},
 		},
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.SelectMenu{
+		dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.SelectMenu{
 					CustomID:    "as_#COMP#" + userID + "#" + temp,
 					Placeholder: "Select your Compass...",
 					MinValues:   &minValues,
 					MaxValues:   1,
-					Options: []discordgo.SelectMenuOption{
+					Options: []dc.SelectOption{
 						{
 							Label:       "Compass T4L",
 							Description: "Legendary",
@@ -652,14 +652,14 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 				},
 			},
 		},
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.SelectMenu{
+		dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.SelectMenu{
 					CustomID:    "as_#GUSS#" + userID + "#" + temp,
 					Placeholder: "Select your Gusset...",
 					MinValues:   &minValues,
 					MaxValues:   1,
-					Options: []discordgo.SelectMenuOption{
+					Options: []dc.SelectOption{
 						{
 							Label:       "Gusset T4L",
 							Description: "Legendary",
@@ -715,15 +715,15 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 	}
 
 	if !contractOnly && page == "ihr" {
-		component = []discordgo.MessageComponent{
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.SelectMenu{
+		component = []dc.LayoutComponent{
+			dc.ActionRow{
+				Components: []dc.InteractiveComponent{
+					dc.SelectMenu{
 						CustomID:    "as_#DEFL-IHR#" + userID + "#" + temp,
 						Placeholder: "Select your IHR Deflector...",
 						MinValues:   &minValues,
 						MaxValues:   1,
-						Options: []discordgo.SelectMenuOption{
+						Options: []dc.SelectOption{
 							{Label: "IHR Deflector T4L w/Life", Description: "Legendary (w/Life stones)", Value: "T4L_L", Default: ihrDeflector == "T4L_L", Emoji: ei.GetBotComponentEmoji("defl_T4L")},
 							{Label: "IHR Deflector T4L", Description: "Legendary", Value: "T4L", Default: ihrDeflector == "T4L", Emoji: ei.GetBotComponentEmoji("defl_T4L")},
 							{Label: "IHR Deflector T4E w/Life", Description: "Epic (w/Life stones)", Value: "T4E_L", Default: ihrDeflector == "T4E_L", Emoji: ei.GetBotComponentEmoji("defl_T4E")},
@@ -739,14 +739,14 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 					},
 				},
 			},
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.SelectMenu{
+			dc.ActionRow{
+				Components: []dc.InteractiveComponent{
+					dc.SelectMenu{
 						CustomID:    "as_#CHALICE#" + userID + "#" + temp,
 						Placeholder: "Select your Chalice...",
 						MinValues:   &minValues,
 						MaxValues:   1,
-						Options: []discordgo.SelectMenuOption{
+						Options: []dc.SelectOption{
 							{Label: "Chalice T4L", Description: "Legendary", Value: "T4L", Default: chalice == "T4L", Emoji: ei.GetBotComponentEmoji("chalice_T4L")},
 							{Label: "Chalice T4E", Description: "Epic", Value: "T4E", Default: chalice == "T4E", Emoji: ei.GetBotComponentEmoji("chalice_T4E")},
 							{Label: "Chalice T4C", Description: "Common", Value: "T4C", Default: chalice == "T4C", Emoji: ei.GetBotComponentEmoji("chalice_T4C")},
@@ -761,14 +761,14 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 					},
 				},
 			},
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.SelectMenu{
+			dc.ActionRow{
+				Components: []dc.InteractiveComponent{
+					dc.SelectMenu{
 						CustomID:    "as_#MONOCLE#" + userID + "#" + temp,
 						Placeholder: "Select your Monocle...",
 						MinValues:   &minValues,
 						MaxValues:   1,
-						Options: []discordgo.SelectMenuOption{
+						Options: []dc.SelectOption{
 							{Label: "Monocle T4L", Description: "Legendary", Value: "T4L", Default: monocle == "T4L", Emoji: ei.GetBotComponentEmoji("monocle_T4L")},
 							{Label: "Monocle T4E", Description: "Epic", Value: "T4E", Default: monocle == "T4E", Emoji: ei.GetBotComponentEmoji("monocle_T4E")},
 							{Label: "Monocle T4C", Description: "Common", Value: "T4C", Default: monocle == "T4C", Emoji: ei.GetBotComponentEmoji("monocle_T4C")},
@@ -780,14 +780,14 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 					},
 				},
 			},
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.SelectMenu{
+			dc.ActionRow{
+				Components: []dc.InteractiveComponent{
+					dc.SelectMenu{
 						CustomID:    "as_#SIAB#" + userID + "#" + temp,
 						Placeholder: "Select your Ship In A Bottle...",
 						MinValues:   &minValues,
 						MaxValues:   1,
-						Options: []discordgo.SelectMenuOption{
+						Options: []dc.SelectOption{
 							{Label: "SIAB T4L", Description: "Legendary", Value: "T4L", Default: siab == "T4L", Emoji: ei.GetBotComponentEmoji("SIAB_T4L")},
 							{Label: "SIAB T4E", Description: "Epic", Value: "T4E", Default: siab == "T4E", Emoji: ei.GetBotComponentEmoji("SIAB_T4E")},
 							{Label: "SIAB T4R", Description: "Rare", Value: "T4R", Default: siab == "T4R", Emoji: ei.GetBotComponentEmoji("SIAB_T4R")},
@@ -819,10 +819,10 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 		}
 		sort.Strings(keys)
 
-		layOptions := make([]discordgo.SelectMenuOption, 0)
-		shipOptions := make([]discordgo.SelectMenuOption, 0)
-		ihrOptions := make([]discordgo.SelectMenuOption, 0)
-		otherOptions := make([]discordgo.SelectMenuOption, 0)
+		layOptions := make([]dc.SelectOption, 0)
+		shipOptions := make([]dc.SelectOption, 0)
+		ihrOptions := make([]dc.SelectOption, 0)
+		otherOptions := make([]dc.SelectOption, 0)
 		for _, k := range keys {
 			egg := ei.CustomEggMap[k]
 			if egg == nil || egg.Name == "" {
@@ -840,7 +840,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 					selectedOtherCount++
 				}
 			}
-			opt := discordgo.SelectMenuOption{
+			opt := dc.SelectOption{
 				Label:       egg.Name,
 				Description: egg.Description,
 				Value:       egg.Name,
@@ -859,7 +859,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 			}
 		}
 
-		component = []discordgo.MessageComponent{}
+		component = []dc.LayoutComponent{}
 		if len(layOptions) > 0 {
 			fmt.Fprintf(&builder, "\nLay Rate colleggtibles: %d selected", selectedLayCount)
 		}
@@ -874,7 +874,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 		}
 
 		if len(layOptions) > 0 {
-			component = append(component, discordgo.ActionsRow{Components: []discordgo.MessageComponent{discordgo.SelectMenu{
+			component = append(component, dc.ActionRow{Components: []dc.InteractiveComponent{dc.SelectMenu{
 				CustomID:    "as_#COLLEGG-LAY#" + userID + "#" + temp,
 				Placeholder: "Select Lay Rate colleggtibles",
 				MinValues:   &minV,
@@ -883,7 +883,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 			}}})
 		}
 		if len(shipOptions) > 0 {
-			component = append(component, discordgo.ActionsRow{Components: []discordgo.MessageComponent{discordgo.SelectMenu{
+			component = append(component, dc.ActionRow{Components: []dc.InteractiveComponent{dc.SelectMenu{
 				CustomID:    "as_#COLLEGG-SHIP#" + userID + "#" + temp,
 				Placeholder: "Select Shipping Rate colleggtibles",
 				MinValues:   &minV,
@@ -892,7 +892,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 			}}})
 		}
 		if len(ihrOptions) > 0 {
-			component = append(component, discordgo.ActionsRow{Components: []discordgo.MessageComponent{discordgo.SelectMenu{
+			component = append(component, dc.ActionRow{Components: []dc.InteractiveComponent{dc.SelectMenu{
 				CustomID:    "as_#COLLEGG-IHR#" + userID + "#" + temp,
 				Placeholder: "Select Internal Hatchery Rate colleggtibles",
 				MinValues:   &minV,
@@ -901,7 +901,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 			}}})
 		}
 		if len(otherOptions) > 0 {
-			component = append(component, discordgo.ActionsRow{Components: []discordgo.MessageComponent{discordgo.SelectMenu{
+			component = append(component, dc.ActionRow{Components: []dc.InteractiveComponent{dc.SelectMenu{
 				CustomID:    "as_#COLLEGG-OTHER#" + userID + "#" + temp,
 				Placeholder: "Select Other colleggtibles",
 				MinValues:   &minV,
@@ -912,9 +912,9 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 	}
 
 	if !contractOnly {
-		deliveryStyle := discordgo.SecondaryButton
-		ihrStyle := discordgo.SecondaryButton
-		colleggStyle := discordgo.SecondaryButton
+		deliveryStyle := dc.ButtonSecondary
+		ihrStyle := dc.ButtonSecondary
+		colleggStyle := dc.ButtonSecondary
 		eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 		if eiID == "" && !isDiscordSnowflake(userID) {
 			if discordID, err := farmerstate.GetDiscordUserIDFromEiIgnExact(userID); err == nil && discordID != "" {
@@ -924,25 +924,25 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 		hasBackup := eiID != ""
 		switch page {
 		case "delivery":
-			deliveryStyle = discordgo.PrimaryButton
+			deliveryStyle = dc.ButtonPrimary
 		case "ihr":
-			ihrStyle = discordgo.PrimaryButton
+			ihrStyle = dc.ButtonPrimary
 		default:
-			colleggStyle = discordgo.PrimaryButton
+			colleggStyle = dc.ButtonPrimary
 		}
 
-		navButtons := []discordgo.MessageComponent{
-			discordgo.Button{
+		navButtons := []dc.InteractiveComponent{
+			dc.Button{
 				Label:    "Delivery Set",
 				Style:    deliveryStyle,
 				CustomID: "as_#PAGEDEL#" + userID + "#" + temp,
 			},
-			discordgo.Button{
+			dc.Button{
 				Label:    "IHR Set",
 				Style:    ihrStyle,
 				CustomID: "as_#PAGEIHR#" + userID + "#" + temp,
 			},
-			discordgo.Button{
+			dc.Button{
 				Label:    "Colleggtibles",
 				Style:    colleggStyle,
 				CustomID: "as_#PAGECOL#" + userID + "#" + temp,
@@ -954,51 +954,38 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 			if label == "" {
 				label = "Load from Backup"
 			}
-			navButtons = append(navButtons, discordgo.Button{
+			navButtons = append(navButtons, dc.Button{
 				Label:    label,
-				Style:    discordgo.SuccessButton,
+				Style:    dc.ButtonSuccess,
 				CustomID: "as_#POPBACKUP#" + userID + "#" + temp,
 			})
 		}
 
-		component = append(component, discordgo.ActionsRow{Components: navButtons})
+		component = append(component, dc.ActionRow{Components: navButtons})
 	}
 
 	return builder.String(), component
 }
 
 // SlashArtifactsCommand creates a new slash command for setting Egg, Inc name
-func SlashArtifactsCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Indicate best contract artifacts you have.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
-		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "alternate",
-				Description:  "Select a linked alternate account",
-				Required:     false,
-				Autocomplete: true,
-			},
+func SlashArtifactsCommand(cmd string) *dc.Command {
+	command := anywhereCommand(cmd, "Indicate best contract artifacts you have.")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:         "alternate",
+			Description:  "Select a linked alternate account",
+			Autocomplete: true,
 		},
 	}
+	return &command
 }
 
-// HandleArtifactAltAutoComplete provides linked-alt suggestions for /artifact.
-func HandleArtifactAltAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	userID := getInteractionUserID(i)
+// HandleArtifactAltAutoComplete suggests the alternates linked to the caller.
+func HandleArtifactAltAutoComplete(e *dc.AutocompleteEvent) {
+	userID := e.UserID()
 	alts := farmerstate.GetAltControllerByMiscString("AltController", userID)
 
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, len(alts))
+	choices := make([]dc.Choice[string], 0, len(alts))
 	for _, alt := range alts {
 		ign := strings.TrimSpace(farmerstate.GetMiscSettingString(alt, "ei_ign"))
 		displayName := alt
@@ -1011,71 +998,48 @@ func HandleArtifactAltAutoComplete(s *discordgo.Session, i *discordgo.Interactio
 				displayName = fmt.Sprintf("%s (%s)", alt, ei.NormalizePlayerNameForDisplay(ign))
 			}
 		}
-		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+		choices = append(choices, dc.Choice[string]{
 			Name:  displayName,
 			Value: alt,
 		})
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{
-			Choices: choices,
-		},
-	})
+	_ = e.RespondChoices(choices)
 }
 
-func resolveArtifactTargetUserID(i *discordgo.InteractionCreate) (string, string, bool) {
-	requesterID := getInteractionUserID(i)
-	targetUserID := requesterID
+// resolveArtifactTargetUserID picks whose artifacts the command is about: the
+// caller, or an alternate they control. The last return is true when the
+// requested alternate is not one of theirs.
+func resolveArtifactTargetUserID(e *dc.CommandEvent) (string, string, bool) {
+	requesterID := e.UserID()
 
-	for _, opt := range i.ApplicationCommandData().Options {
-		if opt.Name != "alternate" {
-			continue
-		}
-		candidate := strings.TrimSpace(opt.StringValue())
-		if candidate == "" || candidate == requesterID {
-			return requesterID, targetUserID, false
-		}
-
-		for _, alt := range farmerstate.GetAltControllerByMiscString("AltController", requesterID) {
-			if alt == candidate {
-				return requesterID, candidate, false
-			}
-		}
-
-		return requesterID, requesterID, true
+	opt, ok := e.OptString("alternate")
+	if !ok {
+		return requesterID, requesterID, false
 	}
 
-	return requesterID, targetUserID, false
+	candidate := strings.TrimSpace(opt)
+	if candidate == "" || candidate == requesterID {
+		return requesterID, requesterID, false
+	}
+
+	for _, alt := range farmerstate.GetAltControllerByMiscString("AltController", requesterID) {
+		if alt == candidate {
+			return requesterID, candidate, false
+		}
+	}
+
+	return requesterID, requesterID, true
 }
 
-func getInteractionUserID(i *discordgo.InteractionCreate) string {
-	if i == nil {
-		return ""
-	}
-	if i.Member != nil && i.Member.User != nil && i.Member.User.ID != "" {
-		return i.Member.User.ID
-	}
-	if i.User != nil && i.User.ID != "" {
-		return i.User.ID
-	}
-	if i.Message != nil && i.Message.Author != nil {
-		return i.Message.Author.ID
-	}
-	return ""
-}
-
-// HandleArtifactCommand handles the /artifacts command
-func HandleArtifactCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	_, targetUserID, invalidAlt := resolveArtifactTargetUserID(i)
+// HandleArtifactCommand shows the artifact picker for the caller or one of
+// their alternates.
+func HandleArtifactCommand(e *dc.CommandEvent) {
+	_, targetUserID, invalidAlt := resolveArtifactTargetUserID(e)
 	if invalidAlt {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "The selected alternate is not linked to your account.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "The selected alternate is not linked to your account.",
+			Ephemeral: true,
 		})
 		return
 	}
@@ -1084,42 +1048,37 @@ func HandleArtifactCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	contractOnly := false
 
-	str, comp := getArtifactsComponents(userID, i.ChannelID, contractOnly, "delivery", "")
+	str, comp := getArtifactsComponents(userID, e.ChannelID(), contractOnly, "delivery", "")
 
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:    str,
-			Components: comp,
-			Flags:      discordgo.MessageFlagsEphemeral,
-		},
-	},
-	)
+	err := e.Respond(dc.Message{
+		Content:      str,
+		Components:   comp,
+		Ephemeral:    true,
+		ComponentsV1: true,
+	})
 	if err != nil {
 		log.Println("InteractionRespond: ", err)
 	}
 
 }
 
-// HandleArtifactReactions handles all the button reactions for a contract settings
-func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// HandleArtifactReactions handles all the button reactions for a contract settings.
+//
+// It still takes a raw session because updateFarmerInContracts and
+// refreshBoostListMessage are not on the facade yet.
+func HandleArtifactReactions(client dc.Client, e *dc.ComponentEvent) {
 	// cs_#Name # cs_#ID # HASH
-	reaction := strings.Split(i.MessageComponentData().CustomID, "#")
+	reaction := strings.Split(e.CustomID(), "#")
 	cmd := strings.ToLower(reaction[1])
 	userID := reaction[len(reaction)-2]
 	//override := reaction[len(reaction)-1]
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
+	_ = e.DeferUpdate()
 
-	data := i.MessageComponentData()
+	values := e.Values()
 
-	setValue := len(data.Values) != 0
-	page := getArtifactsPageFromContent(i.Message.Content)
+	setValue := len(values) != 0
+	page := getArtifactsPageFromContent(e.MessageContent())
 	switch cmd {
 	case "pagedel":
 		page = "delivery"
@@ -1134,12 +1093,13 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 	backupSummary := ""
 	switch cmd {
 	case "popbackup":
-		loadingStr, loadingComp := getArtifactsComponents(userID, i.ChannelID, false, page, "Loading Backup...")
-		_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Content:    &loadingStr,
-			Components: &loadingComp,
+		loadingStr, loadingComp := getArtifactsComponents(userID, e.ChannelID(), false, page, "Loading Backup...")
+		_ = e.EditResponse(dc.Message{
+			Content:      loadingStr,
+			Components:   loadingComp,
+			ComponentsV1: true,
 		})
-		status, summary, err := populateArtifactsFromBackup(s, userID)
+		status, summary, err := populateArtifactsFromBackup(client, userID)
 		if err != nil {
 			log.Printf("populateArtifactsFromBackup: %v", err)
 		}
@@ -1147,43 +1107,44 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 		backupSummary = summary
 	case "defl", "metr", "comp", "guss", "defl-ihr", "chalice", "monocle", "siab":
 		if setValue {
-			farmerstate.SetMiscSettingString(userID, cmd, data.Values[0])
+			farmerstate.SetMiscSettingString(userID, cmd, values[0])
 		} else {
 			farmerstate.SetMiscSettingString(userID, cmd, "") // Clear the value
 		}
-		updateFarmerInContracts(s, userID, "artifacts", 0)
+		updateFarmerInContracts(client, userID, "artifacts", 0)
 	case "collegg", "collegg-lay", "collegg-ship", "collegg-ihr", "collegg-other":
 		if cmd == "collegg" {
-			farmerstate.SetMiscSettingString(userID, "collegg", strings.Join(data.Values, ","))
+			farmerstate.SetMiscSettingString(userID, "collegg", strings.Join(values, ","))
 		} else {
-			updateColleggtibleCategorySelection(userID, cmd, data.Values)
+			updateColleggtibleCategorySelection(userID, cmd, values)
 		}
-		updateFarmerInContracts(s, userID, "artifacts", 0)
+		updateFarmerInContracts(client, userID, "artifacts", 0)
 	}
 
 	// Redraw the artifact list
-	str, comp := getArtifactsComponents(userID, i.ChannelID, false, page, "Load from Backup")
+	str, comp := getArtifactsComponents(userID, e.ChannelID(), false, page, "Load from Backup")
 	if statusPrefix != "" {
 		str = statusPrefix + "\n" + str
 	}
 
-	_, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-		Content:    &str,
-		Components: &comp,
+	err := e.EditResponse(dc.Message{
+		Content:      str,
+		Components:   comp,
+		ComponentsV1: true,
 	})
 	if err != nil {
 		log.Println("InteractionResponseEdit: ", err)
 	}
 
 	if backupSummary != "" {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: backupSummary,
-			Flags:   discordgo.MessageFlagsEphemeral,
+		_ = e.Followup(dc.Message{
+			Content:   backupSummary,
+			Ephemeral: true,
 		})
 	}
 
 	//} else {
-	contract := FindContract(i.ChannelID)
+	contract := FindContract(e.ChannelID())
 	if contract != nil {
 		if UserInContract(contract, userID) {
 			if cmd != "defl" && cmd != "metr" && cmd != "comp" && cmd != "guss" && cmd != "defl-ihr" && cmd != "chalice" && cmd != "monocle" && cmd != "siab" {
@@ -1212,10 +1173,10 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 				prefix = "SIAB-"
 			}
 			var newArtifact *ei.Artifact
-			if len(data.Values) == 0 {
+			if len(values) == 0 {
 				newArtifact = ei.GetArtifactByKey(prefix + "NONE")
 			} else {
-				val := strings.TrimSuffix(data.Values[0], "_L")
+				val := strings.TrimSuffix(values[0], "_L")
 				newArtifact = ei.GetArtifactByKey(prefix + val)
 			}
 
@@ -1242,7 +1203,7 @@ func HandleArtifactReactions(s *discordgo.Session, i *discordgo.InteractionCreat
 
 				contract.Boosters[userID].ArtifactSet = getUserArtifacts(userID, &currentSet)
 
-				refreshBoostListMessage(s, contract, false)
+				refreshBoostListMessage(client, contract, false)
 				saveData(contract.ContractHash)
 			}
 

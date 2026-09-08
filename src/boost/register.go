@@ -5,111 +5,77 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 // GetSlashRegisterCommand returns the /register command
-func GetSlashRegisterCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Register your Egg Inc ID with Boost Bot.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
+func GetSlashRegisterCommand(cmd string) *dc.Command {
+	command := anywhereCommand(cmd, "Register your Egg Inc ID with Boost Bot.")
+	command.Options = []dc.Option{
+		dc.BoolOption{
+			Name:        "reset",
+			Description: "Reset stored EI number",
 		},
 	}
+	return &command
 }
 
 // GetSlashRegisterAltCommand returns the /register-alt command
-func GetSlashRegisterAltCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Register an alternate Egg Inc ID with Boost Bot.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-			discordgo.InteractionContextBotDM,
-			discordgo.InteractionContextPrivateChannel,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-			discordgo.ApplicationIntegrationUserInstall,
-		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "name",
-				Description:  "The name of the alternate account or 'new' for a new one.",
-				Required:     true,
-				Autocomplete: true,
-			},
+func GetSlashRegisterAltCommand(cmd string) *dc.Command {
+	command := anywhereCommand(cmd, "Register an alternate Egg Inc ID with Boost Bot.")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:         "name",
+			Description:  "The name of the alternate account or 'new' for a new one.",
+			Required:     true,
+			Autocomplete: true,
 		},
 	}
+	return &command
 }
 
-// HandleRegisterAlt handles the /register-alt command
-func HandleRegisterAlt(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	optionMap := bottools.GetCommandOptionsMap(i)
+// HandleRegisterAlt asks for the alternate's Egg Inc ID.
+func HandleRegisterAlt(e *dc.CommandEvent) {
 	targetAlt := ""
-	if opt, ok := optionMap["name"]; ok {
-		targetAlt = opt.StringValue()
+	if opt, ok := e.OptString("name"); ok {
+		targetAlt = opt
 	}
-	RequestEggIncIDModal(s, i, "register-alt#"+targetAlt, optionMap)
+	RequestEggIncIDModal(e, "register-alt#"+targetAlt, e.Options())
 }
 
-// HandleRegisterAltAutocomplete handles the autocomplete for the /register-alt command
-func HandleRegisterAltAutocomplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	userID := bottools.GetInteractionUserID(i)
-	alts := farmerstate.GetAltControllerByMiscString("AltController", userID)
-	choices := []*discordgo.ApplicationCommandOptionChoice{
+// HandleRegisterAltAutocomplete suggests the alternates the caller controls.
+func HandleRegisterAltAutocomplete(e *dc.AutocompleteEvent) {
+	alts := farmerstate.GetAltControllerByMiscString("AltController", e.UserID())
+	choices := []dc.Choice[string]{
 		{Name: "New Alternate", Value: "new"},
 	}
 	for _, alt := range alts {
-		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+		choices = append(choices, dc.Choice[string]{
 			Name:  ei.NormalizePlayerNameForDisplay(alt),
 			Value: alt,
 		})
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{
-			Choices: choices,
-		},
-	})
+	_ = e.RespondChoices(choices)
 }
 
-// HandleRegister handles the /register command
-func HandleRegister(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	userID := bottools.GetInteractionUserID(i)
-	optionMap := bottools.GetCommandOptionsMap(i)
-	if opt, ok := optionMap["reset"]; ok {
-		if opt.BoolValue() {
-			farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
-		}
+// HandleRegister asks for the caller's Egg Inc ID.
+func HandleRegister(e *dc.CommandEvent) {
+	if opt, ok := e.OptBool("reset"); ok && opt {
+		farmerstate.SetMiscSettingString(e.UserID(), "encrypted_ei_id", "")
 	}
-	RequestEggIncIDModal(s, i, "register", optionMap)
+	RequestEggIncIDModal(e, "register", e.Options())
 }
 
 // Register processes the register modal submission, saves the EI ID, and pulls a backup to update the player's IGN.
-func Register(s *discordgo.Session, i *discordgo.InteractionCreate, encryptedID string, okayToSave bool) {
-	userID := bottools.GetInteractionUserID(i)
+func Register(e *dc.ModalEvent, encryptedID string, okayToSave bool) {
+	userID := e.UserID()
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
+	_ = e.Defer(true)
 
 	eggIncID := ""
 	encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
@@ -127,7 +93,7 @@ func Register(s *discordgo.Session, i *discordgo.InteractionCreate, encryptedID 
 	if eggIncID == "" {
 		str = "Your Egg Inc ID could not be saved."
 	} else {
-		backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, userID, okayToSave)
+		backup, _ := ei.GetFirstContactFromAPI(eggIncID, userID, okayToSave)
 		if backup == nil {
 			str = "Your Egg Inc ID was saved but the backup could not be retrieved from EI."
 		} else {
@@ -154,57 +120,41 @@ func Register(s *discordgo.Session, i *discordgo.InteractionCreate, encryptedID 
 				str += " (Previously: " + ei.NormalizePlayerNameForDisplay(farmerName) + ")"
 			}
 			// Respond to register command
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: str,
-				Flags:   discordgo.MessageFlagsEphemeral,
-			})
+			_ = e.Followup(dc.Message{Content: str, Ephemeral: true})
 			// Spawn /artifacts command response
 			artStr, artComponents := getArtifactsComponents(userID, "", false, "delivery", "")
 			artStr = "## Check your collectibles\n" + artStr
-			_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content:    artStr,
-				Components: artComponents,
-				Flags:      discordgo.MessageFlagsEphemeral,
+			_ = e.Followup(dc.Message{
+				Content:      artStr,
+				Components:   artComponents,
+				Ephemeral:    true,
+				ComponentsV1: true,
 			})
 			return
 		}
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: str,
-		Flags:   discordgo.MessageFlagsEphemeral,
-	})
+	_ = e.Followup(dc.Message{Content: str, Ephemeral: true})
 }
 
 // RegisterAlt processes the register-alt modal submission.
-func RegisterAlt(s *discordgo.Session, i *discordgo.InteractionCreate, targetAlt string, encryptedID string) {
-	parentUserID := bottools.GetInteractionUserID(i)
+func RegisterAlt(e *dc.ModalEvent, targetAlt string, encryptedID string) {
+	parentUserID := e.UserID()
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
+	_ = e.Defer(true)
 
 	var str string
 	if targetAlt != "new" && encryptedID == "" {
 		// Clear existing alt
 		farmerstate.SetMiscSettingString(targetAlt, "encrypted_ei_id", "")
 		str = fmt.Sprintf("Egg Inc ID for alternate %s has been cleared.", targetAlt)
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: str,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		})
+		_ = e.Followup(dc.Message{Content: str, Ephemeral: true})
 		return
 	}
 
 	if encryptedID == "" {
 		str = "You must provide a valid Egg Inc ID for a new alternate."
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: str,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		})
+		_ = e.Followup(dc.Message{Content: str, Ephemeral: true})
 		return
 	}
 
@@ -223,7 +173,7 @@ func RegisterAlt(s *discordgo.Session, i *discordgo.InteractionCreate, targetAlt
 	if eggIncID == "" {
 		str = "Your Egg Inc ID could not be saved."
 	} else {
-		backup, _ := ei.GetFirstContactFromAPI(s, eggIncID, parentUserID, true)
+		backup, _ := ei.GetFirstContactFromAPI(eggIncID, parentUserID, true)
 		if backup == nil {
 			str = "Your Egg Inc ID was saved but the backup could not be retrieved from EI."
 		} else {
@@ -248,8 +198,5 @@ func RegisterAlt(s *discordgo.Session, i *discordgo.InteractionCreate, targetAlt
 		}
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: str,
-		Flags:   discordgo.MessageFlagsEphemeral,
-	})
+	_ = e.Followup(dc.Message{Content: str, Ephemeral: true})
 }

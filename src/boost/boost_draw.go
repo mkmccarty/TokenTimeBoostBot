@@ -2,15 +2,15 @@ package boost
 
 import (
 	"fmt"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-
-	"github.com/bwmarrin/discordgo"
 )
 
 // Return the number of tokens received by the user from the token log
@@ -75,9 +75,22 @@ func getSinkIcon(contract *Contract, b *Booster, sinkTokenBalance int) string {
 	return fmt.Sprintf("%s[%d] %s", contract.TokenStr, sinkTokenBalance, ei.GetBotEmojiMarkdown("tvalrip"))
 }
 
+// hasRenderableBannerURL reports whether a banner URL is one Discord will
+// accept inside a media gallery. When the BannerURL config field is unset,
+// UpdateBannerURL still builds a bare filename, and Discord rejects the whole
+// message with URL_TYPE_INVALID_URL rather than dropping just the image, which
+// leaves the boost list unposted.
+func hasRenderableBannerURL(bannerURL string) bool {
+	parsed, err := url.Parse(bannerURL)
+	if err != nil {
+		return false
+	}
+	return (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
+}
+
 // DrawBoostList will draw the boost list for the contract
-func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.MessageComponent {
-	var components []discordgo.MessageComponent
+func DrawBoostList(contract *Contract) []dc.LayoutComponent {
+	var components []dc.LayoutComponent
 	var header strings.Builder
 	var currentTval float64
 	//var outputStr string
@@ -86,11 +99,11 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	receivedByUser, sentByUser, singleTokenEntries := buildTokenTotalsFromLog(contract)
 	tokenStr := contract.TokenStr
 	divider := true
-	spacing := discordgo.SeparatorSpacingSizeSmall
+	spacing := dc.SeparatorSpacingSmall
 
 	targetTval := GetTargetTval(contract.SeasonalScoring, contract.EstimatedDuration.Minutes(), float64(contract.MinutesPerToken))
 
-	var bannerItem discordgo.MediaGalleryItem
+	var bannerItem dc.MediaItem
 
 	if contract.BannerURL == "" {
 		UpdateBannerURL(contract)
@@ -98,10 +111,10 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 	if contract.Description == "" || contract.PredictionSignup {
 		header.WriteString("# Contract Interest List\n")
-	} else {
-		bannerItem.Media.URL = contract.BannerURL
-		components = append(components, &discordgo.MediaGallery{
-			Items: []discordgo.MediaGalleryItem{
+	} else if hasRenderableBannerURL(contract.BannerURL) {
+		bannerItem.URL = contract.BannerURL
+		components = append(components, dc.MediaGallery{
+			Items: []dc.MediaItem{
 				bannerItem,
 			},
 		},
@@ -284,7 +297,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		fmt.Fprintf(&header, "> Duration: %v\n", contract.EstimatedDuration)
 	}
 
-	components = append(components, &discordgo.TextDisplay{
+	components = append(components, dc.TextDisplay{
 		Content: header.String(),
 	})
 
@@ -520,7 +533,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		}
 
 		if earlyList.Len() > 0 {
-			components = append(components, &discordgo.TextDisplay{
+			components = append(components, dc.TextDisplay{
 				Content: earlyList.String(),
 			})
 		}
@@ -648,41 +661,41 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 					builder.WriteString(" ")
 				}
 			}
-			components = append(components, &discordgo.TextDisplay{
+			components = append(components, dc.TextDisplay{
 				Content: builder.String(),
 			})
 			builder.Reset()
 
-			components = append(components, &discordgo.Separator{
-				Divider: &divider,
-				Spacing: &spacing,
+			components = append(components, dc.Separator{
+				Divider: divider,
+				Spacing: spacing,
 			})
 
 		}
 
 		if builder.Len() != 0 {
-			components = append(components, &discordgo.TextDisplay{
+			components = append(components, dc.TextDisplay{
 				Content: builder.String(),
 			})
 			builder.Reset()
 		}
 		if lateList.Len() > 0 {
-			components = append(components, &discordgo.TextDisplay{
+			components = append(components, dc.TextDisplay{
 				Content: lateList.String(),
 			})
 		}
-		components = append(components, &discordgo.Separator{
-			Divider: &divider,
-			Spacing: &spacing,
+		components = append(components, dc.Separator{
+			Divider: divider,
+			Spacing: spacing,
 		})
 
 		if afterListStr.Len() != 0 {
-			components = append(components, &discordgo.TextDisplay{
+			components = append(components, dc.TextDisplay{
 				Content: afterListStr.String(),
 			})
-			components = append(components, &discordgo.Separator{
-				Divider: &divider,
-				Spacing: &spacing,
+			components = append(components, dc.Separator{
+				Divider: divider,
+				Spacing: spacing,
 			})
 		}
 	}
@@ -707,7 +720,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 			}
 			totalContentLength := guidanceStr.Len()
 			for _, component := range components {
-				if textDisplay, ok := component.(*discordgo.TextDisplay); ok {
+				if textDisplay, ok := component.(dc.TextDisplay); ok {
 					totalContentLength += len(textDisplay.Content)
 				}
 			}
@@ -743,7 +756,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 			// to the builder
 			totalContentLength := guidanceStr.Len()
 			for _, component := range components {
-				if textDisplay, ok := component.(*discordgo.TextDisplay); ok {
+				if textDisplay, ok := component.(dc.TextDisplay); ok {
 					totalContentLength += len(textDisplay.Content)
 				}
 			}
@@ -754,12 +767,12 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 	case ContractStateWaiting:
 		coopTvalStr := calculateTokenValueCoopLog(contract, contract.EstimatedDuration)
-		components = append(components, &discordgo.TextDisplay{
+		components = append(components, dc.TextDisplay{
 			Content: coopTvalStr,
 		})
-		components = append(components, &discordgo.Separator{
-			Divider: &divider,
-			Spacing: &spacing,
+		components = append(components, dc.Separator{
+			Divider: divider,
+			Spacing: spacing,
 		})
 		guidanceStr.WriteString("-# > Waiting for other(s) to join...\n")
 		guidanceStr.WriteString("-# > Use pinned message or add 🧑‍🌾 reaction to join this list and set boost ")
@@ -767,7 +780,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 		guidanceStr.WriteString(" wanted.\n")
 		totalContentLength := guidanceStr.Len()
 		for _, component := range components {
-			if textDisplay, ok := component.(*discordgo.TextDisplay); ok {
+			if textDisplay, ok := component.(dc.TextDisplay); ok {
 				totalContentLength += len(textDisplay.Content)
 			}
 		}
@@ -777,12 +790,12 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 
 	case ContractStateCompleted:
 		coopTvalStr := calculateTokenValueCoopLog(contract, contract.EstimatedDuration)
-		components = append(components, &discordgo.TextDisplay{
+		components = append(components, dc.TextDisplay{
 			Content: coopTvalStr,
 		})
-		components = append(components, &discordgo.Separator{
-			Divider: &divider,
-			Spacing: &spacing,
+		components = append(components, dc.Separator{
+			Divider: divider,
+			Spacing: spacing,
 		})
 		t1 := contract.EndTime
 		t2 := contract.StartTime
@@ -807,7 +820,7 @@ func DrawBoostList(s *discordgo.Session, contract *Contract) []discordgo.Message
 	}
 
 	if builder.Len() != 0 {
-		components = append(components, &discordgo.TextDisplay{
+		components = append(components, dc.TextDisplay{
 			Content: builder.String(),
 		})
 		builder.Reset()

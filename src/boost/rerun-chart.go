@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/rs/xid"
@@ -74,7 +74,7 @@ func cleanupChartSessions() {
 	}
 }
 
-func printContractChart(userID string, archive []*ei.LocalContract, percent int, page int, contractIDList []string, contractDayMap map[string]string, mobileFriendly bool) []discordgo.MessageComponent {
+func printContractChart(userID string, archive []*ei.LocalContract, percent int, page int, contractIDList []string, contractDayMap map[string]string, mobileFriendly bool) []dc.LayoutComponent {
 	cleanupChartSessions()
 	var rows []chartRow
 
@@ -94,7 +94,7 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 
 	if archive == nil {
 		log.Print("No archived contracts found in Egg Inc API response")
-		return []discordgo.MessageComponent{&discordgo.TextDisplay{
+		return []dc.LayoutComponent{dc.TextDisplay{
 			Content: "No archived contracts found in Egg Inc API response",
 		}}
 	}
@@ -248,10 +248,10 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 	return renderChartSession(session)
 }
 
-func renderChartSession(session *chartSession) []discordgo.MessageComponent {
-	var components []discordgo.MessageComponent
+func renderChartSession(session *chartSession) []dc.LayoutComponent {
+	var components []dc.LayoutComponent
 	divider := true
-	spacing := discordgo.SeparatorSpacingSizeSmall
+	spacing := dc.SeparatorSpacingSmall
 	builder := strings.Builder{}
 	now := time.Now().Unix()
 
@@ -459,12 +459,12 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 		builder.WriteString("### (Filtered to contracts where SIAB score is higher than Max)\n")
 	}
 
-	components = append(components, &discordgo.TextDisplay{Content: builder.String()})
-	components = append(components, &discordgo.Separator{Divider: &divider, Spacing: &spacing})
+	components = append(components, dc.TextDisplay{Content: builder.String()})
+	components = append(components, dc.Separator{Divider: divider, Spacing: spacing})
 	builder.Reset()
 
 	if len(pageRows) == 0 {
-		components = append(components, &discordgo.TextDisplay{Content: "No contracts met this condition.\n"})
+		components = append(components, dc.TextDisplay{Content: "No contracts met this condition.\n"})
 		components = append(components, buildChartControls(session, totalPages)...)
 		return components
 	}
@@ -571,29 +571,29 @@ func renderChartSession(session *chartSession) []discordgo.MessageComponent {
 	leggyTokens, _ := calcLeggyBoost(DefaultLeggyTE)
 	fmt.Fprintf(&builder, "-# Est duration/CS based on 1.0 fair share, %.0f%s boosts (w/%.0f%s TE), %s%s/hr%s rate and leggy artifacts.\n", leggyTokens, ei.GetBotEmojiMarkdown("token"), DefaultLeggyTE, ei.GetBotEmojiMarkdown("egg_truth"), rateVal, ei.GetBotEmojiMarkdown("token"), ggSuffix)
 
-	components = append(components, &discordgo.TextDisplay{Content: builder.String()})
+	components = append(components, dc.TextDisplay{Content: builder.String()})
 	components = append(components, buildChartControls(session, totalPages)...)
 
 	return components
 }
 
-func buildChartControls(session *chartSession, totalPages int) []discordgo.MessageComponent {
-	var rows []discordgo.MessageComponent
+func buildChartControls(session *chartSession, totalPages int) []dc.LayoutComponent {
+	var rows []dc.LayoutComponent
 	minValues := 1
 
 	// Threshold menu
 	if session.percent >= 0 {
-		thresholdOptions := []discordgo.SelectMenuOption{}
+		thresholdOptions := []dc.SelectOption{}
 		for p := 0; p <= 50; p += 5 {
-			thresholdOptions = append(thresholdOptions, discordgo.SelectMenuOption{
+			thresholdOptions = append(thresholdOptions, dc.SelectOption{
 				Label:   fmt.Sprintf("Below %d%% of max CS", 100-p),
 				Value:   fmt.Sprintf("%d", p),
 				Default: session.percent == p,
 			})
 		}
-		rows = append(rows, discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.SelectMenu{
+		rows = append(rows, dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.SelectMenu{
 					CustomID:    fmt.Sprintf("chart#threshold#%s", session.xid),
 					Placeholder: "Select threshold...",
 					Options:     thresholdOptions,
@@ -604,7 +604,7 @@ func buildChartControls(session *chartSession, totalPages int) []discordgo.Messa
 		})
 	}
 
-	sortOptions := []discordgo.SelectMenuOption{
+	sortOptions := []dc.SelectOption{
 		{Label: "Sort by Date (Newest First)", Value: "date", Default: session.sortBy == "date"},
 		{Label: "Sort by Date (Oldest First)", Value: "date_asc", Default: session.sortBy == "date_asc"},
 		{Label: "Sort by Prediction (Soonest First)", Value: "pred", Default: session.sortBy == "pred"},
@@ -621,9 +621,9 @@ func buildChartControls(session *chartSession, totalPages int) []discordgo.Messa
 		{Label: "Sort by ID (Z-A)", Value: "id_desc", Default: session.sortBy == "id_desc"},
 	}
 
-	rows = append(rows, discordgo.ActionsRow{
-		Components: []discordgo.MessageComponent{
-			discordgo.SelectMenu{
+	rows = append(rows, dc.ActionRow{
+		Components: []dc.InteractiveComponent{
+			dc.SelectMenu{
 				CustomID:    fmt.Sprintf("chart#sort#%s", session.xid),
 				Placeholder: "Sort order...",
 				Options:     sortOptions,
@@ -633,32 +633,32 @@ func buildChartControls(session *chartSession, totalPages int) []discordgo.Messa
 		},
 	})
 
-	var pageButtons []discordgo.MessageComponent
+	var pageButtons []dc.InteractiveComponent
 	if totalPages > 1 {
 		if totalPages > 4 {
-			pageButtons = append(pageButtons, discordgo.Button{
+			pageButtons = append(pageButtons, dc.Button{
 				Label:    "First",
-				Style:    discordgo.SecondaryButton,
+				Style:    dc.ButtonSecondary,
 				CustomID: fmt.Sprintf("chart#first#%s", session.xid),
 				Disabled: session.page <= 0,
 			})
 		}
-		pageButtons = append(pageButtons, discordgo.Button{
+		pageButtons = append(pageButtons, dc.Button{
 			Label:    "Prev",
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("chart#prev#%s", session.xid),
 			Disabled: session.page <= 0,
 		})
-		pageButtons = append(pageButtons, discordgo.Button{
+		pageButtons = append(pageButtons, dc.Button{
 			Label:    "Next",
-			Style:    discordgo.SecondaryButton,
+			Style:    dc.ButtonSecondary,
 			CustomID: fmt.Sprintf("chart#next#%s", session.xid),
 			Disabled: session.page >= totalPages-1,
 		})
 		if totalPages > 4 {
-			pageButtons = append(pageButtons, discordgo.Button{
+			pageButtons = append(pageButtons, dc.Button{
 				Label:    "Last",
-				Style:    discordgo.SecondaryButton,
+				Style:    dc.ButtonSecondary,
 				CustomID: fmt.Sprintf("chart#last#%s", session.xid),
 				Disabled: session.page >= totalPages-1,
 			})
@@ -666,91 +666,85 @@ func buildChartControls(session *chartSession, totalPages int) []discordgo.Messa
 	}
 
 	if len(pageButtons) > 0 {
-		rows = append(rows, discordgo.ActionsRow{Components: pageButtons})
+		rows = append(rows, dc.ActionRow{Components: pageButtons})
 	}
 
-	var actionButtons []discordgo.MessageComponent
+	var actionButtons []dc.InteractiveComponent
 	viewLabel := "Mobile View"
 	if session.mobileFriendly {
 		viewLabel = "Desktop View"
 	}
-	actionButtons = append(actionButtons, discordgo.Button{
+	actionButtons = append(actionButtons, dc.Button{
 		Label:    viewLabel,
-		Style:    discordgo.PrimaryButton,
+		Style:    dc.ButtonPrimary,
 		CustomID: fmt.Sprintf("chart#toggleview#%s", session.xid),
 	})
 	siabLabel := "Show SIAB Only"
-	siabStyle := discordgo.SecondaryButton
+	siabStyle := dc.ButtonSecondary
 	if session.siabOnly {
 		siabLabel = "Show All Contracts"
-		siabStyle = discordgo.PrimaryButton
+		siabStyle = dc.ButtonPrimary
 	}
-	actionButtons = append(actionButtons, discordgo.Button{
+	actionButtons = append(actionButtons, dc.Button{
 		Label:    siabLabel,
 		Style:    siabStyle,
 		CustomID: fmt.Sprintf("chart#togglesiab#%s", session.xid),
 	})
 	ggLabel := "Standard View"
 	ggEmoji := ei.GetBotComponentEmoji("token")
-	ggStyle := discordgo.SecondaryButton
+	ggStyle := dc.ButtonSecondary
 	if session.generousGift {
 		ggLabel = "Generous Gift"
 		ggEmoji = ei.GetBotComponentEmoji("std_gg")
-		ggStyle = discordgo.SuccessButton
+		ggStyle = dc.ButtonSuccess
 	}
-	actionButtons = append(actionButtons, discordgo.Button{
+	actionButtons = append(actionButtons, dc.Button{
 		Label:    ggLabel,
 		Emoji:    ggEmoji,
 		Style:    ggStyle,
 		CustomID: fmt.Sprintf("chart#togglegg#%s", session.xid),
 	})
-	actionButtons = append(actionButtons, discordgo.Button{
+	actionButtons = append(actionButtons, dc.Button{
 		Label:    "Watch Filtered",
-		Style:    discordgo.SuccessButton,
+		Style:    dc.ButtonSuccess,
 		CustomID: fmt.Sprintf("chart#watchfiltered#%s", session.xid),
 	})
-	actionButtons = append(actionButtons, discordgo.Button{
+	actionButtons = append(actionButtons, dc.Button{
 		Label:    "Finish",
-		Style:    discordgo.DangerButton,
+		Style:    dc.ButtonDanger,
 		CustomID: fmt.Sprintf("chart#finish#%s", session.xid),
 	})
-	rows = append(rows, discordgo.ActionsRow{Components: actionButtons})
+	rows = append(rows, dc.ActionRow{Components: actionButtons})
 
 	return rows
 }
 
-// HandleChartReactions handles button and select menu interactions for the chart view
-func HandleChartReactions(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	parts := strings.Split(i.MessageComponentData().CustomID, "#")
+// HandleChartReactions handles button and select menu interactions for the chart view.
+func HandleChartReactions(e *dc.ComponentEvent) {
+	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 3 {
 		return
 	}
 
 	action := parts[1]
 	xidPart := parts[2]
-	userID := bottools.GetInteractionUserID(i)
+	userID := e.UserID()
 
 	chartSessionsMutex.Lock()
 	session, ok := chartSessions[xidPart]
 	chartSessionsMutex.Unlock()
 	if !ok {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "This chart session has expired. Please run the command again.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "This chart session has expired. Please run the command again.",
+			Ephemeral: true,
 		})
 		return
 	}
 
 	if session.userID != userID {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "This is restricted to the user that originally ran the command.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   "This is restricted to the user that originally ran the command.",
+			Ephemeral: true,
 		})
 		return
 	}
@@ -759,7 +753,7 @@ func HandleChartReactions(s *discordgo.Session, i *discordgo.InteractionCreate) 
 
 	switch action {
 	case "sort":
-		values := i.MessageComponentData().Values
+		values := e.Values()
 		if len(values) > 0 {
 			newSortBy := values[0]
 			if isValidChartSortBy(newSortBy) {
@@ -791,7 +785,7 @@ func HandleChartReactions(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		farmerstate.SetMiscSettingString(session.userID, "rerunGenerousGift", strconv.FormatBool(session.generousGift))
 		session.page = 0 // Reset to first page on filter change
 	case "threshold":
-		values := i.MessageComponentData().Values
+		values := e.Values()
 		if len(values) > 0 {
 			newPercent, err := strconv.Atoi(values[0])
 			if err == nil {
@@ -846,27 +840,14 @@ func HandleChartReactions(s *discordgo.Session, i *discordgo.InteractionCreate) 
 			count++
 		}
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: fmt.Sprintf("Success! Added watch for %d contracts meeting the current chart conditions.", count),
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = e.Respond(dc.Message{
+			Content:   fmt.Sprintf("Success! Added watch for %d contracts meeting the current chart conditions.", count),
+			Ephemeral: true,
 		})
 		return
 	case "finish":
-		// Remove interactive components
-		var finalComponents []discordgo.MessageComponent
-		for _, comp := range i.Message.Components {
-			switch comp.(type) {
-			case *discordgo.TextDisplay, *discordgo.Separator:
-				finalComponents = append(finalComponents, comp)
-			}
-		}
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{Components: finalComponents},
-		})
+		// Remove interactive components, keeping the chart itself
+		_ = e.Update(dc.Message{Components: e.MessageComponentsWithoutActionRows()})
 		chartSessionsMutex.Lock()
 		delete(chartSessions, xidPart) // Clean up session
 		chartSessionsMutex.Unlock()
@@ -875,17 +856,8 @@ func HandleChartReactions(s *discordgo.Session, i *discordgo.InteractionCreate) 
 
 	components := renderChartSession(session)
 
-	flags := discordgo.MessageFlags(0)
-	if i.Message != nil && i.Message.Flags&discordgo.MessageFlagsEphemeral != 0 {
-		flags |= discordgo.MessageFlagsEphemeral
-	}
-	flags |= discordgo.MessageFlagsIsComponentsV2
-
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseUpdateMessage,
-		Data: &discordgo.InteractionResponseData{
-			Flags:      flags,
-			Components: components,
-		},
+	_ = e.Update(dc.Message{
+		Ephemeral:  e.MessageIsEphemeral(),
+		Components: components,
 	})
 }

@@ -8,51 +8,48 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/xhit/go-str2duration/v2"
 )
 
 // GetSlashCoopTval calculates the coop token value of a running contract
-func GetSlashCoopTval(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name:        cmd,
-		Description: "Get token value summary of entire coop.",
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
-		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
-		},
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "duration",
-				Description: "Total duration of this contract. Example: 19h35m.",
-				Required:    false,
-			},
+func GetSlashCoopTval(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Get token value summary of entire coop.")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:        "duration",
+			Description: "Total duration of this contract. Example: 19h35m.",
 		},
 	}
+	return &command
 }
 
-// HandleCoopTvalCommand will handle the /contract-token-tval command
-func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	command := i.ApplicationCommandData().Name
+// HandleCoopTvalCommand will handle the /contract-token-tval command. It is
+// also called from /bump, which has already answered its own interaction, so
+// every response here is skipped when the command name is "bump".
+func HandleCoopTvalCommand(client dc.Client, e *dc.CommandEvent) {
+	command := e.CommandName()
 
-	optionMap := bottools.GetCommandOptionsMap(i)
+	channelID := e.ChannelID()
+	contract := FindContract(channelID)
+	if contract == nil {
+		if command != "bump" {
+			_ = e.Respond(dc.Message{
+				Content:   "No contract found in this channel",
+				Ephemeral: true,
+			})
+		}
+		return
+	}
 
 	invalidDuration := false
-	channelID := i.ChannelID
-	contract := FindContract(channelID)
-	var duration time.Duration
-	if contract != nil {
-		duration = contract.EstimatedDuration
-	}
-	if opt, ok := optionMap["duration"]; ok {
+	duration := contract.EstimatedDuration
+	if opt, ok := e.OptString("duration"); ok {
 		var err error
 		// Timespan of the contract duration
-		contractTimespan := bottools.SanitizeStringDuration(opt.StringValue())
+		contractTimespan := bottools.SanitizeStringDuration(opt)
 		duration, err = str2duration.ParseDuration(contractTimespan)
 		if err != nil {
 			duration = 12 * time.Hour
@@ -61,83 +58,57 @@ func HandleCoopTvalCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 			contract.EstimatedDuration = duration
 			contract.EstimatedEndTime = contract.StartTime.Add(duration)
 		}
-	} else {
-		if contract != nil {
-			if contract.EstimatedDuration == 0 {
-				c := ei.EggIncContractsAll[contract.ContractID]
-				if c.ID != "" {
-					duration = c.EstimatedDuration
-				}
-			}
+	} else if contract.EstimatedDuration == 0 {
+		c := ei.EggIncContractsAll[contract.ContractID]
+		if c.ID != "" {
+			duration = c.EstimatedDuration
 		}
 	}
+
+	ephemeral := contract.CoopTokenValueMsgID != ""
+	if command != "bump" {
+		_ = e.Defer(ephemeral)
+	}
+
 	var builder strings.Builder
-	if contract == nil {
-		fmt.Fprintf(&builder, "No contract found in this channel")
-	} else {
-		flag := discordgo.MessageFlagsEphemeral
-		if contract.CoopTokenValueMsgID == "" {
-			flag = 0
-		}
-
-		if command != "bump" {
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "Processing request...",
-					Flags:   flag,
-				},
-			})
-		}
-		BTA := math.Floor(duration.Minutes() / float64(contract.MinutesPerToken))
-		targetTval := 3.0
-		if BTA > 42.0 {
-			targetTval = 0.07 * BTA
-		}
-		// Calculate the token value
-		fmt.Fprintf(&builder, "## Coop token value based on contract reactions\n")
-		fmt.Fprintf(&builder, "Contract started at: <t:%d:f> with a duration of %s\n", contract.StartTime.Unix(), duration.Round(time.Second))
-		fmt.Fprintf(&builder, "Target token value: %6.3f\n\n", targetTval)
-		builder.WriteString(calculateTokenValueCoopLog(contract, duration))
-
-		fmt.Fprintf(&builder, "\nUpdated <t:%d:R>, refresh with %s\n", time.Now().Unix(), bottools.GetFormattedCommand("coop-tval"))
-
+	BTA := math.Floor(duration.Minutes() / float64(contract.MinutesPerToken))
+	targetTval := 3.0
+	if BTA > 42.0 {
+		targetTval = 0.07 * BTA
 	}
+	// Calculate the token value
+	fmt.Fprintf(&builder, "## Coop token value based on contract reactions\n")
+	fmt.Fprintf(&builder, "Contract started at: <t:%d:f> with a duration of %s\n", contract.StartTime.Unix(), duration.Round(time.Second))
+	fmt.Fprintf(&builder, "Target token value: %6.3f\n\n", targetTval)
+	builder.WriteString(calculateTokenValueCoopLog(contract, duration))
+
+	fmt.Fprintf(&builder, "\nUpdated <t:%d:R>, refresh with %s\n", time.Now().Unix(), bottools.GetFormattedCommand("coop-tval"))
+
 	if invalidDuration {
-		if invalidDuration {
-			fmt.Fprintf(&builder, "\n\n__Invalid duration used__\n")
-			fmt.Fprintf(&builder, "**Defaulting to 12 hours**.\n")
-			fmt.Fprintf(&builder, "Format should be entered like `19h35m` or `1d 2h 3m` or `1d2h3m` or `1d 2h")
-		}
+		fmt.Fprintf(&builder, "\n\n__Invalid duration used__\n")
+		fmt.Fprintf(&builder, "**Defaulting to 12 hours**.\n")
+		fmt.Fprintf(&builder, "Format should be entered like `19h35m` or `1d 2h 3m` or `1d2h3m` or `1d 2h")
 	}
 
 	if contract.CoopTokenValueMsgID != "" {
-		strURL := "https://discordapp.com/channels/@me/" + i.ChannelID + "/" + contract.CoopTokenValueMsgID
+		strURL := "https://discordapp.com/channels/@me/" + channelID + "/" + contract.CoopTokenValueMsgID
 		if command != "bump" {
-			_, _ = s.FollowupMessageCreate(i.Interaction, true,
-				&discordgo.WebhookParams{
-					Content: "Updated original response " + strURL,
-				})
-		}
-		//if err == nil {
-		//	_ = s.FollowupMessageDelete(i.Interaction, msg.ID)
-		//}
-		_, _ = s.ChannelMessageEdit(i.ChannelID, contract.CoopTokenValueMsgID, builder.String())
-	} else {
-		msg, err := s.FollowupMessageCreate(i.Interaction, true,
-			&discordgo.WebhookParams{
-				Content: builder.String(),
+			_ = e.Followup(dc.Message{
+				Content: "Updated original response " + strURL,
 			})
-		if err != nil {
-			log.Println(err)
 		}
-		if err == nil {
-			contract.CoopTokenValueMsgID = msg.ID
-			err = s.ChannelMessagePin(i.ChannelID, msg.ID)
-			if err != nil {
-				log.Println(err)
-			}
-		}
+		_, _ = client.EditMessage(channelID, contract.CoopTokenValueMsgID, dc.Message{Content: builder.String()})
+		return
+	}
+
+	msg, err := e.FollowupMessage(dc.Message{Content: builder.String()})
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	contract.CoopTokenValueMsgID = msg.ID
+	if err := client.PinMessage(channelID, msg.ID); err != nil {
+		log.Println(err)
 	}
 }
 

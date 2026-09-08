@@ -8,150 +8,102 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 // GetSlashSpeedrunCommand returns the slash command for speedrun
-func GetSlashSpeedrunCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
+func GetSlashSpeedrunCommand(cmd string) *dc.Command {
+	runsMin, runsMax := 0, 20
+	command := guildOnlyCommand(cmd, "Add speedrun features to a contract.")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:        "sink-boosting",
+			Description: "Sink during boosting.",
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
+		dc.StringOption{
+			Name:        "sink-post",
+			Description: "Post contract sink.",
 		},
-		Description: "Add speedrun features to a contract.",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "sink-boosting",
-				Description: "Sink during boosting.",
-				Required:    false,
+		dc.IntOption{
+			Name:        "sink-position",
+			Description: "Default is First Booster",
+			Choices: []dc.Choice[int]{
+				{Name: "First", Value: SinkBoostFirst},
+				{Name: "Last", Value: SinkBoostLast},
+				{Name: "Follow Order", Value: SinkBoostFollowOrder},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "sink-post",
-				Description: "Post contract sink.",
-				Required:    false,
-			},
-			{
-				Name:        "sink-position",
-				Description: "Default is First Booster",
-				Required:    false,
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Choices: []*discordgo.ApplicationCommandOptionChoice{
-					{
-						Name:  "First",
-						Value: SinkBoostFirst,
-					},
-					{
-						Name:  "Last",
-						Value: SinkBoostLast,
-					},
-					{
-						Name:  "Follow Order",
-						Value: SinkBoostFollowOrder,
-					},
-				},
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionInteger,
-				Name:        "chicken-runs",
-				Description: "Number of chicken runs for this contract. Optional if contract-id was selected via auto fill.",
-				MinValue:    &integerZeroMinValue,
-				MaxValue:    20,
-				Required:    false,
-			},
+		},
+		dc.IntOption{
+			Name:        "chicken-runs",
+			Description: "Number of chicken runs for this contract. Optional if contract-id was selected via auto fill.",
+			MinValue:    &runsMin,
+			MaxValue:    &runsMax,
 		},
 	}
+	return &command
 }
 
-// GetSlashChangeSpeedRunSinkCommand returns the slash command for changing speedrun sink assignments
-func GetSlashChangeSpeedRunSinkCommand(cmd string) *discordgo.ApplicationCommand {
-	return &discordgo.ApplicationCommand{
-		Name: cmd,
-		Contexts: &[]discordgo.InteractionContextType{
-			discordgo.InteractionContextGuild,
+// GetSlashChangeSpeedRunSinkCommand returns the slash command for changing speedrun sinks
+func GetSlashChangeSpeedRunSinkCommand(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Change speedrun sink assignements of a running contract")
+	command.Options = []dc.Option{
+		dc.StringOption{
+			Name:        "sink-boosting",
+			Description: "Sink during boosting.",
 		},
-		IntegrationTypes: &[]discordgo.ApplicationIntegrationType{
-			discordgo.ApplicationIntegrationGuildInstall,
+		dc.StringOption{
+			Name:        "sink-post",
+			Description: "Post contract sink.",
 		},
-
-		Description: "Change speedrun sink assignements of a running contract",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "sink-boosting",
-				Description: "Sink during boosting.",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "sink-post",
-				Description: "Post contract sink.",
-				Required:    false,
-			}},
 	}
+	return &command
 }
 
 // HandleChangeSpeedrunSinkCommand handles the change speedrun sink command
-func HandleChangeSpeedrunSinkCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleChangeSpeedrunSinkCommand(client dc.Client, e *dc.CommandEvent) {
 	// Protection against DM use
-	if i.GuildID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "This command can only be run in a server.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
+	if e.GuildID() == "" {
+		_ = e.Respond(dc.Message{
+			Content:   "This command can only be run in a server.",
+			Ephemeral: true,
 		})
 		return
 	}
 
 	sinkBoost := ""
 	sinkPost := ""
-	optionMap := bottools.GetCommandOptionsMap(i)
 
-	if opt, ok := optionMap["sink-boosting"]; ok {
-		sinkBoost = strings.TrimSpace(opt.StringValue())
+	if opt, ok := e.OptString("sink-boosting"); ok {
+		sinkBoost = strings.TrimSpace(opt)
 		if mentionID, isMention := parseMentionUserID(sinkBoost); isMention {
 			sinkBoost = mentionID
 		}
 	}
-	if opt, ok := optionMap["sink-post"]; ok {
-		sinkPost = strings.TrimSpace(opt.StringValue())
+	if opt, ok := e.OptString("sink-post"); ok {
+		sinkPost = strings.TrimSpace(opt)
 		if mentionID, isMention := parseMentionUserID(sinkPost); isMention {
 			sinkPost = mentionID
 		}
 	}
 
-	str, err := setSpeedrunOptions(s, i.ChannelID, sinkBoost, sinkPost, -1, -1, true)
+	str, err := setSpeedrunOptions(client, e.ChannelID(), sinkBoost, sinkPost, -1, -1, true)
 	if err != nil {
 		str = err.Error()
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: str,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
+	_ = e.Respond(dc.Message{
+		Content:   str,
+		Ephemeral: true,
 	})
-
 }
 
 // HandleSpeedrunCommand handles the speedrun command
-func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func HandleSpeedrunCommand(client dc.Client, e *dc.CommandEvent) {
 	// Protection against DM use
-	if i.GuildID == "" {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "This command can only be run in a server.",
-				Flags:      discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{}},
+	if e.GuildID() == "" {
+		_ = e.Respond(dc.Message{
+			Content:   "This command can only be run in a server.",
+			Ephemeral: true,
 		})
 		return
 	}
@@ -161,45 +113,37 @@ func HandleSpeedrunCommand(s *discordgo.Session, i *discordgo.InteractionCreate)
 	sinkPost := ""
 	sinkPosition := SinkBoostFirst
 
-	optionMap := bottools.GetCommandOptionsMap(i)
-
-	if opt, ok := optionMap["sink-boosting"]; ok {
-		sinkPost = strings.TrimSpace(opt.StringValue())
+	if opt, ok := e.OptString("sink-boosting"); ok {
+		sinkBoost = strings.TrimSpace(opt)
 		if mentionID, isMention := parseMentionUserID(sinkBoost); isMention {
 			sinkBoost = mentionID
 		}
 	}
-	if opt, ok := optionMap["sink-post"]; ok {
-		sinkPost = strings.TrimSpace(opt.StringValue())
+	if opt, ok := e.OptString("sink-post"); ok {
+		sinkPost = strings.TrimSpace(opt)
 		if mentionID, isMention := parseMentionUserID(sinkPost); isMention {
 			sinkPost = mentionID
 		}
 	}
-	if opt, ok := optionMap["chicken-runs"]; ok {
-		chickenRuns = int(opt.IntValue())
+	if opt, ok := e.OptInt("chicken-runs"); ok {
+		chickenRuns = opt
 	}
-	//if opt, ok := optionMap["self-runs"]; ok {
-	//	selfRuns = opt.BoolValue()
-	//}
-	if opt, ok := optionMap["sink-position"]; ok {
-		sinkPosition = int(opt.IntValue())
+	if opt, ok := e.OptInt("sink-position"); ok {
+		sinkPosition = opt
 	}
 
-	str, err := setSpeedrunOptions(s, i.ChannelID, sinkBoost, sinkPost, sinkPosition, chickenRuns, false)
+	str, err := setSpeedrunOptions(client, e.ChannelID(), sinkBoost, sinkPost, sinkPosition, chickenRuns, false)
 	if err != nil {
 		str = err.Error()
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: str,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
+	_ = e.Respond(dc.Message{
+		Content:   str,
+		Ephemeral: true,
 	})
 }
 
-func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkBoosting string, sinkPost string, sinkPosition int, chickenRuns int, changeSinksOnly bool) (string, error) {
+func setSpeedrunOptions(client dc.Client, channelID string, sinkBoosting string, sinkPost string, sinkPosition int, chickenRuns int, changeSinksOnly bool) (string, error) {
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return "", errors.New(errorNoContract)
@@ -223,11 +167,11 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkBoosting str
 	if contract.Style&SpeedrunStyleBanker != 0 && !changeSinksOnly {
 
 		// Verify that the sink is a snowflake id
-		if _, err := s.User(sinkBoosting); err != nil {
+		if _, err := client.User(sinkBoosting); err != nil {
 			return "", errors.New("boosting sink must be a user mention for Banker style boost lists")
 		}
 
-		if _, err := s.User(sinkPost); err != nil {
+		if _, err := client.User(sinkPost); err != nil {
 			return "", errors.New("post contract sink must be a user mention for Banker style boost lists")
 		}
 	}
@@ -269,21 +213,18 @@ func setSpeedrunOptions(s *discordgo.Session, channelID string, sinkBoosting str
 	fmt.Fprintf(&builder, "Post Sink: %s\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention)
 
 	for _, loc := range contract.Location {
-		msgedit := discordgo.NewMessageEdit(loc.ChannelID, loc.ListMsgID)
-		components := DrawBoostList(s, contract)
+		components := DrawBoostList(contract)
 		buttonComponents := getContractReactionsComponents(contract)
 		if len(buttonComponents) > 0 {
 			components = append(components, buttonComponents...)
 		}
-		msgedit.Components = &components
-		msgedit.Flags = discordgo.MessageFlagsIsComponentsV2
 		//msgedit.SetComponents(contentStr)
 		//msgedit.Flags = discordgo.MessageFlagsSuppressEmbeds
-		msg, err := s.ChannelMessageEditComplex(msgedit)
+		msg, err := client.EditMessage(loc.ChannelID, loc.ListMsgID, dc.Message{Components: components})
 		if err == nil {
 			loc.ListMsgID = msg.ID
 		}
-		updateSignupReactionMessage(s, contract, loc)
+		updateSignupReactionMessage(client, contract, loc)
 	}
 	return builder.String(), nil
 }
@@ -307,61 +248,61 @@ func repositionSinkBoostPosition(contract *Contract) {
 	contract.Order = removeDuplicates(newOrder)
 }
 
-func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contract *Contract) string {
+func speedrunReactions(client dc.Client, e *dc.ReactionEvent, contract *Contract) string {
 	returnVal := ""
 	keepReaction := false
 	redraw := false
 
 	// Token reaction handling
 	tokenReactionStr := "token"
-	userID := r.UserID
+	userID := e.UserID()
 	// Special handling for alt icons representing token reactions
-	if strings.ToLower(r.Emoji.Name) == tokenReactionStr {
-		_, redraw = buttonReactionToken(s, r.GuildID, r.ChannelID, contract, userID, 1, "")
+	if strings.ToLower(e.EmojiName()) == tokenReactionStr {
+		_, redraw = buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 1, "")
 	}
 
 	if contract.State == ContractStateBanker {
-		// make sure Boosters[r.UserID] exists
-		if _, ok := contract.Boosters[r.UserID]; ok {
-			idx := slices.Index(contract.Boosters[r.UserID].Alts, contract.Banker.BoostingSinkUserID)
+		// make sure Boosters[e.UserID()] exists
+		if _, ok := contract.Boosters[e.UserID()]; ok {
+			idx := slices.Index(contract.Boosters[e.UserID()].Alts, contract.Banker.BoostingSinkUserID)
 			if idx != -1 {
 				// This is an alternate
-				userID = contract.Boosters[r.UserID].Alts[idx]
+				userID = contract.Boosters[e.UserID()].Alts[idx]
 			}
 		}
 
 		if userID == contract.Banker.BoostingSinkUserID {
-			if r.Emoji.Name == "💰" {
-				_, redraw = buttonReactionBag(s, r.GuildID, r.ChannelID, contract, r.UserID)
+			if e.EmojiName() == "💰" {
+				_, redraw = buttonReactionBag(client, e.GuildID(), e.ChannelID(), contract, e.UserID())
 			}
 		}
 	}
 
-	if r.Emoji.Name == "🌊" {
+	if e.EmojiName() == "🌊" {
 		if time.Since(contract.ThreadRenameTime) < 3*time.Minute {
-			msg, err := s.ChannelMessageSend(r.ChannelID, fmt.Sprintf("🌊 thread renaming is on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(3*time.Minute).Unix()))
+			msg, err := client.SendMessage(e.ChannelID(), dc.Message{Content: fmt.Sprintf("🌊 thread renaming is on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(3*time.Minute).Unix())})
 			if err == nil {
 				time.AfterFunc(10*time.Second, func() {
-					err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+					err := client.DeleteMessage(msg.ChannelID, msg.ID)
 					if err != nil {
 						log.Println(err)
 					}
 				})
 			}
 		} else {
-			UpdateThreadName(s, contract)
+			UpdateThreadName(client, contract)
 		}
 	}
 
-	if r.Emoji.Name == "⏱️" {
+	if e.EmojiName() == "⏱️" {
 		if contract.State != ContractStateCompleted {
-			var data discordgo.MessageSend
-			data.Content = "⏱️ can only be used after the contract completes boosting."
-			data.Flags = discordgo.MessageFlagsEphemeral
-			msg, err := s.ChannelMessageSendComplex(r.ChannelID, &data)
+			msg, err := client.SendMessage(e.ChannelID(), dc.Message{
+				Content:   "⏱️ can only be used after the contract completes boosting.",
+				Ephemeral: true,
+			})
 			if err == nil {
 				time.AfterFunc(10*time.Second, func() {
-					err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+					err := client.DeleteMessage(msg.ChannelID, msg.ID)
 					if err != nil {
 						log.Println(err)
 					}
@@ -370,13 +311,13 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 
 		} else {
 			if time.Since(contract.EstimateUpdateTime) < 2*time.Minute {
-				var data discordgo.MessageSend
-				data.Content = fmt.Sprintf("⏱️ duration update on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(3*time.Minute).Unix())
-				data.Flags = discordgo.MessageFlagsEphemeral
-				msg, err := s.ChannelMessageSendComplex(r.ChannelID, &data)
+				msg, err := client.SendMessage(e.ChannelID(), dc.Message{
+					Content:   fmt.Sprintf("⏱️ duration update on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(3*time.Minute).Unix()),
+					Ephemeral: true,
+				})
 				if err == nil {
 					time.AfterFunc(10*time.Second, func() {
-						err := s.ChannelMessageDelete(msg.ChannelID, msg.ID)
+						err := client.DeleteMessage(msg.ChannelID, msg.ID)
 						if err != nil {
 							log.Println(err)
 						}
@@ -385,18 +326,18 @@ func speedrunReactions(s *discordgo.Session, r *discordgo.MessageReaction, contr
 			} else {
 				log.Print("Updating estimated time")
 				contract.EstimateUpdateTime = time.Now()
-				go updateEstimatedTime(s, r.ChannelID, contract, true, r.UserID)
+				go updateEstimatedTime(client, e.ChannelID(), contract, true, e.UserID())
 			}
 		}
 	}
 
 	// Remove extra added emoji
 	if !keepReaction {
-		go RemoveAddedReaction(s, r)
+		go RemoveAddedReaction(client, e)
 	}
 
 	if redraw {
-		refreshBoostListMessage(s, contract, false)
+		refreshBoostListMessage(client, contract, false)
 	}
 
 	return returnVal

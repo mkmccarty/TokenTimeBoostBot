@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
@@ -157,9 +157,9 @@ type CompMap struct {
 	Emoji          string
 	ID             string
 	Name           string
-	Style          discordgo.ButtonStyle
+	Style          dc.ButtonStyle
 	CustomID       string
-	ComponentEmoji *discordgo.ComponentEmoji
+	ComponentEmoji *dc.Emoji
 }
 
 // TokenUnit holds the data for each token
@@ -253,7 +253,7 @@ func (r GuildRole) Mention() string {
 
 // guildRoleFromDiscord converts a role returned by the Discord API into the
 // stored representation. A nil role yields the zero value.
-func guildRoleFromDiscord(role *discordgo.Role) GuildRole {
+func guildRoleFromDiscord(role *dc.Role) GuildRole {
 	if role == nil {
 		return GuildRole{}
 	}

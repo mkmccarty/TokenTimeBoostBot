@@ -7,14 +7,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
-func printActiveContractDetails(userID string, archive []*ei.LocalContract, contractIDParam string) []discordgo.MessageComponent {
-	var components []discordgo.MessageComponent
+func printActiveContractDetails(userID string, archive []*ei.LocalContract, contractIDParam string) []dc.LayoutComponent {
+	var components []dc.LayoutComponent
 	tvalFooterMessage := false
 	eiUserName := farmerstate.GetMiscSettingString(userID, "ei_ign")
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
@@ -22,7 +22,7 @@ func printActiveContractDetails(userID string, archive []*ei.LocalContract, cont
 
 	if archive == nil {
 		log.Print("No archived contracts found in Egg Inc API response")
-		components = append(components, &discordgo.TextDisplay{
+		components = append(components, dc.TextDisplay{
 			Content: "No archived contracts found in Egg Inc API response",
 		})
 		return components
@@ -220,7 +220,7 @@ func printActiveContractDetails(userID string, archive []*ei.LocalContract, cont
 			}
 
 			builder.WriteString("\n\n")
-			components = append(components, &discordgo.TextDisplay{
+			components = append(components, dc.TextDisplay{
 				Content: builder.String(),
 			})
 			builder.Reset()
@@ -245,7 +245,7 @@ func printActiveContractDetails(userID string, archive []*ei.LocalContract, cont
 	fmt.Fprintf(&builder, "-# Est duration/CS based on 1.0 fair share, %.0f%s boosts (w/%.0f%s TE), 6%s/hr rate and leggy artifacts.\n", leggyTokens, ei.GetBotEmojiMarkdown("token"), DefaultLeggyTE, ei.GetBotEmojiMarkdown("egg_truth"), ei.GetBotEmojiMarkdown("token"))
 
 	if builder.Len() > 0 {
-		components = append(components, &discordgo.TextDisplay{
+		components = append(components, dc.TextDisplay{
 			Content: builder.String(),
 		})
 	}
