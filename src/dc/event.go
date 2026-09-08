@@ -870,4 +870,3 @@ func NewComponentEventFromPayload(payload []byte) (*ComponentEvent, error) {
 		},
 	}, nil
 }
-
