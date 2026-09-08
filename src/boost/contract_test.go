@@ -690,5 +690,41 @@ func TestHandleContractSettingsReactionsFeatures(t *testing.T) {
 	if contract.Style&ContractFlagAMQP == 0 {
 		t.Errorf("Expected ContractFlagAMQP to be set when threshold is selected with amqp, style: %x", contract.Style)
 	}
+
+	// 5. Multiple boost token options selected at once (e.g. boost4, boost6, boost8, dynamic):
+	// Only the topmost one (boost4) should be accepted, and the others cleared.
+	ev5 := dctest.ComponentSelectEvent(customID, "boost8", "boost4", "dynamic", "boost6")
+	HandleContractSettingsReactions(client, ev5)
+
+	if contract.Style&ContractFlag4Tokens == 0 {
+		t.Errorf("Expected topmost option ContractFlag4Tokens to be set, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlag6Tokens != 0 {
+		t.Errorf("Expected ContractFlag6Tokens to be cleared, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlag8Tokens != 0 {
+		t.Errorf("Expected ContractFlag8Tokens to be cleared, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlagDynamicTokens != 0 {
+		t.Errorf("Expected ContractFlagDynamicTokens to be cleared, style: %x", contract.Style)
+	}
+
+	// 6. Multiple options including a higher token option (boost6) and threshold:
+	// boost6 is higher than threshold, so boost6 should win, threshold modal not triggered, and others cleared.
+	ev6 := dctest.ComponentSelectEvent(customID, "threshold", "boost6", "amqp")
+	HandleContractSettingsReactions(client, ev6)
+
+	if contract.Style&ContractFlag6Tokens == 0 {
+		t.Errorf("Expected topmost option ContractFlag6Tokens to be set, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlag4Tokens != 0 {
+		t.Errorf("Expected ContractFlag4Tokens to be cleared, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlagThresholdTokens != 0 {
+		t.Errorf("Expected ContractFlagThresholdTokens to be cleared, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlagAMQP == 0 {
+		t.Errorf("Expected ContractFlagAMQP to remain set, style: %x", contract.Style)
+	}
 }
 
