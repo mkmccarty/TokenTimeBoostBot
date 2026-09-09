@@ -45,6 +45,9 @@ type FakeClient struct {
 	// MemberColors answers the color half of GuildMemberWithColor, keyed the
 	// same way as Members.
 	MemberColors map[string]int
+	// Threads answers ActiveThreads by guild ID. A missing ID yields
+	// ErrNotFound.
+	Threads map[string][]dc.Channel
 
 	// SendErr, EditErr and DeleteErr are returned by the message methods.
 	SendErr   error
@@ -65,6 +68,7 @@ func New() *FakeClient {
 		Users:         map[string]*dc.User{},
 		Members:       map[string]*dc.Member{},
 		MemberColors:  map[string]int{},
+		Threads:       map[string][]dc.Channel{},
 		NextMessageID: "message",
 	}
 }
@@ -78,6 +82,19 @@ func (f *FakeClient) WithGuild(id, name string) *FakeClient {
 // WithChannel registers a channel the fake will return from Channel.
 func (f *FakeClient) WithChannel(id, guildID, name string) *FakeClient {
 	f.Channels[id] = &dc.Channel{ID: id, GuildID: guildID, Name: name}
+	return f
+}
+
+// WithThread registers an active thread the fake will return from
+// ActiveThreads for the thread's guild.
+func (f *FakeClient) WithThread(id, guildID, parentID, name string) *FakeClient {
+	f.Threads[guildID] = append(f.Threads[guildID], dc.Channel{
+		ID:       id,
+		GuildID:  guildID,
+		ParentID: parentID,
+		Name:     name,
+		IsThread: true,
+	})
 	return f
 }
 
@@ -256,4 +273,16 @@ func (f *FakeClient) GuildRoles(guildID string) ([]dc.Role, error) {
 
 func (f *FakeClient) nextID() string {
 	return f.NextMessageID + "-" + strconv.Itoa(len(f.Calls))
+}
+
+// ActiveThreads answers from Threads, which is keyed by guild ID. A guild the
+// test never registered yields ErrNotFound, which is what Discord's
+// guild-scoped endpoint returns for an ID that is not a guild.
+func (f *FakeClient) ActiveThreads(guildID string) ([]dc.Channel, error) {
+	f.record("ActiveThreads", guildID)
+	threads, ok := f.Threads[guildID]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return threads, nil
 }

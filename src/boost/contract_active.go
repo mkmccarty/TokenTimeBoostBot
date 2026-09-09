@@ -43,7 +43,7 @@ func HandleAdminCurrentContracts(client dc.Client, e *dc.CommandEvent) {
 		}
 	}
 
-	components, _ := getCurrentContractsComponents(client, channelID)
+	components, _ := getCurrentContractsComponents(client, e.GuildID(), channelID)
 	if err := e.Followup(dc.Message{Components: components}); err != nil {
 		log.Println("Error sending follow-up message:", err)
 	}
@@ -76,7 +76,7 @@ func HandleActiveContractsPage(client dc.Client, e *dc.ComponentEvent) {
 		channelID := parts[2]
 		_ = e.DeferUpdate()
 
-		components, _ := getCurrentContractsComponents(client, channelID)
+		components, _ := getCurrentContractsComponents(client, e.GuildID(), channelID)
 		if err := e.EditFollowup(e.MessageID(), dc.Message{Components: components}); err != nil {
 			log.Println("Error refreshing active contracts:", err)
 		}
@@ -93,7 +93,7 @@ func HandleActiveContractsPage(client dc.Client, e *dc.ComponentEvent) {
 			log.Println("Error deleting message for bump:", err)
 		}
 
-		components, _ := getCurrentContractsComponents(client, channelID)
+		components, _ := getCurrentContractsComponents(client, e.GuildID(), channelID)
 		if _, err := client.SendMessage(e.ChannelID(), dc.Message{Components: components}); err != nil {
 			log.Println("Error sending bumped active contracts:", err)
 		}
@@ -127,8 +127,12 @@ func activeContractsButtons(channelID string) dc.ActionRow {
 	}
 }
 
-func getCurrentContractsComponents(client dc.Client, channelID string) ([]dc.LayoutComponent, bool) {
-	threads, err := client.ActiveThreads(channelID)
+// getCurrentContractsComponents builds the active-contracts panel for one
+// channel. Discord's active-threads endpoint is guild-scoped, so the lookup
+// takes the guild ID and the results are then narrowed to the threads parented
+// to channelID.
+func getCurrentContractsComponents(client dc.Client, guildID string, channelID string) ([]dc.LayoutComponent, bool) {
+	threads, err := client.ActiveThreads(guildID)
 	if err != nil {
 		log.Println("Error fetching active threads:", err)
 		return []dc.LayoutComponent{
@@ -139,13 +143,12 @@ func getCurrentContractsComponents(client dc.Client, channelID string) ([]dc.Lay
 		}, false
 	}
 
-	guildID := ""
 	activeThreadIDs := make(map[string]bool, len(threads))
 	for _, th := range threads {
-		activeThreadIDs[th.ID] = true
-		if guildID == "" {
-			guildID = th.GuildID
+		if th.ParentID != channelID {
+			continue
 		}
+		activeThreadIDs[th.ID] = true
 	}
 
 	var matched []*Contract

@@ -406,8 +406,7 @@ func (c *disgoClient) JoinThread(channelID string) error {
 }
 
 // ActiveThreads lists the active threads in a guild. The argument is a guild
-// ID: Discord's active-threads endpoint is guild-scoped, which is what the
-// discordgo call behind this always did too.
+// ID: Discord's active-threads endpoint is guild-scoped.
 func (c *disgoClient) ActiveThreads(guildID string) ([]Channel, error) {
 	ids, err := parseIDs(guildID)
 	if err != nil {
