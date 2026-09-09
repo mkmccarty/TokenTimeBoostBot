@@ -130,6 +130,7 @@ func (b *Bot) Connect(token string, intents Intents) error {
 		bot.WithDefaultGateway(),
 		bot.WithGatewayConfigOpts(gateway.WithIntents(intents.toDisgo())),
 		bot.WithCacheConfigOpts(cacheConfigOpts()...),
+		bot.WithEventManagerConfigOpts(bot.WithAsyncEventsEnabled()),
 		bot.WithEventListenerFunc(b.onCommand),
 		bot.WithEventListenerFunc(b.onAutocomplete),
 		bot.WithEventListenerFunc(b.onComponent),
