@@ -104,4 +104,3 @@ func ComponentButtonEvent(customID string) *dc.ComponentEvent {
 	}
 	return event
 }
-
