@@ -460,7 +460,7 @@ func setupCommands() {
 			AppCmd:       boost.GetSlashRerunEvalCommand(slashRerunEval),
 			Category:     CmdCategoryGlobal,
 			Handler:      boost.HandleReplayEval,
-			Autocomplete: boost.HandleAllContractsAutoComplete,
+			Autocomplete: boost.HandleRerunEvalAutoComplete,
 		},
 		{
 			AppCmd:   boost.GetSlashVirtueCommand(slashVirtue),

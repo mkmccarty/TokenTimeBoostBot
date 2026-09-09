@@ -34,9 +34,11 @@ type chartSession struct {
 	uuidStr        string
 	userID         string
 	rows           []chartRow
+	archive        []*ei.LocalContract // retained for season navigation
 	page           int
 	sortBy         string
 	percent        int
+	seasonScope    string // non-empty when percent == -100 (season chart)
 	expiresAt      time.Time
 	hasDayMap      bool
 	mobileFriendly bool
@@ -74,7 +76,7 @@ func cleanupChartSessions() {
 	}
 }
 
-func printContractChart(userID string, archive []*ei.LocalContract, percent int, page int, contractIDList []string, contractDayMap map[string]string, mobileFriendly bool) []dc.LayoutComponent {
+func printContractChart(userID string, archive []*ei.LocalContract, percent int, page int, contractIDList []string, contractDayMap map[string]string, mobileFriendly bool, seasonScope string) []dc.LayoutComponent {
 	cleanupChartSessions()
 	var rows []chartRow
 
@@ -226,13 +228,64 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 		}
 	}
 
+	// For the season chart, add zero-score rows for season contracts the user
+	// has not yet completed (same pattern as predictions).
+	if percent == -100 {
+		for _, contractID := range contractIDList {
+			if processedIDs[contractID] {
+				continue
+			}
+			c, ok := ei.GetEggIncContract(contractID)
+			if !ok {
+				continue
+			}
+			if c.ContractVersion == 2 {
+				evaluationCxp := 0.0
+				maxCxp := c.CxpMax
+				if generousGift {
+					maxCxp = c.CxpMaxGG
+				}
+				hasSiab := false
+				if generousGift {
+					if c.CxpMaxSiabGG > c.CxpMaxGG {
+						maxCxp = c.CxpMaxSiabGG
+						if c.CxpMaxSiabGG > evaluationCxp {
+							hasSiab = true
+						}
+					}
+				} else {
+					if c.CxpMaxSiab > c.CxpMax {
+						maxCxp = c.CxpMaxSiab
+						if c.CxpMaxSiab > evaluationCxp {
+							hasSiab = true
+						}
+					}
+				}
+
+				rows = append(rows, chartRow{
+					contractID:  contractID,
+					cxp:         evaluationCxp,
+					maxCxp:      maxCxp,
+					gap:         maxCxp - evaluationCxp,
+					percent:     0.0,
+					validUntil:  c.ValidUntil.Unix(),
+					hasSiab:     hasSiab,
+					maxCoopSize: c.MaxCoopSize,
+				})
+			}
+		}
+	}
+
+
 	session := &chartSession{
 		uuidStr:        uuid.NewV7().String(),
 		userID:         userID,
 		rows:           rows,
+		archive:        archive,
 		page:           page - 1, // Store as 0-indexed internally
 		sortBy:         sortBy,
 		percent:        percent,
+		seasonScope:    seasonScope,
 		expiresAt:      time.Now().Add(15 * time.Minute),
 		hasDayMap:      len(contractDayMap) > 0,
 		mobileFriendly: mobileFriendly,
@@ -296,6 +349,8 @@ func renderChartSession(session *chartSession) []dc.LayoutComponent {
 			if r.validUntil > now {
 				displayRows = append(displayRows, r)
 			}
+		case -100: // Season chart – show all contracts, no time or percent filter
+			displayRows = append(displayRows, r)
 		case -200: // Predictions chart
 			displayRows = append(displayRows, r)
 		default: // Threshold chart
@@ -446,6 +501,9 @@ func renderChartSession(session *chartSession) []dc.LayoutComponent {
 	switch session.percent {
 	case -1:
 		builder.WriteString("## Contract CS eval of active contracts")
+	case -100:
+		seasonLabel := leaderboardSeasonName(session.seasonScope)
+		fmt.Fprintf(&builder, "## Contract CS eval for %s season", seasonLabel)
 	case -200:
 		builder.WriteString("## Displaying contract scores for future predictions")
 	default:
@@ -577,7 +635,222 @@ func renderChartSession(session *chartSession) []dc.LayoutComponent {
 	return components
 }
 
+
+// buildSeasonRows rebuilds the row data for a season chart when the user
+// navigates to a different season. It mirrors the logic in printContractChart
+// for the -100 (season) path.
+func buildSeasonRows(session *chartSession, newScope string) []chartRow {
+	var rows []chartRow
+	processedIDs := make(map[string]bool)
+
+	// Collect contract IDs for the new season.
+	var contractIDList []string
+	ei.EggIncContractsMutex.RLock()
+	for _, c := range ei.EggIncContractsAll {
+		if c.Predicted || !strings.EqualFold(c.SeasonID, newScope) {
+			continue
+		}
+		if !slices.Contains(contractIDList, c.ID) {
+			contractIDList = append(contractIDList, c.ID)
+		}
+	}
+	ei.EggIncContractsMutex.RUnlock()
+
+	// Build rows from the stored archive.
+	for _, a := range session.archive {
+		contractID := a.GetContractIdentifier()
+		evaluation := a.GetEvaluation()
+		if contractID == "" && a.GetContract() != nil {
+			contractID = a.GetContract().GetIdentifier()
+		} else if contractID == "" && evaluation != nil {
+			contractID = evaluation.GetContractIdentifier()
+		}
+		if contractID == "first-contract" || contractID == "" {
+			continue
+		}
+		if !slices.Contains(contractIDList, contractID) {
+			continue
+		}
+		evaluationCxp := evaluation.GetCxp()
+		c, _ := ei.GetEggIncContract(contractID)
+		processedIDs[contractID] = true
+		if c.ContractVersion == 2 {
+			maxCxp := c.CxpMax
+			if session.generousGift {
+				maxCxp = c.CxpMaxGG
+			}
+			hasSiab := false
+			if session.generousGift {
+				if c.CxpMaxSiabGG > c.CxpMaxGG {
+					maxCxp = c.CxpMaxSiabGG
+					if c.CxpMaxSiabGG > evaluationCxp {
+						hasSiab = true
+					}
+				}
+			} else {
+				if c.CxpMaxSiab > c.CxpMax {
+					maxCxp = c.CxpMaxSiab
+					if c.CxpMaxSiab > evaluationCxp {
+						hasSiab = true
+					}
+				}
+			}
+			evalPercent := 0.0
+			if maxCxp > 0 {
+				evalPercent = (evaluationCxp / maxCxp) * 100.0
+			}
+			rows = append(rows, chartRow{
+				contractID:  contractID,
+				cxp:         evaluationCxp,
+				maxCxp:      maxCxp,
+				gap:         maxCxp - evaluationCxp,
+				percent:     evalPercent,
+				validUntil:  c.ValidUntil.Unix(),
+				hasSiab:     hasSiab,
+				maxCoopSize: c.MaxCoopSize,
+			})
+		}
+	}
+
+	// Zero-score rows for un-played season contracts.
+	for _, contractID := range contractIDList {
+		if processedIDs[contractID] {
+			continue
+		}
+		c, ok := ei.GetEggIncContract(contractID)
+		if !ok || c.ContractVersion != 2 {
+			continue
+		}
+		maxCxp := c.CxpMax
+		if session.generousGift {
+			maxCxp = c.CxpMaxGG
+		}
+		hasSiab := false
+		if session.generousGift {
+			if c.CxpMaxSiabGG > c.CxpMaxGG {
+				maxCxp = c.CxpMaxSiabGG
+				hasSiab = true
+			}
+		} else {
+			if c.CxpMaxSiab > c.CxpMax {
+				maxCxp = c.CxpMaxSiab
+				hasSiab = true
+			}
+		}
+		rows = append(rows, chartRow{
+			contractID:  contractID,
+			maxCxp:      maxCxp,
+			gap:         maxCxp,
+			percent:     0.0,
+			validUntil:  c.ValidUntil.Unix(),
+			hasSiab:     hasSiab,
+			maxCoopSize: c.MaxCoopSize,
+		})
+	}
+	return rows
+}
+
+// leaderboardNextSeason returns the season immediately after the given one.
+func leaderboardNextSeason(name string, year int) (string, int, bool) {
+	idx := leaderboardSeasonIndex(name)
+	if idx < 0 {
+		return "", 0, false
+	}
+	idx++
+	if idx >= len(leaderboardSeasonOrder) {
+		idx = 0
+		year++
+	}
+	return leaderboardSeasonOrder[idx], year, true
+}
+
+// leaderboardSeasonExists reports whether a given season ID is present in the
+// known season list (i.e., it is not before the start and not in the future).
+func leaderboardSeasonExists(seasonID string) bool {
+	for _, s := range leaderboardSeasons() {
+		if s.value == seasonID {
+			return true
+		}
+	}
+	return false
+}
+
+// buildSeasonNavButtons returns an action row of up to 4 season navigation
+// buttons: [same-season prev-year] [prev-season] [next-season] [same-season next-year].
+// Buttons whose target season does not exist in the known list are omitted.
+// Returns nil if this is not a season chart or no valid neighbors exist.
+func buildSeasonNavButtons(session *chartSession) dc.ActionRow {
+	name, year, ok := leaderboardParseSeasonID(session.seasonScope)
+	if !ok {
+		return dc.ActionRow{}
+	}
+
+	type candidate struct {
+		scope string
+		label string
+		tag   string
+	}
+
+	var cands []candidate
+
+	// Prev year: same season, year-1
+	if prevYearScope := leaderboardSeasonID(name, year-1); leaderboardSeasonExists(prevYearScope) {
+		cands = append(cands, candidate{prevYearScope, leaderboardSeasonLabel(prevYearScope), "prev_year"})
+	}
+
+	// Prev season
+	if prevName, prevYear, ok := leaderboardPreviousSeason(name, year); ok {
+		if prevScope := leaderboardSeasonID(prevName, prevYear); leaderboardSeasonExists(prevScope) {
+			cands = append(cands, candidate{prevScope, leaderboardSeasonLabel(prevScope), "prev_season"})
+		}
+	}
+
+	// Next season
+	if nextName, nextYear, ok := leaderboardNextSeason(name, year); ok {
+		if nextScope := leaderboardSeasonID(nextName, nextYear); leaderboardSeasonExists(nextScope) {
+			cands = append(cands, candidate{nextScope, leaderboardSeasonLabel(nextScope), "next_season"})
+		}
+	}
+
+	// Next year: same season, year+1
+	if nextYearScope := leaderboardSeasonID(name, year+1); leaderboardSeasonExists(nextYearScope) {
+		cands = append(cands, candidate{nextYearScope, leaderboardSeasonLabel(nextYearScope), "next_year"})
+	}
+
+	var buttons []dc.InteractiveComponent
+	for _, c := range cands {
+		buttons = append(buttons, dc.Button{
+			Label:    c.label,
+			Style:    dc.ButtonSecondary,
+			CustomID: fmt.Sprintf("chart#seasonswitch#%s#%s#%s", session.uuidStr, c.scope, c.tag),
+		})
+	}
+
+	// Current Season button — only when not already viewing the current season.
+	if curName, curYear, ok := leaderboardMostRecentSeason(); ok {
+		curScope := leaderboardSeasonID(curName, curYear)
+		if curScope != session.seasonScope && leaderboardSeasonExists(curScope) {
+			buttons = append(buttons, dc.Button{
+				Label:    "Current Season",
+				Style:    dc.ButtonPrimary,
+				CustomID: fmt.Sprintf("chart#seasonswitch#%s#%s#current", session.uuidStr, curScope),
+			})
+		}
+	}
+
+	if len(buttons) == 0 {
+		return dc.ActionRow{}
+	}
+
+	if len(buttons) > 5 {
+		buttons = buttons[:5]
+	}
+
+	return dc.ActionRow{Components: buttons}
+}
+
 func buildChartControls(session *chartSession, totalPages int) []dc.LayoutComponent {
+
 	var rows []dc.LayoutComponent
 	minValues := 1
 
@@ -604,7 +877,15 @@ func buildChartControls(session *chartSession, totalPages int) []dc.LayoutCompon
 		})
 	}
 
+	// Season navigation buttons (season chart only)
+	if session.percent == -100 {
+		if navRow := buildSeasonNavButtons(session); len(navRow.Components) > 0 {
+			rows = append(rows, navRow)
+		}
+	}
+
 	sortOptions := []dc.SelectOption{
+
 		{Label: "Sort by Date (Newest First)", Value: "date", Default: session.sortBy == "date"},
 		{Label: "Sort by Date (Oldest First)", Value: "date_asc", Default: session.sortBy == "date_asc"},
 		{Label: "Sort by Prediction (Soonest First)", Value: "pred", Default: session.sortBy == "pred"},
@@ -803,6 +1084,8 @@ func HandleChartReactions(e *dc.ComponentEvent) {
 					displayRows = append(displayRows, r)
 				}
 			}
+		case -100: // Season chart – show all contracts, no time or percent filter
+			displayRows = session.rows
 		case -200: // Predictions chart
 			displayRows = session.rows
 		default: // Threshold chart
@@ -852,12 +1135,36 @@ func HandleChartReactions(e *dc.ComponentEvent) {
 		delete(chartSessions, uuidPart) // Clean up session
 		chartSessionsMutex.Unlock()
 		return
+	case "seasonswitch":
+		// parts: chart # seasonswitch # uuid # newSeasonScope [# tag]
+		if len(parts) < 4 {
+			log.Printf("[rerun-chart] seasonswitch invalid customID: %s", e.CustomID())
+			_ = e.Respond(dc.Message{
+				Content:   "Invalid season navigation request.",
+				Ephemeral: true,
+			})
+			return
+		}
+		newScope := parts[3]
+		if !leaderboardSeasonExists(newScope) {
+			log.Printf("[rerun-chart] seasonswitch unknown season scope: %s", newScope)
+			_ = e.Respond(dc.Message{
+				Content:   fmt.Sprintf("Season %s is not recognized.", newScope),
+				Ephemeral: true,
+			})
+			return
+		}
+		session.rows = buildSeasonRows(session, newScope)
+		session.seasonScope = newScope
+		session.page = 0
 	}
 
 	components := renderChartSession(session)
 
-	_ = e.Update(dc.Message{
+	if err := e.Update(dc.Message{
 		Ephemeral:  e.MessageIsEphemeral(),
 		Components: components,
-	})
+	}); err != nil {
+		log.Printf("[rerun-chart] error updating chart message: %v", err)
+	}
 }

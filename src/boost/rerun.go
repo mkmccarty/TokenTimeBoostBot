@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"slices"
 	"strconv"
+	"strings"
 
 	"log"
 
@@ -62,6 +63,20 @@ func GetSlashRerunEvalCommand(cmd string) *dc.Command {
 			Options:     []dc.Option{refreshOption, mobileOption, resetOption},
 		},
 		dc.SubCommand{
+			Name:        "season",
+			Description: "Summary chart of evaluations for a specific season",
+			Options: []dc.Option{
+				dc.StringOption{
+					Name:         "season",
+					Description:  "Season to display. Defaults to the current season.",
+					Autocomplete: true,
+				},
+				refreshOption,
+				mobileOption,
+				resetOption,
+			},
+		},
+		dc.SubCommand{
 			Name:        "threshold",
 			Description: "Summarize contracts below a certain % of speedrun score",
 			Options: []dc.Option{
@@ -78,6 +93,48 @@ func GetSlashRerunEvalCommand(cmd string) *dc.Command {
 		},
 	}
 	return &command
+}
+
+// HandleRerunEvalAutoComplete dispatches autocomplete for /rerun-eval subcommands.
+// The "active" subcommand gets contract-id autocomplete; the "season" subcommand
+// gets season autocomplete powered by leaderboardSeasons().
+func HandleRerunEvalAutoComplete(e *dc.AutocompleteEvent) {
+	if sub, ok := e.Subcommand(); ok && sub == "season" {
+		HandleRerunEvalSeasonAutoComplete(e)
+		return
+	}
+	HandleAllContractsAutoComplete(e)
+}
+
+// HandleRerunEvalSeasonAutoComplete suggests seasons for the /rerun-eval season option.
+func HandleRerunEvalSeasonAutoComplete(e *dc.AutocompleteEvent) {
+	search := ""
+	if name, value := e.FocusedOption(); name == "season" {
+		search = strings.ToLower(strings.TrimSpace(value))
+	}
+
+	choices := make([]dc.Choice[string], 0, leaderboardMaxAutocompleteChoices)
+	for _, season := range leaderboardSeasons() {
+		if season.value == leaderboardAllTimeScope {
+			continue // season subcommand is always for a specific season
+		}
+		if search != "" {
+			name := strings.ToLower(season.name)
+			value := strings.ToLower(season.value)
+			if !strings.Contains(name, search) && !strings.Contains(value, search) {
+				continue
+			}
+		}
+		choices = append(choices, dc.Choice[string]{
+			Name:  season.name,
+			Value: season.value,
+		})
+		if len(choices) >= leaderboardMaxAutocompleteChoices {
+			break
+		}
+	}
+
+	_ = e.RespondChoices(choices)
 }
 
 // HandleReplayEval handles the /replay-eval command.
@@ -125,6 +182,7 @@ func RerunEval(e dc.InteractionEvent, options dc.OptionValues, eiID string, okay
 	contractID := ""
 	forceRefresh := false
 	contractIDList := []string{}
+	seasonScope := ""
 
 	if opt, ok := options.Uint("threshold-percent"); ok {
 		percent = int(opt)
@@ -159,6 +217,30 @@ func RerunEval(e dc.InteractionEvent, options dc.OptionValues, eiID string, okay
 			contractDayMap[c.ID] = "W"
 		}
 		percent = -200
+	} else if sub, ok := options.Subcommand(); ok && sub == "season" {
+		// Default to the current season if the user did not pick one.
+		if opt, ok := options.String("season-season"); ok && opt != "" {
+			seasonScope = opt
+		}
+		if seasonScope == "" {
+			if name, year, ok := leaderboardMostRecentSeason(); ok {
+				seasonScope = leaderboardSeasonID(name, year)
+			}
+		}
+		ei.EggIncContractsMutex.RLock()
+		for _, c := range ei.EggIncContractsAll {
+			if c.Predicted {
+				continue
+			}
+			if !strings.EqualFold(c.SeasonID, seasonScope) {
+				continue
+			}
+			if !slices.Contains(contractIDList, c.ID) {
+				contractIDList = append(contractIDList, c.ID)
+			}
+		}
+		ei.EggIncContractsMutex.RUnlock()
+		percent = -100 // season chart: show all contracts, no time or percent filter
 	}
 	if opt, ok := options.Bool("chart-refresh"); ok {
 		forceRefresh = opt
@@ -167,6 +249,9 @@ func RerunEval(e dc.InteractionEvent, options dc.OptionValues, eiID string, okay
 		forceRefresh = opt
 	}
 	if opt, ok := options.Bool("active-refresh"); ok {
+		forceRefresh = opt
+	}
+	if opt, ok := options.Bool("season-refresh"); ok {
 		forceRefresh = opt
 	}
 
@@ -183,6 +268,9 @@ func RerunEval(e dc.InteractionEvent, options dc.OptionValues, eiID string, okay
 		mobileFriendly = opt
 		farmerstate.SetMiscSettingString(userID, "rerunMobileFriendly", strconv.FormatBool(mobileFriendly))
 	} else if opt, ok := options.Bool("threshold-mobile-friendly"); ok {
+		mobileFriendly = opt
+		farmerstate.SetMiscSettingString(userID, "rerunMobileFriendly", strconv.FormatBool(mobileFriendly))
+	} else if opt, ok := options.Bool("season-mobile-friendly"); ok {
 		mobileFriendly = opt
 		farmerstate.SetMiscSettingString(userID, "rerunMobileFriendly", strconv.FormatBool(mobileFriendly))
 	} else if val := farmerstate.GetMiscSettingString(userID, "rerunMobileFriendly"); val != "" {
@@ -204,7 +292,7 @@ func RerunEval(e dc.InteractionEvent, options dc.OptionValues, eiID string, okay
 	if len(contractIDList) == 1 {
 		components = printActiveContractDetails(userID, archive, contractIDList[0])
 	} else {
-		components = printContractChart(userID, archive, percent, page, contractIDList, contractDayMap, mobileFriendly)
+		components = printContractChart(userID, archive, percent, page, contractIDList, contractDayMap, mobileFriendly, seasonScope)
 	}
 
 	if err = e.Followup(dc.Message{Components: components}); err != nil {
