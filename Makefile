@@ -76,11 +76,11 @@ audit:
 
 .PHONY: lint-update
 lint-update:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCI_LINT_VERSION)/install.sh | sh -s -- -b ./build/bin
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCI_LINT_VERSION)/install.sh | sh -s -- -b ./bin
 
 .PHONY: lint
 lint:
-	./build/bin/golangci-lint run
+	./bin/golangci-lint run
 
 # ==================================================================================== #
 # DEVELOPMENT
