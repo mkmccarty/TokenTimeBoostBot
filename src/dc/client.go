@@ -71,8 +71,10 @@ type Client interface {
 	StartThread(channelID, name string, archiveDurationMinutes int) (*Channel, error)
 	// JoinThread adds the bot to a thread.
 	JoinThread(channelID string) error
-	// ActiveThreads lists the active threads under a channel.
-	ActiveThreads(channelID string) ([]Channel, error)
+	// ActiveThreads lists the active threads in a guild. Discord's
+	// active-threads endpoint is guild-scoped, so callers that want the
+	// threads under one channel filter the result on ParentID.
+	ActiveThreads(guildID string) ([]Channel, error)
 
 	// SetStatus sets the bot's presence to "Playing <activityName>".
 	SetStatus(activityName string) error
