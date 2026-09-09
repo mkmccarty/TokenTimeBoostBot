@@ -502,7 +502,7 @@ func renderChartSession(session *chartSession) []dc.LayoutComponent {
 		builder.WriteString("## Contract CS eval of active contracts")
 	case -100:
 		seasonLabel := leaderboardSeasonName(session.seasonScope)
-		fmt.Fprintf(&builder, "## Contract CS eval for %s season", seasonLabel)
+		fmt.Fprintf(&builder, "## Contract CS eval for %s", seasonLabel)
 	case -200:
 		builder.WriteString("## Displaying contract scores for future predictions")
 	default:
