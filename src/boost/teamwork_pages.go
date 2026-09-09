@@ -87,8 +87,6 @@ func buildTeamworkCache(s string, fields map[string][]TeamworkOutputData) teamwo
 func sendTeamworkPage(e dc.InteractionEvent, newMessage bool, uuidStr string, refresh bool, toggle bool, drawButtons bool) {
 	cache, exists := teamworkCacheMap[uuidStr]
 
-	_ = e.Followup(dc.Message{})
-
 	if exists && (refresh || cache.expirationTimestamp.Before(time.Now())) {
 
 		s1, fields, _ := DownloadCoopStatusTeamwork(e.ChannelID(), cache.contractID, cache.coopID, true, cache.eiID)
@@ -205,11 +203,12 @@ func HandleTeamworkPage(e *dc.ComponentEvent) {
 	reaction := strings.Split(e.CustomID(), "#")
 
 	err := e.DeferUpdate()
-
-	drawButtons := true
 	if err != nil {
 		log.Println(err)
+		return
 	}
+
+	drawButtons := true
 	if len(reaction) == 3 && reaction[2] == "refresh" {
 		refresh = true
 	}

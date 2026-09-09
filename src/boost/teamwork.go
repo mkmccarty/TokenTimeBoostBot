@@ -178,8 +178,6 @@ func HandleTeamworkEvalCommand(e *dc.CommandEvent) {
 
 	teamworkCacheMap[cache.uuidStr] = cache
 
-	_ = e.Followup(dc.Message{})
-
 	sendTeamworkPage(e, true, cache.uuidStr, false, false, true)
 
 	// Traverse stonesCacheMap and delete expired entries

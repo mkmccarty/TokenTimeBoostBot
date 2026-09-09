@@ -83,7 +83,6 @@ func sendStonesPage(client dc.Client, e dc.InteractionEvent, newMessage bool, uu
 		stonesCacheMutex.Unlock()
 		return
 	}
-	_ = e.Followup(dc.Message{})
 
 	if exists && (refresh || cache.expirationTimestamp.Before(time.Now())) {
 
@@ -123,8 +122,9 @@ func sendStonesPage(client dc.Client, e dc.InteractionEvent, newMessage bool, uu
 		str += e.MessageContent()
 
 		err := e.EditResponse(dc.Message{
-			Content:      str,
-			ComponentsV1: true,
+			Content:         str,
+			ComponentsV1:    true,
+			ClearComponents: true,
 		})
 		if err != nil {
 			log.Println(err)
@@ -155,7 +155,7 @@ func sendStonesPage(client dc.Client, e dc.InteractionEvent, newMessage bool, uu
 		if cache.page*itemsPerPage >= len(cache.tiles) {
 			cache.page = 0
 		}
-		cache.pages = int(math.Ceil(float64(len(cache.table)) / float64(itemsPerPage)))
+		cache.pages = int(math.Ceil(float64(len(cache.tiles)) / float64(itemsPerPage)))
 
 	} else {
 		itemsPerPage = 60
@@ -172,8 +172,12 @@ func sendStonesPage(client dc.Client, e dc.InteractionEvent, newMessage bool, uu
 
 	start := page * itemsPerPage
 	end := start + itemsPerPage
-	if end > len(cache.table) {
-		end = len(cache.table)
+	totalItems := len(cache.table)
+	if cache.displayTiles {
+		totalItems = len(cache.tiles)
+	}
+	if end > totalItems {
+		end = totalItems
 	}
 
 	if !cache.displayTiles {
@@ -266,6 +270,7 @@ func HandleStonesPage(client dc.Client, e *dc.ComponentEvent) {
 	err := e.DeferUpdate()
 	if err != nil {
 		log.Println(err)
+		return
 	}
 	if len(reaction) == 3 && reaction[2] == "refresh" {
 		refresh = true
