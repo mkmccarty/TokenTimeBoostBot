@@ -129,7 +129,7 @@ func HandleLobbyButtons(e *dc.ComponentEvent) {
 		_ = e.DeferUpdate()
 
 		components := buildLobbyComponents(e.ChannelID(), contractID, coopID, e.UserID(), true, true)
-		if err := e.EditFollowup(e.MessageID(), dc.Message{Components: components}); err != nil {
+		if err := e.EditResponse(dc.Message{Components: components}); err != nil {
 			if apiErr, ok := dc.AsAPIError(err); ok && (apiErr.Code == dc.ErrCodeMissingAccess || apiErr.Code == dc.ErrCodeMissingPermissions) {
 				log.Printf("lobby: unable to edit message %s in channel %s (missing access/permissions): %v", e.MessageID(), e.ChannelID(), err)
 				fallback := append([]dc.LayoutComponent{

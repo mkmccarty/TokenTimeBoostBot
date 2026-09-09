@@ -497,9 +497,15 @@ func (e *ComponentEvent) FollowupMessage(m Message) (*MessageRef, error) {
 }
 
 // EditFollowup edits a followup message this interaction already sent.
+// When passed the component's own source message ID, "@original", or an empty
+// ID, it edits the original interaction response instead, matching Discord's
+// requirement that the message hosting a component is updated via @original.
 func (e *ComponentEvent) EditFollowup(messageID string, m Message) error {
 	if e.client == nil {
 		return nil
+	}
+	if messageID == "" || messageID == "@original" || (e.MessageID() != "" && messageID == e.MessageID()) {
+		return e.EditResponse(m)
 	}
 	return editFollowup(e.client, e.event.ApplicationID(), e.event.Token(), messageID, m)
 }
@@ -584,16 +590,28 @@ func (e *ModalEvent) FromComponent() bool {
 
 // FollowupMessage sends a followup and returns the message it created.
 func (e *ModalEvent) FollowupMessage(m Message) (*MessageRef, error) {
+	if e.client == nil {
+		return nil, nil
+	}
 	return followupMessage(e.client, e.event.ApplicationID(), e.event.Token(), m)
 }
 
 // EditResponse replaces the interaction's original response.
 func (e *ModalEvent) EditResponse(m Message) error {
+	if e.client == nil {
+		return nil
+	}
 	return editResponse(e.client, e.event.ApplicationID(), e.event.Token(), m)
 }
 
 // EditFollowup edits a followup message this interaction already sent.
 func (e *ModalEvent) EditFollowup(messageID string, m Message) error {
+	if e.client == nil {
+		return nil
+	}
+	if messageID == "" || messageID == "@original" || (e.MessageID() != "" && messageID == e.MessageID()) {
+		return e.EditResponse(m)
+	}
 	return editFollowup(e.client, e.event.ApplicationID(), e.event.Token(), messageID, m)
 }
 

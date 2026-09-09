@@ -117,7 +117,7 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 				}
 			}
 			saveData(contract.ContractHash)
-			_ = e.EditFollowup(e.MessageID(), dc.Message{
+			_ = e.EditResponse(dc.Message{
 				Components: GetAvailabilityComponents(client, contract, userID),
 			})
 			redraw = true
@@ -132,7 +132,7 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 				}
 			}
 			saveData(contract.ContractHash)
-			_ = e.EditFollowup(e.MessageID(), dc.Message{
+			_ = e.EditResponse(dc.Message{
 				Components: GetAvailabilityComponents(client, contract, userID),
 			})
 			redraw = true

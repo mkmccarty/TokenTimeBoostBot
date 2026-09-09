@@ -289,7 +289,7 @@ func HandleLeaderboardPage(e *dc.ComponentEvent) {
 			return
 		}
 
-		if err := e.EditFollowup(e.MessageID(), dc.Message{Components: kept}); err != nil {
+		if err := e.EditResponse(dc.Message{Components: kept}); err != nil {
 			log.Println("Error closing leaderboard:", err)
 		}
 
@@ -316,7 +316,7 @@ func HandleLeaderboardPage(e *dc.ComponentEvent) {
 		}
 		season := parts[2]
 		components := leaderboardFetchAndBuild(eiID, season, e.GuildID())
-		if err := e.EditFollowup(e.MessageID(), dc.Message{Components: components}); err != nil {
+		if err := e.EditResponse(dc.Message{Components: components}); err != nil {
 			log.Println("Error refreshing leaderboard:", err)
 		}
 
@@ -339,7 +339,7 @@ func HandleLeaderboardPage(e *dc.ComponentEvent) {
 		}
 		season := e.Values()[0]
 		components := leaderboardFetchAndBuild(eiID, season, e.GuildID())
-		if err := e.EditFollowup(e.MessageID(), dc.Message{Components: components}); err != nil {
+		if err := e.EditResponse(dc.Message{Components: components}); err != nil {
 			log.Println("Error editing leaderboard message:", err)
 		}
 	default:

@@ -441,3 +441,39 @@ func TestEventsSatisfyInteractionEvent(t *testing.T) {
 func stringPtr(s string) *string { return &s }
 
 func idPtr(id snowflake.ID) *snowflake.ID { return &id }
+
+func TestComponentEventEditFollowupNilClient(t *testing.T) {
+	e := componentEventFrom(t, componentPayload("fd_boost#hash", "2",
+		`{"id": "700", "channel_id": "300", "content": "Boost list", "timestamp": "2026-01-01T00:00:00Z",
+		  "author": {"id": "1", "username": "bot", "discriminator": "0"}}`))
+
+	// With nil client, all of these should safely return nil without panicking
+	if err := e.EditFollowup(e.MessageID(), Message{Content: "test"}); err != nil {
+		t.Errorf("EditFollowup with MessageID returned err: %v", err)
+	}
+	if err := e.EditFollowup("@original", Message{Content: "test"}); err != nil {
+		t.Errorf("EditFollowup with @original returned err: %v", err)
+	}
+	if err := e.EditFollowup("", Message{Content: "test"}); err != nil {
+		t.Errorf("EditFollowup with empty returned err: %v", err)
+	}
+	if err := e.EditFollowup("800", Message{Content: "test"}); err != nil {
+		t.Errorf("EditFollowup with different ID returned err: %v", err)
+	}
+}
+
+func TestModalEventEditFollowupNilClient(t *testing.T) {
+	e := modalEventFrom(t, `{
+		"id": "100", "application_id": "200", "type": 5, "token": "tok", "version": 1,
+		`+testChannel+`, `+testMember+`, `+testGuild+`,
+		"message": {"id": "700", "channel_id": "300", "content": "hello", "timestamp": "2026-01-01T00:00:00Z"},
+		"data": {"custom_id": "md_settings", "components": []}
+	}`)
+
+	if err := e.EditFollowup(e.MessageID(), Message{Content: "test"}); err != nil {
+		t.Errorf("EditFollowup with MessageID returned err: %v", err)
+	}
+	if err := e.EditFollowup("@original", Message{Content: "test"}); err != nil {
+		t.Errorf("EditFollowup with @original returned err: %v", err)
+	}
+}

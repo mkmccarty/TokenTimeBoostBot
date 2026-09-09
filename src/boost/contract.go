@@ -997,7 +997,7 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 		// Add the contract settings component
 		components = append(components, comp...)
 
-		_ = e.EditFollowup(e.MessageID(), dc.Message{Components: components})
+		_ = e.EditResponse(dc.Message{Components: components})
 
 	}
 
@@ -1191,7 +1191,7 @@ func HandleThresholdModalSubmit(client dc.Client, e *dc.ModalEvent) {
 	})
 	components = append(components, comp...)
 
-	_ = e.EditFollowup(e.MessageID(), dc.Message{Components: components})
+	_ = e.EditResponse(dc.Message{Components: components})
 
 	// Redraw/refresh booster list and signup reactions
 	for _, loc := range contract.Location {

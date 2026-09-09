@@ -77,7 +77,7 @@ func HandleActiveContractsPage(client dc.Client, e *dc.ComponentEvent) {
 		_ = e.DeferUpdate()
 
 		components, _ := getCurrentContractsComponents(client, e.GuildID(), channelID)
-		if err := e.EditFollowup(e.MessageID(), dc.Message{Components: components}); err != nil {
+		if err := e.EditResponse(dc.Message{Components: components}); err != nil {
 			log.Println("Error refreshing active contracts:", err)
 		}
 

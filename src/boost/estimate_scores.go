@@ -173,7 +173,7 @@ func HandleCsEstimateButtons(e *dc.ComponentEvent) {
 	}
 
 	// Remove the buttons regardless of expiration
-	if err := e.EditFollowup(e.MessageID(), dc.Message{Components: kept}); err != nil {
+	if err := e.EditResponse(dc.Message{Components: kept}); err != nil {
 		log.Println(err)
 	}
 }
