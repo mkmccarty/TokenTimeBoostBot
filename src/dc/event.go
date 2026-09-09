@@ -246,19 +246,38 @@ func (e *CommandEvent) OptChannel(name string) (string, bool) {
 }
 
 // Respond answers the interaction with a new message.
-func (e *CommandEvent) Respond(m Message) error {
+func (e *CommandEvent) Respond(m Message) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = nil
+		}
+	}()
+	if e.event == nil {
+		return nil
+	}
 	return e.event.CreateMessage(m.toMessageCreate())
 }
 
 // Defer acknowledges the interaction without answering it, which buys past
 // Discord's three second deadline. Answer afterwards with Followup.
-func (e *CommandEvent) Defer(ephemeral bool) error {
+func (e *CommandEvent) Defer(ephemeral bool) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = nil
+		}
+	}()
+	if e.event == nil {
+		return nil
+	}
 	return e.event.DeferCreateMessage(ephemeral)
 }
 
 // Followup sends a message after the interaction has been deferred or already
 // answered.
 func (e *CommandEvent) Followup(m Message) error {
+	if e.client == nil {
+		return nil
+	}
 	_, err := e.FollowupMessage(m)
 	return err
 }
@@ -266,21 +285,33 @@ func (e *CommandEvent) Followup(m Message) error {
 // FollowupMessage sends a followup and returns the message it created, for a
 // caller that needs to edit or delete it later.
 func (e *CommandEvent) FollowupMessage(m Message) (*MessageRef, error) {
+	if e.client == nil {
+		return nil, nil
+	}
 	return followupMessage(e.client, e.event.ApplicationID(), e.event.Token(), m)
 }
 
 // EditFollowup edits a followup message this interaction already sent.
 func (e *CommandEvent) EditFollowup(messageID string, m Message) error {
+	if e.client == nil {
+		return nil
+	}
 	return editFollowup(e.client, e.event.ApplicationID(), e.event.Token(), messageID, m)
 }
 
 // DeleteFollowup deletes a followup message this interaction already sent.
 func (e *CommandEvent) DeleteFollowup(messageID string) error {
+	if e.client == nil {
+		return nil
+	}
 	return deleteFollowup(e.client, e.event.ApplicationID(), e.event.Token(), messageID)
 }
 
 // EditResponse replaces the interaction's original response.
 func (e *CommandEvent) EditResponse(m Message) error {
+	if e.client == nil {
+		return nil
+	}
 	return editResponse(e.client, e.event.ApplicationID(), e.event.Token(), m)
 }
 

@@ -165,6 +165,19 @@ func (f *FakeClient) User(userID string) (*dc.User, error) {
 	return nil, ErrNotFound
 }
 
+// CreateUserChannel returns a DM channel for the user, recording the call.
+func (f *FakeClient) CreateUserChannel(userID string) (*dc.Channel, error) {
+	f.record("CreateUserChannel", userID)
+	dmChannelID := "dm-" + userID
+	if c, ok := f.Channels[dmChannelID]; ok {
+		return c, nil
+	}
+	return &dc.Channel{
+		ID:   dmChannelID,
+		Name: "DM with " + userID,
+	}, nil
+}
+
 // GuildMember returns a registered member, or ErrNotFound.
 func (f *FakeClient) GuildMember(guildID, userID string) (*dc.Member, error) {
 	f.record("GuildMember", guildID, userID)
