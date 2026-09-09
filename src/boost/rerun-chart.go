@@ -783,66 +783,79 @@ func buildSeasonNavButtons(session *chartSession) dc.ActionRow {
 		return dc.ActionRow{}
 	}
 
-	type candidate struct {
-		scope string
-		label string
-		tag   string
-	}
-
-	var cands []candidate
-
-	// Prev year: same season, year-1
-	if prevYearScope := leaderboardSeasonID(name, year-1); leaderboardSeasonExists(prevYearScope) {
-		cands = append(cands, candidate{prevYearScope, leaderboardSeasonLabel(prevYearScope), "prev_year"})
-	}
-
-	// Prev season
-	if prevName, prevYear, ok := leaderboardPreviousSeason(name, year); ok {
-		if prevScope := leaderboardSeasonID(prevName, prevYear); leaderboardSeasonExists(prevScope) {
-			cands = append(cands, candidate{prevScope, leaderboardSeasonLabel(prevScope), "prev_season"})
-		}
-	}
-
-	// Next season
-	if nextName, nextYear, ok := leaderboardNextSeason(name, year); ok {
-		if nextScope := leaderboardSeasonID(nextName, nextYear); leaderboardSeasonExists(nextScope) {
-			cands = append(cands, candidate{nextScope, leaderboardSeasonLabel(nextScope), "next_season"})
-		}
-	}
-
-	// Next year: same season, year+1
-	if nextYearScope := leaderboardSeasonID(name, year+1); leaderboardSeasonExists(nextYearScope) {
-		cands = append(cands, candidate{nextYearScope, leaderboardSeasonLabel(nextYearScope), "next_year"})
-	}
-
 	var buttons []dc.InteractiveComponent
-	for _, c := range cands {
-		buttons = append(buttons, dc.Button{
-			Label:    c.label,
-			Style:    dc.ButtonSecondary,
-			CustomID: fmt.Sprintf("chart#seasonswitch#%s#%s#%s", session.uuidStr, c.scope, c.tag),
-		})
-	}
 
-	// Current Season button — only when not already viewing the current season.
-	if curName, curYear, ok := leaderboardMostRecentSeason(); ok {
-		curScope := leaderboardSeasonID(curName, curYear)
-		if curScope != session.seasonScope && leaderboardSeasonExists(curScope) {
-			buttons = append(buttons, dc.Button{
-				Label:    "Current Season",
-				Style:    dc.ButtonPrimary,
-				CustomID: fmt.Sprintf("chart#seasonswitch#%s#%s#current", session.uuidStr, curScope),
-			})
-		}
-	}
+	// 1. Prev year: same season, year-1
+	prevYearScope := leaderboardSeasonID(name, year-1)
+	buttons = append(buttons, dc.Button{
+		Label:    leaderboardSeasonLabel(prevYearScope),
+		Style:    dc.ButtonSecondary,
+		CustomID: fmt.Sprintf("chart#seasonswitch#%s#%s#prev_year", session.uuidStr, prevYearScope),
+		Disabled: !leaderboardSeasonExists(prevYearScope),
+	})
 
-	if len(buttons) == 0 {
-		return dc.ActionRow{}
+	// 2. Prev season
+	prevName, prevYear, ok := leaderboardPreviousSeason(name, year)
+	prevScope := ""
+	prevExists := false
+	if ok {
+		prevScope = leaderboardSeasonID(prevName, prevYear)
+		prevExists = leaderboardSeasonExists(prevScope)
 	}
+	if prevScope == "" {
+		prevScope = "unknown"
+	}
+	buttons = append(buttons, dc.Button{
+		Label:    leaderboardSeasonLabel(prevScope),
+		Style:    dc.ButtonSecondary,
+		CustomID: fmt.Sprintf("chart#seasonswitch#%s#%s#prev_season", session.uuidStr, prevScope),
+		Disabled: !prevExists,
+	})
 
-	if len(buttons) > 5 {
-		buttons = buttons[:5]
+	// 3. Next season
+	nextName, nextYear, ok := leaderboardNextSeason(name, year)
+	nextScope := ""
+	nextExists := false
+	if ok {
+		nextScope = leaderboardSeasonID(nextName, nextYear)
+		nextExists = leaderboardSeasonExists(nextScope)
 	}
+	if nextScope == "" {
+		nextScope = "unknown"
+	}
+	buttons = append(buttons, dc.Button{
+		Label:    leaderboardSeasonLabel(nextScope),
+		Style:    dc.ButtonSecondary,
+		CustomID: fmt.Sprintf("chart#seasonswitch#%s#%s#next_season", session.uuidStr, nextScope),
+		Disabled: !nextExists,
+	})
+
+	// 4. Next year: same season, year+1
+	nextYearScope := leaderboardSeasonID(name, year+1)
+	buttons = append(buttons, dc.Button{
+		Label:    leaderboardSeasonLabel(nextYearScope),
+		Style:    dc.ButtonSecondary,
+		CustomID: fmt.Sprintf("chart#seasonswitch#%s#%s#next_year", session.uuidStr, nextYearScope),
+		Disabled: !leaderboardSeasonExists(nextYearScope),
+	})
+
+	// 5. Current Season button — disabled if already viewing the current season
+	curName, curYear, ok := leaderboardMostRecentSeason()
+	curScope := ""
+	curDisabled := true
+	if ok {
+		curScope = leaderboardSeasonID(curName, curYear)
+		curDisabled = (curScope == session.seasonScope) || !leaderboardSeasonExists(curScope)
+	}
+	if curScope == "" {
+		curScope = session.seasonScope
+	}
+	buttons = append(buttons, dc.Button{
+		Label:    "Current Season",
+		Style:    dc.ButtonPrimary,
+		CustomID: fmt.Sprintf("chart#seasonswitch#%s#%s#current", session.uuidStr, curScope),
+		Disabled: curDisabled,
+	})
 
 	return dc.ActionRow{Components: buttons}
 }
