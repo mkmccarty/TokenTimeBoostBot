@@ -1033,8 +1033,8 @@ func resolveArtifactTargetUserID(e *dc.CommandEvent) (string, string, bool) {
 }
 
 // HandleArtifactCommand shows the artifact picker for the caller or one of
-// their alternates.
-func HandleArtifactCommand(e *dc.CommandEvent) {
+// their alternates. It also clears any manual IHR override and updates running contracts.
+func HandleArtifactCommand(client dc.Client, e *dc.CommandEvent) {
 	_, targetUserID, invalidAlt := resolveArtifactTargetUserID(e)
 	if invalidAlt {
 		_ = e.Respond(dc.Message{
@@ -1045,6 +1045,10 @@ func HandleArtifactCommand(e *dc.CommandEvent) {
 	}
 
 	userID := targetUserID
+
+	// Using /artifact clears any manual IHR override and synchronizes running contracts
+	farmerstate.SetMiscSettingString(userID, "IHR", "")
+	updateFarmerInContracts(client, userID, "artifacts", 0)
 
 	contractOnly := false
 
@@ -1099,6 +1103,7 @@ func HandleArtifactReactions(client dc.Client, e *dc.ComponentEvent) {
 			Components:   loadingComp,
 			ComponentsV1: true,
 		})
+		farmerstate.SetMiscSettingString(userID, "IHR", "")
 		status, summary, err := populateArtifactsFromBackup(client, userID)
 		if err != nil {
 			log.Printf("populateArtifactsFromBackup: %v", err)
@@ -1106,6 +1111,7 @@ func HandleArtifactReactions(client dc.Client, e *dc.ComponentEvent) {
 		statusPrefix = status
 		backupSummary = summary
 	case "defl", "metr", "comp", "guss", "defl-ihr", "chalice", "monocle", "siab":
+		farmerstate.SetMiscSettingString(userID, "IHR", "")
 		if setValue {
 			farmerstate.SetMiscSettingString(userID, cmd, values[0])
 		} else {
@@ -1113,6 +1119,7 @@ func HandleArtifactReactions(client dc.Client, e *dc.ComponentEvent) {
 		}
 		updateFarmerInContracts(client, userID, "artifacts", 0)
 	case "collegg", "collegg-lay", "collegg-ship", "collegg-ihr", "collegg-other":
+		farmerstate.SetMiscSettingString(userID, "IHR", "")
 		if cmd == "collegg" {
 			farmerstate.SetMiscSettingString(userID, "collegg", strings.Join(values, ","))
 		} else {

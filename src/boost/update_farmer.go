@@ -254,11 +254,14 @@ func updateFarmerInContracts(client dc.Client, userID string, subcommand string,
 				booster.IHRRate = float64(value)
 				booster.IHRCalcLog = fmt.Sprintf("IHR Calculation (Manual for %s): Final=%0.2f", userID, float64(value))
 			case "artifacts":
+				booster.ArtifactSet = getUserArtifacts(userID, nil)
 				rate, logStr := CalculateIHRRateFromDB(userID)
 				booster.IHRRate = rate
 				booster.IHRCalcLog = logStr
 			}
 			contract.mutex.Unlock()
+
+			saveData(contract.ContractHash)
 
 			// Redraw the boost list message to reflect the updated data
 			for _, loc := range contract.Location {
