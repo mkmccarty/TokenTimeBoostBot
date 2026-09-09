@@ -1,7 +1,7 @@
 package ei
 
 import (
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"log"
 	"math/rand/v2"
@@ -56,8 +56,7 @@ func LoadTokenComplaints(filename string) {
 			log.Printf("Failed to close: %v", err)
 		}
 	}()
-	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(&complaintsLoaded); err != nil {
+	if err := jsonv2.UnmarshalRead(file, &complaintsLoaded); err != nil {
 		log.Printf("Failed to decode token complaints: %v", err)
 		return
 	}

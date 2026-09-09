@@ -2,7 +2,7 @@ package ei
 
 import (
 	"bufio"
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"log"
 	"math/rand/v2"
@@ -131,8 +131,7 @@ func loadStatusMessages(filename string, force bool) error {
 	}()
 
 	var messagesLoaded StatusMessagesFile
-	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(&messagesLoaded); err != nil {
+	if err := jsonv2.UnmarshalRead(file, &messagesLoaded); err != nil {
 		return fmt.Errorf("failed to decode status messages: %w", err)
 	}
 

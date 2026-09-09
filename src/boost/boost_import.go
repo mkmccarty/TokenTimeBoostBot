@@ -3,6 +3,7 @@ package boost
 import (
 	"encoding/base64"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"log"
 	"math"
@@ -36,8 +37,7 @@ func LoadContractData(filename string) {
 		}
 	}()
 
-	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&EggIncContractsLoaded)
+	err = jsonv2.UnmarshalRead(file, &EggIncContractsLoaded, json.FormatDurationAsNano(true))
 	if err != nil {
 		log.Print(err)
 		//return

@@ -2,7 +2,7 @@ package notok
 
 import (
 	"context"
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"log"
@@ -352,7 +352,7 @@ func GetContractThematicComplaints(contractName string, contractDescription stri
 	cleaned = strings.TrimSpace(cleaned)
 
 	var complaints []string
-	if err := json.Unmarshal([]byte(cleaned), &complaints); err != nil {
+	if err := jsonv2.Unmarshal([]byte(cleaned), &complaints); err != nil {
 		log.Printf("Failed to unmarshal thematic complaints from Gemini: %v, attempting fallback parsing", err)
 		complaints = parseComplaintArrayFallback(cleaned)
 		if len(complaints) == 0 {

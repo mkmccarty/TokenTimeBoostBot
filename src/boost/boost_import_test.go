@@ -3,6 +3,7 @@ package boost_test
 import (
 	"encoding/base64"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"os"
 	"testing"
 	"time"
@@ -71,8 +72,7 @@ func TestLoadContractDataHistory(t *testing.T) {
 	defer func() { _ = os.Remove(tmpFile.Name()) }()
 	defer func() { _ = tmpFile.Close() }()
 
-	encoder := json.NewEncoder(tmpFile)
-	if err := encoder.Encode(loadedContracts); err != nil {
+	if err := jsonv2.MarshalWrite(tmpFile, loadedContracts, json.FormatDurationAsNano(true)); err != nil {
 		t.Fatal(err)
 	}
 	_ = tmpFile.Close()
