@@ -56,6 +56,78 @@ func TestDisgoLayoutAcceptsEveryTopLevelComponent(t *testing.T) {
 	}
 }
 
+// TestDisgoComponentPointers verifies that pointers to component structs also
+// render rather than falling through to default nil.
+func TestDisgoComponentPointers(t *testing.T) {
+	// Top-level layout pointers
+	topLevel := []LayoutComponent{
+		&TextDisplay{Content: "x"},
+		&Container{AccentColor: 0x123456},
+		&ActionRow{},
+		&Section{},
+		&Separator{},
+		&MediaGallery{},
+	}
+	for _, component := range topLevel {
+		if got := disgoLayout(component); got == nil {
+			t.Errorf("pointer %T did not render as a layout component", component)
+		}
+	}
+
+	// Container sub-component pointers
+	containerSubs := []ContainerSubComponent{
+		&TextDisplay{Content: "x"},
+		&ActionRow{},
+		&Section{},
+		&Separator{},
+		&MediaGallery{},
+	}
+	for _, component := range containerSubs {
+		if got := disgoContainerSub(component); got == nil {
+			t.Errorf("pointer %T did not render as a container sub-component", component)
+		}
+	}
+
+	// Interactive component pointers
+	interactive := []InteractiveComponent{
+		&Button{Label: "btn", CustomID: "b"},
+		&SelectMenu{CustomID: "s"},
+	}
+	for _, component := range interactive {
+		if got := disgoInteractive(component); got == nil {
+			t.Errorf("pointer %T did not render as an interactive component", component)
+		}
+	}
+
+	// Accessory component pointers
+	accessories := []SectionAccessory{
+		&Button{Label: "btn", CustomID: "b"},
+		&Thumbnail{URL: "https://example.com/img.png"},
+	}
+	for _, accessory := range accessories {
+		if got := disgoAccessory(accessory); got == nil {
+			t.Errorf("pointer %T did not render as a section accessory", accessory)
+		}
+	}
+
+	// Nil pointers return nil gracefully without panic
+	var nilText *TextDisplay
+	if got := disgoLayout(nilText); got != nil {
+		t.Errorf("expected nil for nil *TextDisplay, got %#v", got)
+	}
+	if got := disgoContainerSub(nilText); got != nil {
+		t.Errorf("expected nil for nil *TextDisplay sub-component, got %#v", got)
+	}
+
+	var nilBtn *Button
+	if got := disgoInteractive(nilBtn); got != nil {
+		t.Errorf("expected nil for nil *Button, got %#v", got)
+	}
+	if got := disgoAccessory(nilBtn); got != nil {
+		t.Errorf("expected nil for nil *Button accessory, got %#v", got)
+	}
+}
+
 // A component read back off a message is re-sent unchanged: the facade holds
 // it opaquely rather than trying to rebuild it.
 func TestRawComponentIsPassedThroughUnchanged(t *testing.T) {
