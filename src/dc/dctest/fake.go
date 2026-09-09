@@ -3,6 +3,7 @@ package dctest
 
 import (
 	"strconv"
+	"sync"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
@@ -27,6 +28,7 @@ type Call struct {
 type FakeClient struct {
 	dc.Client
 
+	mu sync.Mutex
 	// Calls is every recorded call, in order.
 	Calls []Call
 
@@ -125,6 +127,8 @@ func (f *FakeClient) WithMember(guildID, userID, nick string, color int) *FakeCl
 
 // Called reports whether the named method was called at least once.
 func (f *FakeClient) Called(method string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	for _, c := range f.Calls {
 		if c.Method == method {
 			return true
@@ -135,6 +139,8 @@ func (f *FakeClient) Called(method string) bool {
 
 // CallsTo returns every recorded call to the named method.
 func (f *FakeClient) CallsTo(method string) []Call {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	var out []Call
 	for _, c := range f.Calls {
 		if c.Method == method {
@@ -144,7 +150,16 @@ func (f *FakeClient) CallsTo(method string) []Call {
 	return out
 }
 
+// ResetCalls clears all recorded calls.
+func (f *FakeClient) ResetCalls() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.Calls = nil
+}
+
 func (f *FakeClient) record(method string, args ...string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.Calls = append(f.Calls, Call{Method: method, Args: args})
 }
 
@@ -243,7 +258,10 @@ func (f *FakeClient) DeleteMessage(channelID, messageID string) error {
 // which is what a guild that accepted the create looks like.
 func (f *FakeClient) CreateGuildRole(guildID string, params dc.RoleParams) (*dc.Role, error) {
 	f.record("CreateGuildRole", guildID, params.Name)
-	return &dc.Role{ID: "role-" + strconv.Itoa(len(f.Calls)), Name: params.Name}, nil
+	f.mu.Lock()
+	count := len(f.Calls)
+	f.mu.Unlock()
+	return &dc.Role{ID: "role-" + strconv.Itoa(count), Name: params.Name}, nil
 }
 
 // AddGuildMemberRole records the role grant.
@@ -272,6 +290,8 @@ func (f *FakeClient) GuildRoles(guildID string) ([]dc.Role, error) {
 }
 
 func (f *FakeClient) nextID() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	return f.NextMessageID + "-" + strconv.Itoa(len(f.Calls))
 }
 

@@ -109,7 +109,7 @@ func TestTimer_RepeatAndClose_Synctest(t *testing.T) {
 		}
 
 		// Fast-forward another 10m for the repeated timer to expire
-		client.Calls = nil // reset recorded calls
+		client.ResetCalls()
 		time.Sleep(10 * time.Minute)
 		synctest.Wait()
 
