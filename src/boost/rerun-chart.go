@@ -276,7 +276,6 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 		}
 	}
 
-
 	session := &chartSession{
 		uuidStr:        uuid.NewV7().String(),
 		userID:         userID,
@@ -634,7 +633,6 @@ func renderChartSession(session *chartSession) []dc.LayoutComponent {
 
 	return components
 }
-
 
 // buildSeasonRows rebuilds the row data for a season chart when the user
 // navigates to a different season. It mirrors the logic in printContractChart
