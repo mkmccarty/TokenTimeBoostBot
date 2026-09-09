@@ -7,10 +7,11 @@ import (
 	"sync"
 	"time"
 
+	"uuid"
+
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-	"github.com/rs/xid"
 	"github.com/xhit/go-str2duration/v2"
 )
 
@@ -283,7 +284,7 @@ func HandleTimer(client dc.Client, e *dc.CommandEvent) {
 	}
 
 	t := BotTimer{
-		ID:                xid.New().String(),
+		ID:                uuid.NewV7().String(),
 		Reminder:          time.Now().Add(duration),
 		Message:           message,
 		UserID:            userID,
@@ -455,7 +456,7 @@ func handleTimerRepeat(client dc.Client, e *dc.ComponentEvent, oldTimerID string
 
 	// Create and start new timer
 	t := BotTimer{
-		ID: xid.New().String(), Reminder: time.Now().Add(duration), Message: originalTimer.Message, UserID: userID, timer: time.NewTimer(duration), Active: true, Duration: duration, OriginalChannelID: originalTimer.OriginalChannelID,
+		ID: uuid.NewV7().String(), Reminder: time.Now().Add(duration), Message: originalTimer.Message, UserID: userID, timer: time.NewTimer(duration), Active: true, Duration: duration, OriginalChannelID: originalTimer.OriginalChannelID,
 	}
 	startTimer(client, &t)
 

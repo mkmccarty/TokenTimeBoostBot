@@ -40,3 +40,17 @@ func TestSplitCustomIDNoSeparator(t *testing.T) {
 		t.Fatalf("split wrong: %v", parts)
 	}
 }
+
+func TestSplitContractHash(t *testing.T) {
+	cases := map[string]string{
+		"rc_#boost#hash123":     "hash123",
+		"cs_#features#top#h456": "h456",
+		"solo":                  "solo",
+		"prefix#":               "",
+	}
+	for id, want := range cases {
+		if got := SplitContractHash(id); got != want {
+			t.Errorf("SplitContractHash(%q) = %q, want %q", id, got, want)
+		}
+	}
+}

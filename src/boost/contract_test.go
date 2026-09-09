@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 func TestGetEggStandardTime(t *testing.T) {
@@ -620,5 +622,188 @@ func TestRestartContractRestoresState(t *testing.T) {
 	}
 	if newContract.ThresholdTokensX != 6 || newContract.ThresholdTokensY != 8 || newContract.ThresholdTokensA != 80 {
 		t.Errorf("Expected threshold tokens (6, 8, 80), got (%d, %d, %d)", newContract.ThresholdTokensX, newContract.ThresholdTokensY, newContract.ThresholdTokensA)
+	}
+}
+
+func TestHandleContractSettingsReactionsFeatures(t *testing.T) {
+	client := newTestClient()
+	contractID := "features-contract"
+	guildID := "guild-123"
+	channelID := "channel-restart-1"
+	creatorUserID := "coordinator-user"
+	progenitors := []string{"farmer-1"}
+
+	contract, err := CreateContract(client, contractID, "coop-features-test", ContractPlaystyleChill, 10, ContractOrderSignup, guildID, channelID, progenitors, creatorUserID, time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("Failed to create contract: %v", err)
+	}
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	customID := "cs_#features#" + contract.ContractHash
+
+	// 1. Select both boost6 and amqp concurrently
+	ev1 := dctest.ComponentSelectEvent(customID, "boost6", "amqp")
+	HandleContractSettingsReactions(client, ev1)
+
+	if contract.Style&ContractFlag6Tokens == 0 {
+		t.Errorf("Expected ContractFlag6Tokens to be set, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlagAMQP == 0 {
+		t.Errorf("Expected ContractFlagAMQP to be set, style: %x", contract.Style)
+	}
+
+	// 2. Select boost8 and amqp concurrently; boost6 should be replaced by boost8
+	ev2 := dctest.ComponentSelectEvent(customID, "boost8", "amqp")
+	HandleContractSettingsReactions(client, ev2)
+
+	if contract.Style&ContractFlag8Tokens == 0 {
+		t.Errorf("Expected ContractFlag8Tokens to be set, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlag6Tokens != 0 {
+		t.Errorf("Expected ContractFlag6Tokens to be cleared, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlagAMQP == 0 {
+		t.Errorf("Expected ContractFlagAMQP to remain set, style: %x", contract.Style)
+	}
+
+	// 3. Select only dynamic; AMQP should be cleared and dynamic set
+	ev3 := dctest.ComponentSelectEvent(customID, "dynamic")
+	HandleContractSettingsReactions(client, ev3)
+
+	if contract.Style&ContractFlagDynamicTokens == 0 {
+		t.Errorf("Expected ContractFlagDynamicTokens to be set, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlag8Tokens != 0 {
+		t.Errorf("Expected ContractFlag8Tokens to be cleared, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlagAMQP != 0 {
+		t.Errorf("Expected ContractFlagAMQP to be cleared, style: %x", contract.Style)
+	}
+
+	// 4. Threshold + AMQP: should set AMQP and trigger threshold modal flow
+	ev4 := dctest.ComponentSelectEvent(customID, "threshold", "amqp")
+	HandleContractSettingsReactions(client, ev4)
+
+	if contract.Style&ContractFlagAMQP == 0 {
+		t.Errorf("Expected ContractFlagAMQP to be set when threshold is selected with amqp, style: %x", contract.Style)
+	}
+
+	// 5. Multiple boost token options selected at once (e.g. boost4, boost6, boost8, dynamic):
+	// Only the topmost one (boost4) should be accepted, and the others cleared.
+	ev5 := dctest.ComponentSelectEvent(customID, "boost8", "boost4", "dynamic", "boost6")
+	HandleContractSettingsReactions(client, ev5)
+
+	if contract.Style&ContractFlag4Tokens == 0 {
+		t.Errorf("Expected topmost option ContractFlag4Tokens to be set, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlag6Tokens != 0 {
+		t.Errorf("Expected ContractFlag6Tokens to be cleared, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlag8Tokens != 0 {
+		t.Errorf("Expected ContractFlag8Tokens to be cleared, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlagDynamicTokens != 0 {
+		t.Errorf("Expected ContractFlagDynamicTokens to be cleared, style: %x", contract.Style)
+	}
+
+	// 6. Multiple options including a higher token option (boost6) and threshold:
+	// boost6 is higher than threshold, so boost6 should win, threshold modal not triggered, and others cleared.
+	ev6 := dctest.ComponentSelectEvent(customID, "threshold", "boost6", "amqp")
+	HandleContractSettingsReactions(client, ev6)
+
+	if contract.Style&ContractFlag6Tokens == 0 {
+		t.Errorf("Expected topmost option ContractFlag6Tokens to be set, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlag4Tokens != 0 {
+		t.Errorf("Expected ContractFlag4Tokens to be cleared, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlagThresholdTokens != 0 {
+		t.Errorf("Expected ContractFlagThresholdTokens to be cleared, style: %x", contract.Style)
+	}
+	if contract.Style&ContractFlagAMQP == 0 {
+		t.Errorf("Expected ContractFlagAMQP to remain set, style: %x", contract.Style)
+	}
+}
+
+func TestBoostMenuNextBoosterTokens(t *testing.T) {
+	// Restore GG event state when done
+	origGG, origUGG, origEnd := ei.GetGenerousGiftEvent()
+	defer ei.SetGenerousGiftEvent(origGG, origUGG, origEnd)
+
+	contract := &Contract{
+		ContractHash: "test-next-tokens",
+		State:        ContractStateFastrun,
+		Location: []*LocationData{
+			{GuildContractRole: GuildRole{Name: "TestRole"}},
+		},
+		Order: []string{"user1", "user2", "user3"},
+		Boosters: map[string]*Booster{
+			"user1": {UserID: "user1", Nick: "Alice", TokensWanted: 6, TokensReceived: 6},
+			"user2": {UserID: "user2", Nick: "Bob", TokensWanted: 6, TokensReceived: 0},
+			"user3": {UserID: "user3", Nick: "Charlie", TokensWanted: 6, TokensReceived: 0},
+		},
+	}
+	contract.setCurrentBoosterByUserID("user1")
+
+	findNextOptions := func(comps []dc.LayoutComponent) (hasNext1 bool, hasNext2 bool, next2EmojiName string) {
+		for _, row := range comps {
+			if ar, ok := row.(dc.ActionRow); ok {
+				for _, c := range ar.Components {
+					if sm, ok := c.(dc.SelectMenu); ok && strings.HasPrefix(sm.CustomID, "menu#") {
+						for _, opt := range sm.Options {
+							if opt.Value == "next:user2" {
+								hasNext1 = true
+							}
+							if opt.Value == "next2:user2" {
+								hasNext2 = true
+								if opt.Emoji != nil {
+									next2EmojiName = opt.Emoji.Name
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		return
+	}
+
+	// 1. No GG Event (gg=1.0, ugg=1.0) -> only next:user2 should be present
+	ei.SetGenerousGiftEvent(1.0, 1.0, time.Time{})
+	comps := getContractReactionsComponents(contract)
+	h1, h2, _ := findNextOptions(comps)
+	if !h1 {
+		t.Errorf("Expected next:user2 option to be present when current booster has needed tokens")
+	}
+	if h2 {
+		t.Errorf("Did not expect next2:user2 option to be present when no GG event is active")
+	}
+
+	// 2. Standard GG Event (gg=2.0, ugg=1.0) -> next2:user2 should be present with std_gg emoji
+	ei.SetGenerousGiftEvent(2.0, 1.0, time.Time{})
+	comps = getContractReactionsComponents(contract)
+	h1, h2, emoji := findNextOptions(comps)
+	if !h1 || !h2 {
+		t.Errorf("Expected both next:user2 and next2:user2 options during GG event, got h1=%v, h2=%v", h1, h2)
+	}
+	stdGGEmoji := ei.GetBotComponentEmoji("std_gg")
+	if emoji != stdGGEmoji.Name {
+		t.Errorf("Expected next2:user2 emoji to match std_gg name %q, got %q", stdGGEmoji.Name, emoji)
+	}
+
+	// 3. Ultra GG Event (gg=1.0, ugg=3.0) -> next2:user2 should be present with ultra_gg emoji
+	ei.SetGenerousGiftEvent(1.0, 3.0, time.Time{})
+	comps = getContractReactionsComponents(contract)
+	h1, h2, emoji = findNextOptions(comps)
+	if !h1 || !h2 {
+		t.Errorf("Expected both next:user2 and next2:user2 options during Ultra GG event, got h1=%v, h2=%v", h1, h2)
+	}
+	ultraGGEmoji := ei.GetBotComponentEmoji("ultra_gg")
+	if emoji != ultraGGEmoji.Name {
+		t.Errorf("Expected next2:user2 emoji to match ultra_gg name %q, got %q", ultraGGEmoji.Name, emoji)
 	}
 }

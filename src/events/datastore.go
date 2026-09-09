@@ -1,7 +1,7 @@
 package events
 
 import (
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"strings"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
@@ -42,7 +42,7 @@ func InverseTransform(pathKey *diskv.PathKey) (key string) {
 }
 
 func saveCustomEggData(c map[string]*ei.EggIncCustomEgg) {
-	b, _ := json.Marshal(c)
+	b, _ := jsonv2.Marshal(c)
 	_ = dataStore.Write("ei-customeggs", b)
 }
 
@@ -53,7 +53,7 @@ func LoadCustomEggData() (map[string]*ei.EggIncCustomEgg, error) {
 	if err != nil {
 		return c, err
 	}
-	err = json.Unmarshal(b, &c)
+	err = jsonv2.Unmarshal(b, &c)
 	if err != nil {
 		return c, err
 	}

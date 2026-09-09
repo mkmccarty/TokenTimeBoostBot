@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"log"
 	"time"
+	"uuid"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"github.com/rs/xid"
 )
 
 func buttonReactionBag(client dc.Client, GuildID string, ChannelID string, contract *Contract, cUserID string) (bool, bool) {
@@ -37,7 +37,7 @@ func buttonReactionBag(client dc.Client, GuildID string, ChannelID string, contr
 			log.Printf("Sink indicating they are boosting with %d tokens.\n", b.TokensWanted)
 			//	sink.TokensReceived -= b.TokensWanted
 			//	sink.TokensReceived = max(0, sink.TokensReceived) // Avoid missing self farmed tokens
-			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: b.TokensWanted, FromUserID: cUserID, FromNick: contract.Boosters[cUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: xid.New().String(), Boost: true})
+			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: b.TokensWanted, FromUserID: cUserID, FromNick: contract.Boosters[cUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: uuid.NewV7().String(), Boost: true})
 			sink.TokensReceived = getTokensReceivedFromLog(contract, sink.UserID) - getTokensSentFromLog(contract, sink.UserID)
 		} else {
 			log.Printf("Sink sent %d tokens to booster\n", b.TokensWanted)
@@ -48,7 +48,7 @@ func buttonReactionBag(client dc.Client, GuildID string, ChannelID string, contr
 			sink.TokensReceived = getTokensReceivedFromLog(contract, sink.UserID) - getTokensSentFromLog(contract, sink.UserID)
 			//sink.TokensReceived = max(0, sink.TokensReceived) // Avoid missing self farmed tokens
 			// Record the Tokens as received
-			tokenSerial := xid.New().String()
+			tokenSerial := uuid.NewV7().String()
 			contract.mutex.Lock()
 
 			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: tokensToSend, FromUserID: cUserID, FromNick: contract.Boosters[cUserID].Nick, ToUserID: b.UserID, ToNick: b.Nick, Serial: tokenSerial, Boost: true})

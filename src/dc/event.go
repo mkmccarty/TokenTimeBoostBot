@@ -246,19 +246,38 @@ func (e *CommandEvent) OptChannel(name string) (string, bool) {
 }
 
 // Respond answers the interaction with a new message.
-func (e *CommandEvent) Respond(m Message) error {
+func (e *CommandEvent) Respond(m Message) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = nil
+		}
+	}()
+	if e.event == nil {
+		return nil
+	}
 	return e.event.CreateMessage(m.toMessageCreate())
 }
 
 // Defer acknowledges the interaction without answering it, which buys past
 // Discord's three second deadline. Answer afterwards with Followup.
-func (e *CommandEvent) Defer(ephemeral bool) error {
+func (e *CommandEvent) Defer(ephemeral bool) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = nil
+		}
+	}()
+	if e.event == nil {
+		return nil
+	}
 	return e.event.DeferCreateMessage(ephemeral)
 }
 
 // Followup sends a message after the interaction has been deferred or already
 // answered.
 func (e *CommandEvent) Followup(m Message) error {
+	if e.client == nil {
+		return nil
+	}
 	_, err := e.FollowupMessage(m)
 	return err
 }
@@ -266,21 +285,33 @@ func (e *CommandEvent) Followup(m Message) error {
 // FollowupMessage sends a followup and returns the message it created, for a
 // caller that needs to edit or delete it later.
 func (e *CommandEvent) FollowupMessage(m Message) (*MessageRef, error) {
+	if e.client == nil {
+		return nil, nil
+	}
 	return followupMessage(e.client, e.event.ApplicationID(), e.event.Token(), m)
 }
 
 // EditFollowup edits a followup message this interaction already sent.
 func (e *CommandEvent) EditFollowup(messageID string, m Message) error {
+	if e.client == nil {
+		return nil
+	}
 	return editFollowup(e.client, e.event.ApplicationID(), e.event.Token(), messageID, m)
 }
 
 // DeleteFollowup deletes a followup message this interaction already sent.
 func (e *CommandEvent) DeleteFollowup(messageID string) error {
+	if e.client == nil {
+		return nil
+	}
 	return deleteFollowup(e.client, e.event.ApplicationID(), e.event.Token(), messageID)
 }
 
 // EditResponse replaces the interaction's original response.
 func (e *CommandEvent) EditResponse(m Message) error {
+	if e.client == nil {
+		return nil
+	}
 	return editResponse(e.client, e.event.ApplicationID(), e.event.Token(), m)
 }
 
@@ -378,51 +409,98 @@ func (e *ComponentEvent) User() *User {
 
 // Respond answers with a new message rather than touching the one the
 // component sits on.
-func (e *ComponentEvent) Respond(m Message) error {
+func (e *ComponentEvent) Respond(m Message) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = nil
+		}
+	}()
+	if e.event == nil {
+		return nil
+	}
 	return e.event.CreateMessage(m.toMessageCreate())
 }
 
 // Update replaces the message the component sits on.
-func (e *ComponentEvent) Update(m Message) error {
+func (e *ComponentEvent) Update(m Message) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = nil
+		}
+	}()
+	if e.event == nil {
+		return nil
+	}
 	return e.event.UpdateMessage(m.toMessageUpdate())
 }
 
 // DeferUpdate acknowledges the interaction and leaves the message as it is,
 // which is how a handler takes its time before redrawing.
-func (e *ComponentEvent) DeferUpdate() error {
+func (e *ComponentEvent) DeferUpdate() (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = nil
+		}
+	}()
+	if e.event == nil {
+		return nil
+	}
 	return e.event.DeferUpdateMessage()
 }
 
 // Defer acknowledges the interaction and promises a new message rather than an
 // edit of the existing one.
-func (e *ComponentEvent) Defer(ephemeral bool) error {
+func (e *ComponentEvent) Defer(ephemeral bool) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = nil
+		}
+	}()
+	if e.event == nil {
+		return nil
+	}
 	return e.event.DeferCreateMessage(ephemeral)
 }
 
 // Followup sends a message after the interaction has been deferred or already
 // answered.
 func (e *ComponentEvent) Followup(m Message) error {
+	if e.client == nil {
+		return nil
+	}
 	_, err := e.FollowupMessage(m)
 	return err
 }
 
 // EditResponse replaces the interaction's original response.
 func (e *ComponentEvent) EditResponse(m Message) error {
+	if e.client == nil {
+		return nil
+	}
 	return editResponse(e.client, e.event.ApplicationID(), e.event.Token(), m)
 }
 
 // DeleteResponse deletes the interaction's original response.
 func (e *ComponentEvent) DeleteResponse() error {
+	if e.client == nil {
+		return nil
+	}
 	return e.client.Rest.DeleteInteractionResponse(e.event.ApplicationID(), e.event.Token())
 }
 
 // FollowupMessage sends a followup and returns the message it created.
 func (e *ComponentEvent) FollowupMessage(m Message) (*MessageRef, error) {
+	if e.client == nil {
+		return nil, nil
+	}
 	return followupMessage(e.client, e.event.ApplicationID(), e.event.Token(), m)
 }
 
 // EditFollowup edits a followup message this interaction already sent.
 func (e *ComponentEvent) EditFollowup(messageID string, m Message) error {
+	if e.client == nil {
+		return nil
+	}
 	return editFollowup(e.client, e.event.ApplicationID(), e.event.Token(), messageID, m)
 }
 
@@ -430,7 +508,15 @@ func (e *ComponentEvent) EditFollowup(messageID string, m Message) error {
 func (e *ComponentEvent) FromComponent() bool { return true }
 
 // ShowModal answers the interaction by opening a modal form.
-func (e *ComponentEvent) ShowModal(modal Modal) error {
+func (e *ComponentEvent) ShowModal(modal Modal) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = nil
+		}
+	}()
+	if e.event == nil {
+		return nil
+	}
 	return e.event.Modal(modal.toDisgo())
 }
 
@@ -798,6 +884,20 @@ func NewCommandEventFromPayload(payload []byte) (*CommandEvent, error) {
 	return &CommandEvent{
 		event: &events.ApplicationCommandInteractionCreate{
 			ApplicationCommandInteraction: interaction,
+		},
+	}, nil
+}
+
+// NewComponentEventFromPayload builds a ComponentEvent from Discord's own
+// interaction JSON.
+func NewComponentEventFromPayload(payload []byte) (*ComponentEvent, error) {
+	var interaction discord.ComponentInteraction
+	if err := json.Unmarshal(payload, &interaction); err != nil {
+		return nil, err
+	}
+	return &ComponentEvent{
+		event: &events.ComponentInteractionCreate{
+			ComponentInteraction: interaction,
 		},
 	}, nil
 }

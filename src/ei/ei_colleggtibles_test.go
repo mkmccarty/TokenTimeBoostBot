@@ -1,7 +1,7 @@
 package ei
 
 import (
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"os"
 	"testing"
 	"time"
@@ -90,7 +90,7 @@ func TestGetColleggtibleBuffs(t *testing.T) {
 	}
 
 	var contracts MyContracts
-	err = json.Unmarshal(data, &contracts)
+	err = jsonv2.Unmarshal(data, &contracts)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal test data: %v", err)
 	}

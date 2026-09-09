@@ -267,7 +267,7 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 					CustomID:    "cs_#features#" + hashID,
 					Placeholder: "Optional Features",
 					MinValues:   &minZeroValues,
-					MaxValues:   1,
+					MaxValues:   len(featuresOptions),
 					Options:     featuresOptions,
 				},
 			},

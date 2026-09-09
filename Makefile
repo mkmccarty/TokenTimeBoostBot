@@ -2,8 +2,8 @@
 
 UNAME_A = `uname -m`
 UNAME_S = `uname -s`
-GO_VERSION = 1.26.7
-GOLANGCI_LINT_VERSION=v2.13.1
+GO_VERSION = 1.27.1
+GOLANGCI_LINT_VERSION=v2.13.2
 
 # Fallback GOROOT if system environment GOROOT points to non-existent directory
 ifneq ($(wildcard /opt/homebrew/opt/go/libexec),)
@@ -76,11 +76,11 @@ audit:
 
 .PHONY: lint-update
 lint-update:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCI_LINT_VERSION)/install.sh | sh -s -- -b ./build/bin
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCI_LINT_VERSION)/install.sh | sh -s -- -b ./bin
 
 .PHONY: lint
 lint:
-	./build/bin/golangci-lint run
+	./bin/golangci-lint run
 
 # ==================================================================================== #
 # DEVELOPMENT

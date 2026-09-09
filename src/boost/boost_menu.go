@@ -188,8 +188,7 @@ func sandboxPlayersFromContract(contract *Contract) []SandboxPlayer {
 // It still takes a raw session because the boost list redraw, the token
 // helpers and the sandbox DM are not on the facade yet.
 func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
-	reaction := strings.Split(e.CustomID(), "#")
-	contractHash := reaction[len(reaction)-1]
+	contractHash := dc.SplitContractHash(e.CustomID())
 	contract := FindContractByHash(contractHash)
 
 	// menu # HASH
@@ -325,6 +324,14 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 		_ = e.DeferUpdate()
 		nextUser := cmd[1]
 		_, redraw := buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 1, nextUser)
+		if redraw {
+			refreshBoostListMessage(client, contract, false)
+		}
+		sendOrUpdateUserReactionSummary(e, contract, e.UserID())
+	case "next2":
+		_ = e.DeferUpdate()
+		nextUser := cmd[1]
+		_, redraw := buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 2, nextUser)
 		if redraw {
 			refreshBoostListMessage(client, contract, false)
 		}

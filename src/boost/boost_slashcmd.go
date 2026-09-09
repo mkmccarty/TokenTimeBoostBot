@@ -1,21 +1,34 @@
 package boost
 
 import (
+	"encoding/binary"
 	"fmt"
 	"log"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
+	"uuid"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
-	"github.com/rs/xid"
 	"github.com/xhit/go-str2duration/v2"
 )
+
+// tokenSerialToInt extracts a stable int identifier from a token serial string,
+// supporting both uuid strings (using the low 31 bits) and legacy xid strings.
+func tokenSerialToInt(serial string) int32 {
+	if u, err := uuid.Parse(serial); err == nil {
+		// u is a [16]byte array; extract the last 4 bytes as a positive int32
+		raw := binary.BigEndian.Uint32(u[12:16])
+		return int32(raw & 0x7FFFFFFF)
+	}
+	// Fallback for legacy serial formats if any
+	return 0
+}
 
 // UpdateThreadName will update a threads name to the current contract state
 func UpdateThreadName(client dc.Client, contract *Contract) {
@@ -422,10 +435,9 @@ func tokenIDAutoCompleteChoices(e *dc.AutocompleteEvent) []dc.Choice[int] {
 	}
 
 	for _, t := range myTokes {
-		x, _ := xid.FromString(t.Serial)
 		choices = append(choices, dc.Choice[int]{
 			Name:  fmt.Sprintf("%ds ago %s - %d @ %2.3f", int(time.Since(t.Time).Seconds()), t.ToNick, t.Quantity, t.Value),
-			Value: int(x.Counter()),
+			Value: int(tokenSerialToInt(t.Serial)),
 		})
 	}
 
@@ -518,8 +530,7 @@ func HandleTokenEditCommand(client dc.Client, e *dc.CommandEvent) string {
 	c.mutex.Lock()
 	if action == 0 { // Move
 		for i, t := range c.TokenLog {
-			xid, _ := xid.FromString(t.Serial)
-			if xid.Counter() == tokenIndex {
+			if tokenSerialToInt(t.Serial) == tokenIndex {
 				c.TokenLog[i].ToUserID = c.Boosters[boosterIndex].UserID
 				c.TokenLog[i].ToNick = c.Boosters[boosterIndex].Nick
 				str = fmt.Sprintf("Token moved to %s", c.TokenLog[i].ToNick)
@@ -528,8 +539,7 @@ func HandleTokenEditCommand(client dc.Client, e *dc.CommandEvent) string {
 		}
 	} else if action == 1 { // Delete str = "Token not found"
 		for i, t := range c.TokenLog {
-			xid, _ := xid.FromString(t.Serial)
-			if xid.Counter() == tokenIndex {
+			if tokenSerialToInt(t.Serial) == tokenIndex {
 				c.TokenLog = append(c.TokenLog[:i], c.TokenLog[i+1:]...)
 				str = "Token deleted"
 				break
@@ -537,8 +547,7 @@ func HandleTokenEditCommand(client dc.Client, e *dc.CommandEvent) string {
 		}
 	} else if action == 2 { // Modify Count
 		for i, t := range c.TokenLog {
-			xid, _ := xid.FromString(t.Serial)
-			if xid.Counter() == tokenIndex {
+			if tokenSerialToInt(t.Serial) == tokenIndex {
 				c.TokenLog[i].Quantity = tokenCount
 				c.TokenLog[i].Value = bottools.GetTokenValue(c.TokenLog[i].Time.Sub(c.StartTime).Seconds(), c.EstimatedDuration.Seconds()) * float64(c.TokenLog[i].Quantity)
 				str = "Token count modified"

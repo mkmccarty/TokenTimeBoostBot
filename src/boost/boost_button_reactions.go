@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"uuid"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
@@ -17,7 +18,6 @@ import (
 
 	"github.com/mattn/go-runewidth"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
-	"github.com/rs/xid"
 )
 
 // HandleContractReactions handles all the button reactions for a contract.
@@ -31,7 +31,7 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 	// rc_Name # rc_ID # HASH
 	reaction := strings.Split(e.CustomID(), "#")
 	cmd := strings.ToLower(reaction[1])
-	contractHash := reaction[len(reaction)-1]
+	contractHash := dc.SplitContractHash(e.CustomID())
 
 	if cmd == "dismiss" {
 		_ = client.DeleteMessage(e.ChannelID(), e.MessageID())
@@ -213,7 +213,7 @@ func buttonReactionToken(client dc.Client, GuildID string, ChannelID string, con
 	if b != nil {
 		if fromUserID != b.UserID {
 			// Record the Tokens as received
-			tokenSerial := xid.New().String()
+			tokenSerial := uuid.NewV7().String()
 			now := time.Now()
 
 			contract.mutex.Lock()
@@ -237,7 +237,7 @@ func buttonReactionToken(client dc.Client, GuildID string, ChannelID string, con
 		} else {
 			contract.mutex.Lock()
 			b.TokensReceived += count
-			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: count, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: fromUserID, ToNick: contract.Boosters[fromUserID].Nick, Serial: xid.New().String(), Boost: false})
+			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: count, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: fromUserID, ToNick: contract.Boosters[fromUserID].Nick, Serial: uuid.NewV7().String(), Boost: false})
 			contract.mutex.Unlock()
 			if contract.BoostOrder == ContractOrderTVal {
 				reorderBoosters(contract)
@@ -1159,12 +1159,27 @@ func getContractReactionsComponents(contract *Contract) []dc.LayoutComponent {
 			if contract.State == ContractStateFastrun && currentIdx >= 0 && currentIdx < len(contract.Order)-1 {
 				b := contract.currentBooster()
 				if b != nil && b.TokensWanted <= b.TokensReceived {
+					nextBoosterNick := contract.Boosters[contract.Order[currentIdx+1]].Nick
 					menuOptions = append(menuOptions, dc.SelectOption{
-						Label:       fmt.Sprintf("Send %s a token", contract.Boosters[contract.Order[currentIdx+1]].Nick),
+						Label:       fmt.Sprintf("Send %s a token", nextBoosterNick),
 						Description: fmt.Sprintf("Waiting on %s 🚀.", b.Nick),
 						Value:       fmt.Sprintf("next:%s", contract.Order[currentIdx+1]),
 						Emoji:       ei.GetBotComponentEmoji("token"),
 					})
+
+					gg, ugg, _ := ei.GetGenerousGiftEvent()
+					if gg > 1.0 || ugg > 1.0 {
+						ggEmojiName := "std_gg"
+						if ugg > 1.0 && gg <= 1.0 {
+							ggEmojiName = "ultra_gg"
+						}
+						menuOptions = append(menuOptions, dc.SelectOption{
+							Label:       fmt.Sprintf("Send %s 2 tokens", nextBoosterNick),
+							Description: fmt.Sprintf("Waiting on %s 🚀.", b.Nick),
+							Value:       fmt.Sprintf("next2:%s", contract.Order[currentIdx+1]),
+							Emoji:       ei.GetBotComponentEmoji(ggEmojiName),
+						})
+					}
 				}
 			}
 
