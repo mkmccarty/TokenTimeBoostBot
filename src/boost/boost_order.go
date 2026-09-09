@@ -9,10 +9,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"uuid"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"github.com/rs/xid"
 )
 
 const (
@@ -80,7 +80,7 @@ func HandleBoostOrderCommand(client dc.Client, e *dc.CommandEvent) {
 	clearBoostOrderSessionsForUserContract(userID, contract.ContractHash)
 
 	session := &boostOrderSession{
-		xid:                  xid.New().String(),
+		xid:                  uuid.NewV7().String(),
 		contractHash:         contract.ContractHash,
 		channelID:            e.ChannelID(),
 		userID:               userID,

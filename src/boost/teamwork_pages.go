@@ -6,10 +6,10 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"uuid"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
-	"github.com/rs/xid"
 )
 
 type teamworkCache struct {
@@ -71,7 +71,7 @@ func buildTeamworkCache(s string, fields map[string][]TeamworkOutputData) teamwo
 	}
 
 	return teamworkCache{
-		xid:                 xid.New().String(),
+		xid:                 uuid.NewV7().String(),
 		header:              s,
 		footer:              "",
 		page:                0,

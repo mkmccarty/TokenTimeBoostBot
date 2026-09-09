@@ -7,10 +7,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"uuid"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
-	"github.com/rs/xid"
 )
 
 // buildStonesCache will build a cache of the stones data
@@ -26,7 +26,7 @@ func buildStonesCache(s string, url string, tiles []dc.EmbedField) stonesCache {
 	tableHeader := table[0] + "\n"
 	table = table[1:]
 
-	return stonesCache{xid: xid.New().String(), header: split[0], footer: split[2], tableHeader: tableHeader, table: table, page: 0, pages: len(table) / 10, expirationTimestamp: time.Now().Add(15 * time.Minute), url: url, tiles: tiles}
+	return stonesCache{xid: uuid.NewV7().String(), header: split[0], footer: split[2], tableHeader: tableHeader, table: table, page: 0, pages: len(table) / 10, expirationTimestamp: time.Now().Add(15 * time.Minute), url: url, tiles: tiles}
 }
 
 // sendStonesPage renders one page of a cached stones report.

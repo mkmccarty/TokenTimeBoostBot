@@ -10,12 +10,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"uuid"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-	"github.com/rs/xid"
 )
 
 type chartRow struct {
@@ -227,7 +227,7 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 	}
 
 	session := &chartSession{
-		xid:            xid.New().String(),
+		xid:            uuid.NewV7().String(),
 		userID:         userID,
 		rows:           rows,
 		page:           page - 1, // Store as 0-indexed internally

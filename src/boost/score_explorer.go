@@ -8,11 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"uuid"
+
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-	"github.com/rs/xid"
 )
 
 var playStyles = []string{"Speedrun", "Fastrun", "Casual", "Public"}
@@ -98,7 +99,7 @@ func HandleScoreExplorerCommand(e *dc.CommandEvent) {
 	}
 	_ = e.Defer(ephemeral)
 
-	xid := xid.New().String()
+	xid := uuid.NewV7().String()
 	scoreCalcParams := ScoreCalcParams{
 		xid:                  xid,
 		contractID:           contractID,

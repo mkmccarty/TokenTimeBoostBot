@@ -14,7 +14,6 @@ require (
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/pkg/errors v0.9.1
 	github.com/rabbitmq/amqp091-go v1.14.0
-	github.com/rs/xid v1.6.0
 	github.com/wI2L/jsondiff v0.7.1
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	golang.org/x/image v0.46.0
