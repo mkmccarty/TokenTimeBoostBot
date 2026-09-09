@@ -363,7 +363,7 @@ func newPredictionsWriter(guildContext bool) predictionsWriter {
 	}
 }
 
-func (pw predictionsWriter) writeWednesdayPredictions(dropTime time.Time, contracts []ei.EggIncContract, footer bool) *dc.TextDisplay {
+func (pw predictionsWriter) writeWednesdayPredictions(dropTime time.Time, contracts []ei.EggIncContract, footer bool) dc.TextDisplay {
 	var b strings.Builder
 
 	b.WriteString("**📜 Leggacy Prediction 🔮**\n-# ")
@@ -377,10 +377,10 @@ func (pw predictionsWriter) writeWednesdayPredictions(dropTime time.Time, contra
 		pw.writeFooter(&b, usedSeasons)
 	}
 
-	return &dc.TextDisplay{Content: b.String()}
+	return dc.TextDisplay{Content: b.String()}
 }
 
-func (pw predictionsWriter) writeFridayPredictions(dropTime time.Time, peContracts, ultraContracts []ei.EggIncContract, footer, showNonUltra, showUltra bool) *dc.TextDisplay {
+func (pw predictionsWriter) writeFridayPredictions(dropTime time.Time, peContracts, ultraContracts []ei.EggIncContract, footer, showNonUltra, showUltra bool) dc.TextDisplay {
 	var b strings.Builder
 
 	b.WriteString("**PE Leggacies Predictions 🔮**\n-# ")
@@ -409,7 +409,7 @@ func (pw predictionsWriter) writeFridayPredictions(dropTime time.Time, peContrac
 		pw.writeFooter(&b, usedSeasons)
 	}
 
-	return &dc.TextDisplay{Content: b.String()}
+	return dc.TextDisplay{Content: b.String()}
 }
 
 func (pw predictionsWriter) writeFooter(b *strings.Builder, usedSeasons map[string]bool) {
@@ -721,7 +721,7 @@ func predictCollectibles(nextWed, nextFri time.Time) map[string]collectiblePredi
 
 // writeCollectiblesPredictions renders the Colleggtibles prediction,
 // showing one entry per custom egg sorted by predicted drop date.
-func (pw predictionsWriter) writeCollectiblesPredictions(collectibles map[string]collectiblePrediction) *dc.TextDisplay {
+func (pw predictionsWriter) writeCollectiblesPredictions(collectibles map[string]collectiblePrediction) dc.TextDisplay {
 	collectibleContracts := make([]collectiblePrediction, 0, len(collectibles))
 	for _, p := range collectibles {
 		collectibleContracts = append(collectibleContracts, p)
@@ -772,7 +772,7 @@ func (pw predictionsWriter) writeCollectiblesPredictions(collectibles map[string
 	b.WriteByte('\n')
 	pw.writeFooter(&b, usedSeasons)
 
-	return &dc.TextDisplay{Content: b.String()}
+	return dc.TextDisplay{Content: b.String()}
 }
 
 // ***** Helpers *****
