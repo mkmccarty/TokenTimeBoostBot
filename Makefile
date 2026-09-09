@@ -2,8 +2,8 @@
 
 UNAME_A = `uname -m`
 UNAME_S = `uname -s`
-GO_VERSION = 1.26.7
-GOLANGCI_LINT_VERSION=v2.13.1
+GO_VERSION = 1.27.1
+GOLANGCI_LINT_VERSION=v2.13.2
 
 # Fallback GOROOT if system environment GOROOT points to non-existent directory
 ifneq ($(wildcard /opt/homebrew/opt/go/libexec),)
