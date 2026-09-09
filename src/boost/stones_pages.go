@@ -122,7 +122,7 @@ func sendStonesPage(client dc.Client, e dc.InteractionEvent, newMessage bool, uu
 		str := fmt.Sprintf("The stones data has expired. Please re-run the %s command.\n", bottools.GetFormattedCommand("stones"))
 		str += e.MessageContent()
 
-		err := e.EditFollowup(e.MessageID(), dc.Message{
+		err := e.EditResponse(dc.Message{
 			Content:      str,
 			ComponentsV1: true,
 		})
@@ -236,7 +236,7 @@ func sendStonesPage(client dc.Client, e dc.InteractionEvent, newMessage bool, uu
 		}
 
 	} else {
-		err := e.EditFollowup(e.MessageID(), msg)
+		err := e.EditResponse(msg)
 		if err != nil {
 			log.Println(err)
 		}

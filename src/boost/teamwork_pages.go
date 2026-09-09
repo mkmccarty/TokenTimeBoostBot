@@ -112,7 +112,7 @@ func sendTeamworkPage(e dc.InteractionEvent, newMessage bool, uuidStr string, re
 	if !exists {
 		str := fmt.Sprintf("The teamwork data has expired. Please re-run the %s command.", bottools.GetFormattedCommand("teamwork"))
 
-		err := e.EditFollowup(e.MessageID(), dc.Message{
+		err := e.EditResponse(dc.Message{
 			Components: []dc.LayoutComponent{
 				dc.TextDisplay{Content: str},
 			},
@@ -178,7 +178,7 @@ func sendTeamworkPage(e dc.InteractionEvent, newMessage bool, uuidStr string, re
 		}
 
 	} else {
-		err := e.EditFollowup(e.MessageID(), dc.Message{
+		err := e.EditResponse(dc.Message{
 			Ephemeral:  ephemeral,
 			Components: comp,
 		})

@@ -179,7 +179,7 @@ func HandlePredictionsPage(e *dc.ComponentEvent) {
 
 	components := predictions(predParams)
 
-	if err := e.EditFollowup(e.MessageID(), dc.Message{Components: components}); err != nil {
+	if err := e.EditResponse(dc.Message{Components: components}); err != nil {
 		log.Println(err)
 	}
 }

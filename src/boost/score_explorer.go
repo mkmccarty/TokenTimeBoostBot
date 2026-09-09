@@ -559,7 +559,7 @@ func HandleScoreExplorerPage(e *dc.ComponentEvent) {
 	_, embed := getScoreExplorerCalculations(params)
 
 	components := getScoreExplorerComponents(params)
-	err = e.EditFollowup(e.MessageID(), dc.Message{
+	err = e.EditResponse(dc.Message{
 		Content:      params.contractInfo,
 		Components:   components,
 		Embeds:       []dc.Embed{embed},

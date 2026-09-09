@@ -235,7 +235,7 @@ func HandleAdminContractListComponent(client dc.Client, e *dc.ComponentEvent) {
 		}
 
 		updatedContent, updatedComponents := renderAdminContractListPanel(session, false)
-		if err = e.EditFollowup(e.MessageID(), dc.Message{
+		if err = e.EditResponse(dc.Message{
 			Content:      updatedContent,
 			Components:   updatedComponents,
 			ComponentsV1: true,
