@@ -1091,6 +1091,9 @@ func startHeartbeat(filepath string, interval time.Duration) {
 		}
 
 		counter := 0
+		consecutivePresenceFailures := 0
+		const maxConsecutivePresenceFailures = 5
+
 		ticker := time.NewTicker(interval)
 		for range ticker.C {
 			currentTime := time.Now()
@@ -1110,9 +1113,15 @@ func startHeartbeat(filepath string, interval time.Duration) {
 
 				err = bot.SetPresence(activityName)
 				if err != nil {
-					log.Printf("Heartbeat error: %v", err)
-					log.Printf("Restarting the bot")
-					fmt.Printf("Restarting the bot due to error: %v", err)
+					consecutivePresenceFailures++
+					log.Printf("Heartbeat: SetPresence failed (%d/%d): %v", consecutivePresenceFailures, maxConsecutivePresenceFailures, err)
+					if consecutivePresenceFailures < maxConsecutivePresenceFailures {
+						// Gateway may be reconnecting/resuming, allow time to recover
+						continue
+					}
+
+					log.Printf("Restarting the bot due to %d consecutive presence failures: %v", consecutivePresenceFailures, err)
+					fmt.Printf("Restarting the bot due to error: %v\n", err)
 					// At this point lets just exit the process and let something like systemd restart it, since the bot is likely in a bad state if we can't update the status
 					// At this point, trigger a graceful shutdown so deferred cleanups (including s.Close()) run.
 					boost.SaveAllData()
@@ -1125,6 +1134,7 @@ func startHeartbeat(filepath string, interval time.Duration) {
 					}
 					return
 				}
+				consecutivePresenceFailures = 0
 			}
 		}
 	})
