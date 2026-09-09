@@ -22,7 +22,7 @@ const (
 )
 
 type boostOrderSession struct {
-	xid                  string
+	uuidStr              string
 	contractHash         string
 	channelID            string
 	userID               string
@@ -80,7 +80,7 @@ func HandleBoostOrderCommand(client dc.Client, e *dc.CommandEvent) {
 	clearBoostOrderSessionsForUserContract(userID, contract.ContractHash)
 
 	session := &boostOrderSession{
-		xid:                  uuid.NewV7().String(),
+		uuidStr:              uuid.NewV7().String(),
 		contractHash:         contract.ContractHash,
 		channelID:            e.ChannelID(),
 		userID:               userID,
@@ -95,7 +95,7 @@ func HandleBoostOrderCommand(client dc.Client, e *dc.CommandEvent) {
 		bottomCount:          0,
 	}
 	boostOrderSessionsMutex.Lock()
-	boostOrderSessions[session.xid] = session
+	boostOrderSessions[session.uuidStr] = session
 	boostOrderSessionsMutex.Unlock()
 
 	content, components := renderBoostOrderInterview(contract, session, "")
@@ -112,12 +112,12 @@ func HandleBoostOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 		return
 	}
 
-	xidPart := reaction[1]
+	uuidPart := reaction[1]
 	action := reaction[2]
 	userID := e.UserID()
 
 	boostOrderSessionsMutex.Lock()
-	session, ok := boostOrderSessions[xidPart]
+	session, ok := boostOrderSessions[uuidPart]
 	boostOrderSessionsMutex.Unlock()
 	if !ok {
 		respondBoostOrderUpdate(e, "This catalyst session expired. Please rerun the command.", nil)
@@ -131,7 +131,7 @@ func HandleBoostOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 
 	if session.expiresAt.Before(time.Now()) {
 		boostOrderSessionsMutex.Lock()
-		delete(boostOrderSessions, session.xid)
+		delete(boostOrderSessions, session.uuidStr)
 		boostOrderSessionsMutex.Unlock()
 		respondBoostOrderUpdate(e, fmt.Sprintf("This catalyst session expired. Please rerun %s.", boostOrderCommandPath(session.commandName)), nil)
 		return
@@ -141,14 +141,14 @@ func HandleBoostOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 	contract := FindContractByHash(session.contractHash)
 	if contract == nil {
 		boostOrderSessionsMutex.Lock()
-		delete(boostOrderSessions, session.xid)
+		delete(boostOrderSessions, session.uuidStr)
 		boostOrderSessionsMutex.Unlock()
 		respondBoostOrderUpdate(e, "Unable to find this contract anymore. Catalyst closed.", nil)
 		return
 	}
 	if !creatorOfContract(client, contract, userID) {
 		boostOrderSessionsMutex.Lock()
-		delete(boostOrderSessions, session.xid)
+		delete(boostOrderSessions, session.uuidStr)
 		boostOrderSessionsMutex.Unlock()
 		respondBoostOrderUpdate(e, "You are no longer allowed to edit this contract.", nil)
 		return
@@ -282,13 +282,13 @@ func HandleBoostOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 			refreshBoostListMessage(client, contract, false)
 		}
 		boostOrderSessionsMutex.Lock()
-		delete(boostOrderSessions, session.xid)
+		delete(boostOrderSessions, session.uuidStr)
 		boostOrderSessionsMutex.Unlock()
 		respondBoostOrderUpdate(e, fmt.Sprintf("Boost order saved and contract redrawn. %s", changeText), nil)
 		return
 	case "exit":
 		boostOrderSessionsMutex.Lock()
-		delete(boostOrderSessions, session.xid)
+		delete(boostOrderSessions, session.uuidStr)
 		boostOrderSessionsMutex.Unlock()
 		respondBoostOrderUpdate(e, "Exited without saving changes.", nil)
 		return
@@ -412,7 +412,7 @@ func boostOrderNameButtons(contract *Contract, session *boostOrderSession, visib
 			rowButtons = append(rowButtons, dc.Button{
 				Label:    boostOrderButtonLabel(contract, userID),
 				Style:    dc.ButtonPrimary,
-				CustomID: fmt.Sprintf("%s#%s#pick#%s", boostOrderHandlerPrefix, session.xid, userID),
+				CustomID: fmt.Sprintf("%s#%s#pick#%s", boostOrderHandlerPrefix, session.uuidStr, userID),
 			})
 		}
 		if len(rowButtons) == 5 {
@@ -426,7 +426,7 @@ func boostOrderNameButtons(contract *Contract, session *boostOrderSession, visib
 		rowButtons = append(rowButtons, dc.Button{
 			Label:    modeLabel,
 			Style:    dc.ButtonSecondary,
-			CustomID: fmt.Sprintf("%s#%s#mode", boostOrderHandlerPrefix, session.xid),
+			CustomID: fmt.Sprintf("%s#%s#mode", boostOrderHandlerPrefix, session.uuidStr),
 		})
 		components = append(components, dc.ActionRow{Components: rowButtons})
 	} else {
@@ -440,7 +440,7 @@ func boostOrderNameButtons(contract *Contract, session *boostOrderSession, visib
 			rowButtons = append(rowButtons, dc.Button{
 				Label:    boostOrderButtonLabel(contract, visible[i]),
 				Style:    dc.ButtonPrimary,
-				CustomID: fmt.Sprintf("%s#%s#pick#%s", boostOrderHandlerPrefix, session.xid, visible[i]),
+				CustomID: fmt.Sprintf("%s#%s#pick#%s", boostOrderHandlerPrefix, session.uuidStr, visible[i]),
 			})
 		}
 		if len(rowButtons) > 0 {
@@ -456,17 +456,17 @@ func boostOrderNameButtons(contract *Contract, session *boostOrderSession, visib
 
 		sortRow1 := dc.ActionRow{
 			Components: []dc.InteractiveComponent{
-				dc.Button{Label: "Next TE", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#te", boostOrderHandlerPrefix, session.xid, sortAction)},
-				dc.Button{Label: "Next Fuzzy TE", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#fuzzyte", boostOrderHandlerPrefix, session.xid, sortAction)},
-				dc.Button{Label: "Next ELR", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#elr", boostOrderHandlerPrefix, session.xid, sortAction)},
-				dc.Button{Label: "Next IHR", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#ihr", boostOrderHandlerPrefix, session.xid, sortAction)},
-				dc.Button{Label: "Next Fuzzy IHR", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#fuzzyihr", boostOrderHandlerPrefix, session.xid, sortAction)},
+				dc.Button{Label: "Next TE", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#te", boostOrderHandlerPrefix, session.uuidStr, sortAction)},
+				dc.Button{Label: "Next Fuzzy TE", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#fuzzyte", boostOrderHandlerPrefix, session.uuidStr, sortAction)},
+				dc.Button{Label: "Next ELR", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#elr", boostOrderHandlerPrefix, session.uuidStr, sortAction)},
+				dc.Button{Label: "Next IHR", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#ihr", boostOrderHandlerPrefix, session.uuidStr, sortAction)},
+				dc.Button{Label: "Next Fuzzy IHR", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#fuzzyihr", boostOrderHandlerPrefix, session.uuidStr, sortAction)},
 			},
 		}
 		sortRow2 := dc.ActionRow{
 			Components: []dc.InteractiveComponent{
-				dc.Button{Label: "Random", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#random", boostOrderHandlerPrefix, session.xid, sortAction)},
-				dc.Button{Label: modeLabel, Style: dc.ButtonSecondary, CustomID: fmt.Sprintf("%s#%s#mode", boostOrderHandlerPrefix, session.xid)},
+				dc.Button{Label: "Random", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#random", boostOrderHandlerPrefix, session.uuidStr, sortAction)},
+				dc.Button{Label: modeLabel, Style: dc.ButtonSecondary, CustomID: fmt.Sprintf("%s#%s#mode", boostOrderHandlerPrefix, session.uuidStr)},
 			},
 		}
 		components = append(components, sortRow1, sortRow2)
@@ -481,13 +481,13 @@ func boostOrderControlButtons(contract *Contract, session *boostOrderSession, un
 		controls = append(controls, dc.Button{
 			Label:    "Shift",
 			Style:    dc.ButtonSecondary,
-			CustomID: fmt.Sprintf("%s#%s#shift", boostOrderHandlerPrefix, session.xid),
+			CustomID: fmt.Sprintf("%s#%s#shift", boostOrderHandlerPrefix, session.uuidStr),
 		})
 	} else {
 		controls = append(controls, dc.Button{
 			Label:    "Fill",
 			Style:    dc.ButtonSecondary,
-			CustomID: fmt.Sprintf("%s#%s#fill", boostOrderHandlerPrefix, session.xid),
+			CustomID: fmt.Sprintf("%s#%s#fill", boostOrderHandlerPrefix, session.uuidStr),
 			Disabled: unselectedCount == 0,
 		})
 	}
@@ -515,12 +515,12 @@ func boostOrderControlButtons(contract *Contract, session *boostOrderSession, un
 				dc.Button{
 					Label:    keepLabel,
 					Style:    dc.ButtonSecondary,
-					CustomID: fmt.Sprintf("%s#%s#setkeepcurrent", boostOrderHandlerPrefix, session.xid),
+					CustomID: fmt.Sprintf("%s#%s#setkeepcurrent", boostOrderHandlerPrefix, session.uuidStr),
 				},
 				dc.Button{
 					Label:    resetLabel,
 					Style:    dc.ButtonSecondary,
-					CustomID: fmt.Sprintf("%s#%s#setresetfirst", boostOrderHandlerPrefix, session.xid),
+					CustomID: fmt.Sprintf("%s#%s#setresetfirst", boostOrderHandlerPrefix, session.uuidStr),
 				},
 			},
 		})
@@ -530,25 +530,25 @@ func boostOrderControlButtons(contract *Contract, session *boostOrderSession, un
 		dc.Button{
 			Label:    "Undo",
 			Style:    dc.ButtonSecondary,
-			CustomID: fmt.Sprintf("%s#%s#undo", boostOrderHandlerPrefix, session.xid),
+			CustomID: fmt.Sprintf("%s#%s#undo", boostOrderHandlerPrefix, session.uuidStr),
 			Disabled: len(session.undoSteps) == 0,
 		},
 		dc.Button{
 			Label:    "Reset",
 			Style:    dc.ButtonSecondary,
-			CustomID: fmt.Sprintf("%s#%s#reset", boostOrderHandlerPrefix, session.xid),
+			CustomID: fmt.Sprintf("%s#%s#reset", boostOrderHandlerPrefix, session.uuidStr),
 			Disabled: len(session.selected) == 0,
 		},
 		dc.Button{
 			Label:    "Save",
 			Style:    dc.ButtonSuccess,
-			CustomID: fmt.Sprintf("%s#%s#save", boostOrderHandlerPrefix, session.xid),
+			CustomID: fmt.Sprintf("%s#%s#save", boostOrderHandlerPrefix, session.uuidStr),
 			Disabled: len(session.selected) != actualOriginalCount,
 		},
 		dc.Button{
 			Label:    "Exit",
 			Style:    dc.ButtonDanger,
-			CustomID: fmt.Sprintf("%s#%s#exit", boostOrderHandlerPrefix, session.xid),
+			CustomID: fmt.Sprintf("%s#%s#exit", boostOrderHandlerPrefix, session.uuidStr),
 		},
 	)
 	if pages <= 1 {

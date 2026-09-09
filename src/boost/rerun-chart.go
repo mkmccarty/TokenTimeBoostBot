@@ -31,7 +31,7 @@ type chartRow struct {
 }
 
 type chartSession struct {
-	xid            string
+	uuidStr        string
 	userID         string
 	rows           []chartRow
 	page           int
@@ -227,7 +227,7 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 	}
 
 	session := &chartSession{
-		xid:            uuid.NewV7().String(),
+		uuidStr:        uuid.NewV7().String(),
 		userID:         userID,
 		rows:           rows,
 		page:           page - 1, // Store as 0-indexed internally
@@ -243,7 +243,7 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 	}
 
 	chartSessionsMutex.Lock()
-	chartSessions[session.xid] = session
+	chartSessions[session.uuidStr] = session
 	chartSessionsMutex.Unlock()
 	return renderChartSession(session)
 }
@@ -594,7 +594,7 @@ func buildChartControls(session *chartSession, totalPages int) []dc.LayoutCompon
 		rows = append(rows, dc.ActionRow{
 			Components: []dc.InteractiveComponent{
 				dc.SelectMenu{
-					CustomID:    fmt.Sprintf("chart#threshold#%s", session.xid),
+					CustomID:    fmt.Sprintf("chart#threshold#%s", session.uuidStr),
 					Placeholder: "Select threshold...",
 					Options:     thresholdOptions,
 					MinValues:   &minValues,
@@ -624,7 +624,7 @@ func buildChartControls(session *chartSession, totalPages int) []dc.LayoutCompon
 	rows = append(rows, dc.ActionRow{
 		Components: []dc.InteractiveComponent{
 			dc.SelectMenu{
-				CustomID:    fmt.Sprintf("chart#sort#%s", session.xid),
+				CustomID:    fmt.Sprintf("chart#sort#%s", session.uuidStr),
 				Placeholder: "Sort order...",
 				Options:     sortOptions,
 				MinValues:   &minValues,
@@ -639,27 +639,27 @@ func buildChartControls(session *chartSession, totalPages int) []dc.LayoutCompon
 			pageButtons = append(pageButtons, dc.Button{
 				Label:    "First",
 				Style:    dc.ButtonSecondary,
-				CustomID: fmt.Sprintf("chart#first#%s", session.xid),
+				CustomID: fmt.Sprintf("chart#first#%s", session.uuidStr),
 				Disabled: session.page <= 0,
 			})
 		}
 		pageButtons = append(pageButtons, dc.Button{
 			Label:    "Prev",
 			Style:    dc.ButtonSecondary,
-			CustomID: fmt.Sprintf("chart#prev#%s", session.xid),
+			CustomID: fmt.Sprintf("chart#prev#%s", session.uuidStr),
 			Disabled: session.page <= 0,
 		})
 		pageButtons = append(pageButtons, dc.Button{
 			Label:    "Next",
 			Style:    dc.ButtonSecondary,
-			CustomID: fmt.Sprintf("chart#next#%s", session.xid),
+			CustomID: fmt.Sprintf("chart#next#%s", session.uuidStr),
 			Disabled: session.page >= totalPages-1,
 		})
 		if totalPages > 4 {
 			pageButtons = append(pageButtons, dc.Button{
 				Label:    "Last",
 				Style:    dc.ButtonSecondary,
-				CustomID: fmt.Sprintf("chart#last#%s", session.xid),
+				CustomID: fmt.Sprintf("chart#last#%s", session.uuidStr),
 				Disabled: session.page >= totalPages-1,
 			})
 		}
@@ -677,7 +677,7 @@ func buildChartControls(session *chartSession, totalPages int) []dc.LayoutCompon
 	actionButtons = append(actionButtons, dc.Button{
 		Label:    viewLabel,
 		Style:    dc.ButtonPrimary,
-		CustomID: fmt.Sprintf("chart#toggleview#%s", session.xid),
+		CustomID: fmt.Sprintf("chart#toggleview#%s", session.uuidStr),
 	})
 	siabLabel := "Show SIAB Only"
 	siabStyle := dc.ButtonSecondary
@@ -688,7 +688,7 @@ func buildChartControls(session *chartSession, totalPages int) []dc.LayoutCompon
 	actionButtons = append(actionButtons, dc.Button{
 		Label:    siabLabel,
 		Style:    siabStyle,
-		CustomID: fmt.Sprintf("chart#togglesiab#%s", session.xid),
+		CustomID: fmt.Sprintf("chart#togglesiab#%s", session.uuidStr),
 	})
 	ggLabel := "Standard View"
 	ggEmoji := ei.GetBotComponentEmoji("token")
@@ -702,17 +702,17 @@ func buildChartControls(session *chartSession, totalPages int) []dc.LayoutCompon
 		Label:    ggLabel,
 		Emoji:    ggEmoji,
 		Style:    ggStyle,
-		CustomID: fmt.Sprintf("chart#togglegg#%s", session.xid),
+		CustomID: fmt.Sprintf("chart#togglegg#%s", session.uuidStr),
 	})
 	actionButtons = append(actionButtons, dc.Button{
 		Label:    "Watch Filtered",
 		Style:    dc.ButtonSuccess,
-		CustomID: fmt.Sprintf("chart#watchfiltered#%s", session.xid),
+		CustomID: fmt.Sprintf("chart#watchfiltered#%s", session.uuidStr),
 	})
 	actionButtons = append(actionButtons, dc.Button{
 		Label:    "Finish",
 		Style:    dc.ButtonDanger,
-		CustomID: fmt.Sprintf("chart#finish#%s", session.xid),
+		CustomID: fmt.Sprintf("chart#finish#%s", session.uuidStr),
 	})
 	rows = append(rows, dc.ActionRow{Components: actionButtons})
 
@@ -727,11 +727,11 @@ func HandleChartReactions(e *dc.ComponentEvent) {
 	}
 
 	action := parts[1]
-	xidPart := parts[2]
+	uuidPart := parts[2]
 	userID := e.UserID()
 
 	chartSessionsMutex.Lock()
-	session, ok := chartSessions[xidPart]
+	session, ok := chartSessions[uuidPart]
 	chartSessionsMutex.Unlock()
 	if !ok {
 		_ = e.Respond(dc.Message{
@@ -849,7 +849,7 @@ func HandleChartReactions(e *dc.ComponentEvent) {
 		// Remove interactive components, keeping the chart itself
 		_ = e.Update(dc.Message{Components: e.MessageComponentsWithoutActionRows()})
 		chartSessionsMutex.Lock()
-		delete(chartSessions, xidPart) // Clean up session
+		delete(chartSessions, uuidPart) // Clean up session
 		chartSessionsMutex.Unlock()
 		return
 	}

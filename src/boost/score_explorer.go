@@ -25,7 +25,7 @@ var deflectorDurationsStr = []string{"Full Duration", "Boost Time"}
 
 // ScoreCalcParams is the parameters for the score calculator
 type ScoreCalcParams struct {
-	xid                  string
+	uuidStr              string
 	contractID           string
 	contract             ei.EggIncContract
 	contractInfo         string
@@ -99,9 +99,9 @@ func HandleScoreExplorerCommand(e *dc.CommandEvent) {
 	}
 	_ = e.Defer(ephemeral)
 
-	xid := uuid.NewV7().String()
+	uuidStr := uuid.NewV7().String()
 	scoreCalcParams := ScoreCalcParams{
-		xid:                  xid,
+		uuidStr:              uuidStr,
 		contractID:           contractID,
 		contract:             c,
 		Grade:                grade,
@@ -127,7 +127,7 @@ func HandleScoreExplorerCommand(e *dc.CommandEvent) {
 	deflTimes := []int{0, 20}
 	scoreCalcParams.deflTimes = append(scoreCalcParams.deflTimes, deflTimes...)
 
-	scoreCalcMap[xid] = scoreCalcParams
+	scoreCalcMap[uuidStr] = scoreCalcParams
 
 	_, embed := getScoreExplorerCalculations(scoreCalcParams)
 
@@ -221,28 +221,28 @@ func getScoreExplorerComponents(param ScoreCalcParams) []dc.LayoutComponent {
 		dc.Button{
 			Label:    playStyles[param.Style],
 			Style:    dc.ButtonSecondary,
-			CustomID: fmt.Sprintf("fd_playground#%s#style", param.xid),
+			CustomID: fmt.Sprintf("fd_playground#%s#style", param.uuidStr),
 		})
 
 	buttons = append(buttons,
 		dc.Button{
 			Label:    fmt.Sprintf("Chicken Runs: %s", chickenRunsStr[param.ChickenRuns]),
 			Style:    dc.ButtonSecondary,
-			CustomID: fmt.Sprintf("fd_playground#%s#runs", param.xid),
+			CustomID: fmt.Sprintf("fd_playground#%s#runs", param.uuidStr),
 		})
 
 	buttons = append(buttons,
 		dc.Button{
 			Label:    fmt.Sprintf("Deflector Use: %s", deflectorDurationsStr[param.DeflIndex]),
 			Style:    dc.ButtonSecondary,
-			CustomID: fmt.Sprintf("fd_playground#%s#defltime", param.xid),
+			CustomID: fmt.Sprintf("fd_playground#%s#defltime", param.uuidStr),
 		})
 
 	buttons = append(buttons,
 		dc.Button{
 			Label:    fmt.Sprintf("SIAB Equip Time: %s", siabDurationStr[param.SiabIndex]),
 			Style:    dc.ButtonSecondary,
-			CustomID: fmt.Sprintf("fd_playground#%s#siabtime", param.xid),
+			CustomID: fmt.Sprintf("fd_playground#%s#siabtime", param.uuidStr),
 		})
 
 	if !param.public {
@@ -250,13 +250,13 @@ func getScoreExplorerComponents(param ScoreCalcParams) []dc.LayoutComponent {
 			dc.Button{
 				Label:    "Load Settings",
 				Style:    dc.ButtonPrimary,
-				CustomID: fmt.Sprintf("fd_playground#%s#load", param.xid),
+				CustomID: fmt.Sprintf("fd_playground#%s#load", param.uuidStr),
 			})
 		buttons = append(buttons,
 			dc.Button{
 				Label:    "Save Settings",
 				Style:    dc.ButtonPrimary,
-				CustomID: fmt.Sprintf("fd_playground#%s#save", param.xid),
+				CustomID: fmt.Sprintf("fd_playground#%s#save", param.uuidStr),
 			})
 	}
 
@@ -264,7 +264,7 @@ func getScoreExplorerComponents(param ScoreCalcParams) []dc.LayoutComponent {
 		dc.Button{
 			Label:    "Close",
 			Style:    dc.ButtonDanger,
-			CustomID: fmt.Sprintf("fd_playground#%s#close", param.xid),
+			CustomID: fmt.Sprintf("fd_playground#%s#close", param.uuidStr),
 		})
 
 	MinValues := 1
@@ -289,7 +289,7 @@ func getScoreExplorerComponents(param ScoreCalcParams) []dc.LayoutComponent {
 	}
 
 	menu = append(menu, dc.SelectMenu{
-		CustomID:    fmt.Sprintf("fd_playground#%s#fair", param.xid),
+		CustomID:    fmt.Sprintf("fd_playground#%s#fair", param.uuidStr),
 		Placeholder: "Fair Share",
 		MaxValues:   1,
 		MinValues:   &MinValues,
@@ -297,7 +297,7 @@ func getScoreExplorerComponents(param ScoreCalcParams) []dc.LayoutComponent {
 	})
 
 	menu = append(menu, dc.SelectMenu{
-		CustomID:    fmt.Sprintf("fd_playground#%s#deflector", param.xid),
+		CustomID:    fmt.Sprintf("fd_playground#%s#deflector", param.uuidStr),
 		Placeholder: "Deflector Quality",
 		MaxValues:   1,
 		MinValues:   &MinValues,
@@ -359,7 +359,7 @@ func getScoreExplorerComponents(param ScoreCalcParams) []dc.LayoutComponent {
 	})
 
 	menu = append(menu, dc.SelectMenu{
-		CustomID:    fmt.Sprintf("fd_playground#%s#siab", param.xid),
+		CustomID:    fmt.Sprintf("fd_playground#%s#siab", param.uuidStr),
 		Placeholder: "SIAB Quality",
 		MaxValues:   1,
 		MinValues:   &MinValues,
@@ -554,7 +554,7 @@ func HandleScoreExplorerPage(e *dc.ComponentEvent) {
 		return
 	}
 
-	scoreCalcMap[params.xid] = params
+	scoreCalcMap[params.uuidStr] = params
 
 	_, embed := getScoreExplorerCalculations(params)
 

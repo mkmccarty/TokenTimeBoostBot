@@ -13,7 +13,7 @@ import (
 )
 
 type teamworkCache struct {
-	xid                 string
+	uuidStr             string
 	msgID               string
 	header              string
 	footer              string
@@ -71,7 +71,7 @@ func buildTeamworkCache(s string, fields map[string][]TeamworkOutputData) teamwo
 	}
 
 	return teamworkCache{
-		xid:                 uuid.NewV7().String(),
+		uuidStr:             uuid.NewV7().String(),
 		header:              s,
 		footer:              "",
 		page:                0,
@@ -84,8 +84,8 @@ func buildTeamworkCache(s string, fields map[string][]TeamworkOutputData) teamwo
 	}
 }
 
-func sendTeamworkPage(e dc.InteractionEvent, newMessage bool, xid string, refresh bool, toggle bool, drawButtons bool) {
-	cache, exists := teamworkCacheMap[xid]
+func sendTeamworkPage(e dc.InteractionEvent, newMessage bool, uuidStr string, refresh bool, toggle bool, drawButtons bool) {
+	cache, exists := teamworkCacheMap[uuidStr]
 
 	_ = e.Followup(dc.Message{})
 
@@ -96,7 +96,7 @@ func sendTeamworkPage(e dc.InteractionEvent, newMessage bool, xid string, refres
 
 		newCache.public = cache.public
 		newCache.previousPage = cache.previousPage
-		newCache.xid = cache.xid
+		newCache.uuidStr = cache.uuidStr
 		newCache.contractID = cache.contractID
 		newCache.coopID = cache.coopID
 		newCache.eiID = cache.eiID
@@ -106,7 +106,7 @@ func sendTeamworkPage(e dc.InteractionEvent, newMessage bool, xid string, refres
 			newCache.page = cache.previousPage
 		}
 		cache = newCache
-		teamworkCacheMap[cache.xid] = newCache
+		teamworkCacheMap[cache.uuidStr] = newCache
 	}
 
 	if !exists {
@@ -126,7 +126,7 @@ func sendTeamworkPage(e dc.InteractionEvent, newMessage bool, xid string, refres
 
 	if toggle {
 		cache.showScores = !cache.showScores
-		teamworkCacheMap[cache.xid] = cache
+		teamworkCacheMap[cache.uuidStr] = cache
 	}
 
 	ephemeral := !cache.public
@@ -163,7 +163,7 @@ func sendTeamworkPage(e dc.InteractionEvent, newMessage bool, xid string, refres
 	}
 
 	if drawButtons {
-		comp = append(comp, getTeamworkComponents(cache.xid, cache.page, cache.pages)...)
+		comp = append(comp, getTeamworkComponents(cache.uuidStr, cache.page, cache.pages)...)
 	}
 
 	if newMessage {
@@ -193,7 +193,7 @@ func sendTeamworkPage(e dc.InteractionEvent, newMessage bool, xid string, refres
 		cache.page = 0
 	}
 
-	teamworkCacheMap[cache.xid] = cache
+	teamworkCacheMap[cache.uuidStr] = cache
 }
 
 // HandleTeamworkPage steps a page of cached teamwork data through the dc

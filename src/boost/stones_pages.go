@@ -26,16 +26,16 @@ func buildStonesCache(s string, url string, tiles []dc.EmbedField) stonesCache {
 	tableHeader := table[0] + "\n"
 	table = table[1:]
 
-	return stonesCache{xid: uuid.NewV7().String(), header: split[0], footer: split[2], tableHeader: tableHeader, table: table, page: 0, pages: len(table) / 10, expirationTimestamp: time.Now().Add(15 * time.Minute), url: url, tiles: tiles}
+	return stonesCache{uuidStr: uuid.NewV7().String(), header: split[0], footer: split[2], tableHeader: tableHeader, table: table, page: 0, pages: len(table) / 10, expirationTimestamp: time.Now().Add(15 * time.Minute), url: url, tiles: tiles}
 }
 
 // sendStonesPage renders one page of a cached stones report.
 //
 // It still takes a raw session because the boost list redraw is not on the
 // facade yet.
-func sendStonesPage(client dc.Client, e dc.InteractionEvent, newMessage bool, xid string, refresh bool, links bool, toggle bool) {
+func sendStonesPage(client dc.Client, e dc.InteractionEvent, newMessage bool, uuidStr string, refresh bool, links bool, toggle bool) {
 	stonesCacheMutex.Lock()
-	cache, exists := stonesCacheMap[xid]
+	cache, exists := stonesCacheMap[uuidStr]
 	stonesCacheMutex.Unlock()
 
 	if exists && links && cache.url != "" {
@@ -79,7 +79,7 @@ func sendStonesPage(client dc.Client, e dc.InteractionEvent, newMessage bool, xi
 		}
 		cache.LinkTime = time.Now().Add(1 * time.Minute)
 		stonesCacheMutex.Lock()
-		stonesCacheMap[xid] = cache
+		stonesCacheMap[uuidStr] = cache
 		stonesCacheMutex.Unlock()
 		return
 	}
@@ -91,7 +91,7 @@ func sendStonesPage(client dc.Client, e dc.InteractionEvent, newMessage bool, xi
 		newCache := buildStonesCache(s1, urls, tiles)
 
 		newCache.private = cache.private
-		newCache.xid = cache.xid
+		newCache.uuidStr = cache.uuidStr
 		newCache.contractID = cache.contractID
 		newCache.coopID = cache.coopID
 		newCache.eiID = cache.eiID
@@ -102,7 +102,7 @@ func sendStonesPage(client dc.Client, e dc.InteractionEvent, newMessage bool, xi
 		newCache.displayTiles = cache.displayTiles
 		cache = newCache
 		stonesCacheMutex.Lock()
-		stonesCacheMap[cache.xid] = newCache
+		stonesCacheMap[cache.uuidStr] = newCache
 		stonesCacheMutex.Unlock()
 
 		contract := FindContractByIDs(e.ChannelID(), cache.contractID, cache.coopID)
@@ -136,7 +136,7 @@ func sendStonesPage(client dc.Client, e dc.InteractionEvent, newMessage bool, xi
 	if toggle {
 		cache.displayTiles = !cache.displayTiles
 		stonesCacheMutex.Lock()
-		stonesCacheMap[cache.xid] = cache
+		stonesCacheMap[cache.uuidStr] = cache
 		stonesCacheMutex.Unlock()
 	}
 
@@ -222,7 +222,7 @@ func sendStonesPage(client dc.Client, e dc.InteractionEvent, newMessage bool, xi
 	// Content sits beside an ActionRow and embeds here, which is the legacy
 	// component model.
 	msg := dc.Message{
-		Components:   getStonesComponents(cache.xid, page, cache.pages),
+		Components:   getStonesComponents(cache.uuidStr, page, cache.pages),
 		Embeds:       embed,
 		ComponentsV1: true,
 	}
@@ -242,7 +242,7 @@ func sendStonesPage(client dc.Client, e dc.InteractionEvent, newMessage bool, xi
 		}
 	}
 	stonesCacheMutex.Lock()
-	stonesCacheMap[cache.xid] = cache
+	stonesCacheMap[cache.uuidStr] = cache
 	stonesCacheMutex.Unlock()
 }
 
@@ -326,7 +326,7 @@ func getStonesComponents(name string, page int, pageEnd int) []dc.LayoutComponen
 }
 
 type stonesCache struct {
-	xid                 string
+	uuidStr             string
 	msgID               string
 	displayTiles        bool
 	header              string
