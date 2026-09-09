@@ -25,18 +25,53 @@ func disgoLayout(c LayoutComponent) discord.LayoutComponent {
 	switch component := c.(type) {
 	case TextDisplay:
 		return component.disgoTextDisplay()
+	case *TextDisplay:
+		if component != nil {
+			return component.disgoTextDisplay()
+		}
+		return nil
 	case Container:
 		return component.disgoContainer()
+	case *Container:
+		if component != nil {
+			return component.disgoContainer()
+		}
+		return nil
 	case ActionRow:
 		return component.disgoActionRow()
+	case *ActionRow:
+		if component != nil {
+			return component.disgoActionRow()
+		}
+		return nil
 	case Section:
 		return component.disgoSection()
+	case *Section:
+		if component != nil {
+			return component.disgoSection()
+		}
+		return nil
 	case Separator:
 		return component.disgoSeparator()
+	case *Separator:
+		if component != nil {
+			return component.disgoSeparator()
+		}
+		return nil
 	case MediaGallery:
 		return component.disgoMediaGallery()
+	case *MediaGallery:
+		if component != nil {
+			return component.disgoMediaGallery()
+		}
+		return nil
 	case rawComponent:
 		return component.disgoLayout()
+	case *rawComponent:
+		if component != nil {
+			return component.disgoLayout()
+		}
+		return nil
 	default:
 		return nil
 	}
@@ -47,17 +82,49 @@ func disgoContainerSub(c ContainerSubComponent) discord.ContainerSubComponent {
 	switch component := c.(type) {
 	case TextDisplay:
 		return component.disgoTextDisplay()
+	case *TextDisplay:
+		if component != nil {
+			return component.disgoTextDisplay()
+		}
+		return nil
 	case ActionRow:
 		return component.disgoActionRow()
+	case *ActionRow:
+		if component != nil {
+			return component.disgoActionRow()
+		}
+		return nil
 	case Section:
 		return component.disgoSection()
+	case *Section:
+		if component != nil {
+			return component.disgoSection()
+		}
+		return nil
 	case Separator:
 		return component.disgoSeparator()
+	case *Separator:
+		if component != nil {
+			return component.disgoSeparator()
+		}
+		return nil
 	case MediaGallery:
 		return component.disgoMediaGallery()
+	case *MediaGallery:
+		if component != nil {
+			return component.disgoMediaGallery()
+		}
+		return nil
 	case rawComponent:
 		if layout, ok := component.disgoLayout().(discord.ContainerSubComponent); ok {
 			return layout
+		}
+		return nil
+	case *rawComponent:
+		if component != nil {
+			if layout, ok := component.disgoLayout().(discord.ContainerSubComponent); ok {
+				return layout
+			}
 		}
 		return nil
 	default:
@@ -70,8 +137,18 @@ func disgoInteractive(c InteractiveComponent) discord.InteractiveComponent {
 	switch component := c.(type) {
 	case Button:
 		return component.disgoButton()
+	case *Button:
+		if component != nil {
+			return component.disgoButton()
+		}
+		return nil
 	case SelectMenu:
 		return component.disgoSelectMenu()
+	case *SelectMenu:
+		if component != nil {
+			return component.disgoSelectMenu()
+		}
+		return nil
 	default:
 		return nil
 	}
@@ -82,8 +159,18 @@ func disgoAccessory(a SectionAccessory) discord.SectionAccessoryComponent {
 	switch accessory := a.(type) {
 	case Button:
 		return accessory.disgoButton()
+	case *Button:
+		if accessory != nil {
+			return accessory.disgoButton()
+		}
+		return nil
 	case Thumbnail:
 		return accessory.disgoThumbnail()
+	case *Thumbnail:
+		if accessory != nil {
+			return accessory.disgoThumbnail()
+		}
+		return nil
 	default:
 		return nil
 	}
