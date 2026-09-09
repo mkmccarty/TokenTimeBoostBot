@@ -1,7 +1,7 @@
 package ei
 
 import (
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"log"
 	"os"
@@ -372,7 +372,7 @@ func LoadArtifactsData(dataFile string) error {
 	_eiafxDataJSON := []byte(strings.ReplaceAll(string(fileContent), "./data.schema.json", "./ttbb-data/data.schema.json"))
 
 	data = &Store{}
-	err = json.Unmarshal(_eiafxDataJSON, data)
+	err = jsonv2.Unmarshal(_eiafxDataJSON, data)
 	if err != nil {
 		return errors.Wrap(err, "error unmarshalling eiafx-data.json")
 	}

@@ -1,7 +1,7 @@
 package ei
 
 import (
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"log"
 	"math"
@@ -58,8 +58,7 @@ func LoadResearchData(filename string) {
 			log.Printf("Failed to close: %v", err)
 		}
 	}()
-	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&EggIncResearchesLoaded)
+	err = jsonv2.UnmarshalRead(file, &EggIncResearchesLoaded)
 	if err != nil {
 		log.Print(err)
 		return

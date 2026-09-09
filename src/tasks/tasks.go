@@ -2,7 +2,8 @@ package tasks
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"io"
 	"log"
@@ -458,7 +459,7 @@ func getManifestEntry(filename string) manifestEntry {
 		return manifestEntry{}
 	}
 	var manifest map[string]manifestEntry
-	if err := json.Unmarshal(data, &manifest); err != nil {
+	if err := jsonv2.Unmarshal(data, &manifest); err != nil {
 		return manifestEntry{}
 	}
 	return manifest[filename]
@@ -470,13 +471,13 @@ func updateManifestEntry(filename string, etag string) {
 	var manifest map[string]manifestEntry
 	data, err := os.ReadFile("ttbb-data/download-manifest.json")
 	if err == nil {
-		_ = json.Unmarshal(data, &manifest)
+		_ = jsonv2.Unmarshal(data, &manifest)
 	}
 	if manifest == nil {
 		manifest = make(map[string]manifestEntry)
 	}
 	manifest[filename] = manifestEntry{LastCheck: time.Now(), ETag: etag}
-	if b, err := json.MarshalIndent(manifest, "", "  "); err == nil {
+	if b, err := jsonv2.Marshal(manifest, jsontext.WithIndent("  ")); err == nil {
 		_ = writeFileAtomic("ttbb-data/download-manifest.json", b, 0644)
 	}
 }
