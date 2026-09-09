@@ -10,6 +10,7 @@
 TokenTimeBoostBot
 output
 build
+bin
 banners
 ttbb-data
 src/mint/emoji
