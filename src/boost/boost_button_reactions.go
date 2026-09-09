@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"uuid"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
@@ -17,7 +18,6 @@ import (
 
 	"github.com/mattn/go-runewidth"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
-	"github.com/rs/xid"
 )
 
 // HandleContractReactions handles all the button reactions for a contract.
@@ -213,7 +213,7 @@ func buttonReactionToken(client dc.Client, GuildID string, ChannelID string, con
 	if b != nil {
 		if fromUserID != b.UserID {
 			// Record the Tokens as received
-			tokenSerial := xid.New().String()
+			tokenSerial := uuid.NewV7().String()
 			now := time.Now()
 
 			contract.mutex.Lock()
@@ -237,7 +237,7 @@ func buttonReactionToken(client dc.Client, GuildID string, ChannelID string, con
 		} else {
 			contract.mutex.Lock()
 			b.TokensReceived += count
-			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: count, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: fromUserID, ToNick: contract.Boosters[fromUserID].Nick, Serial: xid.New().String(), Boost: false})
+			contract.TokenLog = append(contract.TokenLog, ei.TokenUnitLog{Time: time.Now(), Quantity: count, FromUserID: fromUserID, FromNick: contract.Boosters[fromUserID].Nick, ToUserID: fromUserID, ToNick: contract.Boosters[fromUserID].Nick, Serial: uuid.NewV7().String(), Boost: false})
 			contract.mutex.Unlock()
 			if contract.BoostOrder == ContractOrderTVal {
 				reorderBoosters(contract)

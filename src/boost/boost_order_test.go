@@ -144,19 +144,19 @@ func TestBoostOrderButtonLabelIncludesELR(t *testing.T) {
 func TestClearBoostOrderSessionsForUserContract(t *testing.T) {
 	boostOrderSessions = map[string]*boostOrderSession{
 		"keep-other-contract": {
-			xid:          "keep-other-contract",
+			uuidStr:      "keep-other-contract",
 			userID:       "u1",
 			contractHash: "c2",
 			expiresAt:    time.Now().Add(time.Minute),
 		},
 		"remove-this": {
-			xid:          "remove-this",
+			uuidStr:      "remove-this",
 			userID:       "u1",
 			contractHash: "c1",
 			expiresAt:    time.Now().Add(time.Minute),
 		},
 		"keep-other-user": {
-			xid:          "keep-other-user",
+			uuidStr:      "keep-other-user",
 			userID:       "u2",
 			contractHash: "c1",
 			expiresAt:    time.Now().Add(time.Minute),

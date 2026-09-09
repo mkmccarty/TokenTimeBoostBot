@@ -144,12 +144,12 @@ func HandleStonesCommand(client dc.Client, e *dc.CommandEvent) {
 		cache.displayTiles = useTiles
 
 		stonesCacheMutex.Lock()
-		stonesCacheMap[cache.xid] = cache
+		stonesCacheMap[cache.uuidStr] = cache
 		stonesCacheMutex.Unlock()
 
 		_ = e.Followup(dc.Message{})
 
-		sendStonesPage(client, e, true, cache.xid, false, false, false)
+		sendStonesPage(client, e, true, cache.uuidStr, false, false, false)
 
 		// Traverse stonesCacheMap and delete expired entries
 		stonesCacheMutex.Lock()
