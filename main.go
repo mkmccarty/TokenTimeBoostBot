@@ -505,7 +505,7 @@ func setupCommands() {
 		{
 			AppCmd:       boost.SlashArtifactsCommand(slashArtifact),
 			Category:     CmdCategoryStandard,
-			Handler:      boost.HandleArtifactCommand,
+			Handler:      func(e *dc.CommandEvent) { boost.HandleArtifactCommand(botClient(), e) },
 			Autocomplete: boost.HandleArtifactAltAutoComplete,
 		},
 		{
