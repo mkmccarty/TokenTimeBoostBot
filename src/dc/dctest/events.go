@@ -81,3 +81,27 @@ func ComponentSelectEvent(customID string, values ...string) *dc.ComponentEvent 
 	}
 	return event
 }
+
+// ComponentButtonEvent builds a dc.ComponentEvent for a button click interaction
+// with the given customID.
+func ComponentButtonEvent(customID string) *dc.ComponentEvent {
+	payload := fmt.Sprintf(`{
+		"id": "1",
+		"application_id": "2",
+		"type": 3,
+		"token": "test-token",
+		"version": 1,
+		"channel": {"id": "3", "type": 0},
+		"user": {"id": "4", "username": "tester", "discriminator": "0"},
+		"message": {"id": "700", "channel_id": "3", "content": "", "timestamp": "2026-01-01T00:00:00Z",
+			"author": {"id": "1", "username": "bot", "discriminator": "0"}},
+		"data": {"custom_id": %q, "component_type": 2}
+	}`, customID)
+
+	event, err := dc.NewComponentEventFromPayload([]byte(payload))
+	if err != nil {
+		panic(fmt.Sprintf("dctest: building a button event: %v", err))
+	}
+	return event
+}
+
