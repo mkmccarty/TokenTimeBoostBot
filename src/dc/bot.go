@@ -272,7 +272,8 @@ func (b *Bot) CommandNames() []string {
 
 // routePrefix is the segment of a CustomID before the first "#".
 func routePrefix(customID string) string {
-	return strings.Split(customID, "#")[0]
+	prefix, _, _ := strings.Cut(customID, "#")
+	return prefix
 }
 
 // recoverInteraction hands a panic raised inside a handler to the OnPanic

@@ -666,7 +666,7 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 	// cs_#Name # cs_#ID # HASH
 	reaction := strings.Split(e.CustomID(), "#")
 	cmd := strings.ToLower(reaction[1])
-	contractHash := reaction[len(reaction)-1]
+	contractHash := dc.SplitContractHash(e.CustomID())
 
 	dataValues := e.Values()
 	if cmd == "features" && slices.Contains(dataValues, "threshold") {

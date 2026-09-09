@@ -31,7 +31,7 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 	// rc_Name # rc_ID # HASH
 	reaction := strings.Split(e.CustomID(), "#")
 	cmd := strings.ToLower(reaction[1])
-	contractHash := reaction[len(reaction)-1]
+	contractHash := dc.SplitContractHash(e.CustomID())
 
 	if cmd == "dismiss" {
 		_ = client.DeleteMessage(e.ChannelID(), e.MessageID())

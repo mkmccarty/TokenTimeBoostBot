@@ -363,14 +363,14 @@ func GetContractThematicComplaints(contractName string, contractDescription stri
 				if line == "" {
 					continue
 				}
-				firstQuote := strings.Index(line, "\"")
-				lastQuote := strings.LastIndex(line, "\"")
-				if firstQuote != -1 && lastQuote > firstQuote {
-					complaints = append(complaints, line[firstQuote+1:lastQuote])
-				} else {
-					line = strings.TrimLeft(line, "0123456789.-*• ")
-					complaints = append(complaints, line)
+				if _, afterFirst, foundFirst := strings.Cut(line, "\""); foundFirst {
+					if quoted, _, foundLast := strings.CutLast(afterFirst, "\""); foundLast {
+						complaints = append(complaints, quoted)
+						continue
+					}
 				}
+				line = strings.TrimLeft(line, "0123456789.-*• ")
+				complaints = append(complaints, line)
 			}
 		}
 	}

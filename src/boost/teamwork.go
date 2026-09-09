@@ -520,18 +520,16 @@ func DownloadCoopStatusTeamwork(channelID string, contractID string, coopID stri
 				i := 0
 				for len(teamworkStr) > 0 {
 					i++
-					chunkSize := 1022
-					if len(teamworkStr) < chunkSize {
-						chunkSize = len(teamworkStr)
-					} else {
-						splitIndex := strings.LastIndex(teamworkStr[:chunkSize], "\n")
-						if splitIndex != -1 {
-							chunkSize = splitIndex
+					chunk := teamworkStr
+					if len(chunk) > 1022 {
+						chunk = chunk[:1022]
+						if before, _, found := strings.CutLast(chunk, "\n"); found {
+							chunk = before
 						}
 					}
 
-					field = append(field, TeamworkOutputData{fmt.Sprintf("Teamwork-%d", i), "```" + teamworkStr[:chunkSize] + "```"})
-					teamworkStr = teamworkStr[chunkSize:]
+					field = append(field, TeamworkOutputData{fmt.Sprintf("Teamwork-%d", i), "```" + chunk + "```"})
+					teamworkStr = teamworkStr[len(chunk):]
 				}
 			} else {
 				field = append(field, TeamworkOutputData{"Teamwork", "```" + teamworkStr + "```"})
