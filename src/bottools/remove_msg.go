@@ -48,8 +48,10 @@ func parseRemoveMessageID(e *dc.CommandEvent) string {
 	// https://discord.com/channels/@me/1124490885204287610/1276990861158256664
 	// 1276990861158256664
 	message := strings.TrimSpace(v)
-	split := strings.Split(message, "/")
-	return split[len(split)-1]
+	if _, id, found := strings.CutLast(message, "/"); found {
+		return id
+	}
+	return message
 }
 
 // removeBotMessage deletes the bot's own message identified by messageID in

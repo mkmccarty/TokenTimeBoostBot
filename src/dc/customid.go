@@ -26,3 +26,12 @@ func CustomID(parts ...string) string {
 func SplitCustomID(id string) []string {
 	return strings.Split(id, customIDSeparator)
 }
+
+// SplitContractHash extracts the trailing contract hash (the last segment after
+// the final "#") from a CustomID. If no separator is present, it returns the entire id.
+func SplitContractHash(id string) string {
+	if _, hash, found := strings.CutLast(id, customIDSeparator); found {
+		return hash
+	}
+	return id
+}
