@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mattn/go-runewidth"
@@ -17,13 +18,41 @@ import (
 
 const discordMessageCharLimit = 1900
 const leaderboardUpdateConfirmationTTL = 1 * time.Minute
-const rateLimitDelay = 1250 * time.Millisecond
+const rateLimitDelay = 1000 * time.Millisecond
+const maxConcurrentChannels = 5
 
 // PostProgress tracks the progress of posting multiple leaderboards, allowing for ETA estimation and progress reporting.
 type PostProgress struct {
+	mu            sync.Mutex
 	TotalMetrics  int
 	PostedMetrics int
 	TotalDuration time.Duration
+}
+
+func (p *PostProgress) recordMetric(d time.Duration) (posted int, total int, avg time.Duration) {
+	if p == nil {
+		return 0, 0, 0
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.PostedMetrics++
+	p.TotalDuration += d
+	if p.PostedMetrics > 0 {
+		avg = time.Duration(int64(p.TotalDuration) / int64(p.PostedMetrics))
+	}
+	return p.PostedMetrics, p.TotalMetrics, avg
+}
+
+func (p *PostProgress) snapshot() (posted int, total int, avg time.Duration) {
+	if p == nil {
+		return 0, 0, 0
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.PostedMetrics > 0 {
+		avg = time.Duration(int64(p.TotalDuration) / int64(p.PostedMetrics))
+	}
+	return p.PostedMetrics, p.TotalMetrics, avg
 }
 
 func targetMemberSet(target string) map[string]struct{} {
@@ -58,6 +87,8 @@ func shouldProcessMember(lbType string, targetSet map[string]struct{}) bool {
 }
 
 // PostLeaderboards triggers the posting task for all configured guilds (or a specific guild if guildID is provided).
+// Channels are updated concurrently using a bounded worker pool, while requests within each channel
+// are paced at optimal rate-limit throughput.
 func PostLeaderboards(client dc.Client, snapDate string, guildID string, target string, action string, onProgress func(string)) {
 	var configs []LBConfig
 	var err error
@@ -103,38 +134,78 @@ func PostLeaderboards(client dc.Client, snapDate string, guildID string, target 
 		}
 	}
 
-	guildConfigs := make(map[string][]LBConfig)
-	var guildOrder []string
+	if prog.TotalMetrics == 0 {
+		log.Println("leaderboard: no leaderboards to post")
+		return
+	}
+
+	// Group configs by ChannelID so that each channel's posts are sequential and rate-limited,
+	// while different channels run concurrently.
+	channelConfigs := make(map[string][]LBConfig)
+	var channelOrder []string
 	for _, cfg := range configs {
-		if len(guildConfigs[cfg.GuildID]) == 0 {
-			guildOrder = append(guildOrder, cfg.GuildID)
+		if len(channelConfigs[cfg.ChannelID]) == 0 {
+			channelOrder = append(channelOrder, cfg.ChannelID)
 		}
-		guildConfigs[cfg.GuildID] = append(guildConfigs[cfg.GuildID], cfg)
+		channelConfigs[cfg.ChannelID] = append(channelConfigs[cfg.ChannelID], cfg)
 	}
 
-	guildIndex := 0
-	for _, gid := range guildOrder {
-		guildIndex++
-		gc := guildConfigs[gid]
-
-		if onProgress != nil {
-			onProgress(fmt.Sprintf("📬 Posting leaderboards to guild %d/%d (%s)...", guildIndex, len(guildOrder), gid))
-		}
-
-		channelsUpdated := make(map[string]bool)
-		for _, cfg := range gc {
-			postOneLeaderboard(client, cfg, snapDate, targetSet, action, &prog, onProgress)
-			channelsUpdated[cfg.ChannelID] = true
-			time.Sleep(2 * time.Second) // Gap between configs to leave room for other bot activities
-		}
-
-		for channelID := range channelsUpdated {
-			postChannelUpdateConfirmation(client, channelID)
-		}
+	if onProgress != nil {
+		onProgress(fmt.Sprintf("📬 Posting leaderboards across %d channel(s) (%d metrics total)...", len(channelOrder), prog.TotalMetrics))
 	}
+
+	sem := make(chan struct{}, maxConcurrentChannels)
+	var wg sync.WaitGroup
+
+	for _, chID := range channelOrder {
+		chID := chID
+		cList := channelConfigs[chID]
+
+		sem <- struct{}{}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			for _, cfg := range cList {
+				postOneLeaderboard(client, cfg, snapDate, targetSet, action, &prog, onProgress)
+			}
+			postChannelUpdateConfirmation(client, chID)
+		}()
+	}
+
+	wg.Wait()
+
 	if onProgress != nil {
 		onProgress("🏁 Weekly leaderboard update complete!")
 	}
+}
+
+var (
+	guildNameCache   = make(map[string]string)
+	guildNameCacheMu sync.RWMutex
+)
+
+func resolveGuildName(client dc.Client, guildID string) string {
+	if guildID == "" {
+		return ""
+	}
+	guildNameCacheMu.RLock()
+	name, ok := guildNameCache[guildID]
+	guildNameCacheMu.RUnlock()
+	if ok {
+		return name
+	}
+
+	if client != nil {
+		if g, err := client.Guild(guildID); err == nil && g != nil && g.Name != "" {
+			guildNameCacheMu.Lock()
+			guildNameCache[guildID] = g.Name
+			guildNameCacheMu.Unlock()
+			return g.Name
+		}
+	}
+	return guildID
 }
 
 // postOneLeaderboard handles the expanded posting of a single config (which might be a group).
@@ -153,6 +224,8 @@ func postOneLeaderboard(client dc.Client, cfg LBConfig, snapDate string, targetS
 			cfg.MessageIDs = nil
 		}
 	}
+
+	guildLabel := resolveGuildName(client, cfg.GuildID)
 
 	for _, lbType := range memberKeys {
 		if !shouldProcessMember(lbType, targetSet) {
@@ -177,13 +250,15 @@ func postOneLeaderboard(client dc.Client, cfg LBConfig, snapDate string, targetS
 		}
 
 		if onProgress != nil {
-			statusStr := fmt.Sprintf("📬 Guild %s: Updating %s...", cfg.GuildID, def.DisplayName)
-			if prog != nil && prog.PostedMetrics > 0 && prog.TotalMetrics > prog.PostedMetrics {
-				avg := time.Duration(int64(prog.TotalDuration) / int64(prog.PostedMetrics))
-				rem := prog.TotalMetrics - prog.PostedMetrics
-				eta := time.Duration(rem) * avg
-				finishTime := bottools.WrapTimestamp(time.Now().Add(eta).Unix(), bottools.TimestampLongTime)
-				statusStr += fmt.Sprintf("\n-# ⏳ Estimating %ds remaining (~%d leaderboards left to post, finishing around %s).", int(eta.Seconds()), rem, finishTime)
+			statusStr := fmt.Sprintf("📬 %s: Updating %s...", guildLabel, def.DisplayName)
+			if prog != nil {
+				posted, total, avg := prog.snapshot()
+				if posted > 0 && total > posted {
+					rem := total - posted
+					eta := time.Duration(rem) * avg
+					finishTime := bottools.WrapTimestamp(time.Now().Add(eta).Unix(), bottools.TimestampLongTime)
+					statusStr += fmt.Sprintf("\n-# ⏳ Estimating %ds remaining (~%d leaderboards left to post, finishing around %s).", int(eta.Seconds()), rem, finishTime)
+				}
 			}
 			onProgress(statusStr)
 		}
@@ -192,8 +267,7 @@ func postOneLeaderboard(client dc.Client, cfg LBConfig, snapDate string, targetS
 		postSingleMetric(client, cfg, lbType, snapDate, &newMsgIDs, &msgIDOffset, &forceNewPosts)
 		time.Sleep(rateLimitDelay)
 		if prog != nil {
-			prog.TotalDuration += time.Since(start)
-			prog.PostedMetrics++
+			prog.recordMetric(time.Since(start))
 		}
 	}
 
