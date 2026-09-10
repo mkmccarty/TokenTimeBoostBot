@@ -17,7 +17,7 @@ import (
 
 const discordMessageCharLimit = 1900
 const leaderboardUpdateConfirmationTTL = 1 * time.Minute
-const rateLimitDelay = 200 * time.Millisecond
+const rateLimitDelay = 1250 * time.Millisecond
 
 // PostProgress tracks the progress of posting multiple leaderboards, allowing for ETA estimation and progress reporting.
 type PostProgress struct {
@@ -210,6 +210,7 @@ func postOneLeaderboard(client dc.Client, cfg LBConfig, snapDate string, targetS
 			if oldID != "" && !newMsgIDsMap[oldID] {
 				log.Printf("leaderboard: deleting orphaned message %s in channel %s", oldID, cfg.ChannelID)
 				_ = client.DeleteMessage(cfg.ChannelID, oldID)
+				time.Sleep(rateLimitDelay)
 			}
 		}
 	}
