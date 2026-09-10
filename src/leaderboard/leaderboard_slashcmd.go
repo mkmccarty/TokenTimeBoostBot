@@ -602,7 +602,13 @@ func handleRun(client dc.Client, e *dc.CommandEvent) {
 	}
 	respondEphemeral(e, msg)
 
+	var lastProgress time.Time
 	onProgress := func(status string) {
+		now := time.Now()
+		if now.Sub(lastProgress) < 2*time.Second && !strings.HasPrefix(status, "✅") && !strings.HasPrefix(status, "🏁") && !strings.HasPrefix(status, "❌") && !strings.HasPrefix(status, "⚠️") {
+			return
+		}
+		lastProgress = now
 		_ = e.EditResponse(dc.Message{Content: status})
 	}
 
