@@ -893,8 +893,13 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 			}
 
 			for _, el := range contract.Location {
-				if el.GuildID == guildID && b.UserID != b.Name && el.GuildContractRole.ID != "" {
-					_ = client.AddGuildMemberRole(guildID, b.UserID, el.GuildContractRole.ID)
+				if (guildID == "" || el.GuildID == guildID) && dc.IsSnowflake(b.UserID) {
+					if el.GuildContractRole.ID != "" {
+						_ = client.AddGuildMemberRole(el.GuildID, b.UserID, el.GuildContractRole.ID)
+					}
+					if el.ChannelID != "" {
+						_ = client.AddThreadMember(el.ChannelID, b.UserID)
+					}
 				}
 			}
 
@@ -1424,6 +1429,13 @@ func JoinContract(client dc.Client, guildID string, channelID string, userID str
 	// test if userID in Boosters
 	if contract.Boosters[userID] != nil {
 		contract.Boosters[userID].Ping = bell
+		for _, el := range contract.Location {
+			if (guildID == "" || el.GuildID == guildID) && dc.IsSnowflake(userID) {
+				if el.ChannelID != "" {
+					_ = client.AddThreadMember(el.ChannelID, userID)
+				}
+			}
+		}
 	}
 
 	if bell {

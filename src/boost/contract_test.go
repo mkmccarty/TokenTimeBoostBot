@@ -807,3 +807,100 @@ func TestBoostMenuNextBoosterTokens(t *testing.T) {
 		t.Errorf("Expected next2:user2 emoji to match ultra_gg name %q, got %q", ultraGGEmoji.Name, emoji)
 	}
 }
+
+func TestAddFarmerToContract_AddsThreadMember(t *testing.T) {
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("thread1", "guild1", "contract-thread").
+		WithUser("123456789012345678", "farmer1", "Farmer One")
+
+	contract := &Contract{
+		ContractHash: "test-hash-thread",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     10,
+		State:        ContractStateFastrun,
+		CreatorID:    []string{"creator1"},
+		Order:        make([]string, 0),
+		Boosters:     make(map[string]*Booster),
+		Location:     []*LocationData{{GuildID: "guild1", ChannelID: "thread1"}},
+	}
+	Contracts[contract.ContractHash] = contract
+	defer delete(Contracts, contract.ContractHash)
+
+	b, err := AddFarmerToContract(client, contract, "guild1", "thread1", "123456789012345678", ContractOrderSignup, false, false)
+	if err != nil {
+		t.Fatalf("unexpected error adding farmer: %v", err)
+	}
+	if b == nil {
+		t.Fatalf("expected booster to be created, got nil")
+	}
+
+	// Verify AddThreadMember call was recorded for snowflake user
+	found := false
+	for _, call := range client.Calls {
+		if call.Method == "AddThreadMember" {
+			if len(call.Args) >= 2 && call.Args[0] == "thread1" && call.Args[1] == "123456789012345678" {
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected AddThreadMember(thread1, 123456789012345678) to be called, recorded calls: %v", client.Calls)
+	}
+
+	// Adding a non-snowflake guest should NOT call AddThreadMember
+	client.Calls = nil
+	_, err = AddFarmerToContract(client, contract, "guild1", "thread1", "guest-farmer", ContractOrderSignup, false, false)
+	if err != nil {
+		t.Fatalf("unexpected error adding guest farmer: %v", err)
+	}
+	for _, call := range client.Calls {
+		if call.Method == "AddThreadMember" {
+			t.Errorf("unexpected AddThreadMember call for guest: %v", call)
+		}
+	}
+}
+
+func TestJoinRunningContract_AddsThreadMember(t *testing.T) {
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("thread2", "guild1", "running-contract-thread").
+		WithUser("234567890123456789", "farmer2", "Farmer Two")
+
+	contract := &Contract{
+		ContractHash: "test-hash-running-join",
+		ContractID:   "test-contract-running",
+		CoopID:       "test-coop-running",
+		CoopSize:     5,
+		State:        ContractStateFastrun,
+		CreatorID:    []string{"creator1"},
+		Order:        []string{"creator1"},
+		Boosters: map[string]*Booster{
+			"creator1": {UserID: "creator1", Name: "Creator", Nick: "Creator"},
+		},
+		Location: []*LocationData{{GuildID: "guild1", ChannelID: "thread2"}},
+	}
+	Contracts[contract.ContractHash] = contract
+	defer delete(Contracts, contract.ContractHash)
+
+	err := JoinContract(client, "guild1", "thread2", "234567890123456789", false)
+	if err != nil {
+		t.Fatalf("unexpected error joining contract: %v", err)
+	}
+
+	// Verify AddThreadMember call was recorded
+	found := false
+	for _, call := range client.Calls {
+		if call.Method == "AddThreadMember" {
+			if len(call.Args) >= 2 && call.Args[0] == "thread2" && call.Args[1] == "234567890123456789" {
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected AddThreadMember(thread2, 234567890123456789) to be called on join, recorded calls: %v", client.Calls)
+	}
+}

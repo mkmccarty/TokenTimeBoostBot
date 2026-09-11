@@ -306,3 +306,9 @@ func (f *FakeClient) ActiveThreads(guildID string) ([]dc.Channel, error) {
 	}
 	return threads, nil
 }
+
+// AddThreadMember records adding a member to a thread.
+func (f *FakeClient) AddThreadMember(threadID, userID string) error {
+	f.record("AddThreadMember", threadID, userID)
+	return nil
+}

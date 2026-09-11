@@ -25,6 +25,12 @@ func newDisgoClient(b *bot.Client) *disgoClient {
 	return &disgoClient{bot: b}
 }
 
+// IsSnowflake reports whether s is a valid Discord snowflake ID.
+func IsSnowflake(s string) bool {
+	id, err := snowflake.Parse(s)
+	return err == nil && id != 0
+}
+
 // parseIDs parses a list of facade IDs, returning the first failure.
 func parseIDs(ids ...string) ([]snowflake.ID, error) {
 	out := make([]snowflake.ID, 0, len(ids))
@@ -403,6 +409,15 @@ func (c *disgoClient) JoinThread(channelID string) error {
 		return err
 	}
 	return wrapAPIError(c.bot.Rest.JoinThread(ids[0]))
+}
+
+// AddThreadMember adds a member to a thread.
+func (c *disgoClient) AddThreadMember(threadID, userID string) error {
+	ids, err := parseIDs(threadID, userID)
+	if err != nil {
+		return err
+	}
+	return wrapAPIError(c.bot.Rest.AddThreadMember(ids[0], ids[1]))
 }
 
 // ActiveThreads lists the active threads in a guild. The argument is a guild
