@@ -419,17 +419,26 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 	case "togglerxlog":
 		contract.mutex.Lock()
 		booster := contract.Boosters[userID]
-		msgStr := "You are not part of this contract."
+		var disabled bool
 		if booster != nil {
 			booster.DisableEphemeralLog = !booster.DisableEphemeralLog
-			if booster.DisableEphemeralLog {
+			disabled = booster.DisableEphemeralLog
+			if disabled {
 				booster.NonTokenMsgID = ""
-				msgStr = "🚫 **Reaction Summary Log:** Disabled for your button reactions."
-			} else {
-				msgStr = "📊 **Reaction Summary Log:** Enabled for your button reactions."
 			}
+		} else {
+			disabled = !farmerstate.GetMiscSettingFlag(userID, "DisableEphemeralLog")
 		}
 		contract.mutex.Unlock()
+
+		farmerstate.SetMiscSettingFlag(userID, "DisableEphemeralLog", disabled)
+
+		var msgStr string
+		if disabled {
+			msgStr = "🚫 **Reaction Summary Log:** Disabled for your button reactions."
+		} else {
+			msgStr = "📊 **Reaction Summary Log:** Enabled for your button reactions."
+		}
 
 		_ = e.Respond(dc.Message{
 			Content:   msgStr,
