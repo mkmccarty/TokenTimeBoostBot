@@ -820,6 +820,7 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 		if te != "" {
 			b.TECount, _ = strconv.Atoi(te)
 		}
+		b.DisableEphemeralLog = farmerstate.GetMiscSettingFlag(userID, "DisableEphemeralLog")
 
 		if contract.State != ContractStateSignup {
 			if contract.Style&ContractFlag4Tokens != 0 {

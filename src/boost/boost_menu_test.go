@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 func mustSandboxArtifact(t *testing.T, key string) ei.Artifact {
@@ -220,5 +222,91 @@ func TestDrawBoostListCompactRange(t *testing.T) {
 	}
 	if !foundLateCompaction {
 		t.Errorf("expected late list compaction '... (8 more) ...' not found in components")
+	}
+}
+
+func TestToggleReactionLogPersistenceAndJoin(t *testing.T) {
+	testUserID := "4"
+	farmerstate.SetMiscSettingFlag(testUserID, "DisableEphemeralLog", true)
+
+	client := dctest.New().WithUser(testUserID, "Tester", "Tester")
+	contract := &Contract{
+		ContractHash: "test-rx-hash",
+		ContractID:   "test-rx-contract",
+		CoopID:       "test-rx-coop",
+		CoopSize:     10,
+		State:        ContractStateSignup,
+		CreatorID:    []string{"creator1"},
+		Order:        make([]string, 0),
+		Boosters:     make(map[string]*Booster),
+		Location:     []*LocationData{{GuildID: "guild1", ChannelID: "channel1"}},
+	}
+	Contracts[contract.ContractHash] = contract
+	defer delete(Contracts, contract.ContractHash)
+
+	// Test join carries over setting
+	b, err := AddFarmerToContract(client, contract, "guild1", "channel1", testUserID, ContractOrderSignup, false, false)
+	if err != nil {
+		t.Fatalf("unexpected error adding farmer: %v", err)
+	}
+	if !b.DisableEphemeralLog {
+		t.Errorf("expected DisableEphemeralLog to be true on join from farmerstate, got false")
+	}
+
+	// Test toggling via menu
+	ev := dctest.ComponentSelectEvent("menu#"+contract.ContractHash, "togglerxlog")
+
+	HandleMenuReactions(client, ev)
+
+	if b.DisableEphemeralLog {
+		t.Errorf("expected DisableEphemeralLog to be toggled to false, got true")
+	}
+	if farmerstate.GetMiscSettingFlag(testUserID, "DisableEphemeralLog") {
+		t.Errorf("expected farmerstate DisableEphemeralLog to be false after toggle, got true")
+	}
+
+	// Toggle again
+	HandleMenuReactions(client, ev)
+	if !b.DisableEphemeralLog {
+		t.Errorf("expected DisableEphemeralLog to be toggled back to true, got false")
+	}
+	if !farmerstate.GetMiscSettingFlag(testUserID, "DisableEphemeralLog") {
+		t.Errorf("expected farmerstate DisableEphemeralLog to be true after second toggle, got false")
+	}
+}
+
+func TestToggleReactionLogMenuComponents(t *testing.T) {
+	contract := &Contract{
+		ContractHash: "test-menu-hash",
+		ContractID:   "test-menu-contract",
+		CoopID:       "test-menu-coop",
+		State:        ContractStateWaiting,
+		CreatorID:    []string{"creator1"},
+		Order:        make([]string, 0),
+		Boosters:     make(map[string]*Booster),
+		Location:     []*LocationData{{GuildID: "guild1", ChannelID: "channel1"}},
+	}
+
+	components := getContractReactionsComponents(contract)
+	foundOption := false
+	for _, comp := range components {
+		if actionRow, ok := comp.(dc.ActionRow); ok {
+			for _, rowComp := range actionRow.Components {
+				if selectMenu, ok := rowComp.(dc.SelectMenu); ok {
+					for _, opt := range selectMenu.Options {
+						if opt.Value == "togglerxlog" {
+							foundOption = true
+							if opt.Description != "Toggle token log details on or off" {
+								t.Errorf("expected Description 'Toggle token log details on or off', got %q", opt.Description)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if !foundOption {
+		t.Errorf("expected togglerxlog select option not found in contract reaction components")
 	}
 }

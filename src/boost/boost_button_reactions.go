@@ -1208,9 +1208,10 @@ func getContractReactionsComponents(contract *Contract) []dc.LayoutComponent {
 			Emoji: ei.GetBotComponentEmoji("token"),
 		})
 		menuOptions = append(menuOptions, dc.SelectOption{
-			Label: "Toggle Reaction Log",
-			Value: "togglerxlog",
-			Emoji: &dc.Emoji{Name: "📊"},
+			Label:       "Toggle Reaction Log",
+			Description: "Toggle token log details on or off",
+			Value:       "togglerxlog",
+			Emoji:       &dc.Emoji{Name: "📊"},
 		})
 		menuOptions = append(menuOptions, dc.SelectOption{
 			Label: "My Chicken Runs",
