@@ -1,12 +1,14 @@
 package boost
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
 )
 
 func TestRanCoopAndBuildChickenRunLists(t *testing.T) {
@@ -197,5 +199,51 @@ func TestBuildCRMessageComponentsCompleted(t *testing.T) {
 	}
 	if textDisplay.Content == "" || !strings.Contains(textDisplay.Content, "Player1") {
 		t.Errorf("expected completion message with Player1, got %q", textDisplay.Content)
+	}
+}
+
+func TestButtonReactionRunChickensSendFailureRollback(t *testing.T) {
+	c := &Contract{
+		ContractHash: "test-hash-rollback",
+		Order:        []string{"user1", "user2"},
+		Location: []*LocationData{
+			{
+				GuildID:   "guild1",
+				ChannelID: "channel1",
+			},
+		},
+		CRMessageIDs: make(map[string]string),
+		Boosters: map[string]*Booster{
+			"user1": {
+				UserID:     "user1",
+				Nick:       "Player1",
+				BoostState: BoostStateBoosted,
+			},
+			"user2": {
+				UserID:     "user2",
+				Nick:       "Player2",
+				BoostState: BoostStateBoosted,
+			},
+		},
+	}
+
+	client := dctest.New()
+	client.SendErr = errors.New("failed to send CR message")
+
+	// Trigger buttonReactionRunChickens
+	ok, _ := buttonReactionRunChickens(client, c, "user1")
+	if !ok {
+		t.Fatalf("expected buttonReactionRunChickens to return true")
+	}
+
+	// Wait for goroutine to finish
+	time.Sleep(50 * time.Millisecond)
+
+	c.mutex.Lock()
+	runTime := c.Boosters["user1"].RunChickensTime
+	c.mutex.Unlock()
+
+	if !runTime.IsZero() {
+		t.Errorf("expected RunChickensTime to be rolled back to zero on send error, got %v", runTime)
 	}
 }

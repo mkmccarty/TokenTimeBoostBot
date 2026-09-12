@@ -19,6 +19,9 @@ const (
 	// ErrCodeMissingPermissions means the bot can see the channel but is not
 	// allowed the action it attempted.
 	ErrCodeMissingPermissions = 50013
+	// ErrCodeThreadArchived means the thread is archived and must be unarchived
+	// before messages can be sent to it.
+	ErrCodeThreadArchived = 50083
 )
 
 // APIError is a rejected Discord REST call. Code is Discord's own error code
@@ -96,3 +99,11 @@ func IsUnknownChannel(err error) bool {
 	}
 	return apiErr.Code == ErrCodeUnknownChannel || apiErr.StatusCode == 404
 }
+
+// IsThreadArchived reports whether err is Discord refusing a message send
+// because the target thread is archived.
+func IsThreadArchived(err error) bool {
+	apiErr, ok := AsAPIError(err)
+	return ok && apiErr.Code == ErrCodeThreadArchived
+}
+

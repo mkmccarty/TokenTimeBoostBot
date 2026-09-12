@@ -2,10 +2,12 @@ package dc
 
 import (
 	"context"
+	"errors"
 
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/gateway"
+	"github.com/disgoorg/disgo/rest"
 	"github.com/disgoorg/snowflake/v2"
 )
 
@@ -52,7 +54,16 @@ func (c *disgoClient) SendMessage(channelID string, m Message) (*MessageRef, err
 	}
 	msg, err := c.bot.Rest.CreateMessage(ids[0], m.toMessageCreate())
 	if err != nil {
-		return nil, wrapAPIError(err)
+		var restErr *rest.Error
+		if errors.As(err, &restErr) && restErr.Code == ErrCodeThreadArchived {
+			unarchived := false
+			if _, updateErr := c.bot.Rest.UpdateChannel(ids[0], discord.GuildThreadUpdate{Archived: &unarchived}); updateErr == nil {
+				msg, err = c.bot.Rest.CreateMessage(ids[0], m.toMessageCreate())
+			}
+		}
+		if err != nil {
+			return nil, wrapAPIError(err)
+		}
 	}
 	return messageRefFrom(msg), nil
 }
