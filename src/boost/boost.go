@@ -1646,6 +1646,9 @@ func RemoveFarmerByMention(client dc.Client, guildID string, channelID string, o
 		msg, err := client.EditMessage(loc.ChannelID, loc.ListMsgID, dc.Message{Components: components})
 		if err == nil {
 			loc.ListMsgID = msg.ID
+		} else {
+			log.Printf("RemoveFarmerFromContract: failed to edit boost list message %s in channel %s for contract %s: %v",
+				loc.ListMsgID, loc.ChannelID, contract.ContractHash, err)
 		}
 		// Need to disable the speedrun start button if the contract is no longer full
 		if previousBoosters != len(contract.Boosters) && previousBoosters == contract.CoopSize {

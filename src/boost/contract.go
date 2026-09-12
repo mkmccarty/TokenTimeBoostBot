@@ -343,7 +343,7 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 			ChannelID = thread.ID
 			_ = client.JoinThread(thread.ID)
 		} else {
-			log.Print(err)
+			log.Printf("contract: failed to start thread in channel %s: %v", ChannelID, err)
 		}
 	}
 
@@ -356,7 +356,7 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 			Content:   err.Error(),
 			Ephemeral: true,
 		}); ferr != nil {
-			log.Print(ferr)
+			log.Printf("contract: failed to send create error followup to channel %s: %v", e.ChannelID(), ferr)
 		}
 		return
 	}
@@ -1014,7 +1014,7 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 		if err == nil {
 			loc.ListMsgID = msg.ID
 		} else {
-			log.Print(err)
+			log.Printf("contract: failed to edit boost list message %s in channel %s for contract %s: %v", loc.ListMsgID, loc.ChannelID, contract.ContractHash, err)
 		}
 
 		if redrawSignup {
@@ -1047,7 +1047,7 @@ func HandleContractSettingsCommand(client dc.Client, e *dc.CommandEvent) {
 		components = append(components, comp...)
 		err = e.Followup(dc.Message{Components: components})
 		if err != nil {
-			log.Println("Error sending contract settings:", err)
+			log.Printf("contract: error sending contract settings followup in channel %s: %v", e.ChannelID(), err)
 		}
 		return
 
@@ -1207,7 +1207,7 @@ func HandleThresholdModalSubmit(client dc.Client, e *dc.ModalEvent) {
 		if err == nil {
 			loc.ListMsgID = msg.ID
 		} else {
-			log.Print(err)
+			log.Printf("contract: failed to edit boost list message %s in channel %s for contract %s: %v", loc.ListMsgID, loc.ChannelID, contract.ContractHash, err)
 		}
 
 		updateSignupReactionMessage(client, contract, loc)

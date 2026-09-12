@@ -106,3 +106,17 @@ func IsThreadArchived(err error) bool {
 	apiErr, ok := AsAPIError(err)
 	return ok && apiErr.Code == ErrCodeThreadArchived
 }
+
+// IsMissingAccess reports whether err is Discord refusing a call because the
+// bot cannot view/access the target channel or guild (Discord code 50001).
+func IsMissingAccess(err error) bool {
+	apiErr, ok := AsAPIError(err)
+	return ok && apiErr.Code == ErrCodeMissingAccess
+}
+
+// IsMissingPermissions reports whether err is Discord refusing a call because
+// the bot lacks specific permissions to perform the action (Discord code 50013).
+func IsMissingPermissions(err error) bool {
+	apiErr, ok := AsAPIError(err)
+	return ok && apiErr.Code == ErrCodeMissingPermissions
+}
