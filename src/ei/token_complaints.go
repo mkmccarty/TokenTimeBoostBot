@@ -107,3 +107,49 @@ func GetTokenComplaint(userName string) (string, error) {
 
 	return fmt.Sprintf(":loudspeaker: %s", strings.ReplaceAll(template, playerToken, userName)), nil
 }
+
+var defaultFallbackComplaintSamples = []string{
+	"A little birdie told [player] Kev doesn't particularly like them.",
+	"[player] is manifesting tokens... unsuccessfully.",
+	"Trucks keep arriving. [player] keeps learning things.",
+	"“Oops… I did it again,” said [player].",
+	"[player] is speedrunning everything except token gifts.",
+	"USPS must have lost [player]'s tokens.",
+	"“Wake me up when tokens arrive,” pleaded [player].",
+	"Golden eggs again. Somewhere, [player] sighed.",
+	"The system never promised fairness, only randomness, and [player] is learning the difference one empty truck at a time.",
+	"\"Tokens exist elsewhere.\" - [player]",
+	"“This is fine,” said [player], staring at the cash.",
+	"[player] realized that they don't need tokens to boost.",
+}
+
+// GetRandomComplaintSamples returns a specified number of unique random token complaints from the loaded complaints
+// (or diverse defaults if none loaded).
+func GetRandomComplaintSamples(count int) []string {
+	tokenComplaintsMutex.RLock()
+	var pool []string
+	for _, c := range TokenComplaints {
+		if c != "" && c != tokenComplaintsResortFlag && strings.Contains(c, playerToken) {
+			pool = append(pool, c)
+		}
+	}
+	tokenComplaintsMutex.RUnlock()
+
+	if len(pool) == 0 {
+		pool = append([]string(nil), defaultFallbackComplaintSamples...)
+	}
+
+	if count <= 0 {
+		count = 5
+	}
+	if count > len(pool) {
+		count = len(pool)
+	}
+
+	shuffled := append([]string(nil), pool...)
+	rand.Shuffle(len(shuffled), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+
+	return shuffled[:count]
+}
