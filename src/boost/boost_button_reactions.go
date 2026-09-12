@@ -394,6 +394,7 @@ func buttonReactionRunChickens(client dc.Client, contract *Contract, cUserID str
 
 		go func() {
 			client := client
+			sendSuccess := false
 			for _, location := range contract.Location {
 				contract.mutex.Lock()
 				components, _ := buildCRMessageComponents(contract, location.RoleMention)
@@ -418,6 +419,7 @@ func buttonReactionRunChickens(client dc.Client, contract *Contract, cUserID str
 					continue
 				}
 
+				sendSuccess = true
 				contract.mutex.Lock()
 				setChickenRunMessageID(contract, location.ChannelID, newMsg.ID)
 				contract.CRNoticeCount++
@@ -437,6 +439,17 @@ func buttonReactionRunChickens(client dc.Client, contract *Contract, cUserID str
 							contract.ContractHash, location.ChannelID, existingMsgID, err)
 					}
 				}
+			}
+
+			if !sendSuccess {
+				// Rollback RunChickensTime so the user isn't permanently locked out of retrying
+				contract.mutex.Lock()
+				if booster := contract.Boosters[userID]; booster != nil {
+					booster.RunChickensTime = time.Time{}
+				}
+				contract.mutex.Unlock()
+			} else {
+				saveData(contract.ContractHash)
 			}
 		}()
 		str = "You've asked for Chicken Runs, now what...\n...\nMaybe.. check on your habs and gusset?\nI'm sure you've already forced a game sync so no need to remind about that."

@@ -84,3 +84,15 @@ func TestIsUnknownChannel(t *testing.T) {
 		t.Fatal("missing permissions is not unknown channel")
 	}
 }
+
+func TestIsThreadArchived(t *testing.T) {
+	if !IsThreadArchived(restError(400, ErrCodeThreadArchived, "Thread is archived")) {
+		t.Fatal("expected thread is archived")
+	}
+	if IsThreadArchived(restError(404, ErrCodeUnknownChannel, "Unknown Channel")) {
+		t.Fatal("unknown channel is not thread archived")
+	}
+	if IsThreadArchived(errors.New("nope")) {
+		t.Fatal("a plain error is not thread archived")
+	}
+}
