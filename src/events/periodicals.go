@@ -419,7 +419,7 @@ func GetPeriodicalsFromAPI(client dc.Client) bool {
 		}
 
 		if needTeamNames || needComplaints {
-			go fetchThematicDataAsync(c.ID, c.Name, c.Description, needTeamNames, needComplaints)
+			go fetchThematicDataAsync(c.ID, c.EggName, c.Name, c.Description, needTeamNames, needComplaints)
 		}
 
 		ei.EggIncContractsAll[c.ID] = c
@@ -524,7 +524,7 @@ func GetPeriodicalsFromAPI(client dc.Client) bool {
 
 var asyncPeriodicalMutex sync.Mutex
 
-func fetchThematicDataAsync(contractID string, contractName string, contractDescription string, needTeamNames bool, needComplaints bool) {
+func fetchThematicDataAsync(contractID string, eggName string, contractName string, contractDescription string, needTeamNames bool, needComplaints bool) {
 	var teamNames []string
 	var complaints []string
 
@@ -532,7 +532,7 @@ func fetchThematicDataAsync(contractID string, contractName string, contractDesc
 		teamNames = notok.GetContractTeamNames(contractDescription, expectedContractRoleNames)
 	}
 	if needComplaints {
-		complaints = notok.GetContractThematicComplaints(contractName, contractDescription, expectedContractComplaints)
+		complaints = notok.GetContractThematicComplaints(eggName, contractName, contractDescription, expectedContractComplaints)
 	}
 
 	if len(teamNames) > 0 || len(complaints) > 0 {

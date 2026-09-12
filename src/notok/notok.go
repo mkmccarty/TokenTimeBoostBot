@@ -13,6 +13,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 
 	"google.golang.org/genai"
 )
@@ -312,20 +313,33 @@ func isRetryableModelError(err error) bool {
 }
 
 // GetContractThematicComplaints returns a list of contract themed complaints for a given contract.
-func GetContractThematicComplaints(contractName string, contractDescription string, quantity int) []string {
+func GetContractThematicComplaints(eggName string, contractName string, contractDescription string, quantity int) []string {
 	if config.GoogleAPIKey == "" {
 		return nil
 	}
+
+	samples := ei.GetRandomComplaintSamples(5)
+
 	var builder strings.Builder
-	builder.WriteString("Egg Inc. is an idle game where players cooperate in contracts. Boost tokens are extremely rare and valuable items players need to boost their farms. Sometimes, players are extremely unlucky and don't get boost tokens from random trucks or boxes. In the game, players complain about their poor token luck.\n\n")
-	builder.WriteString("Here are examples of token complaints:\n")
-	builder.WriteString("- [player] has become a statistical anomaly.\n")
-	builder.WriteString("- [player] stared into the void. The void handed cash.\n")
-	builder.WriteString("- Kev knows what he did to [player].\n")
-	builder.WriteString("- [player] has begun to suspect tokens are a myth but refuses to say it out loud.\n")
-	builder.WriteString("- Rip [player].\n\n")
-	fmt.Fprintf(&builder, "The current contract is named \"%s\" and described as \"%s\".\n", contractName, contractDescription)
-	fmt.Fprintf(&builder, "Generate exactly %d comical, witty, desperate, or sarcastic token complaints specifically themed around the name and description of this contract. Each complaint MUST include the exact placeholder \"[player]\" (e.g. \"[player] got eaten by [contract theme]\"). Return the complaints as a JSON array of strings: [\"complaint 1\", \"complaint 2\", ...]. Return ONLY the raw JSON array of strings and nothing else. No markdown formatting, no backticks, no code blocks.", quantity)
+	builder.WriteString("Egg Inc. is an idle game where players cooperate in contracts. Boost tokens are rare items dropped by delivery trucks/boxes that players need to activate powerful boosts. Sometimes, players suffer terrible RNG and receive no tokens (getting common cash or golden eggs instead).\n\n")
+	builder.WriteString("Here is a diverse sample of token complaints for inspiration:\n")
+	for _, s := range samples {
+		builder.WriteString("- " + s + "\n")
+	}
+	builder.WriteString("\n")
+	if strings.TrimSpace(eggName) != "" {
+		fmt.Fprintf(&builder, "The current contract produces \"%s\" eggs, is named \"%s\", and is described as \"%s\".\n\n", eggName, contractName, contractDescription)
+	} else {
+		fmt.Fprintf(&builder, "The current contract is named \"%s\" and described as \"%s\".\n\n", contractName, contractDescription)
+	}
+	fmt.Fprintf(&builder, "Generate exactly %d comical, witty, sarcastic, or desperate token complaints creatively themed around this specific contract.\n", quantity)
+	builder.WriteString("Guidelines for high variety and humor:\n")
+	builder.WriteString("- Seamlessly weave in specific themes, puns, lore, egg type, or imagery from the contract name, egg, and description.\n")
+	builder.WriteString("- Mix up formats and perspectives: use direct quotes (\"...\" - [player]), sarcastic observations, internal monologues, deadpan reactions, or quirky announcements.\n")
+	builder.WriteString("- Vary where the player appears in the sentence (do not always make [player] the very first word).\n")
+	builder.WriteString("- Avoid repetitive cliches or overused tropes (e.g. do NOT overuse 'stared into the void', 'statistical anomaly', or repeating 'RIP'). Keep ideas original.\n")
+	builder.WriteString("- Every complaint MUST contain the exact literal placeholder \"[player]\" (including both the opening '[' and closing ']' brackets).\n\n")
+	builder.WriteString("Return the complaints as a JSON array of strings: [\"complaint 1\", \"complaint 2\", ...]. Return ONLY the raw JSON array and nothing else (no markdown formatting, no backticks, no code blocks).")
 
 	const maxAttempts = 5
 	var str string
@@ -378,7 +392,19 @@ func GetContractThematicComplaints(contractName string, contractDescription stri
 	var validComplaints []string
 	for _, c := range complaints {
 		c = strings.TrimSpace(c)
-		if c != "" && strings.Contains(c, "[player]") {
+		if c == "" {
+			continue
+		}
+		// Fix cases where LLM dropped the leading bracket (e.g. "player]")
+		if strings.Contains(c, "player]") && !strings.Contains(c, "[player]") {
+			c = strings.ReplaceAll(c, "player]", "[player]")
+		}
+		// Fix cases where LLM dropped the trailing bracket (e.g. "[player")
+		if strings.Contains(c, "[player") && !strings.Contains(c, "[player]") {
+			c = strings.ReplaceAll(c, "[player", "[player]")
+		}
+
+		if strings.Contains(c, "[player]") {
 			validComplaints = append(validComplaints, c)
 		}
 	}
