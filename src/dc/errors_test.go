@@ -96,4 +96,3 @@ func TestIsThreadArchived(t *testing.T) {
 		t.Fatal("a plain error is not thread archived")
 	}
 }
-

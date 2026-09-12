@@ -106,4 +106,3 @@ func IsThreadArchived(err error) bool {
 	apiErr, ok := AsAPIError(err)
 	return ok && apiErr.Code == ErrCodeThreadArchived
 }
-
