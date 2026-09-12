@@ -223,6 +223,9 @@ func setSpeedrunOptions(client dc.Client, channelID string, sinkBoosting string,
 		msg, err := client.EditMessage(loc.ChannelID, loc.ListMsgID, dc.Message{Components: components})
 		if err == nil {
 			loc.ListMsgID = msg.ID
+		} else {
+			log.Printf("startSpeedrun: failed to edit boost list message %s in channel %s for contract %s: %v",
+				loc.ListMsgID, loc.ChannelID, contract.ContractHash, err)
 		}
 		updateSignupReactionMessage(client, contract, loc)
 	}

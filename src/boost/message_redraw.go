@@ -184,6 +184,9 @@ func refreshBoostListMessage(client dc.Client, contract *Contract, updateSignupM
 		if err == nil {
 			// This is an edit, it should be the same
 			loc.ListMsgID = msg.ID
+		} else {
+			log.Printf("refreshBoostListMessage: failed to edit boost list message %s in channel %s for contract %s: %v",
+				loc.ListMsgID, loc.ChannelID, contract.ContractHash, err)
 		}
 		if updateSignupMessage {
 			updateSignupReactionMessage(client, contract, loc)
@@ -209,7 +212,8 @@ func sendNextNotification(client dc.Client, contract *Contract, pingUsers bool) 
 			}
 			_, err := client.EditMessage(loc.ChannelID, loc.ListMsgID, dc.Message{Components: components})
 			if err != nil {
-				log.Println("Unable to send this message." + err.Error())
+				log.Printf("sendNextNotification: unable to edit boost list message %s in channel %s for contract %s: %v",
+					loc.ListMsgID, loc.ChannelID, contract.ContractHash, err)
 			}
 			updateSignupReactionMessage(client, contract, loc)
 
@@ -244,7 +248,8 @@ func sendNextNotification(client dc.Client, contract *Contract, pingUsers bool) 
 			drawn = true
 		}
 		if err != nil {
-			log.Println("Unable to resend message." + err.Error())
+			log.Printf("sendNextNotification: unable to send message in channel %s for contract %s: %v",
+				loc.ChannelID, contract.ContractHash, err)
 		}
 		var str = ""
 		if msg == nil {
@@ -345,7 +350,8 @@ func updateSignupReactionMessage(client dc.Client, contract *Contract, loc *Loca
 	components = append(components, comp...)
 	_, err := client.EditMessage(loc.ChannelID, msgID, dc.Message{Components: components})
 	if err != nil {
-		log.Printf("unable to send this message: %v", err)
+		log.Printf("updateSignupReactionMessage: unable to edit message %s in channel %s for contract %s: %v",
+			msgID, loc.ChannelID, contract.ContractHash, err)
 	}
 	//}
 }

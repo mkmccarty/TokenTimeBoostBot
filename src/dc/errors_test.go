@@ -96,3 +96,27 @@ func TestIsThreadArchived(t *testing.T) {
 		t.Fatal("a plain error is not thread archived")
 	}
 }
+
+func TestIsMissingAccess(t *testing.T) {
+	if !IsMissingAccess(restError(403, ErrCodeMissingAccess, "Missing Access")) {
+		t.Fatal("expected missing access")
+	}
+	if IsMissingAccess(restError(403, ErrCodeMissingPermissions, "Missing Permissions")) {
+		t.Fatal("missing permissions is not missing access")
+	}
+	if IsMissingAccess(errors.New("nope")) {
+		t.Fatal("a plain error is not missing access")
+	}
+}
+
+func TestIsMissingPermissions(t *testing.T) {
+	if !IsMissingPermissions(restError(403, ErrCodeMissingPermissions, "Missing Permissions")) {
+		t.Fatal("expected missing permissions")
+	}
+	if IsMissingPermissions(restError(403, ErrCodeMissingAccess, "Missing Access")) {
+		t.Fatal("missing access is not missing permissions")
+	}
+	if IsMissingPermissions(errors.New("nope")) {
+		t.Fatal("a plain error is not missing permissions")
+	}
+}
