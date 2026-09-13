@@ -184,7 +184,7 @@ func buttonReactionBoost(client dc.Client, GuildID string, ChannelID string, con
 
 	if userID == currentBoosterID || votingElection || creatorOfContract(client, contract, cUserID) {
 		_ = Boosting(client, GuildID, ChannelID)
-		scheduleCoopStatusPoll(contract)
+		//scheduleCoopStatusPoll(contract)
 		return true
 	}
 	return redraw
