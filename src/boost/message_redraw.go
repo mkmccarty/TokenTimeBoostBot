@@ -180,13 +180,15 @@ func refreshBoostListMessage(client dc.Client, contract *Contract, updateSignupM
 		}
 
 		// Full contract for speedrun
-		msg, err := client.EditMessage(loc.ChannelID, loc.ListMsgID, edit)
-		if err == nil {
-			// This is an edit, it should be the same
-			loc.ListMsgID = msg.ID
-		} else {
-			log.Printf("refreshBoostListMessage: failed to edit boost list message %s in channel %s for contract %s: %v",
-				loc.ListMsgID, loc.ChannelID, contract.ContractHash, err)
+		if loc.ListMsgID != "" {
+			msg, err := client.EditMessage(loc.ChannelID, loc.ListMsgID, edit)
+			if err == nil {
+				// This is an edit, it should be the same
+				loc.ListMsgID = msg.ID
+			} else {
+				log.Printf("refreshBoostListMessage: failed to edit boost list message %s in channel %s for contract %s: %v",
+					loc.ListMsgID, loc.ChannelID, contract.ContractHash, err)
+			}
 		}
 		if updateSignupMessage {
 			updateSignupReactionMessage(client, contract, loc)
@@ -342,6 +344,9 @@ func updateSignupReactionMessage(client dc.Client, contract *Contract, loc *Loca
 	//if len(contract.Order) == contract.CoopSize || len(contract.Order) == (contract.CoopSize-1) {
 	var components []dc.LayoutComponent
 	msgID := loc.ReactionID
+	if msgID == "" {
+		return
+	}
 	// Full contract for speedrun
 	contentStr, comp := GetSignupComponents(contract)
 	components = append(components, dc.TextDisplay{
