@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -358,7 +357,7 @@ func APICall(reqURL string, request proto.Message, okayToSave bool, cacheDuratio
 	reqDataEncoded := enc.EncodeToString(reqBin)
 	values.Set("data", reqDataEncoded)
 
-	response, err := http.PostForm(reqURL, values)
+	response, err := httpClient.PostForm(reqURL, values)
 	if err != nil {
 		log.Print(err)
 		return nil, false
@@ -482,7 +481,7 @@ func APIAuthenticatedCall(reqURL string, request proto.Message) []byte {
 	values := url.Values{}
 	values.Set("data", enc.EncodeToString(reqBin))
 
-	response, err := http.PostForm(reqURL, values)
+	response, err := httpClient.PostForm(reqURL, values)
 	if err != nil {
 		log.Print(err)
 		return nil

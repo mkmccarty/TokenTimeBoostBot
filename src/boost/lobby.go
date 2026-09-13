@@ -90,6 +90,10 @@ func HandleLobbyCommand(e *dc.CommandEvent) {
 		Components: components,
 	}); sendErr != nil {
 		log.Println("lobby FollowupMessageCreate:", sendErr)
+		_ = e.Followup(dc.Message{
+			Ephemeral: true,
+			Content:   "Unable to display lobby. Please try running `/lobby` again.",
+		})
 	}
 }
 
@@ -201,9 +205,9 @@ type lobbyContent struct {
 
 func buildLobbyContent(channelID string, contractID string, coopID string, userID string, bypassCache bool) (lobbyContent, error) {
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
-	eiContract := ei.EggIncContractsAll[contractID]
-	if eiContract.ID == "" {
-		return lobbyContent{}, fmt.Errorf("invalid contract ID")
+	eiContract, ok := ei.GetEggIncContract(contractID)
+	if !ok || eiContract.ID == "" {
+		return lobbyContent{}, fmt.Errorf("invalid contract ID %q", contractID)
 	}
 
 	var (
@@ -271,6 +275,22 @@ func buildLobbyContent(channelID string, contractID string, coopID string, userI
 	mismatch := buildLobbyMismatchSection(coopStatus.GetContributors(), FindContractByIDs(channelID, contractID, coopID))
 
 	return lobbyContent{header: header.String(), lobby: lobby.String(), mismatch: mismatch}, nil
+}
+
+func boosterDisplayName(mention, nick, discordID string) string {
+	if strings.HasPrefix(mention, "<@") {
+		return mention
+	}
+	if nick != "" {
+		return "`" + ei.NormalizePlayerNameForDisplay(nick) + "`"
+	}
+	if mention != "" {
+		return "`" + ei.NormalizePlayerNameForDisplay(mention) + "`"
+	}
+	if discordID != "" {
+		return "<@" + discordID + ">"
+	}
+	return "`Unknown`"
 }
 
 func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_ContributionInfo, contract *Contract) string {
@@ -363,24 +383,23 @@ func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_Con
 			}
 		}
 
-		// 3. Best-fit: substring match against ei_ign, eggincname, or Discord nick.
+		// 3. Best-fit: substring match against ei_ign, eggincname, or Discord nick (requiring >= 3 characters).
 		if !matched {
 			coopLower := strings.ToLower(coopName)
-			for _, s := range snapshots {
-				ignLower := strings.ToLower(s.eiIgn)
-				eggLower := strings.ToLower(s.eggIncName)
-				nickLower := strings.ToLower(s.nick)
-				if (ignLower != "" && (strings.Contains(ignLower, coopLower) || strings.Contains(coopLower, ignLower))) ||
-					(eggLower != "" && (strings.Contains(eggLower, coopLower) || strings.Contains(coopLower, eggLower))) ||
-					(nickLower != "" && (strings.Contains(nickLower, coopLower) || strings.Contains(coopLower, nickLower))) {
-					matchedBoosterIDs[s.discordID] = true
-					display := s.mention
-					if !strings.HasPrefix(display, "<@") {
-						display = "`" + ei.NormalizePlayerNameForDisplay(s.nick) + "`"
+			if len([]rune(coopLower)) >= 3 {
+				for _, s := range snapshots {
+					ignLower := strings.ToLower(s.eiIgn)
+					eggLower := strings.ToLower(s.eggIncName)
+					nickLower := strings.ToLower(s.nick)
+					if (len([]rune(ignLower)) >= 3 && (strings.Contains(ignLower, coopLower) || strings.Contains(coopLower, ignLower))) ||
+						(len([]rune(eggLower)) >= 3 && (strings.Contains(eggLower, coopLower) || strings.Contains(coopLower, eggLower))) ||
+						(len([]rune(nickLower)) >= 3 && (strings.Contains(nickLower, coopLower) || strings.Contains(coopLower, nickLower))) {
+						matchedBoosterIDs[s.discordID] = true
+						display := boosterDisplayName(s.mention, s.nick, s.discordID)
+						bestFitGuesses = append(bestFitGuesses, guessEntry{coopName: ei.NormalizePlayerNameForDisplay(coopName), contractDisplay: display})
+						matched = true
+						break
 					}
-					bestFitGuesses = append(bestFitGuesses, guessEntry{coopName: ei.NormalizePlayerNameForDisplay(coopName), contractDisplay: display})
-					matched = true
-					break
 				}
 			}
 		}
@@ -394,10 +413,7 @@ func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_Con
 	var contractNotInCoop []string
 	for _, s := range snapshots {
 		if !matchedBoosterIDs[s.discordID] {
-			display := s.mention
-			if !strings.HasPrefix(display, "<@") {
-				display = "`" + ei.NormalizePlayerNameForDisplay(s.nick) + "`"
-			}
+			display := boosterDisplayName(s.mention, s.nick, s.discordID)
 			contractNotInCoop = append(contractNotInCoop, display)
 		}
 	}

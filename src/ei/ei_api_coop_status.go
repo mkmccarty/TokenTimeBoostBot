@@ -35,6 +35,10 @@ var (
 	eiDatas      map[string]*eiData
 	eiDatasMutex sync.RWMutex
 
+	httpClient = &http.Client{
+		Timeout: 60 * time.Second,
+	}
+
 	// CoopStatusFixEnabled is a callback set from outside the ei package (to avoid import
 	// cycles) that returns true when the alternate coop_status endpoint and eeid override
 	// should be used. It is wired up in main.
@@ -66,7 +70,7 @@ func requestCoopStatus(contractID string, coopID string, eggIncID string, reqURL
 	reqDataEncoded := enc.EncodeToString(reqBin)
 	values.Set("data", reqDataEncoded)
 
-	response, err := http.PostForm(reqURL, values)
+	response, err := httpClient.PostForm(reqURL, values)
 	if err != nil {
 		return nil, 0, err
 	}
