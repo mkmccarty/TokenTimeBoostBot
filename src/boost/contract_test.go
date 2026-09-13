@@ -904,3 +904,34 @@ func TestJoinRunningContract_AddsThreadMember(t *testing.T) {
 		t.Errorf("expected AddThreadMember(thread2, 234567890123456789) to be called on join, recorded calls: %v", client.Calls)
 	}
 }
+
+func TestRefreshBoostListMessage_EmptyMsgIDs(t *testing.T) {
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("chan1", "guild1", "contract-channel")
+
+	contract := &Contract{
+		ContractHash: "test-hash-empty-msgid",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     5,
+		State:        ContractStateSignup,
+		CreatorID:    []string{"creator1"},
+		Order:        []string{"creator1"},
+		Boosters: map[string]*Booster{
+			"creator1": {UserID: "creator1", Name: "Creator", Nick: "Creator"},
+		},
+		Location: []*LocationData{{
+			GuildID:    "guild1",
+			ChannelID:  "chan1",
+			ListMsgID:  "",
+			ReactionID: "",
+		}},
+	}
+
+	// Should not panic or attempt invalid edits when ListMsgID / ReactionID are empty
+	refreshBoostListMessage(client, contract, true)
+	if len(client.Calls) != 0 {
+		t.Errorf("expected 0 client calls when ListMsgID and ReactionID are empty, got %d calls: %v", len(client.Calls), client.Calls)
+	}
+}
