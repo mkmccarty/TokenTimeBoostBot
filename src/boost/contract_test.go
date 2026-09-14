@@ -935,3 +935,42 @@ func TestRefreshBoostListMessage_EmptyMsgIDs(t *testing.T) {
 		t.Errorf("expected 0 client calls when ListMsgID and ReactionID are empty, got %d calls: %v", len(client.Calls), client.Calls)
 	}
 }
+
+func TestUpdateThreadName_SkipIfUnchanged(t *testing.T) {
+	contract := &Contract{
+		ContractHash: "test-contract-skip-rename",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     5,
+		State:        ContractStateSignup,
+		Location: []*LocationData{{
+			GuildID:   "guild1",
+			ChannelID: "thread1",
+		}},
+	}
+	expectedName := generateThreadName(contract)
+
+	// Case 1: Thread already has desired name -> should not call EditChannel
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithThread("thread1", "guild1", "parent1", expectedName)
+
+	UpdateThreadName(client, contract)
+	if client.Called("EditChannel") {
+		t.Errorf("expected EditChannel NOT to be called when name is already matching, calls: %v", client.Calls)
+	}
+
+	// Case 2: Thread has a different name -> should call EditChannel
+	client2 := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithThread("thread1", "guild1", "parent1", "Old Thread Name")
+
+	UpdateThreadName(client2, contract)
+	if !client2.Called("EditChannel") {
+		t.Errorf("expected EditChannel to be called when thread name changed")
+	}
+	edits := client2.CallsTo("EditChannel")
+	if len(edits) != 1 || edits[0].Args[1] != expectedName {
+		t.Errorf("expected EditChannel with name %q, got: %v", expectedName, edits)
+	}
+}

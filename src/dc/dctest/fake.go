@@ -51,10 +51,11 @@ type FakeClient struct {
 	// ErrNotFound.
 	Threads map[string][]dc.Channel
 
-	// SendErr, EditErr and DeleteErr are returned by the message methods.
-	SendErr   error
-	EditErr   error
-	DeleteErr error
+	// SendErr, EditErr, DeleteErr and ChannelEditErr are returned by the respective client methods.
+	SendErr        error
+	EditErr        error
+	DeleteErr      error
+	ChannelEditErr error
 
 	// NextMessageID is the ID handed back by SendMessage. It is suffixed with
 	// the call count so repeated sends do not collide.
@@ -88,15 +89,17 @@ func (f *FakeClient) WithChannel(id, guildID, name string) *FakeClient {
 }
 
 // WithThread registers an active thread the fake will return from
-// ActiveThreads for the thread's guild.
+// ActiveThreads for the thread's guild and Channel.
 func (f *FakeClient) WithThread(id, guildID, parentID, name string) *FakeClient {
-	f.Threads[guildID] = append(f.Threads[guildID], dc.Channel{
+	th := dc.Channel{
 		ID:       id,
 		GuildID:  guildID,
 		ParentID: parentID,
 		Name:     name,
 		IsThread: true,
-	})
+	}
+	f.Channels[id] = &th
+	f.Threads[guildID] = append(f.Threads[guildID], th)
 	return f
 }
 
@@ -246,6 +249,20 @@ func (f *FakeClient) EditMessage(channelID, messageID string, m dc.Message) (*dc
 		return nil, f.EditErr
 	}
 	return &dc.MessageRef{ID: messageID, ChannelID: channelID, Content: m.Content}, nil
+}
+
+// EditChannel records the channel edit and updates the channel's name in the fake cache.
+func (f *FakeClient) EditChannel(channelID, name string) (*dc.Channel, error) {
+	f.record("EditChannel", channelID, name)
+	if f.ChannelEditErr != nil {
+		return nil, f.ChannelEditErr
+	}
+	ch, ok := f.Channels[channelID]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	ch.Name = name
+	return ch, nil
 }
 
 // DeleteMessage records the delete.

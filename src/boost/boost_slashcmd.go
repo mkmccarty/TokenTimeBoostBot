@@ -30,27 +30,31 @@ func tokenSerialToInt(serial string) int32 {
 	return 0
 }
 
+// ThreadRenameCooldown is the cooldown between Discord thread/channel renames (Discord limits PATCH /channels to 2 per 10m).
+const ThreadRenameCooldown = 3 * time.Minute
+
 // UpdateThreadName will update a threads name to the current contract state
 func UpdateThreadName(client dc.Client, contract *Contract) {
-	if contract == nil {
+	if contract == nil || client == nil {
 		return
 	}
 
-	contract.ThreadRenameTime = time.Now()
-
-	var builder strings.Builder
-	builder.WriteString(generateThreadName(contract))
-	contract.ThreadRenameTime = time.Now()
-
+	desiredName := generateThreadName(contract)
 	for _, loc := range contract.Location {
+		if loc == nil || loc.ChannelID == "" {
+			continue
+		}
 		ch, err := client.Channel(loc.ChannelID)
-		if err == nil {
+		if err == nil && ch != nil && ch.IsThread {
+			// Skip editing if the thread already has the desired name
+			if ch.Name == desiredName {
+				continue
+			}
 
-			if ch.IsThread {
-				_, err := client.EditChannel(loc.ChannelID, builder.String())
-				if err != nil {
-					log.Println("Error updating thread name", err)
-				}
+			contract.ThreadRenameTime = time.Now()
+			_, err := client.EditChannel(loc.ChannelID, desiredName)
+			if err != nil {
+				log.Println("Error updating thread name", err)
 			}
 		}
 	}

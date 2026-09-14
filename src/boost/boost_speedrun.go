@@ -282,8 +282,8 @@ func speedrunReactions(client dc.Client, e *dc.ReactionEvent, contract *Contract
 	}
 
 	if e.EmojiName() == "🌊" {
-		if time.Since(contract.ThreadRenameTime) < 3*time.Minute {
-			msg, err := client.SendMessage(e.ChannelID(), dc.Message{Content: fmt.Sprintf("🌊 thread renaming is on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(3*time.Minute).Unix())})
+		if time.Since(contract.ThreadRenameTime) < ThreadRenameCooldown {
+			msg, err := client.SendMessage(e.ChannelID(), dc.Message{Content: fmt.Sprintf("🌊 thread renaming is on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(ThreadRenameCooldown).Unix())})
 			if err == nil {
 				time.AfterFunc(10*time.Second, func() {
 					err := client.DeleteMessage(msg.ChannelID, msg.ID)

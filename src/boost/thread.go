@@ -78,6 +78,10 @@ func HandleRenameThreadCommand(client dc.Client, e *dc.CommandEvent) {
 		if c.ThreadName != "" {
 			fmt.Fprintf(&builder, "\nThe thread name is currently set to:\n> %s", c.ThreadName)
 		}
+
+		if time.Since(c.ThreadRenameTime) < ThreadRenameCooldown {
+			fmt.Fprintf(&builder, "\n\n⚠️ Thread renaming is on cooldown until <t:%d:R>.", c.ThreadRenameTime.Add(ThreadRenameCooldown).Unix())
+		}
 	}
 
 	_ = e.Respond(dc.Message{
