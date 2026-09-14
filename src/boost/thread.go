@@ -6,8 +6,32 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
+
+// AddBoostersToThread adds all contract boosters and creators to the contract thread(s)
+// when the contract is not in signup mode.
+func AddBoostersToThread(client dc.Client, contract *Contract) {
+	if client == nil || contract == nil || contract.State == ContractStateSignup {
+		return
+	}
+	for _, el := range contract.Location {
+		if el == nil || el.ChannelID == "" {
+			continue
+		}
+		for userID := range contract.Boosters {
+			if dc.IsSnowflake(userID) {
+				_ = client.AddThreadMember(el.ChannelID, userID)
+			}
+		}
+		for _, creatorID := range contract.CreatorID {
+			if dc.IsSnowflake(creatorID) && creatorID != config.DiscordAppID {
+				_ = client.AddThreadMember(el.ChannelID, creatorID)
+			}
+		}
+	}
+}
 
 // GetSlashRenameThread is the definition of the slash command
 func GetSlashRenameThread(cmd string) *dc.Command {

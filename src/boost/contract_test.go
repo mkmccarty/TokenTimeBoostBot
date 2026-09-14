@@ -808,6 +808,41 @@ func TestBoostMenuNextBoosterTokens(t *testing.T) {
 	}
 }
 
+func TestAddFarmerToContract_SignupDoesNotAddThreadMember(t *testing.T) {
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("thread1", "guild1", "contract-thread").
+		WithUser("123456789012345678", "farmer1", "Farmer One")
+
+	contract := &Contract{
+		ContractHash: "test-hash-thread-signup",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     10,
+		State:        ContractStateSignup,
+		CreatorID:    []string{"creator1"},
+		Order:        make([]string, 0),
+		Boosters:     make(map[string]*Booster),
+		Location:     []*LocationData{{GuildID: "guild1", ChannelID: "thread1"}},
+	}
+	Contracts[contract.ContractHash] = contract
+	defer delete(Contracts, contract.ContractHash)
+
+	b, err := AddFarmerToContract(client, contract, "guild1", "thread1", "123456789012345678", ContractOrderSignup, false, false)
+	if err != nil {
+		t.Fatalf("unexpected error adding farmer: %v", err)
+	}
+	if b == nil {
+		t.Fatalf("expected booster to be created, got nil")
+	}
+
+	for _, call := range client.Calls {
+		if call.Method == "AddThreadMember" {
+			t.Errorf("unexpected AddThreadMember call in signup mode: %v", call)
+		}
+	}
+}
+
 func TestAddFarmerToContract_AddsThreadMember(t *testing.T) {
 	client := dctest.New().
 		WithGuild("guild1", "Guild 1").
@@ -863,6 +898,40 @@ func TestAddFarmerToContract_AddsThreadMember(t *testing.T) {
 	}
 }
 
+func TestJoinContract_SignupDoesNotAddThreadMember(t *testing.T) {
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("thread2", "guild1", "signup-contract-thread").
+		WithUser("234567890123456789", "farmer2", "Farmer Two")
+
+	contract := &Contract{
+		ContractHash: "test-hash-signup-join",
+		ContractID:   "test-contract-signup",
+		CoopID:       "test-coop-signup",
+		CoopSize:     5,
+		State:        ContractStateSignup,
+		CreatorID:    []string{"creator1"},
+		Order:        []string{"creator1"},
+		Boosters: map[string]*Booster{
+			"creator1": {UserID: "creator1", Name: "Creator", Nick: "Creator"},
+		},
+		Location: []*LocationData{{GuildID: "guild1", ChannelID: "thread2"}},
+	}
+	Contracts[contract.ContractHash] = contract
+	defer delete(Contracts, contract.ContractHash)
+
+	err := JoinContract(client, "guild1", "thread2", "234567890123456789", false)
+	if err != nil {
+		t.Fatalf("unexpected error joining contract: %v", err)
+	}
+
+	for _, call := range client.Calls {
+		if call.Method == "AddThreadMember" {
+			t.Errorf("unexpected AddThreadMember call on signup join: %v", call)
+		}
+	}
+}
+
 func TestJoinRunningContract_AddsThreadMember(t *testing.T) {
 	client := dctest.New().
 		WithGuild("guild1", "Guild 1").
@@ -902,6 +971,57 @@ func TestJoinRunningContract_AddsThreadMember(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("expected AddThreadMember(thread2, 234567890123456789) to be called on join, recorded calls: %v", client.Calls)
+	}
+}
+
+func TestStartContractBoosting_AddsBoostersToThread(t *testing.T) {
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("thread3", "guild1", "contract-thread-3").
+		WithUser("111111111111111111", "creator1", "Creator").
+		WithUser("222222222222222222", "farmer1", "Farmer One").
+		WithUser("333333333333333333", "farmer2", "Farmer Two")
+
+	contract := &Contract{
+		ContractHash: "test-hash-start-boosting",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     5,
+		State:        ContractStateSignup,
+		Style:        ContractStyleFastrun,
+		CreatorID:    []string{"111111111111111111"},
+		Order:        []string{"111111111111111111", "222222222222222222", "333333333333333333"},
+		Boosters: map[string]*Booster{
+			"111111111111111111": {UserID: "111111111111111111", Name: "Creator", Nick: "Creator"},
+			"222222222222222222": {UserID: "222222222222222222", Name: "Farmer1", Nick: "Farmer1"},
+			"333333333333333333": {UserID: "333333333333333333", Name: "Farmer2", Nick: "Farmer2"},
+		},
+		Location: []*LocationData{{GuildID: "guild1", ChannelID: "thread3", ListMsgID: "msg1"}},
+	}
+	Contracts[contract.ContractHash] = contract
+	defer delete(Contracts, contract.ContractHash)
+
+	err := StartContractBoosting(client, "guild1", "thread3", "111111111111111111")
+	if err != nil {
+		t.Fatalf("unexpected error starting contract: %v", err)
+	}
+
+	if contract.State != ContractStateFastrun {
+		t.Fatalf("expected contract state to be Fastrun, got %d", contract.State)
+	}
+
+	// Verify all 3 users were added to thread3
+	addedUsers := make(map[string]bool)
+	for _, call := range client.Calls {
+		if call.Method == "AddThreadMember" && len(call.Args) >= 2 && call.Args[0] == "thread3" {
+			addedUsers[call.Args[1]] = true
+		}
+	}
+
+	for _, uid := range []string{"111111111111111111", "222222222222222222", "333333333333333333"} {
+		if !addedUsers[uid] {
+			t.Errorf("expected user %s to be added to thread3, calls: %v", uid, client.Calls)
+		}
 	}
 }
 

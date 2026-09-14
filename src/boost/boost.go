@@ -897,7 +897,7 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 					if el.GuildContractRole.ID != "" {
 						_ = client.AddGuildMemberRole(el.GuildID, b.UserID, el.GuildContractRole.ID)
 					}
-					if el.ChannelID != "" {
+					if contract.State != ContractStateSignup && el.ChannelID != "" {
 						_ = client.AddThreadMember(el.ChannelID, b.UserID)
 					}
 				}
@@ -1429,10 +1429,12 @@ func JoinContract(client dc.Client, guildID string, channelID string, userID str
 	// test if userID in Boosters
 	if contract.Boosters[userID] != nil {
 		contract.Boosters[userID].Ping = bell
-		for _, el := range contract.Location {
-			if (guildID == "" || el.GuildID == guildID) && dc.IsSnowflake(userID) {
-				if el.ChannelID != "" {
-					_ = client.AddThreadMember(el.ChannelID, userID)
+		if contract.State != ContractStateSignup {
+			for _, el := range contract.Location {
+				if (guildID == "" || el.GuildID == guildID) && dc.IsSnowflake(userID) {
+					if el.ChannelID != "" {
+						_ = client.AddThreadMember(el.ChannelID, userID)
+					}
 				}
 			}
 		}
@@ -1741,6 +1743,8 @@ func StartContractBoosting(client dc.Client, guildID string, channelID string, u
 	}
 
 	contract.enforceOnlyOneTokenTimeBooster()
+
+	AddBoostersToThread(client, contract)
 
 	if contract.Style&ContractFlagAMQP != 0 && len(contract.Location) > 0 {
 		guildID := contract.Location[0].GuildID
