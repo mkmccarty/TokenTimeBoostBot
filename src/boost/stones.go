@@ -566,7 +566,8 @@ func DownloadCoopStatusStones(channelID string, contractID string, coopID string
 
 		// Compare production hab capacity and production hab population
 		if as.farmCapacity != habCapacity || habPopulation != as.farmPopulation {
-			log.Print("Farm Capacity and Farm Population do not match")
+			log.Printf("Farm Capacity and Farm Population do not match for %s: farmCapacity=%v, habCapacity=%v, farmPopulation=%v, habPopulation=%v, colleggtibleInfo=%v, userHabBuff=%v, maxHabColleggtible=%v",
+				c.GetUserName(), as.farmCapacity, habCapacity, as.farmPopulation, habPopulation, colleggtibleInfo, as.colleggBuffs.Hab, maxColleggtibleHab)
 
 			// Probably a colleggtible
 		}
