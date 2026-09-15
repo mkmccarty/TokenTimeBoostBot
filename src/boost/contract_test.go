@@ -1127,3 +1127,131 @@ func TestAddFarmerToContract_MinimumIHR(t *testing.T) {
 		t.Errorf("expected b.IHRRate >= %f, got %f", DefaultLeggyIHR, b.IHRRate)
 	}
 }
+
+func TestRemoveFarmerByMention_CollapsesEditsWithWaitlist(t *testing.T) {
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("channel1", "guild1", "contract-channel").
+		WithUser("100000000000000001", "farmer1", "Farmer One").
+		WithUser("100000000000000002", "farmer2", "Farmer Two").
+		WithUser("100000000000000003", "farmer3", "Farmer Three")
+
+	contract := &Contract{
+		ContractHash: "test-hash-remove-waitlist",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     2,
+		State:        ContractStateSignup,
+		BoostOrder:   ContractOrderSignup,
+		CreatorID:    []string{"100000000000000001"},
+		Order:        []string{"100000000000000001", "100000000000000002"},
+		Boosters: map[string]*Booster{
+			"100000000000000001": {UserID: "100000000000000001", Name: "Farmer One", Nick: "farmer1"},
+			"100000000000000002": {UserID: "100000000000000002", Name: "Farmer Two", Nick: "farmer2"},
+		},
+		WaitlistBoosters: []string{"100000000000000003"},
+		Location: []*LocationData{
+			{GuildID: "guild1", ChannelID: "channel1", ListMsgID: "msg-list-1", ReactionID: "msg-rx-1"},
+		},
+	}
+	Contracts[contract.ContractHash] = contract
+	defer delete(Contracts, contract.ContractHash)
+
+	client.Calls = nil // reset tracked calls
+
+	err := RemoveFarmerByMention(client, "guild1", "channel1", "100000000000000002", "<@100000000000000002>")
+	if err != nil {
+		t.Fatalf("unexpected error removing farmer: %v", err)
+	}
+
+	if slices.Contains(contract.Order, "100000000000000002") {
+		t.Errorf("expected user2 to be removed from Order")
+	}
+	if !slices.Contains(contract.Order, "100000000000000003") {
+		t.Errorf("expected user3 from waitlist to be in Order")
+	}
+	if len(contract.WaitlistBoosters) != 0 {
+		t.Errorf("expected WaitlistBoosters to be empty, got %v", contract.WaitlistBoosters)
+	}
+
+	listEdits := 0
+	rxEdits := 0
+	for _, call := range client.Calls {
+		if call.Method == "EditMessage" {
+			if len(call.Args) > 1 {
+				switch call.Args[1] {
+				case "msg-list-1":
+					listEdits++
+				case "msg-rx-1":
+					rxEdits++
+				}
+			}
+		}
+	}
+
+	if listEdits != 1 {
+		t.Errorf("expected exactly 1 list message edit, got %d", listEdits)
+	}
+	if rxEdits > 1 {
+		t.Errorf("expected at most 1 reaction message edit, got %d", rxEdits)
+	}
+}
+
+func TestRemoveFarmerByMention_MultipleLocationsNoN2(t *testing.T) {
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("channel1", "guild1", "contract-channel-1").
+		WithChannel("channel2", "guild1", "contract-channel-2").
+		WithUser("100000000000000001", "farmer1", "Farmer One").
+		WithUser("100000000000000002", "farmer2", "Farmer Two")
+
+	contract := &Contract{
+		ContractHash: "test-hash-remove-multiloc",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     5,
+		State:        ContractStateSignup,
+		BoostOrder:   ContractOrderSignup,
+		CreatorID:    []string{"100000000000000001"},
+		Order:        []string{"100000000000000001", "100000000000000002"},
+		Boosters: map[string]*Booster{
+			"100000000000000001": {UserID: "100000000000000001", Name: "Farmer One", Nick: "farmer1"},
+			"100000000000000002": {UserID: "100000000000000002", Name: "Farmer Two", Nick: "farmer2"},
+		},
+		Location: []*LocationData{
+			{GuildID: "guild1", ChannelID: "channel1", ListMsgID: "msg-list-1", ReactionID: "msg-rx-1"},
+			{GuildID: "guild1", ChannelID: "channel2", ListMsgID: "msg-list-2", ReactionID: "msg-rx-2"},
+		},
+	}
+	Contracts[contract.ContractHash] = contract
+	defer delete(Contracts, contract.ContractHash)
+
+	client.Calls = nil
+
+	err := RemoveFarmerByMention(client, "guild1", "channel1", "100000000000000002", "<@100000000000000002>")
+	if err != nil {
+		t.Fatalf("unexpected error removing farmer: %v", err)
+	}
+
+	ch1Edits := 0
+	ch2Edits := 0
+	for _, call := range client.Calls {
+		if call.Method == "EditMessage" {
+			if len(call.Args) > 1 {
+				switch call.Args[1] {
+				case "msg-list-1":
+					ch1Edits++
+				case "msg-list-2":
+					ch2Edits++
+				}
+			}
+		}
+	}
+
+	if ch1Edits != 1 {
+		t.Errorf("expected exactly 1 edit for channel 1, got %d", ch1Edits)
+	}
+	if ch2Edits != 1 {
+		t.Errorf("expected exactly 1 edit for channel 2, got %d", ch2Edits)
+	}
+}
