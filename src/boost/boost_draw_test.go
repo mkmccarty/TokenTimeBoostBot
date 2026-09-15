@@ -154,3 +154,48 @@ func TestDrawBoostListSkipsUnusableBanner(t *testing.T) {
 		t.Error("DrawBoostList dropped the media gallery for a usable banner URL")
 	}
 }
+
+func TestDrawBoostListIHRMultiple(t *testing.T) {
+	contract := &Contract{
+		ContractHash: "ihr-test-hash",
+		ContractID:   "ihr-test-contract",
+		CoopID:       "ihr-test-coop",
+		State:        ContractStateSignup,
+		BoostOrder:   ContractOrderIHR,
+		CreatorID:    []string{"creator-id"},
+		Order:        []string{"u1", "u2"},
+		Boosters: map[string]*Booster{
+			"u1": {
+				UserID:       "u1",
+				Mention:      "<@u1>",
+				Name:         "Player1",
+				TokensWanted: 6,
+				IHRRate:      33480.0, // 4.5x 7440.0
+			},
+			"u2": {
+				UserID:       "u2",
+				Mention:      "<@u2>",
+				Name:         "Player2",
+				TokensWanted: 6,
+				IHRRate:      7440.0, // 1.0x 7440.0
+			},
+		},
+		Location: []*LocationData{{GuildID: "guild1", ChannelID: "channel1"}},
+	}
+
+	components := DrawBoostList(contract)
+	var outputBuilder strings.Builder
+	for _, comp := range components {
+		if textDisplay, ok := comp.(dc.TextDisplay); ok {
+			outputBuilder.WriteString(textDisplay.Content)
+		}
+	}
+	output := outputBuilder.String()
+
+	if !strings.Contains(output, "**IHR:4.50x**") {
+		t.Errorf("expected output to contain **IHR:4.50x**, got %q", output)
+	}
+	if !strings.Contains(output, "**IHR:1.00x**") {
+		t.Errorf("expected output to contain **IHR:1.00x**, got %q", output)
+	}
+}

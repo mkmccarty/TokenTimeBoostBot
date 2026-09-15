@@ -1094,3 +1094,36 @@ func TestUpdateThreadName_SkipIfUnchanged(t *testing.T) {
 		t.Errorf("expected EditChannel with name %q, got: %v", expectedName, edits)
 	}
 }
+
+func TestAddFarmerToContract_MinimumIHR(t *testing.T) {
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("channel1", "guild1", "contract-channel").
+		WithUser("user-without-ihr", "farmer_no_ihr", "Farmer No IHR")
+
+	contract := &Contract{
+		ContractHash: "test-hash-ihr-min",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     10,
+		State:        ContractStateSignup,
+		BoostOrder:   ContractOrderSignup,
+		CreatorID:    []string{"creator1"},
+		Order:        make([]string, 0),
+		Boosters:     make(map[string]*Booster),
+		Location:     []*LocationData{{GuildID: "guild1", ChannelID: "channel1"}},
+	}
+	Contracts[contract.ContractHash] = contract
+	defer delete(Contracts, contract.ContractHash)
+
+	b, err := AddFarmerToContract(client, contract, "guild1", "channel1", "user-without-ihr", ContractOrderSignup, false, false)
+	if err != nil {
+		t.Fatalf("unexpected error adding farmer: %v", err)
+	}
+	if b == nil {
+		t.Fatalf("expected booster to be created, got nil")
+	}
+	if b.IHRRate < DefaultLeggyIHR {
+		t.Errorf("expected b.IHRRate >= %f, got %f", DefaultLeggyIHR, b.IHRRate)
+	}
+}

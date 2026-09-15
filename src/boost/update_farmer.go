@@ -248,14 +248,20 @@ func updateFarmerInContracts(client dc.Client, userID string, subcommand string,
 			case "te":
 				booster.TECount = int(value)
 				rate, logStr := CalculateIHRRateFromDB(userID)
+				if rate < DefaultLeggyIHR {
+					rate = DefaultLeggyIHR
+				}
 				booster.IHRRate = rate
 				booster.IHRCalcLog = logStr
 			case "ihr":
-				booster.IHRRate = float64(value)
-				booster.IHRCalcLog = fmt.Sprintf("IHR Calculation (Manual for %s): Final=%0.2f", userID, float64(value))
+				booster.IHRRate = max(DefaultLeggyIHR, float64(value))
+				booster.IHRCalcLog = fmt.Sprintf("IHR Calculation (Manual for %s): Final=%0.2f", userID, booster.IHRRate)
 			case "artifacts":
 				booster.ArtifactSet = getUserArtifacts(userID, nil)
 				rate, logStr := CalculateIHRRateFromDB(userID)
+				if rate < DefaultLeggyIHR {
+					rate = DefaultLeggyIHR
+				}
 				booster.IHRRate = rate
 				booster.IHRCalcLog = logStr
 			}

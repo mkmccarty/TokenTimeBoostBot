@@ -321,6 +321,9 @@ func populateArtifactsFromBackup(client dc.Client, userID string) (string, strin
 		if b := contract.Boosters[userID]; b != nil {
 			b.ArtifactSet = getUserArtifacts(userID, nil)
 			rate, logStr := CalculateIHRRateFromDB(userID)
+			if rate < DefaultLeggyIHR {
+				rate = DefaultLeggyIHR
+			}
 			b.IHRRate = rate
 			b.IHRCalcLog = logStr
 			updatedContracts++
