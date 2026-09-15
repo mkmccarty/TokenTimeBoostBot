@@ -829,10 +829,13 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 			for userID, b := range contract.Boosters {
 				// Recalculate IHR rate from DB for all boosters so pre-change values excluding deflector stones are updated
 				rate, logStr := CalculateIHRRateFromDB(userID)
+				if rate < DefaultLeggyIHR {
+					rate = DefaultLeggyIHR
+				}
 				b.IHRRate = rate
 				b.IHRCalcLog = logStr
 
-				if b.IHRRate == 0 {
+				if b.IHRRate <= DefaultLeggyIHR {
 					usersToRefresh = append(usersToRefresh, userToRefresh{userID: userID, booster: b})
 				}
 			}

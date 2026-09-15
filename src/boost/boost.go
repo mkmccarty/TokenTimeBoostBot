@@ -415,6 +415,9 @@ func AddBoostTokens(client dc.Client, e dc.InteractionEvent, setCountWant int, c
 	if contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy {
 		for uID, booster := range contract.Boosters {
 			rate, logStr := CalculateIHRRateFromDB(uID)
+			if rate < DefaultLeggyIHR {
+				rate = DefaultLeggyIHR
+			}
 			booster.IHRRate = rate
 			booster.IHRCalcLog = logStr
 		}
@@ -747,6 +750,7 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 		b.Register = time.Now()
 		b.UserID = userID
 		b.Color = 0x00cc00
+		b.IHRRate = DefaultLeggyIHR
 
 		var user, err = client.User(userID)
 		if err != nil {
@@ -1265,6 +1269,9 @@ func updateContractFarmerTE(client dc.Client, userID string, b *Booster, contrac
 				b.IHRCalcLog = fmt.Sprintf("IHR Calculation (Manual for %s): Final=%0.2f", userID, manualIHR)
 			} else {
 				rate, logStr := CalculateIHRRateFromBackup(backup, userID)
+				if rate < DefaultLeggyIHR {
+					rate = DefaultLeggyIHR
+				}
 				b.IHRRate = rate
 				b.IHRCalcLog = logStr
 			}
@@ -1313,6 +1320,9 @@ func updateContractFarmerTE(client dc.Client, userID string, b *Booster, contrac
 			b.IHRCalcLog = fmt.Sprintf("IHR Calculation (Manual for %s): Final=%0.2f", userID, manualIHR)
 		} else {
 			rate, logStr := CalculateIHRRateFromDB(userID)
+			if rate < DefaultLeggyIHR {
+				rate = DefaultLeggyIHR
+			}
 			b.IHRRate = rate
 			b.IHRCalcLog = logStr
 		}
