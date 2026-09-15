@@ -1472,7 +1472,6 @@ func removeIndex(s []string, index int) []string {
 func RemoveFarmerByMention(client dc.Client, guildID string, channelID string, operator string, mention string) error {
 	log.Println("RemoveContractBoosterByMention", "GuildID: ", guildID, "ChannelID: ", channelID, "Operator: ", operator, "Mention: ", mention)
 	var contract = FindContract(channelID)
-	redraw := false
 	redrawSignup := false
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -1558,7 +1557,6 @@ func RemoveFarmerByMention(client dc.Client, guildID string, channelID string, o
 				}
 			}
 			contract.buttonComponents = nil // reset button components
-			redraw = true
 		} else if booster != nil && len(booster.Alts) > 0 {
 			// If this is a main with alts, clear the alts
 			for _, alt := range booster.Alts {
@@ -1569,7 +1567,6 @@ func RemoveFarmerByMention(client dc.Client, guildID string, channelID string, o
 			booster.Alts = nil
 
 			contract.buttonComponents = nil
-			redraw = true
 		}
 		contract.Order = removeIndex(contract.Order, removalIndex)
 		contract.OrderRevision++
@@ -1605,10 +1602,14 @@ func RemoveFarmerByMention(client dc.Client, guildID string, channelID string, o
 					changeContractState(contract, ContractStateWaiting)
 					contract.setCurrentBoosterByIndex(len(contract.Order))
 					sendNextNotification(client, contract, true)
+					CheckAndPublishAMQPBoosterChange(contract, userID, boosterNick, "booster_remove")
+					return nil
 				} else if (contract.State == ContractStateFastrun || contract.State == ContractStateBanker) && contract.currentBoosterID() == "" {
 					// set contract to waiting
 					changeContractState(contract, ContractStateWaiting)
 					sendNextNotification(client, contract, true)
+					CheckAndPublishAMQPBoosterChange(contract, userID, boosterNick, "booster_remove")
+					return nil
 				} else {
 					nextID := findNextBoosterID(contract)
 					if nextID != "" {
@@ -1628,48 +1629,21 @@ func RemoveFarmerByMention(client dc.Client, guildID string, channelID string, o
 				// Remove the first person from the want list
 				firstWaitlistUser := contract.WaitlistBoosters[0]
 				contract.WaitlistBoosters = contract.WaitlistBoosters[1:]
-				_, _ = AddFarmerToContract(client, contract, guildID, channelID, firstWaitlistUser, contract.BoostOrder, false, false)
+				_, _ = AddFarmerToContract(client, contract, guildID, channelID, firstWaitlistUser, contract.BoostOrder, true, false)
 			}
 		}
 	}
 
-	// Edit the boost List in place
-	//if contract.BoostPosition != len(contract.Order) {
-	for _, loc := range contract.Location {
-		if redraw {
-			if contract.State == ContractStateSignup && previousBoosters == contract.CoopSize {
-				redrawSignup = true
-			}
-			refreshBoostListMessage(client, contract, redrawSignup)
-			continue
-		}
-		if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
-			if len(contract.Order) == 0 {
-				// Need to clear all the contract sinks
-				contract.Banker.BoostingSinkUserID = ""
-				contract.Banker.PostSinkUserID = ""
-			}
-		}
-		components := DrawBoostList(contract)
-		buttonComponents := getContractReactionsComponents(contract)
-		if len(buttonComponents) > 0 {
-			components = append(components, buttonComponents...)
-		}
-		msg, err := client.EditMessage(loc.ChannelID, loc.ListMsgID, dc.Message{Components: components})
-		if err == nil {
-			loc.ListMsgID = msg.ID
-		} else {
-			log.Printf("RemoveFarmerFromContract: failed to edit boost list message %s in channel %s for contract %s: %v",
-				loc.ListMsgID, loc.ChannelID, contract.ContractHash, err)
-		}
-		// Need to disable the speedrun start button if the contract is no longer full
-		if previousBoosters != len(contract.Boosters) && previousBoosters == contract.CoopSize {
-			if contract.State == ContractStateSignup {
-				updateSignupReactionMessage(client, contract, loc)
-			}
+	if contract.State == ContractStateSignup && contract.Style&ContractFlagCrt != 0 {
+		if len(contract.Order) == 0 {
+			// Need to clear all the contract sinks
+			contract.Banker.BoostingSinkUserID = ""
+			contract.Banker.PostSinkUserID = ""
 		}
 	}
-	//}
+
+	redrawSignup = (contract.State == ContractStateSignup) && (previousBoosters == contract.CoopSize || len(contract.Boosters) == contract.CoopSize || contract.CreatorID[0] == config.DiscordAppID)
+	refreshBoostListMessage(client, contract, redrawSignup)
 
 	CheckAndPublishAMQPBoosterChange(contract, userID, boosterNick, "booster_remove")
 	return nil
