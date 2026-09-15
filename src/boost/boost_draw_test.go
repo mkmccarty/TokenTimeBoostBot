@@ -163,21 +163,28 @@ func TestDrawBoostListIHRMultiple(t *testing.T) {
 		State:        ContractStateSignup,
 		BoostOrder:   ContractOrderIHR,
 		CreatorID:    []string{"creator-id"},
-		Order:        []string{"u1", "u2"},
+		Order:        []string{"u1", "u2", "u3"},
 		Boosters: map[string]*Booster{
 			"u1": {
 				UserID:       "u1",
 				Mention:      "<@u1>",
 				Name:         "Player1",
 				TokensWanted: 6,
-				IHRRate:      33480.0, // 4.5x 7440.0
+				IHRRate:      33480.0, // 4.5x 7440.0 -> 4.5x
 			},
 			"u2": {
 				UserID:       "u2",
 				Mention:      "<@u2>",
 				Name:         "Player2",
 				TokensWanted: 6,
-				IHRRate:      7440.0, // 1.0x 7440.0
+				IHRRate:      7440.0, // 1.0x 7440.0 -> 1x
+			},
+			"u3": {
+				UserID:       "u3",
+				Mention:      "<@u3>",
+				Name:         "Player3",
+				TokensWanted: 6,
+				IHRRate:      33628.8, // 4.52x 7440.0 -> 4.52x
 			},
 		},
 		Location: []*LocationData{{GuildID: "guild1", ChannelID: "channel1"}},
@@ -192,10 +199,13 @@ func TestDrawBoostListIHRMultiple(t *testing.T) {
 	}
 	output := outputBuilder.String()
 
-	if !strings.Contains(output, "**IHR:4.50x**") {
-		t.Errorf("expected output to contain **IHR:4.50x**, got %q", output)
+	if !strings.Contains(output, "**IHR:4.5x**") {
+		t.Errorf("expected output to contain **IHR:4.5x**, got %q", output)
 	}
-	if !strings.Contains(output, "**IHR:1.00x**") {
-		t.Errorf("expected output to contain **IHR:1.00x**, got %q", output)
+	if !strings.Contains(output, "**IHR:1x**") {
+		t.Errorf("expected output to contain **IHR:1x**, got %q", output)
+	}
+	if !strings.Contains(output, "**IHR:4.52x**") {
+		t.Errorf("expected output to contain **IHR:4.52x**, got %q", output)
 	}
 }

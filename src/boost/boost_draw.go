@@ -386,7 +386,8 @@ func DrawBoostList(contract *Contract) []dc.LayoutComponent {
 					sortRate = " **IHR:0** "
 				}
 			} else {
-				sortRate = fmt.Sprintf(" **IHR:%0.2fx** ", b.IHRRate/DefaultLeggyIHR)
+				mult := strings.TrimRight(strings.TrimRight(fmt.Sprintf("%0.2f", b.IHRRate/DefaultLeggyIHR), "0"), ".")
+				sortRate = fmt.Sprintf(" **IHR:%sx** ", mult)
 			}
 		}
 		if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.PlayStyle != ContractPlaystyleChill {
