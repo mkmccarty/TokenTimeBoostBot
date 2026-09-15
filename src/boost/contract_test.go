@@ -1192,8 +1192,8 @@ func TestRemoveFarmerByMention_CollapsesEditsWithWaitlist(t *testing.T) {
 	if listEdits != 1 {
 		t.Errorf("expected exactly 1 list message edit, got %d", listEdits)
 	}
-	if rxEdits > 1 {
-		t.Errorf("expected at most 1 reaction message edit, got %d", rxEdits)
+	if rxEdits != 0 {
+		t.Errorf("expected 0 reaction message edits when waitlist keeps contract full, got %d", rxEdits)
 	}
 }
 
@@ -1253,5 +1253,119 @@ func TestRemoveFarmerByMention_MultipleLocationsNoN2(t *testing.T) {
 	}
 	if ch2Edits != 1 {
 		t.Errorf("expected exactly 1 edit for channel 2, got %d", ch2Edits)
+	}
+}
+
+func TestRemoveFarmerByMention_FullToNotFullEditsSignup(t *testing.T) {
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("channel1", "guild1", "contract-channel").
+		WithUser("100000000000000001", "farmer1", "Farmer One").
+		WithUser("100000000000000002", "farmer2", "Farmer Two")
+
+	contract := &Contract{
+		ContractHash: "test-hash-remove-fulltonotfull",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     2,
+		State:        ContractStateSignup,
+		BoostOrder:   ContractOrderSignup,
+		CreatorID:    []string{"100000000000000001"},
+		Order:        []string{"100000000000000001", "100000000000000002"},
+		Boosters: map[string]*Booster{
+			"100000000000000001": {UserID: "100000000000000001", Name: "Farmer One", Nick: "farmer1"},
+			"100000000000000002": {UserID: "100000000000000002", Name: "Farmer Two", Nick: "farmer2"},
+		},
+		Location: []*LocationData{
+			{GuildID: "guild1", ChannelID: "channel1", ListMsgID: "msg-list-1", ReactionID: "msg-rx-1"},
+		},
+	}
+	Contracts[contract.ContractHash] = contract
+	defer delete(Contracts, contract.ContractHash)
+
+	client.Calls = nil
+
+	err := RemoveFarmerByMention(client, "guild1", "channel1", "100000000000000002", "<@100000000000000002>")
+	if err != nil {
+		t.Fatalf("unexpected error removing farmer: %v", err)
+	}
+
+	listEdits := 0
+	rxEdits := 0
+	for _, call := range client.Calls {
+		if call.Method == "EditMessage" {
+			if len(call.Args) > 1 {
+				switch call.Args[1] {
+				case "msg-list-1":
+					listEdits++
+				case "msg-rx-1":
+					rxEdits++
+				}
+			}
+		}
+	}
+
+	if listEdits != 1 {
+		t.Errorf("expected exactly 1 list message edit, got %d", listEdits)
+	}
+	if rxEdits != 1 {
+		t.Errorf("expected exactly 1 reaction message edit when transitioning from full to not full, got %d", rxEdits)
+	}
+}
+
+func TestRemoveFarmerByMention_NonFullDoesNotEditReaction(t *testing.T) {
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("channel1", "guild1", "contract-channel").
+		WithUser("100000000000000001", "farmer1", "Farmer One").
+		WithUser("100000000000000002", "farmer2", "Farmer Two")
+
+	contract := &Contract{
+		ContractHash: "test-hash-remove-nonfull",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     5,
+		State:        ContractStateSignup,
+		BoostOrder:   ContractOrderSignup,
+		CreatorID:    []string{"100000000000000001"},
+		Order:        []string{"100000000000000001", "100000000000000002"},
+		Boosters: map[string]*Booster{
+			"100000000000000001": {UserID: "100000000000000001", Name: "Farmer One", Nick: "farmer1"},
+			"100000000000000002": {UserID: "100000000000000002", Name: "Farmer Two", Nick: "farmer2"},
+		},
+		Location: []*LocationData{
+			{GuildID: "guild1", ChannelID: "channel1", ListMsgID: "msg-list-1", ReactionID: "msg-rx-1"},
+		},
+	}
+	Contracts[contract.ContractHash] = contract
+	defer delete(Contracts, contract.ContractHash)
+
+	client.Calls = nil
+
+	err := RemoveFarmerByMention(client, "guild1", "channel1", "100000000000000002", "<@100000000000000002>")
+	if err != nil {
+		t.Fatalf("unexpected error removing farmer: %v", err)
+	}
+
+	listEdits := 0
+	rxEdits := 0
+	for _, call := range client.Calls {
+		if call.Method == "EditMessage" {
+			if len(call.Args) > 1 {
+				switch call.Args[1] {
+				case "msg-list-1":
+					listEdits++
+				case "msg-rx-1":
+					rxEdits++
+				}
+			}
+		}
+	}
+
+	if listEdits != 1 {
+		t.Errorf("expected exactly 1 list message edit, got %d", listEdits)
+	}
+	if rxEdits != 0 {
+		t.Errorf("expected 0 reaction message edits when non-full contract has a member leave, got %d", rxEdits)
 	}
 }

@@ -19,12 +19,15 @@ import (
 // Discord and from saved contract data, so a bad one is data to report, not a
 // programming mistake to crash on.
 type disgoClient struct {
-	bot *bot.Client
+	bot       *bot.Client
+	debouncer *MessageEditDebouncer
 }
 
 // newDisgoClient wraps a live disgo client as a Client.
 func newDisgoClient(b *bot.Client) *disgoClient {
-	return &disgoClient{bot: b}
+	c := &disgoClient{bot: b}
+	c.debouncer = NewMessageEditDebouncer(DefaultEditDebounceWindow, c.editMessageDirect)
+	return c
 }
 
 // IsSnowflake reports whether s is a valid Discord snowflake ID.
@@ -68,8 +71,8 @@ func (c *disgoClient) SendMessage(channelID string, m Message) (*MessageRef, err
 	return messageRefFrom(msg), nil
 }
 
-// EditMessage replaces the content of an existing message.
-func (c *disgoClient) EditMessage(channelID, messageID string, m Message) (*MessageRef, error) {
+// editMessageDirect performs the immediate Discord REST API call to update a message.
+func (c *disgoClient) editMessageDirect(channelID, messageID string, m Message) (*MessageRef, error) {
 	ids, err := parseIDs(channelID, messageID)
 	if err != nil {
 		return nil, err
@@ -81,8 +84,22 @@ func (c *disgoClient) EditMessage(channelID, messageID string, m Message) (*Mess
 	return messageRefFrom(msg), nil
 }
 
-// DeleteMessage removes a message.
+// EditMessage replaces the content of an existing message with debouncing.
+func (c *disgoClient) EditMessage(channelID, messageID string, m Message) (*MessageRef, error) {
+	if _, err := parseIDs(channelID, messageID); err != nil {
+		return nil, err
+	}
+	if c.debouncer != nil {
+		return c.debouncer.Edit(channelID, messageID, m)
+	}
+	return c.editMessageDirect(channelID, messageID, m)
+}
+
+// DeleteMessage removes a message and cancels any pending debounced edit.
 func (c *disgoClient) DeleteMessage(channelID, messageID string) error {
+	if c.debouncer != nil {
+		c.debouncer.Cancel(channelID, messageID)
+	}
 	ids, err := parseIDs(channelID, messageID)
 	if err != nil {
 		return err

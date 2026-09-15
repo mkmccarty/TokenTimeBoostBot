@@ -182,6 +182,9 @@ func (b *Bot) Open() error {
 // Close disconnects from the gateway. disgo's shutdown reports no error, so
 // the error return exists only to keep the facade's shape.
 func (b *Bot) Close() error {
+	if b.client != nil && b.client.debouncer != nil {
+		b.client.debouncer.Flush()
+	}
 	b.gateway.Close(context.Background())
 	return nil
 }
