@@ -1492,6 +1492,9 @@ func RemoveFarmerByMention(client dc.Client, guildID string, channelID string, o
 		}
 	}
 
+	sinkChanged := false
+	creatorChanged := false
+
 	// If the farmer is on the waitlist, remove them from it
 	removalIndex := slices.Index(contract.WaitlistBoosters, userID)
 	if removalIndex != -1 {
@@ -1524,8 +1527,6 @@ func RemoveFarmerByMention(client dc.Client, guildID string, channelID string, o
 				_ = client.RemoveGuildMemberRole(guildID, userID, el.GuildContractRole.ID)
 			}
 		}
-
-		sinkChanged := false
 
 		// Remove the booster from the contract
 		if userID == contract.Banker.BoostingSinkUserID {
@@ -1580,7 +1581,12 @@ func RemoveFarmerByMention(client dc.Client, guildID string, channelID string, o
 			}
 		}
 
-		if userID == contract.CreatorID[0] {
+		oldCreator := ""
+		if len(contract.CreatorID) > 0 {
+			oldCreator = contract.CreatorID[0]
+		}
+
+		if userID == oldCreator {
 			// Reassign CreatorID to the Bot, then if there's a non-guest, make them the coordinator
 			contract.CreatorID[0] = config.DiscordAppID
 			for _, el := range contract.Order {
@@ -1590,6 +1596,9 @@ func RemoveFarmerByMention(client dc.Client, guildID string, channelID string, o
 						break
 					}
 				}
+			}
+			if contract.CreatorID[0] != oldCreator {
+				creatorChanged = true
 			}
 		}
 
@@ -1642,7 +1651,10 @@ func RemoveFarmerByMention(client dc.Client, guildID string, channelID string, o
 		}
 	}
 
-	redrawSignup = (contract.State == ContractStateSignup) && (previousBoosters == contract.CoopSize || len(contract.Boosters) == contract.CoopSize || contract.CreatorID[0] == config.DiscordAppID)
+	fullnessChanged := (previousBoosters == contract.CoopSize) != (len(contract.Boosters) == contract.CoopSize)
+	emptyChanged := (previousBoosters == 0) != (len(contract.Boosters) == 0)
+
+	redrawSignup = (contract.State == ContractStateSignup) && (fullnessChanged || creatorChanged || sinkChanged || emptyChanged)
 	refreshBoostListMessage(client, contract, redrawSignup)
 
 	CheckAndPublishAMQPBoosterChange(contract, userID, boosterNick, "booster_remove")
