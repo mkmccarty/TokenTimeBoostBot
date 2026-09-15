@@ -13,14 +13,14 @@ require (
 	github.com/natefinch/lumberjack/v3 v3.0.0-alpha
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/pkg/errors v0.9.1
-	github.com/rabbitmq/amqp091-go v1.14.0
+	github.com/rabbitmq/amqp091-go v1.15.0
 	github.com/wI2L/jsondiff v0.7.1
 	github.com/xhit/go-str2duration/v2 v2.2.0
 	golang.org/x/image v0.46.0
 	golang.org/x/text v0.42.0
 	google.golang.org/genai v1.71.0
 	google.golang.org/protobuf v1.36.12
-	modernc.org/sqlite v1.58.0
+	modernc.org/sqlite v1.59.0
 )
 
 require (
