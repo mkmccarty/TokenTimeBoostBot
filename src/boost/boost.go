@@ -902,7 +902,7 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 						_ = client.AddGuildMemberRole(el.GuildID, b.UserID, el.GuildContractRole.ID)
 					}
 					if contract.State != ContractStateSignup && el.ChannelID != "" {
-						_ = client.AddThreadMember(el.ChannelID, b.UserID)
+						AddThreadMemberDelayed(client, contract.ContractHash, el.ChannelID, b.UserID, manualAddThreadMemberDelay)
 					}
 				}
 			}

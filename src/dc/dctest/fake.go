@@ -50,6 +50,8 @@ type FakeClient struct {
 	// Threads answers ActiveThreads by guild ID. A missing ID yields
 	// ErrNotFound.
 	Threads map[string][]dc.Channel
+	// ThreadMembers answers ThreadMember, keyed "threadID:userID".
+	ThreadMembers map[string]*dc.ThreadMember
 
 	// SendErr, EditErr, DeleteErr and ChannelEditErr are returned by the respective client methods.
 	SendErr        error
@@ -72,6 +74,7 @@ func New() *FakeClient {
 		Members:       map[string]*dc.Member{},
 		MemberColors:  map[string]int{},
 		Threads:       map[string][]dc.Channel{},
+		ThreadMembers: map[string]*dc.ThreadMember{},
 		NextMessageID: "message",
 	}
 }
@@ -100,6 +103,15 @@ func (f *FakeClient) WithThread(id, guildID, parentID, name string) *FakeClient 
 	}
 	f.Channels[id] = &th
 	f.Threads[guildID] = append(f.Threads[guildID], th)
+	return f
+}
+
+// WithThreadMember registers a thread member that ThreadMember will report.
+func (f *FakeClient) WithThreadMember(threadID, userID string) *FakeClient {
+	f.ThreadMembers[threadID+":"+userID] = &dc.ThreadMember{
+		ThreadID: threadID,
+		UserID:   userID,
+	}
 	return f
 }
 
@@ -328,4 +340,14 @@ func (f *FakeClient) ActiveThreads(guildID string) ([]dc.Channel, error) {
 func (f *FakeClient) AddThreadMember(threadID, userID string) error {
 	f.record("AddThreadMember", threadID, userID)
 	return nil
+}
+
+// ThreadMember answers ThreadMember by threadID and userID.
+func (f *FakeClient) ThreadMember(threadID, userID string) (*dc.ThreadMember, error) {
+	f.record("ThreadMember", threadID, userID)
+	tm, ok := f.ThreadMembers[threadID+":"+userID]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return tm, nil
 }

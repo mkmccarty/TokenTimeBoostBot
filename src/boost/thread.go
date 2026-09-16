@@ -10,6 +10,42 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
+// manualAddThreadMemberDelay is the duration to wait before adding a manually added farmer to a thread.
+var manualAddThreadMemberDelay = 1 * time.Minute
+
+// AddThreadMemberDelayed waits for manualAddThreadMemberDelay (or the specified delay)
+// and checks if the farmer has already joined the thread. If not, it adds them.
+func AddThreadMemberDelayed(client dc.Client, contractHash string, channelID, userID string, delay time.Duration) {
+	if client == nil || channelID == "" || !dc.IsSnowflake(userID) {
+		return
+	}
+	if delay <= 0 {
+		delay = manualAddThreadMemberDelay
+	}
+
+	time.AfterFunc(delay, func() {
+		// Verify contract still exists and user is still in the contract
+		contract := FindContractByHash(contractHash)
+		if contract == nil {
+			return
+		}
+		if contract.State == ContractStateSignup {
+			return
+		}
+		if !UserInContract(contract, userID) {
+			return
+		}
+
+		// Check if user is already in the thread
+		member, err := client.ThreadMember(channelID, userID)
+		if err == nil && member != nil {
+			return // Already in the thread
+		}
+
+		_ = client.AddThreadMember(channelID, userID)
+	})
+}
+
 // AddBoostersToThread adds all contract boosters and creators to the contract thread(s)
 // when the contract is not in signup mode.
 func AddBoostersToThread(client dc.Client, contract *Contract) {

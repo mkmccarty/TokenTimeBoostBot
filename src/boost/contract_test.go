@@ -844,6 +844,10 @@ func TestAddFarmerToContract_SignupDoesNotAddThreadMember(t *testing.T) {
 }
 
 func TestAddFarmerToContract_AddsThreadMember(t *testing.T) {
+	oldDelay := manualAddThreadMemberDelay
+	manualAddThreadMemberDelay = 10 * time.Millisecond
+	defer func() { manualAddThreadMemberDelay = oldDelay }()
+
 	client := dctest.New().
 		WithGuild("guild1", "Guild 1").
 		WithChannel("thread1", "guild1", "contract-thread").
@@ -871,7 +875,17 @@ func TestAddFarmerToContract_AddsThreadMember(t *testing.T) {
 		t.Fatalf("expected booster to be created, got nil")
 	}
 
-	// Verify AddThreadMember call was recorded for snowflake user
+	// Immediately after addition, AddThreadMember should NOT have been called yet
+	for _, call := range client.Calls {
+		if call.Method == "AddThreadMember" {
+			t.Fatalf("AddThreadMember called immediately, expected delay: %v", call)
+		}
+	}
+
+	// Wait for the delayed check to execute
+	time.Sleep(30 * time.Millisecond)
+
+	// Verify AddThreadMember call was recorded after delay for snowflake user not in thread
 	found := false
 	for _, call := range client.Calls {
 		if call.Method == "AddThreadMember" {
@@ -882,18 +896,59 @@ func TestAddFarmerToContract_AddsThreadMember(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("expected AddThreadMember(thread1, 123456789012345678) to be called, recorded calls: %v", client.Calls)
+		t.Errorf("expected AddThreadMember(thread1, 123456789012345678) to be called after delay, recorded calls: %v", client.Calls)
 	}
 
-	// Adding a non-snowflake guest should NOT call AddThreadMember
+	// Adding a non-snowflake guest should NOT call AddThreadMember even after delay
 	client.Calls = nil
 	_, err = AddFarmerToContract(client, contract, "guild1", "thread1", "guest-farmer", ContractOrderSignup, false, false)
 	if err != nil {
 		t.Fatalf("unexpected error adding guest farmer: %v", err)
 	}
+	time.Sleep(30 * time.Millisecond)
 	for _, call := range client.Calls {
 		if call.Method == "AddThreadMember" {
 			t.Errorf("unexpected AddThreadMember call for guest: %v", call)
+		}
+	}
+}
+
+func TestAddFarmerToContract_AlreadyInThreadSkipsAdd(t *testing.T) {
+	oldDelay := manualAddThreadMemberDelay
+	manualAddThreadMemberDelay = 10 * time.Millisecond
+	defer func() { manualAddThreadMemberDelay = oldDelay }()
+
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("thread1", "guild1", "contract-thread").
+		WithUser("123456789012345678", "farmer1", "Farmer One").
+		WithThreadMember("thread1", "123456789012345678")
+
+	contract := &Contract{
+		ContractHash: "test-hash-thread-existing",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     10,
+		State:        ContractStateFastrun,
+		CreatorID:    []string{"creator1"},
+		Order:        make([]string, 0),
+		Boosters:     make(map[string]*Booster),
+		Location:     []*LocationData{{GuildID: "guild1", ChannelID: "thread1"}},
+	}
+	Contracts[contract.ContractHash] = contract
+	defer delete(Contracts, contract.ContractHash)
+
+	_, err := AddFarmerToContract(client, contract, "guild1", "thread1", "123456789012345678", ContractOrderSignup, false, false)
+	if err != nil {
+		t.Fatalf("unexpected error adding farmer: %v", err)
+	}
+
+	time.Sleep(30 * time.Millisecond)
+
+	// Since farmer is already a thread member, AddThreadMember should NOT be called
+	for _, call := range client.Calls {
+		if call.Method == "AddThreadMember" {
+			t.Errorf("unexpected AddThreadMember call for farmer already in thread: %v", call)
 		}
 	}
 }

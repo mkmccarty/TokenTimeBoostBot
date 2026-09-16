@@ -99,6 +99,12 @@ func (u User) String() string {
 	return u.Username + "#" + u.Discriminator
 }
 
+// ThreadMember is a member of a Discord thread.
+type ThreadMember struct {
+	ThreadID string
+	UserID   string
+}
+
 // Guild is a Discord server.
 type Guild struct {
 	ID      string

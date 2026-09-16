@@ -448,6 +448,25 @@ func (c *disgoClient) AddThreadMember(threadID, userID string) error {
 	return wrapAPIError(c.bot.Rest.AddThreadMember(ids[0], ids[1]))
 }
 
+// ThreadMember fetches a thread member by thread and user ID.
+func (c *disgoClient) ThreadMember(threadID, userID string) (*ThreadMember, error) {
+	ids, err := parseIDs(threadID, userID)
+	if err != nil {
+		return nil, err
+	}
+	member, err := c.bot.Rest.GetThreadMember(ids[0], ids[1], false)
+	if err != nil {
+		return nil, wrapAPIError(err)
+	}
+	if member == nil {
+		return nil, nil
+	}
+	return &ThreadMember{
+		ThreadID: member.ThreadID.String(),
+		UserID:   member.UserID.String(),
+	}, nil
+}
+
 // ActiveThreads lists the active threads in a guild. The argument is a guild
 // ID: Discord's active-threads endpoint is guild-scoped.
 func (c *disgoClient) ActiveThreads(guildID string) ([]Channel, error) {
