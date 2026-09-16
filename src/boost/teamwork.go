@@ -325,17 +325,32 @@ func DownloadCoopStatusTeamwork(channelID string, contractID string, coopID stri
 			c := FindContractByIDs(channelID, contractID, coopID)
 			if c != nil {
 				c.mutex.Lock()
+				expectedDuration := eiContract.Grade[grade].EstimatedDuration
+				if expectedDuration == 0 {
+					expectedDuration = time.Duration(eiContract.Grade[grade].LengthInSeconds) * time.Second
+				}
 				if contributionRatePerSecond > 0 &&
 					!math.IsInf(calcSecondsRemaining, 0) &&
 					!math.IsNaN(calcSecondsRemaining) &&
 					calcSecondsRemaining >= 0 {
-					c.EstimatedDuration = time.Duration(calcSecondsRemaining) * time.Second
+					calcDur := time.Duration(calcSecondsRemaining) * time.Second
+					if expectedDuration > 0 && calcDur > time.Duration(float64(expectedDuration)*1.5) {
+						c.EstimatedDuration = expectedDuration
+					} else {
+						c.EstimatedDuration = calcDur
+					}
 					c.EstimatedDurationValid = true
 					c.StartTime = startTime
-					c.EstimatedEndTime = endTime
+					c.EstimatedEndTime = startTime.Add(c.EstimatedDuration)
 				} else {
-					// Mark estimate as invalid rather than persisting a bad/overflowed duration.
-					c.EstimatedDurationValid = false
+					if expectedDuration > 0 {
+						c.EstimatedDuration = expectedDuration
+						c.EstimatedDurationValid = true
+						c.StartTime = startTime
+						c.EstimatedEndTime = startTime.Add(expectedDuration)
+					} else {
+						c.EstimatedDurationValid = false
+					}
 				}
 				c.mutex.Unlock()
 			}

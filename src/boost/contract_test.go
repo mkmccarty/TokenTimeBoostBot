@@ -1498,3 +1498,62 @@ func TestRemoveFarmerByMention_NonFullDoesNotEditReaction(t *testing.T) {
 		t.Errorf("expected 0 reaction message edits when non-full contract has a member leave, got %d", rxEdits)
 	}
 }
+
+func TestDrawBoostList_BoosterTValCalculation(t *testing.T) {
+	startTime := time.Now().Add(-1 * time.Hour)
+	contract := &Contract{
+		ContractHash:      "test-hash-tval",
+		ContractID:        "test-contract",
+		CoopID:            "test-coop",
+		CoopSize:          2,
+		State:             ContractStateBanker,
+		PlayStyle:         ContractPlaystyleFastrun,
+		StartTime:         startTime,
+		EstimatedDuration: 4 * time.Hour,
+		MinutesPerToken:   60,
+		CreatorID:         []string{"100000000000000001"},
+		Location: []*LocationData{
+			{GuildID: "guild1", ChannelID: "channel1"},
+		},
+		Order: []string{"100000000000000001", "100000000000000002"},
+		Boosters: map[string]*Booster{
+			"100000000000000001": {UserID: "100000000000000001", Name: "Farmer One", Mention: "<@100000000000000001>"},
+			"100000000000000002": {UserID: "100000000000000002", Name: "Farmer Two", Mention: "<@100000000000000002>"},
+		},
+		Banker: BankerInfo{
+			CurrentBanker: "100000000000000001",
+		},
+		TokenLog: []ei.TokenUnitLog{
+			{
+				FromUserID: "100000000000000002",
+				ToUserID:   "100000000000000001",
+				Quantity:   4,
+				Time:       startTime.Add(10 * time.Minute),
+			},
+			{
+				FromUserID: "100000000000000001",
+				ToUserID:   "100000000000000002",
+				Quantity:   5,
+				Time:       startTime.Add(20 * time.Minute),
+			},
+		},
+	}
+
+	components := DrawBoostList(contract)
+	if len(components) == 0 {
+		t.Fatalf("expected non-empty components")
+	}
+
+	received, sent, tvalByUser, _ := buildTokenTotalsFromLog(contract)
+	if received["100000000000000002"] != 5 || sent["100000000000000002"] != 4 {
+		t.Errorf("farmer2 token counts: received=%d sent=%d, want received=5 sent=4", received["100000000000000002"], sent["100000000000000002"])
+	}
+
+	// Farmer2 sent 4 tokens early, received 5 tokens later. Delta should be negative (net receiver) but accurate float (~ -0.8 to -1.0)
+	if tvalByUser["100000000000000002"] >= 0 {
+		t.Errorf("expected negative delta tval for farmer2 who received more tokens than sent, got %f", tvalByUser["100000000000000002"])
+	}
+	if tvalByUser["100000000000000001"] <= 0 {
+		t.Errorf("expected positive delta tval for farmer1 who sent more tokens than received, got %f", tvalByUser["100000000000000001"])
+	}
+}
