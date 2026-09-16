@@ -29,12 +29,12 @@ func AddThreadMemberDelayed(client dc.Client, contractHash string, channelID, us
 		if contract == nil {
 			return
 		}
-		if contract.State == ContractStateSignup {
+		contract.mutex.Lock()
+		if contract.State == ContractStateSignup || !UserInContract(contract, userID) {
+			contract.mutex.Unlock()
 			return
 		}
-		if !UserInContract(contract, userID) {
-			return
-		}
+		contract.mutex.Unlock()
 
 		// Check if user is already in the thread
 		member, err := client.ThreadMember(channelID, userID)

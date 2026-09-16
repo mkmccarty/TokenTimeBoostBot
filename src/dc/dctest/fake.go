@@ -165,6 +165,15 @@ func (f *FakeClient) CallsTo(method string) []Call {
 	return out
 }
 
+// AllCalls returns a copy of all recorded calls.
+func (f *FakeClient) AllCalls() []Call {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]Call, len(f.Calls))
+	copy(out, f.Calls)
+	return out
+}
+
 // ResetCalls clears all recorded calls.
 func (f *FakeClient) ResetCalls() {
 	f.mu.Lock()
