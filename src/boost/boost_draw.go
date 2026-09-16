@@ -39,9 +39,10 @@ func getTokensSentFromLog(contract *Contract, userID string) int {
 	return tokensSent
 }
 
-func buildTokenTotalsFromLog(contract *Contract) (map[string]int, map[string]int, int) {
+func buildTokenTotalsFromLog(contract *Contract) (map[string]int, map[string]int, map[string]float64, int) {
 	receivedByUser := make(map[string]int, len(contract.Boosters))
 	sentByUser := make(map[string]int, len(contract.Boosters))
+	tvalByUser := make(map[string]float64, len(contract.Boosters))
 	singleTokenEntries := 0
 
 	for _, logEntry := range contract.TokenLog {
@@ -57,10 +58,13 @@ func buildTokenTotalsFromLog(contract *Contract) (map[string]int, map[string]int
 
 		if logEntry.FromUserID != logEntry.ToUserID {
 			sentByUser[logEntry.FromUserID] += logEntry.Quantity
+			tval := bottools.GetTokenValue(logEntry.Time.Sub(contract.StartTime).Seconds(), contract.EstimatedDuration.Seconds()) * float64(logEntry.Quantity)
+			tvalByUser[logEntry.FromUserID] += tval
+			tvalByUser[logEntry.ToUserID] -= tval
 		}
 	}
 
-	return receivedByUser, sentByUser, singleTokenEntries
+	return receivedByUser, sentByUser, tvalByUser, singleTokenEntries
 }
 
 func getSinkIcon(contract *Contract, b *Booster, sinkTokenBalance int) string {
@@ -96,7 +100,7 @@ func DrawBoostList(contract *Contract) []dc.LayoutComponent {
 	//var outputStr string
 	var afterListStr strings.Builder
 	now := time.Now()
-	receivedByUser, sentByUser, singleTokenEntries := buildTokenTotalsFromLog(contract)
+	receivedByUser, sentByUser, tvalByUser, singleTokenEntries := buildTokenTotalsFromLog(contract)
 	tokenStr := contract.TokenStr
 	divider := true
 	spacing := dc.SeparatorSpacingSmall
@@ -391,7 +395,7 @@ func DrawBoostList(contract *Contract) []dc.LayoutComponent {
 			}
 		}
 		if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.PlayStyle != ContractPlaystyleChill {
-			sortRate = fmt.Sprintf(" *∆:%2.2f* ", b.TokenValue)
+			sortRate = fmt.Sprintf(" *∆:%2.2f* ", tvalByUser[b.UserID])
 		}
 		return sortRate
 	}
