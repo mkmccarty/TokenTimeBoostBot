@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -10,6 +11,13 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
+
+func TestMain(m *testing.M) {
+	ContractsMutex.Lock()
+	Contracts = make(map[string]*Contract)
+	ContractsMutex.Unlock()
+	os.Exit(m.Run())
+}
 
 func TestGetEggStandardTime(t *testing.T) {
 	loc, err := time.LoadLocation("America/Los_Angeles")
@@ -836,7 +844,7 @@ func TestAddFarmerToContract_SignupDoesNotAddThreadMember(t *testing.T) {
 		t.Fatalf("expected booster to be created, got nil")
 	}
 
-	for _, call := range client.Calls {
+	for _, call := range client.AllCalls() {
 		if call.Method == "AddThreadMember" {
 			t.Errorf("unexpected AddThreadMember call in signup mode: %v", call)
 		}
@@ -844,6 +852,10 @@ func TestAddFarmerToContract_SignupDoesNotAddThreadMember(t *testing.T) {
 }
 
 func TestAddFarmerToContract_AddsThreadMember(t *testing.T) {
+	oldDelay := manualAddThreadMemberDelay
+	manualAddThreadMemberDelay = 10 * time.Millisecond
+	defer func() { manualAddThreadMemberDelay = oldDelay }()
+
 	client := dctest.New().
 		WithGuild("guild1", "Guild 1").
 		WithChannel("thread1", "guild1", "contract-thread").
@@ -860,8 +872,14 @@ func TestAddFarmerToContract_AddsThreadMember(t *testing.T) {
 		Boosters:     make(map[string]*Booster),
 		Location:     []*LocationData{{GuildID: "guild1", ChannelID: "thread1"}},
 	}
+	ContractsMutex.Lock()
 	Contracts[contract.ContractHash] = contract
-	defer delete(Contracts, contract.ContractHash)
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
 
 	b, err := AddFarmerToContract(client, contract, "guild1", "thread1", "123456789012345678", ContractOrderSignup, false, false)
 	if err != nil {
@@ -871,9 +889,19 @@ func TestAddFarmerToContract_AddsThreadMember(t *testing.T) {
 		t.Fatalf("expected booster to be created, got nil")
 	}
 
-	// Verify AddThreadMember call was recorded for snowflake user
+	// Immediately after addition, AddThreadMember should NOT have been called yet
+	for _, call := range client.AllCalls() {
+		if call.Method == "AddThreadMember" {
+			t.Fatalf("AddThreadMember called immediately, expected delay: %v", call)
+		}
+	}
+
+	// Wait for the delayed check to execute
+	time.Sleep(30 * time.Millisecond)
+
+	// Verify AddThreadMember call was recorded after delay for snowflake user not in thread
 	found := false
-	for _, call := range client.Calls {
+	for _, call := range client.AllCalls() {
 		if call.Method == "AddThreadMember" {
 			if len(call.Args) >= 2 && call.Args[0] == "thread1" && call.Args[1] == "123456789012345678" {
 				found = true
@@ -882,18 +910,65 @@ func TestAddFarmerToContract_AddsThreadMember(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("expected AddThreadMember(thread1, 123456789012345678) to be called, recorded calls: %v", client.Calls)
+		t.Errorf("expected AddThreadMember(thread1, 123456789012345678) to be called after delay, recorded calls: %v", client.AllCalls())
 	}
 
-	// Adding a non-snowflake guest should NOT call AddThreadMember
-	client.Calls = nil
+	// Adding a non-snowflake guest should NOT call AddThreadMember even after delay
+	client.ResetCalls()
 	_, err = AddFarmerToContract(client, contract, "guild1", "thread1", "guest-farmer", ContractOrderSignup, false, false)
 	if err != nil {
 		t.Fatalf("unexpected error adding guest farmer: %v", err)
 	}
-	for _, call := range client.Calls {
+	time.Sleep(30 * time.Millisecond)
+	for _, call := range client.AllCalls() {
 		if call.Method == "AddThreadMember" {
 			t.Errorf("unexpected AddThreadMember call for guest: %v", call)
+		}
+	}
+}
+
+func TestAddFarmerToContract_AlreadyInThreadSkipsAdd(t *testing.T) {
+	oldDelay := manualAddThreadMemberDelay
+	manualAddThreadMemberDelay = 10 * time.Millisecond
+	defer func() { manualAddThreadMemberDelay = oldDelay }()
+
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("thread1", "guild1", "contract-thread").
+		WithUser("123456789012345678", "farmer1", "Farmer One").
+		WithThreadMember("thread1", "123456789012345678")
+
+	contract := &Contract{
+		ContractHash: "test-hash-thread-existing",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     10,
+		State:        ContractStateFastrun,
+		CreatorID:    []string{"creator1"},
+		Order:        make([]string, 0),
+		Boosters:     make(map[string]*Booster),
+		Location:     []*LocationData{{GuildID: "guild1", ChannelID: "thread1"}},
+	}
+	ContractsMutex.Lock()
+	Contracts[contract.ContractHash] = contract
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	_, err := AddFarmerToContract(client, contract, "guild1", "thread1", "123456789012345678", ContractOrderSignup, false, false)
+	if err != nil {
+		t.Fatalf("unexpected error adding farmer: %v", err)
+	}
+
+	time.Sleep(30 * time.Millisecond)
+
+	// Since farmer is already a thread member, AddThreadMember should NOT be called
+	for _, call := range client.AllCalls() {
+		if call.Method == "AddThreadMember" {
+			t.Errorf("unexpected AddThreadMember call for farmer already in thread: %v", call)
 		}
 	}
 }
@@ -917,15 +992,21 @@ func TestJoinContract_SignupDoesNotAddThreadMember(t *testing.T) {
 		},
 		Location: []*LocationData{{GuildID: "guild1", ChannelID: "thread2"}},
 	}
+	ContractsMutex.Lock()
 	Contracts[contract.ContractHash] = contract
-	defer delete(Contracts, contract.ContractHash)
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
 
 	err := JoinContract(client, "guild1", "thread2", "234567890123456789", false)
 	if err != nil {
 		t.Fatalf("unexpected error joining contract: %v", err)
 	}
 
-	for _, call := range client.Calls {
+	for _, call := range client.AllCalls() {
 		if call.Method == "AddThreadMember" {
 			t.Errorf("unexpected AddThreadMember call on signup join: %v", call)
 		}
@@ -933,6 +1014,10 @@ func TestJoinContract_SignupDoesNotAddThreadMember(t *testing.T) {
 }
 
 func TestJoinRunningContract_AddsThreadMember(t *testing.T) {
+	oldDelay := manualAddThreadMemberDelay
+	manualAddThreadMemberDelay = 10 * time.Millisecond
+	defer func() { manualAddThreadMemberDelay = oldDelay }()
+
 	client := dctest.New().
 		WithGuild("guild1", "Guild 1").
 		WithChannel("thread2", "guild1", "running-contract-thread").
@@ -951,17 +1036,25 @@ func TestJoinRunningContract_AddsThreadMember(t *testing.T) {
 		},
 		Location: []*LocationData{{GuildID: "guild1", ChannelID: "thread2"}},
 	}
+	ContractsMutex.Lock()
 	Contracts[contract.ContractHash] = contract
-	defer delete(Contracts, contract.ContractHash)
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
 
 	err := JoinContract(client, "guild1", "thread2", "234567890123456789", false)
 	if err != nil {
 		t.Fatalf("unexpected error joining contract: %v", err)
 	}
 
-	// Verify AddThreadMember call was recorded
+	time.Sleep(30 * time.Millisecond)
+
+	// Verify AddThreadMember call was recorded after delay
 	found := false
-	for _, call := range client.Calls {
+	for _, call := range client.AllCalls() {
 		if call.Method == "AddThreadMember" {
 			if len(call.Args) >= 2 && call.Args[0] == "thread2" && call.Args[1] == "234567890123456789" {
 				found = true
@@ -970,7 +1063,7 @@ func TestJoinRunningContract_AddsThreadMember(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("expected AddThreadMember(thread2, 234567890123456789) to be called on join, recorded calls: %v", client.Calls)
+		t.Errorf("expected AddThreadMember(thread2, 234567890123456789) to be called on join, recorded calls: %v", client.AllCalls())
 	}
 }
 
@@ -998,8 +1091,14 @@ func TestStartContractBoosting_AddsBoostersToThread(t *testing.T) {
 		},
 		Location: []*LocationData{{GuildID: "guild1", ChannelID: "thread3", ListMsgID: "msg1"}},
 	}
+	ContractsMutex.Lock()
 	Contracts[contract.ContractHash] = contract
-	defer delete(Contracts, contract.ContractHash)
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
 
 	err := StartContractBoosting(client, "guild1", "thread3", "111111111111111111")
 	if err != nil {
@@ -1012,7 +1111,7 @@ func TestStartContractBoosting_AddsBoostersToThread(t *testing.T) {
 
 	// Verify all 3 users were added to thread3
 	addedUsers := make(map[string]bool)
-	for _, call := range client.Calls {
+	for _, call := range client.AllCalls() {
 		if call.Method == "AddThreadMember" && len(call.Args) >= 2 && call.Args[0] == "thread3" {
 			addedUsers[call.Args[1]] = true
 		}
@@ -1020,7 +1119,7 @@ func TestStartContractBoosting_AddsBoostersToThread(t *testing.T) {
 
 	for _, uid := range []string{"111111111111111111", "222222222222222222", "333333333333333333"} {
 		if !addedUsers[uid] {
-			t.Errorf("expected user %s to be added to thread3, calls: %v", uid, client.Calls)
+			t.Errorf("expected user %s to be added to thread3, calls: %v", uid, client.AllCalls())
 		}
 	}
 }
@@ -1051,8 +1150,8 @@ func TestRefreshBoostListMessage_EmptyMsgIDs(t *testing.T) {
 
 	// Should not panic or attempt invalid edits when ListMsgID / ReactionID are empty
 	refreshBoostListMessage(client, contract, true)
-	if len(client.Calls) != 0 {
-		t.Errorf("expected 0 client calls when ListMsgID and ReactionID are empty, got %d calls: %v", len(client.Calls), client.Calls)
+	if len(client.AllCalls()) != 0 {
+		t.Errorf("expected 0 client calls when ListMsgID and ReactionID are empty, got %d calls: %v", len(client.AllCalls()), client.AllCalls())
 	}
 }
 
@@ -1077,7 +1176,7 @@ func TestUpdateThreadName_SkipIfUnchanged(t *testing.T) {
 
 	UpdateThreadName(client, contract)
 	if client.Called("EditChannel") {
-		t.Errorf("expected EditChannel NOT to be called when name is already matching, calls: %v", client.Calls)
+		t.Errorf("expected EditChannel NOT to be called when name is already matching, calls: %v", client.AllCalls())
 	}
 
 	// Case 2: Thread has a different name -> should call EditChannel
@@ -1113,8 +1212,14 @@ func TestAddFarmerToContract_MinimumIHR(t *testing.T) {
 		Boosters:     make(map[string]*Booster),
 		Location:     []*LocationData{{GuildID: "guild1", ChannelID: "channel1"}},
 	}
+	ContractsMutex.Lock()
 	Contracts[contract.ContractHash] = contract
-	defer delete(Contracts, contract.ContractHash)
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
 
 	b, err := AddFarmerToContract(client, contract, "guild1", "channel1", "user-without-ihr", ContractOrderSignup, false, false)
 	if err != nil {
@@ -1154,10 +1259,16 @@ func TestRemoveFarmerByMention_CollapsesEditsWithWaitlist(t *testing.T) {
 			{GuildID: "guild1", ChannelID: "channel1", ListMsgID: "msg-list-1", ReactionID: "msg-rx-1"},
 		},
 	}
+	ContractsMutex.Lock()
 	Contracts[contract.ContractHash] = contract
-	defer delete(Contracts, contract.ContractHash)
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
 
-	client.Calls = nil // reset tracked calls
+	client.ResetCalls()
 
 	err := RemoveFarmerByMention(client, "guild1", "channel1", "100000000000000002", "<@100000000000000002>")
 	if err != nil {
@@ -1176,7 +1287,7 @@ func TestRemoveFarmerByMention_CollapsesEditsWithWaitlist(t *testing.T) {
 
 	listEdits := 0
 	rxEdits := 0
-	for _, call := range client.Calls {
+	for _, call := range client.AllCalls() {
 		if call.Method == "EditMessage" {
 			if len(call.Args) > 1 {
 				switch call.Args[1] {
@@ -1223,10 +1334,16 @@ func TestRemoveFarmerByMention_MultipleLocationsNoN2(t *testing.T) {
 			{GuildID: "guild1", ChannelID: "channel2", ListMsgID: "msg-list-2", ReactionID: "msg-rx-2"},
 		},
 	}
+	ContractsMutex.Lock()
 	Contracts[contract.ContractHash] = contract
-	defer delete(Contracts, contract.ContractHash)
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
 
-	client.Calls = nil
+	client.ResetCalls()
 
 	err := RemoveFarmerByMention(client, "guild1", "channel1", "100000000000000002", "<@100000000000000002>")
 	if err != nil {
@@ -1235,7 +1352,7 @@ func TestRemoveFarmerByMention_MultipleLocationsNoN2(t *testing.T) {
 
 	ch1Edits := 0
 	ch2Edits := 0
-	for _, call := range client.Calls {
+	for _, call := range client.AllCalls() {
 		if call.Method == "EditMessage" {
 			if len(call.Args) > 1 {
 				switch call.Args[1] {
@@ -1280,10 +1397,16 @@ func TestRemoveFarmerByMention_FullToNotFullEditsSignup(t *testing.T) {
 			{GuildID: "guild1", ChannelID: "channel1", ListMsgID: "msg-list-1", ReactionID: "msg-rx-1"},
 		},
 	}
+	ContractsMutex.Lock()
 	Contracts[contract.ContractHash] = contract
-	defer delete(Contracts, contract.ContractHash)
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
 
-	client.Calls = nil
+	client.ResetCalls()
 
 	err := RemoveFarmerByMention(client, "guild1", "channel1", "100000000000000002", "<@100000000000000002>")
 	if err != nil {
@@ -1292,7 +1415,7 @@ func TestRemoveFarmerByMention_FullToNotFullEditsSignup(t *testing.T) {
 
 	listEdits := 0
 	rxEdits := 0
-	for _, call := range client.Calls {
+	for _, call := range client.AllCalls() {
 		if call.Method == "EditMessage" {
 			if len(call.Args) > 1 {
 				switch call.Args[1] {
@@ -1337,10 +1460,16 @@ func TestRemoveFarmerByMention_NonFullDoesNotEditReaction(t *testing.T) {
 			{GuildID: "guild1", ChannelID: "channel1", ListMsgID: "msg-list-1", ReactionID: "msg-rx-1"},
 		},
 	}
+	ContractsMutex.Lock()
 	Contracts[contract.ContractHash] = contract
-	defer delete(Contracts, contract.ContractHash)
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
 
-	client.Calls = nil
+	client.ResetCalls()
 
 	err := RemoveFarmerByMention(client, "guild1", "channel1", "100000000000000002", "<@100000000000000002>")
 	if err != nil {
@@ -1349,7 +1478,7 @@ func TestRemoveFarmerByMention_NonFullDoesNotEditReaction(t *testing.T) {
 
 	listEdits := 0
 	rxEdits := 0
-	for _, call := range client.Calls {
+	for _, call := range client.AllCalls() {
 		if call.Method == "EditMessage" {
 			if len(call.Args) > 1 {
 				switch call.Args[1] {

@@ -896,19 +896,26 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 				contract.BoostedOrder = append(contract.BoostedOrder, b.UserID)
 			}
 
+			contract.mutex.Lock()
 			for _, el := range contract.Location {
 				if (guildID == "" || el.GuildID == guildID) && dc.IsSnowflake(b.UserID) {
 					if el.GuildContractRole.ID != "" {
 						_ = client.AddGuildMemberRole(el.GuildID, b.UserID, el.GuildContractRole.ID)
-					}
-					if contract.State != ContractStateSignup && el.ChannelID != "" {
-						_ = client.AddThreadMember(el.ChannelID, b.UserID)
 					}
 				}
 			}
 
 			contract.Order = removeDuplicates(contract.Order)
 			contract.OrderRevision++
+			contract.mutex.Unlock()
+
+			for _, el := range contract.Location {
+				if (guildID == "" || el.GuildID == guildID) && dc.IsSnowflake(b.UserID) {
+					if contract.State != ContractStateSignup && el.ChannelID != "" {
+						AddThreadMemberDelayed(client, contract.ContractHash, el.ChannelID, b.UserID, manualAddThreadMemberDelay)
+					}
+				}
+			}
 		}
 		contract.RegisteredNum = len(contract.Boosters)
 		farmerstate.SetLastSeen(userID)
@@ -1425,11 +1432,7 @@ func JoinContract(client dc.Client, guildID string, channelID string, userID str
 
 		}
 
-		// Wait here until we get our lock
-		contract.mutex.Lock()
 		_, err = AddFarmerToContract(client, contract, guildID, channelID, userID, contract.BoostOrder, false, false)
-
-		contract.mutex.Unlock()
 		if err != nil {
 			return err
 		}
@@ -1439,15 +1442,6 @@ func JoinContract(client dc.Client, guildID string, channelID string, userID str
 	// test if userID in Boosters
 	if contract.Boosters[userID] != nil {
 		contract.Boosters[userID].Ping = bell
-		if contract.State != ContractStateSignup {
-			for _, el := range contract.Location {
-				if (guildID == "" || el.GuildID == guildID) && dc.IsSnowflake(userID) {
-					if el.ChannelID != "" {
-						_ = client.AddThreadMember(el.ChannelID, userID)
-					}
-				}
-			}
-		}
 	}
 
 	if bell {
