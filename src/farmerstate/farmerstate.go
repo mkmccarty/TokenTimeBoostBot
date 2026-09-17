@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	_ "embed" // This is used to embed the schema.sql file
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 
 	_ "modernc.org/sqlite" // Want this here
 )
@@ -723,4 +725,89 @@ func RemoveCustomBanner(userID string, guildID string) error {
 // InsertSuspectMission records a suspect mission anomaly to the database.
 func InsertSuspectMission(arg InsertSuspectMissionParams) error {
 	return queries.InsertSuspectMission(ctx, arg)
+}
+
+// ReencryptFarmerEIDs safely migrates all encrypted Egg Inc IDs in farmer_state
+// from oldKeyB64 to newKeyB64. It returns the number of successfully migrated records
+// and the total number of records that contained an encrypted EID.
+func ReencryptFarmerEIDs(oldKeyB64, newKeyB64 string) (int, int, error) {
+	if oldKeyB64 == "" || newKeyB64 == "" {
+		return 0, 0, fmt.Errorf("encryption keys cannot be empty")
+	}
+
+	oldKeyBytes, err := base64.StdEncoding.DecodeString(oldKeyB64)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to decode old key: %w", err)
+	}
+
+	newKeyBytes, err := base64.StdEncoding.DecodeString(newKeyB64)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to decode new key: %w", err)
+	}
+
+	// 1. Flush any pending saves first so SQLite is up-to-date
+	FlushPendingSaves()
+
+	stateMutex.Lock()
+	defer func() {
+		stateMutex.Unlock()
+		FlushPendingSaves()
+	}()
+
+	// 2. Load all farmer records from SQLite into memory
+	if queries != nil {
+		allRecords, err := queries.GetAllLegacyFarmerstate(ctx)
+		if err == nil {
+			for _, rec := range allRecords {
+				if !rec.Value.Valid || strings.TrimSpace(rec.Value.String) == "" {
+					continue
+				}
+				// If not already in memory, load it
+				if _, exists := farmerstate[rec.ID]; !exists {
+					var f Farmer
+					if err := json.Unmarshal([]byte(rec.Value.String), &f); err == nil {
+						farmerstate[rec.ID] = &f
+					}
+				}
+			}
+		}
+	}
+
+	migratedCount := 0
+	totalCount := 0
+
+	// 3. Re-encrypt all farmer records with encrypted_ei_id
+	for _, f := range farmerstate {
+		if f == nil || f.MiscSettingsString == nil {
+			continue
+		}
+		encVal, exists := f.MiscSettingsString["encrypted_ei_id"]
+		if !exists || strings.TrimSpace(encVal) == "" {
+			continue
+		}
+
+		totalCount++
+		decoded, err := base64.StdEncoding.DecodeString(encVal)
+		if err != nil {
+			continue
+		}
+
+		decrypted, err := config.DecryptCombined(oldKeyBytes, decoded)
+		if err != nil {
+			// Failed to decrypt with old key (e.g. invalid ciphertext or wrong key)
+			continue
+		}
+
+		combined, err := config.EncryptAndCombine(newKeyBytes, decrypted)
+		if err != nil {
+			return migratedCount, totalCount, fmt.Errorf("failed to encrypt with new key: %w", err)
+		}
+
+		newEncVal := base64.StdEncoding.EncodeToString(combined)
+		f.MiscSettingsString["encrypted_ei_id"] = newEncVal
+		saveSqliteData(f.UserID, f)
+		migratedCount++
+	}
+
+	return migratedCount, totalCount, nil
 }
