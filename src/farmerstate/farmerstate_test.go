@@ -2,9 +2,12 @@ package farmerstate
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"os"
 	"slices"
 	"testing"
+
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 )
 
 func TestMain(m *testing.M) {
@@ -177,5 +180,69 @@ func TestDeleteFarmerAndGetFullUserData(t *testing.T) {
 	}
 	if len(dataAfter.Watches) != 0 {
 		t.Errorf("expected no watches after deletion, got %v", dataAfter.Watches)
+	}
+}
+
+func TestReencryptFarmerEIDs(t *testing.T) {
+	key1, err := config.GenerateKey()
+	if err != nil {
+		t.Fatalf("failed to generate key1: %v", err)
+	}
+	key2, err := config.GenerateKey()
+	if err != nil {
+		t.Fatalf("failed to generate key2: %v", err)
+	}
+
+	key1B64 := base64.StdEncoding.EncodeToString(key1)
+	key2B64 := base64.StdEncoding.EncodeToString(key2)
+
+	plainEID1 := "EI1234567890123456"
+	plainEID2 := "EI9876543210987654"
+
+	enc1, err := config.EncryptAndCombine(key1, []byte(plainEID1))
+	if err != nil {
+		t.Fatalf("failed to encrypt eid1: %v", err)
+	}
+	enc2, err := config.EncryptAndCombine(key1, []byte(plainEID2))
+	if err != nil {
+		t.Fatalf("failed to encrypt eid2: %v", err)
+	}
+
+	SetMiscSettingString("reenc-user-1", "encrypted_ei_id", base64.StdEncoding.EncodeToString(enc1))
+	SetMiscSettingString("reenc-user-2", "encrypted_ei_id", base64.StdEncoding.EncodeToString(enc2))
+
+	migrated, total, err := ReencryptFarmerEIDs(key1B64, key2B64)
+	if err != nil {
+		t.Fatalf("ReencryptFarmerEIDs failed: %v", err)
+	}
+	if migrated != 2 || total != 2 {
+		t.Fatalf("ReencryptFarmerEIDs returned migrated=%d, total=%d; want 2, 2", migrated, total)
+	}
+
+	// Verify decryption with new key
+	newEnc1B64 := GetMiscSettingString("reenc-user-1", "encrypted_ei_id")
+	newEnc1Bytes, err := base64.StdEncoding.DecodeString(newEnc1B64)
+	if err != nil {
+		t.Fatalf("failed to decode newEnc1: %v", err)
+	}
+	decrypted1, err := config.DecryptCombined(key2, newEnc1Bytes)
+	if err != nil {
+		t.Fatalf("failed to decrypt with new key: %v", err)
+	}
+	if string(decrypted1) != plainEID1 {
+		t.Errorf("decrypted EID1 = %q, want %q", string(decrypted1), plainEID1)
+	}
+
+	newEnc2B64 := GetMiscSettingString("reenc-user-2", "encrypted_ei_id")
+	newEnc2Bytes, err := base64.StdEncoding.DecodeString(newEnc2B64)
+	if err != nil {
+		t.Fatalf("failed to decode newEnc2: %v", err)
+	}
+	decrypted2, err := config.DecryptCombined(key2, newEnc2Bytes)
+	if err != nil {
+		t.Fatalf("failed to decrypt with new key: %v", err)
+	}
+	if string(decrypted2) != plainEID2 {
+		t.Errorf("decrypted EID2 = %q, want %q", string(decrypted2), plainEID2)
 	}
 }

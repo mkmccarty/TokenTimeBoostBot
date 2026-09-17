@@ -63,6 +63,7 @@ const slashSetServerBanner string = "set-server-banner"
 const slashActiveContracts string = "active-contracts"
 const slashStatusMessage string = "status-message"
 const slashAdminExit string = "admin-exit"
+const slashAdminTasks string = "admin-tasks"
 
 // Slash Command Constants
 const slashContract string = "contract"
@@ -410,6 +411,12 @@ func setupCommands() {
 			AppCmd:   boost.SlashAdminExitCommand(slashAdminExit),
 			Category: CmdCategoryAdmin,
 			Handler:  func(e *dc.CommandEvent) { boost.HandleAdminExitCommand(botClient(), e) },
+		},
+		{
+			AppCmd:       boost.SlashAdminTasksCommand(slashAdminTasks),
+			Category:     CmdCategoryAdmin,
+			Handler:      func(e *dc.CommandEvent) { boost.HandleAdminTasksCommand(botClient(), e) },
+			Autocomplete: boost.HandleAdminTasksAutocomplete,
 		},
 		{
 			AppCmd:       guildstate.SlashSetGuildSettingCommand(slashAdminSetGuildSetting),

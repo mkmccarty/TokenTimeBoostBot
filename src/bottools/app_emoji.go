@@ -77,6 +77,15 @@ func LoadEmotesWithClient(client dc.Client, force bool) {
 	}
 }
 
+// ReloadEmotes removes the cached emoji file, fetches all application emojis from Discord,
+// updates in-memory mapping, and saves the new cache file.
+func ReloadEmotes(client dc.Client) (int, error) {
+	_ = os.Remove(emoteFilePath)
+	_ = os.Remove("ttbb-data/emoji.json")
+	LoadEmotesWithClient(client, true)
+	return len(ei.EmoteMap), nil
+}
+
 // EnsureEmojiFromLocalRepoWithClient tries to load a missing emoji from the local emoji directory,
 // uploads it to Discord via the dc facade client, and refreshes the in-memory emoji map.
 func EnsureEmojiFromLocalRepoWithClient(client dc.Client, name string) (ei.Emotes, bool) {

@@ -158,7 +158,68 @@ func ReadConfig(cfgFile string) error {
 			return err
 		}
 	}
+	configFilePath = cfgFile
 	return nil
+}
+
+var configFilePath string
+
+// UpdateKey updates the active encryption key in memory and persists it to disk.
+// It checks both the loaded config file and ttbb-data/.key.json and returns the updated file paths.
+func UpdateKey(newKey string) ([]string, error) {
+	if newKey == "" {
+		return nil, fmt.Errorf("newKey cannot be empty")
+	}
+
+	Key = newKey
+	if config != nil {
+		config.Key = newKey
+	}
+
+	var updatedFiles []string
+	keyFile := "ttbb-data/.key.json"
+
+	// 1. Update config file if it exists and had Key set
+	if configFilePath != "" {
+		cfgData, err := os.ReadFile(configFilePath)
+		if err == nil {
+			var rawMap map[string]interface{}
+			if err := json.Unmarshal(cfgData, &rawMap); err == nil {
+				if _, hasKey := rawMap["Key"]; hasKey {
+					rawMap["Key"] = newKey
+					formatted, err := json.MarshalIndent(rawMap, "", "  ")
+					if err == nil {
+						if err := os.WriteFile(configFilePath, formatted, 0644); err == nil {
+							updatedFiles = append(updatedFiles, configFilePath)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// 2. Update ttbb-data/.key.json if it exists or if no config file was updated
+	_, keyFileErr := os.Stat(keyFile)
+	if keyFileErr == nil || len(updatedFiles) == 0 {
+		keyStruct := struct {
+			Key string `json:"Key"`
+		}{
+			Key: newKey,
+		}
+		keyJSON, err := json.MarshalIndent(keyStruct, "", "  ")
+		if err != nil {
+			return updatedFiles, err
+		}
+		if err := os.MkdirAll("ttbb-data", 0755); err != nil {
+			return updatedFiles, err
+		}
+		if err := os.WriteFile(keyFile, keyJSON, 0644); err != nil {
+			return updatedFiles, err
+		}
+		updatedFiles = append(updatedFiles, keyFile)
+	}
+
+	return updatedFiles, nil
 }
 
 // IsDevBot returns true if the bot is running in development mode.
